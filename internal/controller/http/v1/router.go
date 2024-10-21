@@ -36,7 +36,7 @@ func NewRouter(handler *gin.Engine, l logger.Interface) {
 	// Routers
 	handler.GET("/", Ping)
 	h := handler.Group("/v1")
-	h = h
+	h.GET("/")
 }
 
 func Ping(c *gin.Context) {
