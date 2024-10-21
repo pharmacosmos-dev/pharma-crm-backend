@@ -1,0 +1,7 @@
+basePath: /v1
+info:
+  contact: {}
+  title: Pharma CRM API
+  version: "1.0"
+paths: {}
+swagger: "2.0"

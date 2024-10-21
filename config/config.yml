@@ -1,0 +1,14 @@
+app:
+  name: 'pharma-crm-backend'
+  version: '1.0.0'
+
+http:
+  port: '8080'
+
+logger:
+  log_level: 'debug'
+  rollbar_env: 'pharma-crm-backend'
+
+postgres:
+  pool_max: 2
+  pg_url: 'postgres://developer:2002@localhost:5432/pharma_db?sslmode=disable'
