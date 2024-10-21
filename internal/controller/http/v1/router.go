@@ -20,6 +20,20 @@ import (
 // Swagger spec:
 // @title       Pharma CRM API
 // @version     1.0
+// @description     This is a sample server celler server.
+// @termsOfService  http://swagger.io/terms/
+
+// @contact.name   API Support
+// @contact.url    http://www.swagger.io/support
+// @contact.email  support@swagger.io
+
+// @securityDefinitions.basic  BasicAuth
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Bearer token
+// @type apiKey
+
 // @BasePath    /v1
 func NewRouter(handler *gin.Engine, l logger.Interface) {
 	// Options
