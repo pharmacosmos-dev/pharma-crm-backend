@@ -2,9 +2,10 @@
 package v1
 
 import (
-	"net/http"
-
 	"github.com/gin-gonic/gin"
+	"github.com/pharma-crm-backend/internal/controller/http/v1/customer"
+	"github.com/pharma-crm-backend/internal/controller/http/v1/employee"
+	"github.com/pharma-crm-backend/internal/controller/http/v1/product"
 	"github.com/pharma-crm-backend/pkg/logger"
 
 	// "github.com/prometheus/client_golang/prometheus/promhttp"
@@ -13,10 +14,9 @@ import (
 
 	// Swagger docs.
 	_ "github.com/pharma-crm-backend/docs"
-	// "github.com/pharma-crm-backend/internal/usecase"
+	"github.com/pharma-crm-backend/internal/storage"
 )
 
-// NewRouter -.
 // Swagger spec:
 // @title       Pharma CRM API
 // @version     1.0
@@ -33,9 +33,10 @@ import (
 // @name Authorization
 // @description Bearer token
 // @type apiKey
-
 // @BasePath    /v1
-func NewRouter(handler *gin.Engine, l logger.Interface) {
+
+// NewRouter -.
+func NewRouter(handler *gin.Engine, l logger.Interface, s *storage.Storage) {
 	// Options
 	handler.Use(gin.Logger())
 	handler.Use(gin.Recovery())
@@ -44,13 +45,15 @@ func NewRouter(handler *gin.Engine, l logger.Interface) {
 	swaggerHandler := ginSwagger.DisablingWrapHandler(swaggerFiles.Handler, "DISABLE_SWAGGER_HTTP_HANDLER")
 	handler.GET("/swagger/*any", swaggerHandler)
 
-	// K8s probe
-	handler.GET("/healthz", func(c *gin.Context) { c.Status(http.StatusOK) })
-
 	// Routers
 	handler.GET("/", Ping)
-	h := handler.Group("/v1")
-	h.GET("/")
+	api := handler.Group("/v1")
+	{
+		product.NewProductRoutes(api.Group("/product"), s.ProductRepo, l)
+		customer.NewCustomerHandler(api.Group("/customer"), s.CustomerRepo, l)
+		employee.NewEmployeeHandler(api.Group("/employee"), s.EmployeeRepo, l)
+
+	}
 }
 
 func Ping(c *gin.Context) {

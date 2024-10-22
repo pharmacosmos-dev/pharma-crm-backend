@@ -7,7 +7,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/Masterminds/squirrel"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -22,9 +21,7 @@ type Postgres struct {
 	maxPoolSize  int
 	connAttempts int
 	connTimeout  time.Duration
-
-	Builder squirrel.StatementBuilderType
-	Pool    *pgxpool.Pool
+	Pool         *pgxpool.Pool
 }
 
 // New -.

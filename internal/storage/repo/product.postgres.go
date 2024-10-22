@@ -1,4 +1,4 @@
-package db
+package repo
 
 import (
 	"github.com/pharma-crm-backend/pkg/postgres"
@@ -13,5 +13,3 @@ func New(pg *postgres.Postgres) *ProductRepo {
 		pg,
 	}
 }
-
-
