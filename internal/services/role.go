@@ -19,8 +19,8 @@ func NewRoleService(cusRepo storage.RoleRepo, cfg *config.Config, log *logger.Lo
 	return &RoleService{cusRepo: cusRepo, cfg: cfg, log: log}
 }
 
-func (s *RoleService) Create(ctx context.Context, Role *domain.Role) (*domain.Role, error) {
-	return s.cusRepo.Create(ctx, Role)
+func (s *RoleService) Create(ctx context.Context, req *domain.Role) (*domain.Role, error) {
+	return s.cusRepo.Create(ctx, req)
 }
 
 func (s *RoleService) Get(ctx context.Context, Id string) (*domain.Role, error) {
@@ -31,8 +31,8 @@ func (s *RoleService) GetList(ctx context.Context, param *domain.Params) ([]*dom
 	return s.cusRepo.GetList(ctx, param)
 }
 
-func (s *RoleService) Update(ctx context.Context, Role *domain.Role) (*domain.Role, error) {
-	return s.cusRepo.Update(ctx, Role)
+func (s *RoleService) Update(ctx context.Context, req *domain.Role) error {
+	return s.cusRepo.Update(ctx, req)
 }
 
 func (s *RoleService) Delete(ctx context.Context, Id string) error {

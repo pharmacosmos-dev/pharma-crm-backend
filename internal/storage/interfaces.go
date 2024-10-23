@@ -13,7 +13,7 @@ type (
 		Create(ctx context.Context, req *domain.Store) (*domain.Store, error)
 		Get(ctx context.Context, Id string) (*domain.Store, error)
 		GetList(ctx context.Context, params *domain.Params) ([]*domain.Store, error)
-		Update(ctx context.Context, req *domain.Store) (*domain.Store, error)
+		Update(ctx context.Context, req *domain.Store) error
 		Delete(ctx context.Context, Id string) error
 	}
 
@@ -31,7 +31,7 @@ type (
 		Create(ctx context.Context, req *domain.Role) (*domain.Role, error)
 		Get(ctx context.Context, Id string) (*domain.Role, error)
 		GetList(ctx context.Context, params *domain.Params) ([]*domain.Role, error)
-		Update(ctx context.Context, req *domain.Role) (*domain.Role, error)
+		Update(ctx context.Context, req *domain.Role) error
 		Delete(ctx context.Context, Id string) error
 	}
 
@@ -76,7 +76,7 @@ type (
 		Create(ctx context.Context, req *domain.Employee) (*domain.Employee, error)
 		Get(ctx context.Context, Id string) (*domain.Employee, error)
 		GetList(ctx context.Context, params *domain.Params) ([]*domain.Employee, error)
-		Update(ctx context.Context, req *domain.Employee) (*domain.Employee, error)
+		Update(ctx context.Context, req *domain.Employee) error
 		Delete(ctx context.Context, Id string) error
 	}
 )

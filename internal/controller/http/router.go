@@ -9,8 +9,6 @@ import (
 	"github.com/pharma-crm-backend/internal/services"
 	"github.com/pharma-crm-backend/internal/storage/repo"
 	"github.com/pharma-crm-backend/pkg/logger"
-
-	// "github.com/prometheus/client_golang/prometheus/promhttp"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 
@@ -44,11 +42,19 @@ func NewRouter(handler *gin.Engine, db *sqlx.DB, log *logger.Logger, cfg *config
 	handler.Use(gin.Recovery())
 
 	// Repositories
+	storeRepo := repo.NewStoreRepository(db, log)
+	brandRepo := repo.NewBrandRepository(db, log)
+	unitRepo := repo.NewUnitRepository(db, log)
+	roleRepo := repo.NewRoleRepository(db, log)
 	productRepo := repo.NewProductRepository(db, log)
 	customerRepo := repo.NewCustomerRepository(db, log)
 	employeeRepo := repo.NewEmployeeRepository(db, log)
 
 	// Services
+	storeService := services.NewStoreService(storeRepo, cfg, log)
+	brandService := services.NewBrandService(brandRepo, cfg, log)
+	unitService := services.NewUnitService(unitRepo, cfg, log)
+	roleService := services.NewRoleService(roleRepo, cfg, log)
 	customerService := services.NewCustomerService(customerRepo, cfg, log)
 	productService := services.NewProductService(productRepo, cfg, log)
 	employeeService := services.NewEmployeeService(employeeRepo, cfg, log)
@@ -60,7 +66,10 @@ func NewRouter(handler *gin.Engine, db *sqlx.DB, log *logger.Logger, cfg *config
 	// Routers
 	handler.GET("/", Ping)
 	api := handler.Group("/v1")
-
+	v1.NewStoreHandler(api.Group("/store"), storeService, log)
+	v1.NewBrandHandler(api.Group("/brand"), brandService, log)
+	v1.NewUnitHandler(api.Group("/unit"), unitService, log)
+	v1.NewRoleHandler(api.Group("/role"), roleService, log)
 	v1.NewProductRoutes(api.Group("/product"), productService, log)
 	v1.NewCustomerHandler(api.Group("/customer"), customerService, log)
 	v1.NewEmployeeHandler(api.Group("/employee"), employeeService, log)

@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/internal/storage"
@@ -34,7 +35,7 @@ func (s *EmployeeService) GetList(ctx context.Context, param *domain.Params) ([]
 	return s.cusRepo.GetList(ctx, param)
 }
 
-func (s *EmployeeService) Update(ctx context.Context, employee *domain.Employee) (*domain.Employee, error) {
+func (s *EmployeeService) Update(ctx context.Context, employee *domain.Employee) error {
 	return s.cusRepo.Update(ctx, employee)
 }
 

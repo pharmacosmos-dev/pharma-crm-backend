@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS "roles" (
   "id" uuid PRIMARY KEY,
   "name" varchar,
-  "desc" text,
+  "description" text,
   "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );

@@ -18,6 +18,7 @@ func NewProductRepository(db *sqlx.DB, log *logger.Logger) *productRepo {
 
 func (r *productRepo) Create(ctx context.Context, req *domain.Product) (*domain.Product, error) {
 	p := &domain.Product{}
+
 	return p, nil
 }
 

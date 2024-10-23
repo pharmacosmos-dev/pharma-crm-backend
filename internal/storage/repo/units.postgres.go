@@ -2,6 +2,7 @@ package repo
 
 import (
 	"context"
+	"github.com/google/uuid"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/pharma-crm-backend/domain"
@@ -19,10 +20,11 @@ func NewUnitRepository(db *sqlx.DB, log *logger.Logger) *UnitRepo {
 
 func (r *UnitRepo) Create(ctx context.Context, req *domain.Unit) (*domain.Unit, error) {
 	c := &domain.Unit{}
+	Id := uuid.New()
 	if err := r.db.QueryRowxContext(
 		ctx,
 		"",
-		&c.Id, &c.Unit).StructScan(c); err != nil {
+		&Id, &c.Unit).StructScan(c); err != nil {
 		return nil, err
 	}
 	return c, nil

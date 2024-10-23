@@ -19,8 +19,8 @@ func NewStoreService(cusRepo storage.StoreRepo, cfg *config.Config, log *logger.
 	return &StoreService{cusRepo: cusRepo, cfg: cfg, log: log}
 }
 
-func (s *StoreService) Create(ctx context.Context, Store *domain.Store) (*domain.Store, error) {
-	return s.cusRepo.Create(ctx, Store)
+func (s *StoreService) Create(ctx context.Context, req *domain.Store) (*domain.Store, error) {
+	return s.cusRepo.Create(ctx, req)
 }
 
 func (s *StoreService) Get(ctx context.Context, Id string) (*domain.Store, error) {
@@ -31,8 +31,8 @@ func (s *StoreService) GetList(ctx context.Context, param *domain.Params) ([]*do
 	return s.cusRepo.GetList(ctx, param)
 }
 
-func (s *StoreService) Update(ctx context.Context, Store *domain.Store) (*domain.Store, error) {
-	return s.cusRepo.Update(ctx, Store)
+func (s *StoreService) Update(ctx context.Context, req *domain.Store) error {
+	return s.cusRepo.Update(ctx, req)
 }
 
 func (s *StoreService) Delete(ctx context.Context, Id string) error {
