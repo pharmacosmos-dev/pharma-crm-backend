@@ -1,0 +1,17 @@
+CREATE TABLE IF NOT EXISTS "suppliers" (
+  "id" uuid PRIMARY KEY,
+  "name" varchar(255),
+  "phone" varchar[],
+  "desc" text,
+  "company_legal_name" varchar(255),
+  "legal_address" varchar(255),
+  "country" varchar(255),
+  "zip_code" varchar,
+  "bank_account" varchar,
+  "bank_name" varchar,
+  "bank_tin" varchar,
+  "bank_ibt" varchar,
+  "file_url" varchar,
+  "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);

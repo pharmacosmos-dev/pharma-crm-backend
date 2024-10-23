@@ -6,6 +6,7 @@ CURRENT_DIR=$(shell pwd)
 LOCAL_BIN:=$(CURDIR)/bin
 PATH:=$(LOCAL_BIN):$(PATH)
 
+DB_URL="postgres://$(PG_USER):$(PG_PASS)@$(PG_HOST):$(PG_PORT)/$(PG_DB)?sslmode=disable"
 # HELP =================================================================================================================
 # This will output the help for each task
 # thanks to https://marmelab.com/blog/2016/02/29/auto-documented-makefile.html
@@ -24,5 +25,13 @@ migrate-create:  ### create new migration
 .PHONY: migrate-create
 
 migrate-up: ### migration up
-	migrate -path migrations -database '$(PG_URL)?sslmode=disable' up
+	migrate -path migrations -database "$(DB_URL)" up
 .PHONY: migrate-up
+
+migrate-down:
+	migrate -path migrations -database "$(DB_URL)" down
+.PHONY: migrate-down
+
+migrate-force:
+	migrate -path migrations -database "$(DB_URL)" force 18
+.PHONY: migrate-force

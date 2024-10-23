@@ -1,10 +1,11 @@
 package config
 
 import (
-	"fmt"
+	"log"
 	"os"
 
-	"github.com/ilyakaznacheev/cleanenv"
+	"github.com/joho/godotenv"
+	"github.com/spf13/cast"
 )
 
 type (
@@ -36,24 +37,33 @@ type (
 	PG struct {
 		PoolMax int    `env-required:"true" yaml:"pool_max" env:"PG_POOL_MAX"`
 		URL     string `env-required:"true" yaml:"pg_url" env:"PG_URL"`
+		DbHost  string `env-required:"true" yaml:"pg_host" env:"PG_HOST"`
+		DbPort  string `env-required:"true" yaml:"pg_port" env:"PG_PORT"`
+		DbUser  string `env-required:"true" yaml:"pg_user" env:"PG_USER"`
+		DbPass  string `env-required:"true" yaml:"pg_pass" env:"PG_PASS"`
+		DbName  string `env-required:"true" yaml:"pg_db" env:"PG_DB"`
 	}
 )
 
 // NewConfig returns app config.
-func NewConfig() (*Config, error) {
-	cfg := &Config{}
-
-	err := cleanenv.ReadConfig("./config/config.yml", cfg)
+func Load() Config {
+	err := godotenv.Load(".env")
 	if err != nil {
-		return nil, fmt.Errorf("config error: %w", err)
+		log.Printf("Failed to read env: %v", err.Error())
 	}
+	c := Config{}
+	c.App.Name = cast.ToString(GetOrReturnDefaultValue("APP_NAME", "pharma_backend"))
+	c.App.Version = cast.ToString(GetOrReturnDefaultValue("APP_VERSION", "1.0.0"))
+	c.HTTP.Port = cast.ToString(GetOrReturnDefaultValue("HTTP_PORT", "8080"))
+	c.Log.Level = cast.ToString(GetOrReturnDefaultValue("LOG_LEVEL", "debug"))
+	c.PG.DbHost = cast.ToString(GetOrReturnDefaultValue("PG_HOST", "localhost"))
+	c.PG.DbPort = cast.ToString(GetOrReturnDefaultValue("PG_PORT", "5432"))
+	c.PG.DbUser = cast.ToString(GetOrReturnDefaultValue("PG_USER", "username"))
+	c.PG.DbPass = cast.ToString(GetOrReturnDefaultValue("PG_PASS", "password"))
+	c.PG.DbName = cast.ToString(GetOrReturnDefaultValue("PG_DB", "dbname"))
+	c.PG.PoolMax = cast.ToInt(GetOrReturnDefaultValue("PG_POOL_MAX", 2))
 
-	err = cleanenv.ReadEnv(cfg)
-	if err != nil {
-		return nil, err
-	}
-
-	return cfg, nil
+	return c
 }
 
 func GetOrReturnDefaultValue(key string, defaultValue interface{}) interface{} {

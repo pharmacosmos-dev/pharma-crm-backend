@@ -1,4 +1,4 @@
-package product
+package v1
 
 import (
 	"github.com/gin-gonic/gin"
@@ -8,15 +8,15 @@ import (
 
 type ProductHandler struct {
 	p storage.ProductRepo
-	l logger.Interface
+	l *logger.Logger
 }
 
-func NewProductRoutes(hander *gin.RouterGroup, p storage.ProductRepo, l logger.Interface) {
+func NewProductRoutes(hander *gin.RouterGroup, p storage.ProductRepo, l *logger.Logger) {
 	r := ProductHandler{p, l}
 	hander.GET("/hello", func(c *gin.Context) { c.JSON(200, gin.H{"msg": "HELLO!!!"}) })
 	hander.POST("", r.Create)
 	hander.GET("", r.Get)
-	hander.GET("", r.List)
+	hander.GET("/list", r.List)
 	hander.PUT("", r.Update)
 	hander.DELETE("", r.Delete)
 }

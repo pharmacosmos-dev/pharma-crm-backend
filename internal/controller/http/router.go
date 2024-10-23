@@ -1,11 +1,13 @@
 // Package v1 implements routing paths. Each services in own file.
-package v1
+package http
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/pharma-crm-backend/internal/controller/http/v1/customer"
-	"github.com/pharma-crm-backend/internal/controller/http/v1/employee"
-	"github.com/pharma-crm-backend/internal/controller/http/v1/product"
+	"github.com/jmoiron/sqlx"
+	"github.com/pharma-crm-backend/config"
+	v1 "github.com/pharma-crm-backend/internal/controller/http/v1"
+	"github.com/pharma-crm-backend/internal/services"
+	"github.com/pharma-crm-backend/internal/storage/repo"
 	"github.com/pharma-crm-backend/pkg/logger"
 
 	// "github.com/prometheus/client_golang/prometheus/promhttp"
@@ -14,7 +16,6 @@ import (
 
 	// Swagger docs.
 	_ "github.com/pharma-crm-backend/docs"
-	"github.com/pharma-crm-backend/internal/storage"
 )
 
 // Swagger spec:
@@ -36,10 +37,21 @@ import (
 // @BasePath    /v1
 
 // NewRouter -.
-func NewRouter(handler *gin.Engine, l logger.Interface, s *storage.Storage) {
+func NewRouter(handler *gin.Engine, db *sqlx.DB, log *logger.Logger, cfg *config.Config) {
+
 	// Options
 	handler.Use(gin.Logger())
 	handler.Use(gin.Recovery())
+
+	// Repositories
+	productRepo := repo.NewProductRepository(db, log)
+	customerRepo := repo.NewCustomerRepository(db, log)
+	employeeRepo := repo.NewEmployeeRepository(db, log)
+
+	// Services
+	customerService := services.NewCustomerService(customerRepo, cfg, log)
+	productService := services.NewProductService(productRepo, cfg, log)
+	employeeService := services.NewEmployeeService(employeeRepo, cfg, log)
 
 	// Swagger
 	swaggerHandler := ginSwagger.DisablingWrapHandler(swaggerFiles.Handler, "DISABLE_SWAGGER_HTTP_HANDLER")
@@ -48,12 +60,11 @@ func NewRouter(handler *gin.Engine, l logger.Interface, s *storage.Storage) {
 	// Routers
 	handler.GET("/", Ping)
 	api := handler.Group("/v1")
-	{
-		product.NewProductRoutes(api.Group("/product"), s.ProductRepo, l)
-		customer.NewCustomerHandler(api.Group("/customer"), s.CustomerRepo, l)
-		employee.NewEmployeeHandler(api.Group("/employee"), s.EmployeeRepo, l)
 
-	}
+	v1.NewProductRoutes(api.Group("/product"), productService, log)
+	v1.NewCustomerHandler(api.Group("/customer"), customerService, log)
+	v1.NewEmployeeHandler(api.Group("/employee"), employeeService, log)
+
 }
 
 func Ping(c *gin.Context) {

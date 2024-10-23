@@ -1,17 +1,17 @@
-package customer
+package v1
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/pharma-crm-backend/internal/storage"
+	"github.com/pharma-crm-backend/internal/services"
 	"github.com/pharma-crm-backend/pkg/logger"
 )
 
 type CustomerHandler struct {
-	c storage.CustomerRepo
+	c *services.CustomerService
 	l logger.Interface
 }
 
-func NewCustomerHandler(handler *gin.RouterGroup, c storage.CustomerRepo, l logger.Interface) {
+func NewCustomerHandler(handler *gin.RouterGroup, c *services.CustomerService, l logger.Interface) {
 	r := &CustomerHandler{c, l}
 	handler.POST("", r.Create)
 	handler.GET("/:id", r.Get)

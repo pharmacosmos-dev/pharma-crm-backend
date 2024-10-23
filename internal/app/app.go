@@ -7,11 +7,10 @@ import (
 	"os/signal"
 	"syscall"
 
+	v1 "github.com/pharma-crm-backend/internal/controller/http"
+	"github.com/pharma-crm-backend/pkg/db"
+
 	"github.com/gin-gonic/gin"
-
-	v1 "github.com/pharma-crm-backend/internal/controller/http/v1"
-
-	"github.com/pharma-crm-backend/pkg/postgres"
 
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/pkg/httpserver"
@@ -22,16 +21,15 @@ import (
 func Run(cfg *config.Config) {
 	l := logger.New(cfg.Log.Level)
 
-	// Repository
-	pg, err := postgres.New(cfg.PG.URL, postgres.MaxPoolSize(cfg.PG.PoolMax))
+	// Postgres connect
+	pgConn, err := db.NewPsqlDB(cfg)
 	if err != nil {
-		l.Fatal(fmt.Errorf("app - Run - postgres.New: %w", err))
+		l.Error(err)
 	}
-	defer pg.Close()
 
 	// HTTP Server
 	handler := gin.New()
-	v1.NewRouter(handler, l)
+	v1.NewRouter(handler, pgConn, l, cfg)
 	httpServer := httpserver.New(handler, httpserver.Port(cfg.HTTP.Port))
 
 	// Waiting signal

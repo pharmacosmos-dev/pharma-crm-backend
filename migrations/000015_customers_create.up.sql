@@ -1,0 +1,23 @@
+CREATE TABLE IF NOT EXISTS "customers" (
+  "id" uuid PRIMARY KEY,
+  "group_id" uuid,
+  "tag_id" uuid,
+  "first_name" varchar,
+  "last_name" varchar,
+  "middle_name" varchar,
+  "phone" varchar[],
+  "birthday" date,
+  "gender" varchar,
+  "marital_status" varchar,
+  "primary_lang" varchar,
+  "email" varchar,
+  "tg_username" varchar,
+  "facebook" varchar,
+  "instagram" varchar,
+  "is_sms_notify" bool,
+  "is_phone_notify" bool,
+  "is_social_notify" bool,
+  "is_email_notify" bool,
+  "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
