@@ -38,7 +38,7 @@ func (h *EmployeeHandler) Create(c *gin.Context) {
 		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*3))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
 	hashedPassword, err := etc.HashPassword(body.Data.Password)
 	if err != nil {
@@ -57,7 +57,7 @@ func (h *EmployeeHandler) Create(c *gin.Context) {
 
 func (h *EmployeeHandler) Get(c *gin.Context) {
 	Id := c.Query("id")
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*3))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
 	res, err := h.c.Get(ctx, Id)
 	if err != nil {
@@ -79,7 +79,7 @@ func (h *EmployeeHandler) List(c *gin.Context) {
 		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*3))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
 	res, err := h.c.GetList(ctx, &domain.Params{Limit: limit, Offset: offset})
 	if err != nil {
@@ -97,20 +97,20 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*3))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
-	err := h.c.Update(ctx, &body.Data)
+	res, err := h.c.Update(ctx, &body.Data)
 	if err != nil {
 		h.l.Error(err)
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 		return
 	}
-	handleResponse(c, http.StatusOK, MsgSuccessUpdate, nil)
+	handleResponse(c, http.StatusOK, MsgSuccessUpdate, res)
 }
 
 func (h *EmployeeHandler) Delete(c *gin.Context) {
 	Id := c.Query("id")
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*3))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
 	err := h.c.Delete(ctx, Id)
 	if err != nil {

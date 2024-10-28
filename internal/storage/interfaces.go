@@ -53,6 +53,15 @@ type (
 		Delete(ctx context.Context, Id string) error
 	}
 
+	// Category Repo
+	CategoryRepo interface {
+		Create(ctx context.Context, req *domain.Category) (*domain.Category, error)
+		Get(ctx context.Context, Id string) (*domain.Category, error)
+		GetList(ctx context.Context, params *domain.Params) ([]*domain.Category, error)
+		Update(ctx context.Context, req *domain.Category) (*domain.Category, error)
+		Delete(ctx context.Context, Id string) error
+	}
+
 	// Product Repo
 	ProductRepo interface {
 		Create(ctx context.Context, req *domain.Product) (*domain.Product, error)
@@ -76,7 +85,8 @@ type (
 		Create(ctx context.Context, req *domain.Employee) (*domain.Employee, error)
 		Get(ctx context.Context, Id string) (*domain.Employee, error)
 		GetList(ctx context.Context, params *domain.Params) ([]*domain.Employee, error)
-		Update(ctx context.Context, req *domain.Employee) error
+		Update(ctx context.Context, req *domain.Employee) (*domain.Employee, error)
 		Delete(ctx context.Context, Id string) error
+		CheckField(ctx context.Context, field, value string) (bool, error)
 	}
 )

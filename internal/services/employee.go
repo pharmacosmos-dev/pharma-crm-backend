@@ -35,10 +35,14 @@ func (s *EmployeeService) GetList(ctx context.Context, param *domain.Params) ([]
 	return s.cusRepo.GetList(ctx, param)
 }
 
-func (s *EmployeeService) Update(ctx context.Context, employee *domain.Employee) error {
-	return s.cusRepo.Update(ctx, employee)
+func (s *EmployeeService) Update(ctx context.Context, req *domain.Employee) (*domain.Employee, error) {
+	return s.cusRepo.Update(ctx, req)
 }
 
 func (s *EmployeeService) Delete(ctx context.Context, id string) error {
 	return s.cusRepo.Delete(ctx, id)
+}
+
+func (s *EmployeeService) CheckField(ctx context.Context, field, value string) (bool, error) {
+	return s.cusRepo.CheckField(ctx, field, value)
 }

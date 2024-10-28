@@ -22,10 +22,18 @@ func NewEmployeeRepository(db *sqlx.DB, log *logger.Logger) *employeeRepo {
 func (r *employeeRepo) Create(ctx context.Context, req *domain.Employee) (*domain.Employee, error) {
 	e := &domain.Employee{}
 	Id := uuid.New()
-	query := `INSERT INTO employees(id, role_id, first_name, last_name, phone, email, password) RETURNING *`
+	query := `
+INSERT INTO 
+    employees(id, role_id, first_name, last_name, phone, email, password) 
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING 
+	id, role_id, first_name, last_name, phone, email, password, created_at, updated_at
+`
 	if err := r.db.QueryRowxContext(
 		ctx,
-		query, &Id,
+		query,
+		Id,
+		&req.RoleId, &req.FirstName, &req.LastName, &req.Phone, &req.Email, &req.Password,
 	).StructScan(e); err != nil {
 		return nil, err
 	}
@@ -46,7 +54,7 @@ func (r *employeeRepo) Get(ctx context.Context, id string) (*domain.Employee, er
 }
 
 func (r *employeeRepo) GetList(ctx context.Context, param *domain.Params) ([]*domain.Employee, error) {
-	employees := []*domain.Employee{}
+	var employees []*domain.Employee
 	query := `SELECT id, role_id, first_name, last_name, phone, email, password, created_at, updated_at FROM employees LIMIT $1 OFFSET $2`
 	rows, err := r.db.QueryxContext(ctx, query, &param.Limit, &param.Offset)
 	if err != nil {
@@ -63,13 +71,22 @@ func (r *employeeRepo) GetList(ctx context.Context, param *domain.Params) ([]*do
 	return employees, nil
 }
 
-func (r *employeeRepo) Update(ctx context.Context, req *domain.Employee) error {
-	query := `UPDATE employees SET role_id=$1, first_name=$2, last_name=$3, phone=$4, email=$5, password=$6 WHERE id=$7`
-	_, err := r.db.ExecContext(ctx, query, &req.RoleId, &req.FirstName, &req.LastName, &req.Phone, &req.Email, &req.Password, &req.Id)
-	if err != nil {
-		return err
+func (r *employeeRepo) Update(ctx context.Context, req *domain.Employee) (*domain.Employee, error) {
+	e := &domain.Employee{}
+	query := `UPDATE employees SET role_id=$1, first_name=$2, last_name=$3, phone=$4, email=$5, password=$6 WHERE id=$7
+	RETURNING id, role_id, first_name, last_name, phone, email, password, created_at, updated_at`
+	if err := r.db.QueryRowxContext(ctx,
+		query,
+		&req.RoleId,
+		&req.FirstName,
+		&req.LastName,
+		&req.Phone,
+		&req.Email,
+		&req.Password, &req.Id).StructScan(e); err != nil {
+		return nil, err
 	}
-	return nil
+
+	return e, nil
 }
 
 func (r *employeeRepo) Delete(ctx context.Context, id string) error {
@@ -85,7 +102,7 @@ func (r *employeeRepo) CheckField(ctx context.Context, field, value string) (boo
 	var temp = 0
 	if err := r.db.QueryRowxContext(
 		ctx,
-		query, value).Scan(temp); err != nil {
+		query, value).Scan(&temp); err != nil {
 		return false, err
 	}
 	if temp == 1 {

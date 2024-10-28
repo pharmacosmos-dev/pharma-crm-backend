@@ -30,7 +30,7 @@ func (h *StoreHandler) Create(c *gin.Context) {
 		body RequestBody[domain.Store]
 		err  error
 	)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*3))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
 	if err = c.ShouldBindJSON(&body); err != nil {
 		h.l.Error(err)
@@ -49,7 +49,7 @@ func (h *StoreHandler) Create(c *gin.Context) {
 
 func (h *StoreHandler) Get(c *gin.Context) {
 	Id := c.Query("id")
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*3))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
 	res, err := h.c.Get(ctx, Id)
 	if err != nil {
@@ -71,7 +71,7 @@ func (h *StoreHandler) List(c *gin.Context) {
 		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*3))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
 
 	res, err := h.c.GetList(ctx, &domain.Params{Limit: limit, Offset: offset})
@@ -94,7 +94,7 @@ func (h *StoreHandler) Update(c *gin.Context) {
 		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*3))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
 	err = h.c.Update(ctx, &body.Data)
 	if err != nil {
@@ -107,7 +107,7 @@ func (h *StoreHandler) Update(c *gin.Context) {
 
 func (h *StoreHandler) Delete(c *gin.Context) {
 	Id := c.Query("id")
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Second*3))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
 	err := h.c.Delete(ctx, Id)
 	if err != nil {

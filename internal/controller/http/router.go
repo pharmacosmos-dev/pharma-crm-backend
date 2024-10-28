@@ -49,6 +49,7 @@ func NewRouter(handler *gin.Engine, db *sqlx.DB, log *logger.Logger, cfg *config
 	productRepo := repo.NewProductRepository(db, log)
 	customerRepo := repo.NewCustomerRepository(db, log)
 	employeeRepo := repo.NewEmployeeRepository(db, log)
+	categoryRepo := repo.NewCategoryRepository(db, log)
 
 	// Services
 	storeService := services.NewStoreService(storeRepo, cfg, log)
@@ -58,6 +59,7 @@ func NewRouter(handler *gin.Engine, db *sqlx.DB, log *logger.Logger, cfg *config
 	customerService := services.NewCustomerService(customerRepo, cfg, log)
 	productService := services.NewProductService(productRepo, cfg, log)
 	employeeService := services.NewEmployeeService(employeeRepo, cfg, log)
+	categoryService := services.NewCategoryService(categoryRepo, cfg, log)
 
 	// Swagger
 	swaggerHandler := ginSwagger.DisablingWrapHandler(swaggerFiles.Handler, "DISABLE_SWAGGER_HTTP_HANDLER")
@@ -73,7 +75,7 @@ func NewRouter(handler *gin.Engine, db *sqlx.DB, log *logger.Logger, cfg *config
 	v1.NewProductRoutes(api.Group("/product"), productService, log)
 	v1.NewCustomerHandler(api.Group("/customer"), customerService, log)
 	v1.NewEmployeeHandler(api.Group("/employee"), employeeService, log)
-
+	v1.NewCategoryHandler(api.Group("/category"), categoryService, log)
 }
 
 func Ping(c *gin.Context) {
