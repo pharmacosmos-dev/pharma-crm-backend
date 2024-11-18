@@ -31,6 +31,11 @@ func (r *RoleRepo) Create(ctx context.Context, req *domain.Role) (*domain.Role, 
 func (r *RoleRepo) Get(ctx context.Context, id string) (*domain.Role, error) {
 	role := &domain.Role{}
 	if err := r.db.WithContext(ctx).Where("id = ?", id).First(role).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			r.log.Error("Role not found:", id)
+			return nil, nil // Return nil if not found
+		}
+		r.log.Error("Failed to get role:", err)
 		return nil, err
 	}
 	return role, nil
@@ -53,7 +58,7 @@ func (r *RoleRepo) Update(ctx context.Context, req *domain.Role) error {
 	// Ensure the record exists, then update
 	if err := r.db.WithContext(ctx).Model(&domain.Role{}).Where("id = ?", req.Id).Updates(map[string]interface{}{
 		"name":        req.Name,
-		"description": req.Desc,
+		"description": req.Description,
 	}).Error; err != nil {
 		return err
 	}

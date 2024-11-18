@@ -46,3 +46,7 @@ func (s *EmployeeService) Delete(ctx context.Context, id string) error {
 func (s *EmployeeService) CheckField(ctx context.Context, field, value string) (bool, error) {
 	return s.cusRepo.CheckField(ctx, field, value)
 }
+
+func (s *EmployeeService) GetRoles(ctx context.Context, req *domain.Login) (*domain.LoginResponse, error) {
+	return s.cusRepo.GetRoles(ctx, req)
+}

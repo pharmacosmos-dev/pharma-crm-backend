@@ -11,10 +11,11 @@ import (
 type (
 	// Config -.
 	Config struct {
-		App  `yaml:"app"`
-		HTTP `yaml:"http"`
-		Log  `yaml:"logger"`
-		PG   `yaml:"postgres"`
+		App    `yaml:"app"`
+		HTTP   `yaml:"http"`
+		Log    `yaml:"logger"`
+		PG     `yaml:"postgres"`
+		Secret `yaml:"secret"`
 	}
 
 	// App -.
@@ -31,6 +32,10 @@ type (
 	// Log -.
 	Log struct {
 		Level string `env-required:"true" yaml:"log_level"   env:"LOG_LEVEL"`
+	}
+	// Token Secret Key -.
+	Secret struct {
+		SecretKey string `env-required:"true" yaml:"log_level"   env:"SECRET_KEY"`
 	}
 
 	// PG -.
@@ -62,6 +67,7 @@ func Load() Config {
 	c.PG.DbPass = cast.ToString(GetOrReturnDefaultValue("PG_PASS", "password"))
 	c.PG.DbName = cast.ToString(GetOrReturnDefaultValue("PG_DB", "dbname"))
 	c.PG.PoolMax = cast.ToInt(GetOrReturnDefaultValue("PG_POOL_MAX", 2))
+	c.Secret.SecretKey = cast.ToString(GetOrReturnDefaultValue("SECRET_KEY", "6fb5619d-8c30-4e85-a1e3-3f4d142498a0"))
 
 	return c
 }

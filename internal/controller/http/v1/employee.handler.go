@@ -7,17 +7,17 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
-	"github.com/pharma-crm-backend/internal/storage"
+	"github.com/pharma-crm-backend/internal/services"
 	"github.com/pharma-crm-backend/pkg/etc"
 	"github.com/pharma-crm-backend/pkg/logger"
 )
 
 type EmployeeHandler struct {
-	c storage.EmployeeRepo
+	c *services.EmployeeService
 	l logger.Interface
 }
 
-func NewEmployeeHandler(handler *gin.RouterGroup, c storage.EmployeeRepo, l logger.Interface) {
+func NewEmployeeHandler(handler *gin.RouterGroup, c *services.EmployeeService, l logger.Interface) {
 	r := &EmployeeHandler{c, l}
 	handler.POST("/login", r.Login)
 	handler.POST("/logout", r.Logout)
@@ -99,6 +99,12 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
+	hashedPassword, err := etc.HashPassword(body.Data.Password)
+	if err != nil {
+		h.l.Error(err)
+		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
+	}
+	body.Data.Password = hashedPassword
 	res, err := h.c.Update(ctx, &body.Data)
 	if err != nil {
 		h.l.Error(err)

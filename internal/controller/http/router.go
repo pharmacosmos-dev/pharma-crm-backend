@@ -4,6 +4,7 @@ package http
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/config"
+	"github.com/pharma-crm-backend/internal/controller/http/middleware"
 	v1 "github.com/pharma-crm-backend/internal/controller/http/v1"
 	"github.com/pharma-crm-backend/internal/services"
 	"github.com/pharma-crm-backend/internal/storage/repo"
@@ -68,6 +69,8 @@ func NewRouter(handler *gin.Engine, db *gorm.DB, log *logger.Logger, cfg *config
 	// Routers
 	handler.GET("/", Ping)
 	api := handler.Group("/v1")
+	api.Use(middleware.AuthMiddleware())
+	
 	v1.NewStoreHandler(api.Group("/store"), storeService, log)
 	v1.NewBrandHandler(api.Group("/brand"), brandService, log)
 	v1.NewUnitHandler(api.Group("/unit"), unitService, log)

@@ -88,5 +88,6 @@ type (
 		Update(ctx context.Context, req *domain.Employee) (*domain.Employee, error)
 		Delete(ctx context.Context, Id string) error
 		CheckField(ctx context.Context, field, value string) (bool, error)
+		GetRoles(ctx context.Context, req *domain.Login) (*domain.LoginResponse, error)
 	}
 )
