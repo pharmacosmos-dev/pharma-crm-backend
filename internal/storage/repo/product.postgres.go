@@ -2,368 +2,143 @@ package repo
 
 import (
 	"context"
-	"strconv"
-	"strings"
 
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
-	"github.com/lib/pq"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/logger"
 	"github.com/shopspring/decimal"
+	"gorm.io/gorm"
 )
 
 type ProductRepo struct {
-	db  *sqlx.DB
+	db  *gorm.DB
 	log *logger.Logger
 }
 
-func NewProductRepository(db *sqlx.DB, log *logger.Logger) *ProductRepo {
+func NewProductRepository(db *gorm.DB, log *logger.Logger) *ProductRepo {
 	return &ProductRepo{db: db, log: log}
 }
 
 func (r *ProductRepo) Create(ctx context.Context, req *domain.Product) (*domain.Product, error) {
-	Id := uuid.New()
-	p := &domain.Product{}
-	supplyPrice, err := decimal.NewFromString(req.SupplyPrice)
-	if err != nil {
+	// Generate new UUID for the product
+	req.Id = uuid.New().String()
+
+	// Convert `SupplyPrice`, `RetailPrice`, and `Sum` to decimal types
+	req.SupplyPrice = decimal.NewFromFloat(req.SupplyPrice).InexactFloat64()
+	req.RetailPrice = decimal.NewFromFloat(req.RetailPrice).InexactFloat64()
+	req.Sum = decimal.NewFromFloat(req.Sum).InexactFloat64()
+
+	// Use GORM to create the product
+	if err := r.db.WithContext(ctx).Create(&req).Error; err != nil {
+		r.log.Error("Failed to create product:", err)
 		return nil, err
 	}
-	retailPrice, err := decimal.NewFromString(req.RetailPrice)
-	if err != nil {
-		return nil, err
-	}
-	sum, err := decimal.NewFromString(req.Sum)
-	if err != nil {
-		return nil, err
-	}
-	query := `INSERT INTO products(
-					id, 
-					name, 
--- 					store_id, 
--- 					category_id, 
--- 					brand_id, 
--- 					supplier_id, 
--- 					unit_id, 
-					product_type, 
-					product_variability, 
-					sku, 
-					barcode, 
-					main_photo, 
-					photos, 
-					supply_price, 
-					markup, 
-                    retail_price, 
-                    quantity, 
-                    sum, 
-                    description, status, manufacturer, expire_date) VALUES (
-                        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17 
---                                                                             $18, $19, $20, $21, $22                                                  
-                    )
-                    RETURNING 
-                    id, 
-					name, 
--- 					store_id, 
--- 					category_id, 
--- 					brand_id, 
--- 					supplier_id, 
--- 					unit_id, 
-					product_type, 
-					product_variability, 
-					sku, 
-					barcode, 
-					main_photo, 
-					photos, 
-					supply_price, 
-					markup, 
-                    retail_price, 
-                    quantity, 
-                    sum, 
-                    description, status, 
-                    manufacturer, expire_date, 
-                    created_at, updated_at`
-	if err := r.db.QueryRowxContext(ctx,
-		query,
-		Id,
-		&req.Name,
-		//&req.StoreId,
-		//&req.CategoryId,
-		//&req.BrandId,
-		//&req.SupplierId,
-		//&req.UnitId,
-		&req.ProductType,
-		&req.ProductVariability,
-		&req.Sku,
-		&req.BarCode,
-		&req.MainPhoto,
-		pq.Array(req.Photos),
-		&supplyPrice,
-		&req.Markup,
-		&retailPrice,
-		&req.Quantity,
-		&sum,
-		&req.Description,
-		&req.Status,
-		&req.Manufacturer,
-		&req.ExpireDate,
-	).Scan(
-		&p.Id,
-		&p.Name,
-		&p.ProductType,
-		&p.ProductVariability,
-		&p.Sku,
-		&p.BarCode,
-		&p.MainPhoto,
-		pq.Array(&p.Photos), // Scan photos as a PostgreSQL array
-		&p.SupplyPrice,
-		&p.Markup,
-		&p.RetailPrice,
-		&p.Quantity,
-		&p.Sum,
-		&p.Description,
-		&p.Status,
-		&p.Manufacturer,
-		&p.ExpireDate,
-		&p.CreatedAt,
-		&p.UpdatedAt,
-	); err != nil {
-		return nil, err
-	}
-	return p, nil
+
+	return req, nil
 }
 
-func (r *ProductRepo) Get(ctx context.Context, Id string) (*domain.Product, error) {
+func (r *ProductRepo) Get(ctx context.Context, id string) (*domain.Product, error) {
 	p := &domain.Product{}
-	query := `
-SELECT 
-		id, 
-		name, 
-		store_id, 
-		category_id, 
-		brand_id, 
-		supplier_id, 
-		unit_id, 
-		product_type, 
-		product_variability, 
-		sku, 
-		barcode, 
-		main_photo, 
-		photos, 
-		supply_price, 
-		markup, 
-		retail_price, 
-		quantity, 
-		sum, 
-		description, status, 
-		manufacturer, expire_date, 
-		created_at, updated_at
-FROM products WHERE id=$1`
-	if err := r.db.QueryRowxContext(ctx,
-		query,
-		Id).Scan(
-		&p.Id,
-		&p.Name,
-		&p.ProductType,
-		&p.ProductVariability,
-		&p.Sku,
-		&p.BarCode,
-		&p.MainPhoto,
-		pq.Array(&p.Photos), // Scan photos as a PostgreSQL array
-		&p.SupplyPrice,
-		&p.Markup,
-		&p.RetailPrice,
-		&p.Quantity,
-		&p.Sum,
-		&p.Description,
-		&p.Status,
-		&p.Manufacturer,
-		&p.ExpireDate,
-		&p.CreatedAt,
-		&p.UpdatedAt,
-	); err != nil {
+
+	// Fetch the product by its ID
+	if err := r.db.WithContext(ctx).Where("id = ?", id).First(p).Error; err != nil {
+		r.log.Error("Failed to get product: ", err)
 		return nil, err
 	}
+
 	return p, nil
 }
 
 func (r *ProductRepo) GetList(ctx context.Context, param *domain.Params) ([]*domain.Product, error) {
 	var products []*domain.Product
-	query := `
-SELECT 
-		id, 
-		name, 
-		product_type, 
-		product_variability, 
-		sku, 
-		barcode, 
-		main_photo, 
-		photos, 
-		supply_price, 
-		markup, 
-		retail_price, 
-		quantity, 
-		sum, 
-		description, status, 
-		manufacturer, expire_date, 
-		created_at, updated_at
-FROM products LIMIT $1 OFFSET $2`
-	rows, err := r.db.QueryxContext(ctx, query, &param.Limit, &param.Offset)
-	if err != nil {
+
+	// Use GORM's Limit and Offset for pagination
+	if err := r.db.WithContext(ctx).
+		Limit(param.Limit).
+		Offset(param.Offset).
+		Find(&products).Error; err != nil {
+		r.log.Error("Failed to get product list: ", err)
 		return nil, err
 	}
-	for rows.Next() {
-		p := &domain.Product{}
-		if err := rows.Scan(
-			&p.Id,
-			&p.Name,
-			&p.ProductType,
-			&p.ProductVariability,
-			&p.Sku,
-			&p.BarCode,
-			&p.MainPhoto,
-			pq.Array(&p.Photos), // Scan photos as a PostgreSQL array
-			&p.SupplyPrice,
-			&p.Markup,
-			&p.RetailPrice,
-			&p.Quantity,
-			&p.Sum,
-			&p.Description,
-			&p.Status,
-			&p.Manufacturer,
-			&p.ExpireDate,
-			&p.CreatedAt,
-			&p.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		products = append(products, p)
-	}
+
 	return products, nil
 }
 
 func (r *ProductRepo) Update(ctx context.Context, req *domain.Product) (*domain.Product, error) {
+	// Fetch the existing product
 	p := &domain.Product{}
-	query := "UPDATE products SET "
-	var args []interface{}
-	argCounter := 1
+	if err := r.db.WithContext(ctx).Where("id = ?", req.Id).First(p).Error; err != nil {
+		r.log.Error("Product not found: ", err)
+		return nil, err
+	}
 
-	// Check and append each field if it's not empty or zero
+	// Update the fields that are not empty or zero
+	updates := map[string]interface{}{}
+
 	if req.Name != "" {
-		query += "name=$" + strconv.Itoa(argCounter) + ", "
-		args = append(args, req.Name)
-		argCounter++
+		updates["name"] = req.Name
 	}
 	if req.StoreId != "" {
-		query += "store_id=$" + strconv.Itoa(argCounter) + ", "
-		args = append(args, req.StoreId)
-		argCounter++
+		updates["store_id"] = req.StoreId
 	}
 	if req.CategoryId != "" {
-		query += "category_id=$" + strconv.Itoa(argCounter) + ", "
-		args = append(args, req.CategoryId)
-		argCounter++
+		updates["category_id"] = req.CategoryId
 	}
 	if req.BrandId != "" {
-		query += "brand_id=$" + strconv.Itoa(argCounter) + ", "
-		args = append(args, req.BrandId)
-		argCounter++
+		updates["brand_id"] = req.BrandId
 	}
 	if req.SupplierId != "" {
-		query += "supplier_id=$" + strconv.Itoa(argCounter) + ", "
-		args = append(args, req.SupplierId)
-		argCounter++
+		updates["supplier_id"] = req.SupplierId
+	}
+	if req.UnitId != "" {
+		updates["unit_id"] = req.UnitId
+	}
+	if req.ProductType != "" {
+		updates["product_type"] = req.ProductType
+	}
+	if req.ProductVariability != "" {
+		updates["product_variability"] = req.ProductVariability
+	}
+	if req.Sku != "" {
+		updates["sku"] = req.Sku
+	}
+	if req.BarCode != "" {
+		updates["barcode"] = req.BarCode
+	}
+	if req.MainPhoto != "" {
+		updates["main_photo"] = req.MainPhoto
+	}
+	if len(req.Photos) > 0 {
+		updates["photos"] = req.Photos
+	}
+	if req.SupplyPrice != 0 {
+		updates["supply_price"] = req.SupplyPrice
+	}
+	if req.Markup != 0 {
+		updates["markup"] = req.Markup
+	}
+	if req.RetailPrice != 0 {
+		updates["retail_price"] = req.RetailPrice
+	}
+	if req.Quantity != 0 {
+		updates["quantity"] = req.Quantity
+	}
+	if req.Sum != 0 {
+		updates["sum"] = req.Sum
+	}
+	if req.Description != "" {
+		updates["description"] = req.Description
+	}
+	if req.Status != "" {
+		updates["status"] = req.Status
+	}
+	if req.Manufacturer != "" {
+		updates["manufacturer"] = req.Manufacturer
 	}
 
-	if req.SupplierId != "" {
-		query += "unit_id=$" + strconv.Itoa(argCounter) + ", "
-		args = append(args, req.UnitId)
-		argCounter++
-	}
-	if req.SupplierId != "" {
-		query += "product_type=$" + strconv.Itoa(argCounter) + ", "
-		args = append(args, req.ProductType)
-		argCounter++
-	}
-	if req.SupplierId != "" {
-		query += "product_variability=$" + strconv.Itoa(argCounter) + ", "
-		args = append(args, req.ProductVariability)
-		argCounter++
-	}
-	if req.SupplierId != "" {
-		query += "sku=$" + strconv.Itoa(argCounter) + ", "
-		args = append(args, req.Sku)
-		argCounter++
-	}
-	if req.SupplierId != "" {
-		query += "barcode=$" + strconv.Itoa(argCounter) + ", "
-		args = append(args, req.BarCode)
-		argCounter++
-	}
-	if req.SupplierId != "" {
-		query += "main_photo=$" + strconv.Itoa(argCounter) + ", "
-		args = append(args, req.MainPhoto)
-		argCounter++
-	}
-	if req.SupplierId != "" {
-		query += "photos=$" + strconv.Itoa(argCounter) + ", "
-		args = append(args, req.Photos)
-		argCounter++
-	}
-	if req.SupplierId != "" {
-		query += "supply_price=$" + strconv.Itoa(argCounter) + ", "
-		args = append(args, req.SupplyPrice)
-		argCounter++
-	}
-	if req.SupplierId != "" {
-		query += "markup=$" + strconv.Itoa(argCounter) + ", "
-		args = append(args, req.Markup)
-		argCounter++
-	}
-	if req.SupplierId != "" {
-		query += "retail_price=$" + strconv.Itoa(argCounter) + ", "
-		args = append(args, req.RetailPrice)
-		argCounter++
-	}
-	if req.SupplierId != "" {
-		query += "quantity=$" + strconv.Itoa(argCounter) + ", "
-		args = append(args, req.Quantity)
-		argCounter++
-	}
-	if req.SupplierId != "" {
-		query += "sum=$" + strconv.Itoa(argCounter) + ", "
-		args = append(args, req.Sum)
-		argCounter++
-	}
-	if req.SupplierId != "" {
-		query += "description=$" + strconv.Itoa(argCounter) + ", "
-		args = append(args, req.Description)
-		argCounter++
-	}
-	if req.SupplierId != "" {
-		query += "status=$" + strconv.Itoa(argCounter) + ", "
-		args = append(args, req.Status)
-		argCounter++
-	}
-	if req.SupplierId != "" {
-		query += "manufacturer=$" + strconv.Itoa(argCounter) + ", "
-		args = append(args, req.Manufacturer)
-		argCounter++
-	}
-	if req.SupplierId != "" {
-		query += "expire_date=$" + strconv.Itoa(argCounter) + ", "
-		args = append(args, req.ExpireDate)
-		argCounter++
-	}
-
-	// Remove the trailing comma and space
-	query = strings.TrimSuffix(query, ", ")
-
-	// Add the WHERE clause to update the specific product by id
-	query += " WHERE id=$" + strconv.Itoa(argCounter)
-	args = append(args, req.Id)
-
-	// Execute the query with QueryRowxContext
-	if err := r.db.QueryRowxContext(ctx, query, args...).StructScan(p); err != nil {
+	// Perform the update
+	if err := r.db.WithContext(ctx).Model(p).Updates(updates).Error; err != nil {
+		r.log.Error("Failed to update product: ", err)
 		return nil, err
 	}
 
@@ -371,8 +146,10 @@ func (r *ProductRepo) Update(ctx context.Context, req *domain.Product) (*domain.
 }
 
 func (r *ProductRepo) Delete(ctx context.Context, id string) error {
-	if _, err := r.db.ExecContext(ctx, `DELETE FROM products WHERE id=$1`, id); err != nil {
+	if err := r.db.WithContext(ctx).Where("id = ?", id).Delete(&domain.Product{}).Error; err != nil {
+		r.log.Error("Failed to delete product: ", err)
 		return err
 	}
 	return nil
 }
+

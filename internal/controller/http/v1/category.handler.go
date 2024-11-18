@@ -35,7 +35,7 @@ func (h *CategoryHandler) Create(c *gin.Context) {
 		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	res, err := h.c.Create(ctx, &body.Data)
 	if err != nil {

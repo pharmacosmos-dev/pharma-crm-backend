@@ -22,14 +22,19 @@ func Run(cfg *config.Config) {
 	l := logger.New(cfg.Log.Level)
 
 	// Postgres connect
-	pgConn, err := db.NewPsqlDB(cfg)
+	// pgConn, err := db.NewPsqlDB(cfg)
+	// if err != nil {
+	// 	l.Error(err)
+	// }
+
+	connDB, err := db.NewConnDB(cfg)
 	if err != nil {
 		l.Error(err)
 	}
 
 	// HTTP Server
 	handler := gin.New()
-	v1.NewRouter(handler, pgConn, l, cfg)
+	v1.NewRouter(handler, connDB, l, cfg)
 	httpServer := httpserver.New(handler, httpserver.Port(cfg.HTTP.Port))
 
 	// Waiting signal

@@ -8,6 +8,9 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/pharma-crm-backend/config"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 const (
@@ -41,4 +44,30 @@ func NewPsqlDB(c *config.Config) (*sqlx.DB, error) {
 	}
 
 	return db, nil
+}
+
+// Return new Postgresql db instance for GORM
+func NewConnDB(c *config.Config) (*gorm.DB, error) {
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable",
+		c.DbHost, c.DbUser, c.DbPass, c.DbName, c.DbPort)
+
+	gormDB, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Info),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	sqlDB, err := gormDB.DB()
+	if err != nil {
+		return nil, err
+	}
+
+	// Set connection pool parameters
+	sqlDB.SetMaxOpenConns(maxOpenConns)
+	sqlDB.SetMaxIdleConns(maxIdleConns)
+	sqlDB.SetConnMaxLifetime(connMaxLifetime * time.Second)
+	sqlDB.SetConnMaxIdleTime(connMaxIdleTime * time.Second)
+
+	return gormDB, nil
 }

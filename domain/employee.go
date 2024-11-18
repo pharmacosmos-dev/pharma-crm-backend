@@ -3,13 +3,13 @@ package domain
 import "time"
 
 type Employee struct {
-	Id        string     `json:"id" db:"id"`
-	RoleId    string     `json:"role_id" db:"role_id"`
-	FirstName string     `json:"first_name" db:"first_name"`
-	LastName  string     `json:"last_name" db:"last_name"`
-	Email     string     `json:"email" db:"email"`
-	Phone     string     `json:"phone" db:"phone"`
-	Password  string     `json:"password" db:"password"`
-	CreatedAt *time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt *time.Time `json:"updated_at" db:"updated_at"`
+	Id        string     `gorm:"id" json:"id" db:"id"`
+	RoleId    string     `gorm:"role_id" json:"role_id" db:"role_id"`
+	FirstName string     `gorm:"first_name" json:"first_name" db:"first_name"`
+	LastName  string     `gorm:"last_name" json:"last_name" db:"last_name"`
+	Email     string     `gorm:"email" json:"email" db:"email"`
+	Phone     string     `gorm:"phone" json:"phone" db:"phone"`
+	Password  string     `gorm:"password" json:"password" db:"password"`
+	CreatedAt *time.Time `gorm:"created_at" json:"created_at" db:"created_at"`
+	UpdatedAt *time.Time `gorm:"updated_at" json:"updated_at" db:"updated_at"`
 }

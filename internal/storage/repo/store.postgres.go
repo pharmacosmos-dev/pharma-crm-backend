@@ -2,81 +2,67 @@ package repo
 
 import (
 	"context"
+
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/logger"
+	"gorm.io/gorm"
 )
 
 type StoreRepo struct {
-	db  *sqlx.DB
+	db  *gorm.DB
 	log *logger.Logger
 }
 
-func NewStoreRepository(db *sqlx.DB, log *logger.Logger) *StoreRepo {
+func NewStoreRepository(db *gorm.DB, log *logger.Logger) *StoreRepo {
 	return &StoreRepo{db: db, log: log}
 }
 
+// Create a new store
 func (r *StoreRepo) Create(ctx context.Context, req *domain.Store) (*domain.Store, error) {
-	c := &domain.Store{}
-	Id := uuid.New()
-	query := `INSERT INTO stores(id, name, location) VALUES($1, $2, $3) RETURNING id, name, location, created_at, updated_at`
-	if err := r.db.QueryRowxContext(
-		ctx,
-		query,
-		Id, &req.Name, &req.Location).StructScan(c); err != nil {
+	req.Id = uuid.New().String() // Generate a new UUID for the store ID
+	if err := r.db.WithContext(ctx).Create(&req).Error; err != nil {
 		return nil, err
 	}
-	return c, nil
+	return req, nil
 }
 
-func (r *StoreRepo) Get(ctx context.Context, Id string) (*domain.Store, error) {
-	c := &domain.Store{}
-	query := `SELECT id, name, location, created_at, updated_at FROM stores WHERE id=$1`
-	if err := r.db.QueryRowxContext(
-		ctx,
-		query,
-		&Id).StructScan(c); err != nil {
+// Get a store by ID
+func (r *StoreRepo) Get(ctx context.Context, id string) (*domain.Store, error) {
+	store := &domain.Store{}
+	if err := r.db.WithContext(ctx).Where("id = ?", id).First(store).Error; err != nil {
 		return nil, err
 	}
-	return c, nil
+	return store, nil
 }
 
+// GetList returns a paginated list of stores
 func (r *StoreRepo) GetList(ctx context.Context, req *domain.Params) ([]*domain.Store, error) {
-	stores := []*domain.Store{}
-	query := `SELECT id, name, location, created_at, updated_at FROM stores LIMIT $1 OFFSET $2`
-	rows, err := r.db.QueryxContext(
-		ctx,
-		query,
-		&req.Limit, &req.Offset)
-	if err != nil {
+	var stores []*domain.Store
+	if err := r.db.WithContext(ctx).
+		Limit(req.Limit).
+		Offset(req.Offset).
+		Find(&stores).Error; err != nil {
 		return nil, err
-	}
-	for rows.Next() {
-		t := domain.Store{}
-		err = rows.StructScan(&t)
-		if err != nil {
-			return nil, err
-		}
-		stores = append(stores, &t)
 	}
 	return stores, nil
 }
 
+// Update an existing store
 func (r *StoreRepo) Update(ctx context.Context, req *domain.Store) error {
-	query := `UPDATE stores SET name=$1, location=$2, updated_at=NOW() WHERE id=$3`
-	_, err := r.db.ExecContext(
-		ctx, query, &req.Name, &req.Location, &req.Id,
-	)
-	if err != nil {
+	// Using `Updates` for partial updates
+	if err := r.db.WithContext(ctx).Model(&domain.Store{}).Where("id = ?", req.Id).Updates(map[string]interface{}{
+		"name":     req.Name,
+		"location": req.Location,
+	}).Error; err != nil {
 		return err
 	}
 	return nil
 }
 
-func (r *StoreRepo) Delete(ctx context.Context, Id string) error {
-	_, err := r.db.ExecContext(ctx, `DELETE FROM stores WHERE id=$1`, Id)
-	if err != nil {
+// Delete a store by ID
+func (r *StoreRepo) Delete(ctx context.Context, id string) error {
+	if err := r.db.WithContext(ctx).Where("id = ?", id).Delete(&domain.Store{}).Error; err != nil {
 		return err
 	}
 	return nil

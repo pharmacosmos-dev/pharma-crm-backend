@@ -3,7 +3,6 @@ package http
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/jmoiron/sqlx"
 	"github.com/pharma-crm-backend/config"
 	v1 "github.com/pharma-crm-backend/internal/controller/http/v1"
 	"github.com/pharma-crm-backend/internal/services"
@@ -11,6 +10,7 @@ import (
 	"github.com/pharma-crm-backend/pkg/logger"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
+	"gorm.io/gorm"
 
 	// Swagger docs.
 	_ "github.com/pharma-crm-backend/docs"
@@ -35,7 +35,7 @@ import (
 // @BasePath    /v1
 
 // NewRouter -.
-func NewRouter(handler *gin.Engine, db *sqlx.DB, log *logger.Logger, cfg *config.Config) {
+func NewRouter(handler *gin.Engine, db *gorm.DB, log *logger.Logger, cfg *config.Config) {
 
 	// Options
 	handler.Use(gin.Logger())
