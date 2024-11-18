@@ -30,7 +30,7 @@ func (r *customerRepo) Get(ctx context.Context, Id string) (*domain.Customer, er
 	c := &domain.Customer{}
 	if err := r.db.WithContext(ctx).First(c, "id = ?", Id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			r.log.Warn("Customer not found:", Id)
+			r.log.Error("Customer not found:", Id)
 			return nil, nil // Return nil if not found
 		}
 		r.log.Error("Failed to get customer:", err)

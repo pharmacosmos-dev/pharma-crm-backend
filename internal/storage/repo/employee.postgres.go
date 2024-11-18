@@ -33,7 +33,7 @@ func (r *employeeRepo) Get(ctx context.Context, id string) (*domain.Employee, er
 	e := &domain.Employee{}
 	if err := r.db.WithContext(ctx).First(e, "id=?", id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			r.log.Warn("Category not found:", id)
+			r.log.Error("Employee not found:", id)
 			return nil, nil // Return nil if not found
 		}
 		return nil, err

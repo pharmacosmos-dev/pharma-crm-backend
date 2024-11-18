@@ -32,7 +32,7 @@ func (r *BrandRepo) Get(ctx context.Context, Id string) (*domain.Brand, error) {
 	c := &domain.Brand{}
 	if err := r.db.First(c, "id = ?", Id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			r.log.Warn("Brand not found:", Id)
+			r.log.Error("Brand not found:", Id)
 			return nil, nil // Return nil if not found
 		}
 		r.log.Error("Failed to get brand:", err)

@@ -34,7 +34,7 @@ func (r *CategoryRepo) Get(ctx context.Context, Id string) (*domain.Category, er
 	c := &domain.Category{}
 	if err := r.db.WithContext(ctx).First(c, "id = ?", Id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			r.log.Warn("Category not found:", Id)
+			r.log.Error("Category not found:", Id)
 			return nil, nil // Return nil if not found
 		}
 		r.log.Error("Failed to get category:", err)
