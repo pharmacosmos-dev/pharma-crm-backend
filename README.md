@@ -16,3 +16,26 @@ Run the command below to apply the migrations and create the necessary tables in
 ```bash
 make migrate-up
 ```
+
+### 2. Revert Migrations (Drop Tables):
+If you need to undo the migrations and drop the created tables, use the following command:
+
+```bash
+make migrate-down
+```
+
+## Running the Project
+To start the project, you can run it using one of the following commands:
+
+Using make:
+
+```bash
+make run
+```
+
+Or directly with Go:
+
+```bash
+go run cmd/app/main.go
+```
+
