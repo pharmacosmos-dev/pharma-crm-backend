@@ -2,14 +2,15 @@ package v1
 
 import (
 	"context"
+	"net/http"
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/logger"
 	"gorm.io/gorm"
-	"net/http"
-	"time"
 )
 
 type BrandHandler struct {
@@ -69,7 +70,7 @@ func (h *BrandHandler) List(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	var res []*domain.Brand
-	if err := h.db.WithContext(ctx).Limit(limit).Offset(offset).Find(res).Error; err != nil {
+	if err := h.db.WithContext(ctx).Limit(limit).Offset(offset).Find(&res).Error; err != nil {
 		h.log.Error("Error on list brand: ", err.Error())
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 		return

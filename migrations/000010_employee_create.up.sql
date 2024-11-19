@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS "employees" (
   "phone" varchar,
   "email" varchar,
   "password" text,
+  "language" varchar(10),
   "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );

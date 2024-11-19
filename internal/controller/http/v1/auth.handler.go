@@ -15,7 +15,7 @@ import (
 func (h *EmployeeHandler) Login(c *gin.Context) {
 	var body RequestBody[domain.Login]
 	var res domain.Employee
-	if err := c.ShouldBind(body); err != nil {
+	if err := c.ShouldBindJSON(&body); err != nil {
 		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
 		return
 	}

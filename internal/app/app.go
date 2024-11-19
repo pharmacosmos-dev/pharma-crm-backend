@@ -19,6 +19,9 @@ import (
 
 // Run creates objects via constructors.
 func Run(cfg *config.Config) {
+
+	gin.SetMode(gin.ReleaseMode)
+
 	l := logger.New(cfg.Log.Level)
 
 	connDB, err := db.NewConnDB(cfg)
@@ -31,10 +34,11 @@ func Run(cfg *config.Config) {
 	v1.NewRouter(handler, connDB, l, cfg)
 	httpServer := httpserver.New(handler, httpserver.Port(cfg.HTTP.Port))
 
+	fmt.Println("Server is running on port:", cfg.HTTP.Port)
+
 	// Waiting signal
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
-
 	select {
 	case s := <-interrupt:
 		l.Info("app - Run - signal: " + s.String())
@@ -47,5 +51,4 @@ func Run(cfg *config.Config) {
 	if err != nil {
 		l.Error(fmt.Errorf("app - Run - httpServer.Shutdown: %w", err))
 	}
-
 }

@@ -2,10 +2,12 @@ package v1
 
 import (
 	"context"
-	"github.com/pharma-crm-backend/config"
-	"gorm.io/gorm"
 	"net/http"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/pharma-crm-backend/config"
+	"gorm.io/gorm"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
@@ -41,6 +43,7 @@ func (h *EmployeeHandler) Create(c *gin.Context) {
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 	}
 	body.Data.Password = hashedPassword
+	body.Data.Id = uuid.New().String()
 	if err := h.db.WithContext(ctx).Create(&body.Data).Model(&res).Error; err != nil {
 		h.log.Error(err)
 		handleResponse(c, http.StatusBadRequest, MsgErrInternal, err.Error())
@@ -71,7 +74,7 @@ func (h *EmployeeHandler) List(c *gin.Context) {
 		return
 	}
 	var res []*domain.Employee
-	if err := h.db.Limit(limit).Offset(offset).Find(res).Error; err != nil {
+	if err := h.db.Limit(limit).Offset(offset).Find(&res).Error; err != nil {
 		h.log.Error(err)
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 		return

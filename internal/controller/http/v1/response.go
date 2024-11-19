@@ -29,16 +29,13 @@ func handleResponse(c *gin.Context, statusCode int, message string, data interfa
 	})
 }
 
-// Success messages
 const (
+	// Success messages
 	MsgSuccessCreate = "Successfully created"
 	MsgSuccessUpdate = "Successfully updated"
 	MsgSuccessDelete = "Successfully deleted"
 	MsgSuccessFetch  = "Data fetched successfully"
-)
-
-// Error messages
-const (
+	// Error messages
 	MsgErrInvalidRequest = "Invalid request data"
 	MsgErrCreateFailed   = "Failed to create"
 	MsgErrUpdateFailed   = "Failed to update"

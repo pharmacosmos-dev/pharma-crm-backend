@@ -2,10 +2,11 @@ package v1
 
 import (
 	"context"
-	"github.com/pharma-crm-backend/config"
-	"gorm.io/gorm"
 	"net/http"
 	"time"
+
+	"github.com/pharma-crm-backend/config"
+	"gorm.io/gorm"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
@@ -65,7 +66,7 @@ func (h *CategoryHandler) List(c *gin.Context) {
 		return
 	}
 	var res []*domain.Category
-	if err := h.db.Limit(limit).Offset(offset).Find(res).Error; err != nil {
+	if err := h.db.Limit(limit).Offset(offset).Find(&res).Error; err != nil {
 		h.log.Error(err)
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 		return

@@ -14,6 +14,7 @@ type Controller struct {
 	Unit     *UnitHandler
 	Role     *RoleHandler
 	Store    *StoreHandler
+	Customer *CustomerHandler
 }
 
 func NewController(db *gorm.DB, cfg *config.Config, log *logger.Logger) *Controller {
@@ -21,5 +22,10 @@ func NewController(db *gorm.DB, cfg *config.Config, log *logger.Logger) *Control
 		Brand:    NewBrandHandler(cfg, db, log),
 		Category: NewCategoryHandler(cfg, db, log),
 		Employee: NewEmployeeHandler(cfg, db, log),
+		Product:  NewProductHandler(cfg, db, log),
+		Role:     NewRoleHandler(cfg, db, log),
+		Store:    NewStoreHandler(cfg, db, log),
+		Customer: NewCustomerHandler(cfg, db, log),
+		Unit:     NewUnitHandler(cfg, db, log),
 	}
 }
