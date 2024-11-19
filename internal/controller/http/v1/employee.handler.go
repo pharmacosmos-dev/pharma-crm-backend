@@ -2,39 +2,34 @@ package v1
 
 import (
 	"context"
+	"github.com/pharma-crm-backend/config"
+	"gorm.io/gorm"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
-	"github.com/pharma-crm-backend/internal/services"
 	"github.com/pharma-crm-backend/pkg/etc"
 	"github.com/pharma-crm-backend/pkg/logger"
 )
 
 type EmployeeHandler struct {
-	c *services.EmployeeService
-	l logger.Interface
+	cfg *config.Config
+	db  *gorm.DB
+	log *logger.Logger
 }
 
-func NewEmployeeHandler(handler *gin.RouterGroup, c *services.EmployeeService, l logger.Interface) {
-	r := &EmployeeHandler{c, l}
-	handler.POST("/login", r.Login)
-	handler.POST("/logout", r.Logout)
-	handler.POST("", r.Create)
-	handler.GET("", r.Get)
-	handler.GET("/get-list", r.List)
-	handler.PUT("", r.Update)
-	handler.DELETE("", r.Delete)
+func NewEmployeeHandler(cfg *config.Config, db *gorm.DB, log *logger.Logger) *EmployeeHandler {
+	return &EmployeeHandler{cfg: cfg, db: db, log: log}
 }
 
 func (h *EmployeeHandler) Create(c *gin.Context) {
 	var (
 		body RequestBody[domain.Employee]
-		err  error
+		res  domain.Employee
 	)
-	if err = c.ShouldBindJSON(&body); err != nil {
-		h.l.Error(err)
+	if err := c.ShouldBindJSON(&body); err != nil {
+		h.log.Error(err)
 		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
 		return
 	}
@@ -42,13 +37,12 @@ func (h *EmployeeHandler) Create(c *gin.Context) {
 	defer cancel()
 	hashedPassword, err := etc.HashPassword(body.Data.Password)
 	if err != nil {
-		h.l.Error(err)
+		h.log.Error(err)
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 	}
 	body.Data.Password = hashedPassword
-	res, err := h.c.Create(ctx, &body.Data)
-	if err != nil {
-		h.l.Error(err)
+	if err := h.db.WithContext(ctx).Create(&body.Data).Model(&res).Error; err != nil {
+		h.log.Error(err)
 		handleResponse(c, http.StatusBadRequest, MsgErrInternal, err.Error())
 		return
 	}
@@ -56,12 +50,9 @@ func (h *EmployeeHandler) Create(c *gin.Context) {
 }
 
 func (h *EmployeeHandler) Get(c *gin.Context) {
-	Id := c.Query("id")
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
-	defer cancel()
-	res, err := h.c.Get(ctx, Id)
-	if err != nil {
-		h.l.Error(err)
+	var res domain.Employee
+	if err := h.db.First(&res, "id = ?", c.Query("id")).Error; err != nil {
+		h.log.Error(err)
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 		return
 	}
@@ -79,11 +70,9 @@ func (h *EmployeeHandler) List(c *gin.Context) {
 		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
-	defer cancel()
-	res, err := h.c.GetList(ctx, &domain.Params{Limit: limit, Offset: offset})
-	if err != nil {
-		h.l.Error(err)
+	var res []*domain.Employee
+	if err := h.db.Limit(limit).Offset(offset).Find(res).Error; err != nil {
+		h.log.Error(err)
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 		return
 	}
@@ -92,8 +81,9 @@ func (h *EmployeeHandler) List(c *gin.Context) {
 
 func (h *EmployeeHandler) Update(c *gin.Context) {
 	var body RequestBody[domain.Employee]
+	var res domain.Employee
 	if err := c.ShouldBindJSON(&body); err != nil {
-		h.l.Error(err)
+		h.log.Error(err)
 		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
 		return
 	}
@@ -101,13 +91,14 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 	defer cancel()
 	hashedPassword, err := etc.HashPassword(body.Data.Password)
 	if err != nil {
-		h.l.Error(err)
+		h.log.Error(err)
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 	}
 	body.Data.Password = hashedPassword
-	res, err := h.c.Update(ctx, &body.Data)
-	if err != nil {
-		h.l.Error(err)
+
+	if err := h.db.WithContext(ctx).Model(&res).Where("id = ?", body.Data.Id).
+		Updates(&body.Data).Error; err != nil {
+		h.log.Error(err)
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 		return
 	}
@@ -115,14 +106,13 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 }
 
 func (h *EmployeeHandler) Delete(c *gin.Context) {
-	Id := c.Query("id")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
-	err := h.c.Delete(ctx, Id)
-	if err != nil {
-		h.l.Error(err)
+
+	if err := h.db.WithContext(ctx).Delete(&domain.Employee{}, "id = ?", c.Query("id")).Error; err != nil {
+		h.log.Error(err)
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 		return
 	}
-	handleResponse(c, http.StatusOK, MsgSuccessDelete, nil)
+	handleResponse(c, http.StatusOK, MsgSuccessDelete, MsgSuccessDelete)
 }

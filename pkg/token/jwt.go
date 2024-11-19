@@ -8,16 +8,10 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/pharma-crm-backend/config"
-	"github.com/pharma-crm-backend/pkg/logger"
 )
 
-type JwtHandler struct {
-	cfg config.Config
-	log logger.Logger
-}
-
 // GenerateJWT ...
-func (h *JwtHandler) GenerateJWT(m map[string]interface{}, tokenExpireTime time.Duration, tokenSecretKey string) (tokenString string, err error) {
+func GenerateJWT(m map[string]interface{}, tokenExpireTime time.Duration, tokenSecretKey string) (tokenString string, err error) {
 	token := jwt.New(jwt.SigningMethodHS256)
 
 	claims := token.Claims.(jwt.MapClaims)
@@ -25,7 +19,7 @@ func (h *JwtHandler) GenerateJWT(m map[string]interface{}, tokenExpireTime time.
 	for key, value := range m {
 		claims[key] = value
 	}
-	
+
 	claims["iat"] = time.Now().Unix()
 	claims["exp"] = time.Now().Add(tokenExpireTime).Unix()
 
@@ -38,7 +32,7 @@ func (h *JwtHandler) GenerateJWT(m map[string]interface{}, tokenExpireTime time.
 }
 
 // ExtractClaims extracts claims from given token
-func (j *JwtHandler) ExtractClaims(tokenString string, tokenSecretKey string) (jwt.MapClaims, error) {
+func ExtractClaims(tokenString string, tokenSecretKey string) (jwt.MapClaims, error) {
 	var (
 		token *jwt.Token
 		err   error
@@ -62,7 +56,7 @@ func (j *JwtHandler) ExtractClaims(tokenString string, tokenSecretKey string) (j
 }
 
 // ExtractToken checks and returns token part of input string
-func (j *JwtHandler) ExtractToken(bearer string) (token string, err error) {
+func ExtractToken(bearer string) (token string, err error) {
 	strArr := strings.Split(bearer, " ")
 	if len(strArr) == 2 {
 		return strArr[1], nil
@@ -70,9 +64,9 @@ func (j *JwtHandler) ExtractToken(bearer string) (token string, err error) {
 	return token, errors.New("wrong token format")
 }
 
-func (j *JwtHandler) VerifyToken(tokenString string) (jwt.MapClaims, error) {
+func VerifyToken(tokenString string, cfg config.Config) (jwt.MapClaims, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		return []byte(j.cfg.Secret.SecretKey), nil
+		return []byte(cfg.Secret.SecretKey), nil
 	})
 	if err != nil {
 		return nil, err
@@ -83,7 +77,6 @@ func (j *JwtHandler) VerifyToken(tokenString string) (jwt.MapClaims, error) {
 	}
 	cliams, ok := token.Claims.(jwt.MapClaims)
 	if !(ok && token.Valid) {
-		j.log.Error("invalid jwt token")
 		return nil, err
 	}
 

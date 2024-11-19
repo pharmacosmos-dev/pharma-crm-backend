@@ -8,7 +8,7 @@ import (
 
 type (
 
-	// Store Repo
+	// StoreRepo
 	StoreRepo interface {
 		Create(ctx context.Context, req *domain.Store) (*domain.Store, error)
 		Get(ctx context.Context, Id string) (*domain.Store, error)
@@ -17,7 +17,7 @@ type (
 		Delete(ctx context.Context, Id string) error
 	}
 
-	// Brand Repo
+	// BrandRepo
 	BrandRepo interface {
 		Create(ctx context.Context, req *domain.Brand) (*domain.Brand, error)
 		Get(ctx context.Context, Id string) (*domain.Brand, error)

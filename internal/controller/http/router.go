@@ -6,8 +6,6 @@ import (
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/internal/controller/http/middleware"
 	v1 "github.com/pharma-crm-backend/internal/controller/http/v1"
-	"github.com/pharma-crm-backend/internal/services"
-	"github.com/pharma-crm-backend/internal/storage/repo"
 	"github.com/pharma-crm-backend/pkg/logger"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -42,43 +40,33 @@ func NewRouter(handler *gin.Engine, db *gorm.DB, log *logger.Logger, cfg *config
 	handler.Use(gin.Logger())
 	handler.Use(gin.Recovery())
 
-	// Repositories
-	storeRepo := repo.NewStoreRepository(db, log)
-	brandRepo := repo.NewBrandRepository(db, log)
-	unitRepo := repo.NewUnitRepository(db, log)
-	roleRepo := repo.NewRoleRepository(db, log)
-	productRepo := repo.NewProductRepository(db, log)
-	customerRepo := repo.NewCustomerRepository(db, log)
-	employeeRepo := repo.NewEmployeeRepository(db, log)
-	categoryRepo := repo.NewCategoryRepository(db, log)
-
-	// Services
-	storeService := services.NewStoreService(storeRepo, cfg, log)
-	brandService := services.NewBrandService(brandRepo, cfg, log)
-	unitService := services.NewUnitService(unitRepo, cfg, log)
-	roleService := services.NewRoleService(roleRepo, cfg, log)
-	customerService := services.NewCustomerService(customerRepo, cfg, log)
-	productService := services.NewProductService(productRepo, cfg, log)
-	employeeService := services.NewEmployeeService(employeeRepo, cfg, log)
-	categoryService := services.NewCategoryService(categoryRepo, cfg, log)
+	controller := v1.NewController(db, cfg, log)
 
 	// Swagger
 	swaggerHandler := ginSwagger.DisablingWrapHandler(swaggerFiles.Handler, "DISABLE_SWAGGER_HTTP_HANDLER")
-	handler.GET("/swagger/*any", swaggerHandler)
+	handler.GET("/docs/*any", swaggerHandler)
 
 	// Routers
 	handler.GET("/", Ping)
 	api := handler.Group("/v1")
 	api.Use(middleware.AuthMiddleware())
-	
-	v1.NewStoreHandler(api.Group("/store"), storeService, log)
-	v1.NewBrandHandler(api.Group("/brand"), brandService, log)
-	v1.NewUnitHandler(api.Group("/unit"), unitService, log)
-	v1.NewRoleHandler(api.Group("/role"), roleService, log)
-	v1.NewProductRoutes(api.Group("/product"), productService, log)
-	v1.NewCustomerHandler(api.Group("/customer"), customerService, log)
-	v1.NewEmployeeHandler(api.Group("/employee"), employeeService, log)
-	v1.NewCategoryHandler(api.Group("/category"), categoryService, log)
+
+	// brand route group
+	brand := api.Group("/brand")
+	brand.POST("", controller.Brand.Create)
+	brand.GET("", controller.Brand.Get)
+	brand.GET("/get-list", controller.Brand.List)
+	brand.PUT("", controller.Brand.Update)
+	brand.DELETE("", controller.Brand.Delete)
+
+	// category route group
+	category := api.Group("/category")
+	category.POST("", controller.Category.Create)
+	category.GET("", controller.Category.Get)
+	category.GET("/get-list", controller.Category.List)
+	category.PUT("", controller.Category.Update)
+	category.DELETE("", controller.Category.Delete)
+
 }
 
 func Ping(c *gin.Context) {

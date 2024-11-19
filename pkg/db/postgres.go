@@ -20,7 +20,7 @@ const (
 	connMaxIdleTime = 20
 )
 
-// Return new Postgresql db instance
+// NewPsqlDB Return new Postgresql db instance
 func NewPsqlDB(c *config.Config) (*sqlx.DB, error) {
 	dataSourceName := fmt.Sprintf("host=%s port=%s user=%s dbname=%s sslmode=disable password=%s",
 		c.DbHost,
@@ -46,7 +46,7 @@ func NewPsqlDB(c *config.Config) (*sqlx.DB, error) {
 	return db, nil
 }
 
-// Return new Postgresql db instance for GORM
+// NewConnDB Return new Postgresql db instance for GORM
 func NewConnDB(c *config.Config) (*gorm.DB, error) {
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable",
 		c.DbHost, c.DbUser, c.DbPass, c.DbName, c.DbPort)

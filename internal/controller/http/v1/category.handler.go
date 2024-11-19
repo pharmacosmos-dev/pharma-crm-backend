@@ -2,44 +2,41 @@ package v1
 
 import (
 	"context"
+	"github.com/pharma-crm-backend/config"
+	"gorm.io/gorm"
 	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
-	"github.com/pharma-crm-backend/internal/services"
 	"github.com/pharma-crm-backend/pkg/logger"
 )
 
 type CategoryHandler struct {
-	c *services.CategoryService
-	l logger.Interface
+	cfg *config.Config
+	db  *gorm.DB
+	log *logger.Logger
 }
 
-func NewCategoryHandler(handler *gin.RouterGroup, c *services.CategoryService, l logger.Interface) {
-	r := &CategoryHandler{c, l}
-	handler.POST("", r.Create)
-	handler.GET("", r.Get)
-	handler.GET("/get-list", r.List)
-	handler.PUT("", r.Update)
-	handler.DELETE("", r.Delete)
+func NewCategoryHandler(cfg *config.Config, db *gorm.DB, log *logger.Logger) *CategoryHandler {
+	return &CategoryHandler{cfg: cfg, db: db, log: log}
 }
 
 func (h *CategoryHandler) Create(c *gin.Context) {
 	var (
 		body RequestBody[domain.Category]
-		err  error
+		res  domain.Category
 	)
-	if err = c.ShouldBindJSON(&body); err != nil {
-		h.l.Error(err)
+	if err := c.ShouldBindJSON(&body); err != nil {
+		h.log.Error(err)
 		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
-	res, err := h.c.Create(ctx, &body.Data)
-	if err != nil {
-		h.l.Error(err.Error())
+
+	if err := h.db.WithContext(ctx).Create(&body.Data).Model(&res).Error; err != nil {
+		h.log.Error(err.Error())
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 		return
 	}
@@ -47,12 +44,9 @@ func (h *CategoryHandler) Create(c *gin.Context) {
 }
 
 func (h *CategoryHandler) Get(c *gin.Context) {
-	Id := c.Query("id")
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
-	defer cancel()
-	res, err := h.c.Get(ctx, Id)
-	if err != nil {
-		h.l.Error(err)
+	var res domain.Category
+	if err := h.db.First(&res, "id = ?", c.Query("id")).Error; err != nil {
+		h.log.Error(err)
 		handleResponse(c, http.StatusInternalServerError, MsgErrFetchFailed, err.Error())
 		return
 	}
@@ -70,10 +64,9 @@ func (h *CategoryHandler) List(c *gin.Context) {
 		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
-	defer cancel()
-	res, err := h.c.GetList(ctx, &domain.Params{Limit: limit, Offset: offset})
-	if err != nil {
+	var res []*domain.Category
+	if err := h.db.Limit(limit).Offset(offset).Find(res).Error; err != nil {
+		h.log.Error(err)
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 		return
 	}
@@ -83,18 +76,19 @@ func (h *CategoryHandler) List(c *gin.Context) {
 func (h *CategoryHandler) Update(c *gin.Context) {
 	var (
 		body RequestBody[domain.Category]
-		err  error
+		res  domain.Category
 	)
-	if err = c.ShouldBindJSON(&body); err != nil {
-		h.l.Error(err)
+	if err := c.ShouldBindJSON(&body); err != nil {
+		h.log.Error(err)
 		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
-	res, err := h.c.Update(ctx, &body.Data)
-	if err != nil {
-		h.l.Error(err)
+
+	if err := h.db.WithContext(ctx).Model(&res).Where("id = ?", body.Data.Id).
+		Updates(&body.Data).Error; err != nil {
+		h.log.Error(err)
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 		return
 	}
@@ -102,12 +96,12 @@ func (h *CategoryHandler) Update(c *gin.Context) {
 }
 
 func (h *CategoryHandler) Delete(c *gin.Context) {
-	Id := c.Query("id")
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
-	if err := h.c.Delete(ctx, Id); err != nil {
+	if err := h.db.WithContext(ctx).
+		Delete(&domain.Category{}, "id = ?", c.Query("id")).Error; err != nil {
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 		return
 	}
-	handleResponse(c, http.StatusOK, MsgSuccessDelete, Id)
+	handleResponse(c, http.StatusOK, MsgSuccessDelete, MsgSuccessDelete)
 }

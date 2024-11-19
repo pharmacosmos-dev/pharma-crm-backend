@@ -33,6 +33,7 @@ func (h *ProductHandler) Create(c *gin.Context) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
+
 	res, err := h.p.Create(ctx, &body.Data)
 	if err != nil {
 		h.l.Error(err)

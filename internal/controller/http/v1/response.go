@@ -45,6 +45,7 @@ const (
 	MsgErrDeleteFailed   = "Failed to delete"
 	MsgErrFetchFailed    = "Failed to fetch data"
 	MsgErrInternal       = "Internal server error"
+	MsgErrNotFount       = "Information not found"
 )
 
 func getOffsetParam(c *gin.Context) (offset int, err error) {

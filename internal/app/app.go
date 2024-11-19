@@ -21,12 +21,6 @@ import (
 func Run(cfg *config.Config) {
 	l := logger.New(cfg.Log.Level)
 
-	// Postgres connect
-	// pgConn, err := db.NewPsqlDB(cfg)
-	// if err != nil {
-	// 	l.Error(err)
-	// }
-
 	connDB, err := db.NewConnDB(cfg)
 	if err != nil {
 		l.Error(err)
