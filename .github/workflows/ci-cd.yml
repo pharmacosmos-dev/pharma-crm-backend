@@ -60,8 +60,8 @@ jobs:
           key: "${{ env.SSH_KEY }}"
           script: |
             # Install make if it's not already installed
-            echo ${{ secrets.SSH_PASSWORD }} | sudo -S apt-get update
-            echo ${{ secrets.SSH_PASSWORD }} | sudo -S apt-get install -y make
+            echo ${{ env.SSH_PASSWORD }} | sudo -S apt-get update
+            echo ${{ env.SSH_PASSWORD }} | sudo -S apt-get install -y make
 
             # Run migrations (adjust the command as needed for your app)
             make migrate-up
