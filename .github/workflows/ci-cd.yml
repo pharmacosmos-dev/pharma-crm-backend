@@ -54,7 +54,7 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-        
+
       - name: Install migrate tool
         run: |
           wget https://github.com/golang-migrate/migrate/releases/download/v4.14.1/migrate.linux-amd64.tar.gz
@@ -63,10 +63,8 @@ jobs:
           chmod +x migrate
 
       - name: Run Migrations
-        env:
-          DATABASE_URL: ${{ secrets.PHARMA_DATABASE_URL }}
         run: |
-          ./migrate -path=$PWD/migrations -database="${DATABASE_URL}?sslmode=disable&x-migrations-table=migrations_${{ github.actor }}" up
+          ./migrate -path=$PWD/migrations -database="${{ secrets.PHARMA_DATABASE_URL }}?sslmode=disable&x-migrations-table=migrations_${{ github.actor }}" up
 
   deploy:
     needs: build_and_push
