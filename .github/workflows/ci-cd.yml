@@ -64,7 +64,7 @@ jobs:
 
       - name: Run Migrations
         run: |
-          ./migrate -path=$PWD/migrations -database="${{ secrets.PHARMA_DATABASE_URL }}?sslmode=disable&x-migrations-table=migrations_${{ github.actor }}" up
+          ./migrate -path=$PWD/migrations -database="${{ secrets.PHARMA_DATABASE_URL }}?sslmode=disable" up
 
   deploy:
     needs: build_and_push
