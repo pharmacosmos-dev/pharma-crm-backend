@@ -33,7 +33,7 @@ func (h *CustomerHandler) Create(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	body.Data.Id = uuid.New().String()
-	if err := h.db.WithContext(ctx).Model(&res).Create(&body.Data).Error; err != nil {
+	if err := h.db.WithContext(ctx).Create(&body.Data).Scan(&res).Error; err != nil {
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 		return
 	}

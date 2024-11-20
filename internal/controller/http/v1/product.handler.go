@@ -26,6 +26,7 @@ func NewProductHandler(cfg *config.Config, db *gorm.DB, log *logger.Logger) *Pro
 
 func (h *ProductHandler) Create(c *gin.Context) {
 	var body RequestBody[domain.Product]
+	var res domain.Product
 	if err := c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(err)
 		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
@@ -34,12 +35,12 @@ func (h *ProductHandler) Create(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
 	body.Data.Id = uuid.New().String()
-	if err := h.db.WithContext(ctx).Model(&domain.Product{}).Create(&body.Data).Error; err != nil {
+	if err := h.db.WithContext(ctx).Model(&domain.Product{}).Create(&body.Data).Scan(&res).Error; err != nil {
 		h.log.Error(err)
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 		return
 	}
-	handleResponse(c, http.StatusCreated, MsgSuccessCreate, body)
+	handleResponse(c, http.StatusCreated, MsgSuccessCreate, res)
 }
 
 func (h *ProductHandler) Get(c *gin.Context) {
@@ -85,7 +86,7 @@ func (h *ProductHandler) Update(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
 
-	if err := h.db.WithContext(ctx).Model(&res).Where("id = ?", body.Data.Id).Updates(&body).Error; err != nil {
+	if err := h.db.WithContext(ctx).Model(&res).Where("id = ?", body.Data.Id).Updates(&body.Data).Error; err != nil {
 		h.log.Error(err)
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 		return

@@ -59,7 +59,7 @@ func (h *EmployeeHandler) Create(c *gin.Context) {
 	}
 	body.Data.Password = hashedPassword
 	body.Data.Id = uuid.New().String()
-	if err := h.db.WithContext(ctx).Create(&body.Data).Model(&res).Error; err != nil {
+	if err := h.db.WithContext(ctx).Create(&body.Data).Scan(&res).Error; err != nil {
 		h.log.Error(err)
 		handleResponse(c, http.StatusBadRequest, MsgErrInternal, err.Error())
 		return

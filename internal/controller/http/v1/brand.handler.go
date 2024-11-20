@@ -36,7 +36,7 @@ func (h *BrandHandler) Create(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	brand.Id = uuid.New().String()
-	if err := h.db.WithContext(ctx).Create(brand).Error; err != nil {
+	if err := h.db.WithContext(ctx).Create(brand).Scan(&res).Error; err != nil {
 		h.log.Error("Error on creating brand: ", err.Error())
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 		return

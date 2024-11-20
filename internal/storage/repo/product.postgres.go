@@ -102,8 +102,8 @@ func (r *ProductRepo) Update(ctx context.Context, req *domain.Product) (*domain.
 	if req.Sku != "" {
 		updates["sku"] = req.Sku
 	}
-	if req.BarCode != "" {
-		updates["barcode"] = req.BarCode
+	if req.Barcode != "" {
+		updates["barcode"] = req.Barcode
 	}
 	if req.MainPhoto != "" {
 		updates["main_photo"] = req.MainPhoto
@@ -152,4 +152,3 @@ func (r *ProductRepo) Delete(ctx context.Context, id string) error {
 	}
 	return nil
 }
-

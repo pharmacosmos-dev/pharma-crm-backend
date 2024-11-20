@@ -36,7 +36,7 @@ func (h *StoreHandler) Create(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
 	body.Data.Id = uuid.New().String()
-	if err := h.db.WithContext(ctx).Model(&res).Create(&body.Data).Error; err != nil {
+	if err := h.db.WithContext(ctx).Model(&res).Create(&body.Data).Scan(&res).Error; err != nil {
 		h.log.Error(err)
 		handleResponse(c, http.StatusInternalServerError, MsgErrCreateFailed, err.Error())
 		return
