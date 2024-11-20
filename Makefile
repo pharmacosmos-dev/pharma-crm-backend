@@ -25,6 +25,7 @@ migrate-create:  ### create new migration
 
 migrate-up: ### migration up
 	migrate -path migrations -database "$(DB_URL)" up
+	
 .PHONY: migrate-up
 
 migrate-down:
