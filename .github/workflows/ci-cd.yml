@@ -13,6 +13,7 @@ env:
   SSH_HOST: ${{ secrets.SERVER_IP }}
   SSH_USER: ${{ secrets.SERVER_USERNAME }}
   SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+  SSH_PASSWORD: ${{ secrets.SERVER_PASSWORD }}
   PORT: 8080:8080
  
 jobs:
@@ -58,9 +59,9 @@ jobs:
           username: "${{ env.SSH_USER }}"
           key: "${{ env.SSH_KEY }}"
           script: |
-            # Install necessary tools if not already installed
-            sudo apt-get update
-            sudo apt-get install -y make
+            # Install make if it's not already installed
+            echo ${{ secrets.SSH_PASSWORD }} | sudo -S apt-get update
+            echo ${{ secrets.SSH_PASSWORD }} | sudo -S apt-get install -y make
 
             # Run migrations (adjust the command as needed for your app)
             make migrate-up
