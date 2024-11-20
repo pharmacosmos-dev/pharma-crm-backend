@@ -14,6 +14,7 @@ env:
   SSH_USER: ${{ secrets.SERVER_USERNAME }}
   SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
   SSH_PASS: ${{ secrets.SERVER_PASSWORD }}
+  DB_URL: ${{ secrets.PHARMA_DATABASE_URL }}
   PORT: 8080:8080
 
 jobs:
@@ -64,7 +65,7 @@ jobs:
 
       - name: Run Migrations
         run: |
-          ./migrate -path=$PWD/migrations -database="${{ secrets.PHARMA_DATABASE_URL }}" up
+          ./migrate -path=$PWD/migrations -database="${{ env.DB_URL }}" up
 
   deploy:
     needs: build_and_push
