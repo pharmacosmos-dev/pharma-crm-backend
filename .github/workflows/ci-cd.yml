@@ -43,6 +43,28 @@ jobs:
           tags: "${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}"
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO_NAME }}:buildcache
           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO_NAME }}:buildcache,mode=max
+  
+  migrate:
+    needs: build_and_push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Run Migrations
+        uses: appleboy/ssh-action@master
+        with:
+          host: "${{ env.SSH_HOST }}"
+          username: "${{ env.SSH_USER }}"
+          key: "${{ env.SSH_KEY }}"
+          script: |
+            # Install any necessary migration tools or dependencies
+            # For example, if you're using Make, install it
+            sudo apt-get update
+            sudo apt-get install -y make
+
+            # Run migrations (adjust the command as needed for your app)
+            make migrate-up
 
   deploy:
     needs: build_and_push
@@ -63,13 +85,3 @@ jobs:
             docker stop "${{ env.CONTAINER_NAME }}" || true
             docker rm "${{ env.CONTAINER_NAME }}" || true
             docker run -d --name "${{ env.CONTAINER_NAME }}" -p "${{ env.PORT }}" --env-file /var/www/app/.env "${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}"
-
-          
-      - name: Run Migrations
-        uses: appleboy/ssh-action@master
-        with:
-          host: "${{ env.SSH_HOST }}"
-          username: "${{ env.SSH_USER }}"
-          key: "${{ env.SSH_KEY }}"
-          script: |
-            make migrate-up
