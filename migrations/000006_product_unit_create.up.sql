@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS "product_units" (
+CREATE TABLE IF NOT EXISTS "units" (
   "id" uuid PRIMARY KEY,
   "unit" varchar,
   "abbreviation" varchar,

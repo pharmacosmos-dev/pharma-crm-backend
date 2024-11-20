@@ -1,1 +1,1 @@
-DROP TABLE IF EXISTS "product_units";
+DROP TABLE IF EXISTS "units";

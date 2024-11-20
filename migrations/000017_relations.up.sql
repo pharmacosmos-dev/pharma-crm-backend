@@ -20,8 +20,6 @@ ALTER TABLE "order_products" ADD FOREIGN KEY ("order_id") REFERENCES "orders" ("
 
 ALTER TABLE "order_products" ADD FOREIGN KEY ("created_by") REFERENCES "employees" ("id");
 
-ALTER TABLE "employees" ADD FOREIGN KEY ("client_type_id") REFERENCES "client_types" ("id");
-
 ALTER TABLE "employees" ADD FOREIGN KEY ("role_id") REFERENCES "roles" ("id");
 
 ALTER TABLE "customers" ADD FOREIGN KEY ("group_id") REFERENCES "groups" ("id");

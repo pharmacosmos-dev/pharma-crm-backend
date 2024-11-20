@@ -2,7 +2,7 @@ CURRENT_DIR=$(shell pwd)
 
 -include .env
 
-
+"postgres://pharmadev:pharma123@176.96.241.109:5432/pharma_db?sslmode=disable"
 LOCAL_BIN:=$(CURDIR)/bin
 PATH:=$(LOCAL_BIN):$(PATH)
 
@@ -25,7 +25,7 @@ migrate-create:  ### create new migration
 
 migrate-up: ### migration up
 	migrate -path migrations -database "$(DB_URL)" up
-	
+
 .PHONY: migrate-up
 
 migrate-down:
