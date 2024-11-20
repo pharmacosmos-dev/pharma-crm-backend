@@ -52,21 +52,21 @@ jobs:
       contents: read
       packages: write
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        
+      - name: Install migrate tool
+        run: |
+          wget https://github.com/golang-migrate/migrate/releases/download/v4.14.1/migrate.linux-amd64.tar.gz
+          tar -xvf migrate.linux-amd64.tar.gz
+          mv migrate.linux-amd64 migrate
+          chmod +x migrate
+
       - name: Run Migrations
-        uses: appleboy/ssh-action@master
-        with:
-          host: "${{ env.SSH_HOST }}"
-          username: "${{ env.SSH_USER }}"
-          key: "${{ env.SSH_KEY }}"
-          script: |
-            # Install make if it's not already installed
-            echo ${{ secrets.SERVER_PASSWORD }} | sudo -S apt-get update
-            echo ${{ secrets.SERVER_PASSWORD }} | sudo -S apt-get install -y make
-
-            # Ensure we're in the correct directory
-
-            # Run migrations (adjust the command as needed for your app)
-            make migrate-up
+        env:
+          DATABASE_URL: ${{ secrets.PHARMA_DATABASE_URL }}
+        run: |
+          ./migrate -path=$PWD/migrations -database="${DATABASE_URL}?sslmode=disable&x-migrations-table=migrations_${{ github.actor }}" up
 
   deploy:
     needs: build_and_push
