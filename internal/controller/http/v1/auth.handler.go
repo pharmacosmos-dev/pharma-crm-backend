@@ -6,10 +6,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/etc"
-	"github.com/pharma-crm-backend/pkg/token"
 )
 
 func (h *EmployeeHandler) Login(c *gin.Context) {
@@ -46,7 +44,7 @@ func (h *EmployeeHandler) Login(c *gin.Context) {
 		"role_id": res.RoleId,
 	}
 
-	accessToken, err := token.GenerateJWT(m, config.AccessTokenExpiresInTime, h.cfg.Secret.SecretKey)
+	accessToken, err := h.JwtHandler.GenerateJWT(m)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())

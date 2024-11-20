@@ -4,40 +4,27 @@ package http
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/config"
+	_ "github.com/pharma-crm-backend/docs"
 	"github.com/pharma-crm-backend/internal/controller/http/middleware"
 	v1 "github.com/pharma-crm-backend/internal/controller/http/v1"
 	"github.com/pharma-crm-backend/pkg/logger"
+	"github.com/pharma-crm-backend/pkg/token"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"gorm.io/gorm"
-	// Swagger docs.
-	// _ "github.com/pharma-crm-backend/docs"
 )
 
-// @title           Swagger PHARMA API
-// @version         1.0
-// @description     This is a sample server celler server.
+// @title Pharma API docs
+// @version 1.0
+// @description This is a sample server caller server.
 // @termsOfService  http://swagger.io/terms/
-
-// @contact.name   API Support
-// @contact.url    http://www.swagger.io/support
-// @contact.email  support@swagger.io
-
-// @license.name  Apache 2.0
-// @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
 
 // @BasePath  /v1
 
 // @securityDefinitions.basic  BasicAuth
 // @securityDefinitions.apikey BearerAuth
-// @securityDefinitions.apikey BearerAuth
-
 // @in header
 // @name Authorization
-
-// @externalDocs.description  OpenAPI
-// @externalDocs.url          https://swagger.io/resources/open-api/
-
 // NewRouter -.
 func NewRouter(handler *gin.Engine, db *gorm.DB, log *logger.Logger, cfg *config.Config) {
 
@@ -45,20 +32,26 @@ func NewRouter(handler *gin.Engine, db *gorm.DB, log *logger.Logger, cfg *config
 	handler.Use(gin.Logger())
 	handler.Use(gin.Recovery())
 
-	controller := v1.NewController(db, cfg, log)
+	// JWTHandler
+	jwtHandler := token.JWTHandler{
+		Cfg: cfg,
+		Log: log,
+	}
+
+	controller := v1.NewController(db, cfg, log, jwtHandler)
 
 	// Routers
 	handler.GET("/", Ping)
-	api := handler.Group("/v1")
-	auth := handler.Group("/v1")
-	api.Use(middleware.AuthMiddleware())
+	v1 := handler.Group("/v1")
+	v1.Use(middleware.NewAuth(cfg, jwtHandler, db))
 
 	// auth route
+	auth := handler.Group("/v1")
 	auth.POST("/login", controller.Employee.Login)
 	auth.POST("/logout", controller.Employee.Logout)
 
 	// brand route group
-	brand := api.Group("/brand")
+	brand := v1.Group("/brand")
 	brand.POST("", controller.Brand.Create)
 	brand.GET("", controller.Brand.Get)
 	brand.GET("/get-list", controller.Brand.List)
@@ -66,7 +59,7 @@ func NewRouter(handler *gin.Engine, db *gorm.DB, log *logger.Logger, cfg *config
 	brand.DELETE("", controller.Brand.Delete)
 
 	// category route group
-	category := api.Group("/category")
+	category := v1.Group("/category")
 	category.POST("", controller.Category.Create)
 	category.GET("", controller.Category.Get)
 	category.GET("/get-list", controller.Category.List)
@@ -74,7 +67,7 @@ func NewRouter(handler *gin.Engine, db *gorm.DB, log *logger.Logger, cfg *config
 	category.DELETE("", controller.Category.Delete)
 
 	// employee route group
-	employee := api.Group("/employee")
+	employee := v1.Group("/employee")
 	employee.POST("", controller.Employee.Create)
 	employee.GET("", controller.Employee.Get)
 	employee.PUT("", controller.Employee.Update)
@@ -82,7 +75,7 @@ func NewRouter(handler *gin.Engine, db *gorm.DB, log *logger.Logger, cfg *config
 	employee.DELETE("", controller.Employee.Delete)
 
 	// product route group
-	product := api.Group("/product")
+	product := v1.Group("/product")
 	product.POST("", controller.Product.Create)
 	product.GET("", controller.Product.Get)
 	product.PUT("", controller.Product.Update)
@@ -90,7 +83,7 @@ func NewRouter(handler *gin.Engine, db *gorm.DB, log *logger.Logger, cfg *config
 	product.DELETE("", controller.Product.Delete)
 
 	// role route group
-	role := api.Group("/role")
+	role := v1.Group("/role")
 	role.POST("", controller.Role.Create)
 	role.GET("", controller.Role.Get)
 	role.PUT("", controller.Role.Update)
@@ -98,7 +91,7 @@ func NewRouter(handler *gin.Engine, db *gorm.DB, log *logger.Logger, cfg *config
 	role.DELETE("", controller.Role.Delete)
 
 	// store route group
-	store := api.Group("/store")
+	store := v1.Group("/store")
 	store.POST("", controller.Store.Create)
 	store.GET("", controller.Store.Get)
 	store.PUT("", controller.Store.Update)
@@ -106,7 +99,7 @@ func NewRouter(handler *gin.Engine, db *gorm.DB, log *logger.Logger, cfg *config
 	store.DELETE("", controller.Store.Delete)
 
 	// customer route group
-	customer := api.Group("/customer")
+	customer := v1.Group("/customer")
 	customer.POST("", controller.Customer.Create)
 	customer.GET("", controller.Customer.Get)
 	customer.PUT("", controller.Customer.Update)
@@ -114,15 +107,16 @@ func NewRouter(handler *gin.Engine, db *gorm.DB, log *logger.Logger, cfg *config
 	customer.DELETE("", controller.Customer.Delete)
 
 	// unit route group
-	unit := api.Group("/unit")
+	unit := v1.Group("/unit")
 	unit.POST("", controller.Unit.Create)
 	unit.GET("", controller.Unit.Get)
 	unit.PUT("", controller.Unit.Update)
 	unit.GET("/get-list", controller.Unit.List)
 	unit.DELETE("", controller.Unit.Delete)
 
-	// Swagger
-	handler.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	// Swagger Route
+	url := ginSwagger.URL("swagger/doc.json")
+	handler.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, url))
 }
 
 func Ping(c *gin.Context) {

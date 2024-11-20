@@ -3,6 +3,7 @@ package v1
 import (
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/pkg/logger"
+	"github.com/pharma-crm-backend/pkg/token"
 	"gorm.io/gorm"
 )
 
@@ -17,11 +18,11 @@ type Controller struct {
 	Customer *CustomerHandler
 }
 
-func NewController(db *gorm.DB, cfg *config.Config, log *logger.Logger) *Controller {
+func NewController(db *gorm.DB, cfg *config.Config, log *logger.Logger, JwtHandler token.JWTHandler) *Controller {
 	return &Controller{
 		Brand:    NewBrandHandler(cfg, db, log),
 		Category: NewCategoryHandler(cfg, db, log),
-		Employee: NewEmployeeHandler(cfg, db, log),
+		Employee: NewEmployeeHandler(cfg, db, log, JwtHandler),
 		Product:  NewProductHandler(cfg, db, log),
 		Role:     NewRoleHandler(cfg, db, log),
 		Store:    NewStoreHandler(cfg, db, log),

@@ -13,10 +13,10 @@ type RequestBody[T any] struct {
 }
 
 type Response struct {
-	Ok      bool        `json:"ok" example:"true"`
-	Code    int         `json:"code" example:"200"`
-	Message string      `json:"message" example:"message"`
-	Data    interface{} `json:"data" example:"data"`
+	Ok      bool        `json:"ok"`
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data"`
 }
 
 // handleResponse to send consistent JSON responses

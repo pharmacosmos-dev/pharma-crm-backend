@@ -7,10 +7,9 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/gin-gonic/gin"
 	v1 "github.com/pharma-crm-backend/internal/controller/http"
 	"github.com/pharma-crm-backend/pkg/db"
-
-	"github.com/gin-gonic/gin"
 
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/pkg/httpserver"
@@ -32,6 +31,7 @@ func Run(cfg *config.Config) {
 	// HTTP Server
 	handler := gin.New()
 	v1.NewRouter(handler, connDB, l, cfg)
+
 	httpServer := httpserver.New(handler, httpserver.Port(cfg.HTTP.Port))
 
 	fmt.Println("Server is running on port:", cfg.HTTP.Port)
