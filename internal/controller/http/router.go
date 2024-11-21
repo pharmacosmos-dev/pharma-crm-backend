@@ -2,6 +2,7 @@
 package http
 
 import (
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/config"
 	_ "github.com/pharma-crm-backend/docs"
@@ -31,6 +32,15 @@ func NewRouter(handler *gin.Engine, db *gorm.DB, log *logger.Logger, cfg *config
 	// Options
 	handler.Use(gin.Logger())
 	handler.Use(gin.Recovery())
+
+	// Cors Conf
+	corConfig := cors.DefaultConfig()
+	corConfig.AllowAllOrigins = true
+	corConfig.AllowCredentials = true
+	corConfig.AllowHeaders = []string{"*"}
+	corConfig.AllowBrowserExtensions = true
+	corConfig.AllowMethods = []string{"*"}
+	handler.Use(cors.New(corConfig))
 
 	// JWTHandler
 	jwtHandler := token.JWTHandler{
