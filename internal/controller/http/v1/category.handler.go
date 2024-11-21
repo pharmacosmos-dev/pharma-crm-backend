@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
 	"gorm.io/gorm"
 
@@ -35,7 +36,7 @@ func (h *CategoryHandler) Create(c *gin.Context) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
-
+	body.Data.Id = uuid.New().String()
 	if err := h.db.WithContext(ctx).Create(&body.Data).Scan(&res).Error; err != nil {
 		h.log.Error(err.Error())
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
