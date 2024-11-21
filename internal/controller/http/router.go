@@ -91,6 +91,7 @@ func NewRouter(handler *gin.Engine, db *gorm.DB, log *logger.Logger, cfg *config
 	product.PUT("", controller.Product.Update)
 	product.GET("/get-list", controller.Product.List)
 	product.DELETE("", controller.Product.Delete)
+	product.POST("/upload-excel", controller.Product.UploadProduct)
 
 	// role route group
 	role := v1.Group("/role")

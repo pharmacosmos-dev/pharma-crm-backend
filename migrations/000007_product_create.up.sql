@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS "products" (
   "main_photo" VARCHAR,
   "photos" VARCHAR[],
   "supply_price" NUMERIC(10, 2),
+  "vat" INT,
+  "vat_price" NUMERIC(10, 2),
   "markup" INT,
   "retail_price" NUMERIC(10, 2),
   "quantity" INT,

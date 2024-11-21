@@ -2,7 +2,12 @@ package v1
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -10,6 +15,7 @@ import (
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/logger"
+	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
 )
 
@@ -60,13 +66,18 @@ func (h *ProductHandler) List(c *gin.Context) {
 		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
 		return
 	}
-
+	search := c.Query("search")
 	var res []domain.Product
 	var totalCount int64
 
 	// Perform a single query to get both total count and paginated results
-	query := h.db.Model(&domain.Product{})
-	if err := query.Count(&totalCount).Preload("Category").Limit(limit).Offset(offset).Where("name ILIKE ?", "%"+c.Query("name")+"%").Find(&res).Error; err != nil {
+	query := h.db.Model(&domain.Product{}).Preload("Category").
+		Joins("LEFT JOIN categories ON categories.id = products.category_id")
+	if err := query.Where("products.name ILIKE ? OR products.barcode ILIKE ? OR categories.name ILIKE ?", "%"+search+"%", "%"+search+"%", "%"+search+"%").
+		Count(&totalCount).
+		Limit(limit).
+		Offset(offset).
+		Find(&res).Error; err != nil {
 		h.log.Error(err)
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 		return
@@ -115,4 +126,100 @@ func (h *ProductHandler) Delete(c *gin.Context) {
 		return
 	}
 	handleResponse(c, http.StatusOK, MsgSuccessDelete, MsgSuccessDelete)
+}
+
+func (h *ProductHandler) UploadProduct(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+
+	// Retrieve the file from the request
+	file, err := c.FormFile("file")
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
+		return
+	}
+
+	// Validate file type
+	ext := filepath.Ext(file.Filename)
+	fmt.Println("File extension: ", ext) // Log the file extension
+	if ext != ".xlsx" && ext != ".xls" {
+		h.log.Error("Invalid file type: ", ext)
+		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, "Invalid file type")
+		return
+	}
+
+	// Save the uploaded file locally (optional)
+	filePath := "./uploads/" + file.Filename
+	fmt.Println("Saving file to: ", filePath) // Log the file path
+	if err := c.SaveUploadedFile(file, filePath); err != nil {
+		h.log.Error("Failed to save file: ", err)
+		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, "Failed to save file")
+		return
+	}
+	defer os.Remove(filePath)
+
+	// Open the Excel file
+	f, err := excelize.OpenFile(filePath)
+	if err != nil {
+		h.log.Error("Failed to open file with excelize: ", err)
+		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
+		return
+	}
+	defer f.Close()
+
+	// Iterate over rows and columns to read data
+	rows, err := f.GetRows("Sheet1")
+	if err != nil {
+		h.log.Error("Failed to get rows from sheet: ", err)
+		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
+		return
+	}
+
+	var products []domain.ProductUploadReq
+	// Example: Iterate through rows and create products
+	for _, row := range rows {
+		product := domain.ProductUploadReq{
+			Id:           uuid.New().String(),
+			Name:         row[1],
+			SupplyPrice:  parseFloat(row[2]),
+			Vat:          parseInt(row[3]),
+			RetailPrice:  parseFloat(row[4]),
+			VatPrice:     parseFloat(row[5]),
+			Quantity:     parseInt(row[6]),
+			Sum:          parseFloat(row[7]),
+			Manufacturer: row[8],
+			ExpireDate:   row[9],
+			Barcode:      row[10],
+			Status:       "active",
+		}
+		products = append(products, product)
+	}
+
+	// Create all products in the database
+	if err := h.db.WithContext(ctx).Model(&domain.Product{}).Create(&products).Error; err != nil {
+		h.log.Error("Failed to create products in database: ", err)
+		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
+		return
+	}
+
+	handleResponse(c, http.StatusOK, MsgSuccessCreate, MsgSuccessCreate)
+}
+
+// Helper function to safely parse float values
+func parseFloat(value string) float64 {
+	f, err := strconv.ParseFloat(strings.ReplaceAll(value, ",", ""), 64) // Remove commas
+	if err != nil {
+		return 0
+	}
+	return f
+}
+
+// Helper function to safely parse integer values
+func parseInt(value string) int {
+	i, err := strconv.Atoi(value)
+	if err != nil {
+		return 0
+	}
+	return i
 }
