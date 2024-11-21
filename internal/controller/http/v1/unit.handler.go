@@ -57,17 +57,12 @@ func (h *UnitHandler) Get(c *gin.Context) {
 }
 
 func (h *UnitHandler) List(c *gin.Context) {
-	limit, err := getLimitParam(c)
+	limit, offset, err := getPaginationParams(c)
 	if err != nil {
 		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
 		return
 	}
-	offset, err := getOffsetParam(c)
-	if err != nil {
-		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
-		return
-	}
-	res := []*domain.Unit{}
+	res := []domain.Unit{}
 	if err := h.db.Limit(limit).Offset(offset).Find(&res).Error; err != nil {
 		handleResponse(c, http.StatusInternalServerError, MsgErrFetchFailed, err.Error())
 		return

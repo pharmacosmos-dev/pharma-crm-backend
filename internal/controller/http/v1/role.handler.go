@@ -54,18 +54,13 @@ func (h *RoleHandler) Get(c *gin.Context) {
 }
 
 func (h *RoleHandler) List(c *gin.Context) {
-	limit, err := getLimitParam(c)
-	if err != nil {
-		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
-		return
-	}
-	offset, err := getOffsetParam(c)
+	limit, offset, err := getPaginationParams(c)
 	if err != nil {
 		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
 		return
 	}
 
-	res := []*domain.Role{}
+	res := []domain.Role{}
 	if err := h.db.Limit(limit).Offset(offset).Find(&res).Error; err != nil {
 		h.log.Error(err)
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())

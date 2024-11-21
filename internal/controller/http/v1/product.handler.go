@@ -55,24 +55,37 @@ func (h *ProductHandler) Get(c *gin.Context) {
 }
 
 func (h *ProductHandler) List(c *gin.Context) {
-	limit, err := getLimitParam(c)
-	if err != nil {
-		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
-		return
-	}
-	offset, err := getOffsetParam(c)
+	limit, offset, err := getPaginationParams(c)
 	if err != nil {
 		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
 		return
 	}
 
-	res := []*domain.Product{}
+	res := []domain.Product{}
+	var totalCount int64
+	if err := h.db.Model(&domain.Product{}).Count(&totalCount).Error; err != nil {
+		h.log.Error(err)
+		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
+		return
+	}
 	if err := h.db.Limit(limit).Offset(offset).Find(&res).Error; err != nil {
 		h.log.Error(err)
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 		return
 	}
-	handleResponse(c, http.StatusOK, MsgSuccessFetch, res)
+	result := struct {
+		Product []domain.Product `json:"data"`
+		Meta    domain.Meta      `json:"_meta"`
+	}{
+		Product: res,
+		Meta: domain.Meta{
+			TotalCount:  int(totalCount),
+			PerPage:     limit,
+			CurrentPage: (offset / limit) + 1,
+			PageCount:   int((totalCount + int64(limit) - 1) / int64(limit)),
+		},
+	}
+	handleResponse(c, http.StatusOK, MsgSuccessFetch, result)
 }
 
 func (h *ProductHandler) Update(c *gin.Context) {

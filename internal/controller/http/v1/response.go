@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -45,12 +46,23 @@ const (
 	MsgErrNotFount       = "Information not found"
 )
 
-func getOffsetParam(c *gin.Context) (offset int, err error) {
-	offsetStr := c.DefaultQuery("offset", "0")
-	return strconv.Atoi(offsetStr)
-}
+func getPaginationParams(c *gin.Context) (limit, offset int, err error) {
+	// Default values for limit and offset
+	const defaultLimit = 20
+	const defaultOffset = 0
 
-func getLimitParam(c *gin.Context) (limit int, err error) {
-	limitStr := c.DefaultQuery("limit", "60")
-	return strconv.Atoi(limitStr)
+	// Parse the limit parameter
+	limitStr := c.DefaultQuery("limit", strconv.Itoa(defaultLimit))
+	limit, err = strconv.Atoi(limitStr)
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid limit parameter: %w", err)
+	}
+	// Parse the offset parameter
+	offsetStr := c.DefaultQuery("offset", strconv.Itoa(defaultOffset))
+	offset, err = strconv.Atoi(offsetStr)
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid offset parameter: %w", err)
+	}
+
+	return limit, offset, nil
 }

@@ -107,17 +107,12 @@ func (h *EmployeeHandler) Get(c *gin.Context) {
 // @Router       /employees [get]
 // @Security     BearerAuth
 func (h *EmployeeHandler) List(c *gin.Context) {
-	limit, err := getLimitParam(c)
+	limit, offset, err := getPaginationParams(c)
 	if err != nil {
 		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
 		return
 	}
-	offset, err := getOffsetParam(c)
-	if err != nil {
-		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
-		return
-	}
-	var res []*domain.Employee
+	var res []domain.Employee
 	if err := h.db.Limit(limit).Offset(offset).Find(&res).Error; err != nil {
 		h.log.Error(err)
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())

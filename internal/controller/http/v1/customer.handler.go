@@ -54,17 +54,13 @@ func (h *CustomerHandler) Get(c *gin.Context) {
 }
 
 func (h *CustomerHandler) List(c *gin.Context) {
-	limit, err := getLimitParam(c)
+	limit, offset, err := getPaginationParams(c)
 	if err != nil {
 		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
 		return
 	}
-	offset, err := getOffsetParam(c)
-	if err != nil {
-		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
-		return
-	}
-	res := []*domain.Customer{}
+
+	res := []domain.Customer{}
 	if err := h.db.Limit(limit).Offset(offset).Find(&res).Error; err != nil {
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 		return

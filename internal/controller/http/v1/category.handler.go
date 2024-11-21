@@ -56,17 +56,12 @@ func (h *CategoryHandler) Get(c *gin.Context) {
 }
 
 func (h *CategoryHandler) List(c *gin.Context) {
-	limit, err := getLimitParam(c)
+	limit, offset, err := getPaginationParams(c)
 	if err != nil {
 		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
 		return
 	}
-	offset, err := getOffsetParam(c)
-	if err != nil {
-		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
-		return
-	}
-	var res []*domain.Category
+	var res []domain.Category
 	if err := h.db.Limit(limit).Offset(offset).Find(&res).Error; err != nil {
 		h.log.Error(err)
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())

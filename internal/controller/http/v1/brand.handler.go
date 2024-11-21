@@ -57,19 +57,15 @@ func (h *BrandHandler) Get(c *gin.Context) {
 }
 
 func (h *BrandHandler) List(c *gin.Context) {
-	limit, err := getLimitParam(c)
+	limit, offset, err := getPaginationParams(c)
 	if err != nil {
 		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
 		return
 	}
-	offset, err := getOffsetParam(c)
-	if err != nil {
-		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
-		return
-	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
-	var res []*domain.Brand
+	var res []domain.Brand
 	if err := h.db.WithContext(ctx).Limit(limit).Offset(offset).Find(&res).Error; err != nil {
 		h.log.Error("Error on list brand: ", err.Error())
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
