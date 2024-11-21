@@ -61,18 +61,17 @@ func (h *ProductHandler) List(c *gin.Context) {
 		return
 	}
 
-	res := []domain.Product{}
+	var res []domain.Product
 	var totalCount int64
-	if err := h.db.Model(&domain.Product{}).Count(&totalCount).Error; err != nil {
+
+	// Perform a single query to get both total count and paginated results
+	query := h.db.Model(&domain.Product{})
+	if err := query.Count(&totalCount).Preload("Category").Limit(limit).Offset(offset).Where("name ILIKE ?", "%"+c.Query("name")+"%").Find(&res).Error; err != nil {
 		h.log.Error(err)
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 		return
 	}
-	if err := h.db.Limit(limit).Offset(offset).Find(&res).Error; err != nil {
-		h.log.Error(err)
-		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
-		return
-	}
+
 	result := struct {
 		Product []domain.Product `json:"data"`
 		Meta    domain.Meta      `json:"_meta"`

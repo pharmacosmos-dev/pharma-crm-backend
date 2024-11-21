@@ -32,7 +32,7 @@ func (s StringSlice) Value() (driver.Value, error) {
 type Product struct {
 	Id                 string      `gorm:"id" json:"id" db:"id"`
 	StoreId            string      `gorm:"-" json:"store_id" db:"store_id"`
-	CategoryId         string      `gorm:"-" json:"category_id" db:"category_id"`
+	CategoryId         string      `gorm:"category_id" json:"category_id" db:"category_id"`
 	BrandId            string      `gorm:"-" json:"brand_id" db:"brand_id"`
 	SupplierId         string      `gorm:"-" json:"supplier_id" db:"supplier_id"`
 	UnitId             string      `gorm:"-" json:"unit_id" db:"unit_id"`
@@ -52,6 +52,7 @@ type Product struct {
 	Status             string      `gorm:"status" json:"status" db:"status"`
 	Manufacturer       string      `gorm:"manufacturer" json:"manufacturer" db:"manufacturer"`
 	ExpireDate         string      `gorm:"expire_date" json:"expire_date" db:"expire_date"`
+	Category           Category    `gorm:"foreignKey:CategoryId" json:"category" db:"category"`
 	CreatedAt          *time.Time  `gorm:"created_at" json:"created_at" db:"created_at"`
 	UpdatedAt          *time.Time  `gorm:"updated_at" json:"updated_at" db:"updated_at"`
 }
