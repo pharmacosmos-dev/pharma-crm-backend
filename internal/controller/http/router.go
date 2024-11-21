@@ -68,7 +68,7 @@ func NewRouter(handler *gin.Engine, db *gorm.DB, log *logger.Logger, cfg *config
 
 	// employee route group
 	employee := v1.Group("/employee")
-	employee.POST("", controller.Employee.Create)
+	auth.POST("/employee", controller.Employee.Create)
 	employee.GET("", controller.Employee.Get)
 	employee.PUT("", controller.Employee.Update)
 	employee.GET("/get-list", controller.Employee.List)
@@ -84,7 +84,7 @@ func NewRouter(handler *gin.Engine, db *gorm.DB, log *logger.Logger, cfg *config
 
 	// role route group
 	role := v1.Group("/role")
-	role.POST("", controller.Role.Create)
+	auth.POST("/role", controller.Role.Create)
 	role.GET("", controller.Role.Get)
 	role.PUT("", controller.Role.Update)
 	role.GET("/get-list", controller.Role.List)
