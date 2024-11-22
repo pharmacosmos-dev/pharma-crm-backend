@@ -426,20 +426,25 @@ paths:
     get:
       consumes:
       - application/json
-      description: Get an employee by id
+      description: List all employees
       parameters:
-      - description: Employee id
+      - description: Limit
         in: query
-        name: id
-        required: true
-        type: string
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/v1.Response'
+            items:
+              $ref: '#/definitions/v1.Response'
+            type: array
         "400":
           description: Bad Request
           schema:
@@ -458,7 +463,7 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Get employee
+      summary: List employees
       tags:
       - employees
     post:
@@ -537,50 +542,6 @@ paths:
       security:
       - BearerAuth: []
       summary: Update employee
-      tags:
-      - employees
-  /employees:
-    get:
-      consumes:
-      - application/json
-      description: List all employees
-      parameters:
-      - description: Limit
-        in: query
-        name: limit
-        type: integer
-      - description: Offset
-        in: query
-        name: offset
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/v1.Response'
-            type: array
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: List employees
       tags:
       - employees
   /product:

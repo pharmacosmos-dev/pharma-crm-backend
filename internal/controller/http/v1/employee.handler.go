@@ -101,7 +101,7 @@ func (h *EmployeeHandler) Get(c *gin.Context) {
 // @Failure      401  {object}  v1.Response
 // @Failure      403  {object}  v1.Response
 // @Failure      500  {object}  v1.Response
-// @Router       /employees [get]
+// @Router       /employee [get]
 // @Security     BearerAuth
 func (h *EmployeeHandler) List(c *gin.Context) {
 	limit, offset, err := getPaginationParams(c)
