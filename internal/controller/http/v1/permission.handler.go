@@ -41,3 +41,5 @@ func (h *PermissionHandler) Create(c *gin.Context) {
 	}
 	handleResponse(c, http.StatusCreated, MsgSuccessCreate, body)
 }
+
+

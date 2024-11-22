@@ -1,29 +1,32 @@
 package v1
 
 import (
-	"context"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/etc"
-	"github.com/pharma-crm-backend/pkg/logger"
-	"github.com/pharma-crm-backend/pkg/token"
-	"gorm.io/gorm"
 )
 
 type EmployeeHandler struct {
-	cfg        *config.Config
-	db         *gorm.DB
-	log        *logger.Logger
-	JwtHandler token.JWTHandler
+	*Handler
 }
 
-func NewEmployeeHandler(cfg *config.Config, db *gorm.DB, log *logger.Logger, jwtHandler token.JWTHandler) *EmployeeHandler {
-	return &EmployeeHandler{cfg: cfg, db: db, log: log, JwtHandler: jwtHandler}
+func (h *Handler) NewEmployeeHandler(r *gin.RouterGroup) {
+	employee := &EmployeeHandler{h}
+	employee.EmployeeRoutes(r)
+}
+
+func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
+	employee := r.Group("/employee")
+	{
+		employee.POST("", h.Create)
+		employee.GET("", h.Get)
+		employee.GET("/get-list", h.List)
+		employee.PUT("", h.Update)
+		employee.DELETE("", h.Delete)
+	}
 }
 
 // @Summary      Create employee
@@ -32,8 +35,7 @@ func NewEmployeeHandler(cfg *config.Config, db *gorm.DB, log *logger.Logger, jwt
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
-// @Param        Authorization header string true  "Bearer token"
-// @Param        input body      RequestBody[domain.Employee]  true  "Employee data"
+// @Param        input body     domain.Employee  true  "Employee data"
 // @Success      201  {object}  v1.Response
 // @Failure      400  {object}  v1.Response
 // @Failure      401  {object}  v1.Response
@@ -41,30 +43,27 @@ func NewEmployeeHandler(cfg *config.Config, db *gorm.DB, log *logger.Logger, jwt
 // @Failure      500  {object}  v1.Response
 // @Router       /employee [post]
 func (h *EmployeeHandler) Create(c *gin.Context) {
-	var (
-		body RequestBody[domain.Employee]
-		res  domain.Employee
-	)
+	var body = new(domain.Employee)
+
 	if err := c.ShouldBindJSON(&body); err != nil {
-		h.log.Error(err)
+		h.Log.Error(err)
 		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
-	defer cancel()
-	hashedPassword, err := etc.HashPassword(body.Data.Password)
+
+	hashedPassword, err := etc.HashPassword(body.Password)
 	if err != nil {
-		h.log.Error(err)
+		h.Log.Error(err)
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 	}
-	body.Data.Password = hashedPassword
-	body.Data.Id = uuid.New().String()
-	if err := h.db.WithContext(ctx).Create(&body.Data).Scan(&res).Error; err != nil {
-		h.log.Error(err)
+	body.Password = hashedPassword
+	body.Id = uuid.New().String()
+	if err := h.Db.WithContext(c.Request.Context()).Create(body).Scan(body).Error; err != nil {
+		h.Log.Error(err)
 		handleResponse(c, http.StatusBadRequest, MsgErrInternal, err.Error())
 		return
 	}
-	handleResponse(c, http.StatusCreated, MsgSuccessCreate, res)
+	handleResponse(c, http.StatusCreated, MsgSuccessCreate, body)
 }
 
 // @Summary      Get employee
@@ -72,8 +71,7 @@ func (h *EmployeeHandler) Create(c *gin.Context) {
 // @Tags         employees
 // @Accept       json
 // @Produce      json
-// @Param        Authorization  header    string          true  "Bearer token"
-// @Param        id             query     string          true  "Employee id"
+// @Param        id   query     string  true  "Employee id"
 // @Success      200  {object}  v1.Response
 // @Failure      400  {object}  v1.Response
 // @Failure      401  {object}  v1.Response
@@ -83,8 +81,8 @@ func (h *EmployeeHandler) Create(c *gin.Context) {
 // @Security     BearerAuth
 func (h *EmployeeHandler) Get(c *gin.Context) {
 	var res domain.Employee
-	if err := h.db.First(&res, "id = ?", c.Query("id")).Error; err != nil {
-		h.log.Error(err)
+	if err := h.Db.First(&res, "id = ?", c.Query("id")).Error; err != nil {
+		h.Log.Error(err)
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 		return
 	}
@@ -96,7 +94,6 @@ func (h *EmployeeHandler) Get(c *gin.Context) {
 // @Tags         employees
 // @Accept       json
 // @Produce      json
-// @Param        Authorization  header    string          true  "Bearer token"
 // @Param        limit          query     int             false "Limit"
 // @Param        offset         query     int             false "Offset"
 // @Success      200  {array}   v1.Response
@@ -113,8 +110,8 @@ func (h *EmployeeHandler) List(c *gin.Context) {
 		return
 	}
 	var res []domain.Employee
-	if err := h.db.Limit(limit).Offset(offset).Find(&res).Error; err != nil {
-		h.log.Error(err)
+	if err := h.Db.Limit(limit).Offset(offset).Find(&res).Error; err != nil {
+		h.Log.Error(err)
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 		return
 	}
@@ -126,8 +123,7 @@ func (h *EmployeeHandler) List(c *gin.Context) {
 // @Tags         employees
 // @Accept       json
 // @Produce      json
-// @Param        Authorization  header    string          true  "Bearer token"
-// @Param        input         body      RequestBody[domain.Employee]  true  "Employee data"
+// @Param        input         body  domain.Employee true  "Employee data"
 // @Success      200  {object}  v1.Response
 // @Failure      400  {object}  v1.Response
 // @Failure      401  {object}  v1.Response
@@ -136,29 +132,26 @@ func (h *EmployeeHandler) List(c *gin.Context) {
 // @Router       /employee [put]
 // @Security     BearerAuth
 func (h *EmployeeHandler) Update(c *gin.Context) {
-	var body RequestBody[domain.Employee]
-	var res domain.Employee
+	var body = new(domain.Employee)
+
 	if err := c.ShouldBindJSON(&body); err != nil {
-		h.log.Error(err)
+		h.Log.Error(err)
 		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
-	defer cancel()
-	hashedPassword, err := etc.HashPassword(body.Data.Password)
+	hashedPassword, err := etc.HashPassword(body.Password)
 	if err != nil {
-		h.log.Error(err)
+		h.Log.Error(err)
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 	}
-	body.Data.Password = hashedPassword
-
-	if err := h.db.WithContext(ctx).Model(&res).Where("id = ?", body.Data.Id).
-		Updates(&body.Data).Error; err != nil {
-		h.log.Error(err)
+	body.Password = hashedPassword
+	if err := h.Db.WithContext(c.Request.Context()).Model(body).Where("id = ?", body.Id).
+		Updates(body).Error; err != nil {
+		h.Log.Error(err)
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 		return
 	}
-	handleResponse(c, http.StatusOK, MsgSuccessUpdate, res)
+	handleResponse(c, http.StatusOK, MsgSuccessUpdate, body)
 }
 
 // @Summary      Delete employee
@@ -166,8 +159,7 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 // @Tags         employees
 // @Accept       json
 // @Produce      json
-// @Param        Authorization  header    string          true  "Bearer token"
-// @Param        id             query     string          true  "Employee id"
+// @Param        id             query     string    true  "Employee id"
 // @Success      200  {object}  v1.Response
 // @Failure      400  {object}  v1.Response
 // @Failure      401  {object}  v1.Response
@@ -176,11 +168,8 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 // @Router       /employee [delete]
 // @Security     BearerAuth
 func (h *EmployeeHandler) Delete(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
-	defer cancel()
-
-	if err := h.db.WithContext(ctx).Delete(&domain.Employee{}, "id = ?", c.Query("id")).Error; err != nil {
-		h.log.Error(err)
+	if err := h.Db.WithContext(c.Request.Context()).Delete(&domain.Employee{}, "id = ?", c.Query("id")).Error; err != nil {
+		h.Log.Error(err)
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 		return
 	}

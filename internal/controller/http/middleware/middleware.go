@@ -14,28 +14,21 @@ import (
 )
 
 type AuhtHandler struct {
-	jwtHandler token.JWTHandler
-	cfg        *config.Config
-	db         *gorm.DB
+	*v1.Handler
 }
 
-func NewAuth(cfg *config.Config, jwtHandler token.JWTHandler, db *gorm.DB) gin.HandlerFunc {
-	a := AuhtHandler{
-		jwtHandler: jwtHandler,
-		cfg:        cfg,
-		db:         db,
-	}
+func (h *AuhtHandler) NewAuth(cfg *config.Config, jwtHandler token.JWTHandler, db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		allow, err := a.CheckPermission(c)
+		allow, err := h.CheckPermission(c)
 		if err != nil {
 			v, _ := err.(*jwtg.ValidationError)
 			if v.Errors == jwtg.ValidationErrorExpired {
-				a.RequireRefresh(c)
+				h.RequireRefresh(c)
 			} else {
-				a.RequirePermission(c)
+				h.RequirePermission(c)
 			}
 		} else if !allow {
-			a.RequirePermission(c)
+			h.RequirePermission(c)
 		}
 		c.Next()
 	}
@@ -54,14 +47,14 @@ func (a *AuhtHandler) CheckPermission(c *gin.Context) (bool, error) {
 		return false, nil
 	}
 	// Parse and validate JWT token
-	claims, err := a.jwtHandler.ExtractClaims(tokenString, a.cfg.Secret.SecretKey)
+	claims, err := a.JwtHandler.ExtractClaims(tokenString, a.Cfg.Secret.SecretKey)
 	if err != nil {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization format"})
 		return false, nil
 	}
 
 	var user domain.Employee
-	if err := a.db.First(&user, "id = ?", claims["user_id"]).Error; err != nil {
+	if err := a.Db.First(&user, "id = ?", claims["user_id"]).Error; err != nil {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization format"})
 		return false, nil
 	}

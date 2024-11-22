@@ -1,29 +1,35 @@
 package v1
 
 import (
-	"context"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
-	"github.com/pharma-crm-backend/pkg/logger"
-	"gorm.io/gorm"
 )
 
-type BrandHandler struct {
-	cfg *config.Config
-	db  *gorm.DB
-	log *logger.Logger
+type BrandController struct {
+	*Handler
 }
 
-func NewBrandHandler(cfg *config.Config, db *gorm.DB, log *logger.Logger) *BrandHandler {
-	return &BrandHandler{cfg, db, log}
+func (h *Handler) NewBrandController(r *gin.RouterGroup) {
+	brand := &BrandController{h}
+	brand.BrandRoutes(r)
 }
 
-func (h *BrandHandler) Create(c *gin.Context) {
+func (b *BrandController) BrandRoutes(r *gin.RouterGroup) {
+	apiGroup := r.Group("/brand")
+	{
+		apiGroup.POST("", b.Create)
+		apiGroup.GET("", b.Get)
+		apiGroup.GET("/get-list", b.List)
+		apiGroup.PUT("", b.Update)
+		apiGroup.DELETE("", b.Delete)
+	}
+
+}
+
+func (b *BrandController) Create(c *gin.Context) {
 	var (
 		brand = new(domain.Brand)
 		res   = new(domain.Brand)
@@ -33,70 +39,61 @@ func (h *BrandHandler) Create(c *gin.Context) {
 		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
 	brand.Id = uuid.New().String()
-	if err := h.db.WithContext(ctx).Create(brand).Scan(&res).Error; err != nil {
-		h.log.Error("Error on creating brand: ", err.Error())
+	if err := b.Db.WithContext(c.Request.Context()).Create(brand).Scan(&res).Error; err != nil {
+		b.Log.Error("Error on creating brand: ", err.Error())
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 		return
 	}
 	handleResponse(c, http.StatusCreated, MsgSuccessCreate, res)
 }
 
-func (h *BrandHandler) Get(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
+func (b *BrandController) Get(c *gin.Context) {
 	res := new(domain.Brand)
-	if err := h.db.WithContext(ctx).First(res, "id = ?", c.Query("id")).Error; err != nil {
-		h.log.Error("Error on getting brand: ", err.Error())
+	if err := b.Db.First(res, "id = ?", c.Query("id")).Error; err != nil {
+		b.Log.Error("Error on getting brand: ", err.Error())
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 		return
 	}
 	handleResponse(c, http.StatusOK, MsgSuccessFetch, res)
 }
 
-func (h *BrandHandler) List(c *gin.Context) {
+func (b *BrandController) List(c *gin.Context) {
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
 		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
 		return
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
 	var res []domain.Brand
-	if err := h.db.WithContext(ctx).Limit(limit).Offset(offset).Find(&res).Error; err != nil {
-		h.log.Error("Error on list brand: ", err.Error())
+	if err := b.Db.Limit(limit).Offset(offset).Find(&res).Error; err != nil {
+		b.Log.Error("Error on list brand: ", err.Error())
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 		return
 	}
 	handleResponse(c, http.StatusOK, MsgSuccessFetch, res)
 }
 
-func (h *BrandHandler) Update(c *gin.Context) {
+func (b *BrandController) Update(c *gin.Context) {
 	var brand RequestBody[domain.Brand]
 	var res = new(domain.Brand)
 	if err := c.ShouldBindJSON(&brand); err != nil {
 		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-	if err := h.db.WithContext(ctx).Model(res).Where("id = ?", brand.Data.Id).
+
+	if err := b.Db.WithContext(c.Request.Context()).Model(res).Where("id = ?", brand.Data.Id).
 		Updates(brand.Data).Error; err != nil {
-		h.log.Error("Error on update brand: ", err.Error())
+		b.Log.Error("Error on update brand: ", err.Error())
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 		return
 	}
 	handleResponse(c, http.StatusOK, MsgSuccessUpdate, res)
 }
 
-func (h *BrandHandler) Delete(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-	if err := h.db.WithContext(ctx).Delete(&domain.Brand{}, "id = ?", c.Query("id")).Error; err != nil {
-		h.log.Error("Error on delete brand: ", err.Error())
+func (b *BrandController) Delete(c *gin.Context) {
+
+	if err := b.Db.WithContext(c.Request.Context()).Delete(&domain.Brand{}, "id = ?", c.Query("id")).Error; err != nil {
+		b.Log.Error("Error on delete brand: ", err.Error())
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 		return
 	}

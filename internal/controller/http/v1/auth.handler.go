@@ -18,7 +18,7 @@ func (h *EmployeeHandler) Login(c *gin.Context) {
 		return
 	}
 	var count int64
-	result := h.db.Model(&domain.Employee{}).Where("phone = ?", body.Data.Phone).Count(&count)
+	result := h.Db.Model(&domain.Employee{}).Where("phone = ?", body.Data.Phone).Count(&count)
 	if result.Error != nil {
 		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, result.Error.Error())
 		return
@@ -30,7 +30,7 @@ func (h *EmployeeHandler) Login(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 
-	if err := h.db.WithContext(ctx).Model(&domain.Employee{}).
+	if err := h.Db.WithContext(ctx).Model(&domain.Employee{}).
 		First(&res, "phone = ?", body.Data.Phone).Error; err != nil {
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 		return
@@ -46,7 +46,7 @@ func (h *EmployeeHandler) Login(c *gin.Context) {
 
 	accessToken, err := h.JwtHandler.GenerateJWT(m)
 	if err != nil {
-		h.log.Error(err)
+		h.Log.Error(err)
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 		return
 	}

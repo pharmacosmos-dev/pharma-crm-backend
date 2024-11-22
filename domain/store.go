@@ -2,10 +2,23 @@ package domain
 
 import "time"
 
+// Store structure
 type Store struct {
-	Id        string     `gorm:"id" json:"id" db:"id"`
-	Name      string     `gorm:"name" json:"name" db:"name"`
-	Location  string     `gorm:"location" json:"location" db:"location"`
-	CreatedAt *time.Time `gorm:"created_at" json:"created_at" db:"created_at"`
-	UpdatedAt *time.Time `gorm:"updated_at" json:"updated_at" db:"updated_at"`
+	Id        string     `gorm:"id" json:"id"`
+	Name      string     `gorm:"name" json:"name"`
+	Location  string     `gorm:"location" json:"location"`
+	CreatedAt *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt *time.Time `gorm:"updated_at" json:"updated_at"`
+}
+
+// Store Create Request
+type StoreRequest struct {
+	Id   string `gorm:"id" json:"-"`
+	Name string `gorm:"name" json:"name"`
+}
+
+// Store Update Request
+type StoreUpdateRequest struct {
+	Id   string `gorm:"id" json:"id"`
+	Name string `gorm:"name" json:"name"`
 }

@@ -35,7 +35,7 @@ func Run(cfg *config.Config) {
 	httpServer := httpserver.New(handler, httpserver.Port(cfg.HTTP.Port))
 
 	fmt.Println("Server is running on port:", cfg.HTTP.Port)
-
+	
 	// Waiting signal
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)

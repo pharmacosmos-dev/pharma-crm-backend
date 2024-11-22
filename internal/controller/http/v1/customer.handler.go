@@ -7,20 +7,28 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
-	"github.com/pharma-crm-backend/pkg/logger"
 	"gorm.io/gorm"
 )
 
 type CustomerHandler struct {
-	cfg *config.Config
-	db  *gorm.DB
-	log *logger.Logger
+	*Handler
 }
 
-func NewCustomerHandler(cfg *config.Config, db *gorm.DB, log *logger.Logger) *CustomerHandler {
-	return &CustomerHandler{cfg, db, log}
+func (h *Handler) NewCustomerHandler(r *gin.RouterGroup) {
+	customer := &CustomerHandler{h}
+	customer.CustomerRoutes(r)
+}
+
+func (h *CustomerHandler) CustomerRoutes(r *gin.RouterGroup) {
+	customer := r.Group("/customer")
+	{
+		customer.POST("", h.Create)
+		customer.GET("", h.Get)
+		customer.GET("/get-list", h.List)
+		customer.PUT("", h.Update)
+		customer.DELETE("", h.Delete)
+	}
 }
 
 func (h *CustomerHandler) Create(c *gin.Context) {
@@ -33,7 +41,7 @@ func (h *CustomerHandler) Create(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
 	body.Data.Id = uuid.New().String()
-	if err := h.db.WithContext(ctx).Create(&body.Data).Scan(&res).Error; err != nil {
+	if err := h.Db.WithContext(ctx).Create(&body.Data).Scan(&res).Error; err != nil {
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 		return
 	}
@@ -42,7 +50,7 @@ func (h *CustomerHandler) Create(c *gin.Context) {
 
 func (h *CustomerHandler) Get(c *gin.Context) {
 	var res domain.Customer
-	if err := h.db.First(&res, "id = ?", c.Query("id")).Error; err != nil {
+	if err := h.Db.First(&res, "id = ?", c.Query("id")).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			handleResponse(c, http.StatusNotFound, MsgErrNotFount, nil)
 			return
@@ -59,9 +67,8 @@ func (h *CustomerHandler) List(c *gin.Context) {
 		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
 		return
 	}
-
-	res := []domain.Customer{}
-	if err := h.db.Limit(limit).Offset(offset).Find(&res).Error; err != nil {
+	res := []*domain.Customer{}
+	if err := h.Db.Limit(limit).Offset(offset).Find(&res).Error; err != nil {
 		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
 		return
 	}
@@ -70,20 +77,15 @@ func (h *CustomerHandler) List(c *gin.Context) {
 
 func (h *CustomerHandler) Update(c *gin.Context) {
 	var body RequestBody[domain.Customer]
-	var res domain.Customer
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-	if err := h.db.WithContext(ctx).Model(&res).Where("id = ?", body.Data.Id).Updates(&body.Data).Error; err != nil {
+	if err := h.Db.WithContext(c.Request.Context()).Model(&body.Data).Where("id = ?", body.Data.Id).Updates(&body.Data).Error; err != nil {
 		handleResponse(c, http.StatusInternalServerError, MsgErrUpdateFailed, err.Error())
 		return
 	}
-	handleResponse(c, http.StatusOK, MsgSuccessUpdate, res)
+	handleResponse(c, http.StatusOK, MsgSuccessUpdate, body.Data)
 }
 
 func (h *CustomerHandler) Delete(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-	defer cancel()
-	if err := h.db.WithContext(ctx).Delete(&domain.Customer{}, "id = ?", c.Query("id")).Error; err != nil {
+	if err := h.Db.WithContext(c.Request.Context()).Delete(&domain.Customer{}, "id = ?", c.Query("id")).Error; err != nil {
 		handleResponse(c, http.StatusInternalServerError, MsgErrDeleteFailed, err.Error())
 		return
 	}
