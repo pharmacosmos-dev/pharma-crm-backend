@@ -1229,7 +1229,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Upload a product from the request body",
+                "description": "Upload a product file in .xlsx format. The file should include product details in specific columns.",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -1243,7 +1243,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "file",
-                        "description": "Product file",
+                        "description": "Excel file (.xlsx) containing product data",
                         "name": "file",
                         "in": "formData",
                         "required": true
@@ -1251,19 +1251,19 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Products uploaded successfully",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Invalid file format or processing error",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
                         }
                     },
                     "500": {
-                        "description": "Internal Server Error",
+                        "description": "Internal server error",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
                         }
