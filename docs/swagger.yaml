@@ -1145,7 +1145,7 @@ paths:
       - BearerAuth: []
       summary: Upload a product
       tags:
-      - file upload
+      - products
   /product/list:
     get:
       consumes:
@@ -1730,6 +1730,37 @@ paths:
       summary: Get a unit
       tags:
       - units
+  /upload/file:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload a file from the request body
+      parameters:
+      - description: Product file
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Upload a file
+      tags:
+      - file upload
 securityDefinitions:
   BasicAuth:
     type: basic

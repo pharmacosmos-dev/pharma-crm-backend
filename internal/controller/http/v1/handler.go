@@ -36,6 +36,7 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		h.NewRoleHandler(v1)
 		h.NewUnitHandler(v1)
 		h.NewEmployeeHandler(v1)
+		h.NewUploadHandler(v1)
 	}
 }
 
