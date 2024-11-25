@@ -1,9 +1,9 @@
 package v1
 
 import (
-	"bytes"
 	"fmt"
-	"io"
+	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -248,49 +248,88 @@ func (h *ProductHandler) Delete(c *gin.Context) {
 
 // UploadProduct godoc
 // @Summary Upload a product
-// @Description Upload a product from the request body
+// @Description Upload a product file in .xlsx format. The file should include product details in specific columns.
 // @Tags products
-// @Security     BearerAuth
+// @Security BearerAuth
 // @Accept multipart/form-data
 // @Produce json
-// @Param file formData file true "Product file"
-// @Success 200 {object} v1.Response
-// @Failure 400 {object} v1.Response
-// @Failure 500 {object} v1.Response
+// @Param file formData file true "Excel file (.xlsx) containing product data"
+// @Success 200 {object} v1.Response "Products uploaded successfully"
+// @Failure 400 {object} v1.Response "Invalid file format or processing error"
+// @Failure 500 {object} v1.Response "Internal server error"
 // @Router /product/import [post]
 func (h *ProductHandler) UploadProduct(c *gin.Context) {
-	file, handler, err := c.Request.FormFile("file")
+	var file domain.File
+	err := c.ShouldBind(&file)
 	if err != nil {
-		h.log.Error(err)
+		h.log.Error("Failed to bind file: ", err.Error())
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	// Read file contents into a byte slice
-	fileBytes, err := io.ReadAll(file)
-	if err != nil {
-		h.log.Error("Failed to read file: ", err)
-		handleResponse(c, BadRequest, "Failed to read file")
+
+	// Check file extension
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		h.log.Error("Unsupported file format: ", ext)
+		handleResponse(c, BadRequest, "Unsupported file format")
 		return
 	}
 
-	f, err := excelize.OpenReader(bytes.NewReader(fileBytes))
-	if err != nil {
-		h.log.Error("Failed to open file: ", err)
-		handleResponse(c, InternalError, "Failed to open file")
+	// Check MIME type
+	fileHeader := file.File
+	buf := make([]byte, 512)
+	fileReader, _ := fileHeader.Open()
+	defer fileReader.Close()
+	_, _ = fileReader.Read(buf)
+	contentType := http.DetectContentType(buf)
+	if contentType != "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" &&
+		contentType != "application/vnd.ms-excel" {
+		h.log.Error("Invalid file MIME type: ", contentType)
+		handleResponse(c, BadRequest, "Invalid file format")
 		return
 	}
-	sheetNames := f.GetSheetMap()
-	sheetName := f.GetSheetName(1)
-	rows, _ := f.GetRows(sheetName)
 
+	// Save the uploaded file
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+	err = c.SaveUploadedFile(file.File, savePath)
+	if err != nil {
+		h.log.Error("Failed to save file: ", err.Error())
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+
+	// Open the Excel file
+	var rows [][]string
+	if ext == ".xlsx" {
+		f, err := excelize.OpenFile(savePath)
+		if err != nil {
+			h.log.Error("Failed to open .xlsx file: ", err.Error())
+			handleResponse(c, BadRequest, "Failed to process file")
+			return
+		}
+		sheetName := f.GetSheetName(1)
+		rows, err = f.GetRows(sheetName)
+		if err != nil {
+			h.log.Error("Failed to get rows: ", err.Error())
+			handleResponse(c, InternalError, "Failed to get rows")
+			return
+		}
+	} else {
+		// Handle .xls files if needed
+		h.log.Error("Unsupported file type for processing: ", ext)
+		handleResponse(c, BadRequest, "Unsupported file type for processing")
+		return
+	}
+
+	// Process rows
 	var products []domain.ProductUploadReq
-	// Iterate through rows and create products
-	for _, row := range rows { // Skip the header row
+	for _, row := range rows {
 		if len(row) < 11 {
 			h.log.Error("Row does not have enough columns")
 			continue
 		}
-
+		// Map row to domain.ProductUploadReq
 		product := domain.ProductUploadReq{
 			Id:           uuid.New().String(),
 			Name:         row[1],
@@ -307,11 +346,8 @@ func (h *ProductHandler) UploadProduct(c *gin.Context) {
 		}
 		products = append(products, product)
 	}
-	// Process rows
-	fmt.Printf("Uploaded file: %s\n", handler.Filename)
-	fmt.Printf("File size: %d bytes\n", handler.Size)
-	fmt.Printf("Sheets in the file: %v\n", sheetNames)
-	// Create all products in the database
+
+	// Insert into the database
 	if err := h.db.WithContext(c.Request.Context()).Model(&domain.Product{}).Create(&products).Error; err != nil {
 		h.log.Error("Failed to create products in database: ", err)
 		handleResponse(c, InternalError, err.Error())
