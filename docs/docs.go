@@ -2390,6 +2390,35 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/upload/{filename}": {
+            "get": {
+                "description": "Serve a file by its filename",
+                "produces": [
+                    "octet/stream"
+                ],
+                "tags": [
+                    "file upload"
+                ],
+                "summary": "Serve a file",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "File name",
+                        "name": "filename",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "File content",
+                        "schema": {
+                            "type": "file"
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {

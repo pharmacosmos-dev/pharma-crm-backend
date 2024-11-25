@@ -2,6 +2,7 @@ package v1
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/gin-gonic/gin"
@@ -22,6 +23,7 @@ func (h *UploadHandler) UploadRoutes(r *gin.RouterGroup) {
 	upload := r.Group("/upload")
 	{
 		upload.POST("/file", h.Upload)
+		upload.GET("/:filename", h.ServeFile)
 	}
 }
 
@@ -77,8 +79,41 @@ func (h *UploadHandler) Upload(c *gin.Context) {
 		scheme = "https"
 	}
 	// Construct the file URL
-	fileURL := fmt.Sprintf("%s://%s/uploads/%s", scheme, c.Request.Host, newFilename)
+	fileURL := fmt.Sprintf("%s://%s/v1/upload/%s", scheme, c.Request.Host, newFilename)
 
 	// Return the file URL in the response
-	handleResponse(c, OK, fileURL)
+	handleResponse(c, OK, gin.H{
+		"url": fileURL,
+	})
+}
+
+// ServeFile godoc
+// @Summary Serve a file
+// @Description Serve a file by its filename
+// @Tags file upload
+// @Produce octet/stream
+// @Param filename path string true "File name"
+// @Success 200 {file} file "File content"
+// @Router /upload/{filename} [get]
+func (h *UploadHandler) ServeFile(c *gin.Context) {
+	// Get the filename from the query or route parameter
+	filename := c.Param("filename")
+	if filename == "" {
+		h.log.Error("Filename not provided")
+		handleResponse(c, BadRequest, "Filename not provided")
+		return
+	}
+
+	// Construct the full file path
+	filePath := filepath.Join("uploads", filename)
+
+	// Check if the file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		h.log.Error("File not found: ", filePath)
+		handleResponse(c, NotFound, "File not found")
+		return
+	}
+
+	// Serve the file
+	c.File(filePath)
 }

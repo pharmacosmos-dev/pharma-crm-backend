@@ -1730,6 +1730,25 @@ paths:
       summary: Get a unit
       tags:
       - units
+  /upload/{filename}:
+    get:
+      description: Serve a file by its filename
+      parameters:
+      - description: File name
+        in: path
+        name: filename
+        required: true
+        type: string
+      produces:
+      - octet/stream
+      responses:
+        "200":
+          description: File content
+          schema:
+            type: file
+      summary: Serve a file
+      tags:
+      - file upload
   /upload/file:
     post:
       consumes:
