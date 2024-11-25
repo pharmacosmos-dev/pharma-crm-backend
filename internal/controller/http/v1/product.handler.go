@@ -109,6 +109,13 @@ func (h *ProductHandler) Get(c *gin.Context) {
 // @Param limmit query int false "Limit"
 // @Param offset query int false "Offset"
 // @Param search query string false "Search"
+// @Param store_id query string false "Store ID"
+// @Param category_id query string false "Category ID"
+// @Param producer query string false "Producer"
+// @Param supply_price_from query int false "Supply From"
+// @Param supply_price_to query int false "Supply To"
+// @Param retail_price_from query int false "Retail Price From"
+// @Param retail_price_to query int false "Retail Price To"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -117,26 +124,66 @@ func (h *ProductHandler) List(c *gin.Context) {
 	var (
 		res        []domain.Product
 		totalCount int64
-		search     = c.Query("search")
 	)
+
+	// Pagination parameters
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	searchField := fmt.Sprintf("%%%s%%", search)
-	query := h.db.Model(&domain.Product{}).Table("products p").Preload("Category").
-		Joins("LEFT JOIN categories c ON c.id = p.category_id")
-	err = query.Where("p.name ILIKE ? OR p.barcode ILIKE ? OR c.name ILIKE ?", searchField, searchField, searchField).
+
+	// Prepare search field for ILIKE queries
+	searchField := fmt.Sprintf("%%%s%%", c.Query("search"))
+
+	categoryIDParam := c.Query("category_id")
+
+	storeIDParam := c.Query("store_id")
+
+	// Handle price range parameters
+	supplyPriceFrom := c.Query("supply_price_from")
+	if supplyPriceFrom == "" {
+		supplyPriceFrom = "0" // or a suitable default value
+	}
+	supplyPriceTo := c.Query("supply_price_to")
+	if supplyPriceTo == "" {
+		supplyPriceTo = "999999999" // or a suitable default value
+	}
+	retailPriceFrom := c.Query("retail_price_from")
+	if retailPriceFrom == "" {
+		retailPriceFrom = "0" // or a suitable default value
+	}
+	retailPriceTo := c.Query("retail_price_to")
+	if retailPriceTo == "" {
+		retailPriceTo = "999999999" // or a suitable default value
+	}
+	// Build the query
+	query := h.db.Model(&domain.Product{}).
+		Preload("Category").
+		Joins("LEFT JOIN categories c ON c.id = products.category_id").
+		Where("products.name ILIKE ? OR products.barcode ILIKE ? OR c.name ILIKE ?", searchField, searchField, searchField).
+		Where("is_active = ? ", true).
+		Where("supply_price BETWEEN ? AND CASE WHEN ? = 0 THEN 999999999 ELSE ? END", supplyPriceFrom, supplyPriceTo, supplyPriceTo).
+		Where("retail_price BETWEEN ? AND CASE WHEN ? = 0 THEN 999999999 ELSE ? END", retailPriceFrom, retailPriceTo, retailPriceTo).
+		Where("(manufacturer = ? OR ? = '')", c.Query("producer"), c.Query("producer")).
 		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).
-		Find(&res).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		Find(&res)
+	if categoryIDParam != "" {
+		query.Where("category_id = ?", categoryIDParam)
+	}
+	if storeIDParam != "" {
+		query.Where("store_id = ?", storeIDParam)
+	}
+	// Handle errors from the query
+	if query.Error != nil {
+		h.log.Error(query.Error)
+		handleResponse(c, InternalError, query.Error.Error())
 		return
 	}
+
+	// Prepare the response
 	result := utils.ListResponse(res, totalCount, limit, offset)
 	handleResponse(c, OK, result)
 }

@@ -1200,6 +1200,48 @@ const docTemplate = `{
                         "description": "Search",
                         "name": "search",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Store ID",
+                        "name": "store_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Category ID",
+                        "name": "category_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Producer",
+                        "name": "producer",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Supply From",
+                        "name": "supply_price_from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Supply To",
+                        "name": "supply_price_to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Retail Price From",
+                        "name": "retail_price_from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Retail Price To",
+                        "name": "retail_price_to",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -2587,6 +2629,8 @@ var SwaggerInfo = &swag.Spec{
 	Description:      "This is a sample server caller server.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
+	LeftDelim:        "{{",
+	RightDelim:       "}}",
 }
 
 func init() {

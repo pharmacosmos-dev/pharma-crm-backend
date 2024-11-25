@@ -1088,6 +1088,34 @@ paths:
         in: query
         name: search
         type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Category ID
+        in: query
+        name: category_id
+        type: string
+      - description: Producer
+        in: query
+        name: producer
+        type: string
+      - description: Supply From
+        in: query
+        name: supply_price_from
+        type: integer
+      - description: Supply To
+        in: query
+        name: supply_price_to
+        type: integer
+      - description: Retail Price From
+        in: query
+        name: retail_price_from
+        type: integer
+      - description: Retail Price To
+        in: query
+        name: retail_price_to
+        type: integer
       produces:
       - application/json
       responses:
