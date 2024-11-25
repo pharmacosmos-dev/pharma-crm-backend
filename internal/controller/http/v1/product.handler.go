@@ -319,6 +319,21 @@ func (h *ProductHandler) UploadProduct(c *gin.Context) {
 	handleResponse(c, OK, "Products uploaded successfully")
 }
 
+func (h *ProductHandler) GetProducerList(c *gin.Context) {
+	var (
+		res []*domain.ProductProducer
+		err error
+	)
+	err = h.db.Select("manufacturer").Model(&domain.Product{}).Distinct("manufacturer").Find(&res).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, res)
+
+}
+
 // Helper function to safely parse float values
 func parseFloat(value string) float64 {
 	f, err := strconv.ParseFloat(strings.ReplaceAll(value, ",", ""), 64) // Remove commas

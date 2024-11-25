@@ -6,7 +6,32 @@ import (
 	"github.com/pharma-crm-backend/pkg/etc"
 )
 
-func (h *EmployeeHandler) Login(c *gin.Context) {
+type AuthHandler struct {
+	*Handler
+}
+
+func (h *Handler) NewAuthHandler(r *gin.RouterGroup) {
+	auth := &AuthHandler{h}
+	auth.AuthRoutes(r)
+}
+
+func (h *AuthHandler) AuthRoutes(r *gin.RouterGroup) {
+	r.POST("/login", h.Login)
+}
+
+// @Summary      Login
+// @Description  Login a user
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        input body     domain.Login  true  "Login data"
+// @Success      200  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      401  {object}  v1.Response
+// @Failure      403  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /login [post]
+func (h *AuthHandler) Login(c *gin.Context) {
 	var (
 		body domain.Login
 		res  domain.Employee

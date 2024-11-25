@@ -109,3 +109,9 @@ type ProductFilterReq struct {
 	RetailPriceFrom float64 `json:"retail_price_from"`
 	RetailPriceTo   float64 `json:"retail_price_to"`
 }
+
+// Product Producer
+type ProductProducer struct {
+	Id           string `gorm:"id" json:"id"`
+	Manufacturer string `gorm:"manufacturer" json:"manufacturer"`
+}

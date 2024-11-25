@@ -27,6 +27,7 @@ func NewHandler(cfg *config.Config, db *gorm.DB, log *logger.Logger, jwt *token.
 func (h *Handler) InitRoutes(r *gin.Engine) {
 	v1 := r.Group("/v1")
 	{
+		h.NewAuthHandler(v1)
 		h.NewBrandController(v1)
 		h.NewCategoryController(v1)
 		h.NewCustomerHandler(v1)
