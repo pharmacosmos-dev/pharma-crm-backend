@@ -33,6 +33,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.PUT("/:id", h.Update)
 		product.DELETE("/:id", h.Delete)
 		product.POST("/upload", h.UploadProduct)
+		product.GET("/producer", h.GetProducerList)
 	}
 }
 
@@ -319,19 +320,31 @@ func (h *ProductHandler) UploadProduct(c *gin.Context) {
 	handleResponse(c, OK, "Products uploaded successfully")
 }
 
+// Get godoc
+// @Summary Get a product
+// @Description Get a product from the request body
+// @Tags products
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/producer [get]
 func (h *ProductHandler) GetProducerList(c *gin.Context) {
 	var (
 		res []*domain.ProductProducer
 		err error
 	)
-	err = h.db.Select("manufacturer").Model(&domain.Product{}).Distinct("manufacturer").Find(&res).Error
+	err = h.db.Model(&domain.Product{}).
+		Select("DISTINCT manufacturer, id").
+		Find(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 	handleResponse(c, OK, res)
-
 }
 
 // Helper function to safely parse float values
