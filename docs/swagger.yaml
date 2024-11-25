@@ -1,5 +1,12 @@
 basePath: /v1
 definitions:
+  domain.BrandRequest:
+    properties:
+      logo:
+        type: string
+      name:
+        type: string
+    type: object
   domain.Category:
     properties:
       created_at:
@@ -16,22 +23,20 @@ definitions:
       name:
         type: string
     type: object
-  domain.CategoryUpdateRequest:
+  domain.CustomerRequest:
     properties:
-      id:
+      email:
         type: string
       name:
         type: string
-    type: object
-  domain.Employee:
-    properties:
-      created_at:
+      phone:
         type: string
+    type: object
+  domain.EmployeeRequest:
+    properties:
       email:
         type: string
       first_name:
-        type: string
-      id:
         type: string
       language:
         type: string
@@ -42,8 +47,6 @@ definitions:
       phone:
         type: string
       role_id:
-        type: string
-      updated_at:
         type: string
     type: object
   domain.Product:
@@ -185,6 +188,13 @@ definitions:
       vat_price:
         type: number
     type: object
+  domain.RoleRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+    type: object
   domain.Store:
     properties:
       created_at:
@@ -200,14 +210,20 @@ definitions:
     type: object
   domain.StoreRequest:
     properties:
+      location:
+        type: string
       name:
         type: string
     type: object
-  domain.StoreUpdateRequest:
+  domain.Unit:
     properties:
+      abbreviation:
+        type: string
+      accuracy:
+        type: string
       id:
         type: string
-      name:
+      unit:
         type: string
     type: object
   v1.Response:
@@ -227,14 +243,46 @@ info:
   title: Pharma API docs
   version: "1.0"
 paths:
-  /category:
+  /brand:
+    post:
+      consumes:
+      - application/json
+      description: Create a brand from the request body
+      parameters:
+      - description: Brand information
+        in: body
+        name: brand
+        required: true
+        schema:
+          $ref: '#/definitions/domain.BrandRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a brand
+      tags:
+      - brands
+  /brand/{id}:
     delete:
       consumes:
       - application/json
-      description: Delete a category from the request body
+      description: Delete a brand from the request body
       parameters:
-      - description: category ID
-        in: query
+      - description: brand ID
+        in: path
         name: id
         required: true
         type: string
@@ -255,16 +303,16 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Delete a category
+      summary: Delete a brand
       tags:
-      - categories
+      - brands
     get:
       consumes:
       - application/json
-      description: Get a category from the request body
+      description: Get a brand from the request body
       parameters:
-      - description: category ID
-        in: query
+      - description: brand ID
+        in: path
         name: id
         required: true
         type: string
@@ -285,9 +333,80 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Get a category
+      summary: Get a brand
       tags:
-      - categories
+      - brands
+    put:
+      consumes:
+      - application/json
+      description: Update a brand from the request body
+      parameters:
+      - description: brand ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Brand information
+        in: body
+        name: brand
+        required: true
+        schema:
+          $ref: '#/definitions/domain.BrandRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update a brand
+      tags:
+      - brands
+  /brand/list:
+    get:
+      consumes:
+      - application/json
+      description: Get a brand from the request body
+      parameters:
+      - description: Limit
+        in: query
+        name: limmit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a brand
+      tags:
+      - brands
+  /category:
     post:
       consumes:
       - application/json
@@ -319,17 +438,83 @@ paths:
       summary: Create a new category
       tags:
       - categories
+  /category/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a category from the request body
+      parameters:
+      - description: category ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete a category
+      tags:
+      - categories
+    get:
+      consumes:
+      - application/json
+      description: Get a category from the request body
+      parameters:
+      - description: category ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a category
+      tags:
+      - categories
     put:
       consumes:
       - application/json
       description: Update a category from the request body
       parameters:
+      - description: category ID
+        in: path
+        name: id
+        required: true
+        type: string
       - description: Category information
         in: body
         name: category
         required: true
         schema:
-          $ref: '#/definitions/domain.CategoryUpdateRequest'
+          $ref: '#/definitions/domain.CategoryRequest'
       produces:
       - application/json
       responses:
@@ -350,7 +535,7 @@ paths:
       summary: Update a category
       tags:
       - categories
-  /category/get-list:
+  /category/list:
     get:
       consumes:
       - application/json
@@ -384,14 +569,221 @@ paths:
       summary: Get a category
       tags:
       - categories
+  /customer:
+    post:
+      consumes:
+      - application/json
+      description: Create a customer from the request body
+      parameters:
+      - description: Customer information
+        in: body
+        name: customer
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CustomerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a customer
+      tags:
+      - customers
+  /customer/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a customer from the request body
+      parameters:
+      - description: customer ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete a customer
+      tags:
+      - customers
+    get:
+      consumes:
+      - application/json
+      description: Get a customer from the request body
+      parameters:
+      - description: customer ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a customer
+      tags:
+      - customers
+    put:
+      consumes:
+      - application/json
+      description: Update a customer from the request body
+      parameters:
+      - description: customer ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Customer information
+        in: body
+        name: customer
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CategoryRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update a customer
+      tags:
+      - customers
+  /customer/list:
+    get:
+      consumes:
+      - application/json
+      description: Get a customer from the request body
+      parameters:
+      - description: Limit
+        in: query
+        name: limmit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a customer
+      tags:
+      - customers
   /employee:
+    post:
+      consumes:
+      - application/json
+      description: Create a new employee in the system
+      parameters:
+      - description: Employee data
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.EmployeeRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create employee
+      tags:
+      - employees
+  /employee/{id}:
     delete:
       consumes:
       - application/json
       description: Delete an employee by id
       parameters:
       - description: Employee id
-        in: query
+        in: path
         name: id
         required: true
         type: string
@@ -423,6 +815,89 @@ paths:
       summary: Delete employee
       tags:
       - employees
+    get:
+      consumes:
+      - application/json
+      description: Get an employee by id
+      parameters:
+      - description: Employee id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get employee
+      tags:
+      - employees
+    put:
+      consumes:
+      - application/json
+      description: Update an employee
+      parameters:
+      - description: Employee id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Employee data
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.EmployeeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update employee
+      tags:
+      - employees
+  /employee/list:
     get:
       consumes:
       - application/json
@@ -466,145 +941,7 @@ paths:
       summary: List employees
       tags:
       - employees
-    post:
-      consumes:
-      - application/json
-      description: Create a new employee in the system
-      parameters:
-      - description: Employee data
-        in: body
-        name: input
-        required: true
-        schema:
-          $ref: '#/definitions/domain.Employee'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Create employee
-      tags:
-      - employees
-    put:
-      consumes:
-      - application/json
-      description: Update an employee
-      parameters:
-      - description: Employee data
-        in: body
-        name: input
-        required: true
-        schema:
-          $ref: '#/definitions/domain.Employee'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Update employee
-      tags:
-      - employees
   /product:
-    delete:
-      consumes:
-      - application/json
-      description: Delete a product from the request body
-      parameters:
-      - description: product ID
-        in: query
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Delete a product
-      tags:
-      - products
-    get:
-      consumes:
-      - application/json
-      description: Get a product from the request body
-      parameters:
-      - description: product ID
-        in: query
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/domain.Product'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Get a product
-      tags:
-      - products
     post:
       consumes:
       - application/json
@@ -636,11 +973,77 @@ paths:
       summary: Create a new product
       tags:
       - products
+  /product/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a product from the request body
+      parameters:
+      - description: product ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete a product
+      tags:
+      - products
+    get:
+      consumes:
+      - application/json
+      description: Get a product from the request body
+      parameters:
+      - description: product ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.Product'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a product
+      tags:
+      - products
     put:
       consumes:
       - application/json
       description: Update a product from the request body
       parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: string
       - description: Product information
         in: body
         name: input
@@ -667,7 +1070,7 @@ paths:
       summary: Update a product
       tags:
       - products
-  /product/get-list:
+  /product/list:
     get:
       consumes:
       - application/json
@@ -736,14 +1139,46 @@ paths:
       summary: Upload a product
       tags:
       - products
-  /store:
+  /role:
+    post:
+      consumes:
+      - application/json
+      description: Create a role from the request body
+      parameters:
+      - description: Role information
+        in: body
+        name: role
+        required: true
+        schema:
+          $ref: '#/definitions/domain.RoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a role
+      tags:
+      - roles
+  /role/{id}:
     delete:
       consumes:
       - application/json
-      description: Delete a store from the request body
+      description: Delete a role from the request body
       parameters:
-      - description: store ID
-        in: query
+      - description: role ID
+        in: path
         name: id
         required: true
         type: string
@@ -764,16 +1199,16 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Delete a store
+      summary: Delete a role
       tags:
-      - stores
+      - roles
     get:
       consumes:
       - application/json
-      description: Get a store from the request body
+      description: Get a role from the request body
       parameters:
-      - description: store ID
-        in: query
+      - description: role ID
+        in: path
         name: id
         required: true
         type: string
@@ -794,9 +1229,80 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Get a store
+      summary: Get a role
       tags:
-      - stores
+      - roles
+    put:
+      consumes:
+      - application/json
+      description: Update a role from the request body
+      parameters:
+      - description: role ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Role information
+        in: body
+        name: role
+        required: true
+        schema:
+          $ref: '#/definitions/domain.RoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update a role
+      tags:
+      - roles
+  /role/list:
+    get:
+      consumes:
+      - application/json
+      description: Get a role from the request body
+      parameters:
+      - description: Limit
+        in: query
+        name: limmit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a role
+      tags:
+      - roles
+  /store:
     post:
       consumes:
       - application/json
@@ -828,17 +1334,83 @@ paths:
       summary: Create a store
       tags:
       - stores
+  /store/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a store from the request body
+      parameters:
+      - description: store ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete a store
+      tags:
+      - stores
+    get:
+      consumes:
+      - application/json
+      description: Get a store from the request body
+      parameters:
+      - description: store ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a store
+      tags:
+      - stores
     put:
       consumes:
       - application/json
       description: Update a store from the request body
       parameters:
+      - description: store ID
+        in: path
+        name: id
+        required: true
+        type: string
       - description: Store information
         in: body
         name: store
         required: true
         schema:
-          $ref: '#/definitions/domain.StoreUpdateRequest'
+          $ref: '#/definitions/domain.StoreRequest'
       produces:
       - application/json
       responses:
@@ -859,11 +1431,178 @@ paths:
       summary: Update a store
       tags:
       - stores
-  /store/get-list:
+  /store/list:
     get:
       consumes:
       - application/json
       description: Get a store from the request body
+      parameters:
+      - description: Limit
+        in: query
+        name: limmit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a store
+      tags:
+      - stores
+  /unit:
+    post:
+      consumes:
+      - application/json
+      description: Create a unit from the request body
+      parameters:
+      - description: Unit information
+        in: body
+        name: unit
+        required: true
+        schema:
+          $ref: '#/definitions/domain.Unit'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a unit
+      tags:
+      - units
+  /unit/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a unit from the request body
+      parameters:
+      - description: unit ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete a unit
+      tags:
+      - units
+    get:
+      consumes:
+      - application/json
+      description: Get a unit from the request body
+      parameters:
+      - description: unit ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a unit
+      tags:
+      - units
+    put:
+      consumes:
+      - application/json
+      description: Update a unit from the request body
+      parameters:
+      - description: unit ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Unit information
+        in: body
+        name: unit
+        required: true
+        schema:
+          $ref: '#/definitions/domain.Unit'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update a unit
+      tags:
+      - units
+  /unit/list:
+    get:
+      consumes:
+      - application/json
+      description: Get a unit from the request body
       parameters:
       - description: Limit
         in: query
@@ -890,9 +1629,9 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Get a store
+      summary: Get a unit
       tags:
-      - stores
+      - units
 securityDefinitions:
   BasicAuth:
     type: basic

@@ -1,12 +1,12 @@
 package v1
 
 import (
-	"net/http"
-
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/etc"
+	"github.com/pharma-crm-backend/pkg/utils"
+	"gorm.io/gorm"
 )
 
 type EmployeeHandler struct {
@@ -22,10 +22,10 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 	employee := r.Group("/employee")
 	{
 		employee.POST("", h.Create)
-		employee.GET("", h.Get)
-		employee.GET("/get-list", h.List)
-		employee.PUT("", h.Update)
-		employee.DELETE("", h.Delete)
+		employee.GET("/:id", h.Get)
+		employee.GET("/list", h.List)
+		employee.PUT("/:id", h.Update)
+		employee.DELETE("/:id", h.Delete)
 	}
 }
 
@@ -35,7 +35,7 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 // @Accept       json
 // @Produce      json
 // @Security     BearerAuth
-// @Param        input body     domain.Employee  true  "Employee data"
+// @Param        input body     domain.EmployeeRequest  true  "Employee data"
 // @Success      201  {object}  v1.Response
 // @Failure      400  {object}  v1.Response
 // @Failure      401  {object}  v1.Response
@@ -43,55 +43,64 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 // @Failure      500  {object}  v1.Response
 // @Router       /employee [post]
 func (h *EmployeeHandler) Create(c *gin.Context) {
-	var body = new(domain.Employee)
-
-	if err := c.ShouldBindJSON(&body); err != nil {
-		h.Log.Error(err)
-		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
+	var (
+		body = new(domain.EmployeeRequest)
+		err  error
+	)
+	err = c.ShouldBindJSON(&body)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-
 	hashedPassword, err := etc.HashPassword(body.Password)
 	if err != nil {
-		h.Log.Error(err)
-		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
 	}
 	body.Password = hashedPassword
 	body.Id = uuid.New().String()
-	if err := h.Db.WithContext(c.Request.Context()).Create(body).Scan(body).Error; err != nil {
-		h.Log.Error(err)
-		handleResponse(c, http.StatusBadRequest, MsgErrInternal, err.Error())
+	err = h.db.WithContext(c.Request.Context()).Model(&domain.Employee{}).Create(body).Scan(body).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, http.StatusCreated, MsgSuccessCreate, body)
+	handleResponse(c, CREATED, body)
 }
 
 // @Summary      Get employee
 // @Description  Get an employee by id
 // @Tags         employees
+// @Security     BearerAuth
 // @Accept       json
 // @Produce      json
-// @Param        id   query     string  true  "Employee id"
+// @Param        id   path     string  true  "Employee id"
 // @Success      200  {object}  v1.Response
 // @Failure      400  {object}  v1.Response
 // @Failure      401  {object}  v1.Response
 // @Failure      403  {object}  v1.Response
 // @Failure      500  {object}  v1.Response
-// @Router       /employee [get]
-// @Security     BearerAuth
+// @Router       /employee/{id} [get]
 func (h *EmployeeHandler) Get(c *gin.Context) {
 	var res domain.Employee
-	if err := h.Db.First(&res, "id = ?", c.Query("id")).Error; err != nil {
-		h.Log.Error(err)
-		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
+	if err := h.db.First(&res, "id = ?", c.Param("id")).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, nil)
+			return
+		}
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, http.StatusOK, MsgSuccessFetch, res)
+	handleResponse(c, OK, res)
 }
 
 // @Summary      List employees
 // @Description  List all employees
 // @Tags         employees
+// @Security     BearerAuth
 // @Accept       json
 // @Produce      json
 // @Param        limit          query     int             false "Limit"
@@ -101,77 +110,88 @@ func (h *EmployeeHandler) Get(c *gin.Context) {
 // @Failure      401  {object}  v1.Response
 // @Failure      403  {object}  v1.Response
 // @Failure      500  {object}  v1.Response
-// @Router       /employee [get]
-// @Security     BearerAuth
+// @Router       /employee/list [get]
 func (h *EmployeeHandler) List(c *gin.Context) {
+	var (
+		res        []domain.Employee
+		totalCount int64
+	)
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
-		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
+		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	var res []domain.Employee
-	if err := h.Db.Limit(limit).Offset(offset).Find(&res).Error; err != nil {
-		h.Log.Error(err)
-		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
+	err = h.db.Model(&domain.Employee{}).Count(&totalCount).Limit(limit).Offset(offset).Find(&res).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, http.StatusOK, MsgSuccessFetch, res)
+	result := utils.ListResponse(res, totalCount, limit, offset)
+	handleResponse(c, OK, result)
 }
 
 // @Summary      Update employee
 // @Description  Update an employee
 // @Tags         employees
+// @Security     BearerAuth
 // @Accept       json
 // @Produce      json
-// @Param        input         body  domain.Employee true  "Employee data"
+// @Param        id            path     string    true  "Employee id"
+// @Param        input         body  domain.EmployeeRequest true  "Employee data"
 // @Success      200  {object}  v1.Response
 // @Failure      400  {object}  v1.Response
 // @Failure      401  {object}  v1.Response
 // @Failure      403  {object}  v1.Response
 // @Failure      500  {object}  v1.Response
-// @Router       /employee [put]
-// @Security     BearerAuth
+// @Router       /employee/{id} [put]
 func (h *EmployeeHandler) Update(c *gin.Context) {
-	var body = new(domain.Employee)
-
-	if err := c.ShouldBindJSON(&body); err != nil {
-		h.Log.Error(err)
-		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
+	var (
+		body = new(domain.EmployeeRequest)
+		err  error
+	)
+	err = c.ShouldBindJSON(&body)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 	hashedPassword, err := etc.HashPassword(body.Password)
 	if err != nil {
-		h.Log.Error(err)
-		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
 	}
 	body.Password = hashedPassword
-	if err := h.Db.WithContext(c.Request.Context()).Model(body).Where("id = ?", body.Id).
-		Updates(body).Error; err != nil {
-		h.Log.Error(err)
-		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
+	err = h.db.WithContext(c.Request.Context()).
+		Model(&domain.Employee{}).
+		Where("id = ?", c.Param("id")).
+		Updates(body).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, http.StatusOK, MsgSuccessUpdate, body)
+	handleResponse(c, OK, body)
 }
 
 // @Summary      Delete employee
 // @Description  Delete an employee by id
 // @Tags         employees
+// @Security     BearerAuth
 // @Accept       json
 // @Produce      json
-// @Param        id             query     string    true  "Employee id"
+// @Param        id             path     string    true  "Employee id"
 // @Success      200  {object}  v1.Response
 // @Failure      400  {object}  v1.Response
 // @Failure      401  {object}  v1.Response
 // @Failure      403  {object}  v1.Response
 // @Failure      500  {object}  v1.Response
-// @Router       /employee [delete]
-// @Security     BearerAuth
+// @Router       /employee/{id} [delete]
 func (h *EmployeeHandler) Delete(c *gin.Context) {
-	if err := h.Db.WithContext(c.Request.Context()).Delete(&domain.Employee{}, "id = ?", c.Query("id")).Error; err != nil {
-		h.Log.Error(err)
-		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
+	if err := h.db.WithContext(c.Request.Context()).Delete(&domain.Employee{}, "id = ?", c.Param("id")).Error; err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, http.StatusOK, MsgSuccessDelete, MsgSuccessDelete)
+	handleResponse(c, OK, "DELETED")
 }

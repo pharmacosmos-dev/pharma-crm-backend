@@ -13,12 +13,7 @@ type Store struct {
 
 // Store Create Request
 type StoreRequest struct {
-	Id   string `gorm:"id" json:"-"`
-	Name string `gorm:"name" json:"name"`
-}
-
-// Store Update Request
-type StoreUpdateRequest struct {
-	Id   string `gorm:"id" json:"id"`
-	Name string `gorm:"name" json:"name"`
+	Id       string `gorm:"id" json:"-"`
+	Name     string `gorm:"name" json:"name"`
+	Location string `gorm:"location" json:"location"`
 }

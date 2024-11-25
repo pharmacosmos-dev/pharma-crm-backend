@@ -4,14 +4,15 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/xuri/excelize/v2"
+	"gorm.io/gorm"
 )
 
 type ProductHandler struct {
@@ -27,10 +28,10 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 	product := r.Group("/product")
 	{
 		product.POST("", h.Create)
-		product.GET("", h.Get)
-		product.GET("/get-list", h.List)
-		product.PUT("", h.Update)
-		product.DELETE("", h.Delete)
+		product.GET("/:id", h.Get)
+		product.GET("/list", h.List)
+		product.PUT("/:id", h.Update)
+		product.DELETE("/:id", h.Delete)
 		product.POST("/upload", h.UploadProduct)
 	}
 }
@@ -48,19 +49,28 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 // @Failure 500 {object} v1.Response
 // @Router /product [post]
 func (h *ProductHandler) Create(c *gin.Context) {
-	var body domain.ProductRequest
-	if err := c.ShouldBindJSON(&body); err != nil {
-		h.Log.Error(err)
-		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
+	var (
+		body domain.ProductRequest
+		err  error
+	)
+	err = c.ShouldBindJSON(&body)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 	body.Id = uuid.New().String()
-	if err := h.Db.WithContext(c.Request.Context()).Table("products").Create(&body).Scan(&body).Error; err != nil {
-		h.Log.Error(err)
-		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
+	body.Photos = utils.StringArray(body.Photos)
+	err = h.db.WithContext(c.Request.Context()).
+		Model(&domain.Product{}).
+		Create(&body).
+		Scan(&body).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, http.StatusCreated, MsgSuccessCreate, body)
+	handleResponse(c, CREATED, body)
 }
 
 // Get godoc
@@ -70,19 +80,23 @@ func (h *ProductHandler) Create(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param id query string true "product ID"
+// @Param id path string true "product ID"
 // @Success 200 {object} domain.Product
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /product [get]
+// @Router /product/{id} [get]
 func (h *ProductHandler) Get(c *gin.Context) {
 	var res domain.Product
-	if err := h.Db.First(&res, "id = ?", c.Query("id")).Error; err != nil {
-		h.Log.Error(err)
-		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
+	if err := h.db.First(&res, "id = ?", c.Param("id")).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, nil)
+			return
+		}
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, http.StatusOK, MsgSuccessFetch, res)
+	handleResponse(c, OK, res)
 }
 
 // Get godoc
@@ -98,45 +112,33 @@ func (h *ProductHandler) Get(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /product/get-list [get]
+// @Router /product/list [get]
 func (h *ProductHandler) List(c *gin.Context) {
-	limit, offset, err := getPaginationParams(c)
-	if err != nil {
-		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
-		return
-	}
 	var (
 		res        []domain.Product
 		totalCount int64
 		search     = c.Query("search")
 	)
-
-	// Perform a single query to get both total count and paginated results
-	query := h.Db.Model(&domain.Product{}).Preload("Category").
-		Joins("LEFT JOIN categories ON categories.id = products.category_id")
-	if err := query.Where("products.name ILIKE ? OR products.barcode ILIKE ? OR categories.name ILIKE ?", "%"+search+"%", "%"+search+"%", "%"+search+"%").
+	limit, offset, err := getPaginationParams(c)
+	if err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	searchField := fmt.Sprintf("%%%s%%", search)
+	query := h.db.Model(&domain.Product{}).Table("products p").Preload("Category").
+		Joins("LEFT JOIN categories c ON c.id = p.category_id")
+	err = query.Where("p.name ILIKE ? OR p.barcode ILIKE ? OR c.name ILIKE ?", searchField, searchField, searchField).
 		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).
-		Find(&res).Error; err != nil {
-		h.Log.Error(err)
-		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
+		Find(&res).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
-
-	result := struct {
-		Product []domain.Product `json:"data"`
-		Meta    domain.Meta      `json:"_meta"`
-	}{
-		Product: res,
-		Meta: domain.Meta{
-			TotalCount:  int(totalCount),
-			PerPage:     limit,
-			CurrentPage: (offset / limit) + 1,
-			PageCount:   int((totalCount + int64(limit) - 1) / int64(limit)),
-		},
-	}
-	handleResponse(c, http.StatusOK, MsgSuccessFetch, result)
+	result := utils.ListResponse(res, totalCount, limit, offset)
+	handleResponse(c, OK, result)
 }
 
 // Get godoc
@@ -146,24 +148,32 @@ func (h *ProductHandler) List(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param input body domain.ProductUpdateRequest true "Product information"
+// @Param   id path string true "Product ID"
+// @Param   input body domain.ProductUpdateRequest true "Product information"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /product [put]
+// @Router /product/{id} [put]
 func (h *ProductHandler) Update(c *gin.Context) {
-	var body domain.ProductUpdateRequest
-	if err := c.ShouldBindJSON(&body); err != nil {
-		h.Log.Error(err)
-		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
+	var (
+		body domain.ProductRequest
+		err  error
+	)
+
+	err = c.ShouldBindJSON(&body)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	if err := h.Db.WithContext(c.Request.Context()).Table("products").Model(&body).Where("id = ?", body.Id).Updates(&body).Error; err != nil {
-		h.Log.Error(err)
-		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
+	body.Photos = utils.StringArray(body.Photos)
+	err = h.db.WithContext(c.Request.Context()).Model(&domain.Product{}).Where("id = ?", c.Param("id")).Updates(body).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, http.StatusOK, MsgSuccessUpdate, body)
+	handleResponse(c, OK, body)
 }
 
 // Get godoc
@@ -173,18 +183,18 @@ func (h *ProductHandler) Update(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param id query string true "product ID"
+// @Param id path string true "product ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /product [delete]
+// @Router /product/{id} [delete]
 func (h *ProductHandler) Delete(c *gin.Context) {
-	if err := h.Db.WithContext(c.Request.Context()).Delete(&domain.Product{}, "id = ?", c.Query("id")).Error; err != nil {
-		h.Log.Error(err)
-		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
+	if err := h.db.WithContext(c.Request.Context()).Delete(&domain.Product{}, "id = ?", c.Param("id")).Error; err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, http.StatusOK, MsgSuccessDelete, MsgSuccessDelete)
+	handleResponse(c, OK, "DELETED")
 }
 
 // UploadProduct godoc
@@ -202,22 +212,22 @@ func (h *ProductHandler) Delete(c *gin.Context) {
 func (h *ProductHandler) UploadProduct(c *gin.Context) {
 	file, handler, err := c.Request.FormFile("file")
 	if err != nil {
-		h.Log.Error(err)
-		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 	// Read file contents into a byte slice
 	fileBytes, err := io.ReadAll(file)
 	if err != nil {
-		h.Log.Error("Failed to read file: ", err)
-		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, "Failed to read file")
+		h.log.Error("Failed to read file: ", err)
+		handleResponse(c, BadRequest, "Failed to read file")
 		return
 	}
 
 	f, err := excelize.OpenReader(bytes.NewReader(fileBytes))
 	if err != nil {
-		h.Log.Error("Failed to open file: ", err)
-		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, "Failed to open file")
+		h.log.Error("Failed to open file: ", err)
+		handleResponse(c, InternalError, "Failed to open file")
 		return
 	}
 	sheetNames := f.GetSheetMap()
@@ -228,7 +238,7 @@ func (h *ProductHandler) UploadProduct(c *gin.Context) {
 	// Iterate through rows and create products
 	for _, row := range rows { // Skip the header row
 		if len(row) < 11 {
-			h.Log.Error("Row does not have enough columns")
+			h.log.Error("Row does not have enough columns")
 			continue
 		}
 
@@ -253,13 +263,13 @@ func (h *ProductHandler) UploadProduct(c *gin.Context) {
 	fmt.Printf("File size: %d bytes\n", handler.Size)
 	fmt.Printf("Sheets in the file: %v\n", sheetNames)
 	// Create all products in the database
-	if err := h.Db.WithContext(c.Request.Context()).Model(&domain.Product{}).Create(&products).Error; err != nil {
-		h.Log.Error("Failed to create products in database: ", err)
-		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
+	if err := h.db.WithContext(c.Request.Context()).Model(&domain.Product{}).Create(&products).Error; err != nil {
+		h.log.Error("Failed to create products in database: ", err)
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
-	handleResponse(c, http.StatusOK, MsgSuccessCreate, MsgSuccessCreate)
+	handleResponse(c, OK, "Products uploaded successfully")
 }
 
 // Helper function to safely parse float values

@@ -9,17 +9,17 @@ import (
 )
 
 type Handler struct {
-	Log        *logger.Logger
-	Db         *gorm.DB
-	Cfg        *config.Config
+	log        *logger.Logger
+	db         *gorm.DB
+	cfg        *config.Config
 	JwtHandler *token.JWTHandler
 }
 
 func NewHandler(cfg *config.Config, db *gorm.DB, log *logger.Logger, jwt *token.JWTHandler) *Handler {
 	return &Handler{
-		Cfg:        cfg,
-		Db:         db,
-		Log:        log,
+		cfg:        cfg,
+		db:         db,
+		log:        log,
 		JwtHandler: jwt,
 	}
 }
@@ -36,4 +36,21 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		h.NewUnitHandler(v1)
 		h.NewEmployeeHandler(v1)
 	}
+}
+
+type Response struct {
+	Ok      bool        `json:"ok"`
+	Code    int         `json:"code"`
+	Message string      `json:"message"`
+	Data    interface{} `json:"data"`
+}
+
+// handleResponse to send consistent JSON responses
+func handleResponse(c *gin.Context, status Status, data interface{}) {
+	c.JSON(status.Code, Response{
+		Ok:      status.Code >= 200 && status.Code < 400, // true for 2xx status codes
+		Code:    status.Code,
+		Message: status.Description,
+		Data:    data,
+	})
 }

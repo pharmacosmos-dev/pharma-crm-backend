@@ -1,8 +1,6 @@
 package v1
 
 import (
-	"net/http"
-
 	"github.com/google/uuid"
 
 	"github.com/gin-gonic/gin"
@@ -22,10 +20,10 @@ func (h *CategoryController) CategoryRoutes(r *gin.RouterGroup) {
 	category := r.Group("/category")
 	{
 		category.POST("", h.Create)
-		category.GET("", h.Get)
-		category.PUT("", h.Update)
-		category.GET("/get-list", h.List)
-		category.DELETE("", h.Delete)
+		category.GET("/:id", h.Get)
+		category.PUT("/:id", h.Update)
+		category.GET("/list", h.List)
+		category.DELETE("/:id", h.Delete)
 	}
 }
 
@@ -44,17 +42,17 @@ func (h *CategoryController) CategoryRoutes(r *gin.RouterGroup) {
 func (h *CategoryController) Create(c *gin.Context) {
 	var body domain.CategoryRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
-		h.Log.Error(err)
-		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 	body.Id = uuid.New().String()
-	if err := h.Db.WithContext(c.Request.Context()).Create(&body).Scan(&body).Error; err != nil {
-		h.Log.Error(err.Error())
-		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
+	if err := h.db.WithContext(c.Request.Context()).Create(&body).Scan(&body).Error; err != nil {
+		h.log.Error(err.Error())
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, http.StatusCreated, MsgSuccessCreate, body)
+	handleResponse(c, OK, body)
 }
 
 // Get godoc
@@ -64,19 +62,19 @@ func (h *CategoryController) Create(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param id query string true "category ID"
+// @Param id path string true "category ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /category [get]
+// @Router /category/{id} [get]
 func (h *CategoryController) Get(c *gin.Context) {
 	var res domain.Category
-	if err := h.Db.First(&res, "id = ?", c.Query("id")).Error; err != nil {
-		h.Log.Error(err)
-		handleResponse(c, http.StatusInternalServerError, MsgErrFetchFailed, err.Error())
+	if err := h.db.First(&res, "id = ?", c.Param("id")).Error; err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, http.StatusOK, MsgSuccessFetch, res)
+	handleResponse(c, OK, res)
 }
 
 // List godoc
@@ -91,20 +89,20 @@ func (h *CategoryController) Get(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /category/get-list [get]
+// @Router /category/list [get]
 func (h *CategoryController) List(c *gin.Context) {
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
-		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
+		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 	var res []domain.Category
-	if err := h.Db.Limit(limit).Offset(offset).Find(&res).Error; err != nil {
-		h.Log.Error(err)
-		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
+	if err := h.db.Model(&domain.Category{}).Limit(limit).Offset(offset).Find(&res).Error; err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, http.StatusOK, MsgSuccessFetch, res)
+	handleResponse(c, OK, res)
 }
 
 // Update godoc
@@ -114,25 +112,33 @@ func (h *CategoryController) List(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param category body domain.CategoryUpdateRequest true "Category information"
+// @Param id path string true "category ID"
+// @Param category body domain.CategoryRequest true "Category information"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /category [put]
+// @Router /category/{id} [put]
 func (h *CategoryController) Update(c *gin.Context) {
-	var body domain.CategoryUpdateRequest
-	if err := c.ShouldBindJSON(&body); err != nil {
-		h.Log.Error(err)
-		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
+	var (
+		body domain.CategoryRequest
+		err  error
+	)
+	err = c.ShouldBindJSON(&body)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	if err := h.Db.WithContext(c.Request.Context()).Table("categories").Where("id = ?", body.Id).
-		Updates(&body).Error; err != nil {
-		h.Log.Error(err)
-		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
+	err = h.db.WithContext(c.Request.Context()).
+		Model(&domain.Category{}).
+		Where("id = ?", c.Param("id")).
+		Updates(&body).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, http.StatusOK, MsgSuccessUpdate, body)
+	handleResponse(c, OK, body)
 }
 
 // Delete godoc
@@ -142,16 +148,17 @@ func (h *CategoryController) Update(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param id query string true "category ID"
+// @Param id path string true "category ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /category [delete]
+// @Router /category/{id} [delete]
 func (h *CategoryController) Delete(c *gin.Context) {
-	if err := h.Db.WithContext(c.Request.Context()).
-		Delete(&domain.Category{}, "id = ?", c.Query("id")).Error; err != nil {
-		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
+	if err := h.db.WithContext(c.Request.Context()).
+		Delete(&domain.Category{}, "id = ?", c.Param("id")).Error; err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, http.StatusOK, MsgSuccessDelete, MsgSuccessDelete)
+	handleResponse(c, OK, "DELETED")
 }

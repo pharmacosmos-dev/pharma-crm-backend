@@ -14,14 +14,25 @@ type LoginResponse struct {
 }
 
 type Employee struct {
-	Id        string     `gorm:"id" json:"id" db:"id"`
-	RoleId    string     `gorm:"role_id" json:"role_id" db:"role_id"`
-	FirstName string     `gorm:"first_name" json:"first_name" db:"first_name"`
-	LastName  string     `gorm:"last_name" json:"last_name" db:"last_name"`
-	Email     string     `gorm:"email" json:"email" db:"email"`
-	Phone     string     `gorm:"phone" json:"phone" db:"phone"`
-	Password  string     `gorm:"password" json:"password" db:"password"`
-	Language  string     `gorm:"language" json:"language" db:"language"`
-	CreatedAt *time.Time `gorm:"created_at" json:"created_at" db:"created_at"`
-	UpdatedAt *time.Time `gorm:"updated_at" json:"updated_at" db:"updated_at"`
+	Id        string     `gorm:"id" json:"id"`
+	RoleId    string     `gorm:"role_id" json:"role_id"`
+	FirstName string     `gorm:"first_name" json:"first_name"`
+	LastName  string     `gorm:"last_name" json:"last_name"`
+	Email     string     `gorm:"email" json:"email"`
+	Phone     string     `gorm:"phone" json:"phone"`
+	Password  string     `gorm:"password" json:"password"`
+	Language  string     `gorm:"language" json:"language"`
+	CreatedAt *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt *time.Time `gorm:"updated_at" json:"updated_at"`
+}
+
+type EmployeeRequest struct {
+	Id        string `gorm:"id" json:"-"`
+	RoleId    string `gorm:"role_id" json:"role_id"`
+	FirstName string `gorm:"first_name" json:"first_name"`
+	LastName  string `gorm:"last_name" json:"last_name"`
+	Email     string `gorm:"email" json:"email"`
+	Phone     string `gorm:"phone" json:"phone"`
+	Password  string `gorm:"password" json:"password"`
+	Language  string `gorm:"language" json:"language"`
 }

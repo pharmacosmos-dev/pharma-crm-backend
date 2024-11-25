@@ -1,8 +1,6 @@
 package v1
 
 import (
-	"net/http"
-
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
@@ -22,10 +20,10 @@ func (h *StoreHandler) StoreRoutes(r *gin.RouterGroup) {
 	store := r.Group("/store")
 	{
 		store.POST("", h.Create)
-		store.GET("", h.Get)
-		store.GET("/get-list", h.List)
-		store.PUT("", h.Update)
-		store.DELETE("", h.Delete)
+		store.GET("/:id", h.Get)
+		store.GET("/list", h.List)
+		store.PUT("/:id", h.Update)
+		store.DELETE("/:id", h.Delete)
 	}
 }
 
@@ -42,19 +40,24 @@ func (h *StoreHandler) StoreRoutes(r *gin.RouterGroup) {
 // @Failure 500 {object} v1.Response
 // @Router /store [post]
 func (h *StoreHandler) Create(c *gin.Context) {
-	var body domain.StoreRequest
-	if err := c.ShouldBindJSON(&body); err != nil {
-		h.Log.Error(err)
-		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
+	var (
+		body domain.StoreRequest
+		err  error
+	)
+	err = c.ShouldBindJSON(&body)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 	body.Id = uuid.New().String()
-	if err := h.Db.WithContext(c.Request.Context()).Table("stores").Create(&body).Error; err != nil {
-		h.Log.Error(err)
-		handleResponse(c, http.StatusInternalServerError, MsgErrCreateFailed, err.Error())
+	err = h.db.WithContext(c.Request.Context()).Model(&domain.Store{}).Create(&body).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, http.StatusCreated, MsgSuccessCreate, body)
+	handleResponse(c, CREATED, body)
 }
 
 // Get godoc
@@ -64,23 +67,27 @@ func (h *StoreHandler) Create(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param id query string true "store ID"
+// @Param id path string true "store ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /store [get]
+// @Router /store/{id} [get]
 func (h *StoreHandler) Get(c *gin.Context) {
-	var res domain.Store
-	if err := h.Db.First(&res, "id = ?", c.Query("id")).Error; err != nil {
+	var (
+		res domain.Store
+		err error
+	)
+	err = h.db.First(&res, "id = ?", c.Param("id")).Error
+	if err != nil {
 		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, http.StatusNotFound, MsgErrNotFount, nil)
+			handleResponse(c, NotFound, nil)
 			return
 		}
-		h.Log.Error(err)
-		handleResponse(c, http.StatusInternalServerError, MsgErrFetchFailed, err.Error())
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, http.StatusOK, MsgSuccessFetch, res)
+	handleResponse(c, OK, res)
 }
 
 // List godoc
@@ -92,24 +99,25 @@ func (h *StoreHandler) Get(c *gin.Context) {
 // @Produce json
 // @Param limmit query int false "Limit"
 // @Param offset query int false "Offset"
+// @Param search query string false "Search"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /store/get-list [get]
+// @Router /store/list [get]
 func (h *StoreHandler) List(c *gin.Context) {
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
-		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
+		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-
 	res := []*domain.Store{}
-	if err := h.Db.Limit(limit).Offset(offset).Find(&res).Error; err != nil {
-		h.Log.Error(err)
-		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
+	err = h.db.Limit(limit).Offset(offset).Find(&res).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, http.StatusOK, MsgSuccessFetch, res)
+	handleResponse(c, OK, res)
 }
 
 // Update godoc
@@ -119,24 +127,33 @@ func (h *StoreHandler) List(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param store body domain.StoreUpdateRequest true "Store information"
+// @Param id path string true "store ID"
+// @Param store body domain.StoreRequest true "Store information"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /store [put]
+// @Router /store/{id} [put]
 func (h *StoreHandler) Update(c *gin.Context) {
-	var body domain.Store
-	if err := c.ShouldBindJSON(&body); err != nil {
-		h.Log.Error(err)
-		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
+	var (
+		body domain.StoreRequest
+		err  error
+	)
+	err = c.ShouldBindJSON(&body)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	if err := h.Db.WithContext(c.Request.Context()).Table("stores").Where("id = ?", body.Id).Updates(&body).Error; err != nil {
-		h.Log.Error(err)
-		handleResponse(c, http.StatusInternalServerError, MsgErrUpdateFailed, err.Error())
+	err = h.db.WithContext(c.Request.Context()).
+		Model(&domain.Store{}).
+		Where("id = ?", c.Param("id")).
+		Updates(&body).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, http.StatusOK, MsgSuccessUpdate, body)
+	handleResponse(c, OK, body)
 }
 
 // Delete godoc
@@ -146,16 +163,16 @@ func (h *StoreHandler) Update(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param id query string true "store ID"
+// @Param id path string true "store ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /store [delete]
+// @Router /store/{id} [delete]
 func (h *StoreHandler) Delete(c *gin.Context) {
-	if err := h.Db.WithContext(c.Request.Context()).Delete(&domain.Store{}, "id = ?", c.Query("id")).Error; err != nil {
-		h.Log.Error(err)
-		handleResponse(c, http.StatusInternalServerError, MsgErrDeleteFailed, err.Error())
+	if err := h.db.WithContext(c.Request.Context()).Delete(&domain.Store{}, "id = ?", c.Param("id")).Error; err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, http.StatusOK, MsgSuccessDelete, MsgSuccessDelete)
+	handleResponse(c, OK, "DELETED")
 }

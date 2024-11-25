@@ -2,7 +2,6 @@ package v1
 
 import (
 	"context"
-	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -24,22 +23,20 @@ func NewPermissionHandler(cfg *config.Config, db *gorm.DB, log *logger.Logger) *
 }
 
 func (h *PermissionHandler) Create(c *gin.Context) {
-	var body RequestBody[domain.Permission]
+	var body domain.Permission
 	var res domain.Permission
 	if err := c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(err)
-		handleResponse(c, http.StatusBadRequest, MsgErrInvalidRequest, err.Error())
+		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()
-	body.Data.Id = uuid.New().String()
-	if err := h.db.WithContext(ctx).Model(&domain.Permission{}).Create(&body.Data).Scan(&res).Error; err != nil {
+	body.Id = uuid.New().String()
+	if err := h.db.WithContext(ctx).Model(&domain.Permission{}).Create(&body).Scan(&res).Error; err != nil {
 		h.log.Error(err)
-		handleResponse(c, http.StatusInternalServerError, MsgErrInternal, err.Error())
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, http.StatusCreated, MsgSuccessCreate, body)
+	handleResponse(c, CREATED, res)
 }
-
-
