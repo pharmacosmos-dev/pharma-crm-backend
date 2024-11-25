@@ -32,7 +32,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.GET("/list", h.List)
 		product.PUT("/:id", h.Update)
 		product.DELETE("/:id", h.Delete)
-		product.POST("/upload", h.UploadProduct)
+		product.POST("/import", h.UploadProduct)
 		product.GET("/producer", h.GetProducerList)
 	}
 }
@@ -170,6 +170,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).
+		Order("quantity ASC").
 		Find(&res)
 	if categoryIDParam != "" {
 		query.Where("category_id = ?", categoryIDParam)
@@ -256,7 +257,7 @@ func (h *ProductHandler) Delete(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /product/upload [post]
+// @Router /product/import [post]
 func (h *ProductHandler) UploadProduct(c *gin.Context) {
 	file, handler, err := c.Request.FormFile("file")
 	if err != nil {

@@ -1115,6 +1115,37 @@ paths:
       summary: Update a product
       tags:
       - products
+  /product/import:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload a product from the request body
+      parameters:
+      - description: Product file
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Upload a product
+      tags:
+      - file upload
   /product/list:
     get:
       consumes:
@@ -1204,37 +1235,6 @@ paths:
       security:
       - BearerAuth: []
       summary: Get a product
-      tags:
-      - products
-  /product/upload:
-    post:
-      consumes:
-      - multipart/form-data
-      description: Upload a product from the request body
-      parameters:
-      - description: Product file
-        in: formData
-        name: file
-        required: true
-        type: file
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Upload a product
       tags:
       - products
   /role:

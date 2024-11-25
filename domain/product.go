@@ -113,5 +113,5 @@ type ProductFilterReq struct {
 // Product Producer
 type ProductProducer struct {
 	Id           string `gorm:"id" json:"id"`
-	Manufacturer string `gorm:"manufacturer" json:"producer"`
+	Manufacturer string `gorm:"manufacturer" json:"name"`
 }
