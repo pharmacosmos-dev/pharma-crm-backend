@@ -17,20 +17,20 @@ run:
 swaggo:
 	swag init -g internal/controller/http/router.go -o docs
 
-migrate-create:  ### create new migration
+migrate_file:  ### create new migration
 	./scripts/migrate.sh
 #	migrate create -ext sql -dir migrations 'table_name'
-.PHONY: migrate-create
+.PHONY: migrate_file
 
-migrate-up: ### migration up
+migrate_up: ### migration up
 	migrate -path migrations -database "$(DB_URL)" up
 
-.PHONY: migrate-up
+.PHONY: migrate_up
 
-migrate-down:
+migrate_down:
 	migrate -path migrations -database "$(DB_URL)" down
-.PHONY: migrate-down
+.PHONY: migrate_down
 
-migrate-force:
+migrate_force:
 	migrate -path migrations -database "$(DB_URL)" force 18
-.PHONY: migrate-force
+.PHONY: migrate_force
