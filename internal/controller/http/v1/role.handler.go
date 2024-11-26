@@ -34,7 +34,7 @@ func (h *RoleHandler) RoleRoutes(r *gin.RouterGroup) {
 // @Accept 	json
 // @Produce json
 // @Param 	role body domain.RoleRequest true "Role information"
-// @Success 200 {object} v1.Response
+// @Success 201 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /role [post]
@@ -45,15 +45,18 @@ func (h *RoleHandler) Create(c *gin.Context) {
 	)
 	err = c.ShouldBindJSON(&body)
 	if err != nil {
-		h.log.Error(err)
+		h.log.Error(err.Error())
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 
 	body.Id = uuid.New().String()
-	err = h.db.WithContext(c.Request.Context()).Model(&domain.Role{}).Create(&body).Error
+	err = h.db.
+		WithContext(c.Request.Context()).
+		Table("roles").
+		Create(&body).Error
 	if err != nil {
-		h.log.Error(err)
+		h.log.Error(err.Error())
 		handleResponse(c, InternalError, err.Error())
 		return
 	}

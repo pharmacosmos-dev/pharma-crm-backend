@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
@@ -44,7 +46,7 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 // @Router       /employee [post]
 func (h *EmployeeHandler) Create(c *gin.Context) {
 	var (
-		body = new(domain.EmployeeRequest)
+		body = domain.EmployeeRequest{}
 		err  error
 	)
 	err = c.ShouldBindJSON(&body)
@@ -61,9 +63,11 @@ func (h *EmployeeHandler) Create(c *gin.Context) {
 	}
 	body.Password = hashedPassword
 	body.Id = uuid.New().String()
-	err = h.db.WithContext(c.Request.Context()).Model(&domain.Employee{}).Create(body).Scan(body).Error
+	err = h.db.WithContext(c.Request.Context()).
+		Table("employees").
+		Create(&body).Error
 	if err != nil {
-		h.log.Error(err)
+		h.log.Error(err.Error())
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -105,6 +109,8 @@ func (h *EmployeeHandler) Get(c *gin.Context) {
 // @Produce      json
 // @Param        limit          query     int             false "Limit"
 // @Param        offset         query     int             false "Offset"
+// @Param        search         query     string          false "Search"
+// @Param        role_id        query     string          false "Role ID"
 // @Success      200  {array}   v1.Response
 // @Failure      400  {object}  v1.Response
 // @Failure      401  {object}  v1.Response
@@ -113,18 +119,32 @@ func (h *EmployeeHandler) Get(c *gin.Context) {
 // @Router       /employee/list [get]
 func (h *EmployeeHandler) List(c *gin.Context) {
 	var (
-		res        []domain.Employee
-		totalCount int64
+		res         []domain.Employee
+		totalCount  int64
+		searchField = fmt.Sprintf("%%%s%%", c.Query("search"))
+		roleId      = c.Query("role_id")
 	)
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	err = h.db.Model(&domain.Employee{}).Count(&totalCount).Limit(limit).Offset(offset).Find(&res).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+	query := h.db.Model(&domain.Employee{}).
+		Count(&totalCount).
+		Where("first_name ILIKE ? OR last_name ILIKE ?", searchField, searchField)
+
+	if roleId != "" {
+		query = query.Where("role_id = ?", roleId)
+	}
+
+	query = query.Limit(limit).
+		Offset(offset).
+		Order("created_at DESC").
+		Find(&res)
+
+	if query.Error != nil {
+		h.log.Error(query.Error)
+		handleResponse(c, InternalError, query.Error.Error())
 		return
 	}
 	result := utils.ListResponse(res, totalCount, limit, offset)
