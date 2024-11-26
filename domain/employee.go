@@ -22,6 +22,7 @@ type Employee struct {
 	Phone     string     `gorm:"phone" json:"phone"`
 	Password  string     `gorm:"password" json:"password"`
 	Language  string     `gorm:"language" json:"language"`
+	Photo     string     `gorm:"photo" json:"photo"`
 	CreatedAt *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt *time.Time `gorm:"updated_at" json:"updated_at"`
 }
@@ -31,6 +32,7 @@ type EmployeeRequest struct {
 	RoleId    string `gorm:"role_id" json:"role_id"`
 	FirstName string `gorm:"first_name" json:"first_name"`
 	LastName  string `gorm:"last_name" json:"last_name"`
+	Photo     string `gorm:"photo" json:"photo"`
 	Email     string `gorm:"email" json:"email"`
 	Phone     string `gorm:"phone" json:"phone"`
 	Password  string `gorm:"password" json:"password"`

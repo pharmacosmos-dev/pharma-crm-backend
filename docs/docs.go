@@ -2505,6 +2505,9 @@ const docTemplate = `{
                 "phone": {
                     "type": "string"
                 },
+                "photo": {
+                    "type": "string"
+                },
                 "role_id": {
                     "type": "string"
                 }
