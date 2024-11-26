@@ -1115,7 +1115,7 @@ paths:
       summary: Update a product
       tags:
       - products
-  /product/import:
+  /product/excel-upload:
     post:
       consumes:
       - multipart/form-data

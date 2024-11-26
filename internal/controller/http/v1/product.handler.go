@@ -2,7 +2,7 @@ package v1
 
 import (
 	"fmt"
-	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -32,7 +32,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.GET("/list", h.List)
 		product.PUT("/:id", h.Update)
 		product.DELETE("/:id", h.Delete)
-		product.POST("/import", h.UploadProduct)
+		product.POST("/excel-upload", h.UploadProduct)
 		product.GET("/producer", h.GetProducerList)
 	}
 }
@@ -246,117 +246,6 @@ func (h *ProductHandler) Delete(c *gin.Context) {
 	handleResponse(c, OK, "DELETED")
 }
 
-// UploadProduct godoc
-// @Summary Upload a product
-// @Description Upload a product file in .xlsx format. The file should include product details in specific columns.
-// @Tags products
-// @Security BearerAuth
-// @Accept multipart/form-data
-// @Produce json
-// @Param file formData file true "Excel file (.xlsx) containing product data"
-// @Success 200 {object} v1.Response "Products uploaded successfully"
-// @Failure 400 {object} v1.Response "Invalid file format or processing error"
-// @Failure 500 {object} v1.Response "Internal server error"
-// @Router /product/import [post]
-func (h *ProductHandler) UploadProduct(c *gin.Context) {
-	var file domain.File
-	err := c.ShouldBind(&file)
-	if err != nil {
-		h.log.Error("Failed to bind file: ", err.Error())
-		handleResponse(c, BadRequest, err.Error())
-		return
-	}
-
-	// Check file extension
-	ext := filepath.Ext(file.File.Filename)
-	if ext != ".xlsx" && ext != ".xls" {
-		h.log.Error("Unsupported file format: ", ext)
-		handleResponse(c, BadRequest, "Unsupported file format")
-		return
-	}
-
-	// Check MIME type
-	fileHeader := file.File
-	buf := make([]byte, 512)
-	fileReader, _ := fileHeader.Open()
-	defer fileReader.Close()
-	_, _ = fileReader.Read(buf)
-	contentType := http.DetectContentType(buf)
-	if contentType != "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" &&
-		contentType != "application/vnd.ms-excel" {
-		h.log.Error("Invalid file MIME type: ", contentType)
-		handleResponse(c, BadRequest, "Invalid file format")
-		return
-	}
-
-	// Save the uploaded file
-	newFilename := uuid.New().String() + ext
-	savePath := filepath.Join("uploads", newFilename)
-	err = c.SaveUploadedFile(file.File, savePath)
-	if err != nil {
-		h.log.Error("Failed to save file: ", err.Error())
-		handleResponse(c, InternalError, "Failed to save file")
-		return
-	}
-
-	// Open the Excel file
-	var rows [][]string
-	if ext == ".xlsx" {
-		f, err := excelize.OpenFile(savePath)
-		if err != nil {
-			h.log.Error("Failed to open .xlsx file: ", err.Error())
-			handleResponse(c, BadRequest, "Failed to process file")
-			return
-		}
-		sheetName := f.GetSheetName(1)
-		rows, err = f.GetRows(sheetName)
-		if err != nil {
-			h.log.Error("Failed to get rows: ", err.Error())
-			handleResponse(c, InternalError, "Failed to get rows")
-			return
-		}
-	} else {
-		// Handle .xls files if needed
-		h.log.Error("Unsupported file type for processing: ", ext)
-		handleResponse(c, BadRequest, "Unsupported file type for processing")
-		return
-	}
-
-	// Process rows
-	var products []domain.ProductUploadReq
-	for _, row := range rows {
-		if len(row) < 11 {
-			h.log.Error("Row does not have enough columns")
-			continue
-		}
-		// Map row to domain.ProductUploadReq
-		product := domain.ProductUploadReq{
-			Id:           uuid.New().String(),
-			Name:         row[1],
-			SupplyPrice:  parseFloat(row[2]),
-			Vat:          parseInt(row[3]),
-			RetailPrice:  parseFloat(row[4]),
-			VatPrice:     parseFloat(row[5]),
-			Quantity:     parseInt(row[6]),
-			Sum:          parseFloat(row[7]),
-			Manufacturer: row[8],
-			ExpireDate:   row[9],
-			Barcode:      row[10],
-			Status:       "active",
-		}
-		products = append(products, product)
-	}
-
-	// Insert into the database
-	if err := h.db.WithContext(c.Request.Context()).Model(&domain.Product{}).Create(&products).Error; err != nil {
-		h.log.Error("Failed to create products in database: ", err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-
-	handleResponse(c, OK, "Products uploaded successfully")
-}
-
 // Get godoc
 // @Summary Get a product
 // @Description Get a product from the request body
@@ -384,6 +273,96 @@ func (h *ProductHandler) GetProducerList(c *gin.Context) {
 	handleResponse(c, OK, res)
 }
 
+// UploadProduct godoc
+// @Summary Upload a product
+// @Description Upload a product file in .xlsx format. The file should include product details in specific columns.
+// @Tags products
+// @Security BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "Excel file (.xlsx) containing product data"
+// @Success 200 {object} v1.Response "Products uploaded successfully"
+// @Failure 400 {object} v1.Response "Invalid file format or processing error"
+// @Failure 500 {object} v1.Response "Internal server error"
+// @Router /product/excel-upload [post]
+func (h *ProductHandler) UploadProduct(c *gin.Context) {
+	var file domain.File
+	err := c.ShouldBind(&file)
+	if err != nil {
+		h.log.Error("Failed to bind file: ", err.Error())
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	// Check file extension
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		h.log.Error("Unsupported file format: ", ext)
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+
+	// Save the uploaded file
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+	err = c.SaveUploadedFile(file.File, savePath)
+	if err != nil {
+		h.log.Error("Failed to save file: ", err.Error())
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+	defer os.Remove(savePath)
+	// Open the Excel file
+	xlsx, err := excelize.OpenFile(savePath)
+	if err != nil {
+		h.log.Error("Failed to open .xlsx file: ", err.Error())
+		handleResponse(c, BadRequest, "Failed to process file")
+		return
+	}
+	defer xlsx.Close()
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		h.log.Error("Failed to get rows: ", err.Error())
+		handleResponse(c, InternalError, "Failed to get rows")
+		return
+	}
+
+	// Process rows
+	var products []domain.ProductUploadReq
+	var product domain.ProductUploadReq
+	for _, row := range rows[3:] {
+		if len(row) < 11 {
+			h.log.Warn("Row does not have enough columns, skipping row")
+			continue
+		}
+		product = domain.ProductUploadReq{
+			Id:           uuid.New().String(),
+			Name:         row[1],
+			SupplyPrice:  parseFloat(row[2]),
+			Vat:          parsePercentage(row[3]),
+			RetailPrice:  parseFloat(row[4]),
+			VatPrice:     parseFloat(row[5]),
+			Quantity:     parseInt(row[6]),
+			Sum:          parseFloat(row[7]),
+			Manufacturer: row[8],
+			ExpireDate:   row[9],
+			Barcode:      row[10],
+			Status:       "active",
+			IsActive:     true,
+		}
+		products = append(products, product)
+	}
+
+	// Insert into the database
+	if err = h.db.WithContext(c.Request.Context()).Table("products").Create(&products).Error; err != nil {
+		h.log.Error("Failed to create products in database: ", err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, "Products uploaded successfully")
+}
+
 // Helper function to safely parse float values
 func parseFloat(value string) float64 {
 	f, err := strconv.ParseFloat(strings.ReplaceAll(value, ",", ""), 64) // Remove commas
@@ -400,4 +379,16 @@ func parseInt(value string) int {
 		return 0
 	}
 	return i
+}
+
+// Helper function to parse percentage values (e.g., "12%")
+func parsePercentage(value string) float64 {
+	// Remove the "%" symbol and trim spaces
+	cleanValue := strings.TrimSuffix(strings.TrimSpace(value), "%")
+	// Parse the remaining value as a float
+	percentage, err := strconv.ParseFloat(cleanValue, 64)
+	if err != nil {
+		return 0 // Return 0 if parsing fails
+	}
+	return percentage
 }

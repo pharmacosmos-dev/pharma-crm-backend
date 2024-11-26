@@ -1222,7 +1222,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/product/import": {
+        "/product/excel-upload": {
             "post": {
                 "security": [
                     {
