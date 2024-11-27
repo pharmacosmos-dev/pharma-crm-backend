@@ -7,6 +7,29 @@ definitions:
       name:
         type: string
     type: object
+  domain.CashRegisterRequest:
+    properties:
+      name:
+        type: string
+      store_id:
+        type: string
+    type: object
+  domain.CashRegisterSessionRequest:
+    properties:
+      cash_register_id:
+        type: string
+      closing_balance:
+        type: number
+      employee_id:
+        type: string
+      opening_balance:
+        type: number
+      store_id:
+        type: string
+      type:
+        example: with_cash|without_cash
+        type: string
+    type: object
   domain.Category:
     properties:
       created_at:
@@ -417,6 +440,332 @@ paths:
       summary: Get a brand
       tags:
       - brands
+  /cash_register:
+    post:
+      consumes:
+      - application/json
+      description: Create a cash register from the request body
+      parameters:
+      - description: Cash register information
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CashRegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a cash register
+      tags:
+      - cash_registers
+  /cash_register/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a cash register from the request body
+      parameters:
+      - description: cash register ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete a cash register
+      tags:
+      - cash_registers
+    get:
+      consumes:
+      - application/json
+      description: Get a cash register from the request body
+      parameters:
+      - description: cash register ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a cash register
+      tags:
+      - cash_registers
+    put:
+      consumes:
+      - application/json
+      description: Update a cash register from the request body
+      parameters:
+      - description: cash register ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Cash register information
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CashRegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update a cash register
+      tags:
+      - cash_registers
+  /cash_register/list:
+    get:
+      consumes:
+      - application/json
+      description: Get a cash register from the request body
+      parameters:
+      - description: Limit
+        in: query
+        name: limmit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a cash register
+      tags:
+      - cash_registers
+  /cash_register_session:
+    post:
+      consumes:
+      - application/json
+      description: Create a cash register session from the request body
+      parameters:
+      - description: Cash register session information
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CashRegisterSessionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a cash register session
+      tags:
+      - cash_registers
+  /cash_register_session/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a cash register session from the request body
+      parameters:
+      - description: cash register session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete a cash register session
+      tags:
+      - cash_registers
+    get:
+      consumes:
+      - application/json
+      description: Get a cash register session from the request body
+      parameters:
+      - description: cash register session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a cash register session
+      tags:
+      - cash_registers
+    put:
+      consumes:
+      - application/json
+      description: Update a cash register session from the request body
+      parameters:
+      - description: cash register session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Cash register session information
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CashRegisterSessionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update a cash register session
+      tags:
+      - cash_registers
+  /cash_register_session/list:
+    get:
+      consumes:
+      - application/json
+      description: Get a cash register session from the request body
+      parameters:
+      - description: Limit
+        in: query
+        name: limmit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a cash register session
+      tags:
+      - cash_registers
   /category:
     post:
       consumes:
