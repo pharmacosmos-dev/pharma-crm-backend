@@ -32,5 +32,5 @@ migrate_down:
 .PHONY: migrate_down
 
 migrate_force:
-	migrate -path migrations -database "$(DB_URL)" force last
+	migrate -path migrations -database "$(DB_URL)" force 23
 .PHONY: migrate_force
