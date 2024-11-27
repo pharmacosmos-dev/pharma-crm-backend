@@ -8,41 +8,41 @@ import (
 	"github.com/pharma-crm-backend/domain"
 )
 
-type CashRegisterHandler struct {
+type CashBoxHandler struct {
 	*Handler
 }
 
-func (h *Handler) NewCashRegisterHandler(r *gin.RouterGroup) {
-	cashRegister := &CashRegisterHandler{h}
-	cashRegister.CashRegisterRoutes(r)
+func (h *Handler) NewCashBoxHandler(r *gin.RouterGroup) {
+	cashBox := &CashBoxHandler{h}
+	cashBox.CashBoxRoutes(r)
 }
 
-func (h *CashRegisterHandler) CashRegisterRoutes(r *gin.RouterGroup) {
-	cashRegister := r.Group("/cash_register")
+func (h *CashBoxHandler) CashBoxRoutes(r *gin.RouterGroup) {
+	cashBox := r.Group("/cash_box")
 	{
-		cashRegister.POST("", h.Create)
-		cashRegister.GET("/:id", h.Get)
-		cashRegister.GET("/list", h.List)
-		cashRegister.PUT("/:id", h.Update)
-		cashRegister.DELETE("/:id", h.Delete)
+		cashBox.POST("", h.Create)
+		cashBox.GET("/:id", h.Get)
+		cashBox.GET("/list", h.List)
+		cashBox.PUT("/:id", h.Update)
+		cashBox.DELETE("/:id", h.Delete)
 	}
 }
 
 // Create godoc
-// @Summary Create a cash register
-// @Description Create a cash register from the request body
-// @Tags cash_registers
+// @Summary Create a cash box
+// @Description Create a cash box from the request body
+// @Tags cash_boxes
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param input body domain.CashRegisterRequest true "Cash register information"
+// @Param input body domain.CashBoxRequest true "Cash box information"
 // @Success 201 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /cash_register [post]
-func (h *CashRegisterHandler) Create(c *gin.Context) {
+// @Router /cash_box [post]
+func (h *CashBoxHandler) Create(c *gin.Context) {
 	var (
-		body domain.CashRegisterRequest
+		body domain.CashBoxRequest
 		err  error
 	)
 	if err = c.ShouldBindJSON(&body); err != nil {
@@ -52,15 +52,15 @@ func (h *CashRegisterHandler) Create(c *gin.Context) {
 	}
 	body.ID = uuid.New().String()
 	// Map request to model
-	cashRegister := domain.CashRegister{
+	cashBox := domain.CashBox{
 		ID:      body.ID,
 		Name:    body.Name,
 		StoreID: body.StoreID,
 	}
 
 	// Save to database
-	if err = h.db.WithContext(c.Request.Context()).Create(&cashRegister).Error; err != nil {
-		h.log.Error(fmt.Errorf("failed to create cash register: %v", err))
+	if err = h.db.WithContext(c.Request.Context()).Create(&cashBox).Error; err != nil {
+		h.log.Error(fmt.Errorf("failed to create cash box: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -70,18 +70,18 @@ func (h *CashRegisterHandler) Create(c *gin.Context) {
 // Get godoc
 // @Summary Get a cash register
 // @Description Get a cash register from the request body
-// @Tags cash_registers
+// @Tags cash_boxes
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param id path string true "cash register ID"
+// @Param id path string true "cash box ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /cash_register/{id} [get]
-func (h *CashRegisterHandler) Get(c *gin.Context) {
+// @Router /cash_box/{id} [get]
+func (h *CashBoxHandler) Get(c *gin.Context) {
 	var (
-		body domain.CashRegister
+		body domain.CashBox
 		err  error
 	)
 	if err = h.db.First(&body, "id = ?", c.Param("id")).Error; err != nil {
@@ -95,7 +95,7 @@ func (h *CashRegisterHandler) Get(c *gin.Context) {
 // List godoc
 // @Summary Get a cash register
 // @Description Get a cash register from the request body
-// @Tags cash_registers
+// @Tags cash_boxes
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
@@ -104,10 +104,10 @@ func (h *CashRegisterHandler) Get(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /cash_register/list [get]
-func (h *CashRegisterHandler) List(c *gin.Context) {
+// @Router /cash_box/list [get]
+func (h *CashBoxHandler) List(c *gin.Context) {
 	var (
-		body []domain.CashRegister
+		body []domain.CashBox
 		err  error
 	)
 
@@ -126,21 +126,21 @@ func (h *CashRegisterHandler) List(c *gin.Context) {
 }
 
 // Update godoc
-// @Summary Update a cash register
-// @Description Update a cash register from the request body
-// @Tags cash_registers
+// @Summary Update a cash box
+// @Description Update a cash box from the request body
+// @Tags cash_boxes
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param id path string true "cash register ID"
-// @Param input body domain.CashRegisterRequest true "Cash register information"
+// @Param id path string true "cash box ID"
+// @Param input body domain.CashBoxRequest true "Cash box information"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /cash_register/{id} [put]
-func (h *CashRegisterHandler) Update(c *gin.Context) {
+// @Router /cash_box/{id} [put]
+func (h *CashBoxHandler) Update(c *gin.Context) {
 	var (
-		body domain.CashRegisterRequest
+		body domain.CashBoxRequest
 		err  error
 	)
 	if err = c.ShouldBindJSON(&body); err != nil {
@@ -148,36 +148,36 @@ func (h *CashRegisterHandler) Update(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	cashRegister := domain.CashRegister{
+	cashBox := domain.CashBox{
 		ID:      body.ID,
 		Name:    body.Name,
 		StoreID: body.StoreID,
 	}
 	if err = h.db.WithContext(c.Request.Context()).
 		Where("id = ?", c.Param("id")).
-		Updates(&cashRegister).Error; err != nil {
+		Updates(&cashBox).Error; err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, cashRegister)
+	handleResponse(c, OK, cashBox)
 }
 
 // Delete godoc
-// @Summary Delete a cash register
-// @Description Delete a cash register from the request body
-// @Tags cash_registers
+// @Summary Delete a cash box
+// @Description Delete a cash box from the request body
+// @Tags cash_boxes
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param id path string true "cash register ID"
+// @Param id path string true "cash box ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /cash_register/{id} [delete]
-func (h *CashRegisterHandler) Delete(c *gin.Context) {
+// @Router /cash_box/{id} [delete]
+func (h *CashBoxHandler) Delete(c *gin.Context) {
 	var (
-		body domain.CashRegister
+		body domain.CashBox
 		err  error
 	)
 	if err = h.db.Delete(&body, "id = ?", c.Param("id")).Error; err != nil {

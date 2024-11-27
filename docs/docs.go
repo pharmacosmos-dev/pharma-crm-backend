@@ -273,14 +273,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/cash_register": {
+        "/cash_box": {
             "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Create a cash register from the request body",
+                "description": "Create a cash box from the request body",
                 "consumes": [
                     "application/json"
                 ],
@@ -288,23 +288,23 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "cash_registers"
+                    "cash_boxes"
                 ],
-                "summary": "Create a cash register",
+                "summary": "Create a cash box",
                 "parameters": [
                     {
-                        "description": "Cash register information",
+                        "description": "Cash box information",
                         "name": "input",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.CashRegisterRequest"
+                            "$ref": "#/definitions/domain.CashBoxRequest"
                         }
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK",
+                    "201": {
+                        "description": "Created",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
                         }
@@ -324,7 +324,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/cash_register/list": {
+        "/cash_box/list": {
             "get": {
                 "security": [
                     {
@@ -339,7 +339,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "cash_registers"
+                    "cash_boxes"
                 ],
                 "summary": "Get a cash register",
                 "parameters": [
@@ -378,7 +378,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/cash_register/{id}": {
+        "/cash_box/{id}": {
             "get": {
                 "security": [
                     {
@@ -393,13 +393,13 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "cash_registers"
+                    "cash_boxes"
                 ],
                 "summary": "Get a cash register",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "cash register ID",
+                        "description": "cash box ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -432,7 +432,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Update a cash register from the request body",
+                "description": "Update a cash box from the request body",
                 "consumes": [
                     "application/json"
                 ],
@@ -440,24 +440,24 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "cash_registers"
+                    "cash_boxes"
                 ],
-                "summary": "Update a cash register",
+                "summary": "Update a cash box",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "cash register ID",
+                        "description": "cash box ID",
                         "name": "id",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "Cash register information",
+                        "description": "Cash box information",
                         "name": "input",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.CashRegisterRequest"
+                            "$ref": "#/definitions/domain.CashBoxRequest"
                         }
                     }
                 ],
@@ -488,7 +488,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Delete a cash register from the request body",
+                "description": "Delete a cash box from the request body",
                 "consumes": [
                     "application/json"
                 ],
@@ -496,13 +496,13 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "cash_registers"
+                    "cash_boxes"
                 ],
-                "summary": "Delete a cash register",
+                "summary": "Delete a cash box",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "cash register ID",
+                        "description": "cash box ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -530,14 +530,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/cash_register_session": {
+        "/cash_box_session": {
             "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Create a cash register session from the request body",
+                "description": "Create a cash box session from the request body",
                 "consumes": [
                     "application/json"
                 ],
@@ -545,17 +545,17 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "cash_registers"
+                    "cash_boxes"
                 ],
-                "summary": "Create a cash register session",
+                "summary": "Create a cash box session",
                 "parameters": [
                     {
-                        "description": "Cash register session information",
+                        "description": "Cash box session information",
                         "name": "input",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.CashRegisterSessionRequest"
+                            "$ref": "#/definitions/domain.CashBoxSessionRequest"
                         }
                     }
                 ],
@@ -581,14 +581,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/cash_register_session/list": {
+        "/cash_box_session/last/{cash_box_id}": {
             "get": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get a cash register session from the request body",
+                "description": "Get a cash box session from the request body",
                 "consumes": [
                     "application/json"
                 ],
@@ -596,9 +596,58 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "cash_registers"
+                    "cash_boxes"
                 ],
-                "summary": "Get a cash register session",
+                "summary": "Get a cash box session",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "cash box session ID",
+                        "name": "cash_box_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/cash_box_session/list": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get a cash box session from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "cash_boxes"
+                ],
+                "summary": "Get a cash box session",
                 "parameters": [
                     {
                         "type": "integer",
@@ -635,14 +684,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/cash_register_session/{id}": {
+        "/cash_box_session/{id}": {
             "get": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get a cash register session from the request body",
+                "description": "Get a cash box session from the request body",
                 "consumes": [
                     "application/json"
                 ],
@@ -650,13 +699,13 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "cash_registers"
+                    "cash_boxes"
                 ],
-                "summary": "Get a cash register session",
+                "summary": "Get a cash box session",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "cash register session ID",
+                        "description": "cash box session ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -689,7 +738,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Update a cash register session from the request body",
+                "description": "Update a cash box session from the request body",
                 "consumes": [
                     "application/json"
                 ],
@@ -697,24 +746,24 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "cash_registers"
+                    "cash_boxes"
                 ],
-                "summary": "Update a cash register session",
+                "summary": "Update a cash box session",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "cash register session ID",
+                        "description": "cash box session ID",
                         "name": "id",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "Cash register session information",
+                        "description": "Cash box session information",
                         "name": "input",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.CashRegisterSessionRequest"
+                            "$ref": "#/definitions/domain.CashBoxSessionRequest"
                         }
                     }
                 ],
@@ -745,7 +794,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Delete a cash register session from the request body",
+                "description": "Delete a cash box session from the request body",
                 "consumes": [
                     "application/json"
                 ],
@@ -753,13 +802,13 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "cash_registers"
+                    "cash_boxes"
                 ],
-                "summary": "Delete a cash register session",
+                "summary": "Delete a cash box session",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "cash register session ID",
+                        "description": "cash box session ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -2959,7 +3008,7 @@ const docTemplate = `{
                 }
             }
         },
-        "domain.CashRegisterRequest": {
+        "domain.CashBoxRequest": {
             "type": "object",
             "properties": {
                 "name": {
@@ -2970,10 +3019,10 @@ const docTemplate = `{
                 }
             }
         },
-        "domain.CashRegisterSessionRequest": {
+        "domain.CashBoxSessionRequest": {
             "type": "object",
             "properties": {
-                "cash_register_id": {
+                "cash_box_id": {
                     "type": "string"
                 },
                 "closing_balance": {
@@ -3058,6 +3107,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "role_id": {
+                    "type": "string"
+                },
+                "store_id": {
                     "type": "string"
                 }
             }

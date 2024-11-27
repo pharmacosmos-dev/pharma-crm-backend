@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS cash_registers (
+CREATE TABLE IF NOT EXISTS cash_boxes (
     id UUID NOT NULL PRIMARY KEY,
     store_id UUID REFERENCES stores(id),
     name VARCHAR(255),

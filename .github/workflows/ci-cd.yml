@@ -65,7 +65,7 @@ jobs:
 
       - name: Run Migrations
         run: |
-          ./migrate -path=$PWD/migrations -database="${{ env.DB_URL }}" force 21
+          ./migrate -path=$PWD/migrations -database="${{ env.DB_URL }}" up
 
   deploy:
     needs: build_and_push

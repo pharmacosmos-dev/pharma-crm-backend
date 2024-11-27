@@ -37,8 +37,8 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		h.NewUnitHandler(v1)
 		h.NewEmployeeHandler(v1)
 		h.NewUploadHandler(v1)
-		h.NewCashRegisterHandler(v1)
-		h.NewCashRegisterSessionHandler(v1)
+		h.NewCashBoxHandler(v1)
+		h.NewCashBoxSessionHandler(v1)
 	}
 }
 

@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS "employees" (
   "id" uuid PRIMARY KEY,
-  "client_type_id" uuid,
+  "store_id" uuid,
   "role_id" uuid,
   "first_name" varchar,
   "last_name" varchar,

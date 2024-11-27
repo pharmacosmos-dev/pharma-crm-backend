@@ -15,6 +15,7 @@ type LoginResponse struct {
 
 type Employee struct {
 	Id        string     `gorm:"id" json:"id"`
+	StoreId   string     `gorm:"store_id" json:"store_id"`
 	RoleId    string     `gorm:"role_id" json:"role_id"`
 	FirstName string     `gorm:"first_name" json:"first_name"`
 	LastName  string     `gorm:"last_name" json:"last_name"`
@@ -23,6 +24,8 @@ type Employee struct {
 	Password  string     `gorm:"password" json:"password"`
 	Language  string     `gorm:"language" json:"language"`
 	Photo     string     `gorm:"photo" json:"photo"`
+	Store     *Store     `gorm:"foreignKey:StoreId" json:"store"`
+	Role      *Role      `gorm:"foreignKey:RoleId" json:"role"`
 	CreatedAt *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt *time.Time `gorm:"updated_at" json:"updated_at"`
 }
@@ -30,6 +33,7 @@ type Employee struct {
 type EmployeeRequest struct {
 	Id        string `gorm:"id" json:"-"`
 	RoleId    string `gorm:"role_id" json:"role_id"`
+	StoreId   string `gorm:"store_id" json:"store_id"`
 	FirstName string `gorm:"first_name" json:"first_name"`
 	LastName  string `gorm:"last_name" json:"last_name"`
 	Photo     string `gorm:"photo" json:"photo"`

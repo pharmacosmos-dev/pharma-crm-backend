@@ -1,6 +1,6 @@
-CREATE TABLE IF NOT EXISTS cash_register_sessions (
+CREATE TABLE IF NOT EXISTS cash_box_sessions (
     id UUID NOT NULL PRIMARY KEY,
-    cash_register_id UUID REFERENCES cash_registers(id),
+    cash_box_id UUID REFERENCES cash_boxes(id),
     employee_id UUID REFERENCES employees(id),
     store_id UUID REFERENCES stores(id),
     type VARCHAR(50) CHECK (type IN ('with_cash', 'without_cash')),

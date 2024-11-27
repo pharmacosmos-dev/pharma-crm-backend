@@ -7,16 +7,16 @@ definitions:
       name:
         type: string
     type: object
-  domain.CashRegisterRequest:
+  domain.CashBoxRequest:
     properties:
       name:
         type: string
       store_id:
         type: string
     type: object
-  domain.CashRegisterSessionRequest:
+  domain.CashBoxSessionRequest:
     properties:
-      cash_register_id:
+      cash_box_id:
         type: string
       closing_balance:
         type: number
@@ -72,6 +72,8 @@ definitions:
       photo:
         type: string
       role_id:
+        type: string
+      store_id:
         type: string
     type: object
   domain.Login:
@@ -440,23 +442,23 @@ paths:
       summary: Get a brand
       tags:
       - brands
-  /cash_register:
+  /cash_box:
     post:
       consumes:
       - application/json
-      description: Create a cash register from the request body
+      description: Create a cash box from the request body
       parameters:
-      - description: Cash register information
+      - description: Cash box information
         in: body
         name: input
         required: true
         schema:
-          $ref: '#/definitions/domain.CashRegisterRequest'
+          $ref: '#/definitions/domain.CashBoxRequest'
       produces:
       - application/json
       responses:
-        "200":
-          description: OK
+        "201":
+          description: Created
           schema:
             $ref: '#/definitions/v1.Response'
         "400":
@@ -469,16 +471,16 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Create a cash register
+      summary: Create a cash box
       tags:
-      - cash_registers
-  /cash_register/{id}:
+      - cash_boxes
+  /cash_box/{id}:
     delete:
       consumes:
       - application/json
-      description: Delete a cash register from the request body
+      description: Delete a cash box from the request body
       parameters:
-      - description: cash register ID
+      - description: cash box ID
         in: path
         name: id
         required: true
@@ -500,15 +502,15 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Delete a cash register
+      summary: Delete a cash box
       tags:
-      - cash_registers
+      - cash_boxes
     get:
       consumes:
       - application/json
       description: Get a cash register from the request body
       parameters:
-      - description: cash register ID
+      - description: cash box ID
         in: path
         name: id
         required: true
@@ -532,23 +534,23 @@ paths:
       - BearerAuth: []
       summary: Get a cash register
       tags:
-      - cash_registers
+      - cash_boxes
     put:
       consumes:
       - application/json
-      description: Update a cash register from the request body
+      description: Update a cash box from the request body
       parameters:
-      - description: cash register ID
+      - description: cash box ID
         in: path
         name: id
         required: true
         type: string
-      - description: Cash register information
+      - description: Cash box information
         in: body
         name: input
         required: true
         schema:
-          $ref: '#/definitions/domain.CashRegisterRequest'
+          $ref: '#/definitions/domain.CashBoxRequest'
       produces:
       - application/json
       responses:
@@ -566,10 +568,10 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Update a cash register
+      summary: Update a cash box
       tags:
-      - cash_registers
-  /cash_register/list:
+      - cash_boxes
+  /cash_box/list:
     get:
       consumes:
       - application/json
@@ -602,19 +604,19 @@ paths:
       - BearerAuth: []
       summary: Get a cash register
       tags:
-      - cash_registers
-  /cash_register_session:
+      - cash_boxes
+  /cash_box_session:
     post:
       consumes:
       - application/json
-      description: Create a cash register session from the request body
+      description: Create a cash box session from the request body
       parameters:
-      - description: Cash register session information
+      - description: Cash box session information
         in: body
         name: input
         required: true
         schema:
-          $ref: '#/definitions/domain.CashRegisterSessionRequest'
+          $ref: '#/definitions/domain.CashBoxSessionRequest'
       produces:
       - application/json
       responses:
@@ -632,16 +634,16 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Create a cash register session
+      summary: Create a cash box session
       tags:
-      - cash_registers
-  /cash_register_session/{id}:
+      - cash_boxes
+  /cash_box_session/{id}:
     delete:
       consumes:
       - application/json
-      description: Delete a cash register session from the request body
+      description: Delete a cash box session from the request body
       parameters:
-      - description: cash register session ID
+      - description: cash box session ID
         in: path
         name: id
         required: true
@@ -663,15 +665,15 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Delete a cash register session
+      summary: Delete a cash box session
       tags:
-      - cash_registers
+      - cash_boxes
     get:
       consumes:
       - application/json
-      description: Get a cash register session from the request body
+      description: Get a cash box session from the request body
       parameters:
-      - description: cash register session ID
+      - description: cash box session ID
         in: path
         name: id
         required: true
@@ -693,25 +695,25 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Get a cash register session
+      summary: Get a cash box session
       tags:
-      - cash_registers
+      - cash_boxes
     put:
       consumes:
       - application/json
-      description: Update a cash register session from the request body
+      description: Update a cash box session from the request body
       parameters:
-      - description: cash register session ID
+      - description: cash box session ID
         in: path
         name: id
         required: true
         type: string
-      - description: Cash register session information
+      - description: Cash box session information
         in: body
         name: input
         required: true
         schema:
-          $ref: '#/definitions/domain.CashRegisterSessionRequest'
+          $ref: '#/definitions/domain.CashBoxSessionRequest'
       produces:
       - application/json
       responses:
@@ -729,14 +731,45 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Update a cash register session
+      summary: Update a cash box session
       tags:
-      - cash_registers
-  /cash_register_session/list:
+      - cash_boxes
+  /cash_box_session/last/{cash_box_id}:
     get:
       consumes:
       - application/json
-      description: Get a cash register session from the request body
+      description: Get a cash box session from the request body
+      parameters:
+      - description: cash box session ID
+        in: path
+        name: cash_box_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a cash box session
+      tags:
+      - cash_boxes
+  /cash_box_session/list:
+    get:
+      consumes:
+      - application/json
+      description: Get a cash box session from the request body
       parameters:
       - description: Limit
         in: query
@@ -763,9 +796,9 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Get a cash register session
+      summary: Get a cash box session
       tags:
-      - cash_registers
+      - cash_boxes
   /category:
     post:
       consumes:

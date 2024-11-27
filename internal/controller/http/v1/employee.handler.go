@@ -137,7 +137,8 @@ func (h *EmployeeHandler) List(c *gin.Context) {
 		query = query.Where("role_id = ?", roleId)
 	}
 
-	query = query.Limit(limit).
+	query = query.Preload("Store").
+		Limit(limit).
 		Offset(offset).
 		Order("created_at DESC").
 		Find(&res)
