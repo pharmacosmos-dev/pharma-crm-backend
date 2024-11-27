@@ -25,6 +25,7 @@ func (h *CartItemHandler) CartItemRoutes(r *gin.RouterGroup) {
 		cartItem.GET("/list", h.List)
 		cartItem.PUT("/:id", h.Update)
 		cartItem.DELETE("/:id", h.Delete)
+		cartItem.DELETE("/multiple", h.MultipleDelete)
 	}
 }
 
@@ -183,4 +184,35 @@ func (h *CartItemHandler) Delete(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, body)
+}
+
+// MultipleDelete godoc
+// @Summary Delete a cart item
+// @Description Delete a cart item from the request body
+// @Tags cart_items
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param body body domain.Ids true "cart item IDs"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /cart_item/multiple [delete]
+func (h *CartItemHandler) MultipleDelete(c *gin.Context) {
+	var (
+		body domain.Ids
+		err  error
+	)
+	if err = c.ShouldBindJSON(&body); err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	if err = h.db.Delete(&domain.CartItem{}, "id in (?)", body.Ids).Error; err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, domain.CartItem{})
 }

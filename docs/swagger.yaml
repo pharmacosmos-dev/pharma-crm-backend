@@ -90,6 +90,13 @@ definitions:
       store_id:
         type: string
     type: object
+  domain.Ids:
+    properties:
+      ids:
+        items:
+          type: string
+        type: array
+    type: object
   domain.Login:
     properties:
       password:
@@ -617,6 +624,38 @@ paths:
       security:
       - BearerAuth: []
       summary: Get a cart item
+      tags:
+      - cart_items
+  /cart_item/multiple:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a cart item from the request body
+      parameters:
+      - description: cart item IDs
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.Ids'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete a cart item
       tags:
       - cart_items
   /cash_box:
