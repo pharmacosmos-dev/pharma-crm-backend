@@ -183,7 +183,7 @@ func (h *CartItemHandler) Delete(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, body)
+	handleResponse(c, OK, nil)
 }
 
 // MultipleDelete godoc
@@ -214,5 +214,5 @@ func (h *CartItemHandler) MultipleDelete(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, domain.CartItem{})
+	handleResponse(c, OK, nil)
 }
