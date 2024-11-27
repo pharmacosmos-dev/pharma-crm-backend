@@ -734,7 +734,7 @@ paths:
       summary: Update a cash box session
       tags:
       - cash_boxes
-  /cash_box_session/last/{cash_box_id}:
+  /cash_box_session/cash_carried_sum/{cash_box_id}:
     get:
       consumes:
       - application/json

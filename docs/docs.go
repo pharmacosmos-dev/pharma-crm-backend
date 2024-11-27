@@ -581,7 +581,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/cash_box_session/last/{cash_box_id}": {
+        "/cash_box_session/cash_carried_sum/{cash_box_id}": {
             "get": {
                 "security": [
                     {

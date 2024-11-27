@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/helper"
+	"gorm.io/gorm"
 )
 
 type CashBoxSessionHandler struct {
@@ -27,6 +28,7 @@ func (h *CashBoxSessionHandler) CashBoxSessionRoutes(r *gin.RouterGroup) {
 		cashBoxSession.GET("/list", h.List)
 		cashBoxSession.PUT("/:id", h.Update)
 		cashBoxSession.DELETE("/:id", h.Delete)
+		cashBoxSession.GET("/cash_carried_sum/:cash_box_id", h.CashCarriedSum)
 	}
 }
 
@@ -212,19 +214,20 @@ func (h *CashBoxSessionHandler) Delete(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /cash_box_session/last/{cash_box_id} [get]
-func (h *CashBoxSessionHandler) LastCashBoxSession(c *gin.Context) {
+// @Router /cash_box_session/cash_carried_sum/{cash_box_id} [get]
+func (h *CashBoxSessionHandler) CashCarriedSum(c *gin.Context) {
 	var (
 		body domain.CashBoxSession
 		err  error
 	)
 	if err = h.db.
 		Preload("CashBox").
-		Where("end_time IS NULL NOT NULL").
-		Where("cash_box_id = ?", c.Param("cash_box_id")).
-		Limit(1).
 		Order("created_at DESC").
-		Find(&body).Error; err != nil {
+		First(&body, "end_time IS NOT NULL AND cash_box_id = ?", c.Param("cash_box_id")).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, OK, body)
+			return
+		}
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
