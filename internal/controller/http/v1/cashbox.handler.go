@@ -101,6 +101,7 @@ func (h *CashBoxHandler) Get(c *gin.Context) {
 // @Produce json
 // @Param limmit query int false "Limit"
 // @Param offset query int false "Offset"
+// @Param store_id query string false "Store ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -117,7 +118,11 @@ func (h *CashBoxHandler) List(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	if err = h.db.Limit(limit).Offset(offset).Preload("Store").Find(&body).Error; err != nil {
+	query := h.db.Limit(limit).Offset(offset).Preload("Store").Find(&body)
+	if storeID := c.Query("store_id"); storeID != "" {
+		query = query.Where("store_id = ?", storeID)
+	}
+	if err = query.Error; err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return

@@ -97,14 +97,17 @@ func (h *CartItemHandler) Get(c *gin.Context) {
 // @Produce json
 // @Param limmit query int false "Limit"
 // @Param offset query int false "Offset"
+// @Param employee_id query string true "Employee ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /cart_item/list [get]
 func (h *CartItemHandler) List(c *gin.Context) {
 	var (
-		body []domain.CartItem
-		err  error
+		body       []domain.CartItem
+		sumResult  domain.SumResult
+		totalCount int64
+		err        error
 	)
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
@@ -112,12 +115,31 @@ func (h *CartItemHandler) List(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	if err = h.db.Preload("Product").Limit(limit).Offset(offset).Order("created_at desc").Find(&body).Error; err != nil {
+	if err = h.db.Model(&domain.CartItem{}).Count(&totalCount).
+		Preload("Product").
+		Where("employee_id = ?", c.Query("employee_id")).
+		Limit(limit).
+		Offset(offset).
+		Order("created_at desc").
+		Find(&body).Error; err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, body)
+	if err = h.db.Model(&domain.CartItem{}).
+		Select("SUM(total_price) as total_price, SUM(discount_amount) as discount_amount").
+		Where("employee_id = ?", c.Query("employee_id")).
+		Scan(&sumResult).Error; err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, domain.CartItemResponse{
+		TotalAmount:    sumResult.TotalPrice,
+		DiscountAmount: sumResult.DiscountPrice,
+		Count:          totalCount,
+		Data:           body,
+	})
 }
 
 // Update godoc

@@ -2,6 +2,7 @@ package v1
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 
@@ -82,8 +83,9 @@ func (h *UploadHandler) Upload(c *gin.Context) {
 	fileURL := fmt.Sprintf("%s://%s/v1/upload/%s", scheme, c.Request.Host, newFilename)
 
 	// Return the file URL in the response
-	handleResponse(c, OK, gin.H{
-		"url": fileURL,
+	c.JSON(http.StatusOK, gin.H{
+		"file_url":  fileURL,
+		"file_name": newFilename,
 	})
 }
 

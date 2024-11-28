@@ -20,32 +20,49 @@ type CashBoxRequest struct {
 }
 
 // Cash Box Session structure
-type CashBoxSession struct {
-	ID              string     `gorm:"id" json:"id"`
-	CashBoxID       string     `gorm:"cash_box_id" json:"cash_box_id"`
-	StoreID         string     `gorm:"store_id" json:"store_id"`
-	EmployeeID      string     `gorm:"employee_id" json:"employee_id"`
-	Type            string     `gorm:"type" json:"type"`
-	OpeningBalance  float64    `gorm:"opening_balance" json:"opening_balance"`
-	ClosingBalance  float64    `gorm:"closing_balance" json:"closing_balance"`
-	CarryForwardSum float64    `gorm:"carry_forward_sum" json:"carry_forward_sum"`
-	StartTime       *time.Time `gorm:"start_time" json:"start_time"`
-	EndTime         *time.Time `gorm:"end_time" json:"end_time"`
-	CreatedAt       *time.Time `gorm:"created_at" json:"created_at"`
-	UpdatedAt       *time.Time `gorm:"updated_at" json:"updated_at"`
-	Store           *Store     `gorm:"foreignKey:StoreID" json:"store"`
-	CashBox         *CashBox   `gorm:"foreignKey:CashBoxID" json:"cash_box"`
-	Employee        *Employee  `gorm:"foreignKey:EmployeeID" json:"employee"`
+type CashboxOperation struct {
+	ID             string     `gorm:"id" json:"id"`
+	CashBoxID      string     `gorm:"cash_box_id" json:"cash_box_id"`
+	EmployeeID     string     `gorm:"employee_id" json:"employee_id"`
+	CashAmount     float64    `gorm:"cash_amount" json:"cash_amount"`
+	CashlessAmount float64    `gorm:"cashless_amount" json:"cashless_amount"`
+	IsOpen         bool       `gorm:"is_open" json:"is_open"`
+	StartTime      *time.Time `gorm:"start_time" json:"start_time"`
+	EndTime        *time.Time `gorm:"end_time" json:"end_time"`
+	CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt      *time.Time `gorm:"updated_at" json:"updated_at"`
+	CashBox        *CashBox   `gorm:"foreignKey:CashBoxID" json:"cash_box"`
+	Employee       *Employee  `gorm:"foreignKey:EmployeeID" json:"employee"`
 }
 
 // Cash Box Session Request for create, update
-type CashBoxSessionRequest struct {
+type CashboxOperationRequest struct {
 	ID             string     `gorm:"id" json:"-"`
 	CashBoxID      string     `gorm:"cash_box_id" json:"cash_box_id"`
-	StoreID        string     `gorm:"store_id" json:"store_id"`
 	EmployeeID     string     `gorm:"employee_id" json:"employee_id"`
-	Type           string     `gorm:"type" json:"type" example:"with_cash|without_cash"`
-	OpeningBalance float64    `gorm:"opening_balance" json:"opening_balance"`
-	ClosingBalance float64    `gorm:"closing_balance" json:"closing_balance"`
+	CashAmount     float64    `gorm:"cash_amount" json:"cash_amount"`
+	CashlessAmount float64    `gorm:"cashless_amount" json:"cashless_amount"`
+	IsOpen         bool       `gorm:"is_open" json:"is_open"`
 	StartTime      *time.Time `gorm:"start_time" json:"-"`
+}
+
+// CashBoxHistory structure
+type CashBoxHistory struct {
+	ID             string     `gorm:"id" json:"id"`
+	CashBoxID      string     `gorm:"cash_box_id" json:"cash_box_id"`
+	CashAmount     float64    `gorm:"cash_amount" json:"cash_amount"`
+	CashlessAmount float64    `gorm:"cashless_amount" json:"cashless_amount"`
+	CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt      *time.Time `gorm:"updated_at" json:"updated_at"`
+	CashBox        *CashBox   `gorm:"foreignKey:CashBoxID" json:"cash_box"`
+}
+
+// CashBoxHistoryRequest for create, update
+type CashBoxHistoryRequest struct {
+	ID             string     `gorm:"id" json:"-"`
+	CashBoxID      string     `gorm:"cash_box_id" json:"cash_box_id"`
+	CashAmount     float64    `gorm:"cash_amount" json:"cash_amount"`
+	CashlessAmount float64    `gorm:"cashless_amount" json:"cashless_amount"`
+	CreatedAt      *time.Time `gorm:"created_at" json:"-"`
+	UpdatedAt      *time.Time `gorm:"updated_at" json:"-"`
 }

@@ -46,13 +46,20 @@ func (h *CategoryController) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	body.Id = uuid.New().String()
-	if err := h.db.WithContext(c.Request.Context()).Create(&body).Scan(&body).Error; err != nil {
+	category := domain.Category{
+		Id:   uuid.New().String(),
+		Name: body.Name,
+	}
+	if body.CategoryId != "" {
+		category.CategoryId = &body.CategoryId
+	}
+	if err := h.db.WithContext(c.Request.Context()).
+		Create(&category).Error; err != nil {
 		h.log.Error(err.Error())
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, body)
+	handleResponse(c, OK, category)
 }
 
 // Get godoc
@@ -86,6 +93,7 @@ func (h *CategoryController) Get(c *gin.Context) {
 // @Produce json
 // @Param limmit query int false "Limit"
 // @Param offset query int false "Offset"
+// @Param parent_id query string false "Parent ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -97,8 +105,12 @@ func (h *CategoryController) List(c *gin.Context) {
 		return
 	}
 	var res []domain.Category
-	if err := h.db.Model(&domain.Category{}).Limit(limit).Offset(offset).Find(&res).Error; err != nil {
-		h.log.Error(err)
+	query := h.db.Limit(limit).Offset(offset)
+	if parentID := c.Query("parent_id"); parentID != "" {
+		query = query.Where("category_id = ?", parentID)
+	}
+	if err := query.Find(&res).Error; err != nil {
+		h.log.Error("err: ", err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}

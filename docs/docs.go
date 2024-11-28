@@ -354,6 +354,13 @@ const docTemplate = `{
                         "description": "Offset",
                         "name": "offset",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Employee ID",
+                        "name": "employee_id",
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -662,6 +669,12 @@ const docTemplate = `{
                         "description": "Offset",
                         "name": "offset",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Store ID",
+                        "name": "store_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -838,14 +851,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/cash_box_session": {
+        "/cash_box_history": {
             "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Create a cash box session from the request body",
+                "description": "Create a cash history from the request body",
                 "consumes": [
                     "application/json"
                 ],
@@ -855,15 +868,15 @@ const docTemplate = `{
                 "tags": [
                     "cash_boxes"
                 ],
-                "summary": "Create a cash box session",
+                "summary": "Create a cash history",
                 "parameters": [
                     {
-                        "description": "Cash box session information",
+                        "description": "Cash history information",
                         "name": "input",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.CashBoxSessionRequest"
+                            "$ref": "#/definitions/domain.CashBoxHistoryRequest"
                         }
                     }
                 ],
@@ -889,14 +902,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/cash_box_session/cash_carried_sum/{cash_box_id}": {
+        "/cash_box_history/{cash_box_id}": {
             "get": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get a cash box session from the request body",
+                "description": "Get a cash history from the request body",
                 "consumes": [
                     "application/json"
                 ],
@@ -906,11 +919,11 @@ const docTemplate = `{
                 "tags": [
                     "cash_boxes"
                 ],
-                "summary": "Get a cash box session",
+                "summary": "Get a cash history",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "cash box session ID",
+                        "description": "cash history ID",
                         "name": "cash_box_id",
                         "in": "path",
                         "required": true
@@ -938,14 +951,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/cash_box_session/list": {
-            "get": {
+        "/cash_box_operation": {
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get a cash box session from the request body",
+                "description": "Create a cash box Operation from the request body",
                 "consumes": [
                     "application/json"
                 ],
@@ -955,7 +968,58 @@ const docTemplate = `{
                 "tags": [
                     "cash_boxes"
                 ],
-                "summary": "Get a cash box session",
+                "summary": "Create a cash box Operation",
+                "parameters": [
+                    {
+                        "description": "Cash box Operation information",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.CashboxOperationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/cash_box_operation/list": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get a cash box Operation from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "cash_boxes"
+                ],
+                "summary": "Get a cash box Operation",
                 "parameters": [
                     {
                         "type": "integer",
@@ -992,14 +1056,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/cash_box_session/{id}": {
+        "/cash_box_operation/{id}": {
             "get": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get a cash box session from the request body",
+                "description": "Get a cash box Operation from the request body",
                 "consumes": [
                     "application/json"
                 ],
@@ -1009,11 +1073,11 @@ const docTemplate = `{
                 "tags": [
                     "cash_boxes"
                 ],
-                "summary": "Get a cash box session",
+                "summary": "Get a cash box Operation",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "cash box session ID",
+                        "description": "cash box Operation ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -1046,7 +1110,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Update a cash box session from the request body",
+                "description": "Update a cash box Operation from the request body",
                 "consumes": [
                     "application/json"
                 ],
@@ -1056,22 +1120,22 @@ const docTemplate = `{
                 "tags": [
                     "cash_boxes"
                 ],
-                "summary": "Update a cash box session",
+                "summary": "Update a cash box Operation",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "cash box session ID",
+                        "description": "cash box Operation ID",
                         "name": "id",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "Cash box session information",
+                        "description": "Cash box Operation information",
                         "name": "input",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.CashBoxSessionRequest"
+                            "$ref": "#/definitions/domain.CashboxOperationRequest"
                         }
                     }
                 ],
@@ -1102,7 +1166,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Delete a cash box session from the request body",
+                "description": "Delete a cash box Operation from the request body",
                 "consumes": [
                     "application/json"
                 ],
@@ -1112,11 +1176,11 @@ const docTemplate = `{
                 "tags": [
                     "cash_boxes"
                 ],
-                "summary": "Delete a cash box session",
+                "summary": "Delete a cash box Operation",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "cash box session ID",
+                        "description": "cash box Operation ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -1224,6 +1288,12 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "Offset",
                         "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Parent ID",
+                        "name": "parent_id",
                         "in": "query"
                     }
                 ],
@@ -3326,6 +3396,9 @@ const docTemplate = `{
                 "discount_value": {
                     "type": "number"
                 },
+                "employee_id": {
+                    "type": "string"
+                },
                 "product_id": {
                     "type": "string"
                 },
@@ -3333,6 +3406,20 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "unit_price": {
+                    "type": "number"
+                }
+            }
+        },
+        "domain.CashBoxHistoryRequest": {
+            "type": "object",
+            "properties": {
+                "cash_amount": {
+                    "type": "number"
+                },
+                "cash_box_id": {
+                    "type": "string"
+                },
+                "cashless_amount": {
                     "type": "number"
                 }
             }
@@ -3348,33 +3435,35 @@ const docTemplate = `{
                 }
             }
         },
-        "domain.CashBoxSessionRequest": {
+        "domain.CashboxOperationRequest": {
             "type": "object",
             "properties": {
+                "cash_amount": {
+                    "type": "number"
+                },
                 "cash_box_id": {
                     "type": "string"
                 },
-                "closing_balance": {
+                "cashless_amount": {
                     "type": "number"
                 },
                 "employee_id": {
                     "type": "string"
                 },
-                "opening_balance": {
-                    "type": "number"
-                },
-                "store_id": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string",
-                    "example": "with_cash|without_cash"
+                "is_open": {
+                    "type": "boolean"
                 }
             }
         },
         "domain.Category": {
             "type": "object",
             "properties": {
+                "category": {
+                    "$ref": "#/definitions/domain.Category"
+                },
+                "category_id": {
+                    "type": "string"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -3392,6 +3481,9 @@ const docTemplate = `{
         "domain.CategoryRequest": {
             "type": "object",
             "properties": {
+                "category_id": {
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 }

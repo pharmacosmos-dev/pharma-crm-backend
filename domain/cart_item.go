@@ -6,6 +6,7 @@ import "time"
 type CartItem struct {
 	ID             string     `gorm:"id" json:"id"`
 	ProductID      string     `gorm:"product_id" json:"product_id"`
+	EmployeeID     string     `gorm:"employee_id" json:"employee_id"`
 	Quantity       int        `gorm:"quantity" json:"quantity"`
 	UnitPrice      float64    `gorm:"unit_price" json:"unit_price"`
 	DiscountType   string     `gorm:"discount_type" json:"discount_type" example:"percent|cash"`
@@ -15,11 +16,13 @@ type CartItem struct {
 	CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt      *time.Time `gorm:"updated_at" json:"updated_at"`
 	Product        *Product   `gorm:"foreignKey:ProductID" json:"product"`
+	Employee       *Employee  `gorm:"foreignKey:EmployeeID" json:"employee"`
 }
 
 // CartItemRequest structure
 type CartItemRequest struct {
 	ID            string  `gorm:"id" json:"-"`
+	EmployeeID    string  `gorm:"employee_id" json:"employee_id"`
 	ProductID     string  `gorm:"product_id" json:"product_id"`
 	Quantity      int     `gorm:"quantity" json:"quantity"`
 	UnitPrice     float64 `gorm:"unit_price" json:"unit_price"`
@@ -30,4 +33,17 @@ type CartItemRequest struct {
 // Ids
 type Ids struct {
 	Ids []string `json:"ids"`
+}
+
+// CartItemResponse structure
+type CartItemResponse struct {
+	Data           []CartItem `json:"data"`
+	TotalAmount    float64    `json:"total_amount"`
+	DiscountAmount float64    `json:"discount_amount"`
+	Count          int64      `json:"count"`
+}
+
+type SumResult struct {
+	TotalPrice    float64
+	DiscountPrice float64
 }

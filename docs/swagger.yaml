@@ -14,11 +14,22 @@ definitions:
         type: string
       discount_value:
         type: number
+      employee_id:
+        type: string
       product_id:
         type: string
       quantity:
         type: integer
       unit_price:
+        type: number
+    type: object
+  domain.CashBoxHistoryRequest:
+    properties:
+      cash_amount:
+        type: number
+      cash_box_id:
+        type: string
+      cashless_amount:
         type: number
     type: object
   domain.CashBoxRequest:
@@ -28,24 +39,25 @@ definitions:
       store_id:
         type: string
     type: object
-  domain.CashBoxSessionRequest:
+  domain.CashboxOperationRequest:
     properties:
+      cash_amount:
+        type: number
       cash_box_id:
         type: string
-      closing_balance:
+      cashless_amount:
         type: number
       employee_id:
         type: string
-      opening_balance:
-        type: number
-      store_id:
-        type: string
-      type:
-        example: with_cash|without_cash
-        type: string
+      is_open:
+        type: boolean
     type: object
   domain.Category:
     properties:
+      category:
+        $ref: '#/definitions/domain.Category'
+      category_id:
+        type: string
       created_at:
         type: string
       id:
@@ -57,6 +69,8 @@ definitions:
     type: object
   domain.CategoryRequest:
     properties:
+      category_id:
+        type: string
       name:
         type: string
     type: object
@@ -606,6 +620,11 @@ paths:
         in: query
         name: offset
         type: integer
+      - description: Employee ID
+        in: query
+        name: employee_id
+        required: true
+        type: string
       produces:
       - application/json
       responses:
@@ -801,6 +820,10 @@ paths:
         in: query
         name: offset
         type: integer
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
       produces:
       - application/json
       responses:
@@ -821,18 +844,18 @@ paths:
       summary: Get a cash register
       tags:
       - cash_boxes
-  /cash_box_session:
+  /cash_box_history:
     post:
       consumes:
       - application/json
-      description: Create a cash box session from the request body
+      description: Create a cash history from the request body
       parameters:
-      - description: Cash box session information
+      - description: Cash history information
         in: body
         name: input
         required: true
         schema:
-          $ref: '#/definitions/domain.CashBoxSessionRequest'
+          $ref: '#/definitions/domain.CashBoxHistoryRequest'
       produces:
       - application/json
       responses:
@@ -850,113 +873,16 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Create a cash box session
+      summary: Create a cash history
       tags:
       - cash_boxes
-  /cash_box_session/{id}:
-    delete:
-      consumes:
-      - application/json
-      description: Delete a cash box session from the request body
-      parameters:
-      - description: cash box session ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Delete a cash box session
-      tags:
-      - cash_boxes
+  /cash_box_history/{cash_box_id}:
     get:
       consumes:
       - application/json
-      description: Get a cash box session from the request body
+      description: Get a cash history from the request body
       parameters:
-      - description: cash box session ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Get a cash box session
-      tags:
-      - cash_boxes
-    put:
-      consumes:
-      - application/json
-      description: Update a cash box session from the request body
-      parameters:
-      - description: cash box session ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Cash box session information
-        in: body
-        name: input
-        required: true
-        schema:
-          $ref: '#/definitions/domain.CashBoxSessionRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Update a cash box session
-      tags:
-      - cash_boxes
-  /cash_box_session/cash_carried_sum/{cash_box_id}:
-    get:
-      consumes:
-      - application/json
-      description: Get a cash box session from the request body
-      parameters:
-      - description: cash box session ID
+      - description: cash history ID
         in: path
         name: cash_box_id
         required: true
@@ -978,14 +904,143 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Get a cash box session
+      summary: Get a cash history
       tags:
       - cash_boxes
-  /cash_box_session/list:
+  /cash_box_operation:
+    post:
+      consumes:
+      - application/json
+      description: Create a cash box Operation from the request body
+      parameters:
+      - description: Cash box Operation information
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CashboxOperationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a cash box Operation
+      tags:
+      - cash_boxes
+  /cash_box_operation/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a cash box Operation from the request body
+      parameters:
+      - description: cash box Operation ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete a cash box Operation
+      tags:
+      - cash_boxes
     get:
       consumes:
       - application/json
-      description: Get a cash box session from the request body
+      description: Get a cash box Operation from the request body
+      parameters:
+      - description: cash box Operation ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a cash box Operation
+      tags:
+      - cash_boxes
+    put:
+      consumes:
+      - application/json
+      description: Update a cash box Operation from the request body
+      parameters:
+      - description: cash box Operation ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Cash box Operation information
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CashboxOperationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update a cash box Operation
+      tags:
+      - cash_boxes
+  /cash_box_operation/list:
+    get:
+      consumes:
+      - application/json
+      description: Get a cash box Operation from the request body
       parameters:
       - description: Limit
         in: query
@@ -1012,7 +1067,7 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Get a cash box session
+      summary: Get a cash box Operation
       tags:
       - cash_boxes
   /category:
@@ -1158,6 +1213,10 @@ paths:
         in: query
         name: offset
         type: integer
+      - description: Parent ID
+        in: query
+        name: parent_id
+        type: string
       produces:
       - application/json
       responses:

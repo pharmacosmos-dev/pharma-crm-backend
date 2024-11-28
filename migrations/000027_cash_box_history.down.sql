@@ -1,1 +1,1 @@
-DROP TABLE IF EXISTS cash_box_history;
+DROP TABLE IF EXISTS cash_box_histories;
