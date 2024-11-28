@@ -386,7 +386,7 @@ const docTemplate = `{
             }
         },
         "/cart_item/multiple": {
-            "delete": {
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []

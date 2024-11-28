@@ -25,7 +25,7 @@ func (h *CartItemHandler) CartItemRoutes(r *gin.RouterGroup) {
 		cartItem.GET("/list", h.List)
 		cartItem.PUT("/:id", h.Update)
 		cartItem.DELETE("/:id", h.Delete)
-		cartItem.DELETE("/multiple", h.MultipleDelete)
+		cartItem.POST("/multiple", h.MultipleDelete)
 	}
 }
 
@@ -219,7 +219,7 @@ func (h *CartItemHandler) Delete(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /cart_item/multiple [delete]
+// @Router /cart_item/multiple [post]
 func (h *CartItemHandler) MultipleDelete(c *gin.Context) {
 	var (
 		body domain.Ids

@@ -646,7 +646,7 @@ paths:
       tags:
       - cart_items
   /cart_item/multiple:
-    delete:
+    post:
       consumes:
       - application/json
       description: Delete a cart item from the request body
