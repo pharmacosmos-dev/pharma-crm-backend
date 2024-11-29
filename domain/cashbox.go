@@ -42,14 +42,13 @@ type CashboxOperation struct {
 
 // Cash Box Session Request for create, update
 type CashboxOperationRequest struct {
-	ID             string     `gorm:"id" json:"-"`
-	CashBoxID      string     `gorm:"cash_box_id" json:"cash_box_id"`
-	EmployeeID     string     `gorm:"employee_id" json:"employee_id"`
-	CashAmount     float64    `gorm:"cash_amount" json:"cash_amount"`
-	CashlessAmount float64    `gorm:"cashless_amount" json:"cashless_amount"`
-	Description    string     `gorm:"description" json:"description"`
-	IsOpen         bool       `gorm:"is_open" json:"is_open"`
-	StartTime      *time.Time `gorm:"start_time" json:"-"`
+	ID          string     `gorm:"id" json:"-"`
+	CashBoxID   string     `gorm:"cash_box_id" json:"cash_box_id"`
+	EmployeeID  string     `gorm:"employee_id" json:"employee_id"`
+	CashAmount  float64    `gorm:"cash_amount" json:"cash_amount"`
+	Description string     `gorm:"description" json:"description"`
+	IsOpen      bool       `gorm:"is_open" json:"is_open"`
+	StartTime   *time.Time `gorm:"start_time" json:"-"`
 }
 
 // CashBoxHistory structure
