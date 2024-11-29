@@ -253,6 +253,9 @@ func (h *ProductHandler) Delete(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
+// @Param limmit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Param search query string false "Search"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -262,8 +265,18 @@ func (h *ProductHandler) GetProducerList(c *gin.Context) {
 		res []*domain.ProductProducer
 		err error
 	)
+	limit, offset, err := getPaginationParams(c)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	searchField := fmt.Sprintf("%%%s%%", c.Query("search"))
 	err = h.db.Model(&domain.Product{}).
-		Select("DISTINCT manufacturer, id").
+		Select("DISTINCT manufacturer").
+		Limit(limit).
+		Offset(offset).
+		Where("manufacturer ILIKE ?", searchField).
 		Find(&res).Error
 	if err != nil {
 		h.log.Error(err)

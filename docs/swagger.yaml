@@ -20,6 +20,8 @@ definitions:
         type: string
       quantity:
         type: integer
+      sale_id:
+        type: string
       unit_price:
         type: number
     type: object
@@ -281,6 +283,28 @@ definitions:
         type: string
       name:
         type: string
+    type: object
+  domain.SaleID:
+    properties:
+      sale_id:
+        type: string
+    type: object
+  domain.SaleItemRequest:
+    properties:
+      discount_type:
+        type: string
+      discount_value:
+        type: number
+      employee_id:
+        type: string
+      product_id:
+        type: string
+      quantity:
+        type: integer
+      sale_id:
+        type: string
+      unit_price:
+        type: number
     type: object
   domain.SaleRequest:
     properties:
@@ -656,9 +680,9 @@ paths:
         in: query
         name: offset
         type: integer
-      - description: Employee ID
+      - description: Sale ID
         in: query
-        name: employee_id
+        name: sale_id
         required: true
         type: string
       produces:
@@ -1923,6 +1947,19 @@ paths:
       consumes:
       - application/json
       description: Get a product from the request body
+      parameters:
+      - description: Limit
+        in: query
+        name: limmit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
       produces:
       - application/json
       responses:
@@ -2277,6 +2314,198 @@ paths:
       summary: Get a sale
       tags:
       - sales
+  /sale_item:
+    post:
+      consumes:
+      - application/json
+      description: Create a sale item from the request body
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a sale item
+      tags:
+      - sale_items
+  /sale_item/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a sale item from the request body
+      parameters:
+      - description: sale item ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete a sale item
+      tags:
+      - sale_items
+    get:
+      consumes:
+      - application/json
+      description: Get a sale item from the request body
+      parameters:
+      - description: sale item ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a sale item
+      tags:
+      - sale_items
+    put:
+      consumes:
+      - application/json
+      description: Update a sale item from the request body
+      parameters:
+      - description: sale item ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Sale item information
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.SaleItemRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update a sale item
+      tags:
+      - sale_items
+  /sale_item/list:
+    get:
+      consumes:
+      - application/json
+      description: Get a sale item from the request body
+      parameters:
+      - description: Limit
+        in: query
+        name: limmit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Sale ID
+        in: query
+        name: sale_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a sale item
+      tags:
+      - sale_items
+  /sale_item/multiple:
+    post:
+      consumes:
+      - application/json
+      description: Create a sale item from the request body
+      parameters:
+      - description: Sale ID
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.SaleID'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a sale item
+      tags:
+      - sale_items
   /store:
     post:
       consumes:

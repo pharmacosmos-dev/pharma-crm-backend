@@ -97,7 +97,7 @@ func (h *CartItemHandler) Get(c *gin.Context) {
 // @Produce json
 // @Param limmit query int false "Limit"
 // @Param offset query int false "Offset"
-// @Param employee_id query string true "Employee ID"
+// @Param sale_id query string true "Sale ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -115,9 +115,10 @@ func (h *CartItemHandler) List(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	if err = h.db.Model(&domain.CartItem{}).Count(&totalCount).
+	if err = h.db.Model(&domain.CartItem{}).
+		Count(&totalCount).
 		Preload("Product").
-		Where("employee_id = ?", c.Query("employee_id")).
+		Where("sale_id = ?", c.Query("sale_id")).
 		Limit(limit).
 		Offset(offset).
 		Order("created_at desc").
@@ -128,7 +129,7 @@ func (h *CartItemHandler) List(c *gin.Context) {
 	}
 	if err = h.db.Model(&domain.CartItem{}).
 		Select("SUM(total_price) as total_price, SUM(discount_amount) as discount_amount").
-		Where("employee_id = ?", c.Query("employee_id")).
+		Where("sale_id = ?", c.Query("sale_id")).
 		Scan(&sumResult).Error; err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())

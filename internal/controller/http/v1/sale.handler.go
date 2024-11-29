@@ -55,7 +55,6 @@ func (h *SaleHandler) Create(c *gin.Context) {
 	}
 	body.ID = uuid.New().String()
 	body.SaleNumber = utils.GenerateCode()
-	fmt.Println("===>>> ", body.SaleNumber)
 	if err = h.db.WithContext(c.Request.Context()).
 		Table("sales").Create(&body).Scan(&res).Error; err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
@@ -107,13 +106,14 @@ func (h *SaleHandler) Get(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /sale/list [get]
 func (h *SaleHandler) List(c *gin.Context) {
+	var totalAmount int64
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 	res := []*domain.Sale{}
-	query := h.db.Limit(limit).Offset(offset).Order("created_at DESC")
+	query := h.db.Count(&totalAmount).Limit(limit).Offset(offset).Order("created_at DESC")
 	if employeeID := c.Query("employee_id"); employeeID != "" {
 		query = query.Where("employee_id = ?", employeeID)
 	}
@@ -125,7 +125,8 @@ func (h *SaleHandler) List(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, res)
+	data := utils.ListResponse(res, totalAmount, limit, offset)
+	handleResponse(c, OK, data)
 }
 
 // Update godoc

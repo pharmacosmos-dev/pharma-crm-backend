@@ -7,6 +7,7 @@ type CartItem struct {
 	ID             string     `gorm:"id" json:"id"`
 	ProductID      string     `gorm:"product_id" json:"product_id"`
 	EmployeeID     string     `gorm:"employee_id" json:"employee_id"`
+	SaleId         string     `gorm:"sale_id" json:"sale_id"`
 	Quantity       int        `gorm:"quantity" json:"quantity"`
 	UnitPrice      float64    `gorm:"unit_price" json:"unit_price"`
 	DiscountType   string     `gorm:"discount_type" json:"discount_type" example:"percent|cash"`
@@ -24,6 +25,7 @@ type CartItemRequest struct {
 	ID            string  `gorm:"id" json:"-"`
 	EmployeeID    string  `gorm:"employee_id" json:"employee_id"`
 	ProductID     string  `gorm:"product_id" json:"product_id"`
+	SaleId        string  `gorm:"sale_id" json:"sale_id"`
 	Quantity      int     `gorm:"quantity" json:"quantity"`
 	UnitPrice     float64 `gorm:"unit_price" json:"unit_price"`
 	DiscountType  string  `gorm:"discount_type" json:"discount_type" example:"percent|cash"`
