@@ -40,6 +40,7 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		h.NewCashBoxHandler(v1)
 		h.NewCashBoxOperationHandler(v1)
 		h.NewCartItemHandler(v1)
+		h.NewSaleHandler(v1)
 	}
 }
 
