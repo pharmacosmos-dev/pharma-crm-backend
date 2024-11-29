@@ -55,7 +55,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 	err = h.db.WithContext(c.Request.Context()).
-		Model(&domain.Employee{}).
+		Model(&domain.Employee{}).Preload("Store").Preload("Role").
 		First(&res, "phone = ?", body.Phone).Error
 	if err != nil {
 		h.log.Error(err)
