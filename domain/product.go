@@ -32,6 +32,8 @@ type Product struct {
 	Manufacturer       string            `gorm:"manufacturer" json:"manufacturer"`
 	ExpireDate         string            `gorm:"expire_date" json:"expire_date"`
 	IsActive           bool              `gorm:"is_active" json:"is_active"`
+	BonusPercent       int               `gorm:"bonus_percent" json:"bonus_percent"`
+	BonusAmount        float64           `gorm:"bonus_amount" json:"bonus_amount"`
 	Category           *Category         `gorm:"foreignKey:CategoryId" json:"category"`
 	Store              *Store            `gorm:"foreignKey:StoreId" json:"store"`
 	CreatedAt          *time.Time        `gorm:"created_at" json:"created_at"`
@@ -58,6 +60,8 @@ type ProductRequest struct {
 	Status       string            `gorm:"status" json:"status"`
 	Manufacturer string            `gorm:"manufacturer" json:"manufacturer"`
 	ExpireDate   string            `gorm:"expire_date" json:"expire_date"`
+	BonusPercent int               `gorm:"bonus_percent" json:"bonus_percent"`
+	BonusAmount  float64           `gorm:"bonus_amount" json:"bonus_amount"`
 }
 
 // Product update request
@@ -80,6 +84,8 @@ type ProductUpdateRequest struct {
 	Status       string            `gorm:"status" json:"status"`
 	Manufacturer string            `gorm:"manufacturer" json:"manufacturer"`
 	ExpireDate   string            `gorm:"expire_date" json:"expire_date"`
+	BonusPercent int               `gorm:"bonus_percent" json:"bonus_percent"`
+	BonusAmount  float64           `gorm:"bonus_amount" json:"bonus_amount"`
 }
 
 // Product Upload request

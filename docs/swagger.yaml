@@ -49,8 +49,6 @@ definitions:
         type: number
       cash_box_id:
         type: string
-      cashless_amount:
-        type: number
       description:
         type: string
       employee_id:
@@ -128,6 +126,10 @@ definitions:
     properties:
       barcode:
         type: string
+      bonus_amount:
+        type: number
+      bonus_percent:
+        type: integer
       brand_id:
         type: string
       category:
@@ -189,6 +191,10 @@ definitions:
     properties:
       barcode:
         type: string
+      bonus_amount:
+        type: number
+      bonus_percent:
+        type: integer
       category_id:
         type: string
       description:
@@ -228,6 +234,10 @@ definitions:
     properties:
       barcode:
         type: string
+      bonus_amount:
+        type: number
+      bonus_percent:
+        type: integer
       category_id:
         type: string
       description:

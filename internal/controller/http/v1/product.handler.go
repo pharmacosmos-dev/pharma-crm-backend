@@ -63,7 +63,7 @@ func (h *ProductHandler) Create(c *gin.Context) {
 	body.Id = uuid.New().String()
 	body.Photos = utils.StringArray(body.Photos)
 	err = h.db.WithContext(c.Request.Context()).
-		Model(&domain.Product{}).
+		Table("products").
 		Create(&body).
 		Scan(&body).Error
 	if err != nil {

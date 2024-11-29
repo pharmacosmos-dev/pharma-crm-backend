@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS "products" (
   "sum" NUMERIC(10, 2),
   "description" TEXT,
   "status" product_status,
+  "bonus_percent" INT,
+  "bonus_amount" NUMERIC(10, 2),
   "manufacturer" VARCHAR,
   "expire_date" DATE,
   "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),

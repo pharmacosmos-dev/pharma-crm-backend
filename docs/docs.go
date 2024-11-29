@@ -3719,9 +3719,6 @@ const docTemplate = `{
                 "cash_box_id": {
                     "type": "string"
                 },
-                "cashless_amount": {
-                    "type": "number"
-                },
                 "description": {
                     "type": "string"
                 },
@@ -3841,6 +3838,12 @@ const docTemplate = `{
                 "barcode": {
                     "type": "string"
                 },
+                "bonus_amount": {
+                    "type": "number"
+                },
+                "bonus_percent": {
+                    "type": "integer"
+                },
                 "brand_id": {
                     "type": "string"
                 },
@@ -3933,6 +3936,12 @@ const docTemplate = `{
                 "barcode": {
                     "type": "string"
                 },
+                "bonus_amount": {
+                    "type": "number"
+                },
+                "bonus_percent": {
+                    "type": "integer"
+                },
                 "category_id": {
                     "type": "string"
                 },
@@ -3991,6 +4000,12 @@ const docTemplate = `{
             "properties": {
                 "barcode": {
                     "type": "string"
+                },
+                "bonus_amount": {
+                    "type": "number"
+                },
+                "bonus_percent": {
+                    "type": "integer"
                 },
                 "category_id": {
                     "type": "string"
