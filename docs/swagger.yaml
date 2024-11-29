@@ -655,7 +655,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Delete a cart item from the request body
+      description: Delete all cart items from the request body
       parameters:
       - description: cart item IDs
         in: body
@@ -680,7 +680,7 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Delete a cart item
+      summary: Delete all cart items
       tags:
       - cart_items
   /cash_box:

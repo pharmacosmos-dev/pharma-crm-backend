@@ -154,9 +154,11 @@ func (h *CashBoxHandler) Update(c *gin.Context) {
 		return
 	}
 	cashBox := domain.CashBox{
-		ID:      body.ID,
-		Name:    body.Name,
-		StoreID: body.StoreID,
+		ID:       body.ID,
+		Name:     body.Name,
+		StoreID:  body.StoreID,
+		IsOpen:   body.IsOpen,
+		IsEnable: body.IsEnable,
 	}
 	if err = h.db.WithContext(c.Request.Context()).
 		Where("id = ?", c.Param("id")).

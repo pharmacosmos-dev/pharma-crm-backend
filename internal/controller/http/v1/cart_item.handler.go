@@ -209,8 +209,8 @@ func (h *CartItemHandler) Delete(c *gin.Context) {
 }
 
 // MultipleDelete godoc
-// @Summary Delete a cart item
-// @Description Delete a cart item from the request body
+// @Summary Delete all cart items
+// @Description Delete all cart items from the request body
 // @Tags cart_items
 // @Security     BearerAuth
 // @Accept json

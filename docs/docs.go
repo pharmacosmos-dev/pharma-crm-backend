@@ -392,7 +392,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Delete a cart item from the request body",
+                "description": "Delete all cart items from the request body",
                 "consumes": [
                     "application/json"
                 ],
@@ -402,7 +402,7 @@ const docTemplate = `{
                 "tags": [
                     "cart_items"
                 ],
-                "summary": "Delete a cart item",
+                "summary": "Delete all cart items",
                 "parameters": [
                     {
                         "description": "cart item IDs",
