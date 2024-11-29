@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS cashbox_operations (
     cash_amount NUMERIC(10, 2),
     cashless_amount NUMERIC(10, 2),
     is_open BOOLEAN,
+    description VARCHAR(255),
     start_time TIMESTAMP,
     end_time TIMESTAMP,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

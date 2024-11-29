@@ -7,6 +7,8 @@ type CashBox struct {
 	ID        string     `gorm:"id" json:"id"`
 	Name      string     `gorm:"name" json:"name"`
 	StoreID   string     `gorm:"store_id" json:"store_id"`
+	IsOpen    bool       `gorm:"is_open" json:"is_open"`
+	IsEnable  bool       `gorm:"is_enable" json:"is_enable"`
 	CreatedAt *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt *time.Time `gorm:"updated_at" json:"updated_at"`
 	Store     *Store     `gorm:"foreignKey:StoreID" json:"store"`
@@ -14,9 +16,11 @@ type CashBox struct {
 
 // Cash Register Request for create, update
 type CashBoxRequest struct {
-	ID      string `gorm:"id" json:"-"`
-	Name    string `gorm:"name" json:"name"`
-	StoreID string `gorm:"store_id" json:"store_id"`
+	ID       string `gorm:"id" json:"-"`
+	Name     string `gorm:"name" json:"name"`
+	StoreID  string `gorm:"store_id" json:"store_id"`
+	IsOpen   bool   `gorm:"is_open" json:"is_open"`
+	IsEnable bool   `gorm:"is_enable" json:"is_enable"`
 }
 
 // Cash Box Session structure
@@ -27,6 +31,7 @@ type CashboxOperation struct {
 	CashAmount     float64    `gorm:"cash_amount" json:"cash_amount"`
 	CashlessAmount float64    `gorm:"cashless_amount" json:"cashless_amount"`
 	IsOpen         bool       `gorm:"is_open" json:"is_open"`
+	Description    string     `gorm:"description" json:"description"`
 	StartTime      *time.Time `gorm:"start_time" json:"start_time"`
 	EndTime        *time.Time `gorm:"end_time" json:"end_time"`
 	CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`
@@ -42,6 +47,7 @@ type CashboxOperationRequest struct {
 	EmployeeID     string     `gorm:"employee_id" json:"employee_id"`
 	CashAmount     float64    `gorm:"cash_amount" json:"cash_amount"`
 	CashlessAmount float64    `gorm:"cashless_amount" json:"cashless_amount"`
+	Description    string     `gorm:"description" json:"description"`
 	IsOpen         bool       `gorm:"is_open" json:"is_open"`
 	StartTime      *time.Time `gorm:"start_time" json:"-"`
 }

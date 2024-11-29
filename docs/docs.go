@@ -3427,6 +3427,12 @@ const docTemplate = `{
         "domain.CashBoxRequest": {
             "type": "object",
             "properties": {
+                "is_enable": {
+                    "type": "boolean"
+                },
+                "is_open": {
+                    "type": "boolean"
+                },
                 "name": {
                     "type": "string"
                 },
@@ -3446,6 +3452,9 @@ const docTemplate = `{
                 },
                 "cashless_amount": {
                     "type": "number"
+                },
+                "description": {
+                    "type": "string"
                 },
                 "employee_id": {
                     "type": "string"
