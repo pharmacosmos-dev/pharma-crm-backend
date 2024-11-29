@@ -247,6 +247,7 @@ func (h *CashBoxOperationHandler) GetCashHistory(c *gin.Context) {
 	)
 	if err = h.db.Preload("CashBox").First(&body, "cash_box_id = ?", c.Param("cash_box_id")).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
+			body.CashBoxID = c.Param("cash_box_id")
 			handleResponse(c, OK, body)
 			return
 		}
