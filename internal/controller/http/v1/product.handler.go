@@ -137,8 +137,6 @@ func (h *ProductHandler) List(c *gin.Context) {
 	// Prepare search field for ILIKE queries
 	searchField := fmt.Sprintf("%%%s%%", c.Query("search"))
 
-	categoryIDParam := c.Query("category_id")
-
 	storeIDParam := c.Query("store_id")
 
 	// Handle price range parameters
@@ -160,26 +158,20 @@ func (h *ProductHandler) List(c *gin.Context) {
 	}
 	// Build the query
 	query := h.db.Model(&domain.Product{}).
-		Preload("Category").
-		Joins("LEFT JOIN categories c ON c.id = products.category_id").
-		Where("products.name ILIKE ? OR products.barcode ILIKE ? OR c.name ILIKE ?", searchField, searchField, searchField).
+		Where("name ILIKE ? OR barcode ILIKE ? OR manufacturer ILIKE ?", searchField, searchField, searchField).
 		Where("is_active = ? ", true).
 		Where("supply_price BETWEEN ? AND CASE WHEN ? = 0 THEN 999999999 ELSE ? END", supplyPriceFrom, supplyPriceTo, supplyPriceTo).
 		Where("retail_price BETWEEN ? AND CASE WHEN ? = 0 THEN 999999999 ELSE ? END", retailPriceFrom, retailPriceTo, retailPriceTo).
 		Where("(manufacturer = ? OR ? = '')", c.Query("producer"), c.Query("producer")).
-		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).
-		Order("quantity ASC").
-		Find(&res)
-	if categoryIDParam != "" {
-		query.Where("category_id = ?", categoryIDParam)
-	}
+		Count(&totalCount).
+		Order("quantity DESC")
 	if storeIDParam != "" {
-		query.Where("store_id = ?", storeIDParam)
+		query = query.Where("store_id = ?", storeIDParam)
 	}
 	// Handle errors from the query
-	if query.Error != nil {
+	if query.Find(&res).Error != nil {
 		h.log.Error(query.Error)
 		handleResponse(c, InternalError, query.Error.Error())
 		return

@@ -58,21 +58,6 @@ definitions:
       is_open:
         type: boolean
     type: object
-  domain.Category:
-    properties:
-      category:
-        $ref: '#/definitions/domain.Category'
-      category_id:
-        type: string
-      created_at:
-        type: string
-      id:
-        type: string
-      name:
-        type: string
-      updated_at:
-        type: string
-    type: object
   domain.CategoryRequest:
     properties:
       category_id:
@@ -119,6 +104,25 @@ definitions:
       tg_username:
         type: string
     type: object
+  domain.DraftRequest:
+    properties:
+      cash_box_id:
+        type: string
+      description:
+        type: string
+      draft_time:
+        type: string
+      product_id:
+        type: string
+      quantity:
+        type: integer
+      store_id:
+        type: string
+      total_amount:
+        type: number
+      unit_price:
+        type: number
+    type: object
   domain.EmployeeRequest:
     properties:
       email:
@@ -163,10 +167,6 @@ definitions:
       bonus_percent:
         type: integer
       brand_id:
-        type: string
-      category:
-        $ref: '#/definitions/domain.Category'
-      category_id:
         type: string
       created_at:
         type: string
@@ -227,8 +227,6 @@ definitions:
         type: number
       bonus_percent:
         type: integer
-      category_id:
-        type: string
       description:
         type: string
       expire_date:
@@ -270,8 +268,6 @@ definitions:
         type: number
       bonus_percent:
         type: integer
-      category_id:
-        type: string
       description:
         type: string
       expire_date:
@@ -1498,6 +1494,177 @@ paths:
       summary: Get a customer
       tags:
       - customers
+  /draft:
+    post:
+      consumes:
+      - application/json
+      description: Create a draft from the request body
+      parameters:
+      - description: Draft information
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.DraftRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a draft
+      tags:
+      - drafts
+  /draft/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a draft from the request body
+      parameters:
+      - description: draft ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete a draft
+      tags:
+      - drafts
+    get:
+      consumes:
+      - application/json
+      description: Get a draft from the request body
+      parameters:
+      - description: draft ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a draft
+      tags:
+      - drafts
+    put:
+      consumes:
+      - application/json
+      description: Update a draft from the request body
+      parameters:
+      - description: draft ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Draft information
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.DraftRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update a draft
+      tags:
+      - drafts
+  /draft/list:
+    get:
+      consumes:
+      - application/json
+      description: Get a draft from the request body
+      parameters:
+      - description: Limit
+        in: query
+        name: limmit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Cash Box ID
+        in: query
+        name: cash_box_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a draft
+      tags:
+      - drafts
   /employee:
     post:
       consumes:

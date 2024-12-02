@@ -1,7 +1,6 @@
 CREATE TABLE IF NOT EXISTS "products" (
   "id" uuid PRIMARY KEY,
   "store_id" uuid,
-  "category_id" uuid,
   "brand_id" uuid,
   "supplier_id" uuid,
   "unit_id" uuid,

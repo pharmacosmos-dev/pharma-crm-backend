@@ -10,6 +10,7 @@ type Role struct {
 	UpdatedAt   *time.Time `gorm:"updated_at" json:"updated_at"`
 }
 
+// RoleRequest structure for create, update
 type RoleRequest struct {
 	Id          string `gorm:"id" json:"-"`
 	Name        string `gorm:"name" json:"name"`

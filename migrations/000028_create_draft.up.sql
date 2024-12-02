@@ -2,6 +2,7 @@ CREATE TABLE IF NOT EXISTS drafts (
     id UUID NOT NULL PRIMARY KEY,
     product_id UUID REFERENCES products(id),
     cash_box_id UUID REFERENCES cash_boxes(id),
+    draft_number VARCHAR(10),
     store_id UUID REFERENCES stores(id),
     quantity INT,
     unit_price NUMERIC(10, 2),

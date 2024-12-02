@@ -10,7 +10,6 @@ import (
 type Product struct {
 	Id                 string            `gorm:"id" json:"id"`
 	StoreId            string            `gorm:"-" json:"store_id"`
-	CategoryId         string            `gorm:"category_id" json:"category_id"`
 	BrandId            string            `gorm:"-" json:"brand_id"`
 	SupplierId         string            `gorm:"-" json:"supplier_id"`
 	UnitId             string            `gorm:"-" json:"unit_id"`
@@ -34,7 +33,6 @@ type Product struct {
 	IsActive           bool              `gorm:"is_active" json:"is_active"`
 	BonusPercent       int               `gorm:"bonus_percent" json:"bonus_percent"`
 	BonusAmount        float64           `gorm:"bonus_amount" json:"bonus_amount"`
-	Category           *Category         `gorm:"foreignKey:CategoryId" json:"category"`
 	Store              *Store            `gorm:"foreignKey:StoreId" json:"store"`
 	CreatedAt          *time.Time        `gorm:"created_at" json:"created_at"`
 	UpdatedAt          *time.Time        `gorm:"updated_at" json:"updated_at"`
@@ -44,7 +42,6 @@ type Product struct {
 type ProductRequest struct {
 	Id           string            `gorm:"id" json:"-"`
 	StoreId      string            `gorm:"store_id" json:"store_id"`
-	CategoryId   string            `gorm:"category_id" json:"category_id"`
 	Name         string            `gorm:"name" json:"name"`
 	Sku          string            `gorm:"sku" json:"sku"`
 	Barcode      string            `gorm:"barcode" json:"barcode"`
@@ -68,7 +65,6 @@ type ProductRequest struct {
 type ProductUpdateRequest struct {
 	Id           string            `gorm:"id" json:"id"`
 	StoreId      string            `gorm:"store_id" json:"store_id"`
-	CategoryId   string            `gorm:"category_id" json:"category_id"`
 	Name         string            `gorm:"name" json:"name"`
 	Sku          string            `gorm:"sku" json:"sku"`
 	Barcode      string            `gorm:"barcode" json:"barcode"`
