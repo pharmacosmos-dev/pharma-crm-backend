@@ -1558,6 +1558,12 @@ const docTemplate = `{
                         "description": "Search",
                         "name": "search",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Store ID",
+                        "name": "store_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1661,7 +1667,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.CategoryRequest"
+                            "$ref": "#/definitions/domain.CustomerRequest"
                         }
                     }
                 ],
@@ -4093,13 +4099,58 @@ const docTemplate = `{
         "domain.CustomerRequest": {
             "type": "object",
             "properties": {
+                "birthday": {
+                    "type": "string"
+                },
                 "email": {
                     "type": "string"
                 },
-                "name": {
+                "facebook": {
+                    "type": "string"
+                },
+                "first_name": {
+                    "type": "string"
+                },
+                "gender": {
+                    "type": "string"
+                },
+                "instagram": {
+                    "type": "string"
+                },
+                "is_email_notify": {
+                    "type": "boolean"
+                },
+                "is_phone_notify": {
+                    "type": "boolean"
+                },
+                "is_sms_notify": {
+                    "type": "boolean"
+                },
+                "is_social_notify": {
+                    "type": "boolean"
+                },
+                "last_name": {
+                    "type": "string"
+                },
+                "marital_status": {
+                    "type": "string"
+                },
+                "middle_name": {
                     "type": "string"
                 },
                 "phone": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "primary_lang": {
+                    "type": "string"
+                },
+                "store_id": {
+                    "type": "string"
+                },
+                "tg_username": {
                     "type": "string"
                 }
             }

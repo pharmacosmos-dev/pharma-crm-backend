@@ -113,7 +113,7 @@ func (h *SaleHandler) List(c *gin.Context) {
 		return
 	}
 	res := []*domain.Sale{}
-	query := h.db.Count(&totalAmount).Limit(limit).Offset(offset).Order("created_at DESC")
+	query := h.db.Model(&domain.Sale{}).Count(&totalAmount).Limit(limit).Offset(offset).Order("created_at DESC")
 	if employeeID := c.Query("employee_id"); employeeID != "" {
 		query = query.Where("employee_id = ?", employeeID)
 	}

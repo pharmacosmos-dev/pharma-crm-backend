@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
 )
 
@@ -42,15 +43,21 @@ func (h *CustomerHandler) CustomerRoutes(r *gin.RouterGroup) {
 // @Failure 500 {object} v1.Response
 // @Router /customer [post]
 func (h *CustomerHandler) Create(c *gin.Context) {
-	var body domain.CustomerRequest
-	var res domain.Customer
-	if err := c.ShouldBindJSON(&body); err != nil {
+	var (
+		body domain.CustomerRequest
+		res  domain.Customer
+		err  error
+	)
+	if err = c.ShouldBindJSON(&body); err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 
 	body.Id = uuid.New().String()
-	if err := h.db.WithContext(c.Request.Context()).Create(&body).Scan(&res).Error; err != nil {
+	if err = h.db.WithContext(c.Request.Context()).
+		Table("customers").
+		Create(&body).Scan(&res).Error; err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -76,6 +83,7 @@ func (h *CustomerHandler) Get(c *gin.Context) {
 			handleResponse(c, NotFound, nil)
 			return
 		}
+		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -92,11 +100,13 @@ func (h *CustomerHandler) Get(c *gin.Context) {
 // @Param limmit query int false "Limit"
 // @Param offset query int false "Offset"
 // @Param search query string false "Search"
+// @Param store_id query string false "Store ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /customer/list [get]
 func (h *CustomerHandler) List(c *gin.Context) {
+	var totalAmount int64
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
 		handleResponse(c, BadRequest, err.Error())
@@ -104,11 +114,26 @@ func (h *CustomerHandler) List(c *gin.Context) {
 	}
 	res := []*domain.Customer{}
 	search := fmt.Sprintf("%%%s%%", c.Query("search"))
-	if err := h.db.Limit(limit).Offset(offset).Where("name ILIKE ?", search).Find(&res).Error; err != nil {
+
+	// Start building the query
+	query := h.db.Model(&domain.Customer{}).
+		Where("first_name ILIKE ? OR last_name ILIKE ?", search, search).
+		Count(&totalAmount).
+		Limit(limit).
+		Offset(offset).
+		Order("created_at DESC")
+
+	if storeID := c.Query("store_id"); storeID != "" {
+		query = query.Where("store_id = ?", storeID)
+	}
+
+	if err = query.Find(&res).Error; err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, res)
+	result := utils.ListResponse(res, totalAmount, limit, offset)
+
+	handleResponse(c, OK, result)
 }
 
 // Update godoc
@@ -119,15 +144,18 @@ func (h *CustomerHandler) List(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path string true "customer ID"
-// @Param customer body domain.CategoryRequest true "Customer information"
+// @Param customer body domain.CustomerRequest true "Customer information"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /customer/{id} [put]
 func (h *CustomerHandler) Update(c *gin.Context) {
-	var body domain.Customer
-	if err := h.db.WithContext(c.Request.Context()).Model(&body).Where("id = ?", c.Param("id")).Updates(&body).Error; err != nil {
-		h.log.Error(err)
+	var body domain.CustomerRequest
+	if err := h.db.WithContext(c.Request.Context()).
+		Table("customers").
+		Where("id = ?", c.Param("id")).
+		Updates(&body).Error; err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -148,7 +176,7 @@ func (h *CustomerHandler) Update(c *gin.Context) {
 // @Router /customer/{id} [delete]
 func (h *CustomerHandler) Delete(c *gin.Context) {
 	if err := h.db.WithContext(c.Request.Context()).Delete(&domain.Customer{}, "id = ?", c.Param("id")).Error; err != nil {
-		h.log.Error(err)
+		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
