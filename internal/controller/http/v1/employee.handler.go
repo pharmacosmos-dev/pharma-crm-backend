@@ -61,12 +61,7 @@ func (h *EmployeeHandler) Create(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	// hashedPassword, err := etc.HashPassword(body.Password)
-	// if err != nil {
-	// 	h.log.Error(err)
-	// 	handleResponse(c, InternalError, err.Error())
-	// 	return
-	// }
+
 	body.Password = hashedPassword
 	body.Id = uuid.New().String()
 	err = h.db.WithContext(c.Request.Context()).
@@ -184,12 +179,12 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	hashedPassword, err := etc.HashPassword(body.Password)
+	body.Password, err = etc.Encrypt(body.Password, h.cfg.HeshKey)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
+		return
 	}
-	body.Password = hashedPassword
 	err = h.db.WithContext(c.Request.Context()).
 		Model(&domain.Employee{}).
 		Where("id = ?", c.Param("id")).
