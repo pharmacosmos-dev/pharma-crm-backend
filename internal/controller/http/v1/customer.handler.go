@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
@@ -79,7 +80,7 @@ func (h *CustomerHandler) Create(c *gin.Context) {
 func (h *CustomerHandler) Get(c *gin.Context) {
 	var res domain.Customer
 	if err := h.db.First(&res, "id = ?", c.Param("id")).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			handleResponse(c, NotFound, nil)
 			return
 		}
@@ -117,12 +118,14 @@ func (h *CustomerHandler) List(c *gin.Context) {
 
 	// Start building the query
 	query := h.db.Model(&domain.Customer{}).
-		Where("first_name ILIKE ? OR last_name ILIKE ?", search, search).
-		Count(&totalAmount).
 		Limit(limit).
 		Offset(offset).
+		Count(&totalAmount).
 		Order("created_at DESC")
 
+	if search != "" {
+		query = query.Where("first_name ILIKE ? OR last_name ILIKE ?", search, search)
+	}
 	if storeID := c.Query("store_id"); storeID != "" {
 		query = query.Where("store_id = ?", storeID)
 	}
@@ -151,10 +154,17 @@ func (h *CustomerHandler) List(c *gin.Context) {
 // @Router /customer/{id} [put]
 func (h *CustomerHandler) Update(c *gin.Context) {
 	var body domain.CustomerRequest
-	if err := h.db.WithContext(c.Request.Context()).
+	var err error
+	if err = c.ShouldBindJSON(&body); err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	err = h.db.WithContext(c.Request.Context()).
 		Table("customers").
 		Where("id = ?", c.Param("id")).
-		Updates(&body).Error; err != nil {
+		Updates(&body).Error
+	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
