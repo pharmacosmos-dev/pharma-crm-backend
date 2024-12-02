@@ -457,7 +457,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "cart item ID",
+                        "description": "Sale ID",
                         "name": "sale_id",
                         "in": "path",
                         "required": true

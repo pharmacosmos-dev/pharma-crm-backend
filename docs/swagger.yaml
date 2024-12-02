@@ -777,7 +777,7 @@ paths:
       - application/json
       description: Update a cart item from the request body
       parameters:
-      - description: cart item ID
+      - description: Sale ID
         in: path
         name: sale_id
         required: true

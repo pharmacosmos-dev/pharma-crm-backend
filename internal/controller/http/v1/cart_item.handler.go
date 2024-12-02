@@ -192,7 +192,7 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param sale_id path string true "cart item ID"
+// @Param sale_id path string true "Sale ID"
 // @Param input body domain.CartItemBySaleIDUpdateRequest true "Cart item information"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
