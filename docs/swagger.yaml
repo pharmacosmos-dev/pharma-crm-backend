@@ -166,6 +166,28 @@ definitions:
       phone:
         type: string
     type: object
+  domain.PaymentServiceRequest:
+    properties:
+      is_active:
+        type: boolean
+      merchant_id:
+        type: integer
+      name:
+        type: string
+      secret_key:
+        type: string
+      service_id:
+        type: integer
+    type: object
+  domain.PaymentTypeRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      type:
+        type: string
+    type: object
   domain.Product:
     properties:
       barcode:
@@ -340,6 +362,23 @@ definitions:
       unit_price:
         type: number
     type: object
+  domain.SalePaymentRequest:
+    properties:
+      amount:
+        type: number
+      paid_at:
+        type: string
+      payment_service_id:
+        type: string
+      payment_type_id:
+        type: string
+      sale_id:
+        type: string
+      status:
+        type: string
+      transaction_id:
+        type: string
+    type: object
   domain.SaleRequest:
     properties:
       cash_box_id:
@@ -378,6 +417,19 @@ definitions:
       location:
         type: string
       name:
+        type: string
+    type: object
+  domain.TransactionRequest:
+    properties:
+      payment_service_id:
+        type: string
+      response_data:
+        type: string
+      sale_payment_id:
+        type: string
+      status:
+        type: string
+      transaction_id:
         type: string
     type: object
   domain.Unit:
@@ -1961,6 +2013,302 @@ paths:
       summary: Login
       tags:
       - auth
+  /payment_service:
+    post:
+      consumes:
+      - application/json
+      description: Create a payment service from the request body
+      parameters:
+      - description: payment service
+        in: body
+        name: payment_service
+        required: true
+        schema:
+          $ref: '#/definitions/domain.PaymentServiceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a payment service
+      tags:
+      - payment_services
+  /payment_service/:id:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a payment service from the request body
+      parameters:
+      - description: payment service ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete a payment service
+      tags:
+      - payment_services
+    get:
+      consumes:
+      - application/json
+      description: Get a payment service from the request body
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a payment service
+      tags:
+      - payment_services
+    put:
+      consumes:
+      - application/json
+      description: Update a payment service from the request body
+      parameters:
+      - description: payment service ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: payment service
+        in: body
+        name: payment_service
+        required: true
+        schema:
+          $ref: '#/definitions/domain.PaymentServiceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update a payment service
+      tags:
+      - payment_services
+  /payment_service/list:
+    get:
+      consumes:
+      - application/json
+      description: Get a payment service from the request body
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a payment service
+      tags:
+      - payment_services
+  /payment_type:
+    post:
+      consumes:
+      - application/json
+      description: Create a payment type from the request body
+      parameters:
+      - description: payment type
+        in: body
+        name: payment_type
+        required: true
+        schema:
+          $ref: '#/definitions/domain.PaymentTypeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a payment type
+      tags:
+      - payment_types
+  /payment_type/:id:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a payment type from the request body
+      parameters:
+      - description: payment type ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete a payment type
+      tags:
+      - payment_types
+    get:
+      consumes:
+      - application/json
+      description: Get a payment type from the request body
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a payment type
+      tags:
+      - payment_types
+    put:
+      consumes:
+      - application/json
+      description: Update a payment type from the request body
+      parameters:
+      - description: payment type ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: payment type
+        in: body
+        name: payment_type
+        required: true
+        schema:
+          $ref: '#/definitions/domain.PaymentTypeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update a payment type
+      tags:
+      - payment_types
+  /payment_type/list:
+    get:
+      consumes:
+      - application/json
+      description: Get a payment type from the request body
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a payment type
+      tags:
+      - payment_types
   /product:
     post:
       consumes:
@@ -2752,6 +3100,154 @@ paths:
       summary: Create a sale item
       tags:
       - sale_items
+  /sale_payment:
+    post:
+      consumes:
+      - application/json
+      description: Create a sale payment from the request body
+      parameters:
+      - description: sale payment
+        in: body
+        name: sale_payment
+        required: true
+        schema:
+          $ref: '#/definitions/domain.SalePaymentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a sale payment
+      tags:
+      - sale_payments
+  /sale_payment/:id:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a sale payment from the request body
+      parameters:
+      - description: sale payment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete a sale payment
+      tags:
+      - sale_payments
+    get:
+      consumes:
+      - application/json
+      description: Get a sale payment from the request body
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a sale payment
+      tags:
+      - sale_payments
+    put:
+      consumes:
+      - application/json
+      description: Update a sale payment from the request body
+      parameters:
+      - description: sale payment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: sale payment
+        in: body
+        name: sale_payment
+        required: true
+        schema:
+          $ref: '#/definitions/domain.SalePaymentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update a sale payment
+      tags:
+      - sale_payments
+  /sale_payment/list:
+    get:
+      consumes:
+      - application/json
+      description: Get a sale payment from the request body
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a sale payment
+      tags:
+      - sale_payments
   /store:
     post:
       consumes:
@@ -2919,6 +3415,154 @@ paths:
       summary: Get a store
       tags:
       - stores
+  /transaction:
+    post:
+      consumes:
+      - application/json
+      description: Create a transaction from the request body
+      parameters:
+      - description: transaction
+        in: body
+        name: transaction
+        required: true
+        schema:
+          $ref: '#/definitions/domain.TransactionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a transaction
+      tags:
+      - transactions
+  /transaction/:id:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a transaction from the request body
+      parameters:
+      - description: transaction ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete a transaction
+      tags:
+      - transactions
+    get:
+      consumes:
+      - application/json
+      description: Get a transaction from the request body
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a transaction
+      tags:
+      - transactions
+    put:
+      consumes:
+      - application/json
+      description: Update a transaction from the request body
+      parameters:
+      - description: transaction ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: transaction
+        in: body
+        name: transaction
+        required: true
+        schema:
+          $ref: '#/definitions/domain.TransactionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update a transaction
+      tags:
+      - transactions
+  /transaction/list:
+    get:
+      consumes:
+      - application/json
+      description: Get a transaction from the request body
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a transaction
+      tags:
+      - transactions
   /unit:
     post:
       consumes:

@@ -43,6 +43,7 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		h.NewSaleHandler(v1)
 		h.NewSaleItemHandler(v1)
 		h.NewDraftHandler(v1)
+		h.NewPaymentTypeHandler(v1)
 	}
 }
 

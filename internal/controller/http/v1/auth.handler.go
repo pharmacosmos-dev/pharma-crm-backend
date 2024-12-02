@@ -60,7 +60,6 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 	oldPassword, err := etc.Decrypt(res.Password, h.cfg.HeshKey)
 	if err != nil {
-		fmt.Println("ERROR: ", err.Error())
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
