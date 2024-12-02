@@ -1,9 +1,12 @@
 package v1
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/etc"
+	"gorm.io/gorm"
 )
 
 type AuthHandler struct {
@@ -39,33 +42,34 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	)
 	err = c.ShouldBindJSON(&body)
 	if err != nil {
-		h.log.Error(err)
+		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, BadRequest, err.Error())
-		return
-	}
-	var count int64
-	err = h.db.Model(&domain.Employee{}).Where("phone = ?", body.Phone).Count(&count).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
-		return
-	}
-	if count < 1 {
-		handleResponse(c, NotFound, "User not found")
 		return
 	}
 	err = h.db.WithContext(c.Request.Context()).
-		Model(&domain.Employee{}).Preload("Store").Preload("Role").
+		Preload("Store").Preload("Role").
 		First(&res, "phone = ?", body.Phone).Error
 	if err != nil {
-		h.log.Error(err)
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	if !etc.CheckPasswordHash(body.Password, res.Password) {
+	oldPassword, err := etc.Decrypt(res.Password, h.cfg.HeshKey)
+	if err != nil {
+		fmt.Println("ERROR: ", err.Error())
+		h.log.Error(fmt.Errorf("err: %v", err))
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	if body.Password != oldPassword {
 		handleResponse(c, CONFLICT, "Wrong password")
 		return
 	}
+
 	m := map[string]interface{}{
 		"user_id": res.Id,
 		"role_id": res.RoleId,
@@ -73,7 +77,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	accessToken, err := h.JwtHandler.GenerateJWT(m)
 	if err != nil {
-		h.log.Error(err)
+		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -85,4 +89,4 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	handleResponse(c, OK, data)
 }
 
-func (h *EmployeeHandler) Logout(c *gin.Context) {}
+func (h *AuthHandler) Logout(c *gin.Context) {}
