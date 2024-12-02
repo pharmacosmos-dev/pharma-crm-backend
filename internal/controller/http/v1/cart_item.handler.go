@@ -26,6 +26,7 @@ func (h *CartItemHandler) CartItemRoutes(r *gin.RouterGroup) {
 		cartItem.PUT("/:id", h.Update)
 		cartItem.DELETE("/:id", h.Delete)
 		cartItem.POST("/multiple", h.MultipleDelete)
+		cartItem.PUT("/sale/:sale_id", h.UpdateBySaleID)
 	}
 }
 
@@ -182,6 +183,37 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, cartItem)
+}
+
+// UpdateBySaleID godoc
+// @Summary Update a cart item
+// @Description Update a cart item from the request body
+// @Tags cart_items
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param sale_id path string true "cart item ID"
+// @Param input body domain.CartItemBySaleIDUpdateRequest true "Cart item information"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /cart_item/sale/{sale_id} [put]
+func (h *CartItemHandler) UpdateBySaleID(c *gin.Context) {
+	var body domain.CartItemBySaleIDUpdateRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	if err := h.db.WithContext(c.Request.Context()).
+		Table("cart_items").
+		Where("sale_id = ?", c.Param("sale_id")).
+		Updates(&body).Error; err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, body)
 }
 
 // Delete godoc

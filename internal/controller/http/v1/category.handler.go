@@ -46,20 +46,15 @@ func (h *CategoryController) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	category := domain.Category{
-		Id:   uuid.New().String(),
-		Name: body.Name,
-	}
-	if body.CategoryId != "" {
-		category.CategoryId = &body.CategoryId
-	}
+	body.Id = uuid.New().String()
 	if err := h.db.WithContext(c.Request.Context()).
-		Create(&category).Error; err != nil {
+		Table("categories").
+		Create(&body).Error; err != nil {
 		h.log.Error(err.Error())
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, category)
+	handleResponse(c, OK, body)
 }
 
 // Get godoc

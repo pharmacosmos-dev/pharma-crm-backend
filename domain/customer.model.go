@@ -16,6 +16,7 @@ type Customer struct {
 	Birthday       string            `gorm:"birthday" json:"birthday"`
 	Gender         string            `gorm:"gender" json:"gender"`
 	Email          string            `gorm:"email" json:"email"`
+	Balance        float64           `gorm:"balance" json:"balance"`
 	MaritalStatus  string            `gorm:"marital_status" json:"marital_status"`
 	PrimaryLang    string            `gorm:"primary_lang" json:"primary_lang"`
 	TgUsername     string            `gorm:"tg_username" json:"tg_username"`

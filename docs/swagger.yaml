@@ -7,6 +7,14 @@ definitions:
       name:
         type: string
     type: object
+  domain.CartItemBySaleIDUpdateRequest:
+    properties:
+      discount_type:
+        example: percent|cash
+        type: string
+      discount_value:
+        type: number
+    type: object
   domain.CartItemRequest:
     properties:
       discount_type:
@@ -761,6 +769,43 @@ paths:
       security:
       - BearerAuth: []
       summary: Delete all cart items
+      tags:
+      - cart_items
+  /cart_item/sale/{sale_id}:
+    put:
+      consumes:
+      - application/json
+      description: Update a cart item from the request body
+      parameters:
+      - description: cart item ID
+        in: path
+        name: sale_id
+        required: true
+        type: string
+      - description: Cart item information
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CartItemBySaleIDUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update a cart item
       tags:
       - cart_items
   /cash_box:

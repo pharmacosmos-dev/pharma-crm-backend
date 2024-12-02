@@ -158,7 +158,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 	}
 	// Build the query
 	query := h.db.Model(&domain.Product{}).
-		Where("name ILIKE ? OR barcode ILIKE ? OR manufacturer ILIKE ?", searchField, searchField, searchField).
+		Where("name ILIKE ? OR barcode ILIKE ?", searchField, searchField).
 		Where("is_active = ? ", true).
 		Where("supply_price BETWEEN ? AND CASE WHEN ? = 0 THEN 999999999 ELSE ? END", supplyPriceFrom, supplyPriceTo, supplyPriceTo).
 		Where("retail_price BETWEEN ? AND CASE WHEN ? = 0 THEN 999999999 ELSE ? END", retailPriceFrom, retailPriceTo, retailPriceTo).

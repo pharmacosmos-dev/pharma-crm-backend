@@ -436,6 +436,64 @@ const docTemplate = `{
                 }
             }
         },
+        "/cart_item/sale/{sale_id}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update a cart item from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "cart_items"
+                ],
+                "summary": "Update a cart item",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "cart item ID",
+                        "name": "sale_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Cart item information",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.CartItemBySaleIDUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/cart_item/{id}": {
             "get": {
                 "security": [
@@ -4250,6 +4308,18 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                }
+            }
+        },
+        "domain.CartItemBySaleIDUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "discount_type": {
+                    "type": "string",
+                    "example": "percent|cash"
+                },
+                "discount_value": {
+                    "type": "number"
                 }
             }
         },

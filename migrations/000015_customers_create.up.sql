@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS "customers" (
   "is_phone_notify" bool,
   "is_social_notify" bool,
   "is_email_notify" bool,
+  "balance" NUMERIC(10, 2) DEFAULT 0.00,
   "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
