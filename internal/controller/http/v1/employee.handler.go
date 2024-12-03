@@ -179,6 +179,7 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+
 	body.Password, err = etc.Encrypt(body.Password, h.cfg.HeshKey)
 	if err != nil {
 		h.log.Error(err)

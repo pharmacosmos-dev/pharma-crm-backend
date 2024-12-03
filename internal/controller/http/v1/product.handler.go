@@ -162,16 +162,18 @@ func (h *ProductHandler) List(c *gin.Context) {
 		Where("is_active = ? ", true).
 		Where("supply_price BETWEEN ? AND CASE WHEN ? = 0 THEN 999999999 ELSE ? END", supplyPriceFrom, supplyPriceTo, supplyPriceTo).
 		Where("retail_price BETWEEN ? AND CASE WHEN ? = 0 THEN 999999999 ELSE ? END", retailPriceFrom, retailPriceTo, retailPriceTo).
-		Where("(manufacturer = ? OR ? = '')", c.Query("producer"), c.Query("producer")).
-		Limit(limit).
-		Offset(offset).
-		Count(&totalCount).
-		Order("quantity DESC")
+		Where("(manufacturer = ? OR ? = '')", c.Query("producer"), c.Query("producer"))
 	if storeIDParam != "" {
 		query = query.Where("store_id = ?", storeIDParam)
 	}
+	query = query.
+		Count(&totalCount).
+		Limit(limit).
+		Offset(offset).
+		Order("quantity DESC").
+		Find(&res)
 	// Handle errors from the query
-	if query.Find(&res).Error != nil {
+	if query.Error != nil {
 		h.log.Error(query.Error)
 		handleResponse(c, InternalError, query.Error.Error())
 		return

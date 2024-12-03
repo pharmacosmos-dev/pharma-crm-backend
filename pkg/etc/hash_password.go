@@ -13,12 +13,12 @@ import (
 
 func HashPassword(password string) (string, error) {
 	// Lower cost factor to 12
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 12)
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	return string(bytes), err
 }
 
-func CheckPasswordHash(password, hashed string) bool {
-	return bcrypt.CompareHashAndPassword([]byte(hashed), []byte(password)) == nil
+func CheckPasswordHash(password, hashed string) error {
+	return bcrypt.CompareHashAndPassword([]byte(hashed), []byte(password))
 }
 
 // Encrypt encrypts plaintext using the given key with AES.
