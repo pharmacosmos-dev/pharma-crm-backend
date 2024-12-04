@@ -40,6 +40,8 @@ type CustomerRequest struct {
 	Birthday  string            `gorm:"birthday" json:"birthday"`
 	Gender    string            `gorm:"gender" json:"gender"`
 	TagId     string            `gorm:"-" json:"tag_id"`
+	CreatedBy string            `gorm:"-" json:"created_by"`
+
 	// Email          string            `gorm:"email" json:"email"`
 	// MaritalStatus  string            `gorm:"marital_status" json:"marital_status"`
 	// PrimaryLang    string            `gorm:"primary_lang" json:"primary_lang"`

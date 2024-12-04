@@ -1337,18 +1337,6 @@ const docTemplate = `{
                 "summary": "Get a category",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "description": "Limit",
-                        "name": "limmit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Offset",
-                        "name": "offset",
-                        "in": "query"
-                    },
-                    {
                         "type": "string",
                         "description": "Parent ID",
                         "name": "parent_id",
@@ -5354,10 +5342,7 @@ const docTemplate = `{
                 "birthday": {
                     "type": "string"
                 },
-                "email": {
-                    "type": "string"
-                },
-                "facebook": {
+                "created_by": {
                     "type": "string"
                 },
                 "first_name": {
@@ -5366,28 +5351,7 @@ const docTemplate = `{
                 "gender": {
                     "type": "string"
                 },
-                "instagram": {
-                    "type": "string"
-                },
-                "is_email_notify": {
-                    "type": "boolean"
-                },
-                "is_phone_notify": {
-                    "type": "boolean"
-                },
-                "is_sms_notify": {
-                    "type": "boolean"
-                },
-                "is_social_notify": {
-                    "type": "boolean"
-                },
                 "last_name": {
-                    "type": "string"
-                },
-                "marital_status": {
-                    "type": "string"
-                },
-                "middle_name": {
                     "type": "string"
                 },
                 "phone": {
@@ -5396,13 +5360,10 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
-                "primary_lang": {
-                    "type": "string"
-                },
                 "store_id": {
                     "type": "string"
                 },
-                "tg_username": {
+                "tag_id": {
                     "type": "string"
                 }
             }

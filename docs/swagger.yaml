@@ -77,39 +77,21 @@ definitions:
     properties:
       birthday:
         type: string
-      email:
-        type: string
-      facebook:
+      created_by:
         type: string
       first_name:
         type: string
       gender:
         type: string
-      instagram:
-        type: string
-      is_email_notify:
-        type: boolean
-      is_phone_notify:
-        type: boolean
-      is_sms_notify:
-        type: boolean
-      is_social_notify:
-        type: boolean
       last_name:
-        type: string
-      marital_status:
-        type: string
-      middle_name:
         type: string
       phone:
         items:
           type: string
         type: array
-      primary_lang:
-        type: string
       store_id:
         type: string
-      tg_username:
+      tag_id:
         type: string
     type: object
   domain.DraftRequest:
@@ -1388,14 +1370,6 @@ paths:
       - application/json
       description: Get a category from the request body
       parameters:
-      - description: Limit
-        in: query
-        name: limmit
-        type: integer
-      - description: Offset
-        in: query
-        name: offset
-        type: integer
       - description: Parent ID
         in: query
         name: parent_id
