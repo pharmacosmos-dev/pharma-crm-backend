@@ -49,15 +49,17 @@ func (h *CustomerHandler) Create(c *gin.Context) {
 		res  domain.Customer
 		err  error
 	)
-	if err = c.ShouldBindJSON(&body); err != nil {
+	err = c.ShouldBindJSON(&body)
+	if err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 
 	body.Id = uuid.New().String()
-	if err = h.db.WithContext(c.Request.Context()).
+	err = h.db.WithContext(c.Request.Context()).
 		Table("customers").
-		Create(&body).Scan(&res).Error; err != nil {
+		Create(&body).Scan(&res).Error
+	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return

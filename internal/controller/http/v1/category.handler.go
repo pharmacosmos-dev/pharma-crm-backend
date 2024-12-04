@@ -2,6 +2,7 @@ package v1
 
 import (
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
@@ -40,17 +41,28 @@ func (h *CategoryController) CategoryRoutes(r *gin.RouterGroup) {
 // @Failure 500 {object} v1.Response
 // @Router /category [post]
 func (h *CategoryController) Create(c *gin.Context) {
-	var body domain.CategoryRequest
-	if err := c.ShouldBindJSON(&body); err != nil {
-		h.log.Error(err)
+	var (
+		body domain.CategoryRequest
+		err  error
+	)
+	err = c.ShouldBindJSON(&body)
+	if err != nil {
+		h.log.Error("err: ", err.Error())
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 	body.Id = uuid.New().String()
-	if err := h.db.WithContext(c.Request.Context()).
-		Table("categories").
-		Create(&body).Error; err != nil {
-		h.log.Error(err.Error())
+	if body.CategoryId != "" {
+		err = h.db.WithContext(c.Request.Context()).
+			Table("categories").
+			Create(&body).Error
+	} else {
+		err = h.db.WithContext(c.Request.Context()).
+			Table("categories").
+			Create(&map[string]interface{}{"id": body.Id, "name": body.Name}).Error
+	}
+	if err != nil {
+		h.log.Error("err: ", err.Error())
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -71,7 +83,8 @@ func (h *CategoryController) Create(c *gin.Context) {
 // @Router /category/{id} [get]
 func (h *CategoryController) Get(c *gin.Context) {
 	var res domain.Category
-	if err := h.db.First(&res, "id = ?", c.Param("id")).Error; err != nil {
+	err := h.db.First(&res, "id = ?", c.Param("id")).Error
+	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -86,30 +99,24 @@ func (h *CategoryController) Get(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param limmit query int false "Limit"
-// @Param offset query int false "Offset"
 // @Param parent_id query string false "Parent ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /category/list [get]
 func (h *CategoryController) List(c *gin.Context) {
-	limit, offset, err := getPaginationParams(c)
+	// var res []domain.Category
+	var parentID *string
+	if p := c.Query("parent_id"); p != "" {
+		parentID = &p
+	}
+	categories, err := fetchCategories(h.db, parentID)
 	if err != nil {
-		handleResponse(c, BadRequest, err.Error())
-		return
-	}
-	var res []domain.Category
-	query := h.db.Limit(limit).Offset(offset)
-	if parentID := c.Query("parent_id"); parentID != "" {
-		query = query.Where("category_id = ?", parentID)
-	}
-	if err := query.Find(&res).Error; err != nil {
 		h.log.Error("err: ", err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, res)
+	handleResponse(c, OK, categories)
 }
 
 // Update godoc
@@ -161,11 +168,33 @@ func (h *CategoryController) Update(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /category/{id} [delete]
 func (h *CategoryController) Delete(c *gin.Context) {
-	if err := h.db.WithContext(c.Request.Context()).
-		Delete(&domain.Category{}, "id = ?", c.Param("id")).Error; err != nil {
+	err := h.db.WithContext(c.Request.Context()).
+		Delete(&domain.Category{}, "id = ?", c.Param("id")).Error
+	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 	handleResponse(c, OK, "DELETED")
+}
+
+func fetchCategories(db *gorm.DB, parentID *string) ([]domain.Category, error) {
+	var categories []domain.Category
+	query := db.Preload("SubCategories")
+	if parentID != nil {
+		query = query.Where("category_id = ?", parentID)
+	}
+	err := query.Find(&categories).Error
+	if err != nil {
+		return nil, err
+	}
+	// Recursively fetch subcategories for each category
+	for i := range categories {
+		categories[i].SubCategories, err = fetchCategories(db, &categories[i].Id)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return categories, nil
 }
