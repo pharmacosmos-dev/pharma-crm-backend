@@ -76,12 +76,14 @@ definitions:
   domain.CustomerRequest:
     properties:
       birthday:
+        example: "2006-01-02"
         type: string
       created_by:
         type: string
       first_name:
         type: string
       gender:
+        example: male/female
         type: string
       last_name:
         type: string
@@ -89,8 +91,6 @@ definitions:
         items:
           type: string
         type: array
-      store_id:
-        type: string
       tag_id:
         type: string
     type: object

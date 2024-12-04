@@ -1,6 +1,5 @@
 CREATE TABLE IF NOT EXISTS "customers" (
   "id" uuid PRIMARY KEY,
-  "store_id" uuid REFERENCES stores(id),
   "group_id" uuid,
   "tag_id" uuid,
   "first_name" varchar,

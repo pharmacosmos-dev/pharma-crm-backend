@@ -5340,7 +5340,8 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "birthday": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "2006-01-02"
                 },
                 "created_by": {
                     "type": "string"
@@ -5349,7 +5350,8 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "gender": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "male/female"
                 },
                 "last_name": {
                     "type": "string"
@@ -5359,9 +5361,6 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
-                },
-                "store_id": {
-                    "type": "string"
                 },
                 "tag_id": {
                     "type": "string"
