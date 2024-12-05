@@ -168,6 +168,19 @@ definitions:
       type:
         type: string
     type: object
+  domain.PermissionRequest:
+    properties:
+      action:
+        type: string
+      entity_name:
+        type: string
+      parent_id:
+        type: string
+      route:
+        type: string
+      type:
+        type: string
+    type: object
   domain.Product:
     properties:
       barcode:
@@ -2277,6 +2290,165 @@ paths:
       summary: Get a payment type
       tags:
       - payment_types
+  /permission:
+    post:
+      consumes:
+      - application/json
+      description: Create Permission
+      parameters:
+      - description: Permission information
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.PermissionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create Permission
+      tags:
+      - Permission
+  /permission/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete Permission
+      parameters:
+      - description: Permission ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete Permission
+      tags:
+      - Permission
+    get:
+      consumes:
+      - application/json
+      description: Get Permission
+      parameters:
+      - description: Permission ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Permission
+      tags:
+      - Permission
+    put:
+      consumes:
+      - application/json
+      description: Update Permission
+      parameters:
+      - description: Permission ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Permission information
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.PermissionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update Permission
+      tags:
+      - Permission
+  /permission/list:
+    get:
+      consumes:
+      - application/json
+      description: List Permission
+      parameters:
+      - description: Search
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: List Permission
+      tags:
+      - Permission
   /product:
     post:
       consumes:
