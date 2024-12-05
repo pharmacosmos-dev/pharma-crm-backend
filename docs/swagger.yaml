@@ -102,6 +102,8 @@ definitions:
         type: string
       created_by:
         type: string
+      customer_id:
+        type: string
       description:
         type: string
       draft_time:

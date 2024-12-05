@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
@@ -44,25 +45,44 @@ func (h *DraftHandler) DraftRoutes(r *gin.RouterGroup) {
 // @Router /draft [post]
 func (h *DraftHandler) Create(c *gin.Context) {
 	var (
-		body      domain.DraftRequest
-		cartItems []domain.CartItem
-		err       error
+		body domain.DraftRequest
+		temp []domain.DraftCreate
+		err  error
 	)
 	if err = c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	err = h.db.Where("sale_id = ?", body.SaleID).Table("cart_items").Find(&cartItems).Error
+	err = h.db.Where("sale_id = ?", body.SaleID).
+		Select("product_id", "sale_id", "quantity", "unit_price", "total_price").
+		Table("cart_items").Find(&temp).Error
 	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	if len(cartItems) > 0 {
-		body.ID = uuid.New().String()
-		body.DraftNumber = utils.GenerateCode()
-		if err = h.db.Table("drafts").Create(&body).Error; err != nil {
+	if len(temp) > 0 {
+
+		for i := range temp {
+			// if body.CustomerID == "" {
+			// 	temp[i].CustomerID = nil
+			// }
+			temp[i].ID = uuid.New().String()
+			temp[i].DraftNumber = utils.GenerateCode()
+			temp[i].CustomerID = body.CustomerID
+			temp[i].CreatedBy = body.CreatedBy
+			temp[i].StoreID = body.StoreID
+			temp[i].DraftTime = body.DraftTime
+			temp[i].Description = body.Description
+		}
+		if err = h.db.Table("drafts").Create(&temp).Error; err != nil {
+			h.log.Error(fmt.Errorf("err: %v", err))
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+		err = h.db.Delete(&domain.CartItem{}, "sale_id = ?", body.SaleID).Error
+		if err != nil {
 			h.log.Error(fmt.Errorf("err: %v", err))
 			handleResponse(c, InternalError, err.Error())
 			return
@@ -86,8 +106,9 @@ func (h *DraftHandler) Create(c *gin.Context) {
 // @Router /draft/{id} [get]
 func (h *DraftHandler) Get(c *gin.Context) {
 	var res domain.Draft
-	if err := h.db.First(&res, "id = ?", c.Param("id")).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+	err := h.db.Preload("Product").Preload("Customer").First(&res, "id = ?", c.Param("id")).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			handleResponse(c, NotFound, nil)
 			return
 		}
@@ -125,16 +146,15 @@ func (h *DraftHandler) List(c *gin.Context) {
 		return
 	}
 
-	query := h.db.Model(&domain.Draft{}).
-		Preload("Store").Preload("Product").
-		Limit(limit).Offset(offset).Count(&totalCount).Order("created_at DESC")
+	query := h.db.Model(&domain.Draft{}).Preload("Product").Preload("Customer")
 	if storeID := c.Query("store_id"); storeID != "" {
 		query = query.Where("store_id = ?", storeID)
 	}
 	if cashBoxID := c.Query("cash_box_id"); cashBoxID != "" {
 		query = query.Where("cash_box_id = ?", cashBoxID)
 	}
-	if err := query.Find(&res).Error; err != nil {
+	err = query.Limit(limit).Offset(offset).Count(&totalCount).Order("created_at DESC").Find(&res).Error
+	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return

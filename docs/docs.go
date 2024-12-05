@@ -5379,6 +5379,9 @@ const docTemplate = `{
                 "created_by": {
                     "type": "string"
                 },
+                "customer_id": {
+                    "type": "string"
+                },
                 "description": {
                     "type": "string"
                 },
