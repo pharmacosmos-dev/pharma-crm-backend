@@ -36,10 +36,10 @@ type Customer struct {
 type CustomerRequest struct {
 	Id        string            `gorm:"id" json:"-"`
 	FirstName string            `gorm:"first_name" json:"first_name"`
-	LastName  string            `gorm:"last_name" json:"last_name"`
+	LastName  string            `gorm:"last_name" json:"last_name,omitempty"`
 	Phone     utils.StringArray `gorm:"type:text[]" json:"phone"`
-	Birthday  string            `gorm:"birthday" json:"birthday" example:"2006-01-02"`
-	Gender    string            `gorm:"gender" json:"gender" example:"male/female"`
+	Birthday  string            `gorm:"birthday" json:"birthday,omitempty" example:"2006-01-02"`
+	Gender    string            `gorm:"gender" json:"gender,omitempty" example:"male/female"`
 	TagId     string            `gorm:"-" json:"tag_id"`
 	CreatedBy string            `gorm:"-" json:"created_by"`
 	// Email          string            `gorm:"email" json:"email"`
@@ -58,3 +58,4 @@ type Tag struct {
 	Id   string `gorm:"id" json:"id"`
 	Name string `gorm:"name" json:"name"`
 }
+

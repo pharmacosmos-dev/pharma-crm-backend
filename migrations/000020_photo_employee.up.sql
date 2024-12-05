@@ -1,2 +1,0 @@
-ALTER TABLE "employees" 
-    ADD COLUMN IF NOT EXISTS photo VARCHAR(255);

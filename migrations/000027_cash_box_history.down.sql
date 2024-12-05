@@ -1,1 +1,0 @@
-DROP TABLE IF EXISTS cash_box_histories;

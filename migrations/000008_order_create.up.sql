@@ -10,6 +10,10 @@ CREATE TABLE IF NOT EXISTS "orders" (
   "payment_dept_amount" int,
   "shipment_date" date,
   "status" order_status,
+  "created_by" uuid,
+  "updated_by" uuid,
+  "deleted_by" uuid,
+  "is_active" boolean NOT NULL DEFAULT true,
   "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );

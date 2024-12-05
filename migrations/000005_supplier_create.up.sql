@@ -12,6 +12,10 @@ CREATE TABLE IF NOT EXISTS "suppliers" (
   "bank_tin" varchar,
   "bank_ibt" varchar,
   "file_url" varchar,
+  "created_by" uuid,
+  "updated_by" uuid,
+  "deleted_by" uuid,
+  "is_active" boolean NOT NULL DEFAULT true,
   "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );

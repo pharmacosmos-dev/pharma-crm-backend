@@ -46,7 +46,6 @@ func (h *CustomerHandler) CustomerRoutes(r *gin.RouterGroup) {
 func (h *CustomerHandler) Create(c *gin.Context) {
 	var (
 		body domain.CustomerRequest
-		res  domain.Customer
 		err  error
 	)
 	err = c.ShouldBindJSON(&body)
@@ -58,13 +57,13 @@ func (h *CustomerHandler) Create(c *gin.Context) {
 	body.Id = uuid.New().String()
 	err = h.db.WithContext(c.Request.Context()).
 		Table("customers").
-		Create(&body).Scan(&res).Error
+		Create(&body).Error
 	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, CREATED, res)
+	handleResponse(c, CREATED, body)
 }
 
 // Get godoc

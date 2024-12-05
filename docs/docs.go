@@ -5331,6 +5331,9 @@ const docTemplate = `{
                 "category_id": {
                     "type": "string"
                 },
+                "created_by": {
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 }
