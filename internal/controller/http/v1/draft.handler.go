@@ -65,12 +65,11 @@ func (h *DraftHandler) Create(c *gin.Context) {
 	if len(temp) > 0 {
 
 		for i := range temp {
-			// if body.CustomerID == "" {
-			// 	temp[i].CustomerID = nil
-			// }
+			if body.CustomerID == "" {
+				temp[i].CustomerID = nil
+			}
 			temp[i].ID = uuid.New().String()
 			temp[i].DraftNumber = utils.GenerateCode()
-			temp[i].CustomerID = body.CustomerID
 			temp[i].CreatedBy = body.CreatedBy
 			temp[i].StoreID = body.StoreID
 			temp[i].DraftTime = body.DraftTime
