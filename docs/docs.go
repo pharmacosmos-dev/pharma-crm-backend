@@ -1873,12 +1873,6 @@ const docTemplate = `{
                         "description": "Store ID",
                         "name": "store_id",
                         "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Cash Box ID",
-                        "name": "cash_box_id",
-                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -5373,9 +5367,6 @@ const docTemplate = `{
         "domain.DraftRequest": {
             "type": "object",
             "properties": {
-                "cash_box_id": {
-                    "type": "string"
-                },
                 "created_by": {
                     "type": "string"
                 },

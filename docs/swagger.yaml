@@ -98,8 +98,6 @@ definitions:
     type: object
   domain.DraftRequest:
     properties:
-      cash_box_id:
-        type: string
       created_by:
         type: string
       customer_id:
@@ -1711,10 +1709,6 @@ paths:
       - description: Store ID
         in: query
         name: store_id
-        type: string
-      - description: Cash Box ID
-        in: query
-        name: cash_box_id
         type: string
       produces:
       - application/json

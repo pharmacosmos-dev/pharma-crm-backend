@@ -128,7 +128,6 @@ func (h *DraftHandler) Get(c *gin.Context) {
 // @Param limmit query int false "Limit"
 // @Param offset query int false "Offset"
 // @Param store_id query string false "Store ID"
-// @Param cash_box_id query string false "Cash Box ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -145,7 +144,7 @@ func (h *DraftHandler) List(c *gin.Context) {
 		return
 	}
 
-	query := h.db.Model(&domain.Draft{}).Preload("Product").Preload("Customer")
+	query := h.db.Model(&domain.Draft{}).Preload("Store").Preload("Product").Preload("Customer")
 	if storeID := c.Query("store_id"); storeID != "" {
 		query = query.Where("store_id = ?", storeID)
 	}
