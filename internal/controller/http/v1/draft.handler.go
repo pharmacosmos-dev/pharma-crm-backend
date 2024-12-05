@@ -44,22 +44,31 @@ func (h *DraftHandler) DraftRoutes(r *gin.RouterGroup) {
 // @Router /draft [post]
 func (h *DraftHandler) Create(c *gin.Context) {
 	var (
-		body domain.DraftRequest
-		err  error
+		body      domain.DraftRequest
+		cartItems []domain.CartItem
+		err       error
 	)
 	if err = c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	body.ID = uuid.New().String()
-	body.DraftNumber = utils.GenerateCode()
-	if err = h.db.WithContext(c.Request.Context()).
-		Table("drafts").Create(&body).Error; err != nil {
+	err = h.db.Where("sale_id = ?", body.SaleID).Table("cart_items").Find(&cartItems).Error
+	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	if len(cartItems) > 0 {
+		body.ID = uuid.New().String()
+		body.DraftNumber = utils.GenerateCode()
+		if err = h.db.Table("drafts").Create(&body).Error; err != nil {
+			h.log.Error(fmt.Errorf("err: %v", err))
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+	}
+
 	handleResponse(c, CREATED, body)
 }
 

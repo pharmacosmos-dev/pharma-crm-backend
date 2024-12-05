@@ -23,14 +23,12 @@ type Draft struct {
 
 // DraftRequest structure for create, update
 type DraftRequest struct {
-	ID          string  `gorm:"id" json:"-"`
-	StoreID     string  `gorm:"store_id" json:"store_id"`
-	ProductID   string  `gorm:"product_id" json:"product_id"`
-	CashBoxId   string  `gorm:"cash_box_id" json:"cash_box_id"`
-	DraftNumber string  `gorm:"draft_number" json:"-"`
-	Quantity    int     `gorm:"quantity" json:"quantity"`
-	UnitPrice   float64 `gorm:"unit_price" json:"unit_price"`
-	TotalAmount float64 `gorm:"total_amount" json:"total_amount"`
-	Description string  `gorm:"description" json:"description"`
-	DraftTime   string  `gorm:"draft_time" json:"draft_time"`
+	ID          string `gorm:"id" json:"-"`
+	StoreID     string `gorm:"store_id" json:"store_id"`
+	SaleID      string `gorm:"-" json:"sale_id"`
+	CashBoxId   string `gorm:"cash_box_id" json:"cash_box_id"`
+	CreatedBy   string `gorm:"created_by" json:"created_by"`
+	DraftNumber string `gorm:"draft_number" json:"-"`
+	Description string `gorm:"description" json:"description"`
+	DraftTime   string `gorm:"draft_time" json:"draft_time"`
 }

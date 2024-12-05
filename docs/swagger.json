@@ -5369,26 +5369,20 @@
                 "cash_box_id": {
                     "type": "string"
                 },
+                "created_by": {
+                    "type": "string"
+                },
                 "description": {
                     "type": "string"
                 },
                 "draft_time": {
                     "type": "string"
                 },
-                "product_id": {
+                "sale_id": {
                     "type": "string"
-                },
-                "quantity": {
-                    "type": "integer"
                 },
                 "store_id": {
                     "type": "string"
-                },
-                "total_amount": {
-                    "type": "number"
-                },
-                "unit_price": {
-                    "type": "number"
                 }
             }
         },
