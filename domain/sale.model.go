@@ -32,3 +32,16 @@ type SaleUpdateRequest struct {
 	CashAmount     float64 `gorm:"cash_amount" json:"cash_amount"`
 	CashlessAmount float64 `gorm:"cashless_amount" json:"cashless_amount"`
 }
+
+// FinalSale structure
+type FinalSale struct {
+	SaleID       string             `gorm:"sale_id" json:"sale_id"`
+	CashBoxID    string             `gorm:"cash_box_id" json:"cash_box_id"`
+	TotalAmount  float64            `gorm:"total_amount" json:"total_amount"`
+	PaymentTypes []FinalPaymentType `json:"payment_types"`
+}
+
+type FinalPaymentType struct {
+	PaymentTypeID string  `gorm:"payment_type_id" json:"payment_type_id"`
+	Amount        float64 `gorm:"amount" json:"amount"`
+}

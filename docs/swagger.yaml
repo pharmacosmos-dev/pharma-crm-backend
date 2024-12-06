@@ -132,6 +132,26 @@ definitions:
       store_id:
         type: string
     type: object
+  domain.FinalPaymentType:
+    properties:
+      amount:
+        type: number
+      payment_type_id:
+        type: string
+    type: object
+  domain.FinalSale:
+    properties:
+      cash_box_id:
+        type: string
+      payment_types:
+        items:
+          $ref: '#/definitions/domain.FinalPaymentType'
+        type: array
+      sale_id:
+        type: string
+      total_amount:
+        type: number
+    type: object
   domain.Ids:
     properties:
       ids:
@@ -3004,6 +3024,38 @@ paths:
       security:
       - BearerAuth: []
       summary: Update a sale
+      tags:
+      - sales
+  /sale/final:
+    post:
+      consumes:
+      - application/json
+      description: Final Sale from the request body
+      parameters:
+      - description: Sale information
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.FinalSale'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Final Sale
       tags:
       - sales
   /sale/list:

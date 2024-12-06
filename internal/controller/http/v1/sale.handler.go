@@ -27,6 +27,7 @@ func (h *SaleHandler) SaleRoutes(r *gin.RouterGroup) {
 		sale.GET("/list", h.List)
 		sale.PUT("/:id", h.Update)
 		sale.DELETE("/:id", h.Delete)
+		sale.POST("/final", h.FinalSale)
 	}
 }
 
@@ -223,4 +224,30 @@ func (h *SaleHandler) Delete(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, nil)
+}
+
+// FinalSale
+// @Summary Final Sale
+// @Description Final Sale from the request body
+// @Tags sales
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param input body domain.FinalSale true "Sale information"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /sale/final [post]
+func (h *SaleHandler) FinalSale(c *gin.Context) {
+	var (
+		body domain.FinalSale
+	)
+	err := c.ShouldBindJSON(&body)
+	if err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	handleResponse(c, OK, body)
 }

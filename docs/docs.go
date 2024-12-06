@@ -3880,6 +3880,57 @@ const docTemplate = `{
                 }
             }
         },
+        "/sale/final": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Final Sale from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sales"
+                ],
+                "summary": "Final Sale",
+                "parameters": [
+                    {
+                        "description": "Sale information",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.FinalSale"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/sale/list": {
             "get": {
                 "security": [
@@ -5678,6 +5729,37 @@ const docTemplate = `{
                 },
                 "store_id": {
                     "type": "string"
+                }
+            }
+        },
+        "domain.FinalPaymentType": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "payment_type_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.FinalSale": {
+            "type": "object",
+            "properties": {
+                "cash_box_id": {
+                    "type": "string"
+                },
+                "payment_types": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.FinalPaymentType"
+                    }
+                },
+                "sale_id": {
+                    "type": "string"
+                },
+                "total_amount": {
+                    "type": "number"
                 }
             }
         },
