@@ -241,11 +241,55 @@ func (h *SaleHandler) Delete(c *gin.Context) {
 func (h *SaleHandler) FinalSale(c *gin.Context) {
 	var (
 		body domain.FinalSale
+		res  []domain.CartItem
 	)
 	err := c.ShouldBindJSON(&body)
 	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	err = h.db.Where("sale_id = ?", body.SaleID).
+		Table("cart_items").Find(&res).Error
+	if err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	if len(res) > 0 {
+		err = h.db.Table("sale_items").Create(&res).Error
+		if err != nil {
+			h.log.Error(fmt.Errorf("err: %v", err))
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+		for _, item := range res {
+			err = h.db.Table("products").Where("id = ?", item.ProductID).
+				UpdateColumn("quantity", gorm.Expr("quantity - ?", item.Quantity)).Error
+			if err != nil {
+				h.log.Error(fmt.Errorf("err: %v", err))
+				handleResponse(c, InternalError, err.Error())
+				return
+			}
+		}
+
+	}
+	err = h.db.WithContext(c.Request.Context()).
+		Table("sales").
+		Where("id = ?", body.SaleID).
+		Update("total_amount", body.TotalAmount).Error
+
+	if err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	err = h.db.Delete(&domain.CartItem{}, "sale_id = ?", body.SaleID).Error
+	if err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
