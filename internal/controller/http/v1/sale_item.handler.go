@@ -35,6 +35,7 @@ func (h *SaleItemHander) SaleItemRoutes(r *gin.RouterGroup) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
+// @Param input body domain.SaleItemRequest true "Sale item information"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -81,19 +82,21 @@ func (h *SaleItemHander) MultipleCreate(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	if err = h.db.Where("sale_id = ?", body.SaleID).Table("cart_items").Find(&res).Error; err != nil {
+	err = h.db.Where("sale_id = ?", body.SaleID).Table("cart_items").Find(&res).Error
+	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 	if len(res) > 0 {
-		if err = h.db.Table("sale_items").Create(&res).Error; err != nil {
+		err = h.db.Table("sale_items").Create(&res).Error
+		if err != nil {
 			h.log.Error(fmt.Errorf("err: %v", err))
 			handleResponse(c, InternalError, err.Error())
 			return
 		}
 	}
-	handleResponse(c, CREATED, nil)
+	handleResponse(c, CREATED, body)
 }
 
 // Get godoc

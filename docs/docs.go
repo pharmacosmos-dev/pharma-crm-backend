@@ -4116,6 +4116,17 @@ const docTemplate = `{
                     "sale_items"
                 ],
                 "summary": "Create a sale item",
+                "parameters": [
+                    {
+                        "description": "Sale item information",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.SaleItemRequest"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -5695,10 +5706,16 @@ const docTemplate = `{
         "domain.PaymentServiceRequest": {
             "type": "object",
             "properties": {
+                "cash_box_id": {
+                    "type": "string"
+                },
                 "is_active": {
                     "type": "boolean"
                 },
                 "merchant_id": {
+                    "type": "integer"
+                },
+                "merchant_user_id": {
                     "type": "integer"
                 },
                 "name": {
@@ -6050,16 +6067,10 @@ const docTemplate = `{
         "domain.SaleUpdateRequest": {
             "type": "object",
             "properties": {
-                "cash_box_id": {
-                    "type": "string"
+                "cash_amount": {
+                    "type": "number"
                 },
-                "employee_id": {
-                    "type": "string"
-                },
-                "sale_number": {
-                    "type": "string"
-                },
-                "total_amount": {
+                "cashless_amount": {
                     "type": "number"
                 },
                 "total_discount": {

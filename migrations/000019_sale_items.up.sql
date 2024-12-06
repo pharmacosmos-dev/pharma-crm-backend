@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS "cart_items" (
+CREATE TABLE IF NOT EXISTS "sale_items" (
     "id" UUID NOT NULL PRIMARY KEY,
     "product_id" UUID REFERENCES products(id),
     "sale_id" UUID REFERENCES sales(id),

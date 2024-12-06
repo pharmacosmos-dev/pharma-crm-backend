@@ -26,6 +26,14 @@ func (h *SalePaymentHandler) SalePaymentRoutes(r *gin.RouterGroup) {
 		salePayment.PUT("/:id", h.Update)
 		salePayment.DELETE("/:id", h.Delete)
 	}
+	transaction := r.Group("/transaction")
+	{
+		transaction.POST("", h.CreateTransaction)
+		transaction.GET("/:id", h.GetTransaction)
+		transaction.GET("/list", h.ListTransaction)
+		transaction.PUT("/:id", h.UpdateTransaction)
+		transaction.DELETE("/:id", h.DeleteTransaction)
+	}
 }
 
 // Create godoc
@@ -51,8 +59,10 @@ func (h *SalePaymentHandler) Create(c *gin.Context) {
 		return
 	}
 	body.ID = uuid.New().String()
-	if err = h.db.WithContext(c.Request.Context()).
-		Table("sale_payments").Create(&body).Error; err != nil {
+	err = h.db.WithContext(c.Request.Context()).
+		Table("sale_payments").
+		Create(&body).Error
+	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -73,8 +83,9 @@ func (h *SalePaymentHandler) Create(c *gin.Context) {
 // @Router /sale_payment/:id [get]
 func (h *SalePaymentHandler) Get(c *gin.Context) {
 	var res domain.SalePayment
-	if err := h.db.First(&res, "id = ?", c.Param("id")).Error; err != nil {
-		h.log.Error(err)
+	err := h.db.First(&res, "id = ?", c.Param("id")).Error
+	if err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -94,8 +105,9 @@ func (h *SalePaymentHandler) Get(c *gin.Context) {
 // @Router /sale_payment/list [get]
 func (h *SalePaymentHandler) List(c *gin.Context) {
 	res := []*domain.SalePayment{}
-	if err := h.db.Find(&res).Error; err != nil {
-		h.log.Error(err)
+	err := h.db.Find(&res).Error
+	if err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -105,12 +117,12 @@ func (h *SalePaymentHandler) List(c *gin.Context) {
 // Update godoc
 // @Summary Update a sale payment
 // @Description Update a sale payment from the request body
-// @Tags sale_payments
+// @Tags 	sale_payments
 // @Security     BearerAuth
-// @Accept json
+// @Accept 	json
 // @Produce json
-// @Param id path string true "sale payment ID"
-// @Param sale_payment body domain.SalePaymentRequest true "sale payment"
+// @Param 	id path string true "sale payment ID"
+// @Param 	sale_payment body domain.SalePaymentRequest true "sale payment"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -118,6 +130,7 @@ func (h *SalePaymentHandler) List(c *gin.Context) {
 func (h *SalePaymentHandler) Update(c *gin.Context) {
 	var (
 		body domain.SalePaymentRequest
+		id   = c.Param("id")
 		err  error
 	)
 	if err = c.ShouldBindJSON(&body); err != nil {
@@ -125,9 +138,10 @@ func (h *SalePaymentHandler) Update(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	if err = h.db.WithContext(c.Request.Context()).
+	err = h.db.WithContext(c.Request.Context()).
 		Table("sale_payments").Updates(&body).
-		Where("id = ?", c.Param("id")).Error; err != nil {
+		Where("id = ?", id).Error
+	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -148,7 +162,13 @@ func (h *SalePaymentHandler) Update(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /sale_payment/:id [delete]
 func (h *SalePaymentHandler) Delete(c *gin.Context) {
-	if err := h.db.WithContext(c.Request.Context()).Delete(&domain.SalePayment{}, "id = ?", c.Param("id")).Error; err != nil {
+	var (
+		id  = c.Param("id")
+		err error
+	)
+	err = h.db.WithContext(c.Request.Context()).
+		Delete(&domain.SalePayment{}, "id = ?", id).Error
+	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -179,8 +199,10 @@ func (h *SalePaymentHandler) CreateTransaction(c *gin.Context) {
 		return
 	}
 	body.ID = uuid.New().String()
-	if err = h.db.WithContext(c.Request.Context()).
-		Table("transactions").Create(&body).Error; err != nil {
+	err = h.db.WithContext(c.Request.Context()).
+		Table("transactions").
+		Create(&body).Error
+	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -201,8 +223,10 @@ func (h *SalePaymentHandler) CreateTransaction(c *gin.Context) {
 // @Router /transaction/:id [get]
 func (h *SalePaymentHandler) GetTransaction(c *gin.Context) {
 	var res domain.Transaction
-	if err := h.db.First(&res, "id = ?", c.Param("id")).Error; err != nil {
-		h.log.Error(err)
+	var id = c.Param("id")
+	err := h.db.First(&res, "id = ?", id).Error
+	if err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -222,8 +246,9 @@ func (h *SalePaymentHandler) GetTransaction(c *gin.Context) {
 // @Router /transaction/list [get]
 func (h *SalePaymentHandler) ListTransaction(c *gin.Context) {
 	res := []*domain.Transaction{}
-	if err := h.db.Find(&res).Error; err != nil {
-		h.log.Error(err)
+	err := h.db.Find(&res).Error
+	if err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -247,15 +272,18 @@ func (h *SalePaymentHandler) UpdateTransaction(c *gin.Context) {
 	var (
 		body domain.TransactionRequest
 		err  error
+		id   = c.Param("id")
 	)
 	if err = c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	if err = h.db.WithContext(c.Request.Context()).
-		Table("transactions").Updates(&body).
-		Where("id = ?", c.Param("id")).Error; err != nil {
+	err = h.db.WithContext(c.Request.Context()).
+		Table("transactions").
+		Where("id = ?", id).
+		Updates(&body).Error
+	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -276,9 +304,11 @@ func (h *SalePaymentHandler) UpdateTransaction(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /transaction/:id [delete]
 func (h *SalePaymentHandler) DeleteTransaction(c *gin.Context) {
-	if err := h.db.WithContext(c.Request.Context()).
+	id := c.Param("id")
+	err := h.db.WithContext(c.Request.Context()).
 		Table("transactions").
-		Delete(&domain.Transaction{}, "id = ?", c.Param("id")).Error; err != nil {
+		Delete(&domain.Transaction{}, "id = ?", id).Error
+	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return

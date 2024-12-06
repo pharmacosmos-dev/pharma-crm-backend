@@ -148,9 +148,13 @@ definitions:
     type: object
   domain.PaymentServiceRequest:
     properties:
+      cash_box_id:
+        type: string
       is_active:
         type: boolean
       merchant_id:
+        type: integer
+      merchant_user_id:
         type: integer
       name:
         type: string
@@ -381,13 +385,9 @@ definitions:
     type: object
   domain.SaleUpdateRequest:
     properties:
-      cash_box_id:
-        type: string
-      employee_id:
-        type: string
-      sale_number:
-        type: string
-      total_amount:
+      cash_amount:
+        type: number
+      cashless_amount:
         type: number
       total_discount:
         type: number
@@ -3053,6 +3053,13 @@ paths:
       consumes:
       - application/json
       description: Create a sale item from the request body
+      parameters:
+      - description: Sale item information
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.SaleItemRequest'
       produces:
       - application/json
       responses:

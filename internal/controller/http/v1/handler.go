@@ -3,6 +3,7 @@ package v1
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/config"
+	"github.com/pharma-crm-backend/internal/controller/http/middleware"
 	"github.com/pharma-crm-backend/pkg/logger"
 	"github.com/pharma-crm-backend/pkg/token"
 	"gorm.io/gorm"
@@ -26,6 +27,9 @@ func NewHandler(cfg *config.Config, db *gorm.DB, log *logger.Logger, jwt *token.
 
 func (h *Handler) InitRoutes(r *gin.Engine) {
 	v1 := r.Group("/v1")
+	// Auth Middleware
+	middleware := middleware.NewAuthMiddleware(h.cfg, h.JwtHandler, h.db)
+	v1.Use(middleware.NewAuth())
 	{
 		h.NewAuthHandler(v1)
 		h.NewBrandController(v1)
@@ -45,6 +49,7 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		h.NewDraftHandler(v1)
 		h.NewPaymentTypeHandler(v1)
 		h.NewPermissionHandler(v1)
+		h.NewSalePaymentHandler(v1)
 	}
 }
 

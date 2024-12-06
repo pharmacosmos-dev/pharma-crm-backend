@@ -31,12 +31,13 @@ func NewRouter(ginEngine *gin.Engine, db *gorm.DB, log *logger.Logger, cfg *conf
 
 	// Basic Auth
 	basicAuth := middleware.BasicAuth()
+	ginEngine.Use(basicAuth.Middleware)
 
 	// Options
 	ginEngine.Use(gin.Logger())
 	ginEngine.Use(gin.Recovery())
-	ginEngine.Use(basicAuth.Middleware)
-	// Cors Conf
+
+	// CORS Configuration
 	corConfig := cors.DefaultConfig()
 	corConfig.AllowAllOrigins = true
 	corConfig.AllowCredentials = true
@@ -51,8 +52,9 @@ func NewRouter(ginEngine *gin.Engine, db *gorm.DB, log *logger.Logger, cfg *conf
 		Log: log,
 	}
 
-	hander := v1.NewHandler(cfg, db, log, &jwtHandler)
-	hander.InitRoutes(ginEngine)
+	// Handlers
+	handler := v1.NewHandler(cfg, db, log, &jwtHandler)
+	handler.InitRoutes(ginEngine)
 
 	// PING
 	ginEngine.GET("/", Ping)

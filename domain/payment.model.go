@@ -23,24 +23,28 @@ type PaymentTypeRequest struct {
 // PaymentService structure
 // for using save payment services data
 type PaymentService struct {
-	ID         string     `gorm:"id" json:"id"`
-	Name       string     `gorm:"name" json:"name"`
-	MerchantID int        `gorm:"merchant_id" json:"merchant_id"`
-	ServiceID  int        `gorm:"service_id" json:"service_id"`
-	SecretKey  string     `gorm:"secret_key" json:"secret_key"`
-	IsActive   bool       `gorm:"is_active" json:"is_active"`
-	CreatedAt  *time.Time `gorm:"created_at" json:"created_at"`
-	UpdatedAt  *time.Time `gorm:"updated_at" json:"updated_at"`
+	ID             string     `gorm:"id" json:"id"`
+	CashBoxID      string     `gorm:"cash_box_id" json:"cash_box_id"`
+	Name           string     `gorm:"name" json:"name"`
+	MerchantID     int        `gorm:"merchant_id" json:"merchant_id"`
+	MerchantUserID int        `gorm:"merchant_user_id" json:"merchant_user_id"`
+	ServiceID      int        `gorm:"service_id" json:"service_id"`
+	SecretKey      string     `gorm:"secret_key" json:"secret_key"`
+	IsActive       bool       `gorm:"is_active" json:"is_active"`
+	CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt      *time.Time `gorm:"updated_at" json:"updated_at"`
 }
 
 // PaymentServiceRequest structure for create, update
 type PaymentServiceRequest struct {
-	ID         string `gorm:"id" json:"-"`
-	Name       string `gorm:"name" json:"name"`
-	MerchantID int    `gorm:"merchant_id" json:"merchant_id"`
-	ServiceID  int    `gorm:"service_id" json:"service_id"`
-	SecretKey  string `gorm:"secret_key" json:"secret_key"`
-	IsActive   bool   `gorm:"is_active" json:"is_active"`
+	ID             string `gorm:"id" json:"-"`
+	CashBoxID      string `gorm:"cash_box_id" json:"cash_box_id"`
+	Name           string `gorm:"name" json:"name"`
+	MerchantID     int    `gorm:"merchant_id" json:"merchant_id"`
+	MerchantUserID int    `gorm:"merchant_user_id" json:"merchant_user_id"`
+	ServiceID      int    `gorm:"service_id" json:"service_id"`
+	SecretKey      string `gorm:"secret_key" json:"secret_key"`
+	IsActive       bool   `gorm:"is_active" json:"is_active"`
 }
 
 // SalePayment structure for sale payment
@@ -64,7 +68,7 @@ type SalePayment struct {
 type SalePaymentRequest struct {
 	ID               string  `gorm:"id" json:"-"`
 	SaleID           string  `gorm:"sale_id" json:"sale_id"`
-	PaymentServiceID string  `gorm:"payment_service_id" json:"payment_service_id"`
+	PaymentServiceID *string `gorm:"payment_service_id" json:"payment_service_id"`
 	PaymentTypeID    string  `gorm:"payment_type_id" json:"payment_type_id"`
 	Amount           float64 `gorm:"amount" json:"amount"`
 	TransactionID    string  `gorm:"transaction_id" json:"transaction_id,omitempty"`
