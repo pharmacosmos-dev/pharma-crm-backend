@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
@@ -28,6 +29,7 @@ func (h *SaleHandler) SaleRoutes(r *gin.RouterGroup) {
 		sale.PUT("/:id", h.Update)
 		sale.DELETE("/:id", h.Delete)
 		sale.POST("/final", h.FinalSale)
+		sale.GET("/check", h.CheckSale)
 	}
 }
 
@@ -278,7 +280,9 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	err = h.db.WithContext(c.Request.Context()).
 		Table("sales").
 		Where("id = ?", body.SaleID).
-		Update("total_amount", body.TotalAmount).Error
+		Updates(map[string]interface{}{
+			"total_amount": body.TotalAmount,
+			"status":       "completed"}).Error
 
 	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
@@ -294,4 +298,35 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, body)
+}
+
+// CheckSale
+// @Summary Check Sale
+// @Description Check Sale from the request body
+// @Tags sales
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /sale/check [get]
+func (h *SaleHandler) CheckSale(c *gin.Context) {
+	userID, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, InternalError, "User ID not found")
+		return
+	}
+	var res domain.Sale
+	err := h.db.First(&res, "employee_id = ? AND status = ?", userID, "pending").Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			handleResponse(c, OK, nil)
+			return
+		}
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, res)
 }

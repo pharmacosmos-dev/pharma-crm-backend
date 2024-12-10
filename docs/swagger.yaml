@@ -3028,6 +3028,31 @@ paths:
       summary: Update a sale
       tags:
       - sales
+  /sale/check:
+    get:
+      consumes:
+      - application/json
+      description: Check Sale from the request body
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Check Sale
+      tags:
+      - sales
   /sale/final:
     post:
       consumes:
