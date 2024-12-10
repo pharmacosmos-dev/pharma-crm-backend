@@ -405,9 +405,7 @@ definitions:
     type: object
   domain.SaleUpdateRequest:
     properties:
-      cash_amount:
-        type: number
-      cashless_amount:
+      total_amount:
         type: number
       total_discount:
         type: number

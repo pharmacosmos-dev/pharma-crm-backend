@@ -6149,10 +6149,7 @@ const docTemplate = `{
         "domain.SaleUpdateRequest": {
             "type": "object",
             "properties": {
-                "cash_amount": {
-                    "type": "number"
-                },
-                "cashless_amount": {
+                "total_amount": {
                     "type": "number"
                 },
                 "total_discount": {
