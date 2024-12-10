@@ -115,8 +115,14 @@ func (h *DraftHandler) Create(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /draft/{id} [get]
 func (h *DraftHandler) Get(c *gin.Context) {
-	var res domain.Draft
-	err := h.db.Preload("Product").Preload("Customer").First(&res, "id = ?", c.Param("id")).Error
+	var draft domain.Draft
+	id := c.Param("id")
+
+	// Query the draft
+	err := h.db.Preload("Customer").
+		Preload("Store").
+		Preload("Employee").
+		First(&draft, "id = ?", id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			handleResponse(c, NotFound, nil)
@@ -126,7 +132,25 @@ func (h *DraftHandler) Get(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, res)
+
+	// Query associated cart items
+	var cartItems []*domain.CartItem
+	err = h.db.Model(&domain.CartItem{}).
+		Select("cart_items.*").
+		Joins("JOIN cart_item_drafts ON cart_item_drafts.cart_item_id = cart_items.id").
+		Where("cart_item_drafts.draft_id = ?", id).
+		Find(&cartItems).Error
+	if err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	// Attach cart items to the draft
+	draft.CartItems = cartItems
+
+	// Respond with the draft and its associated cart items
+	handleResponse(c, OK, draft)
 }
 
 // List godoc
