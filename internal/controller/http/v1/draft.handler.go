@@ -45,50 +45,61 @@ func (h *DraftHandler) DraftRoutes(r *gin.RouterGroup) {
 // @Router /draft [post]
 func (h *DraftHandler) Create(c *gin.Context) {
 	var (
-		body domain.DraftRequest
-		temp []domain.DraftCreate
-		err  error
+		body      domain.DraftRequest
+		res       domain.Draft
+		cartItems []domain.CartItem
+		err       error
 	)
+
 	if err = c.ShouldBindJSON(&body); err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(fmt.Errorf("err: %v", err.Error()))
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	err = h.db.Where("sale_id = ?", body.SaleID).
-		Select("product_id", "sale_id", "quantity", "unit_price", "total_price").
-		Table("cart_items").Find(&temp).Error
+	body.ID = uuid.New().String()
+	err = h.db.Table("drafts").Create(&body).Scan(&res).Error
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(fmt.Errorf("err: %v", err.Error()))
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	if len(temp) > 0 {
+	err = h.db.
+		Where("sale_id = ?", body.SaleID).
+		Find(&cartItems).Error
+	if err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err.Error()))
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
 
-		for i := range temp {
-			if body.CustomerID == "" {
-				temp[i].CustomerID = nil
-			}
-			temp[i].ID = uuid.New().String()
-			temp[i].DraftNumber = utils.GenerateCode()
-			temp[i].CreatedBy = body.CreatedBy
-			temp[i].StoreID = body.StoreID
-			temp[i].DraftTime = body.DraftTime
-			temp[i].Description = body.Description
+	if len(cartItems) > 0 {
+
+		cartDrafts := []domain.CartItemDraft{}
+		for _, item := range cartItems {
+			cartDrafts = append(cartDrafts, domain.CartItemDraft{
+				ID:         uuid.New().String(),
+				CartItemID: item.ID,
+				DraftID:    res.ID,
+			})
 		}
-		if err = h.db.Table("drafts").Create(&temp).Error; err != nil {
-			h.log.Error(fmt.Errorf("err: %v", err))
-			handleResponse(c, InternalError, err.Error())
-			return
-		}
-		err = h.db.Delete(&domain.CartItem{}, "sale_id = ?", body.SaleID).Error
+		err = h.db.Table("cart_item_drafts").
+			Create(&cartDrafts).Error
 		if err != nil {
-			h.log.Error(fmt.Errorf("err: %v", err))
+			h.log.Error(fmt.Errorf("err: %v", err.Error()))
 			handleResponse(c, InternalError, err.Error())
 			return
 		}
 	}
+	err = h.db.Model(&domain.CartItem{}).
+		Where("sale_id = ?", body.SaleID).
+		Updates(map[string]interface{}{"is_drafted": true}).Error
+	if err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err.Error()))
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
 
-	handleResponse(c, CREATED, body)
+	handleResponse(c, CREATED, res)
 }
 
 // Get godoc
@@ -128,6 +139,7 @@ func (h *DraftHandler) Get(c *gin.Context) {
 // @Param limmit query int false "Limit"
 // @Param offset query int false "Offset"
 // @Param store_id query string false "Store ID"
+// @Param client query string false "Client"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -144,19 +156,37 @@ func (h *DraftHandler) List(c *gin.Context) {
 		return
 	}
 
-	query := h.db.Model(&domain.Draft{}).Preload("Store").Preload("Product").Preload("Customer")
+	// Base query with joins and aggregate fields
+	query := h.db.Model(&domain.Draft{}).
+		Select(`drafts.*, 
+                SUM(cart_items.quantity) AS quantity, 
+                COALESCE(SUM(cart_items.total_price), 0) AS total_price`).
+		Joins("JOIN cart_item_drafts ON cart_item_drafts.draft_id = drafts.id").
+		Joins("JOIN cart_items ON cart_items.id = cart_item_drafts.cart_item_id").
+		Group("drafts.id").
+		Preload("Store").Preload("Customer").Preload("Employee")
+
+	// Filters
+	if client := c.Query("client"); client != "" {
+		client = fmt.Sprintf("%%%s%%", client)
+		query = query.Joins("LEFT JOIN customers ON customers.id = drafts.customer_id").
+			Where("customers.phone LIKE ? OR customers.first_name ILIKE ?", client, client)
+	}
 	if storeID := c.Query("store_id"); storeID != "" {
 		query = query.Where("store_id = ?", storeID)
 	}
-	if cashBoxID := c.Query("cash_box_id"); cashBoxID != "" {
-		query = query.Where("cash_box_id = ?", cashBoxID)
-	}
-	err = query.Limit(limit).Offset(offset).Count(&totalCount).Order("created_at DESC").Find(&res).Error
+
+	// Execute the query
+	err = query.Limit(limit).Offset(offset).
+		Count(&totalCount).Order("drafts.created_at DESC").
+		Find(&res).Error
 	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+
+	// Prepare and send the response
 	data := utils.ListResponse(res, totalCount, limit, offset)
 	handleResponse(c, OK, data)
 }

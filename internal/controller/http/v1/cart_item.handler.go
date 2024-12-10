@@ -119,7 +119,7 @@ func (h *CartItemHandler) List(c *gin.Context) {
 	if err = h.db.Model(&domain.CartItem{}).
 		Count(&totalCount).
 		Preload("Product").
-		Where("sale_id = ?", c.Query("sale_id")).
+		Where("sale_id = ? AND is_drafted = false", c.Query("sale_id")).
 		Limit(limit).
 		Offset(offset).
 		Order("created_at desc").

@@ -1741,6 +1741,10 @@ paths:
         in: query
         name: store_id
         type: string
+      - description: Client
+        in: query
+        name: client
+        type: string
       produces:
       - application/json
       responses:

@@ -1873,6 +1873,12 @@ const docTemplate = `{
                         "description": "Store ID",
                         "name": "store_id",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Client",
+                        "name": "client",
+                        "in": "query"
                     }
                 ],
                 "responses": {
