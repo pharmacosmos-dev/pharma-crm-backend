@@ -241,7 +241,7 @@ func (h *SaleHandler) Delete(c *gin.Context) {
 func (h *SaleHandler) FinalSale(c *gin.Context) {
 	var (
 		body domain.FinalSale
-		res  []domain.CartItem
+		res  []domain.CartItemRequest
 	)
 	err := c.ShouldBindJSON(&body)
 	if err != nil {
