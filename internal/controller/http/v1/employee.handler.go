@@ -28,6 +28,7 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 		employee.GET("/list", h.List)
 		employee.PUT("/:id", h.Update)
 		employee.DELETE("/:id", h.Delete)
+		employee.GET("/info", h.GetInfo)
 	}
 }
 
@@ -218,4 +219,36 @@ func (h *EmployeeHandler) Delete(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, "DELETED")
+}
+
+// @Summary      Get employee info
+// @Description  Get employee info
+// @Tags         employees
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Success      200  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      401  {object}  v1.Response
+// @Failure      403  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /employee/info [get]
+func (h *EmployeeHandler) GetInfo(c *gin.Context) {
+	userID, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	var res domain.Employee
+	if err := h.db.Preload("Store").Preload("Role").
+		First(&res, "id = ?", userID).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, OK, nil)
+			return
+		}
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, res)
 }

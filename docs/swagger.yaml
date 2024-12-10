@@ -1926,6 +1926,39 @@ paths:
       summary: Update employee
       tags:
       - employees
+  /employee/info:
+    get:
+      consumes:
+      - application/json
+      description: Get employee info
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get employee info
+      tags:
+      - employees
   /employee/list:
     get:
       consumes:

@@ -314,7 +314,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 func (h *SaleHandler) CheckSale(c *gin.Context) {
 	userID, ok := c.Get("user_id")
 	if !ok {
-		handleResponse(c, InternalError, "User ID not found")
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
 		return
 	}
 	var res domain.Sale
