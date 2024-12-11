@@ -57,6 +57,7 @@ func (h *DraftHandler) Create(c *gin.Context) {
 		return
 	}
 	body.ID = uuid.New().String()
+	body.DraftNumber = utils.GenerateCode()
 	err = h.db.Table("drafts").Create(&body).Scan(&res).Error
 	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err.Error()))
