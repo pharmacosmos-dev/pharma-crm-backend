@@ -30,6 +30,7 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 		employee.DELETE("/:id", h.Delete)
 		employee.GET("/info", h.GetInfo)
 		employee.PUT("/reset-password", h.ResetPassword)
+		employee.PUT("/info", h.UpdateEmployeeinfo)
 	}
 }
 
@@ -306,4 +307,42 @@ func (h *EmployeeHandler) ResetPassword(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, "UPDATED")
+}
+
+// @Summary      Update employee info
+// @Description  Update employee info
+// @Tags         employees
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        input         body  domain.EmployeeUpdateInfoRequest true  "Employee data"
+// @Success      200  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      401  {object}  v1.Response
+// @Failure      403  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /employee/info [put]
+func (h *EmployeeHandler) UpdateEmployeeinfo(c *gin.Context) {
+	var body domain.EmployeeUpdateInfoRequest
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	err := c.ShouldBindJSON(&body)
+	if err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	err = h.db.WithContext(c.Request.Context()).
+		Table("employees").
+		Where("id = ?", userId).
+		Updates(&body).Error
+	if err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, body)
 }
