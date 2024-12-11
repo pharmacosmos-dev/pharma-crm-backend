@@ -136,6 +136,7 @@ func (h *DraftHandler) Get(c *gin.Context) {
 	// Query associated cart items
 	var cartItems []*domain.CartItem
 	err = h.db.Model(&domain.CartItem{}).
+		Preload("Product").
 		Select("cart_items.*").
 		Joins("JOIN cart_item_drafts ON cart_item_drafts.cart_item_id = cart_items.id").
 		Where("cart_item_drafts.draft_id = ?", id).
