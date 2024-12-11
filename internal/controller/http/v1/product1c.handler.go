@@ -30,7 +30,7 @@ func (h *Product1cHandler) Product1cRoutes(r *gin.RouterGroup) {
 // Create godoc
 // @Summary Create a product
 // @Description Create a product from the request body
-// @Tags products
+// @Tags 1Capi
 // @Security     BearerAuth
 // @Accept json
 // @Produce json

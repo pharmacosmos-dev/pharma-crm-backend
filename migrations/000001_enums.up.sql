@@ -21,3 +21,5 @@ CREATE TYPE  "order_status" AS ENUM (
   'completed',
   'canceled'
 );
+
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";

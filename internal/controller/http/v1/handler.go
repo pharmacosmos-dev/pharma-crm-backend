@@ -29,10 +29,15 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 	v1 := r.Group("/v1")
 	// Route Group for Public APIs
 	public := r.Group("/v1")
+	// Route Group for 1C APIs
+	v1c := r.Group("/v1")
 	// Auth Middleware
-	middleware := middleware.NewAuthMiddleware(h.cfg, h.JwtHandler, h.db)
-	v1.Use(middleware.NewAuth())
+	bearerAuth := middleware.NewAuthMiddleware(h.cfg, h.JwtHandler, h.db)
+	v1.Use(bearerAuth.NewAuth())
 
+	// Basic Auth Middleware
+	basicAuth1C := middleware.BasicAuth1C()
+	v1c.Use(basicAuth1C.Middleware)
 	{
 		h.NewAuthHandler(public)
 		h.NewBrandController(v1)
@@ -53,7 +58,7 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		h.NewPaymentTypeHandler(v1)
 		h.NewPermissionHandler(v1)
 		h.NewSalePaymentHandler(v1)
-		h.NewProduct1cHandler(v1)
+		h.NewProduct1cHandler(v1c)
 	}
 }
 

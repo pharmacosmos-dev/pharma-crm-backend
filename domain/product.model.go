@@ -120,7 +120,7 @@ type ProductProducer struct {
 
 // Request structure for 1C API
 type ProductRequest1C struct {
-	Id                  string  `gorm:"id" json:"-"`
+	Id                  string  `gorm:"type:uuid;default:gen_random_uuid()" json:"-"`
 	StoreID             string  `gorm:"store_id" json:"store_id"`
 	MaterialCode        int     `gorm:"material_code" json:"material_code"`
 	Name                string  `gorm:"name" json:"name"`

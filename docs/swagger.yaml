@@ -2864,7 +2864,7 @@ paths:
       - BearerAuth: []
       summary: Create a product
       tags:
-      - products
+      - 1Capi
   /role:
     post:
       consumes:

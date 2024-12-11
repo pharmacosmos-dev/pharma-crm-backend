@@ -3694,7 +3694,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "products"
+                    "1Capi"
                 ],
                 "summary": "Create a product",
                 "parameters": [
