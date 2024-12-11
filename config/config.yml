@@ -11,4 +11,4 @@ logger:
 
 postgres:
   pool_max: 2
-  pg_url: 'postgres://developer:2002@localhost:5432/pharma_db'
+  pg_url: 'postgres://admin:password@localhost:5432/dbname'
