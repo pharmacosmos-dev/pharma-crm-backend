@@ -55,5 +55,6 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	
 	handleResponse(c, OK, body)
 }
