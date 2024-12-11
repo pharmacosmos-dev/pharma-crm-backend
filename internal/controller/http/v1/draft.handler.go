@@ -263,7 +263,12 @@ func (h *DraftHandler) Update(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /draft/{id} [delete]
 func (h *DraftHandler) Delete(c *gin.Context) {
-	if err := h.db.WithContext(c.Request.Context()).Delete(&domain.Draft{}, "id = ?", c.Param("id")).Error; err != nil {
+	var id = c.Param("id")
+
+	
+	err := h.db.WithContext(c.Request.Context()).
+		Delete(&domain.Draft{}, "id = ?", id).Error
+	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
