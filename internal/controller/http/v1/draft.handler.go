@@ -49,13 +49,9 @@ func (h *DraftHandler) Create(c *gin.Context) {
 		body      domain.DraftRequest
 		res       domain.Draft
 		cartItems []domain.CartItem
-		createdBy *string
 		err       error
 	)
-	userId, ok := c.Get("user_id")
-	if ok {
-		createdBy = userId.(*string)
-	}
+
 	if err = c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err.Error()))
 		handleResponse(c, BadRequest, err.Error())
@@ -127,7 +123,7 @@ func (h *DraftHandler) Create(c *gin.Context) {
 		ID:         uuid.New().String(),
 		SaleNumber: utils.GenerateCode(),
 		CashBoxId:  saleInfo.CashBoxId,
-		EmployeeID: *createdBy,
+		EmployeeID: body.CreatedBy,
 	}).Scan(&saleInfo).Error
 	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err.Error()))
