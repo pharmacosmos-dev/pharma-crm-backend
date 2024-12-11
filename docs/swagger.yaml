@@ -3333,6 +3333,14 @@ paths:
         in: query
         name: cash_box_id
         type: string
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
       produces:
       - application/json
       responses:

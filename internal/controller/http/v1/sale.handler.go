@@ -107,6 +107,8 @@ func (h *SaleHandler) Get(c *gin.Context) {
 // @Param offset query int false "Offset"
 // @Param employee_id query string false "Employee ID"
 // @Param cash_box_id query string false "Cash Box ID"
+// @Param start_date query string false "Start Date"
+// @Param end_date query string false "End Date"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -118,7 +120,7 @@ func (h *SaleHandler) List(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	res := []*domain.Sale{}
+	res := []domain.Sale{}
 	query := h.db.Model(&domain.Sale{})
 	if employeeID := c.Query("employee_id"); employeeID != "" {
 		query = query.Where("employee_id = ?", employeeID)
@@ -126,16 +128,46 @@ func (h *SaleHandler) List(c *gin.Context) {
 	if cashBoxID := c.Query("cash_box_id"); cashBoxID != "" {
 		query = query.Where("cash_box_id = ?", cashBoxID)
 	}
-	err = query.Count(&totalAmount).
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
+	if startDate != "" && endDate != "" {
+		query = query.Where("created_at BETWEEN ? AND ?", startDate, endDate)
+	}
+	err = query.Where("status = ?", "completed").
+		Count(&totalAmount).
 		Limit(limit).
 		Offset(offset).
-		Order("created_at DESC").Find(&res).Error
+		Order("created_at DESC").
+		Find(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	data := utils.ListResponse(res, totalAmount, limit, offset)
+
+	// Group sales by date using a slice
+	type GroupedSales struct {
+		Date  string        `json:"date"`
+		Sales []domain.Sale `json:"sales"`
+	}
+	groupedData := []GroupedSales{}
+
+	groupedSalesMap := make(map[string]*GroupedSales)
+	for _, sale := range res {
+		date := sale.CreatedAt.Format("2006-01-02") // Format date as YYYY-MM-DD
+		if group, exists := groupedSalesMap[date]; exists {
+			group.Sales = append(group.Sales, sale)
+		} else {
+			newGroup := &GroupedSales{
+				Date:  date,
+				Sales: []domain.Sale{sale},
+			}
+			groupedSalesMap[date] = newGroup
+			groupedData = append(groupedData, *newGroup)
+		}
+	}
+
+	data := utils.ListResponse(groupedData, totalAmount, limit, offset)
 	handleResponse(c, OK, data)
 }
 
@@ -245,8 +277,9 @@ func (h *SaleHandler) Delete(c *gin.Context) {
 // @Router /sale/final [post]
 func (h *SaleHandler) FinalSale(c *gin.Context) {
 	var (
-		body domain.FinalSale
-		res  []domain.CartItemRequest
+		body         domain.FinalSale
+		res          []domain.CartItemRequest
+		productCount int
 	)
 	err := c.ShouldBindJSON(&body)
 	if err != nil {
@@ -270,6 +303,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 			return
 		}
 		for _, item := range res {
+			productCount += item.Quantity
 			err = h.db.Table("products").Where("id = ?", item.ProductID).
 				UpdateColumn("quantity", gorm.Expr("quantity - ?", item.Quantity)).Error
 			if err != nil {
@@ -284,8 +318,9 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		Table("sales").
 		Where("id = ?", body.SaleID).
 		Updates(map[string]interface{}{
-			"total_amount": body.TotalAmount,
-			"status":       "completed"}).Error
+			"total_amount":  body.TotalAmount,
+			"product_count": productCount,
+			"status":        "completed"}).Error
 
 	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))

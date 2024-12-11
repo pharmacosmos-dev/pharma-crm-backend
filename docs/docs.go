@@ -4298,6 +4298,18 @@ const docTemplate = `{
                         "description": "Cash Box ID",
                         "name": "cash_box_id",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Start Date",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End Date",
+                        "name": "end_date",
+                        "in": "query"
                     }
                 ],
                 "responses": {

@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS "sales" (
     "created_by" UUID,
     "updated_by" UUID,
     "deleted_by" UUID,
+    "product_count" INT,
     "is_active" BOOLEAN NOT NULL DEFAULT true,
     "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()

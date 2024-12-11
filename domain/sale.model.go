@@ -10,6 +10,7 @@ type Sale struct {
 	SaleNumber    string     `gorm:"sale_number" json:"sale_number"`
 	TotalDiscount float64    `gorm:"total_discount" json:"total_discount"`
 	TotalAmount   float64    `gorm:"total_amount" json:"total_amount"`
+	ProductCount  int        `gorm:"product_count" json:"product_count"`
 	CreatedAt     *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt     *time.Time `gorm:"updated_at" json:"updated_at"`
 	Employee      *Employee  `gorm:"foreignKey:EmployeeID" json:"employee"`
