@@ -42,3 +42,9 @@ type EmployeeRequest struct {
 	Password  string `gorm:"password" json:"password"`
 	Language  string `gorm:"language" json:"language"`
 }
+
+// Reset password request
+type ResetPasswordRequest struct {
+	NewPassword     string `json:"new_password"`
+	ConfirmPassword string `json:"confirm_password"`
+}

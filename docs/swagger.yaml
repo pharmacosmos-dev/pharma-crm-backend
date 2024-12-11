@@ -381,6 +381,13 @@ definitions:
       vat_price:
         type: number
     type: object
+  domain.ResetPasswordRequest:
+    properties:
+      confirm_password:
+        type: string
+      new_password:
+        type: string
+    type: object
   domain.RoleRequest:
     properties:
       description:
@@ -2071,6 +2078,46 @@ paths:
       security:
       - BearerAuth: []
       summary: List employees
+      tags:
+      - employees
+  /employee/reset-password:
+    put:
+      consumes:
+      - application/json
+      description: Reset employee password
+      parameters:
+      - description: Password data
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.ResetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Reset employee password
       tags:
       - employees
   /login:

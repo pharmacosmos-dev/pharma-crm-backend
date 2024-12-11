@@ -29,6 +29,7 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 		employee.PUT("/:id", h.Update)
 		employee.DELETE("/:id", h.Delete)
 		employee.GET("/info", h.GetInfo)
+		employee.PUT("/reset-password", h.ResetPassword)
 	}
 }
 
@@ -251,4 +252,58 @@ func (h *EmployeeHandler) GetInfo(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, res)
+}
+
+// @Summary      Reset employee password
+// @Description  Reset employee password
+// @Tags         employees
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        input         body  domain.ResetPasswordRequest true  "Password data"
+// @Success      200  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      401  {object}  v1.Response
+// @Failure      403  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /employee/reset-password [put]
+func (h *EmployeeHandler) ResetPassword(c *gin.Context) {
+	var (
+		body = domain.ResetPasswordRequest{}
+		err  error
+	)
+	userID, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+
+	err = c.ShouldBindJSON(&body)
+	if err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	if body.NewPassword != body.ConfirmPassword {
+		handleResponse(c, BadRequest, "Password and confirm password do not match")
+		return
+	}
+
+	hashedPassword, err := etc.Encrypt(body.ConfirmPassword, h.cfg.HeshKey)
+	if err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	err = h.db.WithContext(c.Request.Context()).
+		Table("employees").
+		Where("id = ?", userID).
+		Update("password", hashedPassword).Error
+	if err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	handleResponse(c, OK, "UPDATED")
 }
