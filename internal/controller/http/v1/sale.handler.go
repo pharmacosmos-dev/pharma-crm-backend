@@ -58,12 +58,15 @@ func (h *SaleHandler) Create(c *gin.Context) {
 	}
 	body.ID = uuid.New().String()
 	body.SaleNumber = utils.GenerateCode()
-	if err = h.db.WithContext(c.Request.Context()).
-		Table("sales").Create(&body).Scan(&res).Error; err != nil {
+	err = h.db.WithContext(c.Request.Context()).
+		Table("sales").
+		Create(&body).Scan(&res).Error
+	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+
 	handleResponse(c, CREATED, res)
 }
 

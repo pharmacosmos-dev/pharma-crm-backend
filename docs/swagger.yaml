@@ -1723,6 +1723,37 @@ paths:
       summary: Update a draft
       tags:
       - drafts
+  /draft/complete/{id}:
+    post:
+      consumes:
+      - application/json
+      description: Complete a draft from the request body
+      parameters:
+      - description: draft ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Complete a draft
+      tags:
+      - drafts
   /draft/list:
     get:
       consumes:

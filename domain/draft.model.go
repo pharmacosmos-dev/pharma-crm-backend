@@ -6,6 +6,7 @@ import "time"
 type Draft struct {
 	ID          string      `gorm:"id" json:"id"`
 	StoreID     string      `gorm:"store_id" json:"store_id"`
+	SaleID      string      `gorm:"sale_id" json:"sale_id"`
 	CustomerID  string      `gorm:"customer_id" json:"customer_id"`
 	CreatedBy   string      `gorm:"created_by" json:"created_by"`
 	DraftNumber string      `gorm:"draft_number" json:"draft_number"`

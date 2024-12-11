@@ -28,6 +28,7 @@ func (h *DraftHandler) DraftRoutes(r *gin.RouterGroup) {
 		draft.GET("/list", h.List)
 		draft.PUT("/:id", h.Update)
 		draft.DELETE("/:id", h.Delete)
+		draft.PUT("/complete/:id", h.CompleteDraft)
 	}
 }
 
@@ -48,14 +49,28 @@ func (h *DraftHandler) Create(c *gin.Context) {
 		body      domain.DraftRequest
 		res       domain.Draft
 		cartItems []domain.CartItem
+		createdBy *string
 		err       error
 	)
-
+	userId, ok := c.Get("user_id")
+	if ok {
+		createdBy = userId.(*string)
+	}
 	if err = c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err.Error()))
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	err = h.db.WithContext(c.Request.Context()).
+		Table("sales").Where("id = ?", body.SaleID).
+		Update("status", "drafted").Error
+
+	if err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err.Error()))
+		handleResponse(c, InternalError, "Error updating sale status")
+		return
+	}
+
 	body.ID = uuid.New().String()
 	body.DraftNumber = utils.GenerateCode()
 	err = h.db.Table("drafts").Create(&body).Scan(&res).Error
@@ -99,8 +114,27 @@ func (h *DraftHandler) Create(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-
-	handleResponse(c, CREATED, res)
+	var saleInfo domain.Sale
+	err = h.db.First(&saleInfo, "id = ?", body.SaleID).Error
+	if err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err.Error()))
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	err = h.db.
+		WithContext(c.Request.Context()).
+		Table("sales").Create(&domain.SaleRequest{
+		ID:         uuid.New().String(),
+		SaleNumber: utils.GenerateCode(),
+		CashBoxId:  saleInfo.CashBoxId,
+		EmployeeID: *createdBy,
+	}).Scan(&saleInfo).Error
+	if err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err.Error()))
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, CREATED, saleInfo)
 }
 
 // Get godoc
@@ -265,13 +299,64 @@ func (h *DraftHandler) Update(c *gin.Context) {
 func (h *DraftHandler) Delete(c *gin.Context) {
 	var id = c.Param("id")
 
-	
-	err := h.db.WithContext(c.Request.Context()).
-		Delete(&domain.Draft{}, "id = ?", id).Error
+	err := h.db.WithContext(c.Request.Context()).Delete(&domain.CartItemDraft{}, "draft_id = ?", id).Error
+	if err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	err = h.db.WithContext(c.Request.Context()).Delete(&domain.Draft{}, "id = ?", id).Error
 	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 	handleResponse(c, OK, "DELETED")
+}
+
+// CompleteDraft
+// @Summary Complete a draft
+// @Description Complete a draft from the request body
+// @Tags drafts
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "draft ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /draft/complete/{id} [post]
+func (h *DraftHandler) CompleteDraft(c *gin.Context) {
+	var (
+		id  = c.Param("id")
+		res domain.Draft
+		err error
+	)
+	err = h.db.WithContext(c.Request.Context()).
+		First(&res, "id = ?", id).Error
+	if err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	err = h.db.WithContext(c.Request.Context()).
+		Table("sales").Where("id = ?", res.SaleID).
+		Update("status", "pending").Error
+	if err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	err = h.db.WithContext(c.Request.Context()).
+		Table("cart_items").
+		Where("sale_id = ?", res.SaleID).
+		Update("is_drafted", false).Error
+	if err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	handleResponse(c, OK, res.SaleID)
 }
