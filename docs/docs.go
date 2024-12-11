@@ -3679,6 +3679,60 @@ const docTemplate = `{
                 }
             }
         },
+        "/product1c": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a product from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Create a product",
+                "parameters": [
+                    {
+                        "description": "product",
+                        "name": "product",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.ProductRequest1C"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/role": {
             "post": {
                 "security": [
@@ -6142,6 +6196,53 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "vat_price": {
+                    "type": "number"
+                }
+            }
+        },
+        "domain.ProductRequest1C": {
+            "type": "object",
+            "properties": {
+                "barcode": {
+                    "type": "string"
+                },
+                "expire_date": {
+                    "type": "string"
+                },
+                "manufacturer": {
+                    "type": "string"
+                },
+                "material_code": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "product_series_number": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "integer"
+                },
+                "retail_price": {
+                    "type": "number"
+                },
+                "store_id": {
+                    "type": "string"
+                },
+                "sum": {
+                    "type": "number"
+                },
+                "supply_price": {
+                    "type": "number"
+                },
+                "vat": {
+                    "type": "number"
+                },
+                "vat_price": {
+                    "type": "number"
+                },
+                "vat_sum": {
                     "type": "number"
                 }
             }

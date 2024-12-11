@@ -43,7 +43,7 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		h.NewRoleHandler(v1)
 		h.NewUnitHandler(v1)
 		h.NewEmployeeHandler(v1)
-		h.NewUploadHandler(v1)
+		h.NewUploadHandler(public)
 		h.NewCashBoxHandler(v1)
 		h.NewCashBoxOperationHandler(v1)
 		h.NewCartItemHandler(v1)
@@ -53,6 +53,7 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		h.NewPaymentTypeHandler(v1)
 		h.NewPermissionHandler(v1)
 		h.NewSalePaymentHandler(v1)
+		h.NewProduct1cHandler(v1)
 	}
 }
 

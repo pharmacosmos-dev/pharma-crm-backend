@@ -307,6 +307,37 @@ definitions:
       vat_price:
         type: number
     type: object
+  domain.ProductRequest1C:
+    properties:
+      barcode:
+        type: string
+      expire_date:
+        type: string
+      manufacturer:
+        type: string
+      material_code:
+        type: integer
+      name:
+        type: string
+      product_series_number:
+        type: string
+      quantity:
+        type: integer
+      retail_price:
+        type: number
+      store_id:
+        type: string
+      sum:
+        type: number
+      supply_price:
+        type: number
+      vat:
+        type: number
+      vat_price:
+        type: number
+      vat_sum:
+        type: number
+    type: object
   domain.ProductUpdateRequest:
     properties:
       barcode:
@@ -2798,6 +2829,40 @@ paths:
       security:
       - BearerAuth: []
       summary: Get a product
+      tags:
+      - products
+  /product1c:
+    post:
+      consumes:
+      - application/json
+      description: Create a product from the request body
+      parameters:
+      - description: product
+        in: body
+        name: product
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/domain.ProductRequest1C'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a product
       tags:
       - products
   /role:

@@ -117,3 +117,22 @@ type ProductProducer struct {
 	Id           string `gorm:"id" json:"id"`
 	Manufacturer string `gorm:"manufacturer" json:"name"`
 }
+
+// Request structure for 1C API
+type ProductRequest1C struct {
+	Id                  string  `gorm:"id" json:"-"`
+	StoreID             string  `gorm:"store_id" json:"store_id"`
+	MaterialCode        int     `gorm:"material_code" json:"material_code"`
+	Name                string  `gorm:"name" json:"name"`
+	Manufacturer        string  `gorm:"manufacturer" json:"manufacturer"`
+	Quantity            int     `gorm:"quantity" json:"quantity"`
+	RetailPrice         float64 `gorm:"retail_price" json:"retail_price"`
+	SupplyPrice         float64 `gorm:"supply_price" json:"supply_price"`
+	Sum                 float64 `gorm:"sum" json:"sum"`
+	VatPrice            float64 `gorm:"vat_price" json:"vat_price"`
+	Vat                 float64 `gorm:"vat" json:"vat"`
+	VatSum              float64 `gorm:"vat_sum" json:"vat_sum"`
+	ProductSeriesNumber string  `gorm:"product_series_number" json:"product_series_number"`
+	ExpireDate          string  `gorm:"expire_date" json:"expire_date"`
+	Barcode             string  `gorm:"barcode" json:"barcode"`
+}
