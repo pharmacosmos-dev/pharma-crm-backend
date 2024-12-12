@@ -214,6 +214,7 @@ func (h *StoreHandler) Delete(c *gin.Context) {
 	}
 	err := h.db.
 		WithContext(c.Request.Context()).
+		Table("stores").
 		Where("id = ?", id).
 		Update("is_active", false).
 		Update("deleted_by", deletedBy.(string)).Error
