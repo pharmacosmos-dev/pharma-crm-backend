@@ -1928,6 +1928,18 @@ const docTemplate = `{
                         "description": "Client",
                         "name": "client",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Draft Date",
+                        "name": "draft_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Customer ID",
+                        "name": "customer_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {

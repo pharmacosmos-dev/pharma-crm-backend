@@ -3,6 +3,7 @@ package v1
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -196,6 +197,8 @@ func (h *DraftHandler) Get(c *gin.Context) {
 // @Param offset query int false "Offset"
 // @Param store_id query string false "Store ID"
 // @Param client query string false "Client"
+// @Param draft_date query string false "Draft Date"
+// @Param customer_id query string false "Customer ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -230,6 +233,18 @@ func (h *DraftHandler) List(c *gin.Context) {
 	}
 	if storeID := c.Query("store_id"); storeID != "" {
 		query = query.Where("store_id = ?", storeID)
+	}
+	if draftDate := c.Query("draft_date"); draftDate != "" {
+		// Validate the date format
+		if _, err := time.Parse("2006-01-02", draftDate); err != nil {
+			handleResponse(c, BadRequest, "Invalid date format")
+			return
+		}
+		fmt.Println("===>>> ", draftDate)
+		query = query.Where("drafts.draft_time::date = ?", draftDate)
+	}
+	if customerID := c.Query("customer_id"); customerID != "" {
+		query = query.Where("drafts.customer_id = ?", customerID)
 	}
 
 	// Execute the query
