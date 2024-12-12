@@ -6823,6 +6823,9 @@ const docTemplate = `{
         "domain.Store": {
             "type": "object",
             "properties": {
+                "address": {
+                    "type": "string"
+                },
                 "cash_box_count": {
                     "type": "integer"
                 },
@@ -6852,14 +6855,14 @@ const docTemplate = `{
         "domain.StoreRequest": {
             "type": "object",
             "properties": {
+                "address": {
+                    "type": "string"
+                },
                 "cash_box_count": {
                     "type": "integer"
                 },
                 "employee_count": {
                     "type": "integer"
-                },
-                "location": {
-                    "type": "string"
                 },
                 "name": {
                     "type": "string"

@@ -10,6 +10,7 @@ type Store struct {
 	EmployeeCount int        `gorm:"employee_count" json:"employee_count"`
 	CashBoxCount  int        `gorm:"cash_box_count" json:"cash_box_count"`
 	StoreCode     int        `gorm:"store_code" json:"store_code"`
+	Address       string     `gorm:"address" json:"address"`
 	CreatedAt     *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt     *time.Time `gorm:"updated_at" json:"updated_at"`
 }
@@ -18,12 +19,25 @@ type Store struct {
 type StoreRequest struct {
 	Id            string `gorm:"id" json:"-"`
 	Name          string `gorm:"name" json:"name"`
-	Location      string `gorm:"location" json:"location"`
+	Address       string `gorm:"address" json:"address"`
 	EmployeeCount int    `gorm:"employee_count" json:"employee_count"`
 	CashBoxCount  int    `gorm:"cash_box_count" json:"cash_box_count"`
 	StoreCode     int    `gorm:"store_code" json:"store_code"`
+	CreatedBy     string `gorm:"created_by" json:"-"`
 }
 
+// Store Update Request
+type StoreUpdateRequest struct {
+	Id            string `gorm:"id" json:"-"`
+	Name          string `gorm:"name" json:"name"`
+	Address       string `gorm:"address" json:"address"`
+	EmployeeCount int    `gorm:"employee_count" json:"employee_count"`
+	CashBoxCount  int    `gorm:"cash_box_count" json:"cash_box_count"`
+	StoreCode     int    `gorm:"store_code" json:"store_code"`
+	UpdatedBy     string `gorm:"updated_by" json:"-"`
+}
+
+// Store Request 1C
 type StoreRequest1C struct {
 	Id        string `gorm:"type:uuid;default:gen_random_uuid()" json:"-"`
 	Name      string `gorm:"name" json:"name"`

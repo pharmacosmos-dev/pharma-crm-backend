@@ -2,6 +2,7 @@ CREATE TABLE IF NOT EXISTS "stores" (
   "id" uuid PRIMARY KEY,
   "name" varchar(255),
   "location" varchar(255),
+  "address" varchar(255),
   "store_code" int UNIQUE,
   "created_by" uuid,
   "updated_by" uuid,
