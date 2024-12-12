@@ -48,7 +48,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 	err = h.db.WithContext(c.Request.Context()).
 		Preload("Store").Preload("Role").
-		Where("status = ? and is_active = ?", "active", true).
+		Where("is_active = ?", true).
 		First(&res, "phone = ?", body.Phone).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
