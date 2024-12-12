@@ -31,6 +31,8 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 		employee.GET("/info", h.GetInfo)
 		employee.PUT("/reset-password", h.ResetPassword)
 		employee.PUT("/info", h.UpdateEmployeeinfo)
+		employee.PUT("/block/:id", h.BlockEmployee)
+		employee.PUT("/unblock/:id", h.UnBlockEmployee)
 	}
 }
 
@@ -67,7 +69,10 @@ func (h *EmployeeHandler) Create(c *gin.Context) {
 
 	body.Password = hashedPassword
 	body.Id = uuid.New().String()
-	err = h.db.WithContext(c.Request.Context()).
+	body.Status = "active"
+	body.PublicId = utils.GenerateRandomCode()
+	err = h.db.
+		WithContext(c.Request.Context()).
 		Table("employees").
 		Create(&body).Error
 	if err != nil {
@@ -116,6 +121,7 @@ func (h *EmployeeHandler) Get(c *gin.Context) {
 // @Param        offset         query     int             false "Offset"
 // @Param        search         query     string          false "Search"
 // @Param        role_id        query     string          false "Role ID"
+// @Param        store_id       query     string          false "Store ID"
 // @Success      200  {array}   v1.Response
 // @Failure      400  {object}  v1.Response
 // @Failure      401  {object}  v1.Response
@@ -124,25 +130,34 @@ func (h *EmployeeHandler) Get(c *gin.Context) {
 // @Router       /employee/list [get]
 func (h *EmployeeHandler) List(c *gin.Context) {
 	var (
-		res         []domain.Employee
-		totalCount  int64
-		searchField = fmt.Sprintf("%%%s%%", c.Query("search"))
-		roleId      = c.Query("role_id")
+		res        []domain.Employee
+		totalCount int64
+		roleId     = c.Query("role_id")
+		storeId    = c.Query("store_id")
+		search     = c.Query("search")
 	)
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	query := h.db.Model(&domain.Employee{}).
-		Count(&totalCount).
-		Where("first_name ILIKE ? OR last_name ILIKE ?", searchField, searchField)
+	query := h.db.
+		Model(&domain.Employee{}).
+		Preload("Store").
+		Preload("Role")
 
 	if roleId != "" {
 		query = query.Where("role_id = ?", roleId)
 	}
-
-	query = query.Preload("Store").
+	if storeId != "" {
+		query = query.Where("store_id = ?", storeId)
+	}
+	if search != "" {
+		search = fmt.Sprintf("%%%s%%", search)
+		query = query.Where("first_name ILIKE ? OR phone LIKE ? OR public_id LIKE ?", search, search, search)
+	}
+	query = query.Preload("Store").Preload("Role").
+		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).
 		Order("created_at DESC").
@@ -215,7 +230,13 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 // @Failure      500  {object}  v1.Response
 // @Router       /employee/{id} [delete]
 func (h *EmployeeHandler) Delete(c *gin.Context) {
-	if err := h.db.WithContext(c.Request.Context()).Delete(&domain.Employee{}, "id = ?", c.Param("id")).Error; err != nil {
+	var id = c.Param("id")
+	err := h.db.
+		WithContext(c.Request.Context()).
+		Where("id = ?", id).
+		Update("status", "deleted").
+		Update("is_active", false).Error
+	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -345,4 +366,60 @@ func (h *EmployeeHandler) UpdateEmployeeinfo(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, body)
+}
+
+// @Summary      Block employee
+// @Description  Block employee by id
+// @Tags         employees
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        id   path     string  true  "Employee id"
+// @Success      200  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      401  {object}  v1.Response
+// @Failure      403  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /employee/block/{id} [put]
+func (h *EmployeeHandler) BlockEmployee(c *gin.Context) {
+	employeeID := c.Param("id")
+	err := h.db.
+		WithContext(c.Request.Context()).
+		Table("employees").
+		Where("id = ?", employeeID).
+		Update("status", "blocked").Error
+	if err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, "BLOCKED")
+}
+
+// @Summary      Unblock employee
+// @Description  Unblock employee by id
+// @Tags         employees
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        id   path     string  true  "Employee id"
+// @Success      200  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      401  {object}  v1.Response
+// @Failure      403  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /employee/unblock/{id} [put]
+func (h *EmployeeHandler) UnBlockEmployee(c *gin.Context) {
+	employeeID := c.Param("id")
+	err := h.db.
+		WithContext(c.Request.Context()).
+		Table("employees").
+		Where("id = ?", employeeID).
+		Update("status", "active").Error
+	if err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, "UNBLOCKED")
 }

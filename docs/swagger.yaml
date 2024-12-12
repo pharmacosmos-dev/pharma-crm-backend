@@ -113,9 +113,11 @@ definitions:
     type: object
   domain.EmployeeRequest:
     properties:
-      email:
+      birthdate:
         type: string
       first_name:
+        type: string
+      gender:
         type: string
       language:
         type: string
@@ -124,8 +126,6 @@ definitions:
       password:
         type: string
       phone:
-        type: string
-      photo:
         type: string
       role_id:
         type: string
@@ -2040,6 +2040,45 @@ paths:
       summary: Update employee
       tags:
       - employees
+  /employee/block/{id}:
+    put:
+      consumes:
+      - application/json
+      description: Block employee by id
+      parameters:
+      - description: Employee id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Block employee
+      tags:
+      - employees
   /employee/info:
     get:
       consumes:
@@ -2134,6 +2173,10 @@ paths:
         in: query
         name: role_id
         type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
       produces:
       - application/json
       responses:
@@ -2202,6 +2245,45 @@ paths:
       security:
       - BearerAuth: []
       summary: Reset employee password
+      tags:
+      - employees
+  /employee/unblock/{id}:
+    put:
+      consumes:
+      - application/json
+      description: Unblock employee by id
+      parameters:
+      - description: Employee id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Unblock employee
       tags:
       - employees
   /generate-token:

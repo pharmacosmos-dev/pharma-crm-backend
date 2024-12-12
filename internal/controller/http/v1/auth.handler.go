@@ -48,6 +48,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 	err = h.db.WithContext(c.Request.Context()).
 		Preload("Store").Preload("Role").
+		Where("status = ? and is_active = ?", "active", true).
 		First(&res, "phone = ?", body.Phone).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -95,5 +96,4 @@ func (h *AuthHandler) Login(c *gin.Context) {
 func (h *AuthHandler) Logout(c *gin.Context) {}
 
 func (h *AuthHandler) UpdateAccessToken(c *gin.Context) {
-	
 }
