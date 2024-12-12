@@ -2624,6 +2624,52 @@ const docTemplate = `{
                 }
             }
         },
+        "/generate-token": {
+            "post": {
+                "description": "Generate 1C token",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "1C token"
+                ],
+                "summary": "Generate 1C token",
+                "parameters": [
+                    {
+                        "description": "Generate 1C token",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.Generate1CTokenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/login": {
             "post": {
                 "description": "Login a user",
@@ -3830,7 +3876,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "1Capi"
+                    "1C Api"
                 ],
                 "summary": "Create a product",
                 "parameters": [
@@ -5309,6 +5355,60 @@ const docTemplate = `{
                 }
             }
         },
+        "/store1c": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a store from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "1C Api"
+                ],
+                "summary": "Create a store",
+                "parameters": [
+                    {
+                        "description": "store",
+                        "name": "store",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.StoreRequest1C"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/transaction": {
             "post": {
                 "security": [
@@ -6129,6 +6229,17 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.Generate1CTokenRequest": {
+            "type": "object",
+            "required": [
+                "password"
+            ],
+            "properties": {
+                "password": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.Ids": {
             "type": "object",
             "properties": {
@@ -6392,8 +6503,8 @@ const docTemplate = `{
                 "retail_price": {
                     "type": "number"
                 },
-                "store_id": {
-                    "type": "string"
+                "store_code": {
+                    "type": "integer"
                 },
                 "sum": {
                     "type": "number"
@@ -6602,6 +6713,9 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "store_code": {
+                    "type": "integer"
+                },
                 "updated_at": {
                     "type": "string"
                 }
@@ -6610,11 +6724,31 @@ const docTemplate = `{
         "domain.StoreRequest": {
             "type": "object",
             "properties": {
+                "cash_box_count": {
+                    "type": "integer"
+                },
+                "employee_count": {
+                    "type": "integer"
+                },
                 "location": {
                     "type": "string"
                 },
                 "name": {
                     "type": "string"
+                },
+                "store_code": {
+                    "type": "integer"
+                }
+            }
+        },
+        "domain.StoreRequest1C": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "store_code": {
+                    "type": "integer"
                 }
             }
         },

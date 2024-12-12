@@ -8,9 +8,10 @@ type Login struct {
 }
 
 type LoginResponse struct {
-	Token       string                 `json:"token"`
-	Employee    Employee               `json:"employee"`
-	Permissions map[string]interface{} `json:"permissions"`
+	Token        string                 `json:"token"`
+	RefreshToken string                 `json:"refresh_token"`
+	Employee     Employee               `json:"employee"`
+	Permissions  map[string]interface{} `json:"permissions"`
 }
 
 type Employee struct {

@@ -34,10 +34,8 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 	// Auth Middleware
 	bearerAuth := middleware.NewAuthMiddleware(h.cfg, h.JwtHandler, h.db)
 	v1.Use(bearerAuth.NewAuth())
-
-	// Basic Auth Middleware
-	basicAuth1C := middleware.BasicAuth1C()
-	v1c.Use(basicAuth1C.Middleware)
+	// Auth Middleware for 1C
+	v1c.Use(bearerAuth.Check1CAuth())
 	{
 		h.NewAuthHandler(public)
 		h.NewBrandController(v1)
@@ -59,6 +57,7 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		h.NewPermissionHandler(v1)
 		h.NewSalePaymentHandler(v1)
 		h.NewProduct1cHandler(v1c)
+		h.NewTokenGeneratorHandler(public)
 	}
 }
 

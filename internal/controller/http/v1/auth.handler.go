@@ -74,19 +74,26 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		"user_id": res.Id,
 		"role_id": res.RoleId,
 	}
-
-	accessToken, err := h.JwtHandler.GenerateJWT(m)
+	refreshClaims := map[string]interface{}{
+		"user_id": res.Id,
+	}
+	accessToken, refreshToken, err := h.JwtHandler.GenerateTokens(m, refreshClaims)
 	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 	data := domain.LoginResponse{
-		Token:    accessToken,
-		Employee: res,
+		Token:        accessToken,
+		RefreshToken: refreshToken,
+		Employee:     res,
 		// Permissions: ,
 	}
 	handleResponse(c, OK, data)
 }
 
 func (h *AuthHandler) Logout(c *gin.Context) {}
+
+func (h *AuthHandler) UpdateAccessToken(c *gin.Context) {
+	
+}

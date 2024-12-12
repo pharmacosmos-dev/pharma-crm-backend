@@ -16,26 +16,44 @@ type JWTHandler struct {
 	Log *logger.Logger
 }
 
-// GenerateJWT ...
-func (j *JWTHandler) GenerateJWT(m map[string]interface{}) (tokenString string, err error) {
+// GenerateTokens generates access and refresh tokens.
+func (j *JWTHandler) GenerateTokens(accessClaims map[string]interface{}, refreshClaims map[string]interface{}) (accessToken string, refreshToken string, err error) {
+	// Generate access token
+	accessToken, err = j.generateToken(accessClaims, config.AccessTokenExpiresInTime)
+	if err != nil {
+		j.Log.Error("Failed to generate access token:", err)
+		return "", "", err
+	}
+
+	// Generate refresh token
+	refreshToken, err = j.generateToken(refreshClaims, config.RefreshTokenExpiresInTime)
+	if err != nil {
+		j.Log.Error("Failed to generate refresh token:", err)
+		return "", "", err
+	}
+
+	return accessToken, refreshToken, nil
+}
+
+// generateToken generates a JWT with the provided claims and expiration duration.
+func (j *JWTHandler) generateToken(claimsMap map[string]interface{}, expiresIn time.Duration) (string, error) {
 	token := jwt.New(jwt.SigningMethodHS256)
 
 	claims := token.Claims.(jwt.MapClaims)
 
-	for key, value := range m {
+	for key, value := range claimsMap {
 		claims[key] = value
 	}
 
 	claims["iat"] = time.Now().Unix()
-	claims["exp"] = time.Now().Add(config.AccessTokenExpiresInTime).Unix()
+	claims["exp"] = time.Now().Add(expiresIn).Unix()
 
-	accessToken, err := token.SignedString([]byte(j.Cfg.Secret.SecretKey))
+	tokenString, err := token.SignedString([]byte(j.Cfg.Secret.SecretKey))
 	if err != nil {
-		j.Log.Error(err)
 		return "", err
 	}
 
-	return accessToken, nil
+	return tokenString, nil
 }
 
 // ExtractClaims extracts claims from given token

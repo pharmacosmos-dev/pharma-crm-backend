@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/etc"
 	"github.com/pharma-crm-backend/pkg/token"
 	"gorm.io/gorm"
 )
@@ -101,4 +103,34 @@ func (a *MiddlewareHandler) RequireRefresh(c *gin.Context) {
 // RequirePermission aborts request with 403 status
 func (a *MiddlewareHandler) RequirePermission(c *gin.Context) {
 	c.AbortWithStatus(403)
+}
+
+func (a *MiddlewareHandler) Check1CAuth() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		authHeader := c.GetHeader("Authorization")
+		if authHeader == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authorization header missing"})
+			return
+		}
+		// Extract the token
+		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+		if tokenString == "" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization format"})
+			return
+		}
+
+		password, err := etc.Decrypt(tokenString, a.cfg.HeshKey)
+		if err != nil {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization format"})
+			return
+		}
+		fmt.Println("password: ", password)
+		fmt.Println("a.cfg.Password1C: ", a.cfg.Password1C)
+		if password != a.cfg.Password1C {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
+			return
+		}
+		c.Set("password", password)
+		c.Next()
+	}
 }

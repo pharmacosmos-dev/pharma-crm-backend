@@ -35,8 +35,9 @@ type (
 	}
 	// Token Secret Key -.
 	Secret struct {
-		SecretKey string `env-required:"true" yaml:"log_level"   env:"SECRET_KEY"`
-		HeshKey   string `env-required:"true" yaml:"log_level"   env:"HESH_KEY"`
+		SecretKey  string `env-required:"true" yaml:"log_level"   env:"SECRET_KEY"`
+		HeshKey    string `env-required:"true" yaml:"log_level"   env:"HESH_KEY"`
+		Password1C string `env-required:"true" yaml:"log_level"   env:"PASSWORD_1C"`
 	}
 
 	// PG -.
@@ -70,6 +71,7 @@ func Load() Config {
 	c.PG.PoolMax = cast.ToInt(GetOrReturnDefaultValue("PG_POOL_MAX", 2))
 	c.Secret.SecretKey = cast.ToString(GetOrReturnDefaultValue("SECRET_KEY", "6fb5619d-8c30-4e85-a1e3-3f4d142498a0"))
 	c.Secret.HeshKey = cast.ToString(GetOrReturnDefaultValue("HESH_KEY", "6fb5619d-8c30-4e85-a1e3-3f4d142498a0"))
+	c.Secret.Password1C = cast.ToString(GetOrReturnDefaultValue("PASSWORD_1C", "6fb5619d-8c30-4e85-a1e3-3f4d142498a0"))
 	return c
 }
 

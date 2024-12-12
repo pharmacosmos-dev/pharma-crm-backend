@@ -163,6 +163,13 @@ definitions:
       total_amount:
         type: number
     type: object
+  domain.Generate1CTokenRequest:
+    properties:
+      password:
+        type: string
+    required:
+    - password
+    type: object
   domain.Ids:
     properties:
       ids:
@@ -336,8 +343,8 @@ definitions:
         type: integer
       retail_price:
         type: number
-      store_id:
-        type: string
+      store_code:
+        type: integer
       sum:
         type: number
       supply_price:
@@ -473,15 +480,30 @@ definitions:
         type: string
       name:
         type: string
+      store_code:
+        type: integer
       updated_at:
         type: string
     type: object
   domain.StoreRequest:
     properties:
+      cash_box_count:
+        type: integer
+      employee_count:
+        type: integer
       location:
         type: string
       name:
         type: string
+      store_code:
+        type: integer
+    type: object
+  domain.StoreRequest1C:
+    properties:
+      name:
+        type: string
+      store_code:
+        type: integer
     type: object
   domain.TransactionRequest:
     properties:
@@ -2182,6 +2204,36 @@ paths:
       summary: Reset employee password
       tags:
       - employees
+  /generate-token:
+    post:
+      consumes:
+      - application/json
+      description: Generate 1C token
+      parameters:
+      - description: Generate 1C token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/domain.Generate1CTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      summary: Generate 1C token
+      tags:
+      - 1C token
   /login:
     post:
       consumes:
@@ -2973,7 +3025,7 @@ paths:
       - BearerAuth: []
       summary: Create a product
       tags:
-      - 1Capi
+      - 1C Api
   /role:
     post:
       consumes:
@@ -3887,6 +3939,40 @@ paths:
       summary: Get a store
       tags:
       - stores
+  /store1c:
+    post:
+      consumes:
+      - application/json
+      description: Create a store from the request body
+      parameters:
+      - description: store
+        in: body
+        name: store
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/domain.StoreRequest1C'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a store
+      tags:
+      - 1C Api
   /transaction:
     post:
       consumes:

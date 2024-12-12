@@ -16,7 +16,16 @@ type Store struct {
 
 // Store Create Request
 type StoreRequest struct {
-	Id       string `gorm:"id" json:"-"`
-	Name     string `gorm:"name" json:"name"`
-	Location string `gorm:"location" json:"location"`
+	Id            string `gorm:"id" json:"-"`
+	Name          string `gorm:"name" json:"name"`
+	Location      string `gorm:"location" json:"location"`
+	EmployeeCount int    `gorm:"employee_count" json:"employee_count"`
+	CashBoxCount  int    `gorm:"cash_box_count" json:"cash_box_count"`
+	StoreCode     int    `gorm:"store_code" json:"store_code"`
+}
+
+type StoreRequest1C struct {
+	Id        string `gorm:"type:uuid;default:gen_random_uuid()" json:"-"`
+	Name      string `gorm:"name" json:"name"`
+	StoreCode int    `gorm:"store_code" json:"store_code"`
 }
