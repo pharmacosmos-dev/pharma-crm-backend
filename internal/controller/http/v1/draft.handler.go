@@ -196,7 +196,7 @@ func (h *DraftHandler) Get(c *gin.Context) {
 // @Param limmit query int false "Limit"
 // @Param offset query int false "Offset"
 // @Param store_id query string false "Store ID"
-// @Param client query string false "Client"
+// @Param search query string false "Search"
 // @Param draft_date query string false "Draft Date"
 // @Param customer_id query string false "Customer ID"
 // @Success 200 {object} v1.Response
@@ -226,10 +226,10 @@ func (h *DraftHandler) List(c *gin.Context) {
 		Preload("Store").Preload("Customer").Preload("Employee")
 
 	// Filters
-	if client := c.Query("client"); client != "" {
-		client = fmt.Sprintf("%%%s%%", client)
+	if search := c.Query("search"); search != "" {
+		search = fmt.Sprintf("%%%s%%", search)
 		query = query.Joins("LEFT JOIN customers ON customers.id = drafts.customer_id").
-			Where("customers.phone LIKE ? OR customers.first_name ILIKE ?", client, client)
+			Where("customers.phone LIKE ? OR customers.first_name ILIKE ?", search, search)
 	}
 	if storeID := c.Query("store_id"); storeID != "" {
 		query = query.Where("store_id = ?", storeID)
@@ -240,7 +240,6 @@ func (h *DraftHandler) List(c *gin.Context) {
 			handleResponse(c, BadRequest, "Invalid date format")
 			return
 		}
-		fmt.Println("===>>> ", draftDate)
 		query = query.Where("drafts.draft_time::date = ?", draftDate)
 	}
 	if customerID := c.Query("customer_id"); customerID != "" {
