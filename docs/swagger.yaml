@@ -461,8 +461,12 @@ definitions:
     type: object
   domain.Store:
     properties:
+      cash_box_count:
+        type: integer
       created_at:
         type: string
+      employee_count:
+        type: integer
       id:
         type: string
       location:
@@ -1821,9 +1825,9 @@ paths:
         in: query
         name: store_id
         type: string
-      - description: Client
+      - description: Search
         in: query
-        name: client
+        name: search
         type: string
       - description: Draft Date
         in: query

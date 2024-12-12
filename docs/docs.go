@@ -1925,8 +1925,8 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Client",
-                        "name": "client",
+                        "description": "Search",
+                        "name": "search",
                         "in": "query"
                     },
                     {
@@ -6584,8 +6584,14 @@ const docTemplate = `{
         "domain.Store": {
             "type": "object",
             "properties": {
+                "cash_box_count": {
+                    "type": "integer"
+                },
                 "created_at": {
                     "type": "string"
+                },
+                "employee_count": {
+                    "type": "integer"
                 },
                 "id": {
                     "type": "string"
