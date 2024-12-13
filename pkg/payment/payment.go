@@ -22,3 +22,5 @@ func (h *PaymentAction) ClickPass(ctx context.Context, req *domain.ClickPassRequ
 	
 	return nil, nil
 }
+
+

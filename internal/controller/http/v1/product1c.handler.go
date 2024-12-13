@@ -116,6 +116,12 @@ func (h *Product1cHandler) CreateStore(c *gin.Context) {
 		Table("stores").
 		Create(&body).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(err.Error(), "unique constraint") {
+			h.log.Warn(fmt.Sprintf("duplicate document_number: %v", err))
+			handleResponse(c, BadRequest, "Store with this code already exists")
+			return
+		}
+		// Log and handle other errors
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
