@@ -19,8 +19,10 @@ type PaymentService interface {
 }
 
 func (h *PaymentAction) ClickPass(ctx context.Context, req *domain.ClickPassRequest) (*domain.ClickPassResponse, error) {
-	
+
 	return nil, nil
 }
 
+// func DoRequest(ctx context.Context, data map[string]interface{}) (*domain.ClickPassResponse, error) {
 
+// }
