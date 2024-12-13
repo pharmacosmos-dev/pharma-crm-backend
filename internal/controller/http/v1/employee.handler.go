@@ -464,3 +464,4 @@ func (h *EmployeeHandler) UnBlockEmployee(c *gin.Context) {
 	}
 	handleResponse(c, OK, "UNBLOCKED")
 }
+
