@@ -399,3 +399,12 @@ func parsePercentage(value string) float64 {
 	}
 	return percentage
 }
+
+// Parse a string to int if value like 2324,34
+func parseIntComma(value string) int {
+	i, err := strconv.Atoi(strings.ReplaceAll(value, ",", ""))
+	if err != nil {
+		return 0
+	}
+	return i
+}
