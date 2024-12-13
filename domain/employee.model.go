@@ -36,18 +36,18 @@ type Employee struct {
 }
 
 type EmployeeRequest struct {
-	Id        string `gorm:"id" json:"-"`
-	RoleId    string `gorm:"role_id" json:"role_id"`
-	StoreId   string `gorm:"store_id" json:"store_id"`
-	PublicId  int    `gorm:"public_id" json:"-"`
-	FirstName string `gorm:"first_name" json:"first_name"`
-	LastName  string `gorm:"last_name" json:"last_name"`
-	Phone     string `gorm:"phone" json:"phone"`
-	Gender    string `gorm:"gender" json:"gender"`
-	Status    string `gorm:"status" json:"-"`
-	Password  string `gorm:"password" json:"password"`
-	Language  string `gorm:"language" json:"language"`
-	Birthdate string `gorm:"birthdate" json:"birthdate"`
+	Id        string  `gorm:"id" json:"-"`
+	RoleId    string  `gorm:"role_id" json:"role_id"`
+	StoreId   string  `gorm:"store_id" json:"store_id"`
+	PublicId  int     `gorm:"public_id" json:"-"`
+	FirstName string  `gorm:"first_name" json:"first_name"`
+	LastName  string  `gorm:"last_name" json:"last_name"`
+	Phone     string  `gorm:"phone" json:"phone"`
+	Gender    string  `gorm:"gender" json:"gender"`
+	Status    string  `gorm:"status" json:"-"`
+	Password  *string `gorm:"password" json:"password"`
+	Language  string  `gorm:"language" json:"language"`
+	Birthdate string  `gorm:"birthdate" json:"birthdate"`
 }
 
 // Reset password request

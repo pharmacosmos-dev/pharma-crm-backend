@@ -60,14 +60,14 @@ func (h *EmployeeHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	hashedPassword, err := etc.Encrypt(body.Password, h.cfg.HeshKey)
+	hashedPassword, err := etc.Encrypt(*body.Password, h.cfg.HeshKey)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
-	body.Password = hashedPassword
+	body.Password = &hashedPassword
 	body.Id = uuid.New().String()
 	body.Status = "active"
 	body.PublicId = utils.GenerateRandomCode()
@@ -196,7 +196,8 @@ func (h *EmployeeHandler) List(c *gin.Context) {
 // @Router       /employee/{id} [put]
 func (h *EmployeeHandler) Update(c *gin.Context) {
 	var (
-		body = new(domain.EmployeeRequest)
+		body = domain.EmployeeRequest{}
+		id   = c.Param("id")
 		err  error
 	)
 	err = c.ShouldBindJSON(&body)
@@ -206,15 +207,17 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 		return
 	}
 
-	body.Password, err = etc.Encrypt(body.Password, h.cfg.HeshKey)
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
+	if body.Password != nil {
+		*body.Password, err = etc.Encrypt(*body.Password, h.cfg.HeshKey)
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
 	}
 	err = h.db.WithContext(c.Request.Context()).
-		Model(&domain.Employee{}).
-		Where("id = ?", c.Param("id")).
+		Table("employees").
+		Where("id = ?", id).
 		Updates(body).Error
 	if err != nil {
 		h.log.Error(err)
