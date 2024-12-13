@@ -98,7 +98,9 @@ func (h *EmployeeHandler) Create(c *gin.Context) {
 // @Router       /employee/{id} [get]
 func (h *EmployeeHandler) Get(c *gin.Context) {
 	var res domain.Employee
-	if err := h.db.Preload("Store").
+	if err := h.db.
+		Preload("Store").
+		Preload("Role").
 		First(&res, "id = ?", c.Param("id")).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			handleResponse(c, NotFound, nil)
