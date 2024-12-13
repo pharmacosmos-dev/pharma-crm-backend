@@ -1922,44 +1922,6 @@ paths:
       tags:
       - employees
   /employee/{id}:
-    delete:
-      consumes:
-      - application/json
-      description: Delete an employee by id
-      parameters:
-      - description: Employee id
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Delete employee
-      tags:
-      - employees
     get:
       consumes:
       - application/json
@@ -2042,17 +2004,20 @@ paths:
       summary: Update employee
       tags:
       - employees
-  /employee/block/{id}:
+  /employee/block:
     put:
       consumes:
       - application/json
       description: Block employee by id
       parameters:
-      - description: Employee id
-        in: path
-        name: id
+      - description: Employee ids
+        in: body
+        name: body
         required: true
-        type: string
+        schema:
+          items:
+            type: string
+          type: array
       produces:
       - application/json
       responses:
@@ -2079,6 +2044,48 @@ paths:
       security:
       - BearerAuth: []
       summary: Block employee
+      tags:
+      - employees
+  /employee/delete:
+    delete:
+      consumes:
+      - application/json
+      description: Delete employees by ids
+      parameters:
+      - description: Employee ids
+        in: body
+        name: body
+        required: true
+        schema:
+          items:
+            type: string
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete employees
       tags:
       - employees
   /employee/info:
@@ -2179,6 +2186,10 @@ paths:
         in: query
         name: store_id
         type: string
+      - description: Status (deleted || blocked || active)
+        in: query
+        name: status
+        type: string
       produces:
       - application/json
       responses:
@@ -2249,17 +2260,20 @@ paths:
       summary: Reset employee password
       tags:
       - employees
-  /employee/unblock/{id}:
+  /employee/unblock:
     put:
       consumes:
       - application/json
       description: Unblock employee by id
       parameters:
-      - description: Employee id
-        in: path
-        name: id
+      - description: Employee ids
+        in: body
+        name: body
         required: true
-        type: string
+        schema:
+          items:
+            type: string
+          type: array
       produces:
       - application/json
       responses:

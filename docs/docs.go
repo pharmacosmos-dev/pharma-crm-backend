@@ -2179,7 +2179,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/employee/block/{id}": {
+        "/employee/block": {
             "put": {
                 "security": [
                     {
@@ -2199,11 +2199,82 @@ const docTemplate = `{
                 "summary": "Block employee",
                 "parameters": [
                     {
-                        "type": "string",
-                        "description": "Employee id",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
+                        "description": "Employee ids",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/employee/delete": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Delete employees by ids",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "employees"
+                ],
+                "summary": "Delete employees",
+                "parameters": [
+                    {
+                        "description": "Employee ids",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
                     }
                 ],
                 "responses": {
@@ -2401,6 +2472,12 @@ const docTemplate = `{
                         "description": "Store ID",
                         "name": "store_id",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Status (deleted || blocked || active)",
+                        "name": "status",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -2503,7 +2580,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/employee/unblock/{id}": {
+        "/employee/unblock": {
             "put": {
                 "security": [
                     {
@@ -2523,11 +2600,16 @@ const docTemplate = `{
                 "summary": "Unblock employee",
                 "parameters": [
                     {
-                        "type": "string",
-                        "description": "Employee id",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
+                        "description": "Employee ids",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
                     }
                 ],
                 "responses": {
@@ -2657,65 +2739,6 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/domain.EmployeeRequest"
                         }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Delete an employee by id",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "employees"
-                ],
-                "summary": "Delete employee",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Employee id",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
                     }
                 ],
                 "responses": {
