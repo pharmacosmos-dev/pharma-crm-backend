@@ -1,5 +1,12 @@
 basePath: /v1
 definitions:
+  domain.Apteka:
+    properties:
+      name:
+        type: string
+      store_code:
+        type: integer
+    type: object
   domain.BrandRequest:
     properties:
       logo:
@@ -75,6 +82,17 @@ definitions:
       name:
         type: string
     type: object
+  domain.CreateProduct1C:
+    properties:
+      Apteka:
+        $ref: '#/definitions/domain.Apteka'
+      Dok:
+        $ref: '#/definitions/domain.Document'
+      Товары:
+        items:
+          $ref: '#/definitions/domain.ProductRequest1C'
+        type: array
+    type: object
   domain.CustomerRequest:
     properties:
       birthday:
@@ -94,6 +112,13 @@ definitions:
           type: string
         type: array
       tag_id:
+        type: string
+    type: object
+  domain.Document:
+    properties:
+      data_dok:
+        type: string
+      nomer_dok:
         type: string
     type: object
   domain.DraftRequest:
@@ -343,14 +368,12 @@ definitions:
         type: integer
       retail_price:
         type: number
-      store_code:
-        type: integer
       sum:
         type: number
       supply_price:
         type: number
       vat:
-        type: number
+        type: string
       vat_price:
         type: number
       vat_sum:
@@ -3101,9 +3124,7 @@ paths:
         name: product
         required: true
         schema:
-          items:
-            $ref: '#/definitions/domain.ProductRequest1C'
-          type: array
+          $ref: '#/definitions/domain.CreateProduct1C'
       produces:
       - application/json
       responses:

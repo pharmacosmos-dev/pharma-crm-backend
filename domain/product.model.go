@@ -118,10 +118,25 @@ type ProductProducer struct {
 	Manufacturer string `gorm:"manufacturer" json:"name"`
 }
 
+// Document structure for 1C API
+type Document struct {
+	ID             string `gorm:"id" json:"-"`
+	DocumentDate   string `gorm:"document_date" json:"data_dok"`
+	DocumentNumber string `gorm:"document_number" json:"nomer_dok"`
+	StoreCode      int    `gorm:"store_code" json:"-"`
+}
+
+// Apteka structure for 1C API
+type Apteka struct {
+	StoreCode int    `gorm:"store_code" json:"store_code"`
+	Name      string `gorm:"name" json:"name"`
+}
+
 // Request structure for 1C API
 type ProductRequest1C struct {
 	Id                  string  `gorm:"type:uuid;default:gen_random_uuid()" json:"-"`
-	StoreCode           int     `gorm:"store_code" json:"store_code"`
+	ReceiptID           string  `gorm:"receipt_id" json:"-"`
+	StoreCode           int     `gorm:"store_code" json:"-"`
 	MaterialCode        int     `gorm:"material_code" json:"material_code"`
 	Name                string  `gorm:"name" json:"name"`
 	Manufacturer        string  `gorm:"manufacturer" json:"manufacturer"`
@@ -130,9 +145,26 @@ type ProductRequest1C struct {
 	SupplyPrice         float64 `gorm:"supply_price" json:"supply_price"`
 	Sum                 float64 `gorm:"sum" json:"sum"`
 	VatPrice            float64 `gorm:"vat_price" json:"vat_price"`
-	Vat                 float64 `gorm:"vat" json:"vat"`
+	Vat                 string  `gorm:"vat" json:"vat"`
 	VatSum              float64 `gorm:"vat_sum" json:"vat_sum"`
 	ProductSeriesNumber string  `gorm:"product_series_number" json:"product_series_number"`
 	ExpireDate          string  `gorm:"expire_date" json:"expire_date"`
 	Barcode             string  `gorm:"barcode" json:"barcode"`
+}
+
+// Create Tovar structure for 1C API
+type CreateProduct1C struct {
+	Dok    Document           `json:"Dok"`
+	Apteka Apteka             `json:"Apteka"`
+	Товары []ProductRequest1C `json:"Товары"`
+}
+
+// ProductReceipt structure for 1C API
+type ProductReceipt struct {
+	ID             string     `gorm:"id" json:"id"`
+	DocumentDate   string     `gorm:"document_date" json:"document_date"`
+	DocumentNumber string     `gorm:"document_number" json:"document_number"`
+	StoreCode      int        `gorm:"store_code" json:"store_code"`
+	CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt      *time.Time `gorm:"updated_at" json:"updated_at"`
 }

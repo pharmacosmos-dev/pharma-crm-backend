@@ -4037,10 +4037,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/domain.ProductRequest1C"
-                            }
+                            "$ref": "#/definitions/domain.CreateProduct1C"
                         }
                     }
                 ],
@@ -6131,6 +6128,17 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "domain.Apteka": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "store_code": {
+                    "type": "integer"
+                }
+            }
+        },
         "domain.BrandRequest": {
             "type": "object",
             "properties": {
@@ -6246,6 +6254,23 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.CreateProduct1C": {
+            "type": "object",
+            "properties": {
+                "Apteka": {
+                    "$ref": "#/definitions/domain.Apteka"
+                },
+                "Dok": {
+                    "$ref": "#/definitions/domain.Document"
+                },
+                "Товары": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.ProductRequest1C"
+                    }
+                }
+            }
+        },
         "domain.CustomerRequest": {
             "type": "object",
             "properties": {
@@ -6273,6 +6298,17 @@ const docTemplate = `{
                     }
                 },
                 "tag_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.Document": {
+            "type": "object",
+            "properties": {
+                "data_dok": {
+                    "type": "string"
+                },
+                "nomer_dok": {
                     "type": "string"
                 }
             }
@@ -6654,9 +6690,6 @@ const docTemplate = `{
                 "retail_price": {
                     "type": "number"
                 },
-                "store_code": {
-                    "type": "integer"
-                },
                 "sum": {
                     "type": "number"
                 },
@@ -6664,7 +6697,7 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "vat": {
-                    "type": "number"
+                    "type": "string"
                 },
                 "vat_price": {
                     "type": "number"

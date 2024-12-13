@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS "products" (
   "brand_id" UUID,
   "supplier_id" UUID,
   "unit_id" UUID,
+  "receipt_id" UUID REFERENCES "product_receipts"("id"),
   "store_code" INT REFERENCES "stores"("store_code"),
   "product_type" product_type_enum,
   "product_variability" product_variability,

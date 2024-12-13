@@ -1,10 +1,14 @@
 package v1
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
+	"gorm.io/gorm"
 )
 
 type Product1cHandler struct {
@@ -28,25 +32,47 @@ func (h *Product1cHandler) Product1cRoutes(r *gin.RouterGroup) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param product body []domain.ProductRequest1C true "product"
+// @Param product body domain.CreateProduct1C true "product"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /product1c [post]
 func (h *Product1cHandler) Create(c *gin.Context) {
 	var (
-		body []domain.ProductRequest1C
-		err  error
+		body     domain.CreateProduct1C
+		document domain.ProductReceipt
+		err      error
 	)
 	if err = c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	body.Dok.StoreCode = body.Apteka.StoreCode
+	body.Dok.ID = uuid.New().String()
+	err = h.db.
+		WithContext(c.Request.Context()).
+		Table("product_receipts").
+		Create(&body.Dok).Scan(&document).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(err.Error(), "unique constraint") {
+			h.log.Warn(fmt.Sprintf("duplicate document_number: %v", err))
+			handleResponse(c, BadRequest, "Document with this number already exists")
+			return
+		}
+		// Log and handle other errors
+		h.log.Error(fmt.Errorf("ERROR on creating dok: %v", err.Error()))
+		handleResponse(c, InternalError, "Failed to create document")
+		return
+	}
+	for i := range body.Товары {
+		body.Товары[i].ReceiptID = document.ID
+		body.Товары[i].StoreCode = body.Apteka.StoreCode
+	}
 	err = h.db.
 		WithContext(c.Request.Context()).
 		Table("products").
-		Create(&body).Error
+		Create(&body.Товары).Error
 	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
