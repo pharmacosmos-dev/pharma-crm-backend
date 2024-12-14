@@ -14,8 +14,16 @@ type Role struct {
 
 // RoleRequest structure for create, update
 type RoleRequest struct {
-	Id          string `gorm:"id" json:"-"`
-	PublicId    int    `gorm:"public_id" json:"-"`
-	Name        string `gorm:"name" json:"name"`
-	Description string `gorm:"description" json:"description"`
+	Id          string              `gorm:"id" json:"-"`
+	PublicId    int                 `gorm:"public_id" json:"-"`
+	Name        string              `gorm:"name" json:"name"`
+	Description string              `gorm:"description" json:"description"`
+	Permissions []RolePermissionReq `json:"permissions"`
+}
+
+// RolePermissionRequest structure for create, update
+type RolePermissionReq struct {
+	RoleID       string   `gorm:"role_id" json:"-"`
+	PermissionId string   `gorm:"permission_id" json:"parent_id"`
+	ChildIds     []string `json:"child_ids"`
 }

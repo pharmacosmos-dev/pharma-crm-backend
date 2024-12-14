@@ -6844,6 +6844,20 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.RolePermissionReq": {
+            "type": "object",
+            "properties": {
+                "child_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "parent_id": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.RoleRequest": {
             "type": "object",
             "properties": {
@@ -6852,6 +6866,12 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "permissions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.RolePermissionReq"
+                    }
                 }
             }
         },

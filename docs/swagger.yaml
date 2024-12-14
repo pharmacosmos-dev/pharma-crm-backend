@@ -429,12 +429,25 @@ definitions:
       new_password:
         type: string
     type: object
+  domain.RolePermissionReq:
+    properties:
+      child_ids:
+        items:
+          type: string
+        type: array
+      parent_id:
+        type: string
+    type: object
   domain.RoleRequest:
     properties:
       description:
         type: string
       name:
         type: string
+      permissions:
+        items:
+          $ref: '#/definitions/domain.RolePermissionReq'
+        type: array
     type: object
   domain.SaleID:
     properties:

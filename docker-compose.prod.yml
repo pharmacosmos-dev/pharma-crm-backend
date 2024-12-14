@@ -5,7 +5,20 @@ services:
     build:
       context: .
     ports:
-      - 8080:8080
+      - "8080:8080"
+    platform: linux/arm64
+    env_file:
+      - .env
 
+  minio-storage:
+    image: bitnami/minio:latest
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    platform: linux/arm64
+    env_file:
+      - .env
     environment:
-      - DATABASE_URL=postgres://admin:password@postgres:5432/dbname
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    command: server /data --console-address ":9001"

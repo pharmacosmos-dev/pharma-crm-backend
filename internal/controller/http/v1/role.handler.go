@@ -44,11 +44,12 @@ func (h *RoleHandler) RoleRoutes(r *gin.RouterGroup) {
 func (h *RoleHandler) Create(c *gin.Context) {
 	var (
 		body domain.RoleRequest
+		role domain.Role
 		err  error
 	)
 	err = c.ShouldBindJSON(&body)
 	if err != nil {
-		h.log.Error(err.Error())
+		h.log.Error("ERROR on binding json: ", err.Error())
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
@@ -58,13 +59,48 @@ func (h *RoleHandler) Create(c *gin.Context) {
 	err = h.db.
 		WithContext(c.Request.Context()).
 		Table("roles").
-		Create(&body).Error
+		Create(&body).
+		Scan(&role).Error
 	if err != nil {
-		h.log.Error(err.Error())
+		h.log.Error("ERROR on creating role: ", err.Error())
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, CREATED, body)
+	if len(body.Permissions) > 0 {
+		var rolePermissions []domain.RolePermission
+		for _, permission := range body.Permissions {
+			rolePermissions = append(rolePermissions, domain.RolePermission{
+				ID:           uuid.New().String(),
+				PermissionID: permission.PermissionId,
+				RoleID:       role.Id,
+				CreatedAt:    nil,
+				UpdatedAt:    nil,
+			})
+			if len(permission.ChildIds) > 0 {
+				for _, childID := range permission.ChildIds {
+					rolePermissions = append(rolePermissions, domain.RolePermission{
+						ID:           uuid.New().String(),
+						RoleID:       role.Id,
+						PermissionID: childID,
+						CreatedAt:    nil,
+						UpdatedAt:    nil,
+					})
+				}
+			}
+		}
+
+		if len(rolePermissions) > 0 {
+			err = h.db.
+				WithContext(c.Request.Context()).
+				Create(&rolePermissions).Error
+			if err != nil {
+				h.log.Warn("ERROR on creating role permissions: %v", err)
+				handleResponse(c, InternalError, err.Error())
+				return
+			}
+		}
+	}
+	handleResponse(c, CREATED, "CREATED")
 }
 
 // Get godoc
