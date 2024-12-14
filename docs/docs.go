@@ -3419,8 +3419,8 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Search",
-                        "name": "search",
+                        "description": "Parent ID",
+                        "name": "parent_id",
                         "in": "query"
                     }
                 ],
@@ -6852,6 +6852,9 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "is_active": {
+                    "type": "boolean"
                 },
                 "parent_id": {
                     "type": "string"

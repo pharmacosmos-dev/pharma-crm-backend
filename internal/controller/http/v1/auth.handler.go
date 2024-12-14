@@ -47,7 +47,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 	err = h.db.WithContext(c.Request.Context()).
-		Preload("Store").Preload("Role").
+		Preload("Store").
 		Where("is_active = ?", true).
 		First(&res, "phone = ?", body.Phone).Error
 	if err != nil {

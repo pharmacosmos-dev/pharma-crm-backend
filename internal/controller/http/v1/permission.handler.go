@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
+	"gorm.io/gorm"
 )
 
 type PermissionHandler struct {
@@ -94,26 +95,24 @@ func (h *PermissionHandler) Get(c *gin.Context) {
 // @Security BearerAuth
 // @Accept json
 // @Produce json
-// @Param search query string false "Search"
+// @Param parent_id query string false "Parent ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /permission/list [get]
 func (h *PermissionHandler) List(c *gin.Context) {
-	var res = []*domain.Permission{}
-	var search = c.Query("search")
-	query := h.db.Model(&domain.Permission{})
-	if search != "" {
-		search = fmt.Sprintf("%%%s%%", search)
-		query = query.Where("name LIKE ?", search)
+	var parentID *string
+	if p := c.Query("parent_id"); p != "" {
+		parentID = &p
 	}
-	err := query.Find(&res).Error
+	permissions, err := fetchPermissions(h.db, parentID)
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error("err: ", err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, res)
+
+	handleResponse(c, OK, permissions)
 }
 
 // Update doc
@@ -170,4 +169,24 @@ func (h *PermissionHandler) Delete(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, nil)
+}
+
+func fetchPermissions(db *gorm.DB, parentID *string) ([]domain.Permission, error) {
+	var permissions []domain.Permission
+	query := db.Preload("Children")
+	if parentID != nil {
+		query = query.Where("parent_id = ?", parentID)
+	}
+	err := query.Find(&permissions).Error
+	if err != nil {
+		return nil, err
+	}
+	// Recursively fetch subcategories for each category
+	for i := range permissions {
+		permissions[i].Children, err = fetchPermissions(db, &permissions[i].Id)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return permissions, nil
 }

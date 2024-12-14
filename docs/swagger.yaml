@@ -435,6 +435,8 @@ definitions:
         items:
           type: string
         type: array
+      is_active:
+        type: boolean
       parent_id:
         type: string
     type: object
@@ -2837,9 +2839,9 @@ paths:
       - application/json
       description: List Permission
       parameters:
-      - description: Search
+      - description: Parent ID
         in: query
-        name: search
+        name: parent_id
         type: string
       produces:
       - application/json

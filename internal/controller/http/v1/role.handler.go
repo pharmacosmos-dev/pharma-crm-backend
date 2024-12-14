@@ -72,6 +72,7 @@ func (h *RoleHandler) Create(c *gin.Context) {
 			rolePermissions = append(rolePermissions, domain.RolePermission{
 				ID:           uuid.New().String(),
 				PermissionID: permission.PermissionId,
+				IsActive:     permission.IsActive,
 				RoleID:       role.Id,
 				CreatedAt:    nil,
 				UpdatedAt:    nil,
@@ -116,16 +117,29 @@ func (h *RoleHandler) Create(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /role/{id} [get]
 func (h *RoleHandler) Get(c *gin.Context) {
-	var res domain.Role
-	var id = c.Param("id")
-	err := h.db.
-		First(&res, "id = ?", id).Error
+	// Retrieve role with basic information
+	var role domain.Role
+	err := h.db.Where("id = ?", c.Param("id")).First(&role).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, res)
+
+	// Fetch all permissions for this role
+	var permissions []domain.Permission
+	err = h.db.
+		Joins("JOIN role_permissions rp ON rp.permission_id = permissions.id").
+		Where("rp.role_id = ?", role.Id).
+		Find(&permissions).Error
+	if err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	role.Permissions = permissions
+
+	handleResponse(c, OK, role)
 }
 
 // List godoc

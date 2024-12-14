@@ -3412,8 +3412,8 @@
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Search",
-                        "name": "search",
+                        "description": "Parent ID",
+                        "name": "parent_id",
                         "in": "query"
                     }
                 ],
@@ -6845,6 +6845,9 @@
                     "items": {
                         "type": "string"
                     }
+                },
+                "is_active": {
+                    "type": "boolean"
                 },
                 "parent_id": {
                     "type": "string"
