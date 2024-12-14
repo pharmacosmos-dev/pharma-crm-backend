@@ -1,10 +1,12 @@
 CREATE TABLE IF NOT EXISTS "roles" (
   "id" uuid PRIMARY KEY,
+  "public_id"   INT,
   "name" varchar,
   "description" text,
   "created_by" uuid,
   "updated_by" uuid,
   "deleted_by" uuid,
+  "status" INT NOT NULL DEFAULT 1, -- 1 - active, 0 - inactive, 2 - deleted
   "is_active" boolean NOT NULL DEFAULT true,
   "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()

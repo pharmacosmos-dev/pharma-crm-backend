@@ -1,9 +1,12 @@
 package v1
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/utils"
 )
 
 type RoleHandler struct {
@@ -51,6 +54,7 @@ func (h *RoleHandler) Create(c *gin.Context) {
 	}
 
 	body.Id = uuid.New().String()
+	body.PublicId = utils.GenerateRandomCode()
 	err = h.db.
 		WithContext(c.Request.Context()).
 		Table("roles").
@@ -77,7 +81,10 @@ func (h *RoleHandler) Create(c *gin.Context) {
 // @Router /role/{id} [get]
 func (h *RoleHandler) Get(c *gin.Context) {
 	var res domain.Role
-	if err := h.db.Model(&domain.Role{}).First(&res, "id = ?", c.Param("id")).Error; err != nil {
+	var id = c.Param("id")
+	err := h.db.
+		First(&res, "id = ?", id).Error
+	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -94,6 +101,8 @@ func (h *RoleHandler) Get(c *gin.Context) {
 // @Produce json
 // @Param limmit query int false "Limit"
 // @Param offset query int false "Offset"
+// @Param search query string false "Search"
+// @Param status query string false "Status (1 -> active, 0 -> inactive 2 -> deleted)"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -105,12 +114,28 @@ func (h *RoleHandler) List(c *gin.Context) {
 		return
 	}
 	res := []*domain.Role{}
-	if err := h.db.Limit(limit).Offset(offset).Find(&res).Error; err != nil {
+	var totalCount int64
+
+	q := h.db.Model(&domain.Role{}).Where("status != ?", 2)
+	if search := c.Query("search"); search != "" {
+		search = fmt.Sprintf("%%%s%%", search)
+		q = q.Where("name ILIKE ? OR description ILIKE ?", search, search)
+	}
+	if status := c.Query("status"); status != "" {
+		q = q.Where("status = ?", status)
+	}
+	err = q.
+		Count(&totalCount).
+		Limit(limit).
+		Offset(offset).
+		Find(&res).Error
+	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, res)
+	data := utils.ListResponse(res, totalCount, limit, offset)
+	handleResponse(c, OK, data)
 }
 
 // Update godoc

@@ -4144,6 +4144,18 @@ const docTemplate = `{
                         "description": "Offset",
                         "name": "offset",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Status (1 -\u003e active, 0 -\u003e inactive 2 -\u003e deleted)",
+                        "name": "status",
+                        "in": "query"
                     }
                 ],
                 "responses": {

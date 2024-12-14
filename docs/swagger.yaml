@@ -3288,6 +3288,14 @@ paths:
         in: query
         name: offset
         type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Status (1 -> active, 0 -> inactive 2 -> deleted)
+        in: query
+        name: status
+        type: string
       produces:
       - application/json
       responses:
