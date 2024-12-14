@@ -118,26 +118,52 @@ func (h *RoleHandler) Create(c *gin.Context) {
 // @Router /role/{id} [get]
 func (h *RoleHandler) Get(c *gin.Context) {
 	// Retrieve role with basic information
+	roleID := c.Param("id")
+	var permissions []domain.Permission
 	var role domain.Role
-	err := h.db.Where("id = ?", c.Param("id")).First(&role).Error
+	err := h.db.
+		Select("roles.*, COUNT(role_permissions.id) AS permission_count").
+		Joins("LEFT JOIN role_permissions ON role_permissions.role_id = roles.id").
+		Where("roles.id = ?", roleID).
+		Group("roles.id").
+		First(&role).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
-	// Fetch all permissions for this role
-	var permissions []domain.Permission
+	// Step 2: Fetch all permissions for the role
 	err = h.db.
-		Joins("JOIN role_permissions rp ON rp.permission_id = permissions.id").
-		Where("rp.role_id = ?", role.Id).
+		Table("permissions").
+		Select("permissions.*").
+		Joins("JOIN role_permissions ON role_permissions.permission_id = permissions.id").
+		Where("role_permissions.role_id = ?", roleID).
 		Find(&permissions).Error
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	role.Permissions = permissions
+
+	// Step 3: Build a nested permission structure
+	permissionsMap := make(map[string]*domain.Permission)
+	for i := range permissions {
+		permissionsMap[permissions[i].Id] = &permissions[i]
+	}
+
+	var nestedPermissions []domain.Permission
+	for i := range permissions {
+		perm := permissions[i]
+		if perm.ParentId == "" {
+			nestedPermissions = append(nestedPermissions, perm)
+		} else if parent, ok := permissionsMap[perm.ParentId]; ok {
+			parent.Children = append(parent.Children, perm)
+		}
+	}
+
+	// Step 4: Attach nested permissions to the role
+	role.Permissions = nestedPermissions
 
 	handleResponse(c, OK, role)
 }
