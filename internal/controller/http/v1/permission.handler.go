@@ -174,19 +174,28 @@ func (h *PermissionHandler) Delete(c *gin.Context) {
 func fetchPermissions(db *gorm.DB, parentID *string) ([]domain.Permission, error) {
 	var permissions []domain.Permission
 	query := db.Preload("Children")
+
+	// If parentID is provided, filter by parentId, otherwise fetch all
 	if parentID != nil {
 		query = query.Where("parent_id = ?", parentID)
 	}
+
+	// Fetch the permissions
 	err := query.Find(&permissions).Error
 	if err != nil {
 		return nil, err
 	}
-	// Recursively fetch subcategories for each category
+
+	// Only fetch children recursively for permissions that have them
 	for i := range permissions {
-		permissions[i].Children, err = fetchPermissions(db, &permissions[i].Id)
-		if err != nil {
-			return nil, err
+		if len(permissions[i].Children) > 0 {
+			// Recursively fetch subcategories for permissions with children
+			permissions[i].Children, err = fetchPermissions(db, &permissions[i].Id)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
+
 	return permissions, nil
 }
