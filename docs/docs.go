@@ -6556,6 +6556,9 @@ const docTemplate = `{
                 "action": {
                     "type": "string"
                 },
+                "description": {
+                    "type": "string"
+                },
                 "entity_name": {
                     "type": "string"
                 },

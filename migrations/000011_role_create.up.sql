@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS "permissions" (
     "type" VARCHAR(20) NOT NULL,
     "action" VARCHAR(20) NOT NULL,
     "parent_id" uuid REFERENCES "permissions"("id"),
+    "description" TEXT,
     "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()       
 );

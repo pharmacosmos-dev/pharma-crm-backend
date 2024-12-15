@@ -239,6 +239,8 @@ definitions:
     properties:
       action:
         type: string
+      description:
+        type: string
       entity_name:
         type: string
       parent_id:

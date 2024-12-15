@@ -6,25 +6,27 @@ import (
 
 // Permission structure for using save permissions data
 type Permission struct {
-	Id         string       `gorm:"id" json:"id"`
-	Route      string       `gorm:"route" json:"route"`
-	Type       string       `gorm:"type" json:"type"`
-	EntityName string       `gorm:"entity_name" json:"entity_name"`
-	Action     string       `gorm:"action" json:"action"`
-	ParentId   string       `gorm:"parent_id" json:"parent_id"`
-	CreatedAt  *time.Time   `gorm:"created_at" json:"created_at"`
-	UpdatedAt  *time.Time   `gorm:"updated_at" json:"updated_at"`
-	Children   []Permission `gorm:"foreignKey:ParentId" json:"children"`
+	Id          string       `gorm:"id" json:"id"`
+	Route       string       `gorm:"route" json:"route"`
+	Type        string       `gorm:"type" json:"type"`
+	EntityName  string       `gorm:"entity_name" json:"entity_name"`
+	Action      string       `gorm:"action" json:"action"`
+	Description string       `gorm:"description" json:"description"`
+	ParentId    string       `gorm:"parent_id" json:"parent_id"`
+	CreatedAt   *time.Time   `gorm:"created_at" json:"created_at"`
+	UpdatedAt   *time.Time   `gorm:"updated_at" json:"updated_at"`
+	Children    []Permission `gorm:"foreignKey:ParentId" json:"children"`
 }
 
 // PermissionRequest structure for create, update
 type PermissionRequest struct {
-	Id         string  `gorm:"id" json:"-"`
-	Route      string  `gorm:"route" json:"route"`
-	Type       string  `gorm:"type" json:"type"`
-	EntityName string  `gorm:"entity_name" json:"entity_name"`
-	Action     string  `gorm:"action" json:"action"`
-	ParentId   *string `gorm:"parent_id" json:"parent_id,omitempty"`
+	Id          string  `gorm:"id" json:"-"`
+	Route       string  `gorm:"route" json:"route"`
+	Type        string  `gorm:"type" json:"type"`
+	EntityName  string  `gorm:"entity_name" json:"entity_name"`
+	Description string  `gorm:"description" json:"description"`
+	Action      string  `gorm:"action" json:"action"`
+	ParentId    *string `gorm:"parent_id" json:"parent_id,omitempty"`
 }
 
 // RolePermission structure for using attech permission to role
