@@ -3421,7 +3421,13 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Parent ID",
                         "name": "parent_id",
-                        "in": "query"
+                        "in": "path"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Role ID",
+                        "name": "role_id",
+                        "in": "path"
                     }
                 ],
                 "responses": {
@@ -6315,6 +6321,17 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.ChildPermissionRequest": {
+            "type": "object",
+            "properties": {
+                "is_active": {
+                    "type": "boolean"
+                },
+                "parent_id": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.CreateProduct1C": {
             "type": "object",
             "properties": {
@@ -6853,7 +6870,7 @@ const docTemplate = `{
                 "child_ids": {
                     "type": "array",
                     "items": {
-                        "type": "string"
+                        "$ref": "#/definitions/domain.ChildPermissionRequest"
                     }
                 },
                 "is_active": {

@@ -95,24 +95,42 @@ func (h *PermissionHandler) Get(c *gin.Context) {
 // @Security BearerAuth
 // @Accept json
 // @Produce json
-// @Param parent_id query string false "Parent ID"
+// @Param parent_id path string false "Parent ID"
+// @Param role_id path string false "Role ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /permission/list [get]
 func (h *PermissionHandler) List(c *gin.Context) {
-	var parentID *string
-	if p := c.Query("parent_id"); p != "" {
-		parentID = &p
+	var (
+		res    []domain.MainPermission
+		roleID = c.Param("role_id")
+	)
+
+	// Start the query
+	query := h.db.Table("permissions").
+		Where("parent_id IS NULL").
+		Preload("Permissions.Children")
+
+	// Conditionally add role filtering if role_id is provided
+	if roleID != "" {
+		query = query.Preload("Permissions", func(db *gorm.DB) *gorm.DB {
+			return db.Joins("JOIN role_permissions ON role_permissions.permission_id = permissions.id AND role_permissions.role_id = ?", roleID).
+				Where("role_permissions.is_active = ?", true)
+		})
+	} else {
+		query = query.Preload("Permissions") // No role-specific filtering
 	}
-	permissions, err := fetchPermissions(h.db, parentID)
+
+	// Execute the query
+	err := query.Find(&res).Error
+
 	if err != nil {
-		h.log.Error("err: ", err)
+		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-
-	handleResponse(c, OK, permissions)
+	handleResponse(c, OK, res)
 }
 
 // Update doc
@@ -171,23 +189,23 @@ func (h *PermissionHandler) Delete(c *gin.Context) {
 	handleResponse(c, OK, nil)
 }
 
-func fetchPermissions(db *gorm.DB, parentID *string) ([]domain.Permission, error) {
-	var permissions []domain.Permission
-	query := db.Model(&domain.Permission{})
+// func fetchPermissions(db *gorm.DB, parentID *string) ([]domain.Permission, error) {
+// 	var permissions []domain.Permission
+// 	query := db.Model(&domain.Permission{})
 
-	if parentID != nil {
-		query = query.Where("parent_id = ?", *parentID)
-	} else {
-		query = query.Where("parent_id IS NULL")
-	}
+// 	if parentID != nil {
+// 		query = query.Where("parent_id = ?", *parentID)
+// 	} else {
+// 		query = query.Where("parent_id IS NULL")
+// 	}
 
-	// Preload children recursively
-	query = query.Preload("Children")
+// 	// Preload children recursively
+// 	query = query.Preload("Children")
 
-	err := query.Find(&permissions).Error
-	if err != nil {
-		return nil, err
-	}
+// 	err := query.Find(&permissions).Error
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	return permissions, nil
-}
+// 	return permissions, nil
+// }

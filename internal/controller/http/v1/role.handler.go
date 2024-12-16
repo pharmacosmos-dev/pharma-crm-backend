@@ -82,7 +82,8 @@ func (h *RoleHandler) Create(c *gin.Context) {
 					rolePermissions = append(rolePermissions, domain.RolePermission{
 						ID:           uuid.New().String(),
 						RoleID:       role.Id,
-						PermissionID: childID,
+						PermissionID: childID.ParentID,
+						IsActive:     childID.IsActive,
 						CreatedAt:    nil,
 						UpdatedAt:    nil,
 					})
@@ -117,54 +118,14 @@ func (h *RoleHandler) Create(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /role/{id} [get]
 func (h *RoleHandler) Get(c *gin.Context) {
-	// Retrieve role with basic information
 	roleID := c.Param("id")
-	var permissions []domain.Permission
 	var role domain.Role
-	err := h.db.
-		Select("roles.*, COUNT(role_permissions.id) AS permission_count").
-		Joins("LEFT JOIN role_permissions ON role_permissions.role_id = roles.id").
-		Where("roles.id = ?", roleID).
-		Group("roles.id").
-		First(&role).Error
+	err := h.db.First(&role, "id = ?", roleID).Error
 	if err != nil {
-		h.log.Error(err)
+		h.log.Error(err.Error())
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-
-	// Step 2: Fetch all permissions for the role
-	err = h.db.
-		Table("permissions").
-		Select("permissions.*").
-		Joins("JOIN role_permissions ON role_permissions.permission_id = permissions.id").
-		Where("role_permissions.role_id = ?", roleID).
-		Find(&permissions).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-
-	// Step 3: Build a nested permission structure
-	permissionsMap := make(map[string]*domain.Permission)
-	for i := range permissions {
-		permissionsMap[permissions[i].Id] = &permissions[i]
-	}
-
-	var nestedPermissions []domain.Permission
-	for i := range permissions {
-		perm := permissions[i]
-		if perm.ParentId == "" {
-			nestedPermissions = append(nestedPermissions, perm)
-		} else if parent, ok := permissionsMap[perm.ParentId]; ok {
-			parent.Children = append(parent.Children, perm)
-		}
-	}
-
-	// Step 4: Attach nested permissions to the role
-	role.Permissions = nestedPermissions
-
 	handleResponse(c, OK, role)
 }
 

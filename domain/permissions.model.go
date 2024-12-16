@@ -45,3 +45,10 @@ type RolePermissionRequest struct {
 	PermissionID string `gorm:"permission_id" json:"permission_id"`
 	RoleID       string `gorm:"role_id" json:"role_id"`
 }
+
+// Menu Permissions structure
+type MainPermission struct {
+	ID          string       `gorm:"id" json:"id"`
+	Key         string       `gorm:"key" json:"key"`
+	Permissions []Permission `gorm:"foreignKey:ParentId" json:"permissions"`
+}

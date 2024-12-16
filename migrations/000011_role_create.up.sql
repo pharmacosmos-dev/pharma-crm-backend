@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS "permissions" (
     "route" VARCHAR(255) NOT NULL,
     "entity_name" VARCHAR(50) NOT NULL, 
     "type" VARCHAR(20) NOT NULL,
+    "key" VARCHAR(50),
     "action" VARCHAR(20) NOT NULL,
     "parent_id" uuid REFERENCES "permissions"("id"),
     "description" TEXT,
