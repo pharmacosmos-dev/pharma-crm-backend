@@ -4186,6 +4186,60 @@ const docTemplate = `{
                 }
             }
         },
+        "/role/multiple/delete": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Delete all roles from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "roles"
+                ],
+                "summary": "Delete all roles",
+                "parameters": [
+                    {
+                        "description": "role IDs",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/role/{id}": {
             "get": {
                 "security": [
@@ -6321,17 +6375,6 @@ const docTemplate = `{
                 }
             }
         },
-        "domain.ChildPermissionRequest": {
-            "type": "object",
-            "properties": {
-                "is_active": {
-                    "type": "boolean"
-                },
-                "parent_id": {
-                    "type": "string"
-                }
-            }
-        },
         "domain.CreateProduct1C": {
             "type": "object",
             "properties": {
@@ -6870,7 +6913,7 @@ const docTemplate = `{
                 "child_ids": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/domain.ChildPermissionRequest"
+                        "type": "string"
                     }
                 },
                 "is_active": {

@@ -26,6 +26,7 @@ func (h *RoleHandler) RoleRoutes(r *gin.RouterGroup) {
 		role.GET("/list", h.List)
 		role.PUT("/:id", h.Update)
 		role.DELETE("/:id", h.Delete)
+		role.DELETE("/multiple/delete", h.MultipleDelete)
 	}
 }
 
@@ -43,9 +44,11 @@ func (h *RoleHandler) RoleRoutes(r *gin.RouterGroup) {
 // @Router /role [post]
 func (h *RoleHandler) Create(c *gin.Context) {
 	var (
-		body domain.RoleRequest
-		role domain.Role
-		err  error
+		body            domain.RoleRequest
+		role            domain.Role
+		permissions     []domain.Permission
+		rolePermissions []domain.RolePermission
+		err             error
 	)
 	err = c.ShouldBindJSON(&body)
 	if err != nil {
@@ -66,35 +69,44 @@ func (h *RoleHandler) Create(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	err = h.db.Model(&domain.Permission{}).Find(&permissions).Error
+	if err != nil {
+		h.log.Error("ERROR on getting permissions: ", err.Error())
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	for i := range permissions {
+		rolePermissions = append(rolePermissions, domain.RolePermission{
+			ID:           uuid.New().String(),
+			RoleID:       role.Id,
+			PermissionID: permissions[i].Id,
+			IsActive:     false,
+			CreatedAt:    nil,
+			UpdatedAt:    nil,
+		})
+	}
+	err = h.db.
+		WithContext(c.Request.Context()).
+		Create(&rolePermissions).Error
+	if err != nil {
+		h.log.Error("ERROR on creating role permissions: ", err.Error())
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
 	if len(body.Permissions) > 0 {
-		var rolePermissions []domain.RolePermission
+		var Ids []string
 		for _, permission := range body.Permissions {
-			rolePermissions = append(rolePermissions, domain.RolePermission{
-				ID:           uuid.New().String(),
-				PermissionID: permission.PermissionId,
-				IsActive:     permission.IsActive,
-				RoleID:       role.Id,
-				CreatedAt:    nil,
-				UpdatedAt:    nil,
-			})
-			if len(permission.ChildIds) > 0 {
-				for _, childID := range permission.ChildIds {
-					rolePermissions = append(rolePermissions, domain.RolePermission{
-						ID:           uuid.New().String(),
-						RoleID:       role.Id,
-						PermissionID: childID.ParentID,
-						IsActive:     childID.IsActive,
-						CreatedAt:    nil,
-						UpdatedAt:    nil,
-					})
-				}
-			}
+			Ids = append(Ids, permission.PermissionId)
+			Ids = append(Ids, permission.ChildIds...)
 		}
-
-		if len(rolePermissions) > 0 {
+		if len(Ids) > 0 {
 			err = h.db.
 				WithContext(c.Request.Context()).
-				Create(&rolePermissions).Error
+				Table("role_permissions").
+				Where("permission_id IN (?)", Ids).
+				Updates(&map[string]interface{}{
+					"is_active": true,
+				}).Error
 			if err != nil {
 				h.log.Warn("ERROR on creating role permissions: %v", err)
 				handleResponse(c, InternalError, err.Error())
@@ -145,6 +157,7 @@ func (h *RoleHandler) Get(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /role/list [get]
 func (h *RoleHandler) List(c *gin.Context) {
+	status := c.Query("status")
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
 		handleResponse(c, BadRequest, err.Error())
@@ -152,15 +165,15 @@ func (h *RoleHandler) List(c *gin.Context) {
 	}
 	res := []*domain.Role{}
 	var totalCount int64
-
-	q := h.db.Model(&domain.Role{}).Where("status != ?", 2)
+	if status == "" {
+		status = "1"
+	}
+	q := h.db.Model(&domain.Role{}).Where("status = ?", status)
 	if search := c.Query("search"); search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
 		q = q.Where("name ILIKE ? OR description ILIKE ?", search, search)
 	}
-	if status := c.Query("status"); status != "" {
-		q = q.Where("status = ?", status)
-	}
+
 	err = q.
 		Count(&totalCount).
 		Limit(limit).
@@ -224,10 +237,46 @@ func (h *RoleHandler) Update(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /role/{id} [delete]
 func (h *RoleHandler) Delete(c *gin.Context) {
-	if err := h.db.WithContext(c.Request.Context()).Delete(&domain.Role{}, "id = ?", c.Param("id")).Error; err != nil {
-		h.log.Error(err)
+	var id = c.Param("id")
+	err := h.db.
+		WithContext(c.Request.Context()).
+		Delete(&domain.Role{}, "id = ?", id).Error
+	if err != nil {
+		h.log.Error(err.Error())
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 	handleResponse(c, OK, "DELETED")
+}
+
+// MultipleDelete godoc
+// @Summary Delete all roles
+// @Description Delete all roles from the request body
+// @Tags roles
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param 	body body    []string  true "role IDs"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /role/multiple/delete [delete]
+func (h *RoleHandler) MultipleDelete(c *gin.Context) {
+	var (
+		ids []string
+		err error
+	)
+	if err = c.ShouldBindJSON(&ids); err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	err = h.db.Where("id IN (?)", ids).Updates(map[string]interface{}{"status": 2}).Error
+	if err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, "DELETED")
+
 }

@@ -115,8 +115,7 @@ func (h *PermissionHandler) List(c *gin.Context) {
 	// Conditionally add role filtering if role_id is provided
 	if roleID != "" {
 		query = query.Preload("Permissions", func(db *gorm.DB) *gorm.DB {
-			return db.Joins("JOIN role_permissions ON role_permissions.permission_id = permissions.id AND role_permissions.role_id = ?", roleID).
-				Where("role_permissions.is_active = ?", true)
+			return db.Joins("JOIN role_permissions ON role_permissions.permission_id = permissions.id AND role_permissions.role_id = ?", roleID)
 		})
 	} else {
 		query = query.Preload("Permissions") // No role-specific filtering

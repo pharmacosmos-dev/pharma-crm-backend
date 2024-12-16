@@ -82,13 +82,6 @@ definitions:
       name:
         type: string
     type: object
-  domain.ChildPermissionRequest:
-    properties:
-      is_active:
-        type: boolean
-      parent_id:
-        type: string
-    type: object
   domain.CreateProduct1C:
     properties:
       Apteka:
@@ -442,7 +435,7 @@ definitions:
     properties:
       child_ids:
         items:
-          $ref: '#/definitions/domain.ChildPermissionRequest'
+          type: string
         type: array
       is_active:
         type: boolean
@@ -3342,6 +3335,40 @@ paths:
       security:
       - BearerAuth: []
       summary: Get a role
+      tags:
+      - roles
+  /role/multiple/delete:
+    delete:
+      consumes:
+      - application/json
+      description: Delete all roles from the request body
+      parameters:
+      - description: role IDs
+        in: body
+        name: body
+        required: true
+        schema:
+          items:
+            type: string
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete all roles
       tags:
       - roles
   /sale:

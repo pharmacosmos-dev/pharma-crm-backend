@@ -13,6 +13,7 @@ type Permission struct {
 	Action      string       `gorm:"action" json:"action"`
 	Description string       `gorm:"description" json:"description"`
 	ParentId    string       `gorm:"parent_id" json:"parent_id"`
+	IsActive    bool         `gorm:"is_active" json:"is_active"`
 	CreatedAt   *time.Time   `gorm:"created_at" json:"created_at"`
 	UpdatedAt   *time.Time   `gorm:"updated_at" json:"updated_at"`
 	Children    []Permission `gorm:"foreignKey:ParentId" json:"children"`

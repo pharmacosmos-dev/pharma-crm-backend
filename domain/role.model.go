@@ -23,14 +23,8 @@ type RoleRequest struct {
 
 // RolePermissionRequest structure for create, update
 type RolePermissionReq struct {
-	RoleID       string                   `gorm:"role_id" json:"-"`
-	PermissionId string                   `gorm:"permission_id" json:"parent_id"`
-	IsActive     bool                     `gorm:"is_active" json:"is_active"`
-	ChildIds     []ChildPermissionRequest `json:"child_ids"`
-}
-
-type ChildPermissionRequest struct {
-	RoleID   string `gorm:"role_id" json:"-"`
-	ParentID string `gorm:"parent_id" json:"parent_id"`
-	IsActive bool   `gorm:"is_active" json:"is_active"`
+	RoleID       string   `gorm:"role_id" json:"-"`
+	PermissionId string   `gorm:"permission_id" json:"parent_id"`
+	IsActive     bool     `gorm:"is_active" json:"is_active"`
+	ChildIds     []string `json:"child_ids"`
 }
