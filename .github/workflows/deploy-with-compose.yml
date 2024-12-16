@@ -2,9 +2,9 @@ name: Pharma-backend CI/CD
 
 on:
   push:
-    branches: [ staging ]
+    branches: [staging]
   pull_request:
-    branches: [ staging ]
+    branches: [staging]
 
 env:
   REPO_NAME: ${{ github.repository }}
@@ -13,9 +13,7 @@ env:
   SSH_HOST: ${{ secrets.SERVER_IP }}
   SSH_USER: ${{ secrets.SERVER_USERNAME }}
   SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-  SSH_PASS: ${{ secrets.SERVER_PASSWORD }}
   DB_URL: ${{ secrets.PHARMA_DATABASE_URL }}
-  PORT: 8080:8080
 
 jobs:
   build_and_push:
@@ -58,8 +56,8 @@ jobs:
 
       - name: Install migrate tool
         run: |
-          wget https://github.com/golang-migrate/migrate/releases/download/v4.14.1/migrate.linux-amd64.tar.gz
-          tar -xvf migrate.linux-amd64.tar.gz
+          curl -L https://github.com/golang-migrate/migrate/releases/latest/download/migrate.linux-amd64.tar.gz -o migrate.tar.gz
+          tar -xvf migrate.tar.gz
           mv migrate.linux-amd64 migrate
           chmod +x migrate
 
@@ -68,21 +66,31 @@ jobs:
           ./migrate -path=$PWD/migrations -database="${{ env.DB_URL }}" up
 
   deploy:
-    needs: build_and_push
+    needs: [build_and_push, migrate]
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
     steps:
-      - name: Executing remote SSH commands to deploy
+      - name: Executing remote SSH commands to deploy using Docker Compose
         uses: appleboy/ssh-action@master
         with:
           host: "${{ env.SSH_HOST }}"
           username: "${{ env.SSH_USER }}"
           key: "${{ env.SSH_KEY }}"
           script: |
+            # Log in to Docker registry
             echo ${{ secrets.GITHUB_TOKEN }} | docker login -u ${{ github.actor }} --password-stdin ${{ env.REGISTRY }}
+
+            # Pull the latest image
             docker pull "${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}"
-            docker stop "${{ env.CONTAINER_NAME }}" || true
-            docker rm "${{ env.CONTAINER_NAME }}" || true
-            docker run -d --name "${{ env.CONTAINER_NAME }}"  -p "${{ env.PORT }}" --env-file /var/www/app/.env "${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}"
+
+            # Navigate to deployment directory
+            cd /var/www/pharma-backend
+
+            # Update image in docker-compose.prod.yml
+            sed -i 's|image:.*|image: '"${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}"'|' docker-compose.prod.yml
+
+            # Restart services using both dev and prod compose files
+            docker compose -f docker-compose.prod.yml -f docker-compose.dev.yml down || true
+            docker compose -f docker-compose.prod.yml -f docker-compose.dev.yml up -d
