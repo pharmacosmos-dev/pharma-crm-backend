@@ -93,5 +93,5 @@ jobs:
             sed -i 's|image:.*|image: '"${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}"'|' docker-compose.prod.yml
 
             # Restart services using both dev and prod compose files
-            docker compose -f docker-compose.prod.yml -f docker-compose.dev.yml down || true
-            docker compose -f docker-compose.prod.yml -f docker-compose.dev.yml up -d
+            docker compose -f docker-compose.dev.yml down || true
+            docker compose -f docker-compose.dev.yml up -d
