@@ -44,26 +44,27 @@ jobs:
           cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO_NAME }}:buildcache
           cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO_NAME }}:buildcache,mode=max
   
+
   migrate:
     needs: build_and_push
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      packages: write
+        contents: read
+        packages: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
       - name: Install migrate tool
         run: |
-          curl -L https://github.com/golang-migrate/migrate/releases/latest/download/migrate.linux-amd64.tar.gz -o migrate.tar.gz
-          tar -xvf migrate.tar.gz
-          mv migrate.linux-amd64 migrate
-          chmod +x migrate
+            wget https://github.com/golang-migrate/migrate/releases/download/v4.14.1/migrate.linux-amd64.tar.gz
+            tar -xvf migrate.linux-amd64.tar.gz
+            mv migrate.linux-amd64 migrate
+            chmod +x migrate
 
       - name: Run Migrations
         run: |
-          ./migrate -path=$PWD/migrations -database="${{ env.DB_URL }}" up
+            ./migrate -path=$PWD/migrations -database="${{ env.DB_URL }}" up
 
   deploy:
     needs: [build_and_push, migrate]
