@@ -178,6 +178,7 @@ func (h *RoleHandler) List(c *gin.Context) {
 		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).
+		Order("created_at DESC").
 		Find(&res).Error
 	if err != nil {
 		h.log.Error(err)
@@ -271,7 +272,7 @@ func (h *RoleHandler) MultipleDelete(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	err = h.db.Where("id IN (?)", ids).Updates(map[string]interface{}{"status": 2}).Error
+	err = h.db.Table("roles").Where("id IN (?)", ids).Updates(map[string]interface{}{"status": 2}).Error
 	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())

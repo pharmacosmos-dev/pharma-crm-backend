@@ -111,14 +111,13 @@ func (h *PermissionHandler) List(c *gin.Context) {
 	query := h.db.Table("permissions").
 		Where("parent_id IS NULL").
 		Preload("Permissions.Children")
-
 	// Conditionally add role filtering if role_id is provided
 	if roleID != "" {
 		query = query.Preload("Permissions", func(db *gorm.DB) *gorm.DB {
 			return db.Joins("JOIN role_permissions ON role_permissions.permission_id = permissions.id AND role_permissions.role_id = ?", roleID)
-		})
+		}).Select("permissions.*, COALESCE(role_permissions.is_active, false) AS is_active")
 	} else {
-		query = query.Preload("Permissions") // No role-specific filtering
+		query = query.Preload("Permissions")
 	}
 
 	// Execute the query
