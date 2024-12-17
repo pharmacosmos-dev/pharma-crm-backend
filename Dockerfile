@@ -15,6 +15,6 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
 # Step 3: Final
 FROM alpine:3.20
 COPY --from=builder /app/config /config
-COPY --from=builder /bin/app /app
-RUN mkdir -p /app/uploads
-CMD ["/app"]
+COPY --from=builder /bin/app /app/bin/app 
+RUN mkdir -p /app/uploads 
+CMD ["/app/bin/app"]
