@@ -128,6 +128,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 		res        []domain.Product
 		totalCount int64
 	)
+	
 	// Pagination parameters
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
