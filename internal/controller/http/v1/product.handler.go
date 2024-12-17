@@ -128,7 +128,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 		res        []domain.Product
 		totalCount int64
 	)
-	
+
 	// Pagination parameters
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
@@ -155,47 +155,47 @@ func (h *ProductHandler) List(c *gin.Context) {
 	if status != "" {
 		switch status {
 		case "active":
-			query = query.Where("is_active = ?", true)
+			query = query.Where("products.is_active = ?", true)
 		case "inactive":
-			query = query.Where("is_active = ?", false)
+			query = query.Where("products.is_active = ?", false)
 		case "low-stock":
-			query = query.Where("quantity <= ?", 5)
+			query = query.Where("products.quantity <= ?", 5)
 		case "zero-stock":
-			query = query.Where("quantity = ?", 0)
+			query = query.Where("products.quantity = ?", 0)
 		case "expired":
-			query = query.Where("expire_date < ?", time.Now())
+			query = query.Where("products.expire_date < ?", time.Now())
 		case "imminent":
-			query = query.Where("expire_date BETWEEN ? AND ?", time.Now(), time.Now().AddDate(0, 0, 10))
+			query = query.Where("products.expire_date BETWEEN ? AND ?", time.Now(), time.Now().AddDate(0, 0, 10))
 		}
 	}
 	if storeIDParam != "" {
-		query = query.Where("store_id = ?", storeIDParam)
+		query = query.Where("products.store_id = ?", storeIDParam)
 	}
 	if searchField != "" {
 		searchField = fmt.Sprintf("%%%s%%", searchField)
-		query = query.Where("name ILIKE ? OR barcode ILIKE ?", searchField, searchField)
+		query = query.Where("products.name ILIKE ? OR products.barcode ILIKE ?", searchField, searchField)
 	}
 	if supplyPriceFrom != "" {
-		query = query.Where("supply_price >= ?", supplyPriceFrom)
+		query = query.Where("products.supply_price >= ?", supplyPriceFrom)
 	}
 	if supplyPriceTo != "" {
-		query = query.Where("supply_price <= ?", supplyPriceTo)
+		query = query.Where("products.supply_price <= ?", supplyPriceTo)
 	}
 	if retailPriceFrom != "" {
-		query = query.Where("retail_price >= ?", retailPriceFrom)
+		query = query.Where("products.retail_price >= ?", retailPriceFrom)
 	}
 	if retailPriceTo != "" {
-		query = query.Where("retail_price <= ?", retailPriceTo)
+		query = query.Where("products.retail_price <= ?", retailPriceTo)
 	}
 	if producerName != "" {
-		query = query.Where("manufacturer = ?", producerName)
+		query = query.Where("products.manufacturer = ?", producerName)
 	}
 
 	err = query.
 		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).
-		Order("quantity DESC").
+		Order("products.quantity DESC").
 		Find(&res).Error
 	// Handle errors from the query
 	if err != nil {
