@@ -146,7 +146,8 @@ func (h *ProductHandler) List(c *gin.Context) {
 	)
 
 	// Build the query
-	query := h.db.Model(&domain.Product{})
+	query := h.db.Model(&domain.Product{}).
+		Select("*, DATE_PART('day', expire_date::timestamp - NOW()) AS expire_day")
 	if status != "" {
 		switch status {
 		case "active":
