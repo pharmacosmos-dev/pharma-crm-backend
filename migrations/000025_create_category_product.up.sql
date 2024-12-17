@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS "category_products" (
-    "id" UUID NOT NULL PRIMARY KEY,
+    "id" UUID NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
     "category_id" UUID NOT NULL REFERENCES "categories"(id),
     "product_id" UUID NOT NULL REFERENCES "products"(id),
     "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),

@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS "products" (
-  "id" UUID PRIMARY KEY,
+  "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   "store_id" UUID,
   "brand_id" UUID,
   "supplier_id" UUID,

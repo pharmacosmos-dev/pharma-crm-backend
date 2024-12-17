@@ -147,7 +147,10 @@ func (h *ProductHandler) List(c *gin.Context) {
 
 	// Build the query
 	query := h.db.Model(&domain.Product{}).
-		Select("*, DATE_PART('day', expire_date::timestamp - NOW()) AS expire_day")
+		Select("products.*, DATE_PART('day', expire_date::timestamp - NOW()) AS expire_day").
+		Preload("Categories").
+		Joins("LEFT JOIN category_products ON category_products.product_id = products.id").
+		Joins("LEFT JOIN categories ON categories.id = category_products.category_id")
 	if status != "" {
 		switch status {
 		case "active":
