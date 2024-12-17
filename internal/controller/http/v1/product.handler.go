@@ -133,52 +133,54 @@ func (h *ProductHandler) List(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	var (
+		searchField     = c.Query("search")
+		storeIDParam    = c.Query("store_id")
+		supplyPriceFrom = c.Query("supply_price_from")
+		supplyPriceTo   = c.Query("supply_price_to")
+		retailPriceFrom = c.Query("retail_price_from")
+		retailPriceTo   = c.Query("retail_price_to")
+		producerName    = c.Query("producer")
+	)
 
-	// Prepare search field for ILIKE queries
-	searchField := fmt.Sprintf("%%%s%%", c.Query("search"))
-
-	storeIDParam := c.Query("store_id")
-
-	// Handle price range parameters
-	supplyPriceFrom := c.Query("supply_price_from")
-	if supplyPriceFrom == "" {
-		supplyPriceFrom = "0" // or a suitable default value
-	}
-	supplyPriceTo := c.Query("supply_price_to")
-	if supplyPriceTo == "" {
-		supplyPriceTo = "999999999" // or a suitable default value
-	}
-	retailPriceFrom := c.Query("retail_price_from")
-	if retailPriceFrom == "" {
-		retailPriceFrom = "0" // or a suitable default value
-	}
-	retailPriceTo := c.Query("retail_price_to")
-	if retailPriceTo == "" {
-		retailPriceTo = "999999999" // or a suitable default value
-	}
 	// Build the query
 	query := h.db.Model(&domain.Product{}).
-		Where("name ILIKE ? OR barcode ILIKE ?", searchField, searchField).
-		Where("is_active = ? ", true).
-		Where("supply_price BETWEEN ? AND CASE WHEN ? = 0 THEN 999999999 ELSE ? END", supplyPriceFrom, supplyPriceTo, supplyPriceTo).
-		Where("retail_price BETWEEN ? AND CASE WHEN ? = 0 THEN 999999999 ELSE ? END", retailPriceFrom, retailPriceTo, retailPriceTo).
-		Where("(manufacturer = ? OR ? = '')", c.Query("producer"), c.Query("producer"))
+		Where("is_active = ? ", true)
 	if storeIDParam != "" {
 		query = query.Where("store_id = ?", storeIDParam)
 	}
-	query = query.
+	if searchField != "" {
+		searchField = fmt.Sprintf("%%%s%%", searchField)
+		query = query.Where("name ILIKE ? OR barcode ILIKE ?", searchField, searchField)
+	}
+	if supplyPriceFrom != "" {
+		query = query.Where("supply_price >= ?", supplyPriceFrom)
+	}
+	if supplyPriceTo != "" {
+		query = query.Where("supply_price <= ?", supplyPriceTo)
+	}
+	if retailPriceFrom != "" {
+		query = query.Where("retail_price >= ?", retailPriceFrom)
+	}
+	if retailPriceTo != "" {
+		query = query.Where("retail_price <= ?", retailPriceTo)
+	}
+	if producerName != "" {
+		query = query.Where("manufacturer = ?", producerName)
+	}
+
+	err = query.
 		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).
 		Order("quantity DESC").
-		Find(&res)
+		Find(&res).Error
 	// Handle errors from the query
-	if query.Error != nil {
-		h.log.Error(query.Error)
-		handleResponse(c, InternalError, query.Error.Error())
+	if err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
-
 	// Prepare the response
 	result := utils.ListResponse(res, totalCount, limit, offset)
 	handleResponse(c, OK, result)
