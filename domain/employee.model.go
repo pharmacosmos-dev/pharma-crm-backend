@@ -3,15 +3,14 @@ package domain
 import "time"
 
 type Login struct {
-	Phone    string `json:"phone"`
-	Password string `json:"password"`
+	Phone    string `json:"phone" example:"+998944444444"`
+	Password string `json:"password" example:"12345678"`
 }
 
 type LoginResponse struct {
-	Token        string     `json:"token"`
-	RefreshToken string     `json:"refresh_token"`
-	Employee     Employee   `json:"employee"`
-	Permissions  Permission `json:"permissions"`
+	Token        string   `json:"token"`
+	RefreshToken string   `json:"refresh_token"`
+	Employee     Employee `json:"employee"`
 }
 
 type Employee struct {
@@ -29,10 +28,10 @@ type Employee struct {
 	Status    string     `gorm:"status" json:"status"`
 	Birthdate string     `gorm:"birthdate" json:"birthdate"`
 	Photo     string     `gorm:"photo" json:"photo"`
-	Store     *Store     `gorm:"foreignKey:StoreId" json:"store"`
-	Role      *Role      `gorm:"foreignKey:RoleId" json:"role"`
 	CreatedAt *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt *time.Time `gorm:"updated_at" json:"updated_at"`
+	Store     *Store     `gorm:"foreignKey:StoreId" json:"store"`
+	Role      *Role      `gorm:"foreignKey:RoleId" json:"role"`
 }
 
 type EmployeeRequest struct {

@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
@@ -46,12 +47,13 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+
 	err = h.db.WithContext(c.Request.Context()).
 		Preload("Store").
 		Where("is_active = ?", true).
 		First(&res, "phone = ?", body.Phone).Error
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			handleResponse(c, NotFound, "User not found")
 			return
 		}
@@ -88,7 +90,6 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		Token:        accessToken,
 		RefreshToken: refreshToken,
 		Employee:     res,
-		// Permissions: ,
 	}
 	handleResponse(c, OK, data)
 }

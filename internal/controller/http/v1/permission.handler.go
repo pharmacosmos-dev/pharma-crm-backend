@@ -26,6 +26,7 @@ func (h *PermissionHandler) PermissionRoutes(r *gin.RouterGroup) {
 		permission.GET("/list", h.List)
 		permission.PUT("/:id", h.Update)
 		permission.DELETE("/:id", h.Delete)
+		permission.GET("/role/:role_id", h.GetPermissionsByRoleID)
 	}
 }
 
@@ -95,8 +96,7 @@ func (h *PermissionHandler) Get(c *gin.Context) {
 // @Security BearerAuth
 // @Accept json
 // @Produce json
-// @Param parent_id path string false "Parent ID"
-// @Param role_id path string false "Role ID"
+// @Param role_id query string false "Role ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -187,23 +187,33 @@ func (h *PermissionHandler) Delete(c *gin.Context) {
 	handleResponse(c, OK, nil)
 }
 
-// func fetchPermissions(db *gorm.DB, parentID *string) ([]domain.Permission, error) {
-// 	var permissions []domain.Permission
-// 	query := db.Model(&domain.Permission{})
+// GetPermissionsByRoleID doc
+// @Summary Get Permissions by Role ID
+// @Description Get Permissions by Role ID
+// @Tags Permission
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param role_id path string true "Role ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /permission/role/{role_id} [get]
+func (h *PermissionHandler) GetPermissionsByRoleID(c *gin.Context) {
+	var (
+		res    []domain.Permission
+		roleID = c.Param("role_id")
+	)
 
-// 	if parentID != nil {
-// 		query = query.Where("parent_id = ?", *parentID)
-// 	} else {
-// 		query = query.Where("parent_id IS NULL")
-// 	}
-
-// 	// Preload children recursively
-// 	query = query.Preload("Children")
-
-// 	err := query.Find(&permissions).Error
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	return permissions, nil
-// }
+	err := h.db.
+		Table("permissions").
+		Select("permissions.*, role_permissions.is_active as is_active").
+		Joins("JOIN role_permissions ON role_permissions.permission_id = permissions.id").
+		Where("role_permissions.role_id = ?", roleID).Find(&res).Error
+	if err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, res)
+}

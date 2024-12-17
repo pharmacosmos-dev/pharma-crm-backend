@@ -3419,15 +3419,58 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Parent ID",
-                        "name": "parent_id",
-                        "in": "path"
+                        "description": "Role ID",
+                        "name": "role_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/permission/role/{role_id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get Permissions by Role ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Permission"
+                ],
+                "summary": "Get Permissions by Role ID",
+                "parameters": [
                     {
                         "type": "string",
                         "description": "Role ID",
                         "name": "role_id",
-                        "in": "path"
+                        "in": "path",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -3655,6 +3698,60 @@ const docTemplate = `{
                 }
             }
         },
+        "/product/delete": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Delete a product from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Delete a product",
+                "parameters": [
+                    {
+                        "description": "product IDs",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/product/excel-upload": {
             "post": {
                 "security": [
@@ -3726,7 +3823,7 @@ const docTemplate = `{
                     {
                         "type": "integer",
                         "description": "Limit",
-                        "name": "limmit",
+                        "name": "limit",
                         "in": "query"
                     },
                     {
@@ -3739,6 +3836,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Search",
                         "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Status (active || inactive || low-stock || zero-stock || expired || imminent)",
+                        "name": "status",
                         "in": "query"
                     },
                     {
@@ -3947,53 +4050,6 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/domain.ProductUpdateRequest"
                         }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Delete a product from the request body",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "products"
-                ],
-                "summary": "Delete a product",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "product ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
                     }
                 ],
                 "responses": {
@@ -6563,10 +6619,12 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "password": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "12345678"
                 },
                 "phone": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "+998944444444"
                 }
             }
         },
@@ -6656,6 +6714,9 @@ const docTemplate = `{
                 },
                 "expire_date": {
                     "type": "string"
+                },
+                "expire_day": {
+                    "type": "integer"
                 },
                 "id": {
                     "type": "string"

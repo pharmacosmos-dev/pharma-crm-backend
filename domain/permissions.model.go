@@ -32,12 +32,13 @@ type PermissionRequest struct {
 
 // RolePermission structure for using attech permission to role
 type RolePermission struct {
-	ID           string     `gorm:"id" json:"id"`
-	PermissionID string     `gorm:"permission_id" json:"permission_id"`
-	RoleID       string     `gorm:"role_id" json:"role_id"`
-	IsActive     bool       `gorm:"is_active" json:"is_active"`
-	CreatedAt    *time.Time `gorm:"created_at" json:"created_at"`
-	UpdatedAt    *time.Time `gorm:"updated_at" json:"updated_at"`
+	ID           string        `gorm:"id" json:"id"`
+	PermissionID string        `gorm:"permission_id" json:"permission_id"`
+	RoleID       string        `gorm:"role_id" json:"role_id"`
+	IsActive     bool          `gorm:"is_active" json:"is_active"`
+	CreatedAt    *time.Time    `gorm:"created_at" json:"created_at"`
+	UpdatedAt    *time.Time    `gorm:"updated_at" json:"updated_at"`
+	Permission   []*Permission `gorm:"foreignKey:PermissionID" json:"permissions"`
 }
 
 // RolePermissionRequest for create, update

@@ -13,7 +13,9 @@ CREATE TYPE  "product_status" AS ENUM (
   'active',
   'inactive',
   'low_stock',
-  'zero_stock'
+  'zero_stock',
+  'expired',
+  'deleted' 
 );
 
 CREATE TYPE  "order_status" AS ENUM (

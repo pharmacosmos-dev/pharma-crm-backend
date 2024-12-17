@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -31,7 +32,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.GET("/:id", h.Get)
 		product.GET("/list", h.List)
 		product.PUT("/:id", h.Update)
-		product.DELETE("/:id", h.Delete)
+		product.DELETE("/delete", h.MultipleDelete)
 		product.POST("/excel-upload", h.UploadProduct)
 		product.GET("/producer", h.GetProducerList)
 	}
@@ -107,9 +108,10 @@ func (h *ProductHandler) Get(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param limmit query int false "Limit"
+// @Param limit query int false "Limit"
 // @Param offset query int false "Offset"
 // @Param search query string false "Search"
+// @Param status query string false "Status (active || inactive || low-stock || zero-stock || expired || imminent)"
 // @Param store_id query string false "Store ID"
 // @Param category_id query string false "Category ID"
 // @Param producer query string false "Producer"
@@ -126,7 +128,6 @@ func (h *ProductHandler) List(c *gin.Context) {
 		res        []domain.Product
 		totalCount int64
 	)
-
 	// Pagination parameters
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
@@ -141,11 +142,27 @@ func (h *ProductHandler) List(c *gin.Context) {
 		retailPriceFrom = c.Query("retail_price_from")
 		retailPriceTo   = c.Query("retail_price_to")
 		producerName    = c.Query("producer")
+		status          = c.Query("status")
 	)
 
 	// Build the query
-	query := h.db.Model(&domain.Product{}).
-		Where("is_active = ? ", true)
+	query := h.db.Model(&domain.Product{})
+	if status != "" {
+		switch status {
+		case "active":
+			query = query.Where("is_active = ?", true)
+		case "inactive":
+			query = query.Where("is_active = ?", false)
+		case "low-stock":
+			query = query.Where("quantity <= ?", 5)
+		case "zero-stock":
+			query = query.Where("quantity = ?", 0)
+		case "expired":
+			query = query.Where("expire_date < ?", time.Now())
+		case "imminent":
+			query = query.Where("expire_date BETWEEN ? AND ?", time.Now(), time.Now().AddDate(0, 0, 10))
+		}
+	}
 	if storeIDParam != "" {
 		query = query.Where("store_id = ?", storeIDParam)
 	}
@@ -228,13 +245,26 @@ func (h *ProductHandler) Update(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param id path string true "product ID"
+// @Param body 	body []string true "product IDs"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /product/{id} [delete]
-func (h *ProductHandler) Delete(c *gin.Context) {
-	if err := h.db.WithContext(c.Request.Context()).Delete(&domain.Product{}, "id = ?", c.Param("id")).Error; err != nil {
+// @Router /product/delete [delete]
+func (h *ProductHandler) MultipleDelete(c *gin.Context) {
+	var ids []string
+	err := c.ShouldBindJSON(&ids)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	err = h.db.
+		WithContext(c.Request.Context()).
+		Where("id IN (?)", ids).
+		Updates(map[string]interface{}{
+			"is_active": false,
+			"status":    "deleted"}).Error
+	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
