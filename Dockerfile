@@ -13,7 +13,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
     go build -tags migrate -o /bin/app ./cmd/app
 
 # Step 3: Final
-FROM scratch
+FROM alpine:3.20
 COPY --from=builder /app/config /config
 COPY --from=builder /bin/app /app
 RUN mkdir -p /app/uploads
