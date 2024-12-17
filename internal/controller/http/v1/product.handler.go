@@ -267,15 +267,21 @@ func (h *ProductHandler) GetProducerList(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	searchField := fmt.Sprintf("%%%s%%", c.Query("search"))
-	err = h.db.Model(&domain.Product{}).
-		Select("DISTINCT manufacturer").
-		Limit(limit).
+
+	search := c.Query("search")
+
+	query := h.db.
+		Model(&domain.Product{}).
+		Select("DISTINCT manufacturer")
+	if search != "" {
+		query = query.Where("manufacturer ILIKE ?", search)
+	}
+	err = query.Limit(limit).
 		Offset(offset).
-		Where("manufacturer ILIKE ?", searchField).
-		Find(&res).Error
+		Find(&res).
+		Error
 	if err != nil {
-		h.log.Error(err)
+		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
