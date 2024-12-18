@@ -65,12 +65,12 @@ func (h *UploadHandler) Upload(c *gin.Context) {
 	newFilename := uuid.New().String() + ext
 
 	// Define the save path (adjust the directory as needed)
-	savePath := filepath.Join("uploads", newFilename)
+	savePath := filepath.Join("./app/uploads", newFilename)
 
 	// Save the file
 	err = c.SaveUploadedFile(file.File, savePath)
 	if err != nil {
-		h.log.Error("Failed to save file: ", err)
+		h.log.Warn("Failed to save file: %v", err.Error())
 		handleResponse(c, InternalError, "Failed to save file")
 		return
 	}
@@ -101,17 +101,17 @@ func (h *UploadHandler) ServeFile(c *gin.Context) {
 	// Get the filename from the query or route parameter
 	filename := c.Param("filename")
 	if filename == "" {
-		h.log.Error("Filename not provided")
+		h.log.Warn("Filename not provided: %v", filename)
 		handleResponse(c, BadRequest, "Filename not provided")
 		return
 	}
 
 	// Construct the full file path
-	filePath := filepath.Join("uploads", filename)
+	filePath := filepath.Join("./app/uploads", filename)
 
 	// Check if the file exists
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		h.log.Error("File not found: ", filePath)
+		h.log.Warn("File not found: %v", err.Error())
 		handleResponse(c, NotFound, "File not found")
 		return
 	}
