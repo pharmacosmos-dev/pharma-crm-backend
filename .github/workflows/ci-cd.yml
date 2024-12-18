@@ -86,3 +86,20 @@ jobs:
             docker stop "${{ env.CONTAINER_NAME }}" || true
             docker rm "${{ env.CONTAINER_NAME }}" || true
             docker run -d --name "${{ env.CONTAINER_NAME }}"  -p "${{ env.PORT }}" --env-file /var/www/app/.env -v /var/www/app/uploads:/app/uploads "${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}"
+                      # Check if the new container is running correctly
+            sleep 10  # Wait for the container to initialize
+            if docker ps | grep -q "${{ env.CONTAINER_NAME }}_new"; then
+              # Stop and remove the old container
+              docker stop "${{ env.CONTAINER_NAME }}" || true
+              docker rm "${{ env.CONTAINER_NAME }}" || true
+              
+              # Rename the new container to the main container
+              docker rename "${{ env.CONTAINER_NAME }}_new" "${{ env.CONTAINER_NAME }}"
+              echo "Deployment successful. Old container replaced."
+            else
+              # Remove the failed new container
+              docker stop "${{ env.CONTAINER_NAME }}_new" || true
+              docker rm "${{ env.CONTAINER_NAME }}_new" || true
+              echo "Deployment failed. Retaining the old container."
+              exit 1
+            fi
