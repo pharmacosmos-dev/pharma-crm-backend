@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
+	"github.com/spf13/cast"
 	"gorm.io/gorm"
 )
 
@@ -54,9 +55,15 @@ func (h *CustomerHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	createdBy, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
 
 	body.Id = uuid.New().String()
 	body.PublicId = utils.GenerateRandomCode()
+	body.CreatedBy = cast.ToString(createdBy)
 	err = h.db.WithContext(c.Request.Context()).
 		Table("customers").
 		Create(&body).Error
@@ -162,6 +169,7 @@ func (h *CustomerHandler) List(c *gin.Context) {
 // @Router /customer/{id} [put]
 func (h *CustomerHandler) Update(c *gin.Context) {
 	var body domain.CustomerRequest
+	var id = c.Param("id")
 	var err error
 	if err = c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
@@ -170,10 +178,10 @@ func (h *CustomerHandler) Update(c *gin.Context) {
 	}
 	err = h.db.WithContext(c.Request.Context()).
 		Table("customers").
-		Where("id = ?", c.Param("id")).
+		Where("id = ?", id).
 		Updates(&body).Error
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(fmt.Errorf("err: %v", err.Error()))
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
