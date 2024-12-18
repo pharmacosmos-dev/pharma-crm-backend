@@ -29,7 +29,8 @@ func (h *CustomerHandler) CustomerRoutes(r *gin.RouterGroup) {
 		customer.GET("/:id", h.Get)
 		customer.GET("/list", h.List)
 		customer.PUT("/:id", h.Update)
-		customer.DELETE("/:id", h.Delete)
+		customer.DELETE("/soft-delete", h.SoftDelete)
+		customer.DELETE("/hard-delete", h.HardDelete)
 	}
 }
 
@@ -129,7 +130,9 @@ func (h *CustomerHandler) List(c *gin.Context) {
 	// Start building the query
 	query := h.db.
 		Model(&domain.Customer{}).
-		Preload("Store")
+		Preload("Store").
+		Select("customers.*, sales.created_at AS sale_date, sales.total_amount AS sale_amount").
+		Joins("LEFT JOIN sales ON sales.customer_id = customers.id")
 
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
@@ -188,21 +191,66 @@ func (h *CustomerHandler) Update(c *gin.Context) {
 	handleResponse(c, OK, body)
 }
 
-// Delete godoc
-// @Summary Delete a customer
-// @Description Delete a customer from the request body
+// SoftDelete godoc
+// @Summary Soft delete a customer
+// @Description Soft delete a customer from the request body
 // @Tags customers
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param id path string true "customer ID"
+// @Param ids body []string true "customer IDs"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /customer/{id} [delete]
-func (h *CustomerHandler) Delete(c *gin.Context) {
-	if err := h.db.WithContext(c.Request.Context()).Delete(&domain.Customer{}, "id = ?", c.Param("id")).Error; err != nil {
+// @Router /customer/soft-delete [delete]
+func (h *CustomerHandler) SoftDelete(c *gin.Context) {
+	var ids []string
+	err := c.ShouldBindJSON(&ids)
+	if err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err.Error()))
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	err = h.db.
+		WithContext(c.Request.Context()).
+		Where("id IN (?)", ids).
+		Updates(map[string]interface{}{
+			"is_active": false,
+			"status":    0}).Error
+	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, "DELETED")
+}
+
+// HardDelete godoc
+// @Summary Hard delete a customer
+// @Description Hard delete a customer from the request body
+// @Tags customers
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param ids body []string true "customer IDs"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /customer/hard-delete [delete]
+func (h *CustomerHandler) HardDelete(c *gin.Context) {
+	var ids []string
+	err := c.ShouldBindJSON(&ids)
+	if err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err.Error()))
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	err = h.db.
+		WithContext(c.Request.Context()).
+		Where("id IN (?)", ids).
+		Delete(&domain.Customer{}).Error
+	if err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err.Error()))
 		handleResponse(c, InternalError, err.Error())
 		return
 	}

@@ -27,15 +27,17 @@ type Customer struct {
 	// IsPhoneNotify  bool       `gorm:"is_phone_notify" json:"is_phone_notify"`
 	// IsSocialNotify bool       `gorm:"is_social_notify" json:"is_social_notify"`
 	// IsEmailNotify  bool       `gorm:"is_email_notify" json:"is_email_notify"`
-	Tag       *Tag       `gorm:"foreignKey:TagId" json:"tag"`
-	CreatedBy string     `gorm:"-" json:"created_by"`
-	UpdatedBy string     `gorm:"-" json:"updated_by"`
-	DeletedBy string     `gorm:"-" json:"deleted_by"`
-	CreatedAt *time.Time `gorm:"created_at" json:"created_at"`
-	UpdatedAt *time.Time `gorm:"updated_at" json:"updated_at"`
-	Store     *Store     `gorm:"foreignKey:StoreId" json:"store"`
+	Tag        *Tag       `gorm:"foreignKey:TagId" json:"tag"`
+	CreatedBy  string     `gorm:"-" json:"created_by"`
+	UpdatedBy  string     `gorm:"-" json:"updated_by"`
+	DeletedBy  string     `gorm:"-" json:"deleted_by"`
+	CreatedAt  *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt  *time.Time `gorm:"updated_at" json:"updated_at"`
+	SaleDate   *time.Time `gorm:"sale_date" json:"sale_date"`
+	SaleAmount float64    `gorm:"sale_amount" json:"sale_amount"`
+	DebtAmount float64    `gorm:"debt_amount" json:"debt_amount"`
+	Store      *Store     `gorm:"foreignKey:StoreId" json:"store"`
 }
-
 type CustomerRequest struct {
 	Id        string            `gorm:"id" json:"-"`
 	StoreId   string            `gorm:"store_id" json:"store_id"`

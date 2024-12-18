@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS "customers" (
   "is_social_notify" bool,
   "is_email_notify" bool,
   "balance" NUMERIC(10, 2) DEFAULT 0.00,
+  "debt_amount" NUMERIC(10, 2) DEFAULT 0.00,
   "created_by" uuid,
   "updated_by" uuid,
   "deleted_by" uuid,
