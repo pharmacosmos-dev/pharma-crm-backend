@@ -8,8 +8,10 @@ import (
 
 type Customer struct {
 	Id        string            `gorm:"id" json:"id"`
+	StoreId   string            `gorm:"store_id" json:"store_id"`
 	FirstName string            `gorm:"first_name" json:"first_name"`
 	LastName  string            `gorm:"last_name" json:"last_name"`
+	PublicId  int               `gorm:"public_id" json:"public_id"`
 	Phone     utils.StringArray `gorm:"type:text[]" json:"phone"`
 	Birthday  string            `gorm:"birthday" json:"birthday" example:"2006-01-02"`
 	Gender    string            `gorm:"gender" json:"gender" example:"male/female"`
@@ -31,10 +33,13 @@ type Customer struct {
 	DeletedBy string     `gorm:"-" json:"deleted_by"`
 	CreatedAt *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt *time.Time `gorm:"updated_at" json:"updated_at"`
+	Store     *Store     `gorm:"foreignKey:StoreId" json:"store"`
 }
 
 type CustomerRequest struct {
 	Id        string            `gorm:"id" json:"-"`
+	StoreId   string            `gorm:"store_id" json:"store_id"`
+	PublicId  int               `gorm:"public_id" json:"-"`
 	FirstName string            `gorm:"first_name" json:"first_name"`
 	LastName  string            `gorm:"last_name" json:"last_name,omitempty"`
 	Phone     utils.StringArray `gorm:"type:text[]" json:"phone"`

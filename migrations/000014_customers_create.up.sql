@@ -1,5 +1,6 @@
 CREATE TABLE IF NOT EXISTS "customers" (
-  "id" uuid PRIMARY KEY,
+  "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  "public_id" INT,
   "group_id" uuid,
   "tag_id" uuid,
   "first_name" varchar,

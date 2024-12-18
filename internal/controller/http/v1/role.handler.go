@@ -148,7 +148,7 @@ func (h *RoleHandler) Get(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param limmit query int false "Limit"
+// @Param limit query int false "Limit"
 // @Param offset query int false "Offset"
 // @Param search query string false "Search"
 // @Param status query string false "Status (1 -> active, 0 -> inactive 2 -> deleted)"

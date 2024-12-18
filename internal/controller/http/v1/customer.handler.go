@@ -3,6 +3,7 @@ package v1
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -55,6 +56,7 @@ func (h *CustomerHandler) Create(c *gin.Context) {
 	}
 
 	body.Id = uuid.New().String()
+	body.PublicId = utils.GenerateRandomCode()
 	err = h.db.WithContext(c.Request.Context()).
 		Table("customers").
 		Create(&body).Error
@@ -99,7 +101,7 @@ func (h *CustomerHandler) Get(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param limmit query int false "Limit"
+// @Param limit query int false "Limit"
 // @Param offset query int false "Offset"
 // @Param search query string false "Search"
 // @Param store_id query string false "Store ID"
@@ -109,29 +111,34 @@ func (h *CustomerHandler) Get(c *gin.Context) {
 // @Router /customer/list [get]
 func (h *CustomerHandler) List(c *gin.Context) {
 	var totalAmount int64
+	var search = c.Query("search")
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 	res := []*domain.Customer{}
-	search := fmt.Sprintf("%%%s%%", c.Query("search"))
 
 	// Start building the query
-	query := h.db.Model(&domain.Customer{}).
-		Limit(limit).
-		Offset(offset).
-		Count(&totalAmount).
-		Order("created_at DESC")
+	query := h.db.
+		Model(&domain.Customer{}).
+		Preload("Store")
 
 	if search != "" {
-		query = query.Where("first_name ILIKE ? OR last_name ILIKE ?", search, search)
+		search = fmt.Sprintf("%%%s%%", search)
+		query = query.Where("first_name ILIKE ? OR last_name ILIKE ? OR CAST(public_id AS TEXT) ILIKE ? OR ? = ANY(phone)",
+			search, search, search, strings.Trim(search, "%"))
 	}
 	if storeID := c.Query("store_id"); storeID != "" {
 		query = query.Where("store_id = ?", storeID)
 	}
-
-	if err = query.Find(&res).Error; err != nil {
+	err = query.
+		Count(&totalAmount).
+		Limit(limit).
+		Offset(offset).
+		Order("created_at DESC").
+		Find(&res).Error
+	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}

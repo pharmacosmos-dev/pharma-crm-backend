@@ -89,7 +89,7 @@ const docTemplate = `{
                     {
                         "type": "integer",
                         "description": "Limit",
-                        "name": "limmit",
+                        "name": "limit",
                         "in": "query"
                     },
                     {
@@ -346,7 +346,7 @@ const docTemplate = `{
                     {
                         "type": "integer",
                         "description": "Limit",
-                        "name": "limmit",
+                        "name": "limit",
                         "in": "query"
                     },
                     {
@@ -719,7 +719,7 @@ const docTemplate = `{
                     {
                         "type": "integer",
                         "description": "Limit",
-                        "name": "limmit",
+                        "name": "limit",
                         "in": "query"
                     },
                     {
@@ -1082,7 +1082,7 @@ const docTemplate = `{
                     {
                         "type": "integer",
                         "description": "Limit",
-                        "name": "limmit",
+                        "name": "limit",
                         "in": "query"
                     },
                     {
@@ -1590,7 +1590,7 @@ const docTemplate = `{
                     {
                         "type": "integer",
                         "description": "Limit",
-                        "name": "limmit",
+                        "name": "limit",
                         "in": "query"
                     },
                     {
@@ -1908,7 +1908,7 @@ const docTemplate = `{
                     {
                         "type": "integer",
                         "description": "Limit",
-                        "name": "limmit",
+                        "name": "limit",
                         "in": "query"
                     },
                     {
@@ -3931,7 +3931,7 @@ const docTemplate = `{
                     {
                         "type": "integer",
                         "description": "Limit",
-                        "name": "limmit",
+                        "name": "limit",
                         "in": "query"
                     },
                     {
@@ -4198,7 +4198,7 @@ const docTemplate = `{
                     {
                         "type": "integer",
                         "description": "Limit",
-                        "name": "limmit",
+                        "name": "limit",
                         "in": "query"
                     },
                     {
@@ -4612,7 +4612,7 @@ const docTemplate = `{
                     {
                         "type": "integer",
                         "description": "Limit",
-                        "name": "limmit",
+                        "name": "limit",
                         "in": "query"
                     },
                     {
@@ -4893,7 +4893,7 @@ const docTemplate = `{
                     {
                         "type": "integer",
                         "description": "Limit",
-                        "name": "limmit",
+                        "name": "limit",
                         "in": "query"
                     },
                     {
@@ -5441,7 +5441,7 @@ const docTemplate = `{
                     {
                         "type": "integer",
                         "description": "Limit",
-                        "name": "limmit",
+                        "name": "limit",
                         "in": "query"
                     },
                     {
@@ -6041,7 +6041,7 @@ const docTemplate = `{
                     {
                         "type": "integer",
                         "description": "Limit",
-                        "name": "limmit",
+                        "name": "limit",
                         "in": "query"
                     },
                     {
@@ -6417,6 +6417,38 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.Category": {
+            "type": "object",
+            "properties": {
+                "created_by": {
+                    "type": "string"
+                },
+                "deleted_by": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "parent_id": {
+                    "type": "string"
+                },
+                "sub_category": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.Category"
+                    }
+                },
+                "updated_by": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.CategoryRequest": {
             "type": "object",
             "properties": {
@@ -6473,6 +6505,9 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "store_id": {
+                    "type": "string"
                 },
                 "tag_id": {
                     "type": "string"
@@ -6705,6 +6740,12 @@ const docTemplate = `{
                 },
                 "brand_id": {
                     "type": "string"
+                },
+                "categories": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.Category"
+                    }
                 },
                 "created_at": {
                     "type": "string"

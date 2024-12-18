@@ -73,6 +73,27 @@ definitions:
       is_open:
         type: boolean
     type: object
+  domain.Category:
+    properties:
+      created_by:
+        type: string
+      deleted_by:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      name:
+        type: string
+      parent_id:
+        type: string
+      sub_category:
+        items:
+          $ref: '#/definitions/domain.Category'
+        type: array
+      updated_by:
+        type: string
+    type: object
   domain.CategoryRequest:
     properties:
       category_id:
@@ -111,6 +132,8 @@ definitions:
         items:
           type: string
         type: array
+      store_id:
+        type: string
       tag_id:
         type: string
     type: object
@@ -262,6 +285,10 @@ definitions:
         type: integer
       brand_id:
         type: string
+      categories:
+        items:
+          $ref: '#/definitions/domain.Category'
+        type: array
       created_at:
         type: string
       description:
@@ -729,7 +756,7 @@ paths:
       parameters:
       - description: Limit
         in: query
-        name: limmit
+        name: limit
         type: integer
       - description: Offset
         in: query
@@ -892,7 +919,7 @@ paths:
       parameters:
       - description: Limit
         in: query
-        name: limmit
+        name: limit
         type: integer
       - description: Offset
         in: query
@@ -1129,7 +1156,7 @@ paths:
       parameters:
       - description: Limit
         in: query
-        name: limmit
+        name: limit
         type: integer
       - description: Offset
         in: query
@@ -1359,7 +1386,7 @@ paths:
       parameters:
       - description: Limit
         in: query
-        name: limmit
+        name: limit
         type: integer
       - description: Offset
         in: query
@@ -1681,7 +1708,7 @@ paths:
       parameters:
       - description: Limit
         in: query
-        name: limmit
+        name: limit
         type: integer
       - description: Offset
         in: query
@@ -1883,7 +1910,7 @@ paths:
       parameters:
       - description: Limit
         in: query
-        name: limmit
+        name: limit
         type: integer
       - description: Offset
         in: query
@@ -3144,7 +3171,7 @@ paths:
       parameters:
       - description: Limit
         in: query
-        name: limmit
+        name: limit
         type: integer
       - description: Offset
         in: query
@@ -3343,7 +3370,7 @@ paths:
       parameters:
       - description: Limit
         in: query
-        name: limmit
+        name: limit
         type: integer
       - description: Offset
         in: query
@@ -3605,7 +3632,7 @@ paths:
       parameters:
       - description: Limit
         in: query
-        name: limmit
+        name: limit
         type: integer
       - description: Offset
         in: query
@@ -3784,7 +3811,7 @@ paths:
       parameters:
       - description: Limit
         in: query
-        name: limmit
+        name: limit
         type: integer
       - description: Offset
         in: query
@@ -4131,7 +4158,7 @@ paths:
       parameters:
       - description: Limit
         in: query
-        name: limmit
+        name: limit
         type: integer
       - description: Offset
         in: query
@@ -4512,7 +4539,7 @@ paths:
       parameters:
       - description: Limit
         in: query
-        name: limmit
+        name: limit
         type: integer
       - description: Offset
         in: query

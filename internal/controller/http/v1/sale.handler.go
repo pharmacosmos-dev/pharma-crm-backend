@@ -103,7 +103,7 @@ func (h *SaleHandler) Get(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param limmit query int false "Limit"
+// @Param limit query int false "Limit"
 // @Param offset query int false "Offset"
 // @Param employee_id query string false "Employee ID"
 // @Param cash_box_id query string false "Cash Box ID"

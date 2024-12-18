@@ -104,7 +104,7 @@ func (h *CashBoxOperationHandler) Get(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param limmit query int false "Limit"
+// @Param limit query int false "Limit"
 // @Param offset query int false "Offset"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response

@@ -193,7 +193,7 @@ func (h *DraftHandler) Get(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param limmit query int false "Limit"
+// @Param limit query int false "Limit"
 // @Param offset query int false "Offset"
 // @Param store_id query string false "Store ID"
 // @Param search query string false "Search"

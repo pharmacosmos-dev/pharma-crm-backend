@@ -96,7 +96,7 @@ func (h *CartItemHandler) Get(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param limmit query int false "Limit"
+// @Param limit query int false "Limit"
 // @Param offset query int false "Offset"
 // @Param sale_id query string true "Sale ID"
 // @Success 200 {object} v1.Response
