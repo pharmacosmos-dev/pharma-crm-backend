@@ -83,23 +83,29 @@ jobs:
           script: |
             echo ${{ secrets.GITHUB_TOKEN }} | docker login -u ${{ github.actor }} --password-stdin ${{ env.REGISTRY }}
             docker pull "${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}"
-            docker stop "${{ env.CONTAINER_NAME }}" || true
-            docker rm "${{ env.CONTAINER_NAME }}" || true
-            docker run -d --name "${{ env.CONTAINER_NAME }}"  -p "${{ env.PORT }}" --env-file /var/www/app/.env -v /var/www/app/uploads:/app/uploads "${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}"
-                      # Check if the new container is running correctly
-            sleep 10  # Wait for the container to initialize
+            
+            # Start the new container with a unique name
+            echo "Starting new container..."
+            docker run -d --name "${{ env.CONTAINER_NAME }}_new" -p "${{ env.PORT }}" --env-file /var/www/app/.env -v /var/www/app/uploads:/app/uploads "${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}"
+            
+            # Validate the new container
+            echo "Validating new container..."
             if docker ps | grep -q "${{ env.CONTAINER_NAME }}_new"; then
+              echo "New container is running successfully."
               # Stop and remove the old container
+              echo "Stopping and removing the old container..."
               docker stop "${{ env.CONTAINER_NAME }}" || true
               docker rm "${{ env.CONTAINER_NAME }}" || true
-              
-              # Rename the new container to the main container
+              # Rename the new container
+              echo "Renaming new container to replace the old one..."
               docker rename "${{ env.CONTAINER_NAME }}_new" "${{ env.CONTAINER_NAME }}"
-              echo "Deployment successful. Old container replaced."
+              echo "Deployment completed successfully."
             else
-              # Remove the failed new container
+              echo "Failed to start the new container. Cleaning up..."
               docker stop "${{ env.CONTAINER_NAME }}_new" || true
               docker rm "${{ env.CONTAINER_NAME }}_new" || true
-              echo "Deployment failed. Retaining the old container."
+              echo "Deployment failed. Old container retained."
               exit 1
             fi
+
+            # Remove the old container
