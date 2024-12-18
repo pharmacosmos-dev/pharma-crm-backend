@@ -53,6 +53,14 @@ func (h *UploadHandler) Upload(c *gin.Context) {
 		return
 	}
 
+	// Check the file size (maximum 5 MB)
+	maxFileSize := int64(5 * 1024 * 1024) // 5 MB
+	if file.File.Size > maxFileSize {
+		h.log.Error("File size exceeds the maximum limit of 5 MB")
+		handleResponse(c, BadRequest, "File size exceeds the maximum limit of 5 MB")
+		return
+	}
+
 	// Check file type
 	ext := filepath.Ext(file.File.Filename)
 	if ext != ".jpg" && ext != ".jpeg" && ext != ".png" {
