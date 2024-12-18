@@ -83,9 +83,24 @@ func (h *SaleHandler) Create(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /sale/{id} [get]
 func (h *SaleHandler) Get(c *gin.Context) {
-	var res domain.Sale
-	if err := h.db.First(&res, "id = ?", c.Param("id")).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+	var (
+		res domain.Sale
+		id  = c.Param("id")
+	)
+	err := h.db.
+		Preload("Employee").
+		Preload("CashBox", func(db *gorm.DB) *gorm.DB {
+			return db.Preload("Store")
+		}).
+		Preload("Customer").
+		Preload("SalePayments", func(db *gorm.DB) *gorm.DB {
+			return db.Preload("PaymentType")
+		}).
+		Preload("SaleItems", func(db *gorm.DB) *gorm.DB {
+			return db.Preload("Product")
+		}).First(&res, "id = ?", id).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			handleResponse(c, OK, nil)
 			return
 		}

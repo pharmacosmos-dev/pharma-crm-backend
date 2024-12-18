@@ -59,7 +59,8 @@ func (h *SalePaymentHandler) Create(c *gin.Context) {
 		return
 	}
 	body.ID = uuid.New().String()
-	err = h.db.WithContext(c.Request.Context()).
+	err = h.db.
+		WithContext(c.Request.Context()).
 		Table("sale_payments").
 		Create(&body).Error
 	if err != nil {

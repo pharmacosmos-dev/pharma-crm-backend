@@ -16,6 +16,7 @@ type SaleItem struct {
 	TotalPrice     float64    `gorm:"total_price" json:"total_price"`
 	CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt      *time.Time `gorm:"updated_at" json:"updated_at"`
+	Product        *Product   `gorm:"foreignKey:ProductID" json:"product"`
 }
 
 // SaleItemRequest structure for create || update
