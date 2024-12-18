@@ -214,6 +214,7 @@ func (h *CustomerHandler) SoftDelete(c *gin.Context) {
 	}
 	err = h.db.
 		WithContext(c.Request.Context()).
+		Table("customers").
 		Where("id IN (?)", ids).
 		Updates(map[string]interface{}{
 			"is_active": false,
@@ -248,6 +249,7 @@ func (h *CustomerHandler) HardDelete(c *gin.Context) {
 	}
 	err = h.db.
 		WithContext(c.Request.Context()).
+		Table("customers").
 		Where("id IN (?)", ids).
 		Delete(&domain.Customer{}).Error
 	if err != nil {

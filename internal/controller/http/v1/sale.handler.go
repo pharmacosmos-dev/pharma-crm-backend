@@ -115,24 +115,31 @@ func (h *SaleHandler) Get(c *gin.Context) {
 // @Router /sale/list [get]
 func (h *SaleHandler) List(c *gin.Context) {
 	var totalAmount int64
+	startDate := c.Query("start_date")
+	endDate := c.Query("end_date")
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 	res := []domain.Sale{}
-	query := h.db.Model(&domain.Sale{})
+	query := h.db.Model(&domain.Sale{}).
+		Preload("Employee").
+		Preload("CashBox").
+		Preload("Customer").
+		Preload("SalePayments", func(db *gorm.DB) *gorm.DB {
+			return db.Preload("PaymentType").Preload("PaymentService")
+		})
 	if employeeID := c.Query("employee_id"); employeeID != "" {
 		query = query.Where("employee_id = ?", employeeID)
 	}
 	if cashBoxID := c.Query("cash_box_id"); cashBoxID != "" {
 		query = query.Where("cash_box_id = ?", cashBoxID)
 	}
-	startDate := c.Query("start_date")
-	endDate := c.Query("end_date")
 	if startDate != "" && endDate != "" {
 		query = query.Where("created_at BETWEEN ? AND ?", startDate, endDate)
 	}
+
 	err = query.Where("status = ?", "completed").
 		Count(&totalAmount).
 		Limit(limit).
@@ -145,29 +152,7 @@ func (h *SaleHandler) List(c *gin.Context) {
 		return
 	}
 
-	// Group sales by date using a slice
-	type GroupedSales struct {
-		Date  string        `json:"date"`
-		Sales []domain.Sale `json:"sales"`
-	}
-	groupedData := []GroupedSales{}
-
-	groupedSalesMap := make(map[string]*GroupedSales)
-	for _, sale := range res {
-		date := sale.CreatedAt.Format("2006-01-02") // Format date as YYYY-MM-DD
-		if group, exists := groupedSalesMap[date]; exists {
-			group.Sales = append(group.Sales, sale)
-		} else {
-			newGroup := &GroupedSales{
-				Date:  date,
-				Sales: []domain.Sale{sale},
-			}
-			groupedSalesMap[date] = newGroup
-			groupedData = append(groupedData, *newGroup)
-		}
-	}
-
-	data := utils.ListResponse(groupedData, totalAmount, limit, offset)
+	data := utils.ListResponse(res, totalAmount, limit, offset)
 	handleResponse(c, OK, data)
 }
 
