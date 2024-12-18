@@ -132,7 +132,8 @@ func (h *CustomerHandler) List(c *gin.Context) {
 		Model(&domain.Customer{}).
 		Preload("Store").
 		Select("customers.*, sales.created_at AS sale_date, sales.total_amount AS sale_amount").
-		Joins("LEFT JOIN sales ON sales.customer_id = customers.id")
+		Joins("LEFT JOIN sales ON sales.customer_id = customers.id").
+		Where("customers.is_active = ? AND customers.status = ?", true, 1)
 
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
