@@ -122,14 +122,18 @@ func (h *SaleHandler) List(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+
 	res := []domain.Sale{}
 	query := h.db.Model(&domain.Sale{}).
 		Preload("Employee").
-		Preload("CashBox").
+		Preload("CashBox", func(db *gorm.DB) *gorm.DB {
+			return db.Preload("Store")
+		}).
 		Preload("Customer").
 		Preload("SalePayments", func(db *gorm.DB) *gorm.DB {
-			return db.Preload("PaymentType").Preload("PaymentService")
+			return db.Preload("PaymentType")
 		})
+
 	if employeeID := c.Query("employee_id"); employeeID != "" {
 		query = query.Where("employee_id = ?", employeeID)
 	}
@@ -146,6 +150,7 @@ func (h *SaleHandler) List(c *gin.Context) {
 		Offset(offset).
 		Order("created_at DESC").
 		Find(&res).Error
+
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())

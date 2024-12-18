@@ -49,19 +49,18 @@ type PaymentServiceRequest struct {
 
 // SalePayment structure for sale payment
 type SalePayment struct {
-	ID               string          `gorm:"id" json:"id"`
-	SaleID           string          `gorm:"sale_id" json:"sale_id"`
-	PaymentServiceID string          `gorm:"payment_service_id" json:"payment_service_id"`
-	PaymentTypeID    string          `gorm:"payment_type_id" json:"payment_type_id"`
-	Amount           float64         `gorm:"amount" json:"amount"`
-	TransactionID    string          `gorm:"transaction_id" json:"transaction_id,omitempty"`
-	PaidAt           *time.Time      `gorm:"paid_at" json:"paid_at"`
-	Status           string          `gorm:"status" json:"status"`
-	CreatedAt        *time.Time      `gorm:"created_at" json:"created_at"`
-	UpdatedAt        *time.Time      `gorm:"updated_at" json:"updated_at"`
-	Sale             *Sale           `gorm:"foreignKey:SaleID" json:"sale"`
-	PaymentService   *PaymentService `gorm:"foreignKey:PaymentServiceID" json:"payment_service"`
-	PaymentType      *PaymentType    `gorm:"foreignKey:PaymentTypeID" json:"payment_type"`
+	ID               string       `gorm:"id" json:"id"`
+	SaleID           string       `gorm:"sale_id" json:"sale_id"`
+	PaymentServiceID string       `gorm:"payment_service_id" json:"payment_service_id"`
+	PaymentTypeID    string       `gorm:"payment_type_id" json:"payment_type_id"`
+	Amount           float64      `gorm:"amount" json:"amount"`
+	TransactionID    string       `gorm:"transaction_id" json:"transaction_id,omitempty"`
+	PaidAt           *time.Time   `gorm:"paid_at" json:"paid_at"`
+	Status           string       `gorm:"status" json:"status"`
+	CreatedAt        *time.Time   `gorm:"created_at" json:"created_at"`
+	UpdatedAt        *time.Time   `gorm:"updated_at" json:"updated_at"`
+	Sale             *Sale        `gorm:"foreignKey:SaleID" json:"sale"`
+	PaymentType      *PaymentType `gorm:"foreignKey:PaymentTypeID" json:"payment_type"`
 }
 
 // SalePaymentRequest structure for create, update
