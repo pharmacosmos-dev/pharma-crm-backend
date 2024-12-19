@@ -364,6 +364,8 @@ definitions:
         items:
           type: string
         type: array
+      product_unit:
+        $ref: '#/definitions/domain.ProductUnit'
       quantity:
         type: integer
       retail_price:
@@ -411,6 +413,15 @@ definitions:
         type: number
       vat_sum:
         type: number
+    type: object
+  domain.ProductUnit:
+    properties:
+      box_grain_count:
+        type: integer
+      unit_name:
+        type: string
+      unit_type_id:
+        type: string
     type: object
   domain.ProductUpdateRequest:
     properties:
@@ -591,15 +602,11 @@ definitions:
       transaction_id:
         type: string
     type: object
-  domain.Unit:
+  domain.UnitTypeRequest:
     properties:
-      abbreviation:
+      codename:
         type: string
-      accuracy:
-        type: string
-      id:
-        type: string
-      unit:
+      unit_name:
         type: string
     type: object
   v1.Response:
@@ -4440,18 +4447,18 @@ paths:
       summary: Get a transaction
       tags:
       - transactions
-  /unit:
+  /unit-types:
     post:
       consumes:
       - application/json
-      description: Create a unit from the request body
+      description: Create a unit types from the request body
       parameters:
       - description: Unit information
         in: body
         name: unit
         required: true
         schema:
-          $ref: '#/definitions/domain.Unit'
+          $ref: '#/definitions/domain.UnitTypeRequest'
       produces:
       - application/json
       responses:
@@ -4472,7 +4479,7 @@ paths:
       summary: Create a unit
       tags:
       - units
-  /unit/{id}:
+  /unit-types/{id}:
     delete:
       consumes:
       - application/json
@@ -4530,7 +4537,7 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Get a unit
+      summary: Get a unit types
       tags:
       - units
     put:
@@ -4548,7 +4555,7 @@ paths:
         name: unit
         required: true
         schema:
-          $ref: '#/definitions/domain.Unit'
+          $ref: '#/definitions/domain.UnitTypeRequest'
       produces:
       - application/json
       responses:
@@ -4569,7 +4576,7 @@ paths:
       summary: Update a unit
       tags:
       - units
-  /unit/list:
+  /unit-types/list:
     get:
       consumes:
       - application/json

@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -72,6 +73,16 @@ func (h *ProductHandler) Create(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	body.ProductUnit.ProductId = body.Id
+	err = h.db.
+		WithContext(c.Request.Context()).
+		Create(&body.ProductUnit).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
 	handleResponse(c, CREATED, body)
 }
 
@@ -89,8 +100,11 @@ func (h *ProductHandler) Create(c *gin.Context) {
 // @Router /product/{id} [get]
 func (h *ProductHandler) Get(c *gin.Context) {
 	var res domain.Product
-	if err := h.db.First(&res, "id = ?", c.Param("id")).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
+	id := c.Param("id")
+	err := h.db.
+		First(&res, "id = ?", id).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			handleResponse(c, NotFound, nil)
 			return
 		}

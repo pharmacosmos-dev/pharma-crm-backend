@@ -55,5 +55,3 @@ type SumResult struct {
 	TotalPrice    float64
 	DiscountPrice float64
 }
-
-

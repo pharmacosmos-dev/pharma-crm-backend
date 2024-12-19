@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -124,8 +123,6 @@ func (a *MiddlewareHandler) Check1CAuth() gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization format"})
 			return
 		}
-		fmt.Println("password: ", password)
-		fmt.Println("a.cfg.Password1C: ", a.cfg.Password1C)
 		if password != a.cfg.Password1C {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 			return

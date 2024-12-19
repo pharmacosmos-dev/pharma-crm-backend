@@ -61,6 +61,7 @@ type ProductRequest struct {
 	ExpireDate   string            `gorm:"expire_date" json:"expire_date"`
 	BonusPercent int               `gorm:"bonus_percent" json:"bonus_percent"`
 	BonusAmount  float64           `gorm:"bonus_amount" json:"bonus_amount"`
+	ProductUnit  ProductUnit       `gorm:"product_unit" json:"product_unit"`
 }
 
 // Product update request
@@ -169,4 +170,12 @@ type ProductReceipt struct {
 	StoreCode      int        `gorm:"store_code" json:"store_code"`
 	CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt      *time.Time `gorm:"updated_at" json:"updated_at"`
+}
+
+// ProductUnits structure
+type ProductUnit struct {
+	ProductId     string `gorm:"product_id" json:"-"`
+	UnitId        string `gorm:"unit_type_id" json:"unit_type_id"`
+	UnitName      string `gorm:"unit_name" json:"unit_name"`
+	BoxGrainCount int    `gorm:"box_grain_count" json:"box_grain_count"`
 }

@@ -6029,14 +6029,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/unit": {
+        "/unit-types": {
             "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Create a unit from the request body",
+                "description": "Create a unit types from the request body",
                 "consumes": [
                     "application/json"
                 ],
@@ -6054,7 +6054,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.Unit"
+                            "$ref": "#/definitions/domain.UnitTypeRequest"
                         }
                     }
                 ],
@@ -6080,7 +6080,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/unit/list": {
+        "/unit-types/list": {
             "get": {
                 "security": [
                     {
@@ -6134,7 +6134,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/unit/{id}": {
+        "/unit-types/{id}": {
             "get": {
                 "security": [
                     {
@@ -6151,7 +6151,7 @@ const docTemplate = `{
                 "tags": [
                     "units"
                 ],
-                "summary": "Get a unit",
+                "summary": "Get a unit types",
                 "parameters": [
                     {
                         "type": "string",
@@ -6213,7 +6213,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.Unit"
+                            "$ref": "#/definitions/domain.UnitTypeRequest"
                         }
                     }
                 ],
@@ -6921,6 +6921,9 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "product_unit": {
+                    "$ref": "#/definitions/domain.ProductUnit"
+                },
                 "quantity": {
                     "type": "integer"
                 },
@@ -6991,6 +6994,20 @@ const docTemplate = `{
                 },
                 "vat_sum": {
                     "type": "number"
+                }
+            }
+        },
+        "domain.ProductUnit": {
+            "type": "object",
+            "properties": {
+                "box_grain_count": {
+                    "type": "integer"
+                },
+                "unit_name": {
+                    "type": "string"
+                },
+                "unit_type_id": {
+                    "type": "string"
                 }
             }
         },
@@ -7269,19 +7286,13 @@ const docTemplate = `{
                 }
             }
         },
-        "domain.Unit": {
+        "domain.UnitTypeRequest": {
             "type": "object",
             "properties": {
-                "abbreviation": {
+                "codename": {
                     "type": "string"
                 },
-                "accuracy": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "unit": {
+                "unit_name": {
                     "type": "string"
                 }
             }

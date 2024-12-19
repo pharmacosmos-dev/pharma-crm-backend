@@ -16,15 +16,3 @@ func BasicAuth() basicauth.Config {
 		},
 	}
 }
-
-func BasicAuth1C() basicauth.Config {
-	return basicauth.Config{
-		Users: []basicauth.User{
-			{
-				UserName: "pharma1c",
-				Password: "b2kOigr7",
-			},
-		},
-		RequireAuthForAll: true,
-	}
-}
