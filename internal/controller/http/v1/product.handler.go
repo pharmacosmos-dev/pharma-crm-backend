@@ -47,7 +47,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 // @Accept json
 // @Produce json
 // @Param product body domain.ProductRequest true "Product information"
-// @Success 201 {object} domain.ProductRequest
+// @Success 201 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /product [post]
@@ -58,32 +58,52 @@ func (h *ProductHandler) Create(c *gin.Context) {
 	)
 	err = c.ShouldBindJSON(&body)
 	if err != nil {
-		h.log.Error(err)
+		h.log.Error(err.Error())
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+
 	body.Id = uuid.New().String()
 	body.Photos = utils.StringArray(body.Photos)
+	body.Status = "active"
 	err = h.db.WithContext(c.Request.Context()).
 		Table("products").
-		Create(&body).
-		Scan(&body).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	body.ProductUnit.ProductId = body.Id
-	err = h.db.
-		WithContext(c.Request.Context()).
-		Create(&body.ProductUnit).Error
+		Create(&body).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
-	handleResponse(c, CREATED, body)
+	if len(body.ProductUnit) > 0 {
+		for i := range body.ProductUnit {
+			body.ProductUnit[i].ID = uuid.New().String()
+			body.ProductUnit[i].ProductId = body.Id
+		}
+		err = h.db.
+			WithContext(c.Request.Context()).
+			Create(&body.ProductUnit).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+	}
+	fmt.Println("Store product: ", body.StoreProduct)
+	if len(body.StoreProduct) > 0 {
+		for i := range body.StoreProduct {
+			body.StoreProduct[i].ProductID = body.Id
+		}
+		err = h.db.
+			WithContext(c.Request.Context()).
+			Create(&body.StoreProduct).Error
+		if err != nil {
+			h.log.Error(err.Error())
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+	}
+	handleResponse(c, CREATED, "CREATED")
 }
 
 // Get godoc

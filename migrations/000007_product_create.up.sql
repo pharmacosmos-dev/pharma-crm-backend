@@ -9,7 +9,6 @@ CREATE TABLE IF NOT EXISTS "products" (
   "product_type" product_type_enum,
   "product_variability" product_variability,
   "name" VARCHAR(255),
-  "sku" VARCHAR(255) UNIQUE,  
   "barcode" VARCHAR(255),
   "main_photo" VARCHAR,
   "photos" VARCHAR[],

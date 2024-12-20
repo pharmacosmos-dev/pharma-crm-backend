@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
+	"gorm.io/gorm"
 )
 
 type CartItemHandler struct {
@@ -52,9 +53,21 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+
+	var product domain.Product
+	err = h.db.First(&product, "id = ?", body.ProductID).Error
+	if err != nil {
+		handleResponse(c, InternalError, "Error on getting product")
+		return
+	}
+	body.TotalPrice = product.RetailPrice * float64(body.Quantity)
+	body.TotalDiscountPrice = body.TotalPrice
 	body.ID = uuid.New().String()
-	if err = h.db.WithContext(c.Request.Context()).
-		Table("cart_items").Create(&body).Error; err != nil {
+	err = h.db.
+		WithContext(c.Request.Context()).
+		Table("cart_items").
+		Create(&body).Error
+	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -118,7 +131,9 @@ func (h *CartItemHandler) List(c *gin.Context) {
 	}
 	if err = h.db.Model(&domain.CartItem{}).
 		Count(&totalCount).
-		Preload("Product").
+		Preload("Product", func(db *gorm.DB) *gorm.DB {
+			return db.Preload("ProductUnits")
+		}).
 		Where("sale_id = ? AND is_drafted = false", c.Query("sale_id")).
 		Limit(limit).
 		Offset(offset).
@@ -144,47 +159,6 @@ func (h *CartItemHandler) List(c *gin.Context) {
 	})
 }
 
-// Update godoc
-// @Summary Update a cart item
-// @Description Update a cart item from the request body
-// @Tags cart_items
-// @Security     BearerAuth
-// @Accept json
-// @Produce json
-// @Param id path string true "cart item ID"
-// @Param input body domain.CartItemRequest true "Cart item information"
-// @Success 200 {object} v1.Response
-// @Failure 400 {object} v1.Response
-// @Failure 500 {object} v1.Response
-// @Router /cart_item/{id} [put]
-func (h *CartItemHandler) Update(c *gin.Context) {
-	var (
-		body domain.CartItemRequest
-		err  error
-	)
-	if err = c.ShouldBindJSON(&body); err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
-		handleResponse(c, BadRequest, err.Error())
-		return
-	}
-	cartItem := domain.CartItem{
-		ID:            body.ID,
-		ProductID:     body.ProductID,
-		Quantity:      body.Quantity,
-		UnitPrice:     body.UnitPrice,
-		DiscountType:  body.DiscountType,
-		DiscountValue: body.DiscountValue,
-	}
-	if err = h.db.WithContext(c.Request.Context()).
-		Where("id = ?", c.Param("id")).
-		Updates(&cartItem).Error; err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	handleResponse(c, OK, cartItem)
-}
-
 // UpdateBySaleID godoc
 // @Summary Update a cart item
 // @Description Update a cart item from the request body
@@ -200,20 +174,94 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 // @Router /cart_item/sale/{sale_id} [put]
 func (h *CartItemHandler) UpdateBySaleID(c *gin.Context) {
 	var body domain.CartItemBySaleIDUpdateRequest
-	if err := c.ShouldBindJSON(&body); err != nil {
+	var saleId = c.Param("sale_id")
+	err := c.ShouldBindJSON(&body)
+	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	if err := h.db.WithContext(c.Request.Context()).
+	err = h.db.WithContext(c.Request.Context()).
 		Table("cart_items").
-		Where("sale_id = ?", c.Param("sale_id")).
-		Updates(&body).Error; err != nil {
+		Where("sale_id = ?", saleId).
+		Updates(&body).Error
+	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 	handleResponse(c, OK, body)
+}
+
+// UpdateProductItem godoc
+// @Summary Update a cart item
+// @Description Update a cart item from the request body
+// @Tags cart_items
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "cart item ID"
+// @Param input body domain.CartItemUpdateProductUnit true "Cart item information"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /cart_item/{id} [put]
+func (h *CartItemHandler) Update(c *gin.Context) {
+	var (
+		body domain.CartItemUpdateProductUnit
+		err  error
+		id   = c.Param("id")
+	)
+	if err = c.ShouldBindJSON(&body); err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	var product domain.Product
+	err = h.db.First(&product, "id = ?", body.ProductID).Error
+	if err != nil {
+		handleResponse(c, InternalError, "Error on getting product")
+		return
+	}
+
+	var totalAmount float64
+	var cartItem domain.CartItemUpdateRequest
+	for _, productUnit := range body.ProductUnits {
+		if productUnit.UnitName == "piece" && productUnit.BoxGrainCount > 0 {
+			cartItem.TotalPrice += float64(body.DrugCount) * (product.RetailPrice / float64(productUnit.BoxGrainCount))
+		} else if productUnit.UnitName == "pack" {
+			if product.Quantity > 1 {
+				cartItem.TotalPrice += product.RetailPrice * float64(body.Quantity)
+			}
+		} else {
+			handleResponse(c, BadRequest, "Invalid unit type")
+			return
+		}
+	}
+
+	cartItem.Quantity = body.Quantity
+	cartItem.TotalPrice = totalAmount
+	cartItem.DrugCount = body.DrugCount
+	if body.DiscountType != nil && body.DiscountValue != nil {
+		if *body.DiscountType == "percent" {
+			cartItem.DiscountAmount = product.RetailPrice * (*body.DiscountValue) / 100
+		} else if *body.DiscountType == "cash" {
+			cartItem.DiscountAmount = *body.DiscountValue
+		} else {
+			cartItem.DiscountAmount = 0
+		}
+	}
+	cartItem.TotalDiscountPrice = cartItem.TotalPrice - cartItem.DiscountAmount
+	err = h.db.
+		WithContext(c.Request.Context()).
+		Table("cart_items").
+		Where("id = ?", id).
+		Updates(&cartItem).Error
+	if err != nil {
+		handleResponse(c, InternalError, "Error on saving cart")
+		return
+	}
+	handleResponse(c, OK, "UPDATED")
 }
 
 // Delete godoc
@@ -259,13 +307,15 @@ func (h *CartItemHandler) MultipleDelete(c *gin.Context) {
 		err  error
 	)
 	if err = c.ShouldBindJSON(&body); err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(fmt.Errorf("err: %v", err.Error()))
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 
-	if err = h.db.Delete(&domain.CartItem{}, "id in (?)", body.Ids).Error; err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+	err = h.db.Delete(&domain.CartItem{}, "id in (?)", body.Ids).Error
+
+	if err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err.Error()))
 		handleResponse(c, InternalError, err.Error())
 		return
 	}

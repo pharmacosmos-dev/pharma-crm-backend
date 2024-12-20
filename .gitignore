@@ -27,3 +27,5 @@ vendor/
 
 /app/uploads/*
 !/app/uploads/.gitkeep
+
+main

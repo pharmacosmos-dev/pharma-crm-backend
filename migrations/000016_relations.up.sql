@@ -4,8 +4,6 @@ ALTER TABLE "products" ADD FOREIGN KEY ("brand_id") REFERENCES "brands" ("id");
 
 ALTER TABLE "products" ADD FOREIGN KEY ("supplier_id") REFERENCES "suppliers" ("id");
 
-ALTER TABLE "products" ADD FOREIGN KEY ("unit_id") REFERENCES "units" ("id");
-
 ALTER TABLE "orders" ADD FOREIGN KEY ("supplier_id") REFERENCES "suppliers" ("id");
 
 ALTER TABLE "orders" ADD FOREIGN KEY ("store_id") REFERENCES "stores" ("id");

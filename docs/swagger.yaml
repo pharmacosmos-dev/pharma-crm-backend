@@ -40,6 +40,24 @@ definitions:
       unit_price:
         type: number
     type: object
+  domain.CartItemUpdateProductUnit:
+    properties:
+      discount_type:
+        example: percent|cash
+        type: string
+      discount_value:
+        type: number
+      drug_count:
+        type: integer
+      product_id:
+        type: string
+      product_units:
+        items:
+          $ref: '#/definitions/domain.ProductUnit'
+        type: array
+      quantity:
+        type: integer
+    type: object
   domain.CashBoxHistoryRequest:
     properties:
       cash_amount:
@@ -313,6 +331,10 @@ definitions:
         items:
           type: string
         type: array
+      product_units:
+        items:
+          $ref: '#/definitions/domain.ProductUnit'
+        type: array
       product_variability:
         type: string
       quantity:
@@ -354,8 +376,6 @@ definitions:
         type: string
       expire_date:
         type: string
-      main_photo:
-        type: string
       manufacturer:
         type: string
       name:
@@ -365,17 +385,19 @@ definitions:
           type: string
         type: array
       product_unit:
-        $ref: '#/definitions/domain.ProductUnit'
+        items:
+          $ref: '#/definitions/domain.ProductUnit'
+        type: array
       quantity:
         type: integer
       retail_price:
         type: number
       sku:
         type: string
-      status:
-        type: string
-      store_id:
-        type: string
+      store_product:
+        items:
+          $ref: '#/definitions/domain.StoreProduct'
+        type: array
       sum:
         type: number
       supply_price:
@@ -418,6 +440,8 @@ definitions:
     properties:
       box_grain_count:
         type: integer
+      id:
+        type: string
       unit_name:
         type: string
       unit_type_id:
@@ -566,6 +590,21 @@ definitions:
         type: string
       store_code:
         type: integer
+      updated_at:
+        type: string
+    type: object
+  domain.StoreProduct:
+    properties:
+      created_at:
+        type: string
+      product_id:
+        type: string
+      quantity:
+        type: integer
+      small_quantity:
+        type: integer
+      store_id:
+        type: string
       updated_at:
         type: string
     type: object
@@ -897,7 +936,7 @@ paths:
         name: input
         required: true
         schema:
-          $ref: '#/definitions/domain.CartItemRequest'
+          $ref: '#/definitions/domain.CartItemUpdateProductUnit'
       produces:
       - application/json
       responses:

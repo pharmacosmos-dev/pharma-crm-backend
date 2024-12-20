@@ -573,7 +573,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.CartItemRequest"
+                            "$ref": "#/definitions/domain.CartItemUpdateProductUnit"
                         }
                     }
                 ],
@@ -6427,6 +6427,33 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.CartItemUpdateProductUnit": {
+            "type": "object",
+            "properties": {
+                "discount_type": {
+                    "type": "string",
+                    "example": "percent|cash"
+                },
+                "discount_value": {
+                    "type": "number"
+                },
+                "drug_count": {
+                    "type": "integer"
+                },
+                "product_id": {
+                    "type": "string"
+                },
+                "product_units": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.ProductUnit"
+                    }
+                },
+                "quantity": {
+                    "type": "integer"
+                }
+            }
+        },
         "domain.CashBoxHistoryRequest": {
             "type": "object",
             "properties": {
@@ -6844,6 +6871,12 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "product_units": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.ProductUnit"
+                    }
+                },
                 "product_variability": {
                     "type": "string"
                 },
@@ -6906,9 +6939,6 @@ const docTemplate = `{
                 "expire_date": {
                     "type": "string"
                 },
-                "main_photo": {
-                    "type": "string"
-                },
                 "manufacturer": {
                     "type": "string"
                 },
@@ -6922,7 +6952,10 @@ const docTemplate = `{
                     }
                 },
                 "product_unit": {
-                    "$ref": "#/definitions/domain.ProductUnit"
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.ProductUnit"
+                    }
                 },
                 "quantity": {
                     "type": "integer"
@@ -6933,11 +6966,11 @@ const docTemplate = `{
                 "sku": {
                     "type": "string"
                 },
-                "status": {
-                    "type": "string"
-                },
-                "store_id": {
-                    "type": "string"
+                "store_product": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.StoreProduct"
+                    }
                 },
                 "sum": {
                     "type": "number"
@@ -7002,6 +7035,9 @@ const docTemplate = `{
             "properties": {
                 "box_grain_count": {
                     "type": "integer"
+                },
+                "id": {
+                    "type": "string"
                 },
                 "unit_name": {
                     "type": "string"
@@ -7229,6 +7265,29 @@ const docTemplate = `{
                 },
                 "store_code": {
                     "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.StoreProduct": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "product_id": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "integer"
+                },
+                "small_quantity": {
+                    "type": "integer"
+                },
+                "store_id": {
+                    "type": "string"
                 },
                 "updated_at": {
                     "type": "string"
