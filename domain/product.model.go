@@ -51,7 +51,7 @@ type ProductRequest struct {
 	Quantity     int               `gorm:"quantity" json:"quantity"`
 	Vat          int               `gorm:"vat" json:"vat"`
 	VatPrice     float64           `gorm:"vat_price" json:"vat_price"`
-	Sum          float64           `gorm:"sum" json:"sum"`
+	Sum          float64           `gorm:"sum" json:"-"`
 	Description  string            `gorm:"description" json:"description"`
 	Status       string            `gorm:"status" json:"-" example:"active|inactive"`
 	Manufacturer string            `gorm:"manufacturer" json:"manufacturer"`

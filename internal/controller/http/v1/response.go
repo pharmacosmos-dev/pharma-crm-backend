@@ -1,24 +1,24 @@
 package v1
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
 
 func getPaginationParams(c *gin.Context) (limit, offset int, err error) {
+	limitStr := c.DefaultQuery("limit", "10")
+	offsetStr := c.DefaultQuery("offset", "0")
+
 	// Parse the limit parameter
-	limitStr := c.DefaultQuery("limit", "20")
 	limit, err = strconv.Atoi(limitStr)
-	if err != nil {
-		return 0, 0, fmt.Errorf("invalid limit parameter: %w", err)
+	if err != nil || limit <= 0 {
+		return 10, 0, nil // Default to 10 if invalid
 	}
 	// Parse the offset parameter
-	offsetStr := c.DefaultQuery("offset", "0")
 	offset, err = strconv.Atoi(offsetStr)
-	if err != nil {
-		return 0, 0, fmt.Errorf("invalid offset parameter: %w", err)
+	if err != nil || offset < 0 {
+		return limit, 0, nil // Default to 0 if invalid
 	}
 
 	return limit, offset, nil

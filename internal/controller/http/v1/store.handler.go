@@ -118,7 +118,7 @@ func (h *StoreHandler) Get(c *gin.Context) {
 // @Router /store/list [get]
 func (h *StoreHandler) List(c *gin.Context) {
 	var (
-		res        []*domain.Store
+		res        []domain.Store
 		totalCount int64
 		search     = c.Query("search")
 	)
@@ -128,8 +128,8 @@ func (h *StoreHandler) List(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	query := h.db.
-		Model(&domain.Store{}).
+
+	query := h.db.Model(&domain.Store{}).
 		Where("is_active = ?", true)
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
@@ -141,6 +141,7 @@ func (h *StoreHandler) List(c *gin.Context) {
 		Offset(offset).
 		Order("created_at DESC").
 		Find(&res).Error
+
 	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())

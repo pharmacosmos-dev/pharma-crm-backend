@@ -243,6 +243,28 @@ definitions:
           type: string
         type: array
     type: object
+  domain.ImportDetailRequest:
+    properties:
+      accepted_count:
+        type: integer
+      canceled_count:
+        type: integer
+      import_id:
+        type: string
+      product_id:
+        type: string
+      received_count:
+        type: integer
+    type: object
+  domain.ImportRequest:
+    properties:
+      import_date:
+        type: string
+      status:
+        type: string
+      store_id:
+        type: string
+    type: object
   domain.Login:
     properties:
       password:
@@ -341,8 +363,6 @@ definitions:
         type: integer
       retail_price:
         type: number
-      sku:
-        type: string
       status:
         type: string
       store:
@@ -392,14 +412,10 @@ definitions:
         type: integer
       retail_price:
         type: number
-      sku:
-        type: string
       store_product:
         items:
           $ref: '#/definitions/domain.StoreProduct'
         type: array
-      sum:
-        type: number
       supply_price:
         type: number
       vat:
@@ -475,8 +491,6 @@ definitions:
         type: integer
       retail_price:
         type: number
-      sku:
-        type: string
       status:
         type: string
       store_id:
@@ -669,7 +683,6 @@ paths:
     post:
       consumes:
       - application/json
-      description: Create a brand from the request body
       parameters:
       - description: Brand information
         in: body
@@ -2487,6 +2500,139 @@ paths:
       summary: Generate 1C token
       tags:
       - 1C token
+  /import:
+    post:
+      consumes:
+      - application/json
+      description: Create an import from the request body
+      parameters:
+      - description: Import information
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.ImportRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create an import
+      tags:
+      - imports
+  /import-detail:
+    post:
+      consumes:
+      - application/json
+      description: Create an import detail from the request body
+      parameters:
+      - description: Import detail information
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.ImportDetailRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create an import detail
+      tags:
+      - import_details
+  /import/{id}:
+    get:
+      consumes:
+      - application/json
+      description: First imports
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: First imports
+      tags:
+      - imports
+  /import/list:
+    get:
+      consumes:
+      - application/json
+      description: List imports
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: List imports
+      tags:
+      - imports
   /login:
     post:
       consumes:
@@ -3029,7 +3175,7 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/domain.ProductRequest'
+            $ref: '#/definitions/v1.Response'
         "400":
           description: Bad Request
           schema:

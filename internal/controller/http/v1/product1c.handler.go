@@ -60,7 +60,7 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 		Create(&body.Dok).Scan(&document).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(err.Error(), "unique constraint") {
-			h.log.Warn(fmt.Sprintf("duplicate document_number: %v", err))
+			h.log.Warn("duplicate document_number: %v", err)
 			handleResponse(c, OK, "Document with this number already exists")
 			return
 		}
@@ -117,7 +117,7 @@ func (h *Product1cHandler) CreateStore(c *gin.Context) {
 		Create(&body).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(err.Error(), "unique constraint") {
-			h.log.Warn(fmt.Sprintf("duplicate document_number: %v", err))
+			h.log.Warn("duplicate document_number: %v", err)
 			handleResponse(c, OK, "Store with this code already exists")
 			return
 		}

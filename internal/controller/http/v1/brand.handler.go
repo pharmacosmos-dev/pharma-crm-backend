@@ -29,7 +29,7 @@ func (b *BrandController) BrandRoutes(r *gin.RouterGroup) {
 
 // Create godoc
 // @Summary Create a brand
-// @Description Create a brand from the request body
+// @De a brand from the request body
 // @Tags brands
 // @Security     BearerAuth
 // @Accept json

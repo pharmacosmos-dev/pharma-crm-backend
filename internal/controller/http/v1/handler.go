@@ -56,6 +56,7 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		h.NewPaymentTypeHandler(v1)
 		h.NewPermissionHandler(v1)
 		h.NewSalePaymentHandler(v1)
+		h.NewImportHandler(v1)
 		h.NewProduct1cHandler(v1c)
 		h.NewTokenGeneratorHandler(public)
 	}

@@ -23,7 +23,6 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Create a brand from the request body",
                 "consumes": [
                     "application/json"
                 ],
@@ -2882,6 +2881,217 @@ const docTemplate = `{
                 }
             }
         },
+        "/import": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create an import from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "imports"
+                ],
+                "summary": "Create an import",
+                "parameters": [
+                    {
+                        "description": "Import information",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.ImportRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/import-detail": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create an import detail from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "import_details"
+                ],
+                "summary": "Create an import detail",
+                "parameters": [
+                    {
+                        "description": "Import detail information",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.ImportDetailRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/import/list": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "List imports",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "imports"
+                ],
+                "summary": "List imports",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search",
+                        "name": "search",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/import/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "First imports",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "imports"
+                ],
+                "summary": "First imports",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/login": {
             "post": {
                 "description": "Login a user",
@@ -3741,7 +3951,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/domain.ProductRequest"
+                            "$ref": "#/definitions/v1.Response"
                         }
                     },
                     "400": {
@@ -6738,6 +6948,40 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.ImportDetailRequest": {
+            "type": "object",
+            "properties": {
+                "accepted_count": {
+                    "type": "integer"
+                },
+                "canceled_count": {
+                    "type": "integer"
+                },
+                "import_id": {
+                    "type": "string"
+                },
+                "product_id": {
+                    "type": "string"
+                },
+                "received_count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "domain.ImportRequest": {
+            "type": "object",
+            "properties": {
+                "import_date": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "store_id": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.Login": {
             "type": "object",
             "properties": {
@@ -6886,9 +7130,6 @@ const docTemplate = `{
                 "retail_price": {
                     "type": "number"
                 },
-                "sku": {
-                    "type": "string"
-                },
                 "status": {
                     "type": "string"
                 },
@@ -6963,17 +7204,11 @@ const docTemplate = `{
                 "retail_price": {
                     "type": "number"
                 },
-                "sku": {
-                    "type": "string"
-                },
                 "store_product": {
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/domain.StoreProduct"
                     }
-                },
-                "sum": {
-                    "type": "number"
                 },
                 "supply_price": {
                     "type": "number"
@@ -7088,9 +7323,6 @@ const docTemplate = `{
                 },
                 "retail_price": {
                     "type": "number"
-                },
-                "sku": {
-                    "type": "string"
                 },
                 "status": {
                     "type": "string"
