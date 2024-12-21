@@ -2,6 +2,8 @@ CREATE TABLE IF NOT EXISTS "imports" (
     "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     "public_id" INT,
     "store_id" UUID REFERENCES stores("id"),
+    "created_by" UUID REFERENCES employees("id"),
+    "accepted_by" UUID REFERENCES employees("id"),
     "status" VARCHAR(55) NOT NULL DEFAULT 'pending',
     "import_date" TIMESTAMP,
     "created_at" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

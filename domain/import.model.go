@@ -7,6 +7,8 @@ type Import struct {
 	Id             string     `gorm:"id" json:"id"`
 	PublicID       int        `gorm:"public_id" json:"public_id"`
 	StoreID        string     `gorm:"store_id" json:"store_id"`
+	CreatedBy      string     `gorm:"created_by" json:"created_by"`
+	AcceptedBy     string     `gorm:"accepted_by" json:"accepted_by"`
 	Status         string     `gorm:"status" json:"status"`
 	ImportDate     *time.Time `gorm:"import_date" json:"import_date"`
 	AcceptedAmount float64    `gorm:"accepted_amount" json:"accepted_amount"`
@@ -16,6 +18,8 @@ type Import struct {
 	CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt      *time.Time `gorm:"updated_at" json:"updated_at"`
 	Stores         *Store     `gorm:"foreignKey:StoreID" json:"stores"`
+	Sender         *Employee  `gorm:"foreignKey:CreatedBy" json:"sender"`
+	Receiver       *Employee  `gorm:"foreignKey:AcceptedBy" json:"receiver"`
 }
 
 // ImportRequest structure

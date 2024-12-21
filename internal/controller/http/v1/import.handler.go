@@ -108,29 +108,54 @@ func (h *ImportHandler) List(c *gin.Context) {
 		search     = c.Query("search")
 		err        error
 	)
+
+	// Get pagination parameters
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 
-	query := h.db.
-		Table("imports").
-		Preload("Stores").
-		Select("imports.*, SUM(import_details.received_amount) as received_amount, SUM(import_details.accepted_amount) as accepted_amount, SUM(import_details.received_count) as received_count, SUM(import_details.accepted_count) as accepted_count").
-		Joins("LEFT JOIN import_details ON imports.id = import_details.import_id")
+	// Count total records (without Joins or heavy Selects)
+	countQuery := h.db.Model(&domain.Import{})
 	if search != "" {
-		query = query.Where("imports.public_id = ?", search)
+		countQuery = countQuery.Where("public_id = ?", search)
 	}
-	err = query.
-		Limit(limit).
-		Offset(offset).
-		Group("imports.id").
-		Find(&imports).Error
+	err = countQuery.Count(&totalCount).Error
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+
+	// Fetch imports with detailed data
+	query := h.db.Model(&domain.Import{}).
+		Preload("Stores").
+		Preload("Sender").
+		Preload("Receiver").
+		Select(`
+			imports.*, 
+			SUM(import_details.received_amount) as received_amount, 
+			SUM(import_details.accepted_amount) as accepted_amount, 
+			SUM(import_details.received_count) as received_count, 
+			SUM(import_details.accepted_count) as accepted_count
+		`).
+		Joins("LEFT JOIN import_details ON imports.id = import_details.import_id").
+		Group("imports.id").
+		Order("import_date DESC").
+		Limit(limit).
+		Offset(offset)
+
+	if search != "" {
+		query = query.Where("imports.public_id = ?", search)
+	}
+
+	err = query.Find(&imports).Error
+	if err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	// Prepare response
 	data := utils.ListResponse(imports, totalCount, limit, offset)
 	handleResponse(c, OK, data)
 }
