@@ -78,7 +78,7 @@ func (h *PaymentTypeHandler) Create(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /payment_type/:id [get]
+// @Router /payment_type/{id} [get]
 func (h *PaymentTypeHandler) Get(c *gin.Context) {
 	var res domain.PaymentType
 	if err := h.db.First(&res, "id = ?", c.Param("id")).Error; err != nil {
@@ -122,7 +122,7 @@ func (h *PaymentTypeHandler) List(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /payment_type/:id [put]
+// @Router /payment_type/{id} [put]
 func (h *PaymentTypeHandler) Update(c *gin.Context) {
 	var (
 		body domain.PaymentTypeRequest
@@ -154,7 +154,7 @@ func (h *PaymentTypeHandler) Update(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /payment_type/:id [delete]
+// @Router /payment_type/{id} [delete]
 func (h *PaymentTypeHandler) Delete(c *gin.Context) {
 	if err := h.db.WithContext(c.Request.Context()).Delete(&domain.PaymentType{}, "id = ?", c.Param("id")).Error; err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
@@ -206,7 +206,7 @@ func (h *PaymentTypeHandler) CreatePaymentService(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /payment_service/:id [get]
+// @Router /payment_service/{id} [get]
 func (h *PaymentTypeHandler) GetPaymentService(c *gin.Context) {
 	var res domain.PaymentService
 	if err := h.db.First(&res, "id = ?", c.Param("id")).Error; err != nil {
@@ -250,7 +250,7 @@ func (h *PaymentTypeHandler) ListPaymentService(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /payment_service/:id [put]
+// @Router /payment_service/{id} [put]
 func (h *PaymentTypeHandler) UpdatePaymentService(c *gin.Context) {
 	var (
 		body domain.PaymentServiceRequest
@@ -282,7 +282,7 @@ func (h *PaymentTypeHandler) UpdatePaymentService(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /payment_service/:id [delete]
+// @Router /payment_service/{id} [delete]
 func (h *PaymentTypeHandler) DeletePaymentService(c *gin.Context) {
 	if err := h.db.WithContext(c.Request.Context()).Delete(&domain.PaymentService{}, "id = ?", c.Param("id")).Error; err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))

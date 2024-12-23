@@ -81,7 +81,7 @@ func (h *SalePaymentHandler) Create(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /sale_payment/:id [get]
+// @Router /sale_payment/{id} [get]
 func (h *SalePaymentHandler) Get(c *gin.Context) {
 	var res domain.SalePayment
 	err := h.db.First(&res, "id = ?", c.Param("id")).Error
@@ -127,7 +127,7 @@ func (h *SalePaymentHandler) List(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /sale_payment/:id [put]
+// @Router /sale_payment/{id} [put]
 func (h *SalePaymentHandler) Update(c *gin.Context) {
 	var (
 		body domain.SalePaymentRequest
@@ -161,7 +161,7 @@ func (h *SalePaymentHandler) Update(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /sale_payment/:id [delete]
+// @Router /sale_payment/{id} [delete]
 func (h *SalePaymentHandler) Delete(c *gin.Context) {
 	var (
 		id  = c.Param("id")
@@ -221,7 +221,7 @@ func (h *SalePaymentHandler) CreateTransaction(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /transaction/:id [get]
+// @Router /transaction/{id} [get]
 func (h *SalePaymentHandler) GetTransaction(c *gin.Context) {
 	var res domain.Transaction
 	var id = c.Param("id")
@@ -268,7 +268,7 @@ func (h *SalePaymentHandler) ListTransaction(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /transaction/:id [put]
+// @Router /transaction/{id} [put]
 func (h *SalePaymentHandler) UpdateTransaction(c *gin.Context) {
 	var (
 		body domain.TransactionRequest
@@ -303,7 +303,7 @@ func (h *SalePaymentHandler) UpdateTransaction(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /transaction/:id [delete]
+// @Router /transaction/{id} [delete]
 func (h *SalePaymentHandler) DeleteTransaction(c *gin.Context) {
 	id := c.Param("id")
 	err := h.db.WithContext(c.Request.Context()).
