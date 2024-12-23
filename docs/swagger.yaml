@@ -2750,7 +2750,7 @@ paths:
       summary: Create a payment service
       tags:
       - payment_services
-  /payment_service/:id:
+  /payment_service/{id}:
     delete:
       consumes:
       - application/json
@@ -2898,7 +2898,7 @@ paths:
       summary: Create a payment type
       tags:
       - payment_types
-  /payment_type/:id:
+  /payment_type/{id}:
     delete:
       consumes:
       - application/json
@@ -4182,7 +4182,7 @@ paths:
       summary: Create a sale payment
       tags:
       - sale_payments
-  /sale_payment/:id:
+  /sale_payment/{id}:
     delete:
       consumes:
       - application/json
@@ -4563,7 +4563,7 @@ paths:
       summary: Create a transaction
       tags:
       - transactions
-  /transaction/:id:
+  /transaction/{id}:
     delete:
       consumes:
       - application/json
