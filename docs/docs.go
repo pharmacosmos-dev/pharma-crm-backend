@@ -2983,6 +2983,73 @@ const docTemplate = `{
                 }
             }
         },
+        "/import-detail/list": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "List import details",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "import_details"
+                ],
+                "summary": "List import details",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Import ID",
+                        "name": "import_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/import/list": {
             "get": {
                 "security": [
@@ -6951,6 +7018,9 @@ const docTemplate = `{
         "domain.ImportDetailRequest": {
             "type": "object",
             "properties": {
+                "accepted_amount": {
+                    "type": "number"
+                },
                 "accepted_count": {
                     "type": "integer"
                 },
@@ -6962,6 +7032,9 @@ const docTemplate = `{
                 },
                 "product_id": {
                     "type": "string"
+                },
+                "received_amount": {
+                    "type": "number"
                 },
                 "received_count": {
                     "type": "integer"

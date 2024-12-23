@@ -245,6 +245,8 @@ definitions:
     type: object
   domain.ImportDetailRequest:
     properties:
+      accepted_amount:
+        type: number
       accepted_count:
         type: integer
       canceled_count:
@@ -253,6 +255,8 @@ definitions:
         type: string
       product_id:
         type: string
+      received_amount:
+        type: number
       received_count:
         type: integer
     type: object
@@ -2562,6 +2566,49 @@ paths:
       security:
       - BearerAuth: []
       summary: Create an import detail
+      tags:
+      - import_details
+  /import-detail/list:
+    get:
+      consumes:
+      - application/json
+      description: List import details
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Import ID
+        in: query
+        name: import_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: List import details
       tags:
       - import_details
   /import/{id}:

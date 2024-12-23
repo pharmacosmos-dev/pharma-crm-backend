@@ -27,6 +27,7 @@ func (h *ImportHandler) ImportRoutes(r *gin.RouterGroup) {
 	importDetail := r.Group("/import-detail")
 	{
 		importDetail.POST("", h.CreateImportDetail)
+		importDetail.GET("/list", h.ListImportDetail)
 	}
 }
 
@@ -182,10 +183,67 @@ func (h *ImportHandler) CreateImportDetail(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	err = h.db.WithContext(c.Request.Context()).Create(&body).Error
+	err = h.db.WithContext(c.Request.Context()).Table("import_details").Create(&body).Error
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 	handleResponse(c, CREATED, "CREATED")
+}
+
+// ListImportDetail godoc
+// @Summary List import details
+// @Description List import details
+// @Tags import_details
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param 	limit query int false "Limit"
+// @Param 	offset query int false "Offset"
+// @Param   search query string false "Search"
+// @Param   import_id query string true "Import ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /import-detail/list [get]
+func (h *ImportHandler) ListImportDetail(c *gin.Context) {
+	var (
+		importDetails []domain.ImportDetail
+		totalCount    int64
+		err           error
+		importId      = c.Query("import_id")
+		search        = c.Query("search")
+	)
+
+	// Get pagination parameters
+	limit, offset, err := getPaginationParams(c)
+	if err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	// Fetch import details with detailed data
+	query := h.db.Model(&domain.ImportDetail{}).
+		Preload("Product").
+		Preload("Import").
+		Joins("LEFT JOIN products ON import_details.product_id = products.id").
+		Where("import_id = ?", importId)
+
+	if search != "" {
+		query = query.Where("products.barcode ILIKE ? OR products.name ILIKE ?", search, search)
+	}
+	err = query.
+		Order("created_at DESC").
+		Count(&totalCount).
+		Limit(limit).
+		Offset(offset).
+		Find(&importDetails).Error
+	if err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	// Prepare response
+	data := utils.ListResponse(importDetails, totalCount, limit, offset)
+	handleResponse(c, OK, data)
 }
