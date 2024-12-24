@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
+	"gorm.io/gorm"
 )
 
 type ImportHandler struct {
@@ -28,6 +29,7 @@ func (h *ImportHandler) ImportRoutes(r *gin.RouterGroup) {
 	{
 		importDetail.POST("", h.CreateImportDetail)
 		importDetail.GET("/list", h.ListImportDetail)
+		importDetail.PATCH("/add-scan", h.AddScann)
 	}
 }
 
@@ -246,4 +248,42 @@ func (h *ImportHandler) ListImportDetail(c *gin.Context) {
 	// Prepare response
 	data := utils.ListResponse(importDetails, totalCount, limit, offset)
 	handleResponse(c, OK, data)
+}
+
+// AddScann godoc
+// @Summary Add scan to import detail
+// @Description Add scan to import detail
+// @Tags import_details
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param input body domain.AddScanRequest true "Add scan information"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /import-detail/add-scan [PATCH]
+func (h *ImportHandler) AddScann(c *gin.Context) {
+	var (
+		body domain.AddScanRequest
+		err  error
+	)
+	err = c.ShouldBindJSON(&body)
+	if err != nil {
+		h.log.Error(fmt.Errorf("err: %v", err))
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	if body.Count < 1 {
+		body.Count = 1
+	}
+	err = h.db.WithContext(c.Request.Context()).
+		Table("import_details").
+		Where("import_details.product_id = (SELECT id FROM products WHERE barcode = ?)", body.Barcode).
+		UpdateColumn("accepted_count", gorm.Expr("accepted_count + ?", body.Count)).Error
+	if err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	handleResponse(c, OK, "UPDATED")
 }

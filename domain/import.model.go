@@ -54,3 +54,8 @@ type ImportDetailRequest struct {
 	ReceivedAmount float64 `gorm:"received_amount" json:"received_amount"`
 	AcceptedAmount float64 `gorm:"accepted_amount" json:"accepted_amount"`
 }
+
+type AddScanRequest struct {
+	Barcode string `json:"barcode"`
+	Count   int    `json:"count"`
+}

@@ -1,5 +1,12 @@
 basePath: /v1
 definitions:
+  domain.AddScanRequest:
+    properties:
+      barcode:
+        type: string
+      count:
+        type: integer
+    type: object
   domain.Apteka:
     properties:
       name:
@@ -2566,6 +2573,38 @@ paths:
       security:
       - BearerAuth: []
       summary: Create an import detail
+      tags:
+      - import_details
+  /import-detail/add-scan:
+    patch:
+      consumes:
+      - application/json
+      description: Add scan to import detail
+      parameters:
+      - description: Add scan information
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.AddScanRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Add scan to import detail
       tags:
       - import_details
   /import-detail/list:
