@@ -260,9 +260,8 @@ func (h *ImportHandler) ListImportDetail(c *gin.Context) {
 // @Router /import-detail/add-scan [PATCH]
 func (h *ImportHandler) AddScann(c *gin.Context) {
 	var (
-		body  domain.AddScanRequest
-		count int64
-		err   error
+		body domain.AddScanRequest
+		err  error
 	)
 	err = c.ShouldBindJSON(&body)
 	if err != nil {
@@ -270,12 +269,13 @@ func (h *ImportHandler) AddScann(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-
+	var importDetail domain.ImportDetail
 	err = h.db.
-		Table("import_details").
-		Where("import_details.import_id = ?", body.ImportID).
-		Where("import_details.product_id = (SELECT id FROM products WHERE barcode = ?)", body.Barcode).
-		Count(&count).Error
+		First(&importDetail,
+			`import_id = ? AND 
+			(import_details.product_material_code = (SELECT material_code FROM products WHERE barcode = ?)
+			OR import_details.product_id = (SELECT id FROM products WHERE barcode = ?))`,
+			body.ImportID, body.Barcode, body.Barcode).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			handleResponse(c, NotFound, "Product not found")
@@ -284,10 +284,7 @@ func (h *ImportHandler) AddScann(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	if count == 0 {
-		handleResponse(c, NotFound, "Product not found")
-		return
-	}
+
 	if body.Count < 1 {
 		body.Count = 1
 	}
