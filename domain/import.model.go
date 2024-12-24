@@ -64,3 +64,10 @@ type AddScanRequest struct {
 	Barcode  string `json:"barcode"`
 	Count    int    `json:"count"`
 }
+
+type StockCountResponse struct {
+	ScannedCount  int `json:"scanned_count"`
+	ShortageCount int `json:"shortage_count"`
+	TotalCount    int `json:"total_count"`
+	SurplusCount  int `json:"surplus_count"`
+}

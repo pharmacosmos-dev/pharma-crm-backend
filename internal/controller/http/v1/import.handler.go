@@ -33,6 +33,8 @@ func (h *ImportHandler) ImportRoutes(r *gin.RouterGroup) {
 		importDetail.PATCH("/add-scan", h.AddScann)
 		importDetail.PATCH("/accept-all/:id", h.AcceptImport)
 		importDetail.PATCH("/cancel-all/:id", h.CancelImport)
+		importDetail.PATCH("/accept-some/:id", h.AcceptSomeImport)
+		importDetail.GET("/get-stock-status-counts/:id", h.GetStockStatusCounts)
 	}
 }
 
@@ -365,4 +367,70 @@ func (h *ImportHandler) CancelImport(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, "COMPLETED")
+}
+
+// AcceptSomeImport
+// @Summary Accept import
+// @Description Accept import
+// @Tags import_details
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param 	id path string true "IMPORT ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /import-detail/accept-some/{id} [patch]
+func (h *ImportHandler) AcceptSomeImport(c *gin.Context) {
+	var id = c.Param("id")
+
+	err := h.db.
+		WithContext(c.Request.Context()).
+		Table("imports").
+		Where("id = ?", id).
+		UpdateColumn("status", config.COMPLETED_IMPORT).Error
+	if err != nil {
+		h.log.Warn("Error on accepting import: %v", err.Error())
+		handleResponse(c, InternalError, "Error on accepting import")
+		return
+	}
+	handleResponse(c, OK, "COMPLETED")
+}
+
+// GetStockStatusCounts
+// @Summary Get stock status counts
+// @Description Get stock status counts
+// @Tags import_details
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param 	id path string true "IMPORT ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /import-detail/get-stock-status-counts/{id} [get]
+func (h *ImportHandler) GetStockStatusCounts(c *gin.Context) {
+	var id = c.Param("id")
+	var res domain.StockCountResponse
+
+	// Use raw SQL to calculate the counts with surplus condition
+	query := `
+		SELECT
+			COALESCE(SUM(accepted_count), 0) AS scanned_count,
+			COALESCE(SUM(received_count - accepted_count), 0) AS shortage_count,
+			COALESCE(COUNT(*), 0) AS total_count,
+			COALESCE(SUM(CASE WHEN accepted_count > received_count THEN accepted_count - received_count ELSE 0 END), 0) AS surplus_count
+		FROM import_details
+		WHERE import_id = ?
+	`
+	err := h.db.
+		Raw(query, id).
+		Scan(&res).Error
+	if err != nil {
+		h.log.Error("Error getting stock status counts: %v", err)
+		handleResponse(c, InternalError, "Failed to fetch stock status counts")
+		return
+	}
+
+	handleResponse(c, OK, res)
 }
