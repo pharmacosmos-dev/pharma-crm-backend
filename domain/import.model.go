@@ -60,6 +60,7 @@ type ImportDetailRequest struct {
 }
 
 type AddScanRequest struct {
-	Barcode string `json:"barcode"`
-	Count   int    `json:"count"`
+	ImportID string `json:"import_id"`
+	Barcode  string `json:"barcode"`
+	Count    int    `json:"count"`
 }

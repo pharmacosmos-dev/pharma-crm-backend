@@ -6,6 +6,8 @@ definitions:
         type: string
       count:
         type: integer
+      import_id:
+        type: string
     type: object
   domain.Apteka:
     properties:

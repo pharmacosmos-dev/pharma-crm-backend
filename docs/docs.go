@@ -6800,6 +6800,9 @@ const docTemplate = `{
                 },
                 "count": {
                     "type": "integer"
+                },
+                "import_id": {
+                    "type": "string"
                 }
             }
         },

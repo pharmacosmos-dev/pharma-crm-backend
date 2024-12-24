@@ -271,6 +271,7 @@ func (h *ImportHandler) AddScann(c *gin.Context) {
 	}
 	err = h.db.WithContext(c.Request.Context()).
 		Table("import_details").
+		Where("import_details.import_id = ?", body.ImportID).
 		Where("import_details.product_id = (SELECT id FROM products WHERE barcode = ?)", body.Barcode).
 		UpdateColumn("accepted_count", gorm.Expr("accepted_count + ?", body.Count)).Error
 	if err != nil {
