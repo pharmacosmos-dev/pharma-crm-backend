@@ -46,9 +46,8 @@ func (h *Product1cHandler) Product1cRoutes(r *gin.RouterGroup) {
 // @Router /product1c [post]
 func (h *Product1cHandler) Create(c *gin.Context) {
 	var (
-		body       domain.CreateProduct1C
-		importData domain.Import
-		err        error
+		body domain.CreateProduct1C
+		err  error
 	)
 	if err = c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
@@ -65,7 +64,9 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	importID := uuid.New().String()
 	newImport := domain.ImportRequest{
+		Id:             importID,
 		StoreID:        store.Id,
 		StoreCode:      body.Apteka.StoreCode,
 		PublicID:       utils.GenerateRandomCode(),
@@ -76,8 +77,7 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 	err = h.db.
 		WithContext(c.Request.Context()).
 		Table("imports").
-		Create(&newImport).
-		Scan(&importData).Error
+		Create(&newImport).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(err.Error(), "unique constraint") {
 			h.log.Warn("duplicate document_number: %v", err)
@@ -105,14 +105,12 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 	var importDetails []domain.ImportDetailRequest
 	for _, product := range body.Товары {
 		importDetails = append(importDetails, domain.ImportDetailRequest{
-			ProductID:           "",
-			ImportID:            importData.Id,
+			ImportID:            importID,
 			ProductMaterialCode: product.MaterialCode,
 			ReceivedCount:       product.Quantity,
 			ReceivedAmount:      float64(product.Quantity) * product.RetailPrice,
 		})
 	}
-
 	if len(importDetails) > 0 {
 		err = h.db.
 			WithContext(c.Request.Context()).

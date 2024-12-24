@@ -27,6 +27,7 @@ type Import struct {
 
 // ImportRequest structure
 type ImportRequest struct {
+	Id             string `gorm:"id" json:"id"`
 	StoreID        string `gorm:"store_id" json:"store_id"`
 	StoreCode      int    `gorm:"store_code" json:"store_code"`
 	PublicID       int    `gorm:"public_id" json:"-"`
@@ -53,7 +54,7 @@ type ImportDetail struct {
 
 type ImportDetailRequest struct {
 	ImportID            string  `gorm:"import_id" json:"import_id"`
-	ProductID           string  `gorm:"product_id" json:"product_id"`
+	ProductID           *string `gorm:"product_id" json:"product_id"`
 	ProductMaterialCode int     `gorm:"product_material_code" json:"product_material_code"`
 	ReceivedCount       int     `gorm:"received_count" json:"received_count"`
 	ReceivedAmount      float64 `gorm:"received_amount" json:"received_amount"`
