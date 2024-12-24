@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
+	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
@@ -30,6 +31,8 @@ func (h *ImportHandler) ImportRoutes(r *gin.RouterGroup) {
 		importDetail.POST("", h.CreateImportDetail)
 		importDetail.GET("/list", h.ListImportDetail)
 		importDetail.PATCH("/add-scan", h.AddScann)
+		importDetail.PATCH("/accept-all/:id", h.AcceptImport)
+		importDetail.PATCH("/cancel-all/:id", h.CancelImport)
 	}
 }
 
@@ -276,4 +279,89 @@ func (h *ImportHandler) AddScann(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, "UPDATED")
+}
+
+// AcceptImport
+// @Summary Accept import
+// @Description Accept import
+// @Tags import_details
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param 	id path string true "IMPORT ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /import-detail/accept-all/{id} [patch]
+func (h *ImportHandler) AcceptImport(c *gin.Context) {
+	var (
+		id = c.Param("id")
+	)
+	err := h.db.
+		WithContext(c.Request.Context()).
+		Table("imports").
+		Where("id = ?", id).
+		UpdateColumn("status", config.COMPLETED_IMPORT).Error
+	if err != nil {
+		h.log.Warn("Error on accepting import: %v", err.Error())
+		handleResponse(c, InternalError, "Error on accepting import")
+		return
+	}
+	// Update accepted_count and accepted_amount using a raw SQL query
+	rawQuery := `
+		UPDATE import_details
+		SET 
+			accepted_count = (SELECT received_count FROM import_details WHERE import_id = ?),
+			accepted_amount = (SELECT received_amount FROM import_details WHERE import_id = ?)
+		WHERE import_id = ?
+	`
+	err = h.db.WithContext(c.Request.Context()).Exec(rawQuery, id, id, id).Error
+	if err != nil {
+		h.log.Warn("Error on accepting import detail: %v", err.Error())
+		handleResponse(c, InternalError, "Error on accepting import detail")
+		return
+	}
+	handleResponse(c, OK, "COMPLETED")
+}
+
+// CancelImport
+// @Summary Cancel import
+// @Description Cancel import
+// @Tags import_details
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param 	id path string true "IMPORT ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /import-detail/cancel-all/{id} [patch]
+func (h *ImportHandler) CancelImport(c *gin.Context) {
+	var (
+		id = c.Param("id")
+	)
+	err := h.db.
+		WithContext(c.Request.Context()).
+		Table("imports").
+		Where("id = ?", id).
+		UpdateColumn("status", config.CANCELED_IMPORT).Error
+	if err != nil {
+		h.log.Warn("Error on accepting import: %v", err.Error())
+		handleResponse(c, InternalError, "Error on accepting import")
+		return
+	}
+	// Update accepted_count and accepted_amount using a raw SQL query
+	rawQuery := `
+		UPDATE import_details
+		SET 
+			canceled_count = (SELECT received_count FROM import_details WHERE import_id = ?)
+		WHERE import_id = ?
+	`
+	err = h.db.WithContext(c.Request.Context()).Exec(rawQuery, id, id).Error
+	if err != nil {
+		h.log.Warn("Error on accepting import detail: %v", err.Error())
+		handleResponse(c, InternalError, "Error on accepting import detail")
+		return
+	}
+	handleResponse(c, OK, "COMPLETED")
 }

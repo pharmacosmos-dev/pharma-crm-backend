@@ -8,3 +8,11 @@ const (
 	// Refresh token expire time: 30 days
 	RefreshTokenExpiresInTime time.Duration = 30 * 24 * time.Hour
 )
+
+// IMPORT status
+const (
+	NEW_IMPORT       = "new"
+	PENDING_IMPORT   = "pending"
+	COMPLETED_IMPORT = "completed"
+	CANCELED_IMPORT  = "canceled"
+)

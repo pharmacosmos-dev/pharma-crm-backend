@@ -2575,6 +2575,37 @@ paths:
       summary: Create an import detail
       tags:
       - import_details
+  /import-detail/accept-all/{id}:
+    patch:
+      consumes:
+      - application/json
+      description: Accept import
+      parameters:
+      - description: IMPORT ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Accept import
+      tags:
+      - import_details
   /import-detail/add-scan:
     patch:
       consumes:
@@ -2605,6 +2636,37 @@ paths:
       security:
       - BearerAuth: []
       summary: Add scan to import detail
+      tags:
+      - import_details
+  /import-detail/cancel-all/{id}:
+    patch:
+      consumes:
+      - application/json
+      description: Cancel import
+      parameters:
+      - description: IMPORT ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Cancel import
       tags:
       - import_details
   /import-detail/list:
