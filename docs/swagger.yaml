@@ -352,11 +352,11 @@ definitions:
         type: string
       is_active:
         type: boolean
-      main_photo:
-        type: string
       manufacturer:
         type: string
       markup:
+        type: integer
+      material_code:
         type: integer
       name:
         type: string

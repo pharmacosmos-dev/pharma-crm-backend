@@ -16,7 +16,6 @@ type Product struct {
 	ProductVariability string            `gorm:"product_variability" json:"product_variability"`
 	Name               string            `gorm:"name" json:"name"`
 	Barcode            string            `gorm:"barcode" json:"barcode"`
-	MainPhoto          string            `gorm:"main_photo" json:"main_photo"`
 	Photos             utils.StringArray `gorm:"type:text[]" json:"photos"`
 	SupplyPrice        float64           `gorm:"supply_price" json:"supply_price"`
 	Markup             int               `gorm:"markup" json:"markup"`
@@ -28,6 +27,7 @@ type Product struct {
 	Description        string            `gorm:"description" json:"description"`
 	Status             string            `gorm:"status" json:"status"`
 	Manufacturer       string            `gorm:"manufacturer" json:"manufacturer"`
+	MaterialCode       int               `gorm:"material_code" json:"material_code"`
 	ExpireDate         string            `gorm:"expire_date" json:"expire_date"`
 	IsActive           bool              `gorm:"is_active" json:"is_active"`
 	BonusPercent       int               `gorm:"bonus_percent" json:"bonus_percent"`

@@ -89,7 +89,7 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 		handleResponse(c, InternalError, "Failed to creating new import")
 		return
 	}
-	
+
 	err = h.db.WithContext(c.Request.Context()).
 		Table("products").
 		Clauses(clause.OnConflict{
@@ -105,6 +105,7 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 	var importDetails []domain.ImportDetailRequest
 	for _, product := range body.Товары {
 		importDetails = append(importDetails, domain.ImportDetailRequest{
+			ProductID:           "",
 			ImportID:            importData.Id,
 			ProductMaterialCode: product.MaterialCode,
 			ReceivedCount:       product.Quantity,
