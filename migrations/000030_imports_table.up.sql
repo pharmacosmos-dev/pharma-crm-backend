@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS "imports" (
     "document_number" VARCHAR(50),
     "created_by" UUID REFERENCES employees("id"),
     "accepted_by" UUID REFERENCES employees("id"),
-    "status" VARCHAR(55) NOT NULL DEFAULT 'pending',
+    "status" VARCHAR(55) NOT NULL DEFAULT 'new', -- new || pending || completed || canceled || 
     "import_date" TIMESTAMP,
     "created_at" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     "updated_at" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

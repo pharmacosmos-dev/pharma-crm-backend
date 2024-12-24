@@ -56,7 +56,8 @@ func (h *ImportHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	err = h.db.WithContext(c.Request.Context()).Table("imports").Create(&body).Error
+	err = h.db.WithContext(c.Request.Context()).
+		Table("imports").Create(&body).Error
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -119,17 +120,6 @@ func (h *ImportHandler) List(c *gin.Context) {
 		return
 	}
 
-	// Count total records (without Joins or heavy Selects)
-	countQuery := h.db.Model(&domain.Import{})
-	if search != "" {
-		countQuery = countQuery.Where("public_id = ?", search)
-	}
-	err = countQuery.Count(&totalCount).Error
-	if err != nil {
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-
 	// Fetch imports with detailed data
 	query := h.db.Model(&domain.Import{}).
 		Preload("Stores").
@@ -142,17 +132,17 @@ func (h *ImportHandler) List(c *gin.Context) {
 			SUM(import_details.received_count) as received_count, 
 			SUM(import_details.accepted_count) as accepted_count
 		`).
-		Joins("LEFT JOIN import_details ON imports.id = import_details.import_id").
-		Group("imports.id").
-		Order("import_date DESC").
-		Limit(limit).
-		Offset(offset)
-
+		Joins("LEFT JOIN import_details ON imports.id = import_details.import_id")
 	if search != "" {
 		query = query.Where("imports.public_id = ?", search)
 	}
 
-	err = query.Find(&imports).Error
+	err = query.Group("imports.id").
+		Order("imports.import_date DESC").
+		Count(&totalCount).
+		Limit(limit).
+		Offset(offset).
+		Find(&imports).Error
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return

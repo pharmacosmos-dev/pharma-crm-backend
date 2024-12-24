@@ -58,7 +58,7 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 	newImport := domain.ImportRequest{
 		StoreCode:      body.Apteka.StoreCode,
 		PublicID:       utils.GenerateRandomCode(),
-		Status:         "pending",
+		Status:         "new",
 		ImportDate:     time.Now().Format("2006-01-02 15:04:05"),
 		DocumentNumber: body.Dok.DocumentNumber,
 	}
