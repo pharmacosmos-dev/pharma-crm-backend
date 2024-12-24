@@ -27,12 +27,12 @@ type Import struct {
 
 // ImportRequest structure
 type ImportRequest struct {
-	StoreID        *string `gorm:"store_id" json:"store_id"`
-	StoreCode      int     `gorm:"store_code" json:"store_code"`
-	PublicID       int     `gorm:"public_id" json:"-"`
-	Status         string  `gorm:"status" json:"status"`
-	ImportDate     string  `gorm:"import_date" json:"import_date"`
-	DocumentNumber string  `gorm:"document_number" json:"document_number"`
+	StoreID        string `gorm:"store_id" json:"store_id"`
+	StoreCode      int    `gorm:"store_code" json:"store_code"`
+	PublicID       int    `gorm:"public_id" json:"-"`
+	Status         string `gorm:"status" json:"status"`
+	ImportDate     string `gorm:"import_date" json:"import_date"`
+	DocumentNumber string `gorm:"document_number" json:"document_number"`
 }
 
 type ImportDetail struct {
@@ -47,7 +47,7 @@ type ImportDetail struct {
 	AcceptedAmount      float64    `gorm:"accepted_amount" json:"accepted_amount"`
 	CreatedAt           *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt           *time.Time `gorm:"updated_at" json:"updated_at"`
-	Product             *Product   `gorm:"foreignKey:ProductMaterialCode" json:"product"`
+	Product             *Product   `gorm:"foreignKey:ProductID" json:"product"`
 	Import              *Import    `gorm:"foreignKey:ImportID" json:"import"`
 }
 

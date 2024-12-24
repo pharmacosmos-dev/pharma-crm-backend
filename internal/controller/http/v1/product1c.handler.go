@@ -55,7 +55,18 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	var store domain.Store
+	err = h.db.First(&store, "store_code = ?", body.Apteka.StoreCode).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			handleResponse(c, OK, "Store not found")
+			return
+		}
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
 	newImport := domain.ImportRequest{
+		StoreID:        store.Id,
 		StoreCode:      body.Apteka.StoreCode,
 		PublicID:       utils.GenerateRandomCode(),
 		Status:         "new",
@@ -78,6 +89,7 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 		handleResponse(c, InternalError, "Failed to creating new import")
 		return
 	}
+	
 	err = h.db.WithContext(c.Request.Context()).
 		Table("products").
 		Clauses(clause.OnConflict{
