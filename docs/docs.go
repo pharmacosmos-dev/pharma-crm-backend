@@ -7080,20 +7080,14 @@ const docTemplate = `{
         "domain.ImportDetailRequest": {
             "type": "object",
             "properties": {
-                "accepted_amount": {
-                    "type": "number"
-                },
-                "accepted_count": {
-                    "type": "integer"
-                },
-                "canceled_count": {
-                    "type": "integer"
-                },
                 "import_id": {
                     "type": "string"
                 },
                 "product_id": {
                     "type": "string"
+                },
+                "product_material_code": {
+                    "type": "integer"
                 },
                 "received_amount": {
                     "type": "number"
@@ -7106,11 +7100,17 @@ const docTemplate = `{
         "domain.ImportRequest": {
             "type": "object",
             "properties": {
+                "document_number": {
+                    "type": "string"
+                },
                 "import_date": {
                     "type": "string"
                 },
                 "status": {
                     "type": "string"
+                },
+                "store_code": {
+                    "type": "integer"
                 },
                 "store_id": {
                     "type": "string"

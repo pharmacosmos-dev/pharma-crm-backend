@@ -6,12 +6,15 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type Product1cHandler struct {
@@ -29,35 +32,41 @@ func (h *Product1cHandler) Product1cRoutes(r *gin.RouterGroup) {
 	r.POST("/store1c/excel-upload", h.UploadStores)
 }
 
-// Create godoc
+// Create 	godoc
 // @Summary Create a product
 // @Description Create a product from the request body
-// @Tags 1C Api
+// @Tags 	1C Api
 // @Security     BearerAuth
-// @Accept json
+// @Accept 	json
 // @Produce json
-// @Param product body domain.CreateProduct1C true "product"
+// @Param 	product body domain.CreateProduct1C true "product"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /product1c [post]
 func (h *Product1cHandler) Create(c *gin.Context) {
 	var (
-		body     domain.CreateProduct1C
-		document domain.ProductReceipt
-		err      error
+		body       domain.CreateProduct1C
+		importData domain.Import
+		err        error
 	)
 	if err = c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	body.Dok.StoreCode = body.Apteka.StoreCode
-	body.Dok.ID = uuid.New().String()
+	newImport := domain.ImportRequest{
+		StoreCode:      body.Apteka.StoreCode,
+		PublicID:       utils.GenerateRandomCode(),
+		Status:         "pending",
+		ImportDate:     time.Now().Format("2006-01-02 15:04:05"),
+		DocumentNumber: body.Dok.DocumentNumber,
+	}
 	err = h.db.
 		WithContext(c.Request.Context()).
-		Table("product_receipts").
-		Create(&body.Dok).Scan(&document).Error
+		Table("imports").
+		Create(&newImport).
+		Scan(&importData).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(err.Error(), "unique constraint") {
 			h.log.Warn("duplicate document_number: %v", err)
@@ -66,21 +75,41 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 		}
 		// Log and handle other errors
 		h.log.Error(fmt.Errorf("ERROR on creating dok: %v", err.Error()))
-		handleResponse(c, InternalError, "Failed to create document")
+		handleResponse(c, InternalError, "Failed to creating new import")
 		return
 	}
-	for i := range body.Товары {
-		body.Товары[i].ReceiptID = document.ID
-		body.Товары[i].StoreCode = body.Apteka.StoreCode
-	}
-	err = h.db.
-		WithContext(c.Request.Context()).
+	err = h.db.WithContext(c.Request.Context()).
 		Table("products").
+		Clauses(clause.OnConflict{
+			Columns:   []clause.Column{{Name: "material_code"}}, // Specify the column(s) to check for conflict
+			DoNothing: true,                                     // Ignore if conflict occurs
+		}).
 		Create(&body.Товары).Error
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
-		handleResponse(c, InternalError, err.Error())
+		h.log.Warn("ERROR on creating new product: %v", err.Error())
+		handleResponse(c, InternalError, "New import created but new product not created")
 		return
+	}
+	var importDetails []domain.ImportDetailRequest
+	for _, product := range body.Товары {
+		importDetails = append(importDetails, domain.ImportDetailRequest{
+			ImportID:            importData.Id,
+			ProductMaterialCode: product.MaterialCode,
+			ReceivedCount:       product.Quantity,
+			ReceivedAmount:      float64(product.Quantity) * product.RetailPrice,
+		})
+	}
+
+	if len(importDetails) > 0 {
+		err = h.db.
+			WithContext(c.Request.Context()).
+			Table("import_details").
+			Create(&importDetails).Error
+		if err != nil {
+			h.log.Error(fmt.Errorf("err: %v", err))
+			handleResponse(c, InternalError, "ERROR on creating import details")
+			return
+		}
 	}
 
 	handleResponse(c, OK, "CREATED")

@@ -135,12 +135,10 @@ type Apteka struct {
 // Request structure for 1C API
 type ProductRequest1C struct {
 	Id                  string  `gorm:"type:uuid;default:gen_random_uuid()" json:"-"`
-	ReceiptID           string  `gorm:"receipt_id" json:"-"`
-	StoreCode           int     `gorm:"store_code" json:"-"`
 	MaterialCode        int     `gorm:"material_code" json:"material_code"`
 	Name                string  `gorm:"name" json:"name"`
 	Manufacturer        string  `gorm:"manufacturer" json:"manufacturer"`
-	Quantity            int     `gorm:"quantity" json:"quantity"`
+	Quantity            int     `gorm:"-" json:"quantity"`
 	RetailPrice         float64 `gorm:"retail_price" json:"retail_price"`
 	SupplyPrice         float64 `gorm:"supply_price" json:"supply_price"`
 	Sum                 float64 `gorm:"sum" json:"sum"`
