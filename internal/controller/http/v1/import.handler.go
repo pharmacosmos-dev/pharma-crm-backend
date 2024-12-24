@@ -255,6 +255,7 @@ func (h *ImportHandler) ListImportDetail(c *gin.Context) {
 // @Param input body domain.AddScanRequest true "Add scan information"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
+// @Failure 404 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /import-detail/add-scan [PATCH]
 func (h *ImportHandler) AddScann(c *gin.Context) {
@@ -262,22 +263,37 @@ func (h *ImportHandler) AddScann(c *gin.Context) {
 		body domain.AddScanRequest
 		err  error
 	)
+
+	// Bind JSON request body
 	err = c.ShouldBindJSON(&body)
 	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+
+	// Ensure the count is at least 1
 	if body.Count < 1 {
 		body.Count = 1
 	}
-	err = h.db.WithContext(c.Request.Context()).
+
+	// Perform the update query
+	result := h.db.WithContext(c.Request.Context()).
 		Table("import_details").
 		Where("import_details.import_id = ?", body.ImportID).
 		Where("import_details.product_id = (SELECT id FROM products WHERE barcode = ?)", body.Barcode).
-		UpdateColumn("accepted_count", gorm.Expr("accepted_count + ?", body.Count)).Error
-	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		UpdateColumn("accepted_count", gorm.Expr("accepted_count + ?", body.Count))
+
+	// Check for errors or no rows affected
+	if result.Error != nil {
+		h.log.Error("Error updating accepted_count: %v", result.Error)
+		handleResponse(c, InternalError, result.Error.Error())
+		return
+	}
+
+	if result.RowsAffected == 0 {
+		h.log.Warn("No matching import detail found for the given barcode")
+		handleResponse(c, NotFound, "No matching import detail found")
 		return
 	}
 
