@@ -1,7 +1,6 @@
 package v1
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
@@ -259,42 +258,46 @@ func (h *ImportHandler) ListImportDetail(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /import-detail/add-scan [PATCH]
 func (h *ImportHandler) AddScann(c *gin.Context) {
-	var (
-		body domain.AddScanRequest
-		err  error
-	)
-	err = c.ShouldBindJSON(&body)
-	if err != nil {
+	var body domain.AddScanRequest
+
+	// Bind the JSON body
+	if err := c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	var importDetail domain.ImportDetail
-	err = h.db.
-		First(&importDetail,
-			`import_id = ? AND 
-			(import_details.product_material_code = (SELECT material_code FROM products WHERE barcode = ?)
-			OR import_details.product_id = (SELECT id FROM products WHERE barcode = ?))`,
-			body.ImportID, body.Barcode, body.Barcode).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			handleResponse(c, NotFound, "Product not found")
-			return
-		}
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
 
+	// Check if the count is valid
+
+	// Ensure the count is at least 1
 	if body.Count < 1 {
 		body.Count = 1
 	}
-	query := h.db.WithContext(c.Request.Context()).
+
+	// Perform a single query to find and update the record
+	result := h.db.WithContext(c.Request.Context()).
 		Table("import_details").
-		Where("import_details.import_id = ?", body.ImportID).
-		Where("import_details.product_id = (SELECT id FROM products WHERE barcode = ?)", body.Barcode).
-		UpdateColumn("accepted_count", gorm.Expr("accepted_count + ?", body.Count))
-	if query.Error != nil {
-		handleResponse(c, InternalError, query.Error.Error())
+		Where(`
+			import_id = ? AND 
+			(product_material_code IN (
+				SELECT material_code 
+				FROM products 
+				WHERE barcode = ? 
+			) OR product_id IN (
+				SELECT id 
+				FROM products 
+				WHERE barcode = ? 
+			))`,
+			body.ImportID, body.Barcode, body.Barcode).
+		Update("accepted_count", gorm.Expr("accepted_count + ?", body.Count)).Debug()
+	// Check if the record was updated
+	if result.Error != nil {
+		h.log.Error("Error updating accepted_count: %v", result.Error)
+		handleResponse(c, InternalError, result.Error.Error())
+		return
+	}
+	if result.RowsAffected == 0 {
+		handleResponse(c, NotFound, "Product not found")
 		return
 	}
 
