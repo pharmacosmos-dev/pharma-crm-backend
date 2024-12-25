@@ -1437,6 +1437,13 @@ const docTemplate = `{
                 "summary": "Update a category",
                 "parameters": [
                     {
+                        "type": "string",
+                        "description": "category ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
                         "description": "Category information",
                         "name": "category",
                         "in": "body",

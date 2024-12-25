@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -101,6 +102,7 @@ func (h *CategoryController) Create(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
+// @Param id path string true "category ID"
 // @Param category body domain.Category true "Category information"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
@@ -117,8 +119,8 @@ func (h *CategoryController) Update(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	var updateCategory func(category domain.Category) error
-	updateCategory = func(category domain.Category) error {
+	var updateCategory func(category domain.Category, categoryID string) error
+	updateCategory = func(category domain.Category, categoryID string) error {
 		// Save the current category
 		err := h.db.WithContext(c.Request.Context()).
 			Table("categories").
@@ -131,7 +133,7 @@ func (h *CategoryController) Update(c *gin.Context) {
 		// Save subcategories recursively
 		if len(category.SubCategories) > 0 {
 			for _, subCategory := range category.SubCategories {
-				err := updateCategory(subCategory)
+				err := updateCategory(subCategory, categoryID)
 				if err != nil {
 					return err
 				}
@@ -140,7 +142,7 @@ func (h *CategoryController) Update(c *gin.Context) {
 		return nil
 	}
 
-	err = updateCategory(body)
+	err = updateCategory(body, c.Param("id"))
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -163,9 +165,20 @@ func (h *CategoryController) Update(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /category/{id} [get]
 func (h *CategoryController) Get(c *gin.Context) {
-	var res domain.Category
-	err := h.db.First(&res, "id = ?", c.Param("id")).Error
+	var (
+		res domain.Category
+		id  = c.Param("id")
+	)
+
+	err := h.db.
+		Preload("SubCategories", func(db *gorm.DB) *gorm.DB {
+			return db.Preload("SubCategories")
+		}).First(&res, "id = ?", id).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			handleResponse(c, NotFound, "Category not found")
+			return
+		}
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
