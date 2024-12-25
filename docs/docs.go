@@ -4603,6 +4603,73 @@ const docTemplate = `{
                 }
             }
         },
+        "/product/store/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get products by store",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Get products by store",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Store ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/product/{id}": {
             "get": {
                 "security": [
@@ -7124,6 +7191,17 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.CategoryProduct": {
+            "type": "object",
+            "properties": {
+                "category_id": {
+                    "type": "string"
+                },
+                "product_id": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.CategoryRequest": {
             "type": "object",
             "properties": {
@@ -7557,6 +7635,12 @@ const docTemplate = `{
                 "bonus_percent": {
                     "type": "integer"
                 },
+                "category_product": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.CategoryProduct"
+                    }
+                },
                 "description": {
                     "type": "string"
                 },
@@ -7891,6 +7975,9 @@ const docTemplate = `{
             "properties": {
                 "created_at": {
                     "type": "string"
+                },
+                "product": {
+                    "$ref": "#/definitions/domain.Product"
                 },
                 "product_id": {
                     "type": "string"

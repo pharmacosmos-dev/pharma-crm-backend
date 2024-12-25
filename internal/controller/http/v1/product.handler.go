@@ -37,6 +37,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.POST("/excel-upload", h.UploadProduct)
 		product.GET("/producer", h.GetProducerList)
 		product.GET("/similar/:id", h.SimilarProducts)
+		product.GET("/store/:id", h.StoreProducts)
 	}
 }
 
@@ -90,7 +91,6 @@ func (h *ProductHandler) Create(c *gin.Context) {
 			return
 		}
 	}
-	fmt.Println("Store product: ", body.StoreProduct)
 	if len(body.StoreProduct) > 0 {
 		for i := range body.StoreProduct {
 			body.StoreProduct[i].ProductID = body.Id
@@ -104,6 +104,20 @@ func (h *ProductHandler) Create(c *gin.Context) {
 			return
 		}
 	}
+	if len(body.CategoryProduct) > 0 {
+		for i := range body.CategoryProduct {
+			body.CategoryProduct[i].ProductId = body.Id
+		}
+		err = h.db.
+			WithContext(c.Request.Context()).
+			Create(&body.CategoryProduct).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+	}
+
 	handleResponse(c, CREATED, "CREATED")
 }
 
@@ -494,6 +508,58 @@ func (h *ProductHandler) SimilarProducts(c *gin.Context) {
 
 	// Step 3: Return the response
 	handleResponse(c, OK, similarProducts)
+}
+
+// StoreProducts godoc
+// @Summary Get products by store
+// @Description Get products by store
+// @Tags products
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "Store ID"
+// @Param search query string false "Search"
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/store/{id} [get]
+func (h *ProductHandler) StoreProducts(c *gin.Context) {
+	var (
+		res     []*domain.StoreProduct
+		err     error
+		search  = c.Query("search")
+		storeID = c.Param("id")
+	)
+	limit, offset, err := getPaginationParams(c)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	query := h.db.
+		Table("store_products").
+		Preload("Product", func(db *gorm.DB) *gorm.DB {
+			return db.
+				Table("products").
+				Select("products.*, DATE_PART('day', expire_date::timestamp - NOW()) AS expire_day").
+				Where("products.status = 'active'")
+		}).
+		Joins("INNER JOIN products ON store_products.product_id = products.id").
+		Where("store_products.store_id = ?", storeID)
+	if search != "" {
+		search = fmt.Sprintf("%%%s%%", search)
+		query = query.Where("products.name ILIKE ? OR products.barcode ILIKE ?", search, search)
+	}
+
+	err = query.Limit(limit).Offset(offset).Find(&res).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, res)
 }
 
 // Helper function to safely parse float values

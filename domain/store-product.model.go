@@ -10,4 +10,5 @@ type StoreProduct struct {
 	SmallQuantity int        `gorm:"small_quantity" json:"small_quantity"`
 	CreatedAt     *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt     *time.Time `gorm:"updated_at" json:"updated_at"`
+	Product       *Product   `gorm:"foreignKey:ProductID" json:"product"`
 }

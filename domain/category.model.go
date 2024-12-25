@@ -18,3 +18,8 @@ type CategoryRequest struct {
 	Name       string  `gorm:"name" json:"name"`
 	CategoryId *string `gorm:"category_id" json:"category_id"`
 }
+
+type CategoryProduct struct {
+	CategoryId string `gorm:"category_id" json:"category_id"`
+	ProductId  string `gorm:"product_id" json:"product_id"`
+}

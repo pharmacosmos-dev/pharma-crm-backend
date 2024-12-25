@@ -121,6 +121,13 @@ definitions:
       updated_by:
         type: string
     type: object
+  domain.CategoryProduct:
+    properties:
+      category_id:
+        type: string
+      product_id:
+        type: string
+    type: object
   domain.CategoryRequest:
     properties:
       category_id:
@@ -405,6 +412,10 @@ definitions:
         type: number
       bonus_percent:
         type: integer
+      category_product:
+        items:
+          $ref: '#/definitions/domain.CategoryProduct'
+        type: array
       description:
         type: string
       expire_date:
@@ -624,6 +635,8 @@ definitions:
     properties:
       created_at:
         type: string
+      product:
+        $ref: '#/definitions/domain.Product'
       product_id:
         type: string
       quantity:
@@ -3672,6 +3685,49 @@ paths:
       security:
       - BearerAuth: []
       summary: Get similar products
+      tags:
+      - products
+  /product/store/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get products by store
+      parameters:
+      - description: Store ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get products by store
       tags:
       - products
   /product1c:
