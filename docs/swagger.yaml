@@ -1592,11 +1592,6 @@ paths:
       - application/json
       description: Update a category from the request body
       parameters:
-      - description: category ID
-        in: path
-        name: id
-        required: true
-        type: string
       - description: Category information
         in: body
         name: category

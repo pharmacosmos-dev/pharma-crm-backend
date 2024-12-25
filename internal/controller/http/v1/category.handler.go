@@ -101,7 +101,6 @@ func (h *CategoryController) Create(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param id path string true "category ID"
 // @Param category body domain.Category true "Category information"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
