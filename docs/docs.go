@@ -7197,17 +7197,6 @@ const docTemplate = `{
                 }
             }
         },
-        "domain.CategoryProduct": {
-            "type": "object",
-            "properties": {
-                "category_id": {
-                    "type": "string"
-                },
-                "product_id": {
-                    "type": "string"
-                }
-            }
-        },
         "domain.CategoryRequest": {
             "type": "object",
             "properties": {
@@ -7644,10 +7633,10 @@ const docTemplate = `{
                 "bonus_percent": {
                     "type": "integer"
                 },
-                "category_product": {
+                "category_ids": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/domain.CategoryProduct"
+                        "type": "string"
                     }
                 },
                 "description": {
@@ -7990,6 +7979,9 @@ const docTemplate = `{
                 },
                 "product_id": {
                     "type": "string"
+                },
+                "product_material_code": {
+                    "type": "integer"
                 },
                 "quantity": {
                     "type": "integer"

@@ -121,13 +121,6 @@ definitions:
       updated_by:
         type: string
     type: object
-  domain.CategoryProduct:
-    properties:
-      category_id:
-        type: string
-      product_id:
-        type: string
-    type: object
   domain.CategoryRequest:
     properties:
       name:
@@ -414,9 +407,9 @@ definitions:
         type: number
       bonus_percent:
         type: integer
-      category_product:
+      category_ids:
         items:
-          $ref: '#/definitions/domain.CategoryProduct'
+          type: string
         type: array
       description:
         type: string
@@ -641,6 +634,8 @@ definitions:
         $ref: '#/definitions/domain.Product'
       product_id:
         type: string
+      product_material_code:
+        type: integer
       quantity:
         type: integer
       small_quantity:
