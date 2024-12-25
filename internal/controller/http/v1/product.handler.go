@@ -36,6 +36,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.DELETE("/delete", h.MultipleDelete)
 		product.POST("/excel-upload", h.UploadProduct)
 		product.GET("/producer", h.GetProducerList)
+		product.GET("/similar/:id", h.SimilarProducts)
 	}
 }
 
@@ -445,6 +446,54 @@ func (h *ProductHandler) UploadProduct(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, "Products uploaded successfully")
+}
+
+// SimilarProducts godoc
+// @Summary Get similar products
+// @Description Get similar products based on category
+// @Tags products
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "Product ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/similar/{id} [get]
+func (h *ProductHandler) SimilarProducts(c *gin.Context) {
+	var (
+		id              = c.Param("id") // Product ID
+		categoryID      string
+		similarProducts []domain.Product
+	)
+
+	// Step 1: Find the category_id of the current product
+	err := h.db.
+		Table("category_products").
+		Select("category_id").
+		Where("product_id = ?", id).
+		Scan(&categoryID).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, "Failed to find product category")
+		return
+	}
+
+	// Step 2: Find similar products in the same category
+	err = h.db.
+		Table("products").
+		Select("products.*, DATE_PART('day', expire_date::timestamp - NOW()) AS expire_day").
+		Joins("INNER JOIN category_products ON category_products.product_id = products.id").
+		Where("category_products.category_id = ? AND products.id != ?", categoryID, id). // Exclude current product
+		Find(&similarProducts).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, "Failed to fetch similar products")
+		return
+	}
+
+	// Step 3: Return the response
+	handleResponse(c, OK, similarProducts)
 }
 
 // Helper function to safely parse float values
