@@ -51,6 +51,7 @@ func (h *CategoryController) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+
 	body.Id = uuid.New().String()
 	err = h.db.WithContext(c.Request.Context()).
 		Table("categories").
