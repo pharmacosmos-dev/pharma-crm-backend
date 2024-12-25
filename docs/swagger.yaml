@@ -130,10 +130,12 @@ definitions:
     type: object
   domain.CategoryRequest:
     properties:
-      category_id:
-        type: string
       name:
         type: string
+      sub_category:
+        items:
+          $ref: '#/definitions/domain.CategoryRequest'
+        type: array
     type: object
   domain.CreateProduct1C:
     properties:

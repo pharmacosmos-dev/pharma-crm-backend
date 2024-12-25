@@ -45,23 +45,51 @@ func (h *CategoryController) Create(c *gin.Context) {
 		body domain.CategoryRequest
 		err  error
 	)
+
+	// Bind the JSON body to the request struct
 	err = c.ShouldBindJSON(&body)
 	if err != nil {
-		h.log.Error("err: ", err.Error())
+		h.log.Error("Error binding JSON: ", err.Error())
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	// Recursive function to save categories
+	var saveCategory func(category domain.CategoryRequest, parentID *string) error
+	saveCategory = func(category domain.CategoryRequest, parentID *string) error {
+		category.Id = uuid.New().String() // Generate a unique ID
+		// Save the current category
+		err := h.db.WithContext(c.Request.Context()).
+			Table("categories").
+			Create(&domain.CategoryRequest{
+				Id:         category.Id,
+				Name:       category.Name,
+				CategoryId: parentID,
+			}).Error
+		if err != nil {
+			return err
+		}
 
-	body.Id = uuid.New().String()
-	err = h.db.WithContext(c.Request.Context()).
-		Table("categories").
-		Create(&body).Error
+		// Save subcategories recursively
+		if len(category.SubCategory) > 0 {
+			for _, subCategory := range category.SubCategory {
+				err := saveCategory(*subCategory, &category.Id)
+				if err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+
+	// Start saving categories recursively
+	err = saveCategory(body, nil)
 	if err != nil {
-		h.log.Error("err: ", err.Error())
+		h.log.Error("Error saving categories: ", err.Error())
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, body)
+
+	handleResponse(c, CREATED, "CREATED")
 }
 
 // Get godoc

@@ -7211,11 +7211,14 @@ const docTemplate = `{
         "domain.CategoryRequest": {
             "type": "object",
             "properties": {
-                "category_id": {
-                    "type": "string"
-                },
                 "name": {
                     "type": "string"
+                },
+                "sub_category": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.CategoryRequest"
+                    }
                 }
             }
         },

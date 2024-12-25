@@ -14,9 +14,10 @@ type Category struct {
 
 // Category create request
 type CategoryRequest struct {
-	Id         string  `gorm:"id" json:"-"`
-	Name       string  `gorm:"name" json:"name"`
-	CategoryId *string `gorm:"category_id" json:"category_id"`
+	Id          string             `gorm:"id" json:"-"`
+	Name        string             `gorm:"name" json:"name"`
+	CategoryId  *string            `gorm:"category_id" json:"-"`
+	SubCategory []*CategoryRequest `gorm:"-" json:"sub_category"`
 }
 
 type CategoryProduct struct {

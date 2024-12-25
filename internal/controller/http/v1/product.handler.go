@@ -208,7 +208,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 		case "inactive":
 			query = query.Where("products.is_active = ?", false)
 		case "low-stock":
-			query = query.Where("products.quantity <= ?", 5)
+			query = query.Where("products.quantity <= ?", 10)
 		case "zero-stock":
 			query = query.Where("products.quantity = ?", 0)
 		case "expired":
