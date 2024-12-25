@@ -166,7 +166,7 @@ func (h *CategoryController) List(c *gin.Context) {
 
 	// Execute the query
 	if err := query.Find(&res).Error; err != nil {
-		h.log.Error("err: ", err)
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -231,29 +231,4 @@ func (h *CategoryController) Delete(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, "DELETED")
-}
-
-func fetchCategories(db *gorm.DB, parentID *string, search *string) ([]domain.Category, error) {
-	var categories []domain.Category
-	query := db.Preload("SubCategories")
-	if parentID != nil {
-		query = query.Where("category_id = ?", parentID)
-	}
-
-	if search != nil {
-		query = query.Where("name ILIKE ?", "%"+*search+"%")
-	}
-	err := query.Find(&categories).Error
-	if err != nil {
-		return nil, err
-	}
-	// Recursively fetch subcategories for each category
-	for i := range categories {
-		categories[i].SubCategories, err = fetchCategories(db, &categories[i].Id, search)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return categories, nil
 }

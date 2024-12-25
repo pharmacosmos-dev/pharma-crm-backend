@@ -93,7 +93,7 @@ func (h *ProductHandler) Create(c *gin.Context) {
 	}
 	if len(body.StoreProduct) > 0 {
 		for i := range body.StoreProduct {
-			body.StoreProduct[i].ProductID = body.Id
+			body.StoreProduct[i].ProductID = &body.Id
 		}
 		err = h.db.
 			WithContext(c.Request.Context()).
@@ -104,13 +104,15 @@ func (h *ProductHandler) Create(c *gin.Context) {
 			return
 		}
 	}
-	if len(body.CategoryProduct) > 0 {
-		for i := range body.CategoryProduct {
-			body.CategoryProduct[i].ProductId = body.Id
+	if len(body.CategoryIds) > 0 {
+		var categoryProduct = make([]domain.CategoryProduct, len(body.CategoryIds))
+		for i := range body.CategoryIds {
+			categoryProduct[i].ProductId = body.Id
+			categoryProduct[i].CategoryId = body.CategoryIds[i]
 		}
 		err = h.db.
 			WithContext(c.Request.Context()).
-			Create(&body.CategoryProduct).Error
+			Create(&categoryProduct).Error
 		if err != nil {
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())

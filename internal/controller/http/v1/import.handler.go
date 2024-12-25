@@ -8,6 +8,7 @@ import (
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type ImportHandler struct {
@@ -322,9 +323,7 @@ func (h *ImportHandler) AddScann(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /import-detail/accept-all/{id} [patch]
 func (h *ImportHandler) AcceptImport(c *gin.Context) {
-	var (
-		id = c.Param("id")
-	)
+	var id = c.Param("id")
 	err := h.db.
 		WithContext(c.Request.Context()).
 		Table("imports").
@@ -335,20 +334,56 @@ func (h *ImportHandler) AcceptImport(c *gin.Context) {
 		handleResponse(c, InternalError, "Error on accepting import")
 		return
 	}
-	// Update accepted_count and accepted_amount using a raw SQL query
-	rawQuery := `
-		UPDATE import_details
-		SET 
-			accepted_count = (SELECT received_count FROM import_details WHERE import_id = ?),
-			accepted_amount = (SELECT received_amount FROM import_details WHERE import_id = ?)
-		WHERE import_id = ?
-	`
-	err = h.db.WithContext(c.Request.Context()).Exec(rawQuery, id, id, id).Error
+	err = h.db.WithContext(c.Request.Context()).
+		Table("import_details").
+		Where("import_id = ?", id).
+		Updates(map[string]interface{}{
+			"accepted_count":  gorm.Expr("received_count"),
+			"accepted_amount": gorm.Expr("received_amount"),
+		}).Error
 	if err != nil {
 		h.log.Warn("Error on accepting import detail: %v", err.Error())
 		handleResponse(c, InternalError, "Error on accepting import detail")
 		return
 	}
+	var importDetails []domain.ImportDetail
+	err = h.db.Where("import_id = ?", id).Find(&importDetails).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	var importData domain.Import
+	err = h.db.First(&importData, "id = ?", id).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	// Update store_products
+	var storeProducts []domain.StoreProduct
+	for i := range importDetails {
+		storeProducts = append(storeProducts, domain.StoreProduct{
+			StoreID:             importData.StoreID,
+			ProductID:           &importDetails[i].ProductID,
+			ProductMaterialCode: importDetails[i].ProductMaterialCode,
+			Quantity:            importDetails[i].AcceptedCount,
+		})
+	}
+	err = h.db.
+		WithContext(c.Request.Context()).
+		Clauses(clause.OnConflict{
+			Columns: []clause.Column{
+				{Name: "product_id"},
+				{Name: "product_material_code"},
+			}, UpdateAll: true}).
+		Create(&storeProducts).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
 	handleResponse(c, OK, "COMPLETED")
 }
 
