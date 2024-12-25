@@ -1340,6 +1340,12 @@ const docTemplate = `{
                         "description": "Parent ID",
                         "name": "parent_id",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search",
+                        "name": "search",
+                        "in": "query"
                     }
                 ],
                 "responses": {

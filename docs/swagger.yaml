@@ -1636,6 +1636,10 @@ paths:
         in: query
         name: parent_id
         type: string
+      - description: Search
+        in: query
+        name: search
+        type: string
       produces:
       - application/json
       responses:

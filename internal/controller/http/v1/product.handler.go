@@ -541,12 +541,10 @@ func (h *ProductHandler) StoreProducts(c *gin.Context) {
 	query := h.db.
 		Table("store_products").
 		Preload("Product", func(db *gorm.DB) *gorm.DB {
-			return db.
-				Table("products").
-				Select("products.*, DATE_PART('day', expire_date::timestamp - NOW()) AS expire_day").
-				Where("products.status = 'active'")
+			return db.Preload("ProductUnits")
 		}).
 		Joins("INNER JOIN products ON store_products.product_id = products.id").
+		Where("products.status = 'active'").
 		Where("store_products.store_id = ?", storeID)
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)

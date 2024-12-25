@@ -95,6 +95,7 @@ func (h *CategoryController) Get(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param parent_id query string false "Parent ID"
+// @Param search query string false "Search"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -105,7 +106,9 @@ func (h *CategoryController) List(c *gin.Context) {
 	if p := c.Query("parent_id"); p != "" {
 		parentID = &p
 	}
-	categories, err := fetchCategories(h.db, parentID)
+	search := c.Query("search")
+
+	categories, err := fetchCategories(h.db, parentID, &search)
 	if err != nil {
 		h.log.Error("err: ", err)
 		handleResponse(c, InternalError, err.Error())
@@ -173,11 +176,15 @@ func (h *CategoryController) Delete(c *gin.Context) {
 	handleResponse(c, OK, "DELETED")
 }
 
-func fetchCategories(db *gorm.DB, parentID *string) ([]domain.Category, error) {
+func fetchCategories(db *gorm.DB, parentID *string, search *string) ([]domain.Category, error) {
 	var categories []domain.Category
 	query := db.Preload("SubCategories")
 	if parentID != nil {
 		query = query.Where("category_id = ?", parentID)
+	}
+
+	if search != nil {
+		query = query.Where("name ILIKE ?", "%"+*search+"%")
 	}
 	err := query.Find(&categories).Error
 	if err != nil {
@@ -185,7 +192,7 @@ func fetchCategories(db *gorm.DB, parentID *string) ([]domain.Category, error) {
 	}
 	// Recursively fetch subcategories for each category
 	for i := range categories {
-		categories[i].SubCategories, err = fetchCategories(db, &categories[i].Id)
+		categories[i].SubCategories, err = fetchCategories(db, &categories[i].Id, search)
 		if err != nil {
 			return nil, err
 		}
