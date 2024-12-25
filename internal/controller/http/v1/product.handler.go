@@ -15,7 +15,6 @@ import (
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type ProductHandler struct {
@@ -98,9 +97,6 @@ func (h *ProductHandler) Create(c *gin.Context) {
 		}
 		err = h.db.
 			WithContext(c.Request.Context()).
-			Clauses(clause.OnConflict{Columns: []clause.Column{
-				{Name: "product_id"},
-			}, DoNothing: true}).
 			Create(&body.StoreProduct).Error
 		if err != nil {
 			h.log.Error(err.Error())

@@ -366,7 +366,7 @@ func (h *ImportHandler) AcceptImport(c *gin.Context) {
 		storeProducts = append(storeProducts, domain.StoreProduct{
 			StoreID:             importData.StoreID,
 			ProductID:           importDetails[i].ProductID,
-			ProductMaterialCode: importDetails[i].ProductMaterialCode,
+			ProductMaterialCode: &importDetails[i].ProductMaterialCode,
 			Quantity:            importDetails[i].AcceptedCount,
 		})
 	}
@@ -375,7 +375,7 @@ func (h *ImportHandler) AcceptImport(c *gin.Context) {
 		Clauses(clause.OnConflict{
 			Columns: []clause.Column{
 				{Name: "product_material_code"},
-				{Name: "product_id"},
+				// {Name: "product_id"},
 			},
 			DoUpdates: clause.Assignments(map[string]interface{}{
 				"quantity": gorm.Expr("store_products.quantity + EXCLUDED.quantity"),
