@@ -291,7 +291,7 @@ func (h *ImportHandler) AddScann(c *gin.Context) {
 		Scan(&importDetail)
 
 	if result.RowsAffected == 0 {
-		handleResponse(c, OK, "Product not found")
+		handleResponse(c, NotFound, "Product not found")
 		return
 	}
 	// Check if the record was updated
