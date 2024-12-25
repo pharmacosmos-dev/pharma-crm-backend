@@ -94,6 +94,63 @@ func (h *CategoryController) Create(c *gin.Context) {
 	handleResponse(c, CREATED, "CREATED")
 }
 
+// Update godoc
+// @Summary Update a category
+// @Description Update a category from the request body
+// @Tags categories
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "category ID"
+// @Param category body domain.Category true "Category information"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /category/{id} [put]
+func (h *CategoryController) Update(c *gin.Context) {
+	var (
+		body domain.Category
+		err  error
+	)
+	err = c.ShouldBindJSON(&body)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	var updateCategory func(category domain.Category) error
+	updateCategory = func(category domain.Category) error {
+		// Save the current category
+		err := h.db.WithContext(c.Request.Context()).
+			Table("categories").
+			Where("id = ?", category.Id).
+			Updates(&category).Error
+		if err != nil {
+			return err
+		}
+
+		// Save subcategories recursively
+		if len(category.SubCategories) > 0 {
+			for _, subCategory := range category.SubCategories {
+				err := updateCategory(subCategory)
+				if err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+
+	err = updateCategory(body)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	handleResponse(c, OK, body)
+}
+
 // Get godoc
 // @Summary Get a category
 // @Description Get a category from the request body
@@ -172,42 +229,6 @@ func (h *CategoryController) List(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, res)
-}
-
-// Update godoc
-// @Summary Update a category
-// @Description Update a category from the request body
-// @Tags categories
-// @Security     BearerAuth
-// @Accept json
-// @Produce json
-// @Param id path string true "category ID"
-// @Param category body domain.CategoryRequest true "Category information"
-// @Success 200 {object} v1.Response
-// @Failure 400 {object} v1.Response
-// @Failure 500 {object} v1.Response
-// @Router /category/{id} [put]
-func (h *CategoryController) Update(c *gin.Context) {
-	var (
-		body domain.CategoryRequest
-		err  error
-	)
-	err = c.ShouldBindJSON(&body)
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
-		return
-	}
-	err = h.db.WithContext(c.Request.Context()).
-		Model(&domain.Category{}).
-		Where("id = ?", c.Param("id")).
-		Updates(&body).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	handleResponse(c, OK, body)
 }
 
 // Delete godoc

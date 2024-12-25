@@ -1449,7 +1449,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.CategoryRequest"
+                            "$ref": "#/definitions/domain.Category"
                         }
                     }
                 ],

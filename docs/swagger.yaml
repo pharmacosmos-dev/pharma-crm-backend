@@ -1602,7 +1602,7 @@ paths:
         name: category
         required: true
         schema:
-          $ref: '#/definitions/domain.CategoryRequest'
+          $ref: '#/definitions/domain.Category'
       produces:
       - application/json
       responses:
