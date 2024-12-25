@@ -268,8 +268,6 @@ func (h *ImportHandler) AddScann(c *gin.Context) {
 	}
 
 	// Check if the count is valid
-
-	// Ensure the count is at least 1
 	if body.Count < 1 {
 		body.Count = 1
 	}
@@ -289,18 +287,18 @@ func (h *ImportHandler) AddScann(c *gin.Context) {
 				WHERE barcode = ? 
 			))`,
 			body.ImportID, body.Barcode, body.Barcode).
-		Update("accepted_count", gorm.Expr("accepted_count + ?", body.Count)).Debug()
+		Update("accepted_count", gorm.Expr("accepted_count + ?", body.Count))
 
+	if result.RowsAffected == 0 {
+		handleResponse(c, OK, "Product not found")
+		return
+	}
 	// Check if the record was updated
 	if result.Error != nil {
 		h.log.Error("Error updating accepted_count: %v", result.Error)
 		handleResponse(c, InternalError, result.Error.Error())
 		return
 	}
-	// if result.RowsAffected == 0 {
-	// 	handleResponse(c, NotFound, "Product not found")
-	// 	return
-	// }
 
 	handleResponse(c, OK, "UPDATED")
 }
