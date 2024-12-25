@@ -7081,9 +7081,6 @@ const docTemplate = `{
                 "category_id": {
                     "type": "string"
                 },
-                "created_by": {
-                    "type": "string"
-                },
                 "name": {
                     "type": "string"
                 }
@@ -7300,6 +7297,9 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "document_number": {
+                    "type": "string"
+                },
+                "id": {
                     "type": "string"
                 },
                 "import_date": {

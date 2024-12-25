@@ -125,8 +125,6 @@ definitions:
     properties:
       category_id:
         type: string
-      created_by:
-        type: string
       name:
         type: string
     type: object
@@ -268,6 +266,8 @@ definitions:
   domain.ImportRequest:
     properties:
       document_number:
+        type: string
+      id:
         type: string
       import_date:
         type: string

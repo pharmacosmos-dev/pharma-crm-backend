@@ -52,15 +52,9 @@ func (h *CategoryController) Create(c *gin.Context) {
 		return
 	}
 	body.Id = uuid.New().String()
-	if body.CategoryId != "" {
-		err = h.db.WithContext(c.Request.Context()).
-			Table("categories").
-			Create(&body).Error
-	} else {
-		err = h.db.WithContext(c.Request.Context()).
-			Table("categories").
-			Create(&map[string]interface{}{"id": body.Id, "name": body.Name}).Error
-	}
+	err = h.db.WithContext(c.Request.Context()).
+		Table("categories").
+		Create(&body).Error
 	if err != nil {
 		h.log.Error("err: ", err.Error())
 		handleResponse(c, InternalError, err.Error())

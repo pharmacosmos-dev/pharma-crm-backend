@@ -259,7 +259,7 @@ func (h *ImportHandler) ListImportDetail(c *gin.Context) {
 // @Router /import-detail/add-scan [PATCH]
 func (h *ImportHandler) AddScann(c *gin.Context) {
 	var body domain.AddScanRequest
-
+	var surplus = false
 	// Bind the JSON body
 	if err := c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
@@ -271,7 +271,7 @@ func (h *ImportHandler) AddScann(c *gin.Context) {
 	if body.Count < 1 {
 		body.Count = 1
 	}
-
+	var importDetail domain.ImportDetail
 	// Perform a single query to find and update the record
 	result := h.db.WithContext(c.Request.Context()).
 		Table("import_details").
@@ -287,7 +287,8 @@ func (h *ImportHandler) AddScann(c *gin.Context) {
 				WHERE barcode = ? 
 			))`,
 			body.ImportID, body.Barcode, body.Barcode).
-		Update("accepted_count", gorm.Expr("accepted_count + ?", body.Count))
+		Update("accepted_count", gorm.Expr("accepted_count + ?", body.Count)).
+		Scan(&importDetail)
 
 	if result.RowsAffected == 0 {
 		handleResponse(c, OK, "Product not found")
@@ -300,7 +301,12 @@ func (h *ImportHandler) AddScann(c *gin.Context) {
 		return
 	}
 
-	handleResponse(c, OK, "UPDATED")
+	if importDetail.AcceptedCount > importDetail.ReceivedCount {
+		surplus = true
+	}
+	handleResponse(c, OK, map[string]interface{}{
+		"surplus": surplus,
+	})
 }
 
 // AcceptImport

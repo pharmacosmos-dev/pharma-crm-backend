@@ -16,6 +16,5 @@ type Category struct {
 type CategoryRequest struct {
 	Id         string  `gorm:"id" json:"-"`
 	Name       string  `gorm:"name" json:"name"`
-	CreatedBy  *string `gorm:"column:created_by" json:"created_by"`
-	CategoryId string  `gorm:"category_id" json:"category_id"`
+	CategoryId *string `gorm:"category_id" json:"category_id"`
 }
