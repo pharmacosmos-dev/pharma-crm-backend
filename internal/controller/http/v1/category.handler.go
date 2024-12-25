@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"fmt"
+
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
@@ -129,20 +131,47 @@ func (h *CategoryController) Get(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /category/list [get]
 func (h *CategoryController) List(c *gin.Context) {
-	// var res []domain.Category
-	var parentID *string
+	var (
+		res      []domain.Category
+		parentID *string
+		search   = c.Query("search")
+	)
+
+	// Handle optional `parent_id` query parameter
 	if p := c.Query("parent_id"); p != "" {
 		parentID = &p
 	}
-	search := c.Query("search")
 
-	categories, err := fetchCategories(h.db, parentID, &search)
-	if err != nil {
+	// Build the base query
+	query := h.db.Model(&domain.Category{})
+
+	// Filter by `parent_id`
+	if parentID != nil {
+		query = query.Where("category_id = ?", *parentID)
+	} else {
+		// Root categories (no parent)
+		query = query.Where("category_id IS NULL")
+	}
+
+	// Apply search filter if provided
+	if search != "" {
+		search = fmt.Sprintf("%%%s%%", search)
+		query = query.Where("name ILIKE ?", search)
+	}
+
+	// Preload SubCategories recursively
+	query = query.Preload("SubCategories", func(db *gorm.DB) *gorm.DB {
+		return db.Preload("SubCategories")
+	})
+
+	// Execute the query
+	if err := query.Find(&res).Error; err != nil {
 		h.log.Error("err: ", err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, categories)
+
+	handleResponse(c, OK, res)
 }
 
 // Update godoc
