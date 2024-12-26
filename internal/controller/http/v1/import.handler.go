@@ -140,7 +140,11 @@ func (h *ImportHandler) List(c *gin.Context) {
 		`).
 		Joins("LEFT JOIN import_details ON imports.id = import_details.import_id")
 	if search != "" {
-		query = query.Where("imports.public_id = ?", search)
+		search = fmt.Sprintf("%%%s%%", search)
+		query = query.Where(`
+		imports.document_number ILIKE ? OR 
+		CAST(imports.public_id AS TEXT) LIKE ?`, search, search)
+
 	}
 
 	err = query.Group("imports.id").
@@ -235,7 +239,6 @@ func (h *ImportHandler) ListImportDetail(c *gin.Context) {
 		CAST(products.material_code AS TEXT) LIKE ?`, search, search, search)
 	}
 	err = query.
-		Debug().
 		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).
