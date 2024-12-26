@@ -226,7 +226,9 @@ func (h *ImportHandler) ListImportDetail(c *gin.Context) {
 
 	// Fetch import details with detailed data
 	query := h.db.Model(&domain.ImportDetail{}).
-		Preload("Product").
+		Preload("Product", func(db *gorm.DB) *gorm.DB {
+			return db.Preload("ProductUnits")
+		}).
 		Preload("Import").
 		Joins("LEFT JOIN products ON import_details.product_id = products.id OR import_details.product_material_code = products.material_code").
 		Where("import_id = ?", importId)
