@@ -224,14 +224,18 @@ func (h *ImportHandler) ListImportDetail(c *gin.Context) {
 	query := h.db.Model(&domain.ImportDetail{}).
 		Preload("Product").
 		Preload("Import").
-		Joins("LEFT JOIN products ON import_details.product_id = products.id").
+		Joins("LEFT JOIN products ON import_details.product_id = products.id OR import_details.product_material_code = products.material_code").
 		Where("import_id = ?", importId)
 
 	if search != "" {
-		query = query.Where("products.barcode ILIKE ? OR products.name ILIKE ?", search, search)
+		search = fmt.Sprintf("%%%s%%", search)
+		query = query.Where(`
+		products.barcode LIKE ? OR 
+		products.name ILIKE ? OR
+		CAST(products.material_code AS TEXT) LIKE ?`, search, search, search)
 	}
 	err = query.
-		Order("created_at DESC").
+		Debug().
 		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).
