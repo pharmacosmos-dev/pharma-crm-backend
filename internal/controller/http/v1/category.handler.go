@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
@@ -109,47 +110,48 @@ func (h *CategoryController) Create(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /category/{id} [put]
 func (h *CategoryController) Update(c *gin.Context) {
-	var (
-		body domain.Category
-		err  error
-	)
-	err = c.ShouldBindJSON(&body)
+	var body domain.CategoryUpdateRequest
+
+	// Bind the JSON payload to the body
+	err := c.ShouldBindJSON(&body)
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
+		h.log.Error("Failed to bind JSON:", err)
+		handleResponse(c, BadRequest, "Invalid request payload")
 		return
 	}
-	var updateCategory func(category domain.Category, categoryID string) error
-	updateCategory = func(category domain.Category, categoryID string) error {
+
+	var updateCategory func(category domain.CategoryUpdateRequest) error
+	updateCategory = func(category domain.CategoryUpdateRequest) error {
+		if category.Id == "" {
+			category.Id = uuid.NewString()
+		}
 		// Save the current category
-		err := h.db.WithContext(c.Request.Context()).
+		err = h.db.WithContext(c.Request.Context()).
 			Table("categories").
-			Where("id = ?", category.Id).
-			Updates(&category).Error
+			Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "id"}}, UpdateAll: true}).
+			Create(&category).Error
 		if err != nil {
 			return err
 		}
-
-		// Save subcategories recursively
-		if len(category.SubCategories) > 0 {
-			for _, subCategory := range category.SubCategories {
-				err := updateCategory(subCategory, categoryID)
-				if err != nil {
-					return err
-				}
+		for _, subCategory := range category.SubCategories {
+			if subCategory.CategoryId == nil {
+				subCategory.CategoryId = &category.Id
+			}
+			err := updateCategory(subCategory)
+			if err != nil {
+				return err
 			}
 		}
 		return nil
 	}
 
-	err = updateCategory(body, c.Param("id"))
+	err = updateCategory(body)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-
-	handleResponse(c, OK, body)
+	handleResponse(c, OK, "UPDATED")
 }
 
 // Get godoc
