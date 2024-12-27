@@ -493,7 +493,7 @@ func (h *ProductHandler) SimilarProducts(c *gin.Context) {
 	query := h.db.
 		Table("store_products").
 		Preload("Product", func(db *gorm.DB) *gorm.DB {
-			return db.Preload("ProductUnits")
+			return db.Preload("ProductUnits").Preload("Categories")
 		}).
 		Joins(`
 			JOIN products ON store_products.product_id = products.id
