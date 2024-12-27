@@ -301,12 +301,6 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		return
 	}
 	if len(res) > 0 {
-		err = h.db.Table("sale_items").Create(&res).Error
-		if err != nil {
-			h.log.Error(fmt.Errorf("err: %v", err))
-			handleResponse(c, InternalError, err.Error())
-			return
-		}
 		for _, item := range res {
 			productCount += item.Quantity
 			err = h.db.Table("products").Where("id = ?", item.ProductID).
@@ -333,14 +327,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		return
 	}
 
-	err = h.db.Delete(&domain.CartItem{}, "sale_id = ?", body.SaleID).Error
-	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-
-	handleResponse(c, OK, body)
+	handleResponse(c, OK, "COMPLETED")
 }
 
 // CheckSale
