@@ -561,7 +561,7 @@ func (h *ProductHandler) StoreProducts(c *gin.Context) {
 	query := h.db.
 		Table("store_products").
 		Preload("Product", func(db *gorm.DB) *gorm.DB {
-			return db.Preload("ProductUnits")
+			return db.Preload("ProductUnits").Preload("Categories")
 		}).
 		Joins("INNER JOIN products ON store_products.product_id = products.id").
 		Where("products.status = 'active' AND products.expire_date::DATE >= NOW()::DATE").
@@ -616,5 +616,6 @@ func parseIntComma(value string) int {
 	if err != nil {
 		return 0
 	}
+	
 	return i
 }
