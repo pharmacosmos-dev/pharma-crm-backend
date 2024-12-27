@@ -472,7 +472,6 @@ func (h *ProductHandler) UploadProduct(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path string true "Product ID"
-// @Param store_id query string false "Store ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -480,7 +479,6 @@ func (h *ProductHandler) UploadProduct(c *gin.Context) {
 func (h *ProductHandler) SimilarProducts(c *gin.Context) {
 	var (
 		id              = c.Param("id") // Product ID
-		storeID         = c.Query("store_id")
 		limit, offset   int
 		similarProducts []domain.StoreProduct
 		err             error
@@ -500,23 +498,15 @@ func (h *ProductHandler) SimilarProducts(c *gin.Context) {
 		Preload("Product", func(db *gorm.DB) *gorm.DB {
 			return db.Preload("ProductUnits")
 		}).
-		Select("products.*").
 		Joins(`
 			JOIN products ON store_products.product_id = products.id
 			JOIN category_products ON category_products.product_id = products.id
-			JOIN category_products AS current_category ON current_category.category_id = category_products.category_id
 		`).
 		Where(`
-			current_category.product_id = ? 
-			AND products.id != ? 
+			category_products.product_id = ? 
 			AND products.status = 'active' 
 			AND products.expire_date::DATE >= NOW()::DATE
-		`, id, id)
-
-	// Apply store filter if store_id is provided
-	if storeID != "" {
-		query = query.Where("store_products.store_id = ?", storeID)
-	}
+		`, id)
 
 	// Add pagination
 	err = query.Limit(limit).Offset(offset).Debug().Find(&similarProducts).Error
@@ -616,6 +606,6 @@ func parseIntComma(value string) int {
 	if err != nil {
 		return 0
 	}
-	
+
 	return i
 }
