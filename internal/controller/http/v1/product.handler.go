@@ -478,21 +478,18 @@ func (h *ProductHandler) UploadProduct(c *gin.Context) {
 // @Router /product/similar/{id} [get]
 func (h *ProductHandler) SimilarProducts(c *gin.Context) {
 	var (
-		id              = c.Param("id") // Product ID
+		id              = c.Param("id")
 		limit, offset   int
 		similarProducts []domain.StoreProduct
 		err             error
 	)
 
-	// Step 1: Get pagination parameters
 	limit, offset, err = getPaginationParams(c)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-
-	// Step 2: Fetch similar products in the same category
 	query := h.db.
 		Table("store_products").
 		Preload("Product", func(db *gorm.DB) *gorm.DB {
@@ -508,7 +505,6 @@ func (h *ProductHandler) SimilarProducts(c *gin.Context) {
 			AND products.expire_date::DATE >= NOW()::DATE
 		`, id)
 
-	// Add pagination
 	err = query.Limit(limit).Offset(offset).Debug().Find(&similarProducts).Error
 	if err != nil {
 		h.log.Error(err)
