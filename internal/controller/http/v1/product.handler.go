@@ -472,6 +472,7 @@ func (h *ProductHandler) UploadProduct(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path string true "Product ID"
+// @Param store_id query string false "Store ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -479,29 +480,46 @@ func (h *ProductHandler) UploadProduct(c *gin.Context) {
 func (h *ProductHandler) SimilarProducts(c *gin.Context) {
 	var (
 		id              = c.Param("id") // Product ID
-		categoryID      string
-		similarProducts []domain.Product
+		storeID         = c.Query("store_id")
+		limit, offset   int
+		similarProducts []domain.StoreProduct
+		err             error
 	)
 
-	// Step 1: Find the category_id of the current product
-	err := h.db.
-		Table("category_products").
-		Select("category_id").
-		Where("product_id = ?", id).
-		Scan(&categoryID).Error
+	// Step 1: Get pagination parameters
+	limit, offset, err = getPaginationParams(c)
 	if err != nil {
 		h.log.Error(err)
-		handleResponse(c, InternalError, "Failed to find product category")
+		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 
-	// Step 2: Find similar products in the same category
-	err = h.db.
-		Table("products").
-		Select("products.*, DATE_PART('day', expire_date::timestamp - NOW()) AS expire_day").
-		Joins("INNER JOIN category_products ON category_products.product_id = products.id").
-		Where("category_products.category_id = ? AND products.id != ?", categoryID, id). // Exclude current product
-		Find(&similarProducts).Error
+	// Step 2: Fetch similar products in the same category
+	query := h.db.
+		Table("store_products").
+		Preload("Product", func(db *gorm.DB) *gorm.DB {
+			return db.Preload("ProductUnits")
+		}).
+		Select("products.*").
+		Joins(`
+			JOIN products ON store_products.product_id = products.id
+			JOIN category_products ON category_products.product_id = products.id
+			JOIN category_products AS current_category ON current_category.category_id = category_products.category_id
+		`).
+		Where(`
+			current_category.product_id = ? 
+			AND products.id != ? 
+			AND products.status = 'active' 
+			AND products.expire_date::DATE >= NOW()::DATE
+		`, id, id)
+
+	// Apply store filter if store_id is provided
+	if storeID != "" {
+		query = query.Where("store_products.store_id = ?", storeID)
+	}
+
+	// Add pagination
+	err = query.Limit(limit).Offset(offset).Debug().Find(&similarProducts).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, "Failed to fetch similar products")
@@ -546,7 +564,7 @@ func (h *ProductHandler) StoreProducts(c *gin.Context) {
 			return db.Preload("ProductUnits")
 		}).
 		Joins("INNER JOIN products ON store_products.product_id = products.id").
-		Where("products.status = 'active'").
+		Where("products.status = 'active' AND products.expire_date::DATE >= NOW()::DATE").
 		Where("store_products.store_id = ?", storeID)
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)

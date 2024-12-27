@@ -104,8 +104,6 @@ definitions:
     properties:
       created_by:
         type: string
-      deleted_by:
-        type: string
       id:
         type: string
       is_active:
@@ -118,8 +116,6 @@ definitions:
         items:
           $ref: '#/definitions/domain.Category'
         type: array
-      updated_by:
-        type: string
     type: object
   domain.CategoryRequest:
     properties:
@@ -3667,6 +3663,10 @@ paths:
         in: path
         name: id
         required: true
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
         type: string
       produces:
       - application/json

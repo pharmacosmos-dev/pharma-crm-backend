@@ -4585,6 +4585,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Store ID",
+                        "name": "store_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -7171,9 +7177,6 @@ const docTemplate = `{
                 "created_by": {
                     "type": "string"
                 },
-                "deleted_by": {
-                    "type": "string"
-                },
                 "id": {
                     "type": "string"
                 },
@@ -7191,9 +7194,6 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/domain.Category"
                     }
-                },
-                "updated_by": {
-                    "type": "string"
                 }
             }
         },
