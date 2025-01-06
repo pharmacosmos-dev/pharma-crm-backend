@@ -131,7 +131,7 @@ func (h *ProductHandler) Create(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path string true "product ID"
-// @Success 200 {object} domain.Product
+// @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /product/{id} [get]
@@ -139,6 +139,8 @@ func (h *ProductHandler) Get(c *gin.Context) {
 	var res domain.Product
 	id := c.Param("id")
 	err := h.db.
+		Preload("Categories").
+		Preload("ProductUnits").
 		First(&res, "id = ?", id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

@@ -3428,7 +3428,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/domain.Product'
+            $ref: '#/definitions/v1.Response'
         "400":
           description: Bad Request
           schema:
@@ -3663,10 +3663,6 @@ paths:
         in: path
         name: id
         required: true
-        type: string
-      - description: Store ID
-        in: query
-        name: store_id
         type: string
       produces:
       - application/json
