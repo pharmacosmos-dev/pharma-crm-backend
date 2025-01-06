@@ -488,13 +488,13 @@ definitions:
         type: number
       bonus_percent:
         type: integer
+      category_ids:
+        items:
+          type: string
+        type: array
       description:
         type: string
       expire_date:
-        type: string
-      id:
-        type: string
-      main_photo:
         type: string
       manufacturer:
         type: string
@@ -504,16 +504,18 @@ definitions:
         items:
           type: string
         type: array
+      product_unit:
+        items:
+          $ref: '#/definitions/domain.ProductUnit'
+        type: array
       quantity:
         type: integer
       retail_price:
         type: number
-      status:
-        type: string
-      store_id:
-        type: string
-      sum:
-        type: number
+      store_product:
+        items:
+          $ref: '#/definitions/domain.StoreProduct'
+        type: array
       supply_price:
         type: number
       vat:

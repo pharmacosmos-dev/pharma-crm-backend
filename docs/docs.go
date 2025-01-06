@@ -7841,16 +7841,16 @@ const docTemplate = `{
                 "bonus_percent": {
                     "type": "integer"
                 },
+                "category_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "description": {
                     "type": "string"
                 },
                 "expire_date": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "main_photo": {
                     "type": "string"
                 },
                 "manufacturer": {
@@ -7865,20 +7865,23 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "product_unit": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.ProductUnit"
+                    }
+                },
                 "quantity": {
                     "type": "integer"
                 },
                 "retail_price": {
                     "type": "number"
                 },
-                "status": {
-                    "type": "string"
-                },
-                "store_id": {
-                    "type": "string"
-                },
-                "sum": {
-                    "type": "number"
+                "store_product": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.StoreProduct"
+                    }
                 },
                 "supply_price": {
                     "type": "number"
