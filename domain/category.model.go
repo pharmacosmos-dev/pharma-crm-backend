@@ -7,6 +7,7 @@ type Category struct {
 	CategoryId    *string    `gorm:"category_id" json:"parent_id"`
 	CreatedBy     *string    `gorm:"created_by" json:"created_by"`
 	IsActive      bool       `gorm:"is_active" json:"is_active"`
+	IsOpen        bool       `gorm:"is_open" json:"is_open"`
 	SubCategories []Category `gorm:"foreignKey:CategoryId" json:"sub_category"`
 }
 

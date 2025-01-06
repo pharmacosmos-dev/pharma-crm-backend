@@ -1346,6 +1346,12 @@ const docTemplate = `{
                         "description": "Search",
                         "name": "search",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Product ID",
+                        "name": "product_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -7586,11 +7592,11 @@ const docTemplate = `{
                 "status": {
                     "type": "string"
                 },
-                "store": {
-                    "$ref": "#/definitions/domain.Store"
-                },
-                "store_id": {
-                    "type": "string"
+                "store_product": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.StoreProduct"
+                    }
                 },
                 "sum": {
                     "type": "number"
@@ -7982,6 +7988,9 @@ const docTemplate = `{
                 },
                 "small_quantity": {
                     "type": "integer"
+                },
+                "store": {
+                    "$ref": "#/definitions/domain.Store"
                 },
                 "store_id": {
                     "type": "string"

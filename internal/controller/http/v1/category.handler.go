@@ -197,28 +197,24 @@ func (h *CategoryController) Get(c *gin.Context) {
 // @Produce json
 // @Param parent_id query string false "Parent ID"
 // @Param search query string false "Search"
+// @Param product_id query string false "Product ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /category/list [get]
 func (h *CategoryController) List(c *gin.Context) {
 	var (
-		res      []domain.Category
-		parentID *string
-		search   = c.Query("search")
+		res       []domain.Category
+		parentID  = c.Query("parent_id")
+		search    = c.Query("search")
+		productID = c.Query("product_id")
 	)
-
-	// Handle optional `parent_id` query parameter
-	if p := c.Query("parent_id"); p != "" {
-		parentID = &p
-	}
-
 	// Build the base query
 	query := h.db.Model(&domain.Category{})
 
 	// Filter by `parent_id`
-	if parentID != nil {
-		query = query.Where("category_id = ?", *parentID)
+	if parentID != "" {
+		query = query.Where("category_id = ?", parentID)
 	} else {
 		// Root categories (no parent)
 		query = query.Where("category_id IS NULL")
@@ -235,8 +231,27 @@ func (h *CategoryController) List(c *gin.Context) {
 		return db.Preload("SubCategories")
 	})
 
+	// Dynamically calculate `is_open` in SQL
+	if productID != "" {
+		query = query.Select(`
+			categories.*,
+			EXISTS (
+				WITH RECURSIVE subcategories AS (
+					SELECT id FROM categories WHERE id = categories.id
+					UNION ALL
+					SELECT c.id FROM categories c
+					INNER JOIN subcategories sc ON c.category_id = sc.id
+				)
+				SELECT 1
+				FROM category_products cp
+				INNER JOIN subcategories sc ON cp.category_id = sc.id
+				WHERE cp.product_id = ?
+			) AS is_open
+		`, productID)
+	}
+
 	// Execute the query
-	if err := query.Find(&res).Error; err != nil {
+	if err := query.Debug().Find(&res).Error; err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return

@@ -376,10 +376,10 @@ definitions:
         type: number
       status:
         type: string
-      store:
-        $ref: '#/definitions/domain.Store'
-      store_id:
-        type: string
+      store_product:
+        items:
+          $ref: '#/definitions/domain.StoreProduct'
+        type: array
       sum:
         type: number
       supplier_id:
@@ -636,6 +636,8 @@ definitions:
         type: integer
       small_quantity:
         type: integer
+      store:
+        $ref: '#/definitions/domain.Store'
       store_id:
         type: string
       updated_at:
@@ -1632,6 +1634,10 @@ paths:
       - description: Search
         in: query
         name: search
+        type: string
+      - description: Product ID
+        in: query
+        name: product_id
         type: string
       produces:
       - application/json
