@@ -9,7 +9,6 @@ import (
 // Product
 type Product struct {
 	Id                 string            `gorm:"id" json:"id"`
-	StoreId            string            `gorm:"-" json:"store_id"`
 	BrandId            string            `gorm:"-" json:"brand_id"`
 	SupplierId         string            `gorm:"-" json:"supplier_id"`
 	UnitId             string            `gorm:"-" json:"unit_id"`
@@ -33,11 +32,11 @@ type Product struct {
 	BonusPercent       int               `gorm:"bonus_percent" json:"bonus_percent"`
 	BonusAmount        float64           `gorm:"bonus_amount" json:"bonus_amount"`
 	ExpireDay          int               `gorm:"expire_day" json:"expire_day"`
-	Store              *Store            `gorm:"foreignKey:StoreId" json:"store"`
 	Categories         []*Category       `gorm:"many2many:category_products;foreignKey:Id;joinForeignKey:ProductId;References:Id;joinReferences:CategoryId" json:"categories"`
 	CreatedAt          *time.Time        `gorm:"created_at" json:"created_at"`
 	UpdatedAt          *time.Time        `gorm:"updated_at" json:"updated_at"`
 	ProductUnits       []*ProductUnit    `gorm:"foreignKey:ProductId" json:"product_units"`
+	StoreProduct       []*StoreProduct   `gorm:"foreignKey:ProductID" json:"store_product"`
 }
 
 // Product create request
