@@ -195,6 +195,8 @@ func (h *CategoryController) Get(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
 // @Param parent_id query string false "Parent ID"
 // @Param search query string false "Search"
 // @Param product_id query string false "Product ID"
@@ -218,6 +220,12 @@ func (h *CategoryController) List(c *gin.Context) {
 	} else {
 		// Root categories (no parent)
 		query = query.Where("category_id IS NULL")
+	}
+	limit, offset, err := getPaginationParams(c)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
 	}
 
 	// Apply search filter if provided
@@ -251,7 +259,7 @@ func (h *CategoryController) List(c *gin.Context) {
 	}
 
 	// Execute the query
-	if err := query.Debug().Find(&res).Error; err != nil {
+	if err := query.Limit(limit).Offset(offset).Find(&res).Error; err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return

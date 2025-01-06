@@ -1336,6 +1336,18 @@ const docTemplate = `{
                 "summary": "Get a category",
                 "parameters": [
                     {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
                         "type": "string",
                         "description": "Parent ID",
                         "name": "parent_id",
@@ -7181,6 +7193,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "is_active": {
+                    "type": "boolean"
+                },
+                "is_open": {
                     "type": "boolean"
                 },
                 "name": {

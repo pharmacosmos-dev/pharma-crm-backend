@@ -37,6 +37,7 @@ type Product struct {
 	UpdatedAt          *time.Time        `gorm:"updated_at" json:"updated_at"`
 	ProductUnits       []*ProductUnit    `gorm:"foreignKey:ProductId" json:"product_units"`
 	StoreProduct       []*StoreProduct   `gorm:"foreignKey:ProductID" json:"store_product"`
+	ImportDetail       []*ImportDetail   `gorm:"foreignKey:ProductID" json:"import_detail"`
 }
 
 // Product create request

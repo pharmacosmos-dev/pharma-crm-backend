@@ -139,8 +139,10 @@ func (h *ProductHandler) Get(c *gin.Context) {
 	var res domain.Product
 	id := c.Param("id")
 	err := h.db.
-		Preload("Categories").
 		Preload("ProductUnits").
+		Preload("ImportDetail", func(db *gorm.DB) *gorm.DB {
+			return db.Preload("Import")
+		}).
 		Preload("StoreProduct", func(db *gorm.DB) *gorm.DB {
 			return db.Preload("Store")
 		}).

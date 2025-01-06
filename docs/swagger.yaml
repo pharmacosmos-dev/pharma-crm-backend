@@ -108,6 +108,8 @@ definitions:
         type: string
       is_active:
         type: boolean
+      is_open:
+        type: boolean
       name:
         type: string
       parent_id:
@@ -1627,6 +1629,14 @@ paths:
       - application/json
       description: Get a category from the request body
       parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
       - description: Parent ID
         in: query
         name: parent_id
