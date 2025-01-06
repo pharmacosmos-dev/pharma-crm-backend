@@ -32,9 +32,9 @@ type Product struct {
 	BonusPercent       int               `gorm:"bonus_percent" json:"bonus_percent"`
 	BonusAmount        float64           `gorm:"bonus_amount" json:"bonus_amount"`
 	ExpireDay          int               `gorm:"expire_day" json:"expire_day"`
-	Categories         []*Category       `gorm:"many2many:category_products;foreignKey:Id;joinForeignKey:ProductId;References:Id;joinReferences:CategoryId" json:"categories"`
 	CreatedAt          *time.Time        `gorm:"created_at" json:"created_at"`
 	UpdatedAt          *time.Time        `gorm:"updated_at" json:"updated_at"`
+	Categories         []*Category       `gorm:"many2many:category_products;foreignKey:Id;joinForeignKey:ProductId;References:Id;joinReferences:CategoryId" json:"categories"`
 	ProductUnits       []*ProductUnit    `gorm:"foreignKey:ProductId" json:"product_units"`
 	StoreProduct       []*StoreProduct   `gorm:"foreignKey:ProductID" json:"store_product"`
 	ImportDetail       []*ImportDetail   `gorm:"foreignKey:ProductID" json:"import_detail"`
