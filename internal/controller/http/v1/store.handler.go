@@ -136,9 +136,14 @@ func (h *StoreHandler) List(c *gin.Context) {
 
 	if productID != "" {
 		query = query.
-			Select("stores.*, sp.quantity as quantity, sp.small_quantity as small_quantity").
-			Joins("JOIN store_products sp ON stores.id = sp.store_id").
-			Where("sp.product_id = ?", productID)
+			Select(`
+					stores.*, 
+					COALESCE(sp.quantity, 0) as quantity, 
+					COALESCE(sp.small_quantity, 0) as small_quantity
+				`).
+			Joins("LEFT JOIN store_products sp ON stores.id = sp.store_id AND sp.product_id = ?", productID)
+	} else {
+		query = query.Select("stores.*")
 	}
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
@@ -147,7 +152,7 @@ func (h *StoreHandler) List(c *gin.Context) {
 
 	// Use conditional ordering at the end
 	if productID != "" {
-		query = query.Order("sp.quantity DESC, created_at DESC")
+		query = query.Order("sp.quantity DESC")
 	} else {
 		query = query.Order("created_at DESC")
 	}
