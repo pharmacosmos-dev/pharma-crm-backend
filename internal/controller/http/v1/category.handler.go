@@ -239,23 +239,26 @@ func (h *CategoryController) List(c *gin.Context) {
 		return db.Preload("SubCategories")
 	})
 
-	// Dynamically calculate `is_open` in SQL
+	// Modified recursive CTE to correctly check child categories
 	if productID != "" {
 		query = query.Select(`
-			categories.*,
-			EXISTS (
-				WITH RECURSIVE subcategories AS (
-					SELECT id FROM categories WHERE id = categories.id
-					UNION ALL
-					SELECT c.id FROM categories c
-					INNER JOIN subcategories sc ON c.category_id = sc.id
-				)
-				SELECT 1
-				FROM category_products cp
-				INNER JOIN subcategories sc ON cp.category_id = sc.id
-				WHERE cp.product_id = ?
-			) AS is_open
-		`, productID)
+				categories.*,
+				EXISTS (
+					WITH RECURSIVE category_tree AS (
+						SELECT id, category_id, 1 as level
+						FROM categories
+						WHERE id = categories.id
+						UNION ALL
+						SELECT c.id, c.category_id, ct.level + 1
+						FROM categories c
+						INNER JOIN category_tree ct ON c.category_id = ct.id
+					)
+					SELECT 1
+					FROM category_tree ct
+					INNER JOIN category_products cp ON cp.category_id = ct.id
+					WHERE cp.product_id = ?
+				) AS is_open
+			`, productID)
 	}
 
 	// Execute the query

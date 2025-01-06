@@ -141,9 +141,6 @@ func (h *ProductHandler) Get(c *gin.Context) {
 	id := c.Param("id")
 	err := h.db.
 		Preload("ProductUnits").
-		Preload("StoreProduct", func(db *gorm.DB) *gorm.DB {
-			return db.Preload("Store")
-		}).
 		First(&res, "id = ?", id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
