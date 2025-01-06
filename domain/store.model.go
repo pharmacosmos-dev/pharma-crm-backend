@@ -11,6 +11,8 @@ type Store struct {
 	CashBoxCount  int        `gorm:"cash_box_count" json:"cash_box_count"`
 	StoreCode     int        `gorm:"store_code" json:"store_code"`
 	Address       string     `gorm:"address" json:"address"`
+	Quantity      int        `gorm:"quantity" json:"quantity"`
+	SmallQuantity int        `gorm:"small_quantity" json:"small_quantity"`
 	CreatedAt     *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt     *time.Time `gorm:"updated_at" json:"updated_at"`
 }

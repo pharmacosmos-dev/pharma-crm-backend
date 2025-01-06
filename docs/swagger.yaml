@@ -623,6 +623,10 @@ definitions:
         type: string
       store_code:
         type: integer
+      store_product:
+        items:
+          $ref: '#/definitions/domain.StoreProduct'
+        type: array
       updated_at:
         type: string
     type: object
@@ -4754,6 +4758,10 @@ paths:
       - description: Search
         in: query
         name: search
+        type: string
+      - description: Product ID
+        in: query
+        name: product_id
         type: string
       produces:
       - application/json

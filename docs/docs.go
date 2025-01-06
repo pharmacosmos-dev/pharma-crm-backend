@@ -6247,6 +6247,12 @@ const docTemplate = `{
                         "description": "Search",
                         "name": "search",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Product ID",
+                        "name": "product_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -8047,6 +8053,12 @@ const docTemplate = `{
                 },
                 "store_code": {
                     "type": "integer"
+                },
+                "store_product": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.StoreProduct"
+                    }
                 },
                 "updated_at": {
                     "type": "string"

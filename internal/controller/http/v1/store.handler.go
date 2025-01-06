@@ -112,6 +112,7 @@ func (h *StoreHandler) Get(c *gin.Context) {
 // @Param limit query int false "Limit"
 // @Param offset query int false "Offset"
 // @Param search query string false "Search"
+// @Param product_id query string false "Product ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -121,6 +122,7 @@ func (h *StoreHandler) List(c *gin.Context) {
 		res        []domain.Store
 		totalCount int64
 		search     = c.Query("search")
+		productID  = c.Query("product_id")
 	)
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
@@ -129,13 +131,22 @@ func (h *StoreHandler) List(c *gin.Context) {
 		return
 	}
 
-	query := h.db.Model(&domain.Store{}).
-		Where("is_active = ?", true)
+	query := h.db.
+		Model(&domain.Store{})
+
+	if productID != "" {
+		query = query.
+			Select("stores.*, sp.quantity as quantity, sp.small_quantity as small_quantity").
+			Joins("JOIN store_products sp ON stores.id = sp.store_id").
+			Where("sp.product_id = ?", productID).Order("sp.quantity DESC")
+	}
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
 		query = query.Where("name ILIKE ?", search)
 	}
+
 	err = query.
+		Where("is_active = ?", true).
 		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).
