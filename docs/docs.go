@@ -7835,6 +7835,20 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.ProductUnitRequest": {
+            "type": "object",
+            "properties": {
+                "box_grain_count": {
+                    "type": "integer"
+                },
+                "unit_name": {
+                    "type": "string"
+                },
+                "unit_type_id": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.ProductUpdateRequest": {
             "type": "object",
             "properties": {
@@ -7874,7 +7888,7 @@ const docTemplate = `{
                 "product_unit": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/domain.ProductUnit"
+                        "$ref": "#/definitions/domain.ProductUnitRequest"
                     }
                 },
                 "quantity": {
@@ -7886,7 +7900,7 @@ const docTemplate = `{
                 "store_product": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/domain.StoreProduct"
+                        "$ref": "#/definitions/domain.StoreProductUpdateRequest"
                     }
                 },
                 "supply_price": {
@@ -8051,14 +8065,14 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
-                "store_code": {
+                "quantity": {
                     "type": "integer"
                 },
-                "store_product": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/domain.StoreProduct"
-                    }
+                "small_quantity": {
+                    "type": "integer"
+                },
+                "store_code": {
+                    "type": "integer"
                 },
                 "updated_at": {
                     "type": "string"
@@ -8093,6 +8107,20 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.StoreProductUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "quantity": {
+                    "type": "integer"
+                },
+                "small_quantity": {
+                    "type": "integer"
+                },
+                "store_id": {
                     "type": "string"
                 }
             }

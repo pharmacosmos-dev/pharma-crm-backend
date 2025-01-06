@@ -64,25 +64,24 @@ type ProductRequest struct {
 
 // Product update request
 type ProductUpdateRequest struct {
-	Id           string            `gorm:"id" json:"-"`
-	Name         string            `gorm:"name" json:"name"`
-	Barcode      string            `gorm:"barcode" json:"barcode"`
-	Photos       utils.StringArray `gorm:"type:text[]" json:"photos"`
-	SupplyPrice  float64           `gorm:"supply_price" json:"supply_price"`
-	RetailPrice  float64           `gorm:"retail_price" json:"retail_price"`
-	Quantity     int               `gorm:"quantity" json:"quantity"`
-	Vat          int               `gorm:"vat" json:"vat"`
-	VatPrice     float64           `gorm:"vat_price" json:"vat_price"`
-	Sum          float64           `gorm:"sum" json:"-"`
-	Description  string            `gorm:"description" json:"description"`
-	Status       string            `gorm:"status" json:"-" example:"active|inactive"`
-	Manufacturer string            `gorm:"manufacturer" json:"manufacturer"`
-	ExpireDate   string            `gorm:"expire_date" json:"expire_date"`
-	BonusPercent int               `gorm:"bonus_percent" json:"bonus_percent"`
-	BonusAmount  float64           `gorm:"bonus_amount" json:"bonus_amount"`
-	ProductUnit  []ProductUnit     `gorm:"-" json:"product_unit"`
-	StoreProduct []StoreProduct    `gorm:"-" json:"store_product"`
-	CategoryIds  []string          `gorm:"-" json:"category_ids"`
+	Name         string                      `gorm:"name" json:"name"`
+	Barcode      string                      `gorm:"barcode" json:"barcode"`
+	Photos       utils.StringArray           `gorm:"type:text[]" json:"photos"`
+	SupplyPrice  float64                     `gorm:"supply_price" json:"supply_price"`
+	RetailPrice  float64                     `gorm:"retail_price" json:"retail_price"`
+	Quantity     int                         `gorm:"quantity" json:"quantity"`
+	Vat          int                         `gorm:"vat" json:"vat"`
+	VatPrice     float64                     `gorm:"vat_price" json:"vat_price"`
+	Sum          float64                     `gorm:"sum" json:"-"`
+	Description  string                      `gorm:"description" json:"description"`
+	Status       string                      `gorm:"status" json:"-" example:"active|inactive"`
+	Manufacturer string                      `gorm:"manufacturer" json:"manufacturer"`
+	ExpireDate   string                      `gorm:"expire_date" json:"expire_date"`
+	BonusPercent int                         `gorm:"bonus_percent" json:"bonus_percent"`
+	BonusAmount  float64                     `gorm:"bonus_amount" json:"bonus_amount"`
+	ProductUnit  []ProductUnitRequest        `gorm:"-" json:"product_unit"`
+	StoreProduct []StoreProductUpdateRequest `gorm:"-" json:"store_product"`
+	CategoryIds  []string                    `gorm:"-" json:"category_ids"`
 }
 
 // Product Upload request
@@ -172,6 +171,12 @@ type ProductReceipt struct {
 type ProductUnit struct {
 	ID            string `gorm:"id" json:"id"`
 	ProductId     string `gorm:"product_id" json:"-"`
+	UnitTypeId    string `gorm:"unit_type_id" json:"unit_type_id"`
+	UnitName      string `gorm:"unit_name" json:"unit_name"`
+	BoxGrainCount int    `gorm:"box_grain_count" json:"box_grain_count"`
+}
+
+type ProductUnitRequest struct {
 	UnitTypeId    string `gorm:"unit_type_id" json:"unit_type_id"`
 	UnitName      string `gorm:"unit_name" json:"unit_name"`
 	BoxGrainCount int    `gorm:"box_grain_count" json:"box_grain_count"`

@@ -480,6 +480,15 @@ definitions:
       unit_type_id:
         type: string
     type: object
+  domain.ProductUnitRequest:
+    properties:
+      box_grain_count:
+        type: integer
+      unit_name:
+        type: string
+      unit_type_id:
+        type: string
+    type: object
   domain.ProductUpdateRequest:
     properties:
       barcode:
@@ -506,7 +515,7 @@ definitions:
         type: array
       product_unit:
         items:
-          $ref: '#/definitions/domain.ProductUnit'
+          $ref: '#/definitions/domain.ProductUnitRequest'
         type: array
       quantity:
         type: integer
@@ -514,7 +523,7 @@ definitions:
         type: number
       store_product:
         items:
-          $ref: '#/definitions/domain.StoreProduct'
+          $ref: '#/definitions/domain.StoreProductUpdateRequest'
         type: array
       supply_price:
         type: number
@@ -621,12 +630,12 @@ definitions:
         type: string
       name:
         type: string
+      quantity:
+        type: integer
+      small_quantity:
+        type: integer
       store_code:
         type: integer
-      store_product:
-        items:
-          $ref: '#/definitions/domain.StoreProduct'
-        type: array
       updated_at:
         type: string
     type: object
@@ -649,6 +658,15 @@ definitions:
       store_id:
         type: string
       updated_at:
+        type: string
+    type: object
+  domain.StoreProductUpdateRequest:
+    properties:
+      quantity:
+        type: integer
+      small_quantity:
+        type: integer
+      store_id:
         type: string
     type: object
   domain.StoreRequest:

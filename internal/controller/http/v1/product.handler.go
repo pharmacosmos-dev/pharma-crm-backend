@@ -276,8 +276,9 @@ func (h *ProductHandler) List(c *gin.Context) {
 // @Router /product/{id} [put]
 func (h *ProductHandler) Update(c *gin.Context) {
 	var (
-		body domain.ProductUpdateRequest
-		err  error
+		body      domain.ProductUpdateRequest
+		err       error
+		productID = c.Param("id")
 	)
 
 	err = c.ShouldBindJSON(&body)
@@ -290,7 +291,7 @@ func (h *ProductHandler) Update(c *gin.Context) {
 	err = h.db.
 		WithContext(c.Request.Context()).
 		Table("products").
-		Where("id = ?", c.Param("id")).
+		Where("id = ?", productID).
 		Updates(body).Error
 	if err != nil {
 		h.log.Error(err)
@@ -298,44 +299,53 @@ func (h *ProductHandler) Update(c *gin.Context) {
 		return
 	}
 	if len(body.ProductUnit) > 0 {
-		err = h.db.WithContext(c.Request.Context()).
-			Where("product_id = ?", c.Param("id")).
-			Updates(&body.ProductUnit).Error
-		if err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, err.Error())
-			return
+		for _, unit := range body.ProductUnit {
+			err = h.db.WithContext(c.Request.Context()).
+				Table("product_units").
+				Where("product_id = ?", productID).
+				Updates(&unit).Error
+			if err != nil {
+				h.log.Error("Failed to update product_unit: ", err)
+				handleResponse(c, InternalError, err.Error())
+				return
+			}
 		}
+
 	}
 	if len(body.StoreProduct) > 0 {
-		err = h.db.WithContext(c.Request.Context()).
-			Where("product_id = ?", c.Param("id")).
-			Updates(&body.StoreProduct).Error
-		if err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, err.Error())
-			return
+		for _, storeProduct := range body.StoreProduct {
+			err = h.db.WithContext(c.Request.Context()).
+				Table("store_products").
+				Where("product_id = ?", productID).
+				Updates(&storeProduct).Error
+			if err != nil {
+				h.log.Error(err)
+				handleResponse(c, InternalError, err.Error())
+				return
+			}
 		}
+
 	}
 
-	if len(body.CategoryIds) > 0 {
-		var categoryProduct = make([]domain.CategoryProduct, len(body.CategoryIds))
-		for i := range body.CategoryIds {
-			categoryProduct[i].ProductId = c.Param("id")
-			categoryProduct[i].CategoryId = body.CategoryIds[i]
-		}
-		err = h.db.
-			WithContext(c.Request.Context()).
-			Where("product_id = ?", c.Param("id")).
-			Updates(&categoryProduct).Error
-		if err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, err.Error())
-			return
-		}
-	}
+	// if len(body.CategoryIds) > 0 {
+	// 	var categoryProduct = make([]domain.CategoryProduct, len(body.CategoryIds))
+	// 	for i := range body.CategoryIds {
+	// 		categoryProduct[i].ProductId = productID
+	// 		categoryProduct[i].CategoryId = body.CategoryIds[i]
+	// 	}
+	// 	err = h.db.
+	// 		WithContext(c.Request.Context()).
+	// 		Table("category_products").
+	// 		Where("product_id = ?", productID).
+	// 		Updates(&categoryProduct).Error
+	// 	if err != nil {
+	// 		h.log.Error(err)
+	// 		handleResponse(c, InternalError, err.Error())
+	// 		return
+	// 	}
+	// }
 
-	handleResponse(c, OK, body)
+	handleResponse(c, OK, "UPDATED")
 }
 
 // Get godoc

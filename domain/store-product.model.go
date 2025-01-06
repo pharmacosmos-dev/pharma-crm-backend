@@ -14,3 +14,9 @@ type StoreProduct struct {
 	Product             *Product   `gorm:"foreignKey:ProductID" json:"product"`
 	Store               *Store     `gorm:"foreignKey:StoreID" json:"store"`
 }
+
+type StoreProductUpdateRequest struct {
+	StoreID       string `json:"store_id"`
+	Quantity      int    `json:"quantity"`
+	SmallQuantity int    `json:"small_quantity"`
+}
