@@ -279,7 +279,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 // @Router /product/{id} [put]
 func (h *ProductHandler) Update(c *gin.Context) {
 	var (
-		body domain.ProductRequest
+		body domain.ProductUpdateRequest
 		err  error
 	)
 
@@ -290,12 +290,54 @@ func (h *ProductHandler) Update(c *gin.Context) {
 		return
 	}
 	body.Photos = utils.StringArray(body.Photos)
-	err = h.db.WithContext(c.Request.Context()).Model(&domain.Product{}).Where("id = ?", c.Param("id")).Updates(body).Error
+	err = h.db.
+		WithContext(c.Request.Context()).
+		Table("products").
+		Where("id = ?", c.Param("id")).
+		Updates(body).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	if len(body.ProductUnit) > 0 {
+		err = h.db.WithContext(c.Request.Context()).
+			Where("product_id = ?", c.Param("id")).
+			Updates(&body.ProductUnit).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+	}
+	if len(body.StoreProduct) > 0 {
+		err = h.db.WithContext(c.Request.Context()).
+			Where("product_id = ?", c.Param("id")).
+			Updates(&body.StoreProduct).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+	}
+
+	if len(body.CategoryIds) > 0 {
+		var categoryProduct = make([]domain.CategoryProduct, len(body.CategoryIds))
+		for i := range body.CategoryIds {
+			categoryProduct[i].ProductId = c.Param("id")
+			categoryProduct[i].CategoryId = body.CategoryIds[i]
+		}
+		err = h.db.
+			WithContext(c.Request.Context()).
+			Where("product_id = ?", c.Param("id")).
+			Updates(&categoryProduct).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+	}
+
 	handleResponse(c, OK, body)
 }
 
