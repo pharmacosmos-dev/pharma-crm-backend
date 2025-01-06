@@ -611,7 +611,7 @@ func (h *ProductHandler) GetProductImports(c *gin.Context) {
 		}).
 		Where("product_material_code = ?", product.MaterialCode)
 	if storeID != "" {
-		query = query.Where("imports.store_id = ?", storeID)
+		query = query.Joins("INNER JOIN imports ON imports.id = import_details.import_id").Where("imports.store_id = ?", storeID)
 	}
 	err = query.Limit(limit).Offset(offset).Find(&res).Error
 	if err != nil {
