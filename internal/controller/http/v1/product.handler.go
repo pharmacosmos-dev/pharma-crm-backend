@@ -38,6 +38,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.GET("/producer", h.GetProducerList)
 		product.GET("/similar/:id", h.SimilarProducts)
 		product.GET("/store/:id", h.StoreProducts)
+		product.GET("/import/:id", h.GetProductImports)
 	}
 }
 
@@ -140,9 +141,6 @@ func (h *ProductHandler) Get(c *gin.Context) {
 	id := c.Param("id")
 	err := h.db.
 		Preload("ProductUnits").
-		Preload("ImportDetail", func(db *gorm.DB) *gorm.DB {
-			return db.Preload("Import")
-		}).
 		Preload("StoreProduct", func(db *gorm.DB) *gorm.DB {
 			return db.Preload("Store")
 		}).
@@ -564,6 +562,57 @@ func (h *ProductHandler) StoreProducts(c *gin.Context) {
 		query = query.Where("products.name ILIKE ? OR products.barcode ILIKE ?", search, search)
 	}
 
+	err = query.Limit(limit).Offset(offset).Find(&res).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, res)
+}
+
+// GetProductImports godoc
+// @Summary Get product imports
+// @Description Get product imports
+// @Tags products
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "Product ID"
+// @Param store_id query string false "Store ID"
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/import/{id} [get]
+func (h *ProductHandler) GetProductImports(c *gin.Context) {
+	var (
+		storeID   = c.Query("store_id")
+		productID = c.Param("id")
+		res       []*domain.ImportDetail
+	)
+	var product domain.Product
+	err := h.db.First(&product, "id = ?", productID).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	limit, offset, err := getPaginationParams(c)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	query := h.db.
+		Preload("Import", func(db *gorm.DB) *gorm.DB {
+			return db.Preload("Stores")
+		}).
+		Where("product_material_code = ?", product.MaterialCode)
+	if storeID != "" {
+		query = query.Where("imports.store_id = ?", storeID)
+	}
 	err = query.Limit(limit).Offset(offset).Find(&res).Error
 	if err != nil {
 		h.log.Error(err)
