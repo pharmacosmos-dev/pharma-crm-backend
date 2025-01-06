@@ -138,11 +138,18 @@ func (h *StoreHandler) List(c *gin.Context) {
 		query = query.
 			Select("stores.*, sp.quantity as quantity, sp.small_quantity as small_quantity").
 			Joins("JOIN store_products sp ON stores.id = sp.store_id").
-			Where("sp.product_id = ?", productID).Order("sp.quantity DESC")
+			Where("sp.product_id = ?", productID)
 	}
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
 		query = query.Where("name ILIKE ?", search)
+	}
+
+	// Use conditional ordering at the end
+	if productID != "" {
+		query = query.Order("sp.quantity DESC, created_at DESC")
+	} else {
+		query = query.Order("created_at DESC")
 	}
 
 	err = query.
@@ -150,7 +157,6 @@ func (h *StoreHandler) List(c *gin.Context) {
 		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).
-		Order("created_at DESC").
 		Find(&res).Error
 
 	if err != nil {
