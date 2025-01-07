@@ -15,6 +15,7 @@ import (
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type ProductHandler struct {
@@ -327,23 +328,27 @@ func (h *ProductHandler) Update(c *gin.Context) {
 
 	}
 
-	// if len(body.CategoryIds) > 0 {
-	// 	var categoryProduct = make([]domain.CategoryProduct, len(body.CategoryIds))
-	// 	for i := range body.CategoryIds {
-	// 		categoryProduct[i].ProductId = productID
-	// 		categoryProduct[i].CategoryId = body.CategoryIds[i]
-	// 	}
-	// 	err = h.db.
-	// 		WithContext(c.Request.Context()).
-	// 		Table("category_products").
-	// 		Where("product_id = ?", productID).
-	// 		Updates(&categoryProduct).Error
-	// 	if err != nil {
-	// 		h.log.Error(err)
-	// 		handleResponse(c, InternalError, err.Error())
-	// 		return
-	// 	}
-	// }
+	if len(body.CategoryIds) > 0 {
+		var categoryProducts = make([]domain.CategoryProduct, len(body.CategoryIds))
+		for i, categoryId := range body.CategoryIds {
+			categoryProducts[i] = domain.CategoryProduct{
+				ProductId:  productID,
+				CategoryId: categoryId,
+			}
+		}
+		err = h.db.WithContext(c.Request.Context()).
+			Table("category_products").
+			Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "product_id"}, {Name: "category_id"}}, // Define unique columns
+				DoNothing: false,                                                        // If true, skips updates
+				DoUpdates: clause.AssignmentColumns([]string{"updated_at"}),             // Update specific columns
+			}).Create(&categoryProducts).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+	}
 
 	handleResponse(c, OK, "UPDATED")
 }

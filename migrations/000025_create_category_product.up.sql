@@ -5,3 +5,8 @@ CREATE TABLE IF NOT EXISTS "category_products" (
     "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+ALTER TABLE "category_products"
+ADD CONSTRAINT 
+    category_products_product_id_category_id_key 
+UNIQUE ("product_id", "category_id");
