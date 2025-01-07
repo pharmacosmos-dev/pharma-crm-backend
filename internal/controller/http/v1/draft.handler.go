@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
@@ -105,7 +106,10 @@ func (h *DraftHandler) Create(c *gin.Context) {
 	}
 	err = h.db.Model(&domain.CartItem{}).
 		Where("sale_id = ?", body.SaleID).
-		Updates(map[string]interface{}{"is_drafted": true}).Error
+		Updates(map[string]interface{}{
+			"is_drafted": true,
+			"status":     config.DRAFTED_CART_ITEM,
+		}).Error
 	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err.Error()))
 		handleResponse(c, InternalError, err.Error())
@@ -118,19 +122,21 @@ func (h *DraftHandler) Create(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	saleID := uuid.New().String()
 	err = h.db.
 		WithContext(c.Request.Context()).
 		Table("sales").Create(&domain.SaleRequest{
-		ID:         uuid.New().String(),
+		ID:         saleID,
 		SaleNumber: utils.GenerateCode(),
 		CashBoxId:  saleInfo.CashBoxId,
 		EmployeeID: body.CreatedBy,
-	}).Scan(&saleInfo).Error
+	}).Error
 	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err.Error()))
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	saleInfo.ID = saleID
 	handleResponse(c, CREATED, saleInfo)
 }
 
@@ -279,19 +285,22 @@ func (h *DraftHandler) Update(c *gin.Context) {
 		body domain.DraftRequest
 		err  error
 	)
-	if err = c.ShouldBindJSON(&body); err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+	err = c.ShouldBindJSON(&body)
+	if err != nil {
+		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	if err = h.db.WithContext(c.Request.Context()).
+	err = h.db.
+		WithContext(c.Request.Context()).
 		Table("drafts").Where("id = ?", c.Param("id")).
-		Updates(&body).Error; err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		Updates(&body).Error
+	if err != nil {
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, body)
+	handleResponse(c, OK, "UPDATED")
 }
 
 // Delete godoc
@@ -309,15 +318,19 @@ func (h *DraftHandler) Update(c *gin.Context) {
 func (h *DraftHandler) Delete(c *gin.Context) {
 	var id = c.Param("id")
 
-	err := h.db.WithContext(c.Request.Context()).Delete(&domain.CartItemDraft{}, "draft_id = ?", id).Error
+	err := h.db.
+		WithContext(c.Request.Context()).
+		Delete(&domain.CartItemDraft{}, "draft_id = ?", id).Error
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	err = h.db.WithContext(c.Request.Context()).Delete(&domain.Draft{}, "id = ?", id).Error
+	err = h.db.
+		WithContext(c.Request.Context()).
+		Delete(&domain.Draft{}, "id = ?", id).Error
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -361,9 +374,11 @@ func (h *DraftHandler) CompleteDraft(c *gin.Context) {
 	err = h.db.WithContext(c.Request.Context()).
 		Table("cart_items").
 		Where("sale_id = ?", res.SaleID).
-		Update("is_drafted", false).Error
+		Updates(map[string]interface{}{
+			"is_drafted": false,
+			"status":     "pending"}).Error
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}

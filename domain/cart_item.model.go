@@ -32,6 +32,7 @@ type CartItemRequest struct {
 	DiscountValue      float64 `gorm:"discount_value" json:"discount_value"`
 	TotalPrice         float64 `gorm:"total_price" json:"-"`
 	TotalDiscountPrice float64 `gorm:"total_discount_price" json:"-"`
+	Status             string  `gorm:"status" json:"-"`
 }
 
 // Cart Item update product unit

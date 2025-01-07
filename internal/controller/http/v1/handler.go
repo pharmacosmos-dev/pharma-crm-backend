@@ -51,7 +51,6 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		h.NewCashBoxOperationHandler(v1)
 		h.NewCartItemHandler(v1)
 		h.NewSaleHandler(v1)
-		h.NewSaleItemHandler(v1)
 		h.NewDraftHandler(v1)
 		h.NewPaymentTypeHandler(v1)
 		h.NewPermissionHandler(v1)

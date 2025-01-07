@@ -52,7 +52,7 @@ func (h *SaleHandler) Create(c *gin.Context) {
 		err  error
 	)
 	if err = c.ShouldBindJSON(&body); err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
@@ -96,7 +96,7 @@ func (h *SaleHandler) Get(c *gin.Context) {
 		Preload("SalePayments", func(db *gorm.DB) *gorm.DB {
 			return db.Preload("PaymentType")
 		}).
-		Preload("SaleItems", func(db *gorm.DB) *gorm.DB {
+		Preload("CartItems", func(db *gorm.DB) *gorm.DB {
 			return db.Preload("Product")
 		}).First(&res, "id = ?", id).Error
 	if err != nil {
@@ -192,56 +192,25 @@ func (h *SaleHandler) List(c *gin.Context) {
 func (h *SaleHandler) Update(c *gin.Context) {
 	var (
 		body domain.SaleUpdateRequest
-		res  []domain.CartItemRequest
 		id   = c.Param("id")
 	)
 	err := c.ShouldBindJSON(&body)
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	err = h.db.WithContext(c.Request.Context()).
+	err = h.db.
+		WithContext(c.Request.Context()).
 		Table("sales").
 		Where("id = ?", id).
 		Updates(&body).Error
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
-	err = h.db.Where("sale_id = ?", id).
-		Table("cart_items").Find(&res).Error
-	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	if len(res) > 0 {
-		err = h.db.Table("sale_items").Create(&res).Error
-		if err != nil {
-			h.log.Error(fmt.Errorf("err: %v", err))
-			handleResponse(c, InternalError, err.Error())
-			return
-		}
-		for _, item := range res {
-			err = h.db.Table("products").Where("id = ?", item.ProductID).
-				UpdateColumn("quantity", gorm.Expr("quantity - ?", item.Quantity)).Error
-			if err != nil {
-				h.log.Error(fmt.Errorf("err: %v", err))
-				handleResponse(c, InternalError, err.Error())
-				return
-			}
-		}
-
-	}
-	err = h.db.Delete(&domain.CartItem{}, "sale_id = ?", id).Error
-	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
 	handleResponse(c, OK, body)
 }
 
@@ -261,11 +230,11 @@ func (h *SaleHandler) Delete(c *gin.Context) {
 	var id = c.Param("id")
 	err := h.db.Delete(&domain.Sale{}, "id = ?", id).Error
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, nil)
+	handleResponse(c, OK, "DELETED")
 }
 
 // FinalSale
@@ -288,7 +257,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	)
 	err := c.ShouldBindJSON(&body)
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
@@ -296,37 +265,37 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	err = h.db.Where("sale_id = ?", body.SaleID).
 		Table("cart_items").Find(&res).Error
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	if len(res) > 0 {
-		for _, item := range res {
-			productCount += item.Quantity
-			err = h.db.Table("products").Where("id = ?", item.ProductID).
-				UpdateColumn("quantity", gorm.Expr("quantity - ?", item.Quantity)).Error
-			if err != nil {
-				h.log.Error(fmt.Errorf("err: %v", err))
-				handleResponse(c, InternalError, err.Error())
-				return
-			}
-		}
 
-	}
 	err = h.db.WithContext(c.Request.Context()).
 		Table("sales").
 		Where("id = ?", body.SaleID).
 		Updates(map[string]interface{}{
 			"total_amount":  body.TotalAmount,
 			"product_count": productCount,
-			"status":        "completed"}).Error
+			"status":        "completed",
+		}).Error
 
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
+	err = h.db.
+		WithContext(c.Request.Context()).
+		Table("cart_items").
+		Where("id = ?", body.SaleID).
+		Update("status", "sold").Error
+
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
 	handleResponse(c, OK, "COMPLETED")
 }
 

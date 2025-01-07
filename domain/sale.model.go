@@ -18,7 +18,7 @@ type Sale struct {
 	CashBox       *CashBox       `gorm:"foreignKey:CashBoxId" json:"cash_box"`
 	Customer      *Customer      `gorm:"foreignKey:CustomerID" json:"customer"`
 	SalePayments  []*SalePayment `gorm:"foreignKey:SaleID" json:"sale_payments"`
-	SaleItems     []*SaleItem    `gorm:"foreignKey:SaleID" json:"sale_items"`
+	CartItems     []*CartItem    `gorm:"foreignKey:SaleId" json:"cart_items"`
 }
 
 // SaleRequest structure for create

@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"gorm.io/gorm"
 )
@@ -49,7 +50,7 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 		err  error
 	)
 	if err = c.ShouldBindJSON(&body); err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
@@ -57,22 +58,25 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 	var product domain.Product
 	err = h.db.First(&product, "id = ?", body.ProductID).Error
 	if err != nil {
+		h.log.Error(err)
 		handleResponse(c, InternalError, "Error on getting product")
 		return
 	}
 	body.TotalPrice = product.RetailPrice * float64(body.Quantity)
 	body.TotalDiscountPrice = body.TotalPrice
 	body.ID = uuid.New().String()
+	body.Status = config.PENDING_CART_ITEM
 	err = h.db.
 		WithContext(c.Request.Context()).
 		Table("cart_items").
 		Create(&body).Error
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, CREATED, body)
+
+	handleResponse(c, CREATED, "CREATED")
 }
 
 // Get godoc
@@ -91,10 +95,13 @@ func (h *CartItemHandler) Get(c *gin.Context) {
 	var (
 		cartItem domain.CartItem
 		err      error
+		id       = c.Param("id")
 	)
-	if err = h.db.WithContext(c.Request.Context()).
-		Where("id = ?", c.Param("id")).
-		First(&cartItem).Error; err != nil {
+	err = h.db.
+		WithContext(c.Request.Context()).
+		Where("id = ?", id).
+		First(&cartItem).Error
+	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -125,28 +132,33 @@ func (h *CartItemHandler) List(c *gin.Context) {
 	)
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	if err = h.db.Model(&domain.CartItem{}).
+
+	err = h.db.Model(&domain.CartItem{}).
 		Count(&totalCount).
 		Preload("Product", func(db *gorm.DB) *gorm.DB {
 			return db.Preload("ProductUnits")
 		}).
-		Where("sale_id = ? AND is_drafted = false", c.Query("sale_id")).
+		Where("sale_id = ? AND is_drafted = false AND status = 'pending'", c.Query("sale_id")).
 		Limit(limit).
 		Offset(offset).
 		Order("created_at desc").
-		Find(&body).Error; err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		Find(&body).Error
+
+	if err != nil {
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	if err = h.db.Model(&domain.CartItem{}).
+	err = h.db.Model(&domain.CartItem{}).
 		Select("SUM(total_price) as total_price, SUM(discount_amount) as discount_amount").
 		Where("sale_id = ?", c.Query("sale_id")).
-		Scan(&sumResult).Error; err != nil {
+		Scan(&sumResult).Error
+
+	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -288,7 +300,7 @@ func (h *CartItemHandler) Delete(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, nil)
+	handleResponse(c, OK, "DELETED")
 }
 
 // MultipleDelete godoc
@@ -309,7 +321,7 @@ func (h *CartItemHandler) MultipleDelete(c *gin.Context) {
 		err  error
 	)
 	if err = c.ShouldBindJSON(&body); err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err.Error()))
+		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
@@ -317,9 +329,9 @@ func (h *CartItemHandler) MultipleDelete(c *gin.Context) {
 	err = h.db.Delete(&domain.CartItem{}, "id in (?)", body.Ids).Error
 
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err.Error()))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, nil)
+	handleResponse(c, OK, "DELETED")
 }
