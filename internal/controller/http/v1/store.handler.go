@@ -126,7 +126,7 @@ func (h *StoreHandler) List(c *gin.Context) {
 	)
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
@@ -142,8 +142,6 @@ func (h *StoreHandler) List(c *gin.Context) {
 					COALESCE(sp.small_quantity, 0) as small_quantity
 				`).
 			Joins("LEFT JOIN store_products sp ON stores.id = sp.store_id AND sp.product_id = ?", productID)
-	} else {
-		query = query.Select("stores.*")
 	}
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
@@ -165,7 +163,7 @@ func (h *StoreHandler) List(c *gin.Context) {
 		Find(&res).Error
 
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
