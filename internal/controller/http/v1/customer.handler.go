@@ -65,6 +65,7 @@ func (h *CustomerHandler) Create(c *gin.Context) {
 	body.Id = uuid.New().String()
 	body.PublicId = utils.GenerateRandomCode()
 	body.CreatedBy = cast.ToString(createdBy)
+	body.Phone = utils.StringArray(body.Phone)
 	err = h.db.WithContext(c.Request.Context()).
 		Table("customers").
 		Create(&body).Error
