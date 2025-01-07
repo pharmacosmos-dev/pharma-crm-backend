@@ -616,7 +616,7 @@ func (h *ProductHandler) StoreProducts(c *gin.Context) {
 		query = query.Where("products.name ILIKE ? OR products.barcode ILIKE ?", search, search)
 	}
 
-	err = query.Limit(limit).Offset(offset).Find(&res).Error
+	err = query.Limit(limit).Offset(offset).Debug().Find(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())

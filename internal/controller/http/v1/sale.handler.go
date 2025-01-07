@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
+	"github.com/spf13/cast"
 	"gorm.io/gorm"
 )
 
@@ -261,6 +262,11 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	userID, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
 
 	err = h.db.Where("sale_id = ?", body.SaleID).
 		Table("cart_items").Find(&res).Error
@@ -296,7 +302,23 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, "COMPLETED")
+
+	newSale := domain.SaleRequest{
+		ID:         uuid.New().String(),
+		EmployeeID: cast.ToString(userID),
+		SaleNumber: utils.GenerateCode(),
+		CashBoxId:  body.CashBoxID,
+	}
+	err = h.db.
+		WithContext(c.Request.Context()).
+		Table("sales").
+		Create(&newSale).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, newSale.ID)
 }
 
 // CheckSale
