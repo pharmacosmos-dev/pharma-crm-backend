@@ -244,6 +244,7 @@ func (h *ImportHandler) ListImportDetail(c *gin.Context) {
 		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).
+		Order("accepted_count DESC").
 		Find(&importDetails).Error
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())

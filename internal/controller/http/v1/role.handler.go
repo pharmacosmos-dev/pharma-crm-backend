@@ -45,7 +45,6 @@ func (h *RoleHandler) RoleRoutes(r *gin.RouterGroup) {
 func (h *RoleHandler) Create(c *gin.Context) {
 	var (
 		body            domain.RoleRequest
-		role            domain.Role
 		permissions     []domain.Permission
 		rolePermissions []domain.RolePermission
 		err             error
@@ -62,14 +61,15 @@ func (h *RoleHandler) Create(c *gin.Context) {
 	err = h.db.
 		WithContext(c.Request.Context()).
 		Table("roles").
-		Create(&body).
-		Scan(&role).Error
+		Create(&body).Error
 	if err != nil {
 		h.log.Error("ERROR on creating role: ", err.Error())
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	err = h.db.Model(&domain.Permission{}).Find(&permissions).Error
+	err = h.db.
+		Model(&domain.Permission{}).
+		Find(&permissions).Error
 	if err != nil {
 		h.log.Error("ERROR on getting permissions: ", err.Error())
 		handleResponse(c, InternalError, err.Error())
@@ -78,7 +78,7 @@ func (h *RoleHandler) Create(c *gin.Context) {
 	for i := range permissions {
 		rolePermissions = append(rolePermissions, domain.RolePermission{
 			ID:           uuid.New().String(),
-			RoleID:       role.Id,
+			RoleID:       body.Id,
 			PermissionID: permissions[i].Id,
 			IsActive:     false,
 			CreatedAt:    nil,
