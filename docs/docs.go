@@ -3321,6 +3321,64 @@ const docTemplate = `{
                 }
             }
         },
+        "/import-detail/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update an import detail from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "import_details"
+                ],
+                "summary": "Update an import detail",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "import detail ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Import detail information",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.ImportUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/import/list": {
             "get": {
                 "security": [
@@ -7212,6 +7270,14 @@ const docTemplate = `{
                 },
                 "store_id": {
                     "type": "string"
+                }
+            }
+        },
+        "domain.ImportUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "scanned_count": {
+                    "type": "integer"
                 }
             }
         },

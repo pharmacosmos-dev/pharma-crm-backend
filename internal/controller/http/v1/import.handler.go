@@ -36,6 +36,7 @@ func (h *ImportHandler) ImportRoutes(r *gin.RouterGroup) {
 		importDetail.PATCH("/cancel-all/:id", h.CancelImport)
 		importDetail.PATCH("/accept-some/:id", h.AcceptSomeImport)
 		importDetail.GET("/get-stock-status-counts/:id", h.GetStockStatusCounts)
+		importDetail.PUT("/:id", h.UpdateImportDetail)
 	}
 }
 
@@ -318,6 +319,43 @@ func (h *ImportHandler) AddScann(c *gin.Context) {
 	handleResponse(c, OK, map[string]interface{}{
 		"surplus": surplus,
 	})
+}
+
+// UpdateImportDetail
+// @Summary Update an import detail
+// @Description Update an import detail from the request body
+// @Tags import_details
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "import detail ID"
+// @Param input body domain.ImportUpdateRequest true "Import detail information"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /import-detail/{id} [PUT]
+func (h *ImportHandler) UpdateImportDetail(c *gin.Context) {
+	var (
+		id   = c.Param("id")
+		body domain.ImportUpdateRequest
+	)
+
+	if err := c.ShouldBindJSON(&body); err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	err := h.db.
+		WithContext(c.Request.Context()).
+		Table("import_details").
+		Where("id = ?", id).
+		Update("accepted_count", body.ScannedCount).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, "UPDATED")
 }
 
 // AcceptImport

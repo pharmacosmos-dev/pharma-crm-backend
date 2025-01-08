@@ -278,6 +278,11 @@ definitions:
       store_id:
         type: string
     type: object
+  domain.ImportUpdateRequest:
+    properties:
+      scanned_count:
+        type: integer
+    type: object
   domain.Login:
     properties:
       password:
@@ -2603,6 +2608,43 @@ paths:
       security:
       - BearerAuth: []
       summary: Create an import detail
+      tags:
+      - import_details
+  /import-detail/{id}:
+    put:
+      consumes:
+      - application/json
+      description: Update an import detail from the request body
+      parameters:
+      - description: import detail ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Import detail information
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.ImportUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update an import detail
       tags:
       - import_details
   /import-detail/accept-all/{id}:
