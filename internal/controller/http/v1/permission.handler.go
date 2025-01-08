@@ -52,7 +52,6 @@ func (h *PermissionHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-
 	// Generate a new UUID for the record
 	body.Id = uuid.New().String()
 	body.Method = utils.StringArray(body.Method)
