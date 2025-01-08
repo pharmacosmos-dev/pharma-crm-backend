@@ -261,7 +261,14 @@ func (h *RoleHandler) Update(c *gin.Context) {
 // @Router /role/{id} [delete]
 func (h *RoleHandler) Delete(c *gin.Context) {
 	var id = c.Param("id")
-	err := h.db.
+	err := h.db.WithContext(c.Request.Context()).
+		Delete(&domain.RolePermission{}, "role_id = ?", id).Error
+	if err != nil {
+		h.log.Error(err.Error())
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	err = h.db.
 		WithContext(c.Request.Context()).
 		Delete(&domain.Role{}, "id = ?", id).Error
 	if err != nil {
@@ -294,7 +301,17 @@ func (h *RoleHandler) MultipleDelete(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	err = h.db.Table("roles").Where("id IN (?)", ids).Updates(map[string]interface{}{"status": 2}).Error
+	err = h.db.
+		WithContext(c.Request.Context()).
+		Delete(&domain.RolePermission{}, "role_id IN (?)", ids).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	err = h.db.
+		Table("roles").Where("id IN (?)", ids).
+		Updates(map[string]interface{}{"status": 2}).Error
 	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())

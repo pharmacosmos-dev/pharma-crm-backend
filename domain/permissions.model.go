@@ -30,6 +30,7 @@ type PermissionRequest struct {
 	Description string            `gorm:"description" json:"description"`
 	Method      utils.StringArray `gorm:"type:text[]" json:"method"`
 	ParentId    *string           `gorm:"parent_id" json:"parent_id,omitempty"`
+	Key         string            `gorm:"key" json:"key"`
 }
 
 // RolePermission structure for using attech permission to role
