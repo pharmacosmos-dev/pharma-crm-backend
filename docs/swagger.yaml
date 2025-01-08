@@ -568,6 +568,17 @@ definitions:
           $ref: '#/definitions/domain.RolePermissionReq'
         type: array
     type: object
+  domain.RoleUpdateRequest:
+    properties:
+      description:
+        type: string
+      name:
+        type: string
+      permissions:
+        items:
+          $ref: '#/definitions/domain.RolePermissionReq'
+        type: array
+    type: object
   domain.SalePaymentRequest:
     properties:
       amount:
@@ -3410,6 +3421,31 @@ paths:
       summary: List Permission
       tags:
       - Permission
+  /permission/list-parents:
+    get:
+      consumes:
+      - application/json
+      description: List Permission
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: List Permission
+      tags:
+      - Permission
   /permission/role/{role_id}:
     get:
       consumes:
@@ -3972,7 +4008,7 @@ paths:
         name: role
         required: true
         schema:
-          $ref: '#/definitions/domain.RoleRequest'
+          $ref: '#/definitions/domain.RoleUpdateRequest'
       produces:
       - application/json
       responses:

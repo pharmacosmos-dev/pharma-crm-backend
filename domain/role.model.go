@@ -21,6 +21,13 @@ type RoleRequest struct {
 	Permissions []RolePermissionReq `json:"permissions"`
 }
 
+// RoleUpdateRequest structure for update
+type RoleUpdateRequest struct {
+	Name        string              `gorm:"name" json:"name"`
+	Description string              `gorm:"description" json:"description"`
+	Permissions []RolePermissionReq `gorm:"-" json:"permissions"`
+}
+
 // RolePermissionRequest structure for create, update
 type RolePermissionReq struct {
 	RoleID       string   `gorm:"role_id" json:"-"`

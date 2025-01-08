@@ -4113,6 +4113,46 @@ const docTemplate = `{
                 }
             }
         },
+        "/permission/list-parents": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "List Permission",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Permission"
+                ],
+                "summary": "List Permission",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/permission/role/{role_id}": {
             "get": {
                 "security": [
@@ -5225,7 +5265,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.RoleRequest"
+                            "$ref": "#/definitions/domain.RoleUpdateRequest"
                         }
                     }
                 ],
@@ -7698,6 +7738,23 @@ const docTemplate = `{
             }
         },
         "domain.RoleRequest": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "permissions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.RolePermissionReq"
+                    }
+                }
+            }
+        },
+        "domain.RoleUpdateRequest": {
             "type": "object",
             "properties": {
                 "description": {

@@ -181,15 +181,17 @@ func (h *RoleHandler) List(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path string true "role ID"
-// @Param role body domain.RoleRequest true "Role information"
+// @Param role body domain.RoleUpdateRequest true "Role information"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /role/{id} [put]
 func (h *RoleHandler) Update(c *gin.Context) {
 	var (
-		body domain.RoleRequest
-		err  error
+		body            domain.RoleUpdateRequest
+		rolePermissions []domain.RolePermission
+		id              = c.Param("id")
+		err             error
 	)
 	err = c.ShouldBindJSON(&body)
 	if err != nil {
@@ -198,15 +200,51 @@ func (h *RoleHandler) Update(c *gin.Context) {
 		return
 	}
 	err = h.db.WithContext(c.Request.Context()).
-		Model(&domain.Role{}).
-		Where("id = ?", c.Param("id")).
+		Table("roles").
+		Where("id = ?", id).
 		Updates(&body).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, body)
+	err = h.db.
+		WithContext(c.Request.Context()).
+		Delete(&domain.RolePermission{}, "role_id = ?", id).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	for _, perm := range body.Permissions {
+		rolePermissions = append(rolePermissions, domain.RolePermission{
+			ID:           uuid.New().String(),
+			PermissionID: perm.PermissionId,
+			RoleID:       id,
+			IsActive:     perm.IsActive,
+		})
+		if len(perm.ChildIds) > 0 {
+			for _, j := range perm.ChildIds {
+				rolePermissions = append(rolePermissions, domain.RolePermission{
+					ID:           uuid.New().String(),
+					RoleID:       id,
+					PermissionID: j,
+					IsActive:     perm.IsActive,
+				})
+			}
+		}
+	}
+
+	err = h.db.
+		WithContext(c.Request.Context()).
+		Table("role_permissions").
+		Create(&rolePermissions).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, "UPDATED")
 }
 
 // Delete godoc
