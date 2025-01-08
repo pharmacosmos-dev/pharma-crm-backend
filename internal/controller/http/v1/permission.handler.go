@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
 )
 
@@ -53,11 +54,12 @@ func (h *PermissionHandler) Create(c *gin.Context) {
 
 	// Generate a new UUID for the record
 	body.Id = uuid.New().String()
+	body.Method = utils.StringArray(body.Method)
 	err = h.db.WithContext(c.Request.Context()).
 		Table("permissions").
 		Create(&body).Error
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}

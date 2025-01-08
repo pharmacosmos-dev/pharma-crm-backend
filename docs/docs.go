@@ -7337,14 +7337,17 @@ const docTemplate = `{
         "domain.PermissionRequest": {
             "type": "object",
             "properties": {
-                "action": {
-                    "type": "string"
-                },
                 "description": {
                     "type": "string"
                 },
                 "entity_name": {
                     "type": "string"
+                },
+                "method": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "parent_id": {
                     "type": "string"

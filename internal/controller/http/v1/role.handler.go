@@ -45,7 +45,6 @@ func (h *RoleHandler) RoleRoutes(r *gin.RouterGroup) {
 func (h *RoleHandler) Create(c *gin.Context) {
 	var (
 		body            domain.RoleRequest
-		permissions     []domain.Permission
 		rolePermissions []domain.RolePermission
 		err             error
 	)
@@ -58,61 +57,46 @@ func (h *RoleHandler) Create(c *gin.Context) {
 
 	body.Id = uuid.New().String()
 	body.PublicId = utils.GenerateRandomCode()
+
 	err = h.db.
 		WithContext(c.Request.Context()).
 		Table("roles").
 		Create(&body).Error
 	if err != nil {
-		h.log.Error("ERROR on creating role: ", err.Error())
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	err = h.db.
-		Model(&domain.Permission{}).
-		Find(&permissions).Error
-	if err != nil {
-		h.log.Error("ERROR on getting permissions: ", err.Error())
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	for i := range permissions {
+
+	for _, i := range body.Permissions {
 		rolePermissions = append(rolePermissions, domain.RolePermission{
 			ID:           uuid.New().String(),
 			RoleID:       body.Id,
-			PermissionID: permissions[i].Id,
-			IsActive:     false,
+			PermissionID: i.PermissionId,
+			IsActive:     i.IsActive,
 			CreatedAt:    nil,
 			UpdatedAt:    nil,
 		})
+		if len(i.ChildIds) > 0 {
+			for _, j := range i.ChildIds {
+				rolePermissions = append(rolePermissions, domain.RolePermission{
+					ID:           uuid.New().String(),
+					RoleID:       body.Id,
+					PermissionID: j,
+					IsActive:     i.IsActive,
+					CreatedAt:    nil,
+					UpdatedAt:    nil,
+				})
+			}
+		}
 	}
 	err = h.db.
 		WithContext(c.Request.Context()).
 		Create(&rolePermissions).Error
 	if err != nil {
-		h.log.Error("ERROR on creating role permissions: ", err.Error())
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
-	}
-	if len(body.Permissions) > 0 {
-		var Ids []string
-		for _, permission := range body.Permissions {
-			Ids = append(Ids, permission.PermissionId)
-			Ids = append(Ids, permission.ChildIds...)
-		}
-		if len(Ids) > 0 {
-			err = h.db.
-				WithContext(c.Request.Context()).
-				Table("role_permissions").
-				Where("permission_id IN (?)", Ids).
-				Updates(&map[string]interface{}{
-					"is_active": true,
-				}).Error
-			if err != nil {
-				h.log.Warn("ERROR on creating role permissions: %v", err)
-				handleResponse(c, InternalError, err.Error())
-				return
-			}
-		}
 	}
 	handleResponse(c, CREATED, "CREATED")
 }

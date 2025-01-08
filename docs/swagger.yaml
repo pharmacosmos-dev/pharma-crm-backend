@@ -320,12 +320,14 @@ definitions:
     type: object
   domain.PermissionRequest:
     properties:
-      action:
-        type: string
       description:
         type: string
       entity_name:
         type: string
+      method:
+        items:
+          type: string
+        type: array
       parent_id:
         type: string
       route:
