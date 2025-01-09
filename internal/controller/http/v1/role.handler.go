@@ -227,6 +227,7 @@ func (h *RoleHandler) Update(c *gin.Context) {
 				IsActive:     perm.IsActive,
 			})
 			if len(perm.ChildIds) > 0 {
+				fmt.Println("====>>> ", perm.ChildIds)
 				for _, j := range perm.ChildIds {
 					rolePermissions = append(rolePermissions, domain.RolePermission{
 						ID:           uuid.New().String(),

@@ -200,8 +200,10 @@ definitions:
         type: string
       phone:
         type: string
-      role_id:
-        type: string
+      role_ids:
+        items:
+          type: string
+        type: array
       store_id:
         type: string
     type: object
@@ -323,6 +325,8 @@ definitions:
       description:
         type: string
       entity_name:
+        type: string
+      key:
         type: string
       method:
         items:

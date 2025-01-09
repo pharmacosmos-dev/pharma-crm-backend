@@ -71,6 +71,24 @@ func (h *EmployeeHandler) Create(c *gin.Context) {
 	body.Id = uuid.New().String()
 	body.Status = "active"
 	body.PublicId = utils.GenerateRandomCode()
+	// create employee_roles
+	if len(body.RoleIds) > 0 {
+		var employeeRoles []domain.EmployeeRole
+		for _, roleId := range body.RoleIds {
+			employeeRoles = append(employeeRoles, domain.EmployeeRole{
+				Id:         uuid.New().String(),
+				EmployeeId: body.Id,
+				RoleId:     roleId,
+			})
+		}
+		err = h.db.WithContext(c.Request.Context()).Create(&employeeRoles).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+	}
+	// create employee 
 	err = h.db.
 		WithContext(c.Request.Context()).
 		Table("employees").
@@ -209,6 +227,29 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 
 	if body.Password != nil {
 		*body.Password, err = etc.Encrypt(*body.Password, h.cfg.HeshKey)
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+	}
+	if len(body.RoleIds) > 0 {
+		err = h.db.WithContext(c.Request.Context()).
+			Delete(&domain.EmployeeRole{}, "employee_id = ?", id).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+		var employeeRoles []domain.EmployeeRole
+		for _, roleId := range body.RoleIds {
+			employeeRoles = append(employeeRoles, domain.EmployeeRole{
+				Id:         uuid.New().String(),
+				EmployeeId: id,
+				RoleId:     roleId,
+			})
+		}
+		err = h.db.WithContext(c.Request.Context()).Create(&employeeRoles).Error
 		if err != nil {
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())

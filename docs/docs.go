@@ -7192,8 +7192,11 @@ const docTemplate = `{
                 "phone": {
                     "type": "string"
                 },
-                "role_id": {
-                    "type": "string"
+                "role_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "store_id": {
                     "type": "string"
@@ -7381,6 +7384,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "entity_name": {
+                    "type": "string"
+                },
+                "key": {
                     "type": "string"
                 },
                 "method": {
