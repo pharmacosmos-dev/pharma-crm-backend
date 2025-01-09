@@ -67,37 +67,39 @@ func (h *RoleHandler) Create(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-
-	for _, i := range body.Permissions {
-		rolePermissions = append(rolePermissions, domain.RolePermission{
-			ID:           uuid.New().String(),
-			RoleID:       body.Id,
-			PermissionID: i.PermissionId,
-			IsActive:     i.IsActive,
-			CreatedAt:    nil,
-			UpdatedAt:    nil,
-		})
-		if len(i.ChildIds) > 0 {
-			for _, j := range i.ChildIds {
-				rolePermissions = append(rolePermissions, domain.RolePermission{
-					ID:           uuid.New().String(),
-					RoleID:       body.Id,
-					PermissionID: j,
-					IsActive:     true,
-					CreatedAt:    nil,
-					UpdatedAt:    nil,
-				})
+	if len(body.Permissions) > 0 {
+		for _, i := range body.Permissions {
+			rolePermissions = append(rolePermissions, domain.RolePermission{
+				ID:           uuid.New().String(),
+				RoleID:       body.Id,
+				PermissionID: i.PermissionId,
+				IsActive:     i.IsActive,
+				CreatedAt:    nil,
+				UpdatedAt:    nil,
+			})
+			if len(i.ChildIds) > 0 {
+				for _, j := range i.ChildIds {
+					rolePermissions = append(rolePermissions, domain.RolePermission{
+						ID:           uuid.New().String(),
+						RoleID:       body.Id,
+						PermissionID: j,
+						IsActive:     true,
+						CreatedAt:    nil,
+						UpdatedAt:    nil,
+					})
+				}
 			}
 		}
+		err = h.db.
+			WithContext(c.Request.Context()).
+			Create(&rolePermissions).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
 	}
-	err = h.db.
-		WithContext(c.Request.Context()).
-		Create(&rolePermissions).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
+
 	handleResponse(c, CREATED, "CREATED")
 }
 
@@ -216,34 +218,36 @@ func (h *RoleHandler) Update(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	for _, perm := range body.Permissions {
-		rolePermissions = append(rolePermissions, domain.RolePermission{
-			ID:           uuid.New().String(),
-			PermissionID: perm.PermissionId,
-			RoleID:       id,
-			IsActive:     perm.IsActive,
-		})
-		if len(perm.ChildIds) > 0 {
-			for _, j := range perm.ChildIds {
-				rolePermissions = append(rolePermissions, domain.RolePermission{
-					ID:           uuid.New().String(),
-					RoleID:       id,
-					PermissionID: j,
-					IsActive:     true,
-				})
+	if len(body.Permissions) > 0 {
+		for _, perm := range body.Permissions {
+			rolePermissions = append(rolePermissions, domain.RolePermission{
+				ID:           uuid.New().String(),
+				PermissionID: perm.PermissionId,
+				RoleID:       id,
+				IsActive:     perm.IsActive,
+			})
+			if len(perm.ChildIds) > 0 {
+				for _, j := range perm.ChildIds {
+					rolePermissions = append(rolePermissions, domain.RolePermission{
+						ID:           uuid.New().String(),
+						RoleID:       id,
+						PermissionID: j,
+						IsActive:     true,
+					})
+				}
 			}
+		}
+		err = h.db.
+			WithContext(c.Request.Context()).
+			Table("role_permissions").
+			Create(&rolePermissions).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
 		}
 	}
 
-	err = h.db.
-		WithContext(c.Request.Context()).
-		Table("role_permissions").
-		Create(&rolePermissions).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
 	handleResponse(c, OK, "UPDATED")
 }
 
