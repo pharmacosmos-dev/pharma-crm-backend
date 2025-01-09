@@ -57,14 +57,14 @@ func (h *AuthHandler) Login(c *gin.Context) {
 			handleResponse(c, NotFound, "User not found")
 			return
 		}
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
 	oldPassword, err := etc.Decrypt(res.Password, h.cfg.HeshKey)
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -75,14 +75,13 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	m := map[string]interface{}{
 		"user_id": res.Id,
-		"role_id": "",
 	}
 	refreshClaims := map[string]interface{}{
 		"user_id": res.Id,
 	}
 	accessToken, refreshToken, err := h.JwtHandler.GenerateTokens(m, refreshClaims)
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}

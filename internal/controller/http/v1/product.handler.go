@@ -206,6 +206,12 @@ func (h *ProductHandler) List(c *gin.Context) {
 		Preload("Categories").
 		Joins("LEFT JOIN category_products ON category_products.product_id = products.id").
 		Joins("LEFT JOIN categories ON categories.id = category_products.category_id")
+
+	if storeIDParam != "" {
+		query = query.
+			Joins("JOIN store_products ON store_products.product_id = products.id").
+			Where("store_products.store_id = ?", storeIDParam)
+	}
 	if status != "" {
 		switch status {
 		case "active":
@@ -217,14 +223,12 @@ func (h *ProductHandler) List(c *gin.Context) {
 		case "zero-stock":
 			query = query.Where("products.quantity = ?", 0)
 		case "expired":
-			query = query.Where("products.expire_date < ?", time.Now())
+			query = query.Where("products.expire_date < ?", time.Now().Add(time.Hour*5))
 		case "imminent":
 			query = query.Where("products.expire_date BETWEEN ? AND ?", time.Now(), time.Now().AddDate(0, 0, 10))
 		}
 	}
-	if storeIDParam != "" {
-		query = query.Where("products.store_id = ?", storeIDParam)
-	}
+
 	if searchField != "" {
 		searchField = fmt.Sprintf("%%%s%%", searchField)
 		query = query.Where("products.name ILIKE ? OR products.barcode ILIKE ?", searchField, searchField)

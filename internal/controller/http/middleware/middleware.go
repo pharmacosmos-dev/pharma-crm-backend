@@ -71,7 +71,6 @@ func (a *MiddlewareHandler) CheckPermission(c *gin.Context) (bool, error) {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization format"})
 		return false, nil
 	}
-	// fmt.Println("===>>> ", claims["user_id"])
 	// var user domain.Employee
 	// if err := a.db.First(&user, "id = ?", claims["user_id"]).Error; err != nil {
 	// 	c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization format"})
@@ -82,7 +81,6 @@ func (a *MiddlewareHandler) CheckPermission(c *gin.Context) (bool, error) {
 	// 	return false, nil
 	// }
 	c.Set("user_id", claims["user_id"])
-	// c.Set("role_id", claims["role_id"])
 
 	return true, nil
 }
