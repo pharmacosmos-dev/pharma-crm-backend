@@ -83,7 +83,7 @@ func (h *RoleHandler) Create(c *gin.Context) {
 					ID:           uuid.New().String(),
 					RoleID:       body.Id,
 					PermissionID: j,
-					IsActive:     i.IsActive,
+					IsActive:     true,
 					CreatedAt:    nil,
 					UpdatedAt:    nil,
 				})
@@ -229,7 +229,7 @@ func (h *RoleHandler) Update(c *gin.Context) {
 					ID:           uuid.New().String(),
 					RoleID:       id,
 					PermissionID: j,
-					IsActive:     perm.IsActive,
+					IsActive:     true,
 				})
 			}
 		}

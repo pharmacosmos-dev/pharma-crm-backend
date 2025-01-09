@@ -55,7 +55,7 @@ func (h *PermissionHandler) Create(c *gin.Context) {
 	// Generate a new UUID for the record
 	body.Id = uuid.New().String()
 	body.Method = utils.StringArray(body.Method)
-	if body.ParentId == nil {
+	if body.ParentId == nil && body.Key == "" {
 		body.Key = body.EntityName
 	}
 	err = h.db.WithContext(c.Request.Context()).
