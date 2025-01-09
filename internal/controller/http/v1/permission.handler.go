@@ -236,9 +236,14 @@ func (h *PermissionHandler) GetPermissionsByRoleID(c *gin.Context) {
 // @Router /permission/list-parents [GET]
 func (h *PermissionHandler) ListParents(c *gin.Context) {
 	var res []domain.Permission
-	err := h.db.Find(&res, "parent_id IS NULL").Error
+	err := h.db.Model(&domain.Permission{}).
+		Select("permissions.*").
+		Joins("JOIN permissions p ON permissions.parent_id = p.id").
+		Where("p.type = 'MODULE'").
+		Debug().
+		Find(&res).Error
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
