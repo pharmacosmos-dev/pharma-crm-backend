@@ -111,30 +111,41 @@ func (h *PermissionHandler) List(c *gin.Context) {
 		res    []domain.MainPermission
 		roleID = c.Query("role_id")
 	)
-	// Start the query
+
+	// Base query for parent permissions
 	query := h.db.Table("permissions").
 		Where("permissions.parent_id IS NULL").
-		Preload("Permissions.Children")
-
-	if roleID != "" {
-		query = query.Preload("Permissions", func(db *gorm.DB) *gorm.DB {
-			return db.
-				Select(`
-					permissions.*, 
-					COALESCE(role_permissions.is_active, false) AS is_active
-				`).
-				Joins(`
-					LEFT JOIN role_permissions 
-					ON role_permissions.permission_id = permissions.id 
-					AND role_permissions.role_id = ?
-				`, roleID)
+		Preload("Permissions", func(db *gorm.DB) *gorm.DB {
+			// Preload Permissions (children of MainPermission)
+			if roleID != "" {
+				return db.Select(`
+						permissions.*, 
+						COALESCE(role_permissions.is_active, false) AS is_active
+					`).
+					Joins(`
+						LEFT JOIN role_permissions 
+						ON role_permissions.permission_id = permissions.id 
+						AND role_permissions.role_id = ?
+					`, roleID).
+					Preload("Children", func(childDB *gorm.DB) *gorm.DB {
+						// Preload Children of Permissions
+						return childDB.Select(`
+								permissions.*, 
+								COALESCE(role_permissions.is_active, false) AS is_active
+							`).
+							Joins(`
+								LEFT JOIN role_permissions 
+								ON role_permissions.permission_id = permissions.id 
+								AND role_permissions.role_id = ?
+							`, roleID)
+					})
+			}
+			// Default Preload without role_id
+			return db.Preload("Children")
 		})
-	} else {
-		query = query.Preload("Permissions")
-	}
 
 	// Execute the query
-	err := query.Find(&res).Error
+	err := query.Debug().Find(&res).Error
 
 	if err != nil {
 		h.log.Error(err)

@@ -35,7 +35,7 @@ type PermissionRequest struct {
 
 // RolePermission structure for using attech permission to role
 type RolePermission struct {
-	ID           string     `gorm:"id" json:"id"`
+	ID           string     `gorm:"type:uuid;default:gen_random_uuid()" json:"id"`
 	PermissionID string     `gorm:"permission_id" json:"permission_id"`
 	RoleID       string     `gorm:"role_id" json:"role_id"`
 	IsActive     bool       `gorm:"is_active" json:"is_active"`

@@ -221,16 +221,13 @@ func (h *RoleHandler) Update(c *gin.Context) {
 	if len(body.Permissions) > 0 {
 		for _, perm := range body.Permissions {
 			rolePermissions = append(rolePermissions, domain.RolePermission{
-				ID:           uuid.New().String(),
 				PermissionID: perm.PermissionId,
 				RoleID:       id,
 				IsActive:     perm.IsActive,
 			})
 			if len(perm.ChildIds) > 0 {
-				fmt.Println("====>>> ", perm.ChildIds)
 				for _, j := range perm.ChildIds {
 					rolePermissions = append(rolePermissions, domain.RolePermission{
-						ID:           uuid.New().String(),
 						RoleID:       id,
 						PermissionID: j,
 						IsActive:     true,
@@ -238,6 +235,7 @@ func (h *RoleHandler) Update(c *gin.Context) {
 				}
 			}
 		}
+
 		err = h.db.
 			WithContext(c.Request.Context()).
 			Table("role_permissions").

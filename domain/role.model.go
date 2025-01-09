@@ -33,5 +33,5 @@ type RolePermissionReq struct {
 	RoleID       string   `gorm:"role_id" json:"-"`
 	PermissionId string   `gorm:"permission_id" json:"parent_id"`
 	IsActive     bool     `gorm:"is_active" json:"is_active"`
-	ChildIds     []string `json:"child_ids"`
+	ChildIds     []string `json:"children_ids"`
 }
