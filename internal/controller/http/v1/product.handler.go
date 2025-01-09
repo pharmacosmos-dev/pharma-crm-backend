@@ -34,12 +34,13 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.GET("/:id", h.Get)
 		product.GET("/list", h.List)
 		product.PUT("/:id", h.Update)
-		product.DELETE("/delete", h.MultipleDelete)
 		product.POST("/excel-upload", h.UploadProduct)
 		product.GET("/producer", h.GetProducerList)
 		product.GET("/similar/:id", h.SimilarProducts)
-		product.GET("/store/:id", h.StoreProducts)
+		product.GET("/store/:id", h.ListByStoreId)
 		product.GET("/import/:id", h.GetProductImports)
+		product.DELETE("/hard-delete", h.HardDelete)
+		product.DELETE("/soft-delete", h.SoftDelete)
 	}
 }
 
@@ -215,9 +216,9 @@ func (h *ProductHandler) List(c *gin.Context) {
 	if status != "" {
 		switch status {
 		case "active":
-			query = query.Where("products.is_active = ?", true)
+			query = query.Where("products.status = ?", "active")
 		case "inactive":
-			query = query.Where("products.is_active = ?", false)
+			query = query.Where("products.status = ?", "inactive")
 		case "low-stock":
 			query = query.Where("products.quantity <= ?", 10)
 		case "zero-stock":
@@ -227,6 +228,8 @@ func (h *ProductHandler) List(c *gin.Context) {
 		case "imminent":
 			query = query.Where("products.expire_date BETWEEN ? AND ?", time.Now(), time.Now().AddDate(0, 0, 10))
 		}
+	} else {
+		query = query.Where("products.status = ?", "active")
 	}
 
 	if searchField != "" {
@@ -355,40 +358,6 @@ func (h *ProductHandler) Update(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, "UPDATED")
-}
-
-// Get godoc
-// @Summary Delete a product
-// @Description Delete a product from the request body
-// @Tags products
-// @Security     BearerAuth
-// @Accept json
-// @Produce json
-// @Param body 	body []string true "product IDs"
-// @Success 200 {object} v1.Response
-// @Failure 400 {object} v1.Response
-// @Failure 500 {object} v1.Response
-// @Router /product/delete [delete]
-func (h *ProductHandler) MultipleDelete(c *gin.Context) {
-	var ids []string
-	err := c.ShouldBindJSON(&ids)
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
-		return
-	}
-	err = h.db.
-		WithContext(c.Request.Context()).
-		Where("id IN (?)", ids).
-		Updates(map[string]interface{}{
-			"is_active": false,
-			"status":    "deleted"}).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	handleResponse(c, OK, "DELETED")
 }
 
 // Get godoc
@@ -594,7 +563,7 @@ func (h *ProductHandler) SimilarProducts(c *gin.Context) {
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /product/store/{id} [get]
-func (h *ProductHandler) StoreProducts(c *gin.Context) {
+func (h *ProductHandler) ListByStoreId(c *gin.Context) {
 	var (
 		res     []*domain.StoreProduct
 		err     error
@@ -678,6 +647,70 @@ func (h *ProductHandler) GetProductImports(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, res)
+}
+
+// HardDelete godoc
+// @Summary Hard delete a product
+// @Description Hard delete a product
+// @Tags products
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param   ids body []string true "Product IDs"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/hard-delete [delete]
+func (h *ProductHandler) HardDelete(c *gin.Context) {
+	var ids []string
+	err := c.ShouldBindJSON(&ids)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	err = h.db.WithContext(c.Request.Context()).Delete(&domain.Product{}, "id IN (?)", ids).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, "DELETED")
+}
+
+// Get godoc
+// @Summary Soft Delete a product
+// @Description Soft Delete a product from the request body
+// @Tags 	products
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param 	body 	body []string true "product IDs"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/soft-delete [delete]
+func (h *ProductHandler) SoftDelete(c *gin.Context) {
+	var ids []string
+	err := c.ShouldBindJSON(&ids)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	err = h.db.
+		WithContext(c.Request.Context()).
+		Table("products").
+		Where("id IN (?)", ids).
+		Updates(map[string]interface{}{
+			"is_active": false,
+			"status":    "deleted"}).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, "DELETED")
 }
 
 // Helper function to safely parse float values
