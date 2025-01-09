@@ -337,7 +337,7 @@ func (h *EmployeeHandler) GetInfo(c *gin.Context) {
 		return
 	}
 	var res domain.Employee
-	if err := h.db.Preload("Store").Preload("Role").
+	if err := h.db.Preload("Store").
 		First(&res, "id = ?", userID).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			handleResponse(c, OK, nil)
