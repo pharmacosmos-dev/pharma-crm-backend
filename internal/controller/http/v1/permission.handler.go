@@ -119,16 +119,22 @@ func (h *PermissionHandler) List(c *gin.Context) {
 	if roleID != "" {
 		query = query.Preload("Permissions", func(db *gorm.DB) *gorm.DB {
 			return db.
-				Select("permissions.*, role_permissions.is_active AS is_active").
-				Joins("JOIN role_permissions ON role_permissions.permission_id = permissions.id").
-				Where("role_permissions.role_id = ?", roleID)
+				Select(`
+					permissions.*, 
+					COALESCE(role_permissions.is_active, false) AS is_active
+				`).
+				Joins(`
+					LEFT JOIN role_permissions 
+					ON role_permissions.permission_id = permissions.id 
+					AND role_permissions.role_id = ?
+				`, roleID)
 		})
 	} else {
 		query = query.Preload("Permissions")
 	}
 
 	// Execute the query
-	err := query.Debug().Find(&res).Error
+	err := query.Find(&res).Error
 
 	if err != nil {
 		h.log.Error(err)
