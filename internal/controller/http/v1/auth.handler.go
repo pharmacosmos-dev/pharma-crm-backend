@@ -75,7 +75,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	m := map[string]interface{}{
 		"user_id": res.Id,
-		"role_id": res.RoleId,
+		"role_id": "",
 	}
 	refreshClaims := map[string]interface{}{
 		"user_id": res.Id,

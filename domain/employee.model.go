@@ -16,7 +16,6 @@ type LoginResponse struct {
 type Employee struct {
 	Id        string     `gorm:"id" json:"id"`
 	StoreId   string     `gorm:"store_id" json:"store_id"`
-	RoleId    string     `gorm:"role_id" json:"role_id"`
 	PublicId  int        `gorm:"public_id" json:"public_id"`
 	FirstName string     `gorm:"first_name" json:"first_name"`
 	LastName  string     `gorm:"last_name" json:"last_name"`
@@ -31,7 +30,7 @@ type Employee struct {
 	CreatedAt *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt *time.Time `gorm:"updated_at" json:"updated_at"`
 	Store     *Store     `gorm:"foreignKey:StoreId" json:"store"`
-	Role      *Role      `gorm:"foreignKey:RoleId" json:"role"`
+	Roles     []Role     `gorm:"many2many:employee_roles;" json:"roles"` // Many-to-Many relationship
 }
 
 type EmployeeRequest struct {

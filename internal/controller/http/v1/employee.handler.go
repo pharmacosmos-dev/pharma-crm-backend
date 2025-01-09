@@ -71,6 +71,17 @@ func (h *EmployeeHandler) Create(c *gin.Context) {
 	body.Id = uuid.New().String()
 	body.Status = "active"
 	body.PublicId = utils.GenerateRandomCode()
+	// create employee
+	err = h.db.
+		WithContext(c.Request.Context()).
+		Table("employees").
+		Create(&body).Error
+
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
 	// create employee_roles
 	if len(body.RoleIds) > 0 {
 		var employeeRoles []domain.EmployeeRole
@@ -88,17 +99,8 @@ func (h *EmployeeHandler) Create(c *gin.Context) {
 			return
 		}
 	}
-	// create employee 
-	err = h.db.
-		WithContext(c.Request.Context()).
-		Table("employees").
-		Create(&body).Error
-	if err != nil {
-		h.log.Error(err.Error())
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	handleResponse(c, CREATED, body)
+
+	handleResponse(c, CREATED, "CREATED")
 }
 
 // @Summary      Get employee
@@ -116,10 +118,11 @@ func (h *EmployeeHandler) Create(c *gin.Context) {
 // @Router       /employee/{id} [get]
 func (h *EmployeeHandler) Get(c *gin.Context) {
 	var res domain.Employee
+	var id = c.Param("id")
 	if err := h.db.
 		Preload("Store").
-		Preload("Role").
-		First(&res, "id = ?", c.Param("id")).Error; err != nil {
+		Preload("Roles").
+		First(&res, "id = ?", id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			handleResponse(c, NotFound, nil)
 			return
@@ -166,17 +169,20 @@ func (h *EmployeeHandler) List(c *gin.Context) {
 	query := h.db.
 		Model(&domain.Employee{}).
 		Preload("Store").
-		Preload("Role")
-
+		Preload("Roles")
 	if roleId != "" {
-		query = query.Where("role_id = ?", roleId)
+		query = query.Joins("JOIN employee_roles ON employee_roles.employee_id = employees.id").Where("role_id = ?", roleId)
 	}
 	if storeId != "" {
 		query = query.Where("store_id = ?", storeId)
 	}
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
-		query = query.Where("first_name ILIKE ? OR phone LIKE ? OR public_id LIKE ?", search, search, search)
+		query = query.Where(`
+		first_name ILIKE ? 
+		OR 
+		phone LIKE ? OR CAST(public_id AS TEXT) LIKE ?`,
+			search, search, search)
 	}
 	if status != "" {
 		query = query.Where("status = ?", status)

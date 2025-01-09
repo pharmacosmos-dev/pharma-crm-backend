@@ -7,7 +7,6 @@ import (
 	jwtg "github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/config"
-	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/etc"
 	"github.com/pharma-crm-backend/pkg/token"
 	"gorm.io/gorm"
@@ -72,18 +71,18 @@ func (a *MiddlewareHandler) CheckPermission(c *gin.Context) (bool, error) {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization format"})
 		return false, nil
 	}
-
-	var user domain.Employee
-	if err := a.db.First(&user, "id = ?", claims["user_id"]).Error; err != nil {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization format"})
-		return false, nil
-	}
-	if user.RoleId != claims["role_id"] {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization format"})
-		return false, nil
-	}
+	// fmt.Println("===>>> ", claims["user_id"])
+	// var user domain.Employee
+	// if err := a.db.First(&user, "id = ?", claims["user_id"]).Error; err != nil {
+	// 	c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization format"})
+	// 	return false, nil
+	// }
+	// if user.RoleId != claims["role_id"] {
+	// 	c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization format"})
+	// 	return false, nil
+	// }
 	c.Set("user_id", claims["user_id"])
-	c.Set("role_id", claims["role_id"])
+	// c.Set("role_id", claims["role_id"])
 
 	return true, nil
 }
