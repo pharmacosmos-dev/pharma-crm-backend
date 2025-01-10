@@ -12,16 +12,16 @@ import (
 	"github.com/pharma-crm-backend/domain"
 )
 
-type CategoryController struct {
+type CategoryHander struct {
 	*Handler
 }
 
-func (h *Handler) NewCategoryController(r *gin.RouterGroup) {
-	category := &CategoryController{h}
+func (h *Handler) NewCategoryHander(r *gin.RouterGroup) {
+	category := &CategoryHander{h}
 	category.CategoryRoutes(r)
 }
 
-func (h *CategoryController) CategoryRoutes(r *gin.RouterGroup) {
+func (h *CategoryHander) CategoryRoutes(r *gin.RouterGroup) {
 	category := r.Group("/category")
 	{
 		category.POST("", h.Create)
@@ -29,6 +29,7 @@ func (h *CategoryController) CategoryRoutes(r *gin.RouterGroup) {
 		category.PUT("/:id", h.Update)
 		category.GET("/list", h.List)
 		category.DELETE("/:id", h.Delete)
+		category.GET("/list/product/:id", h.ListCategoryByProduct)
 	}
 }
 
@@ -44,7 +45,7 @@ func (h *CategoryController) CategoryRoutes(r *gin.RouterGroup) {
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /category [post]
-func (h *CategoryController) Create(c *gin.Context) {
+func (h *CategoryHander) Create(c *gin.Context) {
 	var (
 		body domain.CategoryRequest
 		err  error
@@ -109,7 +110,7 @@ func (h *CategoryController) Create(c *gin.Context) {
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /category/{id} [put]
-func (h *CategoryController) Update(c *gin.Context) {
+func (h *CategoryHander) Update(c *gin.Context) {
 	var body domain.CategoryUpdateRequest
 
 	// Bind the JSON payload to the body
@@ -166,7 +167,7 @@ func (h *CategoryController) Update(c *gin.Context) {
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /category/{id} [get]
-func (h *CategoryController) Get(c *gin.Context) {
+func (h *CategoryHander) Get(c *gin.Context) {
 	var (
 		res domain.Category
 		id  = c.Param("id")
@@ -204,7 +205,7 @@ func (h *CategoryController) Get(c *gin.Context) {
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /category/list [get]
-func (h *CategoryController) List(c *gin.Context) {
+func (h *CategoryHander) List(c *gin.Context) {
 	var (
 		res       []domain.Category
 		parentID  = c.Query("parent_id")
@@ -235,9 +236,12 @@ func (h *CategoryController) List(c *gin.Context) {
 	}
 
 	// Preload SubCategories recursively
-	query = query.Preload("SubCategories", func(db *gorm.DB) *gorm.DB {
-		return db.Preload("SubCategories")
-	})
+	query = query.
+		Preload("SubCategories", func(db *gorm.DB) *gorm.DB {
+			return db.Preload("SubCategories", func(db *gorm.DB) *gorm.DB {
+				return db.Preload("SubCategories") // Har bir keyingi levelni preload qilish
+			})
+		})
 
 	// Modified recursive CTE to correctly check child categories
 	if productID != "" {
@@ -283,7 +287,7 @@ func (h *CategoryController) List(c *gin.Context) {
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /category/{id} [delete]
-func (h *CategoryController) Delete(c *gin.Context) {
+func (h *CategoryHander) Delete(c *gin.Context) {
 	err := h.db.WithContext(c.Request.Context()).
 		Delete(&domain.Category{}, "id = ?", c.Param("id")).Error
 	if err != nil {
@@ -292,4 +296,52 @@ func (h *CategoryController) Delete(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, "DELETED")
+}
+
+// ListCategoryByProduct godoc
+// @Summary Get a category
+// @Description Get a category from the request body
+// @Tags categories
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "Product ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /list/product/{id} [get]
+func (h *CategoryHander) ListCategoryByProduct(c *gin.Context) {
+	var res []domain.Category
+	var id = c.Param("id")
+
+	err := h.db.
+		Preload("SubCategories", func(db *gorm.DB) *gorm.DB {
+			return db.Preload("SubCategories", func(db *gorm.DB) *gorm.DB {
+				return db.Preload("SubCategories") // Har bir keyingi levelni preload qilish
+			})
+		}).
+		Where("categories.category_id IS NULL").
+		Select("categories.*, COALESCE(cp.is_open, false) AS is_open").
+		Joins("LEFT JOIN category_products cp ON cp.category_id = categories.id AND cp.product_id = ?", id).
+		Find(&res).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	// SubCategories bo‘sh massiv sifatida o‘rnatiladi
+	setEmptySubCategories(res)
+
+	handleResponse(c, OK, res)
+}
+
+// Rekursiv funksiya: har bir SubCategories-ni tekshirib bo‘sh massivni o‘rnatadi
+func setEmptySubCategories(categories []domain.Category) {
+	for i := range categories {
+		if categories[i].SubCategories == nil {
+			categories[i].SubCategories = []domain.Category{}
+		}
+		setEmptySubCategories(categories[i].SubCategories) // Rekursiv chaqiruv
+	}
 }

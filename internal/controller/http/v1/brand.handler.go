@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
@@ -72,9 +74,11 @@ func (b *BrandController) Create(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /brand/{id} [get]
 func (b *BrandController) Get(c *gin.Context) {
-	res := new(domain.Brand)
-	if err := b.db.First(res, "id = ?", c.Param("id")).Error; err != nil {
-		b.log.Error("Error on getting brand: ", err.Error())
+	var res domain.Brand
+	var id = c.Param("id")
+	err := b.db.First(res, "id = ?", id).Error
+	if err != nil {
+		b.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -90,6 +94,7 @@ func (b *BrandController) Get(c *gin.Context) {
 // @Produce json
 // @Param limit query int false "Limit"
 // @Param offset query int false "Offset"
+// @Param search query string false "Search"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -100,9 +105,16 @@ func (b *BrandController) List(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	query := b.db.Model(&domain.Brand{})
+	var search = c.Query("search")
+	if search != "" {
+		search = fmt.Sprintf("%%%s%%", search)
+		query = query.Where("name ILIKE ?", search)
+	}
 	var res []*domain.Brand
-	if err := b.db.Limit(limit).Offset(offset).Find(&res).Error; err != nil {
-		b.log.Error("Error on list brand: ", err.Error())
+	err = query.Limit(limit).Offset(offset).Find(&res).Error
+	if err != nil {
+		b.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -126,17 +138,21 @@ func (b *BrandController) Update(c *gin.Context) {
 	var (
 		brand domain.BrandRequest
 		err   error
+		id    = c.Param("id")
 	)
 
-	if err = c.ShouldBindJSON(&brand); err != nil {
+	err = c.ShouldBindJSON(&brand)
+	if err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	if err = b.db.WithContext(c.Request.Context()).
+	err = b.db.
+		WithContext(c.Request.Context()).
 		Model(&domain.Brand{}).
-		Where("id = ?", c.Param("id")).
-		Updates(&brand).Error; err != nil {
-		b.log.Error("Error on update brand: ", err.Error())
+		Where("id = ?", id).
+		Updates(&brand).Error
+	if err != nil {
+		b.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -146,17 +162,21 @@ func (b *BrandController) Update(c *gin.Context) {
 // Delete godoc
 // @Summary Delete a brand
 // @Description Delete a brand from the request body
-// @Tags brands
+// @Tags 	brands
 // @Security     BearerAuth
-// @Accept json
+// @Accept 	json
 // @Produce json
-// @Param id path string true "brand ID"
+// @Param 	id path string true "brand ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /brand/{id} [delete]
 func (b *BrandController) Delete(c *gin.Context) {
-	if err := b.db.WithContext(c.Request.Context()).Delete(&domain.Brand{}, "id = ?", c.Param("id")).Error; err != nil {
+	var id = c.Param("id")
+	err := b.db.
+		WithContext(c.Request.Context()).
+		Delete(&domain.Brand{}, "id = ?", id).Error
+	if err != nil {
 		b.log.Error("Error on delete brand: ", err.Error())
 		handleResponse(c, InternalError, err.Error())
 		return

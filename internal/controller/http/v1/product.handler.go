@@ -112,6 +112,7 @@ func (h *ProductHandler) Create(c *gin.Context) {
 		for i := range body.CategoryIds {
 			categoryProduct[i].ProductId = body.Id
 			categoryProduct[i].CategoryId = body.CategoryIds[i]
+			categoryProduct[i].IsOpen = true
 		}
 		err = h.db.
 			WithContext(c.Request.Context()).
@@ -667,6 +668,24 @@ func (h *ProductHandler) HardDelete(c *gin.Context) {
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	err = h.db.WithContext(c.Request.Context()).Delete(&domain.CategoryProduct{}, "product_id IN (?)", ids).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	err = h.db.WithContext(c.Request.Context()).Delete(&domain.ProductUnit{}, "product_id IN (?)", ids).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	err = h.db.WithContext(c.Request.Context()).Delete(&domain.StoreProduct{}, "product_id IN (?)", ids).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
 	err = h.db.WithContext(c.Request.Context()).Delete(&domain.Product{}, "id IN (?)", ids).Error

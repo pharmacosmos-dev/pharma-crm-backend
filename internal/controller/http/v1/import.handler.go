@@ -313,7 +313,7 @@ func (h *ImportHandler) AddScann(c *gin.Context) {
 	var surplus = false
 	// Bind the JSON body
 	if err := c.ShouldBindJSON(&body); err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}

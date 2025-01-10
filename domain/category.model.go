@@ -30,4 +30,5 @@ type CategoryUpdateRequest struct {
 type CategoryProduct struct {
 	CategoryId string `gorm:"category_id" json:"category_id"`
 	ProductId  string `gorm:"product_id" json:"product_id"`
+	IsOpen     bool   `gorm:"is_open" json:"is_open"`
 }

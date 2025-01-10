@@ -39,7 +39,7 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 	{
 		h.NewAuthHandler(public)
 		h.NewBrandController(v1)
-		h.NewCategoryController(v1)
+		h.NewCategoryHander(v1)
 		h.NewCustomerHandler(v1)
 		h.NewProductHandler(v1)
 		h.NewStoreHandler(v1)
