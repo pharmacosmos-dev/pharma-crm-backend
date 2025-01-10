@@ -234,17 +234,21 @@ func (h *ImportHandler) CreateImportDetail(c *gin.Context) {
 // @Param 	offset query int false "Offset"
 // @Param   search query string false "Search"
 // @Param   import_id query string true "Import ID"
+// @Param   received_amount_from query int false "Received Amount From"
+// @Param   received_amount_to query int false "Received Amount To"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /import-detail/list [get]
 func (h *ImportHandler) ListImportDetail(c *gin.Context) {
 	var (
-		importDetails []domain.ImportDetail
-		totalCount    int64
-		err           error
-		importId      = c.Query("import_id")
-		search        = c.Query("search")
+		importDetails      []domain.ImportDetail
+		totalCount         int64
+		err                error
+		importId           = c.Query("import_id")
+		search             = c.Query("search")
+		receivedAmountFrom = c.Query("received_amount_from")
+		receivedAmountTo   = c.Query("received_amount_to")
 	)
 
 	// Get pagination parameters
@@ -269,6 +273,12 @@ func (h *ImportHandler) ListImportDetail(c *gin.Context) {
 		products.barcode LIKE ? OR 
 		products.name ILIKE ? OR
 		CAST(products.material_code AS TEXT) LIKE ?`, search, search, search)
+	}
+	if receivedAmountFrom != "" {
+		query = query.Where("import_details.received_amount >= ?", receivedAmountFrom)
+	}
+	if receivedAmountTo != "" {
+		query = query.Where("import_details.received_amount <= ?", receivedAmountTo)
 	}
 	err = query.
 		Count(&totalCount).
