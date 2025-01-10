@@ -157,16 +157,6 @@ type CreateProduct1C struct {
 	Товары []ProductRequest1C `json:"Товары"`
 }
 
-// ProductReceipt structure for 1C API
-type ProductReceipt struct {
-	ID             string     `gorm:"id" json:"id"`
-	DocumentDate   string     `gorm:"document_date" json:"document_date"`
-	DocumentNumber string     `gorm:"document_number" json:"document_number"`
-	StoreCode      int        `gorm:"store_code" json:"store_code"`
-	CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`
-	UpdatedAt      *time.Time `gorm:"updated_at" json:"updated_at"`
-}
-
 // ProductUnits structure
 type ProductUnit struct {
 	ID            string `gorm:"id" json:"id"`

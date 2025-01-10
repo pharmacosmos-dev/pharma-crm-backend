@@ -330,18 +330,5 @@ func (h *CategoryHander) ListCategoryByProduct(c *gin.Context) {
 		return
 	}
 
-	// SubCategories bo‘sh massiv sifatida o‘rnatiladi
-	setEmptySubCategories(res)
-
 	handleResponse(c, OK, res)
-}
-
-// Rekursiv funksiya: har bir SubCategories-ni tekshirib bo‘sh massivni o‘rnatadi
-func setEmptySubCategories(categories []domain.Category) {
-	for i := range categories {
-		if categories[i].SubCategories == nil {
-			categories[i].SubCategories = []domain.Category{}
-		}
-		setEmptySubCategories(categories[i].SubCategories) // Rekursiv chaqiruv
-	}
 }

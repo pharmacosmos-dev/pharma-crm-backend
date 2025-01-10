@@ -205,9 +205,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 	// Build the query
 	query := h.db.Model(&domain.Product{}).
 		Select("products.*, DATE_PART('day', expire_date::timestamp - NOW()) AS expire_day").
-		Preload("Categories").
-		Joins("LEFT JOIN category_products ON category_products.product_id = products.id").
-		Joins("LEFT JOIN categories ON categories.id = category_products.category_id")
+		Preload("Categories")
 
 	if storeIDParam != "" {
 		query = query.
@@ -257,11 +255,11 @@ func (h *ProductHandler) List(c *gin.Context) {
 		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).
-		Order("products.quantity DESC").
+		Order("products.created_at DESC").
 		Find(&res).Error
 	// Handle errors from the query
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
