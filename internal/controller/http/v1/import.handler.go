@@ -108,16 +108,28 @@ func (h *ImportHandler) Get(c *gin.Context) {
 // @Param 	limit query int false "Limit"
 // @Param 	offset query int false "Offset"
 // @Param   search query string false "Search"
+// @Param   store_id query string false "Store ID"
+// @Param   start_date 	query string false "Start Date"
+// @Param   end_date 	query string false "End Date"
+// @Param   status 	query string false "Status"
+// @Param   receive_amount_from 	query int false "Receive Amount From"
+// @Param   receive_amount_to 	query int false "Receive Amount To"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /import/list [get]
 func (h *ImportHandler) List(c *gin.Context) {
 	var (
-		imports    []domain.Import
-		totalCount int64
-		search     = c.Query("search")
-		err        error
+		imports          []domain.Import
+		totalCount       int64
+		search           = c.Query("search")
+		storeID          = c.Query("store_id")
+		startDate        = c.Query("start_date")
+		endDate          = c.Query("end_date")
+		status           = c.Query("status")
+		receivePriceFrom = c.Query("receive_amount_from")
+		receivePriceTo   = c.Query("receive_amount_to")
+		err              error
 	)
 
 	// Get pagination parameters
@@ -140,14 +152,31 @@ func (h *ImportHandler) List(c *gin.Context) {
 			SUM(import_details.accepted_count) as accepted_count
 		`).
 		Joins("LEFT JOIN import_details ON imports.id = import_details.import_id")
+
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
 		query = query.Where(`
 		imports.document_number ILIKE ? OR 
 		CAST(imports.public_id AS TEXT) LIKE ?`, search, search)
-
 	}
-
+	if storeID != "" {
+		query = query.Where("imports.store_id = ?", storeID)
+	}
+	if startDate != "" {
+		query = query.Where("imports.import_date >= ?", startDate)
+	}
+	if endDate != "" {
+		query = query.Where("imports.import_date <= ?", endDate)
+	}
+	if status != "" {
+		query = query.Where("imports.status = ?", status)
+	}
+	if receivePriceFrom != "" {
+		query = query.Where("imports.receive_price >= ?", receivePriceFrom)
+	}
+	if receivePriceTo != "" {
+		query = query.Where("imports.receive_price <= ?", receivePriceTo)
+	}
 	err = query.Group("imports.id").
 		Order("imports.import_date DESC").
 		Count(&totalCount).
