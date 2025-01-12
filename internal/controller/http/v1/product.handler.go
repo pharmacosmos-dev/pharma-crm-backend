@@ -63,7 +63,7 @@ func (h *ProductHandler) Create(c *gin.Context) {
 	)
 	err = c.ShouldBindJSON(&body)
 	if err != nil {
-		h.log.Error(err.Error())
+		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
@@ -96,7 +96,9 @@ func (h *ProductHandler) Create(c *gin.Context) {
 	}
 	if len(body.StoreProduct) > 0 {
 		for i := range body.StoreProduct {
-			body.StoreProduct[i].ProductID = &body.Id
+			if body.StoreProduct[i].Quantity > 0 {
+				body.StoreProduct[i].ProductID = &body.Id
+			}
 		}
 		err = h.db.
 			WithContext(c.Request.Context()).
