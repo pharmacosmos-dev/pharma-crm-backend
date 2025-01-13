@@ -255,12 +255,29 @@ func (h *PermissionHandler) GetPermissionsByRoleID(c *gin.Context) {
 // @Router /permission/list-parents [GET]
 func (h *PermissionHandler) ListParents(c *gin.Context) {
 	var res []domain.Permission
-	err := h.db.Model(&domain.Permission{}).
-		Select("permissions.*").
-		Joins("JOIN permissions p ON permissions.parent_id = p.id").
-		Where("p.type = 'MODULE'").
-		Debug().
-		Find(&res).Error
+	err := h.db.Raw(`
+	WITH parent_permissions AS (
+		SELECT 
+			id, 
+			CAST(entity_name || ' MODULE' AS VARCHAR) AS entity_name, 
+			route, 
+			type, 
+			parent_id, 
+			description, 
+			key, 
+			method, 
+			created_at, 
+			updated_at
+		FROM permissions
+		WHERE type = 'MODULE'
+	)
+	SELECT id, entity_name, route, type, parent_id, description, key, method, created_at, updated_at
+	FROM parent_permissions
+	UNION ALL
+	SELECT id, entity_name, route, type, parent_id, description, key, method, created_at, updated_at
+	FROM permissions
+	WHERE parent_id IN (SELECT id FROM parent_permissions);
+	`).Scan(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())

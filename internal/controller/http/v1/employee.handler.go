@@ -121,13 +121,12 @@ func (h *EmployeeHandler) Get(c *gin.Context) {
 	var id = c.Param("id")
 	if err := h.db.
 		Preload("Store").
-		Preload("Roles").
 		First(&res, "id = ?", id).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, nil)
+			handleResponse(c, NotFound, "Employee not found")
 			return
 		}
-		h.log.Error("err: ", err)
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -168,10 +167,11 @@ func (h *EmployeeHandler) List(c *gin.Context) {
 	}
 	query := h.db.
 		Model(&domain.Employee{}).
-		Preload("Store").
-		Preload("Roles")
+		Preload("Store")
 	if roleId != "" {
-		query = query.Joins("JOIN employee_roles ON employee_roles.employee_id = employees.id").Where("role_id = ?", roleId)
+		query = query.
+			Joins("JOIN employee_roles ON employee_roles.employee_id = employees.id").
+			Where("role_id = ?", roleId)
 	}
 	if storeId != "" {
 		query = query.Where("store_id = ?", storeId)
@@ -363,6 +363,20 @@ func (h *EmployeeHandler) GetInfo(c *gin.Context) {
 		return
 	}
 	res.Permission = permissions
+	var roles []domain.Role
+	err = h.db.Raw(`
+	SELECT 
+		r.*
+	FROM roles r 
+	JOIN employee_roles er ON er.role_id = r.id
+	WHERE er.employee_id = ?
+	`, userID).Scan(&roles).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	res.Role = roles
 	handleResponse(c, OK, res)
 }
 
