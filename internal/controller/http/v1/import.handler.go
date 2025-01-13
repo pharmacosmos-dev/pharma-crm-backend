@@ -58,13 +58,16 @@ func (h *ImportHandler) Create(c *gin.Context) {
 		err  error
 	)
 	body.PublicID = utils.GenerateRandomCode()
-	if err = c.ShouldBindJSON(&body); err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+	err = c.ShouldBindJSON(&body)
+	if err != nil {
+		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	err = h.db.WithContext(c.Request.Context()).
-		Table("imports").Create(&body).Error
+	err = h.db.
+		WithContext(c.Request.Context()).
+		Table("imports").
+		Create(&body).Error
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return

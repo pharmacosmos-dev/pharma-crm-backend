@@ -25,6 +25,7 @@ type StoreRequest struct {
 	EmployeeCount int    `gorm:"employee_count" json:"employee_count"`
 	CashBoxCount  int    `gorm:"cash_box_count" json:"cash_box_count"`
 	StoreCode     int    `gorm:"store_code" json:"store_code"`
+	Location      string `gorm:"location" json:"location"`
 	CreatedBy     string `gorm:"created_by" json:"-"`
 }
 
@@ -36,6 +37,7 @@ type StoreUpdateRequest struct {
 	EmployeeCount int    `gorm:"employee_count" json:"employee_count"`
 	CashBoxCount  int    `gorm:"cash_box_count" json:"cash_box_count"`
 	StoreCode     int    `gorm:"store_code" json:"store_code"`
+	Location      string `gorm:"location" json:"location"`
 	UpdatedBy     string `gorm:"updated_by" json:"-"`
 }
 

@@ -50,7 +50,7 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 		err  error
 	)
 	if err = c.ShouldBindJSON(&body); err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
@@ -96,6 +96,7 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 			Columns:   []clause.Column{{Name: "material_code"}}, // Specify the column(s) to check for conflict
 			DoNothing: true,                                     // Ignore if conflict occurs
 		}).
+		Debug().
 		Create(&body.Товары).Error
 	if err != nil {
 		h.log.Warn("ERROR on creating new product: %v", err.Error())
@@ -117,7 +118,7 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 			Table("import_details").
 			Create(&importDetails).Error
 		if err != nil {
-			h.log.Error(fmt.Errorf("err: %v", err))
+			h.log.Error(err)
 			handleResponse(c, InternalError, "ERROR on creating import details")
 			return
 		}
