@@ -7,7 +7,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
-	"gorm.io/gorm"
 )
 
 type CartItemHandler struct {
@@ -139,9 +138,7 @@ func (h *CartItemHandler) List(c *gin.Context) {
 
 	err = h.db.Model(&domain.CartItem{}).
 		Count(&totalCount).
-		Preload("Product", func(db *gorm.DB) *gorm.DB {
-			return db.Preload("ProductUnits")
-		}).
+		Preload("Product").
 		Where("sale_id = ? AND is_drafted = false AND status = 'pending'", c.Query("sale_id")).
 		Limit(limit).
 		Offset(offset).
