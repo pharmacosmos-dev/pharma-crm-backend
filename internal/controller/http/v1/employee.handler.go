@@ -351,8 +351,17 @@ func (h *EmployeeHandler) GetInfo(c *gin.Context) {
 	var permissions []domain.Permission
 	err := h.db.Raw(`
 	SELECT 
-		p.*
+		p.id, 
+		p.entity_name, 
+		'/' || parent.key || p.route as route,
+		p.type, 
+		p.parent_id, 
+		p.description, 
+		p.method, 
+		p.created_at, 
+		p.updated_at
 	FROM permissions p 
+	JOIN permissions parent ON parent.id = p.parent_id
 	JOIN role_permissions rp ON rp.permission_id = p.id
 	JOIN employee_roles er ON er.role_id = rp.role_id
 	WHERE er.employee_id = ?
