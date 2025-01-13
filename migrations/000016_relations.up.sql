@@ -1,9 +1,3 @@
-ALTER TABLE "products" ADD FOREIGN KEY ("store_id") REFERENCES "stores" ("id");
-
-ALTER TABLE "products" ADD FOREIGN KEY ("brand_id") REFERENCES "brands" ("id");
-
-ALTER TABLE "products" ADD FOREIGN KEY ("supplier_id") REFERENCES "suppliers" ("id");
-
 ALTER TABLE "orders" ADD FOREIGN KEY ("supplier_id") REFERENCES "suppliers" ("id");
 
 ALTER TABLE "orders" ADD FOREIGN KEY ("store_id") REFERENCES "stores" ("id");
@@ -15,8 +9,6 @@ ALTER TABLE "order_products" ADD FOREIGN KEY ("product_id") REFERENCES "products
 ALTER TABLE "order_products" ADD FOREIGN KEY ("order_id") REFERENCES "orders" ("id");
 
 ALTER TABLE "order_products" ADD FOREIGN KEY ("created_by") REFERENCES "employees" ("id");
-
-ALTER TABLE "employees" ADD FOREIGN KEY ("role_id") REFERENCES "roles" ("id");
 
 ALTER TABLE "customers" ADD FOREIGN KEY ("group_id") REFERENCES "groups" ("id");
 

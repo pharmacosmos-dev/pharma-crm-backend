@@ -106,8 +106,6 @@ definitions:
         type: string
       id:
         type: string
-      is_active:
-        type: boolean
       is_open:
         type: boolean
       name:
@@ -339,75 +337,6 @@ definitions:
       type:
         type: string
     type: object
-  domain.Product:
-    properties:
-      barcode:
-        type: string
-      bonus_amount:
-        type: number
-      bonus_percent:
-        type: integer
-      brand_id:
-        type: string
-      categories:
-        items:
-          $ref: '#/definitions/domain.Category'
-        type: array
-      created_at:
-        type: string
-      description:
-        type: string
-      expire_date:
-        type: string
-      expire_day:
-        type: integer
-      id:
-        type: string
-      is_active:
-        type: boolean
-      manufacturer:
-        type: string
-      markup:
-        type: integer
-      material_code:
-        type: integer
-      name:
-        type: string
-      photos:
-        items:
-          type: string
-        type: array
-      product_units:
-        items:
-          $ref: '#/definitions/domain.ProductUnit'
-        type: array
-      product_variability:
-        type: string
-      quantity:
-        type: integer
-      retail_price:
-        type: number
-      status:
-        type: string
-      store_product:
-        items:
-          $ref: '#/definitions/domain.StoreProduct'
-        type: array
-      sum:
-        type: number
-      supplier_id:
-        type: string
-      supply_price:
-        type: number
-      unit_id:
-        type: string
-      updated_at:
-        type: string
-      vat:
-        type: integer
-      vat_price:
-        type: number
-    type: object
   domain.ProductRequest:
     properties:
       barcode:
@@ -432,20 +361,20 @@ definitions:
         items:
           type: string
         type: array
-      product_unit:
-        items:
-          $ref: '#/definitions/domain.ProductUnit'
-        type: array
       quantity:
         type: integer
       retail_price:
         type: number
       store_product:
         items:
-          $ref: '#/definitions/domain.StoreProduct'
+          $ref: '#/definitions/domain.StoreProductRequest'
         type: array
       supply_price:
         type: number
+      unit_per_pack:
+        type: integer
+      unit_type_id:
+        type: string
       vat:
         type: integer
       vat_price:
@@ -491,15 +420,6 @@ definitions:
       unit_type_id:
         type: string
     type: object
-  domain.ProductUnitRequest:
-    properties:
-      box_grain_count:
-        type: integer
-      unit_name:
-        type: string
-      unit_type_id:
-        type: string
-    type: object
   domain.ProductUpdateRequest:
     properties:
       barcode:
@@ -524,20 +444,20 @@ definitions:
         items:
           type: string
         type: array
-      product_unit:
-        items:
-          $ref: '#/definitions/domain.ProductUnitRequest'
-        type: array
       quantity:
         type: integer
       retail_price:
         type: number
       store_product:
         items:
-          $ref: '#/definitions/domain.StoreProductUpdateRequest'
+          $ref: '#/definitions/domain.StoreProductRequest'
         type: array
       supply_price:
         type: number
+      unit_per_pack:
+        type: integer
+      unit_type_id:
+        type: string
       vat:
         type: integer
       vat_price:
@@ -614,60 +534,18 @@ definitions:
       total_discount:
         type: number
     type: object
-  domain.Store:
+  domain.StoreProductRequest:
     properties:
-      address:
-        type: string
-      cash_box_count:
+      pack_quantity:
         type: integer
-      created_at:
-        type: string
-      employee_count:
-        type: integer
-      id:
-        type: string
-      location:
-        type: string
-      name:
-        type: string
-      quantity:
-        type: integer
-      small_quantity:
-        type: integer
-      store_code:
-        type: integer
-      updated_at:
-        type: string
-    type: object
-  domain.StoreProduct:
-    properties:
-      created_at:
-        type: string
-      product:
-        $ref: '#/definitions/domain.Product'
       product_id:
         type: string
-      product_material_code:
-        type: integer
-      quantity:
-        type: integer
-      small_quantity:
-        type: integer
-      store:
-        $ref: '#/definitions/domain.Store'
-      store_id:
-        type: string
-      updated_at:
-        type: string
-    type: object
-  domain.StoreProductUpdateRequest:
-    properties:
-      quantity:
-        type: integer
       small_quantity:
         type: integer
       store_id:
         type: string
+      unit_quantity:
+        type: integer
     type: object
   domain.StoreRequest:
     properties:
@@ -1676,37 +1554,6 @@ paths:
       - description: Product ID
         in: query
         name: product_id
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Get a category
-      tags:
-      - categories
-  /category/product/{id}:
-    get:
-      consumes:
-      - application/json
-      description: Get a category from the request body
-      parameters:
-      - description: Product ID
-        in: path
-        name: id
-        required: true
         type: string
       produces:
       - application/json
@@ -2999,6 +2846,37 @@ paths:
       summary: List imports
       tags:
       - imports
+  /list/product/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get a category from the request body
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a category
+      tags:
+      - categories
   /login:
     post:
       consumes:

@@ -1,1 +1,1 @@
-DROP TABLE IF EXISTS "units";
+DROP TABLE IF EXISTS "unit_types";

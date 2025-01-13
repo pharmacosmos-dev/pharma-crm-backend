@@ -80,31 +80,17 @@ func (h *ProductHandler) Create(c *gin.Context) {
 		return
 	}
 
-	if len(body.ProductUnit) > 0 {
-		for i := range body.ProductUnit {
-			body.ProductUnit[i].ID = uuid.New().String()
-			body.ProductUnit[i].ProductId = body.Id
-		}
-		err = h.db.
-			WithContext(c.Request.Context()).
-			Create(&body.ProductUnit).Error
-		if err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, err.Error())
-			return
-		}
-	}
 	if len(body.StoreProduct) > 0 {
 		for i := range body.StoreProduct {
-			if body.StoreProduct[i].Quantity > 0 {
-				body.StoreProduct[i].ProductID = &body.Id
-			}
+			body.StoreProduct[i].ProductID = body.Id
+			body.StoreProduct[i].UnitQuantity = body.StoreProduct[i].PackQuantity * body.UnitPerPack
 		}
 		err = h.db.
 			WithContext(c.Request.Context()).
+			Table("store_products").
 			Create(&body.StoreProduct).Error
 		if err != nil {
-			h.log.Error(err.Error())
+			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())
 			return
 		}
@@ -145,11 +131,11 @@ func (h *ProductHandler) Get(c *gin.Context) {
 	var res domain.Product
 	id := c.Param("id")
 	err := h.db.
-		Preload("ProductUnits").
+		Preload("UnitType").
 		First(&res, "id = ?", id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			handleResponse(c, NotFound, nil)
+			handleResponse(c, NotFound, "Product not found")
 			return
 		}
 		h.log.Error(err)
@@ -307,22 +293,10 @@ func (h *ProductHandler) Update(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	if len(body.ProductUnit) > 0 {
-		for _, unit := range body.ProductUnit {
-			err = h.db.WithContext(c.Request.Context()).
-				Table("product_units").
-				Where("product_id = ?", productID).
-				Updates(&unit).Error
-			if err != nil {
-				h.log.Error("Failed to update product_unit: ", err)
-				handleResponse(c, InternalError, err.Error())
-				return
-			}
-		}
-
-	}
 	if len(body.StoreProduct) > 0 {
 		for _, storeProduct := range body.StoreProduct {
+			storeProduct.ProductID = productID
+			storeProduct.UnitQuantity = int(storeProduct.PackQuantity * body.UnitPerPack)
 			err = h.db.WithContext(c.Request.Context()).
 				Table("store_products").
 				Where("product_id = ?", productID).
@@ -333,7 +307,6 @@ func (h *ProductHandler) Update(c *gin.Context) {
 				return
 			}
 		}
-
 	}
 
 	if len(body.CategoryIds) > 0 {

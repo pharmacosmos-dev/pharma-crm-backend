@@ -1387,55 +1387,6 @@
                 }
             }
         },
-        "/category/product/{id}": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Get a category from the request body",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "categories"
-                ],
-                "summary": "Get a category",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Product ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            }
-        },
         "/category/{id}": {
             "get": {
                 "security": [
@@ -3557,6 +3508,55 @@
                     {
                         "type": "string",
                         "description": "ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/list/product/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get a category from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "categories"
+                ],
+                "summary": "Get a category",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Product ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -7199,9 +7199,6 @@
                 "id": {
                     "type": "string"
                 },
-                "is_active": {
-                    "type": "boolean"
-                },
                 "is_open": {
                     "type": "boolean"
                 },
@@ -7556,110 +7553,6 @@
                 }
             }
         },
-        "domain.Product": {
-            "type": "object",
-            "properties": {
-                "barcode": {
-                    "type": "string"
-                },
-                "bonus_amount": {
-                    "type": "number"
-                },
-                "bonus_percent": {
-                    "type": "integer"
-                },
-                "brand_id": {
-                    "type": "string"
-                },
-                "categories": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/domain.Category"
-                    }
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "expire_date": {
-                    "type": "string"
-                },
-                "expire_day": {
-                    "type": "integer"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "is_active": {
-                    "type": "boolean"
-                },
-                "manufacturer": {
-                    "type": "string"
-                },
-                "markup": {
-                    "type": "integer"
-                },
-                "material_code": {
-                    "type": "integer"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "photos": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "product_units": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/domain.ProductUnit"
-                    }
-                },
-                "product_variability": {
-                    "type": "string"
-                },
-                "quantity": {
-                    "type": "integer"
-                },
-                "retail_price": {
-                    "type": "number"
-                },
-                "status": {
-                    "type": "string"
-                },
-                "store_product": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/domain.StoreProduct"
-                    }
-                },
-                "sum": {
-                    "type": "number"
-                },
-                "supplier_id": {
-                    "type": "string"
-                },
-                "supply_price": {
-                    "type": "number"
-                },
-                "unit_id": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "vat": {
-                    "type": "integer"
-                },
-                "vat_price": {
-                    "type": "number"
-                }
-            }
-        },
         "domain.ProductRequest": {
             "type": "object",
             "properties": {
@@ -7696,12 +7589,6 @@
                         "type": "string"
                     }
                 },
-                "product_unit": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/domain.ProductUnit"
-                    }
-                },
                 "quantity": {
                     "type": "integer"
                 },
@@ -7711,11 +7598,17 @@
                 "store_product": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/domain.StoreProduct"
+                        "$ref": "#/definitions/domain.StoreProductRequest"
                     }
                 },
                 "supply_price": {
                     "type": "number"
+                },
+                "unit_per_pack": {
+                    "type": "integer"
+                },
+                "unit_type_id": {
+                    "type": "string"
                 },
                 "vat": {
                     "type": "integer"
@@ -7786,20 +7679,6 @@
                 }
             }
         },
-        "domain.ProductUnitRequest": {
-            "type": "object",
-            "properties": {
-                "box_grain_count": {
-                    "type": "integer"
-                },
-                "unit_name": {
-                    "type": "string"
-                },
-                "unit_type_id": {
-                    "type": "string"
-                }
-            }
-        },
         "domain.ProductUpdateRequest": {
             "type": "object",
             "properties": {
@@ -7836,12 +7715,6 @@
                         "type": "string"
                     }
                 },
-                "product_unit": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/domain.ProductUnitRequest"
-                    }
-                },
                 "quantity": {
                     "type": "integer"
                 },
@@ -7851,11 +7724,17 @@
                 "store_product": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/domain.StoreProductUpdateRequest"
+                        "$ref": "#/definitions/domain.StoreProductRequest"
                     }
                 },
                 "supply_price": {
                     "type": "number"
+                },
+                "unit_per_pack": {
+                    "type": "integer"
+                },
+                "unit_type_id": {
+                    "type": "string"
                 },
                 "vat": {
                     "type": "integer"
@@ -7975,87 +7854,23 @@
                 }
             }
         },
-        "domain.Store": {
+        "domain.StoreProductRequest": {
             "type": "object",
             "properties": {
-                "address": {
-                    "type": "string"
-                },
-                "cash_box_count": {
+                "pack_quantity": {
                     "type": "integer"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "employee_count": {
-                    "type": "integer"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "location": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "quantity": {
-                    "type": "integer"
-                },
-                "small_quantity": {
-                    "type": "integer"
-                },
-                "store_code": {
-                    "type": "integer"
-                },
-                "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
-        "domain.StoreProduct": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "product": {
-                    "$ref": "#/definitions/domain.Product"
                 },
                 "product_id": {
                     "type": "string"
                 },
-                "product_material_code": {
-                    "type": "integer"
-                },
-                "quantity": {
-                    "type": "integer"
-                },
-                "small_quantity": {
-                    "type": "integer"
-                },
-                "store": {
-                    "$ref": "#/definitions/domain.Store"
-                },
-                "store_id": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
-        "domain.StoreProductUpdateRequest": {
-            "type": "object",
-            "properties": {
-                "quantity": {
-                    "type": "integer"
-                },
                 "small_quantity": {
                     "type": "integer"
                 },
                 "store_id": {
                     "type": "string"
+                },
+                "unit_quantity": {
+                    "type": "integer"
                 }
             }
         },

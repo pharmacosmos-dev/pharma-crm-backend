@@ -1,14 +1,3 @@
-CREATE TYPE  "product_type_enum" AS ENUM (
-  'product',
-  'service',
-  'set'
-);
-
-CREATE TYPE  "product_variability" AS ENUM (
-  'basic',
-  'variative'
-);
-
 CREATE TYPE  "product_status" AS ENUM (
   'active',
   'inactive',
