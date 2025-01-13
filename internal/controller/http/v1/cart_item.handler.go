@@ -238,19 +238,6 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 
 	var totalAmount float64
 	var cartItem domain.CartItemUpdateRequest
-	for _, productUnit := range body.ProductUnits {
-		if productUnit.UnitName == "piece" && productUnit.BoxGrainCount > 0 {
-			cartItem.TotalPrice += float64(body.DrugCount) * (product.RetailPrice / float64(productUnit.BoxGrainCount))
-		} else if productUnit.UnitName == "pack" {
-			if product.Quantity > 1 {
-				cartItem.TotalPrice += product.RetailPrice * float64(body.Quantity)
-			}
-		} else {
-			handleResponse(c, BadRequest, "Invalid unit type")
-			return
-		}
-	}
-
 	cartItem.Quantity = body.Quantity
 	cartItem.TotalPrice = totalAmount
 	cartItem.DrugCount = body.DrugCount

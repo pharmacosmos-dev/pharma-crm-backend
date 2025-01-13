@@ -339,16 +339,30 @@ func (h *EmployeeHandler) GetInfo(c *gin.Context) {
 	var res domain.Employee
 	if err := h.db.
 		Preload("Store").
-		Preload("Roles").
 		First(&res, "id = ?", userID).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, OK, nil)
+			handleResponse(c, OK, "Employee not found")
 			return
 		}
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	var permissions []domain.Permission
+	err := h.db.Raw(`
+	SELECT 
+		p.*
+	FROM permissions p 
+	JOIN role_permissions rp ON rp.permission_id = p.id
+	JOIN employee_roles er ON er.role_id = rp.role_id
+	WHERE er.employee_id = ?
+	`, userID).Scan(&permissions).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	res.Permission = permissions
 	handleResponse(c, OK, res)
 }
 

@@ -102,17 +102,6 @@ type ProductUploadReq struct {
 	IsActive     bool    `gorm:"is_active" json:"is_active"`
 }
 
-// Product Filter request
-type ProductFilterReq struct {
-	StoreId         string  `json:"store_id"`
-	CategoryId      string  `json:"category_id"`
-	ProducerId      string  `json:"producer_id"`
-	SupplyPriceFrom float64 `json:"supply_price_from"`
-	SupplyPriceTo   float64 `json:"supply_price_to"`
-	RetailPriceFrom float64 `json:"retail_price_from"`
-	RetailPriceTo   float64 `json:"retail_price_to"`
-}
-
 // Product Producer
 type ProductProducer struct {
 	Id           string `gorm:"id" json:"id"`
@@ -140,6 +129,7 @@ type ProductRequest1C struct {
 	Name                string  `gorm:"name" json:"name"`
 	Manufacturer        string  `gorm:"manufacturer" json:"manufacturer"`
 	Quantity            int     `gorm:"quantity" json:"quantity"`
+	UnitPerPack         int     `gorm:"unit_per_pack" json:"unit_per_pack"`
 	RetailPrice         float64 `gorm:"retail_price" json:"retail_price"`
 	SupplyPrice         float64 `gorm:"supply_price" json:"supply_price"`
 	Sum                 float64 `gorm:"sum" json:"sum"`
@@ -156,19 +146,4 @@ type CreateProduct1C struct {
 	Dok    Document           `json:"Dok"`
 	Apteka Apteka             `json:"Apteka"`
 	Товары []ProductRequest1C `json:"Товары"`
-}
-
-// ProductUnits structure
-type ProductUnit struct {
-	ID            string `gorm:"id" json:"id"`
-	ProductId     string `gorm:"product_id" json:"-"`
-	UnitTypeId    string `gorm:"unit_type_id" json:"unit_type_id"`
-	UnitName      string `gorm:"unit_name" json:"unit_name"`
-	BoxGrainCount int    `gorm:"box_grain_count" json:"box_grain_count"`
-}
-
-type ProductUnitRequest struct {
-	UnitTypeId    string `gorm:"unit_type_id" json:"unit_type_id"`
-	UnitName      string `gorm:"unit_name" json:"unit_name"`
-	BoxGrainCount int    `gorm:"box_grain_count" json:"box_grain_count"`
 }

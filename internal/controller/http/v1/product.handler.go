@@ -649,12 +649,6 @@ func (h *ProductHandler) HardDelete(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	err = h.db.WithContext(c.Request.Context()).Delete(&domain.ProductUnit{}, "product_id IN (?)", ids).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
 	err = h.db.WithContext(c.Request.Context()).Delete(&domain.StoreProduct{}, "product_id IN (?)", ids).Error
 	if err != nil {
 		h.log.Error(err)
