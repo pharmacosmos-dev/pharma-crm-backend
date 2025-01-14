@@ -27,6 +27,7 @@ func (h *SalePaymentHandler) SalePaymentRoutes(r *gin.RouterGroup) {
 		salePayment.DELETE("/:id", h.Delete)
 		salePayment.GET("/list/close-cashbox/:cash_box_id", h.ListByCashBoxId)
 		salePayment.PUT("/amounts/:id", h.UpdateAmounts)
+		salePayment.GET("/total-amount/:cash_box_id", h.GetTotalAmount)
 	}
 	transaction := r.Group("/transaction")
 	{
@@ -142,9 +143,10 @@ func (h *SalePaymentHandler) ListByCashBoxId(c *gin.Context) {
 		(sp.net_amount - sp.amount) as difference_amount 
 	FROM 
 		sale_payments sp
-	RIGHT JOIN 
+	RIGHT JOIN
 		payment_types pt ON sp.payment_type_id = pt.id
-	WHERE cash_box_id = ?
+	WHERE sp.cash_box_status = 'open' AND sp.cash_box_id = ?
+	ORDER BY pt.created_at
 	`, cashBoxID).Scan(&res).Error
 	if err != nil {
 		h.log.Error(err)
@@ -162,7 +164,7 @@ func (h *SalePaymentHandler) ListByCashBoxId(c *gin.Context) {
 		sale_payments sp
 	RIGHT JOIN
 		payment_types pt ON sp.payment_type_id = pt.id
-	WHERE cash_box_id = ?
+	WHERE cash_box_status = 'open' AND cash_box_id = ?
 	`, cashBoxID).Scan(&totalData).Error
 	if err != nil {
 		h.log.Error(err)
@@ -174,6 +176,44 @@ func (h *SalePaymentHandler) ListByCashBoxId(c *gin.Context) {
 		"data":       res,
 	}
 	handleResponse(c, OK, result)
+}
+
+// GetTotalAmount godoc
+// @Summary Get a sale payment
+// @Description Get a sale payment from the request body
+// @Tags sale_payments
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param 	cash_box_id path string true "cash box ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /sale-payment/total-amount/{cash_box_id} [get]
+func (h *SalePaymentHandler) GetTotalAmount(c *gin.Context) {
+	var cashBoxID = c.Param("cash_box_id")
+	var totalData map[string]interface{}
+
+	err := h.db.Raw(`
+	SELECT
+		SUM(CASE WHEN pt.type = 'cash' THEN sp.net_amount ELSE 0 END) AS cash_amount,
+		SUM(CASE WHEN pt.type != 'cash' THEN sp.net_amount ELSE 0 END) AS cashless_amount
+	FROM
+		sale_payments sp
+	JOIN
+		payment_types pt ON sp.payment_type_id = pt.id
+	WHERE 
+		sp.cash_box_status = 'open' AND 
+		sp.cash_box_id = ?;
+	`, cashBoxID).Scan(&totalData).Error
+
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	handleResponse(c, OK, totalData)
 }
 
 // Update godoc

@@ -51,15 +51,13 @@ func (h *CashBoxHandler) Create(c *gin.Context) {
 		return
 	}
 	body.ID = uuid.New().String()
-	// Map request to model
-	cashBox := domain.CashBox{
-		ID:      body.ID,
-		Name:    body.Name,
-		StoreID: body.StoreID,
-	}
-
+	body.IsOpen = false
 	// Save to database
-	if err = h.db.WithContext(c.Request.Context()).Create(&cashBox).Error; err != nil {
+	err = h.db.
+		WithContext(c.Request.Context()).
+		Table("cash_boxes").
+		Create(&body).Error
+	if err != nil {
 		h.log.Error(fmt.Errorf("failed to create cash box: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -110,22 +108,27 @@ func (h *CashBoxHandler) Get(c *gin.Context) {
 // @Router /cash_box/list [get]
 func (h *CashBoxHandler) List(c *gin.Context) {
 	var (
-		body []domain.CashBox
-		err  error
+		body    []domain.CashBox
+		err     error
+		storeID = c.Query("store_id")
 	)
 
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	query := h.db.Limit(limit).Offset(offset).Preload("Store").Find(&body)
-	if storeID := c.Query("store_id"); storeID != "" {
+	query := h.db.
+		Model(&domain.CashBox{}).
+		Preload("Store")
+
+	if storeID != "" {
 		query = query.Where("store_id = ?", storeID)
 	}
-	if err = query.Error; err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+	err = query.Limit(limit).Offset(offset).Find(&body).Error
+	if err != nil {
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -164,6 +167,7 @@ func (h *CashBoxHandler) Update(c *gin.Context) {
 		IsEnable: body.IsEnable,
 	}
 	err = h.db.WithContext(c.Request.Context()).
+		Model(&domain.CashBox{}).
 		Where("id = ?", id).
 		Updates(&cashBox).Error
 	if err != nil {

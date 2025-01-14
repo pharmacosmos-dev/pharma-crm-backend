@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS "sale_payments" (
     "expense_amount" NUMERIC(10, 2) DEFAULT 0,
     "paid_at" TIMESTAMP,
     "status" VARCHAR(20),
+    "cash_box_status" VARCHAR(20) DEFAULT 'open',
     "transaction_id" UUID,
     "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()

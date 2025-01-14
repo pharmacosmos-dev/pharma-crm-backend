@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -88,9 +89,11 @@ func (h *CashBoxOperationHandler) Get(c *gin.Context) {
 	var (
 		body domain.CashboxOperation
 		err  error
+		id   = c.Param("id")
 	)
-	if err = h.db.First(&body, "id = ?", c.Param("id")).Error; err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+	err = h.db.First(&body, "id = ?", id).Error
+	if err != nil {
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -122,13 +125,14 @@ func (h *CashBoxOperationHandler) List(c *gin.Context) {
 		return
 	}
 
-	if err = h.db.
+	err = h.db.
 		Limit(limit).
 		Offset(offset).
 		Preload("CashBox").
 		Preload("Employee").
-		Find(&body).Error; err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		Find(&body).Error
+	if err != nil {
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -152,18 +156,20 @@ func (h *CashBoxOperationHandler) Update(c *gin.Context) {
 	var (
 		body domain.CashboxOperationRequest
 		err  error
+		id   = c.Param("id")
 	)
 	if err = c.ShouldBindJSON(&body); err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-
-	if err = h.db.WithContext(c.Request.Context()).
+	err = h.db.
+		WithContext(c.Request.Context()).
 		Table("cashbox_operations").
-		Where("id = ?", c.Param("id")).
-		Updates(&body).Error; err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		Where("id = ?", id).
+		Updates(&body).Error
+	if err != nil {
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -186,9 +192,11 @@ func (h *CashBoxOperationHandler) Delete(c *gin.Context) {
 	var (
 		body domain.CashboxOperation
 		err  error
+		id   = c.Param("id")
 	)
-	if err = h.db.Delete(&body, "id = ?", c.Param("id")).Error; err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+	err = h.db.Delete(&body, "id = ?", id).Error
+	if err != nil {
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -213,19 +221,21 @@ func (h *CashBoxOperationHandler) CreateCashHistory(c *gin.Context) {
 		err  error
 	)
 	if err = c.ShouldBindJSON(&body); err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 	body.ID = uuid.New().String()
-	if err = h.db.WithContext(c.Request.Context()).
+	err = h.db.
+		WithContext(c.Request.Context()).
 		Table("cash_box_histories").
-		Create(&body).Error; err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		Create(&body).Error
+	if err != nil {
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, CREATED, body)
+	handleResponse(c, CREATED, "CREATED")
 }
 
 // GetCashHistory godoc
@@ -242,16 +252,19 @@ func (h *CashBoxOperationHandler) CreateCashHistory(c *gin.Context) {
 // @Router /cash_box_history/{cash_box_id} [get]
 func (h *CashBoxOperationHandler) GetCashHistory(c *gin.Context) {
 	var (
-		body domain.CashBoxHistory
-		err  error
+		body      domain.CashBoxHistory
+		err       error
+		cashBoxID = c.Param("cash_box_id")
 	)
-	if err = h.db.Preload("CashBox").First(&body, "cash_box_id = ?", c.Param("cash_box_id")).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			body.CashBoxID = c.Param("cash_box_id")
-			handleResponse(c, OK, body)
+	err = h.db.
+		Preload("CashBox").
+		First(&body, "cash_box_id = ?", cashBoxID).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			handleResponse(c, NotFound, "Cash Box History not found")
 			return
 		}
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
