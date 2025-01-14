@@ -3,6 +3,7 @@ package v1
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -297,6 +298,26 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		Where("id = ?", body.SaleID).
 		Update("status", "sold").Error
 
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	var salePayment []domain.SalePaymentRequest
+	for _, item := range body.PaymentTypes {
+		salePayment = append(salePayment, domain.SalePaymentRequest{
+			ID:            uuid.New().String(),
+			SaleID:        body.SaleID,
+			PaymentTypeID: item.PaymentTypeID,
+			Amount:        item.Amount,
+			PaidAt:        time.Now().Format("2006-01-02 15:04:05"),
+			Status:        "paid",
+			TransactionID: uuid.New().String(),
+		})
+	}
+	err = h.db.WithContext(c.Request.Context()).
+		Table("sale_payments").
+		Create(&salePayment).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())

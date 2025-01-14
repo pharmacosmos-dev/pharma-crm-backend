@@ -96,7 +96,6 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 			Columns:   []clause.Column{{Name: "material_code"}}, // Specify the column(s) to check for conflict
 			DoNothing: true,                                     // Ignore if conflict occurs
 		}).
-		Debug().
 		Create(&body.Товары).Error
 	if err != nil {
 		h.log.Warn("ERROR on creating new product: %v", err.Error())

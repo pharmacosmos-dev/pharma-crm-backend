@@ -196,6 +196,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 		Preload("Categories")
 
 	if storeIDParam != "" {
+		// storeIDParam = storeIDParam
 		query = query.
 			Joins("JOIN store_products ON store_products.product_id = products.id").
 			Where("store_products.store_id = ?", storeIDParam)
@@ -244,6 +245,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 		Limit(limit).
 		Offset(offset).
 		Order("products.created_at DESC").
+		Debug().
 		Find(&res).Error
 	// Handle errors from the query
 	if err != nil {
