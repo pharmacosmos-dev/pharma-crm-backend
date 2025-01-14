@@ -7935,9 +7935,6 @@ const docTemplate = `{
                 "amount": {
                     "type": "number"
                 },
-                "difference_amount": {
-                    "type": "number"
-                },
                 "expense_amount": {
                     "type": "number"
                 },

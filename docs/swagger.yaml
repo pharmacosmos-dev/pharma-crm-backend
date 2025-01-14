@@ -513,8 +513,6 @@ definitions:
     properties:
       amount:
         type: number
-      difference_amount:
-        type: number
       expense_amount:
         type: number
       net_amount:
