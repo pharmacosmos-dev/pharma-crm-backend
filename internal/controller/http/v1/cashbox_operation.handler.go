@@ -178,7 +178,7 @@ func (h *CashBoxOperationHandler) CloseCashBox(c *gin.Context) {
 	err = h.db.WithContext(c.Request.Context()).
 		Table("cashbox_operations").
 		Where("cash_box_id = ?", cashBoxID).
-		Where("is_open = ?", true).
+		Where("is_open = ?", false).
 		Updates(&body).Error
 	if err != nil {
 		h.log.Error(err)
