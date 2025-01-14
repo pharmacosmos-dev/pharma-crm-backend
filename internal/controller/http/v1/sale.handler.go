@@ -308,6 +308,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		salePayment = append(salePayment, domain.SalePaymentRequest{
 			ID:            uuid.New().String(),
 			SaleID:        body.SaleID,
+			CashBoxID:     body.CashBoxID,
 			PaymentTypeID: item.PaymentTypeID,
 			Amount:        item.Amount,
 			PaidAt:        time.Now().Format("2006-01-02 15:04:05"),

@@ -18,13 +18,14 @@ func (h *Handler) NewSalePaymentHandler(r *gin.RouterGroup) {
 }
 
 func (h *SalePaymentHandler) SalePaymentRoutes(r *gin.RouterGroup) {
-	salePayment := r.Group("/sale_payment")
+	salePayment := r.Group("/sale-payment")
 	{
 		salePayment.POST("", h.Create)
 		salePayment.GET("/:id", h.Get)
 		salePayment.GET("/list", h.List)
 		salePayment.PUT("/:id", h.Update)
 		salePayment.DELETE("/:id", h.Delete)
+		salePayment.GET("/list/close-cashbox/:cash_box_id", h.ListByCashBoxId)
 	}
 	transaction := r.Group("/transaction")
 	{
@@ -47,7 +48,7 @@ func (h *SalePaymentHandler) SalePaymentRoutes(r *gin.RouterGroup) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /sale_payment [post]
+// @Router /sale-payment [post]
 func (h *SalePaymentHandler) Create(c *gin.Context) {
 	var (
 		body domain.SalePaymentRequest
@@ -81,7 +82,7 @@ func (h *SalePaymentHandler) Create(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /sale_payment/{id} [get]
+// @Router /sale-payment/{id} [get]
 func (h *SalePaymentHandler) Get(c *gin.Context) {
 	var res domain.SalePayment
 	err := h.db.First(&res, "id = ?", c.Param("id")).Error
@@ -103,7 +104,7 @@ func (h *SalePaymentHandler) Get(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /sale_payment/list [get]
+// @Router /sale-payment/list [get]
 func (h *SalePaymentHandler) List(c *gin.Context) {
 	res := []*domain.SalePayment{}
 	err := h.db.Find(&res).Error
@@ -113,6 +114,65 @@ func (h *SalePaymentHandler) List(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, res)
+}
+
+// ListByCashBoxId godoc
+// @Summary Get a sale payment
+// @Description Get a sale payment from the request body
+// @Tags sale_payments
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param 	cash_box_id path string true "cash box ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /sale-payment/list/close-cashbox/{cash_box_id} [get]
+func (h *SalePaymentHandler) ListByCashBoxId(c *gin.Context) {
+	var cashBoxID = c.Param("cash_box_id")
+	res := []*domain.SalePaymentCloseCashBox{}
+	err := h.db.Raw(`
+	SELECT 
+		sp.id,
+		pt.name, 
+		sp.amount, 
+		sp.net_amount, 
+		sp.expense_amount,
+		(sp.net_amount - sp.amount) as difference_amount 
+	FROM 
+		sale_payments sp
+	RIGHT JOIN 
+		payment_types pt ON sp.payment_type_id = pt.id
+	WHERE cash_box_id = ?
+	`, cashBoxID).Scan(&res).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	var totalData domain.SalePaymentTotalAmount
+	err = h.db.Raw(`
+	SELECT 
+		sum(sp.amount) as total_amount, 
+		sum(sp.net_amount) as total_net_amount, 
+		sum(sp.expense_amount) as total_expense_amount, 
+		sum(sp.net_amount - sp.amount) as total_difference_amount
+	FROM
+		sale_payments sp
+	RIGHT JOIN
+		payment_types pt ON sp.payment_type_id = pt.id
+	WHERE cash_box_id = ?
+	`, cashBoxID).Scan(&totalData).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	result := map[string]interface{}{
+		"total_data": totalData,
+		"data":       res,
+	}
+	handleResponse(c, OK, result)
 }
 
 // Update godoc
@@ -127,7 +187,7 @@ func (h *SalePaymentHandler) List(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /sale_payment/{id} [put]
+// @Router /sale-payment/{id} [put]
 func (h *SalePaymentHandler) Update(c *gin.Context) {
 	var (
 		body domain.SalePaymentRequest
@@ -161,7 +221,7 @@ func (h *SalePaymentHandler) Update(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /sale_payment/{id} [delete]
+// @Router /sale-payment/{id} [delete]
 func (h *SalePaymentHandler) Delete(c *gin.Context) {
 	var (
 		id  = c.Param("id")

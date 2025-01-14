@@ -60,10 +60,6 @@ definitions:
         type: integer
       product_id:
         type: string
-      product_units:
-        items:
-          $ref: '#/definitions/domain.ProductUnit'
-        type: array
       quantity:
         type: integer
     type: object
@@ -402,23 +398,14 @@ definitions:
         type: number
       supply_price:
         type: number
+      unit_per_pack:
+        type: integer
       vat:
         type: string
       vat_price:
         type: number
       vat_sum:
         type: number
-    type: object
-  domain.ProductUnit:
-    properties:
-      box_grain_count:
-        type: integer
-      id:
-        type: string
-      unit_name:
-        type: string
-      unit_type_id:
-        type: string
     type: object
   domain.ProductUpdateRequest:
     properties:
@@ -507,6 +494,8 @@ definitions:
     properties:
       amount:
         type: number
+      cash_box_id:
+        type: string
       paid_at:
         type: string
       payment_service_id:
@@ -555,6 +544,8 @@ definitions:
         type: integer
       employee_count:
         type: integer
+      location:
+        type: string
       name:
         type: string
       store_code:
@@ -4120,6 +4111,185 @@ paths:
       summary: Create a sale
       tags:
       - sales
+  /sale-payment:
+    post:
+      consumes:
+      - application/json
+      description: Create a sale payment from the request body
+      parameters:
+      - description: sale payment
+        in: body
+        name: sale_payment
+        required: true
+        schema:
+          $ref: '#/definitions/domain.SalePaymentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a sale payment
+      tags:
+      - sale_payments
+  /sale-payment/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a sale payment from the request body
+      parameters:
+      - description: sale payment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete a sale payment
+      tags:
+      - sale_payments
+    get:
+      consumes:
+      - application/json
+      description: Get a sale payment from the request body
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a sale payment
+      tags:
+      - sale_payments
+    put:
+      consumes:
+      - application/json
+      description: Update a sale payment from the request body
+      parameters:
+      - description: sale payment ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: sale payment
+        in: body
+        name: sale_payment
+        required: true
+        schema:
+          $ref: '#/definitions/domain.SalePaymentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update a sale payment
+      tags:
+      - sale_payments
+  /sale-payment/list:
+    get:
+      consumes:
+      - application/json
+      description: Get a sale payment from the request body
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a sale payment
+      tags:
+      - sale_payments
+  /sale-payment/list/close-cashbox/{cash_box_id}:
+    get:
+      consumes:
+      - application/json
+      description: Get a sale payment from the request body
+      parameters:
+      - description: cash box ID
+        in: path
+        name: cash_box_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a sale payment
+      tags:
+      - sale_payments
   /sale/{id}:
     delete:
       consumes:
@@ -4324,154 +4494,6 @@ paths:
       summary: Get a sale
       tags:
       - sales
-  /sale_payment:
-    post:
-      consumes:
-      - application/json
-      description: Create a sale payment from the request body
-      parameters:
-      - description: sale payment
-        in: body
-        name: sale_payment
-        required: true
-        schema:
-          $ref: '#/definitions/domain.SalePaymentRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Create a sale payment
-      tags:
-      - sale_payments
-  /sale_payment/{id}:
-    delete:
-      consumes:
-      - application/json
-      description: Delete a sale payment from the request body
-      parameters:
-      - description: sale payment ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Delete a sale payment
-      tags:
-      - sale_payments
-    get:
-      consumes:
-      - application/json
-      description: Get a sale payment from the request body
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Get a sale payment
-      tags:
-      - sale_payments
-    put:
-      consumes:
-      - application/json
-      description: Update a sale payment from the request body
-      parameters:
-      - description: sale payment ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: sale payment
-        in: body
-        name: sale_payment
-        required: true
-        schema:
-          $ref: '#/definitions/domain.SalePaymentRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Update a sale payment
-      tags:
-      - sale_payments
-  /sale_payment/list:
-    get:
-      consumes:
-      - application/json
-      description: Get a sale payment from the request body
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Get a sale payment
-      tags:
-      - sale_payments
   /store:
     post:
       consumes:
