@@ -1,8 +1,9 @@
 CREATE TABLE IF NOT EXISTS "cashbox_operations" (
     "id" UUID NOT NULL PRIMARY KEY,
     "cash_box_id" UUID REFERENCES cash_boxes(id),
-    "cash_amount" NUMERIC(10, 2),
-    "cashless_amount" NUMERIC(10, 2),
+    "cash_amount" NUMERIC(10, 2) DEFAULT 0,
+    "cashless_amount" NUMERIC(10, 2) DEFAULT 0,
+    "closed_amount" NUMERIC(10, 2) DEFAULT 0,
     "is_open" BOOLEAN,
     "description" VARCHAR(255),
     "start_time" TIMESTAMP,
