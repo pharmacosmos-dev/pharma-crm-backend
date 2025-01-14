@@ -29,6 +29,7 @@ func (h *CashBoxOperationHandler) CashBoxOperationRoutes(r *gin.RouterGroup) {
 		cashBoxOperation.GET("/list", h.List)
 		cashBoxOperation.PUT("/:id", h.Update)
 		cashBoxOperation.DELETE("/:id", h.Delete)
+		cashBoxOperation.PUT("/close/:cash_box_id", h.CloseCashBox)
 	}
 	cashBoxHistory := r.Group("/cash_box_history")
 	{
@@ -137,6 +138,64 @@ func (h *CashBoxOperationHandler) List(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, body)
+}
+
+// CloseCashBox godoc
+// @Summary Close a cash box Operation
+// @Description Close a cash box Operation from the request body
+// @Tags cash_boxes
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param 	cash_box_id path string true "cash box Operation ID"
+// @Param 	input body domain.CloseCashboxOperation true "Cash box Operation close request body"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /cash_box_operation/close/{cash_box_id} [put]
+func (h *CashBoxOperationHandler) CloseCashBox(c *gin.Context) {
+	var (
+		body      domain.CloseCashboxOperation
+		err       error
+		cashBoxID = c.Param("cash_box_id")
+	)
+	if err = c.ShouldBindJSON(&body); err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	err = h.db.WithContext(c.Request.Context()).
+		Table("cash_boxes").
+		Where("id = ?", cashBoxID).
+		Where("is_open = ?", true).
+		Update("is_open", false).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	body.EndTime = time.Now().Format("2006-01-02 15:04:05")
+	err = h.db.WithContext(c.Request.Context()).
+		Table("cashbox_operations").
+		Where("cash_box_id = ?", cashBoxID).
+		Where("is_open = ?", true).
+		Updates(&body).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	err = h.db.
+		WithContext(c.Request.Context()).
+		Table("sale_payments").
+		Where("cash_box_id = ?", cashBoxID).
+		Update("cash_box_status", "close").Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, "CLOSED")
 }
 
 // Update godoc

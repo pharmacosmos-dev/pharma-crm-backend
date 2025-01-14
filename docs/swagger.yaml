@@ -122,6 +122,8 @@ definitions:
           $ref: '#/definitions/domain.CategoryRequest'
         type: array
     type: object
+  domain.CloseCashboxOperation:
+    type: object
   domain.CreateProduct1C:
     properties:
       Apteka:
@@ -1360,6 +1362,43 @@ paths:
       security:
       - BearerAuth: []
       summary: Update a cash box Operation
+      tags:
+      - cash_boxes
+  /cash_box_operation/close/{cash_box_id}:
+    put:
+      consumes:
+      - application/json
+      description: Close a cash box Operation from the request body
+      parameters:
+      - description: cash box Operation ID
+        in: path
+        name: cash_box_id
+        required: true
+        type: string
+      - description: Cash box Operation close request body
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CloseCashboxOperation'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Close a cash box Operation
       tags:
       - cash_boxes
   /cash_box_operation/list:
@@ -4302,6 +4341,37 @@ paths:
       tags:
       - sale_payments
   /sale-payment/list/close-cashbox/{cash_box_id}:
+    get:
+      consumes:
+      - application/json
+      description: Get a sale payment from the request body
+      parameters:
+      - description: cash box ID
+        in: path
+        name: cash_box_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a sale payment
+      tags:
+      - sale_payments
+  /sale-payment/total-amount/{cash_box_id}:
     get:
       consumes:
       - application/json

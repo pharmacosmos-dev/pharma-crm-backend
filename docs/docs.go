@@ -1065,6 +1065,64 @@ const docTemplate = `{
                 }
             }
         },
+        "/cash_box_operation/close/{cash_box_id}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Close a cash box Operation from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "cash_boxes"
+                ],
+                "summary": "Close a cash box Operation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "cash box Operation ID",
+                        "name": "cash_box_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Cash box Operation close request body",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.CloseCashboxOperation"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/cash_box_operation/list": {
             "get": {
                 "security": [
@@ -5744,6 +5802,55 @@ const docTemplate = `{
                 }
             }
         },
+        "/sale-payment/total-amount/{cash_box_id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get a sale payment from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sale_payments"
+                ],
+                "summary": "Get a sale payment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "cash box ID",
+                        "name": "cash_box_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/sale-payment/{id}": {
             "get": {
                 "security": [
@@ -7337,6 +7444,9 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "domain.CloseCashboxOperation": {
+            "type": "object"
         },
         "domain.CreateProduct1C": {
             "type": "object",
