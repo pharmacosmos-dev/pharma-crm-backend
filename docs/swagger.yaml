@@ -511,10 +511,6 @@ definitions:
     type: object
   domain.SalePaymentUpdateAmount:
     properties:
-      amount:
-        type: number
-      expense_amount:
-        type: number
       net_amount:
         type: number
     type: object

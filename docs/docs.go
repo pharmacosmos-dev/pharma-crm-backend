@@ -7932,12 +7932,6 @@ const docTemplate = `{
         "domain.SalePaymentUpdateAmount": {
             "type": "object",
             "properties": {
-                "amount": {
-                    "type": "number"
-                },
-                "expense_amount": {
-                    "type": "number"
-                },
                 "net_amount": {
                     "type": "number"
                 }
