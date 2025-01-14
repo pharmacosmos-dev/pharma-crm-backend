@@ -99,9 +99,7 @@ type SalePaymentTotalAmount struct {
 
 // Sale Payment Update amount struct
 type SalePaymentUpdateAmount struct {
-	Amount        float64 `json:"amount"`
-	NetAmount     float64 `json:"net_amount"`
-	ExpenseAmount float64 `json:"expense_amount"`
+	NetAmount float64 `json:"net_amount"`
 }
 
 // Transaction structure

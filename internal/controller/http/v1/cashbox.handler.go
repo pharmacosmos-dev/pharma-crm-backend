@@ -83,9 +83,11 @@ func (h *CashBoxHandler) Get(c *gin.Context) {
 	var (
 		body domain.CashBox
 		err  error
+		id   = c.Param("id")
 	)
-	if err = h.db.First(&body, "id = ?", c.Param("id")).Error; err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+	err = h.db.First(&body, "id = ?", id).Error
+	if err != nil {
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -147,9 +149,10 @@ func (h *CashBoxHandler) Update(c *gin.Context) {
 	var (
 		body domain.CashBoxRequest
 		err  error
+		id   = c.Param("id")
 	)
 	if err = c.ShouldBindJSON(&body); err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
@@ -160,14 +163,15 @@ func (h *CashBoxHandler) Update(c *gin.Context) {
 		IsOpen:   body.IsOpen,
 		IsEnable: body.IsEnable,
 	}
-	if err = h.db.WithContext(c.Request.Context()).
-		Where("id = ?", c.Param("id")).
-		Updates(&cashBox).Error; err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+	err = h.db.WithContext(c.Request.Context()).
+		Where("id = ?", id).
+		Updates(&cashBox).Error
+	if err != nil {
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, cashBox)
+	handleResponse(c, OK, "UPDATED")
 }
 
 // Delete godoc
@@ -186,11 +190,13 @@ func (h *CashBoxHandler) Delete(c *gin.Context) {
 	var (
 		body domain.CashBox
 		err  error
+		id   = c.Param("id")
 	)
-	if err = h.db.Delete(&body, "id = ?", c.Param("id")).Error; err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+	err = h.db.Delete(&body, "id = ?", id).Error
+	if err != nil {
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, body)
+	handleResponse(c, OK, "DELETED")
 }
