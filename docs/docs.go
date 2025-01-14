@@ -5597,6 +5597,64 @@ const docTemplate = `{
                 }
             }
         },
+        "/sale-payment/amounts/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update a sale payment amounts from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sale_payments"
+                ],
+                "summary": "Update a sale payment",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "sale payment ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "sale payment",
+                        "name": "sale_payment",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.SalePaymentUpdateAmount"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/sale-payment/list": {
             "get": {
                 "security": [
@@ -7868,6 +7926,23 @@ const docTemplate = `{
                 },
                 "transaction_id": {
                     "type": "string"
+                }
+            }
+        },
+        "domain.SalePaymentUpdateAmount": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "difference_amount": {
+                    "type": "number"
+                },
+                "expense_amount": {
+                    "type": "number"
+                },
+                "net_amount": {
+                    "type": "number"
                 }
             }
         },

@@ -97,6 +97,13 @@ type SalePaymentTotalAmount struct {
 	TotalDifferenceAmount float64 `json:"total_difference_amount"`
 }
 
+// Sale Payment Update amount struct
+type SalePaymentUpdateAmount struct {
+	Amount        float64 `json:"amount"`
+	NetAmount     float64 `json:"net_amount"`
+	ExpenseAmount float64 `json:"expense_amount"`
+}
+
 // Transaction structure
 type Transaction struct {
 	ID               string     `gorm:"id" json:"id"`

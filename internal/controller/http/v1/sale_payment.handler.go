@@ -26,6 +26,7 @@ func (h *SalePaymentHandler) SalePaymentRoutes(r *gin.RouterGroup) {
 		salePayment.PUT("/:id", h.Update)
 		salePayment.DELETE("/:id", h.Delete)
 		salePayment.GET("/list/close-cashbox/:cash_box_id", h.ListByCashBoxId)
+		salePayment.PUT("/amounts/:id", h.UpdateAmounts)
 	}
 	transaction := r.Group("/transaction")
 	{
@@ -200,14 +201,51 @@ func (h *SalePaymentHandler) Update(c *gin.Context) {
 		return
 	}
 	err = h.db.WithContext(c.Request.Context()).
-		Table("sale_payments").Updates(&body).
-		Where("id = ?", id).Error
+		Table("sale_payments").
+		Where("id = ?", id).
+		Updates(&body).Error
 	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 	handleResponse(c, OK, body)
+}
+
+// UpdateAmounts godoc
+// @Summary Update a sale payment
+// @Description Update a sale payment amounts from the request body
+// @Tags 	sale_payments
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param 	id path string true "sale payment ID"
+// @Param 	sale_payment body domain.SalePaymentUpdateAmount true "sale payment"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /sale-payment/amounts/{id} [put]
+func (h *SalePaymentHandler) UpdateAmounts(c *gin.Context) {
+	var (
+		body domain.SalePaymentUpdateAmount
+		id   = c.Param("id")
+	)
+	err := c.ShouldBindJSON(&body)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	err = h.db.WithContext(c.Request.Context()).
+		Table("sale_payments").
+		Where("id = ?", id).
+		Updates(&body).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, "UPDATED")
 }
 
 // Delete godoc
