@@ -64,7 +64,7 @@ func (h *CashBoxOperationHandler) Create(c *gin.Context) {
 	err = h.db.WithContext(c.Request.Context()).
 		Table("cash_boxes").
 		Where("id = ?", body.CashBoxID).
-		Update("is_open = ?", true).Error
+		Update("is_open", true).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
