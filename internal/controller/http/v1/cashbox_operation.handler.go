@@ -77,22 +77,18 @@ func (h *CashBoxOperationHandler) Create(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	newSale := domain.SaleRequest{
-		ID:                 uuid.New().String(),
-		EmployeeID:         userId.(string),
-		CashBoxOperationId: id,
-		SaleNumber:         utils.GenerateCode(),
-	}
+
+	var sale domain.Sale
 	err = h.db.WithContext(c.Request.Context()).
-		Raw(`INSERT INTO sales (id, employee_id, cash_box_operation_id, sale_number) VALUES (?, ?, ?, ?)`,
-			newSale.ID, newSale.EmployeeID, newSale.CashBoxOperationId, newSale.SaleNumber).Error
+		Raw(`INSERT INTO sales (id, employee_id, cash_box_operation_id, sale_number) VALUES (?, ?, ?, ?) RETURNING *`,
+			uuid.New().String(), userId.(string), id, utils.GenerateCode()).Scan(&sale).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
-	handleResponse(c, CREATED, newSale)
+	handleResponse(c, CREATED, sale)
 }
 
 // Get godoc
