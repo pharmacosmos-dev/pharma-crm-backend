@@ -85,16 +85,14 @@ definitions:
     type: object
   domain.CashboxOperationRequest:
     properties:
-      cash_amount:
-        type: number
       cash_box_id:
         type: string
       description:
         type: string
-      employee_id:
-        type: string
       is_open:
         type: boolean
+      opened_amount:
+        type: number
     type: object
   domain.Category:
     properties:
@@ -123,6 +121,15 @@ definitions:
         type: array
     type: object
   domain.CloseCashboxOperation:
+    properties:
+      cash_amount:
+        type: number
+      cashless_amount:
+        type: number
+      closed_amount:
+        type: number
+      is_company:
+        type: boolean
     type: object
   domain.CreateProduct1C:
     properties:

@@ -7446,20 +7446,17 @@ const docTemplate = `{
         "domain.CashboxOperationRequest": {
             "type": "object",
             "properties": {
-                "cash_amount": {
-                    "type": "number"
-                },
                 "cash_box_id": {
                     "type": "string"
                 },
                 "description": {
                     "type": "string"
                 },
-                "employee_id": {
-                    "type": "string"
-                },
                 "is_open": {
                     "type": "boolean"
+                },
+                "opened_amount": {
+                    "type": "number"
                 }
             }
         },
@@ -7504,7 +7501,21 @@ const docTemplate = `{
             }
         },
         "domain.CloseCashboxOperation": {
-            "type": "object"
+            "type": "object",
+            "properties": {
+                "cash_amount": {
+                    "type": "number"
+                },
+                "cashless_amount": {
+                    "type": "number"
+                },
+                "closed_amount": {
+                    "type": "number"
+                },
+                "is_company": {
+                    "type": "boolean"
+                }
+            }
         },
         "domain.CreateProduct1C": {
             "type": "object",

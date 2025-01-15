@@ -58,7 +58,7 @@ type CloseCashboxOperation struct {
 	CashAmount     float64 `gorm:"cash_amount" json:"cash_amount"`
 	CashlessAmount float64 `gorm:"cashless_amount" json:"cashless_amount"`
 	ClosedAmount   float64 `gorm:"closed_amount" json:"closed_amount"`
-	IsCompany      bool    `gorm:"is_company" json:"is_company" example:"true|false"`
+	IsCompany      bool    `gorm:"is_company" json:"is_company"`
 	EndTime        string  `gorm:"end_time" json:"-"`
 }
 
