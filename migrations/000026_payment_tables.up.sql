@@ -26,6 +26,7 @@ CREATE TABLE IF NOT EXISTS "sale_payments" (
     "payment_service_id" UUID REFERENCES "payment_services"("id"),
     "payment_type_id" UUID REFERENCES "payment_types"("id"),
     "cash_box_id" UUID REFERENCES "cash_boxes"("id"),
+    "cash_box_operation_id" UUID REFERENCES "cashbox_operations"("id"),
     "amount" NUMERIC(10, 2),
     "net_amount" NUMERIC(10, 2) DEFAULT 0,
     "expense_amount" NUMERIC(10, 2) DEFAULT 0,

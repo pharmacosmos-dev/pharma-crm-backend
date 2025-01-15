@@ -78,15 +78,16 @@ type SalePaymentCloseCashBox struct {
 
 // SalePaymentRequest structure for create, update
 type SalePaymentRequest struct {
-	ID               string  `gorm:"id" json:"-"`
-	SaleID           string  `gorm:"sale_id" json:"sale_id"`
-	CashBoxID        string  `gorm:"cash_box_id" json:"cash_box_id"`
-	PaymentServiceID *string `gorm:"payment_service_id" json:"payment_service_id"`
-	PaymentTypeID    string  `gorm:"payment_type_id" json:"payment_type_id"`
-	Amount           float64 `gorm:"amount" json:"amount"`
-	TransactionID    string  `gorm:"transaction_id" json:"transaction_id,omitempty"`
-	PaidAt           string  `gorm:"paid_at" json:"paid_at"`
-	Status           string  `gorm:"status" json:"status"`
+	ID                 string  `gorm:"id" json:"-"`
+	SaleID             string  `gorm:"sale_id" json:"sale_id"`
+	CashBoxID          string  `gorm:"cash_box_id" json:"cash_box_id"`
+	CashBoxOperationID string  `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
+	PaymentServiceID   *string `gorm:"payment_service_id" json:"payment_service_id"`
+	PaymentTypeID      string  `gorm:"payment_type_id" json:"payment_type_id"`
+	Amount             float64 `gorm:"amount" json:"amount"`
+	TransactionID      string  `gorm:"transaction_id" json:"transaction_id,omitempty"`
+	PaidAt             string  `gorm:"paid_at" json:"paid_at"`
+	Status             string  `gorm:"status" json:"status"`
 }
 
 // Sale Payment Total amounts struct

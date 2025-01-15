@@ -59,9 +59,13 @@ func (h *SaleHandler) Create(c *gin.Context) {
 	}
 	body.ID = uuid.New().String()
 	body.SaleNumber = utils.GenerateCode()
-	err = h.db.WithContext(c.Request.Context()).
-		Table("sales").
-		Create(&body).Scan(&res).Error
+	err = h.db.
+		WithContext(c.Request.Context()).
+		Raw(`
+		INSERT INTO sales (id, employee_id, cash_box_operation_id, sale_number)
+		VALUES (?, ?, ?, ?) RETURNING *`,
+			body.ID, body.EmployeeID, body.CashBoxOperationId, body.SaleNumber).
+		Scan(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -288,14 +292,14 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	var salePayment []domain.SalePaymentRequest
 	for _, item := range body.PaymentTypes {
 		salePayment = append(salePayment, domain.SalePaymentRequest{
-			ID:            uuid.New().String(),
-			SaleID:        body.SaleID,
-			CashBoxID:     body.CashBoxID,
-			PaymentTypeID: item.PaymentTypeID,
-			Amount:        item.Amount,
-			PaidAt:        time.Now().Format("2006-01-02 15:04:05"),
-			Status:        "paid",
-			TransactionID: uuid.New().String(),
+			ID:                 uuid.New().String(),
+			SaleID:             body.SaleID,
+			CashBoxOperationID: body.CashBoxOperationId,
+			PaymentTypeID:      item.PaymentTypeID,
+			Amount:             item.Amount,
+			PaidAt:             time.Now().Format("2006-01-02 15:04:05"),
+			Status:             "paid",
+			TransactionID:      uuid.New().String(),
 		})
 	}
 	err = h.db.WithContext(c.Request.Context()).
