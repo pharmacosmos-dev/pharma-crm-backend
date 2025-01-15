@@ -60,7 +60,7 @@ func (h *CashBoxOperationHandler) Create(c *gin.Context) {
 		return
 	}
 	if err = c.ShouldBindJSON(&body); err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}

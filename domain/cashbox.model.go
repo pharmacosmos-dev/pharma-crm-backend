@@ -31,6 +31,7 @@ type CashboxOperation struct {
 	CashAmount     float64    `gorm:"cash_amount" json:"cash_amount"`
 	CashlessAmount float64    `gorm:"cashless_amount" json:"cashless_amount"`
 	ClosedAmount   float64    `gorm:"closed_amount" json:"closed_amount"`
+	OpenedAmount   float64    `gorm:"opened_amount" json:"opened_amount"`
 	IsOpen         bool       `gorm:"is_open" json:"is_open"`
 	Description    string     `gorm:"description" json:"description"`
 	StartTime      *time.Time `gorm:"start_time" json:"start_time"`
