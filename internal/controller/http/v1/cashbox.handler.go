@@ -261,6 +261,8 @@ func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
 					return
 				}
 				checkCashBox.SaleID = saleRequest.ID
+				handleResponse(c, OK, checkCashBox)
+				return
 			} else {
 				h.log.Error(err)
 				handleResponse(c, InternalError, err.Error())
