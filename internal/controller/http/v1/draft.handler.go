@@ -55,7 +55,7 @@ func (h *DraftHandler) Create(c *gin.Context) {
 	)
 
 	if err = c.ShouldBindJSON(&body); err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err.Error()))
+		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
@@ -64,16 +64,18 @@ func (h *DraftHandler) Create(c *gin.Context) {
 		Update("status", "drafted").Error
 
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err.Error()))
+		h.log.Error(err)
 		handleResponse(c, InternalError, "Error updating sale status")
 		return
 	}
 
 	body.ID = uuid.New().String()
 	body.DraftNumber = utils.GenerateCode()
-	err = h.db.Table("drafts").Create(&body).Scan(&res).Error
+	err = h.db.
+		Table("drafts").
+		Create(&body).Scan(&res).Error
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err.Error()))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -81,13 +83,12 @@ func (h *DraftHandler) Create(c *gin.Context) {
 		Where("sale_id = ?", body.SaleID).
 		Find(&cartItems).Error
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err.Error()))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
 	if len(cartItems) > 0 {
-
 		cartDrafts := []domain.CartItemDraft{}
 		for _, item := range cartItems {
 			cartDrafts = append(cartDrafts, domain.CartItemDraft{
@@ -99,7 +100,7 @@ func (h *DraftHandler) Create(c *gin.Context) {
 		err = h.db.Table("cart_item_drafts").
 			Create(&cartDrafts).Error
 		if err != nil {
-			h.log.Error(fmt.Errorf("err: %v", err.Error()))
+			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())
 			return
 		}
@@ -111,14 +112,14 @@ func (h *DraftHandler) Create(c *gin.Context) {
 			"status":     config.DRAFTED_CART_ITEM,
 		}).Error
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err.Error()))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 	var saleInfo domain.Sale
 	err = h.db.First(&saleInfo, "id = ?", body.SaleID).Error
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err.Error()))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -126,13 +127,13 @@ func (h *DraftHandler) Create(c *gin.Context) {
 	err = h.db.
 		WithContext(c.Request.Context()).
 		Table("sales").Create(&domain.SaleRequest{
-		ID:         saleID,
-		SaleNumber: utils.GenerateCode(),
-		CashBoxId:  saleInfo.CashBoxId,
-		EmployeeID: body.CreatedBy,
+		ID:                 saleID,
+		SaleNumber:         utils.GenerateCode(),
+		EmployeeID:         body.CreatedBy,
+		CashBoxOperationId: saleInfo.CashBoxOperationId,
 	}).Error
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err.Error()))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}

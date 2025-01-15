@@ -63,15 +63,6 @@ definitions:
       quantity:
         type: integer
     type: object
-  domain.CashBoxHistoryRequest:
-    properties:
-      cash_amount:
-        type: number
-      cash_box_id:
-        type: string
-      cashless_amount:
-        type: number
-    type: object
   domain.CashBoxRequest:
     properties:
       is_enable:
@@ -231,6 +222,8 @@ definitions:
   domain.FinalSale:
     properties:
       cash_box_id:
+        type: string
+      cash_box_operation_id:
         type: string
       payment_types:
         items:
@@ -525,8 +518,6 @@ definitions:
     type: object
   domain.SaleRequest:
     properties:
-      cash_box_id:
-        type: string
       cash_box_operation_id:
         type: string
       employee_id:
@@ -1210,69 +1201,6 @@ paths:
       security:
       - BearerAuth: []
       summary: Get a cash register
-      tags:
-      - cash_boxes
-  /cash_box_history:
-    post:
-      consumes:
-      - application/json
-      description: Create a cash history from the request body
-      parameters:
-      - description: Cash history information
-        in: body
-        name: input
-        required: true
-        schema:
-          $ref: '#/definitions/domain.CashBoxHistoryRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Create a cash history
-      tags:
-      - cash_boxes
-  /cash_box_history/{cash_box_id}:
-    get:
-      consumes:
-      - application/json
-      description: Get a cash history from the request body
-      parameters:
-      - description: cash history ID
-        in: path
-        name: cash_box_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Get a cash history
       tags:
       - cash_boxes
   /cash_box_operation:

@@ -252,9 +252,7 @@ func (h *SaleHandler) Delete(c *gin.Context) {
 // @Router /sale/final [post]
 func (h *SaleHandler) FinalSale(c *gin.Context) {
 	var (
-		body         domain.FinalSale
-		res          []domain.CartItemRequest
-		productCount int
+		body domain.FinalSale
 	)
 	err := c.ShouldBindJSON(&body)
 	if err != nil {
@@ -267,24 +265,9 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		handleResponse(c, UNAUTHORIZED, "User ID not found")
 		return
 	}
-
-	err = h.db.Where("sale_id = ?", body.SaleID).
-		Table("cart_items").Find(&res).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-
-	err = h.db.WithContext(c.Request.Context()).
-		Table("sales").
-		Where("id = ?", body.SaleID).
-		Updates(map[string]interface{}{
-			"total_amount":  body.TotalAmount,
-			"product_count": productCount,
-			"status":        "completed",
-		}).Error
-
+	err = h.db.Exec(`
+	UPDATE sales SET status = 'completed', total_amount = ? WHERE id = ? RETURNING cash_box_operation_id`,
+		body.TotalAmount, body.SaleID).Scan(&body.CashBoxOperationId).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -325,10 +308,10 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	}
 
 	newSale := domain.SaleRequest{
-		ID:         uuid.New().String(),
-		EmployeeID: cast.ToString(userID),
-		SaleNumber: utils.GenerateCode(),
-		CashBoxId:  body.CashBoxID,
+		ID:                 uuid.New().String(),
+		EmployeeID:         cast.ToString(userID),
+		SaleNumber:         utils.GenerateCode(),
+		CashBoxOperationId: body.CashBoxOperationId,
 	}
 	err = h.db.
 		WithContext(c.Request.Context()).

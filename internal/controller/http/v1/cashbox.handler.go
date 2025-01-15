@@ -249,10 +249,10 @@ func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				saleRequest := domain.SaleRequest{
-					ID:         uuid.New().String(),
-					EmployeeID: userID.(string),
-					CashBoxId:  checkCashBox.CashBoxOperationID,
-					SaleNumber: utils.GenerateCode(),
+					ID:                 uuid.New().String(),
+					EmployeeID:         userID.(string),
+					CashBoxOperationId: checkCashBox.CashBoxOperationID,
+					SaleNumber:         utils.GenerateCode(),
 				}
 				err = h.db.Create(&saleRequest).Error
 				if err != nil {

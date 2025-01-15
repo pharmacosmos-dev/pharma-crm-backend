@@ -31,11 +31,6 @@ func (h *CashBoxOperationHandler) CashBoxOperationRoutes(r *gin.RouterGroup) {
 		cashBoxOperation.PUT("/close/:cash_box_id", h.CloseCashBox)
 		cashBoxOperation.GET("/closed-info/:cash_box_id", h.CashBoxOperationClosedAmount)
 	}
-	cashBoxHistory := r.Group("/cash_box_history")
-	{
-		cashBoxHistory.POST("", h.CreateCashHistory)
-		cashBoxHistory.GET("/:cash_box_id", h.GetCashHistory)
-	}
 }
 
 // Create godoc
@@ -70,16 +65,25 @@ func (h *CashBoxOperationHandler) Create(c *gin.Context) {
 	body.StartTime = &now
 	body.EmployeeID = userId.(string)
 	body.IsOpen = true
-	err = h.db.
-		WithContext(c.Request.Context()).
-		Table("cashbox_operations").
-		Create(&body).Error
+	var id string
+	err = h.db.Raw(`
+	INSERT INTO 
+		cashbox_operations (
+		id, cash_box_id, employee_id, opened_amount, is_open, start_time, description
+	) VALUES (
+		?, ?, ?, ?, ?, ?, ?
+	) RETURNING id
+	`, body.ID, body.CashBoxID, body.EmployeeID, body.OpenedAmount, body.IsOpen, body.StartTime, body.Description).Scan(&id).Error
+	// err = h.db.
+	// 	WithContext(c.Request.Context()).
+	// 	Table("cashbox_operations").
+	// 	Create(&body).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, CREATED, "CREATED")
+	handleResponse(c, CREATED, id)
 }
 
 // Get godoc
@@ -265,74 +269,6 @@ func (h *CashBoxOperationHandler) Delete(c *gin.Context) {
 	)
 	err = h.db.Delete(&body, "id = ?", id).Error
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	handleResponse(c, OK, body)
-}
-
-// CreateCashHistory godoc
-// @Summary Create a cash history
-// @Description Create a cash history from the request body
-// @Tags cash_boxes
-// @Security     BearerAuth
-// @Accept json
-// @Produce json
-// @Param input body domain.CashBoxHistoryRequest true "Cash history information"
-// @Success 200 {object} v1.Response
-// @Failure 400 {object} v1.Response
-// @Failure 500 {object} v1.Response
-// @Router /cash_box_history [post]
-func (h *CashBoxOperationHandler) CreateCashHistory(c *gin.Context) {
-	var (
-		body domain.CashBoxHistoryRequest
-		err  error
-	)
-	if err = c.ShouldBindJSON(&body); err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
-		return
-	}
-	body.ID = uuid.New().String()
-	err = h.db.
-		WithContext(c.Request.Context()).
-		Table("cash_box_histories").
-		Create(&body).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	handleResponse(c, CREATED, "CREATED")
-}
-
-// GetCashHistory godoc
-// @Summary Get a cash history
-// @Description Get a cash history from the request body
-// @Tags cash_boxes
-// @Security     BearerAuth
-// @Accept json
-// @Produce json
-// @Param cash_box_id path string true "cash history ID"
-// @Success 200 {object} v1.Response
-// @Failure 400 {object} v1.Response
-// @Failure 500 {object} v1.Response
-// @Router /cash_box_history/{cash_box_id} [get]
-func (h *CashBoxOperationHandler) GetCashHistory(c *gin.Context) {
-	var (
-		body      domain.CashBoxHistory
-		err       error
-		cashBoxID = c.Param("cash_box_id")
-	)
-	err = h.db.
-		Preload("CashBox").
-		First(&body, "cash_box_id = ?", cashBoxID).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			handleResponse(c, NotFound, "Cash Box History not found")
-			return
-		}
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return

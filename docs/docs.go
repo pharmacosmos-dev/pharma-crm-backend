@@ -963,106 +963,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/cash_box_history": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Create a cash history from the request body",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "cash_boxes"
-                ],
-                "summary": "Create a cash history",
-                "parameters": [
-                    {
-                        "description": "Cash history information",
-                        "name": "input",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/domain.CashBoxHistoryRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/cash_box_history/{cash_box_id}": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Get a cash history from the request body",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "cash_boxes"
-                ],
-                "summary": "Get a cash history",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "cash history ID",
-                        "name": "cash_box_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            }
-        },
         "/cash_box_operation": {
             "post": {
                 "security": [
@@ -7461,20 +7361,6 @@ const docTemplate = `{
                 }
             }
         },
-        "domain.CashBoxHistoryRequest": {
-            "type": "object",
-            "properties": {
-                "cash_amount": {
-                    "type": "number"
-                },
-                "cash_box_id": {
-                    "type": "string"
-                },
-                "cashless_amount": {
-                    "type": "number"
-                }
-            }
-        },
         "domain.CashBoxRequest": {
             "type": "object",
             "properties": {
@@ -7718,6 +7604,9 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "cash_box_id": {
+                    "type": "string"
+                },
+                "cash_box_operation_id": {
                     "type": "string"
                 },
                 "payment_types": {
@@ -8168,9 +8057,6 @@ const docTemplate = `{
         "domain.SaleRequest": {
             "type": "object",
             "properties": {
-                "cash_box_id": {
-                    "type": "string"
-                },
                 "cash_box_operation_id": {
                     "type": "string"
                 },

@@ -26,7 +26,6 @@ type Sale struct {
 type SaleRequest struct {
 	ID                 string `gorm:"id" json:"-"`
 	EmployeeID         string `gorm:"employee_id" json:"employee_id"`
-	CashBoxId          string `gorm:"cash_box_id" json:"cash_box_id"`
 	CashBoxOperationId string `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
 	SaleNumber         string `gorm:"sale_number" json:"-"`
 }
@@ -40,10 +39,11 @@ type SaleUpdateRequest struct {
 
 // FinalSale structure
 type FinalSale struct {
-	SaleID       string             `gorm:"sale_id" json:"sale_id"`
-	CashBoxID    string             `gorm:"cash_box_id" json:"cash_box_id"`
-	TotalAmount  float64            `gorm:"total_amount" json:"total_amount"`
-	PaymentTypes []FinalPaymentType `json:"payment_types"`
+	SaleID             string             `gorm:"sale_id" json:"sale_id"`
+	CashBoxID          string             `gorm:"cash_box_id" json:"cash_box_id"`
+	CashBoxOperationId string             `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
+	TotalAmount        float64            `gorm:"total_amount" json:"total_amount"`
+	PaymentTypes       []FinalPaymentType `json:"payment_types"`
 }
 
 type FinalPaymentType struct {
