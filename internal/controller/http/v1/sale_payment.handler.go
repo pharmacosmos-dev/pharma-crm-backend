@@ -25,7 +25,7 @@ func (h *SalePaymentHandler) SalePaymentRoutes(r *gin.RouterGroup) {
 		salePayment.GET("/list", h.List)
 		salePayment.PUT("/:id", h.Update)
 		salePayment.DELETE("/:id", h.Delete)
-		salePayment.GET("/list/close-cashbox/:cash_box_id", h.ListByCashBoxId)
+		salePayment.GET("/list/close-cashbox/:cash_box_operation_id", h.ListByCashBoxId)
 		salePayment.PUT("/amounts/:id", h.UpdateAmounts)
 		salePayment.GET("/total-amount/:cash_box_id", h.GetTotalAmount)
 	}
@@ -125,29 +125,29 @@ func (h *SalePaymentHandler) List(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param 	cash_box_id path string true "cash box ID"
+// @Param 	cash_box_operation_id path string true "cash box operation ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /sale-payment/list/close-cashbox/{cash_box_id} [get]
+// @Router /sale-payment/list/close-cashbox/{cash_box_operation_id} [get]
 func (h *SalePaymentHandler) ListByCashBoxId(c *gin.Context) {
-	var cashBoxID = c.Param("cash_box_id")
+	var cashBoxOperationId = c.Param("cash_box_operation_id")
 	res := []*domain.SalePaymentCloseCashBox{}
 	err := h.db.Raw(`
 	SELECT 
 		sp.id,
-		pt.name, 
-		sp.amount, 
-		sp.net_amount, 
+		pt.name,
+		sp.amount,
+		sp.net_amount,
 		sp.expense_amount,
 		(sp.net_amount - sp.amount) as difference_amount 
 	FROM 
 		sale_payments sp
 	RIGHT JOIN
 		payment_types pt ON sp.payment_type_id = pt.id
-	WHERE sp.cash_box_status = 'open' AND sp.cash_box_id = ?
+	WHERE sp.cash_box_status = 'open' AND sp.cash_box_operation_id = ?
 	ORDER BY pt.created_at
-	`, cashBoxID).Scan(&res).Error
+	`, cashBoxOperationId).Scan(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -164,8 +164,8 @@ func (h *SalePaymentHandler) ListByCashBoxId(c *gin.Context) {
 		sale_payments sp
 	RIGHT JOIN
 		payment_types pt ON sp.payment_type_id = pt.id
-	WHERE cash_box_status = 'open' AND cash_box_id = ?
-	`, cashBoxID).Scan(&totalData).Error
+	WHERE sp.cash_box_status = 'open' AND sp.cash_box_operation_id = ?
+	`, cashBoxOperationId).Scan(&totalData).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -185,13 +185,13 @@ func (h *SalePaymentHandler) ListByCashBoxId(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param 	cash_box_id path string true "cash box ID"
+// @Param 	cash_box_operation_id path string true "cash box ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /sale-payment/total-amount/{cash_box_id} [get]
+// @Router /sale-payment/total-amount/{cash_box_operation_id} [get]
 func (h *SalePaymentHandler) GetTotalAmount(c *gin.Context) {
-	var cashBoxID = c.Param("cash_box_id")
+	var cashBoxID = c.Param("cash_box_operation_id")
 	var totalData map[string]interface{}
 
 	err := h.db.Raw(`
@@ -204,7 +204,7 @@ func (h *SalePaymentHandler) GetTotalAmount(c *gin.Context) {
 		payment_types pt ON sp.payment_type_id = pt.id
 	WHERE 
 		sp.cash_box_status = 'open' AND 
-		sp.cash_box_id = ?;
+		sp.cash_box_operation_id = ?;
 	`, cashBoxID).Scan(&totalData).Error
 
 	if err != nil {

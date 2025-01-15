@@ -5751,7 +5751,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/sale-payment/list/close-cashbox/{cash_box_id}": {
+        "/sale-payment/list/close-cashbox/{cash_box_operation_id}": {
             "get": {
                 "security": [
                     {
@@ -5772,8 +5772,8 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "cash box ID",
-                        "name": "cash_box_id",
+                        "description": "cash box operation ID",
+                        "name": "cash_box_operation_id",
                         "in": "path",
                         "required": true
                     }
@@ -5800,7 +5800,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/sale-payment/total-amount/{cash_box_id}": {
+        "/sale-payment/total-amount/{cash_box_operation_id}": {
             "get": {
                 "security": [
                     {
@@ -5822,7 +5822,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "cash box ID",
-                        "name": "cash_box_id",
+                        "name": "cash_box_operation_id",
                         "in": "path",
                         "required": true
                     }
