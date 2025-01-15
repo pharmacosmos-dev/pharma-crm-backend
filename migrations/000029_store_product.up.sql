@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS "store_products"(
     "pack_quantity" INT DEFAULT 0,
     "unit_quantity" INT DEFAULT 0,
     "small_quantity" INT DEFAULT 0,
+    "expire_date" DATE,
     "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

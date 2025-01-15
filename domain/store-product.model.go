@@ -11,6 +11,7 @@ type StoreProduct struct {
 	PackQuantity        int        `gorm:"pack_quantity" json:"pack_quantity"`
 	UnitQuantity        int        `gorm:"unit_quantity" json:"unit_quantity"`
 	SmallQuantity       int        `gorm:"small_quantity" json:"small_quantity"`
+	ExpireDate          *time.Time `gorm:"expire_date" json:"expire_date"`
 	CreatedAt           *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt           *time.Time `gorm:"updated_at" json:"updated_at"`
 	Product             *Product   `gorm:"foreignKey:ProductID" json:"product"`
@@ -25,9 +26,10 @@ type StoreProductUpdateRequest struct {
 
 // Store Product Request structure for creating
 type StoreProductRequest struct {
-	StoreID       string `gorm:"store_id" json:"store_id"`
-	ProductID     string `gorm:"product_id" json:"product_id"`
-	PackQuantity  int    `gorm:"pack_quantity" json:"pack_quantity"`
-	UnitQuantity  int    `gorm:"unit_quantity" json:"unit_quantity"`
-	SmallQuantity int    `gorm:"store_id" json:"small_quantity"`
+	StoreID       string     `gorm:"store_id" json:"store_id"`
+	ProductID     string     `gorm:"product_id" json:"product_id"`
+	PackQuantity  int        `gorm:"pack_quantity" json:"pack_quantity"`
+	UnitQuantity  int        `gorm:"unit_quantity" json:"unit_quantity"`
+	SmallQuantity int        `gorm:"store_id" json:"small_quantity"`
+	ExpireDate    *time.Time `gorm:"expire_date" json:"expire_date"`
 }

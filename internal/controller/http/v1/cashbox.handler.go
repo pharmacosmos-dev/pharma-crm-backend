@@ -230,14 +230,12 @@ func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
 		handleResponse(c, UNAUTHORIZED, "User ID not found")
 		return
 	}
-	var storeID = c.Query("store_id")
 	var checkCashBox domain.CashBoxCheckResponse
 	err := h.db.Raw(`
-	SELECT co.is_open, co.id AS cash_box_operation_id 
-	FROM cashbox_operations co
-	JOIN cash_boxes cb ON co.cash_box_id = cb.id
-	WHERE cb.store_id = ? AND co.employee_id = ? ORDER BY co.start_time DESC LIMIT 1
-	`, storeID, userID).Scan(&checkCashBox).Error
+	SELECT id AS cash_box_operation_id, is_open
+	FROM cashbox_operations 
+	WHERE is_open = true AND employee_id = ? ORDER BY start_time DESC
+	`, userID).Scan(&checkCashBox).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
