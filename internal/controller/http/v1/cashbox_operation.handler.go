@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
 )
 
@@ -68,22 +69,30 @@ func (h *CashBoxOperationHandler) Create(c *gin.Context) {
 	var id string
 	err = h.db.Raw(`
 	INSERT INTO 
-		cashbox_operations (
-		id, cash_box_id, employee_id, opened_amount, is_open, start_time, description
-	) VALUES (
-		?, ?, ?, ?, ?, ?, ?
-	) RETURNING id
+		cashbox_operations (id, cash_box_id, employee_id, opened_amount, is_open, start_time, description) 
+		VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id
 	`, body.ID, body.CashBoxID, body.EmployeeID, body.OpenedAmount, body.IsOpen, body.StartTime, body.Description).Scan(&id).Error
-	// err = h.db.
-	// 	WithContext(c.Request.Context()).
-	// 	Table("cashbox_operations").
-	// 	Create(&body).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, CREATED, id)
+	newSale := domain.SaleRequest{
+		ID:                 uuid.New().String(),
+		EmployeeID:         userId.(string),
+		CashBoxOperationId: id,
+		SaleNumber:         utils.GenerateCode(),
+	}
+	err = h.db.WithContext(c.Request.Context()).
+		Raw(`INSERT INTO sales (id, employee_id, cash_box_operation_id, sale_number) VALUES (?, ?, ?, ?)`,
+			newSale.ID, newSale.EmployeeID, newSale.CashBoxOperationId, newSale.SaleNumber).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	handleResponse(c, CREATED, newSale)
 }
 
 // Get godoc
