@@ -60,6 +60,7 @@ type CloseCashboxOperation struct {
 	ClosedAmount   float64 `gorm:"closed_amount" json:"closed_amount"`
 	IsCompany      bool    `gorm:"is_company" json:"is_company"`
 	EndTime        string  `gorm:"end_time" json:"-"`
+	IsOpen         bool    `gorm:"is_open" json:"-"`
 }
 
 // CashBoxHistory structure

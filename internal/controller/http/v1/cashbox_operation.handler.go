@@ -182,11 +182,13 @@ func (h *CashBoxOperationHandler) CloseCashBox(c *gin.Context) {
 		return
 	}
 	body.EndTime = time.Now().Format("2006-01-02 15:04:05")
-	err = h.db.WithContext(c.Request.Context()).
-		Table("cashbox_operations").
-		Where("cash_box_id = ?", cashBoxID).
-		Where("is_open = ?", false).
-		Updates(&body).Error
+	body.IsOpen = false
+	err = h.db.Exec(`
+	UPDATE 
+		cashbox_operations SET end_time = ?, is_open = ? 
+	WHERE cash_box_id = ? AND is_open = ?`,
+		body.EndTime, false, cashBoxID, true).Debug().Error
+
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
