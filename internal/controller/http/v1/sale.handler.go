@@ -2,7 +2,6 @@ package v1
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -64,7 +63,7 @@ func (h *SaleHandler) Create(c *gin.Context) {
 		Table("sales").
 		Create(&body).Scan(&res).Error
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -345,11 +344,12 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 
 // CheckSale
 // @Summary Check Sale
-// @Description Check Sale from the request body
+// @Description Check cash box from the request body
 // @Tags sales
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
+// @Param 	store_id query string true "Store ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response

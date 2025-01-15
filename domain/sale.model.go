@@ -48,3 +48,5 @@ type FinalPaymentType struct {
 	PaymentTypeID string  `gorm:"payment_type_id" json:"payment_type_id"`
 	Amount        float64 `gorm:"amount" json:"amount"`
 }
+
+

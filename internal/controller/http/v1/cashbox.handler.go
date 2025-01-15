@@ -1,11 +1,14 @@
 package v1
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/utils"
+	"gorm.io/gorm"
 )
 
 type CashBoxHandler struct {
@@ -25,6 +28,7 @@ func (h *CashBoxHandler) CashBoxRoutes(r *gin.RouterGroup) {
 		cashBox.GET("/list", h.List)
 		cashBox.PUT("/:id", h.Update)
 		cashBox.DELETE("/:id", h.Delete)
+		cashBox.GET("/check", h.CheckCashBox)
 	}
 }
 
@@ -203,4 +207,66 @@ func (h *CashBoxHandler) Delete(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, "DELETED")
+}
+
+// CheckCashBox
+// @Summary Check Cash Box is open or not
+// @Description Check Cash Box from the request body
+// @Tags cash_boxes
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param 	store_id query string true "Store ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /cash_box/check [get]
+func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
+	userID, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	var storeID = c.Query("store_id")
+	var checkCashBox domain.CashBoxCheckResponse
+	err := h.db.Raw(`
+	SELECT co.is_open, co.cash_box_id 
+	FROM cashbox_operations co 
+	JOIN cash_boxes cb ON co.cash_box_id = cb.id
+	WHERE cb.store_id = ? AND co.employee_id = ?
+	`, storeID, userID).Scan(&checkCashBox).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	var sale domain.Sale
+	if checkCashBox.IsOpen {
+		err = h.db.First(&sale, "employee_id = ? AND status = ?", userID, "pending").Error
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				saleRequest := domain.SaleRequest{
+					ID:         uuid.New().String(),
+					EmployeeID: userID.(string),
+					CashBoxId:  checkCashBox.CashBoxID,
+					SaleNumber: utils.GenerateCode(),
+				}
+				err = h.db.Create(&saleRequest).Error
+				if err != nil {
+					h.log.Error(err)
+					handleResponse(c, InternalError, err.Error())
+					return
+				}
+				checkCashBox.SaleID = saleRequest.ID
+			} else {
+				h.log.Error(err)
+				handleResponse(c, InternalError, err.Error())
+				return
+			}
+		}
+		checkCashBox.SaleID = sale.ID
+	} else {
+		checkCashBox.IsOpen = false
+	}
+	handleResponse(c, OK, checkCashBox)
 }

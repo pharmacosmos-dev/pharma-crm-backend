@@ -81,3 +81,9 @@ type CashBoxHistoryRequest struct {
 	CreatedAt      *time.Time `gorm:"created_at" json:"-"`
 	UpdatedAt      *time.Time `gorm:"updated_at" json:"-"`
 }
+
+type CashBoxCheckResponse struct {
+	CashBoxID string `json:"cash_box_id"`
+	IsOpen    bool   `json:"is_open"`
+	SaleID    string `json:"sale_id"`
+}
