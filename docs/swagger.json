@@ -1165,6 +1165,55 @@
                 }
             }
         },
+        "/cash_box_operation/closed-info/{cash_box_id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get a cash history from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "cash_boxes"
+                ],
+                "summary": "Get a cash history",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "cash history ID",
+                        "name": "cash_box_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/cash_box_operation/list": {
             "get": {
                 "security": [
@@ -8113,6 +8162,9 @@
             "type": "object",
             "properties": {
                 "cash_box_id": {
+                    "type": "string"
+                },
+                "cash_box_operation_id": {
                     "type": "string"
                 },
                 "employee_id": {

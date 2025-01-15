@@ -29,6 +29,7 @@ func (h *CashBoxOperationHandler) CashBoxOperationRoutes(r *gin.RouterGroup) {
 		cashBoxOperation.PUT("/:id", h.Update)
 		cashBoxOperation.DELETE("/:id", h.Delete)
 		cashBoxOperation.PUT("/close/:cash_box_id", h.CloseCashBox)
+		cashBoxOperation.GET("/closed-info/:cash_box_id", h.CashBoxOperationClosedAmount)
 	}
 	cashBoxHistory := r.Group("/cash_box_history")
 	{
@@ -337,4 +338,37 @@ func (h *CashBoxOperationHandler) GetCashHistory(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, body)
+}
+
+// CashBoxOperationClosedAmount godoc
+// @Summary Get a cash history
+// @Description Get a cash history from the request body
+// @Tags cash_boxes
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param cash_box_id path string true "cash history ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /cash_box_operation/closed-info/{cash_box_id} [get]
+func (h *CashBoxOperationHandler) CashBoxOperationClosedAmount(c *gin.Context) {
+	var (
+		cashBoxOperation domain.CashboxOperation
+		cashBoxID        = c.Param("cash_box_id")
+	)
+	err := h.db.
+		Where("is_open = ?", false).
+		Order("created_at DESC").
+		First(&cashBoxOperation, "cash_box_id = ?", cashBoxID).Debug().Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			handleResponse(c, NotFound, "Cash Box Operation not found")
+			return
+		}
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, cashBoxOperation)
 }
