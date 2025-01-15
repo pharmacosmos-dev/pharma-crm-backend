@@ -85,7 +85,7 @@ type CashBoxHistoryRequest struct {
 }
 
 type CashBoxCheckResponse struct {
-	CashBoxID string `json:"cash_box_id"`
-	IsOpen    bool   `json:"is_open"`
-	SaleID    string `json:"sale_id"`
+	CashBoxOperationID string `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
+	IsOpen             bool   `gorm:"is_open" json:"is_open"`
+	SaleID             string `gorm:"-" json:"sale_id"`
 }

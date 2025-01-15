@@ -130,7 +130,10 @@ func (h *CashBoxHandler) List(c *gin.Context) {
 	if storeID != "" {
 		query = query.Where("store_id = ?", storeID)
 	}
-	err = query.Limit(limit).Offset(offset).Find(&body).Error
+	err = query.
+		Where("is_enable = ?", true).
+		Limit(limit).Offset(offset).
+		Find(&body).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -209,7 +212,7 @@ func (h *CashBoxHandler) Delete(c *gin.Context) {
 	handleResponse(c, OK, "DELETED")
 }
 
-// CheckCashBox
+// CheckCashBox go docs
 // @Summary Check Cash Box is open or not
 // @Description Check Cash Box from the request body
 // @Tags cash_boxes
@@ -230,8 +233,8 @@ func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
 	var storeID = c.Query("store_id")
 	var checkCashBox domain.CashBoxCheckResponse
 	err := h.db.Raw(`
-	SELECT co.is_open, co.cash_box_id 
-	FROM cashbox_operations co 
+	SELECT co.is_open, co.id AS cash_box_operation_id 
+	FROM cashbox_operations co
 	JOIN cash_boxes cb ON co.cash_box_id = cb.id
 	WHERE cb.store_id = ? AND co.employee_id = ?
 	`, storeID, userID).Scan(&checkCashBox).Error
@@ -248,7 +251,7 @@ func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
 				saleRequest := domain.SaleRequest{
 					ID:         uuid.New().String(),
 					EmployeeID: userID.(string),
-					CashBoxId:  checkCashBox.CashBoxID,
+					CashBoxId:  checkCashBox.CashBoxOperationID,
 					SaleNumber: utils.GenerateCode(),
 				}
 				err = h.db.Create(&saleRequest).Error
@@ -265,8 +268,6 @@ func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
 			}
 		}
 		checkCashBox.SaleID = sale.ID
-	} else {
-		checkCashBox.IsOpen = false
 	}
 	handleResponse(c, OK, checkCashBox)
 }
