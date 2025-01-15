@@ -236,7 +236,7 @@ func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
 	SELECT co.is_open, co.id AS cash_box_operation_id 
 	FROM cashbox_operations co
 	JOIN cash_boxes cb ON co.cash_box_id = cb.id
-	WHERE cb.store_id = ? AND co.employee_id = ?
+	WHERE cb.store_id = ? AND co.employee_id = ? ORDER BY co.start_time DESC LIMIT 1
 	`, storeID, userID).Scan(&checkCashBox).Error
 	if err != nil {
 		h.log.Error(err)
