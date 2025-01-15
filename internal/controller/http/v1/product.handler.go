@@ -501,7 +501,7 @@ func (h *ProductHandler) SimilarProducts(c *gin.Context) {
 	query := h.db.
 		Table("store_products").
 		Preload("Product", func(db *gorm.DB) *gorm.DB {
-			return db.Preload("ProductUnits").Preload("Categories")
+			return db.Preload("Categories")
 		}).
 		Joins(`
 			JOIN products ON store_products.product_id = products.id
@@ -513,7 +513,7 @@ func (h *ProductHandler) SimilarProducts(c *gin.Context) {
 			AND products.expire_date::DATE >= NOW()::DATE
 		`, id)
 
-	err = query.Limit(limit).Offset(offset).Debug().Find(&similarProducts).Error
+	err = query.Limit(limit).Offset(offset).Find(&similarProducts).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, "Failed to fetch similar products")
