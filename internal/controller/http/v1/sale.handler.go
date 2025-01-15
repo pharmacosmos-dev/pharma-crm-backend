@@ -269,7 +269,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		handleResponse(c, UNAUTHORIZED, "User ID not found")
 		return
 	}
-	err = h.db.Exec(`
+	err = h.db.Raw(`
 	UPDATE sales SET status = 'completed', total_amount = ? WHERE id = ? RETURNING cash_box_operation_id`,
 		body.TotalAmount, body.SaleID).Scan(&body.CashBoxOperationId).Error
 	if err != nil {

@@ -80,7 +80,6 @@ type SalePaymentCloseCashBox struct {
 type SalePaymentRequest struct {
 	ID                 string  `gorm:"id" json:"-"`
 	SaleID             string  `gorm:"sale_id" json:"sale_id"`
-	CashBoxID          string  `gorm:"cash_box_id" json:"cash_box_id"`
 	CashBoxOperationID string  `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
 	PaymentServiceID   *string `gorm:"payment_service_id" json:"payment_service_id"`
 	PaymentTypeID      string  `gorm:"payment_type_id" json:"payment_type_id"`

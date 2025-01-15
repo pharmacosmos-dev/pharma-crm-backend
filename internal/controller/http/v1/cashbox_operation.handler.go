@@ -61,6 +61,14 @@ func (h *CashBoxOperationHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	err = h.db.WithContext(c.Request.Context()).
+		Where("id = ?", body.CashBoxID).
+		Update("is_open = ?", true).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
 	now := time.Now()
 	body.ID = uuid.New().String()
 	body.StartTime = &now
