@@ -27,7 +27,7 @@ func (h *SalePaymentHandler) SalePaymentRoutes(r *gin.RouterGroup) {
 		salePayment.DELETE("/:id", h.Delete)
 		salePayment.GET("/list/close-cashbox/:cash_box_operation_id", h.ListByCashBoxId)
 		salePayment.PUT("/amounts/:id", h.UpdateAmounts)
-		salePayment.GET("/total-amount/:cash_box_id", h.GetTotalAmount)
+		salePayment.GET("/total-amount/:cash_box_operation_id", h.GetTotalAmount)
 	}
 	transaction := r.Group("/transaction")
 	{
@@ -185,15 +185,18 @@ func (h *SalePaymentHandler) ListByCashBoxId(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param 	cash_box_operation_id path string true "cash box ID"
+// @Param 	cash_box_operation_id path string true "cash box operation ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /sale-payment/total-amount/{cash_box_operation_id} [get]
 func (h *SalePaymentHandler) GetTotalAmount(c *gin.Context) {
 	var cashBoxID = c.Param("cash_box_operation_id")
-	var totalData map[string]interface{}
-
+	var totalData struct {
+		CashAmount     float64 `json:"cash_amount"`
+		CashlessAmount float64 `json:"cashless_amount"`
+	}
+	fmt.Println("cash_box_operation_id: ", cashBoxID)
 	err := h.db.Raw(`
 	SELECT
 		SUM(CASE WHEN pt.type = 'cash' THEN sp.net_amount ELSE 0 END) AS cash_amount,
