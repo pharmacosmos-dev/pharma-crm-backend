@@ -7603,9 +7603,6 @@ const docTemplate = `{
         "domain.FinalSale": {
             "type": "object",
             "properties": {
-                "cash_box_id": {
-                    "type": "string"
-                },
                 "cash_box_operation_id": {
                     "type": "string"
                 },
@@ -8023,7 +8020,7 @@ const docTemplate = `{
                 "amount": {
                     "type": "number"
                 },
-                "cash_box_id": {
+                "cash_box_operation_id": {
                     "type": "string"
                 },
                 "paid_at": {

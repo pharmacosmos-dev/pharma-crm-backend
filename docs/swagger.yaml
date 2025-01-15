@@ -221,8 +221,6 @@ definitions:
     type: object
   domain.FinalSale:
     properties:
-      cash_box_id:
-        type: string
       cash_box_operation_id:
         type: string
       payment_types:
@@ -496,7 +494,7 @@ definitions:
     properties:
       amount:
         type: number
-      cash_box_id:
+      cash_box_operation_id:
         type: string
       paid_at:
         type: string
