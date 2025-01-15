@@ -62,6 +62,7 @@ func (h *CashBoxOperationHandler) Create(c *gin.Context) {
 		return
 	}
 	err = h.db.WithContext(c.Request.Context()).
+		Table("cash_boxes").
 		Where("id = ?", body.CashBoxID).
 		Update("is_open = ?", true).Error
 	if err != nil {
