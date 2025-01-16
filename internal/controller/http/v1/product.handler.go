@@ -501,7 +501,6 @@ func (h *ProductHandler) SimilarProducts(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-
 	// Step 3: Return the response
 	handleResponse(c, OK, res)
 }
