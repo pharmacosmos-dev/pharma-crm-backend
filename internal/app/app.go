@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	v1 "github.com/pharma-crm-backend/internal/controller/http"
+	"github.com/pharma-crm-backend/internal/storage"
 	"github.com/pharma-crm-backend/pkg/db"
 
 	"github.com/pharma-crm-backend/config"
@@ -27,15 +28,17 @@ func Run(cfg *config.Config) {
 	if err != nil {
 		l.Error(err)
 	}
+	// New storage
+	storage := storage.NewStorage(connDB, l)
 
 	// HTTP Server
 	handler := gin.New()
-	v1.NewRouter(handler, connDB, l, cfg)
+	v1.NewRouter(handler, connDB, l, cfg, storage)
 
 	httpServer := httpserver.New(handler, httpserver.Port(cfg.HTTP.Port))
 
 	fmt.Println("Server is running on port:", cfg.HTTP.Port)
-	
+
 	// Waiting signal
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)

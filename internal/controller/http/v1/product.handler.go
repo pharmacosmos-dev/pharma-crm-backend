@@ -196,7 +196,6 @@ func (h *ProductHandler) List(c *gin.Context) {
 		Preload("Categories")
 
 	if storeIDParam != "" {
-		// storeIDParam = storeIDParam
 		query = query.
 			Joins("JOIN store_products ON store_products.product_id = products.id").
 			Where("store_products.store_id = ?", storeIDParam)
@@ -486,42 +485,25 @@ func (h *ProductHandler) UploadProduct(c *gin.Context) {
 // @Router /product/similar/{id} [get]
 func (h *ProductHandler) SimilarProducts(c *gin.Context) {
 	var (
-		id              = c.Param("id")
-		limit, offset   int
-		similarProducts []domain.StoreProduct
-		err             error
+		id  = c.Param("id")
+		res []domain.StoreProductResponse
 	)
 
-	limit, offset, err = getPaginationParams(c)
+	limit, offset, err := getPaginationParams(c)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	query := h.db.
-		Table("store_products").
-		Preload("Product", func(db *gorm.DB) *gorm.DB {
-			return db.Preload("Categories")
-		}).
-		Joins(`
-			JOIN products ON store_products.product_id = products.id
-			JOIN category_products ON category_products.product_id = products.id
-		`).
-		Where(`
-			category_products.product_id = ? 
-			AND products.status = 'active' 
-			AND products.expire_date::DATE >= NOW()::DATE
-		`, id)
-
-	err = query.Limit(limit).Offset(offset).Find(&similarProducts).Error
+	res, err = h.storage.SimilarProducts(c.Request.Context(), id, offset, limit)
 	if err != nil {
 		h.log.Error(err)
-		handleResponse(c, InternalError, "Failed to fetch similar products")
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
 	// Step 3: Return the response
-	handleResponse(c, OK, similarProducts)
+	handleResponse(c, OK, res)
 }
 
 // StoreProducts godoc
@@ -533,44 +515,23 @@ func (h *ProductHandler) SimilarProducts(c *gin.Context) {
 // @Produce json
 // @Param id path string true "Store ID"
 // @Param search query string false "Search"
-// @Param limit query int false "Limit"
-// @Param offset query int false "Offset"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /product/store/{id} [get]
 func (h *ProductHandler) ListByStoreId(c *gin.Context) {
 	var (
-		res     []*domain.StoreProduct
+		res     []*domain.StoreProductResponse
 		err     error
 		search  = c.Query("search")
 		storeID = c.Param("id")
 	)
-	limit, offset, err := getPaginationParams(c)
+	res, err = h.storage.ListStoreProduct(c.Request.Context(), storeID, search)
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
+		handleResponse(c, InternalError, "Failed to fetch products")
 		return
-	}
-	query := h.db.
-		Table("store_products").
-		Preload("Product", func(db *gorm.DB) *gorm.DB {
-			return db.Preload("Categories")
-		}).
-		Joins("INNER JOIN products ON store_products.product_id = products.id").
-		Where("products.status = 'active' AND products.expire_date::DATE >= NOW()::DATE").
-		Where("store_products.store_id = ?", storeID)
-	if search != "" {
-		search = fmt.Sprintf("%%%s%%", search)
-		query = query.Where("products.name ILIKE ? OR products.barcode ILIKE ?", search, search)
 	}
 
-	err = query.Limit(limit).Offset(offset).Debug().Find(&res).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
 	handleResponse(c, OK, res)
 }
 

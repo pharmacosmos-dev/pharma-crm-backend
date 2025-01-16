@@ -8,6 +8,7 @@ import (
 	_ "github.com/pharma-crm-backend/docs"
 	"github.com/pharma-crm-backend/internal/controller/http/middleware"
 	v1 "github.com/pharma-crm-backend/internal/controller/http/v1"
+	"github.com/pharma-crm-backend/internal/storage"
 	"github.com/pharma-crm-backend/pkg/logger"
 	"github.com/pharma-crm-backend/pkg/token"
 	swaggerFiles "github.com/swaggo/files"
@@ -27,7 +28,7 @@ import (
 // @in header
 // @name Authorization
 // NewRouter -.
-func NewRouter(ginEngine *gin.Engine, db *gorm.DB, log *logger.Logger, cfg *config.Config) {
+func NewRouter(ginEngine *gin.Engine, db *gorm.DB, log *logger.Logger, cfg *config.Config, strg *storage.Storage) {
 
 	// Basic Auth
 	basicAuth := middleware.BasicAuth()
@@ -53,7 +54,7 @@ func NewRouter(ginEngine *gin.Engine, db *gorm.DB, log *logger.Logger, cfg *conf
 	}
 
 	// Handlers
-	handler := v1.NewHandler(cfg, db, log, &jwtHandler)
+	handler := v1.NewHandler(cfg, db, log, &jwtHandler, strg)
 	handler.InitRoutes(ginEngine)
 
 	// PING

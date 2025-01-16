@@ -156,7 +156,7 @@ func (h *CartItemHandler) List(c *gin.Context) {
 		Scan(&sumResult).Error
 
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}

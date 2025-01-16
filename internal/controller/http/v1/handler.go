@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/internal/controller/http/middleware"
+	"github.com/pharma-crm-backend/internal/storage"
 	"github.com/pharma-crm-backend/pkg/logger"
 	"github.com/pharma-crm-backend/pkg/token"
 	"gorm.io/gorm"
@@ -14,14 +15,16 @@ type Handler struct {
 	db         *gorm.DB
 	cfg        *config.Config
 	JwtHandler *token.JWTHandler
+	storage    *storage.Storage
 }
 
-func NewHandler(cfg *config.Config, db *gorm.DB, log *logger.Logger, jwt *token.JWTHandler) *Handler {
+func NewHandler(cfg *config.Config, db *gorm.DB, log *logger.Logger, jwt *token.JWTHandler, storage *storage.Storage) *Handler {
 	return &Handler{
 		cfg:        cfg,
 		db:         db,
 		log:        log,
 		JwtHandler: jwt,
+		storage:    storage,
 	}
 }
 
