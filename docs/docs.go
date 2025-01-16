@@ -1005,7 +1005,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/cash_box_operation/close/{cash_box_id}": {
+        "/cash_box_operation/close/{cash_box_operation_id}": {
             "put": {
                 "security": [
                     {
@@ -1027,7 +1027,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "cash box Operation ID",
-                        "name": "cash_box_id",
+                        "name": "cash_box_operation_id",
                         "in": "path",
                         "required": true
                     },
