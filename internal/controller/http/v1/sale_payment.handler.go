@@ -141,7 +141,7 @@ func (h *SalePaymentHandler) ListByCashBoxId(c *gin.Context) {
 		sp.net_amount,
 		sp.expense_amount,
 		(sp.net_amount - sp.amount) as difference_amount 
-	FROM 
+	FROM
 		sale_payments sp
 	RIGHT JOIN
 		payment_types pt ON sp.payment_type_id = pt.id
@@ -193,10 +193,9 @@ func (h *SalePaymentHandler) ListByCashBoxId(c *gin.Context) {
 func (h *SalePaymentHandler) GetTotalAmount(c *gin.Context) {
 	var cashBoxID = c.Param("cash_box_operation_id")
 	var totalData struct {
-		CashAmount     float64 `json:"cash_amount"`
-		CashlessAmount float64 `json:"cashless_amount"`
+		CashAmount     float64 `gorm:"cash_amount" json:"cash_amount"`
+		CashlessAmount float64 `gorm:"cashless_amount" json:"cashless_amount"`
 	}
-	fmt.Println("cash_box_operation_id: ", cashBoxID)
 	err := h.db.Raw(`
 	SELECT
 		SUM(CASE WHEN pt.type = 'cash' THEN sp.net_amount ELSE 0 END) AS cash_amount,

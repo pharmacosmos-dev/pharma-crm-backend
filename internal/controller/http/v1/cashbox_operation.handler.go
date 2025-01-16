@@ -31,6 +31,7 @@ func (h *CashBoxOperationHandler) CashBoxOperationRoutes(r *gin.RouterGroup) {
 		cashBoxOperation.DELETE("/:id", h.Delete)
 		cashBoxOperation.PUT("/close/:cash_box_id", h.CloseCashBox)
 		cashBoxOperation.GET("/closed-info/:cash_box_id", h.CashBoxOperationClosedAmount)
+		cashBoxOperation.GET("info/:id", h.CashBoxOperationInfo)
 	}
 }
 
@@ -311,6 +312,44 @@ func (h *CashBoxOperationHandler) CashBoxOperationClosedAmount(c *gin.Context) {
 		SELECT * FROM cashbox_operations 
 		WHERE cash_box_id = ? AND end_time IS NOT NULL 
 		ORDER BY end_time DESC LIMIT 1`, cashBoxID).Scan(&cashBoxOperation).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			handleResponse(c, OK, cashBoxOperation)
+			return
+		}
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, cashBoxOperation)
+}
+
+// CashBoxOperationInfo godoc
+// @Summary Get a cash operation
+// @Description Get a cash operation from the request body
+// @Tags cash_boxes
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param 	id path string true "cash operation ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /cash_box_operation/info/{id} [get]
+func (h *CashBoxOperationHandler) CashBoxOperationInfo(c *gin.Context) {
+	var (
+		cashBoxOperation domain.CashboxOperationInfo
+		id               = c.Param("id")
+	)
+	err := h.db.
+		Raw(`
+		SELECT co.*, s.name as store_name, e.first_name as first_name 
+		FROM cashbox_operations co 
+		JOIN employees e ON co.employee_id = e.id
+		JOIN cash_boxes cb ON co.cash_box_id = cb.id
+		JOIN stores s ON cb.store_id = s.id
+		WHERE co.id = ?
+		`, id).Scan(&cashBoxOperation).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			handleResponse(c, OK, cashBoxOperation)

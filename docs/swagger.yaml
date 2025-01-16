@@ -1394,6 +1394,37 @@ paths:
       summary: Get a cash history
       tags:
       - cash_boxes
+  /cash_box_operation/info/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get a cash operation from the request body
+      parameters:
+      - description: cash operation ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a cash operation
+      tags:
+      - cash_boxes
   /cash_box_operation/list:
     get:
       consumes:

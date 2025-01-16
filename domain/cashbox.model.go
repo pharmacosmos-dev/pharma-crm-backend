@@ -63,29 +63,25 @@ type CloseCashboxOperation struct {
 	IsOpen         bool    `gorm:"is_open" json:"-"`
 }
 
-// CashBoxHistory structure
-type CashBoxHistory struct {
-	ID             string     `gorm:"id" json:"id"`
-	CashBoxID      string     `gorm:"cash_box_id" json:"cash_box_id"`
-	CashAmount     float64    `gorm:"cash_amount" json:"cash_amount"`
-	CashlessAmount float64    `gorm:"cashless_amount" json:"cashless_amount"`
-	CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`
-	UpdatedAt      *time.Time `gorm:"updated_at" json:"updated_at"`
-	CashBox        *CashBox   `gorm:"foreignKey:CashBoxID" json:"cash_box"`
-}
-
-// CashBoxHistoryRequest for create, update
-type CashBoxHistoryRequest struct {
-	ID             string     `gorm:"id" json:"-"`
-	CashBoxID      string     `gorm:"cash_box_id" json:"cash_box_id"`
-	CashAmount     float64    `gorm:"cash_amount" json:"cash_amount"`
-	CashlessAmount float64    `gorm:"cashless_amount" json:"cashless_amount"`
-	CreatedAt      *time.Time `gorm:"created_at" json:"-"`
-	UpdatedAt      *time.Time `gorm:"updated_at" json:"-"`
-}
-
 type CashBoxCheckResponse struct {
 	CashBoxOperationID string `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
 	IsOpen             bool   `gorm:"is_open" json:"is_open"`
 	SaleID             string `gorm:"-" json:"sale_id"`
+}
+
+// Cash Box Session structure
+type CashboxOperationInfo struct {
+	ID             string     `gorm:"id" json:"id"`
+	CashBoxID      string     `gorm:"cash_box_id" json:"cash_box_id"`
+	EmployeeID     string     `gorm:"employee_id" json:"employee_id"`
+	CashAmount     float64    `gorm:"cash_amount" json:"cash_amount"`
+	CashlessAmount float64    `gorm:"cashless_amount" json:"cashless_amount"`
+	ClosedAmount   float64    `gorm:"closed_amount" json:"closed_amount"`
+	OpenedAmount   float64    `gorm:"opened_amount" json:"opened_amount"`
+	IsOpen         bool       `gorm:"is_open" json:"is_open"`
+	Description    string     `gorm:"description" json:"description"`
+	StartTime      *time.Time `gorm:"start_time" json:"start_time"`
+	EndTime        *time.Time `gorm:"end_time" json:"end_time"`
+	FirstName      string     `gorm:"first_name" json:"first_name"`
+	StoreName      string     `gorm:"store_name" json:"store_name"`
 }
