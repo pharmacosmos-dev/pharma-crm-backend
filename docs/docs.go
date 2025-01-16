@@ -720,15 +720,6 @@ const docTemplate = `{
                     "cash_boxes"
                 ],
                 "summary": "Check Cash Box is open or not",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Store ID",
-                        "name": "store_id",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -5821,7 +5812,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "cash box ID",
+                        "description": "cash box operation ID",
                         "name": "cash_box_operation_id",
                         "in": "path",
                         "required": true
@@ -8076,6 +8067,9 @@ const docTemplate = `{
         "domain.StoreProductRequest": {
             "type": "object",
             "properties": {
+                "expire_date": {
+                    "type": "string"
+                },
                 "pack_quantity": {
                     "type": "integer"
                 },

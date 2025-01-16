@@ -219,55 +219,73 @@ func (h *CashBoxHandler) Delete(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param 	store_id query string true "Store ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /cash_box/check [get]
 func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
+	// Get the user ID from the context
 	userID, ok := c.Get("user_id")
 	if !ok {
 		handleResponse(c, UNAUTHORIZED, "User ID not found")
 		return
 	}
-	var checkCashBox domain.CashBoxCheckResponse
+
+	// Check if there is an open cashbox operation for this employee
+	var cashBoxOperationID string
 	err := h.db.Raw(`
-	SELECT id AS cash_box_operation_id, is_open
-	FROM cashbox_operations 
-	WHERE is_open = true AND employee_id = ? ORDER BY start_time DESC
-	`, userID).Scan(&checkCashBox).Error
+		SELECT id 
+		FROM cashbox_operations 
+		WHERE employee_id = ? AND end_time IS NULL
+	`, userID).Scan(&cashBoxOperationID).Error
 	if err != nil {
 		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		handleResponse(c, InternalError, "Failed to check cash box operations")
 		return
 	}
-	var sale domain.Sale
-	if checkCashBox.IsOpen {
-		err = h.db.First(&sale, "employee_id = ? AND status = ?", userID, "pending").Error
+
+	// Prepare the response object
+	var checkCashBox domain.CashBoxCheckResponse
+	checkCashBox.CashBoxOperationID = cashBoxOperationID
+
+	// If a cashbox operation exists
+	if cashBoxOperationID != "" {
+		// Check for a pending sale linked to this cashbox operation
+		var sale domain.Sale
+		err := h.db.Where("status = ? AND cash_box_operation_id = ?", "pending", cashBoxOperationID).First(&sale).Error
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				saleRequest := domain.SaleRequest{
-					ID:                 uuid.New().String(),
+				// No pending sale found; create a new one
+				newSale := domain.SaleRequest{
+					CashBoxOperationId: cashBoxOperationID,
 					EmployeeID:         userID.(string),
-					CashBoxOperationId: checkCashBox.CashBoxOperationID,
 					SaleNumber:         utils.GenerateCode(),
+					ID:                 uuid.New().String(),
 				}
-				err = h.db.Create(&saleRequest).Error
-				if err != nil {
-					h.log.Error(err)
-					handleResponse(c, InternalError, err.Error())
+				if createErr := h.db.Create(&newSale).Error; createErr != nil {
+					h.log.Error(createErr)
+					handleResponse(c, InternalError, "Failed to create new sale")
 					return
 				}
-				checkCashBox.SaleID = saleRequest.ID
+
+				// Set the new sale ID in the response
+				checkCashBox.SaleID = newSale.ID
+				checkCashBox.IsOpen = true
 				handleResponse(c, OK, checkCashBox)
 				return
-			} else {
-				h.log.Error(err)
-				handleResponse(c, InternalError, err.Error())
-				return
 			}
+			h.log.Error(err)
+			handleResponse(c, InternalError, "Failed to check for pending sale")
+			return
 		}
+
+		// If a pending sale exists
 		checkCashBox.SaleID = sale.ID
+		checkCashBox.IsOpen = true
+		handleResponse(c, OK, checkCashBox)
+		return
 	}
+
+	// No open cashbox operation found
 	handleResponse(c, OK, checkCashBox)
 }
