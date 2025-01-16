@@ -1,10 +1,11 @@
+CREATE SEQUENCE IF NOT EXISTS "sale_number_seq" START WITH 1000 INCREMENT BY 1 MINVALUE 1000;
+
 CREATE TABLE IF NOT EXISTS "sales" (
     "id" UUID NOT NULL PRIMARY KEY,
+    "sale_number" INTEGER NOT NULL DEFAULT nextval('sale_number_seq'),
     "employee_id" UUID REFERENCES employees(id),
-    "cash_box_id" UUID REFERENCES cash_boxes(id),
     "cash_box_operation_id" UUID REFERENCES cashbox_operations(id),
     "customer_id" UUID REFERENCES customers(id),
-    "sale_number" VARCHAR(10),
     "discount_type" VARCHAR(10),
     "total_discount" NUMERIC(10, 2),
     "total_amount" NUMERIC(10, 2),
@@ -16,4 +17,3 @@ CREATE TABLE IF NOT EXISTS "sales" (
     "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-

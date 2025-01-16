@@ -13,6 +13,6 @@ CREATE TABLE IF NOT EXISTS "cashbox_operations" (
     "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE UNIQUE INDEX unique_open_cash_per_employee
+CREATE UNIQUE INDEX IF NOT EXISTS unique_open_cash_per_employee
 ON "cashbox_operations" ("cash_box_id", "employee_id")
 WHERE "end_time" IS NULL;

@@ -7,7 +7,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
-	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
 )
 
@@ -259,7 +258,6 @@ func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
 				newSale := domain.SaleRequest{
 					CashBoxOperationId: cashBoxOperationID,
 					EmployeeID:         userID.(string),
-					SaleNumber:         utils.GenerateCode(),
 					ID:                 uuid.New().String(),
 				}
 				if createErr := h.db.Create(&newSale).Error; createErr != nil {

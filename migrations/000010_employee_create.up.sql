@@ -1,8 +1,10 @@
+CREATE SEQUENCE IF NOT EXISTS employees_public_id_seq START WITH 1000 INCREMENT BY 1 MINVALUE 1000;
+
 CREATE TABLE IF NOT EXISTS "employees" (
   "id" uuid PRIMARY KEY,
+  "public_id" INTEGER NOT NULL DEFAULT nextval('employees_public_id_seq'),
   "store_id" uuid REFERENCES "stores"("id"),
   "role_id" uuid REFERENCES "roles"("id"),
-  "public_id" INT,
   "first_name" varchar,
   "last_name" varchar,
   "phone" varchar,

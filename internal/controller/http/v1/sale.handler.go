@@ -63,14 +63,13 @@ func (h *SaleHandler) Create(c *gin.Context) {
 		return
 	}
 	body.ID = uuid.New().String()
-	body.SaleNumber = utils.GenerateCode()
 	body.EmployeeID = cast.ToString(user)
 	err = h.db.
 		WithContext(c.Request.Context()).
 		Raw(`
-		INSERT INTO sales (id, employee_id, cash_box_operation_id, sale_number)
-		VALUES (?, ?, ?, ?) RETURNING *`,
-			body.ID, body.EmployeeID, body.CashBoxOperationId, body.SaleNumber).
+		INSERT INTO sales (id, employee_id, cash_box_operation_id)
+		VALUES (?, ?, ?) RETURNING *`,
+			body.ID, body.EmployeeID, body.CashBoxOperationId).
 		Scan(&res).Error
 	if err != nil {
 		h.log.Error(err)
@@ -320,7 +319,6 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	newSale := domain.SaleRequest{
 		ID:                 uuid.New().String(),
 		EmployeeID:         cast.ToString(userID),
-		SaleNumber:         utils.GenerateCode(),
 		CashBoxOperationId: body.CashBoxOperationId,
 	}
 	err = h.db.

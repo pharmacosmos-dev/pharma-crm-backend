@@ -38,7 +38,6 @@ type EmployeeRequest struct {
 	Id        string   `gorm:"id" json:"-"`
 	RoleIds   []string `gorm:"-" json:"role_ids"`
 	StoreId   string   `gorm:"store_id" json:"store_id"`
-	PublicId  int      `gorm:"public_id" json:"-"`
 	FirstName string   `gorm:"first_name" json:"first_name"`
 	LastName  string   `gorm:"last_name" json:"last_name"`
 	Phone     string   `gorm:"phone" json:"phone"`

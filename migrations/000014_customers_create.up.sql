@@ -1,6 +1,8 @@
+CREATE SEQUENCE IF NOT EXISTS customers_public_id_seq START WITH 1000 INCREMENT BY 1 MINVALUE 1000;
+
 CREATE TABLE IF NOT EXISTS "customers" (
   "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  "public_id" INT,
+  "public_id" INTEGER NOT NULL DEFAULT nextval('customers_public_id_seq'),
   "group_id" uuid,
   "tag_id" uuid,
   "first_name" varchar,

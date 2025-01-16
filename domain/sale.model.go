@@ -9,7 +9,7 @@ type Sale struct {
 	CashBoxId          string         `gorm:"cash_box_id" json:"cash_box_id"`
 	CashBoxOperationId string         `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
 	CustomerID         string         `gorm:"customer_id" json:"customer_id"`
-	SaleNumber         string         `gorm:"sale_number" json:"sale_number"`
+	SaleNumber         int            `gorm:"sale_number" json:"sale_number"`
 	TotalDiscount      float64        `gorm:"total_discount" json:"total_discount"`
 	TotalAmount        float64        `gorm:"total_amount" json:"total_amount"`
 	ProductCount       int            `gorm:"product_count" json:"product_count"`
@@ -27,7 +27,6 @@ type SaleRequest struct {
 	ID                 string `gorm:"id" json:"-"`
 	EmployeeID         string `gorm:"employee_id" json:"employee_id"`
 	CashBoxOperationId string `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
-	SaleNumber         string `gorm:"sale_number" json:"-"`
 }
 
 // SaleUpdateRequest structure for update

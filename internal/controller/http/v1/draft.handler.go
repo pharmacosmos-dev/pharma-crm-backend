@@ -128,7 +128,6 @@ func (h *DraftHandler) Create(c *gin.Context) {
 		WithContext(c.Request.Context()).
 		Table("sales").Create(&domain.SaleRequest{
 		ID:                 saleID,
-		SaleNumber:         utils.GenerateCode(),
 		EmployeeID:         body.CreatedBy,
 		CashBoxOperationId: saleInfo.CashBoxOperationId,
 	}).Error

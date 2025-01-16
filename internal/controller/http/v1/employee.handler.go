@@ -70,7 +70,6 @@ func (h *EmployeeHandler) Create(c *gin.Context) {
 	body.Password = &hashedPassword
 	body.Id = uuid.New().String()
 	body.Status = "active"
-	body.PublicId = utils.GenerateRandomCode()
 	// create employee
 	err = h.db.
 		WithContext(c.Request.Context()).

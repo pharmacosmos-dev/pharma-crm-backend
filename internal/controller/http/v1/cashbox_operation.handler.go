@@ -90,7 +90,7 @@ func (h *CashBoxOperationHandler) Create(c *gin.Context) {
 
 	var sale domain.Sale
 	err = h.db.WithContext(c.Request.Context()).
-		Raw(`INSERT INTO sales (id, employee_id, cash_box_operation_id, sale_number) VALUES (?, ?, ?, ?) RETURNING *`,
+		Raw(`INSERT INTO sales (id, employee_id, cash_box_operation_id) VALUES (?, ?, ?) RETURNING *`,
 			uuid.New().String(), userId.(string), id, utils.GenerateCode()).Scan(&sale).Error
 	if err != nil {
 		h.log.Error(err)
