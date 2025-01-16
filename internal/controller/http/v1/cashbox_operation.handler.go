@@ -307,13 +307,13 @@ func (h *CashBoxOperationHandler) CashBoxOperationClosedAmount(c *gin.Context) {
 		cashBoxOperation domain.CashboxOperation
 		cashBoxID        = c.Param("cash_box_id")
 	)
-	err := h.db.
-		Where("is_open = ?", false).
-		Order("created_at DESC").
-		First(&cashBoxOperation, "cash_box_id = ?", cashBoxID).Debug().Error
+	err := h.db.Raw(`
+		SELECT * FROM cashbox_operations 
+		WHERE cash_box_id = ? AND end_time IS NOT NULL 
+		ORDER BY end_time DESC LIMIT 1`, cashBoxID).Scan(&cashBoxOperation).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			handleResponse(c, NotFound, "Cash Box Operation not found")
+			handleResponse(c, OK, cashBoxOperation)
 			return
 		}
 		h.log.Error(err)
