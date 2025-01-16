@@ -35,8 +35,9 @@ type StoreProductRequest struct {
 }
 
 type StoreProductResponse struct {
-	ProductID           *string    `gorm:"product_id" json:"product_id"`
-	ProductMaterialCode *int       `gorm:"product_material_code" json:"product_material_code"`
+	ID                  string     `gorm:"id" json:"id"`
+	ProductID           string     `gorm:"product_id" json:"product_id"`
+	ProductMaterialCode int        `gorm:"product_material_code" json:"product_material_code"`
 	StoreID             string     `gorm:"store_id" json:"store_id"`
 	Quantity            string     `gorm:"quantity" json:"quantity"`
 	Barcode             string     `gorm:"barcode" json:"barcode"`
