@@ -41,7 +41,7 @@ func (h *SaleHandler) SaleRoutes(r *gin.RouterGroup) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param input body domain.SaleRequest true "Sale information"
+// @Param 	input body domain.SaleRequest true "Sale information"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -52,6 +52,11 @@ func (h *SaleHandler) Create(c *gin.Context) {
 		res  domain.Sale
 		err  error
 	)
+	user, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
 	if err = c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
@@ -59,6 +64,7 @@ func (h *SaleHandler) Create(c *gin.Context) {
 	}
 	body.ID = uuid.New().String()
 	body.SaleNumber = utils.GenerateCode()
+	body.EmployeeID = cast.ToString(user)
 	err = h.db.
 		WithContext(c.Request.Context()).
 		Raw(`
