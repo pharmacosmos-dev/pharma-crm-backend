@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
@@ -68,7 +69,7 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 		Id:             importID,
 		StoreID:        store.Id,
 		StoreCode:      body.Apteka.StoreCode,
-		Status:         "new",
+		Status:         config.NEW_IMPORT,
 		ImportDate:     time.Now().Format("2006-01-02 15:04:05"),
 		DocumentNumber: body.Dok.DocumentNumber,
 	}

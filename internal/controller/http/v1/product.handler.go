@@ -84,7 +84,7 @@ func (h *ProductHandler) Create(c *gin.Context) {
 
 	if len(body.StoreProduct) > 0 {
 		var imports = make([]domain.ImportRequest, len(body.StoreProduct))
-
+		var importDetail = make([]domain.ImportDetailRequest, len(body.StoreProduct))
 		for i := range body.StoreProduct {
 			// store products table take required fields
 			body.StoreProduct[i].ProductID = body.Id
@@ -93,16 +93,42 @@ func (h *ProductHandler) Create(c *gin.Context) {
 			body.StoreProduct[i].SupplyPrice = body.SupplyPrice
 			body.StoreProduct[i].RetailPrice = body.RetailPrice
 			body.StoreProduct[i].Vat = body.Vat
+
 			// imports table take required fields
 			imports[i].Id = uuid.New().String()
 			imports[i].StoreID = body.StoreProduct[i].StoreID
 			imports[i].Status = config.COMPLETED_IMPORT
+			imports[i].DocumentNumber = utils.GenerateDocumentNumber()
 			imports[i].ImportDate = time.Now().Format("2006-01-02 15:04:05")
+
+			// import detail take required fields
+			importDetail[i].ImportID = imports[i].Id
+			importDetail[i].ProductID = &body.Id
+			importDetail[i].ReceivedCount = body.Quantity
+			importDetail[i].ReceivedAmount = float64(body.Quantity) * body.RetailPrice
 		}
 		err = h.db.
 			WithContext(c.Request.Context()).
 			Table("store_products").
 			Create(&body.StoreProduct).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+		err = h.db.
+			WithContext(c.Request.Context()).
+			Table("imports").
+			Create(&imports).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+		err = h.db.
+			WithContext(c.Request.Context()).
+			Table("import_details").
+			Create(&importDetail).Error
 		if err != nil {
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())

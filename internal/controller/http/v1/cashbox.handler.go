@@ -131,7 +131,6 @@ func (h *CashBoxHandler) List(c *gin.Context) {
 		query = query.Where("store_id = ?", storeID)
 	}
 	err = query.
-		Where("is_enable = ?", true).
 		Where("deleted_at IS NULL").
 		Limit(limit).Offset(offset).
 		Order("created_at DESC").Debug().

@@ -36,3 +36,8 @@ func GenerateRandomCode() int {
 	}
 	return code
 }
+
+func GenerateDocumentNumber() string {
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	return fmt.Sprintf("PN-%06d", rng.Intn(1_000_000))
+}
