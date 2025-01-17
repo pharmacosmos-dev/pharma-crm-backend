@@ -2,6 +2,7 @@ package v1
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -108,15 +109,18 @@ func (h *CashBoxHandler) Get(c *gin.Context) {
 // @Param limit query int false "Limit"
 // @Param offset query int false "Offset"
 // @Param store_id query string false "Store ID"
+// @Param search query string false "Search"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /cash_box/list [get]
 func (h *CashBoxHandler) List(c *gin.Context) {
 	var (
-		body    []domain.CashBox
-		err     error
-		storeID = c.Query("store_id")
+		body       []domain.CashBox
+		totalCount int64
+		err        error
+		storeID    = c.Query("store_id")
+		search     = c.Query("search")
 	)
 
 	limit, offset, err := getPaginationParams(c)
@@ -132,8 +136,14 @@ func (h *CashBoxHandler) List(c *gin.Context) {
 	if storeID != "" {
 		query = query.Where("store_id = ?", storeID)
 	}
+
+	if search != "" {
+		search = fmt.Sprintf("%%%s%%", search)
+		query = query.Where("name ILIKE ?", search)
+	}
 	err = query.
 		Where("deleted_at IS NULL").
+		Count(&totalCount).
 		Limit(limit).Offset(offset).
 		Order("created_at DESC").Debug().
 		Find(&body).Error
@@ -142,7 +152,7 @@ func (h *CashBoxHandler) List(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, body)
+	handleResponse(c, OK, body, totalCount)
 }
 
 // Update godoc

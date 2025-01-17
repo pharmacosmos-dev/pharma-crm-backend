@@ -68,15 +68,22 @@ type Response struct {
 	Ok      bool        `json:"ok"`
 	Code    int         `json:"code"`
 	Message string      `json:"message"`
+	Count   int64       `json:"count,omitempty"`
 	Data    interface{} `json:"data"`
 }
 
 // handleResponse to send consistent JSON responses
-func handleResponse(c *gin.Context, status Status, data interface{}) {
+func handleResponse(c *gin.Context, status Status, data interface{}, count ...int64) {
+	var responseCount int64
+	if len(count) > 0 {
+		responseCount = count[0]
+	}
+
 	c.JSON(status.Code, Response{
 		Ok:      status.Code >= 200 && status.Code < 400, // true for 2xx status codes
 		Code:    status.Code,
 		Message: status.Description,
 		Data:    data,
+		Count:   responseCount,
 	})
 }
