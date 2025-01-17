@@ -222,7 +222,7 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 		id   = c.Param("id")
 	)
 	if err = c.ShouldBindJSON(&body); err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
