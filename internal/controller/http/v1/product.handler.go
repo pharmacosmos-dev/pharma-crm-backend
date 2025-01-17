@@ -42,6 +42,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.GET("/import/:id", h.GetProductImports)
 		product.DELETE("/hard-delete", h.HardDelete)
 		product.DELETE("/soft-delete", h.SoftDelete)
+		product.GET("/store-product/:id", h.ListStoreProductProductId)
 	}
 }
 
@@ -624,6 +625,53 @@ func (h *ProductHandler) GetProductImports(c *gin.Context) {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
+	}
+	handleResponse(c, OK, res)
+}
+
+// ListStoreProductProductId godoc
+// @Summary Get store products by product_id
+// @Description Get store products by product_id
+// @Tags products
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "Product ID"
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/store-product/{id} [get]
+func (h *ProductHandler) ListStoreProductProductId(c *gin.Context) {
+	var (
+		id  = c.Param("id")
+		res []domain.StoreProduct
+	)
+	if id == "" || id == "undefined" {
+		handleResponse(c, BadRequest, "Product ID is required")
+		return
+	}
+
+	limit, offset, err := getPaginationParams(c)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	err = h.db.
+		Preload("Store").
+		Where("product_id = ?", id).
+		Limit(limit).Offset(offset).
+		Order("created_at desc").
+		Find(&res).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	for i := range res {
+		res[i].Quantity = res[i].PackQuantity
 	}
 	handleResponse(c, OK, res)
 }
