@@ -273,12 +273,8 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /cart_item/{id} [delete]
 func (h *CartItemHandler) Delete(c *gin.Context) {
-	var (
-		body domain.CartItem
-		err  error
-		id   = c.Param("id")
-	)
-	err = h.db.Delete(&body, "id = ?", id).Error
+	var id = c.Param("id")
+	err := h.db.Delete(&domain.CartItem{}, "id = ?", id).Error
 	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
