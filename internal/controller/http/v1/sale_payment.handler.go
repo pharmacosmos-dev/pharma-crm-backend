@@ -137,10 +137,10 @@ func (h *SalePaymentHandler) ListByCashBoxId(c *gin.Context) {
 	SELECT 
 		pt.id,
 		pt.name,
-		SUM(sp.amount) AS total_amount,
-		SUM(sp.net_amount) AS total_net_amount,
-		SUM(sp.expense_amount) AS total_expense_amount,
-		SUM(sp.net_amount - sp.amount) AS total_difference_amount
+		SUM(sp.amount) AS amount,
+		SUM(sp.net_amount) AS net_amount,
+		SUM(sp.expense_amount) AS expense_amount,
+		SUM(sp.net_amount - sp.amount) AS difference_amount
 	FROM 
 		payment_types pt
 	LEFT JOIN 
