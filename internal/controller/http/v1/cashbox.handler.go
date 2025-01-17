@@ -135,6 +135,7 @@ func (h *CashBoxHandler) List(c *gin.Context) {
 		Where("is_enable = ?", true).
 		Where("deleted_at IS NULL").
 		Limit(limit).Offset(offset).
+		Order("created_at DESC").
 		Find(&body).Error
 	if err != nil {
 		h.log.Error(err)
