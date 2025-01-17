@@ -72,6 +72,7 @@ func (h *ProductHandler) Create(c *gin.Context) {
 	body.Id = uuid.New().String()
 	body.Photos = utils.StringArray(body.Photos)
 	body.Status = config.ACTIVE_PRODUCT
+	body.MaterialCode = utils.GenerateMaterialCode()
 	err = h.db.
 		WithContext(c.Request.Context()).
 		Table("products").
@@ -105,6 +106,7 @@ func (h *ProductHandler) Create(c *gin.Context) {
 			importDetail[i].ImportID = imports[i].Id
 			importDetail[i].ProductID = &body.Id
 			importDetail[i].ReceivedCount = body.Quantity
+			importDetail[i].ProductMaterialCode = body.MaterialCode
 			importDetail[i].ReceivedAmount = float64(body.Quantity) * body.RetailPrice
 		}
 		err = h.db.

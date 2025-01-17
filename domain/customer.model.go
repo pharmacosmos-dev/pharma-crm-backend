@@ -41,7 +41,6 @@ type Customer struct {
 type CustomerRequest struct {
 	Id        string            `gorm:"id" json:"-"`
 	StoreId   string            `gorm:"store_id" json:"store_id"`
-	PublicId  int               `gorm:"public_id" json:"-"`
 	FirstName string            `gorm:"first_name" json:"first_name"`
 	LastName  string            `gorm:"last_name" json:"last_name,omitempty"`
 	Phone     utils.StringArray `gorm:"type:text[]" json:"phone"`

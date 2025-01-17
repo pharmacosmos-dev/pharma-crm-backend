@@ -7897,6 +7897,9 @@ const docTemplate = `{
                 "manufacturer": {
                     "type": "string"
                 },
+                "material_code": {
+                    "type": "integer"
+                },
                 "name": {
                     "type": "string"
                 },

@@ -3,7 +3,6 @@ package utils
 import (
 	"fmt"
 	"math/rand"
-	"sync"
 	"time"
 )
 
@@ -16,25 +15,9 @@ func GenerateCode() string {
 	return code
 }
 
-var (
-	generatedCodes = make(map[int]bool) // Store generated codes
-	mu             sync.Mutex           // Mutex for concurrency safety
-)
-
-func GenerateRandomCode() int {
-	mu.Lock()
-	defer mu.Unlock()
-
+func GenerateMaterialCode() int {
 	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-	var code int
-	for {
-		code = 100000 + rng.Intn(900000) // Generate random number between 100000 and 999999
-		if !generatedCodes[code] {       // Check if the code is unique
-			generatedCodes[code] = true
-			break
-		}
-	}
-	return code
+	return rng.Intn(100000)
 }
 
 func GenerateDocumentNumber() string {

@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS "imports" (
     "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     "public_id" INTEGER NOT NULL DEFAULT nextval('imports_public_id_seq'),
     "store_id" UUID REFERENCES stores("id"),
-    "store_code" INT REFERENCES stores("store_code"),
+    "store_code" INTEGER,
     "document_number" VARCHAR(50),
     "created_by" UUID REFERENCES employees("id"),
     "accepted_by" UUID REFERENCES employees("id"),

@@ -355,6 +355,8 @@ definitions:
         type: string
       manufacturer:
         type: string
+      material_code:
+        type: integer
       name:
         type: string
       photos:

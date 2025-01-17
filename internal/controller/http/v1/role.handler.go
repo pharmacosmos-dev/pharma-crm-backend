@@ -56,7 +56,6 @@ func (h *RoleHandler) Create(c *gin.Context) {
 	}
 
 	body.Id = uuid.New().String()
-	body.PublicId = utils.GenerateRandomCode()
 
 	err = h.db.
 		WithContext(c.Request.Context()).
