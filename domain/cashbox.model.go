@@ -19,7 +19,7 @@ type CashBoxRequest struct {
 	ID       string `gorm:"id" json:"-"`
 	Name     string `gorm:"name" json:"name"`
 	StoreID  string `gorm:"store_id" json:"store_id"`
-	IsOpen   bool   `gorm:"is_open" json:"is_open"`
+	IsOpen   bool   `gorm:"is_open" json:"-"`
 	IsEnable bool   `gorm:"is_enable" json:"is_enable"`
 }
 

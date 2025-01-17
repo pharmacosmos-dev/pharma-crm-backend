@@ -7462,9 +7462,6 @@ const docTemplate = `{
                 "is_enable": {
                     "type": "boolean"
                 },
-                "is_open": {
-                    "type": "boolean"
-                },
                 "name": {
                     "type": "string"
                 },

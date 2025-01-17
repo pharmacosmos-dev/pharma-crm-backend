@@ -135,7 +135,7 @@ func (h *CashBoxHandler) List(c *gin.Context) {
 		Where("is_enable = ?", true).
 		Where("deleted_at IS NULL").
 		Limit(limit).Offset(offset).
-		Order("created_at DESC").
+		Order("created_at DESC").Debug().
 		Find(&body).Error
 	if err != nil {
 		h.log.Error(err)
@@ -169,17 +169,10 @@ func (h *CashBoxHandler) Update(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	cashBox := domain.CashBox{
-		ID:       body.ID,
-		Name:     body.Name,
-		StoreID:  body.StoreID,
-		IsOpen:   body.IsOpen,
-		IsEnable: body.IsEnable,
-	}
 	err = h.db.WithContext(c.Request.Context()).
-		Model(&domain.CashBox{}).
+		Table("cash_boxes").
 		Where("id = ?", id).
-		Updates(&cashBox).Error
+		Updates(&body).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
