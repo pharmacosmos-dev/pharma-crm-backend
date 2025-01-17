@@ -452,8 +452,8 @@ func (h *ImportHandler) AcceptImport(c *gin.Context) {
 	for i := range importDetails {
 		storeProducts = append(storeProducts, domain.StoreProduct{
 			StoreID:             importData.StoreID,
-			ProductID:           importDetails[i].ProductID,
-			ProductMaterialCode: &importDetails[i].ProductMaterialCode,
+			ProductID:           *importDetails[i].ProductID,
+			ProductMaterialCode: importDetails[i].ProductMaterialCode,
 			Quantity:            importDetails[i].AcceptedCount,
 		})
 	}

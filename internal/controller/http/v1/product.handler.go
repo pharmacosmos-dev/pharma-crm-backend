@@ -645,8 +645,9 @@ func (h *ProductHandler) GetProductImports(c *gin.Context) {
 // @Router /product/store-product/{id} [get]
 func (h *ProductHandler) ListStoreProductProductId(c *gin.Context) {
 	var (
-		id  = c.Param("id")
-		res []domain.StoreProduct
+		id         = c.Param("id")
+		res        []domain.StoreProduct
+		totalCount int64
 	)
 	if id == "" || id == "undefined" {
 		handleResponse(c, BadRequest, "Product ID is required")
@@ -660,8 +661,10 @@ func (h *ProductHandler) ListStoreProductProductId(c *gin.Context) {
 		return
 	}
 	err = h.db.
+		Model(&domain.StoreProduct{}).
 		Preload("Store").
 		Where("product_id = ?", id).
+		Count(&totalCount).
 		Limit(limit).Offset(offset).
 		Order("created_at desc").
 		Find(&res).Error
@@ -673,7 +676,8 @@ func (h *ProductHandler) ListStoreProductProductId(c *gin.Context) {
 	for i := range res {
 		res[i].Quantity = res[i].PackQuantity
 	}
-	handleResponse(c, OK, res)
+	result := utils.ListResponse(res, totalCount, limit, offset)
+	handleResponse(c, OK, result)
 }
 
 // HardDelete godoc
