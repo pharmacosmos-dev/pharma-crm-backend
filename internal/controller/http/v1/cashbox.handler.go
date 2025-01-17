@@ -87,7 +87,9 @@ func (h *CashBoxHandler) Get(c *gin.Context) {
 		err  error
 		id   = c.Param("id")
 	)
-	err = h.db.First(&body, "id = ?", id).Error
+	err = h.db.
+		Preload("Store").
+		First(&body, "id = ?", id).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
