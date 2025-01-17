@@ -9,5 +9,6 @@ CREATE TABLE IF NOT EXISTS "cash_boxes" (
     "deleted_by" UUID,
     "is_active" BOOLEAN NOT NULL DEFAULT true,
     "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    "deleted_at" TIMESTAMPTZ
 );

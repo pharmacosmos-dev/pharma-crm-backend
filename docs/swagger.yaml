@@ -46,8 +46,12 @@ definitions:
         type: integer
       sale_id:
         type: string
+      store_product_id:
+        type: string
       unit_price:
         type: number
+      unit_quantity:
+        type: integer
     type: object
   domain.CartItemUpdateProductUnit:
     properties:
@@ -120,6 +124,8 @@ definitions:
       closed_amount:
         type: number
       is_company:
+        type: boolean
+      is_open:
         type: boolean
     type: object
   domain.CreateProduct1C:
@@ -536,11 +542,19 @@ definitions:
         type: integer
       product_id:
         type: string
+      retail_price:
+        type: number
       small_quantity:
         type: integer
       store_id:
         type: string
+      supply_price:
+        type: number
+      unit_per_pack:
+        type: integer
       unit_quantity:
+        type: integer
+      vat:
         type: integer
     type: object
   domain.StoreRequest:
@@ -1038,36 +1052,6 @@ paths:
       tags:
       - cash_boxes
   /cash_box/{id}:
-    delete:
-      consumes:
-      - application/json
-      description: Delete a cash box from the request body
-      parameters:
-      - description: cash box ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Delete a cash box
-      tags:
-      - cash_boxes
     get:
       consumes:
       - application/json
@@ -1159,6 +1143,40 @@ paths:
       summary: Check Cash Box is open or not
       tags:
       - cash_boxes
+  /cash_box/hard-delete:
+    delete:
+      consumes:
+      - application/json
+      description: Hard Delete a cash box from the request body
+      parameters:
+      - description: cash box IDs
+        in: body
+        name: id
+        required: true
+        schema:
+          items:
+            type: string
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Hard Delete a cash box
+      tags:
+      - cash_boxes
   /cash_box/list:
     get:
       consumes:
@@ -1195,6 +1213,40 @@ paths:
       security:
       - BearerAuth: []
       summary: Get a cash register
+      tags:
+      - cash_boxes
+  /cash_box/soft-delete:
+    delete:
+      consumes:
+      - application/json
+      description: Soft Delete a cash box from the request body
+      parameters:
+      - description: cash box IDs
+        in: body
+        name: id
+        required: true
+        schema:
+          items:
+            type: string
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Soft Delete a cash box
       tags:
       - cash_boxes
   /cash_box_operation:
@@ -3882,14 +3934,6 @@ paths:
         in: query
         name: search
         type: string
-      - description: Limit
-        in: query
-        name: limit
-        type: integer
-      - description: Offset
-        in: query
-        name: offset
-        type: integer
       produces:
       - application/json
       responses:

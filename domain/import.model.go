@@ -30,7 +30,6 @@ type ImportRequest struct {
 	Id             string `gorm:"id" json:"id"`
 	StoreID        string `gorm:"store_id" json:"store_id"`
 	StoreCode      int    `gorm:"store_code" json:"store_code"`
-	PublicID       int    `gorm:"public_id" json:"-"`
 	Status         string `gorm:"status" json:"status"`
 	ImportDate     string `gorm:"import_date" json:"import_date"`
 	DocumentNumber string `gorm:"document_number" json:"document_number"`

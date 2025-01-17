@@ -57,7 +57,6 @@ func (h *ImportHandler) Create(c *gin.Context) {
 		body domain.ImportRequest
 		err  error
 	)
-	body.PublicID = utils.GenerateRandomCode()
 	err = c.ShouldBindJSON(&body)
 	if err != nil {
 		h.log.Error(err)

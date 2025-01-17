@@ -3,6 +3,7 @@ package v1
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -26,8 +27,9 @@ func (h *CashBoxHandler) CashBoxRoutes(r *gin.RouterGroup) {
 		cashBox.GET("/:id", h.Get)
 		cashBox.GET("/list", h.List)
 		cashBox.PUT("/:id", h.Update)
-		cashBox.DELETE("/:id", h.Delete)
 		cashBox.GET("/check", h.CheckCashBox)
+		cashBox.DELETE("/hard-delete", h.HardDelete)
+		cashBox.DELETE("/soft-delete", h.SoftDelete)
 	}
 }
 
@@ -61,7 +63,7 @@ func (h *CashBoxHandler) Create(c *gin.Context) {
 		Table("cash_boxes").
 		Create(&body).Error
 	if err != nil {
-		h.log.Error(fmt.Errorf("failed to create cash box: %v", err))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -131,6 +133,7 @@ func (h *CashBoxHandler) List(c *gin.Context) {
 	}
 	err = query.
 		Where("is_enable = ?", true).
+		Where("deleted_at IS NULL").
 		Limit(limit).Offset(offset).
 		Find(&body).Error
 	if err != nil {
@@ -185,24 +188,65 @@ func (h *CashBoxHandler) Update(c *gin.Context) {
 }
 
 // Delete godoc
-// @Summary Delete a cash box
-// @Description Delete a cash box from the request body
+// @Summary Hard Delete a cash box
+// @Description Hard Delete a cash box from the request body
 // @Tags cash_boxes
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param id path string true "cash box ID"
+// @Param 	id body []string true "cash box IDs"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /cash_box/{id} [delete]
-func (h *CashBoxHandler) Delete(c *gin.Context) {
+// @Router /cash_box/hard-delete [delete]
+func (h *CashBoxHandler) HardDelete(c *gin.Context) {
 	var (
-		body domain.CashBox
-		err  error
-		id   = c.Param("id")
+		ids []string
+		err error
 	)
-	err = h.db.Delete(&body, "id = ?", id).Error
+	if err = c.ShouldBindJSON(&ids); err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	err = h.db.Delete(&domain.CashBox{}, "id IN (?)", ids).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, "DELETED")
+}
+
+// Delete godoc
+// @Summary Soft Delete a cash box
+// @Description Soft Delete a cash box from the request body
+// @Tags cash_boxes
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param 	id 	body []string true "cash box IDs"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /cash_box/soft-delete [delete]
+func (h *CashBoxHandler) SoftDelete(c *gin.Context) {
+	var (
+		ids []string
+		err error
+	)
+	if err = c.ShouldBindJSON(&ids); err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	err = h.db.
+		WithContext(c.Request.Context()).
+		Table("cash_boxes").
+		Where("id IN (?)", ids).
+		Updates(map[string]interface{}{
+			"is_enable":  false,
+			"deleted_at": time.Now()}).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())

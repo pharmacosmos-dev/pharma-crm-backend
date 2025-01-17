@@ -742,6 +742,60 @@ const docTemplate = `{
                 }
             }
         },
+        "/cash_box/hard-delete": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Hard Delete a cash box from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "cash_boxes"
+                ],
+                "summary": "Hard Delete a cash box",
+                "parameters": [
+                    {
+                        "description": "cash box IDs",
+                        "name": "id",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/cash_box/list": {
             "get": {
                 "security": [
@@ -778,6 +832,60 @@ const docTemplate = `{
                         "description": "Store ID",
                         "name": "store_id",
                         "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/cash_box/soft-delete": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Soft Delete a cash box from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "cash_boxes"
+                ],
+                "summary": "Soft Delete a cash box",
+                "parameters": [
+                    {
+                        "description": "cash box IDs",
+                        "name": "id",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
                     }
                 ],
                 "responses": {
@@ -883,53 +991,6 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/domain.CashBoxRequest"
                         }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Delete a cash box from the request body",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "cash_boxes"
-                ],
-                "summary": "Delete a cash box",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "cash box ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
                     }
                 ],
                 "responses": {
@@ -5076,18 +5137,6 @@ const docTemplate = `{
                         "description": "Search",
                         "name": "search",
                         "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Limit",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Offset",
-                        "name": "offset",
-                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -7375,8 +7424,14 @@ const docTemplate = `{
                 "sale_id": {
                     "type": "string"
                 },
+                "store_product_id": {
+                    "type": "string"
+                },
                 "unit_price": {
                     "type": "number"
+                },
+                "unit_quantity": {
+                    "type": "integer"
                 }
             }
         },
@@ -7488,6 +7543,9 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "is_company": {
+                    "type": "boolean"
+                },
+                "is_open": {
                     "type": "boolean"
                 }
             }
@@ -8125,13 +8183,25 @@ const docTemplate = `{
                 "product_id": {
                     "type": "string"
                 },
+                "retail_price": {
+                    "type": "number"
+                },
                 "small_quantity": {
                     "type": "integer"
                 },
                 "store_id": {
                     "type": "string"
                 },
+                "supply_price": {
+                    "type": "number"
+                },
+                "unit_per_pack": {
+                    "type": "integer"
+                },
                 "unit_quantity": {
+                    "type": "integer"
+                },
+                "vat": {
                     "type": "integer"
                 }
             }

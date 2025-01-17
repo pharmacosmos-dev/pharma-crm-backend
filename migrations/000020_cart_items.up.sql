@@ -3,8 +3,9 @@ CREATE TABLE IF NOT EXISTS "cart_items" (
     "product_id" UUID REFERENCES products(id),
     "employee_id" UUID REFERENCES employees(id),
     "sale_id" UUID REFERENCES sales(id),
-    "quantity" INT NOT NULL,
-    "drug_count" INT,
+    "store_product_id" UUID REFERENCES store_products(id),
+    "quantity" INT DEFAULT 0,
+    "unit_quantity" INT DEFAULT 0,
     "unit_price" NUMERIC(10, 2), -- Base price from products
     "discount_type" VARCHAR(10) CHECK ("discount_type" IN ('percent', 'cash')),
     "discount_value" NUMERIC(10, 2) DEFAULT 0,

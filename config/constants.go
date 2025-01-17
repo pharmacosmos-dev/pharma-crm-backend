@@ -22,4 +22,12 @@ const (
 	DELETED_CART_ITEM = "deleted"
 	DRAFTED_CART_ITEM = "drafted"
 	SOLD_CART_ITEM    = "sold"
+
+	// PRODUCT status
+	ACTIVE_PRODUCT     = "active"
+	INACTIVE_PRODUCT   = "inactive"
+	LOW_STOCK_PRODUCT  = "low_stock"
+	ZERO_STOCK_PRODUCT = "zero_stock"
+	EXPIRED_PRODUCT    = "expired"
+	DELETED_PRODUCT    = "deleted"
 )

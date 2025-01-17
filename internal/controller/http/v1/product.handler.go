@@ -11,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/xuri/excelize/v2"
@@ -70,8 +71,9 @@ func (h *ProductHandler) Create(c *gin.Context) {
 
 	body.Id = uuid.New().String()
 	body.Photos = utils.StringArray(body.Photos)
-	body.Status = "active"
-	err = h.db.WithContext(c.Request.Context()).
+	body.Status = config.ACTIVE_PRODUCT
+	err = h.db.
+		WithContext(c.Request.Context()).
 		Table("products").
 		Create(&body).Error
 	if err != nil {
@@ -81,9 +83,21 @@ func (h *ProductHandler) Create(c *gin.Context) {
 	}
 
 	if len(body.StoreProduct) > 0 {
+		var imports = make([]domain.ImportRequest, len(body.StoreProduct))
+
 		for i := range body.StoreProduct {
+			// store products table take required fields
 			body.StoreProduct[i].ProductID = body.Id
 			body.StoreProduct[i].UnitQuantity = body.StoreProduct[i].PackQuantity * body.UnitPerPack
+			body.StoreProduct[i].UnitPerPack = body.UnitPerPack
+			body.StoreProduct[i].SupplyPrice = body.SupplyPrice
+			body.StoreProduct[i].RetailPrice = body.RetailPrice
+			body.StoreProduct[i].Vat = body.Vat
+			// imports table take required fields
+			imports[i].Id = uuid.New().String()
+			imports[i].StoreID = body.StoreProduct[i].StoreID
+			imports[i].Status = config.COMPLETED_IMPORT
+			imports[i].ImportDate = time.Now().Format("2006-01-02 15:04:05")
 		}
 		err = h.db.
 			WithContext(c.Request.Context()).
@@ -501,7 +515,7 @@ func (h *ProductHandler) SimilarProducts(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	
+
 	// Step 3: Return the response
 	handleResponse(c, OK, res)
 }
