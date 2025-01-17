@@ -135,18 +135,24 @@ func (h *SalePaymentHandler) ListByCashBoxId(c *gin.Context) {
 	res := []*domain.SalePaymentCloseCashBox{}
 	err := h.db.Raw(`
 	SELECT 
-		sp.id,
+		pt.id,
 		pt.name,
-		sp.amount,
-		sp.net_amount,
-		sp.expense_amount,
-		(sp.net_amount - sp.amount) as difference_amount 
-	FROM
-		sale_payments sp
-	RIGHT JOIN
-		payment_types pt ON sp.payment_type_id = pt.id
-	WHERE sp.cash_box_status = 'open' AND sp.cash_box_operation_id = ?
-	ORDER BY pt.created_at
+		SUM(sp.amount) AS total_amount,
+		SUM(sp.net_amount) AS total_net_amount,
+		SUM(sp.expense_amount) AS total_expense_amount,
+		SUM(sp.net_amount - sp.amount) AS total_difference_amount
+	FROM 
+		payment_types pt
+	LEFT JOIN 
+		sale_payments sp ON sp.payment_type_id = pt.id
+	WHERE 
+		sp.cash_box_status = 'open' 
+		AND sp.cash_box_operation_id = ?
+	GROUP BY 
+		pt.id, pt.name
+	ORDER BY 
+		pt.created_at;
+
 	`, cashBoxOperationId).Scan(&res).Error
 	if err != nil {
 		h.log.Error(err)
