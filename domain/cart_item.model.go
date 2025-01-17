@@ -26,7 +26,7 @@ type CartItemRequest struct {
 	ID                 string  `gorm:"id" json:"-"`
 	EmployeeID         string  `gorm:"employee_id" json:"employee_id"`
 	ProductID          string  `gorm:"product_id" json:"product_id"`
-	StoreProductID     string  `gorm:"store_product_id" json:"store_product_id"`
+	StoreProductID     *string `gorm:"store_product_id" json:"store_product_id"`
 	SaleId             string  `gorm:"sale_id" json:"sale_id"`
 	Quantity           int     `gorm:"quantity" json:"quantity"`
 	UnitQuantity       int     `gorm:"unit_quantity" json:"unit_quantity"`
