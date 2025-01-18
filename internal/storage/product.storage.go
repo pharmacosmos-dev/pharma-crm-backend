@@ -85,3 +85,26 @@ func (s *Storage) SimilarProducts(ctx context.Context, productID string, offset 
 
 	return res, nil
 }
+
+func (s *Storage) GetStoreProductByBarcode(ctx context.Context, barcode string) (domain.StoreProductResponse, error) {
+	var res domain.StoreProductResponse
+	err := s.db.Raw(`
+	SELECT 
+		sp.*, 
+		p.name, 
+		p.barcode, 
+		c.name AS category_name, 
+		DATE_PART('day', sp.expire_date::timestamp - NOW()) AS expire_day
+	FROM store_products sp
+	JOIN products p ON p.id = sp.product_id
+	JOIN category_products cp ON p.id = cp.product_id
+	JOIN categories c ON c.id = cp.category_id
+	WHERE p.barcode = ? ORDER BY sp.created_at DESC LIMIT 1
+	`, barcode).Scan(&res).Error
+	if err != nil {
+		s.log.Warn("Error on listing similar products for product %s: %v", barcode, err.Error())
+		return domain.StoreProductResponse{}, err
+	}
+
+	return res, nil
+}

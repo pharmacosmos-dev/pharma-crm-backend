@@ -43,6 +43,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.DELETE("/hard-delete", h.HardDelete)
 		product.DELETE("/soft-delete", h.SoftDelete)
 		product.GET("/store-product/:id", h.ListStoreProductProductId)
+		product.GET("/store/barcode", h.GetStoreProductByBarcode)
 	}
 }
 
@@ -96,6 +97,8 @@ func (h *ProductHandler) Create(c *gin.Context) {
 			body.StoreProduct[i].RetailPrice = body.RetailPrice
 			body.StoreProduct[i].Vat = body.Vat
 			body.StoreProduct[i].ExpireDate = body.ExpireDate
+			body.StoreProduct[i].BonusAmount = body.BonusAmount
+			body.StoreProduct[i].BonusPercent = body.BonusPercent
 
 			// imports table take required fields
 			imports[i].Id = uuid.New().String()
@@ -577,6 +580,92 @@ func (h *ProductHandler) ListByStoreId(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, res)
+}
+
+// GetStoreProductByBarcode godoc
+// @Summary Get store product by barcode
+// @Description Get store product by barcode
+// @Tags products
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param body body domain.StoreProductBarcodeRequest true "Request body"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/store/barcode [GET]
+func (h *ProductHandler) GetStoreProductByBarcode(c *gin.Context) {
+	var (
+		body domain.StoreProductBarcodeRequest
+		res  domain.StoreProductResponse
+		err  error
+	)
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+
+	err = c.ShouldBindJSON(&body)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	res, err = h.storage.GetStoreProductByBarcode(c.Request.Context(), body.Barcode)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			handleResponse(c, NotFound, "Product not found")
+			return
+		}
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	var cartItem domain.CartItemRequest
+	err = h.db.First(&domain.CartItem{},
+		"store_product_id = ? AND sale_id = ? AND is_drafted = false AND status = 'pending'",
+		res.ID, body.SaleID).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			cartItem.ID = uuid.New().String()
+			cartItem.EmployeeID = userId.(string)
+			cartItem.StoreProductID = res.ID
+			cartItem.UnitPrice = res.RetailPrice
+			cartItem.Quantity = 1
+			cartItem.TotalPrice = res.RetailPrice
+			cartItem.Status = config.PENDING_CART_ITEM
+			cartItem.SaleId = body.SaleID
+			cartItem.DiscountType = "percent"
+			err = h.db.
+				WithContext(c.Request.Context()).
+				Table("cart_items").
+				Create(&cartItem).Error
+			if err != nil {
+				h.log.Error(err)
+				handleResponse(c, InternalError, err.Error())
+				return
+			}
+		}
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	err = h.db.WithContext(c.Request.Context()).
+		Table("cart_items").
+		Where("store_product_id = ? AND sale_id = ? AND is_drafted = false AND status = 'pending'", res.ID, body.SaleID).
+		Updates(map[string]interface{}{
+			"quantity":    gorm.Expr("quantity + ?", 1),
+			"total_price": gorm.Expr("unit_price * (quantity+?)", 1),
+		}).Error
+
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	handleResponse(c, OK, []domain.StoreProductResponse{res})
 }
 
 // GetProductImports godoc

@@ -14,6 +14,8 @@ type StoreProduct struct {
 	SmallQuantity       int        `gorm:"small_quantity" json:"small_quantity"`
 	RetailPrice         float64    `gorm:"retail_price" json:"retail_price"`
 	SupplyPrice         float64    `gorm:"supply_price" json:"supply_price"`
+	BonusAmount         float64    `gorm:"bonus_amount" json:"bonus_amount"`
+	BonusPercent        int        `gorm:"bonus_percent" json:"bonus_percent"`
 	Vat                 int        `gorm:"vat" json:"vat"`
 	ExpireDate          *time.Time `gorm:"expire_date" json:"expire_date"`
 	CreatedAt           *time.Time `gorm:"created_at" json:"created_at"`
@@ -39,9 +41,12 @@ type StoreProductRequest struct {
 	RetailPrice   float64    `gorm:"retail_price" json:"retail_price"`
 	SupplyPrice   float64    `gorm:"supply_price" json:"supply_price"`
 	Vat           int        `gorm:"vat" json:"vat"`
+	BonusAmount   float64    `gorm:"bonus_amount" json:"bonus_amount"`
+	BonusPercent  int        `gorm:"bonus_percent" json:"bonus_percent"`
 	ExpireDate    *time.Time `gorm:"expire_date" json:"expire_date"`
 }
 
+// StoreProductResponse structure for getting searching stores' products
 type StoreProductResponse struct {
 	ID                  string     `gorm:"id" json:"id"`
 	ProductID           string     `gorm:"product_id" json:"product_id"`
@@ -60,4 +65,9 @@ type StoreProductResponse struct {
 	UpdatedAt           *time.Time `gorm:"updated_at" json:"updated_at"`
 	Name                string     `gorm:"name" json:"name"`
 	CategoryName        string     `gorm:"category_name" json:"category_name"`
+}
+
+type StoreProductBarcodeRequest struct {
+	Barcode string `json:"barcode"`
+	SaleID  string `json:"sale_id"`
 }

@@ -5173,6 +5173,57 @@ const docTemplate = `{
                 }
             }
         },
+        "/product/store/barcode": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get store product by barcode",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Get store product by barcode",
+                "parameters": [
+                    {
+                        "description": "Request body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.StoreProductBarcodeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/product/store/{id}": {
             "get": {
                 "security": [
@@ -8235,9 +8286,26 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.StoreProductBarcodeRequest": {
+            "type": "object",
+            "properties": {
+                "barcode": {
+                    "type": "string"
+                },
+                "sale_id": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.StoreProductRequest": {
             "type": "object",
             "properties": {
+                "bonus_amount": {
+                    "type": "number"
+                },
+                "bonus_percent": {
+                    "type": "integer"
+                },
                 "expire_date": {
                     "type": "string"
                 },

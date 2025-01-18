@@ -142,10 +142,9 @@ func (h *CartItemHandler) Get(c *gin.Context) {
 // @Router /cart_item/list [get]
 func (h *CartItemHandler) List(c *gin.Context) {
 	var (
-		body       []domain.CartItem
-		sumResult  domain.SumResult
-		totalCount int64
-		err        error
+		res    *domain.CartItemData
+		saleID = c.Query("sale_id")
+		err    error
 	)
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
@@ -153,37 +152,13 @@ func (h *CartItemHandler) List(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-
-	err = h.db.Model(&domain.CartItem{}).
-		Count(&totalCount).
-		Preload("Product").
-		Where("sale_id = ? AND is_drafted = false AND status = 'pending'", c.Query("sale_id")).
-		Limit(limit).
-		Offset(offset).
-		Order("created_at desc").
-		Find(&body).Error
-
+	res, err = h.storage.CartItemList(saleID, limit, offset)
 	if err != nil {
-		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	err = h.db.Model(&domain.CartItem{}).
-		Select("SUM(total_price) as total_price, SUM(discount_amount) as discount_amount").
-		Where("sale_id = ?", c.Query("sale_id")).
-		Scan(&sumResult).Error
 
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	handleResponse(c, OK, domain.CartItemResponse{
-		TotalAmount:    sumResult.TotalPrice,
-		DiscountAmount: sumResult.DiscountPrice,
-		Count:          totalCount,
-		Data:           body,
-	})
+	handleResponse(c, OK, res)
 }
 
 // UpdateBySaleID godoc

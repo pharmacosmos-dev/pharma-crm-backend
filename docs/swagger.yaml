@@ -532,8 +532,19 @@ definitions:
       total_discount:
         type: number
     type: object
+  domain.StoreProductBarcodeRequest:
+    properties:
+      barcode:
+        type: string
+      sale_id:
+        type: string
+    type: object
   domain.StoreProductRequest:
     properties:
+      bonus_amount:
+        type: number
+      bonus_percent:
+        type: integer
       expire_date:
         type: string
       pack_quantity:
@@ -3995,6 +4006,38 @@ paths:
       security:
       - BearerAuth: []
       summary: Get products by store
+      tags:
+      - products
+  /product/store/barcode:
+    get:
+      consumes:
+      - application/json
+      description: Get store product by barcode
+      parameters:
+      - description: Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.StoreProductBarcodeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get store product by barcode
       tags:
       - products
   /product1c:

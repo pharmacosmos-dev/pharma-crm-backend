@@ -10,6 +10,8 @@ CREATE TABLE IF NOT EXISTS "store_products"(
     "small_quantity" INT DEFAULT 0,
     "retail_price" NUMERIC(10, 2) DEFAULT 0,
     "supply_price" NUMERIC(10, 2) DEFAULT 0,
+    "bonus_percent" INT DEFAULT 0,
+    "bonus_amount" NUMERIC(10, 2) DEFAULT 0,
     "vat" INT DEFAULT 0,
     "expire_date" DATE,
     "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
