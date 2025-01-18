@@ -106,9 +106,7 @@ func (h *SaleHandler) Get(c *gin.Context) {
 		Preload("SalePayments", func(db *gorm.DB) *gorm.DB {
 			return db.Preload("PaymentType")
 		}).
-		Preload("CartItems", func(db *gorm.DB) *gorm.DB {
-			return db.Preload("Product")
-		}).First(&res, "id = ?", id).Error
+		Preload("CartItems").First(&res, "id = ?", id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			handleResponse(c, OK, nil)
