@@ -142,7 +142,7 @@ func (h *SalePaymentHandler) ListByCashBoxId(c *gin.Context) {
 		sps.total_amount AS amount, 
 		sps.total_net_amount AS net_amount, 
 		sps.total_expense_amount AS expense_amount, 
-		sps.total_difference AS difference_amount
+		sps.total_net_amount - sps.total_amount AS difference_amount
 	FROM sale_payment_summary sps 
 	JOIN payment_types pt ON pt.id = sps.payment_type_id 
 	WHERE sps.cash_box_operation_id = ? ORDER BY pt.created_at`, cashBoxOperationId).Scan(&res).Error
@@ -157,7 +157,7 @@ func (h *SalePaymentHandler) ListByCashBoxId(c *gin.Context) {
 		sum(sps.total_amount) AS total_amount, 
 		sum(sps.total_net_amount) AS total_net_amount, 
 		sum(sps.total_expense_amount) AS total_expense_amount, 
-		sum(sps.total_difference) AS total_difference_amount
+		sum(sps.total_net_amount - sps.total_amount) AS total_difference_amount
 	FROM
 		sale_payment_summary sps
 	JOIN
