@@ -621,6 +621,11 @@ func (h *ProductHandler) GetStoreProductByBarcode(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	if res.UnitPerPack > 0 && res.UnitQuantity > 0 && res.PackQuantity*res.UnitPerPack != res.UnitQuantity {
+		res.Quantity = fmt.Sprintf("%d (%d/%d)", res.PackQuantity, res.UnitQuantity%res.UnitPerPack, res.UnitPerPack)
+	} else {
+		res.Quantity = fmt.Sprintf("%d", res.PackQuantity)
+	}
 	var cartItem domain.CartItemRequest
 	err = h.db.First(&domain.CartItem{},
 		"store_product_id = ? AND sale_id = ? AND is_drafted = false AND status = 'pending'",
@@ -645,6 +650,8 @@ func (h *ProductHandler) GetStoreProductByBarcode(c *gin.Context) {
 				handleResponse(c, InternalError, err.Error())
 				return
 			}
+			handleResponse(c, OK, []domain.StoreProductResponse{res})
+			return
 		}
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
