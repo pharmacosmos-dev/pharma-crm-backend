@@ -603,6 +603,8 @@ definitions:
     properties:
       code:
         type: integer
+      count:
+        type: integer
       data: {}
       message:
         type: string
@@ -1194,6 +1196,10 @@ paths:
       - description: Store ID
         in: query
         name: store_id
+        type: string
+      - description: Search
+        in: query
+        name: search
         type: string
       produces:
       - application/json

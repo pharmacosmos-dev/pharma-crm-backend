@@ -832,6 +832,12 @@ const docTemplate = `{
                         "description": "Store ID",
                         "name": "store_id",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search",
+                        "name": "search",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -8336,6 +8342,9 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "code": {
+                    "type": "integer"
+                },
+                "count": {
                     "type": "integer"
                 },
                 "data": {},

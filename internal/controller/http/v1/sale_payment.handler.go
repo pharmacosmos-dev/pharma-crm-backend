@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
+	"gorm.io/gorm"
 )
 
 type SalePaymentHandler struct {
@@ -132,22 +133,19 @@ func (h *SalePaymentHandler) List(c *gin.Context) {
 // @Router /sale-payment/list/close-cashbox/{cash_box_operation_id} [get]
 func (h *SalePaymentHandler) ListByCashBoxId(c *gin.Context) {
 	var cashBoxOperationId = c.Param("cash_box_operation_id")
-	res := []*domain.SalePaymentCloseCashBox{}
+	var res = []*domain.SalePaymentCloseCashBox{}
+
 	err := h.db.Raw(`
 	SELECT 
-		sp.id,
-		pt.name,
-		sp.amount,
-		sp.net_amount,
-		sp.expense_amount,
-		(sp.net_amount - sp.amount) as difference_amount 
-	FROM
-		sale_payments sp
-	RIGHT JOIN
-		payment_types pt ON sp.payment_type_id = pt.id
-	WHERE sp.cash_box_status = 'open' AND sp.cash_box_operation_id = ?
-	ORDER BY pt.created_at
-	`, cashBoxOperationId).Scan(&res).Error
+		sps.id, 
+		pt.name, 
+		sps.total_amount AS amount, 
+		sps.total_net_amount AS net_amount, 
+		sps.total_expense_amount AS expense_amount, 
+		sps.total_difference AS difference_amount
+	FROM sale_payment_summary sps 
+	JOIN payment_types pt ON pt.id = sps.payment_type_id 
+	WHERE sps.cash_box_operation_id = ?`, cashBoxOperationId).Scan(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -155,16 +153,16 @@ func (h *SalePaymentHandler) ListByCashBoxId(c *gin.Context) {
 	}
 	var totalData domain.SalePaymentTotalAmount
 	err = h.db.Raw(`
-	SELECT 
-		sum(sp.amount) as total_amount, 
-		sum(sp.net_amount) as total_net_amount, 
-		sum(sp.expense_amount) as total_expense_amount, 
-		sum(sp.net_amount - sp.amount) as total_difference_amount
+	SELECT
+		sum(sps.total_amount) AS total_amount, 
+		sum(sps.total_net_amount) AS total_net_amount, 
+		sum(sps.total_expense_amount) AS total_expense_amount, 
+		sum(sps.total_difference) AS total_difference_amount
 	FROM
-		sale_payments sp
-	RIGHT JOIN
-		payment_types pt ON sp.payment_type_id = pt.id
-	WHERE sp.cash_box_status = 'open' AND sp.cash_box_operation_id = ?
+		sale_payment_summary sps
+	JOIN
+		payment_types pt ON sps.payment_type_id = pt.id
+	WHERE sps.cash_box_operation_id = ?
 	`, cashBoxOperationId).Scan(&totalData).Error
 	if err != nil {
 		h.log.Error(err)
@@ -279,9 +277,14 @@ func (h *SalePaymentHandler) UpdateAmounts(c *gin.Context) {
 		return
 	}
 	err = h.db.WithContext(c.Request.Context()).
-		Table("sale_payments").
+		Table("sale_payment_summary").
 		Where("id = ?", id).
-		Updates(&body).Error
+		Debug().
+		Updates(map[string]interface{}{
+			"total_net_amount":     body.NetAmount,
+			"total_expense_amount": gorm.Expr("total_amount - ?", body.NetAmount),
+			"total_difference":     gorm.Expr("? - total_amount", body.NetAmount),
+		}).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())

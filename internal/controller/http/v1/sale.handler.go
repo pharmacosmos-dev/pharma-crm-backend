@@ -315,6 +315,39 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	for _, payment := range salePayment {
+		result := h.db.WithContext(c.Request.Context()).
+			Table("sale_payment_summary").
+			Where("cash_box_operation_id = ? AND payment_type_id = ?", payment.CashBoxOperationID, payment.PaymentTypeID).
+			Updates(map[string]interface{}{
+				"total_amount":         gorm.Expr("total_amount + ?", payment.Amount),
+				"total_expense_amount": 0,
+				"total_net_amount":     0,
+				"total_difference":     0,
+				"updated_at":           time.Now(),
+			})
+
+		if result.RowsAffected == 0 {
+			err = h.db.WithContext(c.Request.Context()).
+				Table("sale_payment_summary").
+				Create(&domain.SalePaymentSummary{
+					CashBoxOperationID: payment.CashBoxOperationID,
+					PaymentTypeID:      payment.PaymentTypeID,
+					TotalAmount:        payment.Amount,
+					TotalExpenseAmount: 0,
+					TotalNetAmount:     0,
+					TotalDifference:    0,
+					CreatedAt:          nil,
+					UpdatedAt:          nil,
+				}).Error
+
+			if err != nil {
+				h.log.Error(err)
+				handleResponse(c, InternalError, "Failed to update sale_payment_summary")
+				return
+			}
+		}
+	}
 
 	newSale := domain.SaleRequest{
 		ID:                 uuid.New().String(),
