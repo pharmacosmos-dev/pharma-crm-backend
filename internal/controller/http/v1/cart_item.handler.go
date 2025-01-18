@@ -219,33 +219,40 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	var product domain.Product
-	err = h.db.First(&product, "id = ?", body.ProductID).Error
+	var cartItem domain.CartItem
+	err = h.db.
+		WithContext(c.Request.Context()).
+		Where("id = ?", id).
+		First(&cartItem).Error
 	if err != nil {
-		handleResponse(c, InternalError, "Error on getting product")
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
-	var totalAmount float64
-	var cartItem domain.CartItemUpdateRequest
-	cartItem.Quantity = body.Quantity
-	cartItem.TotalPrice = totalAmount
-	cartItem.DrugCount = body.DrugCount
+	var discountAmount float64
 	if body.DiscountType != nil && body.DiscountValue != nil {
 		if *body.DiscountType == "percent" {
-			cartItem.DiscountAmount = product.RetailPrice * (*body.DiscountValue) / 100
+			discountAmount = cartItem.UnitPrice * (*body.DiscountValue) / 100
 		} else if *body.DiscountType == "cash" {
-			cartItem.DiscountAmount = *body.DiscountValue
-		} else {
-			cartItem.DiscountAmount = 0
+			discountAmount = *body.DiscountValue
 		}
 	}
-	cartItem.TotalDiscountPrice = cartItem.TotalPrice - cartItem.DiscountAmount
+
 	err = h.db.
 		WithContext(c.Request.Context()).
 		Table("cart_items").
 		Where("id = ?", id).
-		Updates(&cartItem).Error
+		Updates(map[string]interface{}{
+			"quantity":             body.Quantity,
+			"unit_quantity":        body.UnitQuantity,
+			"total_price":          cartItem.UnitPrice * float64(body.Quantity),
+			"discount_price":       cartItem.UnitPrice*float64(body.Quantity) - discountAmount,
+			"discount_type":        *body.DiscountType,
+			"discount_value":       *body.DiscountValue,
+			"discount_amount":      discountAmount,
+			"total_discount_price": discountAmount * float64(body.Quantity),
+		}).Error
 	if err != nil {
 		handleResponse(c, InternalError, "Error on saving cart")
 		return

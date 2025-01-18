@@ -38,11 +38,11 @@ type CartItemRequest struct {
 
 // Cart Item update product unit
 type CartItemUpdateProductUnit struct {
-	ProductID     string   `gorm:"product_id" json:"product_id"`
-	Quantity      int      `gorm:"quantity" json:"quantity"`
-	DrugCount     int      `gorm:"drug_count" json:"drug_count"`
-	DiscountType  *string  `gorm:"discount_type" json:"discount_type" example:"percent|cash"`
-	DiscountValue *float64 `gorm:"discount_value" json:"discount_value"`
+	StoreProductID string   `gorm:"store_product_id" json:"store_product_id"`
+	Quantity       int      `gorm:"quantity" json:"quantity"`
+	UnitQuantity   int      `gorm:"unit_quantity" json:"unit_quantity"`
+	DiscountType   *string  `gorm:"discount_type" json:"discount_type" example:"percent|cash"`
+	DiscountValue  *float64 `gorm:"discount_value" json:"discount_value"`
 }
 
 // CartItemBySaleIDUpdateRequest structure
@@ -64,14 +64,7 @@ type CartItemData struct {
 	Count          int64              `gorm:"count" json:"count"`
 }
 
-// CartItemUpdateRequest structure
-type CartItemUpdateRequest struct {
-	Quantity           int     `gorm:"quantity" json:"quantity"`
-	TotalPrice         float64 `gorm:"total_price" json:"total_price"`
-	TotalDiscountPrice float64 `gorm:"total_discount_price" json:"total_discount_price"`
-	DiscountAmount     float64 `gorm:"discount_amount" json:"discount_amount"`
-	DrugCount          int     `gorm:"drug_count" json:"drug_count"`
-}
+
 
 // CartItemResponse structure with product data
 type CartItemResponse struct {

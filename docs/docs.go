@@ -7560,13 +7560,13 @@ const docTemplate = `{
                 "discount_value": {
                     "type": "number"
                 },
-                "drug_count": {
+                "quantity": {
                     "type": "integer"
                 },
-                "product_id": {
+                "store_product_id": {
                     "type": "string"
                 },
-                "quantity": {
+                "unit_quantity": {
                     "type": "integer"
                 }
             }
