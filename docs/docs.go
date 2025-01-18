@@ -5174,7 +5174,7 @@ const docTemplate = `{
             }
         },
         "/product/store/barcode": {
-            "get": {
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []

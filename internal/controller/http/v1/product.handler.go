@@ -43,7 +43,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.DELETE("/hard-delete", h.HardDelete)
 		product.DELETE("/soft-delete", h.SoftDelete)
 		product.GET("/store-product/:id", h.ListStoreProductProductId)
-		product.GET("/store/barcode", h.GetStoreProductByBarcode)
+		product.POST("/store/barcode", h.GetStoreProductByBarcode)
 	}
 }
 
@@ -593,7 +593,7 @@ func (h *ProductHandler) ListByStoreId(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /product/store/barcode [GET]
+// @Router /product/store/barcode [POST]
 func (h *ProductHandler) GetStoreProductByBarcode(c *gin.Context) {
 	var (
 		body domain.StoreProductBarcodeRequest

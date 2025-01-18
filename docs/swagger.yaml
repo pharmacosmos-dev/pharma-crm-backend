@@ -4009,7 +4009,7 @@ paths:
       tags:
       - products
   /product/store/barcode:
-    get:
+    post:
       consumes:
       - application/json
       description: Get store product by barcode
