@@ -95,6 +95,7 @@ func (h *ProductHandler) Create(c *gin.Context) {
 			body.StoreProduct[i].SupplyPrice = body.SupplyPrice
 			body.StoreProduct[i].RetailPrice = body.RetailPrice
 			body.StoreProduct[i].Vat = body.Vat
+			body.StoreProduct[i].ExpireDate = body.ExpireDate
 
 			// imports table take required fields
 			imports[i].Id = uuid.New().String()

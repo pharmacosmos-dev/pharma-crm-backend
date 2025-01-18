@@ -7482,9 +7482,6 @@ const docTemplate = `{
                 "employee_id": {
                     "type": "string"
                 },
-                "product_id": {
-                    "type": "string"
-                },
                 "quantity": {
                     "type": "integer"
                 },

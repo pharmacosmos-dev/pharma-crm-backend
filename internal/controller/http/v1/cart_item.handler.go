@@ -1,12 +1,14 @@
 package v1
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"gorm.io/gorm"
 )
 
 type CartItemHandler struct {
@@ -53,28 +55,44 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-
-	var product domain.Product
-	err = h.db.First(&product, "id = ?", body.ProductID).Error
+	err = h.db.First(&domain.CartItem{},
+		"store_product_id = ? AND sale_id = ? AND is_drafted = false AND status = 'pending'",
+		body.StoreProductID, body.SaleId).Error
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, "Error on getting product")
-		return
-	}
-	body.TotalPrice = product.RetailPrice * float64(body.Quantity)
-	body.TotalDiscountPrice = body.TotalPrice
-	body.ID = uuid.New().String()
-	body.Status = config.PENDING_CART_ITEM
-	err = h.db.
-		WithContext(c.Request.Context()).
-		Table("cart_items").
-		Create(&body).Error
-	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			body.TotalPrice = body.UnitPrice * float64(body.Quantity)
+			body.ID = uuid.New().String()
+			body.Status = config.PENDING_CART_ITEM
+			err = h.db.
+				WithContext(c.Request.Context()).
+				Table("cart_items").
+				Create(&body).Error
+			if err != nil {
+				h.log.Error(err)
+				handleResponse(c, InternalError, err.Error())
+				return
+			}
+			handleResponse(c, CREATED, "CREATED")
+			return
+		}
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
+	err = h.db.WithContext(c.Request.Context()).
+		Model(&domain.CartItem{}).
+		Where("store_product_id = ? AND sale_id = ? AND is_drafted = false AND status = 'pending'", body.StoreProductID, body.SaleId).
+		Updates(map[string]interface{}{
+			"quantity":    gorm.Expr("quantity + ?", 1),
+			"total_price": body.UnitPrice * float64(body.Quantity+1),
+		}).Error
+
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
 	handleResponse(c, CREATED, "CREATED")
 }
 
