@@ -739,6 +739,7 @@ func (h *ProductHandler) ListStoreProductProductId(c *gin.Context) {
 		res        []domain.StoreProduct
 		totalCount int64
 	)
+
 	if id == "" || id == "undefined" {
 		handleResponse(c, BadRequest, "Product ID is required")
 		return
