@@ -664,7 +664,6 @@ func (h *ProductHandler) GetStoreProductByBarcode(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-
 	handleResponse(c, OK, []domain.StoreProductResponse{res})
 }
 
