@@ -145,7 +145,7 @@ func (h *SalePaymentHandler) ListByCashBoxId(c *gin.Context) {
 		sps.total_difference AS difference_amount
 	FROM sale_payment_summary sps 
 	JOIN payment_types pt ON pt.id = sps.payment_type_id 
-	WHERE sps.cash_box_operation_id = ?`, cashBoxOperationId).Scan(&res).Error
+	WHERE sps.cash_box_operation_id = ? ORDER BY pt.created_at`, cashBoxOperationId).Scan(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -196,15 +196,14 @@ func (h *SalePaymentHandler) GetTotalAmount(c *gin.Context) {
 	}
 	err := h.db.Raw(`
 	SELECT
-		SUM(CASE WHEN pt.type = 'cash' THEN sp.net_amount ELSE 0 END) AS cash_amount,
-		SUM(CASE WHEN pt.type != 'cash' THEN sp.net_amount ELSE 0 END) AS cashless_amount
+		SUM(CASE WHEN pt.type = 'cash' THEN sps.total_net_amount ELSE 0 END) AS cash_amount,
+		SUM(CASE WHEN pt.type != 'cash' THEN sps.total_net_amount ELSE 0 END) AS cashless_amount
 	FROM
-		sale_payments sp
+		sale_payment_summary sps
 	JOIN
-		payment_types pt ON sp.payment_type_id = pt.id
-	WHERE 
-		sp.cash_box_status = 'open' AND 
-		sp.cash_box_operation_id = ?;
+		payment_types pt ON sps.payment_type_id = pt.id
+	WHERE
+		sps.cash_box_operation_id = ?;
 	`, cashBoxID).Scan(&totalData).Error
 
 	if err != nil {
@@ -279,7 +278,6 @@ func (h *SalePaymentHandler) UpdateAmounts(c *gin.Context) {
 	err = h.db.WithContext(c.Request.Context()).
 		Table("sale_payment_summary").
 		Where("id = ?", id).
-		Debug().
 		Updates(map[string]interface{}{
 			"total_net_amount":     body.NetAmount,
 			"total_expense_amount": gorm.Expr("total_amount - ?", body.NetAmount),
