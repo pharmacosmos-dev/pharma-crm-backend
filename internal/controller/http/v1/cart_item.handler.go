@@ -238,21 +238,27 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 			discountAmount = *body.DiscountValue
 		}
 	}
+	var data = map[string]interface{}{}
+	if body.Quantity > 0 {
+		data["quantity"] = body.Quantity
+		data["total_price"] = cartItem.UnitPrice * float64(body.Quantity)
+		data["discount_price"] = cartItem.UnitPrice*float64(body.Quantity) - discountAmount
+	}
+	if body.UnitQuantity > 0 {
+		data["unit_quantity"] = body.UnitQuantity
+	}
+	if body.DiscountType != nil || body.DiscountValue != nil {
+		data["discount_type"] = *body.DiscountType
+		data["discount_value"] = *body.DiscountValue
+	}
 
+	data["discount_amount"] = discountAmount
+	data["total_discount_price"] = discountAmount * float64(body.Quantity)
 	err = h.db.
 		WithContext(c.Request.Context()).
 		Table("cart_items").
 		Where("id = ?", id).
-		Updates(map[string]interface{}{
-			"quantity":             body.Quantity,
-			"unit_quantity":        body.UnitQuantity,
-			"total_price":          cartItem.UnitPrice * float64(body.Quantity),
-			"discount_price":       cartItem.UnitPrice*float64(body.Quantity) - discountAmount,
-			"discount_type":        *body.DiscountType,
-			"discount_value":       *body.DiscountValue,
-			"discount_amount":      discountAmount,
-			"total_discount_price": discountAmount * float64(body.Quantity),
-		}).Error
+		Updates(data).Error
 	if err != nil {
 		handleResponse(c, InternalError, "Error on saving cart")
 		return
