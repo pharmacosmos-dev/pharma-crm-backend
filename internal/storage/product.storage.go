@@ -35,8 +35,8 @@ func (s *Storage) ListStoreProduct(ctx context.Context, storeID string, search s
 		JOIN products p ON p.id = sp.product_id
 		JOIN category_products cp ON p.id = cp.product_id
 		JOIN categories c ON c.id = cp.category_id
-		WHERE sp.store_id = ? LIMIT ? OFFSET ?
-		%s
+		WHERE sp.store_id = ? 
+		%s LIMIT ? OFFSET ?
 	`, searchCondition)
 
 	// Execute query with appropriate arguments

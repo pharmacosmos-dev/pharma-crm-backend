@@ -83,7 +83,7 @@ func (h *UnitTypeHandler) Get(c *gin.Context) {
 	err := h.db.First(&res, "id = ?", c.Param("id")).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			handleResponse(c, NotFound, "Unit not found")
+			handleResponse(c, OK, "Unit not found")
 			return
 		}
 		h.log.Error(err)
