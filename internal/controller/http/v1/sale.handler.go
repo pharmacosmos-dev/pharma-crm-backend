@@ -10,6 +10,7 @@ import (
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/spf13/cast"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type SaleHandler struct {
@@ -30,7 +31,6 @@ func (h *SaleHandler) SaleRoutes(r *gin.RouterGroup) {
 		sale.PUT("/:id", h.Update)
 		sale.DELETE("/:id", h.Delete)
 		sale.POST("/final", h.FinalSale)
-		sale.GET("/check", h.CheckSale)
 	}
 }
 
@@ -272,78 +272,78 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		handleResponse(c, UNAUTHORIZED, "User ID not found")
 		return
 	}
-	err = h.db.Raw(`
-	UPDATE sales SET status = 'completed', total_amount = ? WHERE id = ? RETURNING cash_box_operation_id`,
-		body.TotalAmount, body.SaleID).Scan(&body.CashBoxOperationId).Error
-	if err != nil {
-		h.log.Error(err)
+
+	tx := h.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// Update sale status
+	if err := updateSaleStatus(tx, body.SaleID, body.TotalAmount); err != nil {
+		tx.Rollback()
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
-	err = h.db.
-		WithContext(c.Request.Context()).
-		Table("cart_items").
-		Where("id = ?", body.SaleID).
-		Update("status", "sold").Error
-
-	if err != nil {
-		h.log.Error(err)
+	// Update cart items
+	if err := updateCartItemStatus(tx, body.SaleID); err != nil {
+		tx.Rollback()
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	var salePayment []domain.SalePaymentRequest
+	now := time.Now()
+	// Insert sale payments
+	var salePayments []domain.SalePaymentRequest
 	for _, item := range body.PaymentTypes {
-		salePayment = append(salePayment, domain.SalePaymentRequest{
+		salePayments = append(salePayments, domain.SalePaymentRequest{
 			ID:                 uuid.New().String(),
 			SaleID:             body.SaleID,
 			CashBoxOperationID: body.CashBoxOperationId,
 			PaymentTypeID:      item.PaymentTypeID,
 			Amount:             item.Amount,
-			PaidAt:             time.Now().Format("2006-01-02 15:04:05"),
 			Status:             "paid",
-			TransactionID:      uuid.New().String(),
+			PaidAt:             &now,
 		})
 	}
-	err = h.db.WithContext(c.Request.Context()).
+	err = tx.
 		Table("sale_payments").
-		Create(&salePayment).Error
+		Create(&salePayments).Error
 	if err != nil {
+		tx.Rollback()
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	for _, payment := range salePayment {
-		result := h.db.WithContext(c.Request.Context()).
-			Table("sale_payment_summary").
-			Where("cash_box_operation_id = ? AND payment_type_id = ?", payment.CashBoxOperationID, payment.PaymentTypeID).
-			Updates(map[string]interface{}{
-				"total_amount":         gorm.Expr("total_amount + ?", payment.Amount),
-				"total_expense_amount": 0,
-				"total_net_amount":     0,
-				"total_difference":     0,
-				"updated_at":           time.Now(),
-			})
+	for _, salePayment := range salePayments {
+		// `OnConflict` yordamida yaratish yoki yangilash
+		err = tx.Table("sale_payment_summary").
+			Clauses(clause.OnConflict{
+				Columns: []clause.Column{{Name: "cash_box_operation_id"}, {Name: "payment_type_id"}}, // Unikal kalitlar
+				DoUpdates: clause.Assignments(map[string]interface{}{
+					"total_amount":         gorm.Expr("sale_payment_summary.total_amount + ?", salePayment.Amount),
+					"total_expense_amount": 0,
+					"total_net_amount":     0,
+					"total_difference":     0,
+					"updated_at":           time.Now(),
+				}),
+			}).Create(&domain.SalePaymentSummary{
+			CashBoxOperationID: salePayment.CashBoxOperationID,
+			PaymentTypeID:      salePayment.PaymentTypeID,
+			TotalAmount:        salePayment.Amount,
+			TotalExpenseAmount: 0,
+			TotalNetAmount:     0,
+			TotalDifference:    0,
+			CreatedAt:          &now,
+			UpdatedAt:          &now,
+		}).Error
 
-		if result.RowsAffected == 0 {
-			err = h.db.WithContext(c.Request.Context()).
-				Table("sale_payment_summary").
-				Create(&domain.SalePaymentSummary{
-					CashBoxOperationID: payment.CashBoxOperationID,
-					PaymentTypeID:      payment.PaymentTypeID,
-					TotalAmount:        payment.Amount,
-					TotalExpenseAmount: 0,
-					TotalNetAmount:     0,
-					TotalDifference:    0,
-					CreatedAt:          nil,
-					UpdatedAt:          nil,
-				}).Error
-
-			if err != nil {
-				h.log.Error(err)
-				handleResponse(c, InternalError, "Failed to update sale_payment_summary")
-				return
-			}
+		if err != nil {
+			tx.Rollback()
+			h.log.Error(err)
+			handleResponse(c, InternalError, "Failed to update sale_payment_summary")
+			return
 		}
 	}
 
@@ -352,46 +352,34 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		EmployeeID:         cast.ToString(userID),
 		CashBoxOperationId: body.CashBoxOperationId,
 	}
-	err = h.db.
+	err = tx.
 		WithContext(c.Request.Context()).
 		Table("sales").
 		Create(&newSale).Error
 	if err != nil {
-		h.log.Error(err)
+		tx.Rollback()
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	// Commit transaction
+	if err := tx.Commit().Error; err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 	handleResponse(c, OK, newSale.ID)
 }
 
-// CheckSale
-// @Summary Check Sale
-// @Description Check cash box from the request body
-// @Tags sales
-// @Security     BearerAuth
-// @Accept json
-// @Produce json
-// @Param 	store_id query string true "Store ID"
-// @Success 200 {object} v1.Response
-// @Failure 400 {object} v1.Response
-// @Failure 500 {object} v1.Response
-// @Router /sale/check [get]
-func (h *SaleHandler) CheckSale(c *gin.Context) {
-	userID, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
-		return
-	}
-	var res domain.Sale
-	err := h.db.First(&res, "employee_id = ? AND status = ?", userID, "pending").Error
+func updateSaleStatus(tx *gorm.DB, saleID string, totalAmount float64) error {
+	return tx.Table("sales").
+		Where("id = ?", saleID).
+		Updates(map[string]interface{}{
+			"status":       "completed",
+			"total_amount": totalAmount,
+		}).Error
+}
 
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			handleResponse(c, OK, nil)
-			return
-		}
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	handleResponse(c, OK, res)
+func updateCartItemStatus(tx *gorm.DB, saleID string) error {
+	return tx.Table("cart_items").
+		Where("sale_id = ?", saleID).
+		Updates(map[string]interface{}{"status": "sold"}).Error
 }
