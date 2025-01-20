@@ -47,9 +47,8 @@ type CartItemUpdateProductUnit struct {
 
 // CartItemBySaleIDUpdateRequest structure
 type CartItemBySaleIDUpdateRequest struct {
-	DiscountType   string  `gorm:"discount_type" json:"discount_type" example:"percent|cash"`
-	DiscountValue  float64 `gorm:"discount_value" json:"discount_value"`
-	DiscountAmount float64 `gorm:"discount_amount" json:"-"`
+	DiscountType  string  `gorm:"discount_type" json:"discount_type" example:"percent|cash"`
+	DiscountValue float64 `gorm:"discount_value" json:"discount_value"`
 }
 
 // Ids
