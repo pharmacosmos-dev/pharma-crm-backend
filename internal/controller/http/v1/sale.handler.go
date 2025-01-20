@@ -381,5 +381,5 @@ func updateSaleStatus(tx *gorm.DB, saleID string, totalAmount float64) error {
 func updateCartItemStatus(tx *gorm.DB, saleID string) error {
 	return tx.Table("cart_items").
 		Where("sale_id = ?", saleID).
-		Updates(map[string]interface{}{"status": "sold"}).Error
+		Updates(map[string]interface{}{"status": "sold"}).Debug().Error
 }

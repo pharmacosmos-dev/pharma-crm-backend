@@ -560,6 +560,8 @@ func (h *ProductHandler) SimilarProducts(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
 // @Param id path string true "Store ID"
 // @Param search query string false "Search"
 // @Success 200 {object} v1.Response
@@ -569,11 +571,16 @@ func (h *ProductHandler) SimilarProducts(c *gin.Context) {
 func (h *ProductHandler) ListByStoreId(c *gin.Context) {
 	var (
 		res     []*domain.StoreProductResponse
-		err     error
 		search  = c.Query("search")
 		storeID = c.Param("id")
 	)
-	res, err = h.storage.ListStoreProduct(c.Request.Context(), storeID, search)
+	limit, offset, err := getPaginationParams(c)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	res, err = h.storage.ListStoreProduct(c.Request.Context(), storeID, search, limit, offset)
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to fetch products")
 		return

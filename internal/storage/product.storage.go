@@ -7,7 +7,7 @@ import (
 	"github.com/pharma-crm-backend/domain"
 )
 
-func (s *Storage) ListStoreProduct(ctx context.Context, storeID string, search string) ([]*domain.StoreProductResponse, error) {
+func (s *Storage) ListStoreProduct(ctx context.Context, storeID string, search string, limit, offset int) ([]*domain.StoreProductResponse, error) {
 	var res []*domain.StoreProductResponse
 
 	// Prepare search condition
@@ -35,16 +35,16 @@ func (s *Storage) ListStoreProduct(ctx context.Context, storeID string, search s
 		JOIN products p ON p.id = sp.product_id
 		JOIN category_products cp ON p.id = cp.product_id
 		JOIN categories c ON c.id = cp.category_id
-		WHERE sp.store_id = ?
+		WHERE sp.store_id = ? LIMIT ? OFFSET ?
 		%s
 	`, searchCondition)
 
 	// Execute query with appropriate arguments
 	var err error
 	if search != "" {
-		err = s.db.Raw(query, storeID, search, search, search).Scan(&res).Error
+		err = s.db.Raw(query, storeID, search, search, search, limit, offset).Scan(&res).Error
 	} else {
-		err = s.db.Raw(query, storeID).Scan(&res).Error
+		err = s.db.Raw(query, storeID, limit, offset).Scan(&res).Error
 	}
 
 	// Handle errors and return response

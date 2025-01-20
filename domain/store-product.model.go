@@ -65,6 +65,8 @@ type StoreProductResponse struct {
 	UpdatedAt           *time.Time `gorm:"updated_at" json:"updated_at"`
 	Name                string     `gorm:"name" json:"name"`
 	CategoryName        string     `gorm:"category_name" json:"category_name"`
+	BonusAmount         float64    `gorm:"bonus_amount" json:"bonus_amount"`
+	BonusPercent        int        `gorm:"bonus_percent" json:"bonus_percent"`
 }
 
 type StoreProductBarcodeRequest struct {

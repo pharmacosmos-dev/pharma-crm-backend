@@ -179,16 +179,36 @@ func (h *CartItemHandler) UpdateBySaleID(c *gin.Context) {
 	var saleId = c.Param("sale_id")
 	err := c.ShouldBindJSON(&body)
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	// Chegirma hisoblash va yangilash uchun SQL so'rovi
 	err = h.db.WithContext(c.Request.Context()).
-		Table("cart_items").
-		Where("sale_id = ?", saleId).
-		Updates(&body).Error
+		Exec(`
+			UPDATE cart_items
+			SET
+				discount_type = ?,
+				discount_value = ?,
+				discount_price = CASE
+					WHEN discount_type = 'percent' THEN unit_price - (unit_price * ? / 100)
+					WHEN discount_type = 'cash' THEN unit_price - ?
+					ELSE unit_price
+				END,
+				discount_amount = CASE
+					WHEN discount_type = 'percent' THEN (unit_price * ? / 100)
+					WHEN discount_type = 'cash' THEN ?
+					ELSE 0
+				END,
+				updated_at = NOW()
+			WHERE sale_id = ?;
+		`, body.DiscountType, body.DiscountValue,
+			body.DiscountValue, body.DiscountValue,
+			body.DiscountValue, body.DiscountValue,
+			saleId).Error
+
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
