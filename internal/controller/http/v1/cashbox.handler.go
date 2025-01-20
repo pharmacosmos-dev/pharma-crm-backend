@@ -290,7 +290,6 @@ func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
 		handleResponse(c, InternalError, "Failed to check cash box operations")
 		return
 	}
-
 	// Prepare the response object
 	var checkCashBox domain.CashBoxCheckResponse
 	checkCashBox.CashBoxOperationID = cashBoxOperationID
@@ -308,7 +307,7 @@ func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
 					EmployeeID:         userID.(string),
 					ID:                 uuid.New().String(),
 				}
-				if createErr := h.db.Create(&newSale).Error; createErr != nil {
+				if createErr := h.db.Table("sales").Create(&newSale).Error; createErr != nil {
 					h.log.Error(createErr)
 					handleResponse(c, InternalError, "Failed to create new sale")
 					return
