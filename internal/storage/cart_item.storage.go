@@ -5,10 +5,19 @@ import "github.com/pharma-crm-backend/domain"
 func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartItemData, error) {
 	var res []domain.CartItemResponse
 	err := s.db.Raw(`
-	SELECT c.*, p.name, p.barcode, sp.expire_date, sp.bonus_amount, sp.bonus_percent
+	SELECT 
+		c.*, 
+		p.name, 
+		p.barcode, 
+		sp.expire_date, 
+		sp.bonus_amount, 
+		sp.bonus_percent, 
+		u.unit_name, 
+		u.short_name 
 	FROM cart_items c
 	JOIN store_products sp ON c.store_product_id = sp.id
 	JOIN products p ON sp.product_id = p.id
+	LEFT JOIN unit_types u ON p.unit_type_id = u.id
 	WHERE c.sale_id = ? ORDER BY c.created_at LIMIT ? OFFSET ? 
 	`, saleID, limit, offset).Scan(&res).Error
 	if err != nil {
