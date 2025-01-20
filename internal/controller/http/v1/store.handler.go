@@ -138,8 +138,8 @@ func (h *StoreHandler) List(c *gin.Context) {
 		query = query.
 			Select(`
 					stores.*, 
-					COALESCE(sp.quantity, 0) as quantity, 
-					COALESCE(sp.small_quantity, 0) as small_quantity
+					COALESCE(sp.pack_quantity, 0) as quantity, 
+					sp.small_quantity
 				`).
 			Joins("LEFT JOIN store_products sp ON stores.id = sp.store_id AND sp.product_id = ?", productID)
 	}
@@ -150,7 +150,7 @@ func (h *StoreHandler) List(c *gin.Context) {
 
 	// Use conditional ordering at the end
 	if productID != "" {
-		query = query.Order("sp.quantity DESC")
+		query = query.Order("sp.pack_quantity")
 	} else {
 		query = query.Order("created_at DESC")
 	}
@@ -160,6 +160,7 @@ func (h *StoreHandler) List(c *gin.Context) {
 		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).
+		Debug().
 		Find(&res).Error
 
 	if err != nil {
