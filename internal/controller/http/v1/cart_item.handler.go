@@ -200,6 +200,7 @@ func (h *CartItemHandler) UpdateBySaleID(c *gin.Context) {
 					WHEN discount_type = 'cash' THEN ?
 					ELSE 0
 				END,
+				total_discount_price = discount_amount * quantity,
 				updated_at = NOW()
 			WHERE sale_id = ?;
 		`, body.DiscountType, body.DiscountValue,
