@@ -7752,13 +7752,6 @@ const docTemplate = `{
         "domain.CartItemUpdateProductUnit": {
             "type": "object",
             "properties": {
-                "discount_type": {
-                    "type": "string",
-                    "example": "percent|cash"
-                },
-                "discount_value": {
-                    "type": "number"
-                },
                 "quantity": {
                     "type": "integer"
                 },
@@ -7808,6 +7801,12 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "payment_types": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.CashboxPaymentType"
+                    }
+                },
                 "store_id": {
                     "type": "string"
                 }
@@ -7827,6 +7826,29 @@ const docTemplate = `{
                 },
                 "opened_amount": {
                     "type": "number"
+                }
+            }
+        },
+        "domain.CashboxPaymentType": {
+            "type": "object",
+            "properties": {
+                "cash_box_id": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "payment_type_id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
                 }
             }
         },

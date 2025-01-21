@@ -252,17 +252,13 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	if body.Quantity == 0 && body.UnitQuantity == 0 {
-		handleResponse(c, BadRequest, "Quantity and unit_quantity cannot be 0 at the same time")
-		return
-	}
 
 	var data = map[string]interface{}{}
-	if body.Quantity >= 0 {
+	if body.Quantity != nil {
 		data["quantity"] = body.Quantity
-		data["total_price"] = cartItem.UnitPrice * float64(body.Quantity)
+		data["total_price"] = cartItem.UnitPrice * float64(*body.Quantity)
 	}
-	if body.UnitQuantity >= 0 {
+	if body.UnitQuantity != nil {
 		data["unit_quantity"] = body.UnitQuantity
 	}
 

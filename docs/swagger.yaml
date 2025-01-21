@@ -53,11 +53,6 @@ definitions:
     type: object
   domain.CartItemUpdateProductUnit:
     properties:
-      discount_type:
-        example: percent|cash
-        type: string
-      discount_value:
-        type: number
       quantity:
         type: integer
       store_product_id:
@@ -90,6 +85,10 @@ definitions:
         type: boolean
       name:
         type: string
+      payment_types:
+        items:
+          $ref: '#/definitions/domain.CashboxPaymentType'
+        type: array
       store_id:
         type: string
     type: object
@@ -103,6 +102,21 @@ definitions:
         type: boolean
       opened_amount:
         type: number
+    type: object
+  domain.CashboxPaymentType:
+    properties:
+      cash_box_id:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      payment_type_id:
+        type: string
+      updated_at:
+        type: string
     type: object
   domain.Category:
     properties:

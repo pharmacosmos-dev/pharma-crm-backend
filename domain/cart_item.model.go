@@ -39,8 +39,8 @@ type CartItemRequest struct {
 // Cart Item update product unit
 type CartItemUpdateProductUnit struct {
 	StoreProductID string `gorm:"store_product_id" json:"store_product_id"`
-	Quantity       int    `gorm:"quantity" json:"quantity"`
-	UnitQuantity   int    `gorm:"unit_quantity" json:"unit_quantity"`
+	Quantity       *int   `gorm:"quantity" json:"quantity"`
+	UnitQuantity   *int   `gorm:"unit_quantity" json:"unit_quantity"`
 }
 
 // CartItemBySaleIDUpdateRequest structure
