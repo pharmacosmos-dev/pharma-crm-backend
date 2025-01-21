@@ -70,16 +70,23 @@ func (h *ProductHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	tx := h.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
 
 	body.Id = uuid.New().String()
 	body.Photos = utils.StringArray(body.Photos)
 	body.Status = config.ACTIVE_PRODUCT
 	body.MaterialCode = utils.GenerateMaterialCode()
-	err = h.db.
+	err = tx.
 		WithContext(c.Request.Context()).
 		Table("products").
 		Create(&body).Error
 	if err != nil {
+		tx.Rollback()
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -114,29 +121,32 @@ func (h *ProductHandler) Create(c *gin.Context) {
 			importDetail[i].ProductMaterialCode = body.MaterialCode
 			importDetail[i].ReceivedAmount = float64(body.Quantity) * body.RetailPrice
 		}
-		err = h.db.
+		err = tx.
 			WithContext(c.Request.Context()).
 			Table("store_products").
 			Create(&body.StoreProduct).Error
 		if err != nil {
+			tx.Rollback()
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())
 			return
 		}
-		err = h.db.
+		err = tx.
 			WithContext(c.Request.Context()).
 			Table("imports").
 			Create(&imports).Error
 		if err != nil {
+			tx.Rollback()
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())
 			return
 		}
-		err = h.db.
+		err = tx.
 			WithContext(c.Request.Context()).
 			Table("import_details").
 			Create(&importDetail).Error
 		if err != nil {
+			tx.Rollback()
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())
 			return
@@ -149,14 +159,20 @@ func (h *ProductHandler) Create(c *gin.Context) {
 			categoryProduct[i].CategoryId = body.CategoryIds[i]
 			categoryProduct[i].IsOpen = true
 		}
-		err = h.db.
+		err = tx.
 			WithContext(c.Request.Context()).
 			Create(&categoryProduct).Error
 		if err != nil {
+			tx.Rollback()
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())
 			return
 		}
+	}
+
+	if err = tx.Commit().Error; err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
 	}
 
 	handleResponse(c, CREATED, "CREATED")
