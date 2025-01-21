@@ -9,6 +9,9 @@ type Shift struct {
 	ToEmployeeId   string     `gorm:"to_employee_id" json:"to_employee_id"`
 	CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt      *time.Time `gorm:"updated_at" json:"updated_at"`
+	FromEmployee   *Employee  `gorm:"foreignKey:FromEmployeeId" json:"from_employee"`
+	ToEmployee     *Employee  `gorm:"foreignKey:ToEmployeeId" json:"to_employee"`
+	CashBox        *CashBox   `gorm:"foreignKey:CashBoxId" json:"cash_box"`
 }
 
 type ShiftRequest struct {

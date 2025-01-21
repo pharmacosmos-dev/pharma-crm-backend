@@ -86,7 +86,11 @@ func (h *ShiftHandler) Get(c *gin.Context) {
 		res domain.Shift
 	)
 
-	err := h.db.First(&domain.Shift{}, "id = ?", id).Error
+	err := h.db.
+		Preload("CashBox").
+		Preload("FromEmployee").
+		Preload("ToEmployee").
+		First(&res, "id = ?", id).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -127,7 +131,10 @@ func (h *ShiftHandler) List(c *gin.Context) {
 		return
 	}
 
-	query := h.db.Model(&domain.Shift{})
+	query := h.db.Model(&domain.Shift{}).
+		Preload("CashBox").
+		Preload("FromEmployee").
+		Preload("ToEmployee")
 	if cashBoxId != "" {
 		query = query.Where("cash_box_id = ?", cashBoxId)
 	}
