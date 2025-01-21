@@ -207,10 +207,11 @@ func (h *CategoryHander) Get(c *gin.Context) {
 // @Router /category/list [get]
 func (h *CategoryHander) List(c *gin.Context) {
 	var (
-		res       []domain.Category
-		parentID  = c.Query("parent_id")
-		search    = c.Query("search")
-		productID = c.Query("product_id")
+		res        []domain.Category
+		parentID   = c.Query("parent_id")
+		search     = c.Query("search")
+		productID  = c.Query("product_id")
+		totalCount int64
 	)
 	// Build the base query
 	query := h.db.Model(&domain.Category{})
@@ -266,13 +267,13 @@ func (h *CategoryHander) List(c *gin.Context) {
 	}
 
 	// Execute the query
-	if err := query.Limit(limit).Offset(offset).Find(&res).Error; err != nil {
+	if err := query.Count(&totalCount).Limit(limit).Offset(offset).Find(&res).Error; err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
-	handleResponse(c, OK, res)
+	handleResponse(c, OK, res, totalCount)
 }
 
 // Delete godoc
