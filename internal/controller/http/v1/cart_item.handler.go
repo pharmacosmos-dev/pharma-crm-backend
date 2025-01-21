@@ -252,31 +252,20 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-
-	var discountAmount float64
-	if body.DiscountType != nil && body.DiscountValue != nil {
-		if *body.DiscountType == "percent" {
-			discountAmount = cartItem.UnitPrice * (*body.DiscountValue) / 100
-		} else if *body.DiscountType == "cash" {
-			discountAmount = *body.DiscountValue
-		}
+	if body.Quantity == 0 && body.UnitQuantity == 0 {
+		handleResponse(c, BadRequest, "Quantity and unit_quantity cannot be 0 at the same time")
+		return
 	}
+
 	var data = map[string]interface{}{}
-	if body.Quantity > 0 {
+	if body.Quantity >= 0 {
 		data["quantity"] = body.Quantity
 		data["total_price"] = cartItem.UnitPrice * float64(body.Quantity)
-		data["discount_price"] = cartItem.UnitPrice*float64(body.Quantity) - discountAmount
 	}
-	if body.UnitQuantity > 0 {
+	if body.UnitQuantity >= 0 {
 		data["unit_quantity"] = body.UnitQuantity
 	}
-	if body.DiscountType != nil || body.DiscountValue != nil {
-		data["discount_type"] = *body.DiscountType
-		data["discount_value"] = *body.DiscountValue
-	}
 
-	data["discount_amount"] = discountAmount
-	data["total_discount_price"] = discountAmount * float64(body.Quantity)
 	err = h.db.
 		WithContext(c.Request.Context()).
 		Table("cart_items").

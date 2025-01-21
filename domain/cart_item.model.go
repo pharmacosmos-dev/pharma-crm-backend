@@ -38,11 +38,9 @@ type CartItemRequest struct {
 
 // Cart Item update product unit
 type CartItemUpdateProductUnit struct {
-	StoreProductID string   `gorm:"store_product_id" json:"store_product_id"`
-	Quantity       int      `gorm:"quantity" json:"quantity"`
-	UnitQuantity   int      `gorm:"unit_quantity" json:"unit_quantity"`
-	DiscountType   *string  `gorm:"discount_type" json:"discount_type" example:"percent|cash"`
-	DiscountValue  *float64 `gorm:"discount_value" json:"discount_value"`
+	StoreProductID string `gorm:"store_product_id" json:"store_product_id"`
+	Quantity       int    `gorm:"quantity" json:"quantity"`
+	UnitQuantity   int    `gorm:"unit_quantity" json:"unit_quantity"`
 }
 
 // CartItemBySaleIDUpdateRequest structure
