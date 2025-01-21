@@ -281,14 +281,16 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	}()
 
 	// Update sale status
-	if err := updateSaleStatus(tx, body.SaleID, body.TotalAmount); err != nil {
+	err = updateSaleStatus(tx, body.SaleID, body.TotalAmount)
+	if err != nil {
 		tx.Rollback()
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
 	// Update cart items
-	if err := updateCartItemStatus(tx, body.SaleID); err != nil {
+	err = updateCartItemStatus(tx, body.SaleID)
+	if err != nil {
 		tx.Rollback()
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -370,7 +372,8 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 }
 
 func updateSaleStatus(tx *gorm.DB, saleID string, totalAmount float64) error {
-	return tx.Table("sales").
+	return tx.
+		Table("sales").
 		Where("id = ?", saleID).
 		Updates(map[string]interface{}{
 			"status":       "completed",
@@ -379,7 +382,8 @@ func updateSaleStatus(tx *gorm.DB, saleID string, totalAmount float64) error {
 }
 
 func updateCartItemStatus(tx *gorm.DB, saleID string) error {
-	return tx.Table("cart_items").
+	return tx.
+		Table("cart_items").
 		Where("sale_id = ?", saleID).
 		Updates(map[string]interface{}{"status": "sold"}).Debug().Error
 }

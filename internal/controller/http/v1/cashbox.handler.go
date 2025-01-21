@@ -67,6 +67,22 @@ func (h *CashBoxHandler) Create(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	if len(body.PaymentTypes) > 0 {
+		cashboxPaymentTypes := make([]domain.CashboxPaymentType, len(body.PaymentTypes))
+		for i := range body.PaymentTypes {
+			cashboxPaymentTypes[i].CashBoxId = body.ID
+			cashboxPaymentTypes[i].ID = uuid.New().String()
+		}
+		err = h.db.WithContext(c.Request.Context()).
+			Table("cashbox_payment_types").
+			Create(&cashboxPaymentTypes).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+	}
+
 	handleResponse(c, CREATED, body)
 }
 
@@ -188,6 +204,19 @@ func (h *CashBoxHandler) Update(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+
+	if len(body.PaymentTypes) > 0 {
+		cashboxPaymentTypes := make([]domain.CashboxPaymentType, len(body.PaymentTypes))
+		err = h.db.WithContext(c.Request.Context()).
+			Table("cashbox_payment_types").
+			Create(&cashboxPaymentTypes).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+	}
+
 	handleResponse(c, OK, "UPDATED")
 }
 

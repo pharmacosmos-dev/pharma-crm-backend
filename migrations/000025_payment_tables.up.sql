@@ -16,8 +16,9 @@ CREATE TABLE IF NOT EXISTS "payment_services" (
     "merchant_user_id" INT,
     "secret_key" VARCHAR(255),
     "is_active" BOOLEAN,
-    "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    "created_at" TIMESTAMP NOT NULL DEFAULT NOW(),
+    "updated_at" TIMESTAMP NOT NULL DEFAULT NOW(),
+    "deleted_at" TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS "sale_payments" (

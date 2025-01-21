@@ -2,7 +2,11 @@ package payment
 
 import (
 	"context"
+	"crypto/sha1"
+	"fmt"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
@@ -16,7 +20,7 @@ type PaymentAction struct {
 }
 
 type PaymentService interface {
-	ClickPass(ctx context.Context, req *domain.ClickPassRequest) (*domain.ClickPassResponse, error)
+	ClickPass(ctx context.Context, click *domain.PaymentService, req *domain.ClickPassRequest) (*domain.ClickPassResponse, error)
 	ClickCheckPaymentStatus(ctx context.Context, data map[string]interface{}) (*domain.ClickPassResponse, error)
 }
 
@@ -27,7 +31,7 @@ func NewPaymentAction(cfg *config.Config, log *logger.Logger, db *gorm.DB) Payme
 	}
 }
 
-func (h *PaymentAction) ClickPass(ctx context.Context, req *domain.ClickPassRequest) (*domain.ClickPassResponse, error) {
+func (h *PaymentAction) ClickPass(ctx context.Context, click *domain.PaymentService, req *domain.ClickPassRequest) (*domain.ClickPassResponse, error) {
 	
 	return nil, nil
 }
@@ -52,4 +56,11 @@ func (h *PaymentAction) DoRequest(ctx context.Context, data map[string]interface
 	defer resp.Body.Close()
 
 	return nil, nil
+}
+
+func (h *PaymentAction) generateClickAuthToken(secretKey string, merchantUserId int) string {
+	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+	digest := sha1.Sum([]byte(timestamp + secretKey))
+	digestStr := fmt.Sprintf("%x", digest)
+	return fmt.Sprintf("%d:%s:%s", merchantUserId, digestStr, timestamp)
 }

@@ -47,4 +47,6 @@ type FinalSale struct {
 type FinalPaymentType struct {
 	PaymentTypeID string  `gorm:"payment_type_id" json:"payment_type_id"`
 	Amount        float64 `gorm:"amount" json:"amount"`
+	Type          string  `gorm:"type" json:"type"`
+	AppType       string  `json:"app_type" example:"click|payme|uzum"`
 }

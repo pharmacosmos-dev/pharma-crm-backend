@@ -3805,7 +3805,7 @@
                 }
             }
         },
-        "/payment_service": {
+        "/payment-service": {
             "post": {
                 "security": [
                     {
@@ -3856,7 +3856,7 @@
                 }
             }
         },
-        "/payment_service/list": {
+        "/payment-service/list": {
             "get": {
                 "security": [
                     {
@@ -3874,6 +3874,14 @@
                     "payment_services"
                 ],
                 "summary": "Get a payment service",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cash Box ID",
+                        "name": "cash_box_id",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -3896,7 +3904,7 @@
                 }
             }
         },
-        "/payment_service/{id}": {
+        "/payment-service/{id}": {
             "get": {
                 "security": [
                     {
@@ -4039,7 +4047,7 @@
                 }
             }
         },
-        "/payment_type": {
+        "/payment-type": {
             "post": {
                 "security": [
                     {
@@ -4060,7 +4068,7 @@
                 "parameters": [
                     {
                         "description": "payment type",
-                        "name": "payment_type",
+                        "name": "input",
                         "in": "body",
                         "required": true,
                         "schema": {
@@ -4090,7 +4098,7 @@
                 }
             }
         },
-        "/payment_type/list": {
+        "/payment-type/list": {
             "get": {
                 "security": [
                     {
@@ -4130,7 +4138,7 @@
                 }
             }
         },
-        "/payment_type/{id}": {
+        "/payment-type/{id}": {
             "get": {
                 "security": [
                     {
@@ -4196,7 +4204,7 @@
                     },
                     {
                         "description": "payment type",
-                        "name": "payment_type",
+                        "name": "input",
                         "in": "body",
                         "required": true,
                         "schema": {
@@ -8083,7 +8091,14 @@
                 "amount": {
                     "type": "number"
                 },
+                "app_type": {
+                    "type": "string",
+                    "example": "click|payme|uzum"
+                },
                 "payment_type_id": {
+                    "type": "string"
+                },
+                "type": {
                     "type": "string"
                 }
             }

@@ -8,7 +8,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
-	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
 )
 
@@ -62,11 +61,19 @@ func (h *CashBoxOperationHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	err = h.db.WithContext(c.Request.Context()).
+	tx := h.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	err = tx.WithContext(c.Request.Context()).
 		Table("cash_boxes").
 		Where("id = ?", body.CashBoxID).
 		Update("is_open", true).Error
 	if err != nil {
+		tx.Rollback()
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -77,12 +84,14 @@ func (h *CashBoxOperationHandler) Create(c *gin.Context) {
 	body.EmployeeID = userId.(string)
 	body.IsOpen = true
 	var id string
-	err = h.db.Raw(`
+	err = tx.Raw(`
 	INSERT INTO 
 		cashbox_operations 
 			(id, cash_box_id, employee_id, opened_amount, is_open, start_time, description, current_employee_id) 
 	VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
-	`, body.ID, body.CashBoxID, body.EmployeeID, body.OpenedAmount, body.IsOpen, body.StartTime, body.Description, body.EmployeeID).Scan(&id).Error
+	`, body.ID, body.CashBoxID, body.EmployeeID,
+		body.OpenedAmount, body.IsOpen, body.StartTime,
+		body.Description, body.EmployeeID).Scan(&id).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -90,13 +99,20 @@ func (h *CashBoxOperationHandler) Create(c *gin.Context) {
 	}
 
 	var sale domain.Sale
-	err = h.db.WithContext(c.Request.Context()).
+	err = tx.WithContext(c.Request.Context()).
 		Raw(`
 		INSERT INTO sales (id, employee_id, cash_box_operation_id) 
 		VALUES (?, ?, ?) RETURNING *`,
-			uuid.New().String(), userId.(string), id, utils.GenerateCode()).Scan(&sale).Error
+			uuid.New().String(), userId.(string), id).Scan(&sale).Error
 	if err != nil {
+		tx.Rollback()
 		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	// Commit transaction
+	if err := tx.Commit().Error; err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}

@@ -37,14 +37,15 @@ type PaymentService struct {
 
 // PaymentServiceRequest structure for create, update
 type PaymentServiceRequest struct {
-	ID             string `gorm:"id" json:"-"`
-	CashBoxID      string `gorm:"cash_box_id" json:"cash_box_id"`
-	Name           string `gorm:"name" json:"name"`
-	MerchantID     int    `gorm:"merchant_id" json:"merchant_id"`
-	MerchantUserID int    `gorm:"merchant_user_id" json:"merchant_user_id"`
-	ServiceID      int    `gorm:"service_id" json:"service_id"`
-	SecretKey      string `gorm:"secret_key" json:"secret_key"`
-	IsActive       bool   `gorm:"is_active" json:"is_active"`
+	ID             string     `gorm:"id" json:"-"`
+	CashBoxID      string     `gorm:"cash_box_id" json:"cash_box_id"`
+	Name           string     `gorm:"name" json:"name"`
+	MerchantID     int        `gorm:"merchant_id" json:"merchant_id"`
+	MerchantUserID int        `gorm:"merchant_user_id" json:"merchant_user_id"`
+	ServiceID      int        `gorm:"service_id" json:"service_id"`
+	SecretKey      string     `gorm:"secret_key" json:"secret_key"`
+	IsActive       bool       `gorm:"is_active" json:"is_active"`
+	UpdatedAt      *time.Time `gorm:"updated_at" json:"-"`
 }
 
 // Transaction structure

@@ -10,11 +10,21 @@ import (
 	v1 "github.com/pharma-crm-backend/internal/controller/http/v1"
 	"github.com/pharma-crm-backend/internal/storage"
 	"github.com/pharma-crm-backend/pkg/logger"
+	"github.com/pharma-crm-backend/pkg/payment"
 	"github.com/pharma-crm-backend/pkg/token"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"gorm.io/gorm"
 )
+
+type Options struct {
+	Gin     *gin.Engine
+	Db      *gorm.DB
+	Log     *logger.Logger
+	Cfg     *config.Config
+	Strg    *storage.Storage
+	Payment payment.PaymentService
+}
 
 // @title Pharma API docs
 // @version 1.0
@@ -28,15 +38,15 @@ import (
 // @in header
 // @name Authorization
 // NewRouter -.
-func NewRouter(ginEngine *gin.Engine, db *gorm.DB, log *logger.Logger, cfg *config.Config, strg *storage.Storage) {
+func NewRouter(option Options) {
 
 	// Basic Auth
 	basicAuth := middleware.BasicAuth()
-	ginEngine.Use(basicAuth.Middleware)
+	option.Gin.Use(basicAuth.Middleware)
 
 	// Options
-	ginEngine.Use(gin.Logger())
-	ginEngine.Use(gin.Recovery())
+	option.Gin.Use(gin.Logger())
+	option.Gin.Use(gin.Recovery())
 
 	// CORS Configuration
 	corConfig := cors.DefaultConfig()
@@ -45,24 +55,24 @@ func NewRouter(ginEngine *gin.Engine, db *gorm.DB, log *logger.Logger, cfg *conf
 	corConfig.AllowHeaders = []string{"*"}
 	corConfig.AllowBrowserExtensions = true
 	corConfig.AllowMethods = []string{"*"}
-	ginEngine.Use(cors.New(corConfig))
+	option.Gin.Use(cors.New(corConfig))
 
 	// JWTHandler
 	jwtHandler := token.JWTHandler{
-		Cfg: cfg,
-		Log: log,
+		Cfg: option.Cfg,
+		Log: option.Log,
 	}
 
 	// Handlers
-	handler := v1.NewHandler(cfg, db, log, &jwtHandler, strg)
-	handler.InitRoutes(ginEngine)
+	handler := v1.NewHandler(option.Cfg, option.Db, option.Log, &jwtHandler, option.Strg, option.Payment)
+	handler.InitRoutes(option.Gin)
 
 	// PING
-	ginEngine.GET("/", Ping)
+	option.Gin.GET("/", Ping)
 
 	// Swagger Route
 	url := ginSwagger.URL("swagger/doc.json")
-	ginEngine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, url))
+	option.Gin.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, url))
 }
 
 func Ping(c *gin.Context) {

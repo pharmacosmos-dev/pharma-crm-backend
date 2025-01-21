@@ -16,11 +16,12 @@ type CashBox struct {
 
 // Cash Register Request for create, update
 type CashBoxRequest struct {
-	ID       string `gorm:"id" json:"-"`
-	Name     string `gorm:"name" json:"name"`
-	StoreID  string `gorm:"store_id" json:"store_id"`
-	IsOpen   bool   `gorm:"is_open" json:"-"`
-	IsEnable bool   `gorm:"is_enable" json:"is_enable"`
+	ID           string               `gorm:"id" json:"-"`
+	Name         string               `gorm:"name" json:"name"`
+	StoreID      string               `gorm:"store_id" json:"store_id"`
+	IsOpen       bool                 `gorm:"is_open" json:"-"`
+	IsEnable     bool                 `gorm:"is_enable" json:"is_enable"`
+	PaymentTypes []CashboxPaymentType `gorm:"-" json:"payment_types"`
 }
 
 // Cash Box Session structure
@@ -84,4 +85,14 @@ type CashboxOperationInfo struct {
 	EndTime        *time.Time `gorm:"end_time" json:"end_time"`
 	FirstName      string     `gorm:"first_name" json:"first_name"`
 	StoreName      string     `gorm:"store_name" json:"store_name"`
+}
+
+// PaymentType structure
+type CashboxPaymentType struct {
+	ID            string     `gorm:"id" json:"id"`
+	CashBoxId     string     `gorm:"cash_box_id" json:"cash_box_id"`
+	PaymentTypeId string     `gorm:"payment_type_id" json:"payment_type_id"`
+	IsActive      bool       `gorm:"is_active" json:"is_active"`
+	CreatedAt     *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt     *time.Time `gorm:"updated_at" json:"updated_at"`
 }

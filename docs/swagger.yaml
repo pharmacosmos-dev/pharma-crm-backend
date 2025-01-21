@@ -280,7 +280,12 @@ definitions:
     properties:
       amount:
         type: number
+      app_type:
+        example: click|payme|uzum
+        type: string
       payment_type_id:
+        type: string
+      type:
         type: string
     type: object
   domain.FinalSale:
@@ -3206,7 +3211,7 @@ paths:
       summary: Login
       tags:
       - auth
-  /payment_service:
+  /payment-service:
     post:
       consumes:
       - application/json
@@ -3238,7 +3243,7 @@ paths:
       summary: Create a payment service
       tags:
       - payment_services
-  /payment_service/{id}:
+  /payment-service/{id}:
     delete:
       consumes:
       - application/json
@@ -3329,11 +3334,16 @@ paths:
       summary: Update a payment service
       tags:
       - payment_services
-  /payment_service/list:
+  /payment-service/list:
     get:
       consumes:
       - application/json
       description: Get a payment service from the request body
+      parameters:
+      - description: Cash Box ID
+        in: query
+        name: cash_box_id
+        type: string
       produces:
       - application/json
       responses:
@@ -3354,7 +3364,7 @@ paths:
       summary: Get a payment service
       tags:
       - payment_services
-  /payment_type:
+  /payment-type:
     post:
       consumes:
       - application/json
@@ -3362,7 +3372,7 @@ paths:
       parameters:
       - description: payment type
         in: body
-        name: payment_type
+        name: input
         required: true
         schema:
           $ref: '#/definitions/domain.PaymentTypeRequest'
@@ -3386,7 +3396,7 @@ paths:
       summary: Create a payment type
       tags:
       - payment_types
-  /payment_type/{id}:
+  /payment-type/{id}:
     delete:
       consumes:
       - application/json
@@ -3453,7 +3463,7 @@ paths:
         type: string
       - description: payment type
         in: body
-        name: payment_type
+        name: input
         required: true
         schema:
           $ref: '#/definitions/domain.PaymentTypeRequest'
@@ -3477,7 +3487,7 @@ paths:
       summary: Update a payment type
       tags:
       - payment_types
-  /payment_type/list:
+  /payment-type/list:
     get:
       consumes:
       - application/json

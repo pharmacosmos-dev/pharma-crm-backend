@@ -3812,7 +3812,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/payment_service": {
+        "/payment-service": {
             "post": {
                 "security": [
                     {
@@ -3863,7 +3863,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/payment_service/list": {
+        "/payment-service/list": {
             "get": {
                 "security": [
                     {
@@ -3881,6 +3881,14 @@ const docTemplate = `{
                     "payment_services"
                 ],
                 "summary": "Get a payment service",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cash Box ID",
+                        "name": "cash_box_id",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -3903,7 +3911,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/payment_service/{id}": {
+        "/payment-service/{id}": {
             "get": {
                 "security": [
                     {
@@ -4046,7 +4054,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/payment_type": {
+        "/payment-type": {
             "post": {
                 "security": [
                     {
@@ -4067,7 +4075,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "description": "payment type",
-                        "name": "payment_type",
+                        "name": "input",
                         "in": "body",
                         "required": true,
                         "schema": {
@@ -4097,7 +4105,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/payment_type/list": {
+        "/payment-type/list": {
             "get": {
                 "security": [
                     {
@@ -4137,7 +4145,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/payment_type/{id}": {
+        "/payment-type/{id}": {
             "get": {
                 "security": [
                     {
@@ -4203,7 +4211,7 @@ const docTemplate = `{
                     },
                     {
                         "description": "payment type",
-                        "name": "payment_type",
+                        "name": "input",
                         "in": "body",
                         "required": true,
                         "schema": {
@@ -8090,7 +8098,14 @@ const docTemplate = `{
                 "amount": {
                     "type": "number"
                 },
+                "app_type": {
+                    "type": "string",
+                    "example": "click|payme|uzum"
+                },
                 "payment_type_id": {
+                    "type": "string"
+                },
+                "type": {
                     "type": "string"
                 }
             }
