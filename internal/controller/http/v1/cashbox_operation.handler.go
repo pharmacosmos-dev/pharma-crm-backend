@@ -38,11 +38,11 @@ func (h *CashBoxOperationHandler) CashBoxOperationRoutes(r *gin.RouterGroup) {
 // Create godoc
 // @Summary Create a cash box Operation
 // @Description Create a cash box Operation from the request body
-// @Tags cash_boxes
+// @Tags 	cash_boxes
 // @Security     BearerAuth
-// @Accept json
+// @Accept 	json
 // @Produce json
-// @Param input body domain.CashboxOperationRequest true "Cash box Operation information"
+// @Param 	input body domain.CashboxOperationRequest true "Cash box Operation information"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -79,8 +79,9 @@ func (h *CashBoxOperationHandler) Create(c *gin.Context) {
 	var id string
 	err = h.db.Raw(`
 	INSERT INTO 
-		cashbox_operations (id, cash_box_id, employee_id, opened_amount, is_open, start_time, description, current_employee_id) 
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
+		cashbox_operations 
+			(id, cash_box_id, employee_id, opened_amount, is_open, start_time, description, current_employee_id) 
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
 	`, body.ID, body.CashBoxID, body.EmployeeID, body.OpenedAmount, body.IsOpen, body.StartTime, body.Description, body.EmployeeID).Scan(&id).Error
 	if err != nil {
 		h.log.Error(err)
@@ -90,7 +91,9 @@ func (h *CashBoxOperationHandler) Create(c *gin.Context) {
 
 	var sale domain.Sale
 	err = h.db.WithContext(c.Request.Context()).
-		Raw(`INSERT INTO sales (id, employee_id, cash_box_operation_id) VALUES (?, ?, ?) RETURNING *`,
+		Raw(`
+		INSERT INTO sales (id, employee_id, cash_box_operation_id) 
+		VALUES (?, ?, ?) RETURNING *`,
 			uuid.New().String(), userId.(string), id, utils.GenerateCode()).Scan(&sale).Error
 	if err != nil {
 		h.log.Error(err)

@@ -65,6 +65,25 @@ definitions:
       unit_quantity:
         type: integer
     type: object
+  domain.CashBox:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      is_enable:
+        type: boolean
+      is_open:
+        type: boolean
+      name:
+        type: string
+      store:
+        $ref: '#/definitions/domain.Store'
+      store_id:
+        type: string
+      updated_at:
+        type: string
+    type: object
   domain.CashBoxRequest:
     properties:
       is_enable:
@@ -178,6 +197,49 @@ definitions:
       sale_id:
         type: string
       store_id:
+        type: string
+    type: object
+  domain.Employee:
+    properties:
+      birthdate:
+        type: string
+      created_at:
+        type: string
+      email:
+        type: string
+      first_name:
+        type: string
+      gender:
+        type: string
+      id:
+        type: string
+      language:
+        type: string
+      last_name:
+        type: string
+      password:
+        type: string
+      permissions:
+        items:
+          $ref: '#/definitions/domain.Permission'
+        type: array
+      phone:
+        type: string
+      photo:
+        type: string
+      public_id:
+        type: integer
+      roles:
+        items:
+          $ref: '#/definitions/domain.Role'
+        type: array
+      status:
+        type: string
+      store:
+        $ref: '#/definitions/domain.Store'
+      store_id:
+        type: string
+      updated_at:
         type: string
     type: object
   domain.EmployeeRequest:
@@ -314,6 +376,35 @@ definitions:
       name:
         type: string
       type:
+        type: string
+    type: object
+  domain.Permission:
+    properties:
+      children:
+        items:
+          $ref: '#/definitions/domain.Permission'
+        type: array
+      created_at:
+        type: string
+      description:
+        type: string
+      entity_name:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      method:
+        items:
+          type: string
+        type: array
+      parent_id:
+        type: string
+      route:
+        type: string
+      type:
+        type: string
+      updated_at:
         type: string
     type: object
   domain.PermissionRequest:
@@ -461,6 +552,23 @@ definitions:
       new_password:
         type: string
     type: object
+  domain.Role:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      permission_count:
+        type: integer
+      public_id:
+        type: integer
+      updated_at:
+        type: string
+    type: object
   domain.RolePermissionReq:
     properties:
       children_ids:
@@ -534,14 +642,20 @@ definitions:
     type: object
   domain.Shift:
     properties:
+      cash_box:
+        $ref: '#/definitions/domain.CashBox'
       cash_box_id:
         type: string
       created_at:
         type: string
+      from_employee:
+        $ref: '#/definitions/domain.Employee'
       from_employee_id:
         type: string
       id:
         type: string
+      to_employee:
+        $ref: '#/definitions/domain.Employee'
       to_employee_id:
         type: string
       updated_at:
@@ -553,7 +667,34 @@ definitions:
         type: string
       from_employee_id:
         type: string
+      password:
+        type: string
       to_employee_id:
+        type: string
+    type: object
+  domain.Store:
+    properties:
+      address:
+        type: string
+      cash_box_count:
+        type: integer
+      created_at:
+        type: string
+      employee_count:
+        type: integer
+      id:
+        type: string
+      location:
+        type: string
+      name:
+        type: string
+      quantity:
+        type: integer
+      small_quantity:
+        type: integer
+      store_code:
+        type: integer
+      updated_at:
         type: string
     type: object
   domain.StoreProductBarcodeRequest:

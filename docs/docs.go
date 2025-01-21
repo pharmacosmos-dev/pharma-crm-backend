@@ -7762,6 +7762,35 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.CashBox": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_enable": {
+                    "type": "boolean"
+                },
+                "is_open": {
+                    "type": "boolean"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "store": {
+                    "$ref": "#/definitions/domain.Store"
+                },
+                "store_id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.CashBoxRequest": {
             "type": "object",
             "properties": {
@@ -7934,6 +7963,71 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "store_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.Employee": {
+            "type": "object",
+            "properties": {
+                "birthdate": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "first_name": {
+                    "type": "string"
+                },
+                "gender": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "language": {
+                    "type": "string"
+                },
+                "last_name": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "permissions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.Permission"
+                    }
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "photo": {
+                    "type": "string"
+                },
+                "public_id": {
+                    "type": "integer"
+                },
+                "roles": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.Role"
+                    }
+                },
+                "status": {
+                    "type": "string"
+                },
+                "store": {
+                    "$ref": "#/definitions/domain.Store"
+                },
+                "store_id": {
+                    "type": "string"
+                },
+                "updated_at": {
                     "type": "string"
                 }
             }
@@ -8143,6 +8237,50 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.Permission": {
+            "type": "object",
+            "properties": {
+                "children": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.Permission"
+                    }
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "entity_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "method": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "parent_id": {
+                    "type": "string"
+                },
+                "route": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "updated_at": {
                     "type": "string"
                 }
             }
@@ -8367,6 +8505,32 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.Role": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "permission_count": {
+                    "type": "integer"
+                },
+                "public_id": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.RolePermissionReq": {
             "type": "object",
             "properties": {
@@ -8480,17 +8644,26 @@ const docTemplate = `{
         "domain.Shift": {
             "type": "object",
             "properties": {
+                "cash_box": {
+                    "$ref": "#/definitions/domain.CashBox"
+                },
                 "cash_box_id": {
                     "type": "string"
                 },
                 "created_at": {
                     "type": "string"
                 },
+                "from_employee": {
+                    "$ref": "#/definitions/domain.Employee"
+                },
                 "from_employee_id": {
                     "type": "string"
                 },
                 "id": {
                     "type": "string"
+                },
+                "to_employee": {
+                    "$ref": "#/definitions/domain.Employee"
                 },
                 "to_employee_id": {
                     "type": "string"
@@ -8509,7 +8682,48 @@ const docTemplate = `{
                 "from_employee_id": {
                     "type": "string"
                 },
+                "password": {
+                    "type": "string"
+                },
                 "to_employee_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.Store": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "cash_box_count": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "employee_count": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "location": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "integer"
+                },
+                "small_quantity": {
+                    "type": "integer"
+                },
+                "store_code": {
+                    "type": "integer"
+                },
+                "updated_at": {
                     "type": "string"
                 }
             }

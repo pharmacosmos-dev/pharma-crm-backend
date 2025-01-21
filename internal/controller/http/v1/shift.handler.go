@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/etc"
 )
 
 type ShiftHandler struct {
@@ -40,12 +41,29 @@ func (h *ShiftHandler) ShiftRoutes(r *gin.RouterGroup) {
 // @Router /shift [post]
 func (h *ShiftHandler) Create(c *gin.Context) {
 	var (
-		body domain.ShiftRequest
-		err  error
+		body       domain.ShiftRequest
+		toEmployee domain.Employee
+		err        error
 	)
 	if err = c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	err = h.db.First(&toEmployee, "id = ?", body.ToEmployeeId).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	passoword, err := etc.Decrypt(toEmployee.Password, h.cfg.HeshKey)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, "Failed to parse password")
+		return
+	}
+	if body.Password != passoword {
+		handleResponse(c, BadRequest, "Wrong password")
 		return
 	}
 	err = h.db.
