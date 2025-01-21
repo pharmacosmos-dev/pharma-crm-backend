@@ -267,7 +267,11 @@ func (h *CategoryHander) List(c *gin.Context) {
 	}
 
 	// Execute the query
-	if err := query.Count(&totalCount).Limit(limit).Offset(offset).Find(&res).Error; err != nil {
+	err = query.
+		Count(&totalCount).
+		Limit(limit).Offset(offset).
+		Find(&res).Error
+	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
