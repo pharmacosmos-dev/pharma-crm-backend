@@ -57,6 +57,21 @@ func (h *ShiftHandler) Create(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+
+	err = h.db.
+		WithContext(c.Request.Context()).
+		Raw(`
+		UPDATE cashbox_operations 
+		SET current_employee_id = ? 
+		WHERE end_time IS NULL 
+		AND cash_box_id = ? AND employee_id = ?`,
+			body.ToEmployeeId, body.CashBoxId, body.FromEmployeeId).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
 	accessClaims := map[string]interface{}{
 		"user_id": body.ToEmployeeId,
 	}
