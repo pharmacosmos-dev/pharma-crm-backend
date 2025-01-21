@@ -11,11 +11,12 @@ import (
 type (
 	// Config -.
 	Config struct {
-		App    `yaml:"app"`
-		HTTP   `yaml:"http"`
-		Log    `yaml:"logger"`
-		PG     `yaml:"postgres"`
-		Secret `yaml:"secret"`
+		App     `yaml:"app"`
+		HTTP    `yaml:"http"`
+		Log     `yaml:"logger"`
+		PG      `yaml:"postgres"`
+		Secret  `yaml:"secret"`
+		Payment `yaml:"payment"`
 	}
 
 	// App -.
@@ -50,6 +51,9 @@ type (
 		DbPass  string `env-required:"true" yaml:"pg_pass" env:"PG_PASS"`
 		DbName  string `env-required:"true" yaml:"pg_db" env:"PG_DB"`
 	}
+	Payment struct {
+		ClickEndpointUrl string `env-required:"true" yaml:"click_endpoint_url" env:"CLICK_ENDPOINT_URL"`
+	}
 )
 
 // NewConfig returns app config.
@@ -72,6 +76,7 @@ func Load() Config {
 	c.Secret.SecretKey = cast.ToString(GetOrReturnDefaultValue("SECRET_KEY", "6fb5619d-8c30-4e85-a1e3-3f4d142498a0"))
 	c.Secret.HeshKey = cast.ToString(GetOrReturnDefaultValue("HESH_KEY", "6fb5619d-8c30-4e85-a1e3-3f4d142498a0"))
 	c.Secret.Password1C = cast.ToString(GetOrReturnDefaultValue("PASSWORD_1C", "6fb5619d-8c30-4e85-a1e3-3f4d142498a0"))
+	c.Payment.ClickEndpointUrl = cast.ToString(GetOrReturnDefaultValue("CLICK_ENDPOINT_URL", "http://localhost:8080"))
 	return c
 }
 

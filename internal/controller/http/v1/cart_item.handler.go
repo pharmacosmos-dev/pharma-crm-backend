@@ -186,24 +186,26 @@ func (h *CartItemHandler) UpdateBySaleID(c *gin.Context) {
 	// Chegirma hisoblash va yangilash uchun SQL so'rovi
 	err = h.db.WithContext(c.Request.Context()).
 		Exec(`
-			UPDATE cart_items
-			SET
-				discount_type = ?,
-				discount_value = ?,
-				discount_price = CASE
-					WHEN discount_type = 'percent' THEN unit_price - (unit_price * ? / 100)
-					WHEN discount_type = 'cash' THEN unit_price - ?
-					ELSE unit_price
-				END,
-				discount_amount = CASE
-					WHEN discount_type = 'percent' THEN (unit_price * ? / 100)
-					WHEN discount_type = 'cash' THEN ?
-					ELSE 0
-				END,
-				total_discount_price = discount_amount * quantity,
-				updated_at = NOW()
-			WHERE sale_id = ?;
-		`, body.DiscountType, body.DiscountValue,
+        UPDATE cart_items
+        SET
+            discount_type = ?,
+            discount_value = ?,
+            discount_price = CASE
+                WHEN discount_value = 0 THEN 0
+                WHEN discount_type = 'percent' THEN unit_price - (unit_price * ? / 100)
+                WHEN discount_type = 'cash' THEN unit_price - ?
+                ELSE unit_price
+            END,
+            discount_amount = CASE
+                WHEN discount_value = 0 THEN 0
+                WHEN discount_type = 'percent' THEN (unit_price * ? / 100)
+                WHEN discount_type = 'cash' THEN ?
+                ELSE 0
+            END,
+            total_discount_price = discount_amount * quantity,
+            updated_at = NOW()
+        WHERE sale_id = ?;
+    `, body.DiscountType, body.DiscountValue,
 			body.DiscountValue, body.DiscountValue,
 			body.DiscountValue, body.DiscountValue,
 			saleId).Error
