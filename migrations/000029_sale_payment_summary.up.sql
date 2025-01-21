@@ -1,4 +1,4 @@
-CREATE TABLE "sale_payment_summary" (
+CREATE TABLE IF NOT EXISTS "sale_payment_summary" (
     "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     "cash_box_operation_id" UUID NOT NULL,
     "payment_type_id" UUID NOT NULL,

@@ -5244,6 +5244,18 @@ const docTemplate = `{
                 "summary": "Get products by store",
                 "parameters": [
                     {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
                         "type": "string",
                         "description": "Store ID",
                         "name": "id",
@@ -6199,55 +6211,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/sale/check": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Check cash box from the request body",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "sales"
-                ],
-                "summary": "Check Sale",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Store ID",
-                        "name": "store_id",
-                        "in": "query",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            }
-        },
         "/sale/final": {
             "post": {
                 "security": [
@@ -6505,6 +6468,234 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/shift": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a shift from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "shifts"
+                ],
+                "summary": "Create a shift",
+                "parameters": [
+                    {
+                        "description": "Shift information",
+                        "name": "shift",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.ShiftRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/shift/list": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get a shift from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "shifts"
+                ],
+                "summary": "Get a shift",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Store ID",
+                        "name": "store_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Employee ID",
+                        "name": "employee_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cash Box ID",
+                        "name": "cash_box_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/shift/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get a shift from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "shifts"
+                ],
+                "summary": "Get a shift",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "shift ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update a shift from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "shifts"
+                ],
+                "summary": "Update a shift",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "shift ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Shift information",
+                        "name": "shift",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.Shift"
+                        }
                     }
                 ],
                 "responses": {
@@ -8286,6 +8477,43 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.Shift": {
+            "type": "object",
+            "properties": {
+                "cash_box_id": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "from_employee_id": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "to_employee_id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.ShiftRequest": {
+            "type": "object",
+            "properties": {
+                "cash_box_id": {
+                    "type": "string"
+                },
+                "from_employee_id": {
+                    "type": "string"
+                },
+                "to_employee_id": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.StoreProductBarcodeRequest": {
             "type": "object",
             "properties": {
@@ -8395,7 +8623,7 @@ const docTemplate = `{
         "domain.UnitTypeRequest": {
             "type": "object",
             "properties": {
-                "codename": {
+                "short_name": {
                     "type": "string"
                 },
                 "unit_name": {

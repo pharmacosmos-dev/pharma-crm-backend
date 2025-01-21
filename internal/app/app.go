@@ -44,7 +44,7 @@ func Run(cfg *config.Config) {
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
 	select {
 	case s := <-interrupt:
-		l.Info("app - Run - signal: " + s.String())
+		l.Info("app - Run - signal: %s", s.String())
 	case err = <-httpServer.Notify():
 		l.Error(fmt.Errorf("app - Run - httpServer.Notify: %w", err))
 	}
