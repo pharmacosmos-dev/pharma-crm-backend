@@ -10,6 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/utils"
 )
 
 type CategoryHander struct {
@@ -116,7 +117,7 @@ func (h *CategoryHander) Update(c *gin.Context) {
 	// Bind the JSON payload to the body
 	err := c.ShouldBindJSON(&body)
 	if err != nil {
-		h.log.Error("Failed to bind JSON:", err)
+		h.log.Error(err)
 		handleResponse(c, BadRequest, "Invalid request payload")
 		return
 	}
@@ -276,8 +277,9 @@ func (h *CategoryHander) List(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	result := utils.ListResponse(res, totalCount, limit, offset)
 
-	handleResponse(c, OK, res, totalCount)
+	handleResponse(c, OK, result, totalCount)
 }
 
 // Delete godoc
