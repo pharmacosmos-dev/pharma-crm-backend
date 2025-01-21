@@ -283,7 +283,7 @@ func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
 	err := h.db.Raw(`
 		SELECT id 
 		FROM cashbox_operations 
-		WHERE employee_id = ? AND end_time IS NULL
+		WHERE current_employee_id = ? AND end_time IS NULL
 	`, userID).Scan(&cashBoxOperationID).Error
 	if err != nil {
 		h.log.Error(err)

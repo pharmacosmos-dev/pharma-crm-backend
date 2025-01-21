@@ -79,9 +79,9 @@ func (h *CashBoxOperationHandler) Create(c *gin.Context) {
 	var id string
 	err = h.db.Raw(`
 	INSERT INTO 
-		cashbox_operations (id, cash_box_id, employee_id, opened_amount, is_open, start_time, description) 
-		VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id
-	`, body.ID, body.CashBoxID, body.EmployeeID, body.OpenedAmount, body.IsOpen, body.StartTime, body.Description).Scan(&id).Error
+		cashbox_operations (id, cash_box_id, employee_id, opened_amount, is_open, start_time, description, current_employee_id) 
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
+	`, body.ID, body.CashBoxID, body.EmployeeID, body.OpenedAmount, body.IsOpen, body.StartTime, body.Description, body.EmployeeID).Scan(&id).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())

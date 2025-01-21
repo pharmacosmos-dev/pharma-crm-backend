@@ -17,9 +17,13 @@ func (h *Handler) NewShiftHandler(r *gin.RouterGroup) {
 }
 
 func (h *ShiftHandler) ShiftRoutes(r *gin.RouterGroup) {
-	r.POST("/shift", h.Create)
-	r.GET("/shift/:id", h.Get)
-	r.GET("/shift/list", h.List)
+	shift := r.Group("/shift")
+	{
+		shift.POST("", h.Create)
+		shift.GET("/:id", h.Get)
+		shift.GET("/list", h.List)
+		shift.PUT("/:id", h.Update)
+	}
 }
 
 // Create godoc
