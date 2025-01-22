@@ -205,15 +205,26 @@ func (h *CashBoxHandler) Update(c *gin.Context) {
 		return
 	}
 
+	// Update cashbox_payment_types
 	if len(body.PaymentTypes) > 0 {
-		cashboxPaymentTypes := make([]domain.CashboxPaymentType, len(body.PaymentTypes))
-		err = h.db.WithContext(c.Request.Context()).
-			Table("cashbox_payment_types").
-			Create(&cashboxPaymentTypes).Error
-		if err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, err.Error())
-			return
+		for _, pt := range body.PaymentTypes {
+			cashboxPaymentType := domain.CashboxPaymentType{
+				CashBoxId:     id,
+				PaymentTypeId: pt.PaymentTypeId,
+				IsActive:      pt.IsActive,
+			}
+
+			// Upsert logic (insert or update)
+			err = h.db.WithContext(c.Request.Context()).
+				Table("cashbox_payment_types").
+				Where("cash_box_id = ? AND payment_type_id = ?", id, pt.PaymentTypeId).
+				Assign(cashboxPaymentType). // Assign updates if record exists
+				FirstOrCreate(&cashboxPaymentType).Error
+			if err != nil {
+				h.log.Error(err)
+				handleResponse(c, InternalError, err.Error())
+				return
+			}
 		}
 	}
 
