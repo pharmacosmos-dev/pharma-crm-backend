@@ -79,6 +79,7 @@ func (h *PaymentTypeHandler) Create(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
+// @Param id path string true "payment type ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -102,13 +103,25 @@ func (h *PaymentTypeHandler) Get(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
+// @Param 	cash_box_id query string false "Cash Box ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /payment-type/list [get]
 func (h *PaymentTypeHandler) List(c *gin.Context) {
-	res := []*domain.PaymentType{}
-	err := h.db.Find(&res).Error
+	var (
+		res       = []*domain.PaymentType{}
+		cashBoxId = c.Query("cash_box_id")
+	)
+
+	query := h.db.
+		Table("payment_types pt").
+		Select("pt.*", "COALESCE(cpt.is_active, false) AS is_active").
+		Joins("LEFT JOIN cashbox_payment_types cpt ON cpt.payment_type_id = pt.id")
+	if cashBoxId != "" {
+		query = query.Where("cpt.cash_box_id = ? OR cpt.cash_box_id IS NULL", cashBoxId)
+	}
+	err := query.Find(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())

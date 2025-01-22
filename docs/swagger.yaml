@@ -3445,6 +3445,12 @@ paths:
       consumes:
       - application/json
       description: Get a payment type from the request body
+      parameters:
+      - description: payment type ID
+        in: path
+        name: id
+        required: true
+        type: string
       produces:
       - application/json
       responses:
@@ -3506,6 +3512,11 @@ paths:
       consumes:
       - application/json
       description: Get a payment type from the request body
+      parameters:
+      - description: Cash Box ID
+        in: query
+        name: cash_box_id
+        type: string
       produces:
       - application/json
       responses:

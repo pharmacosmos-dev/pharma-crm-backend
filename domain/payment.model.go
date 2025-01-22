@@ -7,6 +7,7 @@ type PaymentType struct {
 	ID          string     `gorm:"id" json:"id"`
 	Name        string     `gorm:"name" json:"name"`
 	Type        string     `gorm:"type" json:"type"`
+	IsActive    bool       `gorm:"is_active" json:"is_active"`
 	Description string     `gorm:"description" json:"description"`
 	CreatedAt   *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt   *time.Time `gorm:"updated_at" json:"updated_at"`
@@ -18,6 +19,19 @@ type PaymentTypeRequest struct {
 	Name        string `gorm:"name" json:"name"`
 	Type        string `gorm:"type" json:"type"`
 	Description string `gorm:"description" json:"description"`
+}
+
+// CashboxPaymentType structure
+type CashboxPaymentTypeResponse struct {
+	ID            string     `gorm:"id" json:"id"`
+	CashBoxId     string     `gorm:"cash_box_id" json:"cash_box_id"`
+	PaymentTypeId string     `gorm:"payment_type_id" json:"payment_type_id"`
+	IsActive      bool       `gorm:"is_active" json:"is_active"`
+	Name          string     `gorm:"name" json:"name"`
+	Type          string     `gorm:"type" json:"type"`
+	Description   string     `gorm:"description" json:"description"`
+	CreatedAt     *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt     *time.Time `gorm:"updated_at" json:"updated_at"`
 }
 
 // PaymentService structure

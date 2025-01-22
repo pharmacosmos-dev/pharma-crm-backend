@@ -4123,6 +4123,14 @@ const docTemplate = `{
                     "payment_types"
                 ],
                 "summary": "Get a payment type",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cash Box ID",
+                        "name": "cash_box_id",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -4163,6 +4171,15 @@ const docTemplate = `{
                     "payment_types"
                 ],
                 "summary": "Get a payment type",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "payment type ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",

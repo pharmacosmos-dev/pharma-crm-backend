@@ -289,14 +289,16 @@ func (h *CategoryHander) List(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param id path string true "category ID"
+// @Param 	id path string true "category ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /category/{id} [delete]
 func (h *CategoryHander) Delete(c *gin.Context) {
-	err := h.db.WithContext(c.Request.Context()).
-		Delete(&domain.Category{}, "id = ?", c.Param("id")).Error
+	id := c.Param("id")
+	err := h.db.
+		WithContext(c.Request.Context()).
+		Delete(&domain.Category{}, "id = ?", id).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -308,11 +310,11 @@ func (h *CategoryHander) Delete(c *gin.Context) {
 // ListCategoryByProduct godoc
 // @Summary Get a category
 // @Description Get a category from the request body
-// @Tags categories
+// @Tags 	categories
 // @Security     BearerAuth
-// @Accept json
+// @Accept 	json
 // @Produce json
-// @Param id path string true "Product ID"
+// @Param 	id path string true "Product ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -324,7 +326,7 @@ func (h *CategoryHander) ListCategoryByProduct(c *gin.Context) {
 	err := h.db.
 		Preload("SubCategories", func(db *gorm.DB) *gorm.DB {
 			return db.Preload("SubCategories", func(db *gorm.DB) *gorm.DB {
-				return db.Preload("SubCategories") // Har bir keyingi levelni preload qilish
+				return db.Preload("SubCategories")
 			})
 		}).
 		Where("categories.category_id IS NULL").
