@@ -26,6 +26,7 @@ func (h *PaymentTypeHandler) PaymentTypeRoutes(r *gin.RouterGroup) {
 		paymentType.GET("/list", h.List)
 		paymentType.PUT("/:id", h.Update)
 		paymentType.DELETE("/:id", h.Delete)
+		paymentType.GET("/active-list", h.ListCashboxOperationID)
 	}
 	paymentService := r.Group("/payment-service")
 	{
@@ -121,6 +122,37 @@ func (h *PaymentTypeHandler) List(c *gin.Context) {
 			Joins("LEFT JOIN cashbox_payment_types cpt ON cpt.payment_type_id = pt.id").Where("cpt.cash_box_id = ?", cashBoxId)
 	}
 	err := query.Debug().Find(&res).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, res)
+}
+
+// ListCashboxID godoc
+// @Summary Get a list of payment types by cash box ID
+// @Description Get a list of payment types by cash box ID from the request body
+// @Tags payment_types
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param 	cash_box_operation_id query string false "Cash Box Operation ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /payment-type/active-list [get]
+func (h *PaymentTypeHandler) ListCashboxOperationID(c *gin.Context) {
+	var (
+		cashBoxOperationID = c.Query("cash_box_operation_id")
+		res                = []*domain.PaymentType{}
+	)
+	err := h.db.Raw(`
+	SELECT pt.*, cpt.is_active FROM payment_types pt
+	JOIN cashbox_payment_types cpt ON cpt.payment_type_id = pt.id
+	WHERE cpt.is_active = true
+	AND cpt.cash_box_id = (SELECT cash_box_id FROM cashbox_operations WHERE id = ?)`,
+		cashBoxOperationID).Scan(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())

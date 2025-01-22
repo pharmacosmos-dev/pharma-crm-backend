@@ -3507,6 +3507,36 @@ paths:
       summary: Update a payment type
       tags:
       - payment_types
+  /payment-type/active-list:
+    get:
+      consumes:
+      - application/json
+      description: Get a list of payment types by cash box ID from the request body
+      parameters:
+      - description: Cash Box Operation ID
+        in: query
+        name: cash_box_operation_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a list of payment types by cash box ID
+      tags:
+      - payment_types
   /payment-type/list:
     get:
       consumes:

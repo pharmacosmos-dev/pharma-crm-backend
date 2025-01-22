@@ -4105,6 +4105,54 @@ const docTemplate = `{
                 }
             }
         },
+        "/payment-type/active-list": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get a list of payment types by cash box ID from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "payment_types"
+                ],
+                "summary": "Get a list of payment types by cash box ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cash Box Operation ID",
+                        "name": "cash_box_operation_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/payment-type/list": {
             "get": {
                 "security": [

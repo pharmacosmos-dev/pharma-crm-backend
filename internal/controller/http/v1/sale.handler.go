@@ -295,21 +295,6 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		}
 	}()
 
-	// Update sale status
-	err = updateSaleStatus(tx, body.SaleID, body.TotalAmount)
-	if err != nil {
-		tx.Rollback()
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-
-	// Update cart items
-	err = updateCartItemStatus(tx, body.SaleID)
-	if err != nil {
-		tx.Rollback()
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
 	now := time.Now()
 	// Insert sale payments
 	var salePayments []domain.SalePaymentRequest
@@ -362,6 +347,22 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 			handleResponse(c, InternalError, "Failed to update sale_payment_summary")
 			return
 		}
+	}
+
+	// Update sale status
+	err = updateSaleStatus(tx, body.SaleID, body.TotalAmount)
+	if err != nil {
+		tx.Rollback()
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	// Update cart items
+	err = updateCartItemStatus(tx, body.SaleID)
+	if err != nil {
+		tx.Rollback()
+		handleResponse(c, InternalError, err.Error())
+		return
 	}
 
 	newSale := domain.SaleRequest{
