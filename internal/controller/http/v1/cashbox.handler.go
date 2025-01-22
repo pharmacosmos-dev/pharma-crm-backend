@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
 )
 
@@ -144,7 +145,7 @@ func (h *CashBoxHandler) Get(c *gin.Context) {
 // @Router /cash_box/list [get]
 func (h *CashBoxHandler) List(c *gin.Context) {
 	var (
-		body       []domain.CashBox
+		res        []domain.CashBox
 		totalCount int64
 		err        error
 		storeID    = c.Query("store_id")
@@ -173,14 +174,16 @@ func (h *CashBoxHandler) List(c *gin.Context) {
 		Where("deleted_at IS NULL").
 		Count(&totalCount).
 		Limit(limit).Offset(offset).
-		Order("created_at DESC").Debug().
-		Find(&body).Error
+		Order("created_at DESC").
+		Find(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, body, totalCount)
+	result := utils.ListResponse(res, totalCount, limit, offset)
+
+	handleResponse(c, OK, result, totalCount)
 }
 
 // Update godoc

@@ -272,6 +272,21 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		handleResponse(c, UNAUTHORIZED, "User ID not found")
 		return
 	}
+	// for _, item := range body.PaymentTypes {
+	// 	if item.Type == "app" && item.AppType == "click" {
+	// 		var paymentService domain.PaymentService
+	// 		err = h.db.Raw(`
+	// 			SELECT * FROM payment_services
+	// 			WHERE name = 'Click'
+	// 			cash_box_id = (select cash_box_id from cashbox_operations where id = ?)`,
+	// 			body.CashBoxOperationId).Scan(&paymentService).Error
+	// 		if err != nil {
+	// 			h.log.Error(err)
+	// 			handleResponse(c, InternalError, err.Error())
+	// 			return
+	// 		}
+	// 	}
+	// }
 
 	tx := h.db.Begin()
 	defer func() {
