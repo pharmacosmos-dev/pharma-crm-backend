@@ -89,7 +89,7 @@ type CashboxOperationInfo struct {
 
 // PaymentType structure
 type CashboxPaymentType struct {
-	ID            string     `gorm:"id" json:"id"`
+	ID            *string    `gorm:"type:uuid;default:gen_random_uuid()" json:"id"`
 	CashBoxId     string     `gorm:"cash_box_id" json:"cash_box_id"`
 	PaymentTypeId string     `gorm:"payment_type_id" json:"payment_type_id"`
 	IsActive      bool       `gorm:"is_active" json:"is_active"`

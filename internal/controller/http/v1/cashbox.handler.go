@@ -55,32 +55,44 @@ func (h *CashBoxHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	tx := h.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
 	body.ID = uuid.New().String()
 	body.IsOpen = false
 	// Save to database
-	err = h.db.
+	err = tx.
 		WithContext(c.Request.Context()).
 		Table("cash_boxes").
 		Create(&body).Error
 	if err != nil {
+		tx.Rollback()
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 	if len(body.PaymentTypes) > 0 {
-		cashboxPaymentTypes := make([]domain.CashboxPaymentType, len(body.PaymentTypes))
 		for i := range body.PaymentTypes {
-			cashboxPaymentTypes[i].CashBoxId = body.ID
-			cashboxPaymentTypes[i].ID = uuid.New().String()
+			body.PaymentTypes[i].CashBoxId = body.ID
 		}
-		err = h.db.WithContext(c.Request.Context()).
+		err = tx.WithContext(c.Request.Context()).
 			Table("cashbox_payment_types").
-			Create(&cashboxPaymentTypes).Error
+			Create(&body.PaymentTypes).Error
 		if err != nil {
+			tx.Rollback()
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())
 			return
 		}
+	}
+	if err = tx.Commit().Error; err != nil {
+		tx.Rollback()
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
 	}
 
 	handleResponse(c, CREATED, body)
