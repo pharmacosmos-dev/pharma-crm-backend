@@ -118,6 +118,7 @@ func (h *ProductHandler) Create(c *gin.Context) {
 			importDetail[i].ImportID = imports[i].Id
 			importDetail[i].ProductID = &body.Id
 			importDetail[i].ReceivedCount = body.Quantity
+			importDetail[i].AcceptedCount = body.Quantity
 			importDetail[i].ProductMaterialCode = body.MaterialCode
 			importDetail[i].ReceivedAmount = float64(body.Quantity) * body.RetailPrice
 		}

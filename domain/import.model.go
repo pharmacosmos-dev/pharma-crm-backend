@@ -56,6 +56,7 @@ type ImportDetailRequest struct {
 	ProductID           *string `gorm:"product_id" json:"product_id"`
 	ProductMaterialCode int     `gorm:"product_material_code" json:"product_material_code"`
 	ReceivedCount       int     `gorm:"received_count" json:"received_count"`
+	AcceptedCount       int     `gorm:"accepted_count" json:"accepted_count"`
 	ReceivedAmount      float64 `gorm:"received_amount" json:"received_amount"`
 }
 
