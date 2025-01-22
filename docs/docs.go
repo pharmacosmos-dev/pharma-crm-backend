@@ -4793,6 +4793,46 @@ const docTemplate = `{
                 }
             }
         },
+        "/product/generate-barcode": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Generate a product barcode",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Generate a product barcode",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/product/hard-delete": {
             "delete": {
                 "security": [
@@ -8242,6 +8282,9 @@ const docTemplate = `{
         "domain.ImportDetailRequest": {
             "type": "object",
             "properties": {
+                "accepted_count": {
+                    "type": "integer"
+                },
                 "import_id": {
                     "type": "string"
                 },

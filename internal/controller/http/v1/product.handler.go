@@ -3,6 +3,7 @@ package v1
 import (
 	"errors"
 	"fmt"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -15,6 +16,7 @@ import (
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/xuri/excelize/v2"
+
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -44,6 +46,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.DELETE("/soft-delete", h.SoftDelete)
 		product.GET("/store-product/:id", h.ListStoreProductProductId)
 		product.POST("/store/barcode", h.GetStoreProductByBarcode)
+		product.POST("/generate-barcode", h.GenerateBarcode)
 	}
 }
 
@@ -877,6 +880,41 @@ func (h *ProductHandler) SoftDelete(c *gin.Context) {
 	handleResponse(c, OK, "DELETED")
 }
 
+// GenerateBarcode godoc
+// @Summary Generate a product barcode
+// @Description Generate a product barcode
+// @Tags products
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/generate-barcode [POST]
+func (h *ProductHandler) GenerateBarcode(c *gin.Context) {
+	const barcodeLength = 13
+	var barcode string
+
+	for {
+		// Generate random 13-digit barcode
+		barcode = generateRandomBarcode(barcodeLength)
+
+		// Check if barcode already exists in the database
+		var count int64
+		err := h.db.Model(&domain.Product{}).Where("barcode = ?", barcode).Count(&count).Error
+		if err != nil {
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+		// If barcode is unique, return it
+		if count == 0 {
+			break
+		}
+	}
+
+	handleResponse(c, OK, gin.H{"barcode": barcode})
+}
+
 // Helper function to safely parse float values
 func parseFloat(value string) float64 {
 	f, err := strconv.ParseFloat(strings.ReplaceAll(value, ",", ""), 64) // Remove commas
@@ -915,4 +953,20 @@ func parseIntComma(value string) int {
 	}
 
 	return i
+}
+
+// barcode generator
+// generateRandomBarcode creates a random 13-digit numeric barcode
+func generateRandomBarcode(length int) string {
+	// Create a new random source and generator
+	source := rand.NewSource(time.Now().UnixNano())
+	random := rand.New(source)
+
+	digits := "0123456789"
+	result := make([]byte, length)
+
+	for i := 0; i < length; i++ {
+		result[i] = digits[random.Intn(len(digits))]
+	}
+	return string(result)
 }

@@ -331,6 +331,8 @@ definitions:
     type: object
   domain.ImportDetailRequest:
     properties:
+      accepted_count:
+        type: integer
       import_id:
         type: string
       product_id:
@@ -3911,6 +3913,31 @@ paths:
       security:
       - BearerAuth: []
       summary: Upload a product
+      tags:
+      - products
+  /product/generate-barcode:
+    post:
+      consumes:
+      - application/json
+      description: Generate a product barcode
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Generate a product barcode
       tags:
       - products
   /product/hard-delete:
