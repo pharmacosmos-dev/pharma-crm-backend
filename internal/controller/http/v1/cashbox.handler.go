@@ -230,7 +230,8 @@ func (h *CashBoxHandler) Update(c *gin.Context) {
 			err = h.db.WithContext(c.Request.Context()).
 				Table("cashbox_payment_types").
 				Where("cash_box_id = ? AND payment_type_id = ?", id, pt.PaymentTypeId).
-				Assign(cashboxPaymentType). // Assign updates if record exists
+				Assign(cashboxPaymentType).
+				Debug(). // Assign updates if record exists
 				FirstOrCreate(&cashboxPaymentType).Error
 			if err != nil {
 				h.log.Error(err)

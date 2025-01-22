@@ -113,15 +113,14 @@ func (h *PaymentTypeHandler) List(c *gin.Context) {
 		res       = []*domain.PaymentType{}
 		cashBoxId = c.Query("cash_box_id")
 	)
-
-	query := h.db.
-		Table("payment_types pt").
-		Select("pt.*", "COALESCE(cpt.is_active, false) AS is_active").
-		Joins("LEFT JOIN cashbox_payment_types cpt ON cpt.payment_type_id = pt.id")
+	query := h.db.Model(&domain.PaymentType{})
 	if cashBoxId != "" {
-		query = query.Where("cpt.cash_box_id = ? OR cpt.cash_box_id IS NULL", cashBoxId)
+		query = h.db.
+			Table("payment_types pt").
+			Select("pt.*", "COALESCE(cpt.is_active, false) AS is_active").
+			Joins("LEFT JOIN cashbox_payment_types cpt ON cpt.payment_type_id = pt.id").Where("cpt.cash_box_id = ?", cashBoxId)
 	}
-	err := query.Find(&res).Error
+	err := query.Debug().Find(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
