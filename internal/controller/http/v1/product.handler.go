@@ -365,7 +365,7 @@ func (h *ProductHandler) Update(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	
+
 	if len(body.StoreProduct) > 0 {
 		for i := range body.StoreProduct {
 			body.StoreProduct[i].ProductID = productID
@@ -746,6 +746,7 @@ func (h *ProductHandler) GetProductImports(c *gin.Context) {
 		return
 	}
 	query := h.db.
+		Model(&domain.ImportDetail{}).
 		Preload("Import", func(db *gorm.DB) *gorm.DB {
 			return db.Preload("Stores")
 		}).
