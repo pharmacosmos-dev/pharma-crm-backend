@@ -133,7 +133,6 @@ func (h *StoreHandler) List(c *gin.Context) {
 
 	query := h.db.
 		Model(&domain.Store{})
-
 	if productID != "" {
 		query = query.
 			Select(`
@@ -160,7 +159,6 @@ func (h *StoreHandler) List(c *gin.Context) {
 		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).
-		Debug().
 		Find(&res).Error
 
 	if err != nil {
@@ -168,8 +166,23 @@ func (h *StoreHandler) List(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	data := utils.ListResponse(res, totalCount, limit, offset)
-	handleResponse(c, OK, data)
+	var ids []string
+	err = h.db.Table("stores").Select("id").Find(&ids).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, map[string]interface{}{
+		"_meta": utils.Meta{
+			TotalCount:  totalCount,
+			PerPage:     limit,
+			CurrentPage: (offset / limit) + 1,
+			PageCount:   int((totalCount + int64(limit) - 1) / int64(limit)),
+		},
+		"data": res,
+		"ids":  ids,
+	})
 }
 
 // Update godoc
