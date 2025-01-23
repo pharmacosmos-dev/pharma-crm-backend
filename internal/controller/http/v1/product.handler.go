@@ -365,6 +365,7 @@ func (h *ProductHandler) Update(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	
 	if len(body.StoreProduct) > 0 {
 		for i := range body.StoreProduct {
 			body.StoreProduct[i].ProductID = productID
