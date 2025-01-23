@@ -223,19 +223,11 @@ func (h *CashBoxHandler) Update(c *gin.Context) {
 	// Update cashbox_payment_types
 	if len(body.PaymentTypes) > 0 {
 		for _, pt := range body.PaymentTypes {
-			cashboxPaymentType := domain.CashboxPaymentType{
-				CashBoxId:     id,
-				PaymentTypeId: pt.PaymentTypeId,
-				IsActive:      pt.IsActive,
-			}
-
 			// Upsert logic (insert or update)
 			err = h.db.WithContext(c.Request.Context()).
 				Table("cashbox_payment_types").
 				Where("cash_box_id = ? AND payment_type_id = ?", id, pt.PaymentTypeId).
-				Assign(cashboxPaymentType).
-				Debug(). // Assign updates if record exists
-				FirstOrCreate(&cashboxPaymentType).Error
+				Update("is_active", pt.IsActive).Error
 			if err != nil {
 				h.log.Error(err)
 				handleResponse(c, InternalError, err.Error())

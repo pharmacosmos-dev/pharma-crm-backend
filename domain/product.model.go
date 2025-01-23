@@ -79,7 +79,7 @@ type ProductUpdateRequest struct {
 	Description  string                `gorm:"description" json:"description"`
 	Status       string                `gorm:"status" json:"-" example:"active|inactive"`
 	Manufacturer string                `gorm:"manufacturer" json:"manufacturer"`
-	ExpireDate   string                `gorm:"expire_date" json:"expire_date"`
+	ExpireDate   *time.Time            `gorm:"expire_date" json:"expire_date"`
 	BonusPercent int                   `gorm:"bonus_percent" json:"bonus_percent"`
 	BonusAmount  float64               `gorm:"bonus_amount" json:"bonus_amount"`
 	StoreProduct []StoreProductRequest `gorm:"-" json:"store_product"`

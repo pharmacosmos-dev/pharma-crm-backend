@@ -114,3 +114,36 @@ func (s *Storage) GetStoreProductByBarcode(ctx context.Context, barcode string) 
 
 	return res, nil
 }
+
+func (s *Storage) UpdateStoreProduct(ctx context.Context, sp domain.StoreProductRequest) error {
+	err := s.db.Raw(`
+	INSERT INTO store_products (
+		store_id, 
+		product_id, 
+		pack_quantity, 
+		unit_quantity, 
+		unit_per_pack, 
+		small_quantity,
+		retail_price, 
+		supply_price, 
+		vat, 
+		vat_price, 
+		bonus_amount,
+		bonus_percent,
+		expire_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	ON CONFLICT (store_id, product_id) DO UPDATE SET
+		store_id = ?, product_id = ?,
+		pack_quantity = ?, unit_quantity = ?, 
+		unit_per_pack = ?, small_quantity = ?, 
+		retail_price = ?, supply_price = ?, 
+		vat = ?, vat_price = ?, 
+		bonus_amount = ?, bonus_percent = ?, expire_date = ?
+	WHERE store_id = ? AND product_id = ?
+	`).Error
+	if err != nil {
+		s.log.Warn("Error on updating store product for store %s and product %s: %v", sp.StoreID, sp.ProductID, err.Error())
+		return err
+	}
+
+	return nil
+}
