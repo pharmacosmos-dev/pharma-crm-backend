@@ -368,23 +368,24 @@ func (h *ProductHandler) Update(c *gin.Context) {
 
 	if len(body.StoreProduct) > 0 {
 		for i := range body.StoreProduct {
-			body.StoreProduct[i].ProductID = productID
-			body.StoreProduct[i].RetailPrice = body.RetailPrice
-			body.StoreProduct[i].SupplyPrice = body.SupplyPrice
-			body.StoreProduct[i].Vat = body.Vat
-			body.StoreProduct[i].UnitPerPack = body.UnitPerPack
-			body.StoreProduct[i].UnitQuantity = body.UnitPerPack * body.StoreProduct[i].PackQuantity
-			body.StoreProduct[i].BonusAmount = body.BonusAmount
-			body.StoreProduct[i].BonusPercent = body.BonusPercent
-			body.StoreProduct[i].ExpireDate = body.ExpireDate
-			err = h.storage.UpdateStoreProduct(c.Request.Context(), body.StoreProduct[i])
-			if err != nil {
-				h.log.Error(err)
-				handleResponse(c, InternalError, err.Error())
-				return
+			if body.StoreProduct[i].PackQuantity > 0 {
+				body.StoreProduct[i].ProductID = productID
+				body.StoreProduct[i].RetailPrice = body.RetailPrice
+				body.StoreProduct[i].SupplyPrice = body.SupplyPrice
+				body.StoreProduct[i].Vat = body.Vat
+				body.StoreProduct[i].UnitPerPack = body.UnitPerPack
+				body.StoreProduct[i].UnitQuantity = body.UnitPerPack * body.StoreProduct[i].PackQuantity
+				body.StoreProduct[i].BonusAmount = body.BonusAmount
+				body.StoreProduct[i].BonusPercent = body.BonusPercent
+				body.StoreProduct[i].ExpireDate = body.ExpireDate
+				err = h.storage.UpdateStoreProduct(c.Request.Context(), body.StoreProduct[i])
+				if err != nil {
+					h.log.Error(err)
+					handleResponse(c, InternalError, err.Error())
+					return
+				}
 			}
 		}
-
 	}
 
 	if len(body.CategoryIds) > 0 {
@@ -752,10 +753,15 @@ func (h *ProductHandler) GetProductImports(c *gin.Context) {
 		}).
 		Where("product_material_code = ?", product.MaterialCode)
 	if storeID != "" {
-		query = query.Joins("INNER JOIN imports ON imports.id = import_details.import_id").Where("imports.store_id = ?", storeID)
+		query = query.
+			Joins("INNER JOIN imports ON imports.id = import_details.import_id").
+			Where("imports.store_id = ?", storeID)
 	}
 	var totalCount int64
-	err = query.Count(&totalCount).Limit(limit).Offset(offset).Find(&res).Error
+	err = query.
+		Count(&totalCount).
+		Limit(limit).Offset(offset).
+		Find(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())

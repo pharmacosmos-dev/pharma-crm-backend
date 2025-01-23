@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/pharma-crm-backend/domain"
+	"gorm.io/gorm/clause"
 )
 
 func (s *Storage) ListStoreProduct(ctx context.Context, storeID string, search string, limit, offset int) ([]*domain.StoreProductResponse, error) {
@@ -115,33 +116,27 @@ func (s *Storage) GetStoreProductByBarcode(ctx context.Context, barcode string) 
 	return res, nil
 }
 
-func (s *Storage) UpdateStoreProduct(ctx context.Context, sp domain.StoreProductRequest) error {
-	err := s.db.Raw(`
-	INSERT INTO store_products (
-		store_id, 
-		product_id, 
-		pack_quantity, 
-		unit_quantity, 
-		unit_per_pack, 
-		small_quantity,
-		retail_price, 
-		supply_price, 
-		vat, 
-		vat_price, 
-		bonus_amount,
-		bonus_percent,
-		expire_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	ON CONFLICT (store_id, product_id) DO UPDATE SET
-		store_id = ?, product_id = ?,
-		pack_quantity = ?, unit_quantity = ?, 
-		unit_per_pack = ?, small_quantity = ?, 
-		retail_price = ?, supply_price = ?, 
-		vat = ?, vat_price = ?, 
-		bonus_amount = ?, bonus_percent = ?, expire_date = ?
-	WHERE store_id = ? AND product_id = ?
-	`).Error
+func (s *Storage) UpdateStoreProduct(ctx context.Context, req domain.StoreProductRequest) error {
+	err := s.db.
+		WithContext(ctx).
+		Table("store_products").
+		Clauses(clause.OnConflict{
+			Columns: []clause.Column{{Name: "store_id"}, {Name: "product_id"}},
+			DoUpdates: clause.AssignmentColumns([]string{
+				"pack_quantity",
+				"unit_quantity",
+				"unit_per_pack",
+				"small_quantity",
+				"retail_price",
+				"supply_price",
+				"vat",
+				"bonus_amount",
+				"bonus_percent",
+				"expire_date",
+			})}).
+		Create(&req).Error
 	if err != nil {
-		s.log.Warn("Error on updating store product for store %s and product %s: %v", sp.StoreID, sp.ProductID, err.Error())
+		s.log.Warn("Error on updating store product: %v", err.Error())
 		return err
 	}
 

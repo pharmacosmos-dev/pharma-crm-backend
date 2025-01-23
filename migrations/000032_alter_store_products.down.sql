@@ -1,0 +1,1 @@
+ALTER TABLE "store_products" DROP CONSTRAINT "unique_store_product";
