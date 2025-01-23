@@ -259,7 +259,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 
 	// Build the query
 	query := h.db.Model(&domain.Product{}).
-		Select("products.*, DATE_PART('day', expire_date::timestamp - NOW()) AS expire_day").
+		Select("products.*, DATE_PART('day', products.expire_date::timestamp - NOW()) AS expire_day").
 		Preload("Categories")
 
 	if storeIDParam != "" {
