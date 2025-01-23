@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/spf13/cast"
@@ -272,28 +273,36 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		handleResponse(c, UNAUTHORIZED, "User ID not found")
 		return
 	}
-	// for _, item := range body.PaymentTypes {
-	// 	if item.Type == "app" && item.AppType == "click" {
-	// 		var paymentService domain.PaymentService
-	// 		err = h.db.Raw(`
-	// 			SELECT * FROM payment_services
-	// 			WHERE name = 'Click'
-	// 			cash_box_id = (select cash_box_id from cashbox_operations where id = ?)`,
-	// 			body.CashBoxOperationId).Scan(&paymentService).Error
-	// 		if err != nil {
-	// 			h.log.Error(err)
-	// 			handleResponse(c, InternalError, err.Error())
-	// 			return
-	// 		}
-	// 	}
-	// }
-
+	// create transaction
 	tx := h.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
 		}
 	}()
+	// checking app payment
+	if body.App.Type == "app" && body.App.AppType != "" {
+		var paymentService domain.PaymentService
+		if body.App.AppType == config.CLICK_APP_PAYMENT_TYPE {
+			err = h.db.
+				First(&paymentService, "store_id = ? and type = ?",
+					body.StoreID, config.CLICK_APP_PAYMENT_TYPE).Error
+			if err != nil {
+				h.log.Error(err)
+				handleResponse(c, NotFound, err.Error())
+				return
+			}
+			_, err = h.payment.ClickPass(c, &paymentService, body.App.OtpData)
+			if err != nil {
+				h.log.Error(err)
+				handleResponse(c, BadRequest, err.Error())
+				return
+			}
+		} else if body.App.AppType == config.PAYME_APP_PAYMENT_TYPE {
+
+		} else if body.App.AppType == config.UZUM_APP_PAYMENT_TYPE {
+		}
+	}
 
 	now := time.Now()
 	// Insert sale payments
@@ -309,6 +318,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 			PaidAt:             &now,
 		})
 	}
+	// Insert sale payments
 	err = tx.
 		Table("sale_payments").
 		Create(&salePayments).Error

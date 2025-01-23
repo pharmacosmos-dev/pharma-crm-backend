@@ -28,7 +28,7 @@ type Product struct {
 	MaterialCode int               `gorm:"material_code" json:"material_code"`
 	ExpireDate   string            `gorm:"expire_date" json:"expire_date"`
 	IsActive     bool              `gorm:"is_active" json:"is_active"`
-	BonusPercent int               `gorm:"bonus_percent" json:"bonus_percent"`
+	BonusPercent float64           `gorm:"bonus_percent" json:"bonus_percent"`
 	BonusAmount  float64           `gorm:"bonus_amount" json:"bonus_amount"`
 	ExpireDay    int               `gorm:"expire_day" json:"expire_day"`
 	CreatedAt    *time.Time        `gorm:"created_at" json:"created_at"`
@@ -57,7 +57,7 @@ type ProductRequest struct {
 	Status       string                `gorm:"status" json:"-" example:"active|inactive"`
 	Manufacturer string                `gorm:"manufacturer" json:"manufacturer"`
 	ExpireDate   *time.Time            `gorm:"expire_date" json:"expire_date"`
-	BonusPercent int                   `gorm:"bonus_percent" json:"bonus_percent"`
+	BonusPercent float64               `gorm:"bonus_percent" json:"bonus_percent"`
 	BonusAmount  float64               `gorm:"bonus_amount" json:"bonus_amount"`
 	StoreProduct []StoreProductRequest `gorm:"-" json:"store_product"`
 	CategoryIds  []string              `gorm:"-" json:"category_ids"`
@@ -80,7 +80,7 @@ type ProductUpdateRequest struct {
 	Status       string                `gorm:"status" json:"-" example:"active|inactive"`
 	Manufacturer string                `gorm:"manufacturer" json:"manufacturer"`
 	ExpireDate   *time.Time            `gorm:"expire_date" json:"expire_date"`
-	BonusPercent int                   `gorm:"bonus_percent" json:"bonus_percent"`
+	BonusPercent float64               `gorm:"bonus_percent" json:"bonus_percent"`
 	BonusAmount  float64               `gorm:"bonus_amount" json:"bonus_amount"`
 	StoreProduct []StoreProductRequest `gorm:"-" json:"store_product"`
 	CategoryIds  []string              `gorm:"-" json:"category_ids"`

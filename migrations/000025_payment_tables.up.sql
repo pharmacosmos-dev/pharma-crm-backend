@@ -9,8 +9,9 @@ CREATE TABLE IF NOT EXISTS "payment_types" (
 
 CREATE TABLE IF NOT EXISTS "payment_services" (
     "id" UUID NOT NULL PRIMARY KEY,
-    "cash_box_id" UUID REFERENCES "cash_boxes"("id"),
+    "store_id" UUID REFERENCES "stores"("id"),
     "name" VARCHAR(255),
+    "type" VARCHAR(10),
     "merchant_id" INT,
     "service_id" INT,
     "merchant_user_id" INT,

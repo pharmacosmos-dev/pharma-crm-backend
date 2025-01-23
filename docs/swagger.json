@@ -8218,14 +8218,7 @@
                 "amount": {
                     "type": "number"
                 },
-                "app_type": {
-                    "type": "string",
-                    "example": "click|payme|uzum"
-                },
                 "payment_type_id": {
-                    "type": "string"
-                },
-                "type": {
                     "type": "string"
                 }
             }
@@ -8233,6 +8226,9 @@
         "domain.FinalSale": {
             "type": "object",
             "properties": {
+                "app": {
+                    "$ref": "#/definitions/domain.FinalSaleApp"
+                },
                 "cash_box_operation_id": {
                     "type": "string"
                 },
@@ -8245,8 +8241,30 @@
                 "sale_id": {
                     "type": "string"
                 },
+                "store_id": {
+                    "type": "string"
+                },
                 "total_amount": {
                     "type": "number"
+                }
+            }
+        },
+        "domain.FinalSaleApp": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "app_type": {
+                    "type": "string",
+                    "example": "click|payme|uzum"
+                },
+                "payment_type_id": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string",
+                    "example": "app"
                 }
             }
         },

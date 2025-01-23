@@ -38,8 +38,9 @@ type CashboxPaymentTypeResponse struct {
 // for using save payment services data
 type PaymentService struct {
 	ID             string     `gorm:"id" json:"id"`
-	CashBoxID      string     `gorm:"cash_box_id" json:"cash_box_id"`
+	StoreID        string     `gorm:"store_id" json:"store_id"`
 	Name           string     `gorm:"name" json:"name"`
+	Type           string     `gorm:"type" json:"type"`
 	MerchantID     int        `gorm:"merchant_id" json:"merchant_id"`
 	MerchantUserID int        `gorm:"merchant_user_id" json:"merchant_user_id"`
 	ServiceID      int        `gorm:"service_id" json:"service_id"`

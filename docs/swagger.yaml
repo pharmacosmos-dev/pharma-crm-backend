@@ -294,16 +294,13 @@ definitions:
     properties:
       amount:
         type: number
-      app_type:
-        example: click|payme|uzum
-        type: string
       payment_type_id:
-        type: string
-      type:
         type: string
     type: object
   domain.FinalSale:
     properties:
+      app:
+        $ref: '#/definitions/domain.FinalSaleApp'
       cash_box_operation_id:
         type: string
       payment_types:
@@ -312,8 +309,23 @@ definitions:
         type: array
       sale_id:
         type: string
+      store_id:
+        type: string
       total_amount:
         type: number
+    type: object
+  domain.FinalSaleApp:
+    properties:
+      amount:
+        type: number
+      app_type:
+        example: click|payme|uzum
+        type: string
+      payment_type_id:
+        type: string
+      type:
+        example: app
+        type: string
     type: object
   domain.Generate1CTokenRequest:
     properties:

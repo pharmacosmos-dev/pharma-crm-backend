@@ -20,7 +20,7 @@ type PaymentAction struct {
 }
 
 type PaymentService interface {
-	ClickPass(ctx context.Context, click *domain.PaymentService, req *domain.ClickPassRequest) (*domain.ClickPassResponse, error)
+	ClickPass(ctx context.Context, click *domain.PaymentService, otpData string) (*domain.ClickPassResponse, error)
 	ClickCheckPaymentStatus(ctx context.Context, data map[string]interface{}) (*domain.ClickPassResponse, error)
 }
 
@@ -31,8 +31,8 @@ func NewPaymentAction(cfg *config.Config, log *logger.Logger, db *gorm.DB) Payme
 	}
 }
 
-func (h *PaymentAction) ClickPass(ctx context.Context, click *domain.PaymentService, req *domain.ClickPassRequest) (*domain.ClickPassResponse, error) {
-	
+func (h *PaymentAction) ClickPass(ctx context.Context, click *domain.PaymentService, otpData string) (*domain.ClickPassResponse, error) {
+
 	return nil, nil
 }
 
