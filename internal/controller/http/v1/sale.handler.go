@@ -274,6 +274,13 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 			tx.Rollback()
 		}
 	}()
+	// get store_id by employee_id
+	err = tx.Raw(`SELECT store_id FROM employees WHERE id = ?`, userID).Scan(&body.StoreID).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
 	// checking app payment
 	if body.App.Type == "app" && body.App.AppType != "" {
 		var paymentService domain.PaymentService

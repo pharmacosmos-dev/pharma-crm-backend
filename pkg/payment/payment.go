@@ -50,18 +50,24 @@ func (h *PaymentAction) ClickPass(ctx context.Context, click *domain.PaymentServ
 		Status:           "pending",
 		ResponseData:     "",
 	}
+	var cashBoxId string
+	err := tr.Raw(`SELECT cash_box_id FROM cash_box_operations WHERE id = ?`, data.CashBoxOperationId).Scan(&cashBoxId).Error
+	if err != nil {
+		tr.Rollback()
+		return nil, err
+	}
 
 	clickData := domain.ClickPassRequest{
 		ServiceID:     click.ServiceID,
 		OtpData:       data.App.OtpData,
-		CashboxCode:   data.CashBoxId,
+		CashboxCode:   cashBoxId,
 		Amount:        data.App.Amount,
 		TransactionID: transaction.ID,
 	}
 	// Marshal click pass request
 	t, _ := json.Marshal(clickData)
 	// Save request of one click pass data
-	err := h.SaveRequest(ctx, &domain.PaymentRequest{
+	err = h.SaveRequest(ctx, &domain.PaymentRequest{
 		Method:          "click_pass",
 		Payload:         string(t),
 		TransactionID:   transaction.ID,

@@ -38,7 +38,6 @@ type SaleUpdateRequest struct {
 type FinalSale struct {
 	StoreID            string             `gorm:"store_id" json:"store_id"`
 	SaleID             string             `gorm:"sale_id" json:"sale_id"`
-	CashBoxId          string             `gorm:"cash_box_id" json:"cash_box_id"`
 	CashBoxOperationId string             `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
 	TotalAmount        float64            `gorm:"total_amount" json:"total_amount"`
 	PaymentTypes       []FinalPaymentType `json:"payment_types"`
