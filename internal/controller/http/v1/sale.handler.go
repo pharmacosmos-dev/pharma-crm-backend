@@ -408,9 +408,9 @@ func updateCartItemStatus(tx *gorm.DB, saleID string) error {
 	var cartItems []domain.CartItem
 	err := tx.Raw(`
 		SELECT 
-			id, store_product_id, 
-			quantity, unit_price, 
-			total_price, status 
+			id, store_product_id,
+			quantity, unit_price,
+			total_price, status
 		FROM cart_items WHERE sale_id = ?`, saleID).
 		Scan(&cartItems).Error
 	if err != nil {
@@ -418,7 +418,7 @@ func updateCartItemStatus(tx *gorm.DB, saleID string) error {
 	}
 
 	for _, item := range cartItems {
-		err = tx.Exec(`UPDATE store_products SET pack_quantity = quantity - ?, unit_quantity = unit_quantity - ? WHERE id = ?`, item.Quantity, item.UnitQuantity, item.StoreProductID).Error
+		err = tx.Exec(`UPDATE store_products SET pack_quantity = pack_quantity - ?, unit_quantity = unit_quantity - ? WHERE id = ?`, item.Quantity, item.UnitQuantity, item.StoreProductID).Error
 		if err != nil {
 			return err
 		}
