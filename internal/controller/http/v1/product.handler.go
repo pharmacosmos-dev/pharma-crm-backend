@@ -254,7 +254,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 		retailPriceFrom = c.Query("retail_price_from")
 		retailPriceTo   = c.Query("retail_price_to")
 		producerName    = c.Query("producer")
-		status          = c.Query("status")
+		// status          = c.Query("status")
 	)
 
 	// Build the query
@@ -262,60 +262,65 @@ func (h *ProductHandler) List(c *gin.Context) {
 		Table("products p").
 		Preload("Categories").
 		Select(`
-		p.id, p.name, p.barcode,
-		sp.expire_date, SUM(sp.pack_quantity) AS quantity,
-		sp.retail_price, sp.supply_price,	
-		sp.bonus_amount, sp.bonus_percent`).
-		Joins("LEFT JOIN store_products sp ON sp.product_id = products.id")
+		p.id, p.name, p.barcode, p.status, p.description,
+		sp.supply_price, sp.vat, sp.retail_price,
+		sum(sp.pack_quantity) as quantity,
+		sp.bonus_percent, sp.bonus_amount, u.short_name,
+		p.created_at`).
+		Joins("LEFT JOIN store_products sp ON sp.product_id = p.id").
+		Joins("INNER JOIN unit_types u ON p.unit_type_id = u.id")
 
 	if storeIDParam != "" {
 		query = query.
 			Where("sp.store_id = ?", storeIDParam)
 	}
-	if status != "" {
-		switch status {
-		case "active":
-			query = query.Where("products.status = ?", "active")
-		case "inactive":
-			query = query.Where("products.status = ?", "inactive")
-		case "low-stock":
-			query = query.Where("products.quantity <= ?", 10)
-		case "zero-stock":
-			query = query.Where("products.quantity = ?", 0)
-		case "expired":
-			query = query.Where("products.expire_date < ?", time.Now().Add(time.Hour*5))
-		case "imminent":
-			query = query.Where("products.expire_date BETWEEN ? AND ?", time.Now(), time.Now().AddDate(0, 0, 10))
-		}
-	} else {
-		query = query.Where("products.status = ?", "active")
-	}
+	// if status != "" {
+	// 	switch status {
+	// 	case "active":
+	// 		query = query.Where("p.status = ?", "active")
+	// 	case "inactive":
+	// 		query = query.Where("p.status = ?", "inactive")
+	// 	case "low-stock":
+	// 		query = query.Where("p.quantity <= ?", 10)
+	// 	case "zero-stock":
+	// 		query = query.Where("p.quantity = ?", 0)
+	// 	case "expired":
+	// 		query = query.Where("p.expire_date < ?", time.Now().Add(time.Hour*5))
+	// 	case "imminent":
+	// 		query = query.Where("p.expire_date BETWEEN ? AND ?", time.Now(), time.Now().AddDate(0, 0, 10))
+	// 	}
+	// } else {
+	// 	query = query.Where("products.status = ?", "active")
+	// }
 
 	if searchField != "" {
 		searchField = fmt.Sprintf("%%%s%%", searchField)
-		query = query.Where("products.name ILIKE ? OR products.barcode LIKE ?", searchField, searchField)
+		query = query.Where("p.name ILIKE ? OR p.barcode LIKE ?", searchField, searchField)
 	}
 	if supplyPriceFrom != "" {
-		query = query.Where("products.supply_price >= ?", supplyPriceFrom)
+		query = query.Where("p.supply_price >= ?", supplyPriceFrom)
 	}
 	if supplyPriceTo != "" {
-		query = query.Where("products.supply_price <= ?", supplyPriceTo)
+		query = query.Where("p.supply_price <= ?", supplyPriceTo)
 	}
 	if retailPriceFrom != "" {
-		query = query.Where("products.retail_price >= ?", retailPriceFrom)
+		query = query.Where("p.retail_price >= ?", retailPriceFrom)
 	}
 	if retailPriceTo != "" {
-		query = query.Where("products.retail_price <= ?", retailPriceTo)
+		query = query.Where("p.retail_price <= ?", retailPriceTo)
 	}
 	if producerName != "" {
-		query = query.Where("products.manufacturer = ?", producerName)
+		query = query.Where("p.manufacturer = ?", producerName)
 	}
 
 	err = query.
 		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).
-		Order("products.created_at DESC").
+		Group(`p.id, p.name, p.barcode, p.status,
+				sp.supply_price, sp.vat, sp.retail_price,
+				sp.bonus_percent, sp.bonus_amount, u.short_name, p.created_at`).
+		Order("p.created_at DESC").
 		Find(&res).Error
 	if err != nil {
 		h.log.Error(err)

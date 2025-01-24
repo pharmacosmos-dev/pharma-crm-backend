@@ -30,7 +30,6 @@ type Product struct {
 	IsActive     bool              `gorm:"is_active" json:"is_active"`
 	BonusPercent float64           `gorm:"bonus_percent" json:"bonus_percent"`
 	BonusAmount  float64           `gorm:"bonus_amount" json:"bonus_amount"`
-	ExpireDay    int               `gorm:"expire_day" json:"expire_day"`
 	CreatedAt    *time.Time        `gorm:"created_at" json:"created_at"`
 	UpdatedAt    *time.Time        `gorm:"updated_at" json:"updated_at"`
 	Categories   []*Category       `gorm:"many2many:category_products;foreignKey:Id;joinForeignKey:ProductId;References:Id;joinReferences:CategoryId" json:"categories"`
