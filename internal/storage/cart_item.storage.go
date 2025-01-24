@@ -18,7 +18,8 @@ func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartIt
 	JOIN store_products sp ON c.store_product_id = sp.id
 	JOIN products p ON sp.product_id = p.id
 	LEFT JOIN unit_types u ON p.unit_type_id = u.id
-	WHERE c.sale_id = ? ORDER BY c.created_at LIMIT ? OFFSET ? 
+	WHERE c.status = 'pending' AND c.sale_id = ? 
+	ORDER BY c.created_at LIMIT ? OFFSET ? 
 	`, saleID, limit, offset).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("Error on listing cart items for sale %s: %v", saleID, err.Error())
