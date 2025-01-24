@@ -35,6 +35,7 @@ type Product struct {
 	Categories   []*Category       `gorm:"many2many:category_products;foreignKey:Id;joinForeignKey:ProductId;References:Id;joinReferences:CategoryId" json:"categories"`
 	StoreProduct []*StoreProduct   `gorm:"foreignKey:ProductID" json:"store_product"`
 	UnitType     *UnitType         `gorm:"foreignKey:UnitTypeID" json:"unit_type"`
+	UnitName     string            `gorm:"unit_name" json:"unit_name"`
 }
 
 // Product create request

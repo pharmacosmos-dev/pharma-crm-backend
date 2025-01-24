@@ -267,7 +267,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 		sp.supply_price, sp.vat, sp.retail_price,
 		sum(sp.pack_quantity) as quantity, 
 		(sum(sp.pack_quantity) * sp.retail_price) AS sum,
-		sp.bonus_percent, sp.bonus_amount, u.short_name,
+		sp.bonus_percent, sp.bonus_amount, u.short_name AS unit_name,
 		p.created_at`).
 		Joins("LEFT JOIN store_products sp ON sp.product_id = p.id").
 		Joins("INNER JOIN unit_types u ON p.unit_type_id = u.id")
@@ -323,7 +323,6 @@ func (h *ProductHandler) List(c *gin.Context) {
 				sp.supply_price, sp.vat, sp.retail_price,
 				sp.bonus_percent, sp.bonus_amount, u.short_name, p.created_at`).
 		Order("p.created_at DESC").
-		Debug().
 		Find(&res).Error
 	if err != nil {
 		h.log.Error(err)
