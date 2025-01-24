@@ -259,13 +259,18 @@ func (h *ProductHandler) List(c *gin.Context) {
 
 	// Build the query
 	query := h.db.Model(&domain.Product{}).
-		Select("products.*, DATE_PART('day', products.expire_date::timestamp - NOW()) AS expire_day").
-		Preload("Categories")
+		Table("products p").
+		Preload("Categories").
+		Select(`
+		p.id, p.name, p.barcode,
+		sp.expire_date, SUM(sp.pack_quantity) AS quantity,
+		sp.retail_price, sp.supply_price,	
+		sp.bonus_amount, sp.bonus_percent`).
+		Joins("LEFT JOIN store_products sp ON sp.product_id = products.id")
 
 	if storeIDParam != "" {
 		query = query.
-			Joins("JOIN store_products ON store_products.product_id = products.id").
-			Where("store_products.store_id = ?", storeIDParam)
+			Where("sp.store_id = ?", storeIDParam)
 	}
 	if status != "" {
 		switch status {
@@ -288,7 +293,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 
 	if searchField != "" {
 		searchField = fmt.Sprintf("%%%s%%", searchField)
-		query = query.Where("products.name ILIKE ? OR products.barcode ILIKE ?", searchField, searchField)
+		query = query.Where("products.name ILIKE ? OR products.barcode LIKE ?", searchField, searchField)
 	}
 	if supplyPriceFrom != "" {
 		query = query.Where("products.supply_price >= ?", supplyPriceFrom)
@@ -311,9 +316,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 		Limit(limit).
 		Offset(offset).
 		Order("products.created_at DESC").
-		Debug().
 		Find(&res).Error
-	// Handle errors from the query
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())

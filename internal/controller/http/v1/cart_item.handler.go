@@ -345,11 +345,11 @@ func (h *CartItemHandler) Delete(c *gin.Context) {
 // MultipleDelete godoc
 // @Summary Delete all cart items
 // @Description Delete all cart items from the request body
-// @Tags cart_items
+// @Tags 	cart_items
 // @Security     BearerAuth
-// @Accept json
+// @Accept 	json
 // @Produce json
-// @Param body body domain.Ids true "cart item IDs"
+// @Param 	body body domain.Ids true "cart item IDs"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response

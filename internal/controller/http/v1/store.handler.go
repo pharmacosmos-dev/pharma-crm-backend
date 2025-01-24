@@ -132,30 +132,30 @@ func (h *StoreHandler) List(c *gin.Context) {
 	}
 
 	query := h.db.
-		Model(&domain.Store{})
+		Model(&domain.Store{}).Table("stores s")
 	if productID != "" {
 		query = query.
 			Select(`
-					stores.*, 
-					COALESCE(sp.pack_quantity, 0) as quantity, 
+					s.*, 
+					COALESCE(sp.pack_quantity, 0) as pack_quantity, 
 					sp.small_quantity
 				`).
-			Joins("LEFT JOIN store_products sp ON stores.id = sp.store_id AND sp.product_id = ?", productID)
+			Joins("LEFT JOIN store_products sp ON s.id = sp.store_id AND sp.product_id = ?", productID)
 	}
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
-		query = query.Where("name ILIKE ?", search)
+		query = query.Where("s.name ILIKE ?", search)
 	}
 
 	// Use conditional ordering at the end
 	if productID != "" {
 		query = query.Order("sp.pack_quantity")
 	} else {
-		query = query.Order("created_at DESC")
+		query = query.Order("s.created_at DESC")
 	}
 
 	err = query.
-		Where("is_active = ?", true).
+		Where("s.is_active = ?", true).
 		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).
