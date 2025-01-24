@@ -84,3 +84,15 @@ type TransactionRequest struct {
 	Status           string `gorm:"status" json:"status"`
 	ResponseData     string `gorm:"response_data" json:"response_data"`
 }
+
+// Payment request structure
+type PaymentRequest struct {
+	ID              *string    `gorm:"id" json:"id"`
+	Method          string     `gorm:"method" json:"method"`
+	Payload         string     `gorm:"payload" json:"payload"`
+	Response        string     `gorm:"response" json:"response"`
+	TransactionID   string     `gorm:"transaction_id" json:"transaction_id"`
+	PaymentProvider string     `gorm:"payment_provider" json:"payment_provider"`
+	CreatedAt       *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt       *time.Time `gorm:"updated_at" json:"updated_at"`
+}

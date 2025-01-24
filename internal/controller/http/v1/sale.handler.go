@@ -100,9 +100,6 @@ func (h *SaleHandler) Get(c *gin.Context) {
 	)
 	err := h.db.
 		Preload("Employee").
-		Preload("CashBox", func(db *gorm.DB) *gorm.DB {
-			return db.Preload("Store")
-		}).
 		Preload("Customer").
 		Preload("SalePayments", func(db *gorm.DB) *gorm.DB {
 			return db.Preload("PaymentType")
@@ -150,9 +147,6 @@ func (h *SaleHandler) List(c *gin.Context) {
 	res := []domain.Sale{}
 	query := h.db.Model(&domain.Sale{}).
 		Preload("Employee").
-		Preload("CashBox", func(db *gorm.DB) *gorm.DB {
-			return db.Preload("Store")
-		}).
 		Preload("Customer").
 		Preload("SalePayments", func(db *gorm.DB) *gorm.DB {
 			return db.Preload("PaymentType")
@@ -284,18 +278,21 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	if body.App.Type == "app" && body.App.AppType != "" {
 		var paymentService domain.PaymentService
 		if body.App.AppType == config.CLICK_APP_PAYMENT_TYPE {
-			err = h.db.
-				First(&paymentService, "store_id = ? and type = ?",
-					body.StoreID, config.CLICK_APP_PAYMENT_TYPE).Error
+			err = h.db.First(&paymentService, "store_id = ? and type = ?",
+				body.StoreID, config.CLICK_APP_PAYMENT_TYPE).Error
 			if err != nil {
 				h.log.Error(err)
 				handleResponse(c, NotFound, err.Error())
 				return
 			}
-			_, err = h.payment.ClickPass(c, &paymentService, body.App.OtpData)
+			resp, err := h.payment.ClickPass(c, &paymentService, &body)
 			if err != nil {
 				h.log.Error(err)
 				handleResponse(c, BadRequest, err.Error())
+				return
+			}
+			if resp.ErrorCode != 0 {
+				handleResponse(c, BadRequest, "Payment failed")
 				return
 			}
 		} else if body.App.AppType == config.PAYME_APP_PAYMENT_TYPE {

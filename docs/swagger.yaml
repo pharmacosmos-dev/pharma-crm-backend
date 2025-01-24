@@ -301,6 +301,8 @@ definitions:
     properties:
       app:
         $ref: '#/definitions/domain.FinalSaleApp'
+      cash_box_id:
+        type: string
       cash_box_operation_id:
         type: string
       payment_types:
@@ -320,6 +322,8 @@ definitions:
         type: number
       app_type:
         example: click|payme|uzum
+        type: string
+      otp_data:
         type: string
       payment_type_id:
         type: string
@@ -466,7 +470,7 @@ definitions:
       bonus_amount:
         type: number
       bonus_percent:
-        type: integer
+        type: number
       category_ids:
         items:
           type: string
@@ -542,7 +546,7 @@ definitions:
       bonus_amount:
         type: number
       bonus_percent:
-        type: integer
+        type: number
       category_ids:
         items:
           type: string
@@ -742,7 +746,7 @@ definitions:
       bonus_amount:
         type: number
       bonus_percent:
-        type: integer
+        type: number
       expire_date:
         type: string
       pack_quantity:

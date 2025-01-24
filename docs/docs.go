@@ -8236,6 +8236,9 @@ const docTemplate = `{
                 "app": {
                     "$ref": "#/definitions/domain.FinalSaleApp"
                 },
+                "cash_box_id": {
+                    "type": "string"
+                },
                 "cash_box_operation_id": {
                     "type": "string"
                 },
@@ -8265,6 +8268,9 @@ const docTemplate = `{
                 "app_type": {
                     "type": "string",
                     "example": "click|payme|uzum"
+                },
+                "otp_data": {
+                    "type": "string"
                 },
                 "payment_type_id": {
                     "type": "string"
@@ -8487,7 +8493,7 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "bonus_percent": {
-                    "type": "integer"
+                    "type": "number"
                 },
                 "category_ids": {
                     "type": "array",
@@ -8602,7 +8608,7 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "bonus_percent": {
-                    "type": "integer"
+                    "type": "number"
                 },
                 "category_ids": {
                     "type": "array",
@@ -8909,7 +8915,7 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "bonus_percent": {
-                    "type": "integer"
+                    "type": "number"
                 },
                 "expire_date": {
                     "type": "string"

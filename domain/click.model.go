@@ -1,7 +1,7 @@
 package domain
 
 type ClickPassRequest struct {
-	ServiceID     string  `json:"service_id"`
+	ServiceID     int     `json:"service_id"`
 	OtpData       string  `json:"otp_data"`
 	Amount        float64 `json:"amount"`
 	CashboxCode   string  `json:"cashbox_code"`
