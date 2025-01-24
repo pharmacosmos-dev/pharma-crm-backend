@@ -269,9 +269,11 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 	if body.Quantity != nil && body.UnitQuantity != nil {
 		if *body.Quantity*storeProduct.UnitPerPack+*body.UnitQuantity > storeProduct.UnitQuantity {
 			handleResponse(c, CONFLICT, gin.H{
-				"message":       "Not enough Product",
-				"pack_quantity": storeProduct.PackQuantity,
-				"unit_quantity": storeProduct.UnitQuantity,
+				"message":                "Not enough Product",
+				"pack_quantity":          storeProduct.PackQuantity,
+				"unit_quantity":          storeProduct.UnitQuantity,
+				"received_pack_quantity": *body.Quantity,
+				"received_unit_quantity": *body.UnitQuantity,
 			})
 			return
 		}
@@ -281,9 +283,11 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 	} else if body.Quantity != nil {
 		if *body.Quantity > storeProduct.PackQuantity {
 			handleResponse(c, CONFLICT, gin.H{
-				"message":       "Not enough Product",
-				"pack_quantity": storeProduct.PackQuantity,
-				"unit_quantity": storeProduct.UnitQuantity,
+				"message":                "Not enough Product",
+				"pack_quantity":          storeProduct.PackQuantity,
+				"unit_quantity":          storeProduct.UnitQuantity,
+				"received_pack_quantity": *body.Quantity,
+				"received_unit_quantity": *body.UnitQuantity,
 			})
 			return
 		}
@@ -292,9 +296,11 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 	} else if body.UnitQuantity != nil {
 		if *body.UnitQuantity > storeProduct.UnitQuantity {
 			handleResponse(c, CONFLICT, gin.H{
-				"message":       "Not enough Product",
-				"unit_quantity": storeProduct.UnitQuantity,
-				"pack_quantity": storeProduct.PackQuantity,
+				"message":                "Not enough Product",
+				"unit_quantity":          storeProduct.UnitQuantity,
+				"pack_quantity":          storeProduct.PackQuantity,
+				"received_pack_quantity": *body.Quantity,
+				"received_unit_quantity": *body.UnitQuantity,
 			})
 			return
 		}
