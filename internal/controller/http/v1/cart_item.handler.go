@@ -242,6 +242,7 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+
 	var cartItem domain.CartItem
 	err = h.db.
 		WithContext(c.Request.Context()).
@@ -254,11 +255,49 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 	}
 
 	var data = map[string]interface{}{}
-	if body.Quantity != nil {
+	var storeProduct domain.StoreProduct
+	err = h.db.Raw(`SELECT * FROM store_products WHERE id = ?`, body.StoreProductID).Scan(&storeProduct).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			handleResponse(c, NotFound, "product not found")
+			return
+		}
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	if body.Quantity != nil && body.UnitQuantity != nil {
+		if *body.Quantity*storeProduct.UnitPerPack+*body.UnitQuantity > storeProduct.UnitQuantity {
+			handleResponse(c, CONFLICT, gin.H{
+				"message":       "Not enough Product",
+				"pack_quantity": storeProduct.PackQuantity,
+				"unit_quantity": storeProduct.UnitQuantity,
+			})
+			return
+		}
 		data["quantity"] = body.Quantity
 		data["total_price"] = cartItem.UnitPrice * float64(*body.Quantity)
-	}
-	if body.UnitQuantity != nil {
+		data["unit_quantity"] = body.UnitQuantity
+	} else if body.Quantity != nil {
+		if *body.Quantity > storeProduct.PackQuantity {
+			handleResponse(c, CONFLICT, gin.H{
+				"message":       "Not enough Product",
+				"pack_quantity": storeProduct.PackQuantity,
+				"unit_quantity": storeProduct.UnitQuantity,
+			})
+			return
+		}
+		data["quantity"] = body.Quantity
+		data["total_price"] = cartItem.UnitPrice * float64(*body.Quantity)
+	} else if body.UnitQuantity != nil {
+		if *body.UnitQuantity > storeProduct.UnitQuantity {
+			handleResponse(c, CONFLICT, gin.H{
+				"message":       "Not enough Product",
+				"unit_quantity": storeProduct.UnitQuantity,
+				"pack_quantity": storeProduct.PackQuantity,
+			})
+			return
+		}
 		data["unit_quantity"] = body.UnitQuantity
 	}
 
