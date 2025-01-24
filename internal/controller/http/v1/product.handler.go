@@ -262,9 +262,11 @@ func (h *ProductHandler) List(c *gin.Context) {
 		Table("products p").
 		Preload("Categories").
 		Select(`
-		p.id, p.name, p.barcode, p.status, p.description,
+		p.id, p.name, p.barcode, p.status, p.description, 
+		p.photos, p.manufacturer, p.material_code,
 		sp.supply_price, sp.vat, sp.retail_price,
-		sum(sp.pack_quantity) as quantity,
+		sum(sp.pack_quantity) as quantity, 
+		(sum(sp.pack_quantity) * sp.retail_price) AS sum,
 		sp.bonus_percent, sp.bonus_amount, u.short_name,
 		p.created_at`).
 		Joins("LEFT JOIN store_products sp ON sp.product_id = p.id").
@@ -298,16 +300,16 @@ func (h *ProductHandler) List(c *gin.Context) {
 		query = query.Where("p.name ILIKE ? OR p.barcode LIKE ?", searchField, searchField)
 	}
 	if supplyPriceFrom != "" {
-		query = query.Where("p.supply_price >= ?", supplyPriceFrom)
+		query = query.Where("sp.supply_price >= ?", supplyPriceFrom)
 	}
 	if supplyPriceTo != "" {
-		query = query.Where("p.supply_price <= ?", supplyPriceTo)
+		query = query.Where("sp.supply_price <= ?", supplyPriceTo)
 	}
 	if retailPriceFrom != "" {
-		query = query.Where("p.retail_price >= ?", retailPriceFrom)
+		query = query.Where("sp.retail_price >= ?", retailPriceFrom)
 	}
 	if retailPriceTo != "" {
-		query = query.Where("p.retail_price <= ?", retailPriceTo)
+		query = query.Where("sp.retail_price <= ?", retailPriceTo)
 	}
 	if producerName != "" {
 		query = query.Where("p.manufacturer = ?", producerName)
@@ -321,6 +323,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 				sp.supply_price, sp.vat, sp.retail_price,
 				sp.bonus_percent, sp.bonus_amount, u.short_name, p.created_at`).
 		Order("p.created_at DESC").
+		Debug().
 		Find(&res).Error
 	if err != nil {
 		h.log.Error(err)
