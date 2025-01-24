@@ -418,7 +418,13 @@ func updateCartItemStatus(tx *gorm.DB, saleID string) error {
 	}
 
 	for _, item := range cartItems {
-		err = tx.Exec(`UPDATE store_products SET pack_quantity = pack_quantity - ?, unit_quantity = unit_quantity - ? WHERE id = ?`, item.Quantity, item.UnitQuantity, item.StoreProductID).Error
+		err = tx.Exec(`
+		UPDATE store_products 
+		SET 
+			pack_quantity = pack_quantity - ?, 
+			unit_quantity = ? * unit_per_pack + ? 
+		WHERE id = ?`,
+			item.Quantity, item.Quantity, item.UnitQuantity, item.StoreProductID).Error
 		if err != nil {
 			return err
 		}
