@@ -5,11 +5,11 @@ import "time"
 // CartItem structure
 type CartItem struct {
 	ID             string     `gorm:"id" json:"id"`
-	ProductID      string     `gorm:"product_id" json:"product_id"`
 	StoreProductID string     `gorm:"store_product_id" json:"store_product_id"`
 	EmployeeID     string     `gorm:"employee_id" json:"employee_id"`
 	SaleId         string     `gorm:"sale_id" json:"sale_id"`
 	Quantity       int        `gorm:"quantity" json:"quantity"`
+	UnitQuantity   int        `gorm:"unit_quantity" json:"unit_quantity"`
 	UnitPrice      float64    `gorm:"unit_price" json:"unit_price"`
 	DiscountPrice  float64    `gorm:"discount_price" json:"discount_price"`
 	DiscountType   string     `gorm:"discount_type" json:"discount_type" example:"percent|cash"`
