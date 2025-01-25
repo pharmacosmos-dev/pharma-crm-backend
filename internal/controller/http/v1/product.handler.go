@@ -264,7 +264,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 		Select(`
 		p.id, p.name, p.barcode, p.status, p.description, 
 		p.photos, p.manufacturer, p.material_code,
-		sp.supply_price, sp.vat, sp.retail_price,
+		sp.supply_price, sp.vat, (sp.retail_price - sp.supply_price) as vat_price, sp.retail_price,
 		sum(sp.pack_quantity) as quantity, 
 		(sum(sp.pack_quantity) * sp.retail_price) AS sum,
 		sp.bonus_percent, sp.bonus_amount, u.short_name AS unit_name,

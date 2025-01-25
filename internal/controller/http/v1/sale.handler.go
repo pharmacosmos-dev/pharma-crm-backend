@@ -298,94 +298,103 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 
 	now := time.Now()
 	var salePayment domain.SalePaymentRequest
-	// Insert sale payments
+	// iterate over payment types
 	for _, item := range body.PaymentTypes {
-		if item.Type == "app" && item.AppType != "" {
+		if item.Type == "app" && (item.AppType == config.CLICK || item.AppType == config.PAYME || item.AppType == config.UZUM) {
 			var paymentService domain.PaymentService
 			err = h.db.First(&paymentService, "store_id = ? AND type = ? AND is_active = true",
-				body.StoreID, config.CLICK_APP_PAYMENT_TYPE).Error
+				body.StoreID, item.AppType).Error
 			if err != nil {
 				if errors.Is(err, gorm.ErrRecordNotFound) {
-					handleResponse(c, BadRequest, "The Payment service is not active")
+					handleResponse(c, NotFound, "The Payment service is not active OR does not exist")
 					return
 				}
 				h.log.Error(err)
-				handleResponse(c, NotFound, err.Error())
+				handleResponse(c, InternalError, err.Error())
 				return
 			}
-			paymentHandlers := map[string]func(ctx context.Context, click *domain.PaymentService, data *domain.FinalPaymentType, CashOperationID string, transactionID string) (*domain.ClickPassResponse, error){
-				config.CLICK_APP_PAYMENT_TYPE: h.ClickPass,
-				config.PAYME_APP_PAYMENT_TYPE: h.PaymeGo,
-				config.UZUM_APP_PAYMENT_TYPE:  h.UzumFastPay,
+			// payment handlers map for each payment type
+			paymentHandlers := map[string]func(ctx context.Context, click *domain.PaymentService, data *domain.FinalPaymentType, CashOperationID string, transactionID string, saleID string) (map[string]interface{}, error){
+				config.CLICK: h.ClickPass,
+				config.PAYME: h.PaymeGo,
+				config.UZUM:  h.UzumFastPay,
 			}
+			// get handler for the payment type
 			handler, exists := paymentHandlers[item.AppType]
-			if exists {
-				salePayment = domain.SalePaymentRequest{
-					ID:                 uuid.New().String(),
-					SaleID:             body.SaleID,
-					CashBoxOperationID: body.CashBoxOperationId,
-					PaymentServiceID:   &paymentService.ID,
-					PaymentTypeID:      item.PaymentTypeID,
-					Amount:             item.Amount,
-					PaidAt:             &now,
-					Status:             "pending",
-				}
-				// Insert sale payments
-				err = tx.
-					Table("sale_payments").
-					Create(&salePayment).Error
-				if err != nil {
-					tx.Rollback()
-					h.log.Error(err)
-					handleResponse(c, InternalError, err.Error())
-					return
-				}
-
-				resp, err := handler(c.Request.Context(), &paymentService, &item, body.CashBoxOperationId, salePayment.ID)
-				if err != nil {
-					tx.Rollback()
-					h.log.Error(err)
-					handleResponse(c, InternalError, err.Error())
-					return
-				}
-				if resp.ErrorCode == 0 {
-					err = tx.
-						Table("sale_payments").Where("id = ? ", salePayment.ID).Update("status", "paid").Error
-					if err != nil {
-						tx.Rollback()
-						h.log.Error(err)
-						handleResponse(c, InternalError, err.Error())
-						return
-					}
-					continue
-				} else {
-					handleResponse(c, InternalError, "Failed payment with "+item.AppType)
-					return
-				}
-			} else if item.Type == "cash" || item.Type == "card" {
-				salePayment = domain.SalePaymentRequest{
-					ID:                 uuid.New().String(),
-					SaleID:             body.SaleID,
-					CashBoxOperationID: body.CashBoxOperationId,
-					PaymentTypeID:      item.PaymentTypeID,
-					Amount:             item.Amount,
-					PaidAt:             &now,
-					Status:             "paid",
-				}
-				// Insert sale payments
-				err = tx.
-					Table("sale_payments").
-					Create(&salePayment).Error
-				if err != nil {
-					tx.Rollback()
-					h.log.Error(err)
-					handleResponse(c, InternalError, err.Error())
-					return
-				}
-			} else {
+			// return error if payment type is not found
+			if !exists {
 				handleResponse(c, InternalError, "Invalid payment type")
 				return
 			}
+			salePayment = domain.SalePaymentRequest{
+				ID:                 uuid.New().String(),
+				SaleID:             body.SaleID,
+				CashBoxOperationID: body.CashBoxOperationId,
+				PaymentServiceID:   &paymentService.ID,
+				PaymentTypeID:      item.PaymentTypeID,
+				Amount:             item.Amount,
+				PaidAt:             &now,
+				Status:             "pending",
+			}
+			// Insert sale payments
+			err = tx.
+				Table("sale_payments").
+				Create(&salePayment).Error
+			if err != nil {
+				tx.Rollback()
+				h.log.Error(err)
+				handleResponse(c, InternalError, err.Error())
+				return
+			}
+
+			resp, err := handler(c.Request.Context(), &paymentService, &item, body.CashBoxOperationId, salePayment.ID, body.SaleID)
+			if err != nil {
+				tx.Rollback()
+				h.log.Error(err)
+				handleResponse(c, InternalError, err.Error())
+				return
+			}
+			if errCode, ok := resp["error_code"].(float64); ok && errCode == 0 {
+				err = tx.
+					Table("sale_payments").Where("id = ? ", salePayment.ID).Update("status", "paid").Error
+				if err != nil {
+					tx.Rollback()
+					h.log.Error(err)
+					handleResponse(c, InternalError, err.Error())
+					return
+				}
+				continue
+			} else {
+				tx.Rollback()
+				t, _ := json.Marshal(resp)
+				h.log.Info("Failed payment with %v", string(t))
+				handleResponse(c, InternalError, "Failed payment with "+item.AppType)
+				return
+			}
+		} else if item.Type == "cash" || item.Type == "card" {
+			// Insert sale payments if payment is cash or card
+			salePayment = domain.SalePaymentRequest{
+				ID:                 uuid.New().String(),
+				SaleID:             body.SaleID,
+				CashBoxOperationID: body.CashBoxOperationId,
+				PaymentTypeID:      item.PaymentTypeID,
+				Amount:             item.Amount,
+				PaidAt:             &now,
+				Status:             "paid",
+			}
+			// Insert sale payments
+			err = tx.
+				Table("sale_payments").
+				Create(&salePayment).Error
+			if err != nil {
+				tx.Rollback()
+				h.log.Error(err)
+				handleResponse(c, InternalError, err.Error())
+				return
+			}
+		} else {
+			handleResponse(c, InternalError, "Invalid payment type")
+			return
 		}
 	}
 
@@ -472,13 +481,13 @@ func updateCartItemStatus(tx *gorm.DB, saleID string) error {
 }
 
 // ClickPass implements PaymentService
-func (h *SaleHandler) ClickPass(ctx context.Context, click *domain.PaymentService, data *domain.FinalPaymentType, CashOperationID string, transactionID string) (*domain.ClickPassResponse, error) {
+func (h *SaleHandler) ClickPass(ctx context.Context, click *domain.PaymentService, data *domain.FinalPaymentType, CashOperationID string, transactionID string, saleID string) (map[string]interface{}, error) {
 	var cashBoxId string
 	err := h.db.Raw(`SELECT cash_box_id FROM cashbox_operations WHERE id = ?`, CashOperationID).Scan(&cashBoxId).Error
 	if err != nil {
 		return nil, err
 	}
-
+	// Click Pass request body
 	clickData := domain.ClickPassRequest{
 		ServiceID:     click.ServiceID,
 		OtpData:       data.OtpData,
@@ -499,7 +508,7 @@ func (h *SaleHandler) ClickPass(ctx context.Context, click *domain.PaymentServic
 		return nil, err
 	}
 	// generate click pass auth token
-	token := h.generateClickAuthToken(click.SecretKey, click.MerchantUserID)
+	token := h.generateClickAndUzumAuthToken(click.SecretKey, click.MerchantUserID)
 	// send request to click pass
 	res, err := h.ClickPassDoRequest(ctx, "/click_pass/payment", clickData, token)
 	if err != nil {
@@ -517,23 +526,12 @@ func (h *SaleHandler) ClickPass(ctx context.Context, click *domain.PaymentServic
 		return nil, err
 	}
 
-	// res, err = h.ClickCheckPaymentStatus(ctx, map[string]interface{}{
-	// 	"service_id": click.ServiceID,
-	// 	"payment_id": res.PaymentID,
-	// }, token)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// k, _ := json.MarshalIndent(res, "", "  ")
-	// fmt.Println("ClickCheckPaymentStatus:", string(k))
-
 	return res, nil
 }
 
 // Check click pass payment status
-func (h *SaleHandler) ClickCheckPaymentStatus(ctx context.Context, data map[string]interface{}, token string) (*domain.ClickPassResponse, error) {
+func (h *SaleHandler) ClickCheckPaymentStatus(ctx context.Context, data map[string]interface{}, token string) (map[string]interface{}, error) {
 	fullUrl := h.cfg.ClickEndpointUrl + fmt.Sprintf("/payment/status/%v/%v", data["service_id"], data["payment_id"])
-	fmt.Println("ClickCheckPaymentStatus url:", fullUrl)
 	res, err := h.ClickPassDoRequest(ctx, fullUrl, data, token)
 	if err != nil {
 		return nil, err
@@ -541,8 +539,8 @@ func (h *SaleHandler) ClickCheckPaymentStatus(ctx context.Context, data map[stri
 	return res, nil
 }
 
-// Generate click pass auth token
-func (h *SaleHandler) generateClickAuthToken(secretKey string, merchantUserId int) string {
+// Generate click pass and uzum fast pay auth token
+func (h *SaleHandler) generateClickAndUzumAuthToken(secretKey string, merchantUserId int) string {
 	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
 	digest := sha1.Sum([]byte(timestamp + secretKey))
 	digestStr := fmt.Sprintf("%x", digest)
@@ -550,7 +548,7 @@ func (h *SaleHandler) generateClickAuthToken(secretKey string, merchantUserId in
 }
 
 // DoRequest for Click Pass
-func (h *SaleHandler) ClickPassDoRequest(ctx context.Context, url string, data interface{}, token string) (*domain.ClickPassResponse, error) {
+func (h *SaleHandler) ClickPassDoRequest(ctx context.Context, url string, data interface{}, token string) (map[string]interface{}, error) {
 	client := &http.Client{}
 	buf := bytes.Buffer{}
 
@@ -562,6 +560,7 @@ func (h *SaleHandler) ClickPassDoRequest(ctx context.Context, url string, data i
 
 	// Construct request
 	fullURL := h.cfg.ClickEndpointUrl + url
+	fmt.Println(fullURL)
 	req, err := http.NewRequestWithContext(ctx, "POST", fullURL, &buf)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request: %v", err)
@@ -583,7 +582,7 @@ func (h *SaleHandler) ClickPassDoRequest(ctx context.Context, url string, data i
 	}
 
 	// Decode response body
-	var result domain.ClickPassResponse
+	var result map[string]interface{}
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %v", err)
@@ -593,16 +592,16 @@ func (h *SaleHandler) ClickPassDoRequest(ctx context.Context, url string, data i
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode response: %v", err)
 	}
-	return &result, nil
+	return result, nil
 }
 
 // Payme Go Handler functon
-func (h *SaleHandler) PaymeGo(ctx context.Context, click *domain.PaymentService, data *domain.FinalPaymentType, CashOperationID string, transactionID string) (*domain.ClickPassResponse, error) {
+func (h *SaleHandler) PaymeGo(ctx context.Context, click *domain.PaymentService, data *domain.FinalPaymentType, CashOperationID string, transactionID string, saleID string) (map[string]interface{}, error) {
 	return h.PaymeGoDoRequest(ctx, data)
 }
 
 // DoRequest for Payme Go
-func (h *SaleHandler) PaymeGoDoRequest(ctx context.Context, data interface{}) (*domain.ClickPassResponse, error) {
+func (h *SaleHandler) PaymeGoDoRequest(ctx context.Context, data interface{}) (map[string]interface{}, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest("POST", "", nil)
 	if err != nil {
@@ -620,26 +619,115 @@ func (h *SaleHandler) PaymeGoDoRequest(ctx context.Context, data interface{}) (*
 }
 
 // Uzum fast pay handler function
-func (h *SaleHandler) UzumFastPay(ctx context.Context, click *domain.PaymentService, data *domain.FinalPaymentType, CashOperationID string, transactionID string) (*domain.ClickPassResponse, error) {
-	return h.UzumFastPayDoRequest(ctx, data)
+func (h *SaleHandler) UzumFastPay(ctx context.Context, paymentService *domain.PaymentService, data *domain.FinalPaymentType, CashOperationID string, transactionID string, saleID string) (map[string]interface{}, error) {
+	var cashBoxId string
+	err := h.db.Raw(`SELECT cash_box_id FROM cashbox_operations WHERE id = ?`, CashOperationID).Scan(&cashBoxId).Error
+	if err != nil {
+		return nil, err
+	}
+	uzumData := domain.UzumRequest{
+		OrderId:       saleID,
+		TransactionID: transactionID,
+		CashboxCode:   cashBoxId,
+		ServiceID:     paymentService.ServiceID,
+		Amount:        data.Amount,
+		OtpData:       data.OtpData,
+	}
+	t, err := json.Marshal(uzumData)
+	if err != nil {
+		return nil, err
+	}
+	err = h.SaveRequest(ctx, &domain.PaymentRequest{
+		Method:          "uzum_fast_pay",
+		Payload:         t,
+		TransactionID:   transactionID,
+		PaymentProvider: "uzum",
+	})
+	if err != nil {
+		h.log.Info("Error on saving uzum fast pay request: %v", err.Error())
+		return nil, err
+	}
+
+	// Generate Uzum Fast Pay auth token
+	token := h.generateClickAndUzumAuthToken(paymentService.SecretKey, paymentService.MerchantUserID)
+
+	res, err := h.UzumFastPayDoRequest(ctx, "/v2/payment", uzumData, token)
+	if err != nil {
+		return nil, err
+	}
+	// convert to json response of click pass
+	t, _ = json.Marshal(res)
+	// save response to database
+	err = h.SaveResponse(ctx, &domain.PaymentRequest{
+		TransactionID: transactionID,
+		Response:      t,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+// Uzum Fast Pay Check payment status
+func (h *SaleHandler) UzumFastPayCheckPaymentStatus(ctx context.Context, paymentService domain.PaymentService, paymentId string) (map[string]interface{}, error) {
+	data := map[string]interface{}{
+		"service_id": paymentService.ServiceID,
+		"payment_id": paymentId,
+	}
+	token := h.generateClickAndUzumAuthToken(paymentService.SecretKey, paymentService.MerchantUserID)
+
+	res, err := h.UzumFastPayDoRequest(ctx, "/payment/status", data, token)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
 }
 
 // DoRequest for Uzum Fast Pay
-func (h *SaleHandler) UzumFastPayDoRequest(ctx context.Context, data interface{}) (*domain.ClickPassResponse, error) {
+func (h *SaleHandler) UzumFastPayDoRequest(ctx context.Context, url string, data interface{}, token string) (map[string]interface{}, error) {
 	client := &http.Client{}
-	req, err := http.NewRequest("POST", "", nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Add("Authorization", "")
+	buf := bytes.Buffer{}
 
+	// Encode data to JSON
+	err := json.NewEncoder(&buf).Encode(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode request data: %v", err)
+	}
+
+	// Construct request
+	fullURL := h.cfg.UzumEndpointUrl + url
+	req, err := http.NewRequestWithContext(ctx, "POST", fullURL, &buf)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP request: %v", err)
+	}
+	req.Header.Set("Authorization", token)
+	req.Header.Set("Content-Type", "application/json")
+
+	// Execute request
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to execute HTTP request: %v", err)
 	}
 	defer resp.Body.Close()
 
-	return nil, nil
+	// Check response status code
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	// Decode response body
+	var result map[string]interface{}
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %v", err)
+	}
+
+	err = json.Unmarshal(bodyBytes, &result)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode response: %v", err)
+	}
+	return result, nil
 }
 
 // Save payment request to database

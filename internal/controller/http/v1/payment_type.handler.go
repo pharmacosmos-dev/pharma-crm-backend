@@ -269,8 +269,10 @@ func (h *PaymentTypeHandler) CreatePaymentService(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /payment-service/{id} [get]
 func (h *PaymentTypeHandler) GetPaymentService(c *gin.Context) {
-	var res domain.PaymentService
-	var id = c.Param("id")
+	var (
+		res domain.PaymentService
+		id  = c.Param("id")
+	)
 	err := h.db.
 		First(&res, "id = ?", id).Error
 	if err != nil {
@@ -288,17 +290,17 @@ func (h *PaymentTypeHandler) GetPaymentService(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept 	json
 // @Produce json
-// @Param   cash_box_id query string false "Cash Box ID"
+// @Param   store_id query string false "Store ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /payment-service/list [get]
 func (h *PaymentTypeHandler) ListPaymentService(c *gin.Context) {
 	res := []*domain.PaymentService{}
-	cashBoxId := c.Query("cash_box_id")
+	storeID := c.Query("store_id")
 	query := h.db.Model(&domain.PaymentService{})
-	if cashBoxId != "" {
-		query = query.Where("cash_box_id = ?", cashBoxId)
+	if storeID != "" {
+		query = query.Where("store_id = ?", storeID)
 	}
 	err := query.Where("deleted_at IS NULL").Find(&res).Error
 	if err != nil {
@@ -353,9 +355,9 @@ func (h *PaymentTypeHandler) UpdatePaymentService(c *gin.Context) {
 // @Description Delete a payment service from the request body
 // @Tags payment_services
 // @Security     BearerAuth
-// @Accept json
+// @Accept 	json
 // @Produce json
-// @Param id path string true "payment service ID"
+// @Param 	id path string true "payment service ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response

@@ -32,7 +32,7 @@ const (
 	DELETED_PRODUCT    = "deleted"
 
 	// APP payment types
-	CLICK_APP_PAYMENT_TYPE = "click"
-	PAYME_APP_PAYMENT_TYPE = "payme"
-	UZUM_APP_PAYMENT_TYPE  = "uzum"
+	CLICK = "click"
+	PAYME = "payme"
+	UZUM  = "uzum"
 )

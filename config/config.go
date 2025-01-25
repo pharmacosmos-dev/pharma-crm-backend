@@ -53,6 +53,7 @@ type (
 	}
 	Payment struct {
 		ClickEndpointUrl string `env-required:"true" yaml:"click_endpoint_url" env:"CLICK_ENDPOINT_URL"`
+		UzumEndpointUrl  string `env-required:"true" yaml:"uzum_endpoint_url" env:"UZUM_ENDPOINT_URL"`
 	}
 )
 
@@ -77,6 +78,7 @@ func Load() Config {
 	c.Secret.HeshKey = cast.ToString(GetOrReturnDefaultValue("HESH_KEY", "6fb5619d-8c30-4e85-a1e3-3f4d142498a0"))
 	c.Secret.Password1C = cast.ToString(GetOrReturnDefaultValue("PASSWORD_1C", "6fb5619d-8c30-4e85-a1e3-3f4d142498a0"))
 	c.Payment.ClickEndpointUrl = cast.ToString(GetOrReturnDefaultValue("CLICK_ENDPOINT_URL", "http://localhost:8080"))
+	c.Payment.UzumEndpointUrl = cast.ToString(GetOrReturnDefaultValue("UZUM_ENDPOINT_URL", "http://localhost:8080"))
 	return c
 }
 
