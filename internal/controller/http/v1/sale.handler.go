@@ -362,7 +362,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 					handleResponse(c, InternalError, "Failed payment with "+item.AppType)
 					return
 				}
-			} else {
+			} else if item.Type == "cash" || item.Type == "card" {
 				salePayment = domain.SalePaymentRequest{
 					ID:                 uuid.New().String(),
 					SaleID:             body.SaleID,
@@ -382,6 +382,9 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 					handleResponse(c, InternalError, err.Error())
 					return
 				}
+			} else {
+				handleResponse(c, InternalError, "Invalid payment type")
+				return
 			}
 		}
 	}
