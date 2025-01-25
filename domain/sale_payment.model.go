@@ -29,7 +29,6 @@ type SalePaymentRequest struct {
 	PaymentServiceID   *string    `gorm:"payment_service_id" json:"payment_service_id"`
 	PaymentTypeID      string     `gorm:"payment_type_id" json:"payment_type_id"`
 	Amount             float64    `gorm:"amount" json:"amount"`
-	TransactionID      *string    `gorm:"transaction_id" json:"transaction_id,omitempty"`
 	PaidAt             *time.Time `gorm:"paid_at" json:"paid_at"`
 	Status             string     `gorm:"status" json:"status"`
 }

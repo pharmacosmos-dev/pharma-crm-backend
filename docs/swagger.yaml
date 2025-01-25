@@ -294,15 +294,19 @@ definitions:
     properties:
       amount:
         type: number
+      app_type:
+        example: click|payme|uzum
+        type: string
+      otp_data:
+        type: string
       payment_type_id:
+        type: string
+      type:
+        example: card|cash|app
         type: string
     type: object
   domain.FinalSale:
     properties:
-      app:
-        $ref: '#/definitions/domain.FinalSaleApp'
-      cash_box_id:
-        type: string
       cash_box_operation_id:
         type: string
       payment_types:
@@ -315,21 +319,6 @@ definitions:
         type: string
       total_amount:
         type: number
-    type: object
-  domain.FinalSaleApp:
-    properties:
-      amount:
-        type: number
-      app_type:
-        example: click|payme|uzum
-        type: string
-      otp_data:
-        type: string
-      payment_type_id:
-        type: string
-      type:
-        example: app
-        type: string
     type: object
   domain.Generate1CTokenRequest:
     properties:
@@ -655,8 +644,6 @@ definitions:
         type: string
       status:
         type: string
-      transaction_id:
-        type: string
     type: object
   domain.SalePaymentUpdateAmount:
     properties:
@@ -725,7 +712,7 @@ definitions:
         type: string
       name:
         type: string
-      quantity:
+      pack_quantity:
         type: integer
       small_quantity:
         type: integer

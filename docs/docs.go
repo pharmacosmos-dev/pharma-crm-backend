@@ -8225,20 +8225,25 @@ const docTemplate = `{
                 "amount": {
                     "type": "number"
                 },
+                "app_type": {
+                    "type": "string",
+                    "example": "click|payme|uzum"
+                },
+                "otp_data": {
+                    "type": "string"
+                },
                 "payment_type_id": {
                     "type": "string"
+                },
+                "type": {
+                    "type": "string",
+                    "example": "card|cash|app"
                 }
             }
         },
         "domain.FinalSale": {
             "type": "object",
             "properties": {
-                "app": {
-                    "$ref": "#/definitions/domain.FinalSaleApp"
-                },
-                "cash_box_id": {
-                    "type": "string"
-                },
                 "cash_box_operation_id": {
                     "type": "string"
                 },
@@ -8256,28 +8261,6 @@ const docTemplate = `{
                 },
                 "total_amount": {
                     "type": "number"
-                }
-            }
-        },
-        "domain.FinalSaleApp": {
-            "type": "object",
-            "properties": {
-                "amount": {
-                    "type": "number"
-                },
-                "app_type": {
-                    "type": "string",
-                    "example": "click|payme|uzum"
-                },
-                "otp_data": {
-                    "type": "string"
-                },
-                "payment_type_id": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string",
-                    "example": "app"
                 }
             }
         },
@@ -8774,9 +8757,6 @@ const docTemplate = `{
                 },
                 "status": {
                     "type": "string"
-                },
-                "transaction_id": {
-                    "type": "string"
                 }
             }
         },
@@ -8883,7 +8863,7 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
-                "quantity": {
+                "pack_quantity": {
                     "type": "integer"
                 },
                 "small_quantity": {

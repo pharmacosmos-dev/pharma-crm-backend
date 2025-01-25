@@ -1,7 +1,15 @@
 package v1
 
 import (
+	"bytes"
+	"context"
+	"crypto/sha1"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -11,7 +19,6 @@ import (
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/spf13/cast"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type SaleHandler struct {
@@ -267,13 +274,20 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		handleResponse(c, UNAUTHORIZED, "User ID not found")
 		return
 	}
+	// validate payment types
+	if len(body.PaymentTypes) == 0 {
+		handleResponse(c, BadRequest, "At least one payment type is required")
+		return
+	}
+
 	// create transaction
 	tx := h.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 		}
 	}()
+
 	// get store_id by employee_id
 	err = tx.Raw(`SELECT store_id FROM employees WHERE id = ?`, userID).Scan(&body.StoreID).Error
 	if err != nil {
@@ -281,85 +295,94 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	// checking app payment
-	if body.App.Type == "app" && body.App.AppType != "" {
-		var paymentService domain.PaymentService
-		if body.App.AppType == config.CLICK_APP_PAYMENT_TYPE {
-			err = h.db.First(&paymentService, "store_id = ? and type = ?",
+
+	now := time.Now()
+	var salePayment domain.SalePaymentRequest
+	// Insert sale payments
+	for _, item := range body.PaymentTypes {
+		if item.Type == "app" && item.AppType != "" {
+			var paymentService domain.PaymentService
+			err = h.db.First(&paymentService, "store_id = ? AND type = ? AND is_active = true",
 				body.StoreID, config.CLICK_APP_PAYMENT_TYPE).Error
 			if err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					handleResponse(c, BadRequest, "The Payment service is not active")
+					return
+				}
 				h.log.Error(err)
 				handleResponse(c, NotFound, err.Error())
 				return
 			}
-			resp, err := h.payment.ClickPass(c, &paymentService, &body)
-			if err != nil {
-				h.log.Error(err)
-				handleResponse(c, BadRequest, err.Error())
-				return
+			paymentHandlers := map[string]func(ctx context.Context, click *domain.PaymentService, data *domain.FinalPaymentType, CashOperationID string, transactionID string) (*domain.ClickPassResponse, error){
+				config.CLICK_APP_PAYMENT_TYPE: h.ClickPass,
+				config.PAYME_APP_PAYMENT_TYPE: h.PaymeGo,
+				config.UZUM_APP_PAYMENT_TYPE:  h.UzumFastPay,
 			}
-			if resp.ErrorCode != 0 {
-				handleResponse(c, BadRequest, "Payment failed")
-				return
+			handler, exists := paymentHandlers[item.AppType]
+			if exists {
+				salePayment = domain.SalePaymentRequest{
+					ID:                 uuid.New().String(),
+					SaleID:             body.SaleID,
+					CashBoxOperationID: body.CashBoxOperationId,
+					PaymentServiceID:   &paymentService.ID,
+					PaymentTypeID:      item.PaymentTypeID,
+					Amount:             item.Amount,
+					PaidAt:             &now,
+					Status:             "pending",
+				}
+				// Insert sale payments
+				err = tx.
+					Table("sale_payments").
+					Create(&salePayment).Error
+				if err != nil {
+					tx.Rollback()
+					h.log.Error(err)
+					handleResponse(c, InternalError, err.Error())
+					return
+				}
+
+				resp, err := handler(c.Request.Context(), &paymentService, &item, body.CashBoxOperationId, salePayment.ID)
+				if err != nil {
+					tx.Rollback()
+					h.log.Error(err)
+					handleResponse(c, InternalError, err.Error())
+					return
+				}
+				if resp.ErrorCode == 0 {
+					err = tx.
+						Table("sale_payments").Where("id = ? ", salePayment.ID).Update("status", "paid").Error
+					if err != nil {
+						tx.Rollback()
+						h.log.Error(err)
+						handleResponse(c, InternalError, err.Error())
+						return
+					}
+					continue
+				} else {
+					handleResponse(c, InternalError, "Failed payment with "+item.AppType)
+					return
+				}
+			} else {
+				salePayment = domain.SalePaymentRequest{
+					ID:                 uuid.New().String(),
+					SaleID:             body.SaleID,
+					CashBoxOperationID: body.CashBoxOperationId,
+					PaymentTypeID:      item.PaymentTypeID,
+					Amount:             item.Amount,
+					PaidAt:             &now,
+					Status:             "paid",
+				}
+				// Insert sale payments
+				err = tx.
+					Table("sale_payments").
+					Create(&salePayment).Error
+				if err != nil {
+					tx.Rollback()
+					h.log.Error(err)
+					handleResponse(c, InternalError, err.Error())
+					return
+				}
 			}
-		} else if body.App.AppType == config.PAYME_APP_PAYMENT_TYPE {
-
-		} else if body.App.AppType == config.UZUM_APP_PAYMENT_TYPE {
-		}
-	}
-
-	now := time.Now()
-	// Insert sale payments
-	var salePayments []domain.SalePaymentRequest
-	for _, item := range body.PaymentTypes {
-		salePayments = append(salePayments, domain.SalePaymentRequest{
-			ID:                 uuid.New().String(),
-			SaleID:             body.SaleID,
-			CashBoxOperationID: body.CashBoxOperationId,
-			PaymentTypeID:      item.PaymentTypeID,
-			Amount:             item.Amount,
-			Status:             "paid",
-			PaidAt:             &now,
-		})
-	}
-	// Insert sale payments
-	err = tx.
-		Table("sale_payments").
-		Create(&salePayments).Error
-	if err != nil {
-		tx.Rollback()
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	for _, salePayment := range salePayments {
-		// `OnConflict` yordamida yaratish yoki yangilash
-		err = tx.Table("sale_payment_summary").
-			Clauses(clause.OnConflict{
-				Columns: []clause.Column{{Name: "cash_box_operation_id"}, {Name: "payment_type_id"}}, // Unikal kalitlar
-				DoUpdates: clause.Assignments(map[string]interface{}{
-					"total_amount":         gorm.Expr("sale_payment_summary.total_amount + ?", salePayment.Amount),
-					"total_expense_amount": 0,
-					"total_net_amount":     0,
-					"total_difference":     0,
-					"updated_at":           time.Now(),
-				}),
-			}).Create(&domain.SalePaymentSummary{
-			CashBoxOperationID: salePayment.CashBoxOperationID,
-			PaymentTypeID:      salePayment.PaymentTypeID,
-			TotalAmount:        salePayment.Amount,
-			TotalExpenseAmount: 0,
-			TotalNetAmount:     0,
-			TotalDifference:    0,
-			CreatedAt:          &now,
-			UpdatedAt:          &now,
-		}).Error
-
-		if err != nil {
-			tx.Rollback()
-			h.log.Error(err)
-			handleResponse(c, InternalError, "Failed to update sale_payment_summary")
-			return
 		}
 	}
 
@@ -401,6 +424,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	handleResponse(c, OK, newSale.ID)
 }
 
+// Update sale status and total amount after the sale is completed
 func updateSaleStatus(tx *gorm.DB, saleID string, totalAmount float64) error {
 	return tx.
 		Table("sales").
@@ -411,6 +435,7 @@ func updateSaleStatus(tx *gorm.DB, saleID string, totalAmount float64) error {
 		}).Error
 }
 
+// Update cart item status and store product quantities after the sale is completed
 func updateCartItemStatus(tx *gorm.DB, saleID string) error {
 	var cartItems []domain.CartItem
 	err := tx.Raw(`
@@ -441,4 +466,196 @@ func updateCartItemStatus(tx *gorm.DB, saleID string) error {
 		Table("cart_items").
 		Where("sale_id = ?", saleID).
 		Update("status", "sold").Error
+}
+
+// ClickPass implements PaymentService
+func (h *SaleHandler) ClickPass(ctx context.Context, click *domain.PaymentService, data *domain.FinalPaymentType, CashOperationID string, transactionID string) (*domain.ClickPassResponse, error) {
+	var cashBoxId string
+	err := h.db.Raw(`SELECT cash_box_id FROM cashbox_operations WHERE id = ?`, CashOperationID).Scan(&cashBoxId).Error
+	if err != nil {
+		return nil, err
+	}
+
+	clickData := domain.ClickPassRequest{
+		ServiceID:     click.ServiceID,
+		OtpData:       data.OtpData,
+		CashboxCode:   cashBoxId,
+		Amount:        data.Amount,
+		TransactionID: transactionID,
+	}
+	// Marshal click pass request
+	t, _ := json.Marshal(clickData)
+	// Save request of one click pass data
+	err = h.SaveRequest(ctx, &domain.PaymentRequest{
+		Method:          "click_pass",
+		Payload:         t,
+		TransactionID:   transactionID,
+		PaymentProvider: "click",
+	})
+	if err != nil {
+		return nil, err
+	}
+	// generate click pass auth token
+	token := h.generateClickAuthToken(click.SecretKey, click.MerchantUserID)
+	// send request to click pass
+	res, err := h.ClickPassDoRequest(ctx, "/click_pass/payment", clickData, token)
+	if err != nil {
+		h.log.Info("ClickPassDoRequest error: %v", err.Error())
+		return nil, err
+	}
+	// convert to json response of click pass
+	t, _ = json.Marshal(res)
+	// save response to database
+	err = h.SaveResponse(ctx, &domain.PaymentRequest{
+		TransactionID: transactionID,
+		Response:      t,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// res, err = h.ClickCheckPaymentStatus(ctx, map[string]interface{}{
+	// 	"service_id": click.ServiceID,
+	// 	"payment_id": res.PaymentID,
+	// }, token)
+	// if err != nil {
+	// 	return nil, err
+	// }
+	// k, _ := json.MarshalIndent(res, "", "  ")
+	// fmt.Println("ClickCheckPaymentStatus:", string(k))
+
+	return res, nil
+}
+
+// Check click pass payment status
+func (h *SaleHandler) ClickCheckPaymentStatus(ctx context.Context, data map[string]interface{}, token string) (*domain.ClickPassResponse, error) {
+	fullUrl := h.cfg.ClickEndpointUrl + fmt.Sprintf("/payment/status/%v/%v", data["service_id"], data["payment_id"])
+	fmt.Println("ClickCheckPaymentStatus url:", fullUrl)
+	res, err := h.ClickPassDoRequest(ctx, fullUrl, data, token)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+// Generate click pass auth token
+func (h *SaleHandler) generateClickAuthToken(secretKey string, merchantUserId int) string {
+	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+	digest := sha1.Sum([]byte(timestamp + secretKey))
+	digestStr := fmt.Sprintf("%x", digest)
+	return fmt.Sprintf("%d:%s:%s", merchantUserId, digestStr, timestamp)
+}
+
+// DoRequest for Click Pass
+func (h *SaleHandler) ClickPassDoRequest(ctx context.Context, url string, data interface{}, token string) (*domain.ClickPassResponse, error) {
+	client := &http.Client{}
+	buf := bytes.Buffer{}
+
+	// Encode data to JSON
+	err := json.NewEncoder(&buf).Encode(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode request data: %v", err)
+	}
+
+	// Construct request
+	fullURL := h.cfg.ClickEndpointUrl + url
+	req, err := http.NewRequestWithContext(ctx, "POST", fullURL, &buf)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP request: %v", err)
+	}
+	req.Header.Set("Auth", token)
+	req.Header.Set("Content-Type", "application/json")
+
+	// Execute request
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute HTTP request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Check response status code
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	// Decode response body
+	var result domain.ClickPassResponse
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %v", err)
+	}
+
+	err = json.Unmarshal(bodyBytes, &result)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode response: %v", err)
+	}
+	return &result, nil
+}
+
+// Payme Go Handler functon
+func (h *SaleHandler) PaymeGo(ctx context.Context, click *domain.PaymentService, data *domain.FinalPaymentType, CashOperationID string, transactionID string) (*domain.ClickPassResponse, error) {
+	return h.PaymeGoDoRequest(ctx, data)
+}
+
+// DoRequest for Payme Go
+func (h *SaleHandler) PaymeGoDoRequest(ctx context.Context, data interface{}) (*domain.ClickPassResponse, error) {
+	client := &http.Client{}
+	req, err := http.NewRequest("POST", "", nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("X-Auth", "")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return nil, nil
+}
+
+// Uzum fast pay handler function
+func (h *SaleHandler) UzumFastPay(ctx context.Context, click *domain.PaymentService, data *domain.FinalPaymentType, CashOperationID string, transactionID string) (*domain.ClickPassResponse, error) {
+	return h.UzumFastPayDoRequest(ctx, data)
+}
+
+// DoRequest for Uzum Fast Pay
+func (h *SaleHandler) UzumFastPayDoRequest(ctx context.Context, data interface{}) (*domain.ClickPassResponse, error) {
+	client := &http.Client{}
+	req, err := http.NewRequest("POST", "", nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("Authorization", "")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return nil, nil
+}
+
+// Save payment request to database
+func (h *SaleHandler) SaveRequest(ctx context.Context, req *domain.PaymentRequest) error {
+	err := h.db.WithContext(ctx).Create(&req).Error
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// Save payment response to database
+func (h *SaleHandler) SaveResponse(ctx context.Context, req *domain.PaymentRequest) error {
+	err := h.db.WithContext(ctx).Exec(
+		`UPDATE payment_requests SET response = ? WHERE transaction_id = ?`,
+		req.Response, req.TransactionID,
+	).Error
+	if err != nil {
+		return err
+	}
+	return nil
 }

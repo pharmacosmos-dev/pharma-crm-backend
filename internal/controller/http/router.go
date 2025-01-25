@@ -10,7 +10,6 @@ import (
 	v1 "github.com/pharma-crm-backend/internal/controller/http/v1"
 	"github.com/pharma-crm-backend/internal/storage"
 	"github.com/pharma-crm-backend/pkg/logger"
-	"github.com/pharma-crm-backend/pkg/payment"
 	"github.com/pharma-crm-backend/pkg/token"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
@@ -18,12 +17,11 @@ import (
 )
 
 type Options struct {
-	Gin     *gin.Engine
-	Db      *gorm.DB
-	Log     *logger.Logger
-	Cfg     *config.Config
-	Strg    *storage.Storage
-	Payment payment.PaymentService
+	Gin  *gin.Engine
+	Db   *gorm.DB
+	Log  *logger.Logger
+	Cfg  *config.Config
+	Strg *storage.Storage
 }
 
 // @title Pharma API docs
@@ -64,7 +62,7 @@ func NewRouter(option Options) {
 	}
 
 	// Handlers
-	handler := v1.NewHandler(option.Cfg, option.Db, option.Log, &jwtHandler, option.Strg, option.Payment)
+	handler := v1.NewHandler(option.Cfg, option.Db, option.Log, &jwtHandler, option.Strg)
 	handler.InitRoutes(option.Gin)
 
 	// PING

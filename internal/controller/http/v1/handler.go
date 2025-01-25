@@ -6,7 +6,6 @@ import (
 	"github.com/pharma-crm-backend/internal/controller/http/middleware"
 	"github.com/pharma-crm-backend/internal/storage"
 	"github.com/pharma-crm-backend/pkg/logger"
-	"github.com/pharma-crm-backend/pkg/payment"
 	"github.com/pharma-crm-backend/pkg/token"
 	"gorm.io/gorm"
 )
@@ -17,17 +16,15 @@ type Handler struct {
 	cfg        *config.Config
 	JwtHandler *token.JWTHandler
 	storage    *storage.Storage
-	payment    payment.PaymentService
 }
 
-func NewHandler(cfg *config.Config, db *gorm.DB, log *logger.Logger, jwt *token.JWTHandler, storage *storage.Storage, payment payment.PaymentService) *Handler {
+func NewHandler(cfg *config.Config, db *gorm.DB, log *logger.Logger, jwt *token.JWTHandler, storage *storage.Storage) *Handler {
 	return &Handler{
 		cfg:        cfg,
 		db:         db,
 		log:        log,
 		JwtHandler: jwt,
 		storage:    storage,
-		payment:    payment,
 	}
 }
 

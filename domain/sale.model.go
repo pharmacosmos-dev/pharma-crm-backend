@@ -41,18 +41,12 @@ type FinalSale struct {
 	CashBoxOperationId string             `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
 	TotalAmount        float64            `gorm:"total_amount" json:"total_amount"`
 	PaymentTypes       []FinalPaymentType `json:"payment_types"`
-	App                FinalSaleApp       `json:"app"`
 }
 
 type FinalPaymentType struct {
 	PaymentTypeID string  `gorm:"payment_type_id" json:"payment_type_id"`
 	Amount        float64 `gorm:"amount" json:"amount"`
-}
-
-type FinalSaleApp struct {
-	PaymentTypeID string  `json:"payment_type_id"`
-	Amount        float64 `json:"amount"`
-	Type          string  `json:"type" example:"app"`
-	AppType       string  `json:"app_type" example:"click|payme|uzum"`
-	OtpData       string  `json:"otp_data"`
+	AppType       string  `gorm:"app_type" json:"app_type" example:"click|payme|uzum"`
+	Type          string  `gorm:"type" json:"type" example:"card|cash|app"`
+	OtpData       string  `gorm:"otp_data" json:"otp_data"`
 }

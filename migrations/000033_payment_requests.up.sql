@@ -4,7 +4,7 @@ CREATE TABLE IF NOT EXISTS "payment_requests" (
     "payload" JSONB,
     "response" JSONB,
     "payment_provider" VARCHAR(55),
-    "transcation_id" UUID,
+    "transaction_id" UUID,
     "created_at" TIMESTAMP DEFAULT NOW(),
     "updated_at" TIMESTAMP DEFAULT NOW()
 );

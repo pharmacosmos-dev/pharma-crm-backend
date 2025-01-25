@@ -11,7 +11,6 @@ import (
 	v1 "github.com/pharma-crm-backend/internal/controller/http"
 	"github.com/pharma-crm-backend/internal/storage"
 	"github.com/pharma-crm-backend/pkg/db"
-	"github.com/pharma-crm-backend/pkg/payment"
 
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/pkg/httpserver"
@@ -32,19 +31,15 @@ func Run(cfg *config.Config) {
 	// New storage
 	storage := storage.NewStorage(connDB, l)
 
-	// New payment service
-	paymentService := payment.NewPaymentAction(cfg, l, connDB)
-
 	// HTTP Server
 	handler := gin.New()
 
 	v1.NewRouter(v1.Options{
-		Gin:     handler,
-		Db:      connDB,
-		Log:     l,
-		Cfg:     cfg,
-		Strg:    storage,
-		Payment: paymentService,
+		Gin:  handler,
+		Db:   connDB,
+		Log:  l,
+		Cfg:  cfg,
+		Strg: storage,
 	})
 
 	httpServer := httpserver.New(handler, httpserver.Port(cfg.HTTP.Port))

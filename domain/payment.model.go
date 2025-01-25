@@ -66,7 +66,6 @@ type PaymentServiceRequest struct {
 // Transaction structure
 type Transaction struct {
 	ID               string     `gorm:"id" json:"id"`
-	SalePaymentID    string     `gorm:"sale_payment_id" json:"sale_payment_id"`
 	PaymentServiceID string     `gorm:"payment_service_id" json:"payment_service_id"`
 	TransactionID    string     `gorm:"transaction_id" json:"transaction_id"`
 	Status           string     `gorm:"status" json:"status"`
@@ -87,10 +86,10 @@ type TransactionRequest struct {
 
 // Payment request structure
 type PaymentRequest struct {
-	ID              *string    `gorm:"id" json:"id"`
+	ID              *string    `gorm:"type:uuid;default:gen_random_uuid()" json:"id"`
 	Method          string     `gorm:"method" json:"method"`
-	Payload         string     `gorm:"payload" json:"payload"`
-	Response        string     `gorm:"response" json:"response"`
+	Payload         []byte     `gorm:"payload" json:"payload"`
+	Response        []byte     `gorm:"response" json:"response"`
 	TransactionID   string     `gorm:"transaction_id" json:"transaction_id"`
 	PaymentProvider string     `gorm:"payment_provider" json:"payment_provider"`
 	CreatedAt       *time.Time `gorm:"created_at" json:"created_at"`
