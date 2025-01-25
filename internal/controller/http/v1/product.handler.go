@@ -254,7 +254,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 		retailPriceFrom = c.Query("retail_price_from")
 		retailPriceTo   = c.Query("retail_price_to")
 		producerName    = c.Query("producer")
-		// status          = c.Query("status")
+		status          = c.Query("status")
 	)
 
 	// Build the query
@@ -276,24 +276,24 @@ func (h *ProductHandler) List(c *gin.Context) {
 		query = query.
 			Where("sp.store_id = ?", storeIDParam)
 	}
-	// if status != "" {
-	// 	switch status {
-	// 	case "active":
-	// 		query = query.Where("p.status = ?", "active")
-	// 	case "inactive":
-	// 		query = query.Where("p.status = ?", "inactive")
-	// 	case "low-stock":
-	// 		query = query.Where("p.quantity <= ?", 10)
-	// 	case "zero-stock":
-	// 		query = query.Where("p.quantity = ?", 0)
-	// 	case "expired":
-	// 		query = query.Where("p.expire_date < ?", time.Now().Add(time.Hour*5))
-	// 	case "imminent":
-	// 		query = query.Where("p.expire_date BETWEEN ? AND ?", time.Now(), time.Now().AddDate(0, 0, 10))
-	// 	}
-	// } else {
-	// 	query = query.Where("products.status = ?", "active")
-	// }
+	if status != "" {
+		switch status {
+		case "active":
+			query = query.Where("p.status = ?", "active")
+		case "inactive":
+			query = query.Where("p.status = ?", "inactive")
+		case "low-stock":
+			query = query.Where("sp.small_quantity = sp.pack_quantity")
+		case "zero-stock":
+			query = query.Where("sp.pack_quantity = ? AND sp.unit_quantity = ?", 0, 0)
+		case "expired":
+			query = query.Where("sp.expire_date < ?", time.Now().Add(time.Hour*5))
+		case "imminent":
+			query = query.Where("sp.expire_date BETWEEN ? AND ?", time.Now(), time.Now().AddDate(0, 0, 10))
+		}
+	} else {
+		query = query.Where("p.status = ?", "active")
+	}
 
 	if searchField != "" {
 		searchField = fmt.Sprintf("%%%s%%", searchField)

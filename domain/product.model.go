@@ -6,7 +6,7 @@ import (
 	"github.com/pharma-crm-backend/pkg/utils"
 )
 
-// Product
+// Product structure
 type Product struct {
 	Id           string            `gorm:"id" json:"id"`
 	BrandId      string            `gorm:"-" json:"brand_id"`
@@ -15,7 +15,6 @@ type Product struct {
 	Barcode      string            `gorm:"barcode" json:"barcode"`
 	Photos       utils.StringArray `gorm:"type:text[]" json:"photos"`
 	SupplyPrice  float64           `gorm:"supply_price" json:"supply_price"`
-	Markup       int               `gorm:"markup" json:"markup"`
 	RetailPrice  float64           `gorm:"retail_price" json:"retail_price"`
 	Quantity     int               `gorm:"quantity" json:"quantity"`
 	UnitPerPack  int               `gorm:"unit_per_pack" json:"unit_per_pack"`
@@ -26,7 +25,7 @@ type Product struct {
 	Status       string            `gorm:"status" json:"status"`
 	Manufacturer string            `gorm:"manufacturer" json:"manufacturer"`
 	MaterialCode int               `gorm:"material_code" json:"material_code"`
-	ExpireDate   string            `gorm:"expire_date" json:"expire_date"`
+	ExpireDate   string            `gorm:"expire_date" json:"expire_date,omitempty"`
 	IsActive     bool              `gorm:"is_active" json:"is_active"`
 	BonusPercent float64           `gorm:"bonus_percent" json:"bonus_percent"`
 	BonusAmount  float64           `gorm:"bonus_amount" json:"bonus_amount"`
