@@ -380,8 +380,6 @@ definitions:
     type: object
   domain.PaymentServiceRequest:
     properties:
-      cash_box_id:
-        type: string
       is_active:
         type: boolean
       merchant_id:
@@ -389,11 +387,17 @@ definitions:
       merchant_user_id:
         type: integer
       name:
+        example: Click|Payme|Uzum
         type: string
       secret_key:
         type: string
       service_id:
         type: integer
+      store_id:
+        type: string
+      type:
+        example: click|payme|uzum
+        type: string
     type: object
   domain.PaymentTypeRequest:
     properties:
@@ -3359,9 +3363,9 @@ paths:
       - application/json
       description: Get a payment service from the request body
       parameters:
-      - description: Cash Box ID
+      - description: Store ID
         in: query
-        name: cash_box_id
+        name: store_id
         type: string
       produces:
       - application/json

@@ -20,7 +20,7 @@ type Import struct {
 	AcceptedCount  int        `gorm:"accepted_count" json:"accepted_count"`
 	CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt      *time.Time `gorm:"updated_at" json:"updated_at"`
-	Stores         *Store     `gorm:"foreignKey:StoreID" json:"stores"`
+	Store          *Store     `gorm:"foreignKey:StoreID" json:"store"`
 	Sender         *Employee  `gorm:"foreignKey:CreatedBy" json:"sender"`
 	Receiver       *Employee  `gorm:"foreignKey:AcceptedBy" json:"receiver"`
 }

@@ -3884,8 +3884,8 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Cash Box ID",
-                        "name": "cash_box_id",
+                        "description": "Store ID",
+                        "name": "store_id",
                         "in": "query"
                     }
                 ],
@@ -8356,9 +8356,6 @@ const docTemplate = `{
         "domain.PaymentServiceRequest": {
             "type": "object",
             "properties": {
-                "cash_box_id": {
-                    "type": "string"
-                },
                 "is_active": {
                     "type": "boolean"
                 },
@@ -8369,13 +8366,21 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "name": {
-                    "type": "string"
+                    "type": "string",
+                    "example": "Click|Payme|Uzum"
                 },
                 "secret_key": {
                     "type": "string"
                 },
                 "service_id": {
                     "type": "integer"
+                },
+                "store_id": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string",
+                    "example": "click|payme|uzum"
                 }
             }
         },

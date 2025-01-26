@@ -143,7 +143,7 @@ func (h *ImportHandler) List(c *gin.Context) {
 
 	// Fetch imports with detailed data
 	query := h.db.Model(&domain.Import{}).
-		Preload("Stores").
+		Preload("Store").
 		Preload("Sender").
 		Preload("Receiver").
 		Select(`
@@ -183,7 +183,6 @@ func (h *ImportHandler) List(c *gin.Context) {
 		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).
-		Debug().
 		Find(&imports).Error
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
