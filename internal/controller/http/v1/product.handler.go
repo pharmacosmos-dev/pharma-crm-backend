@@ -120,10 +120,11 @@ func (h *ProductHandler) Create(c *gin.Context) {
 			// import detail take required fields
 			importDetail[i].ImportID = imports[i].Id
 			importDetail[i].ProductID = &body.Id
-			importDetail[i].ReceivedCount = body.Quantity
-			importDetail[i].AcceptedCount = body.Quantity
+			importDetail[i].ReceivedCount = body.StoreProduct[i].PackQuantity
+			importDetail[i].AcceptedCount = body.StoreProduct[i].PackQuantity
 			importDetail[i].ProductMaterialCode = body.MaterialCode
-			importDetail[i].ReceivedAmount = float64(body.Quantity) * body.RetailPrice
+			importDetail[i].ReceivedAmount = float64(body.StoreProduct[i].PackQuantity) * body.RetailPrice
+			importDetail[i].AcceptedAmount = float64(body.StoreProduct[i].PackQuantity) * body.RetailPrice
 		}
 		err = tx.
 			WithContext(c.Request.Context()).
@@ -439,8 +440,9 @@ func (h *ProductHandler) Update(c *gin.Context) {
 // @Router /product/producer [get]
 func (h *ProductHandler) GetProducerList(c *gin.Context) {
 	var (
-		res []*domain.ProductProducer
-		err error
+		res    []*domain.ProductProducer
+		err    error
+		search = c.Query("search")
 	)
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
@@ -449,20 +451,20 @@ func (h *ProductHandler) GetProducerList(c *gin.Context) {
 		return
 	}
 
-	search := c.Query("search")
-
 	query := h.db.
 		Model(&domain.Product{}).
 		Select("DISTINCT manufacturer")
 	if search != "" {
+		search = fmt.Sprintf("%%%s%%", search)
 		query = query.Where("manufacturer ILIKE ?", search)
 	}
-	err = query.Limit(limit).
+	err = query.
+		Limit(limit).
 		Offset(offset).
 		Find(&res).
 		Error
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}

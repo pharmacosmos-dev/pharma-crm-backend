@@ -46,7 +46,7 @@ type CustomerRequest struct {
 	Phone     utils.StringArray `gorm:"type:text[]" json:"phone"`
 	Birthday  *string           `gorm:"birthday" json:"birthday,omitempty" example:"2006-01-02"`
 	Gender    string            `gorm:"gender" json:"gender,omitempty" example:"male/female"`
-	TagId     string            `gorm:"-" json:"tag_id"`
+	TagId     *string           `gorm:"-" json:"tag_id"`
 	CreatedBy string            `gorm:"created_by" json:"created_by"`
 	// Email          string            `gorm:"email" json:"email"`
 	// MaritalStatus  string            `gorm:"marital_status" json:"marital_status"`

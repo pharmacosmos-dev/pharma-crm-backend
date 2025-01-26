@@ -58,6 +58,7 @@ type ImportDetailRequest struct {
 	ReceivedCount       int     `gorm:"received_count" json:"received_count"`
 	AcceptedCount       int     `gorm:"accepted_count" json:"accepted_count"`
 	ReceivedAmount      float64 `gorm:"received_amount" json:"received_amount"`
+	AcceptedAmount      float64 `gorm:"accepted_amount" json:"accepted_amount"`
 }
 
 type ImportUpdateRequest struct {

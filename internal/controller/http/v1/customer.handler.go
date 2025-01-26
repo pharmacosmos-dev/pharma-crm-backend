@@ -69,11 +69,11 @@ func (h *CustomerHandler) Create(c *gin.Context) {
 		Table("customers").
 		Create(&body).Error
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, CREATED, body)
+	handleResponse(c, CREATED, "CREATED")
 }
 
 // Get godoc
