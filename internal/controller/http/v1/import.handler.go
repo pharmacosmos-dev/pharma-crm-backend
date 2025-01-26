@@ -152,8 +152,7 @@ func (h *ImportHandler) List(c *gin.Context) {
 			SUM(import_details.accepted_amount) as accepted_amount, 
 			SUM(import_details.received_count) as received_count, 
 			SUM(import_details.accepted_count) as accepted_count
-		`).
-		Joins("LEFT JOIN import_details ON imports.id = import_details.import_id")
+		`).Joins("LEFT JOIN import_details ON imports.id = import_details.import_id")
 
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
@@ -174,16 +173,17 @@ func (h *ImportHandler) List(c *gin.Context) {
 		query = query.Where("imports.status = ?", status)
 	}
 	if receivePriceFrom != "" {
-		query = query.Where("imports.receive_price >= ?", receivePriceFrom)
+		query = query.Where("received_amount >= ?", receivePriceFrom)
 	}
 	if receivePriceTo != "" {
-		query = query.Where("imports.receive_price <= ?", receivePriceTo)
+		query = query.Where("received_amount <= ?", receivePriceTo)
 	}
 	err = query.Group("imports.id").
 		Order("imports.import_date DESC").
 		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).
+		Debug().
 		Find(&imports).Error
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
