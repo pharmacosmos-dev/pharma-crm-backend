@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS "products" (
   "vat" INT,
   "vat_price" NUMERIC(10, 2),
   "vat_sum" NUMERIC(10, 2),
-  "markup" INT,
+  "markup" INT DEFAULT 0,
   "retail_price" NUMERIC(10, 2),
   "quantity" INT,
   "unit_per_pack" INTEGER DEFAULT 0, -- 1 pochkada necha dona borligini saqlaydi

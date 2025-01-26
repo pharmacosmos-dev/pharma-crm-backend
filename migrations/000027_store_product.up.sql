@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS "store_products"(
     "bonus_percent" INT DEFAULT 0,
     "bonus_amount" NUMERIC(10, 2) DEFAULT 0,
     "vat" INT DEFAULT 0,
+    "markup" INT DEFAULT 0,
     "expire_date" DATE,
     "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()

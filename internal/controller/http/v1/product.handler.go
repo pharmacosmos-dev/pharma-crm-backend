@@ -106,6 +106,7 @@ func (h *ProductHandler) Create(c *gin.Context) {
 			body.StoreProduct[i].SupplyPrice = body.SupplyPrice
 			body.StoreProduct[i].RetailPrice = body.RetailPrice
 			body.StoreProduct[i].Vat = body.Vat
+			body.StoreProduct[i].Markup = body.Markup
 			body.StoreProduct[i].ExpireDate = body.ExpireDate
 			body.StoreProduct[i].BonusAmount = body.BonusAmount
 			body.StoreProduct[i].BonusPercent = body.BonusPercent
@@ -265,7 +266,9 @@ func (h *ProductHandler) List(c *gin.Context) {
 		Select(`
 		p.id, p.name, p.barcode, p.status, p.description, 
 		p.photos, p.manufacturer, p.material_code,
-		sp.supply_price, sp.vat, (sp.retail_price - sp.supply_price) as vat_price, sp.retail_price,
+		sp.supply_price, sp.vat, p.markup, sp.retail_price,
+		((sp.supply_price * sp.vat)/100) as vat_price, 
+		((sp.supply_price*sp.markup)/100) as markup_price, 
 		sum(sp.pack_quantity) as quantity, 
 		(sum(sp.pack_quantity) * sp.retail_price) AS sum,
 		sp.bonus_percent, sp.bonus_amount, u.short_name AS unit_name,
@@ -321,7 +324,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 		Limit(limit).
 		Offset(offset).
 		Group(`p.id, p.name, p.barcode, p.status,
-				sp.supply_price, sp.vat, sp.retail_price,
+				sp.supply_price, sp.vat, sp.retail_price, sp.markup,
 				sp.bonus_percent, sp.bonus_amount, u.short_name, p.created_at`).
 		Order("p.created_at DESC").
 		Find(&res).Error

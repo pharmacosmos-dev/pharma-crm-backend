@@ -19,7 +19,9 @@ type Product struct {
 	Quantity     int               `gorm:"quantity" json:"quantity"`
 	UnitPerPack  int               `gorm:"unit_per_pack" json:"unit_per_pack"`
 	Vat          int               `gorm:"vat" json:"vat"`
+	Markup       int               `gorm:"markup" json:"markup"`
 	VatPrice     float64           `gorm:"vat_price" json:"vat_price"`
+	MarkupPrice  float64           `gorm:"markup_price" json:"markup_price"`
 	Sum          float64           `gorm:"sum" json:"sum"`
 	Description  string            `gorm:"description" json:"description"`
 	Status       string            `gorm:"status" json:"status"`
@@ -50,6 +52,7 @@ type ProductRequest struct {
 	Quantity     int                   `gorm:"quantity" json:"quantity"`
 	UnitPerPack  int                   `gorm:"unit_per_pack" json:"unit_per_pack"`
 	Vat          int                   `gorm:"vat" json:"vat"`
+	Markup       int                   `gorm:"markup" json:"markup"`
 	VatPrice     float64               `gorm:"vat_price" json:"vat_price"`
 	Sum          float64               `gorm:"sum" json:"-"`
 	Description  string                `gorm:"description" json:"description"`
@@ -73,6 +76,7 @@ type ProductUpdateRequest struct {
 	Quantity     int                   `gorm:"quantity" json:"quantity"`
 	UnitPerPack  int                   `gorm:"unit_per_pack" json:"unit_per_pack"`
 	Vat          int                   `gorm:"vat" json:"vat"`
+	Markup       int                   `gorm:"markup" json:"markup"`
 	VatPrice     float64               `gorm:"vat_price" json:"vat_price"`
 	Sum          float64               `gorm:"sum" json:"-"`
 	Description  string                `gorm:"description" json:"description"`
@@ -135,6 +139,7 @@ type ProductRequest1C struct {
 	Sum                 float64 `gorm:"sum" json:"sum"`
 	VatPrice            float64 `gorm:"vat_price" json:"vat_price"`
 	Vat                 string  `gorm:"vat" json:"vat"`
+	Markup              int     `gorm:"markup" json:"markup"`
 	VatSum              float64 `gorm:"vat_sum" json:"vat_sum"`
 	ProductSeriesNumber string  `gorm:"product_series_number" json:"product_series_number"`
 	ExpireDate          string  `gorm:"expire_date" json:"expire_date"`

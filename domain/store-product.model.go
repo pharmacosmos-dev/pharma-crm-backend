@@ -41,6 +41,7 @@ type StoreProductRequest struct {
 	RetailPrice   float64    `gorm:"retail_price" json:"retail_price"`
 	SupplyPrice   float64    `gorm:"supply_price" json:"supply_price"`
 	Vat           int        `gorm:"vat" json:"vat"`
+	Markup        int        `gorm:"markup" json:"markup"`
 	BonusAmount   float64    `gorm:"bonus_amount" json:"bonus_amount"`
 	BonusPercent  float64    `gorm:"bonus_percent" json:"bonus_percent"`
 	ExpireDate    *time.Time `gorm:"expire_date" json:"expire_date"`
