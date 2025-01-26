@@ -31,6 +31,7 @@ func (h *CategoryHander) CategoryRoutes(r *gin.RouterGroup) {
 		category.GET("/list", h.List)
 		category.DELETE("/:id", h.Delete)
 		category.GET("/list/product/:id", h.ListCategoryByProduct)
+		category.GET("/list/filter", h.ListCategory)
 	}
 }
 
@@ -270,7 +271,8 @@ func (h *CategoryHander) List(c *gin.Context) {
 	// Execute the query
 	err = query.
 		Count(&totalCount).
-		Limit(limit).Offset(offset).
+		Limit(limit).
+		Offset(offset).
 		Find(&res).Error
 	if err != nil {
 		h.log.Error(err)
@@ -318,7 +320,7 @@ func (h *CategoryHander) Delete(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /list/product/{id} [get]
+// @Router 	/category/list/product/{id} [get]
 func (h *CategoryHander) ListCategoryByProduct(c *gin.Context) {
 	var res []domain.Category
 	var id = c.Param("id")
@@ -339,5 +341,45 @@ func (h *CategoryHander) ListCategoryByProduct(c *gin.Context) {
 		return
 	}
 
+	handleResponse(c, OK, res)
+}
+
+// ListCategory godoc
+// @Summary Get a category list for filter
+// @Description Get a category list for filter
+// @Tags 	categories
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param 	search query string false "Search"
+// @Param 	limit query int false "Limit"
+// @Param 	offset query int false "Offset"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /category/list/filter [get]
+func (h *CategoryHander) ListCategory(c *gin.Context) {
+	var (
+		search = c.Query("search")
+		res    []domain.Category
+	)
+	limit, offset, err := getPaginationParams(c)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	query := h.db.Model(&domain.Category{})
+
+	if search != "" {
+		search = fmt.Sprintf("%%%s%%", search)
+		query = query.Where("name ILIKE ?", search)
+	}
+	err = query.Limit(limit).Offset(offset).Find(&res).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
 	handleResponse(c, OK, res)
 }

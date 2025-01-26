@@ -191,6 +191,7 @@ func (h *ImportHandler) List(c *gin.Context) {
 
 	// Prepare response
 	data := utils.ListResponse(imports, totalCount, limit, offset)
+
 	handleResponse(c, OK, data)
 }
 

@@ -759,7 +759,7 @@ func (h *ProductHandler) GetProductImports(c *gin.Context) {
 	query := h.db.
 		Model(&domain.ImportDetail{}).
 		Preload("Import", func(db *gorm.DB) *gorm.DB {
-			return db.Preload("Stores")
+			return db.Preload("Store")
 		}).
 		Where("product_material_code = ?", product.MaterialCode)
 	if storeID != "" {

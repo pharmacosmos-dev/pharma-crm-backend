@@ -1894,6 +1894,75 @@ paths:
       summary: Get a category
       tags:
       - categories
+  /category/list/filter:
+    get:
+      consumes:
+      - application/json
+      description: Get a category list for filter
+      parameters:
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a category list for filter
+      tags:
+      - categories
+  /category/list/product/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get a category from the request body
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a category
+      tags:
+      - categories
   /customer:
     post:
       consumes:
@@ -3165,37 +3234,6 @@ paths:
       summary: List imports
       tags:
       - imports
-  /list/product/{id}:
-    get:
-      consumes:
-      - application/json
-      description: Get a category from the request body
-      parameters:
-      - description: Product ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Get a category
-      tags:
-      - categories
   /login:
     post:
       consumes:
