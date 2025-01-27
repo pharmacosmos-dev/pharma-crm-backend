@@ -60,6 +60,7 @@ monthly_sales AS (
 			store_products sp
 	)
 	SELECT
+		gen_random_uuid() AS id,
 		st.store_id,
 		s.name AS store_name,
 		st.product_id,

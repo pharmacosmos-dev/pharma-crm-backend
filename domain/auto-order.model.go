@@ -1,6 +1,7 @@
 package domain
 
 type AutoOrder struct {
+	Id              string  `gorm:"id" json:"id"`
 	StoreId         string  `gorm:"store_id" json:"store_id"`
 	ProductId       string  `gorm:"product_id" json:"product_id"`
 	StoreName       string  `gorm:"store_name" json:"store_name"`
