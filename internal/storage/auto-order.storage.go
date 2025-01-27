@@ -7,14 +7,24 @@ import (
 	"github.com/pharma-crm-backend/domain"
 )
 
-func (s *Storage) ListAutoOrder(ctx context.Context, limit, offset int, storeID string) ([]domain.AutoOrder, int64, error) {
+func (s *Storage) ListAutoOrder(ctx context.Context, limit, offset int, storeID, search string) ([]domain.AutoOrder, int64, error) {
 	var (
-		autoOrders     []domain.AutoOrder
-		totalCount     int64
-		storeCondition string
+		autoOrders      []domain.AutoOrder
+		totalCount      int64
+		storeCondition  string
+		searchCondition string
 	)
+	// Add store filter if storeID is provided
 	if storeID != "" {
 		storeCondition = fmt.Sprintf("WHERE st.store_id = '%s'", storeID)
+	}
+
+	// Add search filter if search term is provided
+	if search != "" {
+		search = fmt.Sprintf("%%%s%%", search)
+		searchCondition = fmt.Sprintf(`%s AND  p.name ILIKE '%s'`, storeCondition, search)
+	} else {
+		searchCondition = storeCondition // Use only store filter if no search term
 	}
 	query := fmt.Sprintf(`
 	WITH weekly_sales AS (
@@ -89,7 +99,7 @@ monthly_sales AS (
 		monthly_sales m ON st.store_id = m.store_id AND st.product_id = m.product_id 
 	%s
 	ORDER BY suggested_order DESC  LIMIT ? OFFSET ?;
-	`, storeCondition)
+	`, searchCondition)
 	err := s.db.Raw(query, limit, offset).Scan(&autoOrders).Error
 	if err != nil {
 		return nil, 0, err
