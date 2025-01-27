@@ -83,7 +83,7 @@ monthly_sales AS (
 		-- Suggested Order: Based on safety stock (e.g., weekly sales x lead time)
 		CASE
 			WHEN (w.weekly_quantity-st.current_stock)*1.1>0 
-				THEN (w.weekly_quantity-st.current_stock)*1.1
+				THEN ROUND((w.weekly_quantity-st.current_stock)*1.1)
 			ELSE 0
 		END AS suggested_order,
 		COUNT(*) OVER() AS total_count
