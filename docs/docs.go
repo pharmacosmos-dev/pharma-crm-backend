@@ -16,6 +16,60 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/auto-order/list": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "List auto orders",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auto_orders"
+                ],
+                "summary": "List auto orders",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/brand": {
             "post": {
                 "security": [
@@ -8349,6 +8403,9 @@ const docTemplate = `{
         "domain.ImportDetailRequest": {
             "type": "object",
             "properties": {
+                "accepted_amount": {
+                    "type": "number"
+                },
                 "accepted_count": {
                     "type": "integer"
                 },
@@ -8558,6 +8615,9 @@ const docTemplate = `{
                 "manufacturer": {
                     "type": "string"
                 },
+                "markup": {
+                    "type": "integer"
+                },
                 "material_code": {
                     "type": "integer"
                 },
@@ -8610,6 +8670,9 @@ const docTemplate = `{
                 },
                 "manufacturer": {
                     "type": "string"
+                },
+                "markup": {
+                    "type": "integer"
                 },
                 "material_code": {
                     "type": "integer"
@@ -8672,6 +8735,9 @@ const docTemplate = `{
                 },
                 "manufacturer": {
                     "type": "string"
+                },
+                "markup": {
+                    "type": "integer"
                 },
                 "name": {
                     "type": "string"
@@ -8965,6 +9031,9 @@ const docTemplate = `{
                 "expire_date": {
                     "type": "string"
                 },
+                "markup": {
+                    "type": "integer"
+                },
                 "pack_quantity": {
                     "type": "integer"
                 },
@@ -9051,6 +9120,9 @@ const docTemplate = `{
         "domain.UnitTypeRequest": {
             "type": "object",
             "properties": {
+                "codename": {
+                    "type": "string"
+                },
                 "short_name": {
                     "type": "string"
                 },

@@ -62,6 +62,7 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		h.NewProduct1cHandler(v1c)
 		h.NewTokenGeneratorHandler(public)
 		h.NewShiftHandler(v1)
+		h.NewAutoOrderHandler(v1)
 	}
 }
 
