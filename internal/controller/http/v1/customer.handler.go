@@ -48,8 +48,9 @@ func (h *CustomerHandler) CustomerRoutes(r *gin.RouterGroup) {
 // @Router /customer [post]
 func (h *CustomerHandler) Create(c *gin.Context) {
 	var (
-		body domain.CustomerRequest
-		err  error
+		body     domain.CustomerRequest
+		customer domain.Customer
+		err      error
 	)
 	err = c.ShouldBindJSON(&body)
 	if err != nil {
@@ -65,15 +66,19 @@ func (h *CustomerHandler) Create(c *gin.Context) {
 	body.Id = uuid.New().String()
 	body.CreatedBy = cast.ToString(createdBy)
 	body.Phone = utils.StringArray(body.Phone)
-	err = h.db.WithContext(c.Request.Context()).
-		Table("customers").
-		Create(&body).Error
+	err = h.db.
+		WithContext(c.Request.Context()).Raw(`
+		INSERT INTO customers 
+			(id, store_id, first_name, last_name, phone, gender, birthday, created_by)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+		body.Id, body.StoreId, body.FirstName, body.LastName,
+		body.Phone, body.Gender, body.Birthday, body.CreatedBy).Scan(&customer).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, CREATED, "CREATED")
+	handleResponse(c, CREATED, customer)
 }
 
 // Get godoc
