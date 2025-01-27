@@ -12,40 +12,40 @@ func (s *Storage) ListAutoOrder(ctx context.Context, limit, offset int) ([]domai
 		totalCount int64
 	)
 	err := s.db.Raw(`
-	WITH weekly_sales AS (
-		SELECT
-			sp.store_id,
-			sp.product_id,
-			SUM(ci.quantity) AS weekly_quantity
-		FROM
-			sales s
-		JOIN
-			cart_items ci ON s.id = ci.sale_id
-		JOIN
-			store_products sp ON ci.store_product_id = sp.id
-		WHERE
-			s.status = 'completed'
-			AND s.created_at >= NOW() - INTERVAL '1 week'
-		GROUP BY
-			sp.store_id, sp.product_id
-	),
-	monthly_sales AS (
-		SELECT
-			sp.store_id,
-			sp.product_id,
-			SUM(ci.quantity) AS monthly_quantity
-		FROM
-			sales s
-		JOIN
-			cart_items ci ON s.id = ci.sale_id
-		JOIN
-			store_products sp ON ci.store_product_id = sp.id
-		WHERE
-			s.status = 'completed'
-			AND s.created_at >= NOW() - INTERVAL '1 month'
-		GROUP BY
-			sp.store_id, sp.product_id
-	),
+WITH weekly_sales AS (
+    SELECT
+        sp.store_id,
+        sp.product_id,
+        SUM(ci.quantity) AS weekly_quantity
+    FROM
+        sales s
+    JOIN
+        cart_items ci ON s.id = ci.sale_id
+    JOIN
+        store_products sp ON ci.store_product_id = sp.id
+    WHERE
+        s.status = 'completed'
+        AND s.created_at >= NOW() - INTERVAL '1 week'
+    GROUP BY
+        sp.store_id, sp.product_id
+),
+monthly_sales AS (
+    SELECT
+        sp.store_id,
+        sp.product_id,
+        SUM(ci.quantity) AS monthly_quantity
+    FROM
+        sales s
+    JOIN
+        cart_items ci ON s.id = ci.sale_id
+    JOIN
+        store_products sp ON ci.store_product_id = sp.id
+    WHERE
+        s.status = 'completed'
+        AND s.created_at >= NOW() - INTERVAL '1 month'
+    GROUP BY
+        sp.store_id, sp.product_id
+),
 	stock AS (
 		SELECT
 			sp.store_id,
@@ -60,10 +60,14 @@ func (s *Storage) ListAutoOrder(ctx context.Context, limit, offset int) ([]domai
 		st.product_id,
 		p.name AS product_name,
 		st.current_stock,
-		w.weekly_quantity,
 		m.monthly_quantity,
+		w.weekly_quantity,
+		(w.weekly_quantity-st.current_stock)*1.1 AS seven_day_order_growth,
+		((w.weekly_quantity-st.current_stock)*1.1)*1 AS order_lead_time,
+		-- Suggested Order: Based on safety stock (e.g., weekly sales x lead time)
 		CASE
-			WHEN st.current_stock < (w.weekly_quantity * 1.5) THEN (w.weekly_quantity * 1.5) - st.current_stock
+			WHEN (w.weekly_quantity-st.current_stock)*1.1>0 
+				THEN (w.weekly_quantity-st.current_stock)*1.1
 			ELSE 0
 		END AS suggested_order,
 		COUNT(*) OVER() AS total_count
