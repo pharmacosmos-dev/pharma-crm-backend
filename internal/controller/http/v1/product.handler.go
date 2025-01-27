@@ -259,9 +259,69 @@ func (h *ProductHandler) List(c *gin.Context) {
 		status          = c.Query("status")
 	)
 
-	// Build the query
-	query := h.db.Model(&domain.Product{}).
+	// Build the base query
+	baseQuery := h.db.Model(&domain.Product{}).
 		Table("products p").
+		Joins("LEFT JOIN store_products sp ON sp.product_id = p.id").
+		Joins("LEFT JOIN unit_types u ON p.unit_type_id = u.id")
+
+	// Apply filters
+	if storeIDParam != "" {
+		baseQuery = baseQuery.Where("sp.store_id = ?", storeIDParam)
+	}
+	if status != "" {
+		switch status {
+		case "active":
+			baseQuery = baseQuery.Where("p.status = ?", "active")
+		case "inactive":
+			baseQuery = baseQuery.Where("p.status = ?", "inactive")
+		case "low-stock":
+			baseQuery = baseQuery.Where("sp.small_quantity = sp.pack_quantity")
+		case "zero-stock":
+			baseQuery = baseQuery.Where("sp.pack_quantity = ? AND sp.unit_quantity = ?", 0, 0)
+		case "expired":
+			baseQuery = baseQuery.Where("sp.expire_date < ?", time.Now().Add(time.Hour*5))
+		case "imminent":
+			baseQuery = baseQuery.Where("sp.expire_date BETWEEN ? AND ?", time.Now(), time.Now().AddDate(0, 0, 10))
+		}
+	} else {
+		baseQuery = baseQuery.Where("p.status = ?", "active")
+	}
+
+	if searchField != "" {
+		searchField = fmt.Sprintf("%%%s%%", searchField)
+		baseQuery = baseQuery.Where("p.name ILIKE ? OR p.barcode LIKE ?", searchField, searchField)
+	}
+	if supplyPriceFrom != "" {
+		baseQuery = baseQuery.Where("sp.supply_price >= ?", supplyPriceFrom)
+	}
+	if supplyPriceTo != "" {
+		baseQuery = baseQuery.Where("sp.supply_price <= ?", supplyPriceTo)
+	}
+	if retailPriceFrom != "" {
+		baseQuery = baseQuery.Where("sp.retail_price >= ?", retailPriceFrom)
+	}
+	if retailPriceTo != "" {
+		baseQuery = baseQuery.Where("sp.retail_price <= ?", retailPriceTo)
+	}
+	if producerName != "" {
+		baseQuery = baseQuery.Where("p.manufacturer = ?", producerName)
+	}
+
+	// Count total records using a subquery
+	countQuery := baseQuery.Session(&gorm.Session{}).
+		Select("COUNT(DISTINCT p.id)").
+		Table("products p")
+
+	err = countQuery.Count(&totalCount).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	// Execute main query with all fields
+	err = baseQuery.
 		Preload("Categories").
 		Select(`
 		p.id, p.name, p.barcode, p.status, p.description, 
@@ -273,66 +333,20 @@ func (h *ProductHandler) List(c *gin.Context) {
 		(sum(sp.pack_quantity) * sp.retail_price) AS sum,
 		sp.bonus_percent, sp.bonus_amount, u.short_name AS unit_name,
 		p.created_at`).
-		Joins("LEFT JOIN store_products sp ON sp.product_id = p.id").
-		Joins("INNER JOIN unit_types u ON p.unit_type_id = u.id")
-
-	if storeIDParam != "" {
-		query = query.
-			Where("sp.store_id = ?", storeIDParam)
-	}
-	if status != "" {
-		switch status {
-		case "active":
-			query = query.Where("p.status = ?", "active")
-		case "inactive":
-			query = query.Where("p.status = ?", "inactive")
-		case "low-stock":
-			query = query.Where("sp.small_quantity = sp.pack_quantity")
-		case "zero-stock":
-			query = query.Where("sp.pack_quantity = ? AND sp.unit_quantity = ?", 0, 0)
-		case "expired":
-			query = query.Where("sp.expire_date < ?", time.Now().Add(time.Hour*5))
-		case "imminent":
-			query = query.Where("sp.expire_date BETWEEN ? AND ?", time.Now(), time.Now().AddDate(0, 0, 10))
-		}
-	} else {
-		query = query.Where("p.status = ?", "active")
-	}
-
-	if searchField != "" {
-		searchField = fmt.Sprintf("%%%s%%", searchField)
-		query = query.Where("p.name ILIKE ? OR p.barcode LIKE ?", searchField, searchField)
-	}
-	if supplyPriceFrom != "" {
-		query = query.Where("sp.supply_price >= ?", supplyPriceFrom)
-	}
-	if supplyPriceTo != "" {
-		query = query.Where("sp.supply_price <= ?", supplyPriceTo)
-	}
-	if retailPriceFrom != "" {
-		query = query.Where("sp.retail_price >= ?", retailPriceFrom)
-	}
-	if retailPriceTo != "" {
-		query = query.Where("sp.retail_price <= ?", retailPriceTo)
-	}
-	if producerName != "" {
-		query = query.Where("p.manufacturer = ?", producerName)
-	}
-
-	err = query.
-		Count(&totalCount).
-		Limit(limit).
-		Offset(offset).
 		Group(`p.id, p.name, p.barcode, p.status,
 				sp.supply_price, sp.vat, sp.retail_price, sp.markup,
 				sp.bonus_percent, sp.bonus_amount, u.short_name, p.created_at`).
 		Order("p.created_at DESC").
+		Limit(limit).
+		Offset(offset).
 		Find(&res).Error
+
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+
 	// Prepare the response
 	result := utils.ListResponse(res, totalCount, limit, offset)
 	handleResponse(c, OK, result)
