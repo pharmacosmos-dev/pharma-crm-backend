@@ -2,17 +2,22 @@ package storage
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/pharma-crm-backend/domain"
 )
 
 func (s *Storage) ListAutoOrder(ctx context.Context, limit, offset int, storeID string) ([]domain.AutoOrder, int64, error) {
 	var (
-		autoOrders []domain.AutoOrder
-		totalCount int64
+		autoOrders     []domain.AutoOrder
+		totalCount     int64
+		storeCondition string
 	)
-	err := s.db.Raw(`
-WITH weekly_sales AS (
+	if storeID != "" {
+		storeCondition = fmt.Sprintf("WHERE st.store_id = '%s'", storeID)
+	}
+	query := fmt.Sprintf(`
+	WITH weekly_sales AS (
     SELECT
         sp.store_id,
         sp.product_id,
@@ -81,8 +86,10 @@ monthly_sales AS (
 		weekly_sales w ON st.store_id = w.store_id AND st.product_id = w.product_id
 	LEFT JOIN
 		monthly_sales m ON st.store_id = m.store_id AND st.product_id = m.product_id 
+	%s
 	ORDER BY suggested_order DESC  LIMIT ? OFFSET ?;
-	`, limit, offset).Scan(&autoOrders).Error
+	`, storeCondition)
+	err := s.db.Raw(query, limit, offset).Scan(&autoOrders).Error
 	if err != nil {
 		return nil, 0, err
 	}

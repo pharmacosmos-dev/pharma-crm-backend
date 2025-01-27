@@ -16,6 +16,15 @@ definitions:
       store_code:
         type: integer
     type: object
+  domain.AutoOrderConfirm:
+    properties:
+      adjusted_order:
+        type: number
+      product_id:
+        type: string
+      store_id:
+        type: string
+    type: object
   domain.BrandRequest:
     properties:
       logo:
@@ -832,6 +841,40 @@ info:
   title: Pharma API docs
   version: "1.0"
 paths:
+  /auto-order/confirm:
+    post:
+      consumes:
+      - application/json
+      description: Confirm auto order
+      parameters:
+      - description: Auto order information
+        in: body
+        name: input
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/domain.AutoOrderConfirm'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Confirm auto order
+      tags:
+      - auto_orders
   /auto-order/list:
     get:
       consumes:
@@ -846,6 +889,10 @@ paths:
         in: query
         name: offset
         type: integer
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
       produces:
       - application/json
       responses:
