@@ -6,7 +6,7 @@ import (
 	"github.com/pharma-crm-backend/domain"
 )
 
-func (s *Storage) ListAutoOrder(ctx context.Context, limit, offset int) ([]domain.AutoOrder, int64, error) {
+func (s *Storage) ListAutoOrder(ctx context.Context, limit, offset int, storeID string) ([]domain.AutoOrder, int64, error) {
 	var (
 		autoOrders []domain.AutoOrder
 		totalCount int64
@@ -62,7 +62,7 @@ monthly_sales AS (
 		st.current_stock,
 		m.monthly_quantity,
 		w.weekly_quantity,
-		(w.weekly_quantity-st.current_stock)*1.1 AS seven_day_order_growth,
+		(w.weekly_quantity-st.current_stock)*1.1 AS order_growth,
 		((w.weekly_quantity-st.current_stock)*1.1)*1 AS order_lead_time,
 		-- Suggested Order: Based on safety stock (e.g., weekly sales x lead time)
 		CASE
@@ -80,7 +80,8 @@ monthly_sales AS (
 	LEFT JOIN
 		weekly_sales w ON st.store_id = w.store_id AND st.product_id = w.product_id
 	LEFT JOIN
-		monthly_sales m ON st.store_id = m.store_id AND st.product_id = m.product_id LIMIT ? OFFSET ?;
+		monthly_sales m ON st.store_id = m.store_id AND st.product_id = m.product_id 
+	ORDER BY suggested_order DESC  LIMIT ? OFFSET ?;
 	`, limit, offset).Scan(&autoOrders).Error
 	if err != nil {
 		return nil, 0, err

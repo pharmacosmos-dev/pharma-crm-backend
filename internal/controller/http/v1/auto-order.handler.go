@@ -49,7 +49,7 @@ func (h *AutoOrderHandler) Confirm(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	autoOrders, _, err = h.storage.ListAutoOrder(c.Request.Context(), 1000, 0)
+	autoOrders, _, err = h.storage.ListAutoOrder(c.Request.Context(), 1000, 0, "")
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -68,6 +68,7 @@ func (h *AutoOrderHandler) Confirm(c *gin.Context) {
 // @Produce json
 // @Param 	limit query int false "Limit"
 // @Param 	offset query int false "Offset"
+// @Param 	store_id query string false "Store ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -77,6 +78,7 @@ func (h *AutoOrderHandler) List(c *gin.Context) {
 		autoOrders []domain.AutoOrder
 		err        error
 		totalCount int64
+		storeID    = c.Query("store_id")
 	)
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
@@ -84,7 +86,7 @@ func (h *AutoOrderHandler) List(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	autoOrders, totalCount, err = h.storage.ListAutoOrder(c.Request.Context(), limit, offset)
+	autoOrders, totalCount, err = h.storage.ListAutoOrder(c.Request.Context(), limit, offset, storeID)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
