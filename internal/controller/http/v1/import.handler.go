@@ -8,7 +8,6 @@ import (
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type ImportHandler struct {
@@ -448,25 +447,21 @@ func (h *ImportHandler) AcceptImport(c *gin.Context) {
 		return
 	}
 	// Update store_products
-	var storeProducts []domain.StoreProduct
+	var storeProducts []domain.StoreProductRequest
 	for i := range importDetails {
-		storeProducts = append(storeProducts, domain.StoreProduct{
-			StoreID:             importData.StoreID,
-			ProductID:           *importDetails[i].ProductID,
-			ProductMaterialCode: importDetails[i].ProductMaterialCode,
-			Quantity:            importDetails[i].AcceptedCount,
+		storeProducts = append(storeProducts, domain.StoreProductRequest{
+			StoreID:   importData.StoreID,
+			ProductID: *importDetails[i].ProductID,
+			// ProductMaterialCode: importDetails[i].ProductMaterialCode,
+			// Quantity:     importDetails[i].AcceptedCount,
+			Vat:          12,
+			RetailPrice:  importDetails[i].AcceptedAmount / float64(importDetails[i].AcceptedCount),
+			PackQuantity: importDetails[i].AcceptedCount,
 		})
 	}
 	err = h.db.
 		WithContext(c.Request.Context()).
-		Clauses(clause.OnConflict{
-			Columns: []clause.Column{
-				{Name: "product_id"},
-			},
-			DoUpdates: clause.Assignments(map[string]interface{}{
-				"quantity": gorm.Expr("store_products.quantity + EXCLUDED.quantity"),
-			}),
-		}).
+		Table("store_products").
 		Create(&storeProducts).Error
 	if err != nil {
 		h.log.Error(err)
