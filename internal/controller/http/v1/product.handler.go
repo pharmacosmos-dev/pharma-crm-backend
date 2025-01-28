@@ -401,6 +401,7 @@ func (h *ProductHandler) Update(c *gin.Context) {
 				body.StoreProduct[i].RetailPrice = body.RetailPrice
 				body.StoreProduct[i].SupplyPrice = body.SupplyPrice
 				body.StoreProduct[i].Vat = body.Vat
+				body.StoreProduct[i].Markup = body.Markup
 				body.StoreProduct[i].UnitPerPack = body.UnitPerPack
 				body.StoreProduct[i].UnitQuantity = body.UnitPerPack * body.StoreProduct[i].PackQuantity
 				body.StoreProduct[i].BonusAmount = body.BonusAmount
