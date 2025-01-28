@@ -68,6 +68,7 @@ func Load() Config {
 	c.App.Version = cast.ToString(GetOrReturnDefaultValue("APP_VERSION", "1.0.0"))
 	c.HTTP.Port = cast.ToString(GetOrReturnDefaultValue("HTTP_PORT", "8080"))
 	c.Log.Level = cast.ToString(GetOrReturnDefaultValue("LOG_LEVEL", "debug"))
+
 	c.PG.DbHost = cast.ToString(GetOrReturnDefaultValue("PG_HOST", "localhost"))
 	c.PG.DbPort = cast.ToString(GetOrReturnDefaultValue("PG_PORT", "5432"))
 	c.PG.DbUser = cast.ToString(GetOrReturnDefaultValue("PG_USER", "username"))

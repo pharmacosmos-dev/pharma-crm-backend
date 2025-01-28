@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/pharma-crm-backend/domain"
-	"gorm.io/gorm/clause"
 )
 
 func (s *Storage) ListStoreProduct(ctx context.Context, storeID string, search string, limit, offset int) ([]*domain.StoreProductResponse, error) {
@@ -120,25 +119,11 @@ func (s *Storage) UpdateStoreProduct(ctx context.Context, req domain.StoreProduc
 	err := s.db.
 		WithContext(ctx).
 		Table("store_products").
-		Clauses(clause.OnConflict{
-			Columns: []clause.Column{{Name: "store_id"}, {Name: "product_id"}},
-			DoUpdates: clause.AssignmentColumns([]string{
-				"pack_quantity",
-				"unit_quantity",
-				"unit_per_pack",
-				"small_quantity",
-				"retail_price",
-				"supply_price",
-				"vat",
-				"bonus_amount",
-				"bonus_percent",
-				"expire_date",
-			})}).
-		Create(&req).Error
+		Where("product_id = ? AND store_id = ?", req.ProductID, req.StoreID).
+		Updates(&req).Error
 	if err != nil {
 		s.log.Warn("Error on updating store product: %v", err.Error())
 		return err
 	}
-
 	return nil
 }
