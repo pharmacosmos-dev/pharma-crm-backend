@@ -4964,36 +4964,6 @@ paths:
       tags:
       - sale_payments
   /sale/{id}:
-    delete:
-      consumes:
-      - application/json
-      description: Delete a sale from the request body
-      parameters:
-      - description: sale ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Delete a sale
-      tags:
-      - sales
     get:
       consumes:
       - application/json
@@ -5110,9 +5080,9 @@ paths:
         in: query
         name: employee_id
         type: string
-      - description: Cash Box ID
+      - description: Store ID
         in: query
-        name: cash_box_id
+        name: store_id
         type: string
       - description: Start Date
         in: query

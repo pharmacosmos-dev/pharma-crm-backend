@@ -122,9 +122,11 @@ func (h *CustomerHandler) Get(c *gin.Context) {
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /customer/list [get]
-func (h *CustomerHandler) List(c *gin.Context) {
-	var totalAmount int64
-	var search = c.Query("search")
+func (h *CustomerHandler) List(c *gin.Context) {	
+	var (
+		totalAmount int64
+		search      = c.Query("search")
+	)
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
 		handleResponse(c, BadRequest, err.Error())

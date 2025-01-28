@@ -6594,8 +6594,8 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Cash Box ID",
-                        "name": "cash_box_id",
+                        "description": "Store ID",
+                        "name": "store_id",
                         "in": "query"
                     },
                     {
@@ -6714,53 +6714,6 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/domain.SaleUpdateRequest"
                         }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Delete a sale from the request body",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "sales"
-                ],
-                "summary": "Delete a sale",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "sale ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
                     }
                 ],
                 "responses": {

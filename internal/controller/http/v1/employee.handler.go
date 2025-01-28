@@ -178,10 +178,9 @@ func (h *EmployeeHandler) List(c *gin.Context) {
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
 		query = query.Where(`
-		first_name ILIKE ? 
-		OR 
+		first_name ILIKE ? OR last_name ILIKE ? OR
 		phone LIKE ? OR CAST(public_id AS TEXT) LIKE ?`,
-			search, search, search)
+			search, search, search, search)
 	}
 	if status != "" {
 		query = query.Where("status = ?", status)
@@ -192,6 +191,7 @@ func (h *EmployeeHandler) List(c *gin.Context) {
 		Limit(limit).
 		Offset(offset).
 		Order("created_at DESC").
+		Debug().
 		Find(&res)
 
 	if query.Error != nil {

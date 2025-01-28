@@ -93,7 +93,8 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	handleResponse(c, OK, data)
 }
 
-func (h *AuthHandler) Logout(c *gin.Context) {}
+func (h *AuthHandler) Logout(c *gin.Context) {
+}
 
 func (h *AuthHandler) UpdateAccessToken(c *gin.Context) {
 }

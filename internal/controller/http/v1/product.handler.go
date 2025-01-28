@@ -839,6 +839,7 @@ func (h *ProductHandler) ListStoreProductProductId(c *gin.Context) {
 		Count(&totalCount).
 		Limit(limit).Offset(offset).
 		Order("created_at desc").
+		Debug().
 		Find(&res).Error
 	if err != nil {
 		h.log.Error(err)
@@ -849,6 +850,7 @@ func (h *ProductHandler) ListStoreProductProductId(c *gin.Context) {
 		res[i].Quantity = res[i].PackQuantity
 	}
 	result := utils.ListResponse(res, totalCount, limit, offset)
+
 	handleResponse(c, OK, result)
 }
 

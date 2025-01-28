@@ -27,6 +27,25 @@ type SaleRequest struct {
 	CashBoxOperationId string `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
 }
 
+type SaleResponse struct {
+	ID                 string         `gorm:"id" json:"id"`
+	EmployeeID         string         `gorm:"employee_id" json:"employee_id"`
+	CashBoxOperationId string         `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
+	CustomerID         string         `gorm:"customer_id" json:"customer_id"`
+	SaleNumber         int            `gorm:"sale_number" json:"sale_number"`
+	TotalDiscount      float64        `gorm:"total_discount" json:"total_discount"`
+	TotalAmount        float64        `gorm:"total_amount" json:"total_amount"`
+	ProductCount       int            `gorm:"product_count" json:"product_count"`
+	CreatedAt          *time.Time     `gorm:"created_at" json:"created_at"`
+	UpdatedAt          *time.Time     `gorm:"updated_at" json:"updated_at"`
+	StoreName          string         `gorm:"store_name" json:"store_name"`
+	CashBoxName        string         `gorm:"cash_box_name" json:"cash_box_name"`
+	Employee           *Employee      `gorm:"foreignKey:EmployeeID" json:"employee"`
+	Customer           *Customer      `gorm:"foreignKey:CustomerID" json:"customer"`
+	SalePayments       []*SalePayment `gorm:"foreignKey:SaleID" json:"sale_payments"`
+	CartItems          []*CartItem    `gorm:"foreignKey:SaleId" json:"cart_items"`
+}
+
 // SaleUpdateRequest structure for update
 type SaleUpdateRequest struct {
 	ID            string  `gorm:"id" json:"-"`

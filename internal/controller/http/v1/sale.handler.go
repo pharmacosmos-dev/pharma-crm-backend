@@ -37,7 +37,6 @@ func (h *SaleHandler) SaleRoutes(r *gin.RouterGroup) {
 		sale.GET("/:id", h.Get)
 		sale.GET("/list", h.List)
 		sale.PUT("/:id", h.Update)
-		sale.DELETE("/:id", h.Delete)
 		sale.POST("/final", h.FinalSale)
 	}
 }
@@ -111,10 +110,11 @@ func (h *SaleHandler) Get(c *gin.Context) {
 		Preload("SalePayments", func(db *gorm.DB) *gorm.DB {
 			return db.Preload("PaymentType")
 		}).
-		Preload("CartItems").First(&res, "id = ?", id).Error
+		Preload("CartItems").
+		First(&res, "id = ?", id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			handleResponse(c, OK, nil)
+			handleResponse(c, OK, "Sale info not found")
 			return
 		}
 		h.log.Error(err)
@@ -129,12 +129,12 @@ func (h *SaleHandler) Get(c *gin.Context) {
 // @Description Get a sale from the request body
 // @Tags sales
 // @Security     BearerAuth
-// @Accept json
+// @Accept 	json
 // @Produce json
 // @Param limit query int false "Limit"
 // @Param offset query int false "Offset"
 // @Param employee_id query string false "Employee ID"
-// @Param cash_box_id query string false "Cash Box ID"
+// @Param store_id query string false "Store ID"
 // @Param start_date query string false "Start Date"
 // @Param end_date query string false "End Date"
 // @Success 200 {object} v1.Response
@@ -142,34 +142,44 @@ func (h *SaleHandler) Get(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /sale/list [get]
 func (h *SaleHandler) List(c *gin.Context) {
-	var totalAmount int64
-	startDate := c.Query("start_date")
-	endDate := c.Query("end_date")
+	var (
+		totalAmount int64
+		startDate   = c.Query("start_date")
+		endDate     = c.Query("end_date")
+		employeeID  = c.Query("employee_id")
+		storeID     = c.Query("store_id")
+	)
+
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 
-	res := []domain.Sale{}
-	query := h.db.Model(&domain.Sale{}).
+	res := []domain.SaleResponse{}
+	query := h.db.Model(&domain.Sale{}).Table("sales s").
 		Preload("Employee").
 		Preload("Customer").
 		Preload("SalePayments", func(db *gorm.DB) *gorm.DB {
 			return db.Preload("PaymentType")
-		})
+		}).
+		Select("s.*, stores.name AS store_name, cash_boxes.name AS cash_box_name").
+		Joins("JOIN employees ON s.employee_id = employees.id").
+		Joins("JOIN stores ON employees.store_id = stores.id").
+		Joins("JOIN cashbox_operations co ON s.cash_box_operation_id = co.id").
+		Joins("JOIN cash_boxes ON co.cash_box_id = cash_boxes.id")
 
-	if employeeID := c.Query("employee_id"); employeeID != "" {
-		query = query.Where("employee_id = ?", employeeID)
+	if employeeID != "" {
+		query = query.Where("s.employee_id = ?", employeeID)
 	}
-	if cashBoxID := c.Query("cash_box_id"); cashBoxID != "" {
-		query = query.Where("cash_box_id = ?", cashBoxID)
+	if storeID != "" {
+		query = query.Where("stores.id = ?", storeID)
 	}
 	if startDate != "" && endDate != "" {
-		query = query.Where("created_at BETWEEN ? AND ?", startDate, endDate)
+		query = query.Where("s.created_at BETWEEN ? AND ?", startDate, endDate)
 	}
 
-	err = query.Where("status = ?", "completed").
+	err = query.
 		Count(&totalAmount).
 		Limit(limit).
 		Offset(offset).
@@ -222,29 +232,6 @@ func (h *SaleHandler) Update(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, body)
-}
-
-// Delete godoc
-// @Summary Delete a sale
-// @Description Delete a sale from the request body
-// @Tags sales
-// @Security     BearerAuth
-// @Accept json
-// @Produce json
-// @Param id path string true "sale ID"
-// @Success 200 {object} v1.Response
-// @Failure 400 {object} v1.Response
-// @Failure 500 {object} v1.Response
-// @Router /sale/{id} [delete]
-func (h *SaleHandler) Delete(c *gin.Context) {
-	var id = c.Param("id")
-	err := h.db.Delete(&domain.Sale{}, "id = ?", id).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	handleResponse(c, OK, "DELETED")
 }
 
 // FinalSale
