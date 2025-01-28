@@ -44,6 +44,7 @@ type SaleResponse struct {
 	Customer           *Customer      `gorm:"foreignKey:CustomerID" json:"customer"`
 	SalePayments       []*SalePayment `gorm:"foreignKey:SaleID" json:"sale_payments"`
 	CartItems          []*CartItem    `gorm:"foreignKey:SaleId" json:"cart_items"`
+	Product            []ProductRes   `gorm:"-" json:"products"`
 }
 
 // SaleUpdateRequest structure for update

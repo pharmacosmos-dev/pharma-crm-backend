@@ -101,17 +101,16 @@ func (h *SaleHandler) Create(c *gin.Context) {
 // @Router /sale/{id} [get]
 func (h *SaleHandler) Get(c *gin.Context) {
 	var (
-		res domain.Sale
+		res domain.SaleResponse
 		id  = c.Param("id")
 	)
 	err := h.db.
+		Table("sales").
 		Preload("Employee").
 		Preload("Customer").
 		Preload("SalePayments", func(db *gorm.DB) *gorm.DB {
 			return db.Preload("PaymentType")
-		}).
-		Preload("CartItems").
-		First(&res, "id = ?", id).Error
+		}).First(&res, "id = ?", id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			handleResponse(c, OK, "Sale info not found")
@@ -121,6 +120,23 @@ func (h *SaleHandler) Get(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	var products []domain.ProductRes
+	err = h.db.Raw(`
+	SELECT 
+		p.id, p.name, p.barcode, sp.retail_price, p.bonus_percent, 
+		p.bonus_amount, p.photos, ci.quantity, 
+		ci.unit_quantity, ci.total_price, u.short_name
+	FROM cart_items ci
+	JOIN store_products sp ON ci.store_product_id = sp.id
+	JOIN products p ON sp.product_id = p.id
+	LEFT JOIN unit_types u ON p.unit_type_id = u.id
+	WHERE ci.sale_id = ?`, id).Scan(&products).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	res.Product = products
 	handleResponse(c, OK, res)
 }
 
