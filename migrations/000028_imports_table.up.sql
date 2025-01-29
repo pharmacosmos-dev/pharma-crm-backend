@@ -36,8 +36,8 @@ CREATE TABLE IF NOT EXISTS "import_details" (
     "received_count" INT DEFAULT 0,
     "accepted_count" INT DEFAULT 0,
     "canceled_count" INT DEFAULT 0,
-    "received_amount" DECIMAL(10, 2) DEFAULT 0.00,
-    "accepted_amount" DECIMAL(10, 2) DEFAULT 0.00,
+    "received_amount" NUMERIC(20, 2) DEFAULT 0.00,
+    "accepted_amount" NUMERIC(20, 2) DEFAULT 0.00,
     "created_at" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     "updated_at" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
