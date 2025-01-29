@@ -205,7 +205,7 @@ func (h *SaleHandler) List(c *gin.Context) {
 		Count(&totalAmount).
 		Limit(limit).
 		Offset(offset).
-		Order("created_at DESC").
+		Order("s.created_at DESC").
 		Find(&res).Error
 
 	if err != nil {

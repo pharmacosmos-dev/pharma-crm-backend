@@ -122,7 +122,7 @@ func (h *CustomerHandler) Get(c *gin.Context) {
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /customer/list [get]
-func (h *CustomerHandler) List(c *gin.Context) {	
+func (h *CustomerHandler) List(c *gin.Context) {
 	var (
 		totalAmount int64
 		search      = c.Query("search")
@@ -138,23 +138,30 @@ func (h *CustomerHandler) List(c *gin.Context) {
 	query := h.db.
 		Model(&domain.Customer{}).
 		Preload("Store").
-		Select("customers.*, sales.created_at AS sale_date, sales.total_amount AS sale_amount").
+		Select(`
+		customers.*,
+		(SELECT created_at
+		FROM sales
+		WHERE sales.customer_id = customers.id 
+		ORDER BY sales.created_at DESC LIMIT 1) 
+		AS sale_date, 
+		COALESCE(SUM(sales.total_amount), 0) AS sale_amount`).
 		Joins("LEFT JOIN sales ON sales.customer_id = customers.id").
 		Where("customers.is_active = ? AND customers.status = ?", true, 1)
 
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
-		query = query.Where("first_name ILIKE ? OR last_name ILIKE ? OR CAST(public_id AS TEXT) LIKE ? OR ? = ANY(phone)",
+		query = query.Where("customers.first_name ILIKE ? OR customers.last_name ILIKE ? OR CAST(customers.public_id AS TEXT) LIKE ? OR ? = ANY(customers.phone)",
 			search, search, search, strings.Trim(search, "%"))
 	}
-	if storeID := c.Query("store_id"); storeID != "" {
-		query = query.Where("store_id = ?", storeID)
+	if storeID := c.Query("customers.store_id"); storeID != "" {
+		query = query.Where("customers.store_id = ?", storeID)
 	}
 	err = query.
+		Group("customers.id").
 		Count(&totalAmount).
 		Limit(limit).
 		Offset(offset).
-		Order("created_at DESC").
 		Find(&res).Error
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
