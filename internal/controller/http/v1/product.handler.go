@@ -410,6 +410,7 @@ func (h *ProductHandler) Update(c *gin.Context) {
 				if body.StoreProduct[i].MeasurementValue < 0 {
 					status = config.WRITEOFF_IMPORT
 					operation = "-"
+					body.StoreProduct[i].MeasurementValue *= -1
 				}
 				importReq := domain.ImportRequest{
 					Id:             uuid.New().String(),
