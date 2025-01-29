@@ -151,6 +151,7 @@ func (h *SaleHandler) Get(c *gin.Context) {
 // @Param offset query int false "Offset"
 // @Param employee_id query string false "Employee ID"
 // @Param store_id query string false "Store ID"
+// @Param search query string false "Search"
 // @Param start_date query string false "Start Date"
 // @Param end_date query string false "End Date"
 // @Success 200 {object} v1.Response
@@ -164,6 +165,7 @@ func (h *SaleHandler) List(c *gin.Context) {
 		endDate     = c.Query("end_date")
 		employeeID  = c.Query("employee_id")
 		storeID     = c.Query("store_id")
+		search      = c.Query("search")
 	)
 
 	limit, offset, err := getPaginationParams(c)
@@ -194,8 +196,12 @@ func (h *SaleHandler) List(c *gin.Context) {
 	if startDate != "" && endDate != "" {
 		query = query.Where("s.created_at BETWEEN ? AND ?", startDate, endDate)
 	}
+	if search != "" {
+		search = fmt.Sprintf("%%%s%%", search)
+		query = query.Where("stores.name ILIKE ? OR CAST(s.sale_number AS TEXT) LIKE ?", search, search)
+	}
 
-	err = query.
+	err = query.Where("s.status = 'completed'").
 		Count(&totalAmount).
 		Limit(limit).
 		Offset(offset).

@@ -144,7 +144,7 @@ func (h *CustomerHandler) List(c *gin.Context) {
 
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
-		query = query.Where("first_name ILIKE ? OR last_name ILIKE ? OR CAST(public_id AS TEXT) ILIKE ? OR ? = ANY(phone)",
+		query = query.Where("first_name ILIKE ? OR last_name ILIKE ? OR CAST(public_id AS TEXT) LIKE ? OR ? = ANY(phone)",
 			search, search, search, strings.Trim(search, "%"))
 	}
 	if storeID := c.Query("store_id"); storeID != "" {
