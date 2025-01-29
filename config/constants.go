@@ -7,6 +7,9 @@ const (
 	AccessTokenExpiresInTime time.Duration = 2 * 60 * 24 * time.Minute
 	// Refresh token expire time: 30 days
 	RefreshTokenExpiresInTime time.Duration = 30 * 24 * time.Hour
+
+	DATE_FORMAT      = "2006-01-02"
+	DATE_TIME_FORMAT = "2006-01-02 15:04:05"
 )
 
 const (
@@ -15,6 +18,7 @@ const (
 	PENDING_IMPORT   = "pending"
 	COMPLETED_IMPORT = "completed"
 	CANCELED_IMPORT  = "canceled"
+	WRITEOFF_IMPORT  = "writeoff"
 
 	// CART ITEM status
 	PENDING_CART_ITEM = "pending"

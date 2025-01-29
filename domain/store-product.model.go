@@ -32,19 +32,20 @@ type StoreProductUpdateRequest struct {
 
 // Store Product Request structure for creating
 type StoreProductRequest struct {
-	StoreID       string     `gorm:"store_id" json:"store_id"`
-	ProductID     string     `gorm:"product_id" json:"product_id"`
-	PackQuantity  int        `gorm:"pack_quantity" json:"pack_quantity"`
-	UnitQuantity  int        `gorm:"unit_quantity" json:"unit_quantity"`
-	UnitPerPack   int        `gorm:"unit_per_pack" json:"unit_per_pack"`
-	SmallQuantity int        `gorm:"store_id" json:"small_quantity"`
-	RetailPrice   float64    `gorm:"retail_price" json:"retail_price"`
-	SupplyPrice   float64    `gorm:"supply_price" json:"supply_price"`
-	Vat           int        `gorm:"vat" json:"vat"`
-	Markup        int        `gorm:"markup" json:"markup"`
-	BonusAmount   float64    `gorm:"bonus_amount" json:"bonus_amount"`
-	BonusPercent  float64    `gorm:"bonus_percent" json:"bonus_percent"`
-	ExpireDate    *time.Time `gorm:"expire_date" json:"expire_date"`
+	StoreID          string     `gorm:"store_id" json:"store_id"`
+	ProductID        string     `gorm:"product_id" json:"product_id"`
+	PackQuantity     int        `gorm:"pack_quantity" json:"pack_quantity"`
+	UnitQuantity     int        `gorm:"unit_quantity" json:"unit_quantity"`
+	UnitPerPack      int        `gorm:"unit_per_pack" json:"unit_per_pack"`
+	SmallQuantity    int        `gorm:"store_id" json:"small_quantity"`
+	RetailPrice      float64    `gorm:"retail_price" json:"retail_price"`
+	SupplyPrice      float64    `gorm:"supply_price" json:"supply_price"`
+	Vat              int        `gorm:"vat" json:"vat"`
+	Markup           int        `gorm:"markup" json:"markup"`
+	MeasurementValue int        `gorm:"-" json:"measurement_value"`
+	BonusAmount      float64    `gorm:"bonus_amount" json:"bonus_amount"`
+	BonusPercent     float64    `gorm:"bonus_percent" json:"bonus_percent"`
+	ExpireDate       *time.Time `gorm:"expire_date" json:"expire_date"`
 }
 
 // StoreProductResponse structure for getting searching stores' products

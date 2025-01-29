@@ -123,7 +123,6 @@ func (h *ProductHandler) Create(c *gin.Context) {
 			importDetail[i].ProductID = &body.Id
 			importDetail[i].ReceivedCount = body.StoreProduct[i].PackQuantity
 			importDetail[i].AcceptedCount = body.StoreProduct[i].PackQuantity
-			importDetail[i].ProductMaterialCode = body.MaterialCode
 			importDetail[i].ReceivedAmount = float64(body.StoreProduct[i].PackQuantity) * body.RetailPrice
 			importDetail[i].AcceptedAmount = float64(body.StoreProduct[i].PackQuantity) * body.RetailPrice
 		}
@@ -382,13 +381,22 @@ func (h *ProductHandler) Update(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+
+	tx := h.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
 	body.Photos = utils.StringArray(body.Photos)
-	err = h.db.
+	err = tx.
 		WithContext(c.Request.Context()).
 		Table("products").
 		Where("id = ?", productID).
 		Updates(body).Error
 	if err != nil {
+		tx.Rollback()
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -396,19 +404,53 @@ func (h *ProductHandler) Update(c *gin.Context) {
 
 	if len(body.StoreProduct) > 0 {
 		for i := range body.StoreProduct {
-			if body.StoreProduct[i].PackQuantity > 0 {
-				body.StoreProduct[i].ProductID = productID
-				body.StoreProduct[i].RetailPrice = body.RetailPrice
-				body.StoreProduct[i].SupplyPrice = body.SupplyPrice
-				body.StoreProduct[i].Vat = body.Vat
-				body.StoreProduct[i].Markup = body.Markup
-				body.StoreProduct[i].UnitPerPack = body.UnitPerPack
-				body.StoreProduct[i].UnitQuantity = body.UnitPerPack * body.StoreProduct[i].PackQuantity
-				body.StoreProduct[i].BonusAmount = body.BonusAmount
-				body.StoreProduct[i].BonusPercent = body.BonusPercent
-				body.StoreProduct[i].ExpireDate = body.ExpireDate
-				err = h.storage.UpdateStoreProduct(c.Request.Context(), body.StoreProduct[i])
+			if body.StoreProduct[i].MeasurementValue != 0 {
+				status := config.COMPLETED_IMPORT
+				operation := "+"
+				if body.StoreProduct[i].MeasurementValue < 0 {
+					status = config.WRITEOFF_IMPORT
+					operation = "-"
+				}
+				importReq := domain.ImportRequest{
+					Id:             uuid.New().String(),
+					StoreID:        body.StoreProduct[i].StoreID,
+					Status:         status,
+					ImportDate:     time.Now().Format(config.DATE_FORMAT),
+					DocumentNumber: utils.GenerateDocumentNumber(),
+				}
+				err = tx.Table("imports").Create(&importReq).Error
 				if err != nil {
+					tx.Rollback()
+					h.log.Error(err)
+					handleResponse(c, InternalError, err.Error())
+					return
+				}
+				err = tx.Table("import_details").Create(&domain.ImportDetailRequest{
+					ImportID:       importReq.Id,
+					ProductID:      &productID,
+					ReceivedCount:  body.StoreProduct[i].MeasurementValue,
+					AcceptedCount:  body.StoreProduct[i].MeasurementValue,
+					ReceivedAmount: float64(body.StoreProduct[i].MeasurementValue) * body.RetailPrice,
+					AcceptedAmount: float64(body.StoreProduct[i].MeasurementValue) * body.RetailPrice,
+				}).Error
+				if err != nil {
+					tx.Rollback()
+					h.log.Error(err)
+					handleResponse(c, InternalError, err.Error())
+					return
+				}
+				err = tx.Table("store_products").
+					Where("product_id = ? AND store_id = ? ", productID, body.StoreProduct[i].StoreID).
+					Updates(map[string]interface{}{
+						"pack_quantity":  gorm.Expr("pack_quantity "+operation+" ?", body.StoreProduct[i].MeasurementValue),
+						"small_quantity": body.StoreProduct[i].SmallQuantity,
+						"retail_price":   body.RetailPrice,
+						"supply_price":   body.SupplyPrice,
+						"vat":            body.Vat,
+						"markup":         body.Markup,
+					}).Error
+				if err != nil {
+					tx.Rollback()
 					h.log.Error(err)
 					handleResponse(c, InternalError, err.Error())
 					return
@@ -433,12 +475,18 @@ func (h *ProductHandler) Update(c *gin.Context) {
 				DoUpdates: clause.AssignmentColumns([]string{"updated_at"}),             // Update specific columns
 			}).Create(&categoryProducts).Error
 		if err != nil {
+			tx.Rollback()
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())
 			return
 		}
 	}
-
+	if err = tx.Commit().Error; err != nil {
+		tx.Rollback()
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
 	handleResponse(c, OK, "UPDATED")
 }
 

@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS "imports" (
     "document_number" VARCHAR(50),
     "created_by" UUID REFERENCES employees("id"),
     "accepted_by" UUID REFERENCES employees("id"),
-    "status" VARCHAR(55) NOT NULL DEFAULT 'new', -- new || pending || completed || canceled || 
+    "status" VARCHAR(55) NOT NULL DEFAULT 'new', -- new || pending || completed || canceled || write-off
     "import_date" TIMESTAMP,
     "created_at" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     "updated_at" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -33,7 +33,6 @@ CREATE TABLE IF NOT EXISTS "import_details" (
     "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     "import_id" UUID REFERENCES imports("id"),
     "product_id" UUID REFERENCES products("id"),
-    "product_material_code" INT REFERENCES products("material_code"),
     "received_count" INT DEFAULT 0,
     "accepted_count" INT DEFAULT 0,
     "canceled_count" INT DEFAULT 0,

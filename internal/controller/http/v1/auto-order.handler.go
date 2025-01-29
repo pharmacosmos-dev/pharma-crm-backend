@@ -80,11 +80,10 @@ func (h *AutoOrderHandler) Confirm(c *gin.Context) {
 				DocumentNumber: utils.GenerateDocumentNumber(),
 			})
 			importDetails = append(importDetails, domain.ImportDetailRequest{
-				ImportID:            importID,
-				ProductID:           &item.ProductId,
-				ReceivedCount:       int(item.AdjustedOrder),
-				ReceivedAmount:      product.RetailPrice * float64(item.AdjustedOrder),
-				ProductMaterialCode: product.MaterialCode,
+				ImportID:       importID,
+				ProductID:      &item.ProductId,
+				ReceivedCount:  int(item.AdjustedOrder),
+				ReceivedAmount: product.RetailPrice * float64(item.AdjustedOrder),
 			})
 		}
 	}

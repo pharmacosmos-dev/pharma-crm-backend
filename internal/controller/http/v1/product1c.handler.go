@@ -64,9 +64,9 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	importID := uuid.New().String()
+
 	newImport := domain.ImportRequest{
-		Id:             importID,
+		Id:             uuid.New().String(),
 		StoreID:        store.Id,
 		StoreCode:      body.Apteka.StoreCode,
 		Status:         config.NEW_IMPORT,
@@ -89,25 +89,24 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 		return
 	}
 
-	err = h.db.WithContext(c.Request.Context()).
-		Table("products").
-		Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "material_code"}}, // Specify the column(s) to check for conflict
-			DoNothing: true,                                     // Ignore if conflict occurs
-		}).
-		Create(&body.Товары).Error
-	if err != nil {
-		h.log.Warn("ERROR on creating new product: %v", err.Error())
-		handleResponse(c, InternalError, "New import created but new product not created")
-		return
-	}
 	var importDetails []domain.ImportDetailRequest
 	for _, product := range body.Товары {
+		err = h.db.WithContext(c.Request.Context()).
+			Table("products").
+			Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "material_code"}}, // Specify the column(s) to check for conflict
+				DoNothing: true,                                     // Ignore if conflict occurs
+			}).
+			Create(&body.Товары).Error
+		if err != nil {
+			h.log.Warn("ERROR on creating new product: %v", err.Error())
+			handleResponse(c, InternalError, "New import created but new product not created")
+			return
+		}
 		importDetails = append(importDetails, domain.ImportDetailRequest{
-			ImportID:            importID,
-			ProductMaterialCode: product.MaterialCode,
-			ReceivedCount:       product.Quantity,
-			ReceivedAmount:      float64(product.Quantity) * product.RetailPrice,
+			ImportID:       newImport.Id,
+			ReceivedCount:  product.Quantity,
+			ReceivedAmount: float64(product.Quantity) * product.RetailPrice,
 		})
 	}
 	if len(importDetails) > 0 {

@@ -114,16 +114,3 @@ func (s *Storage) GetStoreProductByBarcode(ctx context.Context, barcode string) 
 
 	return res, nil
 }
-
-func (s *Storage) UpdateStoreProduct(ctx context.Context, req domain.StoreProductRequest) error {
-	err := s.db.
-		WithContext(ctx).
-		Table("store_products").
-		Where("product_id = ? AND store_id = ?", req.ProductID, req.StoreID).
-		Updates(&req).Error
-	if err != nil {
-		s.log.Warn("Error on updating store product: %v", err.Error())
-		return err
-	}
-	return nil
-}

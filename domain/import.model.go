@@ -36,29 +36,27 @@ type ImportRequest struct {
 }
 
 type ImportDetail struct {
-	Id                  string     `gorm:"id" json:"id"`
-	ImportID            string     `gorm:"import_id" json:"import_id"`
-	ProductID           *string    `gorm:"product_id" json:"product_id"`
-	ProductMaterialCode int        `gorm:"product_material_code" json:"product_material_code"`
-	ReceivedCount       int        `gorm:"received_count" json:"received_count"`
-	AcceptedCount       int        `gorm:"accepted_count" json:"accepted_count"`
-	CanceledCount       int        `gorm:"canceled_count" json:"canceled_count"`
-	ReceivedAmount      float64    `gorm:"received_amount" json:"received_amount"`
-	AcceptedAmount      float64    `gorm:"accepted_amount" json:"accepted_amount"`
-	CreatedAt           *time.Time `gorm:"created_at" json:"created_at"`
-	UpdatedAt           *time.Time `gorm:"updated_at" json:"updated_at"`
-	Product             *Product   `gorm:"references:MaterialCode;foreignKey:ProductMaterialCode" json:"product"`
-	Import              *Import    `gorm:"foreignKey:ImportID" json:"import"`
+	Id             string     `gorm:"id" json:"id"`
+	ImportID       string     `gorm:"import_id" json:"import_id"`
+	ProductID      *string    `gorm:"product_id" json:"product_id"`
+	ReceivedCount  int        `gorm:"received_count" json:"received_count"`
+	AcceptedCount  int        `gorm:"accepted_count" json:"accepted_count"`
+	CanceledCount  int        `gorm:"canceled_count" json:"canceled_count"`
+	ReceivedAmount float64    `gorm:"received_amount" json:"received_amount"`
+	AcceptedAmount float64    `gorm:"accepted_amount" json:"accepted_amount"`
+	CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt      *time.Time `gorm:"updated_at" json:"updated_at"`
+	Product        *Product   `gorm:"references:MaterialCode;foreignKey:ProductMaterialCode" json:"product"`
+	Import         *Import    `gorm:"foreignKey:ImportID" json:"import"`
 }
 
 type ImportDetailRequest struct {
-	ImportID            string  `gorm:"import_id" json:"import_id"`
-	ProductID           *string `gorm:"product_id" json:"product_id"`
-	ProductMaterialCode int     `gorm:"product_material_code" json:"product_material_code"`
-	ReceivedCount       int     `gorm:"received_count" json:"received_count"`
-	AcceptedCount       int     `gorm:"accepted_count" json:"accepted_count"`
-	ReceivedAmount      float64 `gorm:"received_amount" json:"received_amount"`
-	AcceptedAmount      float64 `gorm:"accepted_amount" json:"accepted_amount"`
+	ImportID       string  `gorm:"import_id" json:"import_id"`
+	ProductID      *string `gorm:"product_id" json:"product_id"`
+	ReceivedCount  int     `gorm:"received_count" json:"received_count"`
+	AcceptedCount  int     `gorm:"accepted_count" json:"accepted_count"`
+	ReceivedAmount float64 `gorm:"received_amount" json:"received_amount"`
+	AcceptedAmount float64 `gorm:"accepted_amount" json:"accepted_amount"`
 }
 
 type ImportUpdateRequest struct {
