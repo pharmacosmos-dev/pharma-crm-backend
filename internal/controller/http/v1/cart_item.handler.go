@@ -256,7 +256,8 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 
 	var data = map[string]interface{}{}
 	var storeProduct domain.StoreProduct
-	err = h.db.Raw(`SELECT * FROM store_products WHERE id = ?`, body.StoreProductID).Scan(&storeProduct).Error
+	err = h.db.Raw(`SELECT * FROM store_products WHERE id = ?`,
+		body.StoreProductID).Scan(&storeProduct).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			handleResponse(c, NotFound, "product not found")

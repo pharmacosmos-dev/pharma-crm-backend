@@ -96,3 +96,13 @@ type CashboxPaymentType struct {
 	CreatedAt     *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt     *time.Time `gorm:"updated_at" json:"updated_at"`
 }
+
+// CashboxOperation Payment amounts
+type CashboxOperationAmount struct {
+	Cash   float64 `gorm:"cash" json:"cash"`
+	Uzcard float64 `gorm:"uzcard" json:"uzcard"`
+	Humo   float64 `gorm:"humo" json:"humo"`
+	Click  float64 `gorm:"click" json:"click"`
+	Payme  float64 `gorm:"payme" json:"payme"`
+	Uzum   float64 `gorm:"uzum" json:"uzum"`
+}

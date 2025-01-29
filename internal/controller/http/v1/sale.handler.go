@@ -309,6 +309,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	var salePayment domain.SalePaymentRequest
 	// iterate over payment types
 	for _, item := range body.PaymentTypes {
+		// err = cashboxOperationAmounts(tx, item)
 		if item.Type == "app" && (item.AppType == config.CLICK || item.AppType == config.PAYME || item.AppType == config.UZUM) {
 			var paymentService domain.PaymentService
 			err = h.db.First(&paymentService, "store_id = ? AND type = ? AND is_active = true",
@@ -758,5 +759,10 @@ func (h *SaleHandler) SaveResponse(ctx context.Context, req *domain.PaymentReque
 	if err != nil {
 		return err
 	}
+	return nil
+}
+
+func cashboxOperationAmounts(tx *gorm.DB, paymentType domain.FinalPaymentType) error {
+
 	return nil
 }
