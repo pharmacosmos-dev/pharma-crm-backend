@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS "employees" (
   "role_id" uuid REFERENCES "roles"("id"),
   "first_name" varchar,
   "last_name" varchar,
+  "full_name" VARCHAR,
   "phone" varchar,
   "email" varchar,
   "password" text,

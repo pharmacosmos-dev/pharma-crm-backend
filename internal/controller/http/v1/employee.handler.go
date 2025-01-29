@@ -70,6 +70,7 @@ func (h *EmployeeHandler) Create(c *gin.Context) {
 	body.Password = &hashedPassword
 	body.Id = uuid.New().String()
 	body.Status = "active"
+	body.FullName = body.FirstName + " " + body.LastName
 	// create employee
 	err = h.db.
 		WithContext(c.Request.Context()).
@@ -178,9 +179,10 @@ func (h *EmployeeHandler) List(c *gin.Context) {
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
 		query = query.Where(`
-		first_name ILIKE ? OR last_name ILIKE ? OR
-		phone LIKE ? OR CAST(public_id AS TEXT) LIKE ?`,
-			search, search, search, search)
+		full_name ILIKE ? OR
+		phone LIKE ? OR 
+		CAST(public_id AS TEXT) LIKE ?`,
+			search, search, search)
 	}
 	if status != "" {
 		query = query.Where("status = ?", status)

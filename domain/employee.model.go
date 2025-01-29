@@ -19,6 +19,7 @@ type Employee struct {
 	PublicId   int          `gorm:"public_id" json:"public_id"`
 	FirstName  string       `gorm:"first_name" json:"first_name"`
 	LastName   string       `gorm:"last_name" json:"last_name"`
+	FullName   string       `gorm:"full_name" json:"full_name"`
 	Email      string       `gorm:"email" json:"email"`
 	Phone      string       `gorm:"phone" json:"phone"`
 	Password   string       `gorm:"password" json:"password"`
@@ -40,6 +41,7 @@ type EmployeeRequest struct {
 	StoreId   string   `gorm:"store_id" json:"store_id"`
 	FirstName string   `gorm:"first_name" json:"first_name"`
 	LastName  string   `gorm:"last_name" json:"last_name"`
+	FullName  string   `gorm:"full_name" json:"full_name"`
 	Phone     string   `gorm:"phone" json:"phone"`
 	Gender    string   `gorm:"gender" json:"gender"`
 	Status    string   `gorm:"status" json:"-"`
