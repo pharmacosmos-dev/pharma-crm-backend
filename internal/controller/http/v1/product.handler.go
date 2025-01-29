@@ -829,7 +829,7 @@ func (h *ProductHandler) GetProductImports(c *gin.Context) {
 		Preload("Import", func(db *gorm.DB) *gorm.DB {
 			return db.Preload("Store")
 		}).
-		Where("product_material_code = ?", product.MaterialCode)
+		Where("product_id = ?", productID)
 	if storeID != "" {
 		query = query.
 			Joins("INNER JOIN imports ON imports.id = import_details.import_id").

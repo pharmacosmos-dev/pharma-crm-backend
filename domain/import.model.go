@@ -46,7 +46,7 @@ type ImportDetail struct {
 	AcceptedAmount float64    `gorm:"accepted_amount" json:"accepted_amount"`
 	CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt      *time.Time `gorm:"updated_at" json:"updated_at"`
-	Product        *Product   `gorm:"references:MaterialCode;foreignKey:ProductMaterialCode" json:"product"`
+	Product        *Product   `gorm:"references:Id;foreignKey:ProductID" json:"product"`
 	Import         *Import    `gorm:"foreignKey:ImportID" json:"import"`
 }
 
