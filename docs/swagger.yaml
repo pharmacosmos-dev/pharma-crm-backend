@@ -186,6 +186,8 @@ definitions:
         type: string
       first_name:
         type: string
+      full_name:
+        type: string
       gender:
         example: male/female
         type: string
@@ -318,6 +320,8 @@ definitions:
     properties:
       cash_box_operation_id:
         type: string
+      customer_id:
+        type: string
       payment_types:
         items:
           $ref: '#/definitions/domain.FinalPaymentType'
@@ -353,8 +357,6 @@ definitions:
         type: string
       product_id:
         type: string
-      product_material_code:
-        type: integer
       received_amount:
         type: number
       received_count:
@@ -758,6 +760,8 @@ definitions:
       expire_date:
         type: string
       markup:
+        type: integer
+      measurement_value:
         type: integer
       pack_quantity:
         type: integer
@@ -4447,6 +4451,29 @@ paths:
       summary: Get store product by barcode
       tags:
       - products
+  /product/total-status-count:
+    get:
+      description: Get total count of products by status
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get total count of products by status
+      tags:
+      - products
   /product1c:
     post:
       consumes:
@@ -5083,6 +5110,10 @@ paths:
       - description: Store ID
         in: query
         name: store_id
+        type: string
+      - description: Search
+        in: query
+        name: search
         type: string
       - description: Start Date
         in: query

@@ -169,3 +169,13 @@ type ProductRes struct {
 	BonusAmount  float64           `gorm:"bonus_amount" json:"bonus_amount"`
 	ShortName    string            `gorm:"short_name" json:"short_name"`
 }
+
+type TotalStatusCount struct {
+	TotalCount     int `gorm:"total_count" json:"total_count"`
+	ActiveCount    int `gorm:"active_count" json:"active_count"`
+	InactiveCount  int `gorm:"inactive_count" json:"inactive_count"`
+	ZeroStockCount int `gorm:"zero_stock_count" json:"zero_stock_count"`
+	LowStockCount  int `gorm:"low_stock_count" json:"low_stock_count"`
+	ImminentCount  int `gorm:"imminent_count" json:"imminent_count"`
+	ExpiredCount   int `gorm:"expired_count" json:"expired_count"`
+}

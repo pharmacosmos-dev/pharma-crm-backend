@@ -5584,6 +5584,43 @@ const docTemplate = `{
                 }
             }
         },
+        "/product/total-status-count": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get total count of products by status",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Get total count of products by status",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/product/{id}": {
             "get": {
                 "security": [
@@ -6596,6 +6633,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Store ID",
                         "name": "store_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search",
+                        "name": "search",
                         "in": "query"
                     },
                     {
@@ -8194,6 +8237,9 @@ const docTemplate = `{
                 "first_name": {
                     "type": "string"
                 },
+                "full_name": {
+                    "type": "string"
+                },
                 "gender": {
                     "type": "string",
                     "example": "male/female"
@@ -8394,6 +8440,9 @@ const docTemplate = `{
                 "cash_box_operation_id": {
                     "type": "string"
                 },
+                "customer_id": {
+                    "type": "string"
+                },
                 "payment_types": {
                     "type": "array",
                     "items": {
@@ -8447,9 +8496,6 @@ const docTemplate = `{
                 },
                 "product_id": {
                     "type": "string"
-                },
-                "product_material_code": {
-                    "type": "integer"
                 },
                 "received_amount": {
                     "type": "number"
@@ -9065,6 +9111,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "markup": {
+                    "type": "integer"
+                },
+                "measurement_value": {
                     "type": "integer"
                 },
                 "pack_quantity": {

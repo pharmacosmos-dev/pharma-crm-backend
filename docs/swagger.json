@@ -5577,6 +5577,43 @@
                 }
             }
         },
+        "/product/total-status-count": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get total count of products by status",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Get total count of products by status",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/product/{id}": {
             "get": {
                 "security": [
@@ -6589,6 +6626,12 @@
                         "type": "string",
                         "description": "Store ID",
                         "name": "store_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search",
+                        "name": "search",
                         "in": "query"
                     },
                     {
@@ -8187,6 +8230,9 @@
                 "first_name": {
                     "type": "string"
                 },
+                "full_name": {
+                    "type": "string"
+                },
                 "gender": {
                     "type": "string",
                     "example": "male/female"
@@ -8387,6 +8433,9 @@
                 "cash_box_operation_id": {
                     "type": "string"
                 },
+                "customer_id": {
+                    "type": "string"
+                },
                 "payment_types": {
                     "type": "array",
                     "items": {
@@ -8440,9 +8489,6 @@
                 },
                 "product_id": {
                     "type": "string"
-                },
-                "product_material_code": {
-                    "type": "integer"
                 },
                 "received_amount": {
                     "type": "number"
@@ -9058,6 +9104,9 @@
                     "type": "string"
                 },
                 "markup": {
+                    "type": "integer"
+                },
+                "measurement_value": {
                     "type": "integer"
                 },
                 "pack_quantity": {

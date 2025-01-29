@@ -47,6 +47,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.GET("/store-product/:id", h.ListStoreProductProductId)
 		product.POST("/store/barcode", h.GetStoreProductByBarcode)
 		product.POST("/generate-barcode", h.GenerateBarcode)
+		product.GET("/total-status-count", h.TotalStatusCount)
 	}
 }
 
@@ -355,6 +356,36 @@ func (h *ProductHandler) List(c *gin.Context) {
 	// Prepare the response
 	result := utils.ListResponse(res, totalCount, limit, offset)
 	handleResponse(c, OK, result)
+}
+
+// Get godoc
+// @Summary Get total count of products by status
+// @Description Get total count of products by status
+// @Tags products
+// @Security     BearerAuth
+// @Produce json
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/total-status-count [get]
+func (h *ProductHandler) TotalStatusCount(c *gin.Context) {
+	var res domain.TotalStatusCount
+	err := h.db.Raw(`
+	SELECT
+	COUNT(*) AS total_count,
+    COUNT(*) FILTER (WHERE status = 'active') AS active_count,
+    COUNT(*) FILTER (WHERE status = 'inactive') AS inactive_count,
+    (SELECT count(*) FROM store_products WHERE pack_quantity = 0 AND unit_quantity = 0) AS zero_stock_count,
+    (SELECT count(*) FROM store_products WHERE small_quantity = pack_quantity) AS low_stock_count,
+    (SELECT count(*) FROM store_products WHERE CURRENT_DATE <= expire_date AND expire_date <= CURRENT_DATE + INTERVAL '10 days') AS imminent_count,
+    (SELECT count(*) FROM store_products WHERE expire_date::DATE < CURRENT_DATE) AS expired_count
+FROM products;`).Scan(&res).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, res)
 }
 
 // Get godoc
