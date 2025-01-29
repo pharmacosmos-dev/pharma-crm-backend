@@ -263,7 +263,7 @@ func (h *ImportHandler) ListImportDetail(c *gin.Context) {
 	query := h.db.Model(&domain.ImportDetail{}).
 		Preload("Product").
 		Preload("Import").
-		Joins("LEFT JOIN products ON import_details.product_id = products.id OR import_details.product_material_code = products.material_code").
+		Joins("LEFT JOIN products ON import_details.product_id = products.id").
 		Where("import_id = ?", importId)
 
 	if search != "" {
