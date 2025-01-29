@@ -157,7 +157,8 @@ func (h *DraftHandler) Get(c *gin.Context) {
 	id := c.Param("id")
 
 	// Query the draft
-	err := h.db.Preload("Customer").
+	err := h.db.
+		Preload("Customer").
 		Preload("Store").
 		Preload("Employee").
 		First(&draft, "id = ?", id).Error
@@ -172,11 +173,13 @@ func (h *DraftHandler) Get(c *gin.Context) {
 	}
 
 	// Query associated cart items
-	var cartItems []*domain.CartItem
+	var cartItems []domain.CartItemResponse
 	err = h.db.Model(&domain.CartItem{}).
-		Preload("Product").
-		Select("cart_items.*").
+		Select("cart_items.*, p.name, p.barcode, p.bonus_percent, p.bonus_amount, u.unit_name, u.short_name").
 		Joins("JOIN cart_item_drafts ON cart_item_drafts.cart_item_id = cart_items.id").
+		Joins("JOIN store_products ON store_products.id = cart_items.store_product_id").
+		Joins("JOIN products p ON p.id = store_products.product_id").
+		Joins("LEFT JOIN unit_types u ON u.id = p.unit_type_id").
 		Where("cart_item_drafts.draft_id = ?", id).
 		Find(&cartItems).Error
 	if err != nil {

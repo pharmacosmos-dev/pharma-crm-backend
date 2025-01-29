@@ -4,22 +4,22 @@ import "time"
 
 // Draft structure
 type Draft struct {
-	ID          string      `gorm:"id" json:"id"`
-	StoreID     string      `gorm:"store_id" json:"store_id"`
-	SaleID      string      `gorm:"sale_id" json:"sale_id"`
-	CustomerID  string      `gorm:"customer_id" json:"customer_id"`
-	CreatedBy   string      `gorm:"created_by" json:"created_by"`
-	DraftNumber string      `gorm:"draft_number" json:"draft_number"`
-	Quantity    int         `gorm:"quantity" json:"quantity"`
-	TotalPrice  float64     `gorm:"total_price" json:"total_price"`
-	Description string      `gorm:"description" json:"description"`
-	DraftTime   string      `gorm:"draft_time" json:"draft_time"`
-	CreatedAt   *time.Time  `gorm:"created_at" json:"created_at"`
-	UpdatedAt   *time.Time  `gorm:"updated_at" json:"updated_at"`
-	Store       *Store      `gorm:"foreignKey:StoreID" json:"store"`
-	Customer    *Customer   `gorm:"foreignKey:CustomerID" json:"customer"`
-	Employee    *Employee   `gorm:"foreignKey:CreatedBy" json:"employee"`
-	CartItems   []*CartItem `gorm:"-" json:"cart_items"` // Add this field for cart items
+	ID          string             `gorm:"id" json:"id"`
+	StoreID     string             `gorm:"store_id" json:"store_id"`
+	SaleID      string             `gorm:"sale_id" json:"sale_id"`
+	CustomerID  string             `gorm:"customer_id" json:"customer_id"`
+	CreatedBy   string             `gorm:"created_by" json:"created_by"`
+	DraftNumber string             `gorm:"draft_number" json:"draft_number"`
+	Quantity    int                `gorm:"quantity" json:"quantity"`
+	TotalPrice  float64            `gorm:"total_price" json:"total_price"`
+	Description string             `gorm:"description" json:"description"`
+	DraftTime   string             `gorm:"draft_time" json:"draft_time"`
+	CreatedAt   *time.Time         `gorm:"created_at" json:"created_at"`
+	UpdatedAt   *time.Time         `gorm:"updated_at" json:"updated_at"`
+	Store       *Store             `gorm:"foreignKey:StoreID" json:"store"`
+	Customer    *Customer          `gorm:"foreignKey:CustomerID" json:"customer"`
+	Employee    *Employee          `gorm:"foreignKey:CreatedBy" json:"employee"`
+	CartItems   []CartItemResponse `gorm:"-" json:"cart_items"` // Add this field for cart items
 }
 
 // DraftRequest structure for create, update

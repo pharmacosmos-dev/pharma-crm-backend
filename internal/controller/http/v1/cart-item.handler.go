@@ -254,7 +254,6 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 		return
 	}
 
-	var data = map[string]interface{}{}
 	var storeProduct domain.StoreProduct
 	err = h.db.Raw(`SELECT * FROM store_products WHERE id = ?`,
 		body.StoreProductID).Scan(&storeProduct).Error
@@ -267,52 +266,25 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	if body.Quantity != nil && body.UnitQuantity != nil {
-		if *body.Quantity*storeProduct.UnitPerPack+*body.UnitQuantity > storeProduct.UnitQuantity {
-			handleResponse(c, CONFLICT, gin.H{
-				"message":                "Not enough Product",
-				"pack_quantity":          storeProduct.PackQuantity,
-				"unit_quantity":          storeProduct.UnitQuantity,
-				"received_pack_quantity": *body.Quantity,
-				"received_unit_quantity": *body.UnitQuantity,
-			})
-			return
-		}
-		data["quantity"] = body.Quantity
-		data["total_price"] = cartItem.UnitPrice * float64(*body.Quantity)
-		data["unit_quantity"] = body.UnitQuantity
-	} else if body.Quantity != nil {
-		if *body.Quantity > storeProduct.PackQuantity {
-			handleResponse(c, CONFLICT, gin.H{
-				"message":                "Not enough Product",
-				"pack_quantity":          storeProduct.PackQuantity,
-				"unit_quantity":          storeProduct.UnitQuantity,
-				"received_pack_quantity": *body.Quantity,
-				"received_unit_quantity": *body.UnitQuantity,
-			})
-			return
-		}
-		data["quantity"] = body.Quantity
-		data["total_price"] = cartItem.UnitPrice * float64(*body.Quantity)
-	} else if body.UnitQuantity != nil {
-		if *body.UnitQuantity > storeProduct.UnitQuantity {
-			handleResponse(c, CONFLICT, gin.H{
-				"message":                "Not enough Product",
-				"unit_quantity":          storeProduct.UnitQuantity,
-				"pack_quantity":          storeProduct.PackQuantity,
-				"received_pack_quantity": *body.Quantity,
-				"received_unit_quantity": *body.UnitQuantity,
-			})
-			return
-		}
-		data["unit_quantity"] = body.UnitQuantity
+	// Do'kondagi mahsulot miqdorini tekshirish
+	if storeProduct.Quantity < body.Quantity || storeProduct.UnitQuantity < body.UnitQuantity {
+		handleResponse(c, BadRequest, "Not enough product in stock")
+		return
+	}
+
+	// Cart item ni yangilash uchun ma'lumotlar tayyorlash
+	data := map[string]interface{}{
+		"store_product_id": body.StoreProductID,
+		"quantity":         body.Quantity,
+		"unit_quantity":    body.UnitQuantity,
+		"total_price":      float64(body.Quantity) * storeProduct.RetailPrice,
 	}
 
 	err = h.db.
 		WithContext(c.Request.Context()).
 		Table("cart_items").
 		Where("id = ?", id).
-		Updates(data).Error
+		Updates(&data).Error
 	if err != nil {
 		handleResponse(c, InternalError, "Error on saving cart")
 		return

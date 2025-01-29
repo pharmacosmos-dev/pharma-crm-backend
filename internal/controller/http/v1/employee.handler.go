@@ -231,7 +231,7 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-
+	body.FullName = body.FirstName + " " + body.LastName
 	if body.Password != nil {
 		*body.Password, err = etc.Encrypt(*body.Password, h.cfg.HeshKey)
 		if err != nil {
@@ -266,7 +266,7 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 	err = h.db.WithContext(c.Request.Context()).
 		Table("employees").
 		Where("id = ?", id).
-		Updates(body).Error
+		Updates(&body).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
