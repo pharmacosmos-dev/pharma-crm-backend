@@ -326,17 +326,13 @@ func (h *ImportHandler) AddScann(c *gin.Context) {
 	result := h.db.WithContext(c.Request.Context()).
 		Table("import_details").
 		Where(`
-			import_id = ? AND 
-			(product_material_code IN (
-				SELECT material_code 
-				FROM products 
-				WHERE barcode = ? 
-			) OR product_id IN (
-				SELECT id 
-				FROM products 
-				WHERE barcode = ? 
-			))`,
-			body.ImportID, body.Barcode, body.Barcode).
+			import_id = ? AND
+			product_id IN (
+				SELECT id
+				FROM products
+				WHERE barcode = ?
+			)`,
+			body.ImportID, body.Barcode).
 		Update("accepted_count", gorm.Expr("accepted_count + ?", body.Count)).
 		Scan(&importDetail)
 

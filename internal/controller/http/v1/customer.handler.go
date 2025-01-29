@@ -71,7 +71,7 @@ func (h *CustomerHandler) Create(c *gin.Context) {
 		INSERT INTO customers 
 			(id, store_id, first_name, last_name, full_name, phone, gender, birthday, created_by)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
-		body.Id, body.StoreId, body.FirstName, body.LastName, body.FirstName+body.LastName,
+		body.Id, body.StoreId, body.FirstName, body.LastName, body.FirstName+" "+body.LastName,
 		body.Phone, body.Gender, body.Birthday, body.CreatedBy).Scan(&customer).Error
 	if err != nil {
 		h.log.Error(err)
@@ -142,9 +142,9 @@ func (h *CustomerHandler) List(c *gin.Context) {
 		customers.*,
 		(SELECT created_at
 		FROM sales
-		WHERE sales.customer_id = customers.id 
-		ORDER BY sales.created_at DESC LIMIT 1) 
-		AS sale_date, 
+		WHERE sales.customer_id = customers.id
+		ORDER BY sales.created_at DESC LIMIT 1)
+		AS sale_date,
 		COALESCE(SUM(sales.total_amount), 0) AS sale_amount`).
 		Joins("LEFT JOIN sales ON sales.customer_id = customers.id").
 		Where("customers.is_active = ? AND customers.status = ?", true, 1)
@@ -152,7 +152,7 @@ func (h *CustomerHandler) List(c *gin.Context) {
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
 		query = query.Where("customers.full_name ILIKE ? OR CAST(customers.public_id AS TEXT) LIKE ? OR ? = ANY(customers.phone)",
-			search, strings.Trim(search, "%"))
+			search, search, strings.Trim(search, "%"))
 	}
 	if storeID := c.Query("customers.store_id"); storeID != "" {
 		query = query.Where("customers.store_id = ?", storeID)
@@ -162,6 +162,7 @@ func (h *CustomerHandler) List(c *gin.Context) {
 		Count(&totalAmount).
 		Limit(limit).
 		Offset(offset).
+		Debug().
 		Find(&res).Error
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
