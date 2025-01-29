@@ -402,7 +402,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	}
 
 	// Update sale status
-	err = updateSaleStatus(tx, body.SaleID, body.TotalAmount)
+	err = updateSaleStatus(tx, body.SaleID, body.TotalAmount, body.CustomerID)
 	if err != nil {
 		tx.Rollback()
 		handleResponse(c, InternalError, err.Error())
@@ -440,13 +440,14 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 }
 
 // Update sale status and total amount after the sale is completed
-func updateSaleStatus(tx *gorm.DB, saleID string, totalAmount float64) error {
+func updateSaleStatus(tx *gorm.DB, saleID string, totalAmount float64, customerID *string) error {
 	return tx.
 		Table("sales").
 		Where("id = ?", saleID).
 		Updates(map[string]interface{}{
 			"status":       "completed",
 			"total_amount": totalAmount,
+			"customer_id":  customerID,
 		}).Error
 }
 
