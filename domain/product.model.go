@@ -18,8 +18,8 @@ type Product struct {
 	RetailPrice  float64           `gorm:"retail_price" json:"retail_price"`
 	Quantity     int               `gorm:"quantity" json:"quantity"`
 	UnitPerPack  int               `gorm:"unit_per_pack" json:"unit_per_pack"`
-	Vat          int               `gorm:"vat" json:"vat"`
-	Markup       int               `gorm:"markup" json:"markup"`
+	Vat          float64           `gorm:"vat" json:"vat"`
+	Markup       float64           `gorm:"markup" json:"markup"`
 	VatPrice     float64           `gorm:"vat_price" json:"vat_price"`
 	MarkupPrice  float64           `gorm:"markup_price" json:"markup_price"`
 	Sum          float64           `gorm:"sum" json:"sum"`

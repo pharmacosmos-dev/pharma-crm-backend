@@ -323,21 +323,27 @@ func (h *ProductHandler) List(c *gin.Context) {
 	err = baseQuery.
 		Preload("Categories").
 		Select(`
-		p.id, p.name, p.barcode, p.status, p.description, 
+		p.id, p.name, p.barcode, p.status, p.description,
 		p.photos, p.manufacturer, p.material_code,
-		sp.supply_price, sp.vat, p.markup, sp.retail_price,
-		((sp.supply_price * sp.vat)/100) as vat_price, 
-		((sp.supply_price*sp.markup)/100) as markup_price, 
-		sum(sp.pack_quantity) as quantity, 
-		(sum(sp.pack_quantity) * sp.retail_price) AS sum,
-		sp.bonus_percent, sp.bonus_amount, u.short_name AS unit_name,
+		AVG(sp.supply_price) AS supply_price,
+		AVG(sp.vat) AS vat,
+		AVG(p.markup) AS markup,
+		AVG(sp.retail_price) AS retail_price,
+		(AVG(sp.supply_price) * AVG(sp.vat) / 100) AS vat_price,
+		(AVG(sp.supply_price) * AVG(p.markup) / 100) AS markup_price,
+		SUM(sp.pack_quantity) AS quantity,
+		(SUM(sp.pack_quantity) * AVG(sp.retail_price)) AS sum,
+		AVG(sp.bonus_percent) AS bonus_percent,
+		AVG(sp.bonus_amount) AS bonus_amount,
+		u.short_name AS unit_name,
 		p.created_at`).
-		Group(`p.id, p.name, p.barcode, p.status,
-				sp.supply_price, sp.vat, sp.retail_price, sp.markup,
-				sp.bonus_percent, sp.bonus_amount, u.short_name, p.created_at`).
+		Group(`
+			p.id, p.name, p.barcode, p.status, p.description, p.photos,
+         	p.manufacturer, p.material_code, u.short_name, p.created_at`).
 		Order("p.created_at DESC").
 		Limit(limit).
 		Offset(offset).
+		Debug().
 		Find(&res).Error
 
 	if err != nil {

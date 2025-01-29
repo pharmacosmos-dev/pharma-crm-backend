@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS "customers" (
   "tag_id" uuid,
   "first_name" varchar,
   "last_name" varchar,
+  "full_name"  varchar,
   "middle_name" varchar,
   "phone" varchar[],
   "birthday" date,

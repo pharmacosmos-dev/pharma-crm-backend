@@ -11,6 +11,7 @@ type Customer struct {
 	StoreId   string            `gorm:"store_id" json:"store_id"`
 	FirstName string            `gorm:"first_name" json:"first_name"`
 	LastName  string            `gorm:"last_name" json:"last_name"`
+	FullName  string            `gorm:"full_name" json:"full_name"`
 	PublicId  int               `gorm:"public_id" json:"public_id"`
 	Phone     utils.StringArray `gorm:"type:text[]" json:"phone"`
 	Birthday  string            `gorm:"birthday" json:"birthday" example:"2006-01-02"`
@@ -43,6 +44,7 @@ type CustomerRequest struct {
 	StoreId   string            `gorm:"store_id" json:"store_id"`
 	FirstName string            `gorm:"first_name" json:"first_name"`
 	LastName  string            `gorm:"last_name" json:"last_name,omitempty"`
+	FullName  string            `gorm:"full_name" json:"full_name,omitempty"`
 	Phone     utils.StringArray `gorm:"type:text[]" json:"phone"`
 	Birthday  *string           `gorm:"birthday" json:"birthday,omitempty" example:"2006-01-02"`
 	Gender    string            `gorm:"gender" json:"gender,omitempty" example:"male/female"`
