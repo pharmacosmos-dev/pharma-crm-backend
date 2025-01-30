@@ -29,8 +29,8 @@ type DraftRequest struct {
 	CustomerID  *string `gorm:"customer_id" json:"customer_id"`
 	SaleID      string  `gorm:"sale_id" json:"sale_id"`
 	CreatedBy   string  `gorm:"created_by" json:"created_by"`
-	DraftNumber string  `gorm:"draft_number" json:"-"`
 	Description string  `gorm:"description" json:"description"`
+	TotalPrice  float64 `gorm:"total_price" json:"total_price"`
 	DraftTime   string  `gorm:"draft_time" json:"draft_time"`
 }
 

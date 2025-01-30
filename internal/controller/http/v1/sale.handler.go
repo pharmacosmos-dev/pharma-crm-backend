@@ -784,8 +784,3 @@ func (h *SaleHandler) SaveResponse(ctx context.Context, req *domain.PaymentReque
 	}
 	return nil
 }
-
-func cashboxOperationAmounts(tx *gorm.DB, paymentType domain.FinalPaymentType) error {
-
-	return nil
-}

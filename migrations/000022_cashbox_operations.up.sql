@@ -11,13 +11,6 @@ CREATE TABLE IF NOT EXISTS "cashbox_operations" (
     "description" VARCHAR(255),
     "start_time" TIMESTAMP,
     "end_time" TIMESTAMP,
-    "cash" NUMERIC(10, 2) DEFAULT 0,
-    "uzcard" NUMERIC(10, 2) DEFAULT 0,
-    "humo" NUMERIC(10, 2) DEFAULT 0,
-    "visa" NUMERIC(10, 2) DEFAULT 0,
-    "click" NUMERIC(10, 2) DEFAULT 0,
-    "payme" NUMERIC(10, 2) DEFAULT 0,
-    "uzum" NUMERIC(10, 2) DEFAULT 0,
     "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
