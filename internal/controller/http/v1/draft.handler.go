@@ -259,7 +259,7 @@ func (h *DraftHandler) List(c *gin.Context) {
 			Where("CAST(drafts.draft_number AS TEXT) LIKE ? OR customers.full_name ILIKE ? OR ? = ANY(customers.phone)", search, search, strings.Trim(search, "%"))
 	}
 	if storeID != "" {
-		query = query.Where("store_id = ?", storeID)
+		query = query.Where("drafts.store_id = ?", storeID)
 	}
 	if draftDate != "" {
 		// Validate the date format
