@@ -268,7 +268,13 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 	}
 	// Do'kondagi mahsulot miqdorini tekshirish
 	if storeProduct.Quantity < body.Quantity || storeProduct.UnitQuantity < body.UnitQuantity {
-		handleResponse(c, BadRequest, "Not enough product in stock")
+		handleResponse(c, BadRequest, gin.H{
+			"message":                "Not enough Product",
+			"pack_quantity":          storeProduct.PackQuantity,
+			"unit_quantity":          storeProduct.UnitQuantity,
+			"received_pack_quantity": body.Quantity,
+			"received_unit_quantity": body.UnitQuantity,
+		})
 		return
 	}
 
