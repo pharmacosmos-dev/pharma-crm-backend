@@ -36,6 +36,7 @@ type AutoOrderDetail struct {
 	Id                     string     `gorm:"id" json:"id"`
 	AutoOrderId            string     `gorm:"auto_order_id" json:"auto_order_id"`
 	ProductId              string     `gorm:"product_id" json:"product_id"`
+	ProductName            string     `gorm:"product_name" json:"product_name"`
 	Kvant                  int        `gorm:"kvant" json:"kvant"`
 	CurrentStock           int        `gorm:"current_stock" json:"current_stock"`
 	MonthSaleStock         int        `gorm:"month_sale_stock" json:"month_sale_stock"`

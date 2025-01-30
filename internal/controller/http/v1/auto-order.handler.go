@@ -299,13 +299,15 @@ func (h *AutoOrderHandler) AutoOrderDetailList(c *gin.Context) {
 	)
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 	query := h.db.
 		Model(&domain.AutoOrderDetail{}).
-		Preload("AutoOrder")
+		Select("auto_order_details.*, p.name as product_name").
+		Preload("AutoOrder").
+		Joins("JOIN products p ON p.id = auto_order_details.product_id")
 	if storeID != "" {
 		query = query.Where("store_id = ?", storeID)
 	}

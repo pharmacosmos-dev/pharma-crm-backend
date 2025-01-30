@@ -211,6 +211,39 @@ func (h *ProductHandler) Get(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	// var categories []*domain.Category
+	// query := `
+	// WITH RECURSIVE category_tree AS (
+	//     -- Get the categories directly linked to the product
+	//     SELECT c.id, c.name, c.category_id
+	//     FROM categories c
+	//     INNER JOIN category_products cp ON c.id = cp.category_id
+	//     WHERE cp.product_id = ?
+
+	//     UNION ALL
+
+	//     -- Recursively get all parent categories
+	//     SELECT parent.id, parent.name, parent.category_id
+	//     FROM categories parent
+	//     INNER JOIN category_tree child ON parent.id = child.category_id
+
+	//     UNION ALL
+
+	//     -- Recursively get all child categories
+	//     SELECT child.id, child.name, child.category_id
+	//     FROM categories child
+	//     INNER JOIN category_tree parent ON child.category_id = parent.id
+	// )
+	// SELECT * FROM category_tree;
+	// `
+
+	// // Execute the query
+	// if err := h.db.Raw(query, id).Scan(&categories).Error; err != nil {
+	// 	h.log.Error(err)
+	// 	handleResponse(c, InternalError, err.Error())
+	// 	return
+	// }
+	// res.Categories = categories
 	handleResponse(c, OK, res)
 }
 
