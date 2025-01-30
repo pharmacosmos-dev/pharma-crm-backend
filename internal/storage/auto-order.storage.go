@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/pharma-crm-backend/domain"
 )
@@ -105,8 +106,77 @@ monthly_sales AS (
 		return nil, 0, err
 	}
 	// Extract total_count from the first row
-	if len(autoOrders) > 0 {
-		totalCount = autoOrders[0].TotalCount
-	}
+
 	return autoOrders, totalCount, nil
+}
+
+func (s *Storage) GenerateAutoOrderDetail(ctx context.Context, storeID string, day int) ([]*domain.AutoOrderDetailRequest, error) {
+	var res []*domain.AutoOrderDetailRequest
+	query := `
+	WITH sales_data AS (
+		SELECT
+			sp.store_id,
+			sp.product_id,
+			SUM(CASE WHEN s.created_at >= NOW() - INTERVAL '` + strconv.Itoa(day) + ` day' THEN ci.quantity ELSE 0 END) AS day_sale_stock,
+			SUM(CASE WHEN s.created_at >= NOW() - INTERVAL '1 month' THEN ci.quantity ELSE 0 END) AS month_sale_stock
+		FROM
+			sales s
+		JOIN
+			cart_items ci ON s.id = ci.sale_id
+		JOIN
+			store_products sp ON ci.store_product_id = sp.id
+		WHERE
+			ci.status = 'sold' AND s.status = 'completed'
+			AND sp.store_id = ?
+		GROUP BY
+			sp.store_id, sp.product_id
+	),
+	stock AS (
+		SELECT
+			sp.store_id,
+			sp.product_id,
+			sp.pack_quantity AS current_stock
+		FROM
+			store_products sp
+		WHERE
+			sp.store_id = ?
+	)
+	SELECT
+		st.store_id,
+		s.name AS store_name,
+		st.product_id,
+		p.name AS product_name,
+		st.current_stock,
+		COALESCE(sd.month_sale_stock, 0) AS month_sale_stock,
+		COALESCE(sd.day_sale_stock, 0) AS day_sale_stock,
+		(COALESCE(sd.day_sale_stock, 0) - st.current_stock) * 1.1 AS order_growth,
+		((COALESCE(sd.day_sale_stock, 0) - st.current_stock) * 1.1) * 1 AS order_lead_time,
+		CASE
+			WHEN (COALESCE(sd.day_sale_stock, 0) - st.current_stock) * 1.1 > 0
+				THEN ROUND((COALESCE(sd.day_sale_stock, 0) - st.current_stock) * 1.1)
+			ELSE 0
+		END AS suggested_order_quantity
+	FROM
+		stock st
+	JOIN
+		stores s ON st.store_id = s.id
+	JOIN
+		products p ON st.product_id = p.id
+	LEFT JOIN
+		sales_data sd ON st.store_id = sd.store_id AND st.product_id = sd.product_id
+	LEFT JOIN auto_order_details ON auto_order_details.product_id = st.product_id
+	LEFT JOIN auto_orders ON auto_order_details.auto_order_id = auto_orders.id
+	WHERE
+		st.store_id = ? AND
+		(auto_orders.status != 'new' OR auto_orders.status != 'pending' 
+		OR auto_orders.status IS NULL);
+	`
+	err := s.db.Raw(query, storeID, storeID, storeID).Scan(&res).Error
+
+	if err != nil {
+		s.log.Error(err)
+		return nil, err
+	}
+
+	return res, nil
 }

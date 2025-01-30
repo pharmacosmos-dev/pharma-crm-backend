@@ -9,6 +9,11 @@ definitions:
       import_id:
         type: string
     type: object
+  domain.AdjustedOrderQuantity:
+    properties:
+      adjusted_order_quantity:
+        type: integer
+    type: object
   domain.Apteka:
     properties:
       name:
@@ -21,6 +26,19 @@ definitions:
       adjusted_order:
         type: number
       product_id:
+        type: string
+      store_id:
+        type: string
+    type: object
+  domain.AutoOrderRequest:
+    properties:
+      auto_order_date:
+        type: string
+      id:
+        type: string
+      interval_day:
+        type: integer
+      status:
         type: string
       store_id:
         type: string
@@ -851,6 +869,121 @@ info:
   title: Pharma API docs
   version: "1.0"
 paths:
+  /auto-order:
+    post:
+      consumes:
+      - application/json
+      description: Create auto order
+      parameters:
+      - description: Auto order information
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.AutoOrderRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create auto order
+      tags:
+      - auto_orders
+  /auto-order-detail/change-quantity/{id}:
+    put:
+      consumes:
+      - application/json
+      description: Change adjusted order quantity
+      parameters:
+      - description: ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Adjusted Order Quantity
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.AdjustedOrderQuantity'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Change adjusted order quantity
+      tags:
+      - auto_order_details
+  /auto-order-detail/list:
+    get:
+      consumes:
+      - application/json
+      description: List auto order details
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Auto Order ID
+        in: query
+        name: auto_order_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: List auto order details
+      tags:
+      - auto_order_details
   /auto-order/confirm:
     post:
       consumes:
@@ -902,6 +1035,14 @@ paths:
       - description: Store ID
         in: query
         name: store_id
+        type: string
+      - description: Status
+        in: query
+        name: status
+        type: string
+      - description: Date
+        in: query
+        name: auto_order_date
         type: string
       - description: Search
         in: query

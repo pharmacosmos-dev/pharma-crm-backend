@@ -39,4 +39,11 @@ const (
 	CLICK = "click"
 	PAYME = "payme"
 	UZUM  = "uzum"
+
+	// Universal status types
+	NEW       = "new"
+	PENDING   = "pending"
+	COMPLETED = "completed"
+	CANCELED  = "canceled"
+	DONE      = "done"
 )
