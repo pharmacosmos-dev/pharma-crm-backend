@@ -211,39 +211,43 @@ func (h *ProductHandler) Get(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	// var categories []*domain.Category
-	// query := `
-	// WITH RECURSIVE category_tree AS (
-	//     -- Get the categories directly linked to the product
-	//     SELECT c.id, c.name, c.category_id
-	//     FROM categories c
-	//     INNER JOIN category_products cp ON c.id = cp.category_id
-	//     WHERE cp.product_id = ?
+	category := []*domain.Category{}
+	query := `
+WITH RECURSIVE category_tree AS (
+    -- Base case: Get categories directly linked to the product
+    SELECT
+        c.id,
+        c.category_id,
+        c.name::TEXT AS name_path,
+        c.id AS root_category_id  -- Keep track of the original category
+    FROM categories c
+    INNER JOIN category_products cp ON c.id = cp.category_id
+    WHERE cp.product_id = ?
 
-	//     UNION ALL
+    UNION ALL
 
-	//     -- Recursively get all parent categories
-	//     SELECT parent.id, parent.name, parent.category_id
-	//     FROM categories parent
-	//     INNER JOIN category_tree child ON parent.id = child.category_id
+    -- Recursive case: Build full category path
+    SELECT
+        parent.id,
+        parent.category_id,
+        (parent.name || ' > ' || child.name_path)::TEXT AS name_path,
+        child.root_category_id
+    FROM categories parent
+    INNER JOIN category_tree child ON parent.id = child.category_id
+)
+SELECT DISTINCT ON (root_category_id) id, category_id, name_path AS name
+FROM category_tree
+ORDER BY root_category_id, LENGTH(name_path) DESC;
+	`
 
-	//     UNION ALL
+	// Execute the query
+	if err := h.db.Raw(query, id).Scan(&category).Error; err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	res.Categories = category
 
-	//     -- Recursively get all child categories
-	//     SELECT child.id, child.name, child.category_id
-	//     FROM categories child
-	//     INNER JOIN category_tree parent ON child.category_id = parent.id
-	// )
-	// SELECT * FROM category_tree;
-	// `
-
-	// // Execute the query
-	// if err := h.db.Raw(query, id).Scan(&categories).Error; err != nil {
-	// 	h.log.Error(err)
-	// 	handleResponse(c, InternalError, err.Error())
-	// 	return
-	// }
-	// res.Categories = categories
 	handleResponse(c, OK, res)
 }
 
@@ -552,9 +556,9 @@ func (h *ProductHandler) Update(c *gin.Context) {
 		err = h.db.WithContext(c.Request.Context()).
 			Table("category_products").
 			Clauses(clause.OnConflict{
-				Columns:   []clause.Column{{Name: "product_id"}, {Name: "category_id"}}, // Define unique columns
-				DoNothing: false,                                                        // If true, skips updates
-				DoUpdates: clause.AssignmentColumns([]string{"updated_at"}),             // Update specific columns
+				Columns:   []clause.Column{{Name: "product_id"}, {Name: "category_id"}},
+				DoNothing: false,
+				DoUpdates: clause.AssignmentColumns([]string{"updated_at"}),
 			}).Create(&categoryProducts).Error
 		if err != nil {
 			tx.Rollback()
