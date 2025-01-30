@@ -97,6 +97,15 @@ func (h *DraftHandler) Create(c *gin.Context) {
 			})
 			body.TotalPrice += item.TotalPrice
 		}
+
+		err = tx.Table("drafts").Create(&body).Error
+		if err != nil {
+			tx.Rollback()
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+
 		err = tx.
 			Table("cart_item_drafts").
 			Create(&cartDrafts).Error
@@ -107,14 +116,6 @@ func (h *DraftHandler) Create(c *gin.Context) {
 			return
 		}
 	}
-	err = tx.Table("drafts").Create(&body).Error
-	if err != nil {
-		tx.Rollback()
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-
 	err = tx.Model(&domain.CartItem{}).
 		Where("sale_id = ?", body.SaleID).
 		Updates(map[string]interface{}{
