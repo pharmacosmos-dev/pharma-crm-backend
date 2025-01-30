@@ -2407,6 +2407,12 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "description": "Customer ID",
+                        "name": "customer_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "description": "Search",
                         "name": "search",
                         "in": "query"
@@ -2415,12 +2421,6 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Draft Date",
                         "name": "draft_date",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Customer ID",
-                        "name": "customer_id",
                         "in": "query"
                     }
                 ],
@@ -5599,6 +5599,14 @@ const docTemplate = `{
                     "products"
                 ],
                 "summary": "Get total count of products by status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Search",
+                        "name": "search",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -8292,6 +8300,9 @@ const docTemplate = `{
                 },
                 "store_id": {
                     "type": "string"
+                },
+                "total_price": {
+                    "type": "number"
                 }
             }
         },
@@ -8308,6 +8319,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "first_name": {
+                    "type": "string"
+                },
+                "full_name": {
                     "type": "string"
                 },
                 "gender": {
@@ -8367,6 +8381,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "first_name": {
+                    "type": "string"
+                },
+                "full_name": {
                     "type": "string"
                 },
                 "gender": {

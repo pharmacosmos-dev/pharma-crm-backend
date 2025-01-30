@@ -2400,6 +2400,12 @@
                     },
                     {
                         "type": "string",
+                        "description": "Customer ID",
+                        "name": "customer_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "description": "Search",
                         "name": "search",
                         "in": "query"
@@ -2408,12 +2414,6 @@
                         "type": "string",
                         "description": "Draft Date",
                         "name": "draft_date",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Customer ID",
-                        "name": "customer_id",
                         "in": "query"
                     }
                 ],
@@ -5592,6 +5592,14 @@
                     "products"
                 ],
                 "summary": "Get total count of products by status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Search",
+                        "name": "search",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -8285,6 +8293,9 @@
                 },
                 "store_id": {
                     "type": "string"
+                },
+                "total_price": {
+                    "type": "number"
                 }
             }
         },
@@ -8301,6 +8312,9 @@
                     "type": "string"
                 },
                 "first_name": {
+                    "type": "string"
+                },
+                "full_name": {
                     "type": "string"
                 },
                 "gender": {
@@ -8360,6 +8374,9 @@
                     "type": "string"
                 },
                 "first_name": {
+                    "type": "string"
+                },
+                "full_name": {
                     "type": "string"
                 },
                 "gender": {
