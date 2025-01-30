@@ -3,6 +3,7 @@ package v1
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -205,9 +206,9 @@ func (h *DraftHandler) Get(c *gin.Context) {
 // @Param limit query int false "Limit"
 // @Param offset query int false "Offset"
 // @Param store_id query string false "Store ID"
+// @Param customer_id query string false "Customer ID"
 // @Param search query string false "Search"
 // @Param draft_date query string false "Draft Date"
-// @Param customer_id query string false "Customer ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -216,6 +217,10 @@ func (h *DraftHandler) List(c *gin.Context) {
 	var (
 		res        []*domain.Draft
 		totalCount int64
+		search     = c.Query("search")
+		storeID    = c.Query("store_id")
+		customerID = c.Query("customer_id")
+		draftDate  = c.Query("draft_date")
 	)
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
@@ -226,24 +231,25 @@ func (h *DraftHandler) List(c *gin.Context) {
 
 	// Base query with joins and aggregate fields
 	query := h.db.Model(&domain.Draft{}).
+		Preload("Store").
+		Preload("Customer").
+		Preload("Employee").
 		Select(`drafts.*, 
                 SUM(cart_items.quantity) AS quantity, 
                 COALESCE(SUM(cart_items.total_price), 0) AS total_price`).
 		Joins("JOIN cart_item_drafts ON cart_item_drafts.draft_id = drafts.id").
-		Joins("JOIN cart_items ON cart_items.id = cart_item_drafts.cart_item_id").
-		Group("drafts.id").
-		Preload("Store").Preload("Customer").Preload("Employee")
+		Joins("JOIN cart_items ON cart_items.id = cart_item_drafts.cart_item_id")
 
 	// Filters
-	if search := c.Query("search"); search != "" {
+	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
 		query = query.Joins("LEFT JOIN customers ON customers.id = drafts.customer_id").
-			Where("customers.phone LIKE ? OR customers.first_name ILIKE ?", search, search)
+			Where("CAST(drafts.draft_number AS TEXT) LIKE ? OR customers.full_name ILIKE ? OR ? = ANY(customers.phone)", search, search, strings.Trim(search, "%"))
 	}
-	if storeID := c.Query("store_id"); storeID != "" {
+	if storeID != "" {
 		query = query.Where("store_id = ?", storeID)
 	}
-	if draftDate := c.Query("draft_date"); draftDate != "" {
+	if draftDate != "" {
 		// Validate the date format
 		if _, err := time.Parse("2006-01-02", draftDate); err != nil {
 			handleResponse(c, BadRequest, "Invalid date format")
@@ -251,13 +257,18 @@ func (h *DraftHandler) List(c *gin.Context) {
 		}
 		query = query.Where("drafts.draft_time::date = ?", draftDate)
 	}
-	if customerID := c.Query("customer_id"); customerID != "" {
+	if customerID != "" {
 		query = query.Where("drafts.customer_id = ?", customerID)
 	}
 
 	// Execute the query
-	err = query.Limit(limit).Offset(offset).
-		Count(&totalCount).Order("drafts.created_at DESC").
+	err = query.
+		Group("drafts.id").
+		Count(&totalCount).
+		Limit(limit).
+		Offset(offset).
+		Order("drafts.created_at DESC").
+		Debug().
 		Find(&res).Error
 	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
