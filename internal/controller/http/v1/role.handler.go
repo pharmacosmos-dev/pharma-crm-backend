@@ -142,7 +142,10 @@ func (h *RoleHandler) Get(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /role/list [get]
 func (h *RoleHandler) List(c *gin.Context) {
-	status := c.Query("status")
+	var (
+		search = c.Query("search")
+		status = c.Query("status")
+	)
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
 		handleResponse(c, BadRequest, err.Error())
@@ -154,9 +157,9 @@ func (h *RoleHandler) List(c *gin.Context) {
 		status = "1"
 	}
 	q := h.db.Model(&domain.Role{}).Where("status = ?", status)
-	if search := c.Query("search"); search != "" {
+	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
-		q = q.Where("name ILIKE ? OR description ILIKE ?", search, search)
+		q = q.Where("CAST(public_id AS TEXT) ILIKE ? OR name ILIKE ? OR description ILIKE ?", search, search, search)
 	}
 
 	err = q.
