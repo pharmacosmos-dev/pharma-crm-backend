@@ -373,6 +373,17 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 					handleResponse(c, InternalError, err.Error())
 					return
 				}
+				err = tx.Exec(`
+				INSERT INTO sale_payment_summary (cash_box_operation_id, payment_type_id, total_amount) 
+				VALUES(?, ?, ?)
+				ON CONFLICT (cash_box_operation_id, payment_type_id) 
+				DO UPDATE SET total_amount = EXCLUDED.total_amount + ?`, body.CashBoxOperationId, item.PaymentTypeID, item.Amount, item.Amount).Error
+				if err != nil {
+					tx.Rollback()
+					h.log.Error(err)
+					handleResponse(c, InternalError, err.Error())
+					return
+				}
 				continue
 			} else {
 				tx.Rollback()
@@ -402,10 +413,22 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 				handleResponse(c, InternalError, err.Error())
 				return
 			}
+			err = tx.Exec(`
+			INSERT INTO sale_payment_summary (cash_box_operation_id, payment_type_id, total_amount) 
+			VALUES(?, ?, ?)
+			ON CONFLICT (cash_box_operation_id, payment_type_id) 
+			DO UPDATE SET total_amount = EXCLUDED.total_amount + ?`, body.CashBoxOperationId, item.PaymentTypeID, item.Amount, item.Amount).Error
+			if err != nil {
+				tx.Rollback()
+				h.log.Error(err)
+				handleResponse(c, InternalError, err.Error())
+				return
+			}
 		} else {
 			handleResponse(c, InternalError, "Invalid payment type")
 			return
 		}
+
 	}
 
 	// Update sale status
