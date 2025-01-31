@@ -23,7 +23,7 @@ func (h *ExternalHandler) ExternalRoutes(r *gin.RouterGroup) {
 // List Products
 // @Summary List Products
 // @Description List Products
-// @Tags 	External
+// @Tags 	External API
 // @Security     BasicAuth
 // @Accept 	json
 // @Produce json

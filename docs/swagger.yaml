@@ -3080,7 +3080,7 @@ paths:
       - BasicAuth: []
       summary: List Products
       tags:
-      - External
+      - External API
   /generate-token:
     post:
       consumes:

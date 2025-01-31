@@ -3465,7 +3465,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "External"
+                    "External API"
                 ],
                 "summary": "List Products",
                 "parameters": [
