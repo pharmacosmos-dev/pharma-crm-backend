@@ -54,8 +54,15 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	tx := h.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
 	var store domain.Store
-	err = h.db.First(&store, "store_code = ?", body.Apteka.StoreCode).Error
+	err = tx.First(&store, "store_code = ?", body.Apteka.StoreCode).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			handleResponse(c, OK, "Store not found")
@@ -73,7 +80,7 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 		ImportDate:     time.Now().Format("2006-01-02 15:04:05"),
 		DocumentNumber: body.Dok.DocumentNumber,
 	}
-	err = h.db.
+	err = tx.
 		WithContext(c.Request.Context()).
 		Table("imports").
 		Create(&newImport).Error
@@ -91,7 +98,7 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 
 	var importDetails []domain.ImportDetailRequest
 	for _, product := range body.Товары {
-		err = h.db.WithContext(c.Request.Context()).
+		err = tx.WithContext(c.Request.Context()).
 			Table("products").
 			Clauses(clause.OnConflict{
 				Columns:   []clause.Column{{Name: "material_code"}}, // Specify the column(s) to check for conflict
@@ -110,7 +117,7 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 		})
 	}
 	if len(importDetails) > 0 {
-		err = h.db.
+		err = tx.
 			WithContext(c.Request.Context()).
 			Table("import_details").
 			Create(&importDetails).Error

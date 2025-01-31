@@ -256,8 +256,11 @@ func (h *DraftHandler) List(c *gin.Context) {
 	// Filters
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
-		query = query.Joins("LEFT JOIN customers ON customers.id = drafts.customer_id").
-			Where("CAST(drafts.draft_number AS TEXT) LIKE ? OR customers.full_name ILIKE ? OR ? = ANY(customers.phone)", search, search, strings.Trim(search, "%"))
+		query = query.
+			Joins("LEFT JOIN customers ON customers.id = drafts.customer_id").
+			Joins("LEFT JOIN employees e ON e.id = drafts.created_by").
+			Where("CAST(drafts.draft_number AS TEXT) LIKE ? OR customers.full_name ILIKE ? OR e.full_name ILIKE ? OR ? = ANY(customers.phone)",
+				search, search, search, strings.Trim(search, "%"))
 	}
 	if storeID != "" {
 		query = query.Where("drafts.store_id = ?", storeID)
