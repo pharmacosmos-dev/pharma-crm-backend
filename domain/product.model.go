@@ -179,3 +179,27 @@ type TotalStatusCount struct {
 	ImminentCount  int `gorm:"imminent_count" json:"imminent_count"`
 	ExpiredCount   int `gorm:"expired_count" json:"expired_count"`
 }
+
+// External API response structure
+type ProductExternal struct {
+	Id          string            `gorm:"id" json:"id"`
+	Name        string            `gorm:"name" json:"name"`
+	Barcode     string            `gorm:"barcode" json:"barcode"`
+	Photos      utils.StringArray `gorm:"type:text[]" json:"photos"`
+	Quantity    int               `gorm:"quantity" json:"quantity"`
+	Description string            `gorm:"description" json:"description"`
+	UnitName    string            `gorm:"unit_name" json:"unit_name"`
+	Stores      []StoreExternal   `gorm:"-" json:"stores"`
+}
+
+// Store external API response structure
+type StoreExternal struct {
+	Id           string     `gorm:"id" json:"id"`
+	Name         string     `gorm:"name" json:"name"`
+	Address      string     `gorm:"address" json:"address"`
+	Location     string     `gorm:"location" json:"location"`
+	Quantity     int        `gorm:"quantity" json:"quantity"`
+	UnitQuantity int        `gorm:"unit_quantity" json:"unit_quantity"`
+	RetailPrice  float64    `gorm:"retail_price" json:"retail_price"`
+	ExpireDate   *time.Time `gorm:"expire_date" json:"expire_date"`
+}

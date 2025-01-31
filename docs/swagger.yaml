@@ -3051,6 +3051,36 @@ paths:
       summary: Unblock employee
       tags:
       - employees
+  /external/product/list:
+    get:
+      consumes:
+      - application/json
+      description: List Products
+      parameters:
+      - description: Search
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BasicAuth: []
+      summary: List Products
+      tags:
+      - External
   /generate-token:
     post:
       consumes:

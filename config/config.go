@@ -36,9 +36,11 @@ type (
 	}
 	// Token Secret Key -.
 	Secret struct {
-		SecretKey  string `env-required:"true" yaml:"log_level"   env:"SECRET_KEY"`
-		HeshKey    string `env-required:"true" yaml:"log_level"   env:"HESH_KEY"`
-		Password1C string `env-required:"true" yaml:"log_level"   env:"PASSWORD_1C"`
+		SecretKey           string `env-required:"true" yaml:"log_level"   env:"SECRET_KEY"`
+		HeshKey             string `env-required:"true" yaml:"log_level"   env:"HESH_KEY"`
+		Password1C          string `env-required:"true" yaml:"log_level"   env:"PASSWORD_1C"`
+		ExternalAPIUsername string `env-required:"true" yaml:"log_level"   env:"EXTERNAL_API_USERNAME"`
+		ExternalAPIPassword string `env-required:"true" yaml:"log_level"   env:"EXTERNAL_API_PASSWORD"`
 	}
 
 	// PG -.
@@ -80,6 +82,8 @@ func Load() Config {
 	c.Secret.Password1C = cast.ToString(GetOrReturnDefaultValue("PASSWORD_1C", "6fb5619d-8c30-4e85-a1e3-3f4d142498a0"))
 	c.Payment.ClickEndpointUrl = cast.ToString(GetOrReturnDefaultValue("CLICK_ENDPOINT_URL", "http://localhost:8080"))
 	c.Payment.UzumEndpointUrl = cast.ToString(GetOrReturnDefaultValue("UZUM_ENDPOINT_URL", "http://localhost:8080"))
+	c.Secret.ExternalAPIUsername = cast.ToString(GetOrReturnDefaultValue("EXTERNAL_API_USERNAME", "pharmaexternalapis"))
+	c.Secret.ExternalAPIPassword = cast.ToString(GetOrReturnDefaultValue("EXTERNAL_API_PASSWORD", "lai3lahxoPo{aph9"))
 	return c
 }
 

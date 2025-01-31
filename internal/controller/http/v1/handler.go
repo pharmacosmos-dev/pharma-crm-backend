@@ -30,15 +30,25 @@ func NewHandler(cfg *config.Config, db *gorm.DB, log *logger.Logger, jwt *token.
 
 func (h *Handler) InitRoutes(r *gin.Engine) {
 	v1 := r.Group("/v1")
-	// Route Group for Public APIs
-	public := r.Group("/v1")
-	// Route Group for 1C APIs
-	v1c := r.Group("/v1")
 	// Auth Middleware
 	bearerAuth := middleware.NewAuthMiddleware(h.cfg, h.JwtHandler, h.db)
 	v1.Use(bearerAuth.NewAuth())
+
+	// Route Group for Public APIs
+	public := r.Group("/v1")
+
+	// Route Group for 1C APIs
+	v1c := r.Group("/v1")
 	// Auth Middleware for 1C
 	v1c.Use(bearerAuth.Check1CAuth())
+
+	// Route Group for External APIs
+	external := r.Group("/v1")
+	// Basic Auth Middleware for External APIs
+	basicAuth := middleware.ExternalBasicAuth(h.cfg)
+	external.Use(basicAuth.Middleware)
+
+	// Handlers
 	{
 		h.NewAuthHandler(public)
 		h.NewBrandController(v1)
@@ -63,6 +73,7 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		h.NewTokenGeneratorHandler(public)
 		h.NewShiftHandler(v1)
 		h.NewAutoOrderHandler(v1)
+		h.NewExternalHandler(external)
 	}
 }
 
