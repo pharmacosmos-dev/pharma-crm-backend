@@ -17,6 +17,7 @@ type StoreProduct struct {
 	BonusAmount         float64    `gorm:"bonus_amount" json:"bonus_amount"`
 	BonusPercent        int        `gorm:"bonus_percent" json:"bonus_percent"`
 	Vat                 int        `gorm:"vat" json:"vat"`
+	Markup              int        `gorm:"markup" json:"markup"`
 	ExpireDate          *time.Time `gorm:"expire_date" json:"expire_date"`
 	CreatedAt           *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt           *time.Time `gorm:"updated_at" json:"updated_at"`
