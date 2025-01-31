@@ -183,34 +183,41 @@ func (h *CartItemHandler) UpdateBySaleID(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	// Chegirma hisoblash va yangilash uchun SQL so'rovi
-	err = h.db.WithContext(c.Request.Context()).
-		Exec(`
-        UPDATE cart_items
-        SET
-            discount_type = ?,
-            discount_value = ?,
-            discount_price = CASE
-                WHEN discount_value = 0 THEN 0
-                WHEN discount_type = 'percent' THEN unit_price - (unit_price * ? / 100)
-                WHEN discount_type = 'cash' THEN unit_price - ?
-                ELSE unit_price
-            END,
-            discount_amount = CASE
-                WHEN discount_value = 0 THEN 0
-                WHEN discount_type = 'percent' THEN (unit_price * ? / 100)
-                WHEN discount_type = 'cash' THEN ?
-                ELSE 0
-            END,
-            total_discount_price = discount_amount * quantity,
-            updated_at = NOW()
-        WHERE sale_id = ?;
-    `, body.DiscountType, body.DiscountValue,
-			body.DiscountValue, body.DiscountValue,
-			body.DiscountValue, body.DiscountValue,
-			saleId).Error
-
+	tx := h.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+	var cartItems []domain.CartItem
+	err = tx.Where("sale_id = ?", saleId).Find(&cartItems).Error
 	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, "Failed to fetch cart items")
+		tx.Rollback()
+		return
+	}
+	for i := range cartItems {
+		if body.DiscountType == "percent" && body.DiscountValue <= 100 {
+			cartItems[i].DiscountAmount = cartItems[i].UnitPrice * body.DiscountValue / 100
+		} else if body.DiscountType == "cash" {
+			cartItems[i].DiscountAmount = body.DiscountValue
+		} else {
+			handleResponse(c, BadRequest, "Discount type or value is invalid")
+			return
+		}
+		err = tx.Exec(`UPDATE cart_items SET discount_amount = ?, discount_type = ?, discount_value = ? WHERE id = ?`,
+			cartItems[i].DiscountAmount, body.DiscountType, body.DiscountValue, cartItems[i].ID).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, "Failed to update cart items")
+			tx.Rollback()
+			return
+		}
+	}
+
+	if err = tx.Commit().Error; err != nil {
+		tx.Rollback()
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
