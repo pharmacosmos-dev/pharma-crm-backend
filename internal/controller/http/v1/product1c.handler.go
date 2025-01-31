@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -14,7 +13,6 @@ import (
 	"github.com/pharma-crm-backend/domain"
 	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type Product1cHandler struct {
@@ -68,6 +66,7 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 			handleResponse(c, OK, "Store not found")
 			return
 		}
+		tx.Rollback()
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -75,9 +74,8 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 	newImport := domain.ImportRequest{
 		Id:             uuid.New().String(),
 		StoreID:        store.Id,
-		StoreCode:      body.Apteka.StoreCode,
 		Status:         config.NEW_IMPORT,
-		ImportDate:     time.Now().Format("2006-01-02 15:04:05"),
+		ImportDate:     body.Dok.DocumentDate,
 		DocumentNumber: body.Dok.DocumentNumber,
 	}
 	err = tx.
@@ -86,34 +84,39 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 		Create(&newImport).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(err.Error(), "unique constraint") {
+			tx.Rollback()
 			h.log.Warn("duplicate document_number: %v", err)
 			handleResponse(c, OK, "Document with this number already exists")
 			return
 		}
-		// Log and handle other errors
+		tx.Rollback()
 		h.log.Error(fmt.Errorf("ERROR on creating dok: %v", err.Error()))
 		handleResponse(c, InternalError, "Failed to creating new import")
 		return
 	}
 
 	var importDetails []domain.ImportDetailRequest
-	for _, product := range body.Товары {
-		err = tx.WithContext(c.Request.Context()).
-			Table("products").
-			Clauses(clause.OnConflict{
-				Columns:   []clause.Column{{Name: "material_code"}}, // Specify the column(s) to check for conflict
-				DoNothing: true,                                     // Ignore if conflict occurs
-			}).
-			Create(&body.Товары).Error
+	for i := range body.Товары {
+		body.Товары[i].Id = uuid.New().String()
+		err = tx.Raw(`
+		INSERT INTO 
+			products (id, material_code, name, barcode, unit_per_pack)
+		VALUES (?, ?, ?, ?, ?) 
+		ON CONFLICT (material_code) DO NOTHING`,
+			body.Товары[i].Id, body.Товары[i].MaterialCode,
+			body.Товары[i].Name, body.Товары[i].Barcode,
+			body.Товары[i].UnitPerPack).Error
 		if err != nil {
+			tx.Rollback()
 			h.log.Warn("ERROR on creating new product: %v", err.Error())
 			handleResponse(c, InternalError, "New import created but new product not created")
 			return
 		}
 		importDetails = append(importDetails, domain.ImportDetailRequest{
+			ProductID:      &body.Товары[i].Id,
 			ImportID:       newImport.Id,
-			ReceivedCount:  product.Quantity,
-			ReceivedAmount: float64(product.Quantity) * product.RetailPrice,
+			ReceivedCount:  body.Товары[i].Quantity,
+			ReceivedAmount: float64(body.Товары[i].Quantity) * body.Товары[i].RetailPrice,
 		})
 	}
 	if len(importDetails) > 0 {
@@ -122,10 +125,18 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 			Table("import_details").
 			Create(&importDetails).Error
 		if err != nil {
+			tx.Rollback()
 			h.log.Error(err)
 			handleResponse(c, InternalError, "ERROR on creating import details")
 			return
 		}
+	}
+
+	if err = tx.Commit().Error; err != nil {
+		tx.Rollback()
+		h.log.Error(err)
+		handleResponse(c, InternalError, "Failed to commit transaction")
+		return
 	}
 
 	handleResponse(c, OK, "CREATED")

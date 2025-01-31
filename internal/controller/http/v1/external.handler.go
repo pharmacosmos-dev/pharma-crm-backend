@@ -1,8 +1,6 @@
 package v1
 
 import (
-	"fmt"
-
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
 )
@@ -27,16 +25,15 @@ func (h *ExternalHandler) ExternalRoutes(r *gin.RouterGroup) {
 // @Security     BasicAuth
 // @Accept 	json
 // @Produce json
-// @Param   search 	query     string   false "Search"
+// @Param   limit 	query     int      false "Limit"
+// @Param   offset 	query     int      false "Offset"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router 	/external/product/list 	[GET]
 func (h *ExternalHandler) List(c *gin.Context) {
 	var (
-		res             []domain.ProductExternal
-		search          = c.Query("search")
-		searchCondition string
+		res []domain.ProductExternal
 	)
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
@@ -44,19 +41,15 @@ func (h *ExternalHandler) List(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	if search != "" {
-		search = fmt.Sprintf("%%%s%%", search)
-		searchCondition = fmt.Sprintf("WHERE p.name ILIKE '%s' OR p.barcode ILIKE '%s'", search, search)
-	}
-	query := fmt.Sprintf(`
+
+	query := `
 	SELECT 
 		p.id, p.name, p.barcode, p.photos, p.description, 
 		sum(sp.pack_quantity) as quantity, u.short_name as unit_name
 	FROM products p 
 	JOIN store_products sp ON p.id = sp.product_id 
 	LEFT JOIN unit_types u ON p.unit_type_id = u.id
-	%s
-	GROUP BY p.id, u.short_name LIMIT ? OFFSET ?`, searchCondition)
+	GROUP BY p.id, u.short_name LIMIT ? OFFSET ?`
 	err = h.db.Raw(query, limit, offset).Scan(&res).Error
 	if err != nil {
 		h.log.Error(err)

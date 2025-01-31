@@ -396,8 +396,6 @@ definitions:
         type: string
       status:
         type: string
-      store_code:
-        type: integer
       store_id:
         type: string
     type: object
@@ -3057,10 +3055,14 @@ paths:
       - application/json
       description: List Products
       parameters:
-      - description: Search
+      - description: Limit
         in: query
-        name: search
-        type: string
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
       produces:
       - application/json
       responses:

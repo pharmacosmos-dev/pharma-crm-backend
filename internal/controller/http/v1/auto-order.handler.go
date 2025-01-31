@@ -262,6 +262,7 @@ func (h *AutoOrderHandler) List(c *gin.Context) {
 
 	err = query.
 		Group("auto_orders.id").
+		Count(&totalCount).
 		Offset(offset).Limit(limit).
 		Find(&autoOrders).Error
 	if err != nil {

@@ -29,12 +29,12 @@ type Import struct {
 type ImportRequest struct {
 	Id             string `gorm:"id" json:"id"`
 	StoreID        string `gorm:"store_id" json:"store_id"`
-	StoreCode      int    `gorm:"store_code" json:"store_code"`
 	Status         string `gorm:"status" json:"status"`
 	ImportDate     string `gorm:"import_date" json:"import_date"`
 	DocumentNumber string `gorm:"document_number" json:"document_number"`
 }
 
+// ImportDetail structure
 type ImportDetail struct {
 	Id             string     `gorm:"id" json:"id"`
 	ImportID       string     `gorm:"import_id" json:"import_id"`

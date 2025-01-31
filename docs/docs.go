@@ -3470,9 +3470,15 @@ const docTemplate = `{
                 "summary": "List Products",
                 "parameters": [
                     {
-                        "type": "string",
-                        "description": "Search",
-                        "name": "search",
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
                         "in": "query"
                     }
                 ],
@@ -8805,9 +8811,6 @@ const docTemplate = `{
                 },
                 "status": {
                     "type": "string"
-                },
-                "store_code": {
-                    "type": "integer"
                 },
                 "store_id": {
                     "type": "string"
