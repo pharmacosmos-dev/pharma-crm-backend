@@ -99,13 +99,13 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 	for i := range body.Товары {
 		body.Товары[i].Id = uuid.New().String()
 		err = tx.Raw(`
-		INSERT INTO 
-			products (id, material_code, name, barcode, unit_per_pack)
-		VALUES (?, ?, ?, ?, ?) 
+		INSERT INTO
+			products (id, material_code, name, barcode, unit_per_pack, vat)
+		VALUES (?, ?, ?, ?, ?, ?)
 		ON CONFLICT (material_code) DO NOTHING`,
 			body.Товары[i].Id, body.Товары[i].MaterialCode,
 			body.Товары[i].Name, body.Товары[i].Barcode,
-			body.Товары[i].UnitPerPack).Error
+			body.Товары[i].UnitPerPack, body.Товары[i].Vat).Error
 		if err != nil {
 			tx.Rollback()
 			h.log.Warn("ERROR on creating new product: %v", err.Error())

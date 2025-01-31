@@ -27,7 +27,7 @@ func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartIt
 	}
 	var data domain.CartItemData
 	err = s.db.Raw(`
-	SELECT SUM(total_price) AS total_amount, SUM(total_discount_price) AS discount_amount, COUNT(*) AS count
+	SELECT SUM(total_price) AS total_amount, SUM(quantity) AS item_count, SUM(total_discount_price) AS discount_amount, COUNT(*) AS count
 	FROM cart_items
 	WHERE sale_id = ?
 	`, saleID).Scan(&data).Error

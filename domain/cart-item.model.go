@@ -60,6 +60,7 @@ type CartItemData struct {
 	TotalAmount    float64            `gorm:"total_amount" json:"total_amount"`
 	DiscountAmount float64            `gorm:"discount_amount" json:"discount_amount"`
 	Count          int64              `gorm:"count" json:"count"`
+	ItemCount      int64              `gorm:"item_count" json:"item_count"`
 }
 
 // CartItemResponse structure with product data
