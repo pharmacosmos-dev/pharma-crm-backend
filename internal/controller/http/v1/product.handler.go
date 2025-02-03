@@ -317,7 +317,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 		case "zero-stock":
 			baseQuery = baseQuery.Where("sp.pack_quantity = ? AND sp.unit_quantity = ?", 0, 0)
 		case "expired":
-			baseQuery = baseQuery.Where("sp.expire_date < ?", time.Now().Add(time.Hour*5))
+			baseQuery = baseQuery.Where("sp.expire_date::date < ?", time.Now().Format("2006-01-02"))
 		case "imminent":
 			baseQuery = baseQuery.Where("sp.expire_date BETWEEN ? AND ?", time.Now(), time.Now().AddDate(0, 0, 10))
 		}
@@ -347,10 +347,10 @@ func (h *ProductHandler) List(c *gin.Context) {
 
 	// Count total records using a subquery
 	countQuery := baseQuery.Session(&gorm.Session{}).
-		Select("COUNT(DISTINCT p.id)").
+		Select("COUNT(*)").
 		Table("products p")
 
-	err = countQuery.Count(&totalCount).Error
+	err = countQuery.Debug().Count(&totalCount).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
