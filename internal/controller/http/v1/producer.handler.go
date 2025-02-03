@@ -217,6 +217,7 @@ func (h *ProducerHandler) CreateShelf(c *gin.Context) {
 // @Param limit query int false "Limit"
 // @Param offset query int false "Offset"
 // @Param search query string false "Search"
+// @Param id query string false "shelf ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -226,6 +227,7 @@ func (h *ProducerHandler) ListShelf(c *gin.Context) {
 		res        []*domain.Shelf
 		err        error
 		search     = c.Query("search")
+		id         = c.Query("id")
 		totalCount int64
 	)
 	limit, offset, err := getPaginationParams(c)
@@ -239,6 +241,9 @@ func (h *ProducerHandler) ListShelf(c *gin.Context) {
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
 		query = query.Where("name ILIKE ?", search)
+	}
+	if id != "" {
+		query = query.Where("id = ?", id)
 	}
 	err = query.Count(&totalCount).Limit(limit).Offset(offset).Find(&res).Error
 	if err != nil {

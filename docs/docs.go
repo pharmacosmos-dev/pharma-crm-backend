@@ -7345,6 +7345,12 @@ const docTemplate = `{
                         "description": "Search",
                         "name": "search",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "shelf ID",
+                        "name": "id",
+                        "in": "query"
                     }
                 ],
                 "responses": {

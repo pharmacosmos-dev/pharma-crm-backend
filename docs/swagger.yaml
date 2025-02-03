@@ -5615,6 +5615,10 @@ paths:
         in: query
         name: search
         type: string
+      - description: shelf ID
+        in: query
+        name: id
+        type: string
       produces:
       - application/json
       responses:
