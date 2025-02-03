@@ -11,6 +11,8 @@ type Product struct {
 	Id           string            `gorm:"id" json:"id"`
 	BrandId      string            `gorm:"-" json:"brand_id"`
 	UnitTypeID   string            `gorm:"unit_type_id" json:"unit_type_id"`
+	ShelfID      string            `gorm:"shelf_id" json:"shelf_id"`
+	ProducerID   string            `gorm:"producer_id" json:"producer_id"`
 	Name         string            `gorm:"name" json:"name"`
 	Barcode      string            `gorm:"barcode" json:"barcode"`
 	Photos       utils.StringArray `gorm:"type:text[]" json:"photos"`
@@ -33,10 +35,12 @@ type Product struct {
 	BonusAmount  float64           `gorm:"bonus_amount" json:"bonus_amount"`
 	CreatedAt    *time.Time        `gorm:"created_at" json:"created_at"`
 	UpdatedAt    *time.Time        `gorm:"updated_at" json:"updated_at"`
+	UnitName     string            `gorm:"unit_name" json:"unit_name"`
 	Categories   []*Category       `gorm:"many2many:category_products;foreignKey:Id;joinForeignKey:ProductId;References:Id;joinReferences:CategoryId" json:"categories"`
 	StoreProduct []*StoreProduct   `gorm:"foreignKey:ProductID" json:"store_product"`
 	UnitType     *UnitType         `gorm:"foreignKey:UnitTypeID" json:"unit_type"`
-	UnitName     string            `gorm:"unit_name" json:"unit_name"`
+	Shelf        *Shelf            `gorm:"foreignKey:ShelfID" json:"shelf"`
+	Producer     *Producer         `gorm:"foreignKey:ProducerID" json:"producer"`
 }
 
 // Product create request
