@@ -207,7 +207,7 @@ func (h *CartItemHandler) UpdateBySaleID(c *gin.Context) {
 			return
 		}
 		err = tx.Exec(`UPDATE cart_items SET discount_amount = ?, discount_type = ?, discount_value = ?, discount_price = unit_price - ? WHERE id = ?`,
-			cartItems[i].DiscountAmount, body.DiscountType, body.DiscountValue, cartItems[i].ID, cartItems[i].DiscountAmount).Error
+			cartItems[i].DiscountAmount, body.DiscountType, body.DiscountValue, cartItems[i].DiscountAmount, cartItems[i].ID).Error
 		if err != nil {
 			h.log.Error(err)
 			handleResponse(c, InternalError, "Failed to update cart items")
