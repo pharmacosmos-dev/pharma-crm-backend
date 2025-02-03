@@ -5207,6 +5207,12 @@ const docTemplate = `{
                         "description": "Search",
                         "name": "search",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "producer ID",
+                        "name": "id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -9571,11 +9577,17 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "producer_id": {
+                    "type": "string"
+                },
                 "quantity": {
                     "type": "integer"
                 },
                 "retail_price": {
                     "type": "number"
+                },
+                "shelf_id": {
+                    "type": "string"
                 },
                 "store_product": {
                     "type": "array",

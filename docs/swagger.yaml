@@ -612,10 +612,14 @@ definitions:
         items:
           type: string
         type: array
+      producer_id:
+        type: string
       quantity:
         type: integer
       retail_price:
         type: number
+      shelf_id:
+        type: string
       store_product:
         items:
           $ref: '#/definitions/domain.StoreProductRequest'
@@ -4251,6 +4255,10 @@ paths:
       - description: Search
         in: query
         name: search
+        type: string
+      - description: producer ID
+        in: query
+        name: id
         type: string
       produces:
       - application/json

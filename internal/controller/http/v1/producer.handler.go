@@ -75,6 +75,7 @@ func (h *ProducerHandler) Create(c *gin.Context) {
 // @Param limit query int false "Limit"
 // @Param offset query int false "Offset"
 // @Param search query string false "Search"
+// @Param id query string false "producer ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -84,8 +85,10 @@ func (h *ProducerHandler) List(c *gin.Context) {
 		res        []*domain.Producer
 		err        error
 		totalCount int64
+		id         = c.Query("id")
 		search     = c.Query("search")
 	)
+
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
 		h.log.Error(err)
@@ -99,6 +102,11 @@ func (h *ProducerHandler) List(c *gin.Context) {
 		search = fmt.Sprintf("%%%s%%", search)
 		query = query.Where("name ILIKE ?", search)
 	}
+
+	if id != "" {
+		query = query.Where("id = ?", id)
+	}
+
 	err = query.Count(&totalCount).Limit(limit).Offset(offset).Find(&res).Error
 	if err != nil {
 		h.log.Error(err)

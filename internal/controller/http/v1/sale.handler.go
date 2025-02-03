@@ -193,8 +193,11 @@ func (h *SaleHandler) List(c *gin.Context) {
 	if storeID != "" {
 		query = query.Where("stores.id = ?", storeID)
 	}
-	if startDate != "" && endDate != "" {
-		query = query.Where("s.created_at BETWEEN ? AND ?", startDate, endDate)
+	if startDate != "" {
+		query = query.Where("s.created_at >= ?", startDate)
+	}
+	if endDate != "" {
+		query = query.Where("s.created_at <= ?", endDate)
 	}
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
