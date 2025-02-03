@@ -76,6 +76,8 @@ type ProductUpdateRequest struct {
 	Name         string                `gorm:"name" json:"name"`
 	Barcode      string                `gorm:"barcode" json:"barcode"`
 	UnitTypeID   string                `gorm:"unit_type_id" json:"unit_type_id"`
+	ProducerID   *string               `gorm:"producer_id" json:"producer_id"`
+	ShelfID      *string               `gorm:"shelf_id" json:"shelf_id"`
 	Photos       utils.StringArray     `gorm:"type:text[]" json:"photos"`
 	SupplyPrice  float64               `gorm:"supply_price" json:"supply_price"`
 	RetailPrice  float64               `gorm:"retail_price" json:"retail_price"`

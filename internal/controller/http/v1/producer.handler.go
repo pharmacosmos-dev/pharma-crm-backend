@@ -56,12 +56,13 @@ func (h *ProducerHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	err = h.db.Create(&body).Error
+
+	err = h.db.Raw(`INSERT INTO producers (name) VALUES (?) RETURNING *`, body.Name).Scan(&body).Error
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, CREATED, "CREATED")
+	handleResponse(c, CREATED, body)
 }
 
 // List all producers
@@ -190,12 +191,12 @@ func (h *ProducerHandler) CreateShelf(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	err = h.db.Create(&body).Error
+	err = h.db.Raw(`INSERT INTO shelves (name) VALUES (?) RETURNING *`, body.Name).Scan(&body).Error
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, CREATED, "CREATED")
+	handleResponse(c, CREATED, body)
 }
 
 // List all shelves

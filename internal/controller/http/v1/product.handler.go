@@ -302,7 +302,8 @@ func (h *ProductHandler) List(c *gin.Context) {
 	baseQuery := h.db.Model(&domain.Product{}).
 		Table("products p").
 		Joins("LEFT JOIN store_products sp ON sp.product_id = p.id").
-		Joins("LEFT JOIN unit_types u ON p.unit_type_id = u.id")
+		Joins("LEFT JOIN unit_types u ON p.unit_type_id = u.id").
+		Joins("LEFT JOIN producers pr ON pr.id = p.producer_id")
 
 	// Apply filters
 	if storeIDParam != "" {
@@ -364,7 +365,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 		Preload("Categories").
 		Select(`
 		p.id, p.name, p.barcode, p.status, p.description,
-		p.photos, p.manufacturer, p.material_code,
+		p.photos, pr.name as manufacturer, p.material_code,
 		AVG(sp.supply_price) AS supply_price,
 		AVG(sp.vat) AS vat,
 		AVG(p.markup) AS markup,
@@ -379,7 +380,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 		p.created_at`).
 		Group(`
 			p.id, p.name, p.barcode, p.status, p.description, p.photos,
-         	p.manufacturer, p.material_code, u.short_name, p.created_at`).
+         	p.manufacturer, p.material_code, u.short_name, p.created_at, pr.name`).
 		Order("p.created_at DESC").
 		Limit(limit).
 		Offset(offset).
@@ -481,7 +482,7 @@ func (h *ProductHandler) Update(c *gin.Context) {
 		WithContext(c.Request.Context()).
 		Table("products").
 		Where("id = ?", productID).
-		Updates(body).Error
+		Updates(&body).Error
 	if err != nil {
 		tx.Rollback()
 		h.log.Error(err)
