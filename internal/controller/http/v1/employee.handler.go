@@ -60,6 +60,11 @@ func (h *EmployeeHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	if !utils.IsValidPhone(body.Phone) {
+		handleResponse(c, BadRequest, "Invalid phone number, Format: 998901234567")
+		return
+	}
+
 	hashedPassword, err := etc.Encrypt(*body.Password, h.cfg.HeshKey)
 	if err != nil {
 		h.log.Error(err)
@@ -231,6 +236,11 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	if !utils.IsValidPhone(body.Phone) {
+		handleResponse(c, BadRequest, "Invalid phone number, Format: 998901234567")
+		return
+	}
+
 	body.FullName = body.FirstName + " " + body.LastName
 	if body.Password != nil {
 		*body.Password, err = etc.Encrypt(*body.Password, h.cfg.HeshKey)

@@ -347,7 +347,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 
 	// Count total records using a subquery
 	countQuery := baseQuery.Session(&gorm.Session{}).
-		Select("COUNT(*)").
+		Select("COUNT(DISTINCT p.id)").
 		Table("products p")
 
 	err = countQuery.Debug().Count(&totalCount).Error

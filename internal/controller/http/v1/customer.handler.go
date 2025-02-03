@@ -57,6 +57,12 @@ func (h *CustomerHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	for i := range body.Phone {
+		if !utils.IsValidPhone(body.Phone[i]) {
+			handleResponse(c, BadRequest, "Invalid phone number, Format: 998901234567")
+			return
+		}
+	}
 	createdBy, ok := c.Get("user_id")
 	if !ok {
 		handleResponse(c, UNAUTHORIZED, "User ID not found")
@@ -187,13 +193,21 @@ func (h *CustomerHandler) List(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /customer/{id} [put]
 func (h *CustomerHandler) Update(c *gin.Context) {
-	var body domain.CustomerRequest
-	var id = c.Param("id")
-	var err error
+	var (
+		body domain.CustomerRequest
+		id   = c.Param("id")
+		err  error
+	)
 	if err = c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, BadRequest, err.Error())
 		return
+	}
+	for i := range body.Phone {
+		if !utils.IsValidPhone(body.Phone[i]) {
+			handleResponse(c, BadRequest, "Invalid phone number, Format: 998901234567")
+			return
+		}
 	}
 	err = h.db.WithContext(c.Request.Context()).
 		Table("customers").
