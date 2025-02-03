@@ -42,7 +42,7 @@ type StoreProductRequest struct {
 	RetailPrice      float64    `gorm:"retail_price" json:"retail_price"`
 	SupplyPrice      float64    `gorm:"supply_price" json:"supply_price"`
 	Vat              int        `gorm:"vat" json:"vat"`
-	Markup           int        `gorm:"markup" json:"markup"`
+	Markup           float64    `gorm:"markup" json:"markup"`
 	MeasurementValue int        `gorm:"-" json:"measurement_value"`
 	BonusAmount      float64    `gorm:"bonus_amount" json:"bonus_amount"`
 	BonusPercent     float64    `gorm:"bonus_percent" json:"bonus_percent"`

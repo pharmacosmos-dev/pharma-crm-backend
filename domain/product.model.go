@@ -58,7 +58,7 @@ type ProductRequest struct {
 	Quantity     int                   `gorm:"quantity" json:"quantity"`
 	UnitPerPack  int                   `gorm:"unit_per_pack" json:"unit_per_pack"`
 	Vat          int                   `gorm:"vat" json:"vat"`
-	Markup       int                   `gorm:"markup" json:"markup"`
+	Markup       float64               `gorm:"markup" json:"markup"`
 	VatPrice     float64               `gorm:"vat_price" json:"vat_price"`
 	Sum          float64               `gorm:"sum" json:"-"`
 	Description  string                `gorm:"description" json:"description"`
@@ -84,7 +84,7 @@ type ProductUpdateRequest struct {
 	Quantity     int                   `gorm:"quantity" json:"quantity"`
 	UnitPerPack  int                   `gorm:"unit_per_pack" json:"unit_per_pack"`
 	Vat          int                   `gorm:"vat" json:"vat"`
-	Markup       int                   `gorm:"markup" json:"markup"`
+	Markup       float64               `gorm:"markup" json:"markup"`
 	VatPrice     float64               `gorm:"vat_price" json:"vat_price"`
 	Sum          float64               `gorm:"sum" json:"-"`
 	Description  string                `gorm:"description" json:"description"`
