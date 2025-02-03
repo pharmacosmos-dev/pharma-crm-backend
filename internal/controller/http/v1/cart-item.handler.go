@@ -250,17 +250,6 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 		return
 	}
 
-	var cartItem domain.CartItem
-	err = h.db.
-		WithContext(c.Request.Context()).
-		Where("id = ?", id).
-		First(&cartItem).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-
 	var storeProduct domain.StoreProduct
 	err = h.db.Raw(`SELECT * FROM store_products WHERE id = ?`,
 		body.StoreProductID).Scan(&storeProduct).Error
@@ -273,15 +262,23 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	// Do'kondagi mahsulot miqdorini tekshirish
-	if storeProduct.Quantity < body.Quantity || storeProduct.UnitQuantity < body.UnitQuantity {
-		handleResponse(c, CONFLICT, gin.H{
-			"message":                "Not enough Product",
-			"pack_quantity":          storeProduct.PackQuantity,
-			"unit_quantity":          storeProduct.UnitQuantity,
-			"received_pack_quantity": body.Quantity,
-			"received_unit_quantity": body.UnitQuantity,
-		})
+	if body.Quantity > 0 && body.UnitQuantity == 0 {
+		if storeProduct.PackQuantity < body.Quantity {
+			handleQuantityConflict(c, storeProduct, body)
+			return
+		}
+	} else if body.Quantity == 0 && body.UnitQuantity > 0 {
+		if storeProduct.UnitQuantity < body.UnitQuantity {
+			handleQuantityConflict(c, storeProduct, body)
+			return
+		}
+	} else if body.Quantity > 0 && body.UnitQuantity > 0 {
+		if storeProduct.PackQuantity < body.Quantity || storeProduct.UnitQuantity < body.UnitQuantity {
+			handleQuantityConflict(c, storeProduct, body)
+			return
+		}
+	} else {
+		handleResponse(c, BadRequest, "Invalid quantity")
 		return
 	}
 
@@ -359,4 +356,15 @@ func (h *CartItemHandler) MultipleDelete(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, "DELETED")
+}
+
+func handleQuantityConflict(c *gin.Context, storeProduct domain.StoreProduct, body domain.CartItemUpdateProductUnit) {
+	handleResponse(c, CONFLICT, gin.H{
+		"message":                "Not enough Product",
+		"pack_quantity":          storeProduct.PackQuantity,
+		"unit_quantity":          storeProduct.UnitQuantity,
+		"received_pack_quantity": body.Quantity,
+		"received_unit_quantity": body.UnitQuantity,
+	})
+
 }

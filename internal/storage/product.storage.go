@@ -105,7 +105,7 @@ func (s *Storage) GetStoreProductByBarcode(ctx context.Context, barcode string) 
 	LEFT JOIN category_products cp ON p.id = cp.product_id
 	LEFT JOIN categories c ON c.id = cp.category_id
 	LEFT JOIN unit_types u ON p.unit_type_id = u.id
-	WHERE p.barcode = ? ORDER BY sp.created_at DESC LIMIT 1
+	WHERE p.barcode = ? AND sp.pack_quantity > 0 || sp.unit_quantity > 0 ORDER BY sp.expire_date
 	`, barcode).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("Error on listing similar products for product %s: %v", barcode, err.Error())
