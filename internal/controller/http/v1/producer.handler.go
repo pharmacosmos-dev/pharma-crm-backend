@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/utils"
 )
 
 type ProducerHandler struct {
@@ -79,9 +80,10 @@ func (h *ProducerHandler) Create(c *gin.Context) {
 // @Router /producer/list [get]
 func (h *ProducerHandler) List(c *gin.Context) {
 	var (
-		res    []*domain.Producer
-		err    error
-		search = c.Query("search")
+		res        []*domain.Producer
+		err        error
+		totalCount int64
+		search     = c.Query("search")
 	)
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
@@ -96,14 +98,15 @@ func (h *ProducerHandler) List(c *gin.Context) {
 		search = fmt.Sprintf("%%%s%%", search)
 		query = query.Where("name ILIKE ?", search)
 	}
-	err = query.Limit(limit).Offset(offset).Find(&res).Error
+	err = query.Count(&totalCount).Limit(limit).Offset(offset).Find(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	result := utils.ListResponse(res, totalCount, limit, offset)
 
-	handleResponse(c, OK, res)
+	handleResponse(c, OK, result)
 }
 
 // Update a producer
@@ -211,9 +214,10 @@ func (h *ProducerHandler) CreateShelf(c *gin.Context) {
 // @Router /shelf/list [get]
 func (h *ProducerHandler) ListShelf(c *gin.Context) {
 	var (
-		res    []*domain.Shelf
-		err    error
-		search = c.Query("search")
+		res        []*domain.Shelf
+		err        error
+		search     = c.Query("search")
+		totalCount int64
 	)
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
@@ -227,12 +231,14 @@ func (h *ProducerHandler) ListShelf(c *gin.Context) {
 		search = fmt.Sprintf("%%%s%%", search)
 		query = query.Where("name ILIKE ?", search)
 	}
-	err = query.Limit(limit).Offset(offset).Find(&res).Error
+	err = query.Count(&totalCount).Limit(limit).Offset(offset).Find(&res).Error
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, res)
+	result := utils.ListResponse(res, totalCount, limit, offset)
+
+	handleResponse(c, OK, result)
 }
 
 // Update a shelf

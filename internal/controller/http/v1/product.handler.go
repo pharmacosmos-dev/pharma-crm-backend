@@ -814,22 +814,9 @@ func (h *ProductHandler) GetStoreProductByBarcode(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	res, err = h.storage.GetStoreProductByBarcode(c.Request.Context(), body.Barcode)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			handleResponse(c, NotFound, "Product not found")
-			return
-		}
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	if res.UnitPerPack > 0 && res.UnitQuantity > 0 && res.PackQuantity*res.UnitPerPack != res.UnitQuantity {
-		res.Quantity = fmt.Sprintf("%d (%d/%d)", res.PackQuantity, res.UnitQuantity%res.UnitPerPack, res.UnitPerPack)
-	} else {
-		res.Quantity = fmt.Sprintf("%d", res.PackQuantity)
-	}
+
 	var cartItem domain.CartItemRequest
-	err = h.db.First(&domain.CartItem{},
+	err = h.db.Debug().First(&domain.CartItem{},
 		"store_product_id = ? AND sale_id = ? AND is_drafted = false AND status = 'pending'",
 		res.ID, body.SaleID).Error
 	if err != nil {
