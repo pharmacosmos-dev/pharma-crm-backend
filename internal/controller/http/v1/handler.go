@@ -73,6 +73,7 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		h.NewTokenGeneratorHandler(public)
 		h.NewShiftHandler(v1)
 		h.NewAutoOrderHandler(v1)
+		h.NewProducerHandler(v1)
 		h.NewExternalHandler(external)
 	}
 }

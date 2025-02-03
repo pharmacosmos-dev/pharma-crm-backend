@@ -491,6 +491,17 @@ definitions:
       type:
         type: string
     type: object
+  domain.Producer:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      updated_at:
+        type: string
+    type: object
   domain.ProductRequest:
     properties:
       barcode:
@@ -519,10 +530,14 @@ definitions:
         items:
           type: string
         type: array
+      producer_id:
+        type: string
       quantity:
         type: integer
       retail_price:
         type: number
+      shelf_id:
+        type: string
       store_product:
         items:
           $ref: '#/definitions/domain.StoreProductRequest'
@@ -708,6 +723,17 @@ definitions:
         type: number
       total_discount:
         type: number
+    type: object
+  domain.Shelf:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      updated_at:
+        type: string
     type: object
   domain.Shift:
     properties:
@@ -4109,6 +4135,143 @@ paths:
       summary: Get Permissions by Role ID
       tags:
       - Permission
+  /producer:
+    post:
+      consumes:
+      - application/json
+      description: Create a new producer
+      parameters:
+      - description: Producer information
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.Producer'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a new producer
+      tags:
+      - producers
+  /producer/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a producer from the request body
+      parameters:
+      - description: producer ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete a producer
+      tags:
+      - producers
+    put:
+      consumes:
+      - application/json
+      description: Update a producer from the request body
+      parameters:
+      - description: producer ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Producer information
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.Producer'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update a producer
+      tags:
+      - producers
+  /producer/list:
+    get:
+      consumes:
+      - application/json
+      description: List all producers
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: List all producers
+      tags:
+      - producers
   /product:
     post:
       consumes:
@@ -5327,6 +5490,143 @@ paths:
       summary: Get a sale
       tags:
       - sales
+  /shelf:
+    post:
+      consumes:
+      - application/json
+      description: Create a new shelf from the request body
+      parameters:
+      - description: Shelf information
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.Shelf'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a new shelf
+      tags:
+      - shelves
+  /shelf/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a shelf from the request body
+      parameters:
+      - description: shelf ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete a shelf
+      tags:
+      - shelves
+    put:
+      consumes:
+      - application/json
+      description: Update a shelf from the request body
+      parameters:
+      - description: shelf ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Shelf information
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.Shelf'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update a shelf
+      tags:
+      - shelves
+  /shelf/list:
+    get:
+      consumes:
+      - application/json
+      description: List all shelves
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: List all shelves
+      tags:
+      - shelves
   /shift:
     post:
       consumes:

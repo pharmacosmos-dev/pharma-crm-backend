@@ -306,9 +306,10 @@ func (h *AutoOrderHandler) AutoOrderDetailList(c *gin.Context) {
 	}
 	query := h.db.
 		Model(&domain.AutoOrderDetail{}).
-		Select("auto_order_details.*, p.name as product_name").
+		Select("auto_order_details.*, p.name as product_name, u.short_name AS unit_name").
 		Preload("AutoOrder").
-		Joins("JOIN products p ON p.id = auto_order_details.product_id")
+		Joins("JOIN products p ON p.id = auto_order_details.product_id").
+		Joins("LEFT JOIN unit_types u ON p.unit_type_id = u.id")
 	if storeID != "" {
 		query = query.Where("store_id = ?", storeID)
 	}

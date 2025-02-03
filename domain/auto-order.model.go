@@ -46,6 +46,7 @@ type AutoOrderDetail struct {
 	SuggestedOrderQuantity int        `gorm:"suggested_order_quantity" json:"suggested_order_quantity"`
 	AdjustedOrderQuantity  int        `gorm:"adjusted_order_quantity" json:"adjusted_order_quantity"`
 	ResponseOrderQuantity  int        `gorm:"response_order_quantity" json:"response_order_quantity"`
+	UnitName               string     `gorm:"unit_name" json:"unit_name"`
 	CreatedAt              *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt              *time.Time `gorm:"updated_at" json:"updated_at"`
 	AutoOrder              *AutoOrder `gorm:"foreignKey:AutoOrderId" json:"auto_order"`

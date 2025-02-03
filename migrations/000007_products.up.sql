@@ -2,6 +2,8 @@ CREATE TABLE IF NOT EXISTS "products" (
   "id" UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   "brand_id" UUID REFERENCES "brands"("id"),
   "unit_type_id" UUID REFERENCES "unit_types"("id"),
+  "shelf_id" UUID REFERENCES "shelves"("id"),
+  "producer_id" UUID REFERENCES "producers"("id"),
   "name" VARCHAR(255),
   "barcode" VARCHAR(255),
   "photos" VARCHAR[],

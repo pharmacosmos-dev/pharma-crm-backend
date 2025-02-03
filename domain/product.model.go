@@ -43,6 +43,8 @@ type Product struct {
 type ProductRequest struct {
 	Id           string                `gorm:"id" json:"-"`
 	UnitTypeID   string                `gorm:"unit_type_id" json:"unit_type_id"`
+	ShelfID      *string               `gorm:"shelf_id" json:"shelf_id"`
+	ProducerID   *string               `gorm:"producer_id" json:"producer_id"`
 	MaterialCode int                   `gorm:"material_code" json:"material_code"`
 	Name         string                `gorm:"name" json:"name"`
 	Barcode      string                `gorm:"barcode" json:"barcode"`

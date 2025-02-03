@@ -44,6 +44,7 @@ type ImportDetail struct {
 	CanceledCount  int        `gorm:"canceled_count" json:"canceled_count"`
 	ReceivedAmount float64    `gorm:"received_amount" json:"received_amount"`
 	AcceptedAmount float64    `gorm:"accepted_amount" json:"accepted_amount"`
+	UnitName       string     `gorm:"unit_name" json:"unit_name"`
 	CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt      *time.Time `gorm:"updated_at" json:"updated_at"`
 	Product        *Product   `gorm:"references:Id;foreignKey:ProductID" json:"product"`
