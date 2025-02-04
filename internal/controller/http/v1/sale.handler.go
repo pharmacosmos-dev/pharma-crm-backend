@@ -308,8 +308,9 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	// check count > 0
 	if count > 0 {
-		handleResponse(c, BadRequest, "Sale is already completed")
+		handleResponse(c, CONFLICT, "Sale is already completed")
 		return
 	}
 
