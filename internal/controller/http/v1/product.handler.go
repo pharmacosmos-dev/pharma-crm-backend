@@ -266,7 +266,7 @@ ORDER BY root_category_id, LENGTH(name_path) DESC;
 // @Param status query string false "Status (active || inactive || low-stock || zero-stock || expired || imminent)"
 // @Param store_id query string false "Store ID"
 // @Param category_id query string false "Category ID"
-// @Param producer query string false "Producer"
+// @Param producer_id query string false "Producer ID"
 // @Param supply_price_from query int false "Supply From"
 // @Param supply_price_to query int false "Supply To"
 // @Param retail_price_from query int false "Retail Price From"
@@ -294,7 +294,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 		supplyPriceTo   = c.Query("supply_price_to")
 		retailPriceFrom = c.Query("retail_price_from")
 		retailPriceTo   = c.Query("retail_price_to")
-		producerName    = c.Query("producer")
+		producerID      = c.Query("producer_id")
 		status          = c.Query("status")
 	)
 
@@ -344,8 +344,8 @@ func (h *ProductHandler) List(c *gin.Context) {
 	if retailPriceTo != "" {
 		baseQuery = baseQuery.Where("sp.retail_price <= ?", retailPriceTo)
 	}
-	if producerName != "" {
-		baseQuery = baseQuery.Where("p.manufacturer = ?", producerName)
+	if producerID != "" {
+		baseQuery = baseQuery.Where("p.producer_id = ?", producerID)
 	}
 
 	// Count total records using a subquery

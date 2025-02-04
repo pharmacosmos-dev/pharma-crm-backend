@@ -5660,8 +5660,8 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Producer",
-                        "name": "producer",
+                        "description": "Producer ID",
+                        "name": "producer_id",
                         "in": "query"
                     },
                     {
@@ -9445,7 +9445,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "markup": {
-                    "type": "integer"
+                    "type": "number"
                 },
                 "material_code": {
                     "type": "integer"
@@ -9572,7 +9572,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "markup": {
-                    "type": "integer"
+                    "type": "number"
                 },
                 "name": {
                     "type": "string"
@@ -9890,7 +9890,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "markup": {
-                    "type": "integer"
+                    "type": "number"
                 },
                 "measurement_value": {
                     "type": "integer"

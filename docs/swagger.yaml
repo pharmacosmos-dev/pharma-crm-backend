@@ -521,7 +521,7 @@ definitions:
       manufacturer:
         type: string
       markup:
-        type: integer
+        type: number
       material_code:
         type: integer
       name:
@@ -605,7 +605,7 @@ definitions:
       manufacturer:
         type: string
       markup:
-        type: integer
+        type: number
       name:
         type: string
       photos:
@@ -812,7 +812,7 @@ definitions:
       expire_date:
         type: string
       markup:
-        type: integer
+        type: number
       measurement_value:
         type: integer
       pack_quantity:
@@ -4544,9 +4544,9 @@ paths:
         in: query
         name: category_id
         type: string
-      - description: Producer
+      - description: Producer ID
         in: query
-        name: producer
+        name: producer_id
         type: string
       - description: Supply From
         in: query

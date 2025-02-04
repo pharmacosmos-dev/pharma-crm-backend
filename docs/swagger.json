@@ -5653,8 +5653,8 @@
                     },
                     {
                         "type": "string",
-                        "description": "Producer",
-                        "name": "producer",
+                        "description": "Producer ID",
+                        "name": "producer_id",
                         "in": "query"
                     },
                     {
@@ -9438,7 +9438,7 @@
                     "type": "string"
                 },
                 "markup": {
-                    "type": "integer"
+                    "type": "number"
                 },
                 "material_code": {
                     "type": "integer"
@@ -9565,7 +9565,7 @@
                     "type": "string"
                 },
                 "markup": {
-                    "type": "integer"
+                    "type": "number"
                 },
                 "name": {
                     "type": "string"
@@ -9883,7 +9883,7 @@
                     "type": "string"
                 },
                 "markup": {
-                    "type": "integer"
+                    "type": "number"
                 },
                 "measurement_value": {
                     "type": "integer"
