@@ -50,50 +50,71 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 		body domain.CartItemRequest
 		err  error
 	)
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User not found")
+		return
+	}
 	if err = c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	err = h.db.First(&domain.CartItem{},
+	// get store product
+	var storeProduct domain.StoreProduct
+	err = h.db.First(&storeProduct, "id = ?", body.StoreProductID).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	// get cart item
+	var cartItem domain.CartItem
+	err = h.db.First(&cartItem,
 		"store_product_id = ? AND sale_id = ? AND is_drafted = false AND status = 'pending'",
 		body.StoreProductID, body.SaleId).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			body.TotalPrice = body.UnitPrice * float64(body.Quantity)
-			body.ID = uuid.New().String()
-			body.Status = config.PENDING_CART_ITEM
-			err = h.db.
-				WithContext(c.Request.Context()).
-				Table("cart_items").
-				Create(&body).Error
-			if err != nil {
-				h.log.Error(err)
-				handleResponse(c, InternalError, err.Error())
-				return
-			}
-			handleResponse(c, CREATED, "CREATED")
+	if err == nil {
+		if storeProduct.PackQuantity < cartItem.Quantity+1 {
+			handleResponse(c, CONFLICT, gin.H{
+				"message":                "Not enough Product",
+				"pack_quantity":          storeProduct.PackQuantity,
+				"unit_quantity":          storeProduct.UnitQuantity,
+				"received_pack_quantity": cartItem.Quantity,
+				"received_unit_quantity": cartItem.UnitQuantity,
+			})
 			return
 		}
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		cartItem.Quantity++
+		cartItem.TotalPrice = cartItem.UnitPrice * float64(cartItem.Quantity)
+		err = h.db.Debug().Exec(`UPDATE cart_items SET quantity = ?, total_price = ? WHERE id = ?`,
+			cartItem.Quantity, cartItem.TotalPrice, cartItem.ID).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+		handleResponse(c, OK, "CREATED")
+		return
+	} else if errors.Is(err, gorm.ErrRecordNotFound) && storeProduct.PackQuantity > 0 {
+		err = h.db.Exec(`
+		INSERT INTO cart_items(
+			id, store_product_id, 
+			sale_id, employee_id, 
+			quantity, unit_price, 
+			total_price, status) 
+		VALUES(?, ?, ?, ?, ?, ?, ?, ?)`,
+			uuid.New().String(), body.StoreProductID, body.SaleId, userId.(string), 1,
+			body.UnitPrice, body.UnitPrice, config.PENDING_CART_ITEM).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+		handleResponse(c, OK, "CREATED")
 		return
 	}
 
-	err = h.db.WithContext(c.Request.Context()).
-		Model(&domain.CartItem{}).
-		Where("store_product_id = ? AND sale_id = ? AND is_drafted = false AND status = 'pending'", body.StoreProductID, body.SaleId).
-		Updates(map[string]interface{}{
-			"quantity":    gorm.Expr("quantity + ?", 1),
-			"total_price": body.UnitPrice * float64(body.Quantity+1),
-		}).Error
-
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	handleResponse(c, CREATED, "CREATED")
+	handleResponse(c, CREATED, "Not enough Product")
 }
 
 // Get godoc

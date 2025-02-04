@@ -841,7 +841,7 @@ func (h *ProductHandler) GetStoreProductByBarcode(c *gin.Context) {
 	if err == nil {
 		// check quantity is enough in store_products table
 		if storeProduct.PackQuantity < cartItem.Quantity+1 {
-			handleResponse(c, BadRequest, gin.H{
+			handleResponse(c, CONFLICT, gin.H{
 				"message":                "Not enough Product",
 				"pack_quantity":          storeProduct.PackQuantity,
 				"unit_quantity":          storeProduct.UnitQuantity,
@@ -864,8 +864,7 @@ func (h *ProductHandler) GetStoreProductByBarcode(c *gin.Context) {
 		return
 	} else if errors.Is(err, gorm.ErrRecordNotFound) && storeProduct.PackQuantity > 0 {
 		// create new cart_item
-		if storeProduct.PackQuantity > 0 {
-			err = h.db.Exec(`
+		err = h.db.Exec(`
 		INSERT INTO cart_items(
 			id, store_product_id, 
 			employee_id, sale_id, 
@@ -873,20 +872,16 @@ func (h *ProductHandler) GetStoreProductByBarcode(c *gin.Context) {
 			total_price, status
 			) 
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-				uuid.New().String(), storeProduct.Id, userId.(string), body.SaleID, 1,
-				storeProduct.RetailPrice, storeProduct.RetailPrice, "pending").Error
-			if err != nil {
-				h.log.Error(err)
-				handleResponse(c, InternalError, err.Error())
-				return
-			}
-			handleResponse(c, OK, "ADDED")
+			uuid.New().String(), storeProduct.Id, userId.(string), body.SaleID, 1,
+			storeProduct.RetailPrice, storeProduct.RetailPrice, "pending").Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
 			return
 		}
-	} else {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, "Not enough stock")
+		handleResponse(c, OK, "ADDED")
 		return
+
 	}
 
 	handleResponse(c, BadRequest, "Not enough stock")
