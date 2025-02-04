@@ -790,11 +790,11 @@ func (h *ProductHandler) ListByStoreId(c *gin.Context) {
 // GetStoreProductByBarcode godoc
 // @Summary Get store product by barcode
 // @Description Get store product by barcode
-// @Tags products
+// @Tags 	products
 // @Security     BearerAuth
-// @Accept json
+// @Accept 	json
 // @Produce json
-// @Param body body domain.StoreProductBarcodeRequest true "Request body"
+// @Param 	body body domain.StoreProductBarcodeRequest true "Request body"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -802,7 +802,6 @@ func (h *ProductHandler) ListByStoreId(c *gin.Context) {
 func (h *ProductHandler) GetStoreProductByBarcode(c *gin.Context) {
 	var (
 		body domain.StoreProductBarcodeRequest
-		res  domain.StoreProductResponse
 		err  error
 	)
 	userId, ok := c.Get("user_id")
@@ -810,7 +809,6 @@ func (h *ProductHandler) GetStoreProductByBarcode(c *gin.Context) {
 		handleResponse(c, UNAUTHORIZED, "User ID not found")
 		return
 	}
-
 	err = c.ShouldBindJSON(&body)
 	if err != nil {
 		h.log.Error(err)
@@ -818,52 +816,69 @@ func (h *ProductHandler) GetStoreProductByBarcode(c *gin.Context) {
 		return
 	}
 
-	var cartItem domain.CartItemRequest
-	err = h.db.Debug().First(&domain.CartItem{},
-		"store_product_id = ? AND sale_id = ? AND is_drafted = false AND status = 'pending'",
-		res.ID, body.SaleID).Error
+	// get store_product by barcode
+	var storeProduct domain.StoreProduct
+	err = h.db.First(&storeProduct, "product_id = (SELECT id FROM products WHERE barcode = ?)", body.Barcode).Error
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			cartItem.ID = uuid.New().String()
-			cartItem.EmployeeID = userId.(string)
-			cartItem.StoreProductID = res.ID
-			cartItem.UnitPrice = res.RetailPrice
-			cartItem.Quantity = 1
-			cartItem.TotalPrice = res.RetailPrice
-			cartItem.Status = config.PENDING_CART_ITEM
-			cartItem.SaleId = body.SaleID
-			cartItem.DiscountType = "percent"
-			err = h.db.
-				WithContext(c.Request.Context()).
-				Table("cart_items").
-				Create(&cartItem).Error
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	// get cart_items by store_product_id and status = 'pending'
+	var cartItem domain.CartItem
+	err = h.db.First(&cartItem, "store_product_id = ? AND status = 'pending'", storeProduct.Id).Error
+	if err == nil {
+		// check quantity is enough in store_products table
+		if storeProduct.PackQuantity < cartItem.Quantity+1 {
+			handleResponse(c, BadRequest, gin.H{
+				"message":                "Not enough Product",
+				"pack_quantity":          storeProduct.PackQuantity,
+				"unit_quantity":          storeProduct.UnitQuantity,
+				"received_pack_quantity": cartItem.Quantity + 1,
+				"received_unit_quantity": cartItem.UnitQuantity,
+			})
+			return
+		}
+		// update cart_item
+		newQuantity := cartItem.Quantity + 1
+		cartItem.TotalPrice = storeProduct.RetailPrice * float64(newQuantity)
+		err = h.db.Debug().Exec(`UPDATE cart_items SET quantity = ?, total_price = ? WHERE id = ?`,
+			newQuantity, cartItem.TotalPrice, cartItem.ID).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+		handleResponse(c, OK, "ADDED")
+		return
+	} else if errors.Is(err, gorm.ErrRecordNotFound) && storeProduct.PackQuantity > 0 {
+		// create new cart_item
+		if storeProduct.PackQuantity > 0 {
+			err = h.db.Exec(`
+		INSERT INTO cart_items(
+			id, store_product_id, 
+			employee_id, sale_id, 
+			quantity, unit_price, 
+			total_price, status
+			) 
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+				uuid.New().String(), storeProduct.Id, userId.(string), body.SaleID, 1,
+				storeProduct.RetailPrice, storeProduct.RetailPrice, "pending").Error
 			if err != nil {
 				h.log.Error(err)
 				handleResponse(c, InternalError, err.Error())
 				return
 			}
-			handleResponse(c, OK, []domain.StoreProductResponse{res})
+			handleResponse(c, OK, "ADDED")
 			return
 		}
+	} else {
 		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		handleResponse(c, BadRequest, "Not enough stock")
 		return
 	}
 
-	err = h.db.WithContext(c.Request.Context()).
-		Table("cart_items").
-		Where("store_product_id = ? AND sale_id = ? AND is_drafted = false AND status = 'pending'", res.ID, body.SaleID).
-		Updates(map[string]interface{}{
-			"quantity":    gorm.Expr("quantity + ?", 1),
-			"total_price": gorm.Expr("unit_price * (quantity+?)", 1),
-		}).Error
-
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	handleResponse(c, OK, []domain.StoreProductResponse{res})
+	handleResponse(c, BadRequest, "Not enough stock")
 }
 
 // GetProductImports godoc

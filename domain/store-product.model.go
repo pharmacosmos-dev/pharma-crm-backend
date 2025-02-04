@@ -4,6 +4,7 @@ import "time"
 
 // StoreProduct structure
 type StoreProduct struct {
+	Id                  string     `gorm:"id" json:"id"`
 	ProductID           string     `gorm:"product_id" json:"product_id"`
 	ProductMaterialCode int        `gorm:"product_material_code" json:"product_material_code"`
 	StoreID             string     `gorm:"store_id" json:"store_id"`

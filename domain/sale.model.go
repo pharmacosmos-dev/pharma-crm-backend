@@ -14,6 +14,7 @@ type Sale struct {
 	ProductCount       int            `gorm:"product_count" json:"product_count"`
 	CreatedAt          *time.Time     `gorm:"created_at" json:"created_at"`
 	UpdatedAt          *time.Time     `gorm:"updated_at" json:"updated_at"`
+	CompletedAt        *time.Time     `gorm:"completed_at" json:"completed_at"`
 	Employee           *Employee      `gorm:"foreignKey:EmployeeID" json:"employee"`
 	Customer           *Customer      `gorm:"foreignKey:CustomerID" json:"customer"`
 	SalePayments       []*SalePayment `gorm:"foreignKey:SaleID" json:"sale_payments"`
@@ -38,6 +39,7 @@ type SaleResponse struct {
 	ProductCount       int            `gorm:"product_count" json:"product_count"`
 	CreatedAt          *time.Time     `gorm:"created_at" json:"created_at"`
 	UpdatedAt          *time.Time     `gorm:"updated_at" json:"updated_at"`
+	CompletedAt        *time.Time     `gorm:"completed_at" json:"completed_at"`
 	StoreName          string         `gorm:"store_name" json:"store_name"`
 	CashBoxName        string         `gorm:"cash_box_name" json:"cash_box_name"`
 	Employee           *Employee      `gorm:"foreignKey:EmployeeID" json:"employee"`

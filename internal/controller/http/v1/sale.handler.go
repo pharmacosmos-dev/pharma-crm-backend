@@ -208,7 +208,7 @@ func (h *SaleHandler) List(c *gin.Context) {
 		Count(&totalAmount).
 		Limit(limit).
 		Offset(offset).
-		Order("s.created_at DESC").
+		Order("s.completed_at DESC").
 		Find(&res).Error
 
 	if err != nil {
@@ -299,6 +299,19 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 			_ = tx.Rollback()
 		}
 	}()
+
+	// get sale
+	var count int64
+	err = tx.Model(&domain.Sale{}).Where("id = ? AND status = 'completed'", body.SaleID).Count(&count).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	if count > 0 {
+		handleResponse(c, BadRequest, "Sale is already completed")
+		return
+	}
 
 	// get store_id by employee_id
 	err = tx.Raw(`SELECT store_id FROM employees WHERE id = ?`, userID).Scan(&body.StoreID).Error
@@ -481,6 +494,7 @@ func updateSaleStatus(tx *gorm.DB, saleID string, totalAmount float64, customerI
 			"status":       "completed",
 			"total_amount": totalAmount,
 			"customer_id":  customerID,
+			"completed_at": time.Now(),
 		}).Error
 }
 
