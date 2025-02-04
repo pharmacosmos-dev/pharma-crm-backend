@@ -83,6 +83,7 @@ type CartItemResponse struct {
 	Barcode        string     `gorm:"barcode" json:"barcode"`
 	UnitName       string     `gorm:"unit_name" json:"unit_name"`
 	ShortName      string     `gorm:"short_name" json:"short_name"`
+	UnitPerPack    int        `gorm:"unit_per_pack" json:"unit_per_pack"`
 	BonusAmount    float64    `gorm:"bonus_amount" json:"bonus_amount"`
 	BonusPercent   int        `gorm:"bonus_percent" json:"bonus_percent"`
 	ExpireDate     *time.Time `gorm:"expire_date" json:"expire_date"`

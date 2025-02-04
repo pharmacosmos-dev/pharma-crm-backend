@@ -9,6 +9,7 @@ func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartIt
 		c.*,
 		p.name,
 		p.barcode,
+		p.unit_per_pack,
 		sp.expire_date,
 		sp.bonus_amount,
 		sp.bonus_percent,
