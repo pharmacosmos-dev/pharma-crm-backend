@@ -193,11 +193,11 @@ func (h *SaleHandler) List(c *gin.Context) {
 	if storeID != "" {
 		query = query.Where("stores.id = ?", storeID)
 	}
-	if startDate != "" {
-		query = query.Where("s.created_at >= ?", startDate)
+	if startDate != "" && endDate != "" {
+		query = query.Where("s.completed_at::date >= ? AND s.completed_at::date <= ?  ", startDate, endDate)
 	}
-	if endDate != "" {
-		query = query.Where("s.created_at <= ?", endDate)
+	if startDate != "" && endDate == "" {
+		query = query.Where("s.completed_at::date = ?", startDate)
 	}
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
@@ -209,6 +209,7 @@ func (h *SaleHandler) List(c *gin.Context) {
 		Limit(limit).
 		Offset(offset).
 		Order("s.completed_at DESC").
+		Debug().
 		Find(&res).Error
 
 	if err != nil {

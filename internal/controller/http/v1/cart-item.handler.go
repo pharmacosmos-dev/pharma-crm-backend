@@ -233,8 +233,6 @@ func (h *CartItemHandler) UpdateBySaleID(c *gin.Context) {
 			return
 		}
 	}
-	// unit_price  10 000 -> 100   10 000 * x = 2000 * 100
-	// discount_value 2000  -> x   x = 2000 * 100 / 10 000 = 2
 
 	if err = tx.Commit().Error; err != nil {
 		tx.Rollback()
