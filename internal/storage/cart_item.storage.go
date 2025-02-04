@@ -14,11 +14,13 @@ func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartIt
 		sp.bonus_amount,
 		sp.bonus_percent,
 		u.unit_name,
-		u.short_name
+		u.short_name,
+		sh.name as shelf
 	FROM cart_items c
 	JOIN store_products sp ON c.store_product_id = sp.id
 	JOIN products p ON sp.product_id = p.id
 	LEFT JOIN unit_types u ON p.unit_type_id = u.id
+	LEFT JOIN shelves sh ON p.shelf_id = sh.id
 	WHERE c.status = 'pending' AND c.sale_id = ?
 	ORDER BY c.created_at LIMIT ? OFFSET ?
 	`, saleID, limit, offset).Scan(&res).Error

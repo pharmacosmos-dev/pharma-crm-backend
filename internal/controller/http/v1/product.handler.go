@@ -815,6 +815,17 @@ func (h *ProductHandler) GetStoreProductByBarcode(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	var count int64
+	err = h.db.Model(&domain.Sale{}).Where("id = ? AND status = 'completed'", body.SaleID).Count(&count).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	if count > 0 {
+		handleResponse(c, CONFLICT, "Sale already completed")
+		return
+	}
 
 	// get store_product by barcode
 	var storeProduct domain.StoreProduct

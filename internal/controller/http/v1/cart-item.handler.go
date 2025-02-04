@@ -197,28 +197,32 @@ func (h *CartItemHandler) UpdateBySaleID(c *gin.Context) {
 		tx.Rollback()
 		return
 	}
+	var discountPercent float64
 	for i := range cartItems {
 		if body.DiscountType == "percent" && body.DiscountValue <= 100 {
 			cartItems[i].DiscountAmount = cartItems[i].UnitPrice * body.DiscountValue / 100
+			discountPercent = body.DiscountValue
 		} else if body.DiscountType == "cash" {
 			cartItems[i].DiscountAmount = body.DiscountValue
+			discountPercent = body.DiscountValue * 100 / cartItems[i].UnitPrice
 		} else {
 			handleResponse(c, BadRequest, "Discount type or value is invalid")
 			return
 		}
 		err = tx.Debug().Exec(`
 		UPDATE cart_items 
-		SET discount_amount = ?, 
-		discount_type = ?, 
-		discount_value = ?, 
-		discount_price = CASE 
-			WHEN ? = 0 THEN 0 
-			ELSE unit_price - ? 
+		SET 
+			discount_amount = ?, 
+			discount_type = ?, 
+			discount_value = ?, 
+			discount_price = CASE
+			WHEN ? = 0 THEN 0
+			ELSE unit_price - ?
 		END
 		WHERE id = ?`,
 			cartItems[i].DiscountAmount,
 			body.DiscountType,
-			body.DiscountValue,
+			discountPercent,
 			body.DiscountValue,
 			cartItems[i].DiscountAmount,
 			cartItems[i].ID).Error
@@ -229,6 +233,8 @@ func (h *CartItemHandler) UpdateBySaleID(c *gin.Context) {
 			return
 		}
 	}
+	// unit_price  10 000 -> 100   10 000 * x = 2000 * 100
+	// discount_value 2000  -> x   x = 2000 * 100 / 10 000 = 2
 
 	if err = tx.Commit().Error; err != nil {
 		tx.Rollback()
