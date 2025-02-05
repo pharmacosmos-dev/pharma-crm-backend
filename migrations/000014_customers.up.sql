@@ -29,5 +29,6 @@ CREATE TABLE IF NOT EXISTS "customers" (
   "deleted_by" uuid,
   "is_active" boolean NOT NULL DEFAULT true,
   "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-  "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+  "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  "deleted_at" TIMESTAMP
 );

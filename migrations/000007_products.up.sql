@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS "products" (
   "unit_per_pack" INTEGER DEFAULT 0, -- 1 pochkada necha dona borligini saqlaydi
   "sum" NUMERIC(10, 2),
   "description" TEXT,
-  "status" product_status,
+  "status" product_status DEFAULT 'active',
   "bonus_percent" INT DEFAULT 0,
   "bonus_amount" NUMERIC(10, 2) DEFAULT 0,
   "manufacturer" VARCHAR,

@@ -29,7 +29,7 @@ type Product struct {
 	Status       string            `gorm:"status" json:"status"`
 	Manufacturer string            `gorm:"manufacturer" json:"manufacturer"`
 	MaterialCode int               `gorm:"material_code" json:"material_code"`
-	ExpireDate   string            `gorm:"expire_date" json:"expire_date,omitempty"`
+	ExpireDate   string            `gorm:"expire_date" json:"expire_date"`
 	IsActive     bool              `gorm:"is_active" json:"is_active"`
 	BonusPercent float64           `gorm:"bonus_percent" json:"bonus_percent"`
 	BonusAmount  float64           `gorm:"bonus_amount" json:"bonus_amount"`
