@@ -113,8 +113,9 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 		handleResponse(c, OK, "CREATED")
 		return
 	}
+	h.log.Info("ERROR on creating cart_item: %v", err.Error())
 
-	handleResponse(c, CREATED, "Not enough Product")
+	handleResponse(c, CONFLICT, err.Error())
 }
 
 // Get godoc

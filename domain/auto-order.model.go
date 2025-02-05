@@ -59,6 +59,8 @@ type AutoOrderDetailRequest struct {
 	AutoOrderId            string  `gorm:"auto_order_id" json:"auto_order_id"`
 	ProductId              string  `gorm:"product_id" json:"product_id"`
 	Kvant                  int     `gorm:"kvant" json:"kvant"`
+	MinStock               int     `gorm:"min_stock" json:"min_stock"`
+	MaxStock               int     `gorm:"max_stock" json:"max_stock"`
 	CurrentStock           int     `gorm:"current_stock" json:"current_stock"`
 	MonthSaleStock         int     `gorm:"month_sale_stock" json:"month_sale_stock"`
 	DaySaleStock           int     `gorm:"day_sale_stock" json:"day_sale_stock"`
