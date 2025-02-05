@@ -532,6 +532,7 @@ func (h *ProductHandler) Update(c *gin.Context) {
 					Where("product_id = ? AND store_id = ? ", productID, body.StoreProduct[i].StoreID).
 					Updates(map[string]interface{}{
 						"pack_quantity":  gorm.Expr("pack_quantity "+operation+" ?", body.StoreProduct[i].MeasurementValue),
+						"unit_quantity":  gorm.Expr("unit_quantity "+operation+" ?", body.StoreProduct[i].MeasurementValue*body.StoreProduct[i].UnitPerPack),
 						"small_quantity": body.StoreProduct[i].SmallQuantity,
 						"retail_price":   body.RetailPrice,
 						"supply_price":   body.SupplyPrice,
