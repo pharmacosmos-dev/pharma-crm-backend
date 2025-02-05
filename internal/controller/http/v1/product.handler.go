@@ -832,7 +832,7 @@ func (h *ProductHandler) GetStoreProductByBarcode(c *gin.Context) {
 
 	// get store_product by barcode
 	var storeProduct domain.StoreProduct
-	err = h.db.First(&storeProduct, "product_id = (SELECT id FROM products WHERE barcode = ? LIMIT 1)", body.Barcode).Error
+	err = h.db.First(&storeProduct, "id = ?", body.ID).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())

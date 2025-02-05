@@ -291,16 +291,24 @@ func (h *CategoryHander) List(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param 	id path string true "category ID"
+// @Param 	id 	body []string true "category IDs"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /category/{id} [delete]
 func (h *CategoryHander) Delete(c *gin.Context) {
-	id := c.Param("id")
-	err := h.db.
+	var (
+		ids []string
+		err error
+	)
+	if err = c.ShouldBindJSON(&ids); err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	err = h.db.
 		WithContext(c.Request.Context()).
-		Delete(&domain.Category{}, "id = ?", id).Error
+		Delete(&domain.Category{}, "id IN (?)", ids).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())

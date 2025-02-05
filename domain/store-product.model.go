@@ -78,4 +78,5 @@ type StoreProductResponse struct {
 type StoreProductBarcodeRequest struct {
 	Barcode string `json:"barcode"`
 	SaleID  string `json:"sale_id"`
+	ID      string `json:"id"`
 }

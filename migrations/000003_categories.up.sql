@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS "categories" (
   "id" uuid PRIMARY KEY,
-  "category_id" uuid REFERENCES "categories"("id"),
+  "category_id" uuid REFERENCES "categories"("id") ON DELETE CASCADE,
   "name" varchar(255),
   "created_by" uuid,
   "updated_by" uuid,

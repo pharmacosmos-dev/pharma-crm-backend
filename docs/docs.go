@@ -2102,11 +2102,16 @@ const docTemplate = `{
                 "summary": "Delete a category",
                 "parameters": [
                     {
-                        "type": "string",
-                        "description": "category ID",
+                        "description": "category IDs",
                         "name": "id",
-                        "in": "path",
-                        "required": true
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
                     }
                 ],
                 "responses": {
@@ -9870,6 +9875,9 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "barcode": {
+                    "type": "string"
+                },
+                "id": {
                     "type": "string"
                 },
                 "sale_id": {

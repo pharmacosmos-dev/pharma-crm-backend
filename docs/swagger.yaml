@@ -800,6 +800,8 @@ definitions:
     properties:
       barcode:
         type: string
+      id:
+        type: string
       sale_id:
         type: string
     type: object
@@ -2033,11 +2035,14 @@ paths:
       - application/json
       description: Delete a category from the request body
       parameters:
-      - description: category ID
-        in: path
+      - description: category IDs
+        in: body
         name: id
         required: true
-        type: string
+        schema:
+          items:
+            type: string
+          type: array
       produces:
       - application/json
       responses:
