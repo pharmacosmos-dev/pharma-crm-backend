@@ -528,16 +528,18 @@ func (h *ProductHandler) Update(c *gin.Context) {
 					handleResponse(c, InternalError, err.Error())
 					return
 				}
-				err = tx.Table("store_products").
+
+				err = tx.Debug().Table("store_products").
 					Where("product_id = ? AND store_id = ? ", productID, body.StoreProduct[i].StoreID).
 					Updates(map[string]interface{}{
 						"pack_quantity":  gorm.Expr("pack_quantity "+operation+" ?", body.StoreProduct[i].MeasurementValue),
-						"unit_quantity":  gorm.Expr("unit_quantity "+operation+" ?", body.StoreProduct[i].MeasurementValue*body.StoreProduct[i].UnitPerPack),
+						"unit_quantity":  gorm.Expr("(pack_quantity "+operation+" ?)*?", body.StoreProduct[i].MeasurementValue, body.UnitPerPack),
 						"small_quantity": body.StoreProduct[i].SmallQuantity,
 						"retail_price":   body.RetailPrice,
 						"supply_price":   body.SupplyPrice,
 						"vat":            body.Vat,
 						"markup":         body.Markup,
+						"unit_per_pack":  body.UnitPerPack,
 					}).Error
 				if err != nil {
 					tx.Rollback()
