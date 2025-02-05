@@ -887,7 +887,13 @@ func (h *ProductHandler) GetStoreProductByBarcode(c *gin.Context) {
 
 	}
 
-	handleResponse(c, BadRequest, "Not enough stock")
+	handleResponse(c, CONFLICT, gin.H{
+		"message":                "Not enough Product",
+		"pack_quantity":          storeProduct.PackQuantity,
+		"unit_quantity":          storeProduct.UnitQuantity,
+		"received_pack_quantity": cartItem.Quantity + 1,
+		"received_unit_quantity": cartItem.UnitQuantity,
+	})
 }
 
 // GetProductImports godoc
