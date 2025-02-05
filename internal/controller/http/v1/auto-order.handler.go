@@ -25,10 +25,7 @@ func (h *AutoOrderHandler) AutoOrderRoutes(r *gin.RouterGroup) {
 	{
 		autoOrder.POST("", h.Create)
 		autoOrder.POST("/confirm", h.Confirm)
-		// autoOrder.GET("/:id", h.Get)
 		autoOrder.GET("/list", h.List)
-		// autoOrder.PUT("/:id", h.Update)
-		// autoOrder.DELETE("/:id", h.Delete)
 	}
 	autoOrderDetail := r.Group("auto-order-detail")
 	{

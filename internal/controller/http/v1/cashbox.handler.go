@@ -56,6 +56,10 @@ func (h *CashBoxHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	if body.StoreID == "" {
+		handleResponse(c, BadRequest, "store_id is required")
+		return
+	}
 	tx := h.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {

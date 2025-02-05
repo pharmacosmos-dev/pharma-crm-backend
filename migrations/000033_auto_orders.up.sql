@@ -16,6 +16,8 @@ CREATE TABLE IF NOT EXISTS auto_order_details (
     product_id UUID REFERENCES products(id),
     kvant INT DEFAULT 0,
     current_stock INT DEFAULT 0,
+    min_stock INT DEFAULT 0,
+    max_stock INT DEFAULT 0,
     month_sale_stock INT DEFAULT 0,
     day_sale_stock INT DEFAULT 0,
     order_growth FLOAT DEFAULT 0,
