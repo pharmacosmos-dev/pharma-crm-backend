@@ -198,6 +198,7 @@ type ProductExternal struct {
 	Description string            `gorm:"description" json:"description"`
 	UnitName    string            `gorm:"unit_name" json:"unit_name"`
 	Stores      []StoreExternal   `gorm:"-" json:"stores"`
+	Categories  []*Category       `gorm:"many2many:category_products;foreignKey:Id;joinForeignKey:ProductId;References:Id;joinReferences:CategoryId" json:"categories"`
 }
 
 // Store external API response structure

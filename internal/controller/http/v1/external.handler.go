@@ -43,21 +43,23 @@ func (h *ExternalHandler) List(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-
-	query := `
-	SELECT 
+	err = h.db.
+		Table("products p").
+		Preload("Categories").
+		Select(`
 		p.id, p.name, p.barcode, p.photos, p.description, 
-		sum(sp.pack_quantity) as quantity, u.short_name as unit_name
-	FROM products p 
-	JOIN store_products sp ON p.id = sp.product_id 
-	LEFT JOIN unit_types u ON p.unit_type_id = u.id
-	GROUP BY p.id, u.short_name LIMIT ? OFFSET ?`
-	err = h.db.Raw(query, limit, offset).Scan(&res).Error
+		sum(sp.pack_quantity) as quantity, u.short_name as unit_name`).
+		Joins("JOIN store_products sp ON p.id = sp.product_id").
+		Joins("LEFT JOIN unit_types u ON p.unit_type_id = u.id").
+		Group("p.id, u.short_name").
+		Limit(limit).Offset(offset).
+		Find(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+
 	// var stores []domain.StoreExternal
 	for i := range res {
 		err = h.db.Raw(`
