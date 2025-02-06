@@ -329,16 +329,11 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	for _, item := range body.PaymentTypes {
 		// err = cashboxOperationAmounts(tx, item)
 		if item.Type == "app" && (item.AppType == config.CLICK || item.AppType == config.PAYME || item.AppType == config.UZUM) {
-			var paymentService domain.PaymentService
-			err = h.db.First(&paymentService, "store_id = ? AND type = ? AND is_active = true",
-				body.StoreID, item.AppType).Error
+			// get payment service by store id and payment type
+			paymentService, err := h.storage.GetPaymentServiceByStoreId(body.StoreID, item.AppType)
 			if err != nil {
-				if errors.Is(err, gorm.ErrRecordNotFound) {
-					handleResponse(c, NotFound, "The Payment service is not active OR does not exist")
-					return
-				}
 				h.log.Error(err)
-				handleResponse(c, InternalError, err.Error())
+				handleResponse(c, InternalError, "Failed to get payment service")
 				return
 			}
 			// payment handlers map for each payment type
@@ -375,7 +370,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 				return
 			}
 
-			resp, err := handler(c.Request.Context(), &paymentService, &item, body.CashBoxOperationId, salePayment.ID, body.SaleID)
+			resp, err := handler(c.Request.Context(), paymentService, &item, body.CashBoxOperationId, salePayment.ID, body.SaleID)
 			if err != nil {
 				tx.Rollback()
 				h.log.Error(err)
@@ -383,23 +378,18 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 				return
 			}
 			if errCode, ok := resp["error_code"].(float64); ok && errCode == 0 {
-				err = tx.
-					Table("sale_payments").Where("id = ? ", salePayment.ID).Update("status", "paid").Error
+				// update sale payment status
+				err = h.storage.UpdateSalePaymentStatus(tx, salePayment.ID)
 				if err != nil {
-					tx.Rollback()
-					h.log.Error(err)
 					handleResponse(c, InternalError, err.Error())
+					tx.Rollback()
 					return
 				}
-				err = tx.Exec(`
-				INSERT INTO sale_payment_summary (cash_box_operation_id, payment_type_id, total_amount) 
-				VALUES(?, ?, ?)
-				ON CONFLICT (cash_box_operation_id, payment_type_id) 
-				DO UPDATE SET total_amount = EXCLUDED.total_amount + ?`, body.CashBoxOperationId, item.PaymentTypeID, item.Amount, item.Amount).Error
+				// insert or update sale payment summary
+				err = h.storage.CreateOrUpdateSalePaymentSummary(tx, body.CashBoxOperationId, item.PaymentTypeID, item.Amount)
 				if err != nil {
-					tx.Rollback()
-					h.log.Error(err)
 					handleResponse(c, InternalError, err.Error())
+					tx.Rollback()
 					return
 				}
 				continue

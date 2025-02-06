@@ -72,8 +72,11 @@ func (h *AutoOrderHandler) Create(c *gin.Context) {
 	}()
 	body.Id = uuid.New().String()
 	body.Status = config.NEW
+	body.AutoOrderDate = time.Now().Format(time.DateTime)
 
-	err = tx.Table("auto_orders").Create(&body).Error
+	err = tx.
+		Table("auto_orders").
+		Create(&body).Error
 	if err != nil {
 		tx.Rollback()
 		h.log.Error(err)
