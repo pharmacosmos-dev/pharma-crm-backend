@@ -3078,6 +3078,38 @@ paths:
       summary: Unblock employee
       tags:
       - employees
+  /external/category/list:
+    get:
+      description: Get a category list for filter
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BasicAuth: []
+      summary: Get a category list for filter
+      tags:
+      - External API
   /external/product/list:
     get:
       consumes:

@@ -1,9 +1,33 @@
 package storage
 
 import (
+	"time"
+
+	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
 	"gorm.io/gorm"
 )
+
+// Create sale payment
+func (s *Storage) CreateSalePayment(tx *gorm.DB, req domain.FinalSale, item domain.FinalPaymentType, paymentServiceId string, status string) (*domain.SalePayment, error) {
+	var now = time.Now()
+	salePayment := domain.SalePayment{}
+	// Insert sale payments
+	err := tx.Raw(`
+	INSERT INTO sale_payments(
+		id, sale_id, cash_box_operation_id, 
+		payment_service_id, payment_type_id, 
+		amount, paid_at, status) 
+	VALUES(?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+		uuid.New().String(), req.SaleID, req.CashBoxOperationId,
+		paymentServiceId, item.PaymentTypeID, item.Amount, now, status).
+		Scan(&salePayment).Error
+	if err != nil {
+		s.log.Error(err)
+		return nil, err
+	}
+	return &salePayment, nil
+}
 
 // Get Payment service with store id and payment type  if status is active
 func (s *Storage) GetPaymentServiceByStoreId(storeId string, paymentType string) (*domain.PaymentService, error) {

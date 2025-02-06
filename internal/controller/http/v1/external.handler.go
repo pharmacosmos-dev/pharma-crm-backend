@@ -3,6 +3,7 @@ package v1
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
+	"gorm.io/gorm"
 )
 
 type ExternalHandler struct {
@@ -16,6 +17,7 @@ func (h *Handler) NewExternalHandler(r *gin.RouterGroup) {
 
 func (h *ExternalHandler) ExternalRoutes(r *gin.RouterGroup) {
 	r.GET("/external/product/list", h.List)
+	r.GET("/external/category/list", h.CategoryList)
 }
 
 // List Products
@@ -74,5 +76,45 @@ func (h *ExternalHandler) List(c *gin.Context) {
 		}
 	}
 
+	handleResponse(c, OK, res)
+}
+
+// Category List godoc
+// @Summary Get a category list for filter
+// @Description Get a category list for filter
+// @Tags 	External API
+// @Security     BasicAuth
+// @Produce 	json
+// @Param 	limit query int false "Limit"
+// @Param 	offset query int false "Offset"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router 	/external/category/list [get]
+func (h *ExternalHandler) CategoryList(c *gin.Context) {
+	var res []domain.Category
+	limit, offset, err := getPaginationParams(c)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	// Preload SubCategories recursively
+	query := h.db.Model(&domain.Category{}).
+		Preload("SubCategories", func(db *gorm.DB) *gorm.DB {
+			return db.Preload("SubCategories", func(db *gorm.DB) *gorm.DB {
+				return db.Preload("SubCategories")
+			})
+		})
+
+	err = query.
+		Limit(limit).
+		Offset(offset).
+		Find(&res).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
 	handleResponse(c, OK, res)
 }

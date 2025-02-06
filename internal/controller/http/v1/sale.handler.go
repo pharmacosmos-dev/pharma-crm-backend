@@ -275,9 +275,10 @@ func (h *SaleHandler) Update(c *gin.Context) {
 func (h *SaleHandler) FinalSale(c *gin.Context) {
 	var (
 		body domain.FinalSale
+		err  error
 	)
-	err := c.ShouldBindJSON(&body)
-	if err != nil {
+
+	if err = c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
@@ -323,11 +324,8 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		return
 	}
 
-	now := time.Now()
-	var salePayment domain.SalePaymentRequest
 	// iterate over payment types
 	for _, item := range body.PaymentTypes {
-		// err = cashboxOperationAmounts(tx, item)
 		if item.Type == "app" && (item.AppType == config.CLICK || item.AppType == config.PAYME || item.AppType == config.UZUM) {
 			// get payment service by store id and payment type
 			paymentService, err := h.storage.GetPaymentServiceByStoreId(body.StoreID, item.AppType)
@@ -347,29 +345,18 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 			// return error if payment type is not found
 			if !exists {
 				handleResponse(c, InternalError, "Invalid payment type")
+				tx.Rollback()
 				return
 			}
-			salePayment = domain.SalePaymentRequest{
-				ID:                 uuid.New().String(),
-				SaleID:             body.SaleID,
-				CashBoxOperationID: body.CashBoxOperationId,
-				PaymentServiceID:   &paymentService.ID,
-				PaymentTypeID:      item.PaymentTypeID,
-				Amount:             item.Amount,
-				PaidAt:             &now,
-				Status:             "pending",
-			}
-			// Insert sale payments
-			err = tx.
-				Table("sale_payments").
-				Create(&salePayment).Error
+			// create sale_pament
+			salePayment, err := h.storage.CreateSalePayment(tx, body, item, paymentService.ID, "pending")
 			if err != nil {
-				tx.Rollback()
 				h.log.Error(err)
 				handleResponse(c, InternalError, err.Error())
+				tx.Rollback()
 				return
 			}
-
+			// call payment handler
 			resp, err := handler(c.Request.Context(), paymentService, &item, body.CashBoxOperationId, salePayment.ID, body.SaleID)
 			if err != nil {
 				tx.Rollback()
@@ -400,36 +387,20 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 				handleResponse(c, InternalError, "Failed payment with "+item.AppType)
 				return
 			}
-		} else if item.Type == "cash" || item.Type == "card" {
+		} else if item.Type == config.CASH || item.Type == config.CARD {
 			// Insert sale payments if payment is cash or card
-			salePayment = domain.SalePaymentRequest{
-				ID:                 uuid.New().String(),
-				SaleID:             body.SaleID,
-				CashBoxOperationID: body.CashBoxOperationId,
-				PaymentTypeID:      item.PaymentTypeID,
-				Amount:             item.Amount,
-				PaidAt:             &now,
-				Status:             "paid",
-			}
-			// Insert sale payments
-			err = tx.
-				Table("sale_payments").
-				Create(&salePayment).Error
+			_, err = h.storage.CreateSalePayment(tx, body, item, "", "paid")
 			if err != nil {
-				tx.Rollback()
 				h.log.Error(err)
 				handleResponse(c, InternalError, err.Error())
+				tx.Rollback()
 				return
 			}
-			err = tx.Exec(`
-			INSERT INTO sale_payment_summary (cash_box_operation_id, payment_type_id, total_amount) 
-			VALUES(?, ?, ?)
-			ON CONFLICT (cash_box_operation_id, payment_type_id) 
-			DO UPDATE SET total_amount = EXCLUDED.total_amount + ?`, body.CashBoxOperationId, item.PaymentTypeID, item.Amount, item.Amount).Error
+			// insert or update sale payment summary
+			err = h.storage.CreateOrUpdateSalePaymentSummary(tx, body.CashBoxOperationId, item.PaymentTypeID, item.Amount)
 			if err != nil {
-				tx.Rollback()
-				h.log.Error(err)
 				handleResponse(c, InternalError, err.Error())
+				tx.Rollback()
 				return
 			}
 		} else {
@@ -465,12 +436,12 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		Table("sales").
 		Create(&newSale).Error
 	if err != nil {
-		tx.Rollback()
 		handleResponse(c, InternalError, err.Error())
+		tx.Rollback()
 		return
 	}
 	// Commit transaction
-	if err := tx.Commit().Error; err != nil {
+	if err = tx.Commit().Error; err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}

@@ -39,6 +39,8 @@ const (
 	CLICK = "click"
 	PAYME = "payme"
 	UZUM  = "uzum"
+	CASH  = "cash"
+	CARD  = "card"
 
 	// Universal status types
 	NEW       = "new"
