@@ -1,7 +1,14 @@
 package v1
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
+	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -9,6 +16,7 @@ import (
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
+	"gorm.io/gorm"
 )
 
 type AutoOrderHandler struct {
@@ -26,6 +34,7 @@ func (h *AutoOrderHandler) AutoOrderRoutes(r *gin.RouterGroup) {
 		autoOrder.POST("", h.Create)
 		autoOrder.POST("/confirm", h.Confirm)
 		autoOrder.GET("/list", h.List)
+		autoOrder.POST("/send/:id", h.SendAutoOrder)
 	}
 	autoOrderDetail := r.Group("auto-order-detail")
 	{
@@ -168,25 +177,26 @@ func (h *AutoOrderHandler) Confirm(c *gin.Context) {
 			tx.Rollback()
 		}
 	}()
+
 	err = tx.Table("imports").Create(&imports).Error
 	if err != nil {
-		tx.Rollback()
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
+		tx.Rollback()
 		return
 	}
 	err = tx.Table("import_details").Create(&importDetails).Error
 	if err != nil {
-		tx.Rollback()
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
+		tx.Rollback()
 		return
 	}
 
 	if err = tx.Commit().Error; err != nil {
-		tx.Rollback()
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
+		tx.Rollback()
 		return
 	}
 
@@ -356,14 +366,213 @@ func (h *AutoOrderHandler) ChangeAdjustedOrder(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	// Initialize the map before using it
+	data := make(map[string]interface{})
+	if body.MinStock != 0 {
+		data["min_stock"] = body.MinStock
+	}
+	if body.MaxStock != 0 {
+		data["max_stock"] = body.MaxStock
+	}
+	if body.Kvant != 0 {
+		data["kvant"] = body.Kvant
+	}
+	if body.AdjustedOrderQuantity != 0 {
+		data["adjusted_order_quantity"] = body.AdjustedOrderQuantity
+	}
 	err = h.db.
 		Model(&domain.AutoOrderDetail{}).
 		Where("id = ?", id).
-		Update("adjusted_order_quantity", body.AdjustedOrderQuantity).Error
+		Updates(&data).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 	handleResponse(c, OK, "UPDATED")
+}
+
+// SendAutoOrder godoc
+// @Summary Send auto order
+// @Description Send auto order
+// @Tags auto_orders
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "Auto order ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /auto-order/send/{id} [post]
+func (h *AutoOrderHandler) SendAutoOrder(c *gin.Context) {
+	var (
+		id        = c.Param("id")
+		autoOrder *domain.AutoOrder
+		data      domain.AutoOrderDetailSendRequest
+		err       error
+	)
+	if id == "" || id == "undefined" {
+		handleResponse(c, BadRequest, "Auto Order ID is required")
+		return
+	}
+	err = h.db.Preload("Store").First(&autoOrder, "id = ? AND status = 'new'", id).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			handleResponse(c, BadRequest, "Auto order not or already completed")
+			return
+		}
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	err = h.db.Raw(`
+	SELECT 
+		p.material_code, p.name, pr.name AS manufacturer,  aod.adjusted_order_quantity AS quantity
+	FROM auto_order_details aod
+		JOIN products p ON p.id = aod.product_id
+		LEFT JOIN producers pr ON p.producer_id = pr.id
+	WHERE aod.adjusted_order_quantity > 0 AND  aod.auto_order_id = ?`, id).Scan(&data.Товары).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	data.Dok.DataDok = autoOrder.CreatedAt.Format(time.DateTime)
+	data.Dok.NomerDok = strconv.Itoa(autoOrder.PublicID)
+	data.Apteka.Name = autoOrder.Store.Name
+	data.Apteka.StoreCode = autoOrder.Store.StoreCode
+
+	// Save 1c request data
+	t, _ := json.Marshal(data)
+	requestData, err := h.SaveRequest(&domain.Request1C{
+		Method:  "POST",
+		Payload: t,
+		Action:  "auto_order",
+	})
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	res, err := h.DoRequest(c.Request.Context(), data)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	// checking 1c response is nil
+	if res == nil {
+		handleResponse(c, InternalError, "failed to send auto order")
+		return
+	}
+	// Save 1c response data
+	requestData.Response, _ = json.Marshal(res)
+	err = h.SaveResponse(c.Request.Context(), requestData)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	if len(res.Products) == 0 {
+		handleResponse(c, OK, "No such products found")
+		return
+	}
+	tx := h.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	for _, item := range res.Products {
+		err = tx.Exec(`UPDATE auto_order_details SET response_order_quantity = ? WHERE product_id = (SELECT id FROM products WHERE material_code = ?)`,
+			item.QuantityFakt, item.MaterialCode).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			tx.Rollback()
+			return
+		}
+	}
+	err = tx.Exec(`UPDATE auto_orders SET status = 'completed', completed_date = NOW() WHERE id = ?`, id).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		tx.Rollback()
+		return
+	}
+
+	if err = tx.Commit().Error; err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		tx.Rollback()
+		return
+	}
+
+	handleResponse(c, OK, res.Data)
+}
+
+// send request to 1C for creating auto order
+func (h *AutoOrderHandler) DoRequest(ctx context.Context, data interface{}) (*domain.AutoOrderResponse, error) {
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+	buf := bytes.Buffer{}
+	// Encode data to JSON
+	err := json.NewEncoder(&buf).Encode(data)
+	if err != nil {
+		h.log.Error("failed to encode request data: %v", err)
+		return nil, fmt.Errorf("failed to encode request data: %v", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", h.cfg.BaseUrl1C+"/zakaz", &buf)
+	if err != nil {
+		h.log.Error("failed to create HTTP request: %v", err)
+		return nil, fmt.Errorf("failed to create HTTP request: %v", err)
+	}
+	req.SetBasicAuth(h.cfg.BaseUsername1C, h.cfg.BasePassword1C)
+	req.Header.Set("Content-Type", "application/json")
+
+	// Execute request
+	response, err := client.Do(req)
+	if err != nil {
+		h.log.Error("failed to execute HTTP request: %v", err)
+		return nil, fmt.Errorf("failed to execute HTTP request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != 200 {
+		return nil, fmt.Errorf("failed to send auto order: %v", response.StatusCode)
+	}
+	body, _ := io.ReadAll(response.Body)
+	var info domain.AutoOrderResponse
+	err = json.Unmarshal(body, &info)
+	if err != nil {
+		h.log.Error(err)
+		return nil, fmt.Errorf("failed to unmarshal response: %v", err)
+	}
+	return &info, nil
+}
+
+// Save auto order request to database
+func (h *AutoOrderHandler) SaveRequest(req *domain.Request1C) (*domain.Request1C, error) {
+	res := domain.Request1C{}
+	err := h.db.Raw(`INSERT INTO requests_1c (method, payload, action) VALUES(?, ?, ?) RETURNING *`,
+		req.Method, req.Payload, req.Action).Scan(&res).Error
+	if err != nil {
+		return &res, err
+	}
+	return &res, nil
+}
+
+// Save auro order response to database
+func (h *AutoOrderHandler) SaveResponse(ctx context.Context, req *domain.Request1C) error {
+	err := h.db.WithContext(ctx).Exec(
+		`UPDATE requests_1c SET response = ?, updated_at = NOW() WHERE id = ?`,
+		req.Response, req.ID,
+	).Error
+	if err != nil {
+		return err
+	}
+	return nil
 }

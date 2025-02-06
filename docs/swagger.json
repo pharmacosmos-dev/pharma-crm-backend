@@ -322,6 +322,55 @@
                 }
             }
         },
+        "/auto-order/send/{id}": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Send auto order",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auto_orders"
+                ],
+                "summary": "Send auto order",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Auto order ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/brand": {
             "post": {
                 "security": [
@@ -8716,6 +8765,15 @@
             "type": "object",
             "properties": {
                 "adjusted_order_quantity": {
+                    "type": "integer"
+                },
+                "kvant": {
+                    "type": "integer"
+                },
+                "max_stock": {
+                    "type": "integer"
+                },
+                "min_stock": {
                     "type": "integer"
                 }
             }

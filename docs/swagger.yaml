@@ -13,6 +13,12 @@ definitions:
     properties:
       adjusted_order_quantity:
         type: integer
+      kvant:
+        type: integer
+      max_stock:
+        type: integer
+      min_stock:
+        type: integer
     type: object
   domain.Apteka:
     properties:
@@ -1096,6 +1102,37 @@ paths:
       security:
       - BearerAuth: []
       summary: List auto orders
+      tags:
+      - auto_orders
+  /auto-order/send/{id}:
+    post:
+      consumes:
+      - application/json
+      description: Send auto order
+      parameters:
+      - description: Auto order ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Send auto order
       tags:
       - auto_orders
   /brand:

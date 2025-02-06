@@ -11,12 +11,13 @@ import (
 type (
 	// Config -.
 	Config struct {
-		App     `yaml:"app"`
-		HTTP    `yaml:"http"`
-		Log     `yaml:"logger"`
-		PG      `yaml:"postgres"`
-		Secret  `yaml:"secret"`
-		Payment `yaml:"payment"`
+		App         `yaml:"app"`
+		HTTP        `yaml:"http"`
+		Log         `yaml:"logger"`
+		PG          `yaml:"postgres"`
+		Secret      `yaml:"secret"`
+		Payment     `yaml:"payment"`
+		Integration `yaml:"integration"`
 	}
 
 	// App -.
@@ -57,6 +58,11 @@ type (
 		ClickEndpointUrl string `env-required:"true" yaml:"click_endpoint_url" env:"CLICK_ENDPOINT_URL"`
 		UzumEndpointUrl  string `env-required:"true" yaml:"uzum_endpoint_url" env:"UZUM_ENDPOINT_URL"`
 	}
+	Integration struct {
+		BaseUrl1C      string `env-required:"true" yaml:"base_url_1c" env:"BASE_URL_1C"`
+		BaseUsername1C string `env-required:"true" yaml:"base_username_1c" env:"BASE_USERNAME_1C"`
+		BasePassword1C string `env-required:"true" yaml:"base_password_1c" env:"BASE_PASSWORD_1C"`
+	}
 )
 
 // NewConfig returns app config.
@@ -80,10 +86,13 @@ func Load() Config {
 	c.Secret.SecretKey = cast.ToString(GetOrReturnDefaultValue("SECRET_KEY", "6fb5619d-8c30-4e85-a1e3-3f4d142498a0"))
 	c.Secret.HeshKey = cast.ToString(GetOrReturnDefaultValue("HESH_KEY", "6fb5619d-8c30-4e85-a1e3-3f4d142498a0"))
 	c.Secret.Password1C = cast.ToString(GetOrReturnDefaultValue("PASSWORD_1C", "6fb5619d-8c30-4e85-a1e3-3f4d142498a0"))
-	c.Payment.ClickEndpointUrl = cast.ToString(GetOrReturnDefaultValue("CLICK_ENDPOINT_URL", "http://localhost:8080"))
-	c.Payment.UzumEndpointUrl = cast.ToString(GetOrReturnDefaultValue("UZUM_ENDPOINT_URL", "http://localhost:8080"))
 	c.Secret.ExternalAPIUsername = cast.ToString(GetOrReturnDefaultValue("EXTERNAL_API_USERNAME", "pharmaexternalapis"))
 	c.Secret.ExternalAPIPassword = cast.ToString(GetOrReturnDefaultValue("EXTERNAL_API_PASSWORD", "lai3lahxoPo{aph9"))
+	c.Payment.ClickEndpointUrl = cast.ToString(GetOrReturnDefaultValue("CLICK_ENDPOINT_URL", "http://localhost:8080"))
+	c.Payment.UzumEndpointUrl = cast.ToString(GetOrReturnDefaultValue("UZUM_ENDPOINT_URL", "http://localhost:8080"))
+	c.Integration.BaseUrl1C = cast.ToString(GetOrReturnDefaultValue("BASE_URL_1C", "http://localhost:8080"))
+	c.Integration.BaseUsername1C = cast.ToString(GetOrReturnDefaultValue("BASE_USERNAME_1C", "pharma"))
+	c.Integration.BasePassword1C = cast.ToString(GetOrReturnDefaultValue("BASE_PASSWORD_1C", "password"))
 	return c
 }
 

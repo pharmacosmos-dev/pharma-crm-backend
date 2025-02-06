@@ -5,7 +5,8 @@ CREATE TABLE IF NOT EXISTS auto_orders (
     store_id UUID REFERENCES stores(id),
     public_id INTEGER NOT NULL DEFAULT nextval('auto_orders_public_id_seq'),
     status VARCHAR(20) DEFAULT 'new', -- pending, completed, canceled
-    auto_order_date DATE,
+    auto_order_date TIMESTAMP,
+    completed_date TIMESTAMP,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
 );

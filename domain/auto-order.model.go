@@ -72,4 +72,43 @@ type AutoOrderDetailRequest struct {
 // auto order detail adjusted quantity
 type AdjustedOrderQuantity struct {
 	AdjustedOrderQuantity int `gorm:"adjusted_order_quantity" json:"adjusted_order_quantity"`
+	MinStock              int `gorm:"min_stock" json:"min_stock"`
+	MaxStock              int `gorm:"max_stock" json:"max_stock"`
+	Kvant                 int `gorm:"kvant" json:"kvant"`
+}
+
+// auto order detail send request structure
+type AutoOrderDetailSendRequest struct {
+	Dok    AutoOrderDocument  `json:"Dok"`
+	Apteka Apteka             `json:"Apteka"`
+	Товары []ProductAutoOrder `json:"Товары"`
+}
+
+type ProductAutoOrder struct {
+	MaterialCode int    `gorm:"material_code" json:"material_code"`
+	Name         string `gorm:"name" json:"name"`
+	Manufacturer string `gorm:"manufacturer" json:"manufacturer"`
+	Quantity     int    `gorm:"quantity" json:"quantity"`
+}
+
+type AutoOrderDocument struct {
+	DataDok  string `gorm:"data_dok" json:"data_dok"`
+	NomerDok string `gorm:"nomer_dok" json:"nomer_dok"`
+}
+
+// response from 1c
+type AutoOrderResponse struct {
+	Ok       string             `json:"ok"`
+	Code     int                `json:"code"`
+	Message  string             `json:"message"`
+	Data     string             `json:"data"`
+	Products []AutoOrderProduct `json:"Товары"`
+}
+
+type AutoOrderProduct struct {
+	MaterialCode int    `json:"material_code"`
+	Name         string `json:"name"`
+	Manufacturer string `json:"manufacturer"`
+	Quantity     int    `json:"quantity"`
+	QuantityFakt int    `json:"quantity_fakt"`
 }
