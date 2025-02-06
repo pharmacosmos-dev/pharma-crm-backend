@@ -197,60 +197,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/auto-order/confirm": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Confirm auto order",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "auto_orders"
-                ],
-                "summary": "Confirm auto order",
-                "parameters": [
-                    {
-                        "description": "Auto order information",
-                        "name": "input",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/domain.AutoOrderConfirm"
-                            }
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            }
-        },
         "/auto-order/list": {
             "get": {
                 "security": [
@@ -8793,20 +8739,6 @@ const docTemplate = `{
                 },
                 "store_code": {
                     "type": "integer"
-                }
-            }
-        },
-        "domain.AutoOrderConfirm": {
-            "type": "object",
-            "properties": {
-                "adjusted_order": {
-                    "type": "number"
-                },
-                "product_id": {
-                    "type": "string"
-                },
-                "store_id": {
-                    "type": "string"
                 }
             }
         },
