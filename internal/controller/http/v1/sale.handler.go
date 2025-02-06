@@ -303,7 +303,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 
 	// get sale
 	var count int64
-	err = tx.Model(&domain.Sale{}).Where("id = ? AND status = 'completed'", body.SaleID).Count(&count).Error
+	err = h.db.Model(&domain.Sale{}).Where("id = ? AND status = 'completed'", body.SaleID).Count(&count).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -316,7 +316,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	}
 
 	// get store_id by employee_id
-	err = tx.Raw(`SELECT store_id FROM employees WHERE id = ?`, userID).Scan(&body.StoreID).Error
+	err = h.db.Raw(`SELECT store_id FROM employees WHERE id = ?`, userID).Scan(&body.StoreID).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())

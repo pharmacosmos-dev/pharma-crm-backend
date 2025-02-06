@@ -236,7 +236,8 @@ func (h *AutoOrderHandler) AutoOrderDetailList(c *gin.Context) {
 
 	err = query.
 		Count(&totalCount).
-		Offset(offset).Limit(limit).
+		Limit(limit).
+		Offset(offset).
 		Order("created_at DESC").
 		Find(&autoOrderDetails).Error
 	if err != nil {
@@ -245,6 +246,7 @@ func (h *AutoOrderHandler) AutoOrderDetailList(c *gin.Context) {
 		return
 	}
 	result := utils.ListResponse(autoOrderDetails, totalCount, limit, offset)
+
 	handleResponse(c, OK, result)
 }
 
@@ -293,6 +295,7 @@ func (h *AutoOrderHandler) ChangeAdjustedOrder(c *gin.Context) {
 	err = h.db.
 		Model(&domain.AutoOrderDetail{}).
 		Where("id = ?", id).
+		Debug().
 		Updates(&data).Error
 	if err != nil {
 		h.log.Error(err)
