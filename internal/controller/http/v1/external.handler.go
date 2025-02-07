@@ -70,7 +70,7 @@ func (h *ExternalHandler) List(c *gin.Context) {
 			sp.retail_price, sp.expire_date
 		FROM 
 			stores s JOIN store_products sp 
-			ON s.id = sp.store_id WHERE s.is_active = TRUE sp.product_id = ?`, res[i].Id).
+			ON s.id = sp.store_id WHERE s.is_active = TRUE AND sp.product_id = ?`, res[i].Id).
 			Scan(&res[i].Stores).Error
 		if err != nil {
 			h.log.Error(err)
