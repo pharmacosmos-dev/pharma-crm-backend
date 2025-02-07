@@ -189,8 +189,11 @@ func (h *SaleHandler) List(c *gin.Context) {
 		Joins("JOIN employees ON s.employee_id = employees.id").
 		Joins("JOIN stores ON employees.store_id = stores.id").
 		Joins("JOIN cashbox_operations co ON s.cash_box_operation_id = co.id").
-		Joins("JOIN cash_boxes ON co.cash_box_id = cash_boxes.id").
-		Joins("LEFT JOIN sale_payments sp ON s.id = sp.sale_id")
+		Joins("JOIN cash_boxes ON co.cash_box_id = cash_boxes.id")
+	if paymentTypeId != "" {
+		query = query.Joins("JOIN sale_payments sp ON s.id = sp.sale_id").
+			Where("sp.payment_type_id = ?", paymentTypeId)
+	}
 
 	if employeeID != "" {
 		query = query.Where("s.employee_id = ?", employeeID)
@@ -201,9 +204,7 @@ func (h *SaleHandler) List(c *gin.Context) {
 	if cashBoxId != "" {
 		query = query.Where("co.cash_box_id = ?", cashBoxId)
 	}
-	if paymentTypeId != "" {
-		query = query.Where("sp.payment_type_id = ?", paymentTypeId)
-	}
+
 	if startDate != "" && endDate != "" {
 		query = query.Where("s.completed_at::date >= ? AND s.completed_at::date <= ?  ", startDate, endDate)
 	}
