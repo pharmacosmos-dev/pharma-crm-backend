@@ -57,7 +57,7 @@ func (s *Storage) ListStoreProduct(ctx context.Context, storeID string, search s
 	}
 	for i := range res {
 		if res[i].UnitPerPack > 0 && res[i].UnitQuantity > 0 && res[i].PackQuantity*res[i].UnitPerPack != res[i].UnitQuantity {
-			res[i].Quantity = fmt.Sprintf("%d (%d/%d)", res[i].PackQuantity, res[i].UnitQuantity%res[i].UnitPerPack, res[i].UnitPerPack)
+			res[i].Quantity = fmt.Sprintf("%d (%d/%d)", res[i].PackQuantity, res[i].UnitQuantity, res[i].UnitPerPack)
 		} else {
 			res[i].Quantity = fmt.Sprintf("%d", res[i].PackQuantity)
 		}
