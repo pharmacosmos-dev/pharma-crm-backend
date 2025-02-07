@@ -149,7 +149,7 @@ func (h *SaleHandler) Get(c *gin.Context) {
 // @Produce json
 // @Param limit query int false "Limit"
 // @Param offset query int false "Offset"
-// @Param employee_id query string false "Employee ID"
+// @Param vendor_id query string false "Vendor ID"
 // @Param store_id query string false "Store ID"
 // @Param cashbox_id query string false "Cash Box ID"
 // @Param payment_type_id query string false "Payment Type ID"
@@ -165,7 +165,7 @@ func (h *SaleHandler) List(c *gin.Context) {
 		totalAmount   int64
 		startDate     = c.Query("start_date")
 		endDate       = c.Query("end_date")
-		employeeID    = c.Query("employee_id")
+		employeeID    = c.Query("vendor_id")
 		cashBoxId     = c.Query("cashbox_id")
 		paymentTypeId = c.Query("payment_type_id")
 		storeID       = c.Query("store_id")

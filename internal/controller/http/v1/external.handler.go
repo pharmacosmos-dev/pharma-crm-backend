@@ -53,6 +53,7 @@ func (h *ExternalHandler) List(c *gin.Context) {
 		Joins("LEFT JOIN unit_types u ON p.unit_type_id = u.id").
 		Group("p.id, u.short_name").
 		Limit(limit).Offset(offset).
+		Order("p.created_at DESC").
 		Find(&res).Error
 	if err != nil {
 		h.log.Error(err)
