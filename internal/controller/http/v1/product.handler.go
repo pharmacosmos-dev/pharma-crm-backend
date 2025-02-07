@@ -45,7 +45,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.DELETE("/hard-delete", h.HardDelete)
 		product.DELETE("/soft-delete", h.SoftDelete)
 		product.GET("/store-product/:id", h.ListStoreProductProductId)
-		product.POST("/store/barcode", h.GetStoreProductByBarcode)
+		product.POST("/store/barcode", h.AddStoreProductByBarcode)
 		product.POST("/generate-barcode", h.GenerateBarcode)
 		product.GET("/total-status-count", h.TotalStatusCount)
 	}
@@ -802,7 +802,7 @@ func (h *ProductHandler) ListByStoreId(c *gin.Context) {
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /product/store/barcode [POST]
-func (h *ProductHandler) GetStoreProductByBarcode(c *gin.Context) {
+func (h *ProductHandler) AddStoreProductByBarcode(c *gin.Context) {
 	var (
 		body domain.StoreProductBarcodeRequest
 		err  error
@@ -840,15 +840,16 @@ func (h *ProductHandler) GetStoreProductByBarcode(c *gin.Context) {
 	}
 	// get cart_items by store_product_id and status = 'pending'
 	var cartItem domain.CartItem
-	err = h.db.First(&cartItem, "store_product_id = ? AND status = 'pending'", storeProduct.Id).Error
+	err = h.db.Debug().First(&cartItem, "store_product_id = ? AND status = 'pending' AND sale_id = ?", storeProduct.Id, body.SaleID).Error
 	if err == nil {
+		fmt.Println(storeProduct.PackQuantity, cartItem.Quantity+1)
 		// check quantity is enough in store_products table
 		if storeProduct.PackQuantity < cartItem.Quantity+1 {
 			handleResponse(c, CONFLICT, gin.H{
 				"message":                "Not enough Product",
 				"pack_quantity":          storeProduct.PackQuantity,
 				"unit_quantity":          storeProduct.UnitQuantity,
-				"received_pack_quantity": cartItem.Quantity + 1,
+				"received_pack_quantity": 1,
 				"received_unit_quantity": cartItem.UnitQuantity,
 			})
 			return
@@ -891,8 +892,8 @@ func (h *ProductHandler) GetStoreProductByBarcode(c *gin.Context) {
 		"message":                "Not enough Product",
 		"pack_quantity":          storeProduct.PackQuantity,
 		"unit_quantity":          storeProduct.UnitQuantity,
-		"received_pack_quantity": cartItem.Quantity + 1,
-		"received_unit_quantity": cartItem.UnitQuantity,
+		"received_pack_quantity": 1,
+		"received_unit_quantity": 0,
 	})
 }
 
