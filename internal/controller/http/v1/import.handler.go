@@ -655,55 +655,62 @@ func (h *ImportHandler) UploadExcelFile(c *gin.Context) {
 	for _, c := range dbCategories {
 		existingCategories[c.Name] = c.ID
 	}
-
 	for _, row := range rows[1:] {
-		productID := uuid.New().String()
-		products = append(products, map[string]interface{}{
-			"id":            productID,
-			"name":          row[1],
-			"material_code": row[2],
-		})
-
-		// Category
-		categoryID, exists := existingCategories[row[3]]
-		if !exists {
-			categoryID = uuid.New().String()
-			existingCategories[row[3]] = categoryID
-			categories = append(categories, map[string]interface{}{
-				"id":   categoryID,
-				"name": row[3],
+		if len(row) > 7 {
+			productID := uuid.New().String()
+			products = append(products, map[string]interface{}{
+				"id":            productID,
+				"name":          row[1],
+				"barcode":       row[2],
+				"vat":           12,
+				"supply_price":  parseFloat(row[3]) - (parseFloat(row[3])*12)/100,
+				"retail_price":  parseFloat(row[3]),
+				"material_code": row[4],
 			})
-		}
 
-		// Subcategory
-		subCategoryID, exists := existingCategories[row[4]]
-		if !exists {
-			subCategoryID = uuid.New().String()
-			existingCategories[row[4]] = subCategoryID
-			categories = append(categories, map[string]interface{}{
-				"id":          subCategoryID,
-				"name":        row[4],
-				"category_id": categoryID,
+			// Category
+			categoryID, exists := existingCategories[row[5]]
+			if !exists {
+				categoryID = uuid.New().String()
+				existingCategories[row[5]] = categoryID
+				categories = append(categories, map[string]interface{}{
+					"id":   categoryID,
+					"name": row[5],
+				})
+			}
+
+			// Subcategory
+			subCategoryID, exists := existingCategories[row[6]]
+			if !exists {
+				subCategoryID = uuid.New().String()
+				existingCategories[row[6]] = subCategoryID
+				categories = append(categories, map[string]interface{}{
+					"id":          subCategoryID,
+					"name":        row[6],
+					"category_id": categoryID,
+				})
+			}
+
+			// Child Category
+			childCategoryID, exists := existingCategories[row[6]]
+			if !exists {
+				childCategoryID = uuid.New().String()
+				existingCategories[row[6]] = childCategoryID
+				categories = append(categories, map[string]interface{}{
+					"id":          childCategoryID,
+					"name":        row[6],
+					"category_id": subCategoryID,
+				})
+			}
+
+			categoryProduct = append(categoryProduct, map[string]interface{}{
+				"category_id": childCategoryID,
+				"product_id":  productID,
+				"is_open":     true,
 			})
+		} else {
+			continue
 		}
-
-		// Child Category
-		childCategoryID, exists := existingCategories[row[5]]
-		if !exists {
-			childCategoryID = uuid.New().String()
-			existingCategories[row[5]] = childCategoryID
-			categories = append(categories, map[string]interface{}{
-				"id":          childCategoryID,
-				"name":        row[5],
-				"category_id": subCategoryID,
-			})
-		}
-
-		categoryProduct = append(categoryProduct, map[string]interface{}{
-			"category_id": childCategoryID,
-			"product_id":  productID,
-			"is_open":     true,
-		})
 	}
 
 	tx := h.db.Begin()
@@ -713,7 +720,7 @@ func (h *ImportHandler) UploadExcelFile(c *gin.Context) {
 		}
 	}()
 
-	err = tx.Table("products").Create(&products).Error
+	err = tx.Debug().Table("products").Create(&products).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -721,7 +728,7 @@ func (h *ImportHandler) UploadExcelFile(c *gin.Context) {
 		return
 	}
 
-	err = tx.Table("categories").Create(&categories).Error
+	err = tx.Debug().Table("categories").Create(&categories).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -729,7 +736,7 @@ func (h *ImportHandler) UploadExcelFile(c *gin.Context) {
 		return
 	}
 
-	err = tx.Table("category_products").Create(&categoryProduct).Error
+	err = tx.Debug().Table("category_products").Create(&categoryProduct).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())

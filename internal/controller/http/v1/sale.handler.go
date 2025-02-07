@@ -151,6 +151,8 @@ func (h *SaleHandler) Get(c *gin.Context) {
 // @Param offset query int false "Offset"
 // @Param employee_id query string false "Employee ID"
 // @Param store_id query string false "Store ID"
+// @Param cashbox_id query string false "Cash Box ID"
+// @Param payment_type_id query string false "Payment Type ID"
 // @Param search query string false "Search"
 // @Param start_date query string false "Start Date"
 // @Param end_date query string false "End Date"
@@ -160,12 +162,14 @@ func (h *SaleHandler) Get(c *gin.Context) {
 // @Router /sale/list [get]
 func (h *SaleHandler) List(c *gin.Context) {
 	var (
-		totalAmount int64
-		startDate   = c.Query("start_date")
-		endDate     = c.Query("end_date")
-		employeeID  = c.Query("employee_id")
-		storeID     = c.Query("store_id")
-		search      = c.Query("search")
+		totalAmount   int64
+		startDate     = c.Query("start_date")
+		endDate       = c.Query("end_date")
+		employeeID    = c.Query("employee_id")
+		cashBoxId     = c.Query("cashbox_id")
+		paymentTypeId = c.Query("payment_type_id")
+		storeID       = c.Query("store_id")
+		search        = c.Query("search")
 	)
 
 	limit, offset, err := getPaginationParams(c)
@@ -185,13 +189,20 @@ func (h *SaleHandler) List(c *gin.Context) {
 		Joins("JOIN employees ON s.employee_id = employees.id").
 		Joins("JOIN stores ON employees.store_id = stores.id").
 		Joins("JOIN cashbox_operations co ON s.cash_box_operation_id = co.id").
-		Joins("JOIN cash_boxes ON co.cash_box_id = cash_boxes.id")
+		Joins("JOIN cash_boxes ON co.cash_box_id = cash_boxes.id").
+		Joins("LEFT JOIN sale_payments sp ON s.id = sp.sale_id")
 
 	if employeeID != "" {
 		query = query.Where("s.employee_id = ?", employeeID)
 	}
 	if storeID != "" {
 		query = query.Where("stores.id = ?", storeID)
+	}
+	if cashBoxId != "" {
+		query = query.Where("co.cash_box_id = ?", cashBoxId)
+	}
+	if paymentTypeId != "" {
+		query = query.Where("sp.payment_type_id = ?", paymentTypeId)
 	}
 	if startDate != "" && endDate != "" {
 		query = query.Where("s.completed_at::date >= ? AND s.completed_at::date <= ?  ", startDate, endDate)
@@ -349,7 +360,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 				return
 			}
 			// create sale_pament
-			salePayment, err := h.storage.CreateSalePayment(tx, body, item, paymentService.ID, "pending")
+			salePayment, err := h.storage.CreateSalePayment(tx, body, item, &paymentService.ID, "pending")
 			if err != nil {
 				h.log.Error(err)
 				handleResponse(c, InternalError, err.Error())
@@ -389,7 +400,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 			}
 		} else if item.Type == config.CASH || item.Type == config.CARD {
 			// Insert sale payments if payment is cash or card
-			_, err = h.storage.CreateSalePayment(tx, body, item, "", "paid")
+			_, err = h.storage.CreateSalePayment(tx, body, item, nil, "paid")
 			if err != nil {
 				h.log.Error(err)
 				handleResponse(c, InternalError, err.Error())

@@ -5528,6 +5528,14 @@ paths:
         in: query
         name: store_id
         type: string
+      - description: Cash Box ID
+        in: query
+        name: cashbox_id
+        type: string
+      - description: Payment Type ID
+        in: query
+        name: payment_type_id
+        type: string
       - description: Search
         in: query
         name: search

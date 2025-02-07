@@ -4,7 +4,7 @@ import "time"
 
 // SalePayment structure for sale payment
 type SalePayment struct {
-	ID               string       `gorm:"id" json:"id,omitempty"`
+	ID               string       `gorm:"id" json:"id"`
 	SaleID           string       `gorm:"sale_id" json:"sale_id,omitempty"`
 	PaymentServiceID string       `gorm:"payment_service_id" json:"payment_service_id,omitempty"`
 	PaymentTypeID    string       `gorm:"payment_type_id" json:"payment_type_id,omitempty"`

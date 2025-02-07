@@ -9,7 +9,7 @@ import (
 )
 
 // Create sale payment
-func (s *Storage) CreateSalePayment(tx *gorm.DB, req domain.FinalSale, item domain.FinalPaymentType, paymentServiceId string, status string) (*domain.SalePayment, error) {
+func (s *Storage) CreateSalePayment(tx *gorm.DB, req domain.FinalSale, item domain.FinalPaymentType, paymentServiceId *string, status string) (*domain.SalePayment, error) {
 	var now = time.Now()
 	salePayment := domain.SalePayment{}
 	// Insert sale payments

@@ -7214,6 +7214,18 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "description": "Cash Box ID",
+                        "name": "cashbox_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Payment Type ID",
+                        "name": "payment_type_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "description": "Search",
                         "name": "search",
                         "in": "query"

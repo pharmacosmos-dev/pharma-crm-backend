@@ -1121,6 +1121,7 @@ func (h *ProductHandler) GenerateBarcode(c *gin.Context) {
 
 // Helper function to safely parse float values
 func parseFloat(value string) float64 {
+	value = strings.TrimSpace(value)
 	f, err := strconv.ParseFloat(strings.ReplaceAll(value, ",", ""), 64) // Remove commas
 	if err != nil {
 		return 0

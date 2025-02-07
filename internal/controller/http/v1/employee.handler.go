@@ -240,6 +240,7 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid phone number, Format: 998901234567")
 		return
 	}
+	
 
 	body.FullName = body.FirstName + " " + body.LastName
 	if body.Password != nil {
