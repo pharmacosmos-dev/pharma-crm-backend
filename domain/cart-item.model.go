@@ -66,28 +66,31 @@ type CartItemData struct {
 
 // CartItemResponse structure with product data
 type CartItemResponse struct {
-	ID             string     `gorm:"id" json:"id"`
-	StoreProductID string     `gorm:"store_product_id" json:"store_product_id"`
-	EmployeeID     string     `gorm:"employee_id" json:"employee_id"`
-	SaleId         string     `gorm:"sale_id" json:"sale_id"`
-	Quantity       int        `gorm:"quantity" json:"quantity"`
-	UnitQuantity   int        `gorm:"unit_quantity" json:"unit_quantity"`
-	UnitPrice      float64    `gorm:"unit_price" json:"unit_price"`
-	DiscountPrice  float64    `gorm:"discount_price" json:"discount_price"`
-	DiscountType   string     `gorm:"discount_type" json:"discount_type" example:"percent|cash"`
-	DiscountValue  float64    `gorm:"discount_value" json:"discount_value"`
-	TotalPrice     float64    `gorm:"total_price" json:"total_price"`
-	CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`
-	UpdatedAt      *time.Time `gorm:"updated_at" json:"updated_at"`
-	Name           string     `gorm:"name" json:"name"`
-	Barcode        string     `gorm:"barcode" json:"barcode"`
-	UnitName       string     `gorm:"unit_name" json:"unit_name"`
-	ShortName      string     `gorm:"short_name" json:"short_name"`
-	UnitPerPack    int        `gorm:"unit_per_pack" json:"unit_per_pack"`
-	Shelf          string     `gorm:"shelf" json:"shelf"`
-	BonusAmount    float64    `gorm:"bonus_amount" json:"bonus_amount"`
-	BonusPercent   int        `gorm:"bonus_percent" json:"bonus_percent"`
-	ExpireDate     *time.Time `gorm:"expire_date" json:"expire_date"`
+	ID                  string     `gorm:"id" json:"id"`
+	StoreProductID      string     `gorm:"store_product_id" json:"store_product_id"`
+	EmployeeID          string     `gorm:"employee_id" json:"employee_id"`
+	SaleId              string     `gorm:"sale_id" json:"sale_id"`
+	Quantity            int        `gorm:"quantity" json:"quantity"`
+	UnitQuantity        int        `gorm:"unit_quantity" json:"unit_quantity"`
+	UnitPrice           float64    `gorm:"unit_price" json:"unit_price"`
+	DiscountPrice       float64    `gorm:"discount_price" json:"discount_price"`
+	DiscountType        string     `gorm:"discount_type" json:"discount_type" example:"percent|cash"`
+	DiscountValue       float64    `gorm:"discount_value" json:"discount_value"`
+	TotalPrice          float64    `gorm:"total_price" json:"total_price"`
+	CreatedAt           *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt           *time.Time `gorm:"updated_at" json:"updated_at"`
+	Name                string     `gorm:"name" json:"name"`
+	Barcode             string     `gorm:"barcode" json:"barcode"`
+	UnitName            string     `gorm:"unit_name" json:"unit_name"`
+	ShortName           string     `gorm:"short_name" json:"short_name"`
+	UnitPerPack         int        `gorm:"unit_per_pack" json:"unit_per_pack"`
+	Shelf               string     `gorm:"shelf" json:"shelf"`
+	BonusAmount         float64    `gorm:"bonus_amount" json:"bonus_amount"`
+	BonusPercent        int        `gorm:"bonus_percent" json:"bonus_percent"`
+	QuantityInStock     int        `gorm:"quantity_in_stock" json:"-"`
+	UnitQuantityInStock int        `gorm:"unit_quantity_in_stock" json:"-"`
+	CurrentStock        string     `gorm:"current_stock" json:"current_stock"`
+	ExpireDate          *time.Time `gorm:"expire_date" json:"expire_date"`
 }
 
 type SumResult struct {

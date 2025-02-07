@@ -358,7 +358,7 @@ func (h *CartItemHandler) Delete(c *gin.Context) {
 	var id = c.Param("id")
 	err := h.db.Delete(&domain.CartItem{}, "id = ?", id).Error
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}

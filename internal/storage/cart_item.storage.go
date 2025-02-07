@@ -1,6 +1,10 @@
 package storage
 
-import "github.com/pharma-crm-backend/domain"
+import (
+	"fmt"
+
+	"github.com/pharma-crm-backend/domain"
+)
 
 func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartItemData, error) {
 	var res []domain.CartItemResponse
@@ -13,6 +17,8 @@ func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartIt
 		sp.expire_date,
 		sp.bonus_amount,
 		sp.bonus_percent,
+		sp.pack_quantity AS quantity_in_stock,
+		sp.unit_quantity AS unit_quantity_in_stock,
 		u.unit_name,
 		u.short_name,
 		sh.name as shelf
@@ -27,6 +33,13 @@ func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartIt
 	if err != nil {
 		s.log.Warn("Error on listing cart items for sale %s: %v", saleID, err.Error())
 		return nil, err
+	}
+	for i := range res {
+		if res[i].UnitQuantityInStock != res[i].UnitPerPack*res[i].QuantityInStock {
+			res[i].CurrentStock = fmt.Sprintf("%d (%d/%d)", res[i].QuantityInStock, res[i].UnitQuantityInStock, res[i].UnitPerPack)
+		} else {
+			res[i].CurrentStock = fmt.Sprintf("%d", res[i].QuantityInStock)
+		}
 	}
 	var data domain.CartItemData
 	err = s.db.Raw(`
