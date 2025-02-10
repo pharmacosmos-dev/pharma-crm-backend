@@ -826,8 +826,6 @@ definitions:
         type: string
       supply_price:
         type: number
-      unit_per_pack:
-        type: integer
       unit_quantity:
         type: integer
       vat:
@@ -979,6 +977,10 @@ paths:
         in: query
         name: offset
         type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
       - description: Store ID
         in: query
         name: store_id
@@ -5520,9 +5522,9 @@ paths:
         in: query
         name: offset
         type: integer
-      - description: Employee ID
+      - description: Vendor ID
         in: query
-        name: employee_id
+        name: vendor_id
         type: string
       - description: Store ID
         in: query

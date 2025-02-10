@@ -158,6 +158,12 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "description": "Search",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "description": "Store ID",
                         "name": "store_id",
                         "in": "query"
@@ -7202,8 +7208,8 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Employee ID",
-                        "name": "employee_id",
+                        "description": "Vendor ID",
+                        "name": "vendor_id",
                         "in": "query"
                     },
                     {
@@ -10022,9 +10028,6 @@ const docTemplate = `{
                 },
                 "supply_price": {
                     "type": "number"
-                },
-                "unit_per_pack": {
-                    "type": "integer"
                 },
                 "unit_quantity": {
                     "type": "integer"

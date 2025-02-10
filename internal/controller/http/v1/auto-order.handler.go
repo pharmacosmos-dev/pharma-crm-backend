@@ -204,6 +204,7 @@ func (h *AutoOrderHandler) List(c *gin.Context) {
 // @Produce json
 // @Param limit query int false "Limit"
 // @Param offset query int false "Offset"
+// @Param search query string false "Search"
 // @Param store_id query string false "Store ID"
 // @Param auto_order_id query string false "Auto Order ID"
 // @Success 200 {object} v1.Response
@@ -217,6 +218,7 @@ func (h *AutoOrderHandler) AutoOrderDetailList(c *gin.Context) {
 		totalCount       int64
 		autoOrderID      = c.Query("auto_order_id")
 		storeID          = c.Query("store_id")
+		search           = c.Query("search")
 	)
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
@@ -235,6 +237,10 @@ func (h *AutoOrderHandler) AutoOrderDetailList(c *gin.Context) {
 	}
 	if autoOrderID != "" {
 		query = query.Where("auto_order_id = ?", autoOrderID)
+	}
+	if search != "" {
+		search = fmt.Sprintf("%%%s%%", search)
+		query = query.Where("p.name ILIKE ?", search)
 	}
 
 	err = query.
