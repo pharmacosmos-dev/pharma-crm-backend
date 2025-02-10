@@ -327,7 +327,7 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 		"store_product_id": body.StoreProductID,
 		"quantity":         body.Quantity,
 		"unit_quantity":    body.UnitQuantity,
-		"total_price":      float64(body.Quantity) * storeProduct.RetailPrice,
+		"total_price":      float64(body.Quantity)*storeProduct.RetailPrice + (storeProduct.RetailPrice/float64(storeProduct.UnitPerPack))*float64(body.UnitQuantity),
 	}
 
 	err = h.db.
