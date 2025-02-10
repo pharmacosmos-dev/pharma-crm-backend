@@ -497,7 +497,8 @@ func updateCartItemStatus(tx *gorm.DB, saleID string) error {
 		SET
 			pack_quantity = pack_quantity - ?,
 			unit_quantity = unit_quantity - ((? * unit_per_pack) + ?)
-		WHERE id = ?`,
+		FROM products
+		WHERE products.id = store_products.id AND  store_products.id = ?`,
 			item.Quantity, item.Quantity, item.UnitQuantity, item.StoreProductID).Error
 		if err != nil {
 			return err
