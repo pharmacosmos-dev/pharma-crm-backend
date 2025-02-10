@@ -5,7 +5,6 @@ CREATE TABLE IF NOT EXISTS "store_products"(
     "quantity" INT DEFAULT 0,
     "pack_quantity" INT DEFAULT 0,
     "unit_quantity" INT DEFAULT 0,
-    "unit_per_pack" INTEGER DEFAULT 0,
     "small_quantity" INT DEFAULT 0,
     "retail_price" NUMERIC(10, 2) DEFAULT 0,
     "supply_price" NUMERIC(10, 2) DEFAULT 0,

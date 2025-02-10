@@ -11,7 +11,6 @@ CREATE TABLE IF NOT EXISTS "cart_items" (
     "discount_value" NUMERIC(10, 2) DEFAULT 0,
     "discount_amount" NUMERIC(10, 2) DEFAULT 0,
     "total_price" NUMERIC(10, 2) DEFAULT 0,
-    "total_discount_price" NUMERIC(10, 2) DEFAULT 0,
     "discount_price" NUMERIC(10, 2) DEFAULT 0,
     "status" VARCHAR(20) CHECK ("status" IN ('pending', 'active', 'deleted', 'sold', 'drafted')),
     "is_drafted" BOOLEAN NOT NULL DEFAULT false,

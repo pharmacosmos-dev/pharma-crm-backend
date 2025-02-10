@@ -38,7 +38,6 @@ type StoreProductRequest struct {
 	ProductID        string     `gorm:"product_id" json:"product_id"`
 	PackQuantity     int        `gorm:"pack_quantity" json:"pack_quantity"`
 	UnitQuantity     int        `gorm:"unit_quantity" json:"unit_quantity"`
-	UnitPerPack      int        `gorm:"unit_per_pack" json:"unit_per_pack"`
 	SmallQuantity    int        `gorm:"store_id" json:"small_quantity"`
 	RetailPrice      float64    `gorm:"retail_price" json:"retail_price"`
 	SupplyPrice      float64    `gorm:"supply_price" json:"supply_price"`

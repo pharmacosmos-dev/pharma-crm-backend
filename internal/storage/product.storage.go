@@ -38,7 +38,7 @@ func (s *Storage) ListStoreProduct(ctx context.Context, storeID string, search s
 		LEFT JOIN category_products cp ON p.id = cp.product_id
 		LEFT JOIN categories c ON c.id = cp.category_id
 		LEFT JOIN unit_types u ON p.unit_type_id = u.id
-		WHERE sp.store_id = ?
+		WHERE sp.store_id = ? AND (sp.pack_quantity > 0 OR sp.unit_quantity > 0)
 		%s LIMIT ? OFFSET ?
 	`, searchCondition)
 
@@ -47,7 +47,7 @@ func (s *Storage) ListStoreProduct(ctx context.Context, storeID string, search s
 	if search != "" {
 		err = s.db.Raw(query, storeID, search, search, search, limit, offset).Scan(&res).Error
 	} else {
-		err = s.db.Raw(query, storeID, limit, offset).Scan(&res).Error
+		err = s.db.Debug().Raw(query, storeID, limit, offset).Scan(&res).Error
 	}
 
 	// Handle errors and return response
@@ -56,7 +56,7 @@ func (s *Storage) ListStoreProduct(ctx context.Context, storeID string, search s
 		return nil, err
 	}
 	for i := range res {
-		if res[i].UnitPerPack > 0 && res[i].UnitQuantity > 0 && res[i].PackQuantity*res[i].UnitPerPack != res[i].UnitQuantity {
+		if res[i].UnitQuantity > 0 && res[i].PackQuantity*res[i].UnitPerPack != res[i].UnitQuantity {
 			res[i].Quantity = fmt.Sprintf("%d (%d/%d)", res[i].PackQuantity, res[i].UnitQuantity, res[i].UnitPerPack)
 		} else {
 			res[i].Quantity = fmt.Sprintf("%d", res[i].PackQuantity)
@@ -84,6 +84,14 @@ func (s *Storage) SimilarProducts(ctx context.Context, productID string, offset 
 	if err != nil {
 		s.log.Warn("Error on listing similar products for product %s: %v", productID, err.Error())
 		return nil, err
+	}
+
+	for i := range res {
+		if res[i].UnitQuantity > 0 && res[i].PackQuantity*res[i].UnitPerPack != res[i].UnitQuantity {
+			res[i].Quantity = fmt.Sprintf("%d (%d/%d)", res[i].PackQuantity, res[i].UnitQuantity, res[i].UnitPerPack)
+		} else {
+			res[i].Quantity = fmt.Sprintf("%d", res[i].PackQuantity)
+		}
 	}
 
 	return res, nil

@@ -291,7 +291,11 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 	}
 
 	var storeProduct domain.StoreProduct
-	err = h.db.Raw(`SELECT * FROM store_products WHERE id = ?`,
+	err = h.db.Raw(`
+	SELECT
+		sp.*, p.unit_per_pack
+	FROM store_products sp
+	JOIN products p ON p.id = sp.product_id WHERE sp.id = ?`,
 		body.StoreProductID).Scan(&storeProduct).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

@@ -103,7 +103,6 @@ func (h *ProductHandler) Create(c *gin.Context) {
 			// store products table take required fields
 			body.StoreProduct[i].ProductID = body.Id
 			body.StoreProduct[i].UnitQuantity = body.StoreProduct[i].PackQuantity * body.UnitPerPack
-			body.StoreProduct[i].UnitPerPack = body.UnitPerPack
 			body.StoreProduct[i].SupplyPrice = body.SupplyPrice
 			body.StoreProduct[i].RetailPrice = body.RetailPrice
 			body.StoreProduct[i].Vat = body.Vat
