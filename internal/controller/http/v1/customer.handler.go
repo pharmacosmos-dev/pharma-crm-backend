@@ -168,7 +168,6 @@ func (h *CustomerHandler) List(c *gin.Context) {
 		Count(&totalAmount).
 		Limit(limit).
 		Offset(offset).
-		Debug().
 		Find(&res).Error
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())

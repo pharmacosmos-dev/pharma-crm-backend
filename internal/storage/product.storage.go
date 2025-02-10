@@ -8,49 +8,33 @@ import (
 )
 
 func (s *Storage) ListStoreProduct(ctx context.Context, storeID string, search string, limit, offset int) ([]*domain.StoreProductResponse, error) {
-	var res []*domain.StoreProductResponse
+	var (
+		res []*domain.StoreProductResponse
+		err error
+	)
 
-	// Prepare search condition
-	searchCondition := ""
+	query := s.db.Model(&domain.StoreProduct{}).
+		Table("store_products sp").
+		Select(`
+		sp.*, 
+		p.name, 
+		p.barcode, 
+		c.name AS category_name,
+		DATE_PART('day', sp.expire_date::timestamp - NOW()) AS expire_day,
+		u.unit_name,
+		u.short_name`).
+		Joins("JOIN products p ON p.id = sp.product_id").
+		Joins("LEFT JOIN category_products cp ON p.id = cp.product_id").
+		Joins("LEFT JOIN categories c ON c.id = cp.category_id").
+		Joins("LEFT JOIN unit_types u ON p.unit_type_id = u.id").
+		Where("sp.store_id = ? AND (sp.pack_quantity > 0 OR sp.unit_quantity > 0)", storeID)
+
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
-		searchCondition = `
-			AND (
-				p.name ILIKE ? 
-				OR p.barcode LIKE ? 
-				OR c.name ILIKE ?
-			)
-		`
+		query = query.Where("p.name ILIKE ? OR p.barcode LIKE ? OR c.name ILIKE ?", search, search, search)
 	}
+	err = query.Limit(limit).Offset(offset).Find(&res).Error
 
-	// Build query with optional search
-	query := fmt.Sprintf(`
-		SELECT 
-			sp.*, 
-			p.name, 
-			p.barcode, 
-			c.name AS category_name,
-			DATE_PART('day', sp.expire_date::timestamp - NOW()) AS expire_day,
-			u.unit_name,
-			u.short_name 
-		FROM store_products sp
-		JOIN products p ON p.id = sp.product_id
-		LEFT JOIN category_products cp ON p.id = cp.product_id
-		LEFT JOIN categories c ON c.id = cp.category_id
-		LEFT JOIN unit_types u ON p.unit_type_id = u.id
-		WHERE sp.store_id = ? AND (sp.pack_quantity > 0 OR sp.unit_quantity > 0)
-		%s LIMIT ? OFFSET ?
-	`, searchCondition)
-
-	// Execute query with appropriate arguments
-	var err error
-	if search != "" {
-		err = s.db.Raw(query, storeID, search, search, search, limit, offset).Scan(&res).Error
-	} else {
-		err = s.db.Debug().Raw(query, storeID, limit, offset).Scan(&res).Error
-	}
-
-	// Handle errors and return response
 	if err != nil {
 		s.log.Warn("Error on listing store products for store %s with search '%s': %v", storeID, search, err.Error())
 		return nil, err
