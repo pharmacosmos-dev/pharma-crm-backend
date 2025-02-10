@@ -538,7 +538,6 @@ func (h *ProductHandler) Update(c *gin.Context) {
 						"supply_price":   body.SupplyPrice,
 						"vat":            body.Vat,
 						"markup":         body.Markup,
-						"unit_per_pack":  body.UnitPerPack,
 					}).Error
 				if err != nil {
 					tx.Rollback()
