@@ -1994,38 +1994,6 @@ paths:
       tags:
       - cash_boxes
   /category:
-    post:
-      consumes:
-      - application/json
-      description: Create a new category from the request body
-      parameters:
-      - description: Category information
-        in: body
-        name: category
-        required: true
-        schema:
-          $ref: '#/definitions/domain.CategoryRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Create a new category
-      tags:
-      - categories
-  /category/{id}:
     delete:
       consumes:
       - application/json
@@ -2059,6 +2027,38 @@ paths:
       summary: Delete a category
       tags:
       - categories
+    post:
+      consumes:
+      - application/json
+      description: Create a new category from the request body
+      parameters:
+      - description: Category information
+        in: body
+        name: category
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CategoryRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a new category
+      tags:
+      - categories
+  /category/{id}:
     get:
       consumes:
       - application/json

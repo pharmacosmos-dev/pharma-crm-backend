@@ -29,7 +29,7 @@ func (h *CategoryHander) CategoryRoutes(r *gin.RouterGroup) {
 		category.GET("/:id", h.Get)
 		category.PUT("/:id", h.Update)
 		category.GET("/list", h.List)
-		category.DELETE("/:id", h.Delete)
+		category.DELETE("", h.Delete)
 		category.GET("/list/product/:id", h.ListCategoryByProduct)
 		category.GET("/list/filter", h.ListCategory)
 	}
@@ -295,7 +295,7 @@ func (h *CategoryHander) List(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /category/{id} [delete]
+// @Router /category [delete]
 func (h *CategoryHander) Delete(c *gin.Context) {
 	var (
 		ids []string
