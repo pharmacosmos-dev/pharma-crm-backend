@@ -424,12 +424,12 @@ func (h *ProductHandler) TotalStatusCount(c *gin.Context) {
 		COUNT(*) FILTER (WHERE status = 'active') AS active_count,
 		COUNT(*) FILTER (WHERE status = 'inactive') AS inactive_count,
 		(SELECT count(*) FROM store_products WHERE pack_quantity = 0 AND unit_quantity = 0) AS zero_stock_count,
-		(SELECT count(*) FROM store_products WHERE small_quantity = pack_quantity) AS low_stock_count,
+		(SELECT count(*) FROM store_products WHERE small_quantity = pack_quantity AND pack_quantity > 0) AS low_stock_count,
 		(SELECT count(*) FROM store_products WHERE CURRENT_DATE <= expire_date AND expire_date <= CURRENT_DATE + INTERVAL '10 days') AS imminent_count,
 		(SELECT count(*) FROM store_products WHERE expire_date::DATE < CURRENT_DATE) AS expired_count
 	FROM products %s
 	`, searchCondition)
-	err := h.db.Raw(query).Scan(&res).Error
+	err := h.db.Debug().Raw(query).Scan(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())

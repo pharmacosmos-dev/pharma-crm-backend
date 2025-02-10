@@ -43,7 +43,7 @@ func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartIt
 	}
 	var data domain.CartItemData
 	err = s.db.Raw(`
-	SELECT 
+	SELECT
 		SUM(total_price) AS sum,
 		SUM(quantity) AS item_count, 
 		SUM(discount_amount*quantity) AS discount_amount, 
