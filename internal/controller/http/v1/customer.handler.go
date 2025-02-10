@@ -132,6 +132,7 @@ func (h *CustomerHandler) List(c *gin.Context) {
 	var (
 		totalAmount int64
 		search      = c.Query("search")
+		storeID     = c.Query("store_id")
 	)
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
@@ -160,7 +161,7 @@ func (h *CustomerHandler) List(c *gin.Context) {
 		query = query.Where("customers.full_name ILIKE ? OR CAST(customers.public_id AS TEXT) LIKE ? OR ? = ANY(customers.phone)",
 			search, search, strings.Trim(search, "%"))
 	}
-	if storeID := c.Query("customers.store_id"); storeID != "" {
+	if storeID != "" {
 		query = query.Where("customers.store_id = ?", storeID)
 	}
 	err = query.
