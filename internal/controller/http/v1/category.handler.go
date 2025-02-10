@@ -273,6 +273,7 @@ func (h *CategoryHander) List(c *gin.Context) {
 		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).
+		Debug().
 		Find(&res).Error
 	if err != nil {
 		h.log.Error(err)

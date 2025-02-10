@@ -692,13 +692,13 @@ func (h *ImportHandler) UploadExcelFile(c *gin.Context) {
 			}
 
 			// Child Category
-			childCategoryID, exists := existingCategories[row[6]]
+			childCategoryID, exists := existingCategories[row[7]]
 			if !exists {
 				childCategoryID = uuid.New().String()
-				existingCategories[row[6]] = childCategoryID
+				existingCategories[row[7]] = childCategoryID
 				categories = append(categories, map[string]interface{}{
 					"id":          childCategoryID,
-					"name":        row[6],
+					"name":        row[7],
 					"category_id": subCategoryID,
 				})
 			}
