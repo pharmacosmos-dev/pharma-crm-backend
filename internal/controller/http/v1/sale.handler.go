@@ -192,7 +192,8 @@ func (h *SaleHandler) List(c *gin.Context) {
 		Joins("JOIN cash_boxes ON co.cash_box_id = cash_boxes.id")
 	if paymentTypeId != "" {
 		query = query.Joins("JOIN sale_payments sp ON s.id = sp.sale_id").
-			Where("sp.payment_type_id = ?", paymentTypeId)
+			Where("sp.payment_type_id = ?", paymentTypeId).
+			Group("s.id, stores.name, cash_boxes.name")
 	}
 
 	if employeeID != "" {
@@ -371,9 +372,9 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 			// call payment handler
 			resp, err := handler(c.Request.Context(), paymentService, &item, body.CashBoxOperationId, salePayment.ID, body.SaleID)
 			if err != nil {
-				tx.Rollback()
 				h.log.Error(err)
 				handleResponse(c, InternalError, err.Error())
+				tx.Rollback()
 				return
 			}
 			if errCode, ok := resp["error_code"].(float64); ok && errCode == 0 {
@@ -477,22 +478,25 @@ func updateSaleStatus(tx *gorm.DB, saleID string, totalAmount float64, customerI
 func updateCartItemStatus(tx *gorm.DB, saleID string) error {
 	var cartItems []domain.CartItem
 	err := tx.Raw(`
-		SELECT 
-			id, store_product_id,
-			quantity, unit_price,
-			total_price, status
-		FROM cart_items WHERE sale_id = ?`, saleID).
+		SELECT
+			ci.id, ci.store_product_id,
+			ci.quantity, ci.unit_quantity, ci.unit_price,
+			ci.total_price, ci.status
+		FROM cart_items ci WHERE sale_id = ?`, saleID).
 		Scan(&cartItems).Error
 	if err != nil {
 		return err
 	}
-
 	for _, item := range cartItems {
+		// 10 pochka 40 dona | 1 pochka ->  10000 so'm | 1 dona - 200 so'm
+		// 1 pochka 10 dona = 10000 + 2000
+		// 1000 -  50 * 1 + 10
+		// 9
 		err = tx.Exec(`
-		UPDATE store_products 
-		SET 
-			pack_quantity = pack_quantity - ?, 
-			unit_quantity = unit_quantity - ? * unit_per_pack + ? 
+		UPDATE store_products
+		SET
+			pack_quantity = pack_quantity - ?,
+			unit_quantity = unit_quantity - ((? * unit_per_pack) + ?)
 		WHERE id = ?`,
 			item.Quantity, item.Quantity, item.UnitQuantity, item.StoreProductID).Error
 		if err != nil {

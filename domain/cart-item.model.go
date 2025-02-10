@@ -97,3 +97,14 @@ type SumResult struct {
 	TotalPrice    float64
 	DiscountPrice float64
 }
+
+type CartItemR struct {
+	ID             string  `gorm:"id" json:"id"`
+	StoreProductID string  `gorm:"store_product_id" json:"store_product_id"`
+	Quantity       int     `gorm:"quantity" json:"quantity"`
+	UnitQuantity   int     `gorm:"unit_quantity" json:"unit_quantity"`
+	UnitPrice      float64 `gorm:"unit_price" json:"unit_price"`
+	TotalPrice     float64 `gorm:"total_price" json:"total_price"`
+	Status         string  `gorm:"status" json:"status"`
+	BonusAmount    float64 `gorm:"bonus_amount" json:"bonus_amount"`
+}
