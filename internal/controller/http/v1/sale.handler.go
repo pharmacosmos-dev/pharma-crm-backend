@@ -430,12 +430,12 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-
 	// Update cart items
 	err = updateCartItemStatus(tx, body.SaleID)
 	if err != nil {
-		tx.Rollback()
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
+		tx.Rollback()
 		return
 	}
 
@@ -456,6 +456,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	// Commit transaction
 	if err = tx.Commit().Error; err != nil {
 		handleResponse(c, InternalError, err.Error())
+		tx.Rollback()
 		return
 	}
 	handleResponse(c, OK, newSale.ID)
@@ -477,7 +478,7 @@ func updateSaleStatus(tx *gorm.DB, saleID string, totalAmount float64, customerI
 // Update cart item status and store product quantities after the sale is completed
 func updateCartItemStatus(tx *gorm.DB, saleID string) error {
 	var cartItems []domain.CartItem
-	err := tx.Raw(`
+	err := tx.Debug().Raw(`
 		SELECT
 			ci.id, ci.store_product_id,
 			ci.quantity, ci.unit_quantity, ci.unit_price,
@@ -485,6 +486,7 @@ func updateCartItemStatus(tx *gorm.DB, saleID string) error {
 		FROM cart_items ci WHERE sale_id = ?`, saleID).
 		Scan(&cartItems).Error
 	if err != nil {
+		tx.Rollback()
 		return err
 	}
 	for _, item := range cartItems {
@@ -492,7 +494,7 @@ func updateCartItemStatus(tx *gorm.DB, saleID string) error {
 		// 1 pochka 10 dona = 10000 + 2000
 		// 1000 -  50 * 1 + 10
 		// 9
-		err = tx.Exec(`
+		err = tx.Debug().Exec(`
 		UPDATE store_products
 		SET
 			pack_quantity = pack_quantity - ?,
@@ -501,14 +503,20 @@ func updateCartItemStatus(tx *gorm.DB, saleID string) error {
 		WHERE products.id = store_products.id AND  store_products.id = ?`,
 			item.Quantity, item.Quantity, item.UnitQuantity, item.StoreProductID).Error
 		if err != nil {
+			tx.Rollback()
 			return err
 		}
 	}
 
-	return tx.
+	err = tx.
 		Table("cart_items").
 		Where("sale_id = ?", saleID).
 		Update("status", "sold").Error
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+	return nil
 }
 
 // ClickPass implements PaymentService

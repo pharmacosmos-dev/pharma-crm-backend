@@ -221,8 +221,8 @@ func (h *CartItemHandler) UpdateBySaleID(c *gin.Context) {
 	}
 	var discountPercent float64
 	for i := range cartItems {
-		// 1 pochka -> 10 000 so'm 
-		// 1 dona -> 200 so'm
+		// 1 pochka -> 10 000 so'm -> 1000 so'm discount
+		// 1 dona -> 200 so'm - 20 so'm discount
 		if body.DiscountType == "percent" && body.DiscountValue <= 100 {
 			cartItems[i].DiscountAmount = cartItems[i].UnitPrice * body.DiscountValue / 100
 			discountPercent = body.DiscountValue
