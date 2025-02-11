@@ -443,6 +443,8 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, "Error on adding bonus: "+err.Error())
+		tx.Rollback()
+		return
 	}
 
 	newSale := domain.SaleRequest{
