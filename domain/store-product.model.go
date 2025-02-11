@@ -69,7 +69,6 @@ type StoreProductResponse struct {
 	Name                string     `gorm:"name" json:"name"`
 	UnitName            string     `gorm:"unit_name" json:"unit_name"`
 	ShortName           string     `gorm:"short_name" json:"short_name"`
-	CategoryName        string     `gorm:"category_name" json:"category_name"`
 	BonusAmount         float64    `gorm:"bonus_amount" json:"bonus_amount"`
 	BonusPercent        int        `gorm:"bonus_percent" json:"bonus_percent"`
 }

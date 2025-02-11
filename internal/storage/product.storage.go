@@ -52,20 +52,30 @@ func (s *Storage) ListStoreProduct(ctx context.Context, storeID string, search s
 
 func (s *Storage) SimilarProducts(ctx context.Context, productID string, offset int, limit int) ([]domain.StoreProductResponse, error) {
 	var res []domain.StoreProductResponse
-	err := s.db.Debug().Raw(`
-	SELECT 
-		sp.*, 
-		p.name, 
-		p.barcode, 
-		p.unit_per_pack,
-		c.name AS category_name, 
-		DATE_PART('day', sp.expire_date::timestamp - NOW()) AS expire_day
-	FROM store_products sp
-	JOIN products p ON p.id = sp.product_id
-	JOIN category_products cp ON p.id = cp.product_id
-	JOIN categories c ON c.id = cp.category_id
-	WHERE p.id != ? AND sp.store_id = (SELECT store_id FROM store_products WHERE product_id = ? LIMIT 1)  LIMIT ? OFFSET ?
-	`, productID, productID, limit, offset).Scan(&res).Error
+	err := s.db.WithContext(ctx).Debug().
+		Table("products p").
+		Select(`
+			p.name, p.barcode, p.unit_per_pack, sp.*, 
+			u.unit_name, u.short_name, 
+			DATE_PART('day', sp.expire_date::timestamp - NOW()) AS expire_day`).
+		Joins("JOIN category_products cp ON p.id = cp.product_id").
+		Joins("JOIN store_products sp ON sp.product_id = p.id").
+		Joins("LEFT JOIN unit_types u ON p.unit_type_id = u.id").
+		Where(`cp.category_id = (
+		SELECT category_id
+		FROM category_products
+		WHERE product_id = ?
+		)`, productID).
+		Where(`sp.store_id = (
+		SELECT store_id
+		FROM store_products
+		WHERE product_id = ?
+		LIMIT 1
+		)`, productID).
+		Where("p.id <> ?", productID).
+		Limit(limit).Offset(offset).
+		Debug().
+		Find(&res).Error
 	if err != nil {
 		s.log.Warn("Error on listing similar products for product %s: %v", productID, err.Error())
 		return nil, err
