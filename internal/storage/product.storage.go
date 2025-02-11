@@ -16,13 +16,14 @@ func (s *Storage) ListStoreProduct(ctx context.Context, storeID string, search s
 	query := s.db.Model(&domain.StoreProduct{}).
 		Table("store_products sp").
 		Select(`
-		sp.*, 
-		p.name, 
-		p.barcode, 
-		c.name AS category_name,
-		DATE_PART('day', sp.expire_date::timestamp - NOW()) AS expire_day,
-		u.unit_name,
-		u.short_name`).
+			sp.*, 
+			p.name, 
+			p.barcode, 
+			p.unit_per_pack,
+			c.name AS category_name,
+			DATE_PART('day', sp.expire_date::timestamp - NOW()) AS expire_day,
+			u.unit_name,
+			u.short_name`).
 		Joins("JOIN products p ON p.id = sp.product_id").
 		Joins("LEFT JOIN category_products cp ON p.id = cp.product_id").
 		Joins("LEFT JOIN categories c ON c.id = cp.category_id").
@@ -33,7 +34,7 @@ func (s *Storage) ListStoreProduct(ctx context.Context, storeID string, search s
 		search = fmt.Sprintf("%%%s%%", search)
 		query = query.Where("p.name ILIKE ? OR p.barcode LIKE ? OR c.name ILIKE ?", search, search, search)
 	}
-	err = query.Limit(limit).Offset(offset).Find(&res).Error
+	err = query.Limit(limit).Offset(offset).Order("sp.pack_quantity").Find(&res).Error
 
 	if err != nil {
 		s.log.Warn("Error on listing store products for store %s with search '%s': %v", storeID, search, err.Error())
