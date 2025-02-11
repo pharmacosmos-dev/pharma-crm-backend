@@ -424,14 +424,14 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	}
 
 	// Update sale status
-	err = updateSaleStatus(tx, body.SaleID, body.TotalAmount, body.CustomerID)
-	if err != nil {
-		tx.Rollback()
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
+	// err = updateSaleStatus(tx, body.SaleID, body.TotalAmount, body.CustomerID)
+	// if err != nil {
+	// 	tx.Rollback()
+	// 	handleResponse(c, InternalError, err.Error())
+	// 	return
+	// }
 	// Update cart items
-	err = updateCartItemStatus(tx, body.SaleID)
+	err = h.updateCartItemStatus(body.SaleID)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -476,9 +476,9 @@ func updateSaleStatus(tx *gorm.DB, saleID string, totalAmount float64, customerI
 }
 
 // Update cart item status and store product quantities after the sale is completed
-func updateCartItemStatus(tx *gorm.DB, saleID string) error {
+func (h *SaleHandler) updateCartItemStatus(saleID string) error {
 	var cartItems []domain.CartItem
-	err := tx.Debug().Raw(`
+	err := h.db.Debug().Raw(`
 		SELECT
 			ci.id, ci.store_product_id,
 			ci.quantity, ci.unit_quantity, ci.unit_price,
@@ -486,22 +486,23 @@ func updateCartItemStatus(tx *gorm.DB, saleID string) error {
 		FROM cart_items ci WHERE sale_id = ?`, saleID).
 		Scan(&cartItems).Error
 	if err != nil {
-		tx.Rollback()
 		return err
 	}
-	fmt.Println("--->>>> ", cartItems)
+	tx := h.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
 	for _, item := range cartItems {
-		// 10 pochka 40 dona | 1 pochka ->  10000 so'm | 1 dona - 200 so'm
-		// 1 pochka 10 dona = 10000 + 2000
-		// 1000 -  50 * 1 + 10
-		// 9
 		err = tx.Debug().Exec(`
 		UPDATE store_products
 		SET
 			pack_quantity = pack_quantity - ?,
 			unit_quantity = unit_quantity - ((? * unit_per_pack) + ?)
 		FROM products
-		WHERE products.id = store_products.id AND  store_products.id = ?`,
+		WHERE products.id = store_products.product_id AND  store_products.id = ?`,
 			item.Quantity, item.Quantity, item.UnitQuantity, item.StoreProductID).Error
 		if err != nil {
 			tx.Rollback()
