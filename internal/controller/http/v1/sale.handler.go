@@ -439,6 +439,12 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		return
 	}
 
+	err = h.storage.CreateEmployeeBonus(userID.(string), body.SaleID, body.CashBoxOperationId)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, "Error on adding bonus: "+err.Error())
+	}
+
 	newSale := domain.SaleRequest{
 		ID:                 uuid.New().String(),
 		EmployeeID:         cast.ToString(userID),
