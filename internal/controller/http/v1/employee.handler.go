@@ -33,6 +33,7 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 		employee.PUT("/info", h.UpdateEmployeeinfo)
 		employee.PUT("/block", h.BlockEmployee)
 		employee.PUT("/unblock", h.UnBlockEmployee)
+		employee.GET("/bonus", h.SmenaBonus)
 	}
 }
 
@@ -240,7 +241,6 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid phone number, Format: 998901234567")
 		return
 	}
-	
 
 	body.FullName = body.FirstName + " " + body.LastName
 	if body.Password != nil {
@@ -570,4 +570,40 @@ func (h *EmployeeHandler) UnBlockEmployee(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, "UNBLOCKED")
+}
+
+// @Summary      Smena bonus
+// @Description  Get smena bonus by employee id
+// @Tags         employees
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        operation_id  query 	string     true  "Operation ID"
+// @Param 		 employee_id  query string true "Employee ID"
+// @Success      200  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /employee/bonus [get]
+func (h *EmployeeHandler) SmenaBonus(c *gin.Context) {
+	var (
+		bonus       float64
+		operationId = c.Query("operation_id")
+		employeeId  = c.Query("employee_id")
+	)
+	if operationId == "" || operationId == "undefined" {
+		handleResponse(c, BadRequest, "Operation ID is required")
+		return
+	}
+	if employeeId == "" || employeeId == "undefined" {
+		handleResponse(c, BadRequest, "Employee ID is required")
+		return
+	}
+	err := h.db.Debug().
+		Raw(`SELECT SUM(bonus_amount) AS bonus FROM employee_bonus WHERE cashbox_operation_id = ? AND employee_id = ?`, operationId, employeeId).Scan(&bonus).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, gin.H{"bonus": bonus})
 }

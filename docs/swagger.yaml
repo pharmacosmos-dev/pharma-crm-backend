@@ -2824,6 +2824,42 @@ paths:
       summary: Block employee
       tags:
       - employees
+  /employee/bonus:
+    get:
+      consumes:
+      - application/json
+      description: Get smena bonus by employee id
+      parameters:
+      - description: Operation ID
+        in: query
+        name: operation_id
+        required: true
+        type: string
+      - description: Employee ID
+        in: query
+        name: employee_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Smena bonus
+      tags:
+      - employees
   /employee/delete:
     delete:
       consumes:
