@@ -489,6 +489,7 @@ func updateCartItemStatus(tx *gorm.DB, saleID string) error {
 		tx.Rollback()
 		return err
 	}
+	fmt.Println("--->>>> ", cartItems)
 	for _, item := range cartItems {
 		// 10 pochka 40 dona | 1 pochka ->  10000 so'm | 1 dona - 200 so'm
 		// 1 pochka 10 dona = 10000 + 2000

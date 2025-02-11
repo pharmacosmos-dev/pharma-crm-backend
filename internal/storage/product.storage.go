@@ -52,11 +52,12 @@ func (s *Storage) ListStoreProduct(ctx context.Context, storeID string, search s
 
 func (s *Storage) SimilarProducts(ctx context.Context, productID string, offset int, limit int) ([]domain.StoreProductResponse, error) {
 	var res []domain.StoreProductResponse
-	err := s.db.Raw(`
+	err := s.db.Debug().Raw(`
 	SELECT 
 		sp.*, 
 		p.name, 
 		p.barcode, 
+		p.unit_per_pack,
 		c.name AS category_name, 
 		DATE_PART('day', sp.expire_date::timestamp - NOW()) AS expire_day
 	FROM store_products sp
@@ -71,7 +72,7 @@ func (s *Storage) SimilarProducts(ctx context.Context, productID string, offset 
 	}
 
 	for i := range res {
-		if res[i].UnitQuantity > 0 && res[i].PackQuantity*res[i].UnitPerPack != res[i].UnitQuantity {
+		if res[i].PackQuantity*res[i].UnitPerPack != res[i].UnitQuantity {
 			res[i].Quantity = fmt.Sprintf("%d (%d/%d)", res[i].PackQuantity, res[i].UnitQuantity, res[i].UnitPerPack)
 		} else {
 			res[i].Quantity = fmt.Sprintf("%d", res[i].PackQuantity)
