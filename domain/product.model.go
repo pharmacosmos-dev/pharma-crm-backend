@@ -164,18 +164,19 @@ type CreateProduct1C struct {
 // Product response with cart items
 // Product structure
 type ProductRes struct {
-	Id           string            `gorm:"id" json:"id"`
-	Name         string            `gorm:"name" json:"name"`
-	Barcode      string            `gorm:"barcode" json:"barcode"`
-	Photos       utils.StringArray `gorm:"type:text[]" json:"photos"`
-	RetailPrice  float64           `gorm:"retail_price" json:"retail_price"`
-	TotalPrice   float64           `gorm:"total_price" json:"total_price"`
-	Quantity     int               `gorm:"quantity" json:"quantity"`
-	UnitQuantity int               `gorm:"unit_quantity" json:"unit_quantity"`
-	Description  string            `gorm:"description" json:"description"`
-	BonusPercent float64           `gorm:"bonus_percent" json:"bonus_percent"`
-	BonusAmount  float64           `gorm:"bonus_amount" json:"bonus_amount"`
-	ShortName    string            `gorm:"short_name" json:"short_name"`
+	Id            string            `gorm:"id" json:"id"`
+	Name          string            `gorm:"name" json:"name"`
+	Barcode       string            `gorm:"barcode" json:"barcode"`
+	Photos        utils.StringArray `gorm:"type:text[]" json:"photos"`
+	RetailPrice   float64           `gorm:"retail_price" json:"retail_price"`
+	TotalPrice    float64           `gorm:"total_price" json:"total_price"`
+	TotalDiscount float64           `gorm:"total_discount" json:"total_discount"`
+	Quantity      int               `gorm:"quantity" json:"quantity"`
+	UnitQuantity  int               `gorm:"unit_quantity" json:"unit_quantity"`
+	Description   string            `gorm:"description" json:"description"`
+	BonusPercent  float64           `gorm:"bonus_percent" json:"bonus_percent"`
+	BonusAmount   float64           `gorm:"bonus_amount" json:"bonus_amount"`
+	ShortName     string            `gorm:"short_name" json:"short_name"`
 }
 
 type TotalStatusCount struct {

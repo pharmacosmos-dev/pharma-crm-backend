@@ -124,8 +124,9 @@ func (h *SaleHandler) Get(c *gin.Context) {
 	err = h.db.Raw(`
 	SELECT 
 		p.id, p.name, p.barcode, sp.retail_price, p.bonus_percent, 
-		p.bonus_amount, p.photos, ci.quantity, 
-		ci.unit_quantity, ci.total_price, u.short_name
+		p.bonus_amount, p.photos, ci.quantity,
+		ci.unit_quantity, ci.total_price, u.short_name, 
+		(ci.discount_amount*ci.quantity) AS  total_discount
 	FROM cart_items ci
 	JOIN store_products sp ON ci.store_product_id = sp.id
 	JOIN products p ON sp.product_id = p.id
@@ -222,7 +223,6 @@ func (h *SaleHandler) List(c *gin.Context) {
 		Limit(limit).
 		Offset(offset).
 		Order("s.completed_at DESC").
-		Debug().
 		Find(&res).Error
 
 	if err != nil {
@@ -231,8 +231,9 @@ func (h *SaleHandler) List(c *gin.Context) {
 		return
 	}
 
-	data := utils.ListResponse(res, totalAmount, limit, offset)
-	handleResponse(c, OK, data)
+	result := utils.ListResponse(res, totalAmount, limit, offset)
+
+	handleResponse(c, OK, result)
 }
 
 // Update godoc
@@ -472,15 +473,13 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 
 // Update sale status and total amount after the sale is completed
 func updateSaleStatus(tx *gorm.DB, saleID string, totalAmount float64, customerID *string) error {
-	return tx.
-		Table("sales").
-		Where("id = ?", saleID).
-		Updates(map[string]interface{}{
-			"status":       "completed",
-			"total_amount": totalAmount,
-			"customer_id":  customerID,
-			"completed_at": time.Now(),
-		}).Error
+	return tx.Raw(`
+	UPDATE sales 
+	SET 	
+		status = 'completed', total_amount = ?, 
+		customer_id = ?, completed_at = ?, 
+		total_discount = (SELECT SUM(discount_amount*quantity) FROM cart_items WHERE sale_id = ?)
+	WHERE id = ?`, totalAmount, customerID, time.Now(), saleID, saleID).Error
 }
 
 // Update cart item status and store product quantities after the sale is completed
