@@ -71,6 +71,7 @@ type StoreProductResponse struct {
 	ShortName           string     `gorm:"short_name" json:"short_name"`
 	BonusAmount         float64    `gorm:"bonus_amount" json:"bonus_amount"`
 	BonusPercent        int        `gorm:"bonus_percent" json:"bonus_percent"`
+	CategoryName        string     `gorm:"category_name" json:"category_name"`
 }
 
 type StoreProductBarcodeRequest struct {
