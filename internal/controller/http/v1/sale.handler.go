@@ -424,12 +424,12 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	}
 
 	// Update sale status
-	// err = updateSaleStatus(tx, body.SaleID, body.TotalAmount, body.CustomerID)
-	// if err != nil {
-	// 	tx.Rollback()
-	// 	handleResponse(c, InternalError, err.Error())
-	// 	return
-	// }
+	err = updateSaleStatus(tx, body.SaleID, body.TotalAmount, body.CustomerID)
+	if err != nil {
+		tx.Rollback()
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
 	// Update cart items
 	err = h.updateCartItemStatus(body.SaleID)
 	if err != nil {
