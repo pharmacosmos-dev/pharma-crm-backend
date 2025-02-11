@@ -327,13 +327,16 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid quantity")
 		return
 	}
-
+	var unitPrice float64
+	if storeProduct.UnitPerPack > 0 {
+		unitPrice = (storeProduct.RetailPrice / float64(storeProduct.UnitPerPack)) * float64(body.UnitQuantity)
+	}
 	// Cart item ni yangilash uchun ma'lumotlar tayyorlash
 	data := map[string]interface{}{
 		"store_product_id": body.StoreProductID,
 		"quantity":         body.Quantity,
 		"unit_quantity":    body.UnitQuantity,
-		"total_price":      float64(body.Quantity)*storeProduct.RetailPrice + (storeProduct.RetailPrice/float64(storeProduct.UnitPerPack))*float64(body.UnitQuantity),
+		"total_price":      float64(body.Quantity)*storeProduct.RetailPrice + unitPrice,
 	}
 
 	err = h.db.
