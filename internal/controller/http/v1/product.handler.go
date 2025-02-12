@@ -865,19 +865,20 @@ func (h *ProductHandler) AddStoreProductByBarcode(c *gin.Context) {
 		handleResponse(c, OK, "ADDED")
 		return
 	} else if errors.Is(err, gorm.ErrRecordNotFound) && storeProduct.PackQuantity > 0 {
-		var discountPercent, discountPrice float64
+		// calculation discount price and percent
+		var discountPercent, discountPrice, discountAmount float64
 		if body.DiscountType == "percent" && body.DiscountValue <= 100 {
-			cartItem.DiscountAmount = cartItem.UnitPrice * body.DiscountValue / 100
+			discountAmount = storeProduct.RetailPrice * body.DiscountValue / 100
 			discountPercent = body.DiscountValue
 		} else if body.DiscountType == "cash" {
-			cartItem.DiscountAmount = body.DiscountValue
+			discountAmount = body.DiscountValue
 			discountPercent = body.DiscountValue * 100 / cartItem.UnitPrice
 		} else {
 			handleResponse(c, BadRequest, "Discount type or value is invalid")
 			return
 		}
-		if cartItem.DiscountAmount > 0 {
-			discountPrice = storeProduct.RetailPrice - cartItem.DiscountAmount
+		if discountAmount > 0 {
+			discountPrice = storeProduct.RetailPrice - discountAmount
 		}
 		// create new cart_item
 		err = h.db.Exec(`
@@ -885,11 +886,13 @@ func (h *ProductHandler) AddStoreProductByBarcode(c *gin.Context) {
 			id, store_product_id, 
 			employee_id, sale_id, 
 			quantity, unit_price, 
-			total_price, status, discount_type, discount_value, discount_price
+			total_price, status, discount_type, 
+			discount_value, discount_price, discount_amount
 			) 
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			uuid.New().String(), storeProduct.Id, userId.(string), body.SaleID, 1,
-			storeProduct.RetailPrice, storeProduct.RetailPrice, config.PENDING, body.DiscountType, discountPercent, discountPrice).Error
+			storeProduct.RetailPrice, storeProduct.RetailPrice, config.PENDING,
+			body.DiscountType, discountPercent, discountPrice, discountAmount).Error
 		if err != nil {
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())

@@ -100,17 +100,17 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 		// Calculate discount logic
 		var discountPercent, discountPrice float64
 		if body.DiscountType == "percent" && body.DiscountValue <= 100 {
-			cartItem.DiscountAmount = cartItem.UnitPrice * body.DiscountValue / 100
+			body.DiscountAmount = body.UnitPrice * body.DiscountValue / 100
 			discountPercent = body.DiscountValue
 		} else if body.DiscountType == "cash" {
-			cartItem.DiscountAmount = body.DiscountValue
+			body.DiscountAmount = body.DiscountValue
 			discountPercent = body.DiscountValue * 100 / cartItem.UnitPrice
 		} else {
 			handleResponse(c, BadRequest, "Discount type or value is invalid")
 			return
 		}
-		if cartItem.DiscountAmount > 0 {
-			discountPrice = cartItem.UnitPrice - cartItem.DiscountAmount
+		if body.DiscountAmount > 0 {
+			discountPrice = body.UnitPrice - body.DiscountAmount
 		}
 		err = h.db.Exec(`
 		INSERT INTO cart_items(
@@ -119,11 +119,12 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 			quantity, unit_price,
 			total_price, status, 
 			discount_type, discount_value, 
-			discount_price 
+			discount_price, discount_amount
 			)
-		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			uuid.New().String(), body.StoreProductID, body.SaleId, userId.(string), 1,
-			body.UnitPrice, body.UnitPrice, config.PENDING_CART_ITEM, body.DiscountType, discountPercent, discountPrice).Error
+			body.UnitPrice, body.UnitPrice, config.PENDING_CART_ITEM,
+			body.DiscountType, discountPercent, discountPrice, body.DiscountAmount).Error
 		if err != nil {
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())
