@@ -338,10 +338,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		EmployeeID:         cast.ToString(userID),
 		CashBoxOperationId: body.CashBoxOperationId,
 	}
-	err = tx.
-		WithContext(c.Request.Context()).
-		Table("sales").
-		Create(&newSale).Error
+	err = tx.Table("sales").Create(&newSale).Error
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		tx.Rollback()

@@ -70,9 +70,9 @@ func (s *Storage) CreateOrUpdateSalePaymentSummary(tx *gorm.DB, cashBoxOperation
 func (s *Storage) UpdateSaleStatus(tx *gorm.DB, saleID string, totalAmount float64, customerID *string) error {
 	return tx.Raw(`
 	UPDATE sales 
-	SET 	
-		status = 'completed', total_amount = ?, 
-		customer_id = ?, completed_at = ?, 
+	SET
+		status = 'completed', total_amount = ?,
+		customer_id = ?, completed_at = ?,
 		total_discount = (SELECT SUM(discount_amount*quantity) FROM cart_items WHERE sale_id = ?)
 	WHERE id = ?`, totalAmount, customerID, time.Now(), saleID, saleID).Error
 }
