@@ -40,9 +40,6 @@ func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartIt
 		} else {
 			res[i].CurrentStock = fmt.Sprintf("%d", res[i].QuantityInStock)
 		}
-		if res[i].ShortName == "шт" {
-			res[i].UnitPerPack = -1
-		}
 	}
 	var data domain.CartItemData
 	err = s.db.Raw(`
