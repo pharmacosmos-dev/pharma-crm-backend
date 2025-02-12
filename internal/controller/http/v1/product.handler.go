@@ -865,17 +865,31 @@ func (h *ProductHandler) AddStoreProductByBarcode(c *gin.Context) {
 		handleResponse(c, OK, "ADDED")
 		return
 	} else if errors.Is(err, gorm.ErrRecordNotFound) && storeProduct.PackQuantity > 0 {
+		var discountPercent, discountPrice float64
+		if body.DiscountType == "percent" && body.DiscountValue <= 100 {
+			cartItem.DiscountAmount = cartItem.UnitPrice * body.DiscountValue / 100
+			discountPercent = body.DiscountValue
+		} else if body.DiscountType == "cash" {
+			cartItem.DiscountAmount = body.DiscountValue
+			discountPercent = body.DiscountValue * 100 / cartItem.UnitPrice
+		} else {
+			handleResponse(c, BadRequest, "Discount type or value is invalid")
+			return
+		}
+		if cartItem.DiscountAmount > 0 {
+			discountPrice = storeProduct.RetailPrice - cartItem.DiscountAmount
+		}
 		// create new cart_item
 		err = h.db.Exec(`
 		INSERT INTO cart_items(
 			id, store_product_id, 
 			employee_id, sale_id, 
 			quantity, unit_price, 
-			total_price, status
+			total_price, status, discount_type, discount_value, discount_price
 			) 
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 			uuid.New().String(), storeProduct.Id, userId.(string), body.SaleID, 1,
-			storeProduct.RetailPrice, storeProduct.RetailPrice, "pending").Error
+			storeProduct.RetailPrice, storeProduct.RetailPrice, config.PENDING, body.DiscountType, discountPercent, discountPrice).Error
 		if err != nil {
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())

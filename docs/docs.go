@@ -10038,8 +10038,11 @@ const docTemplate = `{
         "domain.StoreProductBarcodeRequest": {
             "type": "object",
             "properties": {
-                "barcode": {
+                "discount_type": {
                     "type": "string"
+                },
+                "discount_value": {
+                    "type": "number"
                 },
                 "id": {
                     "type": "string"

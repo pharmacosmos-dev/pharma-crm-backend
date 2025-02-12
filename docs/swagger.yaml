@@ -795,8 +795,10 @@ definitions:
     type: object
   domain.StoreProductBarcodeRequest:
     properties:
-      barcode:
+      discount_type:
         type: string
+      discount_value:
+        type: number
       id:
         type: string
       sale_id:

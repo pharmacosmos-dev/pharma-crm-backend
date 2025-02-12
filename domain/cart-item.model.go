@@ -76,6 +76,7 @@ type CartItemResponse struct {
 	DiscountPrice       float64    `gorm:"discount_price" json:"discount_price"`
 	DiscountType        string     `gorm:"discount_type" json:"discount_type" example:"percent|cash"`
 	DiscountValue       float64    `gorm:"discount_value" json:"discount_value"`
+	DiscountAmount      float64    `gorm:"discount_amount" json:"discount_amount"`
 	TotalPrice          float64    `gorm:"total_price" json:"total_price"`
 	CreatedAt           *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt           *time.Time `gorm:"updated_at" json:"updated_at"`
