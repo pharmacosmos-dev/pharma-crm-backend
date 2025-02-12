@@ -303,8 +303,8 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		return
 	}
 	// validate payment types
-	if len(body.PaymentTypes) == 0 {
-		handleResponse(c, BadRequest, "At least one payment type is required")
+	if err := validateFinalSaleRequest(body); err != nil {
+		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 
@@ -316,135 +316,20 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		}
 	}()
 
-	// get sale
-	var count int64
-	err = h.db.Model(&domain.Sale{}).Where("id = ? AND status = 'completed'", body.SaleID).Count(&count).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	// check count > 0
-	if count > 0 {
+	if isSaleCompleted(tx, body.SaleID) {
 		handleResponse(c, CONFLICT, "Sale is already completed")
 		return
 	}
 
-	// get store_id by employee_id
-	err = h.db.Raw(`SELECT store_id FROM employees WHERE id = ?`, userID).Scan(&body.StoreID).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-
-	// iterate over payment types
 	for _, item := range body.PaymentTypes {
-		if item.Type == "app" && (item.AppType == config.CLICK || item.AppType == config.PAYME || item.AppType == config.UZUM) {
-			// get payment service by store id and payment type
-			paymentService, err := h.storage.GetPaymentServiceByStoreId(body.StoreID, item.AppType)
-			if err != nil {
-				h.log.Error(err)
-				handleResponse(c, InternalError, "Failed to get payment service")
-				return
-			}
-			// payment handlers map for each payment type
-			paymentHandlers := map[string]func(ctx context.Context, click *domain.PaymentService, data *domain.FinalPaymentType, CashOperationID string, transactionID string, saleID string) (map[string]interface{}, error){
-				config.CLICK: h.ClickPass,
-				config.PAYME: h.PaymeGo,
-				config.UZUM:  h.UzumFastPay,
-			}
-			// get handler for the payment type
-			handler, exists := paymentHandlers[item.AppType]
-			// return error if payment type is not found
-			if !exists {
-				handleResponse(c, InternalError, "Invalid payment type")
-				tx.Rollback()
-				return
-			}
-			// create sale_pament
-			salePayment, err := h.storage.CreateSalePayment(tx, body, item, &paymentService.ID, "pending")
-			if err != nil {
-				h.log.Error(err)
-				handleResponse(c, InternalError, err.Error())
-				tx.Rollback()
-				return
-			}
-			// call payment handler
-			resp, err := handler(c.Request.Context(), paymentService, &item, body.CashBoxOperationId, salePayment.ID, body.SaleID)
-			if err != nil {
-				h.log.Error(err)
-				handleResponse(c, InternalError, err.Error())
-				tx.Rollback()
-				return
-			}
-			if errCode, ok := resp["error_code"].(float64); ok && errCode == 0 {
-				// update sale payment status
-				err = h.storage.UpdateSalePaymentStatus(tx, salePayment.ID)
-				if err != nil {
-					handleResponse(c, InternalError, err.Error())
-					tx.Rollback()
-					return
-				}
-				// insert or update sale payment summary
-				err = h.storage.CreateOrUpdateSalePaymentSummary(tx, body.CashBoxOperationId, item.PaymentTypeID, item.Amount)
-				if err != nil {
-					handleResponse(c, InternalError, err.Error())
-					tx.Rollback()
-					return
-				}
-				continue
-			} else {
-				tx.Rollback()
-				t, _ := json.Marshal(resp)
-				h.log.Info("Failed payment with %v", string(t))
-				handleResponse(c, InternalError, "Failed payment with "+item.AppType)
-				return
-			}
-		} else if item.Type == config.CASH || item.Type == config.CARD {
-			// Insert sale payments if payment is cash or card
-			_, err = h.storage.CreateSalePayment(tx, body, item, nil, "paid")
-			if err != nil {
-				h.log.Error(err)
-				handleResponse(c, InternalError, err.Error())
-				tx.Rollback()
-				return
-			}
-			// insert or update sale payment summary
-			err = h.storage.CreateOrUpdateSalePaymentSummary(tx, body.CashBoxOperationId, item.PaymentTypeID, item.Amount)
-			if err != nil {
-				handleResponse(c, InternalError, err.Error())
-				tx.Rollback()
-				return
-			}
-		} else {
-			handleResponse(c, InternalError, "Invalid payment type")
+		if err = processPaymentType(tx, h, body, item); err != nil {
+			handleResponse(c, InternalError, err.Error())
 			return
 		}
-
 	}
 
-	// Update sale status
-	err = updateSaleStatus(tx, body.SaleID, body.TotalAmount, body.CustomerID)
-	if err != nil {
-		tx.Rollback()
+	if err = h.completeSaleTransaction(tx, body, userID.(string)); err != nil {
 		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	// Update cart items
-	err = h.updateCartItemStatus(body.SaleID)
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		tx.Rollback()
-		return
-	}
-
-	err = h.storage.CreateEmployeeBonus(userID.(string), body.SaleID, body.CashBoxOperationId)
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, "Error on adding bonus: "+err.Error())
-		tx.Rollback()
 		return
 	}
 
@@ -471,59 +356,78 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	handleResponse(c, OK, newSale.ID)
 }
 
-// Update sale status and total amount after the sale is completed
-func updateSaleStatus(tx *gorm.DB, saleID string, totalAmount float64, customerID *string) error {
-	return tx.Raw(`
-	UPDATE sales 
-	SET 	
-		status = 'completed', total_amount = ?, 
-		customer_id = ?, completed_at = ?, 
-		total_discount = (SELECT SUM(discount_amount*quantity) FROM cart_items WHERE sale_id = ?)
-	WHERE id = ?`, totalAmount, customerID, time.Now(), saleID, saleID).Error
+// Validate payment Type
+func validateFinalSaleRequest(body domain.FinalSale) error {
+	if len(body.PaymentTypes) == 0 {
+		return errors.New("At least one payment type is required")
+	}
+	return nil
 }
 
-// Update cart item status and store product quantities after the sale is completed
-func (h *SaleHandler) updateCartItemStatus(saleID string) error {
-	var cartItems []domain.CartItem
-	err := h.db.Debug().Raw(`
-		SELECT
-			ci.id, ci.store_product_id,
-			ci.quantity, ci.unit_quantity, ci.unit_price,
-			ci.total_price, ci.status
-		FROM cart_items ci WHERE sale_id = ?`, saleID).
-		Scan(&cartItems).Error
-	if err != nil {
-		return err
-	}
-	tx := h.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
+// Check sale is completed
+func isSaleCompleted(tx *gorm.DB, saleID string) bool {
+	var count int64
+	err := tx.Model(&domain.Sale{}).Where("id = ? AND status = 'completed'", saleID).Count(&count).Error
+	return err == nil && count > 0
+}
 
-	for _, item := range cartItems {
-		err = tx.Debug().Exec(`
-		UPDATE store_products
-		SET
-			pack_quantity = pack_quantity - ?,
-			unit_quantity = unit_quantity - ((? * unit_per_pack) + ?)
-		FROM products
-		WHERE products.id = store_products.product_id AND  store_products.id = ?`,
-			item.Quantity, item.Quantity, item.UnitQuantity, item.StoreProductID).Error
+// Process payment type
+func processPaymentType(tx *gorm.DB, h *SaleHandler, body domain.FinalSale, item domain.FinalPaymentType) error {
+	if item.Type == "app" && (item.AppType == config.CLICK || item.AppType == config.PAYME || item.AppType == config.UZUM) {
+		paymentService, err := h.storage.GetPaymentServiceByStoreId(body.StoreID, item.AppType)
 		if err != nil {
-			tx.Rollback()
+			return errors.New("Failed to get payment service")
+		}
+		paymentHandlers := map[string]func(ctx context.Context, service *domain.PaymentService, data *domain.FinalPaymentType, cashOpID string, transactionID string, saleID string) (map[string]interface{}, error){
+			config.CLICK: h.ClickPass,
+			config.PAYME: h.PaymeGo,
+			config.UZUM:  h.UzumFastPay,
+		}
+
+		handler, exists := paymentHandlers[item.AppType]
+		if !exists {
+			return errors.New("Invalid payment type")
+		}
+
+		salePayment, err := h.storage.CreateSalePayment(tx, body, item, &paymentService.ID, "pending")
+		if err != nil {
 			return err
 		}
+
+		resp, err := handler(context.Background(), paymentService, &item, body.CashBoxOperationId, salePayment.ID, body.SaleID)
+		if err != nil || resp["error_code"].(float64) != 0 {
+			return errors.New("Failed payment with " + item.AppType)
+		}
+
+		return h.storage.UpdateSalePaymentStatus(tx, salePayment.ID)
+	} else if item.Type == config.CASH || item.Type == config.CARD {
+		// Insert sale payments if payment is cash or card
+		_, err := h.storage.CreateSalePayment(tx, body, item, nil, "paid")
+		if err != nil {
+			return err
+		}
+		// insert or update sale payment summary
+		err = h.storage.CreateOrUpdateSalePaymentSummary(tx, body.CashBoxOperationId, item.PaymentTypeID, item.Amount)
+		if err != nil {
+			return err
+		}
+	} else {
+		return errors.New("Invalid payment type")
 	}
 
-	err = tx.
-		Table("cart_items").
-		Where("sale_id = ?", saleID).
-		Update("status", "sold").Error
-	if err != nil {
-		tx.Rollback()
+	return nil
+}
+
+// Completed sale transaction
+func (h *SaleHandler) completeSaleTransaction(tx *gorm.DB, body domain.FinalSale, userID string) error {
+	if err := h.storage.UpdateSaleStatus(tx, body.SaleID, body.TotalAmount, body.CustomerID); err != nil {
 		return err
+	}
+	if err := h.storage.UpdateCartItemStatus(tx, body.SaleID); err != nil {
+		return err
+	}
+	if err := h.storage.CreateEmployeeBonus(tx, userID, body.SaleID, body.CashBoxOperationId); err != nil {
+		return errors.New("Error on adding bonus: " + err.Error())
 	}
 	return nil
 }
