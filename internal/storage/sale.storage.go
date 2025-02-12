@@ -68,8 +68,8 @@ func (s *Storage) CreateOrUpdateSalePaymentSummary(tx *gorm.DB, cashBoxOperation
 
 // Update sale status and total amount after the sale is completed
 func (s *Storage) UpdateSaleStatus(tx *gorm.DB, saleID string, totalAmount float64, customerID *string) error {
-	return tx.Raw(`
-	UPDATE sales 
+	return tx.Debug().Exec(`
+	UPDATE sales
 	SET
 		status = 'completed', total_amount = ?,
 		customer_id = ?, completed_at = ?,
