@@ -872,7 +872,7 @@ func (h *ProductHandler) AddStoreProductByBarcode(c *gin.Context) {
 			discountPercent = body.DiscountValue
 		} else if body.DiscountType == "cash" {
 			discountAmount = body.DiscountValue
-			discountPercent = body.DiscountValue * 100 / cartItem.UnitPrice
+			discountPercent = body.DiscountValue * 100 / storeProduct.RetailPrice
 		} else {
 			handleResponse(c, BadRequest, "Discount type or value is invalid")
 			return

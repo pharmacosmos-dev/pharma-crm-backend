@@ -104,7 +104,7 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 			discountPercent = body.DiscountValue
 		} else if body.DiscountType == "cash" {
 			body.DiscountAmount = body.DiscountValue
-			discountPercent = body.DiscountValue * 100 / cartItem.UnitPrice
+			discountPercent = body.DiscountValue * 100 / body.UnitPrice
 		} else {
 			handleResponse(c, BadRequest, "Discount type or value is invalid")
 			return
