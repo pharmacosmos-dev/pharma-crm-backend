@@ -97,12 +97,13 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 			discountPrice = storeProduct.RetailPrice - body.DiscountAmount
 		}
 		body.UnitPrice = storeProduct.RetailPrice
-		err = h.storage.CreateCartItem(vendorID.(string), &body, discountPercent, discountPrice)
+		body.EmployeeID = vendorID.(string)
+		err = h.storage.CreateCartItem(&body, discountPercent, discountPrice)
 		if err != nil {
 			handleResponse(c, InternalError, err.Error())
 			return
 		}
-	} else {
+	} else if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}

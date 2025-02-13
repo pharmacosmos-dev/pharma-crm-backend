@@ -62,7 +62,7 @@ func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartIt
 	return &data, nil
 }
 
-func (s *Storage) CreateCartItem(vendorID string, req *domain.CartItemRequest, percent, price float64) error {
+func (s *Storage) CreateCartItem(req *domain.CartItemRequest, percent, price float64) error {
 	err := s.db.Exec(`
 		INSERT INTO cart_items(
 			id, store_product_id,
@@ -73,7 +73,7 @@ func (s *Storage) CreateCartItem(vendorID string, req *domain.CartItemRequest, p
 			discount_price, discount_amount
 			)
 		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		uuid.New().String(), req.StoreProductID, req.SaleId, vendorID, 1,
+		uuid.New().String(), req.StoreProductID, req.SaleId, req.EmployeeID, 1,
 		req.UnitPrice, req.UnitPrice, config.PENDING_CART_ITEM,
 		req.DiscountType, percent, price, req.DiscountAmount).Error
 	if err != nil {
