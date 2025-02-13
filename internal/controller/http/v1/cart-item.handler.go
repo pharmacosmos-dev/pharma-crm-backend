@@ -73,6 +73,7 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 	if err == nil {
 		cartItem.Quantity++
 		if cartItem.Quantity > storeProduct.PackQuantity && cartItem.UnitQuantity == 0 {
+			storeProduct.UnitQuantity -= storeProduct.PackQuantity * storeProduct.UnitPerPack
 			handleQuantityConflict(c, storeProduct, cartItem.Quantity, cartItem.UnitQuantity)
 			return
 		}
@@ -97,6 +98,7 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 		body.UnitQuantity = 1
 		body.TotalPrice = storeProduct.RetailPrice / float64(storeProduct.UnitPerPack)
 	} else {
+		storeProduct.UnitQuantity -= storeProduct.PackQuantity * storeProduct.UnitPerPack
 		handleQuantityConflict(c, storeProduct, 1, 0)
 		return
 	}
