@@ -68,7 +68,7 @@ func (s *Storage) CreateOrUpdateSalePaymentSummary(tx *gorm.DB, cashBoxOperation
 
 // Update sale status and total amount after the sale is completed
 func (s *Storage) UpdateSaleStatus(tx *gorm.DB, saleID string, totalAmount float64, customerID *string) error {
-	return tx.Debug().Exec(`
+	return tx.Exec(`
 	UPDATE sales
 	SET
 		status = 'completed', total_amount = ?,
@@ -95,11 +95,12 @@ func (s *Storage) UpdateCartItemStatus(tx *gorm.DB, saleID string) error {
 		err = tx.Debug().Exec(`
 		UPDATE store_products
 		SET
-			pack_quantity = pack_quantity - ?,
-			unit_quantity = unit_quantity - ((? * unit_per_pack) + ?)
+			pack_quantity = CASE WHEN ? > 0 THEN (unit_quantity - ?)/products.unit_per_pack - ? ELSE pack_quantity - ? END,
+			unit_quantity = unit_quantity - (? * products.unit_per_pack + ?)
 		FROM products
 		WHERE products.id = store_products.product_id AND  store_products.id = ?`,
-			item.Quantity, item.Quantity, item.UnitQuantity, item.StoreProductID).Error
+			item.UnitQuantity, item.UnitQuantity, item.Quantity, item.Quantity,
+			item.Quantity, item.UnitQuantity, item.StoreProductID).Error
 		if err != nil {
 			return err
 		}

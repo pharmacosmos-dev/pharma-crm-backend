@@ -5,8 +5,6 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"gorm.io/gorm"
 )
@@ -50,7 +48,7 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 		body domain.CartItemRequest
 		err  error
 	)
-	userId, ok := c.Get("user_id")
+	vendorID, ok := c.Get("user_id")
 	if !ok {
 		handleResponse(c, UNAUTHORIZED, "User not found")
 		return
@@ -62,7 +60,7 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 	}
 	// get store product
 	var storeProduct domain.StoreProduct
-	err = h.db.First(&storeProduct, "id = ?", body.StoreProductID).Error
+	err = h.db.Raw(`SELECT sp.*, p.unit_per_pack FROM store_products sp JOIN products p ON sp.product_id = p.id WHERE sp.id = ?`, body.StoreProductID).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -73,31 +71,16 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 	err = h.db.First(&cartItem,
 		"store_product_id = ? AND sale_id = ? AND is_drafted = false AND status = 'pending'",
 		body.StoreProductID, body.SaleId).Error
-	if err == nil {
-		if storeProduct.PackQuantity < cartItem.Quantity+1 {
-			handleResponse(c, CONFLICT, gin.H{
-				"message":                "Not enough Product",
-				"pack_quantity":          storeProduct.PackQuantity,
-				"unit_quantity":          storeProduct.UnitQuantity,
-				"received_pack_quantity": cartItem.Quantity,
-				"received_unit_quantity": cartItem.UnitQuantity,
-			})
-			return
-		}
 
-		cartItem.Quantity++
-		cartItem.TotalPrice = cartItem.UnitPrice * float64(cartItem.Quantity)
-		err = h.db.Debug().Exec(`UPDATE cart_items SET quantity = ?, total_price = ? WHERE id = ?`,
-			cartItem.Quantity, cartItem.TotalPrice, cartItem.ID).Error
+	// Create new cart_item if not found
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		// check stock for enough or not
+		body.Quantity, body.UnitQuantity, err = checkStock(storeProduct)
 		if err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, err.Error())
+			handleQuantityConflict(c, storeProduct, body.Quantity, body.UnitQuantity)
 			return
 		}
-		handleResponse(c, OK, "CREATED")
-		return
-	} else if errors.Is(err, gorm.ErrRecordNotFound) && storeProduct.PackQuantity > 0 {
-		// Calculate discount logic
+		// Check discount if cart has already discount
 		var discountPercent, discountPrice float64
 		if body.DiscountType == "percent" && body.DiscountValue <= 100 {
 			body.DiscountAmount = body.UnitPrice * body.DiscountValue / 100
@@ -112,30 +95,35 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 		if body.DiscountAmount > 0 {
 			discountPrice = body.UnitPrice - body.DiscountAmount
 		}
-		err = h.db.Exec(`
-		INSERT INTO cart_items(
-			id, store_product_id,
-			sale_id, employee_id,
-			quantity, unit_price,
-			total_price, status, 
-			discount_type, discount_value, 
-			discount_price, discount_amount
-			)
-		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			uuid.New().String(), body.StoreProductID, body.SaleId, userId.(string), 1,
-			body.UnitPrice, body.UnitPrice, config.PENDING_CART_ITEM,
-			body.DiscountType, discountPercent, discountPrice, body.DiscountAmount).Error
+		err = h.storage.CreateCartItem(vendorID.(string), &body, discountPercent, discountPrice)
 		if err != nil {
-			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())
 			return
 		}
-		handleResponse(c, OK, "CREATED")
+	} else {
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	h.log.Info("ERROR on creating cart_item: %v", err.Error())
 
-	handleResponse(c, CONFLICT, err.Error())
+	body.Quantity, body.UnitQuantity, err = checkStock(storeProduct)
+	if err != nil {
+		handleQuantityConflict(c, storeProduct, body.Quantity, body.UnitQuantity)
+		return
+	}
+	if body.Quantity > 0 {
+		cartItem.TotalPrice = cartItem.UnitPrice * float64(cartItem.Quantity+body.Quantity)
+	}
+	if body.UnitQuantity > 0 && storeProduct.UnitPerPack > 0 {
+		cartItem.TotalPrice += (cartItem.UnitPrice / float64(storeProduct.UnitPerPack)) * float64(body.UnitQuantity)
+	}
+	err = h.db.Debug().Exec(`UPDATE cart_items SET quantity = quantity + ?, unit_quantity = unit_quantity + ?, total_price = ? WHERE id = ?`,
+		body.Quantity, body.UnitQuantity, cartItem.TotalPrice, cartItem.ID).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, "CREATED")
 }
 
 // Get godoc
@@ -330,17 +318,17 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 	}
 	if body.Quantity > 0 && body.UnitQuantity == 0 {
 		if storeProduct.PackQuantity < body.Quantity {
-			handleQuantityConflict(c, storeProduct, body)
+			handleQuantityConflict(c, storeProduct, body.Quantity, body.UnitQuantity)
 			return
 		}
 	} else if body.Quantity == 0 && body.UnitQuantity > 0 {
 		if storeProduct.UnitQuantity < body.UnitQuantity {
-			handleQuantityConflict(c, storeProduct, body)
+			handleQuantityConflict(c, storeProduct, body.Quantity, body.UnitQuantity)
 			return
 		}
 	} else if body.Quantity > 0 && body.UnitQuantity > 0 {
 		if storeProduct.PackQuantity < body.Quantity || storeProduct.UnitQuantity < body.UnitQuantity {
-			handleQuantityConflict(c, storeProduct, body)
+			handleQuantityConflict(c, storeProduct, body.Quantity, body.UnitQuantity)
 			return
 		}
 	} else {
@@ -427,13 +415,36 @@ func (h *CartItemHandler) MultipleDelete(c *gin.Context) {
 	handleResponse(c, OK, "DELETED")
 }
 
-func handleQuantityConflict(c *gin.Context, storeProduct domain.StoreProduct, body domain.CartItemUpdateProductUnit) {
+func checkStock(storeProduct domain.StoreProduct) (int, int, error) {
+	var stockQuantity, stockUnitQuantity int
+	// Add quantity or unit_quantity with checking
+	if storeProduct.PackQuantity > 0 && storeProduct.UnitQuantity >= storeProduct.UnitPerPack {
+		stockQuantity = 1
+		stockUnitQuantity = 0
+	} else if storeProduct.UnitQuantity > 0 {
+		stockUnitQuantity = 1
+		stockQuantity = 0
+	} else {
+		return 0, 0, errors.New("invalid stock")
+	}
+
+	// Check stock
+	if stockQuantity > storeProduct.PackQuantity {
+		return 0, 0, errors.New("invalid stock")
+	}
+	if stockUnitQuantity > storeProduct.UnitQuantity {
+		return 0, 0, errors.New("invalid stock")
+	}
+	return stockQuantity, stockUnitQuantity, nil
+}
+
+func handleQuantityConflict(c *gin.Context, storeProduct domain.StoreProduct, quantity, unitQuantity int) {
 	handleResponse(c, CONFLICT, gin.H{
 		"message":                "Not enough Product",
 		"pack_quantity":          storeProduct.PackQuantity,
 		"unit_quantity":          storeProduct.UnitQuantity,
-		"received_pack_quantity": body.Quantity,
-		"received_unit_quantity": body.UnitQuantity,
+		"received_pack_quantity": quantity,
+		"received_unit_quantity": unitQuantity,
 	})
 
 }

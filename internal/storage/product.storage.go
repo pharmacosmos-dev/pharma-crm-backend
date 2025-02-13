@@ -41,8 +41,8 @@ func (s *Storage) ListStoreProduct(ctx context.Context, storeID string, search s
 		return nil, err
 	}
 	for i := range res {
-		if res[i].UnitQuantity > 0 && res[i].PackQuantity*res[i].UnitPerPack != res[i].UnitQuantity {
-			res[i].Quantity = fmt.Sprintf("%d (%d/%d)", res[i].PackQuantity, res[i].UnitQuantity, res[i].UnitPerPack)
+		if res[i].UnitQuantity != res[i].PackQuantity*res[i].UnitPerPack {
+			res[i].Quantity = fmt.Sprintf("%d (%d/%d)", res[i].PackQuantity, res[i].UnitQuantity%res[i].UnitPerPack, res[i].UnitPerPack)
 		} else {
 			res[i].Quantity = fmt.Sprintf("%d", res[i].PackQuantity)
 		}
@@ -83,8 +83,8 @@ func (s *Storage) SimilarProducts(ctx context.Context, productID string, offset 
 	}
 
 	for i := range res {
-		if res[i].PackQuantity*res[i].UnitPerPack != res[i].UnitQuantity {
-			res[i].Quantity = fmt.Sprintf("%d (%d/%d)", res[i].PackQuantity, res[i].UnitQuantity, res[i].UnitPerPack)
+		if res[i].UnitQuantity != res[i].PackQuantity*res[i].UnitPerPack {
+			res[i].Quantity = fmt.Sprintf("%d (%d/%d)", res[i].PackQuantity, res[i].UnitQuantity%res[i].UnitPerPack, res[i].UnitPerPack)
 		} else {
 			res[i].Quantity = fmt.Sprintf("%d", res[i].PackQuantity)
 		}
