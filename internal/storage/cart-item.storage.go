@@ -67,14 +67,15 @@ func (s *Storage) CreateCartItem(req *domain.CartItemRequest, percent, price flo
 		INSERT INTO cart_items(
 			id, store_product_id,
 			sale_id, employee_id,
-			quantity, unit_price,
+			quantity, unit_quantity, unit_price,
 			total_price, status, 
 			discount_type, discount_value, 
 			discount_price, discount_amount
 			)
-		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		uuid.New().String(), req.StoreProductID, req.SaleId, req.EmployeeID, 1,
-		req.UnitPrice, req.UnitPrice, config.PENDING_CART_ITEM,
+		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		uuid.New().String(), req.StoreProductID, req.SaleId,
+		req.EmployeeID, req.Quantity, req.UnitQuantity,
+		req.UnitPrice, req.TotalPrice, config.PENDING_CART_ITEM,
 		req.DiscountType, percent, price, req.DiscountAmount).Error
 	if err != nil {
 		return err

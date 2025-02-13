@@ -622,8 +622,8 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "201": {
-                        "description": "Created",
+                    "200": {
+                        "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
                         }
@@ -8920,23 +8920,11 @@ const docTemplate = `{
                 "discount_value": {
                     "type": "number"
                 },
-                "employee_id": {
-                    "type": "string"
-                },
-                "quantity": {
-                    "type": "integer"
-                },
                 "sale_id": {
                     "type": "string"
                 },
                 "store_product_id": {
                     "type": "string"
-                },
-                "unit_price": {
-                    "type": "number"
-                },
-                "unit_quantity": {
-                    "type": "integer"
                 }
             }
         },

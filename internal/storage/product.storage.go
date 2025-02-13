@@ -118,3 +118,13 @@ func (s *Storage) GetStoreProductByBarcode(ctx context.Context, barcode string) 
 
 	return res, nil
 }
+
+func (s *Storage) GetStoreProductByID(id string) (*domain.StoreProduct, error) {
+	var storeProduct domain.StoreProduct
+	err := s.db.Raw(`SELECT sp.*, p.unit_per_pack FROM store_products sp JOIN products p ON sp.product_id = p.id WHERE sp.id = ?`, id).
+		Scan(&storeProduct).Error
+	if err != nil {
+		return nil, err
+	}
+	return &storeProduct, nil
+}
