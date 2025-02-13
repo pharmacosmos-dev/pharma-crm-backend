@@ -60,7 +60,7 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 	}
 	// get store product
 	var storeProduct domain.StoreProduct
-	err = h.db.Raw(`SELECT sp.*, p.unit_per_pack FROM store_products sp JOIN products p ON sp.product_id = p.id WHERE sp.id = ?`, body.StoreProductID).Error
+	err = h.db.Raw(`SELECT sp.*, p.unit_per_pack FROM store_products sp JOIN products p ON sp.product_id = p.id WHERE sp.id = ?`, body.StoreProductID).Scan(&storeProduct).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -74,6 +74,7 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 
 	// Create new cart_item if not found
 	if errors.Is(err, gorm.ErrRecordNotFound) {
+		fmt.Println("--->>> ", storeProduct.Quantity, storeProduct.UnitQuantity)
 		// check stock for enough or not
 		body.Quantity, body.UnitQuantity, err = checkStock(storeProduct)
 		if err != nil {
@@ -83,18 +84,19 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 		// Check discount if cart has already discount
 		var discountPercent, discountPrice float64
 		if body.DiscountType == "percent" && body.DiscountValue <= 100 {
-			body.DiscountAmount = body.UnitPrice * body.DiscountValue / 100
+			body.DiscountAmount = storeProduct.RetailPrice * body.DiscountValue / 100
 			discountPercent = body.DiscountValue
 		} else if body.DiscountType == "cash" {
 			body.DiscountAmount = body.DiscountValue
-			discountPercent = body.DiscountValue * 100 / body.UnitPrice
+			discountPercent = body.DiscountValue * 100 / storeProduct.RetailPrice
 		} else {
 			handleResponse(c, BadRequest, "Discount type or value is invalid")
 			return
 		}
 		if body.DiscountAmount > 0 {
-			discountPrice = body.UnitPrice - body.DiscountAmount
+			discountPrice = storeProduct.RetailPrice - body.DiscountAmount
 		}
+		body.UnitPrice = storeProduct.RetailPrice
 		err = h.storage.CreateCartItem(vendorID.(string), &body, discountPercent, discountPrice)
 		if err != nil {
 			handleResponse(c, InternalError, err.Error())
@@ -417,6 +419,7 @@ func (h *CartItemHandler) MultipleDelete(c *gin.Context) {
 
 func checkStock(storeProduct domain.StoreProduct) (int, int, error) {
 	var stockQuantity, stockUnitQuantity int
+	fmt.Println(storeProduct.UnitQuantity, storeProduct.PackQuantity)
 	// Add quantity or unit_quantity with checking
 	if storeProduct.PackQuantity > 0 && storeProduct.UnitQuantity >= storeProduct.UnitPerPack {
 		stockQuantity = 1
@@ -436,6 +439,30 @@ func checkStock(storeProduct domain.StoreProduct) (int, int, error) {
 		return 0, 0, errors.New("invalid stock")
 	}
 	return stockQuantity, stockUnitQuantity, nil
+}
+
+func checkStockAvailability(storeProduct domain.StoreProduct, quantity, unitQuantity int) error {
+	if quantity > 0 && unitQuantity == 0 {
+		if storeProduct.PackQuantity < quantity {
+			return errors.New("Invalid stock")
+		}
+	}
+	if quantity == 0 && unitQuantity > 0 {
+		if storeProduct.UnitQuantity < unitQuantity {
+			return errors.New("Invalid stock")
+		}
+	}
+
+	if quantity > 0 && unitQuantity > 0 {
+		if storeProduct.PackQuantity < quantity {
+			return errors.New("Invalid stock")
+		}
+		if storeProduct.UnitQuantity < unitQuantity {
+			return errors.New("Invalid stock")
+		}
+	}
+
+	return nil
 }
 
 func handleQuantityConflict(c *gin.Context, storeProduct domain.StoreProduct, quantity, unitQuantity int) {
