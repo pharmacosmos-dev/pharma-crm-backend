@@ -71,10 +71,28 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 	err = h.db.First(&cartItem,
 		"store_product_id = ? AND sale_id = ? AND is_drafted = false AND status = 'pending'",
 		body.StoreProductID, body.SaleId).Error
-
-	// Create new cart_item if not found
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		fmt.Println("--->>> ", storeProduct.Quantity, storeProduct.UnitQuantity)
+	if err == nil {
+		body.Quantity, body.UnitQuantity, err = checkStock(storeProduct)
+		if err != nil {
+			handleQuantityConflict(c, storeProduct, body.Quantity, body.UnitQuantity)
+			return
+		}
+		cartItem.Quantity += body.Quantity
+		cartItem.UnitQuantity += body.UnitQuantity
+		// Calculate total price
+		if storeProduct.UnitPerPack > 0 { // 10 dona - > 10 * (10000/50)
+			cartItem.TotalPrice = float64(cartItem.Quantity)*cartItem.UnitPrice + float64(cartItem.UnitQuantity)*(cartItem.UnitPrice/float64(storeProduct.UnitPerPack))
+		} else {
+			cartItem.TotalPrice = float64(cartItem.Quantity) * cartItem.UnitPrice
+		}
+		err = h.db.Debug().Exec(`UPDATE cart_items SET quantity = ?, unit_quantity = ?, total_price = ? WHERE id = ?`,
+			cartItem.Quantity, cartItem.UnitQuantity, cartItem.TotalPrice, cartItem.ID).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+	} else if errors.Is(err, gorm.ErrRecordNotFound) {
 		// check stock for enough or not
 		body.Quantity, body.UnitQuantity, err = checkStock(storeProduct)
 		if err != nil {
@@ -103,30 +121,12 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 			handleResponse(c, InternalError, err.Error())
 			return
 		}
-	} else if err != nil {
+	} else {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
-	body.Quantity, body.UnitQuantity, err = checkStock(storeProduct)
-	if err != nil {
-		handleQuantityConflict(c, storeProduct, body.Quantity, body.UnitQuantity)
-		return
-	}
-	if body.Quantity > 0 {
-		cartItem.TotalPrice = cartItem.UnitPrice * float64(cartItem.Quantity+body.Quantity)
-	}
-	if body.UnitQuantity > 0 && storeProduct.UnitPerPack > 0 {
-		cartItem.TotalPrice += (cartItem.UnitPrice / float64(storeProduct.UnitPerPack)) * float64(body.UnitQuantity)
-	}
-	err = h.db.Debug().Exec(`UPDATE cart_items SET quantity = quantity + ?, unit_quantity = unit_quantity + ?, total_price = ? WHERE id = ?`,
-		body.Quantity, body.UnitQuantity, cartItem.TotalPrice, cartItem.ID).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	handleResponse(c, OK, "CREATED")
+	handleResponse(c, CONFLICT, "Invalid stock")
 }
 
 // Get godoc
@@ -420,7 +420,6 @@ func (h *CartItemHandler) MultipleDelete(c *gin.Context) {
 
 func checkStock(storeProduct domain.StoreProduct) (int, int, error) {
 	var stockQuantity, stockUnitQuantity int
-	fmt.Println(storeProduct.UnitQuantity, storeProduct.PackQuantity)
 	// Add quantity or unit_quantity with checking
 	if storeProduct.PackQuantity > 0 && storeProduct.UnitQuantity >= storeProduct.UnitPerPack {
 		stockQuantity = 1
@@ -431,7 +430,6 @@ func checkStock(storeProduct domain.StoreProduct) (int, int, error) {
 	} else {
 		return 0, 0, errors.New("invalid stock")
 	}
-
 	// Check stock
 	if stockQuantity > storeProduct.PackQuantity {
 		return 0, 0, errors.New("invalid stock")
@@ -440,30 +438,6 @@ func checkStock(storeProduct domain.StoreProduct) (int, int, error) {
 		return 0, 0, errors.New("invalid stock")
 	}
 	return stockQuantity, stockUnitQuantity, nil
-}
-
-func checkStockAvailability(storeProduct domain.StoreProduct, quantity, unitQuantity int) error {
-	if quantity > 0 && unitQuantity == 0 {
-		if storeProduct.PackQuantity < quantity {
-			return errors.New("Invalid stock")
-		}
-	}
-	if quantity == 0 && unitQuantity > 0 {
-		if storeProduct.UnitQuantity < unitQuantity {
-			return errors.New("Invalid stock")
-		}
-	}
-
-	if quantity > 0 && unitQuantity > 0 {
-		if storeProduct.PackQuantity < quantity {
-			return errors.New("Invalid stock")
-		}
-		if storeProduct.UnitQuantity < unitQuantity {
-			return errors.New("Invalid stock")
-		}
-	}
-
-	return nil
 }
 
 func handleQuantityConflict(c *gin.Context, storeProduct domain.StoreProduct, quantity, unitQuantity int) {
