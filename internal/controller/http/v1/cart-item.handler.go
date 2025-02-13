@@ -98,7 +98,6 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 		body.UnitQuantity = 1
 		body.TotalPrice = storeProduct.RetailPrice / float64(storeProduct.UnitPerPack)
 	} else {
-		storeProduct.UnitQuantity -= storeProduct.PackQuantity * storeProduct.UnitPerPack
 		handleQuantityConflict(c, storeProduct, 1, 0)
 		return
 	}
@@ -309,16 +308,19 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 	}
 	if body.Quantity > 0 && body.UnitQuantity == 0 {
 		if storeProduct.PackQuantity < body.Quantity {
+			storeProduct.UnitQuantity -= storeProduct.PackQuantity * storeProduct.UnitPerPack
 			handleQuantityConflict(c, storeProduct, body.Quantity, body.UnitQuantity)
 			return
 		}
-	} else if body.Quantity == 0 && body.UnitQuantity > 0 {
+	} else if body.UnitQuantity > 0 && body.Quantity == 0 {
 		if storeProduct.UnitQuantity < body.UnitQuantity {
+			storeProduct.UnitQuantity -= storeProduct.PackQuantity * storeProduct.UnitPerPack
 			handleQuantityConflict(c, storeProduct, body.Quantity, body.UnitQuantity)
 			return
 		}
 	} else if body.Quantity > 0 && body.UnitQuantity > 0 {
-		if storeProduct.PackQuantity < body.Quantity || storeProduct.UnitQuantity < body.UnitQuantity {
+		if body.Quantity > storeProduct.PackQuantity || storeProduct.UnitQuantity-(storeProduct.PackQuantity*storeProduct.UnitPerPack) < body.UnitQuantity {
+			storeProduct.UnitQuantity -= storeProduct.PackQuantity * storeProduct.UnitPerPack
 			handleQuantityConflict(c, storeProduct, body.Quantity, body.UnitQuantity)
 			return
 		}
