@@ -19,7 +19,7 @@ type Draft struct {
 	Store       *Store             `gorm:"foreignKey:StoreID" json:"store"`
 	Customer    *Customer          `gorm:"foreignKey:CustomerID" json:"customer"`
 	Employee    *Employee          `gorm:"foreignKey:CreatedBy" json:"employee"`
-	CartItems   []CartItemResponse `gorm:"-" json:"cart_items"` // Add this field for cart items
+	CartItems   []CartItemResponse `gorm:"-" json:"cart_items"`
 }
 
 // DraftRequest structure for create, update
@@ -30,8 +30,8 @@ type DraftRequest struct {
 	SaleID      string  `gorm:"sale_id" json:"sale_id"`
 	CreatedBy   string  `gorm:"created_by" json:"created_by"`
 	Description string  `gorm:"description" json:"description"`
-	TotalPrice  float64 `gorm:"total_price" json:"total_price"`
 	DraftTime   string  `gorm:"draft_time" json:"draft_time"`
+	Status      string  `gorm:"status" json:"status"`
 }
 
 type DraftCreate struct {
@@ -44,9 +44,6 @@ type DraftCreate struct {
 	Description string  `gorm:"description" json:"description"`
 	DraftTime   string  `gorm:"draft_time" json:"draft_time"`
 	ProductID   string  `gorm:"product_id" json:"product_id"`
-	Quantity    int     `gorm:"quantity" json:"quantity"`
-	UnitPrice   float64 `gorm:"unit_price" json:"unit_price"`
-	TotalPrice  float64 `gorm:"total_price" json:"total_price"`
 }
 
 type CartItemDraft struct {

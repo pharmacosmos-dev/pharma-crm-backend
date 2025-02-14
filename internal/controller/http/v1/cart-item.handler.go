@@ -38,7 +38,7 @@ func (h *CartItemHandler) CartItemRoutes(r *gin.RouterGroup) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param input body domain.CartItemRequest true "Cart item information"
+// @Param 	input body domain.CartItemRequest true "Cart item information"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -66,9 +66,10 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 		return
 	}
 	// get cart item
+
 	var cartItem domain.CartItem
 	err = h.db.First(&cartItem,
-		"store_product_id = ? AND sale_id = ? AND is_drafted = false AND status = 'pending'",
+		"store_product_id = ? AND sale_id = ?  AND status = 'pending'",
 		body.StoreProductID, body.SaleId).Error
 	if err == nil {
 		cartItem.Quantity++

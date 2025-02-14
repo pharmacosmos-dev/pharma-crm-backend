@@ -83,3 +83,12 @@ func (s *Storage) CreateCartItem(req *domain.CartItemRequest, percent, price flo
 
 	return nil
 }
+
+func (s *Storage) UpdateCartItemField(field string, value string, idField, idValue string) (*domain.CartItem, error) {
+	var res domain.CartItem
+	err := s.db.Raw(`UPDATE cart_items SET `+field+` = ? WHERE `+idField+` = ? RETURNING *`, value, idValue).Scan(&res).Error
+	if err != nil {
+		return nil, err
+	}
+	return &res, nil
+}

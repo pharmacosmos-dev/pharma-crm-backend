@@ -13,7 +13,6 @@ CREATE TABLE IF NOT EXISTS "cart_items" (
     "total_price" NUMERIC(10, 2) DEFAULT 0,
     "discount_price" NUMERIC(10, 2) DEFAULT 0,
     "status" VARCHAR(20) CHECK ("status" IN ('pending', 'active', 'deleted', 'sold', 'drafted')),
-    "is_drafted" BOOLEAN NOT NULL DEFAULT false,
     "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

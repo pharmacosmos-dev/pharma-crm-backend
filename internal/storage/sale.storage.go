@@ -8,6 +8,27 @@ import (
 	"gorm.io/gorm"
 )
 
+// create new sale
+func (s *Storage) CreateSale(tx *gorm.DB, req *domain.SaleRequest) (*domain.Sale, error) {
+	var res domain.Sale
+	err := tx.Raw(`INSERT INTO sales(id, employee_id, cash_box_operation_id) VALUES(?, ?, ?) RETURNING *`,
+		req.ID, req.EmployeeID, req.CashBoxOperationId).Scan(&res).Error
+	if err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+// update sale with receiving field
+func (s *Storage) UpdateSaleField(field string, value string, idField string, idValue string) (*domain.Sale, error) {
+	var res domain.Sale
+	err := s.db.Raw(`UPDATE sales SET `+field+` = ? WHERE `+idField+` = ? RETURNING *`, value, idValue).Scan(&res).Error
+	if err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
 // Create sale payment
 func (s *Storage) CreateSalePayment(tx *gorm.DB, req domain.FinalSale, item domain.FinalPaymentType, paymentServiceId *string, status string) (*domain.SalePayment, error) {
 	var now = time.Now()

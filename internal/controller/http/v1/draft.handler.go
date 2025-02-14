@@ -59,6 +59,7 @@ func (h *DraftHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+
 	tx := h.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
@@ -86,42 +87,29 @@ func (h *DraftHandler) Create(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	if len(cartItems) < 1 {
+		handleResponse(c, BadRequest, "No items in the cart")
+		return
+	}
 	body.ID = uuid.New().String()
-	if len(cartItems) > 0 {
-		cartDrafts := []domain.CartItemDraft{}
-		for _, item := range cartItems {
-			cartDrafts = append(cartDrafts, domain.CartItemDraft{
-				ID:         uuid.New().String(),
-				CartItemID: item.ID,
-				DraftID:    body.ID,
-			})
-			body.TotalPrice += item.TotalPrice
-		}
-
-		err = tx.Table("drafts").Create(&body).Error
+	cartDrafts := []domain.CartItemDraft{}
+	for _, item := range cartItems {
+		cartDrafts = append(cartDrafts, domain.CartItemDraft{
+			ID:         uuid.New().String(),
+			CartItemID: item.ID,
+			DraftID:    body.ID,
+		})
+		err = tx.Raw(`UPDATE store_products SET pack_quantity = pack_quantity - ?, unit_quantity = unit_quantity - ? WHERE id = ?`,
+			item.Quantity, item.UnitQuantity, item.StoreProductID).Error
 		if err != nil {
-			tx.Rollback()
-			h.log.Error(err)
-			handleResponse(c, InternalError, err.Error())
-			return
-		}
-
-		err = tx.
-			Table("cart_item_drafts").
-			Create(&cartDrafts).Error
-		if err != nil {
-			tx.Rollback()
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())
 			return
 		}
 	}
-	err = tx.Model(&domain.CartItem{}).
-		Where("sale_id = ?", body.SaleID).
-		Updates(map[string]interface{}{
-			"is_drafted": true,
-			"status":     config.DRAFTED_CART_ITEM,
-		}).Error
+	// create new draft
+	body.Status = config.PENDING
+	err = tx.Table("drafts").Create(&body).Error
 	if err != nil {
 		tx.Rollback()
 		h.log.Error(err)
@@ -129,14 +117,29 @@ func (h *DraftHandler) Create(c *gin.Context) {
 		return
 	}
 
-	saleID := uuid.New().String()
 	err = tx.
-		Table("sales").
-		Create(&domain.SaleRequest{
-			ID:                 saleID,
-			EmployeeID:         body.CreatedBy,
-			CashBoxOperationId: saleInfo.CashBoxOperationId,
-		}).Error
+		Table("cart_item_drafts").
+		Create(&cartDrafts).Error
+	if err != nil {
+		tx.Rollback()
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	err = tx.Exec(`UPDATE cart_items SET is_drafted = true, status = 'drafted' WHERE sale_id = ?`, body.SaleID).Error
+	if err != nil {
+		tx.Rollback()
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	res, err := h.storage.CreateSale(tx, &domain.SaleRequest{
+		ID:                 uuid.New().String(),
+		EmployeeID:         body.CreatedBy,
+		CashBoxOperationId: saleInfo.CashBoxOperationId,
+	})
 	if err != nil {
 		tx.Rollback()
 		h.log.Error(err)
@@ -149,9 +152,7 @@ func (h *DraftHandler) Create(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-
-	saleInfo.ID = saleID
-	handleResponse(c, CREATED, saleInfo)
+	handleResponse(c, CREATED, res)
 }
 
 // Get godoc
@@ -237,7 +238,7 @@ func (h *DraftHandler) List(c *gin.Context) {
 	)
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -279,12 +280,12 @@ func (h *DraftHandler) List(c *gin.Context) {
 
 	// Execute the query
 	err = query.
+		Where("drafts.status = ?", "pending").
 		Group("drafts.id").
 		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).
 		Order("drafts.created_at DESC").
-		Debug().
 		Find(&res).Error
 	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
@@ -340,25 +341,14 @@ func (h *DraftHandler) Update(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param id path string true "draft ID"
+// @Param 	id path string true "draft ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /draft/{id} [delete]
 func (h *DraftHandler) Delete(c *gin.Context) {
 	var id = c.Param("id")
-
-	err := h.db.
-		WithContext(c.Request.Context()).
-		Delete(&domain.CartItemDraft{}, "draft_id = ?", id).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	err = h.db.
-		WithContext(c.Request.Context()).
-		Delete(&domain.Draft{}, "id = ?", id).Error
+	err := h.db.Model(&domain.Draft{}).Where("id = ?", id).Update("status", "deleted").Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -374,7 +364,7 @@ func (h *DraftHandler) Delete(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param id path string true "draft ID"
+// @Param 	id path string true "draft ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -382,38 +372,43 @@ func (h *DraftHandler) Delete(c *gin.Context) {
 func (h *DraftHandler) CompleteDraft(c *gin.Context) {
 	var (
 		id  = c.Param("id")
-		res domain.Draft
 		err error
 	)
-	err = h.db.
-		WithContext(c.Request.Context()).
-		First(&res, "id = ?", id).Error
+	tx := h.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+	// update draft status
+	draft, err := h.storage.UpdateDraftField(tx, "status", "completed", "id", id)
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	err = h.db.WithContext(c.Request.Context()).
-		Table("sales").
-		Where("id = ?", res.SaleID).
-		Update("status", "pending").Error
-	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
-		handleResponse(c, InternalError, err.Error())
+		tx.Rollback()
 		return
 	}
 
-	err = h.db.WithContext(c.Request.Context()).
-		Table("cart_items").
-		Where("sale_id = ?", res.SaleID).
-		Updates(map[string]interface{}{
-			"is_drafted": false,
-			"status":     "pending"}).Error
+	// update sale status to pending
+	_, err = h.storage.UpdateSaleField("status", "pending", "id", draft.SaleID)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	// update cart item status to pending
+	_, err = h.storage.UpdateCartItemField("status", "pending", "sale_id", draft.SaleID)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
-	handleResponse(c, OK, res.SaleID)
+	if err = tx.Commit().Error; err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		tx.Rollback()
+		return
+	}
+	handleResponse(c, OK, draft.SaleID)
 }
