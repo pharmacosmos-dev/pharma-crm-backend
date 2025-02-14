@@ -44,7 +44,7 @@ type SaleResponse struct {
 	CashBoxName        string         `gorm:"cash_box_name" json:"cash_box_name"`
 	FullName           string         `gorm:"full_name" json:"full_name"`
 	Phone              string         `gorm:"phone" json:"phone"`
-	CustomerName       string         `gorm:"customer_name" json:"customer_name"`
+	CustomerName       *string        `gorm:"customer_name" json:"customer_name"`
 	Employee           *Employee      `gorm:"foreignKey:EmployeeID" json:"employee"`
 	Customer           *Customer      `gorm:"foreignKey:CustomerID" json:"customer"`
 	SalePayments       []*SalePayment `gorm:"foreignKey:SaleID" json:"sale_payments"`
