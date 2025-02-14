@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/spf13/cast"
 	"gorm.io/gorm"
@@ -38,6 +39,7 @@ func (h *SaleHandler) SaleRoutes(r *gin.RouterGroup) {
 		sale.GET("/list", h.List)
 		sale.PUT("/:id", h.Update)
 		sale.POST("/final", h.FinalSale)
+		sale.GET("/stats", h.SaleStats)
 	}
 }
 
@@ -163,7 +165,7 @@ func (h *SaleHandler) Get(c *gin.Context) {
 // @Router /sale/list [get]
 func (h *SaleHandler) List(c *gin.Context) {
 	var (
-		totalAmount   int64
+		totalCount    int64
 		startDate     = c.Query("start_date")
 		endDate       = c.Query("end_date")
 		employeeID    = c.Query("vendor_id")
@@ -179,18 +181,20 @@ func (h *SaleHandler) List(c *gin.Context) {
 		return
 	}
 
-	res := []domain.SaleResponse{}
+	var res = []domain.SaleResponse{}
 	query := h.db.Model(&domain.Sale{}).Table("sales s").
-		Preload("Employee").
-		Preload("Customer").
 		Preload("SalePayments", func(db *gorm.DB) *gorm.DB {
 			return db.Preload("PaymentType")
 		}).
-		Select("s.*, stores.name AS store_name, cash_boxes.name AS cash_box_name").
+		Select(`
+			s.*, employees.full_name, employees.phone,
+			stores.name AS store_name, customers.full_name as customer_name,
+			cash_boxes.name AS cash_box_name`).
 		Joins("JOIN employees ON s.employee_id = employees.id").
 		Joins("JOIN stores ON employees.store_id = stores.id").
 		Joins("JOIN cashbox_operations co ON s.cash_box_operation_id = co.id").
-		Joins("JOIN cash_boxes ON co.cash_box_id = cash_boxes.id")
+		Joins("JOIN cash_boxes ON co.cash_box_id = cash_boxes.id").
+		Joins("LEFT JOIN customers ON s.customer_id = customers.id")
 	if paymentTypeId != "" {
 		query = query.Joins("JOIN sale_payments sp ON s.id = sp.sale_id").
 			Where("sp.payment_type_id = ?", paymentTypeId).
@@ -219,7 +223,7 @@ func (h *SaleHandler) List(c *gin.Context) {
 	}
 
 	err = query.Where("s.status = 'completed'").
-		Count(&totalAmount).
+		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).
 		Order("s.completed_at DESC").
@@ -231,9 +235,123 @@ func (h *SaleHandler) List(c *gin.Context) {
 		return
 	}
 
-	result := utils.ListResponse(res, totalAmount, limit, offset)
+	result := utils.ListResponse(res, totalCount, limit, offset)
 
 	handleResponse(c, OK, result)
+}
+
+// List godoc
+// @Summary Get a sale stats
+// @Description Get a sale stats from the request body
+// @Tags sales
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param vendor_id query string false "Vendor ID"
+// @Param store_id query string false "Store ID"
+// @Param cashbox_id query string false "Cash Box ID"
+// @Param payment_type_id query string false "Payment Type ID"
+// @Param search query string false "Search"
+// @Param start_date query string false "Start Date"
+// @Param end_date query string false "End Date"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /sale/stats [get]
+func (h *SaleHandler) SaleStats(c *gin.Context) {
+	var (
+		res           domain.SaleStats
+		params        = make(map[string]interface{})
+		startDate     = c.Query("start_date")
+		endDate       = c.Query("end_date")
+		vendorID      = c.Query("vendor_id")
+		cashBoxId     = c.Query("cashbox_id")
+		paymentTypeId = c.Query("payment_type_id")
+		storeID       = c.Query("store_id")
+		search        = c.Query("search")
+	)
+	var (
+		arr    []interface{}
+		squery = `
+		SELECT
+			COALESCE(SUM(s.total_amount), 0) AS total_transactions_sum
+		FROM sales s
+		JOIN employees ON s.employee_id = employees.id
+		JOIN stores st ON employees.store_id = st.id
+		JOIN cashbox_operations co ON s.cash_box_operation_id = co.id
+		JOIN cash_boxes ON co.cash_box_id = cash_boxes.id
+		LEFT JOIN sale_payments sp ON s.id = sp.sale_id 
+		`
+		pquery = `
+		SELECT
+			pt.id,
+			pt.name,
+			pt.type,
+			COALESCE(SUM(sp.amount), 0) AS sum
+		FROM payment_types pt
+		LEFT JOIN sale_payments sp ON pt.id = sp.payment_type_id
+		LEFT JOIN sales s ON s.id = sp.sale_id
+		LEFT JOIN employees e ON s.employee_id = e.id
+		LEFT JOIN stores st ON e.store_id = st.id
+		LEFT JOIN cashbox_operations co ON s.cash_box_operation_id = co.id
+		LEFT JOIN cash_boxes cb ON co.cash_box_id = cb.id
+		`
+		filter = `WHERE 1=1 `
+		group  = ` GROUP BY pt.id, pt.name, pt.type `
+	)
+
+	if paymentTypeId != "" {
+		params["payment_type_id"] = paymentTypeId
+		filter += " AND sp.payment_type_id = :payment_type_id"
+	}
+
+	if vendorID != "" {
+		params["vendor_id"] = vendorID
+		filter += " AND s.employee_id = :vendor_id"
+	}
+	if storeID != "" {
+		params["store_id"] = storeID
+		filter += "AND st.id = :store_id"
+	}
+	if cashBoxId != "" {
+		params["cash_box_id"] = cashBoxId
+		filter += "AND co.cash_box_id = :cash_box_id"
+	}
+
+	if startDate != "" && endDate != "" {
+		params["start_date"] = startDate
+		params["end_date"] = endDate
+		filter += " AND s.completed_at::date >= :start_date AND s.completed_at::date <= :end_date"
+	}
+
+	if startDate != "" && endDate == "" {
+		params["start_date"] = startDate
+		filter += " AND s.completed_at::date = :start_date"
+	}
+
+	if search != "" {
+		search = fmt.Sprintf("%%%s%%", search)
+		filter += fmt.Sprintf(" AND stores.name ILIKE %s OR CAST(s.sale_number AS TEXT) LIKE %s", search, search)
+	}
+
+	var q = squery + filter
+	q, arr = helper.ReplaceQueryParams(q, params)
+	err := h.db.Debug().Raw(q, arr...).Scan(&res).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	var pq = pquery + filter + group
+	pq, arr = helper.ReplaceQueryParams(pq, params)
+	err = h.db.Raw(pq, arr...).Scan(&res.PaymentTypeStats).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, res)
+
 }
 
 // Update godoc

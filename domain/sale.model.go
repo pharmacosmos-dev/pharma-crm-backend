@@ -42,6 +42,9 @@ type SaleResponse struct {
 	CompletedAt        *time.Time     `gorm:"completed_at" json:"completed_at"`
 	StoreName          string         `gorm:"store_name" json:"store_name"`
 	CashBoxName        string         `gorm:"cash_box_name" json:"cash_box_name"`
+	FullName           string         `gorm:"full_name" json:"full_name"`
+	Phone              string         `gorm:"phone" json:"phone"`
+	CustomerName       string         `gorm:"customer_name" json:"customer_name"`
 	Employee           *Employee      `gorm:"foreignKey:EmployeeID" json:"employee"`
 	Customer           *Customer      `gorm:"foreignKey:CustomerID" json:"customer"`
 	SalePayments       []*SalePayment `gorm:"foreignKey:SaleID" json:"sale_payments"`
@@ -86,4 +89,17 @@ type SaleTotalAmount struct {
 	PaymeAmount   float64 `gorm:"payme_amount" json:"payme_amount"`
 	UzumAmount    float64 `gorm:"uzum_amount" json:"uzum_amount"`
 	BalanceAmount float64 `gorm:"balance_amount" json:"balance_amount"`
+}
+
+type SaleStats struct {
+	TotalTransactionsSum float64            `gorm:"total_transactions_sum" json:"total_transactions_sum"`
+	TotalReturnalsSum    float64            `gorm:"total_returnals_sum" json:"total_returnals_sum"`
+	PaymentTypeStats     []PaymentTypeStats `gorm:"-" json:"payment_type_stats"`
+}
+
+type PaymentTypeStats struct {
+	Id   string  `gorm:"id" json:"id"`
+	Name string  `gorm:"name" json:"name"`
+	Type string  `gorm:"type" json:"type"`
+	Sum  float64 `gorm:"sum" json:"sum"`
 }
