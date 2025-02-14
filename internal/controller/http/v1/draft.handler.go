@@ -127,7 +127,7 @@ func (h *DraftHandler) Create(c *gin.Context) {
 		return
 	}
 
-	err = tx.Exec(`UPDATE cart_items SET is_drafted = true, status = 'drafted' WHERE sale_id = ?`, body.SaleID).Error
+	err = tx.Exec(`UPDATE cart_items SET status = 'drafted' WHERE sale_id = ?`, body.SaleID).Error
 	if err != nil {
 		tx.Rollback()
 		h.log.Error(err)
