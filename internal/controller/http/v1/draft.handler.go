@@ -99,7 +99,7 @@ func (h *DraftHandler) Create(c *gin.Context) {
 			CartItemID: item.ID,
 			DraftID:    body.ID,
 		})
-		err = tx.Raw(`UPDATE store_products SET pack_quantity = pack_quantity - ?, unit_quantity = unit_quantity - ? WHERE id = ?`,
+		err = tx.Exec(`UPDATE store_products SET pack_quantity = pack_quantity - ?, unit_quantity = unit_quantity - ? WHERE id = ?`,
 			item.Quantity, item.UnitQuantity, item.StoreProductID).Error
 		if err != nil {
 			h.log.Error(err)
