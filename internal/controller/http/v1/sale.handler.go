@@ -128,7 +128,7 @@ func (h *SaleHandler) Get(c *gin.Context) {
 		p.id, p.name, p.barcode, sp.retail_price, p.bonus_percent, 
 		p.bonus_amount, p.photos, ci.quantity,
 		ci.unit_quantity, ci.total_price, u.short_name, 
-		(ci.discount_amount*ci.quantity) AS  total_discount
+		(ci.discount_price*ci.quantity) AS  total_discount
 	FROM cart_items ci
 	JOIN store_products sp ON ci.store_product_id = sp.id
 	JOIN products p ON sp.product_id = p.id
