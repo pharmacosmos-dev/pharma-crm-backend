@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/pharma-crm-backend/domain"
+	"gorm.io/gorm"
 )
 
 func (s *Storage) ListStoreProduct(ctx context.Context, storeID string, search string, limit, offset int) ([]*domain.StoreProductResponse, error) {
@@ -127,4 +128,18 @@ func (s *Storage) GetStoreProductByID(id string) (*domain.StoreProduct, error) {
 		return nil, err
 	}
 	return &storeProduct, nil
+}
+
+// Change store product stock based on situation (increase or decrease)
+func (s *Storage) ChangeStoreProductStock(tx *gorm.DB, id string, quantity, unitQuantity int, isIncrease bool) error {
+	var operation = "-"
+	if isIncrease {
+		operation = "+"
+	}
+	err := tx.Exec(`UPDATE store_products SET pack_quantity = pack_quantity `+operation+` ?, unit_quantity = unit_quantity `+operation+` ? WHERE id = ?`,
+		quantity, unitQuantity, id).Error
+	if err != nil {
+		return err
+	}
+	return nil
 }

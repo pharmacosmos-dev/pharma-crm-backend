@@ -9258,11 +9258,11 @@ const docTemplate = `{
                 "sale_id": {
                     "type": "string"
                 },
-                "store_id": {
+                "status": {
                     "type": "string"
                 },
-                "total_price": {
-                    "type": "number"
+                "store_id": {
+                    "type": "string"
                 }
             }
         },

@@ -92,3 +92,12 @@ func (s *Storage) UpdateCartItemField(field string, value string, idField, idVal
 	}
 	return &res, nil
 }
+
+func (s *Storage) ListCartItemsBySaleID(saleID string) ([]domain.CartItem, error) {
+	var res []domain.CartItem
+	err := s.db.Raw(`SELECT * FROM cart_items WHERE sale_id = ?`, saleID).Scan(&res).Error
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}

@@ -1,7 +1,6 @@
 package v1
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -11,7 +10,6 @@ import (
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
-	"gorm.io/gorm"
 )
 
 type DraftHandler struct {
@@ -168,25 +166,13 @@ func (h *DraftHandler) Create(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /draft/{id} [get]
 func (h *DraftHandler) Get(c *gin.Context) {
-	var draft domain.Draft
 	id := c.Param("id")
-
-	// Query the draft
-	err := h.db.
-		Preload("Customer").
-		Preload("Store").
-		Preload("Employee").
-		First(&draft, "id = ?", id).Error
+	draft, err := h.storage.GetDraftByID(id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			handleResponse(c, NotFound, nil)
-			return
-		}
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-
 	// Query associated cart items
 	var cartItems []domain.CartItemResponse
 	err = h.db.Model(&domain.CartItem{}).
@@ -348,10 +334,40 @@ func (h *DraftHandler) Update(c *gin.Context) {
 // @Router /draft/{id} [delete]
 func (h *DraftHandler) Delete(c *gin.Context) {
 	var id = c.Param("id")
-	err := h.db.Model(&domain.Draft{}).Where("id = ?", id).Update("status", "deleted").Error
+	tx := h.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+	draft, err := h.storage.UpdateDraftField(tx, "status", "deleted", "id", id)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
+		tx.Rollback()
+		return
+	}
+	cartItems, err := h.storage.ListCartItemsBySaleID(draft.SaleID)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		tx.Rollback()
+		return
+	}
+	for _, item := range cartItems {
+		err = h.storage.ChangeStoreProductStock(tx, item.StoreProductID, item.Quantity, item.UnitQuantity, true)
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			tx.Rollback()
+			return
+		}
+	}
+
+	if err = tx.Commit().Error; err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		tx.Rollback()
 		return
 	}
 	handleResponse(c, OK, "DELETED")
@@ -390,7 +406,7 @@ func (h *DraftHandler) CompleteDraft(c *gin.Context) {
 	}
 
 	// update sale status to pending
-	_, err = h.storage.UpdateSaleField("status", "pending", "id", draft.SaleID)
+	sale, err := h.storage.UpdateSaleField("status", "pending", "id", draft.SaleID)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -403,12 +419,30 @@ func (h *DraftHandler) CompleteDraft(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-
+	// get cart items which are depends on the draft sale
+	cartItems, err := h.storage.ListCartItemsBySaleID(sale.ID)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	// return product to store_products
+	for _, item := range cartItems {
+		err = h.storage.ChangeStoreProductStock(tx, item.StoreProductID, item.Quantity, item.UnitQuantity, true)
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			tx.Rollback()
+			return
+		}
+	}
+	// commit transaction
 	if err = tx.Commit().Error; err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		tx.Rollback()
 		return
 	}
+
 	handleResponse(c, OK, draft.SaleID)
 }
