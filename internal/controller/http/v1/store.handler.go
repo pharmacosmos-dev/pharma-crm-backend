@@ -322,11 +322,32 @@ func (h *StoreHandler) UploadExcel(c *gin.Context) {
 		handleResponse(c, InternalError, "Failed to get rows")
 		return
 	}
-	// var stores []map[string]interface{}
-	for _, row := range rows[:1] {
-		fmt.Println("--->>> ", len(row))
-		fmt.Println("====>>> ", row)
+	var stores []map[string]interface{}
+	for _, row := range rows[2:] {
+		stores = append(stores, map[string]interface{}{
+			"name":       row[0],
+			"store_code": parseIntComma(row[1]),
+		})
 	}
 
+	tx := h.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+	err = tx.Table("stores").Create(&stores).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		tx.Rollback()
+		return
+	}
+	if err = tx.Commit().Error; err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		tx.Rollback()
+		return
+	}
 	handleResponse(c, OK, "UPLOADED")
 }

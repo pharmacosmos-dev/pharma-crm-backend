@@ -413,10 +413,8 @@ definitions:
   domain.Login:
     properties:
       password:
-        example: "12345678"
         type: string
       phone:
-        example: "998944444444"
         type: string
     required:
     - phone
@@ -6086,6 +6084,38 @@ paths:
       security:
       - BearerAuth: []
       summary: Update a store
+      tags:
+      - stores
+  /store/excel-upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload a store file in .xlsx format. The file should include product
+        details in specific columns.
+      parameters:
+      - description: Excel file (.xlsx) containing product data
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Products uploaded successfully
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Invalid file format or processing error
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Upload a stores
       tags:
       - stores
   /store/list:
