@@ -154,7 +154,7 @@ func (h *CustomerHandler) List(c *gin.Context) {
 		AS sale_date,
 		COALESCE(SUM(sales.total_amount), 0) AS sale_amount`).
 		Joins("LEFT JOIN sales ON sales.customer_id = customers.id").
-		Where("customers.is_active = ? AND customers.status = ?", true, 1)
+		Where("customers.is_active = ?", true)
 
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
