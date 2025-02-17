@@ -260,8 +260,11 @@ func (h *SaleHandler) List(c *gin.Context) {
 // @Router /sale/stats [get]
 func (h *SaleHandler) SaleStats(c *gin.Context) {
 	var (
-		res           domain.SaleStats
-		params        = make(map[string]interface{})
+		res    domain.SaleStats
+		params = make(map[string]interface{})
+	)
+	// Get query params
+	var (
 		startDate     = c.Query("start_date")
 		endDate       = c.Query("end_date")
 		vendorID      = c.Query("vendor_id")
@@ -271,7 +274,8 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 		search        = c.Query("search")
 	)
 	var (
-		arr    []interface{}
+		arr []interface{}
+		// query for total transactions sum
 		squery = `
 		SELECT
 			COALESCE(SUM(s.total_amount), 0) AS total_transactions_sum
@@ -282,6 +286,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 		JOIN cash_boxes ON co.cash_box_id = cash_boxes.id
 		LEFT JOIN sale_payments sp ON s.id = sp.sale_id 
 		`
+		// query for each payment types sum
 		pquery = `
 		SELECT
 			pt.id,
@@ -333,8 +338,9 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 		search = fmt.Sprintf("%%%s%%", search)
 		filter += fmt.Sprintf(" AND stores.name ILIKE %s OR CAST(s.sale_number AS TEXT) LIKE %s", search, search)
 	}
-
+	// collect total transactions query
 	var q = squery + filter
+	// replace with :param with ?
 	q, arr = helper.ReplaceQueryParams(q, params)
 	err := h.db.Debug().Raw(q, arr...).Scan(&res).Error
 	if err != nil {
@@ -342,7 +348,9 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	// collect payment type sum query
 	var pq = pquery + filter + group
+	// replace with :param with ?
 	pq, arr = helper.ReplaceQueryParams(pq, params)
 	err = h.db.Raw(pq, arr...).Scan(&res.PaymentTypeStats).Error
 	if err != nil {
@@ -351,7 +359,6 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, res)
-
 }
 
 // Update godoc
@@ -474,7 +481,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 // Validate payment Type
 func validateFinalSaleRequest(body domain.FinalSale) error {
 	if len(body.PaymentTypes) == 0 {
-		return errors.New("At least one payment type is required")
+		return errors.New("at least one payment type is required")
 	}
 	return nil
 }
@@ -491,7 +498,7 @@ func processPaymentType(tx *gorm.DB, h *SaleHandler, body domain.FinalSale, item
 	if item.Type == "app" && (item.AppType == config.CLICK || item.AppType == config.PAYME || item.AppType == config.UZUM) {
 		paymentService, err := h.storage.GetPaymentServiceByStoreId(body.StoreID, item.AppType)
 		if err != nil {
-			return errors.New("Failed to get payment service")
+			return errors.New("failed to get payment service")
 		}
 		paymentHandlers := map[string]func(ctx context.Context, service *domain.PaymentService, data *domain.FinalPaymentType, cashOpID string, transactionID string, saleID string) (map[string]interface{}, error){
 			config.CLICK: h.ClickPass,
@@ -501,7 +508,7 @@ func processPaymentType(tx *gorm.DB, h *SaleHandler, body domain.FinalSale, item
 
 		handler, exists := paymentHandlers[item.AppType]
 		if !exists {
-			return errors.New("Invalid payment type")
+			return errors.New("invalid payment type")
 		}
 
 		salePayment, err := h.storage.CreateSalePayment(tx, body, item, &paymentService.ID, "pending")
@@ -511,7 +518,7 @@ func processPaymentType(tx *gorm.DB, h *SaleHandler, body domain.FinalSale, item
 
 		resp, err := handler(context.Background(), paymentService, &item, body.CashBoxOperationId, salePayment.ID, body.SaleID)
 		if err != nil || resp["error_code"].(float64) != 0 {
-			return errors.New("Failed payment with " + item.AppType)
+			return errors.New("failed payment with " + item.AppType)
 		}
 
 		return h.storage.UpdateSalePaymentStatus(tx, salePayment.ID)
@@ -527,7 +534,7 @@ func processPaymentType(tx *gorm.DB, h *SaleHandler, body domain.FinalSale, item
 			return err
 		}
 	} else {
-		return errors.New("Invalid payment type")
+		return errors.New("invalid payment type")
 	}
 
 	return nil
@@ -542,7 +549,7 @@ func (h *SaleHandler) completeSaleTransaction(tx *gorm.DB, body domain.FinalSale
 		return err
 	}
 	if err := h.storage.CreateEmployeeBonus(tx, userID, body.SaleID, body.CashBoxOperationId); err != nil {
-		return errors.New("Error on adding bonus: " + err.Error())
+		return errors.New("error on adding bonus: " + err.Error())
 	}
 	return nil
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/pharma-crm-backend/internal/storage"
 	"github.com/pharma-crm-backend/pkg/logger"
 	"github.com/pharma-crm-backend/pkg/token"
+	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
 )
 
@@ -16,15 +17,25 @@ type Handler struct {
 	cfg        *config.Config
 	JwtHandler *token.JWTHandler
 	storage    *storage.Storage
+	validator  *utils.Validator
 }
 
-func NewHandler(cfg *config.Config, db *gorm.DB, log *logger.Logger, jwt *token.JWTHandler, storage *storage.Storage) *Handler {
+func NewHandler(
+	cfg *config.Config,
+	db *gorm.DB,
+	log *logger.Logger,
+	jwt *token.JWTHandler,
+	storage *storage.Storage,
+	validator *utils.Validator,
+) *Handler {
+
 	return &Handler{
 		cfg:        cfg,
 		db:         db,
 		log:        log,
 		JwtHandler: jwt,
 		storage:    storage,
+		validator:  validator,
 	}
 }
 

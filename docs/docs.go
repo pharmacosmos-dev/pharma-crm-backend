@@ -9336,6 +9336,11 @@ const docTemplate = `{
         },
         "domain.EmployeeRequest": {
             "type": "object",
+            "required": [
+                "gender",
+                "language",
+                "phone"
+            ],
             "properties": {
                 "birthdate": {
                     "type": "string"
@@ -9347,10 +9352,19 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "gender": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                        "male",
+                        "female"
+                    ]
                 },
                 "language": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                        "uz",
+                        "en",
+                        "ru"
+                    ]
                 },
                 "last_name": {
                     "type": "string"
@@ -9374,12 +9388,20 @@ const docTemplate = `{
         },
         "domain.EmployeeUpdateInfoRequest": {
             "type": "object",
+            "required": [
+                "language"
+            ],
             "properties": {
                 "first_name": {
                     "type": "string"
                 },
                 "language": {
-                    "type": "string"
+                    "type": "string",
+                    "enum": [
+                        "uz",
+                        "en",
+                        "ru"
+                    ]
                 },
                 "last_name": {
                     "type": "string"
@@ -9512,6 +9534,9 @@ const docTemplate = `{
         },
         "domain.Login": {
             "type": "object",
+            "required": [
+                "phone"
+            ],
             "properties": {
                 "password": {
                     "type": "string",
@@ -9519,7 +9544,7 @@ const docTemplate = `{
                 },
                 "phone": {
                     "type": "string",
-                    "example": "+998944444444"
+                    "example": "998944444444"
                 }
             }
         },

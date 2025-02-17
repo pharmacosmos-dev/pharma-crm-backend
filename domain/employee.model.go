@@ -3,8 +3,8 @@ package domain
 import "time"
 
 type Login struct {
-	Phone    string `json:"phone" example:"+998944444444"`
-	Password string `json:"password" example:"12345678"`
+	Phone    string `json:"phone" validate:"required,e164"`
+	Password string `json:"password"`
 }
 
 type LoginResponse struct {
@@ -42,11 +42,11 @@ type EmployeeRequest struct {
 	FirstName string   `gorm:"first_name" json:"first_name"`
 	LastName  string   `gorm:"last_name" json:"last_name"`
 	FullName  string   `gorm:"full_name" json:"full_name"`
-	Phone     string   `gorm:"phone" json:"phone"`
-	Gender    string   `gorm:"gender" json:"gender"`
+	Phone     string   `gorm:"phone" json:"phone" validate:"required,e164"`
+	Gender    string   `gorm:"gender" json:"gender" validate:"required,oneof=male female"`
 	Status    string   `gorm:"status" json:"-"`
 	Password  *string  `gorm:"password" json:"password"`
-	Language  string   `gorm:"language" json:"language"`
+	Language  string   `gorm:"language" json:"language" validate:"required,oneof=uz en ru"`
 	Birthdate string   `gorm:"birthdate" json:"birthdate"`
 }
 
@@ -61,7 +61,7 @@ type EmployeeUpdateInfoRequest struct {
 	FirstName string `gorm:"first_name" json:"first_name"`
 	LastName  string `gorm:"last_name" json:"last_name"`
 	Photo     string `gorm:"photo" json:"photo"`
-	Language  string `gorm:"language" json:"language"`
+	Language  string `gorm:"language" json:"language" validate:"required,oneof=uz en ru"`
 }
 
 type EmployeeRole struct {

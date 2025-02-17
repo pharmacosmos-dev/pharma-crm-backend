@@ -2,7 +2,6 @@ package v1
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
@@ -41,18 +40,24 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		res  domain.Employee
 		err  error
 	)
-	err = c.ShouldBindJSON(&body)
-	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+	// bind request body
+	if err = c.ShouldBindJSON(&body); err != nil {
+		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-
+	// validate request body
+	// if err = h.validator.Struct(&body); err != nil {
+	// 	handleResponse(c, BadRequest, h.validator.ValidationMessage(c, err))
+	// 	return
+	// }
+	// find employee by phone
 	err = h.db.WithContext(c.Request.Context()).
 		Preload("Store").
 		Where("is_active = ?", true).
 		First(&res, "phone = ?", body.Phone).Error
 	if err != nil {
+		// check if user not found
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			handleResponse(c, NotFound, "User not found")
 			return
@@ -61,13 +66,14 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-
+	// decrypt saved password
 	oldPassword, err := etc.Decrypt(res.Password, h.cfg.HeshKey)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	// check password
 	if body.Password != oldPassword {
 		handleResponse(c, CONFLICT, "Wrong password")
 		return
@@ -79,17 +85,20 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	refreshClaims := map[string]interface{}{
 		"user_id": res.Id,
 	}
+	// generate tokens
 	accessToken, refreshToken, err := h.JwtHandler.GenerateTokens(m, refreshClaims)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	// collect response
 	data := domain.LoginResponse{
 		Token:        accessToken,
 		RefreshToken: refreshToken,
 		Employee:     res,
 	}
+	// return response
 	handleResponse(c, OK, data)
 }
 

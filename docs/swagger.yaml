@@ -287,8 +287,15 @@ definitions:
       full_name:
         type: string
       gender:
+        enum:
+        - male
+        - female
         type: string
       language:
+        enum:
+        - uz
+        - en
+        - ru
         type: string
       last_name:
         type: string
@@ -302,17 +309,27 @@ definitions:
         type: array
       store_id:
         type: string
+    required:
+    - gender
+    - language
+    - phone
     type: object
   domain.EmployeeUpdateInfoRequest:
     properties:
       first_name:
         type: string
       language:
+        enum:
+        - uz
+        - en
+        - ru
         type: string
       last_name:
         type: string
       photo:
         type: string
+    required:
+    - language
     type: object
   domain.FinalPaymentType:
     properties:
@@ -399,8 +416,10 @@ definitions:
         example: "12345678"
         type: string
       phone:
-        example: "+998944444444"
+        example: "998944444444"
         type: string
+    required:
+    - phone
     type: object
   domain.PaymentServiceRequest:
     properties:

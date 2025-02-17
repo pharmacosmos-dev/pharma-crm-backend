@@ -11,6 +11,7 @@ import (
 	"github.com/pharma-crm-backend/internal/storage"
 	"github.com/pharma-crm-backend/pkg/logger"
 	"github.com/pharma-crm-backend/pkg/token"
+	"github.com/pharma-crm-backend/pkg/utils"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 	"gorm.io/gorm"
@@ -60,9 +61,11 @@ func NewRouter(option Options) {
 		Cfg: option.Cfg,
 		Log: option.Log,
 	}
+	// validation
+	validator := utils.NewValidator(option.Log)
 
 	// Handlers
-	handler := v1.NewHandler(option.Cfg, option.Db, option.Log, &jwtHandler, option.Strg)
+	handler := v1.NewHandler(option.Cfg, option.Db, option.Log, &jwtHandler, option.Strg, validator)
 	handler.InitRoutes(option.Gin)
 
 	// PING

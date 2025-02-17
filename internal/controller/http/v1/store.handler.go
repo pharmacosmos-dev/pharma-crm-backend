@@ -149,9 +149,9 @@ func (h *StoreHandler) List(c *gin.Context) {
 
 	// Use conditional ordering at the end
 	if productID != "" {
-		query = query.Order("sp.pack_quantity")
+		query = query.Order("COALESCE(sp.pack_quantity, 0) DESC, s.store_code DESC")
 	} else {
-		query = query.Order("s.created_at DESC")
+		query = query.Order("s.store_code DESC")
 	}
 
 	err = query.
@@ -159,6 +159,7 @@ func (h *StoreHandler) List(c *gin.Context) {
 		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).
+		Debug().
 		Find(&res).Error
 
 	if err != nil {
