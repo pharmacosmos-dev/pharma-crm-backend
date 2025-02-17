@@ -125,8 +125,8 @@ func (h *SaleHandler) Get(c *gin.Context) {
 	var products []domain.ProductRes
 	err = h.db.Raw(`
 	SELECT 
-		p.id, p.name, p.barcode, sp.retail_price, p.bonus_percent, 
-		p.bonus_amount, p.photos, ci.quantity,
+		p.id, p.name, p.barcode, sp.retail_price, sp.bonus_percent, 
+		sp.bonus_amount, p.photos, ci.quantity,
 		ci.unit_quantity, ci.total_price, u.short_name, 
 		(ci.discount_price*ci.quantity) AS  total_discount
 	FROM cart_items ci
