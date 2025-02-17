@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS "customers" (
   "public_id" INTEGER NOT NULL DEFAULT nextval('customers_public_id_seq'),
   "group_id" UUID REFERENCES "groups"("id") ON DELETE CASCADE,
   "tag_id" UUID REFERENCES "tags"("id") ON DELETE CASCADE,
+  "store_id" UUID REFERENCES "stores"("id") ON DELETE CASCADE,
   "first_name" VARCHAR(255),
   "last_name" VARCHAR(255),
   "full_name"  VARCHAR(255),
@@ -25,6 +26,7 @@ CREATE TABLE IF NOT EXISTS "customers" (
   "balance" NUMERIC(10, 2) DEFAULT 0.00,
   "debt_amount" NUMERIC(10, 2) DEFAULT 0.00,
   "is_active" boolean NOT NULL DEFAULT true,
+  "created_by" UUID,
   "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
   "deleted_at" TIMESTAMP
