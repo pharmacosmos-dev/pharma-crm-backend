@@ -2136,6 +2136,37 @@ paths:
       summary: Update a category
       tags:
       - categories
+  /category/excel-upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload excel file
+      parameters:
+      - description: Excel file (.xlsx) containing import data
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Upload excel file
+      tags:
+      - categories
   /category/list:
     get:
       consumes:

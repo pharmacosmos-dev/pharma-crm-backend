@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -246,8 +247,8 @@ func (h *CustomerHandler) SoftDelete(c *gin.Context) {
 		Table("customers").
 		Where("id IN (?)", ids).
 		Updates(map[string]interface{}{
-			"is_active": false,
-			"status":    0}).Error
+			"is_active":  false,
+			"deleted_at": time.Now()}).Error
 	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())

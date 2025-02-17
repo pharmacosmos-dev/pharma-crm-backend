@@ -500,74 +500,74 @@ func (h *ProductHandler) Update(c *gin.Context) {
 	var storeProducts []map[string]interface{}
 	if len(body.StoreProduct) > 0 {
 		for i := range body.StoreProduct {
-			if body.StoreProduct[i].MeasurementValue != 0 {
-				status := config.COMPLETED_IMPORT
-				// operation := "+"
-				// if body.StoreProduct[i].MeasurementValue < 0 {
-				// 	status = config.WRITEOFF_IMPORT
-				// 	operation = "-"
-				// 	body.StoreProduct[i].MeasurementValue *= -1
-				// }
-				importReq := domain.ImportRequest{
-					Id:             uuid.New().String(),
-					StoreID:        body.StoreProduct[i].StoreID,
-					Status:         status,
-					ImportDate:     time.Now().Format(config.DATE_FORMAT),
-					DocumentNumber: utils.GenerateDocumentNumber(),
-				}
-				err = tx.Table("imports").Create(&importReq).Error
-				if err != nil {
-					tx.Rollback()
-					h.log.Error(err)
-					handleResponse(c, InternalError, err.Error())
-					return
-				}
-				err = tx.Table("import_details").Create(&domain.ImportDetailRequest{
-					ImportID:       importReq.Id,
-					ProductID:      &productID,
-					ReceivedCount:  body.StoreProduct[i].MeasurementValue,
-					AcceptedCount:  body.StoreProduct[i].MeasurementValue,
-					ReceivedAmount: float64(body.StoreProduct[i].MeasurementValue) * body.RetailPrice,
-					AcceptedAmount: float64(body.StoreProduct[i].MeasurementValue) * body.RetailPrice,
-				}).Error
-				if err != nil {
-					tx.Rollback()
-					h.log.Error(err)
-					handleResponse(c, InternalError, err.Error())
-					return
-				}
-
-				storeProducts = append(storeProducts, map[string]interface{}{
-					"store_id":       body.StoreProduct[i].StoreID,
-					"product_id":     productID,
-					"retail_price":   body.RetailPrice,
-					"supply_price":   body.SupplyPrice,
-					"vat":            body.Vat,
-					"markup":         body.Markup,
-					"pack_quantity":  body.StoreProduct[i].PackQuantity,
-					"unit_quantity":  body.StoreProduct[i].UnitQuantity,
-					"small_quantity": body.StoreProduct[i].SmallQuantity,
-					"bonus_percent":  body.BonusPercent,
-					"bonus_amount":   body.BonusAmount,
-				})
-				// err = tx.Debug().Table("store_products").
-				// 	Where("product_id = ? AND store_id = ? ", productID, body.StoreProduct[i].StoreID).
-				// 	Updates(map[string]interface{}{
-				// 		"pack_quantity":  gorm.Expr("pack_quantity "+operation+" ?", body.StoreProduct[i].MeasurementValue),
-				// 		"unit_quantity":  gorm.Expr("(pack_quantity "+operation+" ?)*?", body.StoreProduct[i].MeasurementValue, body.UnitPerPack),
-				// 		"small_quantity": body.StoreProduct[i].SmallQuantity,
-				// 		"retail_price":   body.RetailPrice,
-				// 		"supply_price":   body.SupplyPrice,
-				// 		"vat":            body.Vat,
-				// 		"markup":         body.Markup,
-				// 	}).Error
-				// if err != nil {
-				// 	tx.Rollback()
-				// 	h.log.Error(err)
-				// 	handleResponse(c, InternalError, err.Error())
-				// 	return
-				// }
+			// if body.StoreProduct[i].MeasurementValue != 0 {
+			status := config.COMPLETED_IMPORT
+			// operation := "+"
+			// if body.StoreProduct[i].MeasurementValue < 0 {
+			// 	status = config.WRITEOFF_IMPORT
+			// 	operation = "-"
+			// 	body.StoreProduct[i].MeasurementValue *= -1
+			// }
+			importReq := domain.ImportRequest{
+				Id:             uuid.New().String(),
+				StoreID:        body.StoreProduct[i].StoreID,
+				Status:         status,
+				ImportDate:     time.Now().Format(config.DATE_FORMAT),
+				DocumentNumber: utils.GenerateDocumentNumber(),
 			}
+			err = tx.Table("imports").Create(&importReq).Error
+			if err != nil {
+				tx.Rollback()
+				h.log.Error(err)
+				handleResponse(c, InternalError, err.Error())
+				return
+			}
+			err = tx.Table("import_details").Create(&domain.ImportDetailRequest{
+				ImportID:       importReq.Id,
+				ProductID:      &productID,
+				ReceivedCount:  body.StoreProduct[i].MeasurementValue,
+				AcceptedCount:  body.StoreProduct[i].MeasurementValue,
+				ReceivedAmount: float64(body.StoreProduct[i].MeasurementValue) * body.RetailPrice,
+				AcceptedAmount: float64(body.StoreProduct[i].MeasurementValue) * body.RetailPrice,
+			}).Error
+			if err != nil {
+				tx.Rollback()
+				h.log.Error(err)
+				handleResponse(c, InternalError, err.Error())
+				return
+			}
+
+			storeProducts = append(storeProducts, map[string]interface{}{
+				"store_id":       body.StoreProduct[i].StoreID,
+				"product_id":     productID,
+				"retail_price":   body.RetailPrice,
+				"supply_price":   body.SupplyPrice,
+				"vat":            body.Vat,
+				"markup":         body.Markup,
+				"pack_quantity":  body.StoreProduct[i].PackQuantity,
+				"unit_quantity":  body.StoreProduct[i].UnitQuantity,
+				"small_quantity": body.StoreProduct[i].SmallQuantity,
+				"bonus_percent":  body.BonusPercent,
+				"bonus_amount":   body.BonusAmount,
+			})
+			// err = tx.Debug().Table("store_products").
+			// 	Where("product_id = ? AND store_id = ? ", productID, body.StoreProduct[i].StoreID).
+			// 	Updates(map[string]interface{}{
+			// 		"pack_quantity":  gorm.Expr("pack_quantity "+operation+" ?", body.StoreProduct[i].MeasurementValue),
+			// 		"unit_quantity":  gorm.Expr("(pack_quantity "+operation+" ?)*?", body.StoreProduct[i].MeasurementValue, body.UnitPerPack),
+			// 		"small_quantity": body.StoreProduct[i].SmallQuantity,
+			// 		"retail_price":   body.RetailPrice,
+			// 		"supply_price":   body.SupplyPrice,
+			// 		"vat":            body.Vat,
+			// 		"markup":         body.Markup,
+			// 	}).Error
+			// if err != nil {
+			// 	tx.Rollback()
+			// 	h.log.Error(err)
+			// 	handleResponse(c, InternalError, err.Error())
+			// 	return
+			// }
+			// }
 		}
 	}
 	err = tx.Table("store_products").Create(&storeProducts).Error
@@ -1223,13 +1223,13 @@ func parseFloat(value string) float64 {
 }
 
 // Helper function to safely parse integer values
-func parseInt(value string) int {
-	i, err := strconv.Atoi(value)
-	if err != nil {
-		return 0
-	}
-	return i
-}
+// func parseInt(value string) int {
+// 	i, err := strconv.Atoi(value)
+// 	if err != nil {
+// 		return 0
+// 	}
+// 	return i
+// }
 
 // Helper function to parse percentage values (e.g., "12%")
 // func parsePercentage(value string) float64 {
