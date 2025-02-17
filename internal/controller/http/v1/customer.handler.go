@@ -58,11 +58,9 @@ func (h *CustomerHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	for i := range body.Phone {
-		if !utils.IsValidPhone(body.Phone[i]) {
-			handleResponse(c, BadRequest, "Invalid phone number, Format: 998901234567")
-			return
-		}
+	if !utils.IsValidPhone(body.Phone) {
+		handleResponse(c, BadRequest, "Invalid phone number, Format: 998901234567")
+		return
 	}
 	createdBy, ok := c.Get("user_id")
 	if !ok {
@@ -72,7 +70,6 @@ func (h *CustomerHandler) Create(c *gin.Context) {
 
 	body.Id = uuid.New().String()
 	body.CreatedBy = cast.ToString(createdBy)
-	body.Phone = utils.StringArray(body.Phone)
 	err = h.db.
 		WithContext(c.Request.Context()).Raw(`
 		INSERT INTO customers 
@@ -159,7 +156,7 @@ func (h *CustomerHandler) List(c *gin.Context) {
 
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
-		query = query.Where("customers.full_name ILIKE ? OR CAST(customers.public_id AS TEXT) LIKE ? OR ? = ANY(customers.phone)",
+		query = query.Where("customers.full_name ILIKE ? OR CAST(customers.public_id AS TEXT) LIKE ? OR customers.phone LIKE ?",
 			search, search, strings.Trim(search, "%"))
 	}
 	if storeID != "" {
@@ -204,11 +201,9 @@ func (h *CustomerHandler) Update(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	for i := range body.Phone {
-		if !utils.IsValidPhone(body.Phone[i]) {
-			handleResponse(c, BadRequest, "Invalid phone number, Format: 998901234567")
-			return
-		}
+	if !utils.IsValidPhone(body.Phone) {
+		handleResponse(c, BadRequest, "Invalid phone number, Format: 998901234567")
+		return
 	}
 	err = h.db.WithContext(c.Request.Context()).
 		Table("customers").
