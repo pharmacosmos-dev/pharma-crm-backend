@@ -202,7 +202,13 @@ func (h *ProductHandler) Get(c *gin.Context) {
 		Preload("UnitType").
 		Preload("Shelf").
 		Preload("Producer").
-		First(&res, "id = ?", id).Error
+		Select(`products.*, COALESCE(AVG(sp.retail_price), 0) AS retail_price`).
+		Joins("LEFT JOIN store_products sp ON products.id = sp.product_id").
+		Group(`products.id, products.id, products.brand_id, products.unit_type_id, 
+		products.shelf_id, products.producer_id, products.material_code, 
+		products.name, products.barcode, products.photos, products.unit_per_pack, 
+		products.description, products.status, products.created_at, products.updated_at, products.deleted_at`).
+		First(&res, "products.id = ?", id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			handleResponse(c, NotFound, "Product not found")
@@ -549,7 +555,7 @@ func (h *ProductHandler) Update(c *gin.Context) {
 				"small_quantity": body.StoreProduct[i].SmallQuantity,
 				"bonus_percent":  body.BonusPercent,
 				"bonus_amount":   body.BonusAmount,
-				"expire_date":   body.ExpireDate,
+				"expire_date":    body.ExpireDate,
 			})
 			// err = tx.Debug().Table("store_products").
 			// 	Where("product_id = ? AND store_id = ? ", productID, body.StoreProduct[i].StoreID).
