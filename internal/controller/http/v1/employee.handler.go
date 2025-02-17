@@ -599,7 +599,7 @@ func (h *EmployeeHandler) SmenaBonus(c *gin.Context) {
 		return
 	}
 	err := h.db.Debug().
-		Raw(`SELECT SUM(bonus_amount) AS bonus FROM employee_bonus WHERE cashbox_operation_id = ? AND employee_id = ?`, operationId, employeeId).Scan(&bonus).Error
+		Raw(`SELECT COALESCE(SUM(bonus_amount), 0) AS bonus FROM employee_bonus WHERE cashbox_operation_id = ? AND employee_id = ?`, operationId, employeeId).Scan(&bonus).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
