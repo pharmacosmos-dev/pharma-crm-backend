@@ -1,0 +1,31 @@
+CREATE SEQUENCE IF NOT EXISTS customers_public_id_seq START WITH 1000 INCREMENT BY 1 MINVALUE 1000;
+
+CREATE TABLE IF NOT EXISTS "customers" (
+  "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  "public_id" INTEGER NOT NULL DEFAULT nextval('customers_public_id_seq'),
+  "group_id" UUID REFERENCES "groups"("id") ON DELETE CASCADE,
+  "tag_id" UUID REFERENCES "tags"("id") ON DELETE CASCADE,
+  "first_name" VARCHAR(255),
+  "last_name" VARCHAR(255),
+  "full_name"  VARCHAR(255),
+  "middle_name" VARCHAR(255),
+  "phone" VARCHAR(20),
+  "birthday" DATE,
+  "gender" VARCHAR(50),
+  "marital_status" VARCHAR(100),
+  "primary_lang" VARCHAR(10),
+  "email" VARCHAR,
+  "tg_username" VARCHAR(255),
+  "facebook" VARCHAR(255),
+  "instagram" VARCHAR(255),
+  "is_sms_notify" BOOLEAN,
+  "is_phone_notify" BOOLEAN,
+  "is_social_notify" BOOLEAN,
+  "is_email_notify" BOOLEAN,
+  "balance" NUMERIC(10, 2) DEFAULT 0.00,
+  "debt_amount" NUMERIC(10, 2) DEFAULT 0.00,
+  "is_active" boolean NOT NULL DEFAULT true,
+  "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  "deleted_at" TIMESTAMP
+);

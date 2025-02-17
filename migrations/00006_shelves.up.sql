@@ -1,12 +1,4 @@
-CREATE TYPE  "product_status" AS ENUM (
-  'active',
-  'inactive',
-  'deleted'
-);
-
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
-CREATE TABLE IF NOT EXISTS "producers" (
+CREATE TABLE IF NOT EXISTS shelves (
     "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     "name" VARCHAR(255),
     "created_at" TIMESTAMP NOT NULL DEFAULT NOW(),

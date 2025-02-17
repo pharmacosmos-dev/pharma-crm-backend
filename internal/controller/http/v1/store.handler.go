@@ -2,11 +2,14 @@ package v1
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
+	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
 )
 
@@ -27,6 +30,8 @@ func (h *StoreHandler) StoreRoutes(r *gin.RouterGroup) {
 		store.GET("/list", h.List)
 		store.PUT("/:id", h.Update)
 		store.DELETE("/:id", h.Delete)
+		store.POST("/excel-upload", h.UploadExcel)
+
 	}
 }
 
@@ -260,4 +265,68 @@ func (h *StoreHandler) Delete(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, "DELETED")
+}
+
+// UploadStore godoc
+// @Summary Upload a stores
+// @Description Upload a store file in .xlsx format. The file should include product details in specific columns.
+// @Tags stores
+// @Security BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "Excel file (.xlsx) containing product data"
+// @Success 200 {object} v1.Response "Products uploaded successfully"
+// @Failure 400 {object} v1.Response "Invalid file format or processing error"
+// @Failure 500 {object} v1.Response "Internal server error"
+// @Router /store/excel-upload [post]
+func (h *StoreHandler) UploadExcel(c *gin.Context) {
+	var file domain.File
+	err := c.ShouldBind(&file)
+	if err != nil {
+		h.log.Error("Failed to bind file: ", err.Error())
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	// Check file extension
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		h.log.Error("Unsupported file format: ", ext)
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+
+	// Save the uploaded file
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+	err = c.SaveUploadedFile(file.File, savePath)
+	if err != nil {
+		h.log.Error("Failed to save file: ", err.Error())
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+	//
+	defer os.Remove(savePath)
+	// Open the Excel file
+	xlsx, err := excelize.OpenFile(savePath)
+	if err != nil {
+		h.log.Error("Failed to open .xlsx file: ", err.Error())
+		handleResponse(c, BadRequest, "Failed to process file")
+		return
+	}
+	defer xlsx.Close()
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		h.log.Error("Failed to get rows: ", err.Error())
+		handleResponse(c, InternalError, "Failed to get rows")
+		return
+	}
+	// var stores []map[string]interface{}
+	for _, row := range rows[:1] {
+		fmt.Println("--->>> ", len(row))
+		fmt.Println("====>>> ", row)
+	}
+
+	handleResponse(c, OK, "UPLOADED")
 }

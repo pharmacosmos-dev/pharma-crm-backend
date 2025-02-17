@@ -367,10 +367,10 @@ func (h *ProductHandler) List(c *gin.Context) {
 		p.photos, pr.name as manufacturer, p.material_code,
 		AVG(sp.supply_price) AS supply_price,
 		AVG(sp.vat) AS vat,
-		AVG(p.markup) AS markup,
+		AVG(sp.markup) AS markup,
 		AVG(sp.retail_price) AS retail_price,
 		(AVG(sp.supply_price) * AVG(sp.vat) / 100) AS vat_price,
-		(AVG(sp.supply_price) * AVG(p.markup) / 100) AS markup_price,
+		(AVG(sp.supply_price) * AVG(sp.markup) / 100) AS markup_price,
 		SUM(sp.pack_quantity) AS quantity,
 		(SUM(sp.pack_quantity) * AVG(sp.retail_price)) AS sum,
 		AVG(sp.bonus_percent) AS bonus_percent,
@@ -379,7 +379,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 		p.created_at`).
 		Group(`
 			p.id, p.name, p.barcode, p.status, p.description, p.photos,
-         	p.manufacturer, p.material_code, u.short_name, p.created_at, pr.name`).
+         	p.material_code, u.short_name, p.created_at, pr.name`).
 		Order("p.created_at DESC").
 		Limit(limit).
 		Offset(offset).
@@ -625,96 +625,6 @@ func (h *ProductHandler) GetProducerList(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, res)
-}
-
-// UploadProduct godoc
-// @Summary Upload a product
-// @Description Upload a product file in .xlsx format. The file should include product details in specific columns.
-// @Tags products
-// @Security BearerAuth
-// @Accept multipart/form-data
-// @Produce json
-// @Param file formData file true "Excel file (.xlsx) containing product data"
-// @Success 200 {object} v1.Response "Products uploaded successfully"
-// @Failure 400 {object} v1.Response "Invalid file format or processing error"
-// @Failure 500 {object} v1.Response "Internal server error"
-// @Router /product/excel-upload [post]
-func (h *ProductHandler) UploadProduct(c *gin.Context) {
-	var file domain.File
-	err := c.ShouldBind(&file)
-	if err != nil {
-		h.log.Error("Failed to bind file: ", err.Error())
-		handleResponse(c, BadRequest, err.Error())
-		return
-	}
-
-	// Check file extension
-	ext := filepath.Ext(file.File.Filename)
-	if ext != ".xlsx" && ext != ".xls" {
-		h.log.Error("Unsupported file format: ", ext)
-		handleResponse(c, BadRequest, "Unsupported file format")
-		return
-	}
-
-	// Save the uploaded file
-	newFilename := uuid.New().String() + ext
-	savePath := filepath.Join("uploads", newFilename)
-	err = c.SaveUploadedFile(file.File, savePath)
-	if err != nil {
-		h.log.Error("Failed to save file: ", err.Error())
-		handleResponse(c, InternalError, "Failed to save file")
-		return
-	}
-	defer os.Remove(savePath)
-	// Open the Excel file
-	xlsx, err := excelize.OpenFile(savePath)
-	if err != nil {
-		h.log.Error("Failed to open .xlsx file: ", err.Error())
-		handleResponse(c, BadRequest, "Failed to process file")
-		return
-	}
-	defer xlsx.Close()
-	sheetName := xlsx.GetSheetName(0)
-	rows, err := xlsx.GetRows(sheetName)
-	if err != nil {
-		h.log.Error("Failed to get rows: ", err.Error())
-		handleResponse(c, InternalError, "Failed to get rows")
-		return
-	}
-
-	// Process rows
-	var products []domain.ProductUploadReq
-	var product domain.ProductUploadReq
-	for _, row := range rows[3:] {
-		if len(row) < 11 {
-			h.log.Warn("Row does not have enough columns, skipping row")
-			continue
-		}
-		product = domain.ProductUploadReq{
-			Id:           uuid.New().String(),
-			Name:         row[1],
-			SupplyPrice:  parseFloat(row[2]),
-			Vat:          parsePercentage(row[3]),
-			RetailPrice:  parseFloat(row[4]),
-			VatPrice:     parseFloat(row[5]),
-			Quantity:     parseInt(row[6]),
-			Sum:          parseFloat(row[7]),
-			Manufacturer: row[8],
-			ExpireDate:   row[9],
-			Barcode:      row[10],
-			Status:       "active",
-			IsActive:     true,
-		}
-		products = append(products, product)
-	}
-
-	// Insert into the database
-	if err = h.db.WithContext(c.Request.Context()).Table("products").Create(&products).Error; err != nil {
-		h.log.Error("Failed to create products in database: ", err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	handleResponse(c, OK, "Products uploaded successfully")
 }
 
 // SimilarProducts godoc
@@ -1138,6 +1048,141 @@ func (h *ProductHandler) GenerateBarcode(c *gin.Context) {
 	handleResponse(c, OK, gin.H{"barcode": barcode})
 }
 
+// UploadProduct godoc
+// @Summary Upload a product
+// @Description Upload a product file in .xlsx format. The file should include product details in specific columns.
+// @Tags products
+// @Security BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "Excel file (.xlsx) containing product data"
+// @Success 200 {object} v1.Response "Products uploaded successfully"
+// @Failure 400 {object} v1.Response "Invalid file format or processing error"
+// @Failure 500 {object} v1.Response "Internal server error"
+// @Router /product/excel-upload [post]
+func (h *ProductHandler) UploadProduct(c *gin.Context) {
+	var file domain.File
+	err := c.ShouldBind(&file)
+	if err != nil {
+		h.log.Error("Failed to bind file: ", err.Error())
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	// Check file extension
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		h.log.Error("Unsupported file format: ", ext)
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+
+	// Save the uploaded file
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+	err = c.SaveUploadedFile(file.File, savePath)
+	if err != nil {
+		h.log.Error("Failed to save file: ", err.Error())
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+	//
+	defer os.Remove(savePath)
+	// Open the Excel file
+	xlsx, err := excelize.OpenFile(savePath)
+	if err != nil {
+		h.log.Error("Failed to open .xlsx file: ", err.Error())
+		handleResponse(c, BadRequest, "Failed to process file")
+		return
+	}
+	defer xlsx.Close()
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		h.log.Error("Failed to get rows: ", err.Error())
+		handleResponse(c, InternalError, "Failed to get rows")
+		return
+	}
+
+	existingProducers := make(map[string]string)
+
+	// Load existing producers from DB
+	var dbProducers []struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}
+
+	h.db.Table("producers").Select("id, name").Find(&dbProducers)
+	for _, c := range dbProducers {
+		existingProducers[c.Name] = c.ID
+	}
+
+	// Process rows
+	var products []map[string]interface{}
+	var producers []map[string]interface{}
+	for _, row := range rows[1:] {
+		if len(row) < 8 {
+			producerID, exists := existingProducers[row[5]]
+			if !exists {
+				producerID = uuid.New().String()
+				existingProducers[row[5]] = producerID
+				producers = append(producers, map[string]interface{}{
+					"id":   producerID,
+					"name": row[5],
+				})
+			}
+			products = append(products, map[string]interface{}{
+				"material_code": parseIntComma(row[1]),
+				"barcode":       h.GenBarcode(),
+				"producer_id":   producerID,
+				"name":          row[2],
+			})
+			continue
+		}
+		producerID, exists := existingProducers[row[6]]
+		if !exists {
+			producerID = uuid.New().String()
+			existingProducers[row[6]] = producerID
+			producers = append(producers, map[string]interface{}{
+				"id":   producerID,
+				"name": row[6],
+			})
+		}
+		products = append(products, map[string]interface{}{
+			"material_code": parseIntComma(row[1]),
+			"producer_id":   producerID,
+			"name":          row[2],
+			"barcode":       row[3],
+		})
+	}
+	tx := h.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+	err = tx.Table("producers").Create(&producers).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		tx.Rollback()
+		return
+	}
+	err = tx.Table("products").Debug().Create(&products).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		tx.Rollback()
+		return
+	}
+	if err = tx.Commit().Error; err != nil {
+		handleResponse(c, InternalError, err.Error())
+		tx.Rollback()
+		return
+	}
+	handleResponse(c, OK, "Products uploaded successfully")
+}
+
 // Helper function to safely parse float values
 func parseFloat(value string) float64 {
 	value = strings.TrimSpace(value)
@@ -1158,16 +1203,16 @@ func parseInt(value string) int {
 }
 
 // Helper function to parse percentage values (e.g., "12%")
-func parsePercentage(value string) float64 {
-	// Remove the "%" symbol and trim spaces
-	cleanValue := strings.TrimSuffix(strings.TrimSpace(value), "%")
-	// Parse the remaining value as a float
-	percentage, err := strconv.ParseFloat(cleanValue, 64)
-	if err != nil {
-		return 0 // Return 0 if parsing fails
-	}
-	return percentage
-}
+// func parsePercentage(value string) float64 {
+// 	// Remove the "%" symbol and trim spaces
+// 	cleanValue := strings.TrimSuffix(strings.TrimSpace(value), "%")
+// 	// Parse the remaining value as a float
+// 	percentage, err := strconv.ParseFloat(cleanValue, 64)
+// 	if err != nil {
+// 		return 0 // Return 0 if parsing fails
+// 	}
+// 	return percentage
+// }
 
 // Parse a string to int if value like 2324,34
 func parseIntComma(value string) int {
@@ -1177,6 +1222,28 @@ func parseIntComma(value string) int {
 	}
 
 	return i
+}
+
+// GenBarcode
+func (h *ProductHandler) GenBarcode() string {
+	var barcode string
+	for {
+		// Generate random 13-digit barcode
+		barcode = generateRandomBarcode(13)
+
+		// Check if barcode already exists in the database
+		var count int64
+		err := h.db.Model(&domain.Product{}).Where("barcode = ?", barcode).Count(&count).Error
+		if err != nil {
+
+			return ""
+		}
+		// If barcode is unique, return it
+		if count == 0 {
+			break
+		}
+	}
+	return barcode
 }
 
 // barcode generator

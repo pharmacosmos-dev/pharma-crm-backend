@@ -1,24 +1,23 @@
+version: '3.9'
 
 services:
-  backend:
-    container_name: pharma-backend
-    build:
-      context: .
-    ports:
-      - "8080:8080"
-    platform: linux/arm64
-    env_file:
-      - .env
-
-  minio-storage:
-    container_name: minio
-    image: bitnami/minio:latest
-    ports:
-      - "9000:9000"
-      - "9001:9001"
-    platform: linux/arm64
+  db:
+    container_name: postgres
+    image: postgres:15.11
+    restart: always
+    shm_size: '2gb'
     env_file:
       - .env
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      POSTGRES_DB: ${PG_DB}
+      POSTGRES_USER: ${PG_USER}
+      POSTGRES_PASSWORD: ${PG_PASS}
+      POSTGRES_HOST_AUTH_METHOD: "md5"
+      POSTGRES_INITDB_ARGS: "--auth-host=md5"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "${PG_PORT}:5432"
+
+volumes:
+  postgres-data:
