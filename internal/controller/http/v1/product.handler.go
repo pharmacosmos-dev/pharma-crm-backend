@@ -549,6 +549,7 @@ func (h *ProductHandler) Update(c *gin.Context) {
 				"small_quantity": body.StoreProduct[i].SmallQuantity,
 				"bonus_percent":  body.BonusPercent,
 				"bonus_amount":   body.BonusAmount,
+				"expire_date":   body.ExpireDate,
 			})
 			// err = tx.Debug().Table("store_products").
 			// 	Where("product_id = ? AND store_id = ? ", productID, body.StoreProduct[i].StoreID).
