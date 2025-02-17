@@ -26,7 +26,7 @@ func (s *Storage) GetDraftByID(id string) (*domain.Draft, error) {
 		Joins("JOIN cart_items ci ON ci.id = cid.cart_item_id").
 		Group(`drafts.id, drafts.product_id, drafts.cash_box_id, drafts.store_id, drafts.description,
 			drafts.draft_time, drafts.created_at, drafts.updated_at, drafts.created_by,
-			drafts.updated_by, drafts.deleted_by, drafts.is_active, drafts.sale_id,
+			drafts.is_active, drafts.sale_id,
 			drafts.customer_id, drafts.draft_number, drafts.status`).
 		Debug().
 		First(&res, "drafts.id = ?", id).Error
