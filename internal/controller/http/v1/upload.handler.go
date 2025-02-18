@@ -65,7 +65,7 @@ func (h *UploadHandler) Upload(c *gin.Context) {
 	ext := filepath.Ext(file.File.Filename)
 	if ext != ".jpg" && ext != ".jpeg" && ext != ".png" {
 		h.log.Error("Invalid file type")
-		handleResponse(c, BadRequest, "Invalid file type")
+		handleResponse(c, BadRequest, "Invalid file type. Only .jpg, .jpeg, and .png files are allowed.")
 		return
 	}
 
