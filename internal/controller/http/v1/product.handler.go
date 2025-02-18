@@ -48,6 +48,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.POST("/store/barcode", h.AddStoreProductByBarcode)
 		product.POST("/generate-barcode", h.GenerateBarcode)
 		product.GET("/total-status-count", h.TotalStatusCount)
+		product.POST("/attech-to-store", h.AttechProductsToStores)
 	}
 }
 
@@ -1217,6 +1218,53 @@ func (h *ProductHandler) UploadProduct(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, "Products uploaded successfully")
+}
+
+// AttechProductsToStores
+// @Summary      Attech products to stores
+// @Description  Attech products to stores
+// @Tags         products
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Success 200 {object} v1.Response "Products uploaded successfully"
+// @Failure 400 {object} v1.Response "Invalid file format or processing error"
+// @Failure 500 {object} v1.Response "Internal server error"
+// @Router /product/attech-to-store [post]
+func (h *ProductHandler) AttechProductsToStores(c *gin.Context) {
+	var (
+		products []domain.Product
+		stores   []domain.Store
+	)
+	// get product list
+	err := h.db.Find(&products).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	// get store list
+	err = h.db.Find(&stores).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	for _, item := range products {
+		for _, store := range stores {
+			// attach product to store
+			err = h.db.Exec(`INSERT INTO store_products(store_id, product_id, supply_price, retail_price, vat, markup, bonus_percent, bonus_amount, expire_date, pack_quantity, unit_quantity) 
+			VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				store.Id, item.Id, 10000, 11300, 12, 1, 0, 0, "2026-02-17", 100, 10).Error
+			if err != nil {
+				h.log.Error(err)
+				handleResponse(c, InternalError, err.Error())
+				return
+			}
+		}
+	}
+	handleResponse(c, OK, "Products attached to stores successfully")
 }
 
 // Helper function to safely parse float values

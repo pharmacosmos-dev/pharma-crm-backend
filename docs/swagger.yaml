@@ -201,9 +201,7 @@ definitions:
       last_name:
         type: string
       phone:
-        items:
-          type: string
-        type: array
+        type: string
       store_id:
         type: string
       tag_id:
@@ -4519,6 +4517,31 @@ paths:
       security:
       - BearerAuth: []
       summary: Update a product
+      tags:
+      - products
+  /product/attech-to-store:
+    post:
+      consumes:
+      - application/json
+      description: Attech products to stores
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Products uploaded successfully
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Invalid file format or processing error
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Attech products to stores
       tags:
       - products
   /product/excel-upload:

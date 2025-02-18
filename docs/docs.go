@@ -5604,6 +5604,46 @@ const docTemplate = `{
                 }
             }
         },
+        "/product/attech-to-store": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Attech products to stores",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Attech products to stores",
+                "responses": {
+                    "200": {
+                        "description": "Products uploaded successfully",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid file format or processing error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/product/excel-upload": {
             "post": {
                 "security": [
@@ -9314,10 +9354,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "phone": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
+                    "type": "string"
                 },
                 "store_id": {
                     "type": "string"

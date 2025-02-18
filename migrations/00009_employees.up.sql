@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS "employees" (
   "email" VARCHAR(255),
   "password" VARCHAR(500),
   "language" varchar(10),
-  "photo" VARCHAR(20),
+  "photo" VARCHAR(1000),
   "is_active" BOOLEAN NOT NULL DEFAULT TRUE,
   "gender" VARCHAR(20),
   "status" VARCHAR(20),

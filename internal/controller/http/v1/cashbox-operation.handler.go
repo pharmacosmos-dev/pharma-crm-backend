@@ -224,16 +224,6 @@ func (h *CashBoxOperationHandler) CloseCashBox(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	err = h.db.
-		WithContext(c.Request.Context()).
-		Table("sale_payments").
-		Where("cash_box_operation_id = ?", cashBoxOperationID).
-		Update("cash_box_status", "close").Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
 	handleResponse(c, OK, "CLOSED")
 }
 
