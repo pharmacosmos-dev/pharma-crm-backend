@@ -11,6 +11,7 @@ import (
 	v1 "github.com/pharma-crm-backend/internal/controller/http"
 	"github.com/pharma-crm-backend/internal/storage"
 	"github.com/pharma-crm-backend/pkg/db"
+	"github.com/pharma-crm-backend/pkg/helper"
 
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/pkg/httpserver"
@@ -30,7 +31,7 @@ func Run(cfg *config.Config) {
 	}
 	// New storage
 	storage := storage.NewStorage(connDB, l)
-	
+
 	// HTTP Server
 	handler := gin.New()
 
@@ -41,6 +42,11 @@ func Run(cfg *config.Config) {
 		Cfg:  cfg,
 		Strg: storage,
 	})
+	// i18n localization
+	err = helper.InitI18n()
+	if err != nil {
+		l.Error(err)
+	}
 
 	httpServer := httpserver.New(handler, httpserver.Port(cfg.HTTP.Port))
 
