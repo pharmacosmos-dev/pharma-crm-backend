@@ -268,7 +268,11 @@ func (h *ImportHandler) ListImportDetail(c *gin.Context) {
 	query := h.db.Model(&domain.ImportDetail{}).
 		Preload("Product").
 		Preload("Import").
-		Select("import_details.*, unit_types.short_name as unit_name").
+		Select(`
+		import_details.*, 
+		(import_details.retail_price*received_count) as received_amount,
+		(import_details.accepted_retail_price*accepted_count) as accepted_amount,
+		COALESCE(unit_types.short_name, '') as unit_name`).
 		Joins("LEFT JOIN products ON import_details.product_id = products.id").
 		Joins("LEFT JOIN unit_types ON products.unit_type_id = unit_types.id").
 		Where("import_id = ?", importId)
