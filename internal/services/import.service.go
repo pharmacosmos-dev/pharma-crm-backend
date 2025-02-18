@@ -46,7 +46,11 @@ func (s *Storage) AddImportedProductsToStore(tx *gorm.DB, importData *domain.Imp
 func (s *Storage) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import) error {
 	var importDetails []domain.ImportDetail
 	// update imports detail accepted_count to received_count
-	err := tx.Exec(`UPDATE import_details SET accepted_count = received_count WHERE import_id = ?`, importData.Id).Error
+	err := tx.Exec(`
+	UPDATE import_details 
+	SET 
+		accepted_count = received_count 
+	WHERE import_id = ?`, importData.Id).Error
 	if err != nil {
 		s.log.Error(err)
 		return err

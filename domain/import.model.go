@@ -44,7 +44,6 @@ type ImportDetail struct {
 	CanceledCount       int        `gorm:"canceled_count" json:"canceled_count"`
 	SupplyPrice         float64    `gorm:"supply_price" json:"supply_price"`
 	RetailPrice         float64    `gorm:"retail_price" json:"retail_price"`
-	AcceptedRetailPrice float64    `gorm:"accepted_retail_price" json:"accepted_retail_price"`
 	UnitName            string     `gorm:"unit_name" json:"unit_name"`
 	ReceivedAmount      float64    `gorm:"received_amount" json:"received_amount"`
 	AcceptedAmount      float64    `gorm:"accepted_amount" json:"accepted_amount"`

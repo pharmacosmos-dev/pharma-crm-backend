@@ -152,8 +152,8 @@ func (h *ImportHandler) List(c *gin.Context) {
 		Preload("Receiver").
 		Select(`
 			imports.*, 
-			SUM(import_details.retail_price) as received_amount, 
-			SUM(import_details.accepted_retail_price) as accepted_amount, 
+			SUM(import_details.retail_price*import_details.received_count) as received_amount, 
+			SUM(import_details.retail_price*import_details.accepted_count) as accepted_amount, 
 			SUM(import_details.received_count) as received_count, 
 			SUM(import_details.accepted_count) as accepted_count
 		`).Joins("LEFT JOIN import_details ON imports.id = import_details.import_id")
@@ -271,7 +271,7 @@ func (h *ImportHandler) ListImportDetail(c *gin.Context) {
 		Select(`
 		import_details.*, 
 		(import_details.retail_price*received_count) as received_amount,
-		(import_details.accepted_retail_price*accepted_count) as accepted_amount,
+		(import_details.retail_price*accepted_count) as accepted_amount,
 		COALESCE(unit_types.short_name, '') as unit_name`).
 		Joins("LEFT JOIN products ON import_details.product_id = products.id").
 		Joins("LEFT JOIN unit_types ON products.unit_type_id = unit_types.id").
