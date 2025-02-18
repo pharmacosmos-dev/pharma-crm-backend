@@ -67,6 +67,7 @@ func (s *Storage) SimilarProducts(ctx context.Context, productID string, offset 
 		SELECT category_id
 		FROM category_products
 		WHERE product_id = ?
+		LIMIT 1
 		)`, productID).
 		Where(`sp.store_id = (
 		SELECT store_id

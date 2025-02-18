@@ -531,8 +531,14 @@ func (h *ImportHandler) CancelImport(c *gin.Context) {
 // @Router /import-detail/accept-some/{id} [patch]
 func (h *ImportHandler) AcceptSomeImport(c *gin.Context) {
 	var id = c.Param("id")
+	tx := h.db.Begin()
+	defer func() {
+		if err := recover(); err != nil {
+			tx.Rollback()
+		}
+	}()
 
-	err := h.db.
+	err := tx.
 		WithContext(c.Request.Context()).
 		Table("imports").
 		Where("id = ?", id).
@@ -540,6 +546,7 @@ func (h *ImportHandler) AcceptSomeImport(c *gin.Context) {
 	if err != nil {
 		h.log.Warn("Error on accepting import: %v", err.Error())
 		handleResponse(c, InternalError, "Error on accepting import")
+		tx.Rollback()
 		return
 	}
 	handleResponse(c, OK, "COMPLETED")
