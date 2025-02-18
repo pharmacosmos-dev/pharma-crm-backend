@@ -145,7 +145,10 @@ func (h *StoreHandler) List(c *gin.Context) {
 					COALESCE(sp.pack_quantity, 0) as pack_quantity, 
 					sp.small_quantity
 				`).
-			Joins("LEFT JOIN store_products sp ON s.id = sp.store_id AND sp.product_id = ?", productID)
+			Joins("LEFT JOIN store_products sp ON s.id = sp.store_id AND sp.product_id = ?", productID).
+			Group(`s.id, s.store_code, s.name, s.address,
+					s.location, s.is_active, s.created_at, s.updated_at,
+					s.deleted_at, sp.pack_quantity, sp.small_quantity`)
 	}
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
