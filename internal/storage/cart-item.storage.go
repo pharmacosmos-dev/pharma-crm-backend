@@ -37,7 +37,7 @@ func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartIt
 		return nil, err
 	}
 	for i := range res {
-		if res[i].UnitQuantityInStock != res[i].UnitPerPack*res[i].QuantityInStock {
+		if res[i].UnitPerPack > 0 && res[i].UnitQuantityInStock != res[i].UnitPerPack*res[i].QuantityInStock {
 			res[i].CurrentStock = fmt.Sprintf("%d (%d/%d)", res[i].QuantityInStock, res[i].UnitQuantityInStock%res[i].UnitPerPack, res[i].UnitPerPack)
 		} else {
 			res[i].CurrentStock = fmt.Sprintf("%d", res[i].QuantityInStock)
