@@ -18,8 +18,9 @@ func (s *Storage) ListStoreProduct(ctx context.Context, storeID string, search s
 		Table("store_products sp").
 		Select(`
 			sp.*, 
-			p.name, 
-			p.barcode, 
+			((sp.retail_price/100)*sp.bonus_percent) AS bonus_amount,
+			p.name,
+			p.barcode,
 			p.unit_per_pack,
 			c.name AS category_name,
 			DATE_PART('day', sp.expire_date::timestamp - NOW()) AS expire_day,
@@ -58,7 +59,7 @@ func (s *Storage) SimilarProducts(ctx context.Context, productID string, offset 
 		Table("products p").
 		Select(`
 			p.name, p.barcode, p.unit_per_pack, sp.*, 
-			u.unit_name, u.short_name, 
+			u.unit_name, u.short_name,
 			DATE_PART('day', sp.expire_date::timestamp - NOW()) AS expire_day`).
 		Joins("JOIN category_products cp ON p.id = cp.product_id").
 		Joins("JOIN store_products sp ON sp.product_id = p.id").
@@ -100,6 +101,7 @@ func (s *Storage) GetStoreProductByBarcode(ctx context.Context, barcode string) 
 	err := s.db.Raw(`
 	SELECT
 		sp.*,
+		((sp.retail_price/100)*sp.bonus_percent) AS bonus_amount,
 		p.name,
 		p.barcode,
 		c.name AS category_name,
@@ -123,7 +125,7 @@ func (s *Storage) GetStoreProductByBarcode(ctx context.Context, barcode string) 
 
 func (s *Storage) GetStoreProductByID(id string) (*domain.StoreProduct, error) {
 	var storeProduct domain.StoreProduct
-	err := s.db.Raw(`SELECT sp.*, p.unit_per_pack FROM store_products sp JOIN products p ON sp.product_id = p.id WHERE sp.id = ?`, id).
+	err := s.db.Raw(`SELECT sp.*, ((sp.retail_price/100)*sp.bonus_percent) AS bonus_amount, p.unit_per_pack FROM store_products sp JOIN products p ON sp.product_id = p.id WHERE sp.id = ?`, id).
 		Scan(&storeProduct).Error
 	if err != nil {
 		return nil, err

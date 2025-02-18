@@ -45,7 +45,6 @@ type StoreProductRequest struct {
 	Vat              int        `gorm:"vat" json:"vat"`
 	Markup           float64    `gorm:"markup" json:"markup"`
 	MeasurementValue int        `gorm:"-" json:"measurement_value"`
-	BonusAmount      float64    `gorm:"bonus_amount" json:"bonus_amount"`
 	BonusPercent     float64    `gorm:"bonus_percent" json:"bonus_percent"`
 	ExpireDate       *time.Time `gorm:"expire_date" json:"expire_date"`
 }

@@ -104,13 +104,6 @@ func (h *ProductHandler) Create(c *gin.Context) {
 			// store products table take required fields
 			body.StoreProduct[i].ProductID = body.Id
 			body.StoreProduct[i].UnitQuantity = body.StoreProduct[i].PackQuantity * body.UnitPerPack
-			body.StoreProduct[i].SupplyPrice = body.SupplyPrice
-			body.StoreProduct[i].RetailPrice = body.RetailPrice
-			body.StoreProduct[i].Vat = body.Vat
-			body.StoreProduct[i].Markup = body.Markup
-			body.StoreProduct[i].ExpireDate = body.ExpireDate
-			body.StoreProduct[i].BonusAmount = body.BonusAmount
-			body.StoreProduct[i].BonusPercent = body.BonusPercent
 
 			// imports table take required fields
 			imports[i].Id = uuid.New().String()
@@ -124,8 +117,8 @@ func (h *ProductHandler) Create(c *gin.Context) {
 			importDetail[i].ProductID = &body.Id
 			importDetail[i].ReceivedCount = body.StoreProduct[i].PackQuantity
 			importDetail[i].AcceptedCount = body.StoreProduct[i].PackQuantity
-			importDetail[i].SupplyPrice = body.SupplyPrice
-			importDetail[i].RetailPrice = body.RetailPrice
+			importDetail[i].SupplyPrice = body.StoreProduct[i].SupplyPrice
+			importDetail[i].RetailPrice = body.StoreProduct[i].RetailPrice
 			importDetail[i].Vat = body.Vat
 			importDetail[i].VatSum = body.StoreProduct[i].RetailPrice - body.StoreProduct[i].SupplyPrice
 			importDetail[i].ExpireDate = time.Now().Format("2006-01-02 15:04:05")

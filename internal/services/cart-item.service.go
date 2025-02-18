@@ -17,7 +17,7 @@ func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartIt
 		p.barcode,
 		p.unit_per_pack,
 		sp.expire_date,
-		sp.bonus_amount,
+		((sp.retail_price*sp.bonus_percent)/100) as bonus_amount,
 		sp.bonus_percent,
 		sp.pack_quantity AS quantity_in_stock,
 		sp.unit_quantity AS unit_quantity_in_stock,
