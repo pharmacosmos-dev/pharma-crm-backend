@@ -59,6 +59,7 @@ func (s *Storage) SimilarProducts(ctx context.Context, productID string, offset 
 		Table("products p").
 		Select(`
 			p.name, p.barcode, p.unit_per_pack, sp.*, 
+			((sp.bonus_percent*sp.retail_price)/100) as bonus_amount,
 			u.unit_name, u.short_name,
 			DATE_PART('day', sp.expire_date::timestamp - NOW()) AS expire_day`).
 		Joins("JOIN category_products cp ON p.id = cp.product_id").

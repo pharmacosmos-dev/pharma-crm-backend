@@ -377,7 +377,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 		SUM(sp.pack_quantity) AS quantity,
 		(SUM(sp.pack_quantity) * AVG(sp.retail_price)) AS sum,
 		AVG(sp.bonus_percent) AS bonus_percent,
-		AVG(sp.bonus_amount) AS bonus_amount,
+		AVG((sp.bonus_percent*sp.retail_price)/100) AS bonus_amount,
 		u.short_name AS unit_name,
 		p.created_at`).
 		Group(`
