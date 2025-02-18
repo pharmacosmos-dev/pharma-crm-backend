@@ -1,4 +1,4 @@
-package storage
+package services
 
 import (
 	"github.com/pharma-crm-backend/domain"

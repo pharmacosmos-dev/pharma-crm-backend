@@ -84,7 +84,7 @@ func (h *AutoOrderHandler) Create(c *gin.Context) {
 		return
 	}
 
-	autoOrderDetails, err := h.storage.GenerateAutoOrderDetail(c.Request.Context(), body.StoreId, body.IntervalDay)
+	autoOrderDetails, err := h.service.GenerateAutoOrderDetail(c.Request.Context(), body.StoreId, body.IntervalDay)
 	if err != nil {
 		tx.Rollback()
 		h.log.Error(err)

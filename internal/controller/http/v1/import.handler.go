@@ -152,8 +152,8 @@ func (h *ImportHandler) List(c *gin.Context) {
 		Preload("Receiver").
 		Select(`
 			imports.*, 
-			SUM(import_details.received_amount) as received_amount, 
-			SUM(import_details.accepted_amount) as accepted_amount, 
+			SUM(import_details.retail_price) as received_amount, 
+			SUM(import_details.accepted_retail_price) as accepted_amount, 
 			SUM(import_details.received_count) as received_count, 
 			SUM(import_details.accepted_count) as accepted_count
 		`).Joins("LEFT JOIN import_details ON imports.id = import_details.import_id")
@@ -413,62 +413,32 @@ func (h *ImportHandler) UpdateImportDetail(c *gin.Context) {
 // @Router /import-detail/accept-all/{id} [patch]
 func (h *ImportHandler) AcceptImport(c *gin.Context) {
 	var id = c.Param("id")
-	err := h.db.
-		WithContext(c.Request.Context()).
-		Table("imports").
-		Where("id = ?", id).
-		UpdateColumn("status", config.COMPLETED_IMPORT).Error
+	// start transaction
+	tx := h.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+	// update imports status to completed
+	importData, err := h.service.UpdateImportByField(tx, id, "status", config.COMPLETED_IMPORT)
 	if err != nil {
-		h.log.Warn("Error on accepting import: %v", err.Error())
-		handleResponse(c, InternalError, "Error on accepting import")
+		handleResponse(c, InternalError, err.Error())
+		h.db.Rollback()
 		return
 	}
-	err = h.db.WithContext(c.Request.Context()).
-		Table("import_details").
-		Where("import_id = ?", id).
-		Updates(map[string]interface{}{
-			"accepted_count":  gorm.Expr("received_count"),
-			"accepted_amount": gorm.Expr("received_amount"),
-		}).Error
+	// add products to store
+	err = h.service.AddAllProductsToStore(tx, importData)
 	if err != nil {
-		h.log.Warn("Error on accepting import detail: %v", err.Error())
-		handleResponse(c, InternalError, "Error on accepting import detail")
+		handleResponse(c, InternalError, err.Error())
+		h.db.Rollback()
 		return
 	}
-	var importDetails []domain.ImportDetail
-	err = h.db.Where("import_id = ?", id).Find(&importDetails).Error
-	if err != nil {
+
+	if err = tx.Commit().Error; err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	var importData domain.Import
-	err = h.db.First(&importData, "id = ?", id).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	// Update store_products
-	var storeProducts []domain.StoreProductRequest
-	for i := range importDetails {
-		storeProducts = append(storeProducts, domain.StoreProductRequest{
-			StoreID:   importData.StoreID,
-			ProductID: *importDetails[i].ProductID,
-			// ProductMaterialCode: importDetails[i].ProductMaterialCode,
-			// Quantity:     importDetails[i].AcceptedCount,
-			Vat:          12,
-			RetailPrice:  importDetails[i].AcceptedAmount / float64(importDetails[i].AcceptedCount),
-			PackQuantity: importDetails[i].AcceptedCount,
-		})
-	}
-	err = h.db.
-		WithContext(c.Request.Context()).
-		Table("store_products").
-		Create(&storeProducts).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		h.db.Rollback()
 		return
 	}
 
@@ -488,32 +458,37 @@ func (h *ImportHandler) AcceptImport(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /import-detail/cancel-all/{id} [patch]
 func (h *ImportHandler) CancelImport(c *gin.Context) {
-	var (
-		id = c.Param("id")
-	)
-	err := h.db.
-		WithContext(c.Request.Context()).
-		Table("imports").
-		Where("id = ?", id).
-		UpdateColumn("status", config.CANCELED_IMPORT).Error
+	var id = c.Param("id")
+	// start transaction
+	tx := h.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+	// update import status to cancel
+	importData, err := h.service.UpdateImportByField(tx, id, "status", config.CANCELED_IMPORT)
 	if err != nil {
-		h.log.Warn("Error on accepting import: %v", err.Error())
-		handleResponse(c, InternalError, "Error on accepting import")
+		handleResponse(c, InternalError, "Error on canceling import")
+		tx.Rollback()
 		return
 	}
-	// Update accepted_count and accepted_amount using a raw SQL query
-	rawQuery := `
-		UPDATE import_details
-		SET 
-			canceled_count = (SELECT received_count FROM import_details WHERE import_id = ?)
-		WHERE import_id = ?
-	`
-	err = h.db.WithContext(c.Request.Context()).Exec(rawQuery, id, id).Error
+
+	// update import details to canceled_count
+	err = h.service.UpdateImportDetailsToCancel(tx, importData.Id)
 	if err != nil {
-		h.log.Warn("Error on accepting import detail: %v", err.Error())
-		handleResponse(c, InternalError, "Error on accepting import detail")
+		handleResponse(c, InternalError, "Error on canceling import")
+		tx.Rollback()
 		return
 	}
+	// completed transaction
+	if err = tx.Commit().Error; err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, "Error on commit transaction")
+		tx.Rollback()
+		return
+	}
+
 	handleResponse(c, OK, "COMPLETED")
 }
 
@@ -531,24 +506,37 @@ func (h *ImportHandler) CancelImport(c *gin.Context) {
 // @Router /import-detail/accept-some/{id} [patch]
 func (h *ImportHandler) AcceptSomeImport(c *gin.Context) {
 	var id = c.Param("id")
+	// start transaction
 	tx := h.db.Begin()
 	defer func() {
-		if err := recover(); err != nil {
+		if r := recover(); r != nil {
 			tx.Rollback()
 		}
 	}()
-
-	err := tx.
-		WithContext(c.Request.Context()).
-		Table("imports").
-		Where("id = ?", id).
-		UpdateColumn("status", config.COMPLETED_IMPORT).Error
+	// update import status to completed
+	importData, err := h.service.UpdateImportByField(tx, id, "status", config.COMPLETED_IMPORT)
 	if err != nil {
-		h.log.Warn("Error on accepting import: %v", err.Error())
-		handleResponse(c, InternalError, "Error on accepting import")
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
 		tx.Rollback()
 		return
 	}
+	// add products import_details to store_products
+	err = h.service.AddImportedProductsToStore(tx, importData)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		tx.Rollback()
+		return
+	}
+	// check transaction is commit
+	if err = tx.Commit().Error; err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		tx.Rollback()
+		return
+	}
+
 	handleResponse(c, OK, "COMPLETED")
 }
 

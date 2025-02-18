@@ -8,7 +8,7 @@ import (
 	_ "github.com/pharma-crm-backend/docs"
 	"github.com/pharma-crm-backend/internal/controller/http/middleware"
 	v1 "github.com/pharma-crm-backend/internal/controller/http/v1"
-	"github.com/pharma-crm-backend/internal/storage"
+	"github.com/pharma-crm-backend/internal/services"
 	"github.com/pharma-crm-backend/pkg/logger"
 	"github.com/pharma-crm-backend/pkg/token"
 	"github.com/pharma-crm-backend/pkg/utils"
@@ -22,7 +22,7 @@ type Options struct {
 	Db   *gorm.DB
 	Log  *logger.Logger
 	Cfg  *config.Config
-	Strg *storage.Storage
+	Strg *services.Storage
 }
 
 // @title Pharma API docs

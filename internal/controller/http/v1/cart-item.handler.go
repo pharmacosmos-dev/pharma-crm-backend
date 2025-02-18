@@ -59,7 +59,7 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 		return
 	}
 	// get store product
-	storeProduct, err := h.storage.GetStoreProductByID(body.StoreProductID)
+	storeProduct, err := h.service.GetStoreProductByID(body.StoreProductID)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -119,7 +119,7 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 	}
 	body.UnitPrice = storeProduct.RetailPrice
 	body.EmployeeID = vendorID.(string)
-	err = h.storage.CreateCartItem(&body, discountPercent, discountPrice)
+	err = h.service.CreateCartItem(&body, discountPercent, discountPrice)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -183,7 +183,7 @@ func (h *CartItemHandler) List(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	res, err = h.storage.CartItemList(saleID, limit, offset)
+	res, err = h.service.CartItemList(saleID, limit, offset)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -301,7 +301,7 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 		return
 	}
 
-	storeProduct, err := h.storage.GetStoreProductByID(body.StoreProductID)
+	storeProduct, err := h.service.GetStoreProductByID(body.StoreProductID)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())

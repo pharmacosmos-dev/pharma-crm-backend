@@ -496,7 +496,7 @@ func isSaleCompleted(tx *gorm.DB, saleID string) bool {
 // Process payment type
 func processPaymentType(tx *gorm.DB, h *SaleHandler, body domain.FinalSale, item domain.FinalPaymentType) error {
 	if item.Type == "app" && (item.AppType == config.CLICK || item.AppType == config.PAYME || item.AppType == config.UZUM) {
-		paymentService, err := h.storage.GetPaymentServiceByStoreId(body.StoreID, item.AppType)
+		paymentService, err := h.service.GetPaymentServiceByStoreId(body.StoreID, item.AppType)
 		if err != nil {
 			return errors.New("failed to get payment service")
 		}
@@ -511,7 +511,7 @@ func processPaymentType(tx *gorm.DB, h *SaleHandler, body domain.FinalSale, item
 			return errors.New("invalid payment type")
 		}
 
-		salePayment, err := h.storage.CreateSalePayment(tx, body, item, &paymentService.ID, "pending")
+		salePayment, err := h.service.CreateSalePayment(tx, body, item, &paymentService.ID, "pending")
 		if err != nil {
 			return err
 		}
@@ -521,15 +521,15 @@ func processPaymentType(tx *gorm.DB, h *SaleHandler, body domain.FinalSale, item
 			return errors.New("failed payment with " + item.AppType)
 		}
 
-		return h.storage.UpdateSalePaymentStatus(tx, salePayment.ID)
+		return h.service.UpdateSalePaymentStatus(tx, salePayment.ID)
 	} else if item.Type == config.CASH || item.Type == config.CARD {
 		// Insert sale payments if payment is cash or card
-		_, err := h.storage.CreateSalePayment(tx, body, item, nil, "paid")
+		_, err := h.service.CreateSalePayment(tx, body, item, nil, "paid")
 		if err != nil {
 			return err
 		}
 		// insert or update sale payment summary
-		err = h.storage.CreateOrUpdateSalePaymentSummary(tx, body.CashBoxOperationId, item.PaymentTypeID, item.Amount)
+		err = h.service.CreateOrUpdateSalePaymentSummary(tx, body.CashBoxOperationId, item.PaymentTypeID, item.Amount)
 		if err != nil {
 			return err
 		}
@@ -542,13 +542,13 @@ func processPaymentType(tx *gorm.DB, h *SaleHandler, body domain.FinalSale, item
 
 // Completed sale transaction
 func (h *SaleHandler) completeSaleTransaction(tx *gorm.DB, body domain.FinalSale, userID string) error {
-	if err := h.storage.UpdateSaleStatus(tx, body.SaleID, body.TotalAmount, body.CustomerID); err != nil {
+	if err := h.service.UpdateSaleStatus(tx, body.SaleID, body.TotalAmount, body.CustomerID); err != nil {
 		return err
 	}
-	if err := h.storage.UpdateCartItemStatus(tx, body.SaleID); err != nil {
+	if err := h.service.UpdateCartItemStatus(tx, body.SaleID); err != nil {
 		return err
 	}
-	if err := h.storage.CreateEmployeeBonus(tx, userID, body.SaleID, body.CashBoxOperationId); err != nil {
+	if err := h.service.CreateEmployeeBonus(tx, userID, body.SaleID, body.CashBoxOperationId); err != nil {
 		return errors.New("error on adding bonus: " + err.Error())
 	}
 	return nil

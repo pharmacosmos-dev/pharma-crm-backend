@@ -124,8 +124,11 @@ func (h *ProductHandler) Create(c *gin.Context) {
 			importDetail[i].ProductID = &body.Id
 			importDetail[i].ReceivedCount = body.StoreProduct[i].PackQuantity
 			importDetail[i].AcceptedCount = body.StoreProduct[i].PackQuantity
-			importDetail[i].ReceivedAmount = float64(body.StoreProduct[i].PackQuantity) * body.RetailPrice
-			importDetail[i].AcceptedAmount = float64(body.StoreProduct[i].PackQuantity) * body.RetailPrice
+			importDetail[i].SupplyPrice = body.SupplyPrice
+			importDetail[i].RetailPrice = body.RetailPrice
+			importDetail[i].Vat = body.Vat
+			importDetail[i].VatSum = body.StoreProduct[i].RetailPrice - body.StoreProduct[i].SupplyPrice
+			importDetail[i].ExpireDate = time.Now().Format("2006-01-02 15:04:05")
 		}
 		err = tx.
 			WithContext(c.Request.Context()).
@@ -530,12 +533,15 @@ func (h *ProductHandler) Update(c *gin.Context) {
 				return
 			}
 			err = tx.Table("import_details").Create(&domain.ImportDetailRequest{
-				ImportID:       importReq.Id,
-				ProductID:      &productID,
-				ReceivedCount:  body.StoreProduct[i].MeasurementValue,
-				AcceptedCount:  body.StoreProduct[i].MeasurementValue,
-				ReceivedAmount: float64(body.StoreProduct[i].MeasurementValue) * body.RetailPrice,
-				AcceptedAmount: float64(body.StoreProduct[i].MeasurementValue) * body.RetailPrice,
+				ImportID:      importReq.Id,
+				ProductID:     &productID,
+				ReceivedCount: body.StoreProduct[i].MeasurementValue,
+				AcceptedCount: body.StoreProduct[i].MeasurementValue,
+				RetailPrice:   body.RetailPrice,
+				SupplyPrice:   body.SupplyPrice,
+				Vat:           body.Vat,
+				VatSum:        body.RetailPrice - body.SupplyPrice,
+				ExpireDate:    body.ExpireDate.Format(config.DATE_FORMAT),
 			}).Error
 			if err != nil {
 				tx.Rollback()
@@ -688,7 +694,7 @@ func (h *ProductHandler) SimilarProducts(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	res, err = h.storage.SimilarProducts(c.Request.Context(), id, offset, limit)
+	res, err = h.service.SimilarProducts(c.Request.Context(), id, offset, limit)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -726,7 +732,7 @@ func (h *ProductHandler) ListByStoreId(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	res, err = h.storage.ListStoreProduct(c.Request.Context(), storeID, search, limit, offset)
+	res, err = h.service.ListStoreProduct(c.Request.Context(), storeID, search, limit, offset)
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to fetch products")
 		return

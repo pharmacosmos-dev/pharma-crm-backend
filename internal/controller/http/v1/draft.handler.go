@@ -133,7 +133,7 @@ func (h *DraftHandler) Create(c *gin.Context) {
 		return
 	}
 
-	res, err := h.storage.CreateSale(tx, &domain.SaleRequest{
+	res, err := h.service.CreateSale(tx, &domain.SaleRequest{
 		ID:                 uuid.New().String(),
 		EmployeeID:         body.CreatedBy,
 		CashBoxOperationId: saleInfo.CashBoxOperationId,
@@ -167,7 +167,7 @@ func (h *DraftHandler) Create(c *gin.Context) {
 // @Router /draft/{id} [get]
 func (h *DraftHandler) Get(c *gin.Context) {
 	id := c.Param("id")
-	draft, err := h.storage.GetDraftByID(id)
+	draft, err := h.service.GetDraftByID(id)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -340,14 +340,14 @@ func (h *DraftHandler) Delete(c *gin.Context) {
 			tx.Rollback()
 		}
 	}()
-	draft, err := h.storage.UpdateDraftField(tx, "status", "deleted", "id", id)
+	draft, err := h.service.UpdateDraftField(tx, "status", "deleted", "id", id)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		tx.Rollback()
 		return
 	}
-	cartItems, err := h.storage.ListCartItemsBySaleID(draft.SaleID)
+	cartItems, err := h.service.ListCartItemsBySaleID(draft.SaleID)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -355,7 +355,7 @@ func (h *DraftHandler) Delete(c *gin.Context) {
 		return
 	}
 	for _, item := range cartItems {
-		err = h.storage.ChangeStoreProductStock(tx, item.StoreProductID, item.Quantity, item.UnitQuantity, true)
+		err = h.service.ChangeStoreProductStock(tx, item.StoreProductID, item.Quantity, item.UnitQuantity, true)
 		if err != nil {
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())
@@ -397,7 +397,7 @@ func (h *DraftHandler) CompleteDraft(c *gin.Context) {
 		}
 	}()
 	// update draft status
-	draft, err := h.storage.UpdateDraftField(tx, "status", "completed", "id", id)
+	draft, err := h.service.UpdateDraftField(tx, "status", "completed", "id", id)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -406,21 +406,21 @@ func (h *DraftHandler) CompleteDraft(c *gin.Context) {
 	}
 
 	// update sale status to pending
-	sale, err := h.storage.UpdateSaleField("status", "pending", "id", draft.SaleID)
+	sale, err := h.service.UpdateSaleField("status", "pending", "id", draft.SaleID)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 	// update cart item status to pending
-	_, err = h.storage.UpdateCartItemField("status", "pending", "sale_id", draft.SaleID)
+	_, err = h.service.UpdateCartItemField("status", "pending", "sale_id", draft.SaleID)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 	// get cart items which are depends on the draft sale
-	cartItems, err := h.storage.ListCartItemsBySaleID(sale.ID)
+	cartItems, err := h.service.ListCartItemsBySaleID(sale.ID)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -428,7 +428,7 @@ func (h *DraftHandler) CompleteDraft(c *gin.Context) {
 	}
 	// return product to store_products
 	for _, item := range cartItems {
-		err = h.storage.ChangeStoreProductStock(tx, item.StoreProductID, item.Quantity, item.UnitQuantity, true)
+		err = h.service.ChangeStoreProductStock(tx, item.StoreProductID, item.Quantity, item.UnitQuantity, true)
 		if err != nil {
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())

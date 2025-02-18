@@ -36,8 +36,13 @@ CREATE TABLE IF NOT EXISTS "import_details" (
     "received_count" INT DEFAULT 0,
     "accepted_count" INT DEFAULT 0,
     "canceled_count" INT DEFAULT 0,
-    "received_amount" NUMERIC(20, 2) DEFAULT 0.00,
-    "accepted_amount" NUMERIC(20, 2) DEFAULT 0.00,
+    "expire_date" TIMESTAMP,
+    "supply_price" NUMERIC(20, 2) DEFAULT 0.00,
+    "vat" INT DEFAULT 0,
+    "vat_sum" NUMERIC(10, 2) DEFAULT 0.00,
+    "retail_price" NUMERIC(20, 2) DEFAULT 0.00,
+    "accepted_retail_price" NUMERIC(20, 2) DEFAULT 0.00,
+    "series_number" VARCHAR(255),
     "created_at" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     "updated_at" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

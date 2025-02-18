@@ -9,7 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	v1 "github.com/pharma-crm-backend/internal/controller/http"
-	"github.com/pharma-crm-backend/internal/storage"
+	"github.com/pharma-crm-backend/internal/services"
 	"github.com/pharma-crm-backend/pkg/db"
 	"github.com/pharma-crm-backend/pkg/helper"
 
@@ -30,7 +30,7 @@ func Run(cfg *config.Config) {
 		l.Error(err)
 	}
 	// New storage
-	storage := storage.NewStorage(connDB, l)
+	storage := services.NewStorage(connDB, l)
 
 	// HTTP Server
 	handler := gin.New()

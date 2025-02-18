@@ -1,4 +1,4 @@
-package storage
+package services
 
 func (s *Storage) CheckFieldEmployee(field, value string) (bool, error) {
 	var temp = 0

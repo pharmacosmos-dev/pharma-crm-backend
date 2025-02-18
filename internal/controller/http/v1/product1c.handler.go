@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/spf13/cast"
 	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
 )
@@ -98,14 +99,14 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 	var importDetails []domain.ImportDetailRequest
 	for i := range body.Товары {
 		body.Товары[i].Id = uuid.New().String()
-		err = tx.Raw(`
+		err = tx.Exec(`
 		INSERT INTO
-			products (id, material_code, name, barcode, unit_per_pack, vat)
-		VALUES (?, ?, ?, ?, ?, ?)
+			products (id, material_code, name, barcode, unit_per_pack)
+		VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT (material_code) DO NOTHING`,
 			body.Товары[i].Id, body.Товары[i].MaterialCode,
 			body.Товары[i].Name, body.Товары[i].Barcode,
-			body.Товары[i].UnitPerPack, body.Товары[i].Vat).Error
+			body.Товары[i].UnitPerPack).Error
 		if err != nil {
 			tx.Rollback()
 			h.log.Warn("ERROR on creating new product: %v", err.Error())
@@ -113,12 +114,18 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 			return
 		}
 		importDetails = append(importDetails, domain.ImportDetailRequest{
-			ProductID:      &body.Товары[i].Id,
-			ImportID:       newImport.Id,
-			ReceivedCount:  body.Товары[i].Quantity,
-			ReceivedAmount: float64(body.Товары[i].Quantity) * body.Товары[i].RetailPrice,
+			ProductID:     &body.Товары[i].Id,
+			ImportID:      newImport.Id,
+			ReceivedCount: body.Товары[i].Quantity,
+			SupplyPrice:   body.Товары[i].SupplyPrice,
+			RetailPrice:   body.Товары[i].RetailPrice,
+			Vat:           cast.ToInt(body.Товары[i].Vat),
+			VatSum:        body.Товары[i].VatSum,
+			ExpireDate:    body.Товары[i].ExpireDate,
+			SeriesNumber:  body.Товары[i].ProductSeriesNumber,
 		})
 	}
+	// create import details if importDetails > 0
 	if len(importDetails) > 0 {
 		err = tx.
 			WithContext(c.Request.Context()).
@@ -131,7 +138,7 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 			return
 		}
 	}
-
+	// check transaction completed
 	if err = tx.Commit().Error; err != nil {
 		tx.Rollback()
 		h.log.Error(err)
