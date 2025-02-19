@@ -5604,46 +5604,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/product/attech-to-store": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Attech products to stores",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "products"
-                ],
-                "summary": "Attech products to stores",
-                "responses": {
-                    "200": {
-                        "description": "Products uploaded successfully",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid file format or processing error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            }
-        },
         "/product/excel-upload": {
             "post": {
                 "security": [
@@ -9619,11 +9579,11 @@ const docTemplate = `{
         "domain.ImportDetailRequest": {
             "type": "object",
             "properties": {
-                "accepted_amount": {
-                    "type": "number"
-                },
                 "accepted_count": {
                     "type": "integer"
+                },
+                "expire_date": {
+                    "type": "string"
                 },
                 "import_id": {
                     "type": "string"
@@ -9631,11 +9591,23 @@ const docTemplate = `{
                 "product_id": {
                     "type": "string"
                 },
-                "received_amount": {
-                    "type": "number"
-                },
                 "received_count": {
                     "type": "integer"
+                },
+                "retail_price": {
+                    "type": "number"
+                },
+                "series_number": {
+                    "type": "string"
+                },
+                "supply_price": {
+                    "type": "number"
+                },
+                "vat": {
+                    "type": "integer"
+                },
+                "vat_sum": {
+                    "type": "number"
                 }
             }
         },
@@ -10285,9 +10257,6 @@ const docTemplate = `{
         "domain.StoreProductRequest": {
             "type": "object",
             "properties": {
-                "bonus_amount": {
-                    "type": "number"
-                },
                 "bonus_percent": {
                     "type": "number"
                 },

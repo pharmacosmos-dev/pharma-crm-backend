@@ -8,7 +8,6 @@ CREATE TABLE IF NOT EXISTS "store_products"(
     "retail_price" NUMERIC(10, 2) DEFAULT 0,
     "supply_price" NUMERIC(10, 2) DEFAULT 0,
     "bonus_percent" INT DEFAULT 0,
-    "bonus_amount" NUMERIC(10, 2) DEFAULT 0,
     "vat" INT DEFAULT 0,
     "markup" INT DEFAULT 0,
     "expire_date" DATE,

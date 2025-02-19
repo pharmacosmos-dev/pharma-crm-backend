@@ -48,7 +48,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.POST("/store/barcode", h.AddStoreProductByBarcode)
 		product.POST("/generate-barcode", h.GenerateBarcode)
 		product.GET("/total-status-count", h.TotalStatusCount)
-		product.POST("/attech-to-store", h.AttechProductsToStores)
+		// product.POST("/attech-to-store", h.AttechProductsToStores)
 	}
 }
 
@@ -546,16 +546,15 @@ func (h *ProductHandler) Update(c *gin.Context) {
 			storeProducts = append(storeProducts, map[string]interface{}{
 				"store_id":       body.StoreProduct[i].StoreID,
 				"product_id":     productID,
-				"retail_price":   body.RetailPrice,
-				"supply_price":   body.SupplyPrice,
-				"vat":            body.Vat,
-				"markup":         body.Markup,
+				"retail_price":   body.StoreProduct[i].RetailPrice,
+				"supply_price":   body.StoreProduct[i].SupplyPrice,
+				"vat":            body.StoreProduct[i].Vat,
+				"markup":         body.StoreProduct[i].Markup,
 				"pack_quantity":  body.StoreProduct[i].PackQuantity,
 				"unit_quantity":  body.StoreProduct[i].UnitQuantity,
 				"small_quantity": body.StoreProduct[i].SmallQuantity,
-				"bonus_percent":  body.BonusPercent,
-				"bonus_amount":   body.BonusAmount,
-				"expire_date":    body.ExpireDate,
+				"bonus_percent":  body.StoreProduct[i].BonusPercent,
+				"expire_date":    body.StoreProduct[i].ExpireDate,
 			})
 			// err = tx.Debug().Table("store_products").
 			// 	Where("product_id = ? AND store_id = ? ", productID, body.StoreProduct[i].StoreID).
@@ -1230,41 +1229,41 @@ func (h *ProductHandler) UploadProduct(c *gin.Context) {
 // @Failure 400 {object} v1.Response "Invalid file format or processing error"
 // @Failure 500 {object} v1.Response "Internal server error"
 // @Router /product/attech-to-store [post]
-func (h *ProductHandler) AttechProductsToStores(c *gin.Context) {
-	var (
-		products []domain.Product
-		stores   []domain.Store
-	)
-	// get product list
-	err := h.db.Find(&products).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	// get store list
-	err = h.db.Find(&stores).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
+// func (h *ProductHandler) AttechProductsToStores(c *gin.Context) {
+// 	var (
+// 		products []domain.Product
+// 		stores   []domain.Store
+// 	)
+// 	// get product list
+// 	err := h.db.Find(&products).Error
+// 	if err != nil {
+// 		h.log.Error(err)
+// 		handleResponse(c, InternalError, err.Error())
+// 		return
+// 	}
+// 	// get store list
+// 	err = h.db.Find(&stores).Error
+// 	if err != nil {
+// 		h.log.Error(err)
+// 		handleResponse(c, InternalError, err.Error())
+// 		return
+// 	}
 
-	for _, item := range products {
-		for _, store := range stores {
-			// attach product to store
-			err = h.db.Exec(`INSERT INTO store_products(store_id, product_id, supply_price, retail_price, vat, markup, bonus_percent, bonus_amount, expire_date, pack_quantity, unit_quantity) 
-			VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-				store.Id, item.Id, 10000, 11300, 12, 1, 0, 0, "2026-02-17", 100, 10).Error
-			if err != nil {
-				h.log.Error(err)
-				handleResponse(c, InternalError, err.Error())
-				return
-			}
-		}
-	}
-	handleResponse(c, OK, "Products attached to stores successfully")
-}
+// 	for _, item := range products {
+// 		for _, store := range stores {
+// 			// attach product to store
+// 			err = h.db.Exec(`INSERT INTO store_products(store_id, product_id, supply_price, retail_price, vat, markup, bonus_percent, expire_date, pack_quantity, unit_quantity)
+// 			VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+// 				store.Id, item.Id, 10000, 11300, 12, 1, 0, 0, "2026-02-17", 100, 10).Error
+// 			if err != nil {
+// 				h.log.Error(err)
+// 				handleResponse(c, InternalError, err.Error())
+// 				return
+// 			}
+// 		}
+// 	}
+// 	handleResponse(c, OK, "Products attached to stores successfully")
+// }
 
 // Helper function to safely parse float values
 func parseFloat(value string) float64 {

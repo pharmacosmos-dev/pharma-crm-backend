@@ -7,7 +7,7 @@ func (s *Storage) CreateEmployeeBonus(tx *gorm.DB, employeeId string, saleId str
     INSERT INTO
         employee_bonus (employee_id, sale_id, cashbox_operation_id, bonus_amount)
     VALUES (?, ?, ?,
-            (select sum(sp.bonus_amount) 
+            (select sum((sp.bonus_percent*sp.retail_price)/100) 
             FROM cart_items ci 
             JOIN store_products sp 
             ON sp.id = ci.store_product_id 
