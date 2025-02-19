@@ -12,7 +12,7 @@ func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartIt
 	var res []domain.CartItemResponse
 	err := s.db.Raw(`
 	SELECT
-		c.*,
+		ci.*,
 		p.name,
 		p.barcode,
 		p.unit_per_pack,
@@ -25,15 +25,18 @@ func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartIt
 		u.unit_name,
 		u.short_name,
 		sh.name as shelf,
-		pr.name AS producer_name
-	FROM cart_items c
-	JOIN store_products sp ON c.store_product_id = sp.id
+		pr.name AS producer_name,
+		c.name as category_name
+	FROM cart_items ci
+	JOIN store_products sp ON ci.store_product_id = sp.id
 	JOIN products p ON sp.product_id = p.id
 	LEFT JOIN unit_types u ON p.unit_type_id = u.id
 	LEFT JOIN shelves sh ON p.shelf_id = sh.id
 	LEFT JOIN producers pr ON pr.id = p.producer_id
-	WHERE c.status = 'pending' AND c.sale_id = ?
-	ORDER BY c.created_at LIMIT ? OFFSET ?
+	LEFT JOIN category_products cp ON p.id = cp.product_id
+	LEFT JOIN categories c ON c.id = cp.category_id
+	WHERE ci.status = 'pending' AND ci.sale_id = ?
+	ORDER BY ci.created_at LIMIT ? OFFSET ?
 	`, saleID, limit, offset).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("Error on listing cart items for sale %s: %v", saleID, err.Error())
