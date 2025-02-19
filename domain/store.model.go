@@ -47,3 +47,19 @@ type StoreRequest1C struct {
 	Name      string `gorm:"name" json:"name"`
 	StoreCode int    `gorm:"store_code" json:"store_code"`
 }
+
+// Stores list with store product info
+type StoreWithProducts struct {
+	Id            string     `gorm:"id" json:"id"`
+	Name          string     `gorm:"name" json:"name"`
+	StoreCode     int        `gorm:"store_code" json:"store_code"`
+	PackQuantity  int        `gorm:"pack_quantity" json:"pack_quantity"`
+	UnitQuantity  int        `gorm:"unit_quantity" json:"unit_quantity"`
+	SmallQuantity int        `gorm:"small_quantity" json:"small_quantity"`
+	SupplyPrice   float64    `gorm:"supply_price" json:"supply_price"`
+	RetailPrice   float64    `gorm:"retail_price" json:"retail_price"`
+	Vat           int        `gorm:"vat" json:"vat"`
+	Markup        int        `gorm:"markup" json:"markup"`
+	ExpireDate    *time.Time `gorm:"expire_date" json:"expire_date"`
+	BonusPercent  int        `gorm:"bonus_percent" json:"bonus_percent"`
+}

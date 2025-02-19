@@ -80,3 +80,5 @@ type StoreProductBarcodeRequest struct {
 	DiscountType  string  `json:"discount_type"`
 	DiscountValue float64 `json:"discount_value"`
 }
+
+

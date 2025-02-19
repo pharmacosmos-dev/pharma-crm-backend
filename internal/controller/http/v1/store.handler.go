@@ -124,7 +124,7 @@ func (h *StoreHandler) Get(c *gin.Context) {
 // @Router /store/list [get]
 func (h *StoreHandler) List(c *gin.Context) {
 	var (
-		res        []domain.Store
+		res        []domain.StoreWithProducts
 		totalCount int64
 		search     = c.Query("search")
 		productID  = c.Query("product_id")
@@ -137,18 +137,21 @@ func (h *StoreHandler) List(c *gin.Context) {
 	}
 
 	query := h.db.
-		Model(&domain.Store{}).Table("stores s")
+		Model(&domain.StoreWithProducts{}).Table("stores s")
 	if productID != "" {
 		query = query.
 			Select(`
 					s.*, 
 					COALESCE(sp.pack_quantity, 0) as pack_quantity, 
-					sp.small_quantity
+					sp.small_quantity,
+					sp.expire_date, sp.vat, sp.markup, sp.retail_price, 
+					sp.supply_price, sp.bonus_percent
 				`).
 			Joins("LEFT JOIN store_products sp ON s.id = sp.store_id AND sp.product_id = ?", productID).
 			Group(`s.id, s.store_code, s.name, s.address,
-					s.location, s.is_active, s.created_at, s.updated_at,
-					s.deleted_at, sp.pack_quantity, sp.small_quantity`)
+				s.location, s.is_active, s.created_at, s.updated_at,
+				s.deleted_at, sp.small_quantity, sp.pack_quantity, sp.unit_quantity,
+				sp.supply_price, sp.retail_price, sp.expire_date, sp.vat, sp.markup, sp.bonus_percent`)
 	}
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
