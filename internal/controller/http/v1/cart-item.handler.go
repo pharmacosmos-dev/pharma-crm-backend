@@ -320,7 +320,7 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 			return
 		}
 	} else if body.Quantity > 0 && body.UnitQuantity > 0 {
-		if body.Quantity > storeProduct.PackQuantity || storeProduct.UnitQuantity-(storeProduct.PackQuantity*storeProduct.UnitPerPack) < body.UnitQuantity {
+		if body.Quantity > storeProduct.PackQuantity || storeProduct.UnitQuantity-(body.Quantity*storeProduct.UnitPerPack) < body.UnitQuantity {
 			storeProduct.UnitQuantity -= storeProduct.PackQuantity * storeProduct.UnitPerPack
 			handleQuantityConflict(c, storeProduct, body.Quantity, body.UnitQuantity)
 			return
