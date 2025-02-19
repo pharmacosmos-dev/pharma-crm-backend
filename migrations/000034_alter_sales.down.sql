@@ -1,0 +1,2 @@
+ALTER TABLE "sales" DROP COLUMN IF EXISTS "type";
+ALTER TABLE "sales" DROP COLUMN IF EXISTS "is_delivered";

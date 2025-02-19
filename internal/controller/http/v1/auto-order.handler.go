@@ -73,7 +73,7 @@ func (h *AutoOrderHandler) Create(c *gin.Context) {
 	body.Id = uuid.New().String()
 	body.Status = config.NEW
 	body.AutoOrderDate = time.Now().Format(time.DateTime)
-
+	// get auro order products based on store_id and interval day
 	autoOrderDetails, err := h.service.GenerateAutoOrderDetail(c.Request.Context(), body.StoreId, body.IntervalDay)
 	if err != nil {
 		tx.Rollback()
@@ -81,11 +81,12 @@ func (h *AutoOrderHandler) Create(c *gin.Context) {
 		handleResponse(c, InternalError, "Failed to generate auto order for the store")
 		return
 	}
+	// check if there are enough products for the auto order
 	if len(autoOrderDetails) < 1 {
 		handleResponse(c, CONFLICT, "Not enough products for creating auto order")
 		return
 	}
-
+	// create auto order
 	err = tx.
 		Table("auto_orders").
 		Create(&body).Error
@@ -96,6 +97,7 @@ func (h *AutoOrderHandler) Create(c *gin.Context) {
 		return
 	}
 
+	// get new auto order id details
 	for i := range autoOrderDetails {
 		autoOrderDetails[i].AutoOrderId = body.Id
 	}

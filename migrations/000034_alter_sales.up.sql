@@ -1,0 +1,2 @@
+ALTER TABLE "sales" ADD COLUMN IF NOT EXISTS "type" VARCHAR(55) DEFAULT 'offline' CHECK ("type" IN ('online', 'offline'));
+ALTER TABLE "sales" ADD COLUMN IF NOT EXISTS "is_delivered" BOOLEAN DEFAULT false;
