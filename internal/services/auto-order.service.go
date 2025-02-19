@@ -110,6 +110,7 @@ monthly_sales AS (
 	return autoOrders, totalCount, nil
 }
 
+// generate auto order with store_id and day
 func (s *Storage) GenerateAutoOrderDetail(ctx context.Context, storeID string, day int) ([]*domain.AutoOrderDetailRequest, error) {
 	var res []*domain.AutoOrderDetailRequest
 	query := `

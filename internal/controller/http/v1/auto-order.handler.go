@@ -74,6 +74,18 @@ func (h *AutoOrderHandler) Create(c *gin.Context) {
 	body.Status = config.NEW
 	body.AutoOrderDate = time.Now().Format(time.DateTime)
 
+	autoOrderDetails, err := h.service.GenerateAutoOrderDetail(c.Request.Context(), body.StoreId, body.IntervalDay)
+	if err != nil {
+		tx.Rollback()
+		h.log.Error(err)
+		handleResponse(c, InternalError, "Failed to generate auto order for the store")
+		return
+	}
+	if len(autoOrderDetails) < 1 {
+		handleResponse(c, CONFLICT, "Not enough products for creating auto order")
+		return
+	}
+
 	err = tx.
 		Table("auto_orders").
 		Create(&body).Error
@@ -81,14 +93,6 @@ func (h *AutoOrderHandler) Create(c *gin.Context) {
 		tx.Rollback()
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
-		return
-	}
-
-	autoOrderDetails, err := h.service.GenerateAutoOrderDetail(c.Request.Context(), body.StoreId, body.IntervalDay)
-	if err != nil {
-		tx.Rollback()
-		h.log.Error(err)
-		handleResponse(c, InternalError, "Failed to generate auto order for the store")
 		return
 	}
 
