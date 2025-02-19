@@ -6,6 +6,7 @@ import "time"
 type Store struct {
 	Id            string     `gorm:"id" json:"id"`
 	Name          string     `gorm:"name" json:"name"`
+	DetailedName  string     `gorm:"detailed_name" json:"detailed_name"`
 	Location      string     `gorm:"location" json:"location"`
 	EmployeeCount int        `gorm:"employee_count" json:"employee_count"`
 	CashBoxCount  int        `gorm:"cash_box_count" json:"cash_box_count"`
@@ -21,6 +22,7 @@ type Store struct {
 type StoreRequest struct {
 	Id            string `gorm:"id" json:"-"`
 	Name          string `gorm:"name" json:"name"`
+	DetailedName  string `gorm:"detailed_name" json:"detailed_name"`
 	Address       string `gorm:"address" json:"address"`
 	EmployeeCount int    `gorm:"employee_count" json:"employee_count"`
 	CashBoxCount  int    `gorm:"cash_box_count" json:"cash_box_count"`
@@ -33,6 +35,7 @@ type StoreRequest struct {
 type StoreUpdateRequest struct {
 	Id            string `gorm:"id" json:"-"`
 	Name          string `gorm:"name" json:"name"`
+	DetailedName  string `gorm:"detailed_name" json:"detailed_name"`
 	Address       string `gorm:"address" json:"address"`
 	EmployeeCount int    `gorm:"employee_count" json:"employee_count"`
 	CashBoxCount  int    `gorm:"cash_box_count" json:"cash_box_count"`
@@ -52,6 +55,7 @@ type StoreRequest1C struct {
 type StoreWithProducts struct {
 	Id            string     `gorm:"id" json:"id"`
 	Name          string     `gorm:"name" json:"name"`
+	DetailedName  string     `gorm:"detailed_name" json:"detailed_name"`
 	StoreCode     int        `gorm:"store_code" json:"store_code"`
 	PackQuantity  int        `gorm:"pack_quantity" json:"pack_quantity"`
 	UnitQuantity  int        `gorm:"unit_quantity" json:"unit_quantity"`

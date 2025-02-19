@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -256,19 +257,14 @@ func (h *StoreHandler) Update(c *gin.Context) {
 // @Router /store/{id} [delete]
 func (h *StoreHandler) Delete(c *gin.Context) {
 	var id = c.Param("id")
-	deletedBy, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
-		return
-	}
 	err := h.db.
 		WithContext(c.Request.Context()).
-		Table("stores").
+		Model(&domain.Store{}).
 		Where("id = ?", id).
 		Update("is_active", false).
-		Update("deleted_by", deletedBy.(string)).Error
+		Update("deleted_at", time.Now()).Error
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
