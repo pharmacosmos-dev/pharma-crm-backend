@@ -9,7 +9,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
-	"github.com/pharma-crm-backend/pkg/helper"
 )
 
 type UploadHandler struct {
@@ -55,7 +54,7 @@ func (h *UploadHandler) Upload(c *gin.Context) {
 	err := c.ShouldBind(&file)
 	if err != nil {
 		h.log.Error("Failed to bind file: ", err)
-		handleResponse(c, BadRequest, helper.Translate(lang, "file_bind_error"))
+		handleResponse(c, BadRequest, "Failed to bind file")
 		return
 	}
 
@@ -63,7 +62,7 @@ func (h *UploadHandler) Upload(c *gin.Context) {
 	maxFileSize := int64(5 * 1024 * 1024) // 5 MB
 	if file.File.Size > maxFileSize {
 		h.log.Error("File size exceeds the maximum limit of 5 MB")
-		handleResponse(c, BadRequest, helper.Translate(lang, "file_size_exceeded"))
+		handleResponse(c, BadRequest, "File size exceeds the maximum limit of 5 MB")
 		return
 	}
 
@@ -71,7 +70,7 @@ func (h *UploadHandler) Upload(c *gin.Context) {
 	ext := filepath.Ext(file.File.Filename)
 	if ext != ".jpg" && ext != ".jpeg" && ext != ".png" {
 		h.log.Error("Invalid file type")
-		handleResponse(c, BadRequest, helper.Translate(lang, "invalid_file_type"))
+		handleResponse(c, BadRequest, "Invalid file type. Only .jpg, .jpeg, and .png files are allowed.")
 		return
 	}
 
@@ -85,7 +84,7 @@ func (h *UploadHandler) Upload(c *gin.Context) {
 	err = c.SaveUploadedFile(file.File, savePath)
 	if err != nil {
 		h.log.Warn("Failed to save file: %v", err.Error())
-		handleResponse(c, InternalError, helper.Translate(lang, "file_save_error"))
+		handleResponse(c, InternalError, "Failed to save file")
 		return
 	}
 
