@@ -10211,6 +10211,9 @@ const docTemplate = `{
                 "created_at": {
                     "type": "string"
                 },
+                "detailed_name": {
+                    "type": "string"
+                },
                 "employee_count": {
                     "type": "integer"
                 },
@@ -10303,6 +10306,9 @@ const docTemplate = `{
                 },
                 "cash_box_count": {
                     "type": "integer"
+                },
+                "detailed_name": {
+                    "type": "string"
                 },
                 "employee_count": {
                     "type": "integer"

@@ -10204,6 +10204,9 @@
                 "created_at": {
                     "type": "string"
                 },
+                "detailed_name": {
+                    "type": "string"
+                },
                 "employee_count": {
                     "type": "integer"
                 },
@@ -10296,6 +10299,9 @@
                 },
                 "cash_box_count": {
                     "type": "integer"
+                },
+                "detailed_name": {
+                    "type": "string"
                 },
                 "employee_count": {
                     "type": "integer"

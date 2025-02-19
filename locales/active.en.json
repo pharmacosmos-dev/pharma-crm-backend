@@ -3,4 +3,4 @@
     "file_size_exceeded": "File size exceeds the maximum limit of 5 MB",
     "invalid_file_type": "Invalid file type. Only .jpg, .jpeg, and .png files are allowed.",
     "file_save_error": "Failed to save file"
-  }
+}

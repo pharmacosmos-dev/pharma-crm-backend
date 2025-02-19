@@ -575,13 +575,14 @@ func (h *ProductHandler) Update(c *gin.Context) {
 			// }
 			// }
 		}
-	}
-	err = tx.Table("store_products").Create(&storeProducts).Error
-	if err != nil {
-		tx.Rollback()
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
+		err = tx.Table("store_products").Create(&storeProducts).Error
+		if err != nil {
+			tx.Rollback()
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+
 	}
 
 	if len(body.CategoryIds) > 0 {
