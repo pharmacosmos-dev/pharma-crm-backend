@@ -12,6 +12,8 @@ type Sale struct {
 	TotalDiscount      float64        `gorm:"total_discount" json:"total_discount"`
 	TotalAmount        float64        `gorm:"total_amount" json:"total_amount"`
 	ProductCount       int            `gorm:"product_count" json:"product_count"`
+	Type               string         `gorm:"type" json:"type"`
+	IsDelivered        bool           `gorm:"is_delivered" json:"is_delivered"`
 	CreatedAt          *time.Time     `gorm:"created_at" json:"created_at"`
 	UpdatedAt          *time.Time     `gorm:"updated_at" json:"updated_at"`
 	CompletedAt        *time.Time     `gorm:"completed_at" json:"completed_at"`
@@ -44,6 +46,8 @@ type SaleResponse struct {
 	CashBoxName        string         `gorm:"cash_box_name" json:"cash_box_name"`
 	FullName           string         `gorm:"full_name" json:"full_name"`
 	Phone              string         `gorm:"phone" json:"phone"`
+	Type               string         `gorm:"type" json:"type"`
+	IsDelivered        bool           `gorm:"is_delivered" json:"is_delivered"`
 	CustomerName       *string        `gorm:"customer_name" json:"customer_name"`
 	Employee           *Employee      `gorm:"foreignKey:EmployeeID" json:"employee"`
 	Customer           *Customer      `gorm:"foreignKey:CustomerID" json:"customer"`

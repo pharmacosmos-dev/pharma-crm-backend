@@ -16,6 +16,7 @@ func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartIt
 		p.name,
 		p.barcode,
 		p.unit_per_pack,
+		p.description,
 		sp.expire_date,
 		((sp.retail_price*sp.bonus_percent)/100) as bonus_amount,
 		sp.bonus_percent,
@@ -23,12 +24,14 @@ func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartIt
 		sp.unit_quantity AS unit_quantity_in_stock,
 		u.unit_name,
 		u.short_name,
-		sh.name as shelf
+		sh.name as shelf,
+		pr.name AS producer_name
 	FROM cart_items c
 	JOIN store_products sp ON c.store_product_id = sp.id
 	JOIN products p ON sp.product_id = p.id
 	LEFT JOIN unit_types u ON p.unit_type_id = u.id
 	LEFT JOIN shelves sh ON p.shelf_id = sh.id
+	LEFT JOIN producers pr ON pr.id = p.producer_id
 	WHERE c.status = 'pending' AND c.sale_id = ?
 	ORDER BY c.created_at LIMIT ? OFFSET ?
 	`, saleID, limit, offset).Scan(&res).Error
