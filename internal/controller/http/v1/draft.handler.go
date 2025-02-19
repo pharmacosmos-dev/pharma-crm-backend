@@ -176,7 +176,7 @@ func (h *DraftHandler) Get(c *gin.Context) {
 	// Query associated cart items
 	var cartItems []domain.CartItemResponse
 	err = h.db.Model(&domain.CartItem{}).
-		Select("cart_items.*, p.name, p.barcode, sp.bonus_percent, sp.bonus_amount, u.unit_name, u.short_name").
+		Select("cart_items.*, p.name, p.barcode, sp.bonus_percent, ((sp.bonus_percent*sp.retail_price)/100) as bonus_amount, u.unit_name, u.short_name").
 		Joins("JOIN cart_item_drafts ON cart_item_drafts.cart_item_id = cart_items.id").
 		Joins("JOIN store_products sp ON sp.id = cart_items.store_product_id").
 		Joins("JOIN products p ON p.id = sp.product_id").
