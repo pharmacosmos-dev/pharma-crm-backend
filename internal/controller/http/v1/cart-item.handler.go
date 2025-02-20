@@ -255,7 +255,10 @@ func (h *CartItemHandler) UpdateBySaleID(c *gin.Context) {
 	// check discount type with percent or cash
 	var discountPercent float64
 	for i := range cartItems {
-		if body.DiscountType == "percent" && body.DiscountValue <= 100 {
+		if body.DiscountValue == 0 {
+			cartItems[i].DiscountAmount = 0
+			discountPercent = 0
+		} else if body.DiscountType == "percent" && body.DiscountValue <= 100 {
 			cartItems[i].DiscountAmount = cartItems[i].UnitPrice * body.DiscountValue / 100
 			discountPercent = body.DiscountValue
 		} else if body.DiscountType == "cash" {
