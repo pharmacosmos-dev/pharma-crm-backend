@@ -488,22 +488,12 @@ func (h *ProductHandler) Update(c *gin.Context) {
 			tx.Rollback()
 		}
 	}()
-
+	// match array
 	body.Photos = utils.StringArray(body.Photos)
 	err = tx.
-		WithContext(c.Request.Context()).
-		Table("products").
+		Model(&domain.Product{}).
 		Where("id = ?", productID).
-		Updates(map[string]interface{}{
-			"name":          body.Name,
-			"barcode":       body.Barcode,
-			"photos":        body.Photos,
-			"unit_type_id":  body.UnitTypeID,
-			"unit_per_pack": body.UnitPerPack,
-			"shelf_id":      body.ShelfID,
-			"producer_id":   body.ProducerID,
-			"description":   body.Description,
-		}).Error
+		Updates(&body).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -528,31 +518,32 @@ func (h *ProductHandler) Update(c *gin.Context) {
 				ImportDate:     time.Now().Format(config.DATE_FORMAT),
 				DocumentNumber: utils.GenerateDocumentNumber(),
 			}
+			// create new import
 			err = tx.Table("imports").Create(&importReq).Error
 			if err != nil {
-				tx.Rollback()
 				h.log.Error(err)
 				handleResponse(c, InternalError, err.Error())
+				tx.Rollback()
 				return
 			}
-			err = tx.Table("import_details").Create(&domain.ImportDetailRequest{
+			// create new import details
+			err = tx.Table("import_details").Debug().Create(&domain.ImportDetailRequest{
 				ImportID:      importReq.Id,
 				ProductID:     &productID,
-				ReceivedCount: body.StoreProduct[i].MeasurementValue,
-				AcceptedCount: body.StoreProduct[i].MeasurementValue,
-				RetailPrice:   body.RetailPrice,
-				SupplyPrice:   body.SupplyPrice,
-				Vat:           body.Vat,
-				VatSum:        body.RetailPrice - body.SupplyPrice,
-				ExpireDate:    body.ExpireDate.Format(config.DATE_FORMAT),
+				ReceivedCount: body.StoreProduct[i].PackQuantity,
+				AcceptedCount: body.StoreProduct[i].PackQuantity,
+				RetailPrice:   body.StoreProduct[i].RetailPrice,
+				SupplyPrice:   body.StoreProduct[i].SupplyPrice,
+				Vat:           body.StoreProduct[i].Vat,
+				VatSum:        body.StoreProduct[i].RetailPrice - body.StoreProduct[i].SupplyPrice,
+				ExpireDate:    body.StoreProduct[i].ExpireDate.Format(config.DATE_FORMAT),
 			}).Error
 			if err != nil {
-				tx.Rollback()
 				h.log.Error(err)
 				handleResponse(c, InternalError, err.Error())
+				tx.Rollback()
 				return
 			}
-
 			storeProducts = append(storeProducts, map[string]interface{}{
 				"store_id":       body.StoreProduct[i].StoreID,
 				"product_id":     productID,
@@ -585,15 +576,14 @@ func (h *ProductHandler) Update(c *gin.Context) {
 			// }
 			// }
 		}
-		err = tx.Table("store_products").Create(&storeProducts).Error
+		err = tx.Debug().Table("store_products").Create(&storeProducts).Error
 		if err != nil {
-			tx.Rollback()
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())
+			tx.Rollback()
 			return
 		}
 	}
-	fmt.Println("---->>>> ")
 	if len(body.CategoryIds) > 0 {
 		var categoryProducts = make([]domain.CategoryProduct, len(body.CategoryIds))
 		for i, categoryId := range body.CategoryIds {
@@ -602,25 +592,24 @@ func (h *ProductHandler) Update(c *gin.Context) {
 				CategoryId: categoryId,
 			}
 		}
-		err = h.db.WithContext(c.Request.Context()).
-			Table("category_products").
+		err = tx.Table("category_products").
 			Clauses(clause.OnConflict{
 				Columns:   []clause.Column{{Name: "product_id"}, {Name: "category_id"}},
 				DoNothing: false,
 				DoUpdates: clause.AssignmentColumns([]string{"updated_at"}),
 			}).Create(&categoryProducts).Error
 		if err != nil {
-			tx.Rollback()
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())
+			tx.Rollback()
 			return
 		}
 	}
 
 	if err = tx.Commit().Error; err != nil {
-		tx.Rollback()
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
+		tx.Rollback()
 		return
 	}
 	handleResponse(c, OK, "UPDATED")
