@@ -228,7 +228,7 @@ func (h *CartItemHandler) UpdateBySaleID(c *gin.Context) {
 		count     int64
 	)
 	// get cart_items by sale_id
-	err = h.db.Where("sale_id = ?", saleId).Count(&count).Find(&cartItems).Error
+	err = h.db.Model(&domain.CartItem{}).Where("sale_id = ?", saleId).Count(&count).Find(&cartItems).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, "Failed to fetch cart items")
