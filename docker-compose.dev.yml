@@ -5,19 +5,24 @@ services:
     container_name: postgres
     image: postgres:15.11
     restart: always
-    shm_size: '2gb'
+    shm_size: '2gb'  # Optional, remove if not needed
     env_file:
       - .env
     environment:
       POSTGRES_DB: ${PG_DB}
       POSTGRES_USER: ${PG_USER}
       POSTGRES_PASSWORD: ${PG_PASS}
-      POSTGRES_HOST_AUTH_METHOD: "md5"
-      POSTGRES_INITDB_ARGS: "--auth-host=md5"
+      POSTGRES_HOST_AUTH_METHOD: "scram-sha-256"  # More secure than md5
+      PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
-      - postgres-data:/var/lib/postgresql/data
+      - pg-data:/var/lib/postgresql/data/pgdata
     ports:
       - "${PG_PORT}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${PG_USER} -d ${PG_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
-  postgres-data:
+  pg-data:

@@ -441,12 +441,13 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 			_ = tx.Rollback()
 		}
 	}()
-
+	// check sale is completed or no
 	if isSaleCompleted(tx, body.SaleID) {
 		handleResponse(c, CONFLICT, "Sale is already completed")
 		return
 	}
 
+	// process payment types
 	for _, item := range body.PaymentTypes {
 		if err = processPaymentType(tx, h, body, item); err != nil {
 			handleResponse(c, InternalError, err.Error())
@@ -454,16 +455,19 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		}
 	}
 
+	// complete sale, cart_items, employee_bonus
 	if err = h.completeSaleTransaction(tx, body, userID.(string)); err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
+	// collect new sale data
 	newSale := domain.SaleRequest{
 		ID:                 uuid.New().String(),
 		EmployeeID:         cast.ToString(userID),
 		CashBoxOperationId: body.CashBoxOperationId,
 	}
+	// create new sale
 	err = tx.Table("sales").Create(&newSale).Error
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
@@ -506,12 +510,12 @@ func processPaymentType(tx *gorm.DB, h *SaleHandler, body domain.FinalSale, item
 			config.PAYME: h.PaymeGo,
 			config.UZUM:  h.UzumFastPay,
 		}
-
+		// get payment handlers for integration app services
 		handler, exists := paymentHandlers[item.AppType]
 		if !exists {
 			return errors.New("invalid payment type")
 		}
-
+		// create new sale_payment
 		salePayment, err := h.service.CreateSalePayment(tx, body, item, &paymentService.ID, "pending")
 		if err != nil {
 			return err
@@ -521,7 +525,7 @@ func processPaymentType(tx *gorm.DB, h *SaleHandler, body domain.FinalSale, item
 		if err != nil || resp["error_code"].(float64) != 0 {
 			return errors.New("failed payment with " + item.AppType)
 		}
-
+		// update sale_payment if payment is success
 		return h.service.UpdateSalePaymentStatus(tx, salePayment.ID)
 	} else if item.Type == config.CASH || item.Type == config.CARD {
 		// Insert sale payments if payment is cash or card

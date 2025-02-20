@@ -289,6 +289,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	// get query param values
 	var (
 		searchField     = c.Query("search")
 		storeIDParam    = c.Query("store_id")
@@ -305,12 +306,15 @@ func (h *ProductHandler) List(c *gin.Context) {
 		Table("products p").
 		Joins("LEFT JOIN store_products sp ON sp.product_id = p.id").
 		Joins("LEFT JOIN unit_types u ON p.unit_type_id = u.id").
-		Joins("LEFT JOIN producers pr ON pr.id = p.producer_id")
+		Joins("LEFT JOIN producers pr ON pr.id = p.producer_id").
+		Joins("LEFT JOIN category_products cp ON cp.product_id = p.id").
+		Joins("LEFT JOIN categories c ON c.id = cp.category_id")
 
 	// Apply filters
 	if storeIDParam != "" {
 		baseQuery = baseQuery.Where("sp.store_id = ?", storeIDParam)
 	}
+	// filter products with status
 	if status != "" {
 		switch status {
 		case "active":
@@ -329,23 +333,29 @@ func (h *ProductHandler) List(c *gin.Context) {
 	} else {
 		baseQuery = baseQuery.Where("p.status = ?", "active")
 	}
-
+	// search filter for product name, barcode, category name
 	if searchField != "" {
 		searchField = fmt.Sprintf("%%%s%%", searchField)
-		baseQuery = baseQuery.Where("p.name ILIKE ? OR p.barcode LIKE ?", searchField, searchField)
+		baseQuery = baseQuery.Where("p.name ILIKE ? OR p.barcode LIKE ? OR COALESCE(c.name, '') ILIKE ?",
+			searchField, searchField, searchField)
 	}
+	// filter with supply price greater than or equal to
 	if supplyPriceFrom != "" {
 		baseQuery = baseQuery.Where("sp.supply_price >= ?", supplyPriceFrom)
 	}
+	// filter with supply price less than or equal to
 	if supplyPriceTo != "" {
 		baseQuery = baseQuery.Where("sp.supply_price <= ?", supplyPriceTo)
 	}
+	// filter with retail price greater than or equal to
 	if retailPriceFrom != "" {
 		baseQuery = baseQuery.Where("sp.retail_price >= ?", retailPriceFrom)
 	}
+	// filter with retail price less than or equal to
 	if retailPriceTo != "" {
 		baseQuery = baseQuery.Where("sp.retail_price <= ?", retailPriceTo)
 	}
+	// filter products with producer id 
 	if producerID != "" {
 		baseQuery = baseQuery.Where("p.producer_id = ?", producerID)
 	}
@@ -354,7 +364,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 	countQuery := baseQuery.Session(&gorm.Session{}).
 		Select("COUNT(DISTINCT p.id)").
 		Table("products p")
-
+	// Execute the count query
 	err = countQuery.Debug().Count(&totalCount).Error
 	if err != nil {
 		h.log.Error(err)
@@ -582,7 +592,6 @@ func (h *ProductHandler) Update(c *gin.Context) {
 			handleResponse(c, InternalError, err.Error())
 			return
 		}
-
 	}
 
 	if len(body.CategoryIds) > 0 {

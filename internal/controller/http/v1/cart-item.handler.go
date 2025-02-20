@@ -206,8 +206,10 @@ func (h *CartItemHandler) List(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /cart_item/sale/{sale_id} [put]
 func (h *CartItemHandler) UpdateBySaleID(c *gin.Context) {
-	var body domain.CartItemBySaleIDUpdateRequest
-	var saleId = c.Param("sale_id")
+	var (
+		body   domain.CartItemBySaleIDUpdateRequest
+		saleId = c.Param("sale_id")
+	)
 	err := c.ShouldBindJSON(&body)
 	if err != nil {
 		h.log.Error(err)
@@ -220,24 +222,50 @@ func (h *CartItemHandler) UpdateBySaleID(c *gin.Context) {
 			tx.Rollback()
 		}
 	}()
-	var cartItems []domain.CartItem
-	err = tx.Where("sale_id = ?", saleId).Find(&cartItems).Error
+	var (
+		cartItems []domain.CartItem
+		sum       float64
+		count     int64
+	)
+	// get cart_items by sale_id
+	err = h.db.Where("sale_id = ?", saleId).Count(&count).Find(&cartItems).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, "Failed to fetch cart items")
-		tx.Rollback()
 		return
 	}
+	// check cart_items count with 0
+	if count == 0 {
+		handleResponse(c, BadRequest, "Cart items not added yet")
+		return
+	}
+	// get sum of unit_prices
+	err = h.db.Raw("SELECT SUM(unit_price) FROM cart_items WHERE sale_id = ?", saleId).Scan(&sum).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, "Failed to get sum of unit prices")
+		return
+	}
+
+	// check sum with discount value
+	if body.DiscountType == "cash" && sum < body.DiscountValue {
+		handleResponse(c, CONFLICT, "Discount value is greater than sum of unit prices")
+		return
+	}
+	// check discount type with percent or cash
 	var discountPercent float64
 	for i := range cartItems {
-		// 1 pochka -> 10 000 so'm -> 1000 so'm discount
-		// 1 dona -> 200 so'm - 20 so'm discount
 		if body.DiscountType == "percent" && body.DiscountValue <= 100 {
 			cartItems[i].DiscountAmount = cartItems[i].UnitPrice * body.DiscountValue / 100
 			discountPercent = body.DiscountValue
 		} else if body.DiscountType == "cash" {
-			cartItems[i].DiscountAmount = body.DiscountValue
-			discountPercent = body.DiscountValue * 100 / cartItems[i].UnitPrice
+			// a = 1100 b = 1200  discount = 900
+			// x = d / (a + b) = (900 / (1100 + 1200)) * 1100 = 430.47
+			// y = d / (a + b) = (900 / (1100 + 1200)) * 1200 = 469.56
+			// percent = (1 - (430.47/1100)) * 100
+			discountPrice := (body.DiscountValue / sum) * cartItems[i].UnitPrice
+			discountPercent = 1 - (discountPrice/cartItems[i].UnitPrice)*100
+			cartItems[i].DiscountAmount = cartItems[i].UnitPrice - discountPrice
 		} else {
 			handleResponse(c, BadRequest, "Discount type or value is invalid")
 			return

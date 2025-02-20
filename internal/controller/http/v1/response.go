@@ -87,6 +87,11 @@ var (
 		Status:      "ERROR",
 		Description: "The request conflicts with the current state of the server, such as edit conflicts in a database.",
 	}
+	UnprocessableEntity = Status{
+		Code:        422,
+		Status:      "UNPROCESSABLE_ENTITY",
+		Description: "The server understands the request but cannot process it due to semantic errors.",
+	}
 	TooManyRequests = Status{
 		Code:        429,
 		Status:      "TOO_MANY_REQUESTS",
