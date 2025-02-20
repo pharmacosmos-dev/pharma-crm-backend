@@ -9766,9 +9766,6 @@ const docTemplate = `{
                 "description": {
                     "type": "string"
                 },
-                "entity_name": {
-                    "type": "string"
-                },
                 "id": {
                     "type": "string"
                 },
@@ -9780,6 +9777,9 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "name": {
+                    "type": "string"
                 },
                 "parent_id": {
                     "type": "string"
@@ -9801,9 +9801,6 @@ const docTemplate = `{
                 "description": {
                     "type": "string"
                 },
-                "entity_name": {
-                    "type": "string"
-                },
                 "key": {
                     "type": "string"
                 },
@@ -9812,6 +9809,9 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                },
+                "name": {
+                    "type": "string"
                 },
                 "parent_id": {
                     "type": "string"

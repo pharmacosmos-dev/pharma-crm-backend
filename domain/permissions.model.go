@@ -11,7 +11,7 @@ type Permission struct {
 	Id          string            `gorm:"id" json:"id"`
 	Route       string            `gorm:"route" json:"route"`
 	Type        string            `gorm:"type" json:"type"`
-	EntityName  string            `gorm:"entity_name" json:"entity_name"`
+	Name        string            `gorm:"name" json:"name"`
 	Description string            `gorm:"description" json:"description"`
 	ParentId    string            `gorm:"parent_id" json:"parent_id"`
 	IsActive    bool              `gorm:"is_active" json:"is_active"`
@@ -26,7 +26,7 @@ type PermissionRequest struct {
 	Id          string            `gorm:"id" json:"-"`
 	Route       string            `gorm:"route" json:"route"`
 	Type        string            `gorm:"type" json:"type"`
-	EntityName  string            `gorm:"entity_name" json:"entity_name"`
+	Name        string            `gorm:"name" json:"name"`
 	Description string            `gorm:"description" json:"description"`
 	Method      utils.StringArray `gorm:"type:text[]" json:"method"`
 	ParentId    *string           `gorm:"parent_id" json:"parent_id,omitempty"`

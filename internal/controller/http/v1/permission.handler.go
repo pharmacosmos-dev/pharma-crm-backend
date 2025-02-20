@@ -266,7 +266,7 @@ func (h *PermissionHandler) ListParents(c *gin.Context) {
 	WITH parent_permissions AS (
 		SELECT 
 			id, 
-			CAST(entity_name || ' MODULE' AS VARCHAR) AS entity_name, 
+			CAST(name || ' MODULE' AS VARCHAR) AS name, 
 			route, 
 			type, 
 			parent_id, 
@@ -278,10 +278,10 @@ func (h *PermissionHandler) ListParents(c *gin.Context) {
 		FROM permissions
 		WHERE type = 'MODULE'
 	)
-	SELECT id, entity_name, route, type, parent_id, description, key, method, created_at, updated_at
+	SELECT id, name, route, type, parent_id, description, key, method, created_at, updated_at
 	FROM parent_permissions
 	UNION ALL
-	SELECT id, entity_name, route, type, parent_id, description, key, method, created_at, updated_at
+	SELECT id, name, route, type, parent_id, description, key, method, created_at, updated_at
 	FROM permissions
 	WHERE parent_id IN (SELECT id FROM parent_permissions);
 	`).Scan(&res).Error
@@ -311,10 +311,10 @@ func (h *PermissionHandler) ListPermissions(c *gin.Context) {
 		search         = c.Query("search")
 	)
 	// build query
-	query := `SELECT id, route, type, entity_name, description, parent_id, method, created_at, updated_at FROM permissions `
+	query := `SELECT id, route, type, name, description, parent_id, method, created_at, updated_at FROM permissions `
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
-		query += fmt.Sprintf(" WHERE entity_name ILIKE '%s' OR description ILIKE '%s'", search, search)
+		query += fmt.Sprintf(" WHERE name ILIKE '%s' OR description ILIKE '%s'", search, search)
 	}
 	// Get all permissions
 	err := h.db.Raw(query).Scan(&allPermissions).Error
@@ -328,7 +328,7 @@ func (h *PermissionHandler) ListPermissions(c *gin.Context) {
 	// 2. Rekursiv ravishda daraxt tuzilishini yaratish
 	permissionTree := buildPermissionTree(allPermissions, "")
 
-	handleResponse(c, OK, permissionTree)
+	c.JSON(200, permissionTree)
 }
 
 // buildPermissionTree doc

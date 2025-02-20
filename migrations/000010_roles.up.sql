@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS "roles" (
 CREATE TABLE IF NOT EXISTS "permissions" (
     "id" uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
     "route" VARCHAR(255) NOT NULL,
-    "entity_name" VARCHAR(50) NOT NULL, 
+    "name" VARCHAR(255) NOT NULL, 
     "type" VARCHAR(20) NOT NULL,
     "key" VARCHAR(50),
     "method" VARCHAR[],

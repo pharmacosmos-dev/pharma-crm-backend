@@ -9759,9 +9759,6 @@
                 "description": {
                     "type": "string"
                 },
-                "entity_name": {
-                    "type": "string"
-                },
                 "id": {
                     "type": "string"
                 },
@@ -9773,6 +9770,9 @@
                     "items": {
                         "type": "string"
                     }
+                },
+                "name": {
+                    "type": "string"
                 },
                 "parent_id": {
                     "type": "string"
@@ -9794,9 +9794,6 @@
                 "description": {
                     "type": "string"
                 },
-                "entity_name": {
-                    "type": "string"
-                },
                 "key": {
                     "type": "string"
                 },
@@ -9805,6 +9802,9 @@
                     "items": {
                         "type": "string"
                     }
+                },
+                "name": {
+                    "type": "string"
                 },
                 "parent_id": {
                     "type": "string"
