@@ -602,22 +602,12 @@ definitions:
     properties:
       barcode:
         type: string
-      bonus_amount:
-        type: number
-      bonus_percent:
-        type: number
       category_ids:
         items:
           type: string
         type: array
       description:
         type: string
-      expire_date:
-        type: string
-      manufacturer:
-        type: string
-      markup:
-        type: number
       name:
         type: string
       photos:
@@ -626,26 +616,16 @@ definitions:
         type: array
       producer_id:
         type: string
-      quantity:
-        type: integer
-      retail_price:
-        type: number
       shelf_id:
         type: string
       store_product:
         items:
           $ref: '#/definitions/domain.StoreProductRequest'
         type: array
-      supply_price:
-        type: number
       unit_per_pack:
         type: integer
       unit_type_id:
         type: string
-      vat:
-        type: integer
-      vat_price:
-        type: number
     type: object
   domain.ResetPasswordRequest:
     properties:
@@ -4112,11 +4092,14 @@ paths:
       - application/json
       description: Delete Permission
       parameters:
-      - description: Permission ID
-        in: path
-        name: id
+      - description: Permission IDs
+        in: body
+        name: ids
         required: true
-        type: string
+        schema:
+          items:
+            type: string
+          type: array
       produces:
       - application/json
       responses:
@@ -4201,6 +4184,36 @@ paths:
       security:
       - BearerAuth: []
       summary: Update Permission
+      tags:
+      - Permission
+  /permission/filter:
+    get:
+      consumes:
+      - application/json
+      description: List Permission
+      parameters:
+      - description: Search
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: List Permission
       tags:
       - Permission
   /permission/list:

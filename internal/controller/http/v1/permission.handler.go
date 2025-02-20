@@ -29,6 +29,7 @@ func (h *PermissionHandler) PermissionRoutes(r *gin.RouterGroup) {
 		permission.DELETE("/:id", h.Delete)
 		permission.GET("/role/:role_id", h.GetPermissionsByRoleID)
 		permission.GET("/list-parents", h.ListParents)
+		permission.GET("/filter", h.ListPermissions)
 	}
 }
 
@@ -87,7 +88,7 @@ func (h *PermissionHandler) Get(c *gin.Context) {
 	var id = c.Param("id")
 	err := h.db.First(&res, "id = ?", id).Error
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -195,16 +196,22 @@ func (h *PermissionHandler) Update(c *gin.Context) {
 // @Security BearerAuth
 // @Accept json
 // @Produce json
-// @Param id path string true "Permission ID"
+// @Param ids body []string true "Permission IDs"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /permission/{id} [delete]
 func (h *PermissionHandler) Delete(c *gin.Context) {
-	var id = c.Param("id")
-	err := h.db.Delete(&domain.Permission{}, "id = ?", id).Error
+	var ids []string
+	err := c.ShouldBindJSON(&ids)
 	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	err = h.db.Delete(&domain.Permission{}, "id IN (?)", ids).Error
+	if err != nil {
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -284,4 +291,55 @@ func (h *PermissionHandler) ListParents(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, res)
+}
+
+// ListPermissions doc
+// @Summary List Permission
+// @Description List Permission
+// @Tags Permission
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param 	search query string false "Search"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /permission/filter [GET]
+func (h *PermissionHandler) ListPermissions(c *gin.Context) {
+	var (
+		allPermissions []domain.Permission
+		search         = c.Query("search")
+	)
+	// build query
+	query := `SELECT id, route, type, entity_name, description, parent_id, method, created_at, updated_at FROM permissions `
+	if search != "" {
+		search = fmt.Sprintf("%%%s%%", search)
+		query += fmt.Sprintf(" WHERE entity_name ILIKE '%s' OR description ILIKE '%s'", search, search)
+	}
+	// Get all permissions
+	err := h.db.Raw(query).Scan(&allPermissions).Error
+
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	// 2. Rekursiv ravishda daraxt tuzilishini yaratish
+	permissionTree := buildPermissionTree(allPermissions, "")
+
+	handleResponse(c, OK, permissionTree)
+}
+
+// buildPermissionTree doc
+func buildPermissionTree(all []domain.Permission, parentID string) []domain.Permission {
+	var tree []domain.Permission
+	for _, perm := range all {
+		if perm.ParentId == parentID {
+			// Rekursiv chaqirib, `children` larni qo‘shish
+			perm.Children = buildPermissionTree(all, perm.Id)
+			tree = append(tree, perm)
+		}
+	}
+	return tree
 }

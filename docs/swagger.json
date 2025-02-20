@@ -5035,6 +5035,54 @@
                 }
             }
         },
+        "/permission/filter": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "List Permission",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Permission"
+                ],
+                "summary": "List Permission",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Search",
+                        "name": "search",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/permission/list": {
             "get": {
                 "security": [
@@ -5295,11 +5343,16 @@
                 "summary": "Delete Permission",
                 "parameters": [
                     {
-                        "type": "string",
-                        "description": "Permission ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
+                        "description": "Permission IDs",
+                        "name": "ids",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
                     }
                 ],
                 "responses": {
@@ -9914,12 +9967,6 @@
                 "barcode": {
                     "type": "string"
                 },
-                "bonus_amount": {
-                    "type": "number"
-                },
-                "bonus_percent": {
-                    "type": "number"
-                },
                 "category_ids": {
                     "type": "array",
                     "items": {
@@ -9928,15 +9975,6 @@
                 },
                 "description": {
                     "type": "string"
-                },
-                "expire_date": {
-                    "type": "string"
-                },
-                "manufacturer": {
-                    "type": "string"
-                },
-                "markup": {
-                    "type": "number"
                 },
                 "name": {
                     "type": "string"
@@ -9950,12 +9988,6 @@
                 "producer_id": {
                     "type": "string"
                 },
-                "quantity": {
-                    "type": "integer"
-                },
-                "retail_price": {
-                    "type": "number"
-                },
                 "shelf_id": {
                     "type": "string"
                 },
@@ -9965,20 +9997,11 @@
                         "$ref": "#/definitions/domain.StoreProductRequest"
                     }
                 },
-                "supply_price": {
-                    "type": "number"
-                },
                 "unit_per_pack": {
                     "type": "integer"
                 },
                 "unit_type_id": {
                     "type": "string"
-                },
-                "vat": {
-                    "type": "integer"
-                },
-                "vat_price": {
-                    "type": "number"
                 }
             }
         },
