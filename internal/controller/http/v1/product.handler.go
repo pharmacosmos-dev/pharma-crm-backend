@@ -355,7 +355,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 	if retailPriceTo != "" {
 		baseQuery = baseQuery.Where("sp.retail_price <= ?", retailPriceTo)
 	}
-	// filter products with producer id 
+	// filter products with producer id
 	if producerID != "" {
 		baseQuery = baseQuery.Where("p.producer_id = ?", producerID)
 	}
@@ -505,9 +505,9 @@ func (h *ProductHandler) Update(c *gin.Context) {
 			"description":   body.Description,
 		}).Error
 	if err != nil {
-		tx.Rollback()
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
+		tx.Rollback()
 		return
 	}
 	var storeProducts []map[string]interface{}
@@ -593,7 +593,7 @@ func (h *ProductHandler) Update(c *gin.Context) {
 			return
 		}
 	}
-
+	fmt.Println("---->>>> ")
 	if len(body.CategoryIds) > 0 {
 		var categoryProducts = make([]domain.CategoryProduct, len(body.CategoryIds))
 		for i, categoryId := range body.CategoryIds {
@@ -616,6 +616,7 @@ func (h *ProductHandler) Update(c *gin.Context) {
 			return
 		}
 	}
+
 	if err = tx.Commit().Error; err != nil {
 		tx.Rollback()
 		h.log.Error(err)
