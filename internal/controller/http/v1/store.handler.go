@@ -53,19 +53,17 @@ func (h *StoreHandler) Create(c *gin.Context) {
 		body domain.StoreRequest
 		err  error
 	)
-	createdBy, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
-		return
-	}
+	// bind request body
 	err = c.ShouldBindJSON(&body)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	body.CreatedBy = createdBy.(string)
+
+	// generate store id
 	body.Id = uuid.New().String()
+	// create new store info
 	err = h.db.
 		WithContext(c.Request.Context()).
 		Table("stores").

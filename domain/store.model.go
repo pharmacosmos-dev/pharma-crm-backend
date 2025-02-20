@@ -28,7 +28,6 @@ type StoreRequest struct {
 	CashBoxCount  int    `gorm:"cash_box_count" json:"cash_box_count"`
 	StoreCode     int    `gorm:"store_code" json:"store_code"`
 	Location      string `gorm:"location" json:"location"`
-	CreatedBy     string `gorm:"created_by" json:"-"`
 }
 
 // Store Update Request
