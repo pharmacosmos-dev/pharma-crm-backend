@@ -10,8 +10,8 @@ import (
 
 func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartItemData, error) {
 	var res []domain.CartItemResponse
-	err := s.db.Raw(`
-	SELECT
+	err := s.db.Debug().Raw(`
+	SELECT DISTINCT ON (ci.id)
 		ci.*,
 		p.name,
 		p.barcode,
@@ -36,7 +36,7 @@ func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartIt
 	LEFT JOIN category_products cp ON p.id = cp.product_id
 	LEFT JOIN categories c ON c.id = cp.category_id
 	WHERE ci.status = 'pending' AND ci.sale_id = ?
-	ORDER BY ci.created_at LIMIT ? OFFSET ?
+	ORDER BY ci.id, ci.created_at LIMIT ? OFFSET ?
 	`, saleID, limit, offset).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("Error on listing cart items for sale %s: %v", saleID, err.Error())
