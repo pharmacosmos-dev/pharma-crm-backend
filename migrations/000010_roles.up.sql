@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS "permissions" (
     "type" VARCHAR(20) NOT NULL,
     "key" VARCHAR(50),
     "method" VARCHAR[],
-    "parent_id" uuid REFERENCES "permissions"("id"),
+    "parent_id" uuid REFERENCES "permissions"("id") ON DELETE CASCADE,
     "description" TEXT,
     "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
     "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),

@@ -26,7 +26,7 @@ func (h *PermissionHandler) PermissionRoutes(r *gin.RouterGroup) {
 		permission.GET("/:id", h.Get)
 		permission.GET("/list", h.List)
 		permission.PUT("/:id", h.Update)
-		permission.DELETE("/:id", h.Delete)
+		permission.DELETE("/delete", h.Delete)
 		permission.GET("/role/:role_id", h.GetPermissionsByRoleID)
 		permission.GET("/list-parents", h.ListParents)
 		permission.GET("/filter", h.ListPermissions)
@@ -194,28 +194,30 @@ func (h *PermissionHandler) Update(c *gin.Context) {
 // @Description Delete Permission
 // @Tags Permission
 // @Security BearerAuth
-// @Accept json
+// @Accept 	json
 // @Produce json
-// @Param ids body []string true "Permission IDs"
+// @Param 	ids body []string true "Permission IDs"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /permission/{id} [delete]
+// @Router /permission/delete [delete]
 func (h *PermissionHandler) Delete(c *gin.Context) {
 	var ids []string
+	// bind the request body
 	err := c.ShouldBindJSON(&ids)
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	// delete the permissions
 	err = h.db.Delete(&domain.Permission{}, "id IN (?)", ids).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, nil)
+	handleResponse(c, OK, "DELETED")
 }
 
 // GetPermissionsByRoleID doc

@@ -85,14 +85,14 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 		Create(&newImport).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(err.Error(), "unique constraint") {
-			tx.Rollback()
 			h.log.Warn("duplicate document_number: %v", err)
 			handleResponse(c, OK, "Document with this number already exists")
+			tx.Rollback()
 			return
 		}
-		tx.Rollback()
 		h.log.Error(fmt.Errorf("ERROR on creating dok: %v", err.Error()))
 		handleResponse(c, InternalError, "Failed to creating new import")
+		tx.Rollback()
 		return
 	}
 
@@ -107,9 +107,9 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 			body.Товары[i].Id, body.Товары[i].MaterialCode,
 			body.Товары[i].Name, body.Товары[i].Barcode).Error
 		if err != nil {
-			tx.Rollback()
 			h.log.Warn("ERROR on creating new product: %v", err.Error())
 			handleResponse(c, InternalError, "New import created but new product not created")
+			tx.Rollback()
 			return
 		}
 		importDetails = append(importDetails, domain.ImportDetailRequest{
@@ -131,17 +131,17 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 			Table("import_details").
 			Create(&importDetails).Error
 		if err != nil {
-			tx.Rollback()
 			h.log.Error(err)
 			handleResponse(c, InternalError, "ERROR on creating import details")
+			tx.Rollback()
 			return
 		}
 	}
 	// check transaction completed
 	if err = tx.Commit().Error; err != nil {
-		tx.Rollback()
 		h.log.Error(err)
 		handleResponse(c, InternalError, "Failed to commit transaction")
+		tx.Rollback()
 		return
 	}
 
