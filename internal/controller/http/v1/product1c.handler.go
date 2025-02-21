@@ -101,12 +101,11 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 		body.Товары[i].Id = uuid.New().String()
 		err = tx.Exec(`
 		INSERT INTO
-			products (id, material_code, name, barcode, unit_per_pack)
+			products (id, material_code, name, barcode)
 		VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT (material_code) DO NOTHING`,
 			body.Товары[i].Id, body.Товары[i].MaterialCode,
-			body.Товары[i].Name, body.Товары[i].Barcode,
-			body.Товары[i].UnitPerPack).Error
+			body.Товары[i].Name, body.Товары[i].Barcode).Error
 		if err != nil {
 			tx.Rollback()
 			h.log.Warn("ERROR on creating new product: %v", err.Error())

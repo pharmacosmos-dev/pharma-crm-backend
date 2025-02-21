@@ -9954,9 +9954,6 @@ const docTemplate = `{
                 "supply_price": {
                     "type": "number"
                 },
-                "unit_per_pack": {
-                    "type": "integer"
-                },
                 "vat": {
                     "type": "string"
                 },

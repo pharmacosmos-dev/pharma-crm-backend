@@ -129,7 +129,6 @@ type ProductRequest1C struct {
 	Name                string  `gorm:"name" json:"name"`
 	Manufacturer        string  `gorm:"manufacturer" json:"manufacturer"`
 	Quantity            int     `gorm:"quantity" json:"quantity"`
-	UnitPerPack         int     `gorm:"unit_per_pack" json:"unit_per_pack"`
 	RetailPrice         float64 `gorm:"retail_price" json:"retail_price"`
 	SupplyPrice         float64 `gorm:"supply_price" json:"supply_price"`
 	Sum                 float64 `gorm:"sum" json:"sum"`

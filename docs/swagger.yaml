@@ -589,8 +589,6 @@ definitions:
         type: number
       supply_price:
         type: number
-      unit_per_pack:
-        type: integer
       vat:
         type: string
       vat_price:
