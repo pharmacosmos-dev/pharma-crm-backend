@@ -82,6 +82,9 @@ type CartItemResponse struct {
 	UpdatedAt           *time.Time `gorm:"updated_at" json:"updated_at"`
 	Name                string     `gorm:"name" json:"name"`
 	Description         string     `gorm:"description" json:"description"`
+	Vat                 float64    `gorm:"vat" json:"vat"`
+	Label               string     `gorm:"label" json:"label"`
+	VatPercent          float64    `gorm:"vatPercent" json:"vatPercent"`
 	Barcode             string     `gorm:"barcode" json:"barcode"`
 	UnitName            string     `gorm:"unit_name" json:"unit_name"`
 	ShortName           string     `gorm:"short_name" json:"short_name"`
