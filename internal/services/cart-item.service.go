@@ -1,11 +1,13 @@
 package services
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"gorm.io/gorm"
 )
 
 func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartItemData, error) {
@@ -70,14 +72,15 @@ func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartIt
 	return &data, nil
 }
 
+// create cart item
 func (s *Storage) CreateCartItem(req *domain.CartItemRequest, percent, price float64) error {
 	err := s.db.Exec(`
 		INSERT INTO cart_items(
 			id, store_product_id,
 			sale_id, employee_id,
 			quantity, unit_quantity, unit_price,
-			total_price, status, 
-			discount_type, discount_value, 
+			total_price, status,
+			discount_type, discount_value,
 			discount_price, discount_amount
 			)
 		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -108,4 +111,31 @@ func (s *Storage) ListCartItemsBySaleID(saleID string) ([]domain.CartItem, error
 		return nil, err
 	}
 	return res, nil
+}
+
+// create cart item for online sale
+func (s *Storage) CreateOnlineCartItem(tx *gorm.DB, req *domain.SaleOnlineItem, saleID string) error {
+	// check if product and store exist
+	var storProductId string
+	err := s.db.Raw(`SELECT id FROM store_products WHERE store_id = ? AND product_id = ?`, req.StoreId, req.ProductId).Scan(&storProductId).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("product or store not found")
+		}
+		return err
+	}
+	// create new cart item
+	err = tx.Exec(`
+		INSERT INTO cart_items(
+			store_product_id, sale_id, 
+			quantity, unit_price,
+			total_price, status)
+		VALUES(?, ?, ?, ?, ?, ?)`,
+		storProductId, saleID, req.Quantity, req.UnitPrice, req.TotalPrice, config.SOLD_CART_ITEM,
+	).Error
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

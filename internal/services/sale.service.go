@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"gorm.io/gorm"
 )
@@ -131,6 +132,17 @@ func (s *Storage) UpdateCartItemStatus(tx *gorm.DB, saleID string) error {
 		Table("cart_items").
 		Where("sale_id = ?", saleID).
 		Update("status", "sold").Error
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// create sale for online order
+func (s *Storage) CreateOnlineSale(tx *gorm.DB, saleId string, totalAmount int64) error {
+	err := tx.Exec(`
+	INSERT INTO sales(id, total_amount, type, is_delivered, status, completed_at) VALUES(?, ?, ?, ?, ?, ?)`,
+		saleId, totalAmount, "online", false, config.COMPLETED, time.Now()).Error
 	if err != nil {
 		return err
 	}

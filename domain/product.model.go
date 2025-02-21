@@ -177,15 +177,15 @@ type TotalStatusCount struct {
 
 // External API response structure
 type ProductExternal struct {
-	Id          string            `gorm:"id" json:"id"`
-	Name        string            `gorm:"name" json:"name"`
-	Barcode     string            `gorm:"barcode" json:"barcode"`
-	Photos      utils.StringArray `gorm:"type:text[]" json:"photos"`
-	Quantity    int               `gorm:"quantity" json:"quantity"`
-	Description string            `gorm:"description" json:"description"`
-	UnitName    string            `gorm:"unit_name" json:"unit_name"`
-	Stores      []StoreExternal   `gorm:"-" json:"stores"`
-	Categories  []string          `gorm:"-" json:"categories"`
+	Id             string            `gorm:"id" json:"id"`
+	Name           string            `gorm:"name" json:"name"`
+	Barcode        string            `gorm:"barcode" json:"barcode"`
+	Photos         utils.StringArray `gorm:"type:text[]" json:"photos"`
+	Quantity       int               `gorm:"quantity" json:"quantity"`
+	Description    string            `gorm:"description" json:"description"`
+	UnitName       string            `gorm:"unit_name" json:"unit_name"`
+	Stores         []StoreExternal   `gorm:"-" json:"stores"`
+	Categories     []string          `gorm:"-" json:"categories"`
 }
 
 // Store external API response structure

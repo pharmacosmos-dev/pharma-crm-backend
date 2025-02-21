@@ -2,6 +2,7 @@ package v1
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
 	"gorm.io/gorm"
 )
@@ -16,8 +17,10 @@ func (h *Handler) NewExternalHandler(r *gin.RouterGroup) {
 }
 
 func (h *ExternalHandler) ExternalRoutes(r *gin.RouterGroup) {
-	r.GET("/external/product/list", h.List)
-	r.GET("/external/category/list", h.CategoryList)
+	external := r.Group("/external")
+	external.GET("/product/list", h.List)
+	external.GET("/category/list", h.CategoryList)
+	external.POST("/sale", h.CreateSale)
 }
 
 // List Products
@@ -129,4 +132,67 @@ func (h *ExternalHandler) CategoryList(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, res)
+}
+
+// CreateSale godoc
+// @Summary Create a sale
+// @Description Create a sale
+// @Tags 	External API
+// @Security     BasicAuth
+// @Produce 	json
+// @Param 	body body domain.SaleOnline true "Body"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router 	/external/sale [post]
+func (h *ExternalHandler) CreateSale(c *gin.Context) {
+	var (
+		body domain.SaleOnline
+		err  error
+	)
+	// bind request body
+	if err = c.ShouldBindJSON(&body); err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	// start transaction
+	tx := h.db.Begin()
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// create sale id
+	saleId := uuid.New().String()
+
+	// create online sale
+	err = h.service.CreateOnlineSale(tx, saleId, body.TotalAmount)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, "Cannot create the online sale, something went wrong")
+		tx.Rollback()
+		return
+	}
+
+	for i := range body.Items {
+		// create online cart item
+		err = h.service.CreateOnlineCartItem(tx, &body.Items[i], saleId)
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, "Cannot collect the items, something went wrong")
+			tx.Rollback()
+			return
+		}
+	}
+
+	if err = tx.Commit().Error; err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, "Cannot commit the transaction")
+		tx.Rollback()
+		return
+	}
+
+	handleResponse(c, OK, "Success")
 }

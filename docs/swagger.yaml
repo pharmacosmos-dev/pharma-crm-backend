@@ -689,6 +689,30 @@ definitions:
           $ref: '#/definitions/domain.RolePermissionReq'
         type: array
     type: object
+  domain.SaleOnline:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/domain.SaleOnlineItem'
+        type: array
+      total_amount:
+        type: integer
+    type: object
+  domain.SaleOnlineItem:
+    properties:
+      product_id:
+        type: string
+      quantity:
+        type: integer
+      store_id:
+        type: string
+      total_price:
+        type: number
+      unit_price:
+        type: number
+      unit_quantity:
+        type: integer
+    type: object
   domain.SalePaymentRequest:
     properties:
       amount:
@@ -3215,6 +3239,36 @@ paths:
       security:
       - BasicAuth: []
       summary: List Products
+      tags:
+      - External API
+  /external/sale:
+    post:
+      description: Create a sale
+      parameters:
+      - description: Body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.SaleOnline'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BasicAuth: []
+      summary: Create a sale
       tags:
       - External API
   /generate-token:
