@@ -876,7 +876,7 @@ func (h *ProductHandler) GetProductImports(c *gin.Context) {
 	var (
 		storeID   = c.Query("store_id")
 		productID = c.Param("id")
-		res       []*domain.ImportDetail
+		res       []domain.ImportDetail
 	)
 	var product domain.Product
 	err := h.db.First(&product, "id = ?", productID).Error
@@ -893,19 +893,23 @@ func (h *ProductHandler) GetProductImports(c *gin.Context) {
 	}
 	query := h.db.
 		Model(&domain.ImportDetail{}).
+		Table("import_details imd").
 		Preload("Import", func(db *gorm.DB) *gorm.DB {
 			return db.Preload("Store")
 		}).
-		Where("product_id = ?", productID)
+		Select(`imd.*, imd.retail_price * imd.received_count AS received_amount, imd.retail_price * imd.accepted_count AS accepted_amount`).
+		Where("imd.product_id = ?", productID)
 	if storeID != "" {
 		query = query.
-			Joins("INNER JOIN imports ON imports.id = import_details.import_id").
+			Joins("INNER JOIN imports ON imports.id = imd.import_id").
 			Where("imports.store_id = ?", storeID)
 	}
 	var totalCount int64
 	err = query.
 		Count(&totalCount).
 		Limit(limit).Offset(offset).
+		Order("imd.created_at DESC").
+		Debug().
 		Find(&res).Error
 	if err != nil {
 		h.log.Error(err)
