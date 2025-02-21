@@ -186,7 +186,7 @@ func (h *ExternalHandler) CreateSale(c *gin.Context) {
 			return
 		}
 	}
-
+	// commit transaction
 	if err = tx.Commit().Error; err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, "Cannot commit the transaction")
