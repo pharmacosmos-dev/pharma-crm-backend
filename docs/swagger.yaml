@@ -5581,13 +5581,13 @@ paths:
       summary: Update a sale
       tags:
       - sales
-  /sale/epos:
+  /sale/epos-result:
     post:
       consumes:
       - application/json
       description: Epos Request from the request body
       parameters:
-      - description: Epos Response information
+      - description: Epos Response info as json {}
         in: body
         name: input
         required: true

@@ -7284,7 +7284,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/sale/epos": {
+        "/sale/epos-result": {
             "post": {
                 "security": [
                     {
@@ -7304,7 +7304,7 @@ const docTemplate = `{
                 "summary": "Epos Request",
                 "parameters": [
                     {
-                        "description": "Epos Response information",
+                        "description": "Epos Response info as json {}",
                         "name": "input",
                         "in": "body",
                         "required": true,

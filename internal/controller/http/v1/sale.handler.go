@@ -40,7 +40,7 @@ func (h *SaleHandler) SaleRoutes(r *gin.RouterGroup) {
 		sale.PUT("/:id", h.Update)
 		sale.POST("/final", h.FinalSale)
 		sale.GET("/stats", h.SaleStats)
-		sale.POST("/epos", h.EposRequest)
+		sale.POST("/epos-result", h.EposRequest)
 	}
 }
 
@@ -408,11 +408,11 @@ func (h *SaleHandler) Update(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param input body domain.EposResponseRequest true "Epos Response information"
+// @Param input body domain.EposResponseRequest true "Epos Response info as json {}"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /sale/epos [post]
+// @Router /sale/epos-result [post]
 func (h *SaleHandler) EposRequest(c *gin.Context) {
 	var (
 		body domain.EposResponseRequest
