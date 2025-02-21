@@ -40,6 +40,7 @@ func (h *SaleHandler) SaleRoutes(r *gin.RouterGroup) {
 		sale.PUT("/:id", h.Update)
 		sale.POST("/final", h.FinalSale)
 		sale.GET("/stats", h.SaleStats)
+		sale.POST("/epos", h.EposRequest)
 	}
 }
 
@@ -398,6 +399,40 @@ func (h *SaleHandler) Update(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, body)
+}
+
+// EposRequest godoc
+// @Summary Epos Request
+// @Description Epos Request from the request body
+// @Tags sales
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param input body domain.EposResponseRequest true "Epos Response information"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /sale/epos [post]
+func (h *SaleHandler) EposRequest(c *gin.Context) {
+	var (
+		body domain.EposResponseRequest
+		err  error
+	)
+	// bind request body
+	if err = c.ShouldBindJSON(&body); err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	body.Response = []byte(body.ResponseData)
+	// create epos response body
+	err = h.db.WithContext(c.Request.Context()).Table("epos_responses").Create(&body).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, CREATED, "CREATED")
 }
 
 // FinalSale

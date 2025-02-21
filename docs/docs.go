@@ -7284,6 +7284,57 @@ const docTemplate = `{
                 }
             }
         },
+        "/sale/epos": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Epos Request from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sales"
+                ],
+                "summary": "Epos Request",
+                "parameters": [
+                    {
+                        "description": "Epos Response information",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.EposResponseRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/sale/final": {
             "post": {
                 "security": [
@@ -9557,6 +9608,17 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "photo": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.EposResponseRequest": {
+            "type": "object",
+            "properties": {
+                "response_data": {
+                    "type": "string"
+                },
+                "sale_id": {
                     "type": "string"
                 }
             }

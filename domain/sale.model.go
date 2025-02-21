@@ -95,15 +95,33 @@ type SaleTotalAmount struct {
 	BalanceAmount float64 `gorm:"balance_amount" json:"balance_amount"`
 }
 
+// SaleStats structure
 type SaleStats struct {
 	TotalTransactionsSum float64            `gorm:"total_transactions_sum" json:"total_transactions_sum"`
 	TotalReturnalsSum    float64            `gorm:"total_returnals_sum" json:"total_returnals_sum"`
 	PaymentTypeStats     []PaymentTypeStats `gorm:"-" json:"payment_type_stats"`
 }
 
+// PaymentTypeStats structure
 type PaymentTypeStats struct {
 	Id   string  `gorm:"id" json:"id"`
 	Name string  `gorm:"name" json:"name"`
 	Type string  `gorm:"type" json:"type"`
 	Sum  float64 `gorm:"sum" json:"sum"`
+}
+
+// Epos Response structure
+type EposResponse struct {
+	Id        string     `gorm:"id" json:"id"`
+	SaleId    string     `gorm:"sale_id" json:"sale_id"`
+	Response  string     `gorm:"response" json:"response"`
+	CreatedAt *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt *time.Time `gorm:"updated_at" json:"updated_at"`
+}
+
+// EposResponse Request structure
+type EposResponseRequest struct {
+	SaleId       string `gorm:"sale_id" json:"sale_id"`
+	Response     []byte `gorm:"response" json:"-"`
+	ResponseData string `gorm:"-" json:"response_data"`
 }

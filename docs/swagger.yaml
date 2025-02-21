@@ -329,6 +329,13 @@ definitions:
     required:
     - language
     type: object
+  domain.EposResponseRequest:
+    properties:
+      response_data:
+        type: string
+      sale_id:
+        type: string
+    type: object
   domain.FinalPaymentType:
     properties:
       amount:
@@ -5572,6 +5579,38 @@ paths:
       security:
       - BearerAuth: []
       summary: Update a sale
+      tags:
+      - sales
+  /sale/epos:
+    post:
+      consumes:
+      - application/json
+      description: Epos Request from the request body
+      parameters:
+      - description: Epos Response information
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.EposResponseRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Epos Request
       tags:
       - sales
   /sale/final:
