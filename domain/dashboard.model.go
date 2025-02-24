@@ -15,3 +15,11 @@ type ChartResponse struct {
 	TotalAmount float64 `gorm:"total_amount" json:"total_amount"`
 	CreatedAt   string  `gorm:"created_at" json:"created_at"`
 }
+
+// Top Stores structure
+type TopStores struct {
+	Id          string  `gorm:"id" json:"id"`
+	Name        string  `gorm:"name" json:"name"`
+	Count       int64   `gorm:"count" json:"count"`
+	TotalAmount float64 `gorm:"total_amount" json:"total_amount"`
+}

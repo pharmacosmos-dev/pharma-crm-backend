@@ -148,3 +148,40 @@ func (s *Storage) DashboardChartStats(storeId, employeeId string, startDate, end
 
 	return res, nil
 }
+
+// get dashboard top stores
+func (s *Storage) DashboardTopStores(storeId, employeeId, startDate, endDate string) ([]domain.TopStores, error) {
+	// declaration
+	var (
+		res []domain.TopStores
+	)
+	// query
+	var (
+		args   []interface{}
+		query  = `SELECT stores.id, stores.name, COUNT(*) AS count, SUM(sales.total_amount) AS total_amount FROM sales INNER JOIN stores ON sales.store_id = stores.id`
+		filter = " WHERE sales.status = 'completed'"
+		group  = " GROUP BY stores.id"
+		order  = " ORDER BY total_amount DESC"
+	)
+	if storeId != "" {
+		filter += " AND sales.id = ? AND sales.employee_id = ?"
+		args = append(args, storeId, employeeId)
+	}
+	if startDate != "" && endDate == "" {
+		filter += " AND sales.completed_at >= ?"
+		args = append(args, startDate)
+	}
+	if startDate != "" && endDate != "" {
+		filter += " AND sales.completed_at >= ? AND sales.completed_at <= ?"
+		args = append(args, startDate, endDate)
+	}
+
+	var q = query + filter + group + order
+	err := s.db.Debug().Raw(q, args...).Scan(&res).Error
+	if err != nil {
+		s.log.Error(err)
+		return nil, err
+	}
+
+	return res, nil
+}

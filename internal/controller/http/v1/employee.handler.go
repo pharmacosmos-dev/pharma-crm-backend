@@ -365,25 +365,28 @@ func (h *EmployeeHandler) GetInfo(c *gin.Context) {
 		return
 	}
 	var permissions []domain.Permission
-	err := h.db.Raw(`
-	SELECT 
-		p.*
+	err := h.db.Debug().Raw(`
+	SELECT
+		p.*,
+		COALESCE(NULLIF(p.route, ''), p.key) AS route
 	FROM permissions p
 	JOIN role_permissions rp ON rp.permission_id = p.id
 	JOIN employee_roles er ON er.role_id = rp.role_id
 	WHERE er.employee_id = ?
 
-	UNION ALL 
+	UNION
 
-	SELECT 
-		parent_permissions.*
-	FROM permissions parent_permissions
-	WHERE parent_permissions.id IN (
-		SELECT p.parent_id
+	SELECT
+		pp.*,
+		COALESCE(NULLIF(pp.route, ''), pp.key) AS route
+	FROM permissions pp
+	WHERE pp.id IN (
+		SELECT DISTINCT p.parent_id
 		FROM permissions p
 		JOIN role_permissions rp ON rp.permission_id = p.id
 		JOIN employee_roles er ON er.role_id = rp.role_id
 		WHERE er.employee_id = ?
+		AND p.parent_id IS NOT NULL
 	);
 	`, userID, userID).Scan(&permissions).Error
 	if err != nil {
@@ -406,6 +409,7 @@ func (h *EmployeeHandler) GetInfo(c *gin.Context) {
 		return
 	}
 	res.Roles = roles
+
 	handleResponse(c, OK, res)
 }
 
