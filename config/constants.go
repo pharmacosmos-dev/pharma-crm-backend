@@ -14,7 +14,7 @@ const (
 
 const (
 	// region IMPORT status
-	
+
 	NEW_IMPORT       = "new"
 	PENDING_IMPORT   = "pending"
 	COMPLETED_IMPORT = "completed"
@@ -68,4 +68,11 @@ const (
 	DefaultValidationErrKey     = "default"
 	MaxFileSizeValidationErrKey = "max_file_size"
 	MimeTypeValidationErrKey    = "mime_type"
+)
+
+// region role types
+const (
+	ADMIN      = "ADMIN"
+	SUPERADMIN = "SUPERADMIN"
+	MANAGER    = "MANAGER"
 )

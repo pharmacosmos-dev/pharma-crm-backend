@@ -263,6 +263,8 @@ definitions:
         type: string
       public_id:
         type: integer
+      role_type:
+        type: string
       roles:
         items:
           $ref: '#/definitions/domain.Role'
@@ -475,6 +477,8 @@ definitions:
         type: string
       is_active:
         type: boolean
+      key:
+        type: string
       method:
         items:
           type: string
@@ -2507,6 +2511,42 @@ paths:
       summary: Soft delete a customer
       tags:
       - customers
+  /dashboard/count-stats:
+    get:
+      description: Get total count stats
+      parameters:
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: Type
+        in: query
+        name: type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get total count stats
+      tags:
+      - dashboard
   /draft:
     post:
       consumes:

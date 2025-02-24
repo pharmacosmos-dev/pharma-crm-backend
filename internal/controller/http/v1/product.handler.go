@@ -552,7 +552,7 @@ func (h *ProductHandler) Update(c *gin.Context) {
 				"vat":            body.StoreProduct[i].Vat,
 				"markup":         body.StoreProduct[i].Markup,
 				"pack_quantity":  body.StoreProduct[i].PackQuantity,
-				"unit_quantity":  body.StoreProduct[i].UnitQuantity,
+				"unit_quantity":  body.StoreProduct[i].PackQuantity * body.UnitPerPack,
 				"small_quantity": body.StoreProduct[i].SmallQuantity,
 				"bonus_percent":  body.StoreProduct[i].BonusPercent,
 				"expire_date":    body.StoreProduct[i].ExpireDate,

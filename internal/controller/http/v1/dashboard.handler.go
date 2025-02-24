@@ -1,0 +1,70 @@
+package v1
+
+import (
+	"github.com/gin-gonic/gin"
+	"github.com/pharma-crm-backend/config"
+	"github.com/pharma-crm-backend/domain"
+	"gorm.io/gorm"
+)
+
+type DashboardHandler struct {
+	*Handler
+}
+
+func (h *Handler) NewDashboardHandler(r *gin.RouterGroup) {
+	dashboard := &DashboardHandler{h}
+	dashboard.DashboardRoutes(r)
+}
+
+func (h *DashboardHandler) DashboardRoutes(r *gin.RouterGroup) {
+	dashboard := r.Group("/dashboard")
+	{
+		dashboard.GET("/count-stats", h.TotalCountStats)
+	}
+}
+
+// TotalCountStats function
+// @Summary Get total count stats
+// @Description Get total count stats
+// @Tags dashboard
+// @Security     BearerAuth
+// @Produce json
+// @Param   start_date 	query string false "Start Date"
+// @Param   end_date 	query string false "End Date"
+// @Param   type 		query string false "Type"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /dashboard/count-stats [GET]
+func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
+	// get user id from header
+	vendorID, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	// get employee info
+	var employee domain.Employee
+	err := h.db.First(&employee, "id = ?", vendorID).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	var storeId string
+	// check if employee is admin or superadmin
+	if employee.RoleType == config.ADMIN || employee.RoleType == config.SUPERADMIN {
+		storeId = employee.StoreId
+	}
+	// get dashboard data
+	res, err := h.service.DashboardTotalCountStats(storeId, c.Query("start_date"), c.Query("end_date"))
+	if err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, res)
+}

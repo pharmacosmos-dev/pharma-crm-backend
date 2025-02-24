@@ -125,9 +125,12 @@ func (h *EmployeeHandler) Create(c *gin.Context) {
 func (h *EmployeeHandler) Get(c *gin.Context) {
 	var res domain.Employee
 	var id = c.Param("id")
-	if err := h.db.
+	err := h.db.
 		Preload("Store").
-		First(&res, "id = ?", id).Error; err != nil {
+		Preload("Roles").
+		First(&res, "id = ?", id).Error
+
+	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			handleResponse(c, NotFound, "Employee not found")
 			return
@@ -173,7 +176,7 @@ func (h *EmployeeHandler) List(c *gin.Context) {
 	}
 	query := h.db.
 		Model(&domain.Employee{}).
-		Preload("Store")
+		Preload("Store").Preload("Roles")
 	if roleId != "" {
 		query = query.
 			Joins("JOIN employee_roles ON employee_roles.employee_id = employees.id").
@@ -182,6 +185,7 @@ func (h *EmployeeHandler) List(c *gin.Context) {
 	if storeId != "" {
 		query = query.Where("store_id = ?", storeId)
 	}
+
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
 		query = query.Where(`
@@ -401,7 +405,7 @@ func (h *EmployeeHandler) GetInfo(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	res.Role = roles
+	res.Roles = roles
 	handleResponse(c, OK, res)
 }
 

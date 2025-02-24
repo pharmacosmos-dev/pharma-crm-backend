@@ -33,7 +33,7 @@ type Employee struct {
 	UpdatedAt  *time.Time   `gorm:"updated_at" json:"updated_at"`
 	Store      *Store       `gorm:"foreignKey:StoreId" json:"store"`
 	Permission []Permission `gorm:"-" json:"permissions"`
-	Role       []Role       `gorm:"-" json:"roles"`
+	Roles      []Role       `gorm:"many2many:employee_roles;" json:"roles"`
 }
 
 type EmployeeRequest struct {
