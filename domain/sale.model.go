@@ -49,6 +49,7 @@ type SaleResponse struct {
 	Type               string         `gorm:"type" json:"type"`
 	IsDelivered        bool           `gorm:"is_delivered" json:"is_delivered"`
 	CustomerName       *string        `gorm:"customer_name" json:"customer_name"`
+	CustomerPhone      *string        `gorm:"customer_phone" json:"customer_phone"`
 	Employee           *Employee      `gorm:"foreignKey:EmployeeID" json:"employee"`
 	Customer           *Customer      `gorm:"foreignKey:CustomerID" json:"customer"`
 	SalePayments       []*SalePayment `gorm:"foreignKey:SaleID" json:"sale_payments"`

@@ -189,46 +189,63 @@ func (h *SaleHandler) List(c *gin.Context) {
 			return db.Preload("PaymentType")
 		}).
 		Select(`
-			s.*, employees.full_name, employees.phone,
-			stores.name AS store_name, customers.full_name as customer_name,
-			cash_boxes.name AS cash_box_name`).
-		Joins("JOIN employees ON s.employee_id = employees.id").
-		Joins("JOIN stores ON employees.store_id = stores.id").
-		Joins("JOIN cashbox_operations co ON s.cash_box_operation_id = co.id").
-		Joins("JOIN cash_boxes ON co.cash_box_id = cash_boxes.id").
+		s.*, em.full_name, em.phone,
+		st.name AS store_name, customers.full_name as customer_name, customers.phone AS customer_phone,
+		cash_boxes.name AS cash_box_name`).
+		// Change INNER JOIN to LEFT JOIN to include sales without store_id
+		Joins("LEFT JOIN stores st ON st.id = s.store_id").
+		// Change INNER JOIN to LEFT JOIN to include sales without employee_id
+		Joins("LEFT JOIN employees em ON em.id = s.employee_id").
+		// Change INNER JOIN to LEFT JOIN to include sales without cashbox_operation_id
+		Joins("LEFT JOIN cashbox_operations co ON s.cash_box_operation_id = co.id").
+		// Ensure cash_boxes can be null
+		Joins("LEFT JOIN cash_boxes ON co.cash_box_id = cash_boxes.id").
 		Joins("LEFT JOIN customers ON s.customer_id = customers.id")
+
+	// filter by payment type
 	if paymentTypeId != "" {
 		query = query.Joins("JOIN sale_payments sp ON s.id = sp.sale_id").
 			Where("sp.payment_type_id = ?", paymentTypeId).
 			Group("s.id, stores.name, cash_boxes.name")
 	}
-
+	// filter by employee
 	if employeeID != "" {
 		query = query.Where("s.employee_id = ?", employeeID)
+	} else {
+		query = query.Where("s.employee_id IS NOT NULL OR s.employee_id IS NULL") // Include online sales
 	}
+	// filter by store id
 	if storeID != "" {
-		query = query.Where("stores.id = ?", storeID)
+		query = query.Where("s.store_id = ?", storeID)
+	} else {
+		query = query.Where("s.store_id IS NOT NULL OR s.store_id IS NULL") // Include online sales
 	}
+	// filter by cashbox id
 	if cashBoxId != "" {
 		query = query.Where("co.cash_box_id = ?", cashBoxId)
+	} else {
+		query = query.Where("s.cash_box_operation_id IS NULL OR co.cash_box_id IS NOT NULL") // Include online sales
 	}
-
+	// filter by start date and end date
 	if startDate != "" && endDate != "" {
 		query = query.Where("s.completed_at::date >= ? AND s.completed_at::date <= ?  ", startDate, endDate)
 	}
+	// filter by start date
 	if startDate != "" && endDate == "" {
 		query = query.Where("s.completed_at::date = ?", startDate)
 	}
+	// search condition
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
-		query = query.Where("stores.name ILIKE ? OR CAST(s.sale_number AS TEXT) LIKE ?", search, search)
+		query = query.Where("st.name ILIKE ? OR CAST(s.sale_number AS TEXT) LIKE ?", search, search)
 	}
-
+	// complete query
 	err = query.Where("s.status = 'completed'").
 		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).
 		Order("s.completed_at DESC").
+		Debug().
 		Find(&res).Error
 
 	if err != nil {

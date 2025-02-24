@@ -176,6 +176,7 @@ func (h *ExternalHandler) CreateSale(c *gin.Context) {
 		return
 	}
 
+	// create online cart items
 	for i := range body.Items {
 		// create online cart item
 		err = h.service.CreateOnlineCartItem(tx, &body.Items[i], saleId)
