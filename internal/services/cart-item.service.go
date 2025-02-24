@@ -10,6 +10,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// get cart item list by sale id with limit, offset
 func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartItemData, error) {
 	var res []domain.CartItemResponse
 	err := s.db.Debug().Raw(`
@@ -95,6 +96,7 @@ func (s *Storage) CreateCartItem(req *domain.CartItemRequest, percent, price flo
 	return nil
 }
 
+// update cart item by field
 func (s *Storage) UpdateCartItemField(field string, value string, idField, idValue string) (*domain.CartItem, error) {
 	var res domain.CartItem
 	err := s.db.Raw(`UPDATE cart_items SET `+field+` = ? WHERE `+idField+` = ? RETURNING *`, value, idValue).Scan(&res).Error
@@ -104,6 +106,7 @@ func (s *Storage) UpdateCartItemField(field string, value string, idField, idVal
 	return &res, nil
 }
 
+// get cart item list by sale id
 func (s *Storage) ListCartItemsBySaleID(saleID string) ([]domain.CartItem, error) {
 	var res []domain.CartItem
 	err := s.db.Raw(`SELECT * FROM cart_items WHERE sale_id = ?`, saleID).Scan(&res).Error

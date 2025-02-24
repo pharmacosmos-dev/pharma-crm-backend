@@ -331,8 +331,7 @@ definitions:
     type: object
   domain.EposResponseRequest:
     properties:
-      response_data:
-        type: string
+      response_data: {}
       sale_id:
         type: string
     type: object

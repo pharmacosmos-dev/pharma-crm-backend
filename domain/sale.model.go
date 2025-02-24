@@ -121,9 +121,9 @@ type EposResponse struct {
 
 // EposResponse Request structure
 type EposResponseRequest struct {
-	SaleId       string `gorm:"sale_id" json:"sale_id"`
-	Response     []byte `gorm:"response" json:"-"`
-	ResponseData string `gorm:"-" json:"response_data"`
+	SaleId       string      `gorm:"sale_id" json:"sale_id"`
+	Response     []byte      `gorm:"response" json:"-"`
+	ResponseData interface{} `gorm:"-" json:"response_data"`
 }
 
 // Create sale online

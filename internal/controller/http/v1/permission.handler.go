@@ -84,9 +84,16 @@ func (h *PermissionHandler) Create(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /permission/{id} [get]
 func (h *PermissionHandler) Get(c *gin.Context) {
-	var res domain.Permission
-	var id = c.Param("id")
-	err := h.db.First(&res, "id = ?", id).Error
+	var (
+		res domain.Permission
+		id  = c.Param("id")
+	)
+
+	err := h.db.Debug().Raw(`
+	SELECT
+		id, name, type, description, parent_id, method, created_at, updated_at, key,
+		CASE WHEN route is null OR route='' THEN key ELSE route END as route
+	FROM permissions WHERE id = ?`, id).Scan(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -102,7 +109,7 @@ func (h *PermissionHandler) Get(c *gin.Context) {
 // @Security BearerAuth
 // @Accept json
 // @Produce json
-// @Param role_id query string false "Role ID"
+// @Param 	role_id query string false "Role ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -227,7 +234,7 @@ func (h *PermissionHandler) Delete(c *gin.Context) {
 // @Security BearerAuth
 // @Accept json
 // @Produce json
-// @Param role_id path string true "Role ID"
+// @Param 	role_id path string true "Role ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response

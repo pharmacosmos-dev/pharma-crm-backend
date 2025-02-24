@@ -9663,9 +9663,7 @@ const docTemplate = `{
         "domain.EposResponseRequest": {
             "type": "object",
             "properties": {
-                "response_data": {
-                    "type": "string"
-                },
+                "response_data": {},
                 "sale_id": {
                     "type": "string"
                 }

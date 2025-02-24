@@ -16,6 +16,7 @@ type Permission struct {
 	ParentId    string            `gorm:"parent_id" json:"parent_id"`
 	IsActive    bool              `gorm:"is_active" json:"is_active"`
 	Method      utils.StringArray `gorm:"type:text[]" json:"method"`
+	Key         string            `gorm:"key" json:"key"`
 	CreatedAt   *time.Time        `gorm:"created_at" json:"created_at"`
 	UpdatedAt   *time.Time        `gorm:"updated_at" json:"updated_at"`
 	Children    []Permission      `gorm:"foreignKey:ParentId" json:"children"`
@@ -29,8 +30,8 @@ type PermissionRequest struct {
 	Name        string            `gorm:"name" json:"name"`
 	Description string            `gorm:"description" json:"description"`
 	Method      utils.StringArray `gorm:"type:text[]" json:"method"`
-	ParentId    *string           `gorm:"parent_id" json:"parent_id,omitempty"`
 	Key         string            `gorm:"key" json:"key"`
+	ParentId    *string           `gorm:"parent_id" json:"parent_id,omitempty"`
 }
 
 // RolePermission structure for using attech permission to role

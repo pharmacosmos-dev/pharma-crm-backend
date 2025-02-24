@@ -28,6 +28,7 @@ type Employee struct {
 	Status     string       `gorm:"status" json:"status"`
 	Birthdate  string       `gorm:"birthdate" json:"birthdate"`
 	Photo      string       `gorm:"photo" json:"photo"`
+	RoleType   string       `gorm:"role_type" json:"role_type,omitempty"`
 	CreatedAt  *time.Time   `gorm:"created_at" json:"created_at"`
 	UpdatedAt  *time.Time   `gorm:"updated_at" json:"updated_at"`
 	Store      *Store       `gorm:"foreignKey:StoreId" json:"store"`

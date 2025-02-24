@@ -424,7 +424,12 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	body.Response = []byte(body.ResponseData)
+	body.Response, err = json.Marshal(&body.ResponseData)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
 	// create epos response body
 	err = h.db.WithContext(c.Request.Context()).Table("epos_responses").Create(&body).Error
 	if err != nil {
