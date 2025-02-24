@@ -2516,6 +2516,63 @@ const docTemplate = `{
                 }
             }
         },
+        "/dashboard/chart": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get total chart stats",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dashboard"
+                ],
+                "summary": "Get total chart stats",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Start Date",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End Date",
+                        "name": "end_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Type might be -\u003e (HOURLY, DAILY, WEEKLY, MONTHLY, YEARLY)",
+                        "name": "type",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/dashboard/count-stats": {
             "get": {
                 "security": [
@@ -9810,6 +9867,12 @@ const docTemplate = `{
                 },
                 "import_id": {
                     "type": "string"
+                },
+                "markirovka": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "product_id": {
                     "type": "string"

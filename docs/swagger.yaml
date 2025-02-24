@@ -391,6 +391,10 @@ definitions:
         type: string
       import_id:
         type: string
+      markirovka:
+        items:
+          type: string
+        type: array
       product_id:
         type: string
       received_count:
@@ -2511,6 +2515,42 @@ paths:
       summary: Soft delete a customer
       tags:
       - customers
+  /dashboard/chart:
+    get:
+      description: Get total chart stats
+      parameters:
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: Type might be -> (HOURLY, DAILY, WEEKLY, MONTHLY, YEARLY)
+        in: query
+        name: type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get total chart stats
+      tags:
+      - dashboard
   /dashboard/count-stats:
     get:
       description: Get total count stats
