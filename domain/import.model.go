@@ -58,16 +58,17 @@ type ImportDetail struct {
 }
 
 type ImportDetailRequest struct {
-	ImportID      string  `gorm:"import_id" json:"import_id"`
-	ProductID     *string `gorm:"product_id" json:"product_id"`
-	ReceivedCount int     `gorm:"received_count" json:"received_count"`
-	AcceptedCount int     `gorm:"accepted_count" json:"accepted_count"`
-	SupplyPrice   float64 `gorm:"supply_price" json:"supply_price"`
-	RetailPrice   float64 `gorm:"retail_price" json:"retail_price"`
-	ExpireDate    string  `gorm:"expire_date" json:"expire_date"`
-	Vat           int     `gorm:"vat" json:"vat"`
-	VatSum        float64 `gorm:"vat_sum" json:"vat_sum"`
-	SeriesNumber  string  `gorm:"series_number" json:"series_number"`
+	ImportID      string   `gorm:"import_id" json:"import_id"`
+	ProductID     *string  `gorm:"product_id" json:"product_id"`
+	ReceivedCount int      `gorm:"received_count" json:"received_count"`
+	AcceptedCount int      `gorm:"accepted_count" json:"accepted_count"`
+	SupplyPrice   float64  `gorm:"supply_price" json:"supply_price"`
+	RetailPrice   float64  `gorm:"retail_price" json:"retail_price"`
+	ExpireDate    string   `gorm:"expire_date" json:"expire_date"`
+	Vat           int      `gorm:"vat" json:"vat"`
+	VatSum        float64  `gorm:"vat_sum" json:"vat_sum"`
+	SeriesNumber  string   `gorm:"series_number" json:"series_number"`
+	Markirovka    []string `gorm:"-" json:"markirovka"`
 }
 
 type ImportUpdateRequest struct {

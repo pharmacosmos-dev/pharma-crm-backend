@@ -1,65 +1,68 @@
 package services
 
 import (
-	"fmt"
-
 	"github.com/pharma-crm-backend/domain"
-	"github.com/pharma-crm-backend/pkg/helper"
 )
 
 // get dashboard data
 func (s *Storage) DashboardTotalCountStats(storeId string, startDate, endDate string) (*domain.TotalCountStats, error) {
 	// declarations
 	var (
-		res    domain.TotalCountStats
-		params = make(map[string]interface{})
+		res       domain.TotalCountStats
+		totalSale struct {
+			TotalSaleCount  float64 `gorm:"total_sale_count" json:"total_sale_count"`
+			TotalSaleAmount float64 `gorm:"total_sale_amount" json:"total_sale_amount"`
+		}
+		productCount int64
 	)
-
 	// queries
 	var (
-		arr     []interface{}
+		args    []interface{}
 		querys  = `SELECT COUNT(*) AS total_sale_count, SUM(total_amount) AS total_sale_amount FROM sales`
-		queryp  = `SELECT COUNT(pack_quantity) AS total_product_count FROM store_products`
+		queryp  = `SELECT SUM(pack_quantity) AS total_product_count FROM store_products`
 		filters = " WHERE 1=1"
 		filterp = " WHERE expire_date::date >= current_date "
 	)
-	fmt.Println("--->>> ", storeId, startDate, endDate)
 	// if store id is not empty
 	if storeId != "" {
-		params["store_id"] = storeId
-		filters += " AND store_id = :store_id"
-		filterp += " AND store_id = :store_id"
+		filters += " AND store_id = ?"
+		filterp += " AND store_id = ?"
+		args = append(args, storeId)
 	}
+
 	// if start date is not empty
 	if startDate != "" && endDate == "" {
-		params["start_date"] = startDate
-		filters += " AND completed_at >= :start_date"
-		filterp += " AND created_at >= :start_date"
+		filters += " AND completed_at >= ?"
+		filterp += " AND created_at >= ?"
+		args = append(args, startDate)
 	}
+
 	// if end date is not empty
 	if startDate != "" && endDate != "" {
-		params["start_date"] = startDate
-		params["end_date"] = endDate
-		filters += " AND completed_at >= :start_date AND completed_at <= :end_date"
-		filterp += " AND created_at >= :start_date AND created_at <= :end_date"
+		filters += " AND completed_at >= ? AND completed_at <= ?"
+		filterp += " AND created_at >= ? AND created_at <= ?"
+		args = append(args, startDate, endDate)
 	}
 
 	// get total sale count and amount
 	var q = querys + filters
-	q, arr = helper.ReplaceQueryParams(q, params)
-	err := s.db.Raw(q, arr...).Scan(&res).Error
+	err := s.db.Raw(q, args...).Scan(&totalSale).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
 	}
 	// get total product count
 	var qp = queryp + filterp
-	qp, arr = helper.ReplaceQueryParams(qp, params)
-	err = s.db.Debug().Raw(qp, arr...).Scan(&res).Error
+	err = s.db.Debug().Raw(qp, args...).Scan(&productCount).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
 	}
+
+	res.TotalSaleCount = totalSale.TotalSaleCount
+	res.TotalSaleAmount = totalSale.TotalSaleAmount
+	res.TotalProductCount = productCount
+
 	// get store count by checking store_id is not emply
 	if storeId != "" {
 		res.TotalStoreCount = 1

@@ -56,8 +56,8 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 		return
 	}
 	var storeId string
-	// check if employee is admin or superadmin
-	if employee.RoleType == config.ADMIN || employee.RoleType == config.SUPERADMIN {
+	// check if employee is not admin or superadmin
+	if employee.RoleType != config.ADMIN && employee.RoleType != config.SUPERADMIN {
 		storeId = employee.StoreId
 	}
 	// get dashboard data
@@ -68,3 +68,4 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 	}
 	handleResponse(c, OK, res)
 }
+
