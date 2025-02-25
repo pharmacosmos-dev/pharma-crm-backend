@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 
+	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
 	"gorm.io/gorm"
 )
@@ -111,4 +112,118 @@ func (s *Storage) CreateProductMarking(tx *gorm.DB, req domain.ProductMarkingReq
 		}
 	}
 	return nil
+}
+
+// list import
+func (s *Storage) ListImport(c *gin.Context, limit, offset int) ([]domain.Import, int64, error) {
+	var (
+		imports          []domain.Import
+		totalCount       int64
+		search           = c.Query("search")
+		storeID          = c.Query("store_id")
+		startDate        = c.Query("start_date")
+		endDate          = c.Query("end_date")
+		status           = c.Query("status")
+		receivePriceFrom = c.Query("receive_amount_from")
+		receivePriceTo   = c.Query("receive_amount_to")
+		err              error
+	)
+
+	// Fetch imports with detailed data
+	query := s.db.Model(&domain.Import{}).
+		Preload("Store").
+		Preload("Sender").
+		Preload("Receiver").
+		Select(`
+			imports.*, 
+			SUM(import_details.retail_price*import_details.received_count) as received_amount, 
+			SUM(import_details.retail_price*import_details.accepted_count) as accepted_amount, 
+			SUM(import_details.received_count) as received_count, 
+			SUM(import_details.accepted_count) as accepted_count
+		`).Joins("LEFT JOIN import_details ON imports.id = import_details.import_id")
+
+	if search != "" {
+		search = fmt.Sprintf("%%%s%%", search)
+		query = query.Where(`
+		imports.document_number ILIKE ? OR 
+		CAST(imports.public_id AS TEXT) LIKE ?`, search, search)
+	}
+	if storeID != "" {
+		query = query.Where("imports.store_id = ?", storeID)
+	}
+	if startDate != "" {
+		query = query.Where("imports.import_date >= ?", startDate)
+	}
+	if endDate != "" {
+		query = query.Where("imports.import_date <= ?", endDate)
+	}
+	if status != "" {
+		query = query.Where("imports.status = ?", status)
+	}
+	if receivePriceFrom != "" {
+		query = query.Where("received_amount >= ?", receivePriceFrom)
+	}
+	if receivePriceTo != "" {
+		query = query.Where("received_amount <= ?", receivePriceTo)
+	}
+	err = query.Group("imports.id").
+		Order("imports.import_date DESC").
+		Count(&totalCount).
+		Limit(limit).
+		Offset(offset).
+		Find(&imports).Error
+	if err != nil {
+		s.log.Error(err)
+		return nil, 0, err
+	}
+	return imports, totalCount, nil
+}
+
+// list import detail
+func (s *Storage) ListImportDetail(c *gin.Context, limit, offset int) ([]domain.ImportDetail, int64, error) {
+	var (
+		importDetails      []domain.ImportDetail
+		totalCount         int64
+		importId           = c.Query("import_id")
+		search             = c.Query("search")
+		receivedAmountFrom = c.Query("received_amount_from")
+		receivedAmountTo   = c.Query("received_amount_to")
+	)
+	// Fetch import details with detailed data
+	query := s.db.Model(&domain.ImportDetail{}).
+		Preload("Product").
+		Preload("Import").
+		Select(`
+		import_details.*, 
+		(import_details.retail_price*received_count) as received_amount,
+		(import_details.retail_price*accepted_count) as accepted_amount,
+		COALESCE(unit_types.short_name, '') as unit_name`).
+		Joins("LEFT JOIN products ON import_details.product_id = products.id").
+		Joins("LEFT JOIN unit_types ON products.unit_type_id = unit_types.id").
+		Where("import_id = ?", importId)
+
+	if search != "" {
+		search = fmt.Sprintf("%%%s%%", search)
+		query = query.Where(`
+		products.barcode LIKE ? OR 
+		products.name ILIKE ? OR
+		CAST(products.material_code AS TEXT) LIKE ?`, search, search, search)
+	}
+	if receivedAmountFrom != "" {
+		query = query.Where("import_details.received_amount >= ?", receivedAmountFrom)
+	}
+	if receivedAmountTo != "" {
+		query = query.Where("import_details.received_amount <= ?", receivedAmountTo)
+	}
+	err := query.
+		Count(&totalCount).
+		Limit(limit).
+		Offset(offset).
+		Order("created_at DESC").
+		Find(&importDetails).Error
+	if err != nil {
+		s.log.Error(err)
+		return nil, 0, err
+	}
+	return importDetails, totalCount, nil
 }

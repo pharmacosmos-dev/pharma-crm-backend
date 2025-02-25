@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
@@ -29,12 +31,14 @@ func (h *ImportHandler) ImportRoutes(r *gin.RouterGroup) {
 		imports.POST("", h.Create)
 		imports.GET("/:id", h.Get)
 		imports.GET("/list", h.List)
+		imports.GET("/export-excel", h.ExportImportExcel)
 		imports.POST("/excel-upload", h.UploadExcelFile)
 	}
 	importDetail := r.Group("/import-detail")
 	{
 		importDetail.POST("", h.CreateImportDetail)
 		importDetail.GET("/list", h.ListImportDetail)
+		importDetail.GET("/export-excel", h.ExportImporDetailExcel)
 		importDetail.PATCH("/add-scan", h.AddScann)
 		importDetail.PATCH("/accept-all/:id", h.AcceptImport)
 		importDetail.PATCH("/cancel-all/:id", h.CancelImport)
@@ -126,16 +130,9 @@ func (h *ImportHandler) Get(c *gin.Context) {
 // @Router /import/list [get]
 func (h *ImportHandler) List(c *gin.Context) {
 	var (
-		imports          []domain.Import
-		totalCount       int64
-		search           = c.Query("search")
-		storeID          = c.Query("store_id")
-		startDate        = c.Query("start_date")
-		endDate          = c.Query("end_date")
-		status           = c.Query("status")
-		receivePriceFrom = c.Query("receive_amount_from")
-		receivePriceTo   = c.Query("receive_amount_to")
-		err              error
+		imports    []domain.Import
+		totalCount int64
+		err        error
 	)
 
 	// Get pagination parameters
@@ -144,50 +141,8 @@ func (h *ImportHandler) List(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-
-	// Fetch imports with detailed data
-	query := h.db.Model(&domain.Import{}).
-		Preload("Store").
-		Preload("Sender").
-		Preload("Receiver").
-		Select(`
-			imports.*, 
-			SUM(import_details.retail_price*import_details.received_count) as received_amount, 
-			SUM(import_details.retail_price*import_details.accepted_count) as accepted_amount, 
-			SUM(import_details.received_count) as received_count, 
-			SUM(import_details.accepted_count) as accepted_count
-		`).Joins("LEFT JOIN import_details ON imports.id = import_details.import_id")
-
-	if search != "" {
-		search = fmt.Sprintf("%%%s%%", search)
-		query = query.Where(`
-		imports.document_number ILIKE ? OR 
-		CAST(imports.public_id AS TEXT) LIKE ?`, search, search)
-	}
-	if storeID != "" {
-		query = query.Where("imports.store_id = ?", storeID)
-	}
-	if startDate != "" {
-		query = query.Where("imports.import_date >= ?", startDate)
-	}
-	if endDate != "" {
-		query = query.Where("imports.import_date <= ?", endDate)
-	}
-	if status != "" {
-		query = query.Where("imports.status = ?", status)
-	}
-	if receivePriceFrom != "" {
-		query = query.Where("received_amount >= ?", receivePriceFrom)
-	}
-	if receivePriceTo != "" {
-		query = query.Where("received_amount <= ?", receivePriceTo)
-	}
-	err = query.Group("imports.id").
-		Order("imports.import_date DESC").
-		Count(&totalCount).
-		Limit(limit).
-		Offset(offset).
-		Find(&imports).Error
+	// Get import list data
+	imports, totalCount, err = h.service.ListImport(c, limit, offset)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -197,6 +152,104 @@ func (h *ImportHandler) List(c *gin.Context) {
 	data := utils.ListResponse(imports, totalCount, limit, offset)
 
 	handleResponse(c, OK, data)
+}
+
+// Export import excel godoc
+// @Summary Export import excel
+// @Description Export import excel
+// @Tags imports
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param 	limit query int false "Limit"
+// @Param 	offset query int false "Offset"
+// @Param   search query string false "Search"
+// @Param   store_id query string false "Store ID"
+// @Param   start_date 	query string false "Start Date"
+// @Param   end_date 	query string false "End Date"
+// @Param   status 	query string false "Status"
+// @Param   receive_amount_from 	query int false "Receive Amount From"
+// @Param   receive_amount_to 	query int false "Receive Amount To"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /import/export-excel [get]
+func (h *ImportHandler) ExportImportExcel(c *gin.Context) {
+	var (
+		imports []domain.Import
+		err     error
+	)
+
+	// Get pagination parameters
+	limit, offset, err := getPaginationParams(c)
+	if err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	// Get import list data
+	imports, _, err = h.service.ListImport(c, limit, offset)
+	if err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	// Create excel file
+	f := excelize.NewFile()
+	sheetName := "Imports"
+	f.SetSheetName("Sheet1", sheetName)
+
+	// Headerlar
+	headers := []string{"Импорный номер", "Номер документа", "Филиал", "Дата создания", "Дата закрытия", "Полученная сумма", "Принятая сумма", "Полученное количество", "Принятое количество", "Статус"}
+
+	headerStyle, err := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Bold:  true,
+			Color: "000000",
+		},
+	})
+	if err != nil {
+		h.log.Error("Failed to create style:", err)
+		handleResponse(c, InternalError, "Error on giving style to excel")
+		return
+	}
+
+	for i, h := range headers {
+		col := string(rune('A'+i)) + "1"
+		f.SetCellValue(sheetName, col, h)
+		f.SetCellStyle(sheetName, col, col, headerStyle)
+	}
+
+	// Ma'lumotlarni qo'shish
+	for i, imp := range imports {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheetName, "A"+row, imp.PublicID)
+		f.SetCellValue(sheetName, "B"+row, imp.DocumentNumber)
+		if imp.Store != nil {
+			f.SetCellValue(sheetName, "C"+row, imp.Store.Name)
+		} else {
+			f.SetCellValue(sheetName, "C"+row, "N/A")
+		}
+
+		f.SetCellValue(sheetName, "D"+row, imp.ImportDate)
+
+		f.SetCellValue(sheetName, "E"+row, imp.UpdatedAt)
+		f.SetCellValue(sheetName, "F"+row, imp.ReceivedAmount)
+		f.SetCellValue(sheetName, "G"+row, imp.AcceptedAmount)
+		f.SetCellValue(sheetName, "H"+row, imp.ReceivedCount)
+		f.SetCellValue(sheetName, "I"+row, imp.AcceptedCount)
+		f.SetCellValue(sheetName, "J"+row, helper.StatusToRussian(imp.Status))
+
+	}
+
+	// Faylni HTTP response orqali yuborish
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Header("Content-Disposition", "attachment; filename=import.xlsx")
+
+	if err := f.Write(c.Writer); err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, "Failed to generate Excel file")
+	}
 }
 
 // Create godoc
@@ -248,13 +301,50 @@ func (h *ImportHandler) CreateImportDetail(c *gin.Context) {
 // @Router /import-detail/list [get]
 func (h *ImportHandler) ListImportDetail(c *gin.Context) {
 	var (
-		importDetails      []domain.ImportDetail
-		totalCount         int64
-		err                error
-		importId           = c.Query("import_id")
-		search             = c.Query("search")
-		receivedAmountFrom = c.Query("received_amount_from")
-		receivedAmountTo   = c.Query("received_amount_to")
+		importDetails []domain.ImportDetail
+		totalCount    int64
+		err           error
+	)
+
+	// Get pagination parameters
+	limit, offset, err := getPaginationParams(c)
+	if err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	// Get import detail list data
+	importDetails, totalCount, err = h.service.ListImportDetail(c, limit, offset)
+	if err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	// Prepare response
+	data := utils.ListResponse(importDetails, totalCount, limit, offset)
+	handleResponse(c, OK, data)
+}
+
+// Export ImportDetail excel godoc
+// @Summary Export ImportDetail excel
+// @Description Export ImportDetail excel
+// @Tags import_details
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param 	limit query int false "Limit"
+// @Param 	offset query int false "Offset"
+// @Param   search query string false "Search"
+// @Param   import_id query string true "Import ID"
+// @Param   received_amount_from query int false "Received Amount From"
+// @Param   received_amount_to query int false "Received Amount To"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /import-detail/export-excel [get]
+func (h *ImportHandler) ExportImporDetailExcel(c *gin.Context) {
+	var (
+		importDetails []domain.ImportDetail
+		err           error
 	)
 
 	// Get pagination parameters
@@ -264,46 +354,64 @@ func (h *ImportHandler) ListImportDetail(c *gin.Context) {
 		return
 	}
 
-	// Fetch import details with detailed data
-	query := h.db.Model(&domain.ImportDetail{}).
-		Preload("Product").
-		Preload("Import").
-		Select(`
-		import_details.*, 
-		(import_details.retail_price*received_count) as received_amount,
-		(import_details.retail_price*accepted_count) as accepted_amount,
-		COALESCE(unit_types.short_name, '') as unit_name`).
-		Joins("LEFT JOIN products ON import_details.product_id = products.id").
-		Joins("LEFT JOIN unit_types ON products.unit_type_id = unit_types.id").
-		Where("import_id = ?", importId)
-
-	if search != "" {
-		search = fmt.Sprintf("%%%s%%", search)
-		query = query.Where(`
-		products.barcode LIKE ? OR 
-		products.name ILIKE ? OR
-		CAST(products.material_code AS TEXT) LIKE ?`, search, search, search)
-	}
-	if receivedAmountFrom != "" {
-		query = query.Where("import_details.received_amount >= ?", receivedAmountFrom)
-	}
-	if receivedAmountTo != "" {
-		query = query.Where("import_details.received_amount <= ?", receivedAmountTo)
-	}
-	err = query.
-		Count(&totalCount).
-		Limit(limit).
-		Offset(offset).
-		Order("created_at DESC").
-		Find(&importDetails).Error
+	// Get import detail list data
+	importDetails, _, err = h.service.ListImportDetail(c, limit, offset)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
-	// Prepare response
-	data := utils.ListResponse(importDetails, totalCount, limit, offset)
-	handleResponse(c, OK, data)
+	// Excel fayl yaratish
+	f := excelize.NewFile()
+	sheetName := "ImportDetails"
+	f.SetSheetName("Sheet1", sheetName)
+
+	// Headerlar
+	headers := []string{"Название", "Штрих-Код", "Цена Поставки", "Цена Продажа", "Статус", "Полученное количество", "Принятое количество", "Полученная сумма", "Принятая сумма", "Дата создания"}
+
+	headerStyle, err := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Bold:  true,
+			Color: "000000",
+		},
+	})
+	if err != nil {
+		h.log.Error("Failed to create style:", err)
+		handleResponse(c, InternalError, "Error on giving style to excel")
+		return
+	}
+
+	for i, h := range headers {
+		col := string(rune('A'+i)) + "1"
+		f.SetCellValue(sheetName, col, h)
+		f.SetCellStyle(sheetName, col, col, headerStyle)
+	}
+
+	// Ma'lumotlarni qo'shish
+	for i, imp := range importDetails {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheetName, "A"+row, imp.Product.Name)
+		f.SetCellValue(sheetName, "B"+row, imp.Product.Barcode)
+		f.SetCellValue(sheetName, "C"+row, imp.SupplyPrice)
+		f.SetCellValue(sheetName, "D"+row, imp.RetailPrice)
+		f.SetCellValue(sheetName, "E"+row, helper.StatusToRussian(imp.Import.Status))
+		f.SetCellValue(sheetName, "F"+row, imp.ReceivedCount)
+		f.SetCellValue(sheetName, "G"+row, imp.AcceptedCount)
+		f.SetCellValue(sheetName, "H"+row, imp.ReceivedAmount)
+		f.SetCellValue(sheetName, "I"+row, imp.AcceptedAmount)
+		f.SetCellValue(sheetName, "J"+row, imp.CreatedAt)
+
+	}
+
+	// Faylni HTTP response orqali yuborish
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Header("Content-Disposition", "attachment; filename=import-detail.xlsx")
+
+	if err := f.Write(c.Writer); err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, "Failed to generate Excel file")
+	}
+
 }
 
 // AddScann godoc

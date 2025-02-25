@@ -391,10 +391,6 @@ definitions:
         type: string
       import_id:
         type: string
-      markirovka:
-        items:
-          type: string
-        type: array
       product_id:
         type: string
       received_count:
@@ -587,6 +583,10 @@ definitions:
         type: string
       manufacturer:
         type: string
+      markirovka:
+        items:
+          type: string
+        type: array
       markup:
         type: integer
       material_code:
@@ -3072,6 +3072,48 @@ paths:
       summary: Delete employees
       tags:
       - employees
+  /employee/export-excel:
+    get:
+      consumes:
+      - application/json
+      description: Export filtered employee list to an Excel file
+      parameters:
+      - description: Role ID
+        in: query
+        name: role_id
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Status (deleted || blocked || active)
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Download employee list as Excel
+      tags:
+      - employees
   /employee/info:
     get:
       consumes:
@@ -3638,6 +3680,57 @@ paths:
       summary: Cancel import
       tags:
       - import_details
+  /import-detail/export-excel:
+    get:
+      consumes:
+      - application/json
+      description: Export ImportDetail excel
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Import ID
+        in: query
+        name: import_id
+        required: true
+        type: string
+      - description: Received Amount From
+        in: query
+        name: received_amount_from
+        type: integer
+      - description: Received Amount To
+        in: query
+        name: received_amount_to
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Export ImportDetail excel
+      tags:
+      - import_details
   /import-detail/get-stock-status-counts/{id}:
     get:
       consumes:
@@ -3780,6 +3873,68 @@ paths:
       security:
       - BearerAuth: []
       summary: Upload excel file
+      tags:
+      - imports
+  /import/export-excel:
+    get:
+      consumes:
+      - application/json
+      description: Export import excel
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: Status
+        in: query
+        name: status
+        type: string
+      - description: Receive Amount From
+        in: query
+        name: receive_amount_from
+        type: integer
+      - description: Receive Amount To
+        in: query
+        name: receive_amount_to
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Export import excel
       tags:
       - imports
   /import/list:
@@ -5870,6 +6025,68 @@ paths:
       security:
       - BearerAuth: []
       summary: Get a sale
+      tags:
+      - sales
+  /sale/list-excel:
+    get:
+      consumes:
+      - application/json
+      description: Get a sale list excel
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Vendor ID
+        in: query
+        name: vendor_id
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Cash Box ID
+        in: query
+        name: cashbox_id
+        type: string
+      - description: Payment Type ID
+        in: query
+        name: payment_type_id
+        type: string
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a sale list excel
       tags:
       - sales
   /sale/stats:

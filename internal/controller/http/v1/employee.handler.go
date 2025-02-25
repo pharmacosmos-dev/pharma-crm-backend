@@ -2,12 +2,15 @@ package v1
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/etc"
 	"github.com/pharma-crm-backend/pkg/utils"
+	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
 )
 
@@ -26,6 +29,7 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 		employee.POST("", h.Create)
 		employee.GET("/:id", h.Get)
 		employee.GET("/list", h.List)
+		employee.GET("/export-excel", h.DownloadExcel)
 		employee.PUT("/:id", h.Update)
 		employee.DELETE("/delete", h.Delete)
 		employee.GET("/info", h.GetInfo)
@@ -125,6 +129,11 @@ func (h *EmployeeHandler) Create(c *gin.Context) {
 func (h *EmployeeHandler) Get(c *gin.Context) {
 	var res domain.Employee
 	var id = c.Param("id")
+	if err := uuid.Validate(id); err != nil {
+		handleResponse(c, BadRequest, "Invalid id")
+		return
+	}
+
 	err := h.db.
 		Preload("Store").
 		Preload("Roles").
@@ -213,6 +222,111 @@ func (h *EmployeeHandler) List(c *gin.Context) {
 	}
 	result := utils.ListResponse(res, totalCount, limit, offset)
 	handleResponse(c, OK, result)
+}
+
+// @Summary      Download employee list as Excel
+// @Description  Export filtered employee list to an Excel file
+// @Tags         employees
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+// @Param        role_id        query     string   false "Role ID"
+// @Param        store_id       query     string   false "Store ID"
+// @Param        search         query     string   false "Search"
+// @Param        status         query     string   false "Status (deleted || blocked || active)"
+// @Success      200  {file}   application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+// @Failure      400  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /employee/export-excel [get]
+func (h *EmployeeHandler) DownloadExcel(c *gin.Context) {
+	var (
+		employees []domain.Employee
+		roleId    = c.Query("role_id")
+		storeId   = c.Query("store_id")
+		search    = c.Query("search")
+		status    = c.Query("status")
+	)
+
+	// Ma'lumotlarni olish
+	query := h.db.Model(&domain.Employee{}).Preload("Store").Preload("Roles")
+	if roleId != "" {
+		query = query.Joins("JOIN employee_roles ON employee_roles.employee_id = employees.id").Where("role_id = ?", roleId)
+	}
+	if storeId != "" {
+		query = query.Where("store_id = ?", storeId)
+	}
+	if search != "" {
+		search = fmt.Sprintf("%%%s%%", search)
+		query = query.Where(`
+			full_name ILIKE ? OR
+			phone LIKE ? OR 
+			CAST(public_id AS TEXT) LIKE ?`, search, search, search)
+	}
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+
+	if err := query.Order("created_at DESC").Find(&employees).Error; err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	// Excel fayl yaratish
+	f := excelize.NewFile()
+	sheetName := "Employees"
+	f.SetSheetName("Sheet1", sheetName)
+
+	// Headerlar
+	headers := []string{"ID", "ФИО", "Филиал", "Телефон", "Роль", "Статус"}
+
+	headerStyle, err := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Bold:  true,
+			Color: "000000",
+		},
+	})
+	if err != nil {
+		h.log.Error("Failed to create style:", err)
+		handleResponse(c, InternalError, "Error on giving style to excel")
+		return
+	}
+	for i, h := range headers {
+		col := string(rune('A'+i)) + "1"
+		f.SetCellValue(sheetName, col, h)
+		f.SetCellStyle(sheetName, col, col, headerStyle)
+	}
+
+	// Ma'lumotlarni qo'shish
+	for i, emp := range employees {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheetName, "A"+row, emp.PublicId)
+		f.SetCellValue(sheetName, "B"+row, emp.FullName)
+		if emp.Store != nil {
+			f.SetCellValue(sheetName, "C"+row, emp.Store.Name)
+		} else {
+			f.SetCellValue(sheetName, "C"+row, "N/A")
+		}
+
+		f.SetCellValue(sheetName, "D"+row, emp.Phone)
+
+		// Agar employee bir nechta rolga ega bo‘lsa, ularni vergul bilan ajratib yozamiz
+		var roles []string
+		for _, role := range emp.Roles {
+			roles = append(roles, role.Name)
+		}
+		f.SetCellValue(sheetName, "E"+row, strings.Join(roles, ", "))
+		f.SetCellValue(sheetName, "F"+row, emp.Status)
+	}
+
+	// Faylni HTTP response orqali yuborish
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Header("Content-Disposition", "attachment; filename=employees.xlsx")
+
+	if err := f.Write(c.Writer); err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, "Failed to generate Excel file")
+	}
 }
 
 // @Summary      Update employee
