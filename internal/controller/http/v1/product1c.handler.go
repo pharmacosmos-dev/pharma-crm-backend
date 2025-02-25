@@ -108,7 +108,7 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 		SET name = EXCLUDED.name, barcode = EXCLUDED.barcode
 		RETURNING id;
 `,
-			productID, body.Товары[i].MaterialCode,
+			body.Товары[i].MaterialCode,
 			body.Товары[i].Name, body.Товары[i].Barcode).Scan(&productID).Error
 		if err != nil {
 			h.log.Warn("ERROR on creating new product: %v", err.Error())
