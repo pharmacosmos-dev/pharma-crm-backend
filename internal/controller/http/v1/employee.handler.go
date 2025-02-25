@@ -29,7 +29,7 @@ func (h *EmployeeHandler) EmployeeRoutes(r *gin.RouterGroup) {
 		employee.POST("", h.Create)
 		employee.GET("/:id", h.Get)
 		employee.GET("/list", h.List)
-		employee.GET("/export-excel", h.DownloadExcel)
+		employee.GET("/export-excel", h.ExportEmployeeExcel)
 		employee.PUT("/:id", h.Update)
 		employee.DELETE("/delete", h.Delete)
 		employee.GET("/info", h.GetInfo)
@@ -173,54 +173,21 @@ func (h *EmployeeHandler) List(c *gin.Context) {
 	var (
 		res        []domain.Employee
 		totalCount int64
-		roleId     = c.Query("role_id")
-		storeId    = c.Query("store_id")
-		search     = c.Query("search")
-		status     = c.Query("status")
 	)
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	query := h.db.
-		Model(&domain.Employee{}).
-		Preload("Store").Preload("Roles")
-	if roleId != "" {
-		query = query.
-			Joins("JOIN employee_roles ON employee_roles.employee_id = employees.id").
-			Where("role_id = ?", roleId)
-	}
-	if storeId != "" {
-		query = query.Where("store_id = ?", storeId)
-	}
-
-	if search != "" {
-		search = fmt.Sprintf("%%%s%%", search)
-		query = query.Where(`
-		full_name ILIKE ? OR
-		phone LIKE ? OR 
-		CAST(public_id AS TEXT) LIKE ?`,
-			search, search, search)
-	}
-	if status != "" {
-		query = query.Where("status = ?", status)
-	}
-
-	query = query.
-		Count(&totalCount).
-		Limit(limit).
-		Offset(offset).
-		Order("created_at DESC").
-		Debug().
-		Find(&res)
-
-	if query.Error != nil {
-		h.log.Error(query.Error)
-		handleResponse(c, InternalError, query.Error.Error())
+	// get employee list data
+	res, totalCount, err = h.service.ListEmployee(c, limit, offset)
+	if err != nil {
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	// add _meta for pagination response
 	result := utils.ListResponse(res, totalCount, limit, offset)
+
 	handleResponse(c, OK, result)
 }
 
@@ -238,36 +205,21 @@ func (h *EmployeeHandler) List(c *gin.Context) {
 // @Failure      400  {object}  v1.Response
 // @Failure      500  {object}  v1.Response
 // @Router       /employee/export-excel [get]
-func (h *EmployeeHandler) DownloadExcel(c *gin.Context) {
+func (h *EmployeeHandler) ExportEmployeeExcel(c *gin.Context) {
 	var (
 		employees []domain.Employee
-		roleId    = c.Query("role_id")
-		storeId   = c.Query("store_id")
-		search    = c.Query("search")
-		status    = c.Query("status")
+		err       error
 	)
-
-	// Ma'lumotlarni olish
-	query := h.db.Model(&domain.Employee{}).Preload("Store").Preload("Roles")
-	if roleId != "" {
-		query = query.Joins("JOIN employee_roles ON employee_roles.employee_id = employees.id").Where("role_id = ?", roleId)
-	}
-	if storeId != "" {
-		query = query.Where("store_id = ?", storeId)
-	}
-	if search != "" {
-		search = fmt.Sprintf("%%%s%%", search)
-		query = query.Where(`
-			full_name ILIKE ? OR
-			phone LIKE ? OR 
-			CAST(public_id AS TEXT) LIKE ?`, search, search, search)
-	}
-	if status != "" {
-		query = query.Where("status = ?", status)
+	// get limit and offset
+	limit, offset, err := getPaginationParams(c)
+	if err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
 	}
 
-	if err := query.Order("created_at DESC").Find(&employees).Error; err != nil {
-		h.log.Error(err)
+	// get employee list data
+	employees, _, err = h.service.ListEmployee(c, limit, offset)
+	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
