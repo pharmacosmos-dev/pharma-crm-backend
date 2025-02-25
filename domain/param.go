@@ -5,5 +5,3 @@ type Params struct {
 	Offset int                    `json:"offset"`
 	Order  map[string]interface{} `json:"order"`
 }
-
-

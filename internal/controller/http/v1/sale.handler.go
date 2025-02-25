@@ -16,7 +16,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
-	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/spf13/cast"
 	"gorm.io/gorm"
@@ -279,8 +278,7 @@ func (h *SaleHandler) List(c *gin.Context) {
 // @Router /sale/stats [get]
 func (h *SaleHandler) SaleStats(c *gin.Context) {
 	var (
-		res    domain.SaleStats
-		params = make(map[string]interface{})
+		res domain.SaleStats
 	)
 	// Get query params
 	var (
@@ -293,7 +291,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 		search        = c.Query("search")
 	)
 	var (
-		arr []interface{}
+		args []interface{}
 		// query for total transactions sum
 		squery = `
 		SELECT
@@ -325,32 +323,31 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 	)
 
 	if paymentTypeId != "" {
-		params["payment_type_id"] = paymentTypeId
-		filter += " AND sp.payment_type_id = :payment_type_id"
+		args = append(args, paymentTypeId)
+		filter += " AND sp.payment_type_id = ?"
 	}
 
 	if vendorID != "" {
-		params["vendor_id"] = vendorID
-		filter += " AND s.employee_id = :vendor_id"
+		args = append(args, vendorID)
+		filter += " AND s.employee_id = ?"
 	}
 	if storeID != "" {
-		params["store_id"] = storeID
-		filter += "AND st.id = :store_id"
+		args = append(args, storeID)
+		filter += "AND st.id = ?"
 	}
 	if cashBoxId != "" {
-		params["cash_box_id"] = cashBoxId
-		filter += "AND co.cash_box_id = :cash_box_id"
+		args = append(args, cashBoxId)
+		filter += "AND co.cash_box_id = ?"
 	}
 
 	if startDate != "" && endDate != "" {
-		params["start_date"] = startDate
-		params["end_date"] = endDate
-		filter += " AND s.completed_at::date >= :start_date AND s.completed_at::date <= :end_date"
+		args = append(args, startDate, endDate)
+		filter += " AND s.completed_at::date >= ? AND s.completed_at::date <= ?"
 	}
 
 	if startDate != "" && endDate == "" {
-		params["start_date"] = startDate
-		filter += " AND s.completed_at::date = :start_date"
+		args = append(args, startDate)
+		filter += " AND s.completed_at::date >= ?"
 	}
 
 	if search != "" {
@@ -360,8 +357,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 	// collect total transactions query
 	var q = squery + filter
 	// replace with :param with ?
-	q, arr = helper.ReplaceQueryParams(q, params)
-	err := h.db.Debug().Raw(q, arr...).Scan(&res).Error
+	err := h.db.Debug().Raw(q, args...).Scan(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -370,8 +366,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 	// collect payment type sum query
 	var pq = pquery + filter + group
 	// replace with :param with ?
-	pq, arr = helper.ReplaceQueryParams(pq, params)
-	err = h.db.Raw(pq, arr...).Scan(&res.PaymentTypeStats).Error
+	err = h.db.Raw(pq, args...).Scan(&res.PaymentTypeStats).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
