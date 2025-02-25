@@ -3,7 +3,7 @@ package v1
 import (
 	"errors"
 	"fmt"
-	"strings"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -11,6 +11,7 @@ import (
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/spf13/cast"
+	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
 )
 
@@ -128,53 +129,93 @@ func (h *CustomerHandler) Get(c *gin.Context) {
 // @Router /customer/list [get]
 func (h *CustomerHandler) List(c *gin.Context) {
 	var (
-		totalAmount int64
-		search      = c.Query("search")
-		storeID     = c.Query("store_id")
+		search  = c.Query("search")
+		storeID = c.Query("store_id")
 	)
+	// get limit and offset
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	res := []*domain.Customer{}
-
-	// Start building the query
-	query := h.db.
-		Model(&domain.Customer{}).
-		Preload("Store").
-		Select(`
-		customers.*,
-		(SELECT created_at
-		FROM sales
-		WHERE sales.customer_id = customers.id
-		ORDER BY sales.created_at DESC LIMIT 1)
-		AS sale_date,
-		COALESCE(SUM(sales.total_amount), 0) AS sale_amount`).
-		Joins("LEFT JOIN sales ON sales.customer_id = customers.id").
-		Where("customers.is_active = ?", true)
-
-	if search != "" {
-		search = fmt.Sprintf("%%%s%%", search)
-		query = query.Where("customers.full_name ILIKE ? OR customers.phone LIKE ? OR CAST(customers.public_id AS TEXT) LIKE ?",
-			search, search, strings.Trim(search, "%"))
-	}
-	if storeID != "" {
-		query = query.Where("customers.store_id = ?", storeID)
-	}
-	err = query.
-		Group("customers.id").
-		Count(&totalAmount).
-		Limit(limit).
-		Offset(offset).
-		Find(&res).Error
+	// get customers data
+	res, totalCount, err := h.service.ListCustomer(search, storeID, limit, offset)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	result := utils.ListResponse(res, totalAmount, limit, offset)
+	// add _meta data
+	result := utils.ListResponse(res, totalCount, limit, offset)
 
 	handleResponse(c, OK, result)
+}
+
+func (h *CustomerHandler) ExportCustomerExcel(c *gin.Context) {
+	var (
+		search  = c.Query("search")
+		storeID = c.Query("store_id")
+	)
+	// get limit and offset
+	limit, offset, err := getPaginationParams(c)
+	if err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	// get customers data
+	res, _, err := h.service.ListCustomer(search, storeID, limit, offset)
+	if err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	// Excel fayl yaratish
+	f := excelize.NewFile()
+	sheetName := "Employees"
+	f.SetSheetName("Sheet1", sheetName)
+
+	// Headerlar
+	headers := []string{"ID", "ФИО", "Номер Телефона", "Теги", "Статус"}
+
+	headerStyle, err := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Bold:  true,
+			Color: "000000",
+		},
+	})
+	if err != nil {
+		h.log.Error("Failed to create style:", err)
+		handleResponse(c, InternalError, "Error on giving style to excel")
+		return
+	}
+	for i, h := range headers {
+		col := string(rune('A'+i)) + "1"
+		f.SetCellValue(sheetName, col, h)
+		f.SetCellStyle(sheetName, col, col, headerStyle)
+	}
+
+	// Ma'lumotlarni qo'shish
+	for i, emp := range res {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheetName, "A"+row, emp.PublicId)
+		f.SetCellValue(sheetName, "B"+row, emp.FullName)
+		if emp.Store != nil {
+			f.SetCellValue(sheetName, "C"+row, emp.Store.Name)
+		} else {
+			f.SetCellValue(sheetName, "C"+row, "N/A")
+		}
+
+		f.SetCellValue(sheetName, "D"+row, emp.Phone)
+
+	}
+
+	// Faylni HTTP response orqali yuborish
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Header("Content-Disposition", "attachment; filename=employees.xlsx")
+
+	if err := f.Write(c.Writer); err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, "Failed to generate Excel file")
+	}
 }
 
 // Update godoc

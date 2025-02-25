@@ -65,4 +65,5 @@ type StoreWithProducts struct {
 	Markup        int        `gorm:"markup" json:"markup"`
 	ExpireDate    *time.Time `gorm:"expire_date" json:"expire_date"`
 	BonusPercent  int        `gorm:"bonus_percent" json:"bonus_percent"`
+	Location      string     `gorm:"location" json:"location"`
 }
