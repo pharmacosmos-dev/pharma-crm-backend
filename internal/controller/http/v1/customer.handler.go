@@ -30,6 +30,7 @@ func (h *CustomerHandler) CustomerRoutes(r *gin.RouterGroup) {
 		customer.POST("", h.Create)
 		customer.GET("/:id", h.Get)
 		customer.GET("/list", h.List)
+		customer.GET("/export-excel", h.ExportCustomerExcel)
 		customer.PUT("/:id", h.Update)
 		customer.DELETE("/soft-delete", h.SoftDelete)
 		customer.DELETE("/hard-delete", h.HardDelete)
@@ -150,6 +151,21 @@ func (h *CustomerHandler) List(c *gin.Context) {
 	handleResponse(c, OK, result)
 }
 
+// Export customer excel godoc
+// @Summary Export customer excel
+// @Description Export customer excel
+// @Tags customers
+// @Security     BearerAuth
+// @Accept json
+// @Produce      application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Param search query string false "Search"
+// @Param store_id query string false "Store ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /customer/export-excel [get]
 func (h *CustomerHandler) ExportCustomerExcel(c *gin.Context) {
 	var (
 		search  = c.Query("search")
@@ -174,7 +190,7 @@ func (h *CustomerHandler) ExportCustomerExcel(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"ID", "ФИО", "Номер Телефона", "Теги", "Статус"}
+	headers := []string{"ID", "ФИО", "Номер Телефона", "Теги", "Сумма покупки", "Последний покупка", "Дата рождения", "Дата регистрации", ""}
 
 	headerStyle, err := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{
@@ -210,7 +226,7 @@ func (h *CustomerHandler) ExportCustomerExcel(c *gin.Context) {
 
 	// Faylni HTTP response orqali yuborish
 	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	c.Header("Content-Disposition", "attachment; filename=employees.xlsx")
+	c.Header("Content-Disposition", "attachment; filename=customer.xlsx")
 
 	if err := f.Write(c.Writer); err != nil {
 		h.log.Error(err)

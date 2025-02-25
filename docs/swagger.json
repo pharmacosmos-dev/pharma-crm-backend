@@ -4296,7 +4296,7 @@
                     "application/json"
                 ],
                 "produces": [
-                    "application/json"
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 ],
                 "tags": [
                     "import_details"
@@ -4610,7 +4610,7 @@
                     "application/json"
                 ],
                 "produces": [
-                    "application/json"
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 ],
                 "tags": [
                     "imports"

@@ -161,7 +161,7 @@ func (h *ImportHandler) List(c *gin.Context) {
 // @Tags imports
 // @Security     BearerAuth
 // @Accept json
-// @Produce json
+// @Produce application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
 // @Param 	limit query int false "Limit"
 // @Param 	offset query int false "Offset"
 // @Param   search query string false "Search"
@@ -331,7 +331,7 @@ func (h *ImportHandler) ListImportDetail(c *gin.Context) {
 // @Tags import_details
 // @Security     BearerAuth
 // @Accept json
-// @Produce json
+// @Produce application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
 // @Param 	limit query int false "Limit"
 // @Param 	offset query int false "Offset"
 // @Param   search query string false "Search"

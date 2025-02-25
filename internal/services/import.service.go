@@ -220,7 +220,6 @@ func (s *Storage) ListImportDetail(c *gin.Context, limit, offset int) ([]domain.
 		Limit(limit).
 		Offset(offset).
 		Order("import_details.updated_at DESC").
-		Debug().
 		Find(&importDetails).Error
 	if err != nil {
 		s.log.Error(err)

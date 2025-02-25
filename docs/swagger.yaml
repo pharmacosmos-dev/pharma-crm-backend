@@ -3712,7 +3712,7 @@ paths:
         name: received_amount_to
         type: integer
       produces:
-      - application/json
+      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
       responses:
         "200":
           description: OK
@@ -3918,7 +3918,7 @@ paths:
         name: receive_amount_to
         type: integer
       produces:
-      - application/json
+      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
       responses:
         "200":
           description: OK
