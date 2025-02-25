@@ -58,17 +58,16 @@ type ImportDetail struct {
 }
 
 type ImportDetailRequest struct {
-	ImportID      string   `gorm:"import_id" json:"import_id"`
-	ProductID     *string  `gorm:"product_id" json:"product_id"`
-	ReceivedCount int      `gorm:"received_count" json:"received_count"`
-	AcceptedCount int      `gorm:"accepted_count" json:"accepted_count"`
-	SupplyPrice   float64  `gorm:"supply_price" json:"supply_price"`
-	RetailPrice   float64  `gorm:"retail_price" json:"retail_price"`
-	ExpireDate    string   `gorm:"expire_date" json:"expire_date"`
-	Vat           int      `gorm:"vat" json:"vat"`
-	VatSum        float64  `gorm:"vat_sum" json:"vat_sum"`
-	SeriesNumber  string   `gorm:"series_number" json:"series_number"`
-	Markirovka    []string `gorm:"-" json:"markirovka"`
+	ImportID      string  `gorm:"import_id" json:"import_id"`
+	ProductID     *string `gorm:"product_id" json:"product_id"`
+	ReceivedCount int     `gorm:"received_count" json:"received_count"`
+	AcceptedCount int     `gorm:"accepted_count" json:"accepted_count"`
+	SupplyPrice   float64 `gorm:"supply_price" json:"supply_price"`
+	RetailPrice   float64 `gorm:"retail_price" json:"retail_price"`
+	ExpireDate    string  `gorm:"expire_date" json:"expire_date"`
+	Vat           int     `gorm:"vat" json:"vat"`
+	VatSum        float64 `gorm:"vat_sum" json:"vat_sum"`
+	SeriesNumber  string  `gorm:"series_number" json:"series_number"`
 }
 
 type ImportUpdateRequest struct {
@@ -86,4 +85,21 @@ type StockCountResponse struct {
 	ShortageCount int `json:"shortage_count"`
 	TotalCount    int `json:"total_count"`
 	SurplusCount  int `json:"surplus_count"`
+}
+
+// product markirovka structure
+type ProductMarking struct {
+	Id             string     `gorm:"id" json:"id"`
+	ImportDetailId string     `gorm:"import_detail_id" json:"import_detail_id"`
+	Marking        string     `gorm:"marking" json:"marking"`
+	Status         int8       `gorm:"status" json:"status"`
+	CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt      *time.Time `gorm:"updated_at" json:"updated_at"`
+}
+
+// product markirovka create structure
+type ProductMarkingReq struct {
+	ImportDetailId string   `gorm:"import_detail_id" json:"import_detail_id"`
+	ProductID      string   `gorm:"product_id" json:"product_id"`
+	Marking        []string `gorm:"marking" json:"marking"`
 }

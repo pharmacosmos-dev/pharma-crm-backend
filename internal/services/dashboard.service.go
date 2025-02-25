@@ -21,7 +21,7 @@ func (s *Storage) DashboardTotalCountStats(storeId, startDate, endDate string) (
 	var (
 		args    []interface{}
 		querys  = `SELECT COUNT(*) AS total_sale_count, SUM(total_amount) AS total_sale_amount FROM sales`
-		queryp  = `SELECT SUM(pack_quantity) AS total_product_count FROM store_products`
+		queryp  = `SELECT COALESCE(SUM(pack_quantity), 0) AS total_product_count FROM store_products`
 		filters = " WHERE status = 'completed'"
 		filterp = " WHERE expire_date::date >= current_date "
 	)

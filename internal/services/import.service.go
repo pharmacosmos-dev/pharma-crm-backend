@@ -83,3 +83,32 @@ func (s *Storage) UpdateImportDetailsToCancel(tx *gorm.DB, importID string) erro
 	}
 	return nil
 }
+
+// create import details
+func (s *Storage) CreateImportDetail(tx *gorm.DB, req *domain.ImportDetailRequest) (string, error) {
+	var (
+		id    string
+		query = `INSERT INTO import_details(
+			import_id, product_id, received_count, accepted_count, supply_price, retail_price, expire_date, vat, vat_sum, series_number)
+			VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
+	)
+
+	err := tx.Raw(query, req.ImportID, req.ProductID, req.ReceivedCount, req.AcceptedCount, req.SupplyPrice, req.RetailPrice, req.ExpireDate, req.Vat, req.VatSum, req.SeriesNumber).Scan(&id).Error
+	if err != nil {
+		s.log.Error(err)
+		return "", err
+	}
+	return id, nil
+}
+
+// create product marking
+func (s *Storage) CreateProductMarking(tx *gorm.DB, req domain.ProductMarkingReq) error {
+	for _, item := range req.Marking {
+		err := tx.Exec(`INSERT INTO product_markings(import_detail_id, product_id, marking) VALUES(?, ?, ?)`, req.ImportDetailId, req.ProductID, item).Error
+		if err != nil {
+			s.log.Error(err)
+			return err
+		}
+	}
+	return nil
+}

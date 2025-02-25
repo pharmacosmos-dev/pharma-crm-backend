@@ -71,7 +71,7 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-
+	// collect import data
 	newImport := domain.ImportRequest{
 		Id:             uuid.New().String(),
 		StoreID:        store.Id,
@@ -79,6 +79,7 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 		ImportDate:     body.Dok.DocumentDate,
 		DocumentNumber: body.Dok.DocumentNumber,
 	}
+	// create new import
 	err = tx.
 		WithContext(c.Request.Context()).
 		Table("imports").
@@ -95,25 +96,29 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 		tx.Rollback()
 		return
 	}
-
-	var importDetails []domain.ImportDetailRequest
+	var productID string
 	for i := range body.Товары {
-		body.Товары[i].Id = uuid.New().String()
-		err = tx.Exec(`
-		INSERT INTO
-			products (id, material_code, name, barcode)
-		VALUES (?, ?, ?, ?, ?)
-		ON CONFLICT (material_code) DO NOTHING`,
-			body.Товары[i].Id, body.Товары[i].MaterialCode,
-			body.Товары[i].Name, body.Товары[i].Barcode).Error
+		// create product id
+		productID = uuid.New().String()
+		// create or update product
+		err = tx.Raw(`
+		INSERT INTO products (material_code, name, barcode)
+		VALUES ($1, $2, $3)
+		ON CONFLICT (material_code) DO UPDATE 
+		SET name = EXCLUDED.name, barcode = EXCLUDED.barcode
+		RETURNING id;
+`,
+			productID, body.Товары[i].MaterialCode,
+			body.Товары[i].Name, body.Товары[i].Barcode).Scan(&productID).Error
 		if err != nil {
 			h.log.Warn("ERROR on creating new product: %v", err.Error())
 			handleResponse(c, InternalError, "New import created but new product not created")
 			tx.Rollback()
 			return
 		}
-		importDetails = append(importDetails, domain.ImportDetailRequest{
-			ProductID:     &body.Товары[i].Id,
+		// create import details
+		importDetailId, err := h.service.CreateImportDetail(tx, &domain.ImportDetailRequest{
+			ProductID:     &productID,
 			ImportID:      newImport.Id,
 			ReceivedCount: body.Товары[i].Quantity,
 			SupplyPrice:   body.Товары[i].SupplyPrice,
@@ -123,20 +128,26 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 			ExpireDate:    body.Товары[i].ExpireDate,
 			SeriesNumber:  body.Товары[i].ProductSeriesNumber,
 		})
-	}
-	// create import details if importDetails > 0
-	if len(importDetails) > 0 {
-		err = tx.
-			WithContext(c.Request.Context()).
-			Table("import_details").
-			Create(&importDetails).Error
 		if err != nil {
 			h.log.Error(err)
 			handleResponse(c, InternalError, "ERROR on creating import details")
 			tx.Rollback()
 			return
 		}
+		// create product markirovka
+		err = h.service.CreateProductMarking(tx, domain.ProductMarkingReq{
+			ImportDetailId: importDetailId,
+			ProductID:      productID,
+			Marking:        body.Товары[i].Markirovka,
+		})
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, "ERROR on creating product marking")
+			tx.Rollback()
+			return
+		}
 	}
+
 	// check transaction completed
 	if err = tx.Commit().Error; err != nil {
 		h.log.Error(err)

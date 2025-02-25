@@ -124,21 +124,22 @@ type Apteka struct {
 
 // Request structure for 1C API
 type ProductRequest1C struct {
-	Id                  string  `gorm:"type:uuid;default:gen_random_uuid()" json:"-"`
-	MaterialCode        int     `gorm:"material_code" json:"material_code"`
-	Name                string  `gorm:"name" json:"name"`
-	Manufacturer        string  `gorm:"manufacturer" json:"manufacturer"`
-	Quantity            int     `gorm:"quantity" json:"quantity"`
-	RetailPrice         float64 `gorm:"retail_price" json:"retail_price"`
-	SupplyPrice         float64 `gorm:"supply_price" json:"supply_price"`
-	Sum                 float64 `gorm:"sum" json:"sum"`
-	VatPrice            float64 `gorm:"vat_price" json:"vat_price"`
-	Vat                 string  `gorm:"vat" json:"vat"`
-	Markup              int     `gorm:"markup" json:"markup"`
-	VatSum              float64 `gorm:"vat_sum" json:"vat_sum"`
-	ProductSeriesNumber string  `gorm:"product_series_number" json:"product_series_number"`
-	ExpireDate          string  `gorm:"expire_date" json:"expire_date"`
-	Barcode             string  `gorm:"barcode" json:"barcode"`
+	Id                  string   `gorm:"type:uuid;default:gen_random_uuid()" json:"-"`
+	MaterialCode        int      `gorm:"material_code" json:"material_code"`
+	Name                string   `gorm:"name" json:"name"`
+	Manufacturer        string   `gorm:"manufacturer" json:"manufacturer"`
+	Quantity            int      `gorm:"quantity" json:"quantity"`
+	RetailPrice         float64  `gorm:"retail_price" json:"retail_price"`
+	SupplyPrice         float64  `gorm:"supply_price" json:"supply_price"`
+	Sum                 float64  `gorm:"sum" json:"sum"`
+	VatPrice            float64  `gorm:"vat_price" json:"vat_price"`
+	Vat                 string   `gorm:"vat" json:"vat"`
+	Markup              int      `gorm:"markup" json:"markup"`
+	VatSum              float64  `gorm:"vat_sum" json:"vat_sum"`
+	ProductSeriesNumber string   `gorm:"product_series_number" json:"product_series_number"`
+	ExpireDate          string   `gorm:"expire_date" json:"expire_date"`
+	Barcode             string   `gorm:"barcode" json:"barcode"`
+	Markirovka          []string `gorm:"-" json:"markirovka"`
 }
 
 // Create Tovar structure for 1C API
@@ -177,15 +178,15 @@ type TotalStatusCount struct {
 
 // External API response structure
 type ProductExternal struct {
-	Id             string            `gorm:"id" json:"id"`
-	Name           string            `gorm:"name" json:"name"`
-	Barcode        string            `gorm:"barcode" json:"barcode"`
-	Photos         utils.StringArray `gorm:"type:text[]" json:"photos"`
-	Quantity       int               `gorm:"quantity" json:"quantity"`
-	Description    string            `gorm:"description" json:"description"`
-	UnitName       string            `gorm:"unit_name" json:"unit_name"`
-	Stores         []StoreExternal   `gorm:"-" json:"stores"`
-	Categories     []string          `gorm:"-" json:"categories"`
+	Id          string            `gorm:"id" json:"id"`
+	Name        string            `gorm:"name" json:"name"`
+	Barcode     string            `gorm:"barcode" json:"barcode"`
+	Photos      utils.StringArray `gorm:"type:text[]" json:"photos"`
+	Quantity    int               `gorm:"quantity" json:"quantity"`
+	Description string            `gorm:"description" json:"description"`
+	UnitName    string            `gorm:"unit_name" json:"unit_name"`
+	Stores      []StoreExternal   `gorm:"-" json:"stores"`
+	Categories  []string          `gorm:"-" json:"categories"`
 }
 
 // Store external API response structure
