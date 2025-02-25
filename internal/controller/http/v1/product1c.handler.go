@@ -112,7 +112,7 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 			body.Товары[i].Name, body.Товары[i].Barcode).Scan(&productID).Error
 		if err != nil {
 			h.log.Warn("ERROR on creating new product: %v", err.Error())
-			handleResponse(c, InternalError, "New import created but new product not created")
+			handleResponse(c, BadRequest, "Error on checking product data")
 			tx.Rollback()
 			return
 		}

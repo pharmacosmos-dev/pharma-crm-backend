@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -453,6 +454,7 @@ func (h *ImportHandler) AddScann(c *gin.Context) {
 			)`,
 			body.ImportID, body.Barcode).
 		Update("accepted_count", gorm.Expr("accepted_count + ?", body.Count)).
+		Update("updated_at", time.Now()).
 		Scan(&importDetail)
 
 	if result.RowsAffected == 0 {
