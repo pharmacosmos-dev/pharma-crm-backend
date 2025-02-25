@@ -206,7 +206,7 @@ func (h *SaleHandler) List(c *gin.Context) {
 	if paymentTypeId != "" {
 		query = query.Joins("JOIN sale_payments sp ON s.id = sp.sale_id").
 			Where("sp.payment_type_id = ?", paymentTypeId).
-			Group("s.id, stores.name, cash_boxes.name")
+			Group("s.id, st.name, cash_boxes.name, em.full_name, em.phone, customers.full_name, customers.phone")
 	}
 	// filter by employee
 	if employeeID != "" {
