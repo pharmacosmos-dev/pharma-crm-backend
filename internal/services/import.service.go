@@ -171,7 +171,7 @@ func (s *Storage) ListImport(c *gin.Context, limit, offset int) ([]domain.Import
 		query = query.Where("received_amount <= ?", receivePriceTo)
 	}
 	err = query.Group("imports.id").
-		Order("imports.import_date DESC").
+		Order("imports.created_at DESC").
 		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).
