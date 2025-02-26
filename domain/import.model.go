@@ -50,7 +50,7 @@ type ImportDetail struct {
 	RetailPriceVat    float64    `gorm:"retail_price_vat" json:"retail_price_vat"`
 	UnitName          string     `gorm:"unit_name" json:"unit_name"`
 	ReceivedAmount    float64    `gorm:"received_amount" json:"received_amount"`
-	ReceviedAmountVat float64    `gorm:"received_amount_vat" json:"received_amount_vat"`
+	ReceivedAmountVat float64    `gorm:"received_amount_vat" json:"received_amount_vat"`
 	AcceptedAmount    float64    `gorm:"accepted_amount" json:"accepted_amount"`
 	AcceptedAmountVat float64    `gorm:"accepted_amount_vat" json:"accepted_amount_vat"`
 	SeriesNumber      string     `gorm:"series_number" json:"series_number"`
