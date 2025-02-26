@@ -201,7 +201,7 @@ func (s *Storage) ListImportDetail(c *gin.Context, limit, offset int) ([]domain.
 		import_details.*, 
 		(import_details.retail_price*received_count) as received_amount,
 		(import_details.retail_price*accepted_count) as accepted_amount,
-		(import_details.retail_price_vat*received_count) as received_amount_vat,
+		sum_vat as received_amount_vat,
 		(import_details.retail_price_vat*accepted_count) as accepted_amount_vat,
 		COALESCE(unit_types.short_name, '') as unit_name`).
 		Joins("LEFT JOIN products ON import_details.product_id = products.id").
