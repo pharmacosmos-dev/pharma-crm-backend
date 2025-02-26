@@ -141,6 +141,7 @@ type ProductRequest1C struct {
 	ProductSeriesNumber string   `gorm:"product_series_number" json:"product_series_number"`
 	ExpireDate          string   `gorm:"expire_date" json:"expire_date"`
 	Barcode             string   `gorm:"barcode" json:"barcode"`
+	SumVat              float64  `gorm:"sum_vat" json:"sum_vat"`
 	Markirovka          []string `gorm:"-" json:"markirovka"`
 }
 

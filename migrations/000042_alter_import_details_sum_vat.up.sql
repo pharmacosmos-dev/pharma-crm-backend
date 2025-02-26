@@ -1,0 +1,1 @@
+ALTER TABLE "import_details" ADD COLUMN IF NOT EXISTS "sum_vat" NUMERIC(20, 2) DEFAULT 0.00;

@@ -94,11 +94,11 @@ func (s *Storage) CreateImportDetail(tx *gorm.DB, req *domain.ImportDetailReques
 	var (
 		id    string
 		query = `INSERT INTO import_details(
-			import_id, product_id, received_count, accepted_count, supply_price, supply_price_vat, retail_price, retail_price_vat, expire_date, vat, vat_sum, series_number)
-			VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
+			import_id, product_id, received_count, accepted_count, supply_price, supply_price_vat, retail_price, retail_price_vat, expire_date, vat, vat_sum, series_number, sum_vat)
+			VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
 	)
 
-	err := tx.Debug().Raw(query, req.ImportID, req.ProductID, req.ReceivedCount, req.AcceptedCount, req.SupplyPrice, req.SupplyPriceVat, req.RetailPrice, req.RetailPriceVat, req.ExpireDate, req.Vat, req.VatSum, req.SeriesNumber).Scan(&id).Error
+	err := tx.Debug().Raw(query, req.ImportID, req.ProductID, req.ReceivedCount, req.AcceptedCount, req.SupplyPrice, req.SupplyPriceVat, req.RetailPrice, req.RetailPriceVat, req.ExpireDate, req.Vat, req.VatSum, req.SeriesNumber, req.SumVat).Scan(&id).Error
 	if err != nil {
 		s.log.Error(err)
 		return "", err

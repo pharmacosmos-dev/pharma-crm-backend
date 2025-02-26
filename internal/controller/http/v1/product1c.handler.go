@@ -129,6 +129,7 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 			VatSum:         body.Товары[i].VatSum,
 			ExpireDate:     body.Товары[i].ExpireDate,
 			SeriesNumber:   body.Товары[i].ProductSeriesNumber,
+			SumVat:         body.Товары[i].SumVat,
 		})
 		if err != nil {
 			h.log.Error(err)
