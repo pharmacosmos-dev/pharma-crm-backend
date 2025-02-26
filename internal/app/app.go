@@ -30,7 +30,7 @@ func Run(cfg *config.Config) {
 		l.Error(err)
 	}
 	// New storage
-	storage := services.NewStorage(connDB, l)
+	storage := services.NewStorage(connDB, l, cfg)
 
 	// HTTP Server
 	handler := gin.New()

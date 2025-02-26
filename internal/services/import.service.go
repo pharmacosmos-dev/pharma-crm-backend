@@ -1,9 +1,16 @@
 package services
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"gorm.io/gorm"
 )
@@ -21,38 +28,94 @@ func (s *Storage) UpdateImportByField(tx *gorm.DB, id string, field, value strin
 	return &res, nil
 }
 
+// accept import
+func (s *Storage) AcceptImport(tx *gorm.DB, id string, userID string) (*domain.Import, error) {
+	var res domain.Import
+	err := tx.Raw(`UPDATE imports SET status = ?, accepted_by = ? WHERE id = ? RETURNING *`, config.COMPLETED_IMPORT, userID, id).Scan(&res).Error
+	if err != nil {
+		s.log.Error(err)
+		return nil, err
+	}
+	return &res, nil
+}
+
+// Canceled import
+func (s *Storage) CancelImport(tx *gorm.DB, id string, userID string) (*domain.Import, error) {
+	var res domain.Import
+	err := tx.Raw(`UPDATE imports SET status = ?, accepted_by = ? WHERE id = ? RETURNING *`, config.CANCELED_IMPORT, userID, id).Scan(&res).Error
+	if err != nil {
+		s.log.Error(err)
+		return nil, err
+	}
+	return &res, nil
+}
+
 // Add some imported products to stores
 func (s *Storage) AddImportedProductsToStore(tx *gorm.DB, importData *domain.Import) error {
 	var (
-		importDetails []domain.ImportDetail
+		reqFakt domain.AcceptImport1C
 	)
 	// import_detail list by import_id
-	err := tx.Raw(`SELECT import_details.*, products.unit_per_pack FROM import_details JOIN products ON products.id = import_details.product_id WHERE import_id = ?`, importData.Id).Scan(&importDetails).Error
+	importDetails, err := s.GetImportDetailsByImportId(importData.Id)
 	if err != nil {
-		s.log.Error(err)
 		return err
 	}
+	// get store info by using import_id
+	store, err := s.GetStoreByImportId(importData.Id)
+	if err != nil {
+		return err
+	}
+
+	// collect send fakt data
+	reqFakt.Dok.DocumentNumber = importData.DocumentNumber
+	reqFakt.Dok.DocumentDate = importData.ImportDate.Format(config.DATE_TIME_FORMAT)
+	reqFakt.Apteka.StoreCode = store.StoreCode
+	reqFakt.Apteka.Name = store.Name
+
 	// add products to store
 	storeProductQuery := `INSERT INTO store_products(store_id, product_id, pack_quantity, unit_quantity, supply_price, retail_price, vat, expire_date) VALUES(?, ?, ?, ?, ?, ?, ?, ?)`
 	for _, item := range importDetails {
 		if item.AcceptedCount > 0 {
+			// add imported products to store_products
 			err = tx.Exec(storeProductQuery, importData.StoreID, item.ProductID, item.AcceptedCount, item.UnitPerPack*item.AcceptedCount, item.SupplyPriceVat, item.RetailPriceVat, item.Vat, item.ExpireDate).Error
 			if err != nil {
+				s.log.Error(err)
 				return err
 			}
+			// collect fakt data
+			reqFakt.Товары = append(reqFakt.Товары, domain.AcceptImport1CResponse{
+				MaterialCode:        item.MaterialCode,
+				Name:                item.ProductName,
+				Barcode:             item.Barcode,
+				Manufacturer:        item.ProducerName,
+				ProductSeriesNumber: item.SeriesNumber,
+				Quantity:            item.ReceivedCount,
+				QuantityFakt:        item.AcceptedCount,
+			})
 		}
+	}
+
+	// send fakt to 1C
+	err = s.DoRequest(context.Background(), reqFakt, "/prihod")
+	if err != nil {
+		s.log.Error(err)
+		return errors.New("failed to send fakt to 1C")
 	}
 	return nil
 }
 
 // add all imported products to store
 func (s *Storage) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import) error {
-	var importDetails []domain.ImportDetail
+	var (
+		importDetails []domain.ImportDetail
+		reqFakt       domain.AcceptImport1C
+		store         *domain.Store
+	)
 	// update imports detail accepted_count to received_count
 	err := tx.Exec(`
 	UPDATE import_details 
-	SET 
-		accepted_count = received_count 
+	SET
+		accepted_count = received_count
 	WHERE import_id = ?`, importData.Id).Error
 	if err != nil {
 		s.log.Error(err)
@@ -60,11 +123,22 @@ func (s *Storage) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import) 
 	}
 
 	// get import_detail list by import_id
-	err = tx.Raw(`SELECT import_details.*, products.unit_per_pack AS unit_per_pack FROM import_details JOIN products ON products.id = import_details.product_id WHERE import_id = ?`, importData.Id).Scan(&importDetails).Error
+	importDetails, err = s.GetImportDetailsByImportId(importData.Id)
 	if err != nil {
-		s.log.Error(err)
 		return err
 	}
+	// get store info by import_id
+	store, err = s.GetStoreByImportId(importData.Id)
+	if err != nil {
+		return err
+	}
+
+	// collect send fakt data
+	reqFakt.Dok.DocumentNumber = importData.DocumentNumber
+	reqFakt.Dok.DocumentDate = importData.ImportDate.Format(config.DATE_TIME_FORMAT)
+	reqFakt.Apteka.StoreCode = store.StoreCode
+	reqFakt.Apteka.Name = store.Name
+
 	// add products to store
 	storeProductQuery := `INSERT INTO store_products(store_id, product_id, pack_quantity, unit_quantity, supply_price, retail_price, vat, expire_date) VALUES(?, ?, ?, ?, ?, ?, ?, ?)`
 	for _, item := range importDetails {
@@ -74,7 +148,25 @@ func (s *Storage) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import) 
 				s.log.Error(err)
 				return err
 			}
+
+			// collect product fakt data
+			reqFakt.Товары = append(reqFakt.Товары, domain.AcceptImport1CResponse{
+				MaterialCode:        item.MaterialCode,
+				Name:                item.ProductName,
+				Barcode:             item.Barcode,
+				Manufacturer:        item.ProducerName,
+				ProductSeriesNumber: item.SeriesNumber,
+				Quantity:            item.ReceivedCount,
+				QuantityFakt:        item.AcceptedCount,
+			})
 		}
+	}
+
+	// send fakt to 1C
+	err = s.DoRequest(context.Background(), reqFakt, "/prihod")
+	if err != nil {
+		s.log.Error(err)
+		return errors.New("failed to send fakt to 1C")
 	}
 
 	return nil
@@ -234,4 +326,73 @@ func (s *Storage) ListImportDetail(c *gin.Context, limit, offset int) ([]domain.
 		return nil, 0, err
 	}
 	return importDetails, totalCount, nil
+}
+
+// send request to 1C for answering import details
+func (s *Storage) DoRequest(ctx context.Context, data interface{}, url string) error {
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+	buf := bytes.Buffer{}
+	// Encode data to JSON
+	err := json.NewEncoder(&buf).Encode(data)
+	if err != nil {
+		s.log.Error("failed to encode request data: %v", err)
+		return fmt.Errorf("failed to encode request data: %v", err)
+	}
+	// Construct request
+	req, err := http.NewRequestWithContext(ctx, "POST", s.cfg.BaseUrl1C+url, &buf)
+	if err != nil {
+		s.log.Error("failed to create HTTP request: %v", err)
+		return fmt.Errorf("failed to create HTTP request: %v", err)
+	}
+	// set basic auth username and password
+	req.SetBasicAuth(s.cfg.BaseUsername1C, s.cfg.BasePassword1C)
+	req.Header.Set("Content-Type", "application/json")
+
+	// Execute request
+	response, err := client.Do(req)
+	if err != nil {
+		s.log.Error("failed to execute HTTP request: %v", err)
+		return fmt.Errorf("failed to execute HTTP request: %v", err)
+	}
+	// close response body
+	defer response.Body.Close()
+
+	var info map[string]interface{}
+	// read response body
+	err = json.NewDecoder(response.Body).Decode(&info)
+	if err != nil {
+		s.log.Error(err)
+		return err
+	}
+	if value, ok := info["ok"]; !ok || value != true {
+		s.log.Error(info)
+		return fmt.Errorf("failed to answer prihod response: %v", info)
+	}
+
+	return nil
+}
+
+// get import details by import id
+func (s *Storage) GetImportDetailsByImportId(importId string) ([]domain.ImportDetail, error) {
+	var importDetails []domain.ImportDetail
+	err := s.db.Raw(`
+		SELECT 
+			import_details.*, 
+			products.unit_per_pack, 
+			products.barcode, 
+			products.name as product_name, 
+			products.material_code, 
+			COALESCE(pr.name, '') as producer_name
+		FROM import_details 
+		JOIN products ON products.id = import_details.product_id
+		LEFT JOIN producers pr ON pr.id = products.producer_id
+		 WHERE import_id = ?`,
+		importId).Scan(&importDetails).Error
+	if err != nil {
+		s.log.Error(err)
+		return nil, err
+	}
+	return importDetails, nil
 }

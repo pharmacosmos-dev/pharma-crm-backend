@@ -382,7 +382,7 @@ func (h *AutoOrderHandler) SendAutoOrder(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	res, err := h.DoRequest(c.Request.Context(), data)
+	res, err := h.DoRequest(c.Request.Context(), data, "/zakaz")
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -442,7 +442,7 @@ func (h *AutoOrderHandler) SendAutoOrder(c *gin.Context) {
 }
 
 // send request to 1C for creating auto order
-func (h *AutoOrderHandler) DoRequest(ctx context.Context, data interface{}) (*domain.AutoOrderResponse, error) {
+func (h *AutoOrderHandler) DoRequest(ctx context.Context, data interface{}, url string) (*domain.AutoOrderResponse, error) {
 	client := &http.Client{
 		Timeout: 30 * time.Second,
 	}
@@ -454,7 +454,7 @@ func (h *AutoOrderHandler) DoRequest(ctx context.Context, data interface{}) (*do
 		return nil, fmt.Errorf("failed to encode request data: %v", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", h.cfg.BaseUrl1C+"/zakaz", &buf)
+	req, err := http.NewRequestWithContext(ctx, "POST", h.cfg.BaseUrl1C+url, &buf)
 	if err != nil {
 		h.log.Error("failed to create HTTP request: %v", err)
 		return nil, fmt.Errorf("failed to create HTTP request: %v", err)

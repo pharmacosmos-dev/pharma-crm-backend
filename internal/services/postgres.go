@@ -1,6 +1,7 @@
 package services
 
 import (
+	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/pkg/logger"
 	"gorm.io/gorm"
 )
@@ -8,11 +9,13 @@ import (
 type Storage struct {
 	db  *gorm.DB
 	log *logger.Logger
+	cfg *config.Config
 }
 
-func NewStorage(db *gorm.DB, log *logger.Logger) *Storage {
+func NewStorage(db *gorm.DB, log *logger.Logger, cfg *config.Config) *Storage {
 	return &Storage{
 		db:  db,
 		log: log,
+		cfg: cfg,
 	}
 }

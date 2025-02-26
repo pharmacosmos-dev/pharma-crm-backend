@@ -58,6 +58,10 @@ type ImportDetail struct {
 	Vat               int        `gorm:"vat" json:"vat"`
 	SumVat            float64    `gorm:"sum_vat" json:"sum_vat"`
 	UnitPerPack       int        `gorm:"unit_per_pack" json:"unit_per_pack"`
+	ProducerName      string     `gorm:"producer_name" json:"producer_name"`
+	ProductName       string     `gorm:"product_name" json:"product_name,omitempty"`
+	Barcode           string     `gorm:"barcode" json:"barcode,omitempty"`
+	MaterialCode      int        `gorm:"material_code" json:"material_code,omitempty"`
 	CreatedAt         *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt         *time.Time `gorm:"updated_at" json:"updated_at"`
 	Product           *Product   `gorm:"references:Id;foreignKey:ProductID" json:"product"`
@@ -112,4 +116,22 @@ type ProductMarkingReq struct {
 	ImportDetailId string   `gorm:"import_detail_id" json:"import_detail_id"`
 	ProductID      string   `gorm:"product_id" json:"product_id"`
 	Marking        []string `gorm:"marking" json:"marking"`
+}
+
+// Accept imported Product
+type AcceptImport1C struct {
+	Dok    Document                 `json:"Dok"`
+	Apteka Apteka                   `json:"Apteka"`
+	Товары []AcceptImport1CResponse `json:"Товары"`
+}
+
+// AcceptImport1CResponse structure for 1C resonse API
+type AcceptImport1CResponse struct {
+	MaterialCode        int    `gorm:"material_code" json:"material_code"`
+	Name                string `gorm:"name" json:"name"`
+	Barcode             string `gorm:"barcode" json:"barcode"`
+	Manufacturer        string `gorm:"manufacturer" json:"manufacturer"`
+	ProductSeriesNumber string `gorm:"product_series_number" json:"product_series_number"`
+	Quantity            int    `gorm:"quantity" json:"quantity"`
+	QuantityFakt        int    `gorm:"quantity_fakt" json:"quantity_fakt"`
 }

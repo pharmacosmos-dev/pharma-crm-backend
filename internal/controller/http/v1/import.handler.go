@@ -9,7 +9,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
@@ -539,6 +538,11 @@ func (h *ImportHandler) AcceptImport(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid import id")
 		return
 	}
+	userID, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, InternalError, "User ID not found in context")
+		return
+	}
 	// start transaction
 	tx := h.db.Begin()
 	defer func() {
@@ -547,7 +551,7 @@ func (h *ImportHandler) AcceptImport(c *gin.Context) {
 		}
 	}()
 	// update imports status to completed
-	importData, err := h.service.UpdateImportByField(tx, id, "status", config.COMPLETED_IMPORT)
+	importData, err := h.service.AcceptImport(tx, id, userID.(string))
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		h.db.Rollback()
@@ -585,6 +589,17 @@ func (h *ImportHandler) AcceptImport(c *gin.Context) {
 // @Router /import-detail/cancel-all/{id} [patch]
 func (h *ImportHandler) CancelImport(c *gin.Context) {
 	var id = c.Param("id")
+
+	// validate id
+	if err := uuid.Validate(id); err != nil {
+		handleResponse(c, BadRequest, "Invalid import id")
+		return
+	}
+	userID, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, InternalError, "User ID not found in context")
+		return
+	}
 	// start transaction
 	tx := h.db.Begin()
 	defer func() {
@@ -593,7 +608,7 @@ func (h *ImportHandler) CancelImport(c *gin.Context) {
 		}
 	}()
 	// update import status to cancel
-	importData, err := h.service.UpdateImportByField(tx, id, "status", config.CANCELED_IMPORT)
+	importData, err := h.service.CancelImport(tx, id, userID.(string))
 	if err != nil {
 		handleResponse(c, InternalError, "Error on canceling import")
 		tx.Rollback()
@@ -632,6 +647,18 @@ func (h *ImportHandler) CancelImport(c *gin.Context) {
 // @Router /import-detail/accept-some/{id} [patch]
 func (h *ImportHandler) AcceptSomeImport(c *gin.Context) {
 	var id = c.Param("id")
+	// validate request id
+	if err := uuid.Validate(id); err != nil {
+		handleResponse(c, BadRequest, "Invalid import id")
+		return
+	}
+	// get user id from context
+	userID, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, InternalError, "User ID not found in context")
+		return
+	}
+
 	// start transaction
 	tx := h.db.Begin()
 	defer func() {
@@ -640,11 +667,10 @@ func (h *ImportHandler) AcceptSomeImport(c *gin.Context) {
 		}
 	}()
 	// update import status to completed
-	importData, err := h.service.UpdateImportByField(tx, id, "status", config.COMPLETED_IMPORT)
+	importData, err := h.service.AcceptImport(tx, id, userID.(string))
 	if err != nil {
-		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
-		tx.Rollback()
+		h.db.Rollback()
 		return
 	}
 	// add products import_details to store_products
@@ -655,7 +681,7 @@ func (h *ImportHandler) AcceptSomeImport(c *gin.Context) {
 		tx.Rollback()
 		return
 	}
-	
+
 	// check transaction is commit
 	if err = tx.Commit().Error; err != nil {
 		h.log.Error(err)

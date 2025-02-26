@@ -785,7 +785,6 @@ func (h *ProductHandler) AddStoreProductByBarcode(c *gin.Context) {
 	var cartItem domain.CartItem
 	err = h.db.Debug().First(&cartItem, "store_product_id = ? AND status = 'pending' AND sale_id = ?", storeProduct.Id, body.SaleID).Error
 	if err == nil {
-		fmt.Println(storeProduct.PackQuantity, cartItem.Quantity+1)
 		// check quantity is enough in store_products table
 		if storeProduct.PackQuantity < cartItem.Quantity+1 {
 			handleResponse(c, CONFLICT, gin.H{

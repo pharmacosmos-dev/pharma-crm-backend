@@ -801,7 +801,6 @@ func (h *SaleHandler) ClickPassDoRequest(ctx context.Context, url string, data i
 
 	// Construct request
 	fullURL := h.cfg.ClickEndpointUrl + url
-	fmt.Println(fullURL)
 	req, err := http.NewRequestWithContext(ctx, "POST", fullURL, &buf)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request: %v", err)
