@@ -215,17 +215,29 @@ func (h *CustomerHandler) ExportCustomerExcel(c *gin.Context) {
 		f.SetCellValue(sheetName, "A"+row, client.PublicId)
 		f.SetCellValue(sheetName, "B"+row, client.FullName)
 		f.SetCellValue(sheetName, "C"+row, client.Phone)
-		f.SetCellValue(sheetName, "D"+row, client.Tag.Name)
-		f.SetCellValue(sheetName, "E"+row, client.SaleAmount)
-		
-
-		if client.Store != nil {
-			f.SetCellValue(sheetName, "C"+row, client.Store.Name)
+		// check if store is not null
+		if client.Tag != nil {
+			f.SetCellValue(sheetName, "D"+row, client.Tag.Name)
 		} else {
-			f.SetCellValue(sheetName, "C"+row, "N/A")
+			f.SetCellValue(sheetName, "D"+row, "N/A")
 		}
-
-		f.SetCellValue(sheetName, "D"+row, client.Phone)
+		f.SetCellValue(sheetName, "E"+row, client.SaleAmount)
+		// check last sale date with null or not
+		if client.SaleDate != nil {
+			f.SetCellValue(sheetName, "F"+row, client.SaleDate)
+		} else {
+			f.SetCellValue(sheetName, "F"+row, "N/A")
+		}
+		f.SetCellValue(sheetName, "G"+row, client.Birthday)
+		f.SetCellValue(sheetName, "H"+row, client.CreatedAt)
+		// check if store is not null
+		if client.Store != nil {
+			f.SetCellValue(sheetName, "I"+row, client.Store.Name)
+		} else {
+			f.SetCellValue(sheetName, "I"+row, "N/A")
+		}
+		f.SetCellValue(sheetName, "J"+row, client.Balance)
+		f.SetCellValue(sheetName, "K"+row, client.DebtAmount)
 
 	}
 

@@ -1,0 +1,2 @@
+ALTER TABLE "import_details" ADD COLUMN IF NOT EXISTS "supply_price_vat" NUMERIC(10, 2) DEFAULT 0.00;
+ALTER TABLE "import_details" ADD COLUMN IF NOT EXISTS "retail_price_vat" NUMERIC(10, 2) DEFAULT 0.00;

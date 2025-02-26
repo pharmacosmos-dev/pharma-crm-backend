@@ -35,9 +35,11 @@ func (s *Storage) AddImportedProductsToStore(tx *gorm.DB, importData *domain.Imp
 	// add products to store
 	storeProductQuery := `INSERT INTO store_products(store_id, product_id, pack_quantity, unit_quantity, supply_price, retail_price, vat, expire_date) VALUES(?, ?, ?, ?, ?, ?, ?, ?)`
 	for _, item := range importDetails {
-		err = tx.Exec(storeProductQuery, importData.StoreID, item.ProductID, item.AcceptedCount, item.UnitPerPack*item.AcceptedCount, item.SupplyPrice, item.RetailPrice, item.Vat, item.ExpireDate).Error
-		if err != nil {
-			return err
+		if item.AcceptedCount > 0 {
+			err = tx.Exec(storeProductQuery, importData.StoreID, item.ProductID, item.AcceptedCount, item.UnitPerPack*item.AcceptedCount, item.SupplyPriceVat, item.RetailPriceVat, item.Vat, item.ExpireDate).Error
+			if err != nil {
+				return err
+			}
 		}
 	}
 	return nil
@@ -65,10 +67,12 @@ func (s *Storage) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import) 
 	// add products to store
 	storeProductQuery := `INSERT INTO store_products(store_id, product_id, pack_quantity, unit_quantity, supply_price, retail_price, vat, expire_date) VALUES(?, ?, ?, ?, ?, ?, ?, ?)`
 	for _, item := range importDetails {
-		err = tx.Exec(storeProductQuery, importData.StoreID, item.ProductID, item.ReceivedCount, item.UnitPerPack*item.ReceivedCount, item.SupplyPrice, item.RetailPrice, item.Vat, item.ExpireDate).Error
-		if err != nil {
-			s.log.Error(err)
-			return err
+		if item.ReceivedCount > 0 {
+			err = tx.Exec(storeProductQuery, importData.StoreID, item.ProductID, item.ReceivedCount, item.UnitPerPack*item.ReceivedCount, item.SupplyPriceVat, item.RetailPriceVat, item.Vat, item.ExpireDate).Error
+			if err != nil {
+				s.log.Error(err)
+				return err
+			}
 		}
 	}
 
@@ -197,6 +201,8 @@ func (s *Storage) ListImportDetail(c *gin.Context, limit, offset int) ([]domain.
 		import_details.*, 
 		(import_details.retail_price*received_count) as received_amount,
 		(import_details.retail_price*accepted_count) as accepted_amount,
+		(import_details.retail_price_vat*received_count) as received_amount_vat,
+		(import_details.retail_price_vat*accepted_count) as accepted_amount_vat,
 		COALESCE(unit_types.short_name, '') as unit_name`).
 		Joins("LEFT JOIN products ON import_details.product_id = products.id").
 		Joins("LEFT JOIN unit_types ON products.unit_type_id = unit_types.id").

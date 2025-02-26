@@ -118,15 +118,17 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 		}
 		// create import details
 		importDetailId, err := h.service.CreateImportDetail(tx, &domain.ImportDetailRequest{
-			ProductID:     &productID,
-			ImportID:      newImport.Id,
-			ReceivedCount: body.Товары[i].Quantity,
-			SupplyPrice:   body.Товары[i].SupplyPrice,
-			RetailPrice:   body.Товары[i].RetailPrice,
-			Vat:           cast.ToInt(body.Товары[i].Vat),
-			VatSum:        body.Товары[i].VatSum,
-			ExpireDate:    body.Товары[i].ExpireDate,
-			SeriesNumber:  body.Товары[i].ProductSeriesNumber,
+			ProductID:      &productID,
+			ImportID:       newImport.Id,
+			ReceivedCount:  body.Товары[i].Quantity,
+			SupplyPrice:    body.Товары[i].SupplyPrice,
+			SupplyPriceVat: body.Товары[i].SupplyPriceVat,
+			RetailPrice:    body.Товары[i].RetailPrice,
+			RetailPriceVat: body.Товары[i].RetailPriceVat,
+			Vat:            cast.ToInt(body.Товары[i].Vat),
+			VatSum:         body.Товары[i].VatSum,
+			ExpireDate:     body.Товары[i].ExpireDate,
+			SeriesNumber:   body.Товары[i].ProductSeriesNumber,
 		})
 		if err != nil {
 			h.log.Error(err)

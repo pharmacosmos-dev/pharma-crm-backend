@@ -533,6 +533,12 @@ func (h *ImportHandler) UpdateImportDetail(c *gin.Context) {
 // @Router /import-detail/accept-all/{id} [patch]
 func (h *ImportHandler) AcceptImport(c *gin.Context) {
 	var id = c.Param("id")
+
+	// validate id
+	if err := uuid.Validate(id); err != nil {
+		handleResponse(c, BadRequest, "Invalid import id")
+		return
+	}
 	// start transaction
 	tx := h.db.Begin()
 	defer func() {
@@ -554,7 +560,7 @@ func (h *ImportHandler) AcceptImport(c *gin.Context) {
 		h.db.Rollback()
 		return
 	}
-
+	// commit transaction
 	if err = tx.Commit().Error; err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
