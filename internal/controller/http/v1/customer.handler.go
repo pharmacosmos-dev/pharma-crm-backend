@@ -186,11 +186,11 @@ func (h *CustomerHandler) ExportCustomerExcel(c *gin.Context) {
 
 	// Excel fayl yaratish
 	f := excelize.NewFile()
-	sheetName := "Employees"
+	sheetName := "Clients"
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"ID", "ФИО", "Номер Телефона", "Теги", "Сумма покупки", "Последний покупка", "Дата рождения", "Дата регистрации", ""}
+	headers := []string{"ID", "ФИО", "Номер Телефона", "Теги", "Сумма покупки", "Последний покупка", "Дата рождения", "Дата регистрации", "Зарегистрируйтесь в филиале", "Баланс", "Текущий долг"}
 
 	headerStyle, err := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{
@@ -210,23 +210,28 @@ func (h *CustomerHandler) ExportCustomerExcel(c *gin.Context) {
 	}
 
 	// Ma'lumotlarni qo'shish
-	for i, emp := range res {
+	for i, client := range res {
 		row := strconv.Itoa(i + 2)
-		f.SetCellValue(sheetName, "A"+row, emp.PublicId)
-		f.SetCellValue(sheetName, "B"+row, emp.FullName)
-		if emp.Store != nil {
-			f.SetCellValue(sheetName, "C"+row, emp.Store.Name)
+		f.SetCellValue(sheetName, "A"+row, client.PublicId)
+		f.SetCellValue(sheetName, "B"+row, client.FullName)
+		f.SetCellValue(sheetName, "C"+row, client.Phone)
+		f.SetCellValue(sheetName, "D"+row, client.Tag.Name)
+		f.SetCellValue(sheetName, "E"+row, client.SaleAmount)
+		
+
+		if client.Store != nil {
+			f.SetCellValue(sheetName, "C"+row, client.Store.Name)
 		} else {
 			f.SetCellValue(sheetName, "C"+row, "N/A")
 		}
 
-		f.SetCellValue(sheetName, "D"+row, emp.Phone)
+		f.SetCellValue(sheetName, "D"+row, client.Phone)
 
 	}
 
 	// Faylni HTTP response orqali yuborish
 	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	c.Header("Content-Disposition", "attachment; filename=customer.xlsx")
+	c.Header("Content-Disposition", "attachment; filename=clients.xlsx")
 
 	if err := f.Write(c.Writer); err != nil {
 		h.log.Error(err)

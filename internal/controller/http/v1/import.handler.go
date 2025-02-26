@@ -437,6 +437,12 @@ func (h *ImportHandler) AddScann(c *gin.Context) {
 		return
 	}
 
+	// validate barcode
+	if body.Barcode == "" {
+		handleResponse(c, BadRequest, "Barcode is required")
+		return
+	}
+
 	// Check if the count is valid
 	if body.Count < 1 {
 		body.Count = 1
