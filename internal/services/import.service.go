@@ -58,8 +58,9 @@ func (s *Storage) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import) 
 		s.log.Error(err)
 		return err
 	}
+
 	// get import_detail list by import_id
-	err = tx.Raw(`SELECT import_details.*, products.unit_per_pack FROM import_details JOIN products ON products.id = import_details.product_id WHERE import_id = ?`, importData.Id).Scan(&importDetails).Error
+	err = tx.Raw(`SELECT import_details.*, products.unit_per_pack AS unit_per_pack FROM import_details JOIN products ON products.id = import_details.product_id WHERE import_id = ?`, importData.Id).Scan(&importDetails).Error
 	if err != nil {
 		s.log.Error(err)
 		return err
@@ -225,7 +226,7 @@ func (s *Storage) ListImportDetail(c *gin.Context, limit, offset int) ([]domain.
 		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).
-		Order("import_details.updated_at DESC").
+		Order("products.name").
 		Debug().
 		Find(&importDetails).Error
 	if err != nil {

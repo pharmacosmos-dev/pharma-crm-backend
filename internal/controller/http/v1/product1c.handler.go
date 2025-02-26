@@ -116,6 +116,11 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 			tx.Rollback()
 			return
 		}
+		if body.Товары[i].SupplyPriceVat < 1 || body.Товары[i].RetailPriceVat < 1 {
+			handleResponse(c, BadRequest, "SupplyPriceVat and RetailPriceVat must be greater than 0")
+			tx.Rollback()
+			return
+		}
 		// create import details
 		importDetailId, err := h.service.CreateImportDetail(tx, &domain.ImportDetailRequest{
 			ProductID:      &productID,

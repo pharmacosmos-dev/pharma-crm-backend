@@ -655,6 +655,7 @@ func (h *ImportHandler) AcceptSomeImport(c *gin.Context) {
 		tx.Rollback()
 		return
 	}
+	
 	// check transaction is commit
 	if err = tx.Commit().Error; err != nil {
 		h.log.Error(err)
