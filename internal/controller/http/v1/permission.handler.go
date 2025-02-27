@@ -139,14 +139,14 @@ func (h *PermissionHandler) List(c *gin.Context) {
 					Preload("Children", func(childDB *gorm.DB) *gorm.DB {
 						// Preload Children of Permissions
 						return childDB.Select(`
-								permissions.*, 
+								permissions.*,
 								COALESCE(role_permissions.is_active, false) AS is_active
 							`).
 							Joins(`
 								LEFT JOIN role_permissions 
 								ON role_permissions.permission_id = permissions.id 
 								AND role_permissions.role_id = ?
-							`, roleID)
+							`, roleID).Preload("Children")
 					})
 			}
 			// Default Preload without role_id
@@ -161,7 +161,32 @@ func (h *PermissionHandler) List(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+
+	// Rekursiv funksiya orqali nil bo'lgan `Children` va `Permissions`ni bo‘sh slice qilib o‘zgartirish
+	for i := range res {
+		setEmptyChildrenAndPermissions(&res[i])
+	}
+
 	handleResponse(c, OK, res)
+}
+
+// Rekursiv funksiya: `Permissions` va `Children` ni nil bo'lsa, empty slice qiladi
+func setEmptyChildrenAndPermissions(mp *domain.MainPermission) {
+	if mp.Permissions == nil {
+		mp.Permissions = []domain.Permission{}
+	}
+	for i := range mp.Permissions {
+		setEmptyChildren(&mp.Permissions[i])
+	}
+}
+
+func setEmptyChildren(p *domain.Permission) {
+	if p.Children == nil {
+		p.Children = []domain.Permission{}
+	}
+	for i := range p.Children {
+		setEmptyChildren(&p.Children[i])
+	}
 }
 
 // Update doc
@@ -366,7 +391,12 @@ func buildPermissionTree(all []domain.Permission, parentID string) []domain.Perm
 	for _, perm := range all {
 		if perm.ParentId == parentID {
 			// Rekursiv chaqirib, `children` larni qo‘shish
-			perm.Children = buildPermissionTree(all, perm.Id)
+			children := buildPermissionTree(all, perm.Id)
+			if len(children) == 0 {
+				perm.Children = []domain.Permission{} // Bo'sh slice o'rnatish
+			} else {
+				perm.Children = children
+			}
 			tree = append(tree, perm)
 		}
 	}
