@@ -164,12 +164,12 @@ func (s *Storage) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import) 
 		}
 	}
 
-	// send fakt to 1C
-	err = s.DoRequest(context.Background(), reqFakt, "/prihod")
-	if err != nil {
-		s.log.Error(err)
-		return errors.New("failed to send fakt to 1C")
-	}
+	// // send fakt to 1C
+	// err = s.DoRequest(context.Background(), reqFakt, "/prihod")
+	// if err != nil {
+	// 	s.log.Error(err)
+	// 	return errors.New("failed to send fakt to 1C")
+	// }
 
 	return nil
 }

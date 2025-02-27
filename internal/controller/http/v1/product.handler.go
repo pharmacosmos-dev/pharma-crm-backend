@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/xuri/excelize/v2"
 
@@ -119,7 +120,7 @@ func (h *ProductHandler) Create(c *gin.Context) {
 			importDetail[i].AcceptedCount = body.StoreProduct[i].PackQuantity
 			importDetail[i].SupplyPrice = body.StoreProduct[i].SupplyPrice
 			importDetail[i].RetailPrice = body.StoreProduct[i].RetailPrice
-			importDetail[i].Vat = body.Vat
+			importDetail[i].Vat = body.StoreProduct[i].Vat
 			importDetail[i].VatSum = body.StoreProduct[i].RetailPrice - body.StoreProduct[i].SupplyPrice
 			importDetail[i].ExpireDate = time.Now().Format("2006-01-02 15:04:05")
 		}
@@ -873,23 +874,51 @@ func (h *ProductHandler) AddStoreProductByBarcode(c *gin.Context) {
 // @Router /product/import/{id} [get]
 func (h *ProductHandler) GetProductImports(c *gin.Context) {
 	var (
-		storeID   = c.Query("store_id")
-		productID = c.Param("id")
-		res       []domain.ImportDetail
+		storeID    = c.Query("store_id")
+		productID  = c.Param("id")
+		res        []domain.ImportDetail
+		totalCount int64
+		product    domain.Product
+		employee   domain.Employee
 	)
-	var product domain.Product
-	err := h.db.First(&product, "id = ?", productID).Error
+	// get user_id from header
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, NotFound, "User ID not found")
+		return
+	}
+
+	// get employee info
+	err := h.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	// check user role
+	if !helper.IsAdmin(employee, h.cfg) {
+		storeID = employee.StoreId
+	}
+
+	// get product info
+	err = h.db.First(&product, "id = ?", productID).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	// get limit offset
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	// build query
 	query := h.db.
 		Model(&domain.ImportDetail{}).
 		Table("import_details imd").
@@ -903,7 +932,7 @@ func (h *ProductHandler) GetProductImports(c *gin.Context) {
 			Joins("INNER JOIN imports ON imports.id = imd.import_id").
 			Where("imports.store_id = ?", storeID)
 	}
-	var totalCount int64
+	// complete query
 	err = query.
 		Count(&totalCount).
 		Limit(limit).Offset(offset).
@@ -915,7 +944,9 @@ func (h *ProductHandler) GetProductImports(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	// get _meta data for pagination information
 	result := utils.ListResponse(res, totalCount, limit, offset)
+
 	handleResponse(c, OK, result)
 }
 

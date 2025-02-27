@@ -53,20 +53,9 @@ type ProductRequest struct {
 	Name         string                `gorm:"name" json:"name"`
 	Barcode      string                `gorm:"barcode" json:"barcode"`
 	Photos       utils.StringArray     `gorm:"type:text[]" json:"photos"`
-	SupplyPrice  float64               `gorm:"supply_price" json:"supply_price"`
-	RetailPrice  float64               `gorm:"retail_price" json:"retail_price"`
-	Quantity     int                   `gorm:"quantity" json:"quantity"`
 	UnitPerPack  int                   `gorm:"unit_per_pack" json:"unit_per_pack"`
-	Vat          int                   `gorm:"vat" json:"vat"`
-	Markup       float64               `gorm:"markup" json:"markup"`
-	VatPrice     float64               `gorm:"vat_price" json:"vat_price"`
-	Sum          float64               `gorm:"sum" json:"-"`
 	Description  string                `gorm:"description" json:"description"`
 	Status       string                `gorm:"status" json:"-" example:"active|inactive"`
-	Manufacturer string                `gorm:"manufacturer" json:"manufacturer"`
-	ExpireDate   *time.Time            `gorm:"expire_date" json:"expire_date"`
-	BonusPercent float64               `gorm:"bonus_percent" json:"bonus_percent"`
-	BonusAmount  float64               `gorm:"bonus_amount" json:"bonus_amount"`
 	StoreProduct []StoreProductRequest `gorm:"-" json:"store_product"`
 	CategoryIds  []string              `gorm:"-" json:"category_ids"`
 }

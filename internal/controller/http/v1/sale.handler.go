@@ -317,6 +317,30 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 		storeID       = c.Query("store_id")
 		search        = c.Query("search")
 	)
+	// get userid from header
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, BadRequest, "User not found")
+		return
+	}
+	var employee domain.Employee
+	// get employee info
+	err := h.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	// check user role
+	if !helper.IsAdmin(employee, h.cfg) {
+		storeID = employee.StoreId
+		vendorID = employee.Id
+	}
+
 	var (
 		args []interface{}
 		// query for total transactions sum
@@ -384,7 +408,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 	// collect total transactions query
 	var q = squery + filter
 	// replace with :param with ?
-	err := h.db.Debug().Raw(q, args...).Scan(&res).Error
+	err = h.db.Debug().Raw(q, args...).Scan(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -398,6 +422,9 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
+	}
+	if res.PaymentTypeStats == nil {
+		res.PaymentTypeStats = []domain.PaymentTypeStats{}
 	}
 	handleResponse(c, OK, res)
 }
