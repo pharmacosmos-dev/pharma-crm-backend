@@ -123,7 +123,7 @@ func (h *PermissionHandler) List(c *gin.Context) {
 
 	// Base query for parent permissions
 	query := h.db.Table("permissions").
-		Where("permissions.parent_id IS NULL").
+		Where("permissions.parent_id IS NULL AND permissions.deleted_at IS NULL").
 		Preload("Permissions", func(db *gorm.DB) *gorm.DB {
 			// Preload Permissions (children of MainPermission)
 			if roleID != "" {
@@ -250,9 +250,9 @@ func (h *PermissionHandler) GetPermissionsByRoleID(c *gin.Context) {
 		Table("permissions").
 		Select("permissions.*, role_permissions.is_active as is_active").
 		Joins("JOIN role_permissions ON role_permissions.permission_id = permissions.id").
-		Where("role_permissions.role_id = ?", roleID).Find(&res).Error
+		Where("role_permissions.role_id = ? AND permissions.deleted_at IS NULL", roleID).Find(&res).Error
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -287,7 +287,7 @@ func (h *PermissionHandler) ListParents(c *gin.Context) {
         created_at,
         updated_at
     FROM permissions
-    WHERE type = 'MODULE'
+    WHERE type = 'MODULE' AND deleted_at IS NULL
 ),
 page_permissions AS (
     -- Fetch PAGE-level permissions (children of MODULES)
@@ -340,7 +340,7 @@ func (h *PermissionHandler) ListPermissions(c *gin.Context) {
 		search         = c.Query("search")
 	)
 	// build query
-	query := `SELECT id, route, type, name, description, parent_id, method, created_at, updated_at FROM permissions `
+	query := `SELECT id, route, type, name, description, parent_id, method, created_at, updated_at FROM permissions WHERE deleted_at IS NULL`
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
 		query += fmt.Sprintf(" WHERE name ILIKE '%s' OR description ILIKE '%s'", search, search)
