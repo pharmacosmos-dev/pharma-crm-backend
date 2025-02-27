@@ -256,6 +256,8 @@ func (s *Storage) ListImport(c *gin.Context, limit, offset int) ([]domain.Import
 			imports.*, 
 			SUM(import_details.retail_price*import_details.received_count) as received_amount, 
 			SUM(import_details.retail_price*import_details.accepted_count) as accepted_amount, 
+			SUM(import_details.retail_price_vat*import_details.received_count) as received_amount_vat,
+			SUM(import_details.retail_price_vat*import_details.accepted_count) as accepted_amount_vat, 
 			SUM(import_details.received_count) as received_count, 
 			SUM(import_details.accepted_count) as accepted_count
 		`).Joins("LEFT JOIN import_details ON imports.id = import_details.import_id")
