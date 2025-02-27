@@ -3867,6 +3867,57 @@ paths:
       summary: List import details
       tags:
       - import_details
+  /import-detail/list/by-last-updated:
+    get:
+      consumes:
+      - application/json
+      description: List import details order by last update
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Import ID
+        in: query
+        name: import_id
+        required: true
+        type: string
+      - description: Received Amount From
+        in: query
+        name: received_amount_from
+        type: integer
+      - description: Received Amount To
+        in: query
+        name: received_amount_to
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: List import details order by last update
+      tags:
+      - import_details
   /import/{id}:
     get:
       consumes:

@@ -39,6 +39,7 @@ func (h *ImportHandler) ImportRoutes(r *gin.RouterGroup) {
 		importDetail.POST("", h.CreateImportDetail)
 		importDetail.GET("/list", h.ListImportDetail)
 		importDetail.GET("/export-excel", h.ExportImporDetailExcel)
+		importDetail.GET("/list/by-last-updated", h.ImportDetailListByLastUpdated)
 		importDetail.PATCH("/add-scan", h.AddScann)
 		importDetail.PATCH("/accept-all/:id", h.AcceptImport)
 		importDetail.PATCH("/cancel-all/:id", h.CancelImport)
@@ -412,6 +413,48 @@ func (h *ImportHandler) ExportImporDetailExcel(c *gin.Context) {
 		handleResponse(c, InternalError, "Failed to generate Excel file")
 	}
 
+}
+
+// ListImportDetail Scan list godoc
+// @Summary List import details order by last update
+// @Description List import details order by last update
+// @Tags import_details
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param 	limit query int false "Limit"
+// @Param 	offset query int false "Offset"
+// @Param   search query string false "Search"
+// @Param   import_id query string true "Import ID"
+// @Param   received_amount_from query int false "Received Amount From"
+// @Param   received_amount_to query int false "Received Amount To"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /import-detail/list/by-last-updated [get]
+func (h *ImportHandler) ImportDetailListByLastUpdated(c *gin.Context) {
+	var (
+		importDetails []domain.ImportDetail
+		totalCount    int64
+		err           error
+	)
+
+	// Get pagination parameters
+	limit, offset, err := getPaginationParams(c)
+	if err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	// Get import detail list data
+	importDetails, totalCount, err = h.service.ListImportDetailByLastUpdated(c, limit, offset)
+	if err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	// Prepare response
+	data := utils.ListResponse(importDetails, totalCount, limit, offset)
+	handleResponse(c, OK, data)
 }
 
 // AddScann godoc

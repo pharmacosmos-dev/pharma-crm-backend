@@ -100,6 +100,7 @@ func (s *Storage) AddImportedProductsToStore(tx *gorm.DB, importData *domain.Imp
 	err = s.DoRequest(context.Background(), reqFakt, "/prihod")
 	if err != nil {
 		s.log.Error(err)
+		tx.Rollback()
 		return errors.New("failed to send fakt to 1C")
 	}
 	return nil
@@ -416,4 +417,56 @@ func (s *Storage) GetImportDetailsByImportId(importId string) ([]domain.ImportDe
 		return nil, err
 	}
 	return importDetails, nil
+}
+
+// get import detail list order by updated_at
+func (s *Storage) ListImportDetailByLastUpdated(c *gin.Context, limit, offset int) ([]domain.ImportDetail, int64, error) {
+	var (
+		importDetails      []domain.ImportDetail
+		totalCount         int64
+		importId           = c.Query("import_id")
+		search             = c.Query("search")
+		receivedAmountFrom = c.Query("received_amount_from")
+		receivedAmountTo   = c.Query("received_amount_to")
+	)
+	// Fetch import details with detailed data
+	query := s.db.Model(&domain.ImportDetail{}).
+		Preload("Product").
+		Preload("Import").
+		Select(`
+		import_details.*, 
+		(import_details.retail_price*received_count) as received_amount,
+		(import_details.retail_price*accepted_count) as accepted_amount,
+		sum_vat as received_amount_vat,
+		(import_details.retail_price_vat*accepted_count) as accepted_amount_vat,
+		COALESCE(unit_types.short_name, '') as unit_name`).
+		Joins("LEFT JOIN products ON import_details.product_id = products.id").
+		Joins("LEFT JOIN unit_types ON products.unit_type_id = unit_types.id").
+		Where("import_id = ?", importId)
+
+	if search != "" {
+		search = fmt.Sprintf("%%%s%%", search)
+		query = query.Where(`
+		products.barcode LIKE ? OR 
+		products.name ILIKE ? OR
+		CAST(products.material_code AS TEXT) LIKE ?`, search, search, search)
+	}
+	if receivedAmountFrom != "" {
+		query = query.Where("import_details.received_amount >= ?", receivedAmountFrom)
+	}
+	if receivedAmountTo != "" {
+		query = query.Where("import_details.received_amount <= ?", receivedAmountTo)
+	}
+	err := query.
+		Count(&totalCount).
+		Limit(limit).
+		Offset(offset).
+		Order("import_details.updated_at DESC").
+		Debug().
+		Find(&importDetails).Error
+	if err != nil {
+		s.log.Error(err)
+		return nil, 0, err
+	}
+	return importDetails, totalCount, nil
 }
