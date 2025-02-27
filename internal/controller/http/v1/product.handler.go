@@ -969,29 +969,61 @@ func (h *ProductHandler) ListStoreProductProductId(c *gin.Context) {
 		id         = c.Param("id")
 		res        []domain.StoreProduct
 		totalCount int64
+		employee   domain.Employee
+		storeID    string
 	)
-
-	if id == "" || id == "undefined" {
-		handleResponse(c, BadRequest, "Product ID is required")
+	// validate id
+	if err := uuid.Validate(id); err != nil {
+		handleResponse(c, BadRequest, "Invalid product id")
+		return
+	}
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, InternalError, "User ID not found in context")
 		return
 	}
 
+	// get employee info
+	err := h.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	// check user role
+	if !helper.IsAdmin(employee, h.cfg) {
+		storeID = employee.StoreId
+	}
+
+	// get limit, offset
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	err = h.db.
+	// build query
+	query := h.db.
 		Model(&domain.StoreProduct{}).
 		Preload("Store").
 		Select("store_products.*, u.short_name").
 		Joins("JOIN products p ON p.id = store_products.product_id").
 		Joins("LEFT JOIN unit_types u ON u.id = p.unit_type_id").
-		Where("product_id = ?", id).
+		Where("store_products.product_id = ?", id).
+		Where("store_products.pack_quantity > 0 OR store_products.unit_quantity > 0 AND store_products.expire_date::date >= CURRENT_DATE")
+	if storeID != "" {
+		query = query.Where("store_products.store_id = ?", storeID)
+	}
+	// complete query
+	err = query.
 		Count(&totalCount).
 		Limit(limit).Offset(offset).
-		Order("created_at desc").
+		Order("store_products.created_at desc").
+		Debug().
 		Find(&res).Error
 	if err != nil {
 		h.log.Error(err)
