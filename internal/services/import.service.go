@@ -288,6 +288,7 @@ func (s *Storage) ListImport(c *gin.Context, limit, offset int) ([]domain.Import
 		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).
+		Debug().
 		Find(&imports).Error
 	if err != nil {
 		s.log.Error(err)
