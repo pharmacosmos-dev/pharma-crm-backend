@@ -6,6 +6,8 @@ definitions:
         type: string
       count:
         type: integer
+      id:
+        type: string
       import_id:
         type: string
     type: object
@@ -534,22 +536,12 @@ definitions:
     properties:
       barcode:
         type: string
-      bonus_amount:
-        type: number
-      bonus_percent:
-        type: number
       category_ids:
         items:
           type: string
         type: array
       description:
         type: string
-      expire_date:
-        type: string
-      manufacturer:
-        type: string
-      markup:
-        type: number
       material_code:
         type: integer
       name:
@@ -560,26 +552,16 @@ definitions:
         type: array
       producer_id:
         type: string
-      quantity:
-        type: integer
-      retail_price:
-        type: number
       shelf_id:
         type: string
       store_product:
         items:
           $ref: '#/definitions/domain.StoreProductRequest'
         type: array
-      supply_price:
-        type: number
       unit_per_pack:
         type: integer
       unit_type_id:
         type: string
-      vat:
-        type: integer
-      vat_price:
-        type: number
     type: object
   domain.ProductRequest1C:
     properties:
@@ -3701,6 +3683,38 @@ paths:
       security:
       - BearerAuth: []
       summary: Add scan to import detail
+      tags:
+      - import_details
+  /import-detail/add-scan-by-id:
+    post:
+      consumes:
+      - application/json
+      description: Add scan by import detail id
+      parameters:
+      - description: Add scan information
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.AddScanRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Add scan by import detail id
       tags:
       - import_details
   /import-detail/cancel-all/{id}:

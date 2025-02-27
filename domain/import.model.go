@@ -91,6 +91,7 @@ type ImportUpdateRequest struct {
 }
 
 type AddScanRequest struct {
+	ID       string `json:"id"`
 	ImportID string `json:"import_id"`
 	Barcode  string `json:"barcode"`
 	Count    int    `json:"count"`

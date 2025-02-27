@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -13,7 +12,6 @@ import (
 	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/xuri/excelize/v2"
-	"gorm.io/gorm"
 )
 
 type ImportHandler struct {
@@ -41,6 +39,7 @@ func (h *ImportHandler) ImportRoutes(r *gin.RouterGroup) {
 		importDetail.GET("/export-excel", h.ExportImporDetailExcel)
 		importDetail.GET("/list/by-last-updated", h.ImportDetailListByLastUpdated)
 		importDetail.PATCH("/add-scan", h.AddScann)
+		importDetail.POST("/add-scan-by-id", h.AddAScanById)
 		importDetail.PATCH("/accept-all/:id", h.AcceptImport)
 		importDetail.PATCH("/cancel-all/:id", h.CancelImport)
 		importDetail.PATCH("/accept-some/:id", h.AcceptSomeImport)
@@ -436,7 +435,6 @@ func (h *ImportHandler) ImportDetailListByLastUpdated(c *gin.Context) {
 	var (
 		importDetails []domain.ImportDetail
 		totalCount    int64
-		barcodeCount  int64
 		err           error
 	)
 
@@ -447,7 +445,7 @@ func (h *ImportHandler) ImportDetailListByLastUpdated(c *gin.Context) {
 		return
 	}
 	// Get import detail list data
-	importDetails, totalCount, barcodeCount, err = h.service.ListImportDetailByLastUpdated(c, limit, offset)
+	importDetails, totalCount, err = h.service.ListImportDetailByLastUpdated(c, limit, offset)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -455,10 +453,6 @@ func (h *ImportHandler) ImportDetailListByLastUpdated(c *gin.Context) {
 
 	// Prepare response
 	data := utils.ListResponse(importDetails, totalCount, limit, offset)
-	if barcodeCount > 1 {
-		handleResponse(c, PartialContent, data)
-		return
-	}
 
 	handleResponse(c, OK, data)
 }
@@ -476,8 +470,11 @@ func (h *ImportHandler) ImportDetailListByLastUpdated(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /import-detail/add-scan [PATCH]
 func (h *ImportHandler) AddScann(c *gin.Context) {
-	var body domain.AddScanRequest
-	var surplus = false
+	var (
+		body          domain.AddScanRequest
+		surplus       = false
+		importDetails []domain.ImportDetail
+	)
 	// Bind the JSON body
 	if err := c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(err)
@@ -491,25 +488,47 @@ func (h *ImportHandler) AddScann(c *gin.Context) {
 		return
 	}
 
+	err := h.db.Model(&domain.ImportDetail{}).
+		Preload("Product").
+		Preload("Import").
+		Select(`
+		import_details.*, 
+		(import_details.retail_price*received_count) as received_amount,
+		(import_details.retail_price*accepted_count) as accepted_amount,
+		sum_vat as received_amount_vat,
+		(import_details.retail_price_vat*accepted_count) as accepted_amount_vat,
+		COALESCE(unit_types.short_name, '') as unit_name`).
+		Joins("JOIN products ON import_details.product_id = products.id").
+		Joins("LEFT JOIN unit_types ON products.unit_type_id = unit_types.id").
+		Where("import_id = ? AND products.barcode = ?", body.ImportID, body.Barcode).
+		Order("products.name").
+		Find(&importDetails).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	if len(importDetails) > 1 {
+		handleResponse(c, PartialContent, importDetails)
+		return
+	}
+
 	// Check if the count is valid
 	if body.Count < 1 {
 		body.Count = 1
 	}
 	var importDetail domain.ImportDetail
 	// Perform a single query to find and update the record
-	result := h.db.WithContext(c.Request.Context()).
-		Table("import_details").
-		Where(`
-			import_id = ? AND
-			product_id IN (
-				SELECT id
-				FROM products
-				WHERE barcode = ?
-			)`,
-			body.ImportID, body.Barcode).
-		Update("accepted_count", gorm.Expr("accepted_count + ?", body.Count)).
-		Update("updated_at", time.Now()).
-		Scan(&importDetail)
+	result := h.db.Raw(`
+	UPDATE import_details SET 
+		accepted_count = accepted_count + ?, updated_at = NOW() 
+	WHERE import_id = ? AND product_id IN (
+		SELECT id
+		FROM products
+		WHERE barcode = ?
+	)
+	`, body.Count, body.ImportID, body.Barcode).Scan(&importDetail)
 
 	if result.RowsAffected == 0 {
 		handleResponse(c, NotFound, "Product not found")
@@ -517,11 +536,65 @@ func (h *ImportHandler) AddScann(c *gin.Context) {
 	}
 	// Check if the record was updated
 	if result.Error != nil {
-		h.log.Error("Error updating accepted_count: %v", result.Error)
+		h.log.Error("Error on updating accepted_count: %v", result.Error)
 		handleResponse(c, InternalError, result.Error.Error())
 		return
 	}
 
+	if importDetail.AcceptedCount > importDetail.ReceivedCount {
+		surplus = true
+	}
+	handleResponse(c, OK, map[string]interface{}{
+		"surplus": surplus,
+	})
+}
+
+// AddScannById godoc
+// @Summary Add scan by import detail id
+// @Description Add scan by import detail id
+// @Tags import_details
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param 	input body domain.AddScanRequest true "Add scan information"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /import-detail/add-scan-by-id [POST]
+func (h *ImportHandler) AddAScanById(c *gin.Context) {
+	var (
+		body         domain.AddScanRequest
+		importDetail domain.ImportDetail
+		err          error
+		surplus      = false
+	)
+	// bind request body
+	if err = c.ShouldBindJSON(&body); err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	// validate id
+	if err = uuid.Validate(body.ID); err != nil {
+		handleResponse(c, BadRequest, "Invalid import detail id")
+		return
+	}
+	// Check if the count is valid
+	if body.Count < 1 {
+		body.Count = 1
+	}
+	//
+	err = h.db.Raw(`
+		UPDATE import_details
+		SET accepted_count = accepted_count + ?
+		WHERE id = ? RETURNING * 
+	`, body.Count, body.ID).Scan(&importDetail).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	// check if there is a surplus
 	if importDetail.AcceptedCount > importDetail.ReceivedCount {
 		surplus = true
 	}

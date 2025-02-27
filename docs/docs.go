@@ -4308,6 +4308,57 @@ const docTemplate = `{
                 }
             }
         },
+        "/import-detail/add-scan-by-id": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Add scan by import detail id",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "import_details"
+                ],
+                "summary": "Add scan by import detail id",
+                "parameters": [
+                    {
+                        "description": "Add scan information",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.AddScanRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/import-detail/cancel-all/{id}": {
             "patch": {
                 "security": [
@@ -9817,6 +9868,9 @@ const docTemplate = `{
                 "count": {
                     "type": "integer"
                 },
+                "id": {
+                    "type": "string"
+                },
                 "import_id": {
                     "type": "string"
                 }
@@ -10619,12 +10673,6 @@ const docTemplate = `{
                 "barcode": {
                     "type": "string"
                 },
-                "bonus_amount": {
-                    "type": "number"
-                },
-                "bonus_percent": {
-                    "type": "number"
-                },
                 "category_ids": {
                     "type": "array",
                     "items": {
@@ -10633,15 +10681,6 @@ const docTemplate = `{
                 },
                 "description": {
                     "type": "string"
-                },
-                "expire_date": {
-                    "type": "string"
-                },
-                "manufacturer": {
-                    "type": "string"
-                },
-                "markup": {
-                    "type": "number"
                 },
                 "material_code": {
                     "type": "integer"
@@ -10658,12 +10697,6 @@ const docTemplate = `{
                 "producer_id": {
                     "type": "string"
                 },
-                "quantity": {
-                    "type": "integer"
-                },
-                "retail_price": {
-                    "type": "number"
-                },
                 "shelf_id": {
                     "type": "string"
                 },
@@ -10673,20 +10706,11 @@ const docTemplate = `{
                         "$ref": "#/definitions/domain.StoreProductRequest"
                     }
                 },
-                "supply_price": {
-                    "type": "number"
-                },
                 "unit_per_pack": {
                     "type": "integer"
                 },
                 "unit_type_id": {
                     "type": "string"
-                },
-                "vat": {
-                    "type": "integer"
-                },
-                "vat_price": {
-                    "type": "number"
                 }
             }
         },
