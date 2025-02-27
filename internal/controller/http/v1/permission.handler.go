@@ -2,6 +2,7 @@ package v1
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -218,7 +219,7 @@ func (h *PermissionHandler) Delete(c *gin.Context) {
 		return
 	}
 	// delete the permissions
-	err = h.db.Delete(&domain.Permission{}, "id IN (?)", ids).Error
+	err = h.db.Model(&domain.Permission{}).Where("id IN (?)", ids).Update("deleted_at", time.Now()).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
