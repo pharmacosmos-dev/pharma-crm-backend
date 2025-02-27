@@ -1,11 +1,15 @@
 package services
 
 import (
+	"errors"
+	"fmt"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/helper"
 	"gorm.io/gorm"
 )
 
@@ -147,4 +151,109 @@ func (s *Storage) CreateOnlineSale(tx *gorm.DB, saleId string, totalAmount int64
 		return err
 	}
 	return nil
+}
+
+// get sale list data
+func (s *Storage) ListSale(c *gin.Context, limit, offset int) ([]domain.SaleResponse, int64, error) {
+	var (
+		totalCount    int64
+		startDate     = c.Query("start_date")
+		endDate       = c.Query("end_date")
+		vendorID      = c.Query("vendor_id")
+		cashBoxId     = c.Query("cashbox_id")
+		paymentTypeId = c.Query("payment_type_id")
+		storeID       = c.Query("store_id")
+		search        = c.Query("search")
+	)
+	// get user id from header
+	userId, ok := c.Get("user_id")
+	if !ok {
+		return nil, 0, errors.New("user not found in context")
+	}
+	// get employee info
+	var employee domain.Employee
+	err := s.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, 0, errors.New("employee not found")
+		}
+		s.log.Error(err)
+		return nil, 0, err
+	}
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(employee, s.cfg) {
+		storeID = employee.StoreId
+		vendorID = userId.(string)
+	}
+	// build sale get list query
+	var res = []domain.SaleResponse{}
+	query := s.db.Model(&domain.Sale{}).Table("sales s").
+		Preload("SalePayments", func(db *gorm.DB) *gorm.DB {
+			return db.Preload("PaymentType")
+		}).
+		Select(`
+		s.*, em.full_name, em.phone,
+		st.name AS store_name, customers.full_name as customer_name, customers.phone AS customer_phone,
+		cash_boxes.name AS cash_box_name`).
+		// Change INNER JOIN to LEFT JOIN to include sales without store_id
+		Joins("JOIN stores st ON st.id = s.store_id").
+		// Change INNER JOIN to LEFT JOIN to include sales without employee_id
+		Joins("LEFT JOIN employees em ON em.id = s.employee_id").
+		// Change INNER JOIN to LEFT JOIN to include sales without cashbox_operation_id
+		Joins("LEFT JOIN cashbox_operations co ON s.cash_box_operation_id = co.id").
+		// Ensure cash_boxes can be null
+		Joins("LEFT JOIN cash_boxes ON co.cash_box_id = cash_boxes.id").
+		Joins("LEFT JOIN customers ON s.customer_id = customers.id")
+
+	// filter by payment type
+	if paymentTypeId != "" {
+		query = query.Joins("JOIN sale_payments sp ON s.id = sp.sale_id").
+			Where("sp.payment_type_id = ?", paymentTypeId).
+			Group("s.id, st.name, cash_boxes.name, em.full_name, em.phone, customers.full_name, customers.phone")
+	}
+	// filter by employee
+	if vendorID != "" {
+		query = query.Where("s.employee_id = ?", vendorID)
+	} else {
+		query = query.Where("s.employee_id IS NOT NULL OR s.employee_id IS NULL") // Include online sales
+	}
+	// filter by store id
+	if storeID != "" {
+		query = query.Where("s.store_id = ?", storeID)
+	} else {
+		query = query.Where("s.store_id IS NOT NULL OR s.store_id IS NULL") // Include online sales
+	}
+	// filter by cashbox id
+	if cashBoxId != "" {
+		query = query.Where("co.cash_box_id = ?", cashBoxId)
+	} else {
+		query = query.Where("s.cash_box_operation_id IS NULL OR co.cash_box_id IS NOT NULL") // Include online sales
+	}
+	// filter by start date and end date
+	if startDate != "" && endDate != "" {
+		query = query.Where("s.completed_at::date >= ? AND s.completed_at::date <= ?  ", startDate, endDate)
+	}
+	// filter by start date
+	if startDate != "" && endDate == "" {
+		query = query.Where("s.completed_at::date = ?", startDate)
+	}
+	// search condition
+	if search != "" {
+		search = fmt.Sprintf("%%%s%%", search)
+		query = query.Where("st.name ILIKE ? OR CAST(s.sale_number AS TEXT) LIKE ?", search, search)
+	}
+	// complete query
+	err = query.Where("s.status = 'completed'").
+		Count(&totalCount).
+		Limit(limit).
+		Offset(offset).
+		Order("s.completed_at DESC").
+		Debug().
+		Find(&res).Error
+
+	if err != nil {
+		s.log.Error(err)
+		return nil, 0, err
+	}
+	return res, totalCount, nil
 }

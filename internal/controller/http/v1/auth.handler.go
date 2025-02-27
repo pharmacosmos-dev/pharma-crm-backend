@@ -46,11 +46,6 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	// validate request body
-	// if err = h.validator.Struct(&body); err != nil {
-	// 	handleResponse(c, BadRequest, h.validator.ValidationMessage(c, err))
-	// 	return
-	// }
 	// find employee by phone
 	err = h.db.WithContext(c.Request.Context()).
 		Preload("Store").

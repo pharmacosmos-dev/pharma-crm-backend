@@ -397,9 +397,15 @@ definitions:
         type: integer
       retail_price:
         type: number
+      retail_price_vat:
+        type: number
       series_number:
         type: string
+      sum_vat:
+        type: number
       supply_price:
+        type: number
+      supply_price_vat:
         type: number
       vat:
         type: integer
@@ -599,9 +605,15 @@ definitions:
         type: integer
       retail_price:
         type: number
+      retail_price_vat:
+        type: number
       sum:
         type: number
+      sum_vat:
+        type: number
       supply_price:
+        type: number
+      supply_price_vat:
         type: number
       vat:
         type: string
@@ -5975,6 +5987,68 @@ paths:
       summary: Epos Request
       tags:
       - sales
+  /sale/export-excel:
+    get:
+      consumes:
+      - application/json
+      description: Get a sale list excel
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Vendor ID
+        in: query
+        name: vendor_id
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Cash Box ID
+        in: query
+        name: cashbox_id
+        type: string
+      - description: Payment Type ID
+        in: query
+        name: payment_type_id
+        type: string
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      produces:
+      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a sale list excel
+      tags:
+      - sales
   /sale/final:
     post:
       consumes:
@@ -6067,68 +6141,6 @@ paths:
       security:
       - BearerAuth: []
       summary: Get a sale
-      tags:
-      - sales
-  /sale/list-excel:
-    get:
-      consumes:
-      - application/json
-      description: Get a sale list excel
-      parameters:
-      - description: Limit
-        in: query
-        name: limit
-        type: integer
-      - description: Offset
-        in: query
-        name: offset
-        type: integer
-      - description: Vendor ID
-        in: query
-        name: vendor_id
-        type: string
-      - description: Store ID
-        in: query
-        name: store_id
-        type: string
-      - description: Cash Box ID
-        in: query
-        name: cashbox_id
-        type: string
-      - description: Payment Type ID
-        in: query
-        name: payment_type_id
-        type: string
-      - description: Search
-        in: query
-        name: search
-        type: string
-      - description: Start Date
-        in: query
-        name: start_date
-        type: string
-      - description: End Date
-        in: query
-        name: end_date
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Get a sale list excel
       tags:
       - sales
   /sale/stats:

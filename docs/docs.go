@@ -7855,75 +7855,24 @@ const docTemplate = `{
                 }
             }
         },
-        "/sale/final": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Final Sale from the request body",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "sales"
-                ],
-                "summary": "Final Sale",
-                "parameters": [
-                    {
-                        "description": "Sale information",
-                        "name": "input",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/domain.FinalSale"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/sale/list": {
+        "/sale/export-excel": {
             "get": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get a sale from the request body",
+                "description": "Get a sale list excel",
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
-                    "application/json"
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 ],
                 "tags": [
                     "sales"
                 ],
-                "summary": "Get a sale",
+                "summary": "Get a sale list excel",
                 "parameters": [
                     {
                         "type": "integer",
@@ -8002,14 +7951,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/sale/list-excel": {
-            "get": {
+        "/sale/final": {
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get a sale list excel",
+                "description": "Final Sale from the request body",
                 "consumes": [
                     "application/json"
                 ],
@@ -8019,7 +7968,58 @@ const docTemplate = `{
                 "tags": [
                     "sales"
                 ],
-                "summary": "Get a sale list excel",
+                "summary": "Final Sale",
+                "parameters": [
+                    {
+                        "description": "Sale information",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.FinalSale"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/sale/list": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get a sale from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sales"
+                ],
+                "summary": "Get a sale",
                 "parameters": [
                     {
                         "type": "integer",
@@ -10331,10 +10331,19 @@ const docTemplate = `{
                 "retail_price": {
                     "type": "number"
                 },
+                "retail_price_vat": {
+                    "type": "number"
+                },
                 "series_number": {
                     "type": "string"
                 },
+                "sum_vat": {
+                    "type": "number"
+                },
                 "supply_price": {
+                    "type": "number"
+                },
+                "supply_price_vat": {
                     "type": "number"
                 },
                 "vat": {
@@ -10638,10 +10647,19 @@ const docTemplate = `{
                 "retail_price": {
                     "type": "number"
                 },
+                "retail_price_vat": {
+                    "type": "number"
+                },
                 "sum": {
                     "type": "number"
                 },
+                "sum_vat": {
+                    "type": "number"
+                },
                 "supply_price": {
+                    "type": "number"
+                },
+                "supply_price_vat": {
                     "type": "number"
                 },
                 "vat": {

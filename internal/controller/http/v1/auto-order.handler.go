@@ -144,10 +144,6 @@ func (h *AutoOrderHandler) List(c *gin.Context) {
 		autoOrders []domain.AutoOrder
 		err        error
 		totalCount int64
-		storeID    = c.Query("store_id")
-		search     = c.Query("search")
-		status     = c.Query("status")
-		date       = c.Query("auto_order_date")
 	)
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
@@ -155,45 +151,9 @@ func (h *AutoOrderHandler) List(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-
-	query := h.db.
-		Model(&domain.AutoOrder{}).
-		Select(`auto_orders.*, 
-		SUM(aod.adjusted_order_quantity) AS adjusted_order_quantity,
-		SUM(aod.response_order_quantity) AS response_order_quantity`).
-		Preload("Store").
-		Joins("LEFT JOIN auto_order_details aod ON auto_orders.id = aod.auto_order_id").
-		Joins("JOIN stores s ON auto_orders.store_id = s.id")
-
-	if search != "" {
-		search = fmt.Sprintf("%%%s%%", search)
-		query = query.Where("CAST(auto_orders.public_id AS TEXT) LIKE ? OR s.name ILIKE ?", search, search)
-	}
-
-	if storeID != "" {
-		query = query.Where("auto_orders.store_id = ?", storeID)
-	}
-
-	if status != "" {
-		query = query.Where("auto_orders.status = ?", status)
-	}
-
-	if date != "" {
-		if _, err := time.Parse("2006-01-02", date); err != nil {
-			handleResponse(c, BadRequest, "Invalid date format")
-			return
-		}
-		query = query.Where("auto_orders.auto_order_date::date = ?", date)
-	}
-
-	err = query.
-		Group("auto_orders.id").
-		Count(&totalCount).
-		Offset(offset).Limit(limit).
-		Find(&autoOrders).Error
+	autoOrders, totalCount, err = h.service.ListAutoOrder(c, limit, offset)
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
 

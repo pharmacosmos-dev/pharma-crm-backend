@@ -16,8 +16,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/spf13/cast"
+	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
 )
 
@@ -36,6 +38,7 @@ func (h *SaleHandler) SaleRoutes(r *gin.RouterGroup) {
 		sale.POST("", h.Create)
 		sale.GET("/:id", h.Get)
 		sale.GET("/list", h.List)
+		sale.GET("/export-excel", h.ExportSaleExcel)
 		sale.PUT("/:id", h.Update)
 		sale.POST("/final", h.FinalSale)
 		sale.GET("/stats", h.SaleStats)
@@ -165,94 +168,19 @@ func (h *SaleHandler) Get(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /sale/list [get]
 func (h *SaleHandler) List(c *gin.Context) {
-	var (
-		totalCount    int64
-		startDate     = c.Query("start_date")
-		endDate       = c.Query("end_date")
-		employeeID    = c.Query("vendor_id")
-		cashBoxId     = c.Query("cashbox_id")
-		paymentTypeId = c.Query("payment_type_id")
-		storeID       = c.Query("store_id")
-		search        = c.Query("search")
-	)
-
+	// get limit offset
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-
-	var res = []domain.SaleResponse{}
-	query := h.db.Model(&domain.Sale{}).Table("sales s").
-		Preload("SalePayments", func(db *gorm.DB) *gorm.DB {
-			return db.Preload("PaymentType")
-		}).
-		Select(`
-		s.*, em.full_name, em.phone,
-		st.name AS store_name, customers.full_name as customer_name, customers.phone AS customer_phone,
-		cash_boxes.name AS cash_box_name`).
-		// Change INNER JOIN to LEFT JOIN to include sales without store_id
-		Joins("LEFT JOIN stores st ON st.id = s.store_id").
-		// Change INNER JOIN to LEFT JOIN to include sales without employee_id
-		Joins("LEFT JOIN employees em ON em.id = s.employee_id").
-		// Change INNER JOIN to LEFT JOIN to include sales without cashbox_operation_id
-		Joins("LEFT JOIN cashbox_operations co ON s.cash_box_operation_id = co.id").
-		// Ensure cash_boxes can be null
-		Joins("LEFT JOIN cash_boxes ON co.cash_box_id = cash_boxes.id").
-		Joins("LEFT JOIN customers ON s.customer_id = customers.id")
-
-	// filter by payment type
-	if paymentTypeId != "" {
-		query = query.Joins("JOIN sale_payments sp ON s.id = sp.sale_id").
-			Where("sp.payment_type_id = ?", paymentTypeId).
-			Group("s.id, st.name, cash_boxes.name, em.full_name, em.phone, customers.full_name, customers.phone")
-	}
-	// filter by employee
-	if employeeID != "" {
-		query = query.Where("s.employee_id = ?", employeeID)
-	} else {
-		query = query.Where("s.employee_id IS NOT NULL OR s.employee_id IS NULL") // Include online sales
-	}
-	// filter by store id
-	if storeID != "" {
-		query = query.Where("s.store_id = ?", storeID)
-	} else {
-		query = query.Where("s.store_id IS NOT NULL OR s.store_id IS NULL") // Include online sales
-	}
-	// filter by cashbox id
-	if cashBoxId != "" {
-		query = query.Where("co.cash_box_id = ?", cashBoxId)
-	} else {
-		query = query.Where("s.cash_box_operation_id IS NULL OR co.cash_box_id IS NOT NULL") // Include online sales
-	}
-	// filter by start date and end date
-	if startDate != "" && endDate != "" {
-		query = query.Where("s.completed_at::date >= ? AND s.completed_at::date <= ?  ", startDate, endDate)
-	}
-	// filter by start date
-	if startDate != "" && endDate == "" {
-		query = query.Where("s.completed_at::date = ?", startDate)
-	}
-	// search condition
-	if search != "" {
-		search = fmt.Sprintf("%%%s%%", search)
-		query = query.Where("st.name ILIKE ? OR CAST(s.sale_number AS TEXT) LIKE ?", search, search)
-	}
-	// complete query
-	err = query.Where("s.status = 'completed'").
-		Count(&totalCount).
-		Limit(limit).
-		Offset(offset).
-		Order("s.completed_at DESC").
-		Debug().
-		Find(&res).Error
-
+	// get sale list data
+	res, totalCount, err := h.service.ListSale(c, limit, offset)
 	if err != nil {
-		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-
+	// added _meta section to response
 	result := utils.ListResponse(res, totalCount, limit, offset)
 
 	handleResponse(c, OK, result)
@@ -264,7 +192,7 @@ func (h *SaleHandler) List(c *gin.Context) {
 // @Tags sales
 // @Security     BearerAuth
 // @Accept 	json
-// @Produce json
+// @Produce application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
 // @Param limit query int false "Limit"
 // @Param offset query int false "Offset"
 // @Param vendor_id query string false "Vendor ID"
@@ -277,95 +205,84 @@ func (h *SaleHandler) List(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /sale/list-excel [get]
-func (h *SaleHandler) ListExcel(c *gin.Context) {
-	var (
-		totalCount    int64
-		startDate     = c.Query("start_date")
-		endDate       = c.Query("end_date")
-		employeeID    = c.Query("vendor_id")
-		cashBoxId     = c.Query("cashbox_id")
-		paymentTypeId = c.Query("payment_type_id")
-		storeID       = c.Query("store_id")
-		search        = c.Query("search")
-	)
-
+// @Router /sale/export-excel [get]
+func (h *SaleHandler) ExportSaleExcel(c *gin.Context) {
+	// get limit offset
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-
-	var res = []domain.SaleResponse{}
-	query := h.db.Model(&domain.Sale{}).Table("sales s").
-		Preload("SalePayments", func(db *gorm.DB) *gorm.DB {
-			return db.Preload("PaymentType")
-		}).
-		Select(`
-		s.*, em.full_name, em.phone,
-		st.name AS store_name, customers.full_name as customer_name, customers.phone AS customer_phone,
-		cash_boxes.name AS cash_box_name`).
-		// Change INNER JOIN to LEFT JOIN to include sales without store_id
-		Joins("LEFT JOIN stores st ON st.id = s.store_id").
-		// Change INNER JOIN to LEFT JOIN to include sales without employee_id
-		Joins("LEFT JOIN employees em ON em.id = s.employee_id").
-		// Change INNER JOIN to LEFT JOIN to include sales without cashbox_operation_id
-		Joins("LEFT JOIN cashbox_operations co ON s.cash_box_operation_id = co.id").
-		// Ensure cash_boxes can be null
-		Joins("LEFT JOIN cash_boxes ON co.cash_box_id = cash_boxes.id").
-		Joins("LEFT JOIN customers ON s.customer_id = customers.id")
-
-	// filter by payment type
-	if paymentTypeId != "" {
-		query = query.Joins("JOIN sale_payments sp ON s.id = sp.sale_id").
-			Where("sp.payment_type_id = ?", paymentTypeId).
-			Group("s.id, st.name, cash_boxes.name, em.full_name, em.phone, customers.full_name, customers.phone")
-	}
-	// filter by employee
-	if employeeID != "" {
-		query = query.Where("s.employee_id = ?", employeeID)
-	} else {
-		query = query.Where("s.employee_id IS NOT NULL OR s.employee_id IS NULL") // Include online sales
-	}
-	// filter by store id
-	if storeID != "" {
-		query = query.Where("s.store_id = ?", storeID)
-	} else {
-		query = query.Where("s.store_id IS NOT NULL OR s.store_id IS NULL") // Include online sales
-	}
-	// filter by cashbox id
-	if cashBoxId != "" {
-		query = query.Where("co.cash_box_id = ?", cashBoxId)
-	} else {
-		query = query.Where("s.cash_box_operation_id IS NULL OR co.cash_box_id IS NOT NULL") // Include online sales
-	}
-	// filter by start date and end date
-	if startDate != "" && endDate != "" {
-		query = query.Where("s.completed_at::date >= ? AND s.completed_at::date <= ?  ", startDate, endDate)
-	}
-	// filter by start date
-	if startDate != "" && endDate == "" {
-		query = query.Where("s.completed_at::date = ?", startDate)
-	}
-	// search condition
-	if search != "" {
-		search = fmt.Sprintf("%%%s%%", search)
-		query = query.Where("st.name ILIKE ? OR CAST(s.sale_number AS TEXT) LIKE ?", search, search)
-	}
-	// complete query
-	err = query.Where("s.status = 'completed'").
-		Count(&totalCount).
-		Limit(limit).
-		Offset(offset).
-		Order("s.completed_at DESC").
-		Debug().
-		Find(&res).Error
-
+	// get sale list data
+	res, _, err := h.service.ListSale(c, limit, offset)
 	if err != nil {
-		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+
+	// Excel fayl yaratish
+	f := excelize.NewFile()
+	sheetName := "Sales"
+	f.SetSheetName("Sheet1", sheetName)
+
+	// Headerlar
+	headers := []string{"ID", "Касса", "Обшая сумма", "Тип продажа", "Доставлено", "Наличный", "Humo", "Uzcard", "Visa", "Payme", "Click", "UzumBank", "Баланс", "Дата продажа", "Филиал", "Продавец", "Клиент"}
+
+	headerStyle, err := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Bold:  true,
+			Color: "000000",
+		},
+	})
+	if err != nil {
+		h.log.Error("Failed to create style:", err)
+		handleResponse(c, InternalError, "Error on giving style to excel")
+		return
+	}
+
+	for i, h := range headers {
+		col := string(rune('A'+i)) + "1"
+		f.SetCellValue(sheetName, col, h)
+		f.SetCellStyle(sheetName, col, col, headerStyle)
+	}
+
+	// Ma'lumotlarni qo'shish
+	for i, sale := range res {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheetName, "A"+row, sale.SaleNumber)
+		f.SetCellValue(sheetName, "B"+row, sale.CashBoxName)
+		f.SetCellValue(sheetName, "C"+row, sale.TotalAmount)
+		f.SetCellValue(sheetName, "D"+row, sale.Type)
+		f.SetCellValue(sheetName, "E"+row, sale.IsDelivered)
+		f.SetCellValue(sheetName, "F"+row, helper.SalePaymentAmount(sale.SalePayments, "cash"))
+		f.SetCellValue(sheetName, "G"+row, helper.SalePaymentAmount(sale.SalePayments, "card"))
+		f.SetCellValue(sheetName, "H"+row, helper.SalePaymentAmount(sale.SalePayments, "card"))
+		f.SetCellValue(sheetName, "I"+row, helper.SalePaymentAmount(sale.SalePayments, "card"))
+		f.SetCellValue(sheetName, "J"+row, helper.SalePaymentAmount(sale.SalePayments, "app"))
+		f.SetCellValue(sheetName, "K"+row, helper.SalePaymentAmount(sale.SalePayments, "app"))
+		f.SetCellValue(sheetName, "L"+row, helper.SalePaymentAmount(sale.SalePayments, "app"))
+		f.SetCellValue(sheetName, "M"+row, helper.SalePaymentAmount(sale.SalePayments, "balance"))
+		f.SetCellValue(sheetName, "N"+row, sale.CompletedAt.Format(time.DateTime))
+		f.SetCellValue(sheetName, "O"+row, sale.StoreName)
+		f.SetCellValue(sheetName, "P"+row, sale.FullName)
+		f.SetCellValue(sheetName, "Q"+row, sale.CustomerName)
+		if sale.CustomerName != nil {
+			f.SetCellValue(sheetName, "Q"+row, sale.CustomerName)
+		} else {
+			f.SetCellValue(sheetName, "Q"+row, "N/A")
+		}
+
+	}
+
+	// Faylni HTTP response orqali yuborish
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Header("Content-Disposition", "attachment; filename=sales.xlsx")
+
+	if err := f.Write(c.Writer); err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, "Failed to generate Excel file")
+	}
+
 }
 
 // List godoc

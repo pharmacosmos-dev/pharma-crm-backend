@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/helper"
 	"gorm.io/gorm"
 )
 
@@ -225,6 +226,25 @@ func (s *Storage) ListImport(c *gin.Context, limit, offset int) ([]domain.Import
 		receivePriceTo   = c.Query("receive_amount_to")
 		err              error
 	)
+	// get user id from header
+	userId, ok := c.Get("user_id")
+	if !ok {
+		err = errors.New("user not found in context")
+		return nil, 0, err
+	}
+	var employee domain.Employee
+	err = s.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			err = errors.New("employee not found")
+		}
+		s.log.Error(err)
+		return nil, 0, err
+	}
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(employee, s.cfg) {
+		storeID = employee.StoreId
+	}
 
 	// Fetch imports with detailed data
 	query := s.db.Model(&domain.Import{}).
