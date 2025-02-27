@@ -434,10 +434,10 @@ func (h *ImportHandler) ExportImporDetailExcel(c *gin.Context) {
 // @Router /import-detail/list/by-last-updated [get]
 func (h *ImportHandler) ImportDetailListByLastUpdated(c *gin.Context) {
 	var (
-		importDetails    []domain.ImportDetail
-		totalCount       int64
-		duplicateBarcode bool
-		err              error
+		importDetails []domain.ImportDetail
+		totalCount    int64
+		barcodeCount  int64
+		err           error
 	)
 
 	// Get pagination parameters
@@ -447,7 +447,7 @@ func (h *ImportHandler) ImportDetailListByLastUpdated(c *gin.Context) {
 		return
 	}
 	// Get import detail list data
-	importDetails, totalCount, duplicateBarcode, err = h.service.ListImportDetailByLastUpdated(c, limit, offset)
+	importDetails, totalCount, barcodeCount, err = h.service.ListImportDetailByLastUpdated(c, limit, offset)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -455,8 +455,7 @@ func (h *ImportHandler) ImportDetailListByLastUpdated(c *gin.Context) {
 
 	// Prepare response
 	data := utils.ListResponse(importDetails, totalCount, limit, offset)
-
-	if duplicateBarcode {
+	if barcodeCount > 1 {
 		handleResponse(c, PartialContent, data)
 		return
 	}

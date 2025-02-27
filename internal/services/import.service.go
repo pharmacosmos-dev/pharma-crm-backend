@@ -422,11 +422,11 @@ func (s *Storage) GetImportDetailsByImportId(importId string) ([]domain.ImportDe
 }
 
 // get import detail list order by updated_at
-func (s *Storage) ListImportDetailByLastUpdated(c *gin.Context, limit, offset int) ([]domain.ImportDetail, int64, bool, error) {
+func (s *Storage) ListImportDetailByLastUpdated(c *gin.Context, limit, offset int) ([]domain.ImportDetail, int64, int64, error) {
 	var (
 		importDetails      []domain.ImportDetail
 		totalCount         int64
-		barcodeCount       int64
+		duplicateCount     int64
 		importId           = c.Query("import_id")
 		search             = c.Query("search")
 		receivedAmountFrom = c.Query("received_amount_from")
@@ -447,7 +447,8 @@ func (s *Storage) ListImportDetailByLastUpdated(c *gin.Context, limit, offset in
 		Joins("LEFT JOIN products ON import_details.product_id = products.id").
 		Joins("LEFT JOIN unit_types ON products.unit_type_id = unit_types.id").
 		Where("import_id = ?", importId)
-
+	// get search
+	searchValue := search
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
 		query = query.Where(`
@@ -463,19 +464,18 @@ func (s *Storage) ListImportDetailByLastUpdated(c *gin.Context, limit, offset in
 	}
 
 	// Sanash uchun yana bir query
-	var duplicateBarcodeExists bool
-	s.db.Table("products").
-		Select("COUNT(DISTINCT barcode)").
-		Joins("JOIN import_details ON import_details.product_id = products.id").
-		Where("import_id = ?", importId).
-		Having("COUNT(barcode) > 1").
-		Count(&barcodeCount)
-
-	if barcodeCount > 0 {
-		duplicateBarcodeExists = true
+	err := s.db.Table("import_details").
+		Select("COUNT(*)").
+		Joins("JOIN products ON import_details.product_id = products.id").
+		Where("import_id = ? AND products.barcode = ?", importId, searchValue).
+		Debug().
+		Count(&duplicateCount).Error
+	if err != nil {
+		s.log.Error(err)
+		return nil, 0, 0, err
 	}
 
-	err := query.
+	err = query.
 		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).
@@ -484,7 +484,7 @@ func (s *Storage) ListImportDetailByLastUpdated(c *gin.Context, limit, offset in
 
 	if err != nil {
 		s.log.Error(err)
-		return nil, 0, false, err
+		return nil, 0, 0, err
 	}
-	return importDetails, totalCount, duplicateBarcodeExists, nil
+	return importDetails, totalCount, duplicateCount, nil
 }
