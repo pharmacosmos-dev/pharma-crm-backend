@@ -64,18 +64,21 @@ func (h *SaleHandler) Create(c *gin.Context) {
 		res  domain.Sale
 		err  error
 	)
-	user, ok := c.Get("user_id")
+	// get user id from header
+	userId, ok := c.Get("user_id")
 	if !ok {
 		handleResponse(c, UNAUTHORIZED, "User ID not found")
 		return
 	}
+	// bind request body
 	if err = c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 	body.ID = uuid.New().String()
-	body.EmployeeID = cast.ToString(user)
+	body.EmployeeID = userId.(string)
+	// create sale
 	err = h.db.
 		WithContext(c.Request.Context()).
 		Raw(`
@@ -653,7 +656,7 @@ func processPaymentType(tx *gorm.DB, h *SaleHandler, body domain.FinalSale, item
 
 // Completed sale transaction
 func (h *SaleHandler) completeSaleTransaction(tx *gorm.DB, body domain.FinalSale, userID string) error {
-	if err := h.service.UpdateSaleStatus(tx, body.SaleID, body.TotalAmount, body.CustomerID); err != nil {
+	if err := h.service.UpdateSaleStatus(tx, body.SaleID, body.TotalAmount, body.CustomerID, body.StoreID); err != nil {
 		return err
 	}
 	if err := h.service.UpdateCartItemStatus(tx, body.SaleID); err != nil {

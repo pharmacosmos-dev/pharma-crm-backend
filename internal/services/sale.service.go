@@ -93,14 +93,15 @@ func (s *Storage) CreateOrUpdateSalePaymentSummary(tx *gorm.DB, cashBoxOperation
 }
 
 // Update sale status and total amount after the sale is completed
-func (s *Storage) UpdateSaleStatus(tx *gorm.DB, saleID string, totalAmount float64, customerID *string) error {
+func (s *Storage) UpdateSaleStatus(tx *gorm.DB, saleID string, totalAmount float64, customerID *string, storeID string) error {
 	return tx.Exec(`
 	UPDATE sales
 	SET
 		status = 'completed', total_amount = ?,
 		customer_id = ?, completed_at = ?,
+		store_id = ?,
 		total_discount = (SELECT SUM(discount_amount*quantity) FROM cart_items WHERE sale_id = ?)
-	WHERE id = ?`, totalAmount, customerID, time.Now(), saleID, saleID).Error
+	WHERE id = ?`, totalAmount, customerID, time.Now(), storeID, saleID, saleID).Error
 }
 
 // Update cart item status and store product quantities after the sale is completed
@@ -235,7 +236,7 @@ func (s *Storage) ListSale(c *gin.Context, limit, offset int) ([]domain.SaleResp
 	}
 	// filter by start date
 	if startDate != "" && endDate == "" {
-		query = query.Where("s.completed_at::date = ?", startDate)
+		query = query.Where("s.completed_at::date >= ?", startDate)
 	}
 	// search condition
 	if search != "" {
