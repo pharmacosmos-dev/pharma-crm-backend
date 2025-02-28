@@ -4463,6 +4463,12 @@ const docTemplate = `{
                         "description": "Received Amount To",
                         "name": "received_amount_to",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Filter items with no barcode (true/false)",
+                        "name": "no_barcode",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -4591,6 +4597,12 @@ const docTemplate = `{
                         "description": "Received Amount To",
                         "name": "received_amount_to",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Filter items with no barcode (true/false)",
+                        "name": "no_barcode",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -4669,6 +4681,12 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "Received Amount To",
                         "name": "received_amount_to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Type",
+                        "name": "type",
                         "in": "query"
                     }
                 ],

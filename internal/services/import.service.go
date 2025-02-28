@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -310,6 +311,9 @@ func (s *Storage) ListImportDetail(c *gin.Context, limit, offset int) ([]domain.
 		receivedAmountFrom = c.Query("received_amount_from")
 		receivedAmountTo   = c.Query("received_amount_to")
 	)
+
+	// Parse no_barcode as boolean
+	noBarcode, _ := strconv.ParseBool(c.Query("no_barcode"))
 	// Fetch import details with detailed data
 	query := s.db.Model(&domain.ImportDetail{}).
 		Preload("Product").
@@ -337,6 +341,10 @@ func (s *Storage) ListImportDetail(c *gin.Context, limit, offset int) ([]domain.
 	}
 	if receivedAmountTo != "" {
 		query = query.Where("import_details.received_amount <= ?", receivedAmountTo)
+	}
+
+	if noBarcode {
+		query = query.Where("products.barcode IS NULL OR products.barcode = ''")
 	}
 	err := query.
 		Count(&totalCount).
@@ -430,6 +438,7 @@ func (s *Storage) ListImportDetailByLastUpdated(c *gin.Context, limit, offset in
 		search             = c.Query("search")
 		receivedAmountFrom = c.Query("received_amount_from")
 		receivedAmountTo   = c.Query("received_amount_to")
+		valueType          = c.Query("type")
 	)
 
 	// Fetch import details with detailed data
@@ -454,11 +463,25 @@ func (s *Storage) ListImportDetailByLastUpdated(c *gin.Context, limit, offset in
 		products.name ILIKE ? OR
 		CAST(products.material_code AS TEXT) LIKE ?`, search, search, search)
 	}
+	// get received amount
 	if receivedAmountFrom != "" {
 		query = query.Where("import_details.received_amount >= ?", receivedAmountFrom)
 	}
+	// get received amount to
 	if receivedAmountTo != "" {
 		query = query.Where("import_details.received_amount <= ?", receivedAmountTo)
+	}
+
+	// get value type
+	if valueType != "" {
+		switch valueType {
+		case "shortage":
+			query = query.Where("import_details.received_count > import_details.accepted_count")
+		case "scanned":
+			query = query.Where("import_details.accepted_count > 0")
+		case "surplus":
+			query = query.Where("import_details.accepted_count > import_details.received_count")
+		}
 	}
 
 	err := query.
@@ -466,6 +489,7 @@ func (s *Storage) ListImportDetailByLastUpdated(c *gin.Context, limit, offset in
 		Limit(limit).
 		Offset(offset).
 		Order("import_details.updated_at DESC").
+		Debug().
 		Find(&importDetails).Error
 
 	if err != nil {

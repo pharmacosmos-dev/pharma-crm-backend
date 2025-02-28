@@ -3779,6 +3779,10 @@ paths:
         in: query
         name: received_amount_to
         type: integer
+      - description: Filter items with no barcode (true/false)
+        in: query
+        name: no_barcode
+        type: boolean
       produces:
       - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
       responses:
@@ -3861,6 +3865,10 @@ paths:
         in: query
         name: received_amount_to
         type: integer
+      - description: Filter items with no barcode (true/false)
+        in: query
+        name: no_barcode
+        type: boolean
       produces:
       - application/json
       responses:
@@ -3912,6 +3920,10 @@ paths:
         in: query
         name: received_amount_to
         type: integer
+      - description: Type
+        in: query
+        name: type
+        type: string
       produces:
       - application/json
       responses:

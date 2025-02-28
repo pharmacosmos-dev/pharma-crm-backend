@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -200,7 +201,7 @@ func (h *ImportHandler) ExportImportExcel(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"Импорный номер", "Номер документа", "Филиал", "Дата создания", "Дата закрытия", "Полученная сумма", "Принятая сумма", "Полученное количество", "Принятое количество", "Статус"}
+	headers := []string{"Импорный номер", "Номер документа", "Филиал", "Дата создания", "Дата закрытия", "Полученная сумма", "Принятая сумма", "Полученная сумма СНДС", "Принятая сумма СНДС", "Полученное количество", "Принятое количество", "Статус"}
 
 	headerStyle, err := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{
@@ -231,20 +232,21 @@ func (h *ImportHandler) ExportImportExcel(c *gin.Context) {
 			f.SetCellValue(sheetName, "C"+row, "N/A")
 		}
 
-		f.SetCellValue(sheetName, "D"+row, imp.ImportDate)
-
-		f.SetCellValue(sheetName, "E"+row, imp.UpdatedAt)
+		f.SetCellValue(sheetName, "D"+row, imp.ImportDate.Format(time.DateOnly))
+		f.SetCellValue(sheetName, "E"+row, imp.UpdatedAt.Format(time.DateOnly))
 		f.SetCellValue(sheetName, "F"+row, imp.ReceivedAmount)
 		f.SetCellValue(sheetName, "G"+row, imp.AcceptedAmount)
-		f.SetCellValue(sheetName, "H"+row, imp.ReceivedCount)
-		f.SetCellValue(sheetName, "I"+row, imp.AcceptedCount)
-		f.SetCellValue(sheetName, "J"+row, helper.StatusToRussian(imp.Status))
+		f.SetCellValue(sheetName, "H"+row, imp.ReceivedAmountVat)
+		f.SetCellValue(sheetName, "I"+row, imp.AcceptedAmountVat)
+		f.SetCellValue(sheetName, "J"+row, imp.ReceivedCount)
+		f.SetCellValue(sheetName, "K"+row, imp.AcceptedCount)
+		f.SetCellValue(sheetName, "L"+row, helper.StatusToRussian(imp.Status))
 
 	}
 
 	// Faylni HTTP response orqali yuborish
 	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	c.Header("Content-Disposition", "attachment; filename=import.xlsx")
+	c.Header("Content-Disposition", "attachment; filename=imports.xlsx")
 
 	if err := f.Write(c.Writer); err != nil {
 		h.log.Error(err)
@@ -295,6 +297,7 @@ func (h *ImportHandler) CreateImportDetail(c *gin.Context) {
 // @Param   import_id query string true "Import ID"
 // @Param   received_amount_from query int false "Received Amount From"
 // @Param   received_amount_to query int false "Received Amount To"
+// @Param   no_barcode query bool false "Filter items with no barcode (true/false)"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -337,6 +340,7 @@ func (h *ImportHandler) ListImportDetail(c *gin.Context) {
 // @Param   import_id query string true "Import ID"
 // @Param   received_amount_from query int false "Received Amount From"
 // @Param   received_amount_to query int false "Received Amount To"
+// @Param   no_barcode query bool false "Filter items with no barcode (true/false)"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -367,7 +371,7 @@ func (h *ImportHandler) ExportImporDetailExcel(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"Название", "Штрих-Код", "Цена Поставки", "Цена Продажа", "Статус", "Полученное количество", "Принятое количество", "Полученная сумма", "Принятая сумма", "Дата создания"}
+	headers := []string{"Название", "Штрих-Код", "Цена Поставки", "Цена Поставки СНДС", "Цена Продажа", "Цена Продажа СНДС", "Статус", "Полученное количество", "Принятое количество", "Полученная сумма", "Принятая сумма", "Полученная сумма СНДС", "Принятая сумма СНДС", "Дата создания"}
 
 	headerStyle, err := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{
@@ -393,13 +397,17 @@ func (h *ImportHandler) ExportImporDetailExcel(c *gin.Context) {
 		f.SetCellValue(sheetName, "A"+row, imp.Product.Name)
 		f.SetCellValue(sheetName, "B"+row, imp.Product.Barcode)
 		f.SetCellValue(sheetName, "C"+row, imp.SupplyPrice)
-		f.SetCellValue(sheetName, "D"+row, imp.RetailPrice)
-		f.SetCellValue(sheetName, "E"+row, helper.StatusToRussian(imp.Import.Status))
-		f.SetCellValue(sheetName, "F"+row, imp.ReceivedCount)
-		f.SetCellValue(sheetName, "G"+row, imp.AcceptedCount)
-		f.SetCellValue(sheetName, "H"+row, imp.ReceivedAmount)
-		f.SetCellValue(sheetName, "I"+row, imp.AcceptedAmount)
-		f.SetCellValue(sheetName, "J"+row, imp.CreatedAt)
+		f.SetCellValue(sheetName, "D"+row, imp.SupplyPriceVat)
+		f.SetCellValue(sheetName, "E"+row, imp.RetailPrice)
+		f.SetCellValue(sheetName, "F"+row, imp.RetailPriceVat)
+		f.SetCellValue(sheetName, "G"+row, helper.StatusToRussian(imp.Import.Status))
+		f.SetCellValue(sheetName, "H"+row, imp.ReceivedCount)
+		f.SetCellValue(sheetName, "I"+row, imp.AcceptedCount)
+		f.SetCellValue(sheetName, "J"+row, imp.ReceivedAmount)
+		f.SetCellValue(sheetName, "K"+row, imp.AcceptedAmount)
+		f.SetCellValue(sheetName, "L"+row, imp.ReceivedAmountVat)
+		f.SetCellValue(sheetName, "M"+row, imp.AcceptedAmountVat)
+		f.SetCellValue(sheetName, "N"+row, imp.CreatedAt.Format(time.DateTime))
 
 	}
 
@@ -427,6 +435,7 @@ func (h *ImportHandler) ExportImporDetailExcel(c *gin.Context) {
 // @Param   import_id query string true "Import ID"
 // @Param   received_amount_from query int false "Received Amount From"
 // @Param   received_amount_to query int false "Received Amount To"
+// @Param   type query string false "Type"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -452,7 +461,16 @@ func (h *ImportHandler) ImportDetailListByLastUpdated(c *gin.Context) {
 	}
 
 	// Prepare response
-	data := utils.ListResponse(importDetails, totalCount, limit, offset)
+	data := map[string]interface{}{
+		"_meta": utils.Meta{
+			TotalCount:  totalCount,
+			PerPage:     limit,
+			CurrentPage: (offset / limit) + 1,
+			PageCount:   int((totalCount + int64(limit) - 1) / int64(limit)),
+		},
+		"data":  importDetails,
+		"stats": gin.H{},
+	}
 
 	handleResponse(c, OK, data)
 }
@@ -830,13 +848,17 @@ func (h *ImportHandler) AcceptSomeImport(c *gin.Context) {
 func (h *ImportHandler) GetStockStatusCounts(c *gin.Context) {
 	var id = c.Param("id")
 	var res domain.StockCountResponse
-
+	// validate id
+	if err := uuid.Validate(id); err != nil {
+		handleResponse(c, BadRequest, "Invalid import id")
+		return
+	}
 	// Use raw SQL to calculate the counts with surplus condition
 	query := `
 		SELECT
 			COALESCE(SUM(accepted_count), 0) AS scanned_count,
 			COALESCE(SUM(received_count - accepted_count), 0) AS shortage_count,
-			COALESCE(COUNT(*), 0) AS total_count,
+			COALESCE(SUM(received_count), 0) AS total_count,
 			COALESCE(SUM(CASE WHEN accepted_count > received_count THEN accepted_count - received_count ELSE 0 END), 0) AS surplus_count
 		FROM import_details
 		WHERE import_id = ?
