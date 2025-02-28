@@ -867,8 +867,8 @@ func (h *ImportHandler) GetStockStatusCounts(c *gin.Context) {
 		Raw(query, id).
 		Scan(&res).Error
 	if err != nil {
-		h.log.Error("Error getting stock status counts: %v", err)
-		handleResponse(c, InternalError, "Failed to fetch stock status counts")
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
