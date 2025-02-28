@@ -53,7 +53,7 @@ func (s *Storage) CancelImport(tx *gorm.DB, id string, userID string) (*domain.I
 }
 
 // Add some imported products to stores
-func (s *Storage) AddImportedProductsToStore(tx *gorm.DB, importData *domain.Import) error {
+func (s *Storage) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domain.Import) error {
 	var (
 		reqFakt domain.AcceptImport1C
 	)
@@ -166,11 +166,11 @@ func (s *Storage) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import) 
 	}
 
 	// // send fakt to 1C
-	// err = s.DoRequest(context.Background(), reqFakt, "/prihod")
-	// if err != nil {
-	// 	s.log.Error(err)
-	// 	return errors.New("failed to send fakt to 1C")
-	// }
+	err = s.DoRequest(context.Background(), reqFakt, "/prihod")
+	if err != nil {
+		s.log.Error(err)
+		return errors.New("failed to send fakt to 1C")
+	}
 
 	return nil
 }
@@ -360,52 +360,6 @@ func (s *Storage) ListImportDetail(c *gin.Context, limit, offset int) ([]domain.
 	return importDetails, totalCount, nil
 }
 
-// send request to 1C for answering import details
-func (s *Storage) DoRequest(ctx context.Context, data interface{}, url string) error {
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-	}
-	buf := bytes.Buffer{}
-	// Encode data to JSON
-	err := json.NewEncoder(&buf).Encode(data)
-	if err != nil {
-		s.log.Error("failed to encode request data: %v", err)
-		return fmt.Errorf("failed to encode request data: %v", err)
-	}
-	// Construct request
-	req, err := http.NewRequestWithContext(ctx, "POST", s.cfg.BaseUrl1C+url, &buf)
-	if err != nil {
-		s.log.Error("failed to create HTTP request: %v", err)
-		return fmt.Errorf("failed to create HTTP request: %v", err)
-	}
-	// set basic auth username and password
-	req.SetBasicAuth(s.cfg.BaseUsername1C, s.cfg.BasePassword1C)
-	req.Header.Set("Content-Type", "application/json")
-
-	// Execute request
-	response, err := client.Do(req)
-	if err != nil {
-		s.log.Error("failed to execute HTTP request: %v", err)
-		return fmt.Errorf("failed to execute HTTP request: %v", err)
-	}
-	// close response body
-	defer response.Body.Close()
-
-	var info map[string]interface{}
-	// read response body
-	err = json.NewDecoder(response.Body).Decode(&info)
-	if err != nil {
-		s.log.Error(err)
-		return err
-	}
-	if value, ok := info["ok"]; !ok || value != true {
-		s.log.Error(info)
-		return fmt.Errorf("failed to answer prihod response: %v", info)
-	}
-
-	return nil
-}
-
 // get import details by import id
 func (s *Storage) GetImportDetailsByImportId(importId string) ([]domain.ImportDetail, error) {
 	var importDetails []domain.ImportDetail
@@ -497,4 +451,52 @@ func (s *Storage) ListImportDetailByLastUpdated(c *gin.Context, limit, offset in
 		return nil, 0, err
 	}
 	return importDetails, totalCount, nil
+}
+
+// send request to 1C for answering import details
+func (s *Storage) DoRequest(ctx context.Context, data interface{}, url string) error {
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+	request, _ := json.Marshal(data)
+	fmt.Println("REQUEST: ", string(request))
+	buf := bytes.Buffer{}
+	// Encode data to JSON
+	err := json.NewEncoder(&buf).Encode(data)
+	if err != nil {
+		s.log.Error("failed to encode request data: %v", err)
+		return fmt.Errorf("failed to encode request data: %v", err)
+	}
+	// Construct request
+	req, err := http.NewRequestWithContext(ctx, "POST", s.cfg.BaseUrl1C+url, &buf)
+	if err != nil {
+		s.log.Error("failed to create HTTP request: %v", err)
+		return fmt.Errorf("failed to create HTTP request: %v", err)
+	}
+	// set basic auth username and password
+	req.SetBasicAuth(s.cfg.BaseUsername1C, s.cfg.BasePassword1C)
+	req.Header.Set("Content-Type", "application/json")
+
+	// Execute request
+	response, err := client.Do(req)
+	if err != nil {
+		s.log.Error("failed to execute HTTP request: %v", err)
+		return fmt.Errorf("failed to execute HTTP request: %v", err)
+	}
+	// close response body
+	defer response.Body.Close()
+
+	var info map[string]interface{}
+	// read response body
+	err = json.NewDecoder(response.Body).Decode(&info)
+	if err != nil {
+		s.log.Error(err)
+		return err
+	}
+	if value, ok := info["ok"]; !ok || value != true {
+		s.log.Error(info)
+		return fmt.Errorf("failed to answer prihod response: %v", info)
+	}
+
+	return nil
 }

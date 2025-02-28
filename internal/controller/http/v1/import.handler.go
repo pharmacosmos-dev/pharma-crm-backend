@@ -814,7 +814,7 @@ func (h *ImportHandler) AcceptSomeImport(c *gin.Context) {
 		return
 	}
 	// add products import_details to store_products
-	err = h.service.AddImportedProductsToStore(tx, importData)
+	err = h.service.AddSomeImportedProductsToStore(tx, importData)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())

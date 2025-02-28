@@ -29,3 +29,4 @@ vendor/
 !/app/uploads/.gitkeep
 
 main
+test.*
