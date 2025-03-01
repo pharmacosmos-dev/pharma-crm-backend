@@ -10,7 +10,6 @@ CREATE TABLE IF NOT EXISTS "companies" (
     "legal_address" VARCHAR(255),
     "postal_code" VARCHAR(10),
     "company_inn" VARCHAR(55),
-    "company_stir" VARCHAR(255),
     "company_mfo" VARCHAR(255),
     "created_at" TIMESTAMP NOT NULL DEFAULT NOW(),
     "updated_at" TIMESTAMP NOT NULL DEFAULT NOW(),

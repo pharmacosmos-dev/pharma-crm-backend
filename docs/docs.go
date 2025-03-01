@@ -10385,9 +10385,6 @@ const docTemplate = `{
                 "company_mfo": {
                     "type": "string"
                 },
-                "company_stir": {
-                    "type": "string"
-                },
                 "country": {
                     "type": "string"
                 },

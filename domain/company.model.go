@@ -14,7 +14,6 @@ type Company struct {
 	LegalName    string     `gorm:"legal_name" json:"legal_name"`
 	LegalAddress string     `gorm:"legal_address" json:"legal_address"`
 	CompanyInn   string     `gorm:"company_inn" json:"company_inn"`
-	CompanyStir  string     `gorm:"company_stir" json:"company_stir"`
 	CompanyMfo   string     `gorm:"company_mfo" json:"company_mfo"`
 	CreatedAt    *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt    *time.Time `gorm:"updated_at" json:"updated_at"`
@@ -31,6 +30,5 @@ type CompanyRequest struct {
 	LegalName    string `gorm:"legal_name" json:"legal_name"`
 	LegalAddress string `gorm:"legal_address" json:"legal_address"`
 	CompanyInn   string `gorm:"company_inn" json:"company_inn"`
-	CompanyStir  string `gorm:"company_stir" json:"company_stir"`
 	CompanyMfo   string `gorm:"company_mfo" json:"company_mfo"`
 }
