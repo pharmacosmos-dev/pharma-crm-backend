@@ -1,0 +1,1 @@
+ALTER TABLE "stores" ADD COLUMN IF NOT EXISTS "company_id" UUID REFERENCES "companies"("id") ON DELETE CASCADE;

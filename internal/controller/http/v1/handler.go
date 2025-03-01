@@ -86,6 +86,8 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		h.NewAutoOrderHandler(v1)
 		h.NewProducerHandler(v1)
 		h.NewDashboardHandler(v1)
+		h.NewHelperHandler(v1)
+		h.NewCompanyHandler(v1)
 		// handler for external apis
 		h.NewExternalHandler(external)
 	}

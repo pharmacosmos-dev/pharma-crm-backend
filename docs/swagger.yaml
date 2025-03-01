@@ -175,6 +175,31 @@ definitions:
       is_open:
         type: boolean
     type: object
+  domain.CompanyRequest:
+    properties:
+      city:
+        type: string
+      company_inn:
+        type: string
+      company_mfo:
+        type: string
+      company_stir:
+        type: string
+      country:
+        type: string
+      email:
+        type: string
+      legal_address:
+        type: string
+      legal_name:
+        type: string
+      name:
+        type: string
+      phone:
+        type: string
+      postal_code:
+        type: string
+    type: object
   domain.CreateProduct1C:
     properties:
       Apteka:
@@ -2300,6 +2325,124 @@ paths:
       summary: Get a category
       tags:
       - categories
+  /company:
+    post:
+      consumes:
+      - application/json
+      description: Create a company from the request body
+      parameters:
+      - description: company
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CompanyRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a company
+      tags:
+      - companies
+    put:
+      description: Update a company by id
+      parameters:
+      - description: company id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: company request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CompanyRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update a company
+      tags:
+      - companies
+  /company/{id}:
+    get:
+      description: Get a company by id
+      parameters:
+      - description: company id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a company
+      tags:
+      - companies
+  /company/info:
+    get:
+      description: Get a company by id
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a company
+      tags:
+      - companies
   /customer:
     post:
       consumes:
@@ -3490,6 +3633,31 @@ paths:
       summary: Generate 1C token
       tags:
       - 1C token
+  /helper/export-package-code:
+    post:
+      consumes:
+      - application/json
+      description: Export package code excel
+      produces:
+      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Export package code excel
+      tags:
+      - helper
   /import:
     post:
       consumes:
