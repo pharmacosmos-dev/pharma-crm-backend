@@ -485,12 +485,14 @@ func (s *Storage) DoRequest(ctx context.Context, data interface{}, url string) e
 	}
 	// close response body
 	defer response.Body.Close()
+	// t, _ := io.ReadAll(response.Body)
+	// fmt.Println("RESPONSE: ", string(t))
 
 	var info map[string]interface{}
 	// read response body
 	err = json.NewDecoder(response.Body).Decode(&info)
 	if err != nil {
-		s.log.Error(err)
+		s.log.Error("ERROR on decoding response: %w", err)
 		return err
 	}
 	if value, ok := info["ok"]; !ok || value != true {
