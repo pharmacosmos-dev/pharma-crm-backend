@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/utils"
 )
 
 type CompanyHandler struct {
@@ -47,6 +48,11 @@ func (h *CompanyHandler) Create(c *gin.Context) {
 	if err = c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	// validate phone
+	if !utils.IsValidPhone(body.Phone) {
+		handleResponse(c, BadRequest, "Invalid phone number, Format: 998901234567")
 		return
 	}
 	// create company info
@@ -146,6 +152,11 @@ func (h *CompanyHandler) Update(c *gin.Context) {
 	if err = c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	// validate phone
+	if !utils.IsValidPhone(body.Phone) {
+		handleResponse(c, BadRequest, "Invalid phone number, Format: 998901234567")
 		return
 	}
 	// update company info
