@@ -171,20 +171,24 @@ func (h *SaleHandler) Get(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /sale/list [get]
 func (h *SaleHandler) List(c *gin.Context) {
-	// get limit offset
-	limit, offset, err := getPaginationParams(c)
-	if err != nil {
+	var param domain.QueryParam
+	// bind query params
+	if err := c.ShouldBindQuery(&param); err != nil {
+		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	// get limit offset with checking default
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
 	// get sale list data
-	res, totalCount, err := h.service.ListSale(c, limit, offset)
+	res, totalCount, err := h.service.ListSale(c, &param)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 	// added _meta section to response
-	result := utils.ListResponse(res, totalCount, limit, offset)
+	result := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
 
 	handleResponse(c, OK, result)
 }
@@ -210,14 +214,18 @@ func (h *SaleHandler) List(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /sale/export-excel [get]
 func (h *SaleHandler) ExportSaleExcel(c *gin.Context) {
-	// get limit offset
-	limit, offset, err := getPaginationParams(c)
-	if err != nil {
+	var param domain.QueryParam
+	// bind query params
+	if err := c.ShouldBindQuery(&param); err != nil {
+		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	// get limit offset
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
 	// get sale list data
-	res, _, err := h.service.ListSale(c, limit, offset)
+	res, _, err := h.service.ListSale(c, &param)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -307,18 +315,14 @@ func (h *SaleHandler) ExportSaleExcel(c *gin.Context) {
 // @Router /sale/stats [get]
 func (h *SaleHandler) SaleStats(c *gin.Context) {
 	var (
-		res domain.SaleStats
+		res   domain.SaleStats
+		param domain.QueryParam
 	)
-	// Get query params
-	var (
-		startDate     = c.Query("start_date")
-		endDate       = c.Query("end_date")
-		vendorID      = c.Query("vendor_id")
-		cashBoxId     = c.Query("cashbox_id")
-		paymentTypeId = c.Query("payment_type_id")
-		storeID       = c.Query("store_id")
-		search        = c.Query("search")
-	)
+	// bind query param
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
 	// get userid from header
 	userId, ok := c.Get("user_id")
 	if !ok {
@@ -339,8 +343,8 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 	}
 	// check user role
 	if !helper.IsAdmin(employee, h.cfg) {
-		storeID = employee.StoreId
-		vendorID = employee.Id
+		param.StoreID = employee.StoreId
+		param.VendorID = employee.Id
 	}
 
 	var (
@@ -375,37 +379,37 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 		group  = ` GROUP BY pt.id, pt.name, pt.type `
 	)
 
-	if paymentTypeId != "" {
-		args = append(args, paymentTypeId)
+	if param.PaymentTypeID != "" {
+		args = append(args, param.PaymentTypeID)
 		filter += " AND sp.payment_type_id = ?"
 	}
 
-	if vendorID != "" {
-		args = append(args, vendorID)
+	if param.VendorID != "" {
+		args = append(args, param.VendorID)
 		filter += " AND s.employee_id = ?"
 	}
-	if storeID != "" {
-		args = append(args, storeID)
+	if param.StoreID != "" {
+		args = append(args, param.StoreID)
 		filter += "AND st.id = ?"
 	}
-	if cashBoxId != "" {
-		args = append(args, cashBoxId)
+	if param.CashBoxID != "" {
+		args = append(args, param.CashBoxID)
 		filter += "AND co.cash_box_id = ?"
 	}
 
-	if startDate != "" && endDate != "" {
-		args = append(args, startDate, endDate)
+	if param.StartDate != "" && param.EndDate != "" {
+		args = append(args, param.StartDate, param.EndDate)
 		filter += " AND s.completed_at::date >= ? AND s.completed_at::date <= ?"
 	}
 
-	if startDate != "" && endDate == "" {
-		args = append(args, startDate)
+	if param.StartDate != "" && param.EndDate == "" {
+		args = append(args, param.StartDate)
 		filter += " AND s.completed_at::date >= ?"
 	}
 
-	if search != "" {
-		search = fmt.Sprintf("%%%s%%", search)
-		filter += fmt.Sprintf(" AND stores.name ILIKE %s OR CAST(s.sale_number AS TEXT) LIKE %s", search, search)
+	if param.Search != "" {
+		param.Search = fmt.Sprintf("%%%s%%", param.Search)
+		filter += fmt.Sprintf(" AND stores.name ILIKE %s OR CAST(s.sale_number AS TEXT) LIKE %s", param.Search, param.Search)
 	}
 	// collect total transactions query
 	var q = squery + filter

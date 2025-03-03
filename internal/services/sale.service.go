@@ -155,17 +155,9 @@ func (s *Storage) CreateOnlineSale(tx *gorm.DB, saleId string, totalAmount int64
 }
 
 // get sale list data
-func (s *Storage) ListSale(c *gin.Context, limit, offset int) ([]domain.SaleResponse, int64, error) {
-	var (
-		totalCount    int64
-		startDate     = c.Query("start_date")
-		endDate       = c.Query("end_date")
-		vendorID      = c.Query("vendor_id")
-		cashBoxId     = c.Query("cashbox_id")
-		paymentTypeId = c.Query("payment_type_id")
-		storeID       = c.Query("store_id")
-		search        = c.Query("search")
-	)
+func (s *Storage) ListSale(c *gin.Context, param *domain.QueryParam) ([]domain.SaleResponse, int64, error) {
+	var totalCount int64
+
 	// get user id from header
 	userId, ok := c.Get("user_id")
 	if !ok {
@@ -183,8 +175,8 @@ func (s *Storage) ListSale(c *gin.Context, limit, offset int) ([]domain.SaleResp
 	}
 	// check if employee is not admin or superadmin
 	if !helper.IsAdmin(employee, s.cfg) {
-		storeID = employee.StoreId
-		vendorID = userId.(string)
+		param.StoreID = employee.StoreId
+		param.StoreID = userId.(string)
 	}
 	// build sale get list query
 	var res = []domain.SaleResponse{}
@@ -207,49 +199,48 @@ func (s *Storage) ListSale(c *gin.Context, limit, offset int) ([]domain.SaleResp
 		Joins("LEFT JOIN customers ON s.customer_id = customers.id")
 
 	// filter by payment type
-	if paymentTypeId != "" {
+	if param.PaymentTypeID != "" {
 		query = query.Joins("JOIN sale_payments sp ON s.id = sp.sale_id").
-			Where("sp.payment_type_id = ?", paymentTypeId).
+			Where("sp.payment_type_id = ?", param.PaymentTypeID).
 			Group("s.id, st.name, cash_boxes.name, em.full_name, em.phone, customers.full_name, customers.phone")
 	}
 	// filter by employee
-	if vendorID != "" {
-		query = query.Where("s.employee_id = ?", vendorID)
+	if param.VendorID != "" {
+		query = query.Where("s.employee_id = ?", param.VendorID)
 	} else {
 		query = query.Where("s.employee_id IS NOT NULL OR s.employee_id IS NULL") // Include online sales
 	}
 	// filter by store id
-	if storeID != "" {
-		query = query.Where("s.store_id = ?", storeID)
+	if param.StoreID != "" {
+		query = query.Where("s.store_id = ?", param.StoreID)
 	} else {
 		query = query.Where("s.store_id IS NOT NULL OR s.store_id IS NULL") // Include online sales
 	}
 	// filter by cashbox id
-	if cashBoxId != "" {
-		query = query.Where("co.cash_box_id = ?", cashBoxId)
+	if param.CashBoxID != "" {
+		query = query.Where("co.cash_box_id = ?", param.CashBoxID)
 	} else {
 		query = query.Where("s.cash_box_operation_id IS NULL OR co.cash_box_id IS NOT NULL") // Include online sales
 	}
 	// filter by start date and end date
-	if startDate != "" && endDate != "" {
-		query = query.Where("s.completed_at::date >= ? AND s.completed_at::date <= ?  ", startDate, endDate)
+	if param.StartDate != "" && param.EndDate != "" {
+		query = query.Where("s.completed_at::date >= ? AND s.completed_at::date <= ?  ", param.StartDate, param.EndDate)
 	}
 	// filter by start date
-	if startDate != "" && endDate == "" {
-		query = query.Where("s.completed_at::date >= ?", startDate)
+	if param.StartDate != "" && param.EndDate == "" {
+		query = query.Where("s.completed_at::date >= ?", param.StartDate)
 	}
 	// search condition
-	if search != "" {
-		search = fmt.Sprintf("%%%s%%", search)
-		query = query.Where("st.name ILIKE ? OR CAST(s.sale_number AS TEXT) LIKE ?", search, search)
+	if param.Search != "" {
+		param.Search = fmt.Sprintf("%%%s%%", param.Search)
+		query = query.Where("st.name ILIKE ? OR CAST(s.sale_number AS TEXT) LIKE ?", param.Search, param.Search)
 	}
 	// complete query
 	err = query.Where("s.status = 'completed'").
 		Count(&totalCount).
-		Limit(limit).
-		Offset(offset).
+		Limit(param.Limit).
+		Offset(param.Offset).
 		Order("s.completed_at DESC").
-		Debug().
 		Find(&res).Error
 
 	if err != nil {

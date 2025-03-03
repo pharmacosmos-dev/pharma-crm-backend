@@ -116,3 +116,14 @@ func handleResponse(c *gin.Context, status Status, data interface{}, count ...in
 		Count:   responseCount,
 	})
 }
+
+// default limit and offset
+func defaultLimitOffset(limit, offset int) (int, int) {
+	if limit == 0 {
+		limit = config.DefaultLimit
+	}
+	if offset == 0 {
+		offset = config.DefaultOffset
+	}
+	return limit, offset
+}
