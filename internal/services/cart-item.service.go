@@ -14,7 +14,7 @@ import (
 func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartItemData, error) {
 	var res []domain.CartItemResponse
 	err := s.db.Debug().Raw(`
-	SELECT DISTINCT ON (ci.id)
+	SELECT
 		ci.*,
 		p.name,
 		p.barcode,
@@ -31,7 +31,7 @@ func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartIt
 		u.short_name,
 		sh.name as shelf,
 		pr.name AS producer_name,
-		c.name as category_name
+		STRING_AGG(c.name, ', ') as category_name
 	FROM cart_items ci
 	JOIN store_products sp ON ci.store_product_id = sp.id
 	JOIN products p ON sp.product_id = p.id
@@ -41,7 +41,8 @@ func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartIt
 	LEFT JOIN category_products cp ON p.id = cp.product_id
 	LEFT JOIN categories c ON c.id = cp.category_id
 	WHERE ci.status = 'pending' AND ci.sale_id = ?
-	ORDER BY ci.id DESC, ci.created_at DESC LIMIT ? OFFSET ?
+	GROUP BY ci.id, ci.created_at, p.id, sp.id, u.id, sh.id, pr.id
+	ORDER BY ci.created_at DESC LIMIT ? OFFSET ?
 	`, saleID, limit, offset).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("Error on listing cart items for sale %s: %v", saleID, err.Error())
@@ -67,6 +68,9 @@ func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartIt
 	if err != nil {
 		s.log.Warn("Error on listing cart items for sale %s: %v", saleID, err.Error())
 		return nil, err
+	}
+	if res == nil {
+		res = []domain.CartItemResponse{}
 	}
 	data.TotalAmount = data.Sum - data.DiscountAmount
 	data.Data = res
