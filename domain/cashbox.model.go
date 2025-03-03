@@ -27,6 +27,7 @@ type CashBoxRequest struct {
 // Cash Box Session structure
 type CashboxOperation struct {
 	ID             string     `gorm:"id" json:"id"`
+	OperationID    int64      `gorm:"operation_id" json:"operation_id"`
 	CashBoxID      string     `gorm:"cash_box_id" json:"cash_box_id"`
 	EmployeeID     string     `gorm:"employee_id" json:"employee_id"`
 	CashAmount     float64    `gorm:"cash_amount" json:"cash_amount"`
@@ -73,6 +74,7 @@ type CashBoxCheckResponse struct {
 // Cash Box Session structure
 type CashboxOperationInfo struct {
 	ID             string     `gorm:"id" json:"id"`
+	OperationID    int64      `gorm:"operation_id" json:"operation_id"`
 	CashBoxID      string     `gorm:"cash_box_id" json:"cash_box_id"`
 	EmployeeID     string     `gorm:"employee_id" json:"employee_id"`
 	CashAmount     float64    `gorm:"cash_amount" json:"cash_amount"`
@@ -105,4 +107,17 @@ type CashboxOperationAmount struct {
 	Click  float64 `gorm:"click" json:"click"`
 	Payme  float64 `gorm:"payme" json:"payme"`
 	Uzum   float64 `gorm:"uzum" json:"uzum"`
+}
+
+// Cashbox operation shift
+type CashboxOperationShift struct {
+	Id             string     `gorm:"id" json:"id"`
+	OperationId    int64      `gorm:"operation_id" json:"operation_id"`
+	CashboxName    string     `gorm:"cashbox_name" json:"cashbox_name"`
+	StoreName      string     `gorm:"store_name" json:"store_name"`
+	IsOpen         bool       `gorm:"is_open" json:"is_open"`
+	CashAmount     float64    `gorm:"cash_amount" json:"cash_amount"`
+	CashlessAmount float64    `gorm:"cashless_amount" json:"cashless_amount"`
+	StartTime      *time.Time `gorm:"start_time" json:"start_time"`
+	EndTime        *time.Time `gorm:"end_time" json:"end_time"`
 }

@@ -1,0 +1,1 @@
+ALTER TABLE cashbox_operations DROP COLUMN IF EXISTS "operation_id";

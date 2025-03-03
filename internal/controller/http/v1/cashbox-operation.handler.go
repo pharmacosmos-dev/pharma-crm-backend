@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
 )
 
@@ -31,6 +32,7 @@ func (h *CashBoxOperationHandler) CashBoxOperationRoutes(r *gin.RouterGroup) {
 		cashBoxOperation.PUT("/close/:cash_box_operation_id", h.CloseCashBox)
 		cashBoxOperation.GET("/closed-info/:cash_box_id", h.CashBoxOperationClosedAmount)
 		cashBoxOperation.GET("info/:id", h.CashBoxOperationInfo)
+		cashBoxOperation.GET("/shift", h.OperationShiftList)
 	}
 }
 
@@ -360,4 +362,48 @@ func (h *CashBoxOperationHandler) CashBoxOperationInfo(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, cashBoxOperation)
+}
+
+// OperationShiftList godoc
+// @Summary Get a cash operation shift list
+// @Description Get a cash operation shift list from the request body
+// @Tags cash_boxes
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param store_id query string false "Store ID"
+// @Param is_open query string false "Is open"
+// @Param search query string false "Search"
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /cash_box_operation/shift [get]
+func (h *CashBoxOperationHandler) OperationShiftList(c *gin.Context) {
+	var (
+		storeID = c.Query("store_id")
+		isOpen  = c.Query("is_open")
+		search  = c.Query("search")
+		shifts  []domain.CashboxOperationShift
+	)
+	// get limit offset
+	limit, offset, err := getPaginationParams(c)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	// get cash box operation shift list
+	shifts, totalCount, err := h.service.GetOperationShiftList(storeID, isOpen, search, limit, offset)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	// get _meta data to add pagination items
+	data := utils.ListResponse(shifts, totalCount, limit, offset)
+
+	handleResponse(c, OK, data)
+
 }

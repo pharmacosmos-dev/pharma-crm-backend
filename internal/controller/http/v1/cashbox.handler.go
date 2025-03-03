@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
 )
@@ -31,6 +32,7 @@ func (h *CashBoxHandler) CashBoxRoutes(r *gin.RouterGroup) {
 		cashBox.GET("/check", h.CheckCashBox)
 		cashBox.DELETE("/hard-delete", h.HardDelete)
 		cashBox.DELETE("/soft-delete", h.SoftDelete)
+
 	}
 }
 
@@ -155,25 +157,53 @@ func (h *CashBoxHandler) List(c *gin.Context) {
 		storeID    = c.Query("store_id")
 		search     = c.Query("search")
 	)
+	// get user id from header
+	userId, ok := c.Get("user_id")
+	if !ok {
+		h.log.Error(err)
+		handleResponse(c, InternalError, "User ID not found")
+		return
+	}
+	var employee domain.Employee
+	// get employee info
+	err = h.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
 
+	// check employee role
+	if !helper.IsAdmin(employee, h.cfg) {
+		storeID = employee.StoreId
+	}
+
+	// get limit, offset with getting or default
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+
+	// build query
 	query := h.db.
 		Model(&domain.CashBox{}).
 		Preload("Store")
-
+	// filter by storeID
 	if storeID != "" {
 		query = query.Where("store_id = ?", storeID)
 	}
-
+	// filter by search item
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
 		query = query.Where("name ILIKE ?", search)
 	}
+	// complete query
 	err = query.
 		Where("deleted_at IS NULL").
 		Count(&totalCount).
@@ -185,6 +215,7 @@ func (h *CashBoxHandler) List(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	// build response with _meta
 	result := utils.ListResponse(res, totalCount, limit, offset)
 
 	handleResponse(c, OK, result, totalCount)
@@ -209,11 +240,19 @@ func (h *CashBoxHandler) Update(c *gin.Context) {
 		err  error
 		id   = c.Param("id")
 	)
+	// validate request id
+	if err = uuid.Validate(id); err != nil {
+		handleResponse(c, BadRequest, "Invalid id")
+		return
+	}
+
+	// bind request body
 	if err = c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	// update cashbox info
 	err = h.db.WithContext(c.Request.Context()).
 		Table("cash_boxes").
 		Where("id = ?", id).
@@ -260,11 +299,13 @@ func (h *CashBoxHandler) HardDelete(c *gin.Context) {
 		ids []string
 		err error
 	)
+	// bind request body
 	if err = c.ShouldBindJSON(&ids); err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	// hard delete
 	err = h.db.Delete(&domain.CashBox{}, "id IN (?)", ids).Error
 	if err != nil {
 		h.log.Error(err)
@@ -291,11 +332,13 @@ func (h *CashBoxHandler) SoftDelete(c *gin.Context) {
 		ids []string
 		err error
 	)
+	// bind request body
 	if err = c.ShouldBindJSON(&ids); err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	// soft delete
 	err = h.db.
 		WithContext(c.Request.Context()).
 		Table("cash_boxes").
