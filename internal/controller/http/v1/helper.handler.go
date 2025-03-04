@@ -177,7 +177,7 @@ func (h *HelperHandler) UploadPackageCodeExcel(c *gin.Context) {
 		return
 	}
 	defer xlsx.Close()
-	sheetName := xlsx.GetSheetName(0)
+	sheetName := xlsx.GetSheetName(1)
 	rows, err := xlsx.GetRows(sheetName)
 	if err != nil {
 		h.log.Error("Failed to get rows: ", err.Error())
@@ -195,15 +195,16 @@ func (h *HelperHandler) UploadPackageCodeExcel(c *gin.Context) {
 	// build query
 	query := `
 	INSERT INTO product_measurements (
-			mxik_code, mxik_name_uz, unit_name, unit_code, mxik_name_ru) 
-	VALUES (?, ?, ?, ?, ?) ON CONFLICT (mxik_code) DO NOTHING;`
+			mxik_code, mxik_name_uz, unit_name, unit_code)
+	VALUES (?, ?, ?, ?) ON CONFLICT (mxik_code) DO NOTHING;`
+
 	// Process rows
 	for _, row := range rows[2:] {
-		if len(row) > 4 && len(row[0]) > 0 {
+		if len(row) > 3 {
 			prefix := row[0][:3]
 			if allowedPrefixes[prefix] {
 				// create measurements
-				err = h.db.Exec(query, row[0], row[1], row[2], row[3], row[4]).Error
+				err = h.db.Debug().Exec(query, row[0], row[1], row[2], row[3]).Error
 				if err != nil {
 					h.log.Error(err)
 					handleResponse(c, InternalError, err.Error())

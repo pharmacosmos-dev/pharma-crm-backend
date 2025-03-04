@@ -4,8 +4,9 @@ import "time"
 
 // Producer structure
 type Producer struct {
-	Id        string     `gorm:"type:uuid;default:gen_random_uuid()" json:"id"`
+	Id        string     `gorm:"id" json:"id"`
 	Name      string     `gorm:"name" json:"name"`
+	Code      string     `gorm:"code" json:"code"`
 	CreatedAt *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt *time.Time `gorm:"updated_at" json:"updated_at"`
 }

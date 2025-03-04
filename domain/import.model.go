@@ -2,6 +2,8 @@ package domain
 
 import (
 	"time"
+
+	"github.com/pharma-crm-backend/pkg/utils"
 )
 
 // Import structure
@@ -71,19 +73,20 @@ type ImportDetail struct {
 }
 
 type ImportDetailRequest struct {
-	ImportID       string  `gorm:"import_id" json:"import_id"`
-	ProductID      *string `gorm:"product_id" json:"product_id"`
-	ReceivedCount  int     `gorm:"received_count" json:"received_count"`
-	AcceptedCount  int     `gorm:"accepted_count" json:"accepted_count"`
-	SupplyPrice    float64 `gorm:"supply_price" json:"supply_price"`
-	SupplyPriceVat float64 `gorm:"supply_price_vat" json:"supply_price_vat"`
-	RetailPrice    float64 `gorm:"retail_price" json:"retail_price"`
-	RetailPriceVat float64 `gorm:"retail_price_vat" json:"retail_price_vat"`
-	ExpireDate     string  `gorm:"expire_date" json:"expire_date"`
-	Vat            int     `gorm:"vat" json:"vat"`
-	VatSum         float64 `gorm:"vat_sum" json:"vat_sum"`
-	SumVat         float64 `gorm:"sum_vat" json:"sum_vat"`
-	SeriesNumber   string  `gorm:"series_number" json:"series_number"`
+	ImportID       string            `gorm:"import_id" json:"import_id"`
+	ProductID      *string           `gorm:"product_id" json:"product_id"`
+	ReceivedCount  int               `gorm:"received_count" json:"received_count"`
+	AcceptedCount  int               `gorm:"accepted_count" json:"accepted_count"`
+	SupplyPrice    float64           `gorm:"supply_price" json:"supply_price"`
+	SupplyPriceVat float64           `gorm:"supply_price_vat" json:"supply_price_vat"`
+	RetailPrice    float64           `gorm:"retail_price" json:"retail_price"`
+	RetailPriceVat float64           `gorm:"retail_price_vat" json:"retail_price_vat"`
+	ExpireDate     string            `gorm:"expire_date" json:"expire_date"`
+	Vat            int               `gorm:"vat" json:"vat"`
+	VatSum         float64           `gorm:"vat_sum" json:"vat_sum"`
+	SumVat         float64           `gorm:"sum_vat" json:"sum_vat"`
+	SeriesNumber   string            `gorm:"series_number" json:"series_number"`
+	Marking        utils.StringArray `gorm:"type:text[]" json:"marking"`
 }
 
 type ImportUpdateRequest struct {

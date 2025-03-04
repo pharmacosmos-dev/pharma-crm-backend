@@ -4316,6 +4316,83 @@ const docTemplate = `{
                 }
             }
         },
+        "/helper/get-ikpu-data-from-soliq": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get IKPU data from Soliq",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "helper"
+                ],
+                "summary": "Get IKPU data from Soliq",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Lang: (uz_latn || uz_cyrl || ru)",
+                        "name": "lang",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Group code",
+                        "name": "groupCode",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Class code",
+                        "name": "classCode",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/helper/upload-package-code": {
             "post": {
                 "security": [
@@ -6406,6 +6483,55 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/producer/excel-upload": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Upload a producer file in .xlsx format. The file should include producer details in specific columns.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "producers"
+                ],
+                "summary": "Upload a producer",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Excel file (.xlsx) containing producer data",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Producers uploaded successfully",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid file format or processing error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
                         }
@@ -10816,6 +10942,12 @@ const docTemplate = `{
                 "import_id": {
                     "type": "string"
                 },
+                "marking": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "product_id": {
                     "type": "string"
                 },
@@ -11014,6 +11146,9 @@ const docTemplate = `{
         "domain.Producer": {
             "type": "object",
             "properties": {
+                "code": {
+                    "type": "string"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -11077,15 +11212,34 @@ const docTemplate = `{
         },
         "domain.ProductRequest1C": {
             "type": "object",
+            "required": [
+                "barcode",
+                "expire_date",
+                "manufacturer",
+                "material_code",
+                "name",
+                "product_series_number",
+                "quantity",
+                "retail_price",
+                "vat"
+            ],
             "properties": {
                 "barcode": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 255,
+                    "minLength": 0
                 },
                 "expire_date": {
                     "type": "string"
                 },
+                "ikpu": {
+                    "type": "string",
+                    "maxLength": 255
+                },
                 "manufacturer": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 255,
+                    "minLength": 1
                 },
                 "markirovka": {
                     "type": "array",
@@ -11094,46 +11248,57 @@ const docTemplate = `{
                     }
                 },
                 "markup": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": 0
                 },
                 "material_code": {
                     "type": "integer"
                 },
                 "name": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 500,
+                    "minLength": 1
                 },
                 "product_series_number": {
                     "type": "string"
                 },
                 "quantity": {
-                    "type": "integer"
+                    "type": "integer",
+                    "minimum": 0
                 },
                 "retail_price": {
                     "type": "number"
                 },
                 "retail_price_vat": {
-                    "type": "number"
+                    "type": "number",
+                    "minimum": 0
                 },
                 "sum": {
-                    "type": "number"
+                    "type": "number",
+                    "minimum": 0
                 },
                 "sum_vat": {
-                    "type": "number"
+                    "type": "number",
+                    "minimum": 0
                 },
                 "supply_price": {
-                    "type": "number"
+                    "type": "number",
+                    "minimum": 0
                 },
                 "supply_price_vat": {
-                    "type": "number"
+                    "type": "number",
+                    "minimum": 0
                 },
                 "vat": {
                     "type": "string"
                 },
                 "vat_price": {
-                    "type": "number"
+                    "type": "number",
+                    "minimum": 0
                 },
                 "vat_sum": {
-                    "type": "number"
+                    "type": "number",
+                    "minimum": 0
                 }
             }
         },

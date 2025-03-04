@@ -274,3 +274,25 @@ func (s *Storage) ListProduct(c *gin.Context, limit, offset int) ([]*domain.Prod
 	}
 	return res, totalCount, nil
 }
+
+// get product ikpu by mxik
+func (s *Storage) GetProductIKPUByMxik(ctx context.Context, mxik string) (*domain.ProductMeasurement, error) {
+	var measurement domain.ProductMeasurement
+	err := s.db.First(&measurement, "mxik_code = ?", mxik).Error
+	if err != nil {
+		s.log.Error(err)
+		return nil, err
+	}
+	return &measurement, nil
+}
+
+// get producer info by code
+func (s *Storage) GetProducerByCode(ctx context.Context, code string) (*domain.Producer, error) {
+	var producer domain.Producer
+	err := s.db.First(&producer, "code = ?", code).Error
+	if err != nil {
+		s.log.Error(err)
+		return nil, err
+	}
+	return &producer, nil
+}

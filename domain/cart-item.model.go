@@ -91,6 +91,8 @@ type CartItemResponse struct {
 	UnitPerPack         int        `gorm:"unit_per_pack" json:"unit_per_pack"`
 	Shelf               string     `gorm:"shelf" json:"shelf"`
 	ProducerName        string     `gorm:"producer_name" json:"producer_name"`
+	ClassCode           string     `gorm:"class_code" json:"class_code"`
+	PackageCode         string     `gorm:"package_code" json:"package_code"`
 	CategoryName        string     `gorm:"category_name" json:"category_name"`
 	BonusAmount         float64    `gorm:"bonus_amount" json:"bonus_amount"`
 	BonusPercent        int        `gorm:"bonus_percent" json:"bonus_percent"`

@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/spf13/cast"
 	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
@@ -48,18 +49,20 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 		body domain.CreateProduct1C
 		err  error
 	)
+	// bind request body
 	if err = c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	// start transaction
 	tx := h.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
 		}
 	}()
-
+	// get store info
 	var store domain.Store
 	err = tx.First(&store, "store_code = ?", body.Apteka.StoreCode).Error
 	if err != nil {
@@ -80,10 +83,7 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 		DocumentNumber: body.Dok.DocumentNumber,
 	}
 	// create new import
-	err = tx.
-		WithContext(c.Request.Context()).
-		Table("imports").
-		Create(&newImport).Error
+	err = tx.Table("imports").Create(&newImport).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(err.Error(), "unique constraint") {
 			h.log.Warn("duplicate document_number: %v", err)
@@ -97,32 +97,50 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 		return
 	}
 	var productID string
+	var importDetails []domain.ImportDetailRequest
 	for i := range body.Товары {
+		// get product mxik code from product_measurements
+		ikpu, err := h.service.GetProductIKPUByMxik(c.Request.Context(), body.Товары[i].Ikpu)
+		if err != nil {
+			handleResponse(c, InternalError, err.Error())
+			tx.Rollback()
+			return
+		}
+		// get producer by code
+		producer, err := h.service.GetProducerByCode(c.Request.Context(), body.Товары[i].Manufacturer)
+		if err != nil {
+			handleResponse(c, InternalError, err.Error())
+			tx.Rollback()
+			return
+		}
 		// create product id
 		productID = uuid.New().String()
 		// create or update product
 		err = tx.Raw(`
-		INSERT INTO products (material_code, name, barcode)
-		VALUES ($1, $2, $3)
-		ON CONFLICT (material_code) DO UPDATE 
-		SET name = EXCLUDED.name, barcode = EXCLUDED.barcode
-		RETURNING id;
-`,
+		INSERT INTO products (material_code, name, barcode, measurement_id, producer_id)
+		VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT (material_code) DO UPDATE
+		SET name = EXCLUDED.name, 
+			barcode = EXCLUDED.barcode, 
+			measurement_id = EXCLUDED.measurement_id, 
+			producer_id = EXCLUDED.producer_id
+		RETURNING id;`,
 			body.Товары[i].MaterialCode,
-			body.Товары[i].Name, body.Товары[i].Barcode).Scan(&productID).Error
+			body.Товары[i].Name, body.Товары[i].Barcode, *ikpu.ID, producer.Id).Scan(&productID).Error
 		if err != nil {
 			h.log.Warn("ERROR on creating new product: %v", err.Error())
 			handleResponse(c, BadRequest, "Error on checking product data")
 			tx.Rollback()
 			return
 		}
+		// check prices
 		if body.Товары[i].SupplyPriceVat < 1 || body.Товары[i].RetailPriceVat < 1 {
 			handleResponse(c, BadRequest, "SupplyPriceVat and RetailPriceVat must be greater than 0")
 			tx.Rollback()
 			return
 		}
-		// create import details
-		importDetailId, err := h.service.CreateImportDetail(tx, &domain.ImportDetailRequest{
+		// collect import details
+		importDetails = append(importDetails, domain.ImportDetailRequest{
 			ProductID:      &productID,
 			ImportID:       newImport.Id,
 			ReceivedCount:  body.Товары[i].Quantity,
@@ -135,25 +153,16 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 			ExpireDate:     body.Товары[i].ExpireDate,
 			SeriesNumber:   body.Товары[i].ProductSeriesNumber,
 			SumVat:         body.Товары[i].SumVat,
+			Marking:        utils.StringArray(body.Товары[i].Markirovka),
 		})
-		if err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, "ERROR on creating import details")
-			tx.Rollback()
-			return
-		}
-		// create product markirovka
-		err = h.service.CreateProductMarking(tx, domain.ProductMarkingReq{
-			ImportDetailId: importDetailId,
-			ProductID:      productID,
-			Marking:        body.Товары[i].Markirovka,
-		})
-		if err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, "ERROR on creating product marking")
-			tx.Rollback()
-			return
-		}
+	}
+	// create import details
+	err = tx.Table("import_details").Create(&importDetails).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, "ERROR on creating import details")
+		tx.Rollback()
+		return
 	}
 
 	// check transaction completed

@@ -348,7 +348,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 		param.VendorID = employee.Id
 	}
 	var (
-		args []interface{}
+		args []any
 		// query for total transactions sum
 		squery = `
 		SELECT

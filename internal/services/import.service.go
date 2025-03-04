@@ -14,6 +14,7 @@ import (
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/helper"
+	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
 )
 
@@ -190,11 +191,12 @@ func (s *Storage) CreateImportDetail(tx *gorm.DB, req *domain.ImportDetailReques
 	var (
 		id    string
 		query = `INSERT INTO import_details(
-			import_id, product_id, received_count, accepted_count, supply_price, supply_price_vat, retail_price, retail_price_vat, expire_date, vat, vat_sum, series_number, sum_vat)
-			VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
+			import_id, product_id, received_count, accepted_count, supply_price, supply_price_vat, retail_price, retail_price_vat, expire_date, vat, vat_sum, series_number, sum_vat, marking)
+			VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
 	)
-
-	err := tx.Debug().Raw(query, req.ImportID, req.ProductID, req.ReceivedCount, req.AcceptedCount, req.SupplyPrice, req.SupplyPriceVat, req.RetailPrice, req.RetailPriceVat, req.ExpireDate, req.Vat, req.VatSum, req.SeriesNumber, req.SumVat).Scan(&id).Error
+	req.Marking = utils.StringArray(req.Marking)
+	// complete query
+	err := tx.Debug().Raw(query, req.ImportID, req.ProductID, req.ReceivedCount, req.AcceptedCount, req.SupplyPrice, req.SupplyPriceVat, req.RetailPrice, req.RetailPriceVat, req.ExpireDate, req.Vat, req.VatSum, req.SeriesNumber, req.SumVat, req.Marking).Scan(&id).Error
 	if err != nil {
 		s.log.Error(err)
 		return "", err

@@ -1,0 +1,1 @@
+ALTER TABLE producers DROP COLUMN IF EXISTS "code";

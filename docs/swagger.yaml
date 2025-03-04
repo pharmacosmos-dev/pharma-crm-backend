@@ -416,6 +416,10 @@ definitions:
         type: string
       import_id:
         type: string
+      marking:
+        items:
+          type: string
+        type: array
       product_id:
         type: string
       received_count:
@@ -546,6 +550,8 @@ definitions:
     type: object
   domain.Producer:
     properties:
+      code:
+        type: string
       created_at:
         type: string
       id:
@@ -589,43 +595,71 @@ definitions:
   domain.ProductRequest1C:
     properties:
       barcode:
+        maxLength: 255
+        minLength: 0
         type: string
       expire_date:
         type: string
+      ikpu:
+        maxLength: 255
+        type: string
       manufacturer:
+        maxLength: 255
+        minLength: 1
         type: string
       markirovka:
         items:
           type: string
         type: array
       markup:
+        minimum: 0
         type: integer
       material_code:
         type: integer
       name:
+        maxLength: 500
+        minLength: 1
         type: string
       product_series_number:
         type: string
       quantity:
+        minimum: 0
         type: integer
       retail_price:
         type: number
       retail_price_vat:
+        minimum: 0
         type: number
       sum:
+        minimum: 0
         type: number
       sum_vat:
+        minimum: 0
         type: number
       supply_price:
+        minimum: 0
         type: number
       supply_price_vat:
+        minimum: 0
         type: number
       vat:
         type: string
       vat_price:
+        minimum: 0
         type: number
       vat_sum:
+        minimum: 0
         type: number
+    required:
+    - barcode
+    - expire_date
+    - manufacturer
+    - material_code
+    - name
+    - product_series_number
+    - quantity
+    - retail_price
+    - vat
     type: object
   domain.ProductUpdateRequest:
     properties:
@@ -3677,6 +3711,57 @@ paths:
       summary: Generate 1C token
       tags:
       - 1C token
+  /helper/get-ikpu-data-from-soliq:
+    post:
+      consumes:
+      - application/json
+      description: Get IKPU data from Soliq
+      parameters:
+      - description: 'Lang: (uz_latn || uz_cyrl || ru)'
+        in: query
+        name: lang
+        required: true
+        type: string
+      - description: Group code
+        in: query
+        name: groupCode
+        required: true
+        type: string
+      - description: Class code
+        in: query
+        name: classCode
+        required: true
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        required: true
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get IKPU data from Soliq
+      tags:
+      - helper
   /helper/upload-package-code:
     post:
       consumes:
@@ -5074,6 +5159,38 @@ paths:
       security:
       - BearerAuth: []
       summary: Update a producer
+      tags:
+      - producers
+  /producer/excel-upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload a producer file in .xlsx format. The file should include
+        producer details in specific columns.
+      parameters:
+      - description: Excel file (.xlsx) containing producer data
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Producers uploaded successfully
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Invalid file format or processing error
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Upload a producer
       tags:
       - producers
   /producer/list:
