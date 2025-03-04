@@ -460,8 +460,8 @@ func (s *Storage) DoRequest(ctx context.Context, data interface{}, url string) e
 	client := &http.Client{
 		Timeout: 30 * time.Second,
 	}
-	request, _ := json.Marshal(data)
-	fmt.Println("REQUEST: ", string(request))
+	// request, _ := json.Marshal(data)
+	// fmt.Println("REQUEST: ", string(request))
 	buf := bytes.Buffer{}
 	// Encode data to JSON
 	err := json.NewEncoder(&buf).Encode(data)

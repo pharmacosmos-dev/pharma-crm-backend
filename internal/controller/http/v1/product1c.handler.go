@@ -100,19 +100,11 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 	var importDetails []domain.ImportDetailRequest
 	for i := range body.Товары {
 		// get product mxik code from product_measurements
-		ikpu, err := h.service.GetProductIKPUByMxik(c.Request.Context(), body.Товары[i].Ikpu)
-		if err != nil {
-			handleResponse(c, InternalError, err.Error())
-			tx.Rollback()
-			return
-		}
+		ikpu, _ := h.service.GetProductIKPUByMxik(c.Request.Context(), body.Товары[i].Ikpu)
+
 		// get producer by code
-		producer, err := h.service.GetProducerByCode(c.Request.Context(), body.Товары[i].Manufacturer)
-		if err != nil {
-			handleResponse(c, InternalError, err.Error())
-			tx.Rollback()
-			return
-		}
+		producer, _ := h.service.GetProducerByCode(c.Request.Context(), body.Товары[i].Manufacturer)
+
 		// create product id
 		productID = uuid.New().String()
 		// create or update product
@@ -120,9 +112,9 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 		INSERT INTO products (material_code, name, barcode, measurement_id, producer_id)
 		VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT (material_code) DO UPDATE
-		SET name = EXCLUDED.name, 
-			barcode = EXCLUDED.barcode, 
-			measurement_id = EXCLUDED.measurement_id, 
+		SET name = EXCLUDED.name,
+			barcode = EXCLUDED.barcode,
+			measurement_id = EXCLUDED.measurement_id,
 			producer_id = EXCLUDED.producer_id
 		RETURNING id;`,
 			body.Товары[i].MaterialCode,
