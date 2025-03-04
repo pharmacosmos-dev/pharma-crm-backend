@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS idx_mxik_names ON product_measurements(mxik_name_uz, mxik_name_ru);

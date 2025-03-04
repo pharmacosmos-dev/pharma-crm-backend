@@ -176,8 +176,9 @@ func (s *Storage) ListSale(c *gin.Context, param *domain.QueryParam) ([]domain.S
 	// check if employee is not admin or superadmin
 	if !helper.IsAdmin(employee, s.cfg) {
 		param.StoreID = employee.StoreId
-		param.StoreID = userId.(string)
+		param.VendorID = employee.Id
 	}
+
 	// build sale get list query
 	var res = []domain.SaleResponse{}
 	query := s.db.Model(&domain.Sale{}).Table("sales s").

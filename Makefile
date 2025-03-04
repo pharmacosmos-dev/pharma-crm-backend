@@ -19,6 +19,7 @@ swaggo:
 
 migrate_file:  ### create new migration
 	./scripts/migrate.sh
+	
 #	migrate create -ext sql -dir migrations 'table_name'
 .PHONY: migrate_file
 

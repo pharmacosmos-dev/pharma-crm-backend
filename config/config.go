@@ -59,9 +59,10 @@ type (
 		UzumEndpointUrl  string `env-required:"true" yaml:"uzum_endpoint_url" env:"UZUM_ENDPOINT_URL"`
 	}
 	Integration struct {
-		BaseUrl1C      string `env-required:"true" yaml:"base_url_1c" env:"BASE_URL_1C"`
-		BaseUsername1C string `env-required:"true" yaml:"base_username_1c" env:"BASE_USERNAME_1C"`
-		BasePassword1C string `env-required:"true" yaml:"base_password_1c" env:"BASE_PASSWORD_1C"`
+		BaseUrl1C        string `env-required:"true" yaml:"base_url_1c" env:"BASE_URL_1C"`
+		BaseUsername1C   string `env-required:"true" yaml:"base_username_1c" env:"BASE_USERNAME_1C"`
+		BasePassword1C   string `env-required:"true" yaml:"base_password_1c" env:"BASE_PASSWORD_1C"`
+		SoliqIkpuBaseUrl string `env-required:"true" yaml:"soliq_ikpu_base_url" env:"SOLIQ_IKPU_BASE_URL"`
 	}
 )
 
@@ -93,6 +94,7 @@ func Load() Config {
 	c.Integration.BaseUrl1C = cast.ToString(GetOrReturnDefaultValue("BASE_URL_1C", "http://localhost:8080"))
 	c.Integration.BaseUsername1C = cast.ToString(GetOrReturnDefaultValue("BASE_USERNAME_1C", "pharma"))
 	c.Integration.BasePassword1C = cast.ToString(GetOrReturnDefaultValue("BASE_PASSWORD_1C", "password"))
+	c.Integration.SoliqIkpuBaseUrl = cast.ToString(GetOrReturnDefaultValue("SOLIQ_IKPU_BASE_URL", "http://localhost:8080"))
 	return c
 }
 

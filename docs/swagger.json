@@ -4309,24 +4309,33 @@
                 }
             }
         },
-        "/helper/export-package-code": {
+        "/helper/upload-package-code": {
             "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Export package code excel",
+                "description": "Upload package code excel",
                 "consumes": [
-                    "application/json"
+                    "multipart/form-data"
                 ],
                 "produces": [
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    "application/json"
                 ],
                 "tags": [
                     "helper"
                 ],
-                "summary": "Export package code excel",
+                "summary": "Upload package code excel",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Excel file (.xlsx) containing product data",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",

@@ -3677,13 +3677,19 @@ paths:
       summary: Generate 1C token
       tags:
       - 1C token
-  /helper/export-package-code:
+  /helper/upload-package-code:
     post:
       consumes:
-      - application/json
-      description: Export package code excel
+      - multipart/form-data
+      description: Upload package code excel
+      parameters:
+      - description: Excel file (.xlsx) containing product data
+        in: formData
+        name: file
+        required: true
+        type: file
       produces:
-      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      - application/json
       responses:
         "200":
           description: OK
@@ -3699,7 +3705,7 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Export package code excel
+      summary: Upload package code excel
       tags:
       - helper
   /import:

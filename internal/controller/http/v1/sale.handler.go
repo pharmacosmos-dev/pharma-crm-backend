@@ -317,9 +317,10 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 	var (
 		res   domain.SaleStats
 		param domain.QueryParam
+		err   error
 	)
 	// bind query param
-	if err := c.ShouldBindQuery(&param); err != nil {
+	if err = c.ShouldBindQuery(&param); err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
@@ -331,7 +332,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 	}
 	var employee domain.Employee
 	// get employee info
-	err := h.db.First(&employee, "id = ?", userId).Error
+	err = h.db.First(&employee, "id = ?", userId).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			handleResponse(c, NotFound, "User not found")
@@ -346,7 +347,6 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 		param.StoreID = employee.StoreId
 		param.VendorID = employee.Id
 	}
-
 	var (
 		args []interface{}
 		// query for total transactions sum
