@@ -96,8 +96,6 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 		tx.Rollback()
 		return
 	}
-	var productID string
-	var importDetails []domain.ImportDetailRequest
 	for i := range body.Товары {
 		// get producer by code
 		producer, err := h.service.GetProducerByCode(c.Request.Context(), body.Товары[i].Manufacturer)
@@ -108,7 +106,7 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 			return
 		}
 		// create product id
-		productID = uuid.New().String()
+		productID := uuid.New().String()
 		// create or update product
 		err = tx.Raw(`
 		INSERT INTO products (material_code, name, barcode, producer_id, mxik)
@@ -127,36 +125,26 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 			tx.Rollback()
 			return
 		}
-		// check prices
-		if body.Товары[i].SupplyPriceVat < 1 || body.Товары[i].RetailPriceVat < 1 {
-			handleResponse(c, BadRequest, "SupplyPriceVat and RetailPriceVat must be greater than 0")
+
+		// create import_detail
+		err = tx.Exec(`
+		INSERT INTO import_details(
+			product_id, import_id, 
+			received_count, supply_price, supply_price_vat,
+			retail_price, retail_price_vat,
+			vat, vat_sum, expire_date, series_number, 
+			sum_vat, marking) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			productID, newImport.Id, body.Товары[i].Quantity, body.Товары[i].SupplyPrice,
+			body.Товары[i].SupplyPriceVat, body.Товары[i].RetailPrice, body.Товары[i].RetailPriceVat,
+			cast.ToInt(body.Товары[i].Vat), body.Товары[i].VatSum,
+			body.Товары[i].ExpireDate, body.Товары[i].ProductSeriesNumber,
+			body.Товары[i].SumVat, utils.StringArray(body.Товары[i].Markirovka)).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, "ERROR on creating import details")
 			tx.Rollback()
 			return
 		}
-		// collect import details
-		importDetails = append(importDetails, domain.ImportDetailRequest{
-			ProductID:      &productID,
-			ImportID:       newImport.Id,
-			ReceivedCount:  body.Товары[i].Quantity,
-			SupplyPrice:    body.Товары[i].SupplyPrice,
-			SupplyPriceVat: body.Товары[i].SupplyPriceVat,
-			RetailPrice:    body.Товары[i].RetailPrice,
-			RetailPriceVat: body.Товары[i].RetailPriceVat,
-			Vat:            cast.ToInt(body.Товары[i].Vat),
-			VatSum:         body.Товары[i].VatSum,
-			ExpireDate:     body.Товары[i].ExpireDate,
-			SeriesNumber:   body.Товары[i].ProductSeriesNumber,
-			SumVat:         body.Товары[i].SumVat,
-			Marking:        utils.StringArray(body.Товары[i].Markirovka),
-		})
-	}
-	// create import details
-	err = tx.Table("import_details").Create(&importDetails).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, "ERROR on creating import details")
-		tx.Rollback()
-		return
 	}
 
 	// check transaction completed
