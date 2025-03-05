@@ -100,8 +100,15 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 	var importDetails []domain.ImportDetailRequest
 	for i := range body.Товары {
 		// get product mxik code from product_measurements
-		ikpu, _ := h.service.GetProductIKPUByMxik(c.Request.Context(), body.Товары[i].Ikpu)
-
+		ikpu, err := h.service.GetProductIKPUByMxik(c.Request.Context(), body.Товары[i].Ikpu)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				handleResponse(c, InternalError, fmt.Sprintf("IKPU %s not found in our database", body.Товары[i].Ikpu))
+				return
+			}
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
 		// get producer by code
 		producer, _ := h.service.GetProducerByCode(c.Request.Context(), body.Товары[i].Manufacturer)
 

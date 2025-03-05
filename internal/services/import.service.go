@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -71,7 +72,7 @@ func (s *Storage) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domain
 
 	// collect send fakt data
 	reqFakt.Dok.DocumentNumber = importData.DocumentNumber
-	reqFakt.Dok.DocumentDate = importData.ImportDate.Format(config.DATE_TIME_FORMAT)
+	reqFakt.Dok.DocumentDate = importData.ImportDate.Format(config.DATE_1C_FORMAT)
 	reqFakt.Apteka.StoreCode = store.StoreCode
 	reqFakt.Apteka.Name = store.Name
 
@@ -139,7 +140,7 @@ func (s *Storage) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import) 
 
 	// collect send fakt data
 	reqFakt.Dok.DocumentNumber = importData.DocumentNumber
-	reqFakt.Dok.DocumentDate = importData.ImportDate.Format(config.DATE_TIME_FORMAT)
+	reqFakt.Dok.DocumentDate = importData.ImportDate.Format(config.DATE_1C_FORMAT)
 	reqFakt.Apteka.StoreCode = store.StoreCode
 	reqFakt.Apteka.Name = store.Name
 
@@ -456,12 +457,12 @@ func (s *Storage) ListImportDetailByLastUpdated(c *gin.Context, limit, offset in
 }
 
 // send request to 1C for answering import details
-func (s *Storage) DoRequest(ctx context.Context, data interface{}, url string) error {
+func (s *Storage) DoRequest(ctx context.Context, data any, url string) error {
 	client := &http.Client{
 		Timeout: 30 * time.Second,
 	}
-	// request, _ := json.Marshal(data)
-	// fmt.Println("REQUEST: ", string(request))
+	request, _ := json.Marshal(data)
+	fmt.Println("REQUEST: ", string(request))
 	buf := bytes.Buffer{}
 	// Encode data to JSON
 	err := json.NewEncoder(&buf).Encode(data)
@@ -487,10 +488,10 @@ func (s *Storage) DoRequest(ctx context.Context, data interface{}, url string) e
 	}
 	// close response body
 	defer response.Body.Close()
-	// t, _ := io.ReadAll(response.Body)
-	// fmt.Println("RESPONSE: ", string(t))
+	t, _ := io.ReadAll(response.Body)
+	fmt.Println("RESPONSE: ", string(t))
 
-	var info map[string]interface{}
+	var info map[string]any
 	// read response body
 	err = json.NewDecoder(response.Body).Decode(&info)
 	if err != nil {

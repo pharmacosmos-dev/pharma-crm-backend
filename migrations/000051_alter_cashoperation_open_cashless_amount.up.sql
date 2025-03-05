@@ -1,0 +1,2 @@
+ALTER TABLE cashbox_operations ADD COLUMN IF NOT EXISTS "open_cashless_amount" NUMERIC(10, 2) DEFAULT 0.00;
+ALTER TABLE cashbox_operations ADD COLUMN IF NOT EXISTS "close_cashless_amount" NUMERIC(10, 2) DEFAULT 0.00;

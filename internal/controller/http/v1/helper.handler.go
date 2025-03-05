@@ -177,39 +177,35 @@ func (h *HelperHandler) UploadPackageCodeExcel(c *gin.Context) {
 		return
 	}
 	defer xlsx.Close()
-	sheetName := xlsx.GetSheetName(1)
+	sheetName := xlsx.GetSheetName(0)
 	rows, err := xlsx.GetRows(sheetName)
 	if err != nil {
 		h.log.Error("Failed to get rows: ", err.Error())
 		handleResponse(c, InternalError, "Failed to get rows")
 		return
 	}
-	// Allowed MXIK code prefixes
-	var allowedPrefixes = map[string]bool{
-		"009": true, "004": true, "012": true, "015": true,
-		"017": true, "018": true, "019": true, "020": true,
-		"021": true, "024": true, "025": true, "030": true,
-		"031": true, "033": true, "034": true, "035": true,
-		"038": true,
-	}
+
 	// build query
 	query := `
 	INSERT INTO product_measurements (
 			mxik_code, mxik_name_uz, unit_name, unit_code)
 	VALUES (?, ?, ?, ?) ON CONFLICT (mxik_code) DO NOTHING;`
 
+	// query1 := `
+	// UPDATE product_measurements SET
+	// 	mxik_name_ru = ?
+	// WHERE mxik_code = ?;`
+
 	// Process rows
-	for _, row := range rows[2:] {
+	for i := len(rows) - 1; i >= 2; i-- {
+		row := rows[i]
 		if len(row) > 3 {
-			prefix := row[0][:3]
-			if allowedPrefixes[prefix] {
-				// create measurements
-				err = h.db.Debug().Exec(query, row[0], row[1], row[2], row[3]).Error
-				if err != nil {
-					h.log.Error(err)
-					handleResponse(c, InternalError, err.Error())
-					return
-				}
+			// create measurements
+			err = h.db.Debug().Exec(query, row[0], row[1], row[2], row[3]).Error
+			if err != nil {
+				h.log.Error(err)
+				handleResponse(c, InternalError, err.Error())
+				return
 			}
 		}
 	}
