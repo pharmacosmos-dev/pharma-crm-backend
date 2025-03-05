@@ -1219,20 +1219,20 @@ func (h *ProductHandler) UploadProduct(c *gin.Context) {
 	}
 
 	// Process rows
-	var products []map[string]interface{}
-	var producers []map[string]interface{}
+	var products []map[string]any
+	var producers []map[string]any
 	for _, row := range rows[1:] {
 		if len(row) < 8 {
 			producerID, exists := existingProducers[row[5]]
 			if !exists {
 				producerID = uuid.New().String()
 				existingProducers[row[5]] = producerID
-				producers = append(producers, map[string]interface{}{
+				producers = append(producers, map[string]any{
 					"id":   producerID,
 					"name": row[5],
 				})
 			}
-			products = append(products, map[string]interface{}{
+			products = append(products, map[string]any{
 				"material_code": parseIntComma(row[1]),
 				"barcode":       h.GenBarcode(),
 				"producer_id":   producerID,
@@ -1244,12 +1244,12 @@ func (h *ProductHandler) UploadProduct(c *gin.Context) {
 		if !exists {
 			producerID = uuid.New().String()
 			existingProducers[row[6]] = producerID
-			producers = append(producers, map[string]interface{}{
+			producers = append(producers, map[string]any{
 				"id":   producerID,
 				"name": row[6],
 			})
 		}
-		products = append(products, map[string]interface{}{
+		products = append(products, map[string]any{
 			"material_code": parseIntComma(row[1]),
 			"producer_id":   producerID,
 			"name":          row[2],

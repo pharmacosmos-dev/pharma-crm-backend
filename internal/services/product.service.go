@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -289,7 +290,27 @@ func (s *Storage) GetProductIKPUByMxik(ctx context.Context, mxik string) (*domai
 // get producer info by code
 func (s *Storage) GetProducerByCode(ctx context.Context, code string) (*domain.Producer, error) {
 	var producer domain.Producer
-	err := s.db.First(&producer, "code = ?", code).Error
+	err := s.db.Raw(`SELECT id, name, code, created_at, updated_at FROM producers WHERE code = ?`, code).Scan(&producer).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			producerData, err := s.CreateProducer(ctx, code)
+			if err != nil {
+				s.log.Error(err)
+				return nil, err
+			}
+			producer = *producerData
+		}
+		s.log.Error(err)
+		return nil, err
+	}
+	return &producer, nil
+}
+
+// create new producer
+func (s *Storage) CreateProducer(ctx context.Context, code string) (*domain.Producer, error) {
+	var producer domain.Producer
+	query := `INSERT INTO producers (code) VALUES (?) RETURNING *`
+	err := s.db.Debug().WithContext(ctx).Raw(query, code).Scan(&producer).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err

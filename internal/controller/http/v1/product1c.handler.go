@@ -99,33 +99,29 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 	var productID string
 	var importDetails []domain.ImportDetailRequest
 	for i := range body.Товары {
-		// get product mxik code from product_measurements
-		ikpu, err := h.service.GetProductIKPUByMxik(c.Request.Context(), body.Товары[i].Ikpu)
+		// get producer by code
+		producer, err := h.service.GetProducerByCode(c.Request.Context(), body.Товары[i].Manufacturer)
 		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				handleResponse(c, InternalError, fmt.Sprintf("IKPU %s not found in our database", body.Товары[i].Ikpu))
-				return
-			}
-			handleResponse(c, InternalError, err.Error())
+			h.log.Error(err)
+			handleResponse(c, InternalError, "Manufacturer not found or not created")
+			tx.Rollback()
 			return
 		}
-		// get producer by code
-		producer, _ := h.service.GetProducerByCode(c.Request.Context(), body.Товары[i].Manufacturer)
-
 		// create product id
 		productID = uuid.New().String()
 		// create or update product
 		err = tx.Raw(`
-		INSERT INTO products (material_code, name, barcode, measurement_id, producer_id)
+		INSERT INTO products (material_code, name, barcode, producer_id, mxik)
 		VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT (material_code) DO UPDATE
 		SET name = EXCLUDED.name,
 			barcode = EXCLUDED.barcode,
 			measurement_id = EXCLUDED.measurement_id,
-			producer_id = EXCLUDED.producer_id
+			producer_id = EXCLUDED.producer_id,
+			mxik = EXCLUDED.mxik
 		RETURNING id;`,
 			body.Товары[i].MaterialCode,
-			body.Товары[i].Name, body.Товары[i].Barcode, *ikpu.ID, producer.Id).Scan(&productID).Error
+			body.Товары[i].Name, body.Товары[i].Barcode, producer.Id, body.Товары[i].Ikpu).Scan(&productID).Error
 		if err != nil {
 			h.log.Warn("ERROR on creating new product: %v", err.Error())
 			handleResponse(c, BadRequest, "Error on checking product data")

@@ -111,13 +111,15 @@ type CashboxOperationAmount struct {
 
 // Cashbox operation shift
 type CashboxOperationShift struct {
-	Id             string     `gorm:"id" json:"id"`
-	OperationId    int64      `gorm:"operation_id" json:"operation_id"`
-	CashboxName    string     `gorm:"cashbox_name" json:"cashbox_name"`
-	StoreName      string     `gorm:"store_name" json:"store_name"`
-	IsOpen         bool       `gorm:"is_open" json:"is_open"`
-	CashAmount     float64    `gorm:"cash_amount" json:"cash_amount"`
-	CashlessAmount float64    `gorm:"cashless_amount" json:"cashless_amount"`
-	StartTime      *time.Time `gorm:"start_time" json:"start_time"`
-	EndTime        *time.Time `gorm:"end_time" json:"end_time"`
+	Id                   string     `gorm:"id" json:"id"`
+	OperationId          int64      `gorm:"operation_id" json:"operation_id"`
+	CashboxName          string     `gorm:"cashbox_name" json:"cashbox_name"`
+	StoreName            string     `gorm:"store_name" json:"store_name"`
+	IsOpen               bool       `gorm:"is_open" json:"is_open"`
+	OpenedCashAmount     float64    `gorm:"opened_amount" json:"opened_amount"`
+	OpenedCashlessAmount float64    `gorm:"opened_cashless_amount" json:"opened_cashless_amount"`
+	CashAmount           float64    `gorm:"cash_amount" json:"cash_amount"`
+	CashlessAmount       float64    `gorm:"cashless_amount" json:"cashless_amount"`
+	StartTime            *time.Time `gorm:"start_time" json:"start_time"`
+	EndTime              *time.Time `gorm:"end_time" json:"end_time"`
 }
