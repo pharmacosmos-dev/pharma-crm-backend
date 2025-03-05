@@ -116,7 +116,6 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 		ON CONFLICT (material_code) DO UPDATE
 		SET name = EXCLUDED.name,
 			barcode = EXCLUDED.barcode,
-			measurement_id = EXCLUDED.measurement_id,
 			producer_id = EXCLUDED.producer_id,
 			mxik = EXCLUDED.mxik
 		RETURNING id;`,
