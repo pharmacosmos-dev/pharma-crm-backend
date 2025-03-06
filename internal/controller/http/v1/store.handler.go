@@ -261,7 +261,7 @@ func (h *StoreHandler) Update(c *gin.Context) {
 // Delete godoc
 // @Summary Delete a store
 // @Description Delete a store from the request body
-// @Tags stores
+// @Tags 		 stores
 // @Security     BearerAuth
 // @Accept json
 // @Produce json

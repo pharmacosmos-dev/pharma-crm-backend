@@ -57,6 +57,7 @@ type StoreRequest1C struct {
 type StoreWithProducts struct {
 	Id            string     `gorm:"id" json:"id"`
 	Name          string     `gorm:"name" json:"name"`
+	Phone         string     `gorm:"phone" json:"phone"`
 	DetailedName  string     `gorm:"detailed_name" json:"detailed_name"`
 	StoreCode     int        `gorm:"store_code" json:"store_code"`
 	PackQuantity  int        `gorm:"pack_quantity" json:"pack_quantity"`
