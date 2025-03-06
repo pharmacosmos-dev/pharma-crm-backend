@@ -413,7 +413,7 @@ func (h *CustomerHandler) CreateTag(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, "CREATED")
+	handleResponse(c, OK, body)
 }
 
 // TagList godoc
