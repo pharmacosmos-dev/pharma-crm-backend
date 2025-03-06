@@ -32,7 +32,6 @@ func (h *CashBoxHandler) CashBoxRoutes(r *gin.RouterGroup) {
 		cashBox.GET("/check", h.CheckCashBox)
 		cashBox.DELETE("/hard-delete", h.HardDelete)
 		cashBox.DELETE("/soft-delete", h.SoftDelete)
-
 	}
 }
 

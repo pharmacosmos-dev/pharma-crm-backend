@@ -35,6 +35,11 @@ func (h *CustomerHandler) CustomerRoutes(r *gin.RouterGroup) {
 		customer.DELETE("/soft-delete", h.SoftDelete)
 		customer.DELETE("/hard-delete", h.HardDelete)
 	}
+	tag := r.Group("/tag")
+	{
+		tag.POST("", h.CreateTag)
+		tag.GET("/list", h.TagList)
+	}
 }
 
 // Create godoc
@@ -357,4 +362,73 @@ func (h *CustomerHandler) HardDelete(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, "DELETED")
+}
+
+// CreateTag godoc
+// @Summary Create a new tag
+// @Description Create a new tag from the request body
+// @Tags tags
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param tag body domain.Tag true "Tag information"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /tag [post]
+func (h *CustomerHandler) CreateTag(c *gin.Context) {
+	var (
+		body domain.Tag
+		err  error
+	)
+	// bind request body
+	if err = c.ShouldBindJSON(&body); err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	body.Id = uuid.New().String()
+	// create new tag
+	err = h.db.
+		WithContext(c.Request.Context()).
+		Table("tags").
+		Create(&body).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, "CREATED")
+}
+
+// TagList godoc
+// @Summary Get all tags
+// @Description Get all tags from the request body
+// @Tags tags
+// @Security     BearerAuth
+// @Produce json
+// @Param 	search query string false "Search Key"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /tag/list [get]
+func (h *CustomerHandler) TagList(c *gin.Context) {
+	var (
+		res    []domain.Tag
+		search = c.Query("search")
+	)
+	// get all tags
+	query := h.db.Model(&domain.Tag{})
+
+	if search != "" {
+		search = fmt.Sprintf("%%%s%%", search)
+		query = query.Where("name ILIKE ?", search)
+	}
+	err := query.Find(&res).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, res)
 }

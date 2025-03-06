@@ -939,6 +939,13 @@ definitions:
       store_code:
         type: integer
     type: object
+  domain.Tag:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+    type: object
   domain.TransactionRequest:
     properties:
       payment_service_id:
@@ -7164,6 +7171,66 @@ paths:
       summary: Upload a store
       tags:
       - 1C Api
+  /tag:
+    post:
+      consumes:
+      - application/json
+      description: Create a new tag from the request body
+      parameters:
+      - description: Tag information
+        in: body
+        name: tag
+        required: true
+        schema:
+          $ref: '#/definitions/domain.Tag'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a new tag
+      tags:
+      - tags
+  /tag/list:
+    get:
+      description: Get all tags from the request body
+      parameters:
+      - description: Search Key
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get all tags
+      tags:
+      - tags
   /transaction:
     post:
       consumes:
