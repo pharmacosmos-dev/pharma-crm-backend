@@ -60,23 +60,27 @@ func (h *CustomerHandler) Create(c *gin.Context) {
 		customer domain.Customer
 		err      error
 	)
+	// bind request body
 	err = c.ShouldBindJSON(&body)
 	if err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	// validate phone number
 	if !utils.IsValidPhone(body.Phone) {
 		handleResponse(c, BadRequest, "Invalid phone number, Format: 998901234567")
 		return
 	}
+	// get user id
 	createdBy, ok := c.Get("user_id")
 	if !ok {
 		handleResponse(c, UNAUTHORIZED, "User ID not found")
 		return
 	}
-
+	// generate id
 	body.Id = uuid.New().String()
 	body.CreatedBy = cast.ToString(createdBy)
+	// insert customer
 	err = h.db.
 		WithContext(c.Request.Context()).Raw(`
 		INSERT INTO customers 
@@ -105,8 +109,19 @@ func (h *CustomerHandler) Create(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /customer/{id} [get]
 func (h *CustomerHandler) Get(c *gin.Context) {
-	var res domain.Customer
-	if err := h.db.First(&res, "id = ?", c.Param("id")).Error; err != nil {
+	var (
+		customer domain.Customer
+		id       = c.Param("id")
+	)
+	// validate uuid
+	if err := uuid.Validate(id); err != nil {
+		handleResponse(c, BadRequest, "Invalid id")
+		return
+	}
+	err := h.db.
+		Preload("Tag").
+		First(&customer, "id = ?", id).Error
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			handleResponse(c, NotFound, nil)
 			return
@@ -115,7 +130,7 @@ func (h *CustomerHandler) Get(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, res)
+	handleResponse(c, OK, customer)
 }
 
 // List godoc

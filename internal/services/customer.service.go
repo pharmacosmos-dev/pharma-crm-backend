@@ -18,6 +18,7 @@ func (s *Storage) ListCustomer(search, storeID string, limit, offset int) ([]dom
 	query := s.db.
 		Model(&domain.Customer{}).
 		Preload("Store").
+		Preload("Tag").
 		Select(`
 		customers.*,
 		(SELECT created_at
