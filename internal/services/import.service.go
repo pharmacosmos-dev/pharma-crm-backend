@@ -34,7 +34,14 @@ func (s *Storage) UpdateImportByField(tx *gorm.DB, id string, field, value strin
 // accept import
 func (s *Storage) AcceptImport(tx *gorm.DB, id string, userID string) (*domain.Import, error) {
 	var res domain.Import
+	// update import status
 	err := tx.Raw(`UPDATE imports SET status = ?, accepted_by = ? WHERE id = ? RETURNING *`, config.COMPLETED_IMPORT, userID, id).Scan(&res).Error
+	if err != nil {
+		s.log.Error(err)
+		return nil, err
+	}
+	// set accepted count from scanned_count
+	err = tx.Exec(`UPDATE import_details SET accepted_count = scanned_count WHERE import_id = ?`, id).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
@@ -81,7 +88,7 @@ func (s *Storage) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domain
 	for _, item := range importDetails {
 		if item.AcceptedCount > 0 {
 			// add imported products to store_products
-			err = tx.Exec(storeProductQuery, importData.StoreID, item.ProductID, item.AcceptedCount, item.UnitPerPack*item.AcceptedCount, item.SupplyPriceVat, item.RetailPriceVat, item.Vat, item.ExpireDate).Error
+			err = tx.Exec(storeProductQuery, importData.StoreID, item.ProductID, item.ScannedCount, item.UnitPerPack*item.ScannedCount, item.SupplyPriceVat, item.RetailPriceVat, item.Vat, item.ExpireDate).Error
 			if err != nil {
 				s.log.Error(err)
 				return err
@@ -122,7 +129,8 @@ func (s *Storage) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import) 
 	err := tx.Exec(`
 	UPDATE import_details 
 	SET
-		accepted_count = received_count
+		accepted_count = received_count,
+		scanned_count = received_count
 	WHERE import_id = ?`, importData.Id).Error
 	if err != nil {
 		s.log.Error(err)
@@ -194,12 +202,16 @@ func (s *Storage) CreateImportDetail(tx *gorm.DB, req *domain.ImportDetailReques
 	var (
 		id    string
 		query = `INSERT INTO import_details(
-			import_id, product_id, received_count, accepted_count, supply_price, supply_price_vat, retail_price, retail_price_vat, expire_date, vat, vat_sum, series_number, sum_vat, marking)
-			VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
+			import_id, product_id, received_count, scanned_count, accepted_count, supply_price, supply_price_vat, retail_price, retail_price_vat, expire_date, vat, vat_sum, series_number, sum_vat, marking)
+			VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
 	)
 	req.Marking = utils.StringArray(req.Marking)
 	// complete query
-	err := tx.Debug().Raw(query, req.ImportID, req.ProductID, req.ReceivedCount, req.AcceptedCount, req.SupplyPrice, req.SupplyPriceVat, req.RetailPrice, req.RetailPriceVat, req.ExpireDate, req.Vat, req.VatSum, req.SeriesNumber, req.SumVat, req.Marking).Scan(&id).Error
+	err := tx.Raw(query, req.ImportID, req.ProductID,
+		req.ReceivedCount, req.ReceivedCount, req.AcceptedCount,
+		req.SupplyPrice, req.SupplyPriceVat, req.RetailPrice,
+		req.RetailPriceVat, req.ExpireDate, req.Vat,
+		req.VatSum, req.SeriesNumber, req.SumVat, req.Marking).Scan(&id).Error
 	if err != nil {
 		s.log.Error(err)
 		return "", err

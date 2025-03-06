@@ -47,6 +47,7 @@ type ImportDetail struct {
 	ProductID         *string    `gorm:"product_id" json:"product_id"`
 	ReceivedCount     int        `gorm:"received_count" json:"received_count"`
 	AcceptedCount     int        `gorm:"accepted_count" json:"accepted_count"`
+	ScannedCount      int        `gorm:"scanned_count" json:"scanned_count"`
 	CanceledCount     int        `gorm:"canceled_count" json:"canceled_count"`
 	SupplyPrice       float64    `gorm:"supply_price" json:"supply_price"`
 	SupplyPriceVat    float64    `gorm:"supply_price_vat" json:"supply_price_vat"`
