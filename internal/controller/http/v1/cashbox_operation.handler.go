@@ -33,6 +33,7 @@ func (h *CashBoxOperationHandler) CashBoxOperationRoutes(r *gin.RouterGroup) {
 		cashBoxOperation.GET("/closed-info/:cash_box_id", h.CashBoxOperationClosedAmount)
 		cashBoxOperation.GET("info/:id", h.CashBoxOperationInfo)
 		cashBoxOperation.GET("/shift", h.OperationShiftList)
+		cashBoxOperation.GET("/stats", h.OperationStats)
 	}
 }
 
@@ -406,4 +407,34 @@ func (h *CashBoxOperationHandler) OperationShiftList(c *gin.Context) {
 
 	handleResponse(c, OK, data)
 
+}
+
+// OperationStats godoc
+// @Summary Get a cash operation stats
+// @Description Get a cash operation stats
+// @Tags cash_boxes
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param store_id query string false "Store ID"
+// @Param is_open query string false "Is open"
+// @Param search query string false "Search"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /cash_box_operation/stats [get]
+func (h *CashBoxOperationHandler) OperationStats(c *gin.Context) {
+	var (
+		storeID = c.Query("store_id")
+		isOpen  = c.Query("is_open")
+		search  = c.Query("search")
+	)
+	// get cash box operation stats
+	stats, err := h.service.GetOperationStats(storeID, isOpen, search)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, stats)
 }

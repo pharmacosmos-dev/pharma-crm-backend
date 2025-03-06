@@ -43,6 +43,7 @@ func (s *Storage) ListCustomer(search, storeID string, limit, offset int) ([]dom
 		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).
+		Order("customers.created_at DESC").
 		Find(&res).Error
 	if err != nil {
 		s.log.Error(err)

@@ -123,3 +123,14 @@ type CashboxOperationShift struct {
 	StartTime            *time.Time `gorm:"start_time" json:"start_time"`
 	EndTime              *time.Time `gorm:"end_time" json:"end_time"`
 }
+
+type CashboxOperationStats struct {
+	TotalCashAmount            float64 `gorm:"total_cash_amount" json:"total_cash_amount"`
+	TotalCashlessAmount        float64 `gorm:"total_cashless_amount" json:"total_cashless_amount"`
+	TotalExpenseCashAmount     float64 `gorm:"total_expense_cash_amount" json:"total_expense_cash_amount"`
+	TotalExpenseCashlessAmount float64 `gorm:"total_expense_cashless_amount" json:"total_expense_cashless_amount"`
+	TotalOpenedCashAmount      float64 `gorm:"total_opened_cash_amount" json:"total_opened_cash_amount"`
+	TotalOpenedCashlessAmount  float64 `gorm:"total_opened_cashless_amount" json:"total_opened_cashless_amount"`
+	CurrentCashAmount          float64 `gorm:"current_cash_amount" json:"current_cash_amount"`
+	CurrentCashlessAmount      float64 `gorm:"current_cashless_amount" json:"current_cashless_amount"`
+}

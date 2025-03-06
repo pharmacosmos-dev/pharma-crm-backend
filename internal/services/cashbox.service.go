@@ -69,3 +69,21 @@ func (s *Storage) GetOperationShiftList(storeID, isOpen, search string, limit, o
 
 	return shifts, totalCount, nil
 }
+
+// GetOperationStats godoc
+func (s *Storage) GetOperationStats(storeID, isOpen, search string) (domain.CashboxOperationStats, error) {
+	var (
+		stats domain.CashboxOperationStats
+	)
+	err := s.db.Raw(`
+	SELECT
+		SUM(CASE WHEN pt.type = 'cash' THEN sps.total_amount ELSE 0 END) AS total_cash_amount,
+		SUM(CASE WHEN pt.type IN ('card', 'app') THEN sps.total_amount ELSE 0 END) AS total_cashless_amount,
+		SUM(co.opened_amount) AS total_opened_cash_amount,
+		SUM(co.open_cashless_amount) AS total_opened_cashless_amount
+	FROM cash_boxes cb
+	JOIN cashbox_operations co ON co.cash_box_id = cb.id
+	JOIN sale_payment_summary sps ON sps.cash_box_operation_id = co.id
+	JOIN payment_types pt ON pt.id = sps.payment_type_id;`).Scan(&stats).Error
+	return stats, err
+}
