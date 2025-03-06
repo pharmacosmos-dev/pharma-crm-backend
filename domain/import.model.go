@@ -90,7 +90,7 @@ type ImportDetailRequest struct {
 }
 
 type ImportUpdateRequest struct {
-	ScannedCount int `gorm:"accepted_count" json:"scanned_count"`
+	ScannedCount int `gorm:"scanned_count" json:"scanned_count"`
 }
 
 type AddScanRequest struct {

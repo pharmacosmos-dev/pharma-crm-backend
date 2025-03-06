@@ -1,0 +1,1 @@
+ALTER TABLE import_details ADD COLUMN IF NOT EXISTS "scanned_count" INT DEFAULT 0;

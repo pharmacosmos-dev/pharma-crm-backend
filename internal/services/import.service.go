@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -64,6 +63,7 @@ func (s *Storage) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domain
 	if err != nil {
 		return err
 	}
+
 	// get store info by using import_id
 	store, err := s.GetStoreByImportId(importData.Id)
 	if err != nil {
@@ -98,7 +98,9 @@ func (s *Storage) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domain
 			})
 		}
 	}
-
+	if len(reqFakt.Товары) == 0 {
+		return errors.New("accepted products are not available")
+	}
 	// send fakt to 1C
 	err = s.DoRequest(context.Background(), reqFakt, "/prihod")
 	if err != nil {
@@ -488,8 +490,8 @@ func (s *Storage) DoRequest(ctx context.Context, data any, url string) error {
 	}
 	// close response body
 	defer response.Body.Close()
-	t, _ := io.ReadAll(response.Body)
-	fmt.Println("RESPONSE: ", string(t))
+	// t, _ := io.ReadAll(response.Body)
+	// fmt.Println("RESPONSE: ", string(t))
 
 	var info map[string]any
 	// read response body

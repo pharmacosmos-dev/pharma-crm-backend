@@ -94,15 +94,15 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 }
 
 type Response struct {
-	Ok      bool        `json:"ok"`
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Count   int64       `json:"count,omitempty"`
-	Data    interface{} `json:"data"`
+	Ok      bool   `json:"ok"`
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Count   int64  `json:"count,omitempty"`
+	Data    any    `json:"data"`
 }
 
 // handleResponse to send consistent JSON responses
-func handleResponse(c *gin.Context, status Status, data interface{}, count ...int64) {
+func handleResponse(c *gin.Context, status Status, data any, count ...int64) {
 	var responseCount int64
 	if len(count) > 0 {
 		responseCount = count[0]

@@ -638,18 +638,25 @@ func (h *ImportHandler) UpdateImportDetail(c *gin.Context) {
 	var (
 		id   = c.Param("id")
 		body domain.ImportUpdateRequest
+		err  error
 	)
-
-	if err := c.ShouldBindJSON(&body); err != nil {
+	// validate uuid
+	if err = uuid.Validate(id); err != nil {
+		handleResponse(c, BadRequest, "Invalid id")
+		return
+	}
+	// bind request body
+	if err = c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	err := h.db.
+	// update scanned_count
+	err = h.db.
 		WithContext(c.Request.Context()).
 		Table("import_details").
 		Where("id = ?", id).
-		Update("accepted_count", body.ScannedCount).Error
+		Update("scanned_count", body.ScannedCount).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -678,6 +685,7 @@ func (h *ImportHandler) AcceptImport(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid import id")
 		return
 	}
+	// get user id from in context
 	userID, ok := c.Get("user_id")
 	if !ok {
 		handleResponse(c, InternalError, "User ID not found in context")
@@ -694,21 +702,21 @@ func (h *ImportHandler) AcceptImport(c *gin.Context) {
 	importData, err := h.service.AcceptImport(tx, id, userID.(string))
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
-		h.db.Rollback()
+		tx.Rollback()
 		return
 	}
 	// add products to store
 	err = h.service.AddAllProductsToStore(tx, importData)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
-		h.db.Rollback()
+		tx.Rollback()
 		return
 	}
 	// commit transaction
 	if err = tx.Commit().Error; err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
-		h.db.Rollback()
+		tx.Rollback()
 		return
 	}
 
@@ -810,7 +818,7 @@ func (h *ImportHandler) AcceptSomeImport(c *gin.Context) {
 	importData, err := h.service.AcceptImport(tx, id, userID.(string))
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
-		h.db.Rollback()
+		tx.Rollback()
 		return
 	}
 	// add products import_details to store_products

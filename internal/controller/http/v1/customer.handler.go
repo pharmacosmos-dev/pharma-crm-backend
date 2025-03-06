@@ -429,21 +429,36 @@ func (h *CustomerHandler) CreateTag(c *gin.Context) {
 // @Router /tag/list [get]
 func (h *CustomerHandler) TagList(c *gin.Context) {
 	var (
-		res    []domain.Tag
-		search = c.Query("search")
+		res        []domain.Tag
+		search     = c.Query("search")
+		totalCount int64
 	)
-	// get all tags
+	// get limit and offset
+	limit, offset, err := getPaginationParams(c)
+	if err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	// build query for getting tag list
 	query := h.db.Model(&domain.Tag{})
 
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
 		query = query.Where("name ILIKE ?", search)
 	}
-	err := query.Find(&res).Error
+	// complete query
+	err = query.
+		Count(&totalCount).
+		Limit(limit).
+		Offset(offset).
+		Find(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, res)
+	// get _meta data
+	data := utils.ListResponse(res, totalCount, limit, offset)
+
+	handleResponse(c, OK, data)
 }
