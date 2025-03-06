@@ -74,16 +74,42 @@ func (s *Storage) GetOperationShiftList(storeID, isOpen, search string, limit, o
 func (s *Storage) GetOperationStats(storeID, isOpen, search string) (domain.CashboxOperationStats, error) {
 	var (
 		stats domain.CashboxOperationStats
+		query = `
+		SELECT
+			-- 1. Total cash and cashless amount across all cashboxes
+			SUM(CASE WHEN pt.type = 'cash' THEN sps.total_amount ELSE 0 END) AS total_cash_amount,
+			SUM(CASE WHEN pt.type IN ('card', 'app') THEN sps.total_amount ELSE 0 END) AS total_cashless_amount,
+
+			-- 2. Total opened cash and cashless amount across all cashboxes
+			SUM(co.opened_amount) AS total_opened_cash_amount,
+			SUM(co.open_cashless_amount) AS total_opened_cashless_amount,
+
+			-- 3. Cash and cashless amounts from currently open cashboxes
+			SUM(CASE WHEN co.end_time IS NULL AND pt.type = 'cash' THEN sps.total_amount ELSE 0 END) AS current_cash_amount,
+			SUM(CASE WHEN co.end_time IS NULL AND pt.type IN ('card', 'app') THEN sps.total_amount ELSE 0 END) AS current_cashless_amount
+		FROM cashbox_operations co
+		LEFT JOIN sale_payment_summary sps ON co.id = sps.cash_box_operation_id
+		LEFT JOIN payment_types pt ON sps.payment_type_id = pt.id
+		LEFT JOIN cash_boxes cb ON co.cash_box_id = cb.id`
+		filter = " WHERE 1 = 1 "
+		args   = []any{}
 	)
-	err := s.db.Raw(`
-	SELECT
-		SUM(CASE WHEN pt.type = 'cash' THEN sps.total_amount ELSE 0 END) AS total_cash_amount,
-		SUM(CASE WHEN pt.type IN ('card', 'app') THEN sps.total_amount ELSE 0 END) AS total_cashless_amount,
-		SUM(co.opened_amount) AS total_opened_cash_amount,
-		SUM(co.open_cashless_amount) AS total_opened_cashless_amount
-	FROM cash_boxes cb
-	JOIN cashbox_operations co ON co.cash_box_id = cb.id
-	JOIN sale_payment_summary sps ON sps.cash_box_operation_id = co.id
-	JOIN payment_types pt ON pt.id = sps.payment_type_id;`).Scan(&stats).Error
+	if storeID != "" {
+		filter += " AND cb.store_id = ?"
+		args = append(args, storeID)
+	}
+	if isOpen == "true" { // Fix: Apply this filter correctly
+		filter += " AND co.end_time IS NULL"
+	}
+	if search != "" {
+		search = fmt.Sprintf("%%%s%%", search)
+		filter += " AND (cb.name ILIKE ?)"
+		args = append(args, search)
+	}
+	query += filter
+	err := s.db.Raw(query, args...).Scan(&stats).Error
+	if err != nil {
+		return domain.CashboxOperationStats{}, err
+	}
 	return stats, err
 }

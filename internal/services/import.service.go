@@ -15,6 +15,7 @@ import (
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
+	"github.com/spf13/cast"
 	"gorm.io/gorm"
 )
 
@@ -512,8 +513,9 @@ func (s *Storage) DoRequest(ctx context.Context, data any, url string) error {
 		s.log.Error("ERROR on decoding response: %w", err)
 		return err
 	}
-	if value, ok := info["ok"]; !ok || value != true {
-		s.log.Error(info)
+	// Validate "ok" field
+	if !cast.ToBool(info["ok"]) {
+		s.log.Error("Invalid response: %v", info)
 		return fmt.Errorf("failed to answer prihod response: %v", info)
 	}
 
