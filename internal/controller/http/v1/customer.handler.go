@@ -84,9 +84,9 @@ func (h *CustomerHandler) Create(c *gin.Context) {
 	err = h.db.
 		WithContext(c.Request.Context()).Raw(`
 		INSERT INTO customers 
-			(id, store_id, first_name, last_name, full_name, phone, gender, birthday, created_by)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
-		body.Id, body.StoreId, body.FirstName, body.LastName, body.FirstName+" "+body.LastName,
+			(id, store_id, tag_id, first_name, last_name, full_name, phone, gender, birthday, created_by)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+		body.Id, body.StoreId, body.TagId, body.FirstName, body.LastName, body.FirstName+" "+body.LastName,
 		body.Phone, body.Gender, body.Birthday, body.CreatedBy).Scan(&customer).Error
 	if err != nil {
 		h.log.Error(err)
