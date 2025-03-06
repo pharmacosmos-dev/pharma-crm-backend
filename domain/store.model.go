@@ -6,6 +6,7 @@ import "time"
 type Store struct {
 	Id            string     `gorm:"id" json:"id"`
 	Name          string     `gorm:"name" json:"name"`
+	Phone         string     `gorm:"phone" json:"phone"`
 	DetailedName  string     `gorm:"detailed_name" json:"detailed_name"`
 	Location      string     `gorm:"location" json:"location"`
 	EmployeeCount int        `gorm:"employee_count" json:"employee_count"`
@@ -20,27 +21,29 @@ type Store struct {
 
 // Store Create Request
 type StoreRequest struct {
-	Id            string `gorm:"id" json:"-"`
-	Name          string `gorm:"name" json:"name"`
-	DetailedName  string `gorm:"detailed_name" json:"detailed_name"`
-	Address       string `gorm:"address" json:"address"`
-	EmployeeCount int    `gorm:"employee_count" json:"employee_count"`
-	CashBoxCount  int    `gorm:"cash_box_count" json:"cash_box_count"`
-	StoreCode     int    `gorm:"store_code" json:"store_code"`
-	Location      string `gorm:"location" json:"location"`
+	Id            string  `gorm:"id" json:"-"`
+	Name          string  `gorm:"name" json:"name"`
+	Phone         *string `gorm:"phone" json:"phone"`
+	DetailedName  string  `gorm:"detailed_name" json:"detailed_name"`
+	Address       string  `gorm:"address" json:"address"`
+	EmployeeCount int     `gorm:"employee_count" json:"employee_count"`
+	CashBoxCount  int     `gorm:"cash_box_count" json:"cash_box_count"`
+	StoreCode     int     `gorm:"store_code" json:"store_code"`
+	Location      string  `gorm:"location" json:"location"`
 }
 
 // Store Update Request
 type StoreUpdateRequest struct {
-	Id            string `gorm:"id" json:"-"`
-	Name          string `gorm:"name" json:"name"`
-	DetailedName  string `gorm:"detailed_name" json:"detailed_name"`
-	Address       string `gorm:"address" json:"address"`
-	EmployeeCount int    `gorm:"employee_count" json:"employee_count"`
-	CashBoxCount  int    `gorm:"cash_box_count" json:"cash_box_count"`
-	StoreCode     int    `gorm:"store_code" json:"store_code"`
-	Location      string `gorm:"location" json:"location"`
-	UpdatedBy     string `gorm:"updated_by" json:"-"`
+	Id            string  `gorm:"id" json:"-"`
+	Name          string  `gorm:"name" json:"name"`
+	Phone         *string `gorm:"phone" json:"phone"`
+	DetailedName  string  `gorm:"detailed_name" json:"detailed_name"`
+	Address       string  `gorm:"address" json:"address"`
+	EmployeeCount int     `gorm:"employee_count" json:"employee_count"`
+	CashBoxCount  int     `gorm:"cash_box_count" json:"cash_box_count"`
+	StoreCode     int     `gorm:"store_code" json:"store_code"`
+	Location      string  `gorm:"location" json:"location"`
+	UpdatedBy     string  `gorm:"updated_by" json:"-"`
 }
 
 // Store Request 1C

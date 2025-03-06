@@ -60,6 +60,11 @@ func (h *StoreHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	// validate phone number
+	if body.Phone != nil && utils.IsValidPhone(*body.Phone) {
+		handleResponse(c, BadRequest, "Invalid phone number")
+		return
+	}
 
 	// generate store id
 	body.Id = uuid.New().String()
@@ -217,18 +222,30 @@ func (h *StoreHandler) Update(c *gin.Context) {
 		id   = c.Param("id")
 		err  error
 	)
+	// validate uuid
+	if err = uuid.Validate(id); err != nil {
+		handleResponse(c, BadRequest, "Invalid id")
+		return
+	}
+	// get user_id from context
 	updatedBy, ok := c.Get("user_id")
 	if !ok {
 		handleResponse(c, UNAUTHORIZED, "User ID not found")
 		return
 	}
-	body.UpdatedBy = updatedBy.(string)
-	err = c.ShouldBindJSON(&body)
-	if err != nil {
+	// validate phone number
+	if body.Phone != nil && utils.IsValidPhone(*body.Phone) {
+		handleResponse(c, BadRequest, "Invalid phone number")
+		return
+	}
+	// bind request body
+	if err = c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	body.UpdatedBy = updatedBy.(string)
+	// update store info
 	err = h.db.WithContext(c.Request.Context()).
 		Model(&domain.Store{}).
 		Where("id = ?", id).

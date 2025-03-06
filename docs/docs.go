@@ -11779,6 +11779,9 @@ const docTemplate = `{
                 "pack_quantity": {
                     "type": "integer"
                 },
+                "phone": {
+                    "type": "string"
+                },
                 "small_quantity": {
                     "type": "integer"
                 },
@@ -11867,6 +11870,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "name": {
+                    "type": "string"
+                },
+                "phone": {
                     "type": "string"
                 },
                 "store_code": {
