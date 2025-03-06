@@ -61,7 +61,7 @@ func (h *StoreHandler) Create(c *gin.Context) {
 		return
 	}
 	// validate phone number
-	if body.Phone != nil && utils.IsValidPhone(*body.Phone) {
+	if body.Phone != nil && !utils.IsValidPhone(*body.Phone) {
 		handleResponse(c, BadRequest, "Invalid phone number")
 		return
 	}
@@ -234,7 +234,7 @@ func (h *StoreHandler) Update(c *gin.Context) {
 		return
 	}
 	// validate phone number
-	if body.Phone != nil && utils.IsValidPhone(*body.Phone) {
+	if body.Phone != nil && !utils.IsValidPhone(*body.Phone) {
 		handleResponse(c, BadRequest, "Invalid phone number")
 		return
 	}
