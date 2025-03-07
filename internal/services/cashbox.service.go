@@ -119,60 +119,42 @@ func (s *Storage) GetOperationStats(storeID, isOpen, search string) (domain.Cash
 // GetOperationHistory godoc
 func (s *Storage) OperationHistory(storeID, isOpen, search string, limit, offset int) ([]domain.CashBoxOperationHistory, int64, error) {
 	var (
-		baseQuery = `
-		FROM cashbox_operations co
-			LEFT JOIN sale_payment_summary sps ON co.id = sps.cash_box_operation_id
-			JOIN cash_boxes cb ON co.cash_box_id = cb.id
-			JOIN stores s ON s.id = cb.store_id
-			JOIN employees e ON e.id = co.employee_id
-			LEFT JOIN employees em ON em.id = co.current_employee_id
-		`
-		filter = " WHERE 1 = 1 "
-		order  = " ORDER BY co.start_time DESC"
-		args   = []any{}
+		group      = `co.id, co.operation_id, cb.name, s.name, co.start_time, e.full_name, co.end_time, em.full_name`
+		order      = "co.operation_id DESC"
+		res        []domain.CashBoxOperationHistory
+		totalCount int64
 	)
+	query := s.db.
+		Model(&domain.CashboxOperation{}).
+		Table("cashbox_operations co").
+		Select(`
+			co.id, co.operation_id, cb.name AS cashbox_name, 
+			s.name AS store_name, co.start_time, 
+			e.full_name AS opened_by, co.end_time, 
+			em.full_name AS closed_by, 
+			SUM(sps.total_expense_amount) AS total_expense_amount, 
+			CASE WHEN co.end_time IS NULL THEN TRUE ELSE FALSE END AS is_open`).
+		Joins("LEFT JOIN sale_payment_summary sps ON co.id = sps.cash_box_operation_id").
+		Joins("JOIN cash_boxes cb ON co.cash_box_id = cb.id").
+		Joins("JOIN stores s ON s.id = cb.store_id").
+		Joins("JOIN employees e ON e.id = co.employee_id").
+		Joins("LEFT JOIN employees em ON em.id = co.current_employee_id")
+
 	// add filter
 	if storeID != "" {
-		filter += " AND cb.store_id = ?"
-		args = append(args, storeID)
+		query = query.Where("cb.store_id = ?", storeID)
 	}
-	if isOpen == "true" { // Fix: Apply this filter correctly
-		filter += " AND co.end_time IS NULL"
+	if isOpen == "true" {
+		query = query.Where("co.end_time IS NULL")
 	}
-	if isOpen == "false" { // Fix: Apply this filter correctly
-		filter += " AND co.end_time IS NOT NULL"
+	if isOpen == "false" {
+		query = query.Where("co.end_time IS NOT NULL")
 	}
 	if search != "" {
-		search = fmt.Sprintf("%%%s%%", search)
-		filter += " AND (cb.name ILIKE ? OR s.name ILIKE ?)"
-		args = append(args, search, search)
-	}
-	// Get total count (excluding pagination)
-	var totalCount int64
-	countQuery := "SELECT COUNT(*) " + baseQuery + filter
-	err := s.db.Debug().Raw(countQuery, args...).Scan(&totalCount).Error
-	if err != nil {
-		s.log.Error(err)
-		return nil, 0, err
+		query = query.Where("cb.name ILIKE ? OR s.name ILIKE ?", search, search)
 	}
 
-	// collect query
-	args = append(args, limit, offset)
-	var res []domain.CashBoxOperationHistory
-
-	dataQuery := `SELECT
-			co.id,
-			co.operation_id,
-			cb.name AS cashbox_name,
-			s.name AS store_name,
-			co.start_time,
-			e.full_name AS opened_by,
-			co.end_time,
-			em.full_name AS closed_by,
-			sps.total_expense_amount,
-			CASE WHEN co.end_time IS NULL THEN TRUE ELSE FALSE END AS is_open
-			` + baseQuery + filter + order + ` LIMIT ? OFFSET ?`
-	err = s.db.Debug().Raw(dataQuery, args...).Scan(&res).Error
+	err := query.Count(&totalCount).Limit(limit).Offset(offset).Group(group).Order(order).Debug().Find(&res).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, 0, err
