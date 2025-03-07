@@ -124,37 +124,53 @@ func (s *Storage) OperationHistory(storeID, isOpen, search string, limit, offset
 		res        []domain.CashBoxOperationHistory
 		totalCount int64
 	)
-	query := s.db.
+
+	// Build base query without GROUP BY for count
+	baseQuery := s.db.
 		Model(&domain.CashboxOperation{}).
 		Table("cashbox_operations co").
+		Joins("JOIN cash_boxes cb ON co.cash_box_id = cb.id").
+		Joins("JOIN stores s ON s.id = cb.store_id").
+		Joins("JOIN employees e ON e.id = co.employee_id").
+		Joins("LEFT JOIN employees em ON em.id = co.current_employee_id").
+		Joins("LEFT JOIN sale_payment_summary sps ON co.id = sps.cash_box_operation_id")
+
+	// Apply filters to base query
+	if storeID != "" {
+		baseQuery = baseQuery.Where("cb.store_id = ?", storeID)
+	}
+	if isOpen == "true" {
+		baseQuery = baseQuery.Where("co.end_time IS NULL")
+	}
+	if isOpen == "false" {
+		baseQuery = baseQuery.Where("co.end_time IS NOT NULL")
+	}
+	if search != "" {
+		baseQuery = baseQuery.Where("cb.name ILIKE ? OR s.name ILIKE ?", search, search)
+	}
+
+	// **Step 1: Get the correct count**
+	err := baseQuery.Distinct("co.id").Count(&totalCount).Error
+	if err != nil {
+		s.log.Error(err)
+		return nil, 0, err
+	}
+
+	// **Step 2: Get the paginated results**
+	err = baseQuery.
 		Select(`
 			co.id, co.operation_id, cb.name AS cashbox_name, 
 			s.name AS store_name, co.start_time, 
 			e.full_name AS opened_by, co.end_time, 
 			em.full_name AS closed_by, 
-			SUM(sps.total_expense_amount) AS total_expense_amount, 
+			COALESCE(SUM(sps.total_expense_amount), 0) AS total_expense_amount, 
 			CASE WHEN co.end_time IS NULL THEN TRUE ELSE FALSE END AS is_open`).
-		Joins("LEFT JOIN sale_payment_summary sps ON co.id = sps.cash_box_operation_id").
-		Joins("JOIN cash_boxes cb ON co.cash_box_id = cb.id").
-		Joins("JOIN stores s ON s.id = cb.store_id").
-		Joins("JOIN employees e ON e.id = co.employee_id").
-		Joins("LEFT JOIN employees em ON em.id = co.current_employee_id")
+		Group(group).
+		Order(order).
+		Limit(limit).
+		Offset(offset).
+		Find(&res).Error
 
-	// add filter
-	if storeID != "" {
-		query = query.Where("cb.store_id = ?", storeID)
-	}
-	if isOpen == "true" {
-		query = query.Where("co.end_time IS NULL")
-	}
-	if isOpen == "false" {
-		query = query.Where("co.end_time IS NOT NULL")
-	}
-	if search != "" {
-		query = query.Where("cb.name ILIKE ? OR s.name ILIKE ?", search, search)
-	}
-
-	err := query.Count(&totalCount).Limit(limit).Offset(offset).Group(group).Order(order).Debug().Find(&res).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, 0, err
