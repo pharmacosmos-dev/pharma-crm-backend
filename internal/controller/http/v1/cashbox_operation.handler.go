@@ -34,6 +34,7 @@ func (h *CashBoxOperationHandler) CashBoxOperationRoutes(r *gin.RouterGroup) {
 		cashBoxOperation.GET("info/:id", h.CashBoxOperationInfo)
 		cashBoxOperation.GET("/shift", h.OperationShiftList)
 		cashBoxOperation.GET("/stats", h.OperationStats)
+		cashBoxOperation.GET("/history", h.OperationHistory)
 	}
 }
 
@@ -437,4 +438,46 @@ func (h *CashBoxOperationHandler) OperationStats(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, stats)
+}
+
+// OperationHistory godoc
+// @Summary Get a cash operation history
+// @Description Get a cash operation history
+// @Tags cash_boxes
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Param store_id query string false "Store ID"
+// @Param is_open query bool false "Is open"
+// @Param search query string false "Search"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /cash_box_operation/history [get]
+func (h CashBoxOperationHandler) OperationHistory(c *gin.Context) {
+	var (
+		storeID = c.Query("store_id")
+		isOpen  = c.Query("is_open")
+		search  = c.Query("search")
+	)
+	// get limit offset
+	limit, offset, err := getPaginationParams(c)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	// get cash box operation history
+	res, totalCount, err := h.service.OperationHistory(storeID, isOpen, search, limit, offset)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	data := utils.ListResponse(res, totalCount, limit, offset)
+
+	handleResponse(c, OK, data)
 }

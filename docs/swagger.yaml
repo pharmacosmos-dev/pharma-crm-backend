@@ -2025,6 +2025,52 @@ paths:
       summary: Get a cash history
       tags:
       - cash_boxes
+  /cash_box_operation/history:
+    get:
+      consumes:
+      - application/json
+      description: Get a cash operation history
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Is open
+        in: query
+        name: is_open
+        type: boolean
+      - description: Search
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a cash operation history
+      tags:
+      - cash_boxes
   /cash_box_operation/info/{id}:
     get:
       consumes:

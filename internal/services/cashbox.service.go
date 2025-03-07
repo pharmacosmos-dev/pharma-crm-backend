@@ -94,6 +94,7 @@ func (s *Storage) GetOperationStats(storeID, isOpen, search string) (domain.Cash
 		filter = " WHERE 1 = 1 "
 		args   = []any{}
 	)
+	// add filter
 	if storeID != "" {
 		filter += " AND cb.store_id = ?"
 		args = append(args, storeID)
@@ -106,10 +107,75 @@ func (s *Storage) GetOperationStats(storeID, isOpen, search string) (domain.Cash
 		filter += " AND (cb.name ILIKE ?)"
 		args = append(args, search)
 	}
+	// collect query
 	query += filter
 	err := s.db.Raw(query, args...).Scan(&stats).Error
 	if err != nil {
 		return domain.CashboxOperationStats{}, err
 	}
 	return stats, err
+}
+
+// GetOperationHistory godoc
+func (s *Storage) OperationHistory(storeID, isOpen, search string, limit, offset int) ([]domain.CashBoxOperationHistory, int64, error) {
+	var (
+		baseQuery = `
+		FROM cashbox_operations co
+			LEFT JOIN sale_payment_summary sps ON co.id = sps.cash_box_operation_id
+			JOIN cash_boxes cb ON co.cash_box_id = cb.id
+			JOIN stores s ON s.id = cb.store_id
+			JOIN employees e ON e.id = co.employee_id
+			LEFT JOIN employees em ON em.id = co.current_employee_id
+		`
+		filter = " WHERE 1 = 1 "
+		order  = " ORDER BY co.start_time DESC"
+		args   = []any{}
+	)
+	// add filter
+	if storeID != "" {
+		filter += " AND cb.store_id = ?"
+		args = append(args, storeID)
+	}
+	if isOpen == "true" { // Fix: Apply this filter correctly
+		filter += " AND co.end_time IS NULL"
+	}
+	if isOpen == "false" { // Fix: Apply this filter correctly
+		filter += " AND co.end_time IS NOT NULL"
+	}
+	if search != "" {
+		search = fmt.Sprintf("%%%s%%", search)
+		filter += " AND (cb.name ILIKE ? OR s.name ILIKE ?)"
+		args = append(args, search, search)
+	}
+	// Get total count (excluding pagination)
+	var totalCount int64
+	countQuery := "SELECT COUNT(*) " + baseQuery + filter
+	err := s.db.Debug().Raw(countQuery, args...).Scan(&totalCount).Error
+	if err != nil {
+		s.log.Error(err)
+		return nil, 0, err
+	}
+
+	// collect query
+	args = append(args, limit, offset)
+	var res []domain.CashBoxOperationHistory
+
+	dataQuery := `SELECT
+			co.id,
+			co.operation_id,
+			cb.name AS cashbox_name,
+			s.name AS store_name,
+			co.start_time,
+			e.full_name AS opened_by,
+			co.end_time,
+			em.full_name AS closed_by,
+			sps.total_expense_amount,
+			CASE WHEN co.end_time IS NULL THEN TRUE ELSE FALSE END AS is_open
+			` + baseQuery + filter + order + ` LIMIT ? OFFSET ?`
+	err = s.db.Debug().Raw(dataQuery, args...).Scan(&res).Error
+	if err != nil {
+		s.log.Error(err)
+		return nil, 0, err
+	}
+	return res, totalCount, nil
 }

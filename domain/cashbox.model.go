@@ -134,3 +134,17 @@ type CashboxOperationStats struct {
 	CurrentCashAmount          float64 `gorm:"current_cash_amount" json:"current_cash_amount"`
 	CurrentCashlessAmount      float64 `gorm:"current_cashless_amount" json:"current_cashless_amount"`
 }
+
+// Cashbox operation history for getting all operations history
+type CashBoxOperationHistory struct {
+	Id                 string     `gorm:"id" json:"id"`
+	OperationId        int64      `gorm:"operation_id" json:"operation_id"`
+	CashboxName        string     `gorm:"cashbox_name" json:"cashbox_name"`
+	StoreName          string     `gorm:"store_name" json:"store_name"`
+	StartTime          *time.Time `gorm:"start_time" json:"start_time"`
+	EndTime            *time.Time `gorm:"end_time" json:"end_time"`
+	IsOpen             bool       `gorm:"is_open" json:"is_open"`
+	OpenedBy           string     `gorm:"opened_by" json:"opened_by"`
+	ClosedBy           string     `gorm:"closed_by" json:"closed_by"`
+	TotalExpenseAmount float64    `gorm:"total_expense_amount" json:"total_expense_amount"`
+}
