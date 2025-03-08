@@ -8812,6 +8812,57 @@ const docTemplate = `{
                 }
             }
         },
+        "/sale/return": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a return sale from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sales"
+                ],
+                "summary": "Create a return sale",
+                "parameters": [
+                    {
+                        "description": "Sale information",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.SaleReturnRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/sale/stats": {
             "get": {
                 "security": [
@@ -11662,6 +11713,20 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.SaleItem": {
+            "type": "object",
+            "properties": {
+                "quantity": {
+                    "type": "integer"
+                },
+                "store_product_id": {
+                    "type": "string"
+                },
+                "unit_quantity": {
+                    "type": "integer"
+                }
+            }
+        },
         "domain.SaleOnline": {
             "type": "object",
             "properties": {
@@ -11740,6 +11805,29 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "employee_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.SaleReturnRequest": {
+            "type": "object",
+            "properties": {
+                "cash_box_operation_id": {
+                    "type": "string"
+                },
+                "employee_id": {
+                    "type": "string"
+                },
+                "sale_id": {
+                    "type": "string"
+                },
+                "sale_items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.SaleItem"
+                    }
+                },
+                "sale_type": {
                     "type": "string"
                 }
             }

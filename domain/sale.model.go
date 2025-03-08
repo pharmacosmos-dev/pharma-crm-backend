@@ -13,6 +13,7 @@ type Sale struct {
 	TotalAmount        float64        `gorm:"total_amount" json:"total_amount"`
 	ProductCount       int            `gorm:"product_count" json:"product_count"`
 	Type               string         `gorm:"type" json:"type"`
+	SaleType           string         `gorm:"sale_type" json:"sale_type"`
 	IsDelivered        bool           `gorm:"is_delivered" json:"is_delivered"`
 	CreatedAt          *time.Time     `gorm:"created_at" json:"created_at"`
 	UpdatedAt          *time.Time     `gorm:"updated_at" json:"updated_at"`
@@ -28,6 +29,24 @@ type SaleRequest struct {
 	ID                 string `gorm:"id" json:"-"`
 	EmployeeID         string `gorm:"employee_id" json:"employee_id"`
 	CashBoxOperationId string `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
+}
+
+// SaleReturnRequest structure for create
+type SaleReturnRequest struct {
+	SaleId             string     `gorm:"sale_id" json:"sale_id"`
+	EmployeeID         string     `gorm:"employee_id" json:"employee_id"`
+	CashBoxOperationId string     `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
+	SaleType           string     `gorm:"sale_type" json:"sale_type"`
+	Items              []SaleItem `gorm:"-" json:"sale_items"`
+}
+
+// SaleItem structure for create return
+
+type SaleItem struct {
+	SaleId         string `gorm:"sale_id" json:"-"`
+	StoreProductId string `gorm:"store_product_id" json:"store_product_id"`
+	Quantity       int    `gorm:"quantity" json:"quantity"`
+	UnitQuantity   int    `gorm:"unit_quantity" json:"unit_quantity"`
 }
 
 type SaleResponse struct {
@@ -47,6 +66,7 @@ type SaleResponse struct {
 	FullName           string         `gorm:"full_name" json:"full_name"`
 	Phone              string         `gorm:"phone" json:"phone"`
 	Type               string         `gorm:"type" json:"type"`
+	SaleType           string         `gorm:"sale_type" json:"sale_type"`
 	IsDelivered        bool           `gorm:"is_delivered" json:"is_delivered"`
 	CustomerName       *string        `gorm:"customer_name" json:"customer_name"`
 	CustomerPhone      *string        `gorm:"customer_phone" json:"customer_phone"`

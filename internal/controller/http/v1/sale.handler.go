@@ -36,6 +36,7 @@ func (h *SaleHandler) SaleRoutes(r *gin.RouterGroup) {
 	sale := r.Group("/sale")
 	{
 		sale.POST("", h.Create)
+		sale.POST("/return", h.CreateReturn)
 		sale.GET("/:id", h.Get)
 		sale.GET("/list", h.List)
 		sale.GET("/export-excel", h.ExportSaleExcel)
@@ -95,6 +96,46 @@ func (h *SaleHandler) Create(c *gin.Context) {
 	handleResponse(c, CREATED, res)
 }
 
+// Create return sale godoc
+// @Summary Create a return sale
+// @Description Create a return sale from the request body
+// @Tags sales
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param 	input body domain.SaleReturnRequest true "Sale information"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /sale/return [post]
+func (h *SaleHandler) CreateReturn(c *gin.Context) {
+	var (
+		body domain.SaleReturnRequest
+		err  error
+	)
+	// bind request body
+	if err = c.ShouldBindJSON(&body); err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	// get user id in context
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	body.EmployeeID = userId.(string)
+	body.SaleType = config.SALE_TYPE_RETURN
+	// create sale return
+	sale, err := h.service.CreateReturnSale(&body)
+	if err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, CREATED, sale)
+}
+
 // Get godoc
 // @Summary Get a sale
 // @Description Get a sale from the request body
@@ -131,7 +172,7 @@ func (h *SaleHandler) Get(c *gin.Context) {
 	var products []domain.ProductRes
 	err = h.db.Raw(`
 	SELECT 
-		p.id, p.name, p.barcode, sp.retail_price, sp.bonus_percent, 
+		p.id, sp.id AS store_product_id, p.name, p.barcode, sp.retail_price, sp.bonus_percent, 
 		((sp.bonus_percent*sp.retail_price)/100)  as  bonus_amount,
 		p.photos, ci.quantity,
 		ci.unit_quantity, ci.total_price, u.short_name, 

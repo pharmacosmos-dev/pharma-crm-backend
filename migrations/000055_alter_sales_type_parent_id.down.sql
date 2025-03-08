@@ -1,0 +1,2 @@
+ALTER TABLE sales DROP COLUMN IF EXISTS "parent_id";
+ALTER TABLE sales DROP COLUMN IF EXISTS "sale_type";

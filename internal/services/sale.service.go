@@ -24,6 +24,53 @@ func (s *Storage) CreateSale(tx *gorm.DB, req *domain.SaleRequest) (*domain.Sale
 	return &res, nil
 }
 
+// create return sale
+func (s *Storage) CreateReturnSale(req *domain.SaleReturnRequest) (*domain.Sale, error) {
+	var sale domain.Sale
+	// start transaction
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+	// build query
+	query := `
+	INSERT INTO sales (
+		employee_id, cash_box_operation_id, store_id, customer_id, sale_number, parent_id, sale_type, type)
+	SELECT ?, ?, store_id, customer_id, sale_number, id, ?, type FROM sales where id = ?
+	RETURNING *;`
+	err := tx.Raw(query, req.EmployeeID, req.CashBoxOperationId, req.SaleType, req.SaleId).Scan(&sale).Error
+	if err != nil {
+		s.log.Error(err)
+		tx.Rollback()
+		return nil, err
+	}
+	// cart item create query
+	cquery := `
+	INSERT INTO cart_items(sale_id, store_product_id, quantity, unit_quantity, unit_price, total_price, status)
+	SELECT ?, sp.id, ?, ?, retail_price, ?*retail_price+(CASE WHEN p.unit_per_pack > 0 THEN retail_price / p.unit_per_pack ELSE 0 END) * ?, ?
+	FROM store_products sp JOIN products p ON p.id = sp.product_id WHERE sp.id = ?`
+	for _, item := range req.Items {
+		item.SaleId = sale.ID
+		// complete cart item create query
+		err = tx.Exec(cquery, item.SaleId, item.Quantity, item.UnitQuantity, item.Quantity, item.UnitQuantity, config.PENDING, item.StoreProductId).Error
+		if err != nil {
+			s.log.Error(err)
+			tx.Rollback()
+			return nil, err
+		}
+	}
+
+	// commit transaction
+	if err = tx.Commit().Error; err != nil {
+		s.log.Error(err)
+		tx.Rollback()
+		return nil, err
+	}
+	return &sale, nil
+}
+
 // update sale with receiving field
 func (s *Storage) UpdateSaleField(field string, value string, idField string, idValue string) (*domain.Sale, error) {
 	var res domain.Sale

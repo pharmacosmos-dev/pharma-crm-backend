@@ -56,6 +56,11 @@ const (
 	COMPLETED = "completed"
 	CANCELED  = "canceled"
 	DONE      = "done"
+
+	// region SALE type
+
+	SALE_TYPE_RETURN = "RETURN"
+	SALE_TYPE_SALE   = "SALE"
 )
 
 // region languages

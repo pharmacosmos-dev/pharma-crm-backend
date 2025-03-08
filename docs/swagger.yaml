@@ -747,6 +747,15 @@ definitions:
           $ref: '#/definitions/domain.RolePermissionReq'
         type: array
     type: object
+  domain.SaleItem:
+    properties:
+      quantity:
+        type: integer
+      store_product_id:
+        type: string
+      unit_quantity:
+        type: integer
+    type: object
   domain.SaleOnline:
     properties:
       items:
@@ -798,6 +807,21 @@ definitions:
       cash_box_operation_id:
         type: string
       employee_id:
+        type: string
+    type: object
+  domain.SaleReturnRequest:
+    properties:
+      cash_box_operation_id:
+        type: string
+      employee_id:
+        type: string
+      sale_id:
+        type: string
+      sale_items:
+        items:
+          $ref: '#/definitions/domain.SaleItem'
+        type: array
+      sale_type:
         type: string
     type: object
   domain.SaleUpdateRequest:
@@ -6648,6 +6672,38 @@ paths:
       security:
       - BearerAuth: []
       summary: Get a sale
+      tags:
+      - sales
+  /sale/return:
+    post:
+      consumes:
+      - application/json
+      description: Create a return sale from the request body
+      parameters:
+      - description: Sale information
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.SaleReturnRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a return sale
       tags:
       - sales
   /sale/stats:
