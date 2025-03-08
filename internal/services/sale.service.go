@@ -206,10 +206,10 @@ func (s *Storage) UpdateReturnSaleCartItems(tx *gorm.DB, saleID string) error {
 	// update store product quantities
 	for _, item := range cartItems {
 		err = tx.Exec(`
-		UPDATE store_products sp
+		UPDATE store_products
 		SET
-			sp.pack_quantity = sp.pack_quantity + ?,
-			sp.unit_quantity = sp.unit_quantity + (? * products.unit_per_pack + ?)
+			pack_quantity = store_products.pack_quantity + ?,
+			unit_quantity = store_products.unit_quantity + (? * products.unit_per_pack + ?)
 		FROM products
 		WHERE products.id = store_products.product_id AND  store_products.id = ?`,
 			item.Quantity, item.Quantity, item.UnitQuantity, item.StoreProductID).Error

@@ -605,15 +605,18 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			handleResponse(c, NotFound, "Sale not found")
+			tx.Rollback()
 			return
 		}
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
+		tx.Rollback()
 		return
 	}
 	// check sale is completed or no
 	if isSaleCompleted(sale.Status) {
 		handleResponse(c, CONFLICT, "Sale is already completed")
+		tx.Rollback()
 		return
 	}
 	body.StoreID = sale.StoreId
@@ -621,6 +624,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	for _, item := range body.PaymentTypes {
 		if err = processPaymentType(tx, h, body, item); err != nil {
 			handleResponse(c, InternalError, err.Error())
+			tx.Rollback()
 			return
 		}
 	}
@@ -629,23 +633,29 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	if sale.SaleType == config.SALE_TYPE_RETURN {
 		if err = h.returnSaleTransaction(tx, &sale, &body); err != nil {
 			handleResponse(c, InternalError, err.Error())
+			tx.Rollback()
 			return
 		}
 	} else if sale.SaleType == config.SALE_TYPE_SALE {
 		if err = h.completeSaleTransaction(tx, body, userID.(string)); err != nil {
 			handleResponse(c, InternalError, err.Error())
+			tx.Rollback()
 			return
 		}
 	} else {
 		handleResponse(c, BadRequest, "Invalid sale type")
+		tx.Rollback()
 		return
 	}
+
+	fmt.Println("Sale completed")
 
 	// collect new sale data
 	newSale := domain.SaleRequest{
 		ID:                 uuid.New().String(),
 		EmployeeID:         cast.ToString(userID),
 		CashBoxOperationId: body.CashBoxOperationId,
+		StoreId:            sale.StoreId,
 	}
 	// create new sale
 	err = tx.Table("sales").Create(&newSale).Error
