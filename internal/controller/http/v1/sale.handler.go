@@ -77,6 +77,11 @@ func (h *SaleHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	// check store id
+	if body.StoreId == "" {
+		handleResponse(c, BadRequest, "Store ID is required")
+		return
+	}
 	body.ID = uuid.New().String()
 	body.EmployeeID = userId.(string)
 	// create sale
@@ -568,6 +573,7 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 func (h *SaleHandler) FinalSale(c *gin.Context) {
 	var (
 		body domain.FinalSale
+		sale domain.Sale
 		err  error
 	)
 
@@ -594,12 +600,23 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 			_ = tx.Rollback()
 		}
 	}()
+	// get sale info
+	err = h.db.First(&sale, "id = ?", body.SaleID).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			handleResponse(c, NotFound, "Sale not found")
+			return
+		}
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
 	// check sale is completed or no
-	if isSaleCompleted(tx, body.SaleID) {
+	if isSaleCompleted(sale.Status) {
 		handleResponse(c, CONFLICT, "Sale is already completed")
 		return
 	}
-
+	body.StoreID = sale.StoreId
 	// process payment types
 	for _, item := range body.PaymentTypes {
 		if err = processPaymentType(tx, h, body, item); err != nil {
@@ -609,8 +626,18 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	}
 
 	// complete sale, cart_items, employee_bonus
-	if err = h.completeSaleTransaction(tx, body, userID.(string)); err != nil {
-		handleResponse(c, InternalError, err.Error())
+	if sale.SaleType == config.SALE_TYPE_RETURN {
+		if err = h.returnSaleTransaction(tx, &sale, &body); err != nil {
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+	} else if sale.SaleType == config.SALE_TYPE_SALE {
+		if err = h.completeSaleTransaction(tx, body, userID.(string)); err != nil {
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+	} else {
+		handleResponse(c, BadRequest, "Invalid sale type")
 		return
 	}
 
@@ -645,10 +672,8 @@ func validateFinalSaleRequest(body domain.FinalSale) error {
 }
 
 // Check sale is completed
-func isSaleCompleted(tx *gorm.DB, saleID string) bool {
-	var count int64
-	err := tx.Model(&domain.Sale{}).Where("id = ? AND status = 'completed'", saleID).Count(&count).Error
-	return err == nil && count > 0
+func isSaleCompleted(status string) bool {
+	return status == config.COMPLETED
 }
 
 // Process payment type
@@ -700,7 +725,7 @@ func processPaymentType(tx *gorm.DB, h *SaleHandler, body domain.FinalSale, item
 
 // Completed sale transaction
 func (h *SaleHandler) completeSaleTransaction(tx *gorm.DB, body domain.FinalSale, userID string) error {
-	if err := h.service.UpdateSaleStatus(tx, body.SaleID, body.TotalAmount, body.CustomerID, body.StoreID); err != nil {
+	if err := h.service.UpdateSaleStatus(tx, body.SaleID, body.TotalAmount, body.CustomerID); err != nil {
 		return err
 	}
 	if err := h.service.UpdateCartItemStatus(tx, body.SaleID); err != nil {
@@ -708,6 +733,17 @@ func (h *SaleHandler) completeSaleTransaction(tx *gorm.DB, body domain.FinalSale
 	}
 	if err := h.service.CreateEmployeeBonus(tx, userID, body.SaleID, body.CashBoxOperationId); err != nil {
 		return errors.New("error on adding bonus: " + err.Error())
+	}
+	return nil
+}
+
+// Return sale transaction
+func (h *SaleHandler) returnSaleTransaction(tx *gorm.DB, req *domain.Sale, body *domain.FinalSale) error {
+	if err := h.service.UpdateSaleStatus(tx, req.ID, body.TotalAmount, body.CustomerID); err != nil {
+		return err
+	}
+	if err := h.service.UpdateReturnSaleCartItems(tx, req.ID); err != nil {
+		return err
 	}
 	return nil
 }

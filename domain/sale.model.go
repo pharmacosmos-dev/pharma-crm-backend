@@ -5,6 +5,7 @@ import "time"
 // Sale structure
 type Sale struct {
 	ID                 string         `gorm:"id" json:"id"`
+	StoreId            string         `gorm:"store_id" json:"store_id"`
 	EmployeeID         string         `gorm:"employee_id" json:"employee_id"`
 	CashBoxOperationId string         `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
 	CustomerID         string         `gorm:"customer_id" json:"customer_id"`
@@ -14,6 +15,7 @@ type Sale struct {
 	ProductCount       int            `gorm:"product_count" json:"product_count"`
 	Type               string         `gorm:"type" json:"type"`
 	SaleType           string         `gorm:"sale_type" json:"sale_type"`
+	Status             string         `gorm:"status" json:"status"`
 	IsDelivered        bool           `gorm:"is_delivered" json:"is_delivered"`
 	CreatedAt          *time.Time     `gorm:"created_at" json:"created_at"`
 	UpdatedAt          *time.Time     `gorm:"updated_at" json:"updated_at"`
@@ -28,6 +30,7 @@ type Sale struct {
 type SaleRequest struct {
 	ID                 string `gorm:"id" json:"-"`
 	EmployeeID         string `gorm:"employee_id" json:"employee_id"`
+	StoreId            string `gorm:"store_id" json:"store_id"`
 	CashBoxOperationId string `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
 }
 
@@ -86,7 +89,7 @@ type SaleUpdateRequest struct {
 
 // FinalSale structure
 type FinalSale struct {
-	StoreID            string             `gorm:"store_id" json:"store_id"`
+	StoreID            string             `gorm:"store_id" json:"-"`
 	SaleID             string             `gorm:"sale_id" json:"sale_id"`
 	CustomerID         *string            `gorm:"customer_id" json:"customer_id"`
 	CashBoxOperationId string             `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`

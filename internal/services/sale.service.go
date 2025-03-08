@@ -49,7 +49,7 @@ func (s *Storage) CreateReturnSale(req *domain.SaleReturnRequest) (*domain.Sale,
 	// cart item create query
 	cquery := `
 	INSERT INTO cart_items(sale_id, store_product_id, quantity, unit_quantity, unit_price, total_price, status)
-	SELECT ?, sp.id, ?, ?, retail_price, ?*retail_price+(CASE WHEN p.unit_per_pack > 0 THEN retail_price / p.unit_per_pack ELSE 0 END) * ?, ?
+	SELECT ?, sp.id, ?, ?, retail_price, (?*retail_price+(CASE WHEN p.unit_per_pack > 0 THEN retail_price / p.unit_per_pack ELSE 0 END) * ?)*(-1), ?
 	FROM store_products sp JOIN products p ON p.id = sp.product_id WHERE sp.id = ?`
 	for _, item := range req.Items {
 		item.SaleId = sale.ID
@@ -140,15 +140,14 @@ func (s *Storage) CreateOrUpdateSalePaymentSummary(tx *gorm.DB, cashBoxOperation
 }
 
 // Update sale status and total amount after the sale is completed
-func (s *Storage) UpdateSaleStatus(tx *gorm.DB, saleID string, totalAmount float64, customerID *string, storeID string) error {
+func (s *Storage) UpdateSaleStatus(tx *gorm.DB, saleID string, totalAmount float64, customerID *string) error {
 	return tx.Exec(`
 	UPDATE sales
 	SET
 		status = 'completed', total_amount = ?,
 		customer_id = ?, completed_at = ?,
-		store_id = ?,
 		total_discount = (SELECT SUM(discount_amount*quantity) FROM cart_items WHERE sale_id = ?)
-	WHERE id = ?`, totalAmount, customerID, time.Now(), storeID, saleID, saleID).Error
+	WHERE id = ?`, totalAmount, customerID, time.Now(), saleID, saleID).Error
 }
 
 // Update cart item status and store product quantities after the sale is completed
@@ -156,9 +155,9 @@ func (s *Storage) UpdateCartItemStatus(tx *gorm.DB, saleID string) error {
 	var cartItems []domain.CartItem
 	err := tx.Raw(`
 		SELECT
-			ci.id, ci.store_product_id,
-			ci.quantity, ci.unit_quantity, ci.unit_price,
-			ci.total_price, ci.status
+			id, store_product_id,
+			quantity, unit_quantity, unit_price,
+			total_price, status
 		FROM cart_items ci WHERE sale_id = ?`, saleID).
 		Scan(&cartItems).Error
 	if err != nil {
@@ -186,6 +185,37 @@ func (s *Storage) UpdateCartItemStatus(tx *gorm.DB, saleID string) error {
 		Update("status", "sold").Error
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+// update return sale cart items
+func (s *Storage) UpdateReturnSaleCartItems(tx *gorm.DB, saleID string) error {
+	var cartItems []domain.CartItem
+	// get cart items
+	err := tx.Raw(`
+		SELECT
+			id, store_product_id,
+			quantity, unit_quantity, unit_price,
+			total_price, status
+		FROM cart_items WHERE sale_id = ?`, saleID).
+		Scan(&cartItems).Error
+	if err != nil {
+		return err
+	}
+	// update store product quantities
+	for _, item := range cartItems {
+		err = tx.Exec(`
+		UPDATE store_products sp
+		SET
+			sp.pack_quantity = sp.pack_quantity + ?,
+			sp.unit_quantity = sp.unit_quantity + (? * products.unit_per_pack + ?)
+		FROM products
+		WHERE products.id = store_products.product_id AND  store_products.id = ?`,
+			item.Quantity, item.Quantity, item.UnitQuantity, item.StoreProductID).Error
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
