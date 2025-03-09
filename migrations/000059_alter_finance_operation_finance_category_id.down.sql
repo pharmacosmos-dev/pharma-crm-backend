@@ -1,0 +1,1 @@
+ALTER TABLE finance_operations DROP COLUMN IF EXISTS "finance_category_id";

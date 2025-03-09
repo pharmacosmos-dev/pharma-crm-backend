@@ -1,0 +1,1 @@
+ALTER TABLE finance_operations ADD COLUMN IF NOT EXISTS "finance_category_id" INT REFERENCES finance_categories(id);

@@ -56,7 +56,10 @@ const (
 	COMPLETED = "completed"
 	CANCELED  = "canceled"
 	DONE      = "done"
-
+	DELETED   = "deleted"
+	ACTIVE    = "active"
+	INACTIVE  = "inactive"
+	CONFIRMED = "confirmed"
 	// region SALE type
 
 	SALE_TYPE_RETURN = "RETURN"

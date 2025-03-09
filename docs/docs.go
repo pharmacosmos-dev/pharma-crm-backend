@@ -4402,6 +4402,640 @@ const docTemplate = `{
                 }
             }
         },
+        "/finance-category": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a new finance category from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "finance categories"
+                ],
+                "summary": "Create a new finance category",
+                "parameters": [
+                    {
+                        "description": "Finance category information",
+                        "name": "finance_category",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.FinanceCategoryRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Delete a finance category from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "finance categories"
+                ],
+                "summary": "Delete a finance category",
+                "parameters": [
+                    {
+                        "description": "Finance category IDs",
+                        "name": "id",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/finance-category/list": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get a list of finance categories from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "finance categories"
+                ],
+                "summary": "Get a list of finance categories",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Search",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "income || expense",
+                        "name": "account_group",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/finance-category/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get a finance category by id from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "finance categories"
+                ],
+                "summary": "Get a finance category by id",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Finance category ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update a finance category from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "finance categories"
+                ],
+                "summary": "Update a finance category",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Finance category ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Finance category information",
+                        "name": "finance_category",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.FinanceCategoryRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/finance-operation": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a new finance operation from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "finance operations"
+                ],
+                "summary": "Create a finance operation",
+                "parameters": [
+                    {
+                        "description": "Finance operation information",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.FinanceOperationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/finance-operation/list": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "List all finance operations",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "finance operations"
+                ],
+                "summary": "List all finance operations",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cashbox ID",
+                        "name": "cashbox_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Employee ID",
+                        "name": "employee_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Finance Category ID",
+                        "name": "finance_category_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Report Type",
+                        "name": "report_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Start Date",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End Date",
+                        "name": "end_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "number",
+                        "description": "From Amount",
+                        "name": "from_amount",
+                        "in": "query"
+                    },
+                    {
+                        "type": "number",
+                        "description": "To Amount",
+                        "name": "to_amount",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/finance-operation/stats": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get finance operation stats",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "finance operations"
+                ],
+                "summary": "Get finance operation stats",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Cashbox ID",
+                        "name": "cashbox_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Employee ID",
+                        "name": "employee_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Finance Category ID",
+                        "name": "finance_category_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Report Type",
+                        "name": "report_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Start Date",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End Date",
+                        "name": "end_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "number",
+                        "description": "From Amount",
+                        "name": "from_amount",
+                        "in": "query"
+                    },
+                    {
+                        "type": "number",
+                        "description": "To Amount",
+                        "name": "to_amount",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/finance-operation/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get a finance operation by ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "finance operations"
+                ],
+                "summary": "Get a finance operation",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Finance operation ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update a finance operation by ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "finance operations"
+                ],
+                "summary": "Update a finance operation",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Finance operation ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Finance operation information",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.FinanceOperationRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/generate-token": {
             "post": {
                 "description": "Generate 1C token",
@@ -11179,11 +11813,72 @@ const docTemplate = `{
                 "sale_id": {
                     "type": "string"
                 },
-                "store_id": {
-                    "type": "string"
-                },
                 "total_amount": {
                     "type": "number"
+                }
+            }
+        },
+        "domain.FinanceCategoryRequest": {
+            "type": "object",
+            "properties": {
+                "account_group": {
+                    "type": "string",
+                    "example": "income, expense"
+                },
+                "children": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.FinanceCategoryRequest"
+                    }
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "parent_id": {
+                    "type": "integer"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.FinanceOperationRequest": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "cashbox_id": {
+                    "type": "string"
+                },
+                "comment": {
+                    "type": "string"
+                },
+                "employee_id": {
+                    "type": "string"
+                },
+                "finance_category_id": {
+                    "type": "integer"
+                },
+                "operation_type": {
+                    "type": "string",
+                    "example": "income||expense||collection"
+                },
+                "payment_type_id": {
+                    "type": "string"
+                },
+                "report_type": {
+                    "type": "string",
+                    "example": "ДДC||ПиУ||СКВОЗНОЙ"
+                },
+                "status": {
+                    "type": "string"
                 }
             }
         },
@@ -11805,6 +12500,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "employee_id": {
+                    "type": "string"
+                },
+                "store_id": {
                     "type": "string"
                 }
             }

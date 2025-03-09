@@ -501,90 +501,90 @@ func (h *ProductHandler) Update(c *gin.Context) {
 		tx.Rollback()
 		return
 	}
-	var storeProducts []map[string]interface{}
-	if len(body.StoreProduct) > 0 {
-		for i := range body.StoreProduct {
-			// if body.StoreProduct[i].MeasurementValue != 0 {
-			status := config.COMPLETED_IMPORT
-			// operation := "+"
-			// if body.StoreProduct[i].MeasurementValue < 0 {
-			// 	status = config.WRITEOFF_IMPORT
-			// 	operation = "-"
-			// 	body.StoreProduct[i].MeasurementValue *= -1
-			// }
-			importReq := domain.ImportRequest{
-				Id:             uuid.New().String(),
-				StoreID:        body.StoreProduct[i].StoreID,
-				Status:         status,
-				ImportDate:     time.Now().Format(config.DATE_FORMAT),
-				DocumentNumber: utils.GenerateDocumentNumber(),
-			}
-			// create new import
-			err = tx.Table("imports").Create(&importReq).Error
-			if err != nil {
-				h.log.Error(err)
-				handleResponse(c, InternalError, err.Error())
-				tx.Rollback()
-				return
-			}
-			// create new import details
-			err = tx.Table("import_details").Debug().Create(&domain.ImportDetailRequest{
-				ImportID:      importReq.Id,
-				ProductID:     &productID,
-				ReceivedCount: body.StoreProduct[i].PackQuantity,
-				AcceptedCount: body.StoreProduct[i].PackQuantity,
-				RetailPrice:   body.StoreProduct[i].RetailPrice,
-				SupplyPrice:   body.StoreProduct[i].SupplyPrice,
-				Vat:           body.StoreProduct[i].Vat,
-				VatSum:        body.StoreProduct[i].RetailPrice - body.StoreProduct[i].SupplyPrice,
-				ExpireDate:    body.StoreProduct[i].ExpireDate.Format(config.DATE_FORMAT),
-			}).Error
-			if err != nil {
-				h.log.Error(err)
-				handleResponse(c, InternalError, err.Error())
-				tx.Rollback()
-				return
-			}
-			storeProducts = append(storeProducts, map[string]interface{}{
-				"store_id":       body.StoreProduct[i].StoreID,
-				"product_id":     productID,
-				"retail_price":   body.StoreProduct[i].RetailPrice,
-				"supply_price":   body.StoreProduct[i].SupplyPrice,
-				"vat":            body.StoreProduct[i].Vat,
-				"markup":         body.StoreProduct[i].Markup,
-				"pack_quantity":  body.StoreProduct[i].PackQuantity,
-				"unit_quantity":  body.StoreProduct[i].PackQuantity * body.UnitPerPack,
-				"small_quantity": body.StoreProduct[i].SmallQuantity,
-				"bonus_percent":  body.StoreProduct[i].BonusPercent,
-				"expire_date":    body.StoreProduct[i].ExpireDate,
-			})
-			// err = tx.Debug().Table("store_products").
-			// 	Where("product_id = ? AND store_id = ? ", productID, body.StoreProduct[i].StoreID).
-			// 	Updates(map[string]interface{}{
-			// 		"pack_quantity":  gorm.Expr("pack_quantity "+operation+" ?", body.StoreProduct[i].MeasurementValue),
-			// 		"unit_quantity":  gorm.Expr("(pack_quantity "+operation+" ?)*?", body.StoreProduct[i].MeasurementValue, body.UnitPerPack),
-			// 		"small_quantity": body.StoreProduct[i].SmallQuantity,
-			// 		"retail_price":   body.RetailPrice,
-			// 		"supply_price":   body.SupplyPrice,
-			// 		"vat":            body.Vat,
-			// 		"markup":         body.Markup,
-			// 	}).Error
-			// if err != nil {
-			// 	tx.Rollback()
-			// 	h.log.Error(err)
-			// 	handleResponse(c, InternalError, err.Error())
-			// 	return
-			// }
-			// }
-		}
-		err = tx.Debug().Table("store_products").Create(&storeProducts).Error
-		if err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, err.Error())
-			tx.Rollback()
-			return
-		}
-	}
+	// var storeProducts []map[string]any
+	// if len(body.StoreProduct) > 0 {
+	// 	for i := range body.StoreProduct {
+	// 		// if body.StoreProduct[i].MeasurementValue != 0 {
+	// 		status := config.COMPLETED_IMPORT
+	// 		// operation := "+"
+	// 		// if body.StoreProduct[i].MeasurementValue < 0 {
+	// 		// 	status = config.WRITEOFF_IMPORT
+	// 		// 	operation = "-"
+	// 		// 	body.StoreProduct[i].MeasurementValue *= -1
+	// 		// }
+	// 		importReq := domain.ImportRequest{
+	// 			Id:             uuid.New().String(),
+	// 			StoreID:        body.StoreProduct[i].StoreID,
+	// 			Status:         status,
+	// 			ImportDate:     time.Now().Format(config.DATE_FORMAT),
+	// 			DocumentNumber: utils.GenerateDocumentNumber(),
+	// 		}
+	// 		// create new import
+	// 		err = tx.Table("imports").Create(&importReq).Error
+	// 		if err != nil {
+	// 			h.log.Error(err)
+	// 			handleResponse(c, InternalError, err.Error())
+	// 			tx.Rollback()
+	// 			return
+	// 		}
+	// 		// create new import details
+	// 		err = tx.Table("import_details").Debug().Create(&domain.ImportDetailRequest{
+	// 			ImportID:      importReq.Id,
+	// 			ProductID:     &productID,
+	// 			ReceivedCount: body.StoreProduct[i].PackQuantity,
+	// 			AcceptedCount: body.StoreProduct[i].PackQuantity,
+	// 			RetailPrice:   body.StoreProduct[i].RetailPrice,
+	// 			SupplyPrice:   body.StoreProduct[i].SupplyPrice,
+	// 			Vat:           body.StoreProduct[i].Vat,
+	// 			VatSum:        body.StoreProduct[i].RetailPrice - body.StoreProduct[i].SupplyPrice,
+	// 			ExpireDate:    body.StoreProduct[i].ExpireDate.Format(config.DATE_FORMAT),
+	// 		}).Error
+	// 		if err != nil {
+	// 			h.log.Error(err)
+	// 			handleResponse(c, InternalError, err.Error())
+	// 			tx.Rollback()
+	// 			return
+	// 		}
+	// 		storeProducts = append(storeProducts, map[string]interface{}{
+	// 			"store_id":       body.StoreProduct[i].StoreID,
+	// 			"product_id":     productID,
+	// 			"retail_price":   body.StoreProduct[i].RetailPrice,
+	// 			"supply_price":   body.StoreProduct[i].SupplyPrice,
+	// 			"vat":            body.StoreProduct[i].Vat,
+	// 			"markup":         body.StoreProduct[i].Markup,
+	// 			"pack_quantity":  body.StoreProduct[i].PackQuantity,
+	// 			"unit_quantity":  body.StoreProduct[i].PackQuantity * body.UnitPerPack,
+	// 			"small_quantity": body.StoreProduct[i].SmallQuantity,
+	// 			"bonus_percent":  body.StoreProduct[i].BonusPercent,
+	// 			"expire_date":    body.StoreProduct[i].ExpireDate,
+	// 		})
+	// 		// err = tx.Debug().Table("store_products").
+	// 		// 	Where("product_id = ? AND store_id = ? ", productID, body.StoreProduct[i].StoreID).
+	// 		// 	Updates(map[string]interface{}{
+	// 		// 		"pack_quantity":  gorm.Expr("pack_quantity "+operation+" ?", body.StoreProduct[i].MeasurementValue),
+	// 		// 		"unit_quantity":  gorm.Expr("(pack_quantity "+operation+" ?)*?", body.StoreProduct[i].MeasurementValue, body.UnitPerPack),
+	// 		// 		"small_quantity": body.StoreProduct[i].SmallQuantity,
+	// 		// 		"retail_price":   body.RetailPrice,
+	// 		// 		"supply_price":   body.SupplyPrice,
+	// 		// 		"vat":            body.Vat,
+	// 		// 		"markup":         body.Markup,
+	// 		// 	}).Error
+	// 		// if err != nil {
+	// 		// 	tx.Rollback()
+	// 		// 	h.log.Error(err)
+	// 		// 	handleResponse(c, InternalError, err.Error())
+	// 		// 	return
+	// 		// }
+	// 		// }
+	// 	}
+	// 	err = tx.Debug().Table("store_products").Create(&storeProducts).Error
+	// 	if err != nil {
+	// 		h.log.Error(err)
+	// 		handleResponse(c, InternalError, err.Error())
+	// 		tx.Rollback()
+	// 		return
+	// 	}
+	// }
 	if len(body.CategoryIds) > 0 {
 		var categoryProducts = make([]domain.CategoryProduct, len(body.CategoryIds))
 		for i, categoryId := range body.CategoryIds {

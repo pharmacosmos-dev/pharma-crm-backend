@@ -88,6 +88,8 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		h.NewDashboardHandler(v1)
 		h.NewHelperHandler(v1)
 		h.NewCompanyHandler(v1)
+		h.NewFinanceCategoryHandler(v1)
+		h.NewFinanceOperationHandler(v1)
 		// handler for external apis
 		h.NewExternalHandler(external)
 	}

@@ -43,22 +43,21 @@ func (b *BrandController) BrandRoutes(r *gin.RouterGroup) {
 // @Router /brand [post]
 func (b *BrandController) Create(c *gin.Context) {
 	var (
-		brand = new(domain.BrandRequest)
+		brand domain.BrandRequest
 		err   error
 	)
-	err = c.ShouldBind(brand)
-	if err != nil {
+	if err = c.ShouldBindJSON(&brand); err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 	brand.Id = uuid.New().String()
 	err = b.db.WithContext(c.Request.Context()).Model(&domain.Brand{}).Create(brand).Error
 	if err != nil {
-		b.log.Error("Error on creating brand: ", err.Error())
+		b.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, CREATED, brand)
+	handleResponse(c, CREATED, "CREATED")
 }
 
 // Get godoc
@@ -76,7 +75,7 @@ func (b *BrandController) Create(c *gin.Context) {
 func (b *BrandController) Get(c *gin.Context) {
 	var res domain.Brand
 	var id = c.Param("id")
-	err := b.db.First(res, "id = ?", id).Error
+	err := b.db.First(&res, "id = ?", id).Error
 	if err != nil {
 		b.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -140,12 +139,12 @@ func (b *BrandController) Update(c *gin.Context) {
 		err   error
 		id    = c.Param("id")
 	)
-
-	err = c.ShouldBindJSON(&brand)
-	if err != nil {
+	// bind request body
+	if err = c.ShouldBindJSON(&brand); err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	// update brand
 	err = b.db.
 		WithContext(c.Request.Context()).
 		Model(&domain.Brand{}).

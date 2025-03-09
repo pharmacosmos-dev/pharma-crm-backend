@@ -648,8 +648,6 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		return
 	}
 
-	fmt.Println("Sale completed")
-
 	// collect new sale data
 	newSale := domain.SaleRequest{
 		ID:                 uuid.New().String(),

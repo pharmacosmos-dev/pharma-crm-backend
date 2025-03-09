@@ -389,10 +389,51 @@ definitions:
         type: array
       sale_id:
         type: string
-      store_id:
-        type: string
       total_amount:
         type: number
+    type: object
+  domain.FinanceCategoryRequest:
+    properties:
+      account_group:
+        example: income, expense
+        type: string
+      children:
+        items:
+          $ref: '#/definitions/domain.FinanceCategoryRequest'
+        type: array
+      description:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      parent_id:
+        type: integer
+      status:
+        type: string
+    type: object
+  domain.FinanceOperationRequest:
+    properties:
+      amount:
+        type: number
+      cashbox_id:
+        type: string
+      comment:
+        type: string
+      employee_id:
+        type: string
+      finance_category_id:
+        type: integer
+      operation_type:
+        example: income||expense||collection
+        type: string
+      payment_type_id:
+        type: string
+      report_type:
+        example: ДДC||ПиУ||СКВОЗНОЙ
+        type: string
+      status:
+        type: string
     type: object
   domain.Generate1CTokenRequest:
     properties:
@@ -807,6 +848,8 @@ definitions:
       cash_box_operation_id:
         type: string
       employee_id:
+        type: string
+      store_id:
         type: string
     type: object
   domain.SaleReturnRequest:
@@ -3800,6 +3843,411 @@ paths:
       summary: Create a sale
       tags:
       - External API
+  /finance-category:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a finance category from the request body
+      parameters:
+      - description: Finance category IDs
+        in: body
+        name: id
+        required: true
+        schema:
+          items:
+            type: integer
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete a finance category
+      tags:
+      - finance categories
+    post:
+      consumes:
+      - application/json
+      description: Create a new finance category from the request body
+      parameters:
+      - description: Finance category information
+        in: body
+        name: finance_category
+        required: true
+        schema:
+          $ref: '#/definitions/domain.FinanceCategoryRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a new finance category
+      tags:
+      - finance categories
+  /finance-category/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get a finance category by id from the request body
+      parameters:
+      - description: Finance category ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a finance category by id
+      tags:
+      - finance categories
+    put:
+      consumes:
+      - application/json
+      description: Update a finance category from the request body
+      parameters:
+      - description: Finance category ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Finance category information
+        in: body
+        name: finance_category
+        required: true
+        schema:
+          $ref: '#/definitions/domain.FinanceCategoryRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update a finance category
+      tags:
+      - finance categories
+  /finance-category/list:
+    get:
+      consumes:
+      - application/json
+      description: Get a list of finance categories from the request body
+      parameters:
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: income || expense
+        in: query
+        name: account_group
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a list of finance categories
+      tags:
+      - finance categories
+  /finance-operation:
+    post:
+      consumes:
+      - application/json
+      description: Create a new finance operation from the request body
+      parameters:
+      - description: Finance operation information
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.FinanceOperationRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a finance operation
+      tags:
+      - finance operations
+  /finance-operation/{id}:
+    get:
+      description: Get a finance operation by ID
+      parameters:
+      - description: Finance operation ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a finance operation
+      tags:
+      - finance operations
+    put:
+      description: Update a finance operation by ID
+      parameters:
+      - description: Finance operation ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Finance operation information
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.FinanceOperationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update a finance operation
+      tags:
+      - finance operations
+  /finance-operation/list:
+    get:
+      description: List all finance operations
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Cashbox ID
+        in: query
+        name: cashbox_id
+        type: string
+      - description: Employee ID
+        in: query
+        name: employee_id
+        type: string
+      - description: Finance Category ID
+        in: query
+        name: finance_category_id
+        type: integer
+      - description: Report Type
+        in: query
+        name: report_type
+        type: string
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: From Amount
+        in: query
+        name: from_amount
+        type: number
+      - description: To Amount
+        in: query
+        name: to_amount
+        type: number
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: List all finance operations
+      tags:
+      - finance operations
+  /finance-operation/stats:
+    get:
+      description: Get finance operation stats
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Cashbox ID
+        in: query
+        name: cashbox_id
+        type: string
+      - description: Employee ID
+        in: query
+        name: employee_id
+        type: string
+      - description: Finance Category ID
+        in: query
+        name: finance_category_id
+        type: integer
+      - description: Report Type
+        in: query
+        name: report_type
+        type: string
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: From Amount
+        in: query
+        name: from_amount
+        type: number
+      - description: To Amount
+        in: query
+        name: to_amount
+        type: number
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get finance operation stats
+      tags:
+      - finance operations
   /generate-token:
     post:
       consumes:
