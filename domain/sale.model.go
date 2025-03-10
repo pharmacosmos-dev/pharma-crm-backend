@@ -28,7 +28,7 @@ type Sale struct {
 
 // SaleRequest structure for create
 type SaleRequest struct {
-	ID                 string `gorm:"id" json:"-"`
+	ID                 string `gorm:"id" json:"id"`
 	EmployeeID         string `gorm:"employee_id" json:"employee_id"`
 	StoreId            string `gorm:"store_id" json:"store_id"`
 	CashBoxOperationId string `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
