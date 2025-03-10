@@ -298,8 +298,9 @@ func (h *EmployeeHandler) ExportEmployeeExcel(c *gin.Context) {
 func (h *EmployeeHandler) Update(c *gin.Context) {
 	var (
 		body = domain.EmployeeRequest{}
-		id   = c.Param("id")
-		err  error
+
+		id  = c.Param("id")
+		err error
 	)
 	err = c.ShouldBindJSON(&body)
 	if err != nil {
@@ -431,7 +432,7 @@ func (h *EmployeeHandler) GetInfo(c *gin.Context) {
 		return
 	}
 	var permissions []domain.Permission
-	err := h.db.Debug().Raw(`
+	err := h.db.Raw(`
 	SELECT
 		p.*,
 		COALESCE(NULLIF(p.route, ''), p.key) AS route

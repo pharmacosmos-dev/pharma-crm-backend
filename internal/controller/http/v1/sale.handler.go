@@ -18,7 +18,6 @@ import (
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
-	"github.com/spf13/cast"
 	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
 )
@@ -535,6 +534,7 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 	var (
 		body     domain.EposResponseRequest
 		response domain.EposResponseData
+		sale     domain.Sale
 		err      error
 	)
 
@@ -562,25 +562,63 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 		handleResponse(c, InternalError, "failed to parse response_data: "+err.Error())
 		return
 	}
+	// start transaction
+	tx := h.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
 
 	if response.Error {
-		err = h.db.Table("sales").Where("id = ?", body.SaleId).Update("status", config.PENDING).Error
+		err = tx.Raw(`UPDATE sales SET status = ? WHERE id = ? RETURNING *`, config.PENDING, body.SaleId).Scan(&sale).Error
 		if err != nil {
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())
+			tx.Rollback()
+			return
+		}
+		err = tx.Exec(`UPDATE cart_items SET status = ? WHERE sale_id = ?`, config.PENDING, body.SaleId).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			tx.Rollback()
 			return
 		}
 	}
 
 	// Save to DB
-	err = h.db.WithContext(c.Request.Context()).Table("epos_responses").Create(&body).Error
+	err = tx.WithContext(c.Request.Context()).Table("epos_responses").Create(&body).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
+		tx.Rollback()
+		return
+	}
+	// create new sale
+	newSale := domain.SaleRequest{
+		ID:                 uuid.New().String(),
+		EmployeeID:         sale.EmployeeID,
+		StoreId:            sale.StoreId,
+		CashBoxOperationId: sale.CashBoxOperationId,
+	}
+	// create new sale
+	err = tx.Table("sales").Create(&newSale).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		tx.Rollback()
+		return
+	}
+	// commit transaction
+	if err = tx.Commit().Error; err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		tx.Rollback()
 		return
 	}
 
-	handleResponse(c, CREATED, "CREATED")
+	handleResponse(c, CREATED, newSale)
 }
 
 // FinalSale
@@ -675,27 +713,27 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	if sale.StoreId == "" {
 		sale.StoreId = body.StoreID
 	}
-	// collect new sale data
-	newSale := domain.SaleRequest{
-		ID:                 uuid.New().String(),
-		EmployeeID:         cast.ToString(userID),
-		CashBoxOperationId: body.CashBoxOperationId,
-		StoreId:            sale.StoreId,
-	}
-	// create new sale
-	err = tx.Table("sales").Create(&newSale).Error
-	if err != nil {
-		handleResponse(c, InternalError, err.Error())
-		tx.Rollback()
-		return
-	}
+	// // collect new sale data
+	// newSale := domain.SaleRequest{
+	// 	ID:                 uuid.New().String(),
+	// 	EmployeeID:         cast.ToString(userID),
+	// 	CashBoxOperationId: body.CashBoxOperationId,
+	// 	StoreId:            sale.StoreId,
+	// }
+	// // create new sale
+	// err = tx.Table("sales").Create(&newSale).Error
+	// if err != nil {
+	// 	handleResponse(c, InternalError, err.Error())
+	// 	tx.Rollback()
+	// 	return
+	// }
 	// Commit transaction
 	if err = tx.Commit().Error; err != nil {
 		handleResponse(c, InternalError, err.Error())
 		tx.Rollback()
 		return
 	}
-	handleResponse(c, OK, newSale.ID)
+	handleResponse(c, OK, "COMPLETED")
 }
 
 // Validate payment Type
