@@ -133,7 +133,7 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 			received_count, scanned_count, supply_price, supply_price_vat,
 			retail_price, retail_price_vat,
 			vat, vat_sum, expire_date, series_number, 
-			sum_vat, marking) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			sum_vat, marking) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			productID, newImport.Id, body.Товары[i].Quantity, body.Товары[i].Quantity, body.Товары[i].SupplyPrice,
 			body.Товары[i].SupplyPriceVat, body.Товары[i].RetailPrice, body.Товары[i].RetailPriceVat,
 			cast.ToInt(body.Товары[i].Vat), body.Товары[i].VatSum,
