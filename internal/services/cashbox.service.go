@@ -2,7 +2,9 @@ package services
 
 import (
 	"fmt"
+	"time"
 
+	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 )
 
@@ -176,4 +178,101 @@ func (s *Storage) OperationHistory(storeID, isOpen, search string, limit, offset
 		return nil, 0, err
 	}
 	return res, totalCount, nil
+}
+
+// close cashbox operation
+func (s *Storage) CloseCashBoxOperation(cashBoxOperationID string, req *domain.CloseCashboxOperation, senderId string) error {
+	// start transaction
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+	// update cash box operation
+	err := tx.Exec(`
+	UPDATE cashbox_operations SET 
+		closed_amount = ?, close_cashless_amount = ?, end_time = NOW(), is_open = FALSE 
+	WHERE id = ?`, req.ClosedAmount, req.CloseCashlessAmount, cashBoxOperationID).Error
+	if err != nil {
+		s.log.Error(err)
+		tx.Rollback()
+		return err
+	}
+	// get total net amount
+	var totalNetAmount float64
+	err = tx.Raw(`
+	SELECT SUM(total_net_amount) AS total_net_amount 
+	FROM sale_payment_summary 
+	WHERE cash_box_operation_id = ?`, cashBoxOperationID).
+		Scan(&totalNetAmount).Error
+	if err != nil {
+		s.log.Error(err)
+		tx.Rollback()
+		return err
+	}
+
+	// create cashbox closure
+	err = tx.Exec(`
+	INSERT INTO cashbox_closures (
+		cashbox_operation_id, received_amount, sender_id, status) 
+	VALUES (?, ?, ?, ?)`, cashBoxOperationID, totalNetAmount, senderId, config.PENDING).Error
+	if err != nil {
+		s.log.Error(err)
+		tx.Rollback()
+		return err
+	}
+	// commit transaction
+	if err = tx.Commit().Error; err != nil {
+		s.log.Error(err)
+		tx.Rollback()
+		return err
+	}
+	return nil
+}
+
+// create cashbox operation
+func (s *Storage) CreateCashboxOperation(req *domain.CashboxOperationRequest, userId any) (*domain.Sale, error) {
+	// start transaction
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	var id string
+	// open cashbox_operation
+	err := tx.Raw(`
+	INSERT INTO cashbox_operations (
+			cash_box_id, employee_id, current_employee_id, opened_amount, open_cashless_amount, is_open, start_time, description
+			) 
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
+	`, req.CashBoxID, userId, userId,
+		req.OpenedAmount, req.OpenCashlessAmount, true, time.Now(),
+		req.Description).Scan(&id).Error
+	if err != nil {
+		s.log.Error(err)
+		tx.Rollback()
+		return nil, err
+	}
+
+	var sale domain.Sale
+	// create new sale
+	err = tx.Raw(`
+		INSERT INTO sales (employee_id, store_id, cash_box_operation_id) 
+		VALUES (?, ?, ?) RETURNING *`,
+		userId, req.StoreID, id).Scan(&sale).Error
+	if err != nil {
+		s.log.Error(err)
+		tx.Rollback()
+		return nil, err
+	}
+	// commit transaction
+	if err = tx.Commit().Error; err != nil {
+		s.log.Error(err)
+		tx.Rollback()
+		return nil, err
+	}
+	return &sale, nil
 }

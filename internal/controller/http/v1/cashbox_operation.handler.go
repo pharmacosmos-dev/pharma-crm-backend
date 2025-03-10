@@ -3,10 +3,8 @@ package v1
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
@@ -55,72 +53,29 @@ func (h *CashBoxOperationHandler) Create(c *gin.Context) {
 		body domain.CashboxOperationRequest
 		err  error
 	)
+	// get user_id from the context
 	userId, ok := c.Get("user_id")
 	if !ok {
 		handleResponse(c, UNAUTHORIZED, "User ID not found")
 		return
 	}
+	// bind request body
 	if err = c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	tx := h.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-
-	err = tx.WithContext(c.Request.Context()).
-		Table("cash_boxes").
-		Where("id = ?", body.CashBoxID).
-		Update("is_open", true).Error
+	// check store id
+	if body.StoreID == "" {
+		handleResponse(c, BadRequest, "Store ID is required")
+		return
+	}
+	// create cashbox operation and new sale
+	sale, err := h.service.CreateCashboxOperation(&body, userId)
 	if err != nil {
-		tx.Rollback()
-		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	now := time.Now()
-	body.ID = uuid.New().String()
-	body.StartTime = &now
-	body.EmployeeID = userId.(string)
-	body.IsOpen = true
-	var id string
-	err = tx.Raw(`
-	INSERT INTO 
-		cashbox_operations 
-			(id, cash_box_id, employee_id, opened_amount, is_open, start_time, description, current_employee_id) 
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
-	`, body.ID, body.CashBoxID, body.EmployeeID,
-		body.OpenedAmount, body.IsOpen, body.StartTime,
-		body.Description, body.EmployeeID).Scan(&id).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-
-	var sale domain.Sale
-	err = tx.WithContext(c.Request.Context()).
-		Raw(`
-		INSERT INTO sales (id, employee_id, cash_box_operation_id) 
-		VALUES (?, ?, ?) RETURNING *`,
-			uuid.New().String(), userId.(string), id).Scan(&sale).Error
-	if err != nil {
-		tx.Rollback()
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-
-	// Commit transaction
-	if err := tx.Commit().Error; err != nil {
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-
 	handleResponse(c, CREATED, sale)
 }
 
@@ -209,22 +164,20 @@ func (h *CashBoxOperationHandler) CloseCashBox(c *gin.Context) {
 		err                error
 		cashBoxOperationID = c.Param("cash_box_operation_id")
 	)
-
+	// get user_id from the context
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	// bind request body
 	if err = c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-
-	body.IsOpen = false
-	now := time.Now()
-	body.EndTime = &now
-	err = h.db.WithContext(c.Request.Context()).
-		Table("cashbox_operations").
-		Where("id = ?", cashBoxOperationID).
-		Updates(&body).Debug().Error
+	err = h.service.CloseCashBoxOperation(cashBoxOperationID, &body, userId.(string))
 	if err != nil {
-		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
