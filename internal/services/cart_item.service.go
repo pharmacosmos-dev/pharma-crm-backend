@@ -32,7 +32,8 @@ func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartIt
 		sh.name as shelf,
 		pr.name AS producer_name,
 		p.mxik AS class_code,
-		(select unit_code from product_measurements where mxik_code = p.mxik) AS package_code,
+		pm.unit_code AS package_code,
+		pm.unit_name AS package_name,
 		STRING_AGG(c.name, ', ') as category_name
 	FROM cart_items ci
 	JOIN store_products sp ON ci.store_product_id = sp.id
@@ -42,8 +43,9 @@ func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartIt
 	LEFT JOIN producers pr ON pr.id = p.producer_id
 	LEFT JOIN category_products cp ON p.id = cp.product_id
 	LEFT JOIN categories c ON c.id = cp.category_id
+	LEFT JOIN product_measurements pm ON pm.mxik_code = p.mxik
 	WHERE ci.status = 'pending' AND ci.sale_id = ?
-	GROUP BY ci.id, ci.created_at, p.id, sp.id, u.id, sh.id, pr.id
+	GROUP BY ci.id, ci.created_at, p.id, sp.id, u.id, sh.id, pr.id, pm.id
 	ORDER BY ci.created_at DESC LIMIT ? OFFSET ?
 	`, saleID, limit, offset).Scan(&res).Error
 	if err != nil {

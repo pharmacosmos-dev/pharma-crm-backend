@@ -93,6 +93,7 @@ type CartItemResponse struct {
 	ProducerName        string     `gorm:"producer_name" json:"producer_name"`
 	ClassCode           string     `gorm:"class_code" json:"class_code"`
 	PackageCode         string     `gorm:"package_code" json:"package_code"`
+	PackageName         string     `gorm:"package_name" json:"package_name"`
 	CategoryName        string     `gorm:"category_name" json:"category_name"`
 	BonusAmount         float64    `gorm:"bonus_amount" json:"bonus_amount"`
 	BonusPercent        int        `gorm:"bonus_percent" json:"bonus_percent"`

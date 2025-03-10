@@ -647,7 +647,9 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		tx.Rollback()
 		return
 	}
-
+	if sale.StoreId == "" {
+		sale.StoreId = body.StoreID
+	}
 	// collect new sale data
 	newSale := domain.SaleRequest{
 		ID:                 uuid.New().String(),
