@@ -360,11 +360,18 @@ func (h *CashBoxHandler) SoftDelete(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
+// @Param store_id query string false "Store ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /cash_box/check [get]
 func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
+	storeId := c.Query("store_id")
+	// validate store_id
+	if err := uuid.Validate(storeId); err != nil {
+		handleResponse(c, BadRequest, "Invalid store_id")
+		return
+	}
 	// Get the user ID from the context
 	userID, ok := c.Get("user_id")
 	if !ok {
@@ -401,6 +408,7 @@ func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
 					CashBoxOperationId: cashBoxOperationID,
 					EmployeeID:         userID.(string),
 					ID:                 uuid.New().String(),
+					StoreId:            storeId,
 				}
 				if createErr := h.db.Table("sales").Create(&newSale).Error; createErr != nil {
 					h.log.Error(createErr)
