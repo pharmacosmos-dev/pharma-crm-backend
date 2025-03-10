@@ -533,28 +533,53 @@ func (h *SaleHandler) Update(c *gin.Context) {
 // @Router /sale/epos-result [post]
 func (h *SaleHandler) EposRequest(c *gin.Context) {
 	var (
-		body domain.EposResponseRequest
-		err  error
+		body     domain.EposResponseRequest
+		response domain.EposResponseData
+		err      error
 	)
-	// bind request body
+
+	// Bind request body
 	if err = c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	body.Response, err = json.Marshal(&body.ResponseData)
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+
+	// Ensure response_data is a string
+	responseDataStr, ok := body.ResponseData.(string)
+	if !ok {
+		h.log.Error("response_data is not a valid string")
+		handleResponse(c, BadRequest, "response_data must be a string")
 		return
 	}
-	// create epos response body
+
+	// Convert string to []byte and store in Response field
+	body.Response = []byte(responseDataStr)
+
+	// Unmarshal response_data into EposResponseData
+	if err = json.Unmarshal(body.Response, &response); err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, "failed to parse response_data: "+err.Error())
+		return
+	}
+
+	if response.Error {
+		err = h.db.Table("sales").Where("id = ?", body.SaleId).Update("status", config.PENDING).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+	}
+
+	// Save to DB
 	err = h.db.WithContext(c.Request.Context()).Table("epos_responses").Create(&body).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+
 	handleResponse(c, CREATED, "CREATED")
 }
 
