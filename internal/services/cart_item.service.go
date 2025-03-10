@@ -23,7 +23,7 @@ func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartIt
 		sp.expire_date,
 		((sp.retail_price*sp.bonus_percent)/100) as bonus_amount,
 		sp.bonus_percent,
-		sp.vat as vatPercent,
+		sp.vat AS vat_percent,
 		sp.vat_price as vat_price,
 		sp.vat_price*ci.quantity as vat,
 		sp.pack_quantity AS quantity_in_stock,
@@ -66,8 +66,10 @@ func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartIt
 		SUM(total_price) AS sum,
 		SUM(quantity) AS item_count,
 		SUM(discount_amount*quantity) AS discount_amount,
+		SUM(sp.vat_price*quantity) AS vat_sum,
 		COUNT(*) AS count
 	FROM cart_items
+	JOIN store_products sp ON sp.id = cart_items.store_product_id
 	WHERE sale_id = ?
 	`, saleID).Scan(&data).Error
 	if err != nil {

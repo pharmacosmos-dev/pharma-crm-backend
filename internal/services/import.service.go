@@ -85,11 +85,11 @@ func (s *Storage) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domain
 	reqFakt.Apteka.Name = store.Name
 
 	// add products to store
-	storeProductQuery := `INSERT INTO store_products(store_id, product_id, pack_quantity, unit_quantity, supply_price, retail_price, vat, expire_date) VALUES(?, ?, ?, ?, ?, ?, ?, ?)`
+	storeProductQuery := `INSERT INTO store_products(store_id, product_id, pack_quantity, unit_quantity, supply_price, retail_price, vat, expire_date, vat_price) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	for _, item := range importDetails {
 		if item.AcceptedCount > 0 {
 			// add imported products to store_products
-			err = tx.Exec(storeProductQuery, importData.StoreID, item.ProductID, item.ScannedCount, item.UnitPerPack*item.ScannedCount, item.SupplyPriceVat, item.RetailPriceVat, item.Vat, item.ExpireDate).Error
+			err = tx.Exec(storeProductQuery, importData.StoreID, item.ProductID, item.ScannedCount, item.UnitPerPack*item.ScannedCount, item.SupplyPriceVat, item.RetailPriceVat, item.Vat, item.ExpireDate, item.VatSum/float64(item.ReceivedCount)).Error
 			if err != nil {
 				s.log.Error(err)
 				return err

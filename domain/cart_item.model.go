@@ -60,6 +60,7 @@ type CartItemData struct {
 	TotalAmount    float64            `gorm:"total_amount" json:"total_amount"`
 	Sum            float64            `gorm:"sum" json:"sum"`
 	DiscountAmount float64            `gorm:"discount_amount" json:"discount_amount"`
+	VatSum         float64            `gorm:"vat_sum" json:"vat_sum"`
 	Count          int64              `gorm:"count" json:"count"`
 	ItemCount      int64              `gorm:"item_count" json:"item_count"`
 }
@@ -85,7 +86,7 @@ type CartItemResponse struct {
 	Vat                 float64    `gorm:"vat" json:"vat"`
 	VatPrice            float64    `gorm:"vat_price" json:"vat_price"`
 	Label               string     `gorm:"label" json:"label"`
-	VatPercent          float64    `gorm:"vatPercent" json:"vatPercent"`
+	VatPercent          float64    `gorm:"vat_percent" json:"vat_percent"`
 	Barcode             string     `gorm:"barcode" json:"barcode"`
 	UnitName            string     `gorm:"unit_name" json:"unit_name"`
 	ShortName           string     `gorm:"short_name" json:"short_name"`
