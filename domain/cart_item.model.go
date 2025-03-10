@@ -83,6 +83,7 @@ type CartItemResponse struct {
 	Name                string     `gorm:"name" json:"name"`
 	Description         string     `gorm:"description" json:"description"`
 	Vat                 float64    `gorm:"vat" json:"vat"`
+	VatPrice            float64    `gorm:"vat_price" json:"vat_price"`
 	Label               string     `gorm:"label" json:"label"`
 	VatPercent          float64    `gorm:"vatPercent" json:"vatPercent"`
 	Barcode             string     `gorm:"barcode" json:"barcode"`

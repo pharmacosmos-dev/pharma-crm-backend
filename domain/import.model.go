@@ -61,6 +61,7 @@ type ImportDetail struct {
 	SeriesNumber      string     `gorm:"series_number" json:"series_number"`
 	ExpireDate        *time.Time `gorm:"expire_date" json:"expire_date"`
 	Vat               int        `gorm:"vat" json:"vat"`
+	VatSum            float64    `gorm:"vat_sum" json:"vat_sum"`
 	SumVat            float64    `gorm:"sum_vat" json:"sum_vat"`
 	UnitPerPack       int        `gorm:"unit_per_pack" json:"unit_per_pack"`
 	ProducerName      string     `gorm:"producer_name" json:"producer_name"`

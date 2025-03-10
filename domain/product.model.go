@@ -119,19 +119,19 @@ type ProductRequest1C struct {
 	Name                string   `gorm:"name" json:"name" validate:"required,min=1,max=500"`
 	Manufacturer        string   `gorm:"manufacturer" json:"manufacturer" validate:"required,min=1,max=255"`
 	Quantity            int      `gorm:"quantity" json:"quantity" validate:"required,gte=0"`
-	RetailPrice         float64  `gorm:"retail_price" json:"retail_price" validate:"required,gt=0"`
-	RetailPriceVat      float64  `gorm:"retail_price_vat" json:"retail_price_vat" validate:"gte=0"`
-	SupplyPrice         float64  `gorm:"supply_price" json:"supply_price" validate:"gte=0"`
-	SupplyPriceVat      float64  `gorm:"supply_price_vat" json:"supply_price_vat" validate:"gte=0"`
-	Sum                 float64  `gorm:"sum" json:"sum" validate:"gte=0"`
-	VatPrice            float64  `gorm:"vat_price" json:"vat_price" validate:"gte=0"`
+	RetailPrice         float64  `gorm:"retail_price" json:"retail_price"`
+	RetailPriceVat      float64  `gorm:"retail_price_vat" json:"retail_price_vat"`
+	SupplyPrice         float64  `gorm:"supply_price" json:"supply_price"`
+	SupplyPriceVat      float64  `gorm:"supply_price_vat" json:"supply_price_vat"`
+	Sum                 float64  `gorm:"sum" json:"sum"`
+	VatPrice            float64  `gorm:"vat_price" json:"vat_price"`
 	Vat                 string   `gorm:"vat" json:"vat" validate:"required"`
-	Markup              int      `gorm:"markup" json:"markup" validate:"gte=0"`
-	VatSum              float64  `gorm:"vat_sum" json:"vat_sum" validate:"gte=0"`
+	Markup              int      `gorm:"markup" json:"markup"`
+	VatSum              float64  `gorm:"vat_sum" json:"vat_sum"`
 	ProductSeriesNumber string   `gorm:"product_series_number" json:"product_series_number" validate:"required"`
 	ExpireDate          string   `gorm:"expire_date" json:"expire_date" validate:"required"`
 	Barcode             string   `gorm:"barcode" json:"barcode" validate:"required,min=0,max=255"`
-	SumVat              float64  `gorm:"sum_vat" json:"sum_vat" validate:"gte=0"`
+	SumVat              float64  `gorm:"sum_vat" json:"sum_vat"`
 	Ikpu                string   `gorm:"ikpu" json:"ikpu" validate:"omitempty,len=min=14,max=255"`
 	Markirovka          []string `gorm:"-" json:"markirovka"`
 }

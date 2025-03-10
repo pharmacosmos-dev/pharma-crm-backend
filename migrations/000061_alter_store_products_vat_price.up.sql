@@ -1,0 +1,1 @@
+ALTER TABLE store_products ADD COLUMN IF NOT EXISTS "vat_price" NUMERIC(10, 2) DEFAULT 0.00;
