@@ -532,10 +532,9 @@ func (h *SaleHandler) Update(c *gin.Context) {
 // @Router /sale/epos-result [post]
 func (h *SaleHandler) EposRequest(c *gin.Context) {
 	var (
-		body     domain.EposResponseRequest
-		response domain.EposResponseData
-		sale     domain.Sale
-		err      error
+		body domain.EposResponseRequest
+		sale domain.Sale
+		err  error
 	)
 
 	// Bind request body
@@ -556,13 +555,6 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 	// Convert string to []byte and store in Response field
 	body.Response = []byte(responseDataStr)
 
-	// Unmarshal response_data into EposResponseData
-	if err = json.Unmarshal(body.Response, &response); err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, "failed to parse response_data: "+err.Error())
-		return
-	}
-
 	// Start transaction
 	tx := h.db.Begin()
 	if tx.Error != nil {
@@ -578,13 +570,13 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 		}
 	}()
 
-	if response.Error {
+	if body.Error {
 		// Update sales status
 		err = tx.Raw(`UPDATE sales SET status = ? WHERE id = ? RETURNING *`, config.PENDING, body.SaleId).Scan(&sale).Error
 		if err != nil {
 			h.log.Error(err)
-			tx.Rollback()
 			handleResponse(c, InternalError, err.Error())
+			tx.Rollback()
 			return
 		}
 
@@ -592,8 +584,17 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 		err = tx.Exec(`UPDATE cart_items SET status = ? WHERE sale_id = ?`, config.PENDING, body.SaleId).Error
 		if err != nil {
 			h.log.Error(err)
-			tx.Rollback()
 			handleResponse(c, InternalError, err.Error())
+			tx.Rollback()
+			return
+		}
+
+		// return products to store_product
+		err = h.service.UpdateReturnSaleCartItems(tx, body.SaleId)
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			tx.Rollback()
 			return
 		}
 	}
@@ -607,7 +608,7 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 		return
 	}
 
-	if !response.Error {
+	if !body.Error {
 		// Create new sale
 		newSale := domain.SaleRequest{
 			ID:                 uuid.New().String(),

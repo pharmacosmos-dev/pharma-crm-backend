@@ -146,6 +146,7 @@ type EposResponse struct {
 // EposResponse Request structure
 type EposResponseRequest struct {
 	SaleId       string `gorm:"sale_id" json:"sale_id"`
+	Error        bool   `gorm:"error" json:"error"`
 	Response     []byte `gorm:"response" json:"-"`
 	ResponseData any    `gorm:"-" json:"response_data"`
 }
