@@ -4754,6 +4754,10 @@ paths:
         in: query
         name: no_barcode
         type: boolean
+      - description: Filter items with no marking (true/false)
+        in: query
+        name: no_marking
+        type: boolean
       produces:
       - application/json
       responses:

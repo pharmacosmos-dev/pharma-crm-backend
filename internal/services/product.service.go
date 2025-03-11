@@ -11,12 +11,12 @@ import (
 )
 
 // get store products get list
-func (s *Storage) ListStoreProduct(ctx context.Context, storeID string, search string, limit, offset int) ([]*domain.StoreProductResponse, error) {
+func (s *Storage) ListStoreProduct(param *domain.StoreProductQueryParam, storeId string) ([]*domain.StoreProductResponse, error) {
 	var (
 		res []*domain.StoreProductResponse
 		err error
 	)
-
+	// build query
 	query := s.db.Model(&domain.StoreProduct{}).
 		Table("store_products sp").
 		Select(`
@@ -33,16 +33,24 @@ func (s *Storage) ListStoreProduct(ctx context.Context, storeID string, search s
 		Joins("LEFT JOIN category_products cp ON p.id = cp.product_id").
 		Joins("LEFT JOIN categories c ON c.id = cp.category_id").
 		Joins("LEFT JOIN unit_types u ON p.unit_type_id = u.id").
-		Where("sp.store_id = ? AND (sp.pack_quantity > 0 OR sp.unit_quantity > 0)", storeID)
+		Joins("LEFT JOIN import_details im ON im.product_id = sp.product_id").
+		Where("sp.store_id = ? AND (sp.pack_quantity > 0 OR sp.unit_quantity > 0)", storeId)
 
-	if search != "" {
-		search = fmt.Sprintf("%%%s%%", search)
-		query = query.Where("p.name ILIKE ? OR p.barcode LIKE ? OR c.name ILIKE ?", search, search, search)
+	if param.Search != "" {
+		marking := param.Search
+		param.Search = fmt.Sprintf("%%%s%%", param.Search)
+		query = query.Where(`p.name ILIKE ? OR p.barcode LIKE ? OR c.name ILIKE ? OR ? = ANY(im.marking)`, param.Search, param.Search, param.Search, marking)
 	}
-	err = query.Limit(limit).Offset(offset).Order("sp.pack_quantity").Find(&res).Error
+	err = query.
+		Limit(param.Limit).
+		Offset(param.Offset).
+		Order("sp.pack_quantity").
+		Debug().
+		Group("sp.id, p.id, c.id, u.id").
+		Find(&res).Error
 
 	if err != nil {
-		s.log.Warn("Error on listing store products for store %s with search '%s': %v", storeID, search, err.Error())
+		s.log.Warn("Error on listing store products for store %s with search '%s': %v", storeId, param.Search, err.Error())
 		return nil, err
 	}
 	for i := range res {

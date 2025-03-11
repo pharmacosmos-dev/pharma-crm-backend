@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -320,19 +319,12 @@ func (s *Storage) ListImport(c *gin.Context, limit, offset int) ([]domain.Import
 }
 
 // list import detail
-func (s *Storage) ListImportDetail(c *gin.Context, limit, offset int) ([]domain.ImportDetail, int64, error) {
+func (s *Storage) ListImportDetail(param *domain.ImportDetailQueryParams) ([]domain.ImportDetail, int64, error) {
 	var (
-		importDetails      []domain.ImportDetail
-		totalCount         int64
-		importId           = c.Query("import_id")
-		search             = c.Query("search")
-		receivedAmountFrom = c.Query("received_amount_from")
-		receivedAmountTo   = c.Query("received_amount_to")
-		// noMarking          = c.Query("no_marking")
+		importDetails []domain.ImportDetail
+		totalCount    int64
 	)
 
-	// Parse no_barcode as boolean
-	noBarcode, _ := strconv.ParseBool(c.Query("no_barcode"))
 	// Fetch import details with detailed data
 	query := s.db.Model(&domain.ImportDetail{}).
 		Preload("Product").
@@ -346,30 +338,35 @@ func (s *Storage) ListImportDetail(c *gin.Context, limit, offset int) ([]domain.
 		COALESCE(unit_types.short_name, '') as unit_name`).
 		Joins("LEFT JOIN products ON import_details.product_id = products.id").
 		Joins("LEFT JOIN unit_types ON products.unit_type_id = unit_types.id").
-		Where("import_id = ?", importId)
+		Where("import_id = ?", param.ImportId)
 
-	if search != "" {
-		search = fmt.Sprintf("%%%s%%", search)
+	if param.Search != "" {
+		param.Search = fmt.Sprintf("%%%s%%", param.Search)
 		query = query.Where(`
 		products.barcode LIKE ? OR 
 		products.name ILIKE ? OR
-		CAST(products.material_code AS TEXT) LIKE ?`, search, search, search)
+		CAST(products.material_code AS TEXT) LIKE ?`, param.Search, param.Search, param.Search)
 	}
-	if receivedAmountFrom != "" {
-		query = query.Where("import_details.received_amount >= ?", receivedAmountFrom)
+	if param.ReceivedAmountFrom > 0 {
+		query = query.Where("import_details.received_amount >= ?", param.ReceivedAmountFrom)
 	}
-	if receivedAmountTo != "" {
-		query = query.Where("import_details.received_amount <= ?", receivedAmountTo)
+	if param.ReceivedAmountTo > 0 {
+		query = query.Where("import_details.received_amount <= ?", param.ReceivedAmountTo)
 	}
 
-	if noBarcode {
+	if param.NoBarcode {
 		query = query.Where("products.barcode IS NULL OR products.barcode = ''")
+	}
+
+	if param.NoMarking {
+		query = query.Where("array_length(import_details.marking, 1) IS NULL OR array_length(import_details.marking, 1) = 0")
 	}
 	err := query.
 		Count(&totalCount).
-		Limit(limit).
-		Offset(offset).
+		Limit(param.Limit).
+		Offset(param.Offset).
 		Order("products.name").
+		Debug().
 		Find(&importDetails).Error
 	if err != nil {
 		s.log.Error(err)

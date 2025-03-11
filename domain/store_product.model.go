@@ -74,6 +74,7 @@ type StoreProductResponse struct {
 	CategoryName        string     `gorm:"category_name" json:"category_name"`
 }
 
+// StoreProductBarcodeRequest structure for getting store product by barcode
 type StoreProductBarcodeRequest struct {
 	SaleID        string  `json:"sale_id"`
 	ID            string  `json:"id"`
@@ -81,4 +82,10 @@ type StoreProductBarcodeRequest struct {
 	DiscountValue float64 `json:"discount_value"`
 }
 
-
+// StoreProductQueryParam structure for
+type StoreProductQueryParam struct {
+	Limit   int    `form:"limit"`
+	Offset  int    `form:"offset"`
+	Search  string `form:"search"`
+	StoreID string `form:"store_id"`
+}

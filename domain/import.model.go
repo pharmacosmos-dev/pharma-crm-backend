@@ -143,3 +143,15 @@ type AcceptImport1CResponse struct {
 	Quantity            int    `gorm:"quantity" json:"quantity"`
 	QuantityFakt        int    `gorm:"quantity_fakt" json:"quantity_fakt"`
 }
+
+// import detail query params
+type ImportDetailQueryParams struct {
+	Limit              int     `form:"limit"`
+	Offset             int     `form:"offset"`
+	ImportId           string  `form:"import_id"`
+	Search             string  `form:"search"`
+	ReceivedAmountFrom float64 `form:"received_amount_from"`
+	ReceivedAmountTo   float64 `form:"received_amount_to"`
+	NoMarking          bool    `form:"no_marking"`
+	NoBarcode          bool    `form:"no_barcode"`
+}

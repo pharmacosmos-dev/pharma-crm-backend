@@ -298,6 +298,7 @@ func (h *ImportHandler) CreateImportDetail(c *gin.Context) {
 // @Param   received_amount_from query int false "Received Amount From"
 // @Param   received_amount_to query int false "Received Amount To"
 // @Param   no_barcode query bool false "Filter items with no barcode (true/false)"
+// @Param   no_marking query bool false "Filter items with no marking (true/false)"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -306,24 +307,28 @@ func (h *ImportHandler) ListImportDetail(c *gin.Context) {
 	var (
 		importDetails []domain.ImportDetail
 		totalCount    int64
+		param         domain.ImportDetailQueryParams
 		err           error
 	)
 
-	// Get pagination parameters
-	limit, offset, err := getPaginationParams(c)
-	if err != nil {
+	// Bind query parameters
+	if err = c.ShouldBindQuery(&param); err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+
+	// Get pagination parameters
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
 	// Get import detail list data
-	importDetails, totalCount, err = h.service.ListImportDetail(c, limit, offset)
+	importDetails, totalCount, err = h.service.ListImportDetail(&param)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
 	// Prepare response
-	data := utils.ListResponse(importDetails, totalCount, limit, offset)
+	data := utils.ListResponse(importDetails, totalCount, param.Limit, param.Offset)
 	handleResponse(c, OK, data)
 }
 
@@ -349,18 +354,21 @@ func (h *ImportHandler) ListImportDetail(c *gin.Context) {
 func (h *ImportHandler) ExportImporDetailExcel(c *gin.Context) {
 	var (
 		importDetails []domain.ImportDetail
+		param         domain.ImportDetailQueryParams
 		err           error
 	)
 
-	// Get pagination parameters
-	limit, offset, err := getPaginationParams(c)
-	if err != nil {
+	// Bind query parameters
+	if err = c.ShouldBindQuery(&param); err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 
+	// Get pagination parameters
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
 	// Get import detail list data
-	importDetails, _, err = h.service.ListImportDetail(c, limit, offset)
+	importDetails, _, err = h.service.ListImportDetail(&param)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return

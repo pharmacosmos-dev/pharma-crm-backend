@@ -700,22 +700,26 @@ func (h *ProductHandler) SimilarProducts(c *gin.Context) {
 func (h *ProductHandler) ListByStoreId(c *gin.Context) {
 	var (
 		res     []*domain.StoreProductResponse
-		search  = c.Query("search")
-		storeID = c.Param("id")
+		param   domain.StoreProductQueryParam
+		storeId = c.Param("id")
+		err     error
 	)
-	if err := uuid.Validate(storeID); err != nil {
-		handleResponse(c, BadRequest, "Store ID is required")
-		return
-	}
-
-	// get limit offset
-	limit, offset, err := getPaginationParams(c)
-	if err != nil {
+	// bind query params
+	if err = c.ShouldBindQuery(&param); err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	res, err = h.service.ListStoreProduct(c.Request.Context(), storeID, search, limit, offset)
+	// validate store_id
+	if err = uuid.Validate(storeId); err != nil {
+		handleResponse(c, BadRequest, "Invalid store_id")
+		return
+	}
+
+	// get limit offset
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	// get store products list
+	res, err = h.service.ListStoreProduct(&param, storeId)
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to fetch products")
 		return
