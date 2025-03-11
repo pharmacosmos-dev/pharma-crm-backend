@@ -25,7 +25,11 @@ func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartIt
 		sp.bonus_percent,
 		sp.vat AS vat_percent,
 		sp.vat_price as vat_price,
-		sp.vat_price*ci.quantity as vat,
+		ROUND(sp.vat_price * ci.quantity +
+         CASE
+             WHEN p.unit_per_pack > 0 THEN (sp.vat_price / p.unit_per_pack) * ci.unit_quantity
+             ELSE 0
+         END, 2) AS vat,
 		sp.pack_quantity AS quantity_in_stock,
 		sp.unit_quantity AS unit_quantity_in_stock,
 		u.unit_name,
