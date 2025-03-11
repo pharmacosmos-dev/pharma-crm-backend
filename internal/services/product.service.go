@@ -147,11 +147,18 @@ func (s *Storage) GetStoreProductByIdOrBarcode(id string, barcode string) (*doma
 			return nil, err
 		}
 	} else if barcode != "" {
-		err := s.db.Raw(`SELECT sp.*, ((sp.retail_price/100)*sp.bonus_percent) AS bonus_amount, p.unit_per_pack FROM store_products sp JOIN products p ON sp.product_id = p.id WHERE p.barcode = ?`, barcode).
+		err := s.db.Raw(`
+		SELECT sp.*, ((sp.retail_price/100)*sp.bonus_percent) AS bonus_amount, p.unit_per_pack 
+		FROM store_products sp 
+		JOIN products p ON sp.product_id = p.id 
+		LEFT JOIN import_details im ON im.product_id = sp.product_id
+		WHERE p.barcode = ? OR ? = ANY(im.marking)`, barcode, barcode).
 			Scan(&storeProduct).Error
 		if err != nil {
 			return nil, err
 		}
+	} else {
+		return nil, errors.New("id or barcode is required")
 	}
 
 	return &storeProduct, nil
