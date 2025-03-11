@@ -71,7 +71,7 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 	var cartItem domain.CartItem
 	err = h.db.First(&cartItem,
 		"store_product_id = ? AND sale_id = ?  AND status = 'pending'",
-		body.StoreProductID, body.SaleId).Error
+		storeProduct.Id, body.SaleId).Error
 	if err == nil {
 		cartItem.Quantity++
 		if cartItem.Quantity > storeProduct.PackQuantity && cartItem.UnitQuantity == 0 {
@@ -120,6 +120,7 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 	}
 	body.UnitPrice = storeProduct.RetailPrice
 	body.EmployeeID = vendorID.(string)
+	body.StoreProductID = storeProduct.Id
 	err = h.service.CreateCartItem(&body, discountPercent, discountPrice)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
