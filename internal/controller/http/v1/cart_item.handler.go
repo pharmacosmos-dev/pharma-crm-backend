@@ -60,7 +60,7 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 	}
 
 	// get store product
-	storeProduct, err := h.service.GetStoreProductByID(body.StoreProductID, body.Barcode)
+	storeProduct, err := h.service.GetStoreProductByIdOrBarcode(body.StoreProductID, body.Barcode)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -334,7 +334,7 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 		return
 	}
 
-	storeProduct, err := h.service.GetStoreProductByID(body.StoreProductID, "")
+	storeProduct, err := h.service.GetStoreProductByID(body.StoreProductID)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
