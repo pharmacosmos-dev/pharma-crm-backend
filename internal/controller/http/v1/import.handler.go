@@ -341,6 +341,7 @@ func (h *ImportHandler) ListImportDetail(c *gin.Context) {
 // @Param   received_amount_from query int false "Received Amount From"
 // @Param   received_amount_to query int false "Received Amount To"
 // @Param   no_barcode query bool false "Filter items with no barcode (true/false)"
+// @Param   no_marking query bool false "Filter items with no marking (true/false)"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response

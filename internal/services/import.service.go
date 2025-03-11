@@ -328,6 +328,7 @@ func (s *Storage) ListImportDetail(c *gin.Context, limit, offset int) ([]domain.
 		search             = c.Query("search")
 		receivedAmountFrom = c.Query("received_amount_from")
 		receivedAmountTo   = c.Query("received_amount_to")
+		// noMarking          = c.Query("no_marking")
 	)
 
 	// Parse no_barcode as boolean

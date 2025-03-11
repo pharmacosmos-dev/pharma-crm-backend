@@ -51,7 +51,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.POST("/store/barcode", h.AddStoreProductByBarcode)
 		product.POST("/generate-barcode", h.GenerateBarcode)
 		product.GET("/total-status-count", h.TotalStatusCount)
-		product.PUT("/update-barcode", h.UpdateBarcode)
+		product.PUT("/update-barcode/:id", h.UpdateBarcode)
 		// product.POST("/attech-to-store", h.AttechProductsToStores)
 	}
 }
@@ -1506,9 +1506,7 @@ func (h *ProductHandler) UploadProductBonus(c *gin.Context) {
 	query := `UPDATE store_products SET bonus_amount = ? FROM products WHERE products.barcode = ?`
 	// Process rows
 	for _, row := range rows[2:] {
-		fmt.Println("--->>> ", row[0], len(row), row[2], row[3])
 		if len(row) > 3 {
-			fmt.Println("--->>> ", row[2])
 			err = tx.Debug().Exec(query, parseFloat(row[3]), row[2]).Error
 			if err != nil {
 				h.log.Error(err)

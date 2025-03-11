@@ -5628,6 +5628,12 @@ const docTemplate = `{
                         "description": "Filter items with no barcode (true/false)",
                         "name": "no_barcode",
                         "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Filter items with no marking (true/false)",
+                        "name": "no_marking",
+                        "in": "query"
                     }
                 ],
                 "responses": {
