@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
 	"gorm.io/gorm"
 )
@@ -59,14 +58,9 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	// validate store_product_id
-	if err = uuid.Validate(body.StoreProductID); err != nil {
-		handleResponse(c, BadRequest, "Store product ID is required")
-		return
-	}
 
 	// get store product
-	storeProduct, err := h.service.GetStoreProductByID(body.StoreProductID)
+	storeProduct, err := h.service.GetStoreProductByID(body.StoreProductID, body.Barcode)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -339,7 +333,7 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 		return
 	}
 
-	storeProduct, err := h.service.GetStoreProductByID(body.StoreProductID)
+	storeProduct, err := h.service.GetStoreProductByID(body.StoreProductID, "")
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
