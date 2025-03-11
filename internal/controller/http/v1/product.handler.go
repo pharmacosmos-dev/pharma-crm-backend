@@ -40,6 +40,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.GET("/export-excel", h.ExportProductExcel)
 		product.PUT("/:id", h.Update)
 		product.POST("/excel-upload", h.UploadProduct)
+		product.POST("/upload-product-bonus", h.UploadProductBonus)
 		product.GET("/producer", h.GetProducerList)
 		product.GET("/similar/:id", h.SimilarProducts)
 		product.GET("/store/:id", h.ListByStoreId)
@@ -50,6 +51,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.POST("/store/barcode", h.AddStoreProductByBarcode)
 		product.POST("/generate-barcode", h.GenerateBarcode)
 		product.GET("/total-status-count", h.TotalStatusCount)
+		product.PUT("/update-barcode", h.UpdateBarcode)
 		// product.POST("/attech-to-store", h.AttechProductsToStores)
 	}
 }
@@ -1026,6 +1028,47 @@ func (h *ProductHandler) ListStoreProductProductId(c *gin.Context) {
 	handleResponse(c, OK, result)
 }
 
+// UpdateBarcode godoc
+// @Summary Update barcode
+// @Description Update barcode
+// @Tags products
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "Product ID"
+// @Param body body domain.UpdateBarcodeRequest true "Update barcode"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/update-barcode/{id} [put]
+func (h *ProductHandler) UpdateBarcode(c *gin.Context) {
+	var (
+		body domain.UpdateBarcodeRequest
+		id   = c.Param("id")
+	)
+	// validate id
+	if err := uuid.Validate(id); err != nil {
+		handleResponse(c, BadRequest, "Invalid product id")
+		return
+	}
+	// bind request body
+	err := c.ShouldBindJSON(&body)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	// update barcode
+	err = h.db.Model(&domain.Product{}).Where("id = ?", body.Id).Update("barcode", body.Barcode).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, "Barcode updated successfully")
+}
+
 // HardDelete godoc
 // @Summary Hard delete a product
 // @Description Hard delete a product
@@ -1396,4 +1439,90 @@ func generateRandomBarcode(length int) string {
 		result[i] = digits[random.Intn(len(digits))]
 	}
 	return string(result)
+}
+
+// UploadProduct godoc
+// @Summary Upload a product
+// @Description Upload a product file in .xlsx format. The file should include product details in specific columns.
+// @Tags products
+// @Security BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "Excel file (.xlsx) containing product data"
+// @Success 200 {object} v1.Response "Products uploaded successfully"
+// @Failure 400 {object} v1.Response "Invalid file format or processing error"
+// @Failure 500 {object} v1.Response "Internal server error"
+// @Router /product/upload-product-bonus [post]
+func (h *ProductHandler) UploadProductBonus(c *gin.Context) {
+	var file domain.File
+	err := c.ShouldBind(&file)
+	if err != nil {
+		h.log.Error("Failed to bind file: ", err.Error())
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	// Check file extension
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		h.log.Error("Unsupported file format: ", ext)
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+
+	// Save the uploaded file
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+	err = c.SaveUploadedFile(file.File, savePath)
+	if err != nil {
+		h.log.Error("Failed to save file: ", err.Error())
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+	//
+	defer os.Remove(savePath)
+	// Open the Excel file
+	xlsx, err := excelize.OpenFile(savePath)
+	if err != nil {
+		h.log.Error("Failed to open .xlsx file: ", err.Error())
+		handleResponse(c, BadRequest, "Failed to process file")
+		return
+	}
+	defer xlsx.Close()
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		h.log.Error("Failed to get rows: ", err.Error())
+		handleResponse(c, InternalError, "Failed to get rows")
+		return
+	}
+	tx := h.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+	// update query
+	query := `UPDATE store_products SET bonus_amount = ? FROM products WHERE products.barcode = ?`
+	// Process rows
+	for _, row := range rows[2:] {
+		fmt.Println("--->>> ", row[0], len(row), row[2], row[3])
+		if len(row) > 3 {
+			fmt.Println("--->>> ", row[2])
+			err = tx.Debug().Exec(query, parseFloat(row[3]), row[2]).Error
+			if err != nil {
+				h.log.Error(err)
+				handleResponse(c, InternalError, err.Error())
+				tx.Rollback()
+				return
+			}
+		}
+	}
+
+	if err = tx.Commit().Error; err != nil {
+		handleResponse(c, InternalError, err.Error())
+		tx.Rollback()
+		return
+	}
+	handleResponse(c, OK, "Products uploaded successfully")
 }

@@ -1,0 +1,1 @@
+ALTER TABLE store_products ADD COLUMN IF NOT EXISTS "bonus_amount" NUMERIC(10, 2) DEFAULT 0.00;

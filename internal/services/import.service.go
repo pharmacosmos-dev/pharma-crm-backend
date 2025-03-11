@@ -337,7 +337,7 @@ func (s *Storage) ListImportDetail(c *gin.Context, limit, offset int) ([]domain.
 		Preload("Product").
 		Preload("Import").
 		Select(`
-		import_details.*, 
+		import_details.*,
 		(import_details.retail_price*received_count) as received_amount,
 		(import_details.retail_price*accepted_count) as accepted_amount,
 		sum_vat as received_amount_vat,
@@ -369,7 +369,6 @@ func (s *Storage) ListImportDetail(c *gin.Context, limit, offset int) ([]domain.
 		Limit(limit).
 		Offset(offset).
 		Order("products.name").
-		Debug().
 		Find(&importDetails).Error
 	if err != nil {
 		s.log.Error(err)

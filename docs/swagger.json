@@ -8353,6 +8353,113 @@
                 }
             }
         },
+        "/product/update-barcode/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update barcode",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Update barcode",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Product ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update barcode",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.UpdateBarcodeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/product/upload-product-bonus": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Upload a product file in .xlsx format. The file should include product details in specific columns.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Upload a product",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Excel file (.xlsx) containing product data",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Products uploaded successfully",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid file format or processing error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/product/{id}": {
             "get": {
                 "security": [
@@ -12914,6 +13021,17 @@
                     "type": "string"
                 },
                 "unit_name": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.UpdateBarcodeRequest": {
+            "type": "object",
+            "properties": {
+                "barcode": {
+                    "type": "string"
+                },
+                "id": {
                     "type": "string"
                 }
             }

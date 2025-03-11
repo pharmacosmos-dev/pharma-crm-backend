@@ -371,7 +371,7 @@ func (h *ImportHandler) ExportImporDetailExcel(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"Название", "Штрих-Код", "Цена Поставки", "Цена Поставки СНДС", "Цена Продажа", "Цена Продажа СНДС", "Статус", "Полученное количество", "Принятое количество", "Полученная сумма", "Принятая сумма", "Полученная сумма СНДС", "Принятая сумма СНДС", "Дата создания"}
+	headers := []string{"Артикул", "Название", "Штрих-Код", "Цена Поставки", "Цена Поставки СНДС", "Цена Продажа", "Цена Продажа СНДС", "Статус", "Полученное количество", "Принятое количество", "Полученная сумма", "Принятая сумма", "Полученная сумма СНДС", "Принятая сумма СНДС", "Дата создания"}
 
 	headerStyle, err := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{
@@ -394,21 +394,21 @@ func (h *ImportHandler) ExportImporDetailExcel(c *gin.Context) {
 	// Ma'lumotlarni qo'shish
 	for i, imp := range importDetails {
 		row := strconv.Itoa(i + 2)
-		f.SetCellValue(sheetName, "A"+row, imp.Product.Name)
-		f.SetCellValue(sheetName, "B"+row, imp.Product.Barcode)
-		f.SetCellValue(sheetName, "C"+row, imp.SupplyPrice)
-		f.SetCellValue(sheetName, "D"+row, imp.SupplyPriceVat)
-		f.SetCellValue(sheetName, "E"+row, imp.RetailPrice)
-		f.SetCellValue(sheetName, "F"+row, imp.RetailPriceVat)
-		f.SetCellValue(sheetName, "G"+row, helper.StatusToRussian(imp.Import.Status))
-		f.SetCellValue(sheetName, "H"+row, imp.ReceivedCount)
-		f.SetCellValue(sheetName, "I"+row, imp.AcceptedCount)
-		f.SetCellValue(sheetName, "J"+row, imp.ReceivedAmount)
-		f.SetCellValue(sheetName, "K"+row, imp.AcceptedAmount)
-		f.SetCellValue(sheetName, "L"+row, imp.ReceivedAmountVat)
-		f.SetCellValue(sheetName, "M"+row, imp.AcceptedAmountVat)
-		f.SetCellValue(sheetName, "N"+row, imp.CreatedAt.Format(time.DateTime))
-
+		f.SetCellValue(sheetName, "A"+row, imp.Product.MaterialCode)
+		f.SetCellValue(sheetName, "B"+row, imp.Product.Name)
+		f.SetCellValue(sheetName, "C"+row, imp.Product.Barcode)
+		f.SetCellValue(sheetName, "D"+row, imp.SupplyPrice)
+		f.SetCellValue(sheetName, "E"+row, imp.SupplyPriceVat)
+		f.SetCellValue(sheetName, "F"+row, imp.RetailPrice)
+		f.SetCellValue(sheetName, "G"+row, imp.RetailPriceVat)
+		f.SetCellValue(sheetName, "H"+row, helper.StatusToRussian(imp.Import.Status))
+		f.SetCellValue(sheetName, "I"+row, imp.ReceivedCount)
+		f.SetCellValue(sheetName, "J"+row, imp.AcceptedCount)
+		f.SetCellValue(sheetName, "K"+row, imp.ReceivedAmount)
+		f.SetCellValue(sheetName, "L"+row, imp.AcceptedAmount)
+		f.SetCellValue(sheetName, "M"+row, imp.ReceivedAmountVat)
+		f.SetCellValue(sheetName, "N"+row, imp.AcceptedAmountVat)
+		f.SetCellValue(sheetName, "O"+row, imp.CreatedAt.Format(time.DateTime))
 	}
 
 	// Faylni HTTP response orqali yuborish

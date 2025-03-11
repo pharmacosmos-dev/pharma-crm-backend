@@ -1038,6 +1038,13 @@ definitions:
       unit_name:
         type: string
     type: object
+  domain.UpdateBarcodeRequest:
+    properties:
+      barcode:
+        type: string
+      id:
+        type: string
+    type: object
   v1.Response:
     properties:
       code:
@@ -6432,6 +6439,75 @@ paths:
       security:
       - BearerAuth: []
       summary: Get total count of products by status
+      tags:
+      - products
+  /product/update-barcode/{id}:
+    put:
+      consumes:
+      - application/json
+      description: Update barcode
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update barcode
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UpdateBarcodeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update barcode
+      tags:
+      - products
+  /product/upload-product-bonus:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload a product file in .xlsx format. The file should include
+        product details in specific columns.
+      parameters:
+      - description: Excel file (.xlsx) containing product data
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Products uploaded successfully
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Invalid file format or processing error
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Upload a product
       tags:
       - products
   /product1c:
