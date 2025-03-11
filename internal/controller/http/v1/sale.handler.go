@@ -578,10 +578,18 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	// get sale info
+	err = h.db.First(&sale, "id = ?", body.SaleId).Error
+	if err != nil {
+		h.log.Error(err)
+		tx.Rollback()
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
 
 	if body.Error {
 		// Update sales status
-		err = tx.Raw(`UPDATE sales SET status = ? WHERE id = ? RETURNING *`, config.PENDING, body.SaleId).Scan(&sale).Error
+		err = tx.Raw(`UPDATE sales SET status = ? WHERE id = ?`, config.PENDING, body.SaleId).Error
 		if err != nil {
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())
@@ -621,8 +629,8 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 		err = tx.Table("sales").Create(&newSale).Error
 		if err != nil {
 			h.log.Error(err)
-			tx.Rollback()
 			handleResponse(c, InternalError, err.Error())
+			tx.Rollback()
 			return
 		}
 
@@ -630,6 +638,7 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 		if err = tx.Commit().Error; err != nil {
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())
+			tx.Rollback()
 			return
 		}
 
