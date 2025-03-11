@@ -719,6 +719,12 @@ func (h *ProductHandler) ListByStoreId(c *gin.Context) {
 		search  = c.Query("search")
 		storeID = c.Param("id")
 	)
+	if err := uuid.Validate(storeID); err != nil {
+		handleResponse(c, BadRequest, "Store ID is required")
+		return
+	}
+
+	// get limit offset
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
 		h.log.Error(err)
