@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
 	"gorm.io/gorm"
 )
@@ -176,19 +175,11 @@ func (s *Storage) ChangeStoreProductStock(tx *gorm.DB, id string, quantity, unit
 }
 
 // get products get list
-func (s *Storage) ListProduct(c *gin.Context, limit, offset int) ([]*domain.Product, int64, error) {
+func (s *Storage) ListProduct(param *domain.ProductQueryParam) ([]*domain.Product, int64, error) {
 	// get query param values
 	var (
-		res             []*domain.Product
-		totalCount      int64
-		searchField     = c.Query("search")
-		storeIDParam    = c.Query("store_id")
-		supplyPriceFrom = c.Query("supply_price_from")
-		supplyPriceTo   = c.Query("supply_price_to")
-		retailPriceFrom = c.Query("retail_price_from")
-		retailPriceTo   = c.Query("retail_price_to")
-		producerID      = c.Query("producer_id")
-		status          = c.Query("status")
+		res        []*domain.Product
+		totalCount int64
 	)
 
 	// Build the base query
@@ -201,12 +192,12 @@ func (s *Storage) ListProduct(c *gin.Context, limit, offset int) ([]*domain.Prod
 		Joins("LEFT JOIN categories c ON c.id = cp.category_id")
 
 	// Apply filters
-	if storeIDParam != "" {
-		baseQuery = baseQuery.Where("sp.store_id = ?", storeIDParam)
+	if param.StoreID != "" {
+		baseQuery = baseQuery.Where("sp.store_id = ?", param.StoreID)
 	}
 	// filter products with status
-	if status != "" {
-		switch status {
+	if param.Status != "" {
+		switch param.Status {
 		case "active":
 			baseQuery = baseQuery.Where("p.status = ?", "active")
 		case "inactive":
@@ -224,30 +215,34 @@ func (s *Storage) ListProduct(c *gin.Context, limit, offset int) ([]*domain.Prod
 		baseQuery = baseQuery.Where("p.status = ?", "active")
 	}
 	// search filter for product name, barcode, category name
-	if searchField != "" {
-		searchField = fmt.Sprintf("%%%s%%", searchField)
+	if param.SearchField != "" {
+		param.SearchField = fmt.Sprintf("%%%s%%", param.SearchField)
 		baseQuery = baseQuery.Where("p.name ILIKE ? OR p.barcode LIKE ? OR COALESCE(c.name, '') ILIKE ?",
-			searchField, searchField, searchField)
+			param.SearchField, param.SearchField, param.SearchField)
 	}
 	// filter with supply price greater than or equal to
-	if supplyPriceFrom != "" {
-		baseQuery = baseQuery.Where("sp.supply_price >= ?", supplyPriceFrom)
+	if param.SupplyPriceFrom > 0 {
+		baseQuery = baseQuery.Where("sp.supply_price >= ?", param.SupplyPriceFrom)
 	}
 	// filter with supply price less than or equal to
-	if supplyPriceTo != "" {
-		baseQuery = baseQuery.Where("sp.supply_price <= ?", supplyPriceTo)
+	if param.SupplyPriceTo > 0 {
+		baseQuery = baseQuery.Where("sp.supply_price <= ?", param.SupplyPriceTo)
 	}
 	// filter with retail price greater than or equal to
-	if retailPriceFrom != "" {
-		baseQuery = baseQuery.Where("sp.retail_price >= ?", retailPriceFrom)
+	if param.RetailPriceFrom > 0 {
+		baseQuery = baseQuery.Where("sp.retail_price >= ?", param.RetailPriceFrom)
 	}
 	// filter with retail price less than or equal to
-	if retailPriceTo != "" {
-		baseQuery = baseQuery.Where("sp.retail_price <= ?", retailPriceTo)
+	if param.RetailPriceTo > 0 {
+		baseQuery = baseQuery.Where("sp.retail_price <= ?", param.RetailPriceTo)
 	}
 	// filter products with producer id
-	if producerID != "" {
-		baseQuery = baseQuery.Where("p.producer_id = ?", producerID)
+	if param.ProducerID != "" {
+		baseQuery = baseQuery.Where("p.producer_id = ?", param.ProducerID)
+	}
+	// filter with no barcodes
+	if param.NoBarcode {
+		baseQuery = baseQuery.Where("p.barcode IS NULL OR p.barcode = ''")
 	}
 
 	// Count total records using a subquery
@@ -278,13 +273,12 @@ func (s *Storage) ListProduct(c *gin.Context, limit, offset int) ([]*domain.Prod
 		AVG(sp.bonus_percent) AS bonus_percent,
 		AVG((sp.bonus_percent*sp.retail_price)/100) AS bonus_amount,
 		u.short_name AS unit_name,
+		STRING_AGG(c.name, ', ') as category_name,
 		p.created_at`).
-		Group(`
-			p.id, p.name, p.barcode, p.status, p.description, p.photos,
-         	p.material_code, u.short_name, p.created_at, pr.name`).
+		Group(`p.id, u.id, pr.id`).
 		Order("p.created_at DESC").
-		Limit(limit).
-		Offset(offset).
+		Limit(param.Limit).
+		Offset(param.Offset).
 		Debug().
 		Find(&res).Error
 

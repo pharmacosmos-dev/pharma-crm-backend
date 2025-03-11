@@ -1034,6 +1034,14 @@ const docTemplate = `{
                     "cash_boxes"
                 ],
                 "summary": "Check Cash Box is open or not",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Store ID",
+                        "name": "store_id",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -7576,6 +7584,120 @@ const docTemplate = `{
                 }
             }
         },
+        "/product/export-excel": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get a product from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Get a product",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Status (active || inactive || low-stock || zero-stock || expired || imminent)",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Store ID",
+                        "name": "store_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Category ID",
+                        "name": "category_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Producer ID",
+                        "name": "producer_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Supply From",
+                        "name": "supply_price_from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Supply To",
+                        "name": "supply_price_to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Retail Price From",
+                        "name": "retail_price_from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Retail Price To",
+                        "name": "retail_price_to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "No Barcode",
+                        "name": "no_barcode",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/product/generate-barcode": {
             "post": {
                 "security": [
@@ -7820,6 +7942,12 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "Retail Price To",
                         "name": "retail_price_to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "No Barcode",
+                        "name": "no_barcode",
                         "in": "query"
                     }
                 ],
@@ -11315,6 +11443,9 @@ const docTemplate = `{
         "domain.CartItemRequest": {
             "type": "object",
             "properties": {
+                "barcode": {
+                    "type": "string"
+                },
                 "discount_type": {
                     "type": "string",
                     "example": "percent|cash"
@@ -11405,8 +11536,14 @@ const docTemplate = `{
                 "is_open": {
                     "type": "boolean"
                 },
+                "open_cashless_amount": {
+                    "type": "number"
+                },
                 "opened_amount": {
                     "type": "number"
+                },
+                "store_id": {
+                    "type": "string"
                 }
             }
         },
@@ -11476,10 +11613,7 @@ const docTemplate = `{
         "domain.CloseCashboxOperation": {
             "type": "object",
             "properties": {
-                "cash_amount": {
-                    "type": "number"
-                },
-                "cashless_amount": {
+                "close_cashless_amount": {
                     "type": "number"
                 },
                 "closed_amount": {
@@ -11767,6 +11901,9 @@ const docTemplate = `{
         "domain.EposResponseRequest": {
             "type": "object",
             "properties": {
+                "error": {
+                    "type": "boolean"
+                },
                 "response_data": {},
                 "sale_id": {
                     "type": "string"
@@ -12194,7 +12331,6 @@ const docTemplate = `{
                 "name",
                 "product_series_number",
                 "quantity",
-                "retail_price",
                 "vat"
             ],
             "properties": {
@@ -12222,8 +12358,7 @@ const docTemplate = `{
                     }
                 },
                 "markup": {
-                    "type": "integer",
-                    "minimum": 0
+                    "type": "integer"
                 },
                 "material_code": {
                     "type": "integer"
@@ -12244,35 +12379,28 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "retail_price_vat": {
-                    "type": "number",
-                    "minimum": 0
+                    "type": "number"
                 },
                 "sum": {
-                    "type": "number",
-                    "minimum": 0
+                    "type": "number"
                 },
                 "sum_vat": {
-                    "type": "number",
-                    "minimum": 0
+                    "type": "number"
                 },
                 "supply_price": {
-                    "type": "number",
-                    "minimum": 0
+                    "type": "number"
                 },
                 "supply_price_vat": {
-                    "type": "number",
-                    "minimum": 0
+                    "type": "number"
                 },
                 "vat": {
                     "type": "string"
                 },
                 "vat_price": {
-                    "type": "number",
-                    "minimum": 0
+                    "type": "number"
                 },
                 "vat_sum": {
-                    "type": "number",
-                    "minimum": 0
+                    "type": "number"
                 }
             }
         },
@@ -12500,6 +12628,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "employee_id": {
+                    "type": "string"
+                },
+                "id": {
                     "type": "string"
                 },
                 "store_id": {

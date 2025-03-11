@@ -42,6 +42,7 @@ type Product struct {
 	UnitType     *UnitType         `gorm:"foreignKey:UnitTypeID" json:"unit_type"`
 	Shelf        *Shelf            `gorm:"foreignKey:ShelfID" json:"shelf"`
 	Producer     *Producer         `gorm:"foreignKey:ProducerID" json:"producer"`
+	CategoryName string            `gorm:"category_name" json:"category_name"`
 }
 
 // Product create request
@@ -207,4 +208,32 @@ type StoreExternal struct {
 	UnitQuantity int        `gorm:"unit_quantity" json:"unit_quantity"`
 	RetailPrice  float64    `gorm:"retail_price" json:"retail_price"`
 	ExpireDate   *time.Time `gorm:"expire_date" json:"expire_date"`
+}
+
+// get query param values
+// var (
+// 	searchField     = c.Query("search")
+// 	storeIDParam    = c.Query("store_id")
+// 	supplyPriceFrom = c.Query("supply_price_from")
+// 	supplyPriceTo   = c.Query("supply_price_to")
+// 	retailPriceFrom = c.Query("retail_price_from")
+// 	retailPriceTo   = c.Query("retail_price_to")
+// 	producerID      = c.Query("producer_id")
+// 	status          = c.Query("status")
+// 	noBarcode       = c.Query("no_barcode")
+// )
+
+// product list query params
+type ProductQueryParam struct {
+	Limit           int     `form:"limit"`
+	Offset          int     `form:"offset"`
+	SearchField     string  `form:"search"`
+	StoreID         string  `form:"store_id"`
+	SupplyPriceFrom float64 `form:"supply_price_from"`
+	SupplyPriceTo   float64 `form:"supply_price_to"`
+	RetailPriceFrom float64 `form:"retail_price_from"`
+	RetailPriceTo   float64 `form:"retail_price_to"`
+	ProducerID      string  `form:"producer_id"`
+	Status          string  `form:"status"`
+	NoBarcode       bool    `form:"no_barcode"`
 }
