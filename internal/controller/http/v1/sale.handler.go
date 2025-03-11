@@ -570,6 +570,15 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 		}
 	}()
 
+	// Save to epos_responses table
+	err = tx.WithContext(c.Request.Context()).Table("epos_responses").Create(&body).Error
+	if err != nil {
+		h.log.Error(err)
+		tx.Rollback()
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
 	if body.Error {
 		// Update sales status
 		err = tx.Raw(`UPDATE sales SET status = ? WHERE id = ? RETURNING *`, config.PENDING, body.SaleId).Scan(&sale).Error
@@ -597,15 +606,6 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 			tx.Rollback()
 			return
 		}
-	}
-
-	// Save to epos_responses table
-	err = tx.WithContext(c.Request.Context()).Table("epos_responses").Create(&body).Error
-	if err != nil {
-		h.log.Error(err)
-		tx.Rollback()
-		handleResponse(c, InternalError, err.Error())
-		return
 	}
 
 	if !body.Error {
