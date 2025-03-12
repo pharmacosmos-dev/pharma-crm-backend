@@ -138,10 +138,12 @@ func (s *Storage) GetStoreProductByBarcode(ctx context.Context, barcode string) 
 }
 
 // get store info by product id
-func (s *Storage) GetStoreProductByIdOrBarcode(id string, barcode string) (*domain.StoreProduct, error) {
+func (s *Storage) GetStoreProductByIdOrBarcode(id string, barcode string, storeId string) (*domain.StoreProduct, error) {
 	var storeProduct domain.StoreProduct
 	if id != "" {
-		err := s.db.Raw(`SELECT sp.*, ((sp.retail_price/100)*sp.bonus_percent) AS bonus_amount, p.unit_per_pack FROM store_products sp JOIN products p ON sp.product_id = p.id WHERE sp.id = ?`, id).
+		err := s.db.Raw(`
+		SELECT sp.*, ((sp.retail_price/100)*sp.bonus_percent) AS bonus_amount, p.unit_per_pack 
+		FROM store_products sp JOIN products p ON sp.product_id = p.id WHERE sp.id = ?`, id).
 			Scan(&storeProduct).Error
 		if err != nil {
 			return nil, err
@@ -152,7 +154,7 @@ func (s *Storage) GetStoreProductByIdOrBarcode(id string, barcode string) (*doma
 		FROM store_products sp 
 		JOIN products p ON sp.product_id = p.id 
 		LEFT JOIN import_details im ON im.product_id = sp.product_id
-		WHERE p.barcode = ? OR ? = ANY(im.marking)`, barcode, barcode).
+		WHERE sp.store_id = ? AND (p.barcode = ? OR ? = ANY(im.marking))`, storeId, barcode, barcode).
 			Scan(&storeProduct).Error
 		if err != nil {
 			return nil, err

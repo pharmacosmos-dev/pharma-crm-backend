@@ -48,19 +48,30 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 		body domain.CartItemRequest
 		err  error
 	)
+	// get user id in context
 	vendorID, ok := c.Get("user_id")
 	if !ok {
 		handleResponse(c, UNAUTHORIZED, "User not found")
 		return
 	}
+	// bind request body
 	if err = c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 
+	// get employee by user id
+	var employee domain.Employee
+	err = h.db.First(&employee, "id = ?", vendorID).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
 	// get store product
-	storeProduct, err := h.service.GetStoreProductByIdOrBarcode(body.StoreProductID, body.Barcode)
+	storeProduct, err := h.service.GetStoreProductByIdOrBarcode(body.StoreProductID, body.Barcode, employee.StoreId)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
