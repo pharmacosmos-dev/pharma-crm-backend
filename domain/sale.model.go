@@ -1,6 +1,8 @@
 package domain
 
-import "time"
+import (
+	"time"
+)
 
 // Sale structure
 type Sale struct {
@@ -78,6 +80,7 @@ type SaleResponse struct {
 	SalePayments       []*SalePayment `gorm:"foreignKey:SaleID" json:"sale_payments"`
 	CartItems          []*CartItem    `gorm:"foreignKey:SaleId" json:"cart_items"`
 	Product            []ProductRes   `gorm:"-" json:"products"`
+	EposResponse       *EposResponse  `gorm:"-" json:"epos_response"`
 }
 
 // SaleUpdateRequest structure for update
