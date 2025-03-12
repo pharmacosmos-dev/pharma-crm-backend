@@ -21,8 +21,8 @@ func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartIt
 		p.unit_per_pack,
 		p.description,
 		sp.expire_date,
-		((sp.retail_price*sp.bonus_percent)/100) as bonus_amount,
-		sp.bonus_percent,
+		pb.bonus_amount as bonus_amount,
+    	ROUND((pb.bonus_amount*100)/sp.retail_price, 2) as bonus_percent,
 		sp.vat AS vat_percent,
 		sp.vat_price as vat_price,
 		ROUND(sp.vat_price * ci.quantity +
@@ -49,8 +49,9 @@ func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartIt
 	LEFT JOIN category_products cp ON p.id = cp.product_id
 	LEFT JOIN categories c ON c.id = cp.category_id
 	LEFT JOIN product_measurements pm ON pm.mxik_code = p.mxik
+	LEFT JOIN product_bonuses pb ON p.id = pb.product_id AND sp.store_id = pb.store_id
 	WHERE ci.status = 'pending' AND ci.sale_id = ?
-	GROUP BY ci.id, ci.created_at, p.id, sp.id, u.id, sh.id, pr.id, pm.id
+	GROUP BY ci.id, ci.created_at, p.id, sp.id, u.id, sh.id, pr.id, pm.id, pb.id
 	ORDER BY ci.created_at DESC LIMIT ? OFFSET ?
 	`, saleID, limit, offset).Scan(&res).Error
 	if err != nil {

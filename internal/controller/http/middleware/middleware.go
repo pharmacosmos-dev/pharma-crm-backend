@@ -18,11 +18,12 @@ type MiddlewareHandler struct {
 	JwtHandler *token.JWTHandler
 }
 
+// Response struct for API responses
 type Response struct {
-	Ok      bool        `json:"ok"`
-	Code    int         `json:"code"`
-	Message string      `json:"message"`
-	Data    interface{} `json:"data"`
+	Ok      bool   `json:"ok"`
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    any    `json:"data"`
 }
 
 func NewAuthMiddleware(cfg *config.Config, jwtHandler *token.JWTHandler, db *gorm.DB) *MiddlewareHandler {
@@ -33,6 +34,7 @@ func NewAuthMiddleware(cfg *config.Config, jwtHandler *token.JWTHandler, db *gor
 	}
 }
 
+// NewAuth creates a new authentication middleware
 func (m *MiddlewareHandler) NewAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		allow, err := m.CheckPermission(c)
@@ -53,6 +55,7 @@ func (m *MiddlewareHandler) NewAuth() gin.HandlerFunc {
 	}
 }
 
+// CheckPermission checks user permissions
 func (a *MiddlewareHandler) CheckPermission(c *gin.Context) (bool, error) {
 	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {
@@ -101,6 +104,7 @@ func (a *MiddlewareHandler) RequirePermission(c *gin.Context) {
 	c.AbortWithStatus(403)
 }
 
+// Check1CAuth checks 1C authorization
 func (a *MiddlewareHandler) Check1CAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		authHeader := c.GetHeader("Authorization")

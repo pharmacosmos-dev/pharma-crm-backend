@@ -1,6 +1,5 @@
 CREATE TABLE IF NOT EXISTS "cart_items" (
     "id" UUID NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
-    "product_id" UUID REFERENCES products(id),
     "employee_id" UUID REFERENCES employees(id),
     "sale_id" UUID REFERENCES sales(id),
     "store_product_id" UUID REFERENCES store_products(id),
