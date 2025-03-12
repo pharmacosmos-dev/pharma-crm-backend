@@ -157,6 +157,7 @@ func (h *SaleHandler) Get(c *gin.Context) {
 		res domain.SaleResponse
 		id  = c.Param("id")
 	)
+	// get sale info
 	err := h.db.
 		Table("sales").
 		Preload("Employee").
@@ -173,6 +174,7 @@ func (h *SaleHandler) Get(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	// get products info
 	var products []domain.ProductRes
 	err = h.db.Raw(`
 	SELECT 
@@ -191,12 +193,13 @@ func (h *SaleHandler) Get(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	// err = h.db.Table("epos_responses").Where("sale_id = ?", id).First(&res.EposResponse).Error
-	// if err != nil {
-	// 	h.log.Error(err)
-	// 	handleResponse(c, InternalError, err.Error())
-	// 	return
-	// }
+	// get epos response
+	err = h.db.Table("epos_responses").Where("sale_id = ?", id).First(&res.EposResponse).Error
+	if err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) { // Faqat mavjud bo'lmagan yozuv emas, boshqa xatoliklarni logga yozish
+			h.log.Error(err)
+		}
+	}
 	res.Product = products
 	handleResponse(c, OK, res)
 }
