@@ -44,9 +44,9 @@ func (s *Storage) ListStoreProduct(param *domain.StoreProductQueryParam, storeId
 	err = query.
 		Limit(param.Limit).
 		Offset(param.Offset).
-		Order("sp.pack_quantity").
-		Debug().
 		Group("sp.id, p.id, c.id, u.id").
+		Order("sp.expire_date").
+		Debug().
 		Find(&res).Error
 
 	if err != nil {
