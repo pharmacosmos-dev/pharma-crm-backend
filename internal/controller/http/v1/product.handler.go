@@ -40,7 +40,6 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.GET("/export-excel", h.ExportProductExcel)
 		product.PUT("/:id", h.Update)
 		product.POST("/excel-upload", h.UploadProduct)
-		product.POST("/upload-product-bonus", h.UploadProductBonus)
 		product.GET("/producer", h.GetProducerList)
 		product.GET("/similar/:id", h.SimilarProducts)
 		product.GET("/store/:id", h.ListByStoreId)
@@ -52,7 +51,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.POST("/generate-barcode", h.GenerateBarcode)
 		product.GET("/total-status-count", h.TotalStatusCount)
 		product.PUT("/update-barcode/:id", h.UpdateBarcode)
-		// product.POST("/attech-to-store", h.AttechProductsToStores)
+		product.POST("/attach-barcode", h.AttachBarcode)
 	}
 }
 
@@ -1319,52 +1318,88 @@ func (h *ProductHandler) UploadProduct(c *gin.Context) {
 	handleResponse(c, OK, "Products uploaded successfully")
 }
 
-// AttechProductsToStores
-// @Summary      Attech products to stores
-// @Description  Attech products to stores
-// @Tags         products
-// @Security     BearerAuth
-// @Accept 	json
+// UploadProduct godoc
+// @Summary Upload a product
+// @Description Upload a product file in .xlsx format. The file should include product details in specific columns.
+// @Tags products
+// @Security BearerAuth
+// @Accept multipart/form-data
 // @Produce json
+// @Param 	file formData file true "Excel file (.xlsx) containing product data"
 // @Success 200 {object} v1.Response "Products uploaded successfully"
 // @Failure 400 {object} v1.Response "Invalid file format or processing error"
 // @Failure 500 {object} v1.Response "Internal server error"
-// @Router /product/attech-to-store [post]
-// func (h *ProductHandler) AttechProductsToStores(c *gin.Context) {
-// 	var (
-// 		products []domain.Product
-// 		stores   []domain.Store
-// 	)
-// 	// get product list
-// 	err := h.db.Find(&products).Error
-// 	if err != nil {
-// 		h.log.Error(err)
-// 		handleResponse(c, InternalError, err.Error())
-// 		return
-// 	}
-// 	// get store list
-// 	err = h.db.Find(&stores).Error
-// 	if err != nil {
-// 		h.log.Error(err)
-// 		handleResponse(c, InternalError, err.Error())
-// 		return
-// 	}
+// @Router /product/attach-barcode [post]
+func (h *ProductHandler) AttachBarcode(c *gin.Context) {
+	var file domain.File
+	// bind file
+	err := c.ShouldBind(&file)
+	if err != nil {
+		h.log.Error("Failed to bind file: ", err.Error())
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	// Check file extension
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		h.log.Error("Unsupported file format: ", ext)
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+	// Save the uploaded file
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+	err = c.SaveUploadedFile(file.File, savePath)
+	if err != nil {
+		h.log.Error("Failed to save file: ", err.Error())
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+	//
+	defer os.Remove(savePath)
+	// Open the Excel file
+	xlsx, err := excelize.OpenFile(savePath)
+	if err != nil {
+		h.log.Error("Failed to open .xlsx file: ", err.Error())
+		handleResponse(c, BadRequest, "Failed to process file")
+		return
+	}
+	defer xlsx.Close()
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		h.log.Error("Failed to get rows: ", err.Error())
+		handleResponse(c, InternalError, "Failed to get rows")
+		return
+	}
 
-// 	for _, item := range products {
-// 		for _, store := range stores {
-// 			// attach product to store
-// 			err = h.db.Exec(`INSERT INTO store_products(store_id, product_id, supply_price, retail_price, vat, markup, bonus_percent, expire_date, pack_quantity, unit_quantity)
-// 			VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-// 				store.Id, item.Id, 10000, 11300, 12, 1, 0, 0, "2026-02-17", 100, 10).Error
-// 			if err != nil {
-// 				h.log.Error(err)
-// 				handleResponse(c, InternalError, err.Error())
-// 				return
-// 			}
-// 		}
-// 	}
-// 	handleResponse(c, OK, "Products attached to stores successfully")
-// }
+	// start transaction
+	tx := h.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+	// Process rows
+	for _, row := range rows[1:] {
+		if len(row) > 10 {
+			err = tx.Exec("UPDATE products SET barcode = ? WHERE material_code = ?", row[10], row[9]).Error
+			if err != nil {
+				h.log.Error(err)
+				handleResponse(c, InternalError, err.Error())
+				tx.Rollback()
+				return
+			}
+		}
+	}
+	// commit transaction
+	if err = tx.Commit().Error; err != nil {
+		handleResponse(c, InternalError, err.Error())
+		tx.Rollback()
+		return
+	}
+	handleResponse(c, OK, "Products uploaded successfully")
+}
 
 // Helper function to safely parse float values
 func parseFloat(value string) float64 {
@@ -1443,88 +1478,4 @@ func generateRandomBarcode(length int) string {
 		result[i] = digits[random.Intn(len(digits))]
 	}
 	return string(result)
-}
-
-// UploadProduct godoc
-// @Summary Upload a product
-// @Description Upload a product file in .xlsx format. The file should include product details in specific columns.
-// @Tags products
-// @Security BearerAuth
-// @Accept multipart/form-data
-// @Produce json
-// @Param file formData file true "Excel file (.xlsx) containing product data"
-// @Success 200 {object} v1.Response "Products uploaded successfully"
-// @Failure 400 {object} v1.Response "Invalid file format or processing error"
-// @Failure 500 {object} v1.Response "Internal server error"
-// @Router /product/upload-product-bonus [post]
-func (h *ProductHandler) UploadProductBonus(c *gin.Context) {
-	var file domain.File
-	err := c.ShouldBind(&file)
-	if err != nil {
-		h.log.Error("Failed to bind file: ", err.Error())
-		handleResponse(c, BadRequest, err.Error())
-		return
-	}
-
-	// Check file extension
-	ext := filepath.Ext(file.File.Filename)
-	if ext != ".xlsx" && ext != ".xls" {
-		h.log.Error("Unsupported file format: ", ext)
-		handleResponse(c, BadRequest, "Unsupported file format")
-		return
-	}
-
-	// Save the uploaded file
-	newFilename := uuid.New().String() + ext
-	savePath := filepath.Join("uploads", newFilename)
-	err = c.SaveUploadedFile(file.File, savePath)
-	if err != nil {
-		h.log.Error("Failed to save file: ", err.Error())
-		handleResponse(c, InternalError, "Failed to save file")
-		return
-	}
-	//
-	defer os.Remove(savePath)
-	// Open the Excel file
-	xlsx, err := excelize.OpenFile(savePath)
-	if err != nil {
-		h.log.Error("Failed to open .xlsx file: ", err.Error())
-		handleResponse(c, BadRequest, "Failed to process file")
-		return
-	}
-	defer xlsx.Close()
-	sheetName := xlsx.GetSheetName(0)
-	rows, err := xlsx.GetRows(sheetName)
-	if err != nil {
-		h.log.Error("Failed to get rows: ", err.Error())
-		handleResponse(c, InternalError, "Failed to get rows")
-		return
-	}
-	tx := h.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-	// update query
-	query := `UPDATE store_products SET bonus_amount = ? FROM products WHERE products.barcode = ?`
-	// Process rows
-	for _, row := range rows[2:] {
-		if len(row) > 3 {
-			err = tx.Debug().Exec(query, parseFloat(row[3]), row[2]).Error
-			if err != nil {
-				h.log.Error(err)
-				handleResponse(c, InternalError, err.Error())
-				tx.Rollback()
-				return
-			}
-		}
-	}
-
-	if err = tx.Commit().Error; err != nil {
-		handleResponse(c, InternalError, err.Error())
-		tx.Rollback()
-		return
-	}
-	handleResponse(c, OK, "Products uploaded successfully")
 }

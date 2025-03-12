@@ -608,6 +608,21 @@ definitions:
       updated_at:
         type: string
     type: object
+  domain.ProductBonusRequest:
+    properties:
+      bonus_amount:
+        type: number
+      end_date:
+        type: string
+      product_id:
+        type: string
+      start_date:
+        type: string
+      status:
+        type: integer
+      store_id:
+        type: string
+    type: object
   domain.ProductRequest:
     properties:
       barcode:
@@ -5853,6 +5868,173 @@ paths:
       summary: Create a new product
       tags:
       - products
+  /product-bonus:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Product Bonus
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.ProductBonusRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create product bonus
+      tags:
+      - Product Bonus
+  /product-bonus/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get product bonus
+      parameters:
+      - description: Product Bonus ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get product bonus
+      tags:
+      - Product Bonus
+    put:
+      consumes:
+      - application/json
+      description: Update product bonus
+      parameters:
+      - description: Product Bonus ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Product Bonus
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.ProductBonusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update product bonus
+      tags:
+      - Product Bonus
+  /product-bonus/excel-import:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Import product bonus
+      parameters:
+      - description: Excel file (.xlsx) containing bonus data
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Import product bonus
+      tags:
+      - Product Bonus
+  /product-bonus/list:
+    get:
+      consumes:
+      - application/json
+      description: Get product bonus list
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get product bonus list
+      tags:
+      - Product Bonus
   /product/{id}:
     get:
       consumes:
@@ -5918,6 +6100,38 @@ paths:
       security:
       - BearerAuth: []
       summary: Update a product
+      tags:
+      - products
+  /product/attach-barcode:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload a product file in .xlsx format. The file should include
+        product details in specific columns.
+      parameters:
+      - description: Excel file (.xlsx) containing product data
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Products uploaded successfully
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Invalid file format or processing error
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Upload a product
       tags:
       - products
   /product/excel-upload:
@@ -6484,38 +6698,6 @@ paths:
       security:
       - BearerAuth: []
       summary: Update barcode
-      tags:
-      - products
-  /product/upload-product-bonus:
-    post:
-      consumes:
-      - multipart/form-data
-      description: Upload a product file in .xlsx format. The file should include
-        product details in specific columns.
-      parameters:
-      - description: Excel file (.xlsx) containing product data
-        in: formData
-        name: file
-        required: true
-        type: file
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Products uploaded successfully
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Invalid file format or processing error
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Upload a product
       tags:
       - products
   /product1c:
