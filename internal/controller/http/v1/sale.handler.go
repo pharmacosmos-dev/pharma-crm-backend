@@ -191,12 +191,12 @@ func (h *SaleHandler) Get(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	err = h.db.Table("epos_responses").Where("sale_id = ?", id).First(&res.EposResponse).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
+	// err = h.db.Table("epos_responses").Where("sale_id = ?", id).First(&res.EposResponse).Error
+	// if err != nil {
+	// 	h.log.Error(err)
+	// 	handleResponse(c, InternalError, err.Error())
+	// 	return
+	// }
 	res.Product = products
 	handleResponse(c, OK, res)
 }
