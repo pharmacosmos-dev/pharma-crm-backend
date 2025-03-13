@@ -46,6 +46,7 @@ func (s *Storage) ListStoreProduct(param *domain.StoreProductQueryParam) ([]*dom
 	// complete query
 	err = query.
 		Order("sp.expire_date").
+		Debug().
 		Find(&res).Error
 
 	if err != nil {
