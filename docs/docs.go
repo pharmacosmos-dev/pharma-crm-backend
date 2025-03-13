@@ -7622,7 +7622,7 @@ const docTemplate = `{
                         "schema": {
                             "type": "array",
                             "items": {
-                                "type": "string"
+                                "type": "integer"
                             }
                         }
                     }

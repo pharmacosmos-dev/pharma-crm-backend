@@ -285,14 +285,14 @@ func (h *ProductBonusHandler) ImportProductBonus(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param  	ids body []string true "Product Bonus IDs"
+// @Param  	ids body []int true "Product Bonus IDs"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /product-bonus [delete]
 func (h *ProductBonusHandler) Delete(c *gin.Context) {
 	var (
-		ids []string
+		ids []int
 		err error
 	)
 	// bind request body
@@ -301,7 +301,7 @@ func (h *ProductBonusHandler) Delete(c *gin.Context) {
 		return
 	}
 	// delete products
-	err = h.db.Delete(&domain.Product{}, "id in (?)", ids).Error
+	err = h.db.Table("product_bonuses").Delete(&domain.ProductBonus{}, "id in (?)", ids).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())

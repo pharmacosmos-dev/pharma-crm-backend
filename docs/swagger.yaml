@@ -5880,7 +5880,7 @@ paths:
         required: true
         schema:
           items:
-            type: string
+            type: integer
           type: array
       produces:
       - application/json
