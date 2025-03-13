@@ -683,12 +683,13 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		sale domain.Sale
 		err  error
 	)
-
+	// bind request body
 	if err = c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	// get user id from context
 	userID, ok := c.Get("user_id")
 	if !ok {
 		handleResponse(c, UNAUTHORIZED, "User ID not found")
@@ -754,23 +755,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		tx.Rollback()
 		return
 	}
-	if sale.StoreId == "" {
-		sale.StoreId = body.StoreID
-	}
-	// // collect new sale data
-	// newSale := domain.SaleRequest{
-	// 	ID:                 uuid.New().String(),
-	// 	EmployeeID:         cast.ToString(userID),
-	// 	CashBoxOperationId: body.CashBoxOperationId,
-	// 	StoreId:            sale.StoreId,
-	// }
-	// // create new sale
-	// err = tx.Table("sales").Create(&newSale).Error
-	// if err != nil {
-	// 	handleResponse(c, InternalError, err.Error())
-	// 	tx.Rollback()
-	// 	return
-	// }
+
 	// Commit transaction
 	if err = tx.Commit().Error; err != nil {
 		handleResponse(c, InternalError, err.Error())
@@ -845,11 +830,8 @@ func (h *SaleHandler) completeSaleTransaction(tx *gorm.DB, body domain.FinalSale
 	if err := h.service.UpdateSaleStatus(tx, body.SaleID, body.TotalAmount, body.CustomerID); err != nil {
 		return err
 	}
-	if err := h.service.UpdateCartItemStatus(tx, body.SaleID); err != nil {
+	if err := h.service.UpdateCartItemStatus(tx, body.SaleID, userID, body.CashBoxOperationId); err != nil {
 		return err
-	}
-	if err := h.service.CreateEmployeeBonus(tx, userID, body.SaleID, body.CashBoxOperationId); err != nil {
-		return errors.New("error on adding bonus: " + err.Error())
 	}
 	return nil
 }

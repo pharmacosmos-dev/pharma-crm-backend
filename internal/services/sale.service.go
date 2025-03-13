@@ -151,14 +151,17 @@ func (s *Storage) UpdateSaleStatus(tx *gorm.DB, saleID string, totalAmount float
 }
 
 // Update cart item status and store product quantities after the sale is completed
-func (s *Storage) UpdateCartItemStatus(tx *gorm.DB, saleID string) error {
+func (s *Storage) UpdateCartItemStatus(tx *gorm.DB, saleID string, employeeID string, cashBoxOperationId string) error {
 	var cartItems []domain.CartItem
 	err := tx.Raw(`
-		SELECT
-			id, store_product_id,
-			quantity, unit_quantity, unit_price,
-			total_price, status
-		FROM cart_items ci WHERE sale_id = ?`, saleID).
+	SELECT
+		ci.id, ci.store_product_id, sp.product_id,
+		quantity, ci.unit_quantity, unit_price,
+		total_price, ci.status, pb.bonus_amount
+	FROM cart_items ci
+	JOIN store_products sp ON sp.id = ci.store_product_id
+	LEFT JOIN product_bonuses pb ON pb.product_id = sp.product_id
+	WHERE sale_id = ?`, saleID).
 		Scan(&cartItems).Error
 	if err != nil {
 		return err
@@ -177,15 +180,17 @@ func (s *Storage) UpdateCartItemStatus(tx *gorm.DB, saleID string) error {
 		if err != nil {
 			return err
 		}
+		err = tx.Exec(`
+		INSERT INTO employee_bonus (
+				employee_id, sale_id, product_id, cashbox_operation_id, bonus_amount, quantity
+				) 
+			VALUES (?, ?, ?, ?, ?, ?)`,
+			employeeID, saleID, item.ProductId, cashBoxOperationId, item.BonusAmount*float64(item.Quantity), item.Quantity).Error
+		if err != nil {
+			return err
+		}
 	}
 
-	err = tx.
-		Table("cart_items").
-		Where("sale_id = ?", saleID).
-		Update("status", "sold").Error
-	if err != nil {
-		return err
-	}
 	return nil
 }
 

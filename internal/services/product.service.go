@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
 )
 
@@ -16,43 +17,42 @@ func (s *Storage) ListStoreProduct(param *domain.StoreProductQueryParam) ([]*dom
 		res []*domain.StoreProductResponse
 		err error
 	)
+
 	// build query
 	query := s.db.Model(&domain.StoreProduct{}).
 		Table("store_products sp").
-		Select(`
-			sp.*, 
-			((sp.retail_price/100)*sp.bonus_percent) AS bonus_amount,
-			p.name,
-			p.barcode,
-			p.unit_per_pack,
-			c.name AS category_name,
+		Select(`sp.*, pb.bonus_amount AS bonus_amount, p.name, p.barcode, p.unit_per_pack,
 			DATE_PART('day', sp.expire_date::timestamp - NOW()) AS expire_day,
 			u.unit_name,
 			u.short_name`).
 		Joins("JOIN products p ON p.id = sp.product_id").
-		Joins("LEFT JOIN category_products cp ON p.id = cp.product_id").
-		Joins("LEFT JOIN categories c ON c.id = cp.category_id").
 		Joins("LEFT JOIN unit_types u ON p.unit_type_id = u.id").
-		Joins("LEFT JOIN import_details im ON im.product_id = sp.product_id").
-		Where("sp.store_id = ? AND (sp.pack_quantity > 0 OR sp.unit_quantity > 0)", param.StoreID)
-
-	if param.Search != "" {
-		marking := param.Search
-		param.Search = fmt.Sprintf("%%%s%%", param.Search)
-		query = query.Where(`p.name ILIKE ? OR p.barcode LIKE ? OR c.name ILIKE ? OR ? = ANY(im.marking)`, param.Search, param.Search, param.Search, marking)
+		Joins("LEFT JOIN product_bonuses pb ON pb.product_id = sp.product_id").
+		Where("sp.store_id = ?", param.StoreID)
+	// define search keyword type
+	switch utils.DefineProductSearchQuery(param.Search) {
+	case "barcode":
+		query = query.Where("p.barcode = ?", param.Search).Limit(1)
+	case "marking":
+		query = query.
+			Joins("LEFT JOIN product_markings pm ON pm.product_id = sp.product_id").
+			Where("pm.marking = ?", param.Search).Limit(1)
+	default:
+		query = query.
+			Joins("LEFT JOIN category_products cp ON p.id = cp.product_id").
+			Joins("LEFT JOIN categories c ON c.id = cp.category_id").
+			Where("p.name ILIKE ? OR c.name ILIKE ?", "%"+param.Search+"%", "%"+param.Search+"%")
 	}
+	// complete query
 	err = query.
-		Limit(param.Limit).
-		Offset(param.Offset).
-		Group("sp.id, p.id, c.id, u.id").
 		Order("sp.expire_date").
-		Debug().
 		Find(&res).Error
 
 	if err != nil {
 		s.log.Warn("Error on listing store products for store %s with search '%s': %v", param.StoreID, param.Search, err.Error())
 		return nil, err
 	}
+	// format quantity
 	for i := range res {
 		if res[i].UnitPerPack > 0 && res[i].UnitQuantity != res[i].PackQuantity*res[i].UnitPerPack {
 			res[i].Quantity = fmt.Sprintf("%d (%d/%d)", res[i].PackQuantity, res[i].UnitQuantity%res[i].UnitPerPack, res[i].UnitPerPack)

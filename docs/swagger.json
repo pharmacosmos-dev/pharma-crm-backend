@@ -5876,6 +5876,55 @@
                 }
             }
         },
+        "/import-detail/product-marking/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Product marking",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "import_details"
+                ],
+                "summary": "Product marking",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Import ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/import-detail/{id}": {
             "put": {
                 "security": [
@@ -11070,109 +11119,6 @@
                 }
             }
         },
-        "/store1c": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Create a store from the request body",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "1C Api"
-                ],
-                "summary": "Create a store",
-                "parameters": [
-                    {
-                        "description": "store",
-                        "name": "store",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/domain.StoreRequest1C"
-                            }
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/store1c/excel-upload": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Upload a store file in .xlsx format. The file should include store details in specific columns.",
-                "consumes": [
-                    "multipart/form-data"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "1C Api"
-                ],
-                "summary": "Upload a store",
-                "parameters": [
-                    {
-                        "type": "file",
-                        "description": "Excel file (.xlsx) containing store data",
-                        "name": "file",
-                        "in": "formData",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Stores uploaded successfully",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid file format or processing error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            }
-        },
         "/tag": {
             "post": {
                 "security": [
@@ -13373,17 +13319,6 @@
                     "type": "string"
                 },
                 "phone": {
-                    "type": "string"
-                },
-                "store_code": {
-                    "type": "integer"
-                }
-            }
-        },
-        "domain.StoreRequest1C": {
-            "type": "object",
-            "properties": {
-                "name": {
                     "type": "string"
                 },
                 "store_code": {

@@ -3,8 +3,6 @@ package v1
 import (
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -13,7 +11,6 @@ import (
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/spf13/cast"
-	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
 )
 
@@ -28,8 +25,6 @@ func (h *Handler) NewProduct1cHandler(r *gin.RouterGroup) {
 
 func (h *Product1cHandler) Product1cRoutes(r *gin.RouterGroup) {
 	r.POST("/product1c", h.Create)
-	r.POST("/store1c", h.CreateStore)
-	r.POST("/store1c/excel-upload", h.UploadStores)
 }
 
 // Create 	godoc
@@ -116,7 +111,7 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 			barcode = EXCLUDED.barcode,
 			producer_id = EXCLUDED.producer_id,
 			mxik = EXCLUDED.mxik
-		RETURNING id;`,
+		RETURNING id`,
 			body.Товары[i].MaterialCode,
 			body.Товары[i].Name, body.Товары[i].Barcode, producer.Id, body.Товары[i].Ikpu).Scan(&productID).Error
 		if err != nil {
@@ -127,23 +122,36 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 		}
 
 		// create import_detail
-		err = tx.Exec(`
+		var id string
+		err = tx.Raw(`
 		INSERT INTO import_details(
 			product_id, import_id, 
 			received_count, scanned_count, supply_price, supply_price_vat,
 			retail_price, retail_price_vat,
 			vat, vat_sum, expire_date, series_number, 
-			sum_vat, marking) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			sum_vat, marking) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
 			productID, newImport.Id, body.Товары[i].Quantity, body.Товары[i].Quantity, body.Товары[i].SupplyPrice,
 			body.Товары[i].SupplyPriceVat, body.Товары[i].RetailPrice, body.Товары[i].RetailPriceVat,
 			cast.ToInt(body.Товары[i].Vat), body.Товары[i].VatSum,
 			body.Товары[i].ExpireDate, body.Товары[i].ProductSeriesNumber,
-			body.Товары[i].SumVat, utils.StringArray(body.Товары[i].Markirovka)).Error
+			body.Товары[i].SumVat, utils.StringArray(body.Товары[i].Markirovka)).Scan(&id).Error
 		if err != nil {
 			h.log.Error(err)
 			handleResponse(c, InternalError, "ERROR on creating import details")
 			tx.Rollback()
 			return
+		}
+		for _, marking := range body.Товары[i].Markirovka {
+			err = tx.Exec(`
+				INSERT INTO product_markings (import_detail_id, product_id, marking)
+				VALUES(?, ?, ?)`,
+				id, productID, marking).Error
+			if err != nil {
+				h.log.Error("Failed to insert marking on importing: ", err)
+				handleResponse(c, InternalError, err.Error())
+				tx.Rollback()
+				return
+			}
 		}
 	}
 
@@ -156,128 +164,4 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, "CREATED")
-}
-
-// Create godoc
-// @Summary Create a store
-// @Description Create a store from the request body
-// @Tags 1C Api
-// @Security     BearerAuth
-// @Accept json
-// @Produce json
-// @Param store body []domain.StoreRequest1C true "store"
-// @Success 200 {object} v1.Response
-// @Failure 400 {object} v1.Response
-// @Failure 500 {object} v1.Response
-// @Router /store1c [post]
-func (h *Product1cHandler) CreateStore(c *gin.Context) {
-	var (
-		body []domain.StoreRequest1C
-		err  error
-	)
-	err = c.ShouldBindJSON(&body)
-	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
-		handleResponse(c, BadRequest, err.Error())
-		return
-	}
-
-	// Create stores from 1C
-	err = h.db.
-		WithContext(c.Request.Context()).
-		Table("stores").
-		Create(&body).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(err.Error(), "unique constraint") {
-			h.log.Warn("duplicate document_number: %v", err)
-			handleResponse(c, OK, "Store with this code already exists")
-			return
-		}
-		// Log and handle other errors
-		h.log.Error(fmt.Errorf("err: %v", err))
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	handleResponse(c, OK, "CREATED")
-}
-
-// UploadStores godoc
-// @Summary Upload a store
-// @Description Upload a store file in .xlsx format. The file should include store details in specific columns.
-// @Tags 1C Api
-// @Security BearerAuth
-// @Accept multipart/form-data
-// @Produce json
-// @Param file formData file true "Excel file (.xlsx) containing store data"
-// @Success 200 {object} v1.Response "Stores uploaded successfully"
-// @Failure 400 {object} v1.Response "Invalid file format or processing error"
-// @Failure 500 {object} v1.Response "Internal server error"
-// @Router /store1c/excel-upload [post]
-func (h *Product1cHandler) UploadStores(c *gin.Context) {
-	var file domain.File
-	err := c.ShouldBind(&file)
-	if err != nil {
-		h.log.Error("Failed to bind file: ", err.Error())
-		handleResponse(c, BadRequest, err.Error())
-		return
-	}
-	// Check file extension
-	ext := filepath.Ext(file.File.Filename)
-	if ext != ".xlsx" && ext != ".xls" {
-		h.log.Error("Unsupported file format: ", ext)
-		handleResponse(c, BadRequest, "Unsupported file format")
-		return
-	}
-
-	// Save the uploaded file
-	newFilename := uuid.New().String() + ext
-	savePath := filepath.Join("uploads", newFilename)
-	err = c.SaveUploadedFile(file.File, savePath)
-	if err != nil {
-		h.log.Error("Failed to save file: ", err.Error())
-		handleResponse(c, InternalError, "Failed to save file")
-		return
-	}
-	defer os.Remove(savePath)
-	// Open the Excel file
-	xlsx, err := excelize.OpenFile(savePath)
-	if err != nil {
-		h.log.Error("Failed to open .xlsx file: ", err.Error())
-		handleResponse(c, BadRequest, "Failed to process file")
-		return
-	}
-	defer xlsx.Close()
-	sheetName := xlsx.GetSheetName(0)
-	rows, err := xlsx.GetRows(sheetName)
-	if err != nil {
-		h.log.Error("Failed to get rows: ", err.Error())
-		handleResponse(c, InternalError, "Failed to get rows")
-		return
-	}
-	var stores []domain.StoreRequest1C
-	for _, row := range rows[2:] {
-		store := domain.StoreRequest1C{
-			Id:        uuid.New().String(),
-			Name:      row[0],
-			StoreCode: parseIntComma(row[1]),
-		}
-		if store.StoreCode == 4048 {
-			continue
-		}
-		stores = append(stores, store)
-	}
-
-	if len(stores) > 0 {
-		err = h.db.
-			WithContext(c.Request.Context()).
-			Table("stores").
-			Create(&stores).Error
-		if err != nil {
-			h.log.Error(fmt.Errorf("err: %v", err))
-			handleResponse(c, InternalError, err.Error())
-			return
-		}
-	}
-
-	handleResponse(c, OK, "Stores uploaded successfully")
 }

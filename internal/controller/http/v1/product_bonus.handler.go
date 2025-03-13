@@ -134,7 +134,7 @@ func (h *ProductBonusHandler) List(c *gin.Context) {
 	}
 
 	err = query.Count(&totalCount).
-		Limit(limit).Offset(offset).Find(&res).Error
+		Limit(limit).Offset(offset).Order("created_at desc").Find(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())

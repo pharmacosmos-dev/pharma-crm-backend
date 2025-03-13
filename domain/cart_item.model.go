@@ -6,6 +6,7 @@ import "time"
 type CartItem struct {
 	ID             string     `gorm:"id" json:"id"`
 	StoreProductID string     `gorm:"store_product_id" json:"store_product_id"`
+	ProductId      string     `gorm:"product_id" json:"product_id"`
 	EmployeeID     string     `gorm:"employee_id" json:"employee_id"`
 	SaleId         string     `gorm:"sale_id" json:"sale_id"`
 	Quantity       int        `gorm:"quantity" json:"quantity"`
@@ -16,6 +17,7 @@ type CartItem struct {
 	DiscountValue  float64    `gorm:"discount_value" json:"discount_value"`
 	DiscountAmount float64    `gorm:"discount_amount" json:"discount_amount"`
 	TotalPrice     float64    `gorm:"total_price" json:"total_price"`
+	BonusAmount    float64    `gorm:"bonus_amount" json:"bonus_amount"`
 	CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt      *time.Time `gorm:"updated_at" json:"updated_at"`
 }

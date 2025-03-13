@@ -1017,13 +1017,6 @@ definitions:
       store_code:
         type: integer
     type: object
-  domain.StoreRequest1C:
-    properties:
-      name:
-        type: string
-      store_code:
-        type: integer
-    type: object
   domain.Tag:
     properties:
       id:
@@ -4848,6 +4841,37 @@ paths:
       summary: List import details order by last update
       tags:
       - import_details
+  /import-detail/product-marking/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Product marking
+      parameters:
+      - description: Import ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Product marking
+      tags:
+      - import_details
   /import/{id}:
     get:
       consumes:
@@ -8117,72 +8141,6 @@ paths:
       summary: Get a store
       tags:
       - stores
-  /store1c:
-    post:
-      consumes:
-      - application/json
-      description: Create a store from the request body
-      parameters:
-      - description: store
-        in: body
-        name: store
-        required: true
-        schema:
-          items:
-            $ref: '#/definitions/domain.StoreRequest1C'
-          type: array
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Create a store
-      tags:
-      - 1C Api
-  /store1c/excel-upload:
-    post:
-      consumes:
-      - multipart/form-data
-      description: Upload a store file in .xlsx format. The file should include store
-        details in specific columns.
-      parameters:
-      - description: Excel file (.xlsx) containing store data
-        in: formData
-        name: file
-        required: true
-        type: file
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Stores uploaded successfully
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Invalid file format or processing error
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Upload a store
-      tags:
-      - 1C Api
   /tag:
     post:
       consumes:

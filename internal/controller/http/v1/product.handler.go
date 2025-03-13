@@ -55,7 +55,6 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.GET("/total-status-count", h.TotalStatusCount)
 		product.PUT("/update-barcode/:id", h.UpdateBarcode)
 		product.POST("/attach-barcode", h.AttachBarcode)
-		product.POST("/generate-marking", h.Products)
 	}
 }
 
@@ -200,9 +199,18 @@ func (h *ProductHandler) Create(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /product/{id} [get]
 func (h *ProductHandler) Get(c *gin.Context) {
-	var res domain.Product
-	id := c.Param("id")
-	err := h.db.
+	var (
+		res domain.Product
+		err error
+		id  = c.Param("id")
+	)
+	// validate id
+	if err = uuid.Validate(id); err != nil {
+		handleResponse(c, BadRequest, "Invalid product ID")
+		return
+	}
+	// get product query
+	err = h.db.
 		Preload("UnitType").
 		Preload("Shelf").
 		Preload("Producer").
@@ -1529,7 +1537,7 @@ func generateRandomBarcode(length int) string {
 	return string(result)
 }
 
-func (h *ProductHandler) Products(c *gin.Context) {
+func (h *ProductHandler) GenerateMarkingProducts(c *gin.Context) {
 	var products []domain.Product
 
 	err := h.db.Debug().Find(&products).Error
