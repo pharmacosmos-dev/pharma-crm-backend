@@ -29,6 +29,7 @@ func (h *ProductBonusHandler) ProductBonusRoutes(r *gin.RouterGroup) {
 		productBonus.GET("/list", h.List)
 		productBonus.PUT("/:id", h.Update)
 		productBonus.POST("/excel-import", h.ImportProductBonus)
+		productBonus.DELETE("", h.Delete)
 	}
 }
 
@@ -175,6 +176,7 @@ func (h *ProductBonusHandler) Update(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	body.Status = 1
 	// update product bonus
 	err = h.db.Model(&domain.ProductBonus{}).Where("id = ?", id).Updates(&body).Error
 	if err != nil {
@@ -274,4 +276,36 @@ func (h *ProductBonusHandler) ImportProductBonus(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, "Products uploaded successfully")
+}
+
+// delete product bonus
+// @Summary Delete product bonus
+// @Description Delete product bonus
+// @Tags Product Bonus
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param  	ids body []string true "Product Bonus IDs"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product-bonus [delete]
+func (h *ProductBonusHandler) Delete(c *gin.Context) {
+	var (
+		ids []string
+		err error
+	)
+	// bind request body
+	if err = c.ShouldBindJSON(&ids); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	// delete products
+	err = h.db.Delete(&domain.Product{}, "id in (?)", ids).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, "DELETED")
 }
