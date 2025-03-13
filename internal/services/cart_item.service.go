@@ -13,7 +13,7 @@ import (
 // get cart item list by sale id with limit, offset
 func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartItemData, error) {
 	var res []domain.CartItemResponse
-	err := s.db.Debug().Raw(`
+	err := s.db.Raw(`
 	SELECT
 		ci.*,
 		p.name,
@@ -64,10 +64,15 @@ func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartIt
 		SUM(total_price) AS sum,
 		SUM(quantity) AS item_count,
 		SUM(discount_amount*quantity) AS discount_amount,
-		SUM(sp.vat_price*quantity) AS vat_sum,
+		SUM(ROUND(sp.vat_price * quantity +
+		CASE
+			WHEN p.unit_per_pack > 0 THEN (sp.vat_price / p.unit_per_pack) * ci.unit_quantity
+			ELSE 0
+		END, 2)) AS vat_sum,
 		COUNT(*) AS count
-	FROM cart_items
-	JOIN store_products sp ON sp.id = cart_items.store_product_id
+	FROM cart_items ci
+	JOIN store_products sp ON sp.id = ci.store_product_id
+	JOIN products p ON sp.product_id = p.id
 	WHERE sale_id = ?
 	`, saleID).Scan(&data).Error
 	if err != nil {
