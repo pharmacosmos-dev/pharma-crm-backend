@@ -322,7 +322,10 @@ func (h *ProductHandler) List(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /product/product-list [get]
 func (h *ProductHandler) ProductList(c *gin.Context) {
-	var products []*domain.Product
+	var products []struct {
+		Id   string `gorm:"id" json:"id"`
+		Name string `gorm:"name" json:"name"`
+	}
 	search := c.Query("search")
 	// get pagination parameters
 	limit, offset, err := getPaginationParams(c)
@@ -337,13 +340,16 @@ func (h *ProductHandler) ProductList(c *gin.Context) {
 		search = fmt.Sprintf("%%%s%%", search)
 		query = query.Where("name ILIKE ? OR barcode LIKE ?", search, search)
 	}
+	var totalCount int64
 	// complete query
-	err = query.Limit(limit).Offset(offset).Find(&products).Error
+	err = query.Count(&totalCount).Limit(limit).Offset(offset).Find(&products).Error
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, products)
+	// Prepare the response
+	data := utils.ListResponse(products, totalCount, limit, offset)
+	handleResponse(c, OK, data)
 }
 
 // Get godoc
