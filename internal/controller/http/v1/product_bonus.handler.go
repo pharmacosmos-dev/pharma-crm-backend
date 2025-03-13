@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -245,24 +246,27 @@ func (h *ProductBonusHandler) ImportProductBonus(c *gin.Context) {
 			tx.Rollback()
 		}
 	}()
-	// update query
+	// create query
 	query := `
-	INSERT INTO  product_bonuses(product_id, store_id, bonus_amount, start_date, end_date)
-	SELECT sp.product_id, sp.store_id, ?, '2025-03-13', '2050-03-13' 
-	FROM store_products sp JOIN products p ON sp.product_id = p.id
-	WHERE p.barcode = ?`
+	INSERT INTO  product_bonuses(product_id, bonus_amount, start_date, end_date)
+	SELECT id, ?, '2025-03-10', '2050-03-10'
+	FROM products WHERE barcode = ? AND barcode is not null and barcode <> ''`
+	count := 0
 	// Process rows
-	for _, row := range rows[2:] {
+	for _, row := range rows[1:] {
 		if len(row) > 3 {
-			err = tx.Debug().Exec(query, parseFloat(row[3]), row[2]).Error
+			err = tx.Debug().Exec(query, parseFloat(row[2]), row[3]).Error
 			if err != nil {
 				h.log.Error(err)
 				handleResponse(c, InternalError, err.Error())
 				tx.Rollback()
 				return
 			}
+			fmt.Println("BARCODE: ", parseFloat(row[2]), row[3])
+			count++
 		}
 	}
+	fmt.Println("--->> ", count)
 
 	if err = tx.Commit().Error; err != nil {
 		handleResponse(c, InternalError, err.Error())
