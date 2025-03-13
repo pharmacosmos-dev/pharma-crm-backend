@@ -1,0 +1,2 @@
+DROP INDEX IF EXISTS product_markings_marking_hash_idx;
+DROP INDEX IF EXISTS product_markings_product_id_idx;

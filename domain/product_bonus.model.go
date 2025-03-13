@@ -21,7 +21,7 @@ type ProductBonus struct {
 
 type ProductBonusRequest struct {
 	ProductId   string  `json:"product_id"`
-	StoreId     string  `json:"store_id"`
+	StoreId     *string `json:"store_id"`
 	BonusAmount float64 `json:"bonus_amount"`
 	Status      int     `json:"status"`
 	StartDate   string  `json:"start_date"`

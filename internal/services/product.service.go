@@ -11,7 +11,7 @@ import (
 )
 
 // get store products get list
-func (s *Storage) ListStoreProduct(param *domain.StoreProductQueryParam, storeId string) ([]*domain.StoreProductResponse, error) {
+func (s *Storage) ListStoreProduct(param *domain.StoreProductQueryParam) ([]*domain.StoreProductResponse, error) {
 	var (
 		res []*domain.StoreProductResponse
 		err error
@@ -34,7 +34,7 @@ func (s *Storage) ListStoreProduct(param *domain.StoreProductQueryParam, storeId
 		Joins("LEFT JOIN categories c ON c.id = cp.category_id").
 		Joins("LEFT JOIN unit_types u ON p.unit_type_id = u.id").
 		Joins("LEFT JOIN import_details im ON im.product_id = sp.product_id").
-		Where("sp.store_id = ? AND (sp.pack_quantity > 0 OR sp.unit_quantity > 0)", storeId)
+		Where("sp.store_id = ? AND (sp.pack_quantity > 0 OR sp.unit_quantity > 0)", param.StoreID)
 
 	if param.Search != "" {
 		marking := param.Search
@@ -50,7 +50,7 @@ func (s *Storage) ListStoreProduct(param *domain.StoreProductQueryParam, storeId
 		Find(&res).Error
 
 	if err != nil {
-		s.log.Warn("Error on listing store products for store %s with search '%s': %v", storeId, param.Search, err.Error())
+		s.log.Warn("Error on listing store products for store %s with search '%s': %v", param.StoreID, param.Search, err.Error())
 		return nil, err
 	}
 	for i := range res {

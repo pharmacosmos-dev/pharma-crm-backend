@@ -1,9 +1,11 @@
 package v1
 
 import (
+	"crypto/rand"
 	"errors"
 	"fmt"
-	"math/rand"
+	"math/big"
+	gen "math/rand"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -37,6 +39,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.POST("", h.Create)
 		product.GET("/:id", h.Get)
 		product.GET("/list", h.List)
+		product.GET("/product-list", h.ProductList)
 		product.GET("/export-excel", h.ExportProductExcel)
 		product.PUT("/:id", h.Update)
 		product.POST("/excel-upload", h.UploadProduct)
@@ -52,6 +55,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.GET("/total-status-count", h.TotalStatusCount)
 		product.PUT("/update-barcode/:id", h.UpdateBarcode)
 		product.POST("/attach-barcode", h.AttachBarcode)
+		product.POST("/generate-marking", h.Products)
 	}
 }
 
@@ -301,6 +305,45 @@ func (h *ProductHandler) List(c *gin.Context) {
 	// Prepare the response
 	result := utils.ListResponse(products, totalCount, param.Limit, param.Offset)
 	handleResponse(c, OK, result)
+}
+
+// Get godoc
+// @Summary Get a product
+// @Description Get a product from the request body
+// @Tags products
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param 	limit query int false "Limit"
+// @Param 	offset query int false "Offset"
+// @Param   search query string false "Search"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/product-list [get]
+func (h *ProductHandler) ProductList(c *gin.Context) {
+	var products []*domain.Product
+	search := c.Query("search")
+	// get pagination parameters
+	limit, offset, err := getPaginationParams(c)
+	if err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	// get products list
+	query := h.db.Model(&domain.Product{})
+	// add search fileter
+	if search != "" {
+		search = fmt.Sprintf("%%%s%%", search)
+		query = query.Where("name ILIKE ? OR barcode LIKE ?", search, search)
+	}
+	// complete query
+	err = query.Limit(limit).Offset(offset).Find(&products).Error
+	if err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, products)
 }
 
 // Get godoc
@@ -714,11 +757,11 @@ func (h *ProductHandler) ListByStoreId(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid store_id")
 		return
 	}
-
+	param.StoreID = storeId
 	// get limit offset
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 	// get store products list
-	res, err = h.service.ListStoreProduct(&param, storeId)
+	res, err = h.service.ListStoreProduct(&param)
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to fetch products")
 		return
@@ -1468,8 +1511,8 @@ func (h *ProductHandler) GenBarcode() string {
 // generateRandomBarcode creates a random 13-digit numeric barcode
 func generateRandomBarcode(length int) string {
 	// Create a new random source and generator
-	source := rand.NewSource(time.Now().UnixNano())
-	random := rand.New(source)
+	source := gen.NewSource(time.Now().UnixNano())
+	random := gen.New(source)
 
 	digits := "0123456789"
 	result := make([]byte, length)
@@ -1478,4 +1521,53 @@ func generateRandomBarcode(length int) string {
 		result[i] = digits[random.Intn(len(digits))]
 	}
 	return string(result)
+}
+
+func (h *ProductHandler) Products(c *gin.Context) {
+	var products []domain.Product
+
+	err := h.db.Debug().Find(&products).Error
+	if err != nil {
+		h.log.Error(err)
+		return
+	}
+
+	for _, product := range products {
+		h.GenerateMarking(product.Id, "0dd07714-33fd-4716-8ab3-f3816a2e8f10")
+	}
+}
+
+type TmpProduct struct {
+	Marking        string `gorm:"marking" json:"marking"`
+	ProductId      string `gorm:"product_id" json:"product_id"`
+	ImportDetailId string `gorm:"import_detail_id" json:"import_detail_id"`
+}
+
+func (h *ProductHandler) GenerateMarking(productId string, importDetailId string) {
+	var p = make([]TmpProduct, 0, 100)
+
+	for i := 0; i < 100; i++ {
+		marking := RandomString(31)
+		p = append(p, TmpProduct{marking, productId, importDetailId})
+	}
+
+	// Save the products to the database
+	err := h.db.Table("product_markings").Create(&p).Error
+	if err != nil {
+		h.log.Error(err)
+	}
+}
+
+const charset = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+
+func RandomString(length int) string {
+	bytes := make([]byte, length)
+	for i := range bytes {
+		n, err := rand.Int(rand.Reader, big.NewInt(int64(len(charset))))
+		if err != nil {
+			panic(err)
+		}
+		bytes[i] = charset[n.Int64()]
+	}
+	return string(bytes)
 }

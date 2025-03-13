@@ -6456,6 +6456,44 @@ paths:
       summary: Get a product
       tags:
       - products
+  /product/product-list:
+    get:
+      consumes:
+      - application/json
+      description: Get a product from the request body
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a product
+      tags:
+      - products
   /product/similar/{id}:
     get:
       consumes:
