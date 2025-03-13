@@ -28,23 +28,27 @@ func (s *Storage) ListStoreProduct(param *domain.StoreProductQueryParam) ([]*dom
 		Joins("JOIN products p ON p.id = sp.product_id").
 		Joins("LEFT JOIN unit_types u ON p.unit_type_id = u.id").
 		Joins("LEFT JOIN product_bonuses pb ON pb.product_id = sp.product_id").
-		Where("sp.store_id = ?", param.StoreID)
+		Where("sp.store_id = ? AND (sp.pack_quantity > 0 OR sp.unit_quantity > 0)", param.StoreID)
 	// define search keyword type
 	switch utils.DefineProductSearchQuery(param.Search) {
 	case "barcode":
-		query = query.Where("p.barcode = ?", param.Search).Limit(1)
+		param.Limit = 1
+		query = query.Where("p.barcode = ?", param.Search)
 	case "marking":
+		param.Limit = 1
 		query = query.
 			Joins("LEFT JOIN product_markings pm ON pm.product_id = sp.product_id").
-			Where("pm.marking = ?", param.Search).Limit(1)
+			Where("pm.marking = ?", param.Search)
 	default:
 		query = query.
 			Joins("LEFT JOIN category_products cp ON p.id = cp.product_id").
 			Joins("LEFT JOIN categories c ON c.id = cp.category_id").
-			Where("p.name ILIKE ? OR c.name ILIKE ?", "%"+param.Search+"%", "%"+param.Search+"%")
+			Where("p.name ILIKE ? OR c.name ILIKE ?", "%"+param.Search+"%", "%"+param.Search+"%").Limit(param.Limit).Offset(param.Offset)
 	}
 	// complete query
 	err = query.
+		Limit(param.Limit).
+		Offset(param.Offset).
 		Order("sp.expire_date").
 		Debug().
 		Find(&res).Error
