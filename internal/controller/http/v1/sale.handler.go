@@ -595,7 +595,7 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-
+	// 
 	if body.Error {
 		// Update sales status
 		err = tx.Exec(`UPDATE sales SET status = ? WHERE id = ?`, config.PENDING, body.SaleId).Error
