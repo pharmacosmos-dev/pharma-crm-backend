@@ -395,7 +395,9 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 	}
 
 	// Eski va yangi qiymatlarni solishtirish
-	isIncrease := (body.Quantity > oldCartItem.Quantity) || (body.UnitQuantity > oldCartItem.UnitQuantity)
+	quantityDiff := body.Quantity - oldCartItem.Quantity
+	unitQuantityDiff := body.UnitQuantity - oldCartItem.UnitQuantity
+	isIncrease := quantityDiff > 0 || unitQuantityDiff > 0
 
 	var unitPrice float64
 	if storeProduct.UnitPerPack > 0 {
@@ -422,9 +424,11 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 
 	// Yangilangan response
 	response := map[string]any{
-		"message":     "UPDATED",
-		"id":          id,
-		"is_increase": isIncrease,
+		"message":            "UPDATED",
+		"id":                 id,
+		"is_increase":        isIncrease,
+		"quantity_diff":      quantityDiff,
+		"unit_quantity_diff": unitQuantityDiff,
 	}
 
 	handleResponse(c, OK, response)
