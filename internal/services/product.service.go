@@ -178,7 +178,7 @@ func (s *Storage) GetStoreProductByID(id string) (*domain.StoreProduct, error) {
 		p.unit_per_pack AS unit_per_pack
 		FROM store_products sp 
 		JOIN products p ON sp.product_id = p.id
-		LEFT JOIN product_bonus pb ON pb.product_id = p.id
+		LEFT JOIN product_bonuses pb ON pb.product_id = p.id
 		WHERE sp.id = ?`, id).
 		Scan(&storeProduct).Error
 	if err != nil {
