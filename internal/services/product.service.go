@@ -173,7 +173,13 @@ func (s *Storage) GetStoreProductByIdOrBarcode(id string, barcode string, storeI
 
 func (s *Storage) GetStoreProductByID(id string) (*domain.StoreProduct, error) {
 	var storeProduct domain.StoreProduct
-	err := s.db.Raw(`SELECT sp.*, ((sp.retail_price/100)*sp.bonus_percent) AS bonus_amount, p.unit_per_pack FROM store_products sp JOIN products p ON sp.product_id = p.id WHERE sp.id = ?`, id).
+	err := s.db.Raw(`
+		SELECT sp.*, pb.bonus_amount AS bonus_amount, 
+		p.unit_per_pack AS unit_per_pack
+		FROM store_products sp 
+		JOIN products p ON sp.product_id = p.id
+		LEFT JOIN product_bonus pb ON pb.product_id = p.id
+		WHERE sp.id = ?`, id).
 		Scan(&storeProduct).Error
 	if err != nil {
 		return nil, err

@@ -424,9 +424,12 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 
 	// Yangilangan response
 	response := map[string]any{
-		"message":            "UPDATED",
 		"id":                 id,
-		"is_increase":        isIncrease,
+		"store_product_id":   body.StoreProductID,
+		"increase":           isIncrease,
+		"quantity":           body.Quantity,
+		"unit_quantity":      body.UnitQuantity,
+		"unit_per_pack":      storeProduct.UnitPerPack,
 		"quantity_diff":      quantityDiff,
 		"unit_quantity_diff": unitQuantityDiff,
 	}
