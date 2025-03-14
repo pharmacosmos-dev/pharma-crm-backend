@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
 	"gorm.io/gorm"
 )
@@ -335,13 +336,30 @@ func (h *CartItemHandler) UpdateBySaleID(c *gin.Context) {
 // @Router /cart_item/{id} [put]
 func (h *CartItemHandler) Update(c *gin.Context) {
 	var (
-		body domain.CartItemUpdateProductUnit
-		err  error
-		id   = c.Param("id")
+		body        domain.CartItemUpdateProductUnit
+		err         error
+		id          = c.Param("id")
+		oldCartItem domain.CartItem
 	)
+	// validate cart item id
+	if err := uuid.Validate(id); err != nil {
+		handleResponse(c, BadRequest, "Invalid cart item ID")
+		return
+	}
+	// bind request body
 	if err = c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	// Eski cart item qiymatlarini olish
+	err = h.db.WithContext(c.Request.Context()).
+		Table("cart_items").
+		Where("id = ?", id).
+		First(&oldCartItem).Error
+	if err != nil {
+		handleResponse(c, InternalError, "Cart item not found")
 		return
 	}
 
@@ -351,6 +369,8 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+
+	// Miqdor yetarliligini tekshirish
 	if body.Quantity > 0 && body.UnitQuantity == 0 {
 		if storeProduct.PackQuantity < body.Quantity {
 			storeProduct.UnitQuantity -= storeProduct.PackQuantity * storeProduct.UnitPerPack
@@ -373,12 +393,17 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid quantity")
 		return
 	}
+
+	// Eski va yangi qiymatlarni solishtirish
+	isIncrease := (body.Quantity > oldCartItem.Quantity) || (body.UnitQuantity > oldCartItem.UnitQuantity)
+
 	var unitPrice float64
 	if storeProduct.UnitPerPack > 0 {
 		unitPrice = (storeProduct.RetailPrice / float64(storeProduct.UnitPerPack)) * float64(body.UnitQuantity)
 	}
-	// Cart item ni yangilash uchun ma'lumotlar tayyorlash
-	data := map[string]interface{}{
+
+	// Cart item ni yangilash
+	data := map[string]any{
 		"store_product_id": body.StoreProductID,
 		"quantity":         body.Quantity,
 		"unit_quantity":    body.UnitQuantity,
@@ -394,7 +419,14 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 		handleResponse(c, InternalError, "Error on saving cart")
 		return
 	}
-	handleResponse(c, OK, "UPDATED")
+
+	// Yangilangan response
+	response := map[string]any{
+		"message":     "UPDATED",
+		"is_increase": isIncrease,
+	}
+
+	handleResponse(c, OK, response)
 }
 
 // Delete godoc
