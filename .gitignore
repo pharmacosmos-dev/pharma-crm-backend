@@ -25,6 +25,9 @@ vendor/
 /uploads/*
 !/uploads/.gitkeep
 
+/tmp/*
+!/tmp/.gitkeep
+
 /app/uploads/*
 !/app/uploads/.gitkeep
 
