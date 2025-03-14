@@ -154,38 +154,69 @@ func (s *Storage) UpdateSaleStatus(tx *gorm.DB, saleID string, totalAmount float
 func (s *Storage) UpdateCartItemStatus(tx *gorm.DB, saleID string, employeeID string, cashBoxOperationId string) error {
 	var cartItems []domain.CartItem
 	err := tx.Raw(`
-	SELECT
-		ci.id, ci.store_product_id, sp.product_id,
-		quantity, ci.unit_quantity, unit_price,
-		total_price, ci.status, pb.bonus_amount
-	FROM cart_items ci
-	JOIN store_products sp ON sp.id = ci.store_product_id
-	LEFT JOIN product_bonuses pb ON pb.product_id = sp.product_id
-	WHERE sale_id = ?`, saleID).
+		SELECT 
+			ci.id, ci.store_product_id, sp.product_id,
+			ci.quantity, ci.unit_quantity, unit_price,
+			total_price, ci.status, pb.bonus_amount,
+			p.unit_per_pack
+		FROM cart_items ci
+		JOIN store_products sp ON sp.id = ci.store_product_id
+		JOIN products p ON sp.product_id = p.id
+		LEFT JOIN product_bonuses pb ON pb.product_id = sp.product_id
+		WHERE sale_id = ?`, saleID).
 		Scan(&cartItems).Error
+	if err != nil {
+		s.log.Error(err)
+		return err
+	}
+
+	// Store productlarni yangilash uchun batch update query
+	updateQuery := `UPDATE store_products sp
+	SET pack_quantity = pack_quantity - data.new_pack_quantity,
+		unit_quantity = unit_quantity - data.new_unit_quantity
+	FROM (
+		VALUES
+	`
+	values := []any{}
+
+	for _, item := range cartItems {
+		// Pack va unit miqdorlarini hisoblash
+		newPackQuantity := item.Quantity
+		newUnitQuantity := item.Quantity*item.UnitPerPack + item.UnitQuantity
+		values = append(values, item.StoreProductID, newPackQuantity, newUnitQuantity)
+		updateQuery += " (CAST(? AS UUID), ?::INTEGER, ?::INTEGER),"
+	}
+
+	// So‘rovni yakunlash
+	updateQuery = updateQuery[:len(updateQuery)-1] + `
+	) AS data(id, new_pack_quantity, new_unit_quantity)
+	WHERE sp.id = data.id;`
+
+	// Batch update bajarish
+	err = tx.Exec(updateQuery, values...).Error
 	if err != nil {
 		return err
 	}
 
+	// Bonuslarni batch insert qilish
+	insertBonusQuery := `INSERT INTO employee_bonus (
+		employee_id, sale_id, product_id, cashbox_operation_id, bonus_amount, quantity
+	) VALUES `
+
+	bonusValues := []any{}
 	for _, item := range cartItems {
-		err = tx.Debug().Exec(`
-		UPDATE store_products
-		SET
-			pack_quantity = CASE WHEN ? > 0 THEN (unit_quantity - ?)/products.unit_per_pack - ? ELSE pack_quantity - ? END,
-			unit_quantity = unit_quantity - (? * products.unit_per_pack + ?)
-		FROM products
-		WHERE products.id = store_products.product_id AND  store_products.id = ?`,
-			item.UnitQuantity, item.UnitQuantity, item.Quantity, item.Quantity,
-			item.Quantity, item.UnitQuantity, item.StoreProductID).Error
-		if err != nil {
-			return err
+		if item.BonusAmount > 0 {
+			unitBonus := (item.BonusAmount / float64(item.UnitPerPack)) * float64(item.UnitQuantity)
+			totalBonus := item.BonusAmount*float64(item.Quantity) + unitBonus
+			bonusValues = append(bonusValues, employeeID, saleID, item.ProductId, cashBoxOperationId, totalBonus, item.Quantity)
+			insertBonusQuery += "(?, ?, ?, ?, ?, ?),"
 		}
-		err = tx.Exec(`
-		INSERT INTO employee_bonus (
-				employee_id, sale_id, product_id, cashbox_operation_id, bonus_amount, quantity
-				) 
-			VALUES (?, ?, ?, ?, ?, ?)`,
-			employeeID, saleID, item.ProductId, cashBoxOperationId, item.BonusAmount*float64(item.Quantity), item.Quantity).Error
+	}
+
+	// Agar bonuslar mavjud bo‘lsa, batch insert qilamiz
+	if len(bonusValues) > 0 {
+		insertBonusQuery = insertBonusQuery[:len(insertBonusQuery)-1] // oxirgi vergulni olib tashlash
+		err = tx.Exec(insertBonusQuery, bonusValues...).Error
 		if err != nil {
 			return err
 		}

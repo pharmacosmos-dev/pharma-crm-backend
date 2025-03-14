@@ -18,6 +18,7 @@ type CartItem struct {
 	DiscountAmount float64    `gorm:"discount_amount" json:"discount_amount"`
 	TotalPrice     float64    `gorm:"total_price" json:"total_price"`
 	BonusAmount    float64    `gorm:"bonus_amount" json:"bonus_amount"`
+	UnitPerPack    int        `gorm:"unit_per_pack" json:"unit_per_pack"`
 	CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt      *time.Time `gorm:"updated_at" json:"updated_at"`
 }
