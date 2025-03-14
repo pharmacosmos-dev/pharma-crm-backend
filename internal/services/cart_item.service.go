@@ -88,8 +88,9 @@ func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartIt
 }
 
 // create cart item
-func (s *Storage) CreateCartItem(req *domain.CartItemRequest, percent, price float64) error {
-	err := s.db.Exec(`
+func (s *Storage) CreateCartItem(req *domain.CartItemRequest, percent, price float64) (*domain.CartItem, error) {
+	var res domain.CartItem
+	err := s.db.Raw(`
 		INSERT INTO cart_items(
 			id, store_product_id,
 			sale_id, employee_id,
@@ -102,12 +103,12 @@ func (s *Storage) CreateCartItem(req *domain.CartItemRequest, percent, price flo
 		uuid.New().String(), req.StoreProductID, req.SaleId,
 		req.EmployeeID, req.Quantity, req.UnitQuantity,
 		req.UnitPrice, req.TotalPrice, config.PENDING_CART_ITEM,
-		req.DiscountType, percent, price, req.DiscountAmount).Error
+		req.DiscountType, percent, price, req.DiscountAmount).Scan(&res).Error
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return &res, nil
 }
 
 // update cart item by field

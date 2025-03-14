@@ -91,14 +91,14 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 			return
 		}
 		cartItem.TotalPrice += cartItem.UnitPrice
-		err = h.db.Exec(`UPDATE cart_items SET quantity = ?, total_price = ? WHERE id = ?`,
-			cartItem.Quantity, cartItem.TotalPrice, cartItem.ID).Error
+		err = h.db.Raw(`UPDATE cart_items SET quantity = ?, total_price = ? WHERE id = ?`,
+			cartItem.Quantity, cartItem.TotalPrice, cartItem.ID).Scan(&cartItem).Error
 		if err != nil {
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())
 			return
 		}
-		handleResponse(c, OK, "ADDED")
+		handleResponse(c, OK, cartItem)
 		return
 	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
 		handleResponse(c, InternalError, err.Error())
@@ -132,12 +132,12 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 	body.UnitPrice = storeProduct.RetailPrice
 	body.EmployeeID = vendorID.(string)
 	body.StoreProductID = storeProduct.Id
-	err = h.service.CreateCartItem(&body, discountPercent, discountPrice)
+	res, err := h.service.CreateCartItem(&body, discountPercent, discountPrice)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, "ADDED")
+	handleResponse(c, OK, res)
 }
 
 // Get godoc
