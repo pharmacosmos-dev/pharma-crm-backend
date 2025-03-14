@@ -144,28 +144,31 @@ func (s *Storage) GetStoreProductByBarcode(ctx context.Context, barcode string) 
 
 // get store info by product id
 func (s *Storage) GetStoreProductByIdOrBarcode(id string, barcode string, storeId string) (*domain.StoreProduct, error) {
+	query := s.db.
+		Table("store_products sp").
+		Select(`sp.*, pb.bonus_amount AS bonus_amount, p.unit_per_pack`).
+		Joins("JOIN products p ON sp.product_id = p.id").
+		Joins("LEFT JOIN product_bonuses pb ON pb.product_id = p.id").
+		Where("sp.store_id = ?", storeId)
 	var storeProduct domain.StoreProduct
 	if id != "" {
-		err := s.db.Raw(`
-		SELECT sp.*, ((sp.retail_price/100)*sp.bonus_percent) AS bonus_amount, p.unit_per_pack 
-		FROM store_products sp JOIN products p ON sp.product_id = p.id WHERE sp.id = ?`, id).
-			Scan(&storeProduct).Error
-		if err != nil {
-			return nil, err
-		}
+		query = query.Where("sp.id = ?", id)
 	} else if barcode != "" {
-		err := s.db.Raw(`
-		SELECT sp.*, ((sp.retail_price/100)*sp.bonus_percent) AS bonus_amount, p.unit_per_pack 
-		FROM store_products sp 
-		JOIN products p ON sp.product_id = p.id 
-		LEFT JOIN import_details im ON im.product_id = sp.product_id
-		WHERE sp.store_id = ? AND (p.barcode = ? OR ? = ANY(im.marking))`, storeId, barcode, barcode).
-			Scan(&storeProduct).Error
-		if err != nil {
-			return nil, err
+		// define search key
+		switch utils.DefineProductSearchQuery(barcode) {
+		case "barcode":
+			query = query.Where("p.barcode = ?", barcode).Limit(1)
+		case "marking":
+			query = query.Joins("LEFT JOIN product_markings pm ON pm.product_id = p.id").
+				Where("pm.marking = ?", barcode).Limit(1)
 		}
 	} else {
 		return nil, errors.New("id or barcode is required")
+	}
+
+	err := query.First(&storeProduct).Error
+	if err != nil {
+		return nil, err
 	}
 
 	return &storeProduct, nil

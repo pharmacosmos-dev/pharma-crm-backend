@@ -74,12 +74,15 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 	// get store product
 	storeProduct, err := h.service.GetStoreProductByIdOrBarcode(body.StoreProductID, body.Barcode, employee.StoreId)
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			handleResponse(c, NotFound, "Product not found")
+			return
+		}
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 	// get cart item
-
 	var cartItem domain.CartItem
 	err = h.db.First(&cartItem,
 		"store_product_id = ? AND sale_id = ?  AND status = 'pending'",
@@ -402,6 +405,11 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 	var unitPrice float64
 	if storeProduct.UnitPerPack > 0 {
 		unitPrice = (storeProduct.RetailPrice / float64(storeProduct.UnitPerPack)) * float64(body.UnitQuantity)
+	}
+
+	if body.UnitQuantity > storeProduct.UnitPerPack {
+		body.Quantity += body.UnitQuantity / storeProduct.UnitPerPack
+		body.UnitQuantity = body.UnitQuantity % storeProduct.UnitPerPack
 	}
 
 	// Cart item ni yangilash
