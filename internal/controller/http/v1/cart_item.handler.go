@@ -406,7 +406,7 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 	if storeProduct.UnitPerPack > 0 {
 		unitPrice = (storeProduct.RetailPrice / float64(storeProduct.UnitPerPack)) * float64(body.UnitQuantity)
 	}
-
+	// Unit quantityni pack quantityga o'zgartirish
 	if body.UnitQuantity > storeProduct.UnitPerPack {
 		body.Quantity += body.UnitQuantity / storeProduct.UnitPerPack
 		body.UnitQuantity = body.UnitQuantity % storeProduct.UnitPerPack

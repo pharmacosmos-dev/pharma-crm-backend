@@ -75,19 +75,20 @@ func (h *ProductHandler) Create(c *gin.Context) {
 		body domain.ProductRequest
 		err  error
 	)
-	err = c.ShouldBindJSON(&body)
-	if err != nil {
+	// bind request body
+	if err = c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	// begin transaction
 	tx := h.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
 		}
 	}()
-
+	// generate id
 	body.Id = uuid.New().String()
 	body.Photos = utils.StringArray(body.Photos)
 	body.Status = config.ACTIVE_PRODUCT
@@ -102,7 +103,7 @@ func (h *ProductHandler) Create(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-
+	// store products
 	if len(body.StoreProduct) > 0 {
 		var imports = make([]domain.ImportRequest, len(body.StoreProduct))
 		var importDetail = make([]domain.ImportDetailRequest, len(body.StoreProduct))
@@ -129,6 +130,7 @@ func (h *ProductHandler) Create(c *gin.Context) {
 			importDetail[i].VatSum = body.StoreProduct[i].RetailPrice - body.StoreProduct[i].SupplyPrice
 			importDetail[i].ExpireDate = time.Now().Format("2006-01-02 15:04:05")
 		}
+		// store products
 		err = tx.
 			WithContext(c.Request.Context()).
 			Table("store_products").
@@ -139,6 +141,7 @@ func (h *ProductHandler) Create(c *gin.Context) {
 			handleResponse(c, InternalError, err.Error())
 			return
 		}
+		// create new import
 		err = tx.
 			WithContext(c.Request.Context()).
 			Table("imports").
@@ -149,6 +152,7 @@ func (h *ProductHandler) Create(c *gin.Context) {
 			handleResponse(c, InternalError, err.Error())
 			return
 		}
+		// create new import detail
 		err = tx.
 			WithContext(c.Request.Context()).
 			Table("import_details").
@@ -160,6 +164,7 @@ func (h *ProductHandler) Create(c *gin.Context) {
 			return
 		}
 	}
+	// check category length
 	if len(body.CategoryIds) > 0 {
 		var categoryProduct = make([]domain.CategoryProduct, len(body.CategoryIds))
 		for i := range body.CategoryIds {
@@ -167,6 +172,7 @@ func (h *ProductHandler) Create(c *gin.Context) {
 			categoryProduct[i].CategoryId = body.CategoryIds[i]
 			categoryProduct[i].IsOpen = true
 		}
+		// create category products
 		err = tx.
 			WithContext(c.Request.Context()).
 			Create(&categoryProduct).Error
@@ -177,9 +183,10 @@ func (h *ProductHandler) Create(c *gin.Context) {
 			return
 		}
 	}
-
+	// commit transaction
 	if err = tx.Commit().Error; err != nil {
 		handleResponse(c, InternalError, err.Error())
+		tx.Rollback()
 		return
 	}
 
