@@ -99,7 +99,7 @@ func (s *Storage) CreateCartItem(req *domain.CartItemRequest, percent, price flo
 			discount_type, discount_value,
 			discount_price, discount_amount
 			)
-		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
 		uuid.New().String(), req.StoreProductID, req.SaleId,
 		req.EmployeeID, req.Quantity, req.UnitQuantity,
 		req.UnitPrice, req.TotalPrice, config.PENDING_CART_ITEM,

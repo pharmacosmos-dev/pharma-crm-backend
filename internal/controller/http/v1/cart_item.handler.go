@@ -91,7 +91,7 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 			return
 		}
 		cartItem.TotalPrice += cartItem.UnitPrice
-		err = h.db.Raw(`UPDATE cart_items SET quantity = ?, total_price = ? WHERE id = ?`,
+		err = h.db.Raw(`UPDATE cart_items SET quantity = ?, total_price = ? WHERE id = ? RETURNING *`,
 			cartItem.Quantity, cartItem.TotalPrice, cartItem.ID).Scan(&cartItem).Error
 		if err != nil {
 			h.log.Error(err)
