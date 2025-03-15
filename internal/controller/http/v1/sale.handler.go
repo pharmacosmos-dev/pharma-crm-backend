@@ -595,7 +595,7 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	// 
+	//
 	if body.Error {
 		// Update sales status
 		err = tx.Exec(`UPDATE sales SET status = ? WHERE id = ?`, config.PENDING, body.SaleId).Error
@@ -755,6 +755,21 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		tx.Rollback()
 		return
 	}
+	// collect new sale info
+	newSale := domain.SaleRequest{
+		ID:                 uuid.New().String(),
+		StoreId:            sale.StoreId,
+		EmployeeID:         sale.EmployeeID,
+		CashBoxOperationId: sale.CashBoxOperationId,
+	}
+	// create new sale
+	err = tx.Table("sales").Create(&newSale).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		tx.Rollback()
+		return
+	}
 
 	// Commit transaction
 	if err = tx.Commit().Error; err != nil {
@@ -762,7 +777,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		tx.Rollback()
 		return
 	}
-	handleResponse(c, OK, "COMPLETED")
+	handleResponse(c, OK, newSale)
 }
 
 // Validate payment Type
