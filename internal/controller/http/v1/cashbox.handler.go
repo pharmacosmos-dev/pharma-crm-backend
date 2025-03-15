@@ -7,6 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
@@ -400,7 +401,7 @@ func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
 	if cashBoxOperationID != "" {
 		// Check for a pending sale linked to this cashbox operation
 		var sale domain.Sale
-		err := h.db.Where("status = ? AND cash_box_operation_id = ?", "pending", cashBoxOperationID).First(&sale).Error
+		err := h.db.Where("status = ? AND cash_box_operation_id = ? AND sale_type = ?", "pending", cashBoxOperationID, config.SALE_TYPE_SALE).First(&sale).Error
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				// No pending sale found; create a new one
