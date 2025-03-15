@@ -373,6 +373,12 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 		return
 	}
 
+	// Unit quantityni pack quantityga o'zgartirish
+	if body.UnitQuantity >= storeProduct.UnitPerPack {
+		body.Quantity += body.UnitQuantity / storeProduct.UnitPerPack
+		body.UnitQuantity = body.UnitQuantity % storeProduct.UnitPerPack
+	}
+
 	// Miqdor yetarliligini tekshirish
 	if body.Quantity > 0 && body.UnitQuantity == 0 {
 		if storeProduct.PackQuantity < body.Quantity {
@@ -405,11 +411,6 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 	var unitPrice float64
 	if storeProduct.UnitPerPack > 0 {
 		unitPrice = (storeProduct.RetailPrice / float64(storeProduct.UnitPerPack)) * float64(body.UnitQuantity)
-	}
-	// Unit quantityni pack quantityga o'zgartirish
-	if body.UnitQuantity > storeProduct.UnitPerPack {
-		body.Quantity += body.UnitQuantity / storeProduct.UnitPerPack
-		body.UnitQuantity = body.UnitQuantity % storeProduct.UnitPerPack
 	}
 
 	// Cart item ni yangilash
