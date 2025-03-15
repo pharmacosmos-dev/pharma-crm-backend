@@ -4841,37 +4841,6 @@ paths:
       summary: List import details order by last update
       tags:
       - import_details
-  /import-detail/product-marking/{id}:
-    get:
-      consumes:
-      - application/json
-      description: Product marking
-      parameters:
-      - description: Import ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Product marking
-      tags:
-      - import_details
   /import/{id}:
     get:
       consumes:
@@ -7502,6 +7471,60 @@ paths:
       security:
       - BearerAuth: []
       summary: Final Sale
+      tags:
+      - sales
+  /sale/get-list:
+    get:
+      consumes:
+      - application/json
+      description: Get a sale from the request body
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Vendor ID
+        in: query
+        name: vendor_id
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a sale
       tags:
       - sales
   /sale/list:

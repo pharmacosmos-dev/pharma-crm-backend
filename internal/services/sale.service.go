@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
@@ -268,17 +267,11 @@ func (s *Storage) CreateOnlineSale(tx *gorm.DB, saleId string, totalAmount int64
 }
 
 // get sale list data
-func (s *Storage) ListSale(c *gin.Context, param *domain.QueryParam) ([]domain.SaleResponse, int64, error) {
+func (s *Storage) ListSale(param *domain.QueryParam) ([]domain.SaleResponse, int64, error) {
 	var totalCount int64
-
-	// get user id from header
-	userId, ok := c.Get("user_id")
-	if !ok {
-		return nil, 0, errors.New("user not found in context")
-	}
 	// get employee info
 	var employee domain.Employee
-	err := s.db.First(&employee, "id = ?", userId).Error
+	err := s.db.First(&employee, "id = ?", param.VendorID).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, 0, errors.New("employee not found")
@@ -355,6 +348,59 @@ func (s *Storage) ListSale(c *gin.Context, param *domain.QueryParam) ([]domain.S
 		Limit(param.Limit).
 		Offset(param.Offset).
 		Order("s.completed_at DESC").
+		Debug().
+		Find(&res).Error
+
+	if err != nil {
+		s.log.Error(err)
+		return nil, 0, err
+	}
+	return res, totalCount, nil
+}
+
+func (s *Storage) GetSaleList(param *domain.QueryParam) ([]domain.SaleResponse, int64, error) {
+	var totalCount int64
+	// build sale get list query
+	var res = []domain.SaleResponse{}
+	query := s.db.Model(&domain.Sale{}).Table("sales s").
+		Preload("SalePayments", func(db *gorm.DB) *gorm.DB {
+			return db.Preload("PaymentType")
+		}).
+		Select(`s.*,st.name AS store_name, c.full_name as customer_name`).
+		// Change INNER JOIN to LEFT JOIN to include sales without store_id
+		Joins("JOIN stores st ON st.id = s.store_id").
+		Joins("LEFT JOIN customers c ON s.customer_id = c.id")
+
+	// filter by employee
+	if param.VendorID != "" {
+		query = query.Where("s.employee_id = ?", param.VendorID)
+	}
+	// filter by store id
+	if param.StoreID != "" {
+		query = query.Where("s.store_id = ?", param.StoreID)
+	}
+
+	// filter by start date and end date
+	if param.StartDate != "" && param.EndDate != "" {
+		query = query.Where("s.completed_at::date >= ? AND s.completed_at::date <= ?  ", param.StartDate, param.EndDate)
+	}
+	// filter by start date
+	if param.StartDate != "" && param.EndDate == "" {
+		query = query.Where("s.completed_at::date >= ?", param.StartDate)
+	}
+	// search condition
+	if param.Search != "" {
+		param.Search = fmt.Sprintf("%%%s%%", param.Search)
+		query = query.Where("st.name ILIKE ? OR CAST(s.sale_number AS TEXT) LIKE ?", param.Search, param.Search)
+	}
+	// complete query
+	err := query.
+		Where("s.status = 'completed'").
+		Count(&totalCount).
+		Limit(param.Limit).
+		Offset(param.Offset).
+		Order("s.completed_at DESC").
+		Debug().
 		Find(&res).Error
 
 	if err != nil {

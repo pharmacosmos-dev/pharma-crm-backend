@@ -43,6 +43,7 @@ func (h *SaleHandler) SaleRoutes(r *gin.RouterGroup) {
 		sale.POST("/final", h.FinalSale)
 		sale.GET("/stats", h.SaleStats)
 		sale.POST("/epos-result", h.EposRequest)
+		sale.GET("/get-list", h.GetSaleList)
 	}
 }
 
@@ -226,17 +227,25 @@ func (h *SaleHandler) Get(c *gin.Context) {
 // @Router /sale/list [get]
 func (h *SaleHandler) List(c *gin.Context) {
 	var param domain.QueryParam
+
+	// get user_id from the context
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+
 	// bind query params
 	if err := c.ShouldBindQuery(&param); err != nil {
-		h.log.Error(err)
+		h.log.Error("bind query params error: ", err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 	// get limit offset with checking default
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
-
+	param.VendorID = userId.(string)
 	// get sale list data
-	res, totalCount, err := h.service.ListSale(c, &param)
+	res, totalCount, err := h.service.ListSale(&param)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -269,6 +278,13 @@ func (h *SaleHandler) List(c *gin.Context) {
 // @Router /sale/export-excel [get]
 func (h *SaleHandler) ExportSaleExcel(c *gin.Context) {
 	var param domain.QueryParam
+	// get user_id from the context
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	param.VendorID = userId.(string)
 	// bind query params
 	if err := c.ShouldBindQuery(&param); err != nil {
 		h.log.Error(err)
@@ -279,7 +295,7 @@ func (h *SaleHandler) ExportSaleExcel(c *gin.Context) {
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 
 	// get sale list data
-	res, _, err := h.service.ListSale(c, &param)
+	res, _, err := h.service.ListSale(&param)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -1130,4 +1146,46 @@ func (h *SaleHandler) SaveResponse(ctx context.Context, req *domain.PaymentReque
 		return err
 	}
 	return nil
+}
+
+// List godoc
+// @Summary Get a sale
+// @Description Get a sale from the request body
+// @Tags sales
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Param vendor_id query string false "Vendor ID"
+// @Param store_id query string true "Store ID"
+// @Param search query string false "Search"
+// @Param start_date query string false "Start Date"
+// @Param end_date query string false "End Date"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /sale/get-list [get]
+func (h *SaleHandler) GetSaleList(c *gin.Context) {
+	var (
+		param domain.QueryParam
+	)
+	// bind query params
+	if err := c.ShouldBindQuery(&param); err != nil {
+		h.log.Error("ERROR on binding query params: ", err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	// get sale list data
+	res, totalCount, err := h.service.GetSaleList(&param)
+	if err != nil {
+		h.log.Error("ERROR on getting sale list: ", err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	// added _meta section to response
+	result := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+
+	handleResponse(c, OK, result)
 }
