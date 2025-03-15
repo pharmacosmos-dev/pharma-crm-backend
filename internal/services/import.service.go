@@ -360,8 +360,6 @@ func (s *Storage) ListImportDetail(param *domain.ImportDetailQueryParams) ([]dom
 
 	if param.NoMarking {
 		query = query.Where("array_length(import_details.marking, 1) IS NULL OR array_length(import_details.marking, 1) = 0")
-	} else if !param.NoMarking {
-		query = query.Where("array_length(import_details.marking, 1) > 0")
 	}
 	err := query.
 		Count(&totalCount).
