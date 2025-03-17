@@ -78,6 +78,7 @@ type CartItemResponse struct {
 	Quantity            int        `gorm:"quantity" json:"quantity"`
 	UnitQuantity        int        `gorm:"unit_quantity" json:"unit_quantity"`
 	UnitPrice           float64    `gorm:"unit_price" json:"unit_price"`
+	UnitQuantityPrice   float64    `gorm:"unit_quantity_price" json:"unit_quantity_price"`
 	DiscountPrice       float64    `gorm:"discount_price" json:"discount_price"`
 	DiscountType        string     `gorm:"discount_type" json:"discount_type" example:"percent|cash"`
 	DiscountValue       float64    `gorm:"discount_value" json:"discount_value"`
