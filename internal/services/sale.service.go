@@ -297,7 +297,7 @@ func (s *Services) ListSale(param *domain.QueryParam, userId string) ([]domain.S
 		st.name AS store_name, customers.full_name as customer_name, customers.phone AS customer_phone,
 		cash_boxes.name AS cash_box_name`).
 		// Change INNER JOIN to LEFT JOIN to include sales without store_id
-		Joins("JOIN stores st ON st.id = s.store_id").
+		Joins("LEFT JOIN stores st ON st.id = s.store_id").
 		// Change INNER JOIN to LEFT JOIN to include sales without employee_id
 		Joins("LEFT JOIN employees em ON em.id = s.employee_id").
 		// Change INNER JOIN to LEFT JOIN to include sales without cashbox_operation_id
@@ -343,7 +343,6 @@ func (s *Services) ListSale(param *domain.QueryParam, userId string) ([]domain.S
 		Limit(param.Limit).
 		Offset(param.Offset).
 		Order("s.completed_at DESC").
-		Debug().
 		Find(&res).Error
 
 	if err != nil {
