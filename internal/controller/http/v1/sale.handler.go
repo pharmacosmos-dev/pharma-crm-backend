@@ -926,7 +926,7 @@ func (h *SaleHandler) ClickPass(ctx context.Context, click *domain.PaymentServic
 }
 
 // Check click pass payment status
-func (h *SaleHandler) ClickCheckPaymentStatus(ctx context.Context, data map[string]interface{}, token string) (map[string]interface{}, error) {
+func (h *SaleHandler) ClickCheckPaymentStatus(ctx context.Context, data map[string]any, token string) (map[string]any, error) {
 	fullUrl := h.cfg.ClickEndpointUrl + fmt.Sprintf("/payment/status/%v/%v", data["service_id"], data["payment_id"])
 	res, err := h.ClickPassDoRequest(ctx, fullUrl, data, token)
 	if err != nil {
@@ -977,7 +977,7 @@ func (h *SaleHandler) ClickPassDoRequest(ctx context.Context, url string, data i
 	}
 
 	// Decode response body
-	var result map[string]interface{}
+	var result map[string]any
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %v", err)
