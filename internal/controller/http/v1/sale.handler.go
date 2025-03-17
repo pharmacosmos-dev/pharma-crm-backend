@@ -243,9 +243,8 @@ func (h *SaleHandler) List(c *gin.Context) {
 	}
 	// get limit offset with checking default
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
-	param.VendorID = userId.(string)
 	// get sale list data
-	res, totalCount, err := h.service.ListSale(&param)
+	res, totalCount, err := h.service.ListSale(&param, userId.(string))
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -284,7 +283,6 @@ func (h *SaleHandler) ExportSaleExcel(c *gin.Context) {
 		handleResponse(c, UNAUTHORIZED, "User ID not found")
 		return
 	}
-	param.VendorID = userId.(string)
 	// bind query params
 	if err := c.ShouldBindQuery(&param); err != nil {
 		h.log.Error(err)
@@ -295,7 +293,7 @@ func (h *SaleHandler) ExportSaleExcel(c *gin.Context) {
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 
 	// get sale list data
-	res, _, err := h.service.ListSale(&param)
+	res, _, err := h.service.ListSale(&param, userId.(string))
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return

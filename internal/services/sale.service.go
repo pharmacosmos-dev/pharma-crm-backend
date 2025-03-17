@@ -268,11 +268,11 @@ func (s *Services) CreateOnlineSale(tx *gorm.DB, saleId string, totalAmount int6
 }
 
 // get sale list data
-func (s *Services) ListSale(param *domain.QueryParam) ([]domain.SaleResponse, int64, error) {
+func (s *Services) ListSale(param *domain.QueryParam, userId string) ([]domain.SaleResponse, int64, error) {
 	var totalCount int64
 	// get employee info
 	var employee domain.Employee
-	err := s.db.First(&employee, "id = ?", param.VendorID).Error
+	err := s.db.First(&employee, "id = ?", userId).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, 0, errors.New("employee not found")
@@ -315,20 +315,14 @@ func (s *Services) ListSale(param *domain.QueryParam) ([]domain.SaleResponse, in
 	// filter by employee
 	if param.VendorID != "" {
 		query = query.Where("s.employee_id = ?", param.VendorID)
-	} else {
-		query = query.Where("s.employee_id IS NOT NULL OR s.employee_id IS NULL") // Include online sales
 	}
 	// filter by store id
 	if param.StoreID != "" {
 		query = query.Where("s.store_id = ?", param.StoreID)
-	} else {
-		query = query.Where("s.store_id IS NOT NULL OR s.store_id IS NULL") // Include online sales
 	}
 	// filter by cashbox id
 	if param.CashBoxID != "" {
 		query = query.Where("co.cash_box_id = ?", param.CashBoxID)
-	} else {
-		query = query.Where("s.cash_box_operation_id IS NULL OR co.cash_box_id IS NOT NULL") // Include online sales
 	}
 	// filter by start date and end date
 	if param.StartDate != "" && param.EndDate != "" {
