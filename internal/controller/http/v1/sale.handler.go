@@ -688,7 +688,7 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param input body domain.FinalSale true "Sale information"
+// @Param 	input body domain.FinalSale true "Sale information"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -737,13 +737,13 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		tx.Rollback()
 		return
 	}
+
 	// check sale is completed or no
 	if isSaleCompleted(sale.Status) {
 		handleResponse(c, CONFLICT, "Sale is already completed")
 		tx.Rollback()
 		return
 	}
-	body.StoreID = sale.StoreId
 	// process payment types
 	for _, item := range body.PaymentTypes {
 		if err = processPaymentType(tx, h, body, item); err != nil {
@@ -774,10 +774,11 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	// collect new sale info
 	newSale := domain.SaleRequest{
 		ID:                 uuid.New().String(),
-		StoreId:            sale.StoreId,
+		StoreId:            body.StoreID,
 		EmployeeID:         sale.EmployeeID,
 		CashBoxOperationId: sale.CashBoxOperationId,
 	}
+
 	// create new sale
 	err = tx.Table("sales").Create(&newSale).Error
 	if err != nil {
