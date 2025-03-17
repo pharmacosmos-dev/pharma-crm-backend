@@ -8,7 +8,7 @@ import (
 )
 
 // check field employee
-func (s *Storage) CheckFieldEmployee(field, value string) (bool, error) {
+func (s *Services) CheckFieldEmployee(field, value string) (bool, error) {
 	var temp = 0
 	err := s.db.Raw(`SELECT 1 FROM employees WHERE `+field+` = ?`, value).Scan(&temp).Error
 	if err != nil {
@@ -18,7 +18,7 @@ func (s *Storage) CheckFieldEmployee(field, value string) (bool, error) {
 }
 
 // get employee list data
-func (s *Storage) ListEmployee(c *gin.Context, limit, offset int) ([]domain.Employee, int64, error) {
+func (s *Services) ListEmployee(c *gin.Context, limit, offset int) ([]domain.Employee, int64, error) {
 	var (
 		res        []domain.Employee
 		totalCount int64

@@ -6,14 +6,14 @@ import (
 	"gorm.io/gorm"
 )
 
-type Storage struct {
+type Services struct {
 	db  *gorm.DB
 	log *logger.Logger
 	cfg *config.Config
 }
 
-func NewStorage(db *gorm.DB, log *logger.Logger, cfg *config.Config) *Storage {
-	return &Storage{
+func NewStorage(db *gorm.DB, log *logger.Logger, cfg *config.Config) *Services {
+	return &Services{
 		db:  db,
 		log: log,
 		cfg: cfg,

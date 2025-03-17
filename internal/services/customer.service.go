@@ -8,7 +8,7 @@ import (
 )
 
 // get customer list data
-func (s *Storage) ListCustomer(search, storeID string, limit, offset int) ([]domain.Customer, int64, error) {
+func (s *Services) ListCustomer(search, storeID string, limit, offset int) ([]domain.Customer, int64, error) {
 	var (
 		res        []domain.Customer
 		totalCount int64

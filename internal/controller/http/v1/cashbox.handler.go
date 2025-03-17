@@ -409,7 +409,7 @@ func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
 					CashBoxOperationId: cashBoxOperationID,
 					EmployeeID:         userID.(string),
 					ID:                 uuid.New().String(),
-					StoreId:            storeId,
+					StoreId:            &storeId,
 				}
 				if createErr := h.db.Table("sales").Create(&newSale).Error; createErr != nil {
 					h.log.Error(createErr)

@@ -16,7 +16,7 @@ type Handler struct {
 	db         *gorm.DB
 	cfg        *config.Config
 	JwtHandler *token.JWTHandler
-	service    *services.Storage
+	service    *services.Services
 	validator  *utils.Validator
 }
 
@@ -25,7 +25,7 @@ func NewHandler(
 	db *gorm.DB,
 	log *logger.Logger,
 	jwt *token.JWTHandler,
-	service *services.Storage,
+	service *services.Services,
 	validator *utils.Validator,
 ) *Handler {
 

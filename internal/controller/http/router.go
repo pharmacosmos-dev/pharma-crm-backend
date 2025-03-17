@@ -22,7 +22,7 @@ type Options struct {
 	Db   *gorm.DB
 	Log  *logger.Logger
 	Cfg  *config.Config
-	Strg *services.Storage
+	Strg *services.Services
 }
 
 // @title Pharma API docs

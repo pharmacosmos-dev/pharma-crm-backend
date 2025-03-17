@@ -11,7 +11,7 @@ import (
 )
 
 // get cart item list by sale id with limit, offset
-func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartItemData, error) {
+func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartItemData, error) {
 	var res []domain.CartItemResponse
 	err := s.db.Raw(`
 	SELECT
@@ -88,7 +88,7 @@ func (s *Storage) CartItemList(saleID string, limit, offset int) (*domain.CartIt
 }
 
 // create cart item
-func (s *Storage) CreateCartItem(req *domain.CartItemRequest, percent, price float64) (*domain.CartItem, error) {
+func (s *Services) CreateCartItem(req *domain.CartItemRequest, percent, price float64) (*domain.CartItem, error) {
 	var res domain.CartItem
 	err := s.db.Raw(`
 		INSERT INTO cart_items(
@@ -112,7 +112,7 @@ func (s *Storage) CreateCartItem(req *domain.CartItemRequest, percent, price flo
 }
 
 // update cart item by field
-func (s *Storage) UpdateCartItemField(field string, value string, idField, idValue string) (*domain.CartItem, error) {
+func (s *Services) UpdateCartItemField(field string, value string, idField, idValue string) (*domain.CartItem, error) {
 	var res domain.CartItem
 	err := s.db.Raw(`UPDATE cart_items SET `+field+` = ? WHERE `+idField+` = ? RETURNING *`, value, idValue).Scan(&res).Error
 	if err != nil {
@@ -122,7 +122,7 @@ func (s *Storage) UpdateCartItemField(field string, value string, idField, idVal
 }
 
 // get cart item list by sale id
-func (s *Storage) ListCartItemsBySaleID(saleID string) ([]domain.CartItem, error) {
+func (s *Services) ListCartItemsBySaleID(saleID string) ([]domain.CartItem, error) {
 	var res []domain.CartItem
 	err := s.db.Raw(`SELECT * FROM cart_items WHERE sale_id = ?`, saleID).Scan(&res).Error
 	if err != nil {
@@ -132,7 +132,7 @@ func (s *Storage) ListCartItemsBySaleID(saleID string) ([]domain.CartItem, error
 }
 
 // create cart item for online sale
-func (s *Storage) CreateOnlineCartItem(tx *gorm.DB, req *domain.SaleOnlineItem, saleID string) error {
+func (s *Services) CreateOnlineCartItem(tx *gorm.DB, req *domain.SaleOnlineItem, saleID string) error {
 	// check if product and store exist
 	var storProductId string
 	err := s.db.Raw(`SELECT id FROM store_products WHERE store_id = ? AND product_id = ?`, req.StoreId, req.ProductId).Scan(&storProductId).Error

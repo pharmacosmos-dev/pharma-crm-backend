@@ -5,7 +5,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func (s *Storage) UpdateDraftField(tx *gorm.DB, field string, value string, idField, idValue string) (*domain.Draft, error) {
+func (s *Services) UpdateDraftField(tx *gorm.DB, field string, value string, idField, idValue string) (*domain.Draft, error) {
 	var res domain.Draft
 	err := tx.Raw(`UPDATE drafts SET `+field+` = ? WHERE `+idField+` = ? RETURNING *`, value, idValue).Scan(&res).Error
 	if err != nil {
@@ -15,7 +15,7 @@ func (s *Storage) UpdateDraftField(tx *gorm.DB, field string, value string, idFi
 }
 
 // get draft by id -> it calculate the total price of the draft
-func (s *Storage) GetDraftByID(id string) (*domain.Draft, error) {
+func (s *Services) GetDraftByID(id string) (*domain.Draft, error) {
 	var res domain.Draft
 	err := s.db.
 		Preload("Customer").

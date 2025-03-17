@@ -13,7 +13,7 @@ import (
 )
 
 // get auto order for generate new auto order
-func (s *Storage) ListAutoOrderForGenerate(ctx context.Context, limit, offset int, storeID, search string) ([]domain.AutoOrder, int64, error) {
+func (s *Services) ListAutoOrderForGenerate(ctx context.Context, limit, offset int, storeID, search string) ([]domain.AutoOrder, int64, error) {
 	var (
 		autoOrders      []domain.AutoOrder
 		totalCount      int64
@@ -116,7 +116,7 @@ func (s *Storage) ListAutoOrderForGenerate(ctx context.Context, limit, offset in
 }
 
 // get auto order get list
-func (s *Storage) ListAutoOrder(c *gin.Context, limit, offset int) ([]domain.AutoOrder, int64, error) {
+func (s *Services) ListAutoOrder(c *gin.Context, limit, offset int) ([]domain.AutoOrder, int64, error) {
 	var (
 		autoOrders []domain.AutoOrder
 		err        error
@@ -185,7 +185,7 @@ func (s *Storage) ListAutoOrder(c *gin.Context, limit, offset int) ([]domain.Aut
 }
 
 // generate auto order with store_id and day
-func (s *Storage) GenerateAutoOrderDetail(ctx context.Context, storeID string, day int) ([]*domain.AutoOrderDetailRequest, error) {
+func (s *Services) GenerateAutoOrderDetail(ctx context.Context, storeID string, day int) ([]*domain.AutoOrderDetailRequest, error) {
 	var res []*domain.AutoOrderDetailRequest
 	query := `
 	WITH sales_data AS (

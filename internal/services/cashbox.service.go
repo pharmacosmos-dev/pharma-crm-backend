@@ -9,7 +9,7 @@ import (
 )
 
 // get cash box operation shift list
-func (s *Storage) GetOperationShiftList(storeID, isOpen, search string, limit, offset int) ([]domain.CashboxOperationShift, int64, error) {
+func (s *Services) GetOperationShiftList(storeID, isOpen, search string, limit, offset int) ([]domain.CashboxOperationShift, int64, error) {
 	var (
 		shifts     []domain.CashboxOperationShift
 		args       = []any{}
@@ -73,7 +73,7 @@ func (s *Storage) GetOperationShiftList(storeID, isOpen, search string, limit, o
 }
 
 // GetOperationStats godoc
-func (s *Storage) GetOperationStats(storeID, isOpen, search string) (domain.CashboxOperationStats, error) {
+func (s *Services) GetOperationStats(storeID, isOpen, search string) (domain.CashboxOperationStats, error) {
 	var (
 		stats domain.CashboxOperationStats
 		query = `
@@ -119,7 +119,7 @@ func (s *Storage) GetOperationStats(storeID, isOpen, search string) (domain.Cash
 }
 
 // GetOperationHistory godoc
-func (s *Storage) OperationHistory(storeID, isOpen, search string, limit, offset int) ([]domain.CashBoxOperationHistory, int64, error) {
+func (s *Services) OperationHistory(storeID, isOpen, search string, limit, offset int) ([]domain.CashBoxOperationHistory, int64, error) {
 	var (
 		group      = `co.id, co.operation_id, cb.name, s.name, co.start_time, e.full_name, co.end_time, em.full_name`
 		order      = "co.operation_id DESC"
@@ -181,7 +181,7 @@ func (s *Storage) OperationHistory(storeID, isOpen, search string, limit, offset
 }
 
 // close cashbox operation
-func (s *Storage) CloseCashBoxOperation(cashBoxOperationID string, req *domain.CloseCashboxOperation, senderId string) error {
+func (s *Services) CloseCashBoxOperation(cashBoxOperationID string, req *domain.CloseCashboxOperation, senderId string) error {
 	// start transaction
 	tx := s.db.Begin()
 	defer func() {
@@ -232,7 +232,7 @@ func (s *Storage) CloseCashBoxOperation(cashBoxOperationID string, req *domain.C
 }
 
 // create cashbox operation
-func (s *Storage) CreateCashboxOperation(req *domain.CashboxOperationRequest, userId any) (*domain.Sale, error) {
+func (s *Services) CreateCashboxOperation(req *domain.CashboxOperationRequest, userId any) (*domain.Sale, error) {
 	// start transaction
 	tx := s.db.Begin()
 	defer func() {

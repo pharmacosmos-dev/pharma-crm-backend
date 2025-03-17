@@ -59,7 +59,7 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 	}()
 	// get store info
 	var store domain.Store
-	err = tx.First(&store, "store_code = ?", body.Apteka.StoreCode).Error
+	err = h.db.First(&store, "store_code = ?", body.Apteka.StoreCode).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			handleResponse(c, OK, "Store not found")

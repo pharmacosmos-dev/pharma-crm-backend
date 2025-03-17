@@ -13,18 +13,19 @@ import (
 )
 
 // create new sale
-func (s *Storage) CreateSale(tx *gorm.DB, req *domain.SaleRequest) (*domain.Sale, error) {
+func (s *Services) CreateSale(tx *gorm.DB, req *domain.SaleRequest) (*domain.Sale, error) {
 	var res domain.Sale
-	err := tx.Raw(`INSERT INTO sales(id, employee_id, cash_box_operation_id) VALUES(?, ?, ?) RETURNING *`,
-		req.ID, req.EmployeeID, req.CashBoxOperationId).Scan(&res).Error
+	err := tx.Raw(`INSERT INTO sales(id, employee_id, cash_box_operation_id, store_id) VALUES(?, ?, ?, ?) RETURNING *`,
+		req.ID, req.EmployeeID, req.CashBoxOperationId, req.StoreId).Scan(&res).Error
 	if err != nil {
+		s.log.Error(err)
 		return nil, err
 	}
 	return &res, nil
 }
 
 // create return sale
-func (s *Storage) CreateReturnSale(req *domain.SaleReturnRequest) (*domain.Sale, error) {
+func (s *Services) CreateReturnSale(req *domain.SaleReturnRequest) (*domain.Sale, error) {
 	var sale domain.Sale
 	// start transaction
 	tx := s.db.Begin()
@@ -71,7 +72,7 @@ func (s *Storage) CreateReturnSale(req *domain.SaleReturnRequest) (*domain.Sale,
 }
 
 // update sale with receiving field
-func (s *Storage) UpdateSaleField(field string, value string, idField string, idValue string) (*domain.Sale, error) {
+func (s *Services) UpdateSaleField(field string, value string, idField string, idValue string) (*domain.Sale, error) {
 	var res domain.Sale
 	err := s.db.Raw(`UPDATE sales SET `+field+` = ? WHERE `+idField+` = ? RETURNING *`, value, idValue).Scan(&res).Error
 	if err != nil {
@@ -81,7 +82,7 @@ func (s *Storage) UpdateSaleField(field string, value string, idField string, id
 }
 
 // Create sale payment
-func (s *Storage) CreateSalePayment(tx *gorm.DB, req domain.FinalSale, item domain.FinalPaymentType, paymentServiceId *string, status string) (*domain.SalePayment, error) {
+func (s *Services) CreateSalePayment(tx *gorm.DB, req domain.FinalSale, item domain.FinalPaymentType, paymentServiceId *string, status string) (*domain.SalePayment, error) {
 	var now = time.Now()
 	salePayment := domain.SalePayment{}
 	// Insert sale payments
@@ -102,7 +103,7 @@ func (s *Storage) CreateSalePayment(tx *gorm.DB, req domain.FinalSale, item doma
 }
 
 // Get Payment service with store id and payment type  if status is active
-func (s *Storage) GetPaymentServiceByStoreId(storeId string, paymentType string) (*domain.PaymentService, error) {
+func (s *Services) GetPaymentServiceByStoreId(storeId string, paymentType string) (*domain.PaymentService, error) {
 	var res domain.PaymentService
 	err := s.db.Raw(`SELECT * FROM payment_services WHERE store_id = ? AND type = ? AND is_active = true`,
 		storeId, paymentType).Error
@@ -113,7 +114,7 @@ func (s *Storage) GetPaymentServiceByStoreId(storeId string, paymentType string)
 }
 
 // update sale payment status
-func (s *Storage) UpdateSalePaymentStatus(tx *gorm.DB, salePaymentID string) error {
+func (s *Services) UpdateSalePaymentStatus(tx *gorm.DB, salePaymentID string) error {
 	err := tx.Exec(`UPDATE sale_payments SET status = 'paid' WHERE id = ?`, salePaymentID).Error
 	if err != nil {
 		s.log.Error(err)
@@ -123,7 +124,7 @@ func (s *Storage) UpdateSalePaymentStatus(tx *gorm.DB, salePaymentID string) err
 }
 
 // Create or update sale payment summary with on conflict do update
-func (s *Storage) CreateOrUpdateSalePaymentSummary(tx *gorm.DB, cashBoxOperationId string, paymentTypeId string, amount float64) error {
+func (s *Services) CreateOrUpdateSalePaymentSummary(tx *gorm.DB, cashBoxOperationId string, paymentTypeId string, amount float64) error {
 	err := tx.Exec(`
 				INSERT INTO sale_payment_summary (
 					cash_box_operation_id, payment_type_id, total_amount
@@ -139,7 +140,7 @@ func (s *Storage) CreateOrUpdateSalePaymentSummary(tx *gorm.DB, cashBoxOperation
 }
 
 // Update sale status and total amount after the sale is completed
-func (s *Storage) UpdateSaleStatus(tx *gorm.DB, saleID string, totalAmount float64, customerID *string) error {
+func (s *Services) UpdateSaleStatus(tx *gorm.DB, saleID string, totalAmount float64, customerID *string) error {
 	return tx.Exec(`
 	UPDATE sales
 	SET
@@ -150,7 +151,7 @@ func (s *Storage) UpdateSaleStatus(tx *gorm.DB, saleID string, totalAmount float
 }
 
 // Update cart item status and store product quantities after the sale is completed
-func (s *Storage) UpdateCartItemStatus(tx *gorm.DB, saleID string, employeeID string, cashBoxOperationId string) error {
+func (s *Services) UpdateCartItemStatus(tx *gorm.DB, saleID string, employeeID string, cashBoxOperationId string) error {
 	var cartItems []domain.CartItem
 	err := tx.Raw(`
 		SELECT 
@@ -225,7 +226,7 @@ func (s *Storage) UpdateCartItemStatus(tx *gorm.DB, saleID string, employeeID st
 }
 
 // update return sale cart items
-func (s *Storage) UpdateReturnSaleCartItems(tx *gorm.DB, saleID string) error {
+func (s *Services) UpdateReturnSaleCartItems(tx *gorm.DB, saleID string) error {
 	var cartItems []domain.CartItem
 	// get cart items
 	err := tx.Raw(`
@@ -256,7 +257,7 @@ func (s *Storage) UpdateReturnSaleCartItems(tx *gorm.DB, saleID string) error {
 }
 
 // create sale for online order
-func (s *Storage) CreateOnlineSale(tx *gorm.DB, saleId string, totalAmount int64) error {
+func (s *Services) CreateOnlineSale(tx *gorm.DB, saleId string, totalAmount int64) error {
 	err := tx.Exec(`
 	INSERT INTO sales(id, total_amount, type, is_delivered, status, completed_at) VALUES(?, ?, ?, ?, ?, ?)`,
 		saleId, totalAmount, "online", false, config.COMPLETED, time.Now()).Error
@@ -267,7 +268,7 @@ func (s *Storage) CreateOnlineSale(tx *gorm.DB, saleId string, totalAmount int64
 }
 
 // get sale list data
-func (s *Storage) ListSale(param *domain.QueryParam) ([]domain.SaleResponse, int64, error) {
+func (s *Services) ListSale(param *domain.QueryParam) ([]domain.SaleResponse, int64, error) {
 	var totalCount int64
 	// get employee info
 	var employee domain.Employee
@@ -358,7 +359,7 @@ func (s *Storage) ListSale(param *domain.QueryParam) ([]domain.SaleResponse, int
 	return res, totalCount, nil
 }
 
-func (s *Storage) GetSaleList(param *domain.QueryParam) ([]domain.SaleResponse, int64, error) {
+func (s *Services) GetSaleList(param *domain.QueryParam) ([]domain.SaleResponse, int64, error) {
 	var totalCount int64
 	// build sale get list query
 	var res = []domain.SaleResponse{}

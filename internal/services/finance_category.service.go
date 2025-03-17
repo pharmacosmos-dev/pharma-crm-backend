@@ -5,7 +5,7 @@ import (
 	"github.com/pharma-crm-backend/domain"
 )
 
-func (s *Storage) CreateOrUpdateFinanceCategory(req *domain.FinanceCategoryRequest) (*domain.FinanceCategory, error) {
+func (s *Services) CreateOrUpdateFinanceCategory(req *domain.FinanceCategoryRequest) (*domain.FinanceCategory, error) {
 	var res domain.FinanceCategory
 	query := `
 	INSERT INTO finance_categories(

@@ -19,7 +19,7 @@ import (
 )
 
 // Update value by chosen field
-func (s *Storage) UpdateImportByField(tx *gorm.DB, id string, field, value string) (*domain.Import, error) {
+func (s *Services) UpdateImportByField(tx *gorm.DB, id string, field, value string) (*domain.Import, error) {
 	var res domain.Import
 	// build query
 	query := fmt.Sprintf("UPDATE imports SET %s = ? WHERE id = ? RETURNING *", field)
@@ -32,7 +32,7 @@ func (s *Storage) UpdateImportByField(tx *gorm.DB, id string, field, value strin
 }
 
 // accept import
-func (s *Storage) AcceptImport(tx *gorm.DB, id string, userID string) (*domain.Import, error) {
+func (s *Services) AcceptImport(tx *gorm.DB, id string, userID string) (*domain.Import, error) {
 	var res domain.Import
 	// update import status
 	err := tx.Raw(`UPDATE imports SET status = ?, accepted_by = ? WHERE id = ? RETURNING *`, config.COMPLETED_IMPORT, userID, id).Scan(&res).Error
@@ -50,7 +50,7 @@ func (s *Storage) AcceptImport(tx *gorm.DB, id string, userID string) (*domain.I
 }
 
 // Canceled import
-func (s *Storage) CancelImport(tx *gorm.DB, id string, userID string) (*domain.Import, error) {
+func (s *Services) CancelImport(tx *gorm.DB, id string, userID string) (*domain.Import, error) {
 	var res domain.Import
 	err := tx.Raw(`UPDATE imports SET status = ?, accepted_by = ? WHERE id = ? RETURNING *`, config.CANCELED_IMPORT, userID, id).Scan(&res).Error
 	if err != nil {
@@ -61,7 +61,7 @@ func (s *Storage) CancelImport(tx *gorm.DB, id string, userID string) (*domain.I
 }
 
 // Add some imported products to stores
-func (s *Storage) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domain.Import) error {
+func (s *Services) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domain.Import) error {
 	var (
 		reqFakt domain.AcceptImport1C
 	)
@@ -119,7 +119,7 @@ func (s *Storage) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domain
 }
 
 // add all imported products to store
-func (s *Storage) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import) error {
+func (s *Services) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import) error {
 	var (
 		importDetails []domain.ImportDetail
 		reqFakt       domain.AcceptImport1C
@@ -188,7 +188,7 @@ func (s *Storage) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import) 
 }
 
 // update import details to cancel
-func (s *Storage) UpdateImportDetailsToCancel(tx *gorm.DB, importID string) error {
+func (s *Services) UpdateImportDetailsToCancel(tx *gorm.DB, importID string) error {
 	err := tx.Exec(`UPDATE import_details SET canceled_count = received_count WHERE import_id = ?`, importID).Error
 	if err != nil {
 		s.log.Error(err)
@@ -198,7 +198,7 @@ func (s *Storage) UpdateImportDetailsToCancel(tx *gorm.DB, importID string) erro
 }
 
 // create import details
-func (s *Storage) CreateImportDetail(tx *gorm.DB, req *domain.ImportDetailRequest) (string, error) {
+func (s *Services) CreateImportDetail(tx *gorm.DB, req *domain.ImportDetailRequest) (string, error) {
 	var (
 		id    string
 		query = `INSERT INTO import_details(
@@ -220,7 +220,7 @@ func (s *Storage) CreateImportDetail(tx *gorm.DB, req *domain.ImportDetailReques
 }
 
 // create product marking
-func (s *Storage) CreateProductMarking(tx *gorm.DB, req domain.ProductMarkingReq) error {
+func (s *Services) CreateProductMarking(tx *gorm.DB, req domain.ProductMarkingReq) error {
 	for _, item := range req.Marking {
 		err := tx.Exec(`INSERT INTO product_markings(import_detail_id, product_id, marking) VALUES(?, ?, ?)`, req.ImportDetailId, req.ProductID, item).Error
 		if err != nil {
@@ -232,7 +232,7 @@ func (s *Storage) CreateProductMarking(tx *gorm.DB, req domain.ProductMarkingReq
 }
 
 // list import
-func (s *Storage) ListImport(c *gin.Context, limit, offset int) ([]domain.Import, int64, error) {
+func (s *Services) ListImport(c *gin.Context, limit, offset int) ([]domain.Import, int64, error) {
 	var (
 		imports          []domain.Import
 		totalCount       int64
@@ -319,7 +319,7 @@ func (s *Storage) ListImport(c *gin.Context, limit, offset int) ([]domain.Import
 }
 
 // list import detail
-func (s *Storage) ListImportDetail(param *domain.ImportDetailQueryParams) ([]domain.ImportDetail, int64, error) {
+func (s *Services) ListImportDetail(param *domain.ImportDetailQueryParams) ([]domain.ImportDetail, int64, error) {
 	var (
 		importDetails []domain.ImportDetail
 		totalCount    int64
@@ -375,7 +375,7 @@ func (s *Storage) ListImportDetail(param *domain.ImportDetailQueryParams) ([]dom
 }
 
 // get import details by import id
-func (s *Storage) GetImportDetailsByImportId(importId string) ([]domain.ImportDetail, error) {
+func (s *Services) GetImportDetailsByImportId(importId string) ([]domain.ImportDetail, error) {
 	var importDetails []domain.ImportDetail
 	err := s.db.Raw(`
 		SELECT 
@@ -398,7 +398,7 @@ func (s *Storage) GetImportDetailsByImportId(importId string) ([]domain.ImportDe
 }
 
 // get import detail list order by updated_at
-func (s *Storage) ListImportDetailByLastUpdated(c *gin.Context, limit, offset int) ([]domain.ImportDetail, int64, error) {
+func (s *Services) ListImportDetailByLastUpdated(c *gin.Context, limit, offset int) ([]domain.ImportDetail, int64, error) {
 	var (
 		importDetails      []domain.ImportDetail
 		totalCount         int64
@@ -468,7 +468,7 @@ func (s *Storage) ListImportDetailByLastUpdated(c *gin.Context, limit, offset in
 }
 
 // send request to 1C for answering import details
-func (s *Storage) DoRequest(ctx context.Context, data any, url string) error {
+func (s *Services) DoRequest(ctx context.Context, data any, url string) error {
 	client := &http.Client{
 		Timeout: 30 * time.Second,
 	}

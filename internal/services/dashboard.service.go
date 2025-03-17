@@ -7,7 +7,7 @@ import (
 )
 
 // get dashboard count and amount data
-func (s *Storage) DashboardTotalCountStats(storeId, startDate, endDate string) (*domain.TotalCountStats, error) {
+func (s *Services) DashboardTotalCountStats(storeId, startDate, endDate string) (*domain.TotalCountStats, error) {
 	// declarations
 	var (
 		res       domain.TotalCountStats
@@ -80,7 +80,7 @@ func (s *Storage) DashboardTotalCountStats(storeId, startDate, endDate string) (
 }
 
 // get dashboard chart stats data list
-func (s *Storage) DashboardChartStats(storeId, employeeId string, startDate, endDate string, intervalType string) ([]domain.ChartResponse, error) {
+func (s *Services) DashboardChartStats(storeId, employeeId string, startDate, endDate string, intervalType string) ([]domain.ChartResponse, error) {
 	var res []domain.ChartResponse
 
 	// queries
@@ -150,7 +150,7 @@ func (s *Storage) DashboardChartStats(storeId, employeeId string, startDate, end
 }
 
 // get dashboard top stores
-func (s *Storage) DashboardTopStores(storeId, employeeId, startDate, endDate string) ([]domain.TopStores, error) {
+func (s *Services) DashboardTopStores(storeId, employeeId, startDate, endDate string) ([]domain.TopStores, error) {
 	// declaration
 	var (
 		res []domain.TopStores

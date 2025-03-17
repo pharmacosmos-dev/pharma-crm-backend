@@ -78,7 +78,7 @@ func (h *SaleHandler) Create(c *gin.Context) {
 		return
 	}
 	// check store id
-	if body.StoreId == "" {
+	if body.StoreId == nil {
 		handleResponse(c, BadRequest, "Store ID is required")
 		return
 	}
@@ -195,7 +195,7 @@ func (h *SaleHandler) Get(c *gin.Context) {
 		return
 	}
 	// get epos response
-	err = h.db.Table("epos_responses").Where("sale_id = ?", id).First(&res.EposResponse).Error
+	err = h.db.Table("epos_responses").Where("sale_id = ?", res.ID).First(&res.EposResponse).Error
 	if err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) { // Faqat mavjud bo'lmagan yozuv emas, boshqa xatoliklarni logga yozish
 			h.log.Error(err)
@@ -646,15 +646,14 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 		newSale := domain.SaleRequest{
 			ID:                 uuid.New().String(),
 			EmployeeID:         sale.EmployeeID,
-			StoreId:            sale.StoreId,
+			StoreId:            &sale.StoreId,
 			CashBoxOperationId: sale.CashBoxOperationId,
 		}
-
 		// Insert new sale
-		err = tx.Table("sales").Create(&newSale).Error
+		_, err = h.service.CreateSale(tx, &newSale)
 		if err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, err.Error())
+			h.log.Error("ERROR on creating new sale: %w", err)
+			handleResponse(c, InternalError, "ERROR on creating new sale: "+err.Error())
 			tx.Rollback()
 			return
 		}
@@ -774,7 +773,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	// collect new sale info
 	newSale := domain.SaleRequest{
 		ID:                 uuid.New().String(),
-		StoreId:            body.StoreID,
+		StoreId:            &body.StoreID,
 		EmployeeID:         sale.EmployeeID,
 		CashBoxOperationId: sale.CashBoxOperationId,
 	}

@@ -12,7 +12,7 @@ import (
 )
 
 // get store products get list
-func (s *Storage) ListStoreProduct(param *domain.StoreProductQueryParam) ([]*domain.StoreProductResponse, error) {
+func (s *Services) ListStoreProduct(param *domain.StoreProductQueryParam) ([]*domain.StoreProductResponse, error) {
 	var (
 		res []*domain.StoreProductResponse
 		err error
@@ -70,7 +70,7 @@ func (s *Storage) ListStoreProduct(param *domain.StoreProductQueryParam) ([]*dom
 }
 
 // get similar products list
-func (s *Storage) SimilarProducts(ctx context.Context, productID string, offset int, limit int) ([]domain.StoreProductResponse, error) {
+func (s *Services) SimilarProducts(ctx context.Context, productID string, offset int, limit int) ([]domain.StoreProductResponse, error) {
 	var res []domain.StoreProductResponse
 	err := s.db.WithContext(ctx).Debug().
 		Table("products p").
@@ -115,7 +115,7 @@ func (s *Storage) SimilarProducts(ctx context.Context, productID string, offset 
 }
 
 // get store product info by barcode
-func (s *Storage) GetStoreProductByBarcode(ctx context.Context, barcode string) (domain.StoreProductResponse, error) {
+func (s *Services) GetStoreProductByBarcode(ctx context.Context, barcode string) (domain.StoreProductResponse, error) {
 	var res domain.StoreProductResponse
 	err := s.db.Raw(`
 	SELECT
@@ -143,7 +143,7 @@ func (s *Storage) GetStoreProductByBarcode(ctx context.Context, barcode string) 
 }
 
 // get store info by product id
-func (s *Storage) GetStoreProductByIdOrBarcode(id string, barcode string, storeId string) (*domain.StoreProduct, error) {
+func (s *Services) GetStoreProductByIdOrBarcode(id string, barcode string, storeId string) (*domain.StoreProduct, error) {
 	query := s.db.
 		Table("store_products sp").
 		Select(`sp.*, pb.bonus_amount AS bonus_amount, p.unit_per_pack`).
@@ -174,7 +174,7 @@ func (s *Storage) GetStoreProductByIdOrBarcode(id string, barcode string, storeI
 	return &storeProduct, nil
 }
 
-func (s *Storage) GetStoreProductByID(id string) (*domain.StoreProduct, error) {
+func (s *Services) GetStoreProductByID(id string) (*domain.StoreProduct, error) {
 	var storeProduct domain.StoreProduct
 	err := s.db.Raw(`
 		SELECT sp.*, pb.bonus_amount AS bonus_amount, 
@@ -192,7 +192,7 @@ func (s *Storage) GetStoreProductByID(id string) (*domain.StoreProduct, error) {
 }
 
 // Change store product stock based on situation (increase or decrease)
-func (s *Storage) ChangeStoreProductStock(tx *gorm.DB, id string, quantity, unitQuantity int, isIncrease bool) error {
+func (s *Services) ChangeStoreProductStock(tx *gorm.DB, id string, quantity, unitQuantity int, isIncrease bool) error {
 	var operation = "-"
 	if isIncrease {
 		operation = "+"
@@ -206,7 +206,7 @@ func (s *Storage) ChangeStoreProductStock(tx *gorm.DB, id string, quantity, unit
 }
 
 // get products get list
-func (s *Storage) ListProduct(param *domain.ProductQueryParam) ([]*domain.Product, int64, error) {
+func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]*domain.Product, int64, error) {
 	// get query param values
 	var (
 		res        []*domain.Product
@@ -322,7 +322,7 @@ func (s *Storage) ListProduct(param *domain.ProductQueryParam) ([]*domain.Produc
 }
 
 // get product ikpu by mxik
-func (s *Storage) GetProductIKPUByMxik(ctx context.Context, mxik string) (*domain.ProductMeasurement, error) {
+func (s *Services) GetProductIKPUByMxik(ctx context.Context, mxik string) (*domain.ProductMeasurement, error) {
 	var measurement domain.ProductMeasurement
 	err := s.db.First(&measurement, "mxik_code = ?", mxik).Error
 	if err != nil {
@@ -333,7 +333,7 @@ func (s *Storage) GetProductIKPUByMxik(ctx context.Context, mxik string) (*domai
 }
 
 // get producer info by code
-func (s *Storage) GetProducerByCode(ctx context.Context, code string) (*domain.Producer, error) {
+func (s *Services) GetProducerByCode(ctx context.Context, code string) (*domain.Producer, error) {
 	var producer domain.Producer
 	err := s.db.Raw(`SELECT id, name, code, created_at, updated_at FROM producers WHERE code = ?`, code).Scan(&producer).Error
 	if err != nil {
@@ -352,7 +352,7 @@ func (s *Storage) GetProducerByCode(ctx context.Context, code string) (*domain.P
 }
 
 // create new producer
-func (s *Storage) CreateProducer(ctx context.Context, code string) (*domain.Producer, error) {
+func (s *Services) CreateProducer(ctx context.Context, code string) (*domain.Producer, error) {
 	var producer domain.Producer
 	query := `INSERT INTO producers (code) VALUES (?) RETURNING *`
 	err := s.db.Debug().WithContext(ctx).Raw(query, code).Scan(&producer).Error
