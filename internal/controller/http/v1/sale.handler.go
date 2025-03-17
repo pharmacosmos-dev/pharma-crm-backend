@@ -195,7 +195,7 @@ func (h *SaleHandler) Get(c *gin.Context) {
 		return
 	}
 	// get epos response
-	err = h.db.Table("epos_responses").Where("sale_id = ?", res.ID).First(&res.EposResponse).Error
+	err = h.db.Table("epos_responses").Where("sale_id = ?", res.ParentId).First(&res.EposResponse).Error
 	if err != nil {
 		if !errors.Is(err, gorm.ErrRecordNotFound) { // Faqat mavjud bo'lmagan yozuv emas, boshqa xatoliklarni logga yozish
 			h.log.Error(err)
