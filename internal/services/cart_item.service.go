@@ -57,6 +57,9 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 		return nil, err
 	}
 	for i := range res {
+		if res[i].UnitPerPack > 0 {
+			res[i].UnitVatPrice = res[i].VatPrice / float64(res[i].UnitPerPack)
+		}
 		if res[i].UnitPerPack > 0 && res[i].UnitQuantityInStock != res[i].UnitPerPack*res[i].QuantityInStock {
 			res[i].CurrentStock = fmt.Sprintf("%d (%d/%d)", res[i].QuantityInStock, res[i].UnitQuantityInStock%res[i].UnitPerPack, res[i].UnitPerPack)
 		} else {

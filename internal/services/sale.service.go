@@ -105,7 +105,7 @@ func (s *Services) CreateSalePayment(tx *gorm.DB, req domain.FinalSale, item dom
 // Get Payment service with store id and payment type  if status is active
 func (s *Services) GetPaymentServiceByStoreId(storeId string, paymentType string) (*domain.PaymentService, error) {
 	var res domain.PaymentService
-	err := s.db.Debug().Raw(`SELECT * FROM payment_services WHERE store_id = ? AND type = ? AND is_active = true`,
+	err := s.db.Raw(`SELECT * FROM payment_services WHERE store_id = ? AND type = ? AND is_active = true`,
 		storeId, paymentType).Scan(&res).Error
 	if err != nil {
 		return nil, err
@@ -117,7 +117,7 @@ func (s *Services) GetPaymentServiceByStoreId(storeId string, paymentType string
 func (s *Services) UpdateSalePaymentStatus(tx *gorm.DB, salePaymentID string) error {
 	err := tx.Exec(`UPDATE sale_payments SET status = 'paid' WHERE id = ?`, salePaymentID).Error
 	if err != nil {
-		s.log.Error(err)
+		s.log.Error("ERROR on updating sale payment status: ", err)
 		return err
 	}
 	return nil

@@ -130,31 +130,8 @@ func (h *Services) ClickPassDoRequest(ctx context.Context, url string, data any,
 	return result, nil
 }
 
-// Payme Go Handler functon
-func (h *Services) PaymeGo(ctx context.Context, click *domain.PaymentService, data *domain.FinalPaymentType, CashOperationID string, transactionID string, saleID string) (map[string]interface{}, error) {
-	return h.PaymeGoDoRequest(ctx, data)
-}
-
-// DoRequest for Payme Go
-func (h *Services) PaymeGoDoRequest(ctx context.Context, data interface{}) (map[string]interface{}, error) {
-	client := &http.Client{}
-	req, err := http.NewRequest("POST", "", nil)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Add("X-Auth", "")
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	return nil, nil
-}
-
 // Uzum fast pay handler function
-func (h *Services) UzumFastPay(ctx context.Context, paymentService *domain.PaymentService, data *domain.FinalPaymentType, CashOperationID string, transactionID string, saleID string) (map[string]interface{}, error) {
+func (h *Services) UzumFastPay(ctx context.Context, paymentService *domain.PaymentService, data *domain.FinalPaymentType, CashOperationID string, transactionID string, saleID string) (map[string]any, error) {
 	var cashBoxId string
 	err := h.db.Raw(`SELECT cash_box_id FROM cashbox_operations WHERE id = ?`, CashOperationID).Scan(&cashBoxId).Error
 	if err != nil {
@@ -204,8 +181,8 @@ func (h *Services) UzumFastPay(ctx context.Context, paymentService *domain.Payme
 }
 
 // Uzum Fast Pay Check payment status
-func (h *Services) UzumFastPayCheckPaymentStatus(ctx context.Context, paymentService domain.PaymentService, paymentId string) (map[string]interface{}, error) {
-	data := map[string]interface{}{
+func (h *Services) UzumFastPayCheckPaymentStatus(ctx context.Context, paymentService domain.PaymentService, paymentId string) (map[string]any, error) {
+	data := map[string]any{
 		"service_id": paymentService.ServiceID,
 		"payment_id": paymentId,
 	}
@@ -219,7 +196,7 @@ func (h *Services) UzumFastPayCheckPaymentStatus(ctx context.Context, paymentSer
 }
 
 // DoRequest for Uzum Fast Pay
-func (h *Services) UzumFastPayDoRequest(ctx context.Context, url string, data interface{}, token string) (map[string]interface{}, error) {
+func (h *Services) UzumFastPayDoRequest(ctx context.Context, url string, data any, token string) (map[string]any, error) {
 	client := &http.Client{}
 	buf := bytes.Buffer{}
 
@@ -263,6 +240,32 @@ func (h *Services) UzumFastPayDoRequest(ctx context.Context, url string, data in
 		return nil, fmt.Errorf("failed to decode response: %v", err)
 	}
 	return result, nil
+}
+
+// Payme Go Handler functon
+func (h *Services) PaymeGo(ctx context.Context, click *domain.PaymentService, data *domain.FinalPaymentType, CashOperationID string, transactionID string, saleID string) (map[string]any, error) {
+	
+		
+	
+	return h.PaymeGoDoRequest(ctx, data)
+}
+
+// DoRequest for Payme Go
+func (h *Services) PaymeGoDoRequest(ctx context.Context, data any) (map[string]any, error) {
+	client := &http.Client{}
+	req, err := http.NewRequest("POST", "", nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Add("X-Auth", "")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	return nil, nil
 }
 
 // Save payment request to database

@@ -137,3 +137,38 @@ type UzumResponse struct {
 	OperationTime     string `json:"operation_time"`
 	ClientPhoneNumber string `json:"client_phone_number"`
 }
+
+// Type PaymeGo request body
+type PaymeGoRequest struct {
+	Id     int           `json:"id"`
+	Method string        `json:"method"`
+	Params PaymeGoParams `json:"params"`
+}
+
+type PaymeGoParams struct {
+	Amount  float64 `json:"amount"`
+	Account struct {
+		OrderId string `json:"order_id"`
+	}
+	Detail PaymeGoDetail `json:"detail"`
+}
+
+type PaymeGoDetail struct {
+	ReceiptType int `json:"receipt_type"`
+	Shipping    struct {
+		Title string  `json:"title"`
+		Price float64 `json:"price"`
+	}
+	Items []PaymeGoItem `json:"items"`
+}
+
+type PaymeGoItem struct {
+	Discount    float64 `json:"discount"`
+	Title       string  `json:"title"`
+	Price       float64 `json:"price"`
+	Count       int     `json:"count"`
+	Code        string  `json:"code"`
+	Units       string  `json:"units"`
+	VatPercent  int     `json:"vat_percent"`
+	PackageCode string  `json:"package_code"`
+}
