@@ -3,6 +3,7 @@ package services
 import (
 	"errors"
 	"fmt"
+	"math"
 
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
@@ -58,7 +59,7 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 	}
 	for i := range res {
 		if res[i].UnitPerPack > 0 {
-			res[i].UnitVatPrice = res[i].VatPrice / float64(res[i].UnitPerPack)
+			res[i].UnitVatPrice = math.Round(res[i].VatPrice*100/float64(res[i].UnitPerPack)) / 100
 		}
 		if res[i].UnitPerPack > 0 && res[i].UnitQuantityInStock != res[i].UnitPerPack*res[i].QuantityInStock {
 			res[i].CurrentStock = fmt.Sprintf("%d (%d/%d)", res[i].QuantityInStock, res[i].UnitQuantityInStock%res[i].UnitPerPack, res[i].UnitPerPack)
