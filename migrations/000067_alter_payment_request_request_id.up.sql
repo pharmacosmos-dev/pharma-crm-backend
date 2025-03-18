@@ -1,0 +1,1 @@
+ALTER TABLE payment_requests ADD COLUMN IF NOT EXISTS "request_id" BIGINT;

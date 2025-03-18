@@ -10014,7 +10014,8 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Store ID",
                         "name": "store_id",
-                        "in": "query"
+                        "in": "query",
+                        "required": true
                     },
                     {
                         "type": "string",
@@ -12426,6 +12427,9 @@ const docTemplate = `{
                 "sale_id": {
                     "type": "string"
                 },
+                "store_id": {
+                    "type": "string"
+                },
                 "total_amount": {
                     "type": "number"
                 }
@@ -12612,6 +12616,9 @@ const docTemplate = `{
         "domain.PaymentServiceRequest": {
             "type": "object",
             "properties": {
+                "cashbox_id": {
+                    "type": "string"
+                },
                 "is_active": {
                     "type": "boolean"
                 },

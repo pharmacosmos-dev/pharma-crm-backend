@@ -33,6 +33,7 @@ func (h *Services) ClickPass(ctx context.Context, click *domain.PaymentService, 
 	t, _ := json.Marshal(clickData)
 	// Save request of one click pass data
 	err = h.SaveRequest(ctx, &domain.PaymentRequest{
+		RequestId:       time.Now().Unix(),
 		Method:          "click_pass",
 		Payload:         t,
 		TransactionID:   transactionID,
@@ -150,6 +151,7 @@ func (h *Services) UzumFastPay(ctx context.Context, paymentService *domain.Payme
 		return nil, err
 	}
 	err = h.SaveRequest(ctx, &domain.PaymentRequest{
+		RequestId:       time.Now().Unix(),
 		Method:          "uzum_fast_pay",
 		Payload:         t,
 		TransactionID:   transactionID,
@@ -243,11 +245,57 @@ func (h *Services) UzumFastPayDoRequest(ctx context.Context, url string, data an
 }
 
 // Payme Go Handler functon
-func (h *Services) PaymeGo(ctx context.Context, click *domain.PaymentService, data *domain.FinalPaymentType, CashOperationID string, transactionID string, saleID string) (map[string]any, error) {
-	
-		
-	
+func (h *Services) PaymeGo(ctx context.Context, paymentService *domain.PaymentService, data *domain.FinalPaymentType, CashOperationID string, transactionID string, saleID string) (map[string]any, error) {
+	// method receipt create
+	_, err := h.PaymeGoReceiptCreate(ctx, data, transactionID, saleID)
+	if err != nil {
+		return nil, err
+	}
 	return h.PaymeGoDoRequest(ctx, data)
+}
+
+func (h *Services) PaymeGoReceiptCreate(ctx context.Context, data *domain.FinalPaymentType, transactionID string, saleID string) (map[string]any, error) {
+	// get items from cart_items table
+	items, err := h.GetPaymeGoItems(saleID)
+	if err != nil {
+		return nil, err
+	}
+
+	// get current time
+	now := time.Now()
+	reqData := domain.PaymeGoRequest{
+		Id:     now.Unix(),
+		Method: "receipts.create",
+		Params: domain.PaymeGoParams{
+			Amount: data.Amount,
+			Account: struct {
+				OrderId string `json:"order_id"`
+			}{
+				OrderId: saleID, // Assign your order ID here
+			},
+			Detail: domain.PaymeGoDetail{
+				ReceiptType: 0,
+				Shipping:    nil,
+				Items:       items,
+			},
+		},
+	}
+	t, _ := json.Marshal(reqData)
+	// save request payme go request
+	err = h.SaveRequest(ctx, &domain.PaymentRequest{
+		RequestId:       now.Unix(),
+		Method:          "receipts.create",
+		Payload:         t,
+		TransactionID:   transactionID,
+		PaymentProvider: "payme",
+	})
+	if err != nil {
+		h.log.Info("Error on saving payme go request: %v", err.Error())
+		return nil, err
+	}
+
+	return h.PaymeGoDoRequest(ctx, data)
+
 }
 
 // DoRequest for Payme Go

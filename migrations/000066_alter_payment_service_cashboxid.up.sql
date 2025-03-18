@@ -1,0 +1,1 @@
+ALTER TABLE payment_services ADD COLUMN IF NOT EXISTS cashbox_id VARCHAR(255);

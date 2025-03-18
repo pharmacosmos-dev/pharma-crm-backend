@@ -168,3 +168,17 @@ func (s *Services) CreateOnlineCartItem(tx *gorm.DB, req *domain.SaleOnlineItem,
 
 	return nil
 }
+
+// get cart items to payme go items
+func (s *Services) GetPaymeGoItems(saleID string) ([]domain.PaymeGoItem, error) {
+	var res []domain.PaymeGoItem
+	query := `
+	`
+	err := s.db.Raw(query, saleID).Scan(&res).Error
+	if err != nil {
+		s.log.Error("ERROR on getting cart_items: ", err)
+		return nil, err
+	}
+
+	return res, nil
+}

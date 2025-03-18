@@ -10007,7 +10007,8 @@
                         "type": "string",
                         "description": "Store ID",
                         "name": "store_id",
-                        "in": "query"
+                        "in": "query",
+                        "required": true
                     },
                     {
                         "type": "string",
@@ -12419,6 +12420,9 @@
                 "sale_id": {
                     "type": "string"
                 },
+                "store_id": {
+                    "type": "string"
+                },
                 "total_amount": {
                     "type": "number"
                 }
@@ -12605,6 +12609,9 @@
         "domain.PaymentServiceRequest": {
             "type": "object",
             "properties": {
+                "cashbox_id": {
+                    "type": "string"
+                },
                 "is_active": {
                     "type": "boolean"
                 },

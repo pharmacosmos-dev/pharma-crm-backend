@@ -1,0 +1,1 @@
+ALTER TABLE payment_services DROP COLUMN IF EXISTS cashbox_id;

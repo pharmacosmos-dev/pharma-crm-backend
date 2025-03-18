@@ -44,6 +44,7 @@ type PaymentService struct {
 	MerchantID     int        `gorm:"merchant_id" json:"merchant_id"`
 	MerchantUserID int        `gorm:"merchant_user_id" json:"merchant_user_id"`
 	ServiceID      int        `gorm:"service_id" json:"service_id"`
+	CashboxId      string     `gorm:"cashbox_id" json:"cashbox_id"`
 	SecretKey      string     `gorm:"secret_key" json:"secret_key"`
 	IsActive       bool       `gorm:"is_active" json:"is_active"`
 	CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`
@@ -59,6 +60,7 @@ type PaymentServiceRequest struct {
 	MerchantID     int        `gorm:"merchant_id" json:"merchant_id"`
 	MerchantUserID int        `gorm:"merchant_user_id" json:"merchant_user_id"`
 	ServiceID      int        `gorm:"service_id" json:"service_id"`
+	CashboxId      string     `gorm:"cashbox_id" json:"cashbox_id"`
 	SecretKey      string     `gorm:"secret_key" json:"secret_key"`
 	IsActive       bool       `gorm:"is_active" json:"is_active"`
 	UpdatedAt      *time.Time `gorm:"updated_at" json:"-"`
@@ -88,6 +90,7 @@ type TransactionRequest struct {
 // Payment request structure
 type PaymentRequest struct {
 	ID              *string    `gorm:"type:uuid;default:gen_random_uuid()" json:"id"`
+	RequestId       int64      `gorm:"request_id" json:"request_id"`
 	Method          string     `gorm:"method" json:"method"`
 	Payload         []byte     `gorm:"payload" json:"payload"`
 	Response        []byte     `gorm:"response" json:"response"`
@@ -140,7 +143,7 @@ type UzumResponse struct {
 
 // Type PaymeGo request body
 type PaymeGoRequest struct {
-	Id     int           `json:"id"`
+	Id     int64         `json:"id"`
 	Method string        `json:"method"`
 	Params PaymeGoParams `json:"params"`
 }
@@ -155,7 +158,7 @@ type PaymeGoParams struct {
 
 type PaymeGoDetail struct {
 	ReceiptType int `json:"receipt_type"`
-	Shipping    struct {
+	Shipping    *struct {
 		Title string  `json:"title"`
 		Price float64 `json:"price"`
 	}

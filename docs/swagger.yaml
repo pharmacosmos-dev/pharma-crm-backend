@@ -395,6 +395,8 @@ definitions:
         type: array
       sale_id:
         type: string
+      store_id:
+        type: string
       total_amount:
         type: number
     type: object
@@ -517,6 +519,8 @@ definitions:
     type: object
   domain.PaymentServiceRequest:
     properties:
+      cashbox_id:
+        type: string
       is_active:
         type: boolean
       merchant_id:
@@ -7494,6 +7498,7 @@ paths:
       - description: Store ID
         in: query
         name: store_id
+        required: true
         type: string
       - description: Search
         in: query

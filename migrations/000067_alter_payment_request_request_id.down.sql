@@ -1,0 +1,1 @@
+ALTER TABLE payment_requests DROP COLUMN IF EXISTS "request_id";
