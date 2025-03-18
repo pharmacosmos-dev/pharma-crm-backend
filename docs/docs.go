@@ -13133,6 +13133,9 @@ const docTemplate = `{
                 "cash_box_operation_id": {
                     "type": "string"
                 },
+                "cashbox_id": {
+                    "type": "string"
+                },
                 "employee_id": {
                     "type": "string"
                 },
@@ -13148,6 +13151,9 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "cash_box_operation_id": {
+                    "type": "string"
+                },
+                "cashbox_id": {
                     "type": "string"
                 },
                 "employee_id": {

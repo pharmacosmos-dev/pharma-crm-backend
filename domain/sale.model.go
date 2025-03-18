@@ -10,6 +10,7 @@ type Sale struct {
 	StoreId            string         `gorm:"store_id" json:"store_id"`
 	EmployeeID         string         `gorm:"employee_id" json:"employee_id"`
 	CashBoxOperationId string         `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
+	CashboxId          string         `gorm:"cashbox_id" json:"cashbox_id"`
 	CustomerID         string         `gorm:"customer_id" json:"customer_id"`
 	SaleNumber         int            `gorm:"sale_number" json:"sale_number"`
 	TotalDiscount      float64        `gorm:"total_discount" json:"total_discount"`
@@ -34,6 +35,7 @@ type SaleRequest struct {
 	EmployeeID         string  `gorm:"employee_id" json:"employee_id"`
 	StoreId            *string `gorm:"store_id" json:"store_id"`
 	CashBoxOperationId string  `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
+	CashboxId          string  `gorm:"cashbox_id" json:"cashbox_id"`
 }
 
 // SaleReturnRequest structure for create
@@ -41,6 +43,7 @@ type SaleReturnRequest struct {
 	SaleId             string     `gorm:"sale_id" json:"sale_id"`
 	EmployeeID         string     `gorm:"employee_id" json:"employee_id"`
 	CashBoxOperationId string     `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
+	CashboxId          string     `gorm:"cashbox_id" json:"cashbox_id"`
 	SaleType           string     `gorm:"sale_type" json:"sale_type"`
 	Items              []SaleItem `gorm:"-" json:"sale_items"`
 }

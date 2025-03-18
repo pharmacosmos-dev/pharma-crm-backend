@@ -56,9 +56,10 @@ func (h *SaleHandler) SaleRoutes(r *gin.RouterGroup) {
 // @Router /sale [post]
 func (h *SaleHandler) Create(c *gin.Context) {
 	var (
-		body domain.SaleRequest
-		res  domain.Sale
-		err  error
+		body             domain.SaleRequest
+		res              domain.Sale
+		cashboxOperation domain.CashboxOperation
+		err              error
 	)
 	// get user id from header
 	userId, ok := c.Get("user_id")
@@ -77,15 +78,24 @@ func (h *SaleHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, "Store ID is required")
 		return
 	}
+	// get cashbox operation
+	err = h.db.First(&cashboxOperation, "id = ?", body.CashBoxOperationId).Error
+	if err != nil {
+		h.log.Error("ERROR on getting cashbox_operation: ", err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
 	body.ID = uuid.New().String()
 	body.EmployeeID = userId.(string)
+	body.CashboxId = cashboxOperation.CashBoxID
 	// create sale
 	err = h.db.
 		WithContext(c.Request.Context()).
 		Raw(`
-		INSERT INTO sales (id, employee_id, cash_box_operation_id)
-		VALUES (?, ?, ?) RETURNING *`,
-			body.ID, body.EmployeeID, body.CashBoxOperationId).
+		INSERT INTO sales (id, employee_id, cash_box_operation_id, cashbox_id)
+		VALUES (?, ?, ?, ?) RETURNING *`,
+			body.ID, body.EmployeeID, body.CashBoxOperationId, body.CashboxId).
 		Scan(&res).Error
 	if err != nil {
 		h.log.Error(err)
@@ -635,12 +645,23 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 	}
 
 	if !body.Error {
+		// get cashbox operation
+		var cashboxOperation domain.CashboxOperation
+		// get cashbox operation
+		err = h.db.First(&cashboxOperation, "id = ?", sale.CashBoxOperationId).Error
+		if err != nil {
+			h.log.Error("ERROR on getting cashbox_operation: ", err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+
 		// Create new sale
 		newSale := domain.SaleRequest{
 			ID:                 uuid.New().String(),
 			EmployeeID:         sale.EmployeeID,
 			StoreId:            &sale.StoreId,
 			CashBoxOperationId: sale.CashBoxOperationId,
+			CashboxId:          cashboxOperation.CashBoxID,
 		}
 		// Insert new sale
 		_, err = h.service.CreateSale(tx, &newSale)
@@ -769,6 +790,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		StoreId:            &body.StoreID,
 		EmployeeID:         sale.EmployeeID,
 		CashBoxOperationId: sale.CashBoxOperationId,
+		CashboxId:          sale.CashboxId,
 	}
 
 	// create new sale

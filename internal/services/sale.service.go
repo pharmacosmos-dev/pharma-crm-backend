@@ -15,8 +15,8 @@ import (
 // create new sale
 func (s *Services) CreateSale(tx *gorm.DB, req *domain.SaleRequest) (*domain.Sale, error) {
 	var res domain.Sale
-	err := tx.Raw(`INSERT INTO sales(id, employee_id, cash_box_operation_id, store_id) VALUES(?, ?, ?, ?) RETURNING *`,
-		req.ID, req.EmployeeID, req.CashBoxOperationId, req.StoreId).Scan(&res).Error
+	err := tx.Raw(`INSERT INTO sales(id, employee_id, cash_box_operation_id, store_id, cashbox_id) VALUES(?, ?, ?, ?, ?) RETURNING *`,
+		req.ID, req.EmployeeID, req.CashBoxOperationId, req.StoreId, req.CashboxId).Scan(&res).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
@@ -26,7 +26,17 @@ func (s *Services) CreateSale(tx *gorm.DB, req *domain.SaleRequest) (*domain.Sal
 
 // create return sale
 func (s *Services) CreateReturnSale(req *domain.SaleReturnRequest) (*domain.Sale, error) {
-	var sale domain.Sale
+	var (
+		sale             domain.Sale
+		cashboxOperation domain.CashboxOperation
+	)
+	// get cashbox operation
+	err := s.db.First(&cashboxOperation, "id = ?", req.CashBoxOperationId).Error
+	if err != nil {
+		s.log.Error("ERROR on getting cashbox_operation: ", err)
+		return nil, err
+	}
+	req.CashboxId = cashboxOperation.CashBoxID
 	// start transaction
 	tx := s.db.Begin()
 	defer func() {
@@ -37,10 +47,10 @@ func (s *Services) CreateReturnSale(req *domain.SaleReturnRequest) (*domain.Sale
 	// build query
 	query := `
 	INSERT INTO sales (
-		employee_id, cash_box_operation_id, store_id, customer_id, sale_number, parent_id, sale_type, type)
-	SELECT ?, ?, store_id, customer_id, sale_number, id, ?, type FROM sales where id = ?
+		employee_id, cash_box_operation_id, cashbox_id, store_id, customer_id, sale_number, parent_id, sale_type, type)
+	SELECT ?, ?, ?, store_id, customer_id, sale_number, id, ?, type FROM sales where id = ?
 	RETURNING *;`
-	err := tx.Raw(query, req.EmployeeID, req.CashBoxOperationId, req.SaleType, req.SaleId).Scan(&sale).Error
+	err = tx.Raw(query, req.EmployeeID, req.CashBoxOperationId, req.CashboxId, req.SaleType, req.SaleId).Scan(&sale).Error
 	if err != nil {
 		s.log.Error(err)
 		tx.Rollback()

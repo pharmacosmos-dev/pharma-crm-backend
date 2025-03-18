@@ -863,6 +863,8 @@ definitions:
     properties:
       cash_box_operation_id:
         type: string
+      cashbox_id:
+        type: string
       employee_id:
         type: string
       id:
@@ -873,6 +875,8 @@ definitions:
   domain.SaleReturnRequest:
     properties:
       cash_box_operation_id:
+        type: string
+      cashbox_id:
         type: string
       employee_id:
         type: string
