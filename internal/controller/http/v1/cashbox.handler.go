@@ -359,9 +359,9 @@ func (h *CashBoxHandler) SoftDelete(c *gin.Context) {
 // @Description Check Cash Box from the request body
 // @Tags cash_boxes
 // @Security     BearerAuth
-// @Accept json
+// @Accept 	json
 // @Produce json
-// @Param store_id query string false "Store ID"
+// @Param 	store_id query string false "Store ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -381,13 +381,8 @@ func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
 	}
 
 	// Check if there is an open cashbox operation for this employee
-	var cashBoxOperationID string
-	err := h.db.Raw(`
-		SELECT id 
-		FROM cashbox_operations
-		WHERE current_employee_id = ? 
-		AND end_time IS NULL
-	`, userID).Scan(&cashBoxOperationID).Error
+	var cashboxOperation domain.CashboxOperation
+	err := h.db.First(&cashboxOperation, "current_employee_id = ? AND end_time IS NULL", userID).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, "Failed to check cash box operations")
@@ -395,21 +390,22 @@ func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
 	}
 	// Prepare the response object
 	var checkCashBox domain.CashBoxCheckResponse
-	checkCashBox.CashBoxOperationID = cashBoxOperationID
+	checkCashBox.CashBoxOperationID = cashboxOperation.ID
 
 	// If a cashbox operation exists
-	if cashBoxOperationID != "" {
+	if cashboxOperation.ID != "" {
 		// Check for a pending sale linked to this cashbox operation
 		var sale domain.Sale
-		err := h.db.Where("status = ? AND cash_box_operation_id = ? AND sale_type = ?", "pending", cashBoxOperationID, config.SALE_TYPE_SALE).First(&sale).Error
+		err := h.db.Where("status = ? AND cash_box_operation_id = ? AND sale_type = ?", "pending", cashboxOperation.ID, config.SALE_TYPE_SALE).First(&sale).Error
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				// No pending sale found; create a new one
 				newSale := domain.SaleRequest{
-					CashBoxOperationId: cashBoxOperationID,
+					CashBoxOperationId: cashboxOperation.ID,
 					EmployeeID:         userID.(string),
 					ID:                 uuid.New().String(),
 					StoreId:            &storeId,
+					CashboxId:          cashboxOperation.CashBoxID,
 				}
 				if createErr := h.db.Table("sales").Create(&newSale).Error; createErr != nil {
 					h.log.Error(createErr)
