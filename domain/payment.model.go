@@ -141,8 +141,8 @@ type UzumResponse struct {
 	ClientPhoneNumber string `json:"client_phone_number"`
 }
 
-// Type PaymeGo request body
-type PaymeGoRequest struct {
+// PaymeGo receipt create body
+type PaymeGoReceiptCreate struct {
 	Id     int64         `json:"id"`
 	Method string        `json:"method"`
 	Params PaymeGoParams `json:"params"`
@@ -174,4 +174,119 @@ type PaymeGoItem struct {
 	Units       string  `json:"units"`
 	VatPercent  int     `json:"vat_percent"`
 	PackageCode string  `json:"package_code"`
+}
+
+// PaymeGo receipt pay body
+type PaymeGoReceiptPay struct {
+	Id     int64            `json:"id"`
+	Method string           `json:"method"`
+	Params PaymeGoPayParams `json:"params"`
+}
+
+type PaymeGoPayParams struct {
+	Id    string `json:"id"`
+	Payer *struct {
+		Phone string `json:"phone"`
+	}
+}
+
+// PaymeGo receipt cancel body
+type PaymeGoReceiptCancel struct {
+	Id     int64               `json:"id"`
+	Method string              `json:"method"`
+	Params PaymeGoCancelParams `json:"params"`
+}
+
+type PaymeGoCancelParams struct {
+	Id string `json:"id"`
+}
+
+// PaymeGo response
+type PaymeGoResponse struct {
+	JSONRPC string        `json:"jsonrpc"`
+	ID      *int          `json:"id"`
+	Result  PaymeGoResult `json:"result"`
+}
+
+type PaymeGoResult struct {
+	Receipt PaymeGoReceipt `json:"receipt"`
+}
+
+type PaymeGoReceipt struct {
+	ID           string    `json:"_id"`
+	CreateTime   int64     `json:"create_time"`
+	PayTime      int64     `json:"pay_time"`
+	CancelTime   int64     `json:"cancel_time"`
+	State        int       `json:"state"`
+	Type         int       `json:"type"`
+	External     bool      `json:"external"`
+	Operation    int       `json:"operation"`
+	Category     *string   `json:"category"`
+	Error        *string   `json:"error"`
+	Description  string    `json:"description"`
+	Detail       *Detail   `json:"detail,omitempty"`
+	Amount       int       `json:"amount"`
+	Currency     *int      `json:"currency,omitempty"`
+	Commission   int       `json:"commission"`
+	Account      []Account `json:"account"`
+	Card         *Card     `json:"card,omitempty"`
+	Merchant     Merchant  `json:"merchant"`
+	Meta         *Meta     `json:"meta,omitempty"`
+	ProcessingID *string   `json:"processing_id,omitempty"`
+}
+
+type Detail struct {
+	Discount *PaymeGoDetailDiscount `json:"discount,omitempty"`
+	Shipping *PaymeGoDetailShipping `json:"shipping,omitempty"`
+	Items    []PaymeGoItem          `json:"items,omitempty"`
+}
+
+type PaymeGoDetailDiscount struct {
+	Title string `json:"title"`
+	Price int    `json:"price"`
+}
+
+type PaymeGoDetailShipping struct {
+	Title string `json:"title"`
+	Price int    `json:"price"`
+}
+
+type Account struct {
+	Name  string `json:"name"`
+	Title string `json:"title"`
+	Value string `json:"value"`
+	Main  *bool  `json:"main,omitempty"`
+}
+
+type Card struct {
+	Number string `json:"number"`
+	Expire string `json:"expire"`
+}
+
+type Merchant struct {
+	ID           string  `json:"_id"`
+	Name         string  `json:"name"`
+	Organization string  `json:"organization"`
+	Address      string  `json:"address"`
+	BusinessID   *string `json:"business_id,omitempty"`
+	Epos         Epos    `json:"epos"`
+	Date         int64   `json:"date"`
+	Logo         *string `json:"logo,omitempty"`
+	Type         string  `json:"type"`
+	Terms        *string `json:"terms,omitempty"`
+	Payer        *Payer  `json:"payer,omitempty"`
+}
+
+type Epos struct {
+	MerchantID string `json:"merchantId"`
+	TerminalID string `json:"terminalId"`
+}
+
+type Payer struct {
+	Phone string `json:"phone"`
+}
+
+type Meta struct {
+	Source string `json:"source"`
+	Owner  string `json:"owner"`
 }

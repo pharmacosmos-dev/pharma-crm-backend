@@ -35,14 +35,3 @@ CREATE TABLE IF NOT EXISTS "sale_payments" (
     "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
-CREATE TABLE IF NOT EXISTS "transactions" (
-    "id" UUID NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
-    "sale_payment_id" UUID REFERENCES "sale_payments"("id"),
-    "payment_service_id" UUID REFERENCES "payment_services"("id"),
-    "transaction_id" UUID,
-    "status" VARCHAR(20),
-    "response_data" JSONB,
-    "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);

@@ -13,6 +13,7 @@ import (
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
+	"github.com/spf13/cast"
 	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
 )
@@ -496,7 +497,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 	// collect payment type sum query
 	var pq = pquery + filter + group
 	// replace with :param with ?
-	err = h.db.Raw(pq, args...).Scan(&res.PaymentTypeStats).Error
+	err = h.db.Debug().Raw(pq, args...).Scan(&res.PaymentTypeStats).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -724,9 +725,10 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		handleResponse(c, UNAUTHORIZED, "User ID not found")
 		return
 	}
+
 	// validate payment types
-	if err := validateFinalSaleRequest(body); err != nil {
-		handleResponse(c, BadRequest, err.Error())
+	if len(body.PaymentTypes) == 0 {
+		handleResponse(c, BadRequest, "at least one payment type is required")
 		return
 	}
 
@@ -752,7 +754,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	}
 
 	// check sale is completed or no
-	if isSaleCompleted(sale.Status) {
+	if sale.Status == config.COMPLETED {
 		handleResponse(c, CONFLICT, "Sale is already completed")
 		tx.Rollback()
 		return
@@ -811,14 +813,6 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	handleResponse(c, OK, newSale)
 }
 
-// Validate payment Type
-func validateFinalSaleRequest(body domain.FinalSale) error {
-	if len(body.PaymentTypes) == 0 {
-		return errors.New("at least one payment type is required")
-	}
-	return nil
-}
-
 // Check sale is completed
 func isSaleCompleted(status string) bool {
 	return status == config.COMPLETED
@@ -848,7 +842,7 @@ func processPaymentType(tx *gorm.DB, h *SaleHandler, body domain.FinalSale, item
 		}
 
 		resp, err := handler(context.Background(), paymentService, &item, body.CashBoxOperationId, salePayment.ID, body.SaleID)
-		if err != nil || resp["error_code"].(float64) != 0 {
+		if err != nil || cast.ToString(resp["error_code"]) != "0" {
 			return errors.New("failed payment with " + item.AppType)
 		}
 		// update sale_payment if payment is success

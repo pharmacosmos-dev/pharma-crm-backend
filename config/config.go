@@ -55,8 +55,9 @@ type (
 		DbName  string `env-required:"true" yaml:"pg_db" env:"PG_DB"`
 	}
 	Payment struct {
-		ClickEndpointUrl string `env-required:"true" yaml:"click_endpoint_url" env:"CLICK_ENDPOINT_URL"`
-		UzumEndpointUrl  string `env-required:"true" yaml:"uzum_endpoint_url" env:"UZUM_ENDPOINT_URL"`
+		ClickEndpointUrl   string `env-required:"true" yaml:"click_endpoint_url" env:"CLICK_ENDPOINT_URL"`
+		UzumEndpointUrl    string `env-required:"true" yaml:"uzum_endpoint_url" env:"UZUM_ENDPOINT_URL"`
+		PaymeGoEndpointUrl string `env-required:"true" yaml:"payme_go_endpoint_url" env:"PAYME_GO_ENDPOINT_URL"`
 	}
 	Integration struct {
 		BaseUrl1C        string `env-required:"true" yaml:"base_url_1c" env:"BASE_URL_1C"`
@@ -90,6 +91,7 @@ func Load() Config {
 	c.Secret.ExternalAPIUsername = cast.ToString(GetOrReturnDefaultValue("EXTERNAL_API_USERNAME", "pharmaexternalapis"))
 	c.Secret.ExternalAPIPassword = cast.ToString(GetOrReturnDefaultValue("EXTERNAL_API_PASSWORD", "lai3lahxoPo{aph9"))
 	c.Payment.ClickEndpointUrl = cast.ToString(GetOrReturnDefaultValue("CLICK_ENDPOINT_URL", "http://localhost:8080"))
+	c.Payment.PaymeGoEndpointUrl = cast.ToString(GetOrReturnDefaultValue("PAYME_GO_ENDPOINT_URL", "http://localhost:8080"))
 	c.Payment.UzumEndpointUrl = cast.ToString(GetOrReturnDefaultValue("UZUM_ENDPOINT_URL", "http://localhost:8080"))
 	c.Integration.BaseUrl1C = cast.ToString(GetOrReturnDefaultValue("BASE_URL_1C", "http://localhost:8080"))
 	c.Integration.BaseUsername1C = cast.ToString(GetOrReturnDefaultValue("BASE_USERNAME_1C", "pharma"))

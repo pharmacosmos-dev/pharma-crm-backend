@@ -12,7 +12,7 @@ type Services struct {
 	cfg *config.Config
 }
 
-func NewStorage(db *gorm.DB, log *logger.Logger, cfg *config.Config) *Services {
+func NewService(db *gorm.DB, log *logger.Logger, cfg *config.Config) *Services {
 	return &Services{
 		db:  db,
 		log: log,

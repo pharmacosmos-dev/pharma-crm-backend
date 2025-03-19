@@ -1,0 +1,1 @@
+ALTER TABLE payment_services DROP COLUMN IF EXISTS "payment_type_id";

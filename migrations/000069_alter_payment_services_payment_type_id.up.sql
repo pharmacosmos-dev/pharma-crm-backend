@@ -1,0 +1,1 @@
+ALTER TABLE payment_services ADD COLUMN IF NOT EXISTS "payment_type_id" UUID REFERENCES payment_types(id);
