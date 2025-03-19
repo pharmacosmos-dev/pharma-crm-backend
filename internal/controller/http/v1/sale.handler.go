@@ -200,13 +200,16 @@ func (h *SaleHandler) Get(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	// get epos response
-	err = h.db.Table("epos_responses").Where("sale_id = ?", res.ParentId).First(&res.EposResponse).Error
-	if err != nil {
-		if !errors.Is(err, gorm.ErrRecordNotFound) { // Faqat mavjud bo'lmagan yozuv emas, boshqa xatoliklarni logga yozish
-			h.log.Error(err)
+	if res.ParentId != "" {
+		// get epos response
+		err = h.db.Raw(`SELECT * FROM epos_responses WHERE sale_id = ?`, res.ParentId).Scan(&res.EposResponse).Error
+		if err != nil {
+			if !errors.Is(err, gorm.ErrRecordNotFound) { // Faqat mavjud bo'lmagan yozuv emas, boshqa xatoliklarni logga yozish
+				h.log.Error(err)
+			}
 		}
 	}
+
 	res.Product = products
 	handleResponse(c, OK, res)
 }
@@ -480,7 +483,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 	// collect total transactions query
 	var q = squery + filter
 	// replace with :param with ?
-	err = h.db.Raw(q, args...).Scan(&res).Error
+	err = h.db.Debug().Raw(q, args...).Scan(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -489,7 +492,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 	// collect payment type sum query
 	var pq = pquery + filter + group
 	// replace with :param with ?
-	err = h.db.Raw(pq, args...).Scan(&res.PaymentTypeStats).Error
+	err = h.db.Debug().Raw(pq, args...).Scan(&res.PaymentTypeStats).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -751,25 +754,25 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		tx.Rollback()
 		return
 	}
-	var sum float64
-	for _, item := range body.PaymentTypes {
-		sum += item.Amount
-	}
-	// get total amount from cart items
-	totalAmount, err := h.service.GetCartItemsTotalAmount(body.SaleID)
-	if err != nil {
-		h.log.Error("ERROR on getting total amount from cart items: ", err.Error())
-		handleResponse(c, InternalError, err.Error())
-		tx.Rollback()
-		return
-	}
-	// validate total amount
-	if sum < totalAmount {
-		h.log.Info("Invalid payment amount")
-		handleResponse(c, BadRequest, "Invalid payment amount")
-		tx.Rollback()
-		return
-	}
+	// var sum float64
+	// for _, item := range body.PaymentTypes {
+	// 	sum += item.Amount
+	// }
+	// // get total amount from cart items
+	// totalAmount, err := h.service.GetCartItemsTotalAmount(body.SaleID)
+	// if err != nil {
+	// 	h.log.Error("ERROR on getting total amount from cart items: ", err.Error())
+	// 	handleResponse(c, InternalError, err.Error())
+	// 	tx.Rollback()
+	// 	return
+	// }
+	// // validate total amount
+	// if sum < totalAmount {
+	// 	h.log.Info("Invalid payment amount")
+	// 	handleResponse(c, BadRequest, "Invalid payment amount")
+	// 	tx.Rollback()
+	// 	return
+	// }
 
 	// process payment types
 	for _, item := range body.PaymentTypes {
@@ -798,6 +801,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		tx.Rollback()
 		return
 	}
+	fmt.Println("Sale ID: ", sale.ID)
 	// collect new sale info
 	newSale := domain.SaleRequest{
 		ID:                 uuid.New().String(),

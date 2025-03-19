@@ -137,6 +137,8 @@ func (h *DraftHandler) Create(c *gin.Context) {
 		ID:                 uuid.New().String(),
 		EmployeeID:         body.CreatedBy,
 		CashBoxOperationId: saleInfo.CashBoxOperationId,
+		StoreId:            &saleInfo.StoreId,
+		CashboxId:          saleInfo.CashboxId,
 	})
 	if err != nil {
 		tx.Rollback()
