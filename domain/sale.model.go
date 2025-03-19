@@ -15,6 +15,7 @@ type Sale struct {
 	SaleNumber         int            `gorm:"sale_number" json:"sale_number"`
 	TotalDiscount      float64        `gorm:"total_discount" json:"total_discount"`
 	TotalAmount        float64        `gorm:"total_amount" json:"total_amount"`
+	ReturnedAmount     float64        `gorm:"returned_amount" json:"returned_amount"`
 	ProductCount       int            `gorm:"product_count" json:"product_count"`
 	Type               string         `gorm:"type" json:"type"`
 	SaleType           string         `gorm:"sale_type" json:"sale_type"`
@@ -66,6 +67,7 @@ type SaleResponse struct {
 	SaleNumber         int            `gorm:"sale_number" json:"sale_number"`
 	TotalDiscount      float64        `gorm:"total_discount" json:"total_discount"`
 	TotalAmount        float64        `gorm:"total_amount" json:"total_amount"`
+	ReturnedAmount     float64        `gorm:"returned_amount" json:"returned_amount"`
 	ProductCount       int            `gorm:"product_count" json:"product_count"`
 	CreatedAt          *time.Time     `gorm:"created_at" json:"created_at"`
 	UpdatedAt          *time.Time     `gorm:"updated_at" json:"updated_at"`
@@ -101,6 +103,7 @@ type FinalSale struct {
 	CustomerID         *string            `gorm:"customer_id" json:"customer_id"`
 	CashBoxOperationId string             `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
 	TotalAmount        float64            `gorm:"total_amount" json:"total_amount"`
+	ReturnedAmount     float64            `gorm:"returned_amount" json:"returned_amount"`
 	PaymentTypes       []FinalPaymentType `json:"payment_types"`
 }
 

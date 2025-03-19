@@ -393,6 +393,8 @@ definitions:
         items:
           $ref: '#/definitions/domain.FinalPaymentType'
         type: array
+      returned_amount:
+        type: number
       sale_id:
         type: string
       store_id:

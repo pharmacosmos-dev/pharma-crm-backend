@@ -419,7 +419,6 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 	// check user role
 	if !helper.IsAdmin(employee, h.cfg) {
 		param.StoreID = employee.StoreId
-		param.VendorID = employee.Id
 	}
 	var (
 		args []any
@@ -752,6 +751,26 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		tx.Rollback()
 		return
 	}
+	var sum float64
+	for _, item := range body.PaymentTypes {
+		sum += item.Amount
+	}
+	// get total amount from cart items
+	totalAmount, err := h.service.GetCartItemsTotalAmount(body.SaleID)
+	if err != nil {
+		h.log.Error("ERROR on getting total amount from cart items: ", err.Error())
+		handleResponse(c, InternalError, err.Error())
+		tx.Rollback()
+		return
+	}
+	// validate total amount
+	if sum < totalAmount {
+		h.log.Info("Invalid payment amount")
+		handleResponse(c, BadRequest, "Invalid payment amount")
+		tx.Rollback()
+		return
+	}
+
 	// process payment types
 	for _, item := range body.PaymentTypes {
 		if err = processPaymentType(tx, h, body, item); err != nil {
@@ -806,11 +825,6 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	handleResponse(c, OK, newSale)
 }
 
-// Check sale is completed
-func isSaleCompleted(status string) bool {
-	return status == config.COMPLETED
-}
-
 // Process payment type
 func processPaymentType(tx *gorm.DB, h *SaleHandler, body domain.FinalSale, item domain.FinalPaymentType) error {
 	if item.Type == "app" && (item.AppType == config.CLICK || item.AppType == config.PAYME || item.AppType == config.UZUM) {
@@ -860,10 +874,13 @@ func processPaymentType(tx *gorm.DB, h *SaleHandler, body domain.FinalSale, item
 
 // Completed sale transaction
 func (h *SaleHandler) completeSaleTransaction(tx *gorm.DB, body domain.FinalSale, userID string) error {
-	if err := h.service.UpdateSaleStatus(tx, body.SaleID, body.TotalAmount, body.CustomerID); err != nil {
+	// update sale status and total amount, returned_amount
+	err := h.service.UpdateSaleStatus(tx, body.SaleID, body.TotalAmount, body.CustomerID)
+	if err != nil {
 		return err
 	}
-	if err := h.service.UpdateCartItemStatus(tx, body.SaleID, userID, body.CashBoxOperationId); err != nil {
+	// update cart items and store_products
+	if err = h.service.UpdateCartItemStatus(tx, body.SaleID, userID, body.CashBoxOperationId); err != nil {
 		return err
 	}
 	return nil

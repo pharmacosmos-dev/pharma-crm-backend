@@ -182,3 +182,19 @@ func (s *Services) GetPaymeGoItems(saleID string) ([]domain.PaymeGoItem, error) 
 
 	return res, nil
 }
+
+// get cart items total amount
+func (s *Services) GetCartItemsTotalAmount(saleID string) (float64, error) {
+	var res domain.CartItemData
+	err := s.db.Raw(`
+	SELECT
+		SUM(total_price) AS sum,
+		SUM(discount_amount*quantity) AS discount_amount
+	FROM cart_items ci
+	WHERE sale_id = ?`, saleID).Scan(&res).Error
+	if err != nil {
+		return 0, err
+	}
+	res.TotalAmount = res.Sum - res.DiscountAmount
+	return res.TotalAmount, nil
+}

@@ -12424,6 +12424,9 @@ const docTemplate = `{
                         "$ref": "#/definitions/domain.FinalPaymentType"
                     }
                 },
+                "returned_amount": {
+                    "type": "number"
+                },
                 "sale_id": {
                     "type": "string"
                 },

@@ -293,7 +293,6 @@ func (s *Services) ListSale(param *domain.QueryParam, userId string) ([]domain.S
 	// check if employee is not admin or superadmin
 	if !helper.IsAdmin(employee, s.cfg) {
 		param.StoreID = employee.StoreId
-		param.VendorID = employee.Id
 	}
 
 	// build sale get list query
