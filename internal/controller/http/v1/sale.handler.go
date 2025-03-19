@@ -428,11 +428,8 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 		SELECT
 			COALESCE(SUM(s.total_amount), 0) AS total_transactions_sum
 		FROM sales s
-		JOIN employees ON s.employee_id = employees.id
-		JOIN stores st ON employees.store_id = st.id
-		JOIN cashbox_operations co ON s.cash_box_operation_id = co.id
-		JOIN cash_boxes ON co.cash_box_id = cash_boxes.id
-		LEFT JOIN sale_payments sp ON s.id = sp.sale_id 
+		LEFT JOIN stores st ON s.store_id = st.id 
+		LEFT JOIN sale_payments sp ON s.id = sp.sale_id
 		`
 		// query for each payment types sum
 		pquery = `
@@ -440,17 +437,13 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 			pt.id,
 			pt.name,
 			pt.type,
-			COALESCE(SUM(sp.amount), 0) AS sum
-		FROM payment_types pt
-		LEFT JOIN sale_payments sp ON pt.id = sp.payment_type_id
-		LEFT JOIN sales s ON s.id = sp.sale_id
-		LEFT JOIN employees e ON s.employee_id = e.id
-		LEFT JOIN stores st ON e.store_id = st.id
-		LEFT JOIN cashbox_operations co ON s.cash_box_operation_id = co.id
-		LEFT JOIN cash_boxes cb ON co.cash_box_id = cb.id
+			SUM(sp.amount) AS sum
+		FROM sale_payments sp
+		JOIN payment_types pt ON sp.payment_type_id = pt.id
+		JOIN sales s ON sp.sale_id = s.id
 		`
 		filter = `WHERE 1=1 `
-		group  = ` GROUP BY pt.id, pt.name, pt.type `
+		group  = ` GROUP BY pt.id, pt.name`
 	)
 
 	if param.PaymentTypeID != "" {
@@ -464,11 +457,11 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 	}
 	if param.StoreID != "" {
 		args = append(args, param.StoreID)
-		filter += "AND st.id = ?"
+		filter += "AND s.store_id = ?"
 	}
 	if param.CashBoxID != "" {
 		args = append(args, param.CashBoxID)
-		filter += "AND co.cash_box_id = ?"
+		filter += "AND s.cashbox_id = ?"
 	}
 
 	if param.StartDate != "" && param.EndDate != "" {
@@ -483,12 +476,12 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 
 	if param.Search != "" {
 		param.Search = fmt.Sprintf("%%%s%%", param.Search)
-		filter += fmt.Sprintf(" AND stores.name ILIKE %s OR CAST(s.sale_number AS TEXT) LIKE %s", param.Search, param.Search)
+		filter += fmt.Sprintf(" AND CAST(s.sale_number AS TEXT) LIKE '%s'", param.Search)
 	}
 	// collect total transactions query
 	var q = squery + filter
 	// replace with :param with ?
-	err = h.db.Debug().Raw(q, args...).Scan(&res).Error
+	err = h.db.Raw(q, args...).Scan(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -497,7 +490,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 	// collect payment type sum query
 	var pq = pquery + filter + group
 	// replace with :param with ?
-	err = h.db.Debug().Raw(pq, args...).Scan(&res.PaymentTypeStats).Error
+	err = h.db.Raw(pq, args...).Scan(&res.PaymentTypeStats).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
