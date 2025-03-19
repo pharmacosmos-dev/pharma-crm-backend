@@ -202,7 +202,7 @@ func (s *Services) CloseCashBoxOperation(cashBoxOperationID string, req *domain.
 	// get total net amount
 	var totalNetAmount float64
 	err = tx.Raw(`
-	SELECT SUM(total_net_amount) AS total_net_amount 
+	SELECT COALESCE(SUM(total_net_amount), 0) AS total_net_amount 
 	FROM sale_payment_summary 
 	WHERE cash_box_operation_id = ?`, cashBoxOperationID).
 		Scan(&totalNetAmount).Error
