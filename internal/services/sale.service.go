@@ -190,9 +190,39 @@ func (s *Services) UpdateCartItemStatus(tx *gorm.DB, saleID string, employeeID s
 	values := []any{}
 
 	for _, item := range cartItems {
-		// Pack va unit miqdorlarini hisoblash
-		newPackQuantity := item.Quantity
-		newUnitQuantity := item.Quantity*item.UnitPerPack + item.UnitQuantity
+		var currentStock struct {
+			PackQuantity int `gorm:"pack_quantity"`
+			UnitQuantity int `gorm:"unit_quantity"`
+		}
+
+		// Joriy mahsulotning mavjud pack va unit quantity ni olish
+		err := tx.Raw(`
+			SELECT pack_quantity, unit_quantity FROM store_products WHERE id = ?`, item.StoreProductID).
+			Scan(&currentStock).Error
+		if err != nil {
+			s.log.Error("ERROR on getting current stock: ", err)
+			return err
+		}
+
+		// Avval unit_quantity ni kamaytirish
+		remainingUnits := currentStock.UnitQuantity - item.UnitQuantity
+
+		// Agar unit_quantity yetarli bo'lsa, pack_quantity ni kamaytirmaymiz
+		newPackQuantity := currentStock.PackQuantity
+		newUnitQuantity := remainingUnits
+
+		if remainingUnits < 0 {
+			// Packdan ajratish kerak bo'lgan unitlarni hisoblash
+			requiredPacks := (-remainingUnits + item.UnitPerPack - 1) / item.UnitPerPack
+			newPackQuantity -= requiredPacks
+			newUnitQuantity += requiredPacks * item.UnitPerPack
+		}
+
+		// Oxirgi tekshiruv: pack_quantity manfiy bo'lib qolmasligi kerak
+		if newPackQuantity < 0 {
+			return fmt.Errorf("not enough stock for product %s", item.ProductId)
+		}
+
 		values = append(values, item.StoreProductID, newPackQuantity, newUnitQuantity)
 		updateQuery += " (CAST(? AS UUID), ?::INTEGER, ?::INTEGER),"
 	}

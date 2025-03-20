@@ -620,6 +620,13 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 			tx.Rollback()
 			return
 		}
+		// delete sale_payments which depends on the sale
+		err = tx.Exec(`DELETE FROM sale_payments WHERE sale_id = ?`, body.SaleId).Error
+		if err != nil {
+			h.log.Error("ERROR on deleting sale_payments: ", err)
+			tx.Rollback()
+			return
+		}
 
 		// Update cart_items status
 		err = tx.Exec(`UPDATE cart_items SET status = ? WHERE sale_id = ?`, config.PENDING, body.SaleId).Error
