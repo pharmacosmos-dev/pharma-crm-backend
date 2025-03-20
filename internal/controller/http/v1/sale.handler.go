@@ -473,7 +473,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 
 	if param.StartDate != "" && param.EndDate == "" {
 		args = append(args, param.StartDate)
-		filter += " AND s.completed_at::date >= ?"
+		filter += " AND s.completed_at::date = ?"
 	}
 
 	if param.Search != "" {
