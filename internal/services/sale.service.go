@@ -369,7 +369,7 @@ func (s *Services) ListSale(param *domain.QueryParam, userId string) ([]domain.S
 	}
 	// filter by start date
 	if param.StartDate != "" && param.EndDate == "" {
-		query = query.Where("s.completed_at::date >= ?", param.StartDate)
+		query = query.Where("s.completed_at::date = ?", param.StartDate)
 	}
 	// search condition
 	if param.Search != "" {

@@ -75,7 +75,7 @@ func (h *SaleHandler) Create(c *gin.Context) {
 		return
 	}
 	// check store id
-	if body.StoreId == nil {
+	if body.StoreId == "" {
 		handleResponse(c, BadRequest, "Store ID is required")
 		return
 	}
@@ -662,7 +662,7 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 		newSale := domain.SaleRequest{
 			ID:                 uuid.New().String(),
 			EmployeeID:         sale.EmployeeID,
-			StoreId:            &sale.StoreId,
+			StoreId:            sale.StoreId,
 			CashBoxOperationId: sale.CashBoxOperationId,
 			CashboxId:          cashboxOperation.CashBoxID,
 		}
@@ -749,7 +749,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 			tx.Rollback()
 			return
 		}
-		h.log.Error(err)
+		h.log.Error("ERROR on getting sale info: ", err)
 		handleResponse(c, InternalError, err.Error())
 		tx.Rollback()
 		return
@@ -815,7 +815,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	// collect new sale info
 	newSale := domain.SaleRequest{
 		ID:                 uuid.New().String(),
-		StoreId:            &body.StoreID,
+		StoreId:            sale.StoreId,
 		EmployeeID:         sale.EmployeeID,
 		CashBoxOperationId: sale.CashBoxOperationId,
 		CashboxId:          sale.CashboxId,

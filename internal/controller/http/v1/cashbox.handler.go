@@ -404,7 +404,7 @@ func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
 					CashBoxOperationId: cashboxOperation.ID,
 					EmployeeID:         userID.(string),
 					ID:                 uuid.New().String(),
-					StoreId:            &storeId,
+					StoreId:            storeId,
 					CashboxId:          cashboxOperation.CashBoxID,
 				}
 				if createErr := h.db.Table("sales").Create(&newSale).Error; createErr != nil {
