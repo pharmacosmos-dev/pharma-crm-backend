@@ -40,7 +40,8 @@ func (s *Services) ListStoreProduct(param *domain.StoreProductQueryParam) ([]*do
 			Joins("LEFT JOIN product_markings pm ON pm.product_id = sp.product_id").
 			Where("pm.marking = ?", param.Search)
 	default:
-		query = query.
+		// define search key
+			query = query.
 			Joins("LEFT JOIN category_products cp ON p.id = cp.product_id").
 			Joins("LEFT JOIN categories c ON c.id = cp.category_id").
 			Where("p.name ILIKE ? OR c.name ILIKE ?", "%"+param.Search+"%", "%"+param.Search+"%").Limit(param.Limit).Offset(param.Offset)

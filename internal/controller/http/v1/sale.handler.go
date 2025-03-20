@@ -776,6 +776,10 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 
 	// process payment types
 	for _, item := range body.PaymentTypes {
+		if item.Type == "cash" && item.Amount > body.TotalAmount {
+			body.ReturnedAmount = item.Amount - body.TotalAmount
+			item.Amount = body.TotalAmount
+		}
 		if err = processPaymentType(tx, h, body, item); err != nil {
 			handleResponse(c, InternalError, err.Error())
 			tx.Rollback()
@@ -801,7 +805,6 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		tx.Rollback()
 		return
 	}
-	fmt.Println("Sale ID: ", sale.ID)
 	// collect new sale info
 	newSale := domain.SaleRequest{
 		ID:                 uuid.New().String(),
