@@ -22,7 +22,7 @@ func (s *Services) DashboardTotalCountStats(storeId, startDate, endDate string) 
 		args    []any
 		querys  = `SELECT COUNT(*) AS total_sale_count, SUM(total_amount) AS total_sale_amount FROM sales`
 		queryp  = `SELECT COALESCE(SUM(pack_quantity), 0) AS total_product_count FROM store_products`
-		filters = " WHERE status = 'completed' AND completed_at::date > '2025-03-17'"
+		filters = " WHERE status = 'completed'"
 		filterp = " WHERE expire_date::date >= current_date "
 	)
 	// if store id is not empty
@@ -34,15 +34,15 @@ func (s *Services) DashboardTotalCountStats(storeId, startDate, endDate string) 
 
 	// if start date is not empty
 	if startDate != "" && endDate == "" {
-		filters += " AND completed_at = ?"
-		filterp += " AND created_at = ?"
+		filters += " AND completed_at::date = ?"
+		filterp += " AND created_at::date = ?"
 		args = append(args, startDate)
 	}
 
 	// if end date is not empty
 	if startDate != "" && endDate != "" {
-		filters += " AND completed_at >= ? AND completed_at <= ?"
-		filterp += " AND created_at >= ? AND created_at <= ?"
+		filters += " AND completed_at::date >= ? AND completed_at::date <= ?"
+		filterp += " AND created_at::date >= ? AND created_at::date <= ?"
 		args = append(args, startDate, endDate)
 	}
 
