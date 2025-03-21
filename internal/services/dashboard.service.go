@@ -35,27 +35,27 @@ func (s *Services) DashboardTotalCountStats(storeId, startDate, endDate string) 
 	// if start date is not empty
 	if startDate != "" && endDate == "" {
 		filters += " AND completed_at::date = ?"
-		filterp += " AND created_at::date = ?"
+		filterp += " AND expire_date::date >= ?"
 		args = append(args, startDate)
 	}
 
 	// if end date is not empty
 	if startDate != "" && endDate != "" {
 		filters += " AND completed_at::date >= ? AND completed_at::date <= ?"
-		filterp += " AND created_at::date >= ? AND created_at::date <= ?"
+		filterp += " AND expire_date::date >= ? AND expire_date::date <= ?"
 		args = append(args, startDate, endDate)
 	}
 
 	// get total sale count and amount
 	var q = querys + filters
-	err := s.db.Debug().Raw(q, args...).Scan(&totalSale).Error
+	err := s.db.Raw(q, args...).Scan(&totalSale).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
 	}
 	// get total product count
 	var qp = queryp + filterp
-	err = s.db.Debug().Raw(qp, args...).Scan(&productCount).Error
+	err = s.db.Raw(qp, args...).Scan(&productCount).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
