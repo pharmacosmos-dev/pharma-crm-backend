@@ -760,25 +760,6 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		tx.Rollback()
 		return
 	}
-	// var sum float64
-	// for _, item := range body.PaymentTypes {
-	// 	sum += item.Amount
-	// }
-	// // get total amount from cart items
-	// totalAmount, err := h.service.GetCartItemsTotalAmount(body.SaleID)
-	// if err != nil {
-	// 	h.log.Error("ERROR on getting total amount from cart items: ", err.Error())
-	// 	handleResponse(c, InternalError, err.Error())
-	// 	tx.Rollback()
-	// 	return
-	// }
-	// // validate total amount
-	// if sum < totalAmount {
-	// 	h.log.Info("Invalid payment amount")
-	// 	handleResponse(c, BadRequest, "Invalid payment amount")
-	// 	tx.Rollback()
-	// 	return
-	// }
 
 	// process payment types
 	for _, item := range body.PaymentTypes {
@@ -811,6 +792,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		tx.Rollback()
 		return
 	}
+	fmt.Println("sale.StoreId", sale.StoreId)
 	// collect new sale info
 	newSale := domain.SaleRequest{
 		ID:                 uuid.New().String(),
