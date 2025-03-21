@@ -754,6 +754,15 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		return
 	}
 
+	// collect new sale info
+	newSale := domain.SaleRequest{
+		ID:                 uuid.New().String(),
+		StoreId:            sale.StoreId,
+		EmployeeID:         sale.EmployeeID,
+		CashBoxOperationId: sale.CashBoxOperationId,
+		CashboxId:          sale.CashboxId,
+	}
+
 	// check sale is completed or no
 	if sale.Status == config.COMPLETED {
 		handleResponse(c, CONFLICT, "Sale is already completed")
@@ -793,14 +802,6 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		return
 	}
 	fmt.Println("sale.StoreId", sale.StoreId)
-	// collect new sale info
-	newSale := domain.SaleRequest{
-		ID:                 uuid.New().String(),
-		StoreId:            sale.StoreId,
-		EmployeeID:         sale.EmployeeID,
-		CashBoxOperationId: sale.CashBoxOperationId,
-		CashboxId:          sale.CashboxId,
-	}
 
 	// create new sale
 	err = tx.Table("sales").Create(&newSale).Error
