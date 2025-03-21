@@ -94,9 +94,9 @@ func (h *SaleHandler) Create(c *gin.Context) {
 	err = h.db.
 		WithContext(c.Request.Context()).
 		Raw(`
-		INSERT INTO sales (id, employee_id, cash_box_operation_id, cashbox_id)
-		VALUES (?, ?, ?, ?) RETURNING *`,
-			body.ID, body.EmployeeID, body.CashBoxOperationId, body.CashboxId).
+		INSERT INTO sales (id, employee_id, cash_box_operation_id, cashbox_id, store_id)
+		VALUES (?, ?, ?, ?, ?) RETURNING *`,
+			body.ID, body.EmployeeID, body.CashBoxOperationId, body.CashboxId, body.StoreId).
 		Scan(&res).Error
 	if err != nil {
 		h.log.Error(err)
