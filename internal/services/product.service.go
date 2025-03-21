@@ -21,10 +21,10 @@ func (s *Services) ListStoreProduct(param *domain.StoreProductQueryParam) ([]*do
 	// build query
 	query := s.db.Model(&domain.StoreProduct{}).
 		Table("store_products sp").
-		Select(`sp.*, pb.bonus_amount AS bonus_amount, p.name, p.barcode, p.unit_per_pack,
+		Select(`
+			sp.*, pb.bonus_amount AS bonus_amount, p.name, p.barcode, p.unit_per_pack,
 			DATE_PART('day', sp.expire_date::timestamp - NOW()) AS expire_day,
-			u.unit_name,
-			u.short_name`).
+			u.unit_name, u.short_name`).
 		Joins("JOIN products p ON p.id = sp.product_id").
 		Joins("LEFT JOIN unit_types u ON p.unit_type_id = u.id").
 		Joins("LEFT JOIN product_bonuses pb ON pb.product_id = sp.product_id").
@@ -40,18 +40,20 @@ func (s *Services) ListStoreProduct(param *domain.StoreProductQueryParam) ([]*do
 			Joins("LEFT JOIN product_markings pm ON pm.product_id = sp.product_id").
 			Where("pm.marking = ?", param.Search)
 	default:
+		// Transliterate search keyword Latin to Cyrillic OR Cyrillic to Latin
+		translatedWord := utils.Translit(param.Search)
 		// define search key
-			query = query.
+		query = query.
 			Joins("LEFT JOIN category_products cp ON p.id = cp.product_id").
 			Joins("LEFT JOIN categories c ON c.id = cp.category_id").
-			Where("p.name ILIKE ? OR c.name ILIKE ?", "%"+param.Search+"%", "%"+param.Search+"%").Limit(param.Limit).Offset(param.Offset)
+			Where("p.name ILIKE ? OR c.name ILIKE ? OR p.name ILIKE ?", "%"+param.Search+"%", "%"+param.Search+"%", "%"+translatedWord+"%").
+			Limit(param.Limit).Offset(param.Offset)
 	}
 	// complete query
 	err = query.
 		Limit(param.Limit).
 		Offset(param.Offset).
 		Order("sp.expire_date").
-		Debug().
 		Find(&res).Error
 
 	if err != nil {

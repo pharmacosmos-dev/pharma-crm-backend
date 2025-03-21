@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"regexp"
+	"strings"
 	"time"
 )
 
@@ -40,4 +41,71 @@ func DefineProductSearchQuery(search string) string {
 	default:
 		return "name/category"
 	}
+}
+
+// Lotin -> Kirill translit map
+var latinToCyrillic = map[rune]rune{
+	'a': 'а', 'b': 'б', 'c': 'с', 'd': 'д', 'e': 'е', 'f': 'ф', 'g': 'г',
+	'h': 'ҳ', 'i': 'и', 'j': 'ж', 'k': 'к', 'l': 'л', 'm': 'м', 'n': 'н',
+	'o': 'о', 'p': 'п', 'q': 'қ', 'r': 'р', 's': 'с', 't': 'т', 'u': 'у',
+	'v': 'в', 'x': 'х', 'y': 'й', 'z': 'з',
+}
+
+// Kirill -> Lotin translit map
+var cyrillicToLatin = map[rune]string{
+	'а': "a", 'б': "b", 'с': "s", 'д': "d", 'е': "e", 'ф': "f", 'г': "g",
+	'ҳ': "h", 'и': "i", 'ж': "j", 'к': "k", 'л': "l", 'м': "m", 'н': "n",
+	'о': "o", 'п': "p", 'қ': "q", 'р': "r", 'т': "t", 'у': "u", 'в': "v",
+	'х': "x", 'й': "y", 'з': "z",
+	'ш': "sh", 'ч': "ch", 'ц': "ts", 'ў': "o‘", 'ғ': "g‘",
+}
+
+var multiCharMap = map[string]string{
+	"sh": "ш", "ch": "ч", "ts": "ц", "o‘": "ў", "g‘": "г",
+}
+
+// Translit converts between Lotin and Kirill
+func Translit(input string) string {
+	var result strings.Builder
+	input = strings.ToLower(input)
+	runes := []rune(input)
+
+	// Check if input contains Cyrillic (to determine conversion direction)
+	isCyrillic := false
+	for _, r := range runes {
+		if _, ok := cyrillicToLatin[r]; ok {
+			isCyrillic = true
+			break
+		}
+	}
+
+	for i := 0; i < len(runes); i++ {
+		// Check two-character mappings first
+		if i < len(runes)-1 {
+			twoChar := string(runes[i : i+2])
+			if val, ok := multiCharMap[twoChar]; ok {
+				result.WriteString(val)
+				i++ // Skip next character
+				continue
+			}
+		}
+
+		// Handle single-character mappings
+		if isCyrillic {
+			if val, ok := cyrillicToLatin[runes[i]]; ok {
+				result.WriteString(val)
+				continue
+			}
+		} else {
+			if val, ok := latinToCyrillic[runes[i]]; ok {
+				result.WriteRune(val)
+				continue
+			}
+		}
+
+		// If no mapping found, keep the character unchanged
+		result.WriteRune(runes[i])
+	}
+
+	return result.String()
 }
