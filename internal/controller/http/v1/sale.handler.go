@@ -805,15 +805,15 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	// create new sale
 	err = tx.Table("sales").Create(&newSale).Error
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		h.log.Error("ERROR on creating new sale: ", err)
+		handleResponse(c, InternalError, "Can't create new sale")
 		tx.Rollback()
 		return
 	}
 
 	// Commit transaction
 	if err = tx.Commit().Error; err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleResponse(c, InternalError, "Can't commit transaction")
 		tx.Rollback()
 		return
 	}
