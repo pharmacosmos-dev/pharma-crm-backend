@@ -109,7 +109,7 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 		storeId = employee.StoreId
 	}
 	// get dashboard data
-	res, err := h.service.DashboardChartStats(storeId, employee.Id, c.Query("start_date"), c.Query("end_date"), c.Query("type"))
+	res, err := h.service.DashboardChartStats(storeId, c.Query("start_date"), c.Query("end_date"), c.Query("type"))
 	if err != nil {
 		handleResponse(c, InternalError, "Can't get dashboard data")
 		return
@@ -154,7 +154,7 @@ func (h *DashboardHandler) TopStores(c *gin.Context) {
 		storeId = employee.StoreId
 	}
 	// get dashboard data
-	res, err := h.service.DashboardTopStores(storeId, employee.Id, c.Query("start_date"), c.Query("end_date"))
+	res, err := h.service.DashboardTopStores(storeId, c.Query("start_date"), c.Query("end_date"))
 	if err != nil {
 		handleResponse(c, InternalError, "Can't get dashboard data")
 		return
@@ -198,7 +198,7 @@ func (h *DashboardHandler) TopProducts(c *gin.Context) {
 		storeId = employee.StoreId
 	}
 	// get dashboard data
-	res, err := h.service.DashboardTopProducts(storeId, employee.Id, c.Query("start_date"), c.Query("end_date"))
+	res, err := h.service.DashboardTopProducts(storeId, c.Query("start_date"), c.Query("end_date"))
 	if err != nil {
 		handleResponse(c, InternalError, "Can't get dashboard data")
 		return

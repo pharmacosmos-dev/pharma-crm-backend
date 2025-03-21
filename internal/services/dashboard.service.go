@@ -80,7 +80,7 @@ func (s *Services) DashboardTotalCountStats(storeId, startDate, endDate string) 
 }
 
 // get dashboard chart stats data list
-func (s *Services) DashboardChartStats(storeId, employeeId string, startDate, endDate string, intervalType string) ([]domain.ChartResponse, error) {
+func (s *Services) DashboardChartStats(storeId, startDate, endDate string, intervalType string) ([]domain.ChartResponse, error) {
 	var res []domain.ChartResponse
 
 	// queries
@@ -124,23 +124,23 @@ func (s *Services) DashboardChartStats(storeId, employeeId string, startDate, en
 
 	// filter by store_id and employee_id if store_id is not empty
 	if storeId != "" {
-		filter += " AND store_id = ? AND employee_id = ?"
-		args = append(args, storeId, employeeId)
+		filter += " AND store_id = ?"
+		args = append(args, storeId)
 	}
 	// filter by only start_date if end_date is empty
 	if startDate != "" && endDate == "" {
-		filter += " AND completed_at >= ?"
+		filter += " AND completed_at::date = ?"
 		args = append(args, startDate)
 	}
 	// filter by start_date and end_date if both are not empty
 	if startDate != "" && endDate != "" {
-		filter += " AND completed_at >= ? AND completed_at <= ?"
+		filter += " AND completed_at::date >= ? AND completed_at::date <= ?"
 		args = append(args, startDate, endDate)
 	}
 
 	// final query
 	var q = fmt.Sprintf(query, timeColumn, timeColumn) + filter + group
-	err := s.db.Raw(q, args...).Scan(&res).Error
+	err := s.db.Debug().Raw(q, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
@@ -150,7 +150,7 @@ func (s *Services) DashboardChartStats(storeId, employeeId string, startDate, en
 }
 
 // get dashboard top stores
-func (s *Services) DashboardTopStores(storeId, employeeId, startDate, endDate string) ([]domain.TopStores, error) {
+func (s *Services) DashboardTopStores(storeId, startDate, endDate string) ([]domain.TopStores, error) {
 	// declaration
 	var (
 		res []domain.TopStores
@@ -164,15 +164,15 @@ func (s *Services) DashboardTopStores(storeId, employeeId, startDate, endDate st
 		order  = " ORDER BY total_amount DESC"
 	)
 	if storeId != "" {
-		filter += " AND sales.id = ? AND sales.employee_id = ?"
-		args = append(args, storeId, employeeId)
+		filter += " AND sales.store_id = ?"
+		args = append(args, storeId)
 	}
 	if startDate != "" && endDate == "" {
-		filter += " AND sales.completed_at >= ?"
+		filter += " AND sales.completed_at::date = ?"
 		args = append(args, startDate)
 	}
 	if startDate != "" && endDate != "" {
-		filter += " AND sales.completed_at >= ? AND sales.completed_at <= ?"
+		filter += " AND sales.completed_at::date >= ? AND sales.completed_at::date <= ?"
 		args = append(args, startDate, endDate)
 	}
 
@@ -187,7 +187,7 @@ func (s *Services) DashboardTopStores(storeId, employeeId, startDate, endDate st
 }
 
 // get dashboard top products
-func (s *Services) DashboardTopProducts(storeId, employeeId, startDate, endDate string) ([]domain.TopProducts, error) {
+func (s *Services) DashboardTopProducts(storeId, startDate, endDate string) ([]domain.TopProducts, error) {
 	// declaration
 	var (
 		res []domain.TopProducts
@@ -201,20 +201,20 @@ func (s *Services) DashboardTopProducts(storeId, employeeId, startDate, endDate 
 		order  = " ORDER BY total_amount DESC"
 	)
 	if storeId != "" {
-		filter += " AND sales.id = ? AND sales.employee_id = ?"
-		args = append(args, storeId, employeeId)
+		filter += " AND sales.id = ?"
+		args = append(args, storeId)
 	}
 	if startDate != "" && endDate == "" {
-		filter += " AND sales.completed_at >= ?"
+		filter += " AND sales.completed_at::date = ?"
 		args = append(args, startDate)
 	}
 	if startDate != "" && endDate != "" {
-		filter += " AND sales.completed_at >= ? AND sales.completed_at <= ?"
+		filter += " AND sales.completed_at::date >= ? AND sales.completed_at::date <= ?"
 		args = append(args, startDate, endDate)
 	}
 
 	var q = query + filter + group + order
-	err := s.db.Debug().Raw(q, args...).Scan(&res).Error
+	err := s.db.Raw(q, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Error("ERROR on getting top products: ", err)
 		return nil, err
