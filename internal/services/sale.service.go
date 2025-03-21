@@ -180,86 +180,27 @@ func (s *Services) UpdateCartItemStatus(tx *gorm.DB, saleID string, employeeID s
 		return err
 	}
 
-	// Store productlarni yangilash uchun batch update query
-	updateQuery := `UPDATE store_products sp
-	SET pack_quantity = pack_quantity - data.new_pack_quantity,
-		unit_quantity = unit_quantity - data.new_unit_quantity
-	FROM (
-		VALUES
-	`
-	values := []any{}
-
 	for _, item := range cartItems {
-		var currentStock struct {
-			PackQuantity int `gorm:"pack_quantity"`
-			UnitQuantity int `gorm:"unit_quantity"`
-		}
-
-		// Joriy mahsulotning mavjud pack va unit quantity ni olish
-		err := tx.Raw(`
-			SELECT pack_quantity, unit_quantity FROM store_products WHERE id = ?`, item.StoreProductID).
-			Scan(&currentStock).Error
+		err = tx.Debug().Exec(`
+		UPDATE store_products
+		SET
+			pack_quantity = CASE WHEN ? > 0 THEN (unit_quantity - ?)/products.unit_per_pack - ? ELSE pack_quantity - ? END,
+			unit_quantity = unit_quantity - (? * products.unit_per_pack + ?)
+		FROM products
+		WHERE products.id = store_products.product_id AND  store_products.id = ?`,
+			item.UnitQuantity, item.UnitQuantity, item.Quantity, item.Quantity,
+			item.Quantity, item.UnitQuantity, item.StoreProductID).Error
 		if err != nil {
-			s.log.Error("ERROR on getting current stock: ", err)
 			return err
 		}
-
-		// Avval unit_quantity ni kamaytirish
-		remainingUnits := currentStock.UnitQuantity - item.UnitQuantity
-
-		// Agar unit_quantity yetarli bo'lsa, pack_quantity ni kamaytirmaymiz
-		newPackQuantity := currentStock.PackQuantity
-		newUnitQuantity := remainingUnits
-
-		if remainingUnits < 0 {
-			// Packdan ajratish kerak bo'lgan unitlarni hisoblash
-			requiredPacks := (-remainingUnits + item.UnitPerPack - 1) / item.UnitPerPack
-			newPackQuantity -= requiredPacks
-			newUnitQuantity += requiredPacks * item.UnitPerPack
-		}
-
-		// Oxirgi tekshiruv: pack_quantity manfiy bo'lib qolmasligi kerak
-		if newPackQuantity < 0 {
-			return fmt.Errorf("not enough stock for product %s", item.ProductId)
-		}
-
-		values = append(values, item.StoreProductID, newPackQuantity, newUnitQuantity)
-		updateQuery += " (CAST(? AS UUID), ?::INTEGER, ?::INTEGER),"
 	}
 
-	// So‘rovni yakunlash
-	updateQuery = updateQuery[:len(updateQuery)-1] + `
-	) AS data(id, new_pack_quantity, new_unit_quantity)
-	WHERE sp.id = data.id;`
-
-	// Batch update bajarish
-	err = tx.Exec(updateQuery, values...).Error
+	err = tx.
+		Table("cart_items").
+		Where("sale_id = ?", saleID).
+		Update("status", "sold").Error
 	if err != nil {
 		return err
-	}
-
-	// Bonuslarni batch insert qilish
-	insertBonusQuery := `INSERT INTO employee_bonus (
-		employee_id, sale_id, product_id, cashbox_operation_id, bonus_amount, quantity
-	) VALUES `
-
-	bonusValues := []any{}
-	for _, item := range cartItems {
-		if item.BonusAmount > 0 {
-			unitBonus := (item.BonusAmount / float64(item.UnitPerPack)) * float64(item.UnitQuantity)
-			totalBonus := item.BonusAmount*float64(item.Quantity) + unitBonus
-			bonusValues = append(bonusValues, employeeID, saleID, item.ProductId, cashBoxOperationId, totalBonus, item.Quantity)
-			insertBonusQuery += "(?, ?, ?, ?, ?, ?),"
-		}
-	}
-
-	// Agar bonuslar mavjud bo‘lsa, batch insert qilamiz
-	if len(bonusValues) > 0 {
-		insertBonusQuery = insertBonusQuery[:len(insertBonusQuery)-1] // oxirgi vergulni olib tashlash
-		err = tx.Exec(insertBonusQuery, bonusValues...).Error
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil
