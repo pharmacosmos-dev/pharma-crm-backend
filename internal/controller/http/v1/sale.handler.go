@@ -609,6 +609,7 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	storeID := sale.StoreId
 	//
 	if body.Error {
 		// Update sales status
@@ -661,7 +662,7 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 		newSale := domain.SaleRequest{
 			ID:                 uuid.New().String(),
 			EmployeeID:         sale.EmployeeID,
-			StoreId:            sale.StoreId,
+			StoreId:            storeID,
 			CashBoxOperationId: sale.CashBoxOperationId,
 			CashboxId:          cashboxOperation.CashBoxID,
 		}

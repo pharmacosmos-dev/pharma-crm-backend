@@ -19,7 +19,7 @@ func (s *Services) DashboardTotalCountStats(storeId, startDate, endDate string) 
 	)
 	// queries
 	var (
-		args    []interface{}
+		args    []any
 		querys  = `SELECT COUNT(*) AS total_sale_count, SUM(total_amount) AS total_sale_amount FROM sales`
 		queryp  = `SELECT COALESCE(SUM(pack_quantity), 0) AS total_product_count FROM store_products`
 		filters = " WHERE status = 'completed'"
@@ -34,8 +34,8 @@ func (s *Services) DashboardTotalCountStats(storeId, startDate, endDate string) 
 
 	// if start date is not empty
 	if startDate != "" && endDate == "" {
-		filters += " AND completed_at >= ?"
-		filterp += " AND created_at >= ?"
+		filters += " AND completed_at = ?"
+		filterp += " AND created_at = ?"
 		args = append(args, startDate)
 	}
 
@@ -48,7 +48,7 @@ func (s *Services) DashboardTotalCountStats(storeId, startDate, endDate string) 
 
 	// get total sale count and amount
 	var q = querys + filters
-	err := s.db.Raw(q, args...).Scan(&totalSale).Error
+	err := s.db.Debug().Raw(q, args...).Scan(&totalSale).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
@@ -85,7 +85,7 @@ func (s *Services) DashboardChartStats(storeId, employeeId string, startDate, en
 
 	// queries
 	var (
-		args  []interface{}
+		args  []any
 		query = `
 		SELECT COUNT(*) as count, SUM(total_amount) as total_amount, 
 		%s AS created_at, %s AS id
@@ -157,7 +157,7 @@ func (s *Services) DashboardTopStores(storeId, employeeId, startDate, endDate st
 	)
 	// query
 	var (
-		args   []interface{}
+		args   []any
 		query  = `SELECT stores.id, stores.name, COUNT(*) AS count, SUM(sales.total_amount) AS total_amount FROM sales INNER JOIN stores ON sales.store_id = stores.id`
 		filter = " WHERE sales.status = 'completed'"
 		group  = " GROUP BY stores.id"
@@ -180,6 +180,43 @@ func (s *Services) DashboardTopStores(storeId, employeeId, startDate, endDate st
 	err := s.db.Debug().Raw(q, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Error(err)
+		return nil, err
+	}
+
+	return res, nil
+}
+
+// get dashboard top products
+func (s *Services) DashboardTopProducts(storeId, employeeId, startDate, endDate string) ([]domain.TopProducts, error) {
+	// declaration
+	var (
+		res []domain.TopProducts
+	)
+	// query
+	var (
+		args   []any
+		query  = `SELECT products.id, products.name, COUNT(*) AS count, SUM(sales.total_amount) AS total_amount FROM sales INNER JOIN products ON sales.product_id = products.id`
+		filter = " WHERE sales.status = 'completed'"
+		group  = " GROUP BY products.id"
+		order  = " ORDER BY total_amount DESC"
+	)
+	if storeId != "" {
+		filter += " AND sales.id = ? AND sales.employee_id = ?"
+		args = append(args, storeId, employeeId)
+	}
+	if startDate != "" && endDate == "" {
+		filter += " AND sales.completed_at >= ?"
+		args = append(args, startDate)
+	}
+	if startDate != "" && endDate != "" {
+		filter += " AND sales.completed_at >= ? AND sales.completed_at <= ?"
+		args = append(args, startDate, endDate)
+	}
+
+	var q = query + filter + group + order
+	err := s.db.Debug().Raw(q, args...).Scan(&res).Error
+	if err != nil {
+		s.log.Error("ERROR on getting top products: ", err)
 		return nil, err
 	}
 

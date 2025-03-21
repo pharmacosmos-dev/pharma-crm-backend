@@ -23,3 +23,11 @@ type TopStores struct {
 	Count       int64   `gorm:"count" json:"count"`
 	TotalAmount float64 `gorm:"total_amount" json:"total_amount"`
 }
+
+// Top Products structure
+type TopProducts struct {
+	Id          string  `gorm:"id" json:"id"`
+	Name        string  `gorm:"name" json:"name"`
+	Count       int64   `gorm:"count" json:"count"`
+	TotalAmount float64 `gorm:"total_amount" json:"total_amount"`
+}
