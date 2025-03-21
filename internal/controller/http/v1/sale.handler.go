@@ -430,7 +430,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 		SELECT
 			COALESCE(SUM(s.total_amount), 0) AS total_transactions_sum
 		FROM sales s
-		JOIN stores st ON s.store_id = st.id 
+		JOIN stores st ON s.store_id = st.id
 		`
 		// query for each payment types sum
 		pquery = `
@@ -443,7 +443,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 		JOIN payment_types pt ON sp.payment_type_id = pt.id
 		JOIN sales s ON sp.sale_id = s.id
 		`
-		filter = `WHERE 1=1 `
+		filter = `WHERE 1=1 AND s.status = 'completed' `
 		group  = ` GROUP BY pt.id, pt.name`
 	)
 
