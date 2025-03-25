@@ -682,3 +682,4 @@ func (h *EmployeeHandler) SmenaBonus(c *gin.Context) {
 	}
 	handleResponse(c, OK, gin.H{"bonus": bonus})
 }
+

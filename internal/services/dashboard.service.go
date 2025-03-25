@@ -228,21 +228,28 @@ func (s *Services) DashboardTopProducts(param *domain.DashboardQueryParam) ([]do
 	// query
 	var (
 		args   []any
-		query  = `SELECT products.id, products.name, COUNT(*) AS count, SUM(sales.total_amount) AS total_amount FROM sales INNER JOIN products ON sales.product_id = products.id`
-		filter = " WHERE sales.status = 'completed'"
-		group  = " GROUP BY products.id"
+		query  = `
+		SELECT
+			p.id, p.name,
+			CAST(SUM(ci.quantity) AS TEXT) || ',' || CAST(SUM(ci.unit_quantity) AS TEXT) AS count,
+			sum(ci.total_price) as total_amount
+		FROM cart_items ci
+			JOIN store_products sp ON ci.store_product_id = sp.id
+			JOIN products p on sp.product_id = p.id`
+		filter = " WHERE ci.status = 'sold'"
+		group  = " GROUP BY p.id, p.name"
 		order  = " ORDER BY total_amount DESC"
 	)
 	if param.StoreId != "" {
-		filter += " AND sales.id = ?"
+		filter += " AND sp.store_id = ?"
 		args = append(args, param.StoreId)
 	}
 	if param.StartDate != "" && param.EndDate == "" {
-		filter += " AND sales.completed_at::date = ?"
+		filter += " AND ci.updated_at::date = ?"
 		args = append(args, param.StartDate)
 	}
 	if param.StartDate != "" && param.EndDate != "" {
-		filter += " AND sales.completed_at::date >= ? AND sales.completed_at::date <= ?"
+		filter += " AND ci.updated_at::date >= ? AND ci.updated_at::date <= ?"
 		args = append(args, param.StartDate, param.EndDate)
 	}
 

@@ -66,3 +66,30 @@ func (s *Services) ListEmployee(c *gin.Context, limit, offset int) ([]domain.Emp
 
 	return res, totalCount, nil
 }
+
+// get employee bonus amount
+func (h *Services) GetEmployeeBonusAmount(param *domain.DashboardQueryParam, id string) (float64, error) {
+	var (
+		bonus  float64
+		args   []any
+		query  = `SELECT COALESCE(SUM(bonus_amount), 0) AS bonus_amount FROM employee_bonus `
+		filter = `WHERE employee_id = ?`
+	)
+	// add employee id
+	args = append(args, id)
+	if param.StartDate != "" && param.EndDate == "" {
+		filter += ` AND created_at::date = ?`
+		args = append(args, param.StartDate)
+	}
+	if param.StartDate != "" && param.EndDate != "" {
+		filter += ` AND created_at::date BETWEEN ? AND ?`
+		args = append(args, param.StartDate, param.EndDate)
+	}
+	query += filter
+	err := h.db.Raw(query, args...).Scan(&bonus).Error
+	if err != nil {
+		h.log.Error(err)
+		return 0, err
+	}
+	return bonus, nil
+}

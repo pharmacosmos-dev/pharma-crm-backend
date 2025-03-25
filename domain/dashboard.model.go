@@ -10,6 +10,7 @@ type TotalCountStats struct {
 	ExpiringSoonCount  int64   `gorm:"expiring_soon_count" json:"expiring_soon_count"`
 	ExpiringSoonAmount float64 `gorm:"expiring_soon_amount" json:"expiring_soon_amount"`
 	TotalNetIncome     float64 `gorm:"total_net_income" json:"total_net_income"`
+	BonusAmount        float64 `gorm:"bonus_amount" json:"bonus_amount"`
 }
 
 // ChartResponse structure
@@ -32,7 +33,7 @@ type TopStores struct {
 type TopProducts struct {
 	Id          string  `gorm:"id" json:"id"`
 	Name        string  `gorm:"name" json:"name"`
-	Count       int64   `gorm:"count" json:"count"`
+	Count       string  `gorm:"count" json:"count"`
 	TotalAmount float64 `gorm:"total_amount" json:"total_amount"`
 }
 
