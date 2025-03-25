@@ -30,6 +30,7 @@ func (h *CashBoxHandler) CashBoxRoutes(r *gin.RouterGroup) {
 		cashBox.GET("/:id", h.Get)
 		cashBox.GET("/list", h.List)
 		cashBox.PUT("/:id", h.Update)
+		cashBox.GET("/open-list", h.OpenCashboxList)
 		cashBox.GET("/check", h.CheckCashBox)
 		cashBox.DELETE("/hard-delete", h.HardDelete)
 		cashBox.DELETE("/soft-delete", h.SoftDelete)
@@ -384,6 +385,10 @@ func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
 	var cashboxOperation domain.CashboxOperation
 	err := h.db.First(&cashboxOperation, "current_employee_id = ? AND end_time IS NULL", userID).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			handleResponse(c, NotFound, "You have no open cashbox operation")
+			return
+		}
 		h.log.Error(err)
 		handleResponse(c, InternalError, "Failed to check cash box operations")
 		return
@@ -433,4 +438,42 @@ func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
 
 	// No open cashbox operation found
 	handleResponse(c, OK, checkCashBox)
+}
+
+// OpenCashboxList godoc
+// @Summary Get open cashbox list
+// @Description Get open cashbox list from the request body
+// @Tags cash_boxes
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /cash_box/open-list [get]
+func (h *CashBoxHandler) OpenCashboxList(c *gin.Context) {
+	var (
+		res []domain.CashBox
+	)
+	userId, ok := c.Get("user_id")
+	if !ok {
+		h.log.Error("User ID not found")
+		handleResponse(c, InternalError, "User ID not found")
+		return
+	}
+	err := h.db.Raw(`
+	SELECT cb.* 
+	FROM cashbox_operations co 
+	JOIN cash_boxes cb ON co.cash_box_id = cb.id 
+	WHERE co.current_employee_id = ? AND co.end_time IS NULL`, userId).
+		Scan(&res).Error
+
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, res)
 }

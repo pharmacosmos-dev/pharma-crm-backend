@@ -69,14 +69,14 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 
 	// get total sale count and amount
 	var q = querys + filters
-	err := s.db.Debug().Raw(q, args...).Scan(&totalSale).Error
+	err := s.db.Raw(q, args...).Scan(&totalSale).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
 	}
 	// get total product count
 	var qp = queryp + filterp
-	err = s.db.Debug().Raw(qp, args...).Scan(&stock).Error
+	err = s.db.Raw(qp, args...).Scan(&stock).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
@@ -84,7 +84,7 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 	var totalNetIncome float64
 	// get total net income
 	var qc = queryc + filterc
-	err = s.db.Debug().Raw(qc, args...).Scan(&totalNetIncome).Error
+	err = s.db.Raw(qc, args...).Scan(&totalNetIncome).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
@@ -173,7 +173,7 @@ func (s *Services) DashboardChartStats(param *domain.DashboardQueryParam) ([]dom
 
 	// final query
 	var q = fmt.Sprintf(query, timeColumn, timeColumn) + filter + group
-	err := s.db.Debug().Raw(q, args...).Scan(&res).Error
+	err := s.db.Raw(q, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
@@ -347,7 +347,7 @@ func (s *Services) DashboardTopSeller(param *domain.DashboardQueryParam) ([]doma
 	}
 	args = append(args, param.Limit, param.Offset)
 	var q = query + filter + group + order + offset
-	err := s.db.Debug().Raw(q, args...).Scan(&res).Error
+	err := s.db.Raw(q, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Error("ERROR on getting top seller: ", err)
 		return nil, err

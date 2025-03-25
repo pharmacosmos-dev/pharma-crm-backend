@@ -90,10 +90,10 @@ func (h *ShiftHandler) Create(c *gin.Context) {
 		return
 	}
 
-	accessClaims := map[string]interface{}{
+	accessClaims := map[string]any{
 		"user_id": body.ToEmployeeId,
 	}
-	refreshClaims := map[string]interface{}{
+	refreshClaims := map[string]any{
 		"user_id": body.ToEmployeeId,
 	}
 	accessToken, refreshToken, err := h.JwtHandler.GenerateTokens(accessClaims, refreshClaims)
