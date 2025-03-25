@@ -76,11 +76,12 @@ func (h *AutoOrderHandler) Create(c *gin.Context) {
 	// get auro order products based on store_id and interval day
 	autoOrderDetails, err := h.service.GenerateAutoOrderDetail(c.Request.Context(), body.StoreId, body.IntervalDay)
 	if err != nil {
-		tx.Rollback()
-		h.log.Error(err)
+		h.log.Error("ERROR generating auto order: ", err)
 		handleResponse(c, InternalError, "Failed to generate auto order for the store")
+		tx.Rollback()
 		return
 	}
+	fmt.Println("--->>> ", len(autoOrderDetails))
 	// check if there are enough products for the auto order
 	if len(autoOrderDetails) < 1 {
 		handleResponse(c, CONFLICT, "Not enough products for creating auto order")
@@ -91,9 +92,9 @@ func (h *AutoOrderHandler) Create(c *gin.Context) {
 		Table("auto_orders").
 		Create(&body).Error
 	if err != nil {
-		tx.Rollback()
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
+		tx.Rollback()
 		return
 	}
 
@@ -102,20 +103,27 @@ func (h *AutoOrderHandler) Create(c *gin.Context) {
 		autoOrderDetails[i].AutoOrderId = body.Id
 	}
 
-	err = tx.
-		Table("auto_order_details").
-		Create(&autoOrderDetails).Error
-	if err != nil {
-		tx.Rollback()
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
+	batchSize := 100
+	for i := 0; i < len(autoOrderDetails); i += batchSize {
+		end := i + batchSize
+		if end > len(autoOrderDetails) {
+			end = len(autoOrderDetails)
+		}
+
+		batch := autoOrderDetails[i:end]
+		err = tx.Table("auto_order_details").Create(&batch).Error
+		if err != nil {
+			h.log.Error("ERROR on creating auto order details")
+			handleResponse(c, InternalError, err.Error())
+			tx.Rollback()
+			return
+		}
 	}
 
 	if err = tx.Commit().Error; err != nil {
-		tx.Rollback()
-		h.log.Error(err)
+		h.log.Error("ERROR on commiting transaction")
 		handleResponse(c, InternalError, err.Error())
+		tx.Rollback()
 		return
 	}
 

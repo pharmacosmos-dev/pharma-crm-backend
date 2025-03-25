@@ -244,7 +244,7 @@ func (s *Services) GenerateAutoOrderDetail(ctx context.Context, storeID string, 
 	WHERE
 		st.store_id = ? AND
 		(auto_orders.status != 'new' OR auto_orders.status != 'pending' 
-		OR auto_orders.status IS NULL);
+		OR auto_orders.status IS NULL) AND sd.month_sale_stock > 0;
 	`
 	err := s.db.Raw(query, storeID, storeID, storeID).Scan(&res).Error
 
