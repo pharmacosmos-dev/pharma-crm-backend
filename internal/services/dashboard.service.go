@@ -227,8 +227,8 @@ func (s *Services) DashboardTopProducts(param *domain.DashboardQueryParam) ([]do
 	)
 	// query
 	var (
-		args   []any
-		query  = `
+		args  []any
+		query = `
 		SELECT
 			p.id, p.name,
 			CAST(SUM(ci.quantity) AS TEXT) || ',' || CAST(SUM(ci.unit_quantity) AS TEXT) AS count,
@@ -252,8 +252,8 @@ func (s *Services) DashboardTopProducts(param *domain.DashboardQueryParam) ([]do
 		filter += " AND ci.updated_at::date >= ? AND ci.updated_at::date <= ?"
 		args = append(args, param.StartDate, param.EndDate)
 	}
-
-	var q = query + filter + group + order
+	args = append(args, param.Limit, param.Offset)
+	var q = query + filter + group + order + " LIMIT ? OFFSET ?"
 	err := s.db.Raw(q, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Error("ERROR on getting top products: ", err)

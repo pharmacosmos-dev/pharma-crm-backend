@@ -200,6 +200,8 @@ func (h *DashboardHandler) TopStores(c *gin.Context) {
 // @Tags dashboard
 // @Security     BearerAuth
 // @Produce json
+// @Param   limit 	query int false "Limit"
+// @Param 	offset query int false 	"Offset"
 // @Param   start_date 	query string false "Start Date"
 // @Param   end_date 	query string false "End Date"
 // @Param   store_id 	query string false "Store ID"
@@ -215,6 +217,8 @@ func (h *DashboardHandler) TopProducts(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid query parameters")
 		return
 	}
+	// get limit offset with checking default
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 	// get user id from header
 	vendorID, ok := c.Get("user_id")
 	if !ok {
