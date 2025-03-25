@@ -7,55 +7,84 @@ import (
 )
 
 // get dashboard count and amount data
-func (s *Services) DashboardTotalCountStats(storeId, startDate, endDate string) (*domain.TotalCountStats, error) {
+func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (*domain.TotalCountStats, error) {
 	// declarations
 	var (
-		res       domain.TotalCountStats
+		res   domain.TotalCountStats
+		stock struct {
+			StockTotalAmount   float64 `gorm:"stock_total_amount" json:"stock_total_amount"`
+			ExpiringSoonCount  int64   `gorm:"expiring_soon_count" json:"expiring_soon_count"`
+			TotalProductCount  int64   `gorm:"total_product_count" json:"total_product_count"`
+			ExpiringSoonAmount float64 `gorm:"expiring_soon_amount" json:"expiring_soon_amount"`
+		}
 		totalSale struct {
 			TotalSaleCount  float64 `gorm:"total_sale_count" json:"total_sale_count"`
 			TotalSaleAmount float64 `gorm:"total_sale_amount" json:"total_sale_amount"`
 		}
-		productCount int64
 	)
 	// queries
 	var (
-		args    []any
-		querys  = `SELECT COUNT(*) AS total_sale_count, SUM(total_amount) AS total_sale_amount FROM sales`
-		queryp  = `SELECT COALESCE(SUM(pack_quantity), 0) AS total_product_count FROM store_products`
+		args   []any
+		querys = `SELECT COUNT(*) AS total_sale_count, SUM(total_amount) AS total_sale_amount FROM sales`
+		queryp = `
+		SELECT
+			COALESCE(SUM(pack_quantity), 0) AS total_product_count,
+			COALESCE(SUM(pack_quantity*retail_price), 0) AS stock_total_amount,
+			COALESCE(SUM(CASE WHEN expire_date <= NOW() + INTERVAL '10 days' THEN pack_quantity ELSE 0 END), 0) AS expiring_soon_count,
+			COALESCE(SUM(CASE WHEN expire_date <= NOW() + INTERVAL '10 days' THEN pack_quantity*retail_price ELSE 0 END), 0) AS expiring_soon_amount
+		FROM store_products`
+		queryc = `
+		SELECT 
+			COALESCE(SUM((ci.unit_price - sp.supply_price) * ci.quantity), 0) AS total_net_income
+		FROM cart_items ci
+		JOIN store_products sp ON ci.store_product_id = sp.id
+		JOIN sales s ON ci.sale_id = s.id`
 		filters = " WHERE status = 'completed'"
 		filterp = " WHERE expire_date::date >= current_date "
+		filterc = " WHERE s.status = 'completed' "
 	)
 	// if store id is not empty
-	if storeId != "" {
+	if param.StoreId != "" {
 		filters += " AND store_id = ?"
 		filterp += " AND store_id = ?"
-		args = append(args, storeId)
+		filterc += " AND s.store_id = ?"
+		args = append(args, param.StoreId)
 	}
 
 	// if start date is not empty
-	if startDate != "" && endDate == "" {
+	if param.StartDate != "" && param.EndDate == "" {
 		filters += " AND completed_at::date = ?"
 		filterp += " AND expire_date::date >= ?"
-		args = append(args, startDate)
+		filterc += " AND s.completed_at::date = ?"
+		args = append(args, param.StartDate)
 	}
 
 	// if end date is not empty
-	if startDate != "" && endDate != "" {
+	if param.StartDate != "" && param.EndDate != "" {
 		filters += " AND completed_at::date >= ? AND completed_at::date <= ?"
 		filterp += " AND expire_date::date >= ? AND expire_date::date <= ?"
-		args = append(args, startDate, endDate)
+		filterc += " AND s.completed_at::date >= ? AND s.completed_at::date <= ?"
+		args = append(args, param.StartDate, param.EndDate)
 	}
 
 	// get total sale count and amount
 	var q = querys + filters
-	err := s.db.Raw(q, args...).Scan(&totalSale).Error
+	err := s.db.Debug().Raw(q, args...).Scan(&totalSale).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
 	}
 	// get total product count
 	var qp = queryp + filterp
-	err = s.db.Raw(qp, args...).Scan(&productCount).Error
+	err = s.db.Debug().Raw(qp, args...).Scan(&stock).Error
+	if err != nil {
+		s.log.Error(err)
+		return nil, err
+	}
+	var totalNetIncome float64
+	// get total net income
+	var qc = queryc + filterc
+	err = s.db.Debug().Raw(qc, args...).Scan(&totalNetIncome).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
@@ -63,10 +92,14 @@ func (s *Services) DashboardTotalCountStats(storeId, startDate, endDate string) 
 
 	res.TotalSaleCount = totalSale.TotalSaleCount
 	res.TotalSaleAmount = totalSale.TotalSaleAmount
-	res.TotalProductCount = productCount
+	res.TotalProductCount = stock.TotalProductCount
+	res.StockTotalAmount = stock.StockTotalAmount
+	res.ExpiringSoonCount = stock.ExpiringSoonCount
+	res.ExpiringSoonAmount = stock.ExpiringSoonAmount
+	res.TotalNetIncome = totalNetIncome
 
 	// get store count by checking store_id is not emply
-	if storeId != "" {
+	if param.StoreId != "" {
 		res.TotalStoreCount = 1
 	} else {
 		err = s.db.Model(&domain.Store{}).Count(&res.TotalStoreCount).Error
@@ -80,7 +113,7 @@ func (s *Services) DashboardTotalCountStats(storeId, startDate, endDate string) 
 }
 
 // get dashboard chart stats data list
-func (s *Services) DashboardChartStats(storeId, startDate, endDate string, intervalType string) ([]domain.ChartResponse, error) {
+func (s *Services) DashboardChartStats(param *domain.DashboardQueryParam) ([]domain.ChartResponse, error) {
 	var res []domain.ChartResponse
 
 	// queries
@@ -96,7 +129,7 @@ func (s *Services) DashboardChartStats(storeId, startDate, endDate string, inter
 	)
 
 	// intervalType ga qarab vaqtni formatlash
-	switch intervalType {
+	switch param.Type {
 	case "HALF_HOURLY":
 		timeColumn = `
 		DATE_TRUNC('hour', completed_at) + 
@@ -123,19 +156,19 @@ func (s *Services) DashboardChartStats(storeId, startDate, endDate string, inter
 	}
 
 	// filter by store_id and employee_id if store_id is not empty
-	if storeId != "" {
+	if param.StoreId != "" {
 		filter += " AND store_id = ?"
-		args = append(args, storeId)
+		args = append(args, param.StoreId)
 	}
 	// filter by only start_date if end_date is empty
-	if startDate != "" && endDate == "" {
+	if param.StartDate != "" && param.EndDate == "" {
 		filter += " AND completed_at::date = ?"
-		args = append(args, startDate)
+		args = append(args, param.StartDate)
 	}
 	// filter by start_date and end_date if both are not empty
-	if startDate != "" && endDate != "" {
+	if param.StartDate != "" && param.EndDate != "" {
 		filter += " AND completed_at::date >= ? AND completed_at::date <= ?"
-		args = append(args, startDate, endDate)
+		args = append(args, param.StartDate, param.EndDate)
 	}
 
 	// final query
@@ -150,7 +183,7 @@ func (s *Services) DashboardChartStats(storeId, startDate, endDate string, inter
 }
 
 // get dashboard top stores
-func (s *Services) DashboardTopStores(storeId, startDate, endDate string) ([]domain.TopStores, error) {
+func (s *Services) DashboardTopStores(param *domain.DashboardQueryParam) ([]domain.TopStores, error) {
 	// declaration
 	var (
 		res []domain.TopStores
@@ -163,17 +196,17 @@ func (s *Services) DashboardTopStores(storeId, startDate, endDate string) ([]dom
 		group  = " GROUP BY stores.id"
 		order  = " ORDER BY total_amount DESC"
 	)
-	if storeId != "" {
+	if param.StoreId != "" {
 		filter += " AND sales.store_id = ?"
-		args = append(args, storeId)
+		args = append(args, param.StoreId)
 	}
-	if startDate != "" && endDate == "" {
+	if param.StartDate != "" && param.EndDate == "" {
 		filter += " AND sales.completed_at::date = ?"
-		args = append(args, startDate)
+		args = append(args, param.StartDate)
 	}
-	if startDate != "" && endDate != "" {
+	if param.StartDate != "" && param.EndDate != "" {
 		filter += " AND sales.completed_at::date >= ? AND sales.completed_at::date <= ?"
-		args = append(args, startDate, endDate)
+		args = append(args, param.StartDate, param.EndDate)
 	}
 
 	var q = query + filter + group + order
@@ -187,7 +220,7 @@ func (s *Services) DashboardTopStores(storeId, startDate, endDate string) ([]dom
 }
 
 // get dashboard top products
-func (s *Services) DashboardTopProducts(storeId, startDate, endDate string) ([]domain.TopProducts, error) {
+func (s *Services) DashboardTopProducts(param *domain.DashboardQueryParam) ([]domain.TopProducts, error) {
 	// declaration
 	var (
 		res []domain.TopProducts
@@ -200,17 +233,17 @@ func (s *Services) DashboardTopProducts(storeId, startDate, endDate string) ([]d
 		group  = " GROUP BY products.id"
 		order  = " ORDER BY total_amount DESC"
 	)
-	if storeId != "" {
+	if param.StoreId != "" {
 		filter += " AND sales.id = ?"
-		args = append(args, storeId)
+		args = append(args, param.StoreId)
 	}
-	if startDate != "" && endDate == "" {
+	if param.StartDate != "" && param.EndDate == "" {
 		filter += " AND sales.completed_at::date = ?"
-		args = append(args, startDate)
+		args = append(args, param.StartDate)
 	}
-	if startDate != "" && endDate != "" {
+	if param.StartDate != "" && param.EndDate != "" {
 		filter += " AND sales.completed_at::date >= ? AND sales.completed_at::date <= ?"
-		args = append(args, startDate, endDate)
+		args = append(args, param.StartDate, param.EndDate)
 	}
 
 	var q = query + filter + group + order

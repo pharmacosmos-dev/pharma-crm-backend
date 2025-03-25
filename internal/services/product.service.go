@@ -54,6 +54,7 @@ func (s *Services) ListStoreProduct(param *domain.StoreProductQueryParam) ([]*do
 		Limit(param.Limit).
 		Offset(param.Offset).
 		Order("sp.expire_date").
+		Debug().
 		Find(&res).Error
 
 	if err != nil {

@@ -55,6 +55,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.GET("/total-status-count", h.TotalStatusCount)
 		product.PUT("/update-barcode/:id", h.UpdateBarcode)
 		product.POST("/attach-barcode", h.AttachBarcode)
+		product.POST("/generate-marking", h.GenerateMarkingProducts)
 	}
 }
 

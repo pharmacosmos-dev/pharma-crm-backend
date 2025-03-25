@@ -22,6 +22,7 @@ func (h *DashboardHandler) DashboardRoutes(r *gin.RouterGroup) {
 		dashboard.GET("/count-stats", h.TotalCountStats)
 		dashboard.GET("/chart", h.ChartStats)
 		dashboard.GET("/top-stores", h.TopStores)
+		dashboard.GET("/top-products", h.TopProducts)
 	}
 }
 
@@ -33,12 +34,20 @@ func (h *DashboardHandler) DashboardRoutes(r *gin.RouterGroup) {
 // @Produce json
 // @Param   start_date 	query string false "Start Date"
 // @Param   end_date 	query string false "End Date"
+// @Param   store_id 	query string false "Store ID"
 // @Param   type 		query string false "Type"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/count-stats [GET]
 func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
+	var param domain.DashboardQueryParam
+	// bind query parameters
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
+		handleResponse(c, BadRequest, "Invalid query parameters")
+		return
+	}
 	// get user id from header
 	vendorID, ok := c.Get("user_id")
 	if !ok {
@@ -47,7 +56,7 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 	}
 	// get employee info
 	var employee domain.Employee
-	err := h.db.First(&employee, "id = ?", vendorID).Error
+	err = h.db.First(&employee, "id = ?", vendorID).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			handleResponse(c, NotFound, "User not found")
@@ -57,13 +66,12 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 		handleResponse(c, InternalError, "Can't get employee info")
 		return
 	}
-	var storeId string
 	// check if employee is not admin or superadmin
 	if employee.RoleType != config.ADMIN && employee.RoleType != config.SUPERADMIN {
-		storeId = employee.StoreId
+		param.StoreId = employee.StoreId
 	}
 	// get dashboard data
-	res, err := h.service.DashboardTotalCountStats(storeId, c.Query("start_date"), c.Query("end_date"))
+	res, err := h.service.DashboardTotalCountStats(&param)
 	if err != nil {
 		handleResponse(c, InternalError, "Can't get dashboard data")
 		return
@@ -80,11 +88,19 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 // @Param   start_date 	query string false "Start Date"
 // @Param   end_date 	query string false "End Date"
 // @Param   type 		query string false "Type might be -> (HOURLY, DAILY, WEEKLY, MONTHLY, YEARLY)"
+// @Param   store_id 	query string false "Store ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/chart [GET]
 func (h *DashboardHandler) ChartStats(c *gin.Context) {
+	var param domain.DashboardQueryParam
+	// bind query parameters
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
+		handleResponse(c, BadRequest, "Invalid query parameters")
+		return
+	}
 	// get user id from header
 	vendorID, ok := c.Get("user_id")
 	if !ok {
@@ -93,7 +109,7 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 	}
 	// get employee info
 	var employee domain.Employee
-	err := h.db.First(&employee, "id = ?", vendorID).Error
+	err = h.db.First(&employee, "id = ?", vendorID).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			handleResponse(c, NotFound, "User not found")
@@ -103,13 +119,13 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 		handleResponse(c, InternalError, "Can't get employee info")
 		return
 	}
-	var storeId string
+
 	// check if employee is not admin or superadmin
 	if employee.RoleType != config.ADMIN && employee.RoleType != config.SUPERADMIN {
-		storeId = employee.StoreId
+		param.StoreId = employee.StoreId
 	}
 	// get dashboard data
-	res, err := h.service.DashboardChartStats(storeId, c.Query("start_date"), c.Query("end_date"), c.Query("type"))
+	res, err := h.service.DashboardChartStats(&param)
 	if err != nil {
 		handleResponse(c, InternalError, "Can't get dashboard data")
 		return
@@ -125,11 +141,19 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 // @Produce json
 // @Param   start_date 	query string false "Start Date"
 // @Param   end_date 	query string false "End Date"
+// @Param   store_id 	query string false "Store ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/top-stores [GET]
 func (h *DashboardHandler) TopStores(c *gin.Context) {
+	var param domain.DashboardQueryParam
+	// bind query parameters
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
+		handleResponse(c, BadRequest, "Invalid query parameters")
+		return
+	}
 	// get user id from header
 	vendorID, ok := c.Get("user_id")
 	if !ok {
@@ -138,7 +162,7 @@ func (h *DashboardHandler) TopStores(c *gin.Context) {
 	}
 	// get employee info
 	var employee domain.Employee
-	err := h.db.First(&employee, "id = ?", vendorID).Error
+	err = h.db.First(&employee, "id = ?", vendorID).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			handleResponse(c, NotFound, "User not found")
@@ -148,13 +172,12 @@ func (h *DashboardHandler) TopStores(c *gin.Context) {
 		handleResponse(c, InternalError, "Can't get employee info")
 		return
 	}
-	var storeId string
 	// check if employee is not admin or superadmin
 	if employee.RoleType != config.ADMIN && employee.RoleType != config.SUPERADMIN {
-		storeId = employee.StoreId
+		param.StoreId = employee.StoreId
 	}
 	// get dashboard data
-	res, err := h.service.DashboardTopStores(storeId, c.Query("start_date"), c.Query("end_date"))
+	res, err := h.service.DashboardTopStores(&param)
 	if err != nil {
 		handleResponse(c, InternalError, "Can't get dashboard data")
 		return
@@ -170,10 +193,19 @@ func (h *DashboardHandler) TopStores(c *gin.Context) {
 // @Produce json
 // @Param   start_date 	query string false "Start Date"
 // @Param   end_date 	query string false "End Date"
+// @Param   store_id 	query string false "Store ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
+// @Router /dashboard/top-products [GET]
 func (h *DashboardHandler) TopProducts(c *gin.Context) {
+	var param domain.DashboardQueryParam
+	// bind query parameters
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
+		handleResponse(c, BadRequest, "Invalid query parameters")
+		return
+	}
 	// get user id from header
 	vendorID, ok := c.Get("user_id")
 	if !ok {
@@ -182,7 +214,7 @@ func (h *DashboardHandler) TopProducts(c *gin.Context) {
 	}
 	// get employee info
 	var employee domain.Employee
-	err := h.db.First(&employee, "id = ?", vendorID).Error
+	err = h.db.First(&employee, "id = ?", vendorID).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			handleResponse(c, NotFound, "User not found")
@@ -192,13 +224,12 @@ func (h *DashboardHandler) TopProducts(c *gin.Context) {
 		handleResponse(c, InternalError, "Can't get employee info")
 		return
 	}
-	var storeId string
 	// check if employee is not admin or superadmin
 	if employee.RoleType != config.ADMIN && employee.RoleType != config.SUPERADMIN {
-		storeId = employee.StoreId
+		param.StoreId = employee.StoreId
 	}
 	// get dashboard data
-	res, err := h.service.DashboardTopProducts(storeId, c.Query("start_date"), c.Query("end_date"))
+	res, err := h.service.DashboardTopProducts(&param)
 	if err != nil {
 		handleResponse(c, InternalError, "Can't get dashboard data")
 		return

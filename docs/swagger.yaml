@@ -2979,6 +2979,10 @@ paths:
         in: query
         name: type
         type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
       produces:
       - application/json
       responses:
@@ -3011,6 +3015,10 @@ paths:
         in: query
         name: end_date
         type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
       - description: Type
         in: query
         name: type
@@ -3035,6 +3043,42 @@ paths:
       summary: Get total count stats
       tags:
       - dashboard
+  /dashboard/top-products:
+    get:
+      description: Get top products
+      parameters:
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get top products
+      tags:
+      - dashboard
   /dashboard/top-stores:
     get:
       description: Get top stores
@@ -3046,6 +3090,10 @@ paths:
       - description: End Date
         in: query
         name: end_date
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
         type: string
       produces:
       - application/json
