@@ -176,6 +176,7 @@ func (s *Services) ListAutoOrder(c *gin.Context, limit, offset int) ([]domain.Au
 		Group("auto_orders.id").
 		Count(&totalCount).
 		Offset(offset).Limit(limit).
+		Order("auto_orders.created_at DESC").
 		Find(&autoOrders).Error
 	if err != nil {
 		s.log.Error(err)

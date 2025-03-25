@@ -81,7 +81,6 @@ func (h *AutoOrderHandler) Create(c *gin.Context) {
 		tx.Rollback()
 		return
 	}
-	fmt.Println("--->>> ", len(autoOrderDetails))
 	// check if there are enough products for the auto order
 	if len(autoOrderDetails) < 1 {
 		handleResponse(c, CONFLICT, "Not enough products for creating auto order")
