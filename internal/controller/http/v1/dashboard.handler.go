@@ -23,6 +23,8 @@ func (h *DashboardHandler) DashboardRoutes(r *gin.RouterGroup) {
 		dashboard.GET("/chart", h.ChartStats)
 		dashboard.GET("/top-stores", h.TopStores)
 		dashboard.GET("/top-products", h.TopProducts)
+		dashboard.GET("/bonus-products", h.BonusProducts)
+		dashboard.GET("/top-seller", h.TopSeller)
 	}
 }
 
@@ -70,10 +72,11 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 		handleResponse(c, InternalError, "Can't get employee info")
 		return
 	}
+	var bonusAmount float64
 	// check if employee is not admin or superadmin
 	if employee.RoleType != config.ADMIN && employee.RoleType != config.SUPERADMIN {
 		param.StoreId = employee.StoreId
-		res.BonusAmount, err = h.service.GetEmployeeBonusAmount(&param, employee.Id)
+		bonusAmount, err = h.service.GetEmployeeBonusAmount(&param, employee.Id)
 		if err != nil {
 			handleResponse(c, InternalError, "Can't get employee bonus amount")
 			return
@@ -85,6 +88,8 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 		handleResponse(c, InternalError, "Can't get dashboard data")
 		return
 	}
+	res.BonusAmount = bonusAmount
+
 	handleResponse(c, OK, res)
 }
 
@@ -163,6 +168,8 @@ func (h *DashboardHandler) TopStores(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid query parameters")
 		return
 	}
+	// get limit offset with checking default
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 	// get user id from header
 	vendorID, ok := c.Get("user_id")
 	if !ok {
@@ -243,6 +250,118 @@ func (h *DashboardHandler) TopProducts(c *gin.Context) {
 	}
 	// get dashboard data
 	res, err := h.service.DashboardTopProducts(&param)
+	if err != nil {
+		handleResponse(c, InternalError, "Can't get dashboard data")
+		return
+	}
+	handleResponse(c, OK, res)
+}
+
+// Top Bonus Products godoc
+// @Summary Get bonus products
+// @Description Get bonus products
+// @Tags dashboard
+// @Security     BearerAuth
+// @Produce json
+// @Param   limit 	query int false "Limit"
+// @Param 	offset query int false 	"Offset"
+// @Param   start_date 	query string false "Start Date"
+// @Param   end_date 	query string false "End Date"
+// @Param   store_id 	query string false "Store ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /dashboard/bonus-products [GET]
+func (h *DashboardHandler) BonusProducts(c *gin.Context) {
+	var param domain.DashboardQueryParam
+	// bind query parameters
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
+		handleResponse(c, BadRequest, "Invalid query parameters")
+		return
+	}
+	// get limit offset with checking default
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	// get user id from header
+	vendorID, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	// get employee info
+	var employee domain.Employee
+	err = h.db.First(&employee, "id = ?", vendorID).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		h.log.Error("ERROR on getting employee info: ", err)
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+	// check if employee is not admin or superadmin
+	if employee.RoleType != config.ADMIN && employee.RoleType != config.SUPERADMIN {
+		param.StoreId = employee.StoreId
+	}
+	// get dashboard data
+	res, err := h.service.DashboardBonusProducts(&param)
+	if err != nil {
+		handleResponse(c, InternalError, "Can't get dashboard data")
+		return
+	}
+	handleResponse(c, OK, res)
+}
+
+// Top Bonus Products godoc
+// @Summary Get bonus products
+// @Description Get bonus products
+// @Tags dashboard
+// @Security     BearerAuth
+// @Produce json
+// @Param   limit 	query int false "Limit"
+// @Param 	offset query int false 	"Offset"
+// @Param   start_date 	query string false "Start Date"
+// @Param   end_date 	query string false "End Date"
+// @Param   store_id 	query string false "Store ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /dashboard/top-seller [GET]
+func (h *DashboardHandler) TopSeller(c *gin.Context) {
+	var param domain.DashboardQueryParam
+	// bind query parameters
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
+		handleResponse(c, BadRequest, "Invalid query parameters")
+		return
+	}
+	// get limit offset with checking default
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	// get user id from header
+	vendorID, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	// get employee info
+	var employee domain.Employee
+	err = h.db.First(&employee, "id = ?", vendorID).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		h.log.Error("ERROR on getting employee info: ", err)
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+	// check if employee is not admin or superadmin
+	if employee.RoleType != config.ADMIN && employee.RoleType != config.SUPERADMIN {
+		param.StoreId = employee.StoreId
+	}
+	// get dashboard data
+	res, err := h.service.DashboardTopSeller(&param)
 	if err != nil {
 		handleResponse(c, InternalError, "Can't get dashboard data")
 		return

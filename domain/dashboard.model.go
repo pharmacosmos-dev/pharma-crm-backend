@@ -37,6 +37,22 @@ type TopProducts struct {
 	TotalAmount float64 `gorm:"total_amount" json:"total_amount"`
 }
 
+// Bonus Products structure
+type BonusProducts struct {
+	Id          string  `gorm:"id" json:"id"`
+	Name        string  `gorm:"name" json:"name"`
+	Count       string  `gorm:"count" json:"count"`
+	BonusAmount float64 `gorm:"bonus_amount" json:"bonus_amount"`
+}
+
+// Top Seller structure
+type TopSeller struct {
+	Id          string  `gorm:"id" json:"id"`
+	FullName    string  `gorm:"full_name" json:"full_name"`
+	Count       int64   `gorm:"count" json:"count"`
+	TotalAmount float64 `gorm:"total_amount" json:"total_amount"`
+}
+
 // Dashboard query param
 type DashboardQueryParam struct {
 	StoreId   string `form:"store_id"`

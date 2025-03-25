@@ -209,8 +209,9 @@ func (s *Services) DashboardTopStores(param *domain.DashboardQueryParam) ([]doma
 		args = append(args, param.StartDate, param.EndDate)
 	}
 
-	var q = query + filter + group + order
-	err := s.db.Debug().Raw(q, args...).Scan(&res).Error
+	var q = query + filter + group + order + " LIMIT ? OFFSET ?"
+	args = append(args, param.Limit, param.Offset)
+	err := s.db.Raw(q, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
@@ -257,6 +258,98 @@ func (s *Services) DashboardTopProducts(param *domain.DashboardQueryParam) ([]do
 	err := s.db.Raw(q, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Error("ERROR on getting top products: ", err)
+		return nil, err
+	}
+
+	return res, nil
+}
+
+// get dashboard bonus products
+func (s *Services) DashboardBonusProducts(param *domain.DashboardQueryParam) ([]domain.BonusProducts, error) {
+	// declaration
+	var (
+		res []domain.BonusProducts
+	)
+	// query
+	var (
+		args  []any
+		query = `
+		SELECT
+			p.id,
+			p.name,
+			CAST(SUM(ci.quantity) AS TEXT) || ',' || CAST(SUM(ci.unit_quantity) AS TEXT) AS count,
+			COALESCE(SUM(pb.bonus_amount), 0) AS bonus_amount
+		FROM cart_items ci
+		JOIN store_products sp ON ci.store_product_id = sp.id
+		JOIN products p ON sp.product_id = p.id
+		JOIN product_bonuses pb ON sp.product_id = pb.product_id`
+		filter = " WHERE ci.status = 'sold'"
+		group  = " GROUP BY p.id, p.name"
+		order  = " ORDER BY bonus_amount DESC"
+	)
+	if param.StoreId != "" {
+		filter += " AND sp.store_id = ?"
+		args = append(args, param.StoreId)
+	}
+	if param.StartDate != "" && param.EndDate == "" {
+		filter += " AND ci.updated_at::date = ?"
+		args = append(args, param.StartDate)
+	}
+	if param.StartDate != "" && param.EndDate != "" {
+		filter += " AND ci.updated_at::date >= ? AND ci.updated_at::date <= ?"
+		args = append(args, param.StartDate, param.EndDate)
+	}
+	args = append(args, param.Limit, param.Offset)
+	var q = query + filter + group + order + " LIMIT ? OFFSET ?"
+	err := s.db.Raw(q, args...).Scan(&res).Error
+	if err != nil {
+		s.log.Error("ERROR on getting bonus products: ", err)
+		return nil, err
+	}
+
+	return res, nil
+}
+
+// get dashboard top seller
+func (s *Services) DashboardTopSeller(param *domain.DashboardQueryParam) ([]domain.TopSeller, error) {
+	// declaration
+	var (
+		res []domain.TopSeller
+	)
+	// query
+	var (
+		args  []any
+		query = `
+		SELECT
+			e.id,
+			e.full_name,
+			SUM(ci.quantity) AS count,
+			COALESCE(SUM(s.total_amount), 0)  AS total_amount
+		FROM sales s
+		JOIN employees e ON s.employee_id = e.id
+		LEFT JOIN cart_items ci ON ci.sale_id = s.id`
+		filter = "	WHERE s.status = 'completed'"
+		group  = " GROUP BY e.id, e.full_name"
+		order  = " ORDER BY total_amount DESC"
+		offset = " LIMIT ? OFFSET ?"
+	)
+	if param.StoreId != "" {
+		filter += " AND s.store_id = ?"
+		args = append(args, param.StoreId)
+	}
+	if param.StartDate != "" && param.EndDate == "" {
+		filter += " AND s.completed_at::date = ?"
+		args = append(args, param.StartDate)
+	}
+	if param.StartDate != "" && param.EndDate != "" {
+		filter += " AND s.completed_at::date >= ? AND s.completed_at::date <= ?"
+		args = append(args, param.StartDate, param.EndDate)
+	}
+	args = append(args, param.Limit, param.Offset)
+	var q = query + filter + group + order + offset
+	err := s.db.Debug().Raw(q, args...).Scan(&res).Error
+	if err != nil {
+		s.log.Error("ERROR on getting top seller: ", err)
 		return nil, err
 	}
 

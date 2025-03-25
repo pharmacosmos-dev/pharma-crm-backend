@@ -2963,6 +2963,50 @@ paths:
       summary: Soft delete a customer
       tags:
       - customers
+  /dashboard/bonus-products:
+    get:
+      description: Get bonus products
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get bonus products
+      tags:
+      - dashboard
   /dashboard/chart:
     get:
       description: Get total chart stats
@@ -3047,6 +3091,14 @@ paths:
     get:
       description: Get top products
       parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
       - description: Start Date
         in: query
         name: start_date
@@ -3077,6 +3129,50 @@ paths:
       security:
       - BearerAuth: []
       summary: Get top products
+      tags:
+      - dashboard
+  /dashboard/top-seller:
+    get:
+      description: Get bonus products
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get bonus products
       tags:
       - dashboard
   /dashboard/top-stores:
