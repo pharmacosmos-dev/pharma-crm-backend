@@ -200,6 +200,7 @@ func (h *SaleHandler) Get(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	
 	if res.ParentId != "" {
 		// get epos response
 		err = h.db.Raw(`SELECT * FROM epos_responses WHERE sale_id = ?`, res.ParentId).Scan(&res.EposResponse).Error
