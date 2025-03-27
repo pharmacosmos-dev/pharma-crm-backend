@@ -50,7 +50,7 @@ func (s *Services) CreateReturnSale(req *domain.SaleReturnRequest) (*domain.Sale
 		employee_id, cash_box_operation_id, cashbox_id, store_id, customer_id, sale_number, parent_id, sale_type, type)
 	SELECT ?, ?, ?, store_id, customer_id, sale_number, id, ?, type FROM sales where id = ?
 	RETURNING *;`
-	err = tx.Raw(query, req.EmployeeID, req.CashBoxOperationId, req.CashboxId, req.SaleType, req.SaleId).Scan(&sale).Error
+	err = tx.Raw(query, req.EmployeeID, req.CashBoxOperationId, req.CashboxId, config.SALE_TYPE_RETURN, req.SaleId).Scan(&sale).Error
 	if err != nil {
 		s.log.Error(err)
 		tx.Rollback()
@@ -66,7 +66,7 @@ func (s *Services) CreateReturnSale(req *domain.SaleReturnRequest) (*domain.Sale
 		// complete cart item create query
 		err = tx.Exec(cquery, item.SaleId, item.Quantity, item.UnitQuantity, item.Quantity, item.UnitQuantity, config.PENDING, item.StoreProductId).Error
 		if err != nil {
-			s.log.Error(err)
+			s.log.Error("ERROR on creating return sale items: ", err)
 			tx.Rollback()
 			return nil, err
 		}
@@ -74,7 +74,7 @@ func (s *Services) CreateReturnSale(req *domain.SaleReturnRequest) (*domain.Sale
 
 	// commit transaction
 	if err = tx.Commit().Error; err != nil {
-		s.log.Error(err)
+		s.log.Error("ERROR on commiting transaction: ", err)
 		tx.Rollback()
 		return nil, err
 	}
