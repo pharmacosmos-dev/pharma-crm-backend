@@ -200,7 +200,7 @@ func (h *SaleHandler) Get(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	
+
 	if res.ParentId != "" {
 		// get epos response
 		err = h.db.Raw(`SELECT * FROM epos_responses WHERE sale_id = ?`, res.ParentId).Scan(&res.EposResponse).Error
@@ -444,7 +444,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 		JOIN payment_types pt ON sp.payment_type_id = pt.id
 		JOIN sales s ON sp.sale_id = s.id
 		`
-		filter = `WHERE 1=1 AND s.status = 'completed' `
+		filter = `WHERE 1=1 AND s.status = 'completed' AND s.sale_type = 'SALE' `
 		group  = ` GROUP BY pt.id, pt.name`
 	)
 
@@ -459,11 +459,11 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 	}
 	if param.StoreID != "" {
 		args = append(args, param.StoreID)
-		filter += "AND s.store_id = ?"
+		filter += " AND s.store_id = ?"
 	}
 	if param.CashBoxID != "" {
 		args = append(args, param.CashBoxID)
-		filter += "AND s.cashbox_id = ?"
+		filter += " AND s.cashbox_id = ?"
 	}
 
 	if param.StartDate != "" && param.EndDate != "" {
@@ -483,7 +483,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 	// collect total transactions query
 	var q = squery + filter
 	// replace with :param with ?
-	err = h.db.Debug().Raw(q, args...).Scan(&res).Error
+	err = h.db.Raw(q, args...).Scan(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -492,7 +492,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 	// collect payment type sum query
 	var pq = pquery + filter + group
 	// replace with :param with ?
-	err = h.db.Debug().Raw(pq, args...).Scan(&res.PaymentTypeStats).Error
+	err = h.db.Raw(pq, args...).Scan(&res.PaymentTypeStats).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
