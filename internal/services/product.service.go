@@ -22,7 +22,7 @@ func (s *Services) ListStoreProduct(param *domain.StoreProductQueryParam) ([]*do
 	query := s.db.Model(&domain.StoreProduct{}).
 		Table("store_products sp").
 		Select(`
-			DISTINCT ON (sp.expire_date)
+			DISTINCT ON (sp.product_id)
 			sp.*, pb.bonus_amount AS bonus_amount, p.name, p.barcode, p.unit_per_pack,
 			DATE_PART('day', sp.expire_date::timestamp - NOW()) AS expire_day,
 			u.unit_name, u.short_name`).
@@ -54,7 +54,7 @@ func (s *Services) ListStoreProduct(param *domain.StoreProductQueryParam) ([]*do
 	err = query.
 		Limit(param.Limit).
 		Offset(param.Offset).
-		Order("sp.expire_date").
+		Order("sp.product_id, sp.expire_date").
 		Debug().
 		Find(&res).Error
 

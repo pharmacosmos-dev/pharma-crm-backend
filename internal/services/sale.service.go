@@ -52,7 +52,7 @@ func (s *Services) CreateReturnSale(req *domain.SaleReturnRequest) (*domain.Sale
 	RETURNING *;`
 	err = tx.Raw(query, req.EmployeeID, req.CashBoxOperationId, req.CashboxId, config.SALE_TYPE_RETURN, req.SaleId).Scan(&sale).Error
 	if err != nil {
-		s.log.Error(err)
+		s.log.Error("ERROR on creating return sale: ", err)
 		tx.Rollback()
 		return nil, err
 	}
