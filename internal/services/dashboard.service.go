@@ -39,7 +39,7 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 		FROM cart_items ci
 		JOIN store_products sp ON ci.store_product_id = sp.id
 		JOIN sales s ON ci.sale_id = s.id`
-		filters = " WHERE status = 'completed'"
+		filters = " WHERE status = 'completed' AND sale_type = 'SALE' "
 		filterp = " WHERE expire_date::date >= current_date "
 		filterc = " WHERE s.status = 'completed' "
 	)
