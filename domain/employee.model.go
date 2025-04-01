@@ -73,3 +73,21 @@ type EmployeeRole struct {
 	UpdatedAt  *time.Time   `gorm:"updated_at" json:"updated_at"`
 	Permission []Permission `gorm:"many2many:role_permissions;" json:"permissions"`
 }
+
+// "employee_id" UUID REFERENCES employees(id) ON DELETE CASCADE,
+// "sale_id" UUID REFERENCES sales(id) ON DELETE CASCADE,
+// "product_id" UUID REFERENCES products(id),
+// "cashbox_operation_id" UUID REFERENCES cashbox_operations(id) ON DELETE CASCADE,
+// "bonus_amount" NUMERIC(10,2) DEFAULT 0,
+// "quantity" INT DEFAULT 0,
+
+// Employee bonus
+type EmployeeBonusRequest struct {
+	EmployeeId         string  `gorm:"employee_id" json:"employee_id"`
+	SaleId             string  `gorm:"sale_id" json:"sale_id"`
+	ProductId          string  `gorm:"product_id" json:"product_id"`
+	CashboxOperationId string  `gorm:"cashbox_operation_id" json:"cashbox_operation_id"`
+	BonusAmount        float64 `gorm:"bonus_amount" json:"bonus_amount"`
+	Quantity           int     `gorm:"quantity" json:"quantity"`
+	UnitQuantity       int     `gorm:"unit_quantity" json:"unit_quantity"`
+}

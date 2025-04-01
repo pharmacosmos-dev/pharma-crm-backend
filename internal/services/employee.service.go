@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
+	"gorm.io/gorm"
 )
 
 // check field employee
@@ -68,7 +69,7 @@ func (s *Services) ListEmployee(c *gin.Context, limit, offset int) ([]domain.Emp
 }
 
 // get employee bonus amount
-func (h *Services) GetEmployeeBonusAmount(param *domain.DashboardQueryParam, id string) (float64, error) {
+func (s *Services) GetEmployeeBonusAmount(param *domain.DashboardQueryParam, id string) (float64, error) {
 	var (
 		bonus  float64
 		args   []any
@@ -86,10 +87,23 @@ func (h *Services) GetEmployeeBonusAmount(param *domain.DashboardQueryParam, id 
 		args = append(args, param.StartDate, param.EndDate)
 	}
 	query += filter
-	err := h.db.Raw(query, args...).Scan(&bonus).Error
+	err := s.db.Raw(query, args...).Scan(&bonus).Error
 	if err != nil {
-		h.log.Error(err)
+		s.log.Error(err)
 		return 0, err
 	}
 	return bonus, nil
+}
+
+// add employee bonus
+func (s *Services) AddEmployeeBonus(tx *gorm.DB) error {
+	err := tx.Exec(`
+	INSERT INTO employee_bonus (
+		employee_id, sale_id, product_id, quantity, bonus_amount) 
+	VALUES(?, ?, ?, ?, ?)`).Error
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

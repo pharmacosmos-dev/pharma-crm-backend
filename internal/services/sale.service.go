@@ -100,7 +100,7 @@ func (s *Services) CreateSalePayment(tx *gorm.DB, req domain.FinalSale, item dom
 	INSERT INTO sale_payments(
 		sale_id, cash_box_operation_id, 
 		payment_service_id, payment_type_id, 
-		amount, paid_at, status) 
+		amount, paid_at) 
 	VALUES(?, ?, ?, ?, ?, ?) RETURNING *`
 	// Insert sale payments
 	err := tx.Raw(query,
@@ -181,9 +181,9 @@ func (s *Services) UpdateCartItemStatus(tx *gorm.DB, saleID string, employeeID s
 		s.log.Error(err)
 		return err
 	}
-
+	var bonusAmount float64
 	for _, item := range cartItems {
-		err = tx.Debug().Exec(`
+		err = tx.Exec(`
 		UPDATE store_products
 		SET
 			pack_quantity = CASE WHEN ? > 0 THEN (unit_quantity - ?)/products.unit_per_pack - ? ELSE pack_quantity - ? END,
@@ -194,6 +194,19 @@ func (s *Services) UpdateCartItemStatus(tx *gorm.DB, saleID string, employeeID s
 			item.Quantity, item.UnitQuantity, item.StoreProductID).Error
 		if err != nil {
 			return err
+		}
+		// add employee bonus
+		if item.BonusAmount > 0 {
+			bonusAmount += item.BonusAmount * float64(item.Quantity)
+			if item.UnitPerPack > 0 {
+				bonusAmount += item.BonusAmount / float64(item.UnitPerPack) * float64(item.UnitQuantity)
+			}
+			// add employee bonus service
+			err = s.AddEmployeeBonus(tx)
+			if err != nil {
+				s.log.Error("ERROR on adding bonus to employee: ", err)
+				return err
+			}
 		}
 	}
 
