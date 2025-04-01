@@ -96,11 +96,11 @@ func (s *Services) GetEmployeeBonusAmount(param *domain.DashboardQueryParam, id 
 }
 
 // add employee bonus
-func (s *Services) AddEmployeeBonus(tx *gorm.DB) error {
+func (s *Services) AddEmployeeBonus(tx *gorm.DB, req *domain.EmployeeBonusRequest) error {
 	err := tx.Exec(`
 	INSERT INTO employee_bonus (
-		employee_id, sale_id, product_id, quantity, bonus_amount) 
-	VALUES(?, ?, ?, ?, ?)`).Error
+		employee_id, sale_id, product_id, quantity, unit_quantity, bonus_amount) 
+	VALUES(?, ?, ?, ?, ?)`, req.EmployeeId, req.SaleId, req.ProductId, req.Quantity, req.UnitQuantity, req.BonusAmount).Error
 	if err != nil {
 		return err
 	}

@@ -202,18 +202,23 @@ func (s *Services) UpdateCartItemStatus(tx *gorm.DB, saleID string, employeeID s
 				bonusAmount += item.BonusAmount / float64(item.UnitPerPack) * float64(item.UnitQuantity)
 			}
 			// add employee bonus service
-			err = s.AddEmployeeBonus(tx)
+			err = s.AddEmployeeBonus(tx, &domain.EmployeeBonusRequest{
+				EmployeeId:         employeeID,
+				CashboxOperationId: cashBoxOperationId,
+				SaleId:             saleID,
+				ProductId:          item.ProductId,
+				Quantity:           item.Quantity,
+				UnitQuantity:       item.UnitQuantity,
+				BonusAmount:        bonusAmount,
+			})
 			if err != nil {
 				s.log.Error("ERROR on adding bonus to employee: ", err)
 				return err
 			}
 		}
 	}
-
-	err = tx.
-		Table("cart_items").
-		Where("sale_id = ?", saleID).
-		Update("status", "sold").Error
+	// update cart items status
+	err = tx.Exec(`UPDATE cart_items SET status = 'sold' WHERE sale_id = ?`, saleID).Error
 	if err != nil {
 		return err
 	}

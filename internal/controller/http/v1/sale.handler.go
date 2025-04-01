@@ -629,6 +629,14 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 			return
 		}
 
+		// delete employee bonus
+		err = tx.Exec(`DELETE FROM employee_bonus WHERE sale_id = ?`, body.SaleId).Error
+		if err != nil {
+			h.log.Error("ERROR on deleting employee_bonus: ", err)
+			tx.Rollback()
+			return
+		}
+
 		// Update cart_items status
 		err = tx.Exec(`UPDATE cart_items SET status = ? WHERE sale_id = ?`, config.PENDING, body.SaleId).Error
 		if err != nil {
@@ -807,7 +815,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	newSale := domain.SaleRequest{
 		ID:                 uuid.New().String(),
 		StoreId:            body.StoreID,
-		EmployeeID:         sale.EmployeeID,
+		EmployeeID:         cast.ToString(userID),
 		CashBoxOperationId: sale.CashBoxOperationId,
 		CashboxId:          sale.CashboxId,
 	}
