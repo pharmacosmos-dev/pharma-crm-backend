@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS "sale_payments" (
     "cash_box_operation_id" UUID REFERENCES "cashbox_operations"("id") ON DELETE CASCADE,
     "amount" NUMERIC(10, 2),
     "paid_at" TIMESTAMP,
-    "status" VARCHAR(20),
+    "status" VARCHAR(20) DEFAULT 'pending',
     "transaction_id" UUID,
     "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()

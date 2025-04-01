@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/helper"
@@ -92,21 +91,24 @@ func (s *Services) UpdateSaleField(field string, value string, idField string, i
 }
 
 // Create sale payment
-func (s *Services) CreateSalePayment(tx *gorm.DB, req domain.FinalSale, item domain.FinalPaymentType, paymentServiceId *string, status string) (*domain.SalePayment, error) {
-	var now = time.Now()
-	salePayment := domain.SalePayment{}
-	// Insert sale payments
-	err := tx.Raw(`
+func (s *Services) CreateSalePayment(tx *gorm.DB, req domain.FinalSale, item domain.FinalPaymentType, paymentServiceId *string) (*domain.SalePayment, error) {
+	var (
+		now         = time.Now()
+		salePayment = domain.SalePayment{}
+	)
+	query := `
 	INSERT INTO sale_payments(
-		id, sale_id, cash_box_operation_id, 
+		sale_id, cash_box_operation_id, 
 		payment_service_id, payment_type_id, 
 		amount, paid_at, status) 
-	VALUES(?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
-		uuid.New().String(), req.SaleID, req.CashBoxOperationId,
-		paymentServiceId, item.PaymentTypeID, item.Amount, now, status).
+	VALUES(?, ?, ?, ?, ?, ?) RETURNING *`
+	// Insert sale payments
+	err := tx.Raw(query,
+		req.SaleID, req.CashBoxOperationId,
+		paymentServiceId, item.PaymentTypeID, item.Amount, now).
 		Scan(&salePayment).Error
 	if err != nil {
-		s.log.Error(err)
+		s.log.Error("ERROR on creating new sale payment: ", err)
 		return nil, err
 	}
 	return &salePayment, nil
@@ -332,6 +334,7 @@ func (s *Services) ListSale(param *domain.QueryParam, userId string) ([]domain.S
 	return res, totalCount, nil
 }
 
+// Get sale list
 func (s *Services) GetSaleList(param *domain.QueryParam) ([]domain.SaleResponse, int64, error) {
 	var totalCount int64
 	// build sale get list query
@@ -374,7 +377,6 @@ func (s *Services) GetSaleList(param *domain.QueryParam) ([]domain.SaleResponse,
 		Limit(param.Limit).
 		Offset(param.Offset).
 		Order("s.completed_at DESC").
-		Debug().
 		Find(&res).Error
 
 	if err != nil {
@@ -382,4 +384,14 @@ func (s *Services) GetSaleList(param *domain.QueryParam) ([]domain.SaleResponse,
 		return nil, 0, err
 	}
 	return res, totalCount, nil
+}
+
+// update sale payments status
+func (s *Services) UpdateSalePaymentBySaleId(tx *gorm.DB, saleID string) error {
+	err := tx.Exec(`UPDATE sale_payments SET status = 'paid' WHERE sale_id = ?`, saleID).Error
+	if err != nil {
+		s.log.Error("ERROR on updating sale payments status: ", err)
+		return err
+	}
+	return nil
 }

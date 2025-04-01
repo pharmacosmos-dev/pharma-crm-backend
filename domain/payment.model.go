@@ -290,3 +290,27 @@ type Meta struct {
 	Source string `json:"source"`
 	Owner  string `json:"owner"`
 }
+
+// Payme Go Set fiscal data
+type FiscalDataRequest struct {
+	Id     int64            `json:"id"`
+	Method string           `json:"method"`
+	Params FiscalDataParams `json:"params"`
+}
+
+// Fiscal data params
+type FiscalDataParams struct {
+	Id         string     `json:"id"`
+	FiscalData FiscalData `json:"fiscal_data"`
+}
+
+// Fiscal data structure
+type FiscalData struct {
+	StatusCode int    `json:"status_code"`
+	Message    string `json:"message"`
+	TerminalId string `json:"terminal_id"`
+	ReceiptId  int    `json:"receipt_id"`
+	Date       string `json:"date"`
+	FiscalSign string `json:"fiscal_sign"`
+	QrCodeUrl  string `json:"qr_code_url"`
+}

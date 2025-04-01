@@ -250,6 +250,7 @@ func (s *Services) PaymeGo(ctx context.Context, paymentService *domain.PaymentSe
 	res, err = s.PaymeGoReceiptPay(ctx, paymentService, data, transactionID, saleID, res.Result.Receipt.ID)
 	if err != nil {
 		s.log.Error("ERROR on receipt pay: %v", err)
+		// method receipt cancel
 		_, err = s.PaymeGoReceiptCancel(ctx, paymentService, transactionID, saleID, res.Result.Receipt.ID)
 		if err != nil {
 			s.log.Error("ERROR on receipt cancel: %v", err)
@@ -257,6 +258,7 @@ func (s *Services) PaymeGo(ctx context.Context, paymentService *domain.PaymentSe
 		}
 		return nil, err
 	}
+
 	return map[string]any{
 		"error_code":    0,
 		"error_message": "success",
@@ -289,6 +291,7 @@ func (s *Services) PaymeGoReceiptCreate(ctx context.Context, paymentService *dom
 			},
 		},
 	}
+	// convert to json for saving payment requests
 	t, _ := json.Marshal(reqData)
 	// save request payme go request
 	err = s.SaveRequest(ctx, &domain.PaymentRequest{
@@ -409,6 +412,50 @@ func (s *Services) PaymeGoReceiptCancel(ctx context.Context, paymentService *dom
 	return res, nil
 }
 
+// Payme Go Set fiscal data
+func (s *Services) PaymeGoSetFiscalData(ctx context.Context, fiscal *domain.FiscalData, chekID string, saleID string, transactionID string, paymentService *domain.PaymentService) (*domain.PaymeGoResponse, error) {
+	requestID := time.Now().Unix()
+	reqData := domain.FiscalDataRequest{
+		Id:     requestID,
+		Method: "receipts.set_fiscal_data",
+		Params: domain.FiscalDataParams{
+			Id:         chekID,
+			FiscalData: *fiscal,
+		},
+	}
+	t, _ := json.Marshal(reqData)
+	// save request body
+	err := s.SaveRequest(ctx, &domain.PaymentRequest{
+		RequestId:       requestID,
+		Method:          "receipts.set_fiscal_data",
+		Payload:         t,
+		TransactionID:   transactionID,
+		PaymentProvider: "payme",
+	})
+	if err != nil {
+		s.log.Error("ERROR on saving set fiscal data request: ", err)
+		return nil, err
+	}
+	// send do request to payme go
+	res, err := s.PaymeGoDoRequest(ctx, reqData, paymentService)
+	if err != nil {
+		s.log.Error("ERROR on set fiscal data: %v", err)
+		return nil, err
+	}
+	// response to json
+	r, _ := json.Marshal(res)
+	// save response
+	err = s.SaveResponse(ctx, &domain.PaymentRequest{
+		TransactionID: transactionID,
+		Response:      r,
+	})
+	if err != nil {
+		s.log.Info("Error on saving payme go response: %v", err.Error())
+		return nil, err
+	}
+	return res, nil
+}
+
 // DoRequest for Payme Go
 func (s *Services) PaymeGoDoRequest(ctx context.Context, data any, paymentServe *domain.PaymentService) (*domain.PaymeGoResponse, error) {
 	client := &http.Client{}
@@ -419,11 +466,13 @@ func (s *Services) PaymeGoDoRequest(ctx context.Context, data any, paymentServe 
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode request data: %v", err)
 	}
+	// get url
 	url := s.cfg.Payment.PaymeGoEndpointUrl + "/api"
 	req, err := http.NewRequestWithContext(ctx, "POST", url, &buf)
 	if err != nil {
 		return nil, err
 	}
+	// add headers
 	req.Header.Add("X-Auth", paymentServe.CashboxId+":"+paymentServe.SecretKey)
 	req.Header.Add("Content-Type", "application/json")
 

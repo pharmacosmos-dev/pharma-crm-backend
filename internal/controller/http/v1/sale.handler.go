@@ -616,8 +616,8 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 		// Update sales status
 		err = tx.Exec(`UPDATE sales SET status = ? WHERE id = ?`, config.PENDING, body.SaleId).Error
 		if err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, err.Error())
+			h.log.Error("ERROR on updating sale status: ", err)
+			handleResponse(c, InternalError, "Failed to update sale status")
 			tx.Rollback()
 			return
 		}
@@ -659,6 +659,15 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 			return
 		}
 
+		// update sale payment status
+		err = h.service.UpdateSalePaymentBySaleId(tx, body.SaleId)
+		if err != nil {
+			h.log.Error("ERROR on updating sale payments status: ", err)
+			handleResponse(c, InternalError, "Failed to update sale payments status")
+			tx.Rollback()
+			return
+		}
+
 		// Create new sale
 		newSale := domain.SaleRequest{
 			ID:                 uuid.New().String(),
@@ -678,8 +687,8 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 
 		// Commit transaction before responding
 		if err = tx.Commit().Error; err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, err.Error())
+			h.log.Error("ERROR on commiting transaction: ", err)
+			handleResponse(c, InternalError, "Transaction not completed")
 			tx.Rollback()
 			return
 		}
@@ -838,7 +847,7 @@ func processPaymentType(tx *gorm.DB, h *SaleHandler, body domain.FinalSale, item
 			return errors.New("invalid payment type")
 		}
 		// create new sale_payment
-		salePayment, err := h.service.CreateSalePayment(tx, body, item, &paymentService.ID, "pending")
+		salePayment, err := h.service.CreateSalePayment(tx, body, item, &paymentService.ID)
 		if err != nil {
 			return err
 		}
@@ -851,7 +860,7 @@ func processPaymentType(tx *gorm.DB, h *SaleHandler, body domain.FinalSale, item
 		return h.service.UpdateSalePaymentStatus(tx, salePayment.ID)
 	} else if item.Type == config.CASH || item.Type == config.CARD {
 		// Insert sale payments if payment is cash or card
-		_, err := h.service.CreateSalePayment(tx, body, item, nil, "paid")
+		_, err := h.service.CreateSalePayment(tx, body, item, nil)
 		if err != nil {
 			return err
 		}

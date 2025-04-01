@@ -1,11 +1,13 @@
 package v1
 
 import (
+	"errors"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/etc"
+	"gorm.io/gorm"
 )
 
 type ShiftHandler struct {
@@ -45,63 +47,88 @@ func (h *ShiftHandler) Create(c *gin.Context) {
 		toEmployee domain.Employee
 		err        error
 	)
+	// bind request body
 	if err = c.ShouldBindJSON(&body); err != nil {
-		h.log.Error(err)
+		h.log.Error("ERROR on binding body: ", err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	// get to employee info
 	err = h.db.First(&toEmployee, "id = ?", body.ToEmployeeId).Error
 	if err != nil {
-		h.log.Error(err)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			handleResponse(c, NotFound, "Employee not found")
+			return
+		}
+		h.log.Error("ERROR on getting employee: ", err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	// get decrypted password
 	passoword, err := etc.Decrypt(toEmployee.Password, h.cfg.HeshKey)
 	if err != nil {
-		h.log.Error(err)
+		h.log.Error("ERROR decryption password: ", err)
 		handleResponse(c, InternalError, "Failed to parse password")
 		return
 	}
+	// check old and received password
 	if body.Password != passoword {
 		handleResponse(c, BadRequest, "Wrong password")
 		return
 	}
-	err = h.db.
-		WithContext(c.Request.Context()).
+	// Start transaction
+	tx := h.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+	// Create shift
+	err = tx.
 		Table("shifts").
 		Create(&body).Error
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		h.log.Error("ERROR on creating new shift: ", err)
+		handleResponse(c, InternalError, "Failed to create shift")
+		tx.Rollback()
 		return
 	}
-
-	err = h.db.
-		WithContext(c.Request.Context()).
-		Raw(`
+	// update cashbox_operations current_employee_id
+	err = tx.Exec(`
 		UPDATE cashbox_operations 
 		SET current_employee_id = ? 
-		WHERE end_time IS NULL 
+		WHERE end_time IS NULL
 		AND cash_box_id = ? AND employee_id = ?`,
-			body.ToEmployeeId, body.CashBoxId, body.FromEmployeeId).Error
+		body.ToEmployeeId, body.CashBoxId, body.FromEmployeeId).Error
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		h.log.Error("ERROR on updating cashbox_operations current_employee_id: ", err)
+		handleResponse(c, InternalError, "Failed to update cashbox operations")
+		tx.Rollback()
 		return
 	}
-
+	// add user_id to claims
 	accessClaims := map[string]any{
 		"user_id": body.ToEmployeeId,
 	}
 	refreshClaims := map[string]any{
 		"user_id": body.ToEmployeeId,
 	}
+	// generating access and refresh tokens
 	accessToken, refreshToken, err := h.JwtHandler.GenerateTokens(accessClaims, refreshClaims)
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		h.log.Error("ERROR on generating token: ", err)
+		handleResponse(c, InternalError, "Can't generate token")
+		tx.Rollback()
 		return
 	}
+	// commiting transaction
+	if err = tx.Commit().Error; err != nil {
+		h.log.Error("ERROR on committing transaction: ", err)
+		handleResponse(c, InternalError, "Failed to commit transaction")
+		tx.Rollback()
+		return
+	}
+
 	handleResponse(c, OK, map[string]string{"access_token": accessToken, "refresh_token": refreshToken})
 }
 
