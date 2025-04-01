@@ -1,0 +1,1 @@
+ALTER TABLE employee_bonus DROP COLUMN IF EXISTS "unit_quantity";
