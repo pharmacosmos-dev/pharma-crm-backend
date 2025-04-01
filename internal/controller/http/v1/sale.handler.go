@@ -561,6 +561,13 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 		err  error
 	)
 
+	userId, ok := c.Get("user_id")
+	if !ok {
+		h.log.Error("user_id not found in context")
+		handleResponse(c, InternalError, "user_id not found in context")
+		return
+	}
+
 	// Bind request body
 	if err = c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(err)
@@ -679,7 +686,7 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 		// Create new sale
 		newSale := domain.SaleRequest{
 			ID:                 uuid.New().String(),
-			EmployeeID:         sale.EmployeeID,
+			EmployeeID:         cast.ToString(userId),
 			StoreId:            storeID,
 			CashBoxOperationId: sale.CashBoxOperationId,
 			CashboxId:          cashboxOperation.CashBoxID,
