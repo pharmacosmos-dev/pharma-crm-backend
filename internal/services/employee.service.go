@@ -87,7 +87,7 @@ func (s *Services) GetEmployeeBonusAmount(param *domain.DashboardQueryParam, id 
 		args = append(args, param.StartDate, param.EndDate)
 	}
 	query += filter
-	err := s.db.Debug().Raw(query, args...).Scan(&bonus).Error
+	err := s.db.Raw(query, args...).Scan(&bonus).Error
 	if err != nil {
 		s.log.Error(err)
 		return 0, err

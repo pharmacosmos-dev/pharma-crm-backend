@@ -32,13 +32,15 @@ func (h *ExternalHandler) ExternalRoutes(r *gin.RouterGroup) {
 // @Produce json
 // @Param   limit 	query     int      false "Limit"
 // @Param   offset 	query     int      false "Offset"
+// @Param   search 	query     string   false "Search"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router 	/external/product/list 	[GET]
 func (h *ExternalHandler) List(c *gin.Context) {
 	var (
-		res []domain.ProductExternal
+		res    []domain.ProductExternal
+		search = c.Query("search")
 	)
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
@@ -46,14 +48,17 @@ func (h *ExternalHandler) List(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	err = h.db.
+	query := h.db.
 		Table("products p").
 		Select(`
 		p.id, p.name, p.barcode, p.photos, p.description, 
 		sum(sp.pack_quantity) as quantity, u.short_name as unit_name`).
 		Joins("JOIN store_products sp ON p.id = sp.product_id").
-		Joins("LEFT JOIN unit_types u ON p.unit_type_id = u.id").
-		Group("p.id, u.short_name").
+		Joins("LEFT JOIN unit_types u ON p.unit_type_id = u.id")
+	if search != "" {
+		query = query.Where("p.name ILIKE ? ", "%"+search+"%")
+	}
+	err = query.Group("p.id, u.short_name").
 		Limit(limit).Offset(offset).
 		Order("p.created_at").
 		Find(&res).Error

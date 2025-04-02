@@ -187,7 +187,8 @@ func (s *Services) UpdateCartItemStatus(tx *gorm.DB, saleID string, employeeID s
 		UPDATE store_products
 		SET
 			pack_quantity = CASE WHEN ? > 0 THEN (unit_quantity - ?)/products.unit_per_pack - ? ELSE pack_quantity - ? END,
-			unit_quantity = unit_quantity - (? * products.unit_per_pack + ?)
+			unit_quantity = unit_quantity - (? * products.unit_per_pack + ?), 
+			updated_at = NOW()
 		FROM products
 		WHERE products.id = store_products.product_id AND  store_products.id = ?`,
 			item.UnitQuantity, item.UnitQuantity, item.Quantity, item.Quantity,
@@ -246,7 +247,8 @@ func (s *Services) UpdateReturnSaleCartItems(tx *gorm.DB, saleID string) error {
 		UPDATE store_products
 		SET
 			pack_quantity = store_products.pack_quantity + ?,
-			unit_quantity = store_products.unit_quantity + (? * products.unit_per_pack + ?)
+			unit_quantity = store_products.unit_quantity + (? * products.unit_per_pack + ?), 
+			updated_at = NOW()
 		FROM products
 		WHERE products.id = store_products.product_id AND  store_products.id = ?`,
 			item.Quantity, item.Quantity, item.UnitQuantity, item.StoreProductID).Error

@@ -69,14 +69,14 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 
 	// get total sale count and amount
 	var q = querys + filters
-	err := s.db.Debug().Raw(q, args...).Scan(&totalSale).Error
+	err := s.db.Raw(q, args...).Scan(&totalSale).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
 	}
 	// get total product count
 	var qp = queryp + filterp
-	err = s.db.Debug().Raw(qp, args...).Scan(&stock).Error
+	err = s.db.Raw(qp, args...).Scan(&stock).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
@@ -84,7 +84,7 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 	var totalNetIncome float64
 	// get total net income
 	var qc = queryc + filterc
-	err = s.db.Debug().Raw(qc, args...).Scan(&totalNetIncome).Error
+	err = s.db.Raw(qc, args...).Scan(&totalNetIncome).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
@@ -108,7 +108,6 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 			return nil, err
 		}
 	}
-	fmt.Println("--->>> ", res)
 	return &res, nil
 }
 
@@ -157,7 +156,7 @@ func (s *Services) DashboardChartStats(param *domain.DashboardQueryParam) ([]dom
 
 	// filter by store_id and employee_id if store_id is not empty
 	if param.StoreId != "" {
-		filter += " AND store_id = ?"
+		filter += " AND store_id IN (?)"
 		args = append(args, param.StoreId)
 	}
 	// filter by only start_date if end_date is empty
