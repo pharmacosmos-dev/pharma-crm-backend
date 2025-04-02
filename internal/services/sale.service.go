@@ -198,7 +198,7 @@ func (s *Services) UpdateCartItemStatus(tx *gorm.DB, saleID string, employeeID s
 		// add employee bonus
 		if item.BonusAmount > 0 {
 			bonusAmount += item.BonusAmount * float64(item.Quantity)
-			if item.UnitPerPack > 0 {
+			if item.UnitPerPack > 0 && item.UnitQuantity > 0 {
 				bonusAmount += item.BonusAmount / float64(item.UnitPerPack) * float64(item.UnitQuantity)
 			}
 			// add employee bonus service
