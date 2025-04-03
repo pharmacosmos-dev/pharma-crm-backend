@@ -1,0 +1,88 @@
+name: Pharma-backend CI/CD
+
+on:
+  push:
+    branches: [ staging ]
+  pull_request:
+    branches: [ staging ]
+
+env:
+  REPO_NAME: ${{ github.repository }}
+  CONTAINER_NAME: pharma-backend
+  REGISTRY: ghcr.io
+  SSH_HOST: ${{ secrets.DEV_SERVER_IP }}
+  SSH_USER: ${{ secrets.DEV_SERVER_USERNAME }}
+  SSH_KEY: ${{ secrets.DEV_SSH_PRIVATE_KEY }}
+  SSH_PASS: ${{ secrets.DEV_SERVER_PASSWORD }}
+  DB_URL: ${{ secrets.DEV_PHARMA_DATABASE_URL }}
+  PORT: 8080:8080
+
+jobs:
+  build_and_push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: "${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}"
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO_NAME }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.REPO_NAME }}:buildcache,mode=max
+  
+  migrate:
+    needs: build_and_push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install migrate tool
+        run: |
+          wget https://github.com/golang-migrate/migrate/releases/download/v4.14.1/migrate.linux-amd64.tar.gz
+          tar -xvf migrate.linux-amd64.tar.gz
+          mv migrate.linux-amd64 migrate
+          chmod +x migrate
+
+      - name: Run Migrations
+        run: |
+          ./migrate -path=$PWD/migrations -database="${{ env.DB_URL }}" up
+
+  deploy:
+    needs: build_and_push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Executing remote SSH commands to deploy
+        uses: appleboy/ssh-action@master
+        with:
+          host: "${{ env.SSH_HOST }}"
+          username: "${{ env.SSH_USER }}"
+          key: "${{ env.SSH_KEY }}"
+          script: |
+            echo ${{ secrets.GITHUB_TOKEN }} | docker login -u ${{ github.actor }} --password-stdin ${{ env.REGISTRY }}
+            docker pull "${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}"
+            docker stop "${{ env.CONTAINER_NAME }}" || true
+            docker rm "${{ env.CONTAINER_NAME }}" || true
+            docker run -d --name "${{ env.CONTAINER_NAME }}"  -p "${{ env.PORT }}" --env-file /var/www/app/.env -v /var/www/app/uploads:/app/uploads "${{ env.REGISTRY }}/${{ env.REPO_NAME }}:${{ github.sha }}"

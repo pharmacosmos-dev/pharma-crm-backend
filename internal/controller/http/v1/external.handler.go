@@ -49,11 +49,9 @@ func (h *ExternalHandler) List(c *gin.Context) {
 		return
 	}
 	query := h.db.
+		Preload("Stores").
 		Table("products p").
-		Select(`
-		p.id, p.name, p.barcode, p.photos, p.description, 
-		sum(sp.pack_quantity) as quantity, u.short_name as unit_name`).
-		Joins("JOIN store_products sp ON p.id = sp.product_id").
+		Select(`p.id, p.name, p.barcode, p.photos, p.description, u.short_name as unit_name`).
 		Joins("LEFT JOIN unit_types u ON p.unit_type_id = u.id")
 	if search != "" {
 		query = query.Where("p.name ILIKE ? ", "%"+search+"%")
@@ -68,26 +66,25 @@ func (h *ExternalHandler) List(c *gin.Context) {
 		return
 	}
 
-	// var stores []domain.StoreExternal
-	for i := range res {
-		err = h.db.Raw(`
-		SELECT 
-			s.id, s.name, s.address, s.location, 
-			sp.pack_quantity as quantity, sp.unit_quantity, 
-			sp.retail_price, sp.expire_date
-		FROM 
-			stores s JOIN store_products sp 
-			ON s.id = sp.store_id WHERE s.is_active = true AND sp.product_id = ?`, res[i].Id).
-			Scan(&res[i].Stores).Error
-		if err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, err.Error())
-			return
-		}
-	}
+	// // var stores []domain.StoreExternal
+	// for i := range res {
+	// 	err = h.db.Raw(`
+	// 	SELECT
+	// 		s.id, s.name, s.address, s.location,
+	// 		sp.pack_quantity as quantity, sp.unit_quantity,
+	// 		sp.retail_price, sp.expire_date
+	// 	FROM
+	// 		stores s JOIN store_products sp
+	// 		ON s.id = sp.store_id WHERE s.is_active = true AND sp.product_id = ?`, res[i].Id).
+	// 		Scan(&res[i].Stores).Error
+	// 	if err != nil {
+	// 		h.log.Error(err)
+	// 		handleResponse(c, InternalError, err.Error())
+	// 		return
+	// 	}
+	// }
 
 	for i := range res {
-
 		err = h.db.Raw(`SELECT category_id FROM category_products WHERE product_id = ?`, res[i].Id).Scan(&res[i].Categories).Error
 		if err != nil {
 			h.log.Error(err)
