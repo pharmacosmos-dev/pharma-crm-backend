@@ -47,7 +47,7 @@ func Run(cfg *config.Config) {
 	if err != nil {
 		l.Error(err)
 	}
-
+	// call to http server
 	httpServer := httpserver.New(handler, httpserver.Port(cfg.HTTP.Port))
 
 	fmt.Println("Server is running on port:", cfg.HTTP.Port)
