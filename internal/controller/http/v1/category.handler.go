@@ -56,7 +56,6 @@ func (h *CategoryHander) Create(c *gin.Context) {
 		body domain.CategoryRequest
 		err  error
 	)
-
 	// Bind the JSON body to the request struct
 	err = c.ShouldBindJSON(&body)
 	if err != nil {
