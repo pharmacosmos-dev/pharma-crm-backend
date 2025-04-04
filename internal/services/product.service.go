@@ -370,34 +370,33 @@ func (s *Services) CreateProducer(ctx context.Context, code string) (*domain.Pro
 // get external products list
 func (s *Services) GetExternalProducts(limit, offset int, search string) ([]domain.ProductExternal, error) {
 	var (
-		res    []domain.ProductExternal
-		err    error
-		filter = " WHERE 1=1 "
-		args   []any
+		res []domain.ProductExternal
 	)
+	query := s.db.
+		Table("products p").
+		Select("p.id, p.name, p.barcode, p.photos, p.description, u.short_name AS unit_name, sp.price").
+		Joins("LEFT JOIN unit_types u ON p.unit_type_id = u.id").
+		Joins("JOIN (SELECT product_id, MIN(retail_price) AS price FROM store_products GROUP BY product_id) sp ON p.id = sp.product_id").
+		Preload("Stores", func(db *gorm.DB) *gorm.DB {
+			return db.Table("store_products sp").
+				Select("sp.product_id, s.id, s.name, s.phone, s.address, s.location, s.work_hours, sp.pack_quantity as quantity, sp.unit_quantity, sp.expire_date").
+				Joins("JOIN stores s ON s.id = sp.store_id")
+		}).
+		Limit(limit).Offset(offset)
 
-	query := `
-		SELECT
-			p.id, p.name, p.barcode, p.photos, p.description, u.short_name AS unit_name, sp.price
-		FROM products p
-		LEFT JOIN unit_types u ON p.unit_type_id = u.id
-		JOIN (
-			SELECT product_id, MIN(retail_price) AS price
-			FROM store_products
-			GROUP BY product_id
-		) sp ON p.id = sp.product_id `
-	if search != "" {
-		filter += " AND p.name ILIKE ? "
-		args = append(args, "%"+search+"%")
-	}
-	query += filter + ` ORDER BY p.created_at ` + `LIMIT ? OFFSET ?`
-	args = append(args, limit, offset)
-	// complete query
-	err = s.db.Raw(query, args...).Scan(&res).Error
+	err := query.Find(&res).Error
 	if err != nil {
-		s.log.Error("ERROR on listing external products: %v", err.Error())
+		s.log.Error("ERROR on listing external products: %v", err)
 		return nil, err
 	}
+	for i := range res {
+		err = s.db.Raw(`SELECT category_id FROM category_products WHERE product_id = ?`, res[i].Id).Scan(&res[i].Categories).Error
+		if err != nil {
+			s.log.Error("ERROR on listing category ids: %v", err)
+			return nil, err
+		}
+	}
+
 	return res, nil
 }
 
