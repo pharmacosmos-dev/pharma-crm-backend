@@ -191,11 +191,11 @@ type ProductExternal struct {
 	Name        string            `gorm:"name" json:"name"`
 	Barcode     string            `gorm:"barcode" json:"barcode"`
 	Photos      utils.StringArray `gorm:"type:text[]" json:"photos"`
-	Quantity    int               `gorm:"quantity" json:"quantity"`
 	Description string            `gorm:"description" json:"description"`
 	UnitName    string            `gorm:"unit_name" json:"unit_name"`
-	Stores      []StoreExternal   `gorm:"foreignKey:ProductID" json:"stores"`
-	Categories  []string          `gorm:"-" json:"categories"`
+	Price       float64           `gorm:"price" json:"price"`
+	// Stores      []StoreExternal   `gorm:"foreignKey:ProductID" json:"stores"`
+	// Categories  []string          `gorm:"-" json:"categories"`
 }
 
 // Store external API response structure

@@ -38,20 +38,26 @@ func (h *DashboardHandler) DashboardRoutes(r *gin.RouterGroup) {
 // @Param   end_date 	query string false "End Date"
 // @Param   store_id 	query string false "Store ID"
 // @Param   type 		query string false "Type"
+// @Param   store_ids   body  []string false "Store IDs"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/count-stats [GET]
 func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 	var (
-		param domain.DashboardQueryParam
-		res   *domain.TotalCountStats
+		param    domain.DashboardQueryParam
+		res      *domain.TotalCountStats
+		storeIds []string
 	)
 
 	// bind query parameters
 	err := c.ShouldBindQuery(&param)
 	if err != nil {
 		handleResponse(c, BadRequest, "Invalid query parameters")
+		return
+	}
+	if err = c.ShouldBindJSON(&storeIds); err != nil {
+		handleResponse(c, BadRequest, "Invalid store ids")
 		return
 	}
 	// get user id from header
@@ -82,6 +88,7 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 			return
 		}
 	}
+	param.StoreIds = storeIds
 	// get dashboard data
 	res, err = h.service.DashboardTotalCountStats(&param)
 	if err != nil {
@@ -103,18 +110,29 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 // @Param   end_date 	query string false "End Date"
 // @Param   type 		query string false "Type might be -> (HOURLY, DAILY, WEEKLY, MONTHLY, YEARLY)"
 // @Param   store_id 	query string false "Store ID"
+// @Param   store_ids   body  []string false "Store IDs"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/chart [GET]
 func (h *DashboardHandler) ChartStats(c *gin.Context) {
-	var param domain.DashboardQueryParam
+	var (
+		param    domain.DashboardQueryParam
+		storeIds []string
+	)
+
 	// bind query parameters
 	err := c.ShouldBindQuery(&param)
 	if err != nil {
 		handleResponse(c, BadRequest, "Invalid query parameters")
 		return
 	}
+	// get store ids from body
+	if err = c.ShouldBindJSON(&storeIds); err != nil {
+		handleResponse(c, BadRequest, "Invalid store ids")
+		return
+	}
+
 	// get user id from header
 	vendorID, ok := c.Get("user_id")
 	if !ok {
@@ -138,6 +156,7 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 	if employee.RoleType != config.ADMIN && employee.RoleType != config.SUPERADMIN {
 		param.StoreId = employee.StoreId
 	}
+	param.StoreIds = storeIds
 	// get dashboard data
 	res, err := h.service.DashboardChartStats(&param)
 	if err != nil {

@@ -366,3 +366,36 @@ func (s *Services) CreateProducer(ctx context.Context, code string) (*domain.Pro
 	}
 	return &producer, nil
 }
+
+func (s *Services) GetExternalProducts(limit, offset int, search string) ([]domain.ProductExternal, error) {
+	var (
+		res    []domain.ProductExternal
+		err    error
+		filter = " WHERE 1=1 "
+		args   []any
+	)
+
+	query := `
+		SELECT
+			p.id, p.name, p.barcode, p.photos, p.description, u.short_name AS unit_name, sp.price
+		FROM products p
+		LEFT JOIN unit_types u ON p.unit_type_id = u.id
+		JOIN (
+			SELECT product_id, MIN(retail_price) AS price
+			FROM store_products
+			GROUP BY product_id
+		) sp ON p.id = sp.product_id `
+	if search != "" {
+		filter += " AND p.name ILIKE ? "
+		args = append(args, "%"+search+"%")
+	}
+	query += filter + ` ORDER BY p.created_at ` + `LIMIT ? OFFSET ?`
+	args = append(args, limit, offset)
+	// complete query
+	err = s.db.Raw(query, args...).Scan(&res).Error
+	if err != nil {
+		s.log.Error(err)
+		return nil, err
+	}
+	return res, nil
+}

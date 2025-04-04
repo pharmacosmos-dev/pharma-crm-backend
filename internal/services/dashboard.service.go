@@ -51,6 +51,13 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 		args = append(args, param.StoreId)
 	}
 
+	if len(param.StoreIds) > 0 {
+		filters += " AND store_id IN (?)"
+		filterp += " AND store_id IN (?)"
+		filterc += " AND s.store_id IN (?)"
+		args = append(args, param.StoreIds)
+	}
+
 	// if start date is not empty
 	if param.StartDate != "" && param.EndDate == "" {
 		filters += " AND completed_at::date = ?"
@@ -158,6 +165,11 @@ func (s *Services) DashboardChartStats(param *domain.DashboardQueryParam) ([]dom
 	if param.StoreId != "" {
 		filter += " AND store_id IN (?)"
 		args = append(args, param.StoreId)
+	}
+	// check store_ids
+	if len(param.StoreIds) > 0 {
+		filter += " AND store_id IN (?)"
+		args = append(args, param.StoreIds)
 	}
 	// filter by only start_date if end_date is empty
 	if param.StartDate != "" && param.EndDate == "" {

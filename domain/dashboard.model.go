@@ -55,10 +55,11 @@ type TopSeller struct {
 
 // Dashboard query param
 type DashboardQueryParam struct {
-	StoreId   string `form:"store_id"`
-	StartDate string `form:"start_date"`
-	EndDate   string `form:"end_date"`
-	Type      string `form:"type"`
-	Limit     int    `form:"limit"`
-	Offset    int    `form:"offset"`
+	StoreId   string   `form:"store_id"`
+	StartDate string   `form:"start_date"`
+	EndDate   string   `form:"end_date"`
+	Type      string   `form:"type"`
+	Limit     int      `form:"limit"`
+	Offset    int      `form:"offset"`
+	StoreIds  []string `form:"store_ids"`
 }

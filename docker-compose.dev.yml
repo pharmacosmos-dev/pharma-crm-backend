@@ -1,6 +1,27 @@
 version: '3.9'
 
+
 services:
+  app:
+    container_name: pharma-api
+    build:
+      context: docker
+      dockerfile: Dockerfile.dev
+    restart: always
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: development
+      PG_DB: ${PG_DB}
+      PG_USER: ${PG_USER}
+      PG_PASS: ${PG_PASS}
+      PG_PORT: ${PG_PORT}
+    ports:
+      - "${HTTP_PORT}:8080"
+    volumes:
+      - .:/app
+    depends_on:
+      - db
   db:
     container_name: postgres
     image: postgres:15.11
