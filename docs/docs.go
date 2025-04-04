@@ -13734,6 +13734,9 @@ const docTemplate = `{
                 },
                 "store_code": {
                     "type": "integer"
+                },
+                "work_hours": {
+                    "type": "string"
                 }
             }
         },

@@ -240,7 +240,7 @@ func (h *StoreHandler) Update(c *gin.Context) {
 	}
 	// bind request body
 	if err = c.ShouldBindJSON(&body); err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
@@ -251,7 +251,7 @@ func (h *StoreHandler) Update(c *gin.Context) {
 		Where("id = ?", id).
 		Updates(&body).Error
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
+		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}

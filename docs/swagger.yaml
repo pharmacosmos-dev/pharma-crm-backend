@@ -1026,6 +1026,8 @@ definitions:
         type: string
       store_code:
         type: integer
+      work_hours:
+        type: string
     type: object
   domain.Tag:
     properties:

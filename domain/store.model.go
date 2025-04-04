@@ -24,6 +24,7 @@ type StoreRequest struct {
 	Id            string  `gorm:"id" json:"-"`
 	Name          string  `gorm:"name" json:"name"`
 	Phone         *string `gorm:"phone" json:"phone"`
+	WorkHours     string  `gorm:"work_hours" json:"work_hours"`
 	DetailedName  string  `gorm:"detailed_name" json:"detailed_name"`
 	Address       string  `gorm:"address" json:"address"`
 	EmployeeCount int     `gorm:"employee_count" json:"employee_count"`
@@ -37,6 +38,7 @@ type StoreUpdateRequest struct {
 	Id            string  `gorm:"id" json:"-"`
 	Name          string  `gorm:"name" json:"name"`
 	Phone         *string `gorm:"phone" json:"phone"`
+	WorkHours     string  `gorm:"work_hours" json:"work_hours"`
 	DetailedName  string  `gorm:"detailed_name" json:"detailed_name"`
 	Address       string  `gorm:"address" json:"address"`
 	EmployeeCount int     `gorm:"employee_count" json:"employee_count"`
