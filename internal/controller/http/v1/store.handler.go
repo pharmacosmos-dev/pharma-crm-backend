@@ -176,7 +176,6 @@ func (h *StoreHandler) List(c *gin.Context) {
 		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).
-		Debug().
 		Find(&res).Error
 
 	if err != nil {

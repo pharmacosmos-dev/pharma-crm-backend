@@ -13,6 +13,7 @@ type Store struct {
 	CashBoxCount  int        `gorm:"cash_box_count" json:"cash_box_count"`
 	StoreCode     int        `gorm:"store_code" json:"store_code"`
 	Address       string     `gorm:"address" json:"address"`
+	WorkHours     string     `gorm:"work_hours" json:"work_hours"`
 	PackQuantity  int        `gorm:"pack_quantity" json:"pack_quantity"`
 	SmallQuantity int        `gorm:"small_quantity" json:"small_quantity"`
 	CreatedAt     *time.Time `gorm:"created_at" json:"created_at"`
@@ -73,4 +74,5 @@ type StoreWithProducts struct {
 	BonusPercent  int        `gorm:"bonus_percent" json:"bonus_percent"`
 	Location      string     `gorm:"location" json:"location"`
 	Address       string     `gorm:"address" json:"address"`
+	WorkHours     string     `gorm:"work_hours" json:"work_hours"`
 }
