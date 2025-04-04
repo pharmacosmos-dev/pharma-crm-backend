@@ -3061,6 +3061,13 @@ paths:
         in: query
         name: store_id
         type: string
+      - description: Store IDs
+        in: body
+        name: store_ids
+        schema:
+          items:
+            type: string
+          type: array
       produces:
       - application/json
       responses:
@@ -3101,6 +3108,13 @@ paths:
         in: query
         name: type
         type: string
+      - description: Store IDs
+        in: body
+        name: store_ids
+        schema:
+          items:
+            type: string
+          type: array
       produces:
       - application/json
       responses:
@@ -4022,6 +4036,35 @@ paths:
       security:
       - BasicAuth: []
       summary: List Products
+      tags:
+      - External API
+  /external/products/{product_id}/stores:
+    get:
+      description: Get a store list by product id
+      parameters:
+      - description: Product ID
+        in: path
+        name: product_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BasicAuth: []
+      summary: Get a store list by product id
       tags:
       - External API
   /external/sale:

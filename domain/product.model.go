@@ -203,11 +203,12 @@ type StoreExternal struct {
 	Id           string     `gorm:"id" json:"id"`
 	ProductID    string     `gorm:"product_id" json:"product_id"`
 	Name         string     `gorm:"name" json:"name"`
+	Phone        string     `gorm:"phone" json:"phone"`
 	Address      string     `gorm:"address" json:"address"`
 	Location     string     `gorm:"location" json:"location"`
+	WorkHours    string     `gorm:"work_hours" json:"work_hours"`
 	Quantity     int        `gorm:"quantity" json:"quantity"`
 	UnitQuantity int        `gorm:"unit_quantity" json:"unit_quantity"`
-	RetailPrice  float64    `gorm:"retail_price" json:"retail_price"`
 	ExpireDate   *time.Time `gorm:"expire_date" json:"expire_date"`
 }
 

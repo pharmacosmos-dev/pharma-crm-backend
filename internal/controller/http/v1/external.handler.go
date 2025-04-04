@@ -20,6 +20,7 @@ func (h *ExternalHandler) ExternalRoutes(r *gin.RouterGroup) {
 	external := r.Group("/external")
 	external.GET("/product/list", h.List)
 	external.GET("/category/list", h.CategoryList)
+	external.GET("/products/:product_id/stores", h.StoreListByProductId)
 	external.POST("/sale", h.CreateSale)
 }
 
@@ -49,6 +50,37 @@ func (h *ExternalHandler) List(c *gin.Context) {
 		return
 	}
 	res, err = h.service.GetExternalProducts(limit, offset, search)
+	if err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	handleResponse(c, OK, res)
+}
+
+// StoreListByProductId godoc
+// @Summary Get a store list by product id
+// @Description Get a store list by product id
+// @Tags 	External API
+// @Security     BasicAuth
+// @Produce 	json
+// @Param 	product_id path string true "Product ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router 	/external/products/{product_id}/stores [get]
+func (h *ExternalHandler) StoreListByProductId(c *gin.Context) {
+	var (
+		res       []domain.StoreExternal
+		productId = c.Param("product_id")
+	)
+	// validate product id
+	if err := uuid.Validate(productId); err != nil {
+		handleResponse(c, BadRequest, "Invalid product id")
+		return
+	}
+	// get stores by product id
+	res, err := h.service.GetExternalStoresByProductId(productId)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return

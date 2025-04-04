@@ -367,6 +367,7 @@ func (s *Services) CreateProducer(ctx context.Context, code string) (*domain.Pro
 	return &producer, nil
 }
 
+// get external products list
 func (s *Services) GetExternalProducts(limit, offset int, search string) ([]domain.ProductExternal, error) {
 	var (
 		res    []domain.ProductExternal
@@ -394,7 +395,28 @@ func (s *Services) GetExternalProducts(limit, offset int, search string) ([]doma
 	// complete query
 	err = s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
-		s.log.Error(err)
+		s.log.Error("ERROR on listing external products: %v", err.Error())
+		return nil, err
+	}
+	return res, nil
+}
+
+func (s *Services) GetExternalStoresByProductId(productId string) ([]domain.StoreExternal, error) {
+	var (
+		res []domain.StoreExternal
+		err error
+	)
+
+	query := `
+		SELECT s.id, s.name, s.address, s.phone, s.location, s.work_hours, sp.pack_quantity AS quantity, sp.unit_quantity, sp.expire_date
+		FROM store_products sp
+		JOIN stores s ON s.id = sp.store_id
+		WHERE (sp.pack_quantity > 0 OR sp.unit_quantity > 0) AND sp.expire_date > NOW() AND sp.product_id = ?
+		ORDER BY sp.expire_date
+	`
+	err = s.db.Raw(query, productId).Scan(&res).Error
+	if err != nil {
+		s.log.Error("ERROR on listing external products: %v", err.Error())
 		return nil, err
 	}
 	return res, nil
