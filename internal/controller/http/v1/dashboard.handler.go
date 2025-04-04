@@ -56,10 +56,10 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid query parameters")
 		return
 	}
-	if err = c.ShouldBindJSON(&storeIds); err != nil {
-		handleResponse(c, BadRequest, "Invalid store ids")
-		return
-	}
+	// if err = c.ShouldBindJSON(&storeIds); err != nil {
+	// 	handleResponse(c, BadRequest, "Invalid store ids")
+	// 	return
+	// }
 	// get user id from header
 	vendorID, ok := c.Get("user_id")
 	if !ok {
@@ -117,8 +117,8 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 // @Router /dashboard/chart [GET]
 func (h *DashboardHandler) ChartStats(c *gin.Context) {
 	var (
-		param    domain.DashboardQueryParam
-		storeIds []string
+		param domain.DashboardQueryParam
+		// storeIds []string
 	)
 
 	// bind query parameters
@@ -127,11 +127,11 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid query parameters")
 		return
 	}
-	// get store ids from body
-	if err = c.ShouldBindJSON(&storeIds); err != nil {
-		handleResponse(c, BadRequest, "Invalid store ids")
-		return
-	}
+	// // get store ids from body
+	// if err = c.ShouldBindJSON(&storeIds); err != nil {
+	// 	handleResponse(c, BadRequest, "Invalid store ids")
+	// 	return
+	// }
 
 	// get user id from header
 	vendorID, ok := c.Get("user_id")
@@ -156,7 +156,7 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 	if employee.RoleType != config.ADMIN && employee.RoleType != config.SUPERADMIN {
 		param.StoreId = employee.StoreId
 	}
-	param.StoreIds = storeIds
+	// param.StoreIds = storeIds
 	// get dashboard data
 	res, err := h.service.DashboardChartStats(&param)
 	if err != nil {
