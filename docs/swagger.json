@@ -3029,7 +3029,7 @@
             }
         },
         "/dashboard/bonus-products": {
-            "get": {
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
@@ -3073,6 +3073,17 @@
                         "description": "Store ID",
                         "name": "store_id",
                         "in": "query"
+                    },
+                    {
+                        "description": "Store ids",
+                        "name": "store_ids",
+                        "in": "body",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
                     }
                 ],
                 "responses": {
@@ -3098,7 +3109,7 @@
             }
         },
         "/dashboard/chart": {
-            "get": {
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
@@ -3138,7 +3149,7 @@
                         "in": "query"
                     },
                     {
-                        "description": "Store IDs",
+                        "description": "Store ids",
                         "name": "store_ids",
                         "in": "body",
                         "schema": {
@@ -3172,7 +3183,7 @@
             }
         },
         "/dashboard/count-stats": {
-            "get": {
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
@@ -3212,7 +3223,7 @@
                         "in": "query"
                     },
                     {
-                        "description": "Store IDs",
+                        "description": "Store ids",
                         "name": "store_ids",
                         "in": "body",
                         "schema": {
@@ -3246,7 +3257,7 @@
             }
         },
         "/dashboard/top-products": {
-            "get": {
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
@@ -3290,6 +3301,17 @@
                         "description": "Store ID",
                         "name": "store_id",
                         "in": "query"
+                    },
+                    {
+                        "description": "Store ids",
+                        "name": "store_ids",
+                        "in": "body",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
                     }
                 ],
                 "responses": {
@@ -3315,7 +3337,7 @@
             }
         },
         "/dashboard/top-seller": {
-            "get": {
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
@@ -3359,6 +3381,17 @@
                         "description": "Store ID",
                         "name": "store_id",
                         "in": "query"
+                    },
+                    {
+                        "description": "Store ids",
+                        "name": "store_ids",
+                        "in": "body",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
                     }
                 ],
                 "responses": {
@@ -3384,7 +3417,7 @@
             }
         },
         "/dashboard/top-stores": {
-            "get": {
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
@@ -13639,6 +13672,9 @@
                     "type": "integer"
                 },
                 "updated_at": {
+                    "type": "string"
+                },
+                "work_hours": {
                     "type": "string"
                 }
             }

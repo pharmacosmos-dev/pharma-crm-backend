@@ -19,12 +19,12 @@ func (h *Handler) NewDashboardHandler(r *gin.RouterGroup) {
 func (h *DashboardHandler) DashboardRoutes(r *gin.RouterGroup) {
 	dashboard := r.Group("/dashboard")
 	{
-		dashboard.GET("/count-stats", h.TotalCountStats)
-		dashboard.GET("/chart", h.ChartStats)
-		dashboard.GET("/top-stores", h.TopStores)
-		dashboard.GET("/top-products", h.TopProducts)
-		dashboard.GET("/bonus-products", h.BonusProducts)
-		dashboard.GET("/top-seller", h.TopSeller)
+		dashboard.POST("/count-stats", h.TotalCountStats)
+		dashboard.POST("/chart", h.ChartStats)
+		dashboard.POST("/top-stores", h.TopStores)
+		dashboard.POST("/top-products", h.TopProducts)
+		dashboard.POST("/bonus-products", h.BonusProducts)
+		dashboard.POST("/top-seller", h.TopSeller)
 	}
 }
 
@@ -38,16 +38,15 @@ func (h *DashboardHandler) DashboardRoutes(r *gin.RouterGroup) {
 // @Param   end_date 	query string false "End Date"
 // @Param   store_id 	query string false "Store ID"
 // @Param   type 		query string false "Type"
-// @Param   store_ids   body  []string false "Store IDs"
+// @Param   store_ids  	body  []string  false  "Store ids"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /dashboard/count-stats [GET]
+// @Router /dashboard/count-stats [POST]
 func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 	var (
-		param    domain.DashboardQueryParam
-		res      *domain.TotalCountStats
-		storeIds []string
+		param domain.DashboardQueryParam
+		res   *domain.TotalCountStats
 	)
 
 	// bind query parameters
@@ -56,7 +55,7 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid query parameters")
 		return
 	}
-	if err = c.ShouldBindJSON(&storeIds); err != nil {
+	if err = c.ShouldBindJSON(&param.StoreIds); err != nil {
 		handleResponse(c, BadRequest, "Invalid store ids")
 		return
 	}
@@ -88,7 +87,6 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 			return
 		}
 	}
-	param.StoreIds = storeIds
 	// get dashboard data
 	res, err = h.service.DashboardTotalCountStats(&param)
 	if err != nil {
@@ -110,15 +108,14 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 // @Param   end_date 	query string false "End Date"
 // @Param   type 		query string false "Type might be -> (HOURLY, DAILY, WEEKLY, MONTHLY, YEARLY)"
 // @Param   store_id 	query string false "Store ID"
-// @Param   store_ids   body  []string false "Store IDs"
+// @Param   store_ids  	body  []string  false  "Store ids"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /dashboard/chart [GET]
+// @Router /dashboard/chart [POST]
 func (h *DashboardHandler) ChartStats(c *gin.Context) {
 	var (
-		param    domain.DashboardQueryParam
-		storeIds []string
+		param domain.DashboardQueryParam
 	)
 
 	// bind query parameters
@@ -127,12 +124,11 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid query parameters")
 		return
 	}
-	// get store ids from body
-	if err = c.ShouldBindJSON(&storeIds); err != nil {
+	// bind store ids
+	if err = c.ShouldBindJSON(&param.StoreIds); err != nil {
 		handleResponse(c, BadRequest, "Invalid store ids")
 		return
 	}
-
 	// get user id from header
 	vendorID, ok := c.Get("user_id")
 	if !ok {
@@ -156,7 +152,6 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 	if employee.RoleType != config.ADMIN && employee.RoleType != config.SUPERADMIN {
 		param.StoreId = employee.StoreId
 	}
-	param.StoreIds = storeIds
 	// get dashboard data
 	res, err := h.service.DashboardChartStats(&param)
 	if err != nil {
@@ -178,7 +173,7 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /dashboard/top-stores [GET]
+// @Router /dashboard/top-stores [POST]
 func (h *DashboardHandler) TopStores(c *gin.Context) {
 	var param domain.DashboardQueryParam
 	// bind query parameters
@@ -231,16 +226,22 @@ func (h *DashboardHandler) TopStores(c *gin.Context) {
 // @Param   start_date 	query string false "Start Date"
 // @Param   end_date 	query string false "End Date"
 // @Param   store_id 	query string false "Store ID"
+// @Param   store_ids  	body  []string  false  "Store ids"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /dashboard/top-products [GET]
+// @Router /dashboard/top-products [POST]
 func (h *DashboardHandler) TopProducts(c *gin.Context) {
 	var param domain.DashboardQueryParam
 	// bind query parameters
 	err := c.ShouldBindQuery(&param)
 	if err != nil {
 		handleResponse(c, BadRequest, "Invalid query parameters")
+		return
+	}
+	// bind store ids
+	if err = c.ShouldBindJSON(&param.StoreIds); err != nil {
+		handleResponse(c, BadRequest, "Invalid store ids")
 		return
 	}
 	// get limit offset with checking default
@@ -287,16 +288,22 @@ func (h *DashboardHandler) TopProducts(c *gin.Context) {
 // @Param   start_date 	query string false "Start Date"
 // @Param   end_date 	query string false "End Date"
 // @Param   store_id 	query string false "Store ID"
+// @Param   store_ids  	body  []string  false  "Store ids"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /dashboard/bonus-products [GET]
+// @Router /dashboard/bonus-products [POST]
 func (h *DashboardHandler) BonusProducts(c *gin.Context) {
 	var param domain.DashboardQueryParam
 	// bind query parameters
 	err := c.ShouldBindQuery(&param)
 	if err != nil {
 		handleResponse(c, BadRequest, "Invalid query parameters")
+		return
+	}
+	// bind store ids
+	if err = c.ShouldBindJSON(&param.StoreIds); err != nil {
+		handleResponse(c, BadRequest, "Invalid store ids")
 		return
 	}
 	// get limit offset with checking default
@@ -343,16 +350,22 @@ func (h *DashboardHandler) BonusProducts(c *gin.Context) {
 // @Param   start_date 	query string false "Start Date"
 // @Param   end_date 	query string false "End Date"
 // @Param   store_id 	query string false "Store ID"
+// @Param   store_ids  	body  []string  false  "Store ids"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /dashboard/top-seller [GET]
+// @Router /dashboard/top-seller [POST]
 func (h *DashboardHandler) TopSeller(c *gin.Context) {
 	var param domain.DashboardQueryParam
 	// bind query parameters
 	err := c.ShouldBindQuery(&param)
 	if err != nil {
 		handleResponse(c, BadRequest, "Invalid query parameters")
+		return
+	}
+	// bind store ids
+	if err = c.ShouldBindJSON(&param.StoreIds); err != nil {
+		handleResponse(c, BadRequest, "Invalid store ids")
 		return
 	}
 	// get limit offset with checking default

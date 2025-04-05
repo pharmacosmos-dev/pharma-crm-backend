@@ -24,74 +24,59 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 	)
 	// queries
 	var (
-		args   []any
-		querys = `SELECT COUNT(*) AS total_sale_count, SUM(total_amount) AS total_sale_amount FROM sales`
-		queryp = `
-		SELECT
+		// get total sale count and amount
+		querys = s.db.Table("sales").Select("COUNT(*) AS total_sale_count, SUM(total_amount) AS total_sale_amount").Where("status = 'completed' AND sale_type = 'SALE'")
+		// get total product count and amount
+		queryp = s.db.Table("store_products").Select(`
 			COALESCE(SUM(pack_quantity), 0) AS total_product_count,
 			COALESCE(SUM(pack_quantity*retail_price), 0) AS stock_total_amount,
 			COALESCE(SUM(CASE WHEN expire_date <= NOW() + INTERVAL '10 days' THEN pack_quantity ELSE 0 END), 0) AS expiring_soon_count,
 			COALESCE(SUM(CASE WHEN expire_date <= NOW() + INTERVAL '10 days' THEN pack_quantity*retail_price ELSE 0 END), 0) AS expiring_soon_amount
-		FROM store_products`
-		queryc = `
-		SELECT 
-			COALESCE(SUM((ci.unit_price - sp.supply_price) * ci.quantity), 0) AS total_net_income
-		FROM cart_items ci
-		JOIN store_products sp ON ci.store_product_id = sp.id
-		JOIN sales s ON ci.sale_id = s.id`
-		filters = " WHERE status = 'completed' AND sale_type = 'SALE' "
-		filterp = " WHERE expire_date::date >= current_date "
-		filterc = " WHERE s.status = 'completed' "
+		`).Where("expire_date::date >= current_date")
+		// get total net income
+		queryc = s.db.Table("cart_items ci").
+			Select(`COALESCE(SUM((ci.unit_price - sp.supply_price) * ci.quantity), 0) AS total_net_income`).
+			Joins("JOIN store_products sp ON ci.store_product_id = sp.id").
+			Joins("JOIN sales s ON ci.sale_id = s.id").Where("s.status = 'completed'")
 	)
-	// if store id is not empty
-	if param.StoreId != "" {
-		filters += " AND store_id = ?"
-		filterp += " AND store_id = ?"
-		filterc += " AND s.store_id = ?"
-		args = append(args, param.StoreId)
-	}
-
+	// filter by several store ids
 	if len(param.StoreIds) > 0 {
-		filters += " AND store_id IN (?)"
-		filterp += " AND store_id IN (?)"
-		filterc += " AND s.store_id IN (?)"
-		args = append(args, param.StoreIds)
+		querys = querys.Where("store_id IN (?)", param.StoreIds)
+		queryp = queryp.Where("store_id IN (?)", param.StoreIds)
+		queryc = queryc.Where("s.store_id IN (?)", param.StoreIds)
 	}
 
 	// if start date is not empty
 	if param.StartDate != "" && param.EndDate == "" {
-		filters += " AND completed_at::date = ?"
-		filterp += " AND expire_date::date >= ?"
-		filterc += " AND s.completed_at::date = ?"
-		args = append(args, param.StartDate)
+		querys = querys.Where("completed_at::date = ?", param.StartDate)
+		queryp = queryp.Where("expire_date::date >= ?", param.StartDate)
+		queryc = queryc.Where("s.completed_at::date = ?", param.StartDate)
 	}
 
 	// if end date is not empty
 	if param.StartDate != "" && param.EndDate != "" {
-		filters += " AND completed_at::date >= ? AND completed_at::date <= ?"
-		filterp += " AND expire_date::date >= ? AND expire_date::date <= ?"
-		filterc += " AND s.completed_at::date >= ? AND s.completed_at::date <= ?"
-		args = append(args, param.StartDate, param.EndDate)
+		querys = querys.Where("completed_at::date >= ? AND completed_at::date <= ?", param.StartDate, param.EndDate)
+		queryp = queryp.Where("expire_date::date >= ? AND expire_date::date <= ?", param.StartDate, param.EndDate)
+		queryc = queryc.Where("s.completed_at::date >= ? AND s.completed_at::date <= ?", param.StartDate, param.EndDate)
 	}
 
 	// get total sale count and amount
-	var q = querys + filters
-	err := s.db.Raw(q, args...).Scan(&totalSale).Error
+
+	err := querys.Scan(&totalSale).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
 	}
 	// get total product count
-	var qp = queryp + filterp
-	err = s.db.Raw(qp, args...).Scan(&stock).Error
+
+	err = queryp.Scan(&stock).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
 	}
 	var totalNetIncome float64
 	// get total net income
-	var qc = queryc + filterc
-	err = s.db.Raw(qc, args...).Scan(&totalNetIncome).Error
+	err = queryc.Scan(&totalNetIncome).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
@@ -256,6 +241,12 @@ func (s *Services) DashboardTopProducts(param *domain.DashboardQueryParam) ([]do
 		filter += " AND sp.store_id = ?"
 		args = append(args, param.StoreId)
 	}
+
+	if len(param.StoreIds) > 0 {
+		filter += " AND sp.store_id IN (?)"
+		args = append(args, param.StoreIds)
+	}
+
 	if param.StartDate != "" && param.EndDate == "" {
 		filter += " AND ci.updated_at::date = ?"
 		args = append(args, param.StartDate)
@@ -302,6 +293,12 @@ func (s *Services) DashboardBonusProducts(param *domain.DashboardQueryParam) ([]
 		filter += " AND sp.store_id = ?"
 		args = append(args, param.StoreId)
 	}
+	// check store_ids
+	if len(param.StoreIds) > 0 {
+		filter += " AND sp.store_id IN (?)"
+		args = append(args, param.StoreIds)
+	}
+
 	if param.StartDate != "" && param.EndDate == "" {
 		filter += " AND ci.updated_at::date = ?"
 		args = append(args, param.StartDate)
@@ -347,6 +344,11 @@ func (s *Services) DashboardTopSeller(param *domain.DashboardQueryParam) ([]doma
 	if param.StoreId != "" {
 		filter += " AND s.store_id = ?"
 		args = append(args, param.StoreId)
+	}
+	// check store_ids
+	if len(param.StoreIds) > 0 {
+		filter += " AND s.store_id IN (?)"
+		args = append(args, param.StoreIds)
 	}
 	if param.StartDate != "" && param.EndDate == "" {
 		filter += " AND s.completed_at::date = ?"

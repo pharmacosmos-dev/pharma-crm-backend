@@ -3036,7 +3036,7 @@ const docTemplate = `{
             }
         },
         "/dashboard/bonus-products": {
-            "get": {
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
@@ -3080,6 +3080,17 @@ const docTemplate = `{
                         "description": "Store ID",
                         "name": "store_id",
                         "in": "query"
+                    },
+                    {
+                        "description": "Store ids",
+                        "name": "store_ids",
+                        "in": "body",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
                     }
                 ],
                 "responses": {
@@ -3105,7 +3116,7 @@ const docTemplate = `{
             }
         },
         "/dashboard/chart": {
-            "get": {
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
@@ -3145,7 +3156,7 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
-                        "description": "Store IDs",
+                        "description": "Store ids",
                         "name": "store_ids",
                         "in": "body",
                         "schema": {
@@ -3179,7 +3190,7 @@ const docTemplate = `{
             }
         },
         "/dashboard/count-stats": {
-            "get": {
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
@@ -3219,7 +3230,7 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
-                        "description": "Store IDs",
+                        "description": "Store ids",
                         "name": "store_ids",
                         "in": "body",
                         "schema": {
@@ -3253,7 +3264,7 @@ const docTemplate = `{
             }
         },
         "/dashboard/top-products": {
-            "get": {
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
@@ -3297,6 +3308,17 @@ const docTemplate = `{
                         "description": "Store ID",
                         "name": "store_id",
                         "in": "query"
+                    },
+                    {
+                        "description": "Store ids",
+                        "name": "store_ids",
+                        "in": "body",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
                     }
                 ],
                 "responses": {
@@ -3322,7 +3344,7 @@ const docTemplate = `{
             }
         },
         "/dashboard/top-seller": {
-            "get": {
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
@@ -3366,6 +3388,17 @@ const docTemplate = `{
                         "description": "Store ID",
                         "name": "store_id",
                         "in": "query"
+                    },
+                    {
+                        "description": "Store ids",
+                        "name": "store_ids",
+                        "in": "body",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
                     }
                 ],
                 "responses": {
@@ -3391,7 +3424,7 @@ const docTemplate = `{
             }
         },
         "/dashboard/top-stores": {
-            "get": {
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
@@ -13646,6 +13679,9 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "updated_at": {
+                    "type": "string"
+                },
+                "work_hours": {
                     "type": "string"
                 }
             }
