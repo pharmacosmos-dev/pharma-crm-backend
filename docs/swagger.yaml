@@ -969,6 +969,8 @@ definitions:
         type: integer
       updated_at:
         type: string
+      work_hours:
+        type: string
     type: object
   domain.StoreProductBarcodeRequest:
     properties:
@@ -3000,7 +3002,7 @@ paths:
       tags:
       - customers
   /dashboard/bonus-products:
-    get:
+    post:
       description: Get bonus products
       parameters:
       - description: Limit
@@ -3023,6 +3025,13 @@ paths:
         in: query
         name: store_id
         type: string
+      - description: Store ids
+        in: body
+        name: store_ids
+        schema:
+          items:
+            type: string
+          type: array
       produces:
       - application/json
       responses:
@@ -3044,7 +3053,7 @@ paths:
       tags:
       - dashboard
   /dashboard/chart:
-    get:
+    post:
       description: Get total chart stats
       parameters:
       - description: Start Date
@@ -3063,7 +3072,7 @@ paths:
         in: query
         name: store_id
         type: string
-      - description: Store IDs
+      - description: Store ids
         in: body
         name: store_ids
         schema:
@@ -3091,7 +3100,7 @@ paths:
       tags:
       - dashboard
   /dashboard/count-stats:
-    get:
+    post:
       description: Get total count stats
       parameters:
       - description: Start Date
@@ -3110,7 +3119,7 @@ paths:
         in: query
         name: type
         type: string
-      - description: Store IDs
+      - description: Store ids
         in: body
         name: store_ids
         schema:
@@ -3138,7 +3147,7 @@ paths:
       tags:
       - dashboard
   /dashboard/top-products:
-    get:
+    post:
       description: Get top products
       parameters:
       - description: Limit
@@ -3161,6 +3170,13 @@ paths:
         in: query
         name: store_id
         type: string
+      - description: Store ids
+        in: body
+        name: store_ids
+        schema:
+          items:
+            type: string
+          type: array
       produces:
       - application/json
       responses:
@@ -3182,7 +3198,7 @@ paths:
       tags:
       - dashboard
   /dashboard/top-seller:
-    get:
+    post:
       description: Get bonus products
       parameters:
       - description: Limit
@@ -3205,6 +3221,13 @@ paths:
         in: query
         name: store_id
         type: string
+      - description: Store ids
+        in: body
+        name: store_ids
+        schema:
+          items:
+            type: string
+          type: array
       produces:
       - application/json
       responses:
@@ -3226,7 +3249,7 @@ paths:
       tags:
       - dashboard
   /dashboard/top-stores:
-    get:
+    post:
       description: Get top stores
       parameters:
       - description: Start Date

@@ -212,18 +212,6 @@ type StoreExternal struct {
 	ExpireDate   *time.Time `gorm:"expire_date" json:"expire_date"`
 }
 
-// get query param values
-// var (
-// 	searchField     = c.Query("search")
-// 	storeIDParam    = c.Query("store_id")
-// 	supplyPriceFrom = c.Query("supply_price_from")
-// 	supplyPriceTo   = c.Query("supply_price_to")
-// 	retailPriceFrom = c.Query("retail_price_from")
-// 	retailPriceTo   = c.Query("retail_price_to")
-// 	producerID      = c.Query("producer_id")
-// 	status          = c.Query("status")
-// 	noBarcode       = c.Query("no_barcode")
-// )
 
 // product list query params
 type ProductQueryParam struct {
