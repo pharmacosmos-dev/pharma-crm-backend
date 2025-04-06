@@ -3032,13 +3032,6 @@ paths:
           items:
             type: string
           type: array
-      - description: Store ids
-        in: body
-        name: store_ids
-        schema:
-          items:
-            type: string
-          type: array
       produces:
       - application/json
       responses:
@@ -3079,13 +3072,6 @@ paths:
         in: query
         name: store_id
         type: string
-      - description: Store ids
-        in: body
-        name: store_ids
-        schema:
-          items:
-            type: string
-          type: array
       - description: Store ids
         in: body
         name: store_ids
@@ -3140,6 +3126,46 @@ paths:
           items:
             type: string
           type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get total count stats
+      tags:
+      - dashboard
+  /dashboard/payments:
+    post:
+      description: Get all payments stats
+      parameters:
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: Type might be -> (HOURLY, DAILY, WEEKLY, MONTHLY, YEARLY)
+        in: query
+        name: type
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
       - description: Store ids
         in: body
         name: store_ids
@@ -3164,7 +3190,7 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Get total count stats
+      summary: Get all payments stats
       tags:
       - dashboard
   /dashboard/top-products:
@@ -3191,13 +3217,6 @@ paths:
         in: query
         name: store_id
         type: string
-      - description: Store ids
-        in: body
-        name: store_ids
-        schema:
-          items:
-            type: string
-          type: array
       - description: Store ids
         in: body
         name: store_ids
@@ -3249,13 +3268,6 @@ paths:
         in: query
         name: store_id
         type: string
-      - description: Store ids
-        in: body
-        name: store_ids
-        schema:
-          items:
-            type: string
-          type: array
       - description: Store ids
         in: body
         name: store_ids
@@ -3317,6 +3329,53 @@ paths:
       security:
       - BearerAuth: []
       summary: Get top stores
+      tags:
+      - dashboard
+  /dashboard/transaction:
+    post:
+      description: Get all transaction stats
+      parameters:
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: Type might be -> (HOURLY, DAILY, WEEKLY, MONTHLY, YEARLY)
+        in: query
+        name: type
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Store ids
+        in: body
+        name: store_ids
+        schema:
+          items:
+            type: string
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get all transaction stats
       tags:
       - dashboard
   /draft:

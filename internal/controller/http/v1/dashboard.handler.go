@@ -25,6 +25,9 @@ func (h *DashboardHandler) DashboardRoutes(r *gin.RouterGroup) {
 		dashboard.POST("/top-products", h.TopProducts)
 		dashboard.POST("/bonus-products", h.BonusProducts)
 		dashboard.POST("/top-seller", h.TopSeller)
+		dashboard.POST("/payments", h.Payments)
+		dashboard.POST("/transaction", h.Transaction)
+
 	}
 }
 
@@ -399,6 +402,79 @@ func (h *DashboardHandler) TopSeller(c *gin.Context) {
 	res, err := h.service.DashboardTopSeller(&param)
 	if err != nil {
 		handleResponse(c, InternalError, "Can't get dashboard data")
+		return
+	}
+	handleResponse(c, OK, res)
+}
+
+// Payments godoc
+// @Summary Get all payments stats
+// @Description Get all payments stats
+// @Tags 	dashboard
+// @Security     BearerAuth
+// @Produce json
+// @Param   start_date 	query string false "Start Date"
+// @Param   end_date 	query string false "End Date"
+// @Param   type 		query string false "Type might be -> (HOURLY, DAILY, WEEKLY, MONTHLY, YEARLY)"
+// @Param   store_id 	query string false "Store ID"
+// @Param   store_ids  	body  []string  false  "Store ids"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /dashboard/payments [POST]
+func (h *DashboardHandler) Payments(c *gin.Context) {
+	var param domain.DashboardQueryParam
+	// bind query parameters
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
+		handleResponse(c, BadRequest, "Invalid query parameters")
+		return
+	}
+	// bind store ids
+	if err = c.ShouldBindJSON(&param.StoreIds); err != nil {
+		handleResponse(c, BadRequest, "Invalid store ids")
+		return
+	}
+
+	res, err := h.service.DashboardPayments(&param)
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to get payment type stats")
+		return
+	}
+	handleResponse(c, OK, res)
+}
+
+// Payments godoc
+// @Summary Get all transaction stats
+// @Description Get all transaction stats
+// @Tags 	dashboard
+// @Security     BearerAuth
+// @Produce json
+// @Param   start_date 	query string true "Start Date"
+// @Param   end_date 	query string true "End Date"
+// @Param   type 		query string false "Type might be -> (HOURLY, DAILY, WEEKLY, MONTHLY, YEARLY)"
+// @Param   store_id 	query string false "Store ID"
+// @Param   store_ids  	body  []string  false  "Store ids"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /dashboard/transaction [POST]
+func (h *DashboardHandler) Transaction(c *gin.Context) {
+	var param domain.DashboardQueryParam
+	// bind query parameters
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
+		handleResponse(c, BadRequest, "Invalid query parameters")
+		return
+	}
+	// bind store ids
+	if err = c.ShouldBindJSON(&param.StoreIds); err != nil {
+		handleResponse(c, BadRequest, "Invalid store ids")
+		return
+	}
+	res, err := h.service.DashboardTransaction(&param)
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to get transaction")
 		return
 	}
 	handleResponse(c, OK, res)

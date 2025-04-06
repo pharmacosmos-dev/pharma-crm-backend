@@ -258,7 +258,6 @@ func (s *Services) DashboardTopProducts(param *domain.DashboardQueryParam) ([]do
 		args = append(args, param.StoreIds)
 	}
 
-
 	if len(param.StoreIds) > 0 {
 		filter += " AND sp.store_id IN (?)"
 		args = append(args, param.StoreIds)
@@ -394,5 +393,88 @@ func (s *Services) DashboardTopSeller(param *domain.DashboardQueryParam) ([]doma
 		return nil, err
 	}
 
+	return res, nil
+}
+
+// get payment
+func (s *Services) DashboardPayments(param *domain.DashboardQueryParam) ([]domain.DashboardPayment, error) {
+	// check end date for empty string
+	if param.EndDate == "" {
+		param.EndDate = param.StartDate
+	}
+	res := []domain.DashboardPayment{}
+	query := s.db.
+		Model(&domain.SalePayment{}).
+		Select(`pt.name,
+		SUM(sale_payments.amount) AS amount,
+		COUNT(sale_payments.id) AS count`).
+		Joins("JOIN payment_types pt ON sale_payments.payment_type_id = pt.id").
+		Joins("JOIN sales s ON sale_payments.sale_id = s.id")
+
+	if param.StartDate != "" && param.EndDate != "" {
+		query = query.Where("s.completed_at BETWEEN ? AND ? ", param.StartDate, param.EndDate)
+	}
+	if len(param.StoreIds) > 0 {
+		query = query.Where("s.store_id IN (?)", param.StoreIds)
+	}
+	err := query.Group("pt.name").Order("amount DESC").Find(&res).Error
+	if err != nil {
+		s.log.Error(err)
+		return res, err
+	}
+
+	return res, nil
+}
+
+// get dashboard transaction types
+func (s *Services) DashboardTransaction(param *domain.DashboardQueryParam) ([]domain.DashboardTransaction, error) {
+	if param.EndDate == "" {
+		param.EndDate = param.StartDate
+	}
+
+	res := []domain.DashboardTransaction{}
+	args := []interface{}{param.StartDate, param.EndDate}
+	whereClause := `s.status = 'completed' AND s.sale_type = 'SALE' AND s.completed_at BETWEEN ?::date AND ?::date`
+
+	if len(param.StoreIds) > 0 {
+		whereClause += ` AND s.store_id IN (?)`
+		args = append(args, param.StoreIds)
+	}
+
+	saleQuery := fmt.Sprintf(`
+		SELECT
+			'Товары' AS name,
+			SUM(cart_items.quantity) AS count,
+			SUM(cart_items.total_price) AS amount
+		FROM cart_items
+		JOIN sales s ON cart_items.sale_id = s.id
+		WHERE %s`, whereClause)
+
+	// Reset args for returns
+	argsReturn := []any{param.StartDate, param.EndDate}
+	whereClauseReturn := `s.status = 'completed' AND s.sale_type = 'RETURN' AND s.completed_at BETWEEN ?::date AND ?::date`
+
+	if len(param.StoreIds) > 0 {
+		whereClauseReturn += ` AND s.store_id IN (?)`
+		argsReturn = append(argsReturn, param.StoreIds)
+	}
+
+	returnQuery := fmt.Sprintf(`
+		SELECT
+			'Возвраты' AS name,
+			SUM(cart_items.quantity) AS count,
+			SUM(cart_items.total_price) AS amount
+		FROM cart_items
+		JOIN sales s ON cart_items.sale_id = s.id
+		WHERE %s`, whereClauseReturn)
+
+	fullQuery := fmt.Sprintf(`%s UNION ALL %s`, saleQuery, returnQuery)
+
+	// Use gorm’s parameter binding
+	err := s.db.Raw(fullQuery, append(args, argsReturn...)...).Scan(&res).Error
+	if err != nil {
+		s.log.Error(err)
+		return res, err
+	}
 	return res, nil
 }

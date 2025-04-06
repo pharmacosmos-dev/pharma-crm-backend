@@ -71,6 +71,20 @@ type DashboardQueryParam struct {
 	StoreIds  []string `form:"store_ids"`
 }
 
+// Dashboard payments structure
+type DashboardPayment struct {
+	Name   string  `gorm:"name" json:"name"`
+	Count  int64   `gorm:"count" json:"count"`
+	Amount float64 `gorm:"amount" json:"amount"`
+}
+
+// Dashboard transactions structure
+type DashboardTransaction struct {
+	Name   string  `gorm:"name" json:"name"`
+	Count  int64   `gorm:"count" json:"count"`
+	Amount float64 `gorm:"amount" json:"amount"`
+}
+
 // Dashboard count stats sale
 type DashboardCountStatsSale struct {
 	SaleCount        int64   `gorm:"sale_count" json:"sale_count"`
