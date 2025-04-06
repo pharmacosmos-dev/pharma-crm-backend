@@ -186,9 +186,14 @@ func (h *SaleHandler) Get(c *gin.Context) {
 	err = h.db.Raw(`
 	SELECT 
 		p.id, sp.id AS store_product_id, p.name, p.barcode,
-		p.photos, ci.quantity, ci.unit_price,
+		p.photos, ci.quantity, ci.unit_price AS pack_price,
 		ci.unit_quantity, ci.marking_count, ci.total_price, u.short_name, 
-		(ci.discount_price*ci.quantity) AS  total_discount
+		(ci.discount_price*ci.quantity) AS  total_discount, 
+		ROUND(
+		CASE
+			WHEN p.unit_per_pack > 0 THEN (ci.unit_price / p.unit_per_pack)
+			ELSE 0
+		END, 2) AS unit_price
 	FROM cart_items ci
 	JOIN store_products sp ON ci.store_product_id = sp.id
 	JOIN products p ON sp.product_id = p.id
