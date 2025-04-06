@@ -389,6 +389,10 @@ definitions:
         type: string
       customer_id:
         type: string
+      marking_data:
+        items:
+          $ref: '#/definitions/domain.MarkingData'
+        type: array
       payment_types:
         items:
           $ref: '#/definitions/domain.FinalPaymentType'
@@ -510,6 +514,25 @@ definitions:
       scanned_count:
         type: integer
     type: object
+  domain.InventoryRequest:
+    properties:
+      name:
+        type: string
+      products:
+        items:
+          properties:
+            product_id:
+              type: string
+          type: object
+        type: array
+      public_id:
+        type: string
+      store_id:
+        type: string
+      type:
+        description: FULL || PARTIAL || IMPORT
+        type: string
+    type: object
   domain.Login:
     properties:
       password:
@@ -518,6 +541,13 @@ definitions:
         type: string
     required:
     - phone
+    type: object
+  domain.MarkingData:
+    properties:
+      id:
+        type: string
+      marking_count:
+        type: integer
     type: object
   domain.PaymentServiceRequest:
     properties:
@@ -3338,10 +3368,12 @@ paths:
       - description: Start Date
         in: query
         name: start_date
+        required: true
         type: string
       - description: End Date
         in: query
         name: end_date
+        required: true
         type: string
       - description: Type might be -> (HOURLY, DAILY, WEEKLY, MONTHLY, YEARLY)
         in: query
@@ -5381,6 +5413,38 @@ paths:
       summary: List imports
       tags:
       - imports
+  /inventory:
+    post:
+      consumes:
+      - application/json
+      description: Create inventory
+      parameters:
+      - description: Inventory
+        in: body
+        name: inventory
+        required: true
+        schema:
+          $ref: '#/definitions/domain.InventoryRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create inventory
+      tags:
+      - Inventory
   /login:
     post:
       consumes:

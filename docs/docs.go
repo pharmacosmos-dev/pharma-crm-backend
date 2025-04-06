@@ -3574,13 +3574,15 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Start Date",
                         "name": "start_date",
-                        "in": "query"
+                        "in": "query",
+                        "required": true
                     },
                     {
                         "type": "string",
                         "description": "End Date",
                         "name": "end_date",
-                        "in": "query"
+                        "in": "query",
+                        "required": true
                     },
                     {
                         "type": "string",
@@ -6746,6 +6748,57 @@ const docTemplate = `{
                 "responses": {
                     "200": {
                         "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/inventory": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create inventory",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Inventory"
+                ],
+                "summary": "Create inventory",
+                "parameters": [
+                    {
+                        "description": "Inventory",
+                        "name": "inventory",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.InventoryRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
                         }
@@ -12952,6 +13005,12 @@ const docTemplate = `{
                 "customer_id": {
                     "type": "string"
                 },
+                "marking_data": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.MarkingData"
+                    }
+                },
                 "payment_types": {
                     "type": "array",
                     "items": {
@@ -13136,6 +13195,35 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.InventoryRequest": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "products": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "product_id": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                },
+                "public_id": {
+                    "type": "string"
+                },
+                "store_id": {
+                    "type": "string"
+                },
+                "type": {
+                    "description": "FULL || PARTIAL || IMPORT",
+                    "type": "string"
+                }
+            }
+        },
         "domain.Login": {
             "type": "object",
             "required": [
@@ -13147,6 +13235,17 @@ const docTemplate = `{
                 },
                 "phone": {
                     "type": "string"
+                }
+            }
+        },
+        "domain.MarkingData": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "marking_count": {
+                    "type": "integer"
                 }
             }
         },
