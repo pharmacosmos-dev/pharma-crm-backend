@@ -165,6 +165,7 @@ type ProductRes struct {
 	Name           string            `gorm:"name" json:"name"`
 	Barcode        string            `gorm:"barcode" json:"barcode"`
 	Photos         utils.StringArray `gorm:"type:text[]" json:"photos"`
+	UnitPrice      float64           `gorm:"unit_price" json:"unit_price"`
 	TotalPrice     float64           `gorm:"total_price" json:"total_price"`
 	TotalDiscount  float64           `gorm:"total_discount" json:"total_discount"`
 	Quantity       int               `gorm:"quantity" json:"quantity"`
@@ -211,7 +212,6 @@ type StoreExternal struct {
 	UnitQuantity int        `gorm:"unit_quantity" json:"unit_quantity"`
 	ExpireDate   *time.Time `gorm:"expire_date" json:"expire_date"`
 }
-
 
 // product list query params
 type ProductQueryParam struct {
