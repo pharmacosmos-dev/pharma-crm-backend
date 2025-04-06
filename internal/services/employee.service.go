@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
 )
 
@@ -69,28 +70,18 @@ func (s *Services) ListEmployee(c *gin.Context, limit, offset int) ([]domain.Emp
 }
 
 // get employee bonus amount
-func (s *Services) GetEmployeeBonusAmount(param *domain.DashboardQueryParam, id string) (float64, error) {
-	var (
-		bonus  float64
-		args   []any
-		query  = `SELECT COALESCE(SUM(bonus_amount), 0) AS bonus_amount FROM employee_bonus `
-		filter = `WHERE employee_id = ?`
-	)
-	// add employee id
-	args = append(args, id)
-	if param.StartDate != "" && param.EndDate == "" {
-		filter += ` AND created_at::date = ?`
-		args = append(args, param.StartDate)
-	}
-	if param.StartDate != "" && param.EndDate != "" {
-		filter += ` AND created_at::date BETWEEN ? AND ?`
-		args = append(args, param.StartDate, param.EndDate)
-	}
-	query += filter
-	err := s.db.Raw(query, args...).Scan(&bonus).Error
+func (s *Services) GetEmployeeBonusAmount(param *domain.DashboardQueryParam, id string) (domain.DashboardCountStatsBonus, error) {
+	var bonus domain.DashboardCountStatsBonus
+	beforeStart, beforeEnd := utils.BeforeDates(param.StartDate, param.EndDate)
+	query := `
+	SELECT
+		SUM(CASE WHEN created_at::date BETWEEN ? AND ? THEN bonus_amount END) AS bonus_amount,
+		SUM(CASE WHEN created_at::date BETWEEN ? AND ? THEN bonus_amount END) AS before_bonus_amount
+	FROM employee_bonus  WHERE employee_id = ?`
+	err := s.db.Raw(query, param.StartDate, param.EndDate, beforeStart, beforeEnd, id).Scan(&bonus).Error
 	if err != nil {
 		s.log.Error(err)
-		return 0, err
+		return bonus, err
 	}
 	return bonus, nil
 }

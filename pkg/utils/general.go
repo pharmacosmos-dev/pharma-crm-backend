@@ -109,3 +109,16 @@ func Translit(input string) string {
 
 	return result.String()
 }
+
+// covert before start date and end date
+func BeforeDates(startDateStr, endDateStr string) (string, string) {
+	if endDateStr == "" {
+		endDateStr = startDateStr
+	}
+	startDate, _ := time.Parse("2006-01-02", startDateStr)
+	endDate, _ := time.Parse("2006-01-02", endDateStr)
+	diff := endDate.Sub(startDate)
+	beforeStart := startDate.Add(-diff)
+	beforeEnd := startDate
+	return beforeStart.Format("2006-01-02"), beforeEnd.Format("2006-01-02")
+}

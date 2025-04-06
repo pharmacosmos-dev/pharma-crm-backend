@@ -46,7 +46,6 @@ func (h *DashboardHandler) DashboardRoutes(r *gin.RouterGroup) {
 func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 	var (
 		param domain.DashboardQueryParam
-		res   *domain.TotalCountStats
 	)
 
 	// bind query parameters
@@ -77,24 +76,26 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 		handleResponse(c, InternalError, "Can't get employee info")
 		return
 	}
-	var bonusAmount float64
+	var bonus domain.DashboardCountStatsBonus
 	// check if employee is not admin or superadmin
 	if employee.RoleType != config.ADMIN && employee.RoleType != config.SUPERADMIN {
 		param.StoreId = employee.StoreId
-		bonusAmount, err = h.service.GetEmployeeBonusAmount(&param, employee.Id)
+		bonus, err = h.service.GetEmployeeBonusAmount(&param, employee.Id)
 		if err != nil {
 			handleResponse(c, InternalError, "Can't get employee bonus amount")
 			return
 		}
 	}
 	// get dashboard data
-	res, err = h.service.DashboardTotalCountStats(&param)
+	res, err := h.service.DashboardTotalCountStats(&param)
 	if err != nil {
 		handleResponse(c, InternalError, "Can't get dashboard data")
 		return
 	}
-	res.BonusAmount = bonusAmount
-
+	// get employee bonus amount
+	res.BonusAmount = bonus.BonusAmount
+	res.BeforeBonusAmount = bonus.BeforeBonusAmount
+	
 	handleResponse(c, OK, res)
 }
 

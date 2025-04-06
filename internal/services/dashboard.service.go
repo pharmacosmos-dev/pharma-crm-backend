@@ -4,102 +4,113 @@ import (
 	"fmt"
 
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/utils"
 )
 
 // get dashboard count and amount data
-func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (*domain.TotalCountStats, error) {
+func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (*domain.DashboardCountStats, error) {
 	// declarations
 	var (
-		res   domain.TotalCountStats
-		stock struct {
-			StockTotalAmount   float64 `gorm:"stock_total_amount" json:"stock_total_amount"`
-			ExpiringSoonCount  int64   `gorm:"expiring_soon_count" json:"expiring_soon_count"`
-			TotalProductCount  int64   `gorm:"total_product_count" json:"total_product_count"`
-			ExpiringSoonAmount float64 `gorm:"expiring_soon_amount" json:"expiring_soon_amount"`
-		}
-		totalSale struct {
-			TotalSaleCount  float64 `gorm:"total_sale_count" json:"total_sale_count"`
-			TotalSaleAmount float64 `gorm:"total_sale_amount" json:"total_sale_amount"`
-		}
+		sale    domain.DashboardCountStatsSale
+		product domain.DashboardCountStatsProduct
+		income  domain.DashboardCountStatsIncome
+		res     domain.DashboardCountStats
 	)
+	// check end date for empty string
+	if param.EndDate == "" {
+		param.EndDate = param.StartDate
+	}
+	// calculate before start and before end date
+	beforeStart, beforeEnd := utils.BeforeDates(param.StartDate, param.EndDate)
 	// queries
 	var (
-		// get total sale count and amount
-		querys = s.db.Table("sales").Select("COUNT(*) AS total_sale_count, SUM(total_amount) AS total_sale_amount").Where("status = 'completed' AND sale_type = 'SALE'")
-		// get total product count and amount
-		queryp = s.db.Table("store_products").Select(`
-			COALESCE(SUM(pack_quantity), 0) AS total_product_count,
-			COALESCE(SUM(pack_quantity*retail_price), 0) AS stock_total_amount,
-			COALESCE(SUM(CASE WHEN expire_date <= NOW() + INTERVAL '10 days' THEN pack_quantity ELSE 0 END), 0) AS expiring_soon_count,
-			COALESCE(SUM(CASE WHEN expire_date <= NOW() + INTERVAL '10 days' THEN pack_quantity*retail_price ELSE 0 END), 0) AS expiring_soon_amount
-		`).Where("expire_date::date >= current_date")
+		args []any
+		// get sale stats information
+		querys = fmt.Sprintf(`
+		SELECT 
+			COUNT(CASE WHEN completed_at::date BETWEEN '%s' AND '%s' THEN id END) sale_count,
+    		COUNT(CASE WHEN completed_at::date BETWEEN '%s' AND '%s' THEN id END) before_sale_count,
+			SUM(CASE WHEN completed_at::date BETWEEN '%s' AND '%s' THEN total_amount END) AS sale_amount,
+			SUM(CASE WHEN completed_at::date BETWEEN '%s' AND '%s' THEN total_amount END) AS before_sale_amount
+		FROM sales WHERE status = 'completed' AND sale_type = 'SALE' `,
+			param.StartDate, param.EndDate, beforeStart, beforeEnd,
+			param.StartDate, param.EndDate, beforeStart, beforeEnd)
+		// get stock stats information
+		queryp = fmt.Sprintf(`
+		SELECT
+			SUM(pack_quantity) AS stock_count,
+			SUM(pack_quantity+COALESCE(ci_sold.quantity, 0)) AS before_stock_count,
+			SUM(pack_quantity*retail_price) AS stock_amount,
+			SUM(pack_quantity*retail_price+COALESCE(ci_sold.amount, 0)) AS before_stock_amount,
+			SUM(CASE WHEN expire_date <= NOW() + INTERVAL '10 days' THEN pack_quantity ELSE 0 END) AS expiring_count,
+			SUM(CASE WHEN expire_date <= NOW() + INTERVAL '10 days' THEN pack_quantity*retail_price ELSE 0 END) AS expiring_amount,
+			SUM(CASE WHEN expire_date <= NOW() + INTERVAL '10 days' THEN COALESCE(ci_sold.amount, 0) ELSE 0 END) AS before_expiring_amount
+		FROM store_products
+		LEFT JOIN (
+			SELECT store_product_id, SUM(quantity) AS quantity, SUM(quantity*unit_price) AS amount
+			FROM cart_items
+			JOIN sales s ON cart_items.sale_id = s.id
+			WHERE s.completed_at::date >= '%s'
+			AND s.completed_at::date <= '%s'
+			AND s.status = 'completed'
+			GROUP BY store_product_id
+		) AS ci_sold ON ci_sold.store_product_id = store_products.id
+		WHERE expire_date::date >= current_date `, beforeStart, beforeEnd)
 		// get total net income
-		queryc = s.db.Table("cart_items ci").
-			Select(`COALESCE(SUM((ci.unit_price - sp.supply_price) * ci.quantity), 0) AS total_net_income`).
-			Joins("JOIN store_products sp ON ci.store_product_id = sp.id").
-			Joins("JOIN sales s ON ci.sale_id = s.id").Where("s.status = 'completed'")
+		queryc = fmt.Sprintf(`
+		SELECT
+			SUM(CASE WHEN completed_at::date BETWEEN '%s' AND '%s' THEN (ci.unit_price-sp.supply_price)*ci.quantity END) AS income_amount,
+			SUM(CASE WHEN completed_at::date BETWEEN '%s' AND '%s' THEN (ci.unit_price-sp.supply_price)*ci.quantity END) AS before_income_amount
+		FROM cart_items ci
+		JOIN store_products sp ON ci.store_product_id = sp.id
+		JOIN sales s ON ci.sale_id = s.id
+		WHERE s.status = 'completed' AND s.sale_type = 'SALE' `, param.StartDate, param.EndDate, beforeStart, beforeEnd)
+		filter  = ""
+		filterc = ""
 	)
 	// filter by several store ids
 	if len(param.StoreIds) > 0 {
-		querys = querys.Where("store_id IN (?)", param.StoreIds)
-		queryp = queryp.Where("store_id IN (?)", param.StoreIds)
-		queryc = queryc.Where("s.store_id IN (?)", param.StoreIds)
-	}
-
-	// if start date is not empty
-	if param.StartDate != "" && param.EndDate == "" {
-		querys = querys.Where("completed_at::date = ?", param.StartDate)
-		queryp = queryp.Where("expire_date::date >= ?", param.StartDate)
-		queryc = queryc.Where("s.completed_at::date = ?", param.StartDate)
-	}
-
-	// if end date is not empty
-	if param.StartDate != "" && param.EndDate != "" {
-		querys = querys.Where("completed_at::date >= ? AND completed_at::date <= ?", param.StartDate, param.EndDate)
-		queryp = queryp.Where("expire_date::date >= ? AND expire_date::date <= ?", param.StartDate, param.EndDate)
-		queryc = queryc.Where("s.completed_at::date >= ? AND s.completed_at::date <= ?", param.StartDate, param.EndDate)
+		filter += " AND store_id IN (?)"
+		filterc += " AND s.store_id IN (?)"
+		args = append(args, param.StoreIds)
 	}
 
 	// get total sale count and amount
-
-	err := querys.Scan(&totalSale).Error
+	querys += filter
+	err := s.db.Raw(querys, args...).Scan(&sale).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
 	}
+
 	// get total product count
-
-	err = queryp.Scan(&stock).Error
+	queryp += filter
+	err = s.db.Raw(queryp, args...).Scan(&product).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
 	}
-	var totalNetIncome float64
 	// get total net income
-	err = queryc.Scan(&totalNetIncome).Error
+	queryc += filterc
+	err = s.db.Raw(queryc, args...).Scan(&income).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
 	}
 
-	res.TotalSaleCount = totalSale.TotalSaleCount
-	res.TotalSaleAmount = totalSale.TotalSaleAmount
-	res.TotalProductCount = stock.TotalProductCount
-	res.StockTotalAmount = stock.StockTotalAmount
-	res.ExpiringSoonCount = stock.ExpiringSoonCount
-	res.ExpiringSoonAmount = stock.ExpiringSoonAmount
-	res.TotalNetIncome = totalNetIncome
-
-	// get store count by checking store_id is not emply
-	if param.StoreId != "" {
-		res.TotalStoreCount = 1
-	} else {
-		err = s.db.Model(&domain.Store{}).Count(&res.TotalStoreCount).Error
-		if err != nil {
-			s.log.Error(err)
-			return nil, err
-		}
-	}
+	res.TotalSaleCount = sale.SaleCount
+	res.BeforeSaleCount = sale.BeforeSaleCount
+	res.TotalSaleAmount = sale.SaleAmount
+	res.BeforeSaleAmount = sale.BeforeSaleAmount
+	res.TotalProductCount = product.StockCount
+	res.BeforeProductCount = product.BeforeStockCount
+	res.StockTotalAmount = product.StockAmount
+	res.BeforeStockAmount = product.BeforeStockAmount
+	res.ExpiringSoonCount = product.ExpiringCount
+	res.ExpiringSoonAmount = product.ExpiringAmount
+	res.BeforeExpiringSoonAmount = product.BeforeExpiringAmount
+	res.TotalNetIncome = income.IncomeAmount
+	res.BeforeTotalNetIncome = income.BeforeIncomeAmount
 	return &res, nil
 }
 
