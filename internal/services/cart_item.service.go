@@ -218,7 +218,7 @@ func (s *Services) AddMarkingCount(req []domain.MarkingData) error {
 		FROM (
 			VALUES %s
 		) AS v(id, marking_count)
-		WHERE c.id = v.id;
+		WHERE c.id = v.id::uuid;
 	`, strings.Join(valueStrings, ","))
 
 	// Execute raw SQL
