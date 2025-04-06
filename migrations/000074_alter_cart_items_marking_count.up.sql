@@ -1,0 +1,1 @@
+ALTER TABLE cart_items ADD COLUMN IF NOT EXISTS "marking_count" INT DEFAULT 0;

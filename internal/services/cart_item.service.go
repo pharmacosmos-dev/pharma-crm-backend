@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
@@ -197,4 +198,35 @@ func (s *Services) GetCartItemsTotalAmount(saleID string) (float64, error) {
 	}
 	res.TotalAmount = res.Sum - res.DiscountAmount
 	return res.TotalAmount, nil
+}
+
+// add marking count to cart items
+func (s *Services) AddMarkingCount(req []domain.MarkingData) error {
+	if len(req) == 0 {
+		return nil
+	}
+
+	// Build VALUES part: ('uuid1', 5), ('uuid2', 10), ...
+	var valueStrings []string
+	for _, r := range req {
+		valueStrings = append(valueStrings, fmt.Sprintf("('%s', %d)", r.Id, r.MarkingCount))
+	}
+
+	query := fmt.Sprintf(`
+		UPDATE cart_items AS c
+		SET marking_count = v.marking_count
+		FROM (
+			VALUES %s
+		) AS v(id, marking_count)
+		WHERE c.id = v.id;
+	`, strings.Join(valueStrings, ","))
+
+	// Execute raw SQL
+	err := s.db.Exec(query).Error
+	if err != nil {
+		s.log.Error("bulk update failed:", err)
+		return err
+	}
+
+	return nil
 }

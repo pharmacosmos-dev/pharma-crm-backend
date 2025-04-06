@@ -187,7 +187,7 @@ func (h *SaleHandler) Get(c *gin.Context) {
 	SELECT 
 		p.id, sp.id AS store_product_id, p.name, p.barcode,
 		p.photos, ci.quantity, ci.unit_price,
-		ci.unit_quantity, ci.total_price, u.short_name, 
+		ci.unit_quantity, ci.marking_count, ci.total_price, u.short_name, 
 		(ci.discount_price*ci.quantity) AS  total_discount
 	FROM cart_items ci
 	JOIN store_products sp ON ci.store_product_id = sp.id
@@ -774,6 +774,14 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 			return
 		}
 		h.log.Error("ERROR on getting sale info: ", err)
+		handleResponse(c, InternalError, err.Error())
+		tx.Rollback()
+		return
+	}
+
+	// add marking to cart_items
+	err = h.service.AddMarkingCount(body.MarkingData)
+	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		tx.Rollback()
 		return
