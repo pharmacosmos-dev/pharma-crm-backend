@@ -5,6 +5,8 @@ CREATE TABLE IF NOT EXISTS inventories(
     "name" VARCHAR(255),
     "type" VARCHAR(55) DEFAULT 'FULL', -- FULL || PARTIAL || IMPORT
     "status" INT DEFAULT 0, -- 0 -> new, 1 -> pending, 2 -> completed
+    "created_by" UUID REFERENCES employees(id),
+    "updated_by" UUID REFERENCES employees(id),
     "created_at" TIMESTAMP NOT NULL DEFAULT NOW(),
     "updated_at" TIMESTAMP NOT NULL DEFAULT NOW()
 );
@@ -13,6 +15,7 @@ CREATE TABLE IF NOT EXISTS inventory_details(
     "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(), 
     "inventory_id" UUID NOT NULL REFERENCES inventories(id) ON DELETE CASCADE,
     "product_id" UUID NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    "stock_count" INT DEFAULT 0,
     "scanned_count" INT DEFAULT 0,
     "accepted_count" INT DEFAULT 0,
     "created_at" TIMESTAMP NOT NULL DEFAULT NOW(),
