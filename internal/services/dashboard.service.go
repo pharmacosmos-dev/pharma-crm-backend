@@ -258,6 +258,12 @@ func (s *Services) DashboardTopProducts(param *domain.DashboardQueryParam) ([]do
 		args = append(args, param.StoreIds)
 	}
 
+
+	if len(param.StoreIds) > 0 {
+		filter += " AND sp.store_id IN (?)"
+		args = append(args, param.StoreIds)
+	}
+
 	if param.StartDate != "" && param.EndDate == "" {
 		filter += " AND ci.updated_at::date = ?"
 		args = append(args, param.StartDate)
@@ -310,6 +316,12 @@ func (s *Services) DashboardBonusProducts(param *domain.DashboardQueryParam) ([]
 		args = append(args, param.StoreIds)
 	}
 
+	// check store_ids
+	if len(param.StoreIds) > 0 {
+		filter += " AND sp.store_id IN (?)"
+		args = append(args, param.StoreIds)
+	}
+
 	if param.StartDate != "" && param.EndDate == "" {
 		filter += " AND ci.updated_at::date = ?"
 		args = append(args, param.StartDate)
@@ -355,6 +367,11 @@ func (s *Services) DashboardTopSeller(param *domain.DashboardQueryParam) ([]doma
 	if param.StoreId != "" {
 		filter += " AND s.store_id = ?"
 		args = append(args, param.StoreId)
+	}
+	// check store_ids
+	if len(param.StoreIds) > 0 {
+		filter += " AND s.store_id IN (?)"
+		args = append(args, param.StoreIds)
 	}
 	// check store_ids
 	if len(param.StoreIds) > 0 {

@@ -3032,6 +3032,13 @@ paths:
           items:
             type: string
           type: array
+      - description: Store ids
+        in: body
+        name: store_ids
+        schema:
+          items:
+            type: string
+          type: array
       produces:
       - application/json
       responses:
@@ -3079,6 +3086,13 @@ paths:
           items:
             type: string
           type: array
+      - description: Store ids
+        in: body
+        name: store_ids
+        schema:
+          items:
+            type: string
+          type: array
       produces:
       - application/json
       responses:
@@ -3119,6 +3133,13 @@ paths:
         in: query
         name: type
         type: string
+      - description: Store ids
+        in: body
+        name: store_ids
+        schema:
+          items:
+            type: string
+          type: array
       - description: Store ids
         in: body
         name: store_ids
@@ -3177,6 +3198,13 @@ paths:
           items:
             type: string
           type: array
+      - description: Store ids
+        in: body
+        name: store_ids
+        schema:
+          items:
+            type: string
+          type: array
       produces:
       - application/json
       responses:
@@ -3221,6 +3249,13 @@ paths:
         in: query
         name: store_id
         type: string
+      - description: Store ids
+        in: body
+        name: store_ids
+        schema:
+          items:
+            type: string
+          type: array
       - description: Store ids
         in: body
         name: store_ids

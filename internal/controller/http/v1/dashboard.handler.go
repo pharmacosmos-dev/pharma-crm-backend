@@ -54,6 +54,7 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid query parameters")
 		return
 	}
+	// bind store ids
 	if err = c.ShouldBindJSON(&param.StoreIds); err != nil {
 		handleResponse(c, BadRequest, "Invalid store ids")
 		return
@@ -95,7 +96,7 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 	// get employee bonus amount
 	res.BonusAmount = bonus.BonusAmount
 	res.BeforeBonusAmount = bonus.BeforeBonusAmount
-	
+
 	handleResponse(c, OK, res)
 }
 
@@ -307,6 +308,7 @@ func (h *DashboardHandler) BonusProducts(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid store ids")
 		return
 	}
+
 	// get limit offset with checking default
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 	// get user id from header
