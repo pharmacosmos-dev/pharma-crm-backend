@@ -215,33 +215,54 @@ func (h *InventoryHandler) AddProductByBarcode(c *gin.Context) {
 		return
 	}
 	var productId string
-	err = h.db.Raw(`
-	SELECT inventory_details.product_id FROM inventory_details JOIN products p ON p.id = inventory_details.product_id
-	WHERE p.barcode = ? AND inventory_details.inventory_id = ?
-	`, request.Barcode, id).Scan(&productId).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			handleResponse(c, BadRequest, "Product barcode not found")
+	if request.ProductId != "" {
+		productId = request.ProductId
+	} else if request.Barcode != "" {
+		err = h.db.Raw(`
+		SELECT inventory_details.product_id FROM inventory_details JOIN products p ON p.id = inventory_details.product_id
+		WHERE p.barcode = ? AND inventory_details.inventory_id = ?
+		`, request.Barcode, id).Scan(&productId).Error
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				handleResponse(c, BadRequest, "Product barcode not found")
+				return
+			}
+			h.log.Warn("ERROR on getting product by barcode: %v", err)
+			handleResponse(c, InternalError, "Failed to find product by barcode")
 			return
 		}
-		h.log.Warn("ERROR on getting product by barcode: %v", err)
-		handleResponse(c, InternalError, "Failed to find product by barcode")
+	} else {
+		handleResponse(c, BadRequest, "product_id or barcode not sent")
 		return
 	}
 
-	if request.Count == 0 {
-		request.Count = 1
-	}
-	// add scanned count by product barcode
-	err = h.db.Exec(`
-	UPDATE inventory_details
-	SET scanned_count = scanned_count + ?, updated_at = NOW()
-	WHERE product_id = ? AND inventory_id = ?`,
-		request.Count, productId, id).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, "Failed to add count")
-		return
+	if request.Type == "SCAN" {
+		if request.Count == 0 {
+			request.Count = 1
+		}
+		// add scanned count by product barcode
+		err = h.db.Exec(`
+		UPDATE inventory_details
+		SET scanned_count = scanned_count + ?, updated_at = NOW()
+		WHERE product_id = ? AND inventory_id = ?`,
+			request.Count, productId, id).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, "Failed to add count")
+			return
+		}
+	} else if request.Type == "MANUAL" {
+		// add scanned count by product barcode
+		err = h.db.Exec(`
+		UPDATE inventory_details
+		SET scanned_count = ?, updated_at = NOW()
+		WHERE product_id = ? AND inventory_id = ?`,
+			request.Count, productId, id).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, "Failed to add count")
+			return
+		}
 	}
 	handleResponse(c, OK, "ADDED")
 }
