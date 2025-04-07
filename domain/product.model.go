@@ -173,7 +173,6 @@ type ProductRes struct {
 	UnitQuantity   int               `gorm:"unit_quantity" json:"unit_quantity"`
 	MarkingCount   int               `gorm:"marking_count" json:"marking_count"`
 	Description    string            `gorm:"description" json:"description"`
-	BonusPercent   float64           `gorm:"bonus_percent" json:"bonus_percent"`
 	BonusAmount    float64           `gorm:"bonus_amount" json:"bonus_amount"`
 	ShortName      string            `gorm:"short_name" json:"short_name"`
 }

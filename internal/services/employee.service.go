@@ -72,6 +72,9 @@ func (s *Services) ListEmployee(c *gin.Context, limit, offset int) ([]domain.Emp
 // get employee bonus amount
 func (s *Services) GetEmployeeBonusAmount(param *domain.DashboardQueryParam, id string) (domain.DashboardCountStatsBonus, error) {
 	var bonus domain.DashboardCountStatsBonus
+	if param.EndDate == "" {
+		param.EndDate = param.StartDate
+	}
 	beforeStart, beforeEnd := utils.BeforeDates(param.StartDate, param.EndDate)
 	query := `
 	SELECT

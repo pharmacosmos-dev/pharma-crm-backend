@@ -117,8 +117,14 @@ func BeforeDates(startDateStr, endDateStr string) (string, string) {
 	}
 	startDate, _ := time.Parse("2006-01-02", startDateStr)
 	endDate, _ := time.Parse("2006-01-02", endDateStr)
+
 	diff := endDate.Sub(startDate)
+	if diff == 0 {
+		diff = 24 * time.Hour // 1 kun qo‘shamiz
+	}
+
 	beforeStart := startDate.Add(-diff)
-	beforeEnd := startDate
+	beforeEnd := startDate.Add(-time.Hour * 24) // endDate oldingi kun
+
 	return beforeStart.Format("2006-01-02"), beforeEnd.Format("2006-01-02")
 }

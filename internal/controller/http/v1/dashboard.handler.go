@@ -63,14 +63,14 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 		return
 	}
 	// get user id from header
-	vendorID, ok := c.Get("user_id")
+	userId, ok := c.Get("user_id")
 	if !ok {
 		handleResponse(c, UNAUTHORIZED, "User ID not found")
 		return
 	}
 	// get employee info
 	var employee domain.Employee
-	err = h.db.First(&employee, "id = ?", vendorID).Error
+	err = h.db.First(&employee, "id = ?", userId).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			handleResponse(c, NotFound, "User not found")
@@ -81,14 +81,15 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 		return
 	}
 	var bonus domain.DashboardCountStatsBonus
+	// get bonus amount
+	bonus, err = h.service.GetEmployeeBonusAmount(&param, userId.(string))
+	if err != nil {
+		handleResponse(c, InternalError, "Can't get employee bonus amount")
+		return
+	}
 	// check if employee is not admin or superadmin
 	if employee.RoleType != config.ADMIN && employee.RoleType != config.SUPERADMIN {
 		param.StoreId = employee.StoreId
-		bonus, err = h.service.GetEmployeeBonusAmount(&param, employee.Id)
-		if err != nil {
-			handleResponse(c, InternalError, "Can't get employee bonus amount")
-			return
-		}
 	}
 	// get dashboard data
 	res, err := h.service.DashboardTotalCountStats(&param)

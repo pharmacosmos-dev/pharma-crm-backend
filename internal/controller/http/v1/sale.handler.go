@@ -193,11 +193,14 @@ func (h *SaleHandler) Get(c *gin.Context) {
 		CASE
 			WHEN p.unit_per_pack > 0 THEN (ci.unit_price / p.unit_per_pack)
 			ELSE 0
-		END, 2) AS unit_price
+		END, 2) AS unit_price,
+		eb.bonus_amount AS bonus_amount
 	FROM cart_items ci
 	JOIN store_products sp ON ci.store_product_id = sp.id
 	JOIN products p ON sp.product_id = p.id
 	LEFT JOIN unit_types u ON p.unit_type_id = u.id
+	LEFT JOIN product_bonuses pb ON pb.product_id = p.id
+	LEFT JOIN employee_bonus eb ON p.id = eb.product_id
 	WHERE ci.sale_id = ?`, id).Scan(&products).Error
 	if err != nil {
 		h.log.Error(err)

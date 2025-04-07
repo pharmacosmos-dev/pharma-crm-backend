@@ -156,3 +156,8 @@ func (s *Services) InventoryDetailStatsCount(param *domain.InventoryDetailParam)
 
 	return res, nil
 }
+
+func (s *Services) ConfirmInventory(inventoryId string) error {
+	
+	return nil
+}
