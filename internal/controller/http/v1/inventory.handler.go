@@ -253,7 +253,7 @@ func (h *InventoryHandler) AddProductByBarcode(c *gin.Context) {
 		}
 	} else if request.Type == "MANUAL" {
 		// add scanned count by product barcode
-		err = h.db.Exec(`
+		err = h.db.Debug().Exec(`
 		UPDATE inventory_details
 		SET scanned_count = ?, updated_at = NOW()
 		WHERE product_id = ? AND inventory_id = ?`,
