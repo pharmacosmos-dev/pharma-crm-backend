@@ -280,6 +280,7 @@ func (h *InventoryHandler) InventoryDetailList(c *gin.Context) {
 		handleResponse(c, InternalError, "Failed to get inventory detail list")
 		return
 	}
+	// get inventory details status count
 	statsCount, err := h.service.InventoryDetailStatsCount(&param)
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to get inventory detail stats count")

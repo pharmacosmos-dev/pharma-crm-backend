@@ -74,11 +74,16 @@ type InventoryDetailParam struct {
 }
 
 type InventoryDetailStatus struct {
-	Scanned  int `gorm:"scanned" json:"scanned"`
-	Shortage int `gorm:"shortage" json:"shortage"`
-	Surplus  int `gorm:"surplus" json:"surplus"`
-	All      int `gorm:"all" json:"all"`
-	New      int `gorm:"new" json:"new"`
+	Scanned           int     `gorm:"scanned" json:"scanned"`
+	Shortage          int     `gorm:"shortage" json:"shortage"`
+	Surplus           int     `gorm:"surplus" json:"surplus"`
+	All               int     `gorm:"all" json:"all"`
+	New               int     `gorm:"new" json:"new"`
+	Accepted          int     `gorm:"accepted" json:"accepted"`
+	ShortageSupplySum float64 `gorm:"shortage_supply_sum" json:"shortage_supply_sum"`
+	ShortageRetailSum float64 `gorm:"shortage_retail_sum" json:"shortage_retail_sum"`
+	SurplusSupplySum  float64 `gorm:"surplus_supply_sum" json:"surplus_supply_sum"`
+	SurplusRetailSum  float64 `gorm:"surplus_retail_sum" json:"surplus_retail_sum"`
 }
 
 type InventoryAddProduct struct {

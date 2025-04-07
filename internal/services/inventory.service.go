@@ -140,12 +140,19 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
 func (s *Services) InventoryDetailStatsCount(param *domain.InventoryDetailParam) (domain.InventoryDetailStatus, error) {
 	var res domain.InventoryDetailStatus
 	query := `
-	SELECT 
+	SELECT
 		SUM(scanned_count) AS scanned,
 		SUM(stock_count - scanned_count) AS shortage,
-		SUM(stock_count) AS all,
-		SUM(CASE WHEN scanned_count > stock_count THEN scanned_count - stock_count ELSE 0 END) AS surplus
+		SUM(stock_count) AS "all",
+		SUM(CASE WHEN scanned_count > stock_count THEN scanned_count - stock_count ELSE 0 END) AS surplus,
+		SUM(accepted_count) AS accepted,
+		SUM((stock_count - scanned_count)*sp.supply_price) AS shortage_supply_sum,
+		SUM((stock_count - scanned_count)*sp.retail_price) AS shortage_retail_sum,
+		SUM((CASE WHEN scanned_count > stock_count THEN scanned_count - stock_count ELSE 0 END)*sp.supply_price) AS surplus_supply_sum,
+		SUM((CASE WHEN scanned_count > stock_count THEN scanned_count - stock_count ELSE 0 END)*sp.retail_price) AS surplus_retail_sum
 	FROM inventory_details
+	JOIN products p ON inventory_details.product_id = p.id
+	LEFT JOIN store_products sp ON p.id = sp.product_id
 	WHERE inventory_id = ?;
 	`
 	err := s.db.Raw(query, param.InventoryId).Scan(&res).Error
