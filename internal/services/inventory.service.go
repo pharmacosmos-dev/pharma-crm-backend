@@ -34,9 +34,9 @@ func (s *Services) CreateInventory(req *domain.InventoryRequest) error {
 			err = tx.Exec(`
 			INSERT INTO inventory_details (
 				inventory_id, product_id, stock_count
-			) SELECT ?, product_id, pack_quantity
+			) SELECT ?, product_id, SUM(pack_quantity)
 			FROM store_products
-			WHERE product_id = ?;
+			WHERE product_id = ? GROUP BY product_id;
 			`, id, product.ProductId).Error
 			if err != nil {
 				s.log.Error("ERROR on creating inventory: ", err)
@@ -49,9 +49,9 @@ func (s *Services) CreateInventory(req *domain.InventoryRequest) error {
 		// and insert them into inventory_details
 		err = tx.Exec(
 			`INSERT INTO inventory_details(inventory_id, product_id, stock_count)
-			SELECT ?, product_id, pack_quantity 
+			SELECT ?, product_id, SUM(pack_quantity) 
 			FROM store_products
-			WHERE store_id = ? AND pack_quantity > 0;`,
+			WHERE store_id = ? AND pack_quantity > 0 GROUP BY product_id;`,
 			id, req.StoreId).Error
 		if err != nil {
 			s.log.Error("ERROR on creating inventory details: ", err)
@@ -158,6 +158,6 @@ func (s *Services) InventoryDetailStatsCount(param *domain.InventoryDetailParam)
 }
 
 func (s *Services) ConfirmInventory(inventoryId string) error {
-	
+
 	return nil
 }
