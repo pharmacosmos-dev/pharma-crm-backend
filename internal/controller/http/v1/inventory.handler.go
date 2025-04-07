@@ -26,8 +26,7 @@ func (h *InventoryHandler) InventoryRoutes(r *gin.RouterGroup) {
 		inventory.GET("/:id", h.Get)
 		inventory.GET("/list", h.List)
 		inventory.PATCH("/:id/add-product-by-barcode", h.AddProductByBarcode)
-		// inventory.GET("/export-excel", h.ExportImportExcel)
-		// inventory.POST("/excel-upload", h.UploadExcelFile)
+		inventory.POST("/confirm/:id", h.Confirm)
 	}
 	detail := r.Group("inventory-detail")
 	{
@@ -139,54 +138,6 @@ func (h *InventoryHandler) List(c *gin.Context) {
 	handleResponse(c, OK, data)
 }
 
-// Get List
-// @Summary Get inventory list
-// @Description Get inventory list
-// @Tags Inventory
-// @Security     BearerAuth
-// @Accept 	json
-// @Produce json
-// @Param 	limit query int false "LIMIT"
-// @Param 	offset query int false "OFFSET"
-// @Param   inventory_id query string true "Inventory ID"
-// @Param   search 	query string false "SEARCH KEY"
-// @Param   type 	query string false "TYPE"
-// @Success 200 {object} v1.Response
-// @Failure 400 {object} v1.Response
-// @Failure 500 {object} v1.Response
-// @Router /inventory-detail/list [GET]
-func (h *InventoryHandler) InventoryDetailList(c *gin.Context) {
-	var param domain.InventoryDetailParam
-	if err := c.ShouldBindQuery(&param); err != nil {
-		handleResponse(c, BadRequest, "Invalid query param")
-		return
-	}
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
-
-	res, totalCount, err := h.service.InventoryDetailList(&param)
-	if err != nil {
-		handleResponse(c, InternalError, "Failed to get inventory detail list")
-		return
-	}
-	statsCount, err := h.service.InventoryDetailStatsCount(&param)
-	if err != nil {
-		handleResponse(c, InternalError, "Failed to get inventory detail stats count")
-		return
-	}
-	data := map[string]any{
-		"_meta": utils.Meta{
-			TotalCount:  totalCount,
-			PerPage:     param.Limit,
-			CurrentPage: (param.Offset / param.Limit) + 1,
-			PageCount:   int((totalCount + int64(param.Limit) - 1) / int64(param.Limit)),
-		},
-		"stats_count": statsCount,
-		"data":        res,
-	}
-
-	handleResponse(c, OK, data)
-}
-
 // Add product by barcode
 // @Summary Add product by barcode
 // @Description Add product by barcode
@@ -265,4 +216,85 @@ func (h *InventoryHandler) AddProductByBarcode(c *gin.Context) {
 		}
 	}
 	handleResponse(c, OK, "ADDED")
+}
+
+// confirm inventory
+// @Summary Confirm Inventory
+// @Description Confirm Inventory
+// @Tags Inventory
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param 	id 	path string true "Inventory ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /inventory/confirm/{id} [POST]
+func (h *InventoryHandler) Confirm(c *gin.Context) {
+	id := c.Param("id")
+	if err := uuid.Validate(id); err != nil {
+		handleResponse(c, BadRequest, "Invalid inventory id")
+		return
+	}
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "user id not found from the context")
+		return
+	}
+	// confirm inventory service
+	err := h.service.ConfirmInventory(id, userId.(string))
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to confirm inventory")
+		return
+	}
+
+	handleResponse(c, OK, "CONFIRMED")
+}
+
+// Get List
+// @Summary Get inventory list
+// @Description Get inventory list
+// @Tags Inventory
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param 	limit query int false "LIMIT"
+// @Param 	offset query int false "OFFSET"
+// @Param   inventory_id query string true "Inventory ID"
+// @Param   search 	query string false "SEARCH KEY"
+// @Param   type 	query string false "TYPE"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /inventory-detail/list [GET]
+func (h *InventoryHandler) InventoryDetailList(c *gin.Context) {
+	var param domain.InventoryDetailParam
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "Invalid query param")
+		return
+	}
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	res, totalCount, err := h.service.InventoryDetailList(&param)
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to get inventory detail list")
+		return
+	}
+	statsCount, err := h.service.InventoryDetailStatsCount(&param)
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to get inventory detail stats count")
+		return
+	}
+	data := map[string]any{
+		"_meta": utils.Meta{
+			TotalCount:  totalCount,
+			PerPage:     param.Limit,
+			CurrentPage: (param.Offset / param.Limit) + 1,
+			PageCount:   int((totalCount + int64(param.Limit) - 1) / int64(param.Limit)),
+		},
+		"stats_count": statsCount,
+		"data":        res,
+	}
+
+	handleResponse(c, OK, data)
 }

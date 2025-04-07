@@ -520,6 +520,10 @@ definitions:
         type: string
       count:
         type: integer
+      product_id:
+        type: string
+      type:
+        type: string
     type: object
   domain.InventoryRequest:
     properties:
@@ -5605,6 +5609,37 @@ paths:
       security:
       - BearerAuth: []
       summary: Add product by barcode
+      tags:
+      - Inventory
+  /inventory/confirm/{id}:
+    post:
+      consumes:
+      - application/json
+      description: Confirm Inventory
+      parameters:
+      - description: Inventory ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Confirm Inventory
       tags:
       - Inventory
   /inventory/list:

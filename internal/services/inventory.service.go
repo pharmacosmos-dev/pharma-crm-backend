@@ -157,7 +157,36 @@ func (s *Services) InventoryDetailStatsCount(param *domain.InventoryDetailParam)
 	return res, nil
 }
 
-func (s *Services) ConfirmInventory(inventoryId string) error {
-
+// confirm inventory
+func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
+	// start transaction
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+	// update confirm inventory
+	query := `UPDATE inventories SET status = 2, updated_by = ?, updated_at = NOW() WHERE id = ?`
+	err := tx.Exec(query, userId, inventoryId).Error
+	if err != nil {
+		s.log.Warn("ERROR on updating inventory %v", err)
+		tx.Rollback()
+		return err
+	}
+	// update confirm inventory details
+	query1 := `UPDATE inventory_details SET accepted_count = scanned_count, updated_at = NOW() WHERE inventory_id = ?`
+	err = tx.Exec(query1, inventoryId).Error
+	if err != nil {
+		s.log.Warn("ERROR on updating inventory details: %v", err)
+		tx.Rollback()
+		return err
+	}
+	// complete transaction
+	if err = tx.Commit().Error; err != nil {
+		s.log.Warn("ERROR on commiting transaction: %v", err)
+		tx.Rollback()
+		return err
+	}
 	return nil
 }
