@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
@@ -41,7 +42,8 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 		sh.name as shelf,
 		p.mxik AS class_code,
 		pm.unit_code AS package_code,
-		pm.unit_name AS package_name
+		pm.unit_name AS package_name,
+		COUNT(product_markings.product_id) AS is_marking
 	FROM cart_items ci
 	JOIN store_products sp ON ci.store_product_id = sp.id
 	JOIN products p ON sp.product_id = p.id
@@ -49,9 +51,10 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 	LEFT JOIN shelves sh ON p.shelf_id = sh.id
 	LEFT JOIN product_measurements pm ON pm.mxik_code = p.mxik
 	LEFT JOIN product_bonuses pb ON p.id = pb.product_id
+	LEFT JOIN product_markings ON p.id = product_markings.product_id
 	WHERE ci.status = 'pending' AND ci.sale_id = ?
 	GROUP BY ci.id, ci.created_at, p.id, sp.id, u.id, sh.id, pm.id, pb.id
-	ORDER BY ci.created_at DESC LIMIT ? OFFSET ?
+	ORDER BY ci.created_at DESC LIMIT ? OFFSET ?;
 	`, saleID, limit, offset).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("Error on listing cart items for sale %s: %v", saleID, err.Error())
@@ -197,4 +200,35 @@ func (s *Services) GetCartItemsTotalAmount(saleID string) (float64, error) {
 	}
 	res.TotalAmount = res.Sum - res.DiscountAmount
 	return res.TotalAmount, nil
+}
+
+// add marking count to cart items
+func (s *Services) AddMarkingCount(req []domain.MarkingData) error {
+	if len(req) == 0 {
+		return nil
+	}
+
+	// Build VALUES part: ('uuid1', 5), ('uuid2', 10), ...
+	var valueStrings []string
+	for _, r := range req {
+		valueStrings = append(valueStrings, fmt.Sprintf("('%s', %d)", r.Id, r.MarkingCount))
+	}
+
+	query := fmt.Sprintf(`
+		UPDATE cart_items AS c
+		SET marking_count = v.marking_count
+		FROM (
+			VALUES %s
+		) AS v(id, marking_count)
+		WHERE c.id = v.id::uuid;
+	`, strings.Join(valueStrings, ","))
+
+	// Execute raw SQL
+	err := s.db.Exec(query).Error
+	if err != nil {
+		s.log.Error("bulk update failed:", err)
+		return err
+	}
+
+	return nil
 }

@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
@@ -20,6 +22,7 @@ func (h *ExternalHandler) ExternalRoutes(r *gin.RouterGroup) {
 	external := r.Group("/external")
 	external.GET("/product/list", h.List)
 	external.GET("/category/list", h.CategoryList)
+	external.GET("/category/get-list", h.CategoryGetList)
 	external.GET("/products/:product_id/stores", h.StoreListByProductId)
 	external.POST("/sale", h.CreateSale)
 }
@@ -191,4 +194,44 @@ func (h *ExternalHandler) CreateSale(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, "Success")
+}
+
+// ListCategory godoc
+// @Summary Get a category list for filter
+// @Description Get a category list for filter
+// @Tags 	External API
+// @Security     BasicAuth
+// @Accept 	json
+// @Produce json
+// @Param 	limit query int false "Limit"
+// @Param 	offset query int false "Offset"
+// @Param 	search query string false "Search"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /external/category/get-list [get]
+func (h *ExternalHandler) CategoryGetList(c *gin.Context) {
+	var (
+		search = c.Query("search")
+		res    []domain.Category
+	)
+	limit, offset, err := getPaginationParams(c)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	query := h.db.Model(&domain.Category{})
+
+	if search != "" {
+		search = fmt.Sprintf("%%%s%%", search)
+		query = query.Where("name ILIKE ?", search)
+	}
+	err = query.Limit(limit).Offset(offset).Find(&res).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, res)
 }

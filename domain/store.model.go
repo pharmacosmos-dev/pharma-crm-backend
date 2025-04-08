@@ -5,13 +5,13 @@ import "time"
 // Store structure
 type Store struct {
 	Id            string     `gorm:"id" json:"id"`
+	StoreCode     int        `gorm:"store_code" json:"store_code"`
 	Name          string     `gorm:"name" json:"name"`
 	Phone         string     `gorm:"phone" json:"phone"`
 	DetailedName  string     `gorm:"detailed_name" json:"detailed_name"`
 	Location      string     `gorm:"location" json:"location"`
 	EmployeeCount int        `gorm:"employee_count" json:"employee_count"`
 	CashBoxCount  int        `gorm:"cash_box_count" json:"cash_box_count"`
-	StoreCode     int        `gorm:"store_code" json:"store_code"`
 	Address       string     `gorm:"address" json:"address"`
 	WorkHours     string     `gorm:"work_hours" json:"work_hours"`
 	PackQuantity  int        `gorm:"pack_quantity" json:"pack_quantity"`
@@ -75,4 +75,10 @@ type StoreWithProducts struct {
 	Location      string     `gorm:"location" json:"location"`
 	Address       string     `gorm:"address" json:"address"`
 	WorkHours     string     `gorm:"work_hours" json:"work_hours"`
+}
+
+type StorePreload struct {
+	Id        string `gorm:"id" json:"id"`
+	StoreCode int    `gorm:"store_code" json:"store_code"`
+	Name      string `gorm:"name" json:"name"`
 }

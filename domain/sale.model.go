@@ -105,6 +105,12 @@ type FinalSale struct {
 	TotalAmount        float64            `gorm:"total_amount" json:"total_amount"`
 	ReturnedAmount     float64            `gorm:"returned_amount" json:"returned_amount"`
 	PaymentTypes       []FinalPaymentType `json:"payment_types"`
+	MarkingData        []MarkingData      `json:"marking_data"`
+}
+
+type MarkingData struct {
+	Id           string `json:"id" gorm:"id"`
+	MarkingCount int    `json:"marking_count" gorm:"marking_count"`
 }
 
 // FinalPaymentType structure

@@ -165,12 +165,14 @@ type ProductRes struct {
 	Name           string            `gorm:"name" json:"name"`
 	Barcode        string            `gorm:"barcode" json:"barcode"`
 	Photos         utils.StringArray `gorm:"type:text[]" json:"photos"`
+	UnitPrice      float64           `gorm:"unit_price" json:"unit_price"`
+	PackPrice      float64           `gorm:"pack_price" json:"pack_price"`
 	TotalPrice     float64           `gorm:"total_price" json:"total_price"`
 	TotalDiscount  float64           `gorm:"total_discount" json:"total_discount"`
 	Quantity       int               `gorm:"quantity" json:"quantity"`
 	UnitQuantity   int               `gorm:"unit_quantity" json:"unit_quantity"`
+	MarkingCount   int               `gorm:"marking_count" json:"marking_count"`
 	Description    string            `gorm:"description" json:"description"`
-	BonusPercent   float64           `gorm:"bonus_percent" json:"bonus_percent"`
 	BonusAmount    float64           `gorm:"bonus_amount" json:"bonus_amount"`
 	ShortName      string            `gorm:"short_name" json:"short_name"`
 }
@@ -211,19 +213,6 @@ type StoreExternal struct {
 	UnitQuantity int        `gorm:"unit_quantity" json:"unit_quantity"`
 	ExpireDate   *time.Time `gorm:"expire_date" json:"expire_date"`
 }
-
-// get query param values
-// var (
-// 	searchField     = c.Query("search")
-// 	storeIDParam    = c.Query("store_id")
-// 	supplyPriceFrom = c.Query("supply_price_from")
-// 	supplyPriceTo   = c.Query("supply_price_to")
-// 	retailPriceFrom = c.Query("retail_price_from")
-// 	retailPriceTo   = c.Query("retail_price_to")
-// 	producerID      = c.Query("producer_id")
-// 	status          = c.Query("status")
-// 	noBarcode       = c.Query("no_barcode")
-// )
 
 // product list query params
 type ProductQueryParam struct {

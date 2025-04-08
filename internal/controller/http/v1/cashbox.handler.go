@@ -383,12 +383,14 @@ func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
 
 	// Check if there is an open cashbox operation for this employee
 	var cashboxOperation domain.CashboxOperation
-	err := h.db.First(&cashboxOperation, "current_employee_id = ? AND end_time IS NULL", userID).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			handleResponse(c, NotFound, "You have no open cashbox operation")
-			return
-		}
+	err := h.db.Raw(`
+	SELECT co.* FROM cashbox_operations co 
+    JOIN cash_boxes cb ON co.cash_box_id = cb.id 
+         WHERE co.end_time IS NULL AND co.current_employee_id = ? AND cb.store_id = ?;`, userID, storeId).Scan(&cashboxOperation).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) || cashboxOperation.ID == "" {
+		handleResponse(c, NotFound, "You have no open cashbox operation")
+		return
+	} else if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, "Failed to check cash box operations")
 		return

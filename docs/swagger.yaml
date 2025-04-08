@@ -389,6 +389,10 @@ definitions:
         type: string
       customer_id:
         type: string
+      marking_data:
+        items:
+          $ref: '#/definitions/domain.MarkingData'
+        type: array
       payment_types:
         items:
           $ref: '#/definitions/domain.FinalPaymentType'
@@ -510,6 +514,38 @@ definitions:
       scanned_count:
         type: integer
     type: object
+  domain.InventoryAddProduct:
+    properties:
+      barcode:
+        type: string
+      count:
+        type: integer
+      product_id:
+        type: string
+      type:
+        type: string
+    type: object
+  domain.InventoryRequest:
+    properties:
+      created_by:
+        type: string
+      name:
+        type: string
+      products:
+        items:
+          properties:
+            product_id:
+              type: string
+          type: object
+        type: array
+      public_id:
+        type: string
+      store_id:
+        type: string
+      type:
+        description: FULL || PARTIAL || IMPORT
+        type: string
+    type: object
   domain.Login:
     properties:
       password:
@@ -518,6 +554,13 @@ definitions:
         type: string
     required:
     - phone
+    type: object
+  domain.MarkingData:
+    properties:
+      id:
+        type: string
+      marking_count:
+        type: integer
     type: object
   domain.PaymentServiceRequest:
     properties:
@@ -968,6 +1011,8 @@ definitions:
       store_code:
         type: integer
       updated_at:
+        type: string
+      work_hours:
         type: string
     type: object
   domain.StoreProductBarcodeRequest:
@@ -3000,7 +3045,7 @@ paths:
       tags:
       - customers
   /dashboard/bonus-products:
-    get:
+    post:
       description: Get bonus products
       parameters:
       - description: Limit
@@ -3023,6 +3068,13 @@ paths:
         in: query
         name: store_id
         type: string
+      - description: Store ids
+        in: body
+        name: store_ids
+        schema:
+          items:
+            type: string
+          type: array
       produces:
       - application/json
       responses:
@@ -3044,7 +3096,7 @@ paths:
       tags:
       - dashboard
   /dashboard/chart:
-    get:
+    post:
       description: Get total chart stats
       parameters:
       - description: Start Date
@@ -3063,7 +3115,7 @@ paths:
         in: query
         name: store_id
         type: string
-      - description: Store IDs
+      - description: Store ids
         in: body
         name: store_ids
         schema:
@@ -3091,7 +3143,7 @@ paths:
       tags:
       - dashboard
   /dashboard/count-stats:
-    get:
+    post:
       description: Get total count stats
       parameters:
       - description: Start Date
@@ -3110,7 +3162,7 @@ paths:
         in: query
         name: type
         type: string
-      - description: Store IDs
+      - description: Store ids
         in: body
         name: store_ids
         schema:
@@ -3137,8 +3189,55 @@ paths:
       summary: Get total count stats
       tags:
       - dashboard
+  /dashboard/payments:
+    post:
+      description: Get all payments stats
+      parameters:
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: Type might be -> (HOURLY, DAILY, WEEKLY, MONTHLY, YEARLY)
+        in: query
+        name: type
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Store ids
+        in: body
+        name: store_ids
+        schema:
+          items:
+            type: string
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get all payments stats
+      tags:
+      - dashboard
   /dashboard/top-products:
-    get:
+    post:
       description: Get top products
       parameters:
       - description: Limit
@@ -3161,6 +3260,13 @@ paths:
         in: query
         name: store_id
         type: string
+      - description: Store ids
+        in: body
+        name: store_ids
+        schema:
+          items:
+            type: string
+          type: array
       produces:
       - application/json
       responses:
@@ -3182,7 +3288,7 @@ paths:
       tags:
       - dashboard
   /dashboard/top-seller:
-    get:
+    post:
       description: Get bonus products
       parameters:
       - description: Limit
@@ -3205,6 +3311,13 @@ paths:
         in: query
         name: store_id
         type: string
+      - description: Store ids
+        in: body
+        name: store_ids
+        schema:
+          items:
+            type: string
+          type: array
       produces:
       - application/json
       responses:
@@ -3226,7 +3339,7 @@ paths:
       tags:
       - dashboard
   /dashboard/top-stores:
-    get:
+    post:
       description: Get top stores
       parameters:
       - description: Start Date
@@ -3259,6 +3372,55 @@ paths:
       security:
       - BearerAuth: []
       summary: Get top stores
+      tags:
+      - dashboard
+  /dashboard/transaction:
+    post:
+      description: Get all transaction stats
+      parameters:
+      - description: Start Date
+        in: query
+        name: start_date
+        required: true
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        required: true
+        type: string
+      - description: Type might be -> (HOURLY, DAILY, WEEKLY, MONTHLY, YEARLY)
+        in: query
+        name: type
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Store ids
+        in: body
+        name: store_ids
+        schema:
+          items:
+            type: string
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get all transaction stats
       tags:
       - dashboard
   /draft:
@@ -3970,6 +4132,44 @@ paths:
       summary: Unblock employee
       tags:
       - employees
+  /external/category/get-list:
+    get:
+      consumes:
+      - application/json
+      description: Get a category list for filter
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BasicAuth: []
+      summary: Get a category list for filter
+      tags:
+      - External API
   /external/category/list:
     get:
       description: Get a category list for filter
@@ -5264,6 +5464,234 @@ paths:
       summary: List imports
       tags:
       - imports
+  /inventory:
+    post:
+      consumes:
+      - application/json
+      description: Create inventory
+      parameters:
+      - description: Inventory
+        in: body
+        name: inventory
+        required: true
+        schema:
+          $ref: '#/definitions/domain.InventoryRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create inventory
+      tags:
+      - Inventory
+  /inventory-detail/list:
+    get:
+      consumes:
+      - application/json
+      description: Get inventory list
+      parameters:
+      - description: LIMIT
+        in: query
+        name: limit
+        type: integer
+      - description: OFFSET
+        in: query
+        name: offset
+        type: integer
+      - description: Inventory ID
+        in: query
+        name: inventory_id
+        required: true
+        type: string
+      - description: SEARCH KEY
+        in: query
+        name: search
+        type: string
+      - description: TYPE
+        in: query
+        name: type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get inventory list
+      tags:
+      - Inventory
+  /inventory/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get inventory
+      parameters:
+      - description: Inventory ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get inventory
+      tags:
+      - Inventory
+  /inventory/{id}/add-product-by-barcode:
+    patch:
+      consumes:
+      - application/json
+      description: Add product by barcode
+      parameters:
+      - description: Inventory ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Add product by barcode
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.InventoryAddProduct'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Add product by barcode
+      tags:
+      - Inventory
+  /inventory/confirm/{id}:
+    post:
+      consumes:
+      - application/json
+      description: Confirm Inventory
+      parameters:
+      - description: Inventory ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Confirm Inventory
+      tags:
+      - Inventory
+  /inventory/list:
+    get:
+      consumes:
+      - application/json
+      description: Get inventory list
+      parameters:
+      - description: LIMIT
+        in: query
+        name: limit
+        type: integer
+      - description: OFFSET
+        in: query
+        name: offset
+        type: integer
+      - description: STORE ID
+        in: query
+        name: store_id
+        type: string
+      - description: SEARCH KEY
+        in: query
+        name: search
+        type: string
+      - description: TYPE
+        in: query
+        name: type
+        type: string
+      - description: STATUS (0->new|1->pending|2->completed)
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get inventory list
+      tags:
+      - Inventory
   /login:
     post:
       consumes:

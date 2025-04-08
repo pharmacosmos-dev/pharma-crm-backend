@@ -158,6 +158,7 @@ func (s *Services) UpdateSaleStatus(tx *gorm.DB, saleID string, totalAmount floa
 	SET
 		status = 'completed', total_amount = ?,
 		customer_id = ?, completed_at = ?,
+		updated_at = NOW(),
 		total_discount = (SELECT SUM(discount_amount*quantity) FROM cart_items WHERE sale_id = ?)
 	WHERE id = ?`, totalAmount, customerID, time.Now(), saleID, saleID).Error
 }
@@ -219,7 +220,7 @@ func (s *Services) UpdateCartItemStatus(tx *gorm.DB, saleID string, employeeID s
 		}
 	}
 	// update cart items status
-	err = tx.Exec(`UPDATE cart_items SET status = 'sold' WHERE sale_id = ?`, saleID).Error
+	err = tx.Exec(`UPDATE cart_items SET status = 'sold', updated_at = NOW() WHERE sale_id = ?`, saleID).Error
 	if err != nil {
 		return err
 	}

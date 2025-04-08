@@ -98,3 +98,12 @@ type EmployeeBonusRequest struct {
 	Quantity           int     `gorm:"quantity" json:"quantity"`
 	UnitQuantity       int     `gorm:"unit_quantity" json:"unit_quantity"`
 }
+
+type EmployeePreload struct {
+	Id        string `gorm:"id" json:"id"`
+	StoreId   string `gorm:"store_id" json:"store_id"`
+	PublicId  int    `gorm:"public_id" json:"public_id"`
+	FirstName string `gorm:"first_name" json:"first_name"`
+	LastName  string `gorm:"last_name" json:"last_name"`
+	FullName  string `gorm:"full_name" json:"full_name"`
+}

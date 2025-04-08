@@ -28,7 +28,7 @@ func GenerateDocumentNumber() string {
 }
 
 func DefineProductSearchQuery(search string) string {
-	barcodeRegex := regexp.MustCompile(`^\d{10,20}$`)
+	barcodeRegex := regexp.MustCompile(`^\d{5,20}$`)
 	nameCategoryRegex := regexp.MustCompile(`^[a-zA-Zа-яА-ЯёЁ\s-]+$`)
 	markingRegex := regexp.MustCompile(`^.{31}$`)
 	switch {
@@ -108,4 +108,23 @@ func Translit(input string) string {
 	}
 
 	return result.String()
+}
+
+// covert before start date and end date
+func BeforeDates(startDateStr, endDateStr string) (string, string) {
+	if endDateStr == "" {
+		endDateStr = startDateStr
+	}
+	startDate, _ := time.Parse("2006-01-02", startDateStr)
+	endDate, _ := time.Parse("2006-01-02", endDateStr)
+
+	diff := endDate.Sub(startDate)
+	if diff == 0 {
+		diff = 24 * time.Hour // 1 kun qo‘shamiz
+	}
+
+	beforeStart := startDate.Add(-diff)
+	beforeEnd := startDate.Add(-time.Hour * 24) // endDate oldingi kun
+
+	return beforeStart.Format("2006-01-02"), beforeEnd.Format("2006-01-02")
 }

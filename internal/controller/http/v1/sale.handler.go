@@ -164,6 +164,10 @@ func (h *SaleHandler) Get(c *gin.Context) {
 		res domain.SaleResponse
 		id  = c.Param("id")
 	)
+	if err := uuid.Validate(id); err != nil {
+		handleResponse(c, BadRequest, "Invalid sale id")
+		return
+	}
 	// get sale info
 	err := h.db.
 		Table("sales").
@@ -184,16 +188,23 @@ func (h *SaleHandler) Get(c *gin.Context) {
 	// get products info
 	var products []domain.ProductRes
 	err = h.db.Raw(`
-	SELECT 
-		p.id, sp.id AS store_product_id, p.name, p.barcode, sp.retail_price, sp.bonus_percent, 
-		((sp.bonus_percent*sp.retail_price)/100)  as  bonus_amount,
-		p.photos, ci.quantity,
-		ci.unit_quantity, ci.total_price, u.short_name, 
-		(ci.discount_price*ci.quantity) AS  total_discount
+	SELECT
+		p.id, sp.id AS store_product_id, p.name, p.barcode,
+		p.photos, ci.quantity, ci.unit_price AS pack_price,
+		ci.unit_quantity, ci.marking_count, ci.total_price, u.short_name,
+		(ci.discount_price*ci.quantity) AS  total_discount,
+		ROUND(
+		CASE
+			WHEN p.unit_per_pack > 0 THEN (ci.unit_price / p.unit_per_pack)
+			ELSE 0
+		END, 2) AS unit_price,
+		pb.bonus_amount*ci.quantity+ ROUND(CASE WHEN ci.unit_quantity>0 AND p.unit_per_pack > 0 THEN (pb.bonus_amount/p.unit_per_pack)*ci.unit_quantity ELSE 0 END, 2) AS bonus_amount
 	FROM cart_items ci
 	JOIN store_products sp ON ci.store_product_id = sp.id
 	JOIN products p ON sp.product_id = p.id
 	LEFT JOIN unit_types u ON p.unit_type_id = u.id
+	LEFT JOIN product_bonuses pb ON pb.product_id = p.id
+	LEFT JOIN employee_bonus eb ON p.id = eb.product_id
 	WHERE ci.sale_id = ?`, id).Scan(&products).Error
 	if err != nil {
 		h.log.Error(err)
@@ -775,6 +786,14 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 			return
 		}
 		h.log.Error("ERROR on getting sale info: ", err)
+		handleResponse(c, InternalError, err.Error())
+		tx.Rollback()
+		return
+	}
+
+	// add marking to cart_items
+	err = h.service.AddMarkingCount(body.MarkingData)
+	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		tx.Rollback()
 		return
