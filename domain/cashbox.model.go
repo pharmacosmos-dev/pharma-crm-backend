@@ -149,3 +149,12 @@ type CashBoxOperationHistory struct {
 	ClosedBy           string     `gorm:"closed_by" json:"closed_by"`
 	TotalExpenseAmount float64    `gorm:"total_expense_amount" json:"total_expense_amount"`
 }
+
+// Employee Cashbox structure for getting cashbox info which is open employee
+type EmployeeCashbox struct {
+	Id          string     `gorm:"id" json:"id"`
+	OperationId int64      `gorm:"operation_id" json:"operation_id"`
+	Name        string     `gorm:"name" json:"name"`
+	CreatedAt   *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt   *time.Time `gorm:"updated_at" json:"updated_at"`
+}

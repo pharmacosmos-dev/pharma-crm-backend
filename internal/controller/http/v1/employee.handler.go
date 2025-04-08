@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -431,7 +432,6 @@ func (h *EmployeeHandler) GetInfo(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	var permissions []domain.Permission
 	err := h.db.Raw(`
 	SELECT
 		p.*,
@@ -455,28 +455,34 @@ func (h *EmployeeHandler) GetInfo(c *gin.Context) {
 		WHERE er.employee_id = ?
 		AND p.parent_id IS NOT NULL
 	);
-	`, userID, userID).Scan(&permissions).Error
+	`, userID, userID).Scan(&res.Permission).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	res.Permission = permissions
-	var roles []domain.Role
 	err = h.db.Raw(`
-	SELECT 
-		r.*
-	FROM roles r 
-	JOIN employee_roles er ON er.role_id = r.id
+	SELECT roles.* FROM roles
+	JOIN employee_roles er ON er.role_id = roles.id
 	WHERE er.employee_id = ?
-	`, userID).Scan(&roles).Error
+	`, userID).Scan(&res.Roles).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	res.Roles = roles
+	err = h.db.Raw(`
+	SELECT
+		cb.id, co.operation_id, cb.name, cb.created_at, cb.updated_at
+	FROM cashbox_operations co JOIN cash_boxes cb ON co.cash_box_id = cb.id
+	WHERE co.end_time IS NULL AND co.current_employee_id = ?
+	`, userID).Scan(&res.Cashbox).Error
 
+	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
+		h.log.Error(err)
+		handleResponse(c, InternalError, "Failed to get cashbox info")
+		return
+	}
 	handleResponse(c, OK, res)
 }
 
@@ -682,4 +688,3 @@ func (h *EmployeeHandler) SmenaBonus(c *gin.Context) {
 	}
 	handleResponse(c, OK, gin.H{"bonus": bonus})
 }
-
