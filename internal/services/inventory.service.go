@@ -135,12 +135,24 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
 			query = query.Where("p.name ILIKE ? OR p.barcode LIKE ?", param.Search, param.Search)
 		}
 	}
+	// filter with inventory stats
+	if param.Type != "" {
+		switch param.Type {
+		case "shortage":
+			query = query.Where("inventory_details.stock_count > inventory_details.scanned_count")
+		case "scanned":
+			query = query.Where("inventory_details.scanned_count > 0")
+		case "surplus":
+			query = query.Where("inventory_details.scanned_count > inventory_details.stock_count")
+
+		}
+	}
+
 	err := query.
 		Order("inventory_details.updated_at DESC").
 		Count(&totalCount).
 		Limit(param.Limit).
 		Offset(param.Offset).
-		Debug().
 		Find(&res).Error
 	if err != nil {
 		s.log.Error(err)
