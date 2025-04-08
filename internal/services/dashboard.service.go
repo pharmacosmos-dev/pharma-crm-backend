@@ -59,12 +59,13 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 		// get total net income
 		queryc = fmt.Sprintf(`
 		SELECT
-			SUM(CASE WHEN completed_at::date BETWEEN '%s' AND '%s' THEN (ci.unit_price-sp.supply_price)*ci.quantity END) AS income_amount,
-			SUM(CASE WHEN completed_at::date BETWEEN '%s' AND '%s' THEN (ci.unit_price-sp.supply_price)*ci.quantity END) AS before_income_amount
+			SUM(CASE WHEN completed_at::date BETWEEN '%s' AND '%s' THEN (ci.unit_price-sp.supply_price)*ci.quantity+ (CASE WHEN p.unit_per_pack > 0 THEN ((ci.unit_price - sp.supply_price)/p.unit_per_pack)*ci.unit_quantity ELSE 0 END) END) AS income_amount,
+			SUM(CASE WHEN completed_at::date BETWEEN '%s' AND '%s' THEN (ci.unit_price-sp.supply_price)*ci.quantity + (CASE WHEN p.unit_per_pack > 0 THEN ((ci.unit_price - sp.supply_price)/p.unit_per_pack)*ci.unit_quantity ELSE 0 END) END) AS before_income_amount
 		FROM cart_items ci
 		JOIN store_products sp ON ci.store_product_id = sp.id
+		JOIN products p ON sp.product_id = p.id
 		JOIN sales s ON ci.sale_id = s.id
-		WHERE s.status = 'completed' AND s.sale_type = 'SALE' `, param.StartDate, param.EndDate, beforeStart, beforeEnd)
+		WHERE s.status = 'completed' AND s.sale_type = 'SALE';`, param.StartDate, param.EndDate, beforeStart, beforeEnd)
 		filter  = ""
 		filterc = ""
 	)
