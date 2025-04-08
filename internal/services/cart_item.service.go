@@ -35,8 +35,8 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 			WHEN p.unit_per_pack > 0 THEN (ci.unit_price / p.unit_per_pack)
 			ELSE 0
 		END, 2) AS unit_quantity_price,
-		sp.pack_quantity AS quantity_in_stock,
-		sp.unit_quantity AS unit_quantity_in_stock,
+		sp.pack_quantity AS quantity_stock,
+		sp.unit_quantity AS unit_quantity_stock,
 		u.unit_name,
 		u.short_name,
 		sh.name as shelf,
@@ -64,12 +64,7 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 		if res[i].UnitPerPack > 0 {
 			res[i].UnitVatPrice = math.Round(res[i].VatPrice*100/float64(res[i].UnitPerPack)) / 100
 			res[i].UnitAmount = math.Round(float64(res[i].UnitQuantity)/float64(res[i].UnitPerPack)*100) / 100
-
-		}
-		if res[i].UnitPerPack > 0 && res[i].UnitQuantityInStock != res[i].UnitPerPack*res[i].QuantityInStock {
-			res[i].CurrentStock = fmt.Sprintf("%d (%d/%d)", res[i].QuantityInStock, res[i].UnitQuantityInStock%res[i].UnitPerPack, res[i].UnitPerPack)
-		} else {
-			res[i].CurrentStock = fmt.Sprintf("%d", res[i].QuantityInStock)
+			res[i].UnitQuantityStock = res[i].UnitQuantityStock % res[i].UnitPerPack
 		}
 	}
 	var data domain.CartItemData
