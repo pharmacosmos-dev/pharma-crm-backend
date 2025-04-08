@@ -107,41 +107,32 @@ func (h *ProductBonusHandler) Get(c *gin.Context) {
 // @Param 	limit query int false "Limit"
 // @Param 	offset query int false "Offset"
 // @Param 	store_id query string false "Store ID"
+// @Param   search  query string false "Search"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /product-bonus/list [get]
 func (h *ProductBonusHandler) List(c *gin.Context) {
-	var (
-		res        []domain.ProductBonus
-		totalCount int64
-		storeId    = c.Query("store_id")
-	)
-	// get pagination params
-	limit, offset, err := getPaginationParams(c)
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
+	var param domain.QueryParam
+
+	// bind query param
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "Invalid query param received")
 		return
 	}
-	// get all product bonuses
-	query := h.db.Model(&domain.ProductBonus{}).
-		Table("product_bonuses").
-		Preload("Product").Preload("Store")
 
-	if storeId != "" {
-		query = query.Where("store_id = ?", storeId)
-	}
+	// get default limit offset
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 
-	err = query.Count(&totalCount).
-		Limit(limit).Offset(offset).Order("created_at desc").Find(&res).Error
+	// get bonus product list
+	res, totalCount, err := h.service.ProductBonusList(&param)
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		handleResponse(c, InternalError, "Failed to get bonus product")
 		return
 	}
 	// get with pagination data
-	data := utils.ListResponse(res, totalCount, limit, offset)
+	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+
 	// return response
 	handleResponse(c, OK, data)
 }

@@ -8688,6 +8688,12 @@ const docTemplate = `{
                         "description": "Store ID",
                         "name": "store_id",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search",
+                        "name": "search",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -13187,6 +13193,9 @@ const docTemplate = `{
                 "birthdate": {
                     "type": "string"
                 },
+                "cashbox": {
+                    "$ref": "#/definitions/domain.EmployeeCashbox"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -13246,6 +13255,26 @@ const docTemplate = `{
                 },
                 "store_id": {
                     "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.EmployeeCashbox": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "operation_id": {
+                    "type": "integer"
                 },
                 "updated_at": {
                     "type": "string"

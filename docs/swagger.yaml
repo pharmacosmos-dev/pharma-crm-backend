@@ -264,6 +264,8 @@ definitions:
     properties:
       birthdate:
         type: string
+      cashbox:
+        $ref: '#/definitions/domain.EmployeeCashbox'
       created_at:
         type: string
       email:
@@ -304,6 +306,19 @@ definitions:
         $ref: '#/definitions/domain.Store'
       store_id:
         type: string
+      updated_at:
+        type: string
+    type: object
+  domain.EmployeeCashbox:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      operation_id:
+        type: integer
       updated_at:
         type: string
     type: object
@@ -6705,6 +6720,10 @@ paths:
       - description: Store ID
         in: query
         name: store_id
+        type: string
+      - description: Search
+        in: query
+        name: search
         type: string
       produces:
       - application/json
