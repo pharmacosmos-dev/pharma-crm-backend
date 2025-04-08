@@ -204,6 +204,13 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 		tx.Rollback()
 		return err
 	}
+	query2 := `DELETE FROM inventory_details WHERE scanned_count = 0 AND inventory_id = ?;`
+	err = tx.Exec(query2, inventoryId).Error
+	if err != nil {
+		s.log.Warn("ERROR on deleting scanned 0 inventory details: %v", err)
+		tx.Rollback()
+		return err
+	}
 	// complete transaction
 	if err = tx.Commit().Error; err != nil {
 		s.log.Warn("ERROR on commiting transaction: %v", err)

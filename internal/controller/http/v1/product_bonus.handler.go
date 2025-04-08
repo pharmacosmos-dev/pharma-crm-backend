@@ -84,7 +84,7 @@ func (h *ProductBonusHandler) Get(c *gin.Context) {
 	)
 	// validate id
 	if id == "" {
-		handleResponse(c, BadRequest, "Invalid id")
+		handleResponse(c, BadRequest, "invalid product bonus id")
 		return
 	}
 	// get one product bonus
