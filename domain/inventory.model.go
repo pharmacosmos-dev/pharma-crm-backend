@@ -69,6 +69,7 @@ type InventoryDetailRequest struct {
 type InventoryDetailParam struct {
 	InventoryId string `form:"inventory_id"`
 	Type        string `form:"type"`
+	Search      string `form:"search"`
 	Limit       int    `form:"limit"`
 	Offset      int    `form:"offset"`
 }

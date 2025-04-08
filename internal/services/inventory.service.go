@@ -122,10 +122,24 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
 		Joins("JOIN products p ON inventory_details.product_id = p.id").
 		Joins("LEFT JOIN unit_types ut ON p.unit_type_id = ut.id").
 		Where("inventory_details.inventory_id = ?", param.InventoryId)
+
+	if param.Search != "" {
+		switch utils.DefineProductSearchQuery(param.Search) {
+		case "barcode":
+			query = query.Where("p.barcode = ?", param.Search)
+		case "name/category":
+			param.Search = fmt.Sprintf("%%%s%%", param.Search)
+			query = query.Where("p.name ILIKE ?", param.Search)
+		default:
+			param.Search = fmt.Sprintf("%%%s%%", param.Search)
+			query = query.Where("p.name ILIKE ? OR p.barcode LIKE ?", param.Search, param.Search)
+		}
+	}
 	err := query.
 		Order("inventory_details.updated_at DESC").
 		Count(&totalCount).
-		Limit(param.Limit).Offset(param.Offset).
+		Limit(param.Limit).
+		Offset(param.Offset).
 		Debug().
 		Find(&res).Error
 	if err != nil {
@@ -139,6 +153,7 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
 // get inventory detail status count
 func (s *Services) InventoryDetailStatsCount(param *domain.InventoryDetailParam) (domain.InventoryDetailStatus, error) {
 	var res domain.InventoryDetailStatus
+
 	query := `
 	SELECT
 		SUM(scanned_count) AS scanned,
