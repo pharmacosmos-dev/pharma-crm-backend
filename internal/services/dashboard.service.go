@@ -413,7 +413,7 @@ func (s *Services) DashboardPayments(param *domain.DashboardQueryParam) ([]domai
 		Joins("JOIN sales s ON sale_payments.sale_id = s.id")
 
 	if param.StartDate != "" && param.EndDate != "" {
-		query = query.Where("s.completed_at BETWEEN ? AND ? ", param.StartDate, param.EndDate)
+		query = query.Where("s.completed_at::date BETWEEN ? AND ? ", param.StartDate, param.EndDate)
 	}
 	if len(param.StoreIds) > 0 {
 		query = query.Where("s.store_id IN (?)", param.StoreIds)
@@ -434,8 +434,8 @@ func (s *Services) DashboardTransaction(param *domain.DashboardQueryParam) ([]do
 	}
 
 	res := []domain.DashboardTransaction{}
-	args := []interface{}{param.StartDate, param.EndDate}
-	whereClause := `s.status = 'completed' AND s.sale_type = 'SALE' AND s.completed_at BETWEEN ?::date AND ?::date`
+	args := []any{param.StartDate, param.EndDate}
+	whereClause := `s.status = 'completed' AND s.sale_type = 'SALE' AND s.completed_at::date BETWEEN ?::date AND ?::date`
 
 	if len(param.StoreIds) > 0 {
 		whereClause += ` AND s.store_id IN (?)`
@@ -453,7 +453,7 @@ func (s *Services) DashboardTransaction(param *domain.DashboardQueryParam) ([]do
 
 	// Reset args for returns
 	argsReturn := []any{param.StartDate, param.EndDate}
-	whereClauseReturn := `s.status = 'completed' AND s.sale_type = 'RETURN' AND s.completed_at BETWEEN ?::date AND ?::date`
+	whereClauseReturn := `s.status = 'completed' AND s.sale_type = 'RETURN' AND s.completed_at::date BETWEEN ?::date AND ?::date`
 
 	if len(param.StoreIds) > 0 {
 		whereClauseReturn += ` AND s.store_id IN (?)`
