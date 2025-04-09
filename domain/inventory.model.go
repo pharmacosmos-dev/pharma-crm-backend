@@ -18,16 +18,16 @@ type Inventory struct {
 	PublicId         string     `gorm:"public_id" json:"public_id"`
 	StoreId          string     `gorm:"store_id" json:"store_id"`
 	Name             string     `gorm:"name" json:"name"`
-	Type             string     `gorm:"type" json:"type"`
+	InventoryType    string     `gorm:"inventory_type" json:"type"`
 	MeasurementCount int64      `gorm:"measurement_count" json:"measurement_count"`
 	Shortage         int64      `gorm:"shotage" json:"shortage"`
 	Surplus          int64      `gorm:"surplus" json:"surplus"`
 	DifferenceSum    float64    `gorm:"difference_sum" json:"difference_sum"`
-	Status           int        `gorm:"status" json:"status"` // 0 -> new, 1 -> pending, 2 -> completed
+	Status           string     `gorm:"status" json:"status"` // 0 -> new, 1 -> pending, 2 -> completed
 	CreatedAt        *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt        *time.Time `gorm:"updated_at" json:"updated_at"`
 	CreatedById      string     `gorm:"column:created_by" json:"created_by_id"`
-	UpdatedById      string     `gorm:"column:updated_by" json:"updated_by_id"`
+	UpdatedById      string     `gorm:"column:accepted_by" json:"updated_by_id"`
 	Store            *Store     `gorm:"foreignKey:StoreId" json:"store"`
 	CreatedBy        *Employee  `gorm:"foreignKey:CreatedById" json:"created_by"`
 	UpdatedBy        *Employee  `gorm:"foreignKey:UpdatedById" json:"updated_by"`
@@ -47,17 +47,17 @@ type InventoryRequest struct {
 
 // InventoryRequest structure
 type InventoryDetail struct {
-	Id           string     `gorm:"id" json:"id"`
-	InventoryId  string     `gorm:"inventory_id" json:"inventory_id"`
-	ProductId    string     `gorm:"product_id" json:"product_id"`
-	StockCount   int        `gorm:"stock_count" json:"stock_count"`
-	ScannedCount int        `gorm:"scanned_count" json:"scanned_count"`
-	Name         string     `gorm:"name" json:"name"`
-	MaterialCode int        `gorm:"material_code" json:"material_code"`
-	Barcode      string     `gorm:"barcode" json:"barcode"`
-	ShortName    string     `gorm:"short_name" json:"short_name"`
-	CreatedAt    *time.Time `gorm:"created_at" json:"created_at"`
-	UpdatedAt    *time.Time `gorm:"updated_at" json:"updated_at"`
+	Id            string     `gorm:"id" json:"id"`
+	InventoryId   string     `gorm:"inventory_id" json:"inventory_id"`
+	ProductId     string     `gorm:"product_id" json:"product_id"`
+	ReceivedCount int        `gorm:"received_count" json:"stock_count"`
+	ScannedCount  int        `gorm:"scanned_count" json:"scanned_count"`
+	Name          string     `gorm:"name" json:"name"`
+	MaterialCode  int        `gorm:"material_code" json:"material_code"`
+	Barcode       string     `gorm:"barcode" json:"barcode"`
+	ShortName     string     `gorm:"short_name" json:"short_name"`
+	CreatedAt     *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt     *time.Time `gorm:"updated_at" json:"updated_at"`
 }
 
 // InventoryDetailRequest structure

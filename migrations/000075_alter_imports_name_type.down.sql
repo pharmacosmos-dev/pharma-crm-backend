@@ -1,0 +1,3 @@
+ALTER TABLE imports DROP COLUMN IF EXISTS "name";
+ALTER TABLE imports DROP COLUMN IF EXISTS "entry_type";
+ALTER TABLE imports ADD COLUMN IF EXISTS "inventory_type";

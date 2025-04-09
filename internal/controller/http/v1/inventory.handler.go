@@ -27,6 +27,7 @@ func (h *InventoryHandler) InventoryRoutes(r *gin.RouterGroup) {
 		inventory.GET("/list", h.List)
 		inventory.PATCH("/:id/add-product-by-barcode", h.AddProductByBarcode)
 		inventory.POST("/confirm/:id", h.Confirm)
+		inventory.POST("/cancel/:id", h.Cancel)
 	}
 	detail := r.Group("inventory-detail")
 	{
@@ -249,6 +250,41 @@ func (h *InventoryHandler) Confirm(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, "CONFIRMED")
+}
+
+// cancel inventory
+// @Summary Cancel Inventory
+// @Description Cancel Inventory
+// @Tags Inventory
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param 	id 	path string true "Inventory ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /inventory/cancel/{id} [POST]
+func (h *InventoryHandler) Cancel(c *gin.Context) {
+	var id = c.Param("id")
+	// validate inventory id
+	if err := uuid.Validate(id); err != nil {
+		handleResponse(c, BadRequest, "Invalid inventory id")
+		return
+	}
+	// get user_id from the header
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "user id not found from the context")
+		return
+	}
+	// confirm inventory service
+	err := h.service.CancelInventory(id, userId.(string))
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to confirm inventory")
+		return
+	}
+
+	handleResponse(c, OK, "CANCELED")
 }
 
 // Get List

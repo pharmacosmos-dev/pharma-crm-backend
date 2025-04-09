@@ -5626,6 +5626,37 @@ paths:
       summary: Add product by barcode
       tags:
       - Inventory
+  /inventory/cancel/{id}:
+    post:
+      consumes:
+      - application/json
+      description: Cancel Inventory
+      parameters:
+      - description: Inventory ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Cancel Inventory
+      tags:
+      - Inventory
   /inventory/confirm/{id}:
     post:
       consumes:
@@ -7480,6 +7511,120 @@ paths:
       summary: Create a product
       tags:
       - 1C Api
+  /report/product-by-date:
+    post:
+      consumes:
+      - application/json
+      description: List import details
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: Product ids
+        in: body
+        name: product_ids
+        schema:
+          items:
+            type: string
+          type: array
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: List import details
+      tags:
+      - Report
+  /report/product-by-date/export:
+    post:
+      consumes:
+      - application/json
+      description: List import details
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: Product ids
+        in: body
+        name: product_ids
+        schema:
+          items:
+            type: string
+          type: array
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      produces:
+      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: List import details
+      tags:
+      - Report
   /role:
     post:
       consumes:
