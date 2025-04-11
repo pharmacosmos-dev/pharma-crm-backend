@@ -418,7 +418,7 @@ func (s *Services) DashboardPayments(param *domain.DashboardQueryParam) ([]domai
 	if len(param.StoreIds) > 0 {
 		query = query.Where("s.store_id IN (?)", param.StoreIds)
 	}
-	err := query.Group("pt.name").Order("amount DESC").Find(&res).Error
+	err := query.Group("pt.name").Order("amount DESC").Debug().Find(&res).Error
 	if err != nil {
 		s.log.Error(err)
 		return res, err

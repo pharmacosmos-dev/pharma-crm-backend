@@ -24,5 +24,5 @@ func (h *WriteOffHandler) WriteOffRoutes(r *gin.RouterGroup) {
 }
 
 func (h *WriteOffHandler) Create(c *gin.Context) {
-
+	
 }
