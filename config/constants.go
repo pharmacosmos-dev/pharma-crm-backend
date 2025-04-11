@@ -8,7 +8,6 @@ const (
 	// Refresh token expire time: 30 days
 	RefreshTokenExpiresInTime time.Duration = 30 * 24 * time.Hour
 
-	
 	DATE_FORMAT      = "2006-01-02"
 	DATE_TIME_FORMAT = "2006-01-02 15:04:05"
 	DATE_1C_FORMAT   = "2006-01-02T15:04:05"
@@ -87,4 +86,7 @@ const (
 	ADMIN      = "ADMIN"
 	SUPERADMIN = "SUPERADMIN"
 	MANAGER    = "MANAGER"
+	AUTOZAKAZ  = "AUTOZAKAZ"
+	FOUNDER    = "FOUNDER"
+	ACCOUNTANT = "ACCOUNTANT"
 )
