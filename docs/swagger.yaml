@@ -1125,6 +1125,13 @@ definitions:
       id:
         type: string
     type: object
+  domain.UpdateIsMarking:
+    properties:
+      is_marking:
+        type: boolean
+      product_id:
+        type: string
+    type: object
   v1.Response:
     properties:
       code:
@@ -7082,6 +7089,38 @@ paths:
       security:
       - BearerAuth: []
       summary: Get product imports
+      tags:
+      - products
+  /product/is-marking:
+    patch:
+      consumes:
+      - application/json
+      description: Update product ismarking
+      parameters:
+      - description: Update product is marking
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UpdateIsMarking'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated is marking
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Invalid product id or is marking
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update product ismarking
       tags:
       - products
   /product/list:

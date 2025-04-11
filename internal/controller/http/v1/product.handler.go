@@ -56,6 +56,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.PUT("/update-barcode/:id", h.UpdateBarcode)
 		product.POST("/attach-barcode", h.AttachBarcode)
 		product.POST("/generate-marking", h.GenerateMarkingProducts)
+		product.PATCH("/is-marking", h.UpdateIsMarking)
 	}
 }
 
@@ -1464,6 +1465,38 @@ func (h *ProductHandler) AttachBarcode(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, "Products uploaded successfully")
+}
+
+// Update ismarking godoc
+// @Summary Update product ismarking
+// @Description Update product ismarking
+// @Tags products
+// @Security BearerAuth
+// @Accept  json
+// @Produce json
+// @Param 	body body domain.UpdateIsMarking true "Update product is marking"
+// @Success 200 {object} v1.Response "Updated is marking"
+// @Failure 400 {object} v1.Response "Invalid product id or is marking"
+// @Failure 500 {object} v1.Response "Internal server error"
+// @Router /product/is-marking [patch]
+func (h *ProductHandler) UpdateIsMarking(c *gin.Context) {
+	var (
+		body domain.UpdateIsMarking
+		err  error
+	)
+	// bind request body
+	if err = c.ShouldBindJSON(&body); err != nil {
+		handleResponse(c, BadRequest, "Invalid received info, Please try again")
+		return
+	}
+	// update is_marking service
+	err = h.service.UpdateProductIsMarking(&body)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, "Can't update is_marking status")
+		return
+	}
+	handleResponse(c, OK, "UPDATED")
 }
 
 // Helper function to safely parse float values

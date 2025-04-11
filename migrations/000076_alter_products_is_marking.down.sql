@@ -1,0 +1,1 @@
+ALTER TABLE products ADD COLUMN IF EXISTS "is_marking";

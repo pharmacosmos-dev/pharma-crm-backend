@@ -9245,6 +9245,57 @@ const docTemplate = `{
                 }
             }
         },
+        "/product/is-marking": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update product ismarking",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Update product ismarking",
+                "parameters": [
+                    {
+                        "description": "Update product is marking",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.UpdateIsMarking"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Updated is marking",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid product id or is marking",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/product/list": {
             "get": {
                 "security": [
@@ -14718,6 +14769,17 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.UpdateIsMarking": {
+            "type": "object",
+            "properties": {
+                "is_marking": {
+                    "type": "boolean"
+                },
+                "product_id": {
                     "type": "string"
                 }
             }

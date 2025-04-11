@@ -305,7 +305,7 @@ func (s *Services) PaymeGoReceiptCreate(ctx context.Context, paymentService *dom
 		s.log.Info("Error on saving payme go request: %v", err.Error())
 		return nil, err
 	}
-	// send do request to payme go
+	// send do request for receipt create
 	res, err := s.PaymeGoDoRequest(ctx, reqData, paymentService)
 	if err != nil {
 		s.log.Error("ERROR on receipt create: %v", err)

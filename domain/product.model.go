@@ -34,6 +34,7 @@ type Product struct {
 	IsActive     bool              `gorm:"is_active" json:"is_active"`
 	BonusPercent float64           `gorm:"bonus_percent" json:"bonus_percent"`
 	BonusAmount  float64           `gorm:"bonus_amount" json:"bonus_amount"`
+	IsMarking    bool              `gorm:"is_marking" json:"is_marking"`
 	CreatedAt    *time.Time        `gorm:"created_at" json:"created_at"`
 	UpdatedAt    *time.Time        `gorm:"updated_at" json:"updated_at"`
 	UnitName     string            `gorm:"unit_name" json:"unit_name"`
@@ -233,4 +234,10 @@ type ProductQueryParam struct {
 type UpdateBarcodeRequest struct {
 	Barcode string `json:"barcode"`
 	Id      string `json:"id"`
+}
+
+// update is marking request
+type UpdateIsMarking struct {
+	ProductId string `json:"product_id"`
+	IsMarking bool   `json:"is_marking"`
 }

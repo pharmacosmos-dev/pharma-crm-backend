@@ -296,7 +296,7 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]*domain.Produ
 		Preload("Categories").
 		Select(`
 		p.id, p.name, p.barcode, p.status, p.description,
-		p.photos, pr.name as manufacturer, p.material_code,
+		p.photos, pr.name as manufacturer, p.material_code, p.is_marking,
 		AVG(sp.supply_price) AS supply_price,
 		AVG(sp.vat) AS vat,
 		AVG(sp.markup) AS markup,
@@ -314,7 +314,6 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]*domain.Produ
 		Order("p.created_at DESC").
 		Limit(param.Limit).
 		Offset(param.Offset).
-		Debug().
 		Find(&res).Error
 
 	if err != nil {
@@ -419,4 +418,17 @@ func (s *Services) GetExternalStoresByProductId(productId string) ([]domain.Stor
 		return nil, err
 	}
 	return res, nil
+}
+
+// update product is_marking field
+func (s *Services) UpdateProductIsMarking(req *domain.UpdateIsMarking) error {
+	// build query
+	query := `UPDATE products SET is_marking = ? WHERE id = ?`
+	// complete the update query
+	err := s.db.Exec(query, req.IsMarking, req.ProductId).Error
+	if err != nil {
+		s.log.Warn("ERROR on updating is_marking: %v", err.Error())
+		return err
+	}
+	return nil
 }
