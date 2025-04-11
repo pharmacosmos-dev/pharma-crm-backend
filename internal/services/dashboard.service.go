@@ -357,7 +357,7 @@ func (s *Services) DashboardTopSeller(param *domain.DashboardQueryParam) ([]doma
 			SUM(ci.quantity) AS count,
 			COALESCE(SUM(s.total_amount), 0)  AS total_amount
 		FROM sales s
-		JOIN employees e ON s.employee_id = e.id
+		LEFT JOIN employees e ON s.employee_id = e.id
 		LEFT JOIN cart_items ci ON ci.sale_id = s.id`
 		filter = "	WHERE s.status = 'completed'"
 		group  = " GROUP BY e.id, e.full_name"
