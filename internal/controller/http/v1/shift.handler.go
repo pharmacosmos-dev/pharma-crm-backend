@@ -98,7 +98,7 @@ func (h *ShiftHandler) Create(c *gin.Context) {
 		UPDATE cashbox_operations 
 		SET current_employee_id = ? 
 		WHERE end_time IS NULL
-		AND cash_box_id = ? AND employee_id = ?`,
+		AND cash_box_id = ? AND current_employee_id = ?`,
 		body.ToEmployeeId, body.CashBoxId, body.FromEmployeeId).Error
 	if err != nil {
 		h.log.Error("ERROR on updating cashbox_operations current_employee_id: ", err)
