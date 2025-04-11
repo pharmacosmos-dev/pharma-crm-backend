@@ -21,6 +21,7 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 		p.name,
 		p.barcode,
 		p.unit_per_pack,
+		p.is_marking,
 		sp.expire_date,
 		pb.bonus_amount as bonus_amount,
 		sp.vat AS vat_percent,
@@ -42,8 +43,7 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 		sh.name as shelf,
 		p.mxik AS class_code,
 		pm.unit_code AS package_code,
-		pm.unit_name AS package_name,
-		COUNT(product_markings.product_id) AS is_marking
+		pm.unit_name AS package_name
 	FROM cart_items ci
 	JOIN store_products sp ON ci.store_product_id = sp.id
 	JOIN products p ON sp.product_id = p.id
@@ -51,7 +51,6 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 	LEFT JOIN shelves sh ON p.shelf_id = sh.id
 	LEFT JOIN product_measurements pm ON pm.mxik_code = p.mxik
 	LEFT JOIN product_bonuses pb ON p.id = pb.product_id
-	LEFT JOIN product_markings ON p.id = product_markings.product_id
 	WHERE ci.status = 'pending' AND ci.sale_id = ?
 	GROUP BY ci.id, ci.created_at, p.id, sp.id, u.id, sh.id, pm.id, pb.id
 	ORDER BY ci.created_at DESC LIMIT ? OFFSET ?;
@@ -171,7 +170,7 @@ func (s *Services) CreateOnlineCartItem(tx *gorm.DB, req *domain.SaleOnlineItem,
 func (s *Services) GetPaymeGoItems(saleID string) ([]domain.PaymeGoItem, error) {
 	var res []domain.PaymeGoItem
 	query := `
-	
+
 	`
 	err := s.db.Raw(query, saleID).Scan(&res).Error
 	if err != nil {
