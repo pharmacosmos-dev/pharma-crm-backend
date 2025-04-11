@@ -410,7 +410,8 @@ func (s *Services) DashboardPayments(param *domain.DashboardQueryParam) ([]domai
 		SUM(sale_payments.amount) AS amount,
 		COUNT(sale_payments.id) AS count`).
 		Joins("JOIN payment_types pt ON sale_payments.payment_type_id = pt.id").
-		Joins("JOIN sales s ON sale_payments.sale_id = s.id")
+		Joins("JOIN sales s ON sale_payments.sale_id = s.id").
+		Where("s.sale_type = 'SALE'")
 
 	if param.StartDate != "" && param.EndDate != "" {
 		query = query.Where("s.completed_at::date BETWEEN ? AND ? ", param.StartDate, param.EndDate)
@@ -435,7 +436,7 @@ func (s *Services) DashboardTransaction(param *domain.DashboardQueryParam) ([]do
 
 	res := []domain.DashboardTransaction{}
 	args := []any{param.StartDate, param.EndDate}
-	whereClause := `s.status = 'completed' AND s.sale_type = 'SALE' AND s.completed_at::date BETWEEN ?::date AND ?::date`
+	whereClause := `s.status = 'completed' AND s.sale_type = 'SALE' AND s.completed_at::date BETWEEN ? AND ?`
 
 	if len(param.StoreIds) > 0 {
 		whereClause += ` AND s.store_id IN (?)`
@@ -443,17 +444,21 @@ func (s *Services) DashboardTransaction(param *domain.DashboardQueryParam) ([]do
 	}
 
 	saleQuery := fmt.Sprintf(`
-		SELECT
-			'Товары' AS name,
-			SUM(cart_items.quantity) AS count,
-			SUM(cart_items.total_price) AS amount
-		FROM cart_items
-		JOIN sales s ON cart_items.sale_id = s.id
-		WHERE %s`, whereClause)
+	SELECT
+		'Товары' AS name,
+		SUM(sub.total_amount) as amount,
+		SUM(sub.quantity) || ',' || SUM(sub.unit_quantity) as count
+	FROM (
+		SELECT s.total_amount, SUM(ci.quantity) as quantity, SUM(ci.unit_quantity) as unit_quantity
+		FROM sales s
+		JOIN cart_items ci ON ci.sale_id = s.id
+		WHERE %s
+		GROUP BY s.id, s.total_amount
+	) sub`, whereClause)
 
 	// Reset args for returns
 	argsReturn := []any{param.StartDate, param.EndDate}
-	whereClauseReturn := `s.status = 'completed' AND s.sale_type = 'RETURN' AND s.completed_at::date BETWEEN ?::date AND ?::date`
+	whereClauseReturn := `s.status = 'completed' AND s.sale_type = 'RETURN' AND s.completed_at::date BETWEEN ? AND ?`
 
 	if len(param.StoreIds) > 0 {
 		whereClauseReturn += ` AND s.store_id IN (?)`
@@ -461,13 +466,17 @@ func (s *Services) DashboardTransaction(param *domain.DashboardQueryParam) ([]do
 	}
 
 	returnQuery := fmt.Sprintf(`
-		SELECT
-			'Возвраты' AS name,
-			SUM(cart_items.quantity) AS count,
-			SUM(cart_items.total_price) AS amount
-		FROM cart_items
-		JOIN sales s ON cart_items.sale_id = s.id
-		WHERE %s`, whereClauseReturn)
+	SELECT
+		'Возвраты' AS name,
+		SUM(sub.total_amount) as amount,
+		SUM(sub.quantity) || ',' || SUM(sub.unit_quantity) as count
+	FROM (
+		SELECT s.total_amount, SUM(ci.quantity) as quantity, SUM(ci.unit_quantity) as unit_quantity
+		FROM sales s
+		JOIN cart_items ci ON ci.sale_id = s.id
+		WHERE %s
+		GROUP BY s.id, s.total_amount
+	) sub;`, whereClauseReturn)
 
 	fullQuery := fmt.Sprintf(`%s UNION ALL %s`, saleQuery, returnQuery)
 
