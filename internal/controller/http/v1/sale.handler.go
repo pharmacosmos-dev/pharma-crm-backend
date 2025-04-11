@@ -187,7 +187,7 @@ func (h *SaleHandler) Get(c *gin.Context) {
 	}
 	// get products info
 	var products []domain.ProductRes
-	err = h.db.Raw(`
+	err = h.db.Debug().Raw(`
 	SELECT
 		p.id, sp.id AS store_product_id, p.name, p.barcode,
 		p.photos, ci.quantity, ci.unit_price AS pack_price,
@@ -204,7 +204,6 @@ func (h *SaleHandler) Get(c *gin.Context) {
 	JOIN products p ON sp.product_id = p.id
 	LEFT JOIN unit_types u ON p.unit_type_id = u.id
 	LEFT JOIN product_bonuses pb ON pb.product_id = p.id
-	LEFT JOIN employee_bonus eb ON p.id = eb.product_id
 	WHERE ci.sale_id = ?`, id).Scan(&products).Error
 	if err != nil {
 		h.log.Error(err)
