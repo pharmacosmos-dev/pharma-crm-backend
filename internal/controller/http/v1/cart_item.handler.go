@@ -111,7 +111,7 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 	if storeProduct.PackQuantity > 0 {
 		body.Quantity = 1
 		body.TotalPrice = storeProduct.RetailPrice
-	} else if storeProduct.UnitQuantity > 1 && storeProduct.UnitPerPack > 0 {
+	} else if storeProduct.UnitQuantity > 0 && storeProduct.UnitPerPack > 0 {
 		body.UnitQuantity = 1
 		body.TotalPrice = storeProduct.RetailPrice / float64(storeProduct.UnitPerPack)
 	} else {
