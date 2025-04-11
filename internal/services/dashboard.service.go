@@ -65,7 +65,7 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 		JOIN store_products sp ON ci.store_product_id = sp.id
 		JOIN products p ON sp.product_id = p.id
 		JOIN sales s ON ci.sale_id = s.id
-		WHERE s.status = 'completed' AND s.sale_type = 'SALE';`, param.StartDate, param.EndDate, beforeStart, beforeEnd)
+		WHERE s.status = 'completed' AND s.sale_type = 'SALE'`, param.StartDate, param.EndDate, beforeStart, beforeEnd)
 		filter  = ""
 		filterc = ""
 	)
@@ -476,7 +476,7 @@ func (s *Services) DashboardTransaction(param *domain.DashboardQueryParam) ([]do
 		JOIN cart_items ci ON ci.sale_id = s.id
 		WHERE %s
 		GROUP BY s.id, s.total_amount
-	) sub;`, whereClauseReturn)
+	) sub`, whereClauseReturn)
 
 	fullQuery := fmt.Sprintf(`%s UNION ALL %s`, saleQuery, returnQuery)
 
