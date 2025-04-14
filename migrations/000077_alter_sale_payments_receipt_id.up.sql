@@ -1,0 +1,1 @@
+ALTER TABLE sale_payments ADD COLUMN IF NOT EXISTS "receipt_id" VARCHAR(255);

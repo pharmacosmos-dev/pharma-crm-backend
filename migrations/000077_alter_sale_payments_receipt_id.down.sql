@@ -1,0 +1,1 @@
+ALTER TABLE sale_payments DROP COLUMN IF EXISTS "receipt_id";

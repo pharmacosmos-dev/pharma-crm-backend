@@ -26,3 +26,34 @@ type SoliqIKPUResponse struct {
 	Name     string `json:"name"`
 	Units    string `json:"units"`
 }
+
+// {
+//     "info": {
+//         "dateTime": "20250414170342",
+//         "qrCodeURL": "https://ofd.soliq.uz/check?t=VG343420000976&r=1205&c=20250414170342&s=127401140452",
+//         "fiscalSign": "127401140452",
+//         "receiptSeq": "1205",
+//         "terminalId": "VG343420000976"
+//     },
+//     "error": false,
+//     "qrPath": "C:\\Users\\user\\.EPOS\\qrs\\1205.bmp",
+//     "paycheck": "",
+//     "virtualNumber": "7645"
+// }
+
+// Epost response data
+type EposResponseInfo struct {
+	Error         bool                  `json:"error"`
+	QrPath        string                `json:"qrPath"`
+	Paycheck      string                `json:"paycheck"`
+	VirtualNumber string                `json:"virtualNumber"`
+	Info          EposResponseInfoParam `json:"info"`
+}
+
+type EposResponseInfoParam struct {
+	Datetime   string `json:"dateTime"`
+	QrCodeURL  string `json:"qrCodeURL"`
+	FiscalSign string `json:"fiscalSign"`
+	ReceiptSeq string `json:"receiptSeq"`
+	TerminalId string `json:"terminalId"`
+}

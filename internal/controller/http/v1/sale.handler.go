@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -630,6 +631,29 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 	storeID := sale.StoreId
 	//
 	if body.Error {
+		// get sale_payments by sale_id
+		salePay, err := h.service.GetSalePaymentsWithReceipt(body.SaleId)
+		if err != nil {
+			h.log.Info("Unpaid sale from Payme, sale_id: %v", body.SaleId)
+		} else {
+			// getting payment service
+			paymentService, err := h.service.GetPaymentServiceByStoreId(sale.StoreId, "payme")
+			if err != nil {
+				h.log.Warn("ERROR on getting payment_service: %v", err)
+				tx.Rollback()
+				handleResponse(c, InternalError, "failed to get payment service")
+				return
+			}
+			// cancel payment if paid with payme
+			_, err = h.service.PaymeGoReceiptCancel(c.Request.Context(), paymentService, salePay.ID, body.SaleId, salePay.ReceiptId)
+			if err != nil {
+				h.log.Warn("ERROR on receipt canceling: %v", err)
+				tx.Rollback()
+				handleResponse(c, InternalError, err.Error())
+				return
+			}
+		}
+
 		// Update sales status
 		err = tx.Exec(`UPDATE sales SET status = ? WHERE id = ?`, config.PENDING, body.SaleId).Error
 		if err != nil {
@@ -708,6 +732,49 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 			handleResponse(c, InternalError, "ERROR on creating new sale: "+err.Error())
 			tx.Rollback()
 			return
+		}
+
+		// parse to struct fiscal data
+		var eposfiscalInfo domain.EposResponseInfoParam
+		err = json.Unmarshal([]byte(responseDataStr), &eposfiscalInfo)
+		if err != nil {
+			h.log.Warn("ERROR on unmarshaling fiscal data: %v", err)
+			handleResponse(c, InternalError, "Failed to parse fiscal data")
+			return
+		}
+
+		// set fical data if sale was paid by payme
+		// get sale_payments by sale_id
+		salePay, err := h.service.GetSalePaymentsWithReceipt(body.SaleId)
+		if err != nil {
+			h.log.Info("Unpaid sale from Payme, sale_id: %v", body.SaleId)
+		} else {
+			// getting payment service
+			paymentService, err := h.service.GetPaymentServiceByStoreId(sale.StoreId, "payme")
+			if err != nil {
+				h.log.Warn("ERROR on getting payment_service: %v", err)
+				tx.Rollback()
+				handleResponse(c, InternalError, "failed to get payment service")
+				return
+			}
+			// collect fiscal data
+			fiscalData := domain.FiscalData{
+				StatusCode: 0,
+				Message:    "accepted",
+				TerminalId: eposfiscalInfo.TerminalId,
+				ReceiptId:  cast.ToInt(eposfiscalInfo.ReceiptSeq),
+				Date:       eposfiscalInfo.Datetime,
+				FiscalSign: eposfiscalInfo.FiscalSign,
+				QrCodeUrl:  eposfiscalInfo.QrCodeURL,
+			}
+			// set fiscal data payment if paid with payme
+			_, err = h.service.PaymeGoSetFiscalData(c.Request.Context(), paymentService, &fiscalData, salePay.ID, salePay.ReceiptId)
+			if err != nil {
+				h.log.Warn("ERROR on setting payme fiscal: %v", err)
+				tx.Rollback()
+				handleResponse(c, InternalError, err.Error())
+				return
+			}
 		}
 
 		// Commit transaction before responding

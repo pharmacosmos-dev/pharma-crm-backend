@@ -246,14 +246,19 @@ func (s *Services) PaymeGo(ctx context.Context, paymentService *domain.PaymentSe
 	if err != nil {
 		return nil, err
 	}
+	// set receipt id to sale_payments
+	err = s.SetReceiptId(ctx, res.Result.Receipt.ID, transactionID)
+	if err != nil {
+		return nil, err
+	}
 	// method receipt pay
 	res, err = s.PaymeGoReceiptPay(ctx, paymentService, data, transactionID, saleID, res.Result.Receipt.ID)
 	if err != nil {
-		s.log.Error("ERROR on receipt pay: %v", err)
+		s.log.Warn("ERROR on receipt pay: %v", err)
 		// method receipt cancel
 		_, err = s.PaymeGoReceiptCancel(ctx, paymentService, transactionID, saleID, res.Result.Receipt.ID)
 		if err != nil {
-			s.log.Error("ERROR on receipt cancel: %v", err)
+			s.log.Warn("ERROR on receipt cancel: %v", err)
 			return nil, err
 		}
 		return nil, err
@@ -404,13 +409,13 @@ func (s *Services) PaymeGoReceiptCancel(ctx context.Context, paymentService *dom
 }
 
 // Payme Go Set fiscal data
-func (s *Services) PaymeGoSetFiscalData(ctx context.Context, fiscal *domain.FiscalData, chekID string, saleID string, transactionID string, paymentService *domain.PaymentService) (*domain.PaymeGoResponse, error) {
+func (s *Services) PaymeGoSetFiscalData(ctx context.Context, paymentService *domain.PaymentService, fiscal *domain.FiscalData, transactionID string, receiptID string) (*domain.PaymeGoResponse, error) {
 	requestID := time.Now().Unix()
 	reqData := domain.FiscalDataRequest{
 		Id:     requestID,
 		Method: "receipts.set_fiscal_data",
 		Params: domain.FiscalDataParams{
-			Id:         chekID,
+			Id:         receiptID,
 			FiscalData: *fiscal,
 		},
 	}
@@ -458,7 +463,7 @@ func (s *Services) PaymeGoDoRequest(ctx context.Context, data any, paymentServe 
 		return nil, fmt.Errorf("failed to encode request data: %v", err)
 	}
 	// get url
-	url := s.cfg.Payment.PaymeGoEndpointUrl + "/api"
+	url := s.cfg.Payment.PaymeGoEndpointUrl
 	req, err := http.NewRequestWithContext(ctx, "POST", url, &buf)
 	if err != nil {
 		return nil, err
@@ -512,4 +517,27 @@ func (h *Services) SaveResponse(ctx context.Context, req *domain.PaymentRequest)
 		return err
 	}
 	return nil
+}
+
+// save receipt id to sale_payments
+func (h *Services) SetReceiptId(ctx context.Context, receiptId, salePayId string) error {
+	query := `UPDATE sale_payments SET receipt_id = ? WHERE id = ?`
+	err := h.db.Exec(query, receiptId, salePayId).Error
+	if err != nil {
+		h.log.Warn("ERROR on setting receipt_id: %v", err)
+		return err
+	}
+	return nil
+}
+
+// get sale_payments by sale_id with receipt_id
+func (s *Services) GetSalePaymentsWithReceipt(saleId string) (*domain.SalePayment, error) {
+	var res domain.SalePayment
+	query := `SELECT * FROM sale_payments where sale_id = ? AND (receipt_id is not null OR receipt_id <> '')`
+	err := s.db.Raw(query, saleId).Scan(&res).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting sale_payment with receipt_id: %v", err)
+		return &res, err
+	}
+	return &res, nil
 }
