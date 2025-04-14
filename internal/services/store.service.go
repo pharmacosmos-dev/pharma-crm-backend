@@ -8,6 +8,19 @@ import (
 	"gorm.io/gorm"
 )
 
+// create store on importing products to branch
+func (s *Services) CreateStoreOnImport(req *domain.StoreRequest) (domain.Store, error) {
+	var res domain.Store
+	query := `INSERT INTO stores(name, detailed_name, store_code) VALUES(?, ?, ?) RETURNING *`
+	err := s.db.Raw(query, req.Name, req.Name, req.StoreCode).Scan(&res).Error
+	if err != nil {
+		s.log.Warn("ERROR on creating new store: %v", err)
+		return res, err
+	}
+
+	return res, nil
+}
+
 // get store info by import id
 func (s *Services) GetStoreByImportId(importId string) (*domain.Store, error) {
 	var store domain.Store

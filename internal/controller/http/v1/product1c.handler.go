@@ -60,13 +60,16 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 	// get store info
 	var store domain.Store
 	err = h.db.First(&store, "store_code = ?", body.Apteka.StoreCode).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			handleResponse(c, OK, "Store not found")
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		store, err = h.service.CreateStoreOnImport(&domain.StoreRequest{Name: body.Apteka.Name, StoreCode: body.Apteka.StoreCode})
+		if err != nil {
+			tx.Rollback()
+			handleResponse(c, InternalError, "Failed to create new store")
 			return
 		}
+	} else if err != nil {
 		tx.Rollback()
-		handleResponse(c, InternalError, err.Error())
+		handleResponse(c, InternalError, "Failed to check store info")
 		return
 	}
 	// collect import data

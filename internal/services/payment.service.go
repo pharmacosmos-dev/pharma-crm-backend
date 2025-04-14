@@ -267,11 +267,6 @@ func (s *Services) PaymeGo(ctx context.Context, paymentService *domain.PaymentSe
 
 // Payme Go Receipt Create
 func (s *Services) PaymeGoReceiptCreate(ctx context.Context, paymentService *domain.PaymentService, data *domain.FinalPaymentType, transactionID string, saleID string) (*domain.PaymeGoResponse, error) {
-	// get items from cart_items table
-	items, err := s.GetPaymeGoItems(saleID)
-	if err != nil {
-		return nil, err
-	}
 	requestID := time.Now().Unix()
 	// get current time
 	reqData := domain.PaymeGoReceiptCreate{
@@ -284,17 +279,13 @@ func (s *Services) PaymeGoReceiptCreate(ctx context.Context, paymentService *dom
 			}{
 				OrderId: saleID, // Assign your order ID here
 			},
-			Detail: domain.PaymeGoDetail{
-				ReceiptType: 0,
-				Shipping:    nil,
-				Items:       items,
-			},
+			Detail: nil,
 		},
 	}
 	// convert to json for saving payment requests
 	t, _ := json.Marshal(reqData)
 	// save request payme go request
-	err = s.SaveRequest(ctx, &domain.PaymentRequest{
+	err := s.SaveRequest(ctx, &domain.PaymentRequest{
 		RequestId:       requestID,
 		Method:          "receipts.create",
 		Payload:         t,
