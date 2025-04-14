@@ -123,6 +123,9 @@ func (s *Services) DashboardChartStats(param *domain.DashboardQueryParam) ([]dom
 		interval     string
 		timeTruncCol string
 	)
+	if param.EndDate == "" {
+		param.EndDate = param.StartDate
+	}
 
 	switch param.Type {
 	case "HALF_HOURLY":
