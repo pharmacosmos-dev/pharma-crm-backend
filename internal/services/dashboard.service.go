@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
@@ -152,9 +153,18 @@ func (s *Services) DashboardChartStats(param *domain.DashboardQueryParam) ([]dom
 		interval = "1 hour"
 		timeTruncCol = "DATE_TRUNC('hour', s.completed_at)"
 	}
+	// WEEKLY tanlangan bo‘lsa startDate ni truncate qilamiz
+	layout := "2006-01-02 15:04:05"
+	startTimeStr := param.StartDate + " 00:00:00"
+	startTimeParsed, _ := time.Parse(layout, startTimeStr)
 
-	// vaqt oraliqlarini belgilang
-	startTime := param.StartDate + " 00:00:00"
+	if param.Type == "WEEKLY" {
+		// haftaning boshiga truncate qilish (Dushanba)
+		offset := (int(startTimeParsed.Weekday()) + 6) % 7 // Monday = 0
+		startTimeParsed = startTimeParsed.AddDate(0, 0, -offset)
+	}
+
+	startTime := startTimeParsed.Format(layout)
 	endTime := param.EndDate + " 23:59:59"
 
 	args := []any{startTime, endTime, interval}
