@@ -1,5 +1,7 @@
 package domain
 
+import "time"
+
 // Count and Amount stats structure
 type DashboardCountStats struct {
 	TotalSaleCount           int64   `gorm:"total_sale_count" json:"total_sale_count"`
@@ -22,10 +24,10 @@ type DashboardCountStats struct {
 
 // ChartResponse structure
 type ChartResponse struct {
-	ID          string  `gorm:"id" json:"id"`
-	Count       int64   `gorm:"count" json:"count"`
-	TotalAmount float64 `gorm:"total_amount" json:"total_amount"`
-	CreatedAt   string  `gorm:"created_at" json:"created_at"`
+	ID          string     `gorm:"id" json:"id"`
+	Count       int64      `gorm:"count" json:"count"`
+	TotalAmount float64    `gorm:"total_amount" json:"total_amount"`
+	CreatedAt   *time.Time `gorm:"created_at" json:"created_at"`
 }
 
 // Top Stores structure

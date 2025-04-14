@@ -118,75 +118,81 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 // get dashboard chart stats data list
 func (s *Services) DashboardChartStats(param *domain.DashboardQueryParam) ([]domain.ChartResponse, error) {
 	var res []domain.ChartResponse
-
-	// queries
+	// vaqt formatlarini aniqlash
 	var (
-		args  []any
-		query = `
-		SELECT COUNT(*) as count, SUM(total_amount) as total_amount, 
-		%s AS created_at, %s AS id
-		FROM sales`
-		filter     = " WHERE status = 'completed'"
-		group      string
-		timeColumn string
+		interval     string
+		timeTruncCol string
 	)
 
-	// intervalType ga qarab vaqtni formatlash
 	switch param.Type {
 	case "HALF_HOURLY":
-		timeColumn = `
-		DATE_TRUNC('hour', completed_at) + 
-		INTERVAL '30 minutes' * FLOOR(EXTRACT(minute FROM completed_at) / 30)`
-		group = " GROUP BY DATE_TRUNC('hour', completed_at), FLOOR(EXTRACT(minute FROM completed_at) / 30)"
+		interval = "30 minutes"
+		timeTruncCol = `
+		DATE_TRUNC('hour', s.completed_at) + 
+		INTERVAL '30 minutes' * FLOOR(EXTRACT(minute FROM s.completed_at) / 30)`
 	case "HOURLY":
-		timeColumn = "DATE_TRUNC('hour', completed_at)" // Soatlik
-		group = " GROUP BY DATE_TRUNC('hour', completed_at)"
+		interval = "1 hour"
+		timeTruncCol = "DATE_TRUNC('hour', s.completed_at)"
 	case "DAILY":
-		timeColumn = "completed_at::date" // Kunlik
-		group = " GROUP BY completed_at::date"
+		interval = "1 day"
+		timeTruncCol = "s.completed_at::date"
 	case "WEEKLY":
-		timeColumn = "DATE_TRUNC('week', completed_at)" // Haftalik
-		group = " GROUP BY DATE_TRUNC('week', completed_at)"
+		interval = "1 week"
+		timeTruncCol = "DATE_TRUNC('week', s.completed_at)"
 	case "MONTHLY":
-		timeColumn = "DATE_TRUNC('month', completed_at)" // Oylik
-		group = " GROUP BY DATE_TRUNC('month', completed_at)"
+		interval = "1 month"
+		timeTruncCol = "DATE_TRUNC('month', s.completed_at)"
 	case "YEARLY":
-		timeColumn = "DATE_TRUNC('year', completed_at)" // Yillik
-		group = " GROUP BY DATE_TRUNC('year', completed_at)"
+		interval = "1 year"
+		timeTruncCol = "DATE_TRUNC('year', s.completed_at)"
 	default:
-		timeColumn = "DATE_TRUNC('hour', completed_at)" // Default Soatlik
-		group = " GROUP BY DATE_TRUNC('hour', completed_at)"
+		interval = "1 hour"
+		timeTruncCol = "DATE_TRUNC('hour', s.completed_at)"
 	}
 
-	// filter by store_id and employee_id if store_id is not empty
-	if param.StoreId != "" {
-		filter += " AND store_id IN (?)"
-		args = append(args, param.StoreId)
-	}
-	// check store_ids
+	// vaqt oraliqlarini belgilang
+	startTime := param.StartDate + " 00:00:00"
+	endTime := param.EndDate + " 23:59:59"
+
+	args := []any{startTime, endTime, interval}
+
+	// qo‘shimcha filterlar
+	filter := ""
 	if len(param.StoreIds) > 0 {
-		filter += " AND store_id IN (?)"
+		filter += " AND s.store_id IN (?)"
 		args = append(args, param.StoreIds)
 	}
-	// filter by only start_date if end_date is empty
-	if param.StartDate != "" && param.EndDate == "" {
-		filter += " AND completed_at::date = ?"
-		args = append(args, param.StartDate)
-	}
-	// filter by start_date and end_date if both are not empty
-	if param.StartDate != "" && param.EndDate != "" {
-		filter += " AND completed_at::date >= ? AND completed_at::date <= ?"
-		args = append(args, param.StartDate, param.EndDate)
-	}
 
-	// final query
-	var q = fmt.Sprintf(query, timeColumn, timeColumn) + filter + group
-	err := s.db.Raw(q, args...).Scan(&res).Error
+	// yakuniy query
+	query := fmt.Sprintf(`
+	WITH time_series AS (
+		SELECT generate_series(
+			?::timestamp,
+			?::timestamp,
+			?::interval
+		) AS period
+	)
+	SELECT 
+		ts.period AS id,
+		ts.period AS created_at,
+		COUNT(s.id) AS count,
+		COALESCE(SUM(s.total_amount), 0) AS total_amount
+	FROM time_series ts
+	LEFT JOIN sales s ON 
+		%s = ts.period
+		AND s.status = 'completed' 
+		AND s.sale_type = 'SALE'
+	%s
+	GROUP BY ts.period
+	ORDER BY ts.period;
+	`, timeTruncCol, filter)
+
+	// bajarish
+	err := s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
-		s.log.Error(err)
-		return nil, err
+		s.log.Warn("ERROR on getting chart info: %v", err)
+		return res, err
 	}
-
 	return res, nil
 }
 
@@ -437,7 +443,7 @@ func (s *Services) DashboardTransaction(param *domain.DashboardQueryParam) ([]do
 	SELECT
 		'Товары' AS name,
 		SUM(sub.total_amount) as amount,
-		SUM(sub.quantity) || ',' || SUM(sub.unit_quantity) as count
+		COALESCE(SUM(sub.quantity) || ',' || SUM(sub.unit_quantity), '0') as count
 	FROM (
 		SELECT s.total_amount, SUM(ci.quantity) as quantity, SUM(ci.unit_quantity) as unit_quantity
 		FROM sales s
@@ -459,7 +465,7 @@ func (s *Services) DashboardTransaction(param *domain.DashboardQueryParam) ([]do
 	SELECT
 		'Возвраты' AS name,
 		SUM(sub.total_amount) as amount,
-		SUM(sub.quantity) || ',' || SUM(sub.unit_quantity) as count
+		COALESCE(SUM(sub.quantity) || ',' || SUM(sub.unit_quantity), '0') as count
 	FROM (
 		SELECT s.total_amount, SUM(ci.quantity) as quantity, SUM(ci.unit_quantity) as unit_quantity
 		FROM sales s
