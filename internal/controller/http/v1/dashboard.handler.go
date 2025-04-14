@@ -2,8 +2,8 @@ package v1
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/helper"
 	"gorm.io/gorm"
 )
 
@@ -88,8 +88,8 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 		return
 	}
 	// check if employee is not admin or superadmin
-	if employee.RoleType != config.ADMIN && employee.RoleType != config.SUPERADMIN {
-		param.StoreId = employee.StoreId
+	if !helper.IsAdmin(employee, h.cfg) {
+		param.StoreIds = []string{employee.StoreId}
 	}
 	// get dashboard data
 	res, err := h.service.DashboardTotalCountStats(&param)
@@ -155,8 +155,8 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 	}
 
 	// check if employee is not admin or superadmin
-	if employee.RoleType != config.ADMIN && employee.RoleType != config.SUPERADMIN {
-		param.StoreId = employee.StoreId
+	if !helper.IsAdmin(employee, h.cfg) {
+		param.StoreIds = []string{employee.StoreId}
 	}
 	// get dashboard data
 	res, err := h.service.DashboardChartStats(&param)
@@ -209,8 +209,8 @@ func (h *DashboardHandler) TopStores(c *gin.Context) {
 		return
 	}
 	// check if employee is not admin or superadmin
-	if employee.RoleType != config.ADMIN && employee.RoleType != config.SUPERADMIN {
-		param.StoreId = employee.StoreId
+	if !helper.IsAdmin(employee, h.cfg) {
+		param.StoreIds = []string{employee.StoreId}
 	}
 	// get dashboard data
 	res, err := h.service.DashboardTopStores(&param)
@@ -271,8 +271,8 @@ func (h *DashboardHandler) TopProducts(c *gin.Context) {
 		return
 	}
 	// check if employee is not admin or superadmin
-	if employee.RoleType != config.ADMIN && employee.RoleType != config.SUPERADMIN {
-		param.StoreId = employee.StoreId
+	if !helper.IsAdmin(employee, h.cfg) {
+		param.StoreIds = []string{employee.StoreId}
 	}
 	// get dashboard data
 	res, err := h.service.DashboardTopProducts(&param)
@@ -333,9 +333,10 @@ func (h *DashboardHandler) BonusProducts(c *gin.Context) {
 		handleResponse(c, InternalError, "Can't get employee info")
 		return
 	}
+
 	// check if employee is not admin or superadmin
-	if employee.RoleType != config.ADMIN && employee.RoleType != config.SUPERADMIN {
-		param.StoreId = employee.StoreId
+	if !helper.IsAdmin(employee, h.cfg) {
+		param.StoreIds = []string{employee.StoreId}
 	}
 	// get dashboard data
 	res, err := h.service.DashboardBonusProducts(&param)
@@ -396,8 +397,8 @@ func (h *DashboardHandler) TopSeller(c *gin.Context) {
 		return
 	}
 	// check if employee is not admin or superadmin
-	if employee.RoleType != config.ADMIN && employee.RoleType != config.SUPERADMIN {
-		param.StoreId = employee.StoreId
+	if !helper.IsAdmin(employee, h.cfg) {
+		param.StoreIds = []string{employee.StoreId}
 	}
 	// get dashboard data
 	res, err := h.service.DashboardTopSeller(&param)
