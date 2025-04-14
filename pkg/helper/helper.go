@@ -33,7 +33,7 @@ func SalePaymentAmount(salePayments []*domain.SalePayment, payType string) float
 // check user role is admin or superadmin
 func IsAdmin(employee domain.Employee, cfg *config.Config) bool {
 	role := employee.RoleType
-	if role != config.ADMIN && role != config.SUPERADMIN && role != config.FOUNDER && role != config.ACCOUNTANT && role != config.AUTOZAKAZ {
+	if role != config.ADMIN && role != config.SUPERADMIN && role != config.FOUNDER && role != config.ACCOUNTANT && role != config.AUTOZAKAZ && role != config.DIRECTOR {
 		return false
 	}
 	return true
