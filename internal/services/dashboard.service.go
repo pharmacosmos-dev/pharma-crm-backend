@@ -286,9 +286,11 @@ func (s *Services) DashboardTopProducts(param *domain.DashboardQueryParam) ([]do
 // get dashboard bonus products
 func (s *Services) DashboardBonusProducts(param *domain.DashboardQueryParam) ([]domain.BonusProducts, error) {
 	// declaration
-	var (
-		res []domain.BonusProducts
-	)
+	var res []domain.BonusProducts
+	// checking end date for empty
+	if param.EndDate == "" {
+		param.EndDate = param.StartDate
+	}
 	// query
 	var (
 		args  []any
@@ -297,37 +299,25 @@ func (s *Services) DashboardBonusProducts(param *domain.DashboardQueryParam) ([]
 			p.id,
 			p.name,
 			CAST(SUM(ci.quantity) AS TEXT) || ',' || CAST(SUM(ci.unit_quantity) AS TEXT) AS count,
-			COALESCE(SUM(pb.bonus_amount), 0) AS bonus_amount
+			SUM(pb.bonus_amount * ci.quantity) + SUM(CASE WHEN p.unit_per_pack > 0 THEN (pb.bonus_amount/p.unit_per_pack)*ci.unit_quantity ELSE 0 END) AS bonus_amount
 		FROM cart_items ci
+		JOIN sales s ON ci.sale_id = s.id
 		JOIN store_products sp ON ci.store_product_id = sp.id
 		JOIN products p ON sp.product_id = p.id
 		JOIN product_bonuses pb ON sp.product_id = pb.product_id`
-		filter = " WHERE ci.status = 'sold'"
+		filter = " WHERE s.status = 'completed'"
 		group  = " GROUP BY p.id, p.name"
 		order  = " ORDER BY bonus_amount DESC"
 	)
-	if param.StoreId != "" {
-		filter += " AND sp.store_id = ?"
-		args = append(args, param.StoreId)
-	}
-	// check store_ids
-	if len(param.StoreIds) > 0 {
-		filter += " AND sp.store_id IN (?)"
-		args = append(args, param.StoreIds)
-	}
 
 	// check store_ids
 	if len(param.StoreIds) > 0 {
-		filter += " AND sp.store_id IN (?)"
+		filter += " AND s.store_id IN (?)"
 		args = append(args, param.StoreIds)
 	}
 
-	if param.StartDate != "" && param.EndDate == "" {
-		filter += " AND ci.updated_at::date = ?"
-		args = append(args, param.StartDate)
-	}
 	if param.StartDate != "" && param.EndDate != "" {
-		filter += " AND ci.updated_at::date >= ? AND ci.updated_at::date <= ?"
+		filter += " AND s.completed_at::date BETWEEN ? AND ?"
 		args = append(args, param.StartDate, param.EndDate)
 	}
 	args = append(args, param.Limit, param.Offset)
