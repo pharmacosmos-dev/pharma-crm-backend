@@ -462,7 +462,7 @@ func (s *Services) PaymeGoDoRequest(ctx context.Context, data any, paymentServe 
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode request data: %v", err)
 	}
-
+	fmt.Println("PAYME ENDPOINT URL: ")
 	req, err := http.NewRequestWithContext(ctx, "POST", s.cfg.Payment.PaymeGoEndpointUrl, &buf)
 	if err != nil {
 		return nil, err
