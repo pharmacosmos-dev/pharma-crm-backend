@@ -62,16 +62,6 @@ func (s *Services) ListStoreProduct(param *domain.StoreProductQueryParam) ([]*do
 		return nil, err
 	}
 
-	// agar search markirovka bo'lsa va result bo‘lsa — tekshiramiz
-	if utils.DefineProductSearchQuery(param.Search) == "marking" && len(res) > 0 {
-		// markingni querydan topilgan variant bilan solishtiramiz
-		// marking bu yerda param.Search, barcode esa res[0].Barcode bo'ladi
-		isValid := utils.CheckBarcodeWithMarking(res[0].Barcode, param.Search) // <- bu sizning tayyor tekshiruvchi funksiyangiz
-		if !isValid {
-			return nil, errors.New("marking and barcode mismatch") // yoki custom xatolik
-		}
-	}
-
 	// format quantity
 	for i := range res {
 		if res[i].UnitPerPack > 0 && res[i].UnitQuantity != res[i].PackQuantity*res[i].UnitPerPack {
@@ -160,7 +150,7 @@ func (s *Services) GetStoreProductByBarcode(ctx context.Context, barcode string)
 func (s *Services) GetStoreProductByIdOrBarcode(id string, barcode string, storeId string) (*domain.StoreProduct, error) {
 	query := s.db.
 		Table("store_products sp").
-		Select(`sp.*, pb.bonus_amount AS bonus_amount, p.unit_per_pack`).
+		Select(`sp.*, pb.bonus_amount AS bonus_amount, p.unit_per_pack, p.barcode`).
 		Joins("JOIN products p ON sp.product_id = p.id").
 		Joins("LEFT JOIN product_bonuses pb ON pb.product_id = p.id").
 		Where("sp.store_id = ?", storeId)
@@ -178,6 +168,15 @@ func (s *Services) GetStoreProductByIdOrBarcode(id string, barcode string, store
 		}
 	} else {
 		return nil, errors.New("id or barcode is required")
+	}
+
+	if storeProduct.Id != "" {
+		if utils.DefineProductSearchQuery(barcode) == "marking" {
+			isValid := utils.CheckBarcodeWithMarking(storeProduct.Barcode, barcode) // <- bu sizning tayyor tekshiruvchi funksiyangiz
+			if !isValid {
+				return nil, errors.New("marking and barcode mismatch") // yoki custom xatolik
+			}
+		}
 	}
 
 	err := query.First(&storeProduct).Error

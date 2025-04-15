@@ -77,6 +77,9 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			handleResponse(c, NotFound, "Product not found")
 			return
+		} else if err.Error() == "marking and barcode mismatch" {
+			handleResponse(c, BadRequest, "Marking and barcode mismatch")
+			return
 		}
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())

@@ -23,6 +23,7 @@ type StoreProduct struct {
 	ExpireDate          *time.Time `gorm:"expire_date" json:"expire_date"`
 	CreatedAt           *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt           *time.Time `gorm:"updated_at" json:"updated_at"`
+	Barcode             string     `gorm:"barcode" json:"barcode"`
 	Product             *Product   `gorm:"foreignKey:ProductID" json:"product"`
 	Store               *Store     `gorm:"foreignKey:StoreID" json:"store"`
 }
