@@ -1132,6 +1132,19 @@ definitions:
       product_id:
         type: string
     type: object
+  domain.WriteOffRequest:
+    properties:
+      comment:
+        type: string
+      created_by:
+        type: string
+      name:
+        type: string
+      status:
+        type: string
+      store_id:
+        type: string
+    type: object
   v1.Response:
     properties:
       code:
@@ -9454,6 +9467,261 @@ paths:
       summary: Upload a file
       tags:
       - file upload
+  /write-off:
+    post:
+      consumes:
+      - application/json
+      description: Create write-off
+      parameters:
+      - description: WriteOff
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.WriteOffRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create write-off
+      tags:
+      - Write-Off
+  /write-off-detail/list:
+    get:
+      consumes:
+      - application/json
+      description: Get Write-Off detail list
+      parameters:
+      - description: LIMIT
+        in: query
+        name: limit
+        type: integer
+      - description: OFFSET
+        in: query
+        name: offset
+        type: integer
+      - description: WriteOff ID
+        in: query
+        name: writeoff_id
+        required: true
+        type: string
+      - description: SEARCH KEY
+        in: query
+        name: search
+        type: string
+      - description: TYPE
+        in: query
+        name: type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Write-Off detail list
+      tags:
+      - Write-Off
+  /write-off/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get Write-Off
+      parameters:
+      - description: Write-Off ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Write-Off
+      tags:
+      - Write-Off
+  /write-off/{id}/add-product-by-barcode:
+    patch:
+      consumes:
+      - application/json
+      description: Add product by barcode
+      parameters:
+      - description: WriteOff ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Add product by barcode
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.InventoryAddProduct'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Add product by barcode
+      tags:
+      - Write-Off
+  /write-off/cancel/{id}:
+    post:
+      consumes:
+      - application/json
+      description: Cancel Write-Off
+      parameters:
+      - description: Write-Off ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Cancel Write-Off
+      tags:
+      - Write-Off
+  /write-off/confirm/{id}:
+    post:
+      consumes:
+      - application/json
+      description: Confirm Write-Off
+      parameters:
+      - description: Write-Off ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Confirm Write-Off
+      tags:
+      - Write-Off
+  /write-off/list:
+    get:
+      consumes:
+      - application/json
+      description: Get inventory list
+      parameters:
+      - description: LIMIT
+        in: query
+        name: limit
+        type: integer
+      - description: OFFSET
+        in: query
+        name: offset
+        type: integer
+      - description: STORE ID
+        in: query
+        name: store_id
+        type: string
+      - description: SEARCH KEY
+        in: query
+        name: search
+        type: string
+      - description: STATUS (0->new|1->pending|2->completed)
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get inventory list
+      tags:
+      - Write-Off
 securityDefinitions:
   BasicAuth:
     type: basic

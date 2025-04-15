@@ -11,7 +11,6 @@ import (
 
 // Create inventory creates a new inventory
 func (s *Services) CreateInventory(req *domain.InventoryRequest) error {
-	req.PublicId = utils.GenerateCode()
 	var id string
 	// start transaction
 	tx := s.db.Begin()

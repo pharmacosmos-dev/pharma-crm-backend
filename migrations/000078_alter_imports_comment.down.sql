@@ -1,0 +1,1 @@
+ALTER TABLE imports DROP COLUMN IF EXISTS "comment";
