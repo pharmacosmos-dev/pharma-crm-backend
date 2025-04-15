@@ -170,6 +170,11 @@ func (s *Services) GetStoreProductByIdOrBarcode(id string, barcode string, store
 		return nil, errors.New("id or barcode is required")
 	}
 
+	err := query.First(&storeProduct).Error
+	if err != nil {
+		return nil, err
+	}
+
 	if storeProduct.Id != "" {
 		if utils.DefineProductSearchQuery(barcode) == "marking" {
 			isValid := utils.CheckBarcodeWithMarking(storeProduct.Barcode, barcode) // <- bu sizning tayyor tekshiruvchi funksiyangiz
@@ -177,11 +182,6 @@ func (s *Services) GetStoreProductByIdOrBarcode(id string, barcode string, store
 				return nil, errors.New("marking and barcode mismatch") // yoki custom xatolik
 			}
 		}
-	}
-
-	err := query.First(&storeProduct).Error
-	if err != nil {
-		return nil, err
 	}
 
 	return &storeProduct, nil
