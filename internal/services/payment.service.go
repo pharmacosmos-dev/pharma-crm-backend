@@ -12,10 +12,11 @@ import (
 	"time"
 
 	"github.com/pharma-crm-backend/domain"
+	"gorm.io/gorm"
 )
 
 // ClickPass implements PaymentService
-func (h *Services) ClickPass(ctx context.Context, click *domain.PaymentService, data *domain.FinalPaymentType, cashboxID string, transactionID string, saleID string) (map[string]any, error) {
+func (h *Services) ClickPass(ctx context.Context, tx *gorm.DB, click *domain.PaymentService, data *domain.FinalPaymentType, cashboxID string, transactionID string, saleID string) (map[string]any, error) {
 	// Click Pass request body
 	clickData := domain.ClickPassRequest{
 		ServiceID:     click.ServiceID,
@@ -51,6 +52,7 @@ func (h *Services) ClickPass(ctx context.Context, click *domain.PaymentService, 
 	err = h.SaveResponse(ctx, &domain.PaymentRequest{
 		TransactionID: transactionID,
 		Response:      t,
+		Method:        "click_pass",
 	})
 	if err != nil {
 		return nil, err
@@ -127,7 +129,7 @@ func (h *Services) ClickPassDoRequest(ctx context.Context, url string, data any,
 }
 
 // Uzum fast pay handler function
-func (h *Services) UzumFastPay(ctx context.Context, paymentService *domain.PaymentService, data *domain.FinalPaymentType, CashOperationID string, transactionID string, saleID string) (map[string]any, error) {
+func (h *Services) UzumFastPay(ctx context.Context, tx *gorm.DB, paymentService *domain.PaymentService, data *domain.FinalPaymentType, CashOperationID string, transactionID string, saleID string) (map[string]any, error) {
 	var cashBoxId string
 	err := h.db.Raw(`SELECT cash_box_id FROM cashbox_operations WHERE id = ?`, CashOperationID).Scan(&cashBoxId).Error
 	if err != nil {
@@ -170,6 +172,7 @@ func (h *Services) UzumFastPay(ctx context.Context, paymentService *domain.Payme
 	err = h.SaveResponse(ctx, &domain.PaymentRequest{
 		TransactionID: transactionID,
 		Response:      t,
+		Method:        "uzum_fast_pay",
 	})
 	if err != nil {
 		return nil, err
@@ -226,7 +229,7 @@ func (h *Services) UzumFastPayDoRequest(ctx context.Context, url string, data an
 	}
 
 	// Decode response body
-	var result map[string]interface{}
+	var result map[string]any
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %v", err)
@@ -240,14 +243,14 @@ func (h *Services) UzumFastPayDoRequest(ctx context.Context, url string, data an
 }
 
 // Payme Go Handler functon
-func (s *Services) PaymeGo(ctx context.Context, paymentService *domain.PaymentService, data *domain.FinalPaymentType, CashOperationID string, transactionID string, saleID string) (map[string]any, error) {
+func (s *Services) PaymeGo(ctx context.Context, tx *gorm.DB, paymentService *domain.PaymentService, data *domain.FinalPaymentType, CashOperationID string, transactionID string, saleID string) (map[string]any, error) {
 	// method receipt create
 	res, err := s.PaymeGoReceiptCreate(ctx, paymentService, data, transactionID, saleID)
 	if err != nil {
 		return nil, err
 	}
 	// set receipt id to sale_payments
-	err = s.SetReceiptId(ctx, res.Result.Receipt.ID, transactionID)
+	err = s.SetReceiptId(tx, res.Result.Receipt.ID, transactionID)
 	if err != nil {
 		return nil, err
 	}
@@ -313,6 +316,7 @@ func (s *Services) PaymeGoReceiptCreate(ctx context.Context, paymentService *dom
 	err = s.SaveResponse(ctx, &domain.PaymentRequest{
 		TransactionID: transactionID,
 		Response:      r,
+		Method:        "receipts.create",
 	})
 	if err != nil {
 		s.log.Info("Error on saving payme go response: %v", err.Error())
@@ -353,10 +357,12 @@ func (s *Services) PaymeGoReceiptPay(ctx context.Context, paymentService *domain
 	}
 	// response to json
 	r, _ := json.Marshal(res)
+	fmt.Println("PAY RESPONSE: ", string(r))
 	// save response
 	err = s.SaveResponse(ctx, &domain.PaymentRequest{
 		TransactionID: transactionID,
 		Response:      r,
+		Method:        "receipts.pay",
 	})
 	if err != nil {
 		s.log.Info("Error on saving payme go response: %v", err.Error())
@@ -396,10 +402,12 @@ func (s *Services) PaymeGoReceiptCancel(ctx context.Context, paymentService *dom
 	}
 	// response to json
 	r, _ := json.Marshal(res)
+	fmt.Println("CANCEL RESPONSE: ", string(r))
 	// save response
 	err = s.SaveResponse(ctx, &domain.PaymentRequest{
 		TransactionID: transactionID,
 		Response:      r,
+		Method:        "receipts.cancel",
 	})
 	if err != nil {
 		s.log.Info("Error on saving payme go response: %v", err.Error())
@@ -440,10 +448,12 @@ func (s *Services) PaymeGoSetFiscalData(ctx context.Context, paymentService *dom
 	}
 	// response to json
 	r, _ := json.Marshal(res)
+	fmt.Println("FISCAL RESPONSE: ", string(r))
 	// save response
 	err = s.SaveResponse(ctx, &domain.PaymentRequest{
 		TransactionID: transactionID,
 		Response:      r,
+		Method:        "receipts.set_fiscal_data",
 	})
 	if err != nil {
 		s.log.Info("Error on saving payme go response: %v", err.Error())
@@ -462,7 +472,6 @@ func (s *Services) PaymeGoDoRequest(ctx context.Context, data any, paymentServe 
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode request data: %v", err)
 	}
-	fmt.Println("PAYME ENDPOINT URL: ")
 	req, err := http.NewRequestWithContext(ctx, "POST", s.cfg.Payment.PaymeGoEndpointUrl, &buf)
 	if err != nil {
 		return nil, err
@@ -477,23 +486,23 @@ func (s *Services) PaymeGoDoRequest(ctx context.Context, data any, paymentServe 
 	}
 	defer resp.Body.Close()
 	var res domain.PaymeGoResponse
-	payload, err := io.ReadAll(resp.Body)
-	if err != nil {
-		s.log.Warn("ERROR on reading all: %v", err)
-		return nil, err
-	}
-	fmt.Println("PAYME RESPONSE: ", string(payload))
-	// read response body
-	err = json.Unmarshal(payload, &res)
-	if err != nil {
-		s.log.Warn("ERROR on unmarshaling: %v", err)
-		return nil, err
-	}
-	// err = json.NewDecoder(resp.Body).Decode(&res)
+	// payload, err := io.ReadAll(resp.Body)
 	// if err != nil {
-	// 	s.log.Warn("ERROR on decoding response: %v", err)
+	// 	s.log.Warn("ERROR on reading all: %v", err)
 	// 	return nil, err
 	// }
+	// fmt.Println("PAYME RESPONSE: ", string(payload))
+	// // read response body
+	// err = json.Unmarshal(payload, &res)
+	// if err != nil {
+	// 	s.log.Warn("ERROR on unmarshaling: %v", err)
+	// 	return nil, err
+	// }
+	err = json.NewDecoder(resp.Body).Decode(&res)
+	if err != nil {
+		s.log.Warn("ERROR on decoding response: %v", err)
+		return nil, err
+	}
 	return &res, nil
 }
 
@@ -510,7 +519,7 @@ func (h *Services) SaveRequest(ctx context.Context, req *domain.PaymentRequest) 
 			req.RequestId, req.Method, req.Payload, req.TransactionID, req.PaymentProvider,
 		).Error
 	if err != nil {
-		h.log.Error("ERROR on saving payment request: %w", err)
+		h.log.Warn("ERROR on saving payment request: %v", err)
 		return err
 	}
 	return nil
@@ -518,23 +527,24 @@ func (h *Services) SaveRequest(ctx context.Context, req *domain.PaymentRequest) 
 
 // Save payment response to database
 func (h *Services) SaveResponse(ctx context.Context, req *domain.PaymentRequest) error {
-	err := h.db.WithContext(ctx).Exec(
-		`UPDATE payment_requests SET response = ? WHERE transaction_id = ?`,
-		req.Response, req.TransactionID,
+	err := h.db.Exec(
+		`UPDATE payment_requests SET response = ? WHERE transaction_id = ? AND method = ?`,
+		req.Response, req.TransactionID, req.Method,
 	).Error
 	if err != nil {
-		h.log.Error("ERROR on saving payment response: %w", err)
+		h.log.Warn("ERROR on saving payment response: %v", err)
 		return err
 	}
 	return nil
 }
 
 // save receipt id to sale_payments
-func (h *Services) SetReceiptId(ctx context.Context, receiptId, salePayId string) error {
+func (h *Services) SetReceiptId(tx *gorm.DB, receiptId, salePayId string) error {
 	query := `UPDATE sale_payments SET receipt_id = ? WHERE id = ?`
-	err := h.db.Exec(query, receiptId, salePayId).Error
+	err := tx.Exec(query, receiptId, salePayId).Error
 	if err != nil {
 		h.log.Warn("ERROR on setting receipt_id: %v", err)
+		tx.Rollback()
 		return err
 	}
 	return nil

@@ -767,13 +767,15 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 				FiscalSign: eposfiscalInfo.FiscalSign,
 				QrCodeUrl:  eposfiscalInfo.QrCodeURL,
 			}
-			// set fiscal data payment if paid with payme
-			_, err = h.service.PaymeGoSetFiscalData(c.Request.Context(), paymentService, &fiscalData, salePay.ID, salePay.ReceiptId)
-			if err != nil {
-				h.log.Warn("ERROR on setting payme fiscal: %v", err)
-				tx.Rollback()
-				handleResponse(c, InternalError, err.Error())
-				return
+			if salePay.ID != "" {
+				// set fiscal data payment if paid with payme
+				_, err = h.service.PaymeGoSetFiscalData(c.Request.Context(), paymentService, &fiscalData, salePay.ID, salePay.ReceiptId)
+				if err != nil {
+					h.log.Warn("ERROR on setting payme fiscal: %v", err)
+					tx.Rollback()
+					handleResponse(c, InternalError, err.Error())
+					return
+				}
 			}
 		}
 
@@ -936,7 +938,7 @@ func processPaymentType(tx *gorm.DB, h *SaleHandler, body domain.FinalSale, item
 		if err != nil {
 			return errors.New("failed to get payment service")
 		}
-		paymentHandlers := map[string]func(ctx context.Context, service *domain.PaymentService, data *domain.FinalPaymentType, cashOpID string, transactionID string, saleID string) (map[string]interface{}, error){
+		paymentHandlers := map[string]func(ctx context.Context, tx *gorm.DB, service *domain.PaymentService, data *domain.FinalPaymentType, cashOpID string, transactionID string, saleID string) (map[string]interface{}, error){
 			config.CLICK: h.service.ClickPass,
 			config.PAYME: h.service.PaymeGo,
 			config.UZUM:  h.service.UzumFastPay,
@@ -952,7 +954,7 @@ func processPaymentType(tx *gorm.DB, h *SaleHandler, body domain.FinalSale, item
 			return err
 		}
 
-		resp, err := handler(context.Background(), paymentService, &item, body.CashBoxOperationId, salePayment.ID, body.SaleID)
+		resp, err := handler(context.Background(), tx, paymentService, &item, body.CashBoxOperationId, salePayment.ID, body.SaleID)
 		if err != nil || cast.ToString(resp["error_code"]) != "0" {
 			return errors.New("failed payment with " + item.AppType)
 		}

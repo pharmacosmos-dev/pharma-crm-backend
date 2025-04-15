@@ -61,6 +61,17 @@ func (s *Services) ListStoreProduct(param *domain.StoreProductQueryParam) ([]*do
 		s.log.Warn("Error on listing store products for store %s with search '%s': %v", param.StoreID, param.Search, err.Error())
 		return nil, err
 	}
+
+	// agar search markirovka bo'lsa va result bo‘lsa — tekshiramiz
+	if utils.DefineProductSearchQuery(param.Search) == "marking" && len(res) > 0 {
+		// markingni querydan topilgan variant bilan solishtiramiz
+		// marking bu yerda param.Search, barcode esa res[0].Barcode bo'ladi
+		isValid := utils.CheckBarcodeWithMarking(res[0].Barcode, param.Search) // <- bu sizning tayyor tekshiruvchi funksiyangiz
+		if !isValid {
+			return nil, errors.New("marking and barcode mismatch") // yoki custom xatolik
+		}
+	}
+
 	// format quantity
 	for i := range res {
 		if res[i].UnitPerPack > 0 && res[i].UnitQuantity != res[i].PackQuantity*res[i].UnitPerPack {
@@ -69,7 +80,6 @@ func (s *Services) ListStoreProduct(param *domain.StoreProductQueryParam) ([]*do
 			res[i].Quantity = fmt.Sprintf("%d", res[i].PackQuantity)
 		}
 	}
-
 	return res, nil
 }
 

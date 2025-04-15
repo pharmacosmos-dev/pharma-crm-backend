@@ -28,7 +28,7 @@ func GenerateDocumentNumber() string {
 }
 
 func DefineProductSearchQuery(search string) string {
-	barcodeRegex := regexp.MustCompile(`^\d{5,20}$`)
+	barcodeRegex := regexp.MustCompile(`^\d{4,20}$`)
 	nameCategoryRegex := regexp.MustCompile(`^[a-zA-Zа-яА-ЯёЁ\s-]+$`)
 	markingRegex := regexp.MustCompile(`^.{31}$`)
 	switch {
@@ -127,4 +127,20 @@ func BeforeDates(startDateStr, endDateStr string) (string, string) {
 	beforeEnd := startDate.Add(-time.Hour * 24) // endDate oldingi kun
 
 	return beforeStart.Format("2006-01-02"), beforeEnd.Format("2006-01-02")
+}
+
+// ExtractNumbers - markirofkadan barcode ni ajratib oladi
+func ExtractNumbers(marking string) string {
+	re := regexp.MustCompile(`010(\d+)21`)
+	matches := re.FindStringSubmatch(marking)
+	if len(matches) > 1 {
+		return matches[1]
+	}
+	return ""
+}
+
+// CheckBarcodeWithMarking - barcode markirofkadan olingan barcode bilan mos kelishini tekshiradi
+func CheckBarcodeWithMarking(barcode, marking string) bool {
+	markingBarcode := ExtractNumbers(marking)
+	return markingBarcode == barcode
 }
