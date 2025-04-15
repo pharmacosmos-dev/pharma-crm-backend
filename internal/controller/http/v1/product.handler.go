@@ -786,7 +786,7 @@ func (h *ProductHandler) ListByStoreId(c *gin.Context) {
 	// get store products list
 	res, err = h.service.ListStoreProduct(&param)
 	if err != nil {
-		if err == errors.New("marking and barcode mismatch") {
+		if err.Error() == "marking and barcode mismatch" {
 			handleResponse(c, BadRequest, "Marking and barcode mismatch")
 			return
 		}
