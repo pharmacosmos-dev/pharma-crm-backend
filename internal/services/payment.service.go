@@ -486,23 +486,24 @@ func (s *Services) PaymeGoDoRequest(ctx context.Context, data any, paymentServe 
 	}
 	defer resp.Body.Close()
 	var res domain.PaymeGoResponse
-	// payload, err := io.ReadAll(resp.Body)
-	// if err != nil {
-	// 	s.log.Warn("ERROR on reading all: %v", err)
-	// 	return nil, err
-	// }
-	// fmt.Println("PAYME RESPONSE: ", string(payload))
-	// // read response body
-	// err = json.Unmarshal(payload, &res)
-	// if err != nil {
-	// 	s.log.Warn("ERROR on unmarshaling: %v", err)
-	// 	return nil, err
-	// }
-	err = json.NewDecoder(resp.Body).Decode(&res)
+
+	payload, err := io.ReadAll(resp.Body)
 	if err != nil {
-		s.log.Warn("ERROR on decoding response: %v", err)
+		s.log.Warn("ERROR on reading all: %v", err)
 		return nil, err
 	}
+	fmt.Println("PAYME RESPONSE: ", string(payload))
+	// read response body
+	err = json.Unmarshal(payload, &res)
+	if err != nil {
+		s.log.Warn("ERROR on unmarshaling: %v", err)
+		return nil, err
+	}
+	// err = json.NewDecoder(resp.Body).Decode(&res)
+	// if err != nil {
+	// 	s.log.Warn("ERROR on decoding response: %v", err)
+	// 	return nil, err
+	// }
 	return &res, nil
 }
 
