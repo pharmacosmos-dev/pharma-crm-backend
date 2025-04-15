@@ -78,7 +78,7 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 			handleResponse(c, NotFound, "Product not found")
 			return
 		} else if err.Error() == "marking and barcode mismatch" {
-			handleResponse(c, BadRequest, "Marking and barcode mismatch")
+			handleResponse(c, UnprocessableEntity, "Marking and barcode mismatch")
 			return
 		}
 		h.log.Error(err)
