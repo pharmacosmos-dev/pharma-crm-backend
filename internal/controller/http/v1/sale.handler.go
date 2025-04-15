@@ -494,7 +494,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 	// collect total transactions query
 	var q = squery + filter
 	// replace with :param with ?
-	err = h.db.Debug().Raw(q, args...).Scan(&res).Error
+	err = h.db.Raw(q, args...).Scan(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -503,7 +503,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 	// collect payment type sum query
 	var pq = pquery + filter + group
 	// replace with :param with ?
-	err = h.db.Debug().Raw(pq, args...).Scan(&res.PaymentTypeStats).Error
+	err = h.db.Raw(pq, args...).Scan(&res.PaymentTypeStats).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
