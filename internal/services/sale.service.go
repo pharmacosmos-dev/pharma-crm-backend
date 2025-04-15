@@ -14,7 +14,7 @@ import (
 // create new sale
 func (s *Services) CreateSale(tx *gorm.DB, req *domain.SaleRequest) (*domain.Sale, error) {
 	var res domain.Sale
-	err := tx.Debug().Raw(`INSERT INTO sales(id, employee_id, cash_box_operation_id, store_id, cashbox_id) VALUES(?, ?, ?, ?, ?) RETURNING *`,
+	err := tx.Raw(`INSERT INTO sales(id, employee_id, cash_box_operation_id, store_id, cashbox_id) VALUES(?, ?, ?, ?, ?) RETURNING *`,
 		req.ID, req.EmployeeID, req.CashBoxOperationId, req.StoreId, req.CashboxId).Scan(&res).Error
 	if err != nil {
 		s.log.Error(err)

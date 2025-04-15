@@ -440,7 +440,8 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 		// query for total transactions sum
 		squery = `
 		SELECT
-			COALESCE(SUM(s.total_amount), 0) AS total_transactions_sum
+			SUM(CASE WHEN s.sale_type = 'SALE' THEN s.total_amount ELSE 0 END) - SUM(CASE WHEN s.sale_type = 'RETURN' THEN s.total_amount ELSE 0 END) AS total_transactions_sum,
+        	SUM(CASE WHEN s.sale_type = 'RETURN' THEN s.total_amount ELSE 0 END) AS total_returnals_sum 
 		FROM sales s
 		JOIN stores st ON s.store_id = st.id
 		`
@@ -455,7 +456,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 		JOIN payment_types pt ON sp.payment_type_id = pt.id
 		JOIN sales s ON sp.sale_id = s.id
 		`
-		filter = `WHERE 1=1 AND s.status = 'completed' AND s.sale_type = 'SALE' `
+		filter = `WHERE s.status = 'completed' `
 		group  = ` GROUP BY pt.id, pt.name`
 	)
 
@@ -476,15 +477,13 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 		args = append(args, param.CashBoxID)
 		filter += " AND s.cashbox_id = ?"
 	}
+	if param.EndDate == "" {
+		param.EndDate = param.StartDate
+	}
 
 	if param.StartDate != "" && param.EndDate != "" {
 		args = append(args, param.StartDate, param.EndDate)
-		filter += " AND s.completed_at::date >= ? AND s.completed_at::date <= ?"
-	}
-
-	if param.StartDate != "" && param.EndDate == "" {
-		args = append(args, param.StartDate)
-		filter += " AND s.completed_at::date = ?"
+		filter += " AND s.completed_at::date BETWEEN ? AND ?"
 	}
 
 	if param.Search != "" {
@@ -494,7 +493,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 	// collect total transactions query
 	var q = squery + filter
 	// replace with :param with ?
-	err = h.db.Debug().Raw(q, args...).Scan(&res).Error
+	err = h.db.Raw(q, args...).Scan(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -503,13 +502,14 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 	// collect payment type sum query
 	var pq = pquery + filter + group
 	// replace with :param with ?
-	err = h.db.Debug().Raw(pq, args...).Scan(&res.PaymentTypeStats).Error
+	err = h.db.Raw(pq, args...).Scan(&res.PaymentTypeStats).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	if res.PaymentTypeStats == nil {
+
+	if res.PaymentTypeStats == nil || res.TotalTransactionsSum == 0 {
 		res.PaymentTypeStats = []domain.PaymentTypeStats{}
 	}
 	handleResponse(c, OK, res)
