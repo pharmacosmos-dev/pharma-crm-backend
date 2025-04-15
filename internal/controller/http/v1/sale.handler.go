@@ -451,7 +451,8 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 			pt.id,
 			pt.name,
 			pt.type,
-			SUM(sp.amount) AS sum
+			SUM(CASE WHEN s.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
+    		SUM(CASE WHEN s.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS sum
 		FROM sale_payments sp
 		JOIN payment_types pt ON sp.payment_type_id = pt.id
 		JOIN sales s ON sp.sale_id = s.id
@@ -493,7 +494,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 	// collect total transactions query
 	var q = squery + filter
 	// replace with :param with ?
-	err = h.db.Raw(q, args...).Scan(&res).Error
+	err = h.db.Debug().Raw(q, args...).Scan(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -502,7 +503,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 	// collect payment type sum query
 	var pq = pquery + filter + group
 	// replace with :param with ?
-	err = h.db.Raw(pq, args...).Scan(&res.PaymentTypeStats).Error
+	err = h.db.Debug().Raw(pq, args...).Scan(&res.PaymentTypeStats).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
