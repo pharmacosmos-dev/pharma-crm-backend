@@ -33,16 +33,18 @@ type WriteOffRequest struct {
 
 // WriteOffDetail structure
 type WriteOffDetail struct {
-	Id           string     `gorm:"id" json:"id"`
-	WriteoffId   string     `gorm:"writeoff_id" json:"writeoff_id"`
-	ProductId    string     `gorm:"product_id" json:"product_id"`
-	ScannedCount int        `gorm:"scanned_count" json:"scanned_count"`
-	Name         string     `gorm:"name" json:"name"`
-	MaterialCode int        `gorm:"material_code" json:"material_code"`
-	Barcode      string     `gorm:"barcode" json:"barcode"`
-	ShortName    string     `gorm:"short_name" json:"short_name"`
-	CreatedAt    *time.Time `gorm:"created_at" json:"created_at"`
-	UpdatedAt    *time.Time `gorm:"updated_at" json:"updated_at"`
+	Id             string     `gorm:"id" json:"id"`
+	WriteoffId     string     `gorm:"writeoff_id" json:"writeoff_id"`
+	ProductId      string     `gorm:"product_id" json:"product_id"`
+	ScannedCount   int        `gorm:"scanned_count" json:"scanned_count"`
+	Name           string     `gorm:"name" json:"name"`
+	MaterialCode   int        `gorm:"material_code" json:"material_code"`
+	Barcode        string     `gorm:"barcode" json:"barcode"`
+	ShortName      string     `gorm:"short_name" json:"short_name"`
+	SupplyPriceVat float64    `gorm:"supply_price_vat" json:"supply_price"`
+	RetailPriceVat float64    `gorm:"retail_price_vat" json:"retail_price"`
+	CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt      *time.Time `gorm:"updated_at" json:"updated_at"`
 }
 
 // writeoff query param  structure

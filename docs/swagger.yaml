@@ -9499,6 +9499,53 @@ paths:
       summary: Create write-off
       tags:
       - Write-Off
+  /write-off-detail/export-excel:
+    get:
+      consumes:
+      - application/json
+      description: Get Write-Off detail list
+      parameters:
+      - description: LIMIT
+        in: query
+        name: limit
+        type: integer
+      - description: OFFSET
+        in: query
+        name: offset
+        type: integer
+      - description: WriteOff ID
+        in: query
+        name: writeoff_id
+        required: true
+        type: string
+      - description: SEARCH KEY
+        in: query
+        name: search
+        type: string
+      - description: TYPE
+        in: query
+        name: type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Write-Off detail list
+      tags:
+      - Write-Off
   /write-off-detail/list:
     get:
       consumes:
@@ -9674,6 +9721,52 @@ paths:
       security:
       - BearerAuth: []
       summary: Confirm Write-Off
+      tags:
+      - Write-Off
+  /write-off/export-excel:
+    get:
+      consumes:
+      - application/json
+      description: Get inventory list
+      parameters:
+      - description: LIMIT
+        in: query
+        name: limit
+        type: integer
+      - description: OFFSET
+        in: query
+        name: offset
+        type: integer
+      - description: STORE ID
+        in: query
+        name: store_id
+        type: string
+      - description: SEARCH KEY
+        in: query
+        name: search
+        type: string
+      - description: STATUS (0->new|1->pending|2->completed)
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get inventory list
       tags:
       - Write-Off
   /write-off/list:
