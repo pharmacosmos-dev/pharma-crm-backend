@@ -81,8 +81,8 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 	FROM cart_items ci
 	JOIN store_products sp ON sp.id = ci.store_product_id
 	JOIN products p ON sp.product_id = p.id
-	WHERE sale_id = ?
-	`, saleID).Scan(&data).Error
+	WHERE ci.status = ? AND sale_id = ?
+	`, config.PENDING, saleID).Scan(&data).Error
 	if err != nil {
 		s.log.Warn("Error on listing cart items for sale %s: %v", saleID, err.Error())
 		return nil, err
