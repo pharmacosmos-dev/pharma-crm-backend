@@ -435,7 +435,7 @@ func (h *ProductHandler) ExportProductExcel(c *gin.Context) {
 	}
 
 	// give width to column
-	f.SetColWidth(sheetName, "A", "F", 20)
+	f.SetColWidth(sheetName, "A", "L", 20)
 
 	// Ma'lumotlarni qo'shish
 	for i, product := range products {
