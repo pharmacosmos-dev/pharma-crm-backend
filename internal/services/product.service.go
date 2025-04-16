@@ -160,17 +160,17 @@ func (s *Services) GetStoreProductByIdOrBarcode(id string, barcode string, store
 	} else if barcode != "" {
 		// define search key
 		switch utils.DefineProductSearchQuery(barcode) {
-		case "barcode":
-			query = query.Where("p.barcode = ?", barcode).Limit(1)
-		case "marking":
+		case "marking": // if received field that is barcode will be marking it checks with marking code
 			query = query.Joins("LEFT JOIN product_markings pm ON pm.product_id = p.id").
 				Where("pm.marking = ?", barcode).Limit(1)
+		default: // if received field not be marking it checks default with barcode
+			query = query.Where("p.barcode = ?", barcode).Limit(1)
 		}
 	} else {
 		return nil, errors.New("id or barcode is required")
 	}
 
-	err := query.First(&storeProduct).Error
+	err := query.Debug().First(&storeProduct).Error
 	if err != nil {
 		return nil, err
 	}
