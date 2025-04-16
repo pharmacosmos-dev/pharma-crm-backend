@@ -414,7 +414,7 @@ func (h *ProductHandler) ExportProductExcel(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"Наименование", "Категория", "НДС", "Цена наценка", "Цена продажи", "Цена НДС", "Количество", "Цена", "Производитель", "Код продукта", "Штрих-код"}
+	headers := []string{"Наименование", "Категория", "НДС", "Цена наценка", "Цена поставки", "Цена продажи", "Цена НДС", "Количество", "Цена", "Производитель", "Код продукта", "Штрих-код"}
 
 	headerStyle, err := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{
@@ -434,6 +434,9 @@ func (h *ProductHandler) ExportProductExcel(c *gin.Context) {
 		f.SetCellStyle(sheetName, col, col, headerStyle)
 	}
 
+	// give width to column
+	f.SetColWidth(sheetName, "A", "F", 20)
+
 	// Ma'lumotlarni qo'shish
 	for i, product := range products {
 		row := strconv.Itoa(i + 2)
@@ -441,13 +444,14 @@ func (h *ProductHandler) ExportProductExcel(c *gin.Context) {
 		f.SetCellValue(sheetName, "B"+row, product.CategoryName)
 		f.SetCellValue(sheetName, "C"+row, product.Vat)
 		f.SetCellValue(sheetName, "D"+row, product.MarkupPrice)
-		f.SetCellValue(sheetName, "E"+row, product.RetailPrice)
-		f.SetCellValue(sheetName, "F"+row, product.VatPrice)
-		f.SetCellValue(sheetName, "G"+row, product.Quantity)
-		f.SetCellValue(sheetName, "H"+row, product.Sum)
-		f.SetCellValue(sheetName, "I"+row, product.Manufacturer)
-		f.SetCellValue(sheetName, "J"+row, product.MaterialCode)
-		f.SetCellValue(sheetName, "K"+row, product.Barcode)
+		f.SetCellValue(sheetName, "E"+row, product.SupplyPrice)
+		f.SetCellValue(sheetName, "F"+row, product.RetailPrice)
+		f.SetCellValue(sheetName, "G"+row, product.VatPrice)
+		f.SetCellValue(sheetName, "H"+row, product.Quantity)
+		f.SetCellValue(sheetName, "I"+row, product.Sum)
+		f.SetCellValue(sheetName, "J"+row, product.Manufacturer)
+		f.SetCellValue(sheetName, "K"+row, product.MaterialCode)
+		f.SetCellValue(sheetName, "L"+row, product.Barcode)
 	}
 
 	// Faylni HTTP response orqali yuborish
