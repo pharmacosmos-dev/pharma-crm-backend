@@ -2,7 +2,6 @@ package v1
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -572,7 +571,7 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 		sale domain.Sale
 		err  error
 	)
-
+	// get user_id from the context
 	userId, ok := c.Get("user_id")
 	if !ok {
 		h.log.Error("user_id not found in context")
@@ -600,12 +599,6 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 
 	// Start transaction
 	tx := h.db.Begin()
-	if tx.Error != nil {
-		h.log.Error(tx.Error)
-		handleResponse(c, InternalError, "failed to start transaction")
-		return
-	}
-
 	// Transaction rollback if any error occurs
 	defer func() {
 		if r := recover(); r != nil {
@@ -632,37 +625,6 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 	storeID := sale.StoreId
 
 	if body.Error {
-		// get sale_payments by sale_id
-		salePay, err := h.service.GetSalePaymentsWithReceipt(body.SaleId)
-		if err != nil {
-			h.log.Info("Unpaid sale from Payme, sale_id: %v", body.SaleId)
-		} else {
-			// getting payment service
-			paymentService, err := h.service.GetPaymentServiceByStoreId(sale.StoreId, "payme")
-			if err != nil {
-				h.log.Warn("ERROR on getting payment_service: %v", err)
-				tx.Rollback()
-				handleResponse(c, InternalError, "failed to get payment service")
-				return
-			}
-			// cancel payment if paid with payme
-			_, err = h.service.PaymeGoReceiptCancel(c.Request.Context(), paymentService, salePay.ID, body.SaleId, salePay.ReceiptId)
-			if err != nil {
-				h.log.Warn("ERROR on receipt canceling: %v", err)
-				tx.Rollback()
-				handleResponse(c, InternalError, err.Error())
-				return
-			}
-		}
-
-		// Update sales status
-		err = tx.Exec(`UPDATE sales SET status = ? WHERE id = ?`, config.PENDING, body.SaleId).Error
-		if err != nil {
-			h.log.Error("ERROR on updating sale status: ", err)
-			handleResponse(c, InternalError, "Failed to update sale status")
-			tx.Rollback()
-			return
-		}
 		// delete sale_payments which depends on the sale
 		err = tx.Exec(`DELETE FROM sale_payments WHERE sale_id = ?`, body.SaleId).Error
 		if err != nil {
@@ -709,6 +671,14 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 			return
 		}
 
+		// update sale status to completed
+		err = h.service.UpdateSaleFieldValue(body.SaleId, "status", config.COMPLETED)
+		if err != nil {
+			h.log.Warn("Failed to update sale status: %v", err)
+			handleResponse(c, InternalError, "Failed to update sale status")
+			tx.Rollback()
+			return
+		}
 		// update sale payment status
 		err = h.service.UpdateSalePaymentBySaleId(tx, body.SaleId)
 		if err != nil {
@@ -733,51 +703,6 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 			handleResponse(c, InternalError, "ERROR on creating new sale: "+err.Error())
 			tx.Rollback()
 			return
-		}
-
-		// // parse to struct fiscal data
-		var eposfiscalInfo domain.EposResponseInfoParam
-		err = json.Unmarshal([]byte(responseDataStr), &eposfiscalInfo)
-		if err != nil {
-			h.log.Warn("ERROR on unmarshaling fiscal data: %v", err)
-			handleResponse(c, InternalError, "Failed to parse fiscal data")
-			return
-		}
-
-		// set fical data if sale was paid by payme
-		// get sale_payments by sale_id
-		salePay, err := h.service.GetSalePaymentsWithReceipt(body.SaleId)
-		if err != nil {
-			h.log.Info("Unpaid sale from Payme, sale_id: %v", body.SaleId)
-		} else {
-			// getting payment service
-			paymentService, err := h.service.GetPaymentServiceByStoreId(sale.StoreId, "payme")
-			if err != nil {
-				h.log.Warn("ERROR on getting payment_service: %v", err)
-				tx.Rollback()
-				handleResponse(c, InternalError, "failed to get payment service")
-				return
-			}
-			// collect fiscal data
-			fiscalData := domain.FiscalData{
-				StatusCode: 0,
-				Message:    "accepted",
-				TerminalId: eposfiscalInfo.TerminalId,
-				ReceiptId:  cast.ToInt(eposfiscalInfo.ReceiptSeq),
-				Date:       eposfiscalInfo.Datetime,
-				FiscalSign: eposfiscalInfo.FiscalSign,
-				QrCodeUrl:  eposfiscalInfo.QrCodeURL,
-			}
-			if salePay.ID != "" {
-				// set fiscal data payment if paid with payme
-				_, err = h.service.PaymeGoSetFiscalData(c.Request.Context(), paymentService, &fiscalData, salePay.ID, salePay.ReceiptId)
-				if err != nil {
-					h.log.Warn("ERROR on setting payme fiscal: %v", err)
-					tx.Rollback()
-					handleResponse(c, InternalError, err.Error())
-					return
-				}
-			}
 		}
 
 		// Commit transaction before responding
@@ -982,7 +907,7 @@ func processPaymentType(tx *gorm.DB, h *SaleHandler, body domain.FinalSale, item
 // Completed sale transaction
 func (h *SaleHandler) completeSaleTransaction(tx *gorm.DB, body domain.FinalSale, userID string) error {
 	// update sale status and total amount, returned_amount
-	err := h.service.UpdateSaleStatus(tx, body.SaleID, body.TotalAmount, body.CustomerID)
+	err := h.service.UpdateSaleOnFinalSale(tx, body.SaleID, body.TotalAmount, body.CustomerID)
 	if err != nil {
 		return err
 	}
@@ -995,7 +920,7 @@ func (h *SaleHandler) completeSaleTransaction(tx *gorm.DB, body domain.FinalSale
 
 // Return sale transaction
 func (h *SaleHandler) returnSaleTransaction(tx *gorm.DB, req *domain.Sale, body *domain.FinalSale) error {
-	if err := h.service.UpdateSaleStatus(tx, req.ID, body.TotalAmount, body.CustomerID); err != nil {
+	if err := h.service.UpdateSaleOnFinalSale(tx, req.ID, body.TotalAmount, body.CustomerID); err != nil {
 		return err
 	}
 	if err := h.service.UpdateReturnSaleCartItems(tx, req.ID); err != nil {
