@@ -2,6 +2,16 @@ package domain
 
 import "time"
 
+// Auto order query param
+type AutoOrderParam struct {
+	StoreID   string `form:"store_id"`
+	Search    string `form:"search"`
+	Limit     int    `form:"limit"`
+	Offset    int    `form:"offset"`
+	StartDate string `form:"start_date"`
+	EndDate   string `form:"end_date"`
+}
+
 // Auto Order table structure
 type AutoOrder struct {
 	Id                    string     `gorm:"id" json:"id"`
