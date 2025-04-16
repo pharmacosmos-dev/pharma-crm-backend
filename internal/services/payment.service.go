@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha1"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -254,17 +255,22 @@ func (s *Services) PaymeGo(ctx context.Context, tx *gorm.DB, paymentService *dom
 	if err != nil {
 		return nil, err
 	}
-	// method receipt pay
-	res, err = s.PaymeGoReceiptPay(ctx, paymentService, data, transactionID, saleID, res.Result.Receipt.ID)
-	if err != nil {
-		s.log.Warn("ERROR on receipt pay: %v", err)
-		// method receipt cancel
-		_, err = s.PaymeGoReceiptCancel(ctx, paymentService, transactionID, saleID, res.Result.Receipt.ID)
+	if res.Result.Receipt.ID != "" {
+		// method receipt pay
+		res, err = s.PaymeGoReceiptPay(ctx, paymentService, data, transactionID, saleID, res.Result.Receipt.ID)
 		if err != nil {
-			s.log.Warn("ERROR on receipt cancel: %v", err)
+			s.log.Warn("ERROR on receipt pay: %v", err)
+			// method receipt cancel
+			_, err = s.PaymeGoReceiptCancel(ctx, paymentService, transactionID, saleID, res.Result.Receipt.ID)
+			if err != nil {
+				s.log.Warn("ERROR on receipt cancel: %v", err)
+				return nil, err
+			}
 			return nil, err
 		}
-		return nil, err
+	} else {
+		s.log.Warn("ERROR on receipt create: %v", err)
+		return nil, errors.New("failed to receipt create")
 	}
 
 	return map[string]any{
