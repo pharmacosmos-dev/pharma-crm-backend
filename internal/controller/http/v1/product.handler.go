@@ -414,7 +414,7 @@ func (h *ProductHandler) ExportProductExcel(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"Наименование", "Категория", "НДС", "Цена наценка", "Цена поставки", "Цена продажи", "Цена НДС", "Количество", "Цена", "Производитель", "Код продукта", "Штрих-код"}
+	headers := []string{"Наименование", "Кол-во", "Цена поставки", "Cумма поставки", "Цена продажи", "Cумма продажи", "Цена наценка", "Cумма наценка", "Производитель", "Категория", "НДС", "Цена НДС", "Cумма НДС", "Штрих-код"}
 
 	headerStyle, err := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{
@@ -435,23 +435,31 @@ func (h *ProductHandler) ExportProductExcel(c *gin.Context) {
 	}
 
 	// give width to column
-	f.SetColWidth(sheetName, "A", "L", 20)
+	f.SetColWidth(sheetName, "A", "A", 30)
+	f.SetColWidth(sheetName, "B", "B", 10)
+	f.SetColWidth(sheetName, "C", "H", 15)
+	f.SetColWidth(sheetName, "I", "J", 30)
+	f.SetColWidth(sheetName, "K", "M", 15)
+	f.SetColWidth(sheetName, "N", "N", 20)
 
 	// Ma'lumotlarni qo'shish
 	for i, product := range products {
 		row := strconv.Itoa(i + 2)
 		f.SetCellValue(sheetName, "A"+row, product.Name)
-		f.SetCellValue(sheetName, "B"+row, product.CategoryName)
-		f.SetCellValue(sheetName, "C"+row, product.Vat)
-		f.SetCellValue(sheetName, "D"+row, product.MarkupPrice)
-		f.SetCellValue(sheetName, "E"+row, product.SupplyPrice)
-		f.SetCellValue(sheetName, "F"+row, product.RetailPrice)
-		f.SetCellValue(sheetName, "G"+row, product.VatPrice)
-		f.SetCellValue(sheetName, "H"+row, product.Quantity)
-		f.SetCellValue(sheetName, "I"+row, product.Sum)
-		f.SetCellValue(sheetName, "J"+row, product.Manufacturer)
-		f.SetCellValue(sheetName, "K"+row, product.MaterialCode)
-		f.SetCellValue(sheetName, "L"+row, product.Barcode)
+		f.SetCellValue(sheetName, "B"+row, product.Quantity)
+		f.SetCellValue(sheetName, "C"+row, product.SupplyPrice)
+		f.SetCellValue(sheetName, "D"+row, product.SupplyPrice*float64(product.Quantity))
+		f.SetCellValue(sheetName, "E"+row, product.RetailPrice)
+		f.SetCellValue(sheetName, "F"+row, product.RetailPrice*float64(product.Quantity))
+		f.SetCellValue(sheetName, "G"+row, product.RetailPrice-product.SupplyPrice)
+		f.SetCellValue(sheetName, "H"+row, (product.RetailPrice-product.SupplyPrice)*float64(product.Quantity))
+		f.SetCellValue(sheetName, "I"+row, product.Manufacturer)
+		f.SetCellValue(sheetName, "J"+row, product.CategoryName)
+		f.SetCellValue(sheetName, "K"+row, product.Vat)
+		f.SetCellValue(sheetName, "L"+row, product.VatPrice)
+		f.SetCellValue(sheetName, "M"+row, product.VatPrice*float64(product.Quantity))
+		f.SetCellValue(sheetName, "N"+row, product.Barcode)
+
 	}
 
 	// Faylni HTTP response orqali yuborish
