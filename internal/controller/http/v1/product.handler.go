@@ -937,7 +937,7 @@ func (h *ProductHandler) AddStoreProductByBarcode(c *gin.Context) {
 // @Description Get product imports
 // @Tags products
 // @Security     BearerAuth
-// @Accept json
+// @Accept 	json
 // @Produce json
 // @Param id path string true "Product ID"
 // @Param store_id query string false "Store ID"
@@ -953,7 +953,6 @@ func (h *ProductHandler) GetProductImports(c *gin.Context) {
 		productID  = c.Param("id")
 		res        []domain.ImportDetail
 		totalCount int64
-		product    domain.Product
 		employee   domain.Employee
 	)
 	// get user_id from header
@@ -974,18 +973,12 @@ func (h *ProductHandler) GetProductImports(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+
 	// check user role
 	if !helper.IsAdmin(employee, h.cfg) {
 		storeID = employee.StoreId
 	}
 
-	// get product info
-	err = h.db.First(&product, "id = ?", productID).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
 	// get limit offset
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {

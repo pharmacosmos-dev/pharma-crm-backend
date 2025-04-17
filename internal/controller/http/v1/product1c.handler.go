@@ -110,10 +110,8 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 		INSERT INTO products (material_code, name, barcode, producer_id, mxik)
 		VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT (material_code) DO UPDATE
-		SET name = EXCLUDED.name,
-			barcode = EXCLUDED.barcode,
-			producer_id = EXCLUDED.producer_id,
-			mxik = EXCLUDED.mxik
+		SET
+			producer_id = EXCLUDED.producer_id
 		RETURNING id`,
 			body.Товары[i].MaterialCode,
 			body.Товары[i].Name, body.Товары[i].Barcode, producer.Id, body.Товары[i].Ikpu).Scan(&productID).Error

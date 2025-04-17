@@ -156,3 +156,16 @@ type ImportDetailQueryParams struct {
 	NoMarking          bool    `form:"no_marking"`
 	NoBarcode          bool    `form:"no_barcode"`
 }
+
+// Import data
+type ImportProductData struct {
+	Id             string     `gorm:"id" json:"id"`
+	StoreId        string     `gorm:"store_id" json:"store_id"`
+	DocumentNumber string     `gorm:"document_number" json:"document_number"`
+	EntryType      int        `gorm:"entry_type" json:"entry_type"`
+	ReceivedCount  int        `gorm:"received_count" json:"received_count"`
+	AcceptedCount  int        `gorm:"accepted_count" json:"accepted_count"`
+	CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`
+	ReceivedPrice  float64    `gorm:"received_sum" json:"received_sum"`
+	AcceptedPrice  float64    `gorm:"accepted_sum" json:"accepted_sum"`
+}
