@@ -241,6 +241,8 @@ func (h *SaleHandler) Get(c *gin.Context) {
 // @Param search query string false "Search"
 // @Param start_date query string false "Start Date"
 // @Param end_date query string false "End Date"
+// @Param total_amount_from query int false "Total Amount From"
+// @Param total_amount_to query int false "Total Amount To"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -291,6 +293,8 @@ func (h *SaleHandler) List(c *gin.Context) {
 // @Param search query string false "Search"
 // @Param start_date query string false "Start Date"
 // @Param end_date query string false "End Date"
+// @Param total_amount_from query int false "Total Amount From"
+// @Param total_amount_to query int false "Total Amount To"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -397,6 +401,8 @@ func (h *SaleHandler) ExportSaleExcel(c *gin.Context) {
 // @Param search query string false "Search"
 // @Param start_date query string false "Start Date"
 // @Param end_date query string false "End Date"
+// @Param total_amount_from query int false "Total Amount From"
+// @Param total_amount_to query int false "Total Amount To"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -484,6 +490,16 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 	if param.StartDate != "" && param.EndDate != "" {
 		args = append(args, param.StartDate, param.EndDate)
 		filter += " AND s.completed_at::date BETWEEN ? AND ?"
+	}
+
+	if param.TotalAmountFrom > 0 {
+		args = append(args, param.TotalAmountFrom)
+		filter += " AND s.total_amount >= ? "
+	}
+
+	if param.TotalAmountTo > 0 {
+		args = append(args, param.TotalAmountTo)
+		filter += " AND s.total_amount <= ? "
 	}
 
 	if param.Search != "" {

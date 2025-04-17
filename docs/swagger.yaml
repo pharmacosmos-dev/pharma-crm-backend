@@ -292,6 +292,8 @@ definitions:
         type: string
       photo:
         type: string
+      position:
+        type: string
       public_id:
         type: integer
       role_type:
@@ -8302,6 +8304,14 @@ paths:
         in: query
         name: end_date
         type: string
+      - description: Total Amount From
+        in: query
+        name: total_amount_from
+        type: integer
+      - description: Total Amount To
+        in: query
+        name: total_amount_to
+        type: integer
       produces:
       - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
       responses:
@@ -8451,6 +8461,14 @@ paths:
         in: query
         name: end_date
         type: string
+      - description: Total Amount From
+        in: query
+        name: total_amount_from
+        type: integer
+      - description: Total Amount To
+        in: query
+        name: total_amount_to
+        type: integer
       produces:
       - application/json
       responses:
@@ -8537,6 +8555,14 @@ paths:
         in: query
         name: end_date
         type: string
+      - description: Total Amount From
+        in: query
+        name: total_amount_from
+        type: integer
+      - description: Total Amount To
+        in: query
+        name: total_amount_to
+        type: integer
       produces:
       - application/json
       responses:

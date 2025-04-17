@@ -11136,6 +11136,18 @@ const docTemplate = `{
                         "description": "End Date",
                         "name": "end_date",
                         "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Total Amount From",
+                        "name": "total_amount_from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Total Amount To",
+                        "name": "total_amount_to",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -11368,6 +11380,18 @@ const docTemplate = `{
                         "description": "End Date",
                         "name": "end_date",
                         "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Total Amount From",
+                        "name": "total_amount_from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Total Amount To",
+                        "name": "total_amount_to",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -11502,6 +11526,18 @@ const docTemplate = `{
                         "type": "string",
                         "description": "End Date",
                         "name": "end_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Total Amount From",
+                        "name": "total_amount_from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Total Amount To",
+                        "name": "total_amount_to",
                         "in": "query"
                     }
                 ],
@@ -14057,6 +14093,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "photo": {
+                    "type": "string"
+                },
+                "position": {
                     "type": "string"
                 },
                 "public_id": {

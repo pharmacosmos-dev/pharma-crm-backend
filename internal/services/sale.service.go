@@ -348,6 +348,15 @@ func (s *Services) ListSale(param *domain.QueryParam, userId string) ([]domain.S
 		param.Search = fmt.Sprintf("%%%s%%", param.Search)
 		query = query.Where("st.name ILIKE ? OR CAST(s.sale_number AS TEXT) LIKE ?", param.Search, param.Search)
 	}
+
+	if param.TotalAmountFrom > 0 {
+		query = query.Where("s.total_amount >= ?", param.TotalAmountFrom)
+	}
+
+	if param.TotalAmountTo > 0 {
+		query = query.Where("s.total_amount <= ?", param.TotalAmountTo)
+	}
+
 	// complete query
 	err = query.Where("s.status = 'completed'").
 		Count(&totalCount).
