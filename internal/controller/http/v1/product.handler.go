@@ -308,9 +308,8 @@ ORDER BY root_category_id, LENGTH(name_path) DESC;
 // @Failure 500 {object} v1.Response
 // @Router /product/list [get]
 func (h *ProductHandler) List(c *gin.Context) {
-	var (
-		param domain.ProductQueryParam
-	)
+	var param domain.ProductQueryParam
+	// bind
 	if err := c.ShouldBindQuery(&param); err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
