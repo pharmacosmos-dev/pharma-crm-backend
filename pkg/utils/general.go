@@ -131,7 +131,7 @@ func BeforeDates(startDateStr, endDateStr string) (string, string) {
 
 // ExtractNumbers - markirofkadan barcode ni ajratib oladi
 func ExtractNumbers(marking string) string {
-	re := regexp.MustCompile(`010(\d+)21`)
+	re := regexp.MustCompile(`0100*(\d+)21.*`)
 	matches := re.FindStringSubmatch(marking)
 	if len(matches) > 1 {
 		return matches[1]
@@ -139,8 +139,16 @@ func ExtractNumbers(marking string) string {
 	return ""
 }
 
+// Clean barcode from the 0
+func TrimLeadingZeros(input string) string {
+	re := regexp.MustCompile(`^0+`)
+	return re.ReplaceAllString(input, "")
+}
+
 // CheckBarcodeWithMarking - barcode markirofkadan olingan barcode bilan mos kelishini tekshiradi
 func CheckBarcodeWithMarking(barcode, marking string) bool {
 	markingBarcode := ExtractNumbers(marking)
-	return markingBarcode == barcode
+	cleanBarcode := TrimLeadingZeros(barcode)
+	return markingBarcode == cleanBarcode
+
 }
