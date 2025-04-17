@@ -113,6 +113,7 @@ type StockCountResponse struct {
 type ProductMarking struct {
 	Id             string     `gorm:"id" json:"id"`
 	ImportDetailId string     `gorm:"import_detail_id" json:"import_detail_id"`
+	ProductId      string     `gorm:"product_id" json:"product_id"`
 	Marking        string     `gorm:"marking" json:"marking"`
 	Status         int8       `gorm:"status" json:"status"`
 	CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`

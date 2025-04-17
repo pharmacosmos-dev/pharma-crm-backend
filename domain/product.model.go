@@ -44,6 +44,7 @@ type Product struct {
 	Shelf        *Shelf            `gorm:"foreignKey:ShelfID" json:"shelf"`
 	Producer     *Producer         `gorm:"foreignKey:ProducerID" json:"producer"`
 	CategoryName string            `gorm:"category_name" json:"category_name"`
+	Markings     []string          `gorm:"-" json:"markings"`
 }
 
 // Product create request

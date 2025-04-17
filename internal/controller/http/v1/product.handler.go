@@ -276,6 +276,11 @@ ORDER BY root_category_id, LENGTH(name_path) DESC;
 	}
 	res.Categories = category
 
+	// get product markings
+	err = h.db.Raw(`SELECT marking FROM product_markings WHERE product_id = ?`, id).Scan(&res.Markings).Error
+	if err != nil {
+		h.log.Warn("ERROR on getting product markings: %v", err)
+	}
 	handleResponse(c, OK, res)
 }
 
