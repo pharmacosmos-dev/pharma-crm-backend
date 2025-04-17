@@ -278,7 +278,8 @@ func (s *Services) ListImport(c *gin.Context, limit, offset int) ([]domain.Impor
 			SUM(import_details.retail_price_vat*import_details.accepted_count) as accepted_amount_vat, 
 			SUM(import_details.received_count) as received_count, 
 			SUM(import_details.accepted_count) as accepted_count
-		`).Joins("LEFT JOIN import_details ON imports.id = import_details.import_id")
+		`).Joins("LEFT JOIN import_details ON imports.id = import_details.import_id").
+		Where("imports.entry_type = ?", 1)
 
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
