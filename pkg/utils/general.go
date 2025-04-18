@@ -131,7 +131,7 @@ func BeforeDates(startDateStr, endDateStr string) (string, string) {
 
 // ExtractNumbers - markirofkadan barcode ni ajratib oladi
 func ExtractNumbers(marking string) string {
-	re := regexp.MustCompile(`0100*(\d+)21.*`)
+	re := regexp.MustCompile(`01+0*(\d{8,14})21`)
 	matches := re.FindStringSubmatch(marking)
 	if len(matches) > 1 {
 		return matches[1]

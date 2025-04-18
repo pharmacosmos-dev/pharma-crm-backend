@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/pharma-crm-backend/domain"
@@ -219,117 +220,118 @@ func (s *Services) ChangeStoreProductStock(tx *gorm.DB, id string, quantity, uni
 }
 
 // get products get list
-func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]*domain.Product, int64, error) {
-	// get query param values
+func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]*domain.ProductData, int64, error) {
 	var (
-		res        []*domain.Product
-		totalCount int64
+		res           []*domain.ProductData
+		totalCount    int64
+		args          []any
+		whereClauses  []string
+		sWhereClauses []string
 	)
 
-	// Build the base query
-	baseQuery := s.db.Model(&domain.Product{}).
-		Table("products p").
-		Joins("LEFT JOIN store_products sp ON sp.product_id = p.id").
-		Joins("LEFT JOIN unit_types u ON p.unit_type_id = u.id").
-		Joins("LEFT JOIN producers pr ON pr.id = p.producer_id").
-		Joins("LEFT JOIN category_products cp ON cp.product_id = p.id").
-		Joins("LEFT JOIN categories c ON c.id = cp.category_id")
-
-	// Apply filters
+	// 1. WHERE conditions dynamic
 	if param.StoreID != "" {
-		baseQuery = baseQuery.Where("sp.store_id = ?", param.StoreID)
+		sWhereClauses = append(sWhereClauses, fmt.Sprintf("sp.store_id = '%s'", param.StoreID))
 	}
-	// filter products with status
+	if param.ProducerID != "" {
+		whereClauses = append(whereClauses, fmt.Sprintf("p.producer_id = $%d", len(args)+1))
+		args = append(args, param.ProducerID)
+	}
 	if param.Status != "" {
 		switch param.Status {
-		case "active":
-			baseQuery = baseQuery.Where("p.status = ?", "active")
-		case "inactive":
-			baseQuery = baseQuery.Where("p.status = ?", "inactive")
+		case "active", "inactive":
+			whereClauses = append(whereClauses, fmt.Sprintf("p.status = $%d", len(args)+1))
+			args = append(args, param.Status)
 		case "low-stock":
-			baseQuery = baseQuery.Where("sp.small_quantity = sp.pack_quantity")
+			whereClauses = append(whereClauses, "(total_quantity <= 10 AND total_quantity > 0)")
 		case "zero-stock":
-			baseQuery = baseQuery.Where("sp.pack_quantity = ? AND sp.unit_quantity = ?", 0, 0)
+			sWhereClauses = append(sWhereClauses, "sp.pack_quantity = 0 AND sp.unit_quantity = 0")
 		case "expired":
-			baseQuery = baseQuery.Where("sp.expire_date::date < ?", time.Now().Format("2006-01-02"))
+			sWhereClauses = append(sWhereClauses, fmt.Sprintf("sp.expire_date::date < '%s'", time.Now().Format("2006-01-02")))
 		case "imminent":
-			baseQuery = baseQuery.Where("sp.expire_date BETWEEN ? AND ?", time.Now(), time.Now().AddDate(0, 0, 10))
+			sWhereClauses = append(sWhereClauses, fmt.Sprintf("sp.expire_date::date BETWEEN '%s' AND '%s'", time.Now().Format("2006-01-02"), time.Now().AddDate(0, 0, 10).Format("2006-01-02")))
 		}
-	} else {
-		baseQuery = baseQuery.Where("p.status = ?", "active")
 	}
-	// search filter for product name, barcode, category name
 	if param.SearchField != "" {
-		param.SearchField = fmt.Sprintf("%%%s%%", param.SearchField)
-		baseQuery = baseQuery.Where("p.name ILIKE ? OR p.barcode LIKE ? OR COALESCE(c.name, '') ILIKE ?",
-			param.SearchField, param.SearchField, param.SearchField)
+		search := "%" + param.SearchField + "%"
+		whereClauses = append(whereClauses,
+			fmt.Sprintf("(p.name ILIKE $%d OR p.barcode ILIKE $%d)", len(args)+1, len(args)+2))
+		args = append(args, search, search)
 	}
-	// filter with supply price greater than or equal to
-	if param.SupplyPriceFrom > 0 {
-		baseQuery = baseQuery.Where("sp.supply_price >= ?", param.SupplyPriceFrom)
-	}
-	// filter with supply price less than or equal to
-	if param.SupplyPriceTo > 0 {
-		baseQuery = baseQuery.Where("sp.supply_price <= ?", param.SupplyPriceTo)
-	}
-	// filter with retail price greater than or equal to
-	if param.RetailPriceFrom > 0 {
-		baseQuery = baseQuery.Where("sp.retail_price >= ?", param.RetailPriceFrom)
-	}
-	// filter with retail price less than or equal to
-	if param.RetailPriceTo > 0 {
-		baseQuery = baseQuery.Where("sp.retail_price <= ?", param.RetailPriceTo)
-	}
-	// filter products with producer id
-	if param.ProducerID != "" {
-		baseQuery = baseQuery.Where("p.producer_id = ?", param.ProducerID)
-	}
-	// filter with no barcodes
 	if param.NoBarcode {
-		baseQuery = baseQuery.Where("p.barcode IS NULL OR p.barcode = ''")
+		whereClauses = append(whereClauses, "(p.barcode IS NULL OR p.barcode = '')")
 	}
 
-	// Count total records using a subquery
-	countQuery := baseQuery.Session(&gorm.Session{}).
-		Select("COUNT(DISTINCT p.id)").
-		Table("products p")
-	// Execute the count query
-	err := countQuery.Count(&totalCount).Error
+	sWhereSQL := ""
+	if len(sWhereClauses) > 0 {
+		sWhereSQL = "WHERE " + strings.Join(sWhereClauses, " AND ")
+	}
+	whereSQL := ""
+	if len(whereClauses) > 0 {
+		whereSQL = "WHERE " + strings.Join(whereClauses, " AND ")
+	}
+
+	// 2. Main query with WITH CTE
+	query := fmt.Sprintf(`
+	WITH sp_agg AS (
+	SELECT product_id,
+			SUM(pack_quantity) AS total_quantity,
+			SUM(unit_quantity) AS unit_quantity
+	FROM store_products sp
+	%s
+	GROUP BY product_id
+	)
+	SELECT
+		p.id, p.material_code, p.name, p.photos, p.barcode,
+		p.unit_per_pack, p.mxik, p.is_marking, p.created_at, p.updated_at,
+		pr.name AS manufacturer, ut.unit_name, ut.short_name,
+		COALESCE(spa.total_quantity, 0) AS quantity,
+		CASE
+			WHEN p.unit_per_pack > 0 THEN spa.unit_quantity %% p.unit_per_pack
+			ELSE 0
+		END AS unit_quantity
+	FROM products p
+	LEFT JOIN producers pr ON p.producer_id = pr.id
+	LEFT JOIN unit_types ut ON p.unit_type_id = ut.id
+	LEFT JOIN sp_agg spa ON p.id = spa.product_id
+	%s
+	LIMIT %d OFFSET %d`,
+		// sp_agg uchun filter bo'lsa, faqat store_id ni o'zimiz qo'yamiz
+		sWhereSQL,
+		whereSQL,
+		param.Limit,
+		param.Offset)
+
+	err := s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
-		s.log.Error(err)
+		s.log.Warn("ERROR on getting products: %v", err)
 		return nil, 0, err
 	}
 
-	// Execute main query with all fields
-	err = baseQuery.
-		Preload("Categories").
-		Select(`
-		p.id, p.name, p.barcode, p.status, p.description,
-		p.photos, pr.name as manufacturer, p.material_code, p.is_marking,
-		AVG(sp.supply_price) AS supply_price,
-		AVG(sp.vat) AS vat,
-		AVG(sp.markup) AS markup,
-		AVG(sp.retail_price) AS retail_price,
-		(AVG(sp.supply_price) * AVG(sp.vat) / 100) AS vat_price,
-		(AVG(sp.supply_price) * AVG(sp.markup) / 100) AS markup_price,
-		SUM(sp.pack_quantity) AS quantity,
-		(SUM(sp.pack_quantity) * AVG(sp.retail_price)) AS sum,
-		AVG(sp.bonus_percent) AS bonus_percent,
-		AVG((sp.bonus_percent*sp.retail_price)/100) AS bonus_amount,
-		u.short_name AS unit_name,
-		STRING_AGG(c.name, ', ') as category_name,
-		p.created_at`).
-		Group(`p.id, u.id, pr.id`).
-		Order("p.created_at DESC").
-		Limit(param.Limit).
-		Offset(param.Offset).
-		Find(&res).Error
+	// 3. Count query
+	countQuery := fmt.Sprintf(`
+	WITH sp_agg AS (
+		SELECT product_id,
+			SUM(pack_quantity) AS total_quantity,
+			SUM(unit_quantity) AS unit_quantity
+		FROM store_products sp
+		%s
+		GROUP BY product_id
+	)
+	SELECT COUNT(DISTINCT p.id)
+	FROM products p
+	LEFT JOIN producers pr ON p.producer_id = pr.id
+	LEFT JOIN unit_types ut ON p.unit_type_id = ut.id
+	LEFT JOIN sp_agg spa ON p.id = spa.product_id
+	%s`,
+		sWhereSQL, whereSQL)
 
+	err = s.db.Raw(countQuery, args...).Scan(&totalCount).Error
 	if err != nil {
-		s.log.Error(err)
-
+		s.log.Warn("ERROR on getting products count: %v", err)
 		return nil, 0, err
 	}
+
 	return res, totalCount, nil
 }
 

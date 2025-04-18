@@ -408,7 +408,7 @@ func (h *ProductHandler) ExportProductExcel(c *gin.Context) {
 	// Pagination parameters
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 	// get products list
-	products, _, err := h.service.ListProduct(&param)
+	_, _, err := h.service.ListProduct(&param)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -449,24 +449,24 @@ func (h *ProductHandler) ExportProductExcel(c *gin.Context) {
 	f.SetColWidth(sheetName, "N", "N", 20)
 
 	// Ma'lumotlarni qo'shish
-	for i, product := range products {
-		row := strconv.Itoa(i + 2)
-		f.SetCellValue(sheetName, "A"+row, product.Name)
-		f.SetCellValue(sheetName, "B"+row, product.Quantity)
-		f.SetCellValue(sheetName, "C"+row, product.SupplyPrice)
-		f.SetCellValue(sheetName, "D"+row, product.SupplyPrice*float64(product.Quantity))
-		f.SetCellValue(sheetName, "E"+row, product.RetailPrice)
-		f.SetCellValue(sheetName, "F"+row, product.RetailPrice*float64(product.Quantity))
-		f.SetCellValue(sheetName, "G"+row, product.RetailPrice-product.SupplyPrice)
-		f.SetCellValue(sheetName, "H"+row, (product.RetailPrice-product.SupplyPrice)*float64(product.Quantity))
-		f.SetCellValue(sheetName, "I"+row, product.Manufacturer)
-		f.SetCellValue(sheetName, "J"+row, product.CategoryName)
-		f.SetCellValue(sheetName, "K"+row, product.Vat)
-		f.SetCellValue(sheetName, "L"+row, product.VatPrice)
-		f.SetCellValue(sheetName, "M"+row, product.VatPrice*float64(product.Quantity))
-		f.SetCellValue(sheetName, "N"+row, product.Barcode)
+	// for i, product := range products {
+	// 	row := strconv.Itoa(i + 2)
+	// 	f.SetCellValue(sheetName, "A"+row, product.Name)
+	// 	f.SetCellValue(sheetName, "B"+row, product.Quantity)
+	// 	f.SetCellValue(sheetName, "C"+row, product.SupplyPrice)
+	// 	f.SetCellValue(sheetName, "D"+row, product.SupplyPrice*float64(product.Quantity))
+	// 	f.SetCellValue(sheetName, "E"+row, product.RetailPrice)
+	// 	f.SetCellValue(sheetName, "F"+row, product.RetailPrice*float64(product.Quantity))
+	// 	f.SetCellValue(sheetName, "G"+row, product.RetailPrice-product.SupplyPrice)
+	// 	f.SetCellValue(sheetName, "H"+row, (product.RetailPrice-product.SupplyPrice)*float64(product.Quantity))
+	// 	f.SetCellValue(sheetName, "I"+row, product.Manufacturer)
+	// 	f.SetCellValue(sheetName, "J"+row, product.CategoryName)
+	// 	f.SetCellValue(sheetName, "K"+row, product.Vat)
+	// 	f.SetCellValue(sheetName, "L"+row, product.VatPrice)
+	// 	f.SetCellValue(sheetName, "M"+row, product.VatPrice*float64(product.Quantity))
+	// 	f.SetCellValue(sheetName, "N"+row, product.Barcode)
 
-	}
+	// }
 
 	// Faylni HTTP response orqali yuborish
 	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")

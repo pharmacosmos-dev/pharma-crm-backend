@@ -242,3 +242,22 @@ type UpdateIsMarking struct {
 	ProductId string `json:"product_id"`
 	IsMarking bool   `json:"is_marking"`
 }
+
+// product list data
+type ProductData struct {
+	ID           string            `gorm:"id" json:"id"`
+	MaterialCode string            `gorm:"material_code" json:"material_code"`
+	Name         string            `gorm:"name" json:"name"`
+	Photos       utils.StringArray `gorm:"type:text[]" json:"photos"`
+	Barcode      string            `gorm:"barcode" json:"barcode"`
+	UnitPerPack  int               `gorm:"unit_per_pack" json:"unit_per_pack"`
+	MXIK         string            `gorm:"mxik" json:"mxik"`
+	IsMarking    bool              `gorm:"is_marking" json:"is_marking"`
+	CreatedAt    time.Time         `gorm:"created_at" json:"created_at"`
+	UpdatedAt    time.Time         `gorm:"updated_at" json:"updated_at"`
+	Manufacturer string            `gorm:"manufacturer" json:"manufacturer"`
+	UnitName     string            `gorm:"unit_name" json:"unit_name"`
+	ShortName    string            `gorm:"short_name" json:"short_name"`
+	Quantity     int               `gorm:"quantity" json:"quantity"`
+	UnitQuantity int               `gorm:"unit_quantity" json:"unit_quantity"`
+}

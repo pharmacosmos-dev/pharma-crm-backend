@@ -1,0 +1,1 @@
+ALTER TABLE cart_items ADD COLUMN IF NOT EXISTS "product_id" UUID REFERENCES products(id);
