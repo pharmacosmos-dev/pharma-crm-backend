@@ -441,3 +441,86 @@ func (s *Services) UpdateProductIsMarking(req *domain.UpdateIsMarking) error {
 	}
 	return nil
 }
+
+// get product movements(Import, Inventory, Write-Off, Sale)
+func (s *Services) GetProductMovements(productId string, limit, offset int) ([]domain.ImportProductData, int64, error) {
+	var (
+		res        []domain.ImportProductData
+		totalCount int64
+	)
+	// build count query
+	countQuery := `
+	SELECT COUNT(*) FROM (
+		SELECT im.id
+		FROM imports im
+		JOIN stores s ON im.store_id = s.id
+		LEFT JOIN import_details imd ON im.id = imd.import_id
+		WHERE imd.product_id = ?
+		AND im.status = 'completed'
+		GROUP BY im.id, s.id
+
+		UNION ALL
+
+		SELECT sa.id
+		FROM sales sa
+		JOIN stores st ON st.id = sa.store_id
+		JOIN cart_items ci ON ci.sale_id = sa.id
+		JOIN store_products sp ON sp.id = ci.store_product_id
+		WHERE sp.product_id = ?
+		AND sa.status = 'completed'
+		GROUP BY sa.id, st.id
+	) AS total_data;
+	`
+
+	// build query
+	query := `
+	SELECT * FROM (
+		SELECT
+			im.id, im.public_id, im.entry_type, im.created_at,
+			s.name AS store_name,
+			SUM(imd.accepted_count) AS count,
+			SUM(imd.accepted_count * imd.retail_price_vat) AS sum
+		FROM imports im
+		JOIN stores s ON im.store_id = s.id
+		LEFT JOIN import_details imd ON im.id = imd.import_id
+		WHERE imd.product_id = ?
+		AND im.status = 'completed'
+		GROUP BY im.id, s.id
+
+		UNION ALL
+
+		SELECT
+			sa.id AS id,
+			sa.sale_number AS public_id,
+			4 AS entry_type,
+			sa.completed_at AS created_at,
+			st.name AS store_name,
+			SUM(ci.quantity + (ci.unit_quantity / 10.0)) AS count,
+			sa.total_amount AS sum
+		FROM sales sa
+		JOIN stores st ON st.id = sa.store_id
+		JOIN cart_items ci ON ci.sale_id = sa.id
+		JOIN store_products sp ON sp.id = ci.store_product_id
+		WHERE sp.product_id = ?
+		AND sa.status = 'completed'
+		GROUP BY sa.id, st.id
+	) AS all_data
+	ORDER BY created_at DESC
+	LIMIT ? OFFSET ?;
+	`
+
+	// complete count query
+	err := s.db.Raw(countQuery, productId, productId).Scan(&totalCount).Error
+	if err != nil {
+		s.log.Warn("ERROR on counting product movements: %v", err)
+		return res, totalCount, err
+	}
+
+	// complete query
+	err = s.db.Raw(query, productId, productId, limit, offset).Scan(&res).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting product movements: %v", err)
+		return res, totalCount, err
+	}
+	return res, totalCount, nil
+}

@@ -349,6 +349,8 @@ definitions:
         type: string
       phone:
         type: string
+      position:
+        type: string
       role_ids:
         items:
           type: string
@@ -6863,6 +6865,45 @@ paths:
       security:
       - BearerAuth: []
       summary: Update a product
+      tags:
+      - products
+  /product/{id}/product-movement:
+    get:
+      consumes:
+      - application/json
+      description: Get product movements
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get product movements
       tags:
       - products
   /product/attach-barcode:

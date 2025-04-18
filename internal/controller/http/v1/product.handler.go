@@ -57,6 +57,8 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.POST("/attach-barcode", h.AttachBarcode)
 		product.POST("/generate-marking", h.GenerateMarkingProducts)
 		product.PATCH("/is-marking", h.UpdateIsMarking)
+		product.GET("/:id/product-movement", h.ProductMovements)
+
 	}
 }
 
@@ -1474,6 +1476,42 @@ func (h *ProductHandler) AttachBarcode(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, "Products uploaded successfully")
+}
+
+// Get product movements godoc
+// @Summary Get product movements
+// @Description Get product movements
+// @Tags products
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "Product ID"
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/{id}/product-movement [get]
+func (h *ProductHandler) ProductMovements(c *gin.Context) {
+	// get product id from the path param
+	productId := c.Param("id")
+	// get pagination with default
+	limit, offset, err := getPaginationParams(c)
+	if err != nil {
+		handleResponse(c, BadRequest, "Received invalid pagination")
+		return
+	}
+	// get product-movements data from the product service
+	res, totalCount, err := h.service.GetProductMovements(productId, limit, offset)
+	if err != nil {
+		h.log.Info("Failed to get product-movement: %v", err)
+		handleResponse(c, InternalError, "Can't get product-movements")
+		return
+	}
+	// get pagintion data with _meta object
+	data := utils.ListResponse(res, totalCount, limit, offset)
+
+	handleResponse(c, OK, data)
 }
 
 // Update ismarking godoc
