@@ -220,9 +220,9 @@ func (s *Services) ChangeStoreProductStock(tx *gorm.DB, id string, quantity, uni
 }
 
 // get products get list
-func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]*domain.ProductData, int64, error) {
+func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.ProductData, int64, error) {
 	var (
-		res           []*domain.ProductData
+		res           []domain.ProductData
 		totalCount    int64
 		args          []any
 		whereClauses  []string
@@ -331,7 +331,9 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]*domain.Produ
 		s.log.Warn("ERROR on getting products count: %v", err)
 		return nil, 0, err
 	}
-
+	if len(res) == 0 {
+		res = []domain.ProductData{}
+	}
 	return res, totalCount, nil
 }
 
