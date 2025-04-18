@@ -248,8 +248,14 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Date",
-                        "name": "auto_order_date",
+                        "description": "StartDate",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "EndDate",
+                        "name": "end_date",
                         "in": "query"
                     },
                     {

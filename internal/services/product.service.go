@@ -164,6 +164,9 @@ func (s *Services) GetStoreProductByIdOrBarcode(id string, barcode string, store
 		case "marking": // if received field that is barcode will be marking it checks with marking code
 			query = query.Joins("LEFT JOIN product_markings pm ON pm.product_id = p.id").
 				Where("pm.marking = ?", barcode).Limit(1)
+			if utils.ExtractNumbers(barcode) != "" {
+				query = query.Or("p.barcode = ?", utils.ExtractNumbers(barcode))
+			}
 		default: // if received field not be marking it checks default with barcode
 			query = query.Where("p.barcode = ?", barcode).Limit(1)
 		}

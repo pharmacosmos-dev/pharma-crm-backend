@@ -6,10 +6,12 @@ import "time"
 type AutoOrderParam struct {
 	StoreID   string `form:"store_id"`
 	Search    string `form:"search"`
+	Status    string `form:"status"`
 	Limit     int    `form:"limit"`
 	Offset    int    `form:"offset"`
 	StartDate string `form:"start_date"`
 	EndDate   string `form:"end_date"`
+	UserId    string `form:"user_id"`
 }
 
 // Auto Order table structure

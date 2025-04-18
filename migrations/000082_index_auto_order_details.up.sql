@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS idx_auto_order_detail_auto_order_id ON auto_order_details(auto_order_id);

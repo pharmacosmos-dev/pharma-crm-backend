@@ -1,0 +1,1 @@
+DROP INDEX IF  EXISTS idx_auto_order_detail_auto_order_id;

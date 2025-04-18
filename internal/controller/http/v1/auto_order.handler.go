@@ -140,31 +140,34 @@ func (h *AutoOrderHandler) Create(c *gin.Context) {
 // @Param 	offset query int false "Offset"
 // @Param 	store_id query string false "Store ID"
 // @Param 	status query string false "Status"
-// @Param 	auto_order_date query string false "Date"
+// @Param 	start_date query string false "StartDate"
+// @Param   end_date  query string false "EndDate"
 // @Param 	search query string false "Search"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /auto-order/list [get]
 func (h *AutoOrderHandler) List(c *gin.Context) {
-	var (
-		autoOrders []domain.AutoOrder
-		err        error
-		totalCount int64
-	)
-	limit, offset, err := getPaginationParams(c)
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
+	var param domain.AutoOrderParam
+	// get user id from the header
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User not found from the context")
 		return
 	}
-	autoOrders, totalCount, err = h.service.ListAutoOrder(c, limit, offset)
+	// get defaul limit and offset
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	// get user id
+	param.UserId = userId.(string)
+	// get auto order list
+	res, totalCount, err := h.service.ListAutoOrder(&param)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
-	result := utils.ListResponse(autoOrders, totalCount, limit, offset)
+	result := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+
 	handleResponse(c, OK, result)
 }
 

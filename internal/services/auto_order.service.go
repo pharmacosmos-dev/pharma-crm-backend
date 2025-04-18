@@ -2,12 +2,9 @@ package services
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strconv"
-	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/helper"
 )
@@ -116,70 +113,61 @@ func (s *Services) ListAutoOrderForGenerate(ctx context.Context, limit, offset i
 }
 
 // get auto order get list
-func (s *Services) ListAutoOrder(c *gin.Context, limit, offset int) ([]domain.AutoOrder, int64, error) {
+func (s *Services) ListAutoOrder(param *domain.AutoOrderParam) ([]domain.AutoOrder, int64, error) {
 	var (
 		autoOrders []domain.AutoOrder
 		err        error
 		totalCount int64
-		storeID    = c.Query("store_id")
-		search     = c.Query("search")
-		status     = c.Query("status")
-		date       = c.Query("auto_order_date")
 	)
-	// get user id from the header
-	userId, ok := c.Get("user_id")
-	if !ok {
-		return nil, 0, errors.New("user_id not found in context")
-	}
+
 	// get employee info
 	var employee domain.Employee
-	err = s.db.First(&employee, "id = ?", userId).Error
+	err = s.db.First(&employee, "id = ?", param.UserId).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, 0, err
 	}
 	// check if employee is not admin or superadmin
 	if !helper.IsAdmin(employee, s.cfg) {
-		storeID = employee.StoreId
+		param.StoreID = employee.StoreId
 	}
 	// build query
 	query := s.db.
 		Model(&domain.AutoOrder{}).
+		Preload("Store").
 		Select(`auto_orders.*, 
 		SUM(aod.adjusted_order_quantity) AS adjusted_order_quantity,
 		SUM(aod.response_order_quantity) AS response_order_quantity`).
-		Preload("Store").
-		Joins("LEFT JOIN auto_order_details aod ON auto_orders.id = aod.auto_order_id").
-		Joins("JOIN stores s ON auto_orders.store_id = s.id")
+		Joins("JOIN stores s ON auto_orders.store_id = s.id").
+		Joins("LEFT JOIN auto_order_details aod ON auto_orders.id = aod.auto_order_id")
 
-	if search != "" {
-		search = fmt.Sprintf("%%%s%%", search)
-		query = query.Where("CAST(auto_orders.public_id AS TEXT) LIKE ? OR s.name ILIKE ?", search, search)
+	if param.Search != "" {
+		param.Search = fmt.Sprintf("%%%s%%", param.Search)
+		query = query.Where("CAST(auto_orders.public_id AS TEXT) LIKE ? OR s.name ILIKE ?", param.Search, param.Search)
 	}
 
-	if storeID != "" {
-		query = query.Where("auto_orders.store_id = ?", storeID)
+	if param.StoreID != "" {
+		query = query.Where("auto_orders.store_id = ?", param.StoreID)
 	}
 
-	if status != "" {
-		query = query.Where("auto_orders.status = ?", status)
+	if param.Status != "" {
+		query = query.Where("auto_orders.status = ?", param.Status)
 	}
 
-	if date != "" {
-		if _, err := time.Parse("2006-01-02", date); err != nil {
-			return nil, 0, errors.New("invalid date format")
-		}
-		query = query.Where("auto_orders.auto_order_date::date = ?", date)
+	if param.StartDate != "" && param.EndDate != "" {
+		query = query.Where("auto_orders.created_at::date BETWEEN ? AND ?", param.StartDate, param.EndDate)
 	}
 
 	err = query.
 		Group("auto_orders.id").
 		Count(&totalCount).
-		Offset(offset).Limit(limit).
+		Limit(param.Limit).
+		Offset(param.Offset).
 		Order("auto_orders.created_at DESC").
+		Debug().
 		Find(&autoOrders).Error
 	if err != nil {
-		s.log.Error(err)
+		s.log.Warn("Failed to get auto orders: %v", err)
 		return nil, 0, err
 	}
 	return autoOrders, totalCount, nil
@@ -247,7 +235,7 @@ func (s *Services) GenerateAutoOrderDetail(ctx context.Context, storeID string, 
 		(auto_orders.status != 'new' OR auto_orders.status != 'pending' 
 		OR auto_orders.status IS NULL) AND sd.month_sale_stock > 0;
 	`
-	err := s.db.Raw(query, storeID, storeID, storeID).Scan(&res).Error
+	err := s.db.Debug().Raw(query, storeID, storeID, storeID).Scan(&res).Error
 
 	if err != nil {
 		s.log.Error(err)

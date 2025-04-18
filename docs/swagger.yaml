@@ -1309,9 +1309,13 @@ paths:
         in: query
         name: status
         type: string
-      - description: Date
+      - description: StartDate
         in: query
-        name: auto_order_date
+        name: start_date
+        type: string
+      - description: EndDate
+        in: query
+        name: end_date
         type: string
       - description: Search
         in: query
