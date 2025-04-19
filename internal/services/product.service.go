@@ -157,12 +157,13 @@ func (s *Services) GetStoreProductByIdOrBarcode(id string, barcode string, store
 		Where("sp.store_id = ?", storeId)
 	var storeProduct domain.StoreProduct
 	if id != "" {
-		query = query.Where("sp.id = ?", id)
+		query = query.Where("sp.id = ?", id).Limit(1)
 	} else if barcode != "" {
 		// define search key
 		switch utils.DefineProductSearchQuery(barcode) {
 		case "marking": // if received field that is barcode will be marking it checks with marking code
-			query = query.Joins("LEFT JOIN product_markings pm ON pm.product_id = p.id").
+			query = query.
+				Joins("LEFT JOIN product_markings pm ON pm.product_id = p.id").
 				Where("pm.marking = ?", barcode).Limit(1)
 			// if utils.ExtractNumbers(barcode) != "" {
 			// 	query = query.Or("p.barcode = ?", utils.ExtractNumbers(barcode))
@@ -338,6 +339,60 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 		res = []domain.ProductData{}
 	}
 	return res, totalCount, nil
+}
+
+// test get product list
+func (s *Services) ListProductExport(param *domain.ProductQueryParam) ([]domain.Product, error) {
+	res := []domain.Product{}
+	query := s.builder.
+		Select(`p.id, p.material_code, p.name, p.photos, p.barcode,
+				p.unit_per_pack, p.mxik, p.is_marking, p.created_at, p.updated_at,
+				pr.name AS manufacturer, ut.unit_name, ut.short_name`,
+		).From("products p").
+		Join("LEFT JOIN producers pr ON pr.id = p.producer_id").
+		Join("LEFT JOIN unit_types ut ON p.unit_type_id = ut.id")
+
+	countQuery := s.builder.Select("COUNT(*)").From("products p").
+		Join("LEFT JOIN producers pr ON pr.id = p.producer_id").
+		Join("LEFT JOIN unit_types ut ON p.unit_type_id = ut.id")
+
+	if param.ProducerID != "" {
+		query = query.Where("p.producer_id = ?", param.ProducerID)
+		countQuery = countQuery.Where("p.producer_id = ?", param.ProducerID)
+	}
+	if param.NoBarcode {
+		query = query.Where("(p.barcode IS NULL OR p.barcode = '')")
+		countQuery = countQuery.Where("(p.barcode IS NULL OR p.barcode = '')")
+	}
+	if param.SearchField != "" {
+		search := "%" + param.SearchField + "%"
+		query = query.Where("(p.name ILIKE ? OR p.barcode LIKE ?)", search, search)
+		countQuery = countQuery.Where("(p.name ILIKE ? OR p.barcode LIKE ?)", search, search)
+	}
+	sql, args, err := query.Limit(param.Limit).Offset(param.Offset).Build()
+	if err != nil {
+		s.log.Warn("ERROR on building query: %v", err)
+		return res, err
+	}
+	err = s.db.Debug().Raw(sql, args...).Scan(&res).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting products: %v", err)
+		return res, err
+	}
+
+	countSql, args, err := countQuery.Count().Build()
+	if err != nil {
+		s.log.Warn("ERROR on building count query: %v", err)
+		return res, err
+	}
+	var totalCount int64
+	err = s.db.Debug().Raw(countSql, args...).Scan(&totalCount).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting products: %v", err)
+		return res, err
+	}
+	fmt.Println("COUNT: ", &totalCount)
+	return res, nil
 }
 
 // get product ikpu by mxik

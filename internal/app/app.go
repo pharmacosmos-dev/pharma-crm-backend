@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	v1 "github.com/pharma-crm-backend/internal/controller/http"
 	"github.com/pharma-crm-backend/internal/services"
+	"github.com/pharma-crm-backend/pkg/builder"
 	"github.com/pharma-crm-backend/pkg/db"
 
 	"github.com/pharma-crm-backend/config"
@@ -19,21 +20,26 @@ import (
 
 // Run creates objects via constructors.
 func Run(cfg *config.Config) {
-
+	// set gin release mode
 	gin.SetMode(gin.ReleaseMode)
 
+	// logger
 	l := logger.New(cfg.Log.Level)
 
+	// database connection functio
 	connDB, err := db.NewConnDB(cfg)
 	if err != nil {
 		l.Error(err)
 	}
+	// call to query builder
+	builder := builder.NewQueryBuilder()
+
 	// New storage
-	storage := services.NewService(connDB, l, cfg)
+	storage := services.NewService(connDB, l, cfg, builder)
 
 	// HTTP Server
 	handler := gin.New()
-
+	// call to new http router function
 	v1.NewRouter(v1.Options{
 		Gin:  handler,
 		Db:   connDB,

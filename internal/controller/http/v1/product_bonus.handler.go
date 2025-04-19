@@ -55,6 +55,21 @@ func (h *ProductBonusHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	// check product bonus with product id
+	var count int64
+	err = h.db.Table("product_bonuses").Where("product_id = ?", body.ProductId).Count(&count).Error
+	if err != nil {
+		h.log.Warn("ERROR on checking product bonus count: %v", err)
+		handleResponse(c, InternalError, "Failed to check product bonus")
+		return
+	}
+	// checking product bonus count
+	if count > 0 {
+		handleResponse(c, BadRequest, "Can't create duplicate bonus for one product")
+		return
+	}
+
+	// create new product bonus
 	body.Status = 1
 	err = h.db.Table("product_bonuses").Create(&body).Error
 	if err != nil {
