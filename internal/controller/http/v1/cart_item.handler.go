@@ -109,8 +109,8 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 		err = h.db.Raw(`
 		SELECT 
 			ci.*, 
-			p.is_marking
-		FROM cart_items ci 
+			p.is_marking AS is_marking
+		FROM cart_items ci
 			JOIN store_products sp ON ci.store_product_id = sp.id
 			JOIN products p ON sp.product_id = p.id 
 			WHERE ci.id = ?
@@ -164,7 +164,7 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 	err = h.db.Raw(`
 	SELECT 
 		ci.*, 
-		p.is_marking
+		p.is_marking AS is_marking
 	FROM cart_items ci 
 		JOIN store_products sp ON ci.store_product_id = sp.id
 		JOIN products p ON sp.product_id = p.id 
@@ -175,7 +175,7 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 		handleResponse(c, InternalError, "Cart Item updated but can't get")
 		return
 	}
-	handleResponse(c, OK, res)
+	handleResponse(c, OK, cartItem)
 }
 
 // Get godoc
