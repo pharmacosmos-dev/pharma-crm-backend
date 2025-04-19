@@ -98,13 +98,29 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 			return
 		}
 		cartItem.TotalPrice += cartItem.UnitPrice
-		err = h.db.Raw(`UPDATE cart_items SET quantity = ?, total_price = ? WHERE id = ? RETURNING *`,
-			cartItem.Quantity, cartItem.TotalPrice, cartItem.ID).Scan(&cartItem).Error
+		err = h.db.Exec(`UPDATE cart_items SET quantity = ?, total_price = ? WHERE id = ?`,
+			cartItem.Quantity, cartItem.TotalPrice, cartItem.ID).Error
 		if err != nil {
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())
 			return
 		}
+		// get cart item info
+		err = h.db.Raw(`
+		SELECT 
+			ci.*, 
+			p.is_marking
+		FROM cart_items ci 
+			JOIN store_products sp ON ci.store_product_id = sp.id
+			JOIN products p ON sp.product_id = p.id 
+			WHERE ci.id = ?
+		`, cartItem.ID).Scan(&cartItem).Error
+		if err != nil {
+			h.log.Warn("ERROR on getting cart_item: %v", err)
+			handleResponse(c, InternalError, "Cart Item updated but can't get")
+			return
+		}
+
 		handleResponse(c, OK, cartItem)
 		return
 	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -142,6 +158,21 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 	res, err := h.service.CreateCartItem(&body, discountPercent, discountPrice)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	// get cart item info
+	err = h.db.Raw(`
+	SELECT 
+		ci.*, 
+		p.is_marking
+	FROM cart_items ci 
+		JOIN store_products sp ON ci.store_product_id = sp.id
+		JOIN products p ON sp.product_id = p.id 
+		WHERE ci.id = ?
+	`, res.ID).Scan(&cartItem).Error
+	if err != nil {
+		h.log.Warn("ERROR on getting cart_item: %v", err)
+		handleResponse(c, InternalError, "Cart Item updated but can't get")
 		return
 	}
 	handleResponse(c, OK, res)

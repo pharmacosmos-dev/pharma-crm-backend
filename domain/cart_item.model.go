@@ -21,6 +21,7 @@ type CartItem struct {
 	UnitPerPack    int        `gorm:"unit_per_pack" json:"unit_per_pack"`
 	CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt      *time.Time `gorm:"updated_at" json:"updated_at"`
+	IsMarking      bool       `gorm:"is_marking" json:"is_marking"`
 }
 
 // CartItemRequest structure
