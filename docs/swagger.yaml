@@ -7610,6 +7610,122 @@ paths:
       summary: Create a product
       tags:
       - 1C Api
+  /report/bonus:
+    post:
+      consumes:
+      - application/json
+      description: Get employee bonus report
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Store ids
+        in: body
+        name: store_ids
+        schema:
+          items:
+            type: string
+          type: array
+      - description: 'Order type: max_count, min_count, max_amount, min_amount'
+        enum:
+        - max_count
+        - min_count
+        - max_amount
+        - min_amount
+        in: query
+        name: order
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get employee bonus report
+      tags:
+      - Report
+  /report/bonus-export:
+    post:
+      consumes:
+      - application/json
+      description: Get employee bonus report
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Store ids
+        in: body
+        name: store_ids
+        schema:
+          items:
+            type: string
+          type: array
+      - description: 'Order type: max_count, min_count, max_amount, min_amount'
+        enum:
+        - max_count
+        - min_count
+        - max_amount
+        - min_amount
+        in: query
+        name: order
+        type: string
+      produces:
+      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get employee bonus report
+      tags:
+      - Report
   /report/product-by-date:
     post:
       consumes:
