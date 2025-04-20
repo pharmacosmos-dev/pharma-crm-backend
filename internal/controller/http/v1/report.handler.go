@@ -204,6 +204,8 @@ func (h *ReportHandler) ProductByDateExport(c *gin.Context) {
 // @Produce json
 // @Param 	limit query int false "Limit"
 // @Param 	offset query int false "Offset"
+// @Param   start_date query string false "Start Date"
+// @Param   end_date query string false "End Date"
 // @Param   search query string false "Search"
 // @Param   store_ids body []string false "Store ids"
 // @Param   order query string false "Order type: max_count, min_count, max_amount, min_amount" Enums(max_count, min_count, max_amount, min_amount)

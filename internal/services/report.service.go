@@ -99,6 +99,16 @@ func (s *Services) BonusReport(param *domain.ReportQueryParam) ([]domain.BonusRe
 		filter += " AND (e.full_name ILIKE ? OR e.phone LIKE ? OR CAST(e.public_id AS TEXT) LIKE ?)"
 		args = append(args, search, search, search)
 	}
+	// checking end time with empty string
+	if param.EndDate == "" {
+		param.EndDate = param.StartDate
+	}
+	// filter with start date
+	if param.StartDate != "" && param.EndDate != "" {
+		filter += " AND eb.created_at::date BETWEEN ? AND ? "
+		args = append(args, param.StartDate, param.EndDate)
+	}
+
 	// sort by order type
 	if param.Order != "" {
 		switch param.Order {

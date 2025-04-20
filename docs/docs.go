@@ -10171,6 +10171,18 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
+                        "description": "Start Date",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End Date",
+                        "name": "end_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "description": "Search",
                         "name": "search",
                         "in": "query"

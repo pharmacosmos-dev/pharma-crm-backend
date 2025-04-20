@@ -7624,6 +7624,14 @@ paths:
         in: query
         name: offset
         type: integer
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
       - description: Search
         in: query
         name: search
