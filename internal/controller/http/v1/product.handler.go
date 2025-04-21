@@ -300,10 +300,6 @@ ORDER BY root_category_id, LENGTH(name_path) DESC;
 // @Param store_id query string false "Store ID"
 // @Param category_id query string false "Category ID"
 // @Param producer_id query string false "Producer ID"
-// @Param supply_price_from query int false "Supply From"
-// @Param supply_price_to query int false "Supply To"
-// @Param retail_price_from query int false "Retail Price From"
-// @Param retail_price_to query int false "Retail Price To"
 // @Param no_barcode query bool false "No Barcode"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
@@ -343,10 +339,6 @@ func (h *ProductHandler) List(c *gin.Context) {
 // @Param store_id query string false "Store ID"
 // @Param category_id query string false "Category ID"
 // @Param producer_id query string false "Producer ID"
-// @Param supply_price_from query int false "Supply From"
-// @Param supply_price_to query int false "Supply To"
-// @Param retail_price_from query int false "Retail Price From"
-// @Param retail_price_to query int false "Retail Price To"
 // @Param no_barcode query bool false "No Barcode"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
@@ -430,10 +422,6 @@ func (h *ProductHandler) ProductList(c *gin.Context) {
 // @Param store_id query string false "Store ID"
 // @Param category_id query string false "Category ID"
 // @Param producer_id query string false "Producer ID"
-// @Param supply_price_from query int false "Supply From"
-// @Param supply_price_to query int false "Supply To"
-// @Param retail_price_from query int false "Retail Price From"
-// @Param retail_price_to query int false "Retail Price To"
 // @Param no_barcode query bool false "No Barcode"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response

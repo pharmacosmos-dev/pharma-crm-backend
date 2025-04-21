@@ -7009,22 +7009,6 @@ paths:
         in: query
         name: producer_id
         type: string
-      - description: Supply From
-        in: query
-        name: supply_price_from
-        type: integer
-      - description: Supply To
-        in: query
-        name: supply_price_to
-        type: integer
-      - description: Retail Price From
-        in: query
-        name: retail_price_from
-        type: integer
-      - description: Retail Price To
-        in: query
-        name: retail_price_to
-        type: integer
       - description: No Barcode
         in: query
         name: no_barcode
@@ -7218,22 +7202,6 @@ paths:
         in: query
         name: producer_id
         type: string
-      - description: Supply From
-        in: query
-        name: supply_price_from
-        type: integer
-      - description: Supply To
-        in: query
-        name: supply_price_to
-        type: integer
-      - description: Retail Price From
-        in: query
-        name: retail_price_from
-        type: integer
-      - description: Retail Price To
-        in: query
-        name: retail_price_to
-        type: integer
       - description: No Barcode
         in: query
         name: no_barcode
@@ -7546,22 +7514,6 @@ paths:
         in: query
         name: producer_id
         type: string
-      - description: Supply From
-        in: query
-        name: supply_price_from
-        type: integer
-      - description: Supply To
-        in: query
-        name: supply_price_to
-        type: integer
-      - description: Retail Price From
-        in: query
-        name: retail_price_from
-        type: integer
-      - description: Retail Price To
-        in: query
-        name: retail_price_to
-        type: integer
       - description: No Barcode
         in: query
         name: no_barcode

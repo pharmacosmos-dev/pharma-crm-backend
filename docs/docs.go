@@ -9038,30 +9038,6 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
-                        "type": "integer",
-                        "description": "Supply From",
-                        "name": "supply_price_from",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Supply To",
-                        "name": "supply_price_to",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Retail Price From",
-                        "name": "retail_price_from",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Retail Price To",
-                        "name": "retail_price_to",
-                        "in": "query"
-                    },
-                    {
                         "type": "boolean",
                         "description": "No Barcode",
                         "name": "no_barcode",
@@ -9361,30 +9337,6 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Producer ID",
                         "name": "producer_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Supply From",
-                        "name": "supply_price_from",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Supply To",
-                        "name": "supply_price_to",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Retail Price From",
-                        "name": "retail_price_from",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Retail Price To",
-                        "name": "retail_price_to",
                         "in": "query"
                     },
                     {
@@ -9874,30 +9826,6 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Producer ID",
                         "name": "producer_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Supply From",
-                        "name": "supply_price_from",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Supply To",
-                        "name": "supply_price_to",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Retail Price From",
-                        "name": "retail_price_from",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Retail Price To",
-                        "name": "retail_price_to",
                         "in": "query"
                     },
                     {

@@ -179,7 +179,8 @@ type ProductRes struct {
 	ShortName      string            `gorm:"short_name" json:"short_name"`
 }
 
-type TotalStatusCount struct {
+type ProductStats struct {
+	TotalQuantity  int `gorm:"total_quantity" json:"total_quantity"`
 	TotalCount     int `gorm:"total_count" json:"total_count"`
 	ActiveCount    int `gorm:"active_count" json:"active_count"`
 	InactiveCount  int `gorm:"inactive_count" json:"inactive_count"`
