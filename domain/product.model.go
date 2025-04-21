@@ -261,4 +261,5 @@ type ProductData struct {
 	Quantity     int               `gorm:"quantity" json:"quantity"`
 	UnitQuantity int               `gorm:"unit_quantity" json:"unit_quantity"`
 	CategoryName string            `gorm:"category_name" json:"category_name"`
+	TotalCount   int64             `gorm:"total_count" json:"-"`
 }

@@ -222,9 +222,10 @@ func (h *ReportHandler) BonusReport(c *gin.Context) {
 		return
 	}
 	// bind store_ids
-	if err = c.ShouldBindJSON(&param.StoreIds); err != nil {
-		handleResponse(c, BadRequest, "Invalid store_ids parameters")
-		return
+
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&param.StoreIds)
+
 	}
 	// get default limit and offset for pagination
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
@@ -265,6 +266,10 @@ func (h *ReportHandler) BonusReportExport(c *gin.Context) {
 	if err != nil {
 		handleResponse(c, BadRequest, "Invalid query parameters")
 		return
+	}
+	// bind store_ids
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&param.StoreIds)
 	}
 	// get default limit and offset for pagination
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)

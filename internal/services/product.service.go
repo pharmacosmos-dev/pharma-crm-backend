@@ -293,7 +293,8 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 		CASE
 			WHEN p.unit_per_pack > 0 THEN spa.unit_quantity %% p.unit_per_pack
 			ELSE 0
-		END AS unit_quantity
+		END AS unit_quantity,
+	COUNT(1) OVER() AS total_count
 	FROM products p
 	LEFT JOIN producers pr ON p.producer_id = pr.id
 	LEFT JOIN unit_types ut ON p.unit_type_id = ut.id
@@ -306,38 +307,20 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 		param.Limit,
 		param.Offset)
 
-	err := s.db.Raw(query, args...).Scan(&res).Error
+	err := s.db.Debug().Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting products: %v", err)
 		return nil, 0, err
 	}
 
-	// 3. Count query
-	countQuery := fmt.Sprintf(`
-	WITH sp_agg AS (
-		SELECT product_id,
-			SUM(pack_quantity) AS total_quantity,
-			SUM(unit_quantity) AS unit_quantity
-		FROM store_products sp
-		%s
-		GROUP BY product_id
-	)
-	SELECT COUNT(DISTINCT p.id)
-	FROM products p
-	LEFT JOIN producers pr ON p.producer_id = pr.id
-	LEFT JOIN unit_types ut ON p.unit_type_id = ut.id
-	LEFT JOIN sp_agg spa ON p.id = spa.product_id
-	%s`,
-		sWhereSQL, whereSQL)
-
-	err = s.db.Raw(countQuery, args...).Scan(&totalCount).Error
-	if err != nil {
-		s.log.Warn("ERROR on getting products count: %v", err)
-		return nil, 0, err
-	}
 	if len(res) == 0 {
 		res = []domain.ProductData{}
 	}
+	// get total count
+	if len(res) > 0 {
+		totalCount = res[0].TotalCount
+	}
+
 	return res, totalCount, nil
 }
 
