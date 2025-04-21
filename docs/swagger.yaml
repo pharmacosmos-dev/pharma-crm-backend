@@ -7517,10 +7517,55 @@ paths:
     get:
       description: Get total count of products by status
       parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
       - description: Search
         in: query
         name: search
         type: string
+      - description: Status (active || inactive || low-stock || zero-stock || expired
+          || imminent)
+        in: query
+        name: status
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Category ID
+        in: query
+        name: category_id
+        type: string
+      - description: Producer ID
+        in: query
+        name: producer_id
+        type: string
+      - description: Supply From
+        in: query
+        name: supply_price_from
+        type: integer
+      - description: Supply To
+        in: query
+        name: supply_price_to
+        type: integer
+      - description: Retail Price From
+        in: query
+        name: retail_price_from
+        type: integer
+      - description: Retail Price To
+        in: query
+        name: retail_price_to
+        type: integer
+      - description: No Barcode
+        in: query
+        name: no_barcode
+        type: boolean
       produces:
       - application/json
       responses:

@@ -235,7 +235,8 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 
 	// 1. WHERE conditions dynamic
 	if param.StoreID != "" {
-		sWhereClauses = append(sWhereClauses, fmt.Sprintf("sp.store_id = '%s'", param.StoreID))
+		whereClauses = append(whereClauses, fmt.Sprintf("spa.store_id = $%d", len(args)+1))
+		args = append(args, param.StoreID)
 	}
 	if param.ProducerID != "" {
 		whereClauses = append(whereClauses, fmt.Sprintf("p.producer_id = $%d", len(args)+1))
@@ -278,12 +279,13 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 	// 2. Main query with WITH CTE
 	query := fmt.Sprintf(`
 	WITH sp_agg AS (
-	SELECT product_id,
-			SUM(pack_quantity) AS total_quantity,
-			SUM(unit_quantity) AS unit_quantity
+	SELECT 
+		product_id, store_id,
+		SUM(pack_quantity) AS total_quantity,
+		SUM(unit_quantity) AS unit_quantity
 	FROM store_products sp
 	%s
-	GROUP BY product_id
+	GROUP BY product_id, store_id
 	)
 	SELECT
 		p.id, p.material_code, p.name, p.photos, p.barcode,
@@ -307,7 +309,7 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 		param.Limit,
 		param.Offset)
 
-	err := s.db.Debug().Raw(query, args...).Scan(&res).Error
+	err := s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting products: %v", err)
 		return nil, 0, err
@@ -322,6 +324,103 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 	}
 
 	return res, totalCount, nil
+}
+
+func (s *Services) ListProductStats(param *domain.ProductQueryParam) (domain.TotalStatusCount, error) {
+	var (
+		res           domain.TotalStatusCount
+		args          []any
+		whereClauses  []string
+		sWhereClauses []string
+	)
+
+	// 1. WHERE conditions dynamic
+	if param.StoreID != "" {
+		whereClauses = append(whereClauses, fmt.Sprintf("spa.store_id = $%d", len(args)+1))
+		args = append(args, param.StoreID)
+	}
+	if param.ProducerID != "" {
+		whereClauses = append(whereClauses, fmt.Sprintf("p.producer_id = $%d", len(args)+1))
+		args = append(args, param.ProducerID)
+	}
+	if param.Status != "" {
+		switch param.Status {
+		case "active", "inactive":
+			whereClauses = append(whereClauses, fmt.Sprintf("p.status = $%d", len(args)+1))
+			args = append(args, param.Status)
+		case "low-stock":
+			whereClauses = append(whereClauses, "(total_quantity <= 10 AND total_quantity > 0)")
+		case "zero-stock":
+			sWhereClauses = append(sWhereClauses, "sp.pack_quantity = 0 AND sp.unit_quantity = 0")
+		case "expired":
+			sWhereClauses = append(sWhereClauses, fmt.Sprintf("sp.expire_date::date < '%s'", time.Now().Format("2006-01-02")))
+		case "imminent":
+			sWhereClauses = append(sWhereClauses, fmt.Sprintf("sp.expire_date::date BETWEEN '%s' AND '%s'", time.Now().Format("2006-01-02"), time.Now().AddDate(0, 0, 10).Format("2006-01-02")))
+		}
+	}
+	if param.SearchField != "" {
+		search := "%" + param.SearchField + "%"
+		whereClauses = append(whereClauses,
+			fmt.Sprintf("(p.name ILIKE $%d OR p.barcode ILIKE $%d)", len(args)+1, len(args)+2))
+		args = append(args, search, search)
+	}
+
+	if param.NoBarcode {
+		whereClauses = append(whereClauses, "(p.barcode IS NULL OR p.barcode = '')")
+	}
+	sWhereSQL := ""
+	if len(sWhereClauses) > 0 {
+		sWhereSQL = "WHERE " + strings.Join(sWhereClauses, " AND ")
+	}
+	whereSQL := ""
+	if len(whereClauses) > 0 {
+		whereSQL = "WHERE " + strings.Join(whereClauses, " AND ")
+	}
+	query := fmt.Sprintf(`
+	WITH sp_agg AS (
+	SELECT
+		product_id, store_id,
+		SUM(pack_quantity) AS total_quantity,
+		SUM(unit_quantity) AS unit_quantity,
+		SUM(pack_quantity) FILTER (
+		WHERE expire_date::date BETWEEN CURRENT_DATE AND (CURRENT_DATE + INTERVAL '10 days')
+		) AS near_expire_quantity,
+		SUM(pack_quantity) FILTER (
+		WHERE expire_date::date < CURRENT_DATE
+		) AS expired_quantity
+	FROM store_products sp
+	%s
+	GROUP BY product_id, store_id
+	)
+	SELECT
+		COUNT(*)  AS total_count,
+		SUM(total_quantity) AS total_quantity,
+		SUM(CASE WHEN status = 'active' THEN total_quantity ELSE 0 END) AS active_count,
+		SUM(CASE WHEN status = 'inactive' THEN total_quantity ELSE 0 END) AS inactive_count,
+		SUM(CASE WHEN total_quantity < 10 AND total_quantity > 0 THEN total_quantity ELSE 0 END) AS low_stock_quantity,
+		SUM(CASE WHEN total_quantity = 0 THEN 1 ELSE 0 END) AS zero_stock_count,
+		SUM(near_expire_quantity) AS imminent_count,
+		SUM(expired_quantity) AS expired_count
+	FROM products p
+	LEFT JOIN producers pr ON p.producer_id = pr.id
+	LEFT JOIN unit_types ut ON p.unit_type_id = ut.id
+	LEFT JOIN sp_agg spa ON p.id = spa.product_id
+	%s
+	`, sWhereSQL, whereSQL)
+	// 1. WHERE conditions dynamic
+	if param.StoreID != "" {
+		query += ""
+	}
+	if param.ProducerID != "" {
+		query += ""
+	}
+	err := s.db.Raw(query, args...).Scan(&res).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting product stats: %v", err)
+		return res, err
+	}
+
+	return res, nil
 }
 
 // test get product list

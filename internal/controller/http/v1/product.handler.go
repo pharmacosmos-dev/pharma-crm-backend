@@ -331,6 +331,47 @@ func (h *ProductHandler) List(c *gin.Context) {
 }
 
 // Get godoc
+// @Summary Get total count of products by status
+// @Description Get total count of products by status
+// @Tags products
+// @Security     BearerAuth
+// @Produce json
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Param search query string false "Search"
+// @Param status query string false "Status (active || inactive || low-stock || zero-stock || expired || imminent)"
+// @Param store_id query string false "Store ID"
+// @Param category_id query string false "Category ID"
+// @Param producer_id query string false "Producer ID"
+// @Param supply_price_from query int false "Supply From"
+// @Param supply_price_to query int false "Supply To"
+// @Param retail_price_from query int false "Retail Price From"
+// @Param retail_price_to query int false "Retail Price To"
+// @Param no_barcode query bool false "No Barcode"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/total-status-count [get]
+func (h *ProductHandler) TotalStatusCount(c *gin.Context) {
+	var (
+		param domain.ProductQueryParam
+	)
+	// bind query param
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	res, err := h.service.ListProductStats(&param)
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to get product stats")
+		return
+	}
+
+	handleResponse(c, OK, res)
+}
+
+// Get godoc
 // @Summary Get a product
 // @Description Get a product from the request body
 // @Tags products
@@ -482,47 +523,6 @@ func (h *ProductHandler) ExportProductExcel(c *gin.Context) {
 		h.log.Error(err)
 		handleResponse(c, InternalError, "Failed to generate Excel file")
 	}
-}
-
-// Get godoc
-// @Summary Get total count of products by status
-// @Description Get total count of products by status
-// @Tags products
-// @Security     BearerAuth
-// @Produce json
-// @Param 	search query string false "Search"
-// @Success 200 {object} v1.Response
-// @Failure 400 {object} v1.Response
-// @Failure 500 {object} v1.Response
-// @Router /product/total-status-count [get]
-func (h *ProductHandler) TotalStatusCount(c *gin.Context) {
-	var (
-		res             domain.TotalStatusCount
-		search          = c.Query("search")
-		searchCondition string
-	)
-	if search != "" {
-		search = fmt.Sprintf("%%%s%%", search)
-		searchCondition = fmt.Sprintf("WHERE barcode LIKE '%s' OR name ILIKE '%s'", search, search)
-	}
-	query := fmt.Sprintf(`
-	SELECT
-		COUNT(*) AS total_count,
-		COUNT(*) FILTER (WHERE status = 'active') AS active_count,
-		COUNT(*) FILTER (WHERE status = 'inactive') AS inactive_count,
-		(SELECT count(*) FROM store_products WHERE pack_quantity = 0 AND unit_quantity = 0) AS zero_stock_count,
-		(SELECT count(*) FROM store_products WHERE small_quantity = pack_quantity) AS low_stock_count,
-		(SELECT count(*) FROM store_products WHERE CURRENT_DATE <= expire_date AND expire_date <= CURRENT_DATE + INTERVAL '10 days') AS imminent_count,
-		(SELECT count(*) FROM store_products WHERE expire_date::DATE < CURRENT_DATE) AS expired_count
-	FROM products %s
-	`, searchCondition)
-	err := h.db.Debug().Raw(query).Scan(&res).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	handleResponse(c, OK, res)
 }
 
 // Get godoc
