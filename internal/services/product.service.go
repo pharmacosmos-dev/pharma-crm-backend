@@ -235,8 +235,7 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 
 	// 1. WHERE conditions dynamic
 	if param.StoreID != "" {
-		whereClauses = append(whereClauses, fmt.Sprintf("sp.store_id = '%s'", param.StoreID))
-		args = append(args, param.StoreID)
+		sWhereClauses = append(whereClauses, fmt.Sprintf("sp.store_id = '%s'", param.StoreID))
 	}
 	if param.ProducerID != "" {
 		whereClauses = append(whereClauses, fmt.Sprintf("p.producer_id = $%d", len(args)+1))
