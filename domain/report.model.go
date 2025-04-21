@@ -14,7 +14,7 @@ type ReportQueryParam struct {
 
 // Bonus report structure
 type BonusReport struct {
-	EmployeeId string  `gorm:"employee_id" json:"employee_id"`
+	Id         string  `gorm:"id" json:"id"`
 	PublicId   int     `gorm:"public_id" json:"public_id"`
 	FullName   string  `gorm:"full_name" json:"full_name"`
 	Phone      string  `gorm:"phone" json:"phone"`

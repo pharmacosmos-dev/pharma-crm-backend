@@ -294,7 +294,7 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 			WHEN p.unit_per_pack > 0 THEN spa.unit_quantity %% p.unit_per_pack
 			ELSE 0
 		END AS unit_quantity,
-	COUNT(1) OVER() AS total_count
+		COUNT(1) OVER() AS total_count
 	FROM products p
 	LEFT JOIN producers pr ON p.producer_id = pr.id
 	LEFT JOIN unit_types ut ON p.unit_type_id = ut.id

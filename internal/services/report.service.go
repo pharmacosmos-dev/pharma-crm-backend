@@ -73,7 +73,7 @@ func (s *Services) BonusReport(param *domain.ReportQueryParam) ([]domain.BonusRe
 	// build query
 	query := `
 	SELECT
-		e.id AS employee_id,
+		e.id AS id,
 		e.public_id,
 		e.full_name,
 		e.phone,
