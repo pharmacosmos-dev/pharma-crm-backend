@@ -235,7 +235,7 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 
 	// 1. WHERE conditions dynamic
 	if param.StoreID != "" {
-		whereClauses = append(whereClauses, fmt.Sprintf("spa.store_id = $%d", len(args)+1))
+		whereClauses = append(whereClauses, fmt.Sprintf("sp.store_id = '%s'", param.StoreID))
 		args = append(args, param.StoreID)
 	}
 	if param.ProducerID != "" {
@@ -280,12 +280,12 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 	query := fmt.Sprintf(`
 	WITH sp_agg AS (
 	SELECT 
-		product_id, store_id,
+		product_id,
 		SUM(pack_quantity) AS total_quantity,
 		SUM(unit_quantity) AS unit_quantity
 	FROM store_products sp
 	%s
-	GROUP BY product_id, store_id
+	GROUP BY product_id
 	)
 	SELECT
 		p.id, p.material_code, p.name, p.photos, p.barcode,
@@ -309,7 +309,7 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 		param.Limit,
 		param.Offset)
 
-	err := s.db.Raw(query, args...).Scan(&res).Error
+	err := s.db.Debug().Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting products: %v", err)
 		return nil, 0, err
@@ -343,21 +343,7 @@ func (s *Services) ListProductStats(param *domain.ProductQueryParam) (domain.Tot
 		whereClauses = append(whereClauses, fmt.Sprintf("p.producer_id = $%d", len(args)+1))
 		args = append(args, param.ProducerID)
 	}
-	if param.Status != "" {
-		switch param.Status {
-		case "active", "inactive":
-			whereClauses = append(whereClauses, fmt.Sprintf("p.status = $%d", len(args)+1))
-			args = append(args, param.Status)
-		case "low-stock":
-			whereClauses = append(whereClauses, "(total_quantity <= 10 AND total_quantity > 0)")
-		case "zero-stock":
-			sWhereClauses = append(sWhereClauses, "sp.pack_quantity = 0 AND sp.unit_quantity = 0")
-		case "expired":
-			sWhereClauses = append(sWhereClauses, fmt.Sprintf("sp.expire_date::date < '%s'", time.Now().Format("2006-01-02")))
-		case "imminent":
-			sWhereClauses = append(sWhereClauses, fmt.Sprintf("sp.expire_date::date BETWEEN '%s' AND '%s'", time.Now().Format("2006-01-02"), time.Now().AddDate(0, 0, 10).Format("2006-01-02")))
-		}
-	}
+
 	if param.SearchField != "" {
 		search := "%" + param.SearchField + "%"
 		whereClauses = append(whereClauses,
@@ -407,14 +393,8 @@ func (s *Services) ListProductStats(param *domain.ProductQueryParam) (domain.Tot
 	LEFT JOIN sp_agg spa ON p.id = spa.product_id
 	%s
 	`, sWhereSQL, whereSQL)
-	// 1. WHERE conditions dynamic
-	if param.StoreID != "" {
-		query += ""
-	}
-	if param.ProducerID != "" {
-		query += ""
-	}
-	err := s.db.Raw(query, args...).Scan(&res).Error
+
+	err := s.db.Debug().Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting product stats: %v", err)
 		return res, err
