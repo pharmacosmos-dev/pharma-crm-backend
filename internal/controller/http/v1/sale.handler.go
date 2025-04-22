@@ -446,7 +446,8 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 		squery = `
 		SELECT
 			SUM(CASE WHEN s.sale_type = 'SALE' THEN s.total_amount ELSE 0 END) - SUM(CASE WHEN s.sale_type = 'RETURN' THEN s.total_amount ELSE 0 END) AS total_transactions_sum,
-        	SUM(CASE WHEN s.sale_type = 'RETURN' THEN s.total_amount ELSE 0 END) AS total_returnals_sum 
+        	SUM(CASE WHEN s.sale_type = 'RETURN' THEN s.total_amount ELSE 0 END) AS total_returnals_sum,
+			COUNT(*) AS total_count
 		FROM sales s
 		JOIN stores st ON s.store_id = st.id
 		`
@@ -456,20 +457,15 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 			pt.id,
 			pt.name,
 			pt.type,
-			SUM(CASE WHEN s.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
-    		SUM(CASE WHEN s.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS sum
-		FROM sale_payments sp
-		JOIN payment_types pt ON sp.payment_type_id = pt.id
-		JOIN sales s ON sp.sale_id = s.id
+			COALESCE(SUM(CASE WHEN s.sale_type = 'SALE' THEN sp.amount ELSE 0 END), 0) -
+			COALESCE(SUM(CASE WHEN s.sale_type = 'RETURN' THEN sp.amount ELSE 0 END), 0) AS sum
+		FROM payment_types pt
+		LEFT JOIN sale_payments sp ON sp.payment_type_id = pt.id
+		LEFT JOIN sales s ON sp.sale_id = s.id
 		`
-		filter = `WHERE s.status = 'completed' `
-		group  = ` GROUP BY pt.id, pt.name`
+		filter = ` s.status = 'completed' `
+		group  = ` GROUP BY pt.id, pt.name, pt.type`
 	)
-
-	if param.PaymentTypeID != "" {
-		args = append(args, param.PaymentTypeID)
-		filter += " AND sp.payment_type_id = ?"
-	}
 
 	if param.VendorID != "" {
 		args = append(args, param.VendorID)
@@ -507,25 +503,25 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 		filter += fmt.Sprintf(" AND CAST(s.sale_number AS TEXT) LIKE '%s'", param.Search)
 	}
 	// collect total transactions query
-	var q = squery + filter
+	var q = squery + " WHERE " + filter
 	// replace with :param with ?
-	err = h.db.Raw(q, args...).Scan(&res).Error
+	err = h.db.Debug().Raw(q, args...).Scan(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 	// collect payment type sum query
-	var pq = pquery + filter + group
+	var pq = pquery + " AND " + filter + group + " ORDER BY sum DESC;"
 	// replace with :param with ?
-	err = h.db.Raw(pq, args...).Scan(&res.PaymentTypeStats).Error
+	err = h.db.Debug().Raw(pq, args...).Scan(&res.PaymentTypeStats).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
-	if res.PaymentTypeStats == nil || res.TotalTransactionsSum == 0 {
+	if res.PaymentTypeStats == nil {
 		res.PaymentTypeStats = []domain.PaymentTypeStats{}
 	}
 	handleResponse(c, OK, res)

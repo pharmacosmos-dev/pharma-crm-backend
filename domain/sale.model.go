@@ -139,6 +139,8 @@ type SaleTotalAmount struct {
 type SaleStats struct {
 	TotalTransactionsSum float64            `gorm:"total_transactions_sum" json:"total_transactions_sum"`
 	TotalReturnalsSum    float64            `gorm:"total_returnals_sum" json:"total_returnals_sum"`
+	TotalCount           int64              `gorm:"total_count" json:"total_count"`
+	TotalProductCount    int64              `gorm:"total_product_count" json:"total_product_count"`
 	PaymentTypeStats     []PaymentTypeStats `gorm:"-" json:"payment_type_stats"`
 }
 

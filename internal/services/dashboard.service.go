@@ -382,22 +382,17 @@ func (s *Services) DashboardTopSeller(param *domain.DashboardQueryParam) ([]doma
 		filter += " AND s.store_id IN (?)"
 		args = append(args, param.StoreIds)
 	}
-	// check store_ids
-	if len(param.StoreIds) > 0 {
-		filter += " AND s.store_id IN (?)"
-		args = append(args, param.StoreIds)
-	}
-	if param.StartDate != "" && param.EndDate == "" {
-		filter += " AND s.completed_at::date = ?"
-		args = append(args, param.StartDate)
+	// check end_date for empty string
+	if param.EndDate == "" {
+		param.EndDate = param.StartDate
 	}
 	if param.StartDate != "" && param.EndDate != "" {
-		filter += " AND s.completed_at::date >= ? AND s.completed_at::date <= ?"
+		filter += " AND s.completed_at::date BETWEEN ? AND  ?"
 		args = append(args, param.StartDate, param.EndDate)
 	}
 	args = append(args, param.Limit, param.Offset)
 	var q = query + filter + group + order + offset
-	err := s.db.Raw(q, args...).Scan(&res).Error
+	err := s.db.Debug().Raw(q, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Error("ERROR on getting top seller: ", err)
 		return nil, err

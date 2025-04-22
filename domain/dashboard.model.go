@@ -58,7 +58,8 @@ type BonusProducts struct {
 type TopSeller struct {
 	Id          string  `gorm:"id" json:"id"`
 	FullName    string  `gorm:"full_name" json:"full_name"`
-	Count       int64   `gorm:"count" json:"count"`
+	StoreName   string  `gorm:"store_name" json:"store_name"`
+	Count       float64 `gorm:"count" json:"count"`
 	TotalAmount float64 `gorm:"total_amount" json:"total_amount"`
 }
 
