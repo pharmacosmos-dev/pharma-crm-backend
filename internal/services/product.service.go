@@ -560,7 +560,7 @@ func (s *Services) GetProductMovements(productId string, limit, offset int) ([]d
 		SELECT
 			im.id, im.public_id, im.entry_type, im.created_at,
 			s.name AS store_name,
-			SUM(imd.accepted_count) AS count,
+			SUM(imd.accepted_count)::text AS count,
 			SUM(imd.accepted_count * imd.retail_price_vat) AS sum
 		FROM imports im
 		JOIN stores s ON im.store_id = s.id
@@ -577,7 +577,7 @@ func (s *Services) GetProductMovements(productId string, limit, offset int) ([]d
 			4 AS entry_type,
 			sa.completed_at AS created_at,
 			st.name AS store_name,
-			SUM(ci.quantity + (ci.unit_quantity / 10.0)) AS count,
+			SUM(ci.quantity) ||','|| SUM(ci.unit_quantity) AS count,
 			sa.total_amount AS sum
 		FROM sales sa
 		JOIN stores st ON st.id = sa.store_id
@@ -599,7 +599,7 @@ func (s *Services) GetProductMovements(productId string, limit, offset int) ([]d
 	}
 
 	// complete query
-	err = s.db.Raw(query, productId, productId, limit, offset).Scan(&res).Error
+	err = s.db.Debug().Raw(query, productId, productId, limit, offset).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting product movements: %v", err)
 		return res, totalCount, err
