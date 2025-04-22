@@ -148,35 +148,44 @@ func (s *Services) GetStoreProductByBarcode(ctx context.Context, barcode string)
 
 // get store info by product id
 func (s *Services) GetStoreProductByIdOrBarcode(id string, barcode string, storeId string) (*domain.StoreProduct, error) {
-	query := s.db.
-		Table("store_products sp").
-		Select(`sp.*, pb.bonus_amount AS bonus_amount, p.unit_per_pack, p.barcode`).
-		Joins("JOIN products p ON sp.product_id = p.id").
-		Joins("LEFT JOIN product_bonuses pb ON pb.product_id = p.id").
-		Where("sp.store_id = ?", storeId)
-	var storeProduct domain.StoreProduct
+	var (
+		storeProduct domain.StoreProduct
+		filter       = " WHERE 1=1 "
+		args         = []any{}
+	)
+
+	query := `
+	SELECT sp.*, p.unit_per_pack, p.barcode
+	FROM store_products sp
+		JOIN products p ON sp.product_id = p.id
+		LEFT JOIN product_markings pm ON pm.product_id = p.id AND pm.store_id = sp.store_id
+	`
+	filter += " AND sp.store_id = ? "
+	args = append(args, storeId)
+
 	if id != "" {
-		query = query.Where("sp.id = ?", id).Limit(1)
+		filter += " AND sp.id = ? "
+		args = append(args, id)
 	} else if barcode != "" {
-		// define search key
-		switch utils.DefineProductSearchQuery(barcode) {
-		case "marking": // if received field that is barcode will be marking it checks with marking code
-			query = query.
-				Joins("LEFT JOIN product_markings pm ON pm.product_id = p.id").
-				Where("pm.marking = ?", barcode).Limit(1)
-			// if utils.ExtractNumbers(barcode) != "" {
-			// 	query = query.Or("p.barcode = ?", utils.ExtractNumbers(barcode))
-			// }
-		default: // if received field not be marking it checks default with barcode
-			query = query.Where("p.barcode = ?", barcode).Limit(1)
+		if utils.DefineProductSearchQuery(barcode) == "marking" {
+			filter += " AND pm.marking = ? "
+			args = append(args, barcode)
+		} else if utils.DefineProductSearchQuery(barcode) == "barcode" {
+			filter += " AND p.barcode = ? "
+			args = append(args, barcode)
+		} else {
+			return nil, errors.New("id or barcode is required")
 		}
 	} else {
 		return nil, errors.New("id or barcode is required")
 	}
-
-	err := query.Debug().First(&storeProduct).Error
+	// collect query
+	query = query + filter
+	// complete query
+	err := s.db.Raw(query, args...).Scan(&storeProduct).Error
 	if err != nil {
-		return nil, err
+		s.log.Warn("ERROR on getting store_product: %v", err)
+		return &storeProduct, err
 	}
 
 	if storeProduct.Id != "" {

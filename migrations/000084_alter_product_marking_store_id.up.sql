@@ -1,0 +1,1 @@
+ALTER TABLE product_markings ADD COLUMN IF NOT EXISTS "store_id" UUID REFERENCES stores(id);

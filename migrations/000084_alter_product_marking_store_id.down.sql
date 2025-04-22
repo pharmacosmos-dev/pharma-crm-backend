@@ -1,0 +1,1 @@
+ALTER TABLE product_markings DROP COLUMN IF EXISTS "store_id";

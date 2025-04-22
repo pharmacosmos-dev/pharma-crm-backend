@@ -84,6 +84,9 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
+	} else if storeProduct.Id == "" {
+		handleResponse(c, NotFound, "Product not found")
+		return
 	}
 	// get cart item
 	var cartItem domain.CartItem

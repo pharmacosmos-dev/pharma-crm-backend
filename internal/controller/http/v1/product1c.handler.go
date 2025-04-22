@@ -144,9 +144,9 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 		}
 		for _, marking := range body.Товары[i].Markirovka {
 			err = tx.Exec(`
-				INSERT INTO product_markings (import_detail_id, product_id, marking)
-				VALUES(?, ?, ?)`,
-				id, productID, marking).Error
+				INSERT INTO product_markings (import_detail_id, product_id, marking, store_id)
+				VALUES(?, ?, ?, ?)`,
+				id, productID, marking, store.Id).Error
 			if err != nil {
 				h.log.Error("Failed to insert marking on importing: ", err)
 				handleResponse(c, InternalError, err.Error())

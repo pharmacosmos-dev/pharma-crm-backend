@@ -1,0 +1,1 @@
+ALTER TABLE store_products ADD COLUMN IF NOT EXISTS "import_detail_id" UUID REFERENCES import_details(id);

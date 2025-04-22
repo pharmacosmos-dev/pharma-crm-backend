@@ -1,0 +1,1 @@
+ALTER TABLE store_products DROP COLUMN IF EXISTS "import_detail_id";
