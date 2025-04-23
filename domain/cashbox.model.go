@@ -20,6 +20,7 @@ type CashboxOpenData struct {
 	Name       string `gorm:"name" json:"name"`
 	StoreID    string `gorm:"store_id" json:"store_id"`
 	IsOpen     bool   `gorm:"is_open" json:"is_open"`
+	IsActive   bool   `gorm:"is_active" json:"is_active"`
 	StoreName  string `gorm:"store_name" json:"store_name"`
 	FullName   string `gorm:"full_name" json:"full_name"`
 	TotalCount int64  `gorm:"total_count" json:"-"`

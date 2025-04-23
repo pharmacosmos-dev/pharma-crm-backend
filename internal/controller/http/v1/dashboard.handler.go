@@ -85,10 +85,8 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 		return
 	}
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
-		if employee.StoreId != "" {
-			param.StoreIds = []string{employee.StoreId}
-		}
+	if !helper.IsAdmin(employee, h.cfg) && employee.StoreId != "" {
+		param.StoreIds = []string{employee.StoreId}
 	}
 	// get dashboard data
 	res, err := h.service.DashboardTotalCountStats(&param)

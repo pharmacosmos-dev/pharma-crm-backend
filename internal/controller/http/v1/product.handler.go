@@ -1035,6 +1035,7 @@ func (h *ProductHandler) ListStoreProductProductId(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid product id")
 		return
 	}
+	// get user_id from header context
 	userId, ok := c.Get("user_id")
 	if !ok {
 		handleResponse(c, InternalError, "User ID not found in context")
@@ -1054,7 +1055,9 @@ func (h *ProductHandler) ListStoreProductProductId(c *gin.Context) {
 	}
 	// check user role
 	if !helper.IsAdmin(employee, h.cfg) {
-		storeID = employee.StoreId
+		if employee.StoreId != "" {
+			storeID = employee.StoreId
+		}
 	}
 
 	// get limit, offset
@@ -1072,7 +1075,8 @@ func (h *ProductHandler) ListStoreProductProductId(c *gin.Context) {
 		Joins("JOIN products p ON p.id = store_products.product_id").
 		Joins("LEFT JOIN unit_types u ON u.id = p.unit_type_id").
 		Where("store_products.product_id = ?", id).
-		Where("store_products.pack_quantity > 0 OR store_products.unit_quantity > 0 AND store_products.expire_date::date >= CURRENT_DATE")
+		Where("store_products.pack_quantity > 0 OR store_products.unit_quantity > 0")
+
 	if storeID != "" {
 		query = query.Where("store_products.store_id = ?", storeID)
 	}
@@ -1081,7 +1085,6 @@ func (h *ProductHandler) ListStoreProductProductId(c *gin.Context) {
 		Count(&totalCount).
 		Limit(limit).Offset(offset).
 		Order("store_products.created_at desc").
-		Debug().
 		Find(&res).Error
 	if err != nil {
 		h.log.Error(err)
@@ -1483,14 +1486,39 @@ func (h *ProductHandler) AttachBarcode(c *gin.Context) {
 func (h *ProductHandler) ProductMovements(c *gin.Context) {
 	// get product id from the path param
 	productId := c.Param("id")
+
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User not found")
+		return
+	}
 	// get pagination with default
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
 		handleResponse(c, BadRequest, "Received invalid pagination")
 		return
 	}
+	// get employee info
+	var employee domain.Employee
+	err = h.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		h.log.Error("ERROR on getting employee info: ", err)
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+	var storeId string
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			storeId = employee.StoreId
+		}
+	}
 	// get product-movements data from the product service
-	res, totalCount, err := h.service.GetProductMovements(productId, limit, offset)
+	res, totalCount, err := h.service.GetProductMovements(productId, storeId, limit, offset)
 	if err != nil {
 		h.log.Info("Failed to get product-movement: %v", err)
 		handleResponse(c, InternalError, "Can't get product-movements")

@@ -159,11 +159,12 @@ type ImportDetailQueryParams struct {
 
 // Import data
 type ImportProductData struct {
-	Id        string     `gorm:"id" json:"id"`
-	PublicID  int        `gorm:"public_id" json:"public_id"`
-	EntryType int        `gorm:"entry_type" json:"entry_type"`
-	Count     string     `gorm:"count" json:"count"`
-	Sum       float64    `gorm:"sum" json:"sum"`
-	StoreName string     `gorm:"store_name" json:"store_name"`
-	CreatedAt *time.Time `gorm:"created_at" json:"created_at"`
+	Id         string     `gorm:"id" json:"id"`
+	PublicID   int        `gorm:"public_id" json:"public_id"`
+	EntryType  int        `gorm:"entry_type" json:"entry_type"`
+	Count      string     `gorm:"count" json:"count"`
+	Sum        float64    `gorm:"sum" json:"sum"`
+	StoreName  string     `gorm:"store_name" json:"store_name"`
+	CreatedAt  *time.Time `gorm:"created_at" json:"created_at"`
+	TotalCount int64      `gorm:"total_count" json:"-"`
 }
