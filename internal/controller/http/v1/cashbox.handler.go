@@ -2,7 +2,6 @@ package v1
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -152,11 +151,13 @@ func (h *CashBoxHandler) Get(c *gin.Context) {
 // @Router /cash_box/list [get]
 func (h *CashBoxHandler) List(c *gin.Context) {
 	var (
-		res        []domain.CashBox
+		res        []domain.CashboxOpenData
 		totalCount int64
 		err        error
 		storeID    = c.Query("store_id")
 		search     = c.Query("search")
+		filter     = " WHERE 1=1 "
+		args       = []any{}
 	)
 	// get user id from header
 	userId, ok := c.Get("user_id")
@@ -192,29 +193,56 @@ func (h *CashBoxHandler) List(c *gin.Context) {
 	}
 
 	// build query
-	query := h.db.
-		Model(&domain.CashBox{}).
-		Preload("Store")
-	// filter by storeID
+	query := `
+	SELECT
+		c.id,
+		c.store_id,
+		c.name,
+		c.is_active,
+		s.name AS store_name,
+		COALESCE(
+			(SELECT co.is_open
+			FROM cashbox_operations co
+			WHERE co.cash_box_id = c.id
+			ORDER BY co.created_at DESC
+			LIMIT 1),
+			FALSE
+		) AS is_open,
+		COALESCE(
+			(SELECT e.full_name
+			FROM cashbox_operations co
+			JOIN employees e ON e.id = co.current_employee_id
+			WHERE co.cash_box_id = c.id
+			AND co.is_open = TRUE
+			ORDER BY co.created_at DESC
+			LIMIT 1),
+			''
+		) AS full_name,
+		COUNT(*) OVER() AS total_count
+	FROM
+		cash_boxes c
+	JOIN stores s ON c.store_id = s.id
+	`
 	if storeID != "" {
-		query = query.Where("store_id = ?", storeID)
+		filter += " AND c.store_id = ? "
+		args = append(args, storeID)
 	}
-	// filter by search item
 	if search != "" {
-		search = fmt.Sprintf("%%%s%%", search)
-		query = query.Where("name ILIKE ?", search)
+		search = "%" + search + "%"
+		filter += " AND c.name ILIKE ? "
+		args = append(args, search)
 	}
+	query = query + filter + "ORDER BY c.created_at DESC " + " LIMIT ? OFFSET ?"
+	args = append(args, limit, offset)
 	// complete query
-	err = query.
-		Where("deleted_at IS NULL").
-		Count(&totalCount).
-		Limit(limit).Offset(offset).
-		Order("created_at DESC").
-		Find(&res).Error
+	err = h.db.Debug().Raw(query, args...).Scan(&res).Error
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		h.log.Warn("ERROR on getting cashbox list: %v", err)
+		handleResponse(c, InternalError, "Can't get cashbox list")
 		return
+	}
+	if len(res) > 0 {
+		totalCount = res[0].TotalCount
 	}
 	// build response with _meta
 	result := utils.ListResponse(res, totalCount, limit, offset)

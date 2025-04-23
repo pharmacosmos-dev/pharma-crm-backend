@@ -437,13 +437,13 @@ func (h *ProductHandler) ExportProductExcel(c *gin.Context) {
 	// Pagination parameters
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 
-	if param.StoreID == "" {
-		handleResponse(c, BadRequest, "StoreId is required")
-		return
-	}
+	// if param.StoreID == "" {
+	// 	handleResponse(c, BadRequest, "StoreId is required")
+	// 	return
+	// }
 
 	// get products list
-	res, err := h.service.ListProductExport(&param)
+	res, _, err := h.service.ListProduct(&param)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -455,7 +455,7 @@ func (h *ProductHandler) ExportProductExcel(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"Наименование", "Кол-во", "Цена поставки", "Cумма поставки", "Цена продажи", "Cумма продажи", "Цена наценка", "Cумма наценка", "Производитель", "Категория", "НДС", "Цена НДС", "Cумма НДС", "Штрих-код"}
+	headers := []string{"Код-продакт", "Наименование", "Штрих-код", "Кол-во", "Производитель", "Маркировка", "Категория", "MXIK"}
 
 	headerStyle, err := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{
@@ -476,31 +476,25 @@ func (h *ProductHandler) ExportProductExcel(c *gin.Context) {
 	}
 
 	// give width to column
-	f.SetColWidth(sheetName, "A", "A", 30)
-	f.SetColWidth(sheetName, "B", "B", 10)
-	f.SetColWidth(sheetName, "C", "H", 15)
-	f.SetColWidth(sheetName, "I", "J", 30)
-	f.SetColWidth(sheetName, "K", "M", 15)
-	f.SetColWidth(sheetName, "N", "N", 20)
+	f.SetColWidth(sheetName, "A", "A", 10)
+	f.SetColWidth(sheetName, "B", "C", 30)
+	f.SetColWidth(sheetName, "D", "D", 10)
+	f.SetColWidth(sheetName, "E", "E", 30)
+	f.SetColWidth(sheetName, "F", "F", 15)
+	f.SetColWidth(sheetName, "J", "J", 15)
+	f.SetColWidth(sheetName, "H", "H", 20)
 
 	// Ma'lumotlarni qo'shish
 	for i, product := range res {
 		row := strconv.Itoa(i + 2)
-		f.SetCellValue(sheetName, "A"+row, product.Name)
-		f.SetCellValue(sheetName, "B"+row, product.Quantity)
-		f.SetCellValue(sheetName, "C"+row, product.SupplyPrice)
-		f.SetCellValue(sheetName, "D"+row, product.SupplyPrice*float64(product.Quantity))
-		f.SetCellValue(sheetName, "E"+row, product.RetailPrice)
-		f.SetCellValue(sheetName, "F"+row, product.RetailPrice*float64(product.Quantity))
-		f.SetCellValue(sheetName, "G"+row, product.RetailPrice-product.SupplyPrice)
-		f.SetCellValue(sheetName, "H"+row, (product.RetailPrice-product.SupplyPrice)*float64(product.Quantity))
-		f.SetCellValue(sheetName, "I"+row, product.Manufacturer)
-		f.SetCellValue(sheetName, "J"+row, product.CategoryName)
-		f.SetCellValue(sheetName, "K"+row, product.Vat)
-		f.SetCellValue(sheetName, "L"+row, product.VatPrice)
-		f.SetCellValue(sheetName, "M"+row, product.VatPrice*float64(product.Quantity))
-		f.SetCellValue(sheetName, "N"+row, product.Barcode)
-
+		f.SetCellValue(sheetName, "A"+row, product.MaterialCode)
+		f.SetCellValue(sheetName, "B"+row, product.Name)
+		f.SetCellValue(sheetName, "C"+row, product.Barcode)
+		f.SetCellValue(sheetName, "D"+row, product.Quantity)
+		f.SetCellValue(sheetName, "E"+row, product.Manufacturer)
+		f.SetCellValue(sheetName, "F"+row, product.IsMarking)
+		f.SetCellValue(sheetName, "G"+row, product.CategoryName)
+		f.SetCellValue(sheetName, "H"+row, product.MXIK)
 	}
 
 	// Faylni HTTP response orqali yuborish

@@ -14,6 +14,17 @@ type CashBox struct {
 	Store     *Store     `gorm:"foreignKey:StoreID" json:"store"`
 }
 
+// Cashbox data
+type CashboxOpenData struct {
+	ID         string `gorm:"id" json:"id"`
+	Name       string `gorm:"name" json:"name"`
+	StoreID    string `gorm:"store_id" json:"store_id"`
+	IsOpen     bool   `gorm:"is_open" json:"is_open"`
+	StoreName  string `gorm:"store_name" json:"store_name"`
+	FullName   string `gorm:"full_name" json:"full_name"`
+	TotalCount int64  `gorm:"total_count" json:"-"`
+}
+
 // Cash Register Request for create, update
 type CashBoxRequest struct {
 	ID           string               `gorm:"id" json:"-"`
