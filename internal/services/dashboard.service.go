@@ -392,7 +392,7 @@ func (s *Services) DashboardTopSeller(param *domain.DashboardQueryParam) ([]doma
 	}
 	args = append(args, param.Limit, param.Offset)
 	var q = query + filter + group + order + offset
-	err := s.db.Debug().Raw(q, args...).Scan(&res).Error
+	err := s.db.Raw(q, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Error("ERROR on getting top seller: ", err)
 		return nil, err

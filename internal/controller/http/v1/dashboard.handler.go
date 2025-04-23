@@ -47,9 +47,7 @@ func (h *DashboardHandler) DashboardRoutes(r *gin.RouterGroup) {
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/count-stats [POST]
 func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
-	var (
-		param domain.DashboardQueryParam
-	)
+	var param domain.DashboardQueryParam
 
 	// bind query parameters
 	err := c.ShouldBindQuery(&param)
@@ -58,9 +56,8 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 		return
 	}
 	// bind store ids
-	if err = c.ShouldBindJSON(&param.StoreIds); err != nil {
-		handleResponse(c, BadRequest, "Invalid store ids")
-		return
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&param.StoreIds)
 	}
 	// get user id from header
 	userId, ok := c.Get("user_id")
@@ -89,7 +86,9 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 	}
 	// check if employee is not admin or superadmin
 	if !helper.IsAdmin(employee, h.cfg) {
-		param.StoreIds = []string{employee.StoreId}
+		if employee.StoreId != "" {
+			param.StoreIds = []string{employee.StoreId}
+		}
 	}
 	// get dashboard data
 	res, err := h.service.DashboardTotalCountStats(&param)
@@ -120,9 +119,7 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/chart [POST]
 func (h *DashboardHandler) ChartStats(c *gin.Context) {
-	var (
-		param domain.DashboardQueryParam
-	)
+	var param domain.DashboardQueryParam
 
 	// bind query parameters
 	err := c.ShouldBindQuery(&param)
@@ -131,10 +128,10 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 		return
 	}
 	// bind store ids
-	if err = c.ShouldBindJSON(&param.StoreIds); err != nil {
-		handleResponse(c, BadRequest, "Invalid store ids")
-		return
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&param.StoreIds)
 	}
+
 	// get user id from header
 	vendorID, ok := c.Get("user_id")
 	if !ok {
@@ -155,9 +152,10 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 	}
 
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
+	if !helper.IsAdmin(employee, h.cfg) && employee.StoreId != "" {
 		param.StoreIds = []string{employee.StoreId}
 	}
+
 	// get dashboard data
 	res, err := h.service.DashboardChartStats(&param)
 	if err != nil {
@@ -209,7 +207,7 @@ func (h *DashboardHandler) TopStores(c *gin.Context) {
 		return
 	}
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
+	if !helper.IsAdmin(employee, h.cfg) && employee.StoreId != "" {
 		param.StoreIds = []string{employee.StoreId}
 	}
 	// get dashboard data
@@ -271,7 +269,7 @@ func (h *DashboardHandler) TopProducts(c *gin.Context) {
 		return
 	}
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
+	if !helper.IsAdmin(employee, h.cfg) && employee.StoreId != "" {
 		param.StoreIds = []string{employee.StoreId}
 	}
 	// get dashboard data
@@ -335,7 +333,7 @@ func (h *DashboardHandler) BonusProducts(c *gin.Context) {
 	}
 
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
+	if !helper.IsAdmin(employee, h.cfg) && employee.StoreId != "" {
 		param.StoreIds = []string{employee.StoreId}
 	}
 	// get dashboard data
@@ -372,9 +370,8 @@ func (h *DashboardHandler) TopSeller(c *gin.Context) {
 		return
 	}
 	// bind store ids
-	if err = c.ShouldBindJSON(&param.StoreIds); err != nil {
-		handleResponse(c, BadRequest, "Invalid store ids")
-		return
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&param.StoreIds)
 	}
 	// get limit offset with checking default
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
@@ -397,7 +394,7 @@ func (h *DashboardHandler) TopSeller(c *gin.Context) {
 		return
 	}
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
+	if !helper.IsAdmin(employee, h.cfg) && employee.StoreId != "" {
 		param.StoreIds = []string{employee.StoreId}
 	}
 	// get dashboard data
@@ -433,9 +430,8 @@ func (h *DashboardHandler) Payments(c *gin.Context) {
 		return
 	}
 	// bind store ids
-	if err = c.ShouldBindJSON(&param.StoreIds); err != nil {
-		handleResponse(c, BadRequest, "Invalid store ids")
-		return
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&param.StoreIds)
 	}
 
 	res, err := h.service.DashboardPayments(&param)
@@ -470,9 +466,8 @@ func (h *DashboardHandler) Transaction(c *gin.Context) {
 		return
 	}
 	// bind store ids
-	if err = c.ShouldBindJSON(&param.StoreIds); err != nil {
-		handleResponse(c, BadRequest, "Invalid store ids")
-		return
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&param.StoreIds)
 	}
 	res, err := h.service.DashboardTransaction(&param)
 	if err != nil {
