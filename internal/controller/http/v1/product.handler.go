@@ -327,6 +327,82 @@ func (h *ProductHandler) List(c *gin.Context) {
 }
 
 // Get godoc
+// @Summary Get a product
+// @Description Get a product from the request body
+// @Tags products
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Param search query string false "Search"
+// @Param status query string false "Status (active || inactive || low-stock || zero-stock || expired || imminent)"
+// @Param store_id query string false "Store ID"
+// @Param category_id query string false "Category ID"
+// @Param producer_id query string false "Producer ID"
+// @Param no_barcode query bool false "No Barcode"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/export-excel [get]
+func (h *ProductHandler) ExportProductExcel(c *gin.Context) {
+	var (
+		param domain.ProductQueryParam
+		res   []domain.ProductData
+	)
+	// bind query param
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	// Pagination parameters
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	// get products list
+	res, err := h.service.ListProductExport(&param)
+	if err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	// Create excel file
+	f := excelize.NewFile()
+
+	if param.StoreID != "" {
+
+		f, err = h.productListExportByStoreId(f, res)
+		if err != nil {
+			handleResponse(c, InternalError, "Failed to export product list")
+			return
+		}
+		// Faylni HTTP response orqali yuborish
+		c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+		c.Header("Content-Disposition", "attachment; filename=products.xlsx")
+
+		if err := f.Write(c.Writer); err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, "Failed to generate Excel file")
+		}
+	} else {
+
+		f, err = h.productListExport(f, res)
+		if err != nil {
+			handleResponse(c, InternalError, "Failed to export product list")
+			return
+		}
+
+		// Faylni HTTP response orqali yuborish
+		c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+		c.Header("Content-Disposition", "attachment; filename=products.xlsx")
+
+		if err := f.Write(c.Writer); err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, "Failed to generate Excel file")
+		}
+	}
+}
+
+// Get godoc
 // @Summary Get total count of products by status
 // @Description Get total count of products by status
 // @Tags products
@@ -406,105 +482,6 @@ func (h *ProductHandler) ProductList(c *gin.Context) {
 	// Prepare the response
 	data := utils.ListResponse(products, totalCount, limit, offset)
 	handleResponse(c, OK, data)
-}
-
-// Get godoc
-// @Summary Get a product
-// @Description Get a product from the request body
-// @Tags products
-// @Security     BearerAuth
-// @Accept json
-// @Produce json
-// @Param limit query int false "Limit"
-// @Param offset query int false "Offset"
-// @Param search query string false "Search"
-// @Param status query string false "Status (active || inactive || low-stock || zero-stock || expired || imminent)"
-// @Param store_id query string false "Store ID"
-// @Param category_id query string false "Category ID"
-// @Param producer_id query string false "Producer ID"
-// @Param no_barcode query bool false "No Barcode"
-// @Success 200 {object} v1.Response
-// @Failure 400 {object} v1.Response
-// @Failure 500 {object} v1.Response
-// @Router /product/export-excel [get]
-func (h *ProductHandler) ExportProductExcel(c *gin.Context) {
-	var param domain.ProductQueryParam
-
-	if err := c.ShouldBindQuery(&param); err != nil {
-		handleResponse(c, BadRequest, err.Error())
-		return
-	}
-	// Pagination parameters
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
-
-	// if param.StoreID == "" {
-	// 	handleResponse(c, BadRequest, "StoreId is required")
-	// 	return
-	// }
-
-	// get products list
-	res, _, err := h.service.ListProduct(&param)
-	if err != nil {
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-
-	// Create excel file
-	f := excelize.NewFile()
-	sheetName := "Products"
-	f.SetSheetName("Sheet1", sheetName)
-
-	// Headerlar
-	headers := []string{"Код-продакт", "Наименование", "Штрих-код", "Кол-во", "Производитель", "Маркировка", "Категория", "MXIK"}
-
-	headerStyle, err := f.NewStyle(&excelize.Style{
-		Font: &excelize.Font{
-			Bold:  true,
-			Color: "000000",
-		},
-	})
-	if err != nil {
-		h.log.Error("Failed to create style:", err)
-		handleResponse(c, InternalError, "Error on giving style to excel")
-		return
-	}
-
-	for i, h := range headers {
-		col := string(rune('A'+i)) + "1"
-		f.SetCellValue(sheetName, col, h)
-		f.SetCellStyle(sheetName, col, col, headerStyle)
-	}
-
-	// give width to column
-	f.SetColWidth(sheetName, "A", "A", 10)
-	f.SetColWidth(sheetName, "B", "C", 30)
-	f.SetColWidth(sheetName, "D", "D", 10)
-	f.SetColWidth(sheetName, "E", "E", 30)
-	f.SetColWidth(sheetName, "F", "F", 15)
-	f.SetColWidth(sheetName, "J", "J", 15)
-	f.SetColWidth(sheetName, "H", "H", 20)
-
-	// Ma'lumotlarni qo'shish
-	for i, product := range res {
-		row := strconv.Itoa(i + 2)
-		f.SetCellValue(sheetName, "A"+row, product.MaterialCode)
-		f.SetCellValue(sheetName, "B"+row, product.Name)
-		f.SetCellValue(sheetName, "C"+row, product.Barcode)
-		f.SetCellValue(sheetName, "D"+row, product.Quantity)
-		f.SetCellValue(sheetName, "E"+row, product.Manufacturer)
-		f.SetCellValue(sheetName, "F"+row, product.IsMarking)
-		f.SetCellValue(sheetName, "G"+row, product.CategoryName)
-		f.SetCellValue(sheetName, "H"+row, product.MXIK)
-	}
-
-	// Faylni HTTP response orqali yuborish
-	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	c.Header("Content-Disposition", "attachment; filename=products.xlsx")
-
-	if err := f.Write(c.Writer); err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, "Failed to generate Excel file")
-	}
 }
 
 // Get godoc
@@ -1639,6 +1616,110 @@ func generateRandomBarcode(length int) string {
 		result[i] = digits[random.Intn(len(digits))]
 	}
 	return string(result)
+}
+
+// just product list export function
+func (h *ProductHandler) productListExport(f *excelize.File, res []domain.ProductData) (*excelize.File, error) {
+	sheetName := "Products"
+
+	f.SetSheetName("Sheet1", sheetName)
+
+	// Headerlar
+	headers := []string{"Код-продакт", "Наименование", "Штрих-код", "Кол-во", "Производитель", "Маркировка", "Категория", "MXIK"}
+
+	headerStyle, err := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Bold:  true,
+			Color: "000000",
+		},
+	})
+	if err != nil {
+		h.log.Error("Failed to create style:", err)
+		return nil, errors.New("failed to create style")
+	}
+
+	for i, h := range headers {
+		col := string(rune('A'+i)) + "1"
+		f.SetCellValue(sheetName, col, h)
+		f.SetCellStyle(sheetName, col, col, headerStyle)
+	}
+
+	// give width to column
+	f.SetColWidth(sheetName, "A", "A", 10)
+	f.SetColWidth(sheetName, "B", "C", 30)
+	f.SetColWidth(sheetName, "D", "D", 10)
+	f.SetColWidth(sheetName, "E", "E", 30)
+	f.SetColWidth(sheetName, "F", "F", 15)
+	f.SetColWidth(sheetName, "J", "J", 15)
+	f.SetColWidth(sheetName, "H", "H", 20)
+
+	// Ma'lumotlarni qo'shish
+	for i, product := range res {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheetName, "A"+row, product.MaterialCode)
+		f.SetCellValue(sheetName, "B"+row, product.Name)
+		f.SetCellValue(sheetName, "C"+row, product.Barcode)
+		f.SetCellValue(sheetName, "D"+row, product.Quantity)
+		f.SetCellValue(sheetName, "E"+row, product.Manufacturer)
+		f.SetCellValue(sheetName, "F"+row, product.IsMarking)
+		f.SetCellValue(sheetName, "G"+row, product.CategoryName)
+		f.SetCellValue(sheetName, "H"+row, product.MXIK)
+	}
+	return f, nil
+}
+
+// product list export by store_id function
+func (h *ProductHandler) productListExportByStoreId(f *excelize.File, res []domain.ProductData) (*excelize.File, error) {
+	sheetName := "Products"
+	f.SetSheetName("Sheet1", sheetName)
+
+	// Headerlar
+	headers := []string{"Код-продакт", "Наименование", "Штрих-код", "Производитель", "Кол-во", "Цена поставки", "Cумма поставки", "Цена продажи", "Cумма продажи", "Цена наценка", "Cумма наценка", "НДС", "Цена НДС", "Cумма НДС", "Категория"}
+
+	headerStyle, err := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Bold:  true,
+			Color: "000000",
+		},
+	})
+	if err != nil {
+		h.log.Warn("Failed to create style: %v", err)
+		return nil, errors.New("failed to create style")
+	}
+
+	for i, h := range headers {
+		col := string(rune('A'+i)) + "1"
+		f.SetCellValue(sheetName, col, h)
+		f.SetCellStyle(sheetName, col, col, headerStyle)
+	}
+
+	// give width to column
+	f.SetColWidth(sheetName, "A", "A", 10)
+	f.SetColWidth(sheetName, "B", "B", 30)
+	f.SetColWidth(sheetName, "C", "D", 20)
+	f.SetColWidth(sheetName, "E", "N", 10)
+
+	// Add product infos to excel column
+	for i, product := range res {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheetName, "A"+row, product.MaterialCode)
+		f.SetCellValue(sheetName, "B"+row, product.Name)
+		f.SetCellValue(sheetName, "C"+row, product.Barcode)
+		f.SetCellValue(sheetName, "D"+row, product.Manufacturer)
+		f.SetCellValue(sheetName, "E"+row, product.Quantity)
+		f.SetCellValue(sheetName, "F"+row, product.SupplyPrice)
+		f.SetCellValue(sheetName, "G"+row, product.SupplyPrice*float64(product.Quantity))
+		f.SetCellValue(sheetName, "H"+row, product.RetailPrice)
+		f.SetCellValue(sheetName, "I"+row, product.RetailPrice*float64(product.Quantity))
+		f.SetCellValue(sheetName, "J"+row, product.RetailPrice-product.SupplyPrice)
+		f.SetCellValue(sheetName, "K"+row, (product.RetailPrice-product.SupplyPrice)*float64(product.Quantity))
+		f.SetCellValue(sheetName, "L"+row, product.Vat)
+		f.SetCellValue(sheetName, "M"+row, product.VatPrice)
+		f.SetCellValue(sheetName, "N"+row, product.VatPrice*float64(product.Quantity))
+		f.SetCellValue(sheetName, "O"+row, product.CategoryName)
+
+	}
+	return f, nil
 }
 
 func (h *ProductHandler) GenerateMarkingProducts(c *gin.Context) {

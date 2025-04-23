@@ -238,6 +238,7 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 		totalCount int64
 		args       []any
 		filter     = "WHERE 1=1 "
+		order      = " ORDER BY p.created_at DESC "
 		group      = " GROUP BY p.id, pr.id, u.id"
 	)
 	query := fmt.Sprintf(`
@@ -295,7 +296,7 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 		filter += " AND (p.barcode IS NULL OR p.barcode = '') "
 	}
 	// collect query
-	query += filter + group + " LIMIT ? OFFSET ?"
+	query += filter + group + order + " LIMIT ? OFFSET ?"
 	args = append(args, param.Limit, param.Offset)
 	// complete query
 	err := s.db.Raw(query, args...).Scan(&res).Error
@@ -313,6 +314,89 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 	}
 
 	return res, totalCount, nil
+}
+
+// test get product list
+func (s *Services) ListProductExport(param *domain.ProductQueryParam) ([]domain.ProductData, error) {
+	var (
+		res    []domain.ProductData
+		args   []any
+		filter = "WHERE 1=1 "
+		order  = " ORDER BY p.created_at DESC "
+		group  = " GROUP BY p.id, pr.id, u.id"
+	)
+	query := fmt.Sprintf(`
+	SELECT
+		p.id, p.name, p.photos, p.barcode, p.material_code, 
+		p.unit_per_pack, p.is_marking, p.mxik, p.created_at, p.updated_at,
+		pr.name AS manufacturer, u.unit_name, u.short_name,
+		SUM(sp.pack_quantity) AS quantity,
+		SUM(CASE WHEN p.unit_per_pack > 0 THEN sp.unit_quantity%sp.unit_per_pack ELSE 0 END) AS unit_quantity,
+		AVG(sp.supply_price) AS supply_price,
+        AVG(sp.retail_price) AS retail_price,
+        AVG(sp.vat) AS vat,
+        AVG(sp.vat_price) AS vat_price
+	FROM store_products sp
+	RIGHT JOIN products p ON sp.product_id = p.id
+	LEFT JOIN producers pr ON p.producer_id = pr.id
+	LEFT JOIN unit_types u ON p.unit_type_id = u.id
+	`, "%")
+
+	// filter with store_id
+	if param.StoreID != "" {
+		filter += " AND sp.store_id IN (?) "
+		args = append(args, param.StoreID)
+	}
+	// filter with producer id
+	if param.ProducerID != "" {
+		filter += " AND p.producer_id = ? "
+		args = append(args, param.ProducerID)
+	}
+
+	// filter with statuses
+	if param.Status != "" {
+		switch param.Status {
+		case "active", "inactive":
+			filter += " AND p.status = ? "
+			args = append(args, param.Status)
+		case "low-stock":
+			filter += " AND (sp.pack_quantity <= 10 AND sp.pack_quantity > 0) "
+		case "zero-stock":
+			filter += " AND (sp.pack_quantity = 0 AND sp.unit_quantity = 0) "
+		case "expired":
+			filter += " AND sp.expire_date::date < ?"
+			args = append(args, time.Now().Format("2006-01-02"))
+		case "imminent":
+			filter += " AND (sp.expire_date::date BETWEEN ? AND ?) "
+			now := time.Now()
+			args = append(args, now.Format("2006-01-02"), now.Add(time.Hour*240).Format("2006-01-02"))
+		}
+	}
+	// filter with search
+	if param.SearchField != "" {
+		search := "%" + param.SearchField + "%"
+		filter += " AND (p.name ILIKE ? OR p.barcode LIKE ?) "
+		args = append(args, search, search)
+	}
+	// filter with barcode
+	if param.NoBarcode {
+		filter += " AND (p.barcode IS NULL OR p.barcode = '') "
+	}
+	// collect query
+	query += filter + group + order + " LIMIT ? OFFSET ?"
+	args = append(args, param.Limit, param.Offset)
+	// complete query
+	err := s.db.Debug().Raw(query, args...).Scan(&res).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting product list: %v", err)
+		return res, err
+	}
+	// check len and take empty array
+	if len(res) == 0 {
+		res = []domain.ProductData{}
+	}
+
+	return res, nil
 }
 
 // Get Products list stats
@@ -367,60 +451,6 @@ func (s *Services) ListProductStats(param *domain.ProductQueryParam) (domain.Pro
 		return res, err
 	}
 
-	return res, nil
-}
-
-// test get product list
-func (s *Services) ListProductExport(param *domain.ProductQueryParam) ([]domain.Product, error) {
-	res := []domain.Product{}
-	query := s.builder.
-		Select(`p.id, p.material_code, p.name, p.photos, p.barcode,
-				p.unit_per_pack, p.mxik, p.is_marking, p.created_at, p.updated_at,
-				pr.name AS manufacturer, ut.unit_name, ut.short_name`,
-		).From("products p").
-		Join("LEFT JOIN producers pr ON pr.id = p.producer_id").
-		Join("LEFT JOIN unit_types ut ON p.unit_type_id = ut.id")
-
-	countQuery := s.builder.Select("COUNT(*)").From("products p").
-		Join("LEFT JOIN producers pr ON pr.id = p.producer_id").
-		Join("LEFT JOIN unit_types ut ON p.unit_type_id = ut.id")
-
-	if param.ProducerID != "" {
-		query = query.Where("p.producer_id = ?", param.ProducerID)
-		countQuery = countQuery.Where("p.producer_id = ?", param.ProducerID)
-	}
-	if param.NoBarcode {
-		query = query.Where("(p.barcode IS NULL OR p.barcode = '')")
-		countQuery = countQuery.Where("(p.barcode IS NULL OR p.barcode = '')")
-	}
-	if param.SearchField != "" {
-		search := "%" + param.SearchField + "%"
-		query = query.Where("(p.name ILIKE ? OR p.barcode LIKE ?)", search, search)
-		countQuery = countQuery.Where("(p.name ILIKE ? OR p.barcode LIKE ?)", search, search)
-	}
-	sql, args, err := query.Limit(param.Limit).Offset(param.Offset).Build()
-	if err != nil {
-		s.log.Warn("ERROR on building query: %v", err)
-		return res, err
-	}
-	err = s.db.Debug().Raw(sql, args...).Scan(&res).Error
-	if err != nil {
-		s.log.Warn("ERROR on getting products: %v", err)
-		return res, err
-	}
-
-	countSql, args, err := countQuery.Count().Build()
-	if err != nil {
-		s.log.Warn("ERROR on building count query: %v", err)
-		return res, err
-	}
-	var totalCount int64
-	err = s.db.Debug().Raw(countSql, args...).Scan(&totalCount).Error
-	if err != nil {
-		s.log.Warn("ERROR on getting products: %v", err)
-		return res, err
-	}
-	fmt.Println("COUNT: ", &totalCount)
 	return res, nil
 }
 

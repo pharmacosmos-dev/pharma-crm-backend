@@ -262,5 +262,12 @@ type ProductData struct {
 	Quantity     int               `gorm:"quantity" json:"quantity"`
 	UnitQuantity int               `gorm:"unit_quantity" json:"unit_quantity"`
 	CategoryName string            `gorm:"category_name" json:"category_name"`
+	SupplyPrice  float64           `gorm:"supply_price" json:"supply_price"`
+	RetailPrice  float64           `gorm:"retail_price" json:"retail_price"`
+	Vat          float64           `gorm:"vat" json:"vat"`
+	Markup       float64           `gorm:"markup" json:"markup"`
+	VatPrice     float64           `gorm:"vat_price" json:"vat_price"`
+	MarkupPrice  float64           `gorm:"markup_price" json:"markup_price"`
+	Sum          float64           `gorm:"sum" json:"sum"`
 	TotalCount   int64             `gorm:"total_count" json:"-"`
 }
