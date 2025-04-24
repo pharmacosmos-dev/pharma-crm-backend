@@ -25,6 +25,7 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 	helper := r.Group("/helper")
 	{
 		helper.POST("/upload-package-code", h.UploadPackageCodeExcel)
+		helper.POST("/upload-mxik", h.CorrectMXIK)
 	}
 }
 
@@ -210,5 +211,86 @@ func (h *HelperHandler) UploadPackageCodeExcel(c *gin.Context) {
 		}
 	}
 
+	handleResponse(c, OK, "Products MXIK CODE uploaded successfully")
+}
+
+// UploadProduct godoc
+// @Summary Upload package code excel
+// @Description Upload package code excel
+// @Tags helper
+// @Security     BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param 	file formData file true "Excel file (.xlsx) containing product data"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /helper/upload-mxik [POST]
+func (h *HelperHandler) CorrectMXIK(c *gin.Context) {
+	var (
+		file domain.File
+		err  error
+	)
+	// bind request file
+	if err = c.ShouldBind(&file); err != nil {
+		h.log.Error("Failed to bind file: ", err.Error())
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	// Check file extension
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		h.log.Error("Unsupported file format: ", ext)
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+
+	// Save the uploaded file
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+	err = c.SaveUploadedFile(file.File, savePath)
+	if err != nil {
+		h.log.Error("Failed to save file: ", err.Error())
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+
+	// defer os.Remove(savePath)
+	// Open the Excel file
+	xlsx, err := excelize.OpenFile(savePath)
+	if err != nil {
+		h.log.Error("Failed to open .xlsx file: ", err.Error())
+		handleResponse(c, BadRequest, "Failed to process file")
+		return
+	}
+	defer xlsx.Close()
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		h.log.Error("Failed to get rows: ", err.Error())
+		handleResponse(c, InternalError, "Failed to get rows")
+		return
+	}
+
+	// build query
+	query := `
+	UPDATE products SET mxik = ? WHERE material_code = ? AND (mxik IS NULL OR mxik = '')
+	`
+	var count = 1
+	// Process rows
+	for i := len(rows) - 1; i >= 2; i-- {
+		row := rows[i]
+		if len(row) > 15 {
+			count++
+			// // create measurements
+			err = h.db.Debug().Exec(query, row[15], row[0]).Error
+			if err != nil {
+				h.log.Error(err)
+				handleResponse(c, InternalError, err.Error())
+				return
+			}
+		}
+	}
 	handleResponse(c, OK, "Products MXIK CODE uploaded successfully")
 }
