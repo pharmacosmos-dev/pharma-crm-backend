@@ -43,9 +43,10 @@ func (h *ShiftHandler) ShiftRoutes(r *gin.RouterGroup) {
 // @Router /shift [post]
 func (h *ShiftHandler) Create(c *gin.Context) {
 	var (
-		body       domain.ShiftRequest
-		toEmployee domain.Employee
-		err        error
+		body      domain.ShiftRequest
+		employee  domain.Employee
+		operation domain.CashboxOperation
+		err       error
 	)
 	// bind request body
 	if err = c.ShouldBindJSON(&body); err != nil {
@@ -53,8 +54,41 @@ func (h *ShiftHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	// get current employee
+	err = h.db.First(&employee, "id = ?", body.FromEmployeeId).Error
+	if err != nil {
+		h.log.Warn("ERROR on gettig current employee: %v", err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	// check current employee store_id
+	if employee.StoreId == "" {
+		handleResponse(c, CONFLICT, "Current employee not assign to store")
+		return
+	}
+
+	// get open operation info
+	err = h.db.Raw(`
+	SELECT
+		co.*
+	FROM cashbox_operations co
+		JOIN cash_boxes cb ON co.cash_box_id = cb.id
+	WHERE cb.store_id = ?
+	AND co.current_employee_id = ?
+	AND co.is_open = TRUE AND co.end_time IS NULL;`,
+		employee.StoreId, body.FromEmployeeId).Scan(&operation).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			handleResponse(c, NotFound, "Open cashbox not found")
+			return
+		}
+		h.log.Warn("ERROR on getting operation info: %v", err)
+		handleResponse(c, InternalError, "Failed to get operation info")
+		return
+	}
+
 	// get to employee info
-	err = h.db.First(&toEmployee, "id = ?", body.ToEmployeeId).Error
+	err = h.db.First(&employee, "id = ?", body.ToEmployeeId).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			handleResponse(c, NotFound, "Employee not found")
@@ -65,7 +99,7 @@ func (h *ShiftHandler) Create(c *gin.Context) {
 		return
 	}
 	// get decrypted password
-	passoword, err := etc.Decrypt(toEmployee.Password, h.cfg.HeshKey)
+	passoword, err := etc.Decrypt(employee.Password, h.cfg.HeshKey)
 	if err != nil {
 		h.log.Error("ERROR decryption password: ", err)
 		handleResponse(c, InternalError, "Failed to parse password")
@@ -95,8 +129,8 @@ func (h *ShiftHandler) Create(c *gin.Context) {
 	}
 	// update cashbox_operations current_employee_id
 	err = tx.Exec(`
-		UPDATE cashbox_operations 
-		SET current_employee_id = ? 
+		UPDATE cashbox_operations
+		SET current_employee_id = ?
 		WHERE end_time IS NULL
 		AND cash_box_id = ? AND current_employee_id = ?`,
 		body.ToEmployeeId, body.CashBoxId, body.FromEmployeeId).Error

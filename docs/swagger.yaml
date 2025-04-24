@@ -1128,6 +1128,10 @@ definitions:
         type: string
       id:
         type: string
+      mxik:
+        type: string
+      unit_code:
+        type: string
     type: object
   domain.UpdateIsMarking:
     properties:

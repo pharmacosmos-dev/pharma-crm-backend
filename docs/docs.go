@@ -15609,6 +15609,12 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "string"
+                },
+                "mxik": {
+                    "type": "string"
+                },
+                "unit_code": {
+                    "type": "string"
                 }
             }
         },

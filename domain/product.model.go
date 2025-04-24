@@ -234,8 +234,10 @@ type ProductQueryParam struct {
 
 // update barcode structure
 type UpdateBarcodeRequest struct {
-	Barcode string `json:"barcode"`
-	Id      string `json:"id"`
+	Barcode  string `json:"barcode"`
+	Mxik     string `json:"mxik"`
+	UnitCode string `json:"unit_code"`
+	Id       string `json:"id"`
 }
 
 // update is marking request
@@ -253,6 +255,7 @@ type ProductData struct {
 	Barcode      string            `gorm:"barcode" json:"barcode"`
 	UnitPerPack  int               `gorm:"unit_per_pack" json:"unit_per_pack"`
 	MXIK         string            `gorm:"mxik" json:"mxik"`
+	UnitCode     string            `gorm:"unit_code" json:"unit_code"`
 	IsMarking    bool              `gorm:"is_marking" json:"is_marking"`
 	CreatedAt    time.Time         `gorm:"created_at" json:"created_at"`
 	UpdatedAt    time.Time         `gorm:"updated_at" json:"updated_at"`

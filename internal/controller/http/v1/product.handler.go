@@ -1106,13 +1106,29 @@ func (h *ProductHandler) UpdateBarcode(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-
-	// update barcode
-	err = h.db.Model(&domain.Product{}).Where("id = ?", body.Id).Update("barcode", body.Barcode).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
+	if body.Barcode != "" {
+		// update barcode
+		err = h.db.Model(&domain.Product{}).Where("id = ?", body.Id).Update("barcode", body.Barcode).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+	} else if body.Mxik != "" {
+		// update mxik
+		err = h.db.Model(&domain.Product{}).Where("id = ?", body.Id).Update("mxik", body.Mxik).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+	} else if body.UnitCode != "" {
+		err = h.db.Model(&domain.Product{}).Where("id = ?", body.Id).Update("unit_code", body.UnitCode).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
 	}
 	handleResponse(c, OK, "Barcode updated successfully")
 }
@@ -1674,7 +1690,7 @@ func (h *ProductHandler) productListExportByStoreId(f *excelize.File, res []doma
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"Код-продакт", "Наименование", "Штрих-код", "Производитель", "Кол-во", "Цена поставки", "Cумма поставки", "Цена продажи", "Cумма продажи", "Цена наценка", "Cумма наценка", "НДС", "Цена НДС", "Cумма НДС", "Категория"}
+	headers := []string{"Код-продакт", "Наименование", "Штрих-код", "Производитель", "Кол-во", "Цена поставки", "Cумма поставки", "Цена продажи", "Cумма продажи", "Цена наценка", "Cумма наценка", "НДС", "Цена НДС", "Cумма НДС", "Категория", "MXIK"}
 
 	headerStyle, err := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{
@@ -1717,6 +1733,7 @@ func (h *ProductHandler) productListExportByStoreId(f *excelize.File, res []doma
 		f.SetCellValue(sheetName, "M"+row, product.VatPrice)
 		f.SetCellValue(sheetName, "N"+row, product.VatPrice*float64(product.Quantity))
 		f.SetCellValue(sheetName, "O"+row, product.CategoryName)
+		f.SetCellValue(sheetName, "P"+row, product.MXIK)
 
 	}
 	return f, nil

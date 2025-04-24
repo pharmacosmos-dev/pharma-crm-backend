@@ -244,7 +244,7 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 	query := fmt.Sprintf(`
 	SELECT
 		p.id, p.name, p.photos, p.barcode, p.material_code, 
-		p.unit_per_pack, p.is_marking, p.mxik, p.created_at, p.updated_at,
+		p.unit_per_pack, p.is_marking, p.mxik, p.unit_code, p.created_at, p.updated_at,
 		pr.name AS manufacturer, u.unit_name, u.short_name,
 		SUM(sp.pack_quantity) AS quantity,
 		SUM(CASE WHEN p.unit_per_pack > 0 THEN sp.unit_quantity%sp.unit_per_pack ELSE 0 END) AS unit_quantity,
