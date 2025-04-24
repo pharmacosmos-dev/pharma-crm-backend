@@ -43,10 +43,11 @@ func (h *ShiftHandler) ShiftRoutes(r *gin.RouterGroup) {
 // @Router /shift [post]
 func (h *ShiftHandler) Create(c *gin.Context) {
 	var (
-		body      domain.ShiftRequest
-		employee  domain.Employee
-		operation domain.CashboxOperation
-		err       error
+		body         domain.ShiftRequest
+		fromEmployee domain.Employee
+		toEmployee   domain.Employee
+		operation    domain.CashboxOperation
+		err          error
 	)
 	// bind request body
 	if err = c.ShouldBindJSON(&body); err != nil {
@@ -55,28 +56,28 @@ func (h *ShiftHandler) Create(c *gin.Context) {
 		return
 	}
 	// get current employee
-	err = h.db.First(&employee, "id = ?", body.FromEmployeeId).Error
+	err = h.db.First(&fromEmployee, "id = ?", body.FromEmployeeId).Error
 	if err != nil {
 		h.log.Warn("ERROR on gettig current employee: %v", err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 	// check current employee store_id
-	if employee.StoreId == "" {
+	if fromEmployee.StoreId == "" {
 		handleResponse(c, CONFLICT, "Current employee not attached to store")
 		return
 	}
 
 	// get open operation info
 	err = h.db.Raw(`
-	SELECT
-		co.*
-	FROM cashbox_operations co
-		JOIN cash_boxes cb ON co.cash_box_id = cb.id
-	WHERE cb.store_id = ?
-	AND co.current_employee_id = ?
-	AND co.is_open = TRUE AND co.end_time IS NULL;`,
-		employee.StoreId, body.FromEmployeeId).Scan(&operation).Error
+		SELECT
+			co.*
+		FROM cashbox_operations co
+			JOIN cash_boxes cb ON co.cash_box_id = cb.id
+		WHERE cb.store_id = ?
+		AND co.current_employee_id = ?
+		AND co.is_open = TRUE AND co.end_time IS NULL;`,
+		fromEmployee.StoreId, body.FromEmployeeId).Scan(&operation).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			handleResponse(c, NotFound, "Open cashbox not found")
@@ -93,7 +94,7 @@ func (h *ShiftHandler) Create(c *gin.Context) {
 	}
 
 	// get to employee info
-	err = h.db.First(&employee, "id = ?", body.ToEmployeeId).Error
+	err = h.db.First(&toEmployee, "id = ?", body.ToEmployeeId).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			handleResponse(c, NotFound, "Employee not found")
@@ -104,7 +105,7 @@ func (h *ShiftHandler) Create(c *gin.Context) {
 		return
 	}
 	// get decrypted password
-	passoword, err := etc.Decrypt(employee.Password, h.cfg.HeshKey)
+	passoword, err := etc.Decrypt(toEmployee.Password, h.cfg.HeshKey)
 	if err != nil {
 		h.log.Error("ERROR decryption password: ", err)
 		handleResponse(c, InternalError, "Failed to parse password")
