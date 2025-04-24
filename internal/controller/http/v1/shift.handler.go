@@ -63,7 +63,7 @@ func (h *ShiftHandler) Create(c *gin.Context) {
 	}
 	// check current employee store_id
 	if employee.StoreId == "" {
-		handleResponse(c, CONFLICT, "Current employee not assign to store")
+		handleResponse(c, CONFLICT, "Current employee not attached to store")
 		return
 	}
 
@@ -84,6 +84,11 @@ func (h *ShiftHandler) Create(c *gin.Context) {
 		}
 		h.log.Warn("ERROR on getting operation info: %v", err)
 		handleResponse(c, InternalError, "Failed to get operation info")
+		return
+	}
+	// check cashbox operation with empty
+	if operation.ID == "" {
+		handleResponse(c, NotFound, "Open cashbox not found")
 		return
 	}
 
@@ -132,8 +137,8 @@ func (h *ShiftHandler) Create(c *gin.Context) {
 		UPDATE cashbox_operations
 		SET current_employee_id = ?
 		WHERE end_time IS NULL
-		AND cash_box_id = ? AND current_employee_id = ?`,
-		body.ToEmployeeId, body.CashBoxId, body.FromEmployeeId).Error
+		AND current_employee_id = ?`,
+		body.ToEmployeeId, body.FromEmployeeId).Error
 	if err != nil {
 		h.log.Error("ERROR on updating cashbox_operations current_employee_id: ", err)
 		handleResponse(c, InternalError, "Failed to update cashbox operations")
