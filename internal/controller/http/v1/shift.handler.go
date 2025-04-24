@@ -123,6 +123,7 @@ func (h *ShiftHandler) Create(c *gin.Context) {
 			tx.Rollback()
 		}
 	}()
+	body.CashBoxId = operation.CashBoxID
 	// Create shift
 	err = tx.
 		Table("shifts").
