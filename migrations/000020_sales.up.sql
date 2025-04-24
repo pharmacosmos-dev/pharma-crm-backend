@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS "sales" (
     "total_discount" NUMERIC(10, 2),
     "total_amount" NUMERIC(10, 2),
     "created_by" UUID,
-    "status" VARCHAR(20) DEFAULT 'pending',
+    "status" VARCHAR(20) DEFAULT 'pending', -- pending || in_progress || completed 
     "is_active" BOOLEAN NOT NULL DEFAULT true,
     "completed_at" TIMESTAMP,
     "created_at" TIMESTAMP NOT NULL DEFAULT NOW(),
