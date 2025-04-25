@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS "transfers" (
     "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     "public_id" VARCHAR(20),
     "name" VARCHAR(255),
+    "comment" VARCHAR(500),
     "from_store_id" UUID REFERENCES stores("id") ON DELETE CASCADE,
     "to_store_id" UUID REFERENCES stores("id") ON DELETE CASCADE,
     "entry_type" INTEGER DEFAULT 1, -- 1 - transfer || 2 - return 
@@ -24,6 +25,7 @@ CREATE TABLE IF NOT EXISTS "transfer_details" (
     "accepted_count" INT DEFAULT 0,
     "scanned_count" INT DEFAULT 0,
     "expire_date" TIMESTAMP,
+    "serial_number" VARCHAR(55),
     "supply_price" NUMERIC(20, 2) DEFAULT 0.00,
     "retail_price" NUMERIC(20, 2) DEFAULT 0.00,
     "created_at" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

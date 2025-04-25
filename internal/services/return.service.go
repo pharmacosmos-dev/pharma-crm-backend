@@ -33,8 +33,8 @@ func (s *Services) CreateReturn(req *domain.ReturnRequest) error {
 	// if no products provided, get all products from store_products
 	// and insert them into inventory_details
 	err = tx.Exec(
-		`INSERT INTO transfer_details(transfer_id, product_id, received_count, supply_price, retail_price
-			) SELECT ?, product_id, SUM(pack_quantity), MIN(supply_price), MIN(retail_price)
+		`INSERT INTO transfer_details(transfer_id, product_id, received_count, supply_price, retail_price, expire_date
+			) SELECT ?, product_id, pack_quantity, supply_price, retail_price, expire_date
 			FROM store_products
 			WHERE store_id = ? AND pack_quantity > 0 GROUP BY product_id;`,
 		id, req.StoreId).Error

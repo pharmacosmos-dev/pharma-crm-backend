@@ -97,7 +97,7 @@ func (h *ReturnHandler) Get(c *gin.Context) {
 		return
 	}
 	var res domain.Return
-	err := h.db.Preload("Store").First(&res, "id = ?", id).Error
+	err := h.db.Model(&domain.Transfer{}).Preload("Store").Raw(`SELECT * FROM transfers WHERE id = ?`, id).Scan(&res).Error
 	if err != nil {
 		h.log.Warn("Error on getting return: %v", err.Error())
 		handleResponse(c, InternalError, "Failed to get return")
