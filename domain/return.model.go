@@ -6,7 +6,7 @@ import "time"
 type Return struct {
 	Id                string     `gorm:"id" json:"id"`
 	PublicId          string     `gorm:"public_id" json:"public_id"`
-	StoreId           string     `gorm:"store_id" json:"store_id"`
+	FromStoreId       string     `gorm:"from_store_id" json:"store_id"`
 	Name              string     `gorm:"name" json:"name"`
 	Status            string     `gorm:"status" json:"status"`
 	Comment           string     `gorm:"comment" json:"comment"`
@@ -21,7 +21,7 @@ type Return struct {
 	CreatedAt         *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt         *time.Time `gorm:"updated_at" json:"updated_at"`
 	AcceptedAt        *time.Time `gorm:"accepted_at" json:"accepted_at"`
-	Store             *Store     `gorm:"foreignKey:StoreId" json:"store"`
+	Store             *Store     `gorm:"foreignKey:FromStoreId" json:"store"`
 	CreatedBy         *Employee  `gorm:"foreignKey:CreatedById" json:"created_by"`
 	UpdatedBy         *Employee  `gorm:"foreignKey:UpdatedById" json:"updated_by"`
 	AcceptedBy        *Employee  `gorm:"foreignKey:AcceptedById" json:"accepted_by"`
