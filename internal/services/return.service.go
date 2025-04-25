@@ -25,7 +25,7 @@ func (s *Services) CreateReturn(req *domain.ReturnRequest) error {
 		req.PublicId, req.StoreId, req.Name, req.CreatedBy, 2,
 	).Scan(&id).Error
 	if err != nil {
-		s.log.Error("ERROR on creating inventory: ", err)
+		s.log.Error("ERROR on creating return: ", err)
 		tx.Rollback()
 		return err
 	}
@@ -33,10 +33,10 @@ func (s *Services) CreateReturn(req *domain.ReturnRequest) error {
 	// if no products provided, get all products from store_products
 	// and insert them into inventory_details
 	err = tx.Exec(
-		`INSERT INTO transfer_details(transfer_id, product_id, received_count, supply_price, retail_price, expire_date
-			) SELECT ?, product_id, pack_quantity, supply_price, retail_price, expire_date
+		`INSERT INTO transfer_details(transfer_id, product_id, received_count, supply_price, retail_price, expire_date, serial_number
+			) SELECT ?, product_id, pack_quantity, supply_price, retail_price, expire_date, serial_number
 			FROM store_products
-			WHERE store_id = ? AND pack_quantity > 0 GROUP BY product_id;`,
+			WHERE store_id = ? AND pack_quantity > 0;`,
 		id, req.StoreId).Error
 	if err != nil {
 		s.log.Error("ERROR on creating inventory details: ", err)

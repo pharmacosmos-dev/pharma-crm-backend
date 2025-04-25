@@ -33,10 +33,10 @@ func (s *Services) CreateWriteOff(req *domain.WriteOffRequest) error {
 	// if no products provided, get all products from store_products
 	// and insert them into write-off
 	err = tx.Exec(
-		`INSERT INTO import_details(import_id, product_id, received_count, supply_price_vat, retail_price_vat
-			) SELECT ?, product_id, SUM(pack_quantity), MIN(supply_price), MIN(retail_price)
+		`INSERT INTO import_details(import_id, product_id, received_count, supply_price_vat, retail_price_vat, expire_date
+			) SELECT ?, product_id, pack_quantity, supply_price, retail_price, expire_date
 			FROM store_products
-			WHERE store_id = ? AND pack_quantity > 0 GROUP BY product_id;`,
+			WHERE store_id = ? AND pack_quantity > 0;`,
 		id, req.StoreId).Error
 	if err != nil {
 		s.log.Warn("ERROR on creating inventory details: %v", err)

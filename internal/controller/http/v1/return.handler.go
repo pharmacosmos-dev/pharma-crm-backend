@@ -70,7 +70,7 @@ func (h *ReturnHandler) Create(c *gin.Context) {
 	err := h.service.CreateReturn(&returnRequest)
 	if err != nil {
 		h.log.Warn("Error on creating inventory: %v", err.Error())
-		handleResponse(c, InternalError, "Failed to create inventory")
+		handleResponse(c, InternalError, "Failed to create return")
 		return
 	}
 
