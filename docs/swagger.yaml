@@ -818,6 +818,32 @@ definitions:
       new_password:
         type: string
     type: object
+  domain.ReturnAddProduct:
+    properties:
+      barcode:
+        type: string
+      count:
+        type: integer
+      product_id:
+        type: string
+      type:
+        type: string
+    type: object
+  domain.ReturnRequest:
+    properties:
+      comment:
+        type: string
+      created_by:
+        type: string
+      name:
+        type: string
+      public_id:
+        type: string
+      status:
+        type: string
+      store_id:
+        type: string
+    type: object
   domain.Role:
     properties:
       created_at:
@@ -7880,6 +7906,296 @@ paths:
       summary: List import details
       tags:
       - Report
+  /return:
+    post:
+      consumes:
+      - application/json
+      description: Create Return
+      parameters:
+      - description: Return
+        in: body
+        name: return
+        required: true
+        schema:
+          $ref: '#/definitions/domain.ReturnRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create Return
+      tags:
+      - Return
+  /return-detail/list:
+    get:
+      consumes:
+      - application/json
+      description: Get return list
+      parameters:
+      - description: LIMIT
+        in: query
+        name: limit
+        type: integer
+      - description: OFFSET
+        in: query
+        name: offset
+        type: integer
+      - description: Return ID
+        in: query
+        name: return_id
+        required: true
+        type: string
+      - description: SEARCH KEY
+        in: query
+        name: search
+        type: string
+      - description: TYPE
+        in: query
+        name: type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get return list
+      tags:
+      - Return
+  /return/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get Return
+      parameters:
+      - description: Return ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Return
+      tags:
+      - Return
+  /return/{id}/add-product-by-barcode:
+    patch:
+      consumes:
+      - application/json
+      description: Add product by barcode
+      parameters:
+      - description: Return ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Add product by barcode
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.ReturnAddProduct'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Add product by barcode
+      tags:
+      - Return
+  /return/cancel/{id}:
+    post:
+      consumes:
+      - application/json
+      description: Cancel Return
+      parameters:
+      - description: Return ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Cancel Return
+      tags:
+      - Return
+  /return/confirm/{id}:
+    post:
+      consumes:
+      - application/json
+      description: Confirm Return
+      parameters:
+      - description: Return ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Confirm Return
+      tags:
+      - Return
+  /return/list:
+    get:
+      consumes:
+      - application/json
+      description: Get Return list
+      parameters:
+      - description: LIMIT
+        in: query
+        name: limit
+        type: integer
+      - description: OFFSET
+        in: query
+        name: offset
+        type: integer
+      - description: STORE ID
+        in: query
+        name: store_id
+        type: string
+      - description: SEARCH KEY
+        in: query
+        name: search
+        type: string
+      - description: TYPE
+        in: query
+        name: type
+        type: string
+      - description: STATUS (0->new|1->sent|2->completed)
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Return list
+      tags:
+      - Return
+  /return/send/{id}:
+    post:
+      consumes:
+      - application/json
+      description: Send Return
+      parameters:
+      - description: Return ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Send Return
+      tags:
+      - Return
   /role:
     post:
       consumes:

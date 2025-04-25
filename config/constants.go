@@ -60,6 +60,7 @@ const (
 	ACTIVE    = "active"
 	INACTIVE  = "inactive"
 	CONFIRMED = "confirmed"
+	SENT      = "sent"
 	// region SALE type
 
 	SALE_TYPE_RETURN = "RETURN"
