@@ -242,7 +242,23 @@ func (s *Services) ConfirmReturn(returnId string, userId string) error {
 		tx.Rollback()
 		return err
 	}
-
+	// update store products
+	storeproductQuery := `
+	UPDATE store_products sp
+	SET pack_quantity = pack_quantity - td.accepted_count
+	FROM transfer_details td
+	JOIN transfers t ON td.transfer_id = t.id
+	WHERE sp.product_id = td.product_id
+	AND sp.store_id = t.from_store_id
+	AND sp.expire_date = td.expire_date
+	AND t.status = 'completed'
+	AND td.transfer_id = ?;`
+	err = tx.Exec(storeproductQuery, returnId).Error
+	if err != nil {
+		s.log.Warn("ERROR on updating store_products: %v", err)
+		tx.Rollback()
+		return err
+	}
 	// complete transaction
 	if err = tx.Commit().Error; err != nil {
 		s.log.Warn("ERROR on commiting transaction: %v", err)

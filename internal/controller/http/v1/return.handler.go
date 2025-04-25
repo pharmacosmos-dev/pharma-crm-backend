@@ -32,7 +32,7 @@ func (h *ReturnHandler) ReturnRoutes(r *gin.RouterGroup) {
 	}
 	detail := r.Group("return-detail")
 	{
-		detail.GET("/list", h.InventoryDetailList)
+		detail.GET("/list", h.ReturnDetailList)
 	}
 
 }
@@ -51,7 +51,7 @@ func (h *ReturnHandler) ReturnRoutes(r *gin.RouterGroup) {
 // @Router /return [POST]
 func (h *ReturnHandler) Create(c *gin.Context) {
 	var returnRequest domain.ReturnRequest
-	// Bind the request body to the InventoryRequest struct
+	// Bind the request body to the ReturnRequest struct
 	if err := c.ShouldBindJSON(&returnRequest); err != nil {
 		h.log.Warn("Error on binding request: %v", err.Error())
 		handleResponse(c, BadRequest, "Invalid request body")
@@ -66,10 +66,10 @@ func (h *ReturnHandler) Create(c *gin.Context) {
 	returnRequest.CreatedBy = userId.(string)     // get creator id from set header
 	returnRequest.PublicId = utils.GenerateCode() // generate public id
 
-	// create inventory
+	// create return
 	err := h.service.CreateReturn(&returnRequest)
 	if err != nil {
-		h.log.Warn("Error on creating inventory: %v", err.Error())
+		h.log.Warn("Error on creating return: %v", err.Error())
 		handleResponse(c, InternalError, "Failed to create return")
 		return
 	}
@@ -159,7 +159,7 @@ func (h *ReturnHandler) List(c *gin.Context) {
 func (h *ReturnHandler) AddProductByBarcode(c *gin.Context) {
 	var request domain.ReturnAddProduct
 	id := c.Param("id")
-	// validate inventory id
+	// validate return id
 	if err := uuid.Validate(id); err != nil {
 		handleResponse(c, BadRequest, "Return id is invalid")
 		return
@@ -246,7 +246,7 @@ func (h *ReturnHandler) Send(c *gin.Context) {
 		handleResponse(c, UNAUTHORIZED, "user id not found from the context")
 		return
 	}
-	// confirm inventory service
+	// confirm return service
 	err := h.service.SendReturn(id, userId.(string))
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to send return")
@@ -279,7 +279,7 @@ func (h *ReturnHandler) Confirm(c *gin.Context) {
 		handleResponse(c, UNAUTHORIZED, "user id not found from the context")
 		return
 	}
-	// confirm inventory service
+	// confirm return service
 	err := h.service.ConfirmReturn(id, userId.(string))
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to confirm return")
@@ -303,9 +303,9 @@ func (h *ReturnHandler) Confirm(c *gin.Context) {
 // @Router /return/cancel/{id} [POST]
 func (h *ReturnHandler) Cancel(c *gin.Context) {
 	var id = c.Param("id")
-	// validate inventory id
+	// validate return id
 	if err := uuid.Validate(id); err != nil {
-		handleResponse(c, BadRequest, "Invalid inventory id")
+		handleResponse(c, BadRequest, "Invalid return id")
 		return
 	}
 	// get user_id from the header
@@ -314,7 +314,7 @@ func (h *ReturnHandler) Cancel(c *gin.Context) {
 		handleResponse(c, UNAUTHORIZED, "user id not found from the context")
 		return
 	}
-	// confirm inventory service
+	// confirm return service
 	err := h.service.CancelReturn(id, userId.(string))
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to confirm return")
@@ -340,7 +340,7 @@ func (h *ReturnHandler) Cancel(c *gin.Context) {
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /return-detail/list [GET]
-func (h *ReturnHandler) InventoryDetailList(c *gin.Context) {
+func (h *ReturnHandler) ReturnDetailList(c *gin.Context) {
 	var param domain.ReturnDetailParam
 	// bind query param
 	if err := c.ShouldBindQuery(&param); err != nil {
@@ -351,13 +351,13 @@ func (h *ReturnHandler) InventoryDetailList(c *gin.Context) {
 
 	res, totalCount, err := h.service.ReturnDetailList(&param)
 	if err != nil {
-		handleResponse(c, InternalError, "Failed to get inventory detail list")
+		handleResponse(c, InternalError, "Failed to get return detail list")
 		return
 	}
-	// get inventory details status count
+	// get return details status count
 	statsCount, err := h.service.ReturnDetailStatsCount(&param)
 	if err != nil {
-		handleResponse(c, InternalError, "Failed to get inventory detail stats count")
+		handleResponse(c, InternalError, "Failed to get return detail stats count")
 		return
 	}
 	data := map[string]any{
