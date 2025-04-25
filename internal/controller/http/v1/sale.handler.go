@@ -785,6 +785,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 			_ = tx.Rollback()
 		}
 	}()
+
 	// get sale info
 	err = h.db.First(&sale, "id = ?", body.SaleID).Error
 	if err != nil {

@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"gorm.io/gorm"
 )
@@ -48,6 +49,7 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 	var (
 		body domain.CartItemRequest
 		err  error
+		sale domain.Sale
 	)
 	// get user id in context
 	vendorID, ok := c.Get("user_id")
@@ -59,6 +61,24 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 	if err = c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	// get sale info by id
+	err = h.db.First(&sale, "id = ?", body.SaleId).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			handleResponse(c, NotFound, "Sale not found")
+			return
+		}
+		h.log.Warn("ERROR on getting sale info: %v", err)
+		handleResponse(c, InternalError, "Failed to get sale")
+		return
+	}
+
+	// check sale status
+	if sale.Status == config.COMPLETED {
+		handleResponse(c, UnprocessableEntity, "This sale is already completed. You cannot use it again.")
 		return
 	}
 
