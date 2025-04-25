@@ -181,7 +181,9 @@ func (h *CashBoxHandler) List(c *gin.Context) {
 
 	// check employee role
 	if !helper.IsAdmin(employee, h.cfg) {
-		storeID = employee.StoreId
+		if employee.StoreId != "" {
+			storeID = employee.StoreId
+		}
 	}
 
 	// get limit, offset with getting or default

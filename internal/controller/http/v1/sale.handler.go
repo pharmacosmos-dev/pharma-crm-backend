@@ -438,7 +438,9 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 	}
 	// check user role
 	if !helper.IsAdmin(employee, h.cfg) {
-		param.StoreID = employee.StoreId
+		if employee.StoreId != "" {
+			param.StoreID = employee.StoreId
+		}
 	}
 	var (
 		args []any

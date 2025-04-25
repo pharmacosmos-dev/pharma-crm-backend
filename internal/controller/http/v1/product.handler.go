@@ -943,7 +943,9 @@ func (h *ProductHandler) GetProductImports(c *gin.Context) {
 
 	// check user role
 	if !helper.IsAdmin(employee, h.cfg) {
-		storeID = employee.StoreId
+		if employee.StoreId != "" {
+			storeID = employee.StoreId
+		}
 	}
 
 	// get limit offset

@@ -129,7 +129,9 @@ func (s *Services) ListAutoOrder(param *domain.AutoOrderParam) ([]domain.AutoOrd
 	}
 	// check if employee is not admin or superadmin
 	if !helper.IsAdmin(employee, s.cfg) {
-		param.StoreID = employee.StoreId
+		if employee.StoreId != "" {
+			param.StoreID = employee.StoreId
+		}
 	}
 	// build query
 	query := s.db.

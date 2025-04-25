@@ -262,7 +262,9 @@ func (s *Services) ListImport(c *gin.Context, limit, offset int) ([]domain.Impor
 	}
 	// check if employee is not admin or superadmin
 	if !helper.IsAdmin(employee, s.cfg) {
-		storeID = employee.StoreId
+		if employee.StoreId != "" {
+			storeID = employee.StoreId
+		}
 	}
 
 	// Fetch imports with detailed data
