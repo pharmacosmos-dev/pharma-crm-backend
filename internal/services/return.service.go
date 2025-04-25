@@ -64,7 +64,7 @@ func (s *Services) ReturnList(param *domain.ReturnParam) ([]domain.Return, int64
 		Preload("AcceptedBy").
 		Select(`
 			transfers.*, 
-			SUM(trd.received_count) AS measurement_count,
+			SUM(trd.scanned_count) AS return_count,
 			SUM(trd.received_count-trd.scanned_count) AS shortage,
 			SUM(CASE WHEN trd.accepted_count > trd.received_count THEN trd.accepted_count - trd.received_count ELSE 0 END) AS surplus,
 			SUM(trd.scanned_count*trd.supply_price) AS received_supply_sum,
