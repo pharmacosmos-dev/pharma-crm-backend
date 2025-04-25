@@ -61,12 +61,17 @@ func (s *Services) ReturnList(param *domain.ReturnParam) ([]domain.Return, int64
 		Preload("Store").
 		Preload("CreatedBy").
 		Preload("UpdatedBy").
+		Preload("AcceptedBy").
 		Select(`
 			transfers.*, 
 			SUM(trd.received_count) AS measurement_count,
 			SUM(trd.received_count-trd.scanned_count) AS shortage,
 			SUM(CASE WHEN trd.accepted_count > trd.received_count THEN trd.accepted_count - trd.received_count ELSE 0 END) AS surplus,
-			SUM(trd.scanned_count*trd.retail_price) - SUM(trd.received_count*trd.retail_price) AS difference_sum`).
+			SUM(trd.scanned_count*trd.supply_price) AS received_supply_sum,
+			SUM(trd.scanned_count*trd.retail_price) AS received_retail_sum,
+			SUM(trd.accepted_count*trd.supply_price) AS accepted_supply_sum,
+			SUM(trd.accepted_count*trd.retail_price) AS accepted_retail_sum
+			`).
 		Joins("LEFT JOIN transfer_details trd ON transfers.id = trd.transfer_id").
 		Where("transfers.entry_type = ?", 2)
 	// filter by store id
