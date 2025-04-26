@@ -7938,6 +7938,53 @@ paths:
       summary: Create Return
       tags:
       - Return
+  /return-detail/export-excel:
+    get:
+      consumes:
+      - application/json
+      description: Get return list
+      parameters:
+      - description: LIMIT
+        in: query
+        name: limit
+        type: integer
+      - description: OFFSET
+        in: query
+        name: offset
+        type: integer
+      - description: Return ID
+        in: query
+        name: return_id
+        required: true
+        type: string
+      - description: SEARCH KEY
+        in: query
+        name: search
+        type: string
+      - description: TYPE
+        in: query
+        name: type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get return list
+      tags:
+      - Return
   /return-detail/list:
     get:
       consumes:
@@ -8115,6 +8162,52 @@ paths:
       summary: Confirm Return
       tags:
       - Return
+  /return/export-excel:
+    get:
+      consumes:
+      - application/json
+      description: Export return excel
+      parameters:
+      - description: LIMIT
+        in: query
+        name: limit
+        type: integer
+      - description: OFFSET
+        in: query
+        name: offset
+        type: integer
+      - description: STORE ID
+        in: query
+        name: store_id
+        type: string
+      - description: SEARCH KEY
+        in: query
+        name: search
+        type: string
+      - description: STATUS (0->new|1->sent|2->completed)
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Export return excel
+      tags:
+      - Return
   /return/list:
     get:
       consumes:
@@ -8136,10 +8229,6 @@ paths:
       - description: SEARCH KEY
         in: query
         name: search
-        type: string
-      - description: TYPE
-        in: query
-        name: type
         type: string
       - description: STATUS (0->new|1->sent|2->completed)
         in: query
