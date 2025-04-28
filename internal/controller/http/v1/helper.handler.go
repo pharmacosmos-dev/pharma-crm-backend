@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"path/filepath"
@@ -26,6 +27,7 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 	{
 		helper.POST("/upload-package-code", h.UploadPackageCodeExcel)
 		helper.POST("/upload-mxik", h.CorrectMXIK)
+		helper.POST("/epos", h.EposTransmitter)
 	}
 }
 
@@ -293,4 +295,60 @@ func (h *HelperHandler) CorrectMXIK(c *gin.Context) {
 		}
 	}
 	handleResponse(c, OK, "Products MXIK CODE uploaded successfully")
+}
+
+// Epos transmitter godoc
+// @Summary transmit request to epos
+// @Description transmit request to epos
+// @Tags helper
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param 	body body interface{} true "Epos request body"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /helper/epos [POST]
+func (h *HelperHandler) EposTransmitter(c *gin.Context) {
+	var body any
+	// bind request body
+	if err := c.ShouldBindJSON(&body); err != nil {
+		handleResponse(c, BadRequest, "Invalid request body")
+		return
+	}
+
+	client := &http.Client{}
+	buf := bytes.Buffer{}
+
+	// Encode data to JSON
+	err := json.NewEncoder(&buf).Encode(body)
+	if err != nil {
+		handleResponse(c, BadRequest, "Can't encode request data")
+		return
+	}
+	req, err := http.NewRequestWithContext(c.Request.Context(), "POST", "http://integration.epos.uz:8347/uzpos", &buf)
+	if err != nil {
+		h.log.Warn("ERROR on creating new request: %v", err)
+		handleResponse(c, InternalError, "Can't create new request")
+		return
+	}
+	// add headers
+	req.Header.Add("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		h.log.Warn("ERROR on doing request: %v", err)
+		handleResponse(c, InternalError, "Can't do request")
+		return
+	}
+	defer resp.Body.Close()
+	var res any
+
+	err = json.NewDecoder(resp.Body).Decode(&res)
+	if err != nil {
+		h.log.Warn("ERROR on decoding epos response %v", err)
+		handleResponse(c, InternalError, "Can't decode response data")
+		return
+	}
+	c.JSON(http.StatusOK, res)
 }

@@ -4807,6 +4807,37 @@ paths:
       summary: Generate 1C token
       tags:
       - 1C token
+  /helper/epos:
+    post:
+      consumes:
+      - application/json
+      description: transmit request to epos
+      parameters:
+      - description: Epos request body
+        in: body
+        name: body
+        required: true
+        schema: {}
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: transmit request to epos
+      tags:
+      - helper
   /helper/get-ikpu-data-from-soliq:
     post:
       consumes:
