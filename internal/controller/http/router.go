@@ -2,6 +2,7 @@
 package http
 
 import (
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/config"
 	_ "github.com/pharma-crm-backend/docs"
@@ -41,17 +42,17 @@ func NewRouter(option Options) {
 	// Basic Auth
 	basicAuth := middleware.BasicAuth()
 
-	// // CORS Configuration
-	// corsConfig := cors.Config{
-	// 	AllowOrigins:     []string{"https://tpharma.noor.uz", "https://pharma.noor.uz"},
-	// 	AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-	// 	AllowHeaders:     []string{"Origin", "Content-Type", "Content-Length", "Accept", "Accept-Encoding", "Authorization"},
-	// 	ExposeHeaders:    []string{"Content-Length"},
-	// 	AllowCredentials: true,
-	// }
+	// Configure CORS
+	corsConfig := cors.DefaultConfig()
+	corsConfig.AllowOrigins = []string{"https://tpharma.noor.uz", "https://pharma.noor.uz"} // Specify allowed origins
+	corsConfig.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}           // Specify allowed HTTP methods
+	corsConfig.AllowHeaders = []string{"Origin", "Content-Type", "Authorization"}           // Specify allowed headers
+	corsConfig.ExposeHeaders = []string{"Content-Length"}                                   // Expose specific headers to the client
+	corsConfig.AllowCredentials = true                                                      // Allow credentials (cookies, auth headers, etc.)
+	corsConfig.MaxAge = 12 * 60 * 60
 
 	// middleware
-	option.Gin.Use(middleware.CorsMiddleware())
+	option.Gin.Use(cors.New(corsConfig))
 	option.Gin.Use(basicAuth.BasicAuthMiddleware)
 	option.Gin.Use(gin.Logger())
 	option.Gin.Use(gin.Recovery())
