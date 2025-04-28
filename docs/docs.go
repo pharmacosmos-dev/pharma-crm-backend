@@ -15830,13 +15830,10 @@ const docTemplate = `{
         "domain.ReturnAddProduct": {
             "type": "object",
             "properties": {
-                "barcode": {
-                    "type": "string"
-                },
                 "count": {
                     "type": "integer"
                 },
-                "product_id": {
+                "id": {
                     "type": "string"
                 },
                 "type": {
