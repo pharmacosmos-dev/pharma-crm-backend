@@ -65,6 +65,7 @@ type EmployeeUpdateInfoRequest struct {
 	FirstName string `gorm:"first_name" json:"first_name"`
 	LastName  string `gorm:"last_name" json:"last_name"`
 	Photo     string `gorm:"photo" json:"photo"`
+	Position  string `gorm:"position" json:"position"`
 	Language  string `gorm:"language" json:"language" validate:"required,oneof=uz en ru"`
 }
 
