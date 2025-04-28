@@ -111,6 +111,8 @@ func (s *Services) ReturnDetailList(param *domain.ReturnDetailParam) ([]domain.R
 		Model(&domain.TransferDetail{}).
 		Select(`
 		transfer_details.*,
+		transfer_details.received_count*transfer_details.retail_price AS received_sum,
+		transfer_details.scanned_count*transfer_details.retail_price AS scanned_sum,
     	p.name, p.material_code, p.barcode, ut.short_name`).
 		Joins("JOIN products p ON transfer_details.product_id = p.id").
 		Joins("LEFT JOIN unit_types ut ON p.unit_type_id = ut.id").

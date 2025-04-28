@@ -52,6 +52,8 @@ type ReturnDetail struct {
 	SerialNumber  string     `gorm:"serial_number" json:"serial_number"`
 	SupplyPrice   float64    `gorm:"supply_price" json:"supply_price"`
 	RetailPrice   float64    `gorm:"retail_price" json:"retail_price"`
+	ReceivedSum   float64    `gorm:"received_sum" json:"received_sum"`
+	ScannedSum    float64    `gorm:"scanned_sum" json:"scanned_sum"`
 	CreatedAt     *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt     *time.Time `gorm:"updated_at" json:"updated_at"`
 }
