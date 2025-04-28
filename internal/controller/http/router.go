@@ -50,8 +50,8 @@ func NewRouter(option Options) {
 	// CORS Configuration
 	option.Gin.Use(cors.New(cors.Config{
 		AllowOrigins:           []string{"https://tpharma.noor.uz", "https://pharma.noor.uz"},
-		AllowMethods:           []string{"*"},
-		AllowHeaders:           []string{"*"},
+		AllowMethods:           []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:           []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		ExposeHeaders:          []string{"Content-Length"},
 		AllowBrowserExtensions: true,
 		AllowCredentials:       true,
