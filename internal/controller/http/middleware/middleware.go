@@ -57,6 +57,11 @@ func (m *MiddlewareHandler) NewAuth() gin.HandlerFunc {
 
 // CheckPermission checks user permissions
 func (a *MiddlewareHandler) CheckPermission(c *gin.Context) (bool, error) {
+	if c.Request.Method == "OPTIONS" {
+		c.AbortWithStatus(http.StatusNoContent)
+		return false, nil
+	}
+
 	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "authorization header missing"})
