@@ -43,12 +43,7 @@ func NewRouter(option Options) {
 	basicAuth := middleware.BasicAuth()
 
 	// CORS Configuration
-	// corConfig.AllowAllOrigins = true
-	// corConfig.AllowCredentials = true
-	// corConfig.AllowHeaders = []string{"*"}
-	// corConfig.AllowBrowserExtensions = true
-	// corConfig.AllowMethods = []string{"*"}
-	// Configure CORS
+
 	corsConfig := cors.DefaultConfig()
 	// corsConfig.AllowOrigins = []string{"https://tpharma.noor.uz", "https://pharma.noor.uz", "https://pharma.gofurov.me"} // Specify allowed origins
 	// corsConfig.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}                                        // Specify allowed HTTP methods
@@ -59,7 +54,7 @@ func NewRouter(option Options) {
 	corsConfig.AllowCredentials = true
 	corsConfig.AllowHeaders = []string{"*"}
 	corsConfig.AllowBrowserExtensions = true
-	corsConfig.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}
+	corsConfig.AllowMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}
 	corsConfig.AllowBrowserExtensions = true
 	corsConfig.MaxAge = 12 * 60 * 60
 
