@@ -53,7 +53,7 @@ func NewRouter(option Options) {
 
 	// middleware
 	option.Gin.Use(cors.New(corsConfig))
-	option.Gin.Use(basicAuth.Middleware)
+	option.Gin.Use(basicAuth.BasicAuthMiddleware)
 	option.Gin.Use(gin.Logger())
 	option.Gin.Use(gin.Recovery())
 
