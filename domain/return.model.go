@@ -90,8 +90,7 @@ type ReturnDetailStatus struct {
 }
 
 type ReturnAddProduct struct {
-	Barcode   string `gorm:"barcode" json:"barcode"`
-	Count     int    `gorm:"count" json:"count"`
-	ProductId string `gorm:"product_id" json:"product_id"`
-	Type      string `gorm:"type" json:"type"`
+	Id    string `gorm:"id" json:"id"`
+	Count int    `gorm:"count" json:"count"`
+	Type  string `gorm:"type" json:"type"`
 }

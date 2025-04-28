@@ -1,7 +1,6 @@
 package v1
 
 import (
-	"errors"
 	"strconv"
 	"time"
 
@@ -336,56 +335,19 @@ func (h *ReturnHandler) AddProductByBarcode(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid request body")
 		return
 	}
-	var productId string
-	if request.ProductId != "" {
-		productId = request.ProductId
-	} else if request.Barcode != "" {
-		err = h.db.Raw(`
-		SELECT transfer_details.product_id FROM transfer_details JOIN products p ON p.id = transfer_details.product_id
-		WHERE p.barcode = ? AND transfer_details.transfer_id = ?
-		`, request.Barcode, id).Scan(&productId).Error
-		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				handleResponse(c, BadRequest, "Product barcode not found")
-				return
-			}
-			h.log.Warn("ERROR on getting product by barcode: %v", err)
-			handleResponse(c, InternalError, "Failed to find product by barcode")
-			return
-		}
-	} else {
-		handleResponse(c, BadRequest, "product_id or barcode not sent")
+
+	// add scanned count by transfer detail id
+	err = h.db.Exec(`
+		UPDATE transfer_details
+		SET scanned_count = ?, updated_at = NOW()
+		WHERE id = ? AND transfer_id = ?`,
+		request.Count, id).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, "Failed to add count")
 		return
 	}
 
-	if request.Type == "SCAN" {
-		if request.Count == 0 {
-			request.Count = 1
-		}
-		// add scanned count by product barcode
-		err = h.db.Exec(`
-		UPDATE transfer_details
-		SET scanned_count = scanned_count + ?, updated_at = NOW()
-		WHERE product_id = ? AND transfer_id = ?`,
-			request.Count, productId, id).Error
-		if err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, "Failed to add count")
-			return
-		}
-	} else if request.Type == "MANUAL" {
-		// add scanned count by product barcode
-		err = h.db.Debug().Exec(`
-		UPDATE transfer_details
-		SET scanned_count = ?, updated_at = NOW()
-		WHERE product_id = ? AND transfer_id = ?`,
-			request.Count, productId, id).Error
-		if err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, "Failed to add count")
-			return
-		}
-	}
 	handleResponse(c, OK, "ADDED")
 }
 
