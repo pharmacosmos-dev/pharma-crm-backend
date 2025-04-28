@@ -42,6 +42,13 @@ func NewRouter(option Options) {
 	// Basic Auth
 	basicAuth := middleware.BasicAuth()
 
+	// CORS Configuration
+	// corConfig := cors.DefaultConfig()
+	// corConfig.AllowAllOrigins = true
+	// corConfig.AllowCredentials = true
+	// corConfig.AllowHeaders = []string{"*"}
+	// corConfig.AllowBrowserExtensions = true
+	// corConfig.AllowMethods = []string{"*"}
 	// Configure CORS
 	corsConfig := cors.DefaultConfig()
 	corsConfig.AllowOrigins = []string{"https://tpharma.noor.uz", "https://pharma.noor.uz"} // Specify allowed origins
@@ -49,6 +56,7 @@ func NewRouter(option Options) {
 	corsConfig.AllowHeaders = []string{"Origin", "Content-Type", "Authorization"}           // Specify allowed headers
 	corsConfig.ExposeHeaders = []string{"Content-Length"}                                   // Expose specific headers to the client
 	corsConfig.AllowCredentials = true                                                      // Allow credentials (cookies, auth headers, etc.)
+	corsConfig.AllowBrowserExtensions = true
 	corsConfig.MaxAge = 12 * 60 * 60
 
 	// middleware
