@@ -2,7 +2,6 @@
 package http
 
 import (
-	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/config"
 	_ "github.com/pharma-crm-backend/docs"
@@ -42,17 +41,17 @@ func NewRouter(option Options) {
 	// Basic Auth
 	basicAuth := middleware.BasicAuth()
 
-	// CORS Configuration
-	corsConfig := cors.Config{
-		AllowOrigins:     []string{"https://tpharma.noor.uz", "https://pharma.noor.uz"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Content-Length", "Accept", "Accept-Encoding", "Authorization"},
-		ExposeHeaders:    []string{"Content-Length"},
-		AllowCredentials: true,
-	}
+	// // CORS Configuration
+	// corsConfig := cors.Config{
+	// 	AllowOrigins:     []string{"https://tpharma.noor.uz", "https://pharma.noor.uz"},
+	// 	AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+	// 	AllowHeaders:     []string{"Origin", "Content-Type", "Content-Length", "Accept", "Accept-Encoding", "Authorization"},
+	// 	ExposeHeaders:    []string{"Content-Length"},
+	// 	AllowCredentials: true,
+	// }
 
 	// middleware
-	option.Gin.Use(cors.New(corsConfig))
+	option.Gin.Use(middleware.CorsMiddleware())
 	option.Gin.Use(basicAuth.BasicAuthMiddleware)
 	option.Gin.Use(gin.Logger())
 	option.Gin.Use(gin.Recovery())
