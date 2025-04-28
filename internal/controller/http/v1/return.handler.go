@@ -539,7 +539,7 @@ func (h *ReturnHandler) ExportReturnDetailList(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"Код", "Наименование", "Штрих-код", "Срок годность", "Серия номер", "Кол-во", "Ед-изм", "Cканированные"}
+	headers := []string{"Код", "Наименование", "Штрих-код", "Срок годность", "Серия номер", "Текущее Кол-во", "Ед-изм", "Текущее Cумма", "Cканированные", "Cканированные Cумма"}
 
 	headerStyle, err := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{
@@ -569,7 +569,9 @@ func (h *ReturnHandler) ExportReturnDetailList(c *gin.Context) {
 		f.SetCellValue(sheetName, "E"+row, r.SerialNumber)
 		f.SetCellValue(sheetName, "F"+row, r.ReceivedCount)
 		f.SetCellValue(sheetName, "G"+row, r.ShortName)
-		f.SetCellValue(sheetName, "H"+row, r.ScannedCount)
+		f.SetCellValue(sheetName, "H"+row, r.ReceivedSum)
+		f.SetCellValue(sheetName, "I"+row, r.ScannedCount)
+		f.SetCellValue(sheetName, "J"+row, r.ScannedSum)
 
 	}
 

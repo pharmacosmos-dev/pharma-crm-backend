@@ -48,13 +48,14 @@ func NewRouter(option Options) {
 	option.Gin.Use(gin.Recovery())
 
 	// CORS Configuration
-	corConfig := cors.DefaultConfig()
-	corConfig.AllowAllOrigins = true
-	corConfig.AllowCredentials = true
-	corConfig.AllowHeaders = []string{"*"}
-	corConfig.AllowBrowserExtensions = true
-	corConfig.AllowMethods = []string{"*"}
-	option.Gin.Use(cors.New(corConfig))
+	option.Gin.Use(cors.New(cors.Config{
+		AllowOrigins:           []string{"https://tpharma.noor.uz", "https://pharma.noor.uz"},
+		AllowMethods:           []string{"*"},
+		AllowHeaders:           []string{"*"},
+		ExposeHeaders:          []string{"Content-Length"},
+		AllowBrowserExtensions: true,
+		AllowCredentials:       true,
+	}))
 
 	// JWTHandler
 	jwtHandler := token.JWTHandler{
