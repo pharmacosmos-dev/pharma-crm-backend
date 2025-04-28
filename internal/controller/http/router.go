@@ -41,20 +41,21 @@ func NewRouter(option Options) {
 
 	// Basic Auth
 	basicAuth := middleware.BasicAuth()
-	option.Gin.Use(basicAuth.Middleware)
-
-	// Options
-	option.Gin.Use(gin.Logger())
-	option.Gin.Use(gin.Recovery())
 
 	// CORS Configuration
-	option.Gin.Use(cors.New(cors.Config{
+	corsConfig := cors.Config{
 		AllowOrigins:     []string{"https://tpharma.noor.uz", "https://pharma.noor.uz"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Content-Length", "Accept", "Accept-Encoding", "Authorization"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
-	}))
+	}
+
+	// middleware
+	option.Gin.Use(cors.New(corsConfig))
+	option.Gin.Use(basicAuth.Middleware)
+	option.Gin.Use(gin.Logger())
+	option.Gin.Use(gin.Recovery())
 
 	// JWTHandler
 	jwtHandler := token.JWTHandler{
