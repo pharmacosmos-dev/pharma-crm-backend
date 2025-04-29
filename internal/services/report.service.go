@@ -173,7 +173,7 @@ func (s *Services) ProductReport(param *domain.ReportQueryParam) ([]domain.Produ
 		END, 2) AS retail_price_sum,
 		ROUND(CASE
 			WHEN ci.unit_quantity > 0 THEN (ci.quantity * (sp.retail_price-sp.supply_price)) + (ci.unit_quantity * ((sp.retail_price-sp.supply_price) / p.unit_per_pack))
-			ELSE ci.quantity * sp.retail_price
+			ELSE ci.quantity * (sp.retail_price-sp.supply_price)
 		END, 2) AS markup_sum,
 		ROUND(CASE
 			WHEN ci.unit_quantity > 0 THEN (ci.quantity * sp.vat_price) + (ci.unit_quantity * (sp.vat_price / p.unit_per_pack))
