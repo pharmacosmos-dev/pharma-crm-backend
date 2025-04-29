@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/pharma-crm-backend/domain"
+
 	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
 )
@@ -145,10 +146,11 @@ func (s *Services) GetStoreProductByBarcode(ctx context.Context, barcode string)
 }
 
 // get store info by product id
-func (s *Services) GetStoreProductByIdOrBarcode(id string, barcode string, storeId string) (*domain.StoreProduct, error) {
+func (s *Services) GetStoreProductByIdOrBarcode(id string, marking string, storeId string) (*domain.StoreProduct, error, int) {
 	var (
 		storeProduct domain.StoreProduct
 		filter       = " WHERE 1=1 "
+		join         = ""
 		args         = []any{}
 	)
 
@@ -156,7 +158,6 @@ func (s *Services) GetStoreProductByIdOrBarcode(id string, barcode string, store
 	SELECT sp.*, p.unit_per_pack, p.barcode
 	FROM store_products sp
 		JOIN products p ON sp.product_id = p.id
-		LEFT JOIN product_markings pm ON pm.product_id = p.id AND pm.store_id = sp.store_id
 	`
 	filter += " AND sp.store_id = ? "
 	args = append(args, storeId)
@@ -164,38 +165,32 @@ func (s *Services) GetStoreProductByIdOrBarcode(id string, barcode string, store
 	if id != "" {
 		filter += " AND sp.id = ? "
 		args = append(args, id)
-	} else if barcode != "" {
-		if utils.DefineProductSearchQuery(barcode) == "marking" {
-			filter += " AND pm.marking = ? "
-			args = append(args, barcode)
-		} else if utils.DefineProductSearchQuery(barcode) == "barcode" {
-			filter += " AND p.barcode = ? "
-			args = append(args, barcode)
-		} else {
-			return nil, errors.New("id or barcode is required")
-		}
+	} else if marking != "" && utils.DefineProductSearchQuery(marking) == "marking" {
+		filter += " AND pm.marking = ? "
+		join = " LEFT JOIN product_markings pm ON pm.product_id = p.id AND pm.import_detail_id = sp.import_detail_id "
+		args = append(args, marking)
 	} else {
-		return nil, errors.New("id or barcode is required")
+		return nil, errors.New("product not found"), 404
 	}
 	// collect query
-	query = query + filter
+	query = query + join + filter
 	// complete query
-	err := s.db.Raw(query, args...).Scan(&storeProduct).Error
+	err := s.db.Debug().Raw(query, args...).Scan(&storeProduct).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting store_product: %v", err)
-		return &storeProduct, err
+		return &storeProduct, err, 500
 	}
 
 	if storeProduct.Id != "" {
-		if utils.DefineProductSearchQuery(barcode) == "marking" {
-			isValid := utils.CheckBarcodeWithMarking(storeProduct.Barcode, barcode) // <- bu sizning tayyor tekshiruvchi funksiyangiz
+		if utils.DefineProductSearchQuery(marking) == "marking" {
+			isValid := utils.CheckBarcodeWithMarking(storeProduct.Barcode, marking) // <- check barcode with marking
 			if !isValid {
-				return nil, errors.New("marking and barcode mismatch") // yoki custom xatolik
+				return nil, errors.New("marking and barcode mismatch"), 422
 			}
 		}
 	}
 
-	return &storeProduct, nil
+	return &storeProduct, nil, 200
 }
 
 func (s *Services) GetStoreProductByID(id string) (*domain.StoreProduct, error) {

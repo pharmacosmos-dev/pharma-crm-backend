@@ -92,12 +92,12 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 	}
 
 	// get store product
-	storeProduct, err := h.service.GetStoreProductByIdOrBarcode(body.StoreProductID, body.Barcode, employee.StoreId)
+	storeProduct, err, statusCode := h.service.GetStoreProductByIdOrBarcode(body.StoreProductID, body.Barcode, employee.StoreId)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if statusCode == 404 {
 			handleResponse(c, NotFound, "Product not found")
 			return
-		} else if err.Error() == "marking and barcode mismatch" {
+		} else if statusCode == 422 {
 			handleResponse(c, UnprocessableEntity, "Marking and barcode mismatch")
 			return
 		}

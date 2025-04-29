@@ -108,66 +108,66 @@ func (h *ProductHandler) Create(c *gin.Context) {
 		return
 	}
 	// store products
-	if len(body.StoreProduct) > 0 {
-		var imports = make([]domain.ImportRequest, len(body.StoreProduct))
-		var importDetail = make([]domain.ImportDetailRequest, len(body.StoreProduct))
-		for i := range body.StoreProduct {
-			// store products table take required fields
-			body.StoreProduct[i].ProductID = body.Id
-			body.StoreProduct[i].UnitQuantity = body.StoreProduct[i].PackQuantity * body.UnitPerPack
+	// if len(body.StoreProduct) > 0 {
+	// 	var imports = make([]domain.ImportRequest, len(body.StoreProduct))
+	// 	var importDetail = make([]domain.ImportDetailRequest, len(body.StoreProduct))
+	// 	for i := range body.StoreProduct {
+	// 		// store products table take required fields
+	// 		body.StoreProduct[i].ProductID = body.Id
+	// 		body.StoreProduct[i].UnitQuantity = body.StoreProduct[i].PackQuantity * body.UnitPerPack
 
-			// imports table take required fields
-			imports[i].Id = uuid.New().String()
-			imports[i].StoreID = body.StoreProduct[i].StoreID
-			imports[i].Status = config.COMPLETED_IMPORT
-			imports[i].DocumentNumber = utils.GenerateDocumentNumber()
-			imports[i].ImportDate = time.Now().Format("2006-01-02 15:04:05")
+	// 		// imports table take required fields
+	// 		imports[i].Id = uuid.New().String()
+	// 		imports[i].StoreID = body.StoreProduct[i].StoreID
+	// 		imports[i].Status = config.COMPLETED_IMPORT
+	// 		imports[i].DocumentNumber = utils.GenerateDocumentNumber()
+	// 		imports[i].ImportDate = time.Now().Format("2006-01-02 15:04:05")
 
-			// import detail take required fields
-			importDetail[i].ImportID = imports[i].Id
-			importDetail[i].ProductID = &body.Id
-			importDetail[i].ReceivedCount = body.StoreProduct[i].PackQuantity
-			importDetail[i].AcceptedCount = body.StoreProduct[i].PackQuantity
-			importDetail[i].SupplyPrice = body.StoreProduct[i].SupplyPrice
-			importDetail[i].RetailPrice = body.StoreProduct[i].RetailPrice
-			importDetail[i].Vat = body.StoreProduct[i].Vat
-			importDetail[i].VatSum = body.StoreProduct[i].RetailPrice - body.StoreProduct[i].SupplyPrice
-			importDetail[i].ExpireDate = time.Now().Format("2006-01-02 15:04:05")
-		}
-		// store products
-		err = tx.
-			WithContext(c.Request.Context()).
-			Table("store_products").
-			Create(&body.StoreProduct).Error
-		if err != nil {
-			tx.Rollback()
-			h.log.Error(err)
-			handleResponse(c, InternalError, err.Error())
-			return
-		}
-		// create new import
-		err = tx.
-			WithContext(c.Request.Context()).
-			Table("imports").
-			Create(&imports).Error
-		if err != nil {
-			tx.Rollback()
-			h.log.Error(err)
-			handleResponse(c, InternalError, err.Error())
-			return
-		}
-		// create new import detail
-		err = tx.
-			WithContext(c.Request.Context()).
-			Table("import_details").
-			Create(&importDetail).Error
-		if err != nil {
-			tx.Rollback()
-			h.log.Error(err)
-			handleResponse(c, InternalError, err.Error())
-			return
-		}
-	}
+	// 		// import detail take required fields
+	// 		importDetail[i].ImportID = imports[i].Id
+	// 		importDetail[i].ProductID = &body.Id
+	// 		importDetail[i].ReceivedCount = body.StoreProduct[i].PackQuantity
+	// 		importDetail[i].AcceptedCount = body.StoreProduct[i].PackQuantity
+	// 		importDetail[i].SupplyPrice = body.StoreProduct[i].SupplyPrice
+	// 		importDetail[i].RetailPrice = body.StoreProduct[i].RetailPrice
+	// 		importDetail[i].Vat = body.StoreProduct[i].Vat
+	// 		importDetail[i].VatSum = body.StoreProduct[i].RetailPrice - body.StoreProduct[i].SupplyPrice
+	// 		importDetail[i].ExpireDate = time.Now().Format("2006-01-02 15:04:05")
+	// 	}
+	// 	// store products
+	// 	err = tx.
+	// 		WithContext(c.Request.Context()).
+	// 		Table("store_products").
+	// 		Create(&body.StoreProduct).Error
+	// 	if err != nil {
+	// 		tx.Rollback()
+	// 		h.log.Error(err)
+	// 		handleResponse(c, InternalError, err.Error())
+	// 		return
+	// 	}
+	// 	// create new import
+	// 	err = tx.
+	// 		WithContext(c.Request.Context()).
+	// 		Table("imports").
+	// 		Create(&imports).Error
+	// 	if err != nil {
+	// 		tx.Rollback()
+	// 		h.log.Error(err)
+	// 		handleResponse(c, InternalError, err.Error())
+	// 		return
+	// 	}
+	// 	// create new import detail
+	// 	err = tx.
+	// 		WithContext(c.Request.Context()).
+	// 		Table("import_details").
+	// 		Create(&importDetail).Error
+	// 	if err != nil {
+	// 		tx.Rollback()
+	// 		h.log.Error(err)
+	// 		handleResponse(c, InternalError, err.Error())
+	// 		return
+	// 	}
+	// }
 	// check category length
 	if len(body.CategoryIds) > 0 {
 		var categoryProduct = make([]domain.CategoryProduct, len(body.CategoryIds))
