@@ -48,14 +48,14 @@ func (s *Services) ProductSearch(param *domain.StoreProductQueryParam) ([]*domai
 	default:
 		// Transliterate search keyword Latin to Cyrillic OR Cyrillic to Latin
 		translatedWord := utils.Translit(param.Search)
-		filter += " AND (name_tsvector @@ plainto_tsquery(?) OR name_tsvector @@ plainto_tsquery(?))"
-		args = append(args, param.Search, translatedWord)
+		filter += " AND (name_tsvector @@ to_tsquery('russian', ?) OR name_tsvector @@ to_tsquery('simple', ?))"
+		args = append(args, param.Search+":*", translatedWord+":*")
 	}
 	// collect query
 	query = query + filter + order + pagination
 	args = append(args, param.Limit, param.Offset)
 	// complete query
-	err = s.db.Debug().Raw(query, args...).Scan(&res).Error
+	err = s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("Error on listing store products for store %s with search '%s': %v", param.StoreID, param.Search, err.Error())
 		return nil, err
@@ -146,7 +146,7 @@ func (s *Services) GetStoreProductByBarcode(ctx context.Context, barcode string)
 }
 
 // get store info by product id
-func (s *Services) GetStoreProductByIdOrBarcode(id string, marking string, storeId string) (*domain.StoreProduct, error, int) {
+func (s *Services) GetStoreProductByIdOrBarcode(id string, marking string, storeId string) (*domain.StoreProduct, int, error) {
 	var (
 		storeProduct domain.StoreProduct
 		filter       = " WHERE 1=1 "
@@ -170,7 +170,7 @@ func (s *Services) GetStoreProductByIdOrBarcode(id string, marking string, store
 		join = " LEFT JOIN product_markings pm ON pm.product_id = p.id AND pm.import_detail_id = sp.import_detail_id "
 		args = append(args, marking)
 	} else {
-		return nil, errors.New("product not found"), 404
+		return nil, 404, errors.New("product not found")
 	}
 	// collect query
 	query = query + join + filter
@@ -178,19 +178,19 @@ func (s *Services) GetStoreProductByIdOrBarcode(id string, marking string, store
 	err := s.db.Debug().Raw(query, args...).Scan(&storeProduct).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting store_product: %v", err)
-		return &storeProduct, err, 500
+		return &storeProduct, 500, err
 	}
 
 	if storeProduct.Id != "" {
 		if utils.DefineProductSearchQuery(marking) == "marking" {
 			isValid := utils.CheckBarcodeWithMarking(storeProduct.Barcode, marking) // <- check barcode with marking
 			if !isValid {
-				return nil, errors.New("marking and barcode mismatch"), 422
+				return nil, 422, errors.New("marking and barcode mismatch")
 			}
 		}
 	}
 
-	return &storeProduct, nil, 200
+	return &storeProduct, 200, nil
 }
 
 func (s *Services) GetStoreProductByID(id string) (*domain.StoreProduct, error) {

@@ -92,7 +92,7 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 	}
 
 	// get store product
-	storeProduct, err, statusCode := h.service.GetStoreProductByIdOrBarcode(body.StoreProductID, body.Barcode, employee.StoreId)
+	storeProduct, statusCode, err := h.service.GetStoreProductByIdOrBarcode(body.StoreProductID, body.Barcode, employee.StoreId)
 	if err != nil {
 		if statusCode == 404 {
 			handleResponse(c, NotFound, "Product not found")
