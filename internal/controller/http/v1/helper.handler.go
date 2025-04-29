@@ -3,6 +3,7 @@ package v1
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"path/filepath"
 	"time"
@@ -277,24 +278,31 @@ func (h *HelperHandler) CorrectMXIK(c *gin.Context) {
 
 	// build query
 	query := `
-	UPDATE products SET mxik = ? WHERE material_code = ? AND (mxik IS NULL OR mxik = '')
+	UPDATE products SET mxik = ?, is_marking = ? WHERE material_code = ?
 	`
 	var count = 1
 	// Process rows
-	for i := len(rows) - 1; i >= 2; i-- {
-		row := rows[i]
-		if len(row) > 15 {
+	for _, row := range rows[1:] {
+
+		if row[4] != "" {
 			count++
-			// // create measurements
-			err = h.db.Debug().Exec(query, row[15], row[0]).Error
-			if err != nil {
-				h.log.Error(err)
-				handleResponse(c, InternalError, err.Error())
-				return
-			}
 		}
+		fmt.Println("ID: ", parseIntComma(row[1]), "Marking: ", row[2], "IKPU: ", row[4])
+		// create measurements
+		err = h.db.Debug().Exec(query, row[4], changeToBoolean(row[2]), parseIntComma(row[1])).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+
 	}
-	handleResponse(c, OK, "Products MXIK CODE uploaded successfully")
+	fmt.Println("---=>>> ", count)
+	handleResponse(c, OK, "Products MXIK CODE uploaded successfully: ")
+}
+
+func changeToBoolean(req string) bool {
+	return req == "Да"
 }
 
 // Epos transmitter godoc
