@@ -219,7 +219,7 @@ func (s *Services) ProductReport(param *domain.ReportQueryParam) ([]domain.Produ
 	}
 	// filter by start_date, end_date
 	if param.StartDate != "" && param.EndDate != "" {
-		filter += " AND sl.completed_at BETWEEN ? AND ? "
+		filter += " AND sl.completed_at::date BETWEEN ? AND ? "
 		args = append(args, param.StartDate, param.EndDate)
 	}
 
