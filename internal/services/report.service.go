@@ -195,22 +195,22 @@ func (s *Services) ProductReport(param *domain.ReportQueryParam) ([]domain.Produ
 	`
 	// filter by search key
 	if param.Search != "" {
-		filter += " (p.name ILIKE ? OR s.name ILIKE ?) "
+		filter += " AND (p.name ILIKE ? OR s.name ILIKE ?) "
 		args = append(args, param.Search, param.Search)
 	}
 	// filter by store_ids
 	if len(param.StoreIds) > 0 {
-		filter += " sl.store_id IN (?) "
+		filter += " AND sl.store_id IN (?) "
 		args = append(args, param.StoreIds)
 	}
 	// filter by producers
 	if len(param.ProducerIds) > 0 {
-		filter += " p.producer_id IN (?) "
+		filter += " AND p.producer_id IN (?) "
 		args = append(args, param.ProducerIds)
 	}
 	// filter by employee
 	if param.EmployeeId != "" {
-		filter += " sl.employee_id = ? "
+		filter += " AND sl.employee_id = ? "
 		args = append(args, param.EmployeeId)
 	}
 	// check end_date
@@ -219,12 +219,12 @@ func (s *Services) ProductReport(param *domain.ReportQueryParam) ([]domain.Produ
 	}
 	// filter by start_date, end_date
 	if param.StartDate != "" && param.EndDate != "" {
-		filter += " sl.completed_at BETWEEN ? AND ? "
+		filter += " AND sl.completed_at BETWEEN ? AND ? "
 		args = append(args, param.StartDate, param.EndDate)
 	}
 
 	query = query + filter + order + pagination
-	err := s.db.Raw(query, args...).Scan(&res).Error
+	err := s.db.Debug().Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting product report: %v", err)
 		return res, 0, nil
