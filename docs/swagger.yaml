@@ -376,6 +376,8 @@ definitions:
         type: string
       photo:
         type: string
+      position:
+        type: string
     required:
     - language
     type: object
@@ -7803,6 +7805,70 @@ paths:
         type: string
       produces:
       - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get employee bonus report
+      tags:
+      - Report
+  /report/product:
+    post:
+      consumes:
+      - application/json
+      description: Get employee bonus report
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Employee Id
+        in: query
+        name: employee_id
+        type: string
+      - description: Store ids
+        in: body
+        name: store_ids
+        schema:
+          items:
+            type: string
+          type: array
+      - description: Producer ids
+        in: body
+        name: producer_ids
+        schema:
+          items:
+            type: string
+          type: array
+      produces:
+      - application/json
       responses:
         "200":
           description: OK

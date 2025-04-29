@@ -139,3 +139,100 @@ func (s *Services) BonusReport(param *domain.ReportQueryParam) ([]domain.BonusRe
 	}
 	return res, totalCount, nil
 }
+
+// get product report with sale_number
+func (s *Services) ProductReport(param *domain.ReportQueryParam) ([]domain.ProductReport, int64, error) {
+	var (
+		res        []domain.ProductReport
+		totalCount int64
+		filter     = " WHERE sl.status = 'completed' AND ci.status = 'sold' "
+		args       = []any{}
+		order      = " ORDER BY sl.completed_at DESC "
+		pagination = fmt.Sprintf(" LIMIT %d OFFSET %d ", param.Limit, param.Offset)
+	)
+
+	query := `
+	SELECT
+		p.material_code,
+		s.name AS store_name,
+		p.name AS product_name,
+		pr.name AS producer_name,
+		sp.serial_number,
+		sp.expire_date,
+		ci.quantity || ',' || ci.unit_quantity AS quantity,
+		sp.supply_price,
+		sp.retail_price,
+		ROUND(CASE
+			WHEN ci.unit_quantity > 0 THEN (ci.quantity * sp.supply_price) + (ci.unit_quantity * (sp.supply_price / p.unit_per_pack))
+			ELSE ci.quantity * sp.supply_price
+		END, 2) AS supply_price_sum,
+		ROUND(CASE
+			WHEN ci.unit_quantity > 0 THEN (ci.quantity * sp.retail_price) + (ci.unit_quantity * (sp.retail_price / p.unit_per_pack))
+			ELSE ci.quantity * sp.retail_price
+		END, 2) AS retail_price_sum,
+		ROUND(CASE
+			WHEN ci.unit_quantity > 0 THEN (ci.quantity * (sp.retail_price-sp.supply_price)) + (ci.unit_quantity * ((sp.retail_price-sp.supply_price) / p.unit_per_pack))
+			ELSE ci.quantity * sp.retail_price
+		END, 2) AS markup_sum,
+		ROUND(CASE
+			WHEN ci.unit_quantity > 0 THEN (ci.quantity * sp.vat_price) + (ci.unit_quantity * (sp.vat_price / p.unit_per_pack))
+			ELSE ci.quantity * sp.vat_price
+		END, 2) AS vat_sum,
+		sl.completed_at,
+		e.full_name,
+		sl.sale_number,
+		ci.marking_count,
+		COUNT(*) OVER() AS total_count
+	FROM
+		sales sl
+		INNER JOIN stores s ON sl.store_id = s.id
+		INNER JOIN employees e ON sl.employee_id = e.id
+		INNER JOIN cart_items ci ON sl.id = ci.sale_id
+		INNER JOIN store_products sp ON ci.store_product_id = sp.id
+		INNER JOIN products p ON sp.product_id = p.id
+		LEFT JOIN producers pr ON p.producer_id = pr.id
+	`
+	// filter by search key
+	if param.Search != "" {
+		filter += " (p.name ILIKE ? OR s.name ILIKE ?) "
+		args = append(args, param.Search, param.Search)
+	}
+	// filter by store_ids
+	if len(param.StoreIds) > 0 {
+		filter += " sl.store_id IN (?) "
+		args = append(args, param.StoreIds)
+	}
+	// filter by producers
+	if len(param.ProducerIds) > 0 {
+		filter += " p.producer_id IN (?) "
+		args = append(args, param.ProducerIds)
+	}
+	// filter by employee
+	if param.EmployeeId != "" {
+		filter += " sl.employee_id = ? "
+		args = append(args, param.EmployeeId)
+	}
+	// check end_date
+	if param.EndDate == "" {
+		param.EndDate = param.StartDate
+	}
+	// filter by start_date, end_date
+	if param.StartDate != "" && param.EndDate != "" {
+		filter += " sl.completed_at BETWEEN ? AND ? "
+		args = append(args, param.StartDate, param.EndDate)
+	}
+
+	query = query + filter + order + pagination
+	err := s.db.Raw(query, args...).Scan(&res).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting product report: %v", err)
+		return res, 0, nil
+	}
+
+	// get total_count
+	if len(res) > 0 {
+		totalCount = res[0].TotalCount
+	}
+
+	return res, totalCount, nil
+}
