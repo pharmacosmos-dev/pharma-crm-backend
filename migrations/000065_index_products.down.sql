@@ -1,1 +1,1 @@
-DROP INDEX IF EXISTS idx_name_barcode;
+DROP INDEX IF EXISTS idx_barcode;

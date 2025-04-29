@@ -767,7 +767,7 @@ func (h *ProductHandler) ListByStoreId(c *gin.Context) {
 	// get limit offset
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 	// get store products list
-	res, err = h.service.ListStoreProduct(&param)
+	res, err = h.service.ProductSearch(&param)
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to fetch products")
 		return

@@ -28,7 +28,7 @@ func GenerateDocumentNumber() string {
 }
 
 func DefineProductSearchQuery(search string) string {
-	barcodeRegex := regexp.MustCompile(`^\d{4,20}$`)
+	barcodeRegex := regexp.MustCompile(`^\d{4,15}$`)
 	nameCategoryRegex := regexp.MustCompile(`^[a-zA-Zа-яА-ЯёЁ\s-]+$`)
 	markingRegex := regexp.MustCompile(`^.{31}$`)
 	switch {

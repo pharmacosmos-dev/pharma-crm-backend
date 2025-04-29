@@ -12,52 +12,49 @@ import (
 )
 
 // get store products get list
-func (s *Services) ListStoreProduct(param *domain.StoreProductQueryParam) ([]*domain.StoreProductResponse, error) {
+func (s *Services) ProductSearch(param *domain.StoreProductQueryParam) ([]*domain.StoreProductResponse, error) {
 	var (
-		res []*domain.StoreProductResponse
-		err error
+		res        []*domain.StoreProductResponse
+		err        error
+		filter     = " WHERE sp.store_id = ? AND (sp.pack_quantity > 0 OR sp.unit_quantity > 0) "
+		args       = []any{}
+		order      = " ORDER BY sp.expire_date "
+		pagination = " LIMIT ? OFFSET ? "
 	)
-
+	args = append(args, param.StoreID)
 	// build query
-	query := s.db.Model(&domain.StoreProduct{}).
-		Table("store_products sp").
-		Select(`
-			DISTINCT ON (sp.product_id)
-			sp.*, pb.bonus_amount AS bonus_amount, p.name, p.barcode, p.unit_per_pack,
-			DATE_PART('day', sp.expire_date::timestamp - NOW()) AS expire_day,
-			u.unit_name, u.short_name`).
-		Joins("JOIN products p ON p.id = sp.product_id").
-		Joins("LEFT JOIN unit_types u ON p.unit_type_id = u.id").
-		Joins("LEFT JOIN product_bonuses pb ON pb.product_id = sp.product_id").
-		Where("sp.store_id = ? AND (sp.pack_quantity > 0 OR sp.unit_quantity > 0)", param.StoreID)
+	query := `
+	SELECT
+		sp.*,  p.name, pb.bonus_amount, p.barcode, p.unit_per_pack,
+		DATE_PART('day', sp.expire_date::timestamp - NOW()) AS expire_day,
+		u.unit_name, u.short_name
+	FROM store_products sp
+		JOIN products p ON p.id = sp.product_id
+		LEFT JOIN unit_types u ON p.unit_type_id = u.id
+		LEFT JOIN product_bonuses pb ON pb.product_id = p.id
+	`
 	// define search keyword type
 	switch utils.DefineProductSearchQuery(param.Search) {
 	case "barcode":
-		param.Limit = 1
-		query = query.Where("p.barcode = ?", param.Search)
+		filter += " AND p.barcode = ?"
+		args = append(args, param.Search)
+		// query = query.Where("p.barcode = ?", param.Search)
 	case "marking":
-		param.Limit = 1
-		query = query.
-			Joins("LEFT JOIN product_markings pm ON pm.product_id = sp.product_id").
-			Where("pm.marking = ?", param.Search)
+
+		// query = query.
+		// 	Joins("LEFT JOIN product_markings pm ON pm.product_id = sp.product_id").
+		// 	Where("pm.marking = ?", param.Search)
 	default:
 		// Transliterate search keyword Latin to Cyrillic OR Cyrillic to Latin
 		translatedWord := utils.Translit(param.Search)
-		// define search key
-		query = query.
-			Joins("LEFT JOIN category_products cp ON p.id = cp.product_id").
-			Joins("LEFT JOIN categories c ON c.id = cp.category_id").
-			Where("p.name ILIKE ? OR c.name ILIKE ? OR p.name ILIKE ?", "%"+param.Search+"%", "%"+param.Search+"%", "%"+translatedWord+"%").
-			Limit(param.Limit).Offset(param.Offset)
+		filter += " AND (name_tsvector @@ plainto_tsquery(?) OR name_tsvector @@ plainto_tsquery(?))"
+		args = append(args, param.Search, translatedWord)
 	}
+	// collect query
+	query = query + filter + order + pagination
+	args = append(args, param.Limit, param.Offset)
 	// complete query
-	err = query.
-		Limit(param.Limit).
-		Offset(param.Offset).
-		Order("sp.product_id, sp.expire_date").
-		Debug().
-		Find(&res).Error
-
+	err = s.db.Debug().Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("Error on listing store products for store %s with search '%s': %v", param.StoreID, param.Search, err.Error())
 		return nil, err

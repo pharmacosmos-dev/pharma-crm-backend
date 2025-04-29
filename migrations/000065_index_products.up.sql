@@ -1,1 +1,1 @@
-CREATE INDEX IF NOT EXISTS idx_name_barcode ON products(barcode, name);
+CREATE INDEX IF NOT EXISTS idx_barcode ON products(barcode);
