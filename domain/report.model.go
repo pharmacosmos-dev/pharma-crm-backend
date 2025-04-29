@@ -31,6 +31,7 @@ type BonusReport struct {
 
 // get product report
 type ProductReport struct {
+	CartItemId     string     `gorm:"cart_item_id" json:"cart_item_id"`
 	MaterialCode   int        `gorm:"material_code" json:"material_code"`
 	StoreName      string     `gorm:"store_name" json:"store_name"`
 	ProductName    string     `gorm:"product_name" json:"product_name"`

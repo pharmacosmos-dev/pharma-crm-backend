@@ -153,6 +153,7 @@ func (s *Services) ProductReport(param *domain.ReportQueryParam) ([]domain.Produ
 
 	query := `
 	SELECT
+		ci.id AS cart_item_id,
 		p.material_code,
 		s.name AS store_name,
 		p.name AS product_name,

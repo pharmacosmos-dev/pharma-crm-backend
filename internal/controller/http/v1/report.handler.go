@@ -28,6 +28,7 @@ func (h *ReportHandler) ReportRoutes(r *gin.RouterGroup) {
 		report.POST("/bonus", h.BonusReport)
 		report.POST("/bonus-export", h.BonusReportExport)
 		report.POST("/product", h.ProductReport)
+		report.POST("/product-export", h.ProductReportExportExcel)
 	}
 }
 
@@ -362,7 +363,10 @@ func (h *ReportHandler) ProductReport(c *gin.Context) {
 	}
 	// bind store_ids
 	if c.Request.Body != nil {
+		// bind store_ids
 		_ = c.ShouldBindJSON(&param.StoreIds)
+		// bind producer_ids
+		_ = c.ShouldBindJSON(&param.ProducerIds)
 	}
 	// get default limit and offset for pagination
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
@@ -377,4 +381,116 @@ func (h *ReportHandler) ProductReport(c *gin.Context) {
 	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
 
 	handleResponse(c, OK, data)
+}
+
+// Bonus report godoc
+// @Summary Get employee bonus report
+// @Description Get employee bonus report
+// @Tags Report
+// @Security     BearerAuth
+// @Accept json
+// @Produce application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+// @Param 	limit query int false "Limit"
+// @Param 	offset query int false "Offset"
+// @Param   start_date query string false "Start Date"
+// @Param   end_date query string false "End Date"
+// @Param   search query string false "Search"
+// @Param   employee_id query string false "Employee Id"
+// @Param   store_ids body []string false "Store ids"
+// @Param   producer_ids body []string false "Producer ids"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /report/product-export [POST]
+func (h *ReportHandler) ProductReportExportExcel(c *gin.Context) {
+	var param domain.ReportQueryParam
+	// bind query param
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
+		handleResponse(c, BadRequest, "Invalid query parameters")
+		return
+	}
+	// bind store_ids
+	if c.Request.Body != nil {
+		// bind store_ids
+		_ = c.ShouldBindJSON(&param.StoreIds)
+		// bind producer_ids
+		_ = c.ShouldBindJSON(&param.ProducerIds)
+	}
+	// get default limit and offset for pagination
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	res, _, err := h.service.ProductReport(&param)
+	if err != nil {
+		h.log.Warn("Failed to get product report: %v", err)
+		handleResponse(c, InternalError, "failed to get product report")
+		return
+	}
+
+	// Create excel file
+	f := excelize.NewFile()
+	sheetName := "List"
+	f.SetSheetName("Sheet1", sheetName)
+
+	// Headerlar
+	headers := []string{"ID", "Филиал", "Наименование", "Производитель", "Серия", "Срок Годности", "Кол-во", "Цена прихода", "Цена продажная", "Сумма прихода", "Сумма продажная", "Сумма наценки", "Сумма НДС", "Дата продажи", "Пользователь", "ID ЧЕКА", "Количество маркировок"}
+
+	headerStyle, err := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Bold:  true,
+			Color: "000000",
+		},
+	})
+	if err != nil {
+		h.log.Error("Failed to create style:", err)
+		handleResponse(c, InternalError, "Error on giving style to excel")
+		return
+	}
+
+	//
+	for i, h := range headers {
+		col := string(rune('A'+i)) + "1"
+		f.SetCellValue(sheetName, col, h)
+		f.SetCellStyle(sheetName, col, col, headerStyle)
+	}
+
+	// Set information to columns
+	for i, value := range res {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheetName, "A"+row, value.MaterialCode)
+		f.SetCellValue(sheetName, "B"+row, value.StoreName)
+		f.SetCellValue(sheetName, "C"+row, value.ProductName)
+		f.SetCellValue(sheetName, "D"+row, value.ProducerName)
+		f.SetCellValue(sheetName, "E"+row, value.SerialNumber)
+		if value.ExpireDate != nil {
+			f.SetCellValue(sheetName, "F"+row, value.ExpireDate.Format(time.DateOnly))
+		} else {
+			f.SetCellValue(sheetName, "F"+row, "N/A")
+		}
+		f.SetCellValue(sheetName, "G"+row, value.Quantity)
+		f.SetCellValue(sheetName, "H"+row, value.SupplyPrice)
+		f.SetCellValue(sheetName, "I"+row, value.RetailPrice)
+		f.SetCellValue(sheetName, "J"+row, value.SupplyPriceSum)
+		f.SetCellValue(sheetName, "K"+row, value.RetailPriceSum)
+		f.SetCellValue(sheetName, "L"+row, value.MarkupSum)
+		f.SetCellValue(sheetName, "M"+row, value.VatSum)
+		if value.CompletedAt != nil {
+			f.SetCellValue(sheetName, "N"+row, value.CompletedAt.Format(time.DateTime))
+		} else {
+			f.SetCellValue(sheetName, "N"+row, "N/A")
+		}
+		f.SetCellValue(sheetName, "O"+row, value.FullName)
+		f.SetCellValue(sheetName, "P"+row, value.SaleNumber)
+		f.SetCellValue(sheetName, "Q"+row, value.MarkingCount)
+	}
+
+	// Faylni HTTP response orqali yuborish
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Header("Content-Disposition", "attachment; filename=product-report.xlsx")
+
+	if err := f.Write(c.Writer); err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, "Failed to generate Excel file")
+	}
+
 }
