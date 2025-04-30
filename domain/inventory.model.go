@@ -40,24 +40,22 @@ type InventoryRequest struct {
 	Name      string `gorm:"name" json:"name"`
 	Type      string `gorm:"type" json:"type"` // FULL || PARTIAL || IMPORT
 	CreatedBy string `gorm:"created_by" json:"created_by"`
-	Products  []struct {
-		ProductId string `json:"product_id"`
-	} `json:"products"`
 }
 
 // InventoryRequest structure
 type InventoryDetail struct {
-	Id            string     `gorm:"id" json:"id"`
-	InventoryId   string     `gorm:"inventory_id" json:"inventory_id"`
-	ProductId     string     `gorm:"product_id" json:"product_id"`
-	ReceivedCount int        `gorm:"received_count" json:"stock_count"`
-	ScannedCount  int        `gorm:"scanned_count" json:"scanned_count"`
-	Name          string     `gorm:"name" json:"name"`
-	MaterialCode  int        `gorm:"material_code" json:"material_code"`
-	Barcode       string     `gorm:"barcode" json:"barcode"`
-	ShortName     string     `gorm:"short_name" json:"short_name"`
-	CreatedAt     *time.Time `gorm:"created_at" json:"created_at"`
-	UpdatedAt     *time.Time `gorm:"updated_at" json:"updated_at"`
+	Id              string     `gorm:"id" json:"id"`
+	InventoryId     string     `gorm:"inventory_id" json:"inventory_id"`
+	ProductId       string     `gorm:"product_id" json:"product_id"`
+	ReceivedCount   int        `gorm:"received_count" json:"stock_count"`
+	ScannedCount    int        `gorm:"scanned_count" json:"scanned_count"`
+	DifferenceCount int        `gorm:"difference_count" json:"difference_count"`
+	Name            string     `gorm:"name" json:"name"`
+	MaterialCode    int        `gorm:"material_code" json:"material_code"`
+	Barcode         string     `gorm:"barcode" json:"barcode"`
+	ShortName       string     `gorm:"short_name" json:"short_name"`
+	CreatedAt       *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt       *time.Time `gorm:"updated_at" json:"updated_at"`
 }
 
 // InventoryDetailRequest structure
@@ -88,8 +86,6 @@ type InventoryDetailStatus struct {
 }
 
 type InventoryAddProduct struct {
-	Barcode   string `gorm:"barcode" json:"barcode"`
-	Count     int    `gorm:"count" json:"count"`
-	ProductId string `gorm:"product_id" json:"product_id"`
-	Type      string `gorm:"type" json:"type"`
+	Count int    `gorm:"count" json:"count"`
+	Id    string `gorm:"id" json:"id"`
 }

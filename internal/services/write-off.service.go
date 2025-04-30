@@ -33,8 +33,8 @@ func (s *Services) CreateWriteOff(req *domain.WriteOffRequest) error {
 	// if no products provided, get all products from store_products
 	// and insert them into write-off
 	err = tx.Exec(
-		`INSERT INTO import_details(import_id, product_id, received_count, supply_price_vat, retail_price_vat, expire_date
-			) SELECT ?, product_id, pack_quantity, supply_price, retail_price, expire_date
+		`INSERT INTO import_details(import_id, product_id, received_count, supply_price_vat, retail_price_vat, expire_date, series_number
+			) SELECT ?, product_id, pack_quantity, supply_price, retail_price, expire_date, serial_number
 			FROM store_products
 			WHERE store_id = ? AND pack_quantity > 0;`,
 		id, req.StoreId).Error

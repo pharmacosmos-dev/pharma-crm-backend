@@ -15741,16 +15741,10 @@ const docTemplate = `{
         "domain.InventoryAddProduct": {
             "type": "object",
             "properties": {
-                "barcode": {
-                    "type": "string"
-                },
                 "count": {
                     "type": "integer"
                 },
-                "product_id": {
-                    "type": "string"
-                },
-                "type": {
+                "id": {
                     "type": "string"
                 }
             }
@@ -15763,17 +15757,6 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
-                },
-                "products": {
-                    "type": "array",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "product_id": {
-                                "type": "string"
-                            }
-                        }
-                    }
                 },
                 "public_id": {
                     "type": "string"

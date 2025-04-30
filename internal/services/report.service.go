@@ -278,6 +278,7 @@ func (s *Services) LflReport(param *domain.ReportQueryParam) (domain.LflReport, 
 	),
 	PivotedSales AS (
 		SELECT
+			ROW_NUMBER() OVER (ORDER BY week_number, weekday) AS id,
 			cs.week_number,
 			cs.week_start_date AS sale_date,
 			cs.week_date,
@@ -298,6 +299,7 @@ func (s *Services) LflReport(param *domain.ReportQueryParam) (domain.LflReport, 
 			bc.branch_count
 	)
 	SELECT
+		id,
 		week_date AS weekdate,
 		weekname AS weekname,
 		branch_count,

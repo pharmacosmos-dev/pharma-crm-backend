@@ -26,47 +26,51 @@ func (s *Services) CreateInventory(req *domain.InventoryRequest) error {
 		req.StoreId, req.Name, req.Type, req.CreatedBy, 2, time.Now(),
 	).Scan(&id).Error
 	if err != nil {
-		s.log.Error("ERROR on creating inventory: ", err)
+		s.log.Warn("ERROR on creating inventory: %v", err)
 		tx.Rollback()
 		return err
 	}
-	if len(req.Products) > 0 {
-		for _, product := range req.Products {
-			err = tx.Exec(`
+	err = tx.Exec(`
 			INSERT INTO import_details (
-				import_id, product_id, received_count, supply_price_vat, retail_price_vat
-			) SELECT ?, product_id, SUM(pack_quantity), MIN(supply_price), MIN(retail_price)
+				import_id, product_id, received_count, supply_price_vat, retail_price_vat, expire_date, series_number
+			) SELECT ?, product_id, pack_quantity, supply_price, retail_price, expire_date, serial_number
 			FROM store_products
-			WHERE product_id = ? GROUP BY product_id;
-			`, id, product.ProductId).Error
-			if err != nil {
-				s.log.Error("ERROR on creating inventory: ", err)
-				tx.Rollback()
-				return err
-			}
-		}
-	} else {
-		// if no products provided, get all products from store_products
-		// and insert them into inventory_details
-		err = tx.Exec(
-			`INSERT INTO import_details(import_id, product_id, received_count, supply_price_vat, retail_price_vat
-			) SELECT ?, product_id, SUM(pack_quantity), MIN(supply_price), MIN(retail_price)
-			FROM store_products
-			WHERE store_id = ? AND pack_quantity > 0 GROUP BY product_id;`,
-			id, req.StoreId).Error
-		if err != nil {
-			s.log.Error("ERROR on creating inventory details: ", err)
-			tx.Rollback()
-			return err
-		}
+			WHERE store_id = ? AND pack_quantity > 0
+			`, id, req.StoreId).Error
+	if err != nil {
+		s.log.Warn("ERROR on creating inventory: %v", err)
+		tx.Rollback()
+		return err
 	}
 	// commit transaction
 	if err = tx.Commit().Error; err != nil {
-		s.log.Error("ERROR on committing transaction: ", err)
+		s.log.Warn("ERROR on committing transaction: %v", err)
 		tx.Rollback()
 		return err
 	}
 	return nil
+}
+
+// get inventory by id
+func (s *Services) GetInventoryById(inventoryID string) (*domain.Inventory, error) {
+	var res domain.Inventory
+	err := s.db.Model(&domain.Import{}).
+		Preload("Store").
+		Preload("CreatedBy").
+		Preload("UpdatedBy").
+		Select(`
+			imports.*,
+			SUM(imd.accepted_count) AS measurement_count,
+			SUM(imd.accepted_count*imd.supply_price_vat) AS supply_price_sum,
+			SUM(imd.accepted_count*imd.retail_price_vat) AS retail_price_sum`).
+		Joins("LEFT JOIN import_details imd ON imports.id = imd.import_id").
+		Group("imports.id").
+		First(&res, "imports.id = ?", inventoryID).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting write-off by id: %v", err)
+		return nil, err
+	}
+	return &res, nil
 }
 
 // get inventory list
@@ -150,7 +154,6 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
 			query = query.Where("import_details.scanned_count > 0")
 		case "surplus":
 			query = query.Where("import_details.scanned_count > import_details.received_count")
-
 		}
 	}
 
@@ -213,18 +216,19 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 		tx.Rollback()
 		return err
 	}
+	// delete details if scanned count will be 0
+	query2 := `DELETE FROM import_details WHERE scanned_count = 0 AND import_id = ?;`
+	err = tx.Exec(query2, inventoryId).Error
+	if err != nil {
+		s.log.Warn("ERROR on deleting scanned 0 inventory details: %v", err)
+		tx.Rollback()
+		return err
+	}
 	// update confirm inventory details
 	query1 := `UPDATE import_details SET accepted_count = scanned_count, updated_at = NOW() WHERE import_id = ?`
 	err = tx.Exec(query1, inventoryId).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating inventory details: %v", err)
-		tx.Rollback()
-		return err
-	}
-	query2 := `DELETE FROM import_details WHERE scanned_count = 0 AND import_id = ?;`
-	err = tx.Exec(query2, inventoryId).Error
-	if err != nil {
-		s.log.Warn("ERROR on deleting scanned 0 inventory details: %v", err)
 		tx.Rollback()
 		return err
 	}

@@ -9,7 +9,7 @@ import (
 )
 
 // Create inventory creates a new inventory
-func (s *Services) CreateReturn(req *domain.ReturnRequest) error {
+func (s *Services) CreateTransfer(req *domain.TransferRequest) error {
 	var id string
 	// start transaction
 	tx := s.db.Begin()
@@ -22,7 +22,7 @@ func (s *Services) CreateReturn(req *domain.ReturnRequest) error {
 	err := tx.Raw(`
 	INSERT INTO transfers (public_id, from_store_id, name,  created_by, entry_type)
 	VALUES (?, ?, ?, ?, ?) RETURNING id`,
-		req.PublicId, req.StoreId, req.Name, req.CreatedBy, 2,
+		req.PublicId, req.FromStoreId, req.Name, req.CreatedBy, 2,
 	).Scan(&id).Error
 	if err != nil {
 		s.log.Error("ERROR on creating return: ", err)
@@ -37,7 +37,7 @@ func (s *Services) CreateReturn(req *domain.ReturnRequest) error {
 			) SELECT ?, product_id, pack_quantity, supply_price, retail_price, expire_date, serial_number
 			FROM store_products
 			WHERE store_id = ? AND pack_quantity > 0;`,
-		id, req.StoreId).Error
+		id, req.FromStoreId).Error
 	if err != nil {
 		s.log.Error("ERROR on creating inventory details: ", err)
 		tx.Rollback()
@@ -54,8 +54,8 @@ func (s *Services) CreateReturn(req *domain.ReturnRequest) error {
 }
 
 // get return by id
-func (s *Services) GetReturnById(returnId string) (*domain.Return, error) {
-	var res domain.Return
+func (s *Services) GetTransferById(returnId string) (*domain.Transfer, error) {
+	var res domain.Transfer
 	err := s.db.Model(&domain.Transfer{}).
 		Preload("Store").
 		Preload("CreatedBy").
@@ -76,8 +76,8 @@ func (s *Services) GetReturnById(returnId string) (*domain.Return, error) {
 }
 
 // get inventory list
-func (s *Services) ReturnList(param *domain.ReturnParam) ([]domain.Return, int64, error) {
-	var res []domain.Return
+func (s *Services) TransferList(param *domain.ReturnParam) ([]domain.Transfer, int64, error) {
+	var res []domain.Transfer
 	var totalCount int64
 	query := s.db.Model(&domain.Transfer{}).
 		Preload("Store").
@@ -126,8 +126,8 @@ func (s *Services) ReturnList(param *domain.ReturnParam) ([]domain.Return, int64
 }
 
 // get inventory detail list
-func (s *Services) ReturnDetailList(param *domain.ReturnDetailParam) ([]domain.ReturnDetail, int64, error) {
-	var res []domain.ReturnDetail
+func (s *Services) TransferDetailList(param *domain.ReturnDetailParam) ([]domain.TransferDetail, int64, error) {
+	var res []domain.TransferDetail
 	var totalCount int64
 	query := s.db.
 		Model(&domain.TransferDetail{}).
@@ -180,8 +180,8 @@ func (s *Services) ReturnDetailList(param *domain.ReturnDetailParam) ([]domain.R
 }
 
 // get inventory detail status count
-func (s *Services) ReturnDetailStatsCount(param *domain.ReturnDetailParam) (domain.ReturnDetailStatus, error) {
-	var res domain.ReturnDetailStatus
+func (s *Services) TransferDetailStatsCount(param *domain.ReturnDetailParam) (domain.TransferDetailStatus, error) {
+	var res domain.TransferDetailStatus
 
 	query := `
 	SELECT
@@ -208,7 +208,7 @@ func (s *Services) ReturnDetailStatsCount(param *domain.ReturnDetailParam) (doma
 }
 
 // confirm inventory
-func (s *Services) SendReturn(returnId string, userId string) error {
+func (s *Services) SendTransfer(returnId string, userId string) error {
 	// start transaction
 	tx := s.db.Begin()
 	defer func() {
@@ -242,7 +242,7 @@ func (s *Services) SendReturn(returnId string, userId string) error {
 }
 
 // confirm inventory
-func (s *Services) ConfirmReturn(returnId string, userId string) error {
+func (s *Services) ConfirmTransfer(returnId string, userId string) error {
 	// start transaction
 	tx := s.db.Begin()
 	defer func() {
@@ -293,7 +293,7 @@ func (s *Services) ConfirmReturn(returnId string, userId string) error {
 }
 
 // canceled inventory
-func (s *Services) CancelReturn(returnId string, userId string) error {
+func (s *Services) CancelTransfer(returnId string, userId string) error {
 	// start transaction
 	tx := s.db.Begin()
 	defer func() {

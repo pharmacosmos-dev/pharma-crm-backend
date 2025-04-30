@@ -537,13 +537,9 @@ definitions:
     type: object
   domain.InventoryAddProduct:
     properties:
-      barcode:
-        type: string
       count:
         type: integer
-      product_id:
-        type: string
-      type:
+      id:
         type: string
     type: object
   domain.InventoryRequest:
@@ -552,13 +548,6 @@ definitions:
         type: string
       name:
         type: string
-      products:
-        items:
-          properties:
-            product_id:
-              type: string
-          type: object
-        type: array
       public_id:
         type: string
       store_id:

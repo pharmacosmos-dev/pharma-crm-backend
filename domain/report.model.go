@@ -59,6 +59,7 @@ type LflReport struct {
 }
 
 type LflReportDetail struct {
+	Id            int     `gorm:"id" json:"id"`
 	Weekdate      string  `gorm:"weekdate" json:"weekdate"`
 	Weekname      string  `gorm:"weekname" json:"weekname"`
 	BranchCount   int     `gorm:"branch_count" json:"branch_count"`

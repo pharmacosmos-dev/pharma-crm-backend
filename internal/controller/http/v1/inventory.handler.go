@@ -1,13 +1,10 @@
 package v1
 
 import (
-	"errors"
-
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
-	"gorm.io/gorm"
 )
 
 type InventoryHandler struct {
@@ -93,15 +90,15 @@ func (h *InventoryHandler) Get(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid inventory id")
 		return
 	}
-	var inventory domain.Inventory
-	err := h.db.Preload("Store").First(&inventory, "id = ?", id).Error
+
+	res, err := h.service.GetInventoryById(id)
 	if err != nil {
 		h.log.Warn("Error on getting inventory: %v", err.Error())
 		handleResponse(c, InternalError, "Failed to get inventory")
 		return
 	}
 
-	handleResponse(c, OK, inventory)
+	handleResponse(c, OK, res)
 }
 
 // Get List
@@ -154,9 +151,9 @@ func (h *InventoryHandler) List(c *gin.Context) {
 // @Router /inventory/{id}/add-product-by-barcode [PATCH]
 func (h *InventoryHandler) AddProductByBarcode(c *gin.Context) {
 	var request domain.InventoryAddProduct
-	id := c.Param("id")
+	inventoryID := c.Param("id")
 	// validate inventory id
-	if err := uuid.Validate(id); err != nil {
+	if err := uuid.Validate(inventoryID); err != nil {
 		handleResponse(c, BadRequest, "Inventory id is invalid")
 		return
 	}
@@ -166,56 +163,19 @@ func (h *InventoryHandler) AddProductByBarcode(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid request body")
 		return
 	}
-	var productId string
-	if request.ProductId != "" {
-		productId = request.ProductId
-	} else if request.Barcode != "" {
-		err = h.db.Raw(`
-		SELECT inventory_details.product_id FROM inventory_details JOIN products p ON p.id = inventory_details.product_id
-		WHERE p.barcode = ? AND inventory_details.inventory_id = ?
-		`, request.Barcode, id).Scan(&productId).Error
-		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				handleResponse(c, BadRequest, "Product barcode not found")
-				return
-			}
-			h.log.Warn("ERROR on getting product by barcode: %v", err)
-			handleResponse(c, InternalError, "Failed to find product by barcode")
-			return
-		}
-	} else {
-		handleResponse(c, BadRequest, "product_id or barcode not sent")
+
+	// add scanned count by product barcode
+	err = h.db.Exec(`
+		UPDATE import_details
+		SET scanned_count = ?, updated_at = NOW()
+		WHERE id = ? AND inventory_id = ?`,
+		request.Count, request.Id, inventoryID).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, "Failed to add count")
 		return
 	}
 
-	if request.Type == "SCAN" {
-		if request.Count == 0 {
-			request.Count = 1
-		}
-		// add scanned count by product barcode
-		err = h.db.Exec(`
-		UPDATE inventory_details
-		SET scanned_count = scanned_count + ?, updated_at = NOW()
-		WHERE product_id = ? AND inventory_id = ?`,
-			request.Count, productId, id).Error
-		if err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, "Failed to add count")
-			return
-		}
-	} else if request.Type == "MANUAL" {
-		// add scanned count by product barcode
-		err = h.db.Debug().Exec(`
-		UPDATE inventory_details
-		SET scanned_count = ?, updated_at = NOW()
-		WHERE product_id = ? AND inventory_id = ?`,
-			request.Count, productId, id).Error
-		if err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, "Failed to add count")
-			return
-		}
-	}
 	handleResponse(c, OK, "ADDED")
 }
 
