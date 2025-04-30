@@ -168,7 +168,7 @@ func (h *InventoryHandler) AddProductByBarcode(c *gin.Context) {
 	err = h.db.Exec(`
 		UPDATE import_details
 		SET scanned_count = ?, updated_at = NOW()
-		WHERE id = ? AND inventory_id = ?`,
+		WHERE id = ? AND import_id = ?`,
 		request.Count, request.Id, inventoryID).Error
 	if err != nil {
 		h.log.Error(err)
