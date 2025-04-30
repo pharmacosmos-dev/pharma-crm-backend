@@ -20,9 +20,9 @@ func (s *Services) CreateTransfer(req *domain.TransferRequest) error {
 	}()
 	// insert inventory into inventories table
 	err := tx.Raw(`
-	INSERT INTO transfers (public_id, from_store_id, name,  created_by, entry_type)
+	INSERT INTO transfers (public_id, from_store_id, to_store_id, name,  created_by)
 	VALUES (?, ?, ?, ?, ?) RETURNING id`,
-		req.PublicId, req.FromStoreId, req.Name, req.CreatedBy, 2,
+		req.PublicId, req.FromStoreId, req.ToStoreId, req.Name, req.CreatedBy,
 	).Scan(&id).Error
 	if err != nil {
 		s.log.Error("ERROR on creating return: ", err)
@@ -54,20 +54,21 @@ func (s *Services) CreateTransfer(req *domain.TransferRequest) error {
 }
 
 // get return by id
-func (s *Services) GetTransferById(returnId string) (*domain.Transfer, error) {
+func (s *Services) GetTransferById(transferID string) (*domain.Transfer, error) {
 	var res domain.Transfer
 	err := s.db.Model(&domain.Transfer{}).
 		Preload("Store").
+		Preload("ToStore").
 		Preload("CreatedBy").
-		Preload("UpdatedBy").
+		Preload("AcceptedBy").
 		Select(`
 			transfers.*,
-			SUM(td.accepted_count) AS return_count,
+			SUM(td.accepted_count) AS measurement_count,
 			SUM(td.received_count*td.retail_price) AS received_retail_sum,
 			SUM(td.accepted_count*td.retail_price) AS accepted_retail_sum`).
 		Joins("LEFT JOIN transfer_details td ON transfers.id = td.transfer_id").
 		Group("transfers.id").
-		First(&res, "transfers.id = ?", returnId).Error
+		First(&res, "transfers.id = ?", transferID).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting return by id: %v", err)
 		return nil, err
@@ -82,11 +83,10 @@ func (s *Services) TransferList(param *domain.ReturnParam) ([]domain.Transfer, i
 	query := s.db.Model(&domain.Transfer{}).
 		Preload("Store").
 		Preload("CreatedBy").
-		Preload("UpdatedBy").
 		Preload("AcceptedBy").
 		Select(`
-			transfers.*, 
-			SUM(trd.scanned_count) AS return_count,
+			transfers.*,
+			SUM(trd.scanned_count) AS measurement_count,
 			SUM(trd.received_count-trd.scanned_count) AS shortage,
 			SUM(CASE WHEN trd.accepted_count > trd.received_count THEN trd.accepted_count - trd.received_count ELSE 0 END) AS surplus,
 			SUM(trd.scanned_count*trd.supply_price) AS received_supply_sum,
@@ -95,7 +95,7 @@ func (s *Services) TransferList(param *domain.ReturnParam) ([]domain.Transfer, i
 			SUM(trd.accepted_count*trd.retail_price) AS accepted_retail_sum
 			`).
 		Joins("LEFT JOIN transfer_details trd ON transfers.id = trd.transfer_id").
-		Where("transfers.entry_type = ?", 2)
+		Where("transfers.entry_type = ?", 1)
 	// filter by store id
 	if param.StoreId != "" {
 		query = query.Where("transfers.from_store_id = ? ", param.StoreId)
@@ -266,23 +266,7 @@ func (s *Services) ConfirmTransfer(returnId string, userId string) error {
 		tx.Rollback()
 		return err
 	}
-	// update store products
-	storeproductQuery := `
-	UPDATE store_products sp
-	SET pack_quantity = pack_quantity - td.accepted_count
-	FROM transfer_details td
-	JOIN transfers t ON td.transfer_id = t.id
-	WHERE sp.product_id = td.product_id
-	AND sp.store_id = t.from_store_id
-	AND sp.expire_date = td.expire_date
-	AND t.status = 'completed'
-	AND td.transfer_id = ?;`
-	err = tx.Exec(storeproductQuery, returnId).Error
-	if err != nil {
-		s.log.Warn("ERROR on updating store_products: %v", err)
-		tx.Rollback()
-		return err
-	}
+
 	// complete transaction
 	if err = tx.Commit().Error; err != nil {
 		s.log.Warn("ERROR on commiting transaction: %v", err)

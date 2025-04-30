@@ -10120,6 +10120,385 @@ paths:
       summary: Get a transaction
       tags:
       - transactions
+  /transfer:
+    post:
+      consumes:
+      - application/json
+      description: Create Return
+      parameters:
+      - description: Return
+        in: body
+        name: transfer
+        required: true
+        schema:
+          $ref: '#/definitions/domain.ReturnRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create Return
+      tags:
+      - Transfer
+  /transfer-detail/export-excel:
+    get:
+      consumes:
+      - application/json
+      description: Get Transfer list
+      parameters:
+      - description: LIMIT
+        in: query
+        name: limit
+        type: integer
+      - description: OFFSET
+        in: query
+        name: offset
+        type: integer
+      - description: Return ID
+        in: query
+        name: return_id
+        required: true
+        type: string
+      - description: SEARCH KEY
+        in: query
+        name: search
+        type: string
+      - description: TYPE
+        in: query
+        name: type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Transfer list
+      tags:
+      - Transfer
+  /transfer-detail/list:
+    get:
+      consumes:
+      - application/json
+      description: Get Transfer list
+      parameters:
+      - description: LIMIT
+        in: query
+        name: limit
+        type: integer
+      - description: OFFSET
+        in: query
+        name: offset
+        type: integer
+      - description: Return ID
+        in: query
+        name: return_id
+        required: true
+        type: string
+      - description: SEARCH KEY
+        in: query
+        name: search
+        type: string
+      - description: TYPE
+        in: query
+        name: type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Transfer list
+      tags:
+      - Transfer
+  /transfer/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get Return
+      parameters:
+      - description: Transfer ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Return
+      tags:
+      - Transfer
+  /transfer/{id}/add-product-by-barcode:
+    patch:
+      consumes:
+      - application/json
+      description: Add product by barcode
+      parameters:
+      - description: Return ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Add product by barcode
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.ReturnAddProduct'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Add product by barcode
+      tags:
+      - Transfer
+  /transfer/cancel/{id}:
+    post:
+      consumes:
+      - application/json
+      description: Cancel Return
+      parameters:
+      - description: Return ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Cancel Return
+      tags:
+      - Transfer
+  /transfer/confirm/{id}:
+    post:
+      consumes:
+      - application/json
+      description: Confirm Return
+      parameters:
+      - description: Return ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Confirm Return
+      tags:
+      - Transfer
+  /transfer/export-excel:
+    get:
+      consumes:
+      - application/json
+      description: Export Transfer excel
+      parameters:
+      - description: LIMIT
+        in: query
+        name: limit
+        type: integer
+      - description: OFFSET
+        in: query
+        name: offset
+        type: integer
+      - description: STORE ID
+        in: query
+        name: store_id
+        type: string
+      - description: SEARCH KEY
+        in: query
+        name: search
+        type: string
+      - description: STATUS (0->new|1->sent|2->completed)
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Export Transfer excel
+      tags:
+      - Transfer
+  /transfer/list:
+    get:
+      consumes:
+      - application/json
+      description: Get Transfer list
+      parameters:
+      - description: LIMIT
+        in: query
+        name: limit
+        type: integer
+      - description: OFFSET
+        in: query
+        name: offset
+        type: integer
+      - description: STORE ID
+        in: query
+        name: store_id
+        type: string
+      - description: SEARCH KEY
+        in: query
+        name: search
+        type: string
+      - description: STATUS (0->new|1->sent|2->completed)
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Transfer list
+      tags:
+      - Transfer
+  /transfer/send/{id}:
+    post:
+      consumes:
+      - application/json
+      description: Send Return
+      parameters:
+      - description: Return ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Send Return
+      tags:
+      - Transfer
   /unit-types:
     post:
       consumes:

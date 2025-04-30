@@ -28,7 +28,7 @@ func (h *TransferHandler) TransferRoutes(r *gin.RouterGroup) {
 		returned.POST("", h.Create)
 		returned.GET("/:id", h.Get)
 		returned.GET("/list", h.List)
-		returned.GET("/export-excel", h.ExportReturnExcel)
+		returned.GET("/export-excel", h.ExportTransferExcel)
 		returned.PATCH("/:id/add-product-by-barcode", h.AddProductByBarcode)
 		returned.POST("/send/:id", h.Send)
 		returned.POST("/confirm/:id", h.Confirm)
@@ -36,8 +36,8 @@ func (h *TransferHandler) TransferRoutes(r *gin.RouterGroup) {
 	}
 	detail := r.Group("return-detail")
 	{
-		detail.GET("/list", h.ReturnDetailList)
-		detail.GET("/export-excel", h.ExportReturnDetailList)
+		detail.GET("/list", h.TransferDetailList)
+		detail.GET("/export-excel", h.ExportTransferDetailList)
 	}
 
 }
@@ -45,11 +45,11 @@ func (h *TransferHandler) TransferRoutes(r *gin.RouterGroup) {
 // Create godoc
 // @Summary Create Return
 // @Description Create Return
-// @Tags Return
+// @Tags Transfer
 // @Security     BearerAuth
 // @Accept 	json
 // @Produce json
-// @Param 	return body domain.ReturnRequest true "Return"
+// @Param 	transfer body domain.ReturnRequest true "Return"
 // @Success 201 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -68,6 +68,7 @@ func (h *TransferHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, "User not authorized")
 		return
 	}
+
 	request.CreatedBy = userId.(string)     // get creator id from set header
 	request.PublicId = utils.GenerateCode() // generate public id
 
@@ -85,11 +86,11 @@ func (h *TransferHandler) Create(c *gin.Context) {
 // Get godoc
 // @Summary Get Return
 // @Description Get Return
-// @Tags Return
+// @Tags Transfer
 // @Security     BearerAuth
 // @Accept 	json
 // @Produce json
-// @Param 	id path string true "Return ID"
+// @Param 	id path string true "Transfer ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -101,11 +102,14 @@ func (h *TransferHandler) Get(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid return id")
 		return
 	}
-	var res domain.Return
-	err := h.db.Model(&domain.Transfer{}).Preload("Store").Raw(`SELECT * FROM transfers WHERE id = ?`, id).Scan(&res).Error
+	var res domain.Transfer
+	err := h.db.Model(&domain.Transfer{}).
+		Preload("Store").
+		Preload("ToStore").
+		First(&res, "id = ?", id).Error
 	if err != nil {
-		h.log.Warn("Error on getting return: %v", err.Error())
-		handleResponse(c, InternalError, "Failed to get return")
+		h.log.Warn("Error on getting transfer: %v", err.Error())
+		handleResponse(c, InternalError, "Failed to get transfer")
 		return
 	}
 
@@ -113,9 +117,9 @@ func (h *TransferHandler) Get(c *gin.Context) {
 }
 
 // Get List
-// @Summary Get Return list
-// @Description Get Return list
-// @Tags Return
+// @Summary Get Transfer list
+// @Description Get Transfer list
+// @Tags Transfer
 // @Security     BearerAuth
 // @Accept 	json
 // @Produce json
@@ -164,7 +168,7 @@ func (h *TransferHandler) List(c *gin.Context) {
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 
 	// get return list
-	res, totalCount, err := h.service.ReturnList(&param)
+	res, totalCount, err := h.service.TransferList(&param)
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to get return list")
 		return
@@ -174,10 +178,10 @@ func (h *TransferHandler) List(c *gin.Context) {
 	handleResponse(c, OK, data)
 }
 
-// Export return excel godoc
-// @Summary Export return excel
-// @Description Export return excel
-// @Tags Return
+// Export Transfer excel godoc
+// @Summary Export Transfer excel
+// @Description Export Transfer excel
+// @Tags Transfer
 // @Security     BearerAuth
 // @Accept json
 // @Produce application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
@@ -190,7 +194,7 @@ func (h *TransferHandler) List(c *gin.Context) {
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /transfer/export-excel [get]
-func (h *TransferHandler) ExportReturnExcel(c *gin.Context) {
+func (h *TransferHandler) ExportTransferExcel(c *gin.Context) {
 	var param domain.ReturnParam
 	// get user_id from the context
 	userId, ok := c.Get("user_id")
@@ -226,7 +230,7 @@ func (h *TransferHandler) ExportReturnExcel(c *gin.Context) {
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 
 	// get return list
-	res, _, err := h.service.ReturnList(&param)
+	res, _, err := h.service.TransferList(&param)
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to get return list")
 		return
@@ -238,7 +242,7 @@ func (h *TransferHandler) ExportReturnExcel(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"ID", "Наименование", "Филиал", "Кол-во", "Полученная Сумма Поставки", "Принятая Сумма Поставки", "Полученная Сумма Продажи", "Принятая Сумма Продажи", "Статус", "Создание", "Завершение", "Создал", "Завершил"}
+	headers := []string{"ID", "Наименование", "От Филиал", "До Филиал", "Кол-во", "Сумма Поставки", "Сумма Продажи", "Статус", "Создание", "Завершение", "Создал", "Завершил"}
 
 	headerStyle, err := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{
@@ -263,37 +267,39 @@ func (h *TransferHandler) ExportReturnExcel(c *gin.Context) {
 		row := strconv.Itoa(i + 2)
 		f.SetCellValue(sheetName, "A"+row, r.PublicId)
 		f.SetCellValue(sheetName, "B"+row, r.Name)
-		if r.Store != nil {
-			f.SetCellValue(sheetName, "C"+row, r.Store.Name)
+		if r.FromStore != nil {
+			f.SetCellValue(sheetName, "C"+row, r.FromStore.Name)
 		} else {
 			f.SetCellValue(sheetName, "C"+row, "N/A")
 		}
-
-		f.SetCellValue(sheetName, "D"+row, r.ReturnCount)
-		f.SetCellValue(sheetName, "E"+row, r.ReceivedSupplySum)
-		f.SetCellValue(sheetName, "F"+row, r.AcceptedSupplySum)
-		f.SetCellValue(sheetName, "G"+row, r.ReceivedSupplySum)
-		f.SetCellValue(sheetName, "H"+row, r.AcceptedRetailSum)
-		f.SetCellValue(sheetName, "I"+row, helper.StatusToRussian(r.Status))
+		if r.ToStore != nil {
+			f.SetCellValue(sheetName, "D"+row, r.ToStore.Name)
+		} else {
+			f.SetCellValue(sheetName, "D"+row, "N/A")
+		}
+		f.SetCellValue(sheetName, "E"+row, r.MeasurementCount)
+		f.SetCellValue(sheetName, "F"+row, r.SupplyPriceSum)
+		f.SetCellValue(sheetName, "G"+row, r.RetailPriceSum)
+		f.SetCellValue(sheetName, "H"+row, helper.StatusToRussian(r.Status))
 		if r.CreatedAt != nil {
-			f.SetCellValue(sheetName, "J"+row, r.CreatedAt.Format(time.DateTime))
+			f.SetCellValue(sheetName, "I"+row, r.CreatedAt.Format(time.DateTime))
+		} else {
+			f.SetCellValue(sheetName, "I"+row, "N/A")
+		}
+		if r.AcceptedAt != nil {
+			f.SetCellValue(sheetName, "J"+row, r.AcceptedAt.Format(time.DateTime))
 		} else {
 			f.SetCellValue(sheetName, "J"+row, "N/A")
 		}
-		if r.AcceptedAt != nil {
-			f.SetCellValue(sheetName, "K"+row, r.AcceptedAt.Format(time.DateTime))
+		if r.CreatedBy != nil {
+			f.SetCellValue(sheetName, "K"+row, r.CreatedBy.FullName)
 		} else {
 			f.SetCellValue(sheetName, "K"+row, "N/A")
 		}
-		if r.CreatedBy != nil {
-			f.SetCellValue(sheetName, "L"+row, r.CreatedBy.FullName)
+		if r.AcceptedBy != nil {
+			f.SetCellValue(sheetName, "L"+row, r.AcceptedBy.FullName)
 		} else {
 			f.SetCellValue(sheetName, "L"+row, "N/A")
-		}
-		if r.AcceptedBy != nil {
-			f.SetCellValue(sheetName, "M"+row, r.AcceptedBy.FullName)
-		} else {
-			f.SetCellValue(sheetName, "M"+row, "N/A")
 		}
 
 	}
@@ -311,7 +317,7 @@ func (h *TransferHandler) ExportReturnExcel(c *gin.Context) {
 // Add product by barcode
 // @Summary Add product by barcode
 // @Description Add product by barcode
-// @Tags Return
+// @Tags Transfer
 // @Security     BearerAuth
 // @Accept 	json
 // @Produce json
@@ -354,7 +360,7 @@ func (h *TransferHandler) AddProductByBarcode(c *gin.Context) {
 // send Return
 // @Summary Send Return
 // @Description Send Return
-// @Tags Return
+// @Tags Transfer
 // @Security     BearerAuth
 // @Accept 	json
 // @Produce json
@@ -375,7 +381,7 @@ func (h *TransferHandler) Send(c *gin.Context) {
 		return
 	}
 	// confirm return service
-	err := h.service.SendReturn(id, userId.(string))
+	err := h.service.SendTransfer(id, userId.(string))
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to send return")
 		return
@@ -387,7 +393,7 @@ func (h *TransferHandler) Send(c *gin.Context) {
 // confirm Return
 // @Summary Confirm Return
 // @Description Confirm Return
-// @Tags Return
+// @Tags Transfer
 // @Security     BearerAuth
 // @Accept 	json
 // @Produce json
@@ -408,7 +414,7 @@ func (h *TransferHandler) Confirm(c *gin.Context) {
 		return
 	}
 	// confirm return service
-	err := h.service.ConfirmReturn(id, userId.(string))
+	err := h.service.ConfirmTransfer(id, userId.(string))
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to confirm return")
 		return
@@ -420,7 +426,7 @@ func (h *TransferHandler) Confirm(c *gin.Context) {
 // cancel return
 // @Summary Cancel Return
 // @Description Cancel Return
-// @Tags Return
+// @Tags Transfer
 // @Security     BearerAuth
 // @Accept 	json
 // @Produce json
@@ -443,7 +449,7 @@ func (h *TransferHandler) Cancel(c *gin.Context) {
 		return
 	}
 	// confirm return service
-	err := h.service.CancelReturn(id, userId.(string))
+	err := h.service.CancelTransfer(id, userId.(string))
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to confirm return")
 		return
@@ -453,9 +459,9 @@ func (h *TransferHandler) Cancel(c *gin.Context) {
 }
 
 // Get List
-// @Summary Get return list
-// @Description Get return list
-// @Tags Return
+// @Summary Get Transfer list
+// @Description Get Transfer list
+// @Tags Transfer
 // @Security     BearerAuth
 // @Accept 	json
 // @Produce json
@@ -468,7 +474,7 @@ func (h *TransferHandler) Cancel(c *gin.Context) {
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /transfer-detail/list [GET]
-func (h *TransferHandler) ReturnDetailList(c *gin.Context) {
+func (h *TransferHandler) TransferDetailList(c *gin.Context) {
 	var param domain.ReturnDetailParam
 	// bind query param
 	if err := c.ShouldBindQuery(&param); err != nil {
@@ -477,13 +483,13 @@ func (h *TransferHandler) ReturnDetailList(c *gin.Context) {
 	}
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 
-	res, totalCount, err := h.service.ReturnDetailList(&param)
+	res, totalCount, err := h.service.TransferDetailList(&param)
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to get return detail list")
 		return
 	}
 	// get return details status count
-	statsCount, err := h.service.ReturnDetailStatsCount(&param)
+	statsCount, err := h.service.TransferDetailStatsCount(&param)
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to get return detail stats count")
 		return
@@ -503,9 +509,9 @@ func (h *TransferHandler) ReturnDetailList(c *gin.Context) {
 }
 
 // Get List
-// @Summary Get return list
-// @Description Get return list
-// @Tags Return
+// @Summary Get Transfer list
+// @Description Get Transfer list
+// @Tags Transfer
 // @Security     BearerAuth
 // @Accept 	json
 // @Produce json
@@ -518,7 +524,7 @@ func (h *TransferHandler) ReturnDetailList(c *gin.Context) {
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /transfer-detail/export-excel [GET]
-func (h *TransferHandler) ExportReturnDetailList(c *gin.Context) {
+func (h *TransferHandler) ExportTransferDetailList(c *gin.Context) {
 	var param domain.ReturnDetailParam
 	// bind query param
 	if err := c.ShouldBindQuery(&param); err != nil {
@@ -527,7 +533,7 @@ func (h *TransferHandler) ExportReturnDetailList(c *gin.Context) {
 	}
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 	// get return detail list
-	res, _, err := h.service.ReturnDetailList(&param)
+	res, _, err := h.service.TransferDetailList(&param)
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to get return detail list")
 		return

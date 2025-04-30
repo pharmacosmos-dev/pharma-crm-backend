@@ -84,7 +84,15 @@ func (s *Services) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domai
 	reqFakt.Apteka.Name = store.Name
 
 	// add products to store
-	storeProductQuery := `INSERT INTO store_products(store_id, product_id, pack_quantity, unit_quantity, supply_price, retail_price, vat, expire_date, vat_price, import_detail_id, serial_number) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	storeProductQuery := `
+	INSERT INTO store_products(
+		store_id, product_id, 
+		pack_quantity, unit_quantity, 
+		supply_price, retail_price, 
+		vat, expire_date, vat_price, 
+		import_detail_id, serial_number
+		) 
+	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	for _, item := range importDetails {
 		if item.AcceptedCount > 0 {
 			// add imported products to store_products
@@ -155,7 +163,15 @@ func (s *Services) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import)
 	reqFakt.Apteka.Name = store.Name
 
 	// add products to store
-	storeProductQuery := `INSERT INTO store_products(store_id, product_id, pack_quantity, unit_quantity, supply_price, retail_price, vat, expire_date, vat_price, import_detail_id, serial_number) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	storeProductQuery := `
+	INSERT INTO store_products(
+		store_id, product_id, 
+		pack_quantity, unit_quantity, 
+		supply_price, retail_price, 
+		vat, expire_date, vat_price, 
+		import_detail_id, serial_number
+		) 
+	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	for _, item := range importDetails {
 		if item.ReceivedCount > 0 {
 			err = tx.Exec(storeProductQuery, importData.StoreID, item.ProductID, item.ReceivedCount, item.UnitPerPack*item.ReceivedCount, item.SupplyPriceVat, item.RetailPriceVat, item.Vat, item.ExpireDate, item.VatSum/float64(item.ReceivedCount), item.Id, item.SeriesNumber).Error
