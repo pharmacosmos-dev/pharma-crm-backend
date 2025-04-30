@@ -102,11 +102,7 @@ func (h *TransferHandler) Get(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid return id")
 		return
 	}
-	var res domain.Transfer
-	err := h.db.Model(&domain.Transfer{}).
-		Preload("Store").
-		Preload("ToStore").
-		First(&res, "id = ?", id).Error
+	res, err := h.service.GetTransferById(id)
 	if err != nil {
 		h.log.Warn("Error on getting transfer: %v", err.Error())
 		handleResponse(c, InternalError, "Failed to get transfer")
@@ -277,7 +273,7 @@ func (h *TransferHandler) ExportTransferExcel(c *gin.Context) {
 		} else {
 			f.SetCellValue(sheetName, "D"+row, "N/A")
 		}
-		f.SetCellValue(sheetName, "E"+row, r.MeasurementCount)
+		f.SetCellValue(sheetName, "E"+row, r.ReceivedCount)
 		f.SetCellValue(sheetName, "F"+row, r.SupplyPriceSum)
 		f.SetCellValue(sheetName, "G"+row, r.RetailPriceSum)
 		f.SetCellValue(sheetName, "H"+row, helper.StatusToRussian(r.Status))
@@ -347,7 +343,7 @@ func (h *TransferHandler) AddProductByBarcode(c *gin.Context) {
 		UPDATE transfer_details
 		SET scanned_count = ?, updated_at = NOW()
 		WHERE id = ? AND transfer_id = ?`,
-		request.Count, id).Error
+		request.Count, request.Id, id).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, "Failed to add count")

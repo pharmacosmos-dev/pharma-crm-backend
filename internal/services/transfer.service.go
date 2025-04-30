@@ -57,15 +57,16 @@ func (s *Services) CreateTransfer(req *domain.TransferRequest) error {
 func (s *Services) GetTransferById(transferID string) (*domain.Transfer, error) {
 	var res domain.Transfer
 	err := s.db.Model(&domain.Transfer{}).
-		Preload("Store").
+		Preload("FromStore").
 		Preload("ToStore").
 		Preload("CreatedBy").
 		Preload("AcceptedBy").
 		Select(`
 			transfers.*,
-			SUM(td.accepted_count) AS measurement_count,
-			SUM(td.received_count*td.retail_price) AS received_retail_sum,
-			SUM(td.accepted_count*td.retail_price) AS accepted_retail_sum`).
+			SUM(td.received_count) AS received_count,
+			SUM(td.scanned_count) AS accepted_count,
+			SUM(td.scanned_count*td.supply_price) AS supply_price_sum,
+			SUM(td.scanned_count*td.retail_price) AS retail_price_sum`).
 		Joins("LEFT JOIN transfer_details td ON transfers.id = td.transfer_id").
 		Group("transfers.id").
 		First(&res, "transfers.id = ?", transferID).Error
@@ -87,7 +88,8 @@ func (s *Services) TransferList(param *domain.ReturnParam) ([]domain.Transfer, i
 		Preload("AcceptedBy").
 		Select(`
 			transfers.*,
-			SUM(trd.scanned_count) AS measurement_count,
+			SUM(trd.received_count) AS received_count,
+			SUM(trd.accepted_count) AS accepted_count,
 			SUM(trd.received_count-trd.scanned_count) AS shortage,
 			SUM(CASE WHEN trd.accepted_count > trd.received_count THEN trd.accepted_count - trd.received_count ELSE 0 END) AS surplus,
 			SUM(trd.scanned_count*trd.supply_price) AS received_supply_sum,
