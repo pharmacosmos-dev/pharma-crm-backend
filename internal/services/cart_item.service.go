@@ -42,17 +42,16 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 		u.short_name,
 		sh.name as shelf,
 		p.mxik AS class_code,
-		pm.unit_code AS package_code,
-		pm.unit_name AS package_name
+		p.unit_code AS package_code,
+		p.unit_name AS package_name
 	FROM cart_items ci
 	JOIN store_products sp ON ci.store_product_id = sp.id
 	JOIN products p ON sp.product_id = p.id
 	LEFT JOIN unit_types u ON p.unit_type_id = u.id
 	LEFT JOIN shelves sh ON p.shelf_id = sh.id
-	LEFT JOIN product_measurements pm ON pm.mxik_code = p.mxik
 	LEFT JOIN product_bonuses pb ON p.id = pb.product_id
 	WHERE ci.status = 'pending' AND ci.sale_id = ?
-	GROUP BY ci.id, ci.created_at, p.id, sp.id, u.id, sh.id, pm.id, pb.id
+	GROUP BY ci.id, ci.created_at, p.id, sp.id, u.id, sh.id, pb.id
 	ORDER BY ci.created_at DESC LIMIT ? OFFSET ?;
 	`, saleID, limit, offset).Scan(&res).Error
 	if err != nil {

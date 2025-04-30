@@ -116,7 +116,9 @@ func (s *Services) ReturnList(param *domain.ReturnParam) ([]domain.Return, int64
 		Group("transfers.id").
 		Order("transfers.created_at DESC").
 		Count(&totalCount).
-		Limit(param.Limit).Offset(param.Offset).
+		Limit(param.Limit).
+		Offset(param.Offset).
+		Debug().
 		Find(&res).Error
 	if err != nil {
 		s.log.Error(err)
