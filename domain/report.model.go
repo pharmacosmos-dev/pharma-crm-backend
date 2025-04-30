@@ -51,3 +51,20 @@ type ProductReport struct {
 	MarkingCount   int        `gorm:"marking_count" json:"marking_count"`
 	TotalCount     int64      `gorm:"total_count" json:"-"`
 }
+
+// lfl report structure
+type LflReport struct {
+	FirstMonth  []LflReportDetail `json:"first_month"`
+	SecondMonth []LflReportDetail `json:"second_month"`
+}
+
+type LflReportDetail struct {
+	Weekdate      string  `gorm:"weekdate" json:"weekdate"`
+	Weekname      string  `gorm:"weekname" json:"weekname"`
+	BranchCount   int     `gorm:"branch_count" json:"branch_count"`
+	LcSum         float64 `gorm:"lc_sum" json:"lc_sum"`
+	ParapharmaSum float64 `gorm:"parapharma_sum" json:"parapharma_sum"`
+	TotalSum      float64 `gorm:"total_sum" json:"total_sum"`
+	WeekNumber    int     `gorm:"week_number" json:"week_number"`
+	Weekday       int     `gorm:"weekday" json:"weekday"`
+}

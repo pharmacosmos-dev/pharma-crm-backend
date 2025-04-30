@@ -29,6 +29,7 @@ func (h *ReportHandler) ReportRoutes(r *gin.RouterGroup) {
 		report.POST("/bonus-export", h.BonusReportExport)
 		report.POST("/product", h.ProductReport)
 		report.POST("/product-export", h.ProductReportExportExcel)
+		report.POST("/lfl", h.LflReport)
 	}
 }
 
@@ -493,4 +494,48 @@ func (h *ReportHandler) ProductReportExportExcel(c *gin.Context) {
 		handleResponse(c, InternalError, "Failed to generate Excel file")
 	}
 
+}
+
+// Bonus report godoc
+// @Summary Get employee bonus report
+// @Description Get employee bonus report
+// @Tags Report
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param 	limit query int false "Limit"
+// @Param 	offset query int false "Offset"
+// @Param   start_date query string false "Start Date Format(2025-03)"
+// @Param   end_date query string false "End Date Format(2025-04)"
+// @Param   search query string false "Search"
+// @Param   store_ids body []string false "Store ids"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /report/lfl [POST]
+func (h *ReportHandler) LflReport(c *gin.Context) {
+	var param domain.ReportQueryParam
+	// bind query param
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
+		handleResponse(c, BadRequest, "Invalid query parameters")
+		return
+	}
+	// bind store_ids
+	if c.Request.Body != nil {
+		// bind store_ids
+		_ = c.ShouldBindJSON(&param.StoreIds)
+
+	}
+	// get default limit and offset for pagination
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	res, _, err := h.service.LflReport(&param)
+	if err != nil {
+		h.log.Warn("Failed to get product report: %v", err)
+		handleResponse(c, InternalError, "failed to get product report")
+		return
+	}
+
+	handleResponse(c, OK, res)
 }

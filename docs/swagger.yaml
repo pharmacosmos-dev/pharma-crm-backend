@@ -4889,6 +4889,37 @@ paths:
       summary: Get IKPU data from Soliq
       tags:
       - helper
+  /helper/upload-category:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload package code excel
+      parameters:
+      - description: Excel file (.xlsx) containing product data
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Upload package code excel
+      tags:
+      - helper
   /helper/upload-mxik:
     post:
       consumes:
@@ -7805,6 +7836,61 @@ paths:
         type: string
       produces:
       - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get employee bonus report
+      tags:
+      - Report
+  /report/lfl:
+    post:
+      consumes:
+      - application/json
+      description: Get employee bonus report
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Start Date Format(2025-03)
+        format: 2025-03
+        in: query
+        name: start_date
+        type: string
+      - description: End Date Format(2025-04)
+        format: 2025-04
+        in: query
+        name: end_date
+        type: string
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Store ids
+        in: body
+        name: store_ids
+        schema:
+          items:
+            type: string
+          type: array
+      produces:
+      - application/json
       responses:
         "200":
           description: OK

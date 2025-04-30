@@ -237,3 +237,90 @@ func (s *Services) ProductReport(param *domain.ReportQueryParam) ([]domain.Produ
 
 	return res, totalCount, nil
 }
+
+// get lfl report service
+func (s *Services) LflReport(param *domain.ReportQueryParam) (domain.LflReport, int64, error) {
+	var (
+		res        domain.LflReport
+		totalCount int64
+	)
+
+	query := `
+	WITH BranchCount AS (
+		SELECT COUNT(*) AS branch_count
+		FROM stores
+		WHERE is_active = true  -- Include only active stores
+	),
+	CategorySales AS (
+		SELECT
+			EXTRACT(WEEK FROM sl.completed_at) AS week_number,
+			MIN(sl.completed_at::date) AS week_start_date, -- First date of the week
+			TO_CHAR(MIN(sl.completed_at), 'DD.MM.YYYY') week_date,
+			TO_CHAR(MIN(sl.completed_at), 'Dy') AS weekname,
+			EXTRACT(DOW FROM MIN(sl.completed_at)) AS weekday,
+			c.name AS category_name,
+			SUM(ci.total_price) AS category_total
+		FROM sales sl
+		INNER JOIN stores s ON sl.store_id = s.id
+		INNER JOIN cart_items ci ON sl.id = ci.sale_id
+		INNER JOIN store_products sp ON ci.store_product_id = sp.id
+		INNER JOIN products p ON sp.product_id = p.id
+		INNER JOIN category_products cp ON p.id = cp.product_id
+		INNER JOIN categories c ON cp.category_id = c.id
+		WHERE
+			sl.status = 'completed'
+			AND c.name IN ('Лекарственные средства', 'Парафармасевтика')
+			AND c.category_id IS NULL
+			AND TO_CHAR(sl.completed_at, 'YYYY-MM') = ?
+		GROUP BY
+			EXTRACT(WEEK FROM sl.completed_at),
+			c.name
+	),
+	PivotedSales AS (
+		SELECT
+			cs.week_number,
+			cs.week_start_date AS sale_date,
+			cs.week_date,
+			cs.weekname,
+			cs.weekday,
+			bc.branch_count,
+			MAX(CASE WHEN cs.category_name = 'Лекарственные средства' THEN cs.category_total ELSE 0 END) AS lc_total,
+			MAX(CASE WHEN cs.category_name = 'Парафармасевтика' THEN cs.category_total ELSE 0 END) AS parapharma_total,
+			SUM(cs.category_total) AS total
+		FROM CategorySales cs
+		CROSS JOIN BranchCount bc
+		GROUP BY
+			cs.week_number,
+			cs.week_start_date,
+			cs.week_date,
+			cs.weekname,
+			cs.weekday,
+			bc.branch_count
+	)
+	SELECT
+		week_date AS weekdate,
+		weekname AS weekname,
+		branch_count,
+		lc_total AS lc_sum,
+		parapharma_total AS parapharma_sum,
+		total AS total_sum,
+		week_number,
+		weekday
+	FROM PivotedSales
+	ORDER BY week_number, weekday;
+	`
+	// get first month
+	err := s.db.Raw(query, param.StartDate).Scan(&res.FirstMonth).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting lfl first month: %v", err)
+		return res, 0, err
+	}
+	// get second month
+	err = s.db.Raw(query, param.EndDate).Scan(&res.SecondMonth).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting lfl second month: %v", err)
+		return res, 0, err
+	}
+
+	return res, totalCount, nil
+}

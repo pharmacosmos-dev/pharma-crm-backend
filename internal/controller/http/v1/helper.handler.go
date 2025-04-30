@@ -29,6 +29,7 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		helper.POST("/upload-package-code", h.UploadPackageCodeExcel)
 		helper.POST("/upload-mxik", h.CorrectMXIK)
 		helper.POST("/epos", h.EposTransmitter)
+		helper.POST("/upload-category", h.UploadCategory)
 	}
 }
 
@@ -280,29 +281,26 @@ func (h *HelperHandler) CorrectMXIK(c *gin.Context) {
 	query := `
 	UPDATE products SET mxik = ?, is_marking = ? WHERE material_code = ?
 	`
-	var count = 1
+	var count = 0
 	// Process rows
 	for _, row := range rows[1:] {
-
-		if row[4] != "" {
-			count++
-		}
-		fmt.Println("ID: ", parseIntComma(row[1]), "Marking: ", row[2], "IKPU: ", row[4])
-		// create measurements
-		err = h.db.Debug().Exec(query, row[4], changeToBoolean(row[2]), parseIntComma(row[1])).Error
-		if err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, err.Error())
-			return
+		if len(row) > 8 {
+			if row[5] != "" && row[5] != "#N/A" && row[2] == "Да" {
+				count++
+				fmt.Println("ID: ", parseIntComma(row[1]), "Marking: ", row[2], "IKPU: ", row[4], "OLD IKPU: ", row[5])
+				// // create measurements
+				err = h.db.Debug().Exec(query, row[4], true, parseIntComma(row[1])).Error
+				if err != nil {
+					h.log.Error(err)
+					handleResponse(c, InternalError, err.Error())
+					return
+				}
+			}
 		}
 
 	}
 	fmt.Println("---=>>> ", count)
 	handleResponse(c, OK, "Products MXIK CODE uploaded successfully: ")
-}
-
-func changeToBoolean(req string) bool {
-	return req == "Да"
 }
 
 // Epos transmitter godoc
@@ -359,4 +357,87 @@ func (h *HelperHandler) EposTransmitter(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, res)
+}
+
+// UploadProduct godoc
+// @Summary Upload package code excel
+// @Description Upload package code excel
+// @Tags helper
+// @Security     BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param 	file formData file true "Excel file (.xlsx) containing product data"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /helper/upload-category [POST]
+func (h *HelperHandler) UploadCategory(c *gin.Context) {
+	var (
+		file domain.File
+		err  error
+	)
+	// bind request file
+	if err = c.ShouldBind(&file); err != nil {
+		h.log.Error("Failed to bind file: ", err.Error())
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	// Check file extension
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		h.log.Error("Unsupported file format: ", ext)
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+
+	// Save the uploaded file
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+	err = c.SaveUploadedFile(file.File, savePath)
+	if err != nil {
+		h.log.Error("Failed to save file: ", err.Error())
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+
+	// defer os.Remove(savePath)
+	// Open the Excel file
+	xlsx, err := excelize.OpenFile(savePath)
+	if err != nil {
+		h.log.Error("Failed to open .xlsx file: ", err.Error())
+		handleResponse(c, BadRequest, "Failed to process file")
+		return
+	}
+	defer xlsx.Close()
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		h.log.Error("Failed to get rows: ", err.Error())
+		handleResponse(c, InternalError, "Failed to get rows")
+		return
+	}
+
+	// build query
+	query := `
+	INSERT INTO temp_excel_data(code, category_name) VALUES(?, ?)
+	`
+	var count = 0
+
+	// Process rows
+	for _, row := range rows[1:] {
+		if len(row) == 2 {
+			count++
+			fmt.Println("ID: ", row[0], "Category: ", row[1])
+			// // create measurements
+			err = h.db.Debug().Exec(query, row[0], row[1]).Error
+			if err != nil {
+				h.log.Error(err)
+				handleResponse(c, InternalError, err.Error())
+				return
+			}
+		}
+	}
+	fmt.Println("---->>> ", count)
+	handleResponse(c, OK, "Products MXIK CODE uploaded successfully: ")
 }
