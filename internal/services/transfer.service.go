@@ -92,8 +92,8 @@ func (s *Services) TransferList(param *domain.ReturnParam) ([]domain.Transfer, i
 			SUM(trd.accepted_count) AS accepted_count,
 			SUM(trd.received_count-trd.scanned_count) AS shortage,
 			SUM(CASE WHEN trd.accepted_count > trd.received_count THEN trd.accepted_count - trd.received_count ELSE 0 END) AS surplus,
-			SUM(trd.scanned_count*trd.supply_price) AS received_supply_sum,
-			SUM(trd.scanned_count*trd.retail_price) AS received_retail_sum,
+			SUM(trd.received_count*trd.supply_price) AS received_supply_sum,
+			SUM(trd.received_count*trd.retail_price) AS received_retail_sum,
 			SUM(trd.accepted_count*trd.supply_price) AS accepted_supply_sum,
 			SUM(trd.accepted_count*trd.retail_price) AS accepted_retail_sum
 			`).

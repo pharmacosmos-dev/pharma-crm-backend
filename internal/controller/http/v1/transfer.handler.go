@@ -274,8 +274,8 @@ func (h *TransferHandler) ExportTransferExcel(c *gin.Context) {
 			f.SetCellValue(sheetName, "D"+row, "N/A")
 		}
 		f.SetCellValue(sheetName, "E"+row, r.ReceivedCount)
-		f.SetCellValue(sheetName, "F"+row, r.SupplyPriceSum)
-		f.SetCellValue(sheetName, "G"+row, r.RetailPriceSum)
+		f.SetCellValue(sheetName, "F"+row, r.ReceivedRetailSum)
+		f.SetCellValue(sheetName, "G"+row, r.AcceptedRetailSum)
 		f.SetCellValue(sheetName, "H"+row, helper.StatusToRussian(r.Status))
 		if r.CreatedAt != nil {
 			f.SetCellValue(sheetName, "I"+row, r.CreatedAt.Format(time.DateTime))
