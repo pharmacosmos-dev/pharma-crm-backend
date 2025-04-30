@@ -341,7 +341,7 @@ func (h *ReturnHandler) AddProductByBarcode(c *gin.Context) {
 		UPDATE transfer_details
 		SET scanned_count = ?, updated_at = NOW()
 		WHERE id = ? AND transfer_id = ?`,
-		request.Count, id).Error
+		request.Count, request.Id, id).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, "Failed to add count")

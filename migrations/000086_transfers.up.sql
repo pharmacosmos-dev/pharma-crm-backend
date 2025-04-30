@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS "transfer_details" (
     "accepted_count" INT DEFAULT 0,
     "scanned_count" INT DEFAULT 0,
     "expire_date" TIMESTAMP,
-    "serial_number" VARCHAR(55),
+    "serial_number" VARCHAR(255),
     "supply_price" NUMERIC(20, 2) DEFAULT 0.00,
     "retail_price" NUMERIC(20, 2) DEFAULT 0.00,
     "created_at" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
