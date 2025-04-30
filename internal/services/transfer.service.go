@@ -81,7 +81,8 @@ func (s *Services) TransferList(param *domain.ReturnParam) ([]domain.Transfer, i
 	var res []domain.Transfer
 	var totalCount int64
 	query := s.db.Model(&domain.Transfer{}).
-		Preload("Store").
+		Preload("FromStore").
+		Preload("ToStore").
 		Preload("CreatedBy").
 		Preload("AcceptedBy").
 		Select(`
@@ -116,7 +117,8 @@ func (s *Services) TransferList(param *domain.ReturnParam) ([]domain.Transfer, i
 		Group("transfers.id").
 		Order("transfers.created_at DESC").
 		Count(&totalCount).
-		Limit(param.Limit).Offset(param.Offset).
+		Limit(param.Limit).
+		Offset(param.Offset).
 		Find(&res).Error
 	if err != nil {
 		s.log.Error(err)

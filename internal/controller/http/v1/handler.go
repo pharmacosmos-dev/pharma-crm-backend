@@ -95,6 +95,7 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		h.NewReportHandler(v1)
 		h.NewWriteOffHandler(v1)
 		h.NewReturnHandler(v1)
+		h.NewTransferHandler(v1)
 		// handler for external apis
 		h.NewExternalHandler(external)
 	}

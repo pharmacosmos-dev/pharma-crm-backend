@@ -14069,7 +14069,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.ReturnRequest"
+                            "$ref": "#/definitions/domain.TransferRequest"
                         }
                     }
                 ],
@@ -17228,6 +17228,32 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "transaction_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.TransferRequest": {
+            "type": "object",
+            "properties": {
+                "comment": {
+                    "type": "string"
+                },
+                "created_by": {
+                    "type": "string"
+                },
+                "from_store_id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "public_id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "to_store_id": {
                     "type": "string"
                 }
             }

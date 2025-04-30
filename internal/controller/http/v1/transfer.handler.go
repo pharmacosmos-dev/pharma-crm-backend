@@ -34,7 +34,7 @@ func (h *TransferHandler) TransferRoutes(r *gin.RouterGroup) {
 		returned.POST("/confirm/:id", h.Confirm)
 		returned.POST("/cancel/:id", h.Cancel)
 	}
-	detail := r.Group("return-detail")
+	detail := r.Group("transfer-detail")
 	{
 		detail.GET("/list", h.TransferDetailList)
 		detail.GET("/export-excel", h.ExportTransferDetailList)
@@ -49,7 +49,7 @@ func (h *TransferHandler) TransferRoutes(r *gin.RouterGroup) {
 // @Security     BearerAuth
 // @Accept 	json
 // @Produce json
-// @Param 	transfer body domain.ReturnRequest true "Return"
+// @Param 	transfer body domain.TransferRequest true "Transfer"
 // @Success 201 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
