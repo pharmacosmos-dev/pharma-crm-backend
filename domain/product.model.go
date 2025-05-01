@@ -237,7 +237,7 @@ type UpdateBarcodeRequest struct {
 	Barcode  string `json:"barcode"`
 	Mxik     string `json:"mxik"`
 	UnitCode string `json:"unit_code"`
-	Id       string `json:"id"`
+	UnitName string `json:"unit_name"`
 }
 
 // update is marking request

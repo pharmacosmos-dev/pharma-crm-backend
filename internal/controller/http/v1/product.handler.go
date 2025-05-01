@@ -1110,7 +1110,7 @@ func (h *ProductHandler) UpdateBarcode(c *gin.Context) {
 	}
 	if body.Barcode != "" {
 		// update barcode
-		err = h.db.Model(&domain.Product{}).Where("id = ?", body.Id).Update("barcode", body.Barcode).Error
+		err = h.db.Model(&domain.Product{}).Where("id = ?", id).Update("barcode", body.Barcode).Error
 		if err != nil {
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())
@@ -1118,14 +1118,21 @@ func (h *ProductHandler) UpdateBarcode(c *gin.Context) {
 		}
 	} else if body.Mxik != "" {
 		// update mxik
-		err = h.db.Model(&domain.Product{}).Where("id = ?", body.Id).Update("mxik", body.Mxik).Error
+		err = h.db.Model(&domain.Product{}).Where("id = ?", id).Update("mxik", body.Mxik).Error
 		if err != nil {
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())
 			return
 		}
 	} else if body.UnitCode != "" {
-		err = h.db.Model(&domain.Product{}).Where("id = ?", body.Id).Update("unit_code", body.UnitCode).Error
+		err = h.db.Model(&domain.Product{}).Where("id = ?", id).Update("unit_code", body.UnitCode).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+	} else if body.UnitName != "" {
+		err = h.db.Model(&domain.Product{}).Where("id = ?", id).Update("unit_name", body.UnitName).Error
 		if err != nil {
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())
