@@ -51,31 +51,29 @@ func (h *DraftHandler) Create(c *gin.Context) {
 		cartItems []domain.CartItem
 		err       error
 	)
-
+	// bind request body
 	if err = c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-
+	// start transaction
 	tx := h.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
 		}
 	}()
-
+	// update sale status to drafted
 	var saleInfo domain.Sale
-	err = tx.
-		Raw(`UPDATE sales SET status = 'drafted' WHERE id = ? RETURNING *`, body.SaleID).
-		Scan(&saleInfo).Error
-
+	err = tx.Raw(`UPDATE sales SET status = 'drafted' WHERE id = ? RETURNING *`, body.SaleID).Scan(&saleInfo).Error
 	if err != nil {
 		tx.Rollback()
 		h.log.Error(err)
 		handleResponse(c, InternalError, "Error updating sale status")
 		return
 	}
+	// get cart_item list by sale_id
 	err = h.db.
 		Where("sale_id = ?", body.SaleID).
 		Find(&cartItems).Error
@@ -85,7 +83,9 @@ func (h *DraftHandler) Create(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	// check cart_items status
 	if len(cartItems) < 1 {
+		tx.Rollback()
 		handleResponse(c, BadRequest, "No items in the cart")
 		return
 	}
@@ -97,11 +97,13 @@ func (h *DraftHandler) Create(c *gin.Context) {
 			CartItemID: item.ID,
 			DraftID:    body.ID,
 		})
+		// decrease pack_quantity and unit_quantity on store_products
 		err = tx.Exec(`UPDATE store_products SET pack_quantity = pack_quantity - ?, unit_quantity = unit_quantity - ? WHERE id = ?`,
 			item.Quantity, item.UnitQuantity, item.StoreProductID).Error
 		if err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, err.Error())
+			tx.Rollback()
+			h.log.Warn("ERROR on update quantity in store_products: %v", err)
+			handleResponse(c, InternalError, "Can't update quantity")
 			return
 		}
 	}
@@ -110,31 +112,30 @@ func (h *DraftHandler) Create(c *gin.Context) {
 	err = tx.Table("drafts").Create(&body).Error
 	if err != nil {
 		tx.Rollback()
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		h.log.Warn("ERROR on creating new draft: %v", err)
+		handleResponse(c, InternalError, "Can't create new draft")
 		return
 	}
-
+	// create cart_item_draft for saving draft history
 	err = tx.
 		Table("cart_item_drafts").
 		Create(&cartDrafts).Error
 	if err != nil {
 		tx.Rollback()
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		h.log.Warn("ERROR on creating cart_item_drafts: %v", err)
+		handleResponse(c, InternalError, "Can't create cart_item_draft")
 		return
 	}
-
+	// update cart items status to drafted
 	err = tx.Exec(`UPDATE cart_items SET status = 'drafted' WHERE sale_id = ?`, body.SaleID).Error
 	if err != nil {
 		tx.Rollback()
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		h.log.Warn("ERROR on updating cart_item status: %v", err)
+		handleResponse(c, InternalError, "Can't draft to cart items")
 		return
 	}
-
-	res, err := h.service.CreateSale(tx, &domain.SaleRequest{
-		ID:                 uuid.New().String(),
+	// create or get sale
+	res, err := h.service.CreateOrGetSale(&domain.SaleRequest{
 		EmployeeID:         body.CreatedBy,
 		CashBoxOperationId: saleInfo.CashBoxOperationId,
 		StoreId:            saleInfo.StoreId,
@@ -142,14 +143,15 @@ func (h *DraftHandler) Create(c *gin.Context) {
 	})
 	if err != nil {
 		tx.Rollback()
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		h.log.Warn("ERROR on creating new sale: %v", err)
+		handleResponse(c, InternalError, "Can't create new sale after drafted")
 		return
 	}
+	// commit transcation
 	if err = tx.Commit().Error; err != nil {
 		tx.Rollback()
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		h.log.Warn("ERROR on commiting transaction: %v", err)
+		handleResponse(c, InternalError, "Can't commit transcation")
 		return
 	}
 	handleResponse(c, CREATED, res)
@@ -306,19 +308,27 @@ func (h *DraftHandler) Update(c *gin.Context) {
 	var (
 		body domain.DraftRequest
 		err  error
+		id   = c.Param("id")
 	)
-	err = c.ShouldBindJSON(&body)
-	if err != nil {
+	// validate draft id
+	if err = uuid.Validate(id); err != nil {
+		handleResponse(c, BadRequest, "Invalid draft id")
+		return
+	}
+	// bind request body
+	if err = c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	// update draft info
 	err = h.db.
 		WithContext(c.Request.Context()).
-		Table("drafts").Where("id = ?", c.Param("id")).
+		Table("drafts").
+		Where("id = ?", id).
 		Updates(&body).Error
 	if err != nil {
-		h.log.Error(err)
+		h.log.Warn("ERROR on updating draft: %v", err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}

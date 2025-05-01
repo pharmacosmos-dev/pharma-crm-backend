@@ -400,6 +400,8 @@ definitions:
         type: string
       payment_type_id:
         type: string
+      return_amount:
+        type: number
       type:
         example: card|cash|app
         type: string
@@ -418,8 +420,6 @@ definitions:
         items:
           $ref: '#/definitions/domain.FinalPaymentType'
         type: array
-      returned_amount:
-        type: number
       sale_id:
         type: string
       store_id:
@@ -10143,7 +10143,7 @@ paths:
       - application/json
       description: Create Return
       parameters:
-      - description: Return
+      - description: Transfer
         in: body
         name: transfer
         required: true

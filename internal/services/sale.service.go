@@ -12,12 +12,12 @@ import (
 )
 
 // create new sale
-func (s *Services) CreateSale(tx *gorm.DB, req *domain.SaleRequest) (*domain.Sale, error) {
+func (s *Services) CreateSale(req *domain.SaleRequest) (*domain.Sale, error) {
 	var res domain.Sale
-	err := tx.Raw(`INSERT INTO sales(id, employee_id, cash_box_operation_id, store_id, cashbox_id) VALUES(?, ?, ?, ?, ?) RETURNING *`,
-		req.ID, req.EmployeeID, req.CashBoxOperationId, req.StoreId, req.CashboxId).Scan(&res).Error
+	err := s.db.Raw(`INSERT INTO sales(employee_id, cash_box_operation_id, store_id, cashbox_id) VALUES(?, ?, ?, ?) RETURNING *`,
+		req.EmployeeID, req.CashBoxOperationId, req.StoreId, req.CashboxId).Scan(&res).Error
 	if err != nil {
-		s.log.Error(err)
+		s.log.Warn("ERROR on creating new sale: %v", err)
 		return nil, err
 	}
 	return &res, nil
@@ -80,6 +80,29 @@ func (s *Services) CreateReturnSale(req *domain.SaleReturnRequest) (*domain.Sale
 	return &sale, nil
 }
 
+// create new sale or get pending sale
+func (s *Services) CreateOrGetSale(req *domain.SaleRequest) (*domain.Sale, error) {
+	var res *domain.Sale
+	// getting pending sale
+	err := s.db.Where("store_id = ? AND employee_id = ? AND cash_box_operation_id = ? AND cashbox_id = ?",
+		req.StoreId, req.EmployeeID, req.CashBoxOperationId, req.CashboxId).
+		First(&res, "status = ? ", config.PENDING).Error
+	// check sale if sale may not found create new and return
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		res, err = s.CreateSale(req)
+		if err != nil {
+			s.log.Warn("ERROR on creating sale: %v", err)
+			return res, err
+		}
+		return res, nil // return new sale info
+	} else if err != nil {
+		s.log.Warn("ERROR on getting sale: %v", err)
+		return res, err
+	}
+
+	return res, nil
+}
+
 // update sale with receiving field
 func (s *Services) UpdateSaleField(field string, value string, idField string, idValue string) (*domain.Sale, error) {
 	var res domain.Sale
@@ -100,12 +123,12 @@ func (s *Services) CreateSalePayment(tx *gorm.DB, req domain.FinalSale, item dom
 	INSERT INTO sale_payments(
 		sale_id, cash_box_operation_id, 
 		payment_service_id, payment_type_id, 
-		amount, paid_at) 
-	VALUES(?, ?, ?, ?, ?, ?) RETURNING *`
+		amount, return_amount, paid_at) 
+	VALUES(?, ?, ?, ?, ?, ?, ?) RETURNING *`
 	// Insert sale payments
 	err := tx.Raw(query,
 		req.SaleID, req.CashBoxOperationId,
-		paymentServiceId, item.PaymentTypeID, item.Amount, now).
+		paymentServiceId, item.PaymentTypeID, item.Amount, item.ReturnAmount, now).
 		Scan(&salePayment).Error
 	if err != nil {
 		s.log.Error("ERROR on creating new sale payment: ", err)
@@ -151,16 +174,6 @@ func (s *Services) CreateOrUpdateSalePaymentSummary(tx *gorm.DB, cashBoxOperatio
 	return nil
 }
 
-// Update sale status and total amount after the sale is completed
-func (s *Services) UpdateSaleOnFinalSale(tx *gorm.DB, saleID string, totalAmount float64, customerID *string) error {
-	return tx.Exec(`
-	UPDATE sales
-	SET
-		total_amount = ?, customer_id = ?, completed_at = ?, updated_at = NOW(),
-		total_discount = (SELECT SUM(discount_amount*quantity) FROM cart_items WHERE sale_id = ?)
-	WHERE id = ?`, totalAmount, customerID, time.Now(), saleID, saleID).Error
-}
-
 // update sales one item with field and value
 func (s *Services) UpdateSaleFieldValue(saleID string, field, value string) error {
 	err := s.db.Exec(`UPDATE sales SET `+field+` = ? WHERE id = ?`, value, saleID).Error
@@ -171,8 +184,43 @@ func (s *Services) UpdateSaleFieldValue(saleID string, field, value string) erro
 	return nil
 }
 
-// Update cart item status and store product quantities after the sale is completed
-func (s *Services) UpdateCartItemStatus(tx *gorm.DB, saleID string, employeeID string, cashBoxOperationId string) error {
+// complete sale
+func (s *Services) CompleteSale(tx *gorm.DB, sale *domain.Sale, epos *domain.EposSuccessResponse) error {
+	var err error
+	if sale.SaleType == config.SALE_TYPE_SALE {
+		// reduce store_product quantities and add employee bonus
+		err = s.DeductStoreProductQuantities(tx, sale)
+		if err != nil {
+			s.log.Warn("ERROR on reducing store_product quantity: %v", err)
+			return err
+		}
+	} else if sale.SaleType == config.SALE_TYPE_RETURN {
+		err = s.RestoreStoreProductQuantities(tx, sale)
+		if err != nil {
+			s.log.Warn("ERROR on restore store_product quantity: %v", err)
+			return err
+		}
+	}
+	// build query for update sale status to complete
+	query := `
+	UPDATE sales
+	SET
+		total_amount = (SELECT SUM(total_price)-SUM(discount_amount) FROM cart_items WHERE sale_id = ?),
+		total_discount = (SELECT SUM(discount_amount) FROM cart_items WHERE sale_id = ?),
+		status = ?, fiscal_sign = ?, completed_at = NOW(), updated_at = NOW()
+	WHERE id = ?
+	`
+	// complete the query
+	err = tx.Exec(query, sale.ID, sale.ID, config.COMPLETED, epos.Info.FiscalSign, sale.ID).Error
+	if err != nil {
+		s.log.Warn("ERROR on update sale to completed: %v", err)
+		return err
+	}
+	return nil
+}
+
+// Update cart item status and reduce store product quantities and add employee bonus after completed the sale
+func (s *Services) DeductStoreProductQuantities(tx *gorm.DB, sale *domain.Sale) error {
 	var cartItems []domain.CartItem
 	err := tx.Raw(`
 		SELECT 
@@ -184,7 +232,7 @@ func (s *Services) UpdateCartItemStatus(tx *gorm.DB, saleID string, employeeID s
 		JOIN store_products sp ON sp.id = ci.store_product_id
 		JOIN products p ON sp.product_id = p.id
 		LEFT JOIN product_bonuses pb ON pb.product_id = sp.product_id
-		WHERE sale_id = ?`, saleID).
+		WHERE sale_id = ?`, sale.ID).
 		Scan(&cartItems).Error
 	if err != nil {
 		s.log.Error(err)
@@ -213,9 +261,9 @@ func (s *Services) UpdateCartItemStatus(tx *gorm.DB, saleID string, employeeID s
 			}
 			// add employee bonus service
 			err = s.AddEmployeeBonus(tx, &domain.EmployeeBonusRequest{
-				EmployeeId:         employeeID,
-				CashboxOperationId: cashBoxOperationId,
-				SaleId:             saleID,
+				EmployeeId:         sale.EmployeeID,
+				CashboxOperationId: sale.CashBoxOperationId,
+				SaleId:             sale.ID,
 				ProductId:          item.ProductId,
 				Quantity:           item.Quantity,
 				UnitQuantity:       item.UnitQuantity,
@@ -227,17 +275,11 @@ func (s *Services) UpdateCartItemStatus(tx *gorm.DB, saleID string, employeeID s
 			}
 		}
 	}
-	// update cart items status
-	err = tx.Exec(`UPDATE cart_items SET status = 'sold', updated_at = NOW() WHERE sale_id = ?`, saleID).Error
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
 // update return sale cart items
-func (s *Services) UpdateReturnSaleCartItems(tx *gorm.DB, saleID string) error {
+func (s *Services) RestoreStoreProductQuantities(tx *gorm.DB, sale *domain.Sale) error {
 	var cartItems []domain.CartItem
 	// get cart items
 	err := tx.Raw(`
@@ -245,9 +287,10 @@ func (s *Services) UpdateReturnSaleCartItems(tx *gorm.DB, saleID string) error {
 			id, store_product_id,
 			quantity, unit_quantity, unit_price,
 			total_price, status
-		FROM cart_items WHERE sale_id = ?`, saleID).
-		Scan(&cartItems).Error
+		FROM cart_items WHERE sale_id = ?`,
+		sale.ID).Scan(&cartItems).Error
 	if err != nil {
+		s.log.Warn("ERROR on getting cart_items: %v", err)
 		return err
 	}
 	// update store product quantities
@@ -262,8 +305,15 @@ func (s *Services) UpdateReturnSaleCartItems(tx *gorm.DB, saleID string) error {
 		WHERE products.id = store_products.product_id AND  store_products.id = ?`,
 			item.Quantity, item.Quantity, item.UnitQuantity, item.StoreProductID).Error
 		if err != nil {
+			s.log.Warn("ERROR on restoring store_products quantity: %v", err)
 			return err
 		}
+	}
+	// delete employee bonus for return sale
+	err = tx.Exec(`DELETE FROM employee_bonus WHERE sale_id = ?`, sale.ID).Error
+	if err != nil {
+		s.log.Warn("ERROR on deleting employee_bonus: %v", err)
+		return err
 	}
 	return nil
 }
@@ -424,14 +474,4 @@ func (s *Services) GetSaleList(param *domain.QueryParam) ([]domain.SaleResponse,
 		return nil, 0, err
 	}
 	return res, totalCount, nil
-}
-
-// update sale payments status
-func (s *Services) UpdateSalePaymentBySaleId(tx *gorm.DB, saleID string) error {
-	err := tx.Exec(`UPDATE sale_payments SET status = 'paid' WHERE sale_id = ?`, saleID).Error
-	if err != nil {
-		s.log.Error("ERROR on updating sale payments status: ", err)
-		return err
-	}
-	return nil
 }

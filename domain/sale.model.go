@@ -103,7 +103,6 @@ type FinalSale struct {
 	CustomerID         *string            `gorm:"customer_id" json:"customer_id"`
 	CashBoxOperationId string             `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
 	TotalAmount        float64            `gorm:"total_amount" json:"total_amount"`
-	ReturnedAmount     float64            `gorm:"returned_amount" json:"returned_amount"`
 	PaymentTypes       []FinalPaymentType `json:"payment_types"`
 	MarkingData        []MarkingData      `json:"marking_data"`
 }
@@ -117,6 +116,7 @@ type MarkingData struct {
 type FinalPaymentType struct {
 	PaymentTypeID string  `gorm:"payment_type_id" json:"payment_type_id"`
 	Amount        float64 `gorm:"amount" json:"amount"`
+	ReturnAmount  float64 `gorm:"return_amount" json:"return_amount"`
 	AppType       string  `gorm:"app_type" json:"app_type" example:"click|payme|uzum"`
 	Type          string  `gorm:"type" json:"type" example:"card|cash|app"`
 	OtpData       string  `gorm:"otp_data" json:"otp_data"`
@@ -198,4 +198,31 @@ type SaleOnlineItem struct {
 	UnitQuantity int     `gorm:"unit_quantity" json:"unit_quantity"`
 	UnitPrice    float64 `gorm:"unit_price" json:"unit_price"`
 	TotalPrice   float64 `gorm:"total_price" json:"total_price"`
+}
+
+
+// region EPOS response structure
+
+// SuccessResponse for successful case
+type EposSuccessResponse struct {
+    Error         bool       `json:"error"`
+    QrPath        string     `json:"qrPath"`
+    Paycheck      string     `json:"paycheck"`
+    VirtualNumber string     `json:"virtualNumber"`
+    Info          Info       `json:"info"`
+}
+
+// Info struct for success case
+type Info struct {
+    DateTime   string `json:"dateTime"`
+    QrCodeURL  string `json:"qrCodeURL"`
+    FiscalSign string `json:"fiscalSign"`
+    ReceiptSeq string `json:"receiptSeq"`
+    TerminalId string `json:"terminalId"`
+}
+
+// ErrorResponse for error case
+type ErrorResponse struct {
+    Error   bool   `json:"error"`
+    Message string `json:"message"`
 }

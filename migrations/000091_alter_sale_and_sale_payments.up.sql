@@ -1,0 +1,2 @@
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS fiscal_sign VARCHAR(55);
+ALTER TABLE sale_payments ADD COLUMN IF NOT EXISTS return_amount NUMERIC(10, 2);

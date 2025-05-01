@@ -50,7 +50,7 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 	LEFT JOIN unit_types u ON p.unit_type_id = u.id
 	LEFT JOIN shelves sh ON p.shelf_id = sh.id
 	LEFT JOIN product_bonuses pb ON p.id = pb.product_id
-	WHERE ci.status = 'pending' AND ci.sale_id = ?
+	WHERE ci.sale_id = ?
 	GROUP BY ci.id, ci.created_at, p.id, sp.id, u.id, sh.id, pb.id
 	ORDER BY ci.created_at DESC LIMIT ? OFFSET ?;
 	`, saleID, limit, offset).Scan(&res).Error
@@ -80,8 +80,8 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 	FROM cart_items ci
 	JOIN store_products sp ON sp.id = ci.store_product_id
 	JOIN products p ON sp.product_id = p.id
-	WHERE ci.status = ? AND sale_id = ?
-	`, config.PENDING, saleID).Scan(&data).Error
+	WHERE  sale_id = ?
+	`, saleID).Scan(&data).Error
 	if err != nil {
 		s.log.Warn("Error on listing cart items for sale %s: %v", saleID, err.Error())
 		return nil, err
@@ -220,7 +220,7 @@ func (s *Services) AddMarkingCount(req []domain.MarkingData) error {
 	// Execute raw SQL
 	err := s.db.Exec(query).Error
 	if err != nil {
-		s.log.Error("bulk update failed:", err)
+		s.log.Warn("ERROR on bulk updating cart_item marking_count: %v", err)
 		return err
 	}
 

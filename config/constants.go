@@ -43,24 +43,25 @@ const (
 
 	// region APP payment types
 
+	CASH  = "cash"
+	CARD  = "card"
 	CLICK = "click"
 	PAYME = "payme"
 	UZUM  = "uzum"
-	CASH  = "cash"
-	CARD  = "card"
 
 	// region Universal status types
 
-	NEW       = "new"
-	PENDING   = "pending"
-	COMPLETED = "completed"
-	CANCELED  = "canceled"
-	DONE      = "done"
-	DELETED   = "deleted"
-	ACTIVE    = "active"
-	INACTIVE  = "inactive"
-	CONFIRMED = "confirmed"
-	SENT      = "sent"
+	NEW        = "new"
+	PENDING    = "pending"
+	PROCESSING = "processing"
+	COMPLETED  = "completed"
+	CANCELED   = "canceled"
+	DONE       = "done"
+	DELETED    = "deleted"
+	ACTIVE     = "active"
+	INACTIVE   = "inactive"
+	CONFIRMED  = "confirmed"
+	SENT       = "sent"
 	// region SALE type
 
 	SALE_TYPE_RETURN = "RETURN"

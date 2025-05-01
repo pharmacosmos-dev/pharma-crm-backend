@@ -14064,7 +14064,7 @@ const docTemplate = `{
                 "summary": "Create Return",
                 "parameters": [
                     {
-                        "description": "Return",
+                        "description": "Transfer",
                         "name": "transfer",
                         "in": "body",
                         "required": true,
@@ -16128,6 +16128,9 @@ const docTemplate = `{
                 "payment_type_id": {
                     "type": "string"
                 },
+                "return_amount": {
+                    "type": "number"
+                },
                 "type": {
                     "type": "string",
                     "example": "card|cash|app"
@@ -16154,9 +16157,6 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/domain.FinalPaymentType"
                     }
-                },
-                "returned_amount": {
-                    "type": "number"
                 },
                 "sale_id": {
                     "type": "string"
