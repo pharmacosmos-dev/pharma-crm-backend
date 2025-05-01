@@ -9,6 +9,7 @@ type SalePayment struct {
 	PaymentServiceID string       `gorm:"payment_service_id" json:"payment_service_id,omitempty"`
 	PaymentTypeID    string       `gorm:"payment_type_id" json:"payment_type_id,omitempty"`
 	Amount           float64      `gorm:"amount" json:"amount"`
+	ReturnAmount     float64      `gorm:"return_amount" json:"return_amount"`
 	ReceiptId        string       `gorm:"receipt_id" json:"receipt_id"`
 	TransactionID    string       `gorm:"transaction_id" json:"transaction_id,omitempty"`
 	PaidAt           *time.Time   `gorm:"paid_at" json:"paid_at,omitempty"`

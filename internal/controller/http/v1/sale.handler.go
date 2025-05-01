@@ -172,10 +172,16 @@ func (h *SaleHandler) Get(c *gin.Context) {
 	// get sale info
 	err := h.db.
 		Table("sales").
-		Preload("Employee").
-		Preload("Customer").
+		Preload("Employee", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "full_name", "phone") // keep it minimal
+		}).
+		Preload("Customer", func(db *gorm.DB) *gorm.DB {
+			return db.Select("id", "full_name")
+		}).
 		Preload("SalePayments", func(db *gorm.DB) *gorm.DB {
-			return db.Preload("PaymentType")
+			return db.Preload("PaymentType", func(db *gorm.DB) *gorm.DB {
+				return db.Select("id", "name") // or whatever needed
+			})
 		}).First(&res, "id = ?", id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -221,8 +227,9 @@ func (h *SaleHandler) Get(c *gin.Context) {
 			}
 		}
 	}
-
+	// get cart item products list
 	res.Product = products
+
 	handleResponse(c, OK, res)
 }
 
@@ -358,14 +365,14 @@ func (h *SaleHandler) ExportSaleExcel(c *gin.Context) {
 		f.SetCellValue(sheetName, "C"+row, sale.TotalAmount)
 		f.SetCellValue(sheetName, "D"+row, sale.Type)
 		f.SetCellValue(sheetName, "E"+row, sale.IsDelivered)
-		f.SetCellValue(sheetName, "F"+row, helper.SalePaymentAmount(sale.SalePayments, "cash"))
-		f.SetCellValue(sheetName, "G"+row, helper.SalePaymentAmount(sale.SalePayments, "card"))
-		f.SetCellValue(sheetName, "H"+row, helper.SalePaymentAmount(sale.SalePayments, "card"))
-		f.SetCellValue(sheetName, "I"+row, helper.SalePaymentAmount(sale.SalePayments, "card"))
-		f.SetCellValue(sheetName, "J"+row, helper.SalePaymentAmount(sale.SalePayments, "app"))
-		f.SetCellValue(sheetName, "K"+row, helper.SalePaymentAmount(sale.SalePayments, "app"))
-		f.SetCellValue(sheetName, "L"+row, helper.SalePaymentAmount(sale.SalePayments, "app"))
-		f.SetCellValue(sheetName, "M"+row, helper.SalePaymentAmount(sale.SalePayments, "balance"))
+		f.SetCellValue(sheetName, "F"+row, helper.SalePaymentAmount(sale.SalePayments, "Naqd"))
+		f.SetCellValue(sheetName, "G"+row, helper.SalePaymentAmount(sale.SalePayments, "Humo"))
+		f.SetCellValue(sheetName, "H"+row, helper.SalePaymentAmount(sale.SalePayments, "Uzcard"))
+		f.SetCellValue(sheetName, "I"+row, helper.SalePaymentAmount(sale.SalePayments, "Visa"))
+		f.SetCellValue(sheetName, "J"+row, helper.SalePaymentAmount(sale.SalePayments, "Payme"))
+		f.SetCellValue(sheetName, "K"+row, helper.SalePaymentAmount(sale.SalePayments, "Click"))
+		f.SetCellValue(sheetName, "L"+row, helper.SalePaymentAmount(sale.SalePayments, "UzumBank"))
+		f.SetCellValue(sheetName, "M"+row, helper.SalePaymentAmount(sale.SalePayments, "Balance"))
 		f.SetCellValue(sheetName, "N"+row, sale.CompletedAt.Format(time.DateTime))
 		f.SetCellValue(sheetName, "O"+row, sale.StoreName)
 		f.SetCellValue(sheetName, "P"+row, sale.FullName)
@@ -467,57 +474,67 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 		LEFT JOIN sales s ON sp.sale_id = s.id
 		`
 		filter = ` s.status = 'completed' `
+		join   = ""
 		group  = ` GROUP BY pt.id, pt.name, pt.type`
 	)
-
+	// filter by employee id
 	if param.VendorID != "" {
 		args = append(args, param.VendorID)
 		filter += " AND s.employee_id = ?"
 	}
+	// filter by payment type
+	if param.PaymentTypeID != "" {
+		filter += " AND sp.payment_type_id = ? "
+		join += " LEFT JOIN sale_payments sp ON sp.sale_id = s.id "
+		args = append(args, param.PaymentTypeID)
+	}
+	// filter by store_id
 	if param.StoreID != "" {
 		args = append(args, param.StoreID)
 		filter += " AND s.store_id = ?"
 	}
+	// filter by cashbox_id
 	if param.CashBoxID != "" {
 		args = append(args, param.CashBoxID)
 		filter += " AND s.cashbox_id = ?"
 	}
+	// check end_date for empty string
 	if param.EndDate == "" {
 		param.EndDate = param.StartDate
 	}
-
+	// filter by start_date, end_date
 	if param.StartDate != "" && param.EndDate != "" {
 		args = append(args, param.StartDate, param.EndDate)
 		filter += " AND s.completed_at::date BETWEEN ? AND ?"
 	}
-
+	// filter by total amount for less
 	if param.TotalAmountFrom > 0 {
 		args = append(args, param.TotalAmountFrom)
 		filter += " AND s.total_amount >= ? "
 	}
-
+	// filter by total amount for greater
 	if param.TotalAmountTo > 0 {
 		args = append(args, param.TotalAmountTo)
 		filter += " AND s.total_amount <= ? "
 	}
-
+	// filter by search key
 	if param.Search != "" {
 		param.Search = fmt.Sprintf("%%%s%%", param.Search)
 		filter += fmt.Sprintf(" AND CAST(s.sale_number AS TEXT) LIKE '%s'", param.Search)
 	}
 	// collect total transactions query
-	var q = squery + " WHERE " + filter
+	squery = squery + join + " WHERE " + filter
 	// replace with :param with ?
-	err = h.db.Debug().Raw(q, args...).Scan(&res).Error
+	err = h.db.Debug().Raw(squery, args...).Scan(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 	// collect payment type sum query
-	var pq = pquery + " AND " + filter + group + " ORDER BY sum DESC;"
+	pquery = pquery + " AND " + filter + group + " ORDER BY sum DESC;"
 	// replace with :param with ?
-	err = h.db.Debug().Raw(pq, args...).Scan(&res.PaymentTypeStats).Error
+	err = h.db.Debug().Raw(pquery, args...).Scan(&res.PaymentTypeStats).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())

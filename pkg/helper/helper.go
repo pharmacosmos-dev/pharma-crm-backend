@@ -23,8 +23,10 @@ func StatusToRussian(status string) string {
 func SalePaymentAmount(salePayments []*domain.SalePayment, payType string) float64 {
 	var amount float64
 	for _, payment := range salePayments {
-		if payType == payment.PaymentType.Type {
-			amount = payment.Amount
+		if payment.PaymentType != nil {
+			if payType == payment.PaymentType.Name {
+				amount = payment.Amount
+			}
 		}
 	}
 	return amount

@@ -79,6 +79,7 @@ type SaleResponse struct {
 	Type               string         `gorm:"type" json:"type"`
 	SaleType           string         `gorm:"sale_type" json:"sale_type"`
 	IsDelivered        bool           `gorm:"is_delivered" json:"is_delivered"`
+	FiscalSign         string         `gorm:"fiscal_sign" json:"fiscal_sign"`
 	CustomerName       *string        `gorm:"customer_name" json:"customer_name"`
 	CustomerPhone      *string        `gorm:"customer_phone" json:"customer_phone"`
 	Employee           *Employee      `gorm:"foreignKey:EmployeeID" json:"employee"`
@@ -200,29 +201,28 @@ type SaleOnlineItem struct {
 	TotalPrice   float64 `gorm:"total_price" json:"total_price"`
 }
 
-
 // region EPOS response structure
 
 // SuccessResponse for successful case
 type EposSuccessResponse struct {
-    Error         bool       `json:"error"`
-    QrPath        string     `json:"qrPath"`
-    Paycheck      string     `json:"paycheck"`
-    VirtualNumber string     `json:"virtualNumber"`
-    Info          Info       `json:"info"`
+	Error         bool   `json:"error"`
+	QrPath        string `json:"qrPath"`
+	Paycheck      string `json:"paycheck"`
+	VirtualNumber string `json:"virtualNumber"`
+	Info          Info   `json:"info"`
 }
 
 // Info struct for success case
 type Info struct {
-    DateTime   string `json:"dateTime"`
-    QrCodeURL  string `json:"qrCodeURL"`
-    FiscalSign string `json:"fiscalSign"`
-    ReceiptSeq string `json:"receiptSeq"`
-    TerminalId string `json:"terminalId"`
+	DateTime   string `json:"dateTime"`
+	QrCodeURL  string `json:"qrCodeURL"`
+	FiscalSign string `json:"fiscalSign"`
+	ReceiptSeq string `json:"receiptSeq"`
+	TerminalId string `json:"terminalId"`
 }
 
 // ErrorResponse for error case
 type ErrorResponse struct {
-    Error   bool   `json:"error"`
-    Message string `json:"message"`
+	Error   bool   `json:"error"`
+	Message string `json:"message"`
 }
