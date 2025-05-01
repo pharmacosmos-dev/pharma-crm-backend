@@ -34,22 +34,22 @@ func (s *Services) ProductSearch(param *domain.StoreProductQueryParam) ([]*domai
 		LEFT JOIN unit_types u ON p.unit_type_id = u.id
 		LEFT JOIN product_bonuses pb ON pb.product_id = p.id
 	`
-	// define search keyword type
-	switch utils.DefineProductSearchQuery(param.Search) {
-	case "barcode":
-		filter += " AND p.barcode = ?"
-		args = append(args, param.Search)
-		// query = query.Where("p.barcode = ?", param.Search)
-	case "marking":
-
-		// query = query.
-		// 	Joins("LEFT JOIN product_markings pm ON pm.product_id = sp.product_id").
-		// 	Where("pm.marking = ?", param.Search)
-	default:
-		// Transliterate search keyword Latin to Cyrillic OR Cyrillic to Latin
-		translatedWord := utils.Translit(param.Search)
-		filter += " AND (name_tsvector @@ to_tsquery('russian', ?) OR name_tsvector @@ to_tsquery('simple', ?))"
-		args = append(args, param.Search+":*", translatedWord+":*")
+	if param.Search != "" {
+		// define search keyword type
+		switch utils.DefineProductSearchQuery(param.Search) {
+		case "barcode":
+			filter += " AND p.barcode = ? "
+			args = append(args, param.Search)
+		case "marking":
+			// query = query.
+			// 	Joins("LEFT JOIN product_markings pm ON pm.product_id = sp.product_id").
+			// 	Where("pm.marking = ?", param.Search)
+		default:
+			// Transliterate search keyword Latin to Cyrillic OR Cyrillic to Latin
+			translatedWord := utils.Translit(param.Search)
+			filter += " AND (name_tsvector @@ to_tsquery('russian', ?) OR name_tsvector @@ to_tsquery('simple', ?)) "
+			args = append(args, param.Search+":*", translatedWord+":*")
+		}
 	}
 	// collect query
 	query = query + filter + order + pagination
