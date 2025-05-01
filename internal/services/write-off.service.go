@@ -19,6 +19,7 @@ func (s *Services) CreateWriteOff(req *domain.WriteOffRequest) error {
 			tx.Rollback()
 		}
 	}()
+	
 	// insert inventory into inventories table
 	err := tx.Raw(`
 	INSERT INTO imports (store_id, name, created_by, entry_type, import_date, comment)
