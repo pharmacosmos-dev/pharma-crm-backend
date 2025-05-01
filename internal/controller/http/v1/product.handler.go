@@ -1132,7 +1132,7 @@ func (h *ProductHandler) UpdateBarcode(c *gin.Context) {
 			return
 		}
 	} else if body.UnitName != "" {
-		err = h.db.Model(&domain.Product{}).Where("id = ?", id).Update("unit_name", body.UnitName).Error
+		err = h.db.Model(&domain.Product{}).Where("id = ?", id).Update("unit_label", body.UnitName).Error
 		if err != nil {
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())

@@ -1,1 +1,1 @@
-ALTER TABLE products DROP COLUMN IF EXISTS "unit_name";
+ALTER TABLE products DROP COLUMN IF EXISTS "unit_label";

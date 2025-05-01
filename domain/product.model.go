@@ -262,6 +262,7 @@ type ProductData struct {
 	Manufacturer string            `gorm:"manufacturer" json:"manufacturer"`
 	UnitName     string            `gorm:"unit_name" json:"unit_name"`
 	ShortName    string            `gorm:"short_name" json:"short_name"`
+	UnitLabel    string            `gorm:"unit_label" json:"unit_label"`
 	Quantity     int               `gorm:"quantity" json:"quantity"`
 	UnitQuantity int               `gorm:"unit_quantity" json:"unit_quantity"`
 	CategoryName string            `gorm:"category_name" json:"category_name"`
