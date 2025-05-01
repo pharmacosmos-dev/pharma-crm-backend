@@ -128,7 +128,7 @@ func (s *Services) CreateSalePayment(tx *gorm.DB, req domain.FinalSale, item dom
 	// Insert sale payments
 	err := tx.Raw(query,
 		req.SaleID, req.CashBoxOperationId,
-		paymentServiceId, item.PaymentTypeID, item.Amount, item.ReturnAmount, now).
+		paymentServiceId, item.PaymentTypeID, item.Amount-item.ReturnAmount, item.ReturnAmount, now).
 		Scan(&salePayment).Error
 	if err != nil {
 		s.log.Error("ERROR on creating new sale payment: ", err)
