@@ -117,6 +117,7 @@ type AutoOrderResponse struct {
 	Products []AutoOrderProduct `json:"Товары"`
 }
 
+// auto order product structure
 type AutoOrderProduct struct {
 	MaterialCode int    `json:"material_code"`
 	Name         string `json:"name"`
