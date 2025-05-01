@@ -51,12 +51,10 @@ func NewRouter(option Options) {
 	// corsConfig.ExposeHeaders = []string{"Content-Length"}                                                                // Expose specific headers to the client
 	corsConfig.AllowCredentials = true // Allow credentials (cookies, auth headers, etc.)
 	corsConfig.AllowAllOrigins = true
-	corsConfig.AllowCredentials = true
 	corsConfig.AllowHeaders = []string{"*"}
 	corsConfig.AllowBrowserExtensions = true
-	corsConfig.AllowMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}
-	corsConfig.AllowBrowserExtensions = true
-	corsConfig.MaxAge = 12 * 60 * 60
+	corsConfig.AllowMethods = []string{"*"}
+	// corsConfig.MaxAge = 12 * 60 * 60
 
 	// middleware
 	option.Gin.Use(cors.New(corsConfig))
