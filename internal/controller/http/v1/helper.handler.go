@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/spf13/cast"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -30,6 +31,7 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		helper.POST("/upload-mxik", h.CorrectMXIK)
 		helper.POST("/epos", h.EposTransmitter)
 		helper.POST("/upload-category", h.UploadCategory)
+		helper.POST("/upload-customer", h.UploadCustomer)
 	}
 }
 
@@ -440,4 +442,99 @@ func (h *HelperHandler) UploadCategory(c *gin.Context) {
 	}
 	fmt.Println("---->>> ", count)
 	handleResponse(c, OK, "Products MXIK CODE uploaded successfully: ")
+}
+
+// UploadProduct godoc
+// @Summary Upload package code excel
+// @Description Upload package code excel
+// @Tags helper
+// @Security     BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param 	file formData file true "Excel file (.xlsx) containing product data"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /helper/upload-customer [POST]
+func (h *HelperHandler) UploadCustomer(c *gin.Context) {
+	var (
+		file domain.File
+		err  error
+	)
+	// bind request file
+	if err = c.ShouldBind(&file); err != nil {
+		h.log.Error("Failed to bind file: ", err.Error())
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	// Check file extension
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		h.log.Error("Unsupported file format: ", ext)
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+
+	// Save the uploaded file
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+	err = c.SaveUploadedFile(file.File, savePath)
+	if err != nil {
+		h.log.Error("Failed to save file: ", err.Error())
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+
+	// defer os.Remove(savePath)
+	// Open the Excel file
+	xlsx, err := excelize.OpenFile(savePath)
+	if err != nil {
+		h.log.Error("Failed to open .xlsx file: ", err.Error())
+		handleResponse(c, BadRequest, "Failed to process file")
+		return
+	}
+	defer xlsx.Close()
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		h.log.Error("Failed to get rows: ", err.Error())
+		handleResponse(c, InternalError, "Failed to get rows")
+		return
+	}
+
+	// build query
+	query := `
+	INSERT INTO customers(id, full_name, phone, birthday) VALUES(?, ?, ?, ?)
+	`
+	queryd := `
+	INSERT INTO discount_cards(customer_id, barcode, percent) VALUES(?, ?, ?)
+	`
+	var count = 0
+
+	// Process rows
+	for _, row := range rows[3:] {
+
+		count++
+		fmt.Println("FULLNAME: ", row[2], "PHONE: ", cast.ToString(row[3]), "DATE: ", cast.ToString(row[4]))
+		fmt.Println("BARCODE: ", row[5], "PERCENT: ", row[8])
+		customer := domain.CustomerRequest{
+			Id:       uuid.New().String(),
+			FullName: row[2],
+			Phone:    cast.ToString(row[3]),
+			Birthday: &row[4],
+		}
+		// // create measurements
+		err = h.db.Debug().Exec(query, customer.Id, customer.FullName, customer.Phone, customer.Birthday).Error
+		if err != nil {
+			h.log.Warn("ERROR on creating customers: %v", err)
+		}
+		err = h.db.Debug().Exec(queryd, customer.Id, row[5], row[8]).Error
+		if err != nil {
+			h.log.Warn("ERROR on creatig discount_card: %v", err)
+		}
+
+	}
+	fmt.Println("---->>> ", count)
+	handleResponse(c, OK, "Products Customer uploaded successfully: ")
 }

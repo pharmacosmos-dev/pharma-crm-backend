@@ -226,3 +226,9 @@ type ErrorResponse struct {
 	Error   bool   `json:"error"`
 	Message string `json:"message"`
 }
+
+// Add discount card structure
+type AddDiscountCard struct {
+	CustomerID string `json:"customer_id"`
+	SaleID     string `json:"sale_id"`
+}

@@ -917,3 +917,19 @@ func (h *SaleHandler) GetSaleList(c *gin.Context) {
 
 	handleResponse(c, OK, result)
 }
+
+// List godoc
+// @Summary Get a sale
+// @Description Get a sale from the request body
+// @Tags sales
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param body body domain.AddDiscountCard true "Add discount card"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /sale/discount-card [POST]
+func (h *SaleHandler) AddDiscountCard(c *gin.Context) {
+	
+}
