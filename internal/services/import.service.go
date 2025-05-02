@@ -349,11 +349,12 @@ func (s *Services) ListImportDetail(param *domain.ImportDetailQueryParams) ([]do
 		Preload("Import").
 		Select(`
 		import_details.*,
-		(import_details.retail_price*received_count) as received_amount,
-		(import_details.retail_price*accepted_count) as accepted_amount,
-		sum_vat as received_amount_vat,
-		(import_details.retail_price_vat*accepted_count) as accepted_amount_vat,
-		COALESCE(unit_types.short_name, '') as unit_name`).
+		ROUND((import_details.retail_price*received_count)::numeric, 2) as received_amount,
+		ROUND((import_details.retail_price*accepted_count)::numeric, 2) as accepted_amount,
+		ROUND(sum_vat, 2) as received_amount_vat,
+		ROUND((import_details.retail_price_vat*accepted_count)::numeric, 2) as accepted_amount_vat,
+		COALESCE(unit_types.short_name, '') as unit_name
+		`).
 		Joins("LEFT JOIN products ON import_details.product_id = products.id").
 		Joins("LEFT JOIN unit_types ON products.unit_type_id = unit_types.id").
 		Where("import_id = ?", param.ImportId)
@@ -384,6 +385,7 @@ func (s *Services) ListImportDetail(param *domain.ImportDetailQueryParams) ([]do
 		Limit(param.Limit).
 		Offset(param.Offset).
 		Order("products.name").
+		Debug().
 		Find(&importDetails).Error
 	if err != nil {
 		s.log.Error(err)
