@@ -1,1 +1,0 @@
-ALTER TABLE import_details DROP COLUMN IF EXISTS "unit_quantity";
