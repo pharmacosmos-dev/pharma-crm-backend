@@ -1,5 +1,12 @@
 basePath: /v1
 definitions:
+  domain.AddDiscountCard:
+    properties:
+      customer_id:
+        type: string
+      sale_id:
+        type: string
+    type: object
   domain.AddScanRequest:
     properties:
       barcode:
@@ -9116,6 +9123,38 @@ paths:
       security:
       - BearerAuth: []
       summary: Update a sale
+      tags:
+      - sales
+  /sale/discount-card:
+    post:
+      consumes:
+      - application/json
+      description: Get a sale from the request body
+      parameters:
+      - description: Add discount card
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.AddDiscountCard'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a sale
       tags:
       - sales
   /sale/epos-result:

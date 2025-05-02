@@ -107,14 +107,16 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 		productID := uuid.New().String()
 		// create or update product
 		err = tx.Raw(`
-		INSERT INTO products (material_code, name, barcode, producer_id, mxik)
-		VALUES (?, ?, ?, ?, ?)
+		INSERT INTO products (material_code, name, barcode, producer_id, mxik, is_marking)
+		VALUES (?, ?, ?, ?, ?, ?)
 		ON CONFLICT (material_code) DO UPDATE
 		SET
-			producer_id = EXCLUDED.producer_id
+			producer_id = EXCLUDED.producer_id, 
+			mxik = EXCLUDED.mxik, 
+			is_marking = EXCLUDED.is_marking
 		RETURNING id`,
 			body.Товары[i].MaterialCode,
-			body.Товары[i].Name, body.Товары[i].Barcode, producer.Id, body.Товары[i].Ikpu).Scan(&productID).Error
+			body.Товары[i].Name, body.Товары[i].Barcode, producer.Id, body.Товары[i].Ikpu, body.Товары[i].Mar).Scan(&productID).Error
 		if err != nil {
 			h.log.Warn("ERROR on creating new product: %v", err.Error())
 			handleResponse(c, BadRequest, "Error on checking product data")
@@ -126,7 +128,7 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 		var id string
 		err = tx.Raw(`
 		INSERT INTO import_details(
-			product_id, import_id, 
+			product_id, import_id,
 			received_count, scanned_count, supply_price, supply_price_vat,
 			retail_price, retail_price_vat,
 			vat, vat_sum, expire_date, series_number, 

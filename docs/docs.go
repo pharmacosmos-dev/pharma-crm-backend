@@ -12340,6 +12340,57 @@ const docTemplate = `{
                 }
             }
         },
+        "/sale/discount-card": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get a sale from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sales"
+                ],
+                "summary": "Get a sale",
+                "parameters": [
+                    {
+                        "description": "Add discount card",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.AddDiscountCard"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/sale/epos-result": {
             "post": {
                 "security": [
@@ -15571,6 +15622,17 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "domain.AddDiscountCard": {
+            "type": "object",
+            "properties": {
+                "customer_id": {
+                    "type": "string"
+                },
+                "sale_id": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.AddScanRequest": {
             "type": "object",
             "properties": {

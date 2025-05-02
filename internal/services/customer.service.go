@@ -8,7 +8,7 @@ import (
 )
 
 // get customer list data
-func (s *Services) ListCustomer(search, storeID string, limit, offset int) ([]domain.Customer, int64, error) {
+func (s *Services) ListCustomer(param *domain.QueryParam) ([]domain.Customer, int64, error) {
 	var (
 		res        []domain.Customer
 		totalCount int64
@@ -30,19 +30,19 @@ func (s *Services) ListCustomer(search, storeID string, limit, offset int) ([]do
 		Joins("LEFT JOIN sales ON sales.customer_id = customers.id").
 		Where("customers.is_active = ?", true)
 
-	if search != "" {
-		search = fmt.Sprintf("%%%s%%", search)
+	if param.Search != "" {
+		param.Search = fmt.Sprintf("%%%s%%", param.Search)
 		query = query.Where("customers.full_name ILIKE ? OR customers.phone LIKE ? OR CAST(customers.public_id AS TEXT) LIKE ?",
-			search, search, strings.Trim(search, "%"))
+			param.Search, param.Search, strings.Trim(param.Search, "%"))
 	}
-	if storeID != "" {
-		query = query.Where("customers.store_id = ?", storeID)
+	if param.StoreID != "" {
+		query = query.Where("customers.store_id = ?", param.StoreID)
 	}
 	err := query.
 		Group("customers.id").
 		Count(&totalCount).
-		Limit(limit).
-		Offset(offset).
+		Limit(param.Limit).
+		Offset(param.Offset).
 		Order("customers.created_at DESC").
 		Find(&res).Error
 	if err != nil {

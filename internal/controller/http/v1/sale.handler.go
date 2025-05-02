@@ -41,6 +41,7 @@ func (h *SaleHandler) SaleRoutes(r *gin.RouterGroup) {
 		sale.GET("/stats", h.SaleStats)
 		sale.POST("/epos-result", h.EposRequest)
 		sale.GET("/get-list", h.GetSaleList)
+		sale.POST("/discount-card", h.AddDiscountCard)
 	}
 }
 
@@ -925,11 +926,41 @@ func (h *SaleHandler) GetSaleList(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept 	json
 // @Produce json
-// @Param body body domain.AddDiscountCard true "Add discount card"
+// @Param 	body body domain.AddDiscountCard true "Add discount card"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /sale/discount-card [POST]
 func (h *SaleHandler) AddDiscountCard(c *gin.Context) {
-	
+	var (
+		body         domain.AddDiscountCard
+		discountCard domain.DiscountCard
+	)
+	// bind request body
+	if err := c.ShouldBindJSON(&body); err != nil {
+		handleResponse(c, BadRequest, "Invalid request body")
+		return
+	}
+	// get discount card info by customer id
+	err := h.db.First(&discountCard, "customer_id = ?", body.CustomerID).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			handleResponse(c, NotFound, "discount card not found")
+			return
+		}
+		h.log.Warn("ERROR on getting discount card info: %v", err)
+		handleResponse(c, NotFound, "Can't get discount card")
+		return
+	}
+
+	// create new sale_discount_card
+	err = h.db.Raw(`INSERT INTO sale_discount_cards(customer_id, sale_id, discount_percent) VALUES(?, ?, ?)`,
+		body.CustomerID, body.SaleID, discountCard.Percent).Error
+	if err != nil {
+		h.log.Warn("ERROR on creating sale discount: %v", err)
+		handleResponse(c, InternalError, "Can't create sale discount")
+		return
+	}
+
+	handleResponse(c, OK, discountCard)
 }

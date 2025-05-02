@@ -136,6 +136,7 @@ type ProductRequest1C struct {
 	Barcode             string   `gorm:"barcode" json:"barcode" validate:"required,min=0,max=255"`
 	SumVat              float64  `gorm:"sum_vat" json:"sum_vat"`
 	Ikpu                string   `gorm:"ikpu" json:"ikpu" validate:"omitempty,len=min=14,max=255"`
+	Mar                 bool     `gorm:"mar" json:"mar"`
 	Markirovka          []string `gorm:"-" json:"markirovka"`
 }
 

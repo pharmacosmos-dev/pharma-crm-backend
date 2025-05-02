@@ -149,24 +149,21 @@ func (h *CustomerHandler) Get(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /customer/list [get]
 func (h *CustomerHandler) List(c *gin.Context) {
-	var (
-		search  = c.Query("search")
-		storeID = c.Query("store_id")
-	)
-	// get limit and offset
-	limit, offset, err := getPaginationParams(c)
-	if err != nil {
-		handleResponse(c, BadRequest, err.Error())
+	var param domain.QueryParam
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "Invalid query param")
 		return
 	}
+
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 	// get customers data
-	res, totalCount, err := h.service.ListCustomer(search, storeID, limit, offset)
+	res, totalCount, err := h.service.ListCustomer(&param)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 	// add _meta data
-	result := utils.ListResponse(res, totalCount, limit, offset)
+	result := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
 
 	handleResponse(c, OK, result)
 }
@@ -187,18 +184,17 @@ func (h *CustomerHandler) List(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /customer/export-excel [get]
 func (h *CustomerHandler) ExportCustomerExcel(c *gin.Context) {
-	var (
-		search  = c.Query("search")
-		storeID = c.Query("store_id")
-	)
-	// get limit and offset
-	limit, offset, err := getPaginationParams(c)
-	if err != nil {
-		handleResponse(c, BadRequest, err.Error())
+
+	var param domain.QueryParam
+	// bind query param
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "Invalid query param")
 		return
 	}
+
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 	// get customers data
-	res, _, err := h.service.ListCustomer(search, storeID, limit, offset)
+	res, _, err := h.service.ListCustomer(&param)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return

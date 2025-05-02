@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS sale_discount_cards(
     "sale_id" UUID REFERENCES sales(id),
     "discount_card_id" UUID REFERENCES discount_cards(id),
     "discount_amount" NUMERIC(10, 2) DEFAULT 0.00,
+    "discount_percent" INT,
     "created_at" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     "updated_at" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
