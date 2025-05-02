@@ -95,8 +95,19 @@ func (s *Services) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domai
 	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	for _, item := range importDetails {
 		if item.AcceptedCount > 0 {
+			packQty, frac := helper.SplitFloatParts(item.ScannedCount)
+			unitQty := packQty*item.UnitPerPack + frac
 			// add imported products to store_products
-			err = tx.Exec(storeProductQuery, importData.StoreID, item.ProductID, item.ScannedCount, float64(item.UnitPerPack)*item.ScannedCount, item.SupplyPriceVat, item.RetailPriceVat, item.Vat, item.ExpireDate, item.VatSum/float64(item.ReceivedCount), item.Id, item.SeriesNumber).Error
+			err = tx.Exec(storeProductQuery,
+				importData.StoreID,
+				item.ProductID,
+				packQty,
+				unitQty,
+				item.SupplyPriceVat,
+				item.RetailPriceVat,
+				item.Vat, item.ExpireDate,
+				item.RetailPrice*0.12,
+				item.Id, item.SeriesNumber).Error
 			if err != nil {
 				s.log.Error(err)
 				return err
@@ -174,7 +185,19 @@ func (s *Services) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import)
 	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	for _, item := range importDetails {
 		if item.ReceivedCount > 0 {
-			err = tx.Exec(storeProductQuery, importData.StoreID, item.ProductID, item.ReceivedCount, float64(item.UnitPerPack)*item.ReceivedCount, item.SupplyPriceVat, item.RetailPriceVat, item.Vat, item.ExpireDate, item.VatSum/float64(item.ReceivedCount), item.Id, item.SeriesNumber).Error
+			packQty, frac := helper.SplitFloatParts(item.ReceivedCount)
+			unitQty := packQty*item.UnitPerPack + frac
+
+			err = tx.Exec(storeProductQuery,
+				importData.StoreID,
+				item.ProductID,
+				int(packQty),
+				unitQty,
+				item.SupplyPriceVat,
+				item.RetailPriceVat,
+				item.Vat, item.ExpireDate,
+				item.RetailPrice*0.12,
+				item.Id, item.SeriesNumber).Error
 			if err != nil {
 				s.log.Error(err)
 				return err

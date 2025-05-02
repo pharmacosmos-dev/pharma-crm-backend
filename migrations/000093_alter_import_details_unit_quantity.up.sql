@@ -1,0 +1,1 @@
+ALTER TABLE import_details ADD COLUMN IF NOT EXISTS "unit_quantity" INT DEFAULT 0;

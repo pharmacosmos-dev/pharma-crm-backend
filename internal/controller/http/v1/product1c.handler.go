@@ -123,7 +123,6 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 			tx.Rollback()
 			return
 		}
-
 		// create import_detail
 		var id string
 		err = tx.Raw(`

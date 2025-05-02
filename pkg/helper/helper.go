@@ -1,6 +1,9 @@
 package helper
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 )
@@ -39,4 +42,22 @@ func IsAdmin(employee domain.Employee, cfg *config.Config) bool {
 		return false
 	}
 	return true
+}
+
+// divide float to integer and fractional section
+func SplitFloatParts(number float64) (intPart int, fracPart int) {
+	str := fmt.Sprintf("%f", number)  // convert to string with decimals
+	str = strings.TrimRight(str, "0") // remove trailing zeros
+	parts := strings.Split(str, ".")  // split into integer and fractional parts
+
+	intPart = 0
+	fracPart = 0
+
+	if len(parts) > 0 {
+		fmt.Sscanf(parts[0], "%d", &intPart)
+	}
+	if len(parts) > 1 {
+		fmt.Sscanf(parts[1], "%d", &fracPart)
+	}
+	return
 }
