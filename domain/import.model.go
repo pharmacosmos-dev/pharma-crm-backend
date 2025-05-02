@@ -20,8 +20,8 @@ type Import struct {
 	ImportDate        *time.Time `gorm:"import_date" json:"import_date"`
 	AcceptedAmount    float64    `gorm:"accepted_amount" json:"accepted_amount"`
 	ReceivedAmount    float64    `gorm:"received_amount" json:"received_amount"`
-	ReceivedCount     int        `gorm:"received_count" json:"received_count"`
-	AcceptedCount     int        `gorm:"accepted_count" json:"accepted_count"`
+	ReceivedCount     float64    `gorm:"received_count" json:"received_count"`
+	AcceptedCount     float64    `gorm:"accepted_count" json:"accepted_count"`
 	AcceptedAmountVat float64    `gorm:"accepted_amount_vat" json:"accepted_amount_vat"`
 	ReceivedAmountVat float64    `gorm:"received_amount_vat" json:"received_amount_vat"`
 	CreatedAt         *time.Time `gorm:"created_at" json:"created_at"`
@@ -45,10 +45,10 @@ type ImportDetail struct {
 	Id                string     `gorm:"id" json:"id"`
 	ImportID          string     `gorm:"import_id" json:"import_id"`
 	ProductID         *string    `gorm:"product_id" json:"product_id"`
-	ReceivedCount     int        `gorm:"received_count" json:"received_count"`
-	AcceptedCount     int        `gorm:"accepted_count" json:"accepted_count"`
-	ScannedCount      int        `gorm:"scanned_count" json:"scanned_count"`
-	CanceledCount     int        `gorm:"canceled_count" json:"canceled_count"`
+	ReceivedCount     float64    `gorm:"received_count" json:"received_count"`
+	AcceptedCount     float64    `gorm:"accepted_count" json:"accepted_count"`
+	ScannedCount      float64    `gorm:"scanned_count" json:"scanned_count"`
+	CanceledCount     float64    `gorm:"canceled_count" json:"canceled_count"`
 	SupplyPrice       float64    `gorm:"supply_price" json:"supply_price"`
 	SupplyPriceVat    float64    `gorm:"supply_price_vat" json:"supply_price_vat"`
 	RetailPrice       float64    `gorm:"retail_price" json:"retail_price"`
@@ -77,8 +77,8 @@ type ImportDetail struct {
 type ImportDetailRequest struct {
 	ImportID       string            `gorm:"import_id" json:"import_id"`
 	ProductID      *string           `gorm:"product_id" json:"product_id"`
-	ReceivedCount  int               `gorm:"received_count" json:"received_count"`
-	AcceptedCount  int               `gorm:"accepted_count" json:"accepted_count"`
+	ReceivedCount  float64           `gorm:"received_count" json:"received_count"`
+	AcceptedCount  float64           `gorm:"accepted_count" json:"accepted_count"`
 	SupplyPrice    float64           `gorm:"supply_price" json:"supply_price"`
 	SupplyPriceVat float64           `gorm:"supply_price_vat" json:"supply_price_vat"`
 	RetailPrice    float64           `gorm:"retail_price" json:"retail_price"`
@@ -103,10 +103,10 @@ type AddScanRequest struct {
 }
 
 type StockCountResponse struct {
-	ScannedCount  int `json:"scanned_count"`
-	ShortageCount int `json:"shortage_count"`
-	TotalCount    int `json:"total_count"`
-	SurplusCount  int `json:"surplus_count"`
+	ScannedCount  float64 `json:"scanned_count"`
+	ShortageCount float64 `json:"shortage_count"`
+	TotalCount    float64 `json:"total_count"`
+	SurplusCount  float64 `json:"surplus_count"`
 }
 
 // product markirovka structure
@@ -136,13 +136,13 @@ type AcceptImport1C struct {
 
 // AcceptImport1CResponse structure for 1C resonse API
 type AcceptImport1CResponse struct {
-	MaterialCode        int    `gorm:"material_code" json:"material_code"`
-	Name                string `gorm:"name" json:"name"`
-	Barcode             string `gorm:"barcode" json:"barcode"`
-	Manufacturer        string `gorm:"manufacturer" json:"manufacturer"`
-	ProductSeriesNumber string `gorm:"product_series_number" json:"product_series_number"`
-	Quantity            int    `gorm:"quantity" json:"quantity"`
-	QuantityFakt        int    `gorm:"quantity_fakt" json:"quantity_fakt"`
+	MaterialCode        int     `gorm:"material_code" json:"material_code"`
+	Name                string  `gorm:"name" json:"name"`
+	Barcode             string  `gorm:"barcode" json:"barcode"`
+	Manufacturer        string  `gorm:"manufacturer" json:"manufacturer"`
+	ProductSeriesNumber string  `gorm:"product_series_number" json:"product_series_number"`
+	Quantity            float64 `gorm:"quantity" json:"quantity"`
+	QuantityFakt        float64 `gorm:"quantity_fakt" json:"quantity_fakt"`
 }
 
 // import detail query params
