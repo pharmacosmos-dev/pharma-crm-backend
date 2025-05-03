@@ -83,12 +83,21 @@ func (s *Services) CreateReturnSale(req *domain.SaleReturnRequest) (*domain.Sale
 // create new sale or get pending sale
 func (s *Services) CreateOrGetSale(req *domain.SaleRequest) (*domain.Sale, error) {
 	var res *domain.Sale
-	// getting pending sale
-	err := s.db.Where("store_id = ? AND employee_id = ? AND cash_box_operation_id = ? AND cashbox_id = ?",
-		req.StoreId, req.EmployeeID, req.CashBoxOperationId, req.CashboxId).
-		First(&res, "status = ? ", config.PENDING).Error
-	// check sale if sale may not found create new and return
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+
+	// getting pending sale with no cart items
+	err := s.db.
+		Raw(`
+			SELECT * FROM sales 
+			WHERE store_id = ? AND employee_id = ? AND cash_box_operation_id = ? AND cashbox_id = ?
+			AND status = ? 
+			AND NOT EXISTS (
+				SELECT 1 FROM cart_items WHERE cart_items.sale_id = sales.id
+			)
+			LIMIT 1
+		`, req.StoreId, req.EmployeeID, req.CashBoxOperationId, req.CashboxId, config.PENDING).
+		Scan(&res).Error
+
+	if errors.Is(err, gorm.ErrRecordNotFound) || res == nil || res.ID == "" {
 		res, err = s.CreateSale(req)
 		if err != nil {
 			s.log.Warn("ERROR on creating sale: %v", err)
