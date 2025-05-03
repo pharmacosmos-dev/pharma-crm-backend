@@ -6014,6 +6014,55 @@ const docTemplate = `{
                 }
             }
         },
+        "/helper/upload-unit-count": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Upload package code excel",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "helper"
+                ],
+                "summary": "Upload package code excel",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Excel file (.xlsx) containing product data",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/import": {
             "post": {
                 "security": [
@@ -16370,7 +16419,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "accepted_count": {
-                    "type": "integer"
+                    "type": "number"
                 },
                 "expire_date": {
                     "type": "string"
@@ -16388,7 +16437,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "received_count": {
-                    "type": "integer"
+                    "type": "number"
                 },
                 "retail_price": {
                     "type": "number"
@@ -16745,6 +16794,9 @@ const docTemplate = `{
                     "maxLength": 255,
                     "minLength": 1
                 },
+                "mar": {
+                    "type": "boolean"
+                },
                 "markirovka": {
                     "type": "array",
                     "items": {
@@ -16752,7 +16804,7 @@ const docTemplate = `{
                     }
                 },
                 "markup": {
-                    "type": "integer"
+                    "type": "number"
                 },
                 "material_code": {
                     "type": "integer"
@@ -16766,7 +16818,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "quantity": {
-                    "type": "integer",
+                    "type": "number",
                     "minimum": 0
                 },
                 "retail_price": {

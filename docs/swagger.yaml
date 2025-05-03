@@ -494,7 +494,7 @@ definitions:
   domain.ImportDetailRequest:
     properties:
       accepted_count:
-        type: integer
+        type: number
       expire_date:
         type: string
       import_id:
@@ -506,7 +506,7 @@ definitions:
       product_id:
         type: string
       received_count:
-        type: integer
+        type: number
       retail_price:
         type: number
       retail_price_vat:
@@ -735,12 +735,14 @@ definitions:
         maxLength: 255
         minLength: 1
         type: string
+      mar:
+        type: boolean
       markirovka:
         items:
           type: string
         type: array
       markup:
-        type: integer
+        type: number
       material_code:
         type: integer
       name:
@@ -751,7 +753,7 @@ definitions:
         type: string
       quantity:
         minimum: 0
-        type: integer
+        type: number
       retail_price:
         type: number
       retail_price_vat:
@@ -4996,6 +4998,37 @@ paths:
       tags:
       - helper
   /helper/upload-package-code:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload package code excel
+      parameters:
+      - description: Excel file (.xlsx) containing product data
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Upload package code excel
+      tags:
+      - helper
+  /helper/upload-unit-count:
     post:
       consumes:
       - multipart/form-data

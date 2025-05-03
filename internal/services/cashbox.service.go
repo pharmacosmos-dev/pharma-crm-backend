@@ -276,3 +276,8 @@ func (s *Services) CreateCashboxOperation(req *domain.CashboxOperationRequest, u
 	}
 	return &sale, nil
 }
+
+// // Sebd daily sold items
+// func (s *Services) sendDailySoldItems() {
+
+// }

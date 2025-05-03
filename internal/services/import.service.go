@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"time"
 
@@ -95,8 +96,11 @@ func (s *Services) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domai
 	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	for _, item := range importDetails {
 		if item.AcceptedCount > 0 {
-			packQty, frac := helper.SplitFloatParts(item.ScannedCount)
-			unitQty := packQty*item.UnitPerPack + frac
+			// agar N30 lik tovar bo'lsa va 2.67 quantity qabul qilinsa hisoblanish
+			// packQt = 2 butun qismini oladi, frac esa 0.67 qismi oladi va 0.67 ni 30 ga ko'paytiradi: 20.1
+			// unitQt umumiy donalar sonini qabul qiladi 2 * 30 + 0.67 * 30
+			packQty, frac := math.Modf(item.ReceivedCount)
+			unitQty := packQty*float64(item.UnitPerPack) + math.Ceil(frac*float64(item.UnitPerPack))
 			// add imported products to store_products
 			err = tx.Exec(storeProductQuery,
 				importData.StoreID,
@@ -185,14 +189,17 @@ func (s *Services) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import)
 	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	for _, item := range importDetails {
 		if item.ReceivedCount > 0 {
-			packQty, frac := helper.SplitFloatParts(item.ReceivedCount)
-			unitQty := packQty*item.UnitPerPack + frac
+			// agar N30 lik tovar bo'lsa va 2.67 quantity qabul qilinsa hisoblanish
+			// packQt = 2 butun qismini oladi, frac esa 0.67 qismi oladi va 0.67 ni 30 ga ko'paytiradi: 20.1
+			// unitQt umumiy donalar sonini qabul qiladi 2 * 30 + 0.67 * 30
+			packQty, frac := math.Modf(item.ReceivedCount)
+			unitQty := packQty*float64(item.UnitPerPack) + math.Ceil(frac*float64(item.UnitPerPack))
 
 			err = tx.Exec(storeProductQuery,
 				importData.StoreID,
 				item.ProductID,
 				int(packQty),
-				unitQty,
+				int(unitQty),
 				item.SupplyPriceVat,
 				item.RetailPriceVat,
 				item.Vat, item.ExpireDate,
