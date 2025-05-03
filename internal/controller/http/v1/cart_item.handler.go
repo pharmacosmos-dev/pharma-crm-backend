@@ -78,7 +78,7 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 
 	// check sale status
 	if sale.Status == config.COMPLETED {
-		handleResponse(c, UnprocessableEntity, "This sale is already completed. You cannot use it again.")
+		handleResponse(c, NotAcceptable, "This sale is already completed. You cannot use it again.")
 		return
 	}
 
