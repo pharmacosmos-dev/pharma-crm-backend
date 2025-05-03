@@ -22,3 +22,7 @@ func (h *TasnifHandler) TasnifRoutes(r *gin.RouterGroup) {
 func (h *TasnifHandler) UpdateTasnifInfos(c *gin.Context) {
 
 }
+
+func (h *TasnifHandler) CorrectUnitCode(c *gin.Context) {
+	
+}

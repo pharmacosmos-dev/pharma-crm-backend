@@ -47,8 +47,8 @@ func (s *Services) ProductSearch(param *domain.StoreProductQueryParam) ([]*domai
 		default:
 			// Transliterate search keyword Latin to Cyrillic OR Cyrillic to Latin
 			translatedWord := utils.Translit(param.Search)
-			filter += " AND (name_tsvector @@ to_tsquery('russian', ?) OR name_tsvector @@ to_tsquery('simple', ?)) "
-			args = append(args, param.Search+":*", translatedWord+":*")
+			filter += " AND (name ILIKE ? OR name ILIKE ?) "
+			args = append(args, "%"+param.Search+"%", "%"+translatedWord+"%")
 		}
 	}
 	// collect query
