@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,10 +10,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/xuri/excelize/v2"
+	"gorm.io/gorm"
 )
 
 type ImportHandler struct {
@@ -708,6 +711,22 @@ func (h *ImportHandler) AcceptImport(c *gin.Context) {
 			tx.Rollback()
 		}
 	}()
+	var imports domain.Import
+	err := h.db.First(&imports, "id = ?", id).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			handleResponse(c, NotFound, "Import Not found")
+			return
+		}
+		h.log.Warn("ERROR on getting import info: %v", err)
+		handleResponse(c, InternalError, "Can't ")
+	}
+
+	if imports.Status == config.COMPLETED {
+		handleResponse(c, CONFLICT, "Import already completed")
+		return
+	}
+
 	// update imports status to completed
 	importData, err := h.service.AcceptImport(tx, id, userID.(string))
 	if err != nil {
@@ -824,6 +843,23 @@ func (h *ImportHandler) AcceptSomeImport(c *gin.Context) {
 			tx.Rollback()
 		}
 	}()
+
+	var imports domain.Import
+	err := h.db.First(&imports, "id = ?", id).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			handleResponse(c, NotFound, "Import Not found")
+			return
+		}
+		h.log.Warn("ERROR on getting import info: %v", err)
+		handleResponse(c, InternalError, "Can't ")
+	}
+
+	if imports.Status == config.COMPLETED {
+		handleResponse(c, CONFLICT, "Import already completed")
+		return
+	}
+
 	// update import status to completed
 	importData, err := h.service.AcceptImport(tx, id, userID.(string))
 	if err != nil {

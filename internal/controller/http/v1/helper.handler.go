@@ -194,10 +194,8 @@ func (h *HelperHandler) UploadPackageCodeExcel(c *gin.Context) {
 	}
 
 	// build query
-	query := `
-	INSERT INTO product_measurements (
-			mxik_code, mxik_name_uz, unit_name, unit_code)
-	VALUES (?, ?, ?, ?) ON CONFLICT (mxik_code) DO NOTHING;`
+	// query := `
+	// UPDATE products SET unit_code = ?, unit_label = ? WHERE mxik = ? AND (unit_code is null OR unit_code = '')`
 
 	// query1 := `
 	// UPDATE product_measurements SET
@@ -205,17 +203,8 @@ func (h *HelperHandler) UploadPackageCodeExcel(c *gin.Context) {
 	// WHERE mxik_code = ?;`
 
 	// Process rows
-	for i := len(rows) - 1; i >= 2; i-- {
-		row := rows[i]
-		if len(row) > 3 {
-			// create measurements
-			err = h.db.Debug().Exec(query, row[0], row[1], row[2], row[3]).Error
-			if err != nil {
-				h.log.Error(err)
-				handleResponse(c, InternalError, err.Error())
-				return
-			}
-		}
+	for _, row := range rows[1:] {
+		fmt.Println("KOD: ", row[0], "IKPU: ", row[2], "UKOD: ", row[3], "UName: ", row[4])
 	}
 
 	handleResponse(c, OK, "Products MXIK CODE uploaded successfully")
