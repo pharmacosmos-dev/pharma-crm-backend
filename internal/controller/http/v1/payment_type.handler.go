@@ -104,7 +104,7 @@ func (h *PaymentTypeHandler) Get(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param 	cash_box_id query string false "Cash Box ID"
+// @Param 	cashbox_id query string false "Cash Box ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -112,16 +112,17 @@ func (h *PaymentTypeHandler) Get(c *gin.Context) {
 func (h *PaymentTypeHandler) List(c *gin.Context) {
 	var (
 		res       = []*domain.PaymentType{}
-		cashBoxId = c.Query("cash_box_id")
+		cashBoxId = c.Query("cashbox_id")
 	)
 	query := h.db.Model(&domain.PaymentType{})
 	if cashBoxId != "" {
 		query = h.db.
 			Table("payment_types pt").
 			Select("pt.*", "COALESCE(cpt.is_active, false) AS is_active").
-			Joins("LEFT JOIN cashbox_payment_types cpt ON cpt.payment_type_id = pt.id").Where("cpt.cash_box_id = ?", cashBoxId)
+			Joins("LEFT JOIN cashbox_payment_types cpt ON cpt.payment_type_id = pt.id").
+			Where("cpt.cash_box_id = ?", cashBoxId)
 	}
-	err := query.Debug().Find(&res).Error
+	err := query.Where("is_active = TRUE").Order("created_at DESC").Find(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -239,21 +240,23 @@ func (h *PaymentTypeHandler) CreatePaymentService(c *gin.Context) {
 		body domain.PaymentServiceRequest
 		err  error
 	)
+	// bind request body
 	if err = c.ShouldBindJSON(&body); err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
+		handleResponse(c, BadRequest, "Invalid request body")
 		return
 	}
+	// create new payment service
 	body.ID = uuid.New().String()
 	err = h.db.
 		WithContext(c.Request.Context()).
 		Table("payment_services").
 		Create(&body).Error
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		h.log.Warn("ERROR on creating payment service")
+		handleResponse(c, InternalError, "Can't create payment service")
 		return
 	}
+
 	handleResponse(c, CREATED, "CREATED")
 }
 
@@ -273,6 +276,7 @@ func (h *PaymentTypeHandler) GetPaymentService(c *gin.Context) {
 		res domain.PaymentService
 		id  = c.Param("id")
 	)
+	// get payment service by id
 	err := h.db.
 		First(&res, "id = ?", id).Error
 	if err != nil {
@@ -302,6 +306,7 @@ func (h *PaymentTypeHandler) ListPaymentService(c *gin.Context) {
 	if storeID != "" {
 		query = query.Where("store_id = ?", storeID)
 	}
+	//
 	err := query.Where("deleted_at IS NULL").Find(&res).Error
 	if err != nil {
 		h.log.Error(err)

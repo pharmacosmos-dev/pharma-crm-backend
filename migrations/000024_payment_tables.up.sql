@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS "payment_types" (
     "name" VARCHAR(255),
     "type" VARCHAR(10),
     "description" TEXT,
+    "is_active" BOOLEAN DEFAULT FALSE,
     "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

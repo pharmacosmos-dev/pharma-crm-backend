@@ -55,6 +55,7 @@ type PaymentService struct {
 type PaymentServiceRequest struct {
 	ID             string     `gorm:"id" json:"-"`
 	StoreID        string     `gorm:"store_id" json:"store_id"`
+	PaymentTypeId  string     `gorm:"payment_type_id" json:"payment_type_id"`
 	Name           string     `gorm:"name" json:"name" example:"Click|Payme|Uzum"`
 	Type           string     `gorm:"type" json:"type" example:"click|payme|uzum"`
 	MerchantID     int        `gorm:"merchant_id" json:"merchant_id"`

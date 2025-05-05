@@ -194,19 +194,25 @@ func (h *HelperHandler) UploadPackageCodeExcel(c *gin.Context) {
 	}
 
 	// build query
-	// query := `
-	// UPDATE products SET unit_code = ?, unit_label = ? WHERE mxik = ? AND (unit_code is null OR unit_code = '')`
+	query := `
+	UPDATE products SET unit_code = ?, unit_label = ? WHERE material_code = ? AND mxik = ? AND (unit_code is null OR unit_code = '')
+	`
 
 	// query1 := `
 	// UPDATE product_measurements SET
 	// 	mxik_name_ru = ?
 	// WHERE mxik_code = ?;`
-
+	var count = 0
 	// Process rows
 	for _, row := range rows[1:] {
 		fmt.Println("KOD: ", row[0], "IKPU: ", row[2], "UKOD: ", row[3], "UName: ", row[4])
+		count++
+		err := h.db.Exec(query, row[3], row[4], cast.ToInt(row[0]), row[2]).Error
+		if err != nil {
+			h.log.Warn("ERROR on updating products: %v", err)
+		}
 	}
-
+	fmt.Println("COUNT: ", count)
 	handleResponse(c, OK, "Products MXIK CODE uploaded successfully")
 }
 
