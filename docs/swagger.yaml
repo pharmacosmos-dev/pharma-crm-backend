@@ -10094,6 +10094,29 @@ paths:
       summary: Get all tags
       tags:
       - tags
+  /tasnif/update-package-code:
+    post:
+      consumes:
+      - application/json
+      description: update package code with tasnif API
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      summary: update package code with tasnif API
+      tags:
+      - Tasnif
   /transaction:
     post:
       consumes:
