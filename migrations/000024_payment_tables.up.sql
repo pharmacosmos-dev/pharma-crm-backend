@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS "payment_types" (
     "type" VARCHAR(10),
     "description" TEXT,
     "is_active" BOOLEAN DEFAULT FALSE,
+    "order_number" INT DEFAULT 0,
     "created_at" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     "updated_at" TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

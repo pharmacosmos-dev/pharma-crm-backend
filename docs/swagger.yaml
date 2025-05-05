@@ -592,6 +592,8 @@ definitions:
       name:
         example: Click|Payme|Uzum
         type: string
+      payment_type_id:
+        type: string
       secret_key:
         type: string
       service_id:
@@ -6324,7 +6326,7 @@ paths:
       parameters:
       - description: Cash Box ID
         in: query
-        name: cash_box_id
+        name: cashbox_id
         type: string
       produces:
       - application/json

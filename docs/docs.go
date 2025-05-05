@@ -7906,7 +7906,7 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "Cash Box ID",
-                        "name": "cash_box_id",
+                        "name": "cashbox_id",
                         "in": "query"
                     }
                 ],
@@ -16568,6 +16568,9 @@ const docTemplate = `{
                 "name": {
                     "type": "string",
                     "example": "Click|Payme|Uzum"
+                },
+                "payment_type_id": {
+                    "type": "string"
                 },
                 "secret_key": {
                     "type": "string"

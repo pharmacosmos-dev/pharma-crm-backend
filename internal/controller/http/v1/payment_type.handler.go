@@ -122,12 +122,13 @@ func (h *PaymentTypeHandler) List(c *gin.Context) {
 			Joins("LEFT JOIN cashbox_payment_types cpt ON cpt.payment_type_id = pt.id").
 			Where("cpt.cash_box_id = ?", cashBoxId)
 	}
-	err := query.Where("is_active = TRUE").Order("created_at DESC").Find(&res).Error
+	err := query.Where("is_active = TRUE").Order("order_number ASC").Find(&res).Error
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		h.log.Warn("ERROR on getting payment type list: %v", err)
+		handleResponse(c, InternalError, "Can't get payment type list")
 		return
 	}
+
 	handleResponse(c, OK, res)
 }
 
