@@ -145,7 +145,7 @@ func (s *Services) ProductReport(param *domain.ReportQueryParam) ([]domain.Produ
 	var (
 		res        []domain.ProductReport
 		totalCount int64
-		filter     = " WHERE sl.status = 'completed' AND ci.status = 'sold' "
+		filter     = " WHERE sl.status = 'completed' "
 		args       = []any{}
 		order      = " ORDER BY sl.completed_at DESC "
 		pagination = fmt.Sprintf(" LIMIT %d OFFSET %d ", param.Limit, param.Offset)
@@ -224,7 +224,7 @@ func (s *Services) ProductReport(param *domain.ReportQueryParam) ([]domain.Produ
 	}
 
 	query = query + filter + order + pagination
-	err := s.db.Raw(query, args...).Scan(&res).Error
+	err := s.db.Debug().Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting product report: %v", err)
 		return res, 0, nil
