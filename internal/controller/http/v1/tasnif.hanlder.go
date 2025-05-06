@@ -40,7 +40,7 @@ func (h *TasnifHandler) TasnifRoutes(r *gin.RouterGroup) {
 func (h *TasnifHandler) UpdatePackageCode(c *gin.Context) {
 	var products []domain.ProductData
 	// get product list
-	err := h.db.Table("products").Where("mxik is not null AND mxik <> ''").Find(&products).Error
+	err := h.db.Table("products").Where("mxik is not null AND mxik <> '' AND updated_at::date <> '2025-05-06'").Find(&products).Error
 	if err != nil {
 		h.log.Warn("ERROR on getting product list: %v", err)
 		handleResponse(c, InternalError, "Can't get product get list")
