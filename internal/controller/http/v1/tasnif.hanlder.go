@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
@@ -84,9 +83,7 @@ func (h *TasnifHandler) UpdatePackageCode(c *gin.Context) {
 		if err != nil {
 			h.log.Warn("ERROR on inserting mxik_packages: %v", err)
 		}
-
 		count++
-		time.Sleep(time.Millisecond * 500)
 	}
 	fmt.Println("COUNT: ", count)
 	c.JSON(http.StatusOK, "SUCCESS: "+cast.ToString(count))

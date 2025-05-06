@@ -89,12 +89,12 @@ func (s *Services) CreateOrGetSale(req *domain.SaleRequest) (*domain.Sale, error
 		Raw(`
 			SELECT * FROM sales 
 			WHERE store_id = ? AND employee_id = ? AND cash_box_operation_id = ? AND cashbox_id = ?
-			AND status = ? 
+			AND status = ?  AND sale_type = ?
 			AND NOT EXISTS (
 				SELECT 1 FROM cart_items WHERE cart_items.sale_id = sales.id
 			)
 			LIMIT 1
-		`, req.StoreId, req.EmployeeID, req.CashBoxOperationId, req.CashboxId, config.PENDING).
+		`, req.StoreId, req.EmployeeID, req.CashBoxOperationId, req.CashboxId, config.PENDING, config.SALE_TYPE_SALE).
 		Scan(&res).Error
 
 	if errors.Is(err, gorm.ErrRecordNotFound) || res == nil || res.ID == "" {

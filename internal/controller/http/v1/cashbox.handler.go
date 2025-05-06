@@ -6,7 +6,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
@@ -413,7 +412,7 @@ func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
 
 	// Check if there is an open cashbox operation for this employee
 	var cashboxOperation domain.CashboxOperation
-	err := h.db.Debug().Raw(`
+	err := h.db.Raw(`
 	SELECT co.* FROM cashbox_operations co 
     JOIN cash_boxes cb ON co.cash_box_id = cb.id 
          WHERE co.end_time IS NULL AND co.current_employee_id = ? AND cb.store_id = ?;`, userID, storeId).Scan(&cashboxOperation).Error
@@ -432,35 +431,18 @@ func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
 	// If a cashbox operation exists
 	if cashboxOperation.ID != "" {
 		// Check for a pending sale linked to this cashbox operation
-		var sale domain.Sale
-		err := h.db.Where("status = ? AND cash_box_operation_id = ? AND sale_type = ?", "pending", cashboxOperation.ID, config.SALE_TYPE_SALE).First(&sale).Error
+		var sale *domain.Sale
+		sale, err = h.service.CreateOrGetSale(&domain.SaleRequest{
+			CashBoxOperationId: cashboxOperation.ID,
+			EmployeeID:         userID.(string),
+			StoreId:            storeId,
+			CashboxId:          cashboxOperation.CashBoxID,
+		})
 		if err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				// No pending sale found; create a new one
-				newSale := domain.SaleRequest{
-					CashBoxOperationId: cashboxOperation.ID,
-					EmployeeID:         userID.(string),
-					ID:                 uuid.New().String(),
-					StoreId:            storeId,
-					CashboxId:          cashboxOperation.CashBoxID,
-				}
-				if createErr := h.db.Table("sales").Create(&newSale).Error; createErr != nil {
-					h.log.Error(createErr)
-					handleResponse(c, InternalError, "Failed to create new sale")
-					return
-				}
-
-				// Set the new sale ID in the response
-				checkCashBox.SaleID = newSale.ID
-				checkCashBox.IsOpen = true
-				handleResponse(c, OK, checkCashBox)
-				return
-			}
-			h.log.Error(err)
-			handleResponse(c, InternalError, "Failed to check for pending sale")
+			h.log.Warn("ERROR on creating new sale: %v", err)
+			handleResponse(c, InternalError, "Can't create new sale on cheching cashbox")
 			return
 		}
-
 		// If a pending sale exists
 		checkCashBox.SaleID = sale.ID
 		checkCashBox.IsOpen = true
