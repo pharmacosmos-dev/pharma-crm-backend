@@ -54,6 +54,12 @@ type InventoryDetail struct {
 	MaterialCode    int        `gorm:"material_code" json:"material_code"`
 	Barcode         string     `gorm:"barcode" json:"barcode"`
 	ShortName       string     `gorm:"short_name" json:"short_name"`
+	RetailPriceVat  float64    `gorm:"retail_price_vat" json:"retail_price"`
+	StockSum        float64    `gorm:"stock_sum" json:"stock_sum"`
+	ScannedSum      float64    `gorm:"scanned_sum" json:"scanned_sum"`
+	DifferenceSum   float64    `gorm:"difference_sum" json:"difference_sum"`
+	SeriesNumber    string     `gorm:"series_number" json:"serial_number"`
+	ExpireDate      *time.Time `gorm:"expire_date" json:"expire_date"`
 	CreatedAt       *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt       *time.Time `gorm:"updated_at" json:"updated_at"`
 }

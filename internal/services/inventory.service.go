@@ -128,6 +128,10 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
 		Model(&domain.ImportDetail{}).
 		Select(`
 		import_details.*,
+		import_details.scanned_count - import_details.received_count AS difference_count,
+		(import_details.received_count*import_details.retail_price_vat) AS stock_sum,
+		(import_details.scanned_count*import_details.retail_price_vat) AS scanned_sum,
+		((import_details.scanned_count - import_details.received_count)*import_details.retail_price_vat) AS difference_sum,
     	p.name, p.material_code, p.barcode, ut.short_name`).
 		Joins("JOIN products p ON import_details.product_id = p.id").
 		Joins("LEFT JOIN unit_types ut ON p.unit_type_id = ut.id").
