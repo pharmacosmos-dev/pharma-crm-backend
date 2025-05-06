@@ -516,8 +516,37 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /cart_item/{id} [delete]
 func (h *CartItemHandler) Delete(c *gin.Context) {
-	var id = c.Param("id")
-	err := h.db.Delete(&domain.CartItem{}, "id = ?", id).Error
+	var (
+		id       = c.Param("id")
+		cartItem domain.CartItem
+	)
+	if err := uuid.Validate(id); err != nil {
+		handleResponse(c, BadRequest, "Invalid cart item id")
+		return
+	}
+	// getting cart item
+	err := h.db.First(&cartItem, "id = ?", id).Error
+	if err != nil {
+		h.log.Warn("ERROR on getting cart_item: %v", err)
+		handleResponse(c, InternalError, "Can't get cart_items")
+		return
+	}
+
+	// getting sale
+	var sale domain.Sale
+	err = h.db.First(&sale, "id = ?", cartItem.SaleId).Error
+	if err != nil {
+		h.log.Warn("ERROR on getting sale: %v", err)
+		handleResponse(c, InternalError, "Can't get sale")
+		return
+	}
+
+	if sale.Status == config.COMPLETED {
+		handleResponse(c, BadRequest, "Cannot delete a cart item from a completed sale.")
+	}
+
+	// delete cart item
+	err = h.db.Delete(&domain.CartItem{}, "id = ?", id).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -540,20 +569,41 @@ func (h *CartItemHandler) Delete(c *gin.Context) {
 // @Router /cart_item/multiple [post]
 func (h *CartItemHandler) MultipleDelete(c *gin.Context) {
 	var (
-		body domain.Ids
-		err  error
+		body     domain.Ids
+		err      error
+		cartItem domain.CartItem
 	)
+	// bind cart item ids
 	if err = c.ShouldBindJSON(&body); err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
+		handleResponse(c, BadRequest, "Invalid cart item ids")
 		return
 	}
 
-	err = h.db.Delete(&domain.CartItem{}, "id in (?)", body.Ids).Error
-
+	// getting cart item
+	err = h.db.First(&cartItem, "id = ?", body.Ids[0]).Error
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		h.log.Warn("ERROR on getting cart_item: %v", err)
+		handleResponse(c, InternalError, "Can't get cart_items")
+		return
+	}
+	// getting sale
+	var sale domain.Sale
+	err = h.db.First(&sale, "id = ?", cartItem.SaleId).Error
+	if err != nil {
+		h.log.Warn("ERROR on getting sale: %v", err)
+		handleResponse(c, InternalError, "Can't get sale")
+		return
+	}
+	// check sale status
+	if sale.Status == config.COMPLETED {
+		handleResponse(c, BadRequest, "Cannot delete a cart item from a completed sale.")
+	}
+
+	// delete cart items
+	err = h.db.Delete(&domain.CartItem{}, "id in (?)", body.Ids).Error
+	if err != nil {
+		h.log.Warn("ERROR on deleting cart items: %v", err)
+		handleResponse(c, InternalError, "Can't delete cart items")
 		return
 	}
 	handleResponse(c, OK, "DELETED")
