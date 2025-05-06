@@ -542,7 +542,8 @@ func (h *CartItemHandler) Delete(c *gin.Context) {
 	}
 
 	if sale.Status == config.COMPLETED {
-		handleResponse(c, BadRequest, "Cannot delete a cart item from a completed sale.")
+		handleResponse(c, CONFLICT, "Cannot delete a cart item from a completed sale.")
+		return
 	}
 
 	// delete cart item
@@ -596,7 +597,8 @@ func (h *CartItemHandler) MultipleDelete(c *gin.Context) {
 	}
 	// check sale status
 	if sale.Status == config.COMPLETED {
-		handleResponse(c, BadRequest, "Cannot delete a cart item from a completed sale.")
+		handleResponse(c, CONFLICT, "Cannot delete a cart item from a completed sale.")
+		return
 	}
 
 	// delete cart items
