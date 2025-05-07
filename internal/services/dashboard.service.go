@@ -29,10 +29,10 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 		// get sale stats information
 		querys = fmt.Sprintf(`
 		SELECT 
-			COUNT(CASE WHEN completed_at::date BETWEEN '%s' AND '%s' THEN id END) sale_count,
-    		COUNT(CASE WHEN completed_at::date BETWEEN '%s' AND '%s' THEN id END) before_sale_count,
-			SUM(CASE WHEN completed_at::date BETWEEN '%s' AND '%s' THEN total_amount END) AS sale_amount,
-			SUM(CASE WHEN completed_at::date BETWEEN '%s' AND '%s' THEN total_amount END) AS before_sale_amount
+			COUNT(CASE WHEN (completed_at + interval '5 hours')::date BETWEEN '%s' AND '%s' THEN id END) sale_count,
+    		COUNT(CASE WHEN (completed_at + interval '5 hours')::date BETWEEN '%s' AND '%s' THEN id END) before_sale_count,
+			SUM(CASE WHEN (completed_at + interval '5 hours')::date BETWEEN '%s' AND '%s' THEN total_amount END) AS sale_amount,
+			SUM(CASE WHEN (completed_at + interval '5 hours')::date BETWEEN '%s' AND '%s' THEN total_amount END) AS before_sale_amount
 		FROM sales WHERE status = 'completed' AND sale_type = 'SALE' `,
 			param.StartDate, param.EndDate, beforeStart, beforeEnd,
 			param.StartDate, param.EndDate, beforeStart, beforeEnd)
@@ -79,7 +79,7 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 
 	// get total sale count and amount
 	querys += filter
-	err := s.db.Raw(querys, args...).Scan(&sale).Error
+	err := s.db.Debug().Raw(querys, args...).Scan(&sale).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
@@ -87,7 +87,7 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 
 	// get total product count
 	queryp += filter
-	err = s.db.Raw(queryp, args...).Scan(&product).Error
+	err = s.db.Debug().Raw(queryp, args...).Scan(&product).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
