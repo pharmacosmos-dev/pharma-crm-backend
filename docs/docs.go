@@ -1736,6 +1736,54 @@ const docTemplate = `{
                 }
             }
         },
+        "/cash_box_operation/send-expense/{id}": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Send shift expense to 1C",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "cash_boxes"
+                ],
+                "summary": "Send Shift Expenses",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cashbox operation ID",
+                        "name": "id",
+                        "in": "path"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/cash_box_operation/shift": {
             "get": {
                 "security": [
@@ -6764,55 +6812,6 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/domain.ImportUpdateRequest"
                         }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/import/excel-upload": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Upload excel file",
-                "consumes": [
-                    "multipart/form-data"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "imports"
-                ],
-                "summary": "Upload excel file",
-                "parameters": [
-                    {
-                        "type": "file",
-                        "description": "Excel file (.xlsx) containing import data",
-                        "name": "file",
-                        "in": "formData",
-                        "required": true
                     }
                 ],
                 "responses": {

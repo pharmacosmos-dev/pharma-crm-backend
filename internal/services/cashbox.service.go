@@ -1,6 +1,8 @@
 package services
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -277,7 +279,105 @@ func (s *Services) CreateCashboxOperation(req *domain.CashboxOperationRequest, u
 	return &sale, nil
 }
 
-// // Sebd daily sold items
-// func (s *Services) sendDailySoldItems() {
+// send expense products to 1C
+func (s *Services) SendExpenseTo1C(cashboxOperationID string) error {
+	// get cashbox operation info with store
+	query := `
+	SELECT
+		co.id,
+		co.cash_box_id AS cashbox_id,
+		cb.store_id, s.name AS store_name, s.store_code
+	FROM cashbox_operations co
+		JOIN cash_boxes cb ON co.cash_box_id = cb.id
+		JOIN stores s ON cb.store_id = s.id
+	WHERE co.id = ?
+	`
+	var cashStore domain.OperationWithStore
+	err := s.db.Raw(query, cashboxOperationID).Scan(&cashStore).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting store info with operation: %v", err)
+		return err
+	}
+	var expenseData domain.SendExpense
+	expenseData.Store.StoreCode = cashStore.StoreCode
+	expenseData.Store.Name = cashStore.StoreName
 
-// }
+	// get expense docs number
+	docNumberQuery := `
+	SELECT 'NP-' || LPAD(store_code::TEXT, 5, '0') || '-' || TO_CHAR(NOW(), 'YYYYMMDDHH24MI') AS docs_number
+	FROM stores
+	WHERE id = ?;`
+	err = s.db.Raw(docNumberQuery, cashStore.StoreId).Scan(&expenseData.Document.NumberDok).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting expense docs number: %v", err)
+		return err
+	}
+
+	// create new shift expense
+	err = s.CreateNewExpense(&cashStore, expenseData.Document.NumberDok)
+	if err != nil {
+		s.log.Warn("ERROR on creating shift expense: %v", err)
+		return err
+	}
+
+	// get expense dok time with adding 5 hours
+	expenseData.Document.DocumentDate = time.Now().Add(time.Hour * 5).Format(time.DateTime)
+	// get expense products query
+	expenseProductQuery := `
+	SELECT
+		sp.product_id,
+		p.material_code,
+		p.name,
+		p.barcode,
+		p.mxik AS ikpu,
+		COALESCE(pr.name, '') AS manufacturer,
+		COALESCE(sp.serial_number, '') AS product_series_number,
+		sp.expire_date::date,
+		SUM(ci.quantity) AS quantity,
+		SUM(ci.unit_quantity) AS unit_quantity,
+		sp.supply_price AS supply_price_vat,
+		sp.retail_price AS retail_price_vat,
+		id.supply_price,
+		id.retail_price,
+		sp.vat,
+		ROUND((sp.vat_price*SUM(ci.quantity)) + ((sp.vat_price/p.unit_per_pack)*SUM(ci.unit_quantity)), 2) AS vat_sum,
+		ROUND((id.retail_price*SUM(ci.quantity)) + ((id.retail_price/p.unit_per_pack)*SUM(ci.unit_quantity)), 2) AS sum,
+		SUM(ci.total_price) AS sum_vat
+	FROM sales s
+	JOIN cart_items ci ON s.id = ci.sale_id
+	JOIN store_products sp ON ci.store_product_id = sp.id
+	JOIN products p ON sp.product_id = p.id
+	LEFT JOIN producers pr ON p.producer_id = pr.id
+	LEFT JOIN import_details id ON sp.import_detail_id = id.id
+	WHERE s.cash_box_operation_id = ?
+	AND s.status = 'completed' AND s.sale_type = 'SALE'
+	GROUP BY
+		p.id, pr.id, sp.id, id.id
+	`
+	// complete get expense product list
+	err = s.db.Raw(expenseProductQuery, cashboxOperationID).Scan(&expenseData.Товары).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting expense products: %v", err)
+		return err
+	}
+	// check expense product length
+	if len(expenseData.Товары) < 1 {
+		return nil
+	}
+
+	t, _ := json.Marshal(expenseData)
+	fmt.Println("--->>> ", string(t))
+
+	// send fakt to 1C
+	err = s.DoRequest(context.Background(), expenseData, "/rasxod")
+	if err != nil {
+		s.log.Warn("ERROR on send rasxod request: %v", err)
+		return err
+	}
+	// update expense status to 1 after successfully sent
+	err = s.UpdateExpenseStatusByDocNumber(1, expenseData.Document.NumberDok)
+	if err != nil {
+		return err
+	}
+	return nil
+}

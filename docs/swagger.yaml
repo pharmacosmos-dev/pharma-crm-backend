@@ -2403,6 +2403,36 @@ paths:
       summary: Get a cash box Operation
       tags:
       - cash_boxes
+  /cash_box_operation/send-expense/{id}:
+    post:
+      consumes:
+      - application/json
+      description: Send shift expense to 1C
+      parameters:
+      - description: Cashbox operation ID
+        in: path
+        name: id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Send Shift Expenses
+      tags:
+      - cash_boxes
   /cash_box_operation/shift:
     get:
       consumes:
@@ -5552,37 +5582,6 @@ paths:
       security:
       - BearerAuth: []
       summary: First imports
-      tags:
-      - imports
-  /import/excel-upload:
-    post:
-      consumes:
-      - multipart/form-data
-      description: Upload excel file
-      parameters:
-      - description: Excel file (.xlsx) containing import data
-        in: formData
-        name: file
-        required: true
-        type: file
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Upload excel file
       tags:
       - imports
   /import/export-excel:

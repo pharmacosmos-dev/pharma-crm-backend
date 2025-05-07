@@ -299,60 +299,87 @@ func (h *EmployeeHandler) ExportEmployeeExcel(c *gin.Context) {
 func (h *EmployeeHandler) Update(c *gin.Context) {
 	var (
 		body = domain.EmployeeRequest{}
-
-		id  = c.Param("id")
-		err error
+		id   = c.Param("id")
+		err  error
 	)
-	err = c.ShouldBindJSON(&body)
-	if err != nil {
+	// bind request body
+	if err = c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	// validate phone number
 	if !utils.IsValidPhone(body.Phone) {
 		handleResponse(c, BadRequest, "Invalid phone number, Format: 998901234567")
 		return
 	}
-
+	// collect full_name by adding first and last name
 	body.FullName = body.FirstName + " " + body.LastName
+	// check password password not nill
 	if body.Password != nil {
+		// get encrypted new password
 		*body.Password, err = etc.Encrypt(*body.Password, h.cfg.HeshKey)
 		if err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, err.Error())
+			h.log.Warn("ERROR on encrypting new password: %v", err)
+			handleResponse(c, InternalError, "Can't encrypt new password")
 			return
 		}
 	}
-	if len(body.RoleIds) > 0 {
+	if len(body.RoleIds) > 0 { // checking employee roles received or no with length
+		// clean employee roles data which is depends on the employee
 		err = h.db.WithContext(c.Request.Context()).
 			Delete(&domain.EmployeeRole{}, "employee_id = ?", id).Error
 		if err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, err.Error())
+			h.log.Warn("ERROR on deleting employee roles: %v", err)
+			handleResponse(c, InternalError, "Can't delete employee roles")
 			return
 		}
 		var employeeRoles []domain.EmployeeRole
 		for _, roleId := range body.RoleIds {
+			// collect new employee roles info
 			employeeRoles = append(employeeRoles, domain.EmployeeRole{
 				Id:         uuid.New().String(),
 				EmployeeId: id,
 				RoleId:     roleId,
 			})
 		}
+		// create new employee roles
 		err = h.db.WithContext(c.Request.Context()).Create(&employeeRoles).Error
 		if err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, err.Error())
+			h.log.Warn("ERROR on creating employee roles on update: %v", err)
+			handleResponse(c, InternalError, "Can't update employee roles")
 			return
 		}
 	}
+	// update employee information
+	updateData := map[string]any{
+		"full_name":  body.FullName,
+		"first_name": body.FirstName,
+		"last_name":  body.LastName,
+		"phone":      body.Phone,
+		"gender":     body.Gender,
+		"language":   body.Language,
+		"birthdate":  body.Birthdate,
+	}
+
+	if body.Password != nil {
+		updateData["password"] = *body.Password
+	}
+
+	// Explicitly set store_id to NULL if it is not provided in the request
+	if body.StoreId != nil {
+		updateData["store_id"] = body.StoreId
+	} else {
+		updateData["store_id"] = nil
+	}
+
 	err = h.db.WithContext(c.Request.Context()).
 		Table("employees").
 		Where("id = ?", id).
-		Updates(&body).Error
+		Updates(updateData).Error
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		h.log.Warn("ERROR on updating employee info: %v", err)
+		handleResponse(c, InternalError, "Can't update employee data")
 		return
 	}
 	handleResponse(c, OK, body)
@@ -388,7 +415,7 @@ func (h *EmployeeHandler) Delete(c *gin.Context) {
 		WithContext(c.Request.Context()).
 		Table("employees").
 		Where("id IN (?)", ids).
-		Updates(map[string]interface{}{
+		Updates(map[string]any{
 			"status":    "deleted",
 			"is_active": false,
 		}).Error

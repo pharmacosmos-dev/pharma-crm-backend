@@ -170,3 +170,46 @@ type EmployeeCashbox struct {
 	CreatedAt   *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt   *time.Time `gorm:"updated_at" json:"updated_at"`
 }
+
+// cashbox operation with store info
+type OperationWithStore struct {
+	Id        string `gorm:"id" json:"id"`
+	CashboxId string `gorm:"cashbox_id" json:"cashbox_id"`
+	StoreId   string `gorm:"store_id" json:"store_id"`
+	StoreCode int    `gorm:"store_code" json:"store_code"`
+	StoreName string `gorm:"store_name" json:"store_name"`
+}
+
+// Send Expenses structure
+type SendExpense struct {
+	Document ExpenseDok       `json:"Dok"`
+	Store    Apteka           `json:"Apteka"`
+	Товары   []ExpenseProduct `json:"Товары"`
+}
+
+// expense document structure
+type ExpenseDok struct {
+	DocumentDate string `gorm:"document_date" json:"data_dok"`
+	NumberDok    string `gorm:"nomer_dok" json:"nomer_dok"`
+}
+
+// expense product structure
+type ExpenseProduct struct {
+	MaterialCode        int     `gorm:"material_code" json:"material_code"`
+	Name                string  `gorm:"name" json:"name"`
+	Barcode             string  `gorm:"barcode" json:"barcode"`
+	Manufacturer        string  `gorm:"manufacturer" json:"manufacturer"`
+	ProductSeriesNumber string  `gorm:"product_series_number" json:"product_series_number"`
+	ExpireDate          string  `gorm:"expire_date" json:"expire_date"`
+	Quantity            float64 `gorm:"quantity" json:"quantity"`
+	UnitQuantity        float64 `gorm:"unit_quantity" json:"unit_quantity"`
+	RetailPrice         float64 `gorm:"retail_price" json:"retail_price"`
+	RetailPriceVat      float64 `gorm:"retail_price_vat" json:"retail_price_vat"`
+	SupplyPrice         float64 `gorm:"supply_price" json:"supply_price"`
+	SupplyPriceVat      float64 `gorm:"supply_price_vat" json:"supply_price_vat"`
+	Sum                 float64 `gorm:"sum" json:"sum"`
+	SumVat              float64 `gorm:"sum_vat" json:"sum_vat"`
+	IKPU                string  `gorm:"ikpu" json:"ikpu"`
+	Vat                 string  `gorm:"vat" json:"vat"`
+	VatSum              float64 `gorm:"vat_sum" json:"vat_sum"`
+}
