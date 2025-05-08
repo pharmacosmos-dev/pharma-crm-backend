@@ -306,12 +306,40 @@ ORDER BY root_category_id, LENGTH(name_path) DESC;
 // @Failure 500 {object} v1.Response
 // @Router /product/list [get]
 func (h *ProductHandler) List(c *gin.Context) {
-	var param domain.ProductQueryParam
+	var (
+		param domain.ProductQueryParam
+		err   error
+	)
 	// bind
-	if err := c.ShouldBindQuery(&param); err != nil {
+	if err = c.ShouldBindQuery(&param); err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+
+	// get user_id from the context
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	// get employee info
+	var employee domain.Employee
+	err = h.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			param.StoreID = employee.StoreId
+		}
+	}
+
 	// Pagination parameters
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 	// get products list
@@ -358,8 +386,32 @@ func (h *ProductHandler) ExportProductExcel(c *gin.Context) {
 	// Pagination parameters
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 
+	// get user_id from the context
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	// get employee info
+	var employee domain.Employee
+	err := h.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			param.StoreID = employee.StoreId
+		}
+	}
+
 	// get products list
-	res, err := h.service.ListProductExport(&param)
+	res, err = h.service.ListProductExport(&param)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -428,6 +480,30 @@ func (h *ProductHandler) TotalStatusCount(c *gin.Context) {
 	if err := c.ShouldBindQuery(&param); err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
+	}
+
+	// get user_id from the context
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	// get employee info
+	var employee domain.Employee
+	err := h.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			param.StoreID = employee.StoreId
+		}
 	}
 
 	res, err := h.service.ListProductStats(&param)

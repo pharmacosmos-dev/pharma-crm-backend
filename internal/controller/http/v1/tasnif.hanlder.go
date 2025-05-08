@@ -3,6 +3,7 @@ package v1
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -39,7 +40,7 @@ func (h *TasnifHandler) TasnifRoutes(r *gin.RouterGroup) {
 func (h *TasnifHandler) UpdatePackageCode(c *gin.Context) {
 	var products []domain.ProductData
 	// get product list
-	err := h.db.Table("products").Where("mxik is not null AND mxik <> '' AND updated_at::date <> '2025-05-06'").Find(&products).Error
+	err := h.db.Table("products").Where("mxik is not null AND mxik <> '' and unit_code is null").Find(&products).Error
 	if err != nil {
 		h.log.Warn("ERROR on getting product list: %v", err)
 		handleResponse(c, InternalError, "Can't get product get list")
@@ -71,10 +72,15 @@ func (h *TasnifHandler) UpdatePackageCode(c *gin.Context) {
 		}
 		defer resp.Body.Close()
 		var res domain.TasnifResponse
+		result, _ := io.ReadAll(resp.Body)
+
 		// decode the tasnif response
-		err = json.NewDecoder(resp.Body).Decode(&res)
+		err = json.Unmarshal(result, &res)
+		// err = json.NewDecoder(resp.Body).Decode(&res)
 		if err != nil {
 			h.log.Warn("ERROR on decoding tasnif %v", err)
+			fmt.Println("--->>> ", string(result))
+			fmt.Println("====>> ", p.MXIK)
 			handleResponse(c, InternalError, "Can't decode response data")
 			return
 		}
