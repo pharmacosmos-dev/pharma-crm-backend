@@ -305,7 +305,7 @@ func (s *Services) SendExpenseTo1C(storeID string) error {
 	}
 
 	// create new shift expense
-	err = s.CreateNewExpense(storeID, docNumberQuery)
+	err = s.CreateNewExpense(storeID, expenseData.Document.NumberDok)
 	if err != nil {
 		s.log.Warn("ERROR on creating shift expense: %v", err)
 		return err
