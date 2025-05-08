@@ -4998,6 +4998,37 @@ paths:
       summary: Upload package code excel
       tags:
       - helper
+  /helper/upload-import:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload import excel
+      parameters:
+      - description: Excel file (.xlsx) containing product data
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Upload import excel
+      tags:
+      - helper
   /helper/upload-mxik:
     post:
       consumes:

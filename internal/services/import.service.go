@@ -131,13 +131,16 @@ func (s *Services) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domai
 	if len(reqFakt.Товары) == 0 {
 		return errors.New("accepted products are not available")
 	}
-	// send fakt to 1C
-	err = s.DoRequest(context.Background(), reqFakt, "/prihod")
-	if err != nil {
-		s.log.Error(err)
-		tx.Rollback()
-		return errors.New("failed to send fakt to 1C")
+	if s.cfg.BaseUrl1C != "test" {
+		// send fakt to 1C
+		err = s.DoRequest(context.Background(), reqFakt, "/prihod")
+		if err != nil {
+			s.log.Error(err)
+			tx.Rollback()
+			return errors.New("failed to send fakt to 1C")
+		}
 	}
+
 	return nil
 }
 
@@ -223,13 +226,15 @@ func (s *Services) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import)
 		}
 	}
 
-	// // send fakt to 1C
-	err = s.DoRequest(context.Background(), reqFakt, "/prihod")
-	if err != nil {
-		s.log.Error(err)
-		return errors.New("failed to send fakt to 1C")
+	if s.cfg.BaseUrl1C != "test" {
+		// send fakt to 1C
+		err = s.DoRequest(context.Background(), reqFakt, "/prihod")
+		if err != nil {
+			s.log.Error(err)
+			tx.Rollback()
+			return errors.New("failed to send fakt to 1C")
+		}
 	}
-
 	return nil
 }
 
@@ -531,6 +536,7 @@ func (s *Services) DoRequest(ctx context.Context, data any, url string) error {
 		s.log.Error("failed to encode request data: %v", err)
 		return fmt.Errorf("failed to encode request data: %v", err)
 	}
+
 	// Construct request
 	req, err := http.NewRequestWithContext(ctx, "POST", s.cfg.BaseUrl1C+url, &buf)
 	if err != nil {

@@ -3,16 +3,21 @@ package v1
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/spf13/cast"
 	"github.com/xuri/excelize/v2"
+	"gorm.io/gorm"
 )
 
 type HelperHandler struct {
@@ -33,6 +38,7 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		helper.POST("/epos", h.EposTransmitter)
 		helper.POST("/upload-category", h.UploadCategory)
 		helper.POST("/upload-customer", h.UploadCustomer)
+		helper.POST("/upload-import", h.UploadImport)
 	}
 }
 
@@ -615,5 +621,151 @@ func (h *HelperHandler) UploadProductUnitCount(c *gin.Context) {
 
 	}
 	fmt.Println("---->>> ", count)
+	handleResponse(c, OK, "Products Customer uploaded successfully: ")
+}
+
+// Upload import godoc
+// @Summary Upload import excel
+// @Description Upload import excel
+// @Tags helper
+// @Security     BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param 	file formData file true "Excel file (.xlsx) containing product data"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /helper/upload-import [POST]
+func (h *HelperHandler) UploadImport(c *gin.Context) {
+	var (
+		file domain.File
+		err  error
+	)
+	// bind request file
+	if err = c.ShouldBind(&file); err != nil {
+		h.log.Error("Failed to bind file: ", err.Error())
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	// Check file extension
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		h.log.Error("Unsupported file format: ", ext)
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+
+	// Save the uploaded file
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+	err = c.SaveUploadedFile(file.File, savePath)
+	if err != nil {
+		h.log.Error("Failed to save file: ", err.Error())
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+
+	// defer os.Remove(savePath)
+	// Open the Excel file
+	xlsx, err := excelize.OpenFile(savePath)
+	if err != nil {
+		h.log.Error("Failed to open .xlsx file: ", err.Error())
+		handleResponse(c, BadRequest, "Failed to process file")
+		return
+	}
+	defer xlsx.Close()
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		h.log.Error("Failed to get rows: ", err.Error())
+		handleResponse(c, InternalError, "Failed to get rows")
+		return
+	}
+
+	// start transaction
+	tx := h.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	var store domain.Store
+	err = h.db.First(&store, "store_code = ?", 4963).Error
+	if err != nil {
+		h.log.Warn("ERROR on getting store: %v", err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	// collect import data
+	newImport := domain.ImportRequest{
+		Id:             uuid.New().String(),
+		StoreID:        store.Id,
+		Status:         config.NEW_IMPORT,
+		ImportDate:     "2025-05-08 17:10:00",
+		DocumentNumber: "NP-2025050817",
+	}
+	// create new import
+	err = tx.Table("imports").Create(&newImport).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(err.Error(), "unique constraint") {
+			h.log.Warn("duplicate document_number: %v", err)
+			handleResponse(c, OK, "Document with this number already exists")
+			tx.Rollback()
+			return
+		}
+		h.log.Error(fmt.Errorf("ERROR on creating dok: %v", err.Error()))
+		handleResponse(c, InternalError, "Failed to creating new import")
+		tx.Rollback()
+		return
+	}
+	for _, row := range rows[1:] {
+		fmt.Println("KOD:", row[0], "BARCODE: ", row[2], "MAR: ", row[5])
+
+		// // create product id
+		productID := uuid.New().String()
+		// create or update product
+		err = tx.Raw(`
+			INSERT INTO products (material_code, name, barcode, is_marking)
+			VALUES (?, ?, ?, ?)
+			ON CONFLICT (material_code) DO UPDATE
+			SET
+				producer_id = EXCLUDED.producer_id,
+				mxik = EXCLUDED.mxik,
+				is_marking = EXCLUDED.is_marking
+			RETURNING id`,
+			cast.ToInt(row[0]), row[1], row[2], cast.ToBool(row[5])).Scan(&productID).Error
+		if err != nil {
+			h.log.Warn("ERROR on creating new product: %v", err.Error())
+			handleResponse(c, BadRequest, "Error on checking product data")
+			tx.Rollback()
+			return
+		}
+		// create import_detail
+		var id string
+		err = tx.Raw(`
+			INSERT INTO import_details(
+				product_id, import_id,
+				received_count, scanned_count, supply_price, supply_price_vat,
+				retail_price, retail_price_vat,
+				vat, vat_sum, expire_date, series_number,
+				sum_vat, marking) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+			productID, newImport.Id, 100, 100, 7030.37, 7900.00, 8928.57, 10000.00,
+			12, 107143, "2025-12-31", "test", 1000000, utils.StringArray([]string{})).Scan(&id).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, "ERROR on creating import details")
+			tx.Rollback()
+			return
+		}
+	}
+	// check transaction completed
+	if err = tx.Commit().Error; err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, "Failed to commit transaction")
+		tx.Rollback()
+		return
+	}
 	handleResponse(c, OK, "Products Customer uploaded successfully: ")
 }
