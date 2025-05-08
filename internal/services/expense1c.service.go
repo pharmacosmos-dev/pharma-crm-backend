@@ -1,10 +1,8 @@
 package services
 
-import "github.com/pharma-crm-backend/domain"
-
-func (s *Services) CreateNewExpense(cashboxData *domain.OperationWithStore, docsNumber string) error {
-	query := `INSERT INTO shift_expenses(store_id, cashbox_id, cashbox_operation_id, docs_number) VALUES(?, ?, ?, ?)`
-	err := s.db.Exec(query, cashboxData.StoreId, cashboxData.CashboxId, cashboxData.Id, docsNumber).Error
+func (s *Services) CreateNewExpense(storeID string, docsNumber string) error {
+	query := `INSERT INTO shift_expenses(store_id, docs_number) VALUES(?, ?)`
+	err := s.db.Exec(query, storeID, docsNumber).Error
 	if err != nil {
 		s.log.Warn("ERROR on creating shift_expenses: %v", err)
 		return err

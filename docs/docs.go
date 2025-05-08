@@ -1757,7 +1757,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Cashbox operation ID",
+                        "description": "Store ID",
                         "name": "id",
                         "in": "path"
                     }

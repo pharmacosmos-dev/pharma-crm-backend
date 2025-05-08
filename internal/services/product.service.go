@@ -227,31 +227,20 @@ func (s *Services) ChangeStoreProductStock(tx *gorm.DB, id string, quantity, uni
 // get products get list
 func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.ProductData, int64, error) {
 	var (
-		res        []domain.ProductData
-		totalCount int64
-		args       []any
-		filter     = "WHERE 1=1 "
-		order      = " ORDER BY p.created_at DESC "
-		group      = " GROUP BY p.id, pr.id, u.id"
+		res           []domain.ProductData
+		totalCount    int64
+		args          []any
+		filter        = "WHERE 1=1 "
+		order         = " ORDER BY p.created_at DESC "
+		group         = " GROUP BY p.id, pr.id, u.id "
+		expireDayPart = ""
 	)
-	query := fmt.Sprintf(`
-	SELECT
-		p.id, p.name, p.photos, p.barcode, p.material_code, 
-		p.unit_per_pack, p.is_marking, p.mxik, p.unit_code, 
-		p.unit_label, p.created_at, p.updated_at,
-		pr.name AS manufacturer, u.unit_name, u.short_name,
-		SUM(sp.pack_quantity) AS quantity,
-		SUM(CASE WHEN p.unit_per_pack > 0 THEN sp.unit_quantity%sp.unit_per_pack ELSE 0 END) AS unit_quantity,
-		COUNT(1) OVER() AS total_count
-	FROM store_products sp
-	RIGHT JOIN products p ON sp.product_id = p.id
-	LEFT JOIN producers pr ON p.producer_id = pr.id
-	LEFT JOIN unit_types u ON p.unit_type_id = u.id
-	`, "%")
 
 	// filter with store_id
 	if param.StoreID != "" {
 		filter += " AND sp.store_id IN (?) "
+		expireDayPart = " DATE_PART('day', sp.expire_date::timestamp - NOW()) AS expire_day, sp.expire_date, "
+		group += " , sp.expire_date "
 		args = append(args, param.StoreID)
 	}
 	// filter with producer id
@@ -276,6 +265,7 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 		case "imminent":
 			filter += " AND (sp.expire_date::date BETWEEN ? AND ?) "
 			now := time.Now()
+			order = " ORDER BY sp.expire_date "
 			args = append(args, now.Format("2006-01-02"), now.Add(time.Hour*240).Format("2006-01-02"))
 		}
 	}
@@ -289,6 +279,23 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 	if param.NoBarcode {
 		filter += " AND (p.barcode IS NULL OR p.barcode = '') "
 	}
+
+	query := fmt.Sprintf(`
+	SELECT
+		p.id, p.name, p.photos, p.barcode, p.material_code, 
+		p.unit_per_pack, p.is_marking, p.mxik, p.unit_code, 
+		p.unit_label, p.created_at, p.updated_at,
+		pr.name AS manufacturer, u.unit_name, u.short_name,
+		SUM(sp.pack_quantity) AS quantity, 
+		%s
+		SUM(CASE WHEN p.unit_per_pack > 0 THEN sp.unit_quantity%sp.unit_per_pack ELSE 0 END) AS unit_quantity,
+		COUNT(1) OVER() AS total_count
+	FROM store_products sp
+	RIGHT JOIN products p ON sp.product_id = p.id
+	LEFT JOIN producers pr ON p.producer_id = pr.id
+	LEFT JOIN unit_types u ON p.unit_type_id = u.id
+	`, expireDayPart, "%")
+
 	// collect query
 	query += filter + group + order + " LIMIT ? OFFSET ?"
 	args = append(args, param.Limit, param.Offset)

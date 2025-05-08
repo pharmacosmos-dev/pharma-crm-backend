@@ -280,41 +280,32 @@ func (s *Services) CreateCashboxOperation(req *domain.CashboxOperationRequest, u
 }
 
 // send expense products to 1C
-func (s *Services) SendExpenseTo1C(cashboxOperationID string) error {
+func (s *Services) SendExpenseTo1C(storeID string) error {
 	// get cashbox operation info with store
-	query := `
-	SELECT
-		co.id,
-		co.cash_box_id AS cashbox_id,
-		cb.store_id, s.name AS store_name, s.store_code
-	FROM cashbox_operations co
-		JOIN cash_boxes cb ON co.cash_box_id = cb.id
-		JOIN stores s ON cb.store_id = s.id
-	WHERE co.id = ?
-	`
-	var cashStore domain.OperationWithStore
-	err := s.db.Raw(query, cashboxOperationID).Scan(&cashStore).Error
+
+	var store domain.Store
+	err := s.db.First(&store, "id = ?", storeID).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting store info with operation: %v", err)
 		return err
 	}
 	var expenseData domain.SendExpense
-	expenseData.Store.StoreCode = cashStore.StoreCode
-	expenseData.Store.Name = cashStore.StoreName
+	expenseData.Store.StoreCode = store.StoreCode
+	expenseData.Store.Name = store.Name
 
 	// get expense docs number
 	docNumberQuery := `
 	SELECT 'NP-' || LPAD(store_code::TEXT, 5, '0') || '-' || TO_CHAR(NOW(), 'YYYYMMDDHH24MI') AS docs_number
 	FROM stores
 	WHERE id = ?;`
-	err = s.db.Raw(docNumberQuery, cashStore.StoreId).Scan(&expenseData.Document.NumberDok).Error
+	err = s.db.Raw(docNumberQuery, storeID).Scan(&expenseData.Document.NumberDok).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting expense docs number: %v", err)
 		return err
 	}
 
 	// create new shift expense
-	err = s.CreateNewExpense(&cashStore, expenseData.Document.NumberDok)
+	err = s.CreateNewExpense(storeID, docNumberQuery)
 	if err != nil {
 		s.log.Warn("ERROR on creating shift expense: %v", err)
 		return err
@@ -349,13 +340,13 @@ func (s *Services) SendExpenseTo1C(cashboxOperationID string) error {
 	JOIN products p ON sp.product_id = p.id
 	LEFT JOIN producers pr ON p.producer_id = pr.id
 	LEFT JOIN import_details id ON sp.import_detail_id = id.id
-	WHERE s.cash_box_operation_id = ?
+	WHERE s.store_id = ?
 	AND s.status = 'completed' AND s.sale_type = 'SALE'
 	GROUP BY
 		p.id, pr.id, sp.id, id.id
 	`
 	// complete get expense product list
-	err = s.db.Raw(expenseProductQuery, cashboxOperationID).Scan(&expenseData.Товары).Error
+	err = s.db.Raw(expenseProductQuery, storeID).Scan(&expenseData.Товары).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting expense products: %v", err)
 		return err

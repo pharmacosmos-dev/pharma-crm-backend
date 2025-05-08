@@ -444,7 +444,7 @@ func (h CashBoxOperationHandler) OperationHistory(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept 	json
 // @Produce json
-// @Param 	id path string false "Cashbox operation ID"
+// @Param 	id path string false "Store ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response

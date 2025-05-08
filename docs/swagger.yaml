@@ -2409,7 +2409,7 @@ paths:
       - application/json
       description: Send shift expense to 1C
       parameters:
-      - description: Cashbox operation ID
+      - description: Store ID
         in: path
         name: id
         type: string
