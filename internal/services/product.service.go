@@ -266,7 +266,8 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 			filter += " AND (sp.expire_date::date BETWEEN ? AND ?) "
 			now := time.Now()
 			order = " ORDER BY sp.expire_date "
-			args = append(args, now.Format("2006-01-02"), now.Add(time.Hour*240).Format("2006-01-02"))
+			group += " , sp.expire_date "
+			args = append(args, now.Format("2006-01-02"), now.AddDate(0, 3, 0).Format("2006-01-02"))
 		}
 	}
 	// filter with search
@@ -414,7 +415,7 @@ func (s *Services) ListProductStats(param *domain.ProductQueryParam) (domain.Pro
 		SUM(CASE WHEN p.status = 'inactive' THEN sp.pack_quantity ELSE 0 END) AS inactive_count,
 		SUM(CASE WHEN sp.pack_quantity < 10 AND sp.pack_quantity > 0 THEN sp.pack_quantity ELSE 0 END) AS low_stock_quantity,
 		SUM(CASE WHEN sp.pack_quantity = 0 THEN 1 ELSE 0 END) AS zero_stock_count,
-		SUM(sp.pack_quantity) FILTER (WHERE sp.expire_date::date BETWEEN CURRENT_DATE AND (CURRENT_DATE + INTERVAL '10 days')) AS imminent_count,
+		SUM(sp.pack_quantity) FILTER (WHERE sp.expire_date::date BETWEEN CURRENT_DATE AND (CURRENT_DATE + INTERVAL '3 month')) AS imminent_count,
 		SUM(sp.pack_quantity) FILTER (WHERE sp.expire_date::date < CURRENT_DATE) AS expired_count,
 		COUNT(DISTINCT p.id) AS total_count
 	FROM store_products sp
