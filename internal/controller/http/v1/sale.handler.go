@@ -220,14 +220,15 @@ func (h *SaleHandler) Get(c *gin.Context) {
 	}
 
 	// get vat sum
+	var vatSum float64
 	err = h.db.Raw(`
 	SELECT
-			SUM(ROUND(sp.vat_price * quantity +(sp.vat_price / p.unit_per_pack) * ci.unit_quantity, 2)) AS vat_sum
+			 COALESCE(SUM(ROUND(sp.vat_price * quantity +(sp.vat_price / p.unit_per_pack) * ci.unit_quantity, 2)), 0) AS vat_sum
 	FROM cart_items ci
 		JOIN store_products sp ON sp.id = ci.store_product_id
 		JOIN products p ON sp.product_id = p.id
 		WHERE  sale_id = ?;
-	`, id).Scan(&res.VatSum).Error
+	`, id).Scan(&vatSum).Error
 	if err != nil {
 		h.log.Warn("ERROR on getting vat_sum: %v", err)
 		handleResponse(c, InternalError, "Can't calculate vat sum")
@@ -244,6 +245,7 @@ func (h *SaleHandler) Get(c *gin.Context) {
 	}
 	// get cart item products list
 	res.Product = products
+	res.VatSum = vatSum
 
 	handleResponse(c, OK, res)
 }
