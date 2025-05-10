@@ -178,6 +178,11 @@ type ProductRes struct {
 	Description    string            `gorm:"description" json:"description"`
 	BonusAmount    float64           `gorm:"bonus_amount" json:"bonus_amount"`
 	ShortName      string            `gorm:"short_name" json:"short_name"`
+	ClassCode      string            `gorm:"class_code" json:"class_code"`
+	PackageName    string            `gorm:"package_name" json:"package_name"`
+	Vat            float64           `gorm:"vat" json:"vat"`
+	VatPercent     float64           `gorm:"vat_percent" json:"vat_percent"`
+	DiscountAmount float64           `gorm:"discount_amount" json:"discount_amount"`
 }
 
 type ProductStats struct {

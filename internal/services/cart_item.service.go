@@ -26,16 +26,8 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 		pb.bonus_amount as bonus_amount,
 		sp.vat AS vat_percent,
 		sp.vat_price as vat_price,
-		ROUND(sp.vat_price * ci.quantity +
-		CASE
-			WHEN p.unit_per_pack > 0 THEN (sp.vat_price / p.unit_per_pack) * ci.unit_quantity
-			ELSE 0
-		END, 2) AS vat,
-		ROUND(
-		CASE
-			WHEN p.unit_per_pack > 0 THEN (ci.unit_price / p.unit_per_pack)
-			ELSE 0
-		END, 2) AS unit_quantity_price,
+		ROUND(sp.vat_price * ci.quantity + (sp.vat_price / p.unit_per_pack) * ci.unit_quantity, 2) AS vat,
+		ROUND(CASE WHEN p.unit_per_pack > 0 THEN (ci.unit_price / p.unit_per_pack) ELSE 0 END, 2) AS unit_quantity_price,
 		sp.pack_quantity AS quantity_stock,
 		sp.unit_quantity AS unit_quantity_stock,
 		u.unit_name,
@@ -91,6 +83,7 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 	if res == nil {
 		res = []domain.CartItemResponse{}
 	}
+
 	data.TotalAmount = data.Sum - data.DiscountAmount
 	data.Data = res
 	return &data, nil

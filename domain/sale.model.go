@@ -67,6 +67,7 @@ type SaleResponse struct {
 	SaleNumber         int            `gorm:"sale_number" json:"sale_number"`
 	TotalDiscount      float64        `gorm:"total_discount" json:"total_discount"`
 	TotalAmount        float64        `gorm:"total_amount" json:"total_amount"`
+	VatSum             float64        `gorm:"vat_sum" json:"vat_sum"`
 	ReturnedAmount     float64        `gorm:"returned_amount" json:"returned_amount"`
 	ProductCount       int            `gorm:"product_count" json:"product_count"`
 	CreatedAt          *time.Time     `gorm:"created_at" json:"created_at"`

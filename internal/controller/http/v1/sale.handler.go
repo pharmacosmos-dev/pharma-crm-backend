@@ -198,15 +198,15 @@ func (h *SaleHandler) Get(c *gin.Context) {
 	err = h.db.Raw(`
 	SELECT
 		p.id, sp.id AS store_product_id, p.name, p.barcode,
-		p.photos, ci.quantity, ci.unit_price AS pack_price,
-		ci.unit_quantity, ci.marking_count, ci.total_price, u.short_name,
-		(ci.discount_price*ci.quantity) AS  total_discount,
-		ROUND(
-		CASE
-			WHEN p.unit_per_pack > 0 THEN (ci.unit_price / p.unit_per_pack)
-			ELSE 0
-		END, 2) AS unit_price,
-		pb.bonus_amount*ci.quantity+ ROUND(CASE WHEN ci.unit_quantity>0 AND p.unit_per_pack > 0 THEN (pb.bonus_amount/p.unit_per_pack)*ci.unit_quantity ELSE 0 END, 2) AS bonus_amount
+        p.photos, p.mxik AS class_code, p.unit_label AS package_name,
+        ROUND(sp.vat_price * ci.quantity + (sp.vat_price / p.unit_per_pack) * ci.unit_quantity, 2) AS vat,
+        sp.vat AS vat_percent,
+        ci.quantity, ci.unit_price AS pack_price,
+        ci.unit_quantity, ci.marking_count, ci.total_price, u.short_name,
+        (ci.discount_price*ci.quantity) AS  total_discount,
+        ROUND(ci.unit_price / p.unit_per_pack, 2) AS unit_price,
+        pb.bonus_amount*ci.quantity+ ROUND((pb.bonus_amount/p.unit_per_pack)*ci.unit_quantity, 2) AS bonus_amount,
+        ci.discount_amount
 	FROM cart_items ci
 	JOIN store_products sp ON ci.store_product_id = sp.id
 	JOIN products p ON sp.product_id = p.id
@@ -219,6 +219,20 @@ func (h *SaleHandler) Get(c *gin.Context) {
 		return
 	}
 
+	// get vat sum
+	err = h.db.Raw(`
+	SELECT
+			SUM(ROUND(sp.vat_price * quantity +(sp.vat_price / p.unit_per_pack) * ci.unit_quantity, 2)) AS vat_sum
+	FROM cart_items ci
+		JOIN store_products sp ON sp.id = ci.store_product_id
+		JOIN products p ON sp.product_id = p.id
+		WHERE  sale_id = ?;
+	`, id).Scan(&res.VatSum).Error
+	if err != nil {
+		h.log.Warn("ERROR on getting vat_sum: %v", err)
+		handleResponse(c, InternalError, "Can't calculate vat sum")
+		return
+	}
 	if res.ParentId != "" {
 		// get epos response
 		err = h.db.Raw(`SELECT * FROM epos_responses WHERE sale_id = ?`, res.ParentId).Scan(&res.EposResponse).Error

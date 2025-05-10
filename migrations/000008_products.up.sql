@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS "products" (
   "name" VARCHAR(255),
   "barcode" VARCHAR(255),
   "photos" VARCHAR[],
-  "unit_per_pack" INTEGER DEFAULT 0,
+  "unit_per_pack" INTEGER DEFAULT 1,
   "description" TEXT,
   "status" VARCHAR(55) DEFAULT 'active' CHECK ("status" IN ('active', 'deleted', 'inactive')),
   "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
