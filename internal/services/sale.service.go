@@ -112,6 +112,35 @@ func (s *Services) CreateOrGetSale(req *domain.SaleRequest) (*domain.Sale, error
 	return res, nil
 }
 
+// create new sale or get pending sale
+func (s *Services) CreateOrGetSalePending(req *domain.SaleRequest) (*domain.Sale, error) {
+	var res *domain.Sale
+
+	// getting pending sale with no cart items
+	err := s.db.
+		Raw(`
+			SELECT * FROM sales 
+			WHERE store_id = ? AND employee_id = ? AND cash_box_operation_id = ? AND cashbox_id = ?
+			AND status = ?  AND sale_type = ?
+			LIMIT 1
+		`, req.StoreId, req.EmployeeID, req.CashBoxOperationId, req.CashboxId, config.PENDING, config.SALE_TYPE_SALE).
+		Scan(&res).Error
+
+	if errors.Is(err, gorm.ErrRecordNotFound) || res == nil || res.ID == "" {
+		res, err = s.CreateSale(req)
+		if err != nil {
+			s.log.Warn("ERROR on creating sale: %v", err)
+			return res, err
+		}
+		return res, nil // return new sale info
+	} else if err != nil {
+		s.log.Warn("ERROR on getting sale: %v", err)
+		return res, err
+	}
+
+	return res, nil
+}
+
 // update sale with receiving field
 func (s *Services) UpdateSaleField(field string, value string, idField string, idValue string) (*domain.Sale, error) {
 	var res domain.Sale
