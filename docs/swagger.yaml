@@ -5060,7 +5060,7 @@ paths:
       summary: Upload package code excel
       tags:
       - helper
-  /helper/upload-package-code:
+  /helper/upload-tax-products:
     post:
       consumes:
       - multipart/form-data

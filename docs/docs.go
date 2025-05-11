@@ -6062,7 +6062,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/helper/upload-package-code": {
+        "/helper/upload-tax-products": {
             "post": {
                 "security": [
                     {

@@ -43,9 +43,9 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 			SUM(pack_quantity+COALESCE(ci_sold.quantity, 0)) AS before_stock_count,
 			SUM(pack_quantity*retail_price) AS stock_amount,
 			SUM(pack_quantity*retail_price+COALESCE(ci_sold.amount, 0)) AS before_stock_amount,
-			SUM(CASE WHEN expire_date <= NOW() + INTERVAL '10 days' THEN pack_quantity ELSE 0 END) AS expiring_count,
-			SUM(CASE WHEN expire_date <= NOW() + INTERVAL '10 days' THEN pack_quantity*retail_price ELSE 0 END) AS expiring_amount,
-			SUM(CASE WHEN expire_date <= NOW() + INTERVAL '10 days' THEN COALESCE(ci_sold.amount, 0) ELSE 0 END) AS before_expiring_amount
+			SUM(CASE WHEN expire_date <= NOW() + INTERVAL '3 month' THEN pack_quantity ELSE 0 END) AS expiring_count,
+			SUM(CASE WHEN expire_date <= NOW() + INTERVAL '3 month' THEN pack_quantity*retail_price ELSE 0 END) AS expiring_amount,
+			SUM(CASE WHEN expire_date <= NOW() + INTERVAL '3 month' THEN COALESCE(ci_sold.amount, 0) ELSE 0 END) AS before_expiring_amount
 		FROM store_products
 		LEFT JOIN (
 			SELECT store_product_id, SUM(quantity) AS quantity, SUM(quantity*unit_price) AS amount
@@ -79,7 +79,7 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 
 	// get total sale count and amount
 	querys += filter
-	err := s.db.Debug().Raw(querys, args...).Scan(&sale).Error
+	err := s.db.Raw(querys, args...).Scan(&sale).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
@@ -87,7 +87,7 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 
 	// get total product count
 	queryp += filter
-	err = s.db.Debug().Raw(queryp, args...).Scan(&product).Error
+	err = s.db.Raw(queryp, args...).Scan(&product).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
@@ -264,7 +264,7 @@ func (s *Services) DashboardTopProducts(param *domain.DashboardQueryParam) ([]do
 		FROM cart_items ci
 			JOIN store_products sp ON ci.store_product_id = sp.id
 			JOIN products p on sp.product_id = p.id`
-		filter = " WHERE ci.status = 'sold'"
+		filter = " WHERE 1 = 1 "
 		group  = " GROUP BY p.id, p.name"
 		order  = " ORDER BY total_amount DESC"
 	)
@@ -315,33 +315,32 @@ func (s *Services) DashboardBonusProducts(param *domain.DashboardQueryParam) ([]
 		args  []any
 		query = `
 		SELECT
-			p.id,
-			p.name,
-			CAST(SUM(ci.quantity) AS TEXT) || ',' || CAST(SUM(ci.unit_quantity) AS TEXT) AS count,
-			SUM(pb.bonus_amount * ci.quantity) + SUM(CASE WHEN p.unit_per_pack > 0 THEN (pb.bonus_amount/p.unit_per_pack)*ci.unit_quantity ELSE 0 END) AS bonus_amount
-		FROM cart_items ci
-		JOIN sales s ON ci.sale_id = s.id
-		JOIN store_products sp ON ci.store_product_id = sp.id
-		JOIN products p ON sp.product_id = p.id
-		JOIN product_bonuses pb ON sp.product_id = pb.product_id`
-		filter = " WHERE s.status = 'completed'"
-		group  = " GROUP BY p.id, p.name"
-		order  = " ORDER BY bonus_amount DESC"
+			p.id, p.name,
+			SUM(eb.quantity) + SUM(eb.unit_quantity)/p.unit_per_pack || ',' || SUM(eb.unit_quantity)%p.unit_per_pack AS count,
+			SUM(eb.bonus_amount) AS bonus_amount
+		FROM employee_bonus eb
+		JOIN products p ON eb.product_id = p.id
+		`
+		join   = ""
+		filter = " WHERE 1 = 1 "
+		group  = " GROUP BY p.id "
+		order  = " ORDER BY count DESC"
 	)
 
 	// check store_ids
 	if len(param.StoreIds) > 0 {
-		filter += " AND s.store_id IN (?)"
+		filter += " AND e.store_id IN (?) "
+		join = " JOIN employees e ON eb.employee_id = e.id "
 		args = append(args, param.StoreIds)
 	}
 
 	if param.StartDate != "" && param.EndDate != "" {
-		filter += " AND s.completed_at::date BETWEEN ? AND ?"
+		filter += " AND (eb.created_at + interval '5 hours')::date BETWEEN ? AND ?"
 		args = append(args, param.StartDate, param.EndDate)
 	}
+	query = query + join + filter + group + order + " LIMIT ? OFFSET ?"
 	args = append(args, param.Limit, param.Offset)
-	var q = query + filter + group + order + " LIMIT ? OFFSET ?"
-	err := s.db.Raw(q, args...).Scan(&res).Error
+	err := s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Error("ERROR on getting bonus products: ", err)
 		return nil, err
@@ -363,13 +362,15 @@ func (s *Services) DashboardTopSeller(param *domain.DashboardQueryParam) ([]doma
 		SELECT
 			e.id,
 			e.full_name,
-			SUM(ci.quantity) AS count,
-			COALESCE(SUM(s.total_amount), 0)  AS total_amount
+			st.name AS store_name,
+			COUNT(s.id) AS count,
+			SUM(s.total_amount) AS total_amount
 		FROM sales s
-		LEFT JOIN employees e ON s.employee_id = e.id
-		LEFT JOIN cart_items ci ON ci.sale_id = s.id`
-		filter = "	WHERE s.status = 'completed'"
-		group  = " GROUP BY e.id, e.full_name"
+		INNER JOIN employees e ON s.employee_id = e.id
+		INNER JOIN stores st ON s.store_id = st.id
+		`
+		filter = "	WHERE s.status = 'completed' AND s.sale_type = 'SALE' "
+		group  = " GROUP BY e.id, st.id "
 		order  = " ORDER BY total_amount DESC"
 		offset = " LIMIT ? OFFSET ?"
 	)
@@ -407,25 +408,36 @@ func (s *Services) DashboardPayments(param *domain.DashboardQueryParam) ([]domai
 	if param.EndDate == "" {
 		param.EndDate = param.StartDate
 	}
-	res := []domain.DashboardPayment{}
-	query := s.db.
-		Model(&domain.SalePayment{}).
-		Select(`pt.name,
-		SUM(sale_payments.amount) AS amount,
-		COUNT(sale_payments.id) AS count`).
-		Joins("JOIN payment_types pt ON sale_payments.payment_type_id = pt.id").
-		Joins("JOIN sales s ON sale_payments.sale_id = s.id").
-		Where("s.sale_type = 'SALE'")
+	var (
+		res   []domain.DashboardPayment
+		query = `
+		SELECT
+			pt.id, pt.name,
+			SUM(sp.amount) AS amount,
+			COUNT(sp.id) AS count
+		FROM sale_payments sp
+		JOIN payment_types pt ON sp.payment_type_id = pt.id
+		`
+		join   = "JOIN sales s ON sp.sale_id = s.id"
+		filter = " WHERE 1 = 1 "
+		group  = " GROUP BY pt.id "
+		order  = " ORDER BY amount DESC;"
+		args   = []any{}
+	)
+	if len(param.StoreIds) > 0 {
+		filter += " AND s.store_id IN (?) "
+		join = "JOIN sales s ON sp.sale_id = s.id"
+		args = append(args, param.StoreIds)
+	}
 
 	if param.StartDate != "" && param.EndDate != "" {
-		query = query.Where("(s.completed_at + interval '5 hours')::date BETWEEN ? AND ? ", param.StartDate, param.EndDate)
+		filter += " AND (sp.created_at + interval '5 hours')::date BETWEEN ? AND ? "
+		args = append(args, param.StartDate, param.EndDate)
 	}
-	if len(param.StoreIds) > 0 {
-		query = query.Where("s.store_id IN (?)", param.StoreIds)
-	}
-	err := query.Group("pt.name").Order("amount DESC").Debug().Find(&res).Error
+	query = query + join + filter + group + order
+	err := s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
-		s.log.Error(err)
+		s.log.Warn("ERROR on getting dashboard payment stats: %v", err)
 		return res, err
 	}
 

@@ -32,7 +32,7 @@ func (h *Handler) NewHelperHandler(r *gin.RouterGroup) {
 func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 	helper := r.Group("/helper")
 	{
-		helper.POST("/upload-package-code", h.UploadPackageCodeExcel)
+		helper.POST("/upload-tax-products", h.UploadTaxProducts)
 		helper.POST("/upload-unit-count", h.UploadProductUnitCount)
 		helper.POST("/upload-mxik", h.CorrectMXIK)
 		helper.POST("/epos", h.EposTransmitter)
@@ -151,8 +151,8 @@ func (h *HelperHandler) GetIKPUDatafromSoliq(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /helper/upload-package-code [POST]
-func (h *HelperHandler) UploadPackageCodeExcel(c *gin.Context) {
+// @Router /helper/upload-tax-products [POST]
+func (h *HelperHandler) UploadTaxProducts(c *gin.Context) {
 	var (
 		file domain.File
 		err  error
@@ -191,7 +191,7 @@ func (h *HelperHandler) UploadPackageCodeExcel(c *gin.Context) {
 		return
 	}
 	defer xlsx.Close()
-	sheetName := xlsx.GetSheetName(0)
+	sheetName := xlsx.GetSheetName(2)
 	rows, err := xlsx.GetRows(sheetName)
 	if err != nil {
 		h.log.Error("Failed to get rows: ", err.Error())
@@ -200,28 +200,23 @@ func (h *HelperHandler) UploadPackageCodeExcel(c *gin.Context) {
 	}
 
 	// build query
-	// query := `
-	// UPDATE products SET unit_code = ?, unit_label = ? WHERE material_code = ? AND mxik = ? AND (unit_code is null OR unit_code = '')
-	// `
+	query := `
+	INSERT INTO tax_products(name_uz, mxik, unit_code, unit_name)
+	VALUES (?, ?, ?, ?)
+	`
 
-	// query1 := `
-	// UPDATE product_measurements SET
-	// 	mxik_name_ru = ?
-	// WHERE mxik_code = ?;`
 	var count = 0
 	// Process rows
 	for _, row := range rows[1:] {
-		if len(row) == 5 {
-			fmt.Println("KOD: ", row[0], "IKPU: ", row[2], "UKOD: ", row[3], "UName: ", row[4])
-			count++
-			// err := h.db.Exec(query, row[3], row[4], cast.ToInt(row[0]), row[2]).Error
-			// if err != nil {
-			// 	h.log.Warn("ERROR on updating products: %v", err)
-			// }
+		count++
+		err := h.db.Debug().Exec(query, row[1], row[0], row[3], row[2]).Error
+		if err != nil {
+			h.log.Warn("ERROR on updating products: %v", err)
 		}
+
 	}
 	fmt.Println("COUNT: ", count)
-	handleResponse(c, OK, "Products MXIK CODE uploaded successfully")
+	handleResponse(c, OK, "Tax Products uploaded successfully")
 }
 
 // UploadProduct godoc
