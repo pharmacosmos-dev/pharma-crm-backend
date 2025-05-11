@@ -1,1 +1,0 @@
-ALTER TABLE products ADD COLUMN IF NOT EXISTS "measurement_id" UUID REFERENCES product_measurements("id") ON DELETE CASCADE;
