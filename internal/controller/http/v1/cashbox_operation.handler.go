@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
@@ -34,7 +33,6 @@ func (h *CashBoxOperationHandler) CashBoxOperationRoutes(r *gin.RouterGroup) {
 		cashBoxOperation.GET("/shift", h.OperationShiftList)
 		cashBoxOperation.GET("/stats", h.OperationStats)
 		cashBoxOperation.GET("/history", h.OperationHistory)
-		cashBoxOperation.POST("/send-expense/:id", h.SendShiftExpense)
 	}
 }
 
@@ -435,34 +433,4 @@ func (h CashBoxOperationHandler) OperationHistory(c *gin.Context) {
 	data := utils.ListResponse(res, totalCount, limit, offset)
 
 	handleResponse(c, OK, data)
-}
-
-// Send shift expense to 1C godoc
-// @Summary Send Shift Expenses
-// @Description Send shift expense to 1C
-// @Tags cash_boxes
-// @Security     BearerAuth
-// @Accept 	json
-// @Produce json
-// @Param 	id path string false "Store ID"
-// @Success 200 {object} v1.Response
-// @Failure 400 {object} v1.Response
-// @Failure 500 {object} v1.Response
-// @Router /cash_box_operation/send-expense/{id} [POST]
-func (h CashBoxOperationHandler) SendShiftExpense(c *gin.Context) {
-	var id = c.Param("id")
-	// validate cashbox_operation_id
-	if err := uuid.Validate(id); err != nil {
-		handleResponse(c, BadRequest, "Invalid cashbox operation id")
-		return
-	}
-	// send shift expense service
-	err := h.service.SendExpenseTo1C(id)
-	if err != nil {
-		h.log.Warn("Failed to send shift expense: %v", err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-
-	handleResponse(c, OK, "Success")
 }

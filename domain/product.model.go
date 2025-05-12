@@ -167,6 +167,7 @@ type ProductRes struct {
 	StoreProductId string            `gorm:"store_product_id" json:"store_product_id"`
 	Name           string            `gorm:"name" json:"name"`
 	Barcode        string            `gorm:"barcode" json:"barcode"`
+	IsMarking      bool              `gorm:"is_marking" json:"is_marking"`
 	Photos         utils.StringArray `gorm:"type:text[]" json:"photos"`
 	UnitPrice      float64           `gorm:"unit_price" json:"unit_price"`
 	PackPrice      float64           `gorm:"pack_price" json:"pack_price"`

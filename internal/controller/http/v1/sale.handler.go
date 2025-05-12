@@ -197,8 +197,8 @@ func (h *SaleHandler) Get(c *gin.Context) {
 	var products []domain.ProductRes
 	err = h.db.Raw(`
 	SELECT
-		p.id, sp.id AS store_product_id, p.name, p.barcode,
-        p.photos, p.mxik AS class_code, p.unit_label AS package_name,
+		p.id, sp.id AS store_product_id, p.name, p.barcode, p.is_marking,
+        p.photos, p.mxik AS class_code, p.unit_label AS package_name, 
         ROUND(sp.vat_price * ci.quantity + (sp.vat_price / p.unit_per_pack) * ci.unit_quantity, 2) AS vat,
         sp.vat AS vat_percent,
         ci.quantity, ci.unit_price AS pack_price,

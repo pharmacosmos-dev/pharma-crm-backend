@@ -2403,36 +2403,6 @@ paths:
       summary: Get a cash box Operation
       tags:
       - cash_boxes
-  /cash_box_operation/send-expense/{id}:
-    post:
-      consumes:
-      - application/json
-      description: Send shift expense to 1C
-      parameters:
-      - description: Store ID
-        in: path
-        name: id
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Send Shift Expenses
-      tags:
-      - cash_boxes
   /cash_box_operation/shift:
     get:
       consumes:
@@ -4252,6 +4222,42 @@ paths:
       summary: Unblock employee
       tags:
       - employees
+  /expense/send:
+    post:
+      consumes:
+      - application/json
+      description: Create auto order
+      parameters:
+      - description: Send Date (2006-01-02)
+        in: query
+        name: send_date
+        required: true
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create 1c expense
+      tags:
+      - Shift Expenses
   /external/category/get-list:
     get:
       consumes:
