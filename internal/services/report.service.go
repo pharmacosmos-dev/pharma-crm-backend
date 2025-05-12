@@ -9,10 +9,25 @@ import (
 )
 
 func (s *Services) ProductReportWithDate(param *domain.ReportQueryParam) ([]map[string]any, error) {
-	var res []map[string]any
 
-	// Date range ichida har bir kun uchun dinamik columnlar
-	var dateColumns []string
+	var (
+		dateColumns []string
+		res         []map[string]any
+		filter      = "WHERE 1 = 1 "
+		group       = " GROUP BY p.name "
+		order       = " ORDER BY p.name "
+		args        = []any{}
+	)
+	// filter by store ids
+	if len(param.StoreIds) > 0 {
+		filter += " AND sp.store_id IN (?) "
+		args = append(args, param.StoreIds)
+	}
+	// filter with producer_id
+	if param.ProducerId != "" {
+		filter += " AND p.producer_id = ? "
+		args = append(args, param.ProducerId)
+	}
 	// var dateList []time.Time
 	startDate, err := time.Parse("2006-01-02", param.StartDate)
 	if err != nil {
@@ -43,15 +58,11 @@ func (s *Services) ProductReportWithDate(param *domain.ReportQueryParam) ([]map[
 		JOIN store_products sp ON p.id = sp.product_id
 		LEFT JOIN cart_items ci ON sp.id = ci.store_product_id
 		LEFT JOIN sales s ON ci.sale_id = s.id
-		WHERE
-			sp.store_id = ?
-			AND sp.product_id IN (?)
-		GROUP BY p.name
-		ORDER BY p.name;
 	`, datesQuery, param.StartDate, param.EndDate)
 
+	query = query + filter + group + order
 	// Queryni bajarish
-	err = s.db.Raw(query, param.StoreId, param.ProductIds).Scan(&res).Error
+	err = s.db.Debug().Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("Error on getting product report: %v", err)
 		return nil, err
@@ -204,9 +215,9 @@ func (s *Services) ProductReport(param *domain.ReportQueryParam) ([]domain.Produ
 		args = append(args, param.StoreIds)
 	}
 	// filter by producers
-	if len(param.ProducerIds) > 0 {
-		filter += " AND p.producer_id IN (?) "
-		args = append(args, param.ProducerIds)
+	if param.ProducerId != "" {
+		filter += " AND p.producer_id = ? "
+		args = append(args, param.ProducerId)
 	}
 	// filter by employee
 	if param.EmployeeId != "" {

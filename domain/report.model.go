@@ -3,17 +3,16 @@ package domain
 import "time"
 
 type ReportQueryParam struct {
-	StoreId     string   `form:"store_id"`
-	StartDate   string   `form:"start_date"`
-	EndDate     string   `form:"end_date"`
-	Limit       int      `form:"limit"`
-	Offset      int      `form:"offset"`
-	Search      string   `form:"search"`
-	Order       string   `form:"order"`
-	EmployeeId  string   `form:"employee_id"`
-	StoreIds    []string `form:"store_ids"`
-	ProducerIds []string `form:"producer_ids"`
-	ProductIds  []string `form:"product_ids"`
+	StoreId    string   `form:"store_id"`
+	StartDate  string   `form:"start_date"`
+	EndDate    string   `form:"end_date"`
+	Limit      int      `form:"limit"`
+	Offset     int      `form:"offset"`
+	Search     string   `form:"search"`
+	Order      string   `form:"order"`
+	EmployeeId string   `form:"employee_id"`
+	ProducerId string   `form:"producer_id"`
+	StoreIds   []string `json:"store_ids"`
 }
 
 // Bonus report structure

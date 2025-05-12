@@ -8048,16 +8048,13 @@ paths:
         in: query
         name: employee_id
         type: string
+      - description: Producer ID
+        in: query
+        name: producer_id
+        type: string
       - description: Store ids
         in: body
         name: store_ids
-        schema:
-          items:
-            type: string
-          type: array
-      - description: Producer ids
-        in: body
-        name: producer_ids
         schema:
           items:
             type: string
@@ -8108,17 +8105,17 @@ paths:
         in: query
         name: end_date
         type: string
-      - description: Product ids
+      - description: Producer ID
+        in: query
+        name: producer_id
+        type: string
+      - description: Store ids
         in: body
-        name: product_ids
+        name: store_ids
         schema:
           items:
             type: string
           type: array
-      - description: Store ID
-        in: query
-        name: store_id
-        type: string
       produces:
       - application/json
       responses:
@@ -8165,17 +8162,17 @@ paths:
         in: query
         name: end_date
         type: string
-      - description: Product ids
+      - description: Producer ID
+        in: query
+        name: producer_id
+        type: string
+      - description: Store ids
         in: body
-        name: product_ids
+        name: store_ids
         schema:
           items:
             type: string
           type: array
-      - description: Store ID
-        in: query
-        name: store_id
-        type: string
       produces:
       - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
       responses:
@@ -8226,16 +8223,13 @@ paths:
         in: query
         name: employee_id
         type: string
+      - description: Producer ID
+        in: query
+        name: producer_id
+        type: string
       - description: Store ids
         in: body
         name: store_ids
-        schema:
-          items:
-            type: string
-          type: array
-      - description: Producer ids
-        in: body
-        name: producer_ids
         schema:
           items:
             type: string

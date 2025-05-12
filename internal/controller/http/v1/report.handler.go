@@ -23,7 +23,7 @@ func (h *Handler) NewReportHandler(r *gin.RouterGroup) {
 func (h *ReportHandler) ReportRoutes(r *gin.RouterGroup) {
 	report := r.Group("/report")
 	{
-		report.POST("/product-by-date", h.ProductByDate)
+		report.POST("/product-by-date", h.ProductReportByDate)
 		report.POST("/product-by-date/export", h.ProductByDateExport)
 		report.POST("/bonus", h.BonusReport)
 		report.POST("/bonus-export", h.BonusReportExport)
@@ -45,16 +45,15 @@ func (h *ReportHandler) ReportRoutes(r *gin.RouterGroup) {
 // @Param   search query string false "Search"
 // @Param   start_date query string false "Start Date"
 // @Param   end_date query string false "End Date"
-// @Param   product_ids body []string false "Product ids"
-// @Param   store_id query string false "Store ID"
+// @Param   producer_id query string false "Producer ID"
+// @Param   store_ids body []string false "Store ids"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /report/product-by-date [POST]
-func (h *ReportHandler) ProductByDate(c *gin.Context) {
+func (h *ReportHandler) ProductReportByDate(c *gin.Context) {
 	var (
-		param      domain.ReportQueryParam
-		productIds []string
+		param domain.ReportQueryParam
 	)
 	// bind query param
 	err := c.ShouldBindQuery(&param)
@@ -63,13 +62,12 @@ func (h *ReportHandler) ProductByDate(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid query param received")
 		return
 	}
-	// bind product ids
-	if err = c.ShouldBindJSON(&productIds); err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, "Invalid product ids received")
-		return
+
+	// Bind JSON body (store_ids)
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&param.StoreIds)
 	}
-	param.ProductIds = productIds
+
 	res, err := h.service.ProductReportWithDate(&param)
 	if err != nil {
 		h.log.Error("ERROR on getting product report: %v", err.Error())
@@ -92,16 +90,15 @@ func (h *ReportHandler) ProductByDate(c *gin.Context) {
 // @Param   search query string false "Search"
 // @Param   start_date query string false "Start Date"
 // @Param   end_date query string false "End Date"
-// @Param   product_ids body []string false "Product ids"
-// @Param   store_id query string false "Store ID"
+// @Param   producer_id query string false "Producer ID"
+// @Param   store_ids body []string false "Store ids"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /report/product-by-date/export [POST]
 func (h *ReportHandler) ProductByDateExport(c *gin.Context) {
 	var (
-		param      domain.ReportQueryParam
-		productIds []string
+		param domain.ReportQueryParam
 	)
 	// bind query param
 	if err := c.ShouldBindQuery(&param); err != nil {
@@ -109,13 +106,10 @@ func (h *ReportHandler) ProductByDateExport(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid query param received")
 		return
 	}
-	// bind product ids
-	if err := c.ShouldBindJSON(&productIds); err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, "Invalid product ids received")
-		return
+	// bind store ids
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&param.StoreIds)
 	}
-	param.ProductIds = productIds
 
 	// Reportni olish
 	res, err := h.service.ProductReportWithDate(&param)
@@ -348,8 +342,8 @@ func (h *ReportHandler) BonusReportExport(c *gin.Context) {
 // @Param   end_date query string false "End Date"
 // @Param   search query string false "Search"
 // @Param   employee_id query string false "Employee Id"
+// @Param   producer_id query string false "Producer ID"
 // @Param   store_ids body []string false "Store ids"
-// @Param   producer_ids body []string false "Producer ids"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -366,8 +360,6 @@ func (h *ReportHandler) ProductReport(c *gin.Context) {
 	if c.Request.Body != nil {
 		// bind store_ids
 		_ = c.ShouldBindJSON(&param.StoreIds)
-		// bind producer_ids
-		_ = c.ShouldBindJSON(&param.ProducerIds)
 	}
 	// get default limit and offset for pagination
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
@@ -397,8 +389,8 @@ func (h *ReportHandler) ProductReport(c *gin.Context) {
 // @Param   end_date query string false "End Date"
 // @Param   search query string false "Search"
 // @Param   employee_id query string false "Employee Id"
+// @Param   producer_id query string false "Producer ID"
 // @Param   store_ids body []string false "Store ids"
-// @Param   producer_ids body []string false "Producer ids"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -415,8 +407,6 @@ func (h *ReportHandler) ProductReportExportExcel(c *gin.Context) {
 	if c.Request.Body != nil {
 		// bind store_ids
 		_ = c.ShouldBindJSON(&param.StoreIds)
-		// bind producer_ids
-		_ = c.ShouldBindJSON(&param.ProducerIds)
 	}
 	// get default limit and offset for pagination
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)

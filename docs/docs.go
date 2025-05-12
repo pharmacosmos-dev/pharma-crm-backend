@@ -10756,19 +10756,14 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
-                        "description": "Store ids",
-                        "name": "store_ids",
-                        "in": "body",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
+                        "type": "string",
+                        "description": "Producer ID",
+                        "name": "producer_id",
+                        "in": "query"
                     },
                     {
-                        "description": "Producer ids",
-                        "name": "producer_ids",
+                        "description": "Store ids",
+                        "name": "store_ids",
                         "in": "body",
                         "schema": {
                             "type": "array",
@@ -10850,8 +10845,14 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
-                        "description": "Product ids",
-                        "name": "product_ids",
+                        "type": "string",
+                        "description": "Producer ID",
+                        "name": "producer_id",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Store ids",
+                        "name": "store_ids",
                         "in": "body",
                         "schema": {
                             "type": "array",
@@ -10859,12 +10860,6 @@ const docTemplate = `{
                                 "type": "string"
                             }
                         }
-                    },
-                    {
-                        "type": "string",
-                        "description": "Store ID",
-                        "name": "store_id",
-                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -10939,8 +10934,14 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
-                        "description": "Product ids",
-                        "name": "product_ids",
+                        "type": "string",
+                        "description": "Producer ID",
+                        "name": "producer_id",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Store ids",
+                        "name": "store_ids",
                         "in": "body",
                         "schema": {
                             "type": "array",
@@ -10948,12 +10949,6 @@ const docTemplate = `{
                                 "type": "string"
                             }
                         }
-                    },
-                    {
-                        "type": "string",
-                        "description": "Store ID",
-                        "name": "store_id",
-                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -11034,19 +11029,14 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
-                        "description": "Store ids",
-                        "name": "store_ids",
-                        "in": "body",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
+                        "type": "string",
+                        "description": "Producer ID",
+                        "name": "producer_id",
+                        "in": "query"
                     },
                     {
-                        "description": "Producer ids",
-                        "name": "producer_ids",
+                        "description": "Store ids",
+                        "name": "store_ids",
                         "in": "body",
                         "schema": {
                             "type": "array",
