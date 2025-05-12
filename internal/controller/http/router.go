@@ -18,11 +18,11 @@ import (
 )
 
 type Options struct {
-	Gin  *gin.Engine
-	Db   *gorm.DB
-	Log  *logger.Logger
-	Cfg  *config.Config
-	Strg *services.Services
+	Gin     *gin.Engine
+	Db      *gorm.DB
+	Log     *logger.Logger
+	Cfg     *config.Config
+	Service *services.Services
 }
 
 // @title Pharma API docs
@@ -71,7 +71,7 @@ func NewRouter(option Options) {
 	validator := utils.NewValidator(option.Log)
 
 	// Handlers
-	handler := v1.NewHandler(option.Cfg, option.Db, option.Log, &jwtHandler, option.Strg, validator)
+	handler := v1.NewHandler(option.Cfg, option.Db, option.Log, &jwtHandler, option.Service, validator)
 	handler.InitRoutes(option.Gin)
 
 	// PING

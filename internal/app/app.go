@@ -3,15 +3,18 @@ package app
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	v1 "github.com/pharma-crm-backend/internal/controller/http"
 	"github.com/pharma-crm-backend/internal/services"
 	"github.com/pharma-crm-backend/pkg/builder"
 	"github.com/pharma-crm-backend/pkg/db"
+	"github.com/robfig/cron/v3"
 
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/pkg/httpserver"
@@ -35,29 +38,35 @@ func Run(cfg *config.Config) {
 	builder := builder.NewQueryBuilder()
 
 	// New storage
-	storage := services.NewService(connDB, l, cfg, builder)
+	service := services.NewService(connDB, l, cfg, builder)
 
 	// HTTP Server
 	handler := gin.New()
 	// call to new http router function
 	v1.NewRouter(v1.Options{
-		Gin:  handler,
-		Db:   connDB,
-		Log:  l,
-		Cfg:  cfg,
-		Strg: storage,
+		Gin:     handler,
+		Db:      connDB,
+		Log:     l,
+		Cfg:     cfg,
+		Service: service,
 	})
-	// // i18n localization
-	// err = helper.InitI18n()
-	// if err != nil {
-	// 	l.Error(err)
-	// }
+
 	// call to http server
 	httpServer := httpserver.New(handler, httpserver.Port(cfg.HTTP.Port))
 
 	// Start http server
 	fmt.Println("Server is running on port:", cfg.HTTP.Port)
+	// load location
+	location, _ := time.LoadLocation("Asia/Tashkent")
+	// add cronjob runner with load location
+	c := cron.New(cron.WithLocation(location))
+	// The time is set to 00:00.
+	c.AddFunc("0 0 * * *", func() {
+		log.Println("Starting send expense to 1C...")
+		service.SendReportsSequentially()
+	})
 
+	c.Start()
 	// Waiting signal
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)
