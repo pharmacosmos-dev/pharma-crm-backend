@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
+	"github.com/spf13/cast"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -34,6 +36,7 @@ func (h *InventoryHandler) InventoryRoutes(r *gin.RouterGroup) {
 	{
 		detail.GET("/list", h.InventoryDetailList)
 		detail.GET("/export-excel", h.InventoryDetailExport)
+		detail.POST("/upload-excel", h.InventoryDetailUpload)
 	}
 
 }
@@ -383,4 +386,82 @@ func (h *InventoryHandler) InventoryDetailExport(c *gin.Context) {
 		handleResponse(c, InternalError, "Failed to generate Excel file")
 	}
 
+}
+
+// Upload inventory detail godoc
+// @Summary Upload inventory detail excel
+// @Description Upload inventory detail excel
+// @Tags helper
+// @Security     BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param 	file formData file true "Excel file (.xlsx) containing product data"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /inventory-detail/upload-excel [POST]
+func (h *InventoryHandler) InventoryDetailUpload(c *gin.Context) {
+	var (
+		file domain.File
+		err  error
+	)
+	// bind request file
+	if err = c.ShouldBind(&file); err != nil {
+		h.log.Error("Failed to bind file: ", err.Error())
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	// Check file extension
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		h.log.Error("Unsupported file format: ", ext)
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+
+	// Save the uploaded file
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+	err = c.SaveUploadedFile(file.File, savePath)
+	if err != nil {
+		h.log.Error("Failed to save file: ", err.Error())
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+
+	// defer os.Remove(savePath)
+	// Open the Excel file
+	xlsx, err := excelize.OpenFile(savePath)
+	if err != nil {
+		h.log.Error("Failed to open .xlsx file: ", err.Error())
+		handleResponse(c, BadRequest, "Failed to process file")
+		return
+	}
+	defer xlsx.Close()
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		h.log.Error("Failed to get rows: ", err.Error())
+		handleResponse(c, InternalError, "Failed to get rows")
+		return
+	}
+
+	// build query
+	query := `
+	UPDATE import_details SET scanned_count = ?, supply_price_vat = ?, retail_price_vat = ?, expire_date = ?, barcode = ?, updated_at = NOW()
+	WHERE id = ?
+	`
+
+	var count = 0
+	// Process rows
+	for _, row := range rows[1:] {
+		count++
+		err := h.db.Debug().Exec(query, row[4], row[6], row[7], row[5], row[3], row[0]).Error
+		if err != nil {
+			h.log.Warn("ERROR on updating products: %v", err)
+		}
+	}
+
+	handleResponse(c, OK, "Successfully upload: "+cast.ToString(count))
 }

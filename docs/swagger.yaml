@@ -5871,6 +5871,37 @@ paths:
       summary: Get inventory list
       tags:
       - Inventory
+  /inventory-detail/upload-excel:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload inventory detail excel
+      parameters:
+      - description: Excel file (.xlsx) containing product data
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Upload inventory detail excel
+      tags:
+      - helper
   /inventory/{id}:
     get:
       consumes:
