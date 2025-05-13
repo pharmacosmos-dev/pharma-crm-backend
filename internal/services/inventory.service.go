@@ -30,15 +30,27 @@ func (s *Services) CreateInventory(req *domain.InventoryRequest) error {
 		tx.Rollback()
 		return err
 	}
+	// insert all products (including those not in store_products)
 	err = tx.Exec(`
-			INSERT INTO import_details (
-				import_id, product_id, received_count, supply_price_vat, retail_price_vat, expire_date, series_number
-			) SELECT ?, product_id, pack_quantity, supply_price, retail_price, expire_date, serial_number
-			FROM store_products
-			WHERE store_id = ? AND pack_quantity > 0
-			`, id, req.StoreId).Error
+		INSERT INTO import_details (
+			import_id, product_id, received_count, received_unit_count, supply_price_vat, retail_price_vat, expire_date, series_number
+		)
+		SELECT 
+			?,
+			p.id, 
+			COALESCE(sp.pack_quantity, 0),
+			COALESCE(sp.unit_quantity%%p.unit_per_pack, 0),
+			COALESCE(sp.supply_price, 0),
+			COALESCE(sp.retail_price, 0),
+			COALESCE(sp.expire_date, NULL),
+			COALESCE(sp.serial_number, '')
+		FROM
+			products p
+		LEFT JOIN
+			store_products sp ON sp.product_id = p.id AND sp.store_id = ?
+		`, id, req.StoreId).Error
 	if err != nil {
-		s.log.Warn("ERROR on creating inventory: %v", err)
+		s.log.Warn("ERROR on creating inventory detail: %v", err)
 		tx.Rollback()
 		return err
 	}
@@ -127,15 +139,18 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
 	query := s.db.
 		Model(&domain.ImportDetail{}).
 		Select(`
-		import_details.*,
-		import_details.scanned_count - import_details.received_count AS difference_count,
-		(import_details.received_count*import_details.retail_price_vat) AS stock_sum,
-		(import_details.scanned_count*import_details.retail_price_vat) AS scanned_sum,
-		((import_details.scanned_count - import_details.received_count)*import_details.retail_price_vat) AS difference_sum,
+		imd.id, imd.import_id AS inventory_id,
+		imd.product_id, 
+		ROUND(imd.received_count + (imd.received_unit_count/p.unit_per_pack), 4) AS received_count,
+		imd.scanned_count,
+		imd.scanned_count - imd.received_count AS difference_count,
+		(imd.received_count*imd.retail_price_vat) AS stock_sum,
+		(imd.scanned_count*imd.retail_price_vat) AS scanned_sum,
+		((imd.scanned_count - imd.received_count)*imd.retail_price_vat) AS difference_sum,
     	p.name, p.material_code, p.barcode, ut.short_name`).
-		Joins("JOIN products p ON import_details.product_id = p.id").
+		Joins("JOIN products p ON imd.product_id = p.id").
 		Joins("LEFT JOIN unit_types ut ON p.unit_type_id = ut.id").
-		Where("import_details.import_id = ?", param.InventoryId)
+		Where("imd.import_id = ?", param.InventoryId)
 
 	if param.Search != "" {
 		switch utils.DefineProductSearchQuery(param.Search) {
@@ -153,16 +168,16 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
 	if param.Type != "" {
 		switch param.Type {
 		case "shortage":
-			query = query.Where("import_details.received_count > import_details.scanned_count")
+			query = query.Where("imd.received_count > imd.scanned_count")
 		case "scanned":
-			query = query.Where("import_details.scanned_count > 0")
+			query = query.Where("imd.scanned_count > 0")
 		case "surplus":
-			query = query.Where("import_details.scanned_count > import_details.received_count")
+			query = query.Where("imd.scanned_count > imd.received_count")
 		}
 	}
 
 	err := query.
-		Order("import_details.updated_at DESC").
+		Order("imd.updated_at DESC").
 		Count(&totalCount).
 		Limit(param.Limit).
 		Offset(param.Offset).

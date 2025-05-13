@@ -47,13 +47,14 @@ type InventoryDetail struct {
 	Id              string     `gorm:"id" json:"id"`
 	InventoryId     string     `gorm:"inventory_id" json:"inventory_id"`
 	ProductId       string     `gorm:"product_id" json:"product_id"`
-	ReceivedCount   int        `gorm:"received_count" json:"stock_count"`
-	ScannedCount    int        `gorm:"scanned_count" json:"scanned_count"`
-	DifferenceCount int        `gorm:"difference_count" json:"difference_count"`
+	ReceivedCount   float64    `gorm:"received_count" json:"stock_count"`
+	ScannedCount    float64    `gorm:"scanned_count" json:"scanned_count"`
+	DifferenceCount float64    `gorm:"difference_count" json:"difference_count"`
 	Name            string     `gorm:"name" json:"name"`
 	MaterialCode    int        `gorm:"material_code" json:"material_code"`
 	Barcode         string     `gorm:"barcode" json:"barcode"`
 	ShortName       string     `gorm:"short_name" json:"short_name"`
+	SupplyPriceVat  float64    `gorm:"supply_price_vat" json:"supply_price"`
 	RetailPriceVat  float64    `gorm:"retail_price_vat" json:"retail_price"`
 	StockSum        float64    `gorm:"stock_sum" json:"stock_sum"`
 	ScannedSum      float64    `gorm:"scanned_sum" json:"scanned_sum"`
