@@ -5901,7 +5901,7 @@ paths:
       - BearerAuth: []
       summary: Upload inventory detail excel
       tags:
-      - helper
+      - Inventory
   /inventory/{id}:
     get:
       consumes:

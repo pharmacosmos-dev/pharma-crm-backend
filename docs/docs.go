@@ -7346,7 +7346,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "helper"
+                    "Inventory"
                 ],
                 "summary": "Upload inventory detail excel",
                 "parameters": [

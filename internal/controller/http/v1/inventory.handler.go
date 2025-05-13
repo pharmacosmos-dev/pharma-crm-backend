@@ -391,7 +391,7 @@ func (h *InventoryHandler) InventoryDetailExport(c *gin.Context) {
 // Upload inventory detail godoc
 // @Summary Upload inventory detail excel
 // @Description Upload inventory detail excel
-// @Tags helper
+// @Tags Inventory
 // @Security     BearerAuth
 // @Accept multipart/form-data
 // @Produce json
