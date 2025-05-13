@@ -202,7 +202,6 @@ type ExpenseProduct struct {
 	ProductSeriesNumber string  `gorm:"product_series_number" json:"product_series_number"`
 	ExpireDate          string  `gorm:"expire_date" json:"expire_date"`
 	Quantity            float64 `gorm:"quantity" json:"quantity"`
-	UnitQuantity        float64 `gorm:"unit_quantity" json:"unit_quantity"`
 	RetailPrice         float64 `gorm:"retail_price" json:"retail_price"`
 	RetailPriceVat      float64 `gorm:"retail_price_vat" json:"retail_price_vat"`
 	SupplyPrice         float64 `gorm:"supply_price" json:"supply_price"`

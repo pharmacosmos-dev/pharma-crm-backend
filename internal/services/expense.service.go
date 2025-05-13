@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"sync"
@@ -55,8 +56,7 @@ func (s *Services) SendExpenseTo1C(sendDate string, storeID string) error {
 		COALESCE(pr.name, '') AS manufacturer,
 		COALESCE(sp.serial_number, '') AS product_series_number,
 		sp.expire_date::date,
-		SUM(ci.quantity) AS quantity,
-		SUM(ci.unit_quantity) AS unit_quantity,
+		ROUND(SUM(ci.quantity)::NUMERIC + (SUM(ci.unit_quantity)::NUMERIC / p.unit_per_pack), 4) AS quantity,
 		sp.supply_price AS supply_price_vat,
 		sp.retail_price AS retail_price_vat,
 		id.supply_price,
@@ -86,7 +86,9 @@ func (s *Services) SendExpenseTo1C(sendDate string, storeID string) error {
 	if len(expenseData.Товары) < 1 {
 		return nil
 	}
+	t, _ := json.Marshal(&expenseData)
 
+	fmt.Println("===>>> ", string(t))
 	// send fakt to 1C
 	err = s.DoRequest(context.Background(), expenseData, "/rasxod")
 	if err != nil {
@@ -197,8 +199,7 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string) error {
 		COALESCE(pr.name, '') AS manufacturer,
 		COALESCE(sp.serial_number, '') AS product_series_number,
 		sp.expire_date::date,
-		SUM(ci.quantity) AS quantity,
-		SUM(ci.unit_quantity) AS unit_quantity,
+		ROUND(SUM(ci.quantity)::NUMERIC + (SUM(ci.unit_quantity)::NUMERIC / p.unit_per_pack), 4) AS quantity,
 		sp.supply_price AS supply_price_vat,
 		sp.retail_price AS retail_price_vat,
 		id.supply_price,

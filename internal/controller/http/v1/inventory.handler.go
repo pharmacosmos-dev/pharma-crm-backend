@@ -38,7 +38,6 @@ func (h *InventoryHandler) InventoryRoutes(r *gin.RouterGroup) {
 		detail.GET("/export-excel", h.InventoryDetailExport)
 		detail.POST("/upload-excel", h.InventoryDetailUpload)
 	}
-
 }
 
 // Create godoc
