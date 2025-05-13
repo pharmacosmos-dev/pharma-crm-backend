@@ -469,7 +469,7 @@ func (s *Services) ListImportDetailByLastUpdated(c *gin.Context, limit, offset i
 		Preload("Product").
 		Preload("Import").
 		Select(`
-		import_details.*, 
+		import_details.*,
 		(import_details.retail_price*received_count) as received_amount,
 		(import_details.retail_price*accepted_count) as accepted_amount,
 		sum_vat as received_amount_vat,

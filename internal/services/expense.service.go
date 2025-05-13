@@ -44,7 +44,7 @@ func (s *Services) SendExpenseTo1C(sendDate string, storeID string) error {
 	}
 
 	// get expense dok time with adding 5 hours
-	expenseData.Document.DocumentDate = time.Now().Add(time.Hour * 5).Format(time.DateTime)
+	expenseData.Document.DocumentDate = sendDate
 	// get expense products query
 	expenseProductQuery := `
 	SELECT
