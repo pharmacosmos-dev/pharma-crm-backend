@@ -39,7 +39,7 @@ func (s *Services) CreateInventory(req *domain.InventoryRequest) error {
 			?,
 			p.id, 
 			COALESCE(sp.pack_quantity, 0),
-			COALESCE(sp.unit_quantity%%p.unit_per_pack, 0),
+			COALESCE(sp.unit_quantity%p.unit_per_pack, 0),
 			COALESCE(sp.supply_price, 0),
 			COALESCE(sp.retail_price, 0),
 			COALESCE(sp.expire_date, NULL),
@@ -137,13 +137,15 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
 	var res []domain.InventoryDetail
 	var totalCount int64
 	query := s.db.
-		Model(&domain.ImportDetail{}).
+		Table("import_details imd").
 		Select(`
 		imd.id, imd.import_id AS inventory_id,
-		imd.product_id, 
+		imd.product_id,
 		ROUND(imd.received_count + (imd.received_unit_count/p.unit_per_pack), 4) AS received_count,
 		imd.scanned_count,
 		imd.scanned_count - imd.received_count AS difference_count,
+		imd.supply_price_vat, imd.retail_price_vat,
+		imd.expire_date, imd.series_number, imd.created_at, imd.updated_at,
 		(imd.received_count*imd.retail_price_vat) AS stock_sum,
 		(imd.scanned_count*imd.retail_price_vat) AS scanned_sum,
 		((imd.scanned_count - imd.received_count)*imd.retail_price_vat) AS difference_sum,

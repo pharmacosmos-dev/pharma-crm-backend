@@ -1,10 +1,14 @@
 package v1
 
 import (
+	"strconv"
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
+	"github.com/xuri/excelize/v2"
 )
 
 type InventoryHandler struct {
@@ -29,6 +33,7 @@ func (h *InventoryHandler) InventoryRoutes(r *gin.RouterGroup) {
 	detail := r.Group("inventory-detail")
 	{
 		detail.GET("/list", h.InventoryDetailList)
+		detail.GET("/export-excel", h.InventoryDetailExport)
 	}
 
 }
@@ -294,4 +299,88 @@ func (h *InventoryHandler) InventoryDetailList(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, data)
+}
+
+// Get List
+// @Summary Get inventory list
+// @Description Get inventory list
+// @Tags Inventory
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+// @Param 	limit query int false "LIMIT"
+// @Param 	offset query int false "OFFSET"
+// @Param   inventory_id query string true "Inventory ID"
+// @Param   search 	query string false "SEARCH KEY"
+// @Param   type 	query string false "TYPE"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /inventory-detail/export-excel [GET]
+func (h *InventoryHandler) InventoryDetailExport(c *gin.Context) {
+	var param domain.InventoryDetailParam
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "Invalid query param")
+		return
+	}
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	res, _, err := h.service.InventoryDetailList(&param)
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to get inventory detail list")
+		return
+	}
+
+	// Excel fayl yaratish
+	f := excelize.NewFile()
+	sheetName := "List1"
+	f.SetSheetName("Sheet1", sheetName)
+
+	// Headerlar
+	headers := []string{"ID", "Код", "Наименования", "Штрих-Код", "Текущее кол-во", "Срок Годности", "Цена Поставки СНДС", "Цена Продажа СНДС"}
+
+	headerStyle, err := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Bold:  true,
+			Color: "000000",
+		},
+	})
+	if err != nil {
+		h.log.Error("Failed to create style:", err)
+		handleResponse(c, InternalError, "Error on giving style to excel")
+		return
+	}
+
+	for i, h := range headers {
+		col := string(rune('A'+i)) + "1"
+		f.SetCellValue(sheetName, col, h)
+		f.SetCellStyle(sheetName, col, col, headerStyle)
+	}
+
+	// Ma'lumotlarni qo'shish
+	for i, imp := range res {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheetName, "A"+row, imp.Id)
+		f.SetCellValue(sheetName, "B"+row, imp.MaterialCode)
+		f.SetCellValue(sheetName, "C"+row, imp.Name)
+		f.SetCellValue(sheetName, "D"+row, imp.Barcode)
+		f.SetCellValue(sheetName, "E"+row, imp.ReceivedCount)
+		if imp.ExpireDate != nil {
+			f.SetCellValue(sheetName, "F"+row, imp.ExpireDate.Format(time.DateOnly))
+		} else {
+			f.SetCellValue(sheetName, "F"+row, "N/A")
+		}
+		f.SetCellValue(sheetName, "G"+row, imp.SupplyPriceVat)
+		f.SetCellValue(sheetName, "H"+row, imp.RetailPriceVat)
+	}
+
+	// Faylni HTTP response orqali yuborish
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Header("Content-Disposition", "attachment; filename=import-detail.xlsx")
+
+	if err := f.Write(c.Writer); err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, "Failed to generate Excel file")
+	}
+
 }
