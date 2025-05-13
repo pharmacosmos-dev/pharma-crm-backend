@@ -449,7 +449,7 @@ func (h *InventoryHandler) InventoryDetailUpload(c *gin.Context) {
 
 	// build query
 	query := `
-	UPDATE import_details SET scanned_count = ?, supply_price_vat = ?, retail_price_vat = ?, expire_date = ?, barcode = ?, updated_at = NOW()
+	UPDATE import_details SET scanned_count = ?, supply_price_vat = ?, retail_price_vat = ?, expire_date = ?, updated_at = NOW()
 	WHERE id = ?
 	`
 
@@ -457,7 +457,7 @@ func (h *InventoryHandler) InventoryDetailUpload(c *gin.Context) {
 	// Process rows
 	for _, row := range rows[1:] {
 		count++
-		err := h.db.Debug().Exec(query, row[4], row[6], row[7], row[5], row[3], row[0]).Error
+		err := h.db.Debug().Exec(query, row[4], row[6], row[7], row[5], row[0]).Error
 		if err != nil {
 			h.log.Warn("ERROR on updating products: %v", err)
 		}
