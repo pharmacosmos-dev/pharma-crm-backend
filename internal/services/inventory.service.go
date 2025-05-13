@@ -74,7 +74,12 @@ func (s *Services) GetInventoryById(inventoryID string) (*domain.Inventory, erro
 			imports.*,
 			SUM(imd.accepted_count) AS measurement_count,
 			SUM(imd.accepted_count*imd.supply_price_vat) AS supply_price_sum,
-			SUM(imd.accepted_count*imd.retail_price_vat) AS retail_price_sum`).
+			SUM(imd.accepted_count*imd.retail_price_vat) AS retail_price_sum, 
+			SUM((received_count - scanned_count)*imd.supply_price_vat) AS shortage_supply_sum,
+			SUM((received_count - scanned_count)*imd.retail_price_vat) AS shortage_retail_sum,
+			SUM((CASE WHEN scanned_count > received_count THEN scanned_count - received_count ELSE 0 END)*imd.supply_price_vat) AS surplus_supply_sum,
+			SUM((CASE WHEN scanned_count > received_count THEN scanned_count - received_count ELSE 0 END)*imd.retail_price_vat) AS surplus_retail_sum
+			`).
 		Joins("LEFT JOIN import_details imd ON imports.id = imd.import_id").
 		Group("imports.id").
 		First(&res, "imports.id = ?", inventoryID).Error

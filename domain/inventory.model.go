@@ -14,23 +14,27 @@ type InventoryParam struct {
 
 // Inventory structure
 type Inventory struct {
-	Id               string     `gorm:"id" json:"id"`
-	PublicId         string     `gorm:"public_id" json:"public_id"`
-	StoreId          string     `gorm:"store_id" json:"store_id"`
-	Name             string     `gorm:"name" json:"name"`
-	InventoryType    string     `gorm:"inventory_type" json:"type"`
-	MeasurementCount int64      `gorm:"measurement_count" json:"measurement_count"`
-	Shortage         int64      `gorm:"shotage" json:"shortage"`
-	Surplus          int64      `gorm:"surplus" json:"surplus"`
-	DifferenceSum    float64    `gorm:"difference_sum" json:"difference_sum"`
-	Status           string     `gorm:"status" json:"status"` // 0 -> new, 1 -> pending, 2 -> completed
-	CreatedAt        *time.Time `gorm:"created_at" json:"created_at"`
-	UpdatedAt        *time.Time `gorm:"updated_at" json:"updated_at"`
-	CreatedById      string     `gorm:"column:created_by" json:"created_by_id"`
-	UpdatedById      string     `gorm:"column:accepted_by" json:"updated_by_id"`
-	Store            *Store     `gorm:"foreignKey:StoreId" json:"store"`
-	CreatedBy        *Employee  `gorm:"foreignKey:CreatedById" json:"created_by"`
-	UpdatedBy        *Employee  `gorm:"foreignKey:UpdatedById" json:"updated_by"`
+	Id                string     `gorm:"id" json:"id"`
+	PublicId          string     `gorm:"public_id" json:"public_id"`
+	StoreId           string     `gorm:"store_id" json:"store_id"`
+	Name              string     `gorm:"name" json:"name"`
+	InventoryType     string     `gorm:"inventory_type" json:"type"`
+	MeasurementCount  float64    `gorm:"measurement_count" json:"measurement_count"`
+	Shortage          float64    `gorm:"shotage" json:"shortage"`
+	Surplus           float64    `gorm:"surplus" json:"surplus"`
+	DifferenceSum     float64    `gorm:"difference_sum" json:"difference_sum"`
+	Status            string     `gorm:"status" json:"status"` // 0 -> new, 1 -> pending, 2 -> completed
+	CreatedAt         *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt         *time.Time `gorm:"updated_at" json:"updated_at"`
+	CreatedById       string     `gorm:"column:created_by" json:"created_by_id"`
+	UpdatedById       string     `gorm:"column:accepted_by" json:"updated_by_id"`
+	ShortageSupplySum float64    `gorm:"shortage_supply_sum" json:"shortage_supply_sum"`
+	ShortageRetailSum float64    `gorm:"shortage_retail_sum" json:"shortage_retail_sum"`
+	SurplusSupplySum  float64    `gorm:"surplus_supply_sum" json:"surplus_supply_sum"`
+	SurplusRetailSum  float64    `gorm:"surplus_retail_sum" json:"surplus_retail_sum"`
+	Store             *Store     `gorm:"foreignKey:StoreId" json:"store"`
+	CreatedBy         *Employee  `gorm:"foreignKey:CreatedById" json:"created_by"`
+	UpdatedBy         *Employee  `gorm:"foreignKey:UpdatedById" json:"updated_by"`
 }
 
 // InventoryRequest structure
