@@ -72,7 +72,7 @@ func (s *Services) SendExpenseTo1C(sendDate string, storeID string) error {
 	LEFT JOIN producers pr ON p.producer_id = pr.id
 	LEFT JOIN import_details id ON sp.import_detail_id = id.id
 	WHERE s.store_id = ?
-	AND s.status = 'completed' AND s.sale_type = 'SALE' AND s.completed_at::date BETWEEN ? AND ?
+	AND s.status = 'completed' AND s.sale_type = 'SALE' AND (s.completed_at+interval '5 hours')::date BETWEEN ? AND ?
 	GROUP BY
 		p.id, pr.id, sp.id, id.id
 	`
