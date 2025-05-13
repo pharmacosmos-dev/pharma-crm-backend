@@ -68,3 +68,15 @@ type LflReportDetail struct {
 	WeekNumber    int     `gorm:"week_number" json:"week_number"`
 	Weekday       int     `gorm:"weekday" json:"weekday"`
 }
+
+// Store report amount with payment types
+type StoreAmount struct {
+	ID           string  `gorm:"id" json:"id"`
+	StoreName    string  `gorm:"store_name" json:"store_name"`
+	Cash         float64 `gorm:"cash" json:"cash"`
+	Uzcard       float64 `gorm:"uzcard" json:"uzcard"`
+	Humo         float64 `gorm:"humo" json:"humo"`
+	Click        float64 `gorm:"click" json:"click"`
+	ReturnAmount float64 `gorm:"return_amount" json:"return_amount"`
+	TotalAmount  float64 `gorm:"total_amount" json:"total_amount"`
+}

@@ -337,3 +337,59 @@ func (s *Services) LflReport(param *domain.ReportQueryParam) (domain.LflReport, 
 
 	return res, totalCount, nil
 }
+
+func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.StoreAmount, int64, error) {
+	if param.EndDate == "" {
+		param.StartDate = param.EndDate
+	}
+	var (
+		res        []domain.StoreAmount
+		totalCount int64
+		filter     = " WHERE sa.status = 'completed' "
+		args       = []any{}
+		group      = " GROUP BY s.id, s.name "
+		order      = " ORDER BY total_amount DESC "
+	)
+	query := `
+	SELECT
+		s.id,
+		s.name AS store_name,
+		SUM(CASE WHEN pt.name = 'Naqd' AND sa.sale_type != 'RETURN' THEN sp.amount ELSE 0 END) AS cash,
+		SUM(CASE WHEN pt.name = 'Uzcard' AND sa.sale_type != 'RETURN' THEN sp.amount ELSE 0 END) AS uzcard,
+		SUM(CASE WHEN pt.name = 'Humo' AND sa.sale_type != 'RETURN' THEN sp.amount ELSE 0 END) AS humo,
+		SUM(CASE WHEN pt.name = 'Click' AND sa.sale_type != 'RETURN' THEN sp.amount ELSE 0 END) AS click,
+		SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS return_amount,
+		SUM(CASE WHEN sa.sale_type != 'RETURN' THEN sp.amount ELSE 0 END) AS total_amount
+	FROM
+		stores s
+	JOIN
+		sales sa ON s.id = sa.store_id
+	JOIN
+		sale_payments sp ON sa.id = sp.sale_id
+	JOIN
+		payment_types pt ON sp.payment_type_id = pt.id
+	`
+	if param.StoreId != "" {
+		filter += " AND s.id = ? "
+		args = append(args, param.StoreId)
+	}
+
+	if param.Search != "" {
+		filter += " AND s.name ILIKE ? "
+		args = append(args, "%"+param.Search+"%")
+	}
+
+	if param.StartDate != "" && param.EndDate != "" {
+		filter += " AND (sa.completed_at + interval '5 hours')::date BETWEEN ? AND ? "
+		args = append(args, param.StartDate, param.EndDate)
+	}
+	query = query + filter + group + order + " LIMIT ? OFFSET ?;"
+	args = append(args, param.Limit, param.Offset)
+	err := s.db.Debug().Raw(query, args...).Scan(&res).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting store payment amounts: %v", err)
+		return res, 0, err
+	}
+
+	return res, totalCount, nil
+}
