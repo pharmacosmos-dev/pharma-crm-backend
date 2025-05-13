@@ -72,6 +72,7 @@ type LflReportDetail struct {
 // Store report amount with payment types
 type StoreAmount struct {
 	ID           string  `gorm:"id" json:"id"`
+	StoreCode    int     `gorm:"store_code" json:"store_code"`
 	StoreName    string  `gorm:"store_name" json:"store_name"`
 	Cash         float64 `gorm:"cash" json:"cash"`
 	Uzcard       float64 `gorm:"uzcard" json:"uzcard"`

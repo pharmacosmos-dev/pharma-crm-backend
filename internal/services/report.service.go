@@ -338,6 +338,7 @@ func (s *Services) LflReport(param *domain.ReportQueryParam) (domain.LflReport, 
 	return res, totalCount, nil
 }
 
+// get store report amount
 func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.StoreAmount, int64, error) {
 	if param.EndDate == "" {
 		param.StartDate = param.EndDate
@@ -353,6 +354,7 @@ func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.S
 	query := `
 	SELECT
 		s.id,
+		s.store_code,
 		s.name AS store_name,
 		SUM(CASE WHEN pt.name = 'Naqd' AND sa.sale_type != 'RETURN' THEN sp.amount ELSE 0 END) AS cash,
 		SUM(CASE WHEN pt.name = 'Uzcard' AND sa.sale_type != 'RETURN' THEN sp.amount ELSE 0 END) AS uzcard,
