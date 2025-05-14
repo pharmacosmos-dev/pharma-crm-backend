@@ -341,14 +341,14 @@ func (s *Services) LflReport(param *domain.ReportQueryParam) (domain.LflReport, 
 // get store report amount
 func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.StoreAmount, int64, error) {
 	if param.EndDate == "" {
-		param.StartDate = param.EndDate
+		param.EndDate = param.StartDate
 	}
 	var (
 		res        []domain.StoreAmount
 		totalCount int64
 		filter     = " WHERE sa.status = 'completed' "
 		args       = []any{}
-		group      = " GROUP BY s.id, s.name "
+		group      = " GROUP BY s.id, s.name, sale_date "
 		order      = " ORDER BY store_name, sale_date "
 	)
 	query := `
@@ -385,14 +385,13 @@ func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.S
 		filter += " AND s.name ILIKE ? "
 		args = append(args, "%"+param.Search+"%")
 	}
-
 	if param.StartDate != "" && param.EndDate != "" {
 		filter += " AND (sa.completed_at + interval '5 hours')::date BETWEEN ? AND ? "
 		args = append(args, param.StartDate, param.EndDate)
 	}
 	query = query + filter + group + order + " LIMIT ? OFFSET ?;"
 	args = append(args, param.Limit, param.Offset)
-	err := s.db.Debug().Raw(query, args...).Scan(&res).Error
+	err := s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting store payment amounts: %v", err)
 		return res, 0, err

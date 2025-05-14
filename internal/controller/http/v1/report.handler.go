@@ -552,10 +552,10 @@ func (h *ReportHandler) LflReport(c *gin.Context) {
 func (h *ReportHandler) StoreReportAmount(c *gin.Context) {
 	var (
 		param domain.ReportQueryParam
-		err   error
 	)
 	// bind request query param
-	if err = c.ShouldBindQuery(&param); err != nil {
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
 		handleResponse(c, BadRequest, "Invalid query param")
 		return
 	}
