@@ -347,7 +347,7 @@ func (h *CartItemHandler) UpdateBySaleID(c *gin.Context) {
 			handleResponse(c, BadRequest, "Discount type or value is invalid")
 			return
 		}
-		err = tx.Debug().Exec(`
+		err = tx.Exec(`
 		UPDATE cart_items 
 		SET
 			discount_amount = ?,

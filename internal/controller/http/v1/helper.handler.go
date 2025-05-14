@@ -209,7 +209,7 @@ func (h *HelperHandler) UploadTaxProducts(c *gin.Context) {
 	// Process rows
 	for _, row := range rows[1:] {
 		count++
-		err := h.db.Debug().Exec(query, row[1], row[0], row[3], row[2]).Error
+		err := h.db.Exec(query, row[1], row[0], row[3], row[2]).Error
 		if err != nil {
 			h.log.Warn("ERROR on updating products: %v", err)
 		}
@@ -290,7 +290,7 @@ func (h *HelperHandler) CorrectMXIK(c *gin.Context) {
 				count++
 				fmt.Println("ID: ", parseIntComma(row[1]), "Marking: ", row[2], "IKPU: ", row[4], "OLD IKPU: ", row[5])
 				// // create measurements
-				err = h.db.Debug().Exec(query, row[4], true, parseIntComma(row[1])).Error
+				err = h.db.Exec(query, row[4], true, parseIntComma(row[1])).Error
 				if err != nil {
 					h.log.Error(err)
 					handleResponse(c, InternalError, err.Error())
@@ -431,7 +431,7 @@ func (h *HelperHandler) UploadCategory(c *gin.Context) {
 			count++
 			fmt.Println("ID: ", row[0], "Category: ", row[1])
 			// // create measurements
-			err = h.db.Debug().Exec(query, row[0], row[1]).Error
+			err = h.db.Exec(query, row[0], row[1]).Error
 			if err != nil {
 				h.log.Error(err)
 				handleResponse(c, InternalError, err.Error())
@@ -524,11 +524,11 @@ func (h *HelperHandler) UploadCustomer(c *gin.Context) {
 			Birthday: &row[4],
 		}
 		// // create measurements
-		err = h.db.Debug().Exec(query, customer.Id, customer.FullName, customer.Phone, customer.Birthday).Error
+		err = h.db.Exec(query, customer.Id, customer.FullName, customer.Phone, customer.Birthday).Error
 		if err != nil {
 			h.log.Warn("ERROR on creating customers: %v", err)
 		}
-		err = h.db.Debug().Exec(queryd, customer.Id, row[5], row[8]).Error
+		err = h.db.Exec(queryd, customer.Id, row[5], row[8]).Error
 		if err != nil {
 			h.log.Warn("ERROR on creatig discount_card: %v", err)
 		}
@@ -609,7 +609,7 @@ func (h *HelperHandler) UploadProductUnitCount(c *gin.Context) {
 		count++
 		fmt.Println("==>> ", row[0], row[2])
 		// // create measurements
-		err = h.db.Debug().Exec(query, cast.ToInt(row[2]), cast.ToInt(row[0])).Error
+		err = h.db.Exec(query, cast.ToInt(row[2]), cast.ToInt(row[0])).Error
 		if err != nil {
 			h.log.Warn("ERROR on creating customers: %v", err)
 		}

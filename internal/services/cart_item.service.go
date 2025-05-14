@@ -15,7 +15,7 @@ import (
 // get cart item list by sale id with limit, offset
 func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartItemData, error) {
 	var res []domain.CartItemResponse
-	err := s.db.Debug().Raw(`
+	err := s.db.Raw(`
 	SELECT
 		ci.*,
 		p.name,

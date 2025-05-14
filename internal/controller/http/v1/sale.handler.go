@@ -542,7 +542,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 	// collect total transactions query
 	squery = squery + join + " WHERE " + filter
 	// replace with :param with ?
-	err = h.db.Debug().Raw(squery, args...).Scan(&res).Error
+	err = h.db.Raw(squery, args...).Scan(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())

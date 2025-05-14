@@ -85,7 +85,7 @@ func (h *TasnifHandler) UpdatePackageCode(c *gin.Context) {
 			return
 		}
 
-		err = h.db.Debug().Model(&domain.MxikPackage{}).Create(&res.Packages).Error
+		err = h.db.Model(&domain.MxikPackage{}).Create(&res.Packages).Error
 		if err != nil {
 			h.log.Warn("ERROR on inserting mxik_packages: %v", err)
 		}

@@ -118,7 +118,6 @@ func (s *Services) ReturnList(param *domain.ReturnParam) ([]domain.Return, int64
 		Count(&totalCount).
 		Limit(param.Limit).
 		Offset(param.Offset).
-		Debug().
 		Find(&res).Error
 	if err != nil {
 		s.log.Error(err)

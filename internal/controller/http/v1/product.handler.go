@@ -636,7 +636,7 @@ func (h *ProductHandler) Update(c *gin.Context) {
 	// 			return
 	// 		}
 	// 		// create new import details
-	// 		err = tx.Table("import_details").Debug().Create(&domain.ImportDetailRequest{
+	// 		err = tx.Table("import_details").Create(&domain.ImportDetailRequest{
 	// 			ImportID:      importReq.Id,
 	// 			ProductID:     &productID,
 	// 			ReceivedCount: body.StoreProduct[i].PackQuantity,
@@ -666,7 +666,7 @@ func (h *ProductHandler) Update(c *gin.Context) {
 	// 			"bonus_percent":  body.StoreProduct[i].BonusPercent,
 	// 			"expire_date":    body.StoreProduct[i].ExpireDate,
 	// 		})
-	// 		// err = tx.Debug().Table("store_products").
+	// 		// err = tx.Table("store_products").
 	// 		// 	Where("product_id = ? AND store_id = ? ", productID, body.StoreProduct[i].StoreID).
 	// 		// 	Updates(map[string]interface{}{
 	// 		// 		"pack_quantity":  gorm.Expr("pack_quantity "+operation+" ?", body.StoreProduct[i].MeasurementValue),
@@ -685,7 +685,7 @@ func (h *ProductHandler) Update(c *gin.Context) {
 	// 		// }
 	// 		// }
 	// 	}
-	// 	err = tx.Debug().Table("store_products").Create(&storeProducts).Error
+	// 	err = tx.Table("store_products").Create(&storeProducts).Error
 	// 	if err != nil {
 	// 		h.log.Error(err)
 	// 		handleResponse(c, InternalError, err.Error())
@@ -902,7 +902,7 @@ func (h *ProductHandler) AddStoreProductByBarcode(c *gin.Context) {
 	}
 	// get cart_items by store_product_id and status = 'pending'
 	var cartItem domain.CartItem
-	err = h.db.Debug().First(&cartItem, "store_product_id = ? AND status = 'pending' AND sale_id = ?", storeProduct.Id, body.SaleID).Error
+	err = h.db.First(&cartItem, "store_product_id = ? AND status = 'pending' AND sale_id = ?", storeProduct.Id, body.SaleID).Error
 	if err == nil {
 		// check quantity is enough in store_products table
 		if storeProduct.PackQuantity < cartItem.Quantity+1 {
@@ -918,7 +918,7 @@ func (h *ProductHandler) AddStoreProductByBarcode(c *gin.Context) {
 		// update cart_item
 		newQuantity := cartItem.Quantity + 1
 		cartItem.TotalPrice = storeProduct.RetailPrice * float64(newQuantity)
-		err = h.db.Debug().Exec(`UPDATE cart_items SET quantity = ?, total_price = ? WHERE id = ?`,
+		err = h.db.Exec(`UPDATE cart_items SET quantity = ?, total_price = ? WHERE id = ?`,
 			newQuantity, cartItem.TotalPrice, cartItem.ID).Error
 		if err != nil {
 			h.log.Error(err)
@@ -1050,7 +1050,6 @@ func (h *ProductHandler) GetProductImports(c *gin.Context) {
 		Count(&totalCount).
 		Limit(limit).Offset(offset).
 		Order("imd.created_at DESC").
-		Debug().
 		Find(&res).Error
 	if err != nil {
 		h.log.Error(err)
@@ -1449,7 +1448,7 @@ func (h *ProductHandler) UploadProduct(c *gin.Context) {
 		tx.Rollback()
 		return
 	}
-	err = tx.Table("products").Debug().Create(&products).Error
+	err = tx.Table("products").Create(&products).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -1827,7 +1826,7 @@ func (h *ProductHandler) productListExportByStoreId(f *excelize.File, res []doma
 func (h *ProductHandler) GenerateMarkingProducts(c *gin.Context) {
 	var products []domain.Product
 
-	err := h.db.Debug().Find(&products).Error
+	err := h.db.Find(&products).Error
 	if err != nil {
 		h.log.Error(err)
 		return

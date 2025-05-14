@@ -166,7 +166,6 @@ func (s *Services) ListAutoOrder(param *domain.AutoOrderParam) ([]domain.AutoOrd
 		Limit(param.Limit).
 		Offset(param.Offset).
 		Order("auto_orders.created_at DESC").
-		Debug().
 		Find(&autoOrders).Error
 	if err != nil {
 		s.log.Warn("Failed to get auto orders: %v", err)
@@ -237,7 +236,7 @@ func (s *Services) GenerateAutoOrderDetail(ctx context.Context, storeID string, 
 		(auto_orders.status != 'new' OR auto_orders.status != 'pending' 
 		OR auto_orders.status IS NULL) AND sd.month_sale_stock > 0;
 	`
-	err := s.db.Debug().Raw(query, storeID, storeID, storeID).Scan(&res).Error
+	err := s.db.Raw(query, storeID, storeID, storeID).Scan(&res).Error
 
 	if err != nil {
 		s.log.Error(err)

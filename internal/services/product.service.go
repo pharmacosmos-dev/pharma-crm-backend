@@ -75,7 +75,7 @@ func (s *Services) ProductSearch(param *domain.StoreProductQueryParam) ([]*domai
 // get similar products list
 func (s *Services) SimilarProducts(ctx context.Context, productID string, offset int, limit int) ([]domain.StoreProductResponse, error) {
 	var res []domain.StoreProductResponse
-	err := s.db.WithContext(ctx).Debug().
+	err := s.db.WithContext(ctx).
 		Table("products p").
 		Select(`
 			p.name, p.barcode, p.unit_per_pack, sp.*, 
@@ -99,7 +99,6 @@ func (s *Services) SimilarProducts(ctx context.Context, productID string, offset
 		)`, productID).
 		Where("p.id <> ?", productID).
 		Limit(limit).Offset(offset).
-		Debug().
 		Find(&res).Error
 	if err != nil {
 		s.log.Warn("Error on listing similar products for product %s: %v", productID, err.Error())
@@ -175,7 +174,7 @@ func (s *Services) GetStoreProductByIdOrBarcode(id string, marking string, store
 	// collect query
 	query = query + join + filter
 	// complete query
-	err := s.db.Debug().Raw(query, args...).Scan(&storeProduct).Error
+	err := s.db.Raw(query, args...).Scan(&storeProduct).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting store_product: %v", err)
 		return &storeProduct, 500, err
@@ -388,7 +387,7 @@ func (s *Services) ListProductExport(param *domain.ProductQueryParam) ([]domain.
 	query += filter + group + order + " LIMIT ? OFFSET ?"
 	args = append(args, param.Limit, param.Offset)
 	// complete query
-	err := s.db.Debug().Raw(query, args...).Scan(&res).Error
+	err := s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting product list: %v", err)
 		return res, err
@@ -490,7 +489,7 @@ func (s *Services) GetProducerByCode(ctx context.Context, code string) (*domain.
 func (s *Services) CreateProducer(ctx context.Context, code string) (*domain.Producer, error) {
 	var producer domain.Producer
 	query := `INSERT INTO producers (code) VALUES (?) RETURNING *`
-	err := s.db.Debug().WithContext(ctx).Raw(query, code).Scan(&producer).Error
+	err := s.db.WithContext(ctx).Raw(query, code).Scan(&producer).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
@@ -653,7 +652,7 @@ func (s *Services) GetProductMovements(productId, storeId string, limit, offset 
 	}
 
 	// Execute query
-	err := s.db.Debug().Raw(query, params...).Scan(&res).Error
+	err := s.db.Raw(query, params...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting product movements: %v", err)
 		return res, totalCount, err

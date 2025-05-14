@@ -420,7 +420,6 @@ func (s *Services) ListImportDetail(param *domain.ImportDetailQueryParams) ([]do
 		Limit(param.Limit).
 		Offset(param.Offset).
 		Order("products.name").
-		Debug().
 		Find(&importDetails).Error
 	if err != nil {
 		s.log.Error(err)
@@ -512,7 +511,6 @@ func (s *Services) ListImportDetailByLastUpdated(c *gin.Context, limit, offset i
 		Limit(limit).
 		Offset(offset).
 		Order("import_details.updated_at DESC").
-		Debug().
 		Find(&importDetails).Error
 
 	if err != nil {

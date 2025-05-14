@@ -28,7 +28,6 @@ func (s *Services) GetDraftByID(id string) (*domain.Draft, error) {
 			drafts.draft_time, drafts.created_at, drafts.updated_at, drafts.created_by,
 			drafts.is_active, drafts.sale_id,
 			drafts.customer_id, drafts.draft_number, drafts.status`).
-		Debug().
 		First(&res, "drafts.id = ?", id).Error
 
 	if err != nil {

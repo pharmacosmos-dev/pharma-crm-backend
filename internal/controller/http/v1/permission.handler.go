@@ -90,7 +90,7 @@ func (h *PermissionHandler) Get(c *gin.Context) {
 		id  = c.Param("id")
 	)
 
-	err := h.db.Debug().Raw(`
+	err := h.db.Raw(`
 	SELECT
 		id, name, type, description, parent_id, method, created_at, updated_at, key,
 		CASE WHEN route is null OR route='' THEN key ELSE route END as route
@@ -154,7 +154,7 @@ func (h *PermissionHandler) List(c *gin.Context) {
 		})
 
 	// Execute the query
-	err := query.Debug().Find(&res).Error
+	err := query.Find(&res).Error
 
 	if err != nil {
 		h.log.Error(err)

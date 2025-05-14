@@ -263,7 +263,7 @@ func (h *ProductBonusHandler) ImportProductBonus(c *gin.Context) {
 	// Process rows
 	for _, row := range rows[1:] {
 		if len(row) > 3 {
-			err = tx.Debug().Exec(query, parseFloat(row[2]), row[3]).Error
+			err = tx.Exec(query, parseFloat(row[2]), row[3]).Error
 			if err != nil {
 				h.log.Error(err)
 				handleResponse(c, InternalError, err.Error())

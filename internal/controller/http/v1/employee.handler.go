@@ -706,7 +706,7 @@ func (h *EmployeeHandler) SmenaBonus(c *gin.Context) {
 		handleResponse(c, BadRequest, "Employee ID is required")
 		return
 	}
-	err := h.db.Debug().
+	err := h.db.
 		Raw(`SELECT COALESCE(SUM(bonus_amount), 0) AS bonus FROM employee_bonus WHERE cashbox_operation_id = ? AND employee_id = ?`, operationId, employeeId).Scan(&bonus).Error
 	if err != nil {
 		h.log.Error(err)

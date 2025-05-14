@@ -64,7 +64,7 @@ func (s *Services) GetOperationShiftList(storeID, isOpen, search string, limit, 
 		LIMIT ? OFFSET ?
 	`
 	args = append(args, limit, offset)
-	err = s.db.Debug().Raw(dataQuery, args...).Scan(&shifts).Error
+	err = s.db.Raw(dataQuery, args...).Scan(&shifts).Error
 	if err != nil {
 		return nil, 0, err
 	}

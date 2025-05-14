@@ -280,7 +280,6 @@ func (h *AutoOrderHandler) ChangeAdjustedOrder(c *gin.Context) {
 	err = h.db.
 		Model(&domain.AutoOrderDetail{}).
 		Where("id = ?", id).
-		Debug().
 		Updates(&data).Error
 	if err != nil {
 		h.log.Error(err)

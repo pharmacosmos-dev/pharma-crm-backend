@@ -62,7 +62,7 @@ func (s *Services) ProductReportWithDate(param *domain.ReportQueryParam) ([]map[
 
 	query = query + filter + group + order
 	// Queryni bajarish
-	err = s.db.Debug().Raw(query, args...).Scan(&res).Error
+	err = s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("Error on getting product report: %v", err)
 		return nil, err
@@ -235,7 +235,7 @@ func (s *Services) ProductReport(param *domain.ReportQueryParam) ([]domain.Produ
 	}
 
 	query = query + filter + order + pagination
-	err := s.db.Debug().Raw(query, args...).Scan(&res).Error
+	err := s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting product report: %v", err)
 		return res, 0, nil
@@ -392,7 +392,7 @@ func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.S
 	}
 	query = query + filter + group + order + " LIMIT ? OFFSET ?;"
 	args = append(args, param.Limit, param.Offset)
-	err := s.db.Debug().Raw(query, args...).Scan(&res).Error
+	err := s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting store payment amounts: %v", err)
 		return res, 0, err

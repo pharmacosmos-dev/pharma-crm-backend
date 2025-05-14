@@ -236,7 +236,7 @@ func (h *CashBoxHandler) List(c *gin.Context) {
 	query = query + filter + "ORDER BY c.created_at DESC " + " LIMIT ? OFFSET ?"
 	args = append(args, limit, offset)
 	// complete query
-	err = h.db.Debug().Raw(query, args...).Scan(&res).Error
+	err = h.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		h.log.Warn("ERROR on getting cashbox list: %v", err)
 		handleResponse(c, InternalError, "Can't get cashbox list")

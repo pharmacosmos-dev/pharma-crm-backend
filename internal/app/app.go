@@ -2,6 +2,7 @@
 package app
 
 import (
+	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -54,6 +55,19 @@ func Run(cfg *config.Config) {
 	// call to http server
 	httpServer := httpserver.New(handler, httpserver.Port(cfg.HTTP.Port))
 
+	// Backlog flag
+	backlogMode := flag.Bool("backlog", false, "Run backlog reports")
+	flag.Parse()
+
+	// If backlog mode is enabled, run backlog processing
+	if *backlogMode {
+		start, _ := time.Parse("2006-01-02", "2025-03-18")
+		end, _ := time.Parse("2006-01-02", "2025-05-13")
+		fmt.Println("Starting backlog report processing...")
+		service.SendBacklogReportsSequentially(start, end)
+		return
+	}
+
 	// Start http server
 	fmt.Println("Server is running on port:", cfg.HTTP.Port)
 	// load location
@@ -62,6 +76,7 @@ func Run(cfg *config.Config) {
 		log.Printf("Failed to load location Asia/Tashkent: %v. Using UTC instead.", err)
 		location = time.UTC
 	}
+
 	// add cronjob runner with load location
 	c := cron.New(cron.WithLocation(location))
 	// The time is set to 23:00 in UTC -> .

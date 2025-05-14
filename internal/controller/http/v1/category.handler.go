@@ -276,7 +276,6 @@ func (h *CategoryHander) List(c *gin.Context) {
 		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).
-		Debug().
 		Find(&res).Error
 	if err != nil {
 		h.log.Error(err)
@@ -513,7 +512,7 @@ func (h *CategoryHander) UploadCategory(c *gin.Context) {
 		}
 	}()
 
-	err = tx.Debug().Table("categories").Create(&categories).Error
+	err = tx.Table("categories").Create(&categories).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
