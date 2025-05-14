@@ -353,6 +353,7 @@ func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.S
 	)
 	query := `
 	SELECT
+		row_number() OVER (ORDER BY s.name, (sa.completed_at + interval '5 hours')::date) AS uid,
 		s.id,
 		s.store_code,
 		s.name AS store_name,
