@@ -349,19 +349,24 @@ func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.S
 		filter     = " WHERE sa.status = 'completed' "
 		args       = []any{}
 		group      = " GROUP BY s.id, s.name "
-		order      = " ORDER BY total_amount DESC "
+		order      = " ORDER BY store_name, sale_date "
 	)
 	query := `
 	SELECT
 		s.id,
 		s.store_code,
 		s.name AS store_name,
-		SUM(CASE WHEN pt.name = 'Naqd' AND sa.sale_type != 'RETURN' THEN sp.amount ELSE 0 END) AS cash,
-		SUM(CASE WHEN pt.name = 'Uzcard' AND sa.sale_type != 'RETURN' THEN sp.amount ELSE 0 END) AS uzcard,
+		(sa.completed_at + interval '5 hours')::date AS sale_date,
+		SUM(CASE WHEN pt.name = 'Naqd' AND sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
+		SUM(CASE WHEN pt.name = 'Naqd' AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS cash,
+		SUM(CASE WHEN pt.name = 'Uzcard' AND sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
+		SUM(CASE WHEN pt.name = 'Uzcard' AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS uzcard,
+		SUM(CASE WHEN pt.name = 'Humo' AND sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
 		SUM(CASE WHEN pt.name = 'Humo' AND sa.sale_type != 'RETURN' THEN sp.amount ELSE 0 END) AS humo,
+		SUM(CASE WHEN pt.name = 'Click' AND sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
 		SUM(CASE WHEN pt.name = 'Click' AND sa.sale_type != 'RETURN' THEN sp.amount ELSE 0 END) AS click,
 		SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS return_amount,
-		SUM(CASE WHEN sa.sale_type != 'RETURN' THEN sp.amount ELSE 0 END) AS total_amount
+		SUM(CASE WHEN sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) - SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS total_amount
 	FROM
 		stores s
 	JOIN

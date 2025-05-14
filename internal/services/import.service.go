@@ -32,7 +32,7 @@ func (s *Services) UpdateImportByField(tx *gorm.DB, id string, field, value stri
 	return &res, nil
 }
 
-// accept import
+// Accept import
 func (s *Services) AcceptImport(tx *gorm.DB, id string, userID string) (*domain.Import, error) {
 	var res domain.Import
 	// update import status
@@ -113,7 +113,7 @@ func (s *Services) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domai
 				item.RetailPrice*0.12,
 				item.Id, item.SeriesNumber).Error
 			if err != nil {
-				s.log.Error(err)
+				s.log.Warn("ERROR on inserting import products to store_product: %v", err)
 				return err
 			}
 			// collect fakt data
@@ -135,7 +135,7 @@ func (s *Services) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domai
 		// send fakt to 1C
 		err = s.DoRequest(context.Background(), reqFakt, "/prihod")
 		if err != nil {
-			s.log.Error(err)
+			s.log.Warn("ERROR on sending prixod to 1C: %v", err)
 			tx.Rollback()
 			return errors.New("failed to send fakt to 1C")
 		}
