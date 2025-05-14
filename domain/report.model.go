@@ -80,6 +80,8 @@ type StoreAmount struct {
 	Uzcard       float64 `gorm:"uzcard" json:"uzcard"`
 	Humo         float64 `gorm:"humo" json:"humo"`
 	Click        float64 `gorm:"click" json:"click"`
+	Payme        float64 `gorm:"payme" json:"payme"`
+	Alif         float64 `gorm:"alif" json:"alif"`
 	ReturnAmount float64 `gorm:"return_amount" json:"return_amount"`
 	TotalAmount  float64 `gorm:"total_amount" json:"total_amount"`
 }

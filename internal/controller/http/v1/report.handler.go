@@ -31,6 +31,7 @@ func (h *ReportHandler) ReportRoutes(r *gin.RouterGroup) {
 		report.POST("/product-export", h.ProductReportExportExcel)
 		report.POST("/lfl", h.LflReport)
 		report.POST("/store-amount", h.StoreReportAmount)
+		report.POST("/store-amount/export-excel", h.StoreReportAmountExport)
 	}
 }
 
@@ -571,4 +572,94 @@ func (h *ReportHandler) StoreReportAmount(c *gin.Context) {
 	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
 
 	handleResponse(c, OK, data)
+}
+
+// Bonus report godoc
+// @Summary Get Store report Amount
+// @Description Get Store report Amount
+// @Tags Report
+// @Security     BearerAuth
+// @Accept json
+// @Produce application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+// @Param 	limit query int false "Limit"
+// @Param 	offset query int false "Offset"
+// @Param   start_date query string false "Start Date Format(2025-03)"
+// @Param   end_date query string false "End Date Format(2025-04)"
+// @Param   search query string false "Search"
+// @Param   store_id query string false "Store ID"
+// @Param   store_ids body []string false "Store ids"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /report/store-amount/export-excel [POST]
+func (h *ReportHandler) StoreReportAmountExport(c *gin.Context) {
+	var (
+		param domain.ReportQueryParam
+	)
+	// bind request query param
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
+		handleResponse(c, BadRequest, "Invalid query param")
+		return
+	}
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	// get store report with payment type amounts
+	res, _, err := h.service.StoreReportAmount(&param)
+	if err != nil {
+		handleResponse(c, InternalError, "Can't get store report amounts")
+		return
+	}
+
+	// Create excel file
+	f := excelize.NewFile()
+	sheetName := "List"
+	f.SetSheetName("Sheet1", sheetName)
+
+	// Headerlar
+	headers := []string{"ID", "Филиал", "Дата", "Наличные", "HUMO", "UZCARD", "CLICK", "PAYME", "ALIF", "Возврат", "Общая сумма"}
+
+	headerStyle, err := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Bold:  true,
+			Color: "000000",
+		},
+	})
+	if err != nil {
+		h.log.Error("Failed to create style:", err)
+		handleResponse(c, InternalError, "Error on giving style to excel")
+		return
+	}
+
+	//
+	for i, h := range headers {
+		col := string(rune('A'+i)) + "1"
+		f.SetCellValue(sheetName, col, h)
+		f.SetCellStyle(sheetName, col, col, headerStyle)
+	}
+
+	// Set information to columns
+	for i, value := range res {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheetName, "A"+row, value.StoreCode)
+		f.SetCellValue(sheetName, "B"+row, value.StoreName)
+		f.SetCellValue(sheetName, "C"+row, value.SaleDate)
+		f.SetCellValue(sheetName, "D"+row, value.Cash)
+		f.SetCellValue(sheetName, "E"+row, value.Humo)
+		f.SetCellValue(sheetName, "F"+row, value.Uzcard)
+		f.SetCellValue(sheetName, "G"+row, value.Click)
+		f.SetCellValue(sheetName, "H"+row, value.Payme)
+		f.SetCellValue(sheetName, "I"+row, value.Alif)
+		f.SetCellValue(sheetName, "J"+row, value.ReturnAmount)
+		f.SetCellValue(sheetName, "K"+row, value.TotalAmount)
+	}
+
+	// Faylni HTTP response orqali yuborish
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Header("Content-Disposition", "attachment; filename=store-report.xlsx")
+
+	if err := f.Write(c.Writer); err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, "Failed to generate Excel file")
+	}
 }
