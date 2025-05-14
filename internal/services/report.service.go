@@ -363,9 +363,9 @@ func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.S
 		SUM(CASE WHEN pt.name = 'Uzcard' AND sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
 		SUM(CASE WHEN pt.name = 'Uzcard' AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS uzcard,
 		SUM(CASE WHEN pt.name = 'Humo' AND sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
-		SUM(CASE WHEN pt.name = 'Humo' AND sa.sale_type != 'RETURN' THEN sp.amount ELSE 0 END) AS humo,
+		SUM(CASE WHEN pt.name = 'Humo' AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS humo,
 		SUM(CASE WHEN pt.name = 'Click' AND sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
-		SUM(CASE WHEN pt.name = 'Click' AND sa.sale_type != 'RETURN' THEN sp.amount ELSE 0 END) AS click,
+		SUM(CASE WHEN pt.name = 'Click' AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS click,
 		SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS return_amount,
 		SUM(CASE WHEN sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) - SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS total_amount
 	FROM
@@ -392,7 +392,7 @@ func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.S
 	}
 	query = query + filter + group + order + " LIMIT ? OFFSET ?;"
 	args = append(args, param.Limit, param.Offset)
-	err := s.db.Raw(query, args...).Scan(&res).Error
+	err := s.db.Debug().Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting store payment amounts: %v", err)
 		return res, 0, err
