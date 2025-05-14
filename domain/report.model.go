@@ -74,6 +74,7 @@ type StoreAmount struct {
 	ID           string  `gorm:"id" json:"id"`
 	StoreCode    int     `gorm:"store_code" json:"store_code"`
 	StoreName    string  `gorm:"store_name" json:"store_name"`
+	SaleDate     string  `gorm:"sale_date" json:"sale_date"`
 	Cash         float64 `gorm:"cash" json:"cash"`
 	Uzcard       float64 `gorm:"uzcard" json:"uzcard"`
 	Humo         float64 `gorm:"humo" json:"humo"`
