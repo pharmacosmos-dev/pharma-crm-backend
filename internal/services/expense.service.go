@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"sync"
@@ -86,9 +85,7 @@ func (s *Services) SendExpenseTo1C(sendDate string, storeID string) error {
 	if len(expenseData.Товары) < 1 {
 		return nil
 	}
-	t, _ := json.Marshal(&expenseData)
 
-	fmt.Println("===>>> ", string(t))
 	// send fakt to 1C
 	err = s.DoRequest(context.Background(), expenseData, "/rasxod")
 	if err != nil {
@@ -151,7 +148,7 @@ func (s *Services) SendReportsSequentially() {
 
 	for _, store := range stores {
 		fmt.Printf("Sending report for %s...\n", store.Name)
-		if err = s.sendReportTo1C(&store, now.Format(time.DateOnly)); err != nil {
+		if err = s.sendReportTo1C(&store, now.Format(time.DateOnly), now); err != nil {
 			log.Printf("Failed to send report for %s: %v\n", store.Name, err)
 			// You can choose to retry here or log for manual retry
 			continue
@@ -181,7 +178,7 @@ func (s *Services) SendBacklogReportsSequentially(start, end time.Time) {
 
 		for _, store := range stores {
 			fmt.Printf("Sending report for store %s on %s...\n", store.Name, currentDate.Format("2006-01-02"))
-			if err = s.sendReportTo1C(&store, currentDate.Format("2006-01-02")); err != nil {
+			if err = s.sendReportTo1C(&store, currentDate.Format("2006-01-02"), currentDate); err != nil {
 				log.Printf("Failed to send report for %s on %s: %v\n", store.Name, currentDate.Format("2006-01-02"), err)
 				continue
 			}
@@ -194,7 +191,7 @@ func (s *Services) SendBacklogReportsSequentially(start, end time.Time) {
 }
 
 // send expense products to 1C
-func (s *Services) sendReportTo1C(store *domain.Store, date string) error {
+func (s *Services) sendReportTo1C(store *domain.Store, date string, docDate time.Time) error {
 
 	var expenseData domain.SendExpense
 	expenseData.Store.StoreCode = store.StoreCode
@@ -216,9 +213,10 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string) error {
 		s.log.Warn("ERROR on creating shift expense: %v", err)
 		return err
 	}
-
+	// "2006-01-01T00:00:00Z"
 	// get expense dok time with adding 5 hours
-	expenseData.Document.DocumentDate = time.Now().Format(time.DateTime)
+	expenseData.Document.DocumentDate = docDate.Add(time.Minute * 1430).Format("2006-01-02T15:04:05Z07:00")
+
 	// get expense products query
 	expenseProductQuery := `
 	SELECT
