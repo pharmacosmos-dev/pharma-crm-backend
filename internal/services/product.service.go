@@ -26,13 +26,13 @@ func (s *Services) ProductSearch(param *domain.StoreProductQueryParam) ([]*domai
 	// build query
 	query := `
 	SELECT
-		sp.*,  p.name, pb.bonus_amount, p.barcode, p.unit_per_pack,
+		sp.*,  p.name, pr.name AS producer_name, pb.bonus_amount, p.barcode, p.unit_per_pack,
 		DATE_PART('day', sp.expire_date::timestamp - NOW()) AS expire_day,
 		u.unit_name, u.short_name
 	FROM store_products sp
 		JOIN products p ON p.id = sp.product_id
 		LEFT JOIN unit_types u ON p.unit_type_id = u.id
-		LEFT 
+		LEFT JOIN producers pr ON pr.id = p.producer_id
 		LEFT JOIN product_bonuses pb ON pb.product_id = p.id
 	`
 	if param.Search != "" {
@@ -48,7 +48,7 @@ func (s *Services) ProductSearch(param *domain.StoreProductQueryParam) ([]*domai
 		default:
 			// Transliterate search keyword Latin to Cyrillic OR Cyrillic to Latin
 			translatedWord := utils.Translit(param.Search)
-			filter += " AND (name ILIKE ? OR name ILIKE ?) "
+			filter += " AND (p.name ILIKE ? OR p.name ILIKE ?) "
 			args = append(args, "%"+param.Search+"%", "%"+translatedWord+"%")
 		}
 	}
@@ -56,7 +56,7 @@ func (s *Services) ProductSearch(param *domain.StoreProductQueryParam) ([]*domai
 	query = query + filter + order + pagination
 	args = append(args, param.Limit, param.Offset)
 	// complete query
-	err = s.db.Debug().Raw(query, args...).Scan(&res).Error
+	err = s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("Error on listing store products for store %s with search '%s': %v", param.StoreID, param.Search, err.Error())
 		return nil, err
