@@ -55,11 +55,11 @@ func Run(cfg *config.Config) {
 	httpServer := httpserver.New(handler, httpserver.Port(cfg.HTTP.Port))
 
 	// ✅ Automatically run backlog report before starting HTTP server
-	start, _ := time.Parse("2006-01-02", "2025-05-14")
-	end, _ := time.Parse("2006-01-02", "2025-05-14")
-	fmt.Println("Starting backlog report processing...")
-	service.SendBacklogReportsSequentially(start, end)
-	fmt.Println("Backlog report processing completed.")
+	// start, _ := time.Parse("2006-01-02", "2025-05-14")
+	// end, _ := time.Parse("2006-01-02", "2025-05-14")
+	// fmt.Println("Starting backlog report processing...")
+	// service.SendBacklogReportsSequentially(start, end)
+	// fmt.Println("Backlog report processing completed.")
 
 	// Start http server
 	fmt.Println("Server is running on port:", cfg.HTTP.Port)
@@ -72,8 +72,8 @@ func Run(cfg *config.Config) {
 
 	// add cronjob runner with load location
 	c := cron.New(cron.WithLocation(location))
-	// The time is set to 23:00 in UTC -> .
-	c.AddFunc("0 23 * * *", func() {
+	// The time is set to 23:45 in UTC -> .
+	c.AddFunc("45 23 * * *", func() {
 		log.Println("Starting send expense to 1C...")
 		service.SendReportsSequentially()
 	})

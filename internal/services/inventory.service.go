@@ -33,7 +33,7 @@ func (s *Services) CreateInventory(req *domain.InventoryRequest) error {
 	// insert all products (including those not in store_products)
 	err = tx.Exec(`
 		INSERT INTO import_details (
-			import_id, product_id, received_count, received_unit_count, supply_price_vat, retail_price_vat, expire_date, series_number
+			import_id, product_id, received_count, received_unit_count, supply_price_vat, retail_price_vat, expire_date, series_number, store_product_id
 		)
 		SELECT 
 			?,
@@ -43,7 +43,8 @@ func (s *Services) CreateInventory(req *domain.InventoryRequest) error {
 			COALESCE(sp.supply_price, 0),
 			COALESCE(sp.retail_price, 0),
 			COALESCE(sp.expire_date, NULL),
-			COALESCE(sp.serial_number, '')
+			COALESCE(sp.serial_number, ''),
+			COALESCE(sp.id, NULL)
 		FROM
 			products p
 		LEFT JOIN
@@ -236,7 +237,7 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) (*domain.
 	}()
 	var res domain.Inventory
 	// update confirm inventory
-	query := `UPDATE imports SET status = ?, accepted_by = ?, updated_at = NOW() WHERE id = ? RETURN *`
+	query := `UPDATE imports SET status = ?, accepted_by = ?, updated_at = NOW() WHERE id = ? RETURNING *`
 	err := tx.Raw(query, config.COMPLETED, userId, inventoryId).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating inventory %v", err)
@@ -273,20 +274,36 @@ func (s *Services) AttachInventoryToStoreProduct(req *domain.Inventory) error {
 	}()
 
 	query := `
+	WITH UpdatedProducts AS (
+		SELECT 
+			sp.id AS sp_id,
+			id.scanned_count::INT AS pack_quantity,
+			FLOOR(id.scanned_count::INT) * p.unit_per_pack + 
+			((id.scanned_count - FLOOR(id.scanned_count)) * p.unit_per_pack) AS unit_quantity,
+			id.supply_price_vat,
+			id.retail_price_vat,
+			id.expire_date,
+			ROW_NUMBER() OVER (PARTITION BY sp.product_id ORDER BY sp.id) AS row_num
+		FROM 
+			store_products sp
+		JOIN import_details id ON sp.product_id = id.product_id
+		JOIN products p ON id.product_id = p.id
+		WHERE 
+			id.scanned_count > 0 
+			AND id.import_id = ? 
+			AND sp.store_id = ?
+	)
 	UPDATE store_products sp
-    SET
-        pack_quantity = FLOOR(id.scanned_count),
-        unit_quantity = FLOOR(id.scanned_count)*p.unit_per_pack+((id.scanned_count - FLOOR(id.scanned_count)) * p.unit_per_pack),
-        supply_price = id.supply_price_vat,
-        retail_price = id.retail_price_vat,
-        expire_date = id.expire_date
-    FROM import_details id
-    JOIN products p ON id.product_id = p.id
-    WHERE
-        id.scanned_count > 0 AND
-        id.import_id = ? AND
-        sp.product_id = id.product_id AND
-        sp.store_id = ?;
+	SET 
+		pack_quantity = up.pack_quantity,
+		unit_quantity = up.unit_quantity,
+		supply_price = up.supply_price_vat,
+		retail_price = up.retail_price_vat,
+		expire_date = up.expire_date
+	FROM UpdatedProducts up
+	WHERE 
+		sp.id = up.sp_id
+		AND up.row_num = 1;
 	`
 	err := s.db.Exec(query, req.Id, req.StoreId).Error
 	if err != nil {
@@ -295,32 +312,39 @@ func (s *Services) AttachInventoryToStoreProduct(req *domain.Inventory) error {
 		return err
 	}
 
-	query1 := `
-	INSERT INTO store_products (
-			store_id, product_id, pack_quantity, unit_quantity, supply_price, retail_price, expire_date, serial_number)
-		SELECT
-			?, id.product_id, FLOOR(id.scanned_count),  
-			FLOOR(id.scanned_count)*p.unit_per_pack + (id.scanned_count - FLOOR(id.scanned_count))*p.unit_per_pack, 
-			id.supply_price_vat,id.retail_price_vat, id.expire_date, id.series_number
-		FROM import_details id
-		JOIN products p ON id.product_id = p.id
-		LEFT JOIN store_products sp ON sp.product_id = id.product_id AND sp.store_id = ?
-		WHERE id.import_id = ? AND sp.id IS NULL;
-	`
-	err = s.db.Exec(query1, req.StoreId, req.StoreId, req.Id).Error
-	if err != nil {
-		s.log.Warn("ERROR on inserting store_products: %v", err)
-		tx.Rollback()
-		return err
-	}
+	// query1 := `
+	// INSERT INTO store_products (
+	// 		store_id, product_id, pack_quantity, unit_quantity, supply_price, retail_price, expire_date, serial_number)
+	// 	SELECT
+	// 		?, id.product_id, FLOOR(id.scanned_count),  
+	// 		FLOOR(id.scanned_count)*p.unit_per_pack + (id.scanned_count - FLOOR(id.scanned_count))*p.unit_per_pack, 
+	// 		id.supply_price_vat,id.retail_price_vat, id.expire_date, id.series_number
+	// 	FROM import_details id
+	// 	JOIN products p ON id.product_id = p.id
+	// 	LEFT JOIN store_products sp ON sp.product_id = id.product_id AND sp.store_id = ?
+	// 	WHERE id.import_id = ? AND sp.id IS NULL;
+	// `
+	// err = s.db.Exec(query1, req.StoreId, req.StoreId, req.Id).Error
+	// if err != nil {
+	// 	s.log.Warn("ERROR on inserting store_products: %v", err)
+	// 	tx.Rollback()
+	// 	return err
+	// }
 
 	query2 := `
-	UPDATE store_products
-		SET pack_quantity = 0, unit_quantity = 0
-		WHERE store_id = ?
-		AND product_id NOT IN (
-			SELECT product_id FROM import_details WHERE import_id = ?
-		);`
+	UPDATE store_products sp
+	SET
+		pack_quantity = 0,
+		unit_quantity = 0
+	WHERE
+		sp.store_id = ?
+		AND sp.product_id IN (
+			SELECT product_id
+			FROM import_details
+			WHERE import_id = ?
+			GROUP BY product_id
+			HAVING SUM(scanned_count) = 0
+	);`
 	err = s.db.Exec(query2, req.StoreId, req.Id).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating store_product to 0: %v", err)

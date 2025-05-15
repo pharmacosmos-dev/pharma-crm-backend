@@ -32,6 +32,7 @@ func (s *Services) ProductSearch(param *domain.StoreProductQueryParam) ([]*domai
 	FROM store_products sp
 		JOIN products p ON p.id = sp.product_id
 		LEFT JOIN unit_types u ON p.unit_type_id = u.id
+		LEFT 
 		LEFT JOIN product_bonuses pb ON pb.product_id = p.id
 	`
 	if param.Search != "" {
@@ -55,7 +56,7 @@ func (s *Services) ProductSearch(param *domain.StoreProductQueryParam) ([]*domai
 	query = query + filter + order + pagination
 	args = append(args, param.Limit, param.Offset)
 	// complete query
-	err = s.db.Raw(query, args...).Scan(&res).Error
+	err = s.db.Debug().Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("Error on listing store products for store %s with search '%s': %v", param.StoreID, param.Search, err.Error())
 		return nil, err

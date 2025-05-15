@@ -211,7 +211,7 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string, docDate time
 	}
 	// "2006-01-01T00:00:00Z"
 	// get expense dok time with adding 5 hours
-	expenseData.Document.DocumentDate = docDate.Add(time.Minute * 1430).Format("2006-01-02T15:04:05Z07:00")
+	expenseData.Document.DocumentDate = docDate.Format("2006-01-02T15:04:05Z07:00")
 
 	// get expense products query
 	expenseProductQuery := `
