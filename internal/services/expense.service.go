@@ -208,7 +208,6 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string, docDate time
 	err = s.CreateNewExpense(store.Id, expenseData.Document.NumberDok, date)
 	if err != nil {
 		s.log.Warn("ERROR on creating shift expense: %v", err)
-		return err
 	}
 	// "2006-01-01T00:00:00Z"
 	// get expense dok time with adding 5 hours
