@@ -55,8 +55,8 @@ func Run(cfg *config.Config) {
 	httpServer := httpserver.New(handler, httpserver.Port(cfg.HTTP.Port))
 
 	// ✅ Automatically run backlog report before starting HTTP server
-	start, _ := time.Parse("2006-01-02", "2025-03-18")
-	end, _ := time.Parse("2006-01-02", "2025-05-13")
+	start, _ := time.Parse("2006-01-02", "2025-05-14")
+	end, _ := time.Parse("2006-01-02", "2025-05-14")
 	fmt.Println("Starting backlog report processing...")
 	service.SendBacklogReportsSequentially(start, end)
 	fmt.Println("Backlog report processing completed.")

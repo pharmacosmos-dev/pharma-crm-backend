@@ -173,21 +173,18 @@ func (s *Services) SendBacklogReportsSequentially(start, end time.Time) {
 		return
 	}
 
-	for currentDate := start; currentDate.Before(end) || currentDate.Equal(end); currentDate = currentDate.AddDate(0, 0, 1) {
-		fmt.Printf("Sending reports for date: %s\n", currentDate.Format("2006-01-02"))
-
-		for _, store := range stores {
-			fmt.Printf("Sending report for store %s on %s...\n", store.Name, currentDate.Format("2006-01-02"))
-			if err = s.sendReportTo1C(&store, currentDate.Format("2006-01-02"), currentDate); err != nil {
-				log.Printf("Failed to send report for %s on %s: %v\n", store.Name, currentDate.Format("2006-01-02"), err)
+	for _, store := range stores {
+		if start.String() == end.String() {
+			fmt.Printf("Sending report for store %s on %s...\n", store.Name, start.Format("2006-01-02"))
+			if err = s.sendReportTo1C(&store, start.Format("2006-01-02"), start); err != nil {
+				log.Printf("Failed to send report for %s on %s: %v\n", store.Name, start.Format("2006-01-02"), err)
 				continue
 			}
-			fmt.Printf("Successfully sent report for %s on %s\n", store.Name, currentDate.Format("2006-01-02"))
+			fmt.Printf("Successfully sent report for %s on %s\n", store.Name, start.Format("2006-01-02"))
 			time.Sleep(5 * time.Second) // Wait 5 seconds before next store
 		}
-		fmt.Printf("Completed reports for %s. Waiting 10 minutes...\n", currentDate.Format("2006-01-02"))
-		time.Sleep(10 * time.Minute) // Wait 10 minutes before next day
 	}
+
 }
 
 // send expense products to 1C

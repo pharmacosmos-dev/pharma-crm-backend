@@ -210,9 +210,16 @@ func (h *InventoryHandler) Confirm(c *gin.Context) {
 		return
 	}
 	// confirm inventory service
-	err := h.service.ConfirmInventory(id, userId.(string))
+	res, err := h.service.ConfirmInventory(id, userId.(string))
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to confirm inventory")
+		return
+	}
+	
+	// attech inventory products to store_products
+	err = h.service.AttachInventoryToStoreProduct(res)
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to attech products")
 		return
 	}
 

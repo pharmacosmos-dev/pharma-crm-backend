@@ -226,7 +226,7 @@ func (s *Services) InventoryDetailStatsCount(param *domain.InventoryDetailParam)
 }
 
 // confirm inventory
-func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
+func (s *Services) ConfirmInventory(inventoryId string, userId string) (*domain.Inventory, error) {
 	// start transaction
 	tx := s.db.Begin()
 	defer func() {
@@ -234,13 +234,14 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 			tx.Rollback()
 		}
 	}()
+	var res domain.Inventory
 	// update confirm inventory
-	query := `UPDATE imports SET status = ?, accepted_by = ?, updated_at = NOW() WHERE id = ?`
-	err := tx.Exec(query, config.COMPLETED, userId, inventoryId).Error
+	query := `UPDATE imports SET status = ?, accepted_by = ?, updated_at = NOW() WHERE id = ? RETURN *`
+	err := tx.Raw(query, config.COMPLETED, userId, inventoryId).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating inventory %v", err)
 		tx.Rollback()
-		return err
+		return &res, err
 	}
 
 	// update confirm inventory details
@@ -248,6 +249,81 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 	err = tx.Exec(query1, inventoryId).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating inventory details: %v", err)
+		tx.Rollback()
+		return &res, err
+	}
+
+	// complete transaction
+	if err = tx.Commit().Error; err != nil {
+		s.log.Warn("ERROR on commiting transaction: %v", err)
+		tx.Rollback()
+		return &res, err
+	}
+	return &res, nil
+}
+
+// attach inventory products to store_products
+func (s *Services) AttachInventoryToStoreProduct(req *domain.Inventory) error {
+	// start transaction
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	query := `
+	UPDATE store_products sp
+    SET
+        pack_quantity = FLOOR(id.scanned_count),
+        unit_quantity = FLOOR(id.scanned_count)*p.unit_per_pack+((id.scanned_count - FLOOR(id.scanned_count)) * p.unit_per_pack),
+        supply_price = id.supply_price_vat,
+        retail_price = id.retail_price_vat,
+        expire_date = id.expire_date
+    FROM import_details id
+    JOIN products p ON id.product_id = p.id
+    WHERE
+        id.scanned_count > 0 AND
+        id.import_id = ? AND
+        sp.product_id = id.product_id AND
+        sp.store_id = ?;
+	`
+	err := s.db.Exec(query, req.Id, req.StoreId).Error
+	if err != nil {
+		s.log.Warn("ERROR on updating store_products: %v", err)
+		tx.Rollback()
+		return err
+	}
+
+	query1 := `
+	INSERT INTO store_products (
+			store_id, product_id, pack_quantity, unit_quantity, supply_price, retail_price, expire_date, serial_number)
+		SELECT
+			?, id.product_id, FLOOR(id.scanned_count),  
+			FLOOR(id.scanned_count)*p.unit_per_pack + (id.scanned_count - FLOOR(id.scanned_count))*p.unit_per_pack, 
+			id.supply_price_vat,id.retail_price_vat, id.expire_date, id.series_number
+		FROM import_details id
+		JOIN products p ON id.product_id = p.id
+		LEFT JOIN store_products sp ON sp.product_id = id.product_id AND sp.store_id = ?
+		WHERE id.import_id = ? AND sp.id IS NULL;
+	`
+	err = s.db.Exec(query1, req.StoreId, req.StoreId, req.Id).Error
+	if err != nil {
+		s.log.Warn("ERROR on inserting store_products: %v", err)
+		tx.Rollback()
+		return err
+	}
+
+	query2 := `
+	UPDATE store_products
+		SET pack_quantity = 0, unit_quantity = 0
+		WHERE store_id = ?
+		AND product_id NOT IN (
+			SELECT product_id FROM import_details WHERE import_id = ?
+		);`
+	err = s.db.Exec(query2, req.StoreId, req.Id).Error
+	if err != nil {
+		s.log.Warn("ERROR on updating store_product to 0: %v", err)
 		tx.Rollback()
 		return err
 	}
