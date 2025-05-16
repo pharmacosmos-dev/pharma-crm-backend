@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	v1 "github.com/pharma-crm-backend/internal/controller/http"
@@ -63,16 +62,8 @@ func Run(cfg *config.Config) {
 
 	// Start http server
 	fmt.Println("Server is running on port:", cfg.HTTP.Port)
-	// load location
-	location, err := time.LoadLocation("Asia/Tashkent")
-	if err != nil {
-		log.Printf("Failed to load location Asia/Tashkent: %v. Using UTC instead.", err)
-		location = time.UTC
-	}
 
-	// add cronjob runner with load location
-	c := cron.New(cron.WithLocation(location))
-	// The time is set to 23:45 in UTC -> .
+	c := cron.New() // Default UTC (no location set)
 	c.AddFunc("45 23 * * *", func() {
 		log.Println("Starting send expense to 1C...")
 		service.SendReportsSequentially()

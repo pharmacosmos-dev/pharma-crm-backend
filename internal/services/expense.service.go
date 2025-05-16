@@ -160,33 +160,6 @@ func (s *Services) SendReportsSequentially() {
 
 }
 
-// SendBacklogReportsSequentially sends reports for each store for the backlog period
-func (s *Services) SendBacklogReportsSequentially(start, end time.Time) {
-	mu.Lock()
-	defer mu.Unlock()
-
-	var stores []domain.Store
-	// get store list
-	err := s.db.Find(&stores).Error
-	if err != nil {
-		s.log.Warn("ERROR on getting store list: %v", err)
-		return
-	}
-
-	for _, store := range stores {
-		if start.String() == end.String() {
-			fmt.Printf("Sending report for store %s on %s...\n", store.Name, start.Format("2006-01-02"))
-			if err = s.sendReportTo1C(&store, start.Format("2006-01-02"), start); err != nil {
-				log.Printf("Failed to send report for %s on %s: %v\n", store.Name, start.Format("2006-01-02"), err)
-				continue
-			}
-			fmt.Printf("Successfully sent report for %s on %s\n", store.Name, start.Format("2006-01-02"))
-			time.Sleep(5 * time.Second) // Wait 5 seconds before next store
-		}
-	}
-
-}
-
 // send expense products to 1C
 func (s *Services) sendReportTo1C(store *domain.Store, date string, docDate time.Time) error {
 
@@ -210,8 +183,8 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string, docDate time
 		s.log.Warn("ERROR on creating shift expense: %v", err)
 	}
 	// "2006-01-01T00:00:00Z"
-	// get expense dok time with adding 5 hours
 	expenseData.Document.DocumentDate = docDate.Format("2006-01-02T15:04:05Z07:00")
+	fmt.Println("DocumentDate: ", docDate.Format("2006-01-02T15:04:05Z07:00"))
 
 	// get expense products query
 	expenseProductQuery := `
@@ -267,4 +240,31 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string, docDate time
 		return err
 	}
 	return nil
+}
+
+// SendBacklogReportsSequentially sends reports for each store for the backlog period
+func (s *Services) SendBacklogReportsSequentially(start, end time.Time) {
+	mu.Lock()
+	defer mu.Unlock()
+
+	var stores []domain.Store
+	// get store list
+	err := s.db.Find(&stores).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting store list: %v", err)
+		return
+	}
+
+	for _, store := range stores {
+		if start.String() == end.String() {
+			fmt.Printf("Sending report for store %s on %s...\n", store.Name, start.Format("2006-01-02"))
+			if err = s.sendReportTo1C(&store, start.Format("2006-01-02"), start); err != nil {
+				log.Printf("Failed to send report for %s on %s: %v\n", store.Name, start.Format("2006-01-02"), err)
+				continue
+			}
+			fmt.Printf("Successfully sent report for %s on %s\n", store.Name, start.Format("2006-01-02"))
+			time.Sleep(5 * time.Second) // Wait 5 seconds before next store
+		}
+	}
+
 }
