@@ -227,20 +227,22 @@ func (s *Services) ChangeStoreProductStock(tx *gorm.DB, id string, quantity, uni
 // get products get list
 func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.ProductData, int64, error) {
 	var (
-		res           []domain.ProductData
-		totalCount    int64
-		args          []any
-		filter        = "WHERE 1=1 "
-		order         = " ORDER BY p.created_at DESC "
-		group         = " GROUP BY p.id, pr.id, u.id "
-		expireDayPart = ""
+		res            []domain.ProductData
+		totalCount     int64
+		args           []any
+		filter         = "WHERE 1=1 "
+		order          = " ORDER BY p.created_at DESC "
+		group          = " GROUP BY p.id, pr.id, u.id "
+		storeProductID = ""
+		expireDayPart  = ""
 	)
 
 	// filter with store_id
 	if param.StoreID != "" {
 		filter += " AND sp.store_id IN (?) "
 		expireDayPart = " DATE_PART('day', sp.expire_date::timestamp - NOW()) AS expire_day, sp.expire_date, "
-		group += " , sp.expire_date "
+		group += " , sp.id, sp.expire_date "
+		storeProductID = " sp.id AS store_product_id, "
 		args = append(args, param.StoreID)
 	}
 	// filter with producer id
@@ -283,6 +285,7 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 
 	query := fmt.Sprintf(`
 	SELECT
+		%s
 		p.id, p.name, p.photos, p.barcode, p.material_code, 
 		p.unit_per_pack, p.is_marking, p.mxik, p.unit_code, 
 		p.unit_label, p.created_at, p.updated_at,
@@ -295,7 +298,7 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 	RIGHT JOIN products p ON sp.product_id = p.id
 	LEFT JOIN producers pr ON p.producer_id = pr.id
 	LEFT JOIN unit_types u ON p.unit_type_id = u.id
-	`, expireDayPart, "%")
+	`, storeProductID, expireDayPart, "%")
 
 	// collect query
 	query += filter + group + order + " LIMIT ? OFFSET ?"

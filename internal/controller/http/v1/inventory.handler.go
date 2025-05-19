@@ -464,8 +464,8 @@ func (h *InventoryHandler) InventoryDetailUpload(c *gin.Context) {
 	// Process rows
 	for _, row := range rows[1:] {
 		count++
-		fmt.Println("---->>> ", cast.ToFloat64(row[4]))
-		err := h.db.Exec(query, cast.ToFloat64(row[4]), row[6], row[7], row[5], row[0]).Error
+		fmt.Println("---->>> ", row[0])
+		err := h.db.Exec(query, cast.ToFloat64(row[3]), cast.ToFloat64(row[5]), cast.ToFloat64(row[6]), row[4], row[0]).Error
 		if err != nil {
 			h.log.Warn("ERROR on updating products: %v", err)
 		}

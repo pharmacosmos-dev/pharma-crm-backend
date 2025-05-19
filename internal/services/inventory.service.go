@@ -33,13 +33,12 @@ func (s *Services) CreateInventory(req *domain.InventoryRequest) error {
 	// insert all products (including those not in store_products)
 	err = tx.Exec(`
 		INSERT INTO import_details (
-			import_id, product_id, received_count, received_unit_count, supply_price_vat, retail_price_vat, expire_date, series_number, store_product_id
+			import_id, product_id, received_count, supply_price_vat, retail_price_vat, expire_date, series_number, store_product_id
 		)
 		SELECT 
 			?,
 			p.id, 
 			COALESCE(sp.pack_quantity, 0),
-			COALESCE(sp.unit_quantity%p.unit_per_pack, 0),
 			COALESCE(sp.supply_price, 0),
 			COALESCE(sp.retail_price, 0),
 			COALESCE(sp.expire_date, NULL),
@@ -189,6 +188,7 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
 		Count(&totalCount).
 		Limit(param.Limit).
 		Offset(param.Offset).
+		Debug().
 		Find(&res).Error
 	if err != nil {
 		s.log.Error(err)
@@ -316,8 +316,8 @@ func (s *Services) AttachInventoryToStoreProduct(req *domain.Inventory) error {
 	// INSERT INTO store_products (
 	// 		store_id, product_id, pack_quantity, unit_quantity, supply_price, retail_price, expire_date, serial_number)
 	// 	SELECT
-	// 		?, id.product_id, FLOOR(id.scanned_count),  
-	// 		FLOOR(id.scanned_count)*p.unit_per_pack + (id.scanned_count - FLOOR(id.scanned_count))*p.unit_per_pack, 
+	// 		?, id.product_id, FLOOR(id.scanned_count),
+	// 		FLOOR(id.scanned_count)*p.unit_per_pack + (id.scanned_count - FLOOR(id.scanned_count))*p.unit_per_pack,
 	// 		id.supply_price_vat,id.retail_price_vat, id.expire_date, id.series_number
 	// 	FROM import_details id
 	// 	JOIN products p ON id.product_id = p.id
