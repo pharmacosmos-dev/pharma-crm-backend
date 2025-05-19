@@ -19,7 +19,7 @@ type Product struct {
 	Photos       utils.StringArray `gorm:"type:text[]" json:"photos"`
 	SupplyPrice  float64           `gorm:"supply_price" json:"supply_price"`
 	RetailPrice  float64           `gorm:"retail_price" json:"retail_price"`
-	Quantity     int               `gorm:"quantity" json:"quantity"`
+	Quantity     float64           `gorm:"quantity" json:"quantity"`
 	UnitPerPack  int               `gorm:"unit_per_pack" json:"unit_per_pack"`
 	Vat          float64           `gorm:"vat" json:"vat"`
 	Markup       float64           `gorm:"markup" json:"markup"`
@@ -173,8 +173,8 @@ type ProductRes struct {
 	PackPrice      float64           `gorm:"pack_price" json:"pack_price"`
 	TotalPrice     float64           `gorm:"total_price" json:"total_price"`
 	TotalDiscount  float64           `gorm:"total_discount" json:"total_discount"`
-	Quantity       int               `gorm:"quantity" json:"quantity"`
-	UnitQuantity   int               `gorm:"unit_quantity" json:"unit_quantity"`
+	Quantity       float64           `gorm:"quantity" json:"quantity"`
+	UnitQuantity   float64           `gorm:"unit_quantity" json:"unit_quantity"`
 	MarkingCount   int               `gorm:"marking_count" json:"marking_count"`
 	Description    string            `gorm:"description" json:"description"`
 	BonusAmount    float64           `gorm:"bonus_amount" json:"bonus_amount"`
@@ -187,14 +187,14 @@ type ProductRes struct {
 }
 
 type ProductStats struct {
-	TotalQuantity  int `gorm:"total_quantity" json:"total_quantity"`
-	TotalCount     int `gorm:"total_count" json:"total_count"`
-	ActiveCount    int `gorm:"active_count" json:"active_count"`
-	InactiveCount  int `gorm:"inactive_count" json:"inactive_count"`
-	ZeroStockCount int `gorm:"zero_stock_count" json:"zero_stock_count"`
-	LowStockCount  int `gorm:"low_stock_count" json:"low_stock_count"`
-	ImminentCount  int `gorm:"imminent_count" json:"imminent_count"`
-	ExpiredCount   int `gorm:"expired_count" json:"expired_count"`
+	TotalQuantity  float64 `gorm:"total_quantity" json:"total_quantity"`
+	TotalCount     float64 `gorm:"total_count" json:"total_count"`
+	ActiveCount    float64 `gorm:"active_count" json:"active_count"`
+	InactiveCount  float64 `gorm:"inactive_count" json:"inactive_count"`
+	ZeroStockCount float64 `gorm:"zero_stock_count" json:"zero_stock_count"`
+	LowStockCount  float64 `gorm:"low_stock_count" json:"low_stock_count"`
+	ImminentCount  float64 `gorm:"imminent_count" json:"imminent_count"`
+	ExpiredCount   float64 `gorm:"expired_count" json:"expired_count"`
 }
 
 // External API response structure
@@ -271,10 +271,10 @@ type ProductData struct {
 	UnitName       string            `gorm:"unit_name" json:"unit_name"`
 	ShortName      string            `gorm:"short_name" json:"short_name"`
 	UnitLabel      string            `gorm:"unit_label" json:"unit_label"`
-	Quantity       int               `gorm:"quantity" json:"quantity"`
+	Quantity       float64           `gorm:"quantity" json:"quantity"`
 	ExpireDate     *time.Time        `gorm:"expire_date" json:"expire_date"`
 	ExpireDay      int               `gorm:"expire_day" json:"expire_day"`
-	UnitQuantity   int               `gorm:"unit_quantity" json:"unit_quantity"`
+	UnitQuantity   float64           `gorm:"unit_quantity" json:"unit_quantity"`
 	CategoryName   string            `gorm:"category_name" json:"category_name"`
 	SupplyPrice    float64           `gorm:"supply_price" json:"supply_price"`
 	RetailPrice    float64           `gorm:"retail_price" json:"retail_price"`
