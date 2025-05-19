@@ -42,6 +42,7 @@ func (h *SaleHandler) SaleRoutes(r *gin.RouterGroup) {
 		sale.POST("/epos-result", h.EposRequest)
 		sale.GET("/get-list", h.GetSaleList)
 		sale.POST("/discount-card", h.AddDiscountCard)
+		sale.DELETE("/discount-card", h.RemoveCustomerDiscount)
 	}
 }
 
@@ -976,5 +977,39 @@ func (h *SaleHandler) AddDiscountCard(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, customerDiscount)
+
+}
+
+// List godoc
+// @Summary Get a sale
+// @Description Get a sale from the request body
+// @Tags sales
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param 	body body domain.AddDiscountCard true "Add discount card"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /sale/discount-card [DELETE]
+func (h *SaleHandler) RemoveCustomerDiscount(c *gin.Context) {
+	var (
+		body domain.AddDiscountCard
+	)
+	// bind request body
+	if err := c.ShouldBindJSON(&body); err != nil {
+		handleResponse(c, BadRequest, "Invalid request body")
+		return
+	}
+	// delete customer discount by customer id
+	err := h.db.Exec(`DELETE FROM customer_discounts WHERE customer_id = ? AND sale_id = ?`,
+		body.CustomerID, body.SaleID).Error
+	if err != nil {
+		h.log.Warn("ERROR on deleting customer discount: %v", err)
+		handleResponse(c, InternalError, "Can't delete customer discount")
+		return
+	}
+
+	handleResponse(c, OK, "DELETED")
 
 }

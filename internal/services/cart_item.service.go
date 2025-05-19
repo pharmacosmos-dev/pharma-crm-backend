@@ -56,7 +56,6 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 			res[i].UnitVatPrice = unitPrice // ← no rounding
 			res[i].UnitAmount = math.Round(float64(res[i].UnitQuantity)/float64(res[i].UnitPerPack)*100) / 100
 			res[i].UnitQuantityStock = res[i].UnitQuantityStock % res[i].UnitPerPack
-
 		}
 	}
 	var data domain.CartItemData
