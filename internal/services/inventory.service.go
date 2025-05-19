@@ -33,21 +33,19 @@ func (s *Services) CreateInventory(req *domain.InventoryRequest) error {
 	// insert all products (including those not in store_products)
 	err = tx.Exec(`
 		INSERT INTO import_details (
-			import_id, product_id, received_count, supply_price_vat, retail_price_vat, expire_date, series_number, store_product_id
+			import_id, product_id, received_count, supply_price_vat, retail_price_vat
 		)
-		SELECT 
-			?,
-			p.id, 
-			COALESCE(sp.pack_quantity, 0),
-			COALESCE(sp.supply_price, 0),
-			COALESCE(sp.retail_price, 0),
-			COALESCE(sp.expire_date, NULL),
-			COALESCE(sp.serial_number, ''),
-			COALESCE(sp.id, NULL)
+		SELECT
+		    ?,
+			p.id,
+			ROUND(SUM(sp.pack_quantity)::numeric + (SUM(sp.unit_quantity)::numeric%p.unit_per_pack)::numeric/p.unit_per_pack, 4) AS quantity,
+			SUM(sp.supply_price) AS supply_sum,
+			SUM(sp.retail_price) AS retail_sum
 		FROM
 			products p
 		LEFT JOIN
-			store_products sp ON sp.product_id = p.id AND sp.store_id = ?
+			store_products sp ON sp.product_id = p.id and sp.store_id = ?
+    	GROUP BY p.id;
 		`, id, req.StoreId).Error
 	if err != nil {
 		s.log.Warn("ERROR on creating inventory detail: %v", err)
