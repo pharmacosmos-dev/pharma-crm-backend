@@ -64,17 +64,15 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 	SELECT
 		SUM(total_price) AS sum,
 		SUM(quantity) AS item_count,
-		SUM(discount_amount*quantity) AS discount_amount,
-		SUM(ROUND(sp.vat_price * quantity +
-		CASE
-			WHEN p.unit_per_pack > 0 THEN (sp.vat_price / p.unit_per_pack) * ci.unit_quantity
-			ELSE 0
-		END, 2)) AS vat_sum,
+		SUM(ci.discount_amount*quantity) + COALESCE((SUM(total_price) * MAX(dc.percent)/100), 0) AS discount_amount,
+		ROUND(SUM(sp.vat_price * quantity + (sp.vat_price / p.unit_per_pack) * ci.unit_quantity), 2) AS vat_sum,
 		COUNT(*) AS count
 	FROM cart_items ci
 	JOIN store_products sp ON sp.id = ci.store_product_id
 	JOIN products p ON sp.product_id = p.id
-	WHERE  sale_id = ?
+	LEFT JOIN customer_discounts cd ON cd.sale_id = ci.sale_id
+	LEFT JOIN discount_cards dc ON cd.customer_id = dc.customer_id
+	WHERE  ci.sale_id = ?
 	`, saleID).Scan(&data).Error
 	if err != nil {
 		s.log.Warn("Error on listing cart items for sale %s: %v", saleID, err.Error())

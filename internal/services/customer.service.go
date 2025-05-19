@@ -2,7 +2,6 @@ package services
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
@@ -32,6 +31,7 @@ func (s *Services) ListCustomer(param *domain.QueryParam) ([]domain.Customer, in
 		Where("customers.is_active = ?", true)
 
 	if param.Search != "" {
+		fmt.Println("Search: ", utils.DefineProductSearchQuery(param.Search))
 		switch utils.DefineProductSearchQuery(param.Search) {
 		case "barcode":
 			query = query.Joins("LEFT JOIN discount_cards dc ON dc.customer_id = customers.id").
@@ -40,9 +40,6 @@ func (s *Services) ListCustomer(param *domain.QueryParam) ([]domain.Customer, in
 			query = query.Where("customers.full_name ILIKE ? OR customers.phone LIKE ? ",
 				"%"+param.Search+"%", "%"+param.Search+"%")
 		}
-		param.Search = fmt.Sprintf("%%%s%%", param.Search)
-		query = query.Where("customers.full_name ILIKE ? OR customers.phone LIKE ? OR CAST(customers.public_id AS TEXT) LIKE ?",
-			param.Search, param.Search, strings.Trim(param.Search, "%"))
 	}
 	if param.StoreID != "" {
 		query = query.Where("customers.store_id = ?", param.StoreID)
