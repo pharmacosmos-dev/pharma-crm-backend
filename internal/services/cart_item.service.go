@@ -65,6 +65,7 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 		SUM(total_price) AS sum,
 		SUM(quantity) AS item_count,
 		SUM(ci.discount_amount*quantity) + COALESCE((SUM(total_price) * MAX(dc.percent)/100), 0) AS discount_amount,
+		MAX(dc.percent) AS card_percent,
 		ROUND(SUM(sp.vat_price * quantity + (sp.vat_price / p.unit_per_pack) * ci.unit_quantity), 2) AS vat_sum,
 		COUNT(*) AS count
 	FROM cart_items ci

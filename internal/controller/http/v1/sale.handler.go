@@ -973,8 +973,8 @@ func (h *SaleHandler) AddDiscountCard(c *gin.Context) {
 		h.log.Warn("ERROR on getting discount card info: %v", err)
 		handleResponse(c, NotFound, "Can't get discount card")
 		return
-	} else {
-		handleResponse(c, OK, customerDiscount)
-		return
 	}
+
+	handleResponse(c, OK, customerDiscount)
+
 }

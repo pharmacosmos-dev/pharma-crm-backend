@@ -61,14 +61,14 @@ type Ids struct {
 
 // CartItemResponse structure
 type CartItemData struct {
-	Data            []CartItemResponse `gorm:"-" json:"data"`
-	TotalAmount     float64            `gorm:"total_amount" json:"total_amount"`
-	Sum             float64            `gorm:"sum" json:"sum"`
-	DiscountAmount  float64            `gorm:"discount_amount" json:"discount_amount"`
-	DiscountPercent float64            `gorm:"discount_percent" json:"discount_percent"`
-	VatSum          float64            `gorm:"vat_sum" json:"vat_sum"`
-	Count           int64              `gorm:"count" json:"count"`
-	ItemCount       int64              `gorm:"item_count" json:"item_count"`
+	Data           []CartItemResponse `gorm:"-" json:"data"`
+	TotalAmount    float64            `gorm:"total_amount" json:"total_amount"`
+	Sum            float64            `gorm:"sum" json:"sum"`
+	DiscountAmount float64            `gorm:"discount_amount" json:"discount_amount"`
+	CardPercent    float64            `gorm:"card_percent" json:"card_percent"`
+	VatSum         float64            `gorm:"vat_sum" json:"vat_sum"`
+	Count          int64              `gorm:"count" json:"count"`
+	ItemCount      int64              `gorm:"item_count" json:"item_count"`
 }
 
 // CartItemResponse structure with product data
