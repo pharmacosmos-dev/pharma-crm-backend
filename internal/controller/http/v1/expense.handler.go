@@ -45,7 +45,7 @@ func (h *ExpenseHandler) Send(c *gin.Context) {
 		handleResponse(c, BadRequest, "StoreID is required")
 		return
 	}
-
+	
 	// get shift expense with store and date
 	shiftExpense := h.service.CheckShiftExpense(sendDate, storeID)
 
@@ -54,6 +54,7 @@ func (h *ExpenseHandler) Send(c *gin.Context) {
 		handleResponse(c, BadRequest, "Shift expense already sent for this date")
 		return
 	}
+
 
 	// send expense with manual request
 	err = h.service.SendExpenseTo1C(sendDate, storeID)

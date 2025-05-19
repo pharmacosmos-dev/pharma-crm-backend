@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"strconv"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -274,6 +273,7 @@ func (h *InventoryHandler) Cancel(c *gin.Context) {
 // @Param   inventory_id query string true "Inventory ID"
 // @Param   search 	query string false "SEARCH KEY"
 // @Param   type 	query string false "TYPE"
+// @Param   order 	query string false "ORDER (+name|-name|+current_sum|-current_sum|+fact_sum|-fact_sum|+difference_sum|-difference_sum)"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -323,6 +323,7 @@ func (h *InventoryHandler) InventoryDetailList(c *gin.Context) {
 // @Param   inventory_id query string true "Inventory ID"
 // @Param   search 	query string false "SEARCH KEY"
 // @Param   type 	query string false "TYPE"
+// @Param   order 	query string false "ORDER (+name|-name|+current_sum|-current_sum|+fact_sum|-fact_sum|+difference_sum|-difference_sum)"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -347,7 +348,7 @@ func (h *InventoryHandler) InventoryDetailExport(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"ID", "Код", "Наименования", "Штрих-Код", "Текущее кол-во", "Срок Годности", "Цена Поставки СНДС", "Цена Продажа СНДС"}
+	headers := []string{"Код", "Наименования", "УП", "Кол-во", "Кол-во", "Сумма", "Кол-во", "Кол-во", "Сумма", "Кол-во", "Кол-во", "Сумма"}
 
 	headerStyle, err := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{
@@ -370,18 +371,18 @@ func (h *InventoryHandler) InventoryDetailExport(c *gin.Context) {
 	// Ma'lumotlarni qo'shish
 	for i, imp := range res {
 		row := strconv.Itoa(i + 2)
-		f.SetCellValue(sheetName, "A"+row, imp.Id)
-		f.SetCellValue(sheetName, "B"+row, imp.MaterialCode)
-		f.SetCellValue(sheetName, "C"+row, imp.Name)
-		f.SetCellValue(sheetName, "D"+row, imp.Barcode)
-		f.SetCellValue(sheetName, "E"+row, imp.ReceivedCount)
-		if imp.ExpireDate != nil {
-			f.SetCellValue(sheetName, "F"+row, imp.ExpireDate.Format(time.DateOnly))
-		} else {
-			f.SetCellValue(sheetName, "F"+row, "N/A")
-		}
-		f.SetCellValue(sheetName, "G"+row, imp.SupplyPriceVat)
-		f.SetCellValue(sheetName, "H"+row, imp.RetailPriceVat)
+		f.SetCellValue(sheetName, "A"+row, imp.MaterialCode)
+		f.SetCellValue(sheetName, "B"+row, imp.Name)
+		f.SetCellValue(sheetName, "C"+row, imp.UnitPerPack)
+		f.SetCellValue(sheetName, "D"+row, imp.CurrentFquantity)
+		f.SetCellValue(sheetName, "E"+row, fmt.Sprintf("%d(%d/%d)", int(imp.CurrentFquantity), int(imp.CurrentUnit), int(imp.UnitPerPack)))
+		f.SetCellValue(sheetName, "F"+row, imp.CurrentSum)
+		f.SetCellValue(sheetName, "G"+row, imp.FactFquantity)
+		f.SetCellValue(sheetName, "H"+row, fmt.Sprintf("%d(%d/%d)", int(imp.FactFquantity), int(imp.FactUnit), int(imp.UnitPerPack)))
+		f.SetCellValue(sheetName, "I"+row, imp.FactSum)
+		f.SetCellValue(sheetName, "J"+row, imp.DifferenceFquantity)
+		f.SetCellValue(sheetName, "K"+row, fmt.Sprintf("%d(%d/%d)", int(imp.DifferenceFquantity), int(imp.DifferenceUnit), int(imp.UnitPerPack)))
+		f.SetCellValue(sheetName, "L"+row, imp.DifferenceSum)
 	}
 
 	// Faylni HTTP response orqali yuborish

@@ -5804,6 +5804,10 @@ paths:
         in: query
         name: type
         type: string
+      - description: ORDER (+name|-name|+current_sum|-current_sum|+fact_sum|-fact_sum|+difference_sum|-difference_sum)
+        in: query
+        name: order
+        type: string
       produces:
       - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
       responses:
@@ -5850,6 +5854,10 @@ paths:
       - description: TYPE
         in: query
         name: type
+        type: string
+      - description: ORDER (+name|-name|+current_sum|-current_sum|+fact_sum|-fact_sum|+difference_sum|-difference_sum)
+        in: query
+        name: order
         type: string
       produces:
       - application/json

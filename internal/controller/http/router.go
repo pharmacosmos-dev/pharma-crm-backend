@@ -61,7 +61,7 @@ func NewRouter(option Options) {
 	option.Gin.Use(basicAuth.BasicAuthMiddleware)
 	option.Gin.Use(gin.Logger())
 	option.Gin.Use(gin.Recovery())
-
+	gin.ErrorLogger()
 	// JWTHandler
 	jwtHandler := token.JWTHandler{
 		Cfg: option.Cfg,

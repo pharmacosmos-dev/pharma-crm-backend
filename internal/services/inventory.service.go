@@ -39,8 +39,8 @@ func (s *Services) CreateInventory(req *domain.InventoryRequest) error {
 		    ?,
 			p.id,
 			ROUND(SUM(sp.pack_quantity)::numeric + (SUM(sp.unit_quantity)::numeric%p.unit_per_pack)::numeric/p.unit_per_pack, 4) AS quantity,
-			SUM(sp.supply_price) AS supply_sum,
-			SUM(sp.retail_price) AS retail_sum
+			MIN(sp.supply_price),
+			MIN(sp.retail_price)
 		FROM
 			products p
 		LEFT JOIN
@@ -137,59 +137,106 @@ func (s *Services) InventoryList(param *domain.InventoryParam) ([]domain.Invento
 
 // get inventory detail list
 func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]domain.InventoryDetail, int64, error) {
-	var res []domain.InventoryDetail
-	var totalCount int64
-	query := s.db.
-		Table("import_details imd").
-		Select(`
-		imd.id, imd.import_id AS inventory_id,
-		imd.product_id,
-		ROUND(imd.received_count + (imd.received_unit_count/p.unit_per_pack), 4) AS received_count,
-		imd.scanned_count,
-		imd.scanned_count - imd.received_count AS difference_count,
-		imd.supply_price_vat, imd.retail_price_vat,
-		imd.expire_date, imd.series_number, imd.created_at, imd.updated_at,
-		(imd.received_count*imd.retail_price_vat) AS stock_sum,
-		(imd.scanned_count*imd.retail_price_vat) AS scanned_sum,
-		((imd.scanned_count - imd.received_count)*imd.retail_price_vat) AS difference_sum,
-    	p.name, p.material_code, p.barcode, ut.short_name`).
-		Joins("JOIN products p ON imd.product_id = p.id").
-		Joins("LEFT JOIN unit_types ut ON p.unit_type_id = ut.id").
-		Where("imd.import_id = ?", param.InventoryId)
+	var (
+		res        []domain.InventoryDetail
+		totalCount int64
+		args       = []any{}
+		filter     = " WHERE imd.import_id = ? "
+		orderBy    = " ORDER BY imd.created_at DESC "
+	)
+	args = append(args, param.InventoryId)
+	//
+	query := `
+	SELECT
+        imd.id,
+        imd.import_id AS inventory_id,
+        imd.product_id,
+        p.material_code,
+        p.name,
+        p.unit_per_pack,
+        imd.received_count AS current_fquantity,
+        (imd.received_count - FLOOR(imd.received_count))*p.unit_per_pack AS current_unit,
+        imd.scanned_count AS fact_fquantity,
+        (imd.scanned_count - FLOOR(imd.scanned_count))*p.unit_per_pack AS fact_unit,
+        imd.scanned_count - imd.received_count AS difference_fquantity,
+        ((imd.scanned_count - imd.received_count) - FLOOR(imd.scanned_count - imd.received_count))*p.unit_per_pack AS difference_unit,
+        (imd.retail_price_vat*FLOOR(imd.received_count)) + ((imd.received_count - FLOOR(imd.received_count))*p.unit_per_pack)*imd.retail_price_vat/p.unit_per_pack AS current_sum,
+        (imd.retail_price_vat*FLOOR(imd.scanned_count)) + ((imd.scanned_count - FLOOR(imd.scanned_count))*p.unit_per_pack)*imd.retail_price_vat/p.unit_per_pack AS fact_sum,
+        ((imd.retail_price_vat*FLOOR(imd.scanned_count)) + ((imd.scanned_count - FLOOR(imd.scanned_count))*p.unit_per_pack)*imd.retail_price_vat/p.unit_per_pack) -
+        ((imd.retail_price_vat*FLOOR(imd.received_count)) + ((imd.received_count - FLOOR(imd.received_count))*p.unit_per_pack)*imd.retail_price_vat/p.unit_per_pack) AS difference_sum
+	FROM import_details imd
+		JOIN products p ON imd.product_id = p.id
+	`
+	tquery := `
+	SELECT
+		COUNT(*) AS total_count
+	FROM import_details imd
+		JOIN products p ON imd.product_id = p.id
+	`
 
 	if param.Search != "" {
 		switch utils.DefineProductSearchQuery(param.Search) {
 		case "barcode":
-			query = query.Where("p.barcode = ?", param.Search)
+			filter += " AND p.barcode LIKE ?"
+			args = append(args, "%"+param.Search+"%")
 		case "name/category":
-			param.Search = fmt.Sprintf("%%%s%%", param.Search)
-			query = query.Where("p.name ILIKE ?", param.Search)
+			filter += " AND p.name ILIKE ?"
+			args = append(args, "%"+param.Search+"%")
 		default:
-			param.Search = fmt.Sprintf("%%%s%%", param.Search)
-			query = query.Where("p.name ILIKE ? OR p.barcode LIKE ?", param.Search, param.Search)
+			filter += " AND (p.name ILIKE ? OR p.barcode LIKE ?)"
+			args = append(args, "%"+param.Search+"%", "%"+param.Search+"%")
 		}
 	}
 	// filter with inventory stats
 	if param.Type != "" {
 		switch param.Type {
 		case "shortage":
-			query = query.Where("imd.received_count > imd.scanned_count")
+			filter += " AND imd.received_count > imd.scanned_count"
 		case "scanned":
-			query = query.Where("imd.scanned_count > 0")
+			filter += " AND imd.scanned_count > 0"
 		case "surplus":
-			query = query.Where("imd.scanned_count > imd.received_count")
+			filter += " AND imd.scanned_count > imd.received_count"
 		}
 	}
 
-	err := query.
-		Order("imd.updated_at DESC").
-		Count(&totalCount).
-		Limit(param.Limit).
-		Offset(param.Offset).
-		Debug().
-		Find(&res).Error
+	// order by
+	switch param.Order {
+	case "+name":
+		orderBy = " ORDER BY p.name ASC "
+	case "-name":
+		orderBy = " ORDER BY p.name DESC "
+	case "+current_sum":
+		orderBy = " ORDER BY current_sum ASC "
+	case "-current_sum":
+		orderBy = " ORDER BY current_sum DESC "
+	case "+fact_sum":
+		orderBy = " ORDER BY fact_sum ASC "
+	case "-fact_sum":
+		orderBy = " ORDER BY fact_sum DESC "
+	case "+difference_sum":
+		orderBy = " ORDER BY difference_sum ASC "
+	case "-difference_sum":
+		orderBy = " ORDER BY difference_sum DESC "
+	default:
+		orderBy = " ORDER BY p.name ASC "
+	}
+	// execute total count query
+	tquery += filter
+	// get total count
+	err := s.db.Raw(tquery, args...).Scan(&totalCount).Error
 	if err != nil {
-		s.log.Error(err)
+		s.log.Warn("ERROR on getting total count: %v", err)
+		return res, 0, err
+	}
+
+	// complete query
+	query += filter + orderBy + " LIMIT ? OFFSET ?"
+	args = append(args, param.Limit, param.Offset)
+	// execute query
+	err = s.db.Raw(query, args...).Scan(&res).Error
+
+	if err != nil {
+		s.log.Warn("ERROR on getting inventory detail list: %v", err)
 		return res, 0, err
 	}
 

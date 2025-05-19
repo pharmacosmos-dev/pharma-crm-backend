@@ -7234,6 +7234,12 @@ const docTemplate = `{
                         "description": "TYPE",
                         "name": "type",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "ORDER (+name|-name|+current_sum|-current_sum|+fact_sum|-fact_sum|+difference_sum|-difference_sum)",
+                        "name": "order",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -7306,6 +7312,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "TYPE",
                         "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "ORDER (+name|-name|+current_sum|-current_sum|+fact_sum|-fact_sum|+difference_sum|-difference_sum)",
+                        "name": "order",
                         "in": "query"
                     }
                 ],

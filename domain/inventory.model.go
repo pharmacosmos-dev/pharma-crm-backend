@@ -48,25 +48,22 @@ type InventoryRequest struct {
 
 // InventoryRequest structure
 type InventoryDetail struct {
-	Id              string     `gorm:"id" json:"id"`
-	InventoryId     string     `gorm:"inventory_id" json:"inventory_id"`
-	ProductId       string     `gorm:"product_id" json:"product_id"`
-	ReceivedCount   float64    `gorm:"received_count" json:"stock_count"`
-	ScannedCount    float64    `gorm:"scanned_count" json:"scanned_count"`
-	DifferenceCount float64    `gorm:"difference_count" json:"difference_count"`
-	Name            string     `gorm:"name" json:"name"`
-	MaterialCode    int        `gorm:"material_code" json:"material_code"`
-	Barcode         string     `gorm:"barcode" json:"barcode"`
-	ShortName       string     `gorm:"short_name" json:"short_name"`
-	SupplyPriceVat  float64    `gorm:"supply_price_vat" json:"supply_price"`
-	RetailPriceVat  float64    `gorm:"retail_price_vat" json:"retail_price"`
-	StockSum        float64    `gorm:"stock_sum" json:"stock_sum"`
-	ScannedSum      float64    `gorm:"scanned_sum" json:"scanned_sum"`
-	DifferenceSum   float64    `gorm:"difference_sum" json:"difference_sum"`
-	SeriesNumber    string     `gorm:"series_number" json:"serial_number"`
-	ExpireDate      *time.Time `gorm:"expire_date" json:"expire_date"`
-	CreatedAt       *time.Time `gorm:"created_at" json:"created_at"`
-	UpdatedAt       *time.Time `gorm:"updated_at" json:"updated_at"`
+	Id                  string  `gorm:"id" json:"id"`
+	InventoryId         string  `gorm:"inventory_id" json:"inventory_id"`
+	ProductId           string  `gorm:"product_id" json:"product_id"`
+	MaterialCode        int     `gorm:"material_code" json:"material_code"`
+	UnitPerPack         int     `gorm:"unit_per_pack" json:"unit_per_pack"`
+	Name                string  `gorm:"name" json:"name"`
+	CurrentFquantity    float64 `gorm:"current_quantity" json:"current_quantity"`
+	CurrentUnit         float64 `gorm:"current_unit" json:"current_unit"`
+	FactFquantity       float64 `gorm:"fact_quantity" json:"fact_quantity"`
+	FactUnit            float64 `gorm:"fact_unit" json:"fact_unit"`
+	DifferenceFquantity float64 `gorm:"difference_quantity" json:"difference_quantity"`
+	DifferenceUnit      float64 `gorm:"difference_unit" json:"difference_unit"`
+	CurrentSum          float64 `gorm:"current_sum" json:"current_sum"`
+	FactSum             float64 `gorm:"fact_sum" json:"fact_sum"`
+	DifferenceSum       float64 `gorm:"difference_sum" json:"difference_sum"`
+	TotalCount          int64   `gorm:"total_count" json:"-"`
 }
 
 // InventoryDetailRequest structure
@@ -81,6 +78,7 @@ type InventoryDetailParam struct {
 	Search      string `form:"search"`
 	Limit       int    `form:"limit"`
 	Offset      int    `form:"offset"`
+	Order       string `form:"order"`
 }
 
 type InventoryDetailStatus struct {
