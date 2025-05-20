@@ -186,9 +186,7 @@ type PaymeGoReceiptPay struct {
 
 type PaymeGoPayParams struct {
 	Id    string `json:"id"`
-	Payer *struct {
-		Phone string `json:"phone"`
-	}
+	Token string `json:"token"`
 }
 
 // PaymeGo receipt cancel body
@@ -204,9 +202,10 @@ type PaymeGoCancelParams struct {
 
 // PaymeGo response
 type PaymeGoResponse struct {
-	JSONRPC string        `json:"jsonrpc"`
-	ID      *int          `json:"id"`
-	Result  PaymeGoResult `json:"result"`
+	JSONRPC string                `json:"jsonrpc"`
+	ID      *int                  `json:"id"`
+	Result  PaymeGoResult         `json:"result"`
+	Error   *PaymeGoErrorResponse `json:"error"`
 }
 
 type PaymeGoResult struct {
@@ -314,4 +313,11 @@ type FiscalData struct {
 	Date       string `json:"date"`
 	FiscalSign string `json:"fiscal_sign"`
 	QrCodeUrl  string `json:"qr_code_url"`
+}
+
+// Payme GO error response
+type PaymeGoErrorResponse struct {
+	Message string `json:"message"`
+	Code    int    `json:"code"`
+	Data    string `json:"data"`
 }

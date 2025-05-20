@@ -225,7 +225,7 @@ func (s *Services) PaymeGoReceiptPay(ctx context.Context, paymentService *domain
 		Method: "receipts.pay",
 		Params: domain.PaymeGoPayParams{
 			Id:    receiptID,
-			Payer: nil,
+			Token: data.OtpData,
 		},
 	}
 	t, _ := json.Marshal(reqData)
@@ -368,6 +368,7 @@ func (s *Services) PaymeGoDoRequest(ctx context.Context, data any, paymentServe 
 	if err != nil {
 		return nil, err
 	}
+
 	// add headers
 	req.Header.Add("X-Auth", paymentServe.CashboxId+":"+paymentServe.SecretKey)
 	req.Header.Add("Content-Type", "application/json")
@@ -384,12 +385,17 @@ func (s *Services) PaymeGoDoRequest(ctx context.Context, data any, paymentServe 
 		s.log.Warn("ERROR on reading all: %v", err)
 		return nil, err
 	}
-	fmt.Println("PAYME RESPONSE: ", string(payload))
+
 	// read response body
 	err = json.Unmarshal(payload, &res)
 	if err != nil {
 		s.log.Warn("ERROR on unmarshaling: %v", err)
 		return nil, err
+	}
+
+	if res.Error != nil {
+		s.log.Warn("ERROR on payme go response: %v", res.Error)
+		return nil, errors.New(res.Error.Message)
 	}
 	// err = json.NewDecoder(resp.Body).Decode(&res)
 	// if err != nil {

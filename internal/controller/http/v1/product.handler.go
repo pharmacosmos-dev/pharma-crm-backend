@@ -1556,6 +1556,7 @@ func (h *ProductHandler) AttachBarcode(c *gin.Context) {
 // @Param id path string true "Product ID"
 // @Param limit query int false "Limit"
 // @Param offset query int false "Offset"
+// @Param store_id query string false "Store ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -1563,6 +1564,19 @@ func (h *ProductHandler) AttachBarcode(c *gin.Context) {
 func (h *ProductHandler) ProductMovements(c *gin.Context) {
 	// get product id from the path param
 	productId := c.Param("id")
+	storeId := c.Query("store_id")
+	// validate product id
+	if err := uuid.Validate(productId); err != nil {
+		handleResponse(c, BadRequest, "Invalid product id")
+		return
+	}
+	// validate store id
+	if storeId != "" {
+		if err := uuid.Validate(storeId); err != nil {
+			handleResponse(c, BadRequest, "Invalid store id")
+			return
+		}
+	}
 
 	userId, ok := c.Get("user_id")
 	if !ok {
@@ -1587,7 +1601,7 @@ func (h *ProductHandler) ProductMovements(c *gin.Context) {
 		handleResponse(c, InternalError, "Can't get employee info")
 		return
 	}
-	var storeId string
+
 	// check if employee is not admin or superadmin
 	if !helper.IsAdmin(employee, h.cfg) {
 		if employee.StoreId != "" {

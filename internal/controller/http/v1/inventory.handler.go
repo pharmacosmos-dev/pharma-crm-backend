@@ -291,22 +291,8 @@ func (h *InventoryHandler) InventoryDetailList(c *gin.Context) {
 		handleResponse(c, InternalError, "Failed to get inventory detail list")
 		return
 	}
-	// get inventory details status count
-	statsCount, err := h.service.InventoryDetailStatsCount(&param)
-	if err != nil {
-		handleResponse(c, InternalError, "Failed to get inventory detail stats count")
-		return
-	}
-	data := map[string]any{
-		"_meta": utils.Meta{
-			TotalCount:  totalCount,
-			PerPage:     param.Limit,
-			CurrentPage: (param.Offset / param.Limit) + 1,
-			PageCount:   int((totalCount + int64(param.Limit) - 1) / int64(param.Limit)),
-		},
-		"stats_count": statsCount,
-		"data":        res,
-	}
+
+	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
 
 	handleResponse(c, OK, data)
 }
@@ -374,14 +360,14 @@ func (h *InventoryHandler) InventoryDetailExport(c *gin.Context) {
 		f.SetCellValue(sheetName, "A"+row, imp.MaterialCode)
 		f.SetCellValue(sheetName, "B"+row, imp.Name)
 		f.SetCellValue(sheetName, "C"+row, imp.UnitPerPack)
-		f.SetCellValue(sheetName, "D"+row, imp.CurrentFquantity)
-		f.SetCellValue(sheetName, "E"+row, fmt.Sprintf("%d(%d/%d)", int(imp.CurrentFquantity), int(imp.CurrentUnit), int(imp.UnitPerPack)))
+		f.SetCellValue(sheetName, "D"+row, imp.CurrentQuantity)
+		f.SetCellValue(sheetName, "E"+row, fmt.Sprintf("%d(%d/%d)", int(imp.CurrentQuantity), int(imp.CurrentUnit), int(imp.UnitPerPack)))
 		f.SetCellValue(sheetName, "F"+row, imp.CurrentSum)
-		f.SetCellValue(sheetName, "G"+row, imp.FactFquantity)
-		f.SetCellValue(sheetName, "H"+row, fmt.Sprintf("%d(%d/%d)", int(imp.FactFquantity), int(imp.FactUnit), int(imp.UnitPerPack)))
+		f.SetCellValue(sheetName, "G"+row, imp.FactQuantity)
+		f.SetCellValue(sheetName, "H"+row, fmt.Sprintf("%d(%d/%d)", int(imp.FactQuantity), int(imp.FactUnit), int(imp.UnitPerPack)))
 		f.SetCellValue(sheetName, "I"+row, imp.FactSum)
-		f.SetCellValue(sheetName, "J"+row, imp.DifferenceFquantity)
-		f.SetCellValue(sheetName, "K"+row, fmt.Sprintf("%d(%d/%d)", int(imp.DifferenceFquantity), int(imp.DifferenceUnit), int(imp.UnitPerPack)))
+		f.SetCellValue(sheetName, "J"+row, imp.DifferenceQuantity)
+		f.SetCellValue(sheetName, "K"+row, fmt.Sprintf("%d(%d/%d)", int(imp.DifferenceQuantity), int(imp.DifferenceUnit), int(imp.UnitPerPack)))
 		f.SetCellValue(sheetName, "L"+row, imp.DifferenceSum)
 	}
 

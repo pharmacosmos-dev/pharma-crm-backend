@@ -48,22 +48,22 @@ type InventoryRequest struct {
 
 // InventoryRequest structure
 type InventoryDetail struct {
-	Id                  string  `gorm:"id" json:"id"`
-	InventoryId         string  `gorm:"inventory_id" json:"inventory_id"`
-	ProductId           string  `gorm:"product_id" json:"product_id"`
-	MaterialCode        int     `gorm:"material_code" json:"material_code"`
-	UnitPerPack         int     `gorm:"unit_per_pack" json:"unit_per_pack"`
-	Name                string  `gorm:"name" json:"name"`
-	CurrentFquantity    float64 `gorm:"current_quantity" json:"current_quantity"`
-	CurrentUnit         float64 `gorm:"current_unit" json:"current_unit"`
-	FactFquantity       float64 `gorm:"fact_quantity" json:"fact_quantity"`
-	FactUnit            float64 `gorm:"fact_unit" json:"fact_unit"`
-	DifferenceFquantity float64 `gorm:"difference_quantity" json:"difference_quantity"`
-	DifferenceUnit      float64 `gorm:"difference_unit" json:"difference_unit"`
-	CurrentSum          float64 `gorm:"current_sum" json:"current_sum"`
-	FactSum             float64 `gorm:"fact_sum" json:"fact_sum"`
-	DifferenceSum       float64 `gorm:"difference_sum" json:"difference_sum"`
-	TotalCount          int64   `gorm:"total_count" json:"-"`
+	Id                 string  `gorm:"id" json:"id"`
+	InventoryId        string  `gorm:"inventory_id" json:"inventory_id"`
+	ProductId          string  `gorm:"product_id" json:"product_id"`
+	MaterialCode       int     `gorm:"material_code" json:"material_code"`
+	UnitPerPack        int     `gorm:"unit_per_pack" json:"unit_per_pack"`
+	Name               string  `gorm:"name" json:"name"`
+	CurrentQuantity    float64 `gorm:"current_quantity" json:"current_quantity"`
+	CurrentUnit        float64 `gorm:"current_unit" json:"current_unit"`
+	FactQuantity       float64 `gorm:"fact_quantity" json:"fact_quantity"`
+	FactUnit           float64 `gorm:"fact_unit" json:"fact_unit"`
+	DifferenceQuantity float64 `gorm:"difference_quantity" json:"difference_quantity"`
+	DifferenceUnit     float64 `gorm:"difference_unit" json:"difference_unit"`
+	CurrentSum         float64 `gorm:"current_sum" json:"current_sum"`
+	FactSum            float64 `gorm:"fact_sum" json:"fact_sum"`
+	DifferenceSum      float64 `gorm:"difference_sum" json:"difference_sum"`
+	TotalCount         int64   `gorm:"total_count" json:"-"`
 }
 
 // InventoryDetailRequest structure

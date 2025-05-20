@@ -38,9 +38,9 @@ func (s *Services) CreateInventory(req *domain.InventoryRequest) error {
 		SELECT
 		    ?,
 			p.id,
-			ROUND(SUM(sp.pack_quantity)::numeric + (SUM(sp.unit_quantity)::numeric%p.unit_per_pack)::numeric/p.unit_per_pack, 4) AS quantity,
-			MIN(sp.supply_price),
-			MIN(sp.retail_price)
+			COALESCE(ROUND(SUM(sp.pack_quantity)::numeric + (SUM(sp.unit_quantity)::numeric%p.unit_per_pack)::numeric/p.unit_per_pack, 4), 0.00) AS quantity,
+			AVG(sp.supply_price),
+			AVG(sp.retail_price)
 		FROM
 			products p
 		LEFT JOIN
@@ -142,7 +142,7 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
 		totalCount int64
 		args       = []any{}
 		filter     = " WHERE imd.import_id = ? "
-		orderBy    = " ORDER BY imd.created_at DESC "
+		orderBy    = ""
 	)
 	args = append(args, param.InventoryId)
 	//
@@ -154,16 +154,15 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
         p.material_code,
         p.name,
         p.unit_per_pack,
-        imd.received_count AS current_fquantity,
+        imd.received_count AS current_quantity,
         (imd.received_count - FLOOR(imd.received_count))*p.unit_per_pack AS current_unit,
-        imd.scanned_count AS fact_fquantity,
+        imd.scanned_count AS fact_quantity,
         (imd.scanned_count - FLOOR(imd.scanned_count))*p.unit_per_pack AS fact_unit,
-        imd.scanned_count - imd.received_count AS difference_fquantity,
+        imd.scanned_count - imd.received_count AS difference_quantity,
         ((imd.scanned_count - imd.received_count) - FLOOR(imd.scanned_count - imd.received_count))*p.unit_per_pack AS difference_unit,
-        (imd.retail_price_vat*FLOOR(imd.received_count)) + ((imd.received_count - FLOOR(imd.received_count))*p.unit_per_pack)*imd.retail_price_vat/p.unit_per_pack AS current_sum,
-        (imd.retail_price_vat*FLOOR(imd.scanned_count)) + ((imd.scanned_count - FLOOR(imd.scanned_count))*p.unit_per_pack)*imd.retail_price_vat/p.unit_per_pack AS fact_sum,
-        ((imd.retail_price_vat*FLOOR(imd.scanned_count)) + ((imd.scanned_count - FLOOR(imd.scanned_count))*p.unit_per_pack)*imd.retail_price_vat/p.unit_per_pack) -
-        ((imd.retail_price_vat*FLOOR(imd.received_count)) + ((imd.received_count - FLOOR(imd.received_count))*p.unit_per_pack)*imd.retail_price_vat/p.unit_per_pack) AS difference_sum
+        (imd.retail_price_vat*imd.received_count) AS current_sum,
+        (imd.retail_price_vat*imd.scanned_count) AS fact_sum,
+        imd.retail_price_vat*(imd.scanned_count - imd.received_count) AS difference_sum
 	FROM import_details imd
 		JOIN products p ON imd.product_id = p.id
 	`
@@ -218,7 +217,7 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
 	case "-difference_sum":
 		orderBy = " ORDER BY difference_sum DESC "
 	default:
-		orderBy = " ORDER BY p.name ASC "
+		orderBy = " ORDER BY current_quantity DESC "
 	}
 	// execute total count query
 	tquery += filter
@@ -234,7 +233,6 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
 	args = append(args, param.Limit, param.Offset)
 	// execute query
 	err = s.db.Raw(query, args...).Scan(&res).Error
-
 	if err != nil {
 		s.log.Warn("ERROR on getting inventory detail list: %v", err)
 		return res, 0, err
@@ -317,39 +315,8 @@ func (s *Services) AttachInventoryToStoreProduct(req *domain.Inventory) error {
 			tx.Rollback()
 		}
 	}()
-
-	query := `
-	WITH UpdatedProducts AS (
-		SELECT 
-			sp.id AS sp_id,
-			id.scanned_count::INT AS pack_quantity,
-			FLOOR(id.scanned_count::INT) * p.unit_per_pack + 
-			((id.scanned_count - FLOOR(id.scanned_count)) * p.unit_per_pack) AS unit_quantity,
-			id.supply_price_vat,
-			id.retail_price_vat,
-			id.expire_date,
-			ROW_NUMBER() OVER (PARTITION BY sp.product_id ORDER BY sp.id) AS row_num
-		FROM 
-			store_products sp
-		JOIN import_details id ON sp.product_id = id.product_id
-		JOIN products p ON id.product_id = p.id
-		WHERE 
-			id.scanned_count > 0 
-			AND id.import_id = ? 
-			AND sp.store_id = ?
-	)
-	UPDATE store_products sp
-	SET 
-		pack_quantity = up.pack_quantity,
-		unit_quantity = up.unit_quantity,
-		supply_price = up.supply_price_vat,
-		retail_price = up.retail_price_vat,
-		expire_date = up.expire_date
-	FROM UpdatedProducts up
-	WHERE 
-		sp.id = up.sp_id
-		AND up.row_num = 1;
-	`
+	
+	query := ``
 	err := s.db.Exec(query, req.Id, req.StoreId).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating store_products: %v", err)
@@ -357,45 +324,7 @@ func (s *Services) AttachInventoryToStoreProduct(req *domain.Inventory) error {
 		return err
 	}
 
-	// query1 := `
-	// INSERT INTO store_products (
-	// 		store_id, product_id, pack_quantity, unit_quantity, supply_price, retail_price, expire_date, serial_number)
-	// 	SELECT
-	// 		?, id.product_id, FLOOR(id.scanned_count),
-	// 		FLOOR(id.scanned_count)*p.unit_per_pack + (id.scanned_count - FLOOR(id.scanned_count))*p.unit_per_pack,
-	// 		id.supply_price_vat,id.retail_price_vat, id.expire_date, id.series_number
-	// 	FROM import_details id
-	// 	JOIN products p ON id.product_id = p.id
-	// 	LEFT JOIN store_products sp ON sp.product_id = id.product_id AND sp.store_id = ?
-	// 	WHERE id.import_id = ? AND sp.id IS NULL;
-	// `
-	// err = s.db.Exec(query1, req.StoreId, req.StoreId, req.Id).Error
-	// if err != nil {
-	// 	s.log.Warn("ERROR on inserting store_products: %v", err)
-	// 	tx.Rollback()
-	// 	return err
-	// }
-
-	query2 := `
-	UPDATE store_products sp
-	SET
-		pack_quantity = 0,
-		unit_quantity = 0
-	WHERE
-		sp.store_id = ?
-		AND sp.product_id IN (
-			SELECT product_id
-			FROM import_details
-			WHERE import_id = ?
-			GROUP BY product_id
-			HAVING SUM(scanned_count) = 0
-	);`
-	err = s.db.Exec(query2, req.StoreId, req.Id).Error
-	if err != nil {
-		s.log.Warn("ERROR on updating store_product to 0: %v", err)
-		tx.Rollback()
-		return err
-	}
+	
 
 	// complete transaction
 	if err = tx.Commit().Error; err != nil {
@@ -416,8 +345,8 @@ func (s *Services) CancelInventory(inventoryId string, userId string) error {
 		}
 	}()
 	// update confirm inventory
-	query := `UPDATE imports SET status = ?, accepted_by = ?, updated_at = NOW() WHERE id = ?`
-	err := tx.Exec(query, config.CANCELED, userId, inventoryId).Error
+	query := `UPDATE imports SET status = ?, accepted_by = ?, updated_at = NOW() WHERE id = ? AND status = ?`
+	err := tx.Exec(query, config.CANCELED, userId, inventoryId, config.PENDING).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating inventory %v", err)
 		tx.Rollback()
