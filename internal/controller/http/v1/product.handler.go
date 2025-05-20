@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	gen "math/rand"
 	"os"
@@ -1773,7 +1774,7 @@ func (h *ProductHandler) productListExport(f *excelize.File, res []domain.Produc
 		f.SetCellValue(sheetName, "A"+row, product.MaterialCode)
 		f.SetCellValue(sheetName, "B"+row, product.Name)
 		f.SetCellValue(sheetName, "C"+row, product.Barcode)
-		f.SetCellValue(sheetName, "D"+row, product.Quantity+product.UnitQuantity/float64(product.UnitPerPack))
+		f.SetCellValue(sheetName, "D"+row, math.Round((product.Quantity+product.UnitQuantity/float64(product.UnitPerPack))*10000)/10000)
 		f.SetCellValue(sheetName, "E"+row, product.Manufacturer)
 		f.SetCellValue(sheetName, "F"+row, product.IsMarking)
 		f.SetCellValue(sheetName, "G"+row, product.CategoryName)
@@ -1820,16 +1821,16 @@ func (h *ProductHandler) productListExportByStoreId(f *excelize.File, res []doma
 		f.SetCellValue(sheetName, "B"+row, product.Name)
 		f.SetCellValue(sheetName, "C"+row, product.Barcode)
 		f.SetCellValue(sheetName, "D"+row, product.Manufacturer)
-		f.SetCellValue(sheetName, "E"+row, product.Quantity+product.UnitQuantity/float64(product.UnitPerPack))
+		f.SetCellValue(sheetName, "E"+row, math.Round((product.Quantity+product.UnitQuantity/float64(product.UnitPerPack))*10000)/10000)
 		f.SetCellValue(sheetName, "F"+row, product.SupplyPrice)
-		f.SetCellValue(sheetName, "G"+row, product.SupplyPrice*float64(product.Quantity)+(product.SupplyPrice/float64(product.UnitPerPack)*product.UnitQuantity))
+		f.SetCellValue(sheetName, "G"+row, math.Round((product.SupplyPrice*float64(product.Quantity)+(product.SupplyPrice/float64(product.UnitPerPack)*product.UnitQuantity))*100)/100)
 		f.SetCellValue(sheetName, "H"+row, product.RetailPrice)
-		f.SetCellValue(sheetName, "I"+row, product.RetailPrice*float64(product.Quantity)+(product.RetailPrice/float64(product.UnitPerPack)*product.UnitQuantity))
+		f.SetCellValue(sheetName, "I"+row, math.Round((product.RetailPrice*float64(product.Quantity)+(product.RetailPrice/float64(product.UnitPerPack)*product.UnitQuantity))*100)/100)
 		f.SetCellValue(sheetName, "J"+row, product.RetailPrice-product.SupplyPrice)
-		f.SetCellValue(sheetName, "K"+row, (product.RetailPrice-product.SupplyPrice)*float64(product.Quantity))
+		f.SetCellValue(sheetName, "K"+row, math.Round(((product.RetailPrice-product.SupplyPrice)*float64(product.Quantity)+(product.RetailPrice-product.SupplyPrice)/float64(product.UnitPerPack)*product.UnitQuantity)*100)/100)
 		f.SetCellValue(sheetName, "L"+row, product.Vat)
 		f.SetCellValue(sheetName, "M"+row, product.VatPrice)
-		f.SetCellValue(sheetName, "N"+row, product.VatPrice*float64(product.Quantity)+(product.VatPrice/float64(product.UnitPerPack)*product.UnitQuantity))
+		f.SetCellValue(sheetName, "N"+row, math.Round((product.VatPrice*float64(product.Quantity)+(product.VatPrice/float64(product.UnitPerPack)*product.UnitQuantity))*100)/100)
 		f.SetCellValue(sheetName, "O"+row, product.CategoryName)
 		f.SetCellValue(sheetName, "P"+row, product.MXIK)
 
