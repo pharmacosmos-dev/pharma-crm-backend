@@ -227,13 +227,12 @@ func (s *Services) ChangeStoreProductStock(tx *gorm.DB, id string, quantity, uni
 // get products get list
 func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.ProductData, int64, error) {
 	var (
-		res        []domain.ProductData
-		totalCount int64
-		args       []any
-		filter     = "WHERE 1=1 "
-		order      = " ORDER BY p.created_at DESC "
-		group      = " GROUP BY p.id, pr.id, u.id "
-		// storeProductID = ""
+		res           []domain.ProductData
+		totalCount    int64
+		args          []any
+		filter        = "WHERE 1=1 "
+		order         = " ORDER BY p.created_at DESC "
+		group         = " GROUP BY p.id, pr.id, u.id "
 		expireDayPart = ""
 	)
 
@@ -241,8 +240,6 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 	if param.StoreID != "" {
 		filter += " AND sp.store_id IN (?) "
 		expireDayPart = " DATE_PART('day', MIN(sp.expire_date)::timestamp - NOW()) AS expire_day, MIN(sp.expire_date) AS expire_date, "
-		// group += " , sp.id, sp.expire_date "
-		// storeProductID = " sp.id AS store_product_id, "
 		args = append(args, param.StoreID)
 	}
 	// filter with producer id
@@ -327,25 +324,9 @@ func (s *Services) ListProductExport(param *domain.ProductQueryParam) ([]domain.
 		args   []any
 		filter = "WHERE 1=1 "
 		order  = " ORDER BY p.created_at DESC "
-		group  = " GROUP BY p.id, pr.id, u.id"
+		group  = " GROUP BY p.id, pr.id, u.id "
+		// expireDayPart = ""
 	)
-	query := fmt.Sprintf(`
-	SELECT
-		p.id, p.name, p.photos, p.barcode, p.material_code, 
-		p.unit_per_pack, p.is_marking, p.mxik, p.created_at, p.updated_at,
-		pr.name AS manufacturer, u.unit_name, u.short_name,
-		SUM(sp.pack_quantity) AS quantity,
-		SUM(CASE WHEN p.unit_per_pack > 0 THEN sp.unit_quantity%sp.unit_per_pack ELSE 0 END) AS unit_quantity,
-		AVG(sp.supply_price) AS supply_price,
-        AVG(sp.retail_price) AS retail_price,
-        AVG(sp.vat) AS vat,
-        AVG(sp.vat_price) AS vat_price
-	FROM store_products sp
-	RIGHT JOIN products p ON sp.product_id = p.id
-	LEFT JOIN producers pr ON p.producer_id = pr.id
-	LEFT JOIN unit_types u ON p.unit_type_id = u.id
-	`, "%")
-
 	// filter with store_id
 	if param.StoreID != "" {
 		filter += " AND sp.store_id IN (?) "
@@ -356,6 +337,23 @@ func (s *Services) ListProductExport(param *domain.ProductQueryParam) ([]domain.
 		filter += " AND p.producer_id = ? "
 		args = append(args, param.ProducerID)
 	}
+
+	query := fmt.Sprintf(`
+	SELECT
+		p.id, p.name, p.photos, p.barcode, p.material_code, 
+		p.unit_per_pack, p.is_marking, p.mxik, p.created_at, p.updated_at,
+		pr.name AS manufacturer, u.unit_name, u.short_name,
+		SUM(sp.pack_quantity) AS quantity,
+		SUM(sp.unit_quantity)%sp.unit_per_pack AS unit_quantity,
+		AVG(sp.supply_price) AS supply_price,
+        AVG(sp.retail_price) AS retail_price,
+        AVG(sp.vat) AS vat,
+        AVG(sp.vat_price) AS vat_price
+	FROM store_products sp
+	RIGHT JOIN products p ON sp.product_id = p.id
+	LEFT JOIN producers pr ON p.producer_id = pr.id
+	LEFT JOIN unit_types u ON p.unit_type_id = u.id
+	`, "%")
 
 	// filter with statuses
 	if param.Status != "" {
@@ -373,14 +371,13 @@ func (s *Services) ListProductExport(param *domain.ProductQueryParam) ([]domain.
 		case "imminent":
 			filter += " AND (sp.expire_date::date BETWEEN ? AND ?) "
 			now := time.Now()
-			args = append(args, now.Format("2006-01-02"), now.Add(time.Hour*240).Format("2006-01-02"))
+			args = append(args, now.Format("2006-01-02"), now.AddDate(0, 3, 0).Format("2006-01-02"))
 		}
 	}
 	// filter with search
 	if param.SearchField != "" {
-		search := "%" + param.SearchField + "%"
 		filter += " AND (p.name ILIKE ? OR p.barcode LIKE ?) "
-		args = append(args, search, search)
+		args = append(args, "%"+param.SearchField+"%", "%"+param.SearchField+"%")
 	}
 	// filter with barcode
 	if param.NoBarcode {
@@ -390,7 +387,7 @@ func (s *Services) ListProductExport(param *domain.ProductQueryParam) ([]domain.
 	query += filter + group + order + " LIMIT ? OFFSET ?"
 	args = append(args, param.Limit, param.Offset)
 	// complete query
-	err := s.db.Raw(query, args...).Scan(&res).Error
+	err := s.db.Debug().Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting product list: %v", err)
 		return res, err
