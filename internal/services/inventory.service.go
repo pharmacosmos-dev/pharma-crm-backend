@@ -287,15 +287,7 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) (*domain.
 		tx.Rollback()
 		return &res, err
 	}
-
-	// update confirm inventory details
-	query1 := `UPDATE import_details SET accepted_count = scanned_count, updated_at = NOW() WHERE import_id = ?`
-	err = tx.Exec(query1, inventoryId).Error
-	if err != nil {
-		s.log.Warn("ERROR on updating inventory details: %v", err)
-		tx.Rollback()
-		return &res, err
-	}
+	
 
 	// complete transaction
 	if err = tx.Commit().Error; err != nil {
@@ -315,16 +307,16 @@ func (s *Services) AttachInventoryToStoreProduct(req *domain.Inventory) error {
 			tx.Rollback()
 		}
 	}()
+
+	query := `
 	
-	query := ``
+	`
 	err := s.db.Exec(query, req.Id, req.StoreId).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating store_products: %v", err)
 		tx.Rollback()
 		return err
 	}
-
-	
 
 	// complete transaction
 	if err = tx.Commit().Error; err != nil {
