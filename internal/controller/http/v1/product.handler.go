@@ -1664,27 +1664,6 @@ func parseFloat(value string) float64 {
 	return f
 }
 
-// Helper function to safely parse integer values
-// func parseInt(value string) int {
-// 	i, err := strconv.Atoi(value)
-// 	if err != nil {
-// 		return 0
-// 	}
-// 	return i
-// }
-
-// Helper function to parse percentage values (e.g., "12%")
-// func parsePercentage(value string) float64 {
-// 	// Remove the "%" symbol and trim spaces
-// 	cleanValue := strings.TrimSuffix(strings.TrimSpace(value), "%")
-// 	// Parse the remaining value as a float
-// 	percentage, err := strconv.ParseFloat(cleanValue, 64)
-// 	if err != nil {
-// 		return 0 // Return 0 if parsing fails
-// 	}
-// 	return percentage
-// }
-
 // Parse a string to int if value like 2324,34
 func parseIntComma(value string) int {
 	i, err := strconv.Atoi(strings.ReplaceAll(value, ",", ""))
