@@ -291,7 +291,7 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 		pr.name AS manufacturer, u.unit_name, u.short_name,
 		SUM(sp.pack_quantity) AS quantity, 
 		%s
-		SUM(CASE WHEN p.unit_per_pack > 0 THEN sp.unit_quantity%sp.unit_per_pack ELSE 0 END) AS unit_quantity,
+		SUM(sp.unit_quantity)%sp.unit_per_pack AS unit_quantity,
 		COUNT(1) OVER() AS total_count
 	FROM store_products sp
 	RIGHT JOIN products p ON sp.product_id = p.id
@@ -303,7 +303,7 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 	query += filter + group + order + " LIMIT ? OFFSET ?"
 	args = append(args, param.Limit, param.Offset)
 	// complete query
-	err := s.db.Debug().Raw(query, args...).Scan(&res).Error
+	err := s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting product list: %v", err)
 		return res, totalCount, err

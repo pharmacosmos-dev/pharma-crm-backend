@@ -234,7 +234,7 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
 	query += filter + orderBy + " LIMIT ? OFFSET ?"
 	args = append(args, param.Limit, param.Offset)
 	// execute query
-	err = s.db.Raw(query, args...).Scan(&res).Error
+	err = s.db.Debug().Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting inventory detail list: %v", err)
 		return res, 0, err
@@ -289,7 +289,7 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) (*domain.
 		tx.Rollback()
 		return &res, err
 	}
-	
+
 	// clean import details if fact and received count is equal
 	query = `DELETE FROM import_details WHERE import_id = ? AND scanned_count = received_count`
 	err = tx.Exec(query, inventoryId).Error
@@ -318,13 +318,11 @@ func (s *Services) AttachInventoryToStoreProduct(req *domain.Inventory) error {
 		}
 	}()
 
-	
 	// delta < 0 holat uchun query
 	query := `
 	UPDATE store_products 
 	SET pack_quantity =  pack_quantity - qoldiq WHERE id = ? AND store_id = ?`
 
-	
 	err := s.db.Exec(query, req.Id, req.StoreId).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating store_products: %v", err)
@@ -334,8 +332,7 @@ func (s *Services) AttachInventoryToStoreProduct(req *domain.Inventory) error {
 	// delta > 0 holat uchun query
 	query = `
 	UPDATE store_products
-	SET pack_quantity = pack_quantity + qoldiq WHERE id = ? AND store_id = ?`	
-
+	SET pack_quantity = pack_quantity + qoldiq WHERE id = ? AND store_id = ?`
 
 	err = tx.Exec(query, req.Id, req.StoreId).Error
 	if err != nil {
