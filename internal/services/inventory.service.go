@@ -33,19 +33,21 @@ func (s *Services) CreateInventory(req *domain.InventoryRequest) error {
 	// insert all products (including those not in store_products)
 	err = tx.Exec(`
 		INSERT INTO import_details (
-			import_id, product_id, received_count, supply_price_vat, retail_price_vat
-		)
+			import_id, product_id, store_product_id,  received_count, supply_price_vat, retail_price_vat, expire_date, series_number
+				)
 		SELECT
-		    ?,
-			p.id,
-			COALESCE(ROUND(SUM(sp.pack_quantity)::numeric + (SUM(sp.unit_quantity)::numeric%p.unit_per_pack)::numeric/p.unit_per_pack, 4), 0.00) AS quantity,
-			AVG(sp.supply_price),
-			AVG(sp.retail_price)
+			?,
+			sp.product_id,
+			sp.id,
+			COALESCE(sp.pack_quantity::numeric + (sp.unit_quantity::numeric%p.unit_per_pack)/p.unit_per_pack, 0.00) AS quantity,
+			sp.supply_price,
+			sp.retail_price,
+			expire_date,
+			sp.serial_number
 		FROM
 			products p
 		LEFT JOIN
 			store_products sp ON sp.product_id = p.id and sp.store_id = ?
-    	GROUP BY p.id;
 		`, id, req.StoreId).Error
 	if err != nil {
 		s.log.Warn("ERROR on creating inventory detail: %v", err)
@@ -288,6 +290,14 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) (*domain.
 		return &res, err
 	}
 	
+	// clean import details if fact and received count is equal
+	query = `DELETE FROM import_details WHERE import_id = ? AND scanned_count = received_count`
+	err = tx.Exec(query, inventoryId).Error
+	if err != nil {
+		s.log.Warn("ERROR on deleting import details %v", err)
+		tx.Rollback()
+		return &res, err
+	}
 
 	// complete transaction
 	if err = tx.Commit().Error; err != nil {
@@ -308,10 +318,26 @@ func (s *Services) AttachInventoryToStoreProduct(req *domain.Inventory) error {
 		}
 	}()
 
-	query := `
 	
-	`
+	// delta < 0 holat uchun query
+	query := `
+	UPDATE store_products 
+	SET pack_quantity =  pack_quantity - qoldiq WHERE id = ? AND store_id = ?`
+
+	
 	err := s.db.Exec(query, req.Id, req.StoreId).Error
+	if err != nil {
+		s.log.Warn("ERROR on updating store_products: %v", err)
+		tx.Rollback()
+		return err
+	}
+	// delta > 0 holat uchun query
+	query = `
+	UPDATE store_products
+	SET pack_quantity = pack_quantity + qoldiq WHERE id = ? AND store_id = ?`	
+
+
+	err = tx.Exec(query, req.Id, req.StoreId).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating store_products: %v", err)
 		tx.Rollback()
