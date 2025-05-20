@@ -144,7 +144,7 @@ func (s *Services) SendReportsSequentially() {
 		s.log.Warn("ERROR on getting store list: %v", err)
 		return
 	}
-	now := time.Now()
+	now := time.Now().UTC()
 
 	for _, store := range stores {
 		fmt.Printf("Sending report for %s...\n", store.Name)
@@ -183,8 +183,7 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string, docDate time
 		s.log.Warn("ERROR on creating shift expense: %v", err)
 	}
 	// "2006-01-01T00:00:00Z"
-	expenseData.Document.DocumentDate = docDate.Format("2006-01-02T15:04:05Z07:00")
-	fmt.Println("DocumentDate: ", docDate.Format("2006-01-02T15:04:05Z07:00"))
+	expenseData.Document.DocumentDate = docDate.Format(time.RFC3339)
 
 	// get expense products query
 	expenseProductQuery := `
