@@ -145,12 +145,14 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
 		args       = []any{}
 		filter     = " WHERE imd.import_id = ? "
 		orderBy    = ""
-		group      = " GROUP BY p.id "
+		group      = " GROUP BY p.id, imd.id "
 	)
 	args = append(args, param.InventoryId)
 	//
 	query := `
 	SELECT
+		imd.id,
+		imd.import_id AS inventory_id,
        	p.id AS product_id,
 		p.material_code,
 		p.name,
