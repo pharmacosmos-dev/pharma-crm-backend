@@ -151,19 +151,19 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
 	//
 	query := `
 	SELECT
-        p.id AS product_id,
+       	p.id AS product_id,
 		p.material_code,
 		p.name,
 		p.unit_per_pack,
 		SUM(imd.received_count) AS current_quantity,
-		(SUM(imd.received_count)  - FLOOR(SUM(imd.received_count)))*p.unit_per_pack AS current_unit,
+		ROUND((SUM(imd.received_count) - FLOOR(SUM(imd.received_count))) * p.unit_per_pack, 0) AS current_unit,
 		SUM(imd.scanned_count) AS fact_quantity,
-		(SUM(imd.scanned_count) - FLOOR(SUM(imd.scanned_count)))*p.unit_per_pack AS fact_unit,
+		ROUND((SUM(imd.scanned_count) - FLOOR(SUM(imd.scanned_count))) * p.unit_per_pack, 0) AS fact_unit,
 		SUM(imd.scanned_count) - SUM(imd.received_count) AS difference_quantity,
-		((SUM(imd.scanned_count) - SUM(imd.received_count)) - FLOOR(SUM(imd.scanned_count) - SUM(imd.received_count)))*p.unit_per_pack AS difference_unit,
-		SUM(imd.retail_price_vat*imd.received_count) AS current_sum,
-		SUM(imd.retail_price_vat*imd.scanned_count) AS fact_sum,
-		SUM(imd.retail_price_vat*(imd.scanned_count - imd.received_count)) AS difference_sum
+		ROUND(((SUM(imd.scanned_count) - SUM(imd.received_count)) - FLOOR(SUM(imd.scanned_count) - SUM(imd.received_count))) * p.unit_per_pack, 0) AS difference_unit,
+		SUM(imd.retail_price_vat * imd.received_count) AS current_sum,
+		SUM(imd.retail_price_vat * imd.scanned_count) AS fact_sum,
+		SUM(imd.retail_price_vat * (imd.scanned_count - imd.received_count)) AS difference_sum
 	FROM import_details imd
 		JOIN products p ON imd.product_id = p.id
 	`
@@ -233,7 +233,7 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
 	query += filter + group + orderBy + " LIMIT ? OFFSET ?"
 	args = append(args, param.Limit, param.Offset)
 	// execute query
-	err = s.db.Debug().Raw(query, args...).Scan(&res).Error
+	err = s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting inventory detail list: %v", err)
 		return res, 0, err
