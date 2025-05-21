@@ -7214,6 +7214,10 @@ paths:
         in: query
         name: offset
         type: integer
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
       produces:
       - application/json
       responses:

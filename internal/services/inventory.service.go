@@ -145,6 +145,7 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
 		args       = []any{}
 		filter     = " WHERE imd.import_id = ? "
 		orderBy    = ""
+		group      = " GROUP BY p.id "
 	)
 	args = append(args, param.InventoryId)
 	//
@@ -229,7 +230,7 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
 	}
 
 	// complete query
-	query += filter + orderBy + " LIMIT ? OFFSET ?"
+	query += filter + group + orderBy + " LIMIT ? OFFSET ?"
 	args = append(args, param.Limit, param.Offset)
 	// execute query
 	err = s.db.Debug().Raw(query, args...).Scan(&res).Error
