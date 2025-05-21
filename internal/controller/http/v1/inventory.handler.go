@@ -384,8 +384,8 @@ func (h *InventoryHandler) InventoryDetailExport(c *gin.Context) {
 }
 
 // Get List
-// @Summary Get inventory list
-// @Description Get inventory list
+// @Summary Get inventory detail flow
+// @Description Get inventory detail flow
 // @Tags Inventory
 // @Security     BearerAuth
 // @Accept 	json
@@ -393,7 +393,7 @@ func (h *InventoryHandler) InventoryDetailExport(c *gin.Context) {
 // @Param 	limit query int false "LIMIT"
 // @Param 	offset query int false "OFFSET"
 // @Param   inventory_id query string true "Inventory ID"
-// @Param   product_id 	query string false "Product ID"
+// @Param   product_id 	query string true "Product ID"
 // @Param   search 	query string false "SEARCH KEY"
 // @Param   order 	query string false "ORDER (+name|-name|+current_sum|-current_sum|+fact_sum|-fact_sum|+difference_sum|-difference_sum)"
 // @Success 200 {object} v1.Response
@@ -408,7 +408,7 @@ func (h *InventoryHandler) InventoryDetailedFlow(c *gin.Context) {
 	}
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 
-	res, totalCount, err := h.service.InventoryDetailList(&param)
+	res, totalCount, err := h.service.InventoryDetailedFlow(&param)
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to get inventory detail list")
 		return

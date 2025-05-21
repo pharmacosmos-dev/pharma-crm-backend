@@ -253,11 +253,12 @@ func (s *Services) InventoryDetailedFlow(param *domain.InventoryDetailParam) ([]
 		filter     = " WHERE import_id = ? AND product_id = ? "
 		orderBy    = ""
 	)
-	args = append(args, param.InventoryId)
+	args = append(args, param.InventoryId, param.ProductId)
 	//
 	query := `
 	SELECT
-		imd.id, imd.import_id AS inventory_id,
+		imd.id, 
+		imd.import_id AS inventory_id,
 		p.id AS product_id,
 		p.material_code, p.name,
 		p.unit_per_pack,
@@ -269,7 +270,9 @@ func (s *Services) InventoryDetailedFlow(param *domain.InventoryDetailParam) ([]
 		ROUND((ABS(imd.scanned_count - imd.received_count) - FLOOR(ABS(imd.scanned_count - imd.received_count))) * p.unit_per_pack, 0)*SIGN(imd.scanned_count - imd.received_count) AS difference_unit,
 		imd.retail_price_vat * imd.received_count AS current_sum,
 		imd.retail_price_vat * imd.scanned_count AS fact_sum,
-		imd.retail_price_vat * (imd.scanned_count - imd.received_count) AS difference_sum
+		imd.retail_price_vat * (imd.scanned_count - imd.received_count) AS difference_sum,
+		imd.retail_price_vat AS retail_price,
+		imd.expire_date
 	FROM import_details imd
 		JOIN products p ON imd.product_id = p.id
 	`
@@ -328,7 +331,7 @@ func (s *Services) InventoryDetailedFlow(param *domain.InventoryDetailParam) ([]
 	query += filter + orderBy + " LIMIT ? OFFSET ?;"
 	args = append(args, param.Limit, param.Offset)
 	// execute query
-	err = s.db.Raw(query, args...).Scan(&res).Error
+	err = s.db.Debug().Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting inventory detail list: %v", err)
 		return res, 0, err
