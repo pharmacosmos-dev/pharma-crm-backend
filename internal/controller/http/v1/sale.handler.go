@@ -714,7 +714,7 @@ func processPaymentType(tx *gorm.DB, h *SaleHandler, body domain.FinalSale, item
 		if err != nil {
 			return errors.New("failed to get payment service")
 		}
-		paymentHandlers := map[string]func(ctx context.Context, tx *gorm.DB, service *domain.PaymentService, data *domain.FinalPaymentType, cashOpID string, transactionID string, saleID string) (map[string]interface{}, error){
+		paymentHandlers := map[string]func(ctx context.Context, tx *gorm.DB, service *domain.PaymentService, data *domain.FinalPaymentType, cashOpID string, transactionID string, saleID string) (map[string]any, error){
 			config.CLICK: h.service.ClickPass,
 			config.PAYME: h.service.PaymeGo,
 			config.UZUM:  h.service.UzumFastPay,

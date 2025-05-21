@@ -40,8 +40,8 @@ func (s *Services) CreateInventory(req *domain.InventoryRequest) error {
 			p.id,
 			sp.id,
 			ROUND(COALESCE(sp.pack_quantity::numeric + (sp.unit_quantity::numeric%p.unit_per_pack)/p.unit_per_pack, 0.00), 4) AS quantity,
-			sp.supply_price,
-			sp.retail_price,
+			COALESCE(sp.supply_price, 0.00) AS supply_price,
+			COALESCE(sp.retail_price, 0.00) AS retail_price,
 			expire_date,
 			sp.serial_number
 		FROM
