@@ -98,6 +98,7 @@ type InventoryDetailStatus struct {
 }
 
 type InventoryAddProduct struct {
-	Count int    `gorm:"count" json:"count"`
-	Id    string `gorm:"id" json:"id"`
+	FactQuantity float64 `gorm:"fact_quantity" json:"fact_quantity"`
+	FactUnit     float64 `gorm:"fact_unit" json:"fact_unit"`
+	Id           string  `gorm:"id" json:"id"`
 }

@@ -174,12 +174,13 @@ func (h *InventoryHandler) AddProductByBarcode(c *gin.Context) {
 
 	// add scanned count by product barcode
 	err = h.db.Exec(`
-		UPDATE import_details
-		SET scanned_count = ?, updated_at = NOW()
-		WHERE id = ? AND import_id = ?`,
-		request.Count, request.Id, inventoryID).Error
+		UPDATE import_details 
+		SET scanned_count = ? + (? / p.unit_per_pack)
+		FROM products p
+		WHERE id = ? AND import_id = ?;`,
+		request.FactQuantity, request.FactUnit, request.Id, inventoryID).Error
 	if err != nil {
-		h.log.Error(err)
+		h.log.Warn("ERROR on updating inventory_details: %v", err)
 		handleResponse(c, InternalError, "Failed to add count")
 		return
 	}

@@ -66,3 +66,8 @@ type WriteOffDetailParam struct {
 	Offset     int    `form:"offset"`
 	Type       string `form:"type"`
 }
+
+type WriteOffAddProduct struct {
+	Count int    `gorm:"count" json:"count"`
+	Id    string `gorm:"id" json:"id"`
+}

@@ -442,13 +442,13 @@ func (h *WriteOffHandler) WriteOffDetailExportExcel(c *gin.Context) {
 // @Router /write-off/{id}/add-product-by-barcode [PATCH]
 func (h *WriteOffHandler) AddProductByBarcode(c *gin.Context) {
 	var (
-		request    domain.InventoryAddProduct
+		request    domain.WriteOffAddProduct
 		writeOffID = c.Param("id")
 	)
 
 	// validate uuid
 	if err := uuid.Validate(writeOffID); err != nil {
-		handleResponse(c, BadRequest, "Inventory id is invalid")
+		handleResponse(c, BadRequest, "WriteOff id is invalid")
 		return
 	}
 	// bind request body
