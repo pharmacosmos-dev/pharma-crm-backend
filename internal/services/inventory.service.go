@@ -145,13 +145,13 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
 		args       = []any{}
 		filter     = " WHERE imd.import_id = ? "
 		orderBy    = ""
-		group      = " GROUP BY p.id, imd.id "
+		group      = " GROUP BY p.id, imd.import_id "
 	)
 	args = append(args, param.InventoryId)
 	//
 	query := `
 	SELECT
-		imd.id,
+		p.id AS id,
 		imd.import_id AS inventory_id,
        	p.id AS product_id,
 		p.material_code,
@@ -235,7 +235,7 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
 	query += filter + group + orderBy + " LIMIT ? OFFSET ?"
 	args = append(args, param.Limit, param.Offset)
 	// execute query
-	err = s.db.Raw(query, args...).Scan(&res).Error
+	err = s.db.Debug().Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting inventory detail list: %v", err)
 		return res, 0, err
