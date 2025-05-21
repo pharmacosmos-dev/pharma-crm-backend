@@ -244,6 +244,99 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
 	return res, totalCount, nil
 }
 
+// get inventory detail list
+func (s *Services) InventoryDetailedFlow(param *domain.InventoryDetailParam) ([]domain.InventoryDetail, int64, error) {
+	var (
+		res        []domain.InventoryDetail
+		totalCount int64
+		args       = []any{}
+		filter     = " WHERE import_id = ? AND product_id = ? "
+		orderBy    = ""
+	)
+	args = append(args, param.InventoryId)
+	//
+	query := `
+	SELECT
+		imd.id, imd.import_id AS inventory_id,
+		p.id AS product_id,
+		p.material_code, p.name,
+		p.unit_per_pack,
+		imd.received_count AS current_quantity,
+		ROUND((imd.received_count - FLOOR(imd.received_count)) * p.unit_per_pack, 0) AS current_unit,
+		imd.scanned_count AS fact_quantity,
+		ROUND((imd.scanned_count - FLOOR(imd.scanned_count)) * p.unit_per_pack, 0) AS fact_unit,
+		imd.scanned_count - imd.received_count AS difference_quantity,
+		ROUND((ABS(imd.scanned_count - imd.received_count) - FLOOR(ABS(imd.scanned_count - imd.received_count))) * p.unit_per_pack, 0)*SIGN(imd.scanned_count - imd.received_count) AS difference_unit,
+		imd.retail_price_vat * imd.received_count AS current_sum,
+		imd.retail_price_vat * imd.scanned_count AS fact_sum,
+		imd.retail_price_vat * (imd.scanned_count - imd.received_count) AS difference_sum
+	FROM import_details imd
+		JOIN products p ON imd.product_id = p.id
+	`
+	tquery := `
+	SELECT
+		COUNT(*) AS total_count
+	FROM import_details imd
+		JOIN products p ON imd.product_id = p.id
+	`
+
+	if param.Search != "" {
+		switch utils.DefineProductSearchQuery(param.Search) {
+		case "barcode":
+			filter += " AND p.barcode LIKE ?"
+			args = append(args, "%"+param.Search+"%")
+		case "name/category":
+			filter += " AND p.name ILIKE ?"
+			args = append(args, "%"+param.Search+"%")
+		default:
+			filter += " AND (p.name ILIKE ? OR p.barcode LIKE ?)"
+			args = append(args, "%"+param.Search+"%", "%"+param.Search+"%")
+		}
+	}
+
+	// order by
+	switch param.Order {
+	case "+name":
+		orderBy = " ORDER BY p.name ASC "
+	case "-name":
+		orderBy = " ORDER BY p.name DESC "
+	case "+current_sum":
+		orderBy = " ORDER BY current_sum ASC "
+	case "-current_sum":
+		orderBy = " ORDER BY current_sum DESC "
+	case "+fact_sum":
+		orderBy = " ORDER BY fact_sum ASC "
+	case "-fact_sum":
+		orderBy = " ORDER BY fact_sum DESC "
+	case "+difference_sum":
+		orderBy = " ORDER BY difference_sum ASC "
+	case "-difference_sum":
+		orderBy = " ORDER BY difference_sum DESC "
+	default:
+		orderBy = " ORDER BY current_quantity DESC "
+	}
+	// execute total count query
+	tquery += filter
+	// get total count
+	err := s.db.Raw(tquery, args...).Scan(&totalCount).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting total count: %v", err)
+		return res, 0, err
+	}
+
+	// complete query
+	query += filter + orderBy + " LIMIT ? OFFSET ?;"
+	args = append(args, param.Limit, param.Offset)
+	// execute query
+	err = s.db.Raw(query, args...).Scan(&res).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting inventory detail list: %v", err)
+		return res, 0, err
+	}
+
+	return res, totalCount, nil
+}
+
 // get inventory detail status count
 func (s *Services) InventoryDetailStatsCount(param *domain.InventoryDetailParam) (domain.InventoryDetailStatus, error) {
 	var res domain.InventoryDetailStatus

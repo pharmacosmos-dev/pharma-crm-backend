@@ -35,6 +35,7 @@ func (h *InventoryHandler) InventoryRoutes(r *gin.RouterGroup) {
 	detail := r.Group("inventory-detail")
 	{
 		detail.GET("/list", h.InventoryDetailList)
+		detail.GET("/detailed-flow", h.InventoryDetailedFlow)
 		detail.GET("/export-excel", h.InventoryDetailExport)
 		detail.POST("/upload-excel", h.InventoryDetailUpload)
 	}
@@ -380,6 +381,42 @@ func (h *InventoryHandler) InventoryDetailExport(c *gin.Context) {
 		handleResponse(c, InternalError, "Failed to generate Excel file")
 	}
 
+}
+
+// Get List
+// @Summary Get inventory list
+// @Description Get inventory list
+// @Tags Inventory
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param 	limit query int false "LIMIT"
+// @Param 	offset query int false "OFFSET"
+// @Param   inventory_id query string true "Inventory ID"
+// @Param   product_id 	query string false "Product ID"
+// @Param   search 	query string false "SEARCH KEY"
+// @Param   order 	query string false "ORDER (+name|-name|+current_sum|-current_sum|+fact_sum|-fact_sum|+difference_sum|-difference_sum)"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /inventory-detail/detailed-flow [GET]
+func (h *InventoryHandler) InventoryDetailedFlow(c *gin.Context) {
+	var param domain.InventoryDetailParam
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "Invalid query param")
+		return
+	}
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	res, totalCount, err := h.service.InventoryDetailList(&param)
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to get inventory detail list")
+		return
+	}
+
+	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+
+	handleResponse(c, OK, data)
 }
 
 // Upload inventory detail godoc
