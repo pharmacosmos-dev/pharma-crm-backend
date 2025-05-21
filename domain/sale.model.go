@@ -232,4 +232,5 @@ type ErrorResponse struct {
 type AddDiscountCard struct {
 	CustomerID string `json:"customer_id"`
 	SaleID     string `json:"sale_id"`
+	Barcode    string `json:"barcode"`
 }
