@@ -426,7 +426,7 @@ func (h *ReportHandler) ProductReportExportExcel(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"ID", "Филиал", "Наименование", "Производитель", "Серия", "Срок Годности", "Кол-во", "Цена прихода", "Цена продажная", "Сумма прихода", "Сумма продажная", "Сумма наценки", "Сумма НДС", "Дата продажи", "Пользователь", "ID ЧЕКА", "Количество маркировок"}
+	headers := []string{"ID", "Филиал", "Наименование", "Производитель", "Серия", "Срок Годности", "Кол-во", "Цена прихода", "Цена продажная", "Сумма прихода", "Сумма продажная", "Сумма наценки", "Сумма НДС", "Дата продажи", "Пользователь", "ID ЧЕКА", "МК кол-во"}
 
 	headerStyle, err := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{
@@ -467,11 +467,7 @@ func (h *ReportHandler) ProductReportExportExcel(c *gin.Context) {
 		f.SetCellValue(sheetName, "K"+row, value.RetailPriceSum)
 		f.SetCellValue(sheetName, "L"+row, value.MarkupSum)
 		f.SetCellValue(sheetName, "M"+row, value.VatSum)
-		if value.CompletedAt != nil {
-			f.SetCellValue(sheetName, "N"+row, value.CompletedAt.Format(time.DateTime))
-		} else {
-			f.SetCellValue(sheetName, "N"+row, "N/A")
-		}
+		f.SetCellValue(sheetName, "N"+row, value.CompletedAt)
 		f.SetCellValue(sheetName, "O"+row, value.FullName)
 		f.SetCellValue(sheetName, "P"+row, value.SaleNumber)
 		f.SetCellValue(sheetName, "Q"+row, value.MarkingCount)

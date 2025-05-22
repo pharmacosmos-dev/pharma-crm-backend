@@ -175,10 +175,10 @@ func (h *SaleHandler) Get(c *gin.Context) {
 	err := h.db.
 		Table("sales").
 		Preload("Employee", func(db *gorm.DB) *gorm.DB {
-			return db.Select("id", "full_name", "phone") // keep it minimal
+			return db.Select("id", "full_name", "first_name", "last_name", "phone") // keep it minimal
 		}).
 		Preload("Customer", func(db *gorm.DB) *gorm.DB {
-			return db.Select("id", "full_name")
+			return db.Select("id", "full_name", "first_name", "last_name") // keep it minimal
 		}).
 		Preload("SalePayments", func(db *gorm.DB) *gorm.DB {
 			return db.Preload("PaymentType", func(db *gorm.DB) *gorm.DB {

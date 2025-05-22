@@ -171,30 +171,17 @@ func (s *Services) ProductReport(param *domain.ReportQueryParam) ([]domain.Produ
 		pr.name AS producer_name,
 		sp.serial_number,
 		sp.expire_date,
-		ci.quantity || ',' || ci.unit_quantity AS quantity,
+		ROUND(ci.quantity::numeric + ci.unit_quantity::numeric/p.unit_per_pack, 4) AS quantity,
 		sp.supply_price,
 		sp.retail_price,
-		ROUND(CASE
-			WHEN ci.unit_quantity > 0 THEN (ci.quantity * sp.supply_price) + (ci.unit_quantity * (sp.supply_price / p.unit_per_pack))
-			ELSE ci.quantity * sp.supply_price
-		END, 2) AS supply_price_sum,
-		ROUND(CASE
-			WHEN ci.unit_quantity > 0 THEN (ci.quantity * sp.retail_price) + (ci.unit_quantity * (sp.retail_price / p.unit_per_pack))
-			ELSE ci.quantity * sp.retail_price
-		END, 2) AS retail_price_sum,
-		ROUND(CASE
-			WHEN ci.unit_quantity > 0 THEN (ci.quantity * (sp.retail_price-sp.supply_price)) + (ci.unit_quantity * ((sp.retail_price-sp.supply_price) / p.unit_per_pack))
-			ELSE ci.quantity * (sp.retail_price-sp.supply_price)
-		END, 2) AS markup_sum,
-		ROUND(CASE
-			WHEN ci.unit_quantity > 0 THEN (ci.quantity * sp.vat_price) + (ci.unit_quantity * (sp.vat_price / p.unit_per_pack))
-			ELSE ci.quantity * sp.vat_price
-		END, 2) AS vat_sum,
-		sl.completed_at,
+		ROUND((ci.quantity * sp.supply_price) + (ci.unit_quantity * (sp.supply_price / p.unit_per_pack)), 2) AS supply_price_sum,
+		ROUND((ci.quantity * sp.retail_price) + (ci.unit_quantity * (sp.retail_price / p.unit_per_pack)), 2) AS retail_price_sum,
+		ROUND((ci.quantity * (sp.retail_price-sp.supply_price)) + (ci.unit_quantity * ((sp.retail_price-sp.supply_price) / p.unit_per_pack)), 2) AS markup_sum,
+		ROUND((ci.quantity * sp.vat_price) + (ci.unit_quantity * (sp.vat_price / p.unit_per_pack)), 2) AS vat_sum,
+		TO_CHAR(sl.completed_at + interval '5 hours', 'YYYY-MM-DD HH24:MI:SS') AS completed_at,
 		e.full_name,
 		sl.sale_number,
-		ci.marking_count,
-		COUNT(*) OVER() AS total_count
+		ci.marking_count
 	FROM
 		sales sl
 		INNER JOIN stores s ON sl.store_id = s.id
@@ -204,6 +191,19 @@ func (s *Services) ProductReport(param *domain.ReportQueryParam) ([]domain.Produ
 		INNER JOIN products p ON sp.product_id = p.id
 		LEFT JOIN producers pr ON p.producer_id = pr.id
 	`
+	tquery := `
+	SELECT
+		COUNT(*) AS total_count
+	FROM
+		sales sl
+		INNER JOIN stores s ON sl.store_id = s.id
+		INNER JOIN employees e ON sl.employee_id = e.id
+		INNER JOIN cart_items ci ON sl.id = ci.sale_id
+		INNER JOIN store_products sp ON ci.store_product_id = sp.id
+		INNER JOIN products p ON sp.product_id = p.id
+		LEFT JOIN producers pr ON p.producer_id = pr.id
+	`
+
 	// filter by search key
 	if param.Search != "" {
 		filter += " AND (p.name ILIKE ? OR s.name ILIKE ?) "
@@ -230,20 +230,23 @@ func (s *Services) ProductReport(param *domain.ReportQueryParam) ([]domain.Produ
 	}
 	// filter by start_date, end_date
 	if param.StartDate != "" && param.EndDate != "" {
-		filter += " AND sl.completed_at::date BETWEEN ? AND ? "
+		filter += " AND (sl.completed_at + interval '5 hours')::date BETWEEN ? AND ? "
 		args = append(args, param.StartDate, param.EndDate)
 	}
+	tquery = tquery + filter
+	// get total_count
+	err := s.db.Raw(tquery, args...).Scan(&totalCount).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting product report total count: %v", err)
+		return res, 0, nil
+	}
+	fmt.Println("Total Count: ", totalCount)
 
 	query = query + filter + order + pagination
-	err := s.db.Debug().Raw(query, args...).Scan(&res).Error
+	err = s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting product report: %v", err)
 		return res, 0, nil
-	}
-
-	// get total_count
-	if len(res) > 0 {
-		totalCount = res[0].TotalCount
 	}
 
 	return res, totalCount, nil
