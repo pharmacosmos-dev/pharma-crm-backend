@@ -1511,7 +1511,7 @@ func (h *ProductHandler) AttachBarcode(c *gin.Context) {
 		return
 	}
 	defer xlsx.Close()
-	sheetName := xlsx.GetSheetName(0)
+	sheetName := xlsx.GetSheetName(1)
 	rows, err := xlsx.GetRows(sheetName)
 	if err != nil {
 		h.log.Error("Failed to get rows: ", err.Error())
@@ -1528,11 +1528,12 @@ func (h *ProductHandler) AttachBarcode(c *gin.Context) {
 	}()
 	// Process rows
 	for _, row := range rows[1:] {
-		if len(row) > 10 {
-			err = tx.Exec("UPDATE products SET barcode = ? WHERE material_code = ?", row[10], row[9]).Error
+		if len(row) > 2 {
+			fmt.Println("KOD: ", row[0], "BARCODE: ", row[2])
+			err = tx.Exec("UPDATE products SET barcode = ? WHERE material_code = ?", row[2], row[0]).Error
 			if err != nil {
-				h.log.Error(err)
-				handleResponse(c, InternalError, err.Error())
+				h.log.Warn("ERROR on updating product barcode: %v", err)
+				handleResponse(c, InternalError, "Can't update product barcode")
 				tx.Rollback()
 				return
 			}
@@ -1540,7 +1541,7 @@ func (h *ProductHandler) AttachBarcode(c *gin.Context) {
 	}
 	// commit transaction
 	if err = tx.Commit().Error; err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleResponse(c, InternalError, "Can't commit transaction")
 		tx.Rollback()
 		return
 	}

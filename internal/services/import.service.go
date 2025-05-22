@@ -110,7 +110,7 @@ func (s *Services) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domai
 				item.SupplyPriceVat,
 				item.RetailPriceVat,
 				item.Vat, item.ExpireDate,
-				item.RetailPrice*0.12,
+				item.RetailPriceVat*12/112,
 				item.Id, item.SeriesNumber).Error
 			if err != nil {
 				s.log.Warn("ERROR on inserting import products to store_product: %v", err)
@@ -206,7 +206,7 @@ func (s *Services) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import)
 				item.SupplyPriceVat,
 				item.RetailPriceVat,
 				item.Vat, item.ExpireDate,
-				item.RetailPrice*0.12,
+				item.RetailPriceVat*12/112,
 				item.Id, item.SeriesNumber).Error
 			if err != nil {
 				s.log.Error(err)

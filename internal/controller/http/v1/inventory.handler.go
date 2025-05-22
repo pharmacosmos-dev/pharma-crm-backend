@@ -267,7 +267,7 @@ func (h *InventoryHandler) UpdateDetailedFactQuantity(c *gin.Context) {
 	if request.FactUnit > 0 {
 		err = h.db.Exec(`
 		UPDATE import_details
-		SET scanned_count = scanned_count + (? / p.unit_per_pack)
+		SET scanned_count = scanned_count + (?::numeric / p.unit_per_pack)
 		FROM products p
 		WHERE import_details.product_id = p.id
 		AND id = ?
