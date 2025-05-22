@@ -2,7 +2,6 @@ package v1
 
 import (
 	"fmt"
-	"math"
 	"path/filepath"
 	"strconv"
 
@@ -12,7 +11,6 @@ import (
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/spf13/cast"
 	"github.com/xuri/excelize/v2"
-	"gorm.io/gorm"
 )
 
 type InventoryHandler struct {
@@ -30,7 +28,8 @@ func (h *InventoryHandler) InventoryRoutes(r *gin.RouterGroup) {
 		inventory.POST("", h.Create)
 		inventory.GET("/:id", h.Get)
 		inventory.GET("/list", h.List)
-		inventory.PATCH("/:id/add-product-by-barcode", h.AddProductByBarcode)
+		inventory.PATCH("/:id/add-product-by-barcode", h.UpdateFactQuantity)
+		inventory.PATCH("/:id/detailed-flow", h.UpdateDetailedFactQuantity)
 		inventory.POST("/confirm/:id", h.Confirm)
 		inventory.POST("/cancel/:id", h.Cancel)
 	}
@@ -159,9 +158,88 @@ func (h *InventoryHandler) List(c *gin.Context) {
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /inventory/{id}/add-product-by-barcode [PATCH]
-func (h *InventoryHandler) AddProductByBarcode(c *gin.Context) {
-	var request domain.InventoryAddProduct
-	inventoryID := c.Param("id")
+func (h *InventoryHandler) UpdateFactQuantity(c *gin.Context) {
+	var (
+		request     domain.InventoryAddProduct
+		inventoryID = c.Param("id")
+		err         error
+	)
+
+	if err = uuid.Validate(inventoryID); err != nil {
+		handleResponse(c, BadRequest, "Inventory id is invalid")
+		return
+	}
+
+	if err = c.ShouldBindJSON(&request); err != nil {
+		handleResponse(c, BadRequest, "Invalid request body")
+		return
+	}
+
+	var detailID string
+	// find import_detail row
+	err = h.db.Raw(`
+	SELECT id
+	FROM import_details
+	WHERE product_id = ? AND import_id = ?
+	ORDER BY expire_date ASC NULLS LAST, created_at ASC
+	LIMIT 1
+`, request.Id, inventoryID).Scan(&detailID).Error
+
+	if err != nil {
+		h.log.Warn("Failed to find import_detail row: %v", err)
+		handleResponse(c, InternalError, "Not found import detail row")
+		return
+	}
+
+	if request.FactQuantity > 0 {
+		err = h.db.Exec(`
+		UPDATE import_details
+		SET scanned_count = ?
+		WHERE id = ?
+	`, request.FactQuantity, detailID).Error
+		if err != nil {
+			h.log.Warn("Error on updating scanned_count: %v", err.Error())
+			handleResponse(c, InternalError, "Failed to update scanned_count")
+			return
+		}
+	}
+	if request.FactUnit > 0 {
+		err = h.db.Debug().Exec(`
+		UPDATE import_details
+		SET scanned_count = scanned_count + (?::numeric / p.unit_per_pack)
+		FROM products p
+		WHERE import_details.product_id = p.id
+		AND import_details.id = ?
+	`, request.FactUnit, detailID).Error
+		if err != nil {
+			h.log.Warn("Error on updating scanned_count: %v", err.Error())
+			handleResponse(c, InternalError, "Failed to update scanned_count")
+			return
+		}
+	}
+
+	handleResponse(c, OK, "UPDATED")
+}
+
+// Add product by barcode
+// @Summary Add product by barcode
+// @Description Add product by barcode
+// @Tags Inventory
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param 	id 	path string true "Inventory ID"
+// @Param 	body body domain.InventoryAddProduct true "Add product by barcode"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /inventory/{id}/detailed-flow [PATCH]
+func (h *InventoryHandler) UpdateDetailedFactQuantity(c *gin.Context) {
+	var (
+		request     domain.InventoryAddProduct
+		inventoryID = c.Param("id")
+		err         error
+	)
 
 	if err := uuid.Validate(inventoryID); err != nil {
 		handleResponse(c, BadRequest, "Inventory id is invalid")
@@ -173,105 +251,35 @@ func (h *InventoryHandler) AddProductByBarcode(c *gin.Context) {
 		return
 	}
 
-	// 1. unit_per_pack olish
-	var unitPerPack float64
-	err := h.db.Raw(`
-		SELECT unit_per_pack
-		FROM products
+	if request.FactQuantity > 0 {
+		err = h.db.Exec(`
+		UPDATE import_details
+		SET scanned_count = ?
 		WHERE id = ?
-	`, request.Id).Scan(&unitPerPack).Error
+	`, request.FactQuantity, request.Id).Error
 
-	if err != nil || unitPerPack == 0 {
-		handleResponse(c, BadRequest, "Invalid product or missing unit_per_pack")
-		return
-	}
-
-	// 2. mavjud received_count va scanned_count larni olish
-	var current struct {
-		Received float64
-		Scanned  float64
-	}
-	err = h.db.Raw(`
-		SELECT 
-			COALESCE(SUM(received_count), 0) AS received,
-			COALESCE(SUM(scanned_count), 0) AS scanned
-		FROM import_details
-		WHERE product_id = ? AND import_id = ?
-	`, request.Id, inventoryID).Scan(&current).Error
-
-	if err != nil {
-		handleResponse(c, InternalError, "Failed to fetch current inventory state")
-		return
-	}
-
-	// 3. Yangi kiritilgan qiymatni float64 holatda hisoblash
-	newFact := float64(request.FactQuantity) + float64(request.FactUnit)/unitPerPack
-
-	// 4. Delta hisoblash (newFact - current.scanned)
-	delta := newFact - current.Scanned
-
-	if delta <= 0 {
-		handleResponse(c, OK, "No update needed")
-		return
-	}
-
-	// 5. Agar scanned_count yangilanishi mumkin bo‘lsa (delta <= received_count - scanned_count)
-	available := current.Received - current.Scanned
-	if delta <= available {
-		// FIFO tartibda yangilash
-		err = h.db.Transaction(func(tx *gorm.DB) error {
-			var rows []struct {
-				ID           string
-				AvailableQty float64
-			}
-			err := tx.Raw(`
-				SELECT id, (received_count - scanned_count) AS available_qty
-				FROM import_details
-				WHERE product_id = ? AND import_id = ? AND received_count > scanned_count
-				ORDER BY expire_date ASC
-			`, request.Id, inventoryID).Scan(&rows).Error
-			if err != nil {
-				return err
-			}
-
-			remaining := delta
-			for _, row := range rows {
-				if remaining <= 0 {
-					break
-				}
-				use := math.Min(row.AvailableQty, remaining)
-				err := tx.Exec(`
-					UPDATE import_details
-					SET scanned_count = scanned_count + ?
-					WHERE id = ?
-				`, use, row.ID).Error
-				if err != nil {
-					return err
-				}
-				remaining -= use
-			}
-			return nil
-		})
 		if err != nil {
+			h.log.Warn("Error on updating scanned_count: %v", err.Error())
 			handleResponse(c, InternalError, "Failed to update scanned_count")
 			return
 		}
-		handleResponse(c, OK, "Updated scanned_count successfully")
-		return
+	}
+	if request.FactUnit > 0 {
+		err = h.db.Exec(`
+		UPDATE import_details
+		SET scanned_count = scanned_count + (? / p.unit_per_pack)
+		FROM products p
+		WHERE import_details.product_id = p.id
+		AND id = ?
+	`, request.FactUnit, request.Id).Error
+		if err != nil {
+			h.log.Warn("Error on updating scanned_count: %v", err.Error())
+			handleResponse(c, InternalError, "Failed to update scanned_count")
+			return
+		}
 	}
 
-	// 6. Aks holda, yangi row qo‘shish kerak
-	err = h.db.Exec(`
-		INSERT INTO import_details (import_id, product_id, received_count, scanned_count)
-		VALUES (?, ?, 0, ?)`,
-		inventoryID, request.Id, delta,
-	).Error
-	if err != nil {
-		handleResponse(c, InternalError, "Failed to insert new import detail")
-		return
-	}
-
-	handleResponse(c, OK, "Inserted new import_detail due to insufficient stock")
+	handleResponse(c, OK, "UPDATED")
 }
 
 // confirm inventory

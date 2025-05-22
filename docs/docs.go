@@ -7227,7 +7227,8 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Product ID",
                         "name": "product_id",
-                        "in": "query"
+                        "in": "query",
+                        "required": true
                     },
                     {
                         "type": "string",
@@ -7697,6 +7698,64 @@ const docTemplate = `{
             }
         },
         "/inventory/{id}/add-product-by-barcode": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Add product by barcode",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Inventory"
+                ],
+                "summary": "Add product by barcode",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Inventory ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Add product by barcode",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.InventoryAddProduct"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/inventory/{id}/detailed-flow": {
             "patch": {
                 "security": [
                     {
@@ -16205,6 +16264,9 @@ const docTemplate = `{
         "domain.AddDiscountCard": {
             "type": "object",
             "properties": {
+                "barcode": {
+                    "type": "string"
+                },
                 "customer_id": {
                     "type": "string"
                 },
@@ -17027,8 +17089,11 @@ const docTemplate = `{
         "domain.InventoryAddProduct": {
             "type": "object",
             "properties": {
-                "count": {
-                    "type": "integer"
+                "fact_quantity": {
+                    "type": "number"
+                },
+                "fact_unit": {
+                    "type": "number"
                 },
                 "id": {
                     "type": "string"

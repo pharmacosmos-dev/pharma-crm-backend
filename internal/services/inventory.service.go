@@ -33,13 +33,14 @@ func (s *Services) CreateInventory(req *domain.InventoryRequest) error {
 	// insert all products (including those not in store_products)
 	err = tx.Exec(`
 		INSERT INTO import_details (
-			import_id, product_id, store_product_id,  received_count, supply_price_vat, retail_price_vat, expire_date, series_number
+			import_id, product_id, store_product_id,  received_count, received_unit_count, supply_price_vat, retail_price_vat, expire_date, series_number
 				)
 		SELECT
 			?,
 			p.id,
 			sp.id,
-			ROUND(COALESCE(sp.pack_quantity::numeric + (sp.unit_quantity::numeric%p.unit_per_pack)/p.unit_per_pack, 0.00), 4) AS quantity,
+			COALESCE(sp.pack_quantity,  0.00) AS quantity,
+			COALESCE(sp.unit_quantity::numeric%p.unit_per_pack, 0.00) AS unit_quantity,
 			COALESCE(sp.supply_price, 0.00) AS supply_price,
 			COALESCE(sp.retail_price, 0.00) AS retail_price,
 			expire_date,

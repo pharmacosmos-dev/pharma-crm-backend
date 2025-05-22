@@ -2,6 +2,8 @@ basePath: /v1
 definitions:
   domain.AddDiscountCard:
     properties:
+      barcode:
+        type: string
       customer_id:
         type: string
       sale_id:
@@ -544,8 +546,10 @@ definitions:
     type: object
   domain.InventoryAddProduct:
     properties:
-      count:
-        type: integer
+      fact_quantity:
+        type: number
+      fact_unit:
+        type: number
       id:
         type: string
     type: object
@@ -5799,6 +5803,7 @@ paths:
       - description: Product ID
         in: query
         name: product_id
+        required: true
         type: string
       - description: SEARCH KEY
         in: query
@@ -5993,6 +5998,43 @@ paths:
       tags:
       - Inventory
   /inventory/{id}/add-product-by-barcode:
+    patch:
+      consumes:
+      - application/json
+      description: Add product by barcode
+      parameters:
+      - description: Inventory ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Add product by barcode
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.InventoryAddProduct'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Add product by barcode
+      tags:
+      - Inventory
+  /inventory/{id}/detailed-flow:
     patch:
       consumes:
       - application/json
