@@ -153,20 +153,20 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
 	query := `
 	SELECT
 		p.id AS id,
-		imd.import_id AS inventory_id,
-       	p.id AS product_id,
-		p.material_code,
-		p.name,
-		p.unit_per_pack,
-		SUM(imd.received_count) AS current_quantity,
-		ROUND((SUM(imd.received_count) - FLOOR(SUM(imd.received_count))) * p.unit_per_pack, 0) AS current_unit,
-		SUM(imd.scanned_count) AS fact_quantity,
-		ROUND((SUM(imd.scanned_count) - FLOOR(SUM(imd.scanned_count))) * p.unit_per_pack, 0) AS fact_unit,
-		SUM(imd.scanned_count) - SUM(imd.received_count) AS difference_quantity,
-		ROUND(((SUM(imd.scanned_count) - SUM(imd.received_count)) - FLOOR(SUM(imd.scanned_count) - SUM(imd.received_count))) * p.unit_per_pack, 0) AS difference_unit,
-		SUM(imd.retail_price_vat * imd.received_count) AS current_sum,
-		SUM(imd.retail_price_vat * imd.scanned_count) AS fact_sum,
-		SUM(imd.retail_price_vat * (imd.scanned_count - imd.received_count)) AS difference_sum
+        imd.import_id AS inventory_id,
+        p.id AS product_id,
+        p.material_code,
+        p.name,
+        p.unit_per_pack,
+        SUM(imd.received_count) + SUM(imd.received_unit_count)/p.unit_per_pack AS current_quantity,
+        SUM(imd.received_unit_count) AS current_unit,
+        SUM(imd.scanned_count) + SUM(imd.scanned_unit_count)/p.unit_per_pack AS fact_quantity,
+        SUM(imd.scanned_unit_count) AS fact_unit,
+        (SUM(imd.scanned_count) - SUM(imd.received_count)) + (SUM(imd.scanned_unit_count) - SUM(imd.received_unit_count))/p.unit_per_pack  AS difference_quantity,
+        SUM(imd.scanned_unit_count) - SUM(imd.received_unit_count) AS difference_unit,
+        SUM(imd.retail_price_vat * imd.received_count) + SUM((imd.retail_price_vat/p.unit_per_pack)*imd.received_unit_count) AS current_sum,
+        SUM(imd.retail_price_vat * imd.scanned_count) + SUM((imd.retail_price_vat/p.unit_per_pack)*imd.scanned_unit_count) AS fact_sum,
+        SUM(imd.retail_price_vat * (imd.scanned_count - imd.received_count)) + SUM((imd.retail_price_vat/p.unit_per_pack)*(imd.scanned_unit_count - imd.received_unit_count)) AS difference_sum
 	FROM import_details imd
 		JOIN products p ON imd.product_id = p.id
 	`
