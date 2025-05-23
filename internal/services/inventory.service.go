@@ -44,7 +44,7 @@ func (s *Services) CreateInventory(req *domain.InventoryRequest) error {
 			COALESCE(sp.retail_price, 0.00) AS retail_price,
 			expire_date,
 			sp.serial_number, 
-			created_at
+			sp.created_at
 		FROM
 			products p
 		LEFT JOIN
