@@ -249,7 +249,7 @@ func (h *InventoryHandler) UpdateDetailedFactQuantity(c *gin.Context) {
 		SET scanned_count = scanned_count + (?::numeric / p.unit_per_pack)
 		FROM products p
 		WHERE import_details.product_id = p.id
-		AND id = ?
+		AND import_details.id = ?
 	`, request.FactUnit, request.Id).Error
 		if err != nil {
 			h.log.Warn("Error on updating scanned_count: %v", err.Error())

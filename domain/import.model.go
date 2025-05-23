@@ -70,6 +70,7 @@ type ImportDetail struct {
 	MaterialCode      int        `gorm:"material_code" json:"material_code,omitempty"`
 	CreatedAt         *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt         *time.Time `gorm:"updated_at" json:"updated_at"`
+	ImportedAt        *time.Time `gorm:"imported_at" json:"imported_at"`
 	Product           *Product   `gorm:"references:Id;foreignKey:ProductID" json:"product"`
 	Import            *Import    `gorm:"foreignKey:ImportID" json:"import"`
 }

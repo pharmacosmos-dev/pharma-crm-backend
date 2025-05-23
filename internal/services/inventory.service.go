@@ -33,7 +33,7 @@ func (s *Services) CreateInventory(req *domain.InventoryRequest) error {
 	// insert all products (including those not in store_products)
 	err = tx.Exec(`
 		INSERT INTO import_details (
-			import_id, product_id, store_product_id,  received_count, supply_price_vat, retail_price_vat, expire_date, series_number
+			import_id, product_id, store_product_id,  received_count, supply_price_vat, retail_price_vat, expire_date, series_number, imported_at
 				)
 		SELECT
 			?,
@@ -43,7 +43,8 @@ func (s *Services) CreateInventory(req *domain.InventoryRequest) error {
 			COALESCE(sp.supply_price, 0.00) AS supply_price,
 			COALESCE(sp.retail_price, 0.00) AS retail_price,
 			expire_date,
-			sp.serial_number
+			sp.serial_number, 
+			created_at
 		FROM
 			products p
 		LEFT JOIN
@@ -158,11 +159,12 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
         p.name,
         p.unit_per_pack,
         SUM(imd.received_count) AS current_quantity,
-        (SUM(imd.received_count) - FLOOR(SUM(received_count)))*p.unit_per_pack  AS current_unit,
+        ROUND((SUM(imd.received_count) - FLOOR(SUM(received_count)))*p.unit_per_pack, 0)  AS current_unit,
         SUM(imd.scanned_count) AS fact_quantity,
-        (SUM(imd.scanned_count) - FLOOR(SUM(scanned_count)))*p.unit_per_pack AS fact_unit,
+        ROUND((SUM(imd.scanned_count) - FLOOR(SUM(scanned_count)))*p.unit_per_pack, 0) AS fact_unit,
         (SUM(imd.scanned_count) - SUM(imd.received_count)) AS difference_quantity,
-        (SUM(imd.scanned_count) - SUM(imd.received_count)) AS difference_unit,
+        ROUND(((SUM(imd.scanned_count) - FLOOR(SUM(imd.scanned_count))) -
+        (SUM(imd.received_count) - FLOOR(SUM(imd.received_count)))) * p.unit_per_pack, 0) AS difference_unit,
         SUM(imd.retail_price_vat * imd.received_count) AS current_sum,
         SUM(imd.retail_price_vat * imd.scanned_count) AS fact_sum,
         SUM(imd.retail_price_vat * (imd.scanned_count - imd.received_count)) AS difference_sum
