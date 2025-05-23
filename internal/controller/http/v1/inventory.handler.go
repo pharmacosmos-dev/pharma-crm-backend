@@ -190,8 +190,8 @@ func (h *InventoryHandler) UpdateFactQuantity(c *gin.Context) {
 	}
 
 	for _, imp := range res {
-		// skip fact quantity if received and fact 
-		if (imp.ScannedCount - imp.ReceivedCount) == 0 {
+		// skip fact quantity if received and fact
+		if imp.ReceivedCount == 0 && imp.ScannedCount == 0 {
 			continue
 		}
 
