@@ -42,7 +42,7 @@ func (s *Services) CreateInventory(req *domain.InventoryRequest) error {
 			ROUND(COALESCE(sp.pack_quantity::numeric + (sp.unit_quantity::numeric%p.unit_per_pack)/p.unit_per_pack, 0.00), 4) AS quantity,
 			COALESCE(sp.supply_price, 0.00) AS supply_price,
 			COALESCE(sp.retail_price, 0.00) AS retail_price,
-			expire_date,
+			sp.expire_date,
 			sp.serial_number, 
 			sp.created_at
 		FROM
@@ -253,7 +253,7 @@ func (s *Services) InventoryDetailedFlow(param *domain.InventoryDetailParam) ([]
 		totalCount int64
 		args       = []any{}
 		filter     = " WHERE import_id = ? AND product_id = ? "
-		orderBy    = ""
+		orderBy    = " imd.imported_at DESC"
 	)
 	args = append(args, param.InventoryId, param.ProductId)
 	//
@@ -299,27 +299,27 @@ func (s *Services) InventoryDetailedFlow(param *domain.InventoryDetailParam) ([]
 		}
 	}
 
-	// order by
-	switch param.Order {
-	case "+name":
-		orderBy = " ORDER BY p.name ASC "
-	case "-name":
-		orderBy = " ORDER BY p.name DESC "
-	case "+current_sum":
-		orderBy = " ORDER BY current_sum ASC "
-	case "-current_sum":
-		orderBy = " ORDER BY current_sum DESC "
-	case "+fact_sum":
-		orderBy = " ORDER BY fact_sum ASC "
-	case "-fact_sum":
-		orderBy = " ORDER BY fact_sum DESC "
-	case "+difference_sum":
-		orderBy = " ORDER BY difference_sum ASC "
-	case "-difference_sum":
-		orderBy = " ORDER BY difference_sum DESC "
-	default:
-		orderBy = " ORDER BY current_quantity DESC "
-	}
+	// // order by
+	// switch param.Order {
+	// case "+name":
+	// 	orderBy = " ORDER BY p.name ASC "
+	// case "-name":
+	// 	orderBy = " ORDER BY p.name DESC "
+	// case "+current_sum":
+	// 	orderBy = " ORDER BY current_sum ASC "
+	// case "-current_sum":
+	// 	orderBy = " ORDER BY current_sum DESC "
+	// case "+fact_sum":
+	// 	orderBy = " ORDER BY fact_sum ASC "
+	// case "-fact_sum":
+	// 	orderBy = " ORDER BY fact_sum DESC "
+	// case "+difference_sum":
+	// 	orderBy = " ORDER BY difference_sum ASC "
+	// case "-difference_sum":
+	// 	orderBy = " ORDER BY difference_sum DESC "
+	// default:
+	// 	orderBy = " ORDER BY current_quantity DESC "
+	// }
 	// execute total count query
 	tquery += filter
 	// get total count

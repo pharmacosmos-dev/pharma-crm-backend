@@ -179,9 +179,10 @@ func (h *InventoryHandler) UpdateFactQuantity(c *gin.Context) {
 	var res []domain.ImportDetail
 	// find import_detail row
 	err = h.db.Raw(`
-	SELECT *
+	SELECT import_details.*, p.unit_per_pack
 	FROM import_details
-	WHERE product_id = ? AND import_id = ?
+	JOIN products p ON p.id = import_details.product_id
+	WHERE product_id = ? AND import_id = ? ORDER BY imported_at
 `, request.Id, inventoryID).Scan(&res).Error
 	if err != nil {
 		h.log.Warn("Failed to find import_detail row: %v", err)
@@ -189,12 +190,46 @@ func (h *InventoryHandler) UpdateFactQuantity(c *gin.Context) {
 		return
 	}
 
-	for _, imp := range res {
+	if len(res) == 0 {
+		handleResponse(c, NotFound, "No import detail rows found")
+		return
+	}
+
+	unitPerPack := res[0].UnitPerPack
+	if unitPerPack <= 0 {
+		handleResponse(c, BadRequest, "Invalid unit_per_pack value")
+		return
+	}
+	// Calculate total fact as quantity + (unit / unitPerPack)
+	remainingFact := request.FactQuantity + request.FactUnit/float64(unitPerPack)
+	for i := 0; i < len(res); i++ {
 		// skip fact quantity if received and fact
-		if imp.ReceivedCount == 0 && imp.ScannedCount == 0 {
+		if res[i].ReceivedCount == 0 && res[i].ScannedCount == 0 {
 			continue
 		}
-
+		if i == len(res)-1 {
+			res[i].ScannedCount = remainingFact
+		} else {
+			available := res[i].ReceivedCount
+			if remainingFact >= available {
+				res[i].ScannedCount = available
+				remainingFact -= available
+			} else {
+				res[i].ScannedCount = remainingFact
+				remainingFact = 0
+			}
+		}
+		// Update each row
+		err := h.db.Exec(`
+			UPDATE import_details
+			SET scanned_count = ?
+			WHERE id = ?
+		`, res[i].ScannedCount, res[i].Id).Error
+		if err != nil {
+			h.log.Warn("Failed to update scanned_count: %v", err)
+			handleResponse(c, InternalError, "Failed to update scanned count")
+			return
+		}
 	}
 
 	handleResponse(c, OK, "UPDATED")
