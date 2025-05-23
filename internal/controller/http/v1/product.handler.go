@@ -1715,12 +1715,12 @@ func generateRandomBarcode(length int) string {
 
 // just product list export function
 func (h *ProductHandler) productListExport(f *excelize.File, res []domain.ProductData) (*excelize.File, error) {
-	sheetName := "Products"
+	sheetName := "List1"
 
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"Код-продакт", "Наименование", "Штрих-код", "Кол-во", "Производитель", "Маркировка", "Категория", "MXIK"}
+	headers := []string{"Аптека", "Код", "Наименования", "Штрих-код", "Кол-во", "Срок годности", "Серия", "Цена приход С НДС", "Цена продажа СНДС", "Cумма прихода С НДС", "Сумма продажа С НДС", "Производитель"}
 
 	headerStyle, err := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{
@@ -1751,14 +1751,22 @@ func (h *ProductHandler) productListExport(f *excelize.File, res []domain.Produc
 	// Ma'lumotlarni qo'shish
 	for i, product := range res {
 		row := strconv.Itoa(i + 2)
-		f.SetCellValue(sheetName, "A"+row, product.MaterialCode)
-		f.SetCellValue(sheetName, "B"+row, product.Name)
-		f.SetCellValue(sheetName, "C"+row, product.Barcode)
-		f.SetCellValue(sheetName, "D"+row, math.Round((product.Quantity+product.UnitQuantity/float64(product.UnitPerPack))*10000)/10000)
-		f.SetCellValue(sheetName, "E"+row, product.Manufacturer)
-		f.SetCellValue(sheetName, "F"+row, product.IsMarking)
-		f.SetCellValue(sheetName, "G"+row, product.CategoryName)
-		f.SetCellValue(sheetName, "H"+row, product.MXIK)
+		f.SetCellValue(sheetName, "A"+row, product.StoreName)
+		f.SetCellValue(sheetName, "B"+row, product.MaterialCode)
+		f.SetCellValue(sheetName, "C"+row, product.Name)
+		f.SetCellValue(sheetName, "D"+row, product.Barcode)
+		f.SetCellValue(sheetName, "E"+row, math.Round((product.Quantity+product.UnitQuantity/float64(product.UnitPerPack))*10000)/10000)
+		if product.ExpireDate != nil {
+			f.SetCellValue(sheetName, "F"+row, product.ExpireDate)
+		} else {
+			f.SetCellValue(sheetName, "F"+row, "N/A")
+		}
+		f.SetCellValue(sheetName, "G"+row, product.SerialNumber)
+		f.SetCellValue(sheetName, "H"+row, product.SupplyPrice)
+		f.SetCellValue(sheetName, "I"+row, product.RetailPrice)
+		f.SetCellValue(sheetName, "J"+row, math.Round((product.SupplyPrice*float64(product.Quantity)+(product.SupplyPrice/float64(product.UnitPerPack)*product.UnitQuantity))*100)/100)
+		f.SetCellValue(sheetName, "K"+row, math.Round((product.RetailPrice*float64(product.Quantity)+(product.RetailPrice/float64(product.UnitPerPack)*product.UnitQuantity))*100)/100)
+		f.SetCellValue(sheetName, "L"+row, product.Manufacturer)
 	}
 	return f, nil
 }

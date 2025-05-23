@@ -8424,7 +8424,7 @@ paths:
             type: string
           type: array
       produces:
-      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      - application/json
       responses:
         "200":
           description: OK
@@ -11176,6 +11176,25 @@ paths:
       - description: File name
         in: path
         name: filename
+        required: true
+        type: string
+      produces:
+      - octet/stream
+      responses:
+        "200":
+          description: File content
+          schema:
+            type: file
+      summary: Serve a file
+      tags:
+      - file upload
+  /upload/excel/{xlsx}:
+    get:
+      description: Serve a file by its filename
+      parameters:
+      - description: File name
+        in: path
+        name: xlsx
         required: true
         type: string
       produces:

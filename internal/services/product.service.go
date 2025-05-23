@@ -340,15 +340,18 @@ func (s *Services) ListProductExport(param *domain.ProductQueryParam) ([]domain.
 
 	query := fmt.Sprintf(`
 	SELECT
-		p.id, p.name, p.photos, p.barcode, p.material_code, 
+		st.name AS store_name,
+		p.id,  p.material_code, p.name,  p.barcode,
 		p.unit_per_pack, p.is_marking, p.mxik, p.created_at, p.updated_at,
 		pr.name AS manufacturer, u.unit_name, u.short_name,
-		SUM(sp.pack_quantity) AS quantity,
-		SUM(sp.unit_quantity)%sp.unit_per_pack AS unit_quantity,
-		AVG(sp.supply_price) AS supply_price,
-        AVG(sp.retail_price) AS retail_price,
-        AVG(sp.vat) AS vat,
-        AVG(sp.vat_price) AS vat_price
+		sp.pack_quantity AS quantity,
+		sp.unit_quantity%sp.unit_per_pack AS unit_quantity,
+		sp.supply_price AS supply_price,
+		sp.retail_price AS retail_price,
+		sp.expire_date,
+		sp.serial_number,
+		sp.vat AS vat,
+		sp.vat_price AS vat_price
 	FROM store_products sp
 	RIGHT JOIN products p ON sp.product_id = p.id
 	LEFT JOIN producers pr ON p.producer_id = pr.id

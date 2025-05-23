@@ -11271,7 +11271,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "produces": [
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    "application/json"
                 ],
                 "tags": [
                     "Report"
@@ -15630,6 +15630,35 @@ const docTemplate = `{
                         "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/upload/excel/{xlsx}": {
+            "get": {
+                "description": "Serve a file by its filename",
+                "produces": [
+                    "octet/stream"
+                ],
+                "tags": [
+                    "file upload"
+                ],
+                "summary": "Serve a file",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "File name",
+                        "name": "xlsx",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "File content",
+                        "schema": {
+                            "type": "file"
                         }
                     }
                 }

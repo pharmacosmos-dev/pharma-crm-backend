@@ -24,6 +24,7 @@ func (h *UploadHandler) UploadRoutes(r *gin.RouterGroup) {
 	{
 		upload.POST("/file", h.Upload)
 		upload.GET("/:filename", h.ServeFile)
+		upload.GET("/excel/:xlsx", h.ServeExcelFile)
 	}
 }
 
@@ -113,6 +114,37 @@ func (h *UploadHandler) ServeFile(c *gin.Context) {
 
 	// Construct the full file path
 	filePath := filepath.Join("./app/uploads", filename)
+
+	// Check if the file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		h.log.Warn("File not found: %v", err.Error())
+		handleResponse(c, NotFound, "File not found")
+		return
+	}
+
+	// Serve the file
+	c.File(filePath)
+}
+
+// ServeFile godoc
+// @Summary Serve a file
+// @Description Serve a file by its filename
+// @Tags file upload
+// @Produce octet/stream
+// @Param xlsx path string true "File name"
+// @Success 200 {file} file "File content"
+// @Router /upload/excel/{xlsx} [get]
+func (h *UploadHandler) ServeExcelFile(c *gin.Context) {
+	// Get the filename from the query or route parameter
+	xlsx := c.Param("xlsx")
+	if xlsx == "" {
+		h.log.Warn("Filename not provided: %v", xlsx)
+		handleResponse(c, BadRequest, "Filename not provided")
+		return
+	}
+
+	// Construct the full file path
+	filePath := filepath.Join("./app/uploads", xlsx)
 
 	// Check if the file exists
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
