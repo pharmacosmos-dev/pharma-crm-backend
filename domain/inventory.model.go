@@ -63,6 +63,7 @@ type InventoryDetail struct {
 	CurrentSum         float64    `gorm:"current_sum" json:"current_sum"`
 	FactSum            float64    `gorm:"fact_sum" json:"fact_sum"`
 	DifferenceSum      float64    `gorm:"difference_sum" json:"difference_sum"`
+	SupplyPrice        float64    `gorm:"supply_price" json:"supply_price"`
 	RetailPrice        float64    `gorm:"retail_price" json:"retail_price"`
 	ExpireDate         *time.Time `gorm:"expire_date" json:"expire_date"`
 	TotalCount         int64      `gorm:"total_count" json:"-"`

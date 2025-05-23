@@ -31,6 +31,7 @@ func (h *InventoryHandler) InventoryRoutes(r *gin.RouterGroup) {
 		inventory.PATCH("/:id/add-product-by-barcode", h.UpdateFactQuantity)
 		inventory.PATCH("/:id/detailed-flow", h.UpdateDetailedFactQuantity)
 		inventory.POST("/confirm/:id", h.Confirm)
+		inventory.POST("/complete/:id", h.Complete)
 		inventory.POST("/cancel/:id", h.Cancel)
 	}
 	detail := r.Group("inventory-detail")
@@ -175,47 +176,25 @@ func (h *InventoryHandler) UpdateFactQuantity(c *gin.Context) {
 		return
 	}
 
-	var detailID string
+	var res []domain.ImportDetail
 	// find import_detail row
 	err = h.db.Raw(`
-	SELECT id
+	SELECT *
 	FROM import_details
 	WHERE product_id = ? AND import_id = ?
-	ORDER BY expire_date ASC NULLS LAST, created_at ASC
-	LIMIT 1
-`, request.Id, inventoryID).Scan(&detailID).Error
-
+`, request.Id, inventoryID).Scan(&res).Error
 	if err != nil {
 		h.log.Warn("Failed to find import_detail row: %v", err)
 		handleResponse(c, InternalError, "Not found import detail row")
 		return
 	}
 
-	if request.FactQuantity > 0 {
-		err = h.db.Exec(`
-		UPDATE import_details
-		SET scanned_count = ?
-		WHERE id = ?
-	`, request.FactQuantity, detailID).Error
-		if err != nil {
-			h.log.Warn("Error on updating scanned_count: %v", err.Error())
-			handleResponse(c, InternalError, "Failed to update scanned_count")
-			return
+	for _, imp := range res {
+		// skip fact quantity if received and fact 
+		if (imp.ScannedCount - imp.ReceivedCount) == 0 {
+			continue
 		}
-	}
-	if request.FactUnit > 0 {
-		err = h.db.Debug().Exec(`
-		UPDATE import_details
-		SET scanned_count = scanned_count + (?::numeric / p.unit_per_pack)
-		FROM products p
-		WHERE import_details.product_id = p.id
-		AND import_details.id = ?
-	`, request.FactUnit, detailID).Error
-		if err != nil {
-			h.log.Warn("Error on updating scanned_count: %v", err.Error())
-			handleResponse(c, InternalError, "Failed to update scanned_count")
-			return
-		}
+
 	}
 
 	handleResponse(c, OK, "UPDATED")
@@ -320,6 +299,28 @@ func (h *InventoryHandler) Confirm(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, "CONFIRMED")
+}
+
+// confirm inventory
+// @Summary Confirm Inventory
+// @Description Confirm Inventory
+// @Tags Inventory
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param 	id 	path string true "Inventory ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /inventory/complete/{id} [POST]
+func (h *InventoryHandler) Complete(c *gin.Context) {
+	id := c.Param("id")
+	if err := uuid.Validate(id); err != nil {
+		handleResponse(c, BadRequest, "Invalid inventory id")
+		return
+	}
+
+	handleResponse(c, OK, "COMPLETED")
 }
 
 // cancel inventory

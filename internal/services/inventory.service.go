@@ -33,14 +33,13 @@ func (s *Services) CreateInventory(req *domain.InventoryRequest) error {
 	// insert all products (including those not in store_products)
 	err = tx.Exec(`
 		INSERT INTO import_details (
-			import_id, product_id, store_product_id,  received_count, received_unit_count, supply_price_vat, retail_price_vat, expire_date, series_number
+			import_id, product_id, store_product_id,  received_count, supply_price_vat, retail_price_vat, expire_date, series_number
 				)
 		SELECT
 			?,
 			p.id,
 			sp.id,
-			COALESCE(sp.pack_quantity,  0.00) AS quantity,
-			COALESCE(sp.unit_quantity::numeric%p.unit_per_pack, 0.00) AS unit_quantity,
+			ROUND(COALESCE(sp.pack_quantity::numeric + (sp.unit_quantity::numeric%p.unit_per_pack)/p.unit_per_pack, 0.00), 4) AS quantity,
 			COALESCE(sp.supply_price, 0.00) AS supply_price,
 			COALESCE(sp.retail_price, 0.00) AS retail_price,
 			expire_date,
@@ -388,15 +387,6 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) (*domain.
 		return &res, err
 	}
 
-	// clean import details if fact and received count is equal
-	query = `DELETE FROM import_details WHERE import_id = ? AND scanned_count = received_count`
-	err = tx.Exec(query, inventoryId).Error
-	if err != nil {
-		s.log.Warn("ERROR on deleting import details %v", err)
-		tx.Rollback()
-		return &res, err
-	}
-
 	// complete transaction
 	if err = tx.Commit().Error; err != nil {
 		s.log.Warn("ERROR on commiting transaction: %v", err)
@@ -435,6 +425,31 @@ func (s *Services) AttachInventoryToStoreProduct(req *domain.Inventory) error {
 	err = tx.Exec(query, req.Id, req.StoreId).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating store_products: %v", err)
+		tx.Rollback()
+		return err
+	}
+
+	// complete transaction
+	if err = tx.Commit().Error; err != nil {
+		s.log.Warn("ERROR on commiting transaction: %v", err)
+		tx.Rollback()
+		return err
+	}
+	return nil
+}
+
+func (s *Services) InventProductToStore(req *domain.Inventory) error {
+	// start transaction
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+	var res []domain.ImportDetail
+	err := s.db.Where("import_id = ?", req.Id).Find(&res).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting inventory detail %v", err)
 		tx.Rollback()
 		return err
 	}
