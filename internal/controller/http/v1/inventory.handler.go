@@ -178,7 +178,7 @@ func (h *InventoryHandler) UpdateFactQuantity(c *gin.Context) {
 
 	var res []domain.ImportDetail
 	// find import_detail row
-	err = h.db.Raw(`
+	err = h.db.Debug().Raw(`
 	SELECT import_details.*, p.unit_per_pack
 	FROM import_details
 	JOIN products p ON p.id = import_details.product_id
@@ -201,12 +201,8 @@ func (h *InventoryHandler) UpdateFactQuantity(c *gin.Context) {
 		return
 	}
 	// Calculate total fact as quantity + (unit / unitPerPack)
-	remainingFact := request.FactQuantity + request.FactUnit/float64(unitPerPack)
+	remainingFact := float64(int(request.FactQuantity)) + request.FactUnit/float64(unitPerPack)
 	for i := 0; i < len(res); i++ {
-		// skip fact quantity if received and fact
-		if res[i].ReceivedCount == 0 && res[i].ScannedCount == 0 {
-			continue
-		}
 		if i == len(res)-1 {
 			res[i].ScannedCount = remainingFact
 		} else {
@@ -220,7 +216,7 @@ func (h *InventoryHandler) UpdateFactQuantity(c *gin.Context) {
 			}
 		}
 		// Update each row
-		err := h.db.Exec(`
+		err := h.db.Debug().Exec(`
 			UPDATE import_details
 			SET scanned_count = ?
 			WHERE id = ?

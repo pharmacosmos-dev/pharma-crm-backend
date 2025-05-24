@@ -86,7 +86,7 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		h.NewAutoOrderHandler(v1)
 		h.NewProducerHandler(v1)
 		h.NewDashboardHandler(v1)
-		h.NewHelperHandler(v1)
+		h.NewHelperHandler(public)
 		h.NewCompanyHandler(v1)
 		h.NewFinanceCategoryHandler(v1)
 		h.NewFinanceOperationHandler(v1)

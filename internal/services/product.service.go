@@ -324,7 +324,7 @@ func (s *Services) ListProductExport(param *domain.ProductQueryParam) ([]domain.
 		args   []any
 		filter = "WHERE 1=1 "
 		order  = " ORDER BY p.created_at DESC "
-		group  = " GROUP BY p.id, pr.id, u.id "
+		// group  = " GROUP BY p.id, pr.id, u.id "
 		// expireDayPart = ""
 	)
 	// filter with store_id
@@ -353,7 +353,8 @@ func (s *Services) ListProductExport(param *domain.ProductQueryParam) ([]domain.
 		sp.vat AS vat,
 		sp.vat_price AS vat_price
 	FROM store_products sp
-	RIGHT JOIN products p ON sp.product_id = p.id
+	JOIN products p ON sp.product_id = p.id
+	JOIN stores st ON sp.store_id = st.id
 	LEFT JOIN producers pr ON p.producer_id = pr.id
 	LEFT JOIN unit_types u ON p.unit_type_id = u.id
 	`, "%")
@@ -387,7 +388,7 @@ func (s *Services) ListProductExport(param *domain.ProductQueryParam) ([]domain.
 		filter += " AND (p.barcode IS NULL OR p.barcode = '') "
 	}
 	// collect query
-	query += filter + group + order + " LIMIT ? OFFSET ?"
+	query += filter + order + " LIMIT ? OFFSET ?"
 	args = append(args, param.Limit, param.Offset)
 	// complete query
 	err := s.db.Debug().Raw(query, args...).Scan(&res).Error

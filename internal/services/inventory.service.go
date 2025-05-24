@@ -159,6 +159,7 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
         p.material_code,
         p.name,
         p.unit_per_pack,
+		MAX(imd.retail_price_vat) AS retail_price,
         SUM(imd.received_count) AS current_quantity,
         ROUND((SUM(imd.received_count) - FLOOR(SUM(received_count)))*p.unit_per_pack, 0)  AS current_unit,
         SUM(imd.scanned_count) AS fact_quantity,
