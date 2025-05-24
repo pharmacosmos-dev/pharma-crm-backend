@@ -418,13 +418,22 @@ func (h *InventoryHandler) InventoryDetailList(c *gin.Context) {
 	}
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 
-	res, totalCount, err := h.service.InventoryDetailList(&param)
+	res, totalData, totalCount, err := h.service.InventoryDetailList(&param)
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to get inventory detail list")
 		return
 	}
 
-	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+	data := map[string]any{
+		"_meta": utils.Meta{
+			TotalCount:  totalCount,
+			PerPage:     param.Limit,
+			CurrentPage: (param.Offset / param.Limit) + 1,
+			PageCount:   int((totalCount + int64(param.Limit) - 1) / int64(param.Limit)),
+		},
+		"data":       res,
+		"total_data": totalData,
+	}
 
 	handleResponse(c, OK, data)
 }
@@ -454,7 +463,7 @@ func (h *InventoryHandler) InventoryDetailExport(c *gin.Context) {
 	}
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 
-	res, _, err := h.service.InventoryDetailList(&param)
+	res, _, _, err := h.service.InventoryDetailList(&param)
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to get inventory detail list")
 		return
@@ -539,13 +548,22 @@ func (h *InventoryHandler) InventoryDetailedFlow(c *gin.Context) {
 	}
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 
-	res, totalCount, err := h.service.InventoryDetailedFlow(&param)
+	res, totalData, totalCount, err := h.service.InventoryDetailedFlow(&param)
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to get inventory detail list")
 		return
 	}
 
-	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+	data := map[string]any{
+		"_meta": utils.Meta{
+			TotalCount:  totalCount,
+			PerPage:     param.Limit,
+			CurrentPage: (param.Offset / param.Limit) + 1,
+			PageCount:   int((totalCount + int64(param.Limit) - 1) / int64(param.Limit)),
+		},
+		"data":       res,
+		"total_data": totalData,
+	}
 
 	handleResponse(c, OK, data)
 }
