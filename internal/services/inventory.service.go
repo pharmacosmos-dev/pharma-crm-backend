@@ -253,7 +253,7 @@ func (s *Services) InventoryDetailedFlow(param *domain.InventoryDetailParam) ([]
 		totalCount int64
 		args       = []any{}
 		filter     = " WHERE import_id = ? AND product_id = ? "
-		orderBy    = " imd.imported_at DESC"
+		orderBy    = " ORDER BY imd.imported_at DESC"
 	)
 	args = append(args, param.InventoryId, param.ProductId)
 	//
@@ -333,7 +333,7 @@ func (s *Services) InventoryDetailedFlow(param *domain.InventoryDetailParam) ([]
 	query += filter + orderBy + " LIMIT ? OFFSET ?;"
 	args = append(args, param.Limit, param.Offset)
 	// execute query
-	err = s.db.Debug().Raw(query, args...).Scan(&res).Error
+	err = s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting inventory detail list: %v", err)
 		return res, 0, err
