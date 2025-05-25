@@ -1,12 +1,15 @@
 package services
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
+	"github.com/spf13/cast"
 )
 
 // Create inventory creates a new inventory
@@ -386,7 +389,7 @@ func (s *Services) InventoryDetailStatsCount(param *domain.InventoryDetailParam)
 }
 
 // confirm inventory
-func (s *Services) ConfirmInventory(inventoryId string, userId string) (*domain.Inventory, error) {
+func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 	// start transaction
 	tx := s.db.Begin()
 	defer func() {
@@ -394,6 +397,7 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) (*domain.
 			tx.Rollback()
 		}
 	}()
+
 	var res domain.Inventory
 	// update confirm inventory
 	query := `UPDATE imports SET status = ?, accepted_by = ?, updated_at = NOW() WHERE id = ? RETURNING *`
@@ -401,47 +405,93 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) (*domain.
 	if err != nil {
 		s.log.Warn("ERROR on updating inventory %v", err)
 		tx.Rollback()
-		return &res, err
+		return err
 	}
-
-	// complete transaction
-	if err = tx.Commit().Error; err != nil {
-		s.log.Warn("ERROR on commiting transaction: %v", err)
+	// delete correct inventory products if current and fact will be equal (received_count = scanned_count)
+	err = tx.Exec(`DELETE FROM import_details WHERE import_id = ? AND received_count = scanned_count`, inventoryId).Error
+	if err != nil {
+		s.log.Warn("ERROR on deleting inventory_details recieve and scan will be equal: %v", err)
 		tx.Rollback()
-		return &res, err
+		return err
 	}
-	return &res, nil
-}
-
-// attach inventory products to store_products
-func (s *Services) AttachInventoryToStoreProduct(req *domain.Inventory) error {
-	// start transaction
-	tx := s.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
+	// get inventory details list if fact and current quantity will not be equal
+	var inventoryDetails []domain.ImportDetail
+	query1 := `
+	SELECT
+		imd.*, p.material_code, p.name AS product_name,
+		p.barcode, p.unit_per_pack, pr.code AS producer_code
+	FROM import_details imd
+		JOIN products p ON imd.product_id = p.id
+		LEFT JOIN producers pr ON p.producer_id = pr.id
+	WHERE imd.import_id = ? AND imd.received_count != imd.scanned_count
+	`
+	// execute get import details as inventory details
+	err = s.db.Raw(query1, inventoryId).Scan(&inventoryDetails).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting inventory_details: %v", err)
+		tx.Rollback()
+		return err
+	}
+	// add new inventory products to store_products if fact greater then current quantity
+	// We only add delta -> (scanned_count - received_count) as a new product
+	storeProduct := `
+	INSERT INTO store_products(
+           product_id, store_id, pack_quantity, unit_quantity,
+           retail_price, supply_price,
+           vat, expire_date, vat_price,
+           import_detail_id, serial_number)
+	SELECT
+		imd.product_id, ?, (imd.scanned_count - imd.received_count)::INT, (imd.scanned_count - imd.received_count) * p.unit_per_pack,
+		imd.retail_price_vat, imd.supply_price_vat, 12, imd.expire_date,imd.retail_price_vat*12/112,  imd.id, imd.series_number
+	FROM import_details imd
+	JOIN products p ON imd.product_id = p.id
+	WHERE imd.import_id = ? AND (imd.scanned_count > imd.received_count OR imd.store_product_id IS NULL);
+	`
+	// execute store_product create query
+	err = tx.Exec(storeProduct, res.StoreId, inventoryId).Error
+	if err != nil {
+		s.log.Warn("ERROR on inserting inventory to store_product: %v", err)
+		tx.Rollback()
+		return err
+	}
+	// update store_products quantities if fact quantity greater then current (received_count > scanned_count)
+	// collect 1C inventar request data
+	var data1C domain.InventoryData1C
+	for _, imd := range inventoryDetails {
+		if imd.ScannedCount < imd.ReceivedCount {
+			err = tx.Exec(`UPDATE store_products SET pack_quantity = ?, unit_quantity = ? WHERE id = ?`,
+				int(imd.ScannedCount), int(imd.ScannedCount*float64(imd.UnitPerPack)), imd.StoreProductId).Error
+			if err != nil {
+				s.log.Warn("ERROR on updating store_product quantity on confirm inventory: %v", err)
+				tx.Rollback()
+				return err
+			}
 		}
-	}()
+		// collect inventory products to send 1C
+		data1C.Товары = append(data1C.Товары, domain.InventoryProduct1C{
+			MaterilaCode:        imd.MaterialCode,
+			Name:                imd.ProductName,
+			Barcode:             imd.Barcode,
+			Manufacturer:        imd.ProducerCode,
+			ProductSeriesNumber: imd.SeriesNumber,
+			ExpireDate:          imd.ExpireDate.Format(time.RFC3339),
+			Quantity:            imd.ReceivedCount,
+			QuantityInventar:    imd.ScannedCount,
+			RetailPrice:         imd.RetailPrice,
+			RetailPriceVat:      imd.RetailPriceVat,
+			SupplyPrice:         imd.SupplyPrice,
+			SupplyPriceVat:      imd.SupplyPriceVat,
+			Sum:                 imd.ScannedCount * imd.RetailPrice,
+			SumVat:              imd.ScannedCount * imd.RetailPriceVat,
+		})
 
-	// delta < 0 holat uchun query
-	query := `
-	UPDATE store_products 
-	SET pack_quantity =  pack_quantity - qoldiq WHERE id = ? AND store_id = ?`
-
-	err := s.db.Exec(query, req.Id, req.StoreId).Error
-	if err != nil {
-		s.log.Warn("ERROR on updating store_products: %v", err)
-		tx.Rollback()
-		return err
 	}
-	// delta > 0 holat uchun query
-	query = `
-	UPDATE store_products
-	SET pack_quantity = pack_quantity + qoldiq WHERE id = ? AND store_id = ?`
 
-	err = tx.Exec(query, req.Id, req.StoreId).Error
+	// get store info
+	var store domain.Store
+	err = s.db.First(&store, "id = ?", res.StoreId).Error
 	if err != nil {
-		s.log.Warn("ERROR on updating store_products: %v", err)
+		s.log.Warn("ERROR on getting store info: %v", err)
 		tx.Rollback()
 		return err
 	}
@@ -452,31 +502,26 @@ func (s *Services) AttachInventoryToStoreProduct(req *domain.Inventory) error {
 		tx.Rollback()
 		return err
 	}
-	return nil
-}
 
-func (s *Services) InventProductToStore(req *domain.Inventory) error {
-	// start transaction
-	tx := s.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-	var res []domain.ImportDetail
-	err := s.db.Where("import_id = ?", req.Id).Find(&res).Error
+	// get store info
+	data1C.Apteka.Name = store.Name
+	data1C.Apteka.StoreCode = store.StoreCode
+	// declare current time
+	now := time.Now().Add(time.Hour * 5)
+	// get document data and number
+	data1C.Dok.DocumentDate = now.Format(time.RFC3339)
+	data1C.Dok.DocumentNumber = "PH" + cast.ToString(now.Unix())
+
+	t, _ := json.Marshal(&data1C)
+	fmt.Println("--->>> ", string(t))
+
+	// send inventory products data to 1C
+	err = s.DoRequest(context.Background(), data1C, "/inventar")
 	if err != nil {
-		s.log.Warn("ERROR on getting inventory detail %v", err)
-		tx.Rollback()
+		s.log.Warn("ERROR on sending inventory: %v", err)
 		return err
 	}
 
-	// complete transaction
-	if err = tx.Commit().Error; err != nil {
-		s.log.Warn("ERROR on commiting transaction: %v", err)
-		tx.Rollback()
-		return err
-	}
 	return nil
 }
 

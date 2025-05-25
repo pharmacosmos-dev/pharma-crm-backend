@@ -65,6 +65,7 @@ type ImportDetail struct {
 	SumVat            float64    `gorm:"sum_vat" json:"sum_vat"`
 	UnitPerPack       int        `gorm:"unit_per_pack" json:"unit_per_pack"`
 	ProducerName      string     `gorm:"producer_name" json:"producer_name"`
+	ProducerCode      string     `gorm:"producer_code" json:"producer_code"`
 	ProductName       string     `gorm:"product_name" json:"product_name,omitempty"`
 	Barcode           string     `gorm:"barcode" json:"barcode,omitempty"`
 	MaterialCode      int        `gorm:"material_code" json:"material_code,omitempty"`
@@ -73,6 +74,7 @@ type ImportDetail struct {
 	ImportedAt        *time.Time `gorm:"imported_at" json:"imported_at"`
 	Product           *Product   `gorm:"references:Id;foreignKey:ProductID" json:"product"`
 	Import            *Import    `gorm:"foreignKey:ImportID" json:"import"`
+	StoreProductId    string     `gorm:"store_product_id" json:"store_product_id"`
 }
 
 type ImportDetailRequest struct {

@@ -305,27 +305,21 @@ func (h *InventoryHandler) UpdateDetailedFactQuantity(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /inventory/confirm/{id} [POST]
 func (h *InventoryHandler) Confirm(c *gin.Context) {
-	id := c.Param("id")
+	var id = c.Param("id")
 	if err := uuid.Validate(id); err != nil {
 		handleResponse(c, BadRequest, "Invalid inventory id")
 		return
 	}
+	// get user id from the context
 	userId, ok := c.Get("user_id")
 	if !ok {
 		handleResponse(c, UNAUTHORIZED, "user id not found from the context")
 		return
 	}
 	// confirm inventory service
-	res, err := h.service.ConfirmInventory(id, userId.(string))
+	err := h.service.ConfirmInventory(id, userId.(string))
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to confirm inventory")
-		return
-	}
-
-	// attech inventory products to store_products
-	err = h.service.AttachInventoryToStoreProduct(res)
-	if err != nil {
-		handleResponse(c, InternalError, "Failed to attech products")
 		return
 	}
 

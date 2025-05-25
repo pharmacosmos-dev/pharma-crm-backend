@@ -109,3 +109,27 @@ type InventoryDetailSum struct {
 	TotalCurrentSum    float64 `gorm:"total_current_sum" json:"total_current_sum"`
 	TotalDifferenceSum float64 `gorm:"total_difference_sum" json:"total_difference_sum"`
 }
+
+// 1C request Structure
+type InventoryProduct1C struct {
+	MaterilaCode        int     `gorm:"material_code" json:"material_code"`
+	Name                string  `gorm:"name" json:"name"`
+	Barcode             string  `gorm:"barcode" json:"barcode"`
+	Manufacturer        string  `gorm:"manufacturer" json:"manufacturer"`
+	ProductSeriesNumber string  `gorm:"product_series_number" json:"product_series_number"`
+	ExpireDate          string  `gorm:"expire_date" json:"expire_date"`
+	Quantity            float64 `gorm:"quantity" json:"quantity"`
+	QuantityInventar    float64 `gorm:"quantity_inventar" json:"quantity_inventar"`
+	RetailPrice         float64 `gorm:"retail_price" json:"retail_price"`
+	RetailPriceVat      float64 `gorm:"retail_price_vat" json:"retail_price_vat"`
+	SupplyPrice         float64 `gorm:"supply_price" json:"supply_price"`
+	SupplyPriceVat      float64 `gorm:"supply_price_vat" json:"supply_price_vat"`
+	Sum                 float64 `gorm:"sum" json:"sum"`
+	SumVat              float64 `gorm:"sum_vat" json:"sum_vat"`
+}
+
+type InventoryData1C struct {
+	Dok    Document             `json:"Dok"`
+	Apteka Apteka               `json:"Apteka"`
+	Товары []InventoryProduct1C `json:"Товары"`
+}
