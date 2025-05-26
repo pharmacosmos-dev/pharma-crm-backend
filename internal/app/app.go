@@ -64,7 +64,7 @@ func Run(cfg *config.Config) {
 	fmt.Println("Server is running on port:", cfg.HTTP.Port)
 
 	c := cron.New() // Default UTC (no location set)
-	c.AddFunc("45 23 * * *", func() {
+	c.AddFunc("00 23 * * *", func() {
 		log.Println("Starting send expense to 1C...")
 		service.SendReportsSequentially()
 	})
