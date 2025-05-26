@@ -175,10 +175,19 @@ func (h *InventoryHandler) UpdateFactQuantity(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid request body")
 		return
 	}
+	// update barcode
+	if request.Barcode != "" {
+		err = h.db.Exec(`UPDATE products SET barcode = ? WHERE id = ?`, request.Barcode, request.Id).Error
+		if err != nil {
+			h.log.Warn("ERROR on updating product barcode: %v", err)
+			handleResponse(c, InternalError, "Failed to update barcode")
+			return
+		}
+	}
 
 	var res []domain.ImportDetail
 	// find import_detail row
-	err = h.db.Debug().Raw(`
+	err = h.db.Raw(`
 	SELECT import_details.*, p.unit_per_pack
 	FROM import_details
 	JOIN products p ON p.id = import_details.product_id
