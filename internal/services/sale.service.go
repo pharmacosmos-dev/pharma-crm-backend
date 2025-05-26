@@ -281,8 +281,8 @@ func (s *Services) DeductStoreProductQuantities(tx *gorm.DB, sale *domain.Sale) 
 		err = tx.Exec(`
 		UPDATE store_products
 		SET
-			pack_quantity = CASE WHEN ? > 0 THEN (unit_quantity - ?)/products.unit_per_pack - ? ELSE pack_quantity - ? END,
-			unit_quantity = unit_quantity - (? * products.unit_per_pack + ?), 
+			pack_quantity = GREATEST(CASE WHEN ? > 0 THEN (unit_quantity - ?)/products.unit_per_pack - ? ELSE pack_quantity - ? END, 0),
+			unit_quantity = GREATEST(unit_quantity - (? * products.unit_per_pack + ?), 0),
 			updated_at = NOW()
 		FROM products
 		WHERE products.id = store_products.product_id AND  store_products.id = ?`,
