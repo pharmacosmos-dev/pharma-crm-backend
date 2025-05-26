@@ -165,12 +165,12 @@ func (h *InventoryHandler) UpdateFactQuantity(c *gin.Context) {
 		inventoryID = c.Param("id")
 		err         error
 	)
-
+	// validate inventory id
 	if err = uuid.Validate(inventoryID); err != nil {
 		handleResponse(c, BadRequest, "Inventory id is invalid")
 		return
 	}
-
+	// parse 
 	if err = c.ShouldBindJSON(&request); err != nil {
 		handleResponse(c, BadRequest, "Invalid request body")
 		return

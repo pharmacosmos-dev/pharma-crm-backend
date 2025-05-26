@@ -54,6 +54,7 @@ type InventoryDetail struct {
 	MaterialCode       int        `gorm:"material_code" json:"material_code"`
 	UnitPerPack        int        `gorm:"unit_per_pack" json:"unit_per_pack"`
 	Name               string     `gorm:"name" json:"name"`
+	Barcode            string     `gorm:"barcode" json:"barcode"`
 	CurrentQuantity    float64    `gorm:"current_quantity" json:"current_quantity"`
 	CurrentUnit        float64    `gorm:"current_unit" json:"current_unit"`
 	FactQuantity       float64    `gorm:"fact_quantity" json:"fact_quantity"`
