@@ -8,12 +8,12 @@ type DashboardCountStats struct {
 	BeforeSaleCount          int64   `gorm:"before_sale_count" json:"before_sale_count"`
 	TotalSaleAmount          float64 `gorm:"total_sale_amount" json:"total_sale_amount"`
 	BeforeSaleAmount         float64 `gorm:"before_sale_amount" json:"before_sale_amount"`
-	TotalProductCount        int64   `gorm:"total_product_count" json:"total_product_count"`
-	BeforeProductCount       int64   `gorm:"before_product_count" json:"before_product_count"`
+	TotalProductCount        float64 `gorm:"total_product_count" json:"total_product_count"`
+	BeforeProductCount       float64 `gorm:"before_product_count" json:"before_product_count"`
 	StockTotalAmount         float64 `gorm:"stock_total_amount" json:"stock_total_amount"`
 	BeforeStockAmount        float64 `gorm:"before_stock_amount" json:"before_stock_amount"`
-	ExpiringSoonCount        int64   `gorm:"expiring_soon_count" json:"expiring_soon_count"`
-	BeforeExpiringSoonCount  int64   `gorm:"before_expiring_soon_count" json:"before_expiring_soon_count"`
+	ExpiringSoonCount        float64 `gorm:"expiring_soon_count" json:"expiring_soon_count"`
+	BeforeExpiringSoonCount  float64 `gorm:"before_expiring_soon_count" json:"before_expiring_soon_count"`
 	ExpiringSoonAmount       float64 `gorm:"expiring_soon_amount" json:"expiring_soon_amount"`
 	BeforeExpiringSoonAmount float64 `gorm:"before_expiring_soon_amount" json:"before_expiring_soon_amount"`
 	TotalNetIncome           float64 `gorm:"total_net_income" json:"total_net_income"`
@@ -98,11 +98,11 @@ type DashboardCountStatsSale struct {
 
 // Dashboard count stats product
 type DashboardCountStatsProduct struct {
-	StockCount           int64   `gorm:"stock_count" json:"stock_count"`
-	BeforeStockCount     int64   `gorm:"before_stock_count" json:"before_stock_count"`
+	StockCount           float64 `gorm:"stock_count" json:"stock_count"`
+	BeforeStockCount     float64 `gorm:"before_stock_count" json:"before_stock_count"`
 	StockAmount          float64 `gorm:"stock_amount" json:"stock_amount"`
 	BeforeStockAmount    float64 `gorm:"before_stock_amount" json:"before_stock_amount"`
-	ExpiringCount        int64   `gorm:"expiring_count" json:"expiring_count"`
+	ExpiringCount        float64 `gorm:"expiring_count" json:"expiring_count"`
 	ExpiringAmount       float64 `gorm:"expiring_amount" json:"expiring_amount"`
 	BeforeExpiringAmount float64 `gorm:"before_expiring_amount" json:"before_expiring_amount"`
 }

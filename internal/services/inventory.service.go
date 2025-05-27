@@ -103,11 +103,12 @@ func (s *Services) InventoryList(param *domain.InventoryParam) ([]domain.Invento
 		Preload("CreatedBy").
 		Preload("UpdatedBy").
 		Select(`
-			imports.*, 
+			imports.*,
 			SUM(imd.received_count) AS measurement_count,
 			SUM(imd.received_count-imd.scanned_count) AS shortage,
-			SUM(CASE WHEN imd.accepted_count > imd.received_count THEN imd.accepted_count - imd.received_count ELSE 0 END) AS surplus,
-			SUM(imd.scanned_count*imd.retail_price_vat) - SUM(imd.received_count*imd.retail_price_vat) AS difference_sum`).
+			SUM(CASE WHEN imd.scanned_count > imd.received_count THEN imd.accepted_count - imd.received_count ELSE 0 END) AS surplus,
+			SUM(imd.received_count*imd.retail_price_vat) AS current_sum,
+			SUM(imd.scanned_count*imd.retail_price_vat) AS fact_sum`).
 		Joins("LEFT JOIN import_details imd ON imports.id = imd.import_id").
 		Where("imports.entry_type = ?", 2)
 	// filter by store id
@@ -132,10 +133,11 @@ func (s *Services) InventoryList(param *domain.InventoryParam) ([]domain.Invento
 		Group("imports.id").
 		Order("imports.created_at DESC").
 		Count(&totalCount).
-		Limit(param.Limit).Offset(param.Offset).
+		Limit(param.Limit).
+		Offset(param.Offset).
 		Find(&res).Error
 	if err != nil {
-		s.log.Error(err)
+		s.log.Warn("ERROR on getting inventory list: %v", err)
 		return res, 0, err
 	}
 	return res, totalCount, nil

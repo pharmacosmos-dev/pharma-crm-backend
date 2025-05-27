@@ -39,14 +39,15 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 		// get stock stats information
 		queryp = fmt.Sprintf(`
 		SELECT
-			SUM(pack_quantity) AS stock_count,
-			SUM(pack_quantity+COALESCE(ci_sold.quantity, 0)) AS before_stock_count,
-			SUM(pack_quantity*retail_price) AS stock_amount,
-			SUM(pack_quantity*retail_price+COALESCE(ci_sold.amount, 0)) AS before_stock_amount,
+			ROUND(SUM(pack_quantity::numeric+(sp.unit_quantity%sp.unit_per_pack)::numeric/p.unit_per_pack), 2) AS stock_count,
+			ROUND(SUM(pack_quantity::numeric+(sp.unit_quantity%sp.unit_per_pack)::numeric/p.unit_per_pack+COALESCE(ci_sold.quantity, 0)), 2) AS before_stock_count,
+			ROUND(SUM(pack_quantity*retail_price)+SUM((retail_price/p.unit_per_pack)*(sp.unit_quantity%sp.unit_per_pack)), 2) AS stock_amount,
+			ROUND(SUM((pack_quantity*retail_price)+((retail_price/p.unit_per_pack)*(sp.unit_quantity%sp.unit_per_pack))+COALESCE(ci_sold.amount, 0)), 2) AS before_stock_amount,
 			SUM(CASE WHEN expire_date <= NOW() + INTERVAL '3 month' THEN pack_quantity ELSE 0 END) AS expiring_count,
-			SUM(CASE WHEN expire_date <= NOW() + INTERVAL '3 month' THEN pack_quantity*retail_price ELSE 0 END) AS expiring_amount,
+			SUM(CASE WHEN expire_date <= NOW() + INTERVAL '3 month' THEN (pack_quantity*retail_price)+(retail_price/p.unit_per_pack) ELSE 0 END) AS expiring_amount,
 			SUM(CASE WHEN expire_date <= NOW() + INTERVAL '3 month' THEN COALESCE(ci_sold.amount, 0) ELSE 0 END) AS before_expiring_amount
-		FROM store_products
+		FROM store_products sp
+		JOIN products p ON sp.product_id = p.id
 		LEFT JOIN (
 			SELECT store_product_id, SUM(quantity) AS quantity, SUM(quantity*unit_price) AS amount
 			FROM cart_items
@@ -55,8 +56,8 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 			AND s.completed_at::date <= '%s'
 			AND s.status = 'completed'
 			GROUP BY store_product_id
-		) AS ci_sold ON ci_sold.store_product_id = store_products.id
-		WHERE expire_date::date >= current_date `, beforeStart, beforeEnd)
+		) AS ci_sold ON ci_sold.store_product_id = sp.id
+		WHERE 1 = 1 `, "%", "%", "%", "%", beforeStart, beforeEnd)
 		// get total net income
 		queryc = fmt.Sprintf(`
 		SELECT
