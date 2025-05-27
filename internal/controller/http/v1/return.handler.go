@@ -39,7 +39,6 @@ func (h *ReturnHandler) ReturnRoutes(r *gin.RouterGroup) {
 		detail.GET("/list", h.ReturnDetailList)
 		detail.GET("/export-excel", h.ExportReturnDetailList)
 	}
-
 }
 
 // Create godoc

@@ -25,7 +25,7 @@ func (s *Services) CreateReturn(req *domain.ReturnRequest) error {
 		req.PublicId, req.StoreId, req.Name, req.CreatedBy, 2,
 	).Scan(&id).Error
 	if err != nil {
-		s.log.Error("ERROR on creating return: ", err)
+		s.log.Warn("ERROR on creating return: %v", err)
 		tx.Rollback()
 		return err
 	}
@@ -39,14 +39,14 @@ func (s *Services) CreateReturn(req *domain.ReturnRequest) error {
 			WHERE store_id = ? AND pack_quantity > 0;`,
 		id, req.StoreId).Error
 	if err != nil {
-		s.log.Error("ERROR on creating inventory details: ", err)
+		s.log.Warn("ERROR on creating inventory details: %v", err)
 		tx.Rollback()
 		return err
 	}
 
 	// commit transaction
 	if err = tx.Commit().Error; err != nil {
-		s.log.Error("ERROR on committing transaction: ", err)
+		s.log.Warn("ERROR on committing transaction: %v", err)
 		tx.Rollback()
 		return err
 	}

@@ -20,4 +20,5 @@ type QueryParam struct {
 	Offset          int     `form:"offset"`
 	TotalAmountTo   float64 `form:"total_amount_to"`
 	TotalAmountFrom float64 `form:"total_amount_from"`
+	Status          string  `form:"status"`
 }

@@ -821,6 +821,18 @@ definitions:
       unit_type_id:
         type: string
     type: object
+  domain.RepricingRequest:
+    properties:
+      created_by:
+        type: string
+      name:
+        type: string
+      store_id:
+        type: string
+      type:
+        example: retail_price|supply_price|expire_date
+        type: string
+    type: object
   domain.ResetPasswordRequest:
     properties:
       confirm_password:
@@ -8596,6 +8608,239 @@ paths:
       summary: Get Store report Amount
       tags:
       - Report
+  /repricing:
+    post:
+      consumes:
+      - application/json
+      description: Create Repricing
+      parameters:
+      - description: Repricing
+        in: body
+        name: repricing
+        required: true
+        schema:
+          $ref: '#/definitions/domain.RepricingRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create Repricing
+      tags:
+      - Repricing
+  /repricing/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Get Repricing
+      parameters:
+      - description: Repricing ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Repricing
+      tags:
+      - Repricing
+  /repricing/cancel/{id}:
+    post:
+      consumes:
+      - application/json
+      description: Cancel Repricing
+      parameters:
+      - description: Repricing ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Cancel Repricing
+      tags:
+      - Repricing
+  /repricing/confirm/{id}:
+    post:
+      consumes:
+      - application/json
+      description: Confirm Repricing
+      parameters:
+      - description: Repricing ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Confirm Repricing
+      tags:
+      - Repricing
+  /repricing/export-excel:
+    get:
+      consumes:
+      - application/json
+      description: List Repricing
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: Status
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: List Repricing Export excel
+      tags:
+      - Repricing
+  /repricing/list:
+    get:
+      consumes:
+      - application/json
+      description: List Repricing
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: Status
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: List Repricing
+      tags:
+      - Repricing
   /return:
     post:
       consumes:

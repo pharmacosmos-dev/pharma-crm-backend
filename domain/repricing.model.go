@@ -2,6 +2,7 @@ package domain
 
 import "time"
 
+// Repricing structure
 type PriceRevalution struct {
 	Id          int        `gorm:"id" json:"id"`
 	StoreID     string     `gorm:"store_id" json:"store_id"`
@@ -10,6 +11,7 @@ type PriceRevalution struct {
 	Type        string     `gorm:"type" json:"type"`
 	CreatedByID string     `gorm:"created_by_id" json:"created_by_id"`
 	UpdatedByID string     `gorm:"updated_by_id" json:"updated_by_id"`
+	Count       float64    `gorm:"count" json:"count"`
 	CreatedAt   *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt   *time.Time `gorm:"updated_at" json:"updated_at"`
 	CreatedBy   *Employee  `gorm:"foreignKey:CreatedByID" json:"created_by"`
@@ -17,11 +19,21 @@ type PriceRevalution struct {
 	Store       *Store     `gorm:"foreignKey:StoreID" json:"store"`
 }
 
+// repricing off create request
+type RepricingRequest struct {
+	Name      string `gorm:"name" json:"name"`
+	StoreId   string `gorm:"store_id" json:"store_id"`
+	CreatedBy string `gorm:"created_by" json:"created_by"`
+	Type      string `gorm:"type" json:"type" example:"retail_price|supply_price|expire_date"`
+}
+
+// repricing detail structure
 type PriceRevalutionDetail struct {
 	Id                int        `gorm:"id" json:"id"`
 	PriceRevalutionId int        `gorm:"price_revalution_id" json:"price_revalution_id"`
 	StoreProductID    string     `gorm:"store_product_id" json:"store_product_id"`
 	ProductID         string     `gorm:"product_id" json:"product_id"`
+	ScannedCount      float64    `gorm:"scanned_count" json:"scanned_count"`
 	OldSupplyPrice    float64    `gorm:"old_supply_price" json:"old_supply_price"`
 	NewSupplyPrice    float64    `gorm:"new_supply_price" json:"new_supply_price"`
 	OldRetailPrice    float64    `gorm:"old_retail_price" json:"old_retail_price"`

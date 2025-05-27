@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS price_revalution_details(
     "new_supply_price" NUMERIC(10, 2) DEFAULT 0.00,
     "old_retail_price" NUMERIC(10, 2) DEFAULT 0.00,
     "new_retail_price" NUMERIC(10, 2) DEFAULT 0.00,
+    "scanned_count" NUMERIC(10, 4) DEFAULT 0.0000,
     "old_expire_date" DATE,
     "new_expire_date" DATE,
     "serial_number" VARCHAR(255),

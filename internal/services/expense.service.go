@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"sync"
@@ -26,17 +27,19 @@ func (s *Services) SendExpenseTo1C(sendDate string, storeID string) error {
 	expenseData.Store.Name = store.Name
 	// get expense docs number
 	docNumberQuery := `
-	SELECT 'NP-' || LPAD(store_code::TEXT, 5, '0') || '-' || TO_CHAR(NOW(), 'YYYYMMDDHH24MI') AS docs_number
+	SELECT 
+		'NP-' || LPAD(store_code::TEXT, 5, '0') || '-' || TO_CHAR(NOW(), 'YYYYMMDDHH24MI') AS docs_number,
+    	TO_CHAR(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS document_date
 	FROM stores
 	WHERE id = ?;`
-	err = s.db.Raw(docNumberQuery, storeID).Scan(&expenseData.Document.NumberDok).Error
+	err = s.db.Raw(docNumberQuery, storeID).Scan(&expenseData.Document).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting expense docs number: %v", err)
 		return err
 	}
 
 	// create new shift expense
-	err = s.CreateNewExpense(storeID, expenseData.Document.NumberDok, sendDate)
+	err = s.CreateNewExpense(storeID, &expenseData.Document)
 	if err != nil {
 		s.log.Warn("ERROR on creating shift expense: %v", err)
 		return err
@@ -100,9 +103,9 @@ func (s *Services) SendExpenseTo1C(sendDate string, storeID string) error {
 	return nil
 }
 
-func (s *Services) CreateNewExpense(storeID string, docsNumber string, sendDate string) error {
+func (s *Services) CreateNewExpense(storeID string, docs *domain.ExpenseDok) error {
 	query := `INSERT INTO shift_expenses(store_id, docs_number, sent_at) VALUES(?, ?, ?)`
-	err := s.db.Exec(query, storeID, docsNumber, sendDate).Error
+	err := s.db.Exec(query, storeID, docs.NumberDok, docs.DocumentDate).Error
 	if err != nil {
 		s.log.Warn("ERROR on creating shift_expenses: %v", err)
 		return err
@@ -148,7 +151,7 @@ func (s *Services) SendReportsSequentially() {
 
 	for _, store := range stores {
 		fmt.Printf("Sending report for %s...\n", store.Name)
-		if err = s.sendReportTo1C(&store, now.Format(time.DateOnly), now); err != nil {
+		if err = s.sendReportTo1C(&store, now.Format(time.DateOnly)); err != nil {
 			log.Printf("Failed to send report for %s: %v\n", store.Name, err)
 			// You can choose to retry here or log for manual retry
 			continue
@@ -161,29 +164,29 @@ func (s *Services) SendReportsSequentially() {
 }
 
 // send expense products to 1C
-func (s *Services) sendReportTo1C(store *domain.Store, date string, docDate time.Time) error {
+func (s *Services) sendReportTo1C(store *domain.Store, date string) error {
 
 	var expenseData domain.SendExpense
 	expenseData.Store.StoreCode = store.StoreCode
 	expenseData.Store.Name = store.Name
 	// get expense docs number
 	docNumberQuery := `
-	SELECT 'NP-' || LPAD(store_code::TEXT, 5, '0') || '-' || TO_CHAR(NOW(), 'YYYYMMDDHH24MI') AS docs_number
+	SELECT 
+		'NP-' || LPAD(store_code::TEXT, 5, '0') || '-' || TO_CHAR(NOW(), 'YYYYMMDDHH24MI') AS docs_number,
+    	TO_CHAR(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS document_date
 	FROM stores
 	WHERE id = ?;`
-	err := s.db.Raw(docNumberQuery, store.Id).Scan(&expenseData.Document.NumberDok).Error
+	err := s.db.Raw(docNumberQuery, store.Id).Scan(&expenseData.Document).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting expense docs number: %v", err)
 		return err
 	}
 
 	// create new shift expense
-	err = s.CreateNewExpense(store.Id, expenseData.Document.NumberDok, date)
+	err = s.CreateNewExpense(store.Id, &expenseData.Document)
 	if err != nil {
 		s.log.Warn("ERROR on creating shift expense: %v", err)
 	}
-	// "2006-01-01T00:00:00Z"
-	expenseData.Document.DocumentDate = docDate.Format(time.RFC3339)
 
 	// get expense products query
 	expenseProductQuery := `
@@ -227,6 +230,9 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string, docDate time
 		return nil
 	}
 
+	t, _ := json.Marshal(&expenseData)
+	fmt.Println("REQUEST: ", string(t))
+
 	// send fakt to 1C
 	err = s.DoRequest(context.Background(), expenseData, "/rasxod")
 	if err != nil {
@@ -257,7 +263,7 @@ func (s *Services) SendBacklogReportsSequentially(start, end time.Time) {
 	for _, store := range stores {
 		if start.String() == end.String() {
 			fmt.Printf("Sending report for store %s on %s...\n", store.Name, start.Format("2006-01-02"))
-			if err = s.sendReportTo1C(&store, start.Format("2006-01-02"), start); err != nil {
+			if err = s.sendReportTo1C(&store, start.Format("2006-01-02")); err != nil {
 				log.Printf("Failed to send report for %s on %s: %v\n", store.Name, start.Format("2006-01-02"), err)
 				continue
 			}

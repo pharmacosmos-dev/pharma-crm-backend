@@ -97,6 +97,7 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		h.NewReturnHandler(v1)
 		h.NewTransferHandler(v1)
 		h.NewExpenseHandler(v1)
+		h.NewRepricingHandler(v1)
 		// tasnif public API
 		h.NewTasnifHandler(public)
 		// handler for external apis
