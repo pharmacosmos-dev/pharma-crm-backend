@@ -271,6 +271,9 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
 		s.log.Warn("ERROR on getting inventory detail list: %v", err)
 		return res, totalSumData, 0, err
 	}
+	if len(res) == 0 {
+		res = []domain.InventoryDetail{}
+	}
 
 	return res, totalSumData, totalCount, nil
 }

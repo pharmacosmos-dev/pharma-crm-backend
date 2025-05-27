@@ -189,7 +189,7 @@ func (h *InventoryHandler) UpdateFactQuantity(c *gin.Context) {
 
 	// update retail price
 	if request.RetailPrice > 0 {
-		err = h.db.Exec(`UPDATE import_details SET retail_price_vat = ? WHERE retail_price_vat = 0 AND product_id = ? AND import_id = ?`,
+		err = h.db.Debug().Exec(`UPDATE import_details SET retail_price_vat = ? WHERE retail_price_vat = 0 AND product_id = ? AND import_id = ?`,
 			request.RetailPrice, request.Id, inventoryID).Error
 		if err != nil {
 			h.log.Warn("ERROR on updating retail_price_vat on inventory_details: %v", err)
