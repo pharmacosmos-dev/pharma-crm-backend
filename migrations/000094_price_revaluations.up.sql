@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS price_revalutions(
     "store_id" UUID REFERENCES stores(id),
     "name" VARCHAR(255),
     "status" VARCHAR(25) DEFAULT 'new', -- new || pending || completed || canceled
-    "type" VARCHAR(55) DEFAULT "retail_price", -- supply_price || retail_price || expire_date ...
+    "type" VARCHAR(55) DEFAULT 'retail_price', -- supply_price || retail_price || expire_date ...
     "created_by" UUID REFERENCES employees(id),
     "updated_by" UUID REFERENCES employees(id),
     "created_at" TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
