@@ -170,7 +170,7 @@ func (h *InventoryHandler) UpdateFactQuantity(c *gin.Context) {
 		handleResponse(c, BadRequest, "Inventory id is invalid")
 		return
 	}
-	// parse 
+	// parse
 	if err = c.ShouldBindJSON(&request); err != nil {
 		handleResponse(c, BadRequest, "Invalid request body")
 		return
@@ -183,6 +183,21 @@ func (h *InventoryHandler) UpdateFactQuantity(c *gin.Context) {
 			handleResponse(c, InternalError, "Failed to update barcode")
 			return
 		}
+		handleResponse(c, OK, "UPDATED")
+		return
+	}
+
+	// update retail price
+	if request.RetailPrice > 0 {
+		err = h.db.Exec(`UPDATE import_details SET retail_price_vat = ? WHERE retail_price_vat = 0 AND product_id = ? AND import_id = ?`,
+			request.RetailPrice, request.Id, inventoryID).Error
+		if err != nil {
+			h.log.Warn("ERROR on updating retail_price_vat on inventory_details: %v", err)
+			handleResponse(c, InternalError, "Failed to update retail_price")
+			return
+		}
+		handleResponse(c, OK, "UPDATED")
+		return
 	}
 
 	var res []domain.ImportDetail
@@ -225,7 +240,7 @@ func (h *InventoryHandler) UpdateFactQuantity(c *gin.Context) {
 			}
 		}
 		// Update each row
-		err := h.db.Debug().Exec(`
+		err := h.db.Exec(`
 			UPDATE import_details
 			SET scanned_count = ?
 			WHERE id = ?
@@ -268,6 +283,17 @@ func (h *InventoryHandler) UpdateDetailedFactQuantity(c *gin.Context) {
 	if err := c.ShouldBindJSON(&request); err != nil {
 		handleResponse(c, BadRequest, "Invalid request body")
 		return
+	}
+
+	// update retail price
+	if request.RetailPrice > 0 {
+		err = h.db.Exec(`UPDATE import_details SET retail_price_vat = ? WHERE id = ?`,
+			request.RetailPrice, request.Id).Error
+		if err != nil {
+			h.log.Warn("ERROR on updating retail_price_vat on inventory_details: %v", err)
+			handleResponse(c, InternalError, "Failed to update retail_price")
+			return
+		}
 	}
 
 	if request.FactQuantity > 0 {

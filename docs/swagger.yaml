@@ -546,12 +546,16 @@ definitions:
     type: object
   domain.InventoryAddProduct:
     properties:
+      barcode:
+        type: string
       fact_quantity:
         type: number
       fact_unit:
         type: number
       id:
         type: string
+      retail_price:
+        type: number
     type: object
   domain.InventoryRequest:
     properties:

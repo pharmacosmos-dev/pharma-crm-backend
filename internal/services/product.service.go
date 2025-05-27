@@ -578,35 +578,40 @@ func (s *Services) GetProductMovements(productId, storeId string, limit, offset 
 	// Base query without store_id filter
 	query := `
 	SELECT *, COUNT(*) OVER() AS total_count FROM (
-		SELECT
-			im.id, im.public_id, im.entry_type, im.created_at,
-			s.name AS store_name,
-			SUM(imd.accepted_count)::text AS count,
-			SUM(imd.accepted_count * imd.retail_price_vat) AS sum
-		FROM imports im
-		JOIN stores s ON im.store_id = s.id
-		LEFT JOIN import_details imd ON im.id = imd.import_id
-		WHERE imd.product_id = ? 
-		AND im.status = 'completed'
-		GROUP BY im.id, s.id
+			SELECT
+					im.id, im.public_id,
+					im.entry_type, im.created_at,
+					s.name AS store_name,
+					SUM(imd.accepted_count) AS count,
+					SUM(imd.accepted_count * imd.retail_price_vat) AS sum,
+					im.name AS name
+			FROM imports im
+			JOIN stores s ON im.store_id = s.id
+			LEFT JOIN import_details imd ON im.id = imd.import_id
+			LEFT JOIN products p ON imd.product_id = p.id
+			WHERE imd.product_id = ?
+			AND im.status = 'completed'
+			GROUP BY im.id, s.id
 
-		UNION ALL
+			UNION ALL
 
-		SELECT
-			sa.id AS id,
-			sa.sale_number AS public_id,
-			4 AS entry_type,
-			sa.completed_at AS created_at,
-			st.name AS store_name,
-			SUM(ci.quantity) ||','|| SUM(ci.unit_quantity) AS count,
-			sa.total_amount AS sum
-		FROM sales sa
-		JOIN stores st ON st.id = sa.store_id
-		JOIN cart_items ci ON ci.sale_id = sa.id
-		JOIN store_products sp ON sp.id = ci.store_product_id
-		WHERE sp.product_id = ?
-		AND sa.status = 'completed'
-		GROUP BY sa.id, st.id
+			SELECT
+					sa.id AS id,
+					sa.sale_number AS public_id,
+					4 AS entry_type,
+					sa.completed_at AS created_at,
+					st.name AS store_name,
+					ROUND(SUM(ci.quantity)::numeric + SUM(ci.unit_quantity::numeric/p.unit_per_pack), 4) AS count,
+					sa.total_amount AS sum,
+					sa.sale_type AS name
+			FROM sales sa
+			JOIN stores st ON st.id = sa.store_id
+			JOIN cart_items ci ON ci.sale_id = sa.id
+			JOIN store_products sp ON sp.id = ci.store_product_id
+			JOIN products p ON sp.product_id = p.id
+			WHERE sp.product_id = ?
+			AND sa.status = 'completed'
+			GROUP BY sa.id, st.id
 	) AS all_data
 	ORDER BY created_at DESC
 	LIMIT ? OFFSET ?;
@@ -619,35 +624,40 @@ func (s *Services) GetProductMovements(productId, storeId string, limit, offset 
 	if storeId != "" {
 		query = `
 		SELECT *, COUNT(*) OVER() AS total_count FROM (
-			SELECT
-				im.id, im.public_id, im.entry_type, im.created_at,
-				s.name AS store_name,
-				SUM(imd.accepted_count)::text AS count,
-				SUM(imd.accepted_count * imd.retail_price_vat) AS sum
-			FROM imports im
-			JOIN stores s ON im.store_id = s.id
-			LEFT JOIN import_details imd ON im.id = imd.import_id
-			WHERE im.store_id = ? AND imd.product_id = ?
-			AND im.status = 'completed'
-			GROUP BY im.id, s.id
+				SELECT
+						im.id, im.public_id,
+						im.entry_type, im.created_at,
+						s.name AS store_name,
+						SUM(imd.accepted_count) AS count,
+						SUM(imd.accepted_count * imd.retail_price_vat) AS sum,
+						im.name AS name
+				FROM imports im
+				JOIN stores s ON im.store_id = s.id
+				LEFT JOIN import_details imd ON im.id = imd.import_id
+				LEFT JOIN products p ON imd.product_id = p.id
+				WHERE im.store_id = ? AND imd.product_id = ?
+				AND im.status = 'completed'
+				GROUP BY im.id, s.id
 
-			UNION ALL
+				UNION ALL
 
-			SELECT
-				sa.id AS id,
-				sa.sale_number AS public_id,
-				4 AS entry_type,
-				sa.completed_at AS created_at,
-				st.name AS store_name,
-				SUM(ci.quantity) ||','|| SUM(ci.unit_quantity) AS count,
-				sa.total_amount AS sum
-			FROM sales sa
-			JOIN stores st ON st.id = sa.store_id
-			JOIN cart_items ci ON ci.sale_id = sa.id
-			JOIN store_products sp ON sp.id = ci.store_product_id
-			WHERE sa.store_id = ? AND sp.product_id = ?
-			AND sa.status = 'completed'
-			GROUP BY sa.id, st.id
+				SELECT
+						sa.id AS id,
+						sa.sale_number AS public_id,
+						4 AS entry_type,
+						sa.completed_at AS created_at,
+						st.name AS store_name,
+						ROUND(SUM(ci.quantity)::numeric + SUM(ci.unit_quantity::numeric/p.unit_per_pack), 4) AS count,
+						sa.total_amount AS sum,
+						sa.sale_type AS name
+				FROM sales sa
+				JOIN stores st ON st.id = sa.store_id
+				JOIN cart_items ci ON ci.sale_id = sa.id
+				JOIN store_products sp ON sp.id = ci.store_product_id
+				JOIN products p ON sp.product_id = p.id
+				WHERE sa.store_id = ? AND sp.product_id = ?
+				AND sa.status = 'completed'
+				GROUP BY sa.id, st.id
 		) AS all_data
 		ORDER BY created_at DESC
 		LIMIT ? OFFSET ?;

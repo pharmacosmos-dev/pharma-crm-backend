@@ -17167,6 +17167,9 @@ const docTemplate = `{
         "domain.InventoryAddProduct": {
             "type": "object",
             "properties": {
+                "barcode": {
+                    "type": "string"
+                },
                 "fact_quantity": {
                     "type": "number"
                 },
@@ -17175,6 +17178,9 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "string"
+                },
+                "retail_price": {
+                    "type": "number"
                 }
             }
         },

@@ -100,6 +100,7 @@ type InventoryAddProduct struct {
 	FactQuantity float64 `gorm:"fact_quantity" json:"fact_quantity"`
 	FactUnit     float64 `gorm:"fact_unit" json:"fact_unit"`
 	Barcode      string  `gorm:"barcode" json:"barcode"`
+	RetailPrice  float64 `gorm:"retail_price" json:"retail_price"`
 	Id           string  `gorm:"id" json:"id"`
 }
 
