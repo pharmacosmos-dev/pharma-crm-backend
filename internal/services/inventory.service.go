@@ -118,7 +118,7 @@ func (s *Services) InventoryList(param *domain.InventoryParam) ([]domain.Invento
 	// filter by search keyword
 	if param.Search != "" {
 		param.Search = fmt.Sprintf("%%%s%%", param.Search)
-		query = query.Where("imports.public_id LIKE ? OR imports.name ILIKE ?", param.Search, param.Search)
+		query = query.Where("CAST(imports.public_id AS TEXT) LIKE ? OR imports.name ILIKE ?", param.Search, param.Search)
 	}
 	// filter by inventory type
 	if param.Type != "" {
@@ -140,6 +140,10 @@ func (s *Services) InventoryList(param *domain.InventoryParam) ([]domain.Invento
 		s.log.Warn("ERROR on getting inventory list: %v", err)
 		return res, 0, err
 	}
+	if len(res) == 0 {
+		res = []domain.Inventory{}
+	}
+
 	return res, totalCount, nil
 }
 
