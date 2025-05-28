@@ -222,7 +222,7 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
 		case "surplus":
 			filter += " AND imd.scanned_count > imd.received_count "
 		case "zero_price":
-			filter += " AND imd.retail_price_vat = 0 "
+			filter += " AND imd.retail_price_vat = 0 AND imd.scanned_count > 0 "
 		}
 	}
 
