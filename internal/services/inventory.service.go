@@ -216,11 +216,13 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
 	if param.Type != "" {
 		switch param.Type {
 		case "shortage":
-			filter += " AND imd.received_count > imd.scanned_count"
+			filter += " AND imd.received_count > imd.scanned_count "
 		case "scanned":
-			filter += " AND imd.scanned_count > 0"
+			filter += " AND imd.scanned_count > 0 "
 		case "surplus":
-			filter += " AND imd.scanned_count > imd.received_count"
+			filter += " AND imd.scanned_count > imd.received_count "
+		case "zero_price":
+			filter += " AND imd.retail_price_vat = 0 "
 		}
 	}
 
