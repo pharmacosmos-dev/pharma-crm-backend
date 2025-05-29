@@ -130,90 +130,116 @@ func (h *Services) ClickPassDoRequest(ctx context.Context, url string, data any,
 }
 
 // Payme Go Handler functon
+// Improved PaymeGo Handler function
 func (s *Services) PaymeGo(ctx context.Context, tx *gorm.DB, paymentService *domain.PaymentService, data *domain.FinalPaymentType, CashOperationID string, transactionID string, saleID string) (map[string]any, error) {
-	// method receipt create
-	res, err := s.PaymeGoReceiptCreate(ctx, paymentService, data, transactionID, saleID)
+	// Method receipt create
+	createRes, err := s.PaymeGoReceiptCreate(ctx, paymentService, data, transactionID, saleID)
 	if err != nil {
-		return nil, err
+		s.log.Error("Failed to create receipt: %v", err)
+		return nil, fmt.Errorf("receipt creation failed: %w", err)
 	}
-	// set receipt id to sale_payments
-	err = s.SetReceiptId(tx, res.Result.Receipt.ID, transactionID)
+
+	// Validate receipt creation response
+	if createRes.Error != nil {
+		s.log.Error("PaymeGo receipt create error: code=%d, message=%s", createRes.Error.Code, createRes.Error.Message)
+		return nil, fmt.Errorf("receipt create error: %s (code: %d)", createRes.Error.Message, createRes.Error.Code)
+	}
+
+	if createRes.Result == nil || createRes.Result.Receipt.ID == "" {
+		s.log.Error("Receipt creation failed: empty receipt ID")
+		return nil, errors.New("receipt creation failed: empty receipt ID")
+	}
+
+	receiptID := createRes.Result.Receipt.ID
+
+	// Set receipt id to sale_payments
+	if err := s.SetReceiptId(tx, receiptID, transactionID); err != nil {
+		s.log.Error("Failed to set receipt ID: %v", err)
+		// Try to cancel the created receipt
+		s.cancelReceiptWithLog(ctx, paymentService, transactionID, saleID, receiptID)
+		return nil, fmt.Errorf("failed to set receipt ID: %w", err)
+	}
+
+	// Method receipt pay
+	payRes, err := s.PaymeGoReceiptPay(ctx, paymentService, data, transactionID, saleID, receiptID)
 	if err != nil {
-		return nil, err
+		s.log.Error("Failed to pay receipt: %v", err)
+		s.cancelReceiptWithLog(ctx, paymentService, transactionID, saleID, receiptID)
+		return nil, fmt.Errorf("receipt payment failed: %w", err)
 	}
-	if res.Result.Receipt.ID != "" {
-		// method receipt pay
-		res, err = s.PaymeGoReceiptPay(ctx, paymentService, data, transactionID, saleID, res.Result.Receipt.ID)
-		if err != nil {
-			s.log.Warn("ERROR on receipt pay: %v", err)
-			// method receipt cancel
-			_, err = s.PaymeGoReceiptCancel(ctx, paymentService, transactionID, saleID, res.Result.Receipt.ID)
-			if err != nil {
-				s.log.Warn("ERROR on receipt cancel: %v", err)
-				return nil, err
-			}
-			return nil, err
-		}
-	} else {
-		s.log.Warn("ERROR on receipt create: %v", err)
-		return nil, errors.New("failed to receipt create")
+
+	// Validate payment response
+	if payRes.Error != nil {
+		s.log.Error("PaymeGo receipt pay error: code=%d, message=%s", payRes.Error.Code, payRes.Error.Message)
+		s.cancelReceiptWithLog(ctx, paymentService, transactionID, saleID, receiptID)
+		return nil, fmt.Errorf("receipt pay error: %s (code: %d)", payRes.Error.Message, payRes.Error.Code)
 	}
 
 	return map[string]any{
 		"error_code":    0,
 		"error_message": "success",
+		"receipt_id":    receiptID,
 	}, nil
 }
 
-// Payme Go Receipt Create
+// Helper function to cancel receipt with logging
+func (s *Services) cancelReceiptWithLog(ctx context.Context, paymentService *domain.PaymentService, transactionID, saleID, receiptID string) {
+	if _, err := s.PaymeGoReceiptCancel(ctx, paymentService, transactionID, saleID, receiptID); err != nil {
+		s.log.Error("Failed to cancel receipt %s: %v", receiptID, err)
+	} else {
+		s.log.Info("Successfully cancelled receipt %s", receiptID)
+	}
+}
+
+// Improved PaymeGo Receipt Create with proper response handling
 func (s *Services) PaymeGoReceiptCreate(ctx context.Context, paymentService *domain.PaymentService, data *domain.FinalPaymentType, transactionID string, saleID string) (*domain.PaymeGoResponse, error) {
 	requestID := time.Now().Unix()
-	// get current time
+
 	reqData := domain.PaymeGoReceiptCreate{
-		Id:     time.Now().Unix(),
+		Id:     requestID,
 		Method: "receipts.create",
 		Params: domain.PaymeGoParams{
 			Amount: data.Amount,
 			Account: struct {
 				OrderId string `json:"order_id"`
 			}{
-				OrderId: saleID, // Assign your order ID here
+				OrderId: saleID,
 			},
 			Detail: nil,
 		},
 	}
-	// convert to json for saving payment requests
-	t, _ := json.Marshal(reqData)
-	// save request payme go request
-	err := s.SaveRequest(ctx, &domain.PaymentRequest{
-		RequestId:       requestID,
-		Method:          "receipts.create",
-		Payload:         t,
-		TransactionID:   transactionID,
-		PaymentProvider: "payme",
-	})
-	if err != nil {
-		s.log.Info("Error on saving payme go request: %v", err.Error())
-		return nil, err
+
+	// Save request
+	if reqJSON, err := json.Marshal(reqData); err == nil {
+		if err := s.SaveRequest(ctx, &domain.PaymentRequest{
+			RequestId:       requestID,
+			Method:          "receipts.create",
+			Payload:         reqJSON,
+			TransactionID:   transactionID,
+			PaymentProvider: "payme",
+		}); err != nil {
+			s.log.Warn("Failed to save payme go request: %v", err)
+		}
 	}
-	// send do request for receipt create
+
+	// Send request
 	res, err := s.PaymeGoDoRequest(ctx, reqData, paymentService)
 	if err != nil {
-		s.log.Error("ERROR on receipt create: %v", err)
-		return nil, err
+		s.log.Error("Failed to send receipt create request: %v", err)
+		return nil, fmt.Errorf("receipt create request failed: %w", err)
 	}
-	// response to json
-	r, _ := json.Marshal(res)
-	// save response
-	err = s.SaveResponse(ctx, &domain.PaymentRequest{
-		TransactionID: transactionID,
-		Response:      r,
-		Method:        "receipts.create",
-	})
-	if err != nil {
-		s.log.Info("Error on saving payme go response: %v", err.Error())
-		return nil, err
+
+	// Save response
+	if resJSON, err := json.Marshal(res); err == nil {
+		if err := s.SaveResponse(ctx, &domain.PaymentRequest{
+			TransactionID: transactionID,
+			Response:      resJSON,
+			Method:        "receipts.create",
+		}); err != nil {
+			s.log.Warn("Failed to save payme go response: %v", err)
+		}
 	}
+
 	return res, nil
 }
 
@@ -356,54 +382,59 @@ func (s *Services) PaymeGoSetFiscalData(ctx context.Context, fiscal *domain.Fisc
 }
 
 // DoRequest for Payme Go
-func (s *Services) PaymeGoDoRequest(ctx context.Context, data any, paymentServe *domain.PaymentService) (*domain.PaymeGoResponse, error) {
-	client := &http.Client{}
-	buf := bytes.Buffer{}
-
-	// Encode data to JSON
-	err := json.NewEncoder(&buf).Encode(data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to encode request data: %v", err)
+func (s *Services) PaymeGoDoRequest(ctx context.Context, data any, paymentService *domain.PaymentService) (*domain.PaymeGoResponse, error) {
+	// Validate input parameters
+	if paymentService == nil {
+		return nil, errors.New("payment service is nil")
 	}
+	if paymentService.CashboxId == "" || paymentService.SecretKey == "" {
+		return nil, errors.New("missing cashbox ID or secret key")
+	}
+
+	// Create HTTP client with timeout
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	// Prepare request body
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(data); err != nil {
+		return nil, fmt.Errorf("failed to encode request data: %w", err)
+	}
+
+	// Create HTTP request
 	req, err := http.NewRequestWithContext(ctx, "POST", s.cfg.Payment.PaymeGoEndpointUrl, &buf)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
 	}
 
-	// add headers
-	req.Header.Add("X-Auth", paymentServe.CashboxId+":"+paymentServe.SecretKey)
-	req.Header.Add("Content-Type", "application/json")
+	// Set headers
+	req.Header.Set("X-Auth", paymentService.CashboxId+":"+paymentService.SecretKey)
+	req.Header.Set("Content-Type", "application/json")
 
+	// Send request
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("HTTP request failed: %w", err)
 	}
 	defer resp.Body.Close()
-	var res domain.PaymeGoResponse
 
-	payload, err := io.ReadAll(resp.Body)
-	if err != nil {
-		s.log.Warn("ERROR on reading all: %v", err)
-		return nil, err
+	// Check HTTP status code
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("HTTP error %d: %s", resp.StatusCode, string(body))
 	}
 
-	// read response body
-	err = json.Unmarshal(payload, &res)
-	if err != nil {
-		s.log.Warn("ERROR on unmarshaling: %v", err)
-		return nil, err
+	// Parse response
+	var paymeResponse domain.PaymeGoResponse
+	if err := json.NewDecoder(resp.Body).Decode(&paymeResponse); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	if res.Error != nil {
-		s.log.Warn("ERROR on payme go response: %v", res.Error)
-		return nil, errors.New(res.Error.Message)
-	}
-	// err = json.NewDecoder(resp.Body).Decode(&res)
-	// if err != nil {
-	// 	s.log.Warn("ERROR on decoding response: %v", err)
-	// 	return nil, err
-	// }
-	return &res, nil
+	// Log the response for debugging
+	s.log.Debug("PaymeGo response: %+v", paymeResponse)
+
+	return &paymeResponse, nil
 }
 
 // Save payment request to database

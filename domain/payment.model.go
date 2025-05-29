@@ -200,12 +200,12 @@ type PaymeGoCancelParams struct {
 	Id string `json:"id"`
 }
 
-// PaymeGo response
+// PaymeGo response structures for proper handling
 type PaymeGoResponse struct {
-	JSONRPC string                `json:"jsonrpc"`
-	ID      *int                  `json:"id"`
-	Result  PaymeGoResult         `json:"result"`
-	Error   *PaymeGoErrorResponse `json:"error"`
+	JsonRPC string         `json:"jsonrpc"`
+	ID      int64          `json:"id"`
+	Result  *PaymeGoResult `json:"result,omitempty"`
+	Error   *PaymeGoError  `json:"error,omitempty"`
 }
 
 type PaymeGoResult struct {
@@ -221,18 +221,24 @@ type PaymeGoReceipt struct {
 	Type         int       `json:"type"`
 	External     bool      `json:"external"`
 	Operation    int       `json:"operation"`
-	Category     *string   `json:"category"`
-	Error        *string   `json:"error"`
+	Category     any       `json:"category"`
+	Error        any       `json:"error"`
 	Description  string    `json:"description"`
 	Detail       *Detail   `json:"detail,omitempty"`
 	Amount       int       `json:"amount"`
 	Currency     *int      `json:"currency,omitempty"`
 	Commission   int       `json:"commission"`
 	Account      []Account `json:"account"`
-	Card         *Card     `json:"card,omitempty"`
+	Card         any       `json:"card,omitempty"`
 	Merchant     Merchant  `json:"merchant"`
 	Meta         *Meta     `json:"meta,omitempty"`
-	ProcessingID *string   `json:"processing_id,omitempty"`
+	ProcessingID *int      `json:"processing_id,omitempty"`
+}
+
+type PaymeGoError struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Data    string `json:"data,omitempty"`
 }
 
 type Detail struct {
@@ -271,9 +277,9 @@ type Merchant struct {
 	BusinessID   *string `json:"business_id,omitempty"`
 	Epos         Epos    `json:"epos"`
 	Date         int64   `json:"date"`
-	Logo         *string `json:"logo,omitempty"`
+	Logo         any     `json:"logo,omitempty"`
 	Type         string  `json:"type"`
-	Terms        *string `json:"terms,omitempty"`
+	Terms        any     `json:"terms,omitempty"`
 	Payer        *Payer  `json:"payer,omitempty"`
 }
 
