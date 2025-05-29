@@ -598,25 +598,25 @@ func (h *HelperHandler) UploadProductUnitCount(c *gin.Context) {
 	}
 
 	// build query
-	query := `
-		update products SET unit_per_pack = ? WHERE material_code = ? AND unit_per_pack = 0
-	`
+	// query := `
+	// 	UPDATE products SET unit_code = ?, unit_label = ? WHERE material_code = ?;
+	// `
 
 	var count = 0
-
 	// Process rows
-	for _, row := range rows[:] {
-		count++
-		fmt.Println("==>> ", row[0], row[2])
-		// // create measurements
-		err = h.db.Exec(query, cast.ToInt(row[2]), cast.ToInt(row[0])).Error
-		if err != nil {
-			h.log.Warn("ERROR on creating customers: %v", err)
+	for _, row := range rows[1:] {
+		if count <= 247 {
+			fmt.Println("UCODE: ", row[4], "UNAME: ", row[7])
+			// // create measurements
+			// err = h.db.Debug().Exec(query, row[4], row[7], cast.ToInt(row[0])).Error
+			// if err != nil {
+			// 	h.log.Warn("ERROR on creating customers: %v", err)
+			// }
+			count++
 		}
-
 	}
 	fmt.Println("---->>> ", count)
-	handleResponse(c, OK, "Products Customer uploaded successfully: ")
+	handleResponse(c, OK, "Successfully updated: "+cast.ToString(count))
 }
 
 // Upload import godoc

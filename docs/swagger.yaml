@@ -548,6 +548,8 @@ definitions:
     properties:
       barcode:
         type: string
+      expire_date:
+        type: string
       fact_quantity:
         type: number
       fact_unit:
@@ -5923,7 +5925,7 @@ paths:
         in: query
         name: search
         type: string
-      - description: TYPE
+      - description: TYPE (ALL||surplus||shortage||zero_price)
         in: query
         name: type
         type: string
@@ -6118,37 +6120,6 @@ paths:
       summary: Cancel Inventory
       tags:
       - Inventory
-  /inventory/complete/{id}:
-    post:
-      consumes:
-      - application/json
-      description: Confirm Inventory
-      parameters:
-      - description: Inventory ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Confirm Inventory
-      tags:
-      - Inventory
   /inventory/confirm/{id}:
     post:
       consumes:
@@ -6228,6 +6199,37 @@ paths:
       security:
       - BearerAuth: []
       summary: Get inventory list
+      tags:
+      - Inventory
+  /inventory/send1c/{id}:
+    post:
+      consumes:
+      - application/json
+      description: Send Inventory
+      parameters:
+      - description: Inventory ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Send Inventory
       tags:
       - Inventory
   /login:

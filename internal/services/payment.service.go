@@ -309,13 +309,14 @@ func (s *Services) PaymeGoReceiptCancel(ctx context.Context, paymentService *dom
 }
 
 // Payme Go Set fiscal data
-func (s *Services) PaymeGoSetFiscalData(ctx context.Context, paymentService *domain.PaymentService, fiscal *domain.FiscalData, transactionID string, receiptID string) (*domain.PaymeGoResponse, error) {
+func (s *Services) PaymeGoSetFiscalData(ctx context.Context, fiscal *domain.FiscalData, salePayment *domain.SalePayment, paymentService *domain.PaymentService) error {
+
 	requestID := time.Now().Unix()
 	reqData := domain.FiscalDataRequest{
 		Id:     requestID,
 		Method: "receipts.set_fiscal_data",
 		Params: domain.FiscalDataParams{
-			Id:         receiptID,
+			Id:         salePayment.ReceiptId,
 			FiscalData: *fiscal,
 		},
 	}
@@ -325,33 +326,33 @@ func (s *Services) PaymeGoSetFiscalData(ctx context.Context, paymentService *dom
 		RequestId:       requestID,
 		Method:          "receipts.set_fiscal_data",
 		Payload:         t,
-		TransactionID:   transactionID,
+		TransactionID:   salePayment.ID,
 		PaymentProvider: "payme",
 	})
 	if err != nil {
 		s.log.Error("ERROR on saving set fiscal data request: ", err)
-		return nil, err
+		return err
 	}
 	// send do request to payme go
 	res, err := s.PaymeGoDoRequest(ctx, reqData, paymentService)
 	if err != nil {
 		s.log.Error("ERROR on set fiscal data: %v", err)
-		return nil, err
+		return err
 	}
 	// response to json
 	r, _ := json.Marshal(res)
 	fmt.Println("FISCAL RESPONSE: ", string(r))
 	// save response
 	err = s.SaveResponse(ctx, &domain.PaymentRequest{
-		TransactionID: transactionID,
+		TransactionID: salePayment.ID,
 		Response:      r,
 		Method:        "receipts.set_fiscal_data",
 	})
 	if err != nil {
 		s.log.Info("Error on saving payme go response: %v", err.Error())
-		return nil, err
+		return err
 	}
-	return res, nil
+	return nil
 }
 
 // DoRequest for Payme Go

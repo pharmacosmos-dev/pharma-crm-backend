@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"sync"
@@ -165,7 +164,6 @@ func (s *Services) SendReportsSequentially() {
 
 // send expense products to 1C
 func (s *Services) sendReportTo1C(store *domain.Store, date string) error {
-
 	var expenseData domain.SendExpense
 	expenseData.Store.StoreCode = store.StoreCode
 	expenseData.Store.Name = store.Name
@@ -220,7 +218,7 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string) error {
 		p.id, pr.id, sp.id, id.id
 	`
 	// complete get expense product list
-	err = s.db.Debug().Raw(expenseProductQuery, store.Id, date, date).Scan(&expenseData.Товары).Error
+	err = s.db.Raw(expenseProductQuery, store.Id, date, date).Scan(&expenseData.Товары).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting expense products: %v", err)
 		return err
@@ -229,9 +227,6 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string) error {
 	if len(expenseData.Товары) < 1 {
 		return nil
 	}
-
-	t, _ := json.Marshal(&expenseData)
-	fmt.Println("REQUEST: ", string(t))
 
 	// send fakt to 1C
 	err = s.DoRequest(context.Background(), expenseData, "/rasxod")

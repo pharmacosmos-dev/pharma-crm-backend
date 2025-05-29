@@ -31,7 +31,7 @@ func (h *InventoryHandler) InventoryRoutes(r *gin.RouterGroup) {
 		inventory.PATCH("/:id/add-product-by-barcode", h.UpdateFactQuantity)
 		inventory.PATCH("/:id/detailed-flow", h.UpdateDetailedFactQuantity)
 		inventory.POST("/confirm/:id", h.Confirm)
-		inventory.POST("/complete/:id", h.Complete)
+		inventory.POST("/send1c/:id", h.Send1C)
 		inventory.POST("/cancel/:id", h.Cancel)
 	}
 	detail := r.Group("inventory-detail")
@@ -189,7 +189,7 @@ func (h *InventoryHandler) UpdateFactQuantity(c *gin.Context) {
 
 	// update retail price
 	if request.RetailPrice > 0 {
-		err = h.db.Debug().Exec(`UPDATE import_details SET retail_price_vat = ? WHERE retail_price_vat = 0 AND product_id = ? AND import_id = ?`,
+		err = h.db.Exec(`UPDATE import_details SET retail_price_vat = ? WHERE retail_price_vat = 0 AND product_id = ? AND import_id = ?`,
 			request.RetailPrice, request.Id, inventoryID).Error
 		if err != nil {
 			h.log.Warn("ERROR on updating retail_price_vat on inventory_details: %v", err)
@@ -295,7 +295,16 @@ func (h *InventoryHandler) UpdateDetailedFactQuantity(c *gin.Context) {
 			return
 		}
 	}
-
+	// update expire_date
+	if request.ExpireDate != "" {
+		err = h.db.Exec(`UPDATE import_details SET expire_date = ? WHERE id = ?`, request.ExpireDate, request.Id).Error
+		if err != nil {
+			h.log.Warn("ERROR on updating expire_date on inventory details: %v", err)
+			handleResponse(c, InternalError, "failed_to_update_expire_date")
+			return
+		}
+	}
+	// update fact quantity
 	if request.FactQuantity > 0 {
 		err = h.db.Exec(`
 		UPDATE import_details
@@ -309,6 +318,7 @@ func (h *InventoryHandler) UpdateDetailedFactQuantity(c *gin.Context) {
 			return
 		}
 	}
+	// update fact unit
 	if request.FactUnit > 0 {
 		err = h.db.Exec(`
 		UPDATE import_details
@@ -361,9 +371,9 @@ func (h *InventoryHandler) Confirm(c *gin.Context) {
 	handleResponse(c, OK, "CONFIRMED")
 }
 
-// confirm inventory
-// @Summary Confirm Inventory
-// @Description Confirm Inventory
+// send1c inventory
+// @Summary Send Inventory
+// @Description Send Inventory
 // @Tags Inventory
 // @Security     BearerAuth
 // @Accept 	json
@@ -372,15 +382,21 @@ func (h *InventoryHandler) Confirm(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /inventory/complete/{id} [POST]
-func (h *InventoryHandler) Complete(c *gin.Context) {
+// @Router /inventory/send1c/{id} [POST]
+func (h *InventoryHandler) Send1C(c *gin.Context) {
 	id := c.Param("id")
 	if err := uuid.Validate(id); err != nil {
 		handleResponse(c, BadRequest, "Invalid inventory id")
 		return
 	}
-
-	handleResponse(c, OK, "COMPLETED")
+	// send inventory info to 1C
+	err := h.service.SendInventory1C(id)
+	if err != nil {
+		h.log.Warn("ERROR on sending inventory to 1c: %v", err)
+		handleResponse(c, InternalError, "failed_to_send_inventory")
+		return
+	}
+	handleResponse(c, OK, "SENT")
 }
 
 // cancel inventory

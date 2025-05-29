@@ -513,3 +513,20 @@ func (s *Services) GetSaleList(param *domain.QueryParam) ([]domain.SaleResponse,
 	}
 	return res, totalCount, nil
 }
+
+// get sale payments by sale_id
+func (s *Services) GetPaymeSalePayment(saleID string) *domain.SalePayment {
+	var salePayment domain.SalePayment
+	query := `
+	SELECT sp.*
+	FROM sale_payments sp
+	JOIN payment_types pt ON pt.id = sp.payment_type_id
+	WHERE sp.sale_id = ? AND pt.type = ?
+	`
+	err := s.db.Raw(query, saleID, config.PAYME).Scan(&salePayment).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting sale_payments by saleID: %v", err)
+		return &salePayment
+	}
+	return &salePayment
+}

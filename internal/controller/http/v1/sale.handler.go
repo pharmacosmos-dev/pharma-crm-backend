@@ -39,7 +39,7 @@ func (h *SaleHandler) SaleRoutes(r *gin.RouterGroup) {
 		sale.PUT("/:id", h.Update)
 		sale.POST("/final", h.ProccessingSale)
 		sale.GET("/stats", h.SaleStats)
-		sale.POST("/epos-result", h.EposRequest)
+		sale.POST("/epos-result", h.EposResponse)
 		sale.GET("/get-list", h.GetSaleList)
 		sale.POST("/discount-card", h.AddDiscountCard)
 		sale.DELETE("/discount-card", h.RemoveCustomerDiscount)
@@ -766,7 +766,7 @@ func processPaymentType(tx *gorm.DB, h *SaleHandler, body domain.FinalSale, item
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /sale/epos-result [post]
-func (h *SaleHandler) EposRequest(c *gin.Context) {
+func (h *SaleHandler) EposResponse(c *gin.Context) {
 	var (
 		body domain.EposResponseRequest
 		sale domain.Sale
@@ -856,6 +856,34 @@ func (h *SaleHandler) EposRequest(c *gin.Context) {
 			handleResponse(c, InternalError, "Failed to complete sale status")
 			tx.Rollback()
 			return
+		}
+
+		// check payme exists
+		salePayment := h.service.GetPaymeSalePayment(sale.ID)
+		// set fiscal data if payment completed with payme
+		if salePayment.ReceiptId != "" {
+			var paymentService domain.PaymentService
+			err := h.db.First(&paymentService, "store_id = ?", sale.StoreId).Error
+			if err != nil {
+				h.log.Warn("ERROR on getting payment service: %v", err)
+				handleResponse(c, InternalError, "failed_to_get_payment_service")
+				return
+			}
+			err = h.service.PaymeGoSetFiscalData(c.Request.Context(), &domain.FiscalData{
+				StatusCode: 0,
+				Message:    "accepted",
+				TerminalId: successResp.Info.TerminalId,
+				ReceiptId:  cast.ToInt(successResp.Info.ReceiptSeq),
+				Date:       successResp.Info.DateTime,
+				FiscalSign: successResp.Info.FiscalSign,
+				QrCodeUrl:  successResp.Info.QrCodeURL,
+			}, salePayment, &paymentService)
+
+			if err != nil {
+				h.log.Warn("ERROR on set_fiscal_to_payme: %v", err)
+				handleResponse(c, InternalError, "failed_to_set_fiscal_to_payme")
+				return
+			}
 		}
 
 		// create or get sale
