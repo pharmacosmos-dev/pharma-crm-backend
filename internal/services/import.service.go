@@ -98,15 +98,15 @@ func (s *Services) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domai
 		if item.AcceptedCount > 0 {
 			// agar N30 lik tovar bo'lsa va 2.67 quantity qabul qilinsa hisoblanish
 			// packQt = 2 butun qismini oladi, frac esa 0.67 qismi oladi va 0.67 ni 30 ga ko'paytiradi: 20.1
-			// unitQt umumiy donalar sonini qabul qiladi 2 * 30 + 0.67 * 30
-			packQty, frac := math.Modf(item.ReceivedCount)
-			unitQty := packQty*float64(item.UnitPerPack) + math.Ceil(frac*float64(item.UnitPerPack))
+			// unitQt umumiy donalar sonini qabul qiladi 2.67 * 30 = 80
+			packQty, _ := math.Modf(item.ScannedCount)
+			unitQty := item.ScannedCount * float64(item.UnitPerPack)
 			// add imported products to store_products
 			err = tx.Exec(storeProductQuery,
 				importData.StoreID,
 				item.ProductID,
-				packQty,
-				unitQty,
+				int(packQty),
+				int(unitQty),
 				item.SupplyPriceVat,
 				item.RetailPriceVat,
 				item.Vat, item.ExpireDate,
@@ -194,9 +194,9 @@ func (s *Services) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import)
 		if item.ReceivedCount > 0 {
 			// agar N30 lik tovar bo'lsa va 2.67 quantity qabul qilinsa hisoblanish
 			// packQt = 2 butun qismini oladi, frac esa 0.67 qismi oladi va 0.67 ni 30 ga ko'paytiradi: 20.1
-			// unitQt umumiy donalar sonini qabul qiladi 2 * 30 + 0.67 * 30
-			packQty, frac := math.Modf(item.ReceivedCount)
-			unitQty := packQty*float64(item.UnitPerPack) + math.Ceil(frac*float64(item.UnitPerPack))
+			// unitQt umumiy donalar sonini qabul qiladi 2.67 * 30 = 80.01 ya'ni 80 dona bor degani
+			packQty, _ := math.Modf(item.ReceivedCount)
+			unitQty := item.ReceivedCount * float64(item.UnitPerPack)
 
 			err = tx.Exec(storeProductQuery,
 				importData.StoreID,
