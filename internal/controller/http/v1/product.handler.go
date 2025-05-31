@@ -226,12 +226,9 @@ func (h *ProductHandler) Get(c *gin.Context) {
 		Preload("UnitType").
 		Preload("Shelf").
 		Preload("Producer").
-		Select(`products.*, COALESCE(AVG(sp.retail_price), 0) AS retail_price`).
+		Select(`products.*, ROUND(COALESCE(MAX(sp.retail_price), 0), 2) AS retail_price`).
 		Joins("LEFT JOIN store_products sp ON products.id = sp.product_id").
-		Group(`products.id, products.id, products.brand_id, products.unit_type_id, 
-		products.shelf_id, products.producer_id, products.material_code, 
-		products.name, products.barcode, products.photos, products.unit_per_pack, 
-		products.description, products.status, products.created_at, products.updated_at, products.deleted_at`).
+		Group(`products.id`).
 		First(&res, "products.id = ?", id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -244,31 +241,31 @@ func (h *ProductHandler) Get(c *gin.Context) {
 	}
 	category := []*domain.Category{}
 	query := `
-WITH RECURSIVE category_tree AS (
-    -- Base case: Get categories directly linked to the product
-    SELECT
-        c.id,
-        c.category_id,
-        c.name::TEXT AS name_path,
-        c.id AS root_category_id  -- Keep track of the original category
-    FROM categories c
-    INNER JOIN category_products cp ON c.id = cp.category_id
-    WHERE cp.product_id = ?
+	WITH RECURSIVE category_tree AS (
+		-- Base case: Get categories directly linked to the product
+		SELECT
+			c.id,
+			c.category_id,
+			c.name::TEXT AS name_path,
+			c.id AS root_category_id  -- Keep track of the original category
+		FROM categories c
+		INNER JOIN category_products cp ON c.id = cp.category_id
+		WHERE cp.product_id = ?
 
-    UNION ALL
+		UNION ALL
 
-    -- Recursive case: Build full category path
-    SELECT
-        parent.id,
-        parent.category_id,
-        (parent.name || ' > ' || child.name_path)::TEXT AS name_path,
-        child.root_category_id
-    FROM categories parent
-    INNER JOIN category_tree child ON parent.id = child.category_id
-)
-SELECT DISTINCT ON (root_category_id) id, category_id, name_path AS name
-FROM category_tree
-ORDER BY root_category_id, LENGTH(name_path) DESC;
+		-- Recursive case: Build full category path
+		SELECT
+			parent.id,
+			parent.category_id,
+			(parent.name || ' > ' || child.name_path)::TEXT AS name_path,
+			child.root_category_id
+		FROM categories parent
+		INNER JOIN category_tree child ON parent.id = child.category_id
+	)
+	SELECT DISTINCT ON (root_category_id) id, category_id, name_path AS name
+	FROM category_tree
+	ORDER BY root_category_id, LENGTH(name_path) DESC;
 	`
 
 	// Execute the query

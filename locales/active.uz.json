@@ -1,6 +1,0 @@
-{
-    "file_bind_error": "Faylni bog'lash muvaffaqiyatsiz tugadi",
-    "file_size_exceeded": "Fayl hajmi maksimal 5 MB dan oshib ketdi",
-    "invalid_file_type": "Noto'g'ri fayl turi. Faqat .jpg, .jpeg va .png fayllar ruxsat etilgan.",
-    "file_save_error": "Faylni saqlab bo'lmadi"
-}
