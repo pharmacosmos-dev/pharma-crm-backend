@@ -61,7 +61,6 @@ func NewRouter(option Options) {
 	option.Gin.Use(basicAuth.BasicAuthMiddleware)
 	option.Gin.Use(gin.Logger())
 	option.Gin.Use(gin.Recovery())
-	gin.ErrorLogger()
 	// JWTHandler
 	jwtHandler := token.JWTHandler{
 		Cfg: option.Cfg,
@@ -84,4 +83,22 @@ func NewRouter(option Options) {
 
 func Ping(c *gin.Context) {
 	c.JSON(200, gin.H{"message": "Server is running!!!"})
+}
+
+// custom cors middleware
+func customCORSMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Credentials", "true")
+		c.Header("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, PATCH, DELETE")
+		c.Header("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With, Resource-Id, Environment-Id, X-API-KEY, Platform-Type")
+		c.Header("Access-Control-Max-Age", "3600")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	}
 }
