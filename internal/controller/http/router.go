@@ -2,8 +2,6 @@
 package http
 
 import (
-	"fmt"
-
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/config"
 	_ "github.com/pharma-crm-backend/docs"
@@ -74,28 +72,19 @@ func Ping(c *gin.Context) {
 
 // custom corse middleware
 func customCORSMiddleware() gin.HandlerFunc {
-	allowedOrigins := map[string]bool{
-		"https://pharma.gofurov.me": true,
-		"https://tpharma.noor.uz":   true,
-		"https://pharma.noor.uz":    true,
-	}
+	// allowedOrigins := map[string]bool{
+	// 	"https://pharma.gofurov.me": true,
+	// 	"https://tpharma.noor.uz":   true,
+	// 	"https://pharma.noor.uz":    true,
+	// }
 
 	return func(c *gin.Context) {
-		origin := c.GetHeader("Origin")
-		fmt.Println("Incoming Origin:", origin)
-
 		// Always set CORS headers
-		c.Writer.Header().Set("Vary", "Origin")
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With, Platform-Type")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, PATCH, DELETE")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET,POST,HEAD,PUT,DELETE,PATCH,OPTIONS")
 		c.Writer.Header().Set("Access-Control-Max-Age", "3600")
-
-		if allowedOrigins[origin] {
-			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
-		} else {
-			fmt.Println("❌ Blocked or missing origin:", origin)
-		}
 
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
