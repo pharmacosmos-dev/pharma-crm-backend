@@ -92,6 +92,9 @@ func customCORSMiddleware() gin.HandlerFunc {
 	}
 
 	return func(c *gin.Context) {
+		if !allowedOrigins[c.GetHeader("Origin")] {
+			fmt.Println("Blocked CORS for origin:", c.GetHeader("Origin"))
+		}
 		fmt.Println("ORIGIN: ", c.GetHeader("Origin"))
 		origin := c.GetHeader("Origin")
 
