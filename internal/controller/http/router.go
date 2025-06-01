@@ -3,7 +3,9 @@ package http
 
 import (
 	"net/http"
+	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/config"
 	_ "github.com/pharma-crm-backend/docs"
@@ -44,19 +46,19 @@ func NewRouter(option Options) {
 	basicAuth := middleware.BasicAuth()
 
 	// Method 1: Using gin-contrib/cors package (Recommended)
-	// option.Gin.Use(cors.New(cors.Config{
-	// 	AllowOrigins:     []string{"*"},
-	// 	AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
-	// 	AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Authorization", "X-Requested-With"},
-	// 	ExposeHeaders:    []string{"Content-Length", "X-Total-Count"},
-	// 	AllowCredentials: true,
-	// 	MaxAge:           12 * time.Hour,
-	// }))
+	corsConfig := cors.DefaultConfig()
+	corsConfig.AllowCredentials = true // Allow credentials (cookies, auth headers, etc.)
+	corsConfig.AllowAllOrigins = true
+	corsConfig.AllowHeaders = []string{"*"}
+	corsConfig.AllowBrowserExtensions = true
+	corsConfig.AllowMethods = []string{"*"}
+	corsConfig.MaxAge = 12 * time.Hour
 
-	option.Gin.Use(customCORSMiddleware())
+	option.Gin.Use(cors.New(corsConfig))
+	option.Gin.Use(basicAuth.BasicAuthMiddleware)
 	option.Gin.Use(gin.Logger())
 	option.Gin.Use(gin.Recovery())
-	option.Gin.Use(basicAuth.BasicAuthMiddleware)
+	gin.ErrorLogger()
 	// JWTHandler
 	jwtHandler := token.JWTHandler{
 		Cfg: option.Cfg,
