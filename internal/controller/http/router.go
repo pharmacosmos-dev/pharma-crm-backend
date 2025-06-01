@@ -3,9 +3,7 @@ package http
 
 import (
 	"net/http"
-	"time"
 
-	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/config"
 	_ "github.com/pharma-crm-backend/docs"
@@ -46,15 +44,16 @@ func NewRouter(option Options) {
 	basicAuth := middleware.BasicAuth()
 
 	// Method 1: Using gin-contrib/cors package (Recommended)
-	option.Gin.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:3000", "https://tpharma.noor.uz"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Authorization", "X-Requested-With"},
-		ExposeHeaders:    []string{"Content-Length", "X-Total-Count"},
-		AllowCredentials: true,
-		MaxAge:           12 * time.Hour,
-	}))
+	// option.Gin.Use(cors.New(cors.Config{
+	// 	AllowOrigins:     []string{"*"},
+	// 	AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
+	// 	AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Authorization", "X-Requested-With"},
+	// 	ExposeHeaders:    []string{"Content-Length", "X-Total-Count"},
+	// 	AllowCredentials: true,
+	// 	MaxAge:           12 * time.Hour,
+	// }))
 
+	option.Gin.Use(customCORSMiddleware())
 	option.Gin.Use(gin.Logger())
 	option.Gin.Use(gin.Recovery())
 	option.Gin.Use(basicAuth.BasicAuthMiddleware)
@@ -85,7 +84,7 @@ func Ping(c *gin.Context) {
 // custom corse middleware
 func customCORSMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		origin := c.GetHeader("Origin")
+		origin := c.Request.Header.Get("Origin")
 
 		allowedOrigins := map[string]bool{
 			"https://tpharma.noor.uz":   true,
@@ -94,12 +93,14 @@ func customCORSMiddleware() gin.HandlerFunc {
 		}
 
 		if allowedOrigins[origin] {
-			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
-			c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+			c.Header("Access-Control-Allow-Origin", origin)
 		}
 
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, X-Requested-With")
+		c.Header("Access-Control-Expose-Headers", "Content-Length, X-Total-Count")
+		c.Header("Access-Control-Allow-Credentials", "true")
+		c.Header("Access-Control-Max-Age", "43200") // 12 hours
 
 		if c.Request.Method == http.MethodOptions {
 			c.AbortWithStatus(http.StatusNoContent)
