@@ -2,6 +2,8 @@
 package http
 
 import (
+	"net/http"
+
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/config"
 	_ "github.com/pharma-crm-backend/docs"
@@ -81,13 +83,11 @@ func customCORSMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Always set CORS headers
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET,POST,HEAD,PUT,DELETE,PATCH,OPTIONS")
-		c.Writer.Header().Set("Access-Control-Max-Age", "3600")
 
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
+		if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusNoContent)
 			return
 		}
 
