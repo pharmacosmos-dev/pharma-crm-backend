@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -528,9 +527,6 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 	data1C.Dok.DocumentDate = now.Format(time.RFC3339)
 	data1C.Dok.DocumentNumber = "PH" + cast.ToString(now.Unix())
 
-	t, _ := json.Marshal(&data1C)
-	fmt.Println("--->>> ", string(t))
-
 	// send inventory products data to 1C
 	err = s.DoRequest(context.Background(), data1C, "/inventar")
 	if err != nil {
@@ -617,7 +613,7 @@ func (s *Services) SendInventory1C(inventoryID string) error {
 
 	// get store info
 	var store domain.Store
-	err = s.db.Debug().First(&store, "id = ?", inventory.StoreID).Error
+	err = s.db.First(&store, "id = ?", inventory.StoreID).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting store info: %v", err)
 		return err
@@ -630,9 +626,6 @@ func (s *Services) SendInventory1C(inventoryID string) error {
 	// get document data and number
 	data1C.Dok.DocumentDate = now.Format(time.RFC3339)
 	data1C.Dok.DocumentNumber = "PH" + cast.ToString(now.Unix())
-
-	t, _ := json.Marshal(&data1C)
-	fmt.Println("--->>> ", string(t))
 
 	// send inventory products data to 1C
 	err = s.DoRequest(context.Background(), data1C, "/inventar")

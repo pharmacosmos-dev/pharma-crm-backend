@@ -242,7 +242,7 @@ func (h *InventoryHandler) UpdateFactQuantity(c *gin.Context) {
 		// Update each row
 		err := h.db.Exec(`
 			UPDATE import_details
-			SET scanned_count = ?
+			SET scanned_count = scanned_count+?
 			WHERE id = ?
 		`, res[i].ScannedCount, res[i].Id).Error
 		if err != nil {
@@ -295,23 +295,23 @@ func (h *InventoryHandler) UpdateDetailedFactQuantity(c *gin.Context) {
 			return
 		}
 	}
-	// update expire_date
-	if request.ExpireDate != "" {
-		err = h.db.Exec(`UPDATE import_details SET expire_date = ? WHERE id = ?`, request.ExpireDate, request.Id).Error
-		if err != nil {
-			h.log.Warn("ERROR on updating expire_date on inventory details: %v", err)
-			handleResponse(c, InternalError, "failed_to_update_expire_date")
-			return
-		}
-	}
+	// // update expire_date
+	// if request.ExpireDate != "" {
+	// 	err = h.db.Exec(`UPDATE import_details SET expire_date = ? WHERE id = ?`, request.ExpireDate, request.Id).Error
+	// 	if err != nil {
+	// 		h.log.Warn("ERROR on updating expire_date on inventory details: %v", err)
+	// 		handleResponse(c, InternalError, "failed_to_update_expire_date")
+	// 		return
+	// 	}
+	// }
+
 	// update fact quantity
 	if request.FactQuantity > 0 {
 		err = h.db.Exec(`
 		UPDATE import_details
-		SET scanned_count = ?
+		SET scanned_count = scanned_count+?, expire_date = ?
 		WHERE id = ?
-	`, request.FactQuantity, request.Id).Error
-
+	`, request.FactQuantity, request.ExpireDate, request.Id).Error
 		if err != nil {
 			h.log.Warn("Error on updating scanned_count: %v", err.Error())
 			handleResponse(c, InternalError, "Failed to update scanned_count")
