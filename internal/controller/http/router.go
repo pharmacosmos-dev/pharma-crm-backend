@@ -2,6 +2,8 @@
 package http
 
 import (
+	"fmt"
+
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/config"
 	_ "github.com/pharma-crm-backend/docs"
@@ -90,6 +92,7 @@ func customCORSMiddleware() gin.HandlerFunc {
 	}
 
 	return func(c *gin.Context) {
+		fmt.Println("ORIGIN: ", c.GetHeader("Origin"))
 		origin := c.GetHeader("Origin")
 
 		if allowedOrigins[origin] {
