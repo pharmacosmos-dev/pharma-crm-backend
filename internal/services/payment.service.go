@@ -275,7 +275,6 @@ func (s *Services) PaymeGoReceiptPay(ctx context.Context, paymentService *domain
 	}
 	// response to json
 	r, _ := json.Marshal(res)
-	fmt.Println("PAY RESPONSE: ", string(r))
 	// save response
 	err = s.SaveResponse(ctx, &domain.PaymentRequest{
 		TransactionID: transactionID,

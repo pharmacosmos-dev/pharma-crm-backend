@@ -2,7 +2,6 @@
 package http
 
 import (
-	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/config"
 	_ "github.com/pharma-crm-backend/docs"
@@ -44,20 +43,16 @@ func NewRouter(option Options) {
 
 	// CORS Configuration
 
-	corsConfig := cors.DefaultConfig()
-	// corsConfig.AllowOrigins = []string{"https://tpharma.noor.uz", "https://pharma.noor.uz", "https://pharma.gofurov.me"} // Specify allowed origins
-	// corsConfig.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}                                        // Specify allowed HTTP methods
-	// corsConfig.AllowHeaders = []string{"Origin", "Content-Type", "Authorization"}                                        // Specify allowed headers
-	// corsConfig.ExposeHeaders = []string{"Content-Length"}                                                                // Expose specific headers to the client
-	corsConfig.AllowCredentials = true // Allow credentials (cookies, auth headers, etc.)
-	corsConfig.AllowAllOrigins = true
-	corsConfig.AllowHeaders = []string{"*"}
-	corsConfig.AllowBrowserExtensions = true
-	corsConfig.AllowMethods = []string{"*"}
+	// corsConfig := cors.DefaultConfig() // Expose specific headers to the client
+	// corsConfig.AllowCredentials = true // Allow credentials (cookies, auth headers, etc.)
+	// corsConfig.AllowAllOrigins = true
+	// corsConfig.AllowHeaders = []string{"*"}
+	// corsConfig.AllowBrowserExtensions = true
+	// corsConfig.AllowMethods = []string{"*"}
 	// corsConfig.MaxAge = 12 * 60 * 60
 
 	// middleware
-	option.Gin.Use(cors.New(corsConfig))
+	option.Gin.Use(customCORSMiddleware())
 	option.Gin.Use(basicAuth.BasicAuthMiddleware)
 	option.Gin.Use(gin.Logger())
 	option.Gin.Use(gin.Recovery())
@@ -85,14 +80,25 @@ func Ping(c *gin.Context) {
 	c.JSON(200, gin.H{"message": "Server is running!!!"})
 }
 
-// custom cors middleware
+// custom corse middleware
 func customCORSMiddleware() gin.HandlerFunc {
+	allowedOrigins := map[string]bool{
+		// "http://localhost:8080":     true,
+		"https://pharma.gofurov.me": true,
+		"https://tpharma.noor.uz":   true,
+		"https://pharma.noor.uz":    true,
+	}
+
 	return func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "*")
-		c.Header("Access-Control-Allow-Credentials", "true")
-		c.Header("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, PATCH, DELETE")
-		c.Header("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With, Resource-Id, Environment-Id, X-API-KEY, Platform-Type")
-		c.Header("Access-Control-Max-Age", "3600")
+		origin := c.GetHeader("Origin")
+
+		if allowedOrigins[origin] {
+			c.Header("Access-Control-Allow-Origin", origin)
+			c.Header("Access-Control-Allow-Credentials", "true")
+			c.Header("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, PATCH, DELETE")
+			c.Header("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With, Platform-Type")
+			c.Header("Access-Control-Max-Age", "3600")
+		}
 
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
