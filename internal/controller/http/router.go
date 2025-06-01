@@ -42,11 +42,12 @@ func NewRouter(option Options) {
 
 	// Basic Auth
 	basicAuth := middleware.BasicAuth()
+
 	// middleware
 	option.Gin.Use(customCORSMiddleware())
-	option.Gin.Use(basicAuth.BasicAuthMiddleware)
 	option.Gin.Use(gin.Logger())
 	option.Gin.Use(gin.Recovery())
+	option.Gin.Use(basicAuth.BasicAuthMiddleware)
 	// JWTHandler
 	jwtHandler := token.JWTHandler{
 		Cfg: option.Cfg,
@@ -83,12 +84,15 @@ func customCORSMiddleware() gin.HandlerFunc {
 		origin := c.GetHeader("Origin")
 		fmt.Println("Incoming Origin:", origin)
 
+		// Always set CORS headers
+		c.Writer.Header().Set("Vary", "Origin")
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With, Platform-Type")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, PATCH, DELETE")
+		c.Writer.Header().Set("Access-Control-Max-Age", "3600")
+
 		if allowedOrigins[origin] {
 			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
-			c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-			c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With, Platform-Type")
-			c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, PATCH, DELETE")
-			c.Writer.Header().Set("Access-Control-Max-Age", "3600")
 		} else {
 			fmt.Println("❌ Blocked or missing origin:", origin)
 		}
@@ -101,4 +105,3 @@ func customCORSMiddleware() gin.HandlerFunc {
 		c.Next()
 	}
 }
-
