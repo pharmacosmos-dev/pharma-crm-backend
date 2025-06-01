@@ -74,23 +74,28 @@ func Ping(c *gin.Context) {
 
 // custom corse middleware
 func customCORSMiddleware() gin.HandlerFunc {
-	// allowedOrigins := map[string]bool{
-	// 	"https://pharma.gofurov.me": true,
-	// 	"https://tpharma.noor.uz":   true,
-	// 	"https://pharma.noor.uz":    true,
-	// }
+    return func(c *gin.Context) {
+        origin := c.GetHeader("Origin")
 
-	return func(c *gin.Context) {
-		// Always set CORS headers
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET,POST,HEAD,PUT,DELETE,PATCH,OPTIONS")
+        allowedOrigins := map[string]bool{
+            "https://tpharma.noor.uz": true,
+            "https://pharma.noor.uz": true,
+            "https://pharma.gofurov.me": true,
+        }
 
-		if c.Request.Method == http.MethodOptions {
-			c.AbortWithStatus(http.StatusNoContent)
-			return
-		}
+        if allowedOrigins[origin] {
+            c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+            c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+        }
 
-		c.Next()
-	}
+        c.Writer.Header().Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization")
+        c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+
+        if c.Request.Method == http.MethodOptions {
+            c.AbortWithStatus(http.StatusNoContent)
+            return
+        }
+
+        c.Next()
+    }
 }
