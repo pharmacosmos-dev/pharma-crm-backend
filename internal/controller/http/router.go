@@ -3,7 +3,9 @@ package http
 
 import (
 	"net/http"
+	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/config"
 	_ "github.com/pharma-crm-backend/docs"
@@ -43,8 +45,16 @@ func NewRouter(option Options) {
 	// Basic Auth
 	basicAuth := middleware.BasicAuth()
 
-	// middleware
-	option.Gin.Use(customCORSMiddleware())
+	// Method 1: Using gin-contrib/cors package (Recommended)
+	option.Gin.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:3000", "https://tpharma.noor.uz"},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Length", "Content-Type", "Authorization", "X-Requested-With"},
+		ExposeHeaders:    []string{"Content-Length", "X-Total-Count"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
+
 	option.Gin.Use(gin.Logger())
 	option.Gin.Use(gin.Recovery())
 	option.Gin.Use(basicAuth.BasicAuthMiddleware)
@@ -74,28 +84,28 @@ func Ping(c *gin.Context) {
 
 // custom corse middleware
 func customCORSMiddleware() gin.HandlerFunc {
-    return func(c *gin.Context) {
-        origin := c.GetHeader("Origin")
+	return func(c *gin.Context) {
+		origin := c.GetHeader("Origin")
 
-        allowedOrigins := map[string]bool{
-            "https://tpharma.noor.uz": true,
-            "https://pharma.noor.uz": true,
-            "https://pharma.gofurov.me": true,
-        }
+		allowedOrigins := map[string]bool{
+			"https://tpharma.noor.uz":   true,
+			"https://pharma.noor.uz":    true,
+			"https://pharma.gofurov.me": true,
+		}
 
-        if allowedOrigins[origin] {
-            c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
-            c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-        }
+		if allowedOrigins[origin] {
+			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+			c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		}
 
-        c.Writer.Header().Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization")
-        c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 
-        if c.Request.Method == http.MethodOptions {
-            c.AbortWithStatus(http.StatusNoContent)
-            return
-        }
+		if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
 
-        c.Next()
-    }
+		c.Next()
+	}
 }
