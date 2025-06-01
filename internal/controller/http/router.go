@@ -42,17 +42,6 @@ func NewRouter(option Options) {
 
 	// Basic Auth
 	basicAuth := middleware.BasicAuth()
-
-	// CORS Configuration
-
-	// corsConfig := cors.DefaultConfig() // Expose specific headers to the client
-	// corsConfig.AllowCredentials = true // Allow credentials (cookies, auth headers, etc.)
-	// corsConfig.AllowAllOrigins = true
-	// corsConfig.AllowHeaders = []string{"*"}
-	// corsConfig.AllowBrowserExtensions = true
-	// corsConfig.AllowMethods = []string{"*"}
-	// corsConfig.MaxAge = 12 * 60 * 60
-
 	// middleware
 	option.Gin.Use(customCORSMiddleware())
 	option.Gin.Use(basicAuth.BasicAuthMiddleware)
@@ -85,25 +74,23 @@ func Ping(c *gin.Context) {
 // custom corse middleware
 func customCORSMiddleware() gin.HandlerFunc {
 	allowedOrigins := map[string]bool{
-		// "http://localhost:8080":     true,
 		"https://pharma.gofurov.me": true,
 		"https://tpharma.noor.uz":   true,
 		"https://pharma.noor.uz":    true,
 	}
 
 	return func(c *gin.Context) {
-		if !allowedOrigins[c.GetHeader("Origin")] {
-			fmt.Println("Blocked CORS for origin:", c.GetHeader("Origin"))
-		}
-		fmt.Println("ORIGIN: ", c.GetHeader("Origin"))
 		origin := c.GetHeader("Origin")
+		fmt.Println("Incoming Origin:", origin)
 
 		if allowedOrigins[origin] {
-			c.Header("Access-Control-Allow-Origin", origin)
-			c.Header("Access-Control-Allow-Credentials", "true")
-			c.Header("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, PATCH, DELETE")
-			c.Header("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With, Platform-Type")
-			c.Header("Access-Control-Max-Age", "3600")
+			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+			c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+			c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With, Platform-Type")
+			c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, PATCH, DELETE")
+			c.Writer.Header().Set("Access-Control-Max-Age", "3600")
+		} else {
+			fmt.Println("❌ Blocked or missing origin:", origin)
 		}
 
 		if c.Request.Method == "OPTIONS" {
@@ -114,3 +101,4 @@ func customCORSMiddleware() gin.HandlerFunc {
 		c.Next()
 	}
 }
+
