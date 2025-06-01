@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	v1 "github.com/pharma-crm-backend/internal/controller/http"
@@ -63,13 +64,16 @@ func Run(cfg *config.Config) {
 	// Start http server
 	fmt.Println("Server is running on port:", cfg.HTTP.Port)
 
-	c := cron.New() // Default UTC (no location set)
+	c := cron.New(
+		cron.WithLocation(time.UTC), // important: sets cron to UTC
+	)
 	c.AddFunc("00 23 * * *", func() {
 		log.Println("Starting send expense to 1C...")
 		service.SendReportsSequentially()
 	})
 
 	c.Start()
+
 	// Waiting signal
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt, syscall.SIGTERM)

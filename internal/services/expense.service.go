@@ -38,7 +38,7 @@ func (s *Services) SendExpenseTo1C(sendDate string, storeID string) error {
 	}
 
 	// create new shift expense
-	err = s.CreateNewExpense(storeID, &expenseData.Document)
+	err = s.CreateNewExpense(storeID, expenseData.Document.NumberDok, expenseData.Document.DocumentDate)
 	if err != nil {
 		s.log.Warn("ERROR on creating shift expense: %v", err)
 		return err
@@ -102,9 +102,9 @@ func (s *Services) SendExpenseTo1C(sendDate string, storeID string) error {
 	return nil
 }
 
-func (s *Services) CreateNewExpense(storeID string, docs *domain.ExpenseDok) error {
+func (s *Services) CreateNewExpense(storeID string, dockNumer, sendAt string) error {
 	query := `INSERT INTO shift_expenses(store_id, docs_number, sent_at) VALUES(?, ?, ?)`
-	err := s.db.Exec(query, storeID, docs.NumberDok, docs.DocumentDate).Error
+	err := s.db.Exec(query, storeID, dockNumer, sendAt).Error
 	if err != nil {
 		s.log.Warn("ERROR on creating shift_expenses: %v", err)
 		return err
@@ -181,7 +181,7 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string) error {
 	}
 
 	// create new shift expense
-	err = s.CreateNewExpense(store.Id, &expenseData.Document)
+	err = s.CreateNewExpense(store.Id, expenseData.Document.NumberDok, expenseData.Document.DocumentDate)
 	if err != nil {
 		s.log.Warn("ERROR on creating shift expense: %v", err)
 	}
