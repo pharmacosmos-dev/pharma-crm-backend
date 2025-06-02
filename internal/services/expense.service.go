@@ -14,7 +14,7 @@ import (
 var mu sync.Mutex
 
 // send expense products to 1C
-func (s *Services) SendExpenseTo1C(sendDate string, storeID string) error {
+func (s *Services) SendExpenseTo1C(sendDate string) error {
 	mu.Lock()
 	defer mu.Unlock()
 
