@@ -27,7 +27,7 @@ func (s *Services) SendExpenseTo1C(sendDate string, storeID string) error {
 	// get expense docs number
 	docNumberQuery := `
 	SELECT 
-		'NP-' || LPAD(store_code::TEXT, 5, '0') || '-' || TO_CHAR(NOW(), 'YYYYMMDDHH24MI') AS docs_number,
+		'NP-' || LPAD(store_code::TEXT, 5, '0') || '-' || TO_CHAR(NOW(), 'YYYYMMDDHH24MI') AS nomer_dok,
     	TO_CHAR(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS document_date
 	FROM stores
 	WHERE id = ?;`
@@ -44,8 +44,7 @@ func (s *Services) SendExpenseTo1C(sendDate string, storeID string) error {
 		return err
 	}
 
-	// get expense dok time with adding 5 hours
-	expenseData.Document.DocumentDate = sendDate
+	
 	// get expense products query
 	expenseProductQuery := `
 	SELECT
@@ -67,15 +66,16 @@ func (s *Services) SendExpenseTo1C(sendDate string, storeID string) error {
 		ROUND((id.retail_price*SUM(ci.quantity)) + ((id.retail_price/p.unit_per_pack)*SUM(ci.unit_quantity)), 2) AS sum,
 		SUM(ci.total_price) AS sum_vat
 	FROM sales s
+	LEFT JOIN sales s_return ON s_return.parent_id = s.id AND s_return.sale_type = 'RETURN' AND s_return.status = 'completed'
 	JOIN cart_items ci ON s.id = ci.sale_id
 	JOIN store_products sp ON ci.store_product_id = sp.id
 	JOIN products p ON sp.product_id = p.id
 	LEFT JOIN producers pr ON p.producer_id = pr.id
 	LEFT JOIN import_details id ON sp.import_detail_id = id.id
 	WHERE s.store_id = ?
-	AND s.status = 'completed' AND s.sale_type = 'SALE' AND (s.completed_at+interval '5 hours')::date BETWEEN ? AND ?
+	AND s.status = 'completed' AND s.sale_type = 'SALE' AND s_return.id IS NULL AND (s.completed_at+interval '5 hours')::date BETWEEN ? AND ?
 	GROUP BY
-		p.id, pr.id, sp.id, id.id
+		p.id, pr.id, sp.id, id.id;
 	`
 	// complete get expense product list
 	err = s.db.Raw(expenseProductQuery, storeID, sendDate, sendDate).Scan(&expenseData.Товары).Error
@@ -170,7 +170,7 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string) error {
 	// get expense docs number
 	docNumberQuery := `
 	SELECT 
-		'NP-' || LPAD(store_code::TEXT, 5, '0') || '-' || TO_CHAR(NOW(), 'YYYYMMDDHH24MI') AS docs_number,
+		'NP-' || LPAD(store_code::TEXT, 5, '0') || '-' || TO_CHAR(NOW(), 'YYYYMMDDHH24MI') AS nomer_dok,
     	TO_CHAR(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS document_date
 	FROM stores
 	WHERE id = ?;`
@@ -207,15 +207,16 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string) error {
 		ROUND((id.retail_price*SUM(ci.quantity)) + ((id.retail_price/p.unit_per_pack)*SUM(ci.unit_quantity)), 2) AS sum,
 		SUM(ci.total_price) AS sum_vat
 	FROM sales s
+	LEFT JOIN sales s_return ON s_return.parent_id = s.id AND s_return.sale_type = 'RETURN' AND s_return.status = 'completed'
 	JOIN cart_items ci ON s.id = ci.sale_id
 	JOIN store_products sp ON ci.store_product_id = sp.id
 	JOIN products p ON sp.product_id = p.id
 	LEFT JOIN producers pr ON p.producer_id = pr.id
 	LEFT JOIN import_details id ON sp.import_detail_id = id.id
 	WHERE s.store_id = ?
-	AND s.status = 'completed' AND s.sale_type = 'SALE' AND (s.completed_at + interval '5 hours')::date BETWEEN ? AND ?
+	AND s.status = 'completed' AND s.sale_type = 'SALE' AND s_return.id IS NULL AND (s.completed_at+interval '5 hours')::date BETWEEN ? AND ?
 	GROUP BY
-		p.id, pr.id, sp.id, id.id
+		p.id, pr.id, sp.id, id.id;
 	`
 	// complete get expense product list
 	err = s.db.Raw(expenseProductQuery, store.Id, date, date).Scan(&expenseData.Товары).Error
