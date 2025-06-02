@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"sync"
@@ -14,91 +15,29 @@ var mu sync.Mutex
 
 // send expense products to 1C
 func (s *Services) SendExpenseTo1C(sendDate string, storeID string) error {
-	// get cashbox operation info with store
-	var store domain.Store
-	err := s.db.First(&store, "id = ?", storeID).Error
+	mu.Lock()
+	defer mu.Unlock()
+
+	var stores []domain.Store
+	// get store list
+	err := s.db.Find(&stores).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting store info with operation: %v", err)
-		return err
-	}
-	var expenseData domain.SendExpense
-	expenseData.Store.StoreCode = store.StoreCode
-	expenseData.Store.Name = store.Name
-	// get expense docs number
-	docNumberQuery := `
-	SELECT 
-		'NP-' || LPAD(store_code::TEXT, 5, '0') || '-' || TO_CHAR(NOW(), 'YYYYMMDDHH24MI') AS nomer_dok,
-    	TO_CHAR(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS document_date
-	FROM stores
-	WHERE id = ?;`
-	err = s.db.Raw(docNumberQuery, storeID).Scan(&expenseData.Document).Error
-	if err != nil {
-		s.log.Warn("ERROR on getting expense docs number: %v", err)
-		return err
+		s.log.Warn("ERROR on getting store list: %v", err)
+		return errors.New("error on getting store")
 	}
 
-	// create new shift expense
-	err = s.CreateNewExpense(storeID, expenseData.Document.NumberDok, expenseData.Document.DocumentDate)
-	if err != nil {
-		s.log.Warn("ERROR on creating shift expense: %v", err)
-		return err
+	for _, store := range stores {
+		fmt.Printf("Sending report for %s...\n", store.Name)
+		if err = s.sendReportTo1C(&store, sendDate); err != nil {
+			log.Printf("Failed to send report for %s: %v\n", store.Name, err)
+			// You can choose to retry here or log for manual retry
+			continue
+		}
+
+		fmt.Printf("Successfully sent report for %s\n", store.Name)
+		time.Sleep(5 * time.Second)
 	}
 
-	
-	// get expense products query
-	expenseProductQuery := `
-	SELECT
-		sp.product_id,
-		p.material_code,
-		p.name,
-		p.barcode,
-		p.mxik AS ikpu,
-		COALESCE(pr.name, '') AS manufacturer,
-		COALESCE(sp.serial_number, '') AS product_series_number,
-		sp.expire_date::date,
-		ROUND(SUM(ci.quantity)::NUMERIC + (SUM(ci.unit_quantity)::NUMERIC / p.unit_per_pack), 4) AS quantity,
-		sp.supply_price AS supply_price_vat,
-		sp.retail_price AS retail_price_vat,
-		id.supply_price,
-		id.retail_price,
-		sp.vat,
-		ROUND((sp.vat_price*SUM(ci.quantity)) + ((sp.vat_price/p.unit_per_pack)*SUM(ci.unit_quantity)), 2) AS vat_sum,
-		ROUND((id.retail_price*SUM(ci.quantity)) + ((id.retail_price/p.unit_per_pack)*SUM(ci.unit_quantity)), 2) AS sum,
-		SUM(ci.total_price) AS sum_vat
-	FROM sales s
-	LEFT JOIN sales s_return ON s_return.parent_id = s.id AND s_return.sale_type = 'RETURN' AND s_return.status = 'completed'
-	JOIN cart_items ci ON s.id = ci.sale_id
-	JOIN store_products sp ON ci.store_product_id = sp.id
-	JOIN products p ON sp.product_id = p.id
-	LEFT JOIN producers pr ON p.producer_id = pr.id
-	LEFT JOIN import_details id ON sp.import_detail_id = id.id
-	WHERE s.store_id = ?
-	AND s.status = 'completed' AND s.sale_type = 'SALE' AND s_return.id IS NULL AND (s.completed_at+interval '5 hours')::date BETWEEN ? AND ?
-	GROUP BY
-		p.id, pr.id, sp.id, id.id;
-	`
-	// complete get expense product list
-	err = s.db.Raw(expenseProductQuery, storeID, sendDate, sendDate).Scan(&expenseData.Товары).Error
-	if err != nil {
-		s.log.Warn("ERROR on getting expense products: %v", err)
-		return err
-	}
-	// check expense product length
-	if len(expenseData.Товары) < 1 {
-		return nil
-	}
-
-	// send fakt to 1C
-	err = s.DoRequest(context.Background(), expenseData, "/rasxod")
-	if err != nil {
-		s.log.Warn("ERROR on send rasxod request: %v", err)
-		return err
-	}
-	// update expense status to 1 after successfully sent
-	err = s.UpdateExpenseStatusByDocNumber(1, expenseData.Document.NumberDok)
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
