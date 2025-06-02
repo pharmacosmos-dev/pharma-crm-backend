@@ -117,10 +117,16 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string) error {
 		s.log.Warn("ERROR on getting expense docs number: %v", err)
 		return err
 	}
-	dokTime, _ := time.Parse(time.RFC3339, date)
 
-	expenseData.Document.DocumentDate = dokTime.String() // set document date
-	
+	dokTime, err := time.Parse(time.DateOnly, date)
+	if err != nil {
+		s.log.Warn("ERROR on parsing date: %v", err)
+		return errors.New("error on parsing date")
+	}
+
+	expenseData.Document.DocumentDate = dokTime.Format(time.RFC3339) // set document date
+	fmt.Println("Expense Document Number:", expenseData.Document.NumberDok)
+	fmt.Println("Expense Document Date:", expenseData.Document.DocumentDate)
 	// create new shift expense
 	err = s.CreateNewExpense(store.Id, expenseData.Document.NumberDok, expenseData.Document.DocumentDate)
 	if err != nil {
