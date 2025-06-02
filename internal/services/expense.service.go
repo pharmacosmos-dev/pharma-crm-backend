@@ -109,16 +109,18 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string) error {
 	// get expense docs number
 	docNumberQuery := `
 	SELECT 
-		'NP-' || LPAD(store_code::TEXT, 5, '0') || '-' || TO_CHAR(NOW(), 'YYYYMMDDHH24MI') AS nomer_dok,
-    	TO_CHAR(NOW(), 'YYYY-MM-DD"T"HH24:MI:SS"Z"') AS document_date
+		'NP-' || LPAD(store_code::TEXT, 5, '0') || '-' || TO_CHAR(?::DATE, 'YYYYMMDD') || '0000' AS nomer_dok
 	FROM stores
 	WHERE id = ?;`
-	err := s.db.Raw(docNumberQuery, store.Id).Scan(&expenseData.Document).Error
+	err := s.db.Raw(docNumberQuery, date, store.Id).Scan(&expenseData.Document.NumberDok).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting expense docs number: %v", err)
 		return err
 	}
+	dokTime, _ := time.Parse(time.RFC3339, date)
 
+	expenseData.Document.DocumentDate = dokTime.String() // set document date
+	
 	// create new shift expense
 	err = s.CreateNewExpense(store.Id, expenseData.Document.NumberDok, expenseData.Document.DocumentDate)
 	if err != nil {
