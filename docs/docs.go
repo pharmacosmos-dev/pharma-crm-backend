@@ -4772,13 +4772,6 @@ const docTemplate = `{
                         "name": "send_date",
                         "in": "query",
                         "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Store ID",
-                        "name": "store_id",
-                        "in": "query",
-                        "required": true
                     }
                 ],
                 "responses": {

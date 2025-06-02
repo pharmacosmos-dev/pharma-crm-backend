@@ -29,7 +29,6 @@ func (h *ExpenseHandler) ExpenseRoutes(r *gin.RouterGroup) {
 // @Accept 	json
 // @Produce json
 // @Param 	send_date query string true "Send Date (2006-01-02)"
-// @Param   store_id query string true "Store ID"
 // @Success 201 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -45,7 +44,7 @@ func (h *ExpenseHandler) Send(c *gin.Context) {
 		handleResponse(c, BadRequest, "StoreID is required")
 		return
 	}
-	
+
 	// get shift expense with store and date
 	shiftExpense := h.service.CheckShiftExpense(sendDate, storeID)
 
@@ -54,7 +53,6 @@ func (h *ExpenseHandler) Send(c *gin.Context) {
 		handleResponse(c, BadRequest, "Shift expense already sent for this date")
 		return
 	}
-
 
 	// send expense with manual request
 	err = h.service.SendExpenseTo1C(sendDate, storeID)
