@@ -113,7 +113,7 @@ type InventoryDetailSum struct {
 
 // 1C request Structure
 type InventoryProduct1C struct {
-	MaterilaCode        int        `gorm:"material_code" json:"material_code"`
+	MaterialCode        int        `gorm:"material_code" json:"material_code"`
 	Name                string     `gorm:"name" json:"name"`
 	Barcode             string     `gorm:"barcode" json:"barcode"`
 	Manufacturer        string     `gorm:"manufacturer" json:"manufacturer"`

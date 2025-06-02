@@ -484,7 +484,7 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 		}
 		// collect inventory products to send 1C
 		data1C.Товары = append(data1C.Товары, domain.InventoryProduct1C{
-			MaterilaCode:        imd.MaterialCode,
+			MaterialCode:        imd.MaterialCode,
 			Name:                imd.ProductName,
 			Barcode:             imd.Barcode,
 			Manufacturer:        imd.ProducerCode,
@@ -593,7 +593,7 @@ func (s *Services) SendInventory1C(inventoryID string) error {
 	for _, imd := range inventoryDetails {
 		// collect inventory products to send 1C
 		data1C.Товары = append(data1C.Товары, domain.InventoryProduct1C{
-			MaterilaCode:        imd.MaterialCode,
+			MaterialCode:        imd.MaterialCode,
 			Name:                imd.ProductName,
 			Barcode:             imd.Barcode,
 			Manufacturer:        imd.ProducerCode,

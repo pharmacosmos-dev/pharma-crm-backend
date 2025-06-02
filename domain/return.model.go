@@ -96,3 +96,25 @@ type ReturnAddProduct struct {
 	Count int    `gorm:"count" json:"count"`
 	Type  string `gorm:"type" json:"type"`
 }
+
+type ReturnDetail1C struct {
+	MaterialCode        int        `gorm:"material_code" json:"material_code"`
+	Name                string     `gorm:"name" json:"name"`
+	Barcode             string     `gorm:"barcode" json:"barcode"`
+	Manufacturer        string     `gorm:"manufacturer" json:"manufacturer"`
+	ProductSeriesNumber string     `gorm:"product_series_number" json:"product_series_number"`
+	ExpireDate          *time.Time `gorm:"expire_date" json:"expire_date"`
+	Quantity            float64    `gorm:"quantity" json:"quantity"`
+	RetailPrice         float64    `gorm:"retail_price" json:"retail_price"`
+	RetailPriceVat      float64    `gorm:"retail_price_vat" json:"retail_price_vat"`
+	SupplyPrice         float64    `gorm:"supply_price" json:"supply_price"`
+	SupplyPriceVat      float64    `gorm:"supply_price_vat" json:"supply_price_vat"`
+	Sum                 float64    `gorm:"sum" json:"sum"`
+	SumVat              float64    `gorm:"sum_vat" json:"sum_vat"`
+}
+
+type ReturnData1C struct {
+	Dok    Document         `json:"Dok"`
+	Apteka Apteka           `json:"Apteka"`
+	Товары []ReturnDetail1C `json:"Товары"`
+}

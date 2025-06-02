@@ -177,14 +177,12 @@ func (h *InventoryHandler) UpdateFactQuantity(c *gin.Context) {
 	}
 	// update barcode
 	if request.Barcode != "" {
-		err = h.db.Exec(`UPDATE products SET barcode = ? WHERE id = ?`, request.Barcode, request.Id).Error
+		err = h.db.Debug().Exec(`UPDATE products SET barcode = ? WHERE id = ?`, request.Barcode, request.Id).Error
 		if err != nil {
 			h.log.Warn("ERROR on updating product barcode: %v", err)
 			handleResponse(c, InternalError, "Failed to update barcode")
 			return
 		}
-		handleResponse(c, OK, "UPDATED")
-		return
 	}
 
 	// update retail price
@@ -196,8 +194,6 @@ func (h *InventoryHandler) UpdateFactQuantity(c *gin.Context) {
 			handleResponse(c, InternalError, "Failed to update retail_price")
 			return
 		}
-		handleResponse(c, OK, "UPDATED")
-		return
 	}
 
 	var res []domain.ImportDetail

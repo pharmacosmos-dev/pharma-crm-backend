@@ -31,6 +31,7 @@ func (h *ReturnHandler) ReturnRoutes(r *gin.RouterGroup) {
 		returned.GET("/export-excel", h.ExportReturnExcel)
 		returned.PATCH("/:id/add-product-by-barcode", h.AddProductByBarcode)
 		returned.POST("/send/:id", h.Send)
+		returned.POST("/send1c", h.Send1C)
 		returned.POST("/confirm/:id", h.Confirm)
 		returned.POST("/cancel/:id", h.Cancel)
 	}
@@ -375,6 +376,42 @@ func (h *ReturnHandler) Send(c *gin.Context) {
 	}
 	// confirm return service
 	err := h.service.SendReturn(id, userId.(string))
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to send return")
+		return
+	}
+
+	handleResponse(c, OK, "SENT")
+}
+
+// send Return
+// @Summary Send Return to 1C
+// @Description Send Return to 1C
+// @Tags Return
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param 	return_id query string true "Return ID"
+// @Param   store_id query string true "Store ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /return/send1c [POST]
+func (h *ReturnHandler) Send1C(c *gin.Context) {
+	returnId := c.Query("return_id")
+	storeId := c.Query("store_id")
+
+	if err := uuid.Validate(returnId); err != nil {
+		handleResponse(c, BadRequest, "Invalid return id")
+		return
+	}
+	if err := uuid.Validate(storeId); err != nil {
+		handleResponse(c, BadRequest, "Invalid store id")
+		return
+	}
+
+	// confirm return service
+	err := h.service.SendReturn1C(returnId, storeId)
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to send return")
 		return

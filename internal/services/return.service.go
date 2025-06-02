@@ -1,11 +1,15 @@
 package services
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
+	"github.com/spf13/cast"
 )
 
 // Create inventory creates a new inventory
@@ -243,6 +247,60 @@ func (s *Services) SendReturn(returnId string, userId string) error {
 }
 
 // confirm inventory
+func (s *Services) SendReturn1C(returnId string, storeId string) error {
+	var (
+		returnData domain.ReturnData1C
+		store      domain.Store
+	)
+	// get store data
+	err := s.db.First(&store, "id = ?", storeId).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting store data: %v", err)
+		return err
+	}
+	returnData.Dok.DocumentNumber = "VP" + cast.ToString(time.Now().Unix())
+	returnData.Dok.DocumentDate = time.Now().Add(time.Hour * 5).Format(time.DateOnly)
+	returnData.Apteka.Name = store.Name
+	returnData.Apteka.StoreCode = store.StoreCode
+	// get return data
+	query := `
+	SELECT
+		td.id, td.transfer_id, p.material_code, p.name, p.barcode,
+		COALESCE(pr.code, '') as manufacturer, td.serial_number AS product_series_number,
+		td.expire_date, td.accepted_count as quantity,
+		td.supply_price AS supply_price_vat, td.retail_price AS retail_price_vat,
+		(td.retail_price*td.accepted_count) AS sum_vat
+	FROM transfer_details td
+		JOIN transfers tr ON td.transfer_id = tr.id
+		JOIN products p ON td.product_id = p.id
+		LEFT JOIN producers pr ON p.producer_id = pr.id
+		WHERE td.transfer_id = ? AND tr.status = 'completed' AND tr.from_store_id = ?;
+	`
+
+	err = s.db.Raw(query, returnId, storeId).Scan(&returnData.Товары).Error
+	if err != nil {
+		s.log.Error(err)
+		return err
+	}
+
+	if len(returnData.Товары) < 1 {
+		s.log.Warn("No products found for return %s", returnId)
+		return nil
+	}
+
+	t, _ := json.Marshal(returnData)
+	fmt.Println("====>> ", string(t))
+
+	// send return to 1C
+	err = s.DoRequest(context.Background(), returnData, "/vozvrat")
+	if err != nil {
+		s.log.Warn("ERROR on sending return to 1C: %v", err)
+		return err
+	}
+	return nil
+}
+
+// confirm inventory
 func (s *Services) ConfirmReturn(returnId string, userId string) error {
 	// start transaction
 	tx := s.db.Begin()
@@ -267,23 +325,7 @@ func (s *Services) ConfirmReturn(returnId string, userId string) error {
 		tx.Rollback()
 		return err
 	}
-	// update store products
-	storeproductQuery := `
-	UPDATE store_products sp
-	SET pack_quantity = pack_quantity - td.accepted_count
-	FROM transfer_details td
-	JOIN transfers t ON td.transfer_id = t.id
-	WHERE sp.product_id = td.product_id
-	AND sp.store_id = t.from_store_id
-	AND sp.expire_date = td.expire_date
-	AND t.status = 'completed'
-	AND td.transfer_id = ?;`
-	err = tx.Exec(storeproductQuery, returnId).Error
-	if err != nil {
-		s.log.Warn("ERROR on updating store_products: %v", err)
-		tx.Rollback()
-		return err
-	}
+
 	// complete transaction
 	if err = tx.Commit().Error; err != nil {
 		s.log.Warn("ERROR on commiting transaction: %v", err)
