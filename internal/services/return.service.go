@@ -37,8 +37,8 @@ func (s *Services) CreateReturn(req *domain.ReturnRequest) error {
 	// if no products provided, get all products from store_products
 	// and insert them into inventory_details
 	err = tx.Exec(
-		`INSERT INTO transfer_details(transfer_id, product_id, received_count, supply_price, retail_price, expire_date, serial_number
-			) SELECT ?, product_id, pack_quantity, supply_price, retail_price, expire_date, serial_number
+		`INSERT INTO transfer_details(transfer_id, store_product_id, product_id, received_count, supply_price, retail_price, expire_date, serial_number
+			) SELECT ?, id, product_id, pack_quantity, supply_price, retail_price, expire_date, serial_number
 			FROM store_products
 			WHERE store_id = ? AND pack_quantity > 0;`,
 		id, req.StoreId).Error
@@ -237,6 +237,32 @@ func (s *Services) SendReturn(returnId string, userId string) error {
 		tx.Rollback()
 		return err
 	}
+	var returnDetails []domain.ReturnDetail
+	query3 := `
+		SELECT td.*, p.unit_per_pack
+        FROM transfer_details td
+		JOIN products p ON td.product_id = p.id
+		WHERE td.transfer_id = ? and td.scanned_count > 0;
+	`
+	err = tx.Raw(query3, returnId).Scan(&returnDetails).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting return details: %v", err)
+		tx.Rollback()
+		return err
+	}
+
+	for _, detail := range returnDetails {
+		// update store product quantities
+		// if scanned count is 0, skip the update
+		err = tx.Exec(`UPDATE store_products SET pack_quantity = GREATEST(pack_quantity - ?, 0), unit_quantity = GREATEST(unit_quantity - ?, 0), updated_at = NOW() WHERE id = ?`,
+			detail.ScannedCount, detail.ScannedCount*detail.UnitPerPack, detail.StoreProductId).Error
+		if err != nil {
+			s.log.Warn("ERROR on updating store product pack quantity: %v", err)
+			tx.Rollback()
+			return err
+		}
+	}
+
 	// complete transaction
 	if err = tx.Commit().Error; err != nil {
 		s.log.Warn("ERROR on commiting transaction: %v", err)
@@ -301,7 +327,7 @@ func (s *Services) SendReturn1C(returnId string, storeId string) error {
 }
 
 // confirm inventory
-func (s *Services) ConfirmReturn(returnId string, userId string) error {
+func (s *Services) ConfirmReturn(returnId, storeId string, userId string) error {
 	// start transaction
 	tx := s.db.Begin()
 	defer func() {
@@ -326,12 +352,63 @@ func (s *Services) ConfirmReturn(returnId string, userId string) error {
 		return err
 	}
 
+	var (
+		returnData domain.ReturnData1C
+		store      domain.Store
+	)
+	// get store data
+	err = s.db.First(&store, "id = ?", storeId).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting store data: %v", err)
+		return err
+	}
+	returnData.Dok.DocumentNumber = "VP" + cast.ToString(time.Now().Unix())
+	returnData.Dok.DocumentDate = time.Now().Add(time.Hour * 5).Format(time.DateOnly)
+	returnData.Apteka.Name = store.Name
+	returnData.Apteka.StoreCode = store.StoreCode
+	// get return data
+	query2 := `
+	SELECT
+		td.id, td.transfer_id, p.material_code, p.name, p.barcode,
+		COALESCE(pr.code, '') as manufacturer, td.serial_number AS product_series_number,
+		td.expire_date, td.scanned_count as quantity,
+		td.supply_price AS supply_price_vat, td.retail_price AS retail_price_vat,
+		(td.retail_price*td.scanned_count) AS sum_vat
+	FROM transfer_details td
+		JOIN transfers tr ON td.transfer_id = tr.id
+		JOIN products p ON td.product_id = p.id
+		LEFT JOIN producers pr ON p.producer_id = pr.id
+		WHERE td.transfer_id = ? AND tr.status = 'completed';
+	`
+	// get return data
+	err = tx.Raw(query2, returnId).Scan(&returnData.Товары).Error
+	if err != nil {
+		s.log.Error(err)
+		return err
+	}
+
 	// complete transaction
 	if err = tx.Commit().Error; err != nil {
 		s.log.Warn("ERROR on commiting transaction: %v", err)
 		tx.Rollback()
 		return err
 	}
+
+	if len(returnData.Товары) < 1 {
+		s.log.Warn("No products found for return %s", returnId)
+		return nil
+	}
+
+	t, _ := json.Marshal(returnData)
+	fmt.Println("====>> ", string(t))
+
+	// send return to 1C
+	err = s.DoRequest(context.Background(), returnData, "/vozvrat")
+	if err != nil {
+		s.log.Warn("ERROR on sending return to 1C: %v", err)
+		return err
+	}
+
 	return nil
 }
 

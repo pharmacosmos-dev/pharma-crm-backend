@@ -39,23 +39,25 @@ type ReturnRequest struct {
 
 // ReturnDetail structure
 type ReturnDetail struct {
-	Id            string     `gorm:"id" json:"id"`
-	ReturnId      string     `gorm:"return_id" json:"return_id"`
-	ProductId     string     `gorm:"product_id" json:"product_id"`
-	ReceivedCount int        `gorm:"received_count" json:"received_count"`
-	ScannedCount  int        `gorm:"scanned_count" json:"scanned_count"`
-	Name          string     `gorm:"name" json:"name"`
-	MaterialCode  int        `gorm:"material_code" json:"material_code"`
-	Barcode       string     `gorm:"barcode" json:"barcode"`
-	ShortName     string     `gorm:"short_name" json:"short_name"`
-	ExpireDate    string     `gorm:"expire_date" json:"expire_date"`
-	SerialNumber  string     `gorm:"serial_number" json:"serial_number"`
-	SupplyPrice   float64    `gorm:"supply_price" json:"supply_price"`
-	RetailPrice   float64    `gorm:"retail_price" json:"retail_price"`
-	ReceivedSum   float64    `gorm:"received_sum" json:"received_sum"`
-	ScannedSum    float64    `gorm:"scanned_sum" json:"scanned_sum"`
-	CreatedAt     *time.Time `gorm:"created_at" json:"created_at"`
-	UpdatedAt     *time.Time `gorm:"updated_at" json:"updated_at"`
+	Id             string     `gorm:"id" json:"id"`
+	ReturnId       string     `gorm:"return_id" json:"return_id"`
+	ProductId      string     `gorm:"product_id" json:"product_id"`
+	StoreProductId string     `gorm:"store_product_id" json:"store_product_id"`
+	UnitPerPack    int        `gorm:"unit_per_pack" json:"unit_per_pack"`
+	ReceivedCount  int        `gorm:"received_count" json:"received_count"`
+	ScannedCount   int        `gorm:"scanned_count" json:"scanned_count"`
+	Name           string     `gorm:"name" json:"name"`
+	MaterialCode   int        `gorm:"material_code" json:"material_code"`
+	Barcode        string     `gorm:"barcode" json:"barcode"`
+	ShortName      string     `gorm:"short_name" json:"short_name"`
+	ExpireDate     string     `gorm:"expire_date" json:"expire_date"`
+	SerialNumber   string     `gorm:"serial_number" json:"serial_number"`
+	SupplyPrice    float64    `gorm:"supply_price" json:"supply_price"`
+	RetailPrice    float64    `gorm:"retail_price" json:"retail_price"`
+	ReceivedSum    float64    `gorm:"received_sum" json:"received_sum"`
+	ScannedSum     float64    `gorm:"scanned_sum" json:"scanned_sum"`
+	CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt      *time.Time `gorm:"updated_at" json:"updated_at"`
 }
 
 // return query param  structure

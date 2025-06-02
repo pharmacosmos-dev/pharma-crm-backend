@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
@@ -443,14 +444,32 @@ func (h *ReturnHandler) Confirm(c *gin.Context) {
 		handleResponse(c, UNAUTHORIZED, "user id not found from the context")
 		return
 	}
+	var returnInfo domain.Return
+	// get return info
+	err := h.db.Raw(`SELECT * FROM transfers WHERE id = ?`, id).Scan(&returnInfo).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "Return not found")
+			return
+		}
+		h.log.Warn("Error on getting return: %v", err.Error())
+		handleResponse(c, InternalError, "Failed to get return")
+		return
+	}
+	// check if return is already confirmed
+	if returnInfo.Status == config.COMPLETED {
+		handleResponse(c, BadRequest, "Return is already confirmed")
+		return
+	}
+
 	// confirm return service
-	err := h.service.ConfirmReturn(id, userId.(string))
+	err = h.service.ConfirmReturn(id, returnInfo.FromStoreId, userId.(string))
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to confirm return")
 		return
 	}
 
-	handleResponse(c, OK, "COMFIRMED")
+	handleResponse(c, OK, "CONFIRMED")
 }
 
 // cancel return

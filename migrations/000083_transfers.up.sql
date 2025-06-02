@@ -1,4 +1,3 @@
-
 CREATE TABLE IF NOT EXISTS "transfers" (
     "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     "public_id" VARCHAR(20),
@@ -21,6 +20,7 @@ CREATE TABLE IF NOT EXISTS "transfer_details" (
     "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     "transfer_id" UUID REFERENCES transfers("id") ON DELETE CASCADE,
     "product_id" UUID REFERENCES products("id") ON DELETE CASCADE,
+    "store_product_id" UUID,
     "received_count" INT DEFAULT 0,
     "accepted_count" INT DEFAULT 0,
     "scanned_count" INT DEFAULT 0,

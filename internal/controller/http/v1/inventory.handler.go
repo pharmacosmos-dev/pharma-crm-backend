@@ -183,6 +183,8 @@ func (h *InventoryHandler) UpdateFactQuantity(c *gin.Context) {
 			handleResponse(c, InternalError, "Failed to update barcode")
 			return
 		}
+		handleResponse(c, OK, "Barcode updated successfully")
+		return
 	}
 
 	// update retail price
@@ -194,6 +196,8 @@ func (h *InventoryHandler) UpdateFactQuantity(c *gin.Context) {
 			handleResponse(c, InternalError, "Failed to update retail_price")
 			return
 		}
+		handleResponse(c, OK, "Retail Price updated successfully")
+		return
 	}
 
 	var res []domain.ImportDetail
