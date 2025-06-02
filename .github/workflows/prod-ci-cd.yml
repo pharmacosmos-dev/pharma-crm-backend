@@ -11,11 +11,11 @@ env:
   CONTAINER_NAME: pharma-backend
   DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
   DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
-  SSH_HOST: ${{ secrets.DEV_SERVER_IP }}
-  SSH_USER: ${{ secrets.DEV_SERVER_USERNAME }}
-  SSH_KEY: ${{ secrets.DEV_SSH_PRIVATE_KEY }}
-  SSH_PASS: ${{ secrets.DEV_SERVER_PASSWORD }}
-  DB_URL: ${{ secrets.DEV_PHARMA_DATABASE_URL }}
+  SSH_HOST: ${{ secrets.SERVER_IP }}
+  SSH_USER: ${{ secrets.SERVER_USERNAME }}
+  SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+  SSH_PASS: ${{ secrets.SERVER_PASSWORD }}
+  DB_URL: ${{ secrets.PHARMA_DATABASE_URL }}
   PORT: 8080:8080
 
 jobs:
