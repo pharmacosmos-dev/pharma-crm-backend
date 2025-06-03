@@ -1,8 +1,6 @@
 package services
 
 import (
-	"fmt"
-
 	"github.com/pharma-crm-backend/domain"
 )
 
@@ -24,9 +22,8 @@ func (s *Services) ProductBonusList(param *domain.QueryParam) ([]domain.ProductB
 	}
 	// if search is received it joins with products table and add search condtion
 	if param.Search != "" {
-		param.Search = fmt.Sprintf("%%%s%%", param.Search)
 		query = query.Joins("JOIN products ON product_bonuses.product_id = products.id").
-			Where("products.name ILIKE ?", param.Search)
+			Where("products.name ILIKE ?", "%"+param.Search+"%")
 	}
 	// complete query
 	err := query.

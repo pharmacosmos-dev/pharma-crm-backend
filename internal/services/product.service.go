@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/pharma-crm-backend/domain"
@@ -17,52 +18,72 @@ func (s *Services) ProductSearch(param *domain.StoreProductQueryParam) ([]*domai
 	var (
 		res        []*domain.StoreProductResponse
 		err        error
-		filter     = " WHERE sp.store_id = ? AND (sp.pack_quantity > 0 OR sp.unit_quantity > 0) "
 		args       = []any{}
-		order      = " ORDER BY sp.expire_date "
+		filter     = " WHERE sp.store_id = ? AND (sp.pack_quantity > 0 OR sp.unit_quantity > 0) "
 		pagination = " LIMIT ? OFFSET ? "
+		order      = " ORDER BY similarity_score DESC NULLS LAST, sp.expire_date "
 	)
-	args = append(args, param.StoreID)
-	// build query
-	query := `
+
+	searchInput := strings.TrimSpace(param.Search)
+	translated := utils.Translit(searchInput)
+
+	var similarityExpr string
+	if searchInput != "" && utils.DefineProductSearchQuery(searchInput) == "name/category" {
+		similarityExpr = "similarity(p.name, ?) AS similarity_score "
+		args = append(args, searchInput) // <== similarity uchun argument
+	} else {
+		similarityExpr = "NULL AS similarity_score "
+	}
+
+	query := fmt.Sprintf(`
 	SELECT
-		sp.*,  p.name, pr.name AS producer_name, pb.bonus_amount, p.barcode, p.unit_per_pack,
+		sp.*, p.name, pr.name AS producer_name, pb.bonus_amount, p.barcode, p.unit_per_pack,
 		DATE_PART('day', sp.expire_date::timestamp - NOW()) AS expire_day,
-		u.unit_name, u.short_name
+		u.unit_name, u.short_name,
+		%s
 	FROM store_products sp
 		JOIN products p ON p.id = sp.product_id
 		LEFT JOIN unit_types u ON p.unit_type_id = u.id
 		LEFT JOIN producers pr ON pr.id = p.producer_id
 		LEFT JOIN product_bonuses pb ON pb.product_id = p.id
-	`
-	if param.Search != "" {
-		// define search keyword type
-		switch utils.DefineProductSearchQuery(param.Search) {
+	`, similarityExpr)
+
+	args = append(args, param.StoreID)
+
+	if searchInput != "" {
+		switch utils.DefineProductSearchQuery(searchInput) {
 		case "barcode":
 			filter += " AND p.barcode = ? "
-			args = append(args, param.Search)
+			args = append(args, searchInput)
+			order = " ORDER BY sp.expire_date "
+
 		case "marking":
-			// query = query.
-			// 	Joins("LEFT JOIN product_markings pm ON pm.product_id = sp.product_id").
-			// 	Where("pm.marking = ?", param.Search)
+			query += " LEFT JOIN product_markings pm ON pm.import_detail_id = sp.import_detail_id "
+			filter += " AND pm.marking = ? "
+			args = append(args, searchInput)
+			order = " ORDER BY sp.expire_date "
+
 		default:
-			// Transliterate search keyword Latin to Cyrillic OR Cyrillic to Latin
-			translatedWord := utils.Translit(param.Search)
-			filter += " AND (p.name ILIKE ? OR p.name ILIKE ?) "
-			args = append(args, "%"+param.Search+"%", "%"+translatedWord+"%")
+			filter += `
+				AND (
+					p.name ILIKE ? OR 
+					p.name ILIKE ?
+				)
+			`
+			args = append(args, "%"+searchInput+"%", "%"+translated+"%")
 		}
 	}
-	// collect query
+
 	query = query + filter + order + pagination
 	args = append(args, param.Limit, param.Offset)
-	// complete query
+
 	err = s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("Error on listing store products for store %s with search '%s': %v", param.StoreID, param.Search, err.Error())
 		return nil, err
 	}
 
-	// format quantity
+	// quantity format
 	for i := range res {
 		if res[i].UnitPerPack > 0 && res[i].UnitQuantity != res[i].PackQuantity*res[i].UnitPerPack {
 			res[i].Quantity = fmt.Sprintf("%d (%d/%d)", res[i].PackQuantity, res[i].UnitQuantity%res[i].UnitPerPack, res[i].UnitPerPack)
