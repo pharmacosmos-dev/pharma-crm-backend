@@ -224,6 +224,18 @@ func (h *InventoryHandler) UpdateFactQuantity(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid unit_per_pack value")
 		return
 	}
+
+	if request.FactQuantity == 0 && request.FactUnit == 0 {
+		err = h.db.Exec(`UPDATE import_details SET scanned_count = 0 WHERE import_id = ? and product_id = ?`, inventoryID, request.Id).Error
+		if err != nil {
+			h.log.Warn("Error on updating scanned_count: %v", err)
+			handleResponse(c, InternalError, "Failed to update scanned_count")
+			return
+		}
+		handleResponse(c, OK, "Scanned count reset to zero")
+		return
+	}
+
 	// Calculate total fact as quantity + (unit / unitPerPack)
 	remainingFact := float64(int(request.FactQuantity)) + request.FactUnit/float64(unitPerPack)
 	for i := 0; i < len(res); i++ {
@@ -240,7 +252,7 @@ func (h *InventoryHandler) UpdateFactQuantity(c *gin.Context) {
 			}
 		}
 		// Update each row
-		err := h.db.Exec(`
+		err := h.db.Debug().Exec(`
 			UPDATE import_details
 			SET scanned_count = scanned_count+?
 			WHERE id = ?
