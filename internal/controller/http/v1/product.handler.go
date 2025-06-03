@@ -401,6 +401,7 @@ func (h *ProductHandler) ExportProductExcel(c *gin.Context) {
 		handleResponse(c, InternalError, "Can't get employee info")
 		return
 	}
+
 	// check if employee is not admin or superadmin
 	if !helper.IsAdmin(employee, h.cfg) {
 		if employee.StoreId != "" {
@@ -419,37 +420,44 @@ func (h *ProductHandler) ExportProductExcel(c *gin.Context) {
 	f := excelize.NewFile()
 
 	if param.StoreID != "" {
-
 		f, err = h.productListExportByStoreId(f, res)
 		if err != nil {
 			handleResponse(c, InternalError, "Failed to export product list")
 			return
 		}
-		// Faylni HTTP response orqali yuborish
-		c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-		c.Header("Content-Disposition", "attachment; filename=products.xlsx")
-
-		if err := f.Write(c.Writer); err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, "Failed to generate Excel file")
-		}
 	} else {
-
 		f, err = h.productListExport(f, res)
 		if err != nil {
 			handleResponse(c, InternalError, "Failed to export product list")
 			return
 		}
+	}
 
-		// Faylni HTTP response orqali yuborish
-		c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-		c.Header("Content-Disposition", "attachment; filename=products.xlsx")
+	// Faylni uploads/ papkasiga UUID bilan saqlash
+	fileName := "Все_остатки_" + time.Now().Add(time.Hour*5).Format("2006-01-02_15-04-05") + ".xlsx"
+	filePath := filepath.Join("uploads", fileName)
 
-		if err := f.Write(c.Writer); err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, "Failed to generate Excel file")
+	// uploads/ papkasi mavjud bo‘lmasa, yaratish
+	if _, err := os.Stat("uploads"); os.IsNotExist(err) {
+		err := os.Mkdir("uploads", os.ModePerm)
+		if err != nil {
+			h.log.Error("Failed to create uploads directory:", err)
+			handleResponse(c, InternalError, "Failed to create uploads folder")
+			return
 		}
 	}
+
+	// Faylni diskka yozish
+	if err := f.SaveAs(filePath); err != nil {
+		h.log.Error("Failed to save Excel file:", err)
+		handleResponse(c, InternalError, "Failed to save Excel file")
+		return
+	}
+
+	// Foydalanuvchiga file path yoki URLni qaytarish
+	handleResponse(c, OK, gin.H{
+		"file_name": fileName,
+	})
 }
 
 // Get godoc
@@ -1774,7 +1782,7 @@ func (h *ProductHandler) productListExportByStoreId(f *excelize.File, res []doma
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"Код-продакт", "Наименование", "Штрих-код", "Производитель", "Кол-во", "Цена поставки", "Cумма поставки", "Цена продажи", "Cумма продажи", "Цена наценка", "Cумма наценка", "НДС", "Цена НДС", "Cумма НДС", "Категория", "MXIK"}
+	headers := []string{"Код", "Наименование", "Штрих-код", "Производитель", "Кол-во", "Цена поставки", "Cумма поставки", "Цена продажи", "Cумма продажи", "Цена наценка", "Cумма наценка", "НДС", "Цена НДС", "Cумма НДС", "Категория", "MXIK"}
 
 	headerStyle, err := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{
@@ -1806,7 +1814,7 @@ func (h *ProductHandler) productListExportByStoreId(f *excelize.File, res []doma
 		f.SetCellValue(sheetName, "B"+row, product.Name)
 		f.SetCellValue(sheetName, "C"+row, product.Barcode)
 		f.SetCellValue(sheetName, "D"+row, product.Manufacturer)
-		f.SetCellValue(sheetName, "E"+row, math.Round((product.Quantity+product.UnitQuantity/float64(product.UnitPerPack))*10000)/10000)
+		f.SetCellValue(sheetName, "E"+row, math.Round((product.Quantity+(product.UnitQuantity/float64(product.UnitPerPack)))*10000)/10000)
 		f.SetCellValue(sheetName, "F"+row, product.SupplyPrice)
 		f.SetCellValue(sheetName, "G"+row, math.Round((product.SupplyPrice*float64(product.Quantity)+(product.SupplyPrice/float64(product.UnitPerPack)*product.UnitQuantity))*100)/100)
 		f.SetCellValue(sheetName, "H"+row, product.RetailPrice)
@@ -1818,7 +1826,6 @@ func (h *ProductHandler) productListExportByStoreId(f *excelize.File, res []doma
 		f.SetCellValue(sheetName, "N"+row, math.Round((product.VatPrice*float64(product.Quantity)+(product.VatPrice/float64(product.UnitPerPack)*product.UnitQuantity))*100)/100)
 		f.SetCellValue(sheetName, "O"+row, product.CategoryName)
 		f.SetCellValue(sheetName, "P"+row, product.MXIK)
-
 	}
 	return f, nil
 }

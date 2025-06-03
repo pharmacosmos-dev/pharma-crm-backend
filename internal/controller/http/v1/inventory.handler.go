@@ -2,12 +2,15 @@ package v1
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/spf13/cast"
 	"github.com/xuri/excelize/v2"
@@ -28,6 +31,7 @@ func (h *InventoryHandler) InventoryRoutes(r *gin.RouterGroup) {
 		inventory.POST("", h.Create)
 		inventory.GET("/:id", h.Get)
 		inventory.GET("/list", h.List)
+		inventory.GET("/export-excel", h.InventoryExportExcel)
 		inventory.PATCH("/:id/add-product-by-barcode", h.UpdateFactQuantity)
 		inventory.PATCH("/:id/detailed-flow", h.UpdateDetailedFactQuantity)
 		inventory.POST("/confirm/:id", h.Confirm)
@@ -144,6 +148,130 @@ func (h *InventoryHandler) List(c *gin.Context) {
 	}
 	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
 	handleResponse(c, OK, data)
+}
+
+// Get List Export excel
+// @Summary Get inventory Export excel
+// @Description Get inventory list Export excel
+// @Tags Inventory
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param 	limit query int false "LIMIT"
+// @Param 	offset query int false "OFFSET"
+// @Param   store_id query string false "STORE ID"
+// @Param   search 	query string false "SEARCH KEY"
+// @Param   type 	query string false "TYPE"
+// @Param   status 	query string false "STATUS (0->new|1->pending|2->completed)"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /inventory/export-excel [GET]
+func (h *InventoryHandler) InventoryExportExcel(c *gin.Context) {
+	var param domain.InventoryParam
+
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "Invalid query param")
+		return
+	}
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	res, _, err := h.service.InventoryList(&param)
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to get inventory list")
+		return
+	}
+	// Excel fayl yaratish
+	f := excelize.NewFile()
+	sheetName := "List1"
+	f.SetSheetName("Sheet1", sheetName)
+
+	// Headerlar
+	headers := []string{"ID", "Наименования", "Филиал", "Текущие Кол-во", "Кол-во Недостача", "Излишки Кол-во", "Текущие Сумма", "Факт Сумма", "Статус", "Создание", "Завершение", "Создал", "Завершил"}
+
+	headerStyle, err := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Bold:  true,
+			Color: "000000",
+		},
+	})
+	if err != nil {
+		h.log.Error("Failed to create style:", err)
+		handleResponse(c, InternalError, "Error on giving style to excel")
+		return
+	}
+
+	for i, h := range headers {
+		col := string(rune('A'+i)) + "1"
+		f.SetCellValue(sheetName, col, h)
+		f.SetCellStyle(sheetName, col, col, headerStyle)
+	}
+
+	// Ma'lumotlarni qo'shish
+	for i, imp := range res {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheetName, "A"+row, imp.PublicId)
+		f.SetCellValue(sheetName, "B"+row, imp.Name)
+		if imp.Store != nil {
+			f.SetCellValue(sheetName, "C"+row, imp.Store.Name)
+		} else {
+			f.SetCellValue(sheetName, "C"+row, "N/A")
+		}
+		f.SetCellValue(sheetName, "D"+row, imp.MeasurementCount)
+		f.SetCellValue(sheetName, "E"+row, imp.Shortage)
+		f.SetCellValue(sheetName, "F"+row, imp.Surplus)
+		f.SetCellValue(sheetName, "G"+row, imp.CurrentSum)
+		f.SetCellValue(sheetName, "H"+row, imp.FactSum)
+		f.SetCellValue(sheetName, "I"+row, imp.FactSum)
+		f.SetCellValue(sheetName, "J"+row, helper.StatusToRussian(imp.Status))
+		if imp.CreatedAt != nil {
+			f.SetCellValue(sheetName, "K"+row, imp.CreatedAt.Format("2006-01-02 15:04:05"))
+		} else {
+			f.SetCellValue(sheetName, "K"+row, "N/A")
+		}
+		if imp.UpdatedAt != nil {
+			f.SetCellValue(sheetName, "L"+row, imp.UpdatedAt.Format("2006-01-02 15:04:05"))
+		} else {
+			f.SetCellValue(sheetName, "L"+row, "N/A")
+		}
+		if imp.CreatedBy != nil {
+			f.SetCellValue(sheetName, "M"+row, imp.CreatedBy.FullName)
+		} else {
+			f.SetCellValue(sheetName, "M"+row, "N/A")
+		}
+		if imp.UpdatedBy != nil {
+			f.SetCellValue(sheetName, "N"+row, imp.UpdatedBy.FullName)
+		} else {
+			f.SetCellValue(sheetName, "N"+row, "N/A")
+		}
+	}
+
+	// Faylni uploads/ papkasiga UUID bilan saqlash
+	fileName := "inventory_" + time.Now().Add(time.Hour*5).Format("2006-01-02_15-04-05") + ".xlsx"
+	filePath := filepath.Join("uploads", fileName)
+
+	// uploads/ papkasi mavjud bo‘lmasa, yaratish
+	if _, err := os.Stat("uploads"); os.IsNotExist(err) {
+		err := os.Mkdir("uploads", os.ModePerm)
+		if err != nil {
+			h.log.Error("Failed to create uploads directory:", err)
+			handleResponse(c, InternalError, "Failed to create uploads folder")
+			return
+		}
+	}
+
+	// Faylni diskka yozish
+	if err := f.SaveAs(filePath); err != nil {
+		h.log.Error("Failed to save Excel file:", err)
+		handleResponse(c, InternalError, "Failed to save Excel file")
+		return
+	}
+
+	// Foydalanuvchiga file path yoki URLni qaytarish
+	handleResponse(c, OK, gin.H{
+		"file_name": fileName,
+	})
+
 }
 
 // Add product by barcode
@@ -516,7 +644,7 @@ func (h *InventoryHandler) InventoryDetailList(c *gin.Context) {
 // @Tags Inventory
 // @Security     BearerAuth
 // @Accept 	json
-// @Produce application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+// @Produce json
 // @Param 	limit query int false "LIMIT"
 // @Param 	offset query int false "OFFSET"
 // @Param   inventory_id query string true "Inventory ID"
@@ -547,7 +675,7 @@ func (h *InventoryHandler) InventoryDetailExport(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"Код", "Наименования", "УП", "Кол-во", "Кол-во", "Сумма", "Кол-во", "Кол-во", "Сумма", "Кол-во", "Кол-во", "Сумма"}
+	headers := []string{"Код", "Наименования", "УП", "Програм Кол-во", "Програм Кол-во", "Програм Сумма", "Факт Кол-во", "Факт Кол-во", "Факт Сумма", "Разница Кол-во", "Разница Кол-во", "Разница Сумма"}
 
 	headerStyle, err := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{
@@ -584,14 +712,31 @@ func (h *InventoryHandler) InventoryDetailExport(c *gin.Context) {
 		f.SetCellValue(sheetName, "L"+row, imp.DifferenceSum)
 	}
 
-	// Faylni HTTP response orqali yuborish
-	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	c.Header("Content-Disposition", "attachment; filename=import-detail.xlsx")
+	// Faylni uploads/ papkasiga UUID bilan saqlash
+	fileName := "inventory_details_" + time.Now().Add(time.Hour*5).Format("2006-01-02_15-04-05") + ".xlsx"
+	filePath := filepath.Join("uploads", fileName)
 
-	if err := f.Write(c.Writer); err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, "Failed to generate Excel file")
+	// uploads/ papkasi mavjud bo‘lmasa, yaratish
+	if _, err := os.Stat("uploads"); os.IsNotExist(err) {
+		err := os.Mkdir("uploads", os.ModePerm)
+		if err != nil {
+			h.log.Error("Failed to create uploads directory:", err)
+			handleResponse(c, InternalError, "Failed to create uploads folder")
+			return
+		}
 	}
+
+	// Faylni diskka yozish
+	if err := f.SaveAs(filePath); err != nil {
+		h.log.Error("Failed to save Excel file:", err)
+		handleResponse(c, InternalError, "Failed to save Excel file")
+		return
+	}
+
+	// Foydalanuvchiga file path yoki URLni qaytarish
+	handleResponse(c, OK, gin.H{
+		"file_name": fileName,
+	})
 
 }
 

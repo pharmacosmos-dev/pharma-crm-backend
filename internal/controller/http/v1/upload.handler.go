@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -135,7 +137,6 @@ func (h *UploadHandler) ServeFile(c *gin.Context) {
 // @Success 200 {file} file "File content"
 // @Router /upload/excel/{xlsx} [get]
 func (h *UploadHandler) ServeExcelFile(c *gin.Context) {
-	// Get the filename from the query or route parameter
 	xlsx := c.Param("xlsx")
 	if xlsx == "" {
 		h.log.Warn("Filename not provided: %v", xlsx)
@@ -143,16 +144,35 @@ func (h *UploadHandler) ServeExcelFile(c *gin.Context) {
 		return
 	}
 
-	// Construct the full file path
-	filePath := filepath.Join("./app/uploads", xlsx)
+	filePath := filepath.Join("./uploads", xlsx)
 
-	// Check if the file exists
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		h.log.Warn("File not found: %v", err.Error())
-		handleResponse(c, NotFound, "File not found")
+	file, err := os.Open(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			h.log.Warn("File not found: %v", err.Error())
+			handleResponse(c, NotFound, "File not found")
+			return
+		}
+		h.log.Error("Error opening file: %v", err)
+		handleResponse(c, InternalError, "Could not open file")
+		return
+	}
+	defer file.Close()
+
+	// Set the headers
+	c.Header("Content-Description", "File Transfer")
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", xlsx))
+	c.Header("Content-Type", "application/octet-stream")
+
+	// Stream the file to the client
+	if _, err := io.Copy(c.Writer, file); err != nil {
+		h.log.Error("Error writing file to response: %v", err)
+		handleResponse(c, InternalError, "Could not send file")
 		return
 	}
 
-	// Serve the file
-	c.File(filePath)
+	// Remove the file after sending
+	if err := os.Remove(filePath); err != nil {
+		h.log.Error("Error deleting file after send: %v", err)
+	}
 }

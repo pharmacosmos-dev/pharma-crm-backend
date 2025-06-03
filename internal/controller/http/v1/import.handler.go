@@ -3,6 +3,8 @@ package v1
 import (
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -162,7 +164,7 @@ func (h *ImportHandler) List(c *gin.Context) {
 // @Tags imports
 // @Security     BearerAuth
 // @Accept json
-// @Produce application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+// @Produce json
 // @Param 	limit query int false "Limit"
 // @Param 	offset query int false "Offset"
 // @Param   search query string false "Search"
@@ -245,14 +247,31 @@ func (h *ImportHandler) ExportImportExcel(c *gin.Context) {
 
 	}
 
-	// Faylni HTTP response orqali yuborish
-	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	c.Header("Content-Disposition", "attachment; filename=imports.xlsx")
+	// Faylni uploads/ papkasiga UUID bilan saqlash
+	fileName := "Imports_" + time.Now().Add(time.Hour*5).Format("2006-01-02_15-04-05") + ".xlsx"
+	filePath := filepath.Join("uploads", fileName)
 
-	if err := f.Write(c.Writer); err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, "Failed to generate Excel file")
+	// uploads/ papkasi mavjud bo‘lmasa, yaratish
+	if _, err := os.Stat("uploads"); os.IsNotExist(err) {
+		err := os.Mkdir("uploads", os.ModePerm)
+		if err != nil {
+			h.log.Error("Failed to create uploads directory:", err)
+			handleResponse(c, InternalError, "Failed to create uploads folder")
+			return
+		}
 	}
+
+	// Faylni diskka yozish
+	if err := f.SaveAs(filePath); err != nil {
+		h.log.Error("Failed to save Excel file:", err)
+		handleResponse(c, InternalError, "Failed to save Excel file")
+		return
+	}
+
+	// Foydalanuvchiga file path yoki URLni qaytarish
+	handleResponse(c, OK, gin.H{
+		"file_name": fileName,
+	})
 }
 
 // Create godoc
@@ -339,7 +358,7 @@ func (h *ImportHandler) ListImportDetail(c *gin.Context) {
 // @Tags import_details
 // @Security     BearerAuth
 // @Accept json
-// @Produce application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+// @Produce json
 // @Param 	limit query int false "Limit"
 // @Param 	offset query int false "Offset"
 // @Param   search query string false "Search"
@@ -377,7 +396,7 @@ func (h *ImportHandler) ExportImporDetailExcel(c *gin.Context) {
 
 	// Excel fayl yaratish
 	f := excelize.NewFile()
-	sheetName := "ImportDetails"
+	sheetName := "List1"
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
@@ -421,14 +440,31 @@ func (h *ImportHandler) ExportImporDetailExcel(c *gin.Context) {
 		f.SetCellValue(sheetName, "O"+row, imp.CreatedAt.Format(time.DateTime))
 	}
 
-	// Faylni HTTP response orqali yuborish
-	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	c.Header("Content-Disposition", "attachment; filename=import-detail.xlsx")
+	// Faylni uploads/ papkasiga UUID bilan saqlash
+	fileName := "import_details_" + time.Now().Add(time.Hour*5).Format("2006-01-02_15-04-05") + ".xlsx"
+	filePath := filepath.Join("uploads", fileName)
 
-	if err := f.Write(c.Writer); err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, "Failed to generate Excel file")
+	// uploads/ papkasi mavjud bo‘lmasa, yaratish
+	if _, err := os.Stat("uploads"); os.IsNotExist(err) {
+		err := os.Mkdir("uploads", os.ModePerm)
+		if err != nil {
+			h.log.Error("Failed to create uploads directory:", err)
+			handleResponse(c, InternalError, "Failed to create uploads folder")
+			return
+		}
 	}
+
+	// Faylni diskka yozish
+	if err := f.SaveAs(filePath); err != nil {
+		h.log.Error("Failed to save Excel file:", err)
+		handleResponse(c, InternalError, "Failed to save Excel file")
+		return
+	}
+
+	// Foydalanuvchiga file path yoki URLni qaytarish
+	handleResponse(c, OK, gin.H{
+		"file_name": fileName,
+	})
 
 }
 
