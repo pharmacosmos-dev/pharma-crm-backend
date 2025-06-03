@@ -880,6 +880,7 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 
 		// check payme exists
 		salePayment := h.service.GetPaymeSalePayment(sale.ID)
+		fmt.Println("RECEIPT ID : ", salePayment.ReceiptId)
 		// set fiscal data if payment completed with payme
 		if salePayment.ReceiptId != "" {
 			var paymentService domain.PaymentService

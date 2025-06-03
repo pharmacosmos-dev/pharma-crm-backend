@@ -138,6 +138,7 @@ func (s *Services) PaymeGo(ctx context.Context, tx *gorm.DB, paymentService *dom
 		s.log.Error("Failed to create receipt: %v", err)
 		return nil, fmt.Errorf("receipt creation failed: %w", err)
 	}
+	fmt.Println("RECEIPT CREATE RESPONSE: ", createRes.Result.Receipt.ID)
 
 	// Validate receipt creation response
 	if createRes.Error != nil {
@@ -167,6 +168,8 @@ func (s *Services) PaymeGo(ctx context.Context, tx *gorm.DB, paymentService *dom
 		s.cancelReceiptWithLog(ctx, paymentService, transactionID, saleID, receiptID)
 		return nil, fmt.Errorf("receipt payment failed: %w", err)
 	}
+
+	fmt.Println("RECEIPT PAY RESPONSE: ", payRes.Result.Receipt)
 
 	// Validate payment response
 	if payRes.Error != nil {
