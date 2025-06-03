@@ -240,7 +240,6 @@ func (s *Services) ProductReport(param *domain.ReportQueryParam) ([]domain.Produ
 		s.log.Warn("ERROR on getting product report total count: %v", err)
 		return res, 0, nil
 	}
-	fmt.Println("Total Count: ", totalCount)
 
 	query = query + filter + order + pagination
 	err = s.db.Raw(query, args...).Scan(&res).Error

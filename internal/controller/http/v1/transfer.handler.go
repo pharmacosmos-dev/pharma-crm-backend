@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -180,7 +182,7 @@ func (h *TransferHandler) List(c *gin.Context) {
 // @Tags Transfer
 // @Security     BearerAuth
 // @Accept json
-// @Produce application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+// @Produce json
 // @Param 	limit query int false "LIMIT"
 // @Param 	offset query int false "OFFSET"
 // @Param   store_id query string false "STORE ID"
@@ -299,15 +301,32 @@ func (h *TransferHandler) ExportTransferExcel(c *gin.Context) {
 		}
 
 	}
+	// Faylni uploads/ papkasiga UUID bilan saqlash
+	fileName := "Transferlar_" + time.Now().Add(time.Hour*5).Format("2006-01-02_15-04-05") + ".xlsx"
+	filePath := filepath.Join("uploads", fileName)
 
-	// Faylni HTTP response orqali yuborish
-	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	c.Header("Content-Disposition", "attachment; filename=return.xlsx")
-
-	if err := f.Write(c.Writer); err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, "Failed to generate Excel file")
+	// uploads/ papkasi mavjud bo‘lmasa, yaratish
+	if _, err := os.Stat("uploads"); os.IsNotExist(err) {
+		err := os.Mkdir("uploads", os.ModePerm)
+		if err != nil {
+			h.log.Error("Failed to create uploads directory:", err)
+			handleResponse(c, InternalError, "Failed to create uploads folder")
+			return
+		}
 	}
+
+	// Faylni diskka yozish
+	if err := f.SaveAs(filePath); err != nil {
+		h.log.Error("Failed to save Excel file:", err)
+		handleResponse(c, InternalError, "Failed to save Excel file")
+		return
+	}
+
+	// Foydalanuvchiga file path yoki URLni qaytarish
+	handleResponse(c, OK, gin.H{
+		"file_name": fileName,
+	})
+
 }
 
 // Add product by barcode
@@ -484,22 +503,8 @@ func (h *TransferHandler) TransferDetailList(c *gin.Context) {
 		handleResponse(c, InternalError, "Failed to get return detail list")
 		return
 	}
-	// get return details status count
-	statsCount, err := h.service.TransferDetailStatsCount(&param)
-	if err != nil {
-		handleResponse(c, InternalError, "Failed to get return detail stats count")
-		return
-	}
-	data := map[string]any{
-		"_meta": utils.Meta{
-			TotalCount:  totalCount,
-			PerPage:     param.Limit,
-			CurrentPage: (param.Offset / param.Limit) + 1,
-			PageCount:   int((totalCount + int64(param.Limit) - 1) / int64(param.Limit)),
-		},
-		"stats_count": statsCount,
-		"data":        res,
-	}
+
+	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
 
 	handleResponse(c, OK, data)
 }
@@ -576,14 +581,30 @@ func (h *TransferHandler) ExportTransferDetailList(c *gin.Context) {
 		f.SetCellValue(sheetName, "J"+row, r.ScannedSum)
 
 	}
+	// Faylni uploads/ papkasiga UUID bilan saqlash
+	fileName := "Transfer_mahsulotlar_" + time.Now().Add(time.Hour*5).Format("2006-01-02_15-04-05") + ".xlsx"
+	filePath := filepath.Join("uploads", fileName)
 
-	// Faylni HTTP response orqali yuborish
-	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	c.Header("Content-Disposition", "attachment; filename=return-detail.xlsx")
-
-	if err := f.Write(c.Writer); err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, "Failed to generate Excel file")
+	// uploads/ papkasi mavjud bo‘lmasa, yaratish
+	if _, err := os.Stat("uploads"); os.IsNotExist(err) {
+		err := os.Mkdir("uploads", os.ModePerm)
+		if err != nil {
+			h.log.Error("Failed to create uploads directory:", err)
+			handleResponse(c, InternalError, "Failed to create uploads folder")
+			return
+		}
 	}
+
+	// Faylni diskka yozish
+	if err := f.SaveAs(filePath); err != nil {
+		h.log.Error("Failed to save Excel file:", err)
+		handleResponse(c, InternalError, "Failed to save Excel file")
+		return
+	}
+
+	// Foydalanuvchiga file path yoki URLni qaytarish
+	handleResponse(c, OK, gin.H{
+		"file_name": fileName,
+	})
 
 }

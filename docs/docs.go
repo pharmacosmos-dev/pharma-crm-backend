@@ -2708,7 +2708,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "produces": [
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    "application/json"
                 ],
                 "tags": [
                     "customers"
@@ -4229,7 +4229,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "produces": [
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    "application/json"
                 ],
                 "tags": [
                     "employees"
@@ -4265,7 +4265,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "file"
+                            "$ref": "#/definitions/v1.Response"
                         }
                     },
                     "400": {
@@ -6524,7 +6524,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "produces": [
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    "application/json"
                 ],
                 "tags": [
                     "import_details"
@@ -6898,7 +6898,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "produces": [
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    "application/json"
                 ],
                 "tags": [
                     "imports"
@@ -10938,7 +10938,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "produces": [
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    "application/json"
                 ],
                 "tags": [
                     "Report"
@@ -11302,7 +11302,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "produces": [
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    "application/json"
                 ],
                 "tags": [
                     "Report"
@@ -11577,7 +11577,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "produces": [
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    "application/json"
                 ],
                 "tags": [
                     "Report"
@@ -12329,7 +12329,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "produces": [
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    "application/json"
                 ],
                 "tags": [
                     "Return"
@@ -13600,7 +13600,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "produces": [
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    "application/json"
                 ],
                 "tags": [
                     "sales"
@@ -14742,6 +14742,72 @@ const docTemplate = `{
                 }
             }
         },
+        "/store/export-excel": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get a store export in Excel format",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "stores"
+                ],
+                "summary": "Get a store export in Excel format",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Product ID",
+                        "name": "product_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/store/list": {
             "get": {
                 "security": [
@@ -15632,7 +15698,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "produces": [
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    "application/json"
                 ],
                 "tags": [
                     "Transfer"
@@ -16591,7 +16657,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "produces": [
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    "application/json"
                 ],
                 "tags": [
                     "Write-Off"

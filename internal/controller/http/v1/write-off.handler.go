@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -97,7 +99,7 @@ func (h *WriteOffHandler) Create(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /write-off/{id} [GET]
 func (h *WriteOffHandler) Get(c *gin.Context) {
-	// get inventory by id
+	// get writeoff by id
 	id := c.Param("id")
 	// validate  uuid
 	if err := uuid.Validate(id); err != nil {
@@ -116,8 +118,8 @@ func (h *WriteOffHandler) Get(c *gin.Context) {
 }
 
 // Get List
-// @Summary Get inventory list
-// @Description Get inventory list
+// @Summary Get WriteOff list
+// @Description Get WriteOff list
 // @Tags Write-Off
 // @Security     BearerAuth
 // @Accept 	json
@@ -150,12 +152,12 @@ func (h *WriteOffHandler) List(c *gin.Context) {
 }
 
 // Get List
-// @Summary Get inventory list
-// @Description Get inventory list
+// @Summary Get Write Off export excel
+// @Description Get Write Off export excel
 // @Tags Write-Off
 // @Security     BearerAuth
 // @Accept 	json
-// @Produce application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+// @Produce json
 // @Param 	limit query int false "LIMIT"
 // @Param 	offset query int false "OFFSET"
 // @Param   store_id query string false "STORE ID"
@@ -181,7 +183,7 @@ func (h *WriteOffHandler) ExportExcel(c *gin.Context) {
 	}
 	// Excel fayl yaratish
 	f := excelize.NewFile()
-	sheetName := "Write-Off"
+	sheetName := "List"
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
@@ -233,14 +235,31 @@ func (h *WriteOffHandler) ExportExcel(c *gin.Context) {
 		f.SetCellValue(sheetName, "K"+row, v.UpdatedAt.Format(time.DateTime))
 	}
 
-	// Faylni HTTP response orqali yuborish
-	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	c.Header("Content-Disposition", "attachment; filename=write-off.xlsx")
+	// Faylni uploads/ nomi bilan saqlash
+	fileName := "Hisobdan_chiqarish_" + time.Now().Add(time.Hour*5).Format("2006-01-02_15-04-05") + ".xlsx"
+	filePath := filepath.Join("uploads", fileName)
 
-	if err := f.Write(c.Writer); err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, "Failed to generate Excel file")
+	// uploads/ papkasi mavjud bo‘lmasa, yaratish
+	if _, err := os.Stat("uploads"); os.IsNotExist(err) {
+		err := os.Mkdir("uploads", os.ModePerm)
+		if err != nil {
+			h.log.Error("Failed to create uploads directory:", err)
+			handleResponse(c, InternalError, "Failed to create uploads folder")
+			return
+		}
 	}
+
+	// Faylni diskka yozish
+	if err := f.SaveAs(filePath); err != nil {
+		h.log.Error("Failed to save Excel file:", err)
+		handleResponse(c, InternalError, "Failed to save Excel file")
+		return
+	}
+
+	// Foydalanuvchiga file path yoki URLni qaytarish
+	handleResponse(c, OK, gin.H{
+		"file_name": fileName,
+	})
 }
 
 // confirm Write-Off
@@ -258,7 +277,7 @@ func (h *WriteOffHandler) ExportExcel(c *gin.Context) {
 func (h *WriteOffHandler) Confirm(c *gin.Context) {
 	id := c.Param("id")
 	if err := uuid.Validate(id); err != nil {
-		handleResponse(c, BadRequest, "Invalid inventory id")
+		handleResponse(c, BadRequest, "Invalid write-off id")
 		return
 	}
 	userId, ok := c.Get("user_id")
@@ -266,7 +285,7 @@ func (h *WriteOffHandler) Confirm(c *gin.Context) {
 		handleResponse(c, UNAUTHORIZED, "user id not found from the context")
 		return
 	}
-	// confirm inventory service
+	// confirm write-off service
 	err := h.service.ConfirmWriteOff(id, userId.(string))
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to confirm write-off")
@@ -290,7 +309,7 @@ func (h *WriteOffHandler) Confirm(c *gin.Context) {
 // @Router /write-off/cancel/{id} [POST]
 func (h *WriteOffHandler) Cancel(c *gin.Context) {
 	var id = c.Param("id")
-	// validate inventory id
+	// validate write-off id
 	if err := uuid.Validate(id); err != nil {
 		handleResponse(c, BadRequest, "Invalid write-off id")
 		return
@@ -301,7 +320,7 @@ func (h *WriteOffHandler) Cancel(c *gin.Context) {
 		handleResponse(c, UNAUTHORIZED, "user id not found from the context")
 		return
 	}
-	// confirm inventory service
+	// confirm write-off service
 	err := h.service.CancelWriteOff(id, userId.(string))
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to confirm write-off")
@@ -379,7 +398,7 @@ func (h *WriteOffHandler) WriteOffDetailExportExcel(c *gin.Context) {
 	}
 	// Excel fayl yaratish
 	f := excelize.NewFile()
-	sheetName := "WriteOff-Detail"
+	sheetName := "List"
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
@@ -417,14 +436,32 @@ func (h *WriteOffHandler) WriteOffDetailExportExcel(c *gin.Context) {
 		f.SetCellValue(sheetName, "F"+row, v.ScannedCount)
 	}
 
-	// Faylni HTTP response orqali yuborish
-	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	c.Header("Content-Disposition", "attachment; filename=write-off-detail.xlsx")
+	// Faylni uploads/ papkasiga UUID bilan saqlash
+	fileName := "Hisobdan_chiqarilgan_mahsulotlar_" + time.Now().Add(time.Hour*5).Format("2006-01-02_15-04-05") + ".xlsx"
+	filePath := filepath.Join("uploads", fileName)
 
-	if err := f.Write(c.Writer); err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, "Failed to generate Excel file")
+	// uploads/ papkasi mavjud bo‘lmasa, yaratish
+	if _, err := os.Stat("uploads"); os.IsNotExist(err) {
+		err := os.Mkdir("uploads", os.ModePerm)
+		if err != nil {
+			h.log.Error("Failed to create uploads directory:", err)
+			handleResponse(c, InternalError, "Failed to create uploads folder")
+			return
+		}
 	}
+
+	// Faylni diskka yozish
+	if err := f.SaveAs(filePath); err != nil {
+		h.log.Error("Failed to save Excel file:", err)
+		handleResponse(c, InternalError, "Failed to save Excel file")
+		return
+	}
+
+	// Foydalanuvchiga file path yoki URLni qaytarish
+	handleResponse(c, OK, gin.H{
+		"file_name": fileName,
+	})
+
 }
 
 // Add product by barcode

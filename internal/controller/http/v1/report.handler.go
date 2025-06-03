@@ -702,7 +702,7 @@ func (h *ReportHandler) StoreReportAmountExport(c *gin.Context) {
 	}
 
 	// Faylni uploads/ papkasiga UUID bilan saqlash
-	fileName := "Filial_reports_" + time.Now().Add(time.Hour*5).Format("2006-01-02_15-04-05") + ".xlsx"
+	fileName := "Filial_hisoboti_" + time.Now().Add(time.Hour*5).Format("2006-01-02_15-04-05") + ".xlsx"
 	filePath := filepath.Join("uploads", fileName)
 
 	// uploads/ papkasi mavjud bo‘lmasa, yaratish

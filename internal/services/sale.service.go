@@ -223,7 +223,7 @@ func (s *Services) UpdateSaleFieldValue(saleID string, field, value string) erro
 }
 
 // complete sale
-func (s *Services) CompleteSale(tx *gorm.DB, sale *domain.Sale, epos *domain.EposSuccessResponse) error {
+func (s *Services) CompleteSale(tx *gorm.DB, sale *domain.Sale) error {
 	var err error
 	if sale.SaleType == config.SALE_TYPE_SALE {
 		// reduce store_product quantities and add employee bonus
@@ -245,15 +245,42 @@ func (s *Services) CompleteSale(tx *gorm.DB, sale *domain.Sale, epos *domain.Epo
 	SET
 		total_amount = (SELECT SUM(total_price)-SUM(discount_amount) FROM cart_items WHERE sale_id = ?),
 		total_discount = (SELECT SUM(discount_amount) FROM cart_items WHERE sale_id = ?),
-		status = ?, fiscal_sign = ?, completed_at = NOW(), updated_at = NOW()
+		status = ?, completed_at = NOW(), updated_at = NOW()
 	WHERE id = ?
 	`
 	// complete the query
-	err = tx.Exec(query, sale.ID, sale.ID, config.COMPLETED, epos.Info.FiscalSign, sale.ID).Error
+	err = tx.Exec(query, sale.ID, sale.ID, config.COMPLETED, sale.ID).Error
 	if err != nil {
 		s.log.Warn("ERROR on update sale to completed: %v", err)
 		return err
 	}
+	return nil
+}
+
+// return sale to pending status and reset quantities
+func (s *Services) ReturnSale(tx *gorm.DB, sale *domain.Sale) error {
+	err := s.RestoreStoreProductQuantities(tx, sale)
+	if err != nil {
+		s.log.Warn("ERROR on restoring store_product quantity: %v", err)
+		return err
+	}
+
+	// build query for update sale status to return
+	query := `
+	UPDATE sales
+	SET
+		total_amount = 0,
+		total_discount = 0,
+		status = ?, completed_at = NULL, updated_at = NOW()
+	WHERE id = ?
+	`
+	// complete the query
+	err = tx.Exec(query, config.PENDING, sale.ID).Error
+	if err != nil {
+		s.log.Warn("ERROR on update sale to returned: %v", err)
+		return err
+	}
+
 	return nil
 }
 
@@ -529,4 +556,13 @@ func (s *Services) GetPaymeSalePayment(saleID string) *domain.SalePayment {
 		return &salePayment
 	}
 	return &salePayment
+}
+
+func (s *Services) SetFiscalId(saleID string, fiscalID string) error {
+	err := s.db.Exec(`UPDATE sales SET fiscal_sign = ?, updated_at = NOW() WHERE id = ?`, fiscalID, saleID).Error
+	if err != nil {
+		s.log.Warn("ERROR on setting fiscal_id: %v", err)
+		return err
+	}
+	return nil
 }

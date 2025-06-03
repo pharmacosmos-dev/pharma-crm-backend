@@ -2701,7 +2701,7 @@
                     "application/json"
                 ],
                 "produces": [
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    "application/json"
                 ],
                 "tags": [
                     "customers"
@@ -4222,7 +4222,7 @@
                     "application/json"
                 ],
                 "produces": [
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    "application/json"
                 ],
                 "tags": [
                     "employees"
@@ -4258,7 +4258,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "file"
+                            "$ref": "#/definitions/v1.Response"
                         }
                     },
                     "400": {
@@ -6517,7 +6517,7 @@
                     "application/json"
                 ],
                 "produces": [
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    "application/json"
                 ],
                 "tags": [
                     "import_details"
@@ -6891,7 +6891,7 @@
                     "application/json"
                 ],
                 "produces": [
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    "application/json"
                 ],
                 "tags": [
                     "imports"
@@ -10931,7 +10931,7 @@
                     "application/json"
                 ],
                 "produces": [
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    "application/json"
                 ],
                 "tags": [
                     "Report"
@@ -11295,7 +11295,7 @@
                     "application/json"
                 ],
                 "produces": [
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    "application/json"
                 ],
                 "tags": [
                     "Report"
@@ -11570,7 +11570,7 @@
                     "application/json"
                 ],
                 "produces": [
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    "application/json"
                 ],
                 "tags": [
                     "Report"
@@ -12322,7 +12322,7 @@
                     "application/json"
                 ],
                 "produces": [
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    "application/json"
                 ],
                 "tags": [
                     "Return"
@@ -13593,7 +13593,7 @@
                     "application/json"
                 ],
                 "produces": [
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    "application/json"
                 ],
                 "tags": [
                     "sales"
@@ -14735,6 +14735,72 @@
                 }
             }
         },
+        "/store/export-excel": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get a store export in Excel format",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "stores"
+                ],
+                "summary": "Get a store export in Excel format",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Product ID",
+                        "name": "product_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/store/list": {
             "get": {
                 "security": [
@@ -15625,7 +15691,7 @@
                     "application/json"
                 ],
                 "produces": [
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    "application/json"
                 ],
                 "tags": [
                     "Transfer"
@@ -16584,7 +16650,7 @@
                     "application/json"
                 ],
                 "produces": [
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    "application/json"
                 ],
                 "tags": [
                     "Write-Off"

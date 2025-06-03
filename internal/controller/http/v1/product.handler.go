@@ -434,7 +434,7 @@ func (h *ProductHandler) ExportProductExcel(c *gin.Context) {
 	}
 
 	// Faylni uploads/ papkasiga UUID bilan saqlash
-	fileName := "Все_остатки_" + time.Now().Add(time.Hour*5).Format("2006-01-02_15-04-05") + ".xlsx"
+	fileName := "Barcha_mahslulotlar_" + time.Now().Add(time.Hour*5).Format("2006-01-02_15-04-05") + ".xlsx"
 	filePath := filepath.Join("uploads", fileName)
 
 	// uploads/ papkasi mavjud bo‘lmasa, yaratish

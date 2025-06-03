@@ -5,7 +5,6 @@ import (
 
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
-	"github.com/pharma-crm-backend/pkg/utils"
 )
 
 // Create inventory creates a new inventory
@@ -145,16 +144,7 @@ func (s *Services) TransferDetailList(param *domain.ReturnDetailParam) ([]domain
 		Where("transfer_details.transfer_id = ?", param.ReturnId)
 
 	if param.Search != "" {
-		switch utils.DefineProductSearchQuery(param.Search) {
-		case "barcode":
-			query = query.Where("p.barcode = ?", param.Search)
-		case "name/category":
-			param.Search = fmt.Sprintf("%%%s%%", param.Search)
-			query = query.Where("p.name ILIKE ?", param.Search)
-		default:
-			param.Search = fmt.Sprintf("%%%s%%", param.Search)
-			query = query.Where("p.name ILIKE ? OR p.barcode LIKE ?", param.Search, param.Search)
-		}
+		query = query.Where("p.name ILIKE ? OR p.barcode LIKE ?", "%"+param.Search+"%", "%"+param.Search+"%")
 	}
 	// filter with inventory stats
 	if param.Type != "" {

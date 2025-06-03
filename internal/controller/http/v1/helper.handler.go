@@ -324,7 +324,9 @@ func (h *HelperHandler) EposTransmitter(c *gin.Context) {
 		return
 	}
 
-	client := &http.Client{}
+	client := &http.Client{
+		Timeout: 30 * time.Second, // Set a timeout for the request
+	}
 	buf := bytes.Buffer{}
 
 	// Encode data to JSON
@@ -350,7 +352,6 @@ func (h *HelperHandler) EposTransmitter(c *gin.Context) {
 	}
 	defer resp.Body.Close()
 	var res any
-
 	err = json.NewDecoder(resp.Body).Decode(&res)
 	if err != nil {
 		h.log.Warn("ERROR on decoding epos response %v", err)

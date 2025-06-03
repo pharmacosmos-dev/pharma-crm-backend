@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -309,7 +311,7 @@ func (h *SaleHandler) List(c *gin.Context) {
 // @Tags sales
 // @Security     BearerAuth
 // @Accept 	json
-// @Produce application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+// @Produce json
 // @Param limit query int false "Limit"
 // @Param offset query int false "Offset"
 // @Param vendor_id query string false "Vendor ID"
@@ -351,7 +353,7 @@ func (h *SaleHandler) ExportSaleExcel(c *gin.Context) {
 
 	// Excel fayl yaratish
 	f := excelize.NewFile()
-	sheetName := "Sales"
+	sheetName := "List1"
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
@@ -402,14 +404,31 @@ func (h *SaleHandler) ExportSaleExcel(c *gin.Context) {
 
 	}
 
-	// Faylni HTTP response orqali yuborish
-	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	c.Header("Content-Disposition", "attachment; filename=sales.xlsx")
+	// Faylni uploads/ papkasiga UUID bilan saqlash
+	fileName := "Barcha_sotuvlar_" + time.Now().Add(time.Hour*5).Format("2006-01-02_15-04-05") + ".xlsx"
+	filePath := filepath.Join("uploads", fileName)
 
-	if err := f.Write(c.Writer); err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, "Failed to generate Excel file")
+	// uploads/ papkasi mavjud bo‘lmasa, yaratish
+	if _, err := os.Stat("uploads"); os.IsNotExist(err) {
+		err := os.Mkdir("uploads", os.ModePerm)
+		if err != nil {
+			h.log.Error("Failed to create uploads directory:", err)
+			handleResponse(c, InternalError, "Failed to create uploads folder")
+			return
+		}
 	}
+
+	// Faylni diskka yozish
+	if err := f.SaveAs(filePath); err != nil {
+		h.log.Error("Failed to save Excel file:", err)
+		handleResponse(c, InternalError, "Failed to save Excel file")
+		return
+	}
+
+	// Foydalanuvchiga file path yoki URLni qaytarish
+	handleResponse(c, OK, gin.H{
+		"file_name": fileName,
+	})
 
 }
 
@@ -689,11 +708,12 @@ func (h *SaleHandler) ProccessingSale(c *gin.Context) {
 		}
 	}
 
-	// update sale status to processing
-	err = h.db.Exec(`UPDATE sales SET status = ?, customer_id = ? WHERE id = ?`, config.PROCESSING, body.CustomerID, body.SaleID).Error
+	// complete sale
+	err = h.service.CompleteSale(tx, &sale)
 	if err != nil {
-		h.log.Warn("ERROR on updating sale status to processing: %v", err)
-		handleResponse(c, InternalError, "Can't update sale status to processing")
+		h.log.Error("ERROR on completing sale: ", err)
+		handleResponse(c, InternalError, "Failed to complete sale")
+		tx.Rollback()
 		return
 	}
 
@@ -704,7 +724,7 @@ func (h *SaleHandler) ProccessingSale(c *gin.Context) {
 		return
 	}
 
-	handleResponse(c, OK, "PROCESSED")
+	handleResponse(c, OK, "COMPLETED")
 }
 
 // Process payment type
@@ -833,8 +853,8 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 			handleResponse(c, InternalError, "Failed remove sale_payments")
 			return
 		}
-		// update sale status to pending
-		err = h.service.UpdateSaleFieldValue(body.SaleId, "status", config.PENDING)
+		// return sale status and quantities
+		err = h.service.ReturnSale(tx, &sale)
 		if err != nil {
 			tx.Rollback()
 			h.log.Warn("Failed to update sale status: %v", err)
@@ -850,11 +870,11 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 			return
 		}
 		// update sale status to completed
-		err = h.service.CompleteSale(tx, &sale, &successResp)
+		err = h.service.SetFiscalId(sale.ID, successResp.Info.FiscalSign)
 		if err != nil {
 			h.log.Warn("Failed to complete sale status: %v", err)
-			handleResponse(c, InternalError, "Failed to complete sale status")
 			tx.Rollback()
+			handleResponse(c, InternalError, "Failed to complete sale status")
 			return
 		}
 
@@ -895,16 +915,16 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 		})
 		if err != nil {
 			h.log.Warn("ERROR on creating new sale: %v", err)
-			handleResponse(c, InternalError, "Can't create new sale")
 			tx.Rollback()
+			handleResponse(c, InternalError, "Can't create new sale")
 			return
 		}
 
 		// Commit transaction before responding
 		if err = tx.Commit().Error; err != nil {
 			h.log.Warn("ERROR on commiting transaction: %v", err)
-			handleResponse(c, InternalError, "Transaction not completed")
 			tx.Rollback()
+			handleResponse(c, InternalError, "Transaction not completed")
 			return
 		}
 		handleResponse(c, CREATED, res)

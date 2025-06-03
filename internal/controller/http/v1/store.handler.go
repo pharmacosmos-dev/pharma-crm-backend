@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -29,6 +30,7 @@ func (h *StoreHandler) StoreRoutes(r *gin.RouterGroup) {
 		store.POST("", h.Create)
 		store.GET("/:id", h.Get)
 		store.GET("/list", h.List)
+		store.GET("/export-excel", h.ExportExcel)
 		store.PUT("/:id", h.Update)
 		store.DELETE("/:id", h.Delete)
 		store.POST("/excel-upload", h.UploadExcel)
@@ -199,6 +201,136 @@ func (h *StoreHandler) List(c *gin.Context) {
 		},
 		"data": res,
 		"ids":  ids,
+	})
+}
+
+// List godoc
+// @Summary Get a store export in Excel format
+// @Description Get a store export in Excel format
+// @Tags stores
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Param search query string false "Search"
+// @Param product_id query string false "Product ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /store/export-excel [get]
+func (h *StoreHandler) ExportExcel(c *gin.Context) {
+	var (
+		res        []domain.StoreWithProducts
+		totalCount int64
+		search     = c.Query("search")
+		productID  = c.Query("product_id")
+	)
+	limit, offset, err := getPaginationParams(c)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	query := h.db.
+		Model(&domain.StoreWithProducts{}).Table("stores s")
+	if productID != "" {
+		query = query.Select(`
+		s.*, 
+		COALESCE(sp.pack_quantity, 0) AS pack_quantity, 
+		sp.small_quantity,
+		sp.expire_date, sp.vat, sp.markup, sp.retail_price, 
+		sp.supply_price, sp.bonus_percent
+	`).
+			Joins(`
+		LEFT JOIN (
+			SELECT DISTINCT ON (sp.store_id) sp.*
+			FROM store_products sp
+			WHERE sp.product_id = ?
+			ORDER BY sp.store_id, sp.created_at DESC
+		) sp ON s.id = sp.store_id
+	`, productID)
+	}
+	if search != "" {
+		search = fmt.Sprintf("%%%s%%", search)
+		query = query.Where("s.name ILIKE ?", search)
+	}
+
+	err = query.
+		Where("s.is_active = ?", true).
+		Count(&totalCount).
+		Limit(limit).
+		Offset(offset).
+		Order("s.store_code DESC").
+		Find(&res).Error
+
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	// Create excel file
+	f := excelize.NewFile()
+	sheetName := "List"
+	f.SetSheetName("Sheet1", sheetName)
+
+	// Headerlar
+	headers := []string{"ID", "Наименование", "Режим работы", "Адрес", "Телефон"}
+
+	headerStyle, err := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Bold:  true,
+			Color: "000000",
+		},
+	})
+	if err != nil {
+		h.log.Error("Failed to create style:", err)
+		handleResponse(c, InternalError, "Error on giving style to excel")
+		return
+	}
+
+	for i, h := range headers {
+		col := string(rune('A'+i)) + "1"
+		f.SetCellValue(sheetName, col, h)
+		f.SetCellStyle(sheetName, col, col, headerStyle)
+	}
+
+	// Ma'lumotlarni qo'shish
+	for i, r := range res {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheetName, "A"+row, r.StoreCode)
+		f.SetCellValue(sheetName, "B"+row, r.Name)
+		f.SetCellValue(sheetName, "C"+row, r.WorkHours)
+		f.SetCellValue(sheetName, "D"+row, r.Address)
+		f.SetCellValue(sheetName, "E"+row, r.Phone)
+	}
+
+	// Faylni uploads/ papkasiga UUID bilan saqlash
+	fileName := "Filiallar_" + time.Now().Add(time.Hour*5).Format("2006-01-02_15-04-05") + ".xlsx"
+	filePath := filepath.Join("uploads", fileName)
+
+	// uploads/ papkasi mavjud bo‘lmasa, yaratish
+	if _, err := os.Stat("uploads"); os.IsNotExist(err) {
+		err := os.Mkdir("uploads", os.ModePerm)
+		if err != nil {
+			h.log.Error("Failed to create uploads directory:", err)
+			handleResponse(c, InternalError, "Failed to create uploads folder")
+			return
+		}
+	}
+
+	// Faylni diskka yozish
+	if err := f.SaveAs(filePath); err != nil {
+		h.log.Error("Failed to save Excel file:", err)
+		handleResponse(c, InternalError, "Failed to save Excel file")
+		return
+	}
+
+	// Foydalanuvchiga file path yoki URLni qaytarish
+	handleResponse(c, OK, gin.H{
+		"file_name": fileName,
 	})
 }
 

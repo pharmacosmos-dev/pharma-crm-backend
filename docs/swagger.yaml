@@ -3027,7 +3027,7 @@ paths:
         name: store_id
         type: string
       produces:
-      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      - application/json
       responses:
         "200":
           description: OK
@@ -4011,12 +4011,12 @@ paths:
         name: status
         type: string
       produces:
-      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      - application/json
       responses:
         "200":
           description: OK
           schema:
-            type: file
+            $ref: '#/definitions/v1.Response'
         "400":
           description: Bad Request
           schema:
@@ -5443,7 +5443,7 @@ paths:
         name: no_marking
         type: boolean
       produces:
-      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      - application/json
       responses:
         "200":
           description: OK
@@ -5681,7 +5681,7 @@ paths:
         name: receive_amount_to
         type: integer
       produces:
-      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      - application/json
       responses:
         "200":
           description: OK
@@ -8227,7 +8227,7 @@ paths:
         name: order
         type: string
       produces:
-      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      - application/json
       responses:
         "200":
           description: OK
@@ -8457,7 +8457,7 @@ paths:
             type: string
           type: array
       produces:
-      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      - application/json
       responses:
         "200":
           description: OK
@@ -8636,7 +8636,7 @@ paths:
             type: string
           type: array
       produces:
-      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      - application/json
       responses:
         "200":
           description: OK
@@ -9171,7 +9171,7 @@ paths:
         name: status
         type: string
       produces:
-      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      - application/json
       responses:
         "200":
           description: OK
@@ -10000,7 +10000,7 @@ paths:
         name: total_amount_to
         type: integer
       produces:
-      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      - application/json
       responses:
         "200":
           description: OK
@@ -10717,6 +10717,48 @@ paths:
       summary: Upload a stores
       tags:
       - stores
+  /store/export-excel:
+    get:
+      consumes:
+      - application/json
+      description: Get a store export in Excel format
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Product ID
+        in: query
+        name: product_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a store export in Excel format
+      tags:
+      - stores
   /store/list:
     get:
       consumes:
@@ -11273,7 +11315,7 @@ paths:
         name: status
         type: string
       produces:
-      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      - application/json
       responses:
         "200":
           description: OK
@@ -11884,7 +11926,7 @@ paths:
         name: status
         type: string
       produces:
-      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      - application/json
       responses:
         "200":
           description: OK
