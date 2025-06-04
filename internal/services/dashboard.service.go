@@ -49,7 +49,7 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 				END) AS before_sale_amount
 
 		FROM sales
-		WHERE status = 'completed';`,
+		WHERE status = 'completed' `,
 			param.StartDate, param.EndDate, beforeStart, beforeEnd,
 			param.StartDate, param.EndDate, beforeStart, beforeEnd)
 		// get stock stats information
