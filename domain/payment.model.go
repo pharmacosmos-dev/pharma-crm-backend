@@ -202,10 +202,10 @@ type PaymeGoCancelParams struct {
 
 // PaymeGo response structures for proper handling
 type PaymeGoResponse struct {
-	JsonRPC string         `json:"jsonrpc"`
-	ID      int64          `json:"id"`
-	Result  *PaymeGoResult `json:"result,omitempty"`
-	Error   *PaymeGoError  `json:"error,omitempty"`
+	JsonRPC string        `json:"jsonrpc"`
+	ID      int64         `json:"id"`
+	Result  PaymeGoResult `json:"result,omitempty"`
+	Error   PaymeGoError  `json:"error,omitempty"`
 }
 
 type PaymeGoResult struct {

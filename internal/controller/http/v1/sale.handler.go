@@ -448,6 +448,7 @@ func (h *SaleHandler) ExportSaleExcel(c *gin.Context) {
 // @Param end_date query string false "End Date"
 // @Param total_amount_from query int false "Total Amount From"
 // @Param total_amount_to query int false "Total Amount To"
+// @Param sale_type query string false "Sale Type (SALE, RETURN)"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -542,7 +543,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 	// filter by start_date, end_date
 	if param.StartDate != "" && param.EndDate != "" {
 		args = append(args, param.StartDate, param.EndDate)
-		filter += " AND (s.completed_at + interval '5 hours')::date BETWEEN ? AND ?"
+		filter += " AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?"
 	}
 	// filter by total amount for less
 	if param.TotalAmountFrom > 0 {
@@ -558,6 +559,12 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 	if param.Search != "" {
 		param.Search = fmt.Sprintf("%%%s%%", param.Search)
 		filter += fmt.Sprintf(" AND CAST(s.sale_number AS TEXT) LIKE '%s'", param.Search)
+	}
+
+	// filter by sale type
+	if param.SaleType != "" {
+		filter += " AND s.sale_type = ? "
+		args = append(args, param.SaleType)
 	}
 	// collect total transactions query
 	squery = squery + join + " WHERE " + filter
@@ -652,7 +659,6 @@ func (h *SaleHandler) ProccessingSale(c *gin.Context) {
 		handleResponse(c, BadRequest, "at least one payment type is required")
 		return
 	}
-
 	// create transaction
 	tx := h.db.Begin()
 	defer func() {
@@ -700,10 +706,11 @@ func (h *SaleHandler) ProccessingSale(c *gin.Context) {
 
 	// process payment types
 	for _, item := range body.PaymentTypes {
-		if err = processPaymentType(tx, h, body, item); err != nil {
+
+		if err = processPaymentType(c.Request.Context(), tx, h, body, item); err != nil {
+			tx.Rollback()
 			h.log.Warn("ERROR on payment process: %v", err.Error())
 			handleResponse(c, InternalError, "Can't do payment process")
-			tx.Rollback()
 			return
 		}
 	}
@@ -728,12 +735,13 @@ func (h *SaleHandler) ProccessingSale(c *gin.Context) {
 }
 
 // Process payment type
-func processPaymentType(tx *gorm.DB, h *SaleHandler, body domain.FinalSale, item domain.FinalPaymentType) error {
+func processPaymentType(ctx context.Context, tx *gorm.DB, h *SaleHandler, body domain.FinalSale, item domain.FinalPaymentType) error {
 	if item.Type == "app" && (item.AppType == config.CLICK || item.AppType == config.PAYME || item.AppType == config.UZUM) {
 		paymentService, err := h.service.GetPaymentServiceByStoreId(body.StoreID, item.AppType)
 		if err != nil {
 			return errors.New("failed to get payment service")
 		}
+
 		paymentHandlers := map[string]func(ctx context.Context, tx *gorm.DB, service *domain.PaymentService, data *domain.FinalPaymentType, cashOpID string, transactionID string, saleID string) (map[string]any, error){
 			config.CLICK: h.service.ClickPass,
 			config.PAYME: h.service.PaymeGo,
@@ -750,7 +758,8 @@ func processPaymentType(tx *gorm.DB, h *SaleHandler, body domain.FinalSale, item
 			return err
 		}
 
-		resp, err := handler(context.Background(), tx, paymentService, &item, body.CashBoxOperationId, salePayment.ID, body.SaleID)
+		resp, err := handler(ctx, tx, paymentService, &item, body.CashBoxOperationId, salePayment.ID, body.SaleID)
+
 		if err != nil || cast.ToString(resp["error_code"]) != "0" {
 			return errors.New("failed payment with " + item.AppType)
 		}

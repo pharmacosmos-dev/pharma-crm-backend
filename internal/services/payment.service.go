@@ -134,19 +134,20 @@ func (h *Services) ClickPassDoRequest(ctx context.Context, url string, data any,
 func (s *Services) PaymeGo(ctx context.Context, tx *gorm.DB, paymentService *domain.PaymentService, data *domain.FinalPaymentType, CashOperationID string, transactionID string, saleID string) (map[string]any, error) {
 	// Method receipt create
 	createRes, err := s.PaymeGoReceiptCreate(ctx, paymentService, data, transactionID, saleID)
+
 	if err != nil {
 		s.log.Error("Failed to create receipt: %v", err)
 		return nil, fmt.Errorf("receipt creation failed: %w", err)
 	}
-	fmt.Println("RECEIPT CREATE RESPONSE: ", createRes.Result.Receipt.ID)
+	// fmt.Println("RECEIPT CREATE RESPONSE: ", createRes.Result.Receipt)
 
 	// Validate receipt creation response
-	if createRes.Error != nil {
+	if createRes.Error.Message != "" || createRes.Error.Code != 0 {
 		s.log.Error("PaymeGo receipt create error: code=%d, message=%s", createRes.Error.Code, createRes.Error.Message)
 		return nil, fmt.Errorf("receipt create error: %s (code: %d)", createRes.Error.Message, createRes.Error.Code)
 	}
 
-	if createRes.Result == nil || createRes.Result.Receipt.ID == "" {
+	if createRes.Result.Receipt.ID == "" {
 		s.log.Error("Receipt creation failed: empty receipt ID")
 		return nil, errors.New("receipt creation failed: empty receipt ID")
 	}
@@ -169,10 +170,8 @@ func (s *Services) PaymeGo(ctx context.Context, tx *gorm.DB, paymentService *dom
 		return nil, fmt.Errorf("receipt payment failed: %w", err)
 	}
 
-	fmt.Println("RECEIPT PAY RESPONSE: ", payRes.Result.Receipt)
-
 	// Validate payment response
-	if payRes.Error != nil {
+	if payRes.Error.Message != "" || payRes.Error.Code != 0 {
 		s.log.Error("PaymeGo receipt pay error: code=%d, message=%s", payRes.Error.Code, payRes.Error.Message)
 		s.cancelReceiptWithLog(ctx, paymentService, transactionID, saleID, receiptID)
 		return nil, fmt.Errorf("receipt pay error: %s (code: %d)", payRes.Error.Message, payRes.Error.Code)
@@ -202,7 +201,7 @@ func (s *Services) PaymeGoReceiptCreate(ctx context.Context, paymentService *dom
 		Id:     requestID,
 		Method: "receipts.create",
 		Params: domain.PaymeGoParams{
-			Amount: data.Amount,
+			Amount: data.Amount * 100,
 			Account: struct {
 				OrderId string `json:"order_id"`
 			}{
@@ -403,13 +402,14 @@ func (s *Services) PaymeGoDoRequest(ctx context.Context, data any, paymentServic
 	if err := json.NewEncoder(&buf).Encode(data); err != nil {
 		return nil, fmt.Errorf("failed to encode request data: %w", err)
 	}
-
+	fmt.Println("PAYME REQUEST: ", buf.String())
 	// Create HTTP request
 	req, err := http.NewRequestWithContext(ctx, "POST", s.cfg.Payment.PaymeGoEndpointUrl, &buf)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
 	}
-
+	fmt.Println("PAYME URL: ", s.cfg.Payment.PaymeGoEndpointUrl)
+	fmt.Println("X-Auth: ", paymentService.CashboxId+":"+paymentService.SecretKey)
 	// Set headers
 	req.Header.Set("X-Auth", paymentService.CashboxId+":"+paymentService.SecretKey)
 	req.Header.Set("Content-Type", "application/json")
@@ -432,9 +432,8 @@ func (s *Services) PaymeGoDoRequest(ctx context.Context, data any, paymentServic
 	if err := json.NewDecoder(resp.Body).Decode(&paymeResponse); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
-
-	// Log the response for debugging
-	s.log.Debug("PaymeGo response: %+v", paymeResponse)
+	t, _ := json.Marshal(paymeResponse)
+	fmt.Println("PAYME RESPONSE: ", string(t))
 
 	return &paymeResponse, nil
 }

@@ -454,11 +454,11 @@ func (s *Services) ListSale(param *domain.QueryParam, userId string) ([]domain.S
 	}
 	// filter by start date and end date
 	if param.StartDate != "" && param.EndDate != "" {
-		query = query.Where("(s.completed_at + interval '5 hours')::date >= ? AND (s.completed_at + interval '5 hours')::date <= ?  ", param.StartDate, param.EndDate)
+		query = query.Where("(s.completed_at + interval '5 hours') BETWEEN ? AND ? ", param.StartDate, param.EndDate)
 	}
 	// filter by start date
 	if param.StartDate != "" && param.EndDate == "" {
-		query = query.Where("(s.completed_at + interval '5 hours')::date = ?", param.StartDate)
+		query = query.Where("(s.completed_at + interval '5 hours') >= ?", param.StartDate)
 	}
 	// search condition
 	if param.Search != "" {
@@ -474,12 +474,17 @@ func (s *Services) ListSale(param *domain.QueryParam, userId string) ([]domain.S
 		query = query.Where("s.total_amount <= ?", param.TotalAmountTo)
 	}
 
+	if param.SaleType != "" {
+		query = query.Where("s.sale_type = ?", param.SaleType)
+	}
+
 	// complete query
 	err = query.Where("s.status = 'completed'").
 		Count(&totalCount).
 		Limit(param.Limit).
 		Offset(param.Offset).
 		Order("s.completed_at DESC").
+		Debug().
 		Find(&res).Error
 
 	if err != nil {

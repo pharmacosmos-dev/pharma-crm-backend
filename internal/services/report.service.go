@@ -161,7 +161,6 @@ func (s *Services) ProductReport(param *domain.ReportQueryParam) ([]domain.Produ
 		order      = " ORDER BY sl.completed_at DESC "
 		pagination = fmt.Sprintf(" LIMIT %d OFFSET %d ", param.Limit, param.Offset)
 	)
-
 	query := `
 	SELECT
 		ci.id AS cart_item_id,
