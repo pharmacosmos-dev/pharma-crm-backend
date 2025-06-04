@@ -454,11 +454,13 @@ func (s *Services) ListSale(param *domain.QueryParam, userId string) ([]domain.S
 	}
 	// filter by start date and end date
 	if param.StartDate != "" && param.EndDate != "" {
-		query = query.Where("(s.completed_at + interval '5 hours') BETWEEN ? AND ? ", param.StartDate, param.EndDate)
+		fmt.Println("Start date len: ", len(param.StartDate))
+		query = query.Where("(s.completed_at + interval '5 hours')::date BETWEEN ? AND ? ", param.StartDate, param.EndDate)
 	}
 	// filter by start date
 	if param.StartDate != "" && param.EndDate == "" {
-		query = query.Where("(s.completed_at + interval '5 hours') >= ?", param.StartDate)
+		fmt.Println("Start date len: ", len(param.StartDate))
+		query = query.Where("(s.completed_at + interval '5 hours')::date >= ?", param.StartDate)
 	}
 	// search condition
 	if param.Search != "" {
