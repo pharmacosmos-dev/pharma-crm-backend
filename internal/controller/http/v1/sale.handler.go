@@ -536,20 +536,16 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 		args = append(args, param.CashBoxID)
 		filter += " AND s.cashbox_id = ?"
 	}
-	// check end_date for empty string
-	if param.EndDate == "" {
-		param.EndDate = param.StartDate
-	}
 	// filter by start_date, end_date
 	if param.StartDate != "" && param.EndDate != "" {
 		args = append(args, param.StartDate, param.EndDate)
-		filter += " AND (s.completed_at + interval '5 hours')::date BETWEEN ? AND ?"
+		filter += " AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?"
 	}
 
 	// filter by start_date
 	if param.StartDate != "" && param.EndDate == "" {
 		args = append(args, param.StartDate)
-		filter += " AND (s.completed_at + interval '5 hours')::date >= ?"
+		filter += " AND (s.completed_at + interval '5 hours') >= ?"
 	}
 
 	// filter by total amount for less
@@ -576,7 +572,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 	// collect total transactions query
 	squery = squery + join + " WHERE " + filter
 	// replace with :param with ?
-	err = h.db.Raw(squery, args...).Scan(&res).Error
+	err = h.db.Debug().Raw(squery, args...).Scan(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -585,7 +581,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 	// collect payment type sum query
 	pquery = pquery + " AND " + filter + group + " ORDER BY sum DESC;"
 	// replace with :param with ?
-	err = h.db.Raw(pquery, args...).Scan(&res.PaymentTypeStats).Error
+	err = h.db.Debug().Raw(pquery, args...).Scan(&res.PaymentTypeStats).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
