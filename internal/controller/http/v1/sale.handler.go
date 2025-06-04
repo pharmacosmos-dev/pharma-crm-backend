@@ -357,7 +357,7 @@ func (h *SaleHandler) ExportSaleExcel(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"ID", "Касса", "Обшая сумма", "Тип продажа", "Доставлено", "Наличный", "Humo", "Uzcard", "Visa", "Payme", "Click", "UzumBank", "Баланс", "Дата продажа", "Филиал", "Продавец", "Клиент"}
+	headers := []string{"ID", "Филиал", "Наличный", "Humo", "Uzcard", "Payme", "Click", "AlifBank", "Обшая сумма", "Дата продажа", "Касса", "Продавец", "Клиент"}
 
 	headerStyle, err := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{
@@ -380,26 +380,22 @@ func (h *SaleHandler) ExportSaleExcel(c *gin.Context) {
 	// Ma'lumotlarni qo'shish
 	for i, sale := range res {
 		row := strconv.Itoa(i + 2)
-		f.SetCellValue(sheetName, "A"+row, sale.SaleNumber)
-		f.SetCellValue(sheetName, "B"+row, sale.CashBoxName)
-		f.SetCellValue(sheetName, "C"+row, sale.TotalAmount)
-		f.SetCellValue(sheetName, "D"+row, sale.Type)
-		f.SetCellValue(sheetName, "E"+row, sale.IsDelivered)
-		f.SetCellValue(sheetName, "F"+row, helper.SalePaymentAmount(sale.SalePayments, "Naqd"))
-		f.SetCellValue(sheetName, "G"+row, helper.SalePaymentAmount(sale.SalePayments, "Humo"))
-		f.SetCellValue(sheetName, "H"+row, helper.SalePaymentAmount(sale.SalePayments, "Uzcard"))
-		f.SetCellValue(sheetName, "I"+row, helper.SalePaymentAmount(sale.SalePayments, "Visa"))
-		f.SetCellValue(sheetName, "J"+row, helper.SalePaymentAmount(sale.SalePayments, "Payme"))
-		f.SetCellValue(sheetName, "K"+row, helper.SalePaymentAmount(sale.SalePayments, "Click"))
-		f.SetCellValue(sheetName, "L"+row, helper.SalePaymentAmount(sale.SalePayments, "UzumBank"))
-		f.SetCellValue(sheetName, "M"+row, helper.SalePaymentAmount(sale.SalePayments, "Balance"))
-		f.SetCellValue(sheetName, "N"+row, sale.CompletedAt.Format(time.DateTime))
-		f.SetCellValue(sheetName, "O"+row, sale.StoreName)
-		f.SetCellValue(sheetName, "P"+row, sale.FullName)
+		f.SetCellValue(sheetName, "A"+row, helper.SaleTypeToRussian(sale.SaleType, sale.SaleNumber))
+		f.SetCellValue(sheetName, "B"+row, sale.StoreName)
+		f.SetCellValue(sheetName, "C"+row, helper.SalePaymentAmount(sale.SalePayments, "Naqd"))
+		f.SetCellValue(sheetName, "D"+row, helper.SalePaymentAmount(sale.SalePayments, "Humo"))
+		f.SetCellValue(sheetName, "E"+row, helper.SalePaymentAmount(sale.SalePayments, "Uzcard"))
+		f.SetCellValue(sheetName, "F"+row, helper.SalePaymentAmount(sale.SalePayments, "Payme"))
+		f.SetCellValue(sheetName, "G"+row, helper.SalePaymentAmount(sale.SalePayments, "Click"))
+		f.SetCellValue(sheetName, "H"+row, helper.SalePaymentAmount(sale.SalePayments, "AlifBank"))
+		f.SetCellValue(sheetName, "I"+row, sale.TotalAmount)
+		f.SetCellValue(sheetName, "J"+row, sale.CompletedAt.Format(time.DateTime))
+		f.SetCellValue(sheetName, "K"+row, sale.CashBoxName)
+		f.SetCellValue(sheetName, "L"+row, sale.FullName)
 		if sale.CustomerName != nil {
-			f.SetCellValue(sheetName, "Q"+row, *sale.CustomerName)
+			f.SetCellValue(sheetName, "M"+row, *sale.CustomerName)
 		} else {
-			f.SetCellValue(sheetName, "Q"+row, "N/A")
+			f.SetCellValue(sheetName, "M"+row, "N/A")
 		}
 
 	}
@@ -539,7 +535,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 	// filter by start_date, end_date
 	if param.StartDate != "" && param.EndDate != "" {
 		args = append(args, param.StartDate, param.EndDate)
-		filter += " AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?"
+		filter += " AND (s.completed_at + interval '5 hours') BETWEEN ? AND ? "
 	}
 
 	// filter by start_date

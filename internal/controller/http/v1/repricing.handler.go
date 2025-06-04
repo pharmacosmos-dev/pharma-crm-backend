@@ -331,3 +331,39 @@ func (h *RepricingHandler) Cancel(c *gin.Context) {
 
 	handleResponse(c, OK, "CANCELED")
 }
+
+// List godoc
+// @Summary List Repricing
+// @Description List Repricing
+// @Tags Repricing
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param 	limit query int false "Limit"
+// @Param 	offset query int false "Offset"
+// @Param   search query string false "Search"
+// @Param   repricing_id path string false "Repricing ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /repricing/list [get]
+func (h *RepricingHandler) ListDetail(c *gin.Context) {
+	var param domain.QueryParam
+
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "Invalid query param")
+		return
+	}
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	res, totalCount, err := h.service.RepricingList(&param)
+	if err != nil {
+		h.log.Warn("ERROR on getting repricing list: %v", err)
+		handleResponse(c, InternalError, "Failed to get repricing list")
+		return
+	}
+
+	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+
+	handleResponse(c, OK, data)
+}

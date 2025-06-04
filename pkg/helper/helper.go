@@ -22,6 +22,14 @@ func StatusToRussian(status string) string {
 	}
 }
 
+func SaleTypeToRussian(saleType string, saleNumber int) string {
+	if saleType == "RETURN" {
+		return fmt.Sprintf("Возврат #%d", saleNumber)
+	}
+	return fmt.Sprintf("Продажа #%d", saleNumber)
+
+}
+
 // return amount by checking sale payment
 func SalePaymentAmount(salePayments []*domain.SalePayment, payType string) float64 {
 	var amount float64
