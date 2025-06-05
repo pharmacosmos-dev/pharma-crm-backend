@@ -167,7 +167,7 @@ func (s *Services) ProductReport(param *domain.ReportQueryParam) ([]domain.Produ
 		p.material_code,
 		s.name AS store_name,
 		p.name AS product_name,
-		pr.name AS producer_name,
+		COALESCE(pr.name, '') AS producer_name,
 		sp.serial_number,
 		sp.expire_date,
 		ROUND(ci.quantity::numeric + ci.unit_quantity::numeric/p.unit_per_pack, 4) AS quantity,
@@ -180,6 +180,7 @@ func (s *Services) ProductReport(param *domain.ReportQueryParam) ([]domain.Produ
 		TO_CHAR(sl.completed_at + interval '5 hours', 'YYYY-MM-DD HH24:MI:SS') AS completed_at,
 		e.full_name,
 		sl.sale_number,
+		sl.sale_type,
 		ci.marking_count
 	FROM
 		sales sl
@@ -241,7 +242,7 @@ func (s *Services) ProductReport(param *domain.ReportQueryParam) ([]domain.Produ
 	}
 
 	query = query + filter + order + pagination
-	err = s.db.Raw(query, args...).Scan(&res).Error
+	err = s.db.Debug().Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting product report: %v", err)
 		return res, 0, nil

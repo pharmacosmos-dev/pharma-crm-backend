@@ -484,7 +484,6 @@ func (s *Services) ListSale(param *domain.QueryParam, userId string) ([]domain.S
 		Limit(param.Limit).
 		Offset(param.Offset).
 		Order("s.completed_at DESC").
-		Debug().
 		Find(&res).Error
 
 	if err != nil {

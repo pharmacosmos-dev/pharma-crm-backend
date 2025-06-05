@@ -414,7 +414,7 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 	var res domain.Inventory
 	// update confirm inventory
 	query := `UPDATE imports SET status = ?, accepted_by = ?, updated_at = NOW() WHERE id = ? RETURNING *`
-	err := tx.Debug().Raw(query, config.COMPLETED, userId, inventoryId).Scan(&res).Error
+	err := tx.Raw(query, config.COMPLETED, userId, inventoryId).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating inventory %v", err)
 		tx.Rollback()
@@ -422,7 +422,7 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 	}
 
 	// delete correct inventory products if current and fact will be equal (received_count = scanned_count)
-	// err = tx.Debug().Exec(`DELETE FROM import_details WHERE import_id = ? AND received_count = scanned_count`, inventoryId).Error
+	// err = tx.Exec(`DELETE FROM import_details WHERE import_id = ? AND received_count = scanned_count`, inventoryId).Error
 	// if err != nil {
 	// 	s.log.Warn("ERROR on deleting inventory_details recieve and scan will be equal: %v", err)
 	// 	tx.Rollback()
@@ -441,7 +441,7 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 	WHERE imd.import_id = ? AND imd.received_count != imd.scanned_count
 	`
 	// execute get import details as inventory details
-	err = tx.Debug().Raw(query1, inventoryId).Scan(&inventoryDetails).Error
+	err = tx.Raw(query1, inventoryId).Scan(&inventoryDetails).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting inventory_details: %v", err)
 		tx.Rollback()
@@ -474,7 +474,7 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 	var data1C domain.InventoryData1C
 	for _, imd := range inventoryDetails {
 		if imd.ScannedCount < imd.ReceivedCount {
-			err = tx.Debug().Exec(`UPDATE store_products SET pack_quantity = ?, unit_quantity = ? WHERE id = ?`,
+			err = tx.Exec(`UPDATE store_products SET pack_quantity = ?, unit_quantity = ? WHERE id = ?`,
 				int(imd.ScannedCount), int(imd.ScannedCount*float64(imd.UnitPerPack)), imd.StoreProductId).Error
 			if err != nil {
 				s.log.Warn("ERROR on updating store_product quantity on confirm inventory: %v", err)
@@ -504,7 +504,7 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 
 	// get store info
 	var store domain.Store
-	err = tx.Debug().First(&store, "id = ?", res.StoreId).Error
+	err = tx.First(&store, "id = ?", res.StoreId).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting store info: %v", err)
 		tx.Rollback()

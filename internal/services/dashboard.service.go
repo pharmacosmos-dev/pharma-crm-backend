@@ -96,7 +96,7 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 
 	// get total sale count and amount
 	querys += filter
-	err := s.db.Debug().Raw(querys, args...).Scan(&sale).Error
+	err := s.db.Raw(querys, args...).Scan(&sale).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
@@ -104,14 +104,14 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 
 	// get total product count
 	queryp += filter
-	err = s.db.Debug().Raw(queryp, args...).Scan(&product).Error
+	err = s.db.Raw(queryp, args...).Scan(&product).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
 	}
 	// get total net income
 	queryc += filterc
-	err = s.db.Debug().Raw(queryc, args...).Scan(&income).Error
+	err = s.db.Raw(queryc, args...).Scan(&income).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err

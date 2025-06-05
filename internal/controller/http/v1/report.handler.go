@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/xuri/excelize/v2"
 )
@@ -286,6 +287,7 @@ func (h *ReportHandler) BonusReportExport(c *gin.Context) {
 	if c.Request.Body != nil {
 		_ = c.ShouldBindJSON(&param.StoreIds)
 	}
+	fmt.Println("param:", param.StoreIds)
 	// get default limit and offset for pagination
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 	// get bonus reports
@@ -297,7 +299,7 @@ func (h *ReportHandler) BonusReportExport(c *gin.Context) {
 
 	// Create excel file
 	f := excelize.NewFile()
-	sheetName := "Бонусный отчет"
+	sheetName := "List1"
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
@@ -504,7 +506,7 @@ func (h *ReportHandler) ProductReportExportExcel(c *gin.Context) {
 		f.SetCellValue(sheetName, "M"+row, value.VatSum)
 		f.SetCellValue(sheetName, "N"+row, value.CompletedAt)
 		f.SetCellValue(sheetName, "O"+row, value.FullName)
-		f.SetCellValue(sheetName, "P"+row, value.SaleNumber)
+		f.SetCellValue(sheetName, "P"+row, helper.SaleTypeToRussian(value.SaleType, value.SaleNumber))
 		f.SetCellValue(sheetName, "Q"+row, value.MarkingCount)
 	}
 
