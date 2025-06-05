@@ -11656,6 +11656,97 @@ const docTemplate = `{
                 }
             }
         },
+        "/report/store-stats": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get Store report stats",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Report"
+                ],
+                "summary": "Get Store report stats",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "format": "2025-03",
+                        "description": "Start Date Format(2025-03)",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "format": "2025-04",
+                        "description": "End Date Format(2025-04)",
+                        "name": "end_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Store ID",
+                        "name": "store_id",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Store ids",
+                        "name": "store_ids",
+                        "in": "body",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/repricing": {
             "post": {
                 "security": [
@@ -11928,27 +12019,9 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Store ID",
-                        "name": "store_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Start Date",
-                        "name": "start_date",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "End Date",
-                        "name": "end_date",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Status",
-                        "name": "status",
-                        "in": "query"
+                        "description": "Repricing ID",
+                        "name": "repricing_id",
+                        "in": "path"
                     }
                 ],
                 "responses": {
@@ -14062,6 +14135,12 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "Total Amount To",
                         "name": "total_amount_to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sale Type (SALE, RETURN)",
+                        "name": "sale_type",
                         "in": "query"
                     }
                 ],
@@ -16652,7 +16731,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get inventory list",
+                "description": "Get Write Off export excel",
                 "consumes": [
                     "application/json"
                 ],
@@ -16662,7 +16741,7 @@ const docTemplate = `{
                 "tags": [
                     "Write-Off"
                 ],
-                "summary": "Get inventory list",
+                "summary": "Get Write Off export excel",
                 "parameters": [
                     {
                         "type": "integer",
@@ -16724,7 +16803,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get inventory list",
+                "description": "Get WriteOff list",
                 "consumes": [
                     "application/json"
                 ],
@@ -16734,7 +16813,7 @@ const docTemplate = `{
                 "tags": [
                     "Write-Off"
                 ],
-                "summary": "Get inventory list",
+                "summary": "Get WriteOff list",
                 "parameters": [
                     {
                         "type": "integer",

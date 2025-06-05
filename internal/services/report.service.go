@@ -402,3 +402,62 @@ func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.S
 
 	return res, totalCount, nil
 }
+
+// get store report stats
+func (s *Services) ReportByStoreStats(param *domain.ReportQueryParam) (domain.StoreReportStats, error) {
+	var (
+		res    domain.StoreReportStats
+		filter = " WHERE 1 = 1 "
+		args   = []any{}
+	)
+	query := `
+	SELECT
+		SUM(CASE WHEN pt.name = 'Naqd' AND sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
+		SUM(CASE WHEN pt.name = 'Naqd' AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS cash,
+
+		SUM(CASE WHEN pt.name = 'Uzcard' AND sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
+		SUM(CASE WHEN pt.name = 'Uzcard' AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS uzcard,
+
+		SUM(CASE WHEN pt.name = 'Humo' AND sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
+		SUM(CASE WHEN pt.name = 'Humo' AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS humo,
+
+		SUM(CASE WHEN pt.name = 'Click' AND sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
+		SUM(CASE WHEN pt.name = 'Click' AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS click,
+
+		SUM(CASE WHEN pt.name = 'Payme' AND sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
+		SUM(CASE WHEN pt.name = 'Payme' AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS payme,
+
+		SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS return_amount,
+
+		SUM(CASE WHEN sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
+		SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS total_amount
+	FROM
+		stores s
+	JOIN
+		sales sa ON s.id = sa.store_id
+	JOIN
+		sale_payments sp ON sa.id = sp.sale_id
+	JOIN
+		payment_types pt ON sp.payment_type_id = pt.id
+	`
+	if param.StoreId != "" {
+		filter += " AND s.id = ? "
+		args = append(args, param.StoreId)
+	}
+	if param.Search != "" {
+		filter += " AND s.name ILIKE ? "
+		args = append(args, "%"+param.Search+"%")
+	}
+	if param.StartDate != "" && param.EndDate != "" {
+		filter += " AND (sa.completed_at + interval '5 hours')::date BETWEEN ? AND ? "
+		args = append(args, param.StartDate, param.EndDate)
+	}
+	query = query + filter
+	err := s.db.Debug().Raw(query, args...).Scan(&res).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting store report: %v", err)
+		return res, err
+	}
+
+	return res, nil
+}

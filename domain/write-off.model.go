@@ -12,7 +12,7 @@ type WriteOff struct {
 	Comment        string     `gorm:"comment" json:"comment"`
 	CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt      *time.Time `gorm:"updated_at" json:"updated_at"`
-	WriteoffCount  int64      `gorm:"writeoff_count" json:"writeoff_count"`
+	WriteoffCount  float64    `gorm:"writeoff_count" json:"writeoff_count"`
 	SupplyPriceSum float64    `gorm:"supply_price_sum" json:"supply_price_sum"`
 	RetailPriceSum float64    `gorm:"retail_price_sum" json:"retail_price_sum"`
 	CreatedById    string     `gorm:"column:created_by" json:"created_by_id"`

@@ -35,6 +35,7 @@ func (h *ReportHandler) ReportRoutes(r *gin.RouterGroup) {
 		report.POST("/lfl", h.LflReport)
 		report.POST("/store-amount", h.StoreReportAmount)
 		report.POST("/store-amount/export-excel", h.StoreReportAmountExport)
+		report.POST("/store-stats", h.StoreReportStats)
 	}
 }
 
@@ -728,4 +729,42 @@ func (h *ReportHandler) StoreReportAmountExport(c *gin.Context) {
 	handleResponse(c, OK, gin.H{
 		"file_name": fileName,
 	})
+}
+
+// Bonus report godoc
+// @Summary Get Store report stats
+// @Description Get Store report stats
+// @Tags Report
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param 	limit query int false "Limit"
+// @Param 	offset query int false "Offset"
+// @Param   start_date query string false "Start Date Format(2025-03)"
+// @Param   end_date query string false "End Date Format(2025-04)"
+// @Param   search query string false "Search"
+// @Param   store_id query string false "Store ID"
+// @Param   store_ids body []string false "Store ids"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /report/store-stats [POST]
+func (h *ReportHandler) StoreReportStats(c *gin.Context) {
+	var param domain.ReportQueryParam
+
+	// bind request query param
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
+		handleResponse(c, BadRequest, "Invalid query param")
+		return
+	}
+
+	// get store report with payment type amounts
+	res, err := h.service.ReportByStoreStats(&param)
+	if err != nil {
+		handleResponse(c, InternalError, "Can't get store report stats")
+		return
+	}
+
+	handleResponse(c, OK, res)
 }
