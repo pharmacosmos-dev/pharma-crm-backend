@@ -435,7 +435,7 @@ func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.S
 func (s *Services) ReportByStoreStats(param *domain.ReportQueryParam) (domain.StoreReportStats, error) {
 	var (
 		res    domain.StoreReportStats
-		filter = " WHERE 1 = 1 "
+		filter = " WHERE sa.status = 'completed' "
 		args   = []any{}
 	)
 	query := `

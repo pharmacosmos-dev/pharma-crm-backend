@@ -98,7 +98,7 @@ func (h *DraftHandler) Create(c *gin.Context) {
 			DraftID:    body.ID,
 		})
 		// decrease pack_quantity and unit_quantity on store_products
-		err = tx.Exec(`UPDATE store_products SET pack_quantity = pack_quantity - ?, unit_quantity = unit_quantity - ? WHERE id = ?`,
+		err = tx.Exec(`UPDATE store_products SET pack_quantity = GREATEST(pack_quantity - ?, 0), unit_quantity = GREATEST(unit_quantity - ?, 0) WHERE id = ?`,
 			item.Quantity, item.UnitQuantity, item.StoreProductID).Error
 		if err != nil {
 			tx.Rollback()
