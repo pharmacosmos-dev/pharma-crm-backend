@@ -242,7 +242,7 @@ func (s *Services) ProductReport(param *domain.ReportQueryParam) ([]domain.Produ
 	}
 
 	query = query + filter + order + pagination
-	err = s.db.Debug().Raw(query, args...).Scan(&res).Error
+	err = s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting product report: %v", err)
 		return res, 0, nil
@@ -350,7 +350,7 @@ func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.S
 		totalCount int64
 		filter     = " WHERE sa.status = 'completed' "
 		args       = []any{}
-		group      = " GROUP BY s.id, s.name, sale_date "
+		group      = " GROUP BY s.id, s.name, sale_date  "
 		order      = " ORDER BY store_name, sale_date "
 	)
 	query := `
@@ -379,6 +379,25 @@ func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.S
 	JOIN
 		payment_types pt ON sp.payment_type_id = pt.id
 	`
+	// get total count
+	tquery := `
+	SELECT
+		COUNT(*) AS total_count
+	FROM (
+	SELECT
+        s.id,
+        s.name,
+        (sa.completed_at + interval '5 hours')::date AS sale_date
+    FROM
+        stores s
+    JOIN
+        sales sa ON s.id = sa.store_id
+    JOIN
+        sale_payments sp ON sa.id = sp.sale_id
+    JOIN
+        payment_types pt ON sp.payment_type_id = pt.id
+    `
+
 	if param.StoreId != "" {
 		filter += " AND s.id = ? "
 		args = append(args, param.StoreId)
@@ -392,9 +411,18 @@ func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.S
 		filter += " AND (sa.completed_at + interval '5 hours')::date BETWEEN ? AND ? "
 		args = append(args, param.StartDate, param.EndDate)
 	}
+	tquery = tquery + filter + group + ") AS total_count_table;"
+	// get total count
+	err := s.db.Raw(tquery, args...).Scan(&totalCount).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting store report total count: %v", err)
+		return res, 0, err
+	}
+	// collect query with filter, group by and order
+
 	query = query + filter + group + order + " LIMIT ? OFFSET ?;"
 	args = append(args, param.Limit, param.Offset)
-	err := s.db.Debug().Raw(query, args...).Scan(&res).Error
+	err = s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting store payment amounts: %v", err)
 		return res, 0, err
@@ -448,12 +476,16 @@ func (s *Services) ReportByStoreStats(param *domain.ReportQueryParam) (domain.St
 		filter += " AND s.name ILIKE ? "
 		args = append(args, "%"+param.Search+"%")
 	}
+	if param.EndDate == "" {
+		param.EndDate = param.StartDate
+	}
+
 	if param.StartDate != "" && param.EndDate != "" {
 		filter += " AND (sa.completed_at + interval '5 hours')::date BETWEEN ? AND ? "
 		args = append(args, param.StartDate, param.EndDate)
 	}
 	query = query + filter
-	err := s.db.Debug().Raw(query, args...).Scan(&res).Error
+	err := s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting store report: %v", err)
 		return res, err
