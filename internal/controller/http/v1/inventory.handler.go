@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
@@ -520,8 +521,22 @@ func (h *InventoryHandler) Confirm(c *gin.Context) {
 		handleResponse(c, UNAUTHORIZED, "user id not found from the context")
 		return
 	}
+	// get inventory by id
+	var res domain.Inventory
+	err := h.db.Raw(`SELECT * FROM imports WHERE id = ?`, id).Scan(&res).Error
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to get inventory")
+		return
+	}
+
+	// check if inventory is already confirmed
+	if res.Status == config.COMPLETED {
+		handleResponse(c, CONFLICT, "Inventory already confirmed")
+		return
+	}
+
 	// confirm inventory service
-	err := h.service.ConfirmInventory(id, userId.(string))
+	err = h.service.ConfirmInventory(id, userId.(string))
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to confirm inventory")
 		return
