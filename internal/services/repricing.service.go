@@ -75,6 +75,24 @@ func (s *Services) RepricingList(param *domain.QueryParam) ([]domain.PriceRevalu
 	return res, totalCount, nil
 }
 
+// repricing get detail list
+func (s *Services) RepricingDetailList(repricingID string) ([]domain.PriceRevalutionDetail, error) {
+	var res []domain.PriceRevalutionDetail
+
+	err := s.db.Model(&domain.PriceRevalutionDetail{}).
+		Preload("Product").
+		Preload("PriceRevalution").
+		Select(`price_revalution_details.*`).
+		Where("price_revalution_id = ?", repricingID).
+		Find(&res).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting price revalution details: %v", err)
+		return res, err
+	}
+
+	return res, nil
+}
+
 // confirm repricing
 func (s *Services) ConfirmRepricing(repricingID string, updatedBy string) error {
 	var res domain.PriceRevalution

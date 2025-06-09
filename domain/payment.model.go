@@ -153,7 +153,7 @@ type PaymeGoParams struct {
 	Amount  float64 `json:"amount"`
 	Account struct {
 		OrderId string `json:"order_id"`
-	}
+	} `json:"account"`
 	Detail *PaymeGoDetail `json:"detail"`
 }
 

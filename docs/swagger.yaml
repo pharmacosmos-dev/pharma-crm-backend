@@ -4959,6 +4959,37 @@ paths:
       summary: Get IKPU data from Soliq
       tags:
       - helper
+  /helper/picture:
+    get:
+      consumes:
+      - application/json
+      description: Get product picture from Tasnif
+      parameters:
+      - description: MXIK code of the product
+        in: query
+        name: mxik_code
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get product picture from Tasnif
+      tags:
+      - helper
   /helper/upload-category:
     post:
       consumes:

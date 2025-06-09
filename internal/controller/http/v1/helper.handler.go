@@ -5,12 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
@@ -39,6 +42,7 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		helper.POST("/upload-category", h.UploadCategory)
 		helper.POST("/upload-customer", h.UploadCustomer)
 		helper.POST("/upload-import", h.UploadImport)
+		helper.GET("picture", h.GetProductPictureFromTasnif)
 	}
 }
 
@@ -764,4 +768,94 @@ func (h *HelperHandler) UploadImport(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, "Products Customer uploaded successfully: ")
+}
+
+// Get Product Picture From Tasnif godoc
+// @Summary Get product picture from Tasnif
+// @Description Get product picture from Tasnif
+// @Tags helper
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param 	mxik_code query string true "MXIK code of the product"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /helper/picture [GET]
+func (h *HelperHandler) GetProductPictureFromTasnif(c *gin.Context) {
+	mxikCode := c.Query("mxik_code")
+
+	client := &http.Client{
+		Timeout: 30 * time.Second, // Set a timeout for the request
+	}
+	buf := bytes.Buffer{}
+
+	url := "https://tasnif.soliq.uz/api/cls-api/integration-mxik/references/get/mxik/picture-names?lang=uz_latn&mxik_code="
+	req, err := http.NewRequestWithContext(c.Request.Context(), "GET", url+mxikCode, &buf)
+	if err != nil {
+		h.log.Warn("ERROR on creating new request: %v", err)
+		handleResponse(c, InternalError, "Can't create new request")
+		return
+	}
+	// add headers
+	req.Header.Add("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		h.log.Warn("ERROR on doing request: %v", err)
+		handleResponse(c, InternalError, "Can't do request")
+		return
+	}
+	defer resp.Body.Close()
+	var res utils.StringArray
+	err = json.NewDecoder(resp.Body).Decode(&res)
+	if err != nil {
+		h.log.Warn("ERROR on decoding epos response %v", err)
+		handleResponse(c, InternalError, "Can't decode response data")
+		return
+	}
+	fmt.Println("RESPONSE: ", res)
+
+	for _, v := range res {
+		fullImageURL := "https://tasnif.soliq.uz/api/cls-api/integration-mxik/references/get/file/" + v
+		imageURL := fullImageURL
+
+		// GET so'rovi orqali rasmni olish
+		imageResp, err := http.Get(imageURL)
+		if err != nil {
+			h.log.Warn("Failed to download image: %v", err)
+			handleResponse(c, InternalError, "Failed to download image")
+			return
+		}
+		defer imageResp.Body.Close()
+
+		// Faylni saqlash pathi
+		savePath := filepath.Join("./app/uploads", v)
+		outFile, err := os.Create(savePath)
+		if err != nil {
+			h.log.Warn("Failed to create file: %v", err)
+			handleResponse(c, InternalError, "Failed to create file")
+			return
+		}
+		defer outFile.Close()
+
+		// Rasmni faylga yozish
+		_, err = io.Copy(outFile, imageResp.Body)
+		if err != nil {
+			h.log.Warn("Failed to save file: %v", err)
+			handleResponse(c, InternalError, "Failed to write image to file")
+			return
+		}
+	}
+
+	if len(res) > 0 {
+		err = h.db.Debug().Exec(`UPDATE products SET photos = ? WHERE mxik = ?`, utils.StringArray(res), mxikCode).Error
+		if err != nil {
+			h.log.Error("ERROR on saving product picture: %v", err)
+			handleResponse(c, InternalError, "Failed to save product picture")
+			return
+		}
+	}
+
+	c.JSON(http.StatusOK, res)
 }

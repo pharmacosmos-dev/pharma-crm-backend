@@ -432,8 +432,6 @@ func (s *Services) PaymeGoDoRequest(ctx context.Context, data any, paymentServic
 	if err := json.NewDecoder(resp.Body).Decode(&paymeResponse); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
-	t, _ := json.Marshal(paymeResponse)
-	fmt.Println("PAYME RESPONSE: ", string(t))
 
 	return &paymeResponse, nil
 }
@@ -447,6 +445,7 @@ func (h *Services) SaveRequest(ctx context.Context, req *domain.PaymentRequest) 
 		VALUES (?, ?, ?, ?, ?)`
 	err := h.db.
 		WithContext(ctx).
+		Debug().
 		Exec(query,
 			req.RequestId, req.Method, req.Payload, req.TransactionID, req.PaymentProvider,
 		).Error
@@ -459,7 +458,7 @@ func (h *Services) SaveRequest(ctx context.Context, req *domain.PaymentRequest) 
 
 // Save payment response to database
 func (h *Services) SaveResponse(ctx context.Context, req *domain.PaymentRequest) error {
-	err := h.db.Exec(
+	err := h.db.Debug().Exec(
 		`UPDATE payment_requests SET response = ? WHERE transaction_id = ? AND method = ?`,
 		req.Response, req.TransactionID, req.Method,
 	).Error
