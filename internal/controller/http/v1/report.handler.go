@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
@@ -388,6 +390,9 @@ func (h *ReportHandler) BonusReportExport(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /report/product [POST]
 func (h *ReportHandler) ProductReport(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), config.ContextTimeoutForReports)
+	defer cancel()
+
 	var param domain.ReportQueryParam
 	// bind query param
 	err := c.ShouldBindQuery(&param)
@@ -404,7 +409,7 @@ func (h *ReportHandler) ProductReport(c *gin.Context) {
 	// get default limit and offset for pagination
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 
-	res, totalCount, err := h.service.ProductReport(&param)
+	res, totalCount, err := h.service.ProductReport(ctx, &param)
 	if err != nil {
 		h.log.Warn("Failed to get product report: %v", err)
 		handleResponse(c, InternalError, "failed to get product report")
@@ -436,6 +441,9 @@ func (h *ReportHandler) ProductReport(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /report/product-export [POST]
 func (h *ReportHandler) ProductReportExportExcel(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), config.ContextTimeoutForReports)
+	defer cancel()
+
 	var param domain.ReportQueryParam
 	// bind query param
 	err := c.ShouldBindQuery(&param)
@@ -451,7 +459,7 @@ func (h *ReportHandler) ProductReportExportExcel(c *gin.Context) {
 	// get default limit and offset for pagination
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 
-	res, _, err := h.service.ProductReport(&param)
+	res, _, err := h.service.ProductReport(ctx, &param)
 	if err != nil {
 		h.log.Warn("Failed to get product report: %v", err)
 		handleResponse(c, InternalError, "failed to get product report")

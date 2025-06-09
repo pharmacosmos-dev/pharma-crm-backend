@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -151,8 +152,8 @@ func (s *Services) BonusReport(param *domain.ReportQueryParam) ([]domain.BonusRe
 	return res, totalCount, nil
 }
 
-// get product report with sale_number
-func (s *Services) ProductReport(param *domain.ReportQueryParam) ([]domain.ProductReport, int64, error) {
+// get product report service
+func (s *Services) ProductReport(ctx context.Context, param *domain.ReportQueryParam) ([]domain.ProductReport, int64, error) {
 	var (
 		res        []domain.ProductReport
 		totalCount int64
