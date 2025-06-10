@@ -709,7 +709,7 @@ func (h *SaleHandler) ProccessingSale(c *gin.Context) {
 		if err = processPaymentType(c.Request.Context(), tx, h, body, item); err != nil {
 			tx.Rollback()
 			h.log.Warn("ERROR on payment process: %v", err.Error())
-			handleResponse(c, InternalError, "Can't do payment process")
+			handleResponse(c, InternalError, err.Error())
 			return
 		}
 	}
@@ -760,7 +760,7 @@ func processPaymentType(ctx context.Context, tx *gorm.DB, h *SaleHandler, body d
 		resp, err := handler(ctx, tx, paymentService, &item, body.CashBoxOperationId, salePayment.ID, body.SaleID)
 
 		if err != nil || cast.ToString(resp["error_code"]) != "0" {
-			return errors.New("failed payment with " + item.AppType)
+			return err
 		}
 		// update sale_payment if payment is success
 		return h.service.UpdateSalePaymentStatus(tx, salePayment.ID)

@@ -9,8 +9,8 @@ type Transfer struct {
 	ToStoreId         string     `gorm:"to_store_id" json:"to_store_id"`
 	Name              string     `gorm:"name" json:"name"`
 	Status            string     `gorm:"status" json:"status"`
-	ReceivedCount     int        `gorm:"received_count" json:"received_count"`
-	AcceptedCount     int        `gorm:"accepted_count" json:"accepted_count"`
+	ReceivedCount     float64    `gorm:"received_count" json:"received_count"`
+	AcceptedCount     float64    `gorm:"accepted_count" json:"accepted_count"`
 	Comment           string     `gorm:"comment" json:"comment"`
 	CreatedAt         *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt         *time.Time `gorm:"updated_at" json:"updated_at"`
@@ -41,24 +41,27 @@ type TransferRequest struct {
 }
 
 type TransferDetail struct {
-	Id            string     `gorm:"id" json:"id"`
-	TransferId    string     `gorm:"transfer_id" json:"transfer_id"`
-	ProductId     string     `gorm:"product_id" json:"product_id"`
-	ReceivedCount int        `gorm:"received_count" json:"received_count"`
-	AcceptedCount int        `gorm:"accepted_count" json:"accepted_count"`
-	ScannedCount  int        `gorm:"scanned_count" json:"scanned_count"`
-	ExpireDate    string     `gorm:"expire_date" json:"expire_date"`
-	SerialNumber  string     `gorm:"serial_number" json:"serial_number"`
-	SupplyPrice   float64    `gorm:"supply_price" json:"supply_price"`
-	RetailPrice   float64    `gorm:"retail_price" json:"retail_price"`
-	CreatedAt     *time.Time `gorm:"created_at" json:"created_at"`
-	UpdatedAt     *time.Time `gorm:"updated_at" json:"updated_at"`
-	Name          string     `gorm:"name" json:"name"`
-	MaterialCode  int        `gorm:"material_code" json:"material_code"`
-	Barcode       string     `gorm:"barcode" json:"barcode"`
-	ShortName     string     `gorm:"short_name" json:"short_name"`
-	ReceivedSum   float64    `gorm:"received_sum" json:"received_sum"`
-	ScannedSum    float64    `gorm:"scanned_sum" json:"scanned_sum"`
+	Id             string     `gorm:"id" json:"id"`
+	TransferId     string     `gorm:"transfer_id" json:"transfer_id"`
+	StoreProductId string     `gorm:"store_product_id" json:"store_product_id"`
+	ProductId      string     `gorm:"product_id" json:"product_id"`
+	ReceivedCount  float64    `gorm:"received_count" json:"received_count"`
+	AcceptedCount  float64    `gorm:"accepted_count" json:"accepted_count"`
+	ScannedCount   float64    `gorm:"scanned_count" json:"scanned_pack"`
+	ScannedUnit    float64    `gorm:"scanned_unit" json:"scanned_unit"`
+	ExpireDate     string     `gorm:"expire_date" json:"expire_date"`
+	SerialNumber   string     `gorm:"serial_number" json:"serial_number"`
+	SupplyPrice    float64    `gorm:"supply_price" json:"supply_price"`
+	RetailPrice    float64    `gorm:"retail_price" json:"retail_price"`
+	CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt      *time.Time `gorm:"updated_at" json:"updated_at"`
+	Name           string     `gorm:"name" json:"name"`
+	MaterialCode   int        `gorm:"material_code" json:"material_code"`
+	UnitPerPack    int        `gorm:"unit_per_pack" json:"unit_per_pack"`
+	Barcode        string     `gorm:"barcode" json:"barcode"`
+	ShortName      string     `gorm:"short_name" json:"short_name"`
+	ReceivedSum    float64    `gorm:"received_sum" json:"received_sum"`
+	ScannedSum     float64    `gorm:"scanned_sum" json:"scanned_sum"`
 }
 
 type TransferDetailStatus struct {

@@ -37,10 +37,30 @@ func (s *Services) CreateReturn(req *domain.ReturnRequest) error {
 	// if no products provided, get all products from store_products
 	// and insert them into inventory_details
 	err = tx.Exec(
-		`INSERT INTO transfer_details(transfer_id, store_product_id, product_id, received_count, supply_price, retail_price, expire_date, serial_number
-			) SELECT ?, id, product_id, pack_quantity, supply_price, retail_price, expire_date, serial_number
-			FROM store_products
-			WHERE store_id = ? AND pack_quantity > 0;`,
+		`INSERT INTO transfer_details(
+			transfer_id, 
+			store_product_id, 
+			product_id, 
+			received_count, 
+			supply_price, 
+			retail_price, 
+			expire_date, 
+			serial_number
+			)
+		SELECT  
+			?, 
+			sp.id, 
+			sp.product_id, 
+			sp.unit_quantity::numeric/p.unit_per_pack, 
+			sp.supply_price, 
+			sp.retail_price, 
+			sp.expire_date, 
+			sp.serial_number
+		FROM store_products sp
+		JOIN 
+			products p ON sp.product_id = p.id
+		WHERE 
+			sp.store_id = 'e8fd3090-fff2-4a67-84b2-6fa15170f5ea' AND (sp.pack_quantity > 0 OR sp.unit_quantity > 0);`,
 		id, req.StoreId).Error
 	if err != nil {
 		s.log.Warn("ERROR on creating inventory details: %v", err)
@@ -137,10 +157,22 @@ func (s *Services) ReturnDetailList(param *domain.ReturnDetailParam) ([]domain.R
 	query := s.db.
 		Model(&domain.TransferDetail{}).
 		Select(`
-		transfer_details.*,
-		transfer_details.received_count*transfer_details.retail_price AS received_sum,
-		transfer_details.scanned_count*transfer_details.retail_price AS scanned_sum,
-    	p.name, p.material_code, p.barcode, ut.short_name`).
+			transfer_details.id, 
+			transfer_details.transfer_id as return_id, 
+			transfer_details.product_id, 
+			transfer_details.store_product_id,
+			transfer_details.serial_number, 
+			transfer_details.expire_date,
+			transfer_details.supply_price, 
+			transfer_details.retail_price,
+			transfer_details.received_count,
+			transfer_details.created_at, 
+			transfer_details.updated_at,
+			FLOOR(transfer_details.scanned_count) AS scanned_count,
+			MOD(transfer_details.scanned_count * p.unit_per_pack, p.unit_per_pack) AS scanned_unit,
+			transfer_details.received_count*transfer_details.retail_price AS received_sum,
+			transfer_details.scanned_count*transfer_details.retail_price AS scanned_sum,
+    		p.name, p.material_code, p.unit_per_pack, p.barcode, ut.short_name`).
 		Joins("JOIN products p ON transfer_details.product_id = p.id").
 		Joins("LEFT JOIN unit_types ut ON p.unit_type_id = ut.id").
 		Where("transfer_details.transfer_id = ?", param.ReturnId)
@@ -255,7 +287,7 @@ func (s *Services) SendReturn(returnId string, userId string) error {
 		// update store product quantities
 		// if scanned count is 0, skip the update
 		err = tx.Exec(`UPDATE store_products SET pack_quantity = GREATEST(pack_quantity - ?, 0), unit_quantity = GREATEST(unit_quantity - ?, 0), updated_at = NOW() WHERE id = ?`,
-			detail.ScannedCount, detail.ScannedCount*detail.UnitPerPack, detail.StoreProductId).Error
+			detail.ScannedCount, detail.ScannedCount*float64(detail.UnitPerPack), detail.StoreProductId).Error
 		if err != nil {
 			s.log.Warn("ERROR on updating store product pack quantity: %v", err)
 			tx.Rollback()
@@ -273,17 +305,25 @@ func (s *Services) SendReturn(returnId string, userId string) error {
 }
 
 // confirm inventory
-func (s *Services) SendReturn1C(returnId string, storeId string) error {
+func (s *Services) SendReturn1C(returnId string) error {
 	var (
 		returnData domain.ReturnData1C
 		store      domain.Store
+		returnInfo domain.Return
 	)
+	err := s.db.First(&returnInfo, "id = ?", returnId).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting return data: %v", err)
+		return err
+	}
+
 	// get store data
-	err := s.db.First(&store, "id = ?", storeId).Error
+	err = s.db.First(&store, "id = ?", returnInfo.FromStoreId).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting store data: %v", err)
 		return err
 	}
+
 	returnData.Dok.DocumentNumber = "VP" + cast.ToString(time.Now().Unix())
 	returnData.Dok.DocumentDate = time.Now().Add(time.Hour * 5).Format(time.DateOnly)
 	returnData.Apteka.Name = store.Name
@@ -303,7 +343,7 @@ func (s *Services) SendReturn1C(returnId string, storeId string) error {
 		WHERE td.transfer_id = ? AND tr.status = 'completed' AND tr.from_store_id = ?;
 	`
 
-	err = s.db.Raw(query, returnId, storeId).Scan(&returnData.Товары).Error
+	err = s.db.Raw(query, returnId, returnInfo.FromStoreId).Scan(&returnData.Товары).Error
 	if err != nil {
 		s.log.Error(err)
 		return err

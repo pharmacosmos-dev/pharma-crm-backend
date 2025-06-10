@@ -12657,13 +12657,6 @@ const docTemplate = `{
                         "name": "return_id",
                         "in": "query",
                         "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Store ID",
-                        "name": "store_id",
-                        "in": "query",
-                        "required": true
                     }
                 ],
                 "responses": {
@@ -18299,11 +18292,14 @@ const docTemplate = `{
         "domain.ReturnAddProduct": {
             "type": "object",
             "properties": {
-                "count": {
-                    "type": "integer"
-                },
                 "id": {
                     "type": "string"
+                },
+                "scanned_pack": {
+                    "type": "integer"
+                },
+                "scanned_unit": {
+                    "type": "integer"
                 },
                 "type": {
                     "type": "string"

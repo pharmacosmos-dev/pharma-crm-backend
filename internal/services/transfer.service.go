@@ -32,10 +32,28 @@ func (s *Services) CreateTransfer(req *domain.TransferRequest) error {
 	// if no products provided, get all products from store_products
 	// and insert them into inventory_details
 	err = tx.Exec(
-		`INSERT INTO transfer_details(transfer_id, product_id, received_count, supply_price, retail_price, expire_date, serial_number
-			) SELECT ?, product_id, pack_quantity, supply_price, retail_price, expire_date, serial_number
-			FROM store_products
-			WHERE store_id = ? AND pack_quantity > 0;`,
+		`
+		INSERT INTO transfer_details(
+			transfer_id, 
+			store_product_id, 
+			product_id, 
+			received_count, 
+			supply_price, 
+			retail_price, 
+			expire_date, 
+			serial_number
+			) SELECT 
+				?, sp.id, 
+				sp.product_id, 
+				sp.unit_quantity::numeric/p.unit_per_pack, 
+				sp.supply_price, 
+				sp.retail_price, 
+				sp.expire_date, 
+				sp.serial_number
+			FROM store_products sp
+			JOIN products p ON sp.product_id = p.id
+			WHERE sp.store_id = ? AND (sp.pack_quantity > 0 OR sp.unit_quantity > 0);
+		`,
 		id, req.FromStoreId).Error
 	if err != nil {
 		s.log.Error("ERROR on creating inventory details: ", err)
@@ -135,10 +153,21 @@ func (s *Services) TransferDetailList(param *domain.ReturnDetailParam) ([]domain
 	query := s.db.
 		Model(&domain.TransferDetail{}).
 		Select(`
-		transfer_details.*,
+		transfer_details.id,
+		transfer_details.product_id, 
+		transfer_details.transfer_id,
+		transfer_details.received_count,
+		FLOOR(transfer_details.scanned_count) AS scanned_count,
+		MOD(transfer_details.scanned_count * p.unit_per_pack, p.unit_per_pack) AS scanned_unit,
+		transfer_details.expire_date, 
+		transfer_details.serial_number, 
+		transfer_details.supply_price, 
+		transfer_details.retail_price,
+		transfer_details.created_at, 
+		transfer_details.updated_at,
 		transfer_details.received_count*transfer_details.retail_price AS received_sum,
 		transfer_details.scanned_count*transfer_details.retail_price AS scanned_sum,
-    	p.name, p.material_code, p.barcode, ut.short_name`).
+    	p.name, p.material_code, p.unit_per_pack, p.barcode, ut.short_name`).
 		Joins("JOIN products p ON transfer_details.product_id = p.id").
 		Joins("LEFT JOIN unit_types ut ON p.unit_type_id = ut.id").
 		Where("transfer_details.transfer_id = ?", param.ReturnId)
@@ -226,6 +255,33 @@ func (s *Services) SendTransfer(returnId string, userId string) error {
 		tx.Rollback()
 		return err
 	}
+
+	var returnDetails []domain.TransferDetail
+	query3 := `
+		SELECT td.*, p.unit_per_pack
+        FROM transfer_details td
+		JOIN products p ON td.product_id = p.id
+		WHERE td.transfer_id = ? and td.scanned_count > 0;
+	`
+	err = tx.Raw(query3, returnId).Scan(&returnDetails).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting return details: %v", err)
+		tx.Rollback()
+		return err
+	}
+
+	for _, detail := range returnDetails {
+		// update store product quantities
+		// if scanned count is 0, skip the update
+		err = tx.Exec(`UPDATE store_products SET pack_quantity = GREATEST(pack_quantity - ?, 0), unit_quantity = GREATEST(unit_quantity - ?, 0), updated_at = NOW() WHERE id = ?`,
+			int(detail.ScannedCount), detail.ScannedCount*float64(detail.UnitPerPack), detail.StoreProductId).Error
+		if err != nil {
+			s.log.Warn("ERROR on updating store product pack quantity: %v", err)
+			tx.Rollback()
+			return err
+		}
+	}
+
 	// complete transaction
 	if err = tx.Commit().Error; err != nil {
 		s.log.Warn("ERROR on commiting transaction: %v", err)

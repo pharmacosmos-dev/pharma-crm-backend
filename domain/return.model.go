@@ -10,7 +10,7 @@ type Return struct {
 	Name              string     `gorm:"name" json:"name"`
 	Status            string     `gorm:"status" json:"status"`
 	Comment           string     `gorm:"comment" json:"comment"`
-	ReturnCount       int64      `gorm:"return_count" json:"return_count"`
+	ReturnCount       float64    `gorm:"return_count" json:"return_count"`
 	ReceivedSupplySum float64    `gorm:"received_supply_sum" json:"received_supply_sum"`
 	ReceivedRetailSum float64    `gorm:"received_retail_sum" json:"received_retail_sum"`
 	AcceptedSupplySum float64    `gorm:"accepted_supply_sum" json:"accepted_supply_sum"`
@@ -44,8 +44,9 @@ type ReturnDetail struct {
 	ProductId      string     `gorm:"product_id" json:"product_id"`
 	StoreProductId string     `gorm:"store_product_id" json:"store_product_id"`
 	UnitPerPack    int        `gorm:"unit_per_pack" json:"unit_per_pack"`
-	ReceivedCount  int        `gorm:"received_count" json:"received_count"`
-	ScannedCount   int        `gorm:"scanned_count" json:"scanned_count"`
+	ReceivedCount  float64    `gorm:"received_count" json:"received_count"`
+	ScannedCount   float64    `gorm:"scanned_count" json:"scanned_pack"`
+	ScannedUnit    float64    `gorm:"scanned_unit" json:"scanned_unit"`
 	Name           string     `gorm:"name" json:"name"`
 	MaterialCode   int        `gorm:"material_code" json:"material_code"`
 	Barcode        string     `gorm:"barcode" json:"barcode"`
@@ -81,12 +82,12 @@ type ReturnDetailParam struct {
 }
 
 type ReturnDetailStatus struct {
-	Scanned           int     `gorm:"scanned" json:"scanned"`
-	Shortage          int     `gorm:"shortage" json:"shortage"`
-	Surplus           int     `gorm:"surplus" json:"surplus"`
-	All               int     `gorm:"all" json:"all"`
-	New               int     `gorm:"new" json:"new"`
-	Accepted          int     `gorm:"accepted" json:"accepted"`
+	Scanned           float64 `gorm:"scanned" json:"scanned"`
+	Shortage          float64 `gorm:"shortage" json:"shortage"`
+	Surplus           float64 `gorm:"surplus" json:"surplus"`
+	All               float64 `gorm:"all" json:"all"`
+	New               float64 `gorm:"new" json:"new"`
+	Accepted          float64 `gorm:"accepted" json:"accepted"`
 	ShortageSupplySum float64 `gorm:"shortage_supply_sum" json:"shortage_supply_sum"`
 	ShortageRetailSum float64 `gorm:"shortage_retail_sum" json:"shortage_retail_sum"`
 	SurplusSupplySum  float64 `gorm:"surplus_supply_sum" json:"surplus_supply_sum"`
@@ -94,9 +95,10 @@ type ReturnDetailStatus struct {
 }
 
 type ReturnAddProduct struct {
-	Id    string `gorm:"id" json:"id"`
-	Count int    `gorm:"count" json:"count"`
-	Type  string `gorm:"type" json:"type"`
+	Id          string `gorm:"id" json:"id"`
+	ScannedPack int    `gorm:"scanned_pack" json:"scanned_pack"`
+	ScannedUnit int    `gorm:"scanned_unit" json:"scanned_unit"`
+	Type        string `gorm:"type" json:"type"`
 }
 
 type ReturnDetail1C struct {

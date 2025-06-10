@@ -356,15 +356,42 @@ func (h *ReturnHandler) AddProductByBarcode(c *gin.Context) {
 		return
 	}
 
+	// get unit per pack
+	var transDetail struct {
+		UnitPerPack   float64 `gorm:"unit_per_pack"`
+		ReceivedCount float64 `gorm:"received_count"`
+	}
+	err = h.db.Raw(`
+	SELECT
+		td.received_count,
+		p.unit_per_pack
+	FROM transfer_details td 
+	JOIN products p ON td.product_id = p.id
+	WHERE td.id = ?;
+	`, request.Id).Scan(&transDetail).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, "failed.get.unit_per_pack")
+		return
+	}
+	// calculate quantity
+	quantity := float64(request.ScannedPack) + float64(request.ScannedUnit)/transDetail.UnitPerPack
+
+	// checking quantity greater
+	if transDetail.ReceivedCount < quantity {
+		handleResponse(c, BadRequest, "invalid.vazvrat.quantity")
+		return
+	}
+
 	// add scanned count by transfer detail id
 	err = h.db.Exec(`
 		UPDATE transfer_details
 		SET scanned_count = ?, updated_at = NOW()
-		WHERE id = ? AND transfer_id = ?`,
-		request.Count, request.Id, id).Error
+		WHERE id = ? AND transfer_id = ?;`,
+		quantity, request.Id, id).Error
 	if err != nil {
 		h.log.Error(err)
-		handleResponse(c, InternalError, "Failed to add count")
+		handleResponse(c, InternalError, "failed.update.vazvrat.quantity")
 		return
 	}
 
@@ -412,26 +439,20 @@ func (h *ReturnHandler) Send(c *gin.Context) {
 // @Accept 	json
 // @Produce json
 // @Param 	return_id query string true "Return ID"
-// @Param   store_id query string true "Store ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /return/send1c [POST]
 func (h *ReturnHandler) Send1C(c *gin.Context) {
 	returnId := c.Query("return_id")
-	storeId := c.Query("store_id")
 
 	if err := uuid.Validate(returnId); err != nil {
 		handleResponse(c, BadRequest, "Invalid return id")
 		return
 	}
-	if err := uuid.Validate(storeId); err != nil {
-		handleResponse(c, BadRequest, "Invalid store id")
-		return
-	}
 
 	// confirm return service
-	err := h.service.SendReturn1C(returnId, storeId)
+	err := h.service.SendReturn1C(returnId)
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to send return")
 		return
