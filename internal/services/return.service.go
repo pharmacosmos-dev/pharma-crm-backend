@@ -38,18 +38,17 @@ func (s *Services) CreateReturn(req *domain.ReturnRequest) error {
 	// and insert them into inventory_details
 	err = tx.Exec(
 		`INSERT INTO transfer_details(
-			transfer_id, 
-			store_product_id, 
-			product_id, 
-			received_count, 
-			supply_price, 
-			retail_price, 
-			expire_date, 
-			serial_number
-			)
+			transfer_id,
+			store_product_id,
+			product_id,
+			received_count,
+			supply_price,
+			retail_price,
+			expire_date,
+			serial_number)
 		SELECT  
 			?, 
-			sp.id, 
+			sp.id,
 			sp.product_id, 
 			sp.unit_quantity::numeric/p.unit_per_pack, 
 			sp.supply_price, 
@@ -57,10 +56,10 @@ func (s *Services) CreateReturn(req *domain.ReturnRequest) error {
 			sp.expire_date, 
 			sp.serial_number
 		FROM store_products sp
-		JOIN 
+		JOIN
 			products p ON sp.product_id = p.id
 		WHERE 
-			sp.store_id = 'e8fd3090-fff2-4a67-84b2-6fa15170f5ea' AND (sp.pack_quantity > 0 OR sp.unit_quantity > 0);`,
+			sp.store_id = ? AND (sp.pack_quantity > 0 OR sp.unit_quantity > 0);`,
 		id, req.StoreId).Error
 	if err != nil {
 		s.log.Warn("ERROR on creating inventory details: %v", err)
@@ -81,21 +80,29 @@ func (s *Services) CreateReturn(req *domain.ReturnRequest) error {
 func (s *Services) GetReturnById(returnId string) (*domain.Return, error) {
 	var res domain.Return
 	err := s.db.Model(&domain.Transfer{}).
-		Preload("Store").
 		Preload("CreatedBy").
 		Preload("UpdatedBy").
 		Select(`
 			transfers.*,
 			SUM(td.accepted_count) AS return_count,
+			SUM(td.received_count) AS received_count,
+			SUM(td.scanned_count) AS scanned_count,
 			SUM(td.received_count*td.retail_price) AS received_retail_sum,
 			SUM(td.accepted_count*td.retail_price) AS accepted_retail_sum`).
 		Joins("LEFT JOIN transfer_details td ON transfers.id = td.transfer_id").
 		Group("transfers.id").
+		Debug().
 		First(&res, "transfers.id = ?", returnId).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting return by id: %v", err)
 		return nil, err
 	}
+	err = s.db.Debug().First(&res.Store, "id = ?", res.FromStoreId).Error
+	if err != nil {
+		s.log.Error(err)
+		return &res, err
+	}
+
 	return &res, nil
 }
 
@@ -169,9 +176,9 @@ func (s *Services) ReturnDetailList(param *domain.ReturnDetailParam) ([]domain.R
 			transfer_details.created_at, 
 			transfer_details.updated_at,
 			FLOOR(transfer_details.scanned_count) AS scanned_count,
-			MOD(transfer_details.scanned_count * p.unit_per_pack, p.unit_per_pack) AS scanned_unit,
-			transfer_details.received_count*transfer_details.retail_price AS received_sum,
-			transfer_details.scanned_count*transfer_details.retail_price AS scanned_sum,
+			ROUND(MOD(transfer_details.scanned_count * p.unit_per_pack, p.unit_per_pack), 0) AS scanned_unit,
+			ROUND(transfer_details.received_count*transfer_details.retail_price, 2) AS received_sum,
+			ROUND(transfer_details.scanned_count*transfer_details.retail_price, 2) AS scanned_sum,
     		p.name, p.material_code, p.unit_per_pack, p.barcode, ut.short_name`).
 		Joins("JOIN products p ON transfer_details.product_id = p.id").
 		Joins("LEFT JOIN unit_types ut ON p.unit_type_id = ut.id").
@@ -207,6 +214,7 @@ func (s *Services) ReturnDetailList(param *domain.ReturnDetailParam) ([]domain.R
 		Count(&totalCount).
 		Limit(param.Limit).
 		Offset(param.Offset).
+		Debug().
 		Find(&res).Error
 	if err != nil {
 		s.log.Error(err)

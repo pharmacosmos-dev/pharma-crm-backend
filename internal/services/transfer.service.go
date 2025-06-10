@@ -158,19 +158,19 @@ func (s *Services) TransferDetailList(param *domain.ReturnDetailParam) ([]domain
 		transfer_details.transfer_id,
 		transfer_details.received_count,
 		FLOOR(transfer_details.scanned_count) AS scanned_count,
-		MOD(transfer_details.scanned_count * p.unit_per_pack, p.unit_per_pack) AS scanned_unit,
+		ROUND(MOD(transfer_details.scanned_count * p.unit_per_pack, p.unit_per_pack), 0) AS scanned_unit,
 		transfer_details.expire_date, 
 		transfer_details.serial_number, 
 		transfer_details.supply_price, 
 		transfer_details.retail_price,
 		transfer_details.created_at, 
 		transfer_details.updated_at,
-		transfer_details.received_count*transfer_details.retail_price AS received_sum,
-		transfer_details.scanned_count*transfer_details.retail_price AS scanned_sum,
+		ROUND(transfer_details.received_count*transfer_details.retail_price, 2) AS received_sum,
+		ROUND(transfer_details.scanned_count*transfer_details.retail_price, 2) AS scanned_sum,
     	p.name, p.material_code, p.unit_per_pack, p.barcode, ut.short_name`).
 		Joins("JOIN products p ON transfer_details.product_id = p.id").
 		Joins("LEFT JOIN unit_types ut ON p.unit_type_id = ut.id").
-		Where("transfer_details.transfer_id = ?", param.ReturnId)
+		Where("transfer_details.transfer_id = ?", param.TransferId)
 
 	if param.Search != "" {
 		query = query.Where("p.name ILIKE ? OR p.barcode LIKE ?", "%"+param.Search+"%", "%"+param.Search+"%")

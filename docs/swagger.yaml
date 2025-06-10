@@ -7522,6 +7522,37 @@ paths:
       summary: Upload a product
       tags:
       - products
+  /product/export-arzon:
+    get:
+      consumes:
+      - application/json
+      description: Get product arzon apteka
+      parameters:
+      - description: Store ID
+        in: query
+        name: store_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Product list
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Invalid store_id
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get product arzon apteka
+      tags:
+      - products
   /product/export-excel:
     get:
       consumes:
@@ -7772,6 +7803,37 @@ paths:
       security:
       - BearerAuth: []
       summary: Get a product
+      tags:
+      - products
+  /product/list-arzon:
+    get:
+      consumes:
+      - application/json
+      description: Get product arzon apteka
+      parameters:
+      - description: Store ID
+        in: query
+        name: store_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Product list
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Invalid store_id
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get product arzon apteka
       tags:
       - products
   /product/producer:
@@ -11206,7 +11268,7 @@ paths:
         type: integer
       - description: Return ID
         in: query
-        name: return_id
+        name: transfer_id
         required: true
         type: string
       - description: SEARCH KEY

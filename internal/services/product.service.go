@@ -687,7 +687,7 @@ func (s *Services) GetProductMovements(productId, storeId string, limit, offset 
 	}
 
 	// Execute query
-	err := s.db.Raw(query, params...).Scan(&res).Error
+	err := s.db.Debug().Raw(query, params...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting product movements: %v", err)
 		return res, totalCount, err
@@ -699,4 +699,25 @@ func (s *Services) GetProductMovements(productId, storeId string, limit, offset 
 	}
 
 	return res, totalCount, nil
+}
+
+// get produt list for arzon apteka
+func (s *Services) ProductListForArzon(storeId string) ([]domain.ProductArzon, error) {
+	var res []domain.ProductArzon
+	err := s.db.Raw(`
+	SELECT 
+		p.id, p.name, 
+		COALESCE(pr.name, '') AS producer_name, 
+		MIN(sp.retail_price) AS retail_price
+	FROM store_products sp
+	JOIN products p ON sp.product_id = p.id
+	LEFT JOIN producers pr ON p.producer_id = pr.id
+	WHERE sp.store_id = ? AND (sp.pack_quantity > 0 OR sp.unit_quantity > 0)
+	GROUP BY p.id, pr.id;
+	`, storeId).Scan(&res).Error
+	if err != nil {
+		s.log.Error(err)
+		return res, err
+	}
+	return res, nil
 }

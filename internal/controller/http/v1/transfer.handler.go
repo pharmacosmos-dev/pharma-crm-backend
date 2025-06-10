@@ -510,7 +510,7 @@ func (h *TransferHandler) Cancel(c *gin.Context) {
 // @Produce json
 // @Param 	limit query int false "LIMIT"
 // @Param 	offset query int false "OFFSET"
-// @Param   return_id query string true "Return ID"
+// @Param   transfer_id query string true "Return ID"
 // @Param   search 	query string false "SEARCH KEY"
 // @Param   type 	query string false "TYPE"
 // @Success 200 {object} v1.Response

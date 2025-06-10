@@ -11,6 +11,8 @@ type Return struct {
 	Status            string     `gorm:"status" json:"status"`
 	Comment           string     `gorm:"comment" json:"comment"`
 	ReturnCount       float64    `gorm:"return_count" json:"return_count"`
+	ScannedCount      float64    `gorm:"scanned_count" json:"scanned_count"`
+	ReceivedCount     float64    `gorm:"received_count" json:"received_count"`
 	ReceivedSupplySum float64    `gorm:"received_supply_sum" json:"received_supply_sum"`
 	ReceivedRetailSum float64    `gorm:"received_retail_sum" json:"received_retail_sum"`
 	AcceptedSupplySum float64    `gorm:"accepted_supply_sum" json:"accepted_supply_sum"`
@@ -74,11 +76,12 @@ type ReturnParam struct {
 
 // return detail query param structure
 type ReturnDetailParam struct {
-	ReturnId string `form:"return_id"`
-	Search   string `form:"search"`
-	Limit    int    `form:"limit"`
-	Offset   int    `form:"offset"`
-	Type     string `form:"type"`
+	ReturnId   string `form:"return_id"`
+	TransferId string `form:"transfer_id"`
+	Search     string `form:"search"`
+	Limit      int    `form:"limit"`
+	Offset     int    `form:"offset"`
+	Type       string `form:"type"`
 }
 
 type ReturnDetailStatus struct {

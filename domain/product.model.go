@@ -286,3 +286,10 @@ type ProductData struct {
 	Sum          float64           `gorm:"sum" json:"sum"`
 	TotalCount   int64             `gorm:"total_count" json:"-"`
 }
+
+type ProductArzon struct {
+	Id           string  `gorm:"id" json:"id"`
+	Name         string  `gorm:"name" json:"name"`
+	ProducerName string  `gorm:"producer_name" json:"producer_name"`
+	RetailPrice  float64 `gorm:"retail_price" json:"retail_price"`
+}

@@ -104,14 +104,13 @@ func (h *ReturnHandler) Get(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid return id")
 		return
 	}
-	var res domain.Return
-	err := h.db.Model(&domain.Transfer{}).Preload("Store").Raw(`SELECT * FROM transfers WHERE id = ?`, id).Scan(&res).Error
+
+	res, err := h.service.GetReturnById(id)
 	if err != nil {
-		h.log.Warn("Error on getting return: %v", err.Error())
-		handleResponse(c, InternalError, "Failed to get return")
+		h.log.Warn("ERROR on getting return by id: %v", err)
+		handleResponse(c, InternalError, "failed.get.return")
 		return
 	}
-
 	handleResponse(c, OK, res)
 }
 

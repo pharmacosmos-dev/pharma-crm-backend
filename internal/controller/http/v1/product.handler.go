@@ -59,6 +59,8 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.POST("/generate-marking", h.GenerateMarkingProducts)
 		product.PATCH("/is-marking", h.UpdateIsMarking)
 		product.GET("/:id/product-movement", h.ProductMovements)
+		product.GET("/export-arzon", h.ArzonProductExport)
+		product.GET("/list-arzon", h.ArzonProductList)
 
 	}
 }
@@ -1658,6 +1660,122 @@ func (h *ProductHandler) UpdateIsMarking(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, "UPDATED")
+}
+
+// Get product arzon apteka
+// @Summary Get product arzon apteka
+// @Description Get product arzon apteka
+// @Tags products
+// @Security BearerAuth
+// @Accept  json
+// @Produce json
+// @Param 	store_id query string true "Store ID"
+// @Success 200 {object} v1.Response "Product list"
+// @Failure 400 {object} v1.Response "Invalid store_id"
+// @Failure 500 {object} v1.Response "Internal server error"
+// @Router /product/list-arzon [GET]
+func (h *ProductHandler) ArzonProductList(c *gin.Context) {
+	storeId := c.Query("store_id")
+
+	if err := uuid.Validate(storeId); err != nil {
+		handleResponse(c, BadRequest, "invalid.store_id")
+		return
+	}
+
+	res, err := h.service.ProductListForArzon(storeId)
+	if err != nil {
+		handleResponse(c, InternalError, "failed.get.product_list")
+		return
+	}
+	handleResponse(c, OK, res)
+}
+
+// Get product arzon apteka
+// @Summary Get product arzon apteka
+// @Description Get product arzon apteka
+// @Tags products
+// @Security BearerAuth
+// @Accept  json
+// @Produce json
+// @Param 	store_id query string true "Store ID"
+// @Success 200 {object} v1.Response "Product list"
+// @Failure 400 {object} v1.Response "Invalid store_id"
+// @Failure 500 {object} v1.Response "Internal server error"
+// @Router /product/export-arzon [GET]
+func (h *ProductHandler) ArzonProductExport(c *gin.Context) {
+	storeId := c.Query("store_id")
+
+	if err := uuid.Validate(storeId); err != nil {
+		handleResponse(c, BadRequest, "invalid.store_id")
+		return
+	}
+
+	res, err := h.service.ProductListForArzon(storeId)
+	if err != nil {
+		handleResponse(c, InternalError, "failed.get.product_list")
+		return
+	}
+
+	// Excel fayl yaratish
+	f := excelize.NewFile()
+	sheetName := "List1"
+	f.SetSheetName("Sheet1", sheetName)
+
+	// Headerlar
+	headers := []string{"Наименование", "Производитель", "Цена"}
+
+	headerStyle, err := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Bold:  true,
+			Color: "000000",
+		},
+	})
+	if err != nil {
+		h.log.Error("Failed to create style:", err)
+		handleResponse(c, InternalError, "Error on giving style to excel")
+		return
+	}
+
+	for i, h := range headers {
+		col := string(rune('A'+i)) + "1"
+		f.SetCellValue(sheetName, col, h)
+		f.SetCellStyle(sheetName, col, col, headerStyle)
+	}
+
+	// Ma'lumotlarni qo'shish
+	for i, imp := range res {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheetName, "A"+row, imp.Name)
+		f.SetCellValue(sheetName, "B"+row, imp.ProducerName)
+		f.SetCellValue(sheetName, "C"+row, imp.RetailPrice)
+	}
+
+	// Faylni uploads/ papkasiga UUID bilan saqlash
+	fileName := "product_list_" + time.Now().Add(time.Hour*5).Format("2006-01-02_15-04-05") + ".xlsx"
+	filePath := filepath.Join("uploads", fileName)
+
+	// uploads/ papkasi mavjud bo‘lmasa, yaratish
+	if _, err := os.Stat("uploads"); os.IsNotExist(err) {
+		err := os.Mkdir("uploads", os.ModePerm)
+		if err != nil {
+			h.log.Error("Failed to create uploads directory:", err)
+			handleResponse(c, InternalError, "Failed to create uploads folder")
+			return
+		}
+	}
+
+	// Faylni diskka yozish
+	if err := f.SaveAs(filePath); err != nil {
+		h.log.Error("Failed to save Excel file:", err)
+		handleResponse(c, InternalError, "Failed to save Excel file")
+		return
+	}
+
+	// Foydalanuvchiga file path yoki URLni qaytarish
+	handleResponse(c, OK, gin.H{
+		"file_name": fileName,
+	})
+
 }
 
 // Helper function to safely parse float values
