@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
@@ -292,7 +293,7 @@ func (s *Services) SendTransfer(returnId string, userId string) error {
 }
 
 // confirm inventory
-func (s *Services) ConfirmTransfer(returnId string, userId string) error {
+func (s *Services) ConfirmTransfer(transferID string, userId string) error {
 	// start transaction
 	tx := s.db.Begin()
 	defer func() {
@@ -301,8 +302,9 @@ func (s *Services) ConfirmTransfer(returnId string, userId string) error {
 		}
 	}()
 	// update confirm inventory
-	query := `UPDATE transfers SET status = ?, accepted_by = ?, accepted_at = NOW() WHERE id = ?`
-	err := tx.Exec(query, config.COMPLETED, userId, returnId).Error
+	var transfer domain.Transfer
+	query := `UPDATE transfers SET status = ?, accepted_by = ?, accepted_at = NOW() WHERE id = ? RETURNING *`
+	err := tx.Raw(query, config.COMPLETED, userId, transferID).Scan(&transfer).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating inventory %v", err)
 		tx.Rollback()
@@ -310,11 +312,51 @@ func (s *Services) ConfirmTransfer(returnId string, userId string) error {
 	}
 	// update confirm inventory details
 	query1 := `UPDATE transfer_details SET accepted_count = scanned_count, updated_at = NOW() WHERE transfer_id = ?`
-	err = tx.Exec(query1, returnId).Error
+	err = tx.Exec(query1, transferID).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating inventory details: %v", err)
 		tx.Rollback()
 		return err
+	}
+	var res []domain.TransferDetail
+	err = tx.Raw(`
+	SELECT 
+		td.*, p.unit_per_pack 
+	FROM transfer_details td 
+		JOIN 
+			products p ON p.id = td.product_id 
+		WHERE 
+			td.transfer_id = ? AND td.scanned_count > 0;
+	`, transferID).Scan(&res).Error
+	if err != nil {
+		s.log.Warn("ERROR on gettig transfer_detail list: %v", err)
+		tx.Rollback()
+		return err
+	}
+
+	// insert transfered products to store_product
+	query2 := `
+		INSERT INTO store_products(
+				product_id, 
+				store_id, 
+				pack_quantity, 
+				unit_quantity, 
+				retail_price, 
+				supply_price, 
+				vat, 
+				expire_date, 
+				vat_price,
+				serial_number
+		)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`
+	for _, v := range res {
+		// execute query
+		err = tx.Exec(query2, v.ProductId, transfer.ToStoreId, int(v.ScannedCount), math.Round(v.ScannedCount*float64(v.UnitPerPack)), v.RetailPrice, v.SupplyPrice, 12, v.ExpireDate, (v.RetailPrice*12)/112, v.SerialNumber).Error
+		if err != nil {
+			s.log.Warn("ERROR on inserting store product: %v", err)
+			return err
+		}
 	}
 
 	// complete transaction

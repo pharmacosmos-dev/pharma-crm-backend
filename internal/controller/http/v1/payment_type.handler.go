@@ -286,6 +286,7 @@ func (h *PaymentTypeHandler) GetPaymentService(c *gin.Context) {
 	)
 	// get payment service by id
 	err := h.db.
+		Preload("Store").
 		First(&res, "id = ?", id).Error
 	if err != nil {
 		h.log.Error(err)

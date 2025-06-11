@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/pharma-crm-backend/config"
@@ -457,7 +458,7 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
            import_detail_id, serial_number)
 	SELECT
 		imd.product_id, ?, FLOOR(imd.scanned_count - imd.received_count), (imd.scanned_count - imd.received_count) * p.unit_per_pack,
-		imd.retail_price_vat, imd.supply_price_vat, 12, imd.expire_date,imd.retail_price_vat*12/112,  imd.id, imd.series_number
+		imd.retail_price_vat, imd.supply_price_vat, 12, imd.expire_date, imd.retail_price_vat*12/112,  imd.id, imd.series_number
 	FROM import_details imd
 	JOIN products p ON imd.product_id = p.id
 	WHERE imd.import_id = ? AND imd.scanned_count > imd.received_count;
@@ -475,7 +476,7 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 	for _, imd := range inventoryDetails {
 		if imd.ScannedCount < imd.ReceivedCount {
 			err = tx.Exec(`UPDATE store_products SET pack_quantity = ?, unit_quantity = ? WHERE id = ?`,
-				int(imd.ScannedCount), int(imd.ScannedCount*float64(imd.UnitPerPack)), imd.StoreProductId).Error
+				int(imd.ScannedCount), math.Round(imd.ScannedCount*float64(imd.UnitPerPack)), imd.StoreProductId).Error
 			if err != nil {
 				s.log.Warn("ERROR on updating store_product quantity on confirm inventory: %v", err)
 				tx.Rollback()
