@@ -290,6 +290,15 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 			args = append(args, now.Format("2006-01-02"), now.AddDate(0, 3, 0).Format("2006-01-02"))
 		}
 	}
+
+	switch param.Order {
+	case "+name":
+		order = " ORDER BY p.name ASC "
+	case "-name":
+		order = " ORDER BY p.name DESC "
+	default:
+		order = " ORDER BY p.created_at DESC "
+	}
 	// filter with search
 	if param.SearchField != "" {
 		search := "%" + param.SearchField + "%"
@@ -307,7 +316,7 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 		p.unit_per_pack, p.is_marking, p.mxik, p.unit_code, 
 		p.unit_label, p.created_at, p.updated_at,
 		pr.name AS manufacturer, u.unit_name, u.short_name,
-		SUM(sp.pack_quantity) AS quantity, 
+		SUM(sp.pack_quantity) AS quantity,
 		%s
 		SUM(sp.unit_quantity)%sp.unit_per_pack AS unit_quantity,
 		COUNT(1) OVER() AS total_count

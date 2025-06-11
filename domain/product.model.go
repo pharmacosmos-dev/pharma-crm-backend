@@ -237,6 +237,7 @@ type ProductQueryParam struct {
 	ProducerID      string  `form:"producer_id"`
 	Status          string  `form:"status"`
 	NoBarcode       bool    `form:"no_barcode"`
+	Order           string  `form:"order"`
 }
 
 // update barcode structure
