@@ -275,7 +275,7 @@ func (s *Services) SendTransfer(returnId string, userId string) error {
 		// update store product quantities
 		// if scanned count is 0, skip the update
 		err = tx.Exec(`UPDATE store_products SET pack_quantity = GREATEST(?, 0), unit_quantity = GREATEST(unit_quantity - ?, 0), updated_at = NOW() WHERE id = ?`,
-			int(detail.ReceivedCount-detail.ScannedCount), detail.ScannedCount*float64(detail.UnitPerPack), detail.StoreProductId).Error
+			int(detail.ReceivedCount-detail.ScannedCount), math.Round(detail.ScannedCount*float64(detail.UnitPerPack)), detail.StoreProductId).Error
 		if err != nil {
 			s.log.Warn("ERROR on updating store product pack quantity: %v", err)
 			tx.Rollback()

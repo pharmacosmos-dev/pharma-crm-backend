@@ -79,6 +79,11 @@ type SaleResponse struct {
 	Phone              string         `gorm:"phone" json:"phone"`
 	Type               string         `gorm:"type" json:"type"`
 	SaleType           string         `gorm:"sale_type" json:"sale_type"`
+	Cash               float64        `gorm:"cash" json:"cash"`
+	Uzcard             float64        `gorm:"uzcard" json:"uzcard"`
+	Humo               float64        `gorm:"humo" json:"humo"`
+	Click              float64        `gorm:"click" json:"click"`
+	Payme              float64        `gorm:"payme" json:"payme"`
 	IsDelivered        bool           `gorm:"is_delivered" json:"is_delivered"`
 	FiscalSign         string         `gorm:"fiscal_sign" json:"fiscal_sign"`
 	CustomerName       *string        `gorm:"customer_name" json:"customer_name"`

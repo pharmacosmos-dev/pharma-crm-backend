@@ -396,7 +396,13 @@ func (s *Services) CreateOnlineSale(tx *gorm.DB, saleId string, totalAmount int6
 
 // get sale list data
 func (s *Services) ListSale(param *domain.QueryParam, userId string) ([]domain.SaleResponse, int64, error) {
-	var totalCount int64
+	var (
+		totalCount int64
+		filter     = " WHERE s.status = 'completed' "
+		args       = []any{}
+		groupBy    = " GROUP BY s.id, em.id, st.id, customers.id, cash_boxes.id "
+		orderBy    = " ORDER BY s.completed_at DESC "
+	)
 	// get employee info
 	var employee domain.Employee
 	err := s.db.First(&employee, "id = ?", userId).Error
@@ -413,83 +419,112 @@ func (s *Services) ListSale(param *domain.QueryParam, userId string) ([]domain.S
 			param.StoreID = employee.StoreId
 		}
 	}
-
-	// build sale get list query
 	var res = []domain.SaleResponse{}
-	query := s.db.Model(&domain.Sale{}).Table("sales s").
-		Preload("SalePayments", func(db *gorm.DB) *gorm.DB {
-			return db.Preload("PaymentType")
-		}).
-		Select(`
-		s.*, em.full_name, em.phone,
-		st.name AS store_name, customers.full_name as customer_name, customers.phone AS customer_phone,
-		cash_boxes.name AS cash_box_name`).
-		// Change INNER JOIN to LEFT JOIN to include sales without store_id
-		Joins("LEFT JOIN stores st ON st.id = s.store_id").
-		// Change INNER JOIN to LEFT JOIN to include sales without employee_id
-		Joins("LEFT JOIN employees em ON em.id = s.employee_id").
-		// Change INNER JOIN to LEFT JOIN to include sales without cashbox_operation_id
-		Joins("LEFT JOIN cashbox_operations co ON s.cash_box_operation_id = co.id").
-		// Ensure cash_boxes can be null
-		Joins("LEFT JOIN cash_boxes ON co.cash_box_id = cash_boxes.id").
-		Joins("LEFT JOIN customers ON s.customer_id = customers.id")
+	query := `
+	SELECT
+		s.*,
+		em.full_name, em.phone,
+		st.name AS store_name,
+		COALESCE(customers.full_name, '') as customer_name,
+		COALESCE(customers.phone, '') AS customer_phone,
+		cash_boxes.name AS cash_box_name,
+		COALESCE(SUM(CASE WHEN pt.name = 'Naqd' THEN sp.amount ELSE 0 END), 0.00) AS cash,
+		COALESCE(SUM(CASE WHEN pt.name = 'Uzcard' THEN sp.amount ELSE 0 END), 0.00) AS uzcard,
+		COALESCE(SUM(CASE WHEN pt.name = 'Humo' THEN sp.amount ELSE 0 END), 0.00) AS humo,
+		COALESCE(SUM(CASE WHEN pt.name = 'Click' THEN sp.amount ELSE 0 END), 0.00) AS click,
+		COALESCE(SUM(CASE WHEN pt.name = 'Payme' THEN sp.amount ELSE 0 END), 0.00) AS payme, 
+		COUNT(*) OVER() AS total_count
+	FROM sales s
+		LEFT JOIN stores st ON st.id = s.store_id
+		LEFT JOIN employees em ON em.id = s.employee_id
+		LEFT JOIN cashbox_operations co ON s.cash_box_operation_id = co.id
+		LEFT JOIN cash_boxes ON co.cash_box_id = cash_boxes.id
+		LEFT JOIN customers ON s.customer_id = customers.id
+		LEFT JOIN sale_payments sp ON sp.sale_id = s.id
+		LEFT JOIN payment_types pt ON sp.payment_type_id = pt.id
+	`
+	totalCountQuery := `
+		SELECT
+			COUNT(DISTINCT s.id) AS total_count
+		FROM sales s
+			LEFT JOIN stores st ON st.id = s.store_id
+			LEFT JOIN employees em ON em.id = s.employee_id
+			LEFT JOIN cashbox_operations co ON s.cash_box_operation_id = co.id
+			LEFT JOIN cash_boxes ON co.cash_box_id = cash_boxes.id
+			LEFT JOIN customers ON s.customer_id = customers.id
+			LEFT JOIN sale_payments sp ON sp.sale_id = s.id
+			LEFT JOIN payment_types pt ON sp.payment_type_id = pt.id
+	`
 
 	// filter by payment type
 	if param.PaymentTypeID != "" {
-		query = query.Joins("JOIN sale_payments sp ON s.id = sp.sale_id").
-			Where("sp.payment_type_id = ?", param.PaymentTypeID).
-			Group("s.id, st.name, cash_boxes.name, em.full_name, em.phone, customers.full_name, customers.phone")
+		filter += " AND sp.payment_type_id = ? "
+		args = append(args, param.PaymentTypeID)
 	}
 	// filter by employee
 	if param.VendorID != "" {
-		query = query.Where("s.employee_id = ?", param.VendorID)
+		filter += " AND s.employee_id = ? "
+		args = append(args, param.VendorID)
 	}
 	// filter by store id
 	if param.StoreID != "" {
-		query = query.Where("s.store_id = ?", param.StoreID)
+		filter += " AND s.store_id = ? "
+		args = append(args, param.StoreID)
 	}
 	// filter by cashbox id
 	if param.CashBoxID != "" {
-		query = query.Where("co.cash_box_id = ?", param.CashBoxID)
+		filter += " AND co.cash_box_id = ? "
+		args = append(args, param.CashBoxID)
 	}
 	// filter by start date and end date
 	if param.StartDate != "" && param.EndDate != "" {
-		query = query.Where("(s.completed_at + interval '5 hours') BETWEEN ? AND ? ", param.StartDate, param.EndDate)
+		filter += " AND (s.completed_at + interval '5 hours') BETWEEN ? AND ? "
+		args = append(args, param.StartDate, param.EndDate)
 	}
 	// filter by start date
 	if param.StartDate != "" && param.EndDate == "" {
-		query = query.Where("(s.completed_at + interval '5 hours') >= ?", param.StartDate)
+		filter += " AND (s.completed_at + interval '5 hours') >= ? "
+		args = append(args, param.StartDate)
 	}
 	// search condition
 	if param.Search != "" {
-		param.Search = fmt.Sprintf("%%%s%%", param.Search)
-		query = query.Where("st.name ILIKE ? OR CAST(s.sale_number AS TEXT) LIKE ?", param.Search, param.Search)
+		filter += " AND st.name ILIKE ? OR CAST(s.sale_number AS TEXT) LIKE ? "
+		args = append(args, "%"+param.Search+"%", "%"+param.Search+"%")
 	}
 
 	if param.TotalAmountFrom > 0 {
-		query = query.Where("s.total_amount >= ?", param.TotalAmountFrom)
+		filter += " AND s.total_amount >= ? "
+		args = append(args, param.TotalAmountFrom)
 	}
 
 	if param.TotalAmountTo > 0 {
-		query = query.Where("s.total_amount <= ?", param.TotalAmountTo)
+		filter += " AND s.total_amount <= ? "
+		args = append(args, param.TotalAmountTo)
+	}
+	// filter by sale type (SALE || RETURN)
+	if param.SaleType != "" {
+		filter += " AND s.sale_type = ? "
+		args = append(args, param.SaleType)
+	}
+	// collect total count query
+	totalCountQuery += filter
+	err = s.db.Raw(totalCountQuery, args...).Scan(&totalCount).Error
+	if err != nil {
+		s.log.Warn("ERROR on gettig total count: %v", err)
+		return nil, 0, err
 	}
 
-	if param.SaleType != "" {
-		query = query.Where("s.sale_type = ?", param.SaleType)
-	}
+	// collect query
+	query += filter + groupBy + orderBy + " LIMIT ? OFFSET ?;"
+	args = append(args, param.Limit, param.Offset)
 
 	// complete query
-	err = query.Where("s.status = 'completed'").
-		Count(&totalCount).
-		Limit(param.Limit).
-		Offset(param.Offset).
-		Order("s.completed_at DESC").
-		Find(&res).Error
-
+	err = s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, 0, err
 	}
+
 	return res, totalCount, nil
 }
 

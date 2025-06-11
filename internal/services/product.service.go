@@ -214,6 +214,7 @@ func (s *Services) GetStoreProductByIdOrBarcode(id string, marking string, store
 	return &storeProduct, 200, nil
 }
 
+// get store products by product id
 func (s *Services) GetStoreProductByID(id string) (*domain.StoreProduct, error) {
 	var storeProduct domain.StoreProduct
 	err := s.db.Raw(`
