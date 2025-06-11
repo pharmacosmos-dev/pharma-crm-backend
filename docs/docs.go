@@ -8405,6 +8405,12 @@ const docTemplate = `{
                         "description": "Cash Box ID",
                         "name": "cashbox_id",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "type",
+                        "name": "type",
+                        "in": "query"
                     }
                 ],
                 "responses": {

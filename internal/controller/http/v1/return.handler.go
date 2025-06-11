@@ -408,7 +408,7 @@ func (h *ReturnHandler) AddProductByBarcode(c *gin.Context) {
 		}
 
 		// add scanned count by transfer detail id
-		err = h.db.Debug().Exec(`
+		err = h.db.Exec(`
 		UPDATE 
 			transfer_details
 		SET 

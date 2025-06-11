@@ -6670,6 +6670,10 @@ paths:
         in: query
         name: cashbox_id
         type: string
+      - description: type
+        in: query
+        name: type
+        type: string
       produces:
       - application/json
       responses:

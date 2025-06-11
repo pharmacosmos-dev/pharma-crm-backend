@@ -39,6 +39,7 @@ type CashboxPaymentTypeResponse struct {
 type PaymentService struct {
 	ID             string     `gorm:"id" json:"id"`
 	StoreID        string     `gorm:"store_id" json:"store_id"`
+	PaymentTypeId  string     `gorm:"payment_type_id" json:"payment_type_id"`
 	Name           string     `gorm:"name" json:"name"`
 	Type           string     `gorm:"type" json:"type"`
 	MerchantID     int        `gorm:"merchant_id" json:"merchant_id"`
@@ -49,6 +50,7 @@ type PaymentService struct {
 	IsActive       bool       `gorm:"is_active" json:"is_active"`
 	CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt      *time.Time `gorm:"updated_at" json:"updated_at"`
+	Store          *Store     `gorm:"foreignKey:StoreID" json:"store"`
 }
 
 // PaymentServiceRequest structure for create, update

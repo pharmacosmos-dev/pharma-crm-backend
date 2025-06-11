@@ -294,8 +294,8 @@ func (s *Services) SendReturn(returnId string, userId string) error {
 	for _, detail := range returnDetails {
 		// update store product quantities
 		// if scanned count is 0, skip the update
-		err = tx.Exec(`UPDATE store_products SET pack_quantity = GREATEST(pack_quantity - ?, 0), unit_quantity = GREATEST(unit_quantity - ?, 0), updated_at = NOW() WHERE id = ?`,
-			detail.ScannedCount, detail.ScannedCount*float64(detail.UnitPerPack), detail.StoreProductId).Error
+		err = tx.Debug().Exec(`UPDATE store_products SET pack_quantity = GREATEST(?, 0), unit_quantity = GREATEST(unit_quantity - ?, 0), updated_at = NOW() WHERE id = ?`,
+			int(detail.ReceivedCount-detail.ScannedCount), detail.ScannedCount*float64(detail.UnitPerPack), detail.StoreProductId).Error
 		if err != nil {
 			s.log.Warn("ERROR on updating store product pack quantity: %v", err)
 			tx.Rollback()

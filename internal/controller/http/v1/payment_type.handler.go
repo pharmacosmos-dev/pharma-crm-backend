@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/utils"
 )
 
 type PaymentTypeHandler struct {
@@ -105,14 +106,16 @@ func (h *PaymentTypeHandler) Get(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param 	cashbox_id query string false "Cash Box ID"
+// @Param   type query string false "type"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /payment-type/list [get]
 func (h *PaymentTypeHandler) List(c *gin.Context) {
 	var (
-		res       = []*domain.PaymentType{}
-		cashBoxId = c.Query("cashbox_id")
+		res         = []*domain.PaymentType{}
+		cashBoxId   = c.Query("cashbox_id")
+		paymentType = c.Query("type")
 	)
 	query := h.db.Model(&domain.PaymentType{})
 	if cashBoxId != "" {
@@ -122,6 +125,10 @@ func (h *PaymentTypeHandler) List(c *gin.Context) {
 			Joins("LEFT JOIN cashbox_payment_types cpt ON cpt.payment_type_id = pt.id").
 			Where("cpt.cash_box_id = ?", cashBoxId)
 	}
+	if paymentType != "" {
+		query = query.Where("type = ?", paymentType)
+	}
+
 	err := query.Where("is_active = TRUE").Order("order_number ASC").Find(&res).Error
 	if err != nil {
 		h.log.Warn("ERROR on getting payment type list: %v", err)
@@ -296,25 +303,50 @@ func (h *PaymentTypeHandler) GetPaymentService(c *gin.Context) {
 // @Accept 	json
 // @Produce json
 // @Param   store_id query string false "Store ID"
+// @Param   limit query int false "Limit"
+// @Param   offset query int false "Offset"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /payment-service/list [get]
 func (h *PaymentTypeHandler) ListPaymentService(c *gin.Context) {
-	res := []*domain.PaymentService{}
-	storeID := c.Query("store_id")
-	query := h.db.Model(&domain.PaymentService{})
-	if storeID != "" {
-		query = query.Where("store_id = ?", storeID)
+	var (
+		res        = []*domain.PaymentService{}
+		param      domain.QueryParam
+		totalCount int64
+	)
+	// bind request query params
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "Invalid request param")
+		return
+	}
+	// get default pagination values
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	query := h.db.
+		Model(&domain.PaymentService{}).
+		Preload("Store").
+		Select(`
+			id, store_id, 
+			payment_type_id, 
+			name, type, 
+			is_active, 
+			created_at, updated_at
+		`)
+	if param.StoreID != "" {
+		query = query.Where("store_id = ?", param.StoreID)
 	}
 	//
-	err := query.Where("deleted_at IS NULL").Find(&res).Error
+	err := query.Where("deleted_at IS NULL").Count(&totalCount).Find(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, res)
+
+	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+
+	handleResponse(c, OK, data)
 }
 
 // Update godoc
