@@ -137,8 +137,8 @@ func (s *Services) ListAutoOrder(param *domain.AutoOrderParam) ([]domain.AutoOrd
 		Model(&domain.AutoOrder{}).
 		Preload("Store").
 		Select(`auto_orders.*, 
-		SUM(aod.adjusted_order_quantity) AS adjusted_order_quantity,
-		SUM(aod.response_order_quantity) AS response_order_quantity`).
+		SUM(aod.order_count) AS adjusted_order_quantity,
+		SUM(aod.response_order_count) AS response_order_quantity`).
 		Joins("JOIN stores s ON auto_orders.store_id = s.id").
 		Joins("LEFT JOIN auto_order_details aod ON auto_orders.id = aod.auto_order_id")
 

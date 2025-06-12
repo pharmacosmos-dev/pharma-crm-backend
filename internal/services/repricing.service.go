@@ -16,6 +16,45 @@ func (s *Services) CreateRepricing(req *domain.RepricingRequest) (*domain.PriceR
 		s.log.Warn("ERROR on creating price_revalution: %v", err)
 		return &res, err
 	}
+	// start transaction
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// if no products provided, get all products from store_products
+	// and insert them into inventory_details
+	err = tx.Exec(
+		`INSERT INTO price_revalution_details(
+			price_revalution_id,
+			store_product_id,
+			product_id,
+			old_supply_price,
+			old_retail_price,
+			old_expire_date,
+			serial_number)
+		SELECT  
+			?, 
+			sp.id,
+			sp.product_id, 
+			sp.supply_price, 
+			sp.retail_price, 
+			sp.expire_date, 
+			sp.serial_number
+		FROM store_products sp
+		JOIN
+			products p ON sp.product_id = p.id
+		WHERE 
+			sp.store_id = ? AND (sp.pack_quantity > 0 OR sp.unit_quantity > 0);`,
+		res.Id, req.StoreId).Error
+	if err != nil {
+		s.log.Warn("ERROR on creating inventory details: %v", err)
+		tx.Rollback()
+		return &res, err
+	}
+
 	return &res, nil
 }
 
