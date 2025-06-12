@@ -56,6 +56,7 @@ type AutoOrderDetail struct {
 	SaleCount              float64    `gorm:"sale_count" json:"sale_count"`
 	DailySaleCount         float64    `gorm:"daily_sale_count" json:"daily_sale_count"`
 	OrderCount             float64    `gorm:"order_count" json:"order_count"`
+	ResponseOrderCount     float64    `gorm:"response_order_count" json:"response_order_count"`
 	ImportDay              int        `gorm:"import_day" json:"import_day"`
 	SalePeriod             int        `gorm:"sale_period" json:"sale_period"`
 	StockOnDeliveryDate    float64    `gorm:"stock_on_delivery_date" json:"stock_on_delivery_date"`

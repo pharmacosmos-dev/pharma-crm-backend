@@ -128,80 +128,43 @@ func (s *Services) RepricingList(param *domain.QueryParam) ([]domain.PriceRevalu
 func (s *Services) RepricingDetailList(repricingID int, param *domain.QueryParam) ([]domain.PriceRevalutionDetail, int64, error) {
 	var (
 		res        []domain.PriceRevalutionDetail
-		reprice    domain.PriceRevalution
 		query      = ""
 		totalCount int64
 		search     = ""
 	)
-	err := s.db.First(&reprice, "id = ? ", repricingID).Error
-	if err != nil {
-		s.log.Warn("ERROR on getting proce revalution: %v", err)
-		return res, 0, err
-	}
 
 	// filter products by search key
 	if param.Search != "" {
 		search = fmt.Sprintf(" AND (p.name ILIKE %s OR p.barcode LIKE %s) ", "%"+param.Search+"%", "%"+param.Search+"%")
 	}
 
-	// get store_products info if price_revalution status would be new otherwise we get price_revalution details
-	if reprice.Status == "new" {
-		query = `
-		SELECT
-			gen_random_uuid() AS id, 
-			?::int AS price_revalution_id,
-			sp.id AS store_product_id,
-			sp.product_id,
-			sp.supply_price AS old_supply_price,
-			sp.retail_price AS old_retail_price,
-			sp.expire_date AS old_expire_date,
-			sp.serial_number,
-			ROUND(((sp.retail_price - sp.supply_price)/sp.supply_price)*100, 0) AS old_markup,
-			ROUND(((prd.new_retail_price - sp.supply_price)/sp.supply_price)*100, 0) AS new_markup,
-			p.name, p.barcode,
-			COUNT(*) OVER() AS total_count
-		FROM store_products sp
-		JOIN products p ON sp.product_id = p.id
-		LEFT JOIN price_revalution_details prd ON prd.store_product_id = sp.id
-		WHERE sp.store_id = ? AND (sp.pack_quantity > 0 OR sp.unit_quantity > 0)
+	query = `
+	SELECT 
+		prd.id, prd.store_product_id,
+		prd.product_id,
+		prd.price_revalution_id,
+		prd.old_supply_price, 
+		prd.new_supply_price,
+		prd.old_retail_price, 
+		prd.new_retail_price,
+		prd.old_expire_date, 
+		prd.new_expire_date,
+		prd.serial_number,
+		ROUND(((prd.old_retail_price - prd.old_supply_price)/prd.old_supply_price)*100, 0) AS old_markup,
+		ROUND(((prd.new_retail_price - prd.old_supply_price)/prd.old_supply_price)*100, 0) AS new_markup,
+		p.name, p.barcode,
+		COUNT(*) OVER() AS total_count
+	FROM price_revalution_details prd
+	JOIN products p ON prd.product_id = p.id
+	WHERE prd.price_revalution_id = ?
 		`
-		// collect query
-		query += search + " LIMIT ? OFFSET ?;" // add search condition and limit, offset
-		// execute query
-		err = s.db.Debug().Raw(query, repricingID, reprice.StoreID, param.Limit, param.Offset).Scan(&res).Error
-		if err != nil {
-			s.log.Warn("ERROR on getting price revalution details: %v", err)
-			return res, 0, err
-		}
-	} else {
-		query = `
-		SELECT 
-			prd.id, prd.store_product_id,
-			prd.product_id,
-			prd.price_revalution_id,
-			prd.old_supply_price, 
-			prd.new_supply_price,
-			prd.old_retail_price, 
-			prd.new_retail_price,
-			prd.old_expire_date, 
-			prd.new_expire_date,
-			prd.serial_number,
-			ROUND(((prd.old_retail_price - prd.old_supply_price)/prd.old_supply_price)*100, 0) AS old_markup,
-			ROUND(((prd.new_retail_price - prd.old_supply_price)/prd.old_supply_price)*100, 0) AS new_markup,
-			p.name, p.barcode,
-			COUNT(*) OVER() AS total_count
-		FROM price_revalution_details prd
-		JOIN products p ON prd.product_id = p.id
-		WHERE prd.price_revalution_id = ?
-		`
-		// collect query
-		query += search + " ORDER BY prd.updated_at DESC LIMIT ? OFFSET ?;" // add search condition and limit, offset
-		// execute query
-		err = s.db.Raw(query, repricingID, param.Limit, param.Offset).Scan(&res).Error
-		if err != nil {
-			s.log.Warn("ERROR on getting price revalution details: %v", err)
-			return res, 0, err
-		}
+	// collect query
+	query += search + " ORDER BY prd.updated_at DESC LIMIT ? OFFSET ?;" // add search condition and limit, offset
+	// execute query
+	err := s.db.Raw(query, repricingID, param.Limit, param.Offset).Scan(&res).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting price revalution details: %v", err)
+		return res, 0, err
 	}
 
 	// get total count

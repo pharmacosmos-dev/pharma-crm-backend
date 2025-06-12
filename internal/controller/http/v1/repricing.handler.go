@@ -524,44 +524,11 @@ func (h *RepricingHandler) AddRetailPrice(c *gin.Context) {
 		}
 	}()
 
-	var storeProduct domain.StoreProduct
-	err = tx.First(&storeProduct, "id = ?", body.StoreProductId).Error
-	if err != nil {
-		h.log.Warn("ERROR on getting store_product: %v", err)
-		handleResponse(c, BadRequest, "failed.get.store_product")
-		tx.Rollback()
-		return
-	}
-
 	query := `
-	INSERT INTO
-		price_revalution_details (
-						id, 
-						price_revalution_id,
-						store_product_id,
-						product_id,
-						old_retail_price,
-						new_retail_price,
-						old_supply_price,
-						new_supply_price,
-						old_expire_date,
-						new_expire_date,
-						serial_number)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	ON CONFLICT (id) DO UPDATE
-	SET
-		new_retail_price = ?
+	UPDATE price_revalution_details SET new_retail_price = ? WHERE id = ? AND price_revalution_id = ?
 	`
 	err = tx.Exec(query,
-		body.Id, repricingID,
-		storeProduct.Id,
-		storeProduct.ProductID,
-		storeProduct.RetailPrice,
-		body.NewRetailPrice,
-		storeProduct.SupplyPrice, 0,
-		storeProduct.ExpireDate, nil,
-		storeProduct.SerialNumber,
-		body.NewRetailPrice).Error
+		body.NewRetailPrice, body.Id, repricingID).Error
 	if err != nil {
 		handleResponse(c, InternalError, "failed.update.retail_price")
 		tx.Rollback()
