@@ -3,7 +3,6 @@ package services
 import (
 	"fmt"
 
-	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 )
@@ -105,10 +104,9 @@ func (s *Services) RepricingDetailList(repricingID int, param *domain.QueryParam
 
 	// get store_products info if price_revalution status would be new otherwise we get price_revalution details
 	if reprice.Status == "new" {
-		id := uuid.New()
 		query = `
 		SELECT
-			?::uuid AS id, 
+			gen_random_uuid() AS id, 
 			?::int AS price_revalution_id,
 			sp.id AS store_product_id,
 			sp.product_id,
@@ -126,7 +124,7 @@ func (s *Services) RepricingDetailList(repricingID int, param *domain.QueryParam
 		// collect query
 		query += search + " LIMIT ? OFFSET ?;" // add search condition and limit, offset
 		// execute query
-		err = s.db.Raw(query, id, repricingID, reprice.StoreID, param.Limit, param.Offset).Scan(&res).Error
+		err = s.db.Raw(query, repricingID, reprice.StoreID, param.Limit, param.Offset).Scan(&res).Error
 		if err != nil {
 			s.log.Warn("ERROR on getting price revalution details: %v", err)
 			return res, 0, err
