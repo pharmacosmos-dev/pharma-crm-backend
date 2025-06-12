@@ -8,7 +8,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/xuri/excelize/v2"
@@ -517,18 +516,20 @@ func (h *RepricingHandler) AddRetailPrice(c *gin.Context) {
 		return
 	}
 
+	// start transaction
+	tx := h.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
 	var storeProduct domain.StoreProduct
-	err = h.db.First(&storeProduct, "id = ?", body.StoreProductId).Error
+	err = tx.First(&storeProduct, "id = ?", body.StoreProductId).Error
 	if err != nil {
 		h.log.Warn("ERROR on getting store_product: %v", err)
 		handleResponse(c, BadRequest, "failed.get.store_product")
-		return
-	}
-
-	err = h.db.Exec(`UPDATE price_revalutions SET status = ? WHERE id = ? AND status = ?`, config.PENDING, repricingID, config.NEW).Error
-	if err != nil {
-		h.log.Warn("ERROR on updating price_revalution status: %v", err)
-		handleResponse(c, BadRequest, "failed.update.price_revalution_status")
+		tx.Rollback()
 		return
 	}
 
@@ -551,7 +552,7 @@ func (h *RepricingHandler) AddRetailPrice(c *gin.Context) {
 	SET
 		new_retail_price = ?
 	`
-	err = h.db.Exec(query,
+	err = tx.Exec(query,
 		body.Id, repricingID,
 		storeProduct.Id,
 		storeProduct.ProductID,
@@ -563,6 +564,13 @@ func (h *RepricingHandler) AddRetailPrice(c *gin.Context) {
 		body.NewRetailPrice).Error
 	if err != nil {
 		handleResponse(c, InternalError, "failed.update.retail_price")
+		tx.Rollback()
+		return
+	}
+
+	if err = tx.Commit().Error; err != nil {
+		tx.Rollback()
+		handleResponse(c, InternalError, "not.completed.transcation")
 		return
 	}
 

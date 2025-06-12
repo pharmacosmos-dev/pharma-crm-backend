@@ -45,9 +45,12 @@ func (s *Services) RepricingList(param *domain.QueryParam) ([]domain.PriceRevalu
 	)
 
 	query := s.db.Model(&domain.PriceRevalution{}).
-		Preload("Store").Preload("CreatedBy").Preload("UpdatedBy").
+		Preload("Store").
+		Preload("CreatedBy").
+		Preload("UpdatedBy").
 		Select(`price_revalutions.*, SUM(prd.scanned_count) AS count
-		`).Joins("LEFT JOIN price_revalution_details prd ON price_revalutions.id = prd.price_revalution_id").Group("price_revalutions.id")
+		`).Joins("LEFT JOIN price_revalution_details prd ON price_revalutions.id = prd.price_revalution_id").
+		Group("price_revalutions.id")
 
 	if param.StoreID != "" {
 		query = query.Where("price_revalutions.store_id = ?", param.StoreID)
@@ -115,16 +118,18 @@ func (s *Services) RepricingDetailList(repricingID int, param *domain.QueryParam
 			sp.expire_date AS old_expire_date,
 			sp.serial_number,
 			ROUND(((sp.retail_price - sp.supply_price)/sp.supply_price)*100, 0) AS old_markup,
+			ROUND(((prd.new_retail_price - sp.supply_price)/sp.supply_price)*100, 0) AS new_markup,
 			p.name, p.barcode,
 			COUNT(*) OVER() AS total_count
 		FROM store_products sp
 		JOIN products p ON sp.product_id = p.id
+		LEFT JOIN price_revalution_details prd ON prd.store_product_id = sp.id
 		WHERE sp.store_id = ? AND (sp.pack_quantity > 0 OR sp.unit_quantity > 0)
 		`
 		// collect query
 		query += search + " LIMIT ? OFFSET ?;" // add search condition and limit, offset
 		// execute query
-		err = s.db.Raw(query, repricingID, reprice.StoreID, param.Limit, param.Offset).Scan(&res).Error
+		err = s.db.Debug().Raw(query, repricingID, reprice.StoreID, param.Limit, param.Offset).Scan(&res).Error
 		if err != nil {
 			s.log.Warn("ERROR on getting price revalution details: %v", err)
 			return res, 0, err
