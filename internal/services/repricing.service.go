@@ -70,9 +70,9 @@ func (s *Services) RepricingList(param *domain.QueryParam) ([]domain.PriceRevalu
 
 	err := query.
 		Count(&totalCount).
+		Order("price_revalutions.created_at DESC").
 		Limit(param.Limit).
 		Offset(param.Offset).
-		Debug().
 		Find(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting price revalution: %v", err)
@@ -151,7 +151,7 @@ func (s *Services) RepricingDetailList(repricingID int, param *domain.QueryParam
 		WHERE prd.price_revalution_id = ?
 		`
 		// collect query
-		query += search + " LIMIT ? OFFSET ?;" // add search condition and limit, offset
+		query += search + " ORDER BY prd.updated_at DESC LIMIT ? OFFSET ?;" // add search condition and limit, offset
 		// execute query
 		err = s.db.Raw(query, repricingID, param.Limit, param.Offset).Scan(&res).Error
 		if err != nil {
