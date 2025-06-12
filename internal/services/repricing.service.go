@@ -26,7 +26,7 @@ func (s *Services) CreateRepricing(req *domain.RepricingRequest) (*domain.PriceR
 
 	// if no products provided, get all products from store_products
 	// and insert them into inventory_details
-	err = tx.Exec(
+	err = tx.Debug().Exec(
 		`INSERT INTO price_revalution_details(
 			price_revalution_id,
 			store_product_id,

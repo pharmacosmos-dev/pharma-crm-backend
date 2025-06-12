@@ -165,6 +165,7 @@ func (s *Services) ListAutoOrder(param *domain.AutoOrderParam) ([]domain.AutoOrd
 		Limit(param.Limit).
 		Offset(param.Offset).
 		Order("auto_orders.created_at DESC").
+		Debug().
 		Find(&autoOrders).Error
 	if err != nil {
 		s.log.Warn("Failed to get auto orders: %v", err)
