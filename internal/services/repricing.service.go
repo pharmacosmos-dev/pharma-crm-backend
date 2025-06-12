@@ -26,7 +26,7 @@ func (s *Services) CreateRepricing(req *domain.RepricingRequest) (*domain.PriceR
 
 	// if no products provided, get all products from store_products
 	// and insert them into inventory_details
-	err = tx.Debug().Exec(
+	err = tx.Exec(
 		`INSERT INTO price_revalution_details(
 			price_revalution_id,
 			store_product_id,
@@ -51,6 +51,12 @@ func (s *Services) CreateRepricing(req *domain.RepricingRequest) (*domain.PriceR
 		res.Id, req.StoreId).Error
 	if err != nil {
 		s.log.Warn("ERROR on creating inventory details: %v", err)
+		tx.Rollback()
+		return &res, err
+	}
+
+	if err = tx.Commit().Error; err != nil {
+		s.log.Warn("ERROR on creating repricing details: %v", err)
 		tx.Rollback()
 		return &res, err
 	}
@@ -176,7 +182,7 @@ func (s *Services) RepricingDetailList(repricingID int, param *domain.QueryParam
 }
 
 // confirm repricing
-func (s *Services) ConfirmRepricing(repricingID string, updatedBy string) error {
+func (s *Services) ConfirmRepricing(repricingID int, updatedBy string) error {
 	var (
 		res     domain.PriceRevalution
 		details []domain.PriceRevalutionDetail
@@ -204,7 +210,14 @@ func (s *Services) ConfirmRepricing(repricingID string, updatedBy string) error 
 		return err
 	}
 
-	err = tx.Find(&details, "price_revalution_id = ?", repricingID).Error
+	err = tx.Exec(`DELETE FROM price_revalution_details WHERE new_retail_price = 0 and price_revalution_id = ?`, repricingID).Error
+	if err != nil {
+		s.log.Warn("ERROR on deleting price_revalution_details if price will be zero: %v", err)
+		tx.Rollback()
+		return err
+	}
+
+	err = tx.Find(&details, "price_revalution_id = ? AND new_retail_price > 0", repricingID).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting price_revalution_detail list: %v", err)
 		tx.Rollback()
@@ -224,6 +237,7 @@ func (s *Services) ConfirmRepricing(repricingID string, updatedBy string) error 
 
 	// commit transaction
 	if err = tx.Commit().Error; err != nil {
+		s.log.Warn("ERROR on commiting transaction: %v", err)
 		tx.Rollback()
 		return err
 	}

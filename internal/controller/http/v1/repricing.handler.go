@@ -278,10 +278,13 @@ func (h *RepricingHandler) ExportRepricingExcel(c *gin.Context) {
 // @Router /repricing/confirm/{id} [POST]
 func (h *RepricingHandler) Confirm(c *gin.Context) {
 	var id = c.Param("id")
-	if err := uuid.Validate(id); err != nil {
-		handleResponse(c, BadRequest, "Invalid repricing id")
+
+	repricingId, err := strconv.Atoi(id)
+	if err != nil {
+		handleResponse(c, BadRequest, "Ivlaid repricing ID")
 		return
 	}
+
 	// get user id from the context
 	userId, ok := c.Get("user_id")
 	if !ok {
@@ -289,7 +292,7 @@ func (h *RepricingHandler) Confirm(c *gin.Context) {
 		return
 	}
 	// confirm repricing service
-	err := h.service.ConfirmRepricing(id, userId.(string))
+	err = h.service.ConfirmRepricing(repricingId, userId.(string))
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to confirm repricing")
 		return
