@@ -427,7 +427,7 @@ func (h *RepricingHandler) ExportListDetail(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"ID", "Название", "Старая розничная цена", "Новая розничная цена", "Старый срок", "Новая срок"}
+	headers := []string{"ID", "Название", "Старая розничная цена", "Новая розничная цена", "Старая наценка", "Новая наценка", "Старый срок", "Новая срок"}
 
 	headerStyle, err := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{
@@ -454,8 +454,10 @@ func (h *RepricingHandler) ExportListDetail(c *gin.Context) {
 		f.SetCellValue(sheetName, "B"+row, imp.Name)
 		f.SetCellValue(sheetName, "C"+row, imp.OldRetailPrice)
 		f.SetCellValue(sheetName, "D"+row, imp.NewRetailPrice)
-		f.SetCellValue(sheetName, "E"+row, imp.OldExpireDate.Format(time.DateOnly))
-		f.SetCellValue(sheetName, "F"+row, imp.NewExpireDate.Format(time.DateOnly))
+		f.SetCellValue(sheetName, "E"+row, imp.OldMarkup)
+		f.SetCellValue(sheetName, "F"+row, imp.NewMarkup)
+		f.SetCellValue(sheetName, "G"+row, imp.OldExpireDate.Format(time.DateOnly))
+		f.SetCellValue(sheetName, "H"+row, imp.NewExpireDate.Format(time.DateOnly))
 	}
 
 	// Faylni uploads/ papkasiga UUID bilan saqlash

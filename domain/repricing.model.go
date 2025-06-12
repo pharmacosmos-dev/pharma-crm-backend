@@ -40,6 +40,8 @@ type PriceRevalutionDetail struct {
 	NewRetailPrice    float64    `gorm:"new_retail_price" json:"new_retail_price"`
 	OldExpireDate     *time.Time `gorm:"old_expire_date" json:"old_expire_date"`
 	NewExpireDate     *time.Time `gorm:"new_expire_date" json:"new_expire_date"`
+	OldMarkup         float64    `gorm:"old_markup" json:"old_markup"`
+	NewMarkup         float64    `gorm:"new_markup" json:"new_markup"`
 	SerialNumber      string     `gorm:"serial_number" json:"serial_number"`
 	CreatedAt         *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt         *time.Time `gorm:"updated_at" json:"updated_at"`

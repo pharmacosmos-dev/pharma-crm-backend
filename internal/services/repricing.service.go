@@ -116,6 +116,7 @@ func (s *Services) RepricingDetailList(repricingID int, param *domain.QueryParam
 			sp.retail_price AS old_retail_price,
 			sp.expire_date AS old_expire_date,
 			sp.serial_number,
+			ROUND(((sp.retail_price - sp.supply_price)/sp.supply_price)*100, 0) AS old_markup,
 			p.name, p.barcode,
 			COUNT(*) OVER() AS total_count
 		FROM store_products sp
@@ -133,7 +134,18 @@ func (s *Services) RepricingDetailList(repricingID int, param *domain.QueryParam
 	} else {
 		query = `
 		SELECT 
-			prd.*,
+			prd.id, prd.store_product_id,
+			prd.product_id,
+			prd.price_revalution_id,
+			prd.old_supply_price, 
+			prd.new_supply_price,
+			prd.old_retail_price, 
+			prd.new_retail_price,
+			prd.old_expire_date, 
+			prd.new_expire_date,
+			prd.serial_number,
+			ROUND(((prd.old_retail_price - prd.old_supply_price)/prd.old_supply_price)*100, 0) AS old_markup,
+			ROUND(((prd.new_retail_price - prd.old_supply_price)/prd.old_supply_price)*100, 0) AS new_markup,
 			p.name, p.barcode,
 			COUNT(*) OVER() AS total_count
 		FROM price_revalution_details prd
