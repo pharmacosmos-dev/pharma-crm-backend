@@ -1,6 +1,9 @@
 package services
 
 import (
+	"fmt"
+
+	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 )
@@ -66,7 +69,12 @@ func (s *Services) RepricingList(param *domain.QueryParam) ([]domain.PriceRevalu
 		query = query.Where("price_revalutions.status = ?", param.Status)
 	}
 
-	err := query.Count(&totalCount).Limit(param.Limit).Offset(param.Offset).Find(&res).Error
+	err := query.
+		Count(&totalCount).
+		Limit(param.Limit).
+		Offset(param.Offset).
+		Debug().
+		Find(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting price revalution: %v", err)
 		return res, 0, err
@@ -76,29 +84,130 @@ func (s *Services) RepricingList(param *domain.QueryParam) ([]domain.PriceRevalu
 }
 
 // repricing get detail list
-func (s *Services) RepricingDetailList(repricingID string) ([]domain.PriceRevalutionDetail, error) {
-	var res []domain.PriceRevalutionDetail
-
-	err := s.db.Model(&domain.PriceRevalutionDetail{}).
-		Preload("Product").
-		Preload("PriceRevalution").
-		Select(`price_revalution_details.*`).
-		Where("price_revalution_id = ?", repricingID).
-		Find(&res).Error
+func (s *Services) RepricingDetailList(repricingID int, param *domain.QueryParam) ([]domain.PriceRevalutionDetail, int64, error) {
+	var (
+		res        []domain.PriceRevalutionDetail
+		reprice    domain.PriceRevalution
+		query      = ""
+		totalCount int64
+		search     = ""
+	)
+	err := s.db.First(&reprice, "id = ? ", repricingID).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting price revalution details: %v", err)
-		return res, err
+		s.log.Warn("ERROR on getting proce revalution: %v", err)
+		return res, 0, err
 	}
 
-	return res, nil
+	// filter products by search key
+	if param.Search != "" {
+		search = fmt.Sprintf(" AND (p.name ILIKE %s OR p.barcode LIKE %s) ", "%"+param.Search+"%", "%"+param.Search+"%")
+	}
+
+	// get store_products info if price_revalution status would be new otherwise we get price_revalution details
+	if reprice.Status == "new" {
+		id := uuid.New()
+		query = `
+		SELECT
+			?::uuid AS id, 
+			?::int AS price_revalution_id,
+			sp.id AS store_product_id,
+			sp.product_id,
+			sp.supply_price AS old_supply_price,
+			sp.retail_price AS old_retail_price,
+			sp.expire_date AS old_expire_date,
+			sp.serial_number,
+			p.name, p.barcode,
+			COUNT(*) OVER() AS total_count
+		FROM store_products sp
+		JOIN products p ON sp.product_id = p.id
+		WHERE sp.store_id = ? AND (sp.pack_quantity > 0 OR sp.unit_quantity > 0)
+		`
+		// collect query
+		query += search + " LIMIT ? OFFSET ?;" // add search condition and limit, offset
+		// execute query
+		err = s.db.Raw(query, id, repricingID, reprice.StoreID, param.Limit, param.Offset).Scan(&res).Error
+		if err != nil {
+			s.log.Warn("ERROR on getting price revalution details: %v", err)
+			return res, 0, err
+		}
+	} else {
+		query = `
+		SELECT 
+			prd.*,
+			p.name, p.barcode,
+			COUNT(*) OVER() AS total_count
+		FROM price_revalution_details prd
+		JOIN products p ON prd.product_id = p.id
+		WHERE prd.price_revalution_id = ?
+		`
+		// collect query
+		query += search + " LIMIT ? OFFSET ?;" // add search condition and limit, offset
+		// execute query
+		err = s.db.Raw(query, repricingID, param.Limit, param.Offset).Scan(&res).Error
+		if err != nil {
+			s.log.Warn("ERROR on getting price revalution details: %v", err)
+			return res, 0, err
+		}
+	}
+
+	// get total count
+	if len(res) > 0 {
+		totalCount = res[0].TotalCount
+	}
+
+	return res, totalCount, nil
 }
 
 // confirm repricing
 func (s *Services) ConfirmRepricing(repricingID string, updatedBy string) error {
-	var res domain.PriceRevalution
-	err := s.db.First(&res, "id = ?", repricingID).Error
+	var (
+		res     domain.PriceRevalution
+		details []domain.PriceRevalutionDetail
+	)
+
+	// start transaction
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	err := tx.First(&res, "id = ?", repricingID).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting price_revalution: %v", err)
+		tx.Rollback()
+		return err
+	}
+
+	err = tx.Exec(`UPDATE price_revalutions SET status = ?, updated_by = ?, updated_at = NOW() WHERE id = ?`, config.COMPLETED, updatedBy, repricingID).Error
+	if err != nil {
+		s.log.Warn("ERROR on updating price_revalution status: %v", err)
+		tx.Rollback()
+		return err
+	}
+
+	err = tx.Find(&details, "price_revalution_id = ?", repricingID).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting price_revalution_detail list: %v", err)
+		tx.Rollback()
+		return err
+	}
+
+	for _, v := range details {
+		err = tx.Exec(`
+		UPDATE store_products SET retail_price = ? WHERE id = ?
+		`, v.NewRetailPrice, v.StoreProductID).Error
+		if err != nil {
+			s.log.Warn("ERROR on updating store_product price: %v", err)
+			tx.Rollback()
+			return err
+		}
+	}
+
+	// commit transaction
+	if err = tx.Commit().Error; err != nil {
+		tx.Rollback()
 		return err
 	}
 

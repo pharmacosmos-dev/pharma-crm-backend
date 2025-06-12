@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS price_revalutions(
 );
 
 CREATE TABLE IF NOT EXISTS price_revalution_details(
-    "id" SERIAL PRIMARY KEY,
+    "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     "price_revalution_id" INT REFERENCES price_revalutions(id),
     "store_product_id" UUID REFERENCES store_products(id),
     "product_id" UUID REFERENCES products(id),

@@ -1207,6 +1207,17 @@ definitions:
       product_id:
         type: string
     type: object
+  domain.UpdateNewPrice:
+    properties:
+      id:
+        type: string
+      new_expire_date:
+        type: string
+      new_retail_price:
+        type: number
+      store_product_id:
+        type: string
+    type: object
   domain.WriteOffRequest:
     properties:
       comment:
@@ -8884,6 +8895,90 @@ paths:
       summary: Create Repricing
       tags:
       - Repricing
+  /repricing-detail/export-excel/{id}:
+    get:
+      consumes:
+      - application/json
+      description: List Repricing
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Repricing ID
+        in: path
+        name: id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: List Repricing
+      tags:
+      - Repricing
+  /repricing-detail/list/{id}:
+    get:
+      consumes:
+      - application/json
+      description: List Repricing
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Repricing ID
+        in: path
+        name: id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: List Repricing
+      tags:
+      - Repricing
   /repricing/{id}:
     get:
       consumes:
@@ -9049,9 +9144,21 @@ paths:
         in: query
         name: search
         type: string
-      - description: Repricing ID
-        in: path
-        name: repricing_id
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: Status
+        in: query
+        name: status
         type: string
       produces:
       - application/json
@@ -9071,6 +9178,43 @@ paths:
       security:
       - BearerAuth: []
       summary: List Repricing
+      tags:
+      - Repricing
+  /repricing/new-price/{id}:
+    post:
+      consumes:
+      - application/json
+      description: add new retail price
+      parameters:
+      - description: Repricing ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: New price
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UpdateNewPrice'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: add new retail price
       tags:
       - Repricing
   /return:

@@ -24,6 +24,7 @@ type StoreProduct struct {
 	CreatedAt           *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt           *time.Time `gorm:"updated_at" json:"updated_at"`
 	Barcode             string     `gorm:"barcode" json:"barcode"`
+	SerialNumber        string     `gorm:"serial_number" json:"serial_number"`
 	Product             *Product   `gorm:"foreignKey:ProductID" json:"product"`
 	Store               *Store     `gorm:"foreignKey:StoreID" json:"store"`
 }

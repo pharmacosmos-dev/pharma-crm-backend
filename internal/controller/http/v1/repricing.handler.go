@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/xuri/excelize/v2"
@@ -31,12 +32,13 @@ func (h *RepricingHandler) RepricingRoutes(r *gin.RouterGroup) {
 		repricing.GET("/export-excel", h.ExportRepricingExcel)
 		repricing.POST("/confirm/:id", h.Confirm)
 		repricing.POST("/cancel/:id", h.Cancel)
+		repricing.POST("/new-price/:id", h.AddRetailPrice)
 	}
-	// detail := r.Group("repricing-detail")
-	// {
-	// 	// detail.GET("/list", h.ReturnDetailList)
-	// 	// detail.GET("/export-excel", h.ExportReturnDetailList)
-	// }
+	detail := r.Group("repricing-detail")
+	{
+		detail.GET("/list/:id", h.ListDetail)
+		detail.GET("/export-excel/:id", h.ExportListDetail)
+	}
 }
 
 // Create godoc
@@ -342,28 +344,225 @@ func (h *RepricingHandler) Cancel(c *gin.Context) {
 // @Param 	limit query int false "Limit"
 // @Param 	offset query int false "Offset"
 // @Param   search query string false "Search"
-// @Param   repricing_id path string false "Repricing ID"
+// @Param   id path int false "Repricing ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /repricing/list [get]
+// @Router /repricing-detail/list/{id} [get]
 func (h *RepricingHandler) ListDetail(c *gin.Context) {
-	var param domain.QueryParam
-
+	var (
+		param domain.QueryParam
+		id    = c.Param("id")
+	)
+	// bind request query param
 	if err := c.ShouldBindQuery(&param); err != nil {
 		handleResponse(c, BadRequest, "Invalid query param")
 		return
 	}
+	// convent to integer
+	repricingID, err := strconv.Atoi(id)
+	if err != nil {
+		handleResponse(c, BadRequest, "invalid.repricing.id")
+		return
+	}
+
+	// default limit, offset
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 
-	res, totalCount, err := h.service.RepricingList(&param)
+	res, totalCount, err := h.service.RepricingDetailList(repricingID, &param)
 	if err != nil {
 		h.log.Warn("ERROR on getting repricing list: %v", err)
 		handleResponse(c, InternalError, "Failed to get repricing list")
 		return
 	}
-
+	// _meta pagination data
 	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
 
 	handleResponse(c, OK, data)
+}
+
+// List godoc
+// @Summary List Repricing
+// @Description List Repricing
+// @Tags Repricing
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param 	limit query int false "Limit"
+// @Param 	offset query int false "Offset"
+// @Param   search query string false "Search"
+// @Param   id path int false "Repricing ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /repricing-detail/export-excel/{id} [get]
+func (h *RepricingHandler) ExportListDetail(c *gin.Context) {
+	var (
+		param domain.QueryParam
+		id    = c.Param("id")
+	)
+	// bind request query param
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "Invalid query param")
+		return
+	}
+	// convent to integer
+	repricingID, err := strconv.Atoi(id)
+	if err != nil {
+		handleResponse(c, BadRequest, "invalid.repricing.id")
+		return
+	}
+	// default limit, offset
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	res, _, err := h.service.RepricingDetailList(repricingID, &param)
+	if err != nil {
+		h.log.Warn("ERROR on getting repricing list: %v", err)
+		handleResponse(c, InternalError, "Failed to get repricing list")
+		return
+	}
+	// Create excel file
+	f := excelize.NewFile()
+	sheetName := "List1"
+	f.SetSheetName("Sheet1", sheetName)
+
+	// Headerlar
+	headers := []string{"ID", "Название", "Старая розничная цена", "Новая розничная цена", "Старый срок", "Новая срок"}
+
+	headerStyle, err := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Bold:  true,
+			Color: "000000",
+		},
+	})
+	if err != nil {
+		h.log.Error("Failed to create style:", err)
+		handleResponse(c, InternalError, "Error on giving style to excel")
+		return
+	}
+
+	for i, h := range headers {
+		col := string(rune('A'+i)) + "1"
+		f.SetCellValue(sheetName, col, h)
+		f.SetCellStyle(sheetName, col, col, headerStyle)
+	}
+
+	// Ma'lumotlarni qo'shish
+	for i, imp := range res {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheetName, "A"+row, imp.Id)
+		f.SetCellValue(sheetName, "B"+row, imp.Name)
+		f.SetCellValue(sheetName, "C"+row, imp.OldRetailPrice)
+		f.SetCellValue(sheetName, "D"+row, imp.NewRetailPrice)
+		f.SetCellValue(sheetName, "E"+row, imp.OldExpireDate.Format(time.DateOnly))
+		f.SetCellValue(sheetName, "F"+row, imp.NewExpireDate.Format(time.DateOnly))
+	}
+
+	// Faylni uploads/ papkasiga UUID bilan saqlash
+	fileName := "repricing_products_" + time.Now().Add(time.Hour*5).Format("2006-01-02_15-04-05") + ".xlsx"
+	filePath := filepath.Join("uploads", fileName)
+
+	// uploads/ papkasi mavjud bo‘lmasa, yaratish
+	if _, err := os.Stat("uploads"); os.IsNotExist(err) {
+		err := os.Mkdir("uploads", os.ModePerm)
+		if err != nil {
+			h.log.Error("Failed to create uploads directory:", err)
+			handleResponse(c, InternalError, "Failed to create uploads folder")
+			return
+		}
+	}
+
+	// Faylni diskka yozish
+	if err := f.SaveAs(filePath); err != nil {
+		h.log.Error("Failed to save Excel file:", err)
+		handleResponse(c, InternalError, "Failed to save Excel file")
+		return
+	}
+
+	// Foydalanuvchiga file path yoki URLni qaytarish
+	handleResponse(c, OK, gin.H{
+		"file_name": fileName,
+	})
+}
+
+// add new retail price
+// @Summary add new retail price
+// @Description add new retail price
+// @Tags Repricing
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param   id path int true "Repricing ID"
+// @Param   body body domain.UpdateNewPrice true "New price"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /repricing/new-price/{id} [POST]
+func (h *RepricingHandler) AddRetailPrice(c *gin.Context) {
+	var (
+		id   = c.Param("id")
+		body domain.UpdateNewPrice
+	)
+	// bind request body
+	if err := c.ShouldBindJSON(&body); err != nil {
+		handleResponse(c, BadRequest, "invalid.request.body")
+		return
+	}
+	// convent repricing id
+	repricingID, err := strconv.Atoi(id)
+	if err != nil {
+		handleResponse(c, BadRequest, "invalid.repricing_id")
+		return
+	}
+
+	var storeProduct domain.StoreProduct
+	err = h.db.First(&storeProduct, "id = ?", body.StoreProductId).Error
+	if err != nil {
+		h.log.Warn("ERROR on getting store_product: %v", err)
+		handleResponse(c, BadRequest, "failed.get.store_product")
+		return
+	}
+
+	err = h.db.Exec(`UPDATE price_revalutions SET status = ? WHERE id = ? AND status = ?`, config.PENDING, repricingID, config.NEW).Error
+	if err != nil {
+		h.log.Warn("ERROR on updating price_revalution status: %v", err)
+		handleResponse(c, BadRequest, "failed.update.price_revalution_status")
+		return
+	}
+
+	query := `
+	INSERT INTO
+		price_revalution_details (
+						id, 
+						price_revalution_id,
+						store_product_id,
+						product_id,
+						old_retail_price,
+						new_retail_price,
+						old_supply_price,
+						new_supply_price,
+						old_expire_date,
+						new_expire_date,
+						serial_number)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	ON CONFLICT (id) DO UPDATE
+	SET
+		new_retail_price = ?
+	`
+	err = h.db.Exec(query,
+		body.Id, repricingID,
+		storeProduct.Id,
+		storeProduct.ProductID,
+		storeProduct.RetailPrice,
+		body.NewRetailPrice,
+		storeProduct.SupplyPrice, 0,
+		storeProduct.ExpireDate, nil,
+		storeProduct.SerialNumber,
+		body.NewRetailPrice).Error
+	if err != nil {
+		handleResponse(c, InternalError, "failed.update.retail_price")
+		return
+	}
+
+	handleResponse(c, OK, "UPDATED")
 }

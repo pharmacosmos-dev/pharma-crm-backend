@@ -44,7 +44,7 @@ type ProductReport struct {
 	RetailPriceSum float64    `gorm:"retail_price_sum" json:"retail_price_sum"`
 	MarkupSum      float64    `gorm:"markup_sum" json:"markup_sum"`
 	VatSum         float64    `gorm:"vat_sum" json:"vat_sum"`
-	CompletedAt    string     `gorm:"completed_at" json:"completed_at"`
+	CompletedAt    *time.Time `gorm:"completed_at" json:"completed_at"`
 	FullName       string     `gorm:"full_name" json:"full_name"`
 	SaleNumber     int        `gorm:"sale_number" json:"sale_number"`
 	SaleType       string     `gorm:"sale_type" json:"sale_type"`

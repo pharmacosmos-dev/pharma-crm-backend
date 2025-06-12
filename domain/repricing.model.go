@@ -29,7 +29,7 @@ type RepricingRequest struct {
 
 // repricing detail structure
 type PriceRevalutionDetail struct {
-	Id                int        `gorm:"id" json:"id"`
+	Id                string     `gorm:"id" json:"id"`
 	PriceRevalutionId int        `gorm:"price_revalution_id" json:"price_revalution_id"`
 	StoreProductID    string     `gorm:"store_product_id" json:"store_product_id"`
 	ProductID         string     `gorm:"product_id" json:"product_id"`
@@ -40,6 +40,17 @@ type PriceRevalutionDetail struct {
 	NewRetailPrice    float64    `gorm:"new_retail_price" json:"new_retail_price"`
 	OldExpireDate     *time.Time `gorm:"old_expire_date" json:"old_expire_date"`
 	NewExpireDate     *time.Time `gorm:"new_expire_date" json:"new_expire_date"`
+	SerialNumber      string     `gorm:"serial_number" json:"serial_number"`
 	CreatedAt         *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt         *time.Time `gorm:"updated_at" json:"updated_at"`
+	Name              string     `gorm:"name" json:"name"`
+	Barcode           string     `gorm:"barcode" json:"barcode"`
+	TotalCount        int64      `gorm:"total_count" json:"-"`
+}
+
+type UpdateNewPrice struct {
+	Id             string  `gorm:"id" json:"id"`
+	StoreProductId string  `gorm:"store_product_id" json:"store_product_id"`
+	NewRetailPrice float64 `gorm:"new_retail_price" json:"new_retail_price"`
+	NewExpireDate  string  `gorm:"new_expire_date" json:"new_expire_date"`
 }

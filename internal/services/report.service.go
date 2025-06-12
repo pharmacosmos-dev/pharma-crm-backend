@@ -178,7 +178,7 @@ func (s *Services) ProductReport(ctx context.Context, param *domain.ReportQueryP
 		ROUND((ci.quantity * sp.retail_price) + (ci.unit_quantity * (sp.retail_price / p.unit_per_pack)), 2) AS retail_price_sum,
 		ROUND((ci.quantity * (sp.retail_price-sp.supply_price)) + (ci.unit_quantity * ((sp.retail_price-sp.supply_price) / p.unit_per_pack)), 2) AS markup_sum,
 		ROUND((ci.quantity * sp.vat_price) + (ci.unit_quantity * (sp.vat_price / p.unit_per_pack)), 2) AS vat_sum,
-		TO_CHAR(sl.completed_at + interval '5 hours', 'YYYY-MM-DD HH24:MI:SS') AS completed_at,
+		(sl.completed_at + interval '5 hours') AS completed_at,
 		e.full_name,
 		sl.sale_number,
 		sl.sale_type,
