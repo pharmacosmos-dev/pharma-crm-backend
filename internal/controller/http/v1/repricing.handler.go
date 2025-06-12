@@ -504,18 +504,11 @@ func (h *RepricingHandler) ExportListDetail(c *gin.Context) {
 // @Router /repricing/new-price/{id} [POST]
 func (h *RepricingHandler) AddRetailPrice(c *gin.Context) {
 	var (
-		id   = c.Param("id")
 		body domain.UpdateNewPrice
 	)
 	// bind request body
 	if err := c.ShouldBindJSON(&body); err != nil {
 		handleResponse(c, BadRequest, "invalid.request.body")
-		return
-	}
-	// convent repricing id
-	repricingID, err := strconv.Atoi(id)
-	if err != nil {
-		handleResponse(c, BadRequest, "invalid.repricing_id")
 		return
 	}
 
@@ -528,10 +521,10 @@ func (h *RepricingHandler) AddRetailPrice(c *gin.Context) {
 	}()
 
 	query := `
-	UPDATE price_revalution_details SET new_retail_price = ? WHERE id = ? AND price_revalution_id = ?
+	UPDATE price_revalution_details SET new_retail_price = ?, updated_at = NOW() WHERE id = ?
 	`
-	err = tx.Exec(query,
-		body.NewRetailPrice, body.Id, repricingID).Error
+	err := tx.Debug().Exec(query,
+		body.NewRetailPrice, body.Id).Error
 	if err != nil {
 		handleResponse(c, InternalError, "failed.update.retail_price")
 		tx.Rollback()

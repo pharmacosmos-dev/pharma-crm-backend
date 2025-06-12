@@ -146,7 +146,8 @@ func (s *Services) RepricingDetailList(repricingID int, param *domain.QueryParam
 
 	query = `
 	SELECT 
-		prd.id, prd.store_product_id,
+		prd.id, 
+		prd.store_product_id,
 		prd.product_id,
 		prd.price_revalution_id,
 		prd.old_supply_price, 
@@ -163,7 +164,7 @@ func (s *Services) RepricingDetailList(repricingID int, param *domain.QueryParam
 	FROM price_revalution_details prd
 	JOIN products p ON prd.product_id = p.id
 	WHERE prd.price_revalution_id = ?
-		`
+	`
 	// collect query
 	query += search + " ORDER BY prd.updated_at DESC LIMIT ? OFFSET ?;" // add search condition and limit, offset
 	// execute query
