@@ -426,11 +426,11 @@ func (h *AutoOrderHandler) DoRequest(ctx context.Context, data interface{}, url 
 		h.log.Error("failed to execute HTTP request: %v", err)
 		return nil, fmt.Errorf("failed to execute HTTP request: %v", err)
 	}
+	body, _ := io.ReadAll(response.Body)
 	defer response.Body.Close()
 	if response.StatusCode != 200 {
-		return nil, fmt.Errorf("failed to send auto order: %v", response.StatusCode)
+		return nil, fmt.Errorf("failed to send auto order: %v", string(body))
 	}
-	body, _ := io.ReadAll(response.Body)
 	var info domain.AutoOrderResponse
 	err = json.Unmarshal(body, &info)
 	if err != nil {
