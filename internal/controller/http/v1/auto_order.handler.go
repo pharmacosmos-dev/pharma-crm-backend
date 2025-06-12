@@ -74,55 +74,44 @@ func (h *AutoOrderHandler) Create(c *gin.Context) {
 	body.Status = config.NEW
 	body.AutoOrderDate = time.Now().Format(time.DateTime)
 	// get auro order products based on store_id and interval day
-	autoOrderDetails, err := h.service.GenerateAutoOrderDetail(c.Request.Context(), body.StoreId, body.IntervalDay)
+	autoOrderDetails, err := h.service.GenerateAutoOrderDetail(body.Id, body.StoreId, body.IntervalDay)
 	if err != nil {
 		h.log.Error("ERROR generating auto order: ", err)
 		handleResponse(c, InternalError, "Failed to generate auto order for the store")
 		tx.Rollback()
 		return
 	}
+
 	// check if there are enough products for the auto order
 	if len(autoOrderDetails) < 1 {
 		handleResponse(c, CONFLICT, "Not enough products for creating auto order")
+		tx.Rollback()
 		return
 	}
+
 	// create auto order
 	err = tx.
 		Table("auto_orders").
 		Create(&body).Error
 	if err != nil {
 		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
 		tx.Rollback()
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
-
-	// get new auto order id details
-	for i := range autoOrderDetails {
-		autoOrderDetails[i].AutoOrderId = body.Id
+	// create auto order details
+	err = tx.Table("auto_order_details").Create(&autoOrderDetails).Error
+	if err != nil {
+		h.log.Warn("ERROR on creating auto_order_dateils: %v", err)
+		tx.Rollback()
+		handleResponse(c, InternalError, "failed.create.auto_order_details")
+		return
 	}
-
-	batchSize := 100
-	for i := 0; i < len(autoOrderDetails); i += batchSize {
-		end := i + batchSize
-		if end > len(autoOrderDetails) {
-			end = len(autoOrderDetails)
-		}
-
-		batch := autoOrderDetails[i:end]
-		err = tx.Table("auto_order_details").Create(&batch).Error
-		if err != nil {
-			h.log.Error("ERROR on creating auto order details")
-			handleResponse(c, InternalError, err.Error())
-			tx.Rollback()
-			return
-		}
-	}
-
+	//
 	if err = tx.Commit().Error; err != nil {
 		h.log.Error("ERROR on commiting transaction")
-		handleResponse(c, InternalError, err.Error())
 		tx.Rollback()
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
@@ -324,11 +313,11 @@ func (h *AutoOrderHandler) SendAutoOrder(c *gin.Context) {
 	}
 	err = h.db.Raw(`
 	SELECT 
-		p.material_code, p.name, pr.name AS manufacturer,  aod.adjusted_order_quantity AS quantity
+		p.material_code, p.name, pr.name AS manufacturer,  aod.order_count AS quantity
 	FROM auto_order_details aod
 		JOIN products p ON p.id = aod.product_id
 		LEFT JOIN producers pr ON p.producer_id = pr.id
-	WHERE aod.adjusted_order_quantity > 0 AND  aod.auto_order_id = ?`, id).Scan(&data.Товары).Error
+	WHERE aod.order_count > 0 AND  aod.auto_order_id = ?`, id).Scan(&data.Товары).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -383,7 +372,7 @@ func (h *AutoOrderHandler) SendAutoOrder(c *gin.Context) {
 	}()
 
 	for _, item := range res.Products {
-		err = tx.Exec(`UPDATE auto_order_details SET response_order_quantity = ? WHERE product_id = (SELECT id FROM products WHERE material_code = ?)`,
+		err = tx.Exec(`UPDATE auto_order_details SET response_order_count = ? WHERE product_id = (SELECT id FROM products WHERE material_code = ?)`,
 			item.QuantityFakt, item.MaterialCode).Error
 		if err != nil {
 			h.log.Error(err)
@@ -392,7 +381,7 @@ func (h *AutoOrderHandler) SendAutoOrder(c *gin.Context) {
 			return
 		}
 	}
-	err = tx.Exec(`UPDATE auto_orders SET status = 'completed', completed_date = NOW() WHERE id = ?`, id).Error
+	err = tx.Exec(`UPDATE auto_orders SET status = ?, completed_date = NOW() WHERE id = ?`, config.COMPLETED, id).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())

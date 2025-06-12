@@ -129,7 +129,9 @@ func (h *PaymentTypeHandler) List(c *gin.Context) {
 		query = query.Where("type = ?", paymentType)
 	}
 
-	err := query.Where("is_active = TRUE").Order("order_number ASC").Find(&res).Error
+	err := query.
+		Where("is_active = TRUE").
+		Order("order_number ASC").Find(&res).Error
 	if err != nil {
 		h.log.Warn("ERROR on getting payment type list: %v", err)
 		handleResponse(c, InternalError, "Can't get payment type list")
