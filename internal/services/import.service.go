@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"math"
 	"net/http"
 	"time"
@@ -554,8 +553,6 @@ func (s *Services) DoRequest(ctx context.Context, data any, url string) error {
 	}
 	// close response body
 	defer response.Body.Close()
-	t, _ := io.ReadAll(response.Body)
-	fmt.Println("1C RESPONSE: ", string(t))
 
 	var info map[string]any
 	// read response body

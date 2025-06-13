@@ -37,20 +37,21 @@ type CashboxPaymentTypeResponse struct {
 // PaymentService structure
 // for using save payment services data
 type PaymentService struct {
-	ID             string     `gorm:"id" json:"id"`
-	StoreID        string     `gorm:"store_id" json:"store_id"`
-	PaymentTypeId  string     `gorm:"payment_type_id" json:"payment_type_id"`
-	Name           string     `gorm:"name" json:"name"`
-	Type           string     `gorm:"type" json:"type"`
-	MerchantID     int        `gorm:"merchant_id" json:"merchant_id"`
-	MerchantUserID int        `gorm:"merchant_user_id" json:"merchant_user_id"`
-	ServiceID      int        `gorm:"service_id" json:"service_id"`
-	CashboxId      string     `gorm:"cashbox_id" json:"cashbox_id"`
-	SecretKey      string     `gorm:"secret_key" json:"secret_key"`
-	IsActive       bool       `gorm:"is_active" json:"is_active"`
-	CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`
-	UpdatedAt      *time.Time `gorm:"updated_at" json:"updated_at"`
-	Store          *Store     `gorm:"foreignKey:StoreID" json:"store"`
+	ID             string       `gorm:"id" json:"id"`
+	StoreID        string       `gorm:"store_id" json:"store_id"`
+	PaymentTypeId  string       `gorm:"payment_type_id" json:"payment_type_id"`
+	Name           string       `gorm:"name" json:"name"`
+	Type           string       `gorm:"type" json:"type"`
+	MerchantID     int          `gorm:"merchant_id" json:"merchant_id"`
+	MerchantUserID int          `gorm:"merchant_user_id" json:"merchant_user_id"`
+	ServiceID      int          `gorm:"service_id" json:"service_id"`
+	CashboxId      string       `gorm:"cashbox_id" json:"cashbox_id"`
+	SecretKey      string       `gorm:"secret_key" json:"secret_key"`
+	IsActive       bool         `gorm:"is_active" json:"is_active"`
+	CreatedAt      *time.Time   `gorm:"created_at" json:"created_at"`
+	UpdatedAt      *time.Time   `gorm:"updated_at" json:"updated_at"`
+	Store          *Store       `gorm:"foreignKey:StoreID" json:"store"`
+	PaymentType    *PaymentType `gorm:"foreignKey:PaymentTypeId" json:"payment_type"`
 }
 
 // PaymentServiceRequest structure for create, update

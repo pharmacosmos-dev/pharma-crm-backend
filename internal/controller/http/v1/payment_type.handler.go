@@ -257,6 +257,7 @@ func (h *PaymentTypeHandler) CreatePaymentService(c *gin.Context) {
 	}
 	// create new payment service
 	body.ID = uuid.New().String()
+	body.IsActive = true
 	err = h.db.
 		WithContext(c.Request.Context()).
 		Table("payment_services").
@@ -289,6 +290,7 @@ func (h *PaymentTypeHandler) GetPaymentService(c *gin.Context) {
 	// get payment service by id
 	err := h.db.
 		Preload("Store").
+		Preload("PaymentType").
 		First(&res, "id = ?", id).Error
 	if err != nil {
 		h.log.Error(err)

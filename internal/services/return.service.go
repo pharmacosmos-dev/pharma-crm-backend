@@ -363,9 +363,6 @@ func (s *Services) SendReturn1C(returnId string) error {
 		return nil
 	}
 
-	t, _ := json.Marshal(returnData)
-	fmt.Println("====>> ", string(t))
-
 	// send return to 1C
 	err = s.DoRequest(context.Background(), returnData, "/vozvrat")
 	if err != nil {
