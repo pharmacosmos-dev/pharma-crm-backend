@@ -20,7 +20,13 @@ func (s *Services) SendExpenseTo1C(sendDate string) error {
 
 	var stores []domain.Store
 	// get store list
-	err := s.db.Find(&stores).Error
+	err := s.db.Raw(`
+	SELECT
+		DISTINCT s.*
+	FROM stores s
+	JOIN sales sl ON s.id = sl.store_id
+	WHERE DATE(sl.completed_at) = ?;
+	`, sendDate).Scan(&stores).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting store list: %v", err)
 		return errors.New("error on getting store")
