@@ -125,7 +125,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/auto-order-detail/list": {
+        "/auto-order-detail/export-excel": {
             "get": {
                 "security": [
                     {
@@ -164,8 +164,74 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Store ID",
-                        "name": "store_id",
+                        "description": "Auto Order ID",
+                        "name": "auto_order_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/auto-order-detail/list": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "List auto order details",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auto_order_details"
+                ],
+                "summary": "List auto order details",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search",
+                        "name": "search",
                         "in": "query"
                     },
                     {
@@ -17461,7 +17527,7 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "interval_day": {
-                    "type": "integer"
+                    "type": "number"
                 },
                 "status": {
                     "type": "string"

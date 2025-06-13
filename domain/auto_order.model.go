@@ -4,14 +4,15 @@ import "time"
 
 // Auto order query param
 type AutoOrderParam struct {
-	StoreID   string `form:"store_id"`
-	Search    string `form:"search"`
-	Status    string `form:"status"`
-	Limit     int    `form:"limit"`
-	Offset    int    `form:"offset"`
-	StartDate string `form:"start_date"`
-	EndDate   string `form:"end_date"`
-	UserId    string `form:"user_id"`
+	StoreID     string `form:"store_id"`
+	Search      string `form:"search"`
+	Status      string `form:"status"`
+	Limit       int    `form:"limit"`
+	Offset      int    `form:"offset"`
+	StartDate   string `form:"start_date"`
+	EndDate     string `form:"end_date"`
+	UserId      string `form:"user_id"`
+	AutoOrderId string `form:"auto_order_id"`
 }
 
 // Auto Order table structure
@@ -47,6 +48,7 @@ type AutoOrderConfirm struct {
 type AutoOrderDetail struct {
 	Id                     string     `gorm:"id" json:"id"`
 	AutoOrderId            string     `gorm:"auto_order_id" json:"auto_order_id"`
+	MaterialCode           int64      `gorm:"material_code" json:"material_code"`
 	ProductId              string     `gorm:"product_id" json:"product_id"`
 	ProductName            string     `gorm:"product_name" json:"product_name"`
 	Kvant                  int        `gorm:"kvant" json:"kvant"`

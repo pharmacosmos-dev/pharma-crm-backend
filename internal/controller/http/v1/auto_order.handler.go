@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -16,6 +18,7 @@ import (
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
+	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
 )
 
@@ -38,6 +41,7 @@ func (h *AutoOrderHandler) AutoOrderRoutes(r *gin.RouterGroup) {
 	autoOrderDetail := r.Group("auto-order-detail")
 	{
 		autoOrderDetail.GET("/list", h.AutoOrderDetailList)
+		autoOrderDetail.GET("/export-excel", h.ExportAutoOrderDetail)
 		autoOrderDetail.PUT("/change-quantity/:id", h.ChangeAdjustedOrder)
 	}
 }
@@ -170,7 +174,6 @@ func (h *AutoOrderHandler) List(c *gin.Context) {
 // @Param limit query int false "Limit"
 // @Param offset query int false "Offset"
 // @Param search query string false "Search"
-// @Param store_id query string false "Store ID"
 // @Param auto_order_id query string false "Auto Order ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
@@ -179,49 +182,130 @@ func (h *AutoOrderHandler) List(c *gin.Context) {
 // @Router /auto-order-detail/list [get]
 func (h *AutoOrderHandler) AutoOrderDetailList(c *gin.Context) {
 	var (
-		autoOrderDetails []*domain.AutoOrderDetail
-		totalCount       int64
-		autoOrderID      = c.Query("auto_order_id")
-		storeID          = c.Query("store_id")
-		search           = c.Query("search")
+		param      domain.AutoOrderParam
+		totalCount int64
 	)
-	limit, offset, err := getPaginationParams(c)
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "invalid.request.queryparam")
 		return
-	}
-	query := h.db.
-		Model(&domain.AutoOrderDetail{}).
-		Select("auto_order_details.*, p.name as product_name, u.short_name AS unit_name").
-		Preload("AutoOrder").
-		Joins("JOIN products p ON p.id = auto_order_details.product_id").
-		Joins("LEFT JOIN unit_types u ON p.unit_type_id = u.id")
-	if storeID != "" {
-		query = query.Where("store_id = ?", storeID)
-	}
-	if autoOrderID != "" {
-		query = query.Where("auto_order_id = ?", autoOrderID)
-	}
-	if search != "" {
-		search = fmt.Sprintf("%%%s%%", search)
-		query = query.Where("p.name ILIKE ?", search)
 	}
 
-	err = query.
-		Count(&totalCount).
-		Limit(limit).
-		Offset(offset).
-		Order("created_at DESC").
-		Find(&autoOrderDetails).Error
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	res, totalCount, err := h.service.AutoOrderDetailList(&param)
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
+		h.log.Warn("ERROR on getting auto_order_details: %v", err)
+		handleResponse(c, InternalError, "failed.get.auto_order_details")
 		return
 	}
-	result := utils.ListResponse(autoOrderDetails, totalCount, limit, offset)
+	result := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
 
 	handleResponse(c, OK, result)
+}
+
+// AutoOrderDetailList godoc
+// @Summary List auto order details
+// @Description List auto order details
+// @Tags auto_order_details
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Param search query string false "Search"
+// @Param auto_order_id query string false "Auto Order ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 401 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /auto-order-detail/export-excel [get]
+func (h *AutoOrderHandler) ExportAutoOrderDetail(c *gin.Context) {
+	var (
+		param domain.AutoOrderParam
+	)
+
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "invalid.request.queryparam")
+		return
+	}
+	// get default
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	// get auto order detail list
+	res, _, err := h.service.AutoOrderDetailList(&param)
+	if err != nil {
+		h.log.Warn("ERROR on getting auto_order_details: %v", err)
+		handleResponse(c, InternalError, "failed.get.auto_order_details")
+		return
+	}
+
+	// Excel fayl yaratish
+	f := excelize.NewFile()
+	sheetName := "List1"
+	f.SetSheetName("Sheet1", sheetName)
+
+	// Headerlar
+	headers := []string{"Артикул", "Наименование", "Квант", "Мин зап", "Макс зап", "Продажа кол-во", "Срок Д/П", "Период продажа", "Остаток на дату текущей поставки", "Остаток на дату следующей поставки"}
+
+	headerStyle, err := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Bold:  true,
+			Color: "000000",
+		},
+	})
+	if err != nil {
+		h.log.Error("Failed to create style:", err)
+		handleResponse(c, InternalError, "Error on giving style to excel")
+		return
+	}
+
+	for i, h := range headers {
+		col := string(rune('A'+i)) + "1"
+		f.SetCellValue(sheetName, col, h)
+		f.SetCellStyle(sheetName, col, col, headerStyle)
+	}
+
+	// Ma'lumotlarni qo'shish
+	for i, v := range res {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheetName, "A"+row, v.MaterialCode)
+		f.SetCellValue(sheetName, "B"+row, v.ProductName)
+		f.SetCellValue(sheetName, "C"+row, v.Kvant)
+		f.SetCellValue(sheetName, "D"+row, v.MinStock)
+		f.SetCellValue(sheetName, "E"+row, v.MaxStock)
+		f.SetCellValue(sheetName, "F"+row, v.SaleCount)
+		f.SetCellValue(sheetName, "G"+row, v.ImportDay)
+		f.SetCellValue(sheetName, "H"+row, v.DailySaleCount)
+		f.SetCellValue(sheetName, "I"+row, v.StockOnDeliveryDate)
+		f.SetCellValue(sheetName, "J"+row, v.FutureStock)
+	}
+
+	// Faylni uploads/ papkasiga UUID bilan saqlash
+	fileName := "auto_order_products_" + time.Now().Add(time.Hour*5).Format("2006-01-02_15-04-05") + ".xlsx"
+	filePath := filepath.Join("uploads", fileName)
+
+	// uploads/ papkasi mavjud bo‘lmasa, yaratish
+	if _, err := os.Stat("uploads"); os.IsNotExist(err) {
+		err := os.Mkdir("uploads", os.ModePerm)
+		if err != nil {
+			h.log.Error("Failed to create uploads directory:", err)
+			handleResponse(c, InternalError, "Failed to create uploads folder")
+			return
+		}
+	}
+
+	// Faylni diskka yozish
+	if err := f.SaveAs(filePath); err != nil {
+		h.log.Error("Failed to save Excel file:", err)
+		handleResponse(c, InternalError, "Failed to save Excel file")
+		return
+	}
+
+	// Foydalanuvchiga file path yoki URLni qaytarish
+	handleResponse(c, OK, gin.H{
+		"file_name": fileName,
+	})
+
 }
 
 // ChangeAdjustedOrder godoc

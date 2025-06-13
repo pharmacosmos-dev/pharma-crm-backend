@@ -298,3 +298,39 @@ func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, d
 
 	return res, nil
 }
+
+// list auto order details
+func (s *Services) AutoOrderDetailList(param *domain.AutoOrderParam) ([]domain.AutoOrderDetail, int64, error) {
+	var (
+		totalCount int64
+		res        []domain.AutoOrderDetail
+	)
+	query := s.db.
+		Model(&domain.AutoOrderDetail{}).
+		Select("auto_order_details.*, p.material_code, p.name as product_name, u.short_name AS unit_name").
+		Preload("AutoOrder").
+		Joins("JOIN products p ON p.id = auto_order_details.product_id").
+		Joins("LEFT JOIN unit_types u ON p.unit_type_id = u.id")
+
+	// filter by auto_order_id
+	if param.AutoOrderId != "" {
+		query = query.Where("auto_order_id = ?", param.AutoOrderId)
+	}
+	// filter by searching product name
+	if param.Search != "" {
+		query = query.Where("p.name ILIKE ?", "%"+param.Search+"%")
+	}
+	// execute query
+	err := query.
+		Count(&totalCount).
+		Limit(param.Limit).
+		Offset(param.Offset).
+		Order("created_at DESC").
+		Find(&res).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting auto order details: %v", err)
+		return res, totalCount, err
+	}
+
+	return res, totalCount, nil
+}
