@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"time"
@@ -627,6 +628,9 @@ func (s *Services) SendInventory1C(inventoryID string) error {
 	// get document data and number
 	data1C.Dok.DocumentDate = now.Format(time.RFC3339)
 	data1C.Dok.DocumentNumber = "PH" + cast.ToString(now.Unix())
+
+	t, _ := json.Marshal(data1C)
+	fmt.Println("Inventory: -->> ", string(t))
 
 	// send inventory products data to 1C
 	err = s.DoRequest(context.Background(), data1C, "/inventar")

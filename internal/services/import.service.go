@@ -523,7 +523,7 @@ func (s *Services) ListImportDetailByLastUpdated(c *gin.Context, limit, offset i
 // send request to 1C for answering import details
 func (s *Services) DoRequest(ctx context.Context, data any, url string) error {
 	client := &http.Client{
-		Timeout: 30 * time.Second,
+		Timeout: 60 * time.Second,
 	}
 	// request, _ := json.Marshal(data)
 	// fmt.Println("REQUEST: ", string(request))
