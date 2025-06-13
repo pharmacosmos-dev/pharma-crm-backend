@@ -318,9 +318,9 @@ func (s *Services) SendReturn1C(returnId string) error {
 	var (
 		returnData domain.ReturnData1C
 		store      domain.Store
-		returnInfo domain.Return
+		returnInfo domain.Transfer
 	)
-	err := s.db.First(&returnInfo, "id = ?", returnId).Error
+	err := s.db.Model(&domain.Transfer{}).First(&returnInfo, "id = ?", returnId).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting return data: %v", err)
 		return err
