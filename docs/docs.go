@@ -13071,7 +13071,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/return/send1c": {
+        "/return/send1c/{id}": {
             "post": {
                 "security": [
                     {
@@ -13093,8 +13093,8 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "Return ID",
-                        "name": "return_id",
-                        "in": "query",
+                        "name": "id",
+                        "in": "path",
                         "required": true
                     }
                 ],

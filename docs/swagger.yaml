@@ -9638,15 +9638,15 @@ paths:
       summary: Send Return
       tags:
       - Return
-  /return/send1c:
+  /return/send1c/{id}:
     post:
       consumes:
       - application/json
       description: Send Return to 1C
       parameters:
       - description: Return ID
-        in: query
-        name: return_id
+        in: path
+        name: id
         required: true
         type: string
       produces:

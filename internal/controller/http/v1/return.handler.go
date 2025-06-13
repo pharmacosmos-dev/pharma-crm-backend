@@ -34,7 +34,7 @@ func (h *ReturnHandler) ReturnRoutes(r *gin.RouterGroup) {
 		returned.GET("/export-excel", h.ExportReturnExcel)
 		returned.PATCH("/:id/add-product-by-barcode", h.AddProductByBarcode)
 		returned.POST("/send/:id", h.Send)
-		returned.POST("/send1c", h.Send1C)
+		returned.POST("/send1c/:id", h.Send1C)
 		returned.POST("/confirm/:id", h.Confirm)
 		returned.POST("/cancel/:id", h.Cancel)
 	}
@@ -468,14 +468,14 @@ func (h *ReturnHandler) Send(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept 	json
 // @Produce json
-// @Param 	return_id query string true "Return ID"
+// @Param 	id path string true "Return ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /return/send1c [POST]
+// @Router /return/send1c/{id} [POST]
 func (h *ReturnHandler) Send1C(c *gin.Context) {
-	returnId := c.Query("return_id")
-
+	returnId := c.Param("id")
+	// validate return id
 	if err := uuid.Validate(returnId); err != nil {
 		handleResponse(c, BadRequest, "Invalid return id")
 		return
