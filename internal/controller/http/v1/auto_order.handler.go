@@ -245,7 +245,7 @@ func (h *AutoOrderHandler) ExportAutoOrderDetail(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"Артикул", "Наименование", "Квант", "Мин зап", "Макс зап", "Продажа кол-во", "Срок Д/П", "Период продажа", "Заказ кол-во", "Остаток на дату текущей поставки", "Остаток на дату следующей поставки"}
+	headers := []string{"Артикул", "Наименование", "Текущий Остаток", "Продажа кол-во", "Квант", "Мин зап", "Макс зап", "Срок Д/П", "Период продажа", "Сред продажа в ден", "Заказ кол-во", "Остаток на дату текущей поставки", "Остаток на дату следующей поставки"}
 
 	headerStyle, err := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{
@@ -270,15 +270,17 @@ func (h *AutoOrderHandler) ExportAutoOrderDetail(c *gin.Context) {
 		row := strconv.Itoa(i + 2)
 		f.SetCellValue(sheetName, "A"+row, v.MaterialCode)
 		f.SetCellValue(sheetName, "B"+row, v.ProductName)
-		f.SetCellValue(sheetName, "C"+row, v.Kvant)
-		f.SetCellValue(sheetName, "D"+row, v.MinStock)
-		f.SetCellValue(sheetName, "E"+row, v.MaxStock)
-		f.SetCellValue(sheetName, "F"+row, v.SaleCount)
-		f.SetCellValue(sheetName, "G"+row, v.ImportDay)
-		f.SetCellValue(sheetName, "H"+row, v.DailySaleCount)
-		f.SetCellValue(sheetName, "I"+row, v.OrderCount)
-		f.SetCellValue(sheetName, "J"+row, v.StockOnDeliveryDate)
-		f.SetCellValue(sheetName, "K"+row, v.FutureStock)
+		f.SetCellValue(sheetName, "C"+row, v.CurrentStock)
+		f.SetCellValue(sheetName, "D"+row, v.SaleCount)
+		f.SetCellValue(sheetName, "E"+row, v.Kvant)
+		f.SetCellValue(sheetName, "F"+row, v.MinStock)
+		f.SetCellValue(sheetName, "G"+row, v.MaxStock)
+		f.SetCellValue(sheetName, "H"+row, v.ImportDay)
+		f.SetCellValue(sheetName, "I"+row, 15)
+		f.SetCellValue(sheetName, "J"+row, v.DailySaleCount)
+		f.SetCellValue(sheetName, "K"+row, v.OrderCount)
+		f.SetCellValue(sheetName, "L"+row, v.StockOnDeliveryDate)
+		f.SetCellValue(sheetName, "M"+row, v.FutureStock)
 	}
 
 	// Faylni uploads/ papkasiga UUID bilan saqlash

@@ -325,7 +325,7 @@ func (s *Services) AutoOrderDetailList(param *domain.AutoOrderParam) ([]domain.A
 		Count(&totalCount).
 		Limit(param.Limit).
 		Offset(param.Offset).
-		Order("created_at DESC").
+		Order("auto_order_details.created_at DESC").
 		Find(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting auto order details: %v", err)
