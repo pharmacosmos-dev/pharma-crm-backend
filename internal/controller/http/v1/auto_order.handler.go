@@ -245,7 +245,7 @@ func (h *AutoOrderHandler) ExportAutoOrderDetail(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"Артикул", "Наименование", "Квант", "Мин зап", "Макс зап", "Продажа кол-во", "Срок Д/П", "Период продажа", "Остаток на дату текущей поставки", "Остаток на дату следующей поставки"}
+	headers := []string{"Артикул", "Наименование", "Квант", "Мин зап", "Макс зап", "Продажа кол-во", "Срок Д/П", "Период продажа", "Заказ кол-во", "Остаток на дату текущей поставки", "Остаток на дату следующей поставки"}
 
 	headerStyle, err := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{
@@ -276,8 +276,9 @@ func (h *AutoOrderHandler) ExportAutoOrderDetail(c *gin.Context) {
 		f.SetCellValue(sheetName, "F"+row, v.SaleCount)
 		f.SetCellValue(sheetName, "G"+row, v.ImportDay)
 		f.SetCellValue(sheetName, "H"+row, v.DailySaleCount)
-		f.SetCellValue(sheetName, "I"+row, v.StockOnDeliveryDate)
-		f.SetCellValue(sheetName, "J"+row, v.FutureStock)
+		f.SetCellValue(sheetName, "I"+row, v.OrderCount)
+		f.SetCellValue(sheetName, "J"+row, v.StockOnDeliveryDate)
+		f.SetCellValue(sheetName, "K"+row, v.FutureStock)
 	}
 
 	// Faylni uploads/ papkasiga UUID bilan saqlash
