@@ -877,8 +877,8 @@ func (h *HelperHandler) UploadProductMinMax(c *gin.Context) {
 	var (
 		stores     []domain.Store
 		products   []domain.Product
-		storeMap   = make(map[int]interface{})
-		productMap = make(map[int]interface{})
+		storeMap   = make(map[int]any)
+		productMap = make(map[int]any)
 	)
 	var (
 		file domain.File
@@ -948,17 +948,17 @@ func (h *HelperHandler) UploadProductMinMax(c *gin.Context) {
 
 	// build query
 	query := `
-		INSERT INTO store_product_thresholds(store_id, product_id, min_quantity, max_quantity)
-		VALUES (?, ?, ?, ?)
+		INSERT INTO store_product_thresholds(store_id, product_id, kvant, min_quantity, max_quantity)
+		VALUES (?, ?, ?, ?, ?)
 	`
 
 	var count = 0
 	// Process rows
 	for _, row := range rows[1:] {
-		fmt.Println("StoreID: ", cast.ToInt(row[2]), "ProductID: ", cast.ToString(row[7]))
-		fmt.Println("MIN: ", row[8], "Max: ", row[9])
+		// fmt.Println("StoreID: ", cast.ToInt(row[0]), "ProductID: ", cast.ToString(row[2]))
+		// fmt.Println("KVANT: ", row[4], "MIN: ", row[5], "Max: ", row[6])
 		// // create measurements
-		err = h.db.Debug().Exec(query, storeMap[cast.ToInt(row[2])], productMap[cast.ToInt(row[7])], cast.ToInt(row[8]), cast.ToInt(row[9])).Error
+		err = h.db.Debug().Exec(query, storeMap[cast.ToInt(row[0])], productMap[cast.ToInt(row[2])], cast.ToInt(row[4]), cast.ToInt(row[5]), cast.ToInt(row[6])).Error
 		if err != nil {
 			h.log.Warn("ERROR on creating customers: %v", err)
 		}
