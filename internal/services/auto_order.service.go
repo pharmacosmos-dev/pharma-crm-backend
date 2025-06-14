@@ -184,21 +184,21 @@ func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, d
 			sp.product_id,
 			p.material_code,
 			p.name,
-			ROUND(SUM(sp.pack_quantity::numeric + (sp.unit_quantity::numeric % p.unit_per_pack)/p.unit_per_pack), 4) AS current_stock,
-			ROUND(SUM(ci.quantity::numeric + ci.unit_quantity::numeric / p.unit_per_pack), 4) AS sale_count,
-			MAX(spt.kvant) AS kvant,
-			MAX(spt.min_quantity) AS min_stock,
-			MAX(spt.max_quantity) AS max_stock,
+			ROUND(COALESCE(SUM(sp.pack_quantity::numeric + (sp.unit_quantity::numeric % p.unit_per_pack)/p.unit_per_pack), 0), 4) AS current_stock,
+			ROUND(COALESCE(SUM(ci.quantity::numeric + ci.unit_quantity::numeric / p.unit_per_pack), 0), 4) AS sale_count,
+			COALESCE(MAX(spt.kvant), 0) AS kvant,
+			COALESCE(MAX(spt.min_quantity), 0) AS min_stock,
+			COALESCE(MAX(spt.max_quantity), 0) AS max_stock,
 			p.unit_per_pack
-		FROM sales sl
-		INNER JOIN stores s ON sl.store_id = s.id
-		INNER JOIN cart_items ci ON sl.id = ci.sale_id
-		INNER JOIN store_products sp ON ci.store_product_id = sp.id
+		FROM store_products sp
 		INNER JOIN products p ON sp.product_id = p.id
-		INNER JOIN store_product_thresholds spt ON s.id = spt.store_id AND p.id = spt.product_id
-		WHERE sl.status = 'completed'
-		AND sl.store_id = ?
-		AND (sl.completed_at + interval '5 hours')::date >= (CURRENT_DATE - INTERVAL '15 days')
+		LEFT JOIN store_product_thresholds spt ON sp.store_id = spt.store_id AND sp.product_id = spt.product_id
+		LEFT JOIN cart_items ci ON sp.id = ci.store_product_id
+		LEFT JOIN sales sl ON sl.id = ci.sale_id
+			AND sl.status = 'completed'
+			AND (sl.completed_at + interval '5 hours')::date >= (CURRENT_DATE - INTERVAL '15 days')
+			AND sl.store_id = ?
+		WHERE sp.store_id = ?
 		GROUP BY sp.product_id, p.material_code, p.name, p.unit_per_pack
 	),
 	calc_logic AS (
@@ -223,10 +223,10 @@ func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, d
 			END AS w_abs,
 
 			CASE
-				WHEN (min_stock - stock_on_delivery_date) <= CASE WHEN future_stock_with_reserve < 0 THEN ABS(future_stock_with_reserve) ELSE 0 END
-					THEN CASE WHEN future_stock_with_reserve < 0 THEN ABS(future_stock_with_reserve) ELSE 0 END
-				WHEN (min_stock - stock_on_delivery_date) > CASE WHEN future_stock_with_reserve < 0 THEN ABS(future_stock_with_reserve) ELSE 0 END
-					THEN (min_stock - stock_on_delivery_date)
+				WHEN (min_stock - stock_on_delivery_date) <=
+					CASE WHEN future_stock_with_reserve < 0 THEN ABS(future_stock_with_reserve) ELSE 0 END
+				THEN CASE WHEN future_stock_with_reserve < 0 THEN ABS(future_stock_with_reserve) ELSE 0 END
+				ELSE (min_stock - stock_on_delivery_date)
 			END AS x,
 
 			CASE
@@ -236,10 +236,10 @@ func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, d
 
 			LEAST(
 				CASE
-					WHEN (min_stock - stock_on_delivery_date) <= CASE WHEN future_stock_with_reserve < 0 THEN ABS(future_stock_with_reserve) ELSE 0 END
-						THEN CASE WHEN future_stock_with_reserve < 0 THEN ABS(future_stock_with_reserve) ELSE 0 END
-					WHEN (min_stock - stock_on_delivery_date) > CASE WHEN future_stock_with_reserve < 0 THEN ABS(future_stock_with_reserve) ELSE 0 END
-						THEN (min_stock - stock_on_delivery_date)
+					WHEN (min_stock - stock_on_delivery_date) <=
+						CASE WHEN future_stock_with_reserve < 0 THEN ABS(future_stock_with_reserve) ELSE 0 END
+					THEN CASE WHEN future_stock_with_reserve < 0 THEN ABS(future_stock_with_reserve) ELSE 0 END
+					ELSE (min_stock - stock_on_delivery_date)
 				END,
 				CASE
 					WHEN max_stock > 0 THEN max_stock
@@ -252,10 +252,10 @@ func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, d
 					ROUND(
 						LEAST(
 							CASE
-								WHEN (min_stock - stock_on_delivery_date) <= CASE WHEN future_stock_with_reserve < 0 THEN ABS(future_stock_with_reserve) ELSE 0 END
-									THEN CASE WHEN future_stock_with_reserve < 0 THEN ABS(future_stock_with_reserve) ELSE 0 END
-								WHEN (min_stock - stock_on_delivery_date) > CASE WHEN future_stock_with_reserve < 0 THEN ABS(future_stock_with_reserve) ELSE 0 END
-									THEN (min_stock - stock_on_delivery_date)
+								WHEN (min_stock - stock_on_delivery_date) <=
+									CASE WHEN future_stock_with_reserve < 0 THEN ABS(future_stock_with_reserve) ELSE 0 END
+								THEN CASE WHEN future_stock_with_reserve < 0 THEN ABS(future_stock_with_reserve) ELSE 0 END
+								ELSE (min_stock - stock_on_delivery_date)
 							END,
 							CASE
 								WHEN max_stock > 0 THEN max_stock
@@ -269,8 +269,8 @@ func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, d
 		FROM calc_logic
 	)
 	SELECT
-	 	auto_order_id,
-        product_id,
+		auto_order_id,
+		product_id,
 		material_code,
 		name,
 		current_stock,
@@ -289,7 +289,7 @@ func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, d
 	FROM final_calc
 	ORDER BY name;
 	`
-	err := s.db.Debug().Raw(query, autoOrderID, storeID).Scan(&res).Error
+	err := s.db.Debug().Raw(query, autoOrderID, storeID, storeID).Scan(&res).Error
 
 	if err != nil {
 		s.log.Error(err)
