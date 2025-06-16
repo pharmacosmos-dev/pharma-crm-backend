@@ -178,95 +178,91 @@ func (s *Services) ListAutoOrder(param *domain.AutoOrderParam) ([]domain.AutoOrd
 func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, day float64) ([]*domain.AutoOrderDetailRequest, error) {
 	var res []*domain.AutoOrderDetailRequest
 	query := `
-	WITH sales_data AS (
+	WITH vars AS (
 		SELECT
-			? AS auto_order_id,
+			?::uuid AS store_id,
+			?::uuid AS auto_order_id,
+			2 AS import_day,
+			?::int AS sale_period
+	),
+	stock_data AS (
+		SELECT
 			sp.product_id,
+			ROUND(SUM(sp.pack_quantity + (sp.unit_quantity::numeric % p.unit_per_pack) / p.unit_per_pack), 4) AS current_stock
+		FROM store_products sp
+		JOIN products p ON sp.product_id = p.id
+		JOIN vars v ON sp.store_id = v.store_id
+		GROUP BY sp.product_id, p.unit_per_pack
+	),
+	sales_data AS (
+		SELECT
+			sp.product_id,
+			ROUND(SUM(ci.quantity + (ci.unit_quantity::numeric / p.unit_per_pack)), 4) AS sale_count
+		FROM store_products sp
+		JOIN cart_items ci ON sp.id = ci.store_product_id
+		JOIN sales sl ON sl.id = ci.sale_id AND sl.status = 'completed'
+		JOIN products p ON sp.product_id = p.id
+		JOIN vars v ON sl.store_id = v.store_id
+		WHERE (sl.completed_at + interval '5 hours')::date >= (CURRENT_DATE - INTERVAL '15 days')
+		GROUP BY sp.product_id, p.unit_per_pack
+	),
+	thresholds AS (
+		SELECT
+			product_id,
+			COALESCE(MAX(kvant), 0) AS kvant,
+			COALESCE(MAX(min_quantity), 0) AS min_stock,
+			COALESCE(MAX(max_quantity), 0) AS max_stock
+		FROM store_product_thresholds
+		JOIN vars v ON store_product_thresholds.store_id = v.store_id
+		GROUP BY product_id
+	),
+	product_base AS (
+		SELECT DISTINCT sp.product_id
+		FROM store_products sp
+		JOIN vars v ON sp.store_id = v.store_id
+	),
+	all_data AS (
+		SELECT
+			v.auto_order_id,
+			p.id AS product_id,
 			p.material_code,
 			p.name,
-			ROUND(COALESCE(SUM(sp.pack_quantity::numeric + (sp.unit_quantity::numeric % p.unit_per_pack)/p.unit_per_pack), 0), 4) AS current_stock,
-			ROUND(COALESCE(SUM(ci.quantity::numeric + ci.unit_quantity::numeric / p.unit_per_pack), 0), 4) AS sale_count,
-			COALESCE(MAX(spt.kvant), 0) AS kvant,
-			COALESCE(MAX(spt.min_quantity), 0) AS min_stock,
-			COALESCE(MAX(spt.max_quantity), 0) AS max_stock,
-			p.unit_per_pack
-		FROM store_products sp
-		INNER JOIN products p ON sp.product_id = p.id
-		LEFT JOIN store_product_thresholds spt ON sp.store_id = spt.store_id AND sp.product_id = spt.product_id
-		LEFT JOIN cart_items ci ON sp.id = ci.store_product_id
-		LEFT JOIN sales sl ON sl.id = ci.sale_id
-			AND sl.status = 'completed'
-			AND (sl.completed_at + interval '5 hours')::date >= (CURRENT_DATE - INTERVAL '15 days')
-			AND sl.store_id = ?
-		WHERE sp.store_id = ?
-		GROUP BY sp.product_id, p.material_code, p.name, p.unit_per_pack
-	),
-	calc_logic AS (
-		SELECT
-			*,
-			2 AS import_day,
-			15 AS sale_period,
-			ROUND(sale_count / 15.0, 4) AS daily_sale_count,
-			ROUND(sale_count / 15.0 * 2, 4) AS delivery_day_consumption,
-			current_stock - ROUND(sale_count / 15.0 * 2, 4) AS stock_on_delivery_date,
-			ROUND(sale_count / 15.0 * 3, 4) AS reserve_quantity,
-			(current_stock - ROUND(sale_count / 15.0 * 2, 4)) + ROUND(sale_count / 15.0 * 3, 4) AS future_stock,
-			((current_stock - ROUND(sale_count / 15.0 * 2, 4)) + ROUND(sale_count / 15.0 * 3, 4)) - ROUND(sale_count / 15.0 * 3, 4) AS future_stock_with_reserve
-		FROM sales_data
+			p.unit_per_pack,
+			COALESCE(sd.current_stock, 0) AS current_stock,
+			COALESCE(sa.sale_count, 0) AS sale_count,
+			COALESCE(t.kvant, 0) AS kvant,
+			COALESCE(t.min_stock, 0) AS min_stock,
+			COALESCE(t.max_stock, 0) AS max_stock,
+			v.import_day,
+			v.sale_period
+		FROM product_base pb
+		JOIN products p ON pb.product_id = p.id
+		JOIN vars v ON TRUE
+		LEFT JOIN stock_data sd ON p.id = sd.product_id
+		LEFT JOIN sales_data sa ON p.id = sa.product_id
+		LEFT JOIN thresholds t ON p.id = t.product_id
 	),
 	final_calc AS (
 		SELECT
 			*,
+			ROUND(sale_count / sale_period, 4) AS daily_sale_count,
+			ROUND((sale_count / sale_period) * import_day, 4) AS delivery_day_consumption,
+			current_stock - ROUND((sale_count / sale_period) * import_day, 4) AS stock_on_delivery_date,
+			ROUND((sale_count / sale_period) * 3, 4) AS reserve_quantity,
+			current_stock - ROUND((sale_count / sale_period) * import_day, 4) + ROUND((sale_count / sale_period) * 3, 4) AS future_stock,
+			current_stock - ROUND((sale_count / sale_period) * import_day, 4) AS future_stock_with_reserve
+		FROM all_data
+	),
+	order_calc AS (
+		SELECT
+			*,
+			GREATEST(min_stock - stock_on_delivery_date, 0) AS required_stock,
 			CASE
-				WHEN future_stock_with_reserve < 0 THEN ABS(future_stock_with_reserve)
+				WHEN kvant > 0 THEN
+					ROUND(ROUND(GREATEST(min_stock - stock_on_delivery_date, 0) / kvant) * kvant)
 				ELSE 0
-			END AS w_abs,
-
-			CASE
-				WHEN (min_stock - stock_on_delivery_date) <=
-					CASE WHEN future_stock_with_reserve < 0 THEN ABS(future_stock_with_reserve) ELSE 0 END
-				THEN CASE WHEN future_stock_with_reserve < 0 THEN ABS(future_stock_with_reserve) ELSE 0 END
-				ELSE (min_stock - stock_on_delivery_date)
-			END AS x,
-
-			CASE
-				WHEN max_stock > 0 THEN max_stock
-				ELSE 1e+99
-			END AS z,
-
-			LEAST(
-				CASE
-					WHEN (min_stock - stock_on_delivery_date) <=
-						CASE WHEN future_stock_with_reserve < 0 THEN ABS(future_stock_with_reserve) ELSE 0 END
-					THEN CASE WHEN future_stock_with_reserve < 0 THEN ABS(future_stock_with_reserve) ELSE 0 END
-					ELSE (min_stock - stock_on_delivery_date)
-				END,
-				CASE
-					WHEN max_stock > 0 THEN max_stock
-					ELSE 1e+99
-				END
-			) AS k,
-
-			CASE
-				WHEN kvant > 0 THEN ROUND(
-					ROUND(
-						LEAST(
-							CASE
-								WHEN (min_stock - stock_on_delivery_date) <=
-									CASE WHEN future_stock_with_reserve < 0 THEN ABS(future_stock_with_reserve) ELSE 0 END
-								THEN CASE WHEN future_stock_with_reserve < 0 THEN ABS(future_stock_with_reserve) ELSE 0 END
-								ELSE (min_stock - stock_on_delivery_date)
-							END,
-							CASE
-								WHEN max_stock > 0 THEN max_stock
-								ELSE 1e+99
-							END
-						) / kvant
-					) * kvant
-				)
-				ELSE 0
-			END AS j
-		FROM calc_logic
+			END AS order_count
+		FROM final_calc
 	)
 	SELECT
 		auto_order_id,
@@ -285,11 +281,11 @@ func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, d
 		reserve_quantity,
 		future_stock,
 		future_stock_with_reserve,
-		j AS order_count
-	FROM final_calc
+		order_count
+	FROM order_calc
 	ORDER BY name;
 	`
-	err := s.db.Debug().Raw(query, autoOrderID, storeID, storeID).Scan(&res).Error
+	err := s.db.Debug().Raw(query, storeID, autoOrderID, day).Scan(&res).Error
 
 	if err != nil {
 		s.log.Error(err)
