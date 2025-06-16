@@ -4,12 +4,13 @@ import "time"
 
 // InventoryParam structure
 type InventoryParam struct {
-	Limit   int    `form:"limit"`
-	Offset  int    `form:"offset"`
-	StoreId string `form:"store_id"`
-	Type    string `form:"type"`
-	Status  string `form:"status"`
-	Search  string `form:"search"`
+	Limit     int    `form:"limit"`
+	Offset    int    `form:"offset"`
+	StoreId   string `form:"store_id"`
+	Type      string `form:"type"`
+	Status    string `form:"status"`
+	Search    string `form:"search"`
+	ProductId string `form:"product_id"`
 }
 
 // Inventory structure
@@ -51,6 +52,7 @@ type InventoryDetail struct {
 	MaterialCode       int        `gorm:"material_code" json:"material_code"`
 	UnitPerPack        int        `gorm:"unit_per_pack" json:"unit_per_pack"`
 	Name               string     `gorm:"name" json:"name"`
+	ProducerName       string     `gorm:"producer_name" json:"producer_name"`
 	Barcode            string     `gorm:"barcode" json:"barcode"`
 	CurrentQuantity    float64    `gorm:"current_quantity" json:"current_quantity"`
 	CurrentUnit        float64    `gorm:"current_unit" json:"current_unit"`
@@ -133,4 +135,11 @@ type InventoryData1C struct {
 	Dok    Document             `json:"Dok"`
 	Apteka Apteka               `json:"Apteka"`
 	Товары []InventoryProduct1C `json:"Товары"`
+}
+
+// inventory product price options
+type InventoryPriceOption struct {
+	ProductId   string     `gorm:"product_id" json:"product_id"`
+	RetailPrice float64    `gorm:"retail_price" json:"retail_price"`
+	ExpireDate  *time.Time `gorm:"expire_date" json:"expire_date"`
 }

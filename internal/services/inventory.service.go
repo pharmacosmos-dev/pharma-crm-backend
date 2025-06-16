@@ -157,7 +157,7 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
 		args         = []any{}
 		filter       = " WHERE imd.import_id = ? "
 		orderBy      = ""
-		group        = " GROUP BY p.id, imd.import_id "
+		group        = " GROUP BY p.id, pr.id, imd.import_id "
 	)
 	args = append(args, param.InventoryId)
 	//
@@ -169,6 +169,7 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
         p.material_code,
 		p.barcode,
         p.name,
+		COALESCE(pr.name, '') AS producer_name,
         p.unit_per_pack,
 		MAX(imd.retail_price_vat) AS retail_price,
 		MAX(imd.expire_date) AS expire_date,
@@ -184,12 +185,14 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
         SUM(imd.retail_price_vat * (imd.scanned_count - imd.received_count)) AS difference_sum
 	FROM import_details imd
 		JOIN products p ON imd.product_id = p.id
+		LEFT JOIN producers pr ON p.producer_id = pr.id
 	`
 	tquery := `
 	SELECT
-		COUNT(*) AS total_count
+		COUNT(DISTINCT p.id) AS total_count
 	FROM import_details imd
 		JOIN products p ON imd.product_id = p.id
+		LEFT JOIN producers pr ON p.producer_id = pr.id
 	`
 
 	totalQuery := `
@@ -199,6 +202,7 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
 		SUM(imd.retail_price_vat * (imd.scanned_count - imd.received_count)) AS total_difference_sum
 	FROM import_details imd
 	JOIN products p ON imd.product_id = p.id
+	LEFT JOIN producers pr ON p.producer_id = pr.id
 	`
 
 	if param.Search != "" {
@@ -207,8 +211,8 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
 			filter += " AND p.barcode LIKE ?"
 			args = append(args, "%"+param.Search+"%")
 		case "name/category":
-			filter += " AND p.name ILIKE ?"
-			args = append(args, "%"+param.Search+"%")
+			filter += " AND (p.name ILIKE ? OR pr.name ILIKE ?) "
+			args = append(args, "%"+param.Search+"%", "%"+param.Search+"%")
 		default:
 			filter += " AND (p.name ILIKE ? OR p.barcode LIKE ?)"
 			args = append(args, "%"+param.Search+"%", "%"+param.Search+"%")
@@ -259,7 +263,6 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
 	}
 
 	// total sum query completed
-
 	totalQuery += filter
 	err = s.db.Raw(totalQuery, args...).Scan(&totalSumData).Error
 	if err != nil {

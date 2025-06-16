@@ -327,7 +327,7 @@ func (h *PaymentTypeHandler) ListPaymentService(c *gin.Context) {
 	}
 	// get default pagination values
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
-
+	// build payment service get list query
 	query := h.db.
 		Model(&domain.PaymentService{}).
 		Preload("Store").
@@ -341,8 +341,14 @@ func (h *PaymentTypeHandler) ListPaymentService(c *gin.Context) {
 	if param.StoreID != "" {
 		query = query.Where("store_id = ?", param.StoreID)
 	}
-	//
-	err := query.Where("deleted_at IS NULL").Count(&totalCount).Find(&res).Error
+	// execute query
+	err := query.
+		Where("deleted_at IS NULL").
+		Count(&totalCount).
+		Order("created_at DESC").
+		Limit(param.Limit).
+		Offset(param.Offset).
+		Find(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())

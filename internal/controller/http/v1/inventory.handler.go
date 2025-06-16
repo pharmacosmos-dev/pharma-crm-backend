@@ -45,6 +45,7 @@ func (h *InventoryHandler) InventoryRoutes(r *gin.RouterGroup) {
 		detail.GET("/detailed-flow", h.InventoryDetailedFlow)
 		detail.GET("/export-excel", h.InventoryDetailExport)
 		detail.POST("/upload-excel", h.InventoryDetailUpload)
+		detail.GET("/price-option", h.PriceOption)
 	}
 }
 
@@ -877,4 +878,61 @@ func (h *InventoryHandler) InventoryDetailUpload(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, "Successfully upload: "+cast.ToString(count))
+}
+
+// Price options
+// @Summary Get Price options
+// @Description Get Price options
+// @Tags Inventory
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param 	limit query int false "LIMIT"
+// @Param 	offset query int false "OFFSET"
+// @Param   product_id 	query string true "Product ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /inventory-detail/price-option [GET]
+func (h InventoryHandler) PriceOption(c *gin.Context) {
+	var (
+		param domain.InventoryParam
+		res   domain.InventoryPriceOption
+		err   error
+	)
+	// bind query param
+	if err = c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "invalid.query.param")
+		return
+	}
+
+	// validate product_id
+	if err = uuid.Validate(param.ProductId); err != nil {
+		handleResponse(c, BadRequest, "invalid.product_id")
+		return
+	}
+
+	// get default limit, offset
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	// execute query
+	err = h.db.Table("import_details imd").
+		Select(`
+			imd.product_id,
+    		imd.retail_price_vat AS retail_price,
+    		imd.expire_date`,
+		).
+		Joins("JOIN imports im ON imd.import_id = im.id").
+		Where("im.entry_type = 2 AND imd.product_id = ? ", param.ProductId).
+		Order("imd.created_at DESC").
+		Limit(param.Limit).
+		Offset(param.Offset).
+		Find(&res).Error
+	if err != nil {
+		h.log.Warn("ERROR on getting price_options: %v", err)
+		handleResponse(c, InternalError, "failed.get.price.options")
+		return
+	}
+
+	handleResponse(c, OK, res)
 }

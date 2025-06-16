@@ -6065,6 +6065,45 @@ paths:
       summary: Get inventory list
       tags:
       - Inventory
+  /inventory-detail/price-option:
+    get:
+      consumes:
+      - application/json
+      description: Get Price options
+      parameters:
+      - description: LIMIT
+        in: query
+        name: limit
+        type: integer
+      - description: OFFSET
+        in: query
+        name: offset
+        type: integer
+      - description: Product ID
+        in: query
+        name: product_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Price options
+      tags:
+      - Inventory
   /inventory-detail/upload-excel:
     post:
       consumes:
