@@ -384,10 +384,12 @@ func (h *AutoOrderHandler) SendAutoOrder(c *gin.Context) {
 		data      domain.AutoOrderDetailSendRequest
 		err       error
 	)
-	if id == "" || id == "undefined" {
-		handleResponse(c, BadRequest, "Auto Order ID is required")
+	// validate id
+	if err = uuid.Validate(id); err != nil {
+		handleResponse(c, BadRequest, "invalid.auto_order_id")
 		return
 	}
+	
 	err = h.db.Preload("Store").First(&autoOrder, "id = ? AND status = 'new'", id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

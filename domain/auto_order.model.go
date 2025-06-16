@@ -106,10 +106,10 @@ type AutoOrderDetailSendRequest struct {
 }
 
 type ProductAutoOrder struct {
-	MaterialCode int    `gorm:"material_code" json:"material_code"`
-	Name         string `gorm:"name" json:"name"`
-	Manufacturer string `gorm:"manufacturer" json:"manufacturer"`
-	Quantity     int    `gorm:"quantity" json:"quantity"`
+	MaterialCode int     `gorm:"material_code" json:"material_code"`
+	Name         string  `gorm:"name" json:"name"`
+	Manufacturer string  `gorm:"manufacturer" json:"manufacturer"`
+	Quantity     float64 `gorm:"quantity" json:"quantity"`
 }
 
 type AutoOrderDocument struct {
