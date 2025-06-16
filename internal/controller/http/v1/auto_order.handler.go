@@ -411,7 +411,7 @@ func (h *AutoOrderHandler) SendAutoOrder(c *gin.Context) {
 		return
 	}
 	data.Dok.DataDok = autoOrder.CreatedAt.Format(time.DateTime)
-	data.Dok.NomerDok = strconv.Itoa(autoOrder.PublicID)
+	data.Dok.NomerDok = "AZ-" + strconv.Itoa(autoOrder.PublicID)
 	data.Apteka.Name = autoOrder.Store.Name
 	data.Apteka.StoreCode = autoOrder.Store.StoreCode
 
