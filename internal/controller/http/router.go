@@ -68,7 +68,13 @@ func NewRouter(option Options) {
 	validator := utils.NewValidator(option.Log)
 
 	// Handlers
-	handler := v1.NewHandler(option.Cfg, option.Db, option.Log, &jwtHandler, option.Service, validator)
+	handler := v1.NewHandler(
+		option.Cfg, 
+		option.Db, 
+		option.Log, 
+		&jwtHandler,
+		option.Service, 
+		validator)
 	handler.InitRoutes(option.Gin)
 
 	// PING

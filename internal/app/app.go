@@ -12,7 +12,6 @@ import (
 	"github.com/gin-gonic/gin"
 	v1 "github.com/pharma-crm-backend/internal/controller/http"
 	"github.com/pharma-crm-backend/internal/services"
-	"github.com/pharma-crm-backend/pkg/builder"
 	"github.com/pharma-crm-backend/pkg/db"
 	"github.com/robfig/cron/v3"
 
@@ -34,11 +33,9 @@ func Run(cfg *config.Config) {
 	if err != nil {
 		l.Error(err)
 	}
-	// call to query builder
-	builder := builder.NewQueryBuilder()
 
 	// New storage
-	service := services.NewService(connDB, l, cfg, builder)
+	service := services.NewService(connDB, l, cfg)
 
 	// HTTP Server
 	handler := gin.New()

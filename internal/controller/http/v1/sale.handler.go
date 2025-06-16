@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -656,12 +657,17 @@ func (h *SaleHandler) ProccessingSale(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	// lock parallel request
+	mu := h.getOrderLock(body.SaleID)
+	mu.Lock()
+	defer mu.Unlock()
 
 	// validate payment types
 	if len(body.PaymentTypes) == 0 {
 		handleResponse(c, BadRequest, "at least one payment type is required")
 		return
 	}
+
 	// create transaction
 	tx := h.db.Begin()
 	defer func() {
@@ -699,6 +705,12 @@ func (h *SaleHandler) ProccessingSale(c *gin.Context) {
 		return
 	}
 
+	// validate amounts
+	if !h.service.ValidateSaleAmount(&body) {
+		handleResponse(c, BadRequest, "invalid.calculate.amount")
+		return
+	}
+
 	// delete sale_payments which depends on the sale
 	err = tx.Exec(`DELETE FROM sale_payments WHERE sale_id = ?`, body.SaleID).Error
 	if err != nil {
@@ -709,7 +721,6 @@ func (h *SaleHandler) ProccessingSale(c *gin.Context) {
 
 	// process payment types
 	for _, item := range body.PaymentTypes {
-
 		if err = processPaymentType(c.Request.Context(), tx, h, body, item); err != nil {
 			tx.Rollback()
 			h.log.Warn("ERROR on payment process: %v", err.Error())
@@ -1073,4 +1084,10 @@ func (h *SaleHandler) RemoveCustomerDiscount(c *gin.Context) {
 
 	handleResponse(c, OK, "DELETED")
 
+}
+
+// lock order for parallel request
+func (h *SaleHandler) getOrderLock(orderId string) *sync.Mutex {
+	lock, _ := h.ordersToMutexes.LoadOrStore(orderId, &sync.Mutex{})
+	return lock.(*sync.Mutex)
 }

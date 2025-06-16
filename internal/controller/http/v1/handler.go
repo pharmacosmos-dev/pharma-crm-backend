@@ -1,6 +1,8 @@
 package v1
 
 import (
+	"sync"
+
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/internal/controller/http/middleware"
@@ -12,12 +14,13 @@ import (
 )
 
 type Handler struct {
-	log        *logger.Logger
-	db         *gorm.DB
-	cfg        *config.Config
-	JwtHandler *token.JWTHandler
-	service    *services.Services
-	validator  *utils.Validator
+	log             *logger.Logger
+	db              *gorm.DB
+	cfg             *config.Config
+	JwtHandler      *token.JWTHandler
+	service         *services.Services
+	validator       *utils.Validator
+	ordersToMutexes sync.Map
 }
 
 func NewHandler(
@@ -30,12 +33,13 @@ func NewHandler(
 ) *Handler {
 
 	return &Handler{
-		cfg:        cfg,
-		db:         db,
-		log:        log,
-		JwtHandler: jwt,
-		service:    service,
-		validator:  validator,
+		cfg:             cfg,
+		db:              db,
+		log:             log,
+		JwtHandler:      jwt,
+		service:         service,
+		validator:       validator,
+		ordersToMutexes: sync.Map{},
 	}
 }
 

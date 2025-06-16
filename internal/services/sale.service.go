@@ -597,6 +597,7 @@ func (s *Services) GetPaymeSalePayment(saleID string) *domain.SalePayment {
 	return &salePayment
 }
 
+// set ficalsign to sale
 func (s *Services) SetFiscalId(saleID string, fiscalID string) error {
 	err := s.db.Exec(`UPDATE sales SET fiscal_sign = ?, updated_at = NOW() WHERE id = ?`, fiscalID, saleID).Error
 	if err != nil {
@@ -604,4 +605,44 @@ func (s *Services) SetFiscalId(saleID string, fiscalID string) error {
 		return err
 	}
 	return nil
+}
+
+// Validate sale amount (SUM(cart_items) == SUM(sale_payments) == total_amount)
+func (s *Services) ValidateSaleAmount(req *domain.FinalSale) bool {
+	// get cart item sum
+	cartItemSum, err := s.cartItemsSumBySaleID(req.SaleID)
+	if err != nil {
+		return false
+	}
+	// get payment type amounts sum
+	paymentTypeSum := s.collectSalePaymentAmount(req.PaymentTypes)
+
+	// checking total amounts
+	if cartItemSum != req.TotalAmount && paymentTypeSum != req.TotalAmount {
+		return false
+	}
+
+	return true
+}
+
+// cart items sum of the sale
+func (s *Services) cartItemsSumBySaleID(saleID string) (float64, error) {
+	var sum float64
+	err := s.db.Raw(`
+		SELECT SUM(total_price) AS sum FROM cart_items WHERE sale_id = ?
+	`).Scan(&sum).Error
+	if err != nil {
+		s.log.Warn("ERROR on calucating cart_items sum: %v", err)
+		return sum, errors.New("failed.calculate.cart_items.sum")
+	}
+	return sum, nil
+}
+
+// sum sale payment amounts
+func (s *Services) collectSalePaymentAmount(typeAmounts []domain.FinalPaymentType) float64 {
+	var sum float64
+	for _, v := range typeAmounts {
+		sum += (v.Amount - v.ReturnAmount)
+	}
+	return sum
 }
