@@ -304,7 +304,9 @@ type ProductRes1C struct {
 	Barcode      string     `gorm:"barcode" json:"barcode"`
 	Manufacturer string     `gorm:"manufacturer" json:"manufacturer"`
 	SerialNumber string     `gorm:"serial_number" json:"serial_number"`
+	Quantity     float64    `gorm:"quantity" json:"quantity"`
 	ExpireDate   *time.Time `gorm:"expire_date" json:"expire_date"`
 	RetailPrice  float64    `gorm:"retail_price" json:"retail_price"`
 	SupplyPrice  float64    `gorm:"supply_price" json:"supply_price"`
+	Sum          float64    `gorm:"sum" json:"sum"`
 }

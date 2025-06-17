@@ -11270,6 +11270,57 @@ const docTemplate = `{
                 }
             }
         },
+        "/product1c/repricing": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update retail price by 1C",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "1C Api"
+                ],
+                "summary": "Update retail price by 1C",
+                "parameters": [
+                    {
+                        "description": "product",
+                        "name": "product",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.RepricingRequest1C"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/report/bonus": {
             "post": {
                 "security": [
@@ -18681,6 +18732,41 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.ProductRepricingRequest": {
+            "type": "object",
+            "properties": {
+                "barcode": {
+                    "type": "string"
+                },
+                "expire_date": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "manufacturer": {
+                    "type": "string"
+                },
+                "material_code": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "new_retail_price": {
+                    "type": "number"
+                },
+                "retail_price": {
+                    "type": "number"
+                },
+                "serial_number": {
+                    "type": "string"
+                },
+                "supply_price": {
+                    "type": "number"
+                }
+            }
+        },
         "domain.ProductRequest": {
             "type": "object",
             "properties": {
@@ -18873,6 +18959,23 @@ const docTemplate = `{
                 "type": {
                     "type": "string",
                     "example": "retail_price|supply_price|expire_date"
+                }
+            }
+        },
+        "domain.RepricingRequest1C": {
+            "type": "object",
+            "properties": {
+                "Apteka": {
+                    "$ref": "#/definitions/domain.Apteka"
+                },
+                "Dok": {
+                    "$ref": "#/definitions/domain.Document"
+                },
+                "Товары": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.ProductRepricingRequest"
+                    }
                 }
             }
         },

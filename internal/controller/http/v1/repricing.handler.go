@@ -67,8 +67,7 @@ func (h *RepricingHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, "User not authorized")
 		return
 	}
-	request.CreatedBy = userId.(string) // get creator id from set header
-
+	*request.CreatedBy = userId.(string) // get creator id from set header
 	// create repricing
 	_, err := h.service.CreateRepricing(&request)
 	if err != nil {

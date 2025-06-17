@@ -5,6 +5,7 @@ import (
 
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"gorm.io/gorm"
 )
 
 // create price_revalutions
@@ -62,6 +63,29 @@ func (s *Services) CreateRepricing(req *domain.RepricingRequest) (*domain.PriceR
 	}
 
 	return &res, nil
+}
+
+// create price_revalution by 1C
+func (s *Services) CreateRepricingBy1C(tx *gorm.DB, req *domain.RepricingRequest) (*domain.PriceRevalution, error) {
+	var res domain.PriceRevalution
+	err := tx.Raw(`INSERT INTO price_revalutions(store_id, name, type, created_by, status) VALUES(?, ?, ?, ?, ?) RETURNING *`,
+		req.StoreId, req.Name, req.Type, req.CreatedBy, req.Status).Scan(&res).Error
+	if err != nil {
+		s.log.Warn("ERROR on creating price_revalution: %v", err)
+		return &res, err
+	}
+
+	return &res, nil
+}
+
+// create price_revalution detail
+func (s *Services) CreatePriceRevalutionDetail(tx *gorm.DB, req []domain.PriceRevalutionDetailRequest) error {
+	err := tx.Table("price_revalution_details").Create(&req).Error
+	if err != nil {
+		s.log.Warn("ERROR on creating: %v", err)
+		return err
+	}
+	return nil
 }
 
 // get repricing by id

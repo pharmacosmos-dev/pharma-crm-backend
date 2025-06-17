@@ -731,3 +731,25 @@ func (s *Services) ProductListForArzon(storeId string) ([]domain.ProductArzon, e
 	}
 	return res, nil
 }
+
+// get product id by material_code
+func (s *Services) GetProductIDByCode(code int) (string, error) {
+	var id string
+	err := s.db.Raw(`SELECT id FROM products WHERE material_code = ?`, code).Scan(&id).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting product_id by material_code: %v", err)
+		return id, err
+	}
+	return id, nil
+}
+
+// update store_product retail price to new
+func (s *Services) UpdateRetailPrice(id string, newPrice float64) error {
+	// update retail price
+	err := s.db.Exec(`UPDATE store_products SET retail_price = ? WHERE id = ?`, newPrice, id).Error
+	if err != nil {
+		s.log.Warn("ERROR on updating store_product retail_price: %v", err)
+		return err
+	}
+	return nil
+}

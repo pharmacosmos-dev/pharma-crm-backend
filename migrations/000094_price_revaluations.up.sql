@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS price_revalutions(
 
 CREATE TABLE IF NOT EXISTS price_revalution_details(
     "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    "price_revalution_id" INT REFERENCES price_revalutions(id)  ON DELETE CASCADE,
+    "price_revalution_id" INT REFERENCES price_revalutions(id) ON DELETE CASCADE,
     "store_product_id" UUID REFERENCES store_products(id)  ON DELETE CASCADE,
     "product_id" UUID REFERENCES products(id)  ON DELETE CASCADE,
     "old_supply_price" NUMERIC(10, 2) DEFAULT 0.00,
