@@ -389,7 +389,7 @@ func (h *AutoOrderHandler) SendAutoOrder(c *gin.Context) {
 		handleResponse(c, BadRequest, "invalid.auto_order_id")
 		return
 	}
-	
+
 	err = h.db.Preload("Store").First(&autoOrder, "id = ? AND status = 'new'", id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -401,7 +401,7 @@ func (h *AutoOrderHandler) SendAutoOrder(c *gin.Context) {
 		return
 	}
 	err = h.db.Raw(`
-	SELECT 
+	SELECT
 		p.material_code, p.name, pr.name AS manufacturer,  aod.order_count AS quantity
 	FROM auto_order_details aod
 		JOIN products p ON p.id = aod.product_id
@@ -491,7 +491,7 @@ func (h *AutoOrderHandler) SendAutoOrder(c *gin.Context) {
 // send request to 1C for creating auto order
 func (h *AutoOrderHandler) DoRequest(ctx context.Context, data interface{}, url string) (*domain.AutoOrderResponse, error) {
 	client := &http.Client{
-		Timeout: 30 * time.Second,
+		Timeout: 60 * time.Second,
 	}
 	buf := bytes.Buffer{}
 	// Encode data to JSON

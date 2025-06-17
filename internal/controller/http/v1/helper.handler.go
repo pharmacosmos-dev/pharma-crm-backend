@@ -44,6 +44,7 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		helper.POST("/upload-import", h.UploadImport)
 		helper.GET("picture", h.GetProductPictureFromTasnif)
 		helper.POST("/product-min-max", h.UploadProductMinMax)
+		helper.POST("/product-kvant", h.UploadProductKvant)
 	}
 }
 
@@ -963,6 +964,113 @@ func (h *HelperHandler) UploadProductMinMax(c *gin.Context) {
 			h.log.Warn("ERROR on creating customers: %v", err)
 		}
 		count++
+	}
+	fmt.Println("---->>> ", count)
+	handleResponse(c, OK, "Successfully updated: "+cast.ToString(count))
+
+}
+
+// UploadProductMinMax godoc
+// @Summary Upload package min, max count
+// @Description Upload package min, max count
+// @Tags helper
+// @Security     BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param 	file formData file true "Excel file (.xlsx) containing product data"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /helper/product-kvant [POST]
+func (h *HelperHandler) UploadProductKvant(c *gin.Context) {
+	var (
+		stores     []domain.Store
+		products   []domain.Product
+		productMap = make(map[int]any)
+	)
+	var (
+		file domain.File
+		err  error
+	)
+	// bind request file
+	if err = c.ShouldBind(&file); err != nil {
+		h.log.Error("Failed to bind file: ", err.Error())
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	err = h.db.Find(&stores).Error
+	if err != nil {
+		h.log.Warn("ERROR on getting store list: %v", err)
+		handleResponse(c, InternalError, "failed.get.store_list")
+		return
+	}
+
+	err = h.db.Find(&products).Error
+	if err != nil {
+		h.log.Warn("ERROR on getting store list: %v", err)
+		handleResponse(c, InternalError, "failed.get.store_list")
+		return
+	}
+
+	for _, p := range products {
+		productMap[p.MaterialCode] = p.Id
+	}
+
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		h.log.Error("Unsupported file format: ", ext)
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+
+	// Save the uploaded file
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+	err = c.SaveUploadedFile(file.File, savePath)
+	if err != nil {
+		h.log.Error("Failed to save file: ", err.Error())
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+
+	// defer os.Remove(savePath)
+	// Open the Excel file
+	xlsx, err := excelize.OpenFile(savePath)
+	if err != nil {
+		h.log.Error("Failed to open .xlsx file: ", err.Error())
+		handleResponse(c, BadRequest, "Failed to process file")
+		return
+	}
+	defer xlsx.Close()
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		h.log.Error("Failed to get rows: ", err.Error())
+		handleResponse(c, InternalError, "Failed to get rows")
+		return
+	}
+
+	// build query
+	query := `
+		INSERT INTO store_product_thresholds(store_id, product_id, kvant)
+		VALUES (?, ?, ?)
+		ON CONFLICT (store_id, product_id) DO UPDATE
+		SET
+			kvant = ?
+	`
+
+	var count = 0
+	// Process rows
+	for _, row := range rows[1:] {
+		for _, st := range stores {
+			// create measurements
+			err = h.db.Debug().Exec(query, st.Id, productMap[cast.ToInt(row[0])], cast.ToInt(row[2]), cast.ToInt(row[2])).Error
+			if err != nil {
+				h.log.Warn("ERROR on creating customers: %v", err)
+			}
+			count++
+		}
 	}
 	fmt.Println("---->>> ", count)
 	handleResponse(c, OK, "Successfully updated: "+cast.ToString(count))

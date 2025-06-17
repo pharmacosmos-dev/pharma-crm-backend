@@ -24,7 +24,9 @@ func (h *Handler) NewProduct1cHandler(r *gin.RouterGroup) {
 }
 
 func (h *Product1cHandler) Product1cRoutes(r *gin.RouterGroup) {
-	r.POST("/product1c", h.Create)
+	group1C := r.Group("/product1c")
+	group1C.POST("", h.Create)
+	group1C.GET("/list/:code", h.ListProductByStoreCode)
 }
 
 // Create 	godoc
@@ -166,4 +168,64 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, "CREATED")
+}
+
+// Get product list godoc
+// @Summary Get product list by store_code
+// @Description Get product list by store_code
+// @Tags 	1C Api
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param 	code path string true "Store CODE"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product1c/list/{code} [GET]
+func (h *Product1cHandler) ListProductByStoreCode(c *gin.Context) {
+	var (
+		code  = c.Param("code")
+		err   error
+		store domain.Store
+	)
+	if code == "" {
+		handleResponse(c, BadRequest, "store_code.is.required")
+		return
+	}
+	// get store info by store code
+	err = h.db.First(&store, "store_code = ?", code).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			handleResponse(c, NotFound, "store.not.found")
+			return
+		}
+		handleResponse(c, InternalError, "failed.to.get.store")
+		return
+	}
+	// get available product list by store_id
+	var res []domain.ProductRes1C
+	err = h.db.Raw(`
+	SELECT
+		sp.id,
+		p.material_code,
+		p.name,
+		p.barcode,
+		COALESCE(pr.code, '') as manufacturer,
+		sp.serial_number,
+		sp.expire_date,
+		sp.retail_price,
+		sp.supply_price
+	FROM store_products sp
+	JOIN products p ON sp.product_id = p.id
+	LEFT JOIN producers pr ON p.producer_id = pr.id
+	WHERE sp.store_id = ? and
+      (sp.pack_quantity > 0 or sp.unit_quantity > 0);
+	`, store.Id).Scan(&res).Error
+	if err != nil {
+		h.log.Warn("ERROR on getting product list: %v", err)
+		handleResponse(c, InternalError, "failed.to.get.product_list")
+		return
+	}
+
+	handleResponse(c, OK, res)
 }

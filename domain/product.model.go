@@ -288,9 +288,23 @@ type ProductData struct {
 	TotalCount   int64             `gorm:"total_count" json:"-"`
 }
 
+// product response structure for arzon apteka
 type ProductArzon struct {
 	Id           string  `gorm:"id" json:"id"`
 	Name         string  `gorm:"name" json:"name"`
 	ProducerName string  `gorm:"producer_name" json:"producer_name"`
 	RetailPrice  float64 `gorm:"retail_price" json:"retail_price"`
+}
+
+// product ostatok data for 1c
+type ProductRes1C struct {
+	Id           string     `gorm:"id" json:"id"`
+	MaterialCode int        `gorm:"material_code" json:"material_code"`
+	Name         string     `gorm:"name" json:"name"`
+	Barcode      string     `gorm:"barcode" json:"barcode"`
+	Manufacturer string     `gorm:"manufacturer" json:"manufacturer"`
+	SerialNumber string     `gorm:"serial_number" json:"serial_number"`
+	ExpireDate   *time.Time `gorm:"expire_date" json:"expire_date"`
+	RetailPrice  float64    `gorm:"retail_price" json:"retail_price"`
+	SupplyPrice  float64    `gorm:"supply_price" json:"supply_price"`
 }
