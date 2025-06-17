@@ -491,7 +491,7 @@ func (h *AutoOrderHandler) SendAutoOrder(c *gin.Context) {
 // send request to 1C for creating auto order
 func (h *AutoOrderHandler) DoRequest(ctx context.Context, data interface{}, url string) (*domain.AutoOrderResponse, error) {
 	client := &http.Client{
-		Timeout: 60 * time.Second,
+		Timeout: 120 * time.Second,
 	}
 	buf := bytes.Buffer{}
 	// Encode data to JSON
