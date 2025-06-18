@@ -95,11 +95,22 @@ func (h *InventoryHandler) Create(c *gin.Context) {
 // @Accept 	json
 // @Produce json
 // @Param 	id path string true "Inventory ID"
+// @Param 	limit query int false "LIMIT"
+// @Param 	offset query int false "OFFSET"
+// @Param   search 	query string false "SEARCH KEY"
+// @Param   type 	query string false "TYPE (ALL||surplus||shortage||zero_price)"
+// @Param   order 	query string false "ORDER (+name|-name|+current_sum|-current_sum|+fact_sum|-fact_sum|+difference_sum|-difference_sum)"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /inventory/{id} [GET]
 func (h *InventoryHandler) Get(c *gin.Context) {
+	var param domain.InventoryParam
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "Invalid query param")
+		return
+	}
+
 	// get inventory by id
 	id := c.Param("id")
 	if err := uuid.Validate(id); err != nil {
@@ -107,7 +118,9 @@ func (h *InventoryHandler) Get(c *gin.Context) {
 		return
 	}
 
-	res, err := h.service.GetInventoryById(id)
+	param.InventoryId = id
+
+	res, err := h.service.GetInventoryById(&param)
 	if err != nil {
 		h.log.Warn("Error on getting inventory: %v", err.Error())
 		handleResponse(c, InternalError, "Failed to get inventory")
@@ -627,7 +640,7 @@ func (h *InventoryHandler) Cancel(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /inventory-detail/list [GET]
 func (h *InventoryHandler) InventoryDetailList(c *gin.Context) {
-	var param domain.InventoryDetailParam
+	var param domain.InventoryParam
 	if err := c.ShouldBindQuery(&param); err != nil {
 		handleResponse(c, BadRequest, "Invalid query param")
 		return
@@ -672,7 +685,7 @@ func (h *InventoryHandler) InventoryDetailList(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /inventory-detail/export-excel [GET]
 func (h *InventoryHandler) InventoryDetailExport(c *gin.Context) {
-	var param domain.InventoryDetailParam
+	var param domain.InventoryParam
 	if err := c.ShouldBindQuery(&param); err != nil {
 		handleResponse(c, BadRequest, "Invalid query param")
 		return
@@ -774,7 +787,7 @@ func (h *InventoryHandler) InventoryDetailExport(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /inventory-detail/detailed-flow [GET]
 func (h *InventoryHandler) InventoryDetailedFlow(c *gin.Context) {
-	var param domain.InventoryDetailParam
+	var param domain.InventoryParam
 	if err := c.ShouldBindQuery(&param); err != nil {
 		handleResponse(c, BadRequest, "Invalid query param")
 		return

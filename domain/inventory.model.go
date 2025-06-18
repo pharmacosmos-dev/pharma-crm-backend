@@ -4,13 +4,15 @@ import "time"
 
 // InventoryParam structure
 type InventoryParam struct {
-	Limit     int    `form:"limit"`
-	Offset    int    `form:"offset"`
-	StoreId   string `form:"store_id"`
-	Type      string `form:"type"`
-	Status    string `form:"status"`
-	Search    string `form:"search"`
-	ProductId string `form:"product_id"`
+	Limit       int    `form:"limit"`
+	Offset      int    `form:"offset"`
+	InventoryId string `form:"inventory_id"`
+	StoreId     string `form:"store_id"`
+	Type        string `form:"type"`
+	Status      string `form:"status"`
+	Search      string `form:"search"`
+	ProductId   string `form:"product_id"`
+	Order       string `form:"order"`
 }
 
 // Inventory structure
@@ -28,6 +30,7 @@ type Inventory struct {
 	UpdatedById      string     `gorm:"column:accepted_by" json:"updated_by_id"`
 	CurrentSum       float64    `gorm:"current_sum" json:"current_sum"`
 	FactSum          float64    `gorm:"fact_sum" json:"fact_sum"`
+	DifferenceSum    float64    `gorm:"difference_sum" json:"difference_sum"`
 	CreatedAt        *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt        *time.Time `gorm:"updated_at" json:"updated_at"`
 	Store            *Store     `gorm:"foreignKey:StoreId" json:"store"`
@@ -73,16 +76,6 @@ type InventoryDetail struct {
 type InventoryDetailRequest struct {
 	InventoryId string `gorm:"inventory_id" json:"inventory_id"`
 	ProductId   string `gorm:"product_id" json:"product_id"`
-}
-
-type InventoryDetailParam struct {
-	InventoryId string `form:"inventory_id"`
-	ProductId   string `form:"product_id"`
-	Type        string `form:"type"`
-	Search      string `form:"search"`
-	Limit       int    `form:"limit"`
-	Offset      int    `form:"offset"`
-	Order       string `form:"order"`
 }
 
 type InventoryDetailStatus struct {

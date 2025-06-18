@@ -69,29 +69,82 @@ func (s *Services) CreateInventory(req *domain.InventoryRequest) error {
 }
 
 // get inventory by id
-func (s *Services) GetInventoryById(inventoryID string) (*domain.Inventory, error) {
-	var res domain.Inventory
+func (s *Services) GetInventoryById(param *domain.InventoryParam) (*domain.Inventory, error) {
+	var (
+		res          domain.Inventory
+		totalSumData domain.InventoryDetailSum
+		args         = []any{}
+		filter       = " WHERE imd.import_id = ? "
+	)
+	args = append(args, param.InventoryId)
+
 	err := s.db.Model(&domain.Import{}).
 		Preload("Store").
 		Preload("CreatedBy").
 		Preload("UpdatedBy").
 		Select(`
-			imports.*,
-			SUM(imd.accepted_count) AS measurement_count,
-			SUM(imd.accepted_count*imd.supply_price_vat) AS supply_price_sum,
-			SUM(imd.accepted_count*imd.retail_price_vat) AS retail_price_sum, 
-			SUM((received_count - scanned_count)*imd.supply_price_vat) AS shortage_supply_sum,
-			SUM((received_count - scanned_count)*imd.retail_price_vat) AS shortage_retail_sum,
-			SUM((CASE WHEN scanned_count > received_count THEN scanned_count - received_count ELSE 0 END)*imd.supply_price_vat) AS surplus_supply_sum,
-			SUM((CASE WHEN scanned_count > received_count THEN scanned_count - received_count ELSE 0 END)*imd.retail_price_vat) AS surplus_retail_sum
-			`).
-		Joins("LEFT JOIN import_details imd ON imports.id = imd.import_id").
-		Group("imports.id").
-		First(&res, "imports.id = ?", inventoryID).Error
+			id, public_id, 
+			store_id, name, 
+			inventory_type, 
+			status, created_by, 
+			accepted_by as updated_by, 
+			created_at, updated_at
+		`).
+		First(&res, "id = ?", param.InventoryId).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting write-off by id: %v", err)
 		return nil, err
 	}
+
+	totalQuery := `
+	SELECT
+		SUM(imd.retail_price_vat * imd.received_count) AS total_current_sum,
+		SUM(imd.retail_price_vat * imd.scanned_count) AS total_fact_sum,
+		SUM(imd.retail_price_vat * (imd.scanned_count - imd.received_count)) AS total_difference_sum
+	FROM import_details imd
+	JOIN products p ON imd.product_id = p.id
+	LEFT JOIN producers pr ON p.producer_id = pr.id
+	`
+	// filter by search key
+	if param.Search != "" {
+		switch utils.DefineProductSearchQuery(param.Search) {
+		case "barcode":
+			filter += " AND p.barcode LIKE ?"
+			args = append(args, "%"+param.Search+"%")
+		case "name/category":
+			filter += " AND (p.name ILIKE ? OR pr.name ILIKE ?) "
+			args = append(args, "%"+param.Search+"%", "%"+param.Search+"%")
+		default:
+			filter += " AND (p.name ILIKE ? OR p.barcode LIKE ?)"
+			args = append(args, "%"+param.Search+"%", "%"+param.Search+"%")
+		}
+	}
+
+	// filter with inventory stats
+	if param.Type != "" {
+		switch param.Type {
+		case "shortage":
+			filter += " AND imd.received_count > imd.scanned_count "
+		case "scanned":
+			filter += " AND imd.scanned_count > 0 "
+		case "surplus":
+			filter += " AND imd.scanned_count > imd.received_count "
+		case "zero_price":
+			filter += " AND imd.retail_price_vat = 0 AND imd.scanned_count > 0 "
+		}
+	}
+
+	// total sum query completed
+	totalQuery += filter
+	err = s.db.Raw(totalQuery, args...).Scan(&totalSumData).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting total_sum_data on inventory details: %v", err)
+		return &res, err
+	}
+	res.CurrentSum = totalSumData.TotalCurrentSum
+	res.FactSum = totalSumData.TotalFactSum
+	res.DifferenceSum = totalSumData.TotalDifferenceSum
+
 	return &res, nil
 }
 
@@ -149,7 +202,7 @@ func (s *Services) InventoryList(param *domain.InventoryParam) ([]domain.Invento
 }
 
 // get inventory detail list
-func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]domain.InventoryDetail, domain.InventoryDetailSum, int64, error) {
+func (s *Services) InventoryDetailList(param *domain.InventoryParam) ([]domain.InventoryDetail, domain.InventoryDetailSum, int64, error) {
 	var (
 		res          []domain.InventoryDetail
 		totalSumData domain.InventoryDetailSum
@@ -286,7 +339,7 @@ func (s *Services) InventoryDetailList(param *domain.InventoryDetailParam) ([]do
 }
 
 // get inventory detail list
-func (s *Services) InventoryDetailedFlow(param *domain.InventoryDetailParam) ([]domain.InventoryDetail, domain.InventoryDetailSum, int64, error) {
+func (s *Services) InventoryDetailedFlow(param *domain.InventoryParam) ([]domain.InventoryDetail, domain.InventoryDetailSum, int64, error) {
 	var (
 		res        []domain.InventoryDetail
 		totalData  domain.InventoryDetailSum
@@ -379,7 +432,7 @@ func (s *Services) InventoryDetailedFlow(param *domain.InventoryDetailParam) ([]
 }
 
 // get inventory detail status count
-func (s *Services) InventoryDetailStatsCount(param *domain.InventoryDetailParam) (domain.InventoryDetailStatus, error) {
+func (s *Services) InventoryDetailStatsCount(param *domain.InventoryParam) (domain.InventoryDetailStatus, error) {
 	var res domain.InventoryDetailStatus
 
 	query := `
