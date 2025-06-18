@@ -63,6 +63,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.GET("/list-arzon", h.ArzonProductList)
 		product.GET("/list-by-import", h.ProductListByImport)
 		product.GET("/export-by-import", h.ExportProductListByImport)
+		product.PUT("/update-mxik-import", h.UpdateProductIkpuForStoreProduct)
 
 	}
 }
@@ -1924,6 +1925,64 @@ func (h *ProductHandler) ExportProductListByImport(c *gin.Context) {
 	handleResponse(c, OK, gin.H{
 		"file_name": fileName,
 	})
+}
+
+// UpdateBarcode godoc
+// @Summary Update barcode
+// @Description Update barcode
+// @Tags products
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "Product ID"
+// @Param body body domain.UpdateBarcodeRequest true "Update barcode"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/update-mxik-import [put]
+func (h *ProductHandler) UpdateProductIkpuForStoreProduct(c *gin.Context) {
+	var (
+		body domain.UpdateBarcodeRequest
+		id   = c.Param("id")
+	)
+	// validate id
+	if err := uuid.Validate(id); err != nil {
+		handleResponse(c, BadRequest, "invalid.store_product_id")
+		return
+	}
+	// bind request body
+	err := c.ShouldBindJSON(&body)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	if body.Mxik != "" {
+		// update mxik
+		err = h.db.Exec("UPDATE store_products SET mxik = ? WHERE id = ?", body.Mxik, id).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+	}
+	if body.UnitCode != "" {
+		err = h.db.Exec("UPDATE store_products SET unit_code = ? WHERE id = ?", body.UnitCode, id).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+	}
+	if body.UnitLabel != "" {
+		err = h.db.Exec("UPDATE store_products SET unit_label = ? WHERE id = ?", body.UnitLabel, id).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+	}
+	handleResponse(c, OK, "UPDATED")
 }
 
 // Helper function to safely parse float values
