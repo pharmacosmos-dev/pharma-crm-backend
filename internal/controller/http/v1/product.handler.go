@@ -61,6 +61,8 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.GET("/:id/product-movement", h.ProductMovements)
 		product.GET("/export-arzon", h.ArzonProductExport)
 		product.GET("/list-arzon", h.ArzonProductList)
+		product.GET("/list-by-import", h.ProductListByImport)
+		product.GET("/export-by-import", h.ExportProductListByImport)
 
 	}
 }
@@ -1776,6 +1778,152 @@ func (h *ProductHandler) ArzonProductExport(c *gin.Context) {
 		"file_name": fileName,
 	})
 
+}
+
+// Get product list by import
+// @Summary Get product list by import
+// @Description Get product list by import
+// @Tags products
+// @Security BearerAuth
+// @Accept  json
+// @Produce json
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Param search query string false "Search"
+// @Param status query string false "Status (active || inactive || low-stock || zero-stock || expired || imminent)"
+// @Param store_id query string true "Store ID"
+// @Param category_id query string false "Category ID"
+// @Param producer_id query string false "Producer ID"
+// @Param no_barcode query bool false "No Barcode"
+// @Success 200 {object} v1.Response "Product list"
+// @Failure 400 {object} v1.Response "Invalid store_id"
+// @Failure 500 {object} v1.Response "Internal server error"
+// @Router /product/list-by-import [GET]
+func (h *ProductHandler) ProductListByImport(c *gin.Context) {
+	var (
+		param domain.ProductQueryParam
+	)
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
+		handleResponse(c, BadRequest, "invalid.query.param")
+		return
+	}
+
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	res, totalCount, err := h.service.GetProductListByImport(&param)
+	if err != nil {
+		handleResponse(c, InternalError, "failed.to.get.product_list")
+		return
+	}
+
+	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+	handleResponse(c, OK, data)
+}
+
+// Get product list by import
+// @Summary Get product list by import
+// @Description Get product list by import
+// @Tags products
+// @Security BearerAuth
+// @Accept  json
+// @Produce json
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Param search query string false "Search"
+// @Param status query string false "Status (active || inactive || low-stock || zero-stock || expired || imminent)"
+// @Param store_id query string false "Store ID"
+// @Param category_id query string false "Category ID"
+// @Param producer_id query string false "Producer ID"
+// @Param no_barcode query bool false "No Barcode"
+// @Success 200 {object} v1.Response "Product list"
+// @Failure 400 {object} v1.Response "Invalid store_id"
+// @Failure 500 {object} v1.Response "Internal server error"
+// @Router /product/export-by-import [GET]
+func (h *ProductHandler) ExportProductListByImport(c *gin.Context) {
+	var (
+		param domain.ProductQueryParam
+	)
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
+		handleResponse(c, BadRequest, "invalid.query.param")
+		return
+	}
+
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	res, _, err := h.service.GetProductListByImport(&param)
+	if err != nil {
+		handleResponse(c, InternalError, "failed.to.get.product_list")
+		return
+	}
+	// Create excel file
+	f := excelize.NewFile()
+
+	sheetName := "Products"
+	f.SetSheetName("Sheet1", sheetName)
+
+	// Headerlar
+	headers := []string{"Код", "Наименование", "Штрих-код", "Производитель", "Кол-во", "Цена поставки", "Цена продажи", "IKPU", "Код.Уп"}
+
+	headerStyle, err := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Bold:  true,
+			Color: "000000",
+		},
+	})
+	if err != nil {
+		h.log.Warn("Failed to create style: %v", err)
+		handleResponse(c, InternalError, "failed.to.create.newstyle")
+		return
+	}
+
+	for i, h := range headers {
+		col := string(rune('A'+i)) + "1"
+		f.SetCellValue(sheetName, col, h)
+		f.SetCellStyle(sheetName, col, col, headerStyle)
+	}
+
+	// // Add product infos to excel column
+	for i, product := range res {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheetName, "A"+row, product.MaterialCode)
+		f.SetCellValue(sheetName, "B"+row, product.Name)
+		f.SetCellValue(sheetName, "C"+row, product.Barcode)
+		f.SetCellValue(sheetName, "D"+row, product.Manufacturer)
+		f.SetCellValue(sheetName, "E"+row, math.Round(product.Quantity+(product.UnitQuantity/float64(product.UnitPerPack))))
+		f.SetCellValue(sheetName, "F"+row, product.SupplyPrice)
+		f.SetCellValue(sheetName, "G"+row, product.RetailPrice)
+		f.SetCellValue(sheetName, "H"+row, product.Mxik)
+		f.SetCellValue(sheetName, "I"+row, product.UnitCode)
+		f.SetCellValue(sheetName, "J"+row, product.UnitLabel)
+
+	}
+	// Faylni uploads/ papkasiga UUID bilan saqlash
+	fileName := "mahsulotlar_" + time.Now().Add(time.Hour*5).Format("2006-01-02_15-04-05") + ".xlsx"
+	filePath := filepath.Join("uploads", fileName)
+
+	// uploads/ papkasi mavjud bo‘lmasa, yaratish
+	if _, err := os.Stat("uploads"); os.IsNotExist(err) {
+		err := os.Mkdir("uploads", os.ModePerm)
+		if err != nil {
+			h.log.Error("Failed to create uploads directory:", err)
+			handleResponse(c, InternalError, "Failed to create uploads folder")
+			return
+		}
+	}
+
+	// Faylni diskka yozish
+	if err := f.SaveAs(filePath); err != nil {
+		h.log.Error("Failed to save Excel file:", err)
+		handleResponse(c, InternalError, "Failed to save Excel file")
+		return
+	}
+
+	// Foydalanuvchiga file path yoki URLni qaytarish
+	handleResponse(c, OK, gin.H{
+		"file_name": fileName,
+	})
 }
 
 // Helper function to safely parse float values

@@ -7775,6 +7775,65 @@ paths:
       summary: Get product arzon apteka
       tags:
       - products
+  /product/export-by-import:
+    get:
+      consumes:
+      - application/json
+      description: Get product list by import
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Status (active || inactive || low-stock || zero-stock || expired
+          || imminent)
+        in: query
+        name: status
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Category ID
+        in: query
+        name: category_id
+        type: string
+      - description: Producer ID
+        in: query
+        name: producer_id
+        type: string
+      - description: No Barcode
+        in: query
+        name: no_barcode
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Product list
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Invalid store_id
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get product list by import
+      tags:
+      - products
   /product/export-excel:
     get:
       consumes:
@@ -8056,6 +8115,66 @@ paths:
       security:
       - BearerAuth: []
       summary: Get product arzon apteka
+      tags:
+      - products
+  /product/list-by-import:
+    get:
+      consumes:
+      - application/json
+      description: Get product list by import
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Status (active || inactive || low-stock || zero-stock || expired
+          || imminent)
+        in: query
+        name: status
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        required: true
+        type: string
+      - description: Category ID
+        in: query
+        name: category_id
+        type: string
+      - description: Producer ID
+        in: query
+        name: producer_id
+        type: string
+      - description: No Barcode
+        in: query
+        name: no_barcode
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Product list
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Invalid store_id
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get product list by import
       tags:
       - products
   /product/producer:

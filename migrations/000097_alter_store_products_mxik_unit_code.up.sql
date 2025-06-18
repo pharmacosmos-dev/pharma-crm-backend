@@ -1,0 +1,3 @@
+ALTER TABLE store_products ADD COLUMN IF NOT EXISTS "mxik" VARCHAR(55);
+ALTER TABLE store_products ADD COLUMN IF NOT EXISTS "unit_code" VARCHAR(25);
+ALTER TABLE store_products ADD COLUMN IF NOT EXISTS "unit_label" VARCHAR(255);

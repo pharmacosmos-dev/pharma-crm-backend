@@ -235,6 +235,7 @@ type ProductQueryParam struct {
 	RetailPriceFrom float64 `form:"retail_price_from"`
 	RetailPriceTo   float64 `form:"retail_price_to"`
 	ProducerID      string  `form:"producer_id"`
+	ImportId        string  `form:"import_id"`
 	Status          string  `form:"status"`
 	NoBarcode       bool    `form:"no_barcode"`
 	Order           string  `form:"order"`
@@ -309,4 +310,29 @@ type ProductRes1C struct {
 	RetailPrice  float64    `gorm:"retail_price" json:"retail_price"`
 	SupplyPrice  float64    `gorm:"supply_price" json:"supply_price"`
 	Sum          float64    `gorm:"sum" json:"sum"`
+}
+
+// product structure for update ikpu page
+type ProductByIkpu struct {
+	Id           string     `gorm:"id" json:"id"`
+	ProductID    string     `gorm:"product_id" json:"product_id"`
+	MaterialCode int        `gorm:"material_code" json:"material_code"`
+	StoreName    string     `gorm:"store_name" json:"store_name"`
+	ImportNumber string     `gorm:"import_number" json:"import_number"`
+	Name         string     `gorm:"name" json:"name"`
+	ProducerName string     `gorm:"producer_name" json:"producer_name"`
+	Barcode      string     `gorm:"barcode" json:"barcode"`
+	Manufacturer string     `gorm:"manufacturer" json:"manufacturer"`
+	SerialNumber string     `gorm:"serial_number" json:"serial_number"`
+	Quantity     float64    `gorm:"quantity" json:"quantity"`
+	UnitQuantity float64    `gorm:"unit_quantity" json:"unit_quantity"`
+	UnitPerPack  int        `gorm:"unit_per_pack" json:"unit_per_pack"`
+	Mxik         string     `gorm:"mxik" json:"mxik"`
+	UnitCode     string     `gorm:"unit_code" json:"unit_code"`
+	UnitLabel    string     `gorm:"unit_label" json:"unit_label"`
+	ExpireDate   *time.Time `gorm:"expire_date" json:"expire_date"`
+	RetailPrice  float64    `gorm:"retail_price" json:"retail_price"`
+	SupplyPrice  float64    `gorm:"supply_price" json:"supply_price"`
+	CreatedAt    *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt    *time.Time `gorm:"updated_at" json:"updated_at"`
 }

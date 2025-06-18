@@ -753,3 +753,92 @@ func (s *Services) UpdateRetailPrice(id string, newPrice float64) error {
 	}
 	return nil
 }
+
+// get product list with import and ikpu
+func (s *Services) GetProductListByImport(param *domain.ProductQueryParam) ([]domain.ProductByIkpu, int64, error) {
+	var (
+		filter     = " WHERE (sp.pack_quantity > 0 or sp.unit_quantity > 0) "
+		args       = []any{}
+		res        []domain.ProductByIkpu
+		totalCount int64
+	)
+
+	query := `
+	SELECT
+		sp.id,
+		sp.product_id,
+		p.material_code,
+		st.name AS store_name,
+		im.document_number AS import_number,
+		p.name,
+		p.barcode,
+		COALESCE(pr.name, '') as producer_name,
+		sp.pack_quantity as quantity,
+		(sp.unit_quantity % p.unit_per_pack) AS unit_quantity,
+		p.unit_per_pack,
+		sp.serial_number,
+		sp.expire_date,
+		sp.retail_price,
+		sp.supply_price,
+		sp.created_at,
+		sp.updated_at
+	FROM store_products sp
+		JOIN products p ON sp.product_id = p.id
+		JOIN stores st ON sp.store_id = st.id
+	LEFT JOIN import_details imd ON sp.import_detail_id = imd.id
+	LEFT JOIN imports im ON imd.import_id = im.id
+	LEFT JOIN producers pr ON p.producer_id = pr.id
+	`
+	totalQuery := `
+	SELECT
+		COUNT(*) as total_count
+	FROM store_products sp
+		JOIN products p ON sp.product_id = p.id
+		JOIN stores st ON sp.store_id = st.id
+	LEFT JOIN import_details imd ON sp.import_detail_id = imd.id
+	LEFT JOIN imports im ON imd.import_id = im.id
+	LEFT JOIN producers pr ON p.producer_id = pr.id
+	`
+
+	// filter by store_id
+	if param.StoreID != "" {
+		filter += " AND sp.store_id = ? "
+		args = append(args, param.StoreID)
+	}
+	// filter by search keyword
+	if param.SearchField != "" {
+		filter += " AND (p.name ILIKE ? OR p.barcode LIKE ?) "
+		args = append(args, "%"+param.SearchField+"%", "%"+param.SearchField+"%")
+	}
+	// filter with barcode
+	if param.NoBarcode {
+		filter += " AND (p.barcode IS NULL OR p.barcode = '') "
+	}
+
+	if param.ProducerID != "" {
+		filter += " AND p.producer_id = ? "
+		args = append(args, param.ProducerID)
+	}
+
+	if param.ImportId != "" {
+		filter += " AND imd.import_id = ? "
+		args = append(args, param.ImportId)
+	}
+	// collect total count query with filters
+	totalQuery += filter
+	err := s.db.Raw(totalQuery, args...).Scan(&totalCount).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting products by ikpu total_count: %v", err)
+		return res, totalCount, err
+	}
+	// collect get list query
+	query += filter + "LIMIT ? OFFSET ? "
+	args = append(args, param.Limit, param.Offset)
+	err = s.db.Raw(query, args...).Scan(&res).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting products by ikpu: %v", err)
+		return res, totalCount, err
+	}
+
+	return res, totalCount, nil
+}

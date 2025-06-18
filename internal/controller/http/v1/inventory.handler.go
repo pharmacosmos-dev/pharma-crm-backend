@@ -319,19 +319,13 @@ func (h *InventoryHandler) UpdateFactQuantity(c *gin.Context) {
 		return
 	}
 	// update barcode
-	if request.Barcode != "" {
+	if request.Barcode != "" && request.RetailPrice > 0 {
 		err = h.db.Exec(`UPDATE products SET barcode = ? WHERE id = ?`, request.Barcode, request.Id).Error
 		if err != nil {
 			h.log.Warn("ERROR on updating product barcode: %v", err)
 			handleResponse(c, InternalError, "Failed to update barcode")
 			return
 		}
-		handleResponse(c, OK, "Barcode updated successfully")
-		return
-	}
-
-	// update retail price
-	if request.RetailPrice > 0 {
 		err = h.db.Exec(`UPDATE import_details SET retail_price_vat = ? WHERE retail_price_vat = 0 AND product_id = ? AND import_id = ?`,
 			request.RetailPrice, request.Id, inventoryID).Error
 		if err != nil {
@@ -339,7 +333,8 @@ func (h *InventoryHandler) UpdateFactQuantity(c *gin.Context) {
 			handleResponse(c, InternalError, "Failed to update retail_price")
 			return
 		}
-		handleResponse(c, OK, "Retail Price updated successfully")
+
+		handleResponse(c, OK, "UPDATED")
 		return
 	}
 
@@ -441,7 +436,7 @@ func (h *InventoryHandler) UpdateDetailedFactQuantity(c *gin.Context) {
 	}
 
 	// update retail price
-	if request.RetailPrice > 0 {
+	if request.RetailPrice > 0 && request.ExpireDate != "" {
 		err = h.db.Exec(`UPDATE import_details SET retail_price_vat = ? WHERE id = ?`,
 			request.RetailPrice, request.Id).Error
 		if err != nil {
@@ -449,21 +444,18 @@ func (h *InventoryHandler) UpdateDetailedFactQuantity(c *gin.Context) {
 			handleResponse(c, InternalError, "Failed to update retail_price")
 			return
 		}
-		handleResponse(c, OK, "Retail Price updated successfully")
-		return
-	}
-	// update expire_date
-	if request.ExpireDate != "" {
+
 		err = h.db.Exec(`UPDATE import_details SET expire_date = ? WHERE id = ?`, request.ExpireDate, request.Id).Error
 		if err != nil {
 			h.log.Warn("ERROR on updating expire_date on inventory details: %v", err)
 			handleResponse(c, InternalError, "failed_to_update_expire_date")
 			return
 		}
-		handleResponse(c, OK, "Expire date updated successfully")
+
+		handleResponse(c, OK, "UPDATED")
 		return
 	}
-	
+
 	if request.FactQuantity == 0 && request.FactUnit == 0 {
 		err = h.db.Exec(`
 		UPDATE import_details

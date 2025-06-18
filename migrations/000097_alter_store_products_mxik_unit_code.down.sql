@@ -1,0 +1,3 @@
+ALTER TABLE store_products DROP COLUMN IF EXISTS "mxik" VARCHAR(55);
+ALTER TABLE store_products DROP COLUMN IF EXISTS "unit_code" VARCHAR(25);
+ALTER TABLE store_products DROP COLUMN IF EXISTS "unit_label" VARCHAR(255);
