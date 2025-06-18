@@ -92,7 +92,7 @@ func (s *Services) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domai
 		supply_price, retail_price, 
 		vat, expire_date, vat_price, 
 		import_detail_id, serial_number
-		) 
+		)
 	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	for _, item := range importDetails {
 		if item.AcceptedCount > 0 {
