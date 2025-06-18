@@ -1927,15 +1927,15 @@ func (h *ProductHandler) ExportProductListByImport(c *gin.Context) {
 	})
 }
 
-// UpdateBarcode godoc
-// @Summary Update barcode
-// @Description Update barcode
+// Update Mxik by product import
+// @Summary Update Mxik by product import
+// @Description Update Mxik by product import
 // @Tags products
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param id path string true "Product ID"
-// @Param body body domain.UpdateBarcodeRequest true "Update barcode"
+// @Param 	id path string true "Product ID"
+// @Param 	body body domain.UpdateBarcodeRequest true "Update barcode"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -1946,12 +1946,13 @@ func (h *ProductHandler) UpdateProductIkpuForStoreProduct(c *gin.Context) {
 		id   = c.Param("id")
 	)
 	// validate id
-	if err := uuid.Validate(id); err != nil {
+	err := uuid.Validate(id)
+	if err != nil {
 		handleResponse(c, BadRequest, "invalid.store_product_id")
 		return
 	}
 	// bind request body
-	err := c.ShouldBindJSON(&body)
+	err = c.ShouldBindJSON(&body)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())

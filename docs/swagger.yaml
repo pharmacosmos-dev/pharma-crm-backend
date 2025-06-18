@@ -8530,7 +8530,7 @@ paths:
     put:
       consumes:
       - application/json
-      description: Update barcode
+      description: Update Mxik by product import
       parameters:
       - description: Product ID
         in: path
@@ -8560,7 +8560,7 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Update barcode
+      summary: Update Mxik by product import
       tags:
       - products
   /product1c:

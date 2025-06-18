@@ -11216,7 +11216,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Update barcode",
+                "description": "Update Mxik by product import",
                 "consumes": [
                     "application/json"
                 ],
@@ -11226,7 +11226,7 @@ const docTemplate = `{
                 "tags": [
                     "products"
                 ],
-                "summary": "Update barcode",
+                "summary": "Update Mxik by product import",
                 "parameters": [
                     {
                         "type": "string",
