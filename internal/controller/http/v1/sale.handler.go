@@ -676,17 +676,21 @@ func (h *SaleHandler) ProccessingSale(c *gin.Context) {
 		}
 	}()
 
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
 	// get sale info
 	err = h.db.First(&sale, "id = ?", body.SaleID).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			handleResponse(c, NotFound, "Sale not found")
-			tx.Rollback()
 			return
 		}
 		h.log.Error("ERROR on getting sale info: ", err)
 		handleResponse(c, InternalError, err.Error())
-		tx.Rollback()
 		return
 	}
 
@@ -694,14 +698,12 @@ func (h *SaleHandler) ProccessingSale(c *gin.Context) {
 	err = h.service.AddMarkingCount(body.MarkingData)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
-		tx.Rollback()
 		return
 	}
 
 	// check sale is completed or no
 	if sale.Status == config.COMPLETED {
 		handleResponse(c, CONFLICT, "Sale is already completed")
-		tx.Rollback()
 		return
 	}
 
@@ -721,8 +723,9 @@ func (h *SaleHandler) ProccessingSale(c *gin.Context) {
 
 	// process payment types
 	for _, item := range body.PaymentTypes {
-		if err = processPaymentType(c.Request.Context(), tx, h, body, item); err != nil {
-			tx.Rollback()
+		err = processPaymentType(c.Request.Context(), tx, h, body, item)
+
+		if err != nil {
 			h.log.Warn("ERROR on payment process: %v", err.Error())
 			handleResponse(c, InternalError, err.Error())
 			return
@@ -734,14 +737,13 @@ func (h *SaleHandler) ProccessingSale(c *gin.Context) {
 	if err != nil {
 		h.log.Error("ERROR on completing sale: ", err)
 		handleResponse(c, InternalError, "Failed to complete sale")
-		tx.Rollback()
 		return
 	}
 
 	// Commit transaction
-	if err = tx.Commit().Error; err != nil {
+	err = tx.Commit().Error
+	if err != nil {
 		handleResponse(c, InternalError, "Can't commit transaction")
-		tx.Rollback()
 		return
 	}
 
@@ -773,7 +775,6 @@ func processPaymentType(ctx context.Context, tx *gorm.DB, h *SaleHandler, body d
 		}
 
 		resp, err := handler(ctx, tx, paymentService, &item, body.CashBoxOperationId, salePayment.ID, body.SaleID)
-
 		if err != nil || cast.ToString(resp["error_code"]) != "0" {
 			return err
 		}

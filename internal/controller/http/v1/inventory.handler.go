@@ -463,6 +463,7 @@ func (h *InventoryHandler) UpdateDetailedFactQuantity(c *gin.Context) {
 		handleResponse(c, OK, "Expire date updated successfully")
 		return
 	}
+	
 	if request.FactQuantity == 0 && request.FactUnit == 0 {
 		err = h.db.Exec(`
 		UPDATE import_details

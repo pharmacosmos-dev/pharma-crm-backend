@@ -47,24 +47,47 @@ func (h *Services) ClickPass(ctx context.Context, tx *gorm.DB, click *domain.Pay
 		h.log.Info("ClickPassDoRequest error: %v", err.Error())
 		return nil, err
 	}
-	// convert to json response of click pass
-	t, _ = json.Marshal(res)
+	// convert struct response to map
+	var result map[string]any
+	temp, err := json.Marshal(res)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal response: %w", err)
+	}
 	// save response to database
 	err = h.SaveResponse(ctx, &domain.PaymentRequest{
 		TransactionID: transactionID,
-		Response:      t,
+		Response:      temp,
 		Method:        "click_pass",
 	})
 	if err != nil {
-		return nil, err
+		return result, err
+	}
+	
+	err = json.Unmarshal(temp, &result)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal into map: %w", err)
+	}
+	// checking error code
+	if res.ErrorCode != 0 {
+		return result, errors.New(res.ErrorNote)
 	}
 
-	return res, nil
+	return result, nil
 }
 
 // Check click pass payment status
-func (h *Services) ClickCheckPaymentStatus(ctx context.Context, data map[string]any, token string) (map[string]any, error) {
+func (h *Services) ClickCheckPaymentStatus(ctx context.Context, data map[string]any, token string) (*domain.ClickPassResponse, error) {
 	url := fmt.Sprintf("/payment/status/%v/%v", data["service_id"], data["payment_id"])
+	res, err := h.ClickPassDoRequest(ctx, url, data, token)
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+// Cancel click pass payment
+func (h *Services) ClickPassCancelPayment(ctx context.Context, data map[string]any, token string) (*domain.ClickPassResponse, error) {
+	url := fmt.Sprintf("/payment/reversal/%v/%v", data["service_id"], data["payment_id"])
 	res, err := h.ClickPassDoRequest(ctx, url, data, token)
 	if err != nil {
 		return nil, err
@@ -81,9 +104,9 @@ func (h *Services) generateClickAndUzumAuthToken(secretKey string, merchantUserI
 }
 
 // DoRequest for Click Pass
-func (h *Services) ClickPassDoRequest(ctx context.Context, url string, data any, token string) (map[string]any, error) {
+func (h *Services) ClickPassDoRequest(ctx context.Context, url string, data any, token string) (*domain.ClickPassResponse, error) {
 	client := &http.Client{
-		Timeout: 7 * time.Second,
+		Timeout: 10 * time.Second,
 	}
 	buf := bytes.Buffer{}
 
@@ -116,17 +139,13 @@ func (h *Services) ClickPassDoRequest(ctx context.Context, url string, data any,
 	}
 
 	// Decode response body
-	var result map[string]any
-	bodyBytes, err := io.ReadAll(resp.Body)
+	var clickResponse domain.ClickPassResponse
+	err = json.NewDecoder(resp.Body).Decode(&clickResponse)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %v", err)
+		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	err = json.Unmarshal(bodyBytes, &result)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode response: %v", err)
-	}
-	return result, nil
+	return &clickResponse, nil
 }
 
 // Payme Go Handler functon
@@ -401,7 +420,6 @@ func (s *Services) PaymeGoDoRequest(ctx context.Context, data any, paymentServic
 	if err := json.NewEncoder(&buf).Encode(data); err != nil {
 		return nil, fmt.Errorf("failed to encode request data: %w", err)
 	}
-	fmt.Println("PAYME REQUEST: ", buf.String())
 	// Create HTTP request
 	req, err := http.NewRequestWithContext(ctx, "POST", s.cfg.Payment.PaymeGoEndpointUrl, &buf)
 	if err != nil {
@@ -428,7 +446,8 @@ func (s *Services) PaymeGoDoRequest(ctx context.Context, data any, paymentServic
 
 	// Parse response
 	var paymeResponse domain.PaymeGoResponse
-	if err := json.NewDecoder(resp.Body).Decode(&paymeResponse); err != nil {
+	err = json.NewDecoder(resp.Body).Decode(&paymeResponse)
+	if err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
