@@ -33,9 +33,9 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 		u.unit_name,
 		u.short_name,
 		sh.name as shelf,
-		p.mxik AS class_code,
-		p.unit_code AS package_code,
-		p.unit_label AS package_name
+		sp.mxik AS class_code,
+		sp.unit_code AS package_code,
+		sp.unit_label AS package_name
 	FROM cart_items ci
 	JOIN store_products sp ON ci.store_product_id = sp.id
 	JOIN products p ON sp.product_id = p.id

@@ -758,6 +758,7 @@ func (s *Services) UpdateRetailPrice(id string, newPrice float64) error {
 func (s *Services) GetProductListByImport(param *domain.ProductQueryParam) ([]domain.ProductByIkpu, int64, error) {
 	var (
 		filter     = " WHERE (sp.pack_quantity > 0 or sp.unit_quantity > 0) "
+		order      = " ORDER BY sp.created_at DESC "
 		args       = []any{}
 		res        []domain.ProductByIkpu
 		totalCount int64
@@ -780,6 +781,9 @@ func (s *Services) GetProductListByImport(param *domain.ProductQueryParam) ([]do
 		sp.expire_date,
 		sp.retail_price,
 		sp.supply_price,
+		sp.mxik, 
+		sp.unit_code, 
+		sp.unit_label,
 		sp.created_at,
 		sp.updated_at
 	FROM store_products sp
@@ -832,7 +836,7 @@ func (s *Services) GetProductListByImport(param *domain.ProductQueryParam) ([]do
 		return res, totalCount, err
 	}
 	// collect get list query
-	query += filter + "LIMIT ? OFFSET ? "
+	query += filter + order + "LIMIT ? OFFSET ? "
 	args = append(args, param.Limit, param.Offset)
 	err = s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
