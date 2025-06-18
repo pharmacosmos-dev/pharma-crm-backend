@@ -63,7 +63,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.GET("/list-arzon", h.ArzonProductList)
 		product.GET("/list-by-import", h.ProductListByImport)
 		product.GET("/export-by-import", h.ExportProductListByImport)
-		product.PUT("/update-mxik-import", h.UpdateProductIkpuForStoreProduct)
+		product.PUT("/update-mxik-import/:id", h.UpdateProductIkpuForStoreProduct)
 
 	}
 }
@@ -1939,7 +1939,7 @@ func (h *ProductHandler) ExportProductListByImport(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /product/update-mxik-import [put]
+// @Router /product/update-mxik-import/{id} [put]
 func (h *ProductHandler) UpdateProductIkpuForStoreProduct(c *gin.Context) {
 	var (
 		body domain.UpdateBarcodeRequest

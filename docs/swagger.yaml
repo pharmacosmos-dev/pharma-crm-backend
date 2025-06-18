@@ -8526,7 +8526,7 @@ paths:
       summary: Update barcode
       tags:
       - products
-  /product/update-mxik-import:
+  /product/update-mxik-import/{id}:
     put:
       consumes:
       - application/json

@@ -11209,7 +11209,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/product/update-mxik-import": {
+        "/product/update-mxik-import/{id}": {
             "put": {
                 "security": [
                     {
