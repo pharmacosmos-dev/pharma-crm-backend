@@ -70,7 +70,7 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 	FROM cart_items ci
 	JOIN store_products sp ON sp.id = ci.store_product_id
 	JOIN products p ON sp.product_id = p.id
-	LEFT JOIN customer_discounts cd ON cd.sale_id = ci.sale_id
+	LEFT JOIN sale_customer_discounts cd ON cd.sale_id = ci.sale_id
 	LEFT JOIN discount_cards dc ON cd.customer_id = dc.customer_id
 	WHERE  ci.sale_id = ?
 	`, saleID).Scan(&data).Error

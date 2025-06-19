@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS discount_cards(
     "deleted_at" TIMESTAMP
 );
 
-CREATE TABLE IF NOT EXISTS customer_discounts(
+CREATE TABLE IF NOT EXISTS sale_customer_discounts(
     "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     "sale_id" UUID REFERENCES sales(id),
     "customer_id" UUID REFERENCES customers(id),
