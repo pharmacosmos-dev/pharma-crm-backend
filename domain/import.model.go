@@ -72,6 +72,9 @@ type ImportDetail struct {
 	CreatedAt         *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt         *time.Time `gorm:"updated_at" json:"updated_at"`
 	ImportedAt        *time.Time `gorm:"imported_at" json:"imported_at"`
+	Mxik              string     `gorm:"mxik" json:"mxik"`
+	UnitCode          string     `gorm:"unit_code" json:"unit_code"`
+	UnitLabel         string     `gorm:"unit_label" json:"unit_label"`
 	Product           *Product   `gorm:"references:Id;foreignKey:ProductID" json:"product"`
 	Import            *Import    `gorm:"foreignKey:ImportID" json:"import"`
 	StoreProductId    string     `gorm:"store_product_id" json:"store_product_id"`

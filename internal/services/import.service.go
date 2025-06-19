@@ -91,9 +91,10 @@ func (s *Services) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domai
 		pack_quantity, unit_quantity, 
 		supply_price, retail_price, 
 		vat, expire_date, vat_price, 
-		import_detail_id, serial_number
+		import_detail_id, serial_number, 
+		mxik, unit_code, unit_label
 		)
-	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	for _, item := range importDetails {
 		if item.AcceptedCount > 0 {
 			// agar N30 lik tovar bo'lsa va 2.67 quantity qabul qilinsa hisoblanish
@@ -111,7 +112,9 @@ func (s *Services) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domai
 				item.RetailPriceVat,
 				item.Vat, item.ExpireDate,
 				item.RetailPriceVat*12/112,
-				item.Id, item.SeriesNumber).Error
+				item.Id, item.SeriesNumber,
+				item.Mxik, item.UnitCode, item.UnitLabel,
+			).Error
 			if err != nil {
 				s.log.Warn("ERROR on inserting import products to store_product: %v", err)
 				return err
@@ -187,9 +190,10 @@ func (s *Services) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import)
 		pack_quantity, unit_quantity, 
 		supply_price, retail_price, 
 		vat, expire_date, vat_price, 
-		import_detail_id, serial_number
+		import_detail_id, serial_number,
+		mxik, unit_code, unit_label
 		) 
-	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	for _, item := range importDetails {
 		if item.ReceivedCount > 0 {
 			// agar N30 lik tovar bo'lsa va 2.67 quantity qabul qilinsa hisoblanish
@@ -207,7 +211,9 @@ func (s *Services) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import)
 				item.RetailPriceVat,
 				item.Vat, item.ExpireDate,
 				item.RetailPriceVat*12/112,
-				item.Id, item.SeriesNumber).Error
+				item.Id, item.SeriesNumber,
+				item.Mxik, item.UnitCode, item.UnitLabel,
+			).Error
 			if err != nil {
 				s.log.Error(err)
 				return err
@@ -438,7 +444,10 @@ func (s *Services) GetImportDetailsByImportId(importId string) ([]domain.ImportD
 			products.barcode, 
 			products.name as product_name, 
 			products.material_code, 
-			COALESCE(pr.name, '') as producer_name
+			COALESCE(pr.name, '') as producer_name, 
+			products.mxik, 
+			products.unit_code, 
+			products.unit_label
 		FROM import_details 
 		JOIN products ON products.id = import_details.product_id
 		LEFT JOIN producers pr ON pr.id = products.producer_id

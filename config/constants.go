@@ -12,15 +12,15 @@ const (
 	ContextTimeoutForReports time.Duration = 1 * time.Minute
 	ContextTimeout           time.Duration = 10 * time.Second
 
-	DATE_FORMAT      = "2006-01-02"
-	DATE_TIME_FORMAT = "2006-01-02 15:04:05"
-	DATE_1C_FORMAT   = "2006-01-02T15:04:05"
-	DefaultLimit     = 10
-	DefaultOffset    = 0
+	DATE_FORMAT    = "2006-01-02"
+	DATE_TIME      = "2006-01-02 15:04:05"
+	DATE_1C_FORMAT = "2006-01-02T15:04:05"
+	DefaultLimit   = 10
+	DefaultOffset  = 0
 )
 
 const (
-	// region IMPORT status
+	// region import status
 
 	NEW_IMPORT       = "new"
 	PENDING_IMPORT   = "pending"
@@ -28,7 +28,9 @@ const (
 	CANCELED_IMPORT  = "canceled"
 	WRITEOFF_IMPORT  = "writeoff"
 
-	// region CART ITEM status
+	// end region
+
+	// region cart_item status
 
 	PENDING_CART_ITEM = "pending"
 	ACTIVE_CART_ITEM  = "active"
@@ -36,7 +38,7 @@ const (
 	DRAFTED_CART_ITEM = "drafted"
 	SOLD_CART_ITEM    = "sold"
 
-	// region PRODUCT status
+	// region product status
 
 	ACTIVE_PRODUCT     = "active"
 	INACTIVE_PRODUCT   = "inactive"
@@ -45,7 +47,7 @@ const (
 	EXPIRED_PRODUCT    = "expired"
 	DELETED_PRODUCT    = "deleted"
 
-	// region APP payment types
+	// region app payment types
 
 	CASH  = "cash"
 	CARD  = "card"
@@ -53,7 +55,7 @@ const (
 	PAYME = "payme"
 	UZUM  = "uzum"
 
-	// region Universal status types
+	// region universal status types
 
 	NEW        = "new"
 	PENDING    = "pending"
@@ -66,7 +68,8 @@ const (
 	INACTIVE   = "inactive"
 	CONFIRMED  = "confirmed"
 	SENT       = "sent"
-	// region SALE type
+
+	// region sale type
 
 	SALE_TYPE_RETURN = "RETURN"
 	SALE_TYPE_SALE   = "SALE"
