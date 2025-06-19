@@ -370,7 +370,6 @@ type MinMaxProductRequest struct {
 type MinMaxProductUpdate struct {
 	ID          int    `gorm:"id" json:"id"`
 	ProductID   string `gorm:"product_id" json:"product_id"`
-	StoreID     string `gorm:"store_id" json:"store_id"`
 	Kvant       int    `gorm:"kvant" json:"kvant"`
 	MinQuantity int    `gorm:"min_quantity" json:"min_quantity"`
 	MaxQuantity int    `gorm:"max_quantity" json:"max_quantity"`

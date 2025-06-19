@@ -2054,18 +2054,20 @@ func (h *ProductHandler) UpdateMinMaxProduct(c *gin.Context) {
 	UPDATE 
 		store_product_thresholds 
 	SET
-		store_id = ?,
 		product_id = ?,
 		kvant = ?,
 		min_quantity = ?,
 		max_quantity = ?
 	WHERE id = ?`,
-		body.StoreID,
 		body.ProductID,
 		body.Kvant,
 		body.MinQuantity,
 		body.MaxQuantity, id).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			handleResponse(c, BadRequest, "min.max.product.already.exists.with.store")
+			return
+		}
 		handleResponse(c, InternalError, "failed.to.update.min.max.product")
 		return
 	}
