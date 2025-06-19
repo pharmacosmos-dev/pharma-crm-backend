@@ -770,7 +770,7 @@ func (s *Services) GetProductListByImport(param *domain.ProductQueryParam) ([]do
 		sp.product_id,
 		p.material_code,
 		st.name AS store_name,
-		im.document_number AS import_number,
+		COALESCE(im.document_number, '') AS import_number,
 		p.name,
 		p.barcode,
 		COALESCE(pr.name, '') as producer_name,
@@ -861,6 +861,7 @@ func (s *Services) GetMinMaxProducts(param *domain.ProductQueryParam) ([]domain.
 	query := `
 	SELECT
 		spt.id,
+		spt.store_id,
 		spt.product_id,
 		s.name AS store_name,
 		p.material_code,

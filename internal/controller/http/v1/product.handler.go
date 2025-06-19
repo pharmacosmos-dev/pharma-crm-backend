@@ -66,6 +66,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.PUT("/update-mxik-import/:id", h.UpdateProductIkpuForStoreProduct)
 		product.POST("/min-max", h.CreateMinMaxProduct)
 		product.PUT("/min-max/:id", h.UpdateMinMaxProduct)
+		product.GET("/min-max/:id", h.GetMinMaxProductById)
 		product.GET("/list-min-max", h.GetMinMaxProducts)
 		product.GET("/export-min-max", h.ExportMinMaxProducts)
 	}
@@ -2040,45 +2041,72 @@ func (h *ProductHandler) UpdateMinMaxProduct(c *gin.Context) {
 		id   = c.Param("id")
 		body domain.MinMaxProductUpdate
 	)
-	// validate id
-	err := uuid.Validate(id)
-	if err != nil {
-		handleResponse(c, BadRequest, "invalid.id")
-		return
-	}
 
 	// bind request body
-	err = c.ShouldBindJSON(&body)
+	err := c.ShouldBindJSON(&body)
 	if err != nil {
+		h.log.Error(err)
 		handleResponse(c, BadRequest, "invalid.request.body")
 		return
 	}
-	// check and update kvant
-	if body.Kvant != nil {
-		err = h.db.Exec(`UPDATE store_product_thresholds SET kvant = ? WHERE id = ?`, body.Kvant, id).Error
-		if err != nil {
-			handleResponse(c, InternalError, "not.update.kvant")
-			return
-		}
-	}
-	//  check and update min_quantity
-	if body.MinQuantity != nil {
-		err = h.db.Exec(`UPDATE store_product_thresholds SET min_quantity = ? WHERE id = ?`, body.MinQuantity, id).Error
-		if err != nil {
-			handleResponse(c, InternalError, "not.update.min_quantity")
-			return
-		}
-	}
-	// check and update max_quantity
-	if body.MaxQuantity != nil {
-		err = h.db.Exec(`UPDATE store_product_thresholds SET max_quantity = ? WHERE id = ?`, body.MaxQuantity, id).Error
-		if err != nil {
-			handleResponse(c, InternalError, "not.update.max_quantity")
-			return
-		}
+	// update store_product_thresholds
+	err = h.db.Exec(`
+	UPDATE 
+		store_product_thresholds 
+	SET
+		store_id = ?,
+		product_id = ?,
+		kvant = ?,
+		min_quantity = ?,
+		max_quantity = ?
+	WHERE id = ?`,
+		body.StoreID,
+		body.ProductID,
+		body.Kvant,
+		body.MinQuantity,
+		body.MaxQuantity, id).Error
+	if err != nil {
+		handleResponse(c, InternalError, "failed.to.update.min.max.product")
+		return
 	}
 
 	handleResponse(c, OK, "UPDATED")
+}
+
+// Get min max product
+// @Summary Get min max product
+// @Description Get min max product
+// @Tags products
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param 	id path string true "id"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/min-max/{id} [GET]
+func (h *ProductHandler) GetMinMaxProductById(c *gin.Context) {
+	var (
+		id  = c.Param("id")
+		res domain.StoreProductThreshold
+	)
+
+	// update store_product_thresholds
+	err := h.db.
+		Model(&domain.StoreProductThreshold{}).
+		Preload("Store").
+		Preload("Product").
+		First(&res, "id = ?", id).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "min.max.product.not.found")
+			return
+		}
+		handleResponse(c, InternalError, "failed.to.get.min.max.product")
+		return
+	}
+
+	handleResponse(c, OK, res)
 }
 
 // Get min, max products

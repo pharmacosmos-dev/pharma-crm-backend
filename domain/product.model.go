@@ -342,6 +342,20 @@ type ProductByIkpu struct {
 
 // region min max
 
+type StoreProductThreshold struct {
+	ID          int        `gorm:"id" json:"id"`
+	ProductID   string     `gorm:"product_id" json:"product_id"`
+	StoreID     string     `gorm:"store_id" json:"store_id"`
+	Kvant       float64    `gorm:"kvant" json:"kvant"`
+	MinQuantity float64    `gorm:"min_quantity" json:"min_quantity"`
+	MaxQuantity float64    `gorm:"max_quantity" json:"max_quantity"`
+	IsActive    bool       `gorm:"is_active" json:"is_active"`
+	CreatedAt   *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt   *time.Time `gorm:"updated_at" json:"updated_at"`
+	Store       *Store     `gorm:"foreignKey:StoreID" json:"store"`
+	Product     *Product   `gorm:"foreignKey:ProductID" json:"product"`
+}
+
 // create min max product strucute
 type MinMaxProductRequest struct {
 	ProductID   string `gorm:"product_id" json:"product_id"`
@@ -349,19 +363,24 @@ type MinMaxProductRequest struct {
 	Kvant       int    `gorm:"kvant" json:"kvant"`
 	MinQuantity int    `gorm:"min_quantity" json:"min_quantity"`
 	MaxQuantity int    `gorm:"max_quantity" json:"max_quantity"`
+	IsActive    bool   `gorm:"is_active" json:"is_active"`
 }
 
 // update min max product structure
 type MinMaxProductUpdate struct {
-	ID          string `gorm:"id" json:"id"`
-	Kvant       *int   `gorm:"kvant" json:"kvant"`
-	MinQuantity *int   `gorm:"min_quantity" json:"min_quantity"`
-	MaxQuantity *int   `gorm:"max_quantity" json:"max_quantity"`
+	ID          int    `gorm:"id" json:"id"`
+	ProductID   string `gorm:"product_id" json:"product_id"`
+	StoreID     string `gorm:"store_id" json:"store_id"`
+	Kvant       int    `gorm:"kvant" json:"kvant"`
+	MinQuantity int    `gorm:"min_quantity" json:"min_quantity"`
+	MaxQuantity int    `gorm:"max_quantity" json:"max_quantity"`
+	IsActive    bool   `gorm:"is_active" json:"is_active"`
 }
 
 // product structure for min, max
 type MinMaxProduct struct {
-	Id           string     `gorm:"id" json:"id"`
+	Id           int        `gorm:"id" json:"id"`
+	StoreID      string     `gorm:"store_id" json:"store_id"`
 	ProductID    string     `gorm:"product_id" json:"product_id"`
 	MaterialCode int        `gorm:"material_code" json:"material_code"`
 	StoreName    string     `gorm:"store_name" json:"store_name"`

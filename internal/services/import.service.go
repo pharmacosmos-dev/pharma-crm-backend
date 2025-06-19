@@ -186,12 +186,20 @@ func (s *Services) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import)
 	// add products to store
 	storeProductQuery := `
 	INSERT INTO store_products(
-		store_id, product_id, 
-		pack_quantity, unit_quantity, 
-		supply_price, retail_price, 
-		vat, expire_date, vat_price, 
-		import_detail_id, serial_number,
-		mxik, unit_code, unit_label
+		store_id, 
+		product_id, 
+		pack_quantity, 
+		unit_quantity, 
+		supply_price, 
+		retail_price, 
+		vat, 
+		expire_date, 
+		vat_price, 
+		import_detail_id, 
+		serial_number,
+		mxik, 
+		unit_code, 
+		unit_label
 		) 
 	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	for _, item := range importDetails {
@@ -209,10 +217,14 @@ func (s *Services) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import)
 				int(unitQty),
 				item.SupplyPriceVat,
 				item.RetailPriceVat,
-				item.Vat, item.ExpireDate,
+				item.Vat,
+				item.ExpireDate,
 				item.RetailPriceVat*12/112,
-				item.Id, item.SeriesNumber,
-				item.Mxik, item.UnitCode, item.UnitLabel,
+				item.Id,
+				item.SeriesNumber,
+				item.Mxik,
+				item.UnitCode,
+				item.UnitLabel,
 			).Error
 			if err != nil {
 				s.log.Error(err)

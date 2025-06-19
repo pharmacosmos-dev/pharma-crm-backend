@@ -7596,7 +7596,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "TYPE (ALL||surplus||shortage||zero_price)",
+                        "description": "TYPE (ALL||surplus||shortage||zero_price||checking)",
                         "name": "type",
                         "in": "query"
                     },
@@ -10858,6 +10858,53 @@ const docTemplate = `{
             }
         },
         "/product/min-max/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get min max product",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Get min max product",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            },
             "put": {
                 "security": [
                     {
@@ -19087,6 +19134,9 @@ const docTemplate = `{
         "domain.MinMaxProductRequest": {
             "type": "object",
             "properties": {
+                "is_active": {
+                    "type": "boolean"
+                },
                 "kvant": {
                     "type": "integer"
                 },
@@ -19108,7 +19158,10 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "id": {
-                    "type": "string"
+                    "type": "integer"
+                },
+                "is_active": {
+                    "type": "boolean"
                 },
                 "kvant": {
                     "type": "integer"
@@ -19118,6 +19171,12 @@ const docTemplate = `{
                 },
                 "min_quantity": {
                     "type": "integer"
+                },
+                "product_id": {
+                    "type": "string"
+                },
+                "store_id": {
+                    "type": "string"
                 }
             }
         },
