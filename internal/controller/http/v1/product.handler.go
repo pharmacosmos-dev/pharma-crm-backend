@@ -2015,6 +2015,11 @@ func (h *ProductHandler) CreateMinMaxProduct(c *gin.Context) {
 	// create store_product_thresholds
 	err = h.db.Table("store_product_thresholds").Create(&body).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			handleResponse(c, BadRequest, "min.max.product.already.exists.with.store")
+			return
+		}
+		// log error
 		h.log.Warn("ERROR on creating store_product_thresholds: %v", err)
 		handleResponse(c, InternalError, "failed.to.create.store_product_thresholds")
 		return
