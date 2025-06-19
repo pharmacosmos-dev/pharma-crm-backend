@@ -862,6 +862,7 @@ func (s *Services) GetMinMaxProducts(param *domain.ProductQueryParam) ([]domain.
 	SELECT
 		spt.id,
 		spt.product_id,
+		s.name AS store_name,
 		p.material_code,
 		p.name,
 		spt.kvant,

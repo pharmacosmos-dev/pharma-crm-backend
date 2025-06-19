@@ -366,9 +366,9 @@ type MinMaxProduct struct {
 	MaterialCode int        `gorm:"material_code" json:"material_code"`
 	StoreName    string     `gorm:"store_name" json:"store_name"`
 	Name         string     `gorm:"name" json:"name"`
-	Kvant        int        `gorm:"kvant" json:"kvant"`
-	MinQuantity  int        `gorm:"min_quantity" json:"min_quantity"`
-	MaxQuantity  int        `gorm:"max_quantity" json:"max_quantity"`
+	Kvant        float64    `gorm:"kvant" json:"kvant"`
+	MinQuantity  float64    `gorm:"min_quantity" json:"min_quantity"`
+	MaxQuantity  float64    `gorm:"max_quantity" json:"max_quantity"`
 	IsActive     bool       `gorm:"is_active" json:"is_active"`
 	CreatedAt    *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt    *time.Time `gorm:"updated_at" json:"updated_at"`
