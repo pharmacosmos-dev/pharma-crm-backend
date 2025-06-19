@@ -64,7 +64,10 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.GET("/list-by-import", h.ProductListByImport)
 		product.GET("/export-by-import", h.ExportProductListByImport)
 		product.PUT("/update-mxik-import/:id", h.UpdateProductIkpuForStoreProduct)
-
+		product.POST("/min-max", h.CreateMinMaxProduct)
+		product.PUT("/min-max/:id", h.UpdateMinMaxProduct)
+		product.GET("/list-min-max", h.GetMinMaxProducts)
+		product.GET("/export-min-max", h.ExportMinMaxProducts)
 	}
 }
 
@@ -1865,7 +1868,7 @@ func (h *ProductHandler) ExportProductListByImport(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"Код", "Наименование", "Штрих-код", "Производитель", "Кол-во", "Цена поставки", "Цена продажи", "IKPU", "Код.Уп"}
+	headers := []string{"Код", "Наименование", "Штрих-код", "Номер Импорт", "Производитель", "Кол-во", "IKPU", "Код.Уп", "Наз.Уп", "Маркировка", "Цена поставки", "Цена продажи"}
 
 	headerStyle, err := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{
@@ -1891,17 +1894,19 @@ func (h *ProductHandler) ExportProductListByImport(c *gin.Context) {
 		f.SetCellValue(sheetName, "A"+row, product.MaterialCode)
 		f.SetCellValue(sheetName, "B"+row, product.Name)
 		f.SetCellValue(sheetName, "C"+row, product.Barcode)
-		f.SetCellValue(sheetName, "D"+row, product.Manufacturer)
-		f.SetCellValue(sheetName, "E"+row, math.Round(product.Quantity+(product.UnitQuantity/float64(product.UnitPerPack))))
-		f.SetCellValue(sheetName, "F"+row, product.SupplyPrice)
-		f.SetCellValue(sheetName, "G"+row, product.RetailPrice)
-		f.SetCellValue(sheetName, "H"+row, product.Mxik)
-		f.SetCellValue(sheetName, "I"+row, product.UnitCode)
-		f.SetCellValue(sheetName, "J"+row, product.UnitLabel)
+		f.SetCellValue(sheetName, "D"+row, product.ImportNumber)
+		f.SetCellValue(sheetName, "E"+row, product.ProducerName)
+		f.SetCellValue(sheetName, "F"+row, math.Round(product.Quantity+(product.UnitQuantity/float64(product.UnitPerPack))))
+		f.SetCellValue(sheetName, "G"+row, product.Mxik)
+		f.SetCellValue(sheetName, "H"+row, product.UnitCode)
+		f.SetCellValue(sheetName, "I"+row, product.UnitLabel)
+		f.SetCellValue(sheetName, "J"+row, product.IsMarking)
+		f.SetCellValue(sheetName, "K"+row, product.SupplyPrice)
+		f.SetCellValue(sheetName, "L"+row, product.RetailPrice)
 
 	}
 	// Faylni uploads/ papkasiga UUID bilan saqlash
-	fileName := "mahsulotlar_" + time.Now().Add(time.Hour*5).Format("2006-01-02_15-04-05") + ".xlsx"
+	fileName := "products_by_import_" + time.Now().Add(time.Hour*5).Format("2006-01-02_15-04-05") + ".xlsx"
 	filePath := filepath.Join("uploads", fileName)
 
 	// uploads/ papkasi mavjud bo‘lmasa, yaratish
@@ -1984,6 +1989,234 @@ func (h *ProductHandler) UpdateProductIkpuForStoreProduct(c *gin.Context) {
 		}
 	}
 	handleResponse(c, OK, "UPDATED")
+}
+
+// Create min max product
+// @Summary Create min max product
+// @Description Create min max product
+// @Tags products
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param 	body body domain.MinMaxProductRequest true "Min Max request body"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/min-max [POST]
+func (h *ProductHandler) CreateMinMaxProduct(c *gin.Context) {
+	var body domain.MinMaxProductRequest
+	// bind request body
+	err := c.ShouldBindJSON(&body)
+	if err != nil {
+		handleResponse(c, BadRequest, "invalid.request.body")
+		return
+	}
+	// create store_product_thresholds
+	err = h.db.Table("store_product_thresholds").Create(&body).Error
+	if err != nil {
+		h.log.Warn("ERROR on creating store_product_thresholds: %v", err)
+		handleResponse(c, InternalError, "failed.to.create.store_product_thresholds")
+		return
+	}
+
+	handleResponse(c, CREATED, "CREATED")
+}
+
+// Update min max product
+// @Summary Update min max product
+// @Description Update min max product
+// @Tags products
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "Min Max Product ID"
+// @Param 	body body domain.MinMaxProductUpdate true "Min Max update"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/min-max/{id} [PUT]
+func (h *ProductHandler) UpdateMinMaxProduct(c *gin.Context) {
+	var (
+		id   = c.Param("id")
+		body domain.MinMaxProductUpdate
+	)
+	// validate id
+	err := uuid.Validate(id)
+	if err != nil {
+		handleResponse(c, BadRequest, "invalid.id")
+		return
+	}
+
+	// bind request body
+	err = c.ShouldBindJSON(&body)
+	if err != nil {
+		handleResponse(c, BadRequest, "invalid.request.body")
+		return
+	}
+	// check and update kvant
+	if body.Kvant != nil {
+		err = h.db.Exec(`UPDATE store_product_thresholds SET kvant = ? WHERE id = ?`, body.Kvant, id).Error
+		if err != nil {
+			handleResponse(c, InternalError, "not.update.kvant")
+			return
+		}
+	}
+	//  check and update min_quantity
+	if body.MinQuantity != nil {
+		err = h.db.Exec(`UPDATE store_product_thresholds SET min_quantity = ? WHERE id = ?`, body.MinQuantity, id).Error
+		if err != nil {
+			handleResponse(c, InternalError, "not.update.min_quantity")
+			return
+		}
+	}
+	// check and update max_quantity
+	if body.MaxQuantity != nil {
+		err = h.db.Exec(`UPDATE store_product_thresholds SET max_quantity = ? WHERE id = ?`, body.MaxQuantity, id).Error
+		if err != nil {
+			handleResponse(c, InternalError, "not.update.max_quantity")
+			return
+		}
+	}
+
+	handleResponse(c, OK, "UPDATED")
+}
+
+// Get min, max products
+// @Summary min, max products
+// @Description min, max products
+// @Tags products
+// @Security BearerAuth
+// @Accept  json
+// @Produce json
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Param search query string false "Search"
+// @Param status query string false "Status (active || inactive"
+// @Param store_id query string false "Store ID"
+// @Success 200 {object} v1.Response "Product list"
+// @Failure 400 {object} v1.Response "Invalid store_id"
+// @Failure 500 {object} v1.Response "Internal server error"
+// @Router /product/list-min-max [GET]
+func (h *ProductHandler) GetMinMaxProducts(c *gin.Context) {
+	var param domain.ProductQueryParam
+
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
+		handleResponse(c, BadRequest, "invalid.query.param")
+		return
+	}
+
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	res, totalCount, err := h.service.GetMinMaxProducts(&param)
+	if err != nil {
+		h.log.Warn("ERROR on getting min_max product: %v", err)
+		handleResponse(c, InternalError, "failed.to.get.min.max.products")
+		return
+	}
+
+	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+
+	handleResponse(c, OK, data)
+}
+
+// Get min, max products
+// @Summary Get min, max products
+// @Description Get min, max products
+// @Tags products
+// @Security BearerAuth
+// @Accept  json
+// @Produce json
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Param search query string false "Search"
+// @Param status query string false "Status (active || inactive"
+// @Param store_id query string false "Store ID"
+// @Success 200 {object} v1.Response "Product list"
+// @Failure 400 {object} v1.Response "Invalid store_id"
+// @Failure 500 {object} v1.Response "Internal server error"
+// @Router /product/export-min-max [GET]
+func (h *ProductHandler) ExportMinMaxProducts(c *gin.Context) {
+	var param domain.ProductQueryParam
+
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
+		handleResponse(c, BadRequest, "invalid.query.param")
+		return
+	}
+
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	res, _, err := h.service.GetMinMaxProducts(&param)
+	if err != nil {
+		h.log.Warn("ERROR on getting min_max product: %v", err)
+		handleResponse(c, InternalError, "failed.to.get.min.max.products")
+		return
+	}
+
+	// Create excel file
+	f := excelize.NewFile()
+
+	sheetName := "Products"
+	f.SetSheetName("Sheet1", sheetName)
+
+	// Headerlar
+	headers := []string{"Филиал", "Код", "Наименование", "Квант", "Мин.зап", "Макс.зап", "Актив"}
+
+	headerStyle, err := f.NewStyle(&excelize.Style{
+		Font: &excelize.Font{
+			Bold:  true,
+			Color: "000000",
+		},
+	})
+	if err != nil {
+		h.log.Warn("Failed to create style: %v", err)
+		handleResponse(c, InternalError, "failed.to.create.newstyle")
+		return
+	}
+
+	for i, h := range headers {
+		col := string(rune('A'+i)) + "1"
+		f.SetCellValue(sheetName, col, h)
+		f.SetCellStyle(sheetName, col, col, headerStyle)
+	}
+
+	// // Add product infos to excel column
+	for i, product := range res {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheetName, "A"+row, product.StoreName)
+		f.SetCellValue(sheetName, "B"+row, product.MaterialCode)
+		f.SetCellValue(sheetName, "C"+row, product.Name)
+		f.SetCellValue(sheetName, "D"+row, product.Kvant)
+		f.SetCellValue(sheetName, "E"+row, product.MinQuantity)
+		f.SetCellValue(sheetName, "F"+row, product.MaxQuantity)
+		f.SetCellValue(sheetName, "G"+row, product.IsActive)
+	}
+	// Faylni uploads/ papkasiga UUID bilan saqlash
+	fileName := "min_max_products_" + time.Now().Add(time.Hour*5).Format("2006-01-02_15-04-05") + ".xlsx"
+	filePath := filepath.Join("uploads", fileName)
+
+	// uploads/ papkasi mavjud bo‘lmasa, yaratish
+	if _, err := os.Stat("uploads"); os.IsNotExist(err) {
+		err := os.Mkdir("uploads", os.ModePerm)
+		if err != nil {
+			h.log.Error("Failed to create uploads directory:", err)
+			handleResponse(c, InternalError, "Failed to create uploads folder")
+			return
+		}
+	}
+
+	// Faylni diskka yozish
+	if err := f.SaveAs(filePath); err != nil {
+		h.log.Error("Failed to save Excel file:", err)
+		handleResponse(c, InternalError, "Failed to save Excel file")
+		return
+	}
+
+	// Foydalanuvchiga file path yoki URLni qaytarish
+	handleResponse(c, OK, gin.H{
+		"file_name": fileName,
+	})
 }
 
 // Helper function to safely parse float values

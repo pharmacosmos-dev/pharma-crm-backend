@@ -777,6 +777,7 @@ func (s *Services) GetProductListByImport(param *domain.ProductQueryParam) ([]do
 		sp.pack_quantity as quantity,
 		(sp.unit_quantity % p.unit_per_pack) AS unit_quantity,
 		p.unit_per_pack,
+		p.is_marking,
 		sp.serial_number,
 		sp.expire_date,
 		sp.retail_price,
@@ -841,6 +842,68 @@ func (s *Services) GetProductListByImport(param *domain.ProductQueryParam) ([]do
 	err = s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting products by ikpu: %v", err)
+		return res, totalCount, err
+	}
+
+	return res, totalCount, nil
+}
+
+// get min, max products
+func (s *Services) GetMinMaxProducts(param *domain.ProductQueryParam) ([]domain.MinMaxProduct, int64, error) {
+	var (
+		res        []domain.MinMaxProduct
+		totalCount int64
+		filter     = " WHERE 1 = 1 "
+		order      = " ORDER BY spt.created_at DESC "
+		args       = []any{}
+	)
+	// query for getting product list with kvant, min and max quantity
+	query := `
+	SELECT
+		spt.id,
+		spt.product_id,
+		p.material_code,
+		p.name,
+		spt.kvant,
+		spt.min_quantity,
+		spt.max_quantity,
+		spt.is_active,
+		spt.created_at,
+		spt.updated_at
+	FROM store_product_thresholds spt
+	JOIN products p ON spt.product_id = p.id
+	JOIN stores s ON spt.store_id = s.id
+	`
+	// query for getting total_count
+	totalCountQuery := `
+	SELECT
+		COUNT(*) AS total_count
+	FROM store_product_thresholds spt
+	JOIN products p ON spt.product_id = p.id
+	JOIN stores s ON spt.store_id = s.id
+	`
+	if param.StoreID != "" {
+		filter += " AND spt.store_id = ? "
+		args = append(args, param.StoreID)
+	}
+
+	if param.SearchField != "" {
+		filter += " AND p.name ILIKE ? "
+		args = append(args, "%"+param.SearchField+"%")
+	}
+	// collect total query
+	totalCountQuery += filter
+	err := s.db.Raw(totalCountQuery, args...).Scan(&totalCount).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting total_count: %v", err)
+		return res, totalCount, err
+	}
+	// collect query
+	query += filter + order + " LIMIT ? OFFSET ?" // add limit, offset for pagination
+	args = append(args, param.Limit, param.Offset)
+	err = s.db.Raw(query, args...).Scan(&res).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting min_max_products: %v", err)
 		return res, totalCount, err
 	}
 

@@ -312,6 +312,8 @@ type ProductRes1C struct {
 	Sum          float64    `gorm:"sum" json:"sum"`
 }
 
+// region product by import
+
 // product structure for update ikpu page
 type ProductByIkpu struct {
 	Id           string     `gorm:"id" json:"id"`
@@ -322,6 +324,7 @@ type ProductByIkpu struct {
 	Name         string     `gorm:"name" json:"name"`
 	ProducerName string     `gorm:"producer_name" json:"producer_name"`
 	Barcode      string     `gorm:"barcode" json:"barcode"`
+	IsMarking    bool       `gorm:"is_marking" json:"is_marking"`
 	Manufacturer string     `gorm:"manufacturer" json:"manufacturer"`
 	SerialNumber string     `gorm:"serial_number" json:"serial_number"`
 	Quantity     float64    `gorm:"quantity" json:"quantity"`
@@ -333,6 +336,40 @@ type ProductByIkpu struct {
 	ExpireDate   *time.Time `gorm:"expire_date" json:"expire_date"`
 	RetailPrice  float64    `gorm:"retail_price" json:"retail_price"`
 	SupplyPrice  float64    `gorm:"supply_price" json:"supply_price"`
+	CreatedAt    *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt    *time.Time `gorm:"updated_at" json:"updated_at"`
+}
+
+// region min max
+
+// create min max product strucute
+type MinMaxProductRequest struct {
+	ProductID   string `gorm:"product_id" json:"product_id"`
+	StoreID     string `gorm:"store_id" json:"store_id"`
+	Kvant       int    `gorm:"kvant" json:"kvant"`
+	MinQuantity int    `gorm:"min_quantity" json:"min_quantity"`
+	MaxQuantity int    `gorm:"max_quantity" json:"max_quantity"`
+}
+
+// update min max product structure
+type MinMaxProductUpdate struct {
+	ID          string `gorm:"id" json:"id"`
+	Kvant       *int   `gorm:"kvant" json:"kvant"`
+	MinQuantity *int   `gorm:"min_quantity" json:"min_quantity"`
+	MaxQuantity *int   `gorm:"max_quantity" json:"max_quantity"`
+}
+
+// product structure for min, max
+type MinMaxProduct struct {
+	Id           string     `gorm:"id" json:"id"`
+	ProductID    string     `gorm:"product_id" json:"product_id"`
+	MaterialCode int        `gorm:"material_code" json:"material_code"`
+	StoreName    string     `gorm:"store_name" json:"store_name"`
+	Name         string     `gorm:"name" json:"name"`
+	Kvant        int        `gorm:"kvant" json:"kvant"`
+	MinQuantity  int        `gorm:"min_quantity" json:"min_quantity"`
+	MaxQuantity  int        `gorm:"max_quantity" json:"max_quantity"`
+	IsActive     bool       `gorm:"is_active" json:"is_active"`
 	CreatedAt    *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt    *time.Time `gorm:"updated_at" json:"updated_at"`
 }

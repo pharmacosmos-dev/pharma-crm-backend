@@ -282,6 +282,8 @@ func (s *Services) InventoryDetailList(param *domain.InventoryParam) ([]domain.I
 			filter += " AND imd.scanned_count > imd.received_count "
 		case "zero_price":
 			filter += " AND imd.retail_price_vat = 0 AND imd.scanned_count > 0 "
+		case "checking":
+			filter += " AND (imd.expire_date IS NOT NULL OR imd.expire_date <> '') "
 		}
 	}
 

@@ -589,6 +589,30 @@ definitions:
       marking_count:
         type: integer
     type: object
+  domain.MinMaxProductRequest:
+    properties:
+      kvant:
+        type: integer
+      max_quantity:
+        type: integer
+      min_quantity:
+        type: integer
+      product_id:
+        type: string
+      store_id:
+        type: string
+    type: object
+  domain.MinMaxProductUpdate:
+    properties:
+      id:
+        type: string
+      kvant:
+        type: integer
+      max_quantity:
+        type: integer
+      min_quantity:
+        type: integer
+    type: object
   domain.PaymentServiceRequest:
     properties:
       cashbox_id:
@@ -7893,6 +7917,52 @@ paths:
       summary: Get a product
       tags:
       - products
+  /product/export-min-max:
+    get:
+      consumes:
+      - application/json
+      description: Get min, max products
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Status (active || inactive
+        in: query
+        name: status
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Product list
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Invalid store_id
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get min, max products
+      tags:
+      - products
   /product/generate-barcode:
     post:
       consumes:
@@ -8175,6 +8245,121 @@ paths:
       security:
       - BearerAuth: []
       summary: Get product list by import
+      tags:
+      - products
+  /product/list-min-max:
+    get:
+      consumes:
+      - application/json
+      description: min, max products
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Status (active || inactive
+        in: query
+        name: status
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Product list
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Invalid store_id
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: min, max products
+      tags:
+      - products
+  /product/min-max:
+    post:
+      consumes:
+      - application/json
+      description: Create min max product
+      parameters:
+      - description: Min Max request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.MinMaxProductRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create min max product
+      tags:
+      - products
+  /product/min-max/{id}:
+    put:
+      consumes:
+      - application/json
+      description: Update min max product
+      parameters:
+      - description: Min Max Product ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Min Max update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.MinMaxProductUpdate'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update min max product
       tags:
       - products
   /product/producer:

@@ -5,6 +5,7 @@ CREATE TABLE IF NOT EXISTS store_product_thresholds (
     "kvant" INTEGER DEFAULT 1,
     "min_quantity" NUMERIC(10,2) NOT NULL DEFAULT 0,
     "max_quantity" NUMERIC(10,2) NOT NULL DEFAULT 0,
+    "is_active" BOOLEAN NOT NULL DEFAULT TRUE,
     "created_at" TIMESTAMP DEFAULT NOW(),
     "updated_at" TIMESTAMP DEFAULT NOW(),
     UNIQUE (store_id, product_id)

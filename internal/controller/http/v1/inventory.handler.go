@@ -626,7 +626,7 @@ func (h *InventoryHandler) Cancel(c *gin.Context) {
 // @Param 	offset query int false "OFFSET"
 // @Param   inventory_id query string true "Inventory ID"
 // @Param   search 	query string false "SEARCH KEY"
-// @Param   type 	query string false "TYPE (ALL||surplus||shortage||zero_price)"
+// @Param   type 	query string false "TYPE (ALL||surplus||shortage||zero_price||checking)"
 // @Param   order 	query string false "ORDER (+name|-name|+current_sum|-current_sum|+fact_sum|-fact_sum|+difference_sum|-difference_sum)"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
