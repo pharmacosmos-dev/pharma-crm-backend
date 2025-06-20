@@ -256,6 +256,7 @@ func (h *Product1cHandler) ProductRepricing(c *gin.Context) {
 	// bind request body
 	err = c.ShouldBindJSON(&body)
 	if err != nil {
+		h.log.Warn("ERROR on binding request body: %v", err)
 		handleResponse(c, BadRequest, "invalid.request.body")
 		return
 	}

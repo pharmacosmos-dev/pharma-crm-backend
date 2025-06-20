@@ -176,7 +176,10 @@ func (s *Services) GetStoreProductByIdOrBarcode(id string, marking string, store
 	)
 
 	query := `
-	SELECT sp.*, p.unit_per_pack, p.barcode
+	SELECT 
+		sp.*, 
+		p.unit_per_pack, 
+		p.barcode
 	FROM store_products sp
 		JOIN products p ON sp.product_id = p.id
 	`

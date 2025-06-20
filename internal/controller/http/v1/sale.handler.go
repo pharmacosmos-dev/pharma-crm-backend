@@ -1028,15 +1028,16 @@ func (h *SaleHandler) AddDiscountCard(c *gin.Context) {
 		discountCard     domain.DiscountCard
 	)
 	// bind request body
-	if err := c.ShouldBindJSON(&body); err != nil {
-		handleResponse(c, BadRequest, "Invalid request body")
+	err := c.ShouldBindJSON(&body)
+	if err != nil {
+		handleResponse(c, BadRequest, "invalid.request.body")
 		return
 	}
 
 	// get discount card info by card number
-	err := h.db.First(&discountCard, "barcode = ?", body.Barcode).Error
+	err = h.db.First(&discountCard, "barcode = ?", body.Barcode).Error
 	if err != nil {
-		handleResponse(c, NotFound, "Discount card not found")
+		handleResponse(c, NotFound, "discount.card.not.found")
 		return
 	}
 
@@ -1044,22 +1045,35 @@ func (h *SaleHandler) AddDiscountCard(c *gin.Context) {
 	err = h.db.First(&customerDiscount, "customer_id = ? AND sale_id = ? AND discount_card_id = ? ", body.CustomerID, body.SaleID, discountCard.Id).Error
 	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
 		// create new customer_discounts
-		err = h.db.Raw(`INSERT INTO customer_discounts(customer_id, sale_id, discount_card_id) VALUES(?, ?, ?) RETURNING *`,
-			body.CustomerID, body.SaleID, discountCard.Id).Scan(&customerDiscount).Error
+		err = h.db.Raw(`INSERT INTO sale_customer_discounts(customer_id, sale_id, discount_card_id, discount_percent) VALUES(?, ?, ?, ?) RETURNING *`,
+			body.CustomerID, body.SaleID, discountCard.Id, discountCard.Percent).Scan(&customerDiscount).Error
 		if err != nil {
 			h.log.Warn("ERROR on creating sale discount: %v", err)
-			handleResponse(c, InternalError, "Can't create sale discount")
+			handleResponse(c, InternalError, "failed.create.sale.discount")
 			return
 		}
 	} else if err != nil {
 		// if error is not record not found
 		h.log.Warn("ERROR on getting discount card info: %v", err)
-		handleResponse(c, NotFound, "Can't get discount card")
+		handleResponse(c, NotFound, "failed.get.discount.card")
+		return
+	}
+	// update cart_items discount amount with total_price
+	err = h.db.Exec(`
+	UPDATE 
+		cart_items 
+	SET 
+		discount_amount = (total_price * ?)/100, 
+		discount_type = 'percent',
+		discount_value = ?
+	WHERE sale_id = ?;`, discountCard.Percent, discountCard.Percent, body.SaleID).Error
+	if err != nil {
+		h.log.Warn("ERROR on updating cart_items discount amount: %v", err)
+		handleResponse(c, InternalError, "failed.update.cart_items.discount")
 		return
 	}
 
 	handleResponse(c, OK, customerDiscount)
-
 }
 
 // List godoc

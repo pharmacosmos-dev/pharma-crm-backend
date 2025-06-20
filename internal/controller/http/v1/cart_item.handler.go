@@ -54,13 +54,13 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 	// get user id in context
 	vendorID, ok := c.Get("user_id")
 	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User not found")
+		handleResponse(c, UNAUTHORIZED, "user.unauthorized")
 		return
 	}
 	// bind request body
 	if err = c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
+		handleResponse(c, BadRequest, "invalid.request.body")
 		return
 	}
 
@@ -68,17 +68,17 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 	err = h.db.First(&sale, "id = ?", body.SaleId).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			handleResponse(c, NotFound, "Sale not found")
+			handleResponse(c, NotFound, "sale.not.found")
 			return
 		}
 		h.log.Warn("ERROR on getting sale info: %v", err)
-		handleResponse(c, InternalError, "Failed to get sale")
+		handleResponse(c, InternalError, "failed.get.sale")
 		return
 	}
 
 	// check sale status
 	if sale.Status == config.COMPLETED {
-		handleResponse(c, NotAcceptable, "This sale is already completed. You cannot use it again.")
+		handleResponse(c, NotAcceptable, "sale.already.completed")
 		return
 	}
 
@@ -130,8 +130,8 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 		}
 		// get cart item info
 		err = h.db.Raw(`
-		SELECT 
-			ci.*, 
+		SELECT
+			ci.*,
 			p.is_marking AS is_marking
 		FROM cart_items ci
 			JOIN store_products sp ON ci.store_product_id = sp.id
@@ -198,6 +198,7 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 		handleResponse(c, InternalError, "Cart Item updated but can't get")
 		return
 	}
+
 	handleResponse(c, OK, cartItem)
 }
 

@@ -1,6 +1,9 @@
 package config
 
-import "time"
+import (
+	"errors"
+	"time"
+)
 
 const (
 	// Access token expire time 24 hour
@@ -99,4 +102,12 @@ const (
 	FOUNDER    = "FOUNDER"
 	ACCOUNTANT = "ACCOUNTANT"
 	DIRECTOR   = "DIRECTOR"
+)
+
+// region error types
+var (
+	ErrNotFoundError      = errors.New("not.found")
+	ErrInvalidRequestBody = errors.New("invalid.request.body")
+	ErrUnauthorizedError  = errors.New("user.unauthorized")
+	ErrInternalError      = errors.New("internal.error")
 )

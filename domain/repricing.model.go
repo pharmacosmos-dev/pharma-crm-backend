@@ -53,14 +53,14 @@ type PriceRevalutionDetail struct {
 
 // price revalution detail request
 type PriceRevalutionDetailRequest struct {
-	PriceRevalutionId int        `gorm:"price_revalution_id" json:"price_revalution_id"`
-	ProductID         string     `gorm:"product_id" json:"product_id"`
-	StoreProductID    string     `gorm:"store_product_id" json:"store_product_id"`
-	OldRetailPrice    float64    `gorm:"old_retail_price" json:"old_retail_price"`
-	NewRetailPrice    float64    `gorm:"new_retail_price" json:"new_retail_price"`
-	OldSupplyPrice    float64    `gorm:"old_supply_price" json:"old_supply_price"`
-	OldExpireDate     *time.Time `gorm:"old_expire_date" json:"old_expire_date"`
-	SerialNumber      string     `gorm:"serial_number" json:"serial_number"`
+	PriceRevalutionId int     `gorm:"price_revalution_id" json:"price_revalution_id"`
+	ProductID         string  `gorm:"product_id" json:"product_id"`
+	StoreProductID    string  `gorm:"store_product_id" json:"store_product_id"`
+	OldRetailPrice    float64 `gorm:"old_retail_price" json:"old_retail_price"`
+	NewRetailPrice    float64 `gorm:"new_retail_price" json:"new_retail_price"`
+	OldSupplyPrice    float64 `gorm:"old_supply_price" json:"old_supply_price"`
+	OldExpireDate     string  `gorm:"old_expire_date" json:"old_expire_date"`
+	SerialNumber      string  `gorm:"serial_number" json:"serial_number"`
 }
 
 // update new price structure
@@ -73,16 +73,16 @@ type UpdateNewPrice struct {
 
 // Request structure for 1C API
 type ProductRepricingRequest struct {
-	Id             string     `gorm:"id" json:"id"`
-	MaterialCode   int        `gorm:"material_code" json:"material_code"`
-	Name           string     `gorm:"name" json:"name"`
-	Barcode        string     `gorm:"barcode" json:"barcode"`
-	Manufacturer   string     `gorm:"manufacturer" json:"manufacturer"`
-	SerialNumber   string     `gorm:"serial_number" json:"serial_number"`
-	RetailPrice    float64    `gorm:"retail_price" json:"retail_price"`
-	NewRetailPrice float64    `gorm:"new_retail_price" json:"new_retail_price"`
-	SupplyPrice    float64    `gorm:"supply_price" json:"supply_price"`
-	ExpireDate     *time.Time `gorm:"expire_date" json:"expire_date"`
+	Id             string  `gorm:"id" json:"id"`
+	MaterialCode   int     `gorm:"material_code" json:"material_code"`
+	Name           string  `gorm:"name" json:"name"`
+	Barcode        string  `gorm:"barcode" json:"barcode"`
+	Manufacturer   string  `gorm:"manufacturer" json:"manufacturer"`
+	SerialNumber   string  `gorm:"serial_number" json:"serial_number"`
+	RetailPrice    float64 `gorm:"retail_price" json:"retail_price"`
+	NewRetailPrice float64 `gorm:"new_retail_price" json:"new_retail_price"`
+	SupplyPrice    float64 `gorm:"supply_price" json:"supply_price"`
+	ExpireDate     string  `gorm:"expire_date" json:"expire_date"`
 }
 
 // Price revalution request
