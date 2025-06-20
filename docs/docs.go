@@ -11592,6 +11592,13 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Store ID",
+                        "name": "store_id",
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -19173,9 +19180,6 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "product_id": {
-                    "type": "string"
-                },
-                "store_id": {
                     "type": "string"
                 }
             }

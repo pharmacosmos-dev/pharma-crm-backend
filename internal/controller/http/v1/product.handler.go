@@ -215,6 +215,7 @@ func (h *ProductHandler) Create(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path string true "product ID"
+// @Param store_id query string true "Store ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -222,23 +223,36 @@ func (h *ProductHandler) Create(c *gin.Context) {
 func (h *ProductHandler) Get(c *gin.Context) {
 	var (
 		res domain.Product
-		err error
-		id  = c.Param("id")
+
+		id      = c.Param("id")
+		storeId = c.Query("store_id")
 	)
 	// validate id
-	if err = uuid.Validate(id); err != nil {
+	err := uuid.Validate(id)
+	if err != nil {
 		handleResponse(c, BadRequest, "Invalid product ID")
 		return
 	}
 	// get product query
-	err = h.db.
+	pquery := h.db.
 		Preload("UnitType").
 		Preload("Shelf").
 		Preload("Producer").
-		Select(`products.*, ROUND(COALESCE(MAX(sp.retail_price), 0), 2) AS retail_price`).
-		Joins("LEFT JOIN store_products sp ON products.id = sp.product_id").
+		Select(`
+			products.*, 
+			COALESCE(MAX(sp.retail_price), 0) AS retail_price
+			`).
+		Joins("LEFT JOIN store_products sp ON products.id = sp.product_id")
+
+	if storeId != "" {
+		pquery.Where("sp.store_id = ?", storeId)
+	}
+
+	err = pquery.
 		Group(`products.id`).
+		Debug().
 		First(&res, "products.id = ?", id).Error
+
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			handleResponse(c, NotFound, "Product not found")
@@ -248,6 +262,7 @@ func (h *ProductHandler) Get(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+
 	category := []*domain.Category{}
 	query := `
 	WITH RECURSIVE category_tree AS (

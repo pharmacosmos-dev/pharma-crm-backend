@@ -291,12 +291,20 @@ func (h *CartItemHandler) UpdateBySaleID(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	// start transaction
 	tx := h.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
 		}
 	}()
+	// rollback transaction if error occurs
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
 	var (
 		cartItems []domain.CartItem
 		sum       float64
@@ -309,6 +317,7 @@ func (h *CartItemHandler) UpdateBySaleID(c *gin.Context) {
 		handleResponse(c, InternalError, "Failed to fetch cart items")
 		return
 	}
+
 	// check cart_items count with 0
 	if count == 0 {
 		handleResponse(c, BadRequest, "Cart items not added yet")
@@ -368,15 +377,14 @@ func (h *CartItemHandler) UpdateBySaleID(c *gin.Context) {
 		if err != nil {
 			h.log.Error(err)
 			handleResponse(c, InternalError, "Failed to update cart items")
-			tx.Rollback()
 			return
 		}
 	}
 
-	if err = tx.Commit().Error; err != nil {
-		tx.Rollback()
+	err = tx.Commit().Error
+	if err != nil {
 		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		handleResponse(c, InternalError, "not.commited.transaction")
 		return
 	}
 	handleResponse(c, OK, body)

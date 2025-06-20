@@ -618,8 +618,6 @@ definitions:
         type: integer
       product_id:
         type: string
-      store_id:
-        type: string
     type: object
   domain.PaymentServiceRequest:
     properties:
@@ -7611,6 +7609,11 @@ paths:
       - description: product ID
         in: path
         name: id
+        required: true
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
         required: true
         type: string
       produces:
