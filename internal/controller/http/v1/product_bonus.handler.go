@@ -173,7 +173,7 @@ func (h *ProductBonusHandler) Update(c *gin.Context) {
 	)
 	// validate id
 	if id == "" {
-		handleResponse(c, BadRequest, "Invalid id")
+		handleResponse(c, BadRequest, "invalid.id")
 		return
 	}
 	// bind request body
@@ -184,7 +184,7 @@ func (h *ProductBonusHandler) Update(c *gin.Context) {
 	}
 	body.Status = 1
 	// update product bonus
-	err = h.db.Model(&domain.ProductBonus{}).Where("id = ?", id).Updates(&body).Error
+	err = h.db.Table("product_bonuses").Where("id = ?", id).Updates(&body).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())

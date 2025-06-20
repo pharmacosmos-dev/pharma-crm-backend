@@ -21,6 +21,7 @@ func (s *Services) ListCustomer(param *domain.QueryParam) ([]domain.Customer, in
 		Preload("Tag").
 		Select(`
 		customers.*,
+		COALESCE(dc.barcode, '') AS discount_card,
 		(SELECT created_at
 		FROM sales
 		WHERE sales.customer_id = customers.id
@@ -28,14 +29,14 @@ func (s *Services) ListCustomer(param *domain.QueryParam) ([]domain.Customer, in
 		AS sale_date,
 		COALESCE(SUM(sales.total_amount), 0) AS sale_amount`).
 		Joins("LEFT JOIN sales ON sales.customer_id = customers.id").
+		Joins("LEFT JOIN discount_cards dc ON dc.customer_id = customers.id").
 		Where("customers.is_active = ?", true)
 
 	if param.Search != "" {
 		fmt.Println("Search: ", utils.DefineProductSearchQuery(param.Search))
 		switch utils.DefineProductSearchQuery(param.Search) {
 		case "barcode":
-			query = query.Joins("LEFT JOIN discount_cards dc ON dc.customer_id = customers.id").
-				Where("dc.barcode = ?", param.Search)
+			query = query.Where("dc.barcode = ?", param.Search)
 		default:
 			query = query.Where("customers.full_name ILIKE ? OR customers.phone LIKE ? ",
 				"%"+param.Search+"%", "%"+param.Search+"%")
@@ -45,7 +46,7 @@ func (s *Services) ListCustomer(param *domain.QueryParam) ([]domain.Customer, in
 		query = query.Where("customers.store_id = ?", param.StoreID)
 	}
 	err := query.
-		Group("customers.id").
+		Group("customers.id, dc.barcode").
 		Count(&totalCount).
 		Limit(param.Limit).
 		Offset(param.Offset).

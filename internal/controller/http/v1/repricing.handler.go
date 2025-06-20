@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
+	"github.com/spf13/cast"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -57,22 +58,23 @@ func (h *RepricingHandler) Create(c *gin.Context) {
 	// Bind the request body to the ReturnRequest struct
 	if err := c.ShouldBindJSON(&request); err != nil {
 		h.log.Warn("Error on binding request: %v", err.Error())
-		handleResponse(c, BadRequest, "Invalid request body")
+		handleResponse(c, BadRequest, "invalid.request.body")
 		return
 	}
 	// get user_id from the set header
 	userId, ok := c.Get("user_id")
 	if !ok {
 		h.log.Warn("Error on getting user id from context")
-		handleResponse(c, BadRequest, "User not authorized")
+		handleResponse(c, BadRequest, "not.authorized")
 		return
 	}
-	*request.CreatedBy = userId.(string) // get creator id from set header
+	createdBy := cast.ToString(userId)
+	request.CreatedBy = &createdBy // get creator id from set header
 	// create repricing
 	_, err := h.service.CreateRepricing(&request)
 	if err != nil {
 		h.log.Warn("Error on creating repricing: %v", err)
-		handleResponse(c, InternalError, "Failed to create repricing")
+		handleResponse(c, InternalError, "failed.to.create.repricing")
 		return
 	}
 

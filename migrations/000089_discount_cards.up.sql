@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS sale_customer_discounts(
     "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     "sale_id" UUID REFERENCES sales(id),
     "customer_id" UUID REFERENCES customers(id),
+    "discount_card_id" UUID REFERENCES discount_cards(id),
     "discount_amount" NUMERIC(10, 2) DEFAULT 0.00,
     "discount_percent" INT,
     "created_at" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
