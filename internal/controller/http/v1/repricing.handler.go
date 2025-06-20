@@ -97,8 +97,8 @@ func (h *RepricingHandler) Get(c *gin.Context) {
 	// get return by id
 	id := c.Param("id")
 	// validate id
-	if err := uuid.Validate(id); err != nil {
-		handleResponse(c, BadRequest, "Invalid repricing id")
+	if id == "" {
+		handleResponse(c, BadRequest, "invalid.repricing.id")
 		return
 	}
 	// get repricing by id

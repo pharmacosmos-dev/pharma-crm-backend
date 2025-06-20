@@ -111,7 +111,7 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 	// get cart item
 	var cartItem domain.CartItem
 	err = h.db.First(&cartItem,
-		"store_product_id = ? AND sale_id = ?  AND status = 'pending'",
+		"store_product_id = ? AND sale_id = ?",
 		storeProduct.Id, body.SaleId).Error
 	if err == nil {
 		cartItem.Quantity++

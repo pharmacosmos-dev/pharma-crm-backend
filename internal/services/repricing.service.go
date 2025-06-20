@@ -98,7 +98,8 @@ func (s *Services) GetRepricingByID(repricingID string) (*domain.PriceRevalution
 		Select(`
 			price_revalutions.*
 			`).
-		First(&res, "imports.id = ?", repricingID).Error
+		Debug().
+		First(&res, "price_revalutions.id = ?", repricingID).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting write-off by id: %v", err)
 		return nil, err
