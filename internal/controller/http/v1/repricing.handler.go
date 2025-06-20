@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/spf13/cast"
@@ -317,8 +316,8 @@ func (h *RepricingHandler) Confirm(c *gin.Context) {
 func (h *RepricingHandler) Cancel(c *gin.Context) {
 	var id = c.Param("id")
 	// validate request uuid
-	if err := uuid.Validate(id); err != nil {
-		handleResponse(c, BadRequest, "Invalid repricing id")
+	if id == "" {
+		handleResponse(c, BadRequest, "invalid.repricing.id")
 		return
 	}
 	// get user id from the context

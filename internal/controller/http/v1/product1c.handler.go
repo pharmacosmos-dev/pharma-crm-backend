@@ -293,19 +293,28 @@ func (h *Product1cHandler) ProductRepricing(c *gin.Context) {
 			tx.Rollback()
 		}
 	}()
-	// create new price revalution
-	res, err := h.service.CreateRepricingBy1C(tx, &domain.RepricingRequest{
-		Name:      body.Dok.DocumentNumber,
-		StoreId:   store.Id,
-		CreatedBy: nil,
-		Type:      "retail_price",
-		Status:    config.COMPLETED,
-	})
+	// check if price revalution already exists
+	var res *domain.PriceRevalution
+	err = tx.First(&res, "name = ? ", body.Dok.DocumentNumber).Error
 	if err != nil {
-		h.log.Warn("ERROR on creating new price_revalution: %v", err)
-		handleResponse(c, InternalError, "failed.to.create.repricing")
-		return
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// create new price revalution
+			res, err = h.service.CreateRepricingBy1C(tx, &domain.RepricingRequest{
+				Name:      body.Dok.DocumentNumber,
+				StoreId:   store.Id,
+				CreatedBy: nil,
+				Type:      "retail_price",
+				Status:    config.COMPLETED,
+			})
+			if err != nil {
+				h.log.Warn("ERROR on creating new price_revalution: %v", err)
+				handleResponse(c, InternalError, "failed.to.create.repricing")
+				return
+			}
+		}
+
 	}
+
 	// collect price revalution details
 	var products []domain.PriceRevalutionDetailRequest
 	for _, v := range body.Товары {

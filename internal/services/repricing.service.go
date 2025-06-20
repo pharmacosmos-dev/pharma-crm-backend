@@ -80,11 +80,31 @@ func (s *Services) CreateRepricingBy1C(tx *gorm.DB, req *domain.RepricingRequest
 
 // create price_revalution detail
 func (s *Services) CreatePriceRevalutionDetail(tx *gorm.DB, req []domain.PriceRevalutionDetailRequest) error {
-	err := tx.Table("price_revalution_details").Create(&req).Error
-	if err != nil {
-		s.log.Warn("ERROR on creating: %v", err)
-		return err
+	query := `
+	INSERT INTO price_revalution_details(
+		price_revalution_id,
+		store_product_id,
+		product_id,
+		old_supply_price,
+		old_retail_price,
+		new_retail_price,
+		old_expire_date, 
+		serial_number
+		) 
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+	ON CONFLICT (store_product_id, price_revalution_id) 
+	DO UPDATE SET
+		new_retail_price = EXCLUDED.new_retail_price
+	`
+	for _, v := range req {
+		err := tx.Exec(query, v.PriceRevalutionId, v.StoreProductID, v.ProductID, v.OldSupplyPrice, v.OldRetailPrice, v.NewRetailPrice, v.OldExpireDate, v.SerialNumber).Error
+		if err != nil {
+			s.log.Warn("ERROR on updating price_revalution_details: %v", err)
+			tx.Rollback()
+			return err
+		}
 	}
+
 	return nil
 }
 
@@ -98,7 +118,6 @@ func (s *Services) GetRepricingByID(repricingID string) (*domain.PriceRevalution
 		Select(`
 			price_revalutions.*
 			`).
-		Debug().
 		First(&res, "price_revalutions.id = ?", repricingID).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting write-off by id: %v", err)
@@ -118,7 +137,7 @@ func (s *Services) RepricingList(param *domain.QueryParam) ([]domain.PriceRevalu
 		Preload("Store").
 		Preload("CreatedBy").
 		Preload("UpdatedBy").
-		Select(`price_revalutions.*, SUM(prd.scanned_count) AS count
+		Select(`price_revalutions.*, COUNT(prd.store_product_id) AS count
 		`).Joins("LEFT JOIN price_revalution_details prd ON price_revalutions.id = prd.price_revalution_id").
 		Group("price_revalutions.id")
 
@@ -273,11 +292,29 @@ func (s *Services) ConfirmRepricing(repricingID int, updatedBy string) error {
 
 // cancel repricing
 func (s *Services) CancelRepricing(repricingID string, updatedBy string) error {
+	// check if repricing exists
 	err := s.db.Exec(`UPDATE price_revalutions SET status = ?, updated_by = ?, updated_at = NOW() WHERE id = ?`,
 		config.CANCELED, updatedBy, repricingID).Error
 	if err != nil {
 		s.log.Warn("ERROR on canceling repricing: %v", err)
 		return err
 	}
+	// get all details for the repricing
+	var details []domain.PriceRevalutionDetail
+	err = s.db.Find(&details, "price_revalution_id = ?", repricingID).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting price_revalution_detail list: %v", err)
+		return err
+	}
+	// update store_products retail_price with old retail price
+	for _, v := range details {
+		err = s.db.Exec(`UPDATE store_products SET retail_price = ? WHERE id = ?`,
+			v.OldRetailPrice, v.StoreProductID).Error
+		if err != nil {
+			s.log.Warn("ERROR on updating store_product price: %v", err)
+			return err
+		}
+	}
+
 	return nil
 }

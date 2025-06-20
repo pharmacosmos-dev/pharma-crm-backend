@@ -24,5 +24,6 @@ CREATE TABLE IF NOT EXISTS price_revalution_details(
     "new_expire_date" DATE,
     "serial_number" VARCHAR(255),
     "created_at" TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
-    "updated_at" TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW() 
+    "updated_at" TIMESTAMP WITHOUT TIME ZONE DEFAULT NOW(),
+    UNIQUE (store_product_id, price_revalution_id)
 );
