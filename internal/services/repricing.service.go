@@ -201,8 +201,18 @@ func (s *Services) RepricingDetailList(repricingID int, param *domain.QueryParam
 		prd.old_expire_date, 
 		prd.new_expire_date,
 		prd.serial_number,
-		ROUND(((prd.old_retail_price - prd.old_supply_price)/prd.old_supply_price)*100, 0) AS old_markup,
-		ROUND(((prd.new_retail_price - prd.old_supply_price)/prd.old_supply_price)*100, 0) AS new_markup,
+		ROUND(
+          CASE
+            WHEN prd.old_supply_price = 0 THEN 0
+            ELSE ((prd.old_retail_price - prd.old_supply_price) / prd.old_supply_price) * 100
+          END, 0
+        ) AS old_markup,
+        ROUND(
+          CASE
+            WHEN prd.old_supply_price = 0 THEN 0
+            ELSE ((prd.new_retail_price - prd.old_supply_price) / prd.old_supply_price) * 100
+          END, 0
+        ) AS new_markup,
 		p.name, p.barcode,
 		COUNT(*) OVER() AS total_count
 	FROM price_revalution_details prd
