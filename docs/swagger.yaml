@@ -1268,6 +1268,9 @@ definitions:
     type: object
   domain.UpdateIsMarking:
     properties:
+      id:
+        description: this id is store_product_id
+        type: string
       is_marking:
         type: boolean
       product_id:
@@ -8542,6 +8545,38 @@ paths:
       security:
       - BearerAuth: []
       summary: Soft Delete a product
+      tags:
+      - products
+  /product/store-is-marking:
+    patch:
+      consumes:
+      - application/json
+      description: Update store_product is_marking
+      parameters:
+      - description: Update product is marking
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UpdateIsMarking'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated is marking
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Invalid product id or is marking
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update store_product is_marking
       tags:
       - products
   /product/store-product/{id}:

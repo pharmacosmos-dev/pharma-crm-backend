@@ -75,6 +75,7 @@ type ImportDetail struct {
 	Mxik              string     `gorm:"mxik" json:"mxik"`
 	UnitCode          string     `gorm:"unit_code" json:"unit_code"`
 	UnitLabel         string     `gorm:"unit_label" json:"unit_label"`
+	IsMarking         bool       `gorm:"is_marking" json:"is_marking"`
 	Product           *Product   `gorm:"references:Id;foreignKey:ProductID" json:"product"`
 	Import            *Import    `gorm:"foreignKey:ImportID" json:"import"`
 	StoreProductId    string     `gorm:"store_product_id" json:"store_product_id"`

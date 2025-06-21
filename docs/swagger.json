@@ -11178,6 +11178,57 @@
                 }
             }
         },
+        "/product/store-is-marking": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update store_product is_marking",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Update store_product is_marking",
+                "parameters": [
+                    {
+                        "description": "Update product is marking",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.UpdateIsMarking"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Updated is marking",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid product id or is marking",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/product/store-product/{id}": {
             "get": {
                 "security": [
@@ -20161,6 +20212,10 @@
         "domain.UpdateIsMarking": {
             "type": "object",
             "properties": {
+                "id": {
+                    "description": "this id is store_product_id",
+                    "type": "string"
+                },
                 "is_marking": {
                     "type": "boolean"
                 },

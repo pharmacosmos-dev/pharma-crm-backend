@@ -64,6 +64,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.GET("/list-by-import", h.ProductListByImport)
 		product.GET("/export-by-import", h.ExportProductListByImport)
 		product.PUT("/update-mxik-import/:id", h.UpdateProductIkpuForStoreProduct)
+		product.PATCH("/store-is-marking", h.UpdateStoreProductIsMarking)
 		product.POST("/min-max", h.CreateMinMaxProduct)
 		product.PUT("/min-max/:id", h.UpdateMinMaxProduct)
 		product.GET("/min-max/:id", h.GetMinMaxProductById)
@@ -2004,6 +2005,49 @@ func (h *ProductHandler) UpdateProductIkpuForStoreProduct(c *gin.Context) {
 			return
 		}
 	}
+
+	if body.Barcode != "" {
+		err = h.db.Exec("UPDATE store_products SET barcode = ? WHERE id = ?", body.Barcode, id).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+	}
+
+	handleResponse(c, OK, "UPDATED")
+}
+
+// Update store_product is_marking
+// @Summary Update store_product is_marking
+// @Description Update store_product is_marking
+// @Tags products
+// @Security BearerAuth
+// @Accept  json
+// @Produce json
+// @Param 	body body domain.UpdateIsMarking true "Update product is marking"
+// @Success 200 {object} v1.Response "Updated is marking"
+// @Failure 400 {object} v1.Response "Invalid product id or is marking"
+// @Failure 500 {object} v1.Response "Internal server error"
+// @Router /product/store-is-marking [patch]
+func (h *ProductHandler) UpdateStoreProductIsMarking(c *gin.Context) {
+	var (
+		body domain.UpdateIsMarking
+		err  error
+	)
+	// bind request body
+	if err = c.ShouldBindJSON(&body); err != nil {
+		handleResponse(c, BadRequest, "Invalid received info, Please try again")
+		return
+	}
+	// update is_marking service
+	err = h.db.Exec(`UPDATE store_products SET is_marking = ? WHERE id = ?`, body.IsMarking, body.ID).Error
+	if err != nil {
+		h.log.Warn("ERROR on updating store_product is_marking: %v", err)
+		handleResponse(c, InternalError, "failed.update.store_product.is_marking")
+		return
+	}
+
 	handleResponse(c, OK, "UPDATED")
 }
 

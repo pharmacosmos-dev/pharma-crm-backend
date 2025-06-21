@@ -251,6 +251,7 @@ type UpdateBarcodeRequest struct {
 
 // update is marking request
 type UpdateIsMarking struct {
+	ID        string `json:"id"` // this id is store_product_id
 	ProductId string `json:"product_id"`
 	IsMarking bool   `json:"is_marking"`
 }

@@ -19,9 +19,9 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 	SELECT
 		ci.*,
 		p.name,
-		p.barcode,
+		COALESCE(sp.barcode, p.barcode) AS barcode,
 		p.unit_per_pack,
-		p.is_marking,
+		sp.is_marking,
 		sp.expire_date,
 		pb.bonus_amount as bonus_amount,
 		sp.vat AS vat_percent,
