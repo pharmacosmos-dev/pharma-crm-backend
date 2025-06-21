@@ -775,7 +775,7 @@ func (s *Services) GetProductListByImport(param *domain.ProductQueryParam) ([]do
 		st.name AS store_name,
 		COALESCE(im.document_number, '') AS import_number,
 		p.name,
-		p.barcode,
+		COALESCE(sp.barcode, p.barcode) AS barcode,
 		COALESCE(pr.name, '') as producer_name,
 		sp.pack_quantity as quantity,
 		(sp.unit_quantity % p.unit_per_pack) AS unit_quantity,
