@@ -172,9 +172,9 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 	// get cart item info
 	err = h.db.Raw(`
 	SELECT 
-		ci.*, 
+		ci.*,
 		p.is_marking AS is_marking
-	FROM cart_items ci 
+	FROM cart_items ci
 		JOIN store_products sp ON ci.store_product_id = sp.id
 		JOIN products p ON sp.product_id = p.id 
 		WHERE ci.id = ?
