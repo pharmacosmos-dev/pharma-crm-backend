@@ -3,7 +3,6 @@ package v1
 import (
 	"context"
 	"fmt"
-	"gorm.io/gorm"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -814,28 +813,6 @@ func (h *ReportHandler) ReportTopProducts(c *gin.Context) {
 	}
 	// get limit offset with checking default
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
-	// get user id from header
-	vendorID, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
-		return
-	}
-	// get employee info
-	var employee domain.Employee
-	err = h.db.First(&employee, "id = ?", vendorID).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		h.log.Error("ERROR on getting employee info: ", err)
-		handleResponse(c, InternalError, "Can't get employee info")
-		return
-	}
-	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) && employee.StoreId != "" {
-		param.StoreIds = []string{employee.StoreId}
-	}
 	// get report TopProducts data
 	res, totalCount, err := h.service.ReportTopProducts(&param)
 	if err != nil {
@@ -877,32 +854,10 @@ func (h *ReportHandler) ReportTopSeller(c *gin.Context) {
 	}
 	// get limit offset with checking default
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
-	// get user id from header
-	vendorID, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
-		return
-	}
-	// get employee info
-	var employee domain.Employee
-	err = h.db.First(&employee, "id = ?", vendorID).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		h.log.Error("ERROR on getting employee info: ", err)
-		handleResponse(c, InternalError, "Can't get employee info")
-		return
-	}
-	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) && employee.StoreId != "" {
-		param.StoreIds = []string{employee.StoreId}
-	}
-	// get dashboard data
+	// get top seller data
 	res, totalCount, err := h.service.ReportTopSeller(&param)
 	if err != nil {
-		handleResponse(c, InternalError, "Can't get dashboard data")
+		handleResponse(c, InternalError, "Can't get top seller data")
 		return
 	}
 	result := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
@@ -935,32 +890,10 @@ func (h *ReportHandler) ReportTopStores(c *gin.Context) {
 	}
 	// get limit offset with checking default
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
-	// get user id from header
-	vendorID, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
-		return
-	}
-	// get employee info
-	var employee domain.Employee
-	err = h.db.First(&employee, "id = ?", vendorID).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		h.log.Error("ERROR on getting employee info: ", err)
-		handleResponse(c, InternalError, "Can't get employee info")
-		return
-	}
-	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) && employee.StoreId != "" {
-		param.StoreIds = []string{employee.StoreId}
-	}
-	// get dashboard data
+	// get top stores data
 	res, totalCount, err := h.service.ReportTopStores(&param)
 	if err != nil {
-		handleResponse(c, InternalError, "Can't get dashboard data")
+		handleResponse(c, InternalError, "Can't get top stores data")
 		return
 	}
 	result := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
@@ -1000,33 +933,10 @@ func (h *ReportHandler) ReportBonusProducts(c *gin.Context) {
 
 	// get limit offset with checking default
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
-	// get user id from header
-	vendorID, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
-		return
-	}
-	// get employee info
-	var employee domain.Employee
-	err = h.db.First(&employee, "id = ?", vendorID).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		h.log.Error("ERROR on getting employee info: ", err)
-		handleResponse(c, InternalError, "Can't get employee info")
-		return
-	}
-
-	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) && employee.StoreId != "" {
-		param.StoreIds = []string{employee.StoreId}
-	}
-	// get dashboard data
+	// get bonus products data
 	res, totalCount, err := h.service.ReportBonusProducts(&param)
 	if err != nil {
-		handleResponse(c, InternalError, "Can't get dashboard data")
+		handleResponse(c, InternalError, "Can't get bonus products data")
 		return
 	}
 	result := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
