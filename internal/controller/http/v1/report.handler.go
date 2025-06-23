@@ -3,6 +3,7 @@ package v1
 import (
 	"context"
 	"fmt"
+	"gorm.io/gorm"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -38,6 +39,10 @@ func (h *ReportHandler) ReportRoutes(r *gin.RouterGroup) {
 		report.POST("/store-amount", h.StoreReportAmount)
 		report.POST("/store-amount/export-excel", h.StoreReportAmountExport)
 		report.POST("/store-stats", h.StoreReportStats)
+		report.POST("/top-products", h.ReportTopProducts)
+		report.POST("/top-seller", h.ReportTopSeller)
+		report.POST("/top-stores", h.ReportTopStores)
+		report.POST("/bonus-products", h.ReportBonusProducts)
 	}
 }
 
@@ -776,4 +781,255 @@ func (h *ReportHandler) StoreReportStats(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, res)
+}
+
+// Top Products godoc
+// @Summary Get top products
+// @Description Get top products
+// @Tags Report
+// @Security     BearerAuth
+// @Produce json
+// @Param   limit 	query int false "Limit"
+// @Param 	offset query int false 	"Offset"
+// @Param   start_date 	query string false "Start Date"
+// @Param   end_date 	query string false "End Date"
+// @Param   store_id 	query string false "Store ID"
+// @Param   store_ids  	body  []string  false  "Store ids"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /report/top-products [POST]
+func (h *ReportHandler) ReportTopProducts(c *gin.Context) {
+	var param domain.ReportQueryParam
+	// bind query parameters
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
+		handleResponse(c, BadRequest, "Invalid query parameters")
+		return
+	}
+	// bind store ids
+	if err = c.ShouldBindJSON(&param.StoreIds); err != nil {
+		handleResponse(c, BadRequest, "Invalid store ids")
+		return
+	}
+	// get limit offset with checking default
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	// get user id from header
+	vendorID, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	// get employee info
+	var employee domain.Employee
+	err = h.db.First(&employee, "id = ?", vendorID).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		h.log.Error("ERROR on getting employee info: ", err)
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(employee, h.cfg) && employee.StoreId != "" {
+		param.StoreIds = []string{employee.StoreId}
+	}
+	// get report TopProducts data
+	res, totalCount, err := h.service.ReportTopProducts(&param)
+	if err != nil {
+		handleResponse(c, InternalError, "Can't get report top products data")
+		return
+	}
+
+	result := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+	handleResponse(c, OK, result)
+}
+
+// Top Bonus Products godoc
+// @Summary Get bonus products
+// @Description Get bonus products
+// @Tags Report
+// @Security     BearerAuth
+// @Produce json
+// @Param   limit 	query int false "Limit"
+// @Param 	offset query int false 	"Offset"
+// @Param   start_date 	query string false "Start Date"
+// @Param   end_date 	query string false "End Date"
+// @Param   store_id 	query string false "Store ID"
+// @Param   store_ids  	body  []string  false  "Store ids"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /report/top-seller [POST]
+func (h *ReportHandler) ReportTopSeller(c *gin.Context) {
+	var param domain.ReportQueryParam
+	// bind query parameters
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
+		handleResponse(c, BadRequest, "Invalid query parameters")
+		return
+	}
+	// bind store ids
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&param.StoreIds)
+	}
+	// get limit offset with checking default
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	// get user id from header
+	vendorID, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	// get employee info
+	var employee domain.Employee
+	err = h.db.First(&employee, "id = ?", vendorID).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		h.log.Error("ERROR on getting employee info: ", err)
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(employee, h.cfg) && employee.StoreId != "" {
+		param.StoreIds = []string{employee.StoreId}
+	}
+	// get dashboard data
+	res, totalCount, err := h.service.ReportTopSeller(&param)
+	if err != nil {
+		handleResponse(c, InternalError, "Can't get dashboard data")
+		return
+	}
+	result := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+
+	handleResponse(c, OK, result)
+}
+
+// Top Stores godoc
+// @Summary Get top stores
+// @Description Get top stores
+// @Tags Report
+// @Security     BearerAuth
+// @Produce json
+// @Param   start_date 	query string false "Start Date"
+// @Param   end_date 	query string false "End Date"
+// @Param   limit 	query int false "Limit"
+// @Param 	offset query int false 	"Offset"
+// @Param   store_id 	query string false "Store ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /report/top-stores [POST]
+func (h *ReportHandler) ReportTopStores(c *gin.Context) {
+	var param domain.ReportQueryParam
+	// bind query parameters
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
+		handleResponse(c, BadRequest, "Invalid query parameters")
+		return
+	}
+	// get limit offset with checking default
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	// get user id from header
+	vendorID, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	// get employee info
+	var employee domain.Employee
+	err = h.db.First(&employee, "id = ?", vendorID).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		h.log.Error("ERROR on getting employee info: ", err)
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(employee, h.cfg) && employee.StoreId != "" {
+		param.StoreIds = []string{employee.StoreId}
+	}
+	// get dashboard data
+	res, totalCount, err := h.service.ReportTopStores(&param)
+	if err != nil {
+		handleResponse(c, InternalError, "Can't get dashboard data")
+		return
+	}
+	result := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+
+	handleResponse(c, OK, result)
+}
+
+// Top Bonus Products godoc
+// @Summary Get bonus products
+// @Description Get bonus products
+// @Tags Report
+// @Security     BearerAuth
+// @Produce json
+// @Param   limit 	query int false "Limit"
+// @Param 	offset query int false 	"Offset"
+// @Param   start_date 	query string false "Start Date"
+// @Param   end_date 	query string false "End Date"
+// @Param   store_id 	query string false "Store ID"
+// @Param   store_ids  	body  []string  false  "Store ids"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /report/bonus-products [POST]
+func (h *ReportHandler) ReportBonusProducts(c *gin.Context) {
+	var param domain.ReportQueryParam
+	// bind query parameters
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
+		handleResponse(c, BadRequest, "Invalid query parameters")
+		return
+	}
+	// bind store ids
+	if err = c.ShouldBindJSON(&param.StoreIds); err != nil {
+		handleResponse(c, BadRequest, "Invalid store ids")
+		return
+	}
+
+	// get limit offset with checking default
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	// get user id from header
+	vendorID, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	// get employee info
+	var employee domain.Employee
+	err = h.db.First(&employee, "id = ?", vendorID).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		h.log.Error("ERROR on getting employee info: ", err)
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(employee, h.cfg) && employee.StoreId != "" {
+		param.StoreIds = []string{employee.StoreId}
+	}
+	// get dashboard data
+	res, totalCount, err := h.service.ReportBonusProducts(&param)
+	if err != nil {
+		handleResponse(c, InternalError, "Can't get dashboard data")
+		return
+	}
+	result := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+
+	handleResponse(c, OK, result)
 }

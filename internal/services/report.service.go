@@ -494,3 +494,219 @@ func (s *Services) ReportByStoreStats(param *domain.ReportQueryParam) (domain.St
 
 	return res, nil
 }
+
+// get report top products
+func (s *Services) ReportTopProducts(param *domain.ReportQueryParam) ([]domain.TopProducts, int64, error) {
+	// declaration
+	var (
+		res        []domain.TopProducts
+		totalCount int64
+	)
+	// query
+	var (
+		args  []any
+		query = `
+		SELECT
+			p.id, p.name,
+			CAST(SUM(ci.quantity) AS TEXT) || ',' || CAST(SUM(ci.unit_quantity) AS TEXT) AS count,
+			sum(ci.total_price) as total_amount,
+			COUNT(1) OVER() AS total_count
+		FROM cart_items ci
+			JOIN store_products sp ON ci.store_product_id = sp.id
+			JOIN products p on sp.product_id = p.id`
+		filter = " WHERE 1 = 1 "
+		group  = " GROUP BY p.id, p.name"
+		order  = " ORDER BY total_amount DESC"
+	)
+	if param.StoreId != "" {
+		filter += " AND sp.store_id = ?"
+		args = append(args, param.StoreId)
+	}
+
+	if len(param.StoreIds) > 0 {
+		filter += " AND sp.store_id IN (?)"
+		args = append(args, param.StoreIds)
+	}
+
+	if len(param.StoreIds) > 0 {
+		filter += " AND sp.store_id IN (?)"
+		args = append(args, param.StoreIds)
+	}
+
+	if param.StartDate != "" && param.EndDate == "" {
+		filter += " AND ci.updated_at::date = ?"
+		args = append(args, param.StartDate)
+	}
+	if param.StartDate != "" && param.EndDate != "" {
+		filter += " AND ci.updated_at::date >= ? AND ci.updated_at::date <= ?"
+		args = append(args, param.StartDate, param.EndDate)
+	}
+	args = append(args, param.Limit, param.Offset)
+	var q = query + filter + group + order + " LIMIT ? OFFSET ?"
+	err := s.db.Raw(q, args...).Scan(&res).Error
+	if err != nil {
+		s.log.Error("ERROR on getting top products: ", err)
+		return nil, totalCount, err
+	}
+	// get total count
+	if len(res) > 0 {
+		totalCount = res[0].TotalCount
+	}
+
+	return res, totalCount, nil
+}
+
+// get report top seller
+func (s *Services) ReportTopSeller(param *domain.ReportQueryParam) ([]domain.TopSeller, int64, error) {
+	// declaration
+	var (
+		res        []domain.TopSeller
+		totalCount int64
+	)
+	// query
+	var (
+		args  []any
+		query = `
+		SELECT
+			e.id,
+			e.full_name,
+			st.name AS store_name,
+			COUNT(s.id) AS count,
+			SUM(s.total_amount) AS total_amount,
+			COUNT(1) OVER() AS total_count
+		FROM sales s
+		INNER JOIN employees e ON s.employee_id = e.id
+		INNER JOIN stores st ON s.store_id = st.id
+		`
+		filter = "	WHERE s.status = 'completed' AND s.sale_type = 'SALE' "
+		group  = " GROUP BY e.id, st.id "
+		order  = " ORDER BY total_amount DESC"
+		offset = " LIMIT ? OFFSET ?"
+	)
+	if param.StoreId != "" {
+		filter += " AND s.store_id = ?"
+		args = append(args, param.StoreId)
+	}
+	// check store_ids
+	if len(param.StoreIds) > 0 {
+		filter += " AND s.store_id IN (?)"
+		args = append(args, param.StoreIds)
+	}
+	// check end_date for empty string
+	if param.EndDate == "" {
+		param.EndDate = param.StartDate
+	}
+	if param.StartDate != "" && param.EndDate != "" {
+		filter += " AND s.completed_at::date BETWEEN ? AND  ?"
+		args = append(args, param.StartDate, param.EndDate)
+	}
+	args = append(args, param.Limit, param.Offset)
+	var q = query + filter + group + order + offset
+	err := s.db.Raw(q, args...).Scan(&res).Error
+	if err != nil {
+		s.log.Error("ERROR on getting top seller: ", err)
+		return nil, totalCount, err
+	}
+	// get total count
+	if len(res) > 0 {
+		totalCount = res[0].TotalCount
+	}
+
+	return res, totalCount, nil
+}
+
+func (s *Services) ReportTopStores(param *domain.ReportQueryParam) ([]domain.TopStores, int64, error) {
+	// declaration
+	var (
+		res        []domain.TopStores
+		totalCount int64
+	)
+	// query
+	var (
+		args   []any
+		query  = `SELECT stores.id, stores.name, COUNT(*) AS count, SUM(sales.total_amount) AS total_amount,COUNT(1) OVER() AS total_count FROM sales INNER JOIN stores ON sales.store_id = stores.id`
+		filter = " WHERE sales.status = 'completed'"
+		group  = " GROUP BY stores.id"
+		order  = " ORDER BY total_amount DESC"
+	)
+	if param.StoreId != "" {
+		filter += " AND sales.store_id = ?"
+		args = append(args, param.StoreId)
+	}
+	if param.StartDate != "" && param.EndDate == "" {
+		filter += " AND sales.completed_at::date = ?"
+		args = append(args, param.StartDate)
+	}
+	if param.StartDate != "" && param.EndDate != "" {
+		filter += " AND sales.completed_at::date >= ? AND sales.completed_at::date <= ?"
+		args = append(args, param.StartDate, param.EndDate)
+	}
+
+	var q = query + filter + group + order + " LIMIT ? OFFSET ?"
+	args = append(args, param.Limit, param.Offset)
+	err := s.db.Raw(q, args...).Scan(&res).Error
+	if err != nil {
+		s.log.Error(err)
+		return nil, totalCount, err
+	}
+	// get total count
+	if len(res) > 0 {
+		totalCount = res[0].TotalCount
+	}
+	return res, totalCount, nil
+}
+
+// get dashboard bonus products
+func (s *Services) ReportBonusProducts(param *domain.ReportQueryParam) ([]domain.BonusProducts, int64, error) {
+	// declaration
+	var (
+		res        []domain.BonusProducts
+		totalCount int64
+	)
+	// checking end date for empty
+	if param.EndDate == "" {
+		param.EndDate = param.StartDate
+	}
+	// query
+	var (
+		args  []any
+		query = `
+		SELECT
+			p.id, p.name,
+			SUM(eb.quantity) + SUM(eb.unit_quantity)/p.unit_per_pack || ',' || SUM(eb.unit_quantity)%p.unit_per_pack AS count,
+			SUM(eb.bonus_amount) AS bonus_amount,
+			COUNT(1) OVER() AS total_count
+		FROM employee_bonus eb
+		JOIN products p ON eb.product_id = p.id
+		`
+		join   = ""
+		filter = " WHERE 1 = 1 "
+		group  = " GROUP BY p.id "
+		order  = " ORDER BY count DESC"
+	)
+
+	// check store_ids
+	if len(param.StoreIds) > 0 {
+		filter += " AND e.store_id IN (?) "
+		join = " JOIN employees e ON eb.employee_id = e.id "
+		args = append(args, param.StoreIds)
+	}
+
+	if param.StartDate != "" && param.EndDate != "" {
+		filter += " AND (eb.created_at + interval '5 hours')::date BETWEEN ? AND ?"
+		args = append(args, param.StartDate, param.EndDate)
+	}
+	query = query + join + filter + group + order + " LIMIT ? OFFSET ?"
+	args = append(args, param.Limit, param.Offset)
+	err := s.db.Raw(query, args...).Scan(&res).Error
+	if err != nil {
+		s.log.Error("ERROR on getting bonus products: ", err)
+		return nil, totalCount, err
+	}
+	// get total count
+	if len(res) > 0 {
+		totalCount = res[0].TotalCount
+	}
+
+	return res, totalCount, nil
+}

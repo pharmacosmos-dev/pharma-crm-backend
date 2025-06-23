@@ -35,6 +35,7 @@ type TopStores struct {
 	Id          string  `gorm:"id" json:"id"`
 	Name        string  `gorm:"name" json:"name"`
 	Count       int64   `gorm:"count" json:"count"`
+	TotalCount  int64   `gorm:"total_count" json:"total_count"`
 	TotalAmount float64 `gorm:"total_amount" json:"total_amount"`
 }
 
@@ -43,6 +44,7 @@ type TopProducts struct {
 	Id          string  `gorm:"id" json:"id"`
 	Name        string  `gorm:"name" json:"name"`
 	Count       string  `gorm:"count" json:"count"`
+	TotalCount  int64   `gorm:"total_count" json:"total_count"`
 	TotalAmount float64 `gorm:"total_amount" json:"total_amount"`
 }
 
@@ -51,6 +53,7 @@ type BonusProducts struct {
 	Id          string  `gorm:"id" json:"id"`
 	Name        string  `gorm:"name" json:"name"`
 	Count       string  `gorm:"count" json:"count"`
+	TotalCount  int64   `gorm:"total_count" json:"total_count"`
 	BonusAmount float64 `gorm:"bonus_amount" json:"bonus_amount"`
 }
 
@@ -60,6 +63,7 @@ type TopSeller struct {
 	FullName    string  `gorm:"full_name" json:"full_name"`
 	StoreName   string  `gorm:"store_name" json:"store_name"`
 	Count       float64 `gorm:"count" json:"count"`
+	TotalCount  int64   `gorm:"total_count" json:"total_count"`
 	TotalAmount float64 `gorm:"total_amount" json:"total_amount"`
 }
 
