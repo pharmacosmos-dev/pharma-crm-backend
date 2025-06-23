@@ -1093,20 +1093,39 @@ func (h *SaleHandler) RemoveCustomerDiscount(c *gin.Context) {
 		body domain.AddDiscountCard
 	)
 	// bind request body
-	if err := c.ShouldBindJSON(&body); err != nil {
+	err := c.ShouldBindJSON(&body)
+	if err != nil {
 		handleResponse(c, BadRequest, "Invalid request body")
 		return
 	}
+	tx := h.db.Begin()
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
 	// delete customer discount by customer id
-	err := h.db.Exec(`DELETE FROM sale_customer_discounts WHERE customer_id = ? AND sale_id = ?`,
+	err = tx.Exec(`DELETE FROM sale_customer_discounts WHERE customer_id = ? AND sale_id = ?`,
 		body.CustomerID, body.SaleID).Error
 	if err != nil {
 		h.log.Warn("ERROR on deleting customer discount: %v", err)
 		handleResponse(c, InternalError, "Can't delete customer discount")
 		return
 	}
+	// update discount_type and value to 0
+	err = tx.Exec(`UPDATE cart_items SET discount_value = ?, discount_type = ? WHERE sale_id = ?`, 0, "percent", body.SaleID).Error
+	if err != nil {
+		handleResponse(c, InternalError, "failed.update.cart_items")
+		return
+	}
 
-	
+	// commit transaction
+	err = tx.Commit().Error
+	if err != nil {
+		handleResponse(c, InternalError, "transcation.not.commited")
+		return
+	}
 
 	handleResponse(c, OK, "DELETED")
 
