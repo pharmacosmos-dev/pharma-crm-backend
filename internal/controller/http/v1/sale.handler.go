@@ -1098,13 +1098,15 @@ func (h *SaleHandler) RemoveCustomerDiscount(c *gin.Context) {
 		return
 	}
 	// delete customer discount by customer id
-	err := h.db.Exec(`DELETE FROM customer_discounts WHERE customer_id = ? AND sale_id = ?`,
+	err := h.db.Exec(`DELETE FROM sale_customer_discounts WHERE customer_id = ? AND sale_id = ?`,
 		body.CustomerID, body.SaleID).Error
 	if err != nil {
 		h.log.Warn("ERROR on deleting customer discount: %v", err)
 		handleResponse(c, InternalError, "Can't delete customer discount")
 		return
 	}
+
+	
 
 	handleResponse(c, OK, "DELETED")
 
