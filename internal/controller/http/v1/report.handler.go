@@ -38,6 +38,7 @@ func (h *ReportHandler) ReportRoutes(r *gin.RouterGroup) {
 		report.POST("/store-amount", h.StoreReportAmount)
 		report.POST("/store-amount/export-excel", h.StoreReportAmountExport)
 		report.POST("/store-stats", h.StoreReportStats)
+		report.POST("/top-products", )
 	}
 }
 

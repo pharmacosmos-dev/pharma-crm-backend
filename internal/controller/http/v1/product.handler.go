@@ -334,7 +334,8 @@ func (h *ProductHandler) List(c *gin.Context) {
 		err   error
 	)
 	// bind
-	if err = c.ShouldBindQuery(&param); err != nil {
+	err = c.ShouldBindQuery(&param)
+	if err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
@@ -374,6 +375,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 
 	// Prepare the response
 	result := utils.ListResponse(products, totalCount, param.Limit, param.Offset)
+	
 	handleResponse(c, OK, result)
 }
 

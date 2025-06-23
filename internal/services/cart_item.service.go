@@ -88,22 +88,34 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 }
 
 // create cart item
-func (s *Services) CreateCartItem(req *domain.CartItemRequest, percent, price float64) (*domain.CartItem, error) {
+func (s *Services) CreateCartItem(req *domain.CartItemRequest) (*domain.CartItem, error) {
 	var res domain.CartItem
 	err := s.db.Raw(`
 		INSERT INTO cart_items(
-			id, store_product_id,
-			sale_id, employee_id,
-			quantity, unit_quantity, unit_price,
-			total_price, status,
-			discount_type, discount_value,
-			discount_price, discount_amount
+			id, 
+			store_product_id,
+			sale_id, 
+			employee_id,
+			quantity, 
+			unit_quantity, 
+			unit_price,
+			total_price, 
+			status,
+			discount_type, 
+			discount_value
 			)
-		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
-		uuid.New().String(), req.StoreProductID, req.SaleId,
-		req.EmployeeID, req.Quantity, req.UnitQuantity,
-		req.UnitPrice, req.TotalPrice, config.PENDING_CART_ITEM,
-		req.DiscountType, percent, price, req.DiscountAmount).Scan(&res).Error
+		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+		uuid.New().String(),
+		req.StoreProductID,
+		req.SaleId,
+		req.EmployeeID,
+		req.Quantity,
+		req.UnitQuantity,
+		req.UnitPrice,
+		req.TotalPrice,
+		config.PENDING_CART_ITEM,
+		req.DiscountType,
+		req.DiscountValue).Scan(&res).Error
 	if err != nil {
 		return nil, err
 	}

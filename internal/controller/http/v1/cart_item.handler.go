@@ -94,25 +94,24 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 	// get store product
 	storeProduct, statusCode, err := h.service.GetStoreProductByIdOrBarcode(body.StoreProductID, body.Barcode, employee.StoreId)
 	if err != nil {
-		if statusCode == 404 {
-			handleResponse(c, NotFound, "Product not found")
+		switch statusCode {
+		case 404:
+			handleResponse(c, NotFound, "product.not.found")
 			return
-		} else if statusCode == 422 {
-			handleResponse(c, UnprocessableEntity, "Marking and barcode mismatch")
+		case 422:
+			handleResponse(c, UnprocessableEntity, "marking.and.barcode.mismatch")
 			return
 		}
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	} else if storeProduct.Id == "" {
-		handleResponse(c, NotFound, "Product not found")
+		handleResponse(c, NotFound, "product.not.found")
 		return
 	}
 	// get cart item
 	var cartItem domain.CartItem
-	err = h.db.First(&cartItem,
-		"store_product_id = ? AND sale_id = ?",
-		storeProduct.Id, body.SaleId).Error
+	err = h.db.First(&cartItem, "store_product_id = ? AND sale_id = ?", storeProduct.Id, body.SaleId).Error
 	if err == nil {
 		cartItem.Quantity++
 		if cartItem.Quantity > storeProduct.PackQuantity && cartItem.UnitQuantity == 0 {
@@ -125,7 +124,7 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 			cartItem.Quantity, cartItem.TotalPrice, cartItem.ID).Error
 		if err != nil {
 			h.log.Error(err)
-			handleResponse(c, InternalError, err.Error())
+			handleResponse(c, InternalError, "failed.to.update.cart_item")
 			return
 		}
 		// get cart item info
@@ -140,7 +139,7 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 		`, cartItem.ID).Scan(&cartItem).Error
 		if err != nil {
 			h.log.Warn("ERROR on getting cart_item: %v", err)
-			handleResponse(c, InternalError, "Cart Item updated but can't get")
+			handleResponse(c, InternalError, "failed.to.get.cart_item")
 			return
 		}
 
@@ -150,6 +149,7 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	// agar cart item yangi qo'shilayotgan bo'lsa quantity va total_priceni hisoblash
 	if storeProduct.PackQuantity > 0 {
 		body.Quantity = 1
 		body.TotalPrice = storeProduct.RetailPrice
@@ -160,25 +160,11 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 		handleQuantityConflict(c, storeProduct, 1, 0)
 		return
 	}
-	// Check discount if cart has already discount
-	var discountPercent, discountPrice float64
-	if body.DiscountType == "percent" && body.DiscountValue <= 100 {
-		body.DiscountAmount = storeProduct.RetailPrice * body.DiscountValue / 100
-		discountPercent = body.DiscountValue
-	} else if body.DiscountType == "cash" {
-		body.DiscountAmount = body.DiscountValue
-		discountPercent = body.DiscountValue * 100 / storeProduct.RetailPrice
-	} else {
-		handleResponse(c, BadRequest, "Discount type or value is invalid")
-		return
-	}
-	if body.DiscountAmount > 0 {
-		discountPrice = storeProduct.RetailPrice - body.DiscountAmount
-	}
+
 	body.UnitPrice = storeProduct.RetailPrice
 	body.EmployeeID = vendorID.(string)
 	body.StoreProductID = storeProduct.Id
-	res, err := h.service.CreateCartItem(&body, discountPercent, discountPrice)
+	res, err := h.service.CreateCartItem(&body)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -390,88 +376,92 @@ func (h *CartItemHandler) UpdateBySaleID(c *gin.Context) {
 	handleResponse(c, OK, body)
 }
 
-// UpdateProductItem godoc
+// Update cart item godoc
 // @Summary Update a cart item
 // @Description Update a cart item from the request body
-// @Tags cart_items
+// @Tags    cart_items
 // @Security     BearerAuth
-// @Accept json
+// @Accept  json
 // @Produce json
-// @Param id path string true "cart item ID"
-// @Param input body domain.CartItemUpdateProductUnit true "Cart item information"
+// @Param   id path string true "cart item ID"
+// @Param   input body domain.CartItemUpdateProductUnit true "Cart item information"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /cart_item/{id} [put]
 func (h *CartItemHandler) Update(c *gin.Context) {
 	var (
-		body        domain.CartItemUpdateProductUnit
-		err         error
-		id          = c.Param("id")
-		oldCartItem domain.CartItem
+		body domain.CartItemUpdateProductUnit
+		id   = c.Param("id")
 	)
 	// validate cart item id
-	if err := uuid.Validate(id); err != nil {
-		handleResponse(c, BadRequest, "Invalid cart item ID")
+	err := uuid.Validate(id)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, "invalid.cart_item.id")
 		return
 	}
 	// bind request body
-	if err = c.ShouldBindJSON(&body); err != nil {
+	err = c.ShouldBindJSON(&body)
+	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 
-	// Eski cart item qiymatlarini olish
-	err = h.db.WithContext(c.Request.Context()).
-		Table("cart_items").
-		Where("id = ?", id).
-		First(&oldCartItem).Error
+	// get one cart_item info by id
+	var cartItem domain.CartItem
+	err = h.db.First(&cartItem, "id = ?", id).Error
 	if err != nil {
-		handleResponse(c, InternalError, "Cart item not found")
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			handleResponse(c, NotFound, "cart_item.not.found")
+			return
+		}
+		h.log.Error(err)
+		handleResponse(c, InternalError, "failed.to.get.cart_item")
 		return
 	}
 
 	storeProduct, err := h.service.GetStoreProductByID(body.StoreProductID)
 	if err != nil {
 		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		handleResponse(c, InternalError, "failed.to.get.store_product")
 		return
 	}
 
-	// Unit quantityni pack quantityga o'zgartirish
+	// Agar unit_quantity unit_per_packga teng yoki katta bo'lsa pack_quantityga qiymat o'tkazish
 	if body.UnitQuantity >= storeProduct.UnitPerPack && storeProduct.UnitPerPack > 0 {
 		body.Quantity += body.UnitQuantity / storeProduct.UnitPerPack
 		body.UnitQuantity = body.UnitQuantity % storeProduct.UnitPerPack
 	}
 
-	// Miqdor yetarliligini tekshirish
-	if body.Quantity > 0 && body.UnitQuantity == 0 {
-		if storeProduct.PackQuantity < body.Quantity {
+	// pack_quantity ni yetarli yoki yo'qligini tekshirish
+	if body.Quantity > 0 && body.UnitQuantity == 0 { // faqat pack_quantity ni o'zgartirmoqchi bo'lganidagi tekshiruv
+		if storeProduct.PackQuantity < body.Quantity { // kiritilayotgan miqdor bazadagi miqdordan katta bo'lib ketib qolishini tekshirish
 			storeProduct.UnitQuantity -= storeProduct.PackQuantity * storeProduct.UnitPerPack
 			handleQuantityConflict(c, storeProduct, body.Quantity, body.UnitQuantity)
 			return
 		}
-	} else if body.UnitQuantity > 0 && body.Quantity == 0 {
-		if storeProduct.UnitQuantity < body.UnitQuantity {
+	} else if body.UnitQuantity > 0 && body.Quantity == 0 { // faqat unit_quantity ni o'zrgartirmoqchi bo'lganidagi tekshiruv
+		if storeProduct.UnitQuantity < body.UnitQuantity { // kiritilayotgan miqdor bazadagi miqdordan katta bo'lib ketib qolishini tekshirish
 			storeProduct.UnitQuantity -= storeProduct.PackQuantity * storeProduct.UnitPerPack
 			handleQuantityConflict(c, storeProduct, body.Quantity, body.UnitQuantity)
 			return
 		}
-	} else if body.Quantity > 0 && body.UnitQuantity > 0 {
+	} else if body.Quantity > 0 && body.UnitQuantity > 0 { // pack_quantity va unit_quantity ni o'zrgartirmoqchi bo'lganidagi tekshiruv
 		if body.Quantity > storeProduct.PackQuantity || storeProduct.UnitQuantity-(body.Quantity*storeProduct.UnitPerPack) < body.UnitQuantity {
 			storeProduct.UnitQuantity -= storeProduct.PackQuantity * storeProduct.UnitPerPack
 			handleQuantityConflict(c, storeProduct, body.Quantity, body.UnitQuantity)
 			return
 		}
 	} else {
-		handleResponse(c, BadRequest, "Invalid quantity")
+		handleResponse(c, BadRequest, "invalid.quantity")
 		return
 	}
 
 	// Eski va yangi qiymatlarni solishtirish
-	quantityDiff := body.Quantity - oldCartItem.Quantity
-	unitQuantityDiff := body.UnitQuantity - oldCartItem.UnitQuantity
+	quantityDiff := body.Quantity - cartItem.Quantity
+	unitQuantityDiff := body.UnitQuantity - cartItem.UnitQuantity
 	isIncrease := quantityDiff > 0 || unitQuantityDiff > 0
 
 	var unitPrice float64
@@ -493,7 +483,7 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 		Where("id = ?", id).
 		Updates(&data).Error
 	if err != nil {
-		handleResponse(c, InternalError, "Error on saving cart")
+		handleResponse(c, InternalError, "failed.to.update.cart_item")
 		return
 	}
 
