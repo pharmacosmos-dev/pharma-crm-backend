@@ -518,6 +518,10 @@ func (s *Services) ReportTopProducts(param *domain.ReportQueryParam) ([]domain.T
 		group  = " GROUP BY p.id, p.name"
 		order  = " ORDER BY total_amount DESC"
 	)
+	if param.Search != "" {
+		filter += " AND p.name ILIKE ?"
+		args = append(args, "%"+param.Search+"%")
+	}
 	if param.StoreId != "" {
 		filter += " AND sp.store_id = ?"
 		args = append(args, param.StoreId)
@@ -583,6 +587,10 @@ func (s *Services) ReportTopSeller(param *domain.ReportQueryParam) ([]domain.Top
 		order  = " ORDER BY total_amount DESC"
 		offset = " LIMIT ? OFFSET ?"
 	)
+	if param.Search != "" {
+		filter += " AND e.full_name ILIKE ?"
+		args = append(args, "%"+param.Search+"%")
+	}
 	if param.StoreId != "" {
 		filter += " AND s.store_id = ?"
 		args = append(args, param.StoreId)
@@ -629,6 +637,11 @@ func (s *Services) ReportTopStores(param *domain.ReportQueryParam) ([]domain.Top
 		group  = " GROUP BY stores.id"
 		order  = " ORDER BY total_amount DESC"
 	)
+
+	if param.Search != "" {
+		filter += " AND stores.name ILIKE ?"
+		args = append(args, "%"+param.Search+"%")
+	}
 	if param.StoreId != "" {
 		filter += " AND sales.store_id = ?"
 		args = append(args, param.StoreId)
@@ -685,6 +698,10 @@ func (s *Services) ReportBonusProducts(param *domain.ReportQueryParam) ([]domain
 		order  = " ORDER BY count DESC"
 	)
 
+	if param.Search != "" {
+		filter += " AND p.name ILIKE ?"
+		args = append(args, param.Search+"%")
+	}
 	// check store_ids
 	if len(param.StoreIds) > 0 {
 		filter += " AND e.store_id IN (?) "
