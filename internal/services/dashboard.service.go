@@ -486,7 +486,7 @@ func (s *Services) DashboardTransaction(param *domain.DashboardQueryParam) ([]do
 	SELECT
 		'Товары' AS name,
 		SUM(sub.total_amount) as amount,
-		COALESCE(SUM(sub.quantity) || ',' || SUM(sub.unit_quantity), '0') as count
+		COALESCE(ROUND(SUM(sub.quantity + (sub.unit_quantity / 100.0)), 0),0) AS count
 	FROM (
 		SELECT s.total_amount, SUM(ci.quantity) as quantity, SUM(ci.unit_quantity) as unit_quantity
 		FROM sales s
@@ -508,7 +508,7 @@ func (s *Services) DashboardTransaction(param *domain.DashboardQueryParam) ([]do
 	SELECT
 		'Возвраты' AS name,
 		SUM(sub.total_amount) as amount,
-		COALESCE(SUM(sub.quantity) || ',' || SUM(sub.unit_quantity), '0') as count
+		COALESCE(ROUND(SUM(sub.quantity + (sub.unit_quantity / 100.0)), 0),0) AS count
 	FROM (
 		SELECT s.total_amount, SUM(ci.quantity) as quantity, SUM(ci.unit_quantity) as unit_quantity
 		FROM sales s
