@@ -13,9 +13,12 @@ type DashboardCountStats struct {
 	StockTotalAmount         float64 `gorm:"stock_total_amount" json:"stock_total_amount"`
 	BeforeStockAmount        float64 `gorm:"before_stock_amount" json:"before_stock_amount"`
 	ExpiringSoonCount        float64 `gorm:"expiring_soon_count" json:"expiring_soon_count"`
+	ExpiredSoonCount         float64 `gorm:"expired_soon_count" json:"expired_soon_count"`
 	BeforeExpiringSoonCount  float64 `gorm:"before_expiring_soon_count" json:"before_expiring_soon_count"`
 	ExpiringSoonAmount       float64 `gorm:"expiring_soon_amount" json:"expiring_soon_amount"`
+	ExpiredSoonAmount        float64 `gorm:"expired_soon_amount" json:"expired_soon_amount"`
 	BeforeExpiringSoonAmount float64 `gorm:"before_expiring_soon_amount" json:"before_expiring_soon_amount"`
+	BeforeExpiredSoonAmount  float64 `gorm:"before_expired_soon_amount" json:"before_expired_soon_amount"`
 	TotalNetIncome           float64 `gorm:"total_net_income" json:"total_net_income"`
 	BeforeTotalNetIncome     float64 `gorm:"before_total_net_income" json:"before_total_net_income"`
 	BonusAmount              float64 `gorm:"bonus_amount" json:"bonus_amount"`
@@ -109,6 +112,9 @@ type DashboardCountStatsProduct struct {
 	ExpiringCount        float64 `gorm:"expiring_count" json:"expiring_count"`
 	ExpiringAmount       float64 `gorm:"expiring_amount" json:"expiring_amount"`
 	BeforeExpiringAmount float64 `gorm:"before_expiring_amount" json:"before_expiring_amount"`
+	ExpiredCount         float64 `gorm:"expired_count" json:"expired_count"`
+	ExpiredAmount        float64 `gorm:"expired_amount" json:"expired_amount"`
+	BeforeExpiredAmount  float64 `gorm:"before_expired_amount" json:"before_expired_amount"`
 }
 
 type DashboardCountStatsIncome struct {
