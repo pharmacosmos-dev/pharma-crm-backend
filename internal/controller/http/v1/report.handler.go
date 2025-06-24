@@ -39,9 +39,13 @@ func (h *ReportHandler) ReportRoutes(r *gin.RouterGroup) {
 		report.POST("/store-amount/export-excel", h.StoreReportAmountExport)
 		report.POST("/store-stats", h.StoreReportStats)
 		report.POST("/top-products", h.ReportTopProducts)
+		report.POST("/top-products/export-excel", h.TopProductsExportExcel)
 		report.POST("/top-seller", h.ReportTopSeller)
+		report.POST("/top-seller/export-excel", h.TopSellerExportExcel)
 		report.POST("/top-stores", h.ReportTopStores)
+		report.POST("/top-stores/export-excel", h.TopStoresExportExcel)
 		report.POST("/bonus-products", h.ReportBonusProducts)
+		report.POST("/bonus-products/export-excel", h.BonusProductsExportExcel)
 	}
 }
 
@@ -788,6 +792,7 @@ func (h *ReportHandler) StoreReportStats(c *gin.Context) {
 // @Tags Report
 // @Security     BearerAuth
 // @Produce json
+// @Param   search 	query string false "Search"
 // @Param   limit 	query int false "Limit"
 // @Param 	offset query int false 	"Offset"
 // @Param   start_date 	query string false "Start Date"
@@ -830,6 +835,7 @@ func (h *ReportHandler) ReportTopProducts(c *gin.Context) {
 // @Tags Report
 // @Security     BearerAuth
 // @Produce json
+// @Param   search 	query string false "Search"
 // @Param   limit 	query int false "Limit"
 // @Param 	offset query int false 	"Offset"
 // @Param   start_date 	query string false "Start Date"
@@ -871,6 +877,7 @@ func (h *ReportHandler) ReportTopSeller(c *gin.Context) {
 // @Tags Report
 // @Security     BearerAuth
 // @Produce json
+// @Param   search 	query string false "Search"
 // @Param   start_date 	query string false "Start Date"
 // @Param   end_date 	query string false "End Date"
 // @Param   limit 	query int false "Limit"
@@ -907,6 +914,7 @@ func (h *ReportHandler) ReportTopStores(c *gin.Context) {
 // @Tags Report
 // @Security     BearerAuth
 // @Produce json
+// @Param   search 	query string false "Search"
 // @Param   limit 	query int false "Limit"
 // @Param 	offset query int false 	"Offset"
 // @Param   start_date 	query string false "Start Date"
@@ -942,4 +950,256 @@ func (h *ReportHandler) ReportBonusProducts(c *gin.Context) {
 	result := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
 
 	handleResponse(c, OK, result)
+}
+
+// Top Products Export godoc
+// @Summary Export Top Products to Excel
+// @Description Export Top Products to Excel
+// @Tags Report
+// @Security BearerAuth
+// @Produce json
+// @Param   search 	query string false "Search"
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Param start_date query string false "Start Date"
+// @Param end_date query string false "End Date"
+// @Param store_id query string false "Store ID"
+// @Param store_ids body []string false "Store ids"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /report/top-products/export-excel [POST]
+func (h *ReportHandler) TopProductsExportExcel(c *gin.Context) {
+	var param domain.ReportQueryParam
+
+	// bind query parameters
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "Invalid query parameters")
+		return
+	}
+	// bind store ids
+	if err := c.ShouldBindJSON(&param.StoreIds); err != nil {
+		handleResponse(c, BadRequest, "Invalid store ids")
+		return
+	}
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	// get top products data
+	res, _, err := h.service.ReportTopProducts(&param)
+	if err != nil {
+		handleResponse(c, InternalError, "Can't get top products data")
+		return
+	}
+
+	f := excelize.NewFile()
+	sheet := "TopProducts"
+	f.SetSheetName("Sheet1", sheet)
+
+	// set headers
+	headers := []string{"ID", "Название", "Количество", "Общее количество", "Общая сумма"}
+	err = setExcelHeaders(f, sheet, headers)
+	if err != nil {
+		h.log.Error("Failed to create style:", err)
+		handleResponse(c, InternalError, "Error on giving style to excel")
+		return
+	}
+
+	for i, val := range res {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheet, "A"+row, i+1)
+		f.SetCellValue(sheet, "B"+row, val.Name)
+		f.SetCellValue(sheet, "C"+row, val.Count)
+		f.SetCellValue(sheet, "D"+row, val.TotalCount)
+		f.SetCellValue(sheet, "E"+row, val.TotalAmount)
+	}
+
+	saveExcelToUploads(c, f, *h.log, "Top_products")
+}
+
+// Top Sellers Export godoc
+// @Summary Export Top Sellers to Excel
+// @Description Export Top Sellers to Excel
+// @Tags Report
+// @Security BearerAuth
+// @Produce json
+// @Param   search 	query string false "Search"
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Param start_date query string false "Start Date"
+// @Param end_date query string false "End Date"
+// @Param store_id query string false "Store ID"
+// @Param store_ids body []string false "Store ids"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /report/top-seller/export-excel [POST]
+func (h *ReportHandler) TopSellerExportExcel(c *gin.Context) {
+	var param domain.ReportQueryParam
+
+	// bind query parameters
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "Invalid query parameters")
+		return
+	}
+	err := c.ShouldBindJSON(&param.StoreIds)
+	if err != nil {
+		handleResponse(c, BadRequest, "Invalid store ids")
+		return
+	}
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	// get top seller data
+	res, _, err := h.service.ReportTopSeller(&param)
+	if err != nil {
+		handleResponse(c, InternalError, "Can't get top seller data")
+		return
+	}
+
+	// create excel
+	f := excelize.NewFile()
+	sheet := "TopSellers"
+	f.SetSheetName("Sheet1", sheet)
+
+	// set headers
+	headers := []string{"ID", "Ф.И.O", "Магазин", "Количество", "Общее количество", "Общая сумма"}
+	err = setExcelHeaders(f, sheet, headers)
+	if err != nil {
+		h.log.Error("Failed to create style:", err)
+		handleResponse(c, InternalError, "Error on giving style to excel")
+		return
+	}
+
+	for i, val := range res {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheet, "A"+row, i+1)
+		f.SetCellValue(sheet, "B"+row, val.FullName)
+		f.SetCellValue(sheet, "C"+row, val.StoreName)
+		f.SetCellValue(sheet, "D"+row, val.Count)
+		f.SetCellValue(sheet, "E"+row, val.TotalCount)
+		f.SetCellValue(sheet, "F"+row, val.TotalAmount)
+	}
+
+	// save excel
+	saveExcelToUploads(c, f, *h.log, "Top_sellers")
+}
+
+// Top Stores Export godoc
+// @Summary Export Top Stores to Excel
+// @Description Export Top Stores to Excel
+// @Tags Report
+// @Security BearerAuth
+// @Produce json
+// @Param   search 	query string false "Search"
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Param start_date query string false "Start Date"
+// @Param end_date query string false "End Date"
+// @Param store_id query string false "Store ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /report/top-stores/export-excel [POST]
+func (h *ReportHandler) TopStoresExportExcel(c *gin.Context) {
+	var param domain.ReportQueryParam
+	// bind query parameters
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "Invalid query parameters")
+		return
+	}
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	// get top stores data
+	res, _, err := h.service.ReportTopStores(&param)
+	if err != nil {
+		handleResponse(c, InternalError, "Can't get top stores data")
+		return
+	}
+
+	// create excel
+	f := excelize.NewFile()
+	sheet := "TopStores"
+	f.SetSheetName("Sheet1", sheet)
+
+	// set headers
+	headers := []string{"ID", "Название", "Количество", "Общая количество", "Общая сумма"}
+	err = setExcelHeaders(f, sheet, headers)
+	if err != nil {
+		h.log.Error("Failed to create style:", err)
+		handleResponse(c, InternalError, "Error on giving style to excel")
+		return
+	}
+	for i, val := range res {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheet, "A"+row, i+1)
+		f.SetCellValue(sheet, "B"+row, val.Name)
+		f.SetCellValue(sheet, "C"+row, val.Count)
+		f.SetCellValue(sheet, "D"+row, val.TotalCount)
+		f.SetCellValue(sheet, "E"+row, val.TotalAmount)
+	}
+
+	// save excel
+	saveExcelToUploads(c, f, *h.log, "Top_stores")
+}
+
+// Bonus Products Export godoc
+// @Summary Export Bonus Products to Excel
+// @Description Export Bonus Products to Excel
+// @Tags Report
+// @Security BearerAuth
+// @Produce json
+// @Param   search 	query string false "Search"
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Param start_date query string false "Start Date"
+// @Param end_date query string false "End Date"
+// @Param store_id query string false "Store ID"
+// @Param store_ids body []string false "Store ids"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /report/bonus-products/export-excel [POST]
+func (h *ReportHandler) BonusProductsExportExcel(c *gin.Context) {
+	var param domain.ReportQueryParam
+
+	// bind query parameters
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "Invalid query parameters")
+		return
+	}
+	if err := c.ShouldBindJSON(&param.StoreIds); err != nil {
+		handleResponse(c, BadRequest, "Invalid store ids")
+		return
+	}
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	// get top stores data
+	res, _, err := h.service.ReportBonusProducts(&param)
+	if err != nil {
+		handleResponse(c, InternalError, "Can't get bonus products data")
+		return
+	}
+
+	// create excel
+	f := excelize.NewFile()
+	sheet := "BonusProducts"
+	f.SetSheetName("Sheet1", sheet)
+	// set headers
+	headers := []string{"ID", "Название", "Количество", "Общая количество", "Сумма бонуса"}
+	err = setExcelHeaders(f, sheet, headers)
+	if err != nil {
+		h.log.Error("Failed to create style:", err)
+		handleResponse(c, InternalError, "Error on giving style to excel")
+		return
+	}
+
+	for i, val := range res {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheet, "A"+row, i+1)
+		f.SetCellValue(sheet, "B"+row, val.Name)
+		f.SetCellValue(sheet, "C"+row, val.Count)
+		f.SetCellValue(sheet, "D"+row, val.TotalCount)
+		f.SetCellValue(sheet, "E"+row, val.BonusAmount)
+	}
+
+	saveExcelToUploads(c, f, *h.log, "Bonus_products")
 }
