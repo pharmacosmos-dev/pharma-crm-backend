@@ -310,7 +310,7 @@ func (h *CartItemHandler) UpdateBySaleID(c *gin.Context) {
 		return
 	}
 	// get sum of unit_prices
-	err = h.db.Raw("SELECT SUM(unit_price) FROM cart_items WHERE sale_id = ?", saleId).Scan(&sum).Error
+	err = h.db.Raw("SELECT SUM(total_price) FROM cart_items WHERE sale_id = ?", saleId).Scan(&sum).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, "Failed to get sum of unit prices")

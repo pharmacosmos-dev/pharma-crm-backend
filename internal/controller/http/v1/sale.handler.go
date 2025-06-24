@@ -171,7 +171,7 @@ func (h *SaleHandler) Get(c *gin.Context) {
 		id  = c.Param("id")
 	)
 	if err := uuid.Validate(id); err != nil {
-		handleResponse(c, BadRequest, "Invalid sale id")
+		handleResponse(c, BadRequest, "invalid.sale.id")
 		return
 	}
 	// get sale info
@@ -1048,6 +1048,10 @@ func (h *SaleHandler) AddDiscountCard(c *gin.Context) {
 		err = h.db.Raw(`INSERT INTO sale_customer_discounts(customer_id, sale_id, discount_card_id, discount_percent) VALUES(?, ?, ?, ?) RETURNING *`,
 			body.CustomerID, body.SaleID, discountCard.Id, discountCard.Percent).Scan(&customerDiscount).Error
 		if err != nil {
+			if errors.Is(err, gorm.ErrDuplicatedKey) {
+				handleResponse(c, BadRequest, "duplicate.discount_cart.not.accepted")
+				return
+			}
 			h.log.Warn("ERROR on creating sale discount: %v", err)
 			handleResponse(c, InternalError, "failed.create.sale.discount")
 			return
@@ -1061,15 +1065,13 @@ func (h *SaleHandler) AddDiscountCard(c *gin.Context) {
 	// update cart_items discount amount with total_price
 	err = h.db.Exec(`
 	UPDATE 
-		cart_items 
-	SET 
-		discount_amount = (total_price * ?)/100, 
-		discount_type = 'percent',
-		discount_value = ?
-	WHERE sale_id = ?;`, discountCard.Percent, discountCard.Percent, body.SaleID).Error
+		sales
+	SET
+		customer_id = ?
+	WHERE sale_id = ?`, body.CustomerID, body.SaleID).Error
 	if err != nil {
-		h.log.Warn("ERROR on updating cart_items discount amount: %v", err)
-		handleResponse(c, InternalError, "failed.update.cart_items.discount")
+		h.log.Warn("ERROR on updating sale: %v", err)
+		handleResponse(c, InternalError, "failed.update.sale.customer_id")
 		return
 	}
 

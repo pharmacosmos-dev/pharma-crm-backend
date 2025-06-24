@@ -19,5 +19,6 @@ CREATE TABLE IF NOT EXISTS sale_customer_discounts(
     "discount_amount" NUMERIC(10, 2) DEFAULT 0.00,
     "discount_percent" INT,
     "created_at" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    "updated_at" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    "updated_at" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE (sale_id, customer_id, discount_card_id)
 );
