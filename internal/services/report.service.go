@@ -508,7 +508,9 @@ func (s *Services) ReportTopProducts(param *domain.ReportQueryParam) ([]domain.T
 		query = `
 		SELECT
 			p.id, p.name,
-			CAST(SUM(ci.quantity) AS TEXT) || ',' || CAST(SUM(ci.unit_quantity) AS TEXT) AS count,
+			SUM(ci.quantity) + FLOOR(SUM(ci.unit_quantity)::decimal / p.unit_per_pack) AS count,
+			(SUM(ci.unit_quantity) % p.unit_per_pack) AS unit_quantity,
+			p.unit_per_pack,
 			sum(ci.total_price) as total_amount,
 			COUNT(1) OVER() AS total_count
 		FROM cart_items ci
