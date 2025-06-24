@@ -44,11 +44,13 @@ type TopStores struct {
 
 // Top Products structure
 type TopProducts struct {
-	Id          string  `gorm:"id" json:"id"`
-	Name        string  `gorm:"name" json:"name"`
-	Count       string  `gorm:"count" json:"count"`
-	TotalCount  int64   `gorm:"total_count" json:"total_count"`
-	TotalAmount float64 `gorm:"total_amount" json:"total_amount"`
+	Id           string  `gorm:"id" json:"id"`
+	Name         string  `gorm:"name" json:"name"`
+	Count        int     `gorm:"count" json:"count"`
+	UnitQuantity int     `gorm:"unit_quantity" json:"unit_quantity"`
+	UnitPerPack  int     `gorm:"unit_per_pack" json:"unit_per_pack"`
+	TotalCount   int64   `gorm:"total_count" json:"total_count"`
+	TotalAmount  float64 `gorm:"total_amount" json:"total_amount"`
 }
 
 // Bonus Products structure
