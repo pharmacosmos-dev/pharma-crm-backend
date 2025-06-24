@@ -59,9 +59,12 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 			ROUND(SUM(pack_quantity::numeric+(sp.unit_quantity%sp.unit_per_pack)::numeric/p.unit_per_pack+COALESCE(ci_sold.quantity, 0)), 2) AS before_stock_count,
 			ROUND(SUM(pack_quantity*retail_price)+SUM((retail_price/p.unit_per_pack)*(sp.unit_quantity%sp.unit_per_pack)), 2) AS stock_amount,
 			ROUND(SUM((pack_quantity*retail_price)+((retail_price/p.unit_per_pack)*(sp.unit_quantity%sp.unit_per_pack))+COALESCE(ci_sold.amount, 0)), 2) AS before_stock_amount,
-			SUM(CASE WHEN expire_date <= NOW() + INTERVAL '3 month' THEN pack_quantity ELSE 0 END) AS expiring_count,
-			SUM(CASE WHEN expire_date <= NOW() + INTERVAL '3 month' THEN (pack_quantity*retail_price)+(retail_price/p.unit_per_pack) ELSE 0 END) AS expiring_amount,
-			SUM(CASE WHEN expire_date <= NOW() + INTERVAL '3 month' THEN COALESCE(ci_sold.amount, 0) ELSE 0 END) AS before_expiring_amount
+			ROUND(SUM(CASE WHEN expire_date > NOW() AND expire_date <= NOW() + INTERVAL '3 month' THEN pack_quantity ELSE 0 END), 2) AS expiring_count,
+			ROUND(SUM(CASE WHEN expire_date > NOW() AND expire_date <= NOW() + INTERVAL '3 month' THEN (pack_quantity*retail_price)+(retail_price/p.unit_per_pack) ELSE 0 END), 2) AS expiring_amount,
+			ROUND(SUM(CASE WHEN expire_date > NOW() AND expire_date <= NOW() + INTERVAL '3 month' THEN COALESCE(ci_sold.amount, 0) ELSE 0 END), 2) AS before_expiring_amount,
+			ROUND(SUM(CASE WHEN expire_date <= NOW() THEN pack_quantity ELSE 0 END), 2) AS expired_count,
+			ROUND(SUM(CASE WHEN expire_date <= NOW() THEN (pack_quantity*retail_price)+(retail_price/p.unit_per_pack) ELSE 0 END), 2) AS expired_amount,
+			ROUND(SUM(CASE WHEN expire_date <= NOW() THEN COALESCE(ci_sold.amount, 0) ELSE 0 END), 2) AS before_expired_amount
 		FROM store_products sp
 		JOIN products p ON sp.product_id = p.id
 		LEFT JOIN (
@@ -126,8 +129,11 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 	res.StockTotalAmount = product.StockAmount
 	res.BeforeStockAmount = product.BeforeStockAmount
 	res.ExpiringSoonCount = product.ExpiringCount
+	res.ExpiredSoonCount = product.ExpiredCount
 	res.ExpiringSoonAmount = product.ExpiringAmount
+	res.ExpiredSoonAmount = product.ExpiredAmount
 	res.BeforeExpiringSoonAmount = product.BeforeExpiringAmount
+	res.BeforeExpiredSoonAmount = product.BeforeExpiredAmount
 	res.TotalNetIncome = income.IncomeAmount
 	res.BeforeTotalNetIncome = income.BeforeIncomeAmount
 	return &res, nil
@@ -480,7 +486,7 @@ func (s *Services) DashboardTransaction(param *domain.DashboardQueryParam) ([]do
 	SELECT
 		'Товары' AS name,
 		SUM(sub.total_amount) as amount,
-		COALESCE(SUM(sub.quantity) || ',' || SUM(sub.unit_quantity), '0') as count
+		COALESCE(ROUND(SUM(sub.quantity + (sub.unit_quantity / 100.0)), 0),0) AS count
 	FROM (
 		SELECT s.total_amount, SUM(ci.quantity) as quantity, SUM(ci.unit_quantity) as unit_quantity
 		FROM sales s
@@ -502,7 +508,7 @@ func (s *Services) DashboardTransaction(param *domain.DashboardQueryParam) ([]do
 	SELECT
 		'Возвраты' AS name,
 		SUM(sub.total_amount) as amount,
-		COALESCE(SUM(sub.quantity) || ',' || SUM(sub.unit_quantity), '0') as count
+		COALESCE(ROUND(SUM(sub.quantity + (sub.unit_quantity / 100.0)), 0),0) AS count
 	FROM (
 		SELECT s.total_amount, SUM(ci.quantity) as quantity, SUM(ci.unit_quantity) as unit_quantity
 		FROM sales s
