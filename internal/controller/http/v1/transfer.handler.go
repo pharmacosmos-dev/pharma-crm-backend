@@ -139,13 +139,14 @@ func (h *TransferHandler) List(c *gin.Context) {
 		return
 	}
 	// bind query param
-	if err := c.ShouldBindQuery(&param); err != nil {
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
 		handleResponse(c, BadRequest, "Invalid query param")
 		return
 	}
 	// get user info
 	var employee domain.Employee
-	err := h.db.First(&employee, "id = ?", userId).Error
+	err = h.db.First(&employee, "id = ?", userId).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			handleResponse(c, NotFound, "User not found")
@@ -159,6 +160,7 @@ func (h *TransferHandler) List(c *gin.Context) {
 	if !helper.IsAdmin(employee, h.cfg) {
 		if employee.StoreId != "" {
 			param.StoreId = employee.StoreId
+			param.ToStoreId = employee.StoreId
 		}
 	}
 

@@ -117,9 +117,15 @@ func (s *Services) TransferList(param *domain.ReturnParam) ([]domain.Transfer, i
 			`).
 		Joins("LEFT JOIN transfer_details trd ON transfers.id = trd.transfer_id").
 		Where("transfers.entry_type = ?", 1)
-	// filter by store id
+
+	// filter by from store id
 	if param.StoreId != "" {
 		query = query.Where("transfers.from_store_id = ? ", param.StoreId)
+	}
+
+	// filter by to store_id
+	if param.StoreId != "" {
+		query = query.Where("transfers.to_store_id = ? ", param.ToStoreId)
 	}
 
 	// filter by search keyword
