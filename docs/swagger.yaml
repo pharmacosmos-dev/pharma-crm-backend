@@ -127,6 +127,8 @@ definitions:
         type: string
       description:
         type: string
+      device_id:
+        type: string
       is_open:
         type: boolean
       open_cashless_amount:
@@ -2076,6 +2078,10 @@ paths:
       - description: Store ID
         in: query
         name: store_id
+        type: string
+      - description: Device ID
+        in: query
+        name: device_id
         type: string
       produces:
       - application/json
@@ -5011,7 +5017,8 @@ paths:
         in: body
         name: body
         required: true
-        schema: {}
+        schema:
+          type: object
       produces:
       - application/json
       responses:
@@ -6723,6 +6730,10 @@ paths:
       - description: Store ID
         in: query
         name: store_id
+        type: string
+      - description: Payment Type ID
+        in: query
+        name: payment_type_id
         type: string
       - description: Limit
         in: query

@@ -1105,6 +1105,12 @@
                         "description": "Store ID",
                         "name": "store_id",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Device ID",
+                        "name": "device_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -5824,7 +5830,9 @@
                         "name": "body",
                         "in": "body",
                         "required": true,
-                        "schema": {}
+                        "schema": {
+                            "type": "object"
+                        }
                     }
                 ],
                 "responses": {
@@ -8362,6 +8370,12 @@
                         "type": "string",
                         "description": "Store ID",
                         "name": "store_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Payment Type ID",
+                        "name": "payment_type_id",
                         "in": "query"
                     },
                     {
@@ -19195,6 +19209,9 @@
                     "type": "string"
                 },
                 "description": {
+                    "type": "string"
+                },
+                "device_id": {
                     "type": "string"
                 },
                 "is_open": {

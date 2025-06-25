@@ -308,6 +308,7 @@ func (h *PaymentTypeHandler) GetPaymentService(c *gin.Context) {
 // @Accept 	json
 // @Produce json
 // @Param   store_id query string false "Store ID"
+// @Param	payment_type_id query string false "Payment Type ID"
 // @Param   limit query int false "Limit"
 // @Param   offset query int false "Offset"
 // @Success 200 {object} v1.Response
@@ -340,6 +341,9 @@ func (h *PaymentTypeHandler) ListPaymentService(c *gin.Context) {
 		`)
 	if param.StoreID != "" {
 		query = query.Where("store_id = ?", param.StoreID)
+	}
+	if param.PaymentTypeID != "" {
+		query = query.Where("payment_type_id = ?", param.PaymentTypeID)
 	}
 	// execute query
 	err := query.
