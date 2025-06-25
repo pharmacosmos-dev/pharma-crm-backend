@@ -5830,9 +5830,7 @@
                         "name": "body",
                         "in": "body",
                         "required": true,
-                        "schema": {
-                            "type": "object"
-                        }
+                        "schema": {}
                     }
                 ],
                 "responses": {
@@ -8433,6 +8431,12 @@
                         "type": "string",
                         "description": "Store ID",
                         "name": "store_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "SEARCH KEY",
+                        "name": "search",
                         "in": "query"
                     },
                     {

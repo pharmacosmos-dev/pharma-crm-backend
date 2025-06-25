@@ -311,6 +311,7 @@ func (h *PaymentTypeHandler) GetPaymentService(c *gin.Context) {
 // @Accept 	json
 // @Produce json
 // @Param   store_id query string false "Store ID"
+// @Param   search 	query string false "SEARCH KEY"
 // @Param	payment_type_id query string false "Payment Type ID"
 // @Param   limit query int false "Limit"
 // @Param   offset query int false "Offset"
@@ -336,23 +337,29 @@ func (h *PaymentTypeHandler) ListPaymentService(c *gin.Context) {
 		Model(&domain.PaymentService{}).
 		Preload("Store").
 		Select(`
-			id, store_id, 
-			payment_type_id, 
-			name, type, 
-			is_active, 
-			created_at, updated_at
-		`)
+		payment_services.id, payment_services.store_id, 
+		payment_services.payment_type_id, 
+		payment_services.name, payment_services.type, 
+		payment_services.is_active, 
+		payment_services.created_at, payment_services.updated_at
+	`)
+
+	if param.Search != "" {
+		query = query.Joins("LEFT JOIN stores ON stores.id = payment_services.store_id").
+			Where("stores.name ILIKE ?", "%"+param.Search+"%")
+	}
+
 	if param.StoreID != "" {
-		query = query.Where("store_id = ?", param.StoreID)
+		query = query.Where("payment_services.store_id = ?", param.StoreID)
 	}
 	if param.PaymentTypeID != "" {
-		query = query.Where("payment_type_id = ?", param.PaymentTypeID)
+		query = query.Where("payment_services.payment_type_id = ?", param.PaymentTypeID)
 	}
 	// execute query
 	err := query.
-		Where("deleted_at IS NULL").
+		Where("payment_services.deleted_at IS NULL").
 		Count(&totalCount).
-		Order("created_at DESC").
+		Order("payment_services.created_at DESC").
 		Limit(param.Limit).
 		Offset(param.Offset).
 		Find(&res).Error

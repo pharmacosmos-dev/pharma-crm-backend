@@ -5017,8 +5017,7 @@ paths:
         in: body
         name: body
         required: true
-        schema:
-          type: object
+        schema: {}
       produces:
       - application/json
       responses:
@@ -6770,6 +6769,10 @@ paths:
       - description: Store ID
         in: query
         name: store_id
+        type: string
+      - description: SEARCH KEY
+        in: query
+        name: search
         type: string
       - description: Payment Type ID
         in: query
