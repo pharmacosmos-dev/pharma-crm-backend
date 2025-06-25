@@ -199,7 +199,7 @@ func (h *InventoryHandler) InventoryExportExcel(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"ID", "Наименования", "Филиал", "Текущие Кол-во", "Кол-во Недостача", "Излишки Кол-во", "Текущие Сумма", "Факт Сумма", "Статус", "Создание", "Завершение", "Создал", "Завершил"}
+	headers := []string{"ID", "Наименования", "Филиал", "Текущее Кол-во", "Факт Кол-во", "Разница Кол-во", "Текущие Сумма", "Факт Сумма", "Статус", "Создание", "Завершение", "Создал", "Завершил"}
 
 	err = setExcelHeaders(f, sheetName, headers)
 	if err != nil {
@@ -218,9 +218,9 @@ func (h *InventoryHandler) InventoryExportExcel(c *gin.Context) {
 		} else {
 			f.SetCellValue(sheetName, "C"+row, "N/A")
 		}
-		f.SetCellValue(sheetName, "D"+row, imp.MeasurementCount)
-		f.SetCellValue(sheetName, "E"+row, imp.Shortage)
-		f.SetCellValue(sheetName, "F"+row, imp.Surplus)
+		f.SetCellValue(sheetName, "D"+row, imp.CurrentCount)
+		f.SetCellValue(sheetName, "E"+row, imp.FactCount)
+		f.SetCellValue(sheetName, "F"+row, imp.DifferenceCount)
 		f.SetCellValue(sheetName, "G"+row, imp.CurrentSum)
 		f.SetCellValue(sheetName, "H"+row, imp.FactSum)
 		f.SetCellValue(sheetName, "I"+row, imp.FactSum)
