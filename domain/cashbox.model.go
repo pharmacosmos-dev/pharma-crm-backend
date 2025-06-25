@@ -60,6 +60,7 @@ type CashboxOperation struct {
 type CashboxOperationRequest struct {
 	ID                 string     `gorm:"id" json:"-"`
 	CashBoxID          string     `gorm:"cash_box_id" json:"cash_box_id"`
+	DeviceID           string     `gorm:"device_id" json:"device_id"`
 	StoreID            string     `gorm:"store_id" json:"store_id"`
 	EmployeeID         string     `gorm:"employee_id" json:"-"`
 	OpenedAmount       float64    `gorm:"opened_amount" json:"opened_amount"`

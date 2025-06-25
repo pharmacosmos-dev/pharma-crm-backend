@@ -392,15 +392,23 @@ func (h *CashBoxHandler) SoftDelete(c *gin.Context) {
 // @Accept 	json
 // @Produce json
 // @Param 	store_id query string false "Store ID"
+// @Param 	device_id query string false "Device ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /cash_box/check [get]
 func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
 	storeId := c.Query("store_id")
+	deviceId := c.Query("device_id")
 	// validate store_id
-	if err := uuid.Validate(storeId); err != nil {
+	err := uuid.Validate(storeId)
+	if err != nil {
 		handleResponse(c, BadRequest, "Invalid store_id")
+		return
+	}
+	err = uuid.Validate(deviceId)
+	if err != nil {
+		handleResponse(c, BadRequest, "Invalid device_id")
 		return
 	}
 	// Get the user ID from the context
@@ -412,10 +420,10 @@ func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
 
 	// Check if there is an open cashbox operation for this employee
 	var cashboxOperation domain.CashboxOperation
-	err := h.db.Raw(`
+	err = h.db.Raw(`
 	SELECT co.* FROM cashbox_operations co 
     JOIN cash_boxes cb ON co.cash_box_id = cb.id 
-         WHERE co.end_time IS NULL AND co.current_employee_id = ? AND cb.store_id = ?;`, userID, storeId).Scan(&cashboxOperation).Error
+         WHERE co.end_time IS NULL AND co.current_employee_id = ? AND cb.store_id = ? AND co.device_id = ?;`, userID, storeId, deviceId).Scan(&cashboxOperation).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) || cashboxOperation.ID == "" {
 		handleResponse(c, NotFound, "You have no open cashbox operation")
 		return

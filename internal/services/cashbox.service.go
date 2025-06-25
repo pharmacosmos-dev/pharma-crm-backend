@@ -245,10 +245,10 @@ func (s *Services) CreateCashboxOperation(req *domain.CashboxOperationRequest, u
 	// open cashbox_operation
 	err := tx.Raw(`
 	INSERT INTO cashbox_operations (
-			cash_box_id, employee_id, current_employee_id, opened_amount, open_cashless_amount, is_open, start_time, description
+			cash_box_id, employee_id, current_employee_id, device_id, opened_amount, open_cashless_amount, is_open, start_time, description
 			) 
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
-	`, req.CashBoxID, userId, userId,
+	VALUES (?, ?, ?, ?,?, ?, ?, ?, ?) RETURNING id
+	`, req.CashBoxID, userId, userId, req.DeviceID,
 		req.OpenedAmount, req.OpenCashlessAmount, true, time.Now(),
 		req.Description).Scan(&id).Error
 	if err != nil {
