@@ -6720,6 +6720,46 @@ paths:
       summary: Update a payment service
       tags:
       - payment_services
+  /payment-service/export-excel:
+    get:
+      description: Export Payment Services to Excel
+      parameters:
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Payment Type ID
+        in: query
+        name: payment_type_id
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Export Payment Services to Excel
+      tags:
+      - payment_services
   /payment-service/list:
     get:
       consumes:
@@ -6729,6 +6769,14 @@ paths:
       - description: Store ID
         in: query
         name: store_id
+        type: string
+      - description: SEARCH KEY
+        in: query
+        name: search
+        type: string
+      - description: Payment Type ID
+        in: query
+        name: payment_type_id
         type: string
       - description: Limit
         in: query

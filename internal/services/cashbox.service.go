@@ -241,16 +241,22 @@ func (s *Services) CreateCashboxOperation(req *domain.CashboxOperationRequest, u
 		}
 	}()
 
-	var id string
-	// open cashbox_operation
+	type result struct {
+		ID       string
+		DeviceID string
+	}
+	var (
+		res result
+	)
+
 	err := tx.Raw(`
 	INSERT INTO cashbox_operations (
 			cash_box_id, employee_id, current_employee_id, device_id, opened_amount, open_cashless_amount, is_open, start_time, description
 			) 
-	VALUES (?, ?, ?, ?,?, ?, ?, ?, ?) RETURNING id
+	VALUES (?, ?, ?, ?,?, ?, ?, ?, ?) RETURNING id,device_id
 	`, req.CashBoxID, userId, userId, req.DeviceID,
 		req.OpenedAmount, req.OpenCashlessAmount, true, time.Now(),
-		req.Description).Scan(&id).Error
+		req.Description).Scan(&res).Error
 	if err != nil {
 		s.log.Error(err)
 		tx.Rollback()
@@ -262,7 +268,7 @@ func (s *Services) CreateCashboxOperation(req *domain.CashboxOperationRequest, u
 	err = tx.Raw(`
 		INSERT INTO sales (employee_id, store_id, cash_box_operation_id, cashbox_id) 
 		VALUES (?, ?, ?, ?) RETURNING *`,
-		userId, req.StoreID, id, req.CashBoxID).Scan(&sale).Error
+		userId, req.StoreID, res.ID, req.CashBoxID).Scan(&sale).Error
 	if err != nil {
 		s.log.Error(err)
 		tx.Rollback()
@@ -274,5 +280,6 @@ func (s *Services) CreateCashboxOperation(req *domain.CashboxOperationRequest, u
 		tx.Rollback()
 		return nil, err
 	}
+	sale.DeviceID = res.DeviceID
 	return &sale, nil
 }
