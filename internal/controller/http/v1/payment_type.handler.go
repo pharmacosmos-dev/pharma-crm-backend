@@ -2,6 +2,8 @@ package v1
 
 import (
 	"fmt"
+	"github.com/xuri/excelize/v2"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -34,6 +36,7 @@ func (h *PaymentTypeHandler) PaymentTypeRoutes(r *gin.RouterGroup) {
 		paymentService.POST("", h.CreatePaymentService)
 		paymentService.GET("/:id", h.GetPaymentService)
 		paymentService.GET("/list", h.ListPaymentService)
+		paymentService.GET("/export-excel", h.ExportPaymentServicesExcel)
 		paymentService.PUT("/:id", h.UpdatePaymentService)
 		paymentService.DELETE("/:id", h.DeletePaymentService)
 	}
@@ -362,6 +365,80 @@ func (h *PaymentTypeHandler) ListPaymentService(c *gin.Context) {
 	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
 
 	handleResponse(c, OK, data)
+}
+
+// ExportPaymentServicesExcel godoc
+// @Summary Export Payment Services to Excel
+// @Description Export Payment Services to Excel
+// @Tags payment_services
+// @Security BearerAuth
+// @Produce json
+// @Param store_id query string false "Store ID"
+// @Param payment_type_id query string false "Payment Type ID"
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /payment-service/export-excel [get]
+func (h *PaymentTypeHandler) ExportPaymentServicesExcel(c *gin.Context) {
+	var (
+		param = domain.QueryParam{}
+		res   []*domain.PaymentService
+	)
+
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "Invalid query parameters")
+		return
+	}
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	query := h.db.Model(&domain.PaymentService{}).
+		Select(`id, store_id, payment_type_id, name, type, is_active, created_at, updated_at`).
+		Where("deleted_at IS NULL")
+
+	if param.StoreID != "" {
+		query = query.Where("store_id = ?", param.StoreID)
+	}
+	if param.PaymentTypeID != "" {
+		query = query.Where("payment_type_id = ?", param.PaymentTypeID)
+	}
+
+	if err := query.
+		Order("created_at DESC").
+		Limit(param.Limit).
+		Offset(param.Offset).
+		Find(&res).Error; err != nil {
+		h.log.Error("Failed to fetch payment services: ", err)
+		handleResponse(c, InternalError, "Database error")
+		return
+	}
+
+	f := excelize.NewFile()
+	sheet := "PaymentServices"
+	f.SetSheetName("Sheet1", sheet)
+
+	headers := []string{"#", "ID", "Store ID", "Payment Type ID", "Name", "Type", "Active", "Created At", "Updated At"}
+	if err := setExcelHeaders(f, sheet, headers); err != nil {
+		h.log.Error("Failed to set headers:", err)
+		handleResponse(c, InternalError, "Excel header error")
+		return
+	}
+
+	for i, ps := range res {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheet, "A"+row, i+1)
+		f.SetCellValue(sheet, "B"+row, ps.ID)
+		f.SetCellValue(sheet, "C"+row, ps.StoreID)
+		f.SetCellValue(sheet, "D"+row, ps.PaymentTypeId)
+		f.SetCellValue(sheet, "E"+row, ps.Name)
+		f.SetCellValue(sheet, "F"+row, ps.Type)
+		f.SetCellValue(sheet, "G"+row, ps.IsActive)
+		f.SetCellValue(sheet, "H"+row, ps.CreatedAt.Format("2006-01-02 15:04:05"))
+		f.SetCellValue(sheet, "I"+row, ps.UpdatedAt.Format("2006-01-02 15:04:05"))
+	}
+
+	saveExcelToUploads(c, f, *h.log, "Payment_services")
 }
 
 // Update godoc
