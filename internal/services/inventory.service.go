@@ -158,11 +158,12 @@ func (s *Services) InventoryList(param *domain.InventoryParam) ([]domain.Invento
 		Preload("UpdatedBy").
 		Select(`
 			imports.*,
-			SUM(imd.received_count) AS measurement_count,
-			SUM(imd.received_count-imd.scanned_count) AS shortage,
-			SUM(CASE WHEN imd.scanned_count > imd.received_count THEN imd.accepted_count - imd.received_count ELSE 0 END) AS surplus,
-			SUM(imd.received_count*imd.retail_price_vat) AS current_sum,
-			SUM(imd.scanned_count*imd.retail_price_vat) AS fact_sum`).
+			ROUND(SUM(imd.received_count), 0) AS measurement_count,
+			ROUND(SUM(imd.received_count-imd.scanned_count), 0) AS shortage,
+			ROUND(SUM(CASE WHEN imd.scanned_count > imd.received_count THEN imd.accepted_count - imd.received_count ELSE 0 END), 0) AS surplus,
+			ROUND(SUM(imd.received_count*imd.retail_price_vat), 2) AS current_sum,
+			ROUND(SUM(imd.scanned_count*imd.retail_price_vat), 2) AS fact_sum,
+			ROUND(SUM(imd.scanned_count*imd.retail_price_vat)-SUM(imd.received_count*imd.retail_price_vat), 2)  AS difference_sum`).
 		Joins("LEFT JOIN import_details imd ON imports.id = imd.import_id").
 		Where("imports.entry_type = ?", 2)
 	// filter by store id
