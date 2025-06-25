@@ -160,7 +160,6 @@ func (h *TransferHandler) List(c *gin.Context) {
 	if !helper.IsAdmin(employee, h.cfg) {
 		if employee.StoreId != "" {
 			param.StoreId = employee.StoreId
-			param.ToStoreId = employee.StoreId
 		}
 	}
 

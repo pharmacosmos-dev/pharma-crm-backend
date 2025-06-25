@@ -120,12 +120,7 @@ func (s *Services) TransferList(param *domain.ReturnParam) ([]domain.Transfer, i
 
 	// filter by from store id
 	if param.StoreId != "" {
-		query = query.Where("transfers.from_store_id = ? ", param.StoreId)
-	}
-
-	// filter by to store_id
-	if param.StoreId != "" {
-		query = query.Where("transfers.to_store_id = ? ", param.ToStoreId)
+		query = query.Where("transfers.from_store_id = ?  OR transfers.to_store_id = ?", param.StoreId, param.StoreId)
 	}
 
 	// filter by search keyword
