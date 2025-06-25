@@ -2,11 +2,6 @@ package v1
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
-	"strconv"
-	"time"
-
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
@@ -15,6 +10,8 @@ import (
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/spf13/cast"
 	"github.com/xuri/excelize/v2"
+	"path/filepath"
+	"strconv"
 )
 
 type InventoryHandler struct {
@@ -204,22 +201,11 @@ func (h *InventoryHandler) InventoryExportExcel(c *gin.Context) {
 	// Headerlar
 	headers := []string{"ID", "Наименования", "Филиал", "Текущие Кол-во", "Кол-во Недостача", "Излишки Кол-во", "Текущие Сумма", "Факт Сумма", "Статус", "Создание", "Завершение", "Создал", "Завершил"}
 
-	headerStyle, err := f.NewStyle(&excelize.Style{
-		Font: &excelize.Font{
-			Bold:  true,
-			Color: "000000",
-		},
-	})
+	err = setExcelHeaders(f, sheetName, headers)
 	if err != nil {
 		h.log.Error("Failed to create style:", err)
 		handleResponse(c, InternalError, "Error on giving style to excel")
 		return
-	}
-
-	for i, h := range headers {
-		col := string(rune('A'+i)) + "1"
-		f.SetCellValue(sheetName, col, h)
-		f.SetCellStyle(sheetName, col, col, headerStyle)
 	}
 
 	// Ma'lumotlarni qo'shish
@@ -260,33 +246,7 @@ func (h *InventoryHandler) InventoryExportExcel(c *gin.Context) {
 			f.SetCellValue(sheetName, "N"+row, "N/A")
 		}
 	}
-
-	// Faylni uploads/ papkasiga UUID bilan saqlash
-	fileName := "inventory_" + time.Now().Add(time.Hour*5).Format("2006-01-02_15-04-05") + ".xlsx"
-	filePath := filepath.Join("uploads", fileName)
-
-	// uploads/ papkasi mavjud bo‘lmasa, yaratish
-	if _, err := os.Stat("uploads"); os.IsNotExist(err) {
-		err := os.Mkdir("uploads", os.ModePerm)
-		if err != nil {
-			h.log.Error("Failed to create uploads directory:", err)
-			handleResponse(c, InternalError, "Failed to create uploads folder")
-			return
-		}
-	}
-
-	// Faylni diskka yozish
-	if err := f.SaveAs(filePath); err != nil {
-		h.log.Error("Failed to save Excel file:", err)
-		handleResponse(c, InternalError, "Failed to save Excel file")
-		return
-	}
-
-	// Foydalanuvchiga file path yoki URLni qaytarish
-	handleResponse(c, OK, gin.H{
-		"file_name": fileName,
-	})
-
+	saveExcelToUploads(c, f, *h.log, "inventory")
 }
 
 // Add product by barcode
@@ -699,22 +659,11 @@ func (h *InventoryHandler) InventoryDetailExport(c *gin.Context) {
 	// Headerlar
 	headers := []string{"Код", "Наименования", "УП", "Програм Кол-во", "Програм Кол-во", "Програм Сумма", "Факт Кол-во", "Факт Кол-во", "Факт Сумма", "Разница Кол-во", "Разница Кол-во", "Разница Сумма"}
 
-	headerStyle, err := f.NewStyle(&excelize.Style{
-		Font: &excelize.Font{
-			Bold:  true,
-			Color: "000000",
-		},
-	})
+	err = setExcelHeaders(f, sheetName, headers)
 	if err != nil {
 		h.log.Error("Failed to create style:", err)
 		handleResponse(c, InternalError, "Error on giving style to excel")
 		return
-	}
-
-	for i, h := range headers {
-		col := string(rune('A'+i)) + "1"
-		f.SetCellValue(sheetName, col, h)
-		f.SetCellStyle(sheetName, col, col, headerStyle)
 	}
 
 	// Ma'lumotlarni qo'shish
@@ -734,32 +683,7 @@ func (h *InventoryHandler) InventoryDetailExport(c *gin.Context) {
 		f.SetCellValue(sheetName, "L"+row, imp.DifferenceSum)
 	}
 
-	// Faylni uploads/ papkasiga UUID bilan saqlash
-	fileName := "inventory_details_" + time.Now().Add(time.Hour*5).Format("2006-01-02_15-04-05") + ".xlsx"
-	filePath := filepath.Join("uploads", fileName)
-
-	// uploads/ papkasi mavjud bo‘lmasa, yaratish
-	if _, err := os.Stat("uploads"); os.IsNotExist(err) {
-		err := os.Mkdir("uploads", os.ModePerm)
-		if err != nil {
-			h.log.Error("Failed to create uploads directory:", err)
-			handleResponse(c, InternalError, "Failed to create uploads folder")
-			return
-		}
-	}
-
-	// Faylni diskka yozish
-	if err := f.SaveAs(filePath); err != nil {
-		h.log.Error("Failed to save Excel file:", err)
-		handleResponse(c, InternalError, "Failed to save Excel file")
-		return
-	}
-
-	// Foydalanuvchiga file path yoki URLni qaytarish
-	handleResponse(c, OK, gin.H{
-		"file_name": fileName,
-	})
-
+	saveExcelToUploads(c, f, *h.log, "inventory_details")
 }
 
 // Get List
