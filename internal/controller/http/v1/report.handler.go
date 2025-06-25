@@ -685,6 +685,7 @@ func (h *ReportHandler) StoreReportStats(c *gin.Context) {
 // @Tags Report
 // @Security     BearerAuth
 // @Produce json
+// @Param	order 	query string false "Order"
 // @Param   search 	query string false "Search"
 // @Param   limit 	query int false "Limit"
 // @Param 	offset query int false 	"Offset"
@@ -728,6 +729,7 @@ func (h *ReportHandler) ReportTopProducts(c *gin.Context) {
 // @Tags Report
 // @Security     BearerAuth
 // @Produce json
+// @Param	order 	query string false "Order"
 // @Param   search 	query string false "Search"
 // @Param   limit 	query int false "Limit"
 // @Param 	offset query int false 	"Offset"
@@ -770,6 +772,7 @@ func (h *ReportHandler) ReportTopSeller(c *gin.Context) {
 // @Tags Report
 // @Security     BearerAuth
 // @Produce json
+// @Param	order 	query string false "Order"
 // @Param   search 	query string false "Search"
 // @Param   start_date 	query string false "Start Date"
 // @Param   end_date 	query string false "End Date"
@@ -807,6 +810,7 @@ func (h *ReportHandler) ReportTopStores(c *gin.Context) {
 // @Tags Report
 // @Security     BearerAuth
 // @Produce json
+// @Param	order 	query string false "Order"
 // @Param   search 	query string false "Search"
 // @Param   limit 	query int false "Limit"
 // @Param 	offset query int false 	"Offset"
@@ -851,6 +855,7 @@ func (h *ReportHandler) ReportBonusProducts(c *gin.Context) {
 // @Tags Report
 // @Security BearerAuth
 // @Produce json
+// @Param	order 	query string false "Order"
 // @Param   search 	query string false "Search"
 // @Param limit query int false "Limit"
 // @Param offset query int false "Offset"
@@ -915,6 +920,7 @@ func (h *ReportHandler) TopProductsExportExcel(c *gin.Context) {
 // @Tags Report
 // @Security BearerAuth
 // @Produce json
+// @Param	order 	query string false "Order"
 // @Param   search 	query string false "Search"
 // @Param limit query int false "Limit"
 // @Param offset query int false "Offset"
@@ -982,6 +988,7 @@ func (h *ReportHandler) TopSellerExportExcel(c *gin.Context) {
 // @Tags Report
 // @Security BearerAuth
 // @Produce json
+// @Param	order 	query string false "Order"
 // @Param   search 	query string false "Search"
 // @Param limit query int false "Limit"
 // @Param offset query int false "Offset"
@@ -1040,6 +1047,7 @@ func (h *ReportHandler) TopStoresExportExcel(c *gin.Context) {
 // @Tags Report
 // @Security BearerAuth
 // @Produce json
+// @Param	order 	query string false "Order"
 // @Param   search 	query string false "Search"
 // @Param limit query int false "Limit"
 // @Param offset query int false "Offset"

@@ -12151,6 +12151,12 @@
                 "parameters": [
                     {
                         "type": "string",
+                        "description": "Order",
+                        "name": "order",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "description": "Search",
                         "name": "search",
                         "in": "query"
@@ -12235,6 +12241,12 @@
                 ],
                 "summary": "Export Bonus Products to Excel",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Order",
+                        "name": "order",
+                        "in": "query"
+                    },
                     {
                         "type": "string",
                         "description": "Search",
@@ -13049,6 +13061,12 @@
                 "parameters": [
                     {
                         "type": "string",
+                        "description": "Order",
+                        "name": "order",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "description": "Search",
                         "name": "search",
                         "in": "query"
@@ -13133,6 +13151,12 @@
                 ],
                 "summary": "Export Top Products to Excel",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Order",
+                        "name": "order",
+                        "in": "query"
+                    },
                     {
                         "type": "string",
                         "description": "Search",
@@ -13221,6 +13245,12 @@
                 "parameters": [
                     {
                         "type": "string",
+                        "description": "Order",
+                        "name": "order",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "description": "Search",
                         "name": "search",
                         "in": "query"
@@ -13305,6 +13335,12 @@
                 ],
                 "summary": "Export Top Sellers to Excel",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Order",
+                        "name": "order",
+                        "in": "query"
+                    },
                     {
                         "type": "string",
                         "description": "Search",
@@ -13393,6 +13429,12 @@
                 "parameters": [
                     {
                         "type": "string",
+                        "description": "Order",
+                        "name": "order",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "description": "Search",
                         "name": "search",
                         "in": "query"
@@ -13466,6 +13508,12 @@
                 ],
                 "summary": "Export Top Stores to Excel",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Order",
+                        "name": "order",
+                        "in": "query"
+                    },
                     {
                         "type": "string",
                         "description": "Search",

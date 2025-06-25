@@ -9048,6 +9048,10 @@ paths:
     post:
       description: Get bonus products
       parameters:
+      - description: Order
+        in: query
+        name: order
+        type: string
       - description: Search
         in: query
         name: search
@@ -9103,6 +9107,10 @@ paths:
     post:
       description: Export Bonus Products to Excel
       parameters:
+      - description: Order
+        in: query
+        name: order
+        type: string
       - description: Search
         in: query
         name: search
@@ -9626,6 +9634,10 @@ paths:
     post:
       description: Get top products
       parameters:
+      - description: Order
+        in: query
+        name: order
+        type: string
       - description: Search
         in: query
         name: search
@@ -9681,6 +9693,10 @@ paths:
     post:
       description: Export Top Products to Excel
       parameters:
+      - description: Order
+        in: query
+        name: order
+        type: string
       - description: Search
         in: query
         name: search
@@ -9736,6 +9752,10 @@ paths:
     post:
       description: Get bonus products
       parameters:
+      - description: Order
+        in: query
+        name: order
+        type: string
       - description: Search
         in: query
         name: search
@@ -9791,6 +9811,10 @@ paths:
     post:
       description: Export Top Sellers to Excel
       parameters:
+      - description: Order
+        in: query
+        name: order
+        type: string
       - description: Search
         in: query
         name: search
@@ -9846,6 +9870,10 @@ paths:
     post:
       description: Get top stores
       parameters:
+      - description: Order
+        in: query
+        name: order
+        type: string
       - description: Search
         in: query
         name: search
@@ -9894,6 +9922,10 @@ paths:
     post:
       description: Export Top Stores to Excel
       parameters:
+      - description: Order
+        in: query
+        name: order
+        type: string
       - description: Search
         in: query
         name: search

@@ -12159,6 +12159,12 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "description": "Order",
+                        "name": "order",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "description": "Search",
                         "name": "search",
                         "in": "query"
@@ -12243,6 +12249,12 @@ const docTemplate = `{
                 ],
                 "summary": "Export Bonus Products to Excel",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Order",
+                        "name": "order",
+                        "in": "query"
+                    },
                     {
                         "type": "string",
                         "description": "Search",
@@ -13057,6 +13069,12 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "description": "Order",
+                        "name": "order",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "description": "Search",
                         "name": "search",
                         "in": "query"
@@ -13141,6 +13159,12 @@ const docTemplate = `{
                 ],
                 "summary": "Export Top Products to Excel",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Order",
+                        "name": "order",
+                        "in": "query"
+                    },
                     {
                         "type": "string",
                         "description": "Search",
@@ -13229,6 +13253,12 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "description": "Order",
+                        "name": "order",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "description": "Search",
                         "name": "search",
                         "in": "query"
@@ -13313,6 +13343,12 @@ const docTemplate = `{
                 ],
                 "summary": "Export Top Sellers to Excel",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Order",
+                        "name": "order",
+                        "in": "query"
+                    },
                     {
                         "type": "string",
                         "description": "Search",
@@ -13401,6 +13437,12 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "description": "Order",
+                        "name": "order",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "description": "Search",
                         "name": "search",
                         "in": "query"
@@ -13474,6 +13516,12 @@ const docTemplate = `{
                 ],
                 "summary": "Export Top Stores to Excel",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Order",
+                        "name": "order",
+                        "in": "query"
+                    },
                     {
                         "type": "string",
                         "description": "Search",

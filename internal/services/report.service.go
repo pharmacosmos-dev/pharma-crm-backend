@@ -547,6 +547,21 @@ func (s *Services) ReportTopProducts(param *domain.ReportQueryParam) ([]domain.T
 		filter += " AND ci.updated_at::date >= ? AND ci.updated_at::date <= ?"
 		args = append(args, param.StartDate, param.EndDate)
 	}
+
+	// sort by order type
+	if param.Order != "" {
+		switch param.Order {
+		case "min_count":
+			order = " ORDER BY count ASC, (SUM(ci.unit_quantity) % p.unit_per_pack)::decimal / p.unit_per_pack ASC"
+		case "max_count":
+			order = " ORDER BY count DESC, (SUM(ci.unit_quantity) % p.unit_per_pack)::decimal / p.unit_per_pack DESC"
+		case "min_amount":
+			order = " ORDER BY total_amount "
+		case "max_amount":
+			order = " ORDER BY total_amount DESC "
+		}
+	}
+
 	args = append(args, param.Limit, param.Offset)
 	var q = query + filter + group + order + " LIMIT ? OFFSET ?"
 	err := s.db.Raw(q, args...).Scan(&res).Error
@@ -610,6 +625,19 @@ func (s *Services) ReportTopSeller(param *domain.ReportQueryParam) ([]domain.Top
 		filter += " AND s.completed_at::date BETWEEN ? AND  ?"
 		args = append(args, param.StartDate, param.EndDate)
 	}
+	// sort by order type
+	if param.Order != "" {
+		switch param.Order {
+		case "min_count":
+			order = " ORDER BY count ASC"
+		case "max_count":
+			order = " ORDER BY count DESC"
+		case "min_amount":
+			order = " ORDER BY total_amount "
+		case "max_amount":
+			order = " ORDER BY total_amount DESC "
+		}
+	}
 	args = append(args, param.Limit, param.Offset)
 	var q = query + filter + group + order + offset
 	err := s.db.Raw(q, args...).Scan(&res).Error
@@ -656,7 +684,19 @@ func (s *Services) ReportTopStores(param *domain.ReportQueryParam) ([]domain.Top
 		filter += " AND sales.completed_at::date >= ? AND sales.completed_at::date <= ?"
 		args = append(args, param.StartDate, param.EndDate)
 	}
-
+	// sort by order type
+	if param.Order != "" {
+		switch param.Order {
+		case "min_count":
+			order = " ORDER BY count ASC"
+		case "max_count":
+			order = " ORDER BY count DESC"
+		case "min_amount":
+			order = " ORDER BY total_amount "
+		case "max_amount":
+			order = " ORDER BY total_amount DESC "
+		}
+	}
 	var q = query + filter + group + order + " LIMIT ? OFFSET ?"
 	args = append(args, param.Limit, param.Offset)
 	err := s.db.Raw(q, args...).Scan(&res).Error
@@ -714,6 +754,19 @@ func (s *Services) ReportBonusProducts(param *domain.ReportQueryParam) ([]domain
 	if param.StartDate != "" && param.EndDate != "" {
 		filter += " AND (eb.created_at + interval '5 hours')::date BETWEEN ? AND ?"
 		args = append(args, param.StartDate, param.EndDate)
+	}
+	// sort by order type
+	if param.Order != "" {
+		switch param.Order {
+		case "min_count":
+			order = " ORDER BY count ASC"
+		case "max_count":
+			order = " ORDER BY count DESC"
+		case "min_amount":
+			order = " ORDER BY bonus_amount "
+		case "max_amount":
+			order = " ORDER BY bonus_amount DESC "
+		}
 	}
 	query = query + join + filter + group + order + " LIMIT ? OFFSET ?"
 	args = append(args, param.Limit, param.Offset)
