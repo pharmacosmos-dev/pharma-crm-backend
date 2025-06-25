@@ -3,8 +3,6 @@ package v1
 import (
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strconv"
 	"time"
 
@@ -210,21 +208,11 @@ func (h *CustomerHandler) ExportCustomerExcel(c *gin.Context) {
 	// Headerlar
 	headers := []string{"ID", "ФИО", "Номер Телефона", "Теги", "Сумма покупки", "Последний покупка", "Дата рождения", "Дата регистрации", "Зарегистрируйтесь в филиале", "Баланс", "Текущий долг"}
 
-	headerStyle, err := f.NewStyle(&excelize.Style{
-		Font: &excelize.Font{
-			Bold:  true,
-			Color: "000000",
-		},
-	})
+	err = setExcelHeaders(f, sheetName, headers)
 	if err != nil {
 		h.log.Error("Failed to create style:", err)
 		handleResponse(c, InternalError, "Error on giving style to excel")
 		return
-	}
-	for i, h := range headers {
-		col := string(rune('A'+i)) + "1"
-		f.SetCellValue(sheetName, col, h)
-		f.SetCellStyle(sheetName, col, col, headerStyle)
 	}
 
 	// Ma'lumotlarni qo'shish
@@ -258,32 +246,7 @@ func (h *CustomerHandler) ExportCustomerExcel(c *gin.Context) {
 		f.SetCellValue(sheetName, "K"+row, client.DebtAmount)
 
 	}
-
-	// Faylni uploads/ papkasiga UUID bilan saqlash
-	fileName := "Mijozlar_" + time.Now().Add(time.Hour*5).Format("2006-01-02_15-04-05") + ".xlsx"
-	filePath := filepath.Join("uploads", fileName)
-
-	// uploads/ papkasi mavjud bo‘lmasa, yaratish
-	if _, err := os.Stat("uploads"); os.IsNotExist(err) {
-		err := os.Mkdir("uploads", os.ModePerm)
-		if err != nil {
-			h.log.Error("Failed to create uploads directory:", err)
-			handleResponse(c, InternalError, "Failed to create uploads folder")
-			return
-		}
-	}
-
-	// Faylni diskka yozish
-	if err := f.SaveAs(filePath); err != nil {
-		h.log.Error("Failed to save Excel file:", err)
-		handleResponse(c, InternalError, "Failed to save Excel file")
-		return
-	}
-
-	// Foydalanuvchiga file path yoki URLni qaytarish
-	handleResponse(c, OK, gin.H{
-		"file_name": fileName,
-	})
+	saveExcelToUploads(c, f, *h.log, "Mijozlar")
 }
 
 // Update godoc

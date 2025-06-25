@@ -1,8 +1,6 @@
 package v1
 
 import (
-	"os"
-	"path/filepath"
 	"strconv"
 	"time"
 
@@ -243,22 +241,11 @@ func (h *TransferHandler) ExportTransferExcel(c *gin.Context) {
 	// Headerlar
 	headers := []string{"ID", "Наименование", "От Филиал", "До Филиал", "Кол-во", "Сумма Поставки", "Сумма Продажи", "Статус", "Создание", "Завершение", "Создал", "Завершил"}
 
-	headerStyle, err := f.NewStyle(&excelize.Style{
-		Font: &excelize.Font{
-			Bold:  true,
-			Color: "000000",
-		},
-	})
+	err = setExcelHeaders(f, sheetName, headers)
 	if err != nil {
 		h.log.Error("Failed to create style:", err)
 		handleResponse(c, InternalError, "Error on giving style to excel")
 		return
-	}
-
-	for i, h := range headers {
-		col := string(rune('A'+i)) + "1"
-		f.SetCellValue(sheetName, col, h)
-		f.SetCellStyle(sheetName, col, col, headerStyle)
 	}
 
 	// Ma'lumotlarni qo'shish
@@ -302,32 +289,8 @@ func (h *TransferHandler) ExportTransferExcel(c *gin.Context) {
 		}
 
 	}
-	// Faylni uploads/ papkasiga UUID bilan saqlash
-	fileName := "Transferlar_" + time.Now().Add(time.Hour*5).Format("2006-01-02_15-04-05") + ".xlsx"
-	filePath := filepath.Join("uploads", fileName)
 
-	// uploads/ papkasi mavjud bo‘lmasa, yaratish
-	if _, err := os.Stat("uploads"); os.IsNotExist(err) {
-		err := os.Mkdir("uploads", os.ModePerm)
-		if err != nil {
-			h.log.Error("Failed to create uploads directory:", err)
-			handleResponse(c, InternalError, "Failed to create uploads folder")
-			return
-		}
-	}
-
-	// Faylni diskka yozish
-	if err := f.SaveAs(filePath); err != nil {
-		h.log.Error("Failed to save Excel file:", err)
-		handleResponse(c, InternalError, "Failed to save Excel file")
-		return
-	}
-
-	// Foydalanuvchiga file path yoki URLni qaytarish
-	handleResponse(c, OK, gin.H{
-		"file_name": fileName,
-	})
-
+	saveExcelToUploads(c, f, *h.log, "Transferlar")
 }
 
 // Add product by barcode
@@ -607,22 +570,11 @@ func (h *TransferHandler) ExportTransferDetailList(c *gin.Context) {
 	// Headerlar
 	headers := []string{"Код", "Наименование", "Штрих-код", "Срок годность", "Серия номер", "Текущее Кол-во", "Ед-изм", "Текущее Cумма", "Cканированные", "Cканированные Cумма"}
 
-	headerStyle, err := f.NewStyle(&excelize.Style{
-		Font: &excelize.Font{
-			Bold:  true,
-			Color: "000000",
-		},
-	})
+	setExcelHeaders(f, sheetName, headers)
 	if err != nil {
 		h.log.Error("Failed to create style:", err)
 		handleResponse(c, InternalError, "Error on giving style to excel")
 		return
-	}
-
-	for i, h := range headers {
-		col := string(rune('A'+i)) + "1"
-		f.SetCellValue(sheetName, col, h)
-		f.SetCellStyle(sheetName, col, col, headerStyle)
 	}
 
 	// Ma'lumotlarni qo'shish
@@ -640,30 +592,6 @@ func (h *TransferHandler) ExportTransferDetailList(c *gin.Context) {
 		f.SetCellValue(sheetName, "J"+row, r.ScannedSum)
 
 	}
-	// Faylni uploads/ papkasiga UUID bilan saqlash
-	fileName := "Transfer_mahsulotlar_" + time.Now().Add(time.Hour*5).Format("2006-01-02_15-04-05") + ".xlsx"
-	filePath := filepath.Join("uploads", fileName)
 
-	// uploads/ papkasi mavjud bo‘lmasa, yaratish
-	if _, err := os.Stat("uploads"); os.IsNotExist(err) {
-		err := os.Mkdir("uploads", os.ModePerm)
-		if err != nil {
-			h.log.Error("Failed to create uploads directory:", err)
-			handleResponse(c, InternalError, "Failed to create uploads folder")
-			return
-		}
-	}
-
-	// Faylni diskka yozish
-	if err := f.SaveAs(filePath); err != nil {
-		h.log.Error("Failed to save Excel file:", err)
-		handleResponse(c, InternalError, "Failed to save Excel file")
-		return
-	}
-
-	// Foydalanuvchiga file path yoki URLni qaytarish
-	handleResponse(c, OK, gin.H{
-		"file_name": fileName,
-	})
-
+	saveExcelToUploads(c, f, *h.log, "Transfer_mahsulotlar")
 }
