@@ -7,6 +7,7 @@ import (
 // Sale structure
 type Sale struct {
 	ID                 string         `gorm:"id" json:"id"`
+	DeviceID           string         `gorm:"device_id" json:"device_id"`
 	StoreId            string         `gorm:"store_id" json:"store_id"`
 	EmployeeID         string         `gorm:"employee_id" json:"employee_id"`
 	CashBoxOperationId string         `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
