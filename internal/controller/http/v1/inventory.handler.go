@@ -827,7 +827,7 @@ func (h *InventoryHandler) InventoryDetailUpload(c *gin.Context) {
 func (h InventoryHandler) PriceOption(c *gin.Context) {
 	var (
 		param domain.InventoryParam
-		res   domain.InventoryPriceOption
+		res   []domain.InventoryPriceOption
 		err   error
 	)
 	// bind query param

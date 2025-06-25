@@ -188,11 +188,6 @@ func (h *WriteOffHandler) ExportExcel(c *gin.Context) {
 	headers := []string{"ID", "Наименование", "Магазин", "Кол-во", "Сумма по цене поставки", "Сумма по цене продажи", "Тип Списания", "Пользователь", "Статус", "Дата создание", "Дата завершения"}
 
 	setExcelHeaders(f, sheetName, headers)
-	if err != nil {
-		h.log.Error("Failed to create style:", err)
-		handleResponse(c, InternalError, "Error on giving style to excel")
-		return
-	}
 
 	// give width to column
 	f.SetColWidth(sheetName, "A", "A", 10)

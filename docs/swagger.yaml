@@ -127,6 +127,8 @@ definitions:
         type: string
       description:
         type: string
+      device_id:
+        type: string
       is_open:
         type: boolean
       open_cashless_amount:
@@ -2076,6 +2078,10 @@ paths:
       - description: Store ID
         in: query
         name: store_id
+        type: string
+      - description: Device ID
+        in: query
+        name: device_id
         type: string
       produces:
       - application/json
@@ -12766,6 +12772,37 @@ paths:
       security:
       - BearerAuth: []
       summary: Export Transfer excel
+      tags:
+      - Transfer
+  /transfer/export-nakladnoy:
+    get:
+      consumes:
+      - application/json
+      description: Export Nakladnoy
+      parameters:
+      - description: Transfer ID
+        in: query
+        name: transfer_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Nakladnoy PDF file
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Invalid request parameters
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Export Nakladnoy
       tags:
       - Transfer
   /transfer/list:

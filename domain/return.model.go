@@ -65,13 +65,14 @@ type ReturnDetail struct {
 
 // return query param  structure
 type ReturnParam struct {
-	Limit     int    `form:"limit"`
-	Offset    int    `form:"offset"`
-	StoreId   string `form:"store_id"`
-	Status    string `form:"status"`
-	Search    string `form:"search"`
-	StartDate string `form:"start_date"`
-	EndDate   string `form:"end_date"`
+	Limit      int    `form:"limit"`
+	Offset     int    `form:"offset"`
+	StoreId    string `form:"store_id"`
+	Status     string `form:"status"`
+	Search     string `form:"search"`
+	StartDate  string `form:"start_date"`
+	EndDate    string `form:"end_date"`
+	TransferID string `form:"transfer_id"`
 }
 
 // return detail query param structure

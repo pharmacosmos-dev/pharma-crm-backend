@@ -49,7 +49,7 @@ type TransferDetail struct {
 	AcceptedCount  float64    `gorm:"accepted_count" json:"accepted_count"`
 	ScannedCount   float64    `gorm:"scanned_count" json:"scanned_pack"`
 	ScannedUnit    float64    `gorm:"scanned_unit" json:"scanned_unit"`
-	ExpireDate     string     `gorm:"expire_date" json:"expire_date"`
+	ExpireDate     *time.Time `gorm:"expire_date" json:"expire_date"`
 	SerialNumber   string     `gorm:"serial_number" json:"serial_number"`
 	SupplyPrice    float64    `gorm:"supply_price" json:"supply_price"`
 	RetailPrice    float64    `gorm:"retail_price" json:"retail_price"`

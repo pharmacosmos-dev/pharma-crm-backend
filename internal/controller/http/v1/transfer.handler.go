@@ -1,11 +1,15 @@
 package v1
 
 import (
+	"fmt"
+	"math"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	pdf "github.com/jung-kurt/gofpdf"
+	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
@@ -23,16 +27,17 @@ func (h *Handler) NewTransferHandler(r *gin.RouterGroup) {
 }
 
 func (h *TransferHandler) TransferRoutes(r *gin.RouterGroup) {
-	returned := r.Group("/transfer")
+	transfer := r.Group("/transfer")
 	{
-		returned.POST("", h.Create)
-		returned.GET("/:id", h.Get)
-		returned.GET("/list", h.List)
-		returned.GET("/export-excel", h.ExportTransferExcel)
-		returned.PATCH("/:id/add-product-by-barcode", h.AddProductByBarcode)
-		returned.POST("/send/:id", h.Send)
-		returned.POST("/confirm/:id", h.Confirm)
-		returned.POST("/cancel/:id", h.Cancel)
+		transfer.POST("", h.Create)
+		transfer.GET("/:id", h.Get)
+		transfer.GET("/list", h.List)
+		transfer.GET("/export-excel", h.ExportTransferExcel)
+		transfer.PATCH("/:id/add-product-by-barcode", h.AddProductByBarcode)
+		transfer.POST("/send/:id", h.Send)
+		transfer.POST("/confirm/:id", h.Confirm)
+		transfer.POST("/cancel/:id", h.Cancel)
+		transfer.GET("/export-nakladnoy", h.ExportTransferNakladnoyPDF)
 	}
 	detail := r.Group("transfer-detail")
 	{
@@ -571,11 +576,6 @@ func (h *TransferHandler) ExportTransferDetailList(c *gin.Context) {
 	headers := []string{"Код", "Наименование", "Штрих-код", "Срок годность", "Серия номер", "Текущее Кол-во", "Ед-изм", "Текущее Cумма", "Cканированные", "Cканированные Cумма"}
 
 	setExcelHeaders(f, sheetName, headers)
-	if err != nil {
-		h.log.Error("Failed to create style:", err)
-		handleResponse(c, InternalError, "Error on giving style to excel")
-		return
-	}
 
 	// Ma'lumotlarni qo'shish
 	for i, r := range res {
@@ -594,4 +594,131 @@ func (h *TransferHandler) ExportTransferDetailList(c *gin.Context) {
 	}
 
 	saveExcelToUploads(c, f, *h.log, "Transfer_mahsulotlar")
+}
+
+// ExportNakladnoy godoc
+// @Summary Export Nakladnoy
+// @Description Export Nakladnoy
+// @Tags Transfer
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param   transfer_id query string true "Transfer ID"
+// @Success 200 {object} v1.Response "Nakladnoy PDF file"
+// @Failure 400 {object} v1.Response "Invalid request parameters"
+// @Failure 500 {object} v1.Response "Internal server error"
+// @Router /transfer/export-nakladnoy [GET]
+func (h *TransferHandler) ExportTransferNakladnoyPDF(c *gin.Context) {
+	var transferId = c.Query("transfer_id")
+	// validate transfer id
+	err := uuid.Validate(transferId)
+	if err != nil {
+		handleResponse(c, BadRequest, "invalid.transfer.id")
+		return
+	}
+	var transfer domain.Transfer
+	// get transfer by id
+	err = h.db.
+		Model(&domain.Transfer{}).
+		Preload("FromStore").
+		Preload("ToStore").
+		First(&transfer, "id = ?", transferId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "transfer.not.found")
+			return
+		}
+		handleResponse(c, InternalError, "failed.get.transfer")
+		return
+	}
+
+	// check if transfer is not completed
+	if transfer.Status != config.COMPLETED {
+		handleResponse(c, BadRequest, "transfer.not.completed")
+		return
+	}
+
+	res, _, err := h.service.TransferDetailList(&domain.ReturnDetailParam{
+		TransferId: transferId,
+		Limit:      10000, // set a high limit to get all products
+		Offset:     0})
+	if err != nil {
+		handleResponse(c, InternalError, "failed.get.transfer.products")
+		return
+	}
+
+	// nakladnoy name
+	nakladnoyName := fmt.Sprintf("НАКЛАДНАЯ № 0 от %s г.", time.Now().Format("02.01.2006"))
+	fromStoreAddress := "Адрес: " + transfer.FromStore.Address
+	toStoreAddress := "Адрес: " + transfer.ToStore.Address
+	fromStorePhone := "Тел: " + transfer.FromStore.Phone
+	toStorePhone := "Тел: " + transfer.ToStore.Phone
+
+	pdf := pdf.New("P", "mm", "A4", "")
+	pdf.AddUTF8Font("DejaVu", "", "fonts/DejaVuSans.ttf")
+	pdf.AddPage()
+
+	pdf.SetFont("DejaVu", "", 14)
+	pdf.CellFormat(0, 10, nakladnoyName, "", 1, "C", false, 0, "")
+
+	// Sotuvchi/oluvchi qismi
+	pdf.SetFont("DejaVu", "", 10)
+	pdf.CellFormat(95, 8, "Поставщик: МЧЖ “PharmaCosmos”", "1", 0, "L", false, 0, "")
+	pdf.CellFormat(95, 8, "Получатель: ООО “PHARMA COSMOS”", "1", 1, "L", false, 0, "")
+	pdf.CellFormat(95, 6, fromStoreAddress, "1", 0, "L", false, 0, "")
+	pdf.CellFormat(95, 6, toStoreAddress, "1", 1, "L", false, 0, "")
+	pdf.CellFormat(95, 6, fromStorePhone, "1", 0, "L", false, 0, "")
+	pdf.CellFormat(95, 6, toStorePhone, "1", 1, "L", false, 0, "")
+	pdf.Ln(5)
+	// Jadval sarlavhasi
+	headers := []string{"№", "Наименование товара", "Серия", "Срок", "Ед.", "Кол", "Базовая цена", "Приходная цена", "Наценка", "Отпускная цена", "Стоимость поставки"}
+	widths := []float64{7, 50, 15, 20, 10, 10, 20, 20, 15, 20, 22}
+
+	pdf.SetFont("DejaVu", "", 9)
+	for i, h := range headers {
+		pdf.CellFormat(widths[i], 7, h, "1", 0, "C", false, 0, "")
+	}
+	pdf.Ln(-1)
+
+	pdf.SetFont("DejaVu", "", 9)
+	var total float64
+	var count = 1
+	for _, p := range res {
+		row := []string{
+			strconv.Itoa(count),
+			p.Name,
+			p.SerialNumber,
+			p.ExpireDate.Format("02.01.2006"),
+			p.ShortName,
+			strconv.FormatFloat(p.ScannedCount, 'f', 2, 64),
+			strconv.FormatFloat(p.SupplyPrice, 'f', 2, 64),
+			strconv.FormatFloat(p.RetailPrice, 'f', 2, 64),
+			strconv.FormatFloat(p.RetailPrice-p.SupplyPrice, 'f', 2, 64),
+			strconv.FormatFloat(p.RetailPrice, 'f', 2, 64),
+			strconv.FormatFloat(math.Round(p.RetailPrice*p.ScannedCount), 'f', 2, 64),
+		}
+
+		for i, val := range row {
+			align := "C"
+			if i == 1 {
+				align = "L"
+			}
+			pdf.CellFormat(widths[i], 6, val, "1", 0, align, false, 0, "")
+		}
+		pdf.Ln(-1)
+		total += math.Round(p.RetailPrice * p.ScannedCount)
+		count++
+	}
+
+	// Umumiy qiymat
+	pdf.SetFont("DejaVu", "", 10)
+	pdf.CellFormat(217, 7, "Итого: "+strconv.FormatFloat(total, 'f', 2, 64), "1", 1, "R", false, 0, "")
+
+	pdf.Ln(10)
+	pdf.CellFormat(100, 7, "Руководитель предприятия: _______________", "", 0, "L", false, 0, "")
+	pdf.CellFormat(100, 7, "Получил: _______________", "", 1, "L", false, 0, "")
+	pdf.CellFormat(100, 7, "Гл. бухгалтер: _______________", "", 0, "L", false, 0, "")
+	pdf.CellFormat(100, 7, "Товар отпустил: _______________", "", 1, "L", false, 0, "")
+
+	savePdfToUploads(c, pdf, *h.log, "Nakladnoy_"+transfer.PublicId)
 }
