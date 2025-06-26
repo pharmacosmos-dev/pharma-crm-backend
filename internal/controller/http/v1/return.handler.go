@@ -716,8 +716,8 @@ func (h *ReturnHandler) ExportReturnNakladnoyPDF(c *gin.Context) {
 	toStorePhone := "Тел: +998772770333,sklad@pharmacos"
 
 	pdf := pdf.New("P", "mm", "A4", "")
-	pdf.AddUTF8Font("DejaVu", "", "fonts/DejaVuSans.ttf")
-	pdf.AddUTF8Font("DejaVu", "B", "fonts/DejaVuSansBold.ttf")
+	pdf.AddUTF8Font("DejaVu", "", "./app/uploads/DejaVuSans.ttf")
+	pdf.AddUTF8Font("DejaVu", "B", "./app/uploads/DejaVuSansBold.ttf")
 	pdf.AddPage()
 
 	pdf.SetFont("DejaVu", "B", 14)
