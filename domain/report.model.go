@@ -15,6 +15,13 @@ type ReportQueryParam struct {
 	StoreIds   []string `json:"store_ids"`
 }
 
+type ProductStatusReport struct {
+	TotalQuantity               float64 `json:"total_quantity"`
+	TotalQuantityReturned       float64 `json:"total_quantity_returned"`
+	TotalRetailPriceSum         float64 `json:"total_retail_price_sum"`
+	TotalRetailPriceSumReturned float64 `json:"total_retail_price_sum_returned"`
+}
+
 // Bonus report structure
 type BonusReport struct {
 	Id         string  `gorm:"id" json:"id"`

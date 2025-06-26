@@ -253,6 +253,72 @@ func (s *Services) ProductReport(ctx context.Context, param *domain.ReportQueryP
 	return res, totalCount, nil
 }
 
+func (s *Services) ProductStatusReport(ctx context.Context, param *domain.ReportQueryParam) (domain.ProductStatusReport, error) {
+	var (
+		res   domain.ProductStatusReport
+		args  []any
+		joins = []string{"INNER JOIN cart_items ci ON sl.id = ci.sale_id",
+			"INNER JOIN store_products sp ON ci.store_product_id = sp.id",
+			"INNER JOIN products p ON sp.product_id = p.id"}
+		filter = " WHERE sl.status = 'completed' "
+	)
+
+	if param.EndDate == "" {
+		param.EndDate = param.StartDate
+	}
+
+	// Conditionally add joins
+	if param.Search != "" || len(param.StoreIds) > 0 {
+		joins = append([]string{"INNER JOIN stores s ON sl.store_id = s.id"}, joins...)
+	}
+	if param.EmployeeId != "" {
+		joins = append(joins, "INNER JOIN employees e ON sl.employee_id = e.id")
+	}
+	if param.ProducerId != "" {
+		joins = append(joins, "LEFT JOIN producers pr ON p.producer_id = pr.id")
+	}
+
+	// Filters
+	if param.Search != "" {
+		filter += " AND (p.name ILIKE ? OR s.name ILIKE ?) "
+		args = append(args, param.Search, param.Search)
+	}
+	if len(param.StoreIds) > 0 {
+		filter += " AND sl.store_id IN (?) "
+		args = append(args, param.StoreIds)
+	}
+	if param.ProducerId != "" {
+		filter += " AND p.producer_id = ? "
+		args = append(args, param.ProducerId)
+	}
+	if param.EmployeeId != "" {
+		filter += " AND sl.employee_id = ? "
+		args = append(args, param.EmployeeId)
+	}
+	if param.StartDate != "" && param.EndDate != "" {
+		filter += " AND (sl.completed_at + interval '5 hours')::date BETWEEN ? AND ? "
+		args = append(args, param.StartDate, param.EndDate)
+	}
+
+	query := fmt.Sprintf(`
+		SELECT
+			COALESCE(SUM(CASE WHEN sl.sale_type = 'SALE' THEN (ci.quantity + ci.unit_quantity / p.unit_per_pack) ELSE 0 END), 0) AS total_quantity,
+			COALESCE(SUM(CASE WHEN sl.sale_type = 'RETURN' THEN (ci.quantity + ci.unit_quantity / p.unit_per_pack) ELSE 0 END), 0) AS total_quantity_returned,
+			COALESCE(SUM(CASE WHEN sl.sale_type = 'SALE' THEN ((ci.quantity * sp.retail_price) + (ci.unit_quantity * (sp.retail_price / p.unit_per_pack))) ELSE 0 END), 0) AS total_retail_price_sum,
+			COALESCE(SUM(CASE WHEN sl.sale_type = 'RETURN' THEN ((ci.quantity * sp.retail_price) + (ci.unit_quantity * (sp.retail_price / p.unit_per_pack))) ELSE 0 END), 0) AS total_retail_price_sum_returned
+		FROM sales sl
+		%s
+		%s
+	`, strings.Join(joins, "\n"), filter)
+
+	err := s.db.Raw(query, args...).Scan(&res).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting product status report: %v", err)
+		return res, err
+	}
+	return res, nil
+}
+
 // get lfl report service
 func (s *Services) LflReport(param *domain.ReportQueryParam) (domain.LflReport, int64, error) {
 	var (

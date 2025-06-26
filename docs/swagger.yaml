@@ -849,6 +849,17 @@ definitions:
     - quantity
     - vat
     type: object
+  domain.ProductStatusReport:
+    properties:
+      total_quantity:
+        type: number
+      total_quantity_returned:
+        type: number
+      total_retail_price_sum:
+        type: number
+      total_retail_price_sum_returned:
+        type: number
+    type: object
   domain.ProductUpdateRequest:
     properties:
       barcode:
@@ -9509,6 +9520,64 @@ paths:
       security:
       - BearerAuth: []
       summary: Get employee bonus report
+      tags:
+      - Report
+  /report/product-status:
+    post:
+      consumes:
+      - application/json
+      description: Get total quantity and price stats for sales and returns
+      parameters:
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Employee Id
+        in: query
+        name: employee_id
+        type: string
+      - description: Producer ID
+        in: query
+        name: producer_id
+        type: string
+      - description: Store ids
+        in: body
+        name: store_ids
+        schema:
+          items:
+            type: string
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.ProductStatusReport'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get product status report
       tags:
       - Report
   /report/store-amount:
