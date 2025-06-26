@@ -456,6 +456,7 @@ func (s *Services) ListProductStats(param *domain.ProductQueryParam) (domain.Pro
 		SUM(sp.pack_quantity) AS total_quantity,
 		SUM(CASE WHEN p.status = 'active' THEN sp.pack_quantity ELSE 0 END) AS active_count,
 		SUM(CASE WHEN p.status = 'inactive' THEN sp.pack_quantity ELSE 0 END) AS inactive_count,
+		ROUND(SUM(sp.pack_quantity * retail_price) + SUM((retail_price / p.unit_per_pack) * (sp.unit_quantity % p.unit_per_pack)), 2) AS total_stock_amount,
 		SUM(CASE WHEN sp.pack_quantity < 10 AND sp.pack_quantity > 0 THEN sp.pack_quantity ELSE 0 END) AS low_stock_quantity,
 		SUM(CASE WHEN sp.pack_quantity = 0 THEN 1 ELSE 0 END) AS zero_stock_count,
 		SUM(sp.pack_quantity) FILTER (WHERE sp.expire_date::date BETWEEN CURRENT_DATE AND (CURRENT_DATE + INTERVAL '3 month')) AS imminent_count,

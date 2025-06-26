@@ -187,14 +187,15 @@ type ProductRes struct {
 }
 
 type ProductStats struct {
-	TotalQuantity  float64 `gorm:"total_quantity" json:"total_quantity"`
-	TotalCount     float64 `gorm:"total_count" json:"total_count"`
-	ActiveCount    float64 `gorm:"active_count" json:"active_count"`
-	InactiveCount  float64 `gorm:"inactive_count" json:"inactive_count"`
-	ZeroStockCount float64 `gorm:"zero_stock_count" json:"zero_stock_count"`
-	LowStockCount  float64 `gorm:"low_stock_count" json:"low_stock_count"`
-	ImminentCount  float64 `gorm:"imminent_count" json:"imminent_count"`
-	ExpiredCount   float64 `gorm:"expired_count" json:"expired_count"`
+	TotalQuantity    float64 `gorm:"total_quantity" json:"total_quantity"`
+	TotalCount       float64 `gorm:"total_count" json:"total_count"`
+	ActiveCount      float64 `gorm:"active_count" json:"active_count"`
+	TotalStockAmount float64 `gorm:"total_stock_amount" json:"total_stock_amount"`
+	InactiveCount    float64 `gorm:"inactive_count" json:"inactive_count"`
+	ZeroStockCount   float64 `gorm:"zero_stock_count" json:"zero_stock_count"`
+	LowStockCount    float64 `gorm:"low_stock_count" json:"low_stock_count"`
+	ImminentCount    float64 `gorm:"imminent_count" json:"imminent_count"`
+	ExpiredCount     float64 `gorm:"expired_count" json:"expired_count"`
 }
 
 // External API response structure
