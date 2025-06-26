@@ -12,10 +12,11 @@ import (
 func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (*domain.DashboardCountStats, error) {
 	// declarations
 	var (
-		sale    domain.DashboardCountStatsSale
-		product domain.DashboardCountStatsProduct
-		income  domain.DashboardCountStatsIncome
-		res     domain.DashboardCountStats
+		sale     domain.DashboardCountStatsSale
+		product  domain.DashboardCountStatsProduct
+		income   domain.DashboardCountStatsIncome
+		imported domain.DashboardImport
+		res      domain.DashboardCountStats
 	)
 	// check end date for empty string
 	if param.EndDate == "" {
@@ -25,7 +26,8 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 	beforeStart, beforeEnd := utils.BeforeDates(param.StartDate, param.EndDate)
 	// queries
 	var (
-		args []any
+		args  []any
+		args1 []any
 		// get sale stats information
 		querys = fmt.Sprintf(`
 		SELECT
@@ -87,6 +89,14 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 		JOIN products p ON sp.product_id = p.id
 		JOIN sales s ON ci.sale_id = s.id
 		WHERE s.status = 'completed' AND s.sale_type = 'SALE'`, param.StartDate, param.EndDate, beforeStart, beforeEnd)
+
+		query1 = `
+		SELECT
+    		SUM(imd.received_count*imd.retail_price_vat) AS import_amount
+		FROM import_details imd  
+		JOIN imports im ON imd.import_id = im.id
+		WHERE im.status = 'new' AND im.entry_type = 1
+`
 		filter  = ""
 		filterc = ""
 	)
@@ -95,6 +105,9 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 		filter += " AND store_id IN (?)"
 		filterc += " AND s.store_id IN (?)"
 		args = append(args, param.StoreIds)
+
+		query1 += " AND im.store_id IN (?)"
+		args1 = append(args1, param.StoreIds)
 	}
 
 	// get total sale count and amount
@@ -120,6 +133,13 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 		return nil, err
 	}
 
+	err = s.db.Raw(query1, args1...).Scan(&imported).Error
+	if err != nil {
+		s.log.Error(err)
+		return nil, err
+	}
+
+	res.ImportAmount = imported.ImportAmount
 	res.TotalSaleCount = sale.SaleCount
 	res.BeforeSaleCount = sale.BeforeSaleCount
 	res.TotalSaleAmount = sale.SaleAmount
