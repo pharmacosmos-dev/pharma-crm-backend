@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"github.com/pharma-crm-backend/pkg/utils"
 	"strings"
 	"time"
 
@@ -159,7 +160,7 @@ func (s *Services) ProductReport(ctx context.Context, param *domain.ReportQueryP
 		totalCount int64
 		filter     = " WHERE sl.status = 'completed' "
 		args       = []any{}
-		order      = " ORDER BY sl.completed_at DESC "
+		order      = utils.BuildProductReport(param.Order)
 		pagination = fmt.Sprintf(" LIMIT %d OFFSET %d ", param.Limit, param.Offset)
 	)
 	query := `
@@ -352,7 +353,7 @@ func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.S
 		filter     = " WHERE sa.status = 'completed' "
 		args       = []any{}
 		group      = " GROUP BY s.id, s.name, sale_date  "
-		order      = " ORDER BY store_name, sale_date "
+		order      = utils.BuildStoreReportOrderClause(param.Order)
 	)
 	query := `
 	SELECT

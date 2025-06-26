@@ -3431,54 +3431,6 @@ paths:
       summary: Get total count stats
       tags:
       - dashboard
-  /dashboard/import:
-    post:
-      description: Get total accepted_amount_vat for new imports in given date range
-        and store(s)
-      parameters:
-      - description: Start Date
-        in: query
-        name: start_date
-        type: string
-      - description: End Date
-        in: query
-        name: end_date
-        type: string
-      - description: Type might be -> (HOURLY, DAILY, WEEKLY, MONTHLY, YEARLY)
-        in: query
-        name: type
-        type: string
-      - description: Single Store ID
-        in: query
-        name: store_id
-        type: string
-      - description: Multiple Store IDs
-        in: body
-        name: store_ids
-        schema:
-          items:
-            type: string
-          type: array
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Get accepted import amount (VAT)
-      tags:
-      - dashboard
   /dashboard/payments:
     post:
       description: Get all payments stats
@@ -9352,6 +9304,11 @@ paths:
         in: query
         name: producer_id
         type: string
+      - description: 'Order by field: e.g. -product_name, +store_name, +expire_date,
+          -retail_price_sum'
+        in: query
+        name: order
+        type: string
       - description: Store ids
         in: body
         name: store_ids
@@ -9581,6 +9538,10 @@ paths:
       - description: Search
         in: query
         name: search
+        type: string
+      - description: 'Order: +store_code, -store_name, -sale_date, +uzcard etc.'
+        in: query
+        name: order
         type: string
       - description: Store ID
         in: query

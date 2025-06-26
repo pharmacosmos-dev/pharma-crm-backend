@@ -206,3 +206,81 @@ func appendArrayQuotedBytes(b, v []byte) []byte {
 	}
 	return append(b, '"')
 }
+
+func BuildProductReport(orderField string) string {
+	allowedFields := map[string]string{
+		"cart_item_id":     "cart_item_id",
+		"material_code":    "p.material_code",
+		"store_name":       "store_name",
+		"product_name":     "product_name",
+		"producer_name":    "pr.name",
+		"serial_number":    "sp.serial_number",
+		"expire_date":      "sp.expire_date",
+		"quantity":         "quantity",
+		"supply_price":     "sp.supply_price",
+		"retail_price":     "sp.retail_price",
+		"supply_price_sum": "supply_price_sum",
+		"retail_price_sum": "retail_price_sum",
+		"markup_sum":       "markup_sum",
+		"vat_sum":          "vat_sum",
+		"completed_at":     "sl.completed_at",
+		"full_name":        "e.full_name",
+		"sale_number":      "sl.sale_number",
+		"sale_type":        "sl.sale_type",
+		"marking_count":    "sl.marking_count",
+	}
+
+	if orderField == "" {
+		return " ORDER BY sl.completed_at DESC "
+	}
+
+	direction := "ASC"
+	field := orderField
+
+	if strings.HasPrefix(orderField, "-") {
+		direction = "DESC"
+		field = strings.TrimPrefix(orderField, "-")
+	} else if strings.HasPrefix(orderField, "+") {
+		field = strings.TrimPrefix(orderField, "+")
+	}
+
+	if dbColumn, ok := allowedFields[field]; ok {
+		return fmt.Sprintf(" ORDER BY %s %s ", dbColumn, direction)
+	}
+
+	return " ORDER BY sl.completed_at DESC "
+}
+
+func BuildStoreReportOrderClause(orderField string) string {
+	allowedFields := map[string]string{
+		"store_code":    "s.store_code",
+		"store_name":    "store_name",
+		"sale_date":     "sale_date",
+		"cash":          "cash",
+		"uzcard":        "uzcard",
+		"humo":          "humo",
+		"click":         "click",
+		"return_amount": "return_amount",
+		"total_amount":  "total_amount",
+	}
+
+	if orderField == "" {
+		return " ORDER BY store_name, sale_date "
+	}
+
+	direction := "ASC"
+	field := orderField
+
+	if strings.HasPrefix(field, "-") {
+		direction = "DESC"
+		field = strings.TrimPrefix(field, "-")
+	} else if strings.HasPrefix(field, "+") {
+		field = strings.TrimPrefix(field, "+")
+	}
+
+	if col, ok := allowedFields[field]; ok {
+		return fmt.Sprintf(" ORDER BY %s %s ", col, direction)
+	}
+
+	return " ORDER BY store_name, sale_date "
+}

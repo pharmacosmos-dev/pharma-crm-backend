@@ -357,6 +357,7 @@ func (h *ReportHandler) BonusReportExport(c *gin.Context) {
 // @Param   search query string false "Search"
 // @Param   employee_id query string false "Employee Id"
 // @Param   producer_id query string false "Producer ID"
+// @Param   order query string false "Order by field: e.g. -product_name, +store_name, +expire_date, -retail_price_sum"
 // @Param   store_ids body []string false "Store ids"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
@@ -540,6 +541,7 @@ func (h *ReportHandler) LflReport(c *gin.Context) {
 // @Param   start_date query string false "Start Date Format(2025-03)"
 // @Param   end_date query string false "End Date Format(2025-04)"
 // @Param   search query string false "Search"
+// @Param   order query string false "Order: +store_code, -store_name, -sale_date, +uzcard etc."
 // @Param   store_id query string false "Store ID"
 // @Param   store_ids body []string false "Store ids"
 // @Success 200 {object} v1.Response
