@@ -3,9 +3,10 @@ package services
 import (
 	"context"
 	"fmt"
-	"github.com/pharma-crm-backend/pkg/utils"
 	"strings"
 	"time"
+
+	"github.com/pharma-crm-backend/pkg/utils"
 
 	"github.com/pharma-crm-backend/domain"
 )
@@ -257,9 +258,11 @@ func (s *Services) ProductStatusReport(ctx context.Context, param *domain.Report
 	var (
 		res   domain.ProductStatusReport
 		args  []any
-		joins = []string{"INNER JOIN cart_items ci ON sl.id = ci.sale_id",
+		joins = []string{
+			"INNER JOIN cart_items ci ON sl.id = ci.sale_id",
 			"INNER JOIN store_products sp ON ci.store_product_id = sp.id",
-			"INNER JOIN products p ON sp.product_id = p.id"}
+			"INNER JOIN products p ON sp.product_id = p.id",
+		}
 		filter = " WHERE sl.status = 'completed' "
 	)
 
@@ -304,8 +307,12 @@ func (s *Services) ProductStatusReport(ctx context.Context, param *domain.Report
 		SELECT
 			COALESCE(SUM(CASE WHEN sl.sale_type = 'SALE' THEN (ci.quantity + ci.unit_quantity / p.unit_per_pack) ELSE 0 END), 0) AS total_quantity,
 			COALESCE(SUM(CASE WHEN sl.sale_type = 'RETURN' THEN (ci.quantity + ci.unit_quantity / p.unit_per_pack) ELSE 0 END), 0) AS total_quantity_returned,
-			COALESCE(SUM(CASE WHEN sl.sale_type = 'SALE' THEN ((ci.quantity * sp.retail_price) + (ci.unit_quantity * (sp.retail_price / p.unit_per_pack))) ELSE 0 END), 0) AS total_retail_price_sum,
-			COALESCE(SUM(CASE WHEN sl.sale_type = 'RETURN' THEN ((ci.quantity * sp.retail_price) + (ci.unit_quantity * (sp.retail_price / p.unit_per_pack))) ELSE 0 END), 0) AS total_retail_price_sum_returned
+			COALESCE(SUM(CASE
+				WHEN sl.sale_type = 'SALE' THEN sl.total_amount
+				WHEN sl.sale_type = 'RETURN' THEN -sl.total_amount
+				ELSE 0
+			END), 0) AS total_retail_price_sum,
+			COALESCE(SUM(CASE WHEN sl.sale_type = 'RETURN' THEN sl.total_amount ELSE 0 END), 0) AS total_retail_price_sum_returned
 		FROM sales sl
 		%s
 		%s
