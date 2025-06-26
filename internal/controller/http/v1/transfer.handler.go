@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -663,11 +662,11 @@ func (h *TransferHandler) ExportTransferNakladnoyPDF(c *gin.Context) {
 	pdf.SetFont("DejaVu", "B", 14)
 	pdf.CellFormat(0, 10, nakladnoyName, "", 1, "C", false, 0, "")
 
-	// Sotuvchi/oluvchi qismi
-
+	// Sender/Receiver section
+	pdf.Ln(-1)
 	pdf.SetFont("DejaVu", "", 10)
-	// Поставщик va Получатель
-	drawPairedMultiLineCells(pdf, "Поставщик: МЧЖ \"PharmaCosmos\"", "Получатель: ООО \"PHARMA COSMOS\"", 95, 8)
+	pdf.CellFormat(95, 8, "Поставщик: ООО \"PHARMA COSMOS\"", "1", 0, "L", false, 0, "")
+	pdf.CellFormat(95, 8, "Получатель: ООО \"PHARMA COSMOS\"", "1", 1, "L", false, 0, "")
 
 	// Addresses
 	drawPairedMultiLineCells(pdf, fromStoreAddress, toStoreAddress, 95, 6)
@@ -685,14 +684,14 @@ func (h *TransferHandler) ExportTransferNakladnoyPDF(c *gin.Context) {
 
 	// Optimized jadval sarlavhasi - ko'p qatorli
 	headers1 := []string{"№", "Наименование товара", "Серия", "Срок", "Ед.", "Кол", "Базовая", "Приходная", "Наценка", "Отпускная", "Стоимость"}
-	headers2 := []string{"", "", "", "", "", "", "цена", "цена", "", "цена", "поставки"}
+	headers2 := []string{"", "", "", "", "изм.", "", "цена", "цена", "", "цена", "поставки"}
 	widths := []float64{6, 45, 15, 20, 8, 9, 18, 18, 15, 18, 18}
 
 	pdf.SetFont("DejaVu", "B", 8)
 
 	// First row headers
 	for i, h := range headers1 {
-		if i == 6 || i == 7 || i == 9 || i == 10 { // "Базовая", "Приходная", "Стоимость" ustunlari uchun ko'p qatorli
+		if i == 5 || i == 6 || i == 7 || i == 9 || i == 10 { // "Базовая", "Приходная", "Стоимость" ustunlari uchun ko'p qatorli
 			pdf.CellFormat(widths[i], 3.5, h, "LTR", 0, "C", false, 0, "")
 		} else {
 			pdf.CellFormat(widths[i], 7, h, "1", 0, "C", false, 0, "")
@@ -702,7 +701,7 @@ func (h *TransferHandler) ExportTransferNakladnoyPDF(c *gin.Context) {
 
 	// Second row headers (faqat kerakli joylar uchun)
 	for i, h := range headers2 {
-		if i == 6 || i == 7 || i == 9 || i == 10 { // "цена", "цена", "поставки" uchun
+		if i == 5 || i == 6 || i == 7 || i == 9 || i == 10 { // "цена", "цена", "поставки" uchun
 			pdf.CellFormat(widths[i], 3.5, h, "LBR", 0, "C", false, 0, "")
 		} else {
 			pdf.CellFormat(widths[i], 3.5, "", "", 0, "C", false, 0, "")
@@ -740,7 +739,8 @@ func (h *TransferHandler) ExportTransferNakladnoyPDF(c *gin.Context) {
 			}
 		}
 
-		// Har bir qator uchun
+		// Each row will have the same number of lines
+		// so we iterate through the maxLines
 		for lineNum := 0; lineNum < maxLines; lineNum++ {
 			for i := range row {
 				align := "C"
@@ -753,7 +753,8 @@ func (h *TransferHandler) ExportTransferNakladnoyPDF(c *gin.Context) {
 					cellText = splitCells[i][lineNum]
 				}
 
-				// Qator chegaralarini to'g'ri chizish
+				// drawing border based on line number
+				// LTR - left top right, LBR - left bottom right, LR -
 				border := "LR"
 				if lineNum == 0 {
 					border = "LTR"
@@ -764,24 +765,23 @@ func (h *TransferHandler) ExportTransferNakladnoyPDF(c *gin.Context) {
 				if lineNum > 0 && lineNum < maxLines-1 {
 					border = "LR"
 				}
-
+				// draw cell with text and border
 				pdf.CellFormat(widths[i], 6, cellText, border, 0, align, false, 0, "")
 			}
 			pdf.Ln(-1)
 		}
-
+		// Update totals and count
 		total += math.Round(p.RetailPrice * p.ScannedCount)
 		count++
 	}
 
-	// Umumiy qiymat
-	pdf.SetFont("DejaVu", "", 10)
 	totalWidth := 0.0
 	for _, w := range widths {
 		totalWidth += w
 	}
 	pdf.CellFormat(totalWidth, 7, "Итого: "+strconv.FormatFloat(total, 'f', 2, 64), "1", 1, "R", false, 0, "")
 
+	pdf.SetFont("DejaVu", "B", 10)
 	pdf.Ln(10)
 	pdf.CellFormat(100, 7, "Руководитель предприятия: _______________", "", 0, "L", false, 0, "")
 	pdf.CellFormat(100, 7, "Получил: _______________", "", 1, "L", false, 0, "")
@@ -789,75 +789,4 @@ func (h *TransferHandler) ExportTransferNakladnoyPDF(c *gin.Context) {
 	pdf.CellFormat(100, 7, "Товар отпустил: _______________", "", 1, "L", false, 0, "")
 
 	savePdfToUploads(c, pdf, *h.log, "Nakladnoy_"+transfer.PublicId)
-}
-
-// Helper function for drawing paired multi-line cells
-func drawPairedMultiLineCells(pdf *pdf.Fpdf, leftText, rightText string, width, height float64) {
-	leftLines := splitText(pdf, leftText, width, 10)
-	rightLines := splitText(pdf, rightText, width, 10)
-
-	maxLines := len(leftLines)
-	if len(rightLines) > maxLines {
-		maxLines = len(rightLines)
-	}
-	for i := 0; i < maxLines; i++ {
-		// Left cell
-		var leftCellText string
-		if i < len(leftLines) {
-			leftCellText = leftLines[i]
-		}
-
-		// Right cell
-		var rightCellText string
-		if i < len(rightLines) {
-			rightCellText = rightLines[i]
-		}
-
-		// Border logic
-		leftBorder := "LR"
-		rightBorder := "LR"
-		if i == 0 {
-			leftBorder = "LTR"
-			rightBorder = "LTR"
-		}
-		if i == maxLines-1 {
-			leftBorder = "LBR"
-			rightBorder = "LBR"
-		}
-
-		pdf.CellFormat(width, height, leftCellText, leftBorder, 0, "L", false, 0, "")
-		pdf.CellFormat(width, height, rightCellText, rightBorder, 1, "L", false, 0, "")
-	}
-}
-
-func splitText(pdf *pdf.Fpdf, text string, maxWidth float64, fontSize float64) []string {
-	pdf.SetFont("DejaVu", "", fontSize)
-	words := strings.Fields(text)
-	var lines []string
-	var currentLine string
-
-	for _, word := range words {
-		testLine := currentLine
-		if testLine != "" {
-			testLine += " "
-		}
-		testLine += word
-
-		if pdf.GetStringWidth(testLine) <= maxWidth-2 { // -2 for padding
-			currentLine = testLine
-		} else {
-			if currentLine != "" {
-				lines = append(lines, currentLine)
-			}
-			currentLine = word
-		}
-	}
-	if currentLine != "" {
-		lines = append(lines, currentLine)
-	}
-
-	if len(lines) == 0 {
-		lines = append(lines, text)
-	}
-	return lines
 }
