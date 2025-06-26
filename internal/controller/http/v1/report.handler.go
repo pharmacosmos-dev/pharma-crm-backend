@@ -33,6 +33,7 @@ func (h *ReportHandler) ReportRoutes(r *gin.RouterGroup) {
 		report.POST("/bonus", h.BonusReport)
 		report.POST("/bonus-export", h.BonusReportExport)
 		report.POST("/product", h.ProductReport)
+		report.POST("/product-status", h.ProductStatusReport)
 		report.POST("/product-export", h.ProductReportExportExcel)
 		report.POST("/lfl", h.LflReport)
 		report.POST("/store-amount", h.StoreReportAmount)
@@ -357,6 +358,7 @@ func (h *ReportHandler) BonusReportExport(c *gin.Context) {
 // @Param   search query string false "Search"
 // @Param   employee_id query string false "Employee Id"
 // @Param   producer_id query string false "Producer ID"
+// @Param   order query string false "Order by field: e.g. -product_name, +store_name, +expire_date, -retail_price_sum"
 // @Param   store_ids body []string false "Store ids"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
@@ -392,6 +394,48 @@ func (h *ReportHandler) ProductReport(c *gin.Context) {
 	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
 
 	handleResponse(c, OK, data)
+}
+
+// @Summary Get product status report
+// @Description Get total quantity and price stats for sales and returns
+// @Tags Report
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param   start_date query string false "Start Date"
+// @Param   end_date query string false "End Date"
+// @Param   search query string false "Search"
+// @Param   employee_id query string false "Employee Id"
+// @Param   producer_id query string false "Producer ID"
+// @Param   store_ids body []string false "Store ids"
+// @Success 200 {object} v1.Response{data=domain.ProductStatusReport}
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /report/product-status [POST]
+func (h *ReportHandler) ProductStatusReport(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), config.ContextTimeoutForReports)
+	defer cancel()
+
+	var param domain.ReportQueryParam
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
+		handleResponse(c, BadRequest, "Invalid query parameters")
+		return
+	}
+
+	// parse store_ids from body
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&param.StoreIds)
+	}
+
+	res, err := h.service.ProductStatusReport(ctx, &param)
+	if err != nil {
+		h.log.Warn("Failed to get product status report: %v", err)
+		handleResponse(c, InternalError, "failed to get product status report")
+		return
+	}
+
+	handleResponse(c, OK, res)
 }
 
 // Bonus report godoc
@@ -540,6 +584,7 @@ func (h *ReportHandler) LflReport(c *gin.Context) {
 // @Param   start_date query string false "Start Date Format(2025-03)"
 // @Param   end_date query string false "End Date Format(2025-04)"
 // @Param   search query string false "Search"
+// @Param   order query string false "Order: +store_code, -store_name, -sale_date, +uzcard etc."
 // @Param   store_id query string false "Store ID"
 // @Param   store_ids body []string false "Store ids"
 // @Success 200 {object} v1.Response
