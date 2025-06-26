@@ -1030,7 +1030,7 @@ func (h *SaleHandler) AddDiscountCard(c *gin.Context) {
 		sales
 	SET
 		customer_id = ?
-	WHERE sale_id = ?`, body.CustomerID, body.SaleID).Error
+	WHERE id = ?`, body.CustomerID, body.SaleID).Error
 	if err != nil {
 		h.log.Warn("ERROR on updating sale: %v", err)
 		handleResponse(c, InternalError, "failed.update.sale.customer_id")

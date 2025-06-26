@@ -3431,54 +3431,6 @@ paths:
       summary: Get total count stats
       tags:
       - dashboard
-  /dashboard/import:
-    post:
-      description: Get total accepted_amount_vat for new imports in given date range
-        and store(s)
-      parameters:
-      - description: Start Date
-        in: query
-        name: start_date
-        type: string
-      - description: End Date
-        in: query
-        name: end_date
-        type: string
-      - description: Type might be -> (HOURLY, DAILY, WEEKLY, MONTHLY, YEARLY)
-        in: query
-        name: type
-        type: string
-      - description: Single Store ID
-        in: query
-        name: store_id
-        type: string
-      - description: Multiple Store IDs
-        in: body
-        name: store_ids
-        schema:
-          items:
-            type: string
-          type: array
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Get accepted import amount (VAT)
-      tags:
-      - dashboard
   /dashboard/payments:
     post:
       description: Get all payments stats
@@ -10725,6 +10677,37 @@ paths:
       security:
       - BearerAuth: []
       summary: Export return excel
+      tags:
+      - Return
+  /return/export-nakladnoy:
+    get:
+      consumes:
+      - application/json
+      description: Export Nakladnoy
+      parameters:
+      - description: Return ID
+        in: query
+        name: return_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Nakladnoy PDF file
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Invalid request parameters
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Export Nakladnoy
       tags:
       - Return
   /return/list:

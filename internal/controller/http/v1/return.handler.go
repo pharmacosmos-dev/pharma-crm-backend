@@ -1,11 +1,14 @@
 package v1
 
 import (
+	"fmt"
+	"math"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	pdf "github.com/jung-kurt/gofpdf"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/helper"
@@ -35,6 +38,7 @@ func (h *ReturnHandler) ReturnRoutes(r *gin.RouterGroup) {
 		returned.POST("/send1c/:id", h.Send1C)
 		returned.POST("/confirm/:id", h.Confirm)
 		returned.POST("/cancel/:id", h.Cancel)
+		returned.GET("/export-nakladnoy", h.ExportReturnNakladnoyPDF)
 	}
 	detail := r.Group("return-detail")
 	{
@@ -651,4 +655,199 @@ func (h *ReturnHandler) ExportReturnDetailList(c *gin.Context) {
 
 	}
 	saveExcelToUploads(c, f, *h.log, "Vozvrat_mahsulotlar")
+}
+
+// ExportNakladnoy godoc
+// @Summary Export Nakladnoy
+// @Description Export Nakladnoy
+// @Tags 	Return
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param   return_id query string true "Return ID"
+// @Success 200 {object} v1.Response "Nakladnoy PDF file"
+// @Failure 400 {object} v1.Response "Invalid request parameters"
+// @Failure 500 {object} v1.Response "Internal server error"
+// @Router /return/export-nakladnoy [GET]
+func (h *ReturnHandler) ExportReturnNakladnoyPDF(c *gin.Context) {
+	var returnId = c.Query("return_id")
+	// validate return id
+	err := uuid.Validate(returnId)
+	if err != nil {
+		handleResponse(c, BadRequest, "invalid.return.id")
+		return
+	}
+	var returnData domain.Return
+	// get return by id
+	err = h.db.
+		Model(&domain.Transfer{}).
+		Preload("Store").
+		Select("transfers.*, 0 as return_count").
+		First(&returnData, "id = ?", returnId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "return.not.found")
+			return
+		}
+		handleResponse(c, InternalError, "failed.get.return")
+		return
+	}
+
+	// check if return is not completed
+	if returnData.Status != config.COMPLETED && returnData.Status != config.SENT {
+		handleResponse(c, BadRequest, "return.not.completed")
+		return
+	}
+
+	res, _, err := h.service.ReturnDetailList(&domain.ReturnDetailParam{
+		ReturnId: returnId,
+		Limit:    10000, // set a high limit to get all products
+		Offset:   0})
+	if err != nil {
+		handleResponse(c, InternalError, "failed.get.return.products")
+		return
+	}
+
+	// nakladnoy name
+	nakladnoyName := fmt.Sprintf("НАКЛАДНАЯ № %s от %s г.", returnData.PublicId, time.Now().Format("02.01.2006"))
+	fromStoreAddress := "Адрес: " + returnData.Store.Address
+	toStoreAddress := "Адрес: г.Ташкент, Учтепинский район, ул.Богобод, Д.269"
+	fromStorePhone := fmt.Sprintf("Тел: +%s,%s", returnData.Store.Phone, "filial@pharma")
+	toStorePhone := "Тел: +998772770333,sklad@pharmacos"
+
+	pdf := pdf.New("P", "mm", "A4", "")
+	pdf.AddUTF8Font("DejaVu", "", "fonts/DejaVuSans.ttf")
+	pdf.AddUTF8Font("DejaVu", "B", "fonts/DejaVuSansBold.ttf")
+	pdf.AddPage()
+
+	pdf.SetFont("DejaVu", "B", 14)
+	pdf.CellFormat(0, 10, nakladnoyName, "", 1, "C", false, 0, "")
+
+	// Sender/Receiver section
+	pdf.Ln(-1)
+	pdf.SetFont("DejaVu", "", 10)
+	pdf.CellFormat(95, 8, "Поставщик: ООО \"PHARMA COSMOS\"", "1", 0, "L", false, 0, "")
+	pdf.CellFormat(95, 8, "Получатель: MChJ \"PharmaCosmos\"", "1", 1, "L", false, 0, "")
+
+	// Addresses
+	drawPairedMultiLineCells(pdf, fromStoreAddress, toStoreAddress, 95, 6)
+
+	// Phone numbers
+	drawPairedMultiLineCells(pdf, fromStorePhone, toStorePhone, 95, 6)
+
+	// Bank details
+	drawPairedMultiLineCells(pdf, "Р/счет: 20208000200621819001 в ИПОТЕКА БАНК", "Р/счет: 20208000200621819001 в ИПОТЕКА БАНК", 95, 6)
+	// MFO and INN details
+	drawPairedMultiLineCells(pdf, "МФО: 00408       ИНН: 303970073", "МФО: 00408       ИНН: 303970073", 95, 6)
+	// OKONX details
+	drawPairedMultiLineCells(pdf, "ОКОНХ: 46460", "ОКОНХ: 46460", 95, 6)
+	pdf.Ln(5)
+
+	// Optimized jadval sarlavhasi - ko'p qatorli
+	headers1 := []string{"№", "Наименование товара", "Серия", "Срок", "Ед.", "Кол", "Базовая", "Приходная", "Наценка", "Отпускная", "Стоимость"}
+	headers2 := []string{"", "", "", "", "изм.", "", "цена", "цена", "", "цена", "поставки"}
+	widths := []float64{6, 45, 15, 20, 8, 9, 18, 18, 15, 18, 18}
+
+	pdf.SetFont("DejaVu", "B", 8)
+
+	// First row headers
+	for i, h := range headers1 {
+		if i == 5 || i == 6 || i == 7 || i == 9 || i == 10 { // "Базовая", "Приходная", "Стоимость" ustunlari uchun ko'p qatorli
+			pdf.CellFormat(widths[i], 3.5, h, "LTR", 0, "C", false, 0, "")
+		} else {
+			pdf.CellFormat(widths[i], 7, h, "1", 0, "C", false, 0, "")
+		}
+	}
+	pdf.Ln(-1)
+
+	// Second row headers (faqat kerakli joylar uchun)
+	for i, h := range headers2 {
+		if i == 5 || i == 6 || i == 7 || i == 9 || i == 10 { // "цена", "цена", "поставки" uchun
+			pdf.CellFormat(widths[i], 3.5, h, "LBR", 0, "C", false, 0, "")
+		} else {
+			pdf.CellFormat(widths[i], 3.5, "", "", 0, "C", false, 0, "")
+		}
+	}
+	pdf.Ln(-1)
+
+	pdf.SetFont("DejaVu", "", 6)
+	var total float64
+	var count = 1
+	for _, p := range res {
+		row := []string{
+			strconv.Itoa(count),
+			p.Name,
+			p.SerialNumber,
+			p.ExpireDate.Format("02.01.2006"),
+			p.ShortName,
+			strconv.FormatFloat(p.ScannedCount, 'f', 2, 64),
+			formatWithSpaceSeparator(p.SupplyPrice),
+			formatWithSpaceSeparator(p.RetailPrice),
+			formatWithSpaceSeparator(p.RetailPrice - p.SupplyPrice),
+			formatWithSpaceSeparator(p.RetailPrice),
+			formatWithSpaceSeparator(p.RetailPrice * p.ScannedCount),
+		}
+
+		// Har bir ustun uchun maksimal qator sonini topish
+		maxLines := 1
+		var splitCells [][]string
+
+		for i, val := range row {
+			lines := splitText(pdf, val, widths[i], 6)
+			splitCells = append(splitCells, lines)
+			if len(lines) > maxLines {
+				maxLines = len(lines)
+			}
+		}
+
+		// Each row will have the same number of lines
+		// so we iterate through the maxLines
+		for lineNum := 0; lineNum < maxLines; lineNum++ {
+			for i := range row {
+				align := "C"
+				if i == 1 {
+					align = "L"
+				}
+
+				var cellText string
+				if lineNum < len(splitCells[i]) {
+					cellText = splitCells[i][lineNum]
+				}
+
+				// drawing border based on line number
+				// LTR - left top right, LBR - left bottom right, LR -
+				border := "LR"
+				if lineNum == 0 {
+					border = "LTR"
+				}
+				if lineNum == maxLines-1 {
+					border = "LBR"
+				}
+				if lineNum > 0 && lineNum < maxLines-1 {
+					border = "LR"
+				}
+				// draw cell with text and border
+				pdf.CellFormat(widths[i], 6, cellText, border, 0, align, false, 0, "")
+			}
+			pdf.Ln(-1)
+		}
+		// Update totals and count
+		total += math.Round(p.RetailPrice * p.ScannedCount)
+		count++
+	}
+
+	totalWidth := 0.0
+	for _, w := range widths {
+		totalWidth += w
+	}
+	pdf.CellFormat(totalWidth, 7, "Итого: "+formatWithSpaceSeparator(total), "1", 1, "R", false, 0, "")
+
+	pdf.SetFont("DejaVu", "B", 10)
+	pdf.Ln(10)
+	pdf.CellFormat(100, 7, "Руководитель предприятия: _______________", "", 0, "L", false, 0, "")
+	pdf.CellFormat(100, 7, "Получил: _______________", "", 1, "L", false, 0, "")
+	pdf.CellFormat(100, 7, "Гл. бухгалтер: _______________", "", 0, "L", false, 0, "")
+	pdf.CellFormat(100, 7, "Товар отпустил: _______________", "", 1, "L", false, 0, "")
+
+	savePdfToUploads(c, pdf, *h.log, "Return_Nakladnoy_"+returnData.PublicId)
 }

@@ -53,7 +53,7 @@ type ReturnDetail struct {
 	MaterialCode   int        `gorm:"material_code" json:"material_code"`
 	Barcode        string     `gorm:"barcode" json:"barcode"`
 	ShortName      string     `gorm:"short_name" json:"short_name"`
-	ExpireDate     string     `gorm:"expire_date" json:"expire_date"`
+	ExpireDate     *time.Time `gorm:"expire_date" json:"expire_date"`
 	SerialNumber   string     `gorm:"serial_number" json:"serial_number"`
 	SupplyPrice    float64    `gorm:"supply_price" json:"supply_price"`
 	RetailPrice    float64    `gorm:"retail_price" json:"retail_price"`

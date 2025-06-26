@@ -633,7 +633,7 @@ func (h *TransferHandler) ExportTransferNakladnoyPDF(c *gin.Context) {
 	}
 
 	// check if transfer is not completed
-	if transfer.Status != config.COMPLETED {
+	if transfer.Status != config.COMPLETED && transfer.Status != config.SENT {
 		handleResponse(c, BadRequest, "transfer.not.completed")
 		return
 	}
@@ -709,7 +709,7 @@ func (h *TransferHandler) ExportTransferNakladnoyPDF(c *gin.Context) {
 	}
 	pdf.Ln(-1)
 
-	pdf.SetFont("DejaVu", "", 8)
+	pdf.SetFont("DejaVu", "", 6)
 	var total float64
 	var count = 1
 	for _, p := range res {
@@ -720,11 +720,11 @@ func (h *TransferHandler) ExportTransferNakladnoyPDF(c *gin.Context) {
 			p.ExpireDate.Format("02.01.2006"),
 			p.ShortName,
 			strconv.FormatFloat(p.ScannedCount, 'f', 2, 64),
-			strconv.FormatFloat(p.SupplyPrice, 'f', 2, 64),
-			strconv.FormatFloat(p.RetailPrice, 'f', 2, 64),
-			strconv.FormatFloat(p.RetailPrice-p.SupplyPrice, 'f', 2, 64),
-			strconv.FormatFloat(p.RetailPrice, 'f', 2, 64),
-			strconv.FormatFloat(math.Round(p.RetailPrice*p.ScannedCount), 'f', 2, 64),
+			formatWithSpaceSeparator(p.SupplyPrice),
+			formatWithSpaceSeparator(p.RetailPrice),
+			formatWithSpaceSeparator(p.RetailPrice - p.SupplyPrice),
+			formatWithSpaceSeparator(p.RetailPrice),
+			formatWithSpaceSeparator(p.RetailPrice * p.ScannedCount),
 		}
 
 		// Har bir ustun uchun maksimal qator sonini topish
@@ -732,7 +732,7 @@ func (h *TransferHandler) ExportTransferNakladnoyPDF(c *gin.Context) {
 		var splitCells [][]string
 
 		for i, val := range row {
-			lines := splitText(pdf, val, widths[i], 8)
+			lines := splitText(pdf, val, widths[i], 6)
 			splitCells = append(splitCells, lines)
 			if len(lines) > maxLines {
 				maxLines = len(lines)
@@ -779,7 +779,7 @@ func (h *TransferHandler) ExportTransferNakladnoyPDF(c *gin.Context) {
 	for _, w := range widths {
 		totalWidth += w
 	}
-	pdf.CellFormat(totalWidth, 7, "Итого: "+strconv.FormatFloat(total, 'f', 2, 64), "1", 1, "R", false, 0, "")
+	pdf.CellFormat(totalWidth, 7, "Итого: "+formatWithSpaceSeparator(total), "1", 1, "R", false, 0, "")
 
 	pdf.SetFont("DejaVu", "B", 10)
 	pdf.Ln(10)

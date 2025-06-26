@@ -92,7 +92,6 @@ func (s *Services) GetReturnById(returnId string) (*domain.Return, error) {
 			SUM(td.accepted_count*td.retail_price) AS accepted_retail_sum`).
 		Joins("LEFT JOIN transfer_details td ON transfers.id = td.transfer_id").
 		Group("transfers.id").
-		Debug().
 		First(&res, "transfers.id = ?", returnId).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting return by id: %v", err)
