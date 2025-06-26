@@ -22,12 +22,19 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 	if param.EndDate == "" {
 		param.EndDate = param.StartDate
 	}
+	// Dates
+	currentStart := param.StartDate
+	currentEnd := param.EndDate
 	// calculate before start and before end date
 	beforeStart, beforeEnd := utils.BeforeDates(param.StartDate, param.EndDate)
 	// queries
 	var (
 		args  []any
-		args1 []any
+		args1 = []interface{}{
+			currentStart, currentEnd, // 1-2
+			beforeStart, beforeEnd, // 3-4
+		}
+
 		// get sale stats information
 		querys = fmt.Sprintf(`
 		SELECT
@@ -91,11 +98,21 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 		WHERE s.status = 'completed' AND s.sale_type = 'SALE'`, param.StartDate, param.EndDate, beforeStart, beforeEnd)
 
 		query1 = `
-		SELECT
-    		SUM(imd.received_count*imd.retail_price_vat) AS import_amount
-		FROM import_details imd  
-		JOIN imports im ON imd.import_id = im.id
-		WHERE im.status = 'new' AND im.entry_type = 1
+SELECT
+    COALESCE(SUM(CASE 
+        WHEN im.created_at::date BETWEEN ? AND ? 
+        THEN imd.received_count * imd.retail_price_vat 
+        ELSE 0 
+    END), 0) AS import_amount,
+
+    COALESCE(SUM(CASE 
+        WHEN im.created_at::date BETWEEN ? AND ? 
+        THEN imd.received_count * imd.retail_price_vat 
+        ELSE 0 
+    END), 0) AS before_import_amount
+FROM import_details imd
+JOIN imports im ON imd.import_id = im.id
+WHERE im.status = 'new' AND im.entry_type = 1
 `
 		filter  = ""
 		filterc = ""
@@ -140,6 +157,7 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 	}
 
 	res.ImportAmount = imported.ImportAmount
+	res.BeforeImportAmount = imported.BeforeImportAmount
 	res.TotalSaleCount = sale.SaleCount
 	res.BeforeSaleCount = sale.BeforeSaleCount
 	res.TotalSaleAmount = sale.SaleAmount

@@ -120,7 +120,9 @@ func BeforeDates(startDateStr, endDateStr string) (string, string) {
 
 	diff := endDate.Sub(startDate)
 	if diff == 0 {
-		diff = 24 * time.Hour // 1 kun qo‘shamiz
+		diff = 24 * time.Hour // 1 kun qilib qo‘yamiz
+	} else {
+		diff += 24 * time.Hour // 1 kun qo‘shamiz
 	}
 
 	beforeStart := startDate.Add(-diff)

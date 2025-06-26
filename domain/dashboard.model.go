@@ -5,6 +5,7 @@ import "time"
 // Count and Amount stats structure
 type DashboardCountStats struct {
 	ImportAmount             float64 `json:"import_amount"`
+	BeforeImportAmount       float64 `json:"before_import_amount"`
 	TotalSaleCount           int64   `gorm:"total_sale_count" json:"total_sale_count"`
 	BeforeSaleCount          int64   `gorm:"before_sale_count" json:"before_sale_count"`
 	TotalSaleAmount          float64 `gorm:"total_sale_amount" json:"total_sale_amount"`
@@ -125,7 +126,8 @@ type DashboardCountStatsIncome struct {
 	BeforeIncomeAmount float64 `gorm:"before_income_amount" json:"before_income_amount"`
 }
 type DashboardImport struct {
-	ImportAmount float64 `json:"import_amount"`
+	ImportAmount       float64 `json:"import_amount"`
+	BeforeImportAmount float64 `json:"before_import_amount"`
 }
 
 type DashboardCountStatsBonus struct {
