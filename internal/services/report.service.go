@@ -307,12 +307,14 @@ func (s *Services) ProductStatusReport(ctx context.Context, param *domain.Report
 		SELECT
 			COALESCE(SUM(CASE WHEN sl.sale_type = 'SALE' THEN (ci.quantity + ci.unit_quantity / p.unit_per_pack) ELSE 0 END), 0) AS total_quantity,
 			COALESCE(SUM(CASE WHEN sl.sale_type = 'RETURN' THEN (ci.quantity + ci.unit_quantity / p.unit_per_pack) ELSE 0 END), 0) AS total_quantity_returned,
-			COALESCE(SUM(CASE
-				WHEN sl.sale_type = 'SALE' THEN sl.total_amount
-				WHEN sl.sale_type = 'RETURN' THEN -sl.total_amount
-				ELSE 0
-			END), 0) AS total_retail_price_sum,
-			COALESCE(SUM(CASE WHEN sl.sale_type = 'RETURN' THEN sl.total_amount ELSE 0 END), 0) AS total_retail_price_sum_returned
+			ROUND(COALESCE(SUM(CASE
+					WHEN sl.sale_type = 'SALE' THEN (ci.quantity * sp.retail_price) + (ci.unit_quantity * (sp.retail_price / p.unit_per_pack))
+					WHEN sl.sale_type = 'RETURN' THEN ((ci.quantity * sp.retail_price) + (ci.unit_quantity * (sp.retail_price / p.unit_per_pack)))*(-1)
+					ELSE 0
+			END), 0), 2) AS total_retail_price_sum,
+			ROUND(COALESCE(SUM(CASE 
+					WHEN sl.sale_type = 'RETURN' THEN (ci.quantity * sp.retail_price) + (ci.unit_quantity * (sp.retail_price / p.unit_per_pack)) 
+					ELSE 0 END), 0), 2) AS total_retail_price_sum_returned
 		FROM sales sl
 		%s
 		%s
