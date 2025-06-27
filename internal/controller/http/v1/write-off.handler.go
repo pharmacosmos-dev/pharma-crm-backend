@@ -29,6 +29,7 @@ func (h *WriteOffHandler) WriteOffRoutes(r *gin.RouterGroup) {
 		writeOff.POST("/confirm/:id", h.Confirm)
 		writeOff.POST("/cancel/:id", h.Cancel)
 		writeOff.GET("/list", h.List)
+		writeOff.GET("/list-status", h.WriteOffStatus)
 		writeOff.PATCH("/:id/add-product-by-barcode", h.AddProductByBarcode)
 		writeOff.GET("/export-excel", h.ExportExcel)
 	}
@@ -147,6 +148,37 @@ func (h *WriteOffHandler) List(c *gin.Context) {
 	}
 	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
 	handleResponse(c, OK, data)
+}
+
+// WriteOffStatus godoc
+// @Summary Get Write-Off summary stats
+// @Description Get total scanned count and retail price from write-offs
+// @Tags Write-Off
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param   store_id query string false "Store ID"
+// @Param   search query string false "Search"
+// @Param   status query string false "Status (0->new|1->pending|2->completed)"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /write-off/list-status [get]
+func (h *WriteOffHandler) WriteOffStatus(c *gin.Context) {
+	var param domain.WriteOffParam
+
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "Invalid query param")
+		return
+	}
+
+	res, err := h.service.WriteOffStatus(&param)
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to get write-off summary")
+		return
+	}
+
+	handleResponse(c, OK, res)
 }
 
 // Get List

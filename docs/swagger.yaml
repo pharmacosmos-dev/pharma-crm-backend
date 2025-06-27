@@ -5996,6 +5996,60 @@ paths:
       summary: List imports
       tags:
       - imports
+  /import/list-status:
+    get:
+      consumes:
+      - application/json
+      description: Get aggregated import stats grouped by status
+      parameters:
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: Status
+        in: query
+        name: status
+        type: string
+      - description: Receive Amount From
+        in: query
+        name: receive_amount_from
+        type: integer
+      - description: Receive Amount To
+        in: query
+        name: receive_amount_to
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get import status stats
+      tags:
+      - imports
   /inventory:
     post:
       consumes:
@@ -6537,6 +6591,48 @@ paths:
       security:
       - BearerAuth: []
       summary: Get inventory list
+      tags:
+      - Inventory
+  /inventory/list-status:
+    get:
+      consumes:
+      - application/json
+      description: Get total sum and count stats for inventories
+      parameters:
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Search Keyword
+        in: query
+        name: search
+        type: string
+      - description: Inventory Type
+        in: query
+        name: type
+        type: string
+      - description: Inventory Status (0->new|1->pending|2->completed)
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get inventory total stats
       tags:
       - Inventory
   /inventory/send1c/{id}:
@@ -10418,6 +10514,52 @@ paths:
       summary: List Repricing
       tags:
       - Repricing
+  /repricing/list-status:
+    get:
+      consumes:
+      - application/json
+      description: Get total count and retail price sums for repricing
+      parameters:
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: Status
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Repricing summary stats
+      tags:
+      - Repricing
   /repricing/new-price/{id}:
     post:
       consumes:
@@ -10832,6 +10974,44 @@ paths:
       security:
       - BearerAuth: []
       summary: Get Return list
+      tags:
+      - Return
+  /return/list-status:
+    get:
+      consumes:
+      - application/json
+      description: Get total count and retail sums for returns
+      parameters:
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Status (0->new|1->sent|2->completed)
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Return summary stats
       tags:
       - Return
   /return/send/{id}:
@@ -13008,6 +13188,44 @@ paths:
       summary: Get Transfer list
       tags:
       - Transfer
+  /transfer/list-status:
+    get:
+      consumes:
+      - application/json
+      description: Get total sum and count stats for transfers
+      parameters:
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Search Keyword
+        in: query
+        name: search
+        type: string
+      - description: Transfer Status (0->new|1->sent|2->completed)
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get transfer total stats
+      tags:
+      - Transfer
   /transfer/send/{id}:
     post:
       consumes:
@@ -13617,6 +13835,44 @@ paths:
       security:
       - BearerAuth: []
       summary: Get WriteOff list
+      tags:
+      - Write-Off
+  /write-off/list-status:
+    get:
+      consumes:
+      - application/json
+      description: Get total scanned count and retail price from write-offs
+      parameters:
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Status (0->new|1->pending|2->completed)
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Write-Off summary stats
       tags:
       - Write-Off
 securityDefinitions:

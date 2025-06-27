@@ -4,19 +4,27 @@ import "time"
 
 // Repricing structure
 type PriceRevalution struct {
-	Id          int        `gorm:"id" json:"id"`
-	StoreID     string     `gorm:"store_id" json:"store_id"`
-	Name        string     `gorm:"name" json:"name"`
-	Status      string     `gorm:"status" json:"status"`
-	Type        string     `gorm:"type" json:"type"`
-	CreatedByID string     `gorm:"created_by_id" json:"created_by_id"`
-	UpdatedByID string     `gorm:"updated_by_id" json:"updated_by_id"`
-	Count       float64    `gorm:"count" json:"count"`
-	CreatedAt   *time.Time `gorm:"created_at" json:"created_at"`
-	UpdatedAt   *time.Time `gorm:"updated_at" json:"updated_at"`
-	CreatedBy   *Employee  `gorm:"foreignKey:CreatedByID" json:"created_by"`
-	UpdatedBy   *Employee  `gorm:"foreignKey:UpdatedByID" json:"updated_by"`
-	Store       *Store     `gorm:"foreignKey:StoreID" json:"store"`
+	Id                  int        `gorm:"id" json:"id"`
+	StoreID             string     `gorm:"store_id" json:"store_id"`
+	Name                string     `gorm:"name" json:"name"`
+	Status              string     `gorm:"status" json:"status"`
+	Type                string     `gorm:"type" json:"type"`
+	CreatedByID         string     `gorm:"created_by_id" json:"created_by_id"`
+	UpdatedByID         string     `gorm:"updated_by_id" json:"updated_by_id"`
+	Count               float64    `gorm:"count" json:"count"`
+	TotalOldRetailPrice float64    `gorm:"total_old_retail_price" json:"total_old_retail_price"`
+	TotalNewRetailPrice float64    `gorm:"total_new_retail_price" json:"total_new_retail_price"`
+	CreatedAt           *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt           *time.Time `gorm:"updated_at" json:"updated_at"`
+	CreatedBy           *Employee  `gorm:"foreignKey:CreatedByID" json:"created_by"`
+	UpdatedBy           *Employee  `gorm:"foreignKey:UpdatedByID" json:"updated_by"`
+	Store               *Store     `gorm:"foreignKey:StoreID" json:"store"`
+}
+
+type RepricingStatusSummary struct {
+	Count               int64   `json:"count"`
+	TotalOldRetailPrice float64 `json:"total_old_retail_price"`
+	TotalNewRetailPrice float64 `json:"total_new_retail_price"`
 }
 
 // repricing off create request

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"strings"
 	"time"
 
 	"github.com/pharma-crm-backend/config"
@@ -155,6 +156,47 @@ func (s *Services) ReturnList(param *domain.ReturnParam) ([]domain.Return, int64
 		return res, 0, err
 	}
 	return res, totalCount, nil
+}
+
+func (s *Services) ReturnStatus(param *domain.ReturnParam) (*domain.ReturnStatusSummary, error) {
+	query := `
+		SELECT
+			SUM(trd.scanned_count) AS return_count,
+			COALESCE(SUM(trd.scanned_count*trd.retail_price), 0) AS received_retail_sum,
+			COALESCE(SUM(trd.accepted_count * trd.retail_price), 0) AS accepted_retail_sum
+		FROM transfers
+		LEFT JOIN transfer_details trd ON transfers.id = trd.transfer_id
+		WHERE transfers.entry_type = 2
+	`
+
+	var args []any
+	var filters []string
+
+	if param.StoreId != "" {
+		filters = append(filters, "transfers.from_store_id = ?")
+		args = append(args, param.StoreId)
+	}
+	if param.Search != "" {
+		search := "%" + param.Search + "%"
+		filters = append(filters, "(transfers.public_id ILIKE ? OR transfers.name ILIKE ?)")
+		args = append(args, search, search)
+	}
+	if param.Status != "" {
+		filters = append(filters, "transfers.status = ?")
+		args = append(args, param.Status)
+	}
+
+	if len(filters) > 0 {
+		query += " AND " + strings.Join(filters, " AND ")
+	}
+
+	var res domain.ReturnStatusSummary
+	if err := s.db.Raw(query, args...).Scan(&res).Error; err != nil {
+		s.log.Error("Failed to get return status summary: %v", err)
+		return nil, err
+	}
+
+	return &res, nil
 }
 
 // get inventory detail list

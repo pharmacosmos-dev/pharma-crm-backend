@@ -26,6 +26,7 @@ func (h *RepricingHandler) RepricingRoutes(r *gin.RouterGroup) {
 		repricing.POST("", h.Create)
 		repricing.GET("/:id", h.Get)
 		repricing.GET("/list", h.List)
+		repricing.GET("/list-status", h.RepricingStatus)
 		repricing.GET("/export-excel", h.ExportRepricingExcel)
 		repricing.POST("/confirm/:id", h.Confirm)
 		repricing.POST("/cancel/:id", h.Cancel)
@@ -146,6 +147,40 @@ func (h *RepricingHandler) List(c *gin.Context) {
 	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
 
 	handleResponse(c, OK, data)
+}
+
+// RepricingStatus godoc
+// @Summary Get Repricing summary stats
+// @Description Get total count and retail price sums for repricing
+// @Tags Repricing
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param   search query string false "Search"
+// @Param   store_id query string false "Store ID"
+// @Param   start_date query string false "Start Date"
+// @Param   end_date query string false "End Date"
+// @Param   status query string false "Status"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /repricing/list-status [get]
+func (h *RepricingHandler) RepricingStatus(c *gin.Context) {
+	var param domain.QueryParam
+
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "Invalid query param")
+		return
+	}
+
+	res, err := h.service.RepricingStatus(&param)
+	if err != nil {
+		h.log.Error("ERROR on repricing status summary: %v", err)
+		handleResponse(c, InternalError, "Failed to get repricing summary")
+		return
+	}
+
+	handleResponse(c, OK, res)
 }
 
 // List godoc

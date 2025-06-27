@@ -31,6 +31,13 @@ type Import struct {
 	Receiver          *Employee  `gorm:"foreignKey:AcceptedBy" json:"receiver"`
 }
 
+type ImportStatusSummary struct {
+	CompletedReceivedVatAmount float64 `json:"completed_received_vat_amount"`
+	NewAcceptedVatAmount       float64 `json:"new_accepted_vat_amount"`
+	CompletedAcceptedCount     float64 `json:"completed_accepted_count"`
+	NewReceivedCount           float64 `json:"new_received_count"`
+}
+
 // ImportRequest structure
 type ImportRequest struct {
 	Id             string `gorm:"id" json:"id"`
