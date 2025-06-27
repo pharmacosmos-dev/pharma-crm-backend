@@ -13837,6 +13837,44 @@ paths:
       summary: Get WriteOff list
       tags:
       - Write-Off
+  /write-off/list-status:
+    get:
+      consumes:
+      - application/json
+      description: Get total scanned count and retail price from write-offs
+      parameters:
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Status (0->new|1->pending|2->completed)
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Write-Off summary stats
+      tags:
+      - Write-Off
 securityDefinitions:
   BasicAuth:
     type: basic

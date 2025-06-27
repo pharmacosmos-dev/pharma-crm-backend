@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/pharma-crm-backend/config"
@@ -19,7 +20,7 @@ func (s *Services) CreateWriteOff(req *domain.WriteOffRequest) error {
 			tx.Rollback()
 		}
 	}()
-	
+
 	// insert inventory into inventories table
 	err := tx.Raw(`
 	INSERT INTO imports (store_id, name, created_by, entry_type, import_date, comment)
@@ -94,6 +95,45 @@ func (s *Services) WriteOffList(param *domain.WriteOffParam) ([]domain.WriteOff,
 		return res, 0, err
 	}
 	return res, totalCount, nil
+}
+
+func (s *Services) WriteOffStatus(param *domain.WriteOffParam) (*domain.WriteOffStatusSummary, error) {
+	query := `
+		SELECT
+			COALESCE(SUM(imd.accepted_count), 0) AS scanned_count,
+			COALESCE(SUM(imd.accepted_count * imd.retail_price_vat), 0) AS retail_price
+		FROM imports
+		LEFT JOIN import_details imd ON imports.id = imd.import_id
+		WHERE imports.entry_type = 3
+	`
+
+	var args []any
+	var filters []string
+
+	if param.StoreId != "" {
+		filters = append(filters, "imports.store_id = ?")
+		args = append(args, param.StoreId)
+	}
+	if param.Search != "" {
+		search := "%" + param.Search + "%"
+		filters = append(filters, "(CAST(imports.public_id AS TEXT) ILIKE ? OR imports.name ILIKE ?)")
+		args = append(args, search, search)
+	}
+	if param.Status != "" {
+		filters = append(filters, "imports.status = ?")
+		args = append(args, param.Status)
+	}
+	if len(filters) > 0 {
+		query += " AND " + strings.Join(filters, " AND ")
+	}
+
+	var res domain.WriteOffStatusSummary
+	if err := s.db.Raw(query, args...).Scan(&res).Error; err != nil {
+		s.log.Error("Failed to get write-off status summary: %v", err)
+		return nil, err
+	}
+
+	return &res, nil
 }
 
 // get write-off by id

@@ -22,6 +22,11 @@ type WriteOff struct {
 	UpdatedBy      *Employee  `gorm:"foreignKey:UpdatedById" json:"updated_by"`
 }
 
+type WriteOffStatusSummary struct {
+	ScannedCount float64 `json:"scanned_count"`
+	RetailPrice  float64 `json:"retail_price"`
+}
+
 // write off create request
 type WriteOffRequest struct {
 	Name      string `gorm:"name" json:"name"`
@@ -36,7 +41,7 @@ type WriteOffDetail struct {
 	Id             string     `gorm:"id" json:"id"`
 	WriteoffId     string     `gorm:"writeoff_id" json:"writeoff_id"`
 	ProductId      string     `gorm:"product_id" json:"product_id"`
-	ScannedCount   int        `gorm:"scanned_count" json:"scanned_count"`
+	ScannedCount   float64    `gorm:"scanned_count" json:"scanned_count"`
 	Name           string     `gorm:"name" json:"name"`
 	MaterialCode   int        `gorm:"material_code" json:"material_code"`
 	Barcode        string     `gorm:"barcode" json:"barcode"`
