@@ -279,17 +279,9 @@ func (h *CartItemHandler) UpdateBySaleID(c *gin.Context) {
 	}
 	// start transaction
 	tx := h.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
+	defer recoverTransaction(tx, h.log) // recover transaction if panic occurs
 	// rollback transaction if error occurs
-	defer func() {
-		if err != nil {
-			tx.Rollback()
-		}
-	}()
+	defer RollbackIfError(tx, &err)
 
 	var (
 		cartItems []domain.CartItem
@@ -322,55 +314,54 @@ func (h *CartItemHandler) UpdateBySaleID(c *gin.Context) {
 		handleResponse(c, CONFLICT, "Discount value is greater than sum of unit prices")
 		return
 	}
-	// validate discount type for percent or cash 
+	// validate discount type for percent or cash
 	if validateDiscountType(body.DiscountType) {
 		handleResponse(c, BadRequest, "invalid.discount_type")
 		return
 	}
+
 	// check discount type with percent or cash
-	// var discountPercent float64
-	// for i := range cartItems {
-	// 	if body.DiscountValue == 0 {
-	// 		cartItems[i].DiscountAmount = 0
-	// 		discountPercent = 0
-	// 	} else if body.DiscountType == "percent" && body.DiscountValue <= 100 {
-	// 		cartItems[i].DiscountAmount = cartItems[i].UnitPrice * body.DiscountValue / 100
-	// 		discountPercent = body.DiscountValue
-	// 	} else if body.DiscountType == "cash" {
-	// 		// a = 1100 b = 1200  discount = 900
-	// 		// x = d / (a + b) = (900 / (1100 + 1200)) * 1100 = 430.47
-	// 		// y = d / (a + b) = (900 / (1100 + 1200)) * 1200 = 469.56
-	// 		// percent = (1 - (430.47/1100)) * 100
-	// 		discountPrice := (body.DiscountValue / sum) * cartItems[i].UnitPrice
-	// 		discountPercent = 1 - (discountPrice/cartItems[i].UnitPrice)*100
-	// 		cartItems[i].DiscountAmount = cartItems[i].UnitPrice - discountPrice
-	// 	} else {
-	// 		handleResponse(c, BadRequest, "Discount type or value is invalid")
-	// 		return
-	// 	}
-	// 	err = tx.Exec(`
-	// 	UPDATE cart_items
-	// 	SET
-	// 		discount_amount = ?,
-	// 		discount_type = ?,
-	// 		discount_value = ?,
-	// 		discount_price = CASE
-	// 		WHEN ? = 0 THEN 0
-	// 		ELSE unit_price - ?
-	// 	END
-	// 	WHERE id = ?`,
-	// 		cartItems[i].DiscountAmount,
-	// 		body.DiscountType,
-	// 		discountPercent,
-	// 		body.DiscountValue,
-	// 		cartItems[i].DiscountAmount,
-	// 		cartItems[i].ID).Error
-	// 	if err != nil {
-	// 		h.log.Error(err)
-	// 		handleResponse(c, InternalError, "Failed to update cart items")
-	// 		return
-	// 	}
-	// }
+	var discountPercent float64
+	for i := range cartItems {
+		if body.DiscountValue == 0 {
+			cartItems[i].DiscountAmount = 0
+			discountPercent = 0
+		} else if body.DiscountType == "percent" && body.DiscountValue <= 100 {
+			cartItems[i].DiscountAmount = cartItems[i].UnitPrice * body.DiscountValue / 100
+			discountPercent = body.DiscountValue
+		} else if body.DiscountType == "cash" {
+			// a = 1100 b = 1200  d = 900
+			// x = d / (a + b) = (900 / (1100 + 1200)) * 1100 = 430.47
+			// y = d / (a + b) = (900 / (1100 + 1200)) * 1200 = 469.56
+			// percent = (1 - (430.47/1100)) * 100
+			discountPrice := (body.DiscountValue / sum) * cartItems[i].UnitPrice
+			discountPercent = 1 - (discountPrice/cartItems[i].UnitPrice)*100
+			cartItems[i].DiscountAmount = cartItems[i].UnitPrice - discountPrice
+		} else {
+			handleResponse(c, BadRequest, "Discount type or value is invalid")
+			return
+		}
+		err = tx.Exec(`
+		UPDATE cart_items
+		SET
+			discount_type = ?,
+			discount_value = ?,
+			discount_price = CASE
+			WHEN ? = 0 THEN 0
+			ELSE unit_price - ?
+		END
+		WHERE id = ?`,
+			body.DiscountType,
+			discountPercent,
+			body.DiscountValue,
+			cartItems[i].DiscountAmount,
+			cartItems[i].ID).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, "failed.set.discount_price")
+			return
+		}
+	}
 
 	err = tx.Commit().Error
 	if err != nil {

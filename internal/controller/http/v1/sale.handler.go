@@ -995,19 +995,34 @@ func (h *SaleHandler) AddDiscountCard(c *gin.Context) {
 		handleResponse(c, BadRequest, "invalid.request.body")
 		return
 	}
+	// start transcation
+	tx := h.db.Begin()
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
 
 	// get discount card info by card number
-	err = h.db.First(&discountCard, "barcode = ?", body.Barcode).Error
+	err = tx.First(&discountCard, "barcode = ?", body.Barcode).Error
 	if err != nil {
 		handleResponse(c, NotFound, "discount.card.not.found")
 		return
 	}
 
+	// delete sale_customer_discount
+	err = tx.Exec(`DELETE FROM sale_customer_discounts WHERE sale_id = ?`, body.SaleID).Error
+	if err != nil {
+		h.log.Warn("ERROR on deleting sale_customer_discount: %v", err)
+		handleResponse(c, InternalError, "not.deleted.sale_discount")
+		return
+	}
+
 	// get discount card info by customer id
-	err = h.db.First(&customerDiscount, "customer_id = ? AND sale_id = ? AND discount_card_id = ? ", body.CustomerID, body.SaleID, discountCard.Id).Error
+	err = tx.First(&customerDiscount, "customer_id = ? AND sale_id = ? AND discount_card_id = ? ", body.CustomerID, body.SaleID, discountCard.Id).Error
 	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
 		// create new customer_discounts
-		err = h.db.Raw(`INSERT INTO sale_customer_discounts(customer_id, sale_id, discount_card_id, discount_percent) VALUES(?, ?, ?, ?) RETURNING *`,
+		err = tx.Raw(`INSERT INTO sale_customer_discounts(customer_id, sale_id, discount_card_id, discount_percent) VALUES(?, ?, ?, ?) RETURNING *`,
 			body.CustomerID, body.SaleID, discountCard.Id, discountCard.Percent).Scan(&customerDiscount).Error
 		if err != nil {
 			if errors.Is(err, gorm.ErrDuplicatedKey) {
@@ -1025,8 +1040,17 @@ func (h *SaleHandler) AddDiscountCard(c *gin.Context) {
 		return
 	}
 	// update cart_items discount amount with total_price
-	err = h.db.Exec(`
-	UPDATE 
+	err = tx.Exec(`
+	UPDATE cart_items SET discount_type = ?, discount_value = ? WHERE sale_id = ?;
+	`, config.PERCENT, discountCard.Percent, body.SaleID).Error
+	if err != nil {
+		h.log.Warn("ERROR on updating cart_item discount_value and type : %v", err)
+		handleResponse(c, InternalError, "failed.set.discount")
+		return
+	}
+	// set customer_id to sale
+	err = tx.Exec(`
+	UPDATE
 		sales
 	SET
 		customer_id = ?
@@ -1034,6 +1058,13 @@ func (h *SaleHandler) AddDiscountCard(c *gin.Context) {
 	if err != nil {
 		h.log.Warn("ERROR on updating sale: %v", err)
 		handleResponse(c, InternalError, "failed.update.sale.customer_id")
+		return
+	}
+	// commit transcation
+	err = tx.Commit().Error
+	if err != nil {
+		h.log.Warn("ERROR on commiting transcation: %v", err)
+		handleResponse(c, InternalError, "not.completed.transcation")
 		return
 	}
 

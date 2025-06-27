@@ -11,7 +11,23 @@ import (
 	pdf "github.com/jung-kurt/gofpdf"
 	"github.com/pharma-crm-backend/pkg/logger"
 	"github.com/xuri/excelize/v2"
+	"gorm.io/gorm"
 )
+
+// recoverTransaction handles panics and rolls back the transaction if necessary.
+func recoverTransaction(tx *gorm.DB, log logger.Interface) {
+	if r := recover(); r != nil {
+		log.Error("panic recovered:", r)
+		tx.Rollback()
+	}
+}
+
+// RollbackIfError checks if the error pointer is not nil and if it contains an error.
+func RollbackIfError(tx *gorm.DB, errPtr *error) {
+	if errPtr != nil && *errPtr != nil {
+		tx.Rollback()
+	}
+}
 
 func setExcelHeaders(f *excelize.File, sheet string, headers []string) error {
 	headerStyle, err := f.NewStyle(&excelize.Style{

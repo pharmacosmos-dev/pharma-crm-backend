@@ -52,11 +52,12 @@ const (
 
 	// region app payment types
 
-	CASH  = "cash"
-	CARD  = "card"
-	CLICK = "click"
-	PAYME = "payme"
-	UZUM  = "uzum"
+	CASH    = "cash"
+	CARD    = "card"
+	CLICK   = "click"
+	PAYME   = "payme"
+	UZUM    = "uzum"
+	PERCENT = "percent"
 
 	// region universal status types
 

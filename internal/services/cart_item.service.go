@@ -17,7 +17,20 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 	var res []domain.CartItemResponse
 	err := s.db.Raw(`
 	SELECT
-		ci.*,
+		ci.id, 
+		ci.employee_id, 
+		ci.sale_id, 
+		ci.store_product_id, 
+		ci.quantity, 
+		ci.unit_quantity, 
+		ci.unit_price, 
+		ci.discount_type, 
+		ci.discount_value, 
+		ci.total_price, 
+		ci.discount_price,
+		ci.created_at, 
+		ci.updated_at, 
+		ci.marking_count,
 		p.name,
 		COALESCE(sp.barcode, p.barcode) AS barcode,
 		p.unit_per_pack,
@@ -35,7 +48,9 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 		sh.name as shelf,
 		COALESCE(sp.mxik, p.mxik) AS class_code,
 		COALESCE(sp.unit_code, p.unit_code) AS package_code,
-		COALESCE(sp.unit_label, p.unit_label) AS package_name
+		COALESCE(sp.unit_label, p.unit_label) AS package_name,
+		ROUND(CASE WHEN ci.quantity > 0 THEN ci.discount_amount/ci.quantity ELSE 0 END, 2) AS discount_amount,
+		ROUND((CASE WHEN ci.quantity > 0 THEN ci.discount_amount/ci.quantity ELSE 0 END)/p.unit_per_pack, 2) AS discount_unit_amount
 	FROM cart_items ci
 	JOIN store_products sp ON ci.store_product_id = sp.id
 	JOIN products p ON sp.product_id = p.id

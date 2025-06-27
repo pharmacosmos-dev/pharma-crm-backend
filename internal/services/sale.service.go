@@ -225,14 +225,15 @@ func (s *Services) UpdateSaleFieldValue(saleID string, field, value string) erro
 // complete sale
 func (s *Services) CompleteSale(tx *gorm.DB, sale *domain.Sale) error {
 	var err error
-	if sale.SaleType == config.SALE_TYPE_SALE {
+	switch sale.SaleType {
+	case config.SALE_TYPE_SALE:
 		// reduce store_product quantities and add employee bonus
 		err = s.DeductStoreProductQuantities(tx, sale)
 		if err != nil {
 			s.log.Warn("ERROR on reducing store_product quantity: %v", err)
 			return err
 		}
-	} else if sale.SaleType == config.SALE_TYPE_RETURN {
+	case config.SALE_TYPE_RETURN:
 		err = s.RestoreStoreProductQuantities(tx, sale)
 		if err != nil {
 			s.log.Warn("ERROR on restore store_product quantity: %v", err)
@@ -629,7 +630,7 @@ func (s *Services) ValidateSaleAmount(req *domain.FinalSale) bool {
 func (s *Services) cartItemsSumBySaleID(saleID string) (float64, error) {
 	var sum float64
 	err := s.db.Raw(`
-		SELECT SUM(total_price) AS sum FROM cart_items WHERE sale_id = ?
+		SELECT SUM(total_price) - SUM(discount_amount) AS sum FROM cart_items WHERE sale_id = ?
 	`, saleID).Scan(&sum).Error
 	if err != nil {
 		s.log.Warn("ERROR on calucating cart_items sum: %v", err)
