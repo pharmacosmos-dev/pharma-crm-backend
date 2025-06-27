@@ -29,6 +29,13 @@ type Transfer struct {
 	AcceptedBy        *Employee  `gorm:"foreignKey:AcceptedById" json:"accepted_by"`
 }
 
+type TransferStatusSummary struct {
+	ReceivedCount     float64 `json:"received_count"`
+	AcceptedCount     float64 `json:"accepted_count"`
+	ReceivedRetailSum float64 `json:"received_retail_sum"`
+	AcceptedRetailSum float64 `json:"accepted_retail_sum"`
+}
+
 // return off create request
 type TransferRequest struct {
 	PublicId    string `gorm:"public_id" json:"public_id"`

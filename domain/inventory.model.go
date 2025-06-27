@@ -38,6 +38,15 @@ type Inventory struct {
 	UpdatedBy       *Employee  `gorm:"foreignKey:UpdatedById" json:"updated_by"`
 }
 
+type InventoryStatusSummary struct {
+	CurrentSum      float64 `json:"current_sum"`
+	FactSum         float64 `json:"fact_sum"`
+	DifferenceSum   float64 `json:"difference_sum"`
+	CurrentCount    float64 `json:"current_count"`
+	FactCount       float64 `json:"fact_count"`
+	DifferenceCount float64 `json:"difference_count"`
+}
+
 // InventoryRequest structure
 type InventoryRequest struct {
 	PublicId  string `gorm:"public_id" json:"public_id"`

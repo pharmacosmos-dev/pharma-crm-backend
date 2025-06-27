@@ -404,6 +404,96 @@ func (s *Services) ListImport(c *gin.Context, limit, offset int) ([]domain.Impor
 	return imports, totalCount, nil
 }
 
+func (s *Services) ListImportStatus(c *gin.Context) (*domain.ImportStatusSummary, error) {
+	var (
+		storeID      = c.Query("store_id")
+		startDate    = c.Query("start_date")
+		endDate      = c.Query("end_date")
+		search       = c.Query("search")
+		statusFilter = c.Query("status")
+		receiveFrom  = c.Query("receive_amount_from")
+		receiveTo    = c.Query("receive_amount_to")
+	)
+
+	userId, ok := c.Get("user_id")
+	if !ok {
+		return nil, errors.New("user not found in context")
+	}
+	var employee domain.Employee
+	err := s.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		s.log.Error(err)
+		return nil, errors.New("employee not found")
+	}
+
+	if !helper.IsAdmin(employee, s.cfg) && employee.StoreId != "" {
+		storeID = employee.StoreId
+	}
+
+	query := `
+		SELECT
+			COALESCE(SUM(CASE WHEN imports.status = 'completed' THEN import_details.retail_price_vat * import_details.accepted_count ELSE 0 END), 0) AS completed_received_vat_amount,
+			COALESCE(SUM(CASE WHEN imports.status = 'new' THEN import_details.retail_price_vat * import_details.received_count ELSE 0 END), 0) AS new_accepted_vat_amount,
+			COALESCE(SUM(CASE WHEN imports.status = 'completed' THEN import_details.accepted_count ELSE 0 END), 0) AS completed_accepted_count,
+			COALESCE(SUM(CASE WHEN imports.status = 'new' THEN import_details.received_count ELSE 0 END), 0) AS new_received_count
+		FROM imports
+		LEFT JOIN import_details ON imports.id = import_details.import_id
+		WHERE imports.entry_type = 1
+	`
+
+	var args []interface{}
+
+	if storeID != "" {
+		query += " AND imports.store_id = ?"
+		args = append(args, storeID)
+	}
+	if startDate != "" {
+		query += " AND imports.import_date >= ?"
+		args = append(args, startDate)
+	}
+	if endDate != "" {
+		query += " AND imports.import_date <= ?"
+		args = append(args, endDate)
+	}
+	if search != "" {
+		searchPattern := fmt.Sprintf("%%%s%%", search)
+		query += " AND (imports.document_number ILIKE ? OR CAST(imports.public_id AS TEXT) ILIKE ?)"
+		args = append(args, searchPattern, searchPattern)
+	}
+	if statusFilter != "" {
+		query += " AND imports.status = ?"
+		args = append(args, statusFilter)
+	}
+	if receiveFrom != "" {
+		query += `
+		AND (
+			SELECT ROUND(SUM(d.retail_price * d.received_count)::numeric, 2)
+			FROM import_details d
+			WHERE d.import_id = imports.id
+		) >= ?
+		`
+		args = append(args, receiveFrom)
+	}
+	if receiveTo != "" {
+		query += `
+		AND (
+			SELECT ROUND(SUM(d.retail_price * d.received_count)::numeric, 2)
+			FROM import_details d
+			WHERE d.import_id = imports.id
+		) <= ?
+		`
+		args = append(args, receiveTo)
+	}
+
+	var summary domain.ImportStatusSummary
+	err = s.db.Raw(query, args...).Scan(&summary).Error
+	if err != nil {
+		s.log.Error(err)
+		return nil, err
+	}
+	return &summary, nil
+}
+
 // list import detail
 func (s *Services) ListImportDetail(param *domain.ImportDetailQueryParams) ([]domain.ImportDetail, int64, error) {
 	var (

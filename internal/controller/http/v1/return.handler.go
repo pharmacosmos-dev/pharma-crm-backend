@@ -32,6 +32,7 @@ func (h *ReturnHandler) ReturnRoutes(r *gin.RouterGroup) {
 		returned.POST("", h.Create)
 		returned.GET("/:id", h.Get)
 		returned.GET("/list", h.List)
+		returned.GET("/list-status", h.ReturnStatus)
 		returned.GET("/export-excel", h.ExportReturnExcel)
 		returned.PATCH("/:id/add-product-by-barcode", h.AddProductByBarcode)
 		returned.POST("/send/:id", h.Send)
@@ -176,6 +177,56 @@ func (h *ReturnHandler) List(c *gin.Context) {
 	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
 
 	handleResponse(c, OK, data)
+}
+
+// ReturnStatus godoc
+// @Summary Get Return summary stats
+// @Description Get total count and retail sums for returns
+// @Tags Return
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param   store_id query string false "Store ID"
+// @Param   search query string false "Search"
+// @Param   status query string false "Status (0->new|1->sent|2->completed)"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /return/list-status [get]
+func (h *ReturnHandler) ReturnStatus(c *gin.Context) {
+	var param domain.ReturnParam
+
+	// get user_id from context
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User not found")
+		return
+	}
+
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "Invalid query param")
+		return
+	}
+
+	// get employee and restrict store if not admin
+	var employee domain.Employee
+	if err := h.db.First(&employee, "id = ?", userId).Error; err != nil {
+		h.log.Warn("Failed to fetch employee: %v", err)
+		handleResponse(c, InternalError, "Failed to get user info")
+		return
+	}
+	if !helper.IsAdmin(employee, h.cfg) && employee.StoreId != "" {
+		param.StoreId = employee.StoreId
+	}
+
+	// get return summary
+	res, err := h.service.ReturnStatus(&param)
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to get return summary")
+		return
+	}
+
+	handleResponse(c, OK, res)
 }
 
 // Export return excel godoc

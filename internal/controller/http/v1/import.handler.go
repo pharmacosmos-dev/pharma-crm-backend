@@ -31,6 +31,7 @@ func (h *ImportHandler) ImportRoutes(r *gin.RouterGroup) {
 		imports.POST("", h.Create)
 		imports.GET("/:id", h.Get)
 		imports.GET("/list", h.List)
+		imports.GET("/list-status", h.ListStatus)
 		imports.GET("/export-excel", h.ExportImportExcel)
 	}
 	importDetail := r.Group("/import-detail")
@@ -154,6 +155,33 @@ func (h *ImportHandler) List(c *gin.Context) {
 	data := utils.ListResponse(imports, totalCount, limit, offset)
 
 	handleResponse(c, OK, data)
+}
+
+// ListStatus godoc
+// @Summary Get import status stats
+// @Description Get aggregated import stats grouped by status
+// @Tags imports
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param   search query string false "Search"
+// @Param   store_id query string false "Store ID"
+// @Param   start_date query string false "Start Date"
+// @Param   end_date query string false "End Date"
+// @Param   status query string false "Status"
+// @Param   receive_amount_from query int false "Receive Amount From"
+// @Param   receive_amount_to query int false "Receive Amount To"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /import/list-status [get]
+func (h *ImportHandler) ListStatus(c *gin.Context) {
+	result, err := h.service.ListImportStatus(c)
+	if err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, result)
 }
 
 // Export import excel godoc

@@ -32,6 +32,7 @@ func (h *TransferHandler) TransferRoutes(r *gin.RouterGroup) {
 		transfer.POST("", h.Create)
 		transfer.GET("/:id", h.Get)
 		transfer.GET("/list", h.List)
+		transfer.GET("/list-status", h.TransferStatus)
 		transfer.GET("/export-excel", h.ExportTransferExcel)
 		transfer.PATCH("/:id/add-product-by-barcode", h.AddProductByBarcode)
 		transfer.POST("/send/:id", h.Send)
@@ -178,6 +179,56 @@ func (h *TransferHandler) List(c *gin.Context) {
 	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
 
 	handleResponse(c, OK, data)
+}
+
+// TransferStatus godoc
+// @Summary Get transfer total stats
+// @Description Get total sum and count stats for transfers
+// @Tags Transfer
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param   store_id query string false "Store ID"
+// @Param   search query string false "Search Keyword"
+// @Param   status query string false "Transfer Status (0->new|1->sent|2->completed)"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /transfer/list-status [get]
+func (h *TransferHandler) TransferStatus(c *gin.Context) {
+	var param domain.ReturnParam
+
+	// get user_id from the context
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User not found")
+		return
+	}
+
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "Invalid query param")
+		return
+	}
+
+	// check if employee is not admin or superadmin
+	var employee domain.Employee
+	err := h.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		h.log.Warn("Failed to get user: %v", err)
+		handleResponse(c, InternalError, "Failed to get user info")
+		return
+	}
+	if !helper.IsAdmin(employee, h.cfg) && employee.StoreId != "" {
+		param.StoreId = employee.StoreId
+	}
+
+	// get aggregated transfer stats
+	res, err := h.service.TransferStatus(&param)
+	if err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, res)
 }
 
 // Export Transfer excel godoc

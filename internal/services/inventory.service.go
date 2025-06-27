@@ -202,6 +202,49 @@ func (s *Services) InventoryList(param *domain.InventoryParam) ([]domain.Invento
 	return res, totalCount, nil
 }
 
+func (s *Services) InventoryStatus(param *domain.InventoryParam) (*domain.InventoryStatusSummary, error) {
+	query := `
+		SELECT
+			ROUND(COALESCE(SUM(imd.received_count * imd.retail_price_vat), 0), 2) AS current_sum,
+			ROUND(COALESCE(SUM(imd.scanned_count * imd.retail_price_vat), 0), 2) AS fact_sum,
+			ROUND(COALESCE(SUM(imd.scanned_count * imd.retail_price_vat) - SUM(imd.received_count * imd.retail_price_vat), 0), 2) AS difference_sum,
+			ROUND(COALESCE(SUM(imd.received_count), 0), 0) AS current_count,
+			ROUND(COALESCE(SUM(imd.scanned_count), 0), 0) AS fact_count,
+			ROUND(COALESCE(SUM(imd.scanned_count) - SUM(imd.received_count), 0), 0) AS difference_count
+		FROM imports
+		LEFT JOIN import_details imd ON imports.id = imd.import_id
+		WHERE imports.entry_type = 2
+	`
+
+	var args []interface{}
+
+	if param.StoreId != "" {
+		query += " AND imports.store_id = ?"
+		args = append(args, param.StoreId)
+	}
+	if param.Search != "" {
+		search := fmt.Sprintf("%%%s%%", param.Search)
+		query += " AND (CAST(imports.public_id AS TEXT) LIKE ? OR imports.name ILIKE ?)"
+		args = append(args, search, search)
+	}
+	if param.Type != "" {
+		query += " AND imports.inventory_type = ?"
+		args = append(args, param.Type)
+	}
+	if param.Status != "" {
+		query += " AND imports.status = ?"
+		args = append(args, param.Status)
+	}
+
+	var result domain.InventoryStatusSummary
+	if err := s.db.Raw(query, args...).Scan(&result).Error; err != nil {
+		s.log.Error("Failed to get inventory status stats: %v", err)
+		return nil, err
+	}
+
+	return &result, nil
+}
+
 // get inventory detail list
 func (s *Services) InventoryDetailList(param *domain.InventoryParam) ([]domain.InventoryDetail, domain.InventoryDetailSum, int64, error) {
 	var (

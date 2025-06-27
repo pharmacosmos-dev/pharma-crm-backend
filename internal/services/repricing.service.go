@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
@@ -137,7 +138,10 @@ func (s *Services) RepricingList(param *domain.QueryParam) ([]domain.PriceRevalu
 		Preload("Store").
 		Preload("CreatedBy").
 		Preload("UpdatedBy").
-		Select(`price_revalutions.*, COUNT(prd.store_product_id) AS count
+		Select(`price_revalutions.*, 
+						COUNT(prd.store_product_id) AS count,
+						SUM(prd.old_retail_price) AS total_old_retail_price,
+						SUM(prd.new_retail_price) AS total_new_retail_price
 		`).Joins("LEFT JOIN price_revalution_details prd ON price_revalutions.id = prd.price_revalution_id").
 		Group("price_revalutions.id")
 
@@ -172,6 +176,55 @@ func (s *Services) RepricingList(param *domain.QueryParam) ([]domain.PriceRevalu
 	}
 
 	return res, totalCount, nil
+}
+
+func (s *Services) RepricingStatus(param *domain.QueryParam) (*domain.RepricingStatusSummary, error) {
+	query := `
+		SELECT
+			COALESCE(COUNT(prd.store_product_id), 0) AS count,
+			COALESCE(SUM(prd.old_retail_price), 0) AS total_old_retail_price,
+			COALESCE(SUM(prd.new_retail_price), 0) AS total_new_retail_price
+		FROM price_revalutions
+		LEFT JOIN price_revalution_details prd ON price_revalutions.id = prd.price_revalution_id
+	`
+
+	var conditions []string
+	var args []any
+
+	if param.StoreID != "" {
+		conditions = append(conditions, "price_revalutions.store_id = ?")
+		args = append(args, param.StoreID)
+	}
+	if param.Search != "" {
+		conditions = append(conditions, `(CAST(price_revalutions.id AS TEXT) ILIKE ? OR EXISTS (
+			SELECT 1 FROM stores s WHERE s.id = price_revalutions.store_id AND s.name ILIKE ?
+		))`)
+		search := "%" + param.Search + "%"
+		args = append(args, search, search)
+	}
+	if param.EndDate == "" {
+		param.EndDate = param.StartDate
+	}
+	if param.StartDate != "" && param.EndDate != "" {
+		conditions = append(conditions, "price_revalutions.created_at::date BETWEEN ? AND ?")
+		args = append(args, param.StartDate, param.EndDate)
+	}
+	if param.Status != "" {
+		conditions = append(conditions, "price_revalutions.status = ?")
+		args = append(args, param.Status)
+	}
+
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	var res domain.RepricingStatusSummary
+	if err := s.db.Raw(query, args...).Scan(&res).Error; err != nil {
+		s.log.Error("Failed to get repricing summary: %v", err)
+		return nil, err
+	}
+	
+	return &res, nil
 }
 
 // repricing get detail list

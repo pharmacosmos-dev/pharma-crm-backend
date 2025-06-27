@@ -29,6 +29,7 @@ func (h *InventoryHandler) InventoryRoutes(r *gin.RouterGroup) {
 		inventory.POST("", h.Create)
 		inventory.GET("/:id", h.Get)
 		inventory.GET("/list", h.List)
+		inventory.GET("/list-status", h.InventoryStatus)
 		inventory.GET("/export-excel", h.InventoryExportExcel)
 		inventory.PATCH("/:id/add-product-by-barcode", h.UpdateFactQuantity)
 		inventory.PATCH("/:id/detailed-flow", h.UpdateDetailedFactQuantity)
@@ -160,6 +161,38 @@ func (h *InventoryHandler) List(c *gin.Context) {
 	}
 	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
 	handleResponse(c, OK, data)
+}
+
+// InventoryStatus godoc
+// @Summary Get inventory total stats
+// @Description Get total sum and count stats for inventories
+// @Tags Inventory
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param   store_id query string false "Store ID"
+// @Param   search query string false "Search Keyword"
+// @Param   type query string false "Inventory Type"
+// @Param   status query string false "Inventory Status (0->new|1->pending|2->completed)"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /inventory/list-status [get]
+func (h *InventoryHandler) InventoryStatus(c *gin.Context) {
+	var param domain.InventoryParam
+
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "Invalid query param")
+		return
+	}
+
+	res, err := h.service.InventoryStatus(&param)
+	if err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	handleResponse(c, OK, res)
 }
 
 // Get List Export excel

@@ -148,6 +148,44 @@ func (s *Services) TransferList(param *domain.ReturnParam) ([]domain.Transfer, i
 	return res, totalCount, nil
 }
 
+func (s *Services) TransferStatus(param *domain.ReturnParam) (*domain.TransferStatusSummary, error) {
+	query := `
+		SELECT
+			COALESCE(SUM(trd.received_count), 0) AS received_count,
+			COALESCE(SUM(trd.accepted_count), 0) AS accepted_count,
+			COALESCE(SUM(trd.received_count * trd.retail_price), 0) AS received_retail_sum,
+			COALESCE(SUM(trd.accepted_count * trd.retail_price), 0) AS accepted_retail_sum
+		FROM transfers
+		LEFT JOIN transfer_details trd ON transfers.id = trd.transfer_id
+		WHERE transfers.entry_type = 1
+	`
+
+	var args []any
+
+	if param.StoreId != "" {
+		query += " AND (transfers.from_store_id = ? OR transfers.to_store_id = ?)"
+		args = append(args, param.StoreId, param.StoreId)
+	}
+	if param.Search != "" {
+		search := fmt.Sprintf("%%%s%%", param.Search)
+		query += " AND (transfers.public_id ILIKE ? OR transfers.name ILIKE ?)"
+		args = append(args, search, search)
+	}
+	if param.Status != "" {
+		query += " AND transfers.status = ?"
+		args = append(args, param.Status)
+	}
+
+	var res domain.TransferStatusSummary
+	err := s.db.Raw(query, args...).Scan(&res).Error
+	if err != nil {
+		s.log.Error("Failed to get transfer status summary: %v", err)
+		return nil, err
+	}
+
+	return &res, nil
+}
+
 // get inventory detail list
 func (s *Services) TransferDetailList(param *domain.ReturnDetailParam) ([]domain.TransferDetail, int64, error) {
 	var res []domain.TransferDetail
