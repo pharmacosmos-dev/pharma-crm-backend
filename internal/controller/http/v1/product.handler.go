@@ -448,6 +448,7 @@ func (h *ProductHandler) ExportProductExcel(c *gin.Context) {
 
 	if param.StoreID != "" {
 		f, err = h.productListExportByStoreId(f, res)
+
 		if err != nil {
 			handleResponse(c, InternalError, "Failed to export product list")
 			return
@@ -2296,7 +2297,7 @@ func (h *ProductHandler) productListExportByStoreId(f *excelize.File, res []doma
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"Код", "Наименование", "Штрих-код", "Производитель", "Кол-во", "Цена поставки", "Cумма поставки", "Цена продажи", "Cумма продажи", "Цена наценка", "Cумма наценка", "НДС", "Цена НДС", "Cумма НДС", "Категория", "MXIK"}
+	headers := []string{"Код", "Наименование", "Штрих-код", "Производитель", "Кол-во", "Цена поставки", "Cумма поставки", "Цена продажи", "Cумма продажи", "Цена наценка", "Cумма наценка", "НДС", "Цена НДС", "Cумма НДС", "Категория", "MXIK", "Срок годности"}
 
 	err := setExcelHeaders(f, sheetName, headers)
 	if err != nil {
@@ -2329,6 +2330,7 @@ func (h *ProductHandler) productListExportByStoreId(f *excelize.File, res []doma
 		f.SetCellValue(sheetName, "N"+row, math.Round((product.VatPrice*float64(product.Quantity)+(product.VatPrice/float64(product.UnitPerPack)*product.UnitQuantity))*100)/100)
 		f.SetCellValue(sheetName, "O"+row, product.CategoryName)
 		f.SetCellValue(sheetName, "P"+row, product.MXIK)
+		f.SetCellValue(sheetName, "Q"+row, product.ExpireDate.Format("2006-01-02"))
 	}
 	return f, nil
 }

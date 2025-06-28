@@ -367,12 +367,13 @@ func (s *Services) ListProductExport(param *domain.ProductQueryParam) ([]domain.
 		args   []any
 		filter = "WHERE 1=1 "
 		order  = " ORDER BY p.created_at DESC "
-		// group  = " GROUP BY p.id, pr.id, u.id "
-		// expireDayPart = ""
+		group  = " GROUP BY p.id, pr.id, u.id "
 	)
 	// filter with store_id
 	if param.StoreID != "" {
 		filter += " AND sp.store_id IN (?) "
+		order = " ORDER BY sp.expire_date "
+		group += " , sp.expire_date "
 		args = append(args, param.StoreID)
 	}
 	// filter with producer id
@@ -418,7 +419,8 @@ func (s *Services) ListProductExport(param *domain.ProductQueryParam) ([]domain.
 		case "imminent":
 			filter += " AND (sp.expire_date::date BETWEEN ? AND ?) "
 			now := time.Now()
-			args = append(args, now.Format("2006-01-02"), now.AddDate(0, 3, 0).Format("2006-01-02"))
+			order = " ORDER BY sp.expire_date "
+			args = append(args, now.Format("2006-01-02"), now.AddDate(0, 6, 0).Format("2006-01-02"))
 		}
 	}
 	// filter with search
@@ -434,7 +436,7 @@ func (s *Services) ListProductExport(param *domain.ProductQueryParam) ([]domain.
 	query += filter + order + " LIMIT ? OFFSET ?"
 	args = append(args, param.Limit, param.Offset)
 	// complete query
-	err := s.db.Debug().Raw(query, args...).Scan(&res).Error
+	err := s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting product list: %v", err)
 		return res, err
