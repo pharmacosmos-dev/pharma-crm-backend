@@ -267,10 +267,21 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 		expireDayPart = ""
 	)
 
+	switch param.Order {
+	case "+name":
+		order = " ORDER BY p.name ASC "
+	case "-name":
+		order = " ORDER BY p.name DESC "
+	default:
+		order = " ORDER BY p.created_at DESC "
+	}
+
 	// filter with store_id
 	if param.StoreID != "" {
 		filter += " AND sp.store_id IN (?) "
 		expireDayPart = " DATE_PART('day', MIN(sp.expire_date)::timestamp - NOW()) AS expire_day, MIN(sp.expire_date) AS expire_date, "
+		order = " ORDER BY sp.expire_date "
+		group += " , sp.expire_date "
 		args = append(args, param.StoreID)
 	}
 	// filter with producer id
@@ -297,18 +308,10 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 			now := time.Now()
 			order = " ORDER BY sp.expire_date "
 			group += " , sp.expire_date "
-			args = append(args, now.Format("2006-01-02"), now.AddDate(0, 3, 0).Format("2006-01-02"))
+			args = append(args, now.Format("2006-01-02"), now.AddDate(0, 6, 0).Format("2006-01-02"))
 		}
 	}
 
-	switch param.Order {
-	case "+name":
-		order = " ORDER BY p.name ASC "
-	case "-name":
-		order = " ORDER BY p.name DESC "
-	default:
-		order = " ORDER BY p.created_at DESC "
-	}
 	// filter with search
 	if param.SearchField != "" {
 		search := "%" + param.SearchField + "%"
@@ -340,7 +343,7 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 	query += filter + group + order + " LIMIT ? OFFSET ?"
 	args = append(args, param.Limit, param.Offset)
 	// complete query
-	err := s.db.Raw(query, args...).Scan(&res).Error
+	err := s.db.Debug().Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting product list: %v", err)
 		return res, totalCount, err
