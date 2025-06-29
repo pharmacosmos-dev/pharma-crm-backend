@@ -4416,6 +4416,47 @@ paths:
       summary: Create 1c expense
       tags:
       - Shift Expenses
+  /expense/send-with-number:
+    post:
+      consumes:
+      - application/json
+      description: Create auto order
+      parameters:
+      - description: Send Date (2006-01-02)
+        in: query
+        name: send_date
+        required: true
+        type: string
+      - description: Store ID (required)
+        in: query
+        name: store_id
+        required: true
+        type: string
+      - description: Send Number (required)
+        in: query
+        name: send_number
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create 1c expense
+      tags:
+      - Shift Expenses
   /external/category/get-list:
     get:
       consumes:

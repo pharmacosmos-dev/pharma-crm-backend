@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -44,6 +45,26 @@ func (s *Services) SendExpenseTo1C(sendDate string) error {
 		time.Sleep(5 * time.Second)
 	}
 
+	return nil
+}
+
+// send expense products to 1C with dock number
+// This function is used to send expense reports with a specific document number
+func (s *Services) SendExpenseWithNumberTo1C(sendDate, storeID, dockNumber string) error {
+	var store domain.Store
+	// get store info
+	err := s.db.First(&store, "id = ?", storeID).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting store list: %v", err)
+		return errors.New("error on getting store")
+	}
+	// send expense with dock number
+	err = s.sendReportWithNumberTo1C(&store, sendDate, dockNumber)
+	if err != nil {
+		log.Printf("Failed to send report for %s: %v\n", store.Name, err)
+		return errors.New("error on sending report with number")
+	}
+	fmt.Printf("Successfully sent report for %s\n", store.Name)
 	return nil
 }
 
@@ -181,6 +202,82 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string) error {
 	if len(expenseData.Товары) < 1 {
 		return nil
 	}
+
+	// send fakt to 1C
+	err = s.DoRequest(context.Background(), expenseData, "/rasxod")
+	if err != nil {
+		s.log.Warn("ERROR on send rasxod request: %v", err)
+		return err
+	}
+	// update expense status to 1 after successfully sent
+	err = s.UpdateExpenseStatusByDocNumber(1, expenseData.Document.NumberDok)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// send expense with docs number products to 1C
+func (s *Services) sendReportWithNumberTo1C(store *domain.Store, date, dockNumber string) error {
+	var expenseData domain.SendExpense
+	expenseData.Store.StoreCode = store.StoreCode
+	expenseData.Store.Name = store.Name
+
+	dokTime, err := time.Parse(time.DateOnly, date)
+	if err != nil {
+		s.log.Warn("ERROR on parsing date: %v", err)
+		return errors.New("error on parsing date")
+	}
+
+	expenseData.Document.DocumentDate = dokTime.Format(time.RFC3339) // set document date
+	expenseData.Document.NumberDok = dockNumber
+
+	// get expense products query
+	expenseProductQuery := `
+	SELECT
+		sp.product_id,
+		p.material_code,
+		p.name,
+		p.barcode,
+		p.mxik AS ikpu,
+		COALESCE(pr.name, '') AS manufacturer,
+		COALESCE(sp.serial_number, '') AS product_series_number,
+		sp.expire_date::date,
+		ROUND(SUM(ci.quantity)::NUMERIC + (SUM(ci.unit_quantity)::NUMERIC / p.unit_per_pack), 4) AS quantity,
+		sp.supply_price AS supply_price_vat,
+		sp.retail_price AS retail_price_vat,
+		id.supply_price,
+		id.retail_price,
+		sp.vat,
+		ROUND((sp.vat_price*SUM(ci.quantity)) + ((sp.vat_price/p.unit_per_pack)*SUM(ci.unit_quantity)), 2) AS vat_sum,
+		ROUND((id.retail_price*SUM(ci.quantity)) + ((id.retail_price/p.unit_per_pack)*SUM(ci.unit_quantity)), 2) AS sum,
+		SUM(ci.total_price) AS sum_vat
+	FROM sales s
+	LEFT JOIN sales s_return ON s_return.parent_id = s.id AND s_return.sale_type = 'RETURN' AND s_return.status = 'completed'
+	JOIN cart_items ci ON s.id = ci.sale_id
+	JOIN store_products sp ON ci.store_product_id = sp.id
+	JOIN products p ON sp.product_id = p.id
+	LEFT JOIN producers pr ON p.producer_id = pr.id
+	LEFT JOIN import_details id ON sp.import_detail_id = id.id
+	WHERE s.store_id = ?
+	AND s.status = 'completed' AND s.sale_type = 'SALE' AND 
+		s_return.id IS NULL AND (s.completed_at+interval '5 hours')::date BETWEEN ? AND ?
+	GROUP BY
+		p.id, pr.id, sp.id, id.id;
+	`
+	// complete get expense product list
+	err = s.db.Raw(expenseProductQuery, store.Id, date, date).Scan(&expenseData.Товары).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting expense products: %v", err)
+		return err
+	}
+	// check expense product length
+	if len(expenseData.Товары) < 1 {
+		return nil
+	}
+
+	t, _ := json.Marshal(expenseData)
+	fmt.Println("Request: ", string(t))
 
 	// send fakt to 1C
 	err = s.DoRequest(context.Background(), expenseData, "/rasxod")
