@@ -628,12 +628,12 @@ func (h *Services) UzumFastPayDoRequest(ctx context.Context, url string, data an
 // Alif Pay
 func (h *Services) AlifPay(ctx context.Context, tx *gorm.DB, paymentService *domain.PaymentService, data *domain.FinalPaymentType, CashOperationID string, transactionID string, saleID string) (map[string]any, error) {
 	alifData := domain.AlifPaymentRequest{
-		// OrderId:       saleID,
-		// TransactionID: transactionID,
-		// CashboxCode:   CashOperationID,
-		// ServiceID:     paymentService.ServiceID,
-		// Amount:        data.Amount,
-		// OtpData:       data.OtpData,
+		ID:     transactionID,
+		Amount: data.Amount,
+		Method: domain.AlifMethod{
+			Type:  "MOBI_SHOW_QR",
+			Token: data.OtpData,
+		},
 	}
 	t, err := json.Marshal(alifData)
 	if err != nil {
@@ -651,7 +651,7 @@ func (h *Services) AlifPay(ctx context.Context, tx *gorm.DB, paymentService *dom
 		return nil, err
 	}
 
-	res, err := h.AlifPayDoRequest(ctx, "/v2/payment", alifData)
+	res, err := h.AlifPayDoRequest(ctx, "/v2/pay", alifData)
 	if err != nil {
 		return nil, err
 	}
@@ -661,6 +661,39 @@ func (h *Services) AlifPay(ctx context.Context, tx *gorm.DB, paymentService *dom
 		Response:      t,
 		Method:        "alif_pay",
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	id, ok := res["id"].(string)
+	if !ok {
+		return nil, errors.New("id of alif pay not found")
+	}
+	res1, err := h.AlifConfirmPayment(ctx, data, id)
+	if err != nil {
+		return nil, err
+	}
+
+	t, _ = json.Marshal(res1)
+	err = h.SaveResponse(ctx, &domain.PaymentRequest{
+		TransactionID: transactionID,
+		Response:      t,
+		Method:        "alif_pay_confirm",
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+// alif confirm payment
+func (h *Services) AlifConfirmPayment(ctx context.Context, data1 *domain.FinalPaymentType, paymentId string) (map[string]any, error) {
+	data := map[string]any{
+		"id":  paymentId,
+		"otp": data1.OtpData,
+	}
+	res, err := h.AlifPayDoRequest(ctx, "/v2/confirmPayment", data)
 	if err != nil {
 		return nil, err
 	}
@@ -685,6 +718,7 @@ func (h *Services) AlifPayDoRequest(ctx context.Context, url string, data any) (
 		return nil, fmt.Errorf("failed to create HTTP request: %v", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Token", h.cfg.Secret.AlifToken)
 
 	// Execute request
 	resp, err := client.Do(req)

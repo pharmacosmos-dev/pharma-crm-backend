@@ -57,6 +57,7 @@ const (
 	CLICK   = "click"
 	PAYME   = "payme"
 	UZUM    = "uzum"
+	ALIF    = "alif"
 	PERCENT = "percent"
 
 	// region universal status types
