@@ -129,7 +129,10 @@ func (s *Services) CreateCartItem(req *domain.CartItemRequest) (*domain.CartItem
 			discount_type, 
 			discount_value
 			)
-		VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+		SELECT 
+			?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(discount_percent, 0)
+			FROM sale_customer_discounts where sale_id = ?
+        RETURNING *`,
 		uuid.New().String(),
 		req.StoreProductID,
 		req.SaleId,
@@ -139,8 +142,7 @@ func (s *Services) CreateCartItem(req *domain.CartItemRequest) (*domain.CartItem
 		req.UnitPrice,
 		req.TotalPrice,
 		config.PENDING_CART_ITEM,
-		req.DiscountType,
-		req.DiscountValue).Scan(&res).Error
+		req.DiscountType).Scan(&res).Error
 	if err != nil {
 		return nil, err
 	}
