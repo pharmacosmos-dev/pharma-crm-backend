@@ -735,7 +735,7 @@ func processPaymentType(ctx context.Context, tx *gorm.DB, h *SaleHandler, body d
 		if err != nil {
 			return err
 		}
-
+		// check if sale_payment is created
 		resp, err := handler(ctx, tx, paymentService, &item, body.CashBoxOperationId, salePayment.ID, body.SaleID)
 		if err != nil || cast.ToString(resp["error_code"]) != "0" {
 			return err

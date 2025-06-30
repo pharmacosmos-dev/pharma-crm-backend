@@ -330,3 +330,28 @@ type PaymeGoErrorResponse struct {
 	Code    int    `json:"code"`
 	Data    string `json:"data"`
 }
+
+// Alif payment request and response structures
+// AlifPaymentRequest and AlifPaymentResponse are used for Alif payment integration
+type AlifPaymentRequest struct {
+	Amount         float64 `json:"amount"`
+	TransactionID  string  `json:"transaction_id"`
+	PhoneNumber    string  `json:"phone_number"`
+	MerchantId     string  `json:"merchant_id"`
+	MerchantUserId string  `json:"merchant_user_id"`
+	SecretKey      string  `json:"secret_key"`
+}
+
+// AlifPaymentResponse structure for Alif payment response
+type AlifPaymentResponse struct {
+	TransactionId  string `json:"transaction_id"`
+	PaymentId      string `json:"payment_id"`
+	ErrorCode      int    `json:"error_code"`
+	ErrorNote      string `json:"error_note"`
+	PaymentStatus  int    `json:"payment_status"`
+	ConfirmMode    bool   `json:"confirm_mode"`
+	CardType       string `json:"card_type"`
+	ProcessingType string `json:"processing_type"`
+	CardNumber     string `json:"card_number"`
+	PhoneNumber    string `json:"phone_number"`
+}

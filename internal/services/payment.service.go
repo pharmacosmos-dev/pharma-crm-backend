@@ -62,7 +62,7 @@ func (h *Services) ClickPass(ctx context.Context, tx *gorm.DB, click *domain.Pay
 	if err != nil {
 		return result, err
 	}
-	
+
 	err = json.Unmarshal(temp, &result)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal into map: %w", err)
@@ -596,6 +596,94 @@ func (h *Services) UzumFastPayDoRequest(ctx context.Context, url string, data an
 		return nil, fmt.Errorf("failed to create HTTP request: %v", err)
 	}
 	req.Header.Set("Authorization", token)
+	req.Header.Set("Content-Type", "application/json")
+
+	// Execute request
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to execute HTTP request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	// Check response status code
+	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(bodyBytes))
+	}
+
+	// Decode response body
+	var result map[string]any
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %v", err)
+	}
+
+	err = json.Unmarshal(bodyBytes, &result)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode response: %v", err)
+	}
+	return result, nil
+}
+
+// Alif Pay
+func (h *Services) AlifPay(ctx context.Context, tx *gorm.DB, paymentService *domain.PaymentService, data *domain.FinalPaymentType, CashOperationID string, transactionID string, saleID string) (map[string]any, error) {
+	alifData := domain.AlifPaymentRequest{
+		// OrderId:       saleID,
+		// TransactionID: transactionID,
+		// CashboxCode:   CashOperationID,
+		// ServiceID:     paymentService.ServiceID,
+		// Amount:        data.Amount,
+		// OtpData:       data.OtpData,
+	}
+	t, err := json.Marshal(alifData)
+	if err != nil {
+		return nil, err
+	}
+	err = h.SaveRequest(ctx, &domain.PaymentRequest{
+		RequestId:       time.Now().Unix(),
+		Method:          "alif_pay",
+		Payload:         t,
+		TransactionID:   transactionID,
+		PaymentProvider: "alif",
+	})
+	if err != nil {
+		h.log.Info("Error on saving alif pay request: %v", err.Error())
+		return nil, err
+	}
+
+	res, err := h.AlifPayDoRequest(ctx, "/v2/payment", alifData)
+	if err != nil {
+		return nil, err
+	}
+	t, _ = json.Marshal(res)
+	err = h.SaveResponse(ctx, &domain.PaymentRequest{
+		TransactionID: transactionID,
+		Response:      t,
+		Method:        "alif_pay",
+	})
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+// alif pay do request function
+func (h *Services) AlifPayDoRequest(ctx context.Context, url string, data any) (map[string]any, error) {
+	client := &http.Client{}
+	buf := bytes.Buffer{}
+
+	// Encode data to JSON
+	err := json.NewEncoder(&buf).Encode(data)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode request data: %v", err)
+	}
+
+	// Construct request
+	fullURL := h.cfg.AlifBaseUrl + url
+	req, err := http.NewRequestWithContext(ctx, "POST", fullURL, &buf)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create HTTP request: %v", err)
+	}
 	req.Header.Set("Content-Type", "application/json")
 
 	// Execute request
