@@ -244,10 +244,11 @@ type ProductQueryParam struct {
 
 // update barcode structure
 type UpdateBarcodeRequest struct {
-	Barcode   string `json:"barcode"`
-	Mxik      string `json:"mxik"`
-	UnitCode  string `json:"unit_code"`
-	UnitLabel string `json:"unit_label"`
+	Barcode    string `json:"barcode"`
+	Mxik       string `json:"mxik"`
+	UnitCode   string `json:"unit_code"`
+	UnitLabel  string `json:"unit_label"`
+	ExpireDate string `json:"expire_date"` // format: 2006-01-02
 }
 
 // update is marking request

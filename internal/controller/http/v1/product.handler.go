@@ -324,6 +324,7 @@ func (h *ProductHandler) Get(c *gin.Context) {
 // @Param category_id query string false "Category ID"
 // @Param producer_id query string false "Producer ID"
 // @Param no_barcode query bool false "No Barcode"
+// @Param order query string false "Order by (+name || -name || +expire_date || -expire_date)"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -394,6 +395,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 // @Param category_id query string false "Category ID"
 // @Param producer_id query string false "Producer ID"
 // @Param no_barcode query bool false "No Barcode"
+// @Param order query string false "Order by (+name || -name || +expire_date || -expire_date)"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -1916,6 +1918,15 @@ func (h *ProductHandler) UpdateProductIkpuForStoreProduct(c *gin.Context) {
 
 	if body.Barcode != "" {
 		err = h.db.Exec("UPDATE store_products SET barcode = ? WHERE id = ?", body.Barcode, id).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+	}
+
+	if body.ExpireDate != "" {
+		err = h.db.Exec("UPDATE store_products SET expire_date = ? WHERE id = ?", body.ExpireDate, id).Error
 		if err != nil {
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())
