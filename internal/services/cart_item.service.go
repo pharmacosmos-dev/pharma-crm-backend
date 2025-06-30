@@ -116,7 +116,7 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 func (s *Services) CreateCartItem(req *domain.CartItemRequest) (*domain.CartItem, error) {
 	var res domain.CartItem
 	fmt.Println("LYAAA: ", req)
-	err := s.db.Debug().Raw(`
+	err := s.db.Raw(`
 		INSERT INTO cart_items(
 			id, 
 			store_product_id,
@@ -131,7 +131,7 @@ func (s *Services) CreateCartItem(req *domain.CartItemRequest) (*domain.CartItem
 			discount_value
 			)
 			VALUES (
-			?,?,?,?,?,?,?,?,?,?  (SELECT COALESCE(discount_percent, 0) 
+			?,?,?,?,?,?,?,?,?,?  ,(SELECT COALESCE(discount_percent, 0) 
      FROM sale_customer_discounts 
      WHERE sale_id = '1fd5c32b-77e9-4756-93b7-2ab5aaec17c1' 
      LIMIT 1)
