@@ -115,7 +115,8 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 // create cart item
 func (s *Services) CreateCartItem(req *domain.CartItemRequest) (*domain.CartItem, error) {
 	var res domain.CartItem
-	err := s.db.Raw(`
+	fmt.Println("LYAAA: ", req)
+	err := s.db.Debug().Raw(`
 		INSERT INTO cart_items(
 			id, 
 			store_product_id,
@@ -129,10 +130,13 @@ func (s *Services) CreateCartItem(req *domain.CartItemRequest) (*domain.CartItem
 			discount_type, 
 			discount_value
 			)
-		SELECT 
-			?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(discount_percent, 0)
-			FROM sale_customer_discounts where sale_id = ?
-        RETURNING *`,
+			VALUES (
+			?,?,?,?,?,?,?,?,?,?  (SELECT COALESCE(discount_percent, 0) 
+     FROM sale_customer_discounts 
+     WHERE sale_id = '1fd5c32b-77e9-4756-93b7-2ab5aaec17c1' 
+     LIMIT 1)
+)
+RETURNING *`,
 		uuid.New().String(),
 		req.StoreProductID,
 		req.SaleId,
@@ -142,10 +146,12 @@ func (s *Services) CreateCartItem(req *domain.CartItemRequest) (*domain.CartItem
 		req.UnitPrice,
 		req.TotalPrice,
 		config.PENDING_CART_ITEM,
-		req.DiscountType).Scan(&res).Error
+		req.DiscountType,
+		req.SaleId).Scan(&res).Error
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("sale_id: ", req.SaleId, "employee_id: ", req.EmployeeID, "store_product_id: ", req.StoreProductID)
 
 	return &res, nil
 }
