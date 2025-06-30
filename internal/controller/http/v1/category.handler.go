@@ -73,6 +73,7 @@ func (h *CategoryHander) Create(c *gin.Context) {
 			Create(&domain.CategoryRequest{
 				Id:         category.Id,
 				Name:       category.Name,
+				Photo:      category.Photo,
 				CategoryId: parentID,
 			}).Error
 		if err != nil {

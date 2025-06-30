@@ -4,6 +4,7 @@ package domain
 type Category struct {
 	Id            string     `gorm:"id" json:"id"`
 	Name          string     `gorm:"name" json:"name"`
+	Photo         string     `gorm:"photo" json:"photo"`
 	CategoryId    *string    `gorm:"category_id" json:"parent_id"`
 	CreatedBy     *string    `gorm:"created_by" json:"created_by"`
 	IsOpen        bool       `gorm:"is_open" json:"is_open"`
@@ -14,6 +15,7 @@ type Category struct {
 type CategoryRequest struct {
 	Id          string             `gorm:"id" json:"-"`
 	Name        string             `gorm:"name" json:"name"`
+	Photo       string             `gorm:"photo" json:"photo"`
 	CategoryId  *string            `gorm:"category_id" json:"-"`
 	SubCategory []*CategoryRequest `gorm:"-" json:"sub_category"`
 }
@@ -22,6 +24,7 @@ type CategoryRequest struct {
 type CategoryUpdateRequest struct {
 	Id            string                  `gorm:"id" json:"id"`
 	Name          string                  `gorm:"name" json:"name"`
+	Photo         string                  `gorm:"photo" json:"photo"`
 	CategoryId    *string                 `gorm:"category_id" json:"parent_id"`
 	SubCategories []CategoryUpdateRequest `gorm:"-" json:"sub_category"`
 }
