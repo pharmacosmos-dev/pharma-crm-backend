@@ -59,3 +59,56 @@ func (s *Services) ListCustomer(param *domain.QueryParam) ([]domain.Customer, in
 
 	return res, totalCount, nil
 }
+
+func (s *Services) ListDiscountCards(param *domain.QueryParam) ([]domain.DiscountCardWithCustomer, int64, error) {
+	var (
+		res        []domain.DiscountCardWithCustomer
+		totalCount int64
+	)
+
+	query := s.db.
+		Table("discount_cards").
+		Select(`
+			discount_cards.*,
+			customers.full_name,
+			customers.phone,
+			customers.balance,
+			customers.store_id,
+			customers.tag_id,
+			stores.name AS store_name,
+			tags.name AS tag_name
+		`).
+		Joins("LEFT JOIN customers ON customers.id = discount_cards.customer_id").
+		Joins("LEFT JOIN stores ON stores.id = customers.store_id").
+		Joins("LEFT JOIN tags ON tags.id = customers.tag_id").
+		Where("customers.deleted_at IS NULL AND discount_cards.deleted_at IS NULL")
+
+	if param.Search != "" {
+		query = query.Where(`
+			customers.full_name ILIKE ? OR 
+			customers.phone ILIKE ? OR
+			discount_cards.barcode ILIKE ?`,
+			"%"+param.Search+"%",
+			"%"+param.Search+"%",
+			"%"+param.Search+"%",
+		)
+	}
+
+	if param.StoreID != "" {
+		query = query.Where("customers.store_id = ?", param.StoreID)
+	}
+
+	err := query.
+		Count(&totalCount).
+		Limit(param.Limit).
+		Offset(param.Offset).
+		Order("discount_cards.created_at DESC").
+		Scan(&res).Error
+
+	if err != nil {
+		s.log.Error(err)
+		return nil, 0, err
+	}
+
+	return res, totalCount, nil
+}

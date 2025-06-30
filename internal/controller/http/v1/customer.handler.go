@@ -31,6 +31,8 @@ func (h *CustomerHandler) CustomerRoutes(r *gin.RouterGroup) {
 		customer.GET("/:id", h.Get)
 		customer.GET("/list", h.List)
 		customer.GET("/export-excel", h.ExportCustomerExcel)
+		customer.GET("/list-discount-cards", h.ListDiscountCards)
+		customer.GET("/export-excel-discount-cards", h.ExportDiscountCardExcel)
 		customer.PUT("/:id", h.Update)
 		customer.DELETE("/soft-delete", h.SoftDelete)
 		customer.DELETE("/hard-delete", h.HardDelete)
@@ -247,6 +249,114 @@ func (h *CustomerHandler) ExportCustomerExcel(c *gin.Context) {
 
 	}
 	saveExcelToUploads(c, f, *h.log, "Mijozlar")
+}
+
+// List godoc
+// @Summary Get discount cards
+// @Description Get list of discount cards joined with customer info
+// @Tags customers
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Param search query string false "Search by customer name or phone or barcode"
+// @Param store_id query string false "Store ID filter"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /customer/list-discount-cards [get]
+func (h *CustomerHandler) ListDiscountCards(c *gin.Context) {
+	var param domain.QueryParam
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "Invalid query param")
+		return
+	}
+
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	res, total, err := h.service.ListDiscountCards(&param)
+	if err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	result := utils.ListResponse(res, total, param.Limit, param.Offset)
+	handleResponse(c, OK, result)
+}
+
+// Export discount card excel godoc
+// @Summary Export discount cards with customer info to Excel
+// @Description Export discount cards with customer data to Excel
+// @Tags customers
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Param search query string false "Search"
+// @Param store_id query string false "Store ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /customer/export-excel-discount-cards [get]
+func (h *CustomerHandler) ExportDiscountCardExcel(c *gin.Context) {
+	var param domain.QueryParam
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "Invalid query param")
+		return
+	}
+
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	// Fetch data
+	res, _, err := h.service.ListDiscountCards(&param)
+	if err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	// Create Excel
+	f := excelize.NewFile()
+	sheetName := "DiscountCards"
+	f.SetSheetName("Sheet1", sheetName)
+
+	// Header titles
+	headers := []string{
+		"ID", "ФИО", "Телефон", "Дата рождения", "Пол", "Баланс",
+		"Филиал", "Тег", "Процент", "Штрих-код",
+	}
+
+	// Set header row
+	if err := setExcelHeaders(f, sheetName, headers); err != nil {
+		h.log.Error("Failed to create style:", err)
+		handleResponse(c, InternalError, "Error on giving style to excel")
+		return
+	}
+
+	// Fill rows
+	for i, dc := range res {
+		row := strconv.Itoa(i + 2)
+
+		f.SetCellValue(sheetName, "A"+row, dc.ID)
+		f.SetCellValue(sheetName, "B"+row, dc.FullName)
+		f.SetCellValue(sheetName, "C"+row, dc.Phone)
+		f.SetCellValue(sheetName, "D"+row, dc.Birthday.Format("2006-01-02"))
+		f.SetCellValue(sheetName, "E"+row, dc.Gender)
+		f.SetCellValue(sheetName, "F"+row, dc.Balance)
+		if dc.StoreName != "" {
+			f.SetCellValue(sheetName, "G"+row, dc.StoreName)
+		} else {
+			f.SetCellValue(sheetName, "G"+row, "N/A")
+		}
+		if dc.TagName != "" {
+			f.SetCellValue(sheetName, "H"+row, dc.TagName)
+		} else {
+			f.SetCellValue(sheetName, "H"+row, "N/A")
+		}
+		f.SetCellValue(sheetName, "I"+row, dc.Percent)
+		f.SetCellValue(sheetName, "J"+row, dc.Barcode)
+	}
+
+	saveExcelToUploads(c, f, *h.log, "DiscountCards")
 }
 
 // Update godoc

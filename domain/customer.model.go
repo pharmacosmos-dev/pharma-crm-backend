@@ -28,6 +28,29 @@ type Customer struct {
 	DebtAmount   float64    `gorm:"debt_amount" json:"debt_amount"`
 	Store        *Store     `gorm:"foreignKey:StoreId" json:"store"`
 }
+
+type DiscountCardWithCustomer struct {
+	ID         string `json:"id"`
+	CustomerID string `json:"customer_id"`
+	Barcode    string `json:"barcode"`
+	Percent    int    `json:"percent"`
+
+	// Customer info
+	FullName string    `json:"full_name"`
+	Phone    string    `json:"phone"`
+	Birthday time.Time `json:"birthday"`
+	Gender   string    `json:"gender"`
+	Balance  float64   `json:"balance"`
+
+	// Store/Tag info
+	StoreID   string `json:"store_id"`
+	StoreName string `json:"store_name"`
+	TagID     string `json:"tag_id"`
+	TagName   string `json:"tag_name"`
+
+	CreatedAt time.Time `json:"created_at"`
+}
+
 type CustomerRequest struct {
 	Id        string  `gorm:"id" json:"-"`
 	StoreId   string  `gorm:"store_id" json:"store_id"`
