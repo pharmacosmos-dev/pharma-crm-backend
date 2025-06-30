@@ -3,7 +3,6 @@ package services
 import (
 	"errors"
 	"fmt"
-	"math"
 	"strings"
 
 	"github.com/google/uuid"
@@ -15,64 +14,75 @@ import (
 // get cart item list by sale id with limit, offset
 func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartItemData, error) {
 	var res []domain.CartItemResponse
-	err := s.db.Debug().Raw(`
-	SELECT
-		ci.id, 
-		ci.employee_id, 
-		ci.sale_id, 
-		ci.store_product_id, 
-		ci.quantity, 
-		ci.unit_quantity, 
-		ci.unit_price, 
-		ci.discount_type, 
-		ci.discount_value, 
-		ci.total_price, 
-		ci.discount_price,
-		ci.created_at, 
-		ci.updated_at, 
-		ci.marking_count,
-		p.name,
-		COALESCE(sp.barcode, p.barcode) AS barcode,
-		p.unit_per_pack,
-		sp.is_marking,
-		sp.expire_date,
-		pb.bonus_amount as bonus_amount,
-		sp.vat AS vat_percent,
-		sp.vat_price as vat_price,
-		ROUND(sp.vat_price * ci.quantity + (sp.vat_price / p.unit_per_pack) * ci.unit_quantity, 2) AS vat,
-		ROUND(CASE WHEN p.unit_per_pack > 0 THEN (ci.unit_price / p.unit_per_pack) ELSE 0 END, 2) AS unit_quantity_price,
-		sp.pack_quantity AS quantity_stock,
-		sp.unit_quantity AS unit_quantity_stock,
-		u.unit_name,
-		u.short_name,
-		sh.name as shelf,
-		COALESCE(sp.mxik, p.mxik) AS class_code,
-		COALESCE(sp.unit_code, p.unit_code) AS package_code,
-		COALESCE(sp.unit_label, p.unit_label) AS package_name,
-		ROUND(CASE WHEN ci.quantity > 0 THEN ci.discount_amount/ci.quantity ELSE 0 END, 2) AS discount_amount,
-		ROUND((CASE WHEN ci.quantity > 0 THEN ci.discount_amount/ci.quantity ELSE 0 END)/p.unit_per_pack, 2) AS discount_unit_amount
-	FROM cart_items ci
-	JOIN store_products sp ON ci.store_product_id = sp.id
-	JOIN products p ON sp.product_id = p.id
-	LEFT JOIN unit_types u ON p.unit_type_id = u.id
-	LEFT JOIN shelves sh ON p.shelf_id = sh.id
-	LEFT JOIN product_bonuses pb ON p.id = pb.product_id
-	WHERE ci.sale_id = ?
-	GROUP BY ci.id, ci.created_at, p.id, sp.id, u.id, sh.id, pb.id
-	ORDER BY ci.created_at DESC LIMIT ? OFFSET ?;
-	`, saleID, limit, offset).Scan(&res).Error
+	err := s.db.Raw(`
+	WITH ci_amount AS (
+			SELECT
+				ci.id AS ci_id,
+				(CASE WHEN ci.quantity > 0 THEN ci.discount_amount / ci.quantity ELSE 0 END) AS raw_d_amount,
+				p.unit_per_pack
+			FROM cart_items ci
+			JOIN store_products sp ON ci.store_product_id = sp.id
+			JOIN products p ON sp.product_id = p.id
+			WHERE ci.sale_id = ?
+		)
+		SELECT
+			ci.id,
+			ci.employee_id,
+			ci.sale_id,
+			ci.store_product_id,
+			ci.quantity,
+			ci.unit_quantity,
+			ci.discount_type,
+			ci.discount_value,
+			ci.unit_price,
+			ci.total_price,
+			ci.discount_price,
+			ci.created_at,
+			ci.updated_at,
+			ci.marking_count,
+			p.name,
+			COALESCE(sp.barcode, p.barcode) AS barcode,
+			p.unit_per_pack,
+			sp.is_marking,
+			sp.expire_date,
+			pb.bonus_amount,
+			sp.vat AS vat_percent,
+
+			ROUND(((ci.unit_price - ci_amount.raw_d_amount) * 12) / 112, 2) AS vat_price,
+			ROUND((((ci.unit_price - ci_amount.raw_d_amount) * 12) / 112) / p.unit_per_pack, 2) AS unit_vat_price,
+
+			ROUND(sp.vat_price * ci.quantity + (sp.vat_price / p.unit_per_pack) * ci.unit_quantity, 2) AS vat,
+			ROUND(ci.unit_price / p.unit_per_pack, 2) AS unit_quantity_price,
+
+			sp.pack_quantity AS quantity_stock,
+			(sp.unit_quantity % p.unit_per_pack) AS unit_quantity_stock,
+
+			u.unit_name,
+			u.short_name,
+			sh.name AS shelf,
+			COALESCE(sp.mxik, p.mxik) AS class_code,
+			COALESCE(sp.unit_code, p.unit_code) AS package_code,
+			COALESCE(sp.unit_label, p.unit_label) AS package_name,
+
+			ROUND(ci_amount.raw_d_amount, 2) AS discount_amount,
+			ROUND(ci_amount.raw_d_amount / ci_amount.unit_per_pack, 2) AS discount_unit_amount,
+			ROUND(ci.unit_quantity / p.unit_per_pack, 2) AS unit_amount
+
+		FROM cart_items ci
+		JOIN ci_amount ON ci.id = ci_amount.ci_id
+		JOIN store_products sp ON ci.store_product_id = sp.id
+		JOIN products p ON sp.product_id = p.id
+		LEFT JOIN unit_types u ON p.unit_type_id = u.id
+		LEFT JOIN shelves sh ON p.shelf_id = sh.id
+		LEFT JOIN product_bonuses pb ON p.id = pb.product_id
+		WHERE ci.sale_id = ?
+		ORDER BY ci.created_at DESC LIMIT ? OFFSET ?;
+	`, saleID, saleID, limit, offset).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("Error on listing cart items for sale %s: %v", saleID, err.Error())
 		return nil, err
 	}
-	for i := range res {
-		if res[i].UnitPerPack > 0 {
-			unitPrice := res[i].VatPrice / float64(res[i].UnitPerPack)
-			res[i].UnitVatPrice = unitPrice // ← no rounding
-			res[i].UnitAmount = math.Round(float64(res[i].UnitQuantity)/float64(res[i].UnitPerPack)*100) / 100
-			res[i].UnitQuantityStock = res[i].UnitQuantityStock % res[i].UnitPerPack
-		}
-	}
+
 	var data domain.CartItemData
 	err = s.db.Raw(`
 	SELECT
