@@ -632,20 +632,12 @@ func (h *SaleHandler) ProccessingSale(c *gin.Context) {
 
 	// create transaction
 	tx := h.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			_ = tx.Rollback()
-		}
-	}()
+	defer recoverTransaction(tx, h.log)
 
-	defer func() {
-		if err != nil {
-			tx.Rollback()
-		}
-	}()
+	defer RollbackIfError(tx, &err)
 
 	// get sale info
-	err = h.db.First(&sale, "id = ?", body.SaleID).Error
+	err = tx.First(&sale, "id = ?", body.SaleID).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			handleResponse(c, NotFound, "Sale not found")
@@ -656,16 +648,16 @@ func (h *SaleHandler) ProccessingSale(c *gin.Context) {
 		return
 	}
 
+	// check sale is completed or no
+	if sale.Status == config.COMPLETED {
+		handleResponse(c, CONFLICT, "Sale is already completed")
+		return
+	}
+
 	// add marking to cart_items
 	err = h.service.AddMarkingCount(body.MarkingData)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
-		return
-	}
-
-	// check sale is completed or no
-	if sale.Status == config.COMPLETED {
-		handleResponse(c, CONFLICT, "Sale is already completed")
 		return
 	}
 
@@ -713,8 +705,12 @@ func (h *SaleHandler) ProccessingSale(c *gin.Context) {
 }
 
 // Process payment type
-func processPaymentType(ctx context.Context, tx *gorm.DB, h *SaleHandler, body domain.FinalSale, item domain.FinalPaymentType) error {
-	if item.Type == "app" && (item.AppType == config.CLICK || item.AppType == config.PAYME || item.AppType == config.UZUM) {
+func processPaymentType(
+	ctx context.Context,
+	tx *gorm.DB, h *SaleHandler,
+	body domain.FinalSale,
+	item domain.FinalPaymentType) error {
+	if item.Type == "app" && (item.AppType == config.CLICK || item.AppType == config.PAYME || item.AppType == config.UZUM || item.AppType == config.ALIF) {
 		paymentService, err := h.service.GetPaymentServiceByStoreId(body.StoreID, item.AppType)
 		if err != nil {
 			return errors.New("failed to get payment service")
@@ -724,6 +720,7 @@ func processPaymentType(ctx context.Context, tx *gorm.DB, h *SaleHandler, body d
 			config.CLICK: h.service.ClickPass,
 			config.PAYME: h.service.PaymeGo,
 			config.UZUM:  h.service.UzumFastPay,
+			config.ALIF:  h.service.AlifPay,
 		}
 		// get payment handlers for integration app services
 		handler, exists := paymentHandlers[item.AppType]
