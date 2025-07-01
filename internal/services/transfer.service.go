@@ -363,10 +363,14 @@ func (s *Services) ConfirmTransfer(transferID string, userId string) error {
 	var res []domain.TransferDetail
 	err = tx.Raw(`
 	SELECT 
-		td.*, p.unit_per_pack ,p.name AS product_name, 
-		p.material_code, p.barcode, pr.code AS producer_code, 
-		idt.retail_price AS retail_price_vat,
-		idt.supply_price AS supply_price_vat
+		td.*, 
+		COALESCE(p.unit_per_pack,0) ,
+		COALESCE(p.name,'') AS product_name, 
+		COALESCE(p.material_code,0), 
+		COALESCE(p.barcode, ''), 
+		COALESCE(pr.code, '') AS producer_code, 
+		COALESCE(idt.retail_price, 0) AS retail_price_vat,
+		COALESCE(idt.supply_price, 0) AS supply_price_vat
 	FROM transfer_details td 
 		JOIN 
 			products p ON p.id = td.product_id 
@@ -408,7 +412,7 @@ func (s *Services) ConfirmTransfer(transferID string, userId string) error {
 		}
 
 		// collect inventory products to send 1C
-		data1C.Товары = append(data1C.Товары, domain.InventoryProduct1C{
+		data1C.Товары = append(data1C.Товары, domain.TransferProduct1C{
 			MaterialCode:        v.MaterialCode,
 			Name:                v.ProductName,
 			Barcode:             v.Barcode,
