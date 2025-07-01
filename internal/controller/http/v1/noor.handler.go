@@ -134,7 +134,7 @@ func (h *NoorHandler) StoreList(c *gin.Context) {
 func (h *NoorHandler) CategoryList(c *gin.Context) {
 	var (
 		param domain.NoorQueryParam
-		res   []domain.Category
+		res   []domain.NoorCategory
 	)
 	// bind query param
 	err := c.ShouldBindQuery(&param)
@@ -147,7 +147,39 @@ func (h *NoorHandler) CategoryList(c *gin.Context) {
 	// get default product
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 
-	err = h.db.Model(&domain.Category{}).Find(&res).Error
+	query := `
+	WITH RECURSIVE category_hierarchy AS (
+		-- Start with root categories (those with no parent)
+		SELECT
+			id,
+			name,
+			category_id AS parent_id,
+			photo,
+			ARRAY[id] AS path
+		FROM categories
+		WHERE category_id IS NULL
+
+		UNION ALL
+
+		-- Recursively get children
+		SELECT
+			c.id,
+			c.name,
+			c.category_id AS parent_id,
+			c.photo,
+			ch.path || c.id
+		FROM categories c
+		INNER JOIN category_hierarchy ch ON c.category_id = ch.id
+	)
+	SELECT
+		id,
+		name,
+		parent_id,
+		photo
+	FROM category_hierarchy
+	ORDER BY path;
+	`
+	err = h.db.Raw(query).Scan(&res).Error
 	if err != nil {
 		h.log.Error("ERROR on getting noor categories: %v", err)
 		handleResponseNoor(c, http.StatusInternalServerError, "internal.server.error")
