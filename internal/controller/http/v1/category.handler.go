@@ -238,8 +238,21 @@ func (h *CategoryHander) List(c *gin.Context) {
 
 	// Apply search filter if provided
 	if search != "" {
-		search = fmt.Sprintf("%%%s%%", search)
-		query = query.Where("name ILIKE ?", search)
+		query = query.
+			Where(`
+            id IN (
+                WITH RECURSIVE category_tree AS (
+                    SELECT id, category_id
+                    FROM categories
+                    WHERE name ILIKE ?
+                    UNION ALL
+                    SELECT c.id, c.category_id
+                    FROM categories c
+                    JOIN category_tree ct ON ct.category_id = c.id
+                )
+                SELECT id FROM category_tree WHERE category_id IS NULL
+            )
+        `, "%"+search+"%")
 	}
 
 	// Preload SubCategories recursively
@@ -277,6 +290,7 @@ func (h *CategoryHander) List(c *gin.Context) {
 		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).
+		Debug().
 		Find(&res).Error
 	if err != nil {
 		h.log.Error(err)

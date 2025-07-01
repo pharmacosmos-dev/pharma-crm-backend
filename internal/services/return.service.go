@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
 	"strings"
@@ -423,8 +422,9 @@ func (s *Services) ConfirmReturn(returnId, storeId string, userId string) error 
 		}
 	}()
 	// update confirm inventory
-	query := `UPDATE transfers SET status = ?, accepted_by = ?, accepted_at = NOW() WHERE id = ?`
-	err := tx.Exec(query, config.COMPLETED, userId, returnId).Error
+	returnInfo := domain.Return{}
+	query := `UPDATE transfers SET status = ?, accepted_by = ?, accepted_at = NOW() WHERE id = ? RETURNING *`
+	err := tx.Raw(query, config.COMPLETED, userId, returnId).Scan(&returnInfo).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating inventory %v", err)
 		tx.Rollback()
@@ -449,7 +449,7 @@ func (s *Services) ConfirmReturn(returnId, storeId string, userId string) error 
 		s.log.Warn("ERROR on getting store data: %v", err)
 		return err
 	}
-	returnData.Dok.DocumentNumber = "VP" + cast.ToString(time.Now().Unix())
+	returnData.Dok.DocumentNumber = "VP-" + cast.ToString(returnInfo.PublicId)
 	returnData.Dok.DocumentDate = time.Now().Add(time.Hour * 5).Format(time.DateOnly)
 	returnData.Apteka.Name = store.Name
 	returnData.Apteka.StoreCode = store.StoreCode
@@ -485,9 +485,6 @@ func (s *Services) ConfirmReturn(returnId, storeId string, userId string) error 
 		s.log.Warn("No products found for return %s", returnId)
 		return nil
 	}
-
-	t, _ := json.Marshal(returnData)
-	fmt.Println("====>> ", string(t))
 
 	// send return to 1C
 	err = s.DoRequest(context.Background(), returnData, "/vozvrat")

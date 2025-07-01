@@ -376,7 +376,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 
 	// Prepare the response
 	result := utils.ListResponse(products, totalCount, param.Limit, param.Offset)
-	
+
 	handleResponse(c, OK, result)
 }
 
@@ -1955,16 +1955,29 @@ func (h *ProductHandler) UpdateStoreProductIsMarking(c *gin.Context) {
 		err  error
 	)
 	// bind request body
-	if err = c.ShouldBindJSON(&body); err != nil {
+	err = c.ShouldBindJSON(&body)
+	if err != nil {
 		handleResponse(c, BadRequest, "Invalid received info, Please try again")
 		return
 	}
+
 	// update is_marking service
-	err = h.db.Exec(`UPDATE store_products SET is_marking = ? WHERE id = ?`, body.IsMarking, body.ID).Error
-	if err != nil {
-		h.log.Warn("ERROR on updating store_product is_marking: %v", err)
-		handleResponse(c, InternalError, "failed.update.store_product.is_marking")
-		return
+	if body.IsMarking != nil {
+		err = h.db.Exec(`UPDATE store_products SET is_marking = ? WHERE id = ?`, body.IsMarking, body.ID).Error
+		if err != nil {
+			h.log.Warn("ERROR on updating store_product is_marking: %v", err)
+			handleResponse(c, InternalError, "failed.update.store_product.is_marking")
+			return
+		}
+	}
+
+	if body.IsChecking != nil {
+		err = h.db.Exec(`UPDATE store_products SET is_checking = ? WHERE id = ?`, body.IsChecking, body.ID).Error
+		if err != nil {
+			h.log.Warn("ERROR on updating store_product is_checking: %v", err)
+			handleResponse(c, InternalError, "failed.update.store_product.is_checking")
+			return
+		}
 	}
 
 	handleResponse(c, OK, "UPDATED")

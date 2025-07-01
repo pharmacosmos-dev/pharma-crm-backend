@@ -113,6 +113,7 @@ type CartItemResponse struct {
 	UnitQuantityStock  int        `gorm:"unit_quantity_stock" json:"unit_quantity_stock"`
 	ExpireDate         *time.Time `gorm:"expire_date" json:"expire_date"`
 	IsMarking          bool       `gorm:"is_marking" json:"is_marking"`
+	IsChecking         bool       `gorm:"is_checking" json:"is_checking"`
 }
 
 type SumResult struct {
