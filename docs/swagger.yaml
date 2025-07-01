@@ -1276,6 +1276,9 @@ definitions:
     properties:
       barcode:
         type: string
+      expire_date:
+        description: 'format: 2006-01-02'
+        type: string
       mxik:
         type: string
       unit_code:
@@ -1288,6 +1291,9 @@ definitions:
       id:
         description: this id is store_product_id
         type: string
+      is_checking:
+        description: this field is used to check if the product is checking or not
+        type: boolean
       is_marking:
         type: boolean
       product_id:
@@ -4545,173 +4551,6 @@ paths:
       summary: Create 1c expense
       tags:
       - Shift Expenses
-  /external/category/get-list:
-    get:
-      consumes:
-      - application/json
-      description: Get a category list for filter
-      parameters:
-      - description: Limit
-        in: query
-        name: limit
-        type: integer
-      - description: Offset
-        in: query
-        name: offset
-        type: integer
-      - description: Search
-        in: query
-        name: search
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BasicAuth: []
-      summary: Get a category list for filter
-      tags:
-      - External API
-  /external/category/list:
-    get:
-      description: Get a category list for filter
-      parameters:
-      - description: Limit
-        in: query
-        name: limit
-        type: integer
-      - description: Offset
-        in: query
-        name: offset
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BasicAuth: []
-      summary: Get a category list for filter
-      tags:
-      - External API
-  /external/product/list:
-    get:
-      consumes:
-      - application/json
-      description: List Products
-      parameters:
-      - description: Limit
-        in: query
-        name: limit
-        type: integer
-      - description: Offset
-        in: query
-        name: offset
-        type: integer
-      - description: Search
-        in: query
-        name: search
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BasicAuth: []
-      summary: List Products
-      tags:
-      - External API
-  /external/products/{product_id}/stores:
-    get:
-      description: Get a store list by product id
-      parameters:
-      - description: Product ID
-        in: path
-        name: product_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BasicAuth: []
-      summary: Get a store list by product id
-      tags:
-      - External API
-  /external/sale:
-    post:
-      description: Create a sale
-      parameters:
-      - description: Body
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/domain.SaleOnline'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BasicAuth: []
-      summary: Create a sale
-      tags:
-      - External API
   /finance-category:
     delete:
       consumes:
@@ -6833,6 +6672,173 @@ paths:
       summary: Login
       tags:
       - auth
+  /noor/category/get-list:
+    get:
+      consumes:
+      - application/json
+      description: Get a category list for filter
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BasicAuth: []
+      summary: Get a category list for filter
+      tags:
+      - Noor API
+  /noor/category/list:
+    get:
+      description: Get a category list for filter
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BasicAuth: []
+      summary: Get a category list for filter
+      tags:
+      - Noor API
+  /noor/product/list:
+    get:
+      consumes:
+      - application/json
+      description: List Products
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BasicAuth: []
+      summary: List Products
+      tags:
+      - Noor API
+  /noor/products/{product_id}/stores:
+    get:
+      description: Get a store list by product id
+      parameters:
+      - description: Product ID
+        in: path
+        name: product_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BasicAuth: []
+      summary: Get a store list by product id
+      tags:
+      - Noor API
+  /noor/sale:
+    post:
+      description: Create a sale
+      parameters:
+      - description: Body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.SaleOnline'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BasicAuth: []
+      summary: Create a sale
+      tags:
+      - Noor API
   /payment-service:
     post:
       consumes:
@@ -8201,6 +8207,10 @@ paths:
         in: query
         name: no_barcode
         type: boolean
+      - description: Order by (+name || -name || +expire_date || -expire_date)
+        in: query
+        name: order
+        type: string
       produces:
       - application/json
       responses:
@@ -8440,6 +8450,10 @@ paths:
         in: query
         name: no_barcode
         type: boolean
+      - description: Order by (+name || -name || +expire_date || -expire_date)
+        in: query
+        name: order
+        type: string
       produces:
       - application/json
       responses:

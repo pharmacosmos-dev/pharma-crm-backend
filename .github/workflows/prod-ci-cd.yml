@@ -43,23 +43,23 @@ jobs:
           cache-from: type=registry,ref=${{ env.DOCKER_USERNAME }}/pharma-backend:buildcache
           cache-to: type=registry,ref=${{ env.DOCKER_USERNAME }}/pharma-backend:buildcache,mode=max
   
-  migrate:
-    needs: build_and_push
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+  # migrate:
+  #   needs: build_and_push
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v3
 
-      - name: Install migrate tool
-        run: |
-          wget https://github.com/golang-migrate/migrate/releases/download/v4.14.1/migrate.linux-amd64.tar.gz
-          tar -xvf migrate.linux-amd64.tar.gz
-          mv migrate.linux-amd64 migrate
-          chmod +x migrate
+  #     - name: Install migrate tool
+  #       run: |
+  #         wget https://github.com/golang-migrate/migrate/releases/download/v4.14.1/migrate.linux-amd64.tar.gz
+  #         tar -xvf migrate.linux-amd64.tar.gz
+  #         mv migrate.linux-amd64 migrate
+  #         chmod +x migrate
 
-      - name: Run Migrations
-        run: |
-          ./migrate -path=$PWD/migrations -database="${{ env.DB_URL }}" up
+  #     - name: Run Migrations
+  #       run: |
+  #         ./migrate -path=$PWD/migrations -database="${{ env.DB_URL }}" up
 
   deploy:
     needs: build_and_push

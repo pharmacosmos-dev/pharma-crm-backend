@@ -1090,12 +1090,10 @@ func (h *SaleHandler) RemoveCustomerDiscount(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid request body")
 		return
 	}
+	// start transaction
 	tx := h.db.Begin()
-	defer func() {
-		if err != nil {
-			tx.Rollback()
-		}
-	}()
+	defer recoverTransaction(tx, h.log)
+	defer RollbackIfError(tx, &err)
 
 	// delete customer discount by customer id
 	err = tx.Exec(`DELETE FROM sale_customer_discounts WHERE customer_id = ? AND sale_id = ?`,
@@ -1103,6 +1101,13 @@ func (h *SaleHandler) RemoveCustomerDiscount(c *gin.Context) {
 	if err != nil {
 		h.log.Warn("ERROR on deleting customer discount: %v", err)
 		handleResponse(c, InternalError, "Can't delete customer discount")
+		return
+	}
+	// update sale customer_id to null
+	err = tx.Exec(`UPDATE sales SET customer_id = NULL WHERE id = ?`, body.SaleID).Error
+	if err != nil {
+		h.log.Warn("ERROR on updating sale customer_id: %v", err)
+		handleResponse(c, InternalError, "failed.update.sale.customer_id")
 		return
 	}
 	// update discount_type and value to 0

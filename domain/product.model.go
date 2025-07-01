@@ -198,8 +198,8 @@ type ProductStats struct {
 	ExpiredCount     float64 `gorm:"expired_count" json:"expired_count"`
 }
 
-// External API response structure
-type ProductExternal struct {
+// Noor API response structure
+type ProductNoor struct {
 	Id          string            `gorm:"id" json:"id"`
 	Name        string            `gorm:"name" json:"name"`
 	Barcode     string            `gorm:"barcode" json:"barcode"`

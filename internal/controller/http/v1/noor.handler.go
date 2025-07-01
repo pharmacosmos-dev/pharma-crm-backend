@@ -9,28 +9,29 @@ import (
 	"gorm.io/gorm"
 )
 
-type ExternalHandler struct {
+type NoorHandler struct {
 	*Handler
 }
 
-func (h *Handler) NewExternalHandler(r *gin.RouterGroup) {
-	external := &ExternalHandler{h}
-	external.ExternalRoutes(r)
+func (h *Handler) NewNoorHandler(r *gin.RouterGroup) {
+	noor := &NoorHandler{h}
+	noor.NoorRoutes(r)
 }
 
-func (h *ExternalHandler) ExternalRoutes(r *gin.RouterGroup) {
-	external := r.Group("/external")
-	external.GET("/product/list", h.List)
-	external.GET("/category/list", h.CategoryList)
-	external.GET("/category/get-list", h.CategoryGetList)
-	external.GET("/products/:product_id/stores", h.StoreListByProductId)
-	external.POST("/sale", h.CreateSale)
+func (h *NoorHandler) NoorRoutes(r *gin.RouterGroup) {
+	noor := r.Group("/noor")
+	noor.GET("/product/list", h.List)
+	noor.GET("/store-product/list", h.StoreProductList)
+	noor.GET("/category/list", h.CategoryList)
+	noor.GET("/category/get-list", h.CategoryGetList)
+	noor.GET("/products/:product_id/stores", h.StoreListByProductId)
+	noor.POST("/sale", h.CreateSale)
 }
 
 // List Products
 // @Summary List Products
 // @Description List Products
-// @Tags 	External API
+// @Tags 	Noor API
 // @Security     BasicAuth
 // @Accept 	json
 // @Produce json
@@ -40,10 +41,10 @@ func (h *ExternalHandler) ExternalRoutes(r *gin.RouterGroup) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router 	/external/product/list 	[GET]
-func (h *ExternalHandler) List(c *gin.Context) {
+// @Router 	/noor/product/list 	[GET]
+func (h *NoorHandler) List(c *gin.Context) {
 	var (
-		res    []domain.ProductExternal
+		res    []domain.ProductNoor
 		search = c.Query("search")
 	)
 	limit, offset, err := getPaginationParams(c)
@@ -52,7 +53,41 @@ func (h *ExternalHandler) List(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	res, err = h.service.GetExternalProducts(limit, offset, search)
+	res, err = h.service.GetNoorProducts(limit, offset, search)
+	if err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	handleResponse(c, OK, res)
+}
+
+// Store Product List
+// @Summary List Store Products
+// @Description List Store Products
+// @Tags 	Noor API
+// @Security     BasicAuth
+// @Accept 	json
+// @Produce json
+// @Param   limit 	query     int      false "Limit"
+// @Param   offset 	query     int      false "Offset"
+// @Param   search 	query     string   false "Search"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router 	/noor/store-product/list 	[GET]
+func (h *NoorHandler) StoreProductList(c *gin.Context) {
+	var (
+		res    []domain.ProductNoor
+		search = c.Query("search")
+	)
+	limit, offset, err := getPaginationParams(c)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	res, err = h.service.GetNoorProducts(limit, offset, search)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -64,15 +99,15 @@ func (h *ExternalHandler) List(c *gin.Context) {
 // StoreListByProductId godoc
 // @Summary Get a store list by product id
 // @Description Get a store list by product id
-// @Tags 	External API
+// @Tags 	Noor API
 // @Security     BasicAuth
 // @Produce 	json
 // @Param 	product_id path string true "Product ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router 	/external/products/{product_id}/stores [get]
-func (h *ExternalHandler) StoreListByProductId(c *gin.Context) {
+// @Router 	/noor/products/{product_id}/stores [get]
+func (h *NoorHandler) StoreListByProductId(c *gin.Context) {
 	var (
 		res       []domain.StoreExternal
 		productId = c.Param("product_id")
@@ -95,7 +130,7 @@ func (h *ExternalHandler) StoreListByProductId(c *gin.Context) {
 // Category List godoc
 // @Summary Get a category list for filter
 // @Description Get a category list for filter
-// @Tags 	External API
+// @Tags 	Noor API
 // @Security     BasicAuth
 // @Produce 	json
 // @Param 	limit query int false "Limit"
@@ -103,8 +138,8 @@ func (h *ExternalHandler) StoreListByProductId(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router 	/external/category/list [get]
-func (h *ExternalHandler) CategoryList(c *gin.Context) {
+// @Router 	/noor/category/list [get]
+func (h *NoorHandler) CategoryList(c *gin.Context) {
 	var res []domain.Category
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
@@ -135,15 +170,15 @@ func (h *ExternalHandler) CategoryList(c *gin.Context) {
 // CreateSale godoc
 // @Summary Create a sale
 // @Description Create a sale
-// @Tags 	External API
+// @Tags 	Noor API
 // @Security     BasicAuth
 // @Produce 	json
 // @Param 	body body domain.SaleOnline true "Body"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router 	/external/sale [post]
-func (h *ExternalHandler) CreateSale(c *gin.Context) {
+// @Router 	/noor/sale [post]
+func (h *NoorHandler) CreateSale(c *gin.Context) {
 	var (
 		body domain.SaleOnline
 		err  error
@@ -199,7 +234,7 @@ func (h *ExternalHandler) CreateSale(c *gin.Context) {
 // ListCategory godoc
 // @Summary Get a category list for filter
 // @Description Get a category list for filter
-// @Tags 	External API
+// @Tags 	Noor API
 // @Security     BasicAuth
 // @Accept 	json
 // @Produce json
@@ -209,8 +244,8 @@ func (h *ExternalHandler) CreateSale(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /external/category/get-list [get]
-func (h *ExternalHandler) CategoryGetList(c *gin.Context) {
+// @Router /noor/category/get-list [get]
+func (h *NoorHandler) CategoryGetList(c *gin.Context) {
 	var (
 		search = c.Query("search")
 		res    []domain.Category

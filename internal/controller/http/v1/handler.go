@@ -105,7 +105,7 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		// tasnif public API
 		h.NewTasnifHandler(public)
 		// handler for external apis
-		h.NewExternalHandler(external)
+		h.NewNoorHandler(external)
 	}
 }
 

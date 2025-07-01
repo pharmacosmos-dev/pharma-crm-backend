@@ -548,34 +548,20 @@ func (s *Services) CreateProducer(ctx context.Context, code string) (*domain.Pro
 	return &producer, nil
 }
 
-// get external products list
-func (s *Services) GetExternalProducts(limit, offset int, search string) ([]domain.ProductExternal, error) {
-	var (
-		res []domain.ProductExternal
-	)
+// get noor products list
+func (s *Services) GetNoorProducts(limit, offset int, search string) ([]domain.ProductNoor, error) {
+	var res []domain.ProductNoor
 	query := s.db.
 		Table("products p").
 		Select("p.id, p.name, p.barcode, p.photos, p.description, u.short_name AS unit_name, sp.price").
 		Joins("LEFT JOIN unit_types u ON p.unit_type_id = u.id").
 		Joins("JOIN (SELECT product_id, MIN(retail_price) AS price FROM store_products GROUP BY product_id) sp ON p.id = sp.product_id").
-		Preload("Stores", func(db *gorm.DB) *gorm.DB {
-			return db.Table("store_products sp").
-				Select("sp.product_id, s.id, s.name, s.phone, s.address, s.location, s.work_hours, sp.pack_quantity as quantity, sp.unit_quantity, sp.expire_date").
-				Joins("JOIN stores s ON s.id = sp.store_id")
-		}).
 		Limit(limit).Offset(offset)
 
 	err := query.Find(&res).Error
 	if err != nil {
-		s.log.Error("ERROR on listing external products: %v", err)
+		s.log.Error("ERROR on listing noor products: %v", err)
 		return nil, err
-	}
-	for i := range res {
-		err = s.db.Raw(`SELECT category_id FROM category_products WHERE product_id = ?`, res[i].Id).Scan(&res[i].Categories).Error
-		if err != nil {
-			s.log.Error("ERROR on listing category ids: %v", err)
-			return nil, err
-		}
 	}
 
 	return res, nil
