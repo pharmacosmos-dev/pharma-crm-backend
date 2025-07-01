@@ -18,7 +18,7 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 	WITH ci_amount AS (
 		SELECT
 			ci.id AS ci_id,
-			(ci.unit_price*ci.discount_value)/100 AS d_amount
+			COALESCE((ci.unit_price*ci.discount_value)/100, 0.00) AS d_amount
 		FROM cart_items ci
 		JOIN store_products sp ON ci.store_product_id = sp.id
 		WHERE ci.sale_id = ?

@@ -403,7 +403,7 @@ func (h *AutoOrderHandler) SendAutoOrder(c *gin.Context) {
 	}
 	// checking 1c response is nil
 	if res == nil {
-		err = h.SaveResponse(c.Request.Context(), requestData)
+		_ = h.SaveResponse(c.Request.Context(), requestData)
 		handleResponse(c, InternalError, "failed to send auto order")
 		return
 	}
