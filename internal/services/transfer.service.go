@@ -424,10 +424,10 @@ func (s *Services) ConfirmTransfer(transferID string, userId string) error {
 			SumVat:              v.ScannedCount * v.RetailPrice,
 		})
 	}
-
+	fmt.Println(transfer.ToStoreId)
 	// get store info
 	var toStore domain.Store
-	err = tx.First(&toStore, "id = ?", transfer.ToStore).Error
+	err = tx.First(&toStore, "id = ?", transfer.ToStoreId).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting store info: %v", err)
 		tx.Rollback()
@@ -436,7 +436,7 @@ func (s *Services) ConfirmTransfer(transferID string, userId string) error {
 
 	// get store info
 	var fromStore domain.Store
-	err = tx.First(&fromStore, "id = ?", transfer.FromStore).Error
+	err = tx.First(&fromStore, "id = ?", transfer.FromStoreId).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting store info: %v", err)
 		tx.Rollback()
