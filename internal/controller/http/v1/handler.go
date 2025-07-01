@@ -133,6 +133,28 @@ func handleResponse(c *gin.Context, status Status, data any, count ...int64) {
 	})
 }
 
+// handle response for noor
+func handleResponseNoor(c *gin.Context, statusCode int, data any) {
+	if statusCode >= 200 && statusCode < 400 {
+		// Success: send data as-is
+		c.JSON(statusCode, data)
+		return
+	}
+
+	// Error: wrap in {"message": "..."}
+	var errMsg string
+	switch v := data.(type) {
+	case string:
+		errMsg = v
+	case error:
+		errMsg = v.Error()
+	default:
+		errMsg = "Internal server error"
+	}
+
+	c.JSON(statusCode, gin.H{"message": errMsg})
+}
+
 // default limit and offset
 func defaultLimitOffset(limit, offset int) (int, int) {
 	if limit == 0 {

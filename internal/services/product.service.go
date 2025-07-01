@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -549,16 +550,13 @@ func (s *Services) CreateProducer(ctx context.Context, code string) (*domain.Pro
 }
 
 // get noor products list
-func (s *Services) GetNoorProducts(limit, offset int, search string) ([]domain.ProductNoor, error) {
-	var res []domain.ProductNoor
-	query := s.db.
-		Table("products p").
-		Select("p.id, p.name, p.barcode, p.photos, p.description, u.short_name AS unit_name, sp.price").
-		Joins("LEFT JOIN unit_types u ON p.unit_type_id = u.id").
-		Joins("JOIN (SELECT product_id, MIN(retail_price) AS price FROM store_products GROUP BY product_id) sp ON p.id = sp.product_id").
-		Limit(limit).Offset(offset)
-
-	err := query.Find(&res).Error
+func (s *Services) GetNoorProducts(param *domain.NoorQueryParam) ([]domain.NoorProduct, error) {
+	var res []domain.NoorProduct
+	err := s.db.
+		Model(&domain.Product{}).
+		Limit(param.Limit).
+		Offset(param.Offset).
+		Find(&res).Error
 	if err != nil {
 		s.log.Error("ERROR on listing noor products: %v", err)
 		return nil, err
@@ -567,24 +565,64 @@ func (s *Services) GetNoorProducts(limit, offset int, search string) ([]domain.P
 	return res, nil
 }
 
-func (s *Services) GetExternalStoresByProductId(productId string) ([]domain.StoreExternal, error) {
-	var (
-		res []domain.StoreExternal
-		err error
-	)
+// get noor store_products for auto fill
+func (s *Services) GetNoorStoreProducts(param *domain.NoorQueryParam) ([]domain.NoorStoreProduct, error) {
+	var res []domain.NoorStoreProduct
 
 	query := `
-		SELECT s.id, s.name, s.address, s.phone, s.location, s.work_hours, sp.pack_quantity AS quantity, sp.unit_quantity, sp.expire_date
-		FROM store_products sp
-		JOIN stores s ON s.id = sp.store_id
-		WHERE (sp.pack_quantity > 0 OR sp.unit_quantity > 0) AND sp.expire_date > NOW() AND sp.product_id = ?
-		ORDER BY sp.expire_date
+	SELECT
+		sp.store_id,
+		sp.product_id,
+		SUM(sp.unit_quantity/p.blister_count) AS quantity,
+		ROUND(MIN(sp.retail_price), 0) AS price
+	FROM store_products sp
+	JOIN products p ON sp.product_id = p.id
+	WHERE sp.unit_quantity/p.blister_count > 0 AND sp.updated_at >= ?
+	GROUP BY sp.product_id, sp.store_id
+	LIMIT ? OFFSET ?;
 	`
-	err = s.db.Raw(query, productId).Scan(&res).Error
+	// execute query
+	err := s.db.Raw(query, param.UpdatedAt, param.Limit, param.Offset).Scan(&res).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting noor store_products: %v", err)
+		return res, err
+	}
+
+	return res, nil
+}
+
+// store list for noor service
+func (s *Services) GetNoorStores() ([]domain.NoorStore, error) {
+	var (
+		res []domain.NoorStore
+		err error
+	)
+	query := `
+	SELECT DISTINCT s.*
+	FROM stores s
+	INNER JOIN store_products sp ON s.id = sp.store_id;
+	`
+	// execute get store list query
+	err = s.db.Raw(query).Scan(&res).Error
 	if err != nil {
 		s.log.Error("ERROR on listing external products: %v", err.Error())
 		return nil, err
 	}
+
+	// get lat and long to point struct
+	for i := range res {
+		if res[i].Location != "" {
+			res[i].Location1.Lat, err = strconv.ParseFloat(strings.Split(res[i].Location, ",")[0], 64)
+			if err != nil {
+				s.log.Warn("ERROR on parsing latitude: %v", err.Error())
+			}
+			res[i].Location1.Long, err = strconv.ParseFloat(strings.Split(res[i].Location, ",")[1], 64)
+			if err != nil {
+				s.log.Warn("ERROR on parsing longitude: %v", err.Error())
+			}
+		}
+	}
+
 	return res, nil
 }
 

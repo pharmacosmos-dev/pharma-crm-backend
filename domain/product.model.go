@@ -198,33 +198,6 @@ type ProductStats struct {
 	ExpiredCount     float64 `gorm:"expired_count" json:"expired_count"`
 }
 
-// Noor API response structure
-type ProductNoor struct {
-	Id          string            `gorm:"id" json:"id"`
-	Name        string            `gorm:"name" json:"name"`
-	Barcode     string            `gorm:"barcode" json:"barcode"`
-	Photos      utils.StringArray `gorm:"type:text[]" json:"photos"`
-	Description string            `gorm:"description" json:"description"`
-	UnitName    string            `gorm:"unit_name" json:"unit_name"`
-	Price       float64           `gorm:"price" json:"price"`
-	Stores      []StoreExternal   `gorm:"foreignKey:ProductID;references:Id" json:"stores"`
-	Categories  []string          `gorm:"-" json:"categories"`
-}
-
-// Store external API response structure
-type StoreExternal struct {
-	Id           string     `gorm:"id" json:"id"`
-	ProductID    string     `gorm:"product_id" json:"product_id"`
-	Name         string     `gorm:"name" json:"name"`
-	Phone        string     `gorm:"phone" json:"phone"`
-	Address      string     `gorm:"address" json:"address"`
-	Location     string     `gorm:"location" json:"location"`
-	WorkHours    string     `gorm:"work_hours" json:"work_hours"`
-	Quantity     int        `gorm:"quantity" json:"quantity"`
-	UnitQuantity int        `gorm:"unit_quantity" json:"unit_quantity"`
-	ExpireDate   *time.Time `gorm:"expire_date" json:"expire_date"`
-}
-
 // product list query params
 type ProductQueryParam struct {
 	Limit           int     `form:"limit"`
@@ -396,3 +369,52 @@ type MinMaxProduct struct {
 	CreatedAt    *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt    *time.Time `gorm:"updated_at" json:"updated_at"`
 }
+
+// region Noor
+// Noor API response structure
+type NoorProduct struct {
+	Id          string            `gorm:"id" json:"id"`
+	Name        string            `gorm:"name" json:"name"`
+	Photos      utils.StringArray `gorm:"type:text[]" json:"photos"`
+	Description string            `gorm:"description" json:"description"`
+}
+
+// Noor API store_products structure
+type NoorStoreProduct struct {
+	StoreID   string `gorm:"store_id" json:"store_id"`
+	ProductID string `gorm:"product_id" json:"product_id"`
+	Quantity  int    `gorm:"quantity" json:"quantity"`
+	Price     int    `gorm:"price" json:"price"`
+}
+
+// Store external API response structure
+type NoorStore struct {
+	Id        string `gorm:"id" json:"id"`
+	Name      string `gorm:"name" json:"name"`
+	Phone     string `gorm:"phone" json:"phone"`
+	Address   string `gorm:"address" json:"address"`
+	Location  string `gorm:"location"`
+	Location1 Point  `gorm:"-" json:"location"`
+	WorkHours string `gorm:"work_hours" json:"work_hours"`
+}
+
+type Point struct {
+	Lat  float64 `gorm:"lat" json:"lat"`
+	Long float64 `gorm:"long" json:"long"`
+}
+
+type NoorQueryParam struct {
+	UpdatedAt string `form:"updatedAt"`
+	Limit     int    `form:"limit"`
+	Offset    int    `form:"offset"`
+	Search    string `form:"search"`
+}
+
+type NoorCategory struct {
+	ID       string `gorm:"id" json:"id"`
+	Name     string `gorm:"name" json:"name"`
+	ParentID string `gorm:"parent_id" json:"parent_id"`
+	Photo    string `gorm:"photo" json:"photo"`
+}
+
+// end region

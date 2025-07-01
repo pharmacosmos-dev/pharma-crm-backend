@@ -1,12 +1,11 @@
 package v1
 
 import (
-	"fmt"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
-	"gorm.io/gorm"
 )
 
 type NoorHandler struct {
@@ -22,9 +21,8 @@ func (h *NoorHandler) NoorRoutes(r *gin.RouterGroup) {
 	noor := r.Group("/noor")
 	noor.GET("/product/list", h.List)
 	noor.GET("/store-product/list", h.StoreProductList)
+	noor.GET("/store/list", h.StoreList)
 	noor.GET("/category/list", h.CategoryList)
-	noor.GET("/category/get-list", h.CategoryGetList)
-	noor.GET("/products/:product_id/stores", h.StoreListByProductId)
 	noor.POST("/sale", h.CreateSale)
 }
 
@@ -37,29 +35,31 @@ func (h *NoorHandler) NoorRoutes(r *gin.RouterGroup) {
 // @Produce json
 // @Param   limit 	query     int      false "Limit"
 // @Param   offset 	query     int      false "Offset"
-// @Param   search 	query     string   false "Search"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router 	/noor/product/list 	[GET]
 func (h *NoorHandler) List(c *gin.Context) {
 	var (
-		res    []domain.ProductNoor
-		search = c.Query("search")
+		res   []domain.NoorProduct
+		param domain.NoorQueryParam
 	)
-	limit, offset, err := getPaginationParams(c)
+	err := c.ShouldBindQuery(&param)
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
+		h.log.Warn("ERROR on binding query param: %v", err)
+		handleResponseNoor(c, http.StatusBadRequest, "invalid.query.param")
 		return
 	}
-	res, err = h.service.GetNoorProducts(limit, offset, search)
+	// get default product
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	res, err = h.service.GetNoorProducts(&param)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleResponseNoor(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	handleResponse(c, OK, res)
+	handleResponseNoor(c, http.StatusOK, res)
 }
 
 // Store Product List
@@ -69,102 +69,92 @@ func (h *NoorHandler) List(c *gin.Context) {
 // @Security     BasicAuth
 // @Accept 	json
 // @Produce json
+// @Param	updatedAt query   string   false "UpdateAt"
 // @Param   limit 	query     int      false "Limit"
 // @Param   offset 	query     int      false "Offset"
-// @Param   search 	query     string   false "Search"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router 	/noor/store-product/list 	[GET]
 func (h *NoorHandler) StoreProductList(c *gin.Context) {
-	var (
-		res    []domain.ProductNoor
-		search = c.Query("search")
-	)
-	limit, offset, err := getPaginationParams(c)
+	var param domain.NoorQueryParam
+
+	// bind query param
+	err := c.ShouldBindQuery(&param)
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
-		return
-	}
-	res, err = h.service.GetNoorProducts(limit, offset, search)
-	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		h.log.Warn("ERROR on binding noor query param: %v", err)
+		handleResponseNoor(c, http.StatusBadRequest, "invalied.query.param")
 		return
 	}
 
-	handleResponse(c, OK, res)
+	// get store products info
+	res, err := h.service.GetNoorStoreProducts(&param)
+	if err != nil {
+		handleResponseNoor(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	handleResponseNoor(c, http.StatusOK, res)
 }
 
-// StoreListByProductId godoc
-// @Summary Get a store list by product id
-// @Description Get a store list by product id
+// Store Product List
+// @Summary List Store Products
+// @Description List Store Products
 // @Tags 	Noor API
 // @Security     BasicAuth
-// @Produce 	json
-// @Param 	product_id path string true "Product ID"
+// @Accept 	json
+// @Produce json
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router 	/noor/products/{product_id}/stores [get]
-func (h *NoorHandler) StoreListByProductId(c *gin.Context) {
-	var (
-		res       []domain.StoreExternal
-		productId = c.Param("product_id")
-	)
-	// validate product id
-	if err := uuid.Validate(productId); err != nil {
-		handleResponse(c, BadRequest, "Invalid product id")
-		return
-	}
-	// get stores by product id
-	res, err := h.service.GetExternalStoresByProductId(productId)
+// @Router 	/noor/store-product/list 	[GET]
+func (h *NoorHandler) StoreList(c *gin.Context) {
+	// get store products info
+	res, err := h.service.GetNoorStores()
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleResponseNoor(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	handleResponse(c, OK, res)
+	handleResponseNoor(c, http.StatusOK, res)
 }
 
 // Category List godoc
 // @Summary Get a category list for filter
 // @Description Get a category list for filter
-// @Tags 	Noor API
-// @Security     BasicAuth
+// @Tags 		Noor API
+// @Security    BasicAuth
 // @Produce 	json
-// @Param 	limit query int false "Limit"
-// @Param 	offset query int false "Offset"
+// @Param 		limit query int false "Limit"
+// @Param 		offset query int false "Offset"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router 	/noor/category/list [get]
 func (h *NoorHandler) CategoryList(c *gin.Context) {
-	var res []domain.Category
-	limit, offset, err := getPaginationParams(c)
+	var (
+		param domain.NoorQueryParam
+		res   []domain.Category
+	)
+	// bind query param
+	err := c.ShouldBindQuery(&param)
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
+		h.log.Warn("ERROR on binding noor query param: %v", err)
+		handleResponseNoor(c, http.StatusBadRequest, "invalid.query.param")
 		return
 	}
-	// Preload SubCategories recursively
-	query := h.db.Model(&domain.Category{}).
-		Preload("SubCategories", func(db *gorm.DB) *gorm.DB {
-			return db.Preload("SubCategories", func(db *gorm.DB) *gorm.DB {
-				return db.Preload("SubCategories")
-			})
-		})
 
-	err = query.
-		Limit(limit).
-		Offset(offset).
-		Find(&res).Error
+	// get default product
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	err = h.db.Model(&domain.Category{}).Find(&res).Error
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		h.log.Error("ERROR on getting noor categories: %v", err)
+		handleResponseNoor(c, http.StatusInternalServerError, "internal.server.error")
 		return
 	}
-	handleResponse(c, OK, res)
+
+	handleResponseNoor(c, http.StatusOK, res)
 }
 
 // CreateSale godoc
@@ -229,44 +219,4 @@ func (h *NoorHandler) CreateSale(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, "Success")
-}
-
-// ListCategory godoc
-// @Summary Get a category list for filter
-// @Description Get a category list for filter
-// @Tags 	Noor API
-// @Security     BasicAuth
-// @Accept 	json
-// @Produce json
-// @Param 	limit query int false "Limit"
-// @Param 	offset query int false "Offset"
-// @Param 	search query string false "Search"
-// @Success 200 {object} v1.Response
-// @Failure 400 {object} v1.Response
-// @Failure 500 {object} v1.Response
-// @Router /noor/category/get-list [get]
-func (h *NoorHandler) CategoryGetList(c *gin.Context) {
-	var (
-		search = c.Query("search")
-		res    []domain.Category
-	)
-	limit, offset, err := getPaginationParams(c)
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
-		return
-	}
-	query := h.db.Model(&domain.Category{})
-
-	if search != "" {
-		search = fmt.Sprintf("%%%s%%", search)
-		query = query.Where("name ILIKE ?", search)
-	}
-	err = query.Limit(limit).Offset(offset).Find(&res).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	handleResponse(c, OK, res)
 }

@@ -6672,44 +6672,6 @@ paths:
       summary: Login
       tags:
       - auth
-  /noor/category/get-list:
-    get:
-      consumes:
-      - application/json
-      description: Get a category list for filter
-      parameters:
-      - description: Limit
-        in: query
-        name: limit
-        type: integer
-      - description: Offset
-        in: query
-        name: offset
-        type: integer
-      - description: Search
-        in: query
-        name: search
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BasicAuth: []
-      summary: Get a category list for filter
-      tags:
-      - Noor API
   /noor/category/list:
     get:
       description: Get a category list for filter
@@ -6756,10 +6718,6 @@ paths:
         in: query
         name: offset
         type: integer
-      - description: Search
-        in: query
-        name: search
-        type: string
       produces:
       - application/json
       responses:
@@ -6778,35 +6736,6 @@ paths:
       security:
       - BasicAuth: []
       summary: List Products
-      tags:
-      - Noor API
-  /noor/products/{product_id}/stores:
-    get:
-      description: Get a store list by product id
-      parameters:
-      - description: Product ID
-        in: path
-        name: product_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BasicAuth: []
-      summary: Get a store list by product id
       tags:
       - Noor API
   /noor/sale:
@@ -6837,6 +6766,31 @@ paths:
       security:
       - BasicAuth: []
       summary: Create a sale
+      tags:
+      - Noor API
+  /noor/store-product/list:
+    get:
+      consumes:
+      - application/json
+      description: List Store Products
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BasicAuth: []
+      summary: List Store Products
       tags:
       - Noor API
   /payment-service:
