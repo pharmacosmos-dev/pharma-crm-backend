@@ -1972,7 +1972,7 @@ func (h *ProductHandler) UpdateStoreProductIsMarking(c *gin.Context) {
 	}
 
 	if body.IsChecking != nil {
-		err = h.db.Exec(`UPDATE store_products SET is_checking = ? WHERE id = ?`, body.IsChecking, body.ID).Error
+		err = h.db.Debug().Exec(`UPDATE store_products SET is_checking = ? WHERE id = ?`, body.IsChecking, body.ID).Error
 		if err != nil {
 			h.log.Warn("ERROR on updating store_product is_checking: %v", err)
 			handleResponse(c, InternalError, "failed.update.store_product.is_checking")

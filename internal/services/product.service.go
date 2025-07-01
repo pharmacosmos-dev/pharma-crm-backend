@@ -794,6 +794,7 @@ func (s *Services) GetProductListByImport(param *domain.ProductQueryParam) ([]do
 		(sp.unit_quantity % p.unit_per_pack) AS unit_quantity,
 		p.unit_per_pack,
 		sp.is_marking,
+		sp.is_checking,
 		sp.serial_number,
 		sp.expire_date,
 		sp.retail_price,

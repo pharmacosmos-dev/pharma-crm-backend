@@ -255,8 +255,8 @@ type UpdateBarcodeRequest struct {
 type UpdateIsMarking struct {
 	ID         string `json:"id"` // this id is store_product_id
 	ProductId  string `json:"product_id"`
-	IsMarking  *bool   `json:"is_marking"`
-	IsChecking *bool   `json:"is_checking"` // this field is used to check if the product is checking or not
+	IsMarking  *bool  `json:"is_marking"`
+	IsChecking *bool  `json:"is_checking"` // this field is used to check if the product is checking or not
 }
 
 // product list data
@@ -329,6 +329,7 @@ type ProductByIkpu struct {
 	ProducerName string     `gorm:"producer_name" json:"producer_name"`
 	Barcode      string     `gorm:"barcode" json:"barcode"`
 	IsMarking    bool       `gorm:"is_marking" json:"is_marking"`
+	IsChecking   bool       `gorm:"is_checking" json:"is_checking"`
 	Manufacturer string     `gorm:"manufacturer" json:"manufacturer"`
 	SerialNumber string     `gorm:"serial_number" json:"serial_number"`
 	Quantity     float64    `gorm:"quantity" json:"quantity"`
