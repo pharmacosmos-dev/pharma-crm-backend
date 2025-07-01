@@ -428,7 +428,6 @@ func (s *Services) ConfirmTransfer(transferID string, userId string) error {
 			SumVat:              v.ScannedCount * v.RetailPrice,
 		})
 	}
-	fmt.Println(transfer.ToStoreId)
 	// get store info
 	var toStore domain.Store
 	err = tx.First(&toStore, "id = ?", transfer.ToStoreId).Error
@@ -464,7 +463,6 @@ func (s *Services) ConfirmTransfer(transferID string, userId string) error {
 	// get document data and number
 	data1C.Dok.DocumentDate = now.Format(time.RFC3339)
 	data1C.Dok.DocumentNumber = "NP-" + cast.ToString(transfer.PublicId)
-	s.log.Info(fmt.Sprintf("HELLO GUARDIANS: %+v", data1C))
 	// send inventory products data to 1C
 	err = s.DoRequest(context.Background(), data1C, "/perekit")
 	if err != nil {
