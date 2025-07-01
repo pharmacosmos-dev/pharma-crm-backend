@@ -14,7 +14,7 @@ import (
 // get cart item list by sale id with limit, offset
 func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartItemData, error) {
 	var res []domain.CartItemResponse
-	err := s.db.Raw(`
+	err := s.db.Debug().Raw(`
 	WITH ci_amount AS (
 			SELECT
 				ci.id AS ci_id,
@@ -66,7 +66,7 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 
 			ROUND(ci_amount.raw_d_amount, 2) AS discount_amount,
 			ROUND(ci_amount.raw_d_amount / ci_amount.unit_per_pack, 2) AS discount_unit_amount,
-			ROUND(ci.unit_quantity / p.unit_per_pack, 2) AS unit_amount
+			ROUND(ci.unit_quantity::numeric / p.unit_per_pack, 2) AS unit_amount
 
 		FROM cart_items ci
 		JOIN ci_amount ON ci.id = ci_amount.ci_id
@@ -81,6 +81,11 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 	if err != nil {
 		s.log.Warn("Error on listing cart items for sale %s: %v", saleID, err.Error())
 		return nil, err
+	}
+
+	for i := range res {
+		unitPrice := res[i].VatPrice / float64(res[i].UnitPerPack)
+		res[i].UnitVatPrice = unitPrice // ← no rounding
 	}
 
 	var data domain.CartItemData
