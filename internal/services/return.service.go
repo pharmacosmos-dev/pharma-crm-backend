@@ -373,7 +373,7 @@ func (s *Services) SendReturn1C(returnId string) error {
 		return err
 	}
 
-	returnData.Dok.DocumentNumber = "VP" + cast.ToString(time.Now().Unix())
+	returnData.Dok.DocumentNumber = "NP-" + cast.ToString(returnInfo.PublicId)
 	returnData.Dok.DocumentDate = time.Now().Add(time.Hour * 5).Format(time.DateOnly)
 	returnData.Apteka.Name = store.Name
 	returnData.Apteka.StoreCode = store.StoreCode
@@ -421,10 +421,10 @@ func (s *Services) ConfirmReturn(returnId, storeId string, userId string) error 
 			tx.Rollback()
 		}
 	}()
+	var publicId string
 	// update confirm inventory
-	returnInfo := domain.Return{}
-	query := `UPDATE transfers SET status = ?, accepted_by = ?, accepted_at = NOW() WHERE id = ? RETURNING *`
-	err := tx.Raw(query, config.COMPLETED, userId, returnId).Scan(&returnInfo).Error
+	query := `UPDATE transfers SET status = ?, accepted_by = ?, accepted_at = NOW() WHERE id = ? RETURNING public_id`
+	err := tx.Exec(query, config.COMPLETED, userId, returnId).Scan(&publicId).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating inventory %v", err)
 		tx.Rollback()
@@ -449,7 +449,7 @@ func (s *Services) ConfirmReturn(returnId, storeId string, userId string) error 
 		s.log.Warn("ERROR on getting store data: %v", err)
 		return err
 	}
-	returnData.Dok.DocumentNumber = "VP-" + cast.ToString(returnInfo.PublicId)
+	returnData.Dok.DocumentNumber = "NP-" + cast.ToString(publicId)
 	returnData.Dok.DocumentDate = time.Now().Add(time.Hour * 5).Format(time.DateOnly)
 	returnData.Apteka.Name = store.Name
 	returnData.Apteka.StoreCode = store.StoreCode

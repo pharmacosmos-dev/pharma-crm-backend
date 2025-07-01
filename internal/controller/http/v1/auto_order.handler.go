@@ -384,6 +384,9 @@ func (h *AutoOrderHandler) SendAutoOrder(c *gin.Context) {
 		Method:  "POST",
 		Payload: t,
 		Action:  "auto_order",
+		DocDate: data.Dok.DataDok,
+		DocNum:  data.Dok.NomerDok,
+		Status:  "sending",
 	})
 	if err != nil {
 		h.log.Error(err)
@@ -398,11 +401,14 @@ func (h *AutoOrderHandler) SendAutoOrder(c *gin.Context) {
 	}
 	// checking 1c response is nil
 	if res == nil {
+		requestData.Status = "error"
+		err = h.SaveResponse(c.Request.Context(), requestData)
 		handleResponse(c, InternalError, "failed to send auto order")
 		return
 	}
 	// Save 1c response data
 	requestData.Response, _ = json.Marshal(res)
+	requestData.Status = "success"
 	err = h.SaveResponse(c.Request.Context(), requestData)
 	if err != nil {
 		h.log.Error(err)
@@ -493,8 +499,8 @@ func (h *AutoOrderHandler) DoRequest(ctx context.Context, data interface{}, url 
 // Save auto order request to database
 func (h *AutoOrderHandler) SaveRequest(req *domain.Request1C) (*domain.Request1C, error) {
 	res := domain.Request1C{}
-	err := h.db.Raw(`INSERT INTO requests_1c (method, payload, action) VALUES(?, ?, ?) RETURNING *`,
-		req.Method, req.Payload, req.Action).Scan(&res).Error
+	err := h.db.Raw(`INSERT INTO requests_1c (method, payload, action,doc_date, doc_num, status) VALUES(?, ?, ?) RETURNING *`,
+		req.Method, req.Payload, req.Action, req.DocDate, req.DocNum, req.Status).Scan(&res).Error
 	if err != nil {
 		return &res, err
 	}
@@ -504,8 +510,8 @@ func (h *AutoOrderHandler) SaveRequest(req *domain.Request1C) (*domain.Request1C
 // Save auro order response to database
 func (h *AutoOrderHandler) SaveResponse(ctx context.Context, req *domain.Request1C) error {
 	err := h.db.WithContext(ctx).Exec(
-		`UPDATE requests_1c SET response = ?, updated_at = NOW() WHERE id = ?`,
-		req.Response, req.ID,
+		`UPDATE requests_1c SET response = ?, updated_at = NOW(), status = ? WHERE id = ?`,
+		req.Response, req.ID, req.Status,
 	).Error
 	if err != nil {
 		return err

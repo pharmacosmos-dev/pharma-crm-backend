@@ -145,3 +145,14 @@ type InventoryPriceOption struct {
 	RetailPrice float64    `gorm:"retail_price" json:"retail_price"`
 	ExpireDate  *time.Time `gorm:"expire_date" json:"expire_date"`
 }
+
+// inventory helper
+type InventoryHelper struct {
+	Method   string `gorm:"method" json:"method"`
+	Payload  any    `gorm:"payload" json:"payload"`
+	Response any    `gorm:"response" json:"response"`
+	Action   string `gorm:"action" json:"action"`
+	DocDate  string `gorm:"doc_date" json:"doc_date"`
+	DocNum   string `gorm:"doc_num" json:"doc_num"`
+	Status   string `gorm:"status" json:"status"`
+}

@@ -629,7 +629,7 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 	now := time.Now()
 	// get document data and number
 	data1C.Dok.DocumentDate = now.Format(time.RFC3339)
-	data1C.Dok.DocumentNumber = "NP" + cast.ToString(res.PublicId)
+	data1C.Dok.DocumentNumber = "NP-" + cast.ToString(res.PublicId)
 
 	// send inventory products data to 1C
 	err = s.DoRequest(context.Background(), data1C, "/inventar")
@@ -729,7 +729,7 @@ func (s *Services) SendInventory1C(inventoryID string) error {
 	now := time.Now()
 	// get document data and number
 	data1C.Dok.DocumentDate = now.Format(time.RFC3339)
-	data1C.Dok.DocumentNumber = "PH" + cast.ToString(now.Unix())
+	data1C.Dok.DocumentNumber = "NP-" + cast.ToString(inventory.PublicID)
 
 	t, _ := json.Marshal(data1C)
 	fmt.Println("Inventory: -->> ", string(t))
