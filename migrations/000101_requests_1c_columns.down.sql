@@ -1,0 +1,3 @@
+ALTER TABLE requests_1c DROP COLUMN IF EXISTS "doc_date";
+ALTER TABLE requests_1c DROP COLUMN IF EXISTS "doc_num";
+ALTER TABLE requests_1c DROP COLUMN IF EXISTS "status";

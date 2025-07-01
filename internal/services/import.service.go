@@ -688,10 +688,35 @@ func (s *Services) DoRequest(ctx context.Context, data any, url string) error {
 		s.log.Error("ERROR on decoding response: %w", err)
 		return err
 	}
+	docDate, docNum := extractDocMeta(data)
 	// Validate "ok" field
 	if !cast.ToBool(info["ok"]) {
+		if err := s.Request1CCreate(domain.InventoryHelper{
+			Method:   "POST",
+			Payload:  data,
+			Response: response,
+			Action:   url,
+			DocDate:  docDate,
+			DocNum:   docNum,
+			Status:   "error",
+		}); err != nil {
+			s.log.Warn("ERROR on creating Request1C: %v", err)
+			return err
+		}
 		s.log.Error("Invalid response: %v", info)
 		return fmt.Errorf("failed to answer prihod response: %v", info)
+	}
+	if err := s.Request1CCreate(domain.InventoryHelper{
+		Method:   "POST",
+		Payload:  data,
+		Action:   url,
+		Response: response,
+		DocDate:  docDate,
+		DocNum:   docNum,
+		Status:   "success",
+	}); err != nil {
+		s.log.Warn("ERROR on creating Request1C: %v", err)
+		return err
 	}
 
 	return nil
