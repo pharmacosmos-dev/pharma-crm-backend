@@ -715,7 +715,6 @@ func (s *Services) DoRequest(ctx context.Context, data any, url string) error {
 			Status:   "error",
 		}); err != nil {
 			s.log.Warn("ERROR on creating Request1C: %v", err)
-			return err
 		}
 		s.log.Error("Invalid response: %v", info)
 		return fmt.Errorf("failed to answer prihod response: %v", info)
