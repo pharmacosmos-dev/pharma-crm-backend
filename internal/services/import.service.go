@@ -688,7 +688,6 @@ func (s *Services) DoRequest(ctx context.Context, data any, url string) error {
 			Status:   "error",
 		}); err != nil {
 			s.log.Warn("ERROR on creating Request1C: %v", err)
-			return err
 		}
 		s.log.Error("failed to execute HTTP request: %v", err)
 		return fmt.Errorf("failed to execute HTTP request: %v", err)
@@ -731,7 +730,6 @@ func (s *Services) DoRequest(ctx context.Context, data any, url string) error {
 		Status:   "success",
 	}); err != nil {
 		s.log.Warn("ERROR on creating Request1C: %v", err)
-		return err
 	}
 
 	return nil
