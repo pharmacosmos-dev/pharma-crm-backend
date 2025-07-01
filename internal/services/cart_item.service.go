@@ -134,10 +134,10 @@ func (s *Services) CreateCartItem(req *domain.CartItemRequest) (*domain.CartItem
 			discount_value
 			)
 			VALUES (
-			?,?,?,?,?,?,?,?,?,?  ,(SELECT COALESCE(discount_percent, 0) 
+			?,?,?,?,?,?,?,?,?,?  ,COALESCE((SELECT COALESCE(discount_percent, 0) 
      FROM sale_customer_discounts 
      WHERE sale_id = ?
-     LIMIT 1)
+     LIMIT 1),0)
 )
 RETURNING *`,
 		uuid.New().String(),
