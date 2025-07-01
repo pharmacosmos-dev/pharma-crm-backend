@@ -672,9 +672,24 @@ func (s *Services) DoRequest(ctx context.Context, data any, url string) error {
 	req.SetBasicAuth(s.cfg.BaseUsername1C, s.cfg.BasePassword1C)
 	req.Header.Set("Content-Type", "application/json")
 
+	// extract doc meta
+	docDate, docNum := extractDocMeta(data)
+
 	// Execute request
 	response, err := client.Do(req)
 	if err != nil {
+		if err := s.Request1CCreate(domain.InventoryHelper{
+			Method:   "POST",
+			Payload:  data,
+			Response: response,
+			Action:   url,
+			DocDate:  docDate,
+			DocNum:   docNum,
+			Status:   "error",
+		}); err != nil {
+			s.log.Warn("ERROR on creating Request1C: %v", err)
+			return err
+		}
 		s.log.Error("failed to execute HTTP request: %v", err)
 		return fmt.Errorf("failed to execute HTTP request: %v", err)
 	}
@@ -688,7 +703,7 @@ func (s *Services) DoRequest(ctx context.Context, data any, url string) error {
 		s.log.Error("ERROR on decoding response: %w", err)
 		return err
 	}
-	docDate, docNum := extractDocMeta(data)
+
 	// Validate "ok" field
 	if !cast.ToBool(info["ok"]) {
 		if err := s.Request1CCreate(domain.InventoryHelper{

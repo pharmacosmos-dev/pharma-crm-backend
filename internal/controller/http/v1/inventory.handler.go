@@ -538,7 +538,7 @@ func (h *InventoryHandler) Confirm(c *gin.Context) {
 	// confirm inventory service
 	err = h.service.ConfirmInventory(id, userId.(string))
 	if err != nil {
-		handleResponse(c, InternalError, "Failed to confirm inventory")
+		handleResponse(c, InternalError, fmt.Sprintf("Failed to confirm inventory %v", err))
 		return
 	}
 

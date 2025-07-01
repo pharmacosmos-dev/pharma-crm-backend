@@ -393,15 +393,16 @@ func (h *AutoOrderHandler) SendAutoOrder(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
+	requestData.Status = "error"
 	res, err := h.DoRequest(c.Request.Context(), data, "/zakaz")
 	if err != nil {
+		err = h.SaveResponse(c.Request.Context(), requestData)
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 	// checking 1c response is nil
 	if res == nil {
-		requestData.Status = "error"
 		err = h.SaveResponse(c.Request.Context(), requestData)
 		handleResponse(c, InternalError, "failed to send auto order")
 		return

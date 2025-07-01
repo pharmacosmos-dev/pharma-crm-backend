@@ -18,7 +18,7 @@ func (s *Services) Request1CCreate(req domain.InventoryHelper) error {
 		return fmt.Errorf("failed to marshal response: %w", err)
 	}
 
-	err = s.db.Model(&domain.Request1C{}).Create(&domain.Request1C{
+	err = s.db.Table("requests_1c").Create(&domain.Request1C{
 		Method:   req.Method,
 		Payload:  payloadBytes,
 		Response: responseBytes,

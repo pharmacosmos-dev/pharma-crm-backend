@@ -1,8 +1,11 @@
 package services
 
 import (
+	"context"
 	"fmt"
+	"github.com/spf13/cast"
 	"math"
+	"time"
 
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
@@ -360,10 +363,20 @@ func (s *Services) ConfirmTransfer(transferID string, userId string) error {
 	var res []domain.TransferDetail
 	err = tx.Raw(`
 	SELECT 
-		td.*, p.unit_per_pack 
+		td.*, 
+		COALESCE(p.unit_per_pack,0) ,
+		COALESCE(p.name,'') AS product_name, 
+		COALESCE(p.material_code,0), 
+		COALESCE(p.barcode, ''), 
+		COALESCE(pr.code, '') AS producer_code, 
+		COALESCE(idt.retail_price, 0) AS retail_price_vat,
+		COALESCE(idt.supply_price, 0) AS supply_price_vat
 	FROM transfer_details td 
 		JOIN 
 			products p ON p.id = td.product_id 
+		LEFT JOIN producers pr ON pr.id = p.producer_id
+		LEFT JOIN store_products sp ON sp.id = td.store_product_id
+		LEFT JOIN import_details idt ON idt.id = sp.import_detail_id
 		WHERE 
 			td.transfer_id = ? AND td.scanned_count > 0;
 	`, transferID).Scan(&res).Error
@@ -389,6 +402,7 @@ func (s *Services) ConfirmTransfer(transferID string, userId string) error {
 		)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
+	var data1C domain.TransferData1C
 	for _, v := range res {
 		// execute query
 		err = tx.Exec(query2, v.ProductId, transfer.ToStoreId, int(v.ScannedCount), math.Round(v.ScannedCount*float64(v.UnitPerPack)), v.RetailPrice, v.SupplyPrice, 12, v.ExpireDate, (v.RetailPrice*12)/112, v.SerialNumber).Error
@@ -396,12 +410,65 @@ func (s *Services) ConfirmTransfer(transferID string, userId string) error {
 			s.log.Warn("ERROR on inserting store product: %v", err)
 			return err
 		}
+
+		// collect inventory products to send 1C
+		data1C.Товары = append(data1C.Товары, domain.TransferProduct1C{
+			MaterialCode:        v.MaterialCode,
+			Name:                v.ProductName,
+			Barcode:             v.Barcode,
+			Manufacturer:        v.ProducerCode,
+			ProductSeriesNumber: v.SerialNumber,
+			ExpireDate:          v.ExpireDate,
+			Quantity:            v.ReceivedCount,
+			RetailPrice:         v.RetailPriceVat, // vat bilan oddiysi almashgan
+			RetailPriceVat:      v.RetailPrice,
+			SupplyPrice:         v.SupplyPriceVat,
+			SupplyPriceVat:      v.SupplyPrice,
+			Sum:                 v.ScannedCount * v.RetailPriceVat,
+			SumVat:              v.ScannedCount * v.RetailPrice,
+		})
+	}
+	fmt.Println(transfer.ToStoreId)
+	// get store info
+	var toStore domain.Store
+	err = tx.First(&toStore, "id = ?", transfer.ToStoreId).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting store info: %v", err)
+		tx.Rollback()
+		return err
+	}
+
+	// get store info
+	var fromStore domain.Store
+	err = tx.First(&fromStore, "id = ?", transfer.FromStoreId).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting store info: %v", err)
+		tx.Rollback()
+		return err
 	}
 
 	// complete transaction
 	if err = tx.Commit().Error; err != nil {
 		s.log.Warn("ERROR on commiting transaction: %v", err)
 		tx.Rollback()
+		return err
+	}
+
+	// get store info
+	data1C.Apteka.Name = toStore.Name
+	data1C.Apteka.StoreCode = toStore.StoreCode
+	data1C.AptekaOtkud.Name = fromStore.Name
+	data1C.AptekaOtkud.StoreCode = fromStore.StoreCode
+	// declare current time
+	now := time.Now()
+	// get document data and number
+	data1C.Dok.DocumentDate = now.Format(time.RFC3339)
+	data1C.Dok.DocumentNumber = "NP-" + cast.ToString(transfer.PublicId)
+	s.log.Info(fmt.Sprintf("HELLO GUARDIANS: %+v", data1C))
+	// send inventory products data to 1C
+	err = s.DoRequest(context.Background(), data1C, "/perekit")
+	if err != nil {
+		s.log.Warn("ERROR on sending inventory: %v", err)
 		return err
 	}
 	return nil

@@ -52,6 +52,8 @@ type TransferDetail struct {
 	TransferId     string     `gorm:"transfer_id" json:"transfer_id"`
 	StoreProductId string     `gorm:"store_product_id" json:"store_product_id"`
 	ProductId      string     `gorm:"product_id" json:"product_id"`
+	ProductName    string     `gorm:"product_name" json:"product_name"`
+	ProducerCode   string     `gorm:"producer_code" json:"producer_code"`
 	ReceivedCount  float64    `gorm:"received_count" json:"received_count"`
 	AcceptedCount  float64    `gorm:"accepted_count" json:"accepted_count"`
 	ScannedCount   float64    `gorm:"scanned_count" json:"scanned_pack"`
@@ -59,7 +61,9 @@ type TransferDetail struct {
 	ExpireDate     *time.Time `gorm:"expire_date" json:"expire_date"`
 	SerialNumber   string     `gorm:"serial_number" json:"serial_number"`
 	SupplyPrice    float64    `gorm:"supply_price" json:"supply_price"`
+	SupplyPriceVat float64    `gorm:"supply_price_vat" json:"supply_price_vat"`
 	RetailPrice    float64    `gorm:"retail_price" json:"retail_price"`
+	RetailPriceVat float64    `gorm:"retail_price_vat" json:"retail_price_vat"`
 	CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt      *time.Time `gorm:"updated_at" json:"updated_at"`
 	Name           string     `gorm:"name" json:"name"`
@@ -82,4 +86,26 @@ type TransferDetailStatus struct {
 	ShortageRetailSum float64 `gorm:"shortage_retail_sum" json:"shortage_retail_sum"`
 	SurplusSupplySum  float64 `gorm:"surplus_supply_sum" json:"surplus_supply_sum"`
 	SurplusRetailSum  float64 `gorm:"surplus_retail_sum" json:"surplus_retail_sum"`
+}
+
+type TransferData1C struct {
+	Dok         Document            `json:"Dok"`
+	Apteka      Apteka              `json:"Apteka"`
+	AptekaOtkud Apteka              `json:"Apteka_otkuda"`
+	Товары      []TransferProduct1C `json:"Товары"`
+}
+type TransferProduct1C struct {
+	MaterialCode        int        `gorm:"material_code" json:"material_code"`
+	Name                string     `gorm:"name" json:"name"`
+	Barcode             string     `gorm:"barcode" json:"barcode"`
+	Manufacturer        string     `gorm:"manufacturer" json:"manufacturer"`
+	ProductSeriesNumber string     `gorm:"product_series_number" json:"product_series_number"`
+	ExpireDate          *time.Time `gorm:"expire_date" json:"expire_date"`
+	Quantity            float64    `gorm:"quantity" json:"quantity"`
+	RetailPrice         float64    `gorm:"retail_price" json:"retail_price"`
+	RetailPriceVat      float64    `gorm:"retail_price_vat" json:"retail_price_vat"`
+	SupplyPrice         float64    `gorm:"supply_price" json:"supply_price"`
+	SupplyPriceVat      float64    `gorm:"supply_price_vat" json:"supply_price_vat"`
+	Sum                 float64    `gorm:"sum" json:"sum"`
+	SumVat              float64    `gorm:"sum_vat" json:"sum_vat"`
 }
