@@ -421,35 +421,36 @@ func (h *AutoOrderHandler) SendAutoOrder(c *gin.Context) {
 		handleResponse(c, OK, "No such products found")
 		return
 	}
+
+	// start transaction
 	tx := h.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
+	defer recoverTransaction(tx, h.log) // check recover for panic
+	defer RollbackIfError(tx, &err) // rollback transaction if error happened
+
 
 	for _, item := range res.Products {
+		// update response_order_count after receive 1C response
 		err = tx.Exec(`UPDATE auto_order_details SET response_order_count = ? WHERE product_id = (SELECT id FROM products WHERE material_code = ?)`,
 			item.QuantityFakt, item.MaterialCode).Error
 		if err != nil {
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())
-			tx.Rollback()
 			return
 		}
 	}
+
+	// update auto_order status to completed
 	err = tx.Exec(`UPDATE auto_orders SET status = ?, completed_date = NOW() WHERE id = ?`, config.COMPLETED, id).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
-		tx.Rollback()
 		return
 	}
-
-	if err = tx.Commit().Error; err != nil {
+	// commit transaction
+	err = tx.Commit().Error
+	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
-		tx.Rollback()
 		return
 	}
 
@@ -500,7 +501,7 @@ func (h *AutoOrderHandler) DoRequest(ctx context.Context, data interface{}, url 
 // Save auto order request to database
 func (h *AutoOrderHandler) SaveRequest(req *domain.Request1C) (*domain.Request1C, error) {
 	res := domain.Request1C{}
-	err := h.db.Raw(`INSERT INTO requests_1c (method, payload, action,doc_date, doc_num, status) VALUES(?, ?, ?) RETURNING *`,
+	err := h.db.Raw(`INSERT INTO requests_1c (method, payload, action, doc_date, doc_num, status) VALUES(?, ?, ?, ?, ?, ?) RETURNING *`,
 		req.Method, req.Payload, req.Action, req.DocDate, req.DocNum, req.Status).Scan(&res).Error
 	if err != nil {
 		return &res, err
@@ -512,7 +513,7 @@ func (h *AutoOrderHandler) SaveRequest(req *domain.Request1C) (*domain.Request1C
 func (h *AutoOrderHandler) SaveResponse(ctx context.Context, req *domain.Request1C) error {
 	err := h.db.WithContext(ctx).Exec(
 		`UPDATE requests_1c SET response = ?, updated_at = NOW(), status = ? WHERE id = ?`,
-		req.Response, req.ID, req.Status,
+		req.Response, req.Status, req.ID,
 	).Error
 	if err != nil {
 		return err
