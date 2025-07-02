@@ -6704,6 +6704,36 @@ paths:
       summary: Get a category list for filter
       tags:
       - Noor API
+  /noor/order:
+    post:
+      description: Create a sale
+      parameters:
+      - description: Body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.SaleOnline'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BasicAuth: []
+      summary: Create a sale
+      tags:
+      - Noor API
   /noor/product/list:
     get:
       consumes:
@@ -6738,16 +6768,24 @@ paths:
       summary: List Products
       tags:
       - Noor API
-  /noor/sale:
-    post:
-      description: Create a sale
+  /noor/store-product/list:
+    get:
+      consumes:
+      - application/json
+      description: List Store Products
       parameters:
-      - description: Body
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/domain.SaleOnline'
+      - description: UpdateAt
+        in: query
+        name: updatedAt
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
       produces:
       - application/json
       responses:
@@ -6765,10 +6803,10 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BasicAuth: []
-      summary: Create a sale
+      summary: List Store Products
       tags:
       - Noor API
-  /noor/store-product/list:
+  /noor/store/list:
     get:
       consumes:
       - application/json

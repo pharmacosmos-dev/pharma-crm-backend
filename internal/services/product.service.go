@@ -559,7 +559,23 @@ func (s *Services) GetNoorProducts(param *domain.NoorQueryParam) ([]domain.NoorP
 		Find(&res).Error
 	if err != nil {
 		s.log.Error("ERROR on listing noor products: %v", err)
-		return nil, err
+		return res, err
+	}
+	// get category ids which are depends on the product
+	query := `
+	SELECT 
+		category_id 
+	FROM 
+		category_products 
+	WHERE 
+		product_id = ?;`
+
+	for i := range res {
+		err = s.db.Raw(query, res[i].Id).Scan(&res[i].Categories).Error
+		if err != nil {
+			s.log.Warn("ERROR on getting category_ids: %v", err)
+			return res, err
+		}
 	}
 
 	return res, nil

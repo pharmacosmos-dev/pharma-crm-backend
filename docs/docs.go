@@ -8432,6 +8432,54 @@ const docTemplate = `{
                 }
             }
         },
+        "/noor/order": {
+            "post": {
+                "security": [
+                    {
+                        "BasicAuth": []
+                    }
+                ],
+                "description": "Create a sale",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Noor API"
+                ],
+                "summary": "Create a sale",
+                "parameters": [
+                    {
+                        "description": "Body",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.SaleOnline"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/noor/product/list": {
             "get": {
                 "security": [
@@ -8486,30 +8534,42 @@ const docTemplate = `{
                 }
             }
         },
-        "/noor/sale": {
-            "post": {
+        "/noor/store-product/list": {
+            "get": {
                 "security": [
                     {
                         "BasicAuth": []
                     }
                 ],
-                "description": "Create a sale",
+                "description": "List Store Products",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "Noor API"
                 ],
-                "summary": "Create a sale",
+                "summary": "List Store Products",
                 "parameters": [
                     {
-                        "description": "Body",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/domain.SaleOnline"
-                        }
+                        "type": "string",
+                        "description": "UpdateAt",
+                        "name": "updatedAt",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -8534,7 +8594,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/noor/store-product/list": {
+        "/noor/store/list": {
             "get": {
                 "security": [
                     {
