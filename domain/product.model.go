@@ -377,6 +377,7 @@ type NoorProduct struct {
 	Name        string            `gorm:"name" json:"name"`
 	Photos      utils.StringArray `gorm:"type:text[]" json:"photos"`
 	Description string            `gorm:"description" json:"description"`
+	Categories  []string          `gorm:"-" json:"categories"`
 }
 
 // Noor API store_products structure

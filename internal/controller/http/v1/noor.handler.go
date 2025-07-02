@@ -19,11 +19,11 @@ func (h *Handler) NewNoorHandler(r *gin.RouterGroup) {
 
 func (h *NoorHandler) NoorRoutes(r *gin.RouterGroup) {
 	noor := r.Group("/noor")
-	noor.GET("/product/list", h.List)
+	noor.GET("/product/list", h.ProductList)
 	noor.GET("/store-product/list", h.StoreProductList)
 	noor.GET("/store/list", h.StoreList)
 	noor.GET("/category/list", h.CategoryList)
-	noor.POST("/sale", h.CreateSale)
+	noor.POST("/order", h.CreateOrder)
 }
 
 // List Products
@@ -39,7 +39,7 @@ func (h *NoorHandler) NoorRoutes(r *gin.RouterGroup) {
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router 	/noor/product/list 	[GET]
-func (h *NoorHandler) List(c *gin.Context) {
+func (h *NoorHandler) ProductList(c *gin.Context) {
 	var (
 		res   []domain.NoorProduct
 		param domain.NoorQueryParam
@@ -107,7 +107,7 @@ func (h *NoorHandler) StoreProductList(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router 	/noor/store-product/list 	[GET]
+// @Router 	/noor/store/list 	[GET]
 func (h *NoorHandler) StoreList(c *gin.Context) {
 	// get store products info
 	res, err := h.service.GetNoorStores()
@@ -199,25 +199,21 @@ func (h *NoorHandler) CategoryList(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router 	/noor/sale [post]
-func (h *NoorHandler) CreateSale(c *gin.Context) {
+// @Router 	/noor/order [post]
+func (h *NoorHandler) CreateOrder(c *gin.Context) {
 	var (
 		body domain.SaleOnline
-		err  error
 	)
 	// bind request body
-	if err = c.ShouldBindJSON(&body); err != nil {
+	err := c.ShouldBindJSON(&body)
+	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 	// start transaction
 	tx := h.db.Begin()
-	defer func() {
-		if err != nil {
-			tx.Rollback()
-		}
-	}()
+	defer recoverTransaction(tx, h.log)
 
 	// create sale id
 	saleId := uuid.New().String()
