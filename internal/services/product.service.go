@@ -552,30 +552,25 @@ func (s *Services) CreateProducer(ctx context.Context, code string) (*domain.Pro
 // get noor products list
 func (s *Services) GetNoorProducts(param *domain.NoorQueryParam) ([]domain.NoorProduct, error) {
 	var res []domain.NoorProduct
-	err := s.db.
-		Model(&domain.Product{}).
-		Limit(param.Limit).
-		Offset(param.Offset).
-		Find(&res).Error
+	query := `
+	SELECT
+		p.id,
+		p.name,
+		p.photos,
+		p.description,
+		ARRAY_AGG(cp.category_id) FILTER (WHERE cp.category_id IS NOT NULL) AS categories
+	FROM
+		products p
+	LEFT JOIN
+		category_products cp ON cp.product_id = p.id
+	GROUP BY
+		p.id
+	LIMIT ? OFFSET ?;
+`
+	err := s.db.Raw(query, param.Limit, param.Offset).Scan(&res).Error
 	if err != nil {
 		s.log.Error("ERROR on listing noor products: %v", err)
 		return res, err
-	}
-	// get category ids which are depends on the product
-	query := `
-	SELECT 
-		category_id 
-	FROM 
-		category_products 
-	WHERE 
-		product_id = ?;`
-
-	for i := range res {
-		err = s.db.Raw(query, res[i].Id).Scan(&res[i].Categories).Error
-		if err != nil {
-			s.log.Warn("ERROR on getting category_ids: %v", err)
-			return res, err
-		}
 	}
 
 	return res, nil
