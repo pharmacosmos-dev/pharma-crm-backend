@@ -131,6 +131,27 @@ func BeforeDates(startDateStr, endDateStr string) (string, string) {
 	return beforeStart.Format("2006-01-02"), beforeEnd.Format("2006-01-02")
 }
 
+// BeforeDatesTime returns the previous period (beforeStart, beforeEnd) based on the duration between start and end.
+func BeforeDatesTime(startDate, endDate time.Time) (time.Time, time.Time) {
+	// Agar endDate bo‘sh bo‘lsa, startDate bilan teng qilamiz (bu case avvalgi kodda kerak edi)
+	if endDate.IsZero() {
+		endDate = startDate
+	}
+
+	// start va end orasidagi farq
+	diff := endDate.Sub(startDate)
+	if diff == 0 {
+		diff = 24 * time.Hour // kamida 1 kun
+	} else {
+		diff += 24 * time.Hour // yakuniy kunga qo‘shib hisoblaymiz
+	}
+
+	beforeStart := startDate.Add(-diff)
+	beforeEnd := startDate.Add(-time.Hour * 24)
+
+	return beforeStart, beforeEnd
+}
+
 // ExtractNumbers - markirofkadan barcode ni ajratib oladi
 func ExtractNumbers(marking string) string {
 	re := regexp.MustCompile(`01+0*(\d{8,14})21`)
