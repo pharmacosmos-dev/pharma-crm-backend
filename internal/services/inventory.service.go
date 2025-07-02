@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math"
 	"time"
@@ -509,11 +508,7 @@ func (s *Services) InventoryDetailStatsCount(param *domain.InventoryParam) (doma
 func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 	// start transaction
 	tx := s.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
+	defer recoverTransaction(tx, s.log)
 
 	var res domain.Inventory
 	// update confirm inventory
@@ -524,7 +519,7 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 		tx.Rollback()
 		return err
 	}
-
+	defer RollbackIfError(tx, &err)
 	// delete correct inventory products if current and fact will be equal (received_count = scanned_count)
 	// err = tx.Exec(`DELETE FROM import_details WHERE import_id = ? AND received_count = scanned_count`, inventoryId).Error
 	// if err != nil {
@@ -548,7 +543,6 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 	err = tx.Raw(query1, inventoryId).Scan(&inventoryDetails).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting inventory_details: %v", err)
-		tx.Rollback()
 		return err
 	}
 	// add new inventory products to store_products if fact greater then current quantity
@@ -570,7 +564,6 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 	err = tx.Exec(storeProduct, res.StoreId, inventoryId).Error
 	if err != nil {
 		s.log.Warn("ERROR on inserting inventory to store_product: %v", err)
-		tx.Rollback()
 		return err
 	}
 	// update store_products quantities if fact quantity greater then current (received_count > scanned_count)
@@ -582,7 +575,6 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 				int(imd.ScannedCount), math.Round(imd.ScannedCount*float64(imd.UnitPerPack)), imd.StoreProductId).Error
 			if err != nil {
 				s.log.Warn("ERROR on updating store_product quantity on confirm inventory: %v", err)
-				tx.Rollback()
 				return err
 			}
 		}
@@ -611,12 +603,12 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 	err = tx.First(&store, "id = ?", res.StoreId).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting store info: %v", err)
-		tx.Rollback()
 		return err
 	}
 
 	// complete transaction
-	if err = tx.Commit().Error; err != nil {
+	err = tx.Commit().Error
+	if err != nil {
 		s.log.Warn("ERROR on commiting transaction: %v", err)
 		tx.Rollback()
 		return err
@@ -625,10 +617,8 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 	// get store info
 	data1C.Apteka.Name = store.Name
 	data1C.Apteka.StoreCode = store.StoreCode
-	// declare current time
-	now := time.Now()
 	// get document data and number
-	data1C.Dok.DocumentDate = now.Format(time.RFC3339)
+	data1C.Dok.DocumentDate = res.UpdatedAt.Format(time.DateTime)
 	data1C.Dok.DocumentNumber = "NP-" + cast.ToString(res.PublicId)
 
 	// send inventory products data to 1C
@@ -725,14 +715,10 @@ func (s *Services) SendInventory1C(inventoryID string) error {
 	// get store info
 	data1C.Apteka.Name = store.Name
 	data1C.Apteka.StoreCode = store.StoreCode
-	// declare current time
-	now := time.Now()
-	// get document data and number
-	data1C.Dok.DocumentDate = now.Format(time.RFC3339)
-	data1C.Dok.DocumentNumber = "NP-" + cast.ToString(inventory.PublicID)
 
-	t, _ := json.Marshal(data1C)
-	fmt.Println("Inventory: -->> ", string(t))
+	// get document data and number
+	data1C.Dok.DocumentDate = inventory.UpdatedAt.Format(time.DateTime)
+	data1C.Dok.DocumentNumber = "NP-" + cast.ToString(inventory.PublicID)
 
 	// send inventory products data to 1C
 	err = s.DoRequest(context.Background(), data1C, "/inventar")
