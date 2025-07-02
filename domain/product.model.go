@@ -377,12 +377,12 @@ type NoorProduct struct {
 	Name        string            `gorm:"name" json:"name"`
 	Photos      utils.StringArray `gorm:"type:text[]" json:"photos"`
 	Description string            `gorm:"description" json:"description"`
-	Categories  []string          `gorm:"-" json:"categories"`
+	Categories  utils.StringArray `gorm:"type:text[]" json:"categories"`
 }
 
 // Noor API store_products structure
 type NoorStoreProduct struct {
-	StoreID   string `gorm:"store_id" json:"store_id"`
+	StoreID   string `gorm:"store_id" json:"shop_id"`
 	ProductID string `gorm:"product_id" json:"product_id"`
 	Quantity  int    `gorm:"quantity" json:"quantity"`
 	Price     int    `gorm:"price" json:"price"`
