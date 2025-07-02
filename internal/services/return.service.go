@@ -416,26 +416,22 @@ func (s *Services) SendReturn1C(returnId string) error {
 func (s *Services) ConfirmReturn(returnId, storeId string, userId string) error {
 	// start transaction
 	tx := s.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-	var publicId string
+	defer recoverTransaction(tx, s.log) // check recover
+	var returnInfo domain.Return
 	// update confirm inventory
-	query := `UPDATE transfers SET status = ?, accepted_by = ?, accepted_at = NOW() WHERE id = ? RETURNING public_id`
-	err := tx.Exec(query, config.COMPLETED, userId, returnId).Scan(&publicId).Error
+	query := `UPDATE transfers SET status = ?, accepted_by = ?, accepted_at = NOW() WHERE id = ? RETURNING *`
+	err := tx.Exec(query, config.COMPLETED, userId, returnId).Scan(&returnInfo).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating inventory %v", err)
-		tx.Rollback()
 		return err
 	}
+	defer RollbackIfError(tx, &err) // rollback transcation
+
 	// update confirm inventory details
 	query1 := `UPDATE transfer_details SET accepted_count = scanned_count, updated_at = NOW() WHERE transfer_id = ?`
 	err = tx.Exec(query1, returnId).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating inventory details: %v", err)
-		tx.Rollback()
 		return err
 	}
 
@@ -444,22 +440,28 @@ func (s *Services) ConfirmReturn(returnId, storeId string, userId string) error 
 		store      domain.Store
 	)
 	// get store data
-	err = s.db.First(&store, "id = ?", storeId).Error
+	err = tx.First(&store, "id = ?", storeId).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting store data: %v", err)
 		return err
 	}
-	returnData.Dok.DocumentNumber = "NP-" + cast.ToString(publicId)
-	returnData.Dok.DocumentDate = time.Now().Add(time.Hour * 5).Format(time.DateOnly)
+	returnData.Dok.DocumentNumber = "NP-" + cast.ToString(returnInfo.PublicId)
+	returnData.Dok.DocumentDate = returnInfo.UpdatedAt.Format(time.DateTime)
 	returnData.Apteka.Name = store.Name
 	returnData.Apteka.StoreCode = store.StoreCode
 	// get return data
 	query2 := `
 	SELECT
-		td.id, td.transfer_id, p.material_code, p.name, p.barcode,
-		COALESCE(pr.code, '') as manufacturer, td.serial_number AS product_series_number,
-		td.expire_date, td.scanned_count as quantity,
-		td.supply_price AS supply_price_vat, td.retail_price AS retail_price_vat,
+		td.id, 
+		td.transfer_id, 
+		p.material_code, 
+		p.name, p.barcode,
+		COALESCE(pr.code, '') as manufacturer, 
+		td.serial_number AS product_series_number,
+		td.expire_date, 
+		td.scanned_count as quantity,
+		td.supply_price AS supply_price_vat, 
+		td.retail_price AS retail_price_vat,
 		(td.retail_price*td.scanned_count) AS sum_vat
 	FROM transfer_details td
 		JOIN transfers tr ON td.transfer_id = tr.id
@@ -477,7 +479,6 @@ func (s *Services) ConfirmReturn(returnId, storeId string, userId string) error 
 	// complete transaction
 	if err = tx.Commit().Error; err != nil {
 		s.log.Warn("ERROR on commiting transaction: %v", err)
-		tx.Rollback()
 		return err
 	}
 

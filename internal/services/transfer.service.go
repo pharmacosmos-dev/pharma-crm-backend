@@ -3,9 +3,10 @@ package services
 import (
 	"context"
 	"fmt"
-	"github.com/spf13/cast"
 	"math"
 	"time"
+
+	"github.com/spf13/cast"
 
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
@@ -16,27 +17,32 @@ func (s *Services) CreateTransfer(req *domain.TransferRequest) error {
 	var id string
 	// start transaction
 	tx := s.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
+	defer recoverTransaction(tx, s.log) // recover if panic happened
 	// insert inventory into inventories table
 	err := tx.Raw(`
-	INSERT INTO transfers (public_id, from_store_id, to_store_id, name,  created_by)
-	VALUES (?, ?, ?, ?, ?) RETURNING id`,
+	INSERT INTO 
+		transfers (
+			public_id, 
+			from_store_id, 
+			to_store_id, 
+			name,  
+			created_by
+			)
+	VALUES (
+		?, ?, ?, ?, ?
+		) 
+	RETURNING id`,
 		req.PublicId, req.FromStoreId, req.ToStoreId, req.Name, req.CreatedBy,
 	).Scan(&id).Error
 	if err != nil {
-		s.log.Error("ERROR on creating return: ", err)
-		tx.Rollback()
+		s.log.Warn("ERROR on creating return: %v", err)
 		return err
 	}
+	defer RollbackIfError(tx, &err) // return transaction if error happened
 
 	// if no products provided, get all products from store_products
 	// and insert them into inventory_details
-	err = tx.Exec(
-		`
+	err = tx.Exec(`
 		INSERT INTO transfer_details(
 			transfer_id, 
 			store_product_id, 
@@ -47,7 +53,8 @@ func (s *Services) CreateTransfer(req *domain.TransferRequest) error {
 			expire_date, 
 			serial_number
 			) SELECT 
-				?, sp.id, 
+				?, 
+				sp.id, 
 				sp.product_id, 
 				sp.unit_quantity::numeric/p.unit_per_pack, 
 				sp.supply_price, 
@@ -57,18 +64,16 @@ func (s *Services) CreateTransfer(req *domain.TransferRequest) error {
 			FROM store_products sp
 			JOIN products p ON sp.product_id = p.id
 			WHERE sp.store_id = ? AND (sp.pack_quantity > 0 OR sp.unit_quantity > 0);
-		`,
-		id, req.FromStoreId).Error
+		`, id, req.FromStoreId).Error
 	if err != nil {
 		s.log.Error("ERROR on creating inventory details: ", err)
-		tx.Rollback()
 		return err
 	}
 
 	// commit transaction
-	if err = tx.Commit().Error; err != nil {
+	err = tx.Commit().Error
+	if err != nil {
 		s.log.Error("ERROR on committing transaction: ", err)
-		tx.Rollback()
 		return err
 	}
 	return nil
@@ -277,25 +282,22 @@ func (s *Services) TransferDetailStatsCount(param *domain.ReturnDetailParam) (do
 func (s *Services) SendTransfer(returnId string, userId string) error {
 	// start transaction
 	tx := s.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
+	defer recoverTransaction(tx, s.log)
+
 	// update confirm inventory
 	query := `UPDATE transfers SET status = ?, updated_by = ? WHERE id = ?`
 	err := tx.Exec(query, config.SENT, userId, returnId).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating inventory %v", err)
-		tx.Rollback()
 		return err
 	}
+	// rollback transaction if error happened
+	defer RollbackIfError(tx, &err)
 
 	query2 := `DELETE FROM transfer_details WHERE scanned_count = 0 AND transfer_id = ?;`
 	err = tx.Exec(query2, returnId).Error
 	if err != nil {
 		s.log.Warn("ERROR on deleting scanned 0 inventory details: %v", err)
-		tx.Rollback()
 		return err
 	}
 
@@ -309,7 +311,6 @@ func (s *Services) SendTransfer(returnId string, userId string) error {
 	err = tx.Raw(query3, returnId).Scan(&returnDetails).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting return details: %v", err)
-		tx.Rollback()
 		return err
 	}
 
@@ -320,15 +321,14 @@ func (s *Services) SendTransfer(returnId string, userId string) error {
 			int(detail.ReceivedCount-detail.ScannedCount), math.Round(detail.ScannedCount*float64(detail.UnitPerPack)), detail.StoreProductId).Error
 		if err != nil {
 			s.log.Warn("ERROR on updating store product pack quantity: %v", err)
-			tx.Rollback()
 			return err
 		}
 	}
 
 	// complete transaction
-	if err = tx.Commit().Error; err != nil {
+	err = tx.Commit().Error
+	if err != nil {
 		s.log.Warn("ERROR on commiting transaction: %v", err)
-		tx.Rollback()
 		return err
 	}
 	return nil
@@ -338,51 +338,57 @@ func (s *Services) SendTransfer(returnId string, userId string) error {
 func (s *Services) ConfirmTransfer(transferID string, userId string) error {
 	// start transaction
 	tx := s.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
+	defer recoverTransaction(tx, s.log) // recover function for checking panic
 	// update confirm inventory
 	var transfer domain.Transfer
 	query := `UPDATE transfers SET status = ?, accepted_by = ?, accepted_at = NOW() WHERE id = ? RETURNING *`
 	err := tx.Raw(query, config.COMPLETED, userId, transferID).Scan(&transfer).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating inventory %v", err)
-		tx.Rollback()
 		return err
 	}
+	defer RollbackIfError(tx, &err) // rollback function for return transcation
+
 	// update confirm inventory details
 	query1 := `UPDATE transfer_details SET accepted_count = scanned_count, updated_at = NOW() WHERE transfer_id = ?`
 	err = tx.Exec(query1, transferID).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating inventory details: %v", err)
-		tx.Rollback()
 		return err
 	}
 	var res []domain.TransferDetail
 	err = tx.Raw(`
-	SELECT 
-		td.*, 
-		COALESCE(p.unit_per_pack,0) ,
-		COALESCE(p.name,'') AS product_name, 
-		COALESCE(p.material_code,0), 
-		COALESCE(p.barcode, ''), 
-		COALESCE(pr.code, '') AS producer_code, 
-		COALESCE(idt.retail_price, 0) AS retail_price_vat,
-		COALESCE(idt.supply_price, 0) AS supply_price_vat
-	FROM transfer_details td 
-		JOIN 
-			products p ON p.id = td.product_id 
+	SELECT
+		td.id,
+		td.transfer_id,
+		td.product_id,
+		td.store_product_id,
+		td.received_count,
+		td.scanned_count,
+		td.accepted_count,
+		td.expire_date,
+		td.serial_number,
+		td.supply_price AS supply_price_vat,
+		td.retail_price AS retail_price_vat,
+		td.created_at,
+		td.updated_at,
+		p.unit_per_pack,
+		COALESCE(p.name,'') AS product_name,
+		p.material_code,
+		p.barcode,
+		COALESCE(pr.code, '') AS producer_code,
+		COALESCE(idt.retail_price, 0.00) AS retail_price,
+		COALESCE(idt.supply_price, 0.00) AS supply_price
+	FROM transfer_details td
+		JOIN products p ON p.id = td.product_id
 		LEFT JOIN producers pr ON pr.id = p.producer_id
 		LEFT JOIN store_products sp ON sp.id = td.store_product_id
 		LEFT JOIN import_details idt ON idt.id = sp.import_detail_id
-		WHERE 
+		WHERE
 			td.transfer_id = ? AND td.scanned_count > 0;
 	`, transferID).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on gettig transfer_detail list: %v", err)
-		tx.Rollback()
 		return err
 	}
 
@@ -420,12 +426,12 @@ func (s *Services) ConfirmTransfer(transferID string, userId string) error {
 			ProductSeriesNumber: v.SerialNumber,
 			ExpireDate:          v.ExpireDate,
 			Quantity:            v.ReceivedCount,
-			RetailPrice:         v.RetailPriceVat, // vat bilan oddiysi almashgan
-			RetailPriceVat:      v.RetailPrice,
-			SupplyPrice:         v.SupplyPriceVat,
-			SupplyPriceVat:      v.SupplyPrice,
-			Sum:                 v.ScannedCount * v.RetailPriceVat,
-			SumVat:              v.ScannedCount * v.RetailPrice,
+			RetailPrice:         v.RetailPrice, // vat bilan oddiysi almashgan
+			RetailPriceVat:      v.RetailPriceVat,
+			SupplyPrice:         v.SupplyPrice,
+			SupplyPriceVat:      v.SupplyPriceVat,
+			Sum:                 v.ScannedCount * v.RetailPrice,
+			SumVat:              v.ScannedCount * v.RetailPriceVat,
 		})
 	}
 	// get store info
@@ -433,7 +439,6 @@ func (s *Services) ConfirmTransfer(transferID string, userId string) error {
 	err = tx.First(&toStore, "id = ?", transfer.ToStoreId).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting store info: %v", err)
-		tx.Rollback()
 		return err
 	}
 
@@ -442,27 +447,26 @@ func (s *Services) ConfirmTransfer(transferID string, userId string) error {
 	err = tx.First(&fromStore, "id = ?", transfer.FromStoreId).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting store info: %v", err)
-		tx.Rollback()
 		return err
 	}
 
 	// complete transaction
-	if err = tx.Commit().Error; err != nil {
+	err = tx.Commit().Error
+	if err != nil {
 		s.log.Warn("ERROR on commiting transaction: %v", err)
-		tx.Rollback()
 		return err
 	}
+
+	// get document data and number
+	data1C.Dok.DocumentDate = transfer.UpdatedAt.Format(time.DateTime)
+	data1C.Dok.DocumentNumber = "NP-" + cast.ToString(transfer.PublicId)
 
 	// get store info
 	data1C.Apteka.Name = toStore.Name
 	data1C.Apteka.StoreCode = toStore.StoreCode
 	data1C.AptekaOtkud.Name = fromStore.Name
 	data1C.AptekaOtkud.StoreCode = fromStore.StoreCode
-	// declare current time
-	now := time.Now()
-	// get document data and number
-	data1C.Dok.DocumentDate = now.Format(time.RFC3339)
-	data1C.Dok.DocumentNumber = "NP-" + cast.ToString(transfer.PublicId)
+
 	// send inventory products data to 1C
 	err = s.DoRequest(context.Background(), data1C, "/perekit")
 	if err != nil {
@@ -476,22 +480,18 @@ func (s *Services) ConfirmTransfer(transferID string, userId string) error {
 func (s *Services) CancelTransfer(returnId string, userId string) error {
 	// start transaction
 	tx := s.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
+	defer recoverTransaction(tx, s.log)
 	// update confirm inventory
 	query := `UPDATE transfers SET status = ?, accepted_by = ?, updated_at = NOW() WHERE id = ?`
 	err := tx.Exec(query, config.CANCELED, userId, returnId).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating inventory %v", err)
-		tx.Rollback()
 		return err
 	}
-	if err = tx.Commit().Error; err != nil {
+	defer RollbackIfError(tx, &err)
+	err = tx.Commit().Error
+	if err != nil {
 		s.log.Warn("ERROR on commiting transaction %v", err)
-		tx.Rollback()
 		return err
 	}
 

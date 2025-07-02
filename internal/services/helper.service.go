@@ -3,8 +3,11 @@ package services
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/pharma-crm-backend/domain"
 	"reflect"
+
+	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/logger"
+	"gorm.io/gorm"
 )
 
 func (s *Services) Request1CCreate(req domain.InventoryHelper) error {
@@ -78,4 +81,19 @@ func extractDocMeta(data any) (docDate, docNum string) {
 		}
 	}
 	return "", ""
+}
+
+// recoverTransaction handles panics and rolls back the transaction if necessary.
+func recoverTransaction(tx *gorm.DB, log logger.Interface) {
+	if r := recover(); r != nil {
+		log.Error("panic recovered:", r)
+		tx.Rollback()
+	}
+}
+
+// RollbackIfError checks if the error pointer is not nil and if it contains an error.
+func RollbackIfError(tx *gorm.DB, errPtr *error) {
+	if errPtr != nil && *errPtr != nil {
+		tx.Rollback()
+	}
 }

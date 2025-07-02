@@ -393,7 +393,7 @@ type NoorStore struct {
 	Name      string `gorm:"name" json:"name"`
 	Phone     string `gorm:"phone" json:"phone"`
 	Address   string `gorm:"address" json:"address"`
-	Location  string `gorm:"location"`
+	Location  string `gorm:"location" json:"-"`
 	Location1 Point  `gorm:"-" json:"location"`
 	WorkHours string `gorm:"work_hours" json:"work_hours"`
 }
