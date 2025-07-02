@@ -193,10 +193,10 @@ func (s *Services) CreateOnlineCartItem(tx *gorm.DB, req *domain.SaleOnlineItem,
 	err = tx.Exec(`
 		INSERT INTO cart_items(
 			store_product_id, sale_id, 
-			quantity, unit_price,
+			quantity,
 			total_price, status)
 		VALUES(?, ?, ?, ?, ?, ?)`,
-		storProductId, saleID, req.Quantity, req.UnitPrice, req.TotalPrice, config.SOLD_CART_ITEM,
+		storProductId, saleID, req.Quantity, req.TotalPrice, config.SOLD_CART_ITEM,
 	).Error
 	if err != nil {
 		return err
