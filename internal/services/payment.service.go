@@ -651,7 +651,7 @@ func (h *Services) AlifPay(ctx context.Context, tx *gorm.DB, paymentService *dom
 		return nil, err
 	}
 
-	res, err := h.AlifPayDoRequest(ctx, "/v2/pay", alifData)
+	res, err := h.AlifPayDoRequest(ctx, "/v2/pay", alifData, paymentService.SecretKey)
 	if err != nil {
 		return nil, err
 	}
@@ -674,7 +674,7 @@ func (h *Services) AlifConfirmPayment(ctx context.Context, data1 *domain.FinalPa
 		"id":  paymentId,
 		"otp": data1.OtpData,
 	}
-	res, err := h.AlifPayDoRequest(ctx, "/v2/confirmPayment", data)
+	res, err := h.AlifPayDoRequest(ctx, "/v2/confirmPayment", data, "TODO")
 	if err != nil {
 		return nil, err
 	}
@@ -682,7 +682,7 @@ func (h *Services) AlifConfirmPayment(ctx context.Context, data1 *domain.FinalPa
 }
 
 // alif pay do request function
-func (h *Services) AlifPayDoRequest(ctx context.Context, url string, data any) (map[string]any, error) {
+func (h *Services) AlifPayDoRequest(ctx context.Context, url string, data any, token string) (map[string]any, error) {
 	client := &http.Client{}
 	buf := bytes.Buffer{}
 
@@ -699,7 +699,7 @@ func (h *Services) AlifPayDoRequest(ctx context.Context, url string, data any) (
 		return nil, fmt.Errorf("failed to create HTTP request: %v", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Token", h.cfg.Secret.AlifToken)
+	req.Header.Set("Token", token)
 
 	// Execute request
 	resp, err := client.Do(req)
