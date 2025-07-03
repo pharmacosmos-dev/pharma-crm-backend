@@ -761,12 +761,8 @@ func (s *Services) ReportTopSeller(param *domain.ReportQueryParam) ([]domain.Top
 			return nil, 0, err
 		}
 	} else {
-		endTime, err = time.Parse(time.RFC3339, param.StartDate)
-		if err != nil {
-			s.log.Warn("Invalid end_date format: %v", err)
-			return nil, 0, err
-		}
-		endTime = endTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+		endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+		param.EndDate = endTime.Format(time.RFC3339)
 	}
 	beforeStart, beforeEnd := utils.BeforeDatesTime(startTime, endTime)
 
@@ -886,13 +882,15 @@ func (s *Services) ReportTopStores(param *domain.ReportQueryParam) ([]domain.Top
 		s.log.Error("Invalid start_date format: %v", err)
 		return nil, 0, err
 	}
-	endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
 	if param.EndDate != "" {
 		endTime, err = time.Parse(time.RFC3339, param.EndDate)
 		if err != nil {
 			s.log.Error("Invalid end_date format: %v", err)
 			return nil, 0, err
 		}
+	} else {
+		endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+		param.EndDate = endTime.Format(time.RFC3339)
 	}
 
 	// Get previous date range
@@ -1013,6 +1011,7 @@ func (s *Services) ReportBonusProducts(param *domain.ReportQueryParam) ([]domain
 		}
 	} else {
 		endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+		param.EndDate = endTime.Format(time.RFC3339)
 	}
 	beforeStart, beforeEnd := utils.BeforeDatesTime(startTime, endTime)
 
