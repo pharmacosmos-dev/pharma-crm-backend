@@ -142,12 +142,10 @@ func BeforeDatesTime(startDate, endDate time.Time) (time.Time, time.Time) {
 	diff := endDate.Sub(startDate)
 	if diff == 0 {
 		diff = 24 * time.Hour // kamida 1 kun
-	} else {
-		diff += 24 * time.Hour // yakuniy kunga qo‘shib hisoblaymiz
 	}
-
+	fmt.Println("diff", diff)
 	beforeStart := startDate.Add(-diff)
-	beforeEnd := startDate.Add(-time.Hour * 24)
+	beforeEnd := endDate.Add(-diff)
 
 	return beforeStart, beforeEnd
 }
