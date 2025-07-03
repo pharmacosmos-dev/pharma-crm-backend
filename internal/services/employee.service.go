@@ -79,7 +79,7 @@ func (s *Services) GetEmployeeBonusAmount(param *domain.DashboardQueryParam, id 
 		s.log.Error("invalid.start_date.format: %v", err)
 		return bonus, err
 	}
-	endTime := startTime
+	endTime := startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
 	if param.EndDate != "" {
 		endTime, err = time.Parse(time.RFC3339, param.EndDate)
 		if err != nil {

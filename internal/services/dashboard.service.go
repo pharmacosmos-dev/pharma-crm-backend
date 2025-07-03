@@ -12,11 +12,13 @@ import (
 func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (*domain.DashboardCountStats, error) {
 	// declarations
 	var (
-		sale     domain.DashboardCountStatsSale
-		product  domain.DashboardCountStatsProduct
-		income   domain.DashboardCountStatsIncome
-		imported domain.DashboardImport
-		res      domain.DashboardCountStats
+		sale      domain.DashboardCountStatsSale
+		product   domain.DashboardCountStatsProduct
+		income    domain.DashboardCountStatsIncome
+		imported  domain.DashboardImport
+		res       domain.DashboardCountStats
+		startTime time.Time
+		endTime   time.Time
 	)
 
 	// Parse start and end dates
@@ -26,7 +28,6 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 		return nil, err
 	}
 
-	endTime := startTime
 	if param.EndDate == "" { // get end time if end_date will be empty string 23 hour and 59 minute
 		endTime = startTime.Add(time.Minute * 1439)
 	}
