@@ -8,7 +8,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
-	"gorm.io/gorm"
 )
 
 // get cart item list by sale id with limit, offset
@@ -125,12 +124,12 @@ func (s *Services) CreateCartItem(req *domain.CartItemRequest) (*domain.CartItem
 			store_product_id,
 			sale_id, 
 			employee_id,
-			quantity, 
-			unit_quantity, 
+			quantity,
+			unit_quantity,
 			unit_price,
-			total_price, 
+			total_price,
 			status,
-			discount_type, 
+			discount_type,
 			discount_value
 			)
 			VALUES (
@@ -240,31 +239,56 @@ func (s *Services) AddMarkingCount(req []domain.MarkingData) error {
 	return nil
 }
 
-// create cart item for online sale
-func (s *Services) CreateOnlineCartItem(tx *gorm.DB, req *domain.OnlineCartItemRequest, saleID string) error {
-	// check if product and store exist
-	var storProductId string
-	err := tx.Raw(`SELECT id FROM store_products WHERE store_id = ? AND product_id = ?`, req.ProductId).Scan(&storProductId).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("product or store not found")
+
+// check order product quantity and return collect cart_item
+func (s *Services) GetOrCheckOnlineCartItems(req []domain.OnlineCartItemRequest, saleID string) ([]domain.CartItemOnlineRequest, error) {
+	// store product get query
+	query := `
+	SELECT
+		sp.id,
+		sp.product_id,
+		sp.retail_price,
+		sp.unit_quantity,
+		sp.pack_quantity,
+		sp.unit_quantity/(p.unit_per_pack/p.blister_count) AS quantity,
+		p.name AS product_name,
+		p.unit_per_pack,
+		p.blister_count
+	FROM store_products sp
+	JOIN products p ON sp.product_id = p.id
+	WHERE sp.unit_quantity/(p.unit_per_pack/p.blister_count) >= ? AND
+		sp.product_id = ? AND
+		sp.expire_date::date > CURRENT_DATE;
+	`
+	var (
+		temp      = domain.StoreProductOnline{}      // store product temp structure
+		cartItems = []domain.CartItemOnlineRequest{} // cart item request structure
+	)
+	for i := range req {
+		err := s.db.Raw(query, req[i].Quantity, req[i].ProductId).Scan(&temp).Error
+		if err != nil {
+			s.log.Warn("ERROR getting store_product: %v", err)
+			return cartItems, errors.New("store_product.not.get")
 		}
-		return err
-	}
-	// create new cart item
-	err = tx.Exec(`
-		INSERT INTO cart_items(
-			store_product_id, sale_id, 
-			quantity,
-			total_price, status)
-		VALUES(?, ?, ?, ?, ?, ?)`,
-		storProductId, saleID, req.Quantity, config.SOLD_CART_ITEM,
-	).Error
-	if err != nil {
-		return err
+		if temp.Quantity < req[i].Quantity { // checking quantity enough or not enough
+			s.log.Warn("Noor Not enough product")
+			return cartItems, fmt.Errorf("not.enough.product: %s", temp.ProductName)
+		}
+		// quantity calculate:  req.quantity = order_quantity -> based on blister_count
+		// example: unit_per_pack = 50, blister_count = 5, count_per_blister = unit_per_pack/blister_count = 10
+		// order_quantity = 2 - > blister_count * count_per_blister = 2 * 10 = 20
+		// cart_item.quantity = (order_quantity * (unit_per_pack/blister_count))/unit_per_pack = (2 * (50/5))/50 = 0.4 = 0
+		// cart_item.unit_quantity = order_quantity * (unit_per_pack/blister_count) = 2 * (50/5) = 20
+		quantity := (req[i].Quantity * (temp.UnitPerPack / temp.BlisterCount)) / temp.UnitPerPack
+		cartItems = append(cartItems, domain.CartItemOnlineRequest{
+			SaleId:         saleID,
+			StoreProductID: temp.ID,
+			Quantity:       quantity,
+			UnitQuantity:   req[i].Quantity * (temp.UnitPerPack / temp.BlisterCount),
+			UnitPrice:      temp.RetailPrice,
+			TotalPrice:     (temp.RetailPrice / float64(temp.UnitPerPack)) * float64(req[i].Quantity*(temp.UnitPerPack/temp.BlisterCount)),
+		})
 	}
 
-	return nil
+	return cartItems, nil
 }
-
-func (s *Services) GetOrCheckOnlineStoreProduct()

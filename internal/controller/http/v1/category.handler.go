@@ -493,9 +493,9 @@ func (h *CategoryHander) UploadCategory(c *gin.Context) {
 		}
 
 		// Subcategory
-		subCategoryID, exists := existingCategories[row[4]]
+		_, exists = existingCategories[row[4]]
 		if !exists {
-			subCategoryID = uuid.New().String()
+			subCategoryID := uuid.New().String()
 			existingCategories[row[4]] = subCategoryID
 			categories = append(categories, map[string]interface{}{
 				"id":          subCategoryID,

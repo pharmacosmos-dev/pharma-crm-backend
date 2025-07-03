@@ -1,0 +1,1 @@
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS "online_status" SMALLINT DEFAULT 0; -- 0 - default | 1 - new | 2 - waiting | -1 - canceled | 3 - completed

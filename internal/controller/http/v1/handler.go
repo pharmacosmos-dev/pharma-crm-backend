@@ -109,12 +109,18 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 	}
 }
 
+// Default handler response body
 type Response struct {
 	Ok      bool   `json:"ok"`
 	Code    int    `json:"code"`
 	Message string `json:"message"`
 	Count   int64  `json:"count,omitempty"`
 	Data    any    `json:"data"`
+}
+
+// Integration handler error response body
+type IntegrationErrorResponse struct {
+	Message string `json:"message"`
 }
 
 // handleResponse to send consistent JSON responses
@@ -152,7 +158,7 @@ func handleResponseNoor(c *gin.Context, statusCode int, data any) {
 		errMsg = "Internal server error"
 	}
 
-	c.JSON(statusCode, gin.H{"message": errMsg})
+	c.JSON(statusCode, IntegrationErrorResponse{Message: errMsg})
 }
 
 // default limit and offset

@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS "cart_items" (
     "quantity" INT DEFAULT 0,
     "unit_quantity" INT DEFAULT 0,
     "unit_price" NUMERIC(10, 2), -- Base retail price from products
-    "discount_type" VARCHAR(10) CHECK ("discount_type" IN ('percent', 'cash')),
+    "discount_type" VARCHAR(10) CHECK ("discount_type" IN ('percent', 'cash')) DEFAULT 'percent',
     "discount_value" NUMERIC(10, 2) DEFAULT 0,
     "discount_amount" NUMERIC(10, 2) DEFAULT 0,
     "total_price" NUMERIC(10, 2) DEFAULT 0,

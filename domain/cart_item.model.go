@@ -131,3 +131,13 @@ type CartItemR struct {
 	Status         string  `gorm:"status" json:"status"`
 	BonusAmount    float64 `gorm:"bonus_amount" json:"bonus_amount"`
 }
+
+// cart item create request for online sale
+type CartItemOnlineRequest struct {
+	SaleId         string  `gorm:"sale_id" json:"sale_id"`
+	StoreProductID string  `gorm:"store_product_id" json:"store_product_id"`
+	Quantity       int     `gorm:"quantity" json:"-"`
+	UnitQuantity   int     `gorm:"unit_quantity" json:"-"`
+	UnitPrice      float64 `gorm:"unit_price" json:"-"`
+	TotalPrice     float64 `gorm:"total_price" json:"-"`
+}

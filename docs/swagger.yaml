@@ -217,6 +217,15 @@ definitions:
       postal_code:
         type: string
     type: object
+  domain.ConfirmOnlineSaleRequest:
+    properties:
+      cash_box_operation_id:
+        type: string
+      cashbox_id:
+        type: string
+      sale_id:
+        type: string
+    type: object
   domain.CreateProduct1C:
     properties:
       Apteka:
@@ -625,6 +634,96 @@ definitions:
       product_id:
         type: string
     type: object
+  domain.NoorCategory:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      parent_id:
+        type: string
+      photo:
+        type: string
+    type: object
+  domain.NoorClientInfo:
+    properties:
+      name:
+        type: string
+      phone:
+        type: string
+    type: object
+  domain.NoorProduct:
+    properties:
+      categories:
+        items:
+          type: string
+        type: array
+      description:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      photos:
+        items:
+          type: string
+        type: array
+    type: object
+  domain.NoorStore:
+    properties:
+      address:
+        type: string
+      id:
+        type: string
+      location:
+        $ref: '#/definitions/domain.Point'
+      name:
+        type: string
+      phone:
+        type: string
+      work_hours:
+        type: string
+    type: object
+  domain.NoorStoreProduct:
+    properties:
+      price:
+        type: integer
+      product_id:
+        type: string
+      quantity:
+        type: integer
+      shop_id:
+        type: string
+    type: object
+  domain.OnlineCartItemRequest:
+    properties:
+      productId:
+        type: string
+      quantity:
+        type: integer
+    type: object
+  domain.OnlineOrderRequest:
+    properties:
+      client_info:
+        $ref: '#/definitions/domain.NoorClientInfo'
+      delivery_time:
+        type: string
+      destination:
+        $ref: '#/definitions/domain.Point'
+      product_ids:
+        items:
+          $ref: '#/definitions/domain.OnlineCartItemRequest'
+        type: array
+      shop_id:
+        type: string
+    type: object
+  domain.OnlineOrderResponse:
+    properties:
+      message:
+        type: string
+      order_id:
+        type: integer
+    type: object
   domain.PaymentServiceRequest:
     properties:
       cashbox_id:
@@ -708,6 +807,13 @@ definitions:
         type: string
       type:
         type: string
+    type: object
+  domain.Point:
+    properties:
+      lat:
+        type: number
+      long:
+        type: number
     type: object
   domain.Producer:
     properties:
@@ -1010,26 +1116,6 @@ definitions:
       unit_quantity:
         type: integer
     type: object
-  domain.SaleOnline:
-    properties:
-      items:
-        items:
-          $ref: '#/definitions/domain.SaleOnlineItem'
-        type: array
-      total_amount:
-        type: integer
-    type: object
-  domain.SaleOnlineItem:
-    properties:
-      product_id:
-        type: string
-      quantity:
-        type: integer
-      store_id:
-        type: string
-      total_price:
-        type: number
-    type: object
   domain.SalePaymentRequest:
     properties:
       amount:
@@ -1317,6 +1403,11 @@ definitions:
       status:
         type: string
       store_id:
+        type: string
+    type: object
+  v1.IntegrationErrorResponse:
+    properties:
+      message:
         type: string
     type: object
   v1.Response:
@@ -6717,15 +6808,17 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/v1.Response'
+            items:
+              $ref: '#/definitions/domain.NoorCategory'
+            type: array
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/v1.Response'
+            $ref: '#/definitions/v1.IntegrationErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/v1.Response'
+            $ref: '#/definitions/v1.IntegrationErrorResponse'
       security:
       - BasicAuth: []
       summary: Get a category list for filter
@@ -6735,27 +6828,27 @@ paths:
     post:
       description: Create a sale
       parameters:
-      - description: Body
+      - description: Order Request body
         in: body
         name: body
         required: true
         schema:
-          $ref: '#/definitions/domain.SaleOnline'
+          $ref: '#/definitions/domain.OnlineOrderRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/v1.Response'
+            $ref: '#/definitions/domain.OnlineOrderResponse'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/v1.Response'
+            $ref: '#/definitions/v1.IntegrationErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/v1.Response'
+            $ref: '#/definitions/v1.IntegrationErrorResponse'
       security:
       - BasicAuth: []
       summary: Create a sale
@@ -6781,15 +6874,17 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/v1.Response'
+            items:
+              $ref: '#/definitions/domain.NoorProduct'
+            type: array
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/v1.Response'
+            $ref: '#/definitions/v1.IntegrationErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/v1.Response'
+            $ref: '#/definitions/v1.IntegrationErrorResponse'
       security:
       - BasicAuth: []
       summary: List Products
@@ -6801,7 +6896,7 @@ paths:
       - application/json
       description: List Store Products
       parameters:
-      - description: UpdateAt
+      - description: updatedAt
         in: query
         name: updatedAt
         type: string
@@ -6819,15 +6914,17 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/v1.Response'
+            items:
+              $ref: '#/definitions/domain.NoorStoreProduct'
+            type: array
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/v1.Response'
+            $ref: '#/definitions/v1.IntegrationErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/v1.Response'
+            $ref: '#/definitions/v1.IntegrationErrorResponse'
       security:
       - BasicAuth: []
       summary: List Store Products
@@ -6844,15 +6941,17 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/v1.Response'
+            items:
+              $ref: '#/definitions/domain.NoorStore'
+            type: array
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/v1.Response'
+            $ref: '#/definitions/v1.IntegrationErrorResponse'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/v1.Response'
+            $ref: '#/definitions/v1.IntegrationErrorResponse'
       security:
       - BasicAuth: []
       summary: List Store Products
@@ -12109,6 +12208,63 @@ paths:
       security:
       - BearerAuth: []
       summary: Get a sale
+      tags:
+      - sales
+  /sale/online-accept:
+    post:
+      consumes:
+      - application/json
+      description: Get online pending sale count
+      parameters:
+      - description: confirm online sale
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.ConfirmOnlineSaleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get online pending sale count
+      tags:
+      - sales
+  /sale/online-count:
+    get:
+      consumes:
+      - application/json
+      description: Get online pending sale count
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get online pending sale count
       tags:
       - sales
   /sale/return:

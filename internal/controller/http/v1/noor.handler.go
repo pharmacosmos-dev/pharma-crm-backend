@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
 )
 
@@ -34,9 +35,9 @@ func (h *NoorHandler) NoorRoutes(r *gin.RouterGroup) {
 // @Produce json
 // @Param   limit 	query     int      false "Limit"
 // @Param   offset 	query     int      false "Offset"
-// @Success 200 {object} v1.Response
-// @Failure 400 {object} v1.Response
-// @Failure 500 {object} v1.Response
+// @Success 200 {object} []domain.NoorProduct
+// @Failure 400 {object} v1.IntegrationErrorResponse
+// @Failure 500 {object} v1.IntegrationErrorResponse
 // @Router 	/noor/product/list 	[GET]
 func (h *NoorHandler) ProductList(c *gin.Context) {
 	var (
@@ -68,12 +69,12 @@ func (h *NoorHandler) ProductList(c *gin.Context) {
 // @Security     BasicAuth
 // @Accept 	json
 // @Produce json
-// @Param	updatedAt query   string   false "UpdateAt"
+// @Param	updatedAt query   string   false "updatedAt"
 // @Param   limit 	query     int      false "Limit"
 // @Param   offset 	query     int      false "Offset"
-// @Success 200 {object} v1.Response
-// @Failure 400 {object} v1.Response
-// @Failure 500 {object} v1.Response
+// @Success 200 {object} []domain.NoorStoreProduct
+// @Failure 400 {object} v1.IntegrationErrorResponse
+// @Failure 500 {object} v1.IntegrationErrorResponse
 // @Router 	/noor/store-product/list 	[GET]
 func (h *NoorHandler) StoreProductList(c *gin.Context) {
 	var param domain.NoorQueryParam
@@ -103,9 +104,9 @@ func (h *NoorHandler) StoreProductList(c *gin.Context) {
 // @Security     BasicAuth
 // @Accept 	json
 // @Produce json
-// @Success 200 {object} v1.Response
-// @Failure 400 {object} v1.Response
-// @Failure 500 {object} v1.Response
+// @Success 200 {object} []domain.NoorStore
+// @Failure 400 {object} v1.IntegrationErrorResponse
+// @Failure 500 {object} v1.IntegrationErrorResponse
 // @Router 	/noor/store/list 	[GET]
 func (h *NoorHandler) StoreList(c *gin.Context) {
 	// get store products info
@@ -126,9 +127,9 @@ func (h *NoorHandler) StoreList(c *gin.Context) {
 // @Produce 	json
 // @Param 		limit query int false "Limit"
 // @Param 		offset query int false "Offset"
-// @Success 200 {object} v1.Response
-// @Failure 400 {object} v1.Response
-// @Failure 500 {object} v1.Response
+// @Success 200 {object} []domain.NoorCategory
+// @Failure 400 {object} v1.IntegrationErrorResponse
+// @Failure 500 {object} v1.IntegrationErrorResponse
 // @Router 	/noor/category/list [get]
 func (h *NoorHandler) CategoryList(c *gin.Context) {
 	var (
@@ -194,10 +195,10 @@ func (h *NoorHandler) CategoryList(c *gin.Context) {
 // @Tags 	Noor API
 // @Security     BasicAuth
 // @Produce 	json
-// @Param 	body body domain.SaleOnline true "Body"
-// @Success 200 {object} v1.Response
-// @Failure 400 {object} v1.Response
-// @Failure 500 {object} v1.Response
+// @Param 	body body 	domain.OnlineOrderRequest true "Order Request body"
+// @Success 200 {object} domain.OnlineOrderResponse
+// @Failure 400 {object} v1.IntegrationErrorResponse
+// @Failure 500 {object} v1.IntegrationErrorResponse
 // @Router 	/noor/order [post]
 func (h *NoorHandler) CreateOrder(c *gin.Context) {
 	var body domain.OnlineOrderRequest
@@ -206,32 +207,27 @@ func (h *NoorHandler) CreateOrder(c *gin.Context) {
 	err := c.ShouldBindJSON(&body)
 	if err != nil {
 		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
+		handleResponseNoor(c, http.StatusBadRequest, "invalid.request.body")
 		return
 	}
-	// start transaction
-	tx := h.db.Begin()
-	defer recoverTransaction(tx, h.log)
 
 	// // create sale id
-	// saleId := uuid.New().String()
+	saleID := uuid.New().String()
 
-	// // create online sale
-	// err = h.service.CreateOnlineSale(tx, )
-	// if err != nil {
-	// 	h.log.Error(err)
-	// 	handleResponse(c, InternalError, "Cannot create the online sale, something went wrong")
-	// 	tx.Rollback()
-	// 	return
-	// }
-
-	// commit transaction
-	if err = tx.Commit().Error; err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, "Cannot commit the transaction")
-		tx.Rollback()
+	// checking product quantity and get collect cart_items
+	cartItems, err := h.service.GetOrCheckOnlineCartItems(body.Products, saleID)
+	if err != nil {
+		handleResponseNoor(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	handleResponse(c, OK, "Success")
+	// // create online sale
+	res, err := h.service.CreateOnlineSale(saleID, body.ShopId, cartItems)
+	if err != nil {
+		h.log.Error(err)
+		handleResponseNoor(c, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	handleResponseNoor(c, http.StatusOK, domain.OnlineOrderResponse{Message: "success", OrderID: res.SaleNumber})
 }

@@ -44,6 +44,8 @@ func (h *SaleHandler) SaleRoutes(r *gin.RouterGroup) {
 		sale.GET("/get-list", h.GetSaleList)
 		sale.POST("/discount-card", h.AddDiscountCard)
 		sale.DELETE("/discount-card", h.RemoveCustomerDiscount)
+		sale.GET("/online-count", h.GetOnlineSaleCount)
+		sale.POST("/online-accept", h.AcceptOnlineSale)
 	}
 }
 
@@ -1126,6 +1128,108 @@ func (h *SaleHandler) RemoveCustomerDiscount(c *gin.Context) {
 
 	handleResponse(c, OK, "DELETED")
 
+}
+
+// Get online pending sale count
+// @Summary Get online pending sale count
+// @Description Get online pending sale count
+// @Tags sales
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /sale/online-count [GET]
+func (h *SaleHandler) GetOnlineSaleCount(c *gin.Context) {
+	// get user_id from the set header
+	userID, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, BadRequest, "user.not.found.header")
+		return
+	}
+	// get employee info by set user_id
+	var employee domain.Employee
+	err := h.db.First(&employee, "id = ?", userID).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			handleResponse(c, NotFound, "user.not.found")
+			return
+		}
+		h.log.Warn("ERROR on getting employee info: %v", err)
+		handleResponse(c, InternalError, "not.get.user")
+		return
+	}
+	// get online order count
+	var count int64
+	err = h.db.Raw(`
+	SELECT
+		COUNT(*) AS count
+	FROM sales
+	WHERE store_id = ? AND
+		(online_status = 1 OR online_status = 2);
+	`, employee.StoreId).Scan(&count).Error
+
+	if err != nil {
+		h.log.Warn("ERROR on getting online sale count: %v", err)
+		handleResponse(c, InternalError, "internal.server.error")
+		return
+	}
+
+	handleResponse(c, OK, gin.H{"count": count})
+}
+
+// Get online pending sale count
+// @Summary Get online pending sale count
+// @Description Get online pending sale count
+// @Tags sales
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param   body body domain.ConfirmOnlineSaleRequest true "confirm online sale"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /sale/online-accept [POST]
+func (h *SaleHandler) AcceptOnlineSale(c *gin.Context) {
+	var body domain.ConfirmOnlineSaleRequest
+	// bind request body
+	err := c.ShouldBindJSON(&body)
+	if err != nil {
+		handleResponse(c, BadRequest, "invalid.request.body")
+		return
+	}
+	// get user_id from the set header
+	userID, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, BadRequest, "user.not.found.header")
+		return
+	}
+
+	// get online order count
+	var count int64
+	err = h.db.Raw(`
+	UPDATE 
+		sales
+	SET
+		cash_box_operation_id = ?,
+		cashbox_id = ?,
+		employee_id = ?,
+		online_status = ?
+	WHERE id = ?`,
+		body.CashBoxOperationID,
+		body.CashboxID,
+		userID,
+		config.ONLINE_STATUS_PENDING,
+		body.SaleID).Scan(&count).Error
+
+	if err != nil {
+		h.log.Warn("ERROR on getting online sale count: %v", err)
+		handleResponse(c, InternalError, "internal.server.error")
+		return
+	}
+
+	handleResponse(c, OK, gin.H{"count": count})
 }
 
 // lock order for parallel request

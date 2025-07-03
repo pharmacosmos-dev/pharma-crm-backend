@@ -240,4 +240,16 @@ type NoorClientInfo struct {
 	Phone string `json:"phone"`
 }
 
+// Order create response struct
+type OnlineOrderResponse struct {
+	Message string `json:"message"`
+	OrderID int    `json:"order_id"`
+}
+
+type ConfirmOnlineSaleRequest struct {
+	SaleID             string `gorm:"sale_id" json:"sale_id"`
+	CashBoxOperationID string `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
+	CashboxID          string `gorm:"cashbox_id" json:"cashbox_id"`
+}
+
 // end region

@@ -74,6 +74,18 @@ const (
 	CONFIRMED  = "confirmed"
 	SENT       = "sent"
 
+	// region online status
+
+	ONLINE_STATUS_DEFAULT   = 0
+	ONLINE_STATUS_NEW       = 1
+	ONLINE_STATUS_PENDING   = 2
+	ONLINE_STATUS_CANCELED  = -1
+	ONLINE_STATUS_COMPLETED = 2
+
+	// order type
+	SALE_TYPE_ONLINE  = "online"
+	SALE_TYPE_OFFLINE = "offline"
+
 	// region sale type
 
 	SALE_TYPE_RETURN = "RETURN"

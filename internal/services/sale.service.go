@@ -639,23 +639,32 @@ func (s *Services) collectSalePaymentAmount(typeAmounts []domain.FinalPaymentTyp
 
 // region online sale
 // create sale for online order
-func (s *Services) CreateOnlineSale(tx *gorm.DB, saleId string, totalAmount int64) error {
-	err := tx.Exec(`
-	INSERT INTO sales(
-		id, 
-		total_amount, 
-		type, 
-		is_delivered, 
-		status, 
-		completed_at
-		) 
-	VALUES(?, ?, ?, ?, ?, ?)`,
-		saleId, totalAmount, "online", false, config.COMPLETED, time.Now()).Error
+func (s *Services) CreateOnlineSale(saleId string, storeID string, cartItems []domain.CartItemOnlineRequest) (*domain.Sale, error) {
+	var sale domain.Sale
+	tx := s.db.Begin()
+	defer recoverTransaction(tx, s.log) // recover panic
+	// create cart_items
+	err := tx.Table("cart_items").Create(&cartItems).Error
 	if err != nil {
-		return err
+		return &sale, errors.New("not.created.cart_items")
 	}
-	return nil
-}
+	// create new sale
+	err = tx.Exec(`
+	INSERT INTO sales(
+		id,
+		store_id,
+		type,
+		online_status
+		) 
+	VALUES(?, ?, ?, ?) RETURNING *`,
+		saleId, storeID, config.SALE_TYPE_ONLINE, config.ONLINE_STATUS_NEW).Scan(&sale).Error
+	if err != nil {
+		return &sale, errors.New("not.created.new.order")
+	}
+	// rollback transaction
+	defer RollbackIfError(tx, &err) // return transaction
 
+	return &sale, nil
+}
 
 // end region

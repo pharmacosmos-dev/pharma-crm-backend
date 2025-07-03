@@ -8463,19 +8463,22 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/v1.Response"
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.NoorCategory"
+                            }
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/v1.Response"
+                            "$ref": "#/definitions/v1.IntegrationErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/v1.Response"
+                            "$ref": "#/definitions/v1.IntegrationErrorResponse"
                         }
                     }
                 }
@@ -8498,12 +8501,12 @@ const docTemplate = `{
                 "summary": "Create a sale",
                 "parameters": [
                     {
-                        "description": "Body",
+                        "description": "Order Request body",
                         "name": "body",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.SaleOnline"
+                            "$ref": "#/definitions/domain.OnlineOrderRequest"
                         }
                     }
                 ],
@@ -8511,19 +8514,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/v1.Response"
+                            "$ref": "#/definitions/domain.OnlineOrderResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/v1.Response"
+                            "$ref": "#/definitions/v1.IntegrationErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/v1.Response"
+                            "$ref": "#/definitions/v1.IntegrationErrorResponse"
                         }
                     }
                 }
@@ -8565,19 +8568,22 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/v1.Response"
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.NoorProduct"
+                            }
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/v1.Response"
+                            "$ref": "#/definitions/v1.IntegrationErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/v1.Response"
+                            "$ref": "#/definitions/v1.IntegrationErrorResponse"
                         }
                     }
                 }
@@ -8604,7 +8610,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "UpdateAt",
+                        "description": "updatedAt",
                         "name": "updatedAt",
                         "in": "query"
                     },
@@ -8625,19 +8631,22 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/v1.Response"
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.NoorStoreProduct"
+                            }
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/v1.Response"
+                            "$ref": "#/definitions/v1.IntegrationErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/v1.Response"
+                            "$ref": "#/definitions/v1.IntegrationErrorResponse"
                         }
                     }
                 }
@@ -8665,19 +8674,22 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/v1.Response"
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/domain.NoorStore"
+                            }
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/v1.Response"
+                            "$ref": "#/definitions/v1.IntegrationErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/v1.Response"
+                            "$ref": "#/definitions/v1.IntegrationErrorResponse"
                         }
                     }
                 }
@@ -16808,6 +16820,97 @@ const docTemplate = `{
                 }
             }
         },
+        "/sale/online-accept": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get online pending sale count",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sales"
+                ],
+                "summary": "Get online pending sale count",
+                "parameters": [
+                    {
+                        "description": "confirm online sale",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.ConfirmOnlineSaleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/sale/online-count": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get online pending sale count",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sales"
+                ],
+                "summary": "Get online pending sale count",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/sale/return": {
             "post": {
                 "security": [
@@ -20274,6 +20377,20 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.ConfirmOnlineSaleRequest": {
+            "type": "object",
+            "properties": {
+                "cash_box_operation_id": {
+                    "type": "string"
+                },
+                "cashbox_id": {
+                    "type": "string"
+                },
+                "sale_id": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.CreateProduct1C": {
             "type": "object",
             "properties": {
@@ -20890,6 +21007,145 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.NoorCategory": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "parent_id": {
+                    "type": "string"
+                },
+                "photo": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.NoorClientInfo": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.NoorProduct": {
+            "type": "object",
+            "properties": {
+                "categories": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "photos": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "domain.NoorStore": {
+            "type": "object",
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "location": {
+                    "$ref": "#/definitions/domain.Point"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "work_hours": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.NoorStoreProduct": {
+            "type": "object",
+            "properties": {
+                "price": {
+                    "type": "integer"
+                },
+                "product_id": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "integer"
+                },
+                "shop_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.OnlineCartItemRequest": {
+            "type": "object",
+            "properties": {
+                "productId": {
+                    "type": "string"
+                },
+                "quantity": {
+                    "type": "integer"
+                }
+            }
+        },
+        "domain.OnlineOrderRequest": {
+            "type": "object",
+            "properties": {
+                "client_info": {
+                    "$ref": "#/definitions/domain.NoorClientInfo"
+                },
+                "delivery_time": {
+                    "type": "string"
+                },
+                "destination": {
+                    "$ref": "#/definitions/domain.Point"
+                },
+                "product_ids": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.OnlineCartItemRequest"
+                    }
+                },
+                "shop_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.OnlineOrderResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "order_id": {
+                    "type": "integer"
+                }
+            }
+        },
         "domain.PaymentServiceRequest": {
             "type": "object",
             "properties": {
@@ -21014,6 +21270,17 @@ const docTemplate = `{
                 },
                 "type": {
                     "type": "string"
+                }
+            }
+        },
+        "domain.Point": {
+            "type": "object",
+            "properties": {
+                "lat": {
+                    "type": "number"
+                },
+                "long": {
+                    "type": "number"
                 }
             }
         },
@@ -21469,37 +21736,6 @@ const docTemplate = `{
                 }
             }
         },
-        "domain.SaleOnline": {
-            "type": "object",
-            "properties": {
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/domain.SaleOnlineItem"
-                    }
-                },
-                "total_amount": {
-                    "type": "integer"
-                }
-            }
-        },
-        "domain.SaleOnlineItem": {
-            "type": "object",
-            "properties": {
-                "product_id": {
-                    "type": "string"
-                },
-                "quantity": {
-                    "type": "integer"
-                },
-                "store_id": {
-                    "type": "string"
-                },
-                "total_price": {
-                    "type": "number"
-                }
-            }
-        },
         "domain.SalePaymentRequest": {
             "type": "object",
             "properties": {
@@ -21938,6 +22174,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "store_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "v1.IntegrationErrorResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
                     "type": "string"
                 }
             }
