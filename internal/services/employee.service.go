@@ -76,14 +76,14 @@ func (s *Services) GetEmployeeBonusAmount(param *domain.DashboardQueryParam, id 
 	// Parse start and end dates
 	startTime, err := time.Parse(time.RFC3339, param.StartDate)
 	if err != nil {
-		s.log.Error("Invalid start_date format: %v", err)
+		s.log.Error("invalid.start_date.format: %v", err)
 		return bonus, err
 	}
 	endTime := startTime
 	if param.EndDate != "" {
 		endTime, err = time.Parse(time.RFC3339, param.EndDate)
 		if err != nil {
-			s.log.Error("Invalid end_date format: %v", err)
+			s.log.Error("invalid.end_date.format: %v", err)
 			return bonus, err
 		}
 	}
@@ -92,8 +92,8 @@ func (s *Services) GetEmployeeBonusAmount(param *domain.DashboardQueryParam, id 
 	SELECT
 		SUM(CASE WHEN created_at BETWEEN ? AND ? THEN bonus_amount END) AS bonus_amount,
 		SUM(CASE WHEN created_at BETWEEN ? AND ? THEN bonus_amount END) AS before_bonus_amount
-	FROM employee_bonus  WHERE employee_id = ?`
-	err = s.db.Raw(query, param.StartDate, param.EndDate, beforeStart, beforeEnd, id).Scan(&bonus).Error
+	FROM employee_bonus  WHERE employee_id = ?;`
+	err = s.db.Raw(query, startTime, endTime, beforeStart, beforeEnd, id).Scan(&bonus).Error
 	if err != nil {
 		s.log.Error(err)
 		return bonus, err

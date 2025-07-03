@@ -155,7 +155,7 @@ func (h *CashBoxHandler) List(c *gin.Context) {
 		err        error
 		storeID    = c.Query("store_id")
 		search     = c.Query("search")
-		filter     = " WHERE 1=1 "
+		filter     = " WHERE c.is_active = true "
 		args       = []any{}
 	)
 	// get user id from header
