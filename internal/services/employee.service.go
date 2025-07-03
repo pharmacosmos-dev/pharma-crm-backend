@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
@@ -72,16 +73,27 @@ func (s *Services) ListEmployee(c *gin.Context, limit, offset int) ([]domain.Emp
 // get employee bonus amount
 func (s *Services) GetEmployeeBonusAmount(param *domain.DashboardQueryParam, id string) (domain.DashboardCountStatsBonus, error) {
 	var bonus domain.DashboardCountStatsBonus
-	if param.EndDate == "" {
-		param.EndDate = param.StartDate
+	// Parse start and end dates
+	startTime, err := time.Parse(time.RFC3339, param.StartDate)
+	if err != nil {
+		s.log.Error("invalid.start_date.format: %v", err)
+		return bonus, err
 	}
-	beforeStart, beforeEnd := utils.BeforeDates(param.StartDate, param.EndDate)
+	endTime := startTime
+	if param.EndDate != "" {
+		endTime, err = time.Parse(time.RFC3339, param.EndDate)
+		if err != nil {
+			s.log.Error("invalid.end_date.format: %v", err)
+			return bonus, err
+		}
+	}
+	beforeStart, beforeEnd := utils.BeforeDatesTime(startTime, endTime)
 	query := `
 	SELECT
-		SUM(CASE WHEN created_at::date BETWEEN ? AND ? THEN bonus_amount END) AS bonus_amount,
-		SUM(CASE WHEN created_at::date BETWEEN ? AND ? THEN bonus_amount END) AS before_bonus_amount
-	FROM employee_bonus  WHERE employee_id = ?`
-	err := s.db.Raw(query, param.StartDate, param.EndDate, beforeStart, beforeEnd, id).Scan(&bonus).Error
+		SUM(CASE WHEN created_at BETWEEN ? AND ? THEN bonus_amount END) AS bonus_amount,
+		SUM(CASE WHEN created_at BETWEEN ? AND ? THEN bonus_amount END) AS before_bonus_amount
+	FROM employee_bonus  WHERE employee_id = ?;`
+	err = s.db.Raw(query, startTime, endTime, beforeStart, beforeEnd, id).Scan(&bonus).Error
 	if err != nil {
 		s.log.Error(err)
 		return bonus, err
@@ -93,8 +105,25 @@ func (s *Services) GetEmployeeBonusAmount(param *domain.DashboardQueryParam, id 
 func (s *Services) AddEmployeeBonus(tx *gorm.DB, req *domain.EmployeeBonusRequest) error {
 	err := tx.Exec(`
 	INSERT INTO employee_bonus (
-		employee_id, sale_id, cashbox_operation_id, product_id, quantity, unit_quantity, bonus_amount) 
-	VALUES(?, ?, ?, ?, ?, ?, ?)`, req.EmployeeId, req.SaleId, req.CashboxOperationId, req.ProductId, req.Quantity, req.UnitQuantity, req.BonusAmount).Error
+		employee_id, 
+		sale_id, 
+		cashbox_operation_id, 
+		product_id, 
+		quantity, 
+		unit_quantity, 
+		bonus_amount
+		) 
+	VALUES(
+		?, ?, ?, ?, ?, ?, ?
+		)`,
+		req.EmployeeId,
+		req.SaleId,
+		req.CashboxOperationId,
+		req.ProductId,
+		req.Quantity,
+		req.UnitQuantity,
+		req.BonusAmount,
+	).Error
 	if err != nil {
 		s.log.Error("ERROR on adding bonus to employee: ", err)
 		return err

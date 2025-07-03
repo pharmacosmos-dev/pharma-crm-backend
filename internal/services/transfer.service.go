@@ -141,6 +141,15 @@ func (s *Services) TransferList(param *domain.ReturnParam) ([]domain.Transfer, i
 	if param.Status != "" {
 		query = query.Where("transfers.status = ?", param.Status)
 	}
+
+	if param.StartDate != "" {
+		query = query.Where("transfers.created_at >= ?", param.StartDate)
+	}
+	
+	if param.EndDate != "" {
+		query = query.Where("transfers.created_at <= ?", param.EndDate)
+	}
+
 	// complete query
 	err := query.
 		Group("transfers.id").

@@ -2425,6 +2425,55 @@ const docTemplate = `{
                 }
             }
         },
+        "/category/upload-category-product": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Upload Category Product excel file",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "categories"
+                ],
+                "summary": "Upload Category Product excel file",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Excel file (.xlsx) containing import data",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/category/{id}": {
             "get": {
                 "security": [
@@ -21448,12 +21497,6 @@ const docTemplate = `{
                 },
                 "total_price": {
                     "type": "number"
-                },
-                "unit_price": {
-                    "type": "number"
-                },
-                "unit_quantity": {
-                    "type": "integer"
                 }
             }
         },

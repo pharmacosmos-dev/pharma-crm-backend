@@ -36,6 +36,7 @@ func (h *CategoryHander) CategoryRoutes(r *gin.RouterGroup) {
 		category.GET("/list/product/:id", h.ListCategoryByProduct)
 		category.GET("/list/filter", h.ListCategory)
 		category.POST("/excel-upload", h.UploadCategory)
+		category.POST("/upload-category-product", h.UploadCategoryProduct)
 	}
 }
 
@@ -433,7 +434,7 @@ func (h *CategoryHander) UploadCategory(c *gin.Context) {
 
 	// Check file extension
 	ext := filepath.Ext(file.File.Filename)
-	if ext != ".xlsx" && ext != ".xls" {
+	if ext != ".xlsx" && ext != ".xls" && ext != ".xlsm" {
 		h.log.Error("Unsupported file format: ", ext)
 		handleResponse(c, BadRequest, "Unsupported file format")
 		return
@@ -459,7 +460,7 @@ func (h *CategoryHander) UploadCategory(c *gin.Context) {
 	}
 	defer xlsx.Close()
 
-	sheetName := xlsx.GetSheetName(1)
+	sheetName := xlsx.GetSheetName(0)
 	rows, err := xlsx.GetRows(sheetName)
 	if err != nil {
 		h.log.Error("Failed to get rows: ", err.Error())
@@ -467,7 +468,7 @@ func (h *CategoryHander) UploadCategory(c *gin.Context) {
 		return
 	}
 
-	var categories []map[string]interface{}
+	var categories []map[string]any
 	existingCategories := make(map[string]string) // Key: Category Name, Value: Category ID
 
 	// Load existing categories from DB
@@ -480,65 +481,196 @@ func (h *CategoryHander) UploadCategory(c *gin.Context) {
 		existingCategories[c.Name] = c.ID
 	}
 	for _, row := range rows[1:] {
-		if len(row) > 7 {
-
-			// Category
-			categoryID, exists := existingCategories[row[5]]
-			if !exists {
-				categoryID = uuid.New().String()
-				existingCategories[row[5]] = categoryID
-				categories = append(categories, map[string]interface{}{
-					"id":   categoryID,
-					"name": row[5],
-				})
-			}
-
-			// Subcategory
-			subCategoryID, exists := existingCategories[row[6]]
-			if !exists {
-				subCategoryID = uuid.New().String()
-				existingCategories[row[6]] = subCategoryID
-				categories = append(categories, map[string]interface{}{
-					"id":          subCategoryID,
-					"name":        row[6],
-					"category_id": categoryID,
-				})
-			}
-
-			// Child Category
-			if !exists {
-				childCategoryID := uuid.New().String()
-				existingCategories[row[7]] = childCategoryID
-				categories = append(categories, map[string]interface{}{
-					"id":          childCategoryID,
-					"name":        row[7],
-					"category_id": subCategoryID,
-				})
-			}
-		} else {
-			continue
+		// Category
+		categoryID, exists := existingCategories[row[3]]
+		if !exists {
+			categoryID = uuid.New().String()
+			existingCategories[row[3]] = categoryID
+			categories = append(categories, map[string]interface{}{
+				"id":   categoryID,
+				"name": row[3],
+			})
 		}
+
+		// Subcategory
+		subCategoryID, exists := existingCategories[row[4]]
+		if !exists {
+			subCategoryID = uuid.New().String()
+			existingCategories[row[4]] = subCategoryID
+			categories = append(categories, map[string]interface{}{
+				"id":          subCategoryID,
+				"name":        row[4],
+				"category_id": categoryID,
+			})
+		}
+
 	}
 
 	tx := h.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
+	defer recoverTransaction(tx, h.log)
+	defer RollbackIfError(tx, &err)
 
 	err = tx.Table("categories").Create(&categories).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
-		tx.Rollback()
+		return
+	}
+	// commit transaction
+	err = tx.Commit().Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
-	if err = tx.Commit().Error; err != nil {
+	handleResponse(c, OK, "CREATED")
+}
+
+// Upload Category Product
+// @Summary Upload Category Product excel file
+// @Description Upload Category Product excel file
+// @Tags categories
+// @Security     BearerAuth
+// @Accept 	multipart/form-data
+// @Produce json
+// @Param 	file formData file true "Excel file (.xlsx) containing import data"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /category/upload-category-product [post]
+func (h *CategoryHander) UploadCategoryProduct(c *gin.Context) {
+	var file domain.File
+	err := c.ShouldBind(&file)
+	if err != nil {
+		h.log.Error("Failed to bind file: ", err.Error())
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	// Check file extension
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" && ext != ".xlsm" {
+		h.log.Error("Unsupported file format: ", ext)
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+
+	// Save the uploaded file
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+	err = c.SaveUploadedFile(file.File, savePath)
+	if err != nil {
+		h.log.Error("Failed to save file: ", err.Error())
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+
+	// Open the Excel file
+	xlsx, err := excelize.OpenFile(savePath)
+	if err != nil {
+		h.log.Error("Failed to open .xlsx file: ", err.Error())
+		handleResponse(c, BadRequest, "Failed to process file")
+		return
+	}
+	defer xlsx.Close()
+
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		h.log.Error("Failed to get rows: ", err.Error())
+		handleResponse(c, InternalError, "Failed to get rows")
+		return
+	}
+
+	var categoryProduct []map[string]any
+	existingCategories := make(map[string]string) // Key: Category Name, Value: Category ID
+
+	// Load existing categories from DB
+	var dbCategories []struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}
+	h.db.Table("categories").Select("id, name").Find(&dbCategories)
+	for _, c := range dbCategories {
+		existingCategories[c.Name] = c.ID
+	}
+	// load exiting product with mxik from DB
+	var dbProducts []struct {
+		ID   string `json:"id"`
+		Mxik string `json:"mxik"`
+	}
+
+	existingProducts := make(map[string][]string) // Key: Product MXIK, Value: slice of Product IDsexistingProducts := make(map[string]string) // Key: Product Mxik, Value: ID
+	h.db.Table("products").Select("id, mxik").Where("mxik is not null AND mxik <> ''").Find(&dbProducts)
+	for _, p := range dbProducts {
+		existingProducts[p.Mxik] = append(existingProducts[p.Mxik], p.ID)
+	}
+
+	uniquePairs := make(map[string]bool)
+
+	for _, row := range rows[1:] {
+		// Parent category
+		categoryID, exists := existingCategories[row[3]]
+		productIDs, ok := existingProducts[row[5]]
+		if exists && ok {
+			for _, productID := range productIDs {
+				key := categoryID + ":" + productID
+				if !uniquePairs[key] {
+					uniquePairs[key] = true
+					categoryProduct = append(categoryProduct, map[string]any{
+						"category_id": categoryID,
+						"product_id":  productID,
+						"is_open":     true,
+					})
+				}
+			}
+		}
+
+		// Subcategory
+		subCategoryID, exists := existingCategories[row[4]]
+		productIDs, ok = existingProducts[row[5]]
+		if exists && ok {
+			for _, productID := range productIDs {
+				key := subCategoryID + ":" + productID
+				if !uniquePairs[key] {
+					uniquePairs[key] = true
+					categoryProduct = append(categoryProduct, map[string]any{
+						"category_id": subCategoryID,
+						"product_id":  productID,
+						"is_open":     true,
+					})
+				}
+			}
+		}
+	}
+
+	const chunkSize = 1000
+
+	tx := h.db.Begin()
+	defer recoverTransaction(tx, h.log)
+	defer RollbackIfError(tx, &err)
+
+	for i := 0; i < len(categoryProduct); i += chunkSize {
+		end := i + chunkSize
+		if end > len(categoryProduct) {
+			end = len(categoryProduct)
+		}
+
+		chunk := categoryProduct[i:end]
+		err = tx.Debug().Table("category_products").Create(&chunk).Error
+		if err != nil {
+			h.log.Error("Chunk insert error: ", err)
+			handleResponse(c, InternalError, "Failed to insert category products")
+			return
+		}
+	}
+
+	// commit transaction
+	err = tx.Commit().Error
+	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
-		tx.Rollback()
 		return
 	}
 
