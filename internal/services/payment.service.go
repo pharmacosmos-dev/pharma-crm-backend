@@ -665,25 +665,6 @@ func (h *Services) AlifPay(ctx context.Context, tx *gorm.DB, paymentService *dom
 		return nil, err
 	}
 
-	id, ok := res["id"].(string)
-	if !ok {
-		return nil, errors.New("id of alif pay not found")
-	}
-	res1, err := h.AlifConfirmPayment(ctx, data, id)
-	if err != nil {
-		return nil, err
-	}
-
-	t, _ = json.Marshal(res1)
-	err = h.SaveResponse(ctx, &domain.PaymentRequest{
-		TransactionID: transactionID,
-		Response:      t,
-		Method:        "alif_pay_confirm",
-	})
-	if err != nil {
-		return nil, err
-	}
-
 	return res, nil
 }
 

@@ -56,7 +56,8 @@ func (s *Services) ProductReportWithDate(param *domain.ReportQueryParam) ([]map[
 		SELECT
 			p.name AS product_name,
 			%s,
-			SUM(CASE WHEN s.completed_at::date BETWEEN '%s' AND '%s' THEN s.total_amount ELSE 0 END) AS total_amount
+			SUM(CASE WHEN s.completed
+		::date BETWEEN '%s' AND '%s' THEN s.total_amount ELSE 0 END) AS total_amount
 		FROM products p
 		JOIN store_products sp ON p.id = sp.product_id
 		LEFT JOIN cart_items ci ON sp.id = ci.store_product_id
@@ -79,78 +80,82 @@ func (s *Services) BonusReport(param *domain.ReportQueryParam) ([]domain.BonusRe
 	var (
 		res        []domain.BonusReport
 		totalCount int64
-		filter     = "WHERE 1 = 1 "
-		args       = []any{}
-		order      = " ORDER BY e.full_name"
-		group      = " GROUP BY e.id, s.id"
+		args       []any
 	)
-	// build query
+
+	// Bazaviy query
 	query := `
-	SELECT
-		e.id AS id,
-		e.public_id,
-		e.full_name,
-		e.phone,
-		s.name AS store_name,
-		STRING_AGG(DISTINCT r.name, '/' ORDER BY r.name) AS role,
-		SUM(eb.bonus_amount) as amount,
-		SUM(eb.quantity+(eb.unit_quantity / 10.0)) AS count, 
-		COUNT(*) OVER() AS total_count
-	FROM employee_bonus eb
+		SELECT
+			e.id AS id,
+			e.public_id,
+			e.full_name,
+			e.phone,
+			s.name AS store_name,
+			STRING_AGG(DISTINCT r.name, '/' ORDER BY r.name) AS role,
+			SUM(eb.bonus_amount) AS amount,
+			SUM(eb.quantity + (eb.unit_quantity / 10.0)) AS count,
+			COUNT(*) OVER() AS total_count
+		FROM employee_bonus eb
 		JOIN employees e ON eb.employee_id = e.id
 		JOIN stores s ON e.store_id = s.id
 		JOIN employee_roles er ON e.id = er.employee_id
 		JOIN roles r ON er.role_id = r.id
 	`
-	// filter with store_id
+
+	filter := " WHERE 1 = 1 "
+	group := " GROUP BY e.id, s.id "
+	order := " ORDER BY e.full_name"
+
+	// Filtrlash: do‘konlar
 	if len(param.StoreIds) > 0 {
-		filter += " AND s.id IN (?) "
+		filter += " AND s.id IN (?)"
 		args = append(args, param.StoreIds)
 	}
-	// filter with search PublicID, fullName, phone
+
+	// Filtrlash: qidiruv (public_id, full_name, phone)
 	if param.Search != "" {
 		search := "%" + param.Search + "%"
 		filter += " AND (e.full_name ILIKE ? OR e.phone LIKE ? OR CAST(e.public_id AS TEXT) LIKE ?)"
 		args = append(args, search, search, search)
 	}
-	// checking end time with empty string
-	if param.EndDate == "" {
-		param.EndDate = param.StartDate
-	}
-	// filter with start date
+
+	// Sana bo‘yicha filter (5 soat farq bilan)
 	if param.StartDate != "" && param.EndDate != "" {
-		filter += " AND eb.created_at::date BETWEEN ? AND ? "
+		filter += " AND (eb.created_at + interval '5 hours')::date BETWEEN ? AND ?"
 		args = append(args, param.StartDate, param.EndDate)
+	} else if param.EndDate == "" && param.StartDate != "" {
+		filter += " AND (eb.created_at + interval '5 hours')::date = ?"
+		args = append(args, param.StartDate)
 	}
 
-	// sort by order type
-	if param.Order != "" {
-		switch param.Order {
-		case "min_count":
-			order = " ORDER BY count "
-		case "max_count":
-			order = " ORDER BY count DESC "
-		case "min_amount":
-			order = " ORDER BY amount "
-		case "max_amount":
-			order = " ORDER BY amount DESC "
-		}
+	// Sortlash: parametrga qarab
+	switch param.Order {
+	case "min_count":
+		order = " ORDER BY count ASC"
+	case "max_count":
+		order = " ORDER BY count DESC"
+	case "min_amount":
+		order = " ORDER BY amount ASC"
+	case "max_amount":
+		order = " ORDER BY amount DESC"
 	}
-	// add pagination
-	pagination := " LIMIT ? OFFSET ?;"
+
+	// Yakuniy query
+	finalQuery := query + filter + group + order + " LIMIT ? OFFSET ?"
 	args = append(args, param.Limit, param.Offset)
-	// collect query with filter, group by and order
-	query = query + filter + group + order + pagination
-	err := s.db.Raw(query, args...).Scan(&res).Error
+
+	// So‘rovni bajarish
+	err := s.db.Raw(finalQuery, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting bonus report: %v", err)
 		return res, 0, nil
 	}
-	// get total count
+
+	// Total count
 	if len(res) > 0 {
-		// Read from the first row — all rows have the same total_count
 		totalCount = res[0].TotalCount
 	}
+
 	return res, totalCount, nil
 }
 
@@ -164,6 +169,7 @@ func (s *Services) ProductReport(ctx context.Context, param *domain.ReportQueryP
 		order      = utils.BuildProductReport(param.Order)
 		pagination = fmt.Sprintf(" LIMIT %d OFFSET %d ", param.Limit, param.Offset)
 	)
+
 	query := `
 	SELECT
 		ci.id AS cart_item_id,
@@ -194,6 +200,7 @@ func (s *Services) ProductReport(ctx context.Context, param *domain.ReportQueryP
 		INNER JOIN products p ON sp.product_id = p.id
 		LEFT JOIN producers pr ON p.producer_id = pr.id
 	`
+
 	tquery := `
 	SELECT
 		COUNT(*) AS total_count
@@ -207,44 +214,64 @@ func (s *Services) ProductReport(ctx context.Context, param *domain.ReportQueryP
 		LEFT JOIN producers pr ON p.producer_id = pr.id
 	`
 
-	// filter by search key
+	// search filter
 	if param.Search != "" {
 		filter += " AND (p.name ILIKE ? OR s.name ILIKE ?) "
 		args = append(args, param.Search, param.Search)
 	}
-	// filter by store_ids
+	// store_ids filter
 	if len(param.StoreIds) > 0 {
 		filter += " AND sl.store_id IN (?) "
 		args = append(args, param.StoreIds)
 	}
-	// filter by producers
+	// producer filter
 	if param.ProducerId != "" {
 		filter += " AND p.producer_id = ? "
 		args = append(args, param.ProducerId)
 	}
-	// filter by employee
+	// employee filter
 	if param.EmployeeId != "" {
 		filter += " AND sl.employee_id = ? "
 		args = append(args, param.EmployeeId)
 	}
-	// check end_date
-	if param.EndDate == "" {
-		param.EndDate = param.StartDate
-	}
-	// filter by start_date, end_date
+
+	// Apply date filter with full datetime support
 	if param.StartDate != "" && param.EndDate != "" {
-		filter += " AND (sl.completed_at + interval '5 hours')::date BETWEEN ? AND ? "
-		args = append(args, param.StartDate, param.EndDate)
+		startTime, err := time.Parse(time.RFC3339, param.StartDate)
+		if err != nil {
+			s.log.Warn("Invalid start_date format: %v", err)
+			return res, 0, err
+		}
+		endTime, err := time.Parse(time.RFC3339, param.EndDate)
+		if err != nil {
+			s.log.Warn("Invalid end_date format: %v", err)
+			return res, 0, err
+		}
+		startStr := startTime.Format("2006-01-02 15:04:05")
+		endStr := endTime.Format("2006-01-02 15:04:05")
+		filter += " AND (sl.completed_at + interval '5 hours') BETWEEN ? AND ? "
+		args = append(args, startStr, endStr)
+	} else if param.EndDate == "" && param.StartDate != "" {
+		endTime, err := time.Parse(time.RFC3339, param.StartDate)
+		if err != nil {
+			s.log.Warn("Invalid start_date format: %v", err)
+			return res, 0, err
+		}
+		endStr := endTime.Format("2006-01-02 15:04:05")
+		filter += " AND (sl.completed_at + interval '5 hours') <= ? "
+		args = append(args, endStr)
 	}
-	tquery = tquery + filter
-	// get total_count
+
+	// Total count query
+	tquery += filter
 	err := s.db.Raw(tquery, args...).Scan(&totalCount).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting product report total count: %v", err)
 		return res, 0, nil
 	}
 
-	query = query + filter + order + pagination
+	// Main query
+	query += filter + order + pagination
 	err = s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting product report: %v", err)
@@ -265,10 +292,6 @@ func (s *Services) ProductStatusReport(ctx context.Context, param *domain.Report
 		}
 		filter = " WHERE sl.status = 'completed' "
 	)
-
-	if param.EndDate == "" {
-		param.EndDate = param.StartDate
-	}
 
 	// Conditionally add joins
 	if param.Search != "" || len(param.StoreIds) > 0 {
@@ -299,22 +322,45 @@ func (s *Services) ProductStatusReport(ctx context.Context, param *domain.Report
 		args = append(args, param.EmployeeId)
 	}
 	if param.StartDate != "" && param.EndDate != "" {
-		filter += " AND (sl.completed_at + interval '5 hours')::date BETWEEN ? AND ? "
-		args = append(args, param.StartDate, param.EndDate)
+		startTime, err := time.Parse(time.RFC3339, param.StartDate)
+		if err != nil {
+			s.log.Warn("Invalid start_date format: %v", err)
+			return res, err
+		}
+		endTime, err := time.Parse(time.RFC3339, param.EndDate)
+		if err != nil {
+			s.log.Warn("Invalid end_date format: %v", err)
+			return res, err
+		}
+		startStr := startTime.Format("2006-01-02 15:04:05")
+		endStr := endTime.Format("2006-01-02 15:04:05")
+
+		filter += " AND (sl.completed_at + interval '5 hours') BETWEEN ? AND ? "
+		args = append(args, startStr, endStr)
+	} else if param.EndDate == "" && param.StartDate != "" {
+		endTime, err := time.Parse(time.RFC3339, param.StartDate)
+		if err != nil {
+			s.log.Warn("Invalid start_date format: %v", err)
+			return res, err
+		}
+		endStr := endTime.Format("2006-01-02 15:04:05")
+		filter += " AND (sl.completed_at + interval '5 hours') <= ? "
+		args = append(args, endStr)
 	}
 
+	// Build and run query
 	query := fmt.Sprintf(`
 		SELECT
 			COALESCE(SUM(CASE WHEN sl.sale_type = 'SALE' THEN (ci.quantity + ci.unit_quantity / p.unit_per_pack) ELSE 0 END), 0) AS total_quantity,
 			COALESCE(SUM(CASE WHEN sl.sale_type = 'RETURN' THEN (ci.quantity + ci.unit_quantity / p.unit_per_pack) ELSE 0 END), 0) AS total_quantity_returned,
 			ROUND(COALESCE(SUM(CASE
-					WHEN sl.sale_type = 'SALE' THEN (ci.quantity * sp.retail_price) + (ci.unit_quantity * (sp.retail_price / p.unit_per_pack))
-					WHEN sl.sale_type = 'RETURN' THEN ((ci.quantity * sp.retail_price) + (ci.unit_quantity * (sp.retail_price / p.unit_per_pack)))*(-1)
-					ELSE 0
+				WHEN sl.sale_type = 'SALE' THEN (ci.quantity * sp.retail_price) + (ci.unit_quantity * (sp.retail_price / p.unit_per_pack))
+				WHEN sl.sale_type = 'RETURN' THEN ((ci.quantity * sp.retail_price) + (ci.unit_quantity * (sp.retail_price / p.unit_per_pack))) * (-1)
+				ELSE 0
 			END), 0), 2) AS total_retail_price_sum,
 			ROUND(COALESCE(SUM(CASE 
-					WHEN sl.sale_type = 'RETURN' THEN (ci.quantity * sp.retail_price) + (ci.unit_quantity * (sp.retail_price / p.unit_per_pack)) 
-					ELSE 0 END), 0), 2) AS total_retail_price_sum_returned
+				WHEN sl.sale_type = 'RETURN' THEN (ci.quantity * sp.retail_price) + (ci.unit_quantity * (sp.retail_price / p.unit_per_pack)) 
+				ELSE 0 END), 0), 2) AS total_retail_price_sum_returned
 		FROM sales sl
 		%s
 		%s
@@ -419,88 +465,83 @@ func (s *Services) LflReport(param *domain.ReportQueryParam) (domain.LflReport, 
 
 // get store report amount
 func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.StoreAmount, int64, error) {
-	if param.EndDate == "" {
-		param.EndDate = param.StartDate
-	}
+
 	var (
 		res        []domain.StoreAmount
 		totalCount int64
 		filter     = " WHERE sa.status = 'completed' "
-		args       = []any{}
-		group      = " GROUP BY s.id, s.name, sale_date  "
+		args       []any
+		group      = " GROUP BY s.id, s.name, sale_date"
 		order      = utils.BuildStoreReportOrderClause(param.Order)
 	)
-	query := `
-	SELECT
-		row_number() OVER (ORDER BY s.name, (sa.completed_at + interval '5 hours')::date) AS uid,
-		s.id,
-		s.store_code,
-		s.name AS store_name,
-		(sa.completed_at + interval '5 hours')::date AS sale_date,
-		SUM(CASE WHEN pt.name = 'Naqd' AND sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
-		SUM(CASE WHEN pt.name = 'Naqd' AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS cash,
-		SUM(CASE WHEN pt.name = 'Uzcard' AND sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
-		SUM(CASE WHEN pt.name = 'Uzcard' AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS uzcard,
-		SUM(CASE WHEN pt.name = 'Humo' AND sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
-		SUM(CASE WHEN pt.name = 'Humo' AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS humo,
-		SUM(CASE WHEN pt.name = 'Click' AND sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
-		SUM(CASE WHEN pt.name = 'Click' AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS click,
-		SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS return_amount,
-		SUM(CASE WHEN sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) - SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS total_amount
-	FROM
-		stores s
-	JOIN
-		sales sa ON s.id = sa.store_id
-	JOIN
-		sale_payments sp ON sa.id = sp.sale_id
-	JOIN
-		payment_types pt ON sp.payment_type_id = pt.id
-	`
-	// get total count
-	tquery := `
-	SELECT
-		COUNT(*) AS total_count
-	FROM (
-	SELECT
-        s.id,
-        s.name,
-        (sa.completed_at + interval '5 hours')::date AS sale_date
-    FROM
-        stores s
-    JOIN
-        sales sa ON s.id = sa.store_id
-    JOIN
-        sale_payments sp ON sa.id = sp.sale_id
-    JOIN
-        payment_types pt ON sp.payment_type_id = pt.id
-    `
 
+	// Filters
 	if param.StoreId != "" {
-		filter += " AND s.id = ? "
+		filter += " AND s.id = ?"
 		args = append(args, param.StoreId)
 	}
-
 	if param.Search != "" {
-		filter += " AND s.name ILIKE ? "
+		filter += " AND s.name ILIKE ?"
 		args = append(args, "%"+param.Search+"%")
 	}
 	if param.StartDate != "" && param.EndDate != "" {
-		filter += " AND (sa.completed_at + interval '5 hours')::date BETWEEN ? AND ? "
+		filter += " AND (sa.completed_at + interval '5 hours')::date BETWEEN ? AND ?"
 		args = append(args, param.StartDate, param.EndDate)
+	} else if param.EndDate == "" && param.StartDate != "" {
+		filter += " AND (sa.completed_at + interval '5 hours')::date = ?"
+		args = append(args, param.StartDate)
 	}
-	tquery = tquery + filter + group + ") AS total_count_table;"
-	// get total count
-	err := s.db.Raw(tquery, args...).Scan(&totalCount).Error
-	if err != nil {
+
+	// Count query
+	countQuery := fmt.Sprintf(`
+		SELECT COUNT(*) AS total_count FROM (
+			SELECT s.id, s.name, (sa.completed_at + interval '5 hours')::date AS sale_date
+			FROM stores s
+			JOIN sales sa ON s.id = sa.store_id
+			JOIN sale_payments sp ON sa.id = sp.sale_id
+			JOIN payment_types pt ON sp.payment_type_id = pt.id
+			%s
+			%s
+		) AS total_count_table
+	`, filter, group)
+
+	if err := s.db.Raw(countQuery, args...).Scan(&totalCount).Error; err != nil {
 		s.log.Warn("ERROR on getting store report total count: %v", err)
 		return res, 0, err
 	}
-	// collect query with filter, group by and order
 
-	query = query + filter + group + order + " LIMIT ? OFFSET ?;"
-	args = append(args, param.Limit, param.Offset)
-	err = s.db.Raw(query, args...).Scan(&res).Error
-	if err != nil {
+	// Main query
+	mainQuery := fmt.Sprintf(`
+		SELECT
+			row_number() OVER (ORDER BY s.name, (sa.completed_at + interval '5 hours')::date) AS uid,
+			s.id,
+			s.store_code,
+			s.name AS store_name,
+			(sa.completed_at + interval '5 hours')::date AS sale_date,
+			SUM(CASE WHEN pt.name = 'Naqd' AND sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
+			SUM(CASE WHEN pt.name = 'Naqd' AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS cash,
+			SUM(CASE WHEN pt.name = 'Uzcard' AND sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
+			SUM(CASE WHEN pt.name = 'Uzcard' AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS uzcard,
+			SUM(CASE WHEN pt.name = 'Humo' AND sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
+			SUM(CASE WHEN pt.name = 'Humo' AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS humo,
+			SUM(CASE WHEN pt.name = 'Click' AND sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
+			SUM(CASE WHEN pt.name = 'Click' AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS click,
+			SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS return_amount,
+			SUM(CASE WHEN sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) - 
+			SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS total_amount
+		FROM stores s
+		JOIN sales sa ON s.id = sa.store_id
+		JOIN sale_payments sp ON sa.id = sp.sale_id
+		JOIN payment_types pt ON sp.payment_type_id = pt.id
+		%s
+		%s
+		%s
+		LIMIT ? OFFSET ?
+	`, filter, group, order)
+
+	argsWithPagination := append(args, param.Limit, param.Offset)
+
+	if err := s.db.Raw(mainQuery, argsWithPagination...).Scan(&res).Error; err != nil {
 		s.log.Warn("ERROR on getting store payment amounts: %v", err)
 		return res, 0, err
 	}
@@ -513,57 +554,55 @@ func (s *Services) ReportByStoreStats(param *domain.ReportQueryParam) (domain.St
 	var (
 		res    domain.StoreReportStats
 		filter = " WHERE sa.status = 'completed' "
-		args   = []any{}
+		args   []any
 	)
-	query := `
-	SELECT
-		SUM(CASE WHEN pt.name = 'Naqd' AND sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
-		SUM(CASE WHEN pt.name = 'Naqd' AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS cash,
 
-		SUM(CASE WHEN pt.name = 'Uzcard' AND sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
-		SUM(CASE WHEN pt.name = 'Uzcard' AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS uzcard,
-
-		SUM(CASE WHEN pt.name = 'Humo' AND sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
-		SUM(CASE WHEN pt.name = 'Humo' AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS humo,
-
-		SUM(CASE WHEN pt.name = 'Click' AND sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
-		SUM(CASE WHEN pt.name = 'Click' AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS click,
-
-		SUM(CASE WHEN pt.name = 'Payme' AND sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
-		SUM(CASE WHEN pt.name = 'Payme' AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS payme,
-
-		SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS return_amount,
-
-		SUM(CASE WHEN sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
-		SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS total_amount
-	FROM
-		stores s
-	JOIN
-		sales sa ON s.id = sa.store_id
-	JOIN
-		sale_payments sp ON sa.id = sp.sale_id
-	JOIN
-		payment_types pt ON sp.payment_type_id = pt.id
-	`
+	// Filterlar
 	if param.StoreId != "" {
-		filter += " AND s.id = ? "
+		filter += " AND s.id = ?"
 		args = append(args, param.StoreId)
 	}
 	if param.Search != "" {
-		filter += " AND s.name ILIKE ? "
+		filter += " AND s.name ILIKE ?"
 		args = append(args, "%"+param.Search+"%")
 	}
-	if param.EndDate == "" {
-		param.EndDate = param.StartDate
+	if param.StartDate != "" && param.EndDate != "" {
+		filter += " AND (sa.completed_at + interval '5 hours')::date BETWEEN ? AND ?"
+		args = append(args, param.StartDate, param.EndDate)
+	} else if param.EndDate == "" && param.StartDate != "" {
+		filter += " AND (sa.completed_at + interval '5 hours')::date >= ?"
+		args = append(args, param.StartDate)
 	}
 
-	if param.StartDate != "" && param.EndDate != "" {
-		filter += " AND (sa.completed_at + interval '5 hours')::date BETWEEN ? AND ? "
-		args = append(args, param.StartDate, param.EndDate)
-	}
-	query = query + filter
-	err := s.db.Raw(query, args...).Scan(&res).Error
-	if err != nil {
+	query := fmt.Sprintf(`
+		SELECT
+			SUM(CASE WHEN pt.name = 'Naqd'   AND sa.sale_type = 'SALE'   THEN sp.amount ELSE 0 END) -
+			SUM(CASE WHEN pt.name = 'Naqd'   AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS cash,
+
+			SUM(CASE WHEN pt.name = 'Uzcard' AND sa.sale_type = 'SALE'   THEN sp.amount ELSE 0 END) -
+			SUM(CASE WHEN pt.name = 'Uzcard' AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS uzcard,
+
+			SUM(CASE WHEN pt.name = 'Humo'   AND sa.sale_type = 'SALE'   THEN sp.amount ELSE 0 END) -
+			SUM(CASE WHEN pt.name = 'Humo'   AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS humo,
+
+			SUM(CASE WHEN pt.name = 'Click'  AND sa.sale_type = 'SALE'   THEN sp.amount ELSE 0 END) -
+			SUM(CASE WHEN pt.name = 'Click'  AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS click,
+
+			SUM(CASE WHEN pt.name = 'Payme'  AND sa.sale_type = 'SALE'   THEN sp.amount ELSE 0 END) -
+			SUM(CASE WHEN pt.name = 'Payme'  AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS payme,
+
+			SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS return_amount,
+
+			SUM(CASE WHEN sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
+			SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS total_amount
+		FROM stores s
+		JOIN sales sa ON s.id = sa.store_id
+		JOIN sale_payments sp ON sa.id = sp.sale_id
+		JOIN payment_types pt ON sp.payment_type_id = pt.id
+		%s
+	`, filter)
+
+	if err := s.db.Raw(query, args...).Scan(&res).Error; err != nil {
 		s.log.Warn("ERROR on getting store report: %v", err)
 		return res, err
 	}
@@ -576,76 +615,123 @@ func (s *Services) ReportTopProducts(param *domain.ReportQueryParam) ([]domain.T
 	// declaration
 	var (
 		res        []domain.TopProducts
+		args       []any
 		totalCount int64
+		startTime  time.Time
+		endTime    time.Time
 	)
-	// query
-	var (
-		args  []any
-		query = `
+
+	startTime, err := time.Parse(time.RFC3339, param.StartDate)
+	if err != nil {
+		s.log.Warn("Invalid start_date format: %v", err)
+		return nil, 0, err
+	}
+	if param.EndDate != "" {
+		endTime, err = time.Parse(time.RFC3339, param.EndDate)
+		if err != nil {
+			s.log.Warn("Invalid end_date format: %v", err)
+			return nil, 0, err
+		}
+	} else {
+		endTime, err = time.Parse(time.RFC3339, param.StartDate)
+		if err != nil {
+			s.log.Warn("Invalid end_date format: %v", err)
+			return nil, 0, err
+		}
+		endTime = endTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+	}
+	beforeStart, beforeEnd := utils.BeforeDatesTime(startTime, endTime)
+
+	query := `
+	SELECT
+		curr.id,
+		curr.name,
+		curr.count,
+		curr.unit_quantity,
+		curr.unit_per_pack,
+		curr.total_amount,
+		prev.total_amount AS previous_total_amount,
+		ROUND(
+			CASE 
+				WHEN COALESCE(prev.total_amount, 0) = 0 THEN 100
+				ELSE ((curr.total_amount - prev.total_amount) * 100.0) / NULLIF(prev.total_amount, 0)
+			END, 2
+		) AS percent,
+		COUNT(*) OVER() AS total_count
+	FROM (
 		SELECT
-			p.id, p.name,
+			p.id,
+			p.name,
 			SUM(ci.quantity) + FLOOR(SUM(ci.unit_quantity)::decimal / p.unit_per_pack) AS count,
 			(SUM(ci.unit_quantity) % p.unit_per_pack) AS unit_quantity,
 			p.unit_per_pack,
-			sum(ci.total_price) as total_amount,
-			COUNT(1) OVER() AS total_count
+			SUM(ci.total_price) as total_amount
 		FROM cart_items ci
-			JOIN store_products sp ON ci.store_product_id = sp.id
-			JOIN products p on sp.product_id = p.id`
-		filter = " WHERE 1 = 1 "
-		group  = " GROUP BY p.id, p.name"
-		order  = " ORDER BY total_amount DESC"
+		JOIN store_products sp ON ci.store_product_id = sp.id
+		JOIN products p ON sp.product_id = p.id
+		WHERE (ci.updated_at+ interval '5 hours') BETWEEN ? AND ?
+		GROUP BY p.id, p.name, p.unit_per_pack
+	) AS curr
+	LEFT JOIN (
+		SELECT
+			p.id,
+			SUM(ci.total_price) AS total_amount
+		FROM cart_items ci
+		JOIN store_products sp ON ci.store_product_id = sp.id
+		JOIN products p ON sp.product_id = p.id
+		WHERE (ci.updated_at+ interval '5 hours') BETWEEN ? AND ?
+		GROUP BY p.id
+	) AS prev ON curr.id = prev.id
+`
+
+	// Arguments for current and previous period
+	args = append(args,
+		startTime.Format(time.RFC3339),
+		endTime.Format(time.RFC3339),
+		beforeStart.Format(time.RFC3339),
+		beforeEnd.Format(time.RFC3339),
 	)
+
+	// Filters
+	where := " WHERE 1 = 1"
 	if param.Search != "" {
-		filter += " AND p.name ILIKE ?"
+		where += " AND curr.name ILIKE ?"
 		args = append(args, "%"+param.Search+"%")
 	}
 	if param.StoreId != "" {
-		filter += " AND sp.store_id = ?"
+		where += " AND EXISTS (SELECT 1 FROM store_products sp2 WHERE sp2.product_id = curr.id AND sp2.store_id = ?)"
 		args = append(args, param.StoreId)
 	}
-
 	if len(param.StoreIds) > 0 {
-		filter += " AND sp.store_id IN (?)"
+		where += " AND EXISTS (SELECT 1 FROM store_products sp3 WHERE sp3.product_id = curr.id AND sp3.store_id IN (?))"
 		args = append(args, param.StoreIds)
 	}
 
-	if len(param.StoreIds) > 0 {
-		filter += " AND sp.store_id IN (?)"
-		args = append(args, param.StoreIds)
+	// Sorting
+	switch param.Order {
+	case "min_count":
+		query += where + " ORDER BY count ASC"
+	case "max_count":
+		query += where + " ORDER BY count DESC"
+	case "min_amount":
+		query += where + " ORDER BY total_amount ASC"
+	case "max_amount":
+		query += where + " ORDER BY total_amount DESC"
+	default:
+		query += where + " ORDER BY total_amount DESC"
 	}
 
-	if param.StartDate != "" && param.EndDate == "" {
-		filter += " AND ci.updated_at::date = ?"
-		args = append(args, param.StartDate)
-	}
-	if param.StartDate != "" && param.EndDate != "" {
-		filter += " AND ci.updated_at::date >= ? AND ci.updated_at::date <= ?"
-		args = append(args, param.StartDate, param.EndDate)
-	}
-
-	// sort by order type
-	if param.Order != "" {
-		switch param.Order {
-		case "min_count":
-			order = " ORDER BY count ASC, (SUM(ci.unit_quantity) % p.unit_per_pack)::decimal / p.unit_per_pack ASC"
-		case "max_count":
-			order = " ORDER BY count DESC, (SUM(ci.unit_quantity) % p.unit_per_pack)::decimal / p.unit_per_pack DESC"
-		case "min_amount":
-			order = " ORDER BY total_amount "
-		case "max_amount":
-			order = " ORDER BY total_amount DESC "
-		}
-	}
-
+	// Pagination
+	query += " LIMIT ? OFFSET ?"
 	args = append(args, param.Limit, param.Offset)
-	var q = query + filter + group + order + " LIMIT ? OFFSET ?"
-	err := s.db.Raw(q, args...).Scan(&res).Error
+
+	// Execute query
+	err = s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Error("ERROR on getting top products: ", err)
-		return nil, totalCount, err
+		return nil, 0, err
 	}
-	// get total count
+
 	if len(res) > 0 {
 		totalCount = res[0].TotalCount
 	}
@@ -655,71 +741,127 @@ func (s *Services) ReportTopProducts(param *domain.ReportQueryParam) ([]domain.T
 
 // get report top seller
 func (s *Services) ReportTopSeller(param *domain.ReportQueryParam) ([]domain.TopSeller, int64, error) {
-	// declaration
 	var (
 		res        []domain.TopSeller
 		totalCount int64
+		args       []any
+		startTime  time.Time
+		endTime    time.Time
 	)
-	// query
-	var (
-		args  []any
-		query = `
+
+	startTime, err := time.Parse(time.RFC3339, param.StartDate)
+	if err != nil {
+		s.log.Error("Invalid start_date format: %v", err)
+		return nil, 0, err
+	}
+	if param.EndDate != "" {
+		endTime, err = time.Parse(time.RFC3339, param.EndDate)
+		if err != nil {
+			s.log.Warn("Invalid end_date format: %v", err)
+			return nil, 0, err
+		}
+	} else {
+		endTime, err = time.Parse(time.RFC3339, param.StartDate)
+		if err != nil {
+			s.log.Warn("Invalid end_date format: %v", err)
+			return nil, 0, err
+		}
+		endTime = endTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+	}
+	beforeStart, beforeEnd := utils.BeforeDatesTime(startTime, endTime)
+
+	// Main query
+	query := `
+	SELECT
+		curr.id,
+		curr.full_name,
+		curr.store_name,
+		curr.count,
+		curr.total_amount,
+		prev.total_amount AS previous_total_amount,
+		ROUND(
+			CASE 
+				WHEN COALESCE(prev.total_amount, 0) = 0 THEN 100
+				ELSE ((curr.total_amount - prev.total_amount) * 100.0) / NULLIF(prev.total_amount, 0)
+			END, 2
+		) AS percent,
+		COUNT(*) OVER() AS total_count
+	FROM (
 		SELECT
 			e.id,
 			e.full_name,
 			st.name AS store_name,
 			COUNT(s.id) AS count,
-			SUM(s.total_amount) AS total_amount,
-			COUNT(1) OVER() AS total_count
+			SUM(s.total_amount) AS total_amount
 		FROM sales s
 		INNER JOIN employees e ON s.employee_id = e.id
 		INNER JOIN stores st ON s.store_id = st.id
-		`
-		filter = "	WHERE s.status = 'completed' AND s.sale_type = 'SALE' "
-		group  = " GROUP BY e.id, st.id "
-		order  = " ORDER BY total_amount DESC"
-		offset = " LIMIT ? OFFSET ?"
+		WHERE s.status = 'completed'
+		AND s.sale_type = 'SALE'
+		AND (s.completed_at + interval '5 hours')::date BETWEEN ? AND ?
+		GROUP BY e.id, e.full_name, st.name
+	) AS curr
+	LEFT JOIN (
+		SELECT
+			e.id,
+			SUM(s.total_amount) AS total_amount
+		FROM sales s
+		INNER JOIN employees e ON s.employee_id = e.id
+		WHERE s.status = 'completed'
+		AND s.sale_type = 'SALE'
+		AND (s.completed_at + interval '5 hours')::date BETWEEN ? AND ?
+		GROUP BY e.id
+	) AS prev ON curr.id = prev.id
+`
+
+	// First 4 args: 2 for current, 2 for previous range
+	args = append(args,
+		param.StartDate, param.EndDate,
+		beforeStart.Format(time.RFC3339), beforeEnd.Format(time.RFC3339),
 	)
+
+	// Optional filters
+	where := " WHERE 1 = 1"
 	if param.Search != "" {
-		filter += " AND e.full_name ILIKE ?"
+		where += " AND curr.full_name ILIKE ?"
 		args = append(args, "%"+param.Search+"%")
 	}
 	if param.StoreId != "" {
-		filter += " AND s.store_id = ?"
+		where += " AND curr.store_name = (SELECT name FROM stores WHERE id = ?)"
 		args = append(args, param.StoreId)
 	}
 	// check store_ids
 	if len(param.StoreIds) > 0 {
-		filter += " AND s.store_id IN (?)"
+		where += " AND curr.store_name IN (SELECT name FROM stores WHERE id IN (?))"
 		args = append(args, param.StoreIds)
 	}
-	// check end_date for empty string
-	if param.EndDate == "" {
-		param.EndDate = param.StartDate
+
+	// Sorting
+	switch param.Order {
+	case "min_count":
+		where += " ORDER BY curr.count ASC"
+	case "max_count":
+		where += " ORDER BY curr.count DESC"
+	case "min_amount":
+		where += " ORDER BY curr.total_amount ASC"
+	case "max_amount":
+		where += " ORDER BY curr.total_amount DESC"
+	default:
+		where += " ORDER BY curr.total_amount DESC"
 	}
-	if param.StartDate != "" && param.EndDate != "" {
-		filter += " AND s.completed_at::date BETWEEN ? AND  ?"
-		args = append(args, param.StartDate, param.EndDate)
-	}
-	// sort by order type
-	if param.Order != "" {
-		switch param.Order {
-		case "min_count":
-			order = " ORDER BY count ASC"
-		case "max_count":
-			order = " ORDER BY count DESC"
-		case "min_amount":
-			order = " ORDER BY total_amount "
-		case "max_amount":
-			order = " ORDER BY total_amount DESC "
-		}
-	}
+
+	// Pagination
+	where += " LIMIT ? OFFSET ?"
 	args = append(args, param.Limit, param.Offset)
-	var q = query + filter + group + order + offset
-	err := s.db.Raw(q, args...).Scan(&res).Error
+
+	// Final query
+	finalQuery := query + where
+
+	// Execute
+	err = s.db.Raw(finalQuery, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Error("ERROR on getting top seller: ", err)
-		return nil, totalCount, err
+		return nil, 0, err
 	}
 	// get total count
 	if len(res) > 0 {
@@ -730,57 +872,117 @@ func (s *Services) ReportTopSeller(param *domain.ReportQueryParam) ([]domain.Top
 }
 
 func (s *Services) ReportTopStores(param *domain.ReportQueryParam) ([]domain.TopStores, int64, error) {
-	// declaration
 	var (
 		res        []domain.TopStores
 		totalCount int64
-	)
-	// query
-	var (
-		args   []any
-		query  = `SELECT stores.id, stores.name, COUNT(*) AS count, SUM(sales.total_amount) AS total_amount,COUNT(1) OVER() AS total_count FROM sales INNER JOIN stores ON sales.store_id = stores.id`
-		filter = " WHERE sales.status = 'completed'"
-		group  = " GROUP BY stores.id"
-		order  = " ORDER BY total_amount DESC"
+		args       []any
+		startTime  time.Time
+		endTime    time.Time
 	)
 
+	// Parse start and end dates
+	startTime, err := time.Parse(time.RFC3339, param.StartDate)
+	if err != nil {
+		s.log.Error("Invalid start_date format: %v", err)
+		return nil, 0, err
+	}
+	endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+	if param.EndDate != "" {
+		endTime, err = time.Parse(time.RFC3339, param.EndDate)
+		if err != nil {
+			s.log.Error("Invalid end_date format: %v", err)
+			return nil, 0, err
+		}
+	}
+
+	// Get previous date range
+	beforeStart, beforeEnd := utils.BeforeDatesTime(startTime, endTime)
+
+	// Main query with subqueries
+	query := `
+		SELECT
+			curr.store_id AS id,
+			stores.name,
+			curr.count,
+			curr.total_amount,
+			COALESCE(prev.total_amount, 0) AS previous_total_amount,
+			ROUND(
+				CASE 
+					WHEN COALESCE(prev.total_amount, 0) = 0 THEN 100
+					ELSE ((curr.total_amount - prev.total_amount) * 100.0) / NULLIF(prev.total_amount, 0)
+				END, 2
+			) AS percent,
+			COUNT(*) OVER() AS total_count
+		FROM (
+			SELECT
+				sales.store_id,
+				COUNT(*) AS count,
+				SUM(sales.total_amount) AS total_amount
+			FROM sales
+			WHERE sales.status = 'completed'
+			AND (sales.completed_at + interval '5 hours')::date BETWEEN ? AND ?
+			GROUP BY sales.store_id
+		) AS curr
+		LEFT JOIN (
+			SELECT
+				sales.store_id,
+				SUM(sales.total_amount) AS total_amount
+			FROM sales
+			WHERE sales.status = 'completed'
+			AND (sales.completed_at + interval '5 hours')::date BETWEEN ? AND ?
+			GROUP BY sales.store_id
+		) AS prev ON curr.store_id = prev.store_id
+		INNER JOIN stores ON curr.store_id = stores.id
+	`
+
+	// Add base arguments: current and previous period
+	args = append(args,
+		param.StartDate, param.EndDate,
+		beforeStart.Format(time.RFC3339), beforeEnd.Format(time.RFC3339),
+	)
+
+	// Dynamic filters
+	whereClauses := []string{}
 	if param.Search != "" {
-		filter += " AND stores.name ILIKE ?"
+		whereClauses = append(whereClauses, "stores.name ILIKE ?")
 		args = append(args, "%"+param.Search+"%")
 	}
 	if param.StoreId != "" {
-		filter += " AND sales.store_id = ?"
+		whereClauses = append(whereClauses, "curr.store_id = ?")
 		args = append(args, param.StoreId)
 	}
-	if param.StartDate != "" && param.EndDate == "" {
-		filter += " AND sales.completed_at::date = ?"
-		args = append(args, param.StartDate)
+
+	// Append filters
+	if len(whereClauses) > 0 {
+		query += " WHERE " + strings.Join(whereClauses, " AND ")
 	}
-	if param.StartDate != "" && param.EndDate != "" {
-		filter += " AND sales.completed_at::date >= ? AND sales.completed_at::date <= ?"
-		args = append(args, param.StartDate, param.EndDate)
+
+	// Sorting
+	switch param.Order {
+	case "min_count":
+		query += " ORDER BY count ASC"
+	case "max_count":
+		query += " ORDER BY count DESC"
+	case "min_amount":
+		query += " ORDER BY total_amount ASC"
+	case "max_amount":
+		query += " ORDER BY total_amount DESC"
+	default:
+		query += " ORDER BY total_amount DESC"
 	}
-	// sort by order type
-	if param.Order != "" {
-		switch param.Order {
-		case "min_count":
-			order = " ORDER BY count ASC"
-		case "max_count":
-			order = " ORDER BY count DESC"
-		case "min_amount":
-			order = " ORDER BY total_amount "
-		case "max_amount":
-			order = " ORDER BY total_amount DESC "
-		}
-	}
-	var q = query + filter + group + order + " LIMIT ? OFFSET ?"
+
+	// Pagination
+	query += " LIMIT ? OFFSET ?"
 	args = append(args, param.Limit, param.Offset)
-	err := s.db.Raw(q, args...).Scan(&res).Error
+
+	// Execute
+	err = s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Error(err)
-		return nil, totalCount, err
+		return nil, 0, err
 	}
-	// get total count
+
+	// Extract total count
 	if len(res) > 0 {
 		totalCount = res[0].TotalCount
 	}
@@ -793,63 +995,114 @@ func (s *Services) ReportBonusProducts(param *domain.ReportQueryParam) ([]domain
 	var (
 		res        []domain.BonusProducts
 		totalCount int64
+		args       []any
+		startTime  time.Time
+		endTime    time.Time
 	)
-	// checking end date for empty
-	if param.EndDate == "" {
-		param.EndDate = param.StartDate
+
+	startTime, err := time.Parse(time.RFC3339, param.StartDate)
+	if err != nil {
+		s.log.Error("Invalid start_date format: %v", err)
+		return nil, 0, err
 	}
-	// query
-	var (
-		args  []any
-		query = `
+	if param.EndDate != "" {
+		endTime, err = time.Parse(time.RFC3339, param.EndDate)
+		if err != nil {
+			s.log.Error("Invalid end_date format: %v", err)
+			return nil, 0, err
+		}
+	} else {
+		endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+	}
+	beforeStart, beforeEnd := utils.BeforeDatesTime(startTime, endTime)
+
+	query := `
+	SELECT
+		curr.id,
+		curr.name,
+		curr.count,
+		curr.bonus_amount,
+		prev.bonus_amount AS previous_bonus_amount,
+		ROUND(
+			CASE 
+				WHEN COALESCE(prev.bonus_amount, 0) = 0 THEN 100
+				ELSE ((curr.bonus_amount - prev.bonus_amount) * 100.0) / NULLIF(prev.bonus_amount, 0)
+			END, 2
+		) AS percent,
+		COUNT(*) OVER() AS total_count
+	FROM (
 		SELECT
-			p.id, p.name,
+			p.id,
+			p.name,
 			SUM(eb.quantity) + SUM(eb.unit_quantity)/p.unit_per_pack || ',' || SUM(eb.unit_quantity)%p.unit_per_pack AS count,
-			SUM(eb.bonus_amount) AS bonus_amount,
-			COUNT(1) OVER() AS total_count
+			SUM(eb.bonus_amount) AS bonus_amount
 		FROM employee_bonus eb
 		JOIN products p ON eb.product_id = p.id
-		`
-		join   = ""
-		filter = " WHERE 1 = 1 "
-		group  = " GROUP BY p.id "
-		order  = " ORDER BY count DESC"
-	)
+	`
 
-	if param.Search != "" {
-		filter += " AND p.name ILIKE ?"
-		args = append(args, param.Search+"%")
-	}
-	// check store_ids
+	// Dynamic JOIN and filters
+	join := ""
+	filter := " WHERE 1 = 1"
 	if len(param.StoreIds) > 0 {
-		filter += " AND e.store_id IN (?) "
-		join = " JOIN employees e ON eb.employee_id = e.id "
+		join += " JOIN employees e ON eb.employee_id = e.id"
+		filter += " AND e.store_id IN (?)"
 		args = append(args, param.StoreIds)
 	}
+	if param.Search != "" {
+		filter += " AND p.name ILIKE ?"
+		args = append(args, "%"+param.Search+"%")
+	}
+	filter += " AND (eb.created_at + interval '5 hours')::date BETWEEN ? AND ?"
+	args = append(args, param.StartDate, param.EndDate)
 
-	if param.StartDate != "" && param.EndDate != "" {
-		filter += " AND (eb.created_at + interval '5 hours')::date BETWEEN ? AND ?"
-		args = append(args, param.StartDate, param.EndDate)
+	// Close current subquery
+	group := " GROUP BY p.id, p.name, p.unit_per_pack ) AS curr"
+	query += join + filter + group
+
+	// Add previous subquery
+	query += `
+	LEFT JOIN (
+		SELECT
+			p.id,
+			SUM(eb.bonus_amount) AS bonus_amount
+		FROM employee_bonus eb
+		JOIN products p ON eb.product_id = p.id
+	`
+	prevJoin := ""
+	prevFilter := " WHERE 1 = 1"
+	if len(param.StoreIds) > 0 {
+		prevJoin += " JOIN employees e ON eb.employee_id = e.id"
+		prevFilter += " AND e.store_id IN (?)"
+		args = append(args, param.StoreIds)
 	}
-	// sort by order type
-	if param.Order != "" {
-		switch param.Order {
-		case "min_count":
-			order = " ORDER BY count ASC"
-		case "max_count":
-			order = " ORDER BY count DESC"
-		case "min_amount":
-			order = " ORDER BY bonus_amount "
-		case "max_amount":
-			order = " ORDER BY bonus_amount DESC "
-		}
+	prevFilter += " AND (eb.created_at + interval '5 hours')::date BETWEEN ? AND ?"
+	args = append(args, beforeStart.Format(time.RFC3339), beforeEnd.Format(time.RFC3339))
+
+	query += prevJoin + prevFilter + " GROUP BY p.id ) AS prev ON curr.id = prev.id"
+
+	// Sorting
+	switch param.Order {
+	case "min_count":
+		query += " ORDER BY curr.count ASC"
+	case "max_count":
+		query += " ORDER BY curr.count DESC"
+	case "min_amount":
+		query += " ORDER BY curr.bonus_amount ASC"
+	case "max_amount":
+		query += " ORDER BY curr.bonus_amount DESC"
+	default:
+		query += " ORDER BY curr.bonus_amount DESC"
 	}
-	query = query + join + filter + group + order + " LIMIT ? OFFSET ?"
+
+	// Pagination
+	query += " LIMIT ? OFFSET ?"
 	args = append(args, param.Limit, param.Offset)
-	err := s.db.Raw(query, args...).Scan(&res).Error
+
+	// Execute query
+	err = s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Error("ERROR on getting bonus products: ", err)
-		return nil, totalCount, err
+		return nil, 0, err
 	}
 	// get total count
 	if len(res) > 0 {
