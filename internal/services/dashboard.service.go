@@ -194,8 +194,24 @@ func (s *Services) DashboardChartStats(param *domain.DashboardQueryParam) ([]dom
 		interval     string
 		timeTruncCol string
 	)
-	if param.EndDate == "" {
-		param.EndDate = param.StartDate
+	// Parse start and end dates
+	startTime, err := time.Parse(time.RFC3339, param.StartDate)
+	if err != nil {
+		s.log.Error("Invalid start_date format: %v", err)
+		return nil, err
+	}
+
+	endTime := startTime
+	if param.EndDate == "" { // get end time if end_date will be empty string, so add  23 hour and 59 minute
+		endTime = startTime.Add(time.Minute * 1439)
+	}
+
+	if param.EndDate != "" {
+		endTime, err = time.Parse(time.RFC3339, param.EndDate)
+		if err != nil {
+			s.log.Error("Invalid end_date format: %v", err)
+			return nil, err
+		}
 	}
 
 	switch param.Type {
@@ -224,18 +240,12 @@ func (s *Services) DashboardChartStats(param *domain.DashboardQueryParam) ([]dom
 		timeTruncCol = "DATE_TRUNC('hour', s.completed_at)"
 	}
 	// WEEKLY tanlangan bo‘lsa startDate ni truncate qilamiz
-	layout := "2006-01-02 15:04:05"
-	startTimeStr := param.StartDate + " 00:00:00"
-	startTimeParsed, _ := time.Parse(layout, startTimeStr)
 
 	if param.Type == "WEEKLY" {
 		// haftaning boshiga truncate qilish (Dushanba)
-		offset := (int(startTimeParsed.Weekday()) + 6) % 7 // Monday = 0
-		startTimeParsed = startTimeParsed.AddDate(0, 0, -offset)
+		offset := (int(startTime.Weekday()) + 6) % 7 // Monday = 0
+		startTime = startTime.AddDate(0, 0, -offset)
 	}
-
-	startTime := startTimeParsed.Format(layout)
-	endTime := param.EndDate + " 23:59:59"
 
 	args := []any{startTime, endTime, interval}
 
@@ -271,7 +281,7 @@ func (s *Services) DashboardChartStats(param *domain.DashboardQueryParam) ([]dom
 	`, timeTruncCol, filter)
 
 	// bajarish
-	err := s.db.Raw(query, args...).Scan(&res).Error
+	err = s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting chart info: %v", err)
 		return res, err
