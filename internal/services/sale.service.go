@@ -384,17 +384,6 @@ func (s *Services) RestoreStoreProductQuantities(tx *gorm.DB, sale *domain.Sale)
 	return nil
 }
 
-// create sale for online order
-func (s *Services) CreateOnlineSale(tx *gorm.DB, saleId string, totalAmount int64) error {
-	err := tx.Exec(`
-	INSERT INTO sales(id, total_amount, type, is_delivered, status, completed_at) VALUES(?, ?, ?, ?, ?, ?)`,
-		saleId, totalAmount, "online", false, config.COMPLETED, time.Now()).Error
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
 // get sale list data
 func (s *Services) ListSale(param *domain.QueryParam, userId string) ([]domain.SaleResponse, int64, error) {
 	var (
@@ -647,3 +636,26 @@ func (s *Services) collectSalePaymentAmount(typeAmounts []domain.FinalPaymentTyp
 	}
 	return sum
 }
+
+// region online sale
+// create sale for online order
+func (s *Services) CreateOnlineSale(tx *gorm.DB, saleId string, totalAmount int64) error {
+	err := tx.Exec(`
+	INSERT INTO sales(
+		id, 
+		total_amount, 
+		type, 
+		is_delivered, 
+		status, 
+		completed_at
+		) 
+	VALUES(?, ?, ?, ?, ?, ?)`,
+		saleId, totalAmount, "online", false, config.COMPLETED, time.Now()).Error
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+
+// end region

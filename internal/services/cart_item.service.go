@@ -178,33 +178,6 @@ func (s *Services) ListCartItemsBySaleID(saleID string) ([]domain.CartItem, erro
 	return res, nil
 }
 
-// create cart item for online sale
-func (s *Services) CreateOnlineCartItem(tx *gorm.DB, req *domain.SaleOnlineItem, saleID string) error {
-	// check if product and store exist
-	var storProductId string
-	err := s.db.Raw(`SELECT id FROM store_products WHERE store_id = ? AND product_id = ?`, req.StoreId, req.ProductId).Scan(&storProductId).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("product or store not found")
-		}
-		return err
-	}
-	// create new cart item
-	err = tx.Exec(`
-		INSERT INTO cart_items(
-			store_product_id, sale_id, 
-			quantity,
-			total_price, status)
-		VALUES(?, ?, ?, ?, ?, ?)`,
-		storProductId, saleID, req.Quantity, req.TotalPrice, config.SOLD_CART_ITEM,
-	).Error
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // get cart items to payme go items
 func (s *Services) GetPaymeGoItems(saleID string) ([]domain.PaymeGoItem, error) {
 	var res []domain.PaymeGoItem
@@ -266,3 +239,32 @@ func (s *Services) AddMarkingCount(req []domain.MarkingData) error {
 
 	return nil
 }
+
+// create cart item for online sale
+func (s *Services) CreateOnlineCartItem(tx *gorm.DB, req *domain.OnlineCartItemRequest, saleID string) error {
+	// check if product and store exist
+	var storProductId string
+	err := tx.Raw(`SELECT id FROM store_products WHERE store_id = ? AND product_id = ?`, req.ProductId).Scan(&storProductId).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("product or store not found")
+		}
+		return err
+	}
+	// create new cart item
+	err = tx.Exec(`
+		INSERT INTO cart_items(
+			store_product_id, sale_id, 
+			quantity,
+			total_price, status)
+		VALUES(?, ?, ?, ?, ?, ?)`,
+		storProductId, saleID, req.Quantity, config.SOLD_CART_ITEM,
+	).Error
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Services) GetOrCheckOnlineStoreProduct()

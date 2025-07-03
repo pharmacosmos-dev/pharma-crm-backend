@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
 )
 
@@ -201,9 +200,8 @@ func (h *NoorHandler) CategoryList(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router 	/noor/order [post]
 func (h *NoorHandler) CreateOrder(c *gin.Context) {
-	var (
-		body domain.SaleOnline
-	)
+	var body domain.OnlineOrderRequest
+
 	// bind request body
 	err := c.ShouldBindJSON(&body)
 	if err != nil {
@@ -215,29 +213,18 @@ func (h *NoorHandler) CreateOrder(c *gin.Context) {
 	tx := h.db.Begin()
 	defer recoverTransaction(tx, h.log)
 
-	// create sale id
-	saleId := uuid.New().String()
+	// // create sale id
+	// saleId := uuid.New().String()
 
-	// create online sale
-	err = h.service.CreateOnlineSale(tx, saleId, body.TotalAmount)
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, "Cannot create the online sale, something went wrong")
-		tx.Rollback()
-		return
-	}
+	// // create online sale
+	// err = h.service.CreateOnlineSale(tx, )
+	// if err != nil {
+	// 	h.log.Error(err)
+	// 	handleResponse(c, InternalError, "Cannot create the online sale, something went wrong")
+	// 	tx.Rollback()
+	// 	return
+	// }
 
-	// create online cart items
-	for i := range body.Items {
-		// create online cart item
-		err = h.service.CreateOnlineCartItem(tx, &body.Items[i], saleId)
-		if err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, "Cannot collect the items, something went wrong")
-			tx.Rollback()
-			return
-		}
-	}
 	// commit transaction
 	if err = tx.Commit().Error; err != nil {
 		h.log.Error(err)

@@ -183,29 +183,6 @@ type EposResponseData struct {
 	Data    any    `json:"data"`
 }
 
-// Create sale online
-type SaleOnline struct {
-	TotalAmount int64            `gorm:"total_amount" json:"total_amount"`
-	Items       []SaleOnlineItem `gorm:"-" json:"items"`
-}
-
-// Create sale online request
-type SaleOnlineRequest struct {
-	TotalAmount float64    `gorm:"total_amount" json:"total_amount"`
-	CompletedAt *time.Time `gorm:"completed_at" json:"completed_at"`
-	Type        string     `gorm:"type" json:"type"`
-	IsDelivered bool       `gorm:"is_delivered" json:"is_delivered"`
-	Status      string     `gorm:"status" json:"status"`
-}
-
-// Create sale online item
-type SaleOnlineItem struct {
-	ProductId  string  `gorm:"product_id" json:"product_id"`
-	StoreId    string  `gorm:"store_id" json:"store_id"`
-	Quantity   int     `gorm:"quantity" json:"quantity"`
-	TotalPrice float64 `gorm:"total_price" json:"total_price"`
-}
-
 // region EPOS response structure
 
 // SuccessResponse for successful case
@@ -238,3 +215,29 @@ type AddDiscountCard struct {
 	SaleID     string `json:"sale_id"`
 	Barcode    string `json:"barcode"`
 }
+
+// region Online sale
+
+// create online order request structure
+// noor online order request
+type OnlineOrderRequest struct {
+	ShopId       string                  `json:"shop_id"`
+	Products     []OnlineCartItemRequest `json:"product_ids"`
+	ClientInfo   NoorClientInfo          `json:"client_info"`
+	DeliveryTime string                  `json:"delivery_time"`
+	Destination  Point                   `json:"destination"`
+}
+
+// noor online order product
+type OnlineCartItemRequest struct {
+	ProductId string `json:"productId"`
+	Quantity  int    `json:"quantity"`
+}
+
+// noor online order client info
+type NoorClientInfo struct {
+	Name  string `json:"name"`
+	Phone string `json:"phone"`
+}
+
+// end region
