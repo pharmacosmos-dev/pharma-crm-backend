@@ -25,7 +25,12 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 		s.log.Error("Invalid start_date format: %v", err)
 		return nil, err
 	}
+
 	endTime := startTime
+	if param.EndDate == "" { // get end time if end_date will be empty string
+		endTime = startTime.Add(time.Minute * 1439)
+	}
+
 	if param.EndDate != "" {
 		endTime, err = time.Parse(time.RFC3339, param.EndDate)
 		if err != nil {
@@ -46,7 +51,7 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 	// queries
 	var (
 		args  []any
-		args1 = []interface{}{startStr, endStr, beforeStartStr, beforeEndStr}
+		args1 = []any{startStr, endStr, beforeStartStr, beforeEndStr}
 
 		// get sale stats information
 		querys = fmt.Sprintf(`
