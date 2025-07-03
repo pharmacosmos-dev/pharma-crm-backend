@@ -27,7 +27,7 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 	}
 
 	endTime := startTime
-	if param.EndDate == "" { // get end time if end_date will be empty string
+	if param.EndDate == "" { // get end time if end_date will be empty string 23 hour and 59 minute
 		endTime = startTime.Add(time.Minute * 1439)
 	}
 
