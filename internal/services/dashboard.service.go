@@ -320,7 +320,7 @@ func (s *Services) DashboardTopStores(param *domain.DashboardQueryParam) ([]doma
 				return nil, err
 			}
 		} else {
-			endTime = startTime
+			endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
 		}
 		endStr = endTime.Format("2006-01-02 15:04:05")
 
@@ -399,7 +399,7 @@ func (s *Services) DashboardTopProducts(param *domain.DashboardQueryParam) ([]do
 				return nil, err
 			}
 		} else {
-			endTime = startTime
+			endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
 		}
 		endStr := endTime.Format("2006-01-02 15:04:05")
 
@@ -430,8 +430,9 @@ func (s *Services) DashboardBonusProducts(param *domain.DashboardQueryParam) ([]
 	}
 	// query
 	var (
-		args  []any
-		query = `
+		startTime, endTime time.Time
+		args               []any
+		query              = `
 		SELECT
 			p.id, p.name,
 			SUM(eb.quantity) + SUM(eb.unit_quantity)/p.unit_per_pack || ',' || SUM(eb.unit_quantity)%p.unit_per_pack AS count,
@@ -453,30 +454,32 @@ func (s *Services) DashboardBonusProducts(param *domain.DashboardQueryParam) ([]
 	}
 
 	// Parse RFC3339 start va end vaqtlar
-	if param.StartDate != "" {
-		startTime, err := time.Parse(time.RFC3339, param.StartDate)
-		if err != nil {
-			s.log.Error("Invalid start_date format: %v", err)
-			return nil, err
-		}
-		endTime, err := time.Parse(time.RFC3339, param.EndDate)
+	startTime, err := time.Parse(time.RFC3339, param.StartDate)
+	if err != nil {
+		s.log.Error("Invalid start_date format: %v", err)
+		return nil, err
+	}
+	if param.EndDate != "" {
+		endTime, err = time.Parse(time.RFC3339, param.EndDate)
 		if err != nil {
 			s.log.Error("Invalid end_date format: %v", err)
 			return nil, err
 		}
-		startStr := startTime.Format("2006-01-02 15:04:05")
-		endStr := endTime.Format("2006-01-02 15:04:05")
-
-		filter += " AND (eb.created_at + interval '5 hours') BETWEEN ? AND ?"
-		args = append(args, startStr, endStr)
+	} else {
+		endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
 	}
+	startStr := startTime.Format("2006-01-02 15:04:05")
+	endStr := endTime.Format("2006-01-02 15:04:05")
+
+	filter += " AND (eb.created_at + interval '5 hours') BETWEEN ? AND ?"
+	args = append(args, startStr, endStr)
 
 	// Limit / Offset
 	query = query + join + filter + group + order + " LIMIT ? OFFSET ?"
 	args = append(args, param.Limit, param.Offset)
 
 	// Execute
-	err := s.db.Raw(query, args...).Scan(&res).Error
+	err = s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Error("ERROR on getting bonus products: ", err)
 		return nil, err
@@ -490,8 +493,9 @@ func (s *Services) DashboardTopSeller(param *domain.DashboardQueryParam) ([]doma
 	var res []domain.TopSeller
 
 	var (
-		args  []any
-		query = `
+		startTime, endTime time.Time
+		args               []any
+		query              = `
 		SELECT
 			e.id,
 			e.full_name,
@@ -520,37 +524,34 @@ func (s *Services) DashboardTopSeller(param *domain.DashboardQueryParam) ([]doma
 		args = append(args, param.StoreIds)
 	}
 
-	// Default endDate
-	if param.EndDate == "" {
-		param.EndDate = param.StartDate
-	}
-
 	// Date filter — RFC3339 parse
-	if param.StartDate != "" {
-		startTime, err := time.Parse(time.RFC3339, param.StartDate)
-		if err != nil {
-			s.log.Error("Invalid start_date format: %v", err)
-			return nil, err
-		}
-		endTime, err := time.Parse(time.RFC3339, param.EndDate)
+	startTime, err := time.Parse(time.RFC3339, param.StartDate)
+	if err != nil {
+		s.log.Error("Invalid start_date format: %v", err)
+		return nil, err
+	}
+	if param.EndDate != "" {
+		endTime, err = time.Parse(time.RFC3339, param.EndDate)
 		if err != nil {
 			s.log.Error("Invalid end_date format: %v", err)
 			return nil, err
 		}
-
-		startStr := startTime.Format("2006-01-02 15:04:05")
-		endStr := endTime.Format("2006-01-02 15:04:05")
-
-		filter += " AND s.completed_at BETWEEN ? AND ?"
-		args = append(args, startStr, endStr)
+	} else {
+		endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
 	}
+
+	startStr := startTime.Format("2006-01-02 15:04:05")
+	endStr := endTime.Format("2006-01-02 15:04:05")
+
+	filter += " AND s.completed_at BETWEEN ? AND ?"
+	args = append(args, startStr, endStr)
 
 	// Pagination
 	args = append(args, param.Limit, param.Offset)
 
 	// Build and run query
 	var q = query + filter + group + order + offset
-	err := s.db.Raw(q, args...).Scan(&res).Error
+	err = s.db.Raw(q, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Error("ERROR on getting top seller: %v", err)
 		return nil, err
@@ -569,7 +570,7 @@ func (s *Services) DashboardPayments(param *domain.DashboardQueryParam) ([]domai
 		s.log.Error("Invalid start_date format: %v", err)
 		return res, err
 	}
-	endTime := startTime
+	endTime := startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
 	if param.EndDate != "" {
 		endTime, err = time.Parse(time.RFC3339, param.EndDate)
 		if err != nil {
@@ -619,21 +620,21 @@ func (s *Services) DashboardPayments(param *domain.DashboardQueryParam) ([]domai
 }
 
 func (s *Services) DashboardTransaction(param *domain.DashboardQueryParam) ([]domain.DashboardTransaction, error) {
-	// Default end_date to start_date if empty
-	if param.EndDate == "" {
-		param.EndDate = param.StartDate
-	}
-
+	var startTime, endTime time.Time
 	// Parse datetimes
 	startTime, err := time.Parse(time.RFC3339, param.StartDate)
 	if err != nil {
 		s.log.Error("Invalid start_date format: %v", err)
 		return nil, err
 	}
-	endTime, err := time.Parse(time.RFC3339, param.EndDate)
-	if err != nil {
-		s.log.Error("Invalid end_date format: %v", err)
-		return nil, err
+	if param.EndDate != "" {
+		endTime, err = time.Parse(time.RFC3339, param.EndDate)
+		if err != nil {
+			s.log.Error("Invalid end_date format: %v", err)
+			return nil, err
+		}
+	} else {
+		endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
 	}
 
 	// Format for SQL
