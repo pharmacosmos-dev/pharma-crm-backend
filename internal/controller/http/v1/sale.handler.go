@@ -46,6 +46,7 @@ func (h *SaleHandler) SaleRoutes(r *gin.RouterGroup) {
 		sale.DELETE("/discount-card", h.RemoveCustomerDiscount)
 		sale.GET("/online-count", h.GetOnlineSaleCount)
 		sale.POST("/online-accept", h.AcceptOnlineSale)
+		sale.GET("/online-list", h.OnlineSaleList)
 	}
 }
 
@@ -775,7 +776,6 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 	var (
 		body domain.EposResponseRequest
 		sale domain.Sale
-		err  error
 	)
 	// get user_id from the context
 	userId, ok := c.Get("user_id")
@@ -786,7 +786,8 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 	}
 
 	// Bind request body
-	if err = c.ShouldBindJSON(&body); err != nil {
+	err := c.ShouldBindJSON(&body)
+	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
@@ -806,24 +807,18 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 	// Start transaction
 	tx := h.db.Begin()
 	// Transaction rollback if any error occurs
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-
+	defer recoverTransaction(tx, h.log)
+	defer RollbackIfError(tx, &err)
 	// Save to epos_responses table
 	err = tx.WithContext(c.Request.Context()).Table("epos_responses").Create(&body).Error
 	if err != nil {
 		h.log.Error(err)
-		tx.Rollback()
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 	// get sale info
 	err = h.db.First(&sale, "id = ?", body.SaleId).Error
 	if err != nil {
-		tx.Rollback()
 		h.log.Warn("ERROR on getting sale info: %v", err)
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -833,7 +828,6 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 		// delete sale_payments which depends on the sale
 		err = tx.Exec(`DELETE FROM sale_payments WHERE sale_id = ?`, body.SaleId).Error
 		if err != nil {
-			tx.Rollback()
 			h.log.Error("ERROR on deleting sale_payments: ", err)
 			handleResponse(c, InternalError, "Failed remove sale_payments")
 			return
@@ -841,7 +835,6 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 		// return sale status and quantities
 		err = h.service.ReturnSale(tx, &sale)
 		if err != nil {
-			tx.Rollback()
 			h.log.Warn("Failed to update sale status: %v", err)
 			handleResponse(c, InternalError, "Failed to update sale status")
 			return
@@ -858,7 +851,6 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 		err = h.service.SetFiscalId(sale.ID, successResp.Info.FiscalSign)
 		if err != nil {
 			h.log.Warn("Failed to complete sale status: %v", err)
-			tx.Rollback()
 			handleResponse(c, InternalError, "Failed to complete sale status")
 			return
 		}
@@ -901,15 +893,14 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 		})
 		if err != nil {
 			h.log.Warn("ERROR on creating new sale: %v", err)
-			tx.Rollback()
 			handleResponse(c, InternalError, "Can't create new sale")
 			return
 		}
 
 		// Commit transaction before responding
-		if err = tx.Commit().Error; err != nil {
+		err = tx.Commit().Error
+		if err != nil {
 			h.log.Warn("ERROR on commiting transaction: %v", err)
-			tx.Rollback()
 			handleResponse(c, InternalError, "Transaction not completed")
 			return
 		}
@@ -918,8 +909,8 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 	}
 
 	// Commit transaction before final response
-	if err = tx.Commit().Error; err != nil {
-		tx.Rollback()
+	err = tx.Commit().Error
+	if err != nil {
 		h.log.Warn("ERROR on commiting transaction: %v", err)
 		handleResponse(c, InternalError, "Can't commit transcation")
 		return
@@ -1137,6 +1128,7 @@ func (h *SaleHandler) RemoveCustomerDiscount(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept 	json
 // @Produce json
+// @Param	store_id query string false
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -1162,7 +1154,7 @@ func (h *SaleHandler) GetOnlineSaleCount(c *gin.Context) {
 	}
 	// get online order count
 	var count int64
-	err = h.db.Raw(`
+	err = h.db.Debug().Raw(`
 	SELECT
 		COUNT(*) AS count
 	FROM sales
@@ -1230,6 +1222,45 @@ func (h *SaleHandler) AcceptOnlineSale(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, gin.H{"count": count})
+}
+
+// Get online pending sale list
+// @Summary Get online pending sale list
+// @Description Get online pending sale list
+// @Tags sales
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param   limit query int false "Limit"
+// @Param	offset query int false "Offset"
+// @Param   store_id query string true "Store ID"
+// @Param   search query string false "Search"
+// @Param	start_date query string false "StartDate"
+// @Param	end_date query string false "EndDate"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /sale/online-list [GET]
+func (h *SaleHandler) OnlineSaleList(c *gin.Context) {
+	var param domain.QueryParam
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
+		handleResponse(c, BadRequest, "invalid.query.param")
+		return
+	}
+
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	res, totalCount, err := h.service.OnlinePendingSaleList(&param)
+	if err != nil {
+		h.log.Warn("ERROR on getting online pending sale list: %v", err)
+		handleResponse(c, InternalError, "failed.get.online.sale")
+		return
+	}
+	// get response data with pagination _meta data
+	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+
+	handleResponse(c, OK, data)
 }
 
 // lock order for parallel request

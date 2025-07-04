@@ -1,10 +1,12 @@
 package services
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
+	"gorm.io/gorm"
 )
 
 // get customer list data
@@ -111,4 +113,46 @@ func (s *Services) ListDiscountCards(param *domain.QueryParam) ([]domain.Discoun
 	}
 
 	return res, totalCount, nil
+}
+
+// get or create customer by existing phone
+func (s *Services) GetOrCreateCustomerByPhone(req *domain.NoorClientInfo) (*domain.Customer, error) {
+	var customer *domain.Customer
+	req.Phone = utils.NormalizePhoneNumber(req.Phone)
+
+	err := s.db.First(&customer, "phone = ?", req.Phone).Error
+
+	// If record found, return it
+	if err == nil {
+		return customer, nil
+	}
+
+	// If record not found, create new customer
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return s.CreateCustomerWithPhone(req)
+	}
+
+	// Any other database error
+	s.log.Warn("ERROR on getting customer info: %v", err)
+	return nil, err
+}
+
+// create new customer with phone and name
+func (s *Services) CreateCustomerWithPhone(req *domain.NoorClientInfo) (*domain.Customer, error) {
+	var res domain.Customer
+	query := `
+	INSERT INTO customers(
+		first_name,
+		full_name,
+		phone
+	)
+	VALUES (?, ?, ?)
+	RETURNING *
+	`
+	err := s.db.Raw(query, req.Name, req.Name, req.Phone).Scan(&res).Error
+	if err != nil {
+		s.log.Error(err)
+		return &res, err
+	}
+	return &res, nil
 }

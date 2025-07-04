@@ -172,3 +172,13 @@ func CheckBarcodeWithMarking(barcode, marking string) bool {
 	return markingBarcode == cleanBarcode
 
 }
+
+// NormalizePhoneNumber removes the '+' symbol from the beginning of the phone number.
+// Example: +998911234567 -> 998911234567
+func NormalizePhoneNumber(phone string) string {
+	if len(phone) > 0 && phone[0] == '+' {
+		return phone[1:]
+	}
+	return phone
+}
+

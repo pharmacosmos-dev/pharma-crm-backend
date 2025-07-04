@@ -86,6 +86,9 @@ const (
 	SALE_TYPE_ONLINE  = "online"
 	SALE_TYPE_OFFLINE = "offline"
 
+	// Service types
+	NOOR = "noor"
+
 	// region sale type
 
 	SALE_TYPE_RETURN = "RETURN"

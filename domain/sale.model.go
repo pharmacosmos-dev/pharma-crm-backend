@@ -21,6 +21,7 @@ type Sale struct {
 	Type               string         `gorm:"type" json:"type"`
 	SaleType           string         `gorm:"sale_type" json:"sale_type"`
 	Status             string         `gorm:"status" json:"status"`
+	OnlineStatus       int            `gorm:"online_status" json:"online_status"`
 	IsDelivered        bool           `gorm:"is_delivered" json:"is_delivered"`
 	CreatedAt          *time.Time     `gorm:"created_at" json:"created_at"`
 	UpdatedAt          *time.Time     `gorm:"updated_at" json:"updated_at"`

@@ -88,14 +88,27 @@ func (s *Services) CreateOrGetSale(req *domain.SaleRequest) (*domain.Sale, error
 	err := s.db.
 		Raw(`
 			SELECT * FROM sales 
-			WHERE store_id = ? AND employee_id = ? AND cash_box_operation_id = ? AND cashbox_id = ?
-			AND status = ?  AND sale_type = ?
+			WHERE 
+				store_id = ? AND 
+				employee_id = ? AND 
+				cash_box_operation_id = ? AND 
+				cashbox_id = ? AND 
+				status = ? AND 
+				type = ? AND 
+				online_status = ?  AND 
+				sale_type = ?
 			AND NOT EXISTS (
 				SELECT 1 FROM cart_items WHERE cart_items.sale_id = sales.id
 			)
-			LIMIT 1
-		`, req.StoreId, req.EmployeeID, req.CashBoxOperationId, req.CashboxId, config.PENDING, config.SALE_TYPE_SALE).
-		Scan(&res).Error
+			LIMIT 1`,
+			req.StoreId,
+			req.EmployeeID,
+			req.CashBoxOperationId,
+			req.CashboxId,
+			config.PENDING,
+			config.SALE_TYPE_OFFLINE,
+			config.ONLINE_STATUS_DEFAULT,
+			config.SALE_TYPE_SALE).Scan(&res).Error
 
 	if errors.Is(err, gorm.ErrRecordNotFound) || res == nil || res.ID == "" {
 		res, err = s.CreateSale(req)
@@ -639,32 +652,113 @@ func (s *Services) collectSalePaymentAmount(typeAmounts []domain.FinalPaymentTyp
 
 // region online sale
 // create sale for online order
-func (s *Services) CreateOnlineSale(saleId string, storeID string, cartItems []domain.CartItemOnlineRequest) (*domain.Sale, error) {
+func (s *Services) CreateOnlineSale(saleId string, storeID string, customer *domain.Customer, cartItems []domain.CartItemOnlineRequest) (*domain.Sale, error) {
 	var sale domain.Sale
 	tx := s.db.Begin()
 	defer recoverTransaction(tx, s.log) // recover panic
-	// create cart_items
-	err := tx.Table("cart_items").Create(&cartItems).Error
-	if err != nil {
-		return &sale, errors.New("not.created.cart_items")
-	}
+
 	// create new sale
-	err = tx.Exec(`
+	err := tx.Raw(`
 	INSERT INTO sales(
 		id,
 		store_id,
 		type,
-		online_status
+		online_status,
+		service_type,
+		customer_id
 		) 
-	VALUES(?, ?, ?, ?) RETURNING *`,
-		saleId, storeID, config.SALE_TYPE_ONLINE, config.ONLINE_STATUS_NEW).Scan(&sale).Error
+	VALUES(?, ?, ?, ?, ?, ?) RETURNING *`,
+		saleId, storeID, config.SALE_TYPE_ONLINE, config.ONLINE_STATUS_NEW, config.NOOR, customer.Id).Scan(&sale).Error
 	if err != nil {
 		return &sale, errors.New("not.created.new.order")
 	}
+	// create cart_items
+	err = tx.Table("cart_items").Create(&cartItems).Error
+	if err != nil {
+		return &sale, errors.New("not.created.cart_items")
+	}
+
 	// rollback transaction
 	defer RollbackIfError(tx, &err) // return transaction
+	
+	err = tx.Commit().Error
+	if err != nil {
+		s.log.Error(err)
+		return &sale, err
+	}
 
 	return &sale, nil
+}
+
+// online pending sale list
+func (s *Services) OnlinePendingSaleList(param *domain.QueryParam) ([]domain.Sale, int64, error) {
+	var (
+		res        []domain.Sale
+		filter     = " WHERE s.store_id = ? AND (s.online_status = 1 OR s.online_status = 2) "
+		args       = []any{param.StoreID}
+		group      = " GROUP BY s.id "
+		order      = " ORDER BY s.created_at DESC "
+		totalCount int64
+	)
+	query := `
+	SELECT
+		s.id,
+		s.store_id,
+		s.employee_id,
+		s.cashbox_id,
+		s.cash_box_operation_id,
+		s.sale_number,
+		s.status,
+		s.online_status,
+		s.type,
+		s.customer_id,
+		s.sale_type,
+		s.created_at,
+		s.updated_at,
+		COALESCE(SUM(ci.total_price), 0.00) AS total_amount,
+		COALESCE(COUNT(ci.id), 0) AS count
+	FROM sales s
+	LEFT JOIN cart_items ci ON s.id = ci.sale_id
+	`
+
+	totalCountQuery := `
+	SELECT
+		COUNT(*) as total_count
+	FROM sales s
+	LEFT JOIN cart_items ci ON s.id = ci.sale_id
+	`
+
+	if param.StartDate != "" {
+		filter += " AND (s.created_at + interval '5 hours')::date >= ? "
+		args = append(args, param.StartDate)
+	}
+
+	if param.EndDate != "" {
+		filter += " AND (s.created_at + interval '5 hours')::date <= ? "
+		args = append(args, param.EndDate)
+	}
+
+	if param.Search != "" {
+		filter += " AND CAST(s.sale_number AS TEXT) LIKE ? "
+		args = append(args, "%"+param.Search+"%")
+	}
+	// collect and execute totalCount query
+	totalCountQuery += filter + group
+	err := s.db.Raw(totalCountQuery, args...).Scan(&totalCount).Error
+	if err != nil {
+		s.log.Error("Error on getting total_count online sale: %v", err)
+		return res, totalCount, err
+	}
+
+	// collect and execute query
+	query += filter + group + order + " LIMIT ? OFFSET ?;"
+	err = s.db.Raw(query, args...).Scan(&res).Error
+	if err != nil {
+		s.log.Error("Error on getting online pending sale list: %v", err)
+		return res, totalCount, err
+	}
+
+	return res, totalCount, nil
 }
 
 // end region

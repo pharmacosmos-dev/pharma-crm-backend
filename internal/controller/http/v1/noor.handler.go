@@ -221,8 +221,15 @@ func (h *NoorHandler) CreateOrder(c *gin.Context) {
 		return
 	}
 
-	// // create online sale
-	res, err := h.service.CreateOnlineSale(saleID, body.ShopId, cartItems)
+	// create or get customer
+	customer, err := h.service.GetOrCreateCustomerByPhone(&body.ClientInfo)
+	if err != nil {
+		handleResponseNoor(c, http.StatusInternalServerError, "client.not.created.or.get")
+		return
+	}
+
+	// create online sale
+	res, err := h.service.CreateOnlineSale(saleID, body.ShopId, customer, cartItems)
 	if err != nil {
 		h.log.Error(err)
 		handleResponseNoor(c, http.StatusInternalServerError, err.Error())
