@@ -420,7 +420,7 @@ func (s *Services) ConfirmReturn(returnId, storeId string, userId string) error 
 	var returnInfo domain.Return
 	// update confirm inventory
 	query := `UPDATE transfers SET status = ?, accepted_by = ?, accepted_at = NOW() WHERE id = ? RETURNING *`
-	err := tx.Exec(query, config.COMPLETED, userId, returnId).Scan(&returnInfo).Error
+	err := tx.Raw(query, config.COMPLETED, userId, returnId).Scan(&returnInfo).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating inventory %v", err)
 		return err
