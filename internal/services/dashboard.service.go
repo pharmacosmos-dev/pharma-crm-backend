@@ -219,26 +219,26 @@ func (s *Services) DashboardChartStats(param *domain.DashboardQueryParam) ([]dom
 	case "HALF_HOURLY":
 		interval = "30 minutes"
 		timeTruncCol = `
-		DATE_TRUNC('hour', s.completed_at) + 
-		INTERVAL '30 minutes' * FLOOR(EXTRACT(minute FROM s.completed_at) / 30)`
+		DATE_TRUNC('hour', s.completed_at + INTERVAL '5 hours') + 
+		INTERVAL '30 minutes' * FLOOR(EXTRACT(minute FROM s.completed_at + INTERVAL '5 hours') / 30)`
 	case "HOURLY":
 		interval = "1 hour"
-		timeTruncCol = "DATE_TRUNC('hour', s.completed_at)"
+		timeTruncCol = "DATE_TRUNC('hour', s.completed_at + INTERVAL '5 hours')"
 	case "DAILY":
 		interval = "1 day"
-		timeTruncCol = "s.completed_at::date"
+		timeTruncCol = "(s.completed_at + INTERVAL '5 hours')::date"
 	case "WEEKLY":
 		interval = "1 week"
-		timeTruncCol = "DATE_TRUNC('week', s.completed_at)"
+		timeTruncCol = "DATE_TRUNC('week', s.completed_at + INTERVAL '5 hours')"
 	case "MONTHLY":
 		interval = "1 month"
-		timeTruncCol = "DATE_TRUNC('month', s.completed_at)"
+		timeTruncCol = "DATE_TRUNC('month', s.completed_at + INTERVAL '5 hours')"
 	case "YEARLY":
 		interval = "1 year"
-		timeTruncCol = "DATE_TRUNC('year', s.completed_at)"
+		timeTruncCol = "DATE_TRUNC('year', s.completed_at + INTERVAL '5 hours')"
 	default:
 		interval = "1 hour"
-		timeTruncCol = "DATE_TRUNC('hour', s.completed_at)"
+		timeTruncCol = "DATE_TRUNC('hour', s.completed_at + INTERVAL '5 hours')"
 	}
 	// WEEKLY tanlangan bo‘lsa startDate ni truncate qilamiz
 
