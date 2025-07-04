@@ -680,7 +680,7 @@ func (s *Services) CreateOnlineSale(saleId string, storeID string, customer *dom
 
 	// rollback transaction
 	defer RollbackIfError(tx, &err) // return transaction
-	
+
 	err = tx.Commit().Error
 	if err != nil {
 		s.log.Error(err)
@@ -752,6 +752,7 @@ func (s *Services) OnlinePendingSaleList(param *domain.QueryParam) ([]domain.Sal
 
 	// collect and execute query
 	query += filter + group + order + " LIMIT ? OFFSET ?;"
+	args = append(args, param.Limit, param.Offset)
 	err = s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Error("Error on getting online pending sale list: %v", err)
