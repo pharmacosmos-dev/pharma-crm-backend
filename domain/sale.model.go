@@ -72,6 +72,8 @@ type SaleResponse struct {
 	VatSum             float64        `gorm:"vat_sum" json:"vat_sum"`
 	ReturnedAmount     float64        `gorm:"returned_amount" json:"returned_amount"`
 	ProductCount       int            `gorm:"product_count" json:"product_count"`
+	Status             string         `gorm:"status" json:"status"`
+	OnlineStatus       int            `gorm:"online_status" json:"online_status"`
 	CreatedAt          *time.Time     `gorm:"created_at" json:"created_at"`
 	UpdatedAt          *time.Time     `gorm:"updated_at" json:"updated_at"`
 	CompletedAt        *time.Time     `gorm:"completed_at" json:"completed_at"`
