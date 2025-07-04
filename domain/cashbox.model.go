@@ -165,11 +165,12 @@ type CashBoxOperationHistory struct {
 
 // Employee Cashbox structure for getting cashbox info which is open employee
 type EmployeeCashbox struct {
-	Id          string     `gorm:"id" json:"id"`
-	OperationId int64      `gorm:"operation_id" json:"operation_id"`
-	Name        string     `gorm:"name" json:"name"`
-	CreatedAt   *time.Time `gorm:"created_at" json:"created_at"`
-	UpdatedAt   *time.Time `gorm:"updated_at" json:"updated_at"`
+	Id                 string     `gorm:"id" json:"id"`
+	CashboxOperationID string     `gorm:"cashbox_operation_id" json:"cashbox_operation_id"`
+	OperationId        int64      `gorm:"operation_id" json:"operation_id"`
+	Name               string     `gorm:"name" json:"name"`
+	CreatedAt          *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt          *time.Time `gorm:"updated_at" json:"updated_at"`
 }
 
 // cashbox operation with store info

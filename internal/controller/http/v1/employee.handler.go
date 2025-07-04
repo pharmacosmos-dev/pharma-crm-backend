@@ -481,9 +481,19 @@ func (h *EmployeeHandler) GetInfo(c *gin.Context) {
 	}
 	err = h.db.Raw(`
 	SELECT
-		cb.id, co.operation_id, cb.name, cb.created_at, cb.updated_at
-	FROM cashbox_operations co JOIN cash_boxes cb ON co.cash_box_id = cb.id
-	WHERE co.end_time IS NULL AND co.current_employee_id = ?
+		cb.id, 
+		co.id AS cashbox_operation_id,
+		co.operation_id, 
+		cb.name, 
+		cb.created_at, 
+		cb.updated_at
+	FROM 
+		cashbox_operations co 
+	JOIN 
+		cash_boxes cb ON co.cash_box_id = cb.id
+	WHERE 
+		co.end_time IS NULL AND 
+		co.current_employee_id = ?
 	`, userID).Scan(&res.Cashbox).Error
 
 	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
