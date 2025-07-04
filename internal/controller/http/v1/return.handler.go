@@ -761,6 +761,7 @@ func (h *ReturnHandler) ExportReturnNakladnoyPDF(c *gin.Context) {
 
 	// nakladnoy name
 	nakladnoyName := fmt.Sprintf("НАКЛАДНАЯ № %s от %s г.", returnData.PublicId, time.Now().Format("02.01.2006"))
+	fromStore := "Поставщик: " + returnData.Store.Name
 	fromStoreAddress := "Адрес: " + returnData.Store.Address
 	toStoreAddress := "Адрес: г.Ташкент, Учтепинский район, ул.Богобод, Д.269"
 	fromStorePhone := fmt.Sprintf("Тел: +%s,%s", returnData.Store.Phone, "filial@pharma")
@@ -777,7 +778,7 @@ func (h *ReturnHandler) ExportReturnNakladnoyPDF(c *gin.Context) {
 	// Sender/Receiver section
 	pdf.Ln(-1)
 	pdf.SetFont("DejaVu", "", 10)
-	pdf.CellFormat(95, 8, "Поставщик: ООО \"PHARMA COSMOS\"", "1", 0, "L", false, 0, "")
+	pdf.CellFormat(95, 8, fromStore, "1", 0, "L", false, 0, "")
 	pdf.CellFormat(95, 8, "Получатель: MChJ \"PharmaCosmos\"", "1", 1, "L", false, 0, "")
 
 	// Addresses

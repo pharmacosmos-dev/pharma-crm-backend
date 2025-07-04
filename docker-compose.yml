@@ -1,65 +1,65 @@
 version: '3.9'
 
-services:
-  db:
-    container_name: postgres
-    image: postgres:15.11
-    restart: always
-    shm_size: '2gb'  # Optional, remove if not needed
-    env_file:
-      - .env
-    environment:
-      POSTGRES_DB: ${PG_DB}
-      POSTGRES_USER: ${PG_USER}
-      POSTGRES_PASSWORD: ${PG_PASS}
-      POSTGRES_HOST_AUTH_METHOD: "scram-sha-256"  # More secure than md5
-      PGDATA: /var/lib/postgresql/data/pgdata
-    volumes:
-      - pg-data:/var/lib/postgresql/data/pgdata
-    ports:
-      - "${PG_PORT}:5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${PG_USER} -d ${PG_DB}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-  pgadmin:
-    image: dpage/pgadmin4
-    container_name: pgadmin_container
-    restart: always
-    environment:
-      PGADMIN_DEFAULT_EMAIL: "admin@admin.com"
-      PGADMIN_DEFAULT_PASSWORD: "pgadmin123"
-    ports:
-      - "5050:80"
-    volumes:
-      - pgadmin-data:/var/lib/pgadmin
+# services:
+  # db:
+  #   container_name: postgres
+  #   image: postgres:15.11
+  #   restart: always
+  #   shm_size: '2gb'  # Optional, remove if not needed
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     POSTGRES_DB: ${PG_DB}
+  #     POSTGRES_USER: ${PG_USER}
+  #     POSTGRES_PASSWORD: ${PG_PASS}
+  #     POSTGRES_HOST_AUTH_METHOD: "scram-sha-256"  # More secure than md5
+  #     PGDATA: /var/lib/postgresql/data/pgdata
+  #   volumes:
+  #     - pg-data:/var/lib/postgresql/data/pgdata
+  #   ports:
+  #     - "${PG_PORT}:5432"
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U ${PG_USER} -d ${PG_DB}"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  # pgadmin:
+  #   image: dpage/pgadmin4
+  #   container_name: pgadmin_container
+  #   restart: always
+  #   environment:
+  #     PGADMIN_DEFAULT_EMAIL: "admin@admin.com"
+  #     PGADMIN_DEFAULT_PASSWORD: "pgadmin123"
+  #   ports:
+  #     - "5050:80"
+  #   volumes:
+  #     - pgadmin-data:/var/lib/pgadmin
 
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
-    container_name: elasticsearch
-    ports:
-      - "9200:9200"
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
+  # elasticsearch:
+  #   image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
+  #   container_name: elasticsearch
+  #   ports:
+  #     - "9200:9200"
+  #   environment:
+  #     - discovery.type=single-node
+  #     - xpack.security.enabled=false
 
-  kibana:
-    image: docker.elastic.co/kibana/kibana:8.13.4
-    container_name: kibana
-    ports:
-      - "5601:5601"
-    environment:
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-    depends_on:
-      - elasticsearch
-
-
-networks:
-  elasticnet:
+  # kibana:
+  #   image: docker.elastic.co/kibana/kibana:8.13.4
+  #   container_name: kibana
+  #   ports:
+  #     - "5601:5601"
+  #   environment:
+  #     - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+  #   depends_on:
+  #     - elasticsearch
 
 
+# networks:
+#   elasticnet:
 
-volumes:
-  pg-data:
-  pgadmin-data:
+
+
+# volumes:
+#   pg-data:
+#   pgadmin-data:
