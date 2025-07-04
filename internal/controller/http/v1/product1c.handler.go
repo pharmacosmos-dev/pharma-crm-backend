@@ -216,7 +216,7 @@ func (h *Product1cHandler) ListProductByStoreCode(c *gin.Context) {
 		COALESCE(pr.code, '') as manufacturer,
 		ROUND(sp.pack_quantity::numeric + (sp.unit_quantity::numeric % p.unit_per_pack)/p.unit_per_pack, 4) as quantity,
 		sp.serial_number,
-		sp.expire_date,
+		COALESCE(sp.expire_date, '01.01.3000'),
 		sp.retail_price,
 		sp.supply_price,
 		ROUND((sp.pack_quantity::numeric + (sp.unit_quantity::numeric % p.unit_per_pack)/p.unit_per_pack) * retail_price, 2) AS sum
