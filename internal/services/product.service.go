@@ -456,8 +456,9 @@ func (s *Services) ListProductStats(param *domain.ProductQueryParam) (domain.Pro
 	var (
 		res    domain.ProductStats
 		args   []any
-		filter = "WHERE 1=1 "
+		filter = "WHERE 1=1"
 	)
+
 	query := `
 	SELECT
 		SUM(sp.pack_quantity) AS total_quantity,
@@ -471,34 +472,56 @@ func (s *Services) ListProductStats(param *domain.ProductQueryParam) (domain.Pro
 		COUNT(DISTINCT p.id) AS total_count
 	FROM store_products sp
 	RIGHT JOIN products p ON sp.product_id = p.id
-	LEFT JOIN producers pr ON p.producer_id = pr.id
-	LEFT JOIN unit_types u ON p.unit_type_id = u.id
 	`
 
 	// filter with store_ids
 	if param.StoreID != "" {
-		filter += " AND sp.store_id IN (?) "
+		filter += " AND sp.store_id = ?"
 		args = append(args, param.StoreID)
 	}
+
 	// filter with producer_id
 	if param.ProducerID != "" {
-		filter += " AND p.producer_id IN (?) "
+		filter += " AND p.producer_id = ?"
 		args = append(args, param.ProducerID)
 	}
+
 	// filter with search
 	if param.SearchField != "" {
 		search := "%" + param.SearchField + "%"
-		filter += " AND (p.name ILIKE ? OR p.barcode LIKE ?) "
+		filter += " AND (p.name ILIKE ? OR p.barcode LIKE ?)"
 		args = append(args, search, search)
 	}
+
+	// filter with status
+	if param.Status != "" {
+		switch param.Status {
+		case "active", "inactive":
+			filter += " AND p.status = ?"
+			args = append(args, param.Status)
+		case "low-stock":
+			filter += " AND sp.pack_quantity <= 10 AND sp.pack_quantity > 0"
+		case "zero-stock":
+			filter += " AND sp.pack_quantity = 0 AND sp.unit_quantity = 0"
+		case "expired":
+			filter += " AND sp.expire_date::date < ?"
+			args = append(args, time.Now().Format("2006-01-02"))
+		case "imminent":
+			now := time.Now()
+			filter += " AND sp.expire_date::date BETWEEN ? AND ?"
+			args = append(args, now.Format("2006-01-02"), now.AddDate(0, 3, 0).Format("2006-01-02"))
+		}
+	}
+
 	// check barcode is null or emplty string
 	if param.NoBarcode {
-		filter += " AND (p.barcode IS NULL OR p.barcode = '') "
+		filter += " AND (p.barcode IS NULL OR p.barcode = '')"
 	}
-	// collect query
-	query = query + filter
-	// complete query
-	err := s.db.Raw(query, args...).Scan(&res).Error
+
+	// finalize and run query
+	fullQuery := query + " " + filter
+
+	err := s.db.Raw(fullQuery, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting product stats: %v", err)
 		return res, err
