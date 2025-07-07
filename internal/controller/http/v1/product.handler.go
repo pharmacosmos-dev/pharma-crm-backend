@@ -70,6 +70,10 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.GET("/min-max/:id", h.GetMinMaxProductById)
 		product.GET("/list-min-max", h.GetMinMaxProducts)
 		product.GET("/export-min-max", h.ExportMinMaxProducts)
+		product.POST("/exclude", h.CreateExcludedProduct)
+		product.DELETE("/exclude/:id", h.DeleteExcludedProduct)
+		product.GET("/excluded-list", h.ListExcludedProducts)
+		product.GET("/excluded-export", h.ExportExcludedProductsExcel)
 	}
 }
 
@@ -2392,6 +2396,232 @@ func (h *ProductHandler) GenerateMarking(productId string, importDetailId string
 	if err != nil {
 		h.log.Error(err)
 	}
+}
+
+// CreateExcludedProduct godoc
+// @Summary Exclude a product from a store or globally
+// @Description Exclude a specific product from a store or globally if store_id is omitted
+// @Tags products
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param exclude body domain.ProductExcludeRequest true "Exclude Product Request"
+// @Success 201 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 401 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/exclude [post]
+func (h *ProductHandler) CreateExcludedProduct(c *gin.Context) {
+	var (
+		body domain.ProductExcludeRequest
+		err  error
+	)
+
+	if err = c.ShouldBindJSON(&body); err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+
+	tx := h.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	excludeID := uuid.New().String()
+
+	query := `
+		INSERT INTO excluded_products (id, store_id, product_id, created_by, created_at)
+		VALUES (?, ?, ?, ?, NOW())
+		ON CONFLICT (store_id, product_id) DO NOTHING
+	`
+
+	var storeID any = nil
+	if body.StoreID != nil && *body.StoreID != "" {
+		storeID = *body.StoreID
+	}
+
+	err = tx.Exec(query, excludeID, storeID, body.ProductID, userId).Error
+	if err != nil {
+		tx.Rollback()
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	if err = tx.Commit().Error; err != nil {
+		tx.Rollback()
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	handleResponse(c, CREATED, "Product successfully excluded")
+}
+
+// ListExcludedProducts godoc
+// @Summary List excluded products
+// @Description Get a paginated list of excluded products by store
+// @Tags products
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param search query string false "Search"
+// @Param store_id query string false "Store ID"
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 401 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/excluded-list [get]
+func (h *ProductHandler) ListExcludedProducts(c *gin.Context) {
+	var param domain.ProductQueryParam
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
+		handleResponse(c, BadRequest, "Invalid query parameters: "+err.Error())
+		return
+	}
+
+	// defaults
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	// service call
+	data, total, err := h.service.ListExcludedProducts(&param)
+	if err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	handleResponse(c, OK, utils.ListResponse(data, total, param.Limit, param.Offset))
+}
+
+// ExportExcludedProductsExcel godoc
+// @Summary Export excluded products to Excel
+// @Description Export excluded products list to Excel by store or globally
+// @Tags products
+// @Security BearerAuth
+// @Accept json
+// @Produce octet-stream
+// @Param search query string false "Search"
+// @Param store_id query string false "Store ID"
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Success 200 {file} file
+// @Failure 400 {object} v1.Response
+// @Failure 401 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/excluded-export [get]
+func (h *ProductHandler) ExportExcludedProductsExcel(c *gin.Context) {
+	var param domain.ProductQueryParam
+
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "Invalid query parameters: "+err.Error())
+		return
+	}
+
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	// get data
+	data, _, err := h.service.ListExcludedProducts(&param)
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to get excluded products: "+err.Error())
+		return
+	}
+
+	// Create Excel file
+	f := excelize.NewFile()
+	sheet := "ExcludedProducts"
+	index, err := f.NewSheet(sheet)
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to create sheet: "+err.Error())
+		return
+	}
+	f.SetActiveSheet(index)
+
+	// Set header
+	headers := []string{"ID", "Наименование", "Магазин", "Создал", "Дата создания"}
+	for i, h := range headers {
+		cell := fmt.Sprintf("%s1", string(rune('A'+i)))
+		f.SetCellValue(sheet, cell, h)
+	}
+
+	// Fill rows
+	for i, item := range data {
+		row := i + 2 // start from row 2
+		f.SetCellValue(sheet, fmt.Sprintf("A%d", row), i+1)
+		f.SetCellValue(sheet, fmt.Sprintf("B%d", row), item.ProductName)
+		if *item.StoreName == "Global" {
+			f.SetCellValue(sheet, fmt.Sprintf("C%d", row), "Все магазины")
+		} else {
+			f.SetCellValue(sheet, fmt.Sprintf("C%d", row), *item.StoreName)
+		}
+		f.SetCellValue(sheet, fmt.Sprintf("D%d", row), item.CreatedBy)
+		f.SetCellValue(sheet, fmt.Sprintf("E%d", row), item.CreatedAt.Format("2006-01-02 15:04"))
+	}
+
+	// Save to uploads directory
+	saveExcelToUploads(c, f, *h.log, "Qora-ro'yhat-maxsulotlar")
+}
+
+// DeleteExcludedProduct godoc
+// @Summary Delete an excluded product
+// @Description Delete a product from the excluded_products list by its ID
+// @Tags products
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "Excluded Product ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 401 {object} v1.Response
+// @Failure 404 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/exclude/{id} [delete]
+func (h *ProductHandler) DeleteExcludedProduct(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		handleResponse(c, BadRequest, "ID is required")
+		return
+	}
+
+	tx := h.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	query := `DELETE FROM excluded_products WHERE id = ?`
+
+	result := tx.Exec(query, id)
+	if result.Error != nil {
+		tx.Rollback()
+		h.log.Error("Failed to delete excluded product: ", result.Error)
+		handleResponse(c, InternalError, result.Error.Error())
+		return
+	}
+
+	if result.RowsAffected == 0 {
+		tx.Rollback()
+		handleResponse(c, NotFound, "Excluded product not found")
+		return
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		tx.Rollback()
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	handleResponse(c, OK, "Excluded product deleted successfully")
 }
 
 const charset = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"

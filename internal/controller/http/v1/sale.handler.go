@@ -1128,7 +1128,7 @@ func (h *SaleHandler) RemoveCustomerDiscount(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept 	json
 // @Produce json
-// @Param	store_id query string false
+// @Param	store_id query string false "Store ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response

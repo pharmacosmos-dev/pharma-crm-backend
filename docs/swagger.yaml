@@ -337,6 +337,8 @@ definitions:
     type: object
   domain.EmployeeCashbox:
     properties:
+      cashbox_operation_id:
+        type: string
       created_at:
         type: string
       id:
@@ -842,6 +844,16 @@ definitions:
         type: integer
       store_id:
         type: string
+    type: object
+  domain.ProductExcludeRequest:
+    properties:
+      product_id:
+        type: string
+      store_id:
+        description: optional
+        type: string
+    required:
+    - product_id
     type: object
   domain.ProductRepricingRequest:
     properties:
@@ -8196,6 +8208,174 @@ paths:
       summary: Upload a product
       tags:
       - products
+  /product/exclude:
+    post:
+      consumes:
+      - application/json
+      description: Exclude a specific product from a store or globally if store_id
+        is omitted
+      parameters:
+      - description: Exclude Product Request
+        in: body
+        name: exclude
+        required: true
+        schema:
+          $ref: '#/definitions/domain.ProductExcludeRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Exclude a product from a store or globally
+      tags:
+      - products
+  /product/exclude/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a product from the excluded_products list by its ID
+      parameters:
+      - description: Excluded Product ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete an excluded product
+      tags:
+      - products
+  /product/excluded-export:
+    get:
+      consumes:
+      - application/json
+      description: Export excluded products list to Excel by store or globally
+      parameters:
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: OK
+          schema:
+            type: file
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Export excluded products to Excel
+      tags:
+      - products
+  /product/excluded-list:
+    get:
+      consumes:
+      - application/json
+      description: Get a paginated list of excluded products by store
+      parameters:
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: List excluded products
+      tags:
+      - products
   /product/export-arzon:
     get:
       consumes:
@@ -12247,6 +12427,11 @@ paths:
       consumes:
       - application/json
       description: Get online pending sale count
+      parameters:
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
       produces:
       - application/json
       responses:

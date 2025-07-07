@@ -986,3 +986,69 @@ func (s *Services) GetMinMaxProducts(param *domain.ProductQueryParam) ([]domain.
 
 	return res, totalCount, nil
 }
+
+func (s *Services) ListExcludedProducts(param *domain.ProductQueryParam) ([]domain.ExcludedProductResponse, int64, error) {
+	var (
+		res        []domain.ExcludedProductResponse
+		totalCount int64
+		args       []any
+		filter     = "WHERE 1=1"
+	)
+
+	// filter by store if given
+	if param.StoreID != "" {
+		filter += " AND ep.store_id = ?"
+		args = append(args, param.StoreID)
+	}
+
+	// filter by product name
+	if param.SearchField != "" {
+		search := "%" + param.SearchField + "%"
+		filter += " AND p.name ILIKE ?"
+		args = append(args, search)
+	}
+
+	// pagination safety
+	if param.Limit == 0 {
+		param.Limit = 10
+	}
+	if param.Offset < 0 {
+		param.Offset = 0
+	}
+
+	// main query
+	query := `
+		SELECT
+			ep.id,
+			p.id AS product_id,
+			p.name AS product_name,
+			ep.store_id,
+			COALESCE(s.name, 'Global') AS store_name,
+			e.full_name AS created_by,
+			ep.created_at,
+			COUNT(*) OVER() AS total_count
+		FROM excluded_products ep
+		JOIN products p ON p.id = ep.product_id
+		LEFT JOIN stores s ON ep.store_id = s.id
+		LEFT JOIN employees e ON ep.created_by = e.id
+	` + filter + `
+		ORDER BY ep.created_at DESC
+		LIMIT ? OFFSET ?
+	`
+
+	args = append(args, param.Limit, param.Offset)
+
+	err := s.db.Raw(query, args...).Scan(&res).Error
+	if err != nil {
+		s.log.Error("Failed to list excluded products: %v", err)
+		return nil, 0, err
+	}
+
+	if len(res) > 0 {
+		totalCount = res[0].TotalCount
+	} else {
+		res = []domain.ExcludedProductResponse{}
+	}
+
+	return res, totalCount, nil
+}

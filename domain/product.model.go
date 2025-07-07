@@ -64,6 +64,24 @@ type ProductRequest struct {
 	CategoryIds  []string              `gorm:"-" json:"category_ids"`
 }
 
+// ProductExcludeRequest request
+type ProductExcludeRequest struct {
+	StoreID   *string `json:"store_id"` // optional
+	ProductID string  `json:"product_id" binding:"required,uuid"`
+}
+
+// ExcludedProductResponse response
+type ExcludedProductResponse struct {
+	ID          string    `json:"id"`
+	ProductID   string    `json:"product_id"`
+	ProductName string    `json:"product_name"`
+	StoreID     *string   `json:"store_id,omitempty"`
+	StoreName   *string   `json:"store_name,omitempty"`
+	TotalCount  int64     `json:"total_count"`
+	CreatedBy   string    `json:"created_by"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
 // Product update request
 type ProductUpdateRequest struct {
 	Name         string                `gorm:"name" json:"name"`
