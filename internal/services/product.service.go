@@ -992,6 +992,7 @@ func (s *Services) ListExcludedProducts(param *domain.ProductQueryParam) ([]doma
 		res        []domain.ExcludedProductResponse
 		totalCount int64
 		args       []any
+		countArgs  []any
 		filter     = "WHERE 1=1"
 	)
 
@@ -999,6 +1000,7 @@ func (s *Services) ListExcludedProducts(param *domain.ProductQueryParam) ([]doma
 	if param.StoreID != "" {
 		filter += " AND ep.store_id = ?"
 		args = append(args, param.StoreID)
+		countArgs = append(countArgs, param.StoreID)
 	}
 
 	// filter by product name
@@ -1006,9 +1008,10 @@ func (s *Services) ListExcludedProducts(param *domain.ProductQueryParam) ([]doma
 		search := "%" + param.SearchField + "%"
 		filter += " AND p.name ILIKE ?"
 		args = append(args, search)
+		countArgs = append(countArgs, search)
 	}
 
-	// pagination safety
+	// set default pagination
 	if param.Limit == 0 {
 		param.Limit = 10
 	}
@@ -1025,8 +1028,7 @@ func (s *Services) ListExcludedProducts(param *domain.ProductQueryParam) ([]doma
 			ep.store_id,
 			COALESCE(s.name, 'Global') AS store_name,
 			e.full_name AS created_by,
-			ep.created_at,
-			COUNT(*) OVER() AS total_count
+			ep.created_at
 		FROM excluded_products ep
 		JOIN products p ON p.id = ep.product_id
 		LEFT JOIN stores s ON ep.store_id = s.id
@@ -1044,10 +1046,16 @@ func (s *Services) ListExcludedProducts(param *domain.ProductQueryParam) ([]doma
 		return nil, 0, err
 	}
 
-	if len(res) > 0 {
-		totalCount = res[0].TotalCount
-	} else {
-		res = []domain.ExcludedProductResponse{}
+	// count query
+	countQuery := `
+		SELECT COUNT(*)
+		FROM excluded_products ep
+		JOIN products p ON p.id = ep.product_id
+	` + filter
+
+	if err := s.db.Raw(countQuery, countArgs...).Scan(&totalCount).Error; err != nil {
+		s.log.Error("Failed to count excluded products: %v", err)
+		return nil, 0, err
 	}
 
 	return res, totalCount, nil

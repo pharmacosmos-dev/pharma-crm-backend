@@ -77,7 +77,6 @@ type ExcludedProductResponse struct {
 	ProductName string    `json:"product_name"`
 	StoreID     *string   `json:"store_id,omitempty"`
 	StoreName   *string   `json:"store_name,omitempty"`
-	TotalCount  int64     `json:"total_count"`
 	CreatedBy   string    `json:"created_by"`
 	CreatedAt   time.Time `json:"created_at"`
 }
