@@ -61,17 +61,16 @@ func (h *AutoOrderHandler) Create(c *gin.Context) {
 		body domain.AutoOrderRequest
 		err  error
 	)
-	if err = c.ShouldBindJSON(&body); err != nil {
+    err = c.ShouldBindJSON(&body) // bind request body
+	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+    // start transaction
 	tx := h.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
+    defer recoverTransaction(tx, h.log) // check revocer for panic error
+    defer RollbackIfError(tx, &err) // return transaction if error happened
 	body.Id = uuid.New().String()
 	body.Status = config.NEW
 	body.AutoOrderDate = time.Now().Format(time.DateTime)
@@ -80,14 +79,12 @@ func (h *AutoOrderHandler) Create(c *gin.Context) {
 	if err != nil {
 		h.log.Error("ERROR generating auto order: ", err)
 		handleResponse(c, InternalError, "Failed to generate auto order for the store")
-		tx.Rollback()
 		return
 	}
 
 	// check if there are enough products for the auto order
 	if len(autoOrderDetails) < 1 {
 		handleResponse(c, CONFLICT, "Not enough products for creating auto order")
-		tx.Rollback()
 		return
 	}
 
@@ -97,7 +94,6 @@ func (h *AutoOrderHandler) Create(c *gin.Context) {
 		Create(&body).Error
 	if err != nil {
 		h.log.Error(err)
-		tx.Rollback()
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -105,14 +101,13 @@ func (h *AutoOrderHandler) Create(c *gin.Context) {
 	err = tx.Table("auto_order_details").Create(&autoOrderDetails).Error
 	if err != nil {
 		h.log.Warn("ERROR on creating auto_order_dateils: %v", err)
-		tx.Rollback()
 		handleResponse(c, InternalError, "failed.create.auto_order_details")
 		return
 	}
-	//
-	if err = tx.Commit().Error; err != nil {
+	// commit transaction
+    err = tx.Commit().Error;
+	if err != nil {
 		h.log.Error("ERROR on commiting transaction")
-		tx.Rollback()
 		handleResponse(c, InternalError, err.Error())
 		return
 	}

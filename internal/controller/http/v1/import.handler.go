@@ -510,7 +510,7 @@ func (h *ImportHandler) AddScann(c *gin.Context) {
 		Preload("Product").
 		Preload("Import").
 		Select(`
-		import_details.*, 
+		import_details.*,
 		(import_details.retail_price*received_count) as received_amount,
 		(import_details.retail_price*accepted_count) as accepted_amount,
 		sum_vat as received_amount_vat,
@@ -539,8 +539,8 @@ func (h *ImportHandler) AddScann(c *gin.Context) {
 	var importDetail domain.ImportDetail
 	// Perform a single query to find and update the record
 	result := h.db.Raw(`
-	UPDATE import_details SET 
-		accepted_count = accepted_count + ?, updated_at = NOW() 
+	UPDATE import_details SET
+		accepted_count = accepted_count + ?, updated_at = NOW()
 	WHERE import_id = ? AND product_id IN (
 		SELECT id
 		FROM products
@@ -605,7 +605,7 @@ func (h *ImportHandler) AddAScanById(c *gin.Context) {
 	err = h.db.Raw(`
 		UPDATE import_details
 		SET accepted_count = accepted_count + ?
-		WHERE id = ? RETURNING * 
+		WHERE id = ? RETURNING *
 	`, body.Count, body.ID).Scan(&importDetail).Error
 	if err != nil {
 		h.log.Error(err)

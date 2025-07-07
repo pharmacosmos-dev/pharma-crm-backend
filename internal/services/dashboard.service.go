@@ -111,13 +111,13 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 
 		query1 = `
 		SELECT
-			COALESCE(SUM(CASE 
-				WHEN im.created_at BETWEEN ? AND ? 
-				THEN imd.received_count * imd.retail_price_vat ELSE 0 
+			COALESCE(SUM(CASE
+				WHEN im.created_at BETWEEN ? AND ?
+				THEN imd.received_count * imd.retail_price_vat ELSE 0
 			END), 0) AS import_amount,
-			COALESCE(SUM(CASE 
-				WHEN im.created_at BETWEEN ? AND ? 
-				THEN imd.received_count * imd.retail_price_vat ELSE 0 
+			COALESCE(SUM(CASE
+				WHEN im.created_at BETWEEN ? AND ?
+				THEN imd.received_count * imd.retail_price_vat ELSE 0
 			END), 0) AS before_import_amount
 		FROM import_details imd
 		JOIN imports im ON imd.import_id = im.id
@@ -219,7 +219,7 @@ func (s *Services) DashboardChartStats(param *domain.DashboardQueryParam) ([]dom
 	case "HALF_HOURLY":
 		interval = "30 minutes"
 		timeTruncCol = `
-		DATE_TRUNC('hour', s.completed_at + INTERVAL '5 hours') + 
+		DATE_TRUNC('hour', s.completed_at + INTERVAL '5 hours') +
 		INTERVAL '30 minutes' * FLOOR(EXTRACT(minute FROM s.completed_at + INTERVAL '5 hours') / 30)`
 	case "HOURLY":
 		interval = "1 hour"
@@ -266,15 +266,15 @@ func (s *Services) DashboardChartStats(param *domain.DashboardQueryParam) ([]dom
 			?::interval
 		) AS period
 	)
-	SELECT 
+	SELECT
 		ts.period AS id,
 		ts.period AS created_at,
 		COUNT(s.id) AS count,
 		COALESCE(SUM(s.total_amount), 0) AS total_amount
 	FROM time_series ts
-	LEFT JOIN sales s ON 
+	LEFT JOIN sales s ON
 		%s = ts.period
-		AND s.status = 'completed' 
+		AND s.status = 'completed'
 		AND s.sale_type = 'SALE'
 	%s
 	GROUP BY ts.period

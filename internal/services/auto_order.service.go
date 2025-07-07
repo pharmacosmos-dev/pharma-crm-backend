@@ -84,7 +84,7 @@ func (s *Services) ListAutoOrderForGenerate(ctx context.Context, limit, offset i
 			((w.weekly_quantity-st.current_stock)*1.1)*1 AS order_lead_time,
 			-- Suggested Order: Based on safety stock (e.g., weekly sales x lead time)
 			CASE
-				WHEN (w.weekly_quantity-st.current_stock)*1.1>0 
+				WHEN (w.weekly_quantity-st.current_stock)*1.1>0
 					THEN ROUND((w.weekly_quantity-st.current_stock)*1.1)
 				ELSE 0
 			END AS suggested_order,
@@ -98,11 +98,11 @@ func (s *Services) ListAutoOrderForGenerate(ctx context.Context, limit, offset i
 		LEFT JOIN
 			weekly_sales w ON st.store_id = w.store_id AND st.product_id = w.product_id
 		LEFT JOIN
-			monthly_sales m ON st.store_id = m.store_id AND st.product_id = m.product_id 
+			monthly_sales m ON st.store_id = m.store_id AND st.product_id = m.product_id
 		%s
 		ORDER BY suggested_order DESC  LIMIT ? OFFSET ?;
 	`, searchCondition)
-	err := s.db.Raw(query, limit, offset).Scan(&autoOrders).Error
+	err := s.db.Debug().Raw(query, limit, offset).Scan(&autoOrders).Error
 	if err != nil {
 		return nil, 0, err
 	}
@@ -136,7 +136,7 @@ func (s *Services) ListAutoOrder(param *domain.AutoOrderParam) ([]domain.AutoOrd
 	query := s.db.
 		Model(&domain.AutoOrder{}).
 		Preload("Store").
-		Select(`auto_orders.*, 
+		Select(`auto_orders.*,
 		SUM(aod.order_count) AS adjusted_order_quantity,
 		SUM(aod.response_order_count) AS response_order_quantity`).
 		Joins("JOIN stores s ON auto_orders.store_id = s.id").
@@ -285,7 +285,7 @@ func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, d
 	FROM order_calc
 	ORDER BY name;
 	`
-	err := s.db.Debug().Raw(query, storeID, autoOrderID, day).Scan(&res).Error
+	err := s.db.Raw(query, storeID, autoOrderID, day).Scan(&res).Error
 
 	if err != nil {
 		s.log.Error(err)
