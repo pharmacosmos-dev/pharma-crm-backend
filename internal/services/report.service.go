@@ -43,7 +43,7 @@ func (s *Services) ProductReportWithDate(param *domain.ReportQueryParam) ([]map[
 	for d := startDate; !d.After(endDate); d = d.AddDate(0, 0, 1) {
 		dateStr := d.Format("2006-01-02")
 		dateColumns = append(dateColumns, fmt.Sprintf(
-			`SUM(CASE WHEN s.completed_at::date = '%s' THEN s.total_amount ELSE 0 END) AS "%s"`,
+			`SUM(CASE WHEN s.completed_at = '%s' THEN s.total_amount ELSE 0 END) AS "%s"`,
 			dateStr, dateStr,
 		))
 	}
@@ -57,7 +57,7 @@ func (s *Services) ProductReportWithDate(param *domain.ReportQueryParam) ([]map[
 			p.name AS product_name,
 			%s,
 			SUM(CASE WHEN s.completed
-		::date BETWEEN '%s' AND '%s' THEN s.total_amount ELSE 0 END) AS total_amount
+		 BETWEEN '%s' AND '%s' THEN s.total_amount ELSE 0 END) AS total_amount
 		FROM products p
 		JOIN store_products sp ON p.id = sp.product_id
 		LEFT JOIN cart_items ci ON sp.id = ci.store_product_id
@@ -485,17 +485,17 @@ func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.S
 		args = append(args, "%"+param.Search+"%")
 	}
 	if param.StartDate != "" && param.EndDate != "" {
-		filter += " AND (sa.completed_at + interval '5 hours')::date BETWEEN ? AND ?"
+		filter += " AND (sa.completed_at + interval '5 hours') BETWEEN ? AND ?"
 		args = append(args, param.StartDate, param.EndDate)
 	} else if param.EndDate == "" && param.StartDate != "" {
-		filter += " AND (sa.completed_at + interval '5 hours')::date = ?"
+		filter += " AND (sa.completed_at + interval '5 hours') = ?"
 		args = append(args, param.StartDate)
 	}
 
 	// Count query
 	countQuery := fmt.Sprintf(`
 		SELECT COUNT(*) AS total_count FROM (
-			SELECT s.id, s.name, (sa.completed_at + interval '5 hours')::date AS sale_date
+			SELECT s.id, s.name, (sa.completed_at + interval '5 hours') AS sale_date
 			FROM stores s
 			JOIN sales sa ON s.id = sa.store_id
 			JOIN sale_payments sp ON sa.id = sp.sale_id
@@ -513,11 +513,11 @@ func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.S
 	// Main query
 	mainQuery := fmt.Sprintf(`
 		SELECT
-			row_number() OVER (ORDER BY s.name, (sa.completed_at + interval '5 hours')::date) AS uid,
+			row_number() OVER (ORDER BY s.name, (sa.completed_at + interval '5 hours')) AS uid,
 			s.id,
 			s.store_code,
 			s.name AS store_name,
-			(sa.completed_at + interval '5 hours')::date AS sale_date,
+			(sa.completed_at + interval '5 hours') AS sale_date,
 			SUM(CASE WHEN pt.name = 'Naqd' AND sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
 			SUM(CASE WHEN pt.name = 'Naqd' AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS cash,
 			SUM(CASE WHEN pt.name = 'Uzcard' AND sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
@@ -567,10 +567,10 @@ func (s *Services) ReportByStoreStats(param *domain.ReportQueryParam) (domain.St
 		args = append(args, "%"+param.Search+"%")
 	}
 	if param.StartDate != "" && param.EndDate != "" {
-		filter += " AND (sa.completed_at + interval '5 hours')::date BETWEEN ? AND ?"
+		filter += " AND (sa.completed_at + interval '5 hours') BETWEEN ? AND ?"
 		args = append(args, param.StartDate, param.EndDate)
 	} else if param.EndDate == "" && param.StartDate != "" {
-		filter += " AND (sa.completed_at + interval '5 hours')::date >= ?"
+		filter += " AND (sa.completed_at + interval '5 hours') >= ?"
 		args = append(args, param.StartDate)
 	}
 
@@ -794,7 +794,7 @@ func (s *Services) ReportTopSeller(param *domain.ReportQueryParam) ([]domain.Top
 		INNER JOIN stores st ON s.store_id = st.id
 		WHERE s.status = 'completed'
 		AND s.sale_type = 'SALE'
-		AND (s.completed_at + interval '5 hours')::date BETWEEN ? AND ?
+		AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?
 		GROUP BY e.id, e.full_name, st.name
 	) AS curr
 	LEFT JOIN (
@@ -805,7 +805,7 @@ func (s *Services) ReportTopSeller(param *domain.ReportQueryParam) ([]domain.Top
 		INNER JOIN employees e ON s.employee_id = e.id
 		WHERE s.status = 'completed'
 		AND s.sale_type = 'SALE'
-		AND (s.completed_at + interval '5 hours')::date BETWEEN ? AND ?
+		AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?
 		GROUP BY e.id
 	) AS prev ON curr.id = prev.id
 `
@@ -918,7 +918,7 @@ func (s *Services) ReportTopStores(param *domain.ReportQueryParam) ([]domain.Top
 				SUM(sales.total_amount) AS total_amount
 			FROM sales
 			WHERE sales.status = 'completed'
-			AND (sales.completed_at + interval '5 hours')::date BETWEEN ? AND ?
+			AND (sales.completed_at + interval '5 hours') BETWEEN ? AND ?
 			GROUP BY sales.store_id
 		) AS curr
 		LEFT JOIN (
@@ -927,7 +927,7 @@ func (s *Services) ReportTopStores(param *domain.ReportQueryParam) ([]domain.Top
 				SUM(sales.total_amount) AS total_amount
 			FROM sales
 			WHERE sales.status = 'completed'
-			AND (sales.completed_at + interval '5 hours')::date BETWEEN ? AND ?
+			AND (sales.completed_at + interval '5 hours') BETWEEN ? AND ?
 			GROUP BY sales.store_id
 		) AS prev ON curr.store_id = prev.store_id
 		INNER JOIN stores ON curr.store_id = stores.id
@@ -1051,7 +1051,7 @@ func (s *Services) ReportBonusProducts(param *domain.ReportQueryParam) ([]domain
 		filter += " AND p.name ILIKE ?"
 		args = append(args, "%"+param.Search+"%")
 	}
-	filter += " AND (eb.created_at + interval '5 hours')::date BETWEEN ? AND ?"
+	filter += " AND (eb.created_at + interval '5 hours') BETWEEN ? AND ?"
 	args = append(args, param.StartDate, param.EndDate)
 
 	// Close current subquery
@@ -1074,7 +1074,7 @@ func (s *Services) ReportBonusProducts(param *domain.ReportQueryParam) ([]domain
 		prevFilter += " AND e.store_id IN (?)"
 		args = append(args, param.StoreIds)
 	}
-	prevFilter += " AND (eb.created_at + interval '5 hours')::date BETWEEN ? AND ?"
+	prevFilter += " AND (eb.created_at + interval '5 hours') BETWEEN ? AND ?"
 	args = append(args, beforeStart.Format(time.RFC3339), beforeEnd.Format(time.RFC3339))
 
 	query += prevJoin + prevFilter + " GROUP BY p.id ) AS prev ON curr.id = prev.id"

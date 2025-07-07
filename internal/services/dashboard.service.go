@@ -226,7 +226,7 @@ func (s *Services) DashboardChartStats(param *domain.DashboardQueryParam) ([]dom
 		timeTruncCol = "DATE_TRUNC('hour', s.completed_at + INTERVAL '5 hours')"
 	case "DAILY":
 		interval = "1 day"
-		timeTruncCol = "(s.completed_at + INTERVAL '5 hours')::date"
+		timeTruncCol = "(s.completed_at + INTERVAL '5 hours')"
 	case "WEEKLY":
 		interval = "1 week"
 		timeTruncCol = "DATE_TRUNC('week', s.completed_at + INTERVAL '5 hours')"
