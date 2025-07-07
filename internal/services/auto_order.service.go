@@ -232,6 +232,15 @@ func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, d
          WHERE i.status = 'new'
          GROUP BY i.store_id, ip.product_id
 	),
+     excluded AS (
+         SELECT ep.product_id
+         FROM excluded_products ep
+                  JOIN vars v ON ep.store_id = v.store_id
+         UNION
+         SELECT product_id
+         FROM excluded_products
+         WHERE store_id IS NULL
+     ),
 
 	all_data AS (
 		SELECT
@@ -275,9 +284,11 @@ func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, d
 					ROUND(ROUND(GREATEST(min_stock - stock_on_delivery_date, 0) / kvant) * kvant)
 				ELSE 0
                  END
-                 - COALESCE(im.new_imports_count, 0) AS order_count
+                 - COALESCE(im.new_imports_count, 0) AS order_count,
+             ex.product_id AS excluded_product_id
          FROM final_calc fc
                   LEFT JOIN imports im ON im.store_id = fc.store_id AND im.product_id = fc.product_id
+                  LEFT JOIN excluded ex ON ex.product_id = fc.product_id
 	)
 	SELECT
     	fc.auto_order_id,
@@ -298,6 +309,8 @@ func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, d
     	fc.future_stock_with_reserve,
 		order_count
 	FROM order_calc fc
+	WHERE order_count > 0
+  	AND fc.excluded_product_id IS NULL
 	ORDER BY fc.name;
 	`
 	err := s.db.Raw(query, storeID, autoOrderID, day).Scan(&res).Error
