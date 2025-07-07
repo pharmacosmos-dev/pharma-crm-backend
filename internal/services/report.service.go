@@ -121,10 +121,10 @@ func (s *Services) BonusReport(param *domain.ReportQueryParam) ([]domain.BonusRe
 
 	// Sana bo‘yicha filter (5 soat farq bilan)
 	if param.StartDate != "" && param.EndDate != "" {
-		filter += " AND (eb.created_at + interval '5 hours')::date BETWEEN ? AND ?"
+		filter += " AND (eb.created_at + interval '5 hours') BETWEEN ? AND ?"
 		args = append(args, param.StartDate, param.EndDate)
 	} else if param.EndDate == "" && param.StartDate != "" {
-		filter += " AND (eb.created_at + interval '5 hours')::date = ?"
+		filter += " AND (eb.created_at + interval '5 hours') = ?"
 		args = append(args, param.StartDate)
 	}
 
@@ -237,29 +237,29 @@ func (s *Services) ProductReport(ctx context.Context, param *domain.ReportQueryP
 
 	// Apply date filter with full datetime support
 	if param.StartDate != "" && param.EndDate != "" {
-		// startTime, err := time.Parse(time.RFC3339, param.StartDate)
-		// if err != nil {
-		// 	s.log.Warn("Invalid start_date format: %v", err)
-		// 	return res, 0, err
-		// }
-		// endTime, err := time.Parse(time.RFC3339, param.EndDate)
-		// if err != nil {
-		// 	s.log.Warn("Invalid end_date format: %v", err)
-		// 	return res, 0, err
-		// }
-		// startStr := startTime.Format("2006-01-02 15:04:05")
-		// endStr := endTime.Format("2006-01-02 15:04:05")
-		filter += " AND (sl.completed_at + interval '5 hours')::date BETWEEN ? AND ? "
-		args = append(args, param.StartDate, param.EndDate)
+		startTime, err := time.Parse(time.RFC3339, param.StartDate)
+		if err != nil {
+			s.log.Warn("Invalid start_date format: %v", err)
+			return res, 0, err
+		}
+		endTime, err := time.Parse(time.RFC3339, param.EndDate)
+		if err != nil {
+			s.log.Warn("Invalid end_date format: %v", err)
+			return res, 0, err
+		}
+		startStr := startTime.Format("2006-01-02 15:04:05")
+		endStr := endTime.Format("2006-01-02 15:04:05")
+		filter += " AND (sl.completed_at + interval '5 hours') BETWEEN ? AND ? "
+		args = append(args, startStr, endStr)
 	} else if param.EndDate == "" && param.StartDate != "" {
-		// endTime, err := time.Parse(time.RFC3339, param.StartDate)
-		// if err != nil {
-		// 	s.log.Warn("Invalid start_date format: %v", err)
-		// 	return res, 0, err
-		// }
-		// endStr := endTime.Format("2006-01-02 15:04:05")
-		filter += " AND (sl.completed_at + interval '5 hours')::date <= ? "
-		args = append(args, param.StartDate)
+		endTime, err := time.Parse(time.RFC3339, param.StartDate)
+		if err != nil {
+			s.log.Warn("Invalid start_date format: %v", err)
+			return res, 0, err
+		}
+		endStr := endTime.Format("2006-01-02 15:04:05")
+		filter += " AND (sl.completed_at + interval '5 hours') <= ? "
+		args = append(args, endStr)
 	}
 
 	// Total count query
@@ -335,7 +335,7 @@ func (s *Services) ProductStatusReport(ctx context.Context, param *domain.Report
 		startStr := startTime.Format("2006-01-02 15:04:05")
 		endStr := endTime.Format("2006-01-02 15:04:05")
 
-		filter += " AND (sl.completed_at + interval '5 hours')::date BETWEEN ? AND ? "
+		filter += " AND (sl.completed_at + interval '5 hours') BETWEEN ? AND ? "
 		args = append(args, startStr, endStr)
 	} else if param.EndDate == "" && param.StartDate != "" {
 		endTime, err := time.Parse(time.RFC3339, param.StartDate)
@@ -344,7 +344,7 @@ func (s *Services) ProductStatusReport(ctx context.Context, param *domain.Report
 			return res, err
 		}
 		endStr := endTime.Format("2006-01-02 15:04:05")
-		filter += " AND (sl.completed_at + interval '5 hours')::date <= ? "
+		filter += " AND (sl.completed_at + interval '5 hours') <= ? "
 		args = append(args, endStr)
 	}
 
