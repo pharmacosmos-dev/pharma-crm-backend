@@ -322,30 +322,30 @@ func (s *Services) ProductStatusReport(ctx context.Context, param *domain.Report
 		args = append(args, param.EmployeeId)
 	}
 	if param.StartDate != "" && param.EndDate != "" {
-		// startTime, err := time.Parse(time.RFC3339, param.StartDate)
-		// if err != nil {
-		// 	s.log.Warn("Invalid start_date format: %v", err)
-		// 	return res, err
-		// }
-		// endTime, err := time.Parse(time.RFC3339, param.EndDate)
-		// if err != nil {
-		// 	s.log.Warn("Invalid end_date format: %v", err)
-		// 	return res, err
-		// }
-		// startStr := startTime.Format("2006-01-02 15:04:05")
-		// endStr := endTime.Format("2006-01-02 15:04:05")
+		startTime, err := time.Parse(time.RFC3339, param.StartDate)
+		if err != nil {
+			s.log.Warn("Invalid start_date format: %v", err)
+			return res, err
+		}
+		endTime, err := time.Parse(time.RFC3339, param.EndDate)
+		if err != nil {
+			s.log.Warn("Invalid end_date format: %v", err)
+			return res, err
+		}
+		startStr := startTime.Format("2006-01-02 15:04:05")
+		endStr := endTime.Format("2006-01-02 15:04:05")
 
 		filter += " AND (sl.completed_at + interval '5 hours')::date BETWEEN ? AND ? "
-		args = append(args, param.StartDate, param.EndDate)
+		args = append(args, startStr, endStr)
 	} else if param.EndDate == "" && param.StartDate != "" {
-		// endTime, err := time.Parse(time.RFC3339, param.StartDate)
-		// if err != nil {
-		// 	s.log.Warn("Invalid start_date format: %v", err)
-		// 	return res, err
-		// }
-		// endStr := endTime.Format("2006-01-02 15:04:05")
+		endTime, err := time.Parse(time.RFC3339, param.StartDate)
+		if err != nil {
+			s.log.Warn("Invalid start_date format: %v", err)
+			return res, err
+		}
+		endStr := endTime.Format("2006-01-02 15:04:05")
 		filter += " AND (sl.completed_at + interval '5 hours')::date <= ? "
-		args = append(args, param.StartDate)
+		args = append(args, endStr)
 	}
 
 	// Build and run query
