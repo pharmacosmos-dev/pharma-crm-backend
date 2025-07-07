@@ -221,9 +221,22 @@ func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, d
 		FROM store_products sp
 		JOIN vars v ON sp.store_id = v.store_id
 	),
+ 	imports AS (
+         SELECT
+             i.store_id,
+             ip.product_id,
+             COUNT(*) AS new_imports_count
+         FROM imports i
+                  JOIN import_details ip ON i.id = ip.import_id
+                  JOIN vars v ON i.store_id = v.store_id
+         WHERE i.status = 'new'
+         GROUP BY i.store_id, ip.product_id
+	),
+
 	all_data AS (
 		SELECT
 			v.auto_order_id,
+			v.store_id,
 			p.id AS product_id,
 			p.material_code,
 			p.name,
@@ -255,35 +268,37 @@ func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, d
 	),
 	order_calc AS (
 		SELECT
-			*,
+             fc.*,
 			GREATEST(min_stock - stock_on_delivery_date, 0) AS required_stock,
 			CASE
 				WHEN kvant > 0 THEN
 					ROUND(ROUND(GREATEST(min_stock - stock_on_delivery_date, 0) / kvant) * kvant)
 				ELSE 0
-			END AS order_count
-		FROM final_calc
+                 END
+                 - COALESCE(im.new_imports_count, 0) AS order_count
+         FROM final_calc fc
+                  LEFT JOIN imports im ON im.store_id = fc.store_id AND im.product_id = fc.product_id
 	)
 	SELECT
-		auto_order_id,
-		product_id,
-		material_code,
-		name,
-		current_stock,
-		min_stock,
-		max_stock,
-		kvant,
-		sale_count,
-		daily_sale_count,
-		import_day,
-		sale_period,
-		stock_on_delivery_date,
-		reserve_quantity,
-		future_stock,
-		future_stock_with_reserve,
+    	fc.auto_order_id,
+    	fc.product_id,
+    	fc.material_code,
+    	fc.name,
+    	fc.current_stock,
+    	fc.min_stock,
+    	fc.max_stock,
+    	fc.kvant,
+    	fc.sale_count,
+    	fc.daily_sale_count,
+    	fc.import_day,
+    	fc.sale_period,
+    	fc.stock_on_delivery_date,
+    	fc.reserve_quantity,
+    	fc.future_stock,
+    	fc.future_stock_with_reserve,
 		order_count
-	FROM order_calc
-	ORDER BY name;
+	FROM order_calc fc
+	ORDER BY fc.name;
 	`
 	err := s.db.Raw(query, storeID, autoOrderID, day).Scan(&res).Error
 
