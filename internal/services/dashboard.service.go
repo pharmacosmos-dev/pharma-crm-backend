@@ -425,10 +425,6 @@ func (s *Services) DashboardTopProducts(param *domain.DashboardQueryParam) ([]do
 func (s *Services) DashboardBonusProducts(param *domain.DashboardQueryParam) ([]domain.BonusProducts, error) {
 	var res []domain.BonusProducts
 
-	// default endDate agar berilmagan bo‘lsa
-	if param.EndDate == "" {
-		param.EndDate = param.StartDate
-	}
 	// query
 	var (
 		startTime, endTime time.Time
