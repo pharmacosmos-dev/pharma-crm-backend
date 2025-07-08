@@ -471,7 +471,7 @@ func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.S
 		totalCount int64
 		filter     = " WHERE sa.status = 'completed' "
 		args       []any
-		group      = " GROUP BY s.id, s.name, sale_date"
+		group      = " GROUP BY s.id, s.name, s.store_code"
 		order      = utils.BuildStoreReportOrderClause(param.Order)
 	)
 
@@ -492,10 +492,10 @@ func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.S
 		args = append(args, param.StartDate)
 	}
 
-	// Count query
+	// Count query (count unique stores)
 	countQuery := fmt.Sprintf(`
 		SELECT COUNT(*) AS total_count FROM (
-			SELECT s.id, s.name, (sa.completed_at + interval '5 hours') AS sale_date
+			SELECT s.id
 			FROM stores s
 			JOIN sales sa ON s.id = sa.store_id
 			JOIN sale_payments sp ON sa.id = sp.sale_id
@@ -513,11 +513,10 @@ func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.S
 	// Main query
 	mainQuery := fmt.Sprintf(`
 		SELECT
-			row_number() OVER (ORDER BY s.name, (sa.completed_at + interval '5 hours')) AS uid,
+			row_number() OVER (ORDER BY s.name) AS uid,
 			s.id,
 			s.store_code,
 			s.name AS store_name,
-			(sa.completed_at + interval '5 hours') AS sale_date,
 			SUM(CASE WHEN pt.name = 'Naqd' AND sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
 			SUM(CASE WHEN pt.name = 'Naqd' AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS cash,
 			SUM(CASE WHEN pt.name = 'Uzcard' AND sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
