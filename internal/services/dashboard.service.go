@@ -267,8 +267,8 @@ func (s *Services) DashboardChartStats(param *domain.DashboardQueryParam) ([]dom
 		) AS period
 	)
 	SELECT
-		ts.period AS id,
-		ts.period AS created_at,
+		ts.period - INTERVAL '5 hours' AS id,
+		ts.period - INTERVAL '5 hours' AS created_at,
 		COUNT(s.id) AS count,
 		COALESCE(SUM(s.total_amount), 0) AS total_amount
 	FROM time_series ts

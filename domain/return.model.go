@@ -30,7 +30,7 @@ type Return struct {
 }
 
 type ReturnStatusSummary struct {
-	ReturnCount       int64   `json:"return_count"`
+	ReturnCount       float64 `json:"return_count"`
 	ReceivedRetailSum float64 `json:"received_retail_sum"`
 	AcceptedRetailSum float64 `json:"accepted_retail_sum"`
 }
