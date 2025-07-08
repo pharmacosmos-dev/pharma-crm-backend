@@ -767,27 +767,21 @@ func (s *Services) ListPendingSales(param *domain.QueryParam, userId string) ([]
 		totalCount int64
 		filter     = " WHERE s.status = 'pending' "
 		args       []any
-		groupBy    = " GROUP BY s.id, em.id, st.id, customers.id, cash_boxes.id "
-		orderBy    = " ORDER BY s.created_at DESC "
+		groupBy    = " GROUP BY s.id, em.id, st.id, customers.id, cash_boxes.id"
+		orderBy    = " ORDER BY s.created_at DESC"
+		having     = " HAVING COALESCE(SUM(ci.quantity + (ci.unit_quantity::decimal / NULLIF(products.unit_per_pack, 0))), 0) > 0"
 	)
 
-	var employee domain.Employee
-	if err := s.db.First(&employee, "id = ?", userId).Error; err != nil {
-		return nil, 0, fmt.Errorf("employee not found or db error: %w", err)
-	}
-
-	if !helper.IsAdmin(employee, s.cfg) && employee.StoreId != "" {
-		param.StoreID = employee.StoreId
-	}
-
+	// SELECT query
 	query := `
 	SELECT
 		s.*,
 		em.full_name, em.phone,
 		st.name AS store_name,
-		COALESCE(customers.full_name, '') as customer_name,
+		COALESCE(customers.full_name, '') AS customer_name,
 		COALESCE(customers.phone, '') AS customer_phone,
 		cash_boxes.name AS cash_box_name,
+		round(COALESCE(SUM(ci.quantity + (ci.unit_quantity::decimal / NULLIF(products.unit_per_pack, 0))), 0), 2) AS product_count,
 		COUNT(*) OVER() AS total_count
 	FROM sales s
 		LEFT JOIN stores st ON st.id = s.store_id
@@ -795,23 +789,31 @@ func (s *Services) ListPendingSales(param *domain.QueryParam, userId string) ([]
 		LEFT JOIN cashbox_operations co ON s.cash_box_operation_id = co.id
 		LEFT JOIN cash_boxes ON co.cash_box_id = cash_boxes.id
 		LEFT JOIN customers ON s.customer_id = customers.id
+		LEFT JOIN cart_items ci ON ci.sale_id = s.id
+		LEFT JOIN store_products sp ON ci.store_product_id = sp.id
+		LEFT JOIN products ON sp.product_id = products.id
 	`
 
+	// COUNT query
 	totalCountQuery := `
-	SELECT COUNT(DISTINCT s.id)
-	FROM sales s
-		LEFT JOIN stores st ON st.id = s.store_id
-		LEFT JOIN employees em ON em.id = s.employee_id
-		LEFT JOIN cashbox_operations co ON s.cash_box_operation_id = co.id
-		LEFT JOIN cash_boxes ON co.cash_box_id = cash_boxes.id
-		LEFT JOIN customers ON s.customer_id = customers.id
+	SELECT COUNT(*) FROM (
+		SELECT s.id
+		FROM sales s
+			LEFT JOIN stores st ON st.id = s.store_id
+			LEFT JOIN employees em ON em.id = s.employee_id
+			LEFT JOIN cashbox_operations co ON s.cash_box_operation_id = co.id
+			LEFT JOIN cash_boxes ON co.cash_box_id = cash_boxes.id
+			LEFT JOIN customers ON s.customer_id = customers.id
+			LEFT JOIN cart_items ci ON ci.sale_id = s.id
+		    LEFT JOIN store_products sp ON ci.store_product_id = sp.id
+			LEFT JOIN products ON sp.product_id = products.id
 	`
 
+	// Filters
 	if param.StoreID != "" {
 		filter += " AND s.store_id = ?"
 		args = append(args, param.StoreID)
 	}
-
 	if param.StartDate != "" && param.EndDate != "" {
 		filter += " AND (s.created_at + interval '5 hours') BETWEEN ? AND ?"
 		args = append(args, param.StartDate, param.EndDate)
@@ -819,21 +821,21 @@ func (s *Services) ListPendingSales(param *domain.QueryParam, userId string) ([]
 		filter += " AND (s.created_at + interval '5 hours') >= ?"
 		args = append(args, param.StartDate)
 	}
-
 	if param.Search != "" {
 		filter += " AND (st.name ILIKE ? OR CAST(s.sale_number AS TEXT) ILIKE ?)"
 		args = append(args, "%"+param.Search+"%", "%"+param.Search+"%")
 	}
 
-	totalCountQuery += filter
-
+	// Finalize total count query
+	totalCountQuery += filter + groupBy + having + ") AS temp"
 	err := s.db.Raw(totalCountQuery, args...).Scan(&totalCount).Error
 	if err != nil {
 		s.log.Error("count query error: %v", err)
 		return nil, 0, err
 	}
 
-	query += filter + groupBy + orderBy + " LIMIT ? OFFSET ?"
+	// Final SELECT query
+	query += filter + groupBy + having + orderBy + " LIMIT ? OFFSET ?"
 	args = append(args, param.Limit, param.Offset)
 
 	var res []domain.SaleResponse
