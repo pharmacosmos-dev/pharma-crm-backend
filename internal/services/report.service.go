@@ -488,8 +488,8 @@ func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.S
 		filter += " AND (sa.completed_at + interval '5 hours') BETWEEN ? AND ?"
 		args = append(args, param.StartDate, param.EndDate)
 	} else if param.EndDate == "" && param.StartDate != "" {
-		filter += " AND (sa.completed_at + interval '5 hours') = ?"
-		args = append(args, param.StartDate)
+		filter += " AND (sa.completed_at + interval '5 hours') BETWEEN ?::timestamptz  AND ?::timestamptz  + interval '1 day' - interval '1 second'"
+		args = append(args, param.StartDate, param.StartDate)
 	}
 
 	// Count query (count unique stores)
