@@ -47,6 +47,7 @@ func (h *SaleHandler) SaleRoutes(r *gin.RouterGroup) {
 		sale.GET("/online-count", h.GetOnlineSaleCount)
 		sale.POST("/online-accept", h.AcceptOnlineSale)
 		sale.GET("/online-list", h.OnlineSaleList)
+		sale.GET("/pending-list", h.PendingSaleList)
 	}
 }
 
@@ -1261,6 +1262,52 @@ func (h *SaleHandler) OnlineSaleList(c *gin.Context) {
 	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
 
 	handleResponse(c, OK, data)
+}
+
+// PendingSaleList godoc
+// @Summary Get pending sales
+// @Description Get all sales with status 'pending' filtered by store, date, search
+// @Tags sales
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Param store_id query string false "Store ID"
+// @Param search query string false "Search (sale number or store name)"
+// @Param start_date query string false "Created At Start Date (RFC3339)"
+// @Param end_date query string false "Created At End Date (RFC3339)"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /sale/pending-list [get]
+func (h *SaleHandler) PendingSaleList(c *gin.Context) {
+	var param domain.QueryParam
+
+	// get user_id from context
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+
+	if err := c.ShouldBindQuery(&param); err != nil {
+		h.log.Error("bind query error: ", err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	// get pending sales
+	res, totalCount, err := h.service.ListPendingSales(&param, userId.(string))
+	if err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	result := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+	handleResponse(c, OK, result)
 }
 
 // lock order for parallel request

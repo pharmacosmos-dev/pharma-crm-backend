@@ -12503,6 +12503,56 @@ paths:
       summary: Get online pending sale list
       tags:
       - sales
+  /sale/pending-list:
+    get:
+      consumes:
+      - application/json
+      description: Get all sales with status 'pending' filtered by store, date, search
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Search (sale number or store name)
+        in: query
+        name: search
+        type: string
+      - description: Created At Start Date (RFC3339)
+        in: query
+        name: start_date
+        type: string
+      - description: Created At End Date (RFC3339)
+        in: query
+        name: end_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get pending sales
+      tags:
+      - sales
   /sale/return:
     post:
       consumes:

@@ -762,4 +762,88 @@ func (s *Services) OnlinePendingSaleList(param *domain.QueryParam) ([]domain.Sal
 	return res, totalCount, nil
 }
 
+func (s *Services) ListPendingSales(param *domain.QueryParam, userId string) ([]domain.SaleResponse, int64, error) {
+	var (
+		totalCount int64
+		filter     = " WHERE s.status = 'pending' "
+		args       []any
+		groupBy    = " GROUP BY s.id, em.id, st.id, customers.id, cash_boxes.id "
+		orderBy    = " ORDER BY s.created_at DESC "
+	)
+
+	var employee domain.Employee
+	if err := s.db.First(&employee, "id = ?", userId).Error; err != nil {
+		return nil, 0, fmt.Errorf("employee not found or db error: %w", err)
+	}
+
+	if !helper.IsAdmin(employee, s.cfg) && employee.StoreId != "" {
+		param.StoreID = employee.StoreId
+	}
+
+	query := `
+	SELECT
+		s.*,
+		em.full_name, em.phone,
+		st.name AS store_name,
+		COALESCE(customers.full_name, '') as customer_name,
+		COALESCE(customers.phone, '') AS customer_phone,
+		cash_boxes.name AS cash_box_name,
+		COUNT(*) OVER() AS total_count
+	FROM sales s
+		LEFT JOIN stores st ON st.id = s.store_id
+		LEFT JOIN employees em ON em.id = s.employee_id
+		LEFT JOIN cashbox_operations co ON s.cash_box_operation_id = co.id
+		LEFT JOIN cash_boxes ON co.cash_box_id = cash_boxes.id
+		LEFT JOIN customers ON s.customer_id = customers.id
+	`
+
+	totalCountQuery := `
+	SELECT COUNT(DISTINCT s.id)
+	FROM sales s
+		LEFT JOIN stores st ON st.id = s.store_id
+		LEFT JOIN employees em ON em.id = s.employee_id
+		LEFT JOIN cashbox_operations co ON s.cash_box_operation_id = co.id
+		LEFT JOIN cash_boxes ON co.cash_box_id = cash_boxes.id
+		LEFT JOIN customers ON s.customer_id = customers.id
+	`
+
+	if param.StoreID != "" {
+		filter += " AND s.store_id = ?"
+		args = append(args, param.StoreID)
+	}
+
+	if param.StartDate != "" && param.EndDate != "" {
+		filter += " AND (s.created_at + interval '5 hours') BETWEEN ? AND ?"
+		args = append(args, param.StartDate, param.EndDate)
+	} else if param.StartDate != "" {
+		filter += " AND (s.created_at + interval '5 hours') >= ?"
+		args = append(args, param.StartDate)
+	}
+
+	if param.Search != "" {
+		filter += " AND (st.name ILIKE ? OR CAST(s.sale_number AS TEXT) ILIKE ?)"
+		args = append(args, "%"+param.Search+"%", "%"+param.Search+"%")
+	}
+
+	totalCountQuery += filter
+
+	err := s.db.Raw(totalCountQuery, args...).Scan(&totalCount).Error
+	if err != nil {
+		s.log.Error("count query error: %v", err)
+		return nil, 0, err
+	}
+
+	query += filter + groupBy + orderBy + " LIMIT ? OFFSET ?"
+	args = append(args, param.Limit, param.Offset)
+
+	var res []domain.SaleResponse
+	err = s.db.Raw(query, args...).Scan(&res).Error
+	if err != nil {
+		s.log.Error("list query error: %v", err)
+		return nil, 0, err
+	}
+
+	return res, totalCount, nil
+}
+
 // end region
