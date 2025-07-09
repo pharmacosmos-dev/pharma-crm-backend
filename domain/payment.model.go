@@ -104,6 +104,12 @@ type PaymentRequest struct {
 	UpdatedAt       *time.Time `gorm:"updated_at" json:"updated_at"`
 }
 
+// ChangePaymentTypeRequest structure
+type ChangePaymentTypeRequest struct {
+	SalePaymentID string `json:"sale_payment_id" binding:"required,uuid"`
+	PaymentTypeID string `json:"payment_type_id" binding:"required,uuid"`
+}
+
 // Click Pass request body
 type ClickPassRequest struct {
 	ServiceID     int     `json:"service_id"`

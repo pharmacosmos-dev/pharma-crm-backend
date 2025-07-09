@@ -9123,6 +9123,57 @@ const docTemplate = `{
                 }
             }
         },
+        "/payment-type/change-payment-type": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Change payment type from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "payment_services"
+                ],
+                "summary": "Change payment type",
+                "parameters": [
+                    {
+                        "description": "payment service",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.ChangePaymentTypeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/payment-type/list": {
             "get": {
                 "security": [
@@ -20749,6 +20800,21 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/domain.CategoryRequest"
                     }
+                }
+            }
+        },
+        "domain.ChangePaymentTypeRequest": {
+            "type": "object",
+            "required": [
+                "payment_type_id",
+                "sale_payment_id"
+            ],
+            "properties": {
+                "payment_type_id": {
+                    "type": "string"
+                },
+                "sale_payment_id": {
+                    "type": "string"
                 }
             }
         },
