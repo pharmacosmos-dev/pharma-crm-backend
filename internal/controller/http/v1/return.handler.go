@@ -776,13 +776,17 @@ func (h *ReturnHandler) ExportReturnNakladnoyPDF(c *gin.Context) {
 	var count = 1
 	for _, p := range res {
 		var quantityStr string
+		var totalPrice float64
 		if typeDoc == "return" {
 			quantityStr = strconv.FormatFloat(p.ScannedCount-p.AcceptedCount, 'f', 2, 64)
 			if p.ScannedCount-p.AcceptedCount <= 0 {
 				continue
 			}
+			totalPrice = p.RetailPrice * (p.ScannedCount - p.AcceptedCount)
+			fmt.Println("totalPrice: ", totalPrice, "p.RetailPrice: ", p.RetailPrice, "p.ScannedCount: ", p.ScannedCount, "p.AcceptedCount: ", p.AcceptedCount)
 		} else {
 			quantityStr = strconv.FormatFloat(p.ScannedCount, 'f', 2, 64)
+			totalPrice = p.RetailPrice * p.ScannedCount
 		}
 		row := []string{
 			strconv.Itoa(count),
@@ -795,7 +799,7 @@ func (h *ReturnHandler) ExportReturnNakladnoyPDF(c *gin.Context) {
 			formatWithSpaceSeparator(p.RetailPrice),
 			formatWithSpaceSeparator(p.RetailPrice - p.SupplyPrice),
 			formatWithSpaceSeparator(p.RetailPrice),
-			formatWithSpaceSeparator(p.RetailPrice * p.ScannedCount),
+			formatWithSpaceSeparator(totalPrice),
 		}
 
 		// Har bir ustun uchun maksimal qator sonini topish
@@ -842,7 +846,7 @@ func (h *ReturnHandler) ExportReturnNakladnoyPDF(c *gin.Context) {
 			pdf.Ln(-1)
 		}
 		// Update totals and count
-		total += math.Round(p.RetailPrice * p.ScannedCount)
+		total += math.Round(totalPrice)
 		count++
 	}
 
