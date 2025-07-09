@@ -3,6 +3,7 @@ package v1
 import (
 	"fmt"
 	"github.com/xuri/excelize/v2"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -30,6 +31,7 @@ func (h *PaymentTypeHandler) PaymentTypeRoutes(r *gin.RouterGroup) {
 		paymentType.PUT("/:id", h.Update)
 		paymentType.DELETE("/:id", h.Delete)
 		paymentType.GET("/active-list", h.ListCashboxOperationID)
+		paymentType.PUT("/change-payment-type", h.ChangePaymentType)
 	}
 	paymentService := r.Group("/payment-service")
 	{
@@ -512,4 +514,33 @@ func (h *PaymentTypeHandler) DeletePaymentService(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, "DELETED")
+}
+
+// ChangePaymentType godoc
+// @Summary Change payment type
+// @Description Change payment type from the request body
+// @Tags payment_services
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param req body domain.ChangePaymentTypeRequest true "payment service"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /payment-type/change-payment-type [put]
+func (h *PaymentTypeHandler) ChangePaymentType(c *gin.Context) {
+	var req domain.ChangePaymentTypeRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": err.Error()})
+		return
+	}
+
+	err := h.service.UpdatePaymentType(req.SalePaymentID, req.PaymentTypeID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update payment type", "details": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Payment type updated successfully"})
 }

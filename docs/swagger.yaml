@@ -183,6 +183,16 @@ definitions:
           $ref: '#/definitions/domain.CategoryRequest'
         type: array
     type: object
+  domain.ChangePaymentTypeRequest:
+    properties:
+      payment_type_id:
+        type: string
+      sale_payment_id:
+        type: string
+    required:
+    - payment_type_id
+    - sale_payment_id
+    type: object
   domain.CloseCashboxOperation:
     properties:
       close_cashless_amount:
@@ -7337,6 +7347,38 @@ paths:
       summary: Get a list of payment types by cash box ID
       tags:
       - payment_types
+  /payment-type/change-payment-type:
+    put:
+      consumes:
+      - application/json
+      description: Change payment type from the request body
+      parameters:
+      - description: payment service
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/domain.ChangePaymentTypeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Change payment type
+      tags:
+      - payment_services
   /payment-type/list:
     get:
       consumes:

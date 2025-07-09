@@ -727,3 +727,20 @@ func (h *Services) AlifPayDoRequest(ctx context.Context, url string, data any, t
 	}
 	return result, nil
 }
+
+func (s *Services) UpdatePaymentType(salePaymentID string, newPaymentTypeID string) error {
+	query := `
+		UPDATE sale_payments
+		SET payment_type_id = $1,
+		    updated_at = now()
+		WHERE id = $2
+	`
+
+	result := s.db.Exec(query, newPaymentTypeID, salePaymentID)
+	rowsAffected := result.RowsAffected
+	if rowsAffected == 0 {
+		return fmt.Errorf("sale_payment_id not found")
+	}
+
+	return nil
+}
