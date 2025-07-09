@@ -424,6 +424,8 @@ definitions:
       response_data: {}
       sale_id:
         type: string
+      status:
+        type: integer
     type: object
   domain.FinalPaymentType:
     properties:
@@ -11394,6 +11396,10 @@ paths:
         in: query
         name: return_id
         required: true
+        type: string
+      - description: TYPE of document
+        in: query
+        name: type
         type: string
       produces:
       - application/json

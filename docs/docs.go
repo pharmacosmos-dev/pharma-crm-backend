@@ -15505,6 +15505,12 @@ const docTemplate = `{
                         "name": "return_id",
                         "in": "query",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "TYPE of document",
+                        "name": "type",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -21164,6 +21170,9 @@ const docTemplate = `{
                 "response_data": {},
                 "sale_id": {
                     "type": "string"
+                },
+                "status": {
+                    "type": "integer"
                 }
             }
         },

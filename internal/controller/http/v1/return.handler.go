@@ -653,12 +653,14 @@ func (h *ReturnHandler) ExportReturnDetailList(c *gin.Context) {
 // @Accept 	json
 // @Produce json
 // @Param   return_id query string true "Return ID"
+// @Param   type 	query string false "TYPE of document"
 // @Success 200 {object} v1.Response "Nakladnoy PDF file"
 // @Failure 400 {object} v1.Response "Invalid request parameters"
 // @Failure 500 {object} v1.Response "Internal server error"
 // @Router /return/export-nakladnoy [GET]
 func (h *ReturnHandler) ExportReturnNakladnoyPDF(c *gin.Context) {
 	var returnId = c.Query("return_id")
+	var typeDoc = c.Query("type")
 	// validate return id
 	err := uuid.Validate(returnId)
 	if err != nil {
@@ -703,6 +705,13 @@ func (h *ReturnHandler) ExportReturnNakladnoyPDF(c *gin.Context) {
 	toStoreAddress := "Адрес: г.Ташкент, Учтепинский район, ул.Богобод, Д.269"
 	fromStorePhone := fmt.Sprintf("Тел: +%s,%s", returnData.Store.Phone, "filial@pharma")
 	toStorePhone := "Тел: +998772770333,sklad@pharmacos"
+	if typeDoc == "return" {
+		fromStore = "Поставщик: MChJ \"PharmaCosmos\""
+		toStoreAddress = "Адрес: " + returnData.Store.Address
+		fromStoreAddress = "Адрес: г.Ташкент, Учтепинский район, ул.Богобод, Д.269"
+		toStorePhone = fmt.Sprintf("Тел: +%s,%s", returnData.Store.Phone, "filial@pharma")
+		fromStorePhone = "Тел: +998772770333,sklad@pharmacos"
+	}
 
 	pdf := pdf.New("P", "mm", "A4", "")
 	pdf.AddUTF8Font("DejaVu", "", "./app/uploads/DejaVuSans.ttf")
@@ -716,8 +725,11 @@ func (h *ReturnHandler) ExportReturnNakladnoyPDF(c *gin.Context) {
 	pdf.Ln(-1)
 	pdf.SetFont("DejaVu", "", 10)
 	pdf.CellFormat(95, 8, fromStore, "1", 0, "L", false, 0, "")
-	pdf.CellFormat(95, 8, "Получатель: MChJ \"PharmaCosmos\"", "1", 1, "L", false, 0, "")
-
+	if typeDoc == "return" {
+		pdf.CellFormat(95, 8, "Получатель: "+returnData.Store.Name, "1", 1, "L", false, 0, "")
+	} else {
+		pdf.CellFormat(95, 8, "Получатель: MChJ \"PharmaCosmos\"", "1", 1, "L", false, 0, "")
+	}
 	// Addresses
 	drawPairedMultiLineCells(pdf, fromStoreAddress, toStoreAddress, 95, 6)
 
@@ -763,13 +775,22 @@ func (h *ReturnHandler) ExportReturnNakladnoyPDF(c *gin.Context) {
 	var total float64
 	var count = 1
 	for _, p := range res {
+		var quantityStr string
+		if typeDoc == "return" {
+			quantityStr = strconv.FormatFloat(p.ScannedCount-p.AcceptedCount, 'f', 2, 64)
+			if p.ScannedCount-p.AcceptedCount <= 0 {
+				continue
+			}
+		} else {
+			quantityStr = strconv.FormatFloat(p.ScannedCount, 'f', 2, 64)
+		}
 		row := []string{
 			strconv.Itoa(count),
 			p.Name,
 			p.SerialNumber,
 			p.ExpireDate.Format("02.01.2006"),
 			p.ShortName,
-			strconv.FormatFloat(p.ScannedCount, 'f', 2, 64),
+			quantityStr,
 			formatWithSpaceSeparator(p.SupplyPrice),
 			formatWithSpaceSeparator(p.RetailPrice),
 			formatWithSpaceSeparator(p.RetailPrice - p.SupplyPrice),
