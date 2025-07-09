@@ -885,7 +885,7 @@ func (s *Services) AcceptOnlineSale(req *domain.ConfirmOnlineSaleRequest) error 
 	}
 	// Prepare Headers
 	headers := map[string]string{
-		"Authorization": s.cfg.NoorToken,
+		"Authorization": fmt.Sprintf("Bearer %s", s.cfg.NoorToken),
 		"Content-Type":  "application/json",
 	}
 	requestData, err := json.Marshal(gin.H{"order_id": sale.SaleNumber})
@@ -940,7 +940,7 @@ func (s *Services) CancelOnlineSale(req *domain.ConfirmOnlineSaleRequest) error 
 	}
 	// Prepare Headers
 	headers := map[string]string{
-		"Authorization": s.cfg.NoorToken,
+		"Authorization": fmt.Sprintf("Bearer %s", s.cfg.NoorToken),
 		"Content-Type":  "application/json",
 	}
 	requestData, err := json.Marshal(gin.H{"order_id": sale.SaleNumber})
