@@ -233,6 +233,8 @@ definitions:
         type: string
       cashbox_id:
         type: string
+      employee_id:
+        type: string
       sale_id:
         type: string
     type: object
@@ -12444,7 +12446,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Get online pending sale count
+      description: Confirm online sale
       parameters:
       - description: confirm online sale
         in: body
@@ -12469,7 +12471,39 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Get online pending sale count
+      summary: Confirm online sale
+      tags:
+      - sales
+  /sale/online-cancel:
+    post:
+      consumes:
+      - application/json
+      description: Cancel online sale
+      parameters:
+      - description: cancel online sale
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.ConfirmOnlineSaleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Cancel online sale
       tags:
       - sales
   /sale/online-count:

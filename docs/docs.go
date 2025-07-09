@@ -17146,7 +17146,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get online pending sale count",
+                "description": "Confirm online sale",
                 "consumes": [
                     "application/json"
                 ],
@@ -17156,10 +17156,61 @@ const docTemplate = `{
                 "tags": [
                     "sales"
                 ],
-                "summary": "Get online pending sale count",
+                "summary": "Confirm online sale",
                 "parameters": [
                     {
                         "description": "confirm online sale",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.ConfirmOnlineSaleRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/sale/online-cancel": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Cancel online sale",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sales"
+                ],
+                "summary": "Cancel online sale",
+                "parameters": [
+                    {
+                        "description": "cancel online sale",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -20883,6 +20934,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "cashbox_id": {
+                    "type": "string"
+                },
+                "employee_id": {
                     "type": "string"
                 },
                 "sale_id": {

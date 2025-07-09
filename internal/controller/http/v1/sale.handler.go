@@ -46,6 +46,7 @@ func (h *SaleHandler) SaleRoutes(r *gin.RouterGroup) {
 		sale.DELETE("/discount-card", h.RemoveCustomerDiscount)
 		sale.GET("/online-count", h.GetOnlineSaleCount)
 		sale.POST("/online-accept", h.AcceptOnlineSale)
+		sale.POST("online-cancel", h.CancelOnlineSale)
 		sale.GET("/online-list", h.OnlineSaleList)
 		sale.GET("/pending-list", h.PendingSaleList)
 	}
@@ -1181,10 +1182,10 @@ func (h *SaleHandler) GetOnlineSaleCount(c *gin.Context) {
 	handleResponse(c, OK, gin.H{"count": count})
 }
 
-// Get online pending sale count
-// @Summary Get online pending sale count
-// @Description Get online pending sale count
-// @Tags sales
+// Confirm online sale
+// @Summary Confirm online sale
+// @Description Confirm online sale
+// @Tags 	sales
 // @Security     BearerAuth
 // @Accept 	json
 // @Produce json
@@ -1192,7 +1193,7 @@ func (h *SaleHandler) GetOnlineSaleCount(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /sale/online-accept [POST]
+// @Router 	/sale/online-accept [POST]
 func (h *SaleHandler) AcceptOnlineSale(c *gin.Context) {
 	var body domain.ConfirmOnlineSaleRequest
 	// bind request body
@@ -1207,31 +1208,51 @@ func (h *SaleHandler) AcceptOnlineSale(c *gin.Context) {
 		handleResponse(c, BadRequest, "user.not.found.header")
 		return
 	}
+	body.EmployeeID = userID.(string)
 
-	// get online order count
-	var count int64
-	err = h.db.Raw(`
-	UPDATE 
-		sales
-	SET
-		cash_box_operation_id = ?,
-		cashbox_id = ?,
-		employee_id = ?,
-		online_status = ?
-	WHERE id = ?`,
-		body.CashBoxOperationID,
-		body.CashboxID,
-		userID,
-		config.ONLINE_STATUS_PENDING,
-		body.SaleID).Scan(&count).Error
-
+	err = h.service.AcceptOnlineSale(&body)
 	if err != nil {
-		h.log.Warn("ERROR on getting online sale count: %v", err)
-		handleResponse(c, InternalError, "internal.server.error")
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
-	handleResponse(c, OK, gin.H{"count": count})
+	handleResponse(c, OK, "ACCEPTED")
+}
+
+// godoc cancel online sale
+// @Summary Cancel online sale
+// @Description Cancel online sale
+// @Tags 	sales
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param   body body domain.ConfirmOnlineSaleRequest true "cancel online sale"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /sale/online-cancel [POST]
+func (h *SaleHandler) CancelOnlineSale(c *gin.Context) {
+	var body domain.ConfirmOnlineSaleRequest
+	// bind request body
+	err := c.ShouldBindJSON(&body)
+	if err != nil {
+		handleResponse(c, BadRequest, "invalid.request.body")
+		return
+	}
+	// get user_id from the set header
+	userID, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, BadRequest, "user.not.found.header")
+		return
+	}
+	body.EmployeeID = userID.(string)
+
+	err = h.service.CancelOnlineSale(&body)
+	if err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, "CANCELED")
 }
 
 // Get online pending sale list

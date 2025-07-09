@@ -1,10 +1,13 @@
 package services
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/helper"
@@ -845,6 +848,116 @@ func (s *Services) ListPendingSales(param *domain.QueryParam, userId string) ([]
 	}
 
 	return res, totalCount, nil
+}
+
+// accept order
+func (s *Services) AcceptOnlineSale(req *domain.ConfirmOnlineSaleRequest) error {
+	tx := s.db.Begin()
+	defer recoverTransaction(tx, s.log)
+	var sale *domain.Sale
+	err := tx.First(&sale, "id = ?", req.SaleID).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("sale.not.found")
+		}
+		return err
+	}
+	defer RollbackIfError(tx, &err)
+	// accepted online sale
+	err = tx.Exec(`
+	UPDATE 
+		sales
+	SET
+		cash_box_operation_id = ?,
+		cashbox_id = ?,
+		employee_id = ?,
+		online_status = ?
+	WHERE id = ?`,
+		req.CashBoxOperationID,
+		req.CashboxID,
+		req.EmployeeID,
+		config.ONLINE_STATUS_PENDING,
+		req.SaleID).Error
+
+	if err != nil {
+		s.log.Warn("ERROR on getting online sale count: %v", err)
+		return err
+	}
+	// Prepare Headers
+	headers := map[string]string{
+		"Authorization": s.cfg.NoorToken,
+		"Content-Type":  "application/json",
+	}
+	requestData, err := json.Marshal(gin.H{"order_id": sale.SaleNumber})
+	var response *http.Response
+	url := s.cfg.NoorBaseUrl + fmt.Sprintf("/orders/vendor/%d/confirm", sale.SaleNumber)
+	err = DoRequest(&response, "POST", url, requestData, headers)
+	if err != nil {
+		s.log.Warn("ERROR on sending confirm request: %v", err)
+		return err
+	}
+	// complete transaction
+	err = tx.Commit().Error
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// accept order
+func (s *Services) CancelOnlineSale(req *domain.ConfirmOnlineSaleRequest) error {
+	tx := s.db.Begin()
+	defer recoverTransaction(tx, s.log)
+	var sale *domain.Sale
+	err := tx.First(&sale, "id = ?", req.SaleID).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("sale.not.found")
+		}
+		return err
+	}
+	defer RollbackIfError(tx, &err)
+	// accepted online sale
+	err = tx.Exec(`
+	UPDATE 
+		sales
+	SET
+		cash_box_operation_id = ?,
+		cashbox_id = ?,
+		employee_id = ?,
+		online_status = ?
+	WHERE id = ?`,
+		req.CashBoxOperationID,
+		req.CashboxID,
+		req.EmployeeID,
+		config.ONLINE_STATUS_CANCELED,
+		req.SaleID).Error
+
+	if err != nil {
+		s.log.Warn("ERROR on getting online sale count: %v", err)
+		return err
+	}
+	// Prepare Headers
+	headers := map[string]string{
+		"Authorization": s.cfg.NoorToken,
+		"Content-Type":  "application/json",
+	}
+	requestData, err := json.Marshal(gin.H{"order_id": sale.SaleNumber})
+	var response *http.Response
+	url := s.cfg.NoorBaseUrl + fmt.Sprintf("/orders/vendor/%d/cancel", sale.SaleNumber)
+	err = DoRequest(&response, "POST", url, requestData, headers)
+	if err != nil {
+		s.log.Warn("ERROR on sending confirm request: %v", err)
+		return err
+	}
+	// complete transaction
+	err = tx.Commit().Error
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // end region
