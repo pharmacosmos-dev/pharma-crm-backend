@@ -1036,6 +1036,8 @@ func (s *Services) ReportBonusProducts(param *domain.ReportQueryParam) ([]domain
 		curr.id,
 		curr.name,
 		curr.count,
+		curr.unit_quantity,
+		curr.unit_per_pack,
 		curr.bonus_amount,
 		prev.bonus_amount AS previous_bonus_amount,
 		ROUND(
@@ -1049,7 +1051,9 @@ func (s *Services) ReportBonusProducts(param *domain.ReportQueryParam) ([]domain
 		SELECT
 			p.id,
 			p.name,
-			SUM(eb.quantity) + SUM(eb.unit_quantity)/p.unit_per_pack || ',' || SUM(eb.unit_quantity)%p.unit_per_pack AS count,
+    		p.unit_per_pack,
+    		SUM(eb.unit_quantity)-ROUND(SUM(eb.unit_quantity)::decimal / p.unit_per_pack,0)*p.unit_per_pack as unit_quantity,
+    		SUM(eb.quantity) + ROUND(SUM(eb.unit_quantity)::decimal / p.unit_per_pack,0) AS count,
 			SUM(eb.bonus_amount) AS bonus_amount
 		FROM employee_bonus eb
 		JOIN products p ON eb.product_id = p.id

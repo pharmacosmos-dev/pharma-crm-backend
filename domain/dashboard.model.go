@@ -63,7 +63,9 @@ type TopProducts struct {
 type BonusProducts struct {
 	Id                  string  `gorm:"id" json:"id"`
 	Name                string  `gorm:"name" json:"name"`
-	Count               string  `gorm:"count" json:"count"`
+	Count               float64 `gorm:"count" json:"count"`
+	UnitQuantity        float64 `gorm:"unit_quantity" json:"unit_quantity"`
+	UnitPerPack         float64 `gorm:"unit_per_pack" json:"unit_per_pack"`
 	TotalCount          int64   `gorm:"total_count" json:"total_count"`
 	BonusAmount         float64 `gorm:"bonus_amount" json:"bonus_amount"`
 	PreviousBonusAmount float64 `gorm:"previous_bonus_amount" json:"previous_bonus_amount"`

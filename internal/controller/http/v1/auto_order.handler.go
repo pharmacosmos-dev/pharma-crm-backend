@@ -61,16 +61,16 @@ func (h *AutoOrderHandler) Create(c *gin.Context) {
 		body domain.AutoOrderRequest
 		err  error
 	)
-    err = c.ShouldBindJSON(&body) // bind request body
+	err = c.ShouldBindJSON(&body) // bind request body
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-    // start transaction
+	// start transaction
 	tx := h.db.Begin()
-    defer recoverTransaction(tx, h.log) // check revocer for panic error
-    defer RollbackIfError(tx, &err) // return transaction if error happened
+	defer recoverTransaction(tx, h.log) // check revocer for panic error
+	defer RollbackIfError(tx, &err)     // return transaction if error happened
 	body.Id = uuid.New().String()
 	body.Status = config.NEW
 	body.AutoOrderDate = time.Now().Format(time.DateTime)
@@ -105,7 +105,7 @@ func (h *AutoOrderHandler) Create(c *gin.Context) {
 		return
 	}
 	// commit transaction
-    err = tx.Commit().Error;
+	err = tx.Commit().Error
 	if err != nil {
 		h.log.Error("ERROR on commiting transaction")
 		handleResponse(c, InternalError, err.Error())
@@ -420,8 +420,7 @@ func (h *AutoOrderHandler) SendAutoOrder(c *gin.Context) {
 	// start transaction
 	tx := h.db.Begin()
 	defer recoverTransaction(tx, h.log) // check recover for panic
-	defer RollbackIfError(tx, &err) // rollback transaction if error happened
-
+	defer RollbackIfError(tx, &err)     // rollback transaction if error happened
 
 	for _, item := range res.Products {
 		// update response_order_count after receive 1C response
