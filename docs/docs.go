@@ -22062,6 +22062,9 @@ const docTemplate = `{
                 "scanned_unit": {
                     "type": "integer"
                 },
+                "status": {
+                    "type": "string"
+                },
                 "type": {
                     "type": "string"
                 }

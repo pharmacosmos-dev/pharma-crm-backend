@@ -361,84 +361,21 @@ func (h *ReturnHandler) AddProductByBarcode(c *gin.Context) {
 	var request domain.ReturnAddProduct
 	id := c.Param("id")
 	// validate return id
-	if err := uuid.Validate(id); err != nil {
+	err := uuid.Validate(id)
+	if err != nil {
 		handleResponse(c, BadRequest, "Return id is invalid")
 		return
 	}
 	// bind request body
-	err := c.ShouldBindJSON(&request)
+	err = c.ShouldBindJSON(&request)
 	if err != nil {
 		handleResponse(c, BadRequest, "Invalid request body")
 		return
 	}
 
-	// get unit per pack
-	var returnDetail struct {
-		UnitPerPack   float64 `gorm:"unit_per_pack"`
-		ReceivedCount float64 `gorm:"received_count"`
-		ScannedCount  float64 `gorm:"scanned_count"`
-	}
-	err = h.db.Raw(`
-	SELECT
-		td.received_count,
-		td.scanned_count,
-		p.unit_per_pack
-	FROM transfer_details td
-	JOIN products p ON td.product_id = p.id
-	WHERE td.id = ?;
-	`, request.Id).Scan(&returnDetail).Error
+	err = h.service.UpdateReturnDetailQuantity(id, &request)
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, "failed.get.unit_per_pack")
-		return
-	}
-	// update scanned count with pack quantity
-	if request.ScannedPack != nil {
-		if float64(*request.ScannedPack) > returnDetail.ReceivedCount {
-			handleResponse(c, BadRequest, "invalid.vazvrat.quantity")
-			return
-		}
-		// add scanned count by transfer detail id
-		err = h.db.Exec(`
-		UPDATE 
-			transfer_details
-		SET 
-			scanned_count = ?, updated_at = NOW()
-		WHERE 
-			id = ? AND transfer_id = ?;`,
-			request.ScannedPack, request.Id, id).Error
-		if err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, "failed.update.vazvrat.quantity")
-			return
-		}
-		handleResponse(c, OK, "ADDED")
-		return
-	}
-
-	// update scanned count with unit quantity
-	if request.ScannedUnit != nil {
-		quantity := float64(int(returnDetail.ScannedCount)) + float64(*request.ScannedUnit)/returnDetail.UnitPerPack
-		if quantity > returnDetail.ReceivedCount {
-			handleResponse(c, BadRequest, "invalid.vazvrat.quantity")
-			return
-		}
-
-		// add scanned count by transfer detail id
-		err = h.db.Exec(`
-		UPDATE 
-			transfer_details
-		SET 
-			scanned_count = ?, updated_at = NOW()
-		WHERE 
-			id = ? AND transfer_id = ?;`,
-			quantity, request.Id, id).Error
-		if err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, "failed.update.vazvrat.quantity")
-			return
-		}
-		handleResponse(c, OK, "ADDED")
+		handleResponse(c, InternalError, err)
 		return
 	}
 
@@ -535,8 +472,8 @@ func (h *ReturnHandler) Confirm(c *gin.Context) {
 	// get return info
 	err := h.db.Raw(`SELECT * FROM transfers WHERE id = ?`, id).Scan(&returnInfo).Error
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "Return not found")
+		if err == gorm.ErrRecordNotFound || returnInfo.Id == "" {
+			handleResponse(c, NotFound, "return.not.found")
 			return
 		}
 		h.log.Warn("Error on getting return: %v", err.Error())
@@ -545,7 +482,7 @@ func (h *ReturnHandler) Confirm(c *gin.Context) {
 	}
 	// check if return is already confirmed
 	if returnInfo.Status == config.COMPLETED {
-		handleResponse(c, BadRequest, "Return is already confirmed")
+		handleResponse(c, BadRequest, "return.already.completed")
 		return
 	}
 

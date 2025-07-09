@@ -66,6 +66,8 @@ type (
 		BaseUsername1C   string `env-required:"true" yaml:"base_username_1c" env:"BASE_USERNAME_1C"`
 		BasePassword1C   string `env-required:"true" yaml:"base_password_1c" env:"BASE_PASSWORD_1C"`
 		SoliqIkpuBaseUrl string `env-required:"true" yaml:"soliq_ikpu_base_url" env:"SOLIQ_IKPU_BASE_URL"`
+		NoorBaseUrl      string `env-required:"true" yaml:"noor_base_url" env:"NOOR_BASE_URL"`
+		NoorToken        string `env-required:"true" yaml:"noor_token" env:"NOOR_TOKEN"`
 	}
 )
 
@@ -101,6 +103,9 @@ func Load() Config {
 	c.Integration.BaseUsername1C = cast.ToString(GetOrReturnDefaultValue("BASE_USERNAME_1C", "pharma"))
 	c.Integration.BasePassword1C = cast.ToString(GetOrReturnDefaultValue("BASE_PASSWORD_1C", "password"))
 	c.Integration.SoliqIkpuBaseUrl = cast.ToString(GetOrReturnDefaultValue("SOLIQ_IKPU_BASE_URL", "http://localhost:8080"))
+	c.Integration.NoorBaseUrl = cast.ToString(GetOrReturnDefaultValue("NOOR_BASE_URL", "http://localhost:80"))
+	c.Integration.NoorToken = cast.ToString(GetOrReturnDefaultValue("NOOR_TOKEN", "token"))
+
 	return c
 }
 

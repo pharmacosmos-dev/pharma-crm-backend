@@ -282,5 +282,5 @@ func BuildStoreReportOrderClause(orderField string) string {
 	}
 
 	// fallback default
-	return " ORDER BY store_name "
+	return " ORDER BY store_name, start_date "
 }

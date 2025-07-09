@@ -471,7 +471,7 @@ func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.S
 		totalCount int64
 		filter     = " WHERE sa.status = 'completed' "
 		args       []any
-		group      = " GROUP BY s.id, s.name, s.store_code"
+		group      = " GROUP BY s.id, s.name, sale_date"
 		order      = utils.BuildStoreReportOrderClause(param.Order)
 	)
 
@@ -484,18 +484,24 @@ func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.S
 		filter += " AND s.name ILIKE ?"
 		args = append(args, "%"+param.Search+"%")
 	}
-	if param.StartDate != "" && param.EndDate != "" {
-		filter += " AND (sa.completed_at + interval '5 hours') BETWEEN ? AND ?"
-		args = append(args, param.StartDate, param.EndDate)
-	} else if param.EndDate == "" && param.StartDate != "" {
-		filter += " AND (sa.completed_at + interval '5 hours') BETWEEN ?::timestamptz  AND ?::timestamptz  + interval '1 day' - interval '1 second'"
-		args = append(args, param.StartDate, param.StartDate)
+	if param.StartDate != "" {
+		filter += " AND (sa.completed_at + interval '5 hours') >= ?"
+		args = append(args, param.StartDate)
+	}
+	if param.EndDate != "" {
+		filter += " AND (sa.completed_at + interval '5 hours') <= ?"
+		args = append(args, param.EndDate)
 	}
 
 	// Count query (count unique stores)
 	countQuery := fmt.Sprintf(`
-		SELECT COUNT(*) AS total_count FROM (
-			SELECT s.id
+		SELECT 
+			COUNT(*) AS total_count 
+		FROM (
+			SELECT 
+				s.id, 
+				s.name, 
+				(sa.completed_at + interval '5 hours')::date AS sale_date
 			FROM stores s
 			JOIN sales sa ON s.id = sa.store_id
 			JOIN sale_payments sp ON sa.id = sp.sale_id
@@ -513,21 +519,32 @@ func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.S
 	// Main query
 	mainQuery := fmt.Sprintf(`
 		SELECT
-			row_number() OVER (ORDER BY s.name) AS uid,
-			s.id,
-			s.store_code,
-			s.name AS store_name,
-			SUM(CASE WHEN pt.name = 'Naqd' AND sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
-			SUM(CASE WHEN pt.name = 'Naqd' AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS cash,
-			SUM(CASE WHEN pt.name = 'Uzcard' AND sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
-			SUM(CASE WHEN pt.name = 'Uzcard' AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS uzcard,
-			SUM(CASE WHEN pt.name = 'Humo' AND sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
-			SUM(CASE WHEN pt.name = 'Humo' AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS humo,
-			SUM(CASE WHEN pt.name = 'Click' AND sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
-			SUM(CASE WHEN pt.name = 'Click' AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS click,
-			SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS return_amount,
-			SUM(CASE WHEN sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) - 
-			SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS total_amount
+				row_number() OVER (ORDER BY s.name) AS uid,
+				s.id,
+				s.store_code,
+				s.name AS store_name,
+				(sa.completed_at + interval '5 hours')::date AS sale_date,
+				SUM(CASE
+					WHEN pt.name = 'Naqd' AND sa.sale_type = 'SALE' THEN sp.amount
+					WHEN pt.name = 'Naqd' AND sa.sale_type = 'RETURN' THEN sp.amount*(-1)
+					ELSE 0 END) AS cash,
+				SUM(CASE
+					WHEN pt.name = 'Uzcard' AND sa.sale_type = 'SALE' THEN sp.amount
+					WHEN pt.name = 'Uzcard' AND sa.sale_type = 'RETURN' THEN sp.amount*(-1)
+					ELSE 0 END)  AS uzcard,
+				SUM(CASE
+					WHEN pt.name = 'Humo' AND sa.sale_type = 'SALE' THEN sp.amount
+					WHEN pt.name = 'Humo' AND sa.sale_type = 'RETURN' THEN sp.amount*(-1)
+					ELSE 0 END)  AS humo,
+				SUM(CASE
+					WHEN pt.name = 'Click' AND sa.sale_type = 'SALE' THEN sp.amount
+					WHEN pt.name = 'Click' AND sa.sale_type = 'RETURN' THEN sp.amount*(-1)
+					ELSE 0 END) AS click,
+				SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS return_amount,
+				SUM(CASE
+					WHEN sa.sale_type = 'SALE' THEN sp.amount
+					WHEN sa.sale_type = 'RETURN' THEN sp.amount*(-1)
+					ELSE 0 END)  AS total_amount
 		FROM stores s
 		JOIN sales sa ON s.id = sa.store_id
 		JOIN sale_payments sp ON sa.id = sp.sale_id
@@ -535,7 +552,7 @@ func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.S
 		%s
 		%s
 		%s
-		LIMIT ? OFFSET ?
+		LIMIT ? OFFSET ?;
 	`, filter, group, order)
 
 	argsWithPagination := append(args, param.Limit, param.Offset)

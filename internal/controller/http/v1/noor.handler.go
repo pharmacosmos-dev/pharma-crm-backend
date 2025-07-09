@@ -29,16 +29,16 @@ func (h *NoorHandler) NoorRoutes(r *gin.RouterGroup) {
 // List Products
 // @Summary List Products
 // @Description List Products
-// @Tags 	Noor API
-// @Security     BasicAuth
-// @Accept 	json
-// @Produce json
-// @Param   limit 	query     int      false "Limit"
-// @Param   offset 	query     int      false "Offset"
-// @Success 200 {object} []domain.NoorProduct
-// @Failure 400 {object} v1.IntegrationErrorResponse
-// @Failure 500 {object} v1.IntegrationErrorResponse
-// @Router 	/noor/product/list 	[GET]
+// @Tags 		Noor API
+// @Security    BasicAuth
+// @Accept 		json
+// @Produce 	json
+// @Param   	limit 	query     int      false "Limit"
+// @Param   	offset 	query     int      false "Offset"
+// @Success 	200 {object} []domain.NoorProduct
+// @Failure 	400 {object} v1.IntegrationErrorResponse
+// @Failure 	500 {object} v1.IntegrationErrorResponse
+// @Router 		/noor/product/list 	[GET]
 func (h *NoorHandler) ProductList(c *gin.Context) {
 	var (
 		res   []domain.NoorProduct
@@ -65,17 +65,17 @@ func (h *NoorHandler) ProductList(c *gin.Context) {
 // Store Product List
 // @Summary List Store Products
 // @Description List Store Products
-// @Tags 	Noor API
-// @Security     BasicAuth
-// @Accept 	json
-// @Produce json
-// @Param	updatedAt query   string   false "updatedAt"
-// @Param   limit 	query     int      false "Limit"
-// @Param   offset 	query     int      false "Offset"
-// @Success 200 {object} []domain.NoorStoreProduct
-// @Failure 400 {object} v1.IntegrationErrorResponse
-// @Failure 500 {object} v1.IntegrationErrorResponse
-// @Router 	/noor/store-product/list 	[GET]
+// @Tags 		Noor API
+// @Security    BasicAuth
+// @Accept 		json
+// @Produce 	json
+// @Param		updatedAt query   string   false "updatedAt"
+// @Param   	limit 	query     int      false "Limit"
+// @Param   	offset 	query     int      false "Offset"
+// @Success 	200 {object} []domain.NoorStoreProduct
+// @Failure 	400 {object} v1.IntegrationErrorResponse
+// @Failure 	500 {object} v1.IntegrationErrorResponse
+// @Router 		/noor/store-product/list 	[GET]
 func (h *NoorHandler) StoreProductList(c *gin.Context) {
 	var param domain.NoorQueryParam
 
@@ -100,14 +100,14 @@ func (h *NoorHandler) StoreProductList(c *gin.Context) {
 // Store Product List
 // @Summary List Store Products
 // @Description List Store Products
-// @Tags 	Noor API
-// @Security     BasicAuth
-// @Accept 	json
-// @Produce json
-// @Success 200 {object} []domain.NoorStore
-// @Failure 400 {object} v1.IntegrationErrorResponse
-// @Failure 500 {object} v1.IntegrationErrorResponse
-// @Router 	/noor/store/list 	[GET]
+// @Tags 		Noor API
+// @Security    BasicAuth
+// @Accept 		json
+// @Produce 	json
+// @Success 	200 {object} []domain.NoorStore
+// @Failure 	400 {object} v1.IntegrationErrorResponse
+// @Failure 	500 {object} v1.IntegrationErrorResponse
+// @Router 		/noor/store/list 	[GET]
 func (h *NoorHandler) StoreList(c *gin.Context) {
 	// get store products info
 	res, err := h.service.GetNoorStores()
@@ -127,10 +127,10 @@ func (h *NoorHandler) StoreList(c *gin.Context) {
 // @Produce 	json
 // @Param 		limit query int false "Limit"
 // @Param 		offset query int false "Offset"
-// @Success 200 {object} []domain.NoorCategory
-// @Failure 400 {object} v1.IntegrationErrorResponse
-// @Failure 500 {object} v1.IntegrationErrorResponse
-// @Router 	/noor/category/list [get]
+// @Success 	200 {object} []domain.NoorCategory
+// @Failure 	400 {object} v1.IntegrationErrorResponse
+// @Failure 	500 {object} v1.IntegrationErrorResponse
+// @Router 		/noor/category/list [get]
 func (h *NoorHandler) CategoryList(c *gin.Context) {
 	var (
 		param domain.NoorQueryParam
@@ -190,16 +190,16 @@ func (h *NoorHandler) CategoryList(c *gin.Context) {
 }
 
 // CreateSale godoc
-// @Summary Create a sale
+// @Summary 	Create a sale
 // @Description Create a sale
-// @Tags 	Noor API
-// @Security     BasicAuth
+// @Tags 		Noor API
+// @Security    BasicAuth
 // @Produce 	json
-// @Param 	body body 	domain.OnlineOrderRequest true "Order Request body"
-// @Success 200 {object} domain.OnlineOrderResponse
-// @Failure 400 {object} v1.IntegrationErrorResponse
-// @Failure 500 {object} v1.IntegrationErrorResponse
-// @Router 	/noor/order [post]
+// @Param 		body body 	domain.OnlineOrderRequest true "Order Request body"
+// @Success 	200 {object} domain.OnlineOrderResponse
+// @Failure 	400 {object} v1.IntegrationErrorResponse
+// @Failure 	500 {object} v1.IntegrationErrorResponse
+// @Router 		/noor/order [post]
 func (h *NoorHandler) CreateOrder(c *gin.Context) {
 	var body domain.OnlineOrderRequest
 

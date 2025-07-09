@@ -1,7 +1,6 @@
 package config
 
 import (
-	"errors"
 	"time"
 )
 
@@ -119,12 +118,4 @@ const (
 	FOUNDER    = "FOUNDER"
 	ACCOUNTANT = "ACCOUNTANT"
 	DIRECTOR   = "DIRECTOR"
-)
-
-// region error types
-var (
-	ErrNotFoundError      = errors.New("not.found")
-	ErrInvalidRequestBody = errors.New("invalid.request.body")
-	ErrUnauthorizedError  = errors.New("user.unauthorized")
-	ErrInternalError      = errors.New("internal.error")
 )

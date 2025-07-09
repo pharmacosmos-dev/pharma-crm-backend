@@ -435,8 +435,7 @@ func (s *Services) ListSale(param *domain.QueryParam, userId string) ([]domain.S
 		COALESCE(SUM(CASE WHEN pt.name = 'Uzcard' THEN sp.amount ELSE 0 END), 0.00) AS uzcard,
 		COALESCE(SUM(CASE WHEN pt.name = 'Humo' THEN sp.amount ELSE 0 END), 0.00) AS humo,
 		COALESCE(SUM(CASE WHEN pt.name = 'Click' THEN sp.amount ELSE 0 END), 0.00) AS click,
-		COALESCE(SUM(CASE WHEN pt.name = 'Payme' THEN sp.amount ELSE 0 END), 0.00) AS payme, 
-		COUNT(*) OVER() AS total_count
+		COALESCE(SUM(CASE WHEN pt.name = 'Payme' THEN sp.amount ELSE 0 END), 0.00) AS payme
 	FROM sales s
 		LEFT JOIN stores st ON st.id = s.store_id
 		LEFT JOIN employees em ON em.id = s.employee_id

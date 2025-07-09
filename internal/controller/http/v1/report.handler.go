@@ -592,13 +592,12 @@ func (h *ReportHandler) LflReport(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /report/store-amount [POST]
 func (h *ReportHandler) StoreReportAmount(c *gin.Context) {
-	var (
-		param domain.ReportQueryParam
-	)
+	var param domain.ReportQueryParam
+
 	// bind request query param
 	err := c.ShouldBindQuery(&param)
 	if err != nil {
-		handleResponse(c, BadRequest, "Invalid query param")
+		handleResponse(c, BadRequest, "invalid.query.param")
 		return
 	}
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
@@ -747,7 +746,7 @@ func (h *ReportHandler) ReportTopProducts(c *gin.Context) {
 	// bind query parameters
 	err := c.ShouldBindQuery(&param)
 	if err != nil {
-		handleResponse(c, BadRequest, "Invalid query parameters")
+		handleResponse(c, BadRequest, "invalid.query.param")
 		return
 	}
 	// bind store ids

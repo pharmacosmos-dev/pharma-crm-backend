@@ -176,6 +176,7 @@ type EposResponse struct {
 type EposResponseRequest struct {
 	SaleId       string `gorm:"sale_id" json:"sale_id"`
 	Error        bool   `gorm:"-" json:"error"`
+	Status       int    `gorm:"status" json:"status"`
 	Response     []byte `gorm:"response" json:"-"`
 	ResponseData any    `gorm:"-" json:"response_data"`
 }
@@ -190,11 +191,20 @@ type EposResponseData struct {
 
 // SuccessResponse for successful case
 type EposSuccessResponse struct {
-	Error         bool   `json:"error"`
-	QrPath        string `json:"qrPath"`
-	Paycheck      string `json:"paycheck"`
-	VirtualNumber string `json:"virtualNumber"`
-	Info          Info   `json:"info"`
+	Error   bool               `json:"error"`
+	Message EposSuccessMessage `json:"message"`
+}
+
+type EposSuccessMessage struct {
+	DateTime   string `json:"dateTime"`
+	QrCodeURL  string `json:"qrCodeURL"`
+	FiscalSign string `json:"fiscalSign"`
+	ReceiptSeq string `json:"receiptSeq"`
+	TerminalId string `json:"terminalId"`
+	Amount     int    `json:"amount"`
+	Card       int    `json:"card"`
+	Cash       int    `json:"cash"`
+	QrCodeUrl  string `json:"qrCodeUrl"`
 }
 
 // Info struct for success case

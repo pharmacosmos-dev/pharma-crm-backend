@@ -810,13 +810,7 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 	// Transaction rollback if any error occurs
 	defer recoverTransaction(tx, h.log)
 	defer RollbackIfError(tx, &err)
-	// Save to epos_responses table
-	err = tx.WithContext(c.Request.Context()).Table("epos_responses").Create(&body).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
+
 	// get sale info
 	err = h.db.First(&sale, "id = ?", body.SaleId).Error
 	if err != nil {
@@ -833,6 +827,13 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 			handleResponse(c, InternalError, "Failed remove sale_payments")
 			return
 		}
+		// Save to epos_responses table
+		err = tx.WithContext(c.Request.Context()).Table("epos_responses").Create(&body).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
 		// return sale status and quantities
 		err = h.service.ReturnSale(tx, &sale)
 		if err != nil {
@@ -841,6 +842,15 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 			return
 		}
 	} else {
+		// Save to epos_responses table
+		body.Status = 1
+		err = tx.WithContext(c.Request.Context()).Table("epos_responses").Create(&body).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+
 		// parse epos success json to structure
 		var successResp domain.EposSuccessResponse
 		if err = json.Unmarshal([]byte(responseDataStr), &successResp); err != nil {
@@ -849,7 +859,7 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 			return
 		}
 		// update sale status to completed
-		err = h.service.SetFiscalId(sale.ID, successResp.Info.FiscalSign)
+		err = h.service.SetFiscalId(sale.ID, successResp.Message.FiscalSign)
 		if err != nil {
 			h.log.Warn("Failed to complete sale status: %v", err)
 			handleResponse(c, InternalError, "Failed to complete sale status")
@@ -858,7 +868,6 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 
 		// check payme exists
 		salePayment := h.service.GetPaymeSalePayment(sale.ID)
-		fmt.Println("RECEIPT ID : ", salePayment.ReceiptId)
 		// set fiscal data if payment completed with payme
 		if salePayment.ReceiptId != "" {
 			var paymentService domain.PaymentService
@@ -871,11 +880,11 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 			err = h.service.PaymeGoSetFiscalData(c.Request.Context(), &domain.FiscalData{
 				StatusCode: 0,
 				Message:    "accepted",
-				TerminalId: successResp.Info.TerminalId,
-				ReceiptId:  cast.ToInt(successResp.Info.ReceiptSeq),
-				Date:       successResp.Info.DateTime,
-				FiscalSign: successResp.Info.FiscalSign,
-				QrCodeUrl:  successResp.Info.QrCodeURL,
+				TerminalId: successResp.Message.TerminalId,
+				ReceiptId:  cast.ToInt(successResp.Message.ReceiptSeq),
+				Date:       successResp.Message.DateTime,
+				FiscalSign: successResp.Message.FiscalSign,
+				QrCodeUrl:  successResp.Message.QrCodeURL,
 			}, salePayment, &paymentService)
 
 			if err != nil {

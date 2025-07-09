@@ -8,7 +8,7 @@ type Meta struct {
 }
 
 // ListResponse constructs a paginated response with metadata.
-func ListResponse[T any](items []T, totalCount int64, limit, offset int) map[string]interface{} {
+func ListResponse[T any](items []T, totalCount int64, limit, offset int) map[string]any {
 	return map[string]any{
 		"_meta": Meta{
 			TotalCount:  totalCount,

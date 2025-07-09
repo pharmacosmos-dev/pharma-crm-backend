@@ -1,0 +1,1 @@
+ALTER TABLE epos_responses ADD COLUMN IF NOT EXISTS "status" SMALLINT DEFAULT 0; -- 0 -> ERROR || 1 -> Success

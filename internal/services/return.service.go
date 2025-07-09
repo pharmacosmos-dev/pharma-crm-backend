@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"strings"
@@ -13,7 +14,7 @@ import (
 	"github.com/spf13/cast"
 )
 
-// Create inventory creates a new inventory
+// Create return creates a new return
 func (s *Services) CreateReturn(req *domain.ReturnRequest) error {
 	var id string
 	// start transaction
@@ -23,7 +24,7 @@ func (s *Services) CreateReturn(req *domain.ReturnRequest) error {
 			tx.Rollback()
 		}
 	}()
-	// insert inventory into inventories table
+	// insert return into inventories table
 	err := tx.Raw(`
 	INSERT INTO transfers (public_id, from_store_id, name,  created_by, entry_type)
 	VALUES (?, ?, ?, ?, ?) RETURNING id`,
@@ -36,7 +37,7 @@ func (s *Services) CreateReturn(req *domain.ReturnRequest) error {
 	}
 
 	// if no products provided, get all products from store_products
-	// and insert them into inventory_details
+	// and insert them into return_details
 	err = tx.Exec(
 		`INSERT INTO transfer_details(
 			transfer_id,
@@ -63,7 +64,7 @@ func (s *Services) CreateReturn(req *domain.ReturnRequest) error {
 			sp.store_id = ? AND (sp.pack_quantity > 0 OR sp.unit_quantity > 0);`,
 		id, req.StoreId).Error
 	if err != nil {
-		s.log.Warn("ERROR on creating inventory details: %v", err)
+		s.log.Warn("ERROR on creating return details: %v", err)
 		tx.Rollback()
 		return err
 	}
@@ -106,7 +107,84 @@ func (s *Services) GetReturnById(returnId string) (*domain.Return, error) {
 	return &res, nil
 }
 
-// get inventory list
+// update product quantity
+func (s *Services) UpdateReturnDetailQuantity(id string, request *domain.ReturnAddProduct) error {
+
+	// get unit per pack
+	var returnDetail struct {
+		UnitPerPack   float64 `gorm:"unit_per_pack"`
+		ReceivedCount float64 `gorm:"received_count"`
+		ScannedCount  float64 `gorm:"scanned_count"`
+	}
+	err := s.db.Raw(`
+	SELECT
+		td.received_count,
+		td.scanned_count,
+		p.unit_per_pack
+	FROM transfer_details td
+	JOIN products p ON td.product_id = p.id
+	WHERE td.id = ?;
+	`, request.Id).Scan(&returnDetail).Error
+	if err != nil {
+		s.log.Error(err)
+		return err
+	}
+	// update scanned count with pack quantity
+	if request.ScannedPack != nil {
+		if float64(*request.ScannedPack) > returnDetail.ReceivedCount {
+			return errors.New("scanned count could not be greater current count")
+		}
+		updateField := "scanned_count"
+		if request.Status == "sent" {
+			updateField = "accepted_count"
+		}
+		// add scanned count by transfer detail id
+		err = s.db.Debug().Exec(fmt.Sprintf(`
+		UPDATE 
+			transfer_details
+		SET
+			%s = ?, updated_at = NOW()
+		WHERE
+			id = ? AND transfer_id = ?;`, updateField),
+			request.ScannedPack, request.Id, id).Error
+		if err != nil {
+			s.log.Error(err)
+			return err
+		}
+		return nil
+	}
+
+	// update scanned count with unit quantity
+	if request.ScannedUnit != nil {
+		quantity := float64(int(returnDetail.ScannedCount)) + float64(*request.ScannedUnit)/returnDetail.UnitPerPack
+		if quantity > returnDetail.ReceivedCount {
+			return errors.New("scanned count could not be greater current count")
+		}
+		updateField := "scanned_count"
+		if request.Status == "sent" {
+			updateField = "accepted_count"
+		}
+		// add scanned count by transfer detail id
+		err = s.db.Debug().Exec(fmt.Sprintf(`
+		UPDATE 
+			transfer_details
+		SET 
+			%s = ?, updated_at = NOW()
+		WHERE 
+			id = ? AND transfer_id = ?;`, updateField),
+			quantity, request.Id, id).Error
+		if err != nil {
+			s.log.Error(err)
+			return err
+		}
+		return nil
+	}
+
+	return nil
+
+}
+
+// get return list
 func (s *Services) ReturnList(param *domain.ReturnParam) ([]domain.Return, int64, error) {
 	var res []domain.Return
 	var totalCount int64
@@ -138,7 +216,7 @@ func (s *Services) ReturnList(param *domain.ReturnParam) ([]domain.Return, int64
 		query = query.Where("transfers.public_id LIKE ? OR transfers.name ILIKE ?", param.Search, param.Search)
 	}
 
-	// filter by inventory status
+	// filter by return status
 	if param.Status != "" {
 		query = query.Where("transfers.status = ?", param.Status)
 	}
@@ -157,6 +235,7 @@ func (s *Services) ReturnList(param *domain.ReturnParam) ([]domain.Return, int64
 	return res, totalCount, nil
 }
 
+// get
 func (s *Services) ReturnStatus(param *domain.ReturnParam) (*domain.ReturnStatusSummary, error) {
 	query := `
 		SELECT
@@ -198,7 +277,7 @@ func (s *Services) ReturnStatus(param *domain.ReturnParam) (*domain.ReturnStatus
 	return &res, nil
 }
 
-// get inventory detail list
+// get  detail list
 func (s *Services) ReturnDetailList(param *domain.ReturnDetailParam) ([]domain.ReturnDetail, int64, error) {
 	var res []domain.ReturnDetail
 	var totalCount int64
@@ -218,6 +297,8 @@ func (s *Services) ReturnDetailList(param *domain.ReturnDetailParam) ([]domain.R
 			transfer_details.updated_at,
 			FLOOR(transfer_details.scanned_count) AS scanned_count,
 			ROUND(MOD(transfer_details.scanned_count * p.unit_per_pack, p.unit_per_pack), 0) AS scanned_unit,
+			FLOOR(transfer_details.accepted_count) AS accepted_count,
+			ROUND(MOD(transfer_details.accepted_count * p.unit_per_pack, p.unit_per_pack), 0) AS accepted_unit,
 			ROUND(transfer_details.received_count*transfer_details.retail_price, 2) AS received_sum,
 			ROUND(transfer_details.scanned_count*transfer_details.retail_price, 2) AS scanned_sum,
     		p.name, p.material_code, p.unit_per_pack, p.barcode, ut.short_name`).
@@ -237,7 +318,7 @@ func (s *Services) ReturnDetailList(param *domain.ReturnDetailParam) ([]domain.R
 			query = query.Where("p.name ILIKE ? OR p.barcode LIKE ?", param.Search, param.Search)
 		}
 	}
-	// filter with inventory stats
+	// filter with return stats
 	if param.Type != "" {
 		switch param.Type {
 		case "shortage":
@@ -255,7 +336,6 @@ func (s *Services) ReturnDetailList(param *domain.ReturnDetailParam) ([]domain.R
 		Count(&totalCount).
 		Limit(param.Limit).
 		Offset(param.Offset).
-		Debug().
 		Find(&res).Error
 	if err != nil {
 		s.log.Error(err)
@@ -265,7 +345,7 @@ func (s *Services) ReturnDetailList(param *domain.ReturnDetailParam) ([]domain.R
 	return res, totalCount, nil
 }
 
-// get inventory detail status count
+// get return detail status count
 func (s *Services) ReturnDetailStatsCount(param *domain.ReturnDetailParam) (domain.ReturnDetailStatus, error) {
 	var res domain.ReturnDetailStatus
 
@@ -293,34 +373,30 @@ func (s *Services) ReturnDetailStatsCount(param *domain.ReturnDetailParam) (doma
 	return res, nil
 }
 
-// confirm inventory
+// send return
 func (s *Services) SendReturn(returnId string, userId string) error {
 	// start transaction
 	tx := s.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-	// update confirm inventory
+	defer recoverTransaction(tx, s.log)
+	// update confirm return
 	query := `UPDATE transfers SET status = ?, updated_by = ? WHERE id = ?`
 	err := tx.Exec(query, config.SENT, userId, returnId).Error
 	if err != nil {
-		s.log.Warn("ERROR on updating inventory %v", err)
-		tx.Rollback()
+		s.log.Warn("ERROR on updating return %v", err)
 		return err
 	}
 
 	query2 := `DELETE FROM transfer_details WHERE scanned_count = 0 AND transfer_id = ?;`
 	err = tx.Exec(query2, returnId).Error
 	if err != nil {
-		s.log.Warn("ERROR on deleting scanned 0 inventory details: %v", err)
-		tx.Rollback()
+		s.log.Warn("ERROR on deleting scanned 0 return details: %v", err)
 		return err
 	}
 	var returnDetails []domain.ReturnDetail
 	query3 := `
-		SELECT td.*, p.unit_per_pack
+		SELECT 
+			td.*, 
+			p.unit_per_pack
         FROM transfer_details td
 		JOIN products p ON td.product_id = p.id
 		WHERE td.transfer_id = ? and td.scanned_count > 0;
@@ -328,32 +404,30 @@ func (s *Services) SendReturn(returnId string, userId string) error {
 	err = tx.Raw(query3, returnId).Scan(&returnDetails).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting return details: %v", err)
-		tx.Rollback()
 		return err
 	}
 
 	for _, detail := range returnDetails {
 		// update store product quantities
 		// if scanned count is 0, skip the update
-		err = tx.Debug().Exec(`UPDATE store_products SET pack_quantity = GREATEST(?, 0), unit_quantity = GREATEST(unit_quantity - ?, 0), updated_at = NOW() WHERE id = ?`,
+		err = tx.Exec(`UPDATE store_products SET pack_quantity = GREATEST(?, 0), unit_quantity = GREATEST(unit_quantity - ?, 0), updated_at = NOW() WHERE id = ?`,
 			int(detail.ReceivedCount-detail.ScannedCount), math.Round(detail.ScannedCount*float64(detail.UnitPerPack)), detail.StoreProductId).Error
 		if err != nil {
 			s.log.Warn("ERROR on updating store product pack quantity: %v", err)
-			tx.Rollback()
 			return err
 		}
 	}
-
+	defer RollbackIfError(tx, &err)
 	// complete transaction
-	if err = tx.Commit().Error; err != nil {
+	err = tx.Commit().Error
+	if err != nil {
 		s.log.Warn("ERROR on commiting transaction: %v", err)
-		tx.Rollback()
 		return err
 	}
 	return nil
 }
 
-// confirm inventory
+// confirm return
 func (s *Services) SendReturn1C(returnId string) error {
 	var (
 		returnData domain.ReturnData1C
@@ -380,10 +454,17 @@ func (s *Services) SendReturn1C(returnId string) error {
 	// get return data
 	query := `
 	SELECT
-		td.id, td.transfer_id, p.material_code, p.name, p.barcode,
-		COALESCE(pr.code, '') as manufacturer, td.serial_number AS product_series_number,
-		td.expire_date, td.accepted_count as quantity,
-		td.supply_price AS supply_price_vat, td.retail_price AS retail_price_vat,
+		td.id, 
+		td.transfer_id, 
+		p.material_code, 
+		p.name, 
+		p.barcode,
+		COALESCE(pr.code, '') as manufacturer, 
+		td.serial_number AS product_series_number,
+		td.expire_date, 
+		td.accepted_count as quantity,
+		td.supply_price AS supply_price_vat, 
+		td.retail_price AS retail_price_vat,
 		(td.retail_price*td.accepted_count) AS sum_vat
 	FROM transfer_details td
 		JOIN transfers tr ON td.transfer_id = tr.id
@@ -412,57 +493,45 @@ func (s *Services) SendReturn1C(returnId string) error {
 	return nil
 }
 
-// confirm inventory
+// confirm return
 func (s *Services) ConfirmReturn(returnId, storeId string, userId string) error {
 	// start transaction
 	tx := s.db.Begin()
 	defer recoverTransaction(tx, s.log) // check recover
 	var returnInfo domain.Return
-	// update confirm inventory
+	// update confirm return
 	query := `UPDATE transfers SET status = ?, accepted_by = ?, accepted_at = NOW() WHERE id = ? RETURNING *`
 	err := tx.Raw(query, config.COMPLETED, userId, returnId).Scan(&returnInfo).Error
 	if err != nil {
-		s.log.Warn("ERROR on updating inventory %v", err)
+		s.log.Warn("ERROR on updating return %v", err)
 		return err
 	}
 	defer RollbackIfError(tx, &err) // rollback transcation
-
-	// update confirm inventory details
-	query1 := `UPDATE transfer_details SET accepted_count = scanned_count, updated_at = NOW() WHERE transfer_id = ?`
-	err = tx.Exec(query1, returnId).Error
-	if err != nil {
-		s.log.Warn("ERROR on updating inventory details: %v", err)
-		return err
-	}
 
 	var (
 		returnData domain.ReturnData1C
 		store      domain.Store
 	)
-	// get store data
-	err = tx.First(&store, "id = ?", storeId).Error
-	if err != nil {
-		s.log.Warn("ERROR on getting store data: %v", err)
-		return err
-	}
-	returnData.Dok.DocumentNumber = "NP-" + cast.ToString(returnInfo.PublicId)
-	returnData.Dok.DocumentDate = returnInfo.UpdatedAt.Format(time.DateTime)
-	returnData.Apteka.Name = store.Name
-	returnData.Apteka.StoreCode = store.StoreCode
+
 	// get return data
 	query2 := `
 	SELECT
 		td.id, 
 		td.transfer_id, 
 		p.material_code, 
-		p.name, p.barcode,
+		p.name, 
+		p.barcode,
+		p.unit_per_pack,
 		COALESCE(pr.code, '') as manufacturer, 
 		td.serial_number AS product_series_number,
-		td.expire_date, 
-		td.scanned_count as quantity,
-		td.supply_price AS supply_price_vat, 
+		td.expire_date,
+		td.accepted_count as quantity,
+		td.supply_price AS supply_price_vat,
 		td.retail_price AS retail_price_vat,
-		(td.retail_price*td.scanned_count) AS sum_vat
+		(td.retail_price*td.accepted_count) AS sum_vat,
+		td.scanned_count,
+		td.accepted_count,
+		td.store_product_id
 	FROM transfer_details td
 		JOIN transfers tr ON td.transfer_id = tr.id
 		JOIN products p ON td.product_id = p.id
@@ -476,21 +545,50 @@ func (s *Services) ConfirmReturn(returnId, storeId string, userId string) error 
 		return err
 	}
 
-	// complete transaction
-	if err = tx.Commit().Error; err != nil {
-		s.log.Warn("ERROR on commiting transaction: %v", err)
-		return err
-	}
-
 	if len(returnData.Товары) < 1 {
 		s.log.Warn("No products found for return %s", returnId)
 		return nil
 	}
 
+	for i := range returnData.Товары {
+		err = tx.Debug().Exec(`
+		UPDATE store_products 
+		SET 
+			pack_quantity = pack_quantity + ?,
+			unit_quantity = unit_quantity + ?
+		WHERE id = ?;`,
+			int(returnData.Товары[i].ScannedCount-returnData.Товары[i].AcceptedCount),
+			(returnData.Товары[i].ScannedCount-returnData.Товары[i].AcceptedCount)*float64(returnData.Товары[i].UnitPerPack),
+			returnData.Товары[i].StoreProductId).Error
+		if err != nil {
+			s.log.Error("ERROR on updating store_product on return confirm: %v", err)
+			return err
+		}
+	}
+
+	// get store data
+	err = tx.First(&store, "id = ?", storeId).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting store data: %v", err)
+		return err
+	}
+
+	returnData.Dok.DocumentNumber = "NP-" + cast.ToString(returnInfo.PublicId)
+	returnData.Dok.DocumentDate = returnInfo.UpdatedAt.Format(time.DateTime)
+	returnData.Apteka.Name = store.Name
+	returnData.Apteka.StoreCode = store.StoreCode
+
 	// send return to 1C
 	err = s.DoRequest(context.Background(), returnData, "/vozvrat")
 	if err != nil {
 		s.log.Warn("ERROR on sending return to 1C: %v", err)
+		return err
+	}
+
+	// complete transaction
+	err = tx.Commit().Error
+	if err != nil {
+		s.log.Warn("ERROR on commiting transaction: %v", err)
 		return err
 	}
 
