@@ -891,7 +891,7 @@ func (s *Services) AcceptOnlineSale(req *domain.ConfirmOnlineSaleRequest) error 
 	requestData, err := json.Marshal(gin.H{"order_id": sale.SaleNumber})
 	var response *http.Response
 	url := s.cfg.NoorBaseUrl + fmt.Sprintf("/orders/vendor/%d/confirm", sale.SaleNumber)
-	err = DoRequest(&response, "POST", url, requestData, headers)
+	err = DoRequest(&response, "PATCH", url, requestData, headers)
 	if err != nil {
 		s.log.Warn("ERROR on sending confirm request: %v", err)
 		return err
@@ -946,7 +946,7 @@ func (s *Services) CancelOnlineSale(req *domain.ConfirmOnlineSaleRequest) error 
 	requestData, err := json.Marshal(gin.H{"order_id": sale.SaleNumber})
 	var response *http.Response
 	url := s.cfg.NoorBaseUrl + fmt.Sprintf("/orders/vendor/%d/cancel", sale.SaleNumber)
-	err = DoRequest(&response, "POST", url, requestData, headers)
+	err = DoRequest(&response, "PATCH", url, requestData, headers)
 	if err != nil {
 		s.log.Warn("ERROR on sending confirm request: %v", err)
 		return err
