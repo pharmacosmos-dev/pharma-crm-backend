@@ -66,8 +66,9 @@ type ProductRequest struct {
 
 // ProductExcludeRequest request
 type ProductExcludeRequest struct {
-	StoreID   *string `json:"store_id"` // optional
-	ProductID string  `json:"product_id" binding:"required,uuid"`
+	ProducerID *string   `json:"producer_id" binding:"omitempty,uuid"`
+	StoreID    []*string `json:"store_id"` // optional
+	ProductID  string    `json:"product_id" binding:"omitempty,uuid"`
 }
 
 // ExcludedProductResponse response

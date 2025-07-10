@@ -2412,12 +2412,9 @@ func (h *ProductHandler) GenerateMarking(productId string, importDetailId string
 // @Failure 500 {object} v1.Response
 // @Router /product/exclude [post]
 func (h *ProductHandler) CreateExcludedProduct(c *gin.Context) {
-	var (
-		body domain.ProductExcludeRequest
-		err  error
-	)
-
-	if err = c.ShouldBindJSON(&body); err != nil {
+	var body domain.ProductExcludeRequest
+	err := c.ShouldBindJSON(&body)
+	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
@@ -2436,34 +2433,75 @@ func (h *ProductHandler) CreateExcludedProduct(c *gin.Context) {
 		}
 	}()
 
-	excludeID := uuid.New().String()
+	var productIDs []string
 
-	query := `
-		INSERT INTO excluded_products (id, store_id, product_id, created_by, created_at)
-		VALUES (?, ?, ?, ?, NOW())
-		ON CONFLICT (store_id, product_id) DO NOTHING
-	`
+	// CASE 2: producer_id bor
+	if body.ProducerID != nil && *body.ProducerID != "" {
+		if err := tx.Raw(`
+			SELECT id FROM products WHERE producer_id = ?
+		`, *body.ProducerID).Scan(&productIDs).Error; err != nil {
+			tx.Rollback()
+			h.log.Error(err)
+			handleResponse(c, InternalError, "Failed to get products for producer")
+			return
+		}
 
-	var storeID any = nil
-	if body.StoreID != nil && *body.StoreID != "" {
-		storeID = *body.StoreID
+		if len(productIDs) == 0 {
+			tx.Rollback()
+			handleResponse(c, BadRequest, "No products found for given producer")
+			return
+		}
+	} else {
+		// CASE 1 or 3: Faqat bitta product
+		productIDs = []string{body.ProductID}
 	}
 
-	err = tx.Exec(query, excludeID, storeID, body.ProductID, userId).Error
-	if err != nil {
+	// INSERT qilish
+	now := time.Now()
+	for _, productID := range productIDs {
+		if len(body.StoreID) == 0 {
+			// Global exclude
+			excludeID := uuid.New().String()
+			err := tx.Exec(`
+				INSERT INTO excluded_products (id, store_id, product_id, created_by, created_at)
+				VALUES (?, NULL, ?, ?, ?)
+				ON CONFLICT (store_id, product_id) DO NOTHING
+			`, excludeID, productID, userId, now).Error
+			if err != nil {
+				tx.Rollback()
+				h.log.Error(err)
+				handleResponse(c, InternalError, "Failed to exclude product globally")
+				return
+			}
+		} else {
+			// Har bir store uchun exclude
+			for _, store := range body.StoreID {
+				if store == nil || *store == "" {
+					continue
+				}
+				excludeID := uuid.New().String()
+				err := tx.Exec(`
+					INSERT INTO excluded_products (id, store_id, product_id, created_by, created_at)
+					VALUES (?, ?, ?, ?, ?)
+					ON CONFLICT (store_id, product_id) DO NOTHING
+				`, excludeID, *store, productID, userId, now).Error
+				if err != nil {
+					tx.Rollback()
+					h.log.Error(err)
+					handleResponse(c, InternalError, "Failed to exclude product for store")
+					return
+				}
+			}
+		}
+	}
+
+	if err := tx.Commit().Error; err != nil {
 		tx.Rollback()
-		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
-	if err = tx.Commit().Error; err != nil {
-		tx.Rollback()
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-
-	handleResponse(c, CREATED, "Product successfully excluded")
+	handleResponse(c, CREATED, "Product(s) successfully excluded")
 }
 
 // ListExcludedProducts godoc
