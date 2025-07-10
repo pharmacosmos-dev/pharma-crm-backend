@@ -284,3 +284,154 @@ func BuildStoreReportOrderClause(orderField string) string {
 	// fallback default
 	return " ORDER BY store_name, start_date "
 }
+
+func BuildTopProductOrderClause(orderField string) string {
+	allowedFields := map[string]string{
+		"name":                  "curr.name",
+		"count":                 "curr.count",
+		"unit_quantity":         "curr.unit_quantity",
+		"total_amount":          "curr.total_amount",
+		"previous_total_amount": "prev.total_amount",
+		"percent":               "percent",
+	}
+
+	if orderField == "" {
+		return " ORDER BY curr.total_amount DESC "
+	}
+
+	direction := "ASC"
+	field := orderField
+
+	if strings.HasPrefix(orderField, "-") {
+		direction = "DESC"
+		field = strings.TrimPrefix(orderField, "-")
+	} else if strings.HasPrefix(orderField, "+") {
+		field = strings.TrimPrefix(orderField, "+")
+	}
+
+	if dbColumn, ok := allowedFields[field]; ok {
+		return fmt.Sprintf(" ORDER BY %s %s ", dbColumn, direction)
+	}
+
+	return " ORDER BY curr.total_amount DESC "
+}
+
+func BuildBonusProductOrderClause(orderField string) string {
+	allowedFields := map[string]string{
+		"name":                  "curr.name",
+		"count":                 "curr.count",
+		"unit_quantity":         "curr.unit_quantity",
+		"bonus_amount":          "curr.bonus_amount",
+		"previous_bonus_amount": "prev.bonus_amount",
+		"percent":               "percent",
+	}
+
+	if orderField == "" {
+		return " ORDER BY curr.bonus_amount DESC "
+	}
+
+	direction := "ASC"
+	field := orderField
+
+	if strings.HasPrefix(orderField, "-") {
+		direction = "DESC"
+		field = strings.TrimPrefix(orderField, "-")
+	} else if strings.HasPrefix(orderField, "+") {
+		field = strings.TrimPrefix(orderField, "+")
+	}
+
+	if dbColumn, ok := allowedFields[field]; ok {
+		return fmt.Sprintf(" ORDER BY %s %s ", dbColumn, direction)
+	}
+
+	return " ORDER BY curr.bonus_amount DESC "
+}
+
+func BuildTopStoreOrderClause(orderField string) string {
+	allowedFields := map[string]string{
+		"name":                  "stores.name",
+		"count":                 "curr.count",
+		"total_amount":          "curr.total_amount",
+		"previous_total_amount": "prev.total_amount",
+		"percent":               "percent",
+	}
+
+	if orderField == "" {
+		return " ORDER BY curr.total_amount DESC "
+	}
+
+	direction := "ASC"
+	field := orderField
+
+	if strings.HasPrefix(orderField, "-") {
+		direction = "DESC"
+		field = strings.TrimPrefix(orderField, "-")
+	} else if strings.HasPrefix(orderField, "+") {
+		field = strings.TrimPrefix(orderField, "+")
+	}
+
+	if dbColumn, ok := allowedFields[field]; ok {
+		return fmt.Sprintf(" ORDER BY %s %s ", dbColumn, direction)
+	}
+
+	return " ORDER BY curr.total_amount DESC "
+}
+
+func BuildBonusReportOrderClause(orderField string) string {
+	allowedFields := map[string]string{
+		"full_name": "e.full_name",
+		"amount":    "amount",
+		"count":     "count",
+	}
+
+	if orderField == "" {
+		return " ORDER BY e.full_name "
+	}
+
+	direction := "ASC"
+	field := orderField
+
+	if strings.HasPrefix(orderField, "-") {
+		direction = "DESC"
+		field = strings.TrimPrefix(orderField, "-")
+	} else if strings.HasPrefix(orderField, "+") {
+		field = strings.TrimPrefix(orderField, "+")
+	}
+
+	if dbColumn, ok := allowedFields[field]; ok {
+		return fmt.Sprintf(" ORDER BY %s %s", dbColumn, direction)
+	}
+
+	return " ORDER BY e.full_name"
+}
+
+func BuildTopSellerOrderClause(orderField string) string {
+	allowedFields := map[string]string{
+		"full_name":             "curr.full_name",
+		"store_name":            "curr.store_name",
+		"count":                 "curr.count",
+		"total_amount":          "curr.total_amount",
+		"previous_total_amount": "prev.total_amount",
+		"percent":               "percent",
+	}
+
+	if orderField == "" {
+		return " ORDER BY curr.total_amount DESC "
+	}
+
+	direction := "ASC"
+	field := orderField
+
+	if strings.HasPrefix(orderField, "-") {
+		direction = "DESC"
+		field = strings.TrimPrefix(orderField, "-")
+	} else if strings.HasPrefix(orderField, "+") {
+		field = strings.TrimPrefix(orderField, "+")
+	}
+
+	if dbColumn, ok := allowedFields[field]; ok {
+		return fmt.Sprintf(" ORDER BY %s %s", dbColumn, direction)
+	}
+
+	return " ORDER BY curr.total_amount DESC "
+}

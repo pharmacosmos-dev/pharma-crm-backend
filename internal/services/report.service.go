@@ -104,22 +104,22 @@ func (s *Services) BonusReport(param *domain.ReportQueryParam) ([]domain.BonusRe
 
 	filter := " WHERE 1 = 1 "
 	group := " GROUP BY e.id, s.id "
-	order := " ORDER BY e.full_name"
+	order := utils.BuildBonusReportOrderClause(param.Order)
 
-	// Filtrlash: do‘konlar
+	// Store filter
 	if len(param.StoreIds) > 0 {
 		filter += " AND s.id IN (?)"
 		args = append(args, param.StoreIds)
 	}
 
-	// Filtrlash: qidiruv (public_id, full_name, phone)
+	// Search filter
 	if param.Search != "" {
 		search := "%" + param.Search + "%"
 		filter += " AND (e.full_name ILIKE ? OR e.phone LIKE ? OR CAST(e.public_id AS TEXT) LIKE ?)"
 		args = append(args, search, search, search)
 	}
 
-	// Sana bo‘yicha filter (5 soat farq bilan)
+	// Date filter
 	if param.StartDate != "" && param.EndDate != "" {
 		filter += " AND (eb.created_at + interval '5 hours') BETWEEN ? AND ?"
 		args = append(args, param.StartDate, param.EndDate)
@@ -128,19 +128,7 @@ func (s *Services) BonusReport(param *domain.ReportQueryParam) ([]domain.BonusRe
 		args = append(args, param.StartDate)
 	}
 
-	// Sortlash: parametrga qarab
-	switch param.Order {
-	case "min_count":
-		order = " ORDER BY count ASC"
-	case "max_count":
-		order = " ORDER BY count DESC"
-	case "min_amount":
-		order = " ORDER BY amount ASC"
-	case "max_amount":
-		order = " ORDER BY amount DESC"
-	}
-
-	// Yakuniy query
+	// Final query
 	finalQuery := query + filter + group + order + " LIMIT ? OFFSET ?"
 	args = append(args, param.Limit, param.Offset)
 
@@ -723,19 +711,9 @@ func (s *Services) ReportTopProducts(param *domain.ReportQueryParam) ([]domain.T
 		args = append(args, param.StoreIds)
 	}
 
-	// Sorting
-	switch param.Order {
-	case "min_count":
-		query += where + " ORDER BY count ASC"
-	case "max_count":
-		query += where + " ORDER BY count DESC"
-	case "min_amount":
-		query += where + " ORDER BY total_amount ASC"
-	case "max_amount":
-		query += where + " ORDER BY total_amount DESC"
-	default:
-		query += where + " ORDER BY total_amount DESC"
-	}
+	// Sorting (replaced switch)
+	order := utils.BuildTopProductOrderClause(param.Order)
+	query += where + order
 
 	// Pagination
 	query += " LIMIT ? OFFSET ?"
@@ -848,26 +826,14 @@ func (s *Services) ReportTopSeller(param *domain.ReportQueryParam) ([]domain.Top
 		args = append(args, param.StoreIds)
 	}
 
-	// Sorting
-	switch param.Order {
-	case "min_count":
-		where += " ORDER BY curr.count ASC"
-	case "max_count":
-		where += " ORDER BY curr.count DESC"
-	case "min_amount":
-		where += " ORDER BY curr.total_amount ASC"
-	case "max_amount":
-		where += " ORDER BY curr.total_amount DESC"
-	default:
-		where += " ORDER BY curr.total_amount DESC"
-	}
+	// Apply flexible ordering
+	order := utils.BuildTopSellerOrderClause(param.Order)
 
 	// Pagination
-	where += " LIMIT ? OFFSET ?"
+	limitOffset := " LIMIT ? OFFSET ?"
 	args = append(args, param.Limit, param.Offset)
 
-	// Final query
-	finalQuery := query + where
+	finalQuery := query + where + order + limitOffset
 
 	// Execute
 	err = s.db.Raw(finalQuery, args...).Scan(&res).Error
@@ -971,19 +937,8 @@ func (s *Services) ReportTopStores(param *domain.ReportQueryParam) ([]domain.Top
 		query += " WHERE " + strings.Join(whereClauses, " AND ")
 	}
 
-	// Sorting
-	switch param.Order {
-	case "min_count":
-		query += " ORDER BY count ASC"
-	case "max_count":
-		query += " ORDER BY count DESC"
-	case "min_amount":
-		query += " ORDER BY total_amount ASC"
-	case "max_amount":
-		query += " ORDER BY total_amount DESC"
-	default:
-		query += " ORDER BY total_amount DESC"
-	}
+	// Apply flexible ordering
+	query += utils.BuildTopStoreOrderClause(param.Order)
 
 	// Pagination
 	query += " LIMIT ? OFFSET ?"
@@ -1087,6 +1042,7 @@ func (s *Services) ReportBonusProducts(param *domain.ReportQueryParam) ([]domain
 		FROM employee_bonus eb
 		JOIN products p ON eb.product_id = p.id
 	`
+
 	prevJoin := ""
 	prevFilter := " WHERE 1 = 1"
 	if len(param.StoreIds) > 0 {
@@ -1099,19 +1055,9 @@ func (s *Services) ReportBonusProducts(param *domain.ReportQueryParam) ([]domain
 
 	query += prevJoin + prevFilter + " GROUP BY p.id ) AS prev ON curr.id = prev.id"
 
-	// Sorting
-	switch param.Order {
-	case "min_count":
-		query += " ORDER BY curr.count ASC"
-	case "max_count":
-		query += " ORDER BY curr.count DESC"
-	case "min_amount":
-		query += " ORDER BY curr.bonus_amount ASC"
-	case "max_amount":
-		query += " ORDER BY curr.bonus_amount DESC"
-	default:
-		query += " ORDER BY curr.bonus_amount DESC"
-	}
+	// New flexible order logic
+	order := utils.BuildBonusProductOrderClause(param.Order)
+	query += order
 
 	// Pagination
 	query += " LIMIT ? OFFSET ?"
