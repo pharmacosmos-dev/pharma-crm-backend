@@ -2426,6 +2426,11 @@ func (h *ProductHandler) CreateExcludedProduct(c *gin.Context) {
 		return
 	}
 
+	// Validation: at least one of producer_id or product_id is required
+	if body.ProducerID == nil && len(body.ProductID) == 0 {
+		handleResponse(c, BadRequest, "Either producer_id or product_id(s) must be provided")
+		return
+	}
 	tx := h.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
@@ -2435,14 +2440,12 @@ func (h *ProductHandler) CreateExcludedProduct(c *gin.Context) {
 
 	var productIDs []string
 
-	// CASE 2: producer_id bor
+	// Case 1 or 2: producer_id bor
 	if body.ProducerID != nil && *body.ProducerID != "" {
-		if err := tx.Raw(`
-			SELECT id FROM products WHERE producer_id = ?
-		`, *body.ProducerID).Scan(&productIDs).Error; err != nil {
+		if err := tx.Raw(`SELECT id FROM products WHERE producer_id = ?`, *body.ProducerID).Scan(&productIDs).Error; err != nil {
 			tx.Rollback()
 			h.log.Error(err)
-			handleResponse(c, InternalError, "Failed to get products for producer")
+			handleResponse(c, InternalError, "Failed to fetch products for producer")
 			return
 		}
 
@@ -2452,15 +2455,15 @@ func (h *ProductHandler) CreateExcludedProduct(c *gin.Context) {
 			return
 		}
 	} else {
-		// CASE 1 or 3: Faqat bitta product
-		productIDs = []string{body.ProductID}
+		// Case 3: product_id list berilgan
+		productIDs = body.ProductID
 	}
 
-	// INSERT qilish
+	// Insert logic
 	now := time.Now()
 	for _, productID := range productIDs {
 		if len(body.StoreID) == 0 {
-			// Global exclude
+			// Global exclude (store_id = NULL)
 			excludeID := uuid.New().String()
 			err := tx.Exec(`
 				INSERT INTO excluded_products (id, store_id, product_id, created_by, created_at)
@@ -2474,7 +2477,7 @@ func (h *ProductHandler) CreateExcludedProduct(c *gin.Context) {
 				return
 			}
 		} else {
-			// Har bir store uchun exclude
+			// Store-specific exclude
 			for _, store := range body.StoreID {
 				if store == nil || *store == "" {
 					continue

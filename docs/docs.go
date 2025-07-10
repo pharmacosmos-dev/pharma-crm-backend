@@ -21888,16 +21888,15 @@ const docTemplate = `{
         },
         "domain.ProductExcludeRequest": {
             "type": "object",
-            "required": [
-                "producer_id",
-                "product_id"
-            ],
             "properties": {
                 "producer_id": {
                     "type": "string"
                 },
                 "product_id": {
-                    "type": "string"
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "store_id": {
                     "description": "optional",
