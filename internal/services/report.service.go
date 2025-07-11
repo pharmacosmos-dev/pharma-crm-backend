@@ -246,7 +246,7 @@ func (s *Services) ProductReport(ctx context.Context, param *domain.ReportQueryP
 			return res, 0, err
 		}
 		endStr := endTime.Format("2006-01-02 15:04:05")
-		filter += " AND (sl.completed_at + interval '5 hours') <= ? "
+		filter += " AND (sl.completed_at + interval '5 hours') >= ? "
 		args = append(args, endStr)
 	}
 
@@ -260,7 +260,7 @@ func (s *Services) ProductReport(ctx context.Context, param *domain.ReportQueryP
 
 	// Main query
 	query += filter + order + pagination
-	err = s.db.Raw(query, args...).Scan(&res).Error
+	err = s.db.Debug().Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting product report: %v", err)
 		return res, 0, nil
@@ -332,7 +332,7 @@ func (s *Services) ProductStatusReport(ctx context.Context, param *domain.Report
 			return res, err
 		}
 		endStr := endTime.Format("2006-01-02 15:04:05")
-		filter += " AND (sl.completed_at + interval '5 hours') <= ? "
+		filter += " AND (sl.completed_at + interval '5 hours') >= ? "
 		args = append(args, endStr)
 	}
 
