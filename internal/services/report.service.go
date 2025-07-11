@@ -296,6 +296,7 @@ func (s *Services) ProductStatusReport(ctx context.Context, param *domain.Report
 	// Filters
 	if param.Search != "" {
 		filter += " AND (p.name ILIKE ? OR s.name ILIKE ?) "
+		param.Search = "%" + param.Search + "%"
 		args = append(args, param.Search, param.Search)
 	}
 	if len(param.StoreIds) > 0 {
