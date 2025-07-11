@@ -616,10 +616,10 @@ func (h *SaleHandler) ProccessingSale(c *gin.Context) {
 	var (
 		body domain.FinalSale
 		sale domain.Sale
-		err  error
 	)
 	// bind request body
-	if err = c.ShouldBindJSON(&body); err != nil {
+	err := c.ShouldBindJSON(&body)
+	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
@@ -676,7 +676,6 @@ func (h *SaleHandler) ProccessingSale(c *gin.Context) {
 	err = tx.Exec(`DELETE FROM sale_payments WHERE sale_id = ?`, body.SaleID).Error
 	if err != nil {
 		h.log.Error("ERROR on deleting sale_payments: ", err)
-		tx.Rollback()
 		return
 	}
 
@@ -694,7 +693,7 @@ func (h *SaleHandler) ProccessingSale(c *gin.Context) {
 	// complete sale
 	err = h.service.CompleteSale(tx, &sale)
 	if err != nil {
-		h.log.Error("ERROR on completing sale: ", err)
+		h.log.Error("ERROR on completing sale: %v", err)
 		handleResponse(c, InternalError, "Failed to complete sale")
 		return
 	}

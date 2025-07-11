@@ -2,6 +2,8 @@ package db
 
 import (
 	"fmt"
+	"log"
+	"os"
 	"time"
 
 	_ "github.com/jackc/pgx/stdlib" // pgx driver
@@ -10,6 +12,7 @@ import (
 	"github.com/pharma-crm-backend/config"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 const (
@@ -50,7 +53,17 @@ func NewConnDB(c *config.Config) (*gorm.DB, error) {
 	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=disable",
 		c.DbHost, c.DbUser, c.DbPass, c.DbName, c.DbPort)
 
-	gormDB, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	// ✅ Custom logger: faqat ERROR loglari chiqadi
+	newLogger := logger.New(
+		log.New(os.Stdout, "\r\n", log.LstdFlags),
+		logger.Config{
+			SlowThreshold: time.Duration(0), // no SLOW SQL logging
+			LogLevel:      logger.Error,     // ❗ faqat error
+			Colorful:      true,
+		},
+	)
+
+	gormDB, err := gorm.Open(postgres.Open(dsn), &gorm.Config{Logger: newLogger})
 	if err != nil {
 		return nil, err
 	}
