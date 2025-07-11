@@ -145,7 +145,7 @@ func (s *Services) TransferList(param *domain.ReturnParam) ([]domain.Transfer, i
 	if param.StartDate != "" {
 		query = query.Where("transfers.created_at >= ?", param.StartDate)
 	}
-	
+
 	if param.EndDate != "" {
 		query = query.Where("transfers.created_at <= ?", param.EndDate)
 	}
@@ -210,21 +210,26 @@ func (s *Services) TransferDetailList(param *domain.ReturnDetailParam) ([]domain
 	query := s.db.
 		Model(&domain.TransferDetail{}).
 		Select(`
-		transfer_details.id,
-		transfer_details.product_id, 
-		transfer_details.transfer_id,
-		transfer_details.received_count,
-		FLOOR(transfer_details.scanned_count) AS scanned_count,
-		ROUND(MOD(transfer_details.scanned_count * p.unit_per_pack, p.unit_per_pack), 0) AS scanned_unit,
-		transfer_details.expire_date, 
-		transfer_details.serial_number, 
-		transfer_details.supply_price, 
-		transfer_details.retail_price,
-		transfer_details.created_at, 
-		transfer_details.updated_at,
-		ROUND(transfer_details.received_count*transfer_details.retail_price, 2) AS received_sum,
-		ROUND(transfer_details.scanned_count*transfer_details.retail_price, 2) AS scanned_sum,
-    	p.name, p.material_code, p.unit_per_pack, p.barcode, ut.short_name`).
+			transfer_details.id,
+			transfer_details.product_id, 
+			transfer_details.transfer_id,
+			transfer_details.received_count,
+			FLOOR(transfer_details.scanned_count) AS scanned_count,
+			ROUND(MOD(transfer_details.scanned_count * p.unit_per_pack, p.unit_per_pack), 0) AS scanned_unit,
+			transfer_details.expire_date, 
+			transfer_details.serial_number, 
+			transfer_details.supply_price, 
+			transfer_details.retail_price,
+			transfer_details.created_at, 
+			transfer_details.updated_at,
+			ROUND(transfer_details.received_count*transfer_details.retail_price, 2) AS received_sum,
+			ROUND(transfer_details.scanned_count*transfer_details.retail_price, 2) AS scanned_sum,
+			p.name, 
+			p.material_code, 
+			p.unit_per_pack, 
+			p.barcode, 
+			ut.short_name
+			`).
 		Joins("JOIN products p ON transfer_details.product_id = p.id").
 		Joins("LEFT JOIN unit_types ut ON p.unit_type_id = ut.id").
 		Where("transfer_details.transfer_id = ?", param.TransferId)
