@@ -348,6 +348,101 @@ func (s *Services) SendTransfer(returnId string, userId string) error {
 	return nil
 }
 
+func (s *Services) SendTransferTo1C(transferID string) error {
+	var transfer domain.Transfer
+	err := s.db.First(&transfer, "id = ?", transferID).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting transfer: %v", err)
+		return err
+	}
+
+	var details []domain.TransferDetail
+	err = s.db.Raw(`
+	SELECT
+		td.id,
+		td.transfer_id,
+		td.product_id,
+		td.store_product_id,
+		td.received_count,
+		td.scanned_count,
+		td.accepted_count,
+		td.expire_date,
+		td.serial_number,
+		td.supply_price AS supply_price_vat,
+		td.retail_price AS retail_price_vat,
+		td.created_at,
+		td.updated_at,
+		p.unit_per_pack,
+		COALESCE(p.name,'') AS product_name,
+		p.material_code,
+		p.barcode,
+		COALESCE(pr.code, '') AS producer_code,
+		COALESCE(idt.retail_price, 0.00) AS retail_price,
+		COALESCE(idt.supply_price, 0.00) AS supply_price
+	FROM transfer_details td
+		JOIN products p ON p.id = td.product_id
+		LEFT JOIN producers pr ON pr.id = p.producer_id
+		LEFT JOIN store_products sp ON sp.id = td.store_product_id
+		LEFT JOIN import_details idt ON idt.id = sp.import_detail_id
+	WHERE
+		td.transfer_id = ? AND td.scanned_count > 0;
+	`, transferID).Scan(&details).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting transfer_detail list: %v", err)
+		return err
+	}
+
+	// get store info
+	var toStore, fromStore domain.Store
+	err = s.db.First(&toStore, "id = ?", transfer.ToStoreId).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting toStore info: %v", err)
+		return err
+	}
+
+	err = s.db.First(&fromStore, "id = ?", transfer.FromStoreId).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting fromStore info: %v", err)
+		return err
+	}
+
+	var data1C domain.TransferData1C
+
+	for _, v := range details {
+		data1C.Товары = append(data1C.Товары, domain.TransferProduct1C{
+			MaterialCode:        v.MaterialCode,
+			Name:                v.ProductName,
+			Barcode:             v.Barcode,
+			Manufacturer:        v.ProducerCode,
+			ProductSeriesNumber: v.SerialNumber,
+			ExpireDate:          v.ExpireDate,
+			Quantity:            v.ReceivedCount,
+			RetailPrice:         v.RetailPrice,
+			RetailPriceVat:      v.RetailPriceVat,
+			SupplyPrice:         v.SupplyPrice,
+			SupplyPriceVat:      v.SupplyPriceVat,
+			Sum:                 v.ScannedCount * v.RetailPrice,
+			SumVat:              v.ScannedCount * v.RetailPriceVat,
+		})
+	}
+
+	data1C.Dok.DocumentDate = transfer.UpdatedAt.Format(time.DateTime)
+	data1C.Dok.DocumentNumber = "NP-" + cast.ToString(transfer.PublicId)
+
+	data1C.Apteka.Name = toStore.Name
+	data1C.Apteka.StoreCode = toStore.StoreCode
+	data1C.AptekaOtkud.Name = fromStore.Name
+	data1C.AptekaOtkud.StoreCode = fromStore.StoreCode
+
+	err = s.DoRequest(context.Background(), data1C, "/perekit")
+	if err != nil {
+		s.log.Warn("ERROR on sending to 1C: %v", err)
+		return err
+	}
+
+	return nil
+}
+
 // confirm inventory
 func (s *Services) ConfirmTransfer(transferID string, userId string) error {
 	// start transaction

@@ -37,6 +37,7 @@ func (h *TransferHandler) TransferRoutes(r *gin.RouterGroup) {
 		transfer.PATCH("/:id/add-product-by-barcode", h.AddProductByBarcode)
 		transfer.POST("/send/:id", h.Send)
 		transfer.POST("/confirm/:id", h.Confirm)
+		transfer.POST("/send1c/:id", h.Send1C)
 		transfer.POST("/cancel/:id", h.Cancel)
 		transfer.GET("/export-nakladnoy", h.ExportTransferNakladnoyPDF)
 	}
@@ -514,6 +515,34 @@ func (h *TransferHandler) Confirm(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, "COMFIRMED")
+}
+
+// send1c transfer
+// @Summary Send Transfer
+// @Description Send Transfer
+// @Tags Transfer
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param 	id 	path string true "Transfer ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /transfer/send1c/{id} [POST]
+func (h *TransferHandler) Send1C(c *gin.Context) {
+	id := c.Param("id")
+	if err := uuid.Validate(id); err != nil {
+		handleResponse(c, BadRequest, "Invalid transfer id")
+		return
+	}
+	// send transfer info to 1C
+	err := h.service.SendTransferTo1C(id)
+	if err != nil {
+		h.log.Warn("ERROR on sending transfer to 1c: %v", err)
+		handleResponse(c, InternalError, "failed_to_send_transfer")
+		return
+	}
+	handleResponse(c, OK, "SENT")
 }
 
 // cancel return
