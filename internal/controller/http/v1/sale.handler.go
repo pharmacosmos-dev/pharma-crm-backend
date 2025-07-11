@@ -851,7 +851,7 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 			handleResponse(c, InternalError, err.Error())
 			return
 		}
-
+		fmt.Println("===>>> ", responseDataStr)
 		// parse epos success json to structure
 		var successResp domain.EposSuccessResponse
 		if err = json.Unmarshal([]byte(responseDataStr), &successResp); err != nil {
