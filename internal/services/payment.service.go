@@ -339,7 +339,6 @@ func (s *Services) PaymeGoReceiptCancel(ctx context.Context, paymentService *dom
 	}
 	// response to json
 	r, _ := json.Marshal(res)
-	fmt.Println("CANCEL RESPONSE: ", string(r))
 	// save response
 	err = s.SaveResponse(ctx, &domain.PaymentRequest{
 		TransactionID: transactionID,
@@ -386,7 +385,6 @@ func (s *Services) PaymeGoSetFiscalData(ctx context.Context, fiscal *domain.Fisc
 	}
 	// response to json
 	r, _ := json.Marshal(res)
-	fmt.Println("FISCAL RESPONSE: ", string(r))
 	// save response
 	err = s.SaveResponse(ctx, &domain.PaymentRequest{
 		TransactionID: salePayment.ID,
@@ -425,8 +423,6 @@ func (s *Services) PaymeGoDoRequest(ctx context.Context, data any, paymentServic
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
 	}
-	fmt.Println("PAYME URL: ", s.cfg.Payment.PaymeGoEndpointUrl)
-	fmt.Println("X-Auth: ", paymentService.CashboxId+":"+paymentService.SecretKey)
 	// Set headers
 	req.Header.Set("X-Auth", paymentService.CashboxId+":"+paymentService.SecretKey)
 	req.Header.Set("Content-Type", "application/json")
@@ -458,12 +454,20 @@ func (s *Services) PaymeGoDoRequest(ctx context.Context, data any, paymentServic
 func (h *Services) SaveRequest(ctx context.Context, req *domain.PaymentRequest) error {
 	query := `
 	INSERT INTO payment_requests (
-		request_id, method, payload, transaction_id, payment_provider
+		request_id, 
+		method, 
+		payload, 
+		transaction_id, 
+		payment_provider
 		)
 		VALUES (?, ?, ?, ?, ?)`
-	err := h.db.
-		WithContext(ctx).
-		Exec(query, req.RequestId, req.Method, req.Payload, req.TransactionID, req.PaymentProvider).Error
+	err := h.db.WithContext(ctx).Exec(
+		query,
+		req.RequestId,
+		req.Method,
+		req.Payload,
+		req.TransactionID,
+		req.PaymentProvider).Error
 	if err != nil {
 		h.log.Warn("ERROR on saving payment request: %v", err)
 		return err
@@ -474,8 +478,16 @@ func (h *Services) SaveRequest(ctx context.Context, req *domain.PaymentRequest) 
 // Save payment response to database
 func (h *Services) SaveResponse(ctx context.Context, req *domain.PaymentRequest) error {
 	err := h.db.Exec(
-		`UPDATE payment_requests SET response = ? WHERE transaction_id = ? AND method = ?`,
-		req.Response, req.TransactionID, req.Method,
+		`UPDATE 
+			payment_requests 
+		SET 
+			response = ? 
+		WHERE 
+			transaction_id = ? AND 
+			method = ?`,
+		req.Response,
+		req.TransactionID,
+		req.Method,
 	).Error
 	if err != nil {
 		h.log.Warn("ERROR on saving payment response: %v", err)

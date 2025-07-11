@@ -652,8 +652,7 @@ func (s *Services) DoRequest(ctx context.Context, data any, url string) error {
 	client := &http.Client{
 		Timeout: 60 * time.Second,
 	}
-	// request, _ := json.Marshal(data)
-	// fmt.Println("REQUEST: ", string(request))
+
 	buf := bytes.Buffer{}
 	// Encode data to JSON
 	err := json.NewEncoder(&buf).Encode(data)

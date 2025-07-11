@@ -2,6 +2,9 @@ package v1
 
 import (
 	"fmt"
+	"path/filepath"
+	"strconv"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
@@ -10,8 +13,6 @@ import (
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/spf13/cast"
 	"github.com/xuri/excelize/v2"
-	"path/filepath"
-	"strconv"
 )
 
 type InventoryHandler struct {
@@ -833,7 +834,6 @@ func (h *InventoryHandler) InventoryDetailUpload(c *gin.Context) {
 	// Process rows
 	for _, row := range rows[1:] {
 		count++
-		fmt.Println("---->>> ", row[0])
 		err := h.db.Exec(query, cast.ToFloat64(row[3]), cast.ToFloat64(row[5]), cast.ToFloat64(row[6]), row[4], row[0]).Error
 		if err != nil {
 			h.log.Warn("ERROR on updating products: %v", err)

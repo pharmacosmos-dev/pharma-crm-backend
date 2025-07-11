@@ -58,7 +58,6 @@ func DoRequest(
 			response.StatusCode,
 			string(errBody),
 		)
-		fmt.Println(err)
 
 		return err
 	}

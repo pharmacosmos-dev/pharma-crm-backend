@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"gorm.io/gorm"
 )
 
 // get cart item list by sale id with limit, offset
@@ -209,7 +210,7 @@ func (s *Services) GetCartItemsTotalAmount(saleID string) (float64, error) {
 }
 
 // add marking count to cart items
-func (s *Services) AddMarkingCount(req []domain.MarkingData) error {
+func (s *Services) AddMarkingCount(tx *gorm.DB, req []domain.MarkingData) error {
 	if len(req) == 0 {
 		return nil
 	}
@@ -221,8 +222,10 @@ func (s *Services) AddMarkingCount(req []domain.MarkingData) error {
 	}
 
 	query := fmt.Sprintf(`
-		UPDATE cart_items AS c
-		SET marking_count = v.marking_count
+		UPDATE 
+			cart_items AS c
+		SET 
+			marking_count = v.marking_count
 		FROM (
 			VALUES %s
 		) AS v(id, marking_count)
@@ -230,7 +233,7 @@ func (s *Services) AddMarkingCount(req []domain.MarkingData) error {
 	`, strings.Join(valueStrings, ","))
 
 	// Execute raw SQL
-	err := s.db.Exec(query).Error
+	err := tx.Exec(query).Error
 	if err != nil {
 		s.log.Warn("ERROR on bulk updating cart_item marking_count: %v", err)
 		return err
@@ -238,7 +241,6 @@ func (s *Services) AddMarkingCount(req []domain.MarkingData) error {
 
 	return nil
 }
-
 
 // check order product quantity and return collect cart_item
 func (s *Services) GetOrCheckOnlineCartItems(req []domain.OnlineCartItemRequest, saleID string) ([]domain.CartItemOnlineRequest, error) {

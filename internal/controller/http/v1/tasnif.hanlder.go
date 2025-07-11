@@ -2,7 +2,6 @@ package v1
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 
@@ -79,8 +78,6 @@ func (h *TasnifHandler) UpdatePackageCode(c *gin.Context) {
 		// err = json.NewDecoder(resp.Body).Decode(&res)
 		if err != nil {
 			h.log.Warn("ERROR on decoding tasnif %v", err)
-			fmt.Println("--->>> ", string(result))
-			fmt.Println("====>> ", p.MXIK)
 			handleResponse(c, InternalError, "Can't decode response data")
 			return
 		}
@@ -91,6 +88,5 @@ func (h *TasnifHandler) UpdatePackageCode(c *gin.Context) {
 		}
 		count++
 	}
-	fmt.Println("COUNT: ", count)
 	c.JSON(http.StatusOK, "SUCCESS: "+cast.ToString(count))
 }

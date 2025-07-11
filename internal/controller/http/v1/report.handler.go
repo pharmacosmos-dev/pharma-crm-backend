@@ -299,7 +299,6 @@ func (h *ReportHandler) BonusReportExport(c *gin.Context) {
 	if c.Request.Body != nil {
 		_ = c.ShouldBindJSON(&param.StoreIds)
 	}
-	fmt.Println("param:", param.StoreIds)
 	// get default limit and offset for pagination
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 	// get bonus reports

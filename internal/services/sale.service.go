@@ -175,18 +175,27 @@ func (s *Services) CreateSalePayment(tx *gorm.DB, req domain.FinalSale, item dom
 	)
 	query := `
 	INSERT INTO sale_payments(
-		sale_id, cash_box_operation_id, 
-		payment_service_id, payment_type_id, 
-		amount, return_amount, paid_at) 
-	VALUES(?, ?, ?, ?, ?, ?, ?) RETURNING *`
+		sale_id, 
+		cash_box_operation_id, 
+		payment_service_id, 
+		payment_type_id, 
+		amount, 
+		return_amount, 
+		paid_at
+		) 
+	VALUES(?, ?, ?, ?, ?, ?, ?) 
+	RETURNING *`
 	// Insert sale payments
 	err := tx.Raw(query,
-		req.SaleID, req.CashBoxOperationId,
-		paymentServiceId, item.PaymentTypeID, item.Amount-item.ReturnAmount, item.ReturnAmount, now).
-		Scan(&salePayment).Error
+		req.SaleID,
+		req.CashBoxOperationId,
+		paymentServiceId,
+		item.PaymentTypeID,
+		item.Amount-item.ReturnAmount,
+		item.ReturnAmount, now).Scan(&salePayment).Error
 	if err != nil {
-		s.log.Error("ERROR on creating new sale payment: ", err)
-		return nil, err
+		s.log.Error("ERROR on creating new sale payment: %w", err)
+		return &salePayment, err
 	}
 	return &salePayment, nil
 }
@@ -262,7 +271,9 @@ func (s *Services) CompleteSale(tx *gorm.DB, sale *domain.Sale) error {
 	SET
 		total_amount = (SELECT SUM(total_price)-SUM(discount_amount) FROM cart_items WHERE sale_id = ?),
 		total_discount = (SELECT SUM(discount_amount) FROM cart_items WHERE sale_id = ?),
-		status = ?, completed_at = NOW(), updated_at = NOW()
+		status = ?,
+		completed_at = NOW(),
+		updated_at = NOW()
 	WHERE id = ?
 	`
 	// complete the query
@@ -306,18 +317,28 @@ func (s *Services) DeductStoreProductQuantities(tx *gorm.DB, sale *domain.Sale) 
 	var cartItems []domain.CartItem
 	err := tx.Raw(`
 		SELECT 
-			ci.id, ci.store_product_id, sp.product_id,
-			ci.quantity, ci.unit_quantity, unit_price,
-			total_price, ci.status, pb.bonus_amount,
+			ci.id, 
+			ci.store_product_id, 
+			sp.product_id,
+			ci.quantity, 
+			ci.unit_quantity, 
+			unit_price,
+			total_price, 
+			ci.status, 
+			pb.bonus_amount,
 			p.unit_per_pack
-		FROM cart_items ci
-		JOIN store_products sp ON sp.id = ci.store_product_id
-		JOIN products p ON sp.product_id = p.id
-		LEFT JOIN product_bonuses pb ON pb.product_id = sp.product_id
-		WHERE sale_id = ?`, sale.ID).
-		Scan(&cartItems).Error
+		FROM 
+			cart_items ci
+		JOIN 
+			store_products sp ON sp.id = ci.store_product_id
+		JOIN 
+			products p ON sp.product_id = p.id
+		LEFT JOIN 
+			product_bonuses pb ON pb.product_id = sp.product_id
+		WHERE 
+			sale_id = ?`, sale.ID).Scan(&cartItems).Error
 	if err != nil {
-		s.log.Error(err)
+		s.log.Error("", err)
 		return err
 	}
 	var bonusAmount float64
@@ -366,10 +387,17 @@ func (s *Services) RestoreStoreProductQuantities(tx *gorm.DB, sale *domain.Sale)
 	// get cart items
 	err := tx.Raw(`
 		SELECT
-			id, store_product_id,
-			quantity, unit_quantity, unit_price,
-			total_price, status
-		FROM cart_items WHERE sale_id = ?`,
+			id, 
+			store_product_id,
+			quantity, 
+			unit_quantity, 
+			unit_price,
+			total_price, 
+			status
+		FROM 
+			cart_items 
+		WHERE 
+			sale_id = ?`,
 		sale.ID).Scan(&cartItems).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting cart_items: %v", err)
@@ -378,14 +406,21 @@ func (s *Services) RestoreStoreProductQuantities(tx *gorm.DB, sale *domain.Sale)
 	// update store product quantities
 	for _, item := range cartItems {
 		err = tx.Exec(`
-		UPDATE store_products
+		UPDATE 
+			store_products
 		SET
 			pack_quantity = store_products.pack_quantity + ?,
 			unit_quantity = store_products.unit_quantity + (? * products.unit_per_pack + ?), 
 			updated_at = NOW()
-		FROM products
-		WHERE products.id = store_products.product_id AND  store_products.id = ?`,
-			item.Quantity, item.Quantity, item.UnitQuantity, item.StoreProductID).Error
+		FROM 
+			products
+		WHERE 
+			products.id = store_products.product_id AND  
+			store_products.id = ?`,
+			item.Quantity,
+			item.Quantity,
+			item.UnitQuantity,
+			item.StoreProductID).Error
 		if err != nil {
 			s.log.Warn("ERROR on restoring store_products quantity: %v", err)
 			return err

@@ -616,9 +616,10 @@ func (h *SaleHandler) ProccessingSale(c *gin.Context) {
 	var (
 		body domain.FinalSale
 		sale domain.Sale
+		err  error
 	)
 	// bind request body
-	err := c.ShouldBindJSON(&body)
+	err = c.ShouldBindJSON(&body)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
@@ -637,37 +638,39 @@ func (h *SaleHandler) ProccessingSale(c *gin.Context) {
 
 	// create transaction
 	tx := h.db.Begin()
-	defer recoverTransaction(tx, h.log)
-
-	defer RollbackIfError(tx, &err)
 
 	// get sale info
 	err = tx.First(&sale, "id = ?", body.SaleID).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			handleResponse(c, NotFound, "Sale not found")
+			tx.Rollback()
+			handleResponse(c, NotFound, "sale.not.found")
 			return
 		}
-		h.log.Error("ERROR on getting sale info: ", err)
+		h.log.Error("ERROR on getting sale info: %v", err)
+		tx.Rollback()
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
 	// check sale is completed or no
 	if sale.Status == config.COMPLETED {
-		handleResponse(c, CONFLICT, "Sale is already completed")
+		tx.Rollback()
+		handleResponse(c, CONFLICT, "sale.already.completed")
 		return
 	}
 
 	// add marking to cart_items
-	err = h.service.AddMarkingCount(body.MarkingData)
+	err = h.service.AddMarkingCount(tx, body.MarkingData)
 	if err != nil {
+		tx.Rollback()
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
-	// validate amounts
-	if !h.service.ValidateSaleAmount(&body) {
+	// validate amounts (total_amount | payment_type_amount | cart_item_total_amount)
+	if !(h.service.ValidateSaleAmount(&body)) {
+		tx.Rollback()
 		handleResponse(c, BadRequest, "invalid.calculate.amount")
 		return
 	}
@@ -676,15 +679,17 @@ func (h *SaleHandler) ProccessingSale(c *gin.Context) {
 	err = tx.Exec(`DELETE FROM sale_payments WHERE sale_id = ?`, body.SaleID).Error
 	if err != nil {
 		h.log.Error("ERROR on deleting sale_payments: ", err)
+		tx.Rollback()
+		handleResponse(c, BadRequest, "internal.server.error")
 		return
 	}
 
 	// process payment types
 	for _, item := range body.PaymentTypes {
 		err = processPaymentType(c.Request.Context(), tx, h, body, item)
-
 		if err != nil {
 			h.log.Warn("ERROR on payment process: %v", err.Error())
+			tx.Rollback()
 			handleResponse(c, InternalError, err.Error())
 			return
 		}
@@ -694,6 +699,7 @@ func (h *SaleHandler) ProccessingSale(c *gin.Context) {
 	err = h.service.CompleteSale(tx, &sale)
 	if err != nil {
 		h.log.Error("ERROR on completing sale: %v", err)
+		tx.Rollback()
 		handleResponse(c, InternalError, "Failed to complete sale")
 		return
 	}
@@ -701,7 +707,7 @@ func (h *SaleHandler) ProccessingSale(c *gin.Context) {
 	// Commit transaction
 	err = tx.Commit().Error
 	if err != nil {
-		handleResponse(c, InternalError, "Can't commit transaction")
+		handleResponse(c, InternalError, "not.completed.transaction")
 		return
 	}
 
@@ -713,10 +719,12 @@ func processPaymentType(
 	ctx context.Context,
 	tx *gorm.DB, h *SaleHandler,
 	body domain.FinalSale,
-	item domain.FinalPaymentType) error {
+	item domain.FinalPaymentType,
+) error {
 	if item.Type == "app" && (item.AppType == config.CLICK || item.AppType == config.PAYME || item.AppType == config.UZUM || item.AppType == config.ALIF) {
 		paymentService, err := h.service.GetPaymentServiceByStoreId(body.StoreID, item.AppType)
 		if err != nil {
+			h.log.Error("could not get payment service by store id: (%v)", body.StoreID)
 			return errors.New("failed to get payment service")
 		}
 
@@ -746,11 +754,6 @@ func processPaymentType(
 	} else if item.Type == config.CASH || item.Type == config.CARD {
 		// Insert sale payments if payment is cash or card
 		_, err := h.service.CreateSalePayment(tx, body, item, nil)
-		if err != nil {
-			return err
-		}
-		// insert or update sale payment summary
-		err = h.service.CreateOrUpdateSalePaymentSummary(tx, body.CashBoxOperationId, item.PaymentTypeID, item.Amount)
 		if err != nil {
 			return err
 		}

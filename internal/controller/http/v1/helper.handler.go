@@ -221,7 +221,7 @@ func (h *HelperHandler) UploadTaxProducts(c *gin.Context) {
 		}
 
 	}
-	fmt.Println("COUNT: ", count)
+
 	handleResponse(c, OK, "Tax Products uploaded successfully")
 }
 
@@ -294,7 +294,6 @@ func (h *HelperHandler) CorrectMXIK(c *gin.Context) {
 		if len(row) > 8 {
 			if row[5] != "" && row[5] != "#N/A" && row[2] == "Да" {
 				count++
-				fmt.Println("ID: ", parseIntComma(row[1]), "Marking: ", row[2], "IKPU: ", row[4], "OLD IKPU: ", row[5])
 				// // create measurements
 				err = h.db.Exec(query, row[4], true, parseIntComma(row[1])).Error
 				if err != nil {
@@ -306,7 +305,6 @@ func (h *HelperHandler) CorrectMXIK(c *gin.Context) {
 		}
 
 	}
-	fmt.Println("---=>>> ", count)
 	handleResponse(c, OK, "Products MXIK CODE uploaded successfully: ")
 }
 
@@ -436,7 +434,6 @@ func (h *HelperHandler) UploadCategory(c *gin.Context) {
 	for _, row := range rows[1:] {
 		if len(row) == 2 {
 			count++
-			fmt.Println("ID: ", row[0], "Category: ", row[1])
 			// // create measurements
 			err = h.db.Exec(query, row[0], row[1]).Error
 			if err != nil {
@@ -446,7 +443,6 @@ func (h *HelperHandler) UploadCategory(c *gin.Context) {
 			}
 		}
 	}
-	fmt.Println("---->>> ", count)
 	handleResponse(c, OK, "Products MXIK CODE uploaded successfully: ")
 }
 
@@ -522,8 +518,6 @@ func (h *HelperHandler) UploadCustomer(c *gin.Context) {
 	for _, row := range rows[3:] {
 
 		count++
-		fmt.Println("FULLNAME: ", row[2], "PHONE: ", cast.ToString(row[3]), "DATE: ", cast.ToString(row[4]))
-		fmt.Println("BARCODE: ", row[5], "PERCENT: ", row[8])
 		customer := domain.CustomerRequest{
 			Id:       uuid.New().String(),
 			FullName: row[2],
@@ -541,7 +535,6 @@ func (h *HelperHandler) UploadCustomer(c *gin.Context) {
 		}
 
 	}
-	fmt.Println("---->>> ", count)
 	handleResponse(c, OK, "Products Customer uploaded successfully: ")
 }
 
@@ -605,24 +598,22 @@ func (h *HelperHandler) UploadProductUnitCount(c *gin.Context) {
 	}
 
 	// build query
-	// query := `
-	// 	UPDATE products SET unit_code = ?, unit_label = ? WHERE material_code = ?;
-	// `
+	query := `
+		UPDATE products SET unit_code = ?, unit_label = ? WHERE material_code = ?;
+	`
 
 	var count = 0
 	// Process rows
 	for _, row := range rows[1:] {
 		if count <= 247 {
-			fmt.Println("UCODE: ", row[4], "UNAME: ", row[7])
 			// // create measurements
-			// err = h.db.Exec(query, row[4], row[7], cast.ToInt(row[0])).Error
-			// if err != nil {
-			// 	h.log.Warn("ERROR on creating customers: %v", err)
-			// }
+			err = h.db.Exec(query, row[4], row[7], cast.ToInt(row[0])).Error
+			if err != nil {
+				h.log.Warn("ERROR on creating customers: %v", err)
+			}
 			count++
 		}
 	}
-	fmt.Println("---->>> ", count)
 	handleResponse(c, OK, "Successfully updated: "+cast.ToString(count))
 }
 
@@ -723,7 +714,6 @@ func (h *HelperHandler) UploadImport(c *gin.Context) {
 		return
 	}
 	for _, row := range rows[1:] {
-		fmt.Println("KOD:", row[0], "BARCODE: ", row[2], "MAR: ", row[5])
 
 		// // create product id
 		productID := uuid.New().String()
@@ -816,7 +806,6 @@ func (h *HelperHandler) GetProductPictureFromTasnif(c *gin.Context) {
 		handleResponse(c, InternalError, "Can't decode response data")
 		return
 	}
-	fmt.Println("RESPONSE: ", res)
 
 	for _, v := range res {
 		fullImageURL := "https://tasnif.soliq.uz/api/cls-api/integration-mxik/references/get/file/" + v
@@ -956,8 +945,7 @@ func (h *HelperHandler) UploadProductMinMax(c *gin.Context) {
 	var count = 0
 	// Process rows
 	for _, row := range rows[1:] {
-		// fmt.Println("StoreID: ", cast.ToInt(row[0]), "ProductID: ", cast.ToString(row[2]))
-		// fmt.Println("KVANT: ", row[4], "MIN: ", row[5], "Max: ", row[6])
+
 		// // create measurements
 		err = h.db.Exec(query, storeMap[cast.ToInt(row[0])], productMap[cast.ToInt(row[2])], cast.ToInt(row[4]), cast.ToInt(row[5]), cast.ToInt(row[6])).Error
 		if err != nil {
@@ -1071,7 +1059,6 @@ func (h *HelperHandler) UploadProductKvant(c *gin.Context) {
 			count++
 		}
 	}
-	fmt.Println("---->>> ", count)
 	handleResponse(c, OK, "Successfully updated: "+cast.ToString(count))
 
 }

@@ -1542,7 +1542,6 @@ func (h *ProductHandler) AttachBarcode(c *gin.Context) {
 	// Process rows
 	for _, row := range rows[1:] {
 		if len(row) > 2 {
-			fmt.Println("KOD: ", row[0], "BARCODE: ", row[2])
 			err = tx.Exec("UPDATE products SET barcode = ? WHERE material_code = ?", row[2], row[0]).Error
 			if err != nil {
 				h.log.Warn("ERROR on updating product barcode: %v", err)

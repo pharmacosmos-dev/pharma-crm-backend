@@ -23,8 +23,8 @@ func recoverTransaction(tx *gorm.DB, log logger.Interface) {
 }
 
 // RollbackIfError checks if the error pointer is not nil and if it contains an error.
-func RollbackIfError(tx *gorm.DB, errPtr *error) {
-	if errPtr != nil && *errPtr != nil {
+func RollbackIfError(tx *gorm.DB, err *error) {
+	if err != nil && *err != nil {
 		tx.Rollback()
 	}
 }

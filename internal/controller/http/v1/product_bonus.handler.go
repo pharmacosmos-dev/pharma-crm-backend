@@ -1,7 +1,6 @@
 package v1
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -270,11 +269,9 @@ func (h *ProductBonusHandler) ImportProductBonus(c *gin.Context) {
 				tx.Rollback()
 				return
 			}
-			fmt.Println("BARCODE: ", parseFloat(row[2]), row[3])
 			count++
 		}
 	}
-	fmt.Println("--->> ", count)
 
 	if err = tx.Commit().Error; err != nil {
 		handleResponse(c, InternalError, err.Error())

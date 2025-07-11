@@ -1,7 +1,6 @@
 package builder
 
 import (
-	"fmt"
 	"reflect"
 	"testing"
 )
@@ -15,7 +14,6 @@ func TestQueryBuilder(t *testing.T) {
 		Limit(10)
 
 	sql, args, err := qb.Build()
-	fmt.Println("--->> ", sql, args)
 	expectedSQL := "SELECT id, name FROM users WHERE age > $1 ORDER BY name ASC LIMIT 10"
 	expectedArgs := []any{30}
 

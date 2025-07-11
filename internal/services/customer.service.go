@@ -2,7 +2,6 @@ package services
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
@@ -35,7 +34,6 @@ func (s *Services) ListCustomer(param *domain.QueryParam) ([]domain.Customer, in
 		Where("customers.is_active = ?", true)
 
 	if param.Search != "" {
-		fmt.Println("Search: ", utils.DefineProductSearchQuery(param.Search))
 		switch utils.DefineProductSearchQuery(param.Search) {
 		case "barcode":
 			query = query.Where("dc.barcode = ?", param.Search)

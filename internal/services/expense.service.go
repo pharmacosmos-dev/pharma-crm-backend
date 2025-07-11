@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -152,8 +151,6 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string) error {
 	}
 
 	expenseData.Document.DocumentDate = dokTime.Format(time.RFC3339) // set document date
-	fmt.Println("Expense Document Number:", expenseData.Document.NumberDok)
-	fmt.Println("Expense Document Date:", expenseData.Document.DocumentDate)
 	// create new shift expense
 	err = s.CreateNewExpense(store.Id, expenseData.Document.NumberDok, expenseData.Document.DocumentDate)
 	if err != nil {
@@ -275,9 +272,6 @@ func (s *Services) sendReportWithNumberTo1C(store *domain.Store, date, dockNumbe
 	if len(expenseData.Товары) < 1 {
 		return nil
 	}
-
-	t, _ := json.Marshal(expenseData)
-	fmt.Println("Request: ", string(t))
 
 	// send fakt to 1C
 	err = s.DoRequest(context.Background(), expenseData, "/rasxod")

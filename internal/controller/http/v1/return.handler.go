@@ -783,7 +783,6 @@ func (h *ReturnHandler) ExportReturnNakladnoyPDF(c *gin.Context) {
 				continue
 			}
 			totalPrice = p.RetailPrice * (p.ScannedCount - p.AcceptedCount)
-			fmt.Println("totalPrice: ", totalPrice, "p.RetailPrice: ", p.RetailPrice, "p.ScannedCount: ", p.ScannedCount, "p.AcceptedCount: ", p.AcceptedCount)
 		} else {
 			quantityStr = strconv.FormatFloat(p.ScannedCount, 'f', 2, 64)
 			totalPrice = p.RetailPrice * p.ScannedCount
