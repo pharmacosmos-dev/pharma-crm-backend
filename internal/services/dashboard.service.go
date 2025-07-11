@@ -82,7 +82,7 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 			ROUND(SUM(CASE WHEN expire_date > NOW() AND expire_date <= NOW() + INTERVAL '3 month' THEN (pack_quantity * retail_price) + (retail_price / p.unit_per_pack) ELSE 0 END), 2) AS expiring_amount,
 			ROUND(SUM(CASE WHEN expire_date > NOW() AND expire_date <= NOW() + INTERVAL '3 month' THEN COALESCE(ci_sold.amount, 0) ELSE 0 END), 2) AS before_expiring_amount,
 			ROUND(SUM(CASE WHEN expire_date <= NOW() THEN pack_quantity ELSE 0 END), 2) AS expired_count,
-			ROUND(SUM(CASE WHEN expire_date <= NOW() THEN (pack_quantity * retail_price) + (retail_price / p.unit_per_pack) ELSE 0 END), 2) AS expired_amount,
+			ROUND(SUM(CASE WHEN expire_date <= NOW() THEN (sp.pack_quantity * retail_price) + ((retail_price / p.unit_per_pack) * (sp.unit_quantity %% p.unit_per_pack))ELSE 0 END),2) AS expired_amount,
 			ROUND(SUM(CASE WHEN expire_date <= NOW() THEN COALESCE(ci_sold.amount, 0) ELSE 0 END), 2) AS before_expired_amount
 		FROM store_products sp
 		JOIN products p ON sp.product_id = p.id
