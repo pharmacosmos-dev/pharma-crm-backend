@@ -432,7 +432,7 @@ func (s *Services) DashboardBonusProducts(param *domain.DashboardQueryParam) ([]
 		query              = `
 		SELECT
 			p.id, p.name,
-			SUM(eb.quantity) + SUM(eb.unit_quantity)/p.unit_per_pack || ',' || SUM(eb.unit_quantity)%p.unit_per_pack AS count,
+			SUM(eb.quantity) AS count,
 			SUM(eb.bonus_amount) AS bonus_amount
 		FROM employee_bonus eb
 		JOIN products p ON eb.product_id = p.id
