@@ -615,7 +615,7 @@ func (h *HelperHandler) UploadProductUnitCount(c *gin.Context) {
 		if count <= 247 {
 			fmt.Println("UCODE: ", row[4], "UNAME: ", row[7])
 			// // create measurements
-			// err = h.db.Debug().Exec(query, row[4], row[7], cast.ToInt(row[0])).Error
+			// err = h.db.Exec(query, row[4], row[7], cast.ToInt(row[0])).Error
 			// if err != nil {
 			// 	h.log.Warn("ERROR on creating customers: %v", err)
 			// }
@@ -851,7 +851,7 @@ func (h *HelperHandler) GetProductPictureFromTasnif(c *gin.Context) {
 	}
 
 	if len(res) > 0 {
-		err = h.db.Debug().Exec(`UPDATE products SET photos = ? WHERE mxik = ?`, utils.StringArray(res), mxikCode).Error
+		err = h.db.Exec(`UPDATE products SET photos = ? WHERE mxik = ?`, utils.StringArray(res), mxikCode).Error
 		if err != nil {
 			h.log.Error("ERROR on saving product picture: %v", err)
 			handleResponse(c, InternalError, "Failed to save product picture")
@@ -959,13 +959,12 @@ func (h *HelperHandler) UploadProductMinMax(c *gin.Context) {
 		// fmt.Println("StoreID: ", cast.ToInt(row[0]), "ProductID: ", cast.ToString(row[2]))
 		// fmt.Println("KVANT: ", row[4], "MIN: ", row[5], "Max: ", row[6])
 		// // create measurements
-		err = h.db.Debug().Exec(query, storeMap[cast.ToInt(row[0])], productMap[cast.ToInt(row[2])], cast.ToInt(row[4]), cast.ToInt(row[5]), cast.ToInt(row[6])).Error
+		err = h.db.Exec(query, storeMap[cast.ToInt(row[0])], productMap[cast.ToInt(row[2])], cast.ToInt(row[4]), cast.ToInt(row[5]), cast.ToInt(row[6])).Error
 		if err != nil {
 			h.log.Warn("ERROR on creating customers: %v", err)
 		}
 		count++
 	}
-	fmt.Println("---->>> ", count)
 	handleResponse(c, OK, "Successfully updated: "+cast.ToString(count))
 
 }
@@ -1065,7 +1064,7 @@ func (h *HelperHandler) UploadProductKvant(c *gin.Context) {
 	for _, row := range rows[1:] {
 		for _, st := range stores {
 			// create measurements
-			err = h.db.Debug().Exec(query, st.Id, productMap[cast.ToInt(row[0])], cast.ToInt(row[2]), cast.ToInt(row[2])).Error
+			err = h.db.Exec(query, st.Id, productMap[cast.ToInt(row[0])], cast.ToInt(row[2]), cast.ToInt(row[2])).Error
 			if err != nil {
 				h.log.Warn("ERROR on creating customers: %v", err)
 			}

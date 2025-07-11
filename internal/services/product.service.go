@@ -771,7 +771,7 @@ func (s *Services) GetProductMovements(productId, storeId string, limit, offset 
 	}
 
 	// Execute query
-	err := s.db.Debug().Raw(query, params...).Scan(&res).Error
+	err := s.db.Raw(query, params...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting product movements: %v", err)
 		return res, totalCount, err

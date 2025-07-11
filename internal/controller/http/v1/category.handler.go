@@ -291,7 +291,6 @@ func (h *CategoryHander) List(c *gin.Context) {
 		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).
-		Debug().
 		Find(&res).Error
 	if err != nil {
 		h.log.Error(err)
@@ -658,7 +657,7 @@ func (h *CategoryHander) UploadCategoryProduct(c *gin.Context) {
 		}
 
 		chunk := categoryProduct[i:end]
-		err = tx.Debug().Table("category_products").Create(&chunk).Error
+		err = tx.Table("category_products").Create(&chunk).Error
 		if err != nil {
 			h.log.Error("Chunk insert error: ", err)
 			handleResponse(c, InternalError, "Failed to insert category products")

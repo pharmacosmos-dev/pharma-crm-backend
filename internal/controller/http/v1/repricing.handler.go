@@ -484,7 +484,7 @@ func (h *RepricingHandler) AddRetailPrice(c *gin.Context) {
 	query := `
 	UPDATE price_revalution_details SET new_retail_price = ?, updated_at = NOW() WHERE id = ?
 	`
-	err := tx.Debug().Exec(query,
+	err := tx.Exec(query,
 		body.NewRetailPrice, body.Id).Error
 	if err != nil {
 		handleResponse(c, InternalError, "failed.update.retail_price")

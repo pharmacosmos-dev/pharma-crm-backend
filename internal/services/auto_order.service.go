@@ -102,7 +102,7 @@ func (s *Services) ListAutoOrderForGenerate(ctx context.Context, limit, offset i
 		%s
 		ORDER BY suggested_order DESC  LIMIT ? OFFSET ?;
 	`, searchCondition)
-	err := s.db.Debug().Raw(query, limit, offset).Scan(&autoOrders).Error
+	err := s.db.Raw(query, limit, offset).Scan(&autoOrders).Error
 	if err != nil {
 		return nil, 0, err
 	}
@@ -165,7 +165,6 @@ func (s *Services) ListAutoOrder(param *domain.AutoOrderParam) ([]domain.AutoOrd
 		Limit(param.Limit).
 		Offset(param.Offset).
 		Order("auto_orders.created_at DESC").
-		Debug().
 		Find(&autoOrders).Error
 	if err != nil {
 		s.log.Warn("Failed to get auto orders: %v", err)

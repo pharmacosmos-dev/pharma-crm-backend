@@ -1163,7 +1163,7 @@ func (h *SaleHandler) GetOnlineSaleCount(c *gin.Context) {
 	}
 	// get online order count
 	var count int64
-	err = h.db.Debug().Raw(`
+	err = h.db.Raw(`
 	SELECT
 		COUNT(*) AS count
 	FROM sales

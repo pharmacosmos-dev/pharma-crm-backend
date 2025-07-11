@@ -98,7 +98,7 @@ func (s *Services) GetReturnById(returnId string) (*domain.Return, error) {
 		s.log.Warn("ERROR on getting return by id: %v", err)
 		return nil, err
 	}
-	err = s.db.Debug().First(&res.Store, "id = ?", res.FromStoreId).Error
+	err = s.db.First(&res.Store, "id = ?", res.FromStoreId).Error
 	if err != nil {
 		s.log.Error(err)
 		return &res, err
@@ -139,7 +139,7 @@ func (s *Services) UpdateReturnDetailQuantity(id string, request *domain.ReturnA
 			updateField = "accepted_count"
 		}
 		// add scanned count by transfer detail id
-		err = s.db.Debug().Exec(fmt.Sprintf(`
+		err = s.db.Exec(fmt.Sprintf(`
 		UPDATE 
 			transfer_details
 		SET
@@ -165,7 +165,7 @@ func (s *Services) UpdateReturnDetailQuantity(id string, request *domain.ReturnA
 			updateField = "accepted_count"
 		}
 		// add scanned count by transfer detail id
-		err = s.db.Debug().Exec(fmt.Sprintf(`
+		err = s.db.Exec(fmt.Sprintf(`
 		UPDATE 
 			transfer_details
 		SET 
@@ -551,7 +551,7 @@ func (s *Services) ConfirmReturn(returnId, storeId string, userId string) error 
 	}
 
 	for i := range returnData.Товары {
-		err = tx.Debug().Exec(`
+		err = tx.Exec(`
 		UPDATE store_products 
 		SET 
 			pack_quantity = pack_quantity + ?,

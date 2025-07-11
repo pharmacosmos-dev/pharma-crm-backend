@@ -463,10 +463,7 @@ func (h *Services) SaveRequest(ctx context.Context, req *domain.PaymentRequest) 
 		VALUES (?, ?, ?, ?, ?)`
 	err := h.db.
 		WithContext(ctx).
-		Debug().
-		Exec(query,
-			req.RequestId, req.Method, req.Payload, req.TransactionID, req.PaymentProvider,
-		).Error
+		Exec(query, req.RequestId, req.Method, req.Payload, req.TransactionID, req.PaymentProvider).Error
 	if err != nil {
 		h.log.Warn("ERROR on saving payment request: %v", err)
 		return err
@@ -476,7 +473,7 @@ func (h *Services) SaveRequest(ctx context.Context, req *domain.PaymentRequest) 
 
 // Save payment response to database
 func (h *Services) SaveResponse(ctx context.Context, req *domain.PaymentRequest) error {
-	err := h.db.Debug().Exec(
+	err := h.db.Exec(
 		`UPDATE payment_requests SET response = ? WHERE transaction_id = ? AND method = ?`,
 		req.Response, req.TransactionID, req.Method,
 	).Error
