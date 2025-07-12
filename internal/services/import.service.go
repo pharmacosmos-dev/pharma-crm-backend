@@ -699,13 +699,12 @@ func (s *Services) DoRequest(ctx context.Context, data any, url string) error {
 	err = json.NewDecoder(response.Body).Decode(&info)
 	if err != nil {
 		if err := s.Request1CCreate(domain.InventoryHelper{
-			Method:   "POST",
-			Payload:  data,
-			Response: response,
-			Action:   url,
-			DocDate:  docDate,
-			DocNum:   docNum,
-			Status:   "error",
+			Method:  "POST",
+			Payload: data,
+			Action:  url,
+			DocDate: docDate,
+			DocNum:  docNum,
+			Status:  "error",
 		}); err != nil {
 			s.log.Warn("ERROR on creating Request1C: %v", err)
 		}
