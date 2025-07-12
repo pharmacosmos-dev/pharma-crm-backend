@@ -22,17 +22,17 @@ func (s *Services) CreateTransfer(req *domain.TransferRequest) error {
 	err := tx.Raw(`
 	INSERT INTO 
 		transfers (
-			public_id, 
 			from_store_id, 
 			to_store_id, 
 			name,  
 			created_by
 			)
-	VALUES (
-		?, ?, ?, ?, ?
-		) 
+	VALUES (?, ?, ?, ?) 
 	RETURNING id`,
-		req.PublicId, req.FromStoreId, req.ToStoreId, req.Name, req.CreatedBy,
+		req.FromStoreId,
+		req.ToStoreId,
+		req.Name,
+		req.CreatedBy,
 	).Scan(&id).Error
 	if err != nil {
 		s.log.Warn("ERROR on creating return: %v", err)

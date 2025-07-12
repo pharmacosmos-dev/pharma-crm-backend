@@ -64,7 +64,8 @@ func (h *TransferHandler) TransferRoutes(r *gin.RouterGroup) {
 func (h *TransferHandler) Create(c *gin.Context) {
 	var request domain.TransferRequest
 	// Bind the request body to the ReturnRequest struct
-	if err := c.ShouldBindJSON(&request); err != nil {
+	err := c.ShouldBindJSON(&request)
+	if err != nil {
 		h.log.Warn("Error on binding request: %v", err.Error())
 		handleResponse(c, BadRequest, "Invalid request body")
 		return
@@ -75,12 +76,11 @@ func (h *TransferHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, "User not authorized")
 		return
 	}
-
-	request.CreatedBy = userId.(string)     // get creator id from set header
-	request.PublicId = utils.GenerateCode() // generate public id
+	// get creator id from set header
+	request.CreatedBy = userId.(string)
 
 	// create return
-	err := h.service.CreateTransfer(&request)
+	err = h.service.CreateTransfer(&request)
 	if err != nil {
 		h.log.Warn("Error on creating return: %v", err.Error())
 		handleResponse(c, InternalError, "Failed to create return")

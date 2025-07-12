@@ -63,7 +63,8 @@ func (h *ReturnHandler) ReturnRoutes(r *gin.RouterGroup) {
 func (h *ReturnHandler) Create(c *gin.Context) {
 	var returnRequest domain.ReturnRequest
 	// Bind the request body to the ReturnRequest struct
-	if err := c.ShouldBindJSON(&returnRequest); err != nil {
+	err := c.ShouldBindJSON(&returnRequest)
+	if err != nil {
 		h.log.Warn("Error on binding request: %v", err.Error())
 		handleResponse(c, BadRequest, "Invalid request body")
 		return
@@ -71,14 +72,13 @@ func (h *ReturnHandler) Create(c *gin.Context) {
 	userId, ok := c.Get("user_id")
 	if !ok {
 		h.log.Warn("Error on getting user id from context")
-		handleResponse(c, BadRequest, "User not authorized")
+		handleResponse(c, BadRequest, "user.not.found.header")
 		return
 	}
-	returnRequest.CreatedBy = userId.(string)     // get creator id from set header
-	returnRequest.PublicId = utils.GenerateCode() // generate public id
+	returnRequest.CreatedBy = userId.(string) // get creator id from set header
 
 	// create return
-	err := h.service.CreateReturn(&returnRequest)
+	err = h.service.CreateReturn(&returnRequest)
 	if err != nil {
 		h.log.Warn("Error on creating return: %v", err.Error())
 		handleResponse(c, InternalError, "Failed to create return")

@@ -1,1 +1,1 @@
-ALTER TABLE employees DROP COLUMN IF EXISTS 'position';
+ALTER TABLE employees DROP COLUMN IF EXISTS "position";

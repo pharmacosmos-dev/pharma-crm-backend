@@ -19,16 +19,19 @@ func (s *Services) CreateReturn(req *domain.ReturnRequest) error {
 	var id string
 	// start transaction
 	tx := s.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
+	defer recoverTransaction(tx, s.log)
 	// insert return into inventories table
 	err := tx.Raw(`
-	INSERT INTO transfers (public_id, from_store_id, name,  created_by, entry_type)
-	VALUES (?, ?, ?, ?, ?) RETURNING id`,
-		req.PublicId, req.StoreId, req.Name, req.CreatedBy, 2,
+	INSERT INTO transfers (
+		from_store_id, 
+		name,  
+		created_by, 
+		entry_type)
+	VALUES (?, ?, ?, ?) RETURNING id`,
+		req.StoreId,
+		req.Name,
+		req.CreatedBy,
+		2,
 	).Scan(&id).Error
 	if err != nil {
 		s.log.Warn("ERROR on creating return: %v", err)
@@ -70,9 +73,9 @@ func (s *Services) CreateReturn(req *domain.ReturnRequest) error {
 	}
 
 	// commit transaction
-	if err = tx.Commit().Error; err != nil {
+	err = tx.Commit().Error
+	if err != nil {
 		s.log.Warn("ERROR on committing transaction: %v", err)
-		tx.Rollback()
 		return err
 	}
 	return nil
@@ -448,7 +451,7 @@ func (s *Services) SendReturn1C(returnId string) error {
 	}
 
 	returnData.Dok.DocumentNumber = "NP-" + cast.ToString(returnInfo.PublicId)
-	returnData.Dok.DocumentDate = time.Now().Add(time.Hour * 5).Format(time.DateOnly)
+	returnData.Dok.DocumentDate = returnInfo.UpdatedAt.Format(time.DateOnly)
 	returnData.Apteka.Name = store.Name
 	returnData.Apteka.StoreCode = store.StoreCode
 	// get return data

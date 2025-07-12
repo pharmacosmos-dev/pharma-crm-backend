@@ -46,7 +46,7 @@ func (s *Services) CreateInventory(req *domain.InventoryRequest) error {
 			COALESCE(sp.supply_price, 0.00) AS supply_price,
 			COALESCE(sp.retail_price, 0.00) AS retail_price,
 			sp.expire_date,
-			sp.serial_number, 
+			sp.serial_number,
 			sp.created_at
 		FROM
 			products p
@@ -59,7 +59,8 @@ func (s *Services) CreateInventory(req *domain.InventoryRequest) error {
 		return err
 	}
 	// commit transaction
-	if err = tx.Commit().Error; err != nil {
+    err = tx.Commit().Error
+	if err != nil {
 		s.log.Warn("ERROR on committing transaction: %v", err)
 		tx.Rollback()
 		return err
@@ -82,11 +83,11 @@ func (s *Services) GetInventoryById(param *domain.InventoryParam) (*domain.Inven
 		Preload("CreatedBy").
 		Preload("UpdatedBy").
 		Select(`
-			id, public_id, 
-			store_id, name, 
-			inventory_type, 
-			status, created_by, 
-			accepted_by as updated_by, 
+			id, public_id,
+			store_id, name,
+			inventory_type,
+			status, created_by,
+			accepted_by as updated_by,
 			created_at, updated_at
 		`).
 		First(&res, "id = ?", param.InventoryId).Error
@@ -397,7 +398,7 @@ func (s *Services) InventoryDetailedFlow(param *domain.InventoryParam) ([]domain
 	//
 	query := `
 	SELECT
-		imd.id, 
+		imd.id,
 		imd.import_id AS inventory_id,
 		p.id AS product_id,
 		p.material_code, p.name,
