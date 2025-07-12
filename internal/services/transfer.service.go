@@ -567,7 +567,7 @@ func (s *Services) ConfirmTransfer(transferID string, userId string) error {
 	}
 
 	// get document data and number
-	data1C.Dok.DocumentDate = transfer.UpdatedAt.Format(time.DateTime)
+	data1C.Dok.DocumentDate = transfer.UpdatedAt.Format(time.RFC3339)
 	data1C.Dok.DocumentNumber = "NP-" + cast.ToString(transfer.PublicId)
 
 	// get store info
