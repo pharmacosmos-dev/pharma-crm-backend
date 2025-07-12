@@ -426,7 +426,7 @@ func (s *Services) SendTransferTo1C(transferID string) error {
 		})
 	}
 
-	data1C.Dok.DocumentDate = transfer.UpdatedAt.Format(time.DateTime)
+	data1C.Dok.DocumentDate = transfer.UpdatedAt.Add(5 * time.Hour).Format(time.RFC3339)
 	data1C.Dok.DocumentNumber = "NP-" + cast.ToString(transfer.PublicId)
 
 	data1C.Apteka.Name = toStore.Name
