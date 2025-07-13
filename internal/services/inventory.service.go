@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"time"
@@ -42,7 +43,7 @@ func (s *Services) CreateInventory(req *domain.InventoryRequest) error {
 			?,
 			p.id,
 			sp.id,
-			ROUND(COALESCE(sp.pack_quantity::numeric + (sp.unit_quantity::numeric%p.unit_per_pack)/p.unit_per_pack, 0.00), 4) AS quantity,
+			COALESCE(sp.unit_quantity, 0),
 			COALESCE(sp.supply_price, 0.00) AS supply_price,
 			COALESCE(sp.retail_price, 0.00) AS retail_price,
 			sp.expire_date,
@@ -59,7 +60,7 @@ func (s *Services) CreateInventory(req *domain.InventoryRequest) error {
 		return err
 	}
 	// commit transaction
-    err = tx.Commit().Error
+	err = tx.Commit().Error
 	if err != nil {
 		s.log.Warn("ERROR on committing transaction: %v", err)
 		tx.Rollback()
@@ -89,8 +90,7 @@ func (s *Services) GetInventoryById(param *domain.InventoryParam) (*domain.Inven
 			status, created_by,
 			accepted_by as updated_by,
 			created_at, updated_at
-		`).
-		First(&res, "id = ?", param.InventoryId).Error
+		`).First(&res, "id = ?", param.InventoryId).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting write-off by id: %v", err)
 		return nil, err
@@ -98,9 +98,9 @@ func (s *Services) GetInventoryById(param *domain.InventoryParam) (*domain.Inven
 
 	totalQuery := `
 	SELECT
-		SUM(imd.retail_price_vat * imd.received_count) AS total_current_sum,
-		SUM(imd.retail_price_vat * imd.scanned_count) AS total_fact_sum,
-		SUM(imd.retail_price_vat * (imd.scanned_count - imd.received_count)) AS total_difference_sum
+		SUM(imd.retail_price_vat * (imd.received_count/p.unit_per_pack)) AS total_current_sum,
+		SUM(imd.retail_price_vat * (imd.scanned_count/p.unit_per_pack)) AS total_fact_sum,
+		SUM(imd.retail_price_vat * ((imd.scanned_count - imd.received_count)/p.unit_per_pack)) AS total_difference_sum
 	FROM import_details imd
 	JOIN products p ON imd.product_id = p.id
 	LEFT JOIN producers pr ON p.producer_id = pr.id
@@ -158,14 +158,14 @@ func (s *Services) InventoryList(param *domain.InventoryParam) ([]domain.Invento
 		Preload("UpdatedBy").
 		Select(`
 			imports.*,
-			ROUND(SUM(imd.received_count), 0) AS current_count,
-			ROUND(SUM(imd.scanned_count-imd.received_count), 0) AS difference_count,
-			ROUND(SUM(imd.scanned_count), 0) AS fact_count,
-			ROUND(SUM(imd.received_count*imd.retail_price_vat), 2) AS current_sum,
-			ROUND(SUM(imd.scanned_count*imd.retail_price_vat), 2) AS fact_sum,
-			ROUND(SUM(imd.scanned_count*imd.retail_price_vat)-SUM(imd.received_count*imd.retail_price_vat), 2)  AS difference_sum`).
-		Joins("LEFT JOIN import_details imd ON imports.id = imd.import_id").
-		Where("imports.entry_type = ?", 2)
+			0 AS current_count,
+			0 AS fact_count,
+			0 AS difference_count,
+			0 AS current_sum,
+			0 AS fact_sum,
+			0 AS difference_sum
+		`).
+		Where("entry_type = ?", 2)
 	// filter by store id
 	if param.StoreId != "" {
 		query = query.Where("imports.store_id = ? ", param.StoreId)
@@ -185,7 +185,6 @@ func (s *Services) InventoryList(param *domain.InventoryParam) ([]domain.Invento
 	}
 	// complete query
 	err := query.
-		Group("imports.id").
 		Order("imports.created_at DESC").
 		Count(&totalCount).
 		Limit(param.Limit).
@@ -204,35 +203,36 @@ func (s *Services) InventoryList(param *domain.InventoryParam) ([]domain.Invento
 
 func (s *Services) InventoryStatus(param *domain.InventoryParam) (*domain.InventoryStatusSummary, error) {
 	query := `
-		SELECT
-			ROUND(COALESCE(SUM(imd.received_count * imd.retail_price_vat), 0), 2) AS current_sum,
-			ROUND(COALESCE(SUM(imd.scanned_count * imd.retail_price_vat), 0), 2) AS fact_sum,
-			ROUND(COALESCE(SUM(imd.scanned_count * imd.retail_price_vat) - SUM(imd.received_count * imd.retail_price_vat), 0), 2) AS difference_sum,
-			ROUND(COALESCE(SUM(imd.received_count), 0), 0) AS current_count,
-			ROUND(COALESCE(SUM(imd.scanned_count), 0), 0) AS fact_count,
-			ROUND(COALESCE(SUM(imd.scanned_count) - SUM(imd.received_count), 0), 0) AS difference_count
-		FROM imports
-		LEFT JOIN import_details imd ON imports.id = imd.import_id
-		WHERE imports.entry_type = 2
+	SELECT
+		ROUND(COALESCE(SUM((imd.received_count::numeric/p.unit_per_pack) * imd.retail_price_vat), 0), 2) AS current_sum,
+		ROUND(COALESCE(SUM((imd.scanned_count::numeric/p.unit_per_pack) * imd.retail_price_vat), 0), 2) AS fact_sum,
+		ROUND(COALESCE(SUM(((imd.scanned_count-imd.received_count)::numeric/p.unit_per_pack)  * imd.retail_price_vat), 0), 2) AS difference_sum,
+		ROUND(COALESCE(SUM(imd.received_count::numeric/p.unit_per_pack), 0)) AS current_count,
+		ROUND(COALESCE(SUM(imd.scanned_count::numeric/p.unit_per_pack), 0)) AS fact_count,
+		ROUND(COALESCE(SUM((imd.scanned_count - imd.received_count)::numeric/p.unit_per_pack), 0)) AS difference_count
+	FROM import_details imd
+	JOIN products p ON imd.product_id = p.id
+	JOIN imports im ON im.id = imd.import_id
+	WHERE im.entry_type = 2;
 	`
 
-	var args []interface{}
+	var args []any
 
 	if param.StoreId != "" {
-		query += " AND imports.store_id = ?"
+		query += " AND im.store_id = ?"
 		args = append(args, param.StoreId)
 	}
 	if param.Search != "" {
 		search := fmt.Sprintf("%%%s%%", param.Search)
-		query += " AND (CAST(imports.public_id AS TEXT) LIKE ? OR imports.name ILIKE ?)"
+		query += " AND (CAST(im.public_id AS TEXT) LIKE ? OR im.name ILIKE ?)"
 		args = append(args, search, search)
 	}
 	if param.Type != "" {
-		query += " AND imports.inventory_type = ?"
+		query += " AND im.inventory_type = ?"
 		args = append(args, param.Type)
 	}
 	if param.Status != "" {
-		query += " AND imports.status = ?"
+		query += " AND im.status = ?"
 		args = append(args, param.Status)
 	}
 
@@ -261,25 +261,24 @@ func (s *Services) InventoryDetailList(param *domain.InventoryParam) ([]domain.I
 	query := `
 	SELECT
 		p.id AS id,
-        imd.import_id AS inventory_id,
-        p.id AS product_id,
-        p.material_code,
+		imd.import_id AS inventory_id,
+		p.id AS product_id,
+		p.material_code,
 		p.barcode,
-        p.name,
+		p.name,
 		COALESCE(pr.name, '') AS producer_name,
-        p.unit_per_pack,
+		p.unit_per_pack,
 		MAX(imd.retail_price_vat) AS retail_price,
 		MAX(imd.expire_date) AS expire_date,
-        SUM(imd.received_count) AS current_quantity,
-        ROUND((SUM(imd.received_count) - FLOOR(SUM(received_count)))*p.unit_per_pack, 0)  AS current_unit,
-        SUM(imd.scanned_count) AS fact_quantity,
-        ROUND((SUM(imd.scanned_count) - FLOOR(SUM(scanned_count)))*p.unit_per_pack, 0) AS fact_unit,
-        (SUM(imd.scanned_count) - SUM(imd.received_count)) AS difference_quantity,
-        ROUND(((SUM(imd.scanned_count) - FLOOR(SUM(imd.scanned_count))) -
-        (SUM(imd.received_count) - FLOOR(SUM(imd.received_count)))) * p.unit_per_pack, 0) AS difference_unit,
-        SUM(imd.retail_price_vat * imd.received_count) AS current_sum,
-        SUM(imd.retail_price_vat * imd.scanned_count) AS fact_sum,
-        SUM(imd.retail_price_vat * (imd.scanned_count - imd.received_count)) AS difference_sum
+		ROUND(SUM(imd.received_count/p.unit_per_pack), 4) AS current_quantity,
+		ROUND(SUM(imd.received_count%p.unit_per_pack), 4)  AS current_unit,
+		ROUND(SUM(imd.scanned_count/p.unit_per_pack), 4) AS fact_quantity,
+		ROUND(SUM(imd.scanned_count%p.unit_per_pack), 4) AS fact_unit,
+		ROUND(SUM((imd.scanned_count-imd.received_count)/p.unit_per_pack), 4) AS difference_quantity,
+		ROUND(SUM((imd.scanned_count-imd.received_count)%p.unit_per_pack), 4)   AS difference_unit,
+		ROUND(SUM(imd.retail_price_vat * (imd.received_count/p.unit_per_pack)), 2) AS current_sum,
+		ROUND(SUM(imd.retail_price_vat * (imd.scanned_count/p.unit_per_pack)), 2) AS fact_sum,
+		ROUND(SUM(imd.retail_price_vat * ((imd.scanned_count - imd.received_count)/p.unit_per_pack)), 2) AS difference_sum
 	FROM import_details imd
 		JOIN products p ON imd.product_id = p.id
 		LEFT JOIN producers pr ON p.producer_id = pr.id
@@ -294,9 +293,9 @@ func (s *Services) InventoryDetailList(param *domain.InventoryParam) ([]domain.I
 
 	totalQuery := `
 	SELECT
-		SUM(imd.retail_price_vat * imd.received_count) AS total_current_sum,
-		SUM(imd.retail_price_vat * imd.scanned_count) AS total_fact_sum,
-		SUM(imd.retail_price_vat * (imd.scanned_count - imd.received_count)) AS total_difference_sum
+		ROUND(SUM(imd.retail_price_vat * (imd.received_count/p.unit_per_pack)), 2) AS total_current_sum,
+		ROUND(SUM(imd.retail_price_vat * (imd.scanned_count/p.unit_per_pack)), 2) AS total_fact_sum,
+		ROUND(SUM(imd.retail_price_vat * ((imd.scanned_count - imd.received_count)/p.unit_per_pack)), 2) AS total_difference_sum
 	FROM import_details imd
 	JOIN products p ON imd.product_id = p.id
 	LEFT JOIN producers pr ON p.producer_id = pr.id
@@ -404,15 +403,15 @@ func (s *Services) InventoryDetailedFlow(param *domain.InventoryParam) ([]domain
 		p.material_code, p.name,
 		p.barcode,
 		p.unit_per_pack,
-		imd.received_count AS current_quantity,
-		ROUND((imd.received_count - FLOOR(imd.received_count)) * p.unit_per_pack, 0) AS current_unit,
-		imd.scanned_count AS fact_quantity,
-		ROUND((imd.scanned_count - FLOOR(imd.scanned_count)) * p.unit_per_pack, 0) AS fact_unit,
-		imd.scanned_count - imd.received_count AS difference_quantity,
-		ROUND((ABS(imd.scanned_count - imd.received_count) - FLOOR(ABS(imd.scanned_count - imd.received_count))) * p.unit_per_pack, 0)*SIGN(imd.scanned_count - imd.received_count) AS difference_unit,
-		imd.retail_price_vat * imd.received_count AS current_sum,
-		imd.retail_price_vat * imd.scanned_count AS fact_sum,
-		imd.retail_price_vat * (imd.scanned_count - imd.received_count) AS difference_sum,
+		ROUND(imd.received_count/p.unit_per_pack, 4) AS current_quantity,
+		ROUND(imd.received_count%p.unit_per_pack, 0) AS current_unit,
+		ROUND(imd.scanned_count/p.unit_per_pack, 4) AS fact_quantity,
+		ROUND(imd.scanned_count%p.unit_per_pack, 0) AS fact_unit,
+		ROUND((imd.scanned_count - imd.received_count)/p.unit_per_pack, 4) AS difference_quantity,
+		ROUND((imd.scanned_count - imd.received_count)%p.unit_per_pack) AS difference_unit,
+		ROUND(imd.retail_price_vat * (imd.received_count/p.unit_per_pack), 2) AS current_sum,
+		ROUND(imd.retail_price_vat *(imd.scanned_count/p.unit_per_pack), 2) AS fact_sum,
+		ROUND(imd.retail_price_vat * ((imd.scanned_count - imd.received_count)/p.unit_per_pack), 2) AS difference_sum,
 		imd.retail_price_vat AS retail_price,
 		imd.expire_date
 	FROM import_details imd
@@ -427,9 +426,9 @@ func (s *Services) InventoryDetailedFlow(param *domain.InventoryParam) ([]domain
 
 	totalQuery := `
 	SELECT
-        SUM(imd.retail_price_vat * imd.received_count) AS total_current_sum,
-        SUM(imd.retail_price_vat * imd.scanned_count) AS total_fact_sum,
-        SUM(imd.retail_price_vat * (imd.scanned_count - imd.received_count)) AS total_difference_sum
+        ROUND(SUM(imd.retail_price_vat * (imd.received_count/p.unit_per_pack)), 2) AS total_current_sum,
+        ROUND(SUM(imd.retail_price_vat * (imd.scanned_count/p.unit_per_pack)), 2) AS total_fact_sum,
+        ROUND(SUM(imd.retail_price_vat * ((imd.scanned_count - imd.received_count)/p.unit_per_pack)), 2) AS total_difference_sum
 	FROM import_details imd
         JOIN products p ON imd.product_id = p.id
 	`
@@ -483,15 +482,15 @@ func (s *Services) InventoryDetailStatsCount(param *domain.InventoryParam) (doma
 
 	query := `
 	SELECT
-		SUM(scanned_count) AS scanned,
-		SUM(received_count - scanned_count) AS shortage,
-		SUM(received_count) AS "all",
-		SUM(CASE WHEN scanned_count > received_count THEN scanned_count - received_count ELSE 0 END) AS surplus,
-		SUM(accepted_count) AS accepted,
-		SUM((received_count - scanned_count)*import_details.supply_price_vat) AS shortage_supply_sum,
-		SUM((received_count - scanned_count)*import_details.retail_price_vat) AS shortage_retail_sum,
-		SUM((CASE WHEN scanned_count > received_count THEN scanned_count - received_count ELSE 0 END)*import_details.supply_price_vat) AS surplus_supply_sum,
-		SUM((CASE WHEN scanned_count > received_count THEN scanned_count - received_count ELSE 0 END)*import_details.retail_price_vat) AS surplus_retail_sum
+		ROUND(SUM(scanned_count/p.unit_per_pack)) AS scanned,
+		ROUND(SUM((received_count - scanned_count)/p.unit_per_pack)) AS shortage,
+		ROUND(SUM(received_count/p.unit_per_pack)) AS "all",
+		ROUND(SUM(CASE WHEN scanned_count > received_count THEN (scanned_count - received_count)/p.unit_per_pack ELSE 0 END)) AS surplus,
+		ROUND(SUM(accepted_count/p.unit_per_pack)) AS accepted,
+		ROUND(SUM(((received_count - scanned_count)/p.unit_per_pack)*import_details.supply_price_vat), 2) AS shortage_supply_sum,
+		ROUND(SUM(((received_count - scanned_count)/p.unit_per_pack)*import_details.retail_price_vat), 2) AS shortage_retail_sum,
+		ROUND(SUM((CASE WHEN scanned_count > received_count THEN (scanned_count - received_count)/p.unit_per_pack ELSE 0 END)*import_details.supply_price_vat), 2) AS surplus_supply_sum,
+		ROUND(SUM((CASE WHEN scanned_count > received_count THEN (scanned_count - received_count)/p.unit_per_pack ELSE 0 END)*import_details.retail_price_vat), 2) AS surplus_retail_sum
 	FROM import_details
 	JOIN products p ON import_details.product_id = p.id
 	WHERE import_id = ?;
@@ -533,12 +532,20 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 	var inventoryDetails []domain.ImportDetail
 	query1 := `
 	SELECT
-		imd.*, p.material_code, p.name AS product_name,
-		p.barcode, p.unit_per_pack, pr.code AS producer_code
-	FROM import_details imd
-		JOIN products p ON imd.product_id = p.id
-		LEFT JOIN producers pr ON p.producer_id = pr.id
-	WHERE imd.import_id = ? AND imd.received_count != imd.scanned_count
+		imd.*, 
+		p.material_code, 
+		p.name AS product_name,
+		p.barcode, 
+		p.unit_per_pack, 
+		pr.code AS producer_code
+	FROM 
+		import_details imd
+	JOIN 
+		products p ON imd.product_id = p.id
+	LEFT JOIN 
+		producers pr ON p.producer_id = pr.id
+	WHERE 
+		imd.import_id = ? AND imd.received_count != imd.scanned_count
 	`
 	// execute get import details as inventory details
 	err = tx.Raw(query1, inventoryId).Scan(&inventoryDetails).Error
@@ -550,13 +557,30 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 	// We only add delta -> (scanned_count - received_count) as a new product
 	storeProduct := `
 	INSERT INTO store_products(
-           product_id, store_id, pack_quantity, unit_quantity,
-           retail_price, supply_price,
-           vat, expire_date, vat_price,
-           import_detail_id, serial_number)
+            product_id,
+            store_id,
+            pack_quantity,
+            unit_quantity,
+            retail_price,
+            supply_price,
+            vat,
+            expire_date,
+            vat_price,
+            import_detail_id,
+            serial_number
+            )
 	SELECT
-		imd.product_id, ?, FLOOR(imd.scanned_count - imd.received_count), (imd.scanned_count - imd.received_count) * p.unit_per_pack,
-		imd.retail_price_vat, imd.supply_price_vat, 12, imd.expire_date, imd.retail_price_vat*12/112,  imd.id, imd.series_number
+		imd.product_id,
+		?,
+		ROUND((imd.scanned_count - imd.received_count)/p.unit_per_pack),
+		imd.scanned_count,
+		imd.retail_price_vat,
+		imd.supply_price_vat,
+		12,
+		imd.expire_date,
+		(imd.retail_price_vat*12)/112,
+		imd.id,
+		imd.series_number
 	FROM import_details imd
 	JOIN products p ON imd.product_id = p.id
 	WHERE imd.import_id = ? AND imd.scanned_count > imd.received_count;
@@ -572,8 +596,16 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 	var data1C domain.InventoryData1C
 	for _, imd := range inventoryDetails {
 		if imd.ScannedCount < imd.ReceivedCount {
-			err = tx.Exec(`UPDATE store_products SET pack_quantity = ?, unit_quantity = ? WHERE id = ?`,
-				int(imd.ScannedCount), math.Round(imd.ScannedCount*float64(imd.UnitPerPack)), imd.StoreProductId).Error
+			err = tx.Exec(`
+			UPDATE 
+				store_products 
+			SET 
+				pack_quantity = ?, 
+				unit_quantity = ? 
+			WHERE id = ?;`,
+				int(math.Round(imd.ScannedCount/float64(imd.UnitPerPack))),
+				imd.ScannedCount,
+				imd.StoreProductId).Error
 			if err != nil {
 				s.log.Warn("ERROR on updating store_product quantity on confirm inventory: %v", err)
 				return err
@@ -587,16 +619,21 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 			Manufacturer:        imd.ProducerCode,
 			ProductSeriesNumber: imd.SeriesNumber,
 			ExpireDate:          imd.ExpireDate,
-			Quantity:            imd.ReceivedCount,
-			QuantityInventar:    imd.ScannedCount,
+			Quantity:            utils.RoundTo((imd.ReceivedCount / float64(imd.UnitPerPack)), 4),
+			QuantityInventar:    utils.RoundTo((imd.ScannedCount / float64(imd.UnitPerPack)), 4),
 			RetailPrice:         imd.RetailPrice,
 			RetailPriceVat:      imd.RetailPriceVat,
 			SupplyPrice:         imd.SupplyPrice,
 			SupplyPriceVat:      imd.SupplyPriceVat,
-			Sum:                 imd.ScannedCount * imd.RetailPrice,
-			SumVat:              imd.ScannedCount * imd.RetailPriceVat,
+			Sum:                 utils.RoundTo((imd.ScannedCount/float64(imd.UnitPerPack))*imd.RetailPrice, 2),
+			SumVat:              utils.RoundTo((imd.ScannedCount/float64(imd.UnitPerPack))*imd.RetailPriceVat, 2),
 		})
 
+	}
+
+	if len(data1C.Товары) < 1 {
+		s.log.Warn("empty products list in confirm inventory: %v", err)
+		return errors.New("not enough products in the inventory")
 	}
 
 	// get store info
@@ -635,23 +672,12 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 // canceled inventory
 func (s *Services) CancelInventory(inventoryId string, userId string) error {
 	// start transaction
-	tx := s.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
+
 	// update confirm inventory
 	query := `UPDATE imports SET status = ?, accepted_by = ?, updated_at = NOW() WHERE id = ? AND status = ?`
-	err := tx.Exec(query, config.CANCELED, userId, inventoryId, config.PENDING).Error
+	err := s.db.Exec(query, config.CANCELED, userId, inventoryId, config.PENDING).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating inventory %v", err)
-		tx.Rollback()
-		return err
-	}
-	if err = tx.Commit().Error; err != nil {
-		s.log.Warn("ERROR on commiting transaction %v", err)
-		tx.Rollback()
 		return err
 	}
 
@@ -670,12 +696,20 @@ func (s *Services) SendInventory1C(inventoryID string) error {
 	var inventoryDetails []domain.ImportDetail
 	query1 := `
 	SELECT
-		imd.*, p.material_code, p.name AS product_name,
-		p.barcode, p.unit_per_pack, pr.code AS producer_code
-	FROM import_details imd
-		JOIN products p ON imd.product_id = p.id
-		LEFT JOIN producers pr ON p.producer_id = pr.id
-	WHERE imd.import_id = ? AND imd.received_count != imd.scanned_count
+		imd.*, 
+		p.material_code, 
+		p.name AS product_name,
+		p.barcode, 
+		p.unit_per_pack, 
+		pr.code AS producer_code
+	FROM 
+		import_details imd
+	JOIN 
+		products p ON imd.product_id = p.id
+	LEFT JOIN 
+		producers pr ON p.producer_id = pr.id
+	WHERE 
+		imd.import_id = ? AND imd.received_count != imd.scanned_count
 	`
 	// execute get import details as inventory details
 	err = s.db.Raw(query1, inventoryID).Scan(&inventoryDetails).Error
@@ -694,14 +728,14 @@ func (s *Services) SendInventory1C(inventoryID string) error {
 			Manufacturer:        imd.ProducerCode,
 			ProductSeriesNumber: imd.SeriesNumber,
 			ExpireDate:          imd.ExpireDate,
-			Quantity:            imd.ReceivedCount,
-			QuantityInventar:    imd.ScannedCount,
+			Quantity:            utils.RoundTo((imd.ReceivedCount / float64(imd.UnitPerPack)), 4),
+			QuantityInventar:    utils.RoundTo((imd.ScannedCount / float64(imd.UnitPerPack)), 4),
 			RetailPrice:         imd.RetailPrice,
 			RetailPriceVat:      imd.RetailPriceVat,
 			SupplyPrice:         imd.SupplyPrice,
 			SupplyPriceVat:      imd.SupplyPriceVat,
-			Sum:                 imd.ScannedCount * imd.RetailPrice,
-			SumVat:              imd.ScannedCount * imd.RetailPriceVat,
+			Sum:                 utils.RoundTo((imd.ScannedCount/float64(imd.UnitPerPack))*imd.RetailPrice, 2),
+			SumVat:              utils.RoundTo((imd.ScannedCount/float64(imd.UnitPerPack))*imd.RetailPriceVat, 2),
 		})
 
 	}

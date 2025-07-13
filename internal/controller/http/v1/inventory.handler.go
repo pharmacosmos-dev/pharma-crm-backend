@@ -63,7 +63,8 @@ func (h *InventoryHandler) InventoryRoutes(r *gin.RouterGroup) {
 func (h *InventoryHandler) Create(c *gin.Context) {
 	var inventoryRequest domain.InventoryRequest
 	// Bind the request body to the InventoryRequest struct
-	if err := c.ShouldBindJSON(&inventoryRequest); err != nil {
+	err := c.ShouldBindJSON(&inventoryRequest)
+	if err != nil {
 		h.log.Warn("Error on binding request: %v", err.Error())
 		handleResponse(c, BadRequest, "Invalid request body")
 		return
@@ -71,12 +72,12 @@ func (h *InventoryHandler) Create(c *gin.Context) {
 	userId, ok := c.Get("user_id")
 	if !ok {
 		h.log.Warn("Error on getting user id from context")
-		handleResponse(c, BadRequest, "User not authorized")
+		handleResponse(c, UNAUTHORIZED, "unauthorized")
 		return
 	}
 	inventoryRequest.CreatedBy = userId.(string)
 	// create inventory
-	err := h.service.CreateInventory(&inventoryRequest)
+	err = h.service.CreateInventory(&inventoryRequest)
 	if err != nil {
 		h.log.Warn("Error on creating inventory: %v", err.Error())
 		handleResponse(c, InternalError, "Failed to create inventory")
@@ -105,7 +106,8 @@ func (h *InventoryHandler) Create(c *gin.Context) {
 // @Router /inventory/{id} [GET]
 func (h *InventoryHandler) Get(c *gin.Context) {
 	var param domain.InventoryParam
-	if err := c.ShouldBindQuery(&param); err != nil {
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
 		handleResponse(c, BadRequest, "Invalid query param")
 		return
 	}
@@ -149,7 +151,8 @@ func (h *InventoryHandler) Get(c *gin.Context) {
 func (h *InventoryHandler) List(c *gin.Context) {
 	var param domain.InventoryParam
 
-	if err := c.ShouldBindQuery(&param); err != nil {
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
 		handleResponse(c, BadRequest, "Invalid query param")
 		return
 	}
@@ -161,6 +164,7 @@ func (h *InventoryHandler) List(c *gin.Context) {
 		return
 	}
 	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+
 	handleResponse(c, OK, data)
 }
 
@@ -181,8 +185,8 @@ func (h *InventoryHandler) List(c *gin.Context) {
 // @Router /inventory/list-status [get]
 func (h *InventoryHandler) InventoryStatus(c *gin.Context) {
 	var param domain.InventoryParam
-
-	if err := c.ShouldBindQuery(&param); err != nil {
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
 		handleResponse(c, BadRequest, "Invalid query param")
 		return
 	}
@@ -215,8 +219,8 @@ func (h *InventoryHandler) InventoryStatus(c *gin.Context) {
 // @Router /inventory/export-excel [GET]
 func (h *InventoryHandler) InventoryExportExcel(c *gin.Context) {
 	var param domain.InventoryParam
-
-	if err := c.ShouldBindQuery(&param); err != nil {
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
 		handleResponse(c, BadRequest, "Invalid query param")
 		return
 	}
@@ -303,12 +307,14 @@ func (h *InventoryHandler) UpdateFactQuantity(c *gin.Context) {
 		err         error
 	)
 	// validate inventory id
-	if err = uuid.Validate(inventoryID); err != nil {
+	err = uuid.Validate(inventoryID)
+	if err != nil {
 		handleResponse(c, BadRequest, "Inventory id is invalid")
 		return
 	}
 	// parse
-	if err = c.ShouldBindJSON(&request); err != nil {
+	err = c.ShouldBindJSON(&request)
+	if err != nil {
 		handleResponse(c, BadRequest, "Invalid request body")
 		return
 	}
@@ -335,10 +341,15 @@ func (h *InventoryHandler) UpdateFactQuantity(c *gin.Context) {
 	var res []domain.ImportDetail
 	// find import_detail row
 	err = h.db.Raw(`
-	SELECT import_details.*, p.unit_per_pack
-	FROM import_details
-	JOIN products p ON p.id = import_details.product_id
-	WHERE product_id = ? AND import_id = ? ORDER BY imported_at
+	SELECT 
+		import_details.*, 
+		p.unit_per_pack
+	FROM 
+		import_details
+	JOIN 
+		products p ON p.id = import_details.product_id
+	WHERE 
+		product_id = ? AND import_id = ? ORDER BY imported_at
 `, request.Id, inventoryID).Scan(&res).Error
 	if err != nil {
 		h.log.Warn("Failed to find import_detail row: %v", err)
@@ -369,7 +380,7 @@ func (h *InventoryHandler) UpdateFactQuantity(c *gin.Context) {
 	}
 
 	// Calculate total fact as quantity + (unit / unitPerPack)
-	remainingFact := float64(int(request.FactQuantity)) + request.FactUnit/float64(unitPerPack)
+	remainingFact := request.FactQuantity*float64(unitPerPack) + request.FactUnit
 	for i := 0; i < len(res); i++ {
 		if i == len(res)-1 {
 			res[i].ScannedCount = remainingFact
@@ -385,8 +396,10 @@ func (h *InventoryHandler) UpdateFactQuantity(c *gin.Context) {
 		}
 		// Update each row
 		err := h.db.Exec(`
-			UPDATE import_details
-			SET scanned_count = scanned_count+?
+			UPDATE 
+				import_details
+			SET 
+				scanned_count = scanned_count+?
 			WHERE id = ?
 		`, res[i].ScannedCount, res[i].Id).Error
 		if err != nil {
@@ -418,14 +431,16 @@ func (h *InventoryHandler) UpdateDetailedFactQuantity(c *gin.Context) {
 		inventoryID = c.Param("id")
 		err         error
 	)
-
-	if err := uuid.Validate(inventoryID); err != nil {
-		handleResponse(c, BadRequest, "Inventory id is invalid")
+	// validate inventory id
+	err = uuid.Validate(inventoryID)
+	if err != nil {
+		handleResponse(c, BadRequest, "invalid.inventory.id")
 		return
 	}
-
-	if err := c.ShouldBindJSON(&request); err != nil {
-		handleResponse(c, BadRequest, "Invalid request body")
+	// bind request body
+	err = c.ShouldBindJSON(&request)
+	if err != nil {
+		handleResponse(c, BadRequest, "invalid.request.body")
 		return
 	}
 
@@ -468,9 +483,14 @@ func (h *InventoryHandler) UpdateDetailedFactQuantity(c *gin.Context) {
 	// update fact quantity
 	if request.FactQuantity > 0 {
 		err = h.db.Exec(`
-		UPDATE import_details
-		SET scanned_count = scanned_count+?
-		WHERE id = ?
+		UPDATE 
+			import_details
+		SET 
+			scanned_count = scanned_count+(?::numeric * p.unit_per_pack)
+		FROM 
+			products p
+		WHERE
+			import_details.product_id = p.id AND import_details.id = ?
 	`, request.FactQuantity, request.Id).Error
 		if err != nil {
 			h.log.Warn("Error on updating scanned_count: %v", err)
@@ -482,11 +502,16 @@ func (h *InventoryHandler) UpdateDetailedFactQuantity(c *gin.Context) {
 	// update fact unit
 	if request.FactUnit > 0 {
 		err = h.db.Exec(`
-		UPDATE import_details
-		SET scanned_count = scanned_count + (?::numeric / p.unit_per_pack)
-		FROM products p
-		WHERE import_details.product_id = p.id
-		AND import_details.id = ?
+		UPDATE 
+			import_details
+		SET 
+			scanned_count = scanned_count + ?
+		FROM 
+			products p
+		WHERE 
+			import_details.product_id = p.id 
+			AND 
+			import_details.id = ?
 	`, request.FactUnit, request.Id).Error
 		if err != nil {
 			h.log.Warn("Error on updating scanned_count: %v", err)
@@ -512,7 +537,8 @@ func (h *InventoryHandler) UpdateDetailedFactQuantity(c *gin.Context) {
 // @Router /inventory/confirm/{id} [POST]
 func (h *InventoryHandler) Confirm(c *gin.Context) {
 	var id = c.Param("id")
-	if err := uuid.Validate(id); err != nil {
+	err := uuid.Validate(id)
+	if err != nil {
 		handleResponse(c, BadRequest, "Invalid inventory id")
 		return
 	}
@@ -524,7 +550,7 @@ func (h *InventoryHandler) Confirm(c *gin.Context) {
 	}
 	// get inventory by id
 	var res domain.Inventory
-	err := h.db.Raw(`SELECT * FROM imports WHERE id = ?`, id).Scan(&res).Error
+	err = h.db.Raw(`SELECT * FROM imports WHERE id = ?`, id).Scan(&res).Error
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to get inventory")
 		return
@@ -589,7 +615,8 @@ func (h *InventoryHandler) Send1C(c *gin.Context) {
 func (h *InventoryHandler) Cancel(c *gin.Context) {
 	var id = c.Param("id")
 	// validate inventory id
-	if err := uuid.Validate(id); err != nil {
+	err := uuid.Validate(id)
+	if err != nil {
 		handleResponse(c, BadRequest, "Invalid inventory id")
 		return
 	}
@@ -600,7 +627,7 @@ func (h *InventoryHandler) Cancel(c *gin.Context) {
 		return
 	}
 	// confirm inventory service
-	err := h.service.CancelInventory(id, userId.(string))
+	err = h.service.CancelInventory(id, userId.(string))
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to confirm inventory")
 		return
@@ -673,7 +700,8 @@ func (h *InventoryHandler) InventoryDetailList(c *gin.Context) {
 // @Router /inventory-detail/export-excel [GET]
 func (h *InventoryHandler) InventoryDetailExport(c *gin.Context) {
 	var param domain.InventoryParam
-	if err := c.ShouldBindQuery(&param); err != nil {
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
 		handleResponse(c, BadRequest, "Invalid query param")
 		return
 	}
@@ -739,7 +767,8 @@ func (h *InventoryHandler) InventoryDetailExport(c *gin.Context) {
 // @Router /inventory-detail/detailed-flow [GET]
 func (h *InventoryHandler) InventoryDetailedFlow(c *gin.Context) {
 	var param domain.InventoryParam
-	if err := c.ShouldBindQuery(&param); err != nil {
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
 		handleResponse(c, BadRequest, "Invalid query param")
 		return
 	}
@@ -783,7 +812,8 @@ func (h *InventoryHandler) InventoryDetailUpload(c *gin.Context) {
 		err  error
 	)
 	// bind request file
-	if err = c.ShouldBind(&file); err != nil {
+	err = c.ShouldBind(&file)
+	if err != nil {
 		h.log.Error("Failed to bind file: ", err.Error())
 		handleResponse(c, BadRequest, err.Error())
 		return
@@ -826,7 +856,14 @@ func (h *InventoryHandler) InventoryDetailUpload(c *gin.Context) {
 
 	// build query
 	query := `
-	UPDATE import_details SET scanned_count = ?, supply_price_vat = ?, retail_price_vat = ?, expire_date = ?, updated_at = NOW()
+	UPDATE 
+		import_details 
+	SET 
+		scanned_count = ?, 
+		supply_price_vat = ?, 
+		retail_price_vat = ?, 
+		expire_date = ?, 
+		updated_at = NOW()
 	WHERE id = ?
 	`
 

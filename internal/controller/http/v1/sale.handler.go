@@ -243,7 +243,7 @@ func (h *SaleHandler) Get(c *gin.Context) {
 	}
 	if res.ParentId != "" {
 		// get epos response
-		err = h.db.Raw(`SELECT * FROM epos_responses WHERE sale_id = ?`, res.ParentId).Scan(&res.EposResponse).Error
+		err = h.db.Raw(`SELECT * FROM epos_responses WHERE sale_id = ? AND status = 1`, res.ParentId).Scan(&res.EposResponse).Error
 		if err != nil {
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
 				h.log.Error(err)

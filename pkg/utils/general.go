@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"math"
 	"math/rand"
 	"regexp"
 	"strings"
@@ -182,3 +183,9 @@ func NormalizePhoneNumber(phone string) string {
 	return phone
 }
 
+// Round to number with decimal place: 
+// RoundTo(1.333333333, 4) -> 1.3334
+func RoundTo(x float64, decimalPlaces int) float64 {
+	factor := math.Pow(10, float64(decimalPlaces))
+	return math.Round(x*factor) / factor
+}
