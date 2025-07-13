@@ -451,7 +451,7 @@ func (s *Services) SendReturn1C(returnId string) error {
 	}
 
 	returnData.Dok.DocumentNumber = "NP-" + cast.ToString(returnInfo.PublicId)
-	returnData.Dok.DocumentDate = returnInfo.UpdatedAt.Add(time.Hour * 5).Format(time.RFC3339)
+	returnData.Dok.DocumentDate = returnInfo.UpdatedAt.Add(time.Hour * 5).Format("2006-01-02T15:04:05")
 	returnData.Apteka.Name = store.Name
 	returnData.Apteka.StoreCode = store.StoreCode
 	// get return data
