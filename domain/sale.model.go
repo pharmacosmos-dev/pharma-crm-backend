@@ -201,9 +201,9 @@ type EposSuccessMessage struct {
 	FiscalSign string `json:"fiscalSign"`
 	ReceiptSeq string `json:"receiptSeq"`
 	TerminalId string `json:"terminalId"`
-	Amount     string `json:"amount"`
-	Card       string `json:"card"`
-	Cash       string `json:"cash"`
+	Amount     any    `json:"amount"`
+	Card       any    `json:"card"`
+	Cash       any    `json:"cash"`
 	QrCodeUrl  string `json:"qrCodeUrl"`
 }
 

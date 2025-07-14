@@ -73,6 +73,7 @@ func (s *Services) ListAutoOrder(param *domain.AutoOrderParam) ([]domain.AutoOrd
 func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, day float64) ([]*domain.AutoOrderDetailRequest, error) {
 	var res []*domain.AutoOrderDetailRequest
 	query := `
+	-- Vars: constants for easier reuse
 	WITH vars AS (
 		SELECT
 			?::uuid AS store_id,
@@ -80,6 +81,8 @@ func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, d
 			2 AS import_day,
 			?::int AS sale_period
 	),
+
+	-- Current stock per product name
 	stock_data AS (
 		SELECT
 			p.name,
@@ -89,6 +92,8 @@ func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, d
 		JOIN vars v ON sp.store_id = v.store_id
 		GROUP BY p.name
 	),
+
+	-- Sales count per product name in the last N days
 	sales_data AS (
 		SELECT
 			p.name,
@@ -101,19 +106,42 @@ func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, d
 		WHERE (sl.completed_at + interval '5 hours')::date >= (CURRENT_DATE - v.sale_period * INTERVAL '1 day')
 		GROUP BY p.name
 	),
+
+	-- Thresholds per product name
 	thresholds AS (
 		SELECT
 			p.name,
 			MAX(spt.kvant) AS kvant,
 			MAX(spt.min_quantity) AS min_stock,
 			MAX(spt.max_quantity) AS max_stock,
-			MAX(p.unit_per_pack) AS unit_per_pack,
-			MAX(p.material_code) AS material_code
+			MAX(p.unit_per_pack) AS unit_per_pack
 		FROM store_product_thresholds spt
 		JOIN products p ON spt.product_id = p.id
 		JOIN vars v ON spt.store_id = v.store_id
 		GROUP BY p.name
 	),
+
+	-- Select product_id and material_code of the product with max material_code per name
+	product_with_max_code AS (
+		SELECT DISTINCT ON (p.name)
+			p.name,
+			p.id AS product_id,
+			p.material_code
+		FROM products p
+		ORDER BY p.name, p.material_code DESC
+	),
+
+	-- Merge thresholds with max-code product_id
+	thresholds_with_code AS (
+		SELECT
+			t.*,
+			pmc.product_id,
+			pmc.material_code
+		FROM thresholds t
+		JOIN product_with_max_code pmc ON t.name = pmc.name
+	),
+
+	-- Excluded products (name-based)
 	excluded_products_union AS (
 		SELECT p.name
 		FROM excluded_products ep
@@ -125,6 +153,8 @@ func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, d
 		JOIN products p ON ep.product_id = p.id
 		WHERE ep.store_id IS NULL
 	),
+
+	-- Count of new imports per product name
 	imports AS (
 		SELECT p.name, COUNT(*) AS new_imports_count
 		FROM imports i
@@ -134,25 +164,30 @@ func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, d
 		WHERE i.status = 'new'
 		GROUP BY p.name
 	),
+
+	-- Merge all main data per product name
 	all_data AS (
 		SELECT
 			v.auto_order_id,
 			v.store_id,
 			t.name,
+			t.product_id,
+			t.material_code,
 			COALESCE(sd.current_stock, 0) AS current_stock,
 			COALESCE(sa.sale_count, 0) AS sale_count,
 			COALESCE(t.kvant, 0) AS kvant,
 			COALESCE(t.min_stock, 0) AS min_stock,
 			COALESCE(t.max_stock, 0) AS max_stock,
 			COALESCE(t.unit_per_pack, 1) AS unit_per_pack,
-			COALESCE(t.material_code, 0) AS material_code,
 			v.import_day,
 			v.sale_period
-		FROM thresholds t
+		FROM thresholds_with_code t
 		JOIN vars v ON TRUE
 		LEFT JOIN stock_data sd ON t.name = sd.name
 		LEFT JOIN sales_data sa ON t.name = sa.name
 	),
+
+	-- Final calculation logic
 	final_calc AS (
 		SELECT
 			*,
@@ -163,6 +198,8 @@ func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, d
 			current_stock - ROUND(sale_count / sale_period * import_day, 4) + ROUND(sale_count / sale_period * 3, 4) AS future_stock
 		FROM all_data
 	),
+
+	-- Order amount calculation
 	order_calc AS (
 		SELECT
 			fc.*,
@@ -170,13 +207,31 @@ func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, d
 			(CASE
 				WHEN kvant > 0 THEN ROUND(ROUND(GREATEST(min_stock - stock_on_delivery_date, 0) / kvant) * kvant)
 				ELSE 0
-			END)  AS order_count
+			END) - COALESCE(im.new_imports_count, 0) AS order_count
 		FROM final_calc fc
 		LEFT JOIN imports im ON im.name = fc.name
 		LEFT JOIN excluded_products_union ex ON ex.name = fc.name
 		WHERE ex.name IS NULL
 	)
-	SELECT *
+
+	-- Final output
+	SELECT
+		auto_order_id,
+		product_id,
+		material_code,
+		name,
+		current_stock,
+		min_stock,
+		max_stock,
+		kvant,
+		sale_count,
+		daily_sale_count,
+		import_day,
+		sale_period,
+		stock_on_delivery_date,
+		reserve_quantity,
+		future_stock,
+		order_count
 	FROM order_calc
 	WHERE order_count > 0
 	ORDER BY name;
