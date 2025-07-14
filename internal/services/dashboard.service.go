@@ -123,15 +123,26 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 		JOIN imports im ON imd.import_id = im.id
 		WHERE im.status = 'new' AND im.entry_type = 1`
 
+		query24h = `
+		SELECT
+			COALESCE(SUM(imd.received_count * imd.retail_price_vat), 0) AS last_24h_import_amount
+		FROM import_details imd
+		JOIN imports im ON imd.import_id = im.id
+		WHERE im.status = 'new'
+		  AND im.entry_type = 1
+		  AND im.created_at >= NOW() - interval '24 hour'`
+
 		filter  = ""
 		filterc = ""
 	)
+
 	// filter by several store ids
 	if len(param.StoreIds) > 0 {
 		filter += " AND store_id IN (?)"
 		filterc += " AND s.store_id IN (?)"
 		args = append(args, param.StoreIds)
 		query1 += " AND im.store_id IN (?)"
+		query24h += " AND im.store_id IN (?)"
 		args1 = append(args1, param.StoreIds)
 	}
 
@@ -164,9 +175,17 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 		return nil, err
 	}
 
+	var last24hAmount float64
+	err = s.db.Raw(query24h, args...).Scan(&last24hAmount).Error
+	if err != nil {
+		s.log.Error(err)
+		return nil, err
+	}
+
 	// Map results
 	res.ImportAmount = imported.ImportAmount
 	res.BeforeImportAmount = imported.BeforeImportAmount
+	res.Last24HImportAmount = last24hAmount
 	res.TotalSaleCount = sale.SaleCount
 	res.BeforeSaleCount = sale.BeforeSaleCount
 	res.TotalSaleAmount = sale.SaleAmount
