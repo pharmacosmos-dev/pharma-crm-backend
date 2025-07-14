@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 
@@ -380,9 +381,9 @@ func (h *RepricingHandler) ListDetail(c *gin.Context) {
 	handleResponse(c, OK, data)
 }
 
-// List godoc
-// @Summary List Repricing
-// @Description List Repricing
+// ExportListDetail godoc
+// @Summary Export Repricing Details to Excel
+// @Description Export repricing details to Excel
 // @Tags Repricing
 // @Security     BearerAuth
 // @Accept json
@@ -390,7 +391,7 @@ func (h *RepricingHandler) ListDetail(c *gin.Context) {
 // @Param 	limit query int false "Limit"
 // @Param 	offset query int false "Offset"
 // @Param   search query string false "Search"
-// @Param   id path int false "Repricing ID"
+// @Param   id path int true "Repricing ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -400,54 +401,76 @@ func (h *RepricingHandler) ExportListDetail(c *gin.Context) {
 		param domain.QueryParam
 		id    = c.Param("id")
 	)
-	// bind request query param
+
 	if err := c.ShouldBindQuery(&param); err != nil {
 		handleResponse(c, BadRequest, "Invalid query param")
 		return
 	}
-	// convent to integer
+
 	repricingID, err := strconv.Atoi(id)
 	if err != nil {
 		handleResponse(c, BadRequest, "invalid.repricing.id")
 		return
 	}
-	// default limit, offset
+
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 
+	// Get details list
 	res, _, err := h.service.RepricingDetailList(repricingID, &param)
 	if err != nil {
-		h.log.Warn("ERROR on getting repricing list: %v", err)
-		handleResponse(c, InternalError, "Failed to get repricing list")
+		h.log.Warn("ERROR on getting repricing details: %v", err)
+		handleResponse(c, InternalError, "Failed to get repricing details")
 		return
 	}
-	// Create excel file
+
 	f := excelize.NewFile()
-	sheetName := "List1"
+	sheetName := "RepricingDetails"
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"ID", "Название", "Старая розничная цена", "Новая розничная цена", "Старая наценка", "Новая наценка", "Старый срок", "Новая срок"}
+	headers := []string{
+		"ID", "Название", "Штрихкод",
+		"Старая розничная цена", "Новая розничная цена",
+		"Старая наценка", "Новая наценка",
+		"Старый срок", "Новая срок",
+		"Серийный номер",
+	}
 
 	err = setExcelHeaders(f, sheetName, headers)
 	if err != nil {
-		h.log.Error("Failed to create style:", err)
-		handleResponse(c, InternalError, "Error on giving style to excel")
+		h.log.Error("Failed to set Excel headers:", err)
+		handleResponse(c, InternalError, "Error on setting headers to Excel")
 		return
 	}
 
-	// Ma'lumotlarni qo'shish
-	for i, imp := range res {
+	// Ma'lumotlarni qo‘shish
+	for i, item := range res {
 		row := strconv.Itoa(i + 2)
-		f.SetCellValue(sheetName, "A"+row, imp.Id)
-		f.SetCellValue(sheetName, "B"+row, imp.Name)
-		f.SetCellValue(sheetName, "C"+row, imp.OldRetailPrice)
-		f.SetCellValue(sheetName, "D"+row, imp.NewRetailPrice)
-		f.SetCellValue(sheetName, "E"+row, imp.OldMarkup)
-		f.SetCellValue(sheetName, "F"+row, imp.NewMarkup)
-		f.SetCellValue(sheetName, "G"+row, imp.OldExpireDate.Format(time.DateOnly))
-		f.SetCellValue(sheetName, "H"+row, imp.NewExpireDate.Format(time.DateOnly))
+		f.SetCellValue(sheetName, "A"+row, i)
+		f.SetCellValue(sheetName, "B"+row, item.Name)
+		f.SetCellValue(sheetName, "C"+row, item.Barcode)
+		f.SetCellValue(sheetName, "D"+row, item.OldRetailPrice)
+		f.SetCellValue(sheetName, "E"+row, item.NewRetailPrice)
+		f.SetCellValue(sheetName, "F"+row, fmt.Sprintf("%.2f %%", item.OldMarkup))
+		f.SetCellValue(sheetName, "G"+row, fmt.Sprintf("%.2f %%", item.NewMarkup))
+
+		// Null date handling
+		if !item.OldExpireDate.IsZero() {
+			f.SetCellValue(sheetName, "H"+row, item.OldExpireDate.Format("2006-01-02"))
+		} else {
+			f.SetCellValue(sheetName, "H"+row, "")
+		}
+
+		if item.NewExpireDate != nil && !item.NewExpireDate.IsZero() {
+			f.SetCellValue(sheetName, "I"+row, item.NewExpireDate.Format("2006-01-02"))
+		} else {
+			f.SetCellValue(sheetName, "I"+row, "")
+		}
+
+		f.SetCellValue(sheetName, "J"+row, item.SerialNumber)
 	}
-	saveExcelToUploads(c, f, *h.log, "repricing_products")
+
+	saveExcelToUploads(c, f, *h.log, fmt.Sprintf("Repricing_Detail_%d", repricingID))
 }
 
 // add new retail price
