@@ -14632,7 +14632,7 @@ const docTemplate = `{
                     {
                         "type": "integer",
                         "description": "Repricing ID",
-                        "name": "id",
+                        "name": "repricing_id",
                         "in": "query"
                     }
                 ],

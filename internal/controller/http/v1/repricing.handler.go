@@ -391,7 +391,7 @@ func (h *RepricingHandler) ListDetail(c *gin.Context) {
 // @Param 	limit query int false "Limit"
 // @Param 	offset query int false "Offset"
 // @Param   search query string false "Search"
-// @Param   id query int false "Repricing ID"
+// @Param   repricing_id query int false "Repricing ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
