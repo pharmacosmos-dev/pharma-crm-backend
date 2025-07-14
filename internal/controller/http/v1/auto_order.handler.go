@@ -35,6 +35,7 @@ func (h *AutoOrderHandler) AutoOrderRoutes(r *gin.RouterGroup) {
 		autoOrder.POST("", h.Create)
 		autoOrder.GET("/list", h.List)
 		autoOrder.POST("/send/:id", h.SendAutoOrder)
+		autoOrder.GET("/generated/list", h.ListGenerated)
 	}
 	autoOrderDetail := r.Group("auto-order-detail")
 	{
@@ -449,6 +450,41 @@ func (h *AutoOrderHandler) SendAutoOrder(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, res.Data)
+}
+
+// SendAutoOrder godoc
+// @Summary Send auto order
+// @Description Send auto order
+// @Tags auto_orders
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param 	store_id query string true "Store ID"
+// @Param 	day query string true "Interval Day"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /auto-order/generated/list [GET]
+func (h *AutoOrderHandler) ListGenerated(c *gin.Context) {
+	var (
+		storeID = c.Query("store_id")
+		day     = c.Query("day")
+		err     error
+	)
+	intervalDay, err := strconv.ParseFloat(day, 64)
+	if err != nil {
+		handleResponse(c, BadRequest, "invalid.interval.day")
+		return
+	}
+
+	res, err := h.service.GenerateAutoOrderDetail(uuid.NewString(), storeID, intervalDay)
+	if err != nil {
+		h.log.Warn("ERROR on generating auto order: %v", err)
+		handleResponse(c, InternalError, "not.generated.auto_order")
+		return
+	}
+
+	handleResponse(c, OK, res)
 }
 
 // send request to 1C for creating auto order

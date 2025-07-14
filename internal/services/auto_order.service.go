@@ -82,131 +82,104 @@ func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, d
 	),
 	stock_data AS (
 		SELECT
-			sp.product_id,
+			p.name,
 			ROUND(SUM(sp.pack_quantity + (sp.unit_quantity::numeric % p.unit_per_pack) / p.unit_per_pack), 4) AS current_stock
 		FROM store_products sp
 		JOIN products p ON sp.product_id = p.id
 		JOIN vars v ON sp.store_id = v.store_id
-		GROUP BY sp.product_id, p.unit_per_pack
+		GROUP BY p.name
 	),
 	sales_data AS (
 		SELECT
-			sp.product_id,
+			p.name,
 			ROUND(SUM(ci.quantity + (ci.unit_quantity::numeric / p.unit_per_pack)), 4) AS sale_count
 		FROM store_products sp
 		JOIN cart_items ci ON sp.id = ci.store_product_id
 		JOIN sales sl ON sl.id = ci.sale_id AND sl.status = 'completed'
 		JOIN products p ON sp.product_id = p.id
 		JOIN vars v ON sl.store_id = v.store_id
-		WHERE (sl.completed_at + interval '5 hours')::date >= (CURRENT_DATE - INTERVAL '15 days')
-		GROUP BY sp.product_id, p.unit_per_pack
+		WHERE (sl.completed_at + interval '5 hours')::date >= (CURRENT_DATE - v.sale_period * INTERVAL '1 day')
+		GROUP BY p.name
 	),
 	thresholds AS (
 		SELECT
-			product_id,
-			COALESCE(MAX(kvant), 0) AS kvant,
-			COALESCE(MAX(min_quantity), 0) AS min_stock,
-			COALESCE(MAX(max_quantity), 0) AS max_stock
-		FROM store_product_thresholds
-		JOIN vars v ON store_product_thresholds.store_id = v.store_id
-		GROUP BY product_id
+			p.name,
+			MAX(spt.kvant) AS kvant,
+			MAX(spt.min_quantity) AS min_stock,
+			MAX(spt.max_quantity) AS max_stock,
+			MAX(p.unit_per_pack) AS unit_per_pack,
+			MAX(p.material_code) AS material_code
+		FROM store_product_thresholds spt
+		JOIN products p ON spt.product_id = p.id
+		JOIN vars v ON spt.store_id = v.store_id
+		GROUP BY p.name
 	),
-	product_base AS (
-		SELECT DISTINCT sp.product_id
-		FROM store_products sp
-		JOIN vars v ON sp.store_id = v.store_id
+	excluded_products_union AS (
+		SELECT p.name
+		FROM excluded_products ep
+		JOIN products p ON ep.product_id = p.id
+		JOIN vars v ON ep.store_id = v.store_id
+		UNION
+		SELECT p.name
+		FROM excluded_products ep
+		JOIN products p ON ep.product_id = p.id
+		WHERE ep.store_id IS NULL
 	),
- 	imports AS (
-         SELECT
-             i.store_id,
-             ip.product_id,
-             COUNT(*) AS new_imports_count
-         FROM imports i
-                  JOIN import_details ip ON i.id = ip.import_id
-                  JOIN vars v ON i.store_id = v.store_id
-         WHERE i.status = 'new'
-         GROUP BY i.store_id, ip.product_id
+	imports AS (
+		SELECT p.name, COUNT(*) AS new_imports_count
+		FROM imports i
+		JOIN import_details ip ON i.id = ip.import_id
+		JOIN products p ON ip.product_id = p.id
+		JOIN vars v ON i.store_id = v.store_id
+		WHERE i.status = 'new'
+		GROUP BY p.name
 	),
-     excluded AS (
-         SELECT ep.product_id
-         FROM excluded_products ep
-                  JOIN vars v ON ep.store_id = v.store_id
-         UNION
-         SELECT product_id
-         FROM excluded_products
-         WHERE store_id IS NULL
-     ),
-
 	all_data AS (
 		SELECT
 			v.auto_order_id,
 			v.store_id,
-			p.id AS product_id,
-			p.material_code,
-			p.name,
-			p.unit_per_pack,
+			t.name,
 			COALESCE(sd.current_stock, 0) AS current_stock,
 			COALESCE(sa.sale_count, 0) AS sale_count,
 			COALESCE(t.kvant, 0) AS kvant,
 			COALESCE(t.min_stock, 0) AS min_stock,
 			COALESCE(t.max_stock, 0) AS max_stock,
+			COALESCE(t.unit_per_pack, 1) AS unit_per_pack,
+			COALESCE(t.material_code, 0) AS material_code,
 			v.import_day,
 			v.sale_period
-		FROM product_base pb
-		JOIN products p ON pb.product_id = p.id
+		FROM thresholds t
 		JOIN vars v ON TRUE
-		LEFT JOIN stock_data sd ON p.id = sd.product_id
-		LEFT JOIN sales_data sa ON p.id = sa.product_id
-		LEFT JOIN thresholds t ON p.id = t.product_id
+		LEFT JOIN stock_data sd ON t.name = sd.name
+		LEFT JOIN sales_data sa ON t.name = sa.name
 	),
 	final_calc AS (
 		SELECT
 			*,
 			ROUND(sale_count / sale_period, 4) AS daily_sale_count,
-			ROUND((sale_count / sale_period) * import_day, 4) AS delivery_day_consumption,
-			current_stock - ROUND((sale_count / sale_period) * import_day, 4) AS stock_on_delivery_date,
-			ROUND((sale_count / sale_period) * 3, 4) AS reserve_quantity,
-			current_stock - ROUND((sale_count / sale_period) * import_day, 4) + ROUND((sale_count / sale_period) * 3, 4) AS future_stock,
-			current_stock - ROUND((sale_count / sale_period) * import_day, 4) AS future_stock_with_reserve
+			ROUND(sale_count / sale_period * import_day, 4) AS delivery_day_consumption,
+			current_stock - ROUND(sale_count / sale_period * import_day, 4) AS stock_on_delivery_date,
+			ROUND(sale_count / sale_period * 3, 4) AS reserve_quantity,
+			current_stock - ROUND(sale_count / sale_period * import_day, 4) + ROUND(sale_count / sale_period * 3, 4) AS future_stock
 		FROM all_data
 	),
 	order_calc AS (
 		SELECT
-             fc.*,
+			fc.*,
 			GREATEST(min_stock - stock_on_delivery_date, 0) AS required_stock,
-			CASE
-				WHEN kvant > 0 THEN
-					ROUND(ROUND(GREATEST(min_stock - stock_on_delivery_date, 0) / kvant) * kvant)
+			(CASE
+				WHEN kvant > 0 THEN ROUND(ROUND(GREATEST(min_stock - stock_on_delivery_date, 0) / kvant) * kvant)
 				ELSE 0
-                 END
-                 - COALESCE(im.new_imports_count, 0) AS order_count,
-             ex.product_id AS excluded_product_id
-         FROM final_calc fc
-                  LEFT JOIN imports im ON im.store_id = fc.store_id AND im.product_id = fc.product_id
-                  LEFT JOIN excluded ex ON ex.product_id = fc.product_id
+			END)  AS order_count
+		FROM final_calc fc
+		LEFT JOIN imports im ON im.name = fc.name
+		LEFT JOIN excluded_products_union ex ON ex.name = fc.name
+		WHERE ex.name IS NULL
 	)
-	SELECT
-    	fc.auto_order_id,
-    	fc.product_id,
-    	fc.material_code,
-    	fc.name,
-    	fc.current_stock,
-    	fc.min_stock,
-    	fc.max_stock,
-    	fc.kvant,
-    	fc.sale_count,
-    	fc.daily_sale_count,
-    	fc.import_day,
-    	fc.sale_period,
-    	fc.stock_on_delivery_date,
-    	fc.reserve_quantity,
-    	fc.future_stock,
-    	fc.future_stock_with_reserve,
-		order_count
-	FROM order_calc fc
+	SELECT *
+	FROM order_calc
 	WHERE order_count > 0
-  	AND fc.excluded_product_id IS NULL
-	ORDER BY fc.name;
+	ORDER BY name;
 	`
 	err := s.db.Raw(query, storeID, autoOrderID, day).Scan(&res).Error
 

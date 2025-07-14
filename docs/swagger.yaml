@@ -1622,6 +1622,42 @@ paths:
       summary: List auto order details
       tags:
       - auto_order_details
+  /auto-order/generated/list:
+    get:
+      consumes:
+      - application/json
+      description: Send auto order
+      parameters:
+      - description: Store ID
+        in: query
+        name: store_id
+        required: true
+        type: string
+      - description: Interval Day
+        in: query
+        name: day
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Send auto order
+      tags:
+      - auto_orders
   /auto-order/list:
     get:
       consumes:
