@@ -9,6 +9,7 @@ type Params struct {
 // QueryParam is used to store query parameters for all filter endpoints
 type QueryParam struct {
 	StoreID         string  `form:"store_id"`
+	RepricingID     int     `form:"repricing_id"`
 	IsOpen          string  `form:"is_open"`
 	Search          string  `form:"search"`
 	StartDate       string  `form:"start_date"`

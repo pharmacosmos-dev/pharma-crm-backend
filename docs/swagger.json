@@ -14585,7 +14585,7 @@
                 }
             }
         },
-        "/repricing-detail/export-excel/{id}": {
+        "/repricing-detail/export-excel": {
             "get": {
                 "security": [
                     {
@@ -14626,8 +14626,7 @@
                         "type": "integer",
                         "description": "Repricing ID",
                         "name": "id",
-                        "in": "path",
-                        "required": true
+                        "in": "query"
                     }
                 ],
                 "responses": {
