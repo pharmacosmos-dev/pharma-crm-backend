@@ -111,6 +111,7 @@ func (s *Services) TransferList(param *domain.ReturnParam) ([]domain.Transfer, i
 		Preload("FromStore").
 		Preload("ToStore").
 		Preload("CreatedBy").
+		Preload("UpdatedBy").
 		Preload("AcceptedBy").
 		Select(`
 			transfers.*,

@@ -10726,7 +10726,7 @@ paths:
     get:
       consumes:
       - application/json
-      description: List Repricing
+      description: Export repricing details to Excel
       parameters:
       - description: Limit
         in: query
@@ -10743,6 +10743,7 @@ paths:
       - description: Repricing ID
         in: path
         name: id
+        required: true
         type: integer
       produces:
       - application/json
@@ -10761,7 +10762,7 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: List Repricing
+      summary: Export Repricing Details to Excel
       tags:
       - Repricing
   /repricing-detail/list/{id}:

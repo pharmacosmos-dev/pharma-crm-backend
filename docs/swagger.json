@@ -14536,7 +14536,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "List Repricing",
+                "description": "Export repricing details to Excel",
                 "consumes": [
                     "application/json"
                 ],
@@ -14546,7 +14546,7 @@
                 "tags": [
                     "Repricing"
                 ],
-                "summary": "List Repricing",
+                "summary": "Export Repricing Details to Excel",
                 "parameters": [
                     {
                         "type": "integer",
@@ -14570,7 +14570,8 @@
                         "type": "integer",
                         "description": "Repricing ID",
                         "name": "id",
-                        "in": "path"
+                        "in": "path",
+                        "required": true
                     }
                 ],
                 "responses": {

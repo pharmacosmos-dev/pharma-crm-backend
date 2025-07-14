@@ -14543,7 +14543,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "List Repricing",
+                "description": "Export repricing details to Excel",
                 "consumes": [
                     "application/json"
                 ],
@@ -14553,7 +14553,7 @@ const docTemplate = `{
                 "tags": [
                     "Repricing"
                 ],
-                "summary": "List Repricing",
+                "summary": "Export Repricing Details to Excel",
                 "parameters": [
                     {
                         "type": "integer",
@@ -14577,7 +14577,8 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "Repricing ID",
                         "name": "id",
-                        "in": "path"
+                        "in": "path",
+                        "required": true
                     }
                 ],
                 "responses": {
