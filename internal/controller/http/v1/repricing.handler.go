@@ -36,7 +36,7 @@ func (h *RepricingHandler) RepricingRoutes(r *gin.RouterGroup) {
 	detail := r.Group("repricing-detail")
 	{
 		detail.GET("/list/:id", h.ListDetail)
-		detail.GET("/export-excel/:id", h.ExportListDetail)
+		detail.GET("/export-excel", h.ExportListDetail)
 	}
 }
 
@@ -391,15 +391,14 @@ func (h *RepricingHandler) ListDetail(c *gin.Context) {
 // @Param 	limit query int false "Limit"
 // @Param 	offset query int false "Offset"
 // @Param   search query string false "Search"
-// @Param   id path int true "Repricing ID"
+// @Param   id query int false "Repricing ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /repricing-detail/export-excel/{id} [get]
+// @Router /repricing-detail/export-excel [get]
 func (h *RepricingHandler) ExportListDetail(c *gin.Context) {
 	var (
 		param domain.QueryParam
-		id    = c.Param("id")
 	)
 
 	if err := c.ShouldBindQuery(&param); err != nil {
@@ -407,16 +406,10 @@ func (h *RepricingHandler) ExportListDetail(c *gin.Context) {
 		return
 	}
 
-	repricingID, err := strconv.Atoi(id)
-	if err != nil {
-		handleResponse(c, BadRequest, "invalid.repricing.id")
-		return
-	}
-
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 
 	// Get details list
-	res, _, err := h.service.RepricingDetailList(repricingID, &param)
+	res, _, err := h.service.RepricingDetailList(param.RepricingID, &param)
 	if err != nil {
 		h.log.Warn("ERROR on getting repricing details: %v", err)
 		handleResponse(c, InternalError, "Failed to get repricing details")
@@ -470,7 +463,7 @@ func (h *RepricingHandler) ExportListDetail(c *gin.Context) {
 		f.SetCellValue(sheetName, "J"+row, item.SerialNumber)
 	}
 
-	saveExcelToUploads(c, f, *h.log, fmt.Sprintf("Repricing_Detail_%d", repricingID))
+	saveExcelToUploads(c, f, *h.log, fmt.Sprintf("Repricing_Detail_%d", param.RepricingID))
 }
 
 // add new retail price

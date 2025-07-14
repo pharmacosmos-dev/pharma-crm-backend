@@ -14592,7 +14592,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/repricing-detail/export-excel/{id}": {
+        "/repricing-detail/export-excel": {
             "get": {
                 "security": [
                     {
@@ -14633,8 +14633,7 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "Repricing ID",
                         "name": "id",
-                        "in": "path",
-                        "required": true
+                        "in": "query"
                     }
                 ],
                 "responses": {

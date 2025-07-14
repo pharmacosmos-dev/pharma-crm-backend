@@ -10758,7 +10758,7 @@ paths:
       summary: Create Repricing
       tags:
       - Repricing
-  /repricing-detail/export-excel/{id}:
+  /repricing-detail/export-excel:
     get:
       consumes:
       - application/json
@@ -10777,9 +10777,8 @@ paths:
         name: search
         type: string
       - description: Repricing ID
-        in: path
+        in: query
         name: id
-        required: true
         type: integer
       produces:
       - application/json
