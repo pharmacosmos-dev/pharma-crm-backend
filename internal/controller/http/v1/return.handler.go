@@ -41,7 +41,7 @@ func (h *ReturnHandler) ReturnRoutes(r *gin.RouterGroup) {
 		returned.POST("/confirm/:id", h.Confirm)
 		returned.POST("/cancel/:id", h.Cancel)
 		returned.GET("/export-nakladnoy", h.ExportReturnNakladnoyPDF)
-		returned.GET("/update-by-barcode", h.UpdateByBarcode)
+		returned.PUT("/update-by-barcode", h.UpdateByBarcode)
 		returned.PUT("/edit-status-to-checking", h.EditStatusToChecking)
 	}
 	detail := r.Group("return-detail")
@@ -881,7 +881,7 @@ func (h *ReturnHandler) ExportReturnNakladnoyPDF(c *gin.Context) {
 // @Success 200 {object} v1.Response "Return PDF file"
 // @Failure 400 {object} v1.Response "Invalid request parameters"
 // @Failure 500 {object} v1.Response "Internal server error"
-// @Router /return/update-by-barcode [GET]
+// @Router /return/update-by-barcode [PUT]
 func (h *ReturnHandler) UpdateByBarcode(c *gin.Context) {
 	barcode := c.Query("barcode")
 	if barcode == "" {
