@@ -15464,6 +15464,61 @@ const docTemplate = `{
                 }
             }
         },
+        "/return/edit-status-to-checking": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Return"
+                ],
+                "summary": "Edit status to checking",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Transfer ID or Return ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "TYPE: return or transfer",
+                        "name": "type",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Return PDF file",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request parameters",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/return/export-excel": {
             "get": {
                 "security": [
@@ -15841,6 +15896,13 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
+                        "description": "Transfer ID or Return ID",
+                        "name": "id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
                         "description": "Barcode",
                         "name": "barcode",
                         "in": "query",
@@ -15855,9 +15917,10 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "TYPE: return||transfer",
+                        "description": "TYPE: return or transfer",
                         "name": "type",
-                        "in": "query"
+                        "in": "query",
+                        "required": true
                     }
                 ],
                 "responses": {

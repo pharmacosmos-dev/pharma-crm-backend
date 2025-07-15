@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"gorm.io/gorm"
 	"math"
 	"strings"
 	"time"
@@ -383,7 +384,7 @@ func (s *Services) SendReturn(returnId string, userId string) error {
 	defer recoverTransaction(tx, s.log)
 	// update confirm return
 	query := `UPDATE transfers SET status = ?, updated_by = ? WHERE id = ?`
-	err := tx.Exec(query, config.PENDING, userId, returnId).Error
+	err := tx.Exec(query, config.SENT, userId, returnId).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating return %v", err)
 		return err
@@ -496,7 +497,11 @@ func (s *Services) SendReturn1C(returnId string) error {
 	return nil
 }
 
-func (s *Services) BarcodeReturn(transferId, barcode string, acceptedCount float64) error {
+func (s *Services) EditStatusToCheckingReturn(Id string) error {
+	return s.db.Exec("UPDATE transfers SET status = ? WHERE id = ?", config.SENT, Id).Error
+}
+
+func (s *Services) BarcodeReturn(Id, barcode string, acceptedCount float64) error {
 	tx := s.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
@@ -511,22 +516,21 @@ func (s *Services) BarcodeReturn(transferId, barcode string, acceptedCount float
 	}
 
 	var detail domain.TransferDetail
-	if err := tx.Where("transfer_id = ? AND product_id = ?", transferId, product.Id).
+	if err := tx.Where("transfer_id = ? AND product_id = ?", Id, product.Id).
 		First(&detail).Error; err != nil {
 		tx.Rollback()
 		return fmt.Errorf("transfer detail not found: %w", err)
 	}
-
-	if err := tx.Model(&detail).Update("accepted_count", acceptedCount).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("failed to update accepted_count: %w", err)
-	}
-
-	if err := tx.Model(&domain.Transfer{}).
-		Where("id = ?", transferId).
-		Update("status", config.SENT).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("failed to update transfer status: %w", err)
+	if acceptedCount > 0 {
+		if err := tx.Model(&detail).Update("accepted_count", acceptedCount).Error; err != nil {
+			tx.Rollback()
+			return fmt.Errorf("failed to update accepted_count: %w", err)
+		}
+	} else {
+		if err := tx.Model(&detail).Update("accepted_count", gorm.Expr("accepted_count + ?", 1)).Error; err != nil {
+			tx.Rollback()
+			return fmt.Errorf("failed to increment accepted_count: %w", err)
+		}
 	}
 
 	return tx.Commit().Error

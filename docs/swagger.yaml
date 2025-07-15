@@ -11382,6 +11382,41 @@ paths:
       summary: Confirm Return
       tags:
       - Return
+  /return/edit-status-to-checking:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Transfer ID or Return ID
+        in: query
+        name: id
+        required: true
+        type: string
+      - description: 'TYPE: return or transfer'
+        in: query
+        name: type
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Return PDF file
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Invalid request parameters
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Edit status to checking
+      tags:
+      - Return
   /return/export-excel:
     get:
       consumes:
@@ -11614,6 +11649,11 @@ paths:
       consumes:
       - application/json
       parameters:
+      - description: Transfer ID or Return ID
+        in: query
+        name: id
+        required: true
+        type: string
       - description: Barcode
         in: query
         name: barcode
@@ -11624,9 +11664,10 @@ paths:
         name: accepted_count
         required: true
         type: integer
-      - description: 'TYPE: return||transfer'
+      - description: 'TYPE: return or transfer'
         in: query
         name: type
+        required: true
         type: string
       produces:
       - application/json
