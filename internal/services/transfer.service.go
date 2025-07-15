@@ -216,6 +216,7 @@ func (s *Services) TransferDetailList(param *domain.ReturnDetailParam) ([]domain
 			transfer_details.product_id, 
 			transfer_details.transfer_id,
 			transfer_details.received_count,
+			transfer_details.accepted_count,
 			FLOOR(transfer_details.scanned_count) AS scanned_count,
 			ROUND(MOD(transfer_details.scanned_count * p.unit_per_pack, p.unit_per_pack), 0) AS scanned_unit,
 			transfer_details.expire_date, 
