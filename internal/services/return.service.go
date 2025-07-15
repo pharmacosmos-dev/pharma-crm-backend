@@ -383,7 +383,7 @@ func (s *Services) SendReturn(returnId string, userId string) error {
 	defer recoverTransaction(tx, s.log)
 	// update confirm return
 	query := `UPDATE transfers SET status = ?, updated_by = ? WHERE id = ?`
-	err := tx.Exec(query, config.SENT, userId, returnId).Error
+	err := tx.Exec(query, config.PENDING, userId, returnId).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating return %v", err)
 		return err
@@ -494,6 +494,42 @@ func (s *Services) SendReturn1C(returnId string) error {
 		return err
 	}
 	return nil
+}
+
+func (s *Services) BarcodeReturn(transferId, barcode string, acceptedCount float64) error {
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	var product domain.Product
+	if err := tx.Where("barcode = ?", barcode).First(&product).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("product not found: %w", err)
+	}
+
+	var detail domain.TransferDetail
+	if err := tx.Where("transfer_id = ? AND product_id = ?", transferId, product.Id).
+		First(&detail).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("transfer detail not found: %w", err)
+	}
+
+	if err := tx.Model(&detail).Update("accepted_count", acceptedCount).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to update accepted_count: %w", err)
+	}
+
+	if err := tx.Model(&domain.Transfer{}).
+		Where("id = ?", transferId).
+		Update("status", config.SENT).Error; err != nil {
+		tx.Rollback()
+		return fmt.Errorf("failed to update transfer status: %w", err)
+	}
+
+	return tx.Commit().Error
 }
 
 // confirm return

@@ -11609,6 +11609,45 @@ paths:
       summary: Send Return to 1C
       tags:
       - Return
+  /return/update-by-barcode:
+    get:
+      consumes:
+      - application/json
+      parameters:
+      - description: Barcode
+        in: query
+        name: barcode
+        required: true
+        type: string
+      - description: Accepted count
+        in: query
+        name: accepted_count
+        required: true
+        type: integer
+      - description: 'TYPE: return||transfer'
+        in: query
+        name: type
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Return PDF file
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Invalid request parameters
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update return by barcode
+      tags:
+      - Return
   /role:
     post:
       consumes:
