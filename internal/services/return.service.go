@@ -501,7 +501,7 @@ func (s *Services) EditStatusToCheckingReturn(Id string) error {
 	return s.db.Exec("UPDATE transfers SET status = ? WHERE id = ?", config.CHECKING, Id).Error
 }
 
-func (s *Services) BarcodeReturn(Id string, req domain.BarcodeRequest) error {
+func (s *Services) BarcodeReturn(Id string, req domain.BarcodeRequest) (error, int) {
 	tx := s.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
@@ -512,28 +512,32 @@ func (s *Services) BarcodeReturn(Id string, req domain.BarcodeRequest) error {
 	var product domain.Product
 	if err := tx.Where("barcode = ?", req.Barcode).First(&product).Error; err != nil {
 		tx.Rollback()
-		return fmt.Errorf("product not found: %w", err)
+		return fmt.Errorf("product not found: %w", err), 404
 	}
 
 	var detail domain.TransferDetail
 	if err := tx.Where("transfer_id = ? AND product_id = ?", Id, product.Id).
 		First(&detail).Error; err != nil {
 		tx.Rollback()
-		return fmt.Errorf("transfer detail not found: %w", err)
+		return fmt.Errorf("transfer detail not found: %w", err), 404
+	}
+	if detail.AcceptedCount >= detail.ReceivedCount || float64(req.AcceptedCount) > detail.ReceivedCount {
+		tx.Rollback()
+		return fmt.Errorf("transfer detail already accepted"), 400
 	}
 	if req.AcceptedCount > 0 {
 		if err := tx.Model(&detail).Update("accepted_count", req.AcceptedCount).Error; err != nil {
 			tx.Rollback()
-			return fmt.Errorf("failed to update accepted_count: %w", err)
+			return fmt.Errorf("failed to update accepted_count: %w", err), 500
 		}
 	} else {
 		if err := tx.Model(&detail).Update("accepted_count", gorm.Expr("accepted_count + ?", 1)).Error; err != nil {
 			tx.Rollback()
-			return fmt.Errorf("failed to increment accepted_count: %w", err)
+			return fmt.Errorf("failed to increment accepted_count: %w", err), 500
 		}
 	}
 
-	return tx.Commit().Error
+	return tx.Commit().Error, 200
 }
 
 // confirm return

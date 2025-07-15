@@ -896,14 +896,22 @@ func (h *ReturnHandler) UpdateByBarcode(c *gin.Context) {
 
 	switch req.Type {
 	case "return":
-		if err := h.service.BarcodeReturn(id, req); err != nil {
+		if err, statusCode := h.service.BarcodeReturn(id, req); err != nil {
 			log.Println("update by barcode error:", err)
+			if statusCode == 400 {
+				handleResponse(c, BadRequest, err.Error())
+				return
+			}
 			handleResponse(c, InternalError, "Failed to update return")
 			return
 		}
 	case "transfer":
-		if err := h.service.BarcodeTransfer(id, req); err != nil {
+		if err, statusCode := h.service.BarcodeTransfer(id, req); err != nil {
 			log.Println("update by barcode error:", err)
+			if statusCode == 400 {
+				handleResponse(c, BadRequest, err.Error())
+				return
+			}
 			handleResponse(c, InternalError, "Failed to update transfer")
 			return
 		}
