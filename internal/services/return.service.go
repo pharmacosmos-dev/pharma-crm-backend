@@ -523,7 +523,7 @@ func (s *Services) BarcodeReturn(Id string, req domain.BarcodeRequest) (error, i
 	}
 	if detail.AcceptedCount >= detail.ReceivedCount || float64(req.AcceptedCount) > detail.ReceivedCount {
 		tx.Rollback()
-		return fmt.Errorf("transfer detail already accepted"), 400
+		return fmt.Errorf("error.transfer.surplus.accepted_count"), 400
 	}
 	if req.AcceptedCount > 0 {
 		if err := tx.Model(&detail).Update("accepted_count", req.AcceptedCount).Error; err != nil {
