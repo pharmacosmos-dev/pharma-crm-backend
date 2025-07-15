@@ -57,8 +57,8 @@ func (s *Services) CreateTransfer(req *domain.TransferRequest) error {
 				sp.id, 
 				sp.product_id, 
 				sp.unit_quantity::numeric/p.unit_per_pack, 
-				sp.supply_price, 
-				sp.retail_price, 
+				sp.supply_price,
+				sp.retail_price,
 				sp.expire_date, 
 				sp.serial_number
 			FROM store_products sp
@@ -545,10 +545,10 @@ func (s *Services) ConfirmTransfer(transferID string, userId string) error {
 				store_id, 
 				pack_quantity, 
 				unit_quantity, 
-				retail_price, 
-				supply_price, 
-				vat, 
-				expire_date, 
+				retail_price,
+				supply_price,
+				vat,
+				expire_date,
 				vat_price,
 				serial_number
 		)
@@ -557,7 +557,17 @@ func (s *Services) ConfirmTransfer(transferID string, userId string) error {
 	var data1C domain.TransferData1C
 	for _, v := range res {
 		// execute query
-		err = tx.Exec(query2, v.ProductId, transfer.ToStoreId, int(v.ScannedCount), math.Round(v.ScannedCount*float64(v.UnitPerPack)), v.RetailPrice, v.SupplyPrice, 12, v.ExpireDate, (v.RetailPrice*12)/112, v.SerialNumber).Error
+		err = tx.Exec(query2,
+			v.ProductId,
+			transfer.ToStoreId,
+			v.ScannedCount,
+			math.Round(v.ScannedCount*float64(v.UnitPerPack)),
+			v.RetailPriceVat,
+			v.SupplyPriceVat,
+			12,
+			v.ExpireDate,
+			(v.RetailPriceVat*12)/112,
+			v.SerialNumber).Error
 		if err != nil {
 			s.log.Warn("ERROR on inserting store product: %v", err)
 			return err

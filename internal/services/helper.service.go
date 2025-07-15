@@ -71,9 +71,10 @@ func extractDocMeta(data any) (docDate, docNum string) {
 				}
 
 				// Check JSON tags for data_dok and nomer_dok
-				if jsonTag == "data_dok" {
+				switch jsonTag {
+				case "data_dok":
 					docDate = fieldValue.String()
-				} else if jsonTag == "nomer_dok" {
+				case "nomer_dok":
 					docNum = fieldValue.String()
 				}
 			}
