@@ -29,6 +29,12 @@ type Return struct {
 	AcceptedBy        *Employee  `gorm:"foreignKey:AcceptedById" json:"accepted_by"`
 }
 
+type BarcodeRequest struct {
+	Barcode       string `json:"barcode"`
+	AcceptedCount int    `json:"accepted_count"`
+	Type          string `json:"type"`
+}
+
 type ReturnStatusSummary struct {
 	ReturnCount       float64 `json:"return_count"`
 	ReceivedRetailSum float64 `json:"received_retail_sum"`

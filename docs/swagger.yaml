@@ -51,6 +51,15 @@ definitions:
       store_id:
         type: string
     type: object
+  domain.BarcodeRequest:
+    properties:
+      accepted_count:
+        type: integer
+      barcode:
+        type: string
+      type:
+        type: string
+    type: object
   domain.BrandRequest:
     properties:
       logo:
@@ -11382,13 +11391,13 @@ paths:
       summary: Confirm Return
       tags:
       - Return
-  /return/edit-status-to-checking:
+  /return/edit-status-to-checking/{id}:
     put:
       consumes:
       - application/json
       parameters:
       - description: Transfer ID or Return ID
-        in: query
+        in: path
         name: id
         required: true
         type: string
@@ -11644,35 +11653,27 @@ paths:
       summary: Send Return to 1C
       tags:
       - Return
-  /return/update-by-barcode:
+  /return/update-by-barcode/{id}:
     put:
       consumes:
       - application/json
       parameters:
       - description: Transfer ID or Return ID
-        in: query
+        in: path
         name: id
         required: true
         type: string
-      - description: Barcode
-        in: query
-        name: barcode
+      - description: Barcode request payload
+        in: body
+        name: request
         required: true
-        type: string
-      - description: Accepted count
-        in: query
-        name: accepted_count
-        type: integer
-      - description: 'TYPE: return or transfer'
-        in: query
-        name: type
-        required: true
-        type: string
+        schema:
+          $ref: '#/definitions/domain.BarcodeRequest'
       produces:
       - application/json
       responses:
         "200":
-          description: Return PDF file
+          description: Update successful
           schema:
             $ref: '#/definitions/v1.Response'
         "400":
@@ -11685,7 +11686,7 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Update return by barcode
+      summary: Update return or transfer by barcode
       tags:
       - Return
   /role:

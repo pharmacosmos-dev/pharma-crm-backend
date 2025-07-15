@@ -15464,7 +15464,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/return/edit-status-to-checking": {
+        "/return/edit-status-to-checking/{id}": {
             "put": {
                 "security": [
                     {
@@ -15486,7 +15486,7 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Transfer ID or Return ID",
                         "name": "id",
-                        "in": "query",
+                        "in": "path",
                         "required": true
                     },
                     {
@@ -15876,7 +15876,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/return/update-by-barcode": {
+        "/return/update-by-barcode/{id}": {
             "put": {
                 "security": [
                     {
@@ -15892,39 +15892,28 @@ const docTemplate = `{
                 "tags": [
                     "Return"
                 ],
-                "summary": "Update return by barcode",
+                "summary": "Update return or transfer by barcode",
                 "parameters": [
                     {
                         "type": "string",
                         "description": "Transfer ID or Return ID",
                         "name": "id",
-                        "in": "query",
+                        "in": "path",
                         "required": true
                     },
                     {
-                        "type": "string",
-                        "description": "Barcode",
-                        "name": "barcode",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Accepted count",
-                        "name": "accepted_count",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "TYPE: return or transfer",
-                        "name": "type",
-                        "in": "query",
-                        "required": true
+                        "description": "Barcode request payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.BarcodeRequest"
+                        }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Return PDF file",
+                        "description": "Update successful",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
                         }
@@ -20882,6 +20871,20 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "store_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.BarcodeRequest": {
+            "type": "object",
+            "properties": {
+                "accepted_count": {
+                    "type": "integer"
+                },
+                "barcode": {
+                    "type": "string"
+                },
+                "type": {
                     "type": "string"
                 }
             }

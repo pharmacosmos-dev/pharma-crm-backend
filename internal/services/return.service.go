@@ -501,7 +501,7 @@ func (s *Services) EditStatusToCheckingReturn(Id string) error {
 	return s.db.Exec("UPDATE transfers SET status = ? WHERE id = ?", config.SENT, Id).Error
 }
 
-func (s *Services) BarcodeReturn(Id, barcode string, acceptedCount float64) error {
+func (s *Services) BarcodeReturn(Id string, req domain.BarcodeRequest) error {
 	tx := s.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
@@ -510,7 +510,7 @@ func (s *Services) BarcodeReturn(Id, barcode string, acceptedCount float64) erro
 	}()
 
 	var product domain.Product
-	if err := tx.Where("barcode = ?", barcode).First(&product).Error; err != nil {
+	if err := tx.Where("barcode = ?", req.Barcode).First(&product).Error; err != nil {
 		tx.Rollback()
 		return fmt.Errorf("product not found: %w", err)
 	}
@@ -521,8 +521,8 @@ func (s *Services) BarcodeReturn(Id, barcode string, acceptedCount float64) erro
 		tx.Rollback()
 		return fmt.Errorf("transfer detail not found: %w", err)
 	}
-	if acceptedCount > 0 {
-		if err := tx.Model(&detail).Update("accepted_count", acceptedCount).Error; err != nil {
+	if req.AcceptedCount > 0 {
+		if err := tx.Model(&detail).Update("accepted_count", req.AcceptedCount).Error; err != nil {
 			tx.Rollback()
 			return fmt.Errorf("failed to update accepted_count: %w", err)
 		}

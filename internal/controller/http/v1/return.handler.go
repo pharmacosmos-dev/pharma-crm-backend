@@ -41,8 +41,8 @@ func (h *ReturnHandler) ReturnRoutes(r *gin.RouterGroup) {
 		returned.POST("/confirm/:id", h.Confirm)
 		returned.POST("/cancel/:id", h.Cancel)
 		returned.GET("/export-nakladnoy", h.ExportReturnNakladnoyPDF)
-		returned.PUT("/update-by-barcode", h.UpdateByBarcode)
-		returned.PUT("/edit-status-to-checking", h.EditStatusToChecking)
+		returned.PUT("/update-by-barcode/:id", h.UpdateByBarcode)
+		returned.PUT("/edit-status-to-checking/:id", h.EditStatusToChecking)
 	}
 	detail := r.Group("return-detail")
 	{
@@ -869,63 +869,50 @@ func (h *ReturnHandler) ExportReturnNakladnoyPDF(c *gin.Context) {
 }
 
 // UpdateByBarcode godoc
-// @Summary Update return by barcode
+// @Summary Update return or transfer by barcode
 // @Tags Return
-// @Security     BearerAuth
-// @Accept 	json
+// @Security BearerAuth
+// @Accept json
 // @Produce json
-// @Param   id query string true "Transfer ID or Return ID"
-// @Param   barcode query string true "Barcode"
-// @Param   accepted_count query int false "Accepted count"
-// @Param   type 	query string true "TYPE: return or transfer"
-// @Success 200 {object} v1.Response "Return PDF file"
+// @Param id path string true "Transfer ID or Return ID"
+// @Param request body domain.BarcodeRequest true "Barcode request payload"
+// @Success 200 {object} v1.Response "Update successful"
 // @Failure 400 {object} v1.Response "Invalid request parameters"
 // @Failure 500 {object} v1.Response "Internal server error"
-// @Router /return/update-by-barcode [PUT]
+// @Router /return/update-by-barcode/{id} [put]
 func (h *ReturnHandler) UpdateByBarcode(c *gin.Context) {
-	barcode := c.Query("barcode")
-	if barcode == "" {
-		handleResponse(c, BadRequest, "barcode is required")
+	var req domain.BarcodeRequest
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		handleResponse(c, BadRequest, "Invalid request body")
 		return
 	}
 
-	acceptedCountStr := c.Query("accepted_count")
-	if acceptedCountStr == "" {
-		acceptedCountStr = "0"
-	}
-	acceptedCount, err := strconv.ParseFloat(acceptedCountStr, 64)
-	if err != nil && acceptedCount < 0 {
-		handleResponse(c, BadRequest, "invalid accepted_count")
-		return
-	}
-
-	id := c.Query("id")
+	id := c.Param("id")
 	if id == "" {
-		handleResponse(c, BadRequest, "transfer_id is required")
+		handleResponse(c, BadRequest, "ID is required")
 		return
 	}
 
-	updateType := c.Query("type")
-	if updateType != "return" && updateType != "transfer" {
-		handleResponse(c, BadRequest, "invalid type: must be 'return' or 'transfer'")
+	switch req.Type {
+	case "return":
+		if err := h.service.BarcodeReturn(id, req); err != nil {
+			log.Println("update by barcode error:", err)
+			handleResponse(c, InternalError, "Failed to update return")
+			return
+		}
+	case "transfer":
+		if err := h.service.BarcodeTransfer(id, req); err != nil {
+			log.Println("update by barcode error:", err)
+			handleResponse(c, InternalError, "Failed to update transfer")
+			return
+		}
+	default:
+		handleResponse(c, BadRequest, "Invalid type: must be 'return' or 'transfer'")
 		return
 	}
-	if updateType == "return" {
-		err = h.service.BarcodeReturn(id, barcode, acceptedCount)
-		if err != nil {
-			log.Println("update by barcode error:", err)
-			handleResponse(c, InternalError, "internal error")
-			return
-		}
-	} else {
-		err = h.service.BarcodeTransfer(id, barcode, acceptedCount)
-		if err != nil {
-			log.Println("update by barcode error:", err)
-			handleResponse(c, InternalError, "internal error")
-			return
-		}
-	}
-	handleResponse(c, OK, "updated successfully")
+
+	handleResponse(c, OK, "Updated successfully")
 }
 
 // EditStatusToChecking godoc
@@ -934,14 +921,14 @@ func (h *ReturnHandler) UpdateByBarcode(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept 	json
 // @Produce json
-// @Param   id query string true "Transfer ID or Return ID"
+// @Param   id path string true "Transfer ID or Return ID"
 // @Param   type 	query string true "TYPE: return or transfer"
 // @Success 200 {object} v1.Response "Return PDF file"
 // @Failure 400 {object} v1.Response "Invalid request parameters"
 // @Failure 500 {object} v1.Response "Internal server error"
-// @Router /return/edit-status-to-checking [PUT]
+// @Router /return/edit-status-to-checking/{id} [PUT]
 func (h *ReturnHandler) EditStatusToChecking(c *gin.Context) {
-	id := c.Query("id")
+	id := c.Param("id")
 	if id == "" {
 		handleResponse(c, BadRequest, "id is required")
 		return
