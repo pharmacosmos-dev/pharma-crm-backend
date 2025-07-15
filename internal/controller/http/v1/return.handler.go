@@ -2,6 +2,7 @@ package v1
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"strconv"
 	"time"
@@ -40,6 +41,7 @@ func (h *ReturnHandler) ReturnRoutes(r *gin.RouterGroup) {
 		returned.POST("/confirm/:id", h.Confirm)
 		returned.POST("/cancel/:id", h.Cancel)
 		returned.GET("/export-nakladnoy", h.ExportReturnNakladnoyPDF)
+		returned.GET("/update-by-barcode", h.UpdateByBarcode)
 	}
 	detail := r.Group("return-detail")
 	{
@@ -863,4 +865,59 @@ func (h *ReturnHandler) ExportReturnNakladnoyPDF(c *gin.Context) {
 	pdf.CellFormat(100, 7, "Товар отпустил: _______________", "", 1, "L", false, 0, "")
 
 	savePdfToUploads(c, pdf, *h.log, "Return_Nakladnoy_"+returnData.PublicId)
+}
+
+// @Summary Update return by barcode
+// @Tags Return
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param   barcode query string true "Barcode"
+// @Param   accepted_count query int true "Accepted count"
+// @Param   type 	query string false "TYPE: return||transfer"
+// @Success 200 {object} v1.Response "Return PDF file"
+// @Failure 400 {object} v1.Response "Invalid request parameters"
+// @Failure 500 {object} v1.Response "Internal server error"
+// @Router /return/update-by-barcode [GET]
+func (h *ReturnHandler) UpdateByBarcode(c *gin.Context) {
+	barcode := c.Query("barcode")
+	if barcode == "" {
+		handleResponse(c, BadRequest, "barcode is required")
+		return
+	}
+
+	acceptedCountStr := c.Query("accepted_count")
+	acceptedCount, err := strconv.ParseFloat(acceptedCountStr, 64)
+	if err != nil || acceptedCount < 0 {
+		handleResponse(c, BadRequest, "invalid accepted_count")
+		return
+	}
+
+	transferId := c.Query("transfer_id")
+	if transferId == "" {
+		handleResponse(c, BadRequest, "transfer_id is required")
+		return
+	}
+
+	updateType := c.DefaultQuery("type", "return")
+	if updateType != "return" && updateType != "transfer" {
+		handleResponse(c, BadRequest, "invalid type: must be 'return' or 'transfer'")
+		return
+	}
+	if updateType == "return" {
+		err = h.service.BarcodeReturn(transferId, barcode, acceptedCount)
+		if err != nil {
+			log.Println("update by barcode error:", err)
+			handleResponse(c, InternalError, "internal error")
+			return
+		}
+	} else {
+		err = h.service.BarcodeTransfer(transferId, barcode, acceptedCount)
+		if err != nil {
+			log.Println("update by barcode error:", err)
+			handleResponse(c, InternalError, "internal error")
+			return
+		}
+	}
+	handleResponse(c, OK, "updated successfully")
 }
