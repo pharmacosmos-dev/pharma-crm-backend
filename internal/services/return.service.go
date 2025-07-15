@@ -498,7 +498,7 @@ func (s *Services) SendReturn1C(returnId string) error {
 }
 
 func (s *Services) EditStatusToCheckingReturn(Id string) error {
-	return s.db.Exec("UPDATE transfers SET status = ? WHERE id = ?", config.SENT, Id).Error
+	return s.db.Exec("UPDATE transfers SET status = ? WHERE id = ?", config.CHECKING, Id).Error
 }
 
 func (s *Services) BarcodeReturn(Id string, req domain.BarcodeRequest) error {
