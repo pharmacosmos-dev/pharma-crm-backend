@@ -11645,7 +11645,7 @@ paths:
       tags:
       - Return
   /return/update-by-barcode:
-    get:
+    put:
       consumes:
       - application/json
       parameters:
@@ -11662,7 +11662,6 @@ paths:
       - description: Accepted count
         in: query
         name: accepted_count
-        required: true
         type: integer
       - description: 'TYPE: return or transfer'
         in: query

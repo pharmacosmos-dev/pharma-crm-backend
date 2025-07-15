@@ -15877,7 +15877,7 @@ const docTemplate = `{
             }
         },
         "/return/update-by-barcode": {
-            "get": {
+            "put": {
                 "security": [
                     {
                         "BearerAuth": []
@@ -15912,8 +15912,7 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "Accepted count",
                         "name": "accepted_count",
-                        "in": "query",
-                        "required": true
+                        "in": "query"
                     },
                     {
                         "type": "string",
