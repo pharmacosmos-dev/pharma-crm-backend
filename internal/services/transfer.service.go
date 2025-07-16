@@ -376,10 +376,15 @@ func (s *Services) BarcodeTransfer(Id string, req domain.BarcodeRequest) (error,
 		tx.Rollback()
 		return fmt.Errorf("transfer detail not found: %w", err), 404
 	}
-	if detail.AcceptedCount >= detail.ReceivedCount || float64(req.AcceptedCount) > detail.ReceivedCount {
+
+	if float64(req.AcceptedCount) > detail.ReceivedCount {
+		tx.Rollback()
+		return fmt.Errorf("error.transfer.surplus.accepted_count"), 400
+	} else if detail.AcceptedCount >= detail.ReceivedCount && req.AcceptedCount == 0 {
 		tx.Rollback()
 		return fmt.Errorf("error.transfer.surplus.accepted_count"), 400
 	}
+
 	if req.AcceptedCount > 0 {
 		if err = tx.Model(&detail).Update("accepted_count", req.AcceptedCount).Error; err != nil {
 			tx.Rollback()

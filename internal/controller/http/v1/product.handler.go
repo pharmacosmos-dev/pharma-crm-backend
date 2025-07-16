@@ -259,8 +259,8 @@ func (h *ProductHandler) Get(c *gin.Context) {
 		Preload("Producer").
 		Select(`
 			products.*,
-			sp.retail_price / products.unit_per_pack AS retail_unit_price,
-			sp.retail_price AS retail_price
+			ROUND(sp.retail_price / products.unit_per_pack, 2) AS retail_unit_price,
+			ROUND((sp.retail_price),2) AS retail_price
 		`).
 		Joins(rawJoin, storeId)
 
