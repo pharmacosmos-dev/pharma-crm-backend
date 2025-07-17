@@ -461,13 +461,6 @@ func (s *Services) ConfirmTransfer(transferID string, userId string) error {
 	}
 	defer RollbackIfError(tx, &err) // rollback function for return transcation
 
-	// update confirm inventory details
-	query1 := `UPDATE transfer_details SET accepted_count = scanned_count, updated_at = NOW() WHERE transfer_id = ?`
-	err = tx.Exec(query1, transferID).Error
-	if err != nil {
-		s.log.Warn("ERROR on updating inventory details: %v", err)
-		return err
-	}
 	var res []domain.TransferDetail
 	err = tx.Raw(`
 	SELECT
