@@ -138,7 +138,7 @@ func (s *Services) UpdateReturnDetailQuantity(id string, request *domain.ReturnA
 			return errors.New("expected_count could not be greater current count")
 		}
 		updateField := "expected_count"
-		if request.Status == "sent" {
+		if request.Status == "checking" {
 			updateField = "accepted_count"
 		}
 		// add scanned count by transfer detail id
@@ -164,7 +164,7 @@ func (s *Services) UpdateReturnDetailQuantity(id string, request *domain.ReturnA
 			return errors.New("expected_count could not be greater current count")
 		}
 		updateField := "expected_count"
-		if request.Status == "sent" {
+		if request.Status == "checking" {
 			updateField = "accepted_count"
 		}
 		// add scanned count by transfer detail id
@@ -298,6 +298,8 @@ func (s *Services) ReturnDetailList(param *domain.ReturnDetailParam) ([]domain.R
 			transfer_details.received_count,
 			transfer_details.created_at, 
 			transfer_details.updated_at,
+			FLOOR(transfer_details.expected_count) AS expected_count,
+			ROUND(MOD(transfer_details.expected_count * p.unit_per_pack, p.unit_per_pack), 0) AS expected_unit,
 			FLOOR(transfer_details.scanned_count) AS scanned_count,
 			ROUND(MOD(transfer_details.scanned_count * p.unit_per_pack, p.unit_per_pack), 0) AS scanned_unit,
 			FLOOR(transfer_details.accepted_count) AS accepted_count,
@@ -505,6 +507,7 @@ func (s *Services) EditStatusToCheckingReturn(Id string, userId string) error {
 	tx := s.db.Begin()
 	// checking recover
 	defer recoverTransaction(tx, s.log)
+	// update transfer status
 	err := tx.Exec("UPDATE transfers SET status = ?, updated_by = ?, updated_at = NOW() WHERE id = ?", config.CHECKING, userId, Id).Error
 	if err != nil {
 		s.log.Error("could not update transfer(%s) status: %v", Id, err)
@@ -532,7 +535,7 @@ func (s *Services) EditStatusToCheckingReturn(Id string, userId string) error {
 	WHERE 
 		t.transfer_id = ?`, Id).Scan(&res).Error
 	if err != nil {
-		s.log.Error("could not select transfer_details")
+		s.log.Error("could not select transfer_details by transfer_id(%s): %v", Id, err)
 		return errors.New("internal.server.error")
 	}
 	for _, item := range res {
@@ -641,22 +644,23 @@ func (s *Services) ConfirmReturn(returnId, storeId string, userId string) error 
 	}
 
 	returnData.Dok.DocumentNumber = "NP-" + cast.ToString(returnInfo.PublicId)
-	returnData.Dok.DocumentDate = returnInfo.UpdatedAt.Format(time.DateTime)
+	returnData.Dok.DocumentDate = returnInfo.UpdatedAt.Format(config.DATE_1C_FORMAT)
 	returnData.Apteka.Name = store.Name
 	returnData.Apteka.StoreCode = store.StoreCode
-
-	// send return to 1C
-	err = s.DoRequest(context.Background(), returnData, "/vozvrat")
-	if err != nil {
-		s.log.Warn("ERROR on sending return to 1C: %v", err)
-		return err
-	}
 
 	// complete transaction
 	err = tx.Commit().Error
 	if err != nil {
 		s.log.Warn("ERROR on commiting transaction: %v", err)
 		return err
+	}
+	if s.cfg.BaseUrl1C != "test" {
+		// send return to 1C
+		err = s.DoRequest(context.Background(), returnData, "/vozvrat")
+		if err != nil {
+			s.log.Warn("ERROR on sending return to 1C: %v", err)
+			return err
+		}
 	}
 
 	return nil

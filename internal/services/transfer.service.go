@@ -310,7 +310,7 @@ func (s *Services) SendTransfer(returnId string, userId string) error {
 	// rollback transaction if error happened
 	defer RollbackIfError(tx, &err)
 
-	query2 := `DELETE FROM transfer_details WHERE scanned_count = 0 AND transfer_id = ?;`
+	query2 := `DELETE FROM transfer_details WHERE expected_count = 0 AND transfer_id = ?;`
 	err = tx.Exec(query2, returnId).Error
 	if err != nil {
 		s.log.Warn("ERROR on deleting scanned 0 inventory details: %v", err)
@@ -334,7 +334,7 @@ func (s *Services) SendTransfer(returnId string, userId string) error {
 		// update store product quantities
 		// if scanned count is 0, skip the update
 		err = tx.Exec(`UPDATE store_products SET pack_quantity = GREATEST(?, 0), unit_quantity = GREATEST(unit_quantity - ?, 0), updated_at = NOW() WHERE id = ?`,
-			int(detail.ReceivedCount-detail.ScannedCount), math.Round(detail.ScannedCount*float64(detail.UnitPerPack)), detail.StoreProductId).Error
+			int(detail.ReceivedCount-detail.ExpectedCount), math.Round(detail.ExpectedCount*float64(detail.UnitPerPack)), detail.StoreProductId).Error
 		if err != nil {
 			s.log.Warn("ERROR on updating store product pack quantity: %v", err)
 			return err
@@ -348,10 +348,6 @@ func (s *Services) SendTransfer(returnId string, userId string) error {
 		return err
 	}
 	return nil
-}
-
-func (s *Services) EditStatusToCheckingTransfer(id string) error {
-	return s.db.Model(&domain.Transfer{}).Where("id = ?", id).Update("status", config.CHECKING).Error
 }
 
 func (s *Services) SendTransferTo1C(transferID string) error {

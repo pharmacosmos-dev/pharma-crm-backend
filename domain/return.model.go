@@ -19,7 +19,7 @@ type Return struct {
 	AcceptedSupplySum float64    `gorm:"accepted_supply_sum" json:"accepted_supply_sum"`
 	AcceptedRetailSum float64    `gorm:"accepted_retail_sum" json:"accepted_retail_sum"`
 	CreatedById       string     `gorm:"column:created_by" json:"created_by_id"`
-	UpdatedById       string     `gorm:"column:accepted_by" json:"updated_by_id"`
+	UpdatedById       string     `gorm:"column:updated_by" json:"updated_by_id"`
 	AcceptedById      string     `gorm:"column:accepted_by" json:"accepted_by_id"`
 	CreatedAt         *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt         *time.Time `gorm:"updated_at" json:"updated_at"`
@@ -34,7 +34,7 @@ type BarcodeRequest struct {
 	Id      string `json:"id"`
 	Barcode string `json:"barcode"`
 	Count   int    `json:"count"`
-	Type    string `json:"type"`
+	Status  string `json:"status"`
 }
 
 type ReturnStatusSummary struct {
