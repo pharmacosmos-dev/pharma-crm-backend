@@ -29,7 +29,7 @@ migrate_up: ### migration up
 .PHONY: migrate_up
 
 migrate_down:
-	migrate -path migrations -database "$(DB_URL)" down
+	migrate -path migrations -database "$(DB_URL)" down 1
 .PHONY: migrate_down
 
 migrate_force:

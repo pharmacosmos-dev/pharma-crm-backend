@@ -244,7 +244,7 @@ func (h *ProductHandler) Get(c *gin.Context) {
 		Preload("Shelf").
 		Preload("Producer").
 		Select(`
-			products.*, 
+			products.*,
 			COALESCE(MAX(sp.retail_price), 0) AS retail_price
 			`).
 		Joins("LEFT JOIN store_products sp ON products.id = sp.product_id")
