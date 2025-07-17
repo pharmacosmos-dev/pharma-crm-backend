@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"gorm.io/gorm"
 	"math"
 	"strings"
 	"time"
@@ -52,10 +51,10 @@ func (s *Services) CreateReturn(req *domain.ReturnRequest) error {
 			retail_price,
 			expire_date,
 			serial_number)
-		SELECT  
-			?, 
+		SELECT
+			?,
 			sp.id,
-			sp.product_id, 
+			sp.product_id,
 			sp.unit_quantity::numeric/p.unit_per_pack, 
 			sp.supply_price, 
 			sp.retail_price, 
@@ -130,15 +129,15 @@ func (s *Services) UpdateReturnDetailQuantity(id string, request *domain.ReturnA
 	WHERE td.id = ?;
 	`, request.Id).Scan(&returnDetail).Error
 	if err != nil {
-		s.log.Error(err)
-		return err
+		s.log.Error("could not get transfer detail(%s): %v", request.Id, err)
+		return errors.New("internal.server.error")
 	}
 	// update scanned count with pack quantity
 	if request.ScannedPack != nil {
 		if float64(*request.ScannedPack) > returnDetail.ReceivedCount {
-			return errors.New("scanned count could not be greater current count")
+			return errors.New("expected_count could not be greater current count")
 		}
-		updateField := "scanned_count"
+		updateField := "expected_count"
 		if request.Status == "sent" {
 			updateField = "accepted_count"
 		}
@@ -152,7 +151,7 @@ func (s *Services) UpdateReturnDetailQuantity(id string, request *domain.ReturnA
 			id = ? AND transfer_id = ?;`, updateField),
 			request.ScannedPack, request.Id, id).Error
 		if err != nil {
-			s.log.Error(err)
+			s.log.Error("could not update expected_count: %v", err)
 			return err
 		}
 		return nil
@@ -162,9 +161,9 @@ func (s *Services) UpdateReturnDetailQuantity(id string, request *domain.ReturnA
 	if request.ScannedUnit != nil {
 		quantity := float64(int(returnDetail.ScannedCount)) + float64(*request.ScannedUnit)/returnDetail.UnitPerPack
 		if quantity > returnDetail.ReceivedCount {
-			return errors.New("scanned count could not be greater current count")
+			return errors.New("expected_count could not be greater current count")
 		}
-		updateField := "scanned_count"
+		updateField := "expected_count"
 		if request.Status == "sent" {
 			updateField = "accepted_count"
 		}
@@ -178,7 +177,7 @@ func (s *Services) UpdateReturnDetailQuantity(id string, request *domain.ReturnA
 			id = ? AND transfer_id = ?;`, updateField),
 			quantity, request.Id, id).Error
 		if err != nil {
-			s.log.Error(err)
+			s.log.Error("could not update expected_count: %v", err)
 			return err
 		}
 		return nil
@@ -382,6 +381,7 @@ func (s *Services) SendReturn(returnId string, userId string) error {
 	// start transaction
 	tx := s.db.Begin()
 	defer recoverTransaction(tx, s.log)
+
 	// update confirm return
 	query := `UPDATE transfers SET status = ?, updated_by = ? WHERE id = ?`
 	err := tx.Exec(query, config.SENT, userId, returnId).Error
@@ -389,8 +389,12 @@ func (s *Services) SendReturn(returnId string, userId string) error {
 		s.log.Warn("ERROR on updating return %v", err)
 		return err
 	}
-
-	query2 := `DELETE FROM transfer_details WHERE scanned_count = 0 AND transfer_id = ?;`
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+	query2 := `DELETE FROM transfer_details WHERE expected_count = 0 AND transfer_id = ?;`
 	err = tx.Exec(query2, returnId).Error
 	if err != nil {
 		s.log.Warn("ERROR on deleting scanned 0 return details: %v", err)
@@ -415,13 +419,13 @@ func (s *Services) SendReturn(returnId string, userId string) error {
 		// update store product quantities
 		// if scanned count is 0, skip the update
 		err = tx.Exec(`UPDATE store_products SET pack_quantity = GREATEST(?, 0), unit_quantity = GREATEST(unit_quantity - ?, 0), updated_at = NOW() WHERE id = ?`,
-			int(detail.ReceivedCount-detail.ScannedCount), math.Round(detail.ScannedCount*float64(detail.UnitPerPack)), detail.StoreProductId).Error
+			int(detail.ReceivedCount-detail.ExpectedCount), math.Round(detail.ExpectedCount*float64(detail.UnitPerPack)), detail.StoreProductId).Error
 		if err != nil {
 			s.log.Warn("ERROR on updating store product pack quantity: %v", err)
 			return err
 		}
 	}
-	defer RollbackIfError(tx, &err)
+
 	// complete transaction
 	err = tx.Commit().Error
 	if err != nil {
@@ -497,50 +501,63 @@ func (s *Services) SendReturn1C(returnId string) error {
 	return nil
 }
 
-func (s *Services) EditStatusToCheckingReturn(Id string) error {
-	return s.db.Exec("UPDATE transfers SET status = ? WHERE id = ?", config.CHECKING, Id).Error
-}
-
-func (s *Services) BarcodeReturn(Id string, req domain.BarcodeRequest) (error, int) {
+func (s *Services) EditStatusToCheckingReturn(Id string, userId string) error {
 	tx := s.db.Begin()
+	// checking recover
+	defer recoverTransaction(tx, s.log)
+	err := tx.Exec("UPDATE transfers SET status = ?, updated_by = ?, updated_at = NOW() WHERE id = ?", config.CHECKING, userId, Id).Error
+	if err != nil {
+		s.log.Error("could not update transfer(%s) status: %v", Id, err)
+		return errors.New("internal.server.error")
+	}
+	// rollback func
 	defer func() {
-		if r := recover(); r != nil {
+		if err != nil {
 			tx.Rollback()
 		}
 	}()
-
-	var product domain.Product
-	if err := tx.Where("barcode = ?", req.Barcode).First(&product).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("product not found: %w", err), 404
+	var res []domain.TransferDetail
+	err = tx.Raw(`
+	SELECT 
+		t.id, 
+		t.received_count, 
+		t.expected_count, 
+		t.scanned_count, 
+		t.store_product_id, 
+		p.unit_per_pack 
+	FROM 
+		transfer_details t 
+	JOIN 
+		products p ON p.id = t.product_id 
+	WHERE 
+		t.transfer_id = ?`, Id).Scan(&res).Error
+	if err != nil {
+		s.log.Error("could not select transfer_details")
+		return errors.New("internal.server.error")
 	}
-
-	var detail domain.TransferDetail
-	if err := tx.Where("transfer_id = ? AND product_id = ?", Id, product.Id).
-		First(&detail).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("transfer detail not found: %w", err), 404
-	}
-	if float64(req.AcceptedCount) > detail.ReceivedCount {
-		tx.Rollback()
-		return fmt.Errorf("error.transfer.surplus.accepted_count"), 400
-	} else if detail.AcceptedCount >= detail.ReceivedCount && req.AcceptedCount == 0 {
-		tx.Rollback()
-		return fmt.Errorf("error.transfer.surplus.accepted_count"), 400
-	}
-	if req.AcceptedCount > 0 {
-		if err := tx.Model(&detail).Update("accepted_count", req.AcceptedCount).Error; err != nil {
-			tx.Rollback()
-			return fmt.Errorf("failed to update accepted_count: %w", err), 500
+	for _, item := range res {
+		err = tx.Exec(`
+		UPDATE store_products 
+		SET 
+			pack_quantity = pack_quantity + ?,
+			unit_quantity = unit_quantity + ?
+		WHERE id = ?;`,
+			int(item.ExpectedCount-item.ScannedCount),
+			(item.ExpectedCount-item.ScannedCount)*float64(item.UnitPerPack),
+			item.StoreProductId).Error
+		if err != nil {
+			s.log.Error("could not update store_products(%s) %v", item.StoreProductId, err)
+			return errors.New("internal.server.error")
 		}
-	} else {
-		if err := tx.Model(&detail).Update("accepted_count", gorm.Expr("accepted_count + ?", 1)).Error; err != nil {
-			tx.Rollback()
-			return fmt.Errorf("failed to increment accepted_count: %w", err), 500
-		}
 	}
 
-	return tx.Commit().Error, 200
+	err = tx.Commit().Error
+	if err != nil {
+		s.log.Error("could not completed transaction: %v", err)
+		return errors.New("internal.server.error")
+	}
+
+	return nil
 }
 
 // confirm return

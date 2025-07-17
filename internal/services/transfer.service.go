@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"fmt"
-	"gorm.io/gorm"
 	"math"
 	"time"
 
@@ -353,51 +352,6 @@ func (s *Services) SendTransfer(returnId string, userId string) error {
 
 func (s *Services) EditStatusToCheckingTransfer(id string) error {
 	return s.db.Model(&domain.Transfer{}).Where("id = ?", id).Update("status", config.CHECKING).Error
-}
-
-func (s *Services) BarcodeTransfer(Id string, req domain.BarcodeRequest) (error, int) {
-	tx := s.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-
-	var product domain.Product
-	if err := tx.Where("barcode = ?", req.Barcode).First(&product).Error; err != nil {
-		tx.Rollback()
-		return fmt.Errorf("product not found: %w", err), 404
-	}
-
-	var detail domain.TransferDetail
-	err := tx.Where("transfer_id = ? AND product_id = ?", Id, product.Id).
-		First(&detail).Error
-	if err != nil {
-		tx.Rollback()
-		return fmt.Errorf("transfer detail not found: %w", err), 404
-	}
-
-	if float64(req.AcceptedCount) > detail.ReceivedCount {
-		tx.Rollback()
-		return fmt.Errorf("error.transfer.surplus.accepted_count"), 400
-	} else if detail.AcceptedCount >= detail.ReceivedCount && req.AcceptedCount == 0 {
-		tx.Rollback()
-		return fmt.Errorf("error.transfer.surplus.accepted_count"), 400
-	}
-
-	if req.AcceptedCount > 0 {
-		if err = tx.Model(&detail).Update("accepted_count", req.AcceptedCount).Error; err != nil {
-			tx.Rollback()
-			return fmt.Errorf("failed to update accepted_count: %w", err), 500
-		}
-	} else {
-		if err = tx.Model(&detail).Update("accepted_count", gorm.Expr("accepted_count + ?", 1)).Error; err != nil {
-			tx.Rollback()
-			return fmt.Errorf("failed to increment accepted_count: %w", err), 500
-		}
-	}
-
-	return tx.Commit().Error, 200
 }
 
 func (s *Services) SendTransferTo1C(transferID string) error {

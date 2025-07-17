@@ -366,19 +366,19 @@ func (h *ReturnHandler) AddProductByBarcode(c *gin.Context) {
 	// validate return id
 	err := uuid.Validate(id)
 	if err != nil {
-		handleResponse(c, BadRequest, "Return id is invalid")
+		handleResponse(c, BadRequest, "invalid.return.id")
 		return
 	}
 	// bind request body
 	err = c.ShouldBindJSON(&request)
 	if err != nil {
-		handleResponse(c, BadRequest, "Invalid request body")
+		handleResponse(c, BadRequest, "invalid.request.body")
 		return
 	}
 
 	err = h.service.UpdateReturnDetailQuantity(id, &request)
 	if err != nil {
-		handleResponse(c, InternalError, err)
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
@@ -881,46 +881,50 @@ func (h *ReturnHandler) ExportReturnNakladnoyPDF(c *gin.Context) {
 // @Failure 500 {object} v1.Response "Internal server error"
 // @Router /return/update-by-barcode/{id} [put]
 func (h *ReturnHandler) UpdateByBarcode(c *gin.Context) {
-	var req domain.BarcodeRequest
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		handleResponse(c, BadRequest, "Invalid request body")
+	var (
+		req domain.BarcodeRequest
+		id  = c.Param("id")
+	)
+	// bind request body
+	err := c.ShouldBindJSON(&req)
+	if err != nil {
+		handleResponse(c, BadRequest, "invalid.request.body")
 		return
 	}
 
-	id := c.Param("id")
-	if id == "" {
-		handleResponse(c, BadRequest, "ID is required")
-		return
-	}
-
-	switch req.Type {
-	case "return":
-		if err, statusCode := h.service.BarcodeReturn(id, req); err != nil {
-			log.Println("update by barcode error:", err)
-			if statusCode == 400 {
-				handleResponse(c, BadRequest, err.Error())
-				return
-			}
-			handleResponse(c, InternalError, "Failed to update return")
+	if id != "" {
+		err = h.db.Exec(`UPDATE transfer_details SET scanned_count = scanned_count + ? WHERE id = ? AND received_count >= scanned_count + ?;`, req.Count, id, req.Count).Error
+		if err != nil {
+			h.log.Error("could not update transfer_details(%s) scanned_count: %v", id, err)
+			handleResponse(c, InternalError, "internal.server.error")
 			return
 		}
-	case "transfer":
-		if err, statusCode := h.service.BarcodeTransfer(id, req); err != nil {
-			log.Println("update by barcode error:", err)
-			if statusCode == 400 {
-				handleResponse(c, BadRequest, err.Error())
-				return
-			}
-			handleResponse(c, InternalError, "Failed to update transfer")
+	} else if req.Barcode != "" {
+		var barcodeResponse []domain.TransferBarcodeResponse
+		err = h.db.Raw(`SELECT t.id, p.name FROM transfer_details t JOIN products p ON p.id = t.product_id WHERE p.barcode = ?`, req.Barcode).Scan(&barcodeResponse).Error
+		if err != nil {
+			h.log.Error("could not get transfer_details by barcode(%s): %v", req.Barcode, err)
+			handleResponse(c, InternalError, "internal.server.error")
 			return
 		}
-	default:
-		handleResponse(c, BadRequest, "Invalid type: must be 'return' or 'transfer'")
+		if len(barcodeResponse) > 1 {
+			handleResponse(c, OK, barcodeResponse)
+			return
+		}
+		err = h.db.Exec(`UPDATE transfer_details t SET scanned_count = scanned_count + ? FROM products p WHERE p.id = t.product_id AND p.barcode = ? AND t.received_count >= t.scanned_count + ?;`, req.Count, req.Barcode, req.Count).Error
+		if err != nil {
+			h.log.Error("could not update transfer_details by barcode(%s): %v", req.Barcode, err)
+			handleResponse(c, InternalError, "internal.server.error")
+			return
+		}
+		handleResponse(c, OK, "UPDATED")
+		return
+	} else {
+		handleResponse(c, BadRequest, "invalid.request.body")
 		return
 	}
 
-	handleResponse(c, OK, "Updated successfully")
+	handleResponse(c, OK, "UPDATED")
 }
 
 // EditStatusToChecking godoc
@@ -936,28 +940,35 @@ func (h *ReturnHandler) UpdateByBarcode(c *gin.Context) {
 // @Failure 500 {object} v1.Response "Internal server error"
 // @Router /return/edit-status-to-checking/{id} [PUT]
 func (h *ReturnHandler) EditStatusToChecking(c *gin.Context) {
+
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "user.not.authorized")
+		return
+	}
+
 	id := c.Param("id")
 	if id == "" {
-		handleResponse(c, BadRequest, "id is required")
+		handleResponse(c, BadRequest, "invalid.id")
 		return
 	}
 	updateType := c.Query("type")
 	if updateType != "return" && updateType != "transfer" {
-		handleResponse(c, BadRequest, "invalid type: must be 'return' or 'transfer'")
+		handleResponse(c, BadRequest, "invalid.query.param")
 		return
 	}
 	if updateType == "return" {
-		err := h.service.EditStatusToCheckingReturn(id)
+		err := h.service.EditStatusToCheckingReturn(id, userId.(string))
 		if err != nil {
 			log.Println("update by barcode error:", err)
-			handleResponse(c, InternalError, "internal error")
+			handleResponse(c, InternalError, "internal.server.error")
 			return
 		}
 	} else {
 		err := h.service.EditStatusToCheckingTransfer(id)
 		if err != nil {
 			log.Println("update by barcode error:", err)
-			handleResponse(c, InternalError, "internal error")
+			handleResponse(c, InternalError, "internal.server.error")
 			return
 		}
 	}

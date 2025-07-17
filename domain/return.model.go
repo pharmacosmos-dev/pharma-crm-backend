@@ -12,6 +12,7 @@ type Return struct {
 	Comment           string     `gorm:"comment" json:"comment"`
 	ReturnCount       float64    `gorm:"return_count" json:"return_count"`
 	ScannedCount      float64    `gorm:"scanned_count" json:"scanned_count"`
+	ExpectedCount     float64    `gorm:"expected_count" json:"expected_count"`
 	ReceivedCount     float64    `gorm:"received_count" json:"received_count"`
 	ReceivedSupplySum float64    `gorm:"received_supply_sum" json:"received_supply_sum"`
 	ReceivedRetailSum float64    `gorm:"received_retail_sum" json:"received_retail_sum"`
@@ -30,9 +31,10 @@ type Return struct {
 }
 
 type BarcodeRequest struct {
-	Barcode       string `json:"barcode"`
-	AcceptedCount int    `json:"accepted_count"`
-	Type          string `json:"type"`
+	Id      string `json:"id"`
+	Barcode string `json:"barcode"`
+	Count   int    `json:"count"`
+	Type    string `json:"type"`
 }
 
 type ReturnStatusSummary struct {
@@ -59,6 +61,7 @@ type ReturnDetail struct {
 	StoreProductId string     `gorm:"store_product_id" json:"store_product_id"`
 	UnitPerPack    int        `gorm:"unit_per_pack" json:"unit_per_pack"`
 	ReceivedCount  float64    `gorm:"received_count" json:"received_count"`
+	ExpectedCount  float64    `gorm:"expected_count" json:"expected_count"`
 	ScannedCount   float64    `gorm:"scanned_count" json:"scanned_pack"`
 	ScannedUnit    float64    `gorm:"scanned_unit" json:"scanned_unit"`
 	AcceptedCount  float64    `gorm:"accepted_count" json:"accepted_count"`
