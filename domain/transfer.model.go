@@ -55,6 +55,7 @@ type TransferDetail struct {
 	ProductName    string     `gorm:"product_name" json:"product_name"`
 	ProducerCode   string     `gorm:"producer_code" json:"producer_code"`
 	ReceivedCount  float64    `gorm:"received_count" json:"received_count"`
+	ExpectedCount  float64    `gorm:"expected_count" json:"expected_count"`
 	AcceptedCount  float64    `gorm:"accepted_count" json:"accepted_count"`
 	ScannedCount   float64    `gorm:"scanned_count" json:"scanned_pack"`
 	ScannedUnit    float64    `gorm:"scanned_unit" json:"scanned_unit"`
@@ -108,4 +109,10 @@ type TransferProduct1C struct {
 	SupplyPriceVat      float64    `gorm:"supply_price_vat" json:"supply_price_vat"`
 	Sum                 float64    `gorm:"sum" json:"sum"`
 	SumVat              float64    `gorm:"sum_vat" json:"sum_vat"`
+}
+
+// transfer details for barcode response
+type TransferBarcodeResponse struct {
+	Id   string `gorm:"id" json:"id"`
+	Name string `gorm:"name" json:"name"`
 }

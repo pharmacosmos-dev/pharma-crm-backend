@@ -227,34 +227,44 @@ func (h *ProductHandler) Create(c *gin.Context) {
 // @Router /product/{id} [get]
 func (h *ProductHandler) Get(c *gin.Context) {
 	var (
-		res domain.Product
-
+		res     domain.Product
 		id      = c.Param("id")
 		storeId = c.Query("store_id")
 	)
+
 	// validate id
-	err := uuid.Validate(id)
-	if err != nil {
+	if err := uuid.Validate(id); err != nil {
 		handleResponse(c, BadRequest, "Invalid product ID")
 		return
 	}
-	// get product query
+
+	// dynamic JOIN with subquery to get latest store_product
+	rawJoin := `
+		LEFT JOIN store_products sp ON sp.id = (
+			SELECT id FROM store_products
+			WHERE product_id = products.id
+	`
+	if storeId != "" {
+		rawJoin += " AND store_id = ?"
+	}
+	rawJoin += `
+			ORDER BY created_at DESC
+			LIMIT 1
+		)
+	`
+
 	pquery := h.db.
 		Preload("UnitType").
 		Preload("Shelf").
 		Preload("Producer").
 		Select(`
-			products.*, 
-			COALESCE(MAX(sp.retail_price), 0) AS retail_price
-			`).
-		Joins("LEFT JOIN store_products sp ON products.id = sp.product_id")
+			products.*,
+			ROUND(sp.retail_price / products.unit_per_pack, 2) AS retail_unit_price,
+			ROUND((sp.retail_price),2) AS retail_price
+		`).
+		Joins(rawJoin, storeId)
 
-	if storeId != "" {
-		pquery.Where("sp.store_id = ?", storeId)
-	}
-
-	err = pquery.
-		Group(`products.id`).
+	err := pquery.
 		First(&res, "products.id = ?", id).Error
 
 	if err != nil {
@@ -267,36 +277,33 @@ func (h *ProductHandler) Get(c *gin.Context) {
 		return
 	}
 
+	// Get category tree
 	category := []*domain.Category{}
 	query := `
-	WITH RECURSIVE category_tree AS (
-		-- Base case: Get categories directly linked to the product
-		SELECT
-			c.id,
-			c.category_id,
-			c.name::TEXT AS name_path,
-			c.id AS root_category_id  -- Keep track of the original category
-		FROM categories c
-		INNER JOIN category_products cp ON c.id = cp.category_id
-		WHERE cp.product_id = ?
+		WITH RECURSIVE category_tree AS (
+			SELECT
+				c.id,
+				c.category_id,
+				c.name::TEXT AS name_path,
+				c.id AS root_category_id
+			FROM categories c
+			INNER JOIN category_products cp ON c.id = cp.category_id
+			WHERE cp.product_id = ?
 
-		UNION ALL
+			UNION ALL
 
-		-- Recursive case: Build full category path
-		SELECT
-			parent.id,
-			parent.category_id,
-			(parent.name || ' > ' || child.name_path)::TEXT AS name_path,
-			child.root_category_id
-		FROM categories parent
-		INNER JOIN category_tree child ON parent.id = child.category_id
-	)
-	SELECT DISTINCT ON (root_category_id) id, category_id, name_path AS name
-	FROM category_tree
-	ORDER BY root_category_id, LENGTH(name_path) DESC;
+			SELECT
+				parent.id,
+				parent.category_id,
+				(parent.name || ' > ' || child.name_path)::TEXT AS name_path,
+				child.root_category_id
+			FROM categories parent
+			INNER JOIN category_tree child ON parent.id = child.category_id
+		)
+		SELECT DISTINCT ON (root_category_id) id, category_id, name_path AS name
+		FROM category_tree
+		ORDER BY root_category_id, LENGTH(name_path) DESC;
 	`
-
-	// Execute the query
 	if err := h.db.Raw(query, id).Scan(&category).Error; err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -304,11 +311,11 @@ func (h *ProductHandler) Get(c *gin.Context) {
 	}
 	res.Categories = category
 
-	// get product markings
-	err = h.db.Raw(`SELECT marking FROM product_markings WHERE product_id = ?`, id).Scan(&res.Markings).Error
-	if err != nil {
+	// Get markings
+	if err := h.db.Raw(`SELECT marking FROM product_markings WHERE product_id = ?`, id).Scan(&res.Markings).Error; err != nil {
 		h.log.Warn("ERROR on getting product markings: %v", err)
 	}
+
 	handleResponse(c, OK, res)
 }
 

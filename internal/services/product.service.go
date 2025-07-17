@@ -607,8 +607,8 @@ func (s *Services) GetNoorStoreProducts(param *domain.NoorQueryParam) ([]domain.
 	SELECT
 		sp.store_id,
 		sp.product_id,
-		SUM(sp.unit_quantity/p.blister_count) AS quantity,
-		ROUND(MIN(sp.retail_price), 0) AS price
+		SUM(sp.unit_quantity/(p.unit_per_pack/p.blister_count)) AS quantity,
+		ROUND(MIN(sp.retail_price/p.blister_count), 0) AS price
 	FROM store_products sp
 	JOIN products p ON sp.product_id = p.id
 	WHERE sp.unit_quantity/p.blister_count > 0 AND sp.updated_at >= ?

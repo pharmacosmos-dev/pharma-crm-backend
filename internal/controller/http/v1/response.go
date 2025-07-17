@@ -57,6 +57,11 @@ var (
 		Status:      "PARTIAL CONTENT",
 		Description: "The server is delivering only part of the resource due to a range header sent by the client.",
 	}
+	MultiStatus = Status{
+		Code:        207,
+		Status:      "MULTI-STATUS",
+		Description: "The response contains multiple status codes for different operations, typically used with WebDAV to convey information about multiple resources within a single HTTP response.",
+	}
 	BadRequest = Status{
 		Code:        400,
 		Status:      "ERROR",

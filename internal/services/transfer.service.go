@@ -57,8 +57,8 @@ func (s *Services) CreateTransfer(req *domain.TransferRequest) error {
 				sp.id, 
 				sp.product_id, 
 				sp.unit_quantity::numeric/p.unit_per_pack, 
-				sp.supply_price, 
-				sp.retail_price, 
+				sp.supply_price,
+				sp.retail_price,
 				sp.expire_date, 
 				sp.serial_number
 			FROM store_products sp
@@ -215,6 +215,8 @@ func (s *Services) TransferDetailList(param *domain.ReturnDetailParam) ([]domain
 			transfer_details.product_id, 
 			transfer_details.transfer_id,
 			transfer_details.received_count,
+			transfer_details.accepted_count,
+			transfer_details.expected_count,
 			FLOOR(transfer_details.scanned_count) AS scanned_count,
 			ROUND(MOD(transfer_details.scanned_count * p.unit_per_pack, p.unit_per_pack), 0) AS scanned_unit,
 			transfer_details.expire_date, 
@@ -309,7 +311,7 @@ func (s *Services) SendTransfer(returnId string, userId string) error {
 	// rollback transaction if error happened
 	defer RollbackIfError(tx, &err)
 
-	query2 := `DELETE FROM transfer_details WHERE scanned_count = 0 AND transfer_id = ?;`
+	query2 := `DELETE FROM transfer_details WHERE expected_count = 0 AND transfer_id = ?;`
 	err = tx.Exec(query2, returnId).Error
 	if err != nil {
 		s.log.Warn("ERROR on deleting scanned 0 inventory details: %v", err)
@@ -321,7 +323,7 @@ func (s *Services) SendTransfer(returnId string, userId string) error {
 		SELECT td.*, p.unit_per_pack
         FROM transfer_details td
 		JOIN products p ON td.product_id = p.id
-		WHERE td.transfer_id = ? and td.scanned_count > 0;
+		WHERE td.transfer_id = ? and td.expected_count > 0;
 	`
 	err = tx.Raw(query3, returnId).Scan(&returnDetails).Error
 	if err != nil {
@@ -333,7 +335,7 @@ func (s *Services) SendTransfer(returnId string, userId string) error {
 		// update store product quantities
 		// if scanned count is 0, skip the update
 		err = tx.Exec(`UPDATE store_products SET pack_quantity = GREATEST(?, 0), unit_quantity = GREATEST(unit_quantity - ?, 0), updated_at = NOW() WHERE id = ?`,
-			int(detail.ReceivedCount-detail.ScannedCount), math.Round(detail.ScannedCount*float64(detail.UnitPerPack)), detail.StoreProductId).Error
+			int(detail.ReceivedCount-detail.ExpectedCount), math.Round(detail.ExpectedCount*float64(detail.UnitPerPack)), detail.StoreProductId).Error
 		if err != nil {
 			s.log.Warn("ERROR on updating store product pack quantity: %v", err)
 			return err
@@ -434,7 +436,6 @@ func (s *Services) SendTransferTo1C(transferID string) error {
 	data1C.Apteka.StoreCode = toStore.StoreCode
 	data1C.AptekaOtkud.Name = fromStore.Name
 	data1C.AptekaOtkud.StoreCode = fromStore.StoreCode
-	fmt.Println("--------->", data1C)
 	err = s.DoRequest(context.Background(), data1C, "/perekit")
 	if err != nil {
 		s.log.Warn("ERROR on sending to 1C: %v", err)
@@ -459,13 +460,6 @@ func (s *Services) ConfirmTransfer(transferID string, userId string) error {
 	}
 	defer RollbackIfError(tx, &err) // rollback function for return transcation
 
-	// update confirm inventory details
-	query1 := `UPDATE transfer_details SET accepted_count = scanned_count, updated_at = NOW() WHERE transfer_id = ?`
-	err = tx.Exec(query1, transferID).Error
-	if err != nil {
-		s.log.Warn("ERROR on updating inventory details: %v", err)
-		return err
-	}
 	var res []domain.TransferDetail
 	err = tx.Raw(`
 	SELECT
@@ -509,19 +503,44 @@ func (s *Services) ConfirmTransfer(transferID string, userId string) error {
 				store_id, 
 				pack_quantity, 
 				unit_quantity, 
-				retail_price, 
-				supply_price, 
-				vat, 
-				expire_date, 
+				retail_price,
+				supply_price,
+				vat,
+				expire_date,
 				vat_price,
 				serial_number
 		)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	var data1C domain.TransferData1C
-	for _, v := range res {
+	for _, item := range res {
+		// return unscanned product to store
+		err = tx.Exec(`
+		UPDATE store_products 
+		SET 
+			pack_quantity = pack_quantity + ?,
+			unit_quantity = unit_quantity + ?
+		WHERE id = ?;`,
+			int(item.ScannedCount-item.AcceptedCount),
+			(item.ScannedCount-item.AcceptedCount)*float64(item.UnitPerPack),
+			item.StoreProductId).Error
+		if err != nil {
+			s.log.Error("ERROR on updating store_product on return confirm: %v", err)
+			return err
+		}
+
 		// execute query
-		err = tx.Exec(query2, v.ProductId, transfer.ToStoreId, int(v.ScannedCount), math.Round(v.ScannedCount*float64(v.UnitPerPack)), v.RetailPrice, v.SupplyPrice, 12, v.ExpireDate, (v.RetailPrice*12)/112, v.SerialNumber).Error
+		err = tx.Exec(query2,
+			item.ProductId,
+			transfer.ToStoreId,
+			item.ScannedCount,
+			math.Round(item.ScannedCount*float64(item.UnitPerPack)),
+			item.RetailPriceVat,
+			item.SupplyPriceVat,
+			12,
+			item.ExpireDate,
+			(item.RetailPriceVat*12)/112,
+			item.SerialNumber).Error
 		if err != nil {
 			s.log.Warn("ERROR on inserting store product: %v", err)
 			return err
@@ -529,19 +548,19 @@ func (s *Services) ConfirmTransfer(transferID string, userId string) error {
 
 		// collect inventory products to send 1C
 		data1C.Товары = append(data1C.Товары, domain.TransferProduct1C{
-			MaterialCode:        v.MaterialCode,
-			Name:                v.ProductName,
-			Barcode:             v.Barcode,
-			Manufacturer:        v.ProducerCode,
-			ProductSeriesNumber: v.SerialNumber,
-			ExpireDate:          v.ExpireDate,
-			Quantity:            v.ReceivedCount,
-			RetailPrice:         v.RetailPrice, // vat bilan oddiysi almashgan
-			RetailPriceVat:      v.RetailPriceVat,
-			SupplyPrice:         v.SupplyPrice,
-			SupplyPriceVat:      v.SupplyPriceVat,
-			Sum:                 v.ScannedCount * v.RetailPrice,
-			SumVat:              v.ScannedCount * v.RetailPriceVat,
+			MaterialCode:        item.MaterialCode,
+			Name:                item.ProductName,
+			Barcode:             item.Barcode,
+			Manufacturer:        item.ProducerCode,
+			ProductSeriesNumber: item.SerialNumber,
+			ExpireDate:          item.ExpireDate,
+			Quantity:            item.ReceivedCount,
+			RetailPrice:         item.RetailPrice, // vat bilan oddiysi almashgan
+			RetailPriceVat:      item.RetailPriceVat,
+			SupplyPrice:         item.SupplyPrice,
+			SupplyPriceVat:      item.SupplyPriceVat,
+			Sum:                 item.ScannedCount * item.RetailPrice,
+			SumVat:              item.ScannedCount * item.RetailPriceVat,
 		})
 	}
 	// get store info
@@ -576,12 +595,13 @@ func (s *Services) ConfirmTransfer(transferID string, userId string) error {
 	data1C.Apteka.StoreCode = toStore.StoreCode
 	data1C.AptekaOtkud.Name = fromStore.Name
 	data1C.AptekaOtkud.StoreCode = fromStore.StoreCode
-
-	// send inventory products data to 1C
-	err = s.DoRequest(context.Background(), data1C, "/perekit")
-	if err != nil {
-		s.log.Warn("ERROR on sending inventory: %v", err)
-		return err
+	if s.cfg.BaseUrl1C != "test" {
+		// send inventory products data to 1C
+		err = s.DoRequest(context.Background(), data1C, "/perekit")
+		if err != nil {
+			s.log.Warn("ERROR on sending inventory: %v", err)
+			return err
+		}
 	}
 	return nil
 }

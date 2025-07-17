@@ -12,13 +12,14 @@ type Return struct {
 	Comment           string     `gorm:"comment" json:"comment"`
 	ReturnCount       float64    `gorm:"return_count" json:"return_count"`
 	ScannedCount      float64    `gorm:"scanned_count" json:"scanned_count"`
+	ExpectedCount     float64    `gorm:"expected_count" json:"expected_count"`
 	ReceivedCount     float64    `gorm:"received_count" json:"received_count"`
 	ReceivedSupplySum float64    `gorm:"received_supply_sum" json:"received_supply_sum"`
 	ReceivedRetailSum float64    `gorm:"received_retail_sum" json:"received_retail_sum"`
 	AcceptedSupplySum float64    `gorm:"accepted_supply_sum" json:"accepted_supply_sum"`
 	AcceptedRetailSum float64    `gorm:"accepted_retail_sum" json:"accepted_retail_sum"`
 	CreatedById       string     `gorm:"column:created_by" json:"created_by_id"`
-	UpdatedById       string     `gorm:"column:accepted_by" json:"updated_by_id"`
+	UpdatedById       string     `gorm:"column:updated_by" json:"updated_by_id"`
 	AcceptedById      string     `gorm:"column:accepted_by" json:"accepted_by_id"`
 	CreatedAt         *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt         *time.Time `gorm:"updated_at" json:"updated_at"`
@@ -27,6 +28,13 @@ type Return struct {
 	CreatedBy         *Employee  `gorm:"foreignKey:CreatedById" json:"created_by"`
 	UpdatedBy         *Employee  `gorm:"foreignKey:UpdatedById" json:"updated_by"`
 	AcceptedBy        *Employee  `gorm:"foreignKey:AcceptedById" json:"accepted_by"`
+}
+
+type BarcodeRequest struct {
+	Id      string `json:"id"`
+	Barcode string `json:"barcode"`
+	Count   int    `json:"count"`
+	Status  string `json:"status"`
 }
 
 type ReturnStatusSummary struct {
@@ -53,6 +61,7 @@ type ReturnDetail struct {
 	StoreProductId string     `gorm:"store_product_id" json:"store_product_id"`
 	UnitPerPack    int        `gorm:"unit_per_pack" json:"unit_per_pack"`
 	ReceivedCount  float64    `gorm:"received_count" json:"received_count"`
+	ExpectedCount  float64    `gorm:"expected_count" json:"expected_count"`
 	ScannedCount   float64    `gorm:"scanned_count" json:"scanned_pack"`
 	ScannedUnit    float64    `gorm:"scanned_unit" json:"scanned_unit"`
 	AcceptedCount  float64    `gorm:"accepted_count" json:"accepted_count"`

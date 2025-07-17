@@ -2,6 +2,7 @@ package v1
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"strconv"
 	"time"
@@ -40,6 +41,8 @@ func (h *ReturnHandler) ReturnRoutes(r *gin.RouterGroup) {
 		returned.POST("/confirm/:id", h.Confirm)
 		returned.POST("/cancel/:id", h.Cancel)
 		returned.GET("/export-nakladnoy", h.ExportReturnNakladnoyPDF)
+		returned.PUT("/update-by-barcode/:id", h.UpdateByBarcode)
+		returned.PUT("/edit-status-to-checking/:id", h.EditStatusToChecking)
 	}
 	detail := r.Group("return-detail")
 	{
@@ -293,7 +296,7 @@ func (h *ReturnHandler) ExportReturnExcel(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"ID", "Наименование", "Филиал", "Кол-во", "Полученная Сумма Поставки", "Принятая Сумма Поставки", "Полученная Сумма Продажи", "Принятая Сумма Продажи", "Статус", "Создание", "Завершение", "Создал", "Завершил"}
+	headers := []string{"ID", "Наименование", "Филиал", "Кол-во", "Полученная Сумма Поставки", "Принятая Сумма Поставки", "Полученная Сумма Продажи", "Принятая Сумма Продажи", "Статус", "Создание", "Завершение", "Создал", "Отправитель", "Завершил"}
 
 	err = setExcelHeaders(f, sheetName, headers)
 	if err != nil {
@@ -334,10 +337,15 @@ func (h *ReturnHandler) ExportReturnExcel(c *gin.Context) {
 		} else {
 			f.SetCellValue(sheetName, "L"+row, "N/A")
 		}
-		if r.AcceptedBy != nil {
-			f.SetCellValue(sheetName, "M"+row, r.AcceptedBy.FullName)
+		if r.UpdatedBy != nil {
+			f.SetCellValue(sheetName, "M"+row, r.UpdatedBy.FullName)
 		} else {
 			f.SetCellValue(sheetName, "M"+row, "N/A")
+		}
+		if r.AcceptedBy != nil {
+			f.SetCellValue(sheetName, "N"+row, r.AcceptedBy.FullName)
+		} else {
+			f.SetCellValue(sheetName, "N"+row, "N/A")
 		}
 
 	}
@@ -363,19 +371,19 @@ func (h *ReturnHandler) AddProductByBarcode(c *gin.Context) {
 	// validate return id
 	err := uuid.Validate(id)
 	if err != nil {
-		handleResponse(c, BadRequest, "Return id is invalid")
+		handleResponse(c, BadRequest, "invalid.return.id")
 		return
 	}
 	// bind request body
 	err = c.ShouldBindJSON(&request)
 	if err != nil {
-		handleResponse(c, BadRequest, "Invalid request body")
+		handleResponse(c, BadRequest, "invalid.request.body")
 		return
 	}
 
 	err = h.service.UpdateReturnDetailQuantity(id, &request)
 	if err != nil {
-		handleResponse(c, InternalError, err)
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
@@ -550,7 +558,8 @@ func (h *ReturnHandler) Cancel(c *gin.Context) {
 func (h *ReturnHandler) ReturnDetailList(c *gin.Context) {
 	var param domain.ReturnDetailParam
 	// bind query param
-	if err := c.ShouldBindQuery(&param); err != nil {
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
 		handleResponse(c, BadRequest, "Invalid query param")
 		return
 	}
@@ -618,7 +627,7 @@ func (h *ReturnHandler) ExportReturnDetailList(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"Код", "Наименование", "Штрих-код", "Срок годность", "Серия номер", "Текущее Кол-во", "Ед-изм", "Текущее Cумма", "Cканированные", "Cканированные Cумма"}
+	headers := []string{"Код", "Наименование", "Штрих-код", "Срок годность", "Серия номер", "Текущее Кол-во", "Ед-изм", "Текущее Cумма", "Отправленное кол-во", "Cканированные", "Cканированные Cумма"}
 
 	err = setExcelHeaders(f, sheetName, headers)
 	if err != nil {
@@ -638,8 +647,9 @@ func (h *ReturnHandler) ExportReturnDetailList(c *gin.Context) {
 		f.SetCellValue(sheetName, "F"+row, r.ReceivedCount)
 		f.SetCellValue(sheetName, "G"+row, r.ShortName)
 		f.SetCellValue(sheetName, "H"+row, r.ReceivedSum)
-		f.SetCellValue(sheetName, "I"+row, r.ScannedCount)
-		f.SetCellValue(sheetName, "J"+row, r.ScannedSum)
+		f.SetCellValue(sheetName, "I"+row, r.ExpectedCount)
+		f.SetCellValue(sheetName, "J"+row, r.ScannedCount)
+		f.SetCellValue(sheetName, "K"+row, r.ScannedSum)
 
 	}
 	saveExcelToUploads(c, f, *h.log, "Vozvrat_mahsulotlar")
@@ -778,14 +788,14 @@ func (h *ReturnHandler) ExportReturnNakladnoyPDF(c *gin.Context) {
 		var quantityStr string
 		var totalPrice float64
 		if typeDoc == "return" {
-			quantityStr = strconv.FormatFloat(p.ScannedCount-p.AcceptedCount, 'f', 2, 64)
-			if p.ScannedCount-p.AcceptedCount <= 0 {
+			quantityStr = strconv.FormatFloat(p.ExpectedCount-p.AcceptedCount, 'f', 2, 64)
+			if p.ExpectedCount-p.AcceptedCount <= 0 {
 				continue
 			}
-			totalPrice = p.RetailPrice * (p.ScannedCount - p.AcceptedCount)
+			totalPrice = p.RetailPrice * (p.ExpectedCount - p.AcceptedCount)
 		} else {
-			quantityStr = strconv.FormatFloat(p.ScannedCount, 'f', 2, 64)
-			totalPrice = p.RetailPrice * p.ScannedCount
+			quantityStr = strconv.FormatFloat(p.ExpectedCount, 'f', 2, 64)
+			totalPrice = p.RetailPrice * p.ExpectedCount
 		}
 		row := []string{
 			strconv.Itoa(count),
@@ -863,4 +873,108 @@ func (h *ReturnHandler) ExportReturnNakladnoyPDF(c *gin.Context) {
 	pdf.CellFormat(100, 7, "Товар отпустил: _______________", "", 1, "L", false, 0, "")
 
 	savePdfToUploads(c, pdf, *h.log, "Return_Nakladnoy_"+returnData.PublicId)
+}
+
+// UpdateByBarcode godoc
+// @Summary Update return or transfer by barcode
+// @Tags Return
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "Transfer ID or Return ID"
+// @Param request body domain.BarcodeRequest true "Barcode request payload"
+// @Success 200 {object} v1.Response "Update successful"
+// @Failure 400 {object} v1.Response "Invalid request parameters"
+// @Failure 500 {object} v1.Response "Internal server error"
+// @Router /return/update-by-barcode/{id} [put]
+func (h *ReturnHandler) UpdateByBarcode(c *gin.Context) {
+	var (
+		req domain.BarcodeRequest
+		id  = c.Param("id")
+	)
+	// bind request body
+	err := c.ShouldBindJSON(&req)
+	if err != nil {
+		handleResponse(c, BadRequest, "invalid.request.body")
+		return
+	}
+	if req.Count == 0 {
+		req.Count = 1
+	}
+
+	if req.Id != "" {
+		err = h.db.Exec(`UPDATE transfer_details SET scanned_count = scanned_count + ? WHERE id = ? AND received_count >= scanned_count + ?;`, req.Count, req.Id, req.Count).Error
+		if err != nil {
+			h.log.Error("could not update transfer_details(%s) scanned_count: %v", req.Id, err)
+			handleResponse(c, InternalError, "internal.server.error")
+			return
+		}
+	} else if req.Barcode != "" {
+		var barcodeResponse []domain.TransferBarcodeResponse
+		err = h.db.Raw(`SELECT t.id, p.name FROM transfer_details t JOIN products p ON p.id = t.product_id WHERE p.barcode = ? AND t.transfer_id = ?`, req.Barcode, id).Scan(&barcodeResponse).Error
+		if err != nil {
+			h.log.Error("could not get transfer_details by barcode(%s): %v", req.Barcode, err)
+			handleResponse(c, InternalError, "internal.server.error")
+			return
+		}
+		if len(barcodeResponse) > 1 {
+			handleResponse(c, MultiStatus, barcodeResponse)
+			return
+		}
+		err = h.db.Exec(`
+		UPDATE transfer_details t 
+		SET scanned_count = scanned_count + ? 
+		FROM products p 
+		WHERE 
+			t.transfer_id = ? AND 
+			p.id = t.product_id AND 
+			p.barcode = ? AND 
+			t.received_count >= t.scanned_count + ?;`, req.Count, id, req.Barcode, req.Count).Error
+		if err != nil {
+			h.log.Error("could not update transfer_details by barcode(%s): %v", req.Barcode, err)
+			handleResponse(c, InternalError, "internal.server.error")
+			return
+		}
+		handleResponse(c, OK, "UPDATED")
+		return
+	} else {
+		handleResponse(c, BadRequest, "invalid.request.body")
+		return
+	}
+
+	handleResponse(c, OK, "UPDATED")
+}
+
+// EditStatusToChecking godoc
+// @Summary Edit status to checking
+// @Tags Return
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param   id path string true "Return ID"
+// @Success 200 {object} v1.Response "Return"
+// @Failure 400 {object} v1.Response "Invalid request parameters"
+// @Failure 500 {object} v1.Response "Internal server error"
+// @Router /return/edit-status-to-checking/{id} [PUT]
+func (h *ReturnHandler) EditStatusToChecking(c *gin.Context) {
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "user.not.authorized")
+		return
+	}
+
+	id := c.Param("id")
+	if id == "" {
+		handleResponse(c, BadRequest, "invalid.id")
+		return
+	}
+
+	err := h.service.EditStatusToCheckingReturn(id, userId.(string))
+	if err != nil {
+		log.Println("update by barcode error:", err)
+		handleResponse(c, InternalError, "internal.server.error")
+		return
+	}
+
+	handleResponse(c, OK, "updated successfully")
 }

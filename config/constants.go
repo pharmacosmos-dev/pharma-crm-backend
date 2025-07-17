@@ -79,6 +79,7 @@ const (
 	INACTIVE   = "inactive"
 	CONFIRMED  = "confirmed"
 	SENT       = "sent"
+	CHECKING   = "checking"
 
 	// region online status
 

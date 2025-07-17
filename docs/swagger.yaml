@@ -51,6 +51,15 @@ definitions:
       store_id:
         type: string
     type: object
+  domain.BarcodeRequest:
+    properties:
+      accepted_count:
+        type: integer
+      barcode:
+        type: string
+      type:
+        type: string
+    type: object
   domain.BrandRequest:
     properties:
       logo:
@@ -11382,6 +11391,41 @@ paths:
       summary: Confirm Return
       tags:
       - Return
+  /return/edit-status-to-checking/{id}:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Transfer ID or Return ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: 'TYPE: return or transfer'
+        in: query
+        name: type
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Return PDF file
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Invalid request parameters
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Edit status to checking
+      tags:
+      - Return
   /return/export-excel:
     get:
       consumes:
@@ -11607,6 +11651,42 @@ paths:
       security:
       - BearerAuth: []
       summary: Send Return to 1C
+      tags:
+      - Return
+  /return/update-by-barcode/{id}:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Transfer ID or Return ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Barcode request payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/domain.BarcodeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Update successful
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Invalid request parameters
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update return or transfer by barcode
       tags:
       - Return
   /role:

@@ -1,0 +1,1 @@
+ALTER TABLE transfer_details ADD COLUMN IF NOT EXISTS "expected_count" NUMERIC(10, 4) DEFAULT 0;
