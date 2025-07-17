@@ -656,7 +656,7 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 	data1C.Apteka.Name = store.Name
 	data1C.Apteka.StoreCode = store.StoreCode
 	// get document data and number
-	data1C.Dok.DocumentDate = res.UpdatedAt.Format(time.DateTime)
+	data1C.Dok.DocumentDate = res.UpdatedAt.Format("2006-01-02T15:04:05")
 	data1C.Dok.DocumentNumber = "NP-" + cast.ToString(res.PublicId)
 
 	// send inventory products data to 1C
@@ -752,7 +752,7 @@ func (s *Services) SendInventory1C(inventoryID string) error {
 	data1C.Apteka.StoreCode = store.StoreCode
 
 	// get document data and number
-	data1C.Dok.DocumentDate = inventory.UpdatedAt.Format(time.DateTime)
+	data1C.Dok.DocumentDate = inventory.UpdatedAt.Format("2006-01-02T15:04:05")
 	data1C.Dok.DocumentNumber = "NP-" + cast.ToString(inventory.PublicID)
 
 	// send inventory products data to 1C

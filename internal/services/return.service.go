@@ -577,7 +577,7 @@ func (s *Services) ConfirmReturn(returnId, storeId string, userId string) error 
 	}
 
 	returnData.Dok.DocumentNumber = "NP-" + cast.ToString(returnInfo.PublicId)
-	returnData.Dok.DocumentDate = returnInfo.UpdatedAt.Format(time.DateTime)
+	returnData.Dok.DocumentDate = returnInfo.UpdatedAt.Format("2006-01-02T15:04:05")
 	returnData.Apteka.Name = store.Name
 	returnData.Apteka.StoreCode = store.StoreCode
 

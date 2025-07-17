@@ -74,7 +74,7 @@ func (h *AutoOrderHandler) Create(c *gin.Context) {
 	defer RollbackIfError(tx, &err)     // return transaction if error happened
 	body.Id = uuid.New().String()
 	body.Status = config.NEW
-	body.AutoOrderDate = time.Now().Format(time.DateTime)
+	body.AutoOrderDate = time.Now().Format("2006-01-02T15:04:05")
 	// get auro order products based on store_id and interval day
 	autoOrderDetails, err := h.service.GenerateAutoOrderDetail(body.Id, body.StoreId, body.IntervalDay)
 	if err != nil {
@@ -369,7 +369,7 @@ func (h *AutoOrderHandler) SendAutoOrder(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	data.Dok.DataDok = autoOrder.CreatedAt.Format(time.DateTime)
+	data.Dok.DataDok = autoOrder.CreatedAt.Format("2006-01-02T15:04:05")
 	data.Dok.NomerDok = "AZ-" + strconv.Itoa(autoOrder.PublicID)
 	data.Apteka.Name = autoOrder.Store.Name
 	data.Apteka.StoreCode = autoOrder.Store.StoreCode
