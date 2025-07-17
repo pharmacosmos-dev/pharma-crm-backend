@@ -41,7 +41,8 @@ func (h *TransferHandler) TransferRoutes(r *gin.RouterGroup) {
 		transfer.POST("/send1c/:id", h.Send1C)
 		transfer.POST("/cancel/:id", h.Cancel)
 		transfer.GET("/export-nakladnoy", h.ExportTransferNakladnoyPDF)
-		transfer.PUT("/update-by-barcode", h.UpdateByBarcode)
+		transfer.PUT("/update-by-barcode/:id", h.UpdateByBarcode)
+		transfer.PUT("/edit-status-to-checking/:id", h.EditStatusToChecking)
 
 	}
 	detail := r.Group("transfer-detail")

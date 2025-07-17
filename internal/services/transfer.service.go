@@ -216,6 +216,7 @@ func (s *Services) TransferDetailList(param *domain.ReturnDetailParam) ([]domain
 			transfer_details.transfer_id,
 			transfer_details.received_count,
 			transfer_details.accepted_count,
+			transfer_details.expected_count,
 			FLOOR(transfer_details.scanned_count) AS scanned_count,
 			ROUND(MOD(transfer_details.scanned_count * p.unit_per_pack, p.unit_per_pack), 0) AS scanned_unit,
 			transfer_details.expire_date, 
@@ -322,7 +323,7 @@ func (s *Services) SendTransfer(returnId string, userId string) error {
 		SELECT td.*, p.unit_per_pack
         FROM transfer_details td
 		JOIN products p ON td.product_id = p.id
-		WHERE td.transfer_id = ? and td.scanned_count > 0;
+		WHERE td.transfer_id = ? and td.expected_count > 0;
 	`
 	err = tx.Raw(query3, returnId).Scan(&returnDetails).Error
 	if err != nil {
@@ -520,19 +521,34 @@ func (s *Services) ConfirmTransfer(transferID string, userId string) error {
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 	var data1C domain.TransferData1C
-	for _, v := range res {
+	for _, item := range res {
+		// return unscanned product to store
+		err = tx.Exec(`
+		UPDATE store_products 
+		SET 
+			pack_quantity = pack_quantity + ?,
+			unit_quantity = unit_quantity + ?
+		WHERE id = ?;`,
+			int(item.ScannedCount-item.AcceptedCount),
+			(item.ScannedCount-item.AcceptedCount)*float64(item.UnitPerPack),
+			item.StoreProductId).Error
+		if err != nil {
+			s.log.Error("ERROR on updating store_product on return confirm: %v", err)
+			return err
+		}
+
 		// execute query
 		err = tx.Exec(query2,
-			v.ProductId,
+			item.ProductId,
 			transfer.ToStoreId,
-			v.ScannedCount,
-			math.Round(v.ScannedCount*float64(v.UnitPerPack)),
-			v.RetailPriceVat,
-			v.SupplyPriceVat,
+			item.ScannedCount,
+			math.Round(item.ScannedCount*float64(item.UnitPerPack)),
+			item.RetailPriceVat,
+			item.SupplyPriceVat,
 			12,
-			v.ExpireDate,
-			(v.RetailPriceVat*12)/112,
-			v.SerialNumber).Error
+			item.ExpireDate,
+			(item.RetailPriceVat*12)/112,
+			item.SerialNumber).Error
 		if err != nil {
 			s.log.Warn("ERROR on inserting store product: %v", err)
 			return err
@@ -540,19 +556,19 @@ func (s *Services) ConfirmTransfer(transferID string, userId string) error {
 
 		// collect inventory products to send 1C
 		data1C.Товары = append(data1C.Товары, domain.TransferProduct1C{
-			MaterialCode:        v.MaterialCode,
-			Name:                v.ProductName,
-			Barcode:             v.Barcode,
-			Manufacturer:        v.ProducerCode,
-			ProductSeriesNumber: v.SerialNumber,
-			ExpireDate:          v.ExpireDate,
-			Quantity:            v.ReceivedCount,
-			RetailPrice:         v.RetailPrice, // vat bilan oddiysi almashgan
-			RetailPriceVat:      v.RetailPriceVat,
-			SupplyPrice:         v.SupplyPrice,
-			SupplyPriceVat:      v.SupplyPriceVat,
-			Sum:                 v.ScannedCount * v.RetailPrice,
-			SumVat:              v.ScannedCount * v.RetailPriceVat,
+			MaterialCode:        item.MaterialCode,
+			Name:                item.ProductName,
+			Barcode:             item.Barcode,
+			Manufacturer:        item.ProducerCode,
+			ProductSeriesNumber: item.SerialNumber,
+			ExpireDate:          item.ExpireDate,
+			Quantity:            item.ReceivedCount,
+			RetailPrice:         item.RetailPrice, // vat bilan oddiysi almashgan
+			RetailPriceVat:      item.RetailPriceVat,
+			SupplyPrice:         item.SupplyPrice,
+			SupplyPriceVat:      item.SupplyPriceVat,
+			Sum:                 item.ScannedCount * item.RetailPrice,
+			SumVat:              item.ScannedCount * item.RetailPriceVat,
 		})
 	}
 	// get store info
@@ -587,12 +603,13 @@ func (s *Services) ConfirmTransfer(transferID string, userId string) error {
 	data1C.Apteka.StoreCode = toStore.StoreCode
 	data1C.AptekaOtkud.Name = fromStore.Name
 	data1C.AptekaOtkud.StoreCode = fromStore.StoreCode
-
-	// send inventory products data to 1C
-	err = s.DoRequest(context.Background(), data1C, "/perekit")
-	if err != nil {
-		s.log.Warn("ERROR on sending inventory: %v", err)
-		return err
+	if s.cfg.BaseUrl1C != "test" {
+		// send inventory products data to 1C
+		err = s.DoRequest(context.Background(), data1C, "/perekit")
+		if err != nil {
+			s.log.Warn("ERROR on sending inventory: %v", err)
+			return err
+		}
 	}
 	return nil
 }
