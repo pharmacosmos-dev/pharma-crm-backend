@@ -788,14 +788,14 @@ func (h *ReturnHandler) ExportReturnNakladnoyPDF(c *gin.Context) {
 		var quantityStr string
 		var totalPrice float64
 		if typeDoc == "return" {
-			quantityStr = strconv.FormatFloat(p.ScannedCount-p.AcceptedCount, 'f', 2, 64)
-			if p.ScannedCount-p.AcceptedCount <= 0 {
+			quantityStr = strconv.FormatFloat(p.ExpectedCount-p.AcceptedCount, 'f', 2, 64)
+			if p.ExpectedCount-p.AcceptedCount <= 0 {
 				continue
 			}
-			totalPrice = p.RetailPrice * (p.ScannedCount - p.AcceptedCount)
+			totalPrice = p.RetailPrice * (p.ExpectedCount - p.AcceptedCount)
 		} else {
-			quantityStr = strconv.FormatFloat(p.ScannedCount, 'f', 2, 64)
-			totalPrice = p.RetailPrice * p.ScannedCount
+			quantityStr = strconv.FormatFloat(p.ExpectedCount, 'f', 2, 64)
+			totalPrice = p.RetailPrice * p.ExpectedCount
 		}
 		row := []string{
 			strconv.Itoa(count),

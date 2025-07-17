@@ -859,12 +859,12 @@ func (h *TransferHandler) ExportTransferNakladnoyPDF(c *gin.Context) {
 			p.SerialNumber,
 			p.ExpireDate.Format("02.01.2006"),
 			p.ShortName,
-			strconv.FormatFloat(p.ScannedCount, 'f', 2, 64),
+			strconv.FormatFloat(p.ExpectedCount, 'f', 2, 64),
 			formatWithSpaceSeparator(p.SupplyPrice),
 			formatWithSpaceSeparator(p.RetailPrice),
 			formatWithSpaceSeparator(p.RetailPrice - p.SupplyPrice),
 			formatWithSpaceSeparator(p.RetailPrice),
-			formatWithSpaceSeparator(p.RetailPrice * p.ScannedCount),
+			formatWithSpaceSeparator(p.RetailPrice * p.ExpectedCount),
 		}
 
 		// Har bir ustun uchun maksimal qator sonini topish
@@ -911,7 +911,7 @@ func (h *TransferHandler) ExportTransferNakladnoyPDF(c *gin.Context) {
 			pdf.Ln(-1)
 		}
 		// Update totals and count
-		total += math.Round(p.RetailPrice * p.ScannedCount)
+		total += math.Round(p.RetailPrice * p.ExpectedCount)
 		count++
 	}
 
