@@ -409,7 +409,7 @@ func (s *Services) SendReturn(returnId string, userId string) error {
 			p.unit_per_pack
         FROM transfer_details td
 		JOIN products p ON td.product_id = p.id
-		WHERE td.transfer_id = ? and td.scanned_count > 0;
+		WHERE td.transfer_id = ? and td.expected_count > 0;
 	`
 	err = tx.Raw(query3, returnId).Scan(&returnDetails).Error
 	if err != nil {

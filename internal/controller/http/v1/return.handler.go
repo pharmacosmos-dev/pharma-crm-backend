@@ -296,7 +296,7 @@ func (h *ReturnHandler) ExportReturnExcel(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"ID", "Наименование", "Филиал", "Кол-во", "Полученная Сумма Поставки", "Принятая Сумма Поставки", "Полученная Сумма Продажи", "Принятая Сумма Продажи", "Статус", "Создание", "Завершение", "Создал", "Завершил"}
+	headers := []string{"ID", "Наименование", "Филиал", "Кол-во", "Полученная Сумма Поставки", "Принятая Сумма Поставки", "Полученная Сумма Продажи", "Принятая Сумма Продажи", "Статус", "Создание", "Завершение", "Создал", "Отправитель", "Завершил"}
 
 	err = setExcelHeaders(f, sheetName, headers)
 	if err != nil {
@@ -337,10 +337,15 @@ func (h *ReturnHandler) ExportReturnExcel(c *gin.Context) {
 		} else {
 			f.SetCellValue(sheetName, "L"+row, "N/A")
 		}
-		if r.AcceptedBy != nil {
-			f.SetCellValue(sheetName, "M"+row, r.AcceptedBy.FullName)
+		if r.UpdatedBy != nil {
+			f.SetCellValue(sheetName, "M"+row, r.UpdatedBy.FullName)
 		} else {
 			f.SetCellValue(sheetName, "M"+row, "N/A")
+		}
+		if r.AcceptedBy != nil {
+			f.SetCellValue(sheetName, "N"+row, r.AcceptedBy.FullName)
+		} else {
+			f.SetCellValue(sheetName, "N"+row, "N/A")
 		}
 
 	}
@@ -622,7 +627,7 @@ func (h *ReturnHandler) ExportReturnDetailList(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"Код", "Наименование", "Штрих-код", "Срок годность", "Серия номер", "Текущее Кол-во", "Ед-изм", "Текущее Cумма", "Cканированные", "Cканированные Cумма"}
+	headers := []string{"Код", "Наименование", "Штрих-код", "Срок годность", "Серия номер", "Текущее Кол-во", "Ед-изм", "Текущее Cумма", "Отправленное кол-во", "Cканированные", "Cканированные Cумма"}
 
 	err = setExcelHeaders(f, sheetName, headers)
 	if err != nil {
@@ -642,8 +647,9 @@ func (h *ReturnHandler) ExportReturnDetailList(c *gin.Context) {
 		f.SetCellValue(sheetName, "F"+row, r.ReceivedCount)
 		f.SetCellValue(sheetName, "G"+row, r.ShortName)
 		f.SetCellValue(sheetName, "H"+row, r.ReceivedSum)
-		f.SetCellValue(sheetName, "I"+row, r.ScannedCount)
-		f.SetCellValue(sheetName, "J"+row, r.ScannedSum)
+		f.SetCellValue(sheetName, "I"+row, r.ExpectedCount)
+		f.SetCellValue(sheetName, "J"+row, r.ScannedCount)
+		f.SetCellValue(sheetName, "K"+row, r.ScannedSum)
 
 	}
 	saveExcelToUploads(c, f, *h.log, "Vozvrat_mahsulotlar")
