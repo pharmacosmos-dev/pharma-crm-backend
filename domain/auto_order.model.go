@@ -34,6 +34,7 @@ type AutoOrderRequest struct {
 	Id            string  `gorm:"id" json:"id"`
 	StoreId       string  `gorm:"store_id" json:"store_id"`
 	Status        string  `gorm:"status" json:"status"`
+	CreatedBy     string  `gorm:"created_by" json:"created_by"`
 	AutoOrderDate string  `gorm:"auto_order_date" json:"auto_order_date"`
 	IntervalDay   float64 `gorm:"-" json:"interval_day"`
 }

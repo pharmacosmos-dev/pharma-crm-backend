@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
@@ -33,6 +34,7 @@ func (h *AutoOrderHandler) AutoOrderRoutes(r *gin.RouterGroup) {
 	autoOrder := r.Group("/auto-order")
 	{
 		autoOrder.POST("", h.Create)
+		autoOrder.DELETE("/:id", h.Delete)
 		autoOrder.GET("/list", h.List)
 		autoOrder.POST("/send/:id", h.SendAutoOrder)
 		autoOrder.GET("/generated/list", h.ListGenerated)
@@ -62,10 +64,16 @@ func (h *AutoOrderHandler) Create(c *gin.Context) {
 		body domain.AutoOrderRequest
 		err  error
 	)
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, constants.UnauthorizedError)
+		return
+	}
+
 	err = c.ShouldBindJSON(&body) // bind request body
 	if err != nil {
 		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
+		handleResponse(c, BadRequest, constants.InvalidRequestBodyError)
 		return
 	}
 	// start transaction
@@ -73,19 +81,20 @@ func (h *AutoOrderHandler) Create(c *gin.Context) {
 	defer recoverTransaction(tx, h.log) // check revocer for panic error
 	defer RollbackIfError(tx, &err)     // return transaction if error happened
 	body.Id = uuid.New().String()
+	body.CreatedBy = userId.(string)
 	body.Status = config.NEW
 	body.AutoOrderDate = time.Now().Format("2006-01-02T15:04:05")
 	// get auro order products based on store_id and interval day
 	autoOrderDetails, err := h.service.GenerateAutoOrderDetail(body.Id, body.StoreId, body.IntervalDay)
 	if err != nil {
-		h.log.Error("ERROR generating auto order: ", err)
-		handleResponse(c, InternalError, "Failed to generate auto order for the store")
+		h.log.Error("could not generate new auto order details: %v", err)
+		handleResponse(c, InternalError, constants.InternalServerError)
 		return
 	}
 
 	// check if there are enough products for the auto order
 	if len(autoOrderDetails) < 1 {
-		handleResponse(c, CONFLICT, "Not enough products for creating auto order")
+		handleResponse(c, CONFLICT, constants.NotEnoughProductError)
 		return
 	}
 
@@ -94,22 +103,22 @@ func (h *AutoOrderHandler) Create(c *gin.Context) {
 		Table("auto_orders").
 		Create(&body).Error
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		h.log.Error("cound not create auto order details: %v", err)
+		handleResponse(c, InternalError, constants.InternalServerError)
 		return
 	}
 	// create auto order details
 	err = tx.Table("auto_order_details").Create(&autoOrderDetails).Error
 	if err != nil {
-		h.log.Warn("ERROR on creating auto_order_dateils: %v", err)
-		handleResponse(c, InternalError, "failed.create.auto_order_details")
+		h.log.Warn("cound not create auto order details: %v", err)
+		handleResponse(c, InternalError, constants.InternalServerError)
 		return
 	}
 	// commit transaction
 	err = tx.Commit().Error
 	if err != nil {
-		h.log.Error("ERROR on commiting transaction")
-		handleResponse(c, InternalError, err.Error())
+		h.log.Error("cound not completed transaction: %v", err)
+		handleResponse(c, InternalError, constants.InternalServerError)
 		return
 	}
 
@@ -341,6 +350,11 @@ func (h *AutoOrderHandler) SendAutoOrder(c *gin.Context) {
 		data      domain.AutoOrderDetailSendRequest
 		err       error
 	)
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "user.not.authorized")
+		return
+	}
 	// validate id
 	if err = uuid.Validate(id); err != nil {
 		handleResponse(c, BadRequest, "invalid.auto_order_id")
@@ -350,66 +364,41 @@ func (h *AutoOrderHandler) SendAutoOrder(c *gin.Context) {
 	err = h.db.Preload("Store").First(&autoOrder, "id = ? AND status = 'new'", id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			handleResponse(c, BadRequest, "Auto order not or already completed")
+			handleResponse(c, BadRequest, "already.completed")
 			return
 		}
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		h.log.Error("could not get auto order(%s) info: %v", id, err)
+		handleResponse(c, InternalError, constants.InternalServerError)
 		return
 	}
 	err = h.db.Raw(`
 	SELECT
-		p.material_code, p.name, pr.name AS manufacturer,  aod.order_count AS quantity
-	FROM auto_order_details aod
-		JOIN products p ON p.id = aod.product_id
-		LEFT JOIN producers pr ON p.producer_id = pr.id
-	WHERE aod.order_count > 0 AND  aod.auto_order_id = ?`, id).Scan(&data.Товары).Error
+		p.material_code, 
+		p.name, 
+		COALESCE(pr.name, '') AS manufacturer,  
+		aod.order_count AS quantity
+	FROM 
+		auto_order_details aod
+	JOIN 
+		products p ON p.id = aod.product_id
+	LEFT JOIN 
+		producers pr ON p.producer_id = pr.id
+	WHERE
+		aod.order_count > 0 AND aod.auto_order_id = ?`, id).Scan(&data.Товары).Error
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		h.log.Error("could not get auto order details: %v", err)
+		handleResponse(c, InternalError, constants.InternalServerError)
 		return
 	}
-	data.Dok.DataDok = autoOrder.CreatedAt.Format("2006-01-02T15:04:05")
+	data.Dok.DataDok = autoOrder.CreatedAt.Format(config.DATE_1C_FORMAT)
 	data.Dok.NomerDok = "AZ-" + strconv.Itoa(autoOrder.PublicID)
 	data.Apteka.Name = autoOrder.Store.Name
 	data.Apteka.StoreCode = autoOrder.Store.StoreCode
 
-	// Save 1c request data
-	t, _ := json.Marshal(data)
-	requestData, err := h.SaveRequest(&domain.Request1C{
-		Method:  "POST",
-		Payload: t,
-		Action:  "auto_order",
-		DocDate: data.Dok.DataDok,
-		DocNum:  data.Dok.NomerDok,
-		Status:  "sending",
-	})
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	requestData.Status = "error"
 	res, err := h.DoRequest(c.Request.Context(), data, "/zakaz")
 	if err != nil {
-		err = h.SaveResponse(c.Request.Context(), requestData)
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	// checking 1c response is nil
-	if res == nil {
-		_ = h.SaveResponse(c.Request.Context(), requestData)
-		handleResponse(c, InternalError, "failed to send auto order")
-		return
-	}
-	// Save 1c response data
-	requestData.Response, _ = json.Marshal(res)
-	requestData.Status = "success"
-	err = h.SaveResponse(c.Request.Context(), requestData)
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		h.log.Error("could not do request auto order: %v", err)
+		handleResponse(c, InternalError, constants.InternalServerError)
 		return
 	}
 
@@ -428,24 +417,24 @@ func (h *AutoOrderHandler) SendAutoOrder(c *gin.Context) {
 		err = tx.Exec(`UPDATE auto_order_details SET response_order_count = ? WHERE product_id = (SELECT id FROM products WHERE material_code = ?)`,
 			item.QuantityFakt, item.MaterialCode).Error
 		if err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, err.Error())
+			h.log.Error("could not update response order count: %v", err)
+			handleResponse(c, InternalError, constants.InternalServerError)
 			return
 		}
 	}
 
 	// update auto_order status to completed
-	err = tx.Exec(`UPDATE auto_orders SET status = ?, completed_date = NOW() WHERE id = ?`, config.COMPLETED, id).Error
+	err = tx.Exec(`UPDATE auto_orders SET status = ?, completed_date = NOW(), updated_by = ? WHERE id = ?`, config.COMPLETED, id, userId).Error
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		h.log.Error("could not update auto_order(%s): %v", id, err)
+		handleResponse(c, InternalError, constants.InternalServerError)
 		return
 	}
 	// commit transaction
 	err = tx.Commit().Error
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		h.log.Error("could not completed transaction: %v", err)
+		handleResponse(c, InternalError, constants.InternalServerError)
 		return
 	}
 
@@ -487,10 +476,36 @@ func (h *AutoOrderHandler) ListGenerated(c *gin.Context) {
 	handleResponse(c, OK, res)
 }
 
+// DeleteAutoOrder godoc
+// @Summary Delete auto order
+// @Description Delete auto order
+// @Tags 	auto_orders
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param 	id path string true "Auto order ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /auto-order/{id} [delete]
+func (h *AutoOrderHandler) Delete(c *gin.Context) {
+	var id = c.Param("id")
+
+	// delete auto order
+	err := h.db.WithContext(c.Request.Context()).Delete(&domain.AutoOrder{}, "id = ? AND status = ?", id, constants.NEW).Error
+	if err != nil {
+		h.log.Error("could not delete auto_order(%s): %v", id, err)
+		handleResponse(c, InternalError, constants.InternalServerError)
+		return
+	}
+
+	handleResponse(c, OK, "DELETED")
+}
+
 // send request to 1C for creating auto order
 func (h *AutoOrderHandler) DoRequest(ctx context.Context, data interface{}, url string) (*domain.AutoOrderResponse, error) {
 	client := &http.Client{
-		Timeout: 120 * time.Second,
+		Timeout: 300 * time.Second,
 	}
 	buf := bytes.Buffer{}
 	// Encode data to JSON
@@ -526,27 +541,4 @@ func (h *AutoOrderHandler) DoRequest(ctx context.Context, data interface{}, url 
 		return nil, fmt.Errorf("failed to unmarshal response: %v", err)
 	}
 	return &info, nil
-}
-
-// Save auto order request to database
-func (h *AutoOrderHandler) SaveRequest(req *domain.Request1C) (*domain.Request1C, error) {
-	res := domain.Request1C{}
-	err := h.db.Raw(`INSERT INTO requests_1c (method, payload, action, doc_date, doc_num, status) VALUES(?, ?, ?, ?, ?, ?) RETURNING *`,
-		req.Method, req.Payload, req.Action, req.DocDate, req.DocNum, req.Status).Scan(&res).Error
-	if err != nil {
-		return &res, err
-	}
-	return &res, nil
-}
-
-// Save auro order response to database
-func (h *AutoOrderHandler) SaveResponse(ctx context.Context, req *domain.Request1C) error {
-	err := h.db.WithContext(ctx).Exec(
-		`UPDATE requests_1c SET response = ?, updated_at = NOW(), status = ? WHERE id = ?`,
-		req.Response, req.Status, req.ID,
-	).Error
-	if err != nil {
-		return err
-	}
-	return nil
 }

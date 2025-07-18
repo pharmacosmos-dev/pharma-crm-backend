@@ -458,6 +458,55 @@ const docTemplate = `{
                 }
             }
         },
+        "/auto-order/{id}": {
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Delete auto order",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auto_orders"
+                ],
+                "summary": "Delete auto order",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Auto order ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/brand": {
             "post": {
                 "security": [
@@ -15484,22 +15533,15 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Transfer ID or Return ID",
+                        "description": "Return ID",
                         "name": "id",
                         "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "TYPE: return or transfer",
-                        "name": "type",
-                        "in": "query",
                         "required": true
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Return PDF file",
+                        "description": "Return",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
                         }
@@ -15890,7 +15932,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Return"
+                    "Transfer"
                 ],
                 "summary": "Update return or transfer by barcode",
                 "parameters": [
@@ -19366,6 +19408,54 @@ const docTemplate = `{
                 }
             }
         },
+        "/transfer/edit-status-to-checking/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Return"
+                ],
+                "summary": "Edit status to checking",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Transfer ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Return PDF file",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request parameters",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/transfer/export-excel": {
             "get": {
                 "security": [
@@ -20878,13 +20968,16 @@ const docTemplate = `{
         "domain.BarcodeRequest": {
             "type": "object",
             "properties": {
-                "accepted_count": {
-                    "type": "integer"
-                },
                 "barcode": {
                     "type": "string"
                 },
-                "type": {
+                "count": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "status": {
                     "type": "string"
                 }
             }
