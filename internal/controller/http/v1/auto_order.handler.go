@@ -33,6 +33,7 @@ func (h *AutoOrderHandler) AutoOrderRoutes(r *gin.RouterGroup) {
 	autoOrder := r.Group("/auto-order")
 	{
 		autoOrder.POST("", h.Create)
+		autoOrder.DELETE("/:id", h.Delete)
 		autoOrder.GET("/list", h.List)
 		autoOrder.POST("/send/:id", h.SendAutoOrder)
 		autoOrder.GET("/generated/list", h.ListGenerated)
@@ -114,6 +115,47 @@ func (h *AutoOrderHandler) Create(c *gin.Context) {
 	}
 
 	handleResponse(c, CREATED, "CREATED")
+}
+
+// DeleteAutoOrder godoc
+// @Summary Delete auto order
+// @Description Delete auto order
+// @Tags 	auto_orders
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param 	id path string true "Auto order ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /auto-order/{id} [delete]
+func (h *AutoOrderHandler) Delete(c *gin.Context) {
+	var (
+		id  = c.Param("id")
+		err error
+	)
+	// start transaction
+	tx := h.db.Begin()
+	defer recoverTransaction(tx, h.log) // check revocer for panic error
+	defer RollbackIfError(tx, &err)     // return transaction if error happened
+	// delete auto order
+	err = tx.
+		Table("auto_orders").
+		Where("id = ?", id).
+		Delete(&domain.AutoOrder{}).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	// commit transaction
+	err = tx.Commit().Error
+	if err != nil {
+		h.log.Error("ERROR on commiting transaction")
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, "DELETED")
 }
 
 // ListAutoOrder godoc

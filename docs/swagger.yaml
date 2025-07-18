@@ -53,11 +53,13 @@ definitions:
     type: object
   domain.BarcodeRequest:
     properties:
-      accepted_count:
-        type: integer
       barcode:
         type: string
-      type:
+      count:
+        type: integer
+      id:
+        type: string
+      status:
         type: string
     type: object
   domain.BrandRequest:
@@ -1631,6 +1633,37 @@ paths:
       summary: List auto order details
       tags:
       - auto_order_details
+  /auto-order/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete auto order
+      parameters:
+      - description: Auto order ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete auto order
+      tags:
+      - auto_orders
   /auto-order/generated/list:
     get:
       consumes:
@@ -11396,21 +11429,16 @@ paths:
       consumes:
       - application/json
       parameters:
-      - description: Transfer ID or Return ID
+      - description: Return ID
         in: path
         name: id
-        required: true
-        type: string
-      - description: 'TYPE: return or transfer'
-        in: query
-        name: type
         required: true
         type: string
       produces:
       - application/json
       responses:
         "200":
-          description: Return PDF file
+          description: Return
           schema:
             $ref: '#/definitions/v1.Response'
         "400":
@@ -11688,7 +11716,7 @@ paths:
       - BearerAuth: []
       summary: Update return or transfer by barcode
       tags:
-      - Return
+      - Transfer
   /role:
     post:
       consumes:
@@ -13873,6 +13901,36 @@ paths:
       summary: Confirm Return
       tags:
       - Transfer
+  /transfer/edit-status-to-checking/{id}:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Transfer ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Return PDF file
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Invalid request parameters
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Edit status to checking
+      tags:
+      - Return
   /transfer/export-excel:
     get:
       consumes:
