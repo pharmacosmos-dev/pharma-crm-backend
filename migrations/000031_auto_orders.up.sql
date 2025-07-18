@@ -4,6 +4,8 @@ CREATE TABLE IF NOT EXISTS auto_orders (
     "id" UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     "store_id" UUID REFERENCES stores(id) ON DELETE CASCADE,
     "public_id" INTEGER NOT NULL DEFAULT nextval('auto_orders_public_id_seq'),
+    "created_by" UUID REFERENCES employees(id) ON DELETE CASCADE,
+    "updated_by" UUID REFERENCES employees(id) ON DELETE CASCADE,
     "status" VARCHAR(20) DEFAULT 'new', -- pending, completed, canceled
     "auto_order_date" TIMESTAMP,
     "completed_date" TIMESTAMP,
