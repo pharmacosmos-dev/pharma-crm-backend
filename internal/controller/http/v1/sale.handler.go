@@ -860,6 +860,9 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 			handleResponse(c, BadRequest, "invalid success response format")
 			return
 		}
+		if successResp.Message.FiscalSign == "" {
+			successResp.Message.FiscalSign = successResp.Info.FiscalSign
+		}
 		// update sale status to completed
 		err = h.service.SetFiscalId(sale.ID, successResp.Message.FiscalSign)
 		if err != nil {

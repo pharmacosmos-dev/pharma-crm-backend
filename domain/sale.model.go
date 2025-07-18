@@ -193,6 +193,7 @@ type EposResponseData struct {
 type EposSuccessResponse struct {
 	Error   bool               `json:"error"`
 	Message EposSuccessMessage `json:"message"`
+	Info    Info               `json:"info"`
 }
 
 type EposSuccessMessage struct {
