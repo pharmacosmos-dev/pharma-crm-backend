@@ -3,6 +3,7 @@ package app
 
 import (
 	"fmt"
+	"github.com/pharma-crm-backend/pkg/redisclient"
 	"log"
 	"os"
 	"os/signal"
@@ -34,6 +35,8 @@ func Run(cfg *config.Config) {
 		l.Error(err)
 	}
 
+	redisClient := redisclient.NewRedisClient("localhost:6379", "", 0)
+
 	// New storage
 	service := services.NewService(connDB, l, cfg)
 
@@ -43,6 +46,7 @@ func Run(cfg *config.Config) {
 	v1.NewRouter(v1.Options{
 		Gin:     handler,
 		Db:      connDB,
+		Redis:   redisClient,
 		Log:     l,
 		Cfg:     cfg,
 		Service: service,

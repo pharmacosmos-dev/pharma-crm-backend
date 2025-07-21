@@ -1,10 +1,13 @@
 package v1
 
 import (
+	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/helper"
+	"github.com/pharma-crm-backend/pkg/redisclient"
 	"gorm.io/gorm"
+	"time"
 )
 
 type DashboardHandler struct {
@@ -88,6 +91,17 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 	if !helper.IsAdmin(employee, h.cfg) && employee.StoreId != "" {
 		param.StoreIds = []string{employee.StoreId}
 	}
+	key := redisclient.MakeCacheKey(param.StartDate, param.EndDate, param.StoreIds)
+
+	// 1. Avval Redisdan olishga harakat qilamiz
+	cached, err := h.redisClient.Get(key)
+	if err == nil && cached != "" {
+		var res domain.DashboardCountStats
+		if err := json.Unmarshal([]byte(cached), &res); err == nil {
+			handleResponse(c, OK, res)
+			return
+		}
+	}
 	// get dashboard data
 	res, err := h.service.DashboardTotalCountStats(&param)
 	if err != nil {
@@ -97,6 +111,10 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 	// get employee bonus amount
 	res.BonusAmount = bonus.BonusAmount
 	res.BeforeBonusAmount = bonus.BeforeBonusAmount
+
+	// cachega yozamiz
+	data, _ := json.Marshal(res)
+	_ = h.redisClient.Set(key, string(data), 10*time.Minute)
 
 	handleResponse(c, OK, res)
 }

@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"github.com/pharma-crm-backend/pkg/redisclient"
 	"sync"
 
 	"github.com/gin-gonic/gin"
@@ -16,6 +17,7 @@ import (
 type Handler struct {
 	log             *logger.Logger
 	db              *gorm.DB
+	redisClient     *redisclient.RedisClient
 	cfg             *config.Config
 	JwtHandler      *token.JWTHandler
 	service         *services.Services
@@ -26,6 +28,7 @@ type Handler struct {
 func NewHandler(
 	cfg *config.Config,
 	db *gorm.DB,
+	redisClient *redisclient.RedisClient,
 	log *logger.Logger,
 	jwt *token.JWTHandler,
 	service *services.Services,
@@ -35,6 +38,7 @@ func NewHandler(
 	return &Handler{
 		cfg:             cfg,
 		db:              db,
+		redisClient:     redisClient,
 		log:             log,
 		JwtHandler:      jwt,
 		service:         service,

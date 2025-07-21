@@ -2,6 +2,7 @@
 package http
 
 import (
+	"github.com/pharma-crm-backend/pkg/redisclient"
 	"net/http"
 	"time"
 
@@ -23,6 +24,7 @@ import (
 type Options struct {
 	Gin     *gin.Engine
 	Db      *gorm.DB
+	Redis   *redisclient.RedisClient
 	Log     *logger.Logger
 	Cfg     *config.Config
 	Service *services.Services
@@ -69,11 +71,12 @@ func NewRouter(option Options) {
 
 	// Handlers
 	handler := v1.NewHandler(
-		option.Cfg, 
-		option.Db, 
-		option.Log, 
+		option.Cfg,
+		option.Db,
+		option.Redis,
+		option.Log,
 		&jwtHandler,
-		option.Service, 
+		option.Service,
 		validator)
 	handler.InitRoutes(option.Gin)
 
