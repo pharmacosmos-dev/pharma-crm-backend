@@ -72,6 +72,7 @@ const (
 	PENDING    = "pending"
 	PROCESSING = "processing"
 	COMPLETED  = "completed"
+	SENT_TO_1C = "sent-to-1c"
 	CANCELED   = "canceled"
 	DONE       = "done"
 	DELETED    = "deleted"
