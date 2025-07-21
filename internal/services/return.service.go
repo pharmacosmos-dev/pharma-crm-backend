@@ -140,6 +140,8 @@ func (s *Services) UpdateReturnDetailQuantity(id string, request *domain.ReturnA
 		updateField := "expected_count"
 		if request.Status == "checking" {
 			updateField = "accepted_count"
+		} else if request.Status == "get" {
+			updateField = "scanned_count"
 		}
 		// add scanned count by transfer detail id
 		err = s.db.Exec(fmt.Sprintf(`
@@ -571,7 +573,7 @@ func (s *Services) ConfirmReturn(returnId, storeId string, userId string) error 
 	var returnInfo domain.Return
 	// update confirm return
 	query := `UPDATE transfers SET status = ?, accepted_by = ?, accepted_at = NOW() WHERE id = ? RETURNING *`
-	err := tx.Raw(query, config.COMPLETED, userId, returnId).Scan(&returnInfo).Error
+	err := tx.Raw(query, config.SENT_TO_1C, userId, returnId).Scan(&returnInfo).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating return %v", err)
 		return err
@@ -606,7 +608,7 @@ func (s *Services) ConfirmReturn(returnId, storeId string, userId string) error 
 		JOIN transfers tr ON td.transfer_id = tr.id
 		JOIN products p ON td.product_id = p.id
 		LEFT JOIN producers pr ON p.producer_id = pr.id
-		WHERE td.transfer_id = ? AND tr.status = 'completed';
+		WHERE td.transfer_id = ? AND tr.status = 'sent-to-1c';
 	`
 	// get return data
 	err = tx.Raw(query2, returnId).Scan(&returnData.Товары).Error
