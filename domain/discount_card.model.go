@@ -34,3 +34,17 @@ type CreateDiscountCardRequest struct {
 	CustomerID *string `json:"customer_id,omitempty"` // optional
 	Percent    int     `json:"percent" binding:"gte=0,lte=100"`
 }
+
+type UpdateDiscountCardRequest struct {
+	ID         string  `json:"-"`
+	CustomerID *string `json:"customer_id,omitempty"` // optional
+	Percent    int     `json:"percent,omitempty" binding:"gte=0,lte=100"`
+	UpdatedBy  string  `json:"-"`
+}
+
+type UpdateDiscountCard struct {
+	Percent    int       `gorm:"default:0"`
+	UpdatedBy  string    `gorm:"updated_by"`
+	UpdatedAt  time.Time `gorm:"updated_at"`
+	CustomerID *string   `gorm:"type:uuid"`
+}
