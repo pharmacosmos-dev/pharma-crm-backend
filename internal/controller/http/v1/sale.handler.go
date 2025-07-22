@@ -361,7 +361,7 @@ func (h *SaleHandler) ExportSaleExcel(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"ID", "Филиал", "Наличный", "Humo", "Uzcard", "Payme", "Click", "AlifBank", "Обшая сумма", "Дата продажа", "Касса", "Продавец", "Клиент"}
+	headers := []string{"ID", "Филиал", "Наличный", "Humo", "Uzcard", "Payme", "Click", "AlifBank", "Обшая сумма", "Дата продажа", "Время продажа", "Касса", "Продавец", "Клиент"}
 
 	err = setExcelHeaders(f, sheetName, headers)
 	if err != nil {
@@ -386,13 +386,14 @@ func (h *SaleHandler) ExportSaleExcel(c *gin.Context) {
 		} else {
 			f.SetCellValue(sheetName, "I"+row, sale.TotalAmount)
 		}
-		f.SetCellValue(sheetName, "J"+row, sale.CompletedAt.Format(time.DateTime))
-		f.SetCellValue(sheetName, "K"+row, sale.CashBoxName)
-		f.SetCellValue(sheetName, "L"+row, sale.FullName)
+		f.SetCellValue(sheetName, "J"+row, sale.CompletedAt.Format(time.DateOnly))
+		f.SetCellValue(sheetName, "K"+row, sale.CompletedAt.Add(time.Hour*5).Format(time.TimeOnly))
+		f.SetCellValue(sheetName, "L"+row, sale.CashBoxName)
+		f.SetCellValue(sheetName, "M"+row, sale.FullName)
 		if sale.CustomerName != nil {
-			f.SetCellValue(sheetName, "M"+row, *sale.CustomerName)
+			f.SetCellValue(sheetName, "N"+row, *sale.CustomerName)
 		} else {
-			f.SetCellValue(sheetName, "M"+row, "N/A")
+			f.SetCellValue(sheetName, "N"+row, "N/A")
 		}
 
 	}

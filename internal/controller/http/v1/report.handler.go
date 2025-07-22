@@ -518,7 +518,7 @@ func (h *ReportHandler) ProductReportExportExcel(c *gin.Context) {
 		f.SetCellValue(sheetName, "L"+row, value.MarkupSum)
 		f.SetCellValue(sheetName, "M"+row, value.VatSum)
 		f.SetCellValue(sheetName, "N"+row, value.CompletedAt.Format(time.DateOnly))
-		f.SetCellValue(sheetName, "O"+row, value.CompletedAt.Format(time.TimeOnly))
+		f.SetCellValue(sheetName, "O"+row, value.CompletedAt.Add(time.Hour*5).Format(time.TimeOnly))
 		f.SetCellValue(sheetName, "P"+row, value.FullName)
 		f.SetCellValue(sheetName, "Q"+row, helper.SaleTypeToRussian(value.SaleType, value.SaleNumber))
 		f.SetCellValue(sheetName, "R"+row, value.MarkingCount)
