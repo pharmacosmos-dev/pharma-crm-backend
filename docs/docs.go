@@ -4009,7 +4009,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "discount_cards"
+                    "discount cards"
                 ],
                 "summary": "Create discount card",
                 "parameters": [
@@ -4021,6 +4021,109 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/domain.CreateDiscountCardRequest"
                         }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/discount-card/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "discount cards"
+                ],
+                "summary": "Update a discount card",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Discount Card ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update Discount Card",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.UpdateDiscountCardRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "discount cards"
+                ],
+                "summary": "Delete a discount card",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Discount Card ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -23165,6 +23268,20 @@ const docTemplate = `{
                 },
                 "unit_label": {
                     "type": "string"
+                }
+            }
+        },
+        "domain.UpdateDiscountCardRequest": {
+            "type": "object",
+            "properties": {
+                "customer_id": {
+                    "description": "optional",
+                    "type": "string"
+                },
+                "percent": {
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 0
                 }
             }
         },

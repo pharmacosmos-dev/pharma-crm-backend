@@ -1436,6 +1436,16 @@ definitions:
       unit_label:
         type: string
     type: object
+  domain.UpdateDiscountCardRequest:
+    properties:
+      customer_id:
+        description: optional
+        type: string
+      percent:
+        maximum: 100
+        minimum: 0
+        type: integer
+    type: object
   domain.UpdateIsMarking:
     properties:
       id:
@@ -4063,7 +4073,72 @@ paths:
       - BearerAuth: []
       summary: Create discount card
       tags:
-      - discount_cards
+      - discount cards
+  /discount-card/{id}:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: Discount Card ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete a discount card
+      tags:
+      - discount cards
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Discount Card ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update Discount Card
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UpdateDiscountCardRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update a discount card
+      tags:
+      - discount cards
   /draft:
     post:
       consumes:
