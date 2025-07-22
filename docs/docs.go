@@ -3994,6 +3994,57 @@ const docTemplate = `{
                 }
             }
         },
+        "/discount-card": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create discount card from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "discount_cards"
+                ],
+                "summary": "Create discount card",
+                "parameters": [
+                    {
+                        "description": "discount card",
+                        "name": "req",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.CreateDiscountCardRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/draft": {
             "post": {
                 "security": [
@@ -12802,6 +12853,57 @@ const docTemplate = `{
                 }
             }
         },
+        "/product1c/quantity": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update retail price by 1C",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "1C Api"
+                ],
+                "summary": "Update retail price by 1C",
+                "parameters": [
+                    {
+                        "description": "product",
+                        "name": "product",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.UpdateQuantityRequest1C"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/product1c/repricing": {
             "post": {
                 "security": [
@@ -20951,6 +21053,9 @@ const docTemplate = `{
                 "auto_order_date": {
                     "type": "string"
                 },
+                "created_by": {
+                    "type": "string"
+                },
                 "id": {
                     "type": "string"
                 },
@@ -21265,6 +21370,26 @@ const docTemplate = `{
                 },
                 "sale_id": {
                     "type": "string"
+                }
+            }
+        },
+        "domain.CreateDiscountCardRequest": {
+            "type": "object",
+            "required": [
+                "barcode"
+            ],
+            "properties": {
+                "barcode": {
+                    "type": "string"
+                },
+                "customer_id": {
+                    "description": "optional",
+                    "type": "string"
+                },
+                "percent": {
+                    "type": "integer",
+                    "maximum": 100,
+                    "minimum": 0
                 }
             }
         },
@@ -22416,6 +22541,20 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.ProductUpdateQuantityRequest": {
+            "type": "object",
+            "properties": {
+                "accepted_count": {
+                    "type": "number"
+                },
+                "given_count": {
+                    "type": "number"
+                },
+                "store_product_id": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.ProductUpdateRequest": {
             "type": "object",
             "properties": {
@@ -23062,6 +23201,20 @@ const docTemplate = `{
                 },
                 "store_product_id": {
                     "type": "string"
+                }
+            }
+        },
+        "domain.UpdateQuantityRequest1C": {
+            "type": "object",
+            "properties": {
+                "Dok": {
+                    "$ref": "#/definitions/domain.Document"
+                },
+                "Товары": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.ProductUpdateQuantityRequest"
+                    }
                 }
             }
         },

@@ -42,6 +42,8 @@ definitions:
     properties:
       auto_order_date:
         type: string
+      created_by:
+        type: string
       id:
         type: string
       interval_day:
@@ -248,6 +250,20 @@ definitions:
         type: string
       sale_id:
         type: string
+    type: object
+  domain.CreateDiscountCardRequest:
+    properties:
+      barcode:
+        type: string
+      customer_id:
+        description: optional
+        type: string
+      percent:
+        maximum: 100
+        minimum: 0
+        type: integer
+    required:
+    - barcode
     type: object
   domain.CreateProduct1C:
     properties:
@@ -1011,6 +1027,15 @@ definitions:
       total_retail_price_sum_returned:
         type: number
     type: object
+  domain.ProductUpdateQuantityRequest:
+    properties:
+      accepted_count:
+        type: number
+      given_count:
+        type: number
+      store_product_id:
+        type: string
+    type: object
   domain.ProductUpdateRequest:
     properties:
       barcode:
@@ -1434,6 +1459,15 @@ definitions:
         type: number
       store_product_id:
         type: string
+    type: object
+  domain.UpdateQuantityRequest1C:
+    properties:
+      Dok:
+        $ref: '#/definitions/domain.Document'
+      Товары:
+        items:
+          $ref: '#/definitions/domain.ProductUpdateQuantityRequest'
+        type: array
     type: object
   domain.WriteOffRequest:
     properties:
@@ -3998,6 +4032,38 @@ paths:
       summary: Get all transaction stats
       tags:
       - dashboard
+  /discount-card:
+    post:
+      consumes:
+      - application/json
+      description: Create discount card from the request body
+      parameters:
+      - description: discount card
+        in: body
+        name: req
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CreateDiscountCardRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create discount card
+      tags:
+      - discount_cards
   /draft:
     post:
       consumes:
@@ -9617,6 +9683,38 @@ paths:
       security:
       - BearerAuth: []
       summary: Get product list by store_code
+      tags:
+      - 1C Api
+  /product1c/quantity:
+    post:
+      consumes:
+      - application/json
+      description: Update retail price by 1C
+      parameters:
+      - description: product
+        in: body
+        name: product
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UpdateQuantityRequest1C'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update retail price by 1C
       tags:
       - 1C Api
   /product1c/repricing:

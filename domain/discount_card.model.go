@@ -1,15 +1,22 @@
 package domain
 
-import "time"
+import (
+	"gorm.io/gorm"
+	"time"
+)
 
 // discount card structure
 type DiscountCard struct {
-	Id         string     `gorm:"id" json:"id"`
-	CustomerID string     `gorm:"customer_id" json:"customer_id"`
-	Barcode    string     `gorm:"barcode" json:"barcode"`
-	Percent    int        `gorm:"percent" json:"percent"`
-	CreatedAt  *time.Time `gorm:"created_at" json:"created_at"`
-	UpdatedAt  *time.Time `gorm:"updated_at" json:"updated_at"`
+	ID         string  `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
+	CustomerID *string `gorm:"type:uuid"`
+	Barcode    string  `gorm:"size:13;unique;not null"`
+	Percent    int     `gorm:"default:0"`
+	CreatedBy  string
+	UpdatedBy  *string
+	DeletedBy  *string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
+	DeletedAt  gorm.DeletedAt `gorm:"index"`
 }
 
 type SaleCustomerDiscount struct {
@@ -20,4 +27,10 @@ type SaleCustomerDiscount struct {
 	DiscountPercent float64    `gorm:"discount_percent" json:"discount_percent"`
 	CreatedAt       *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt       *time.Time `gorm:"updated_at" json:"updated_at"`
+}
+
+type CreateDiscountCardRequest struct {
+	Barcode    string  `json:"barcode" binding:"required,len=13"`
+	CustomerID *string `json:"customer_id,omitempty"` // optional
+	Percent    int     `json:"percent" binding:"gte=0,lte=100"`
 }

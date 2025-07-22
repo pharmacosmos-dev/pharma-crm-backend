@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/pharma-crm-backend/config"
 	"strconv"
 	"strings"
 	"time"
@@ -1059,4 +1060,59 @@ func (s *Services) ListExcludedProducts(param *domain.ProductQueryParam) ([]doma
 	}
 
 	return res, totalCount, nil
+}
+
+func (s *Services) UpdateProductQuantity(req *domain.UpdateQuantityRequest1C) error {
+	var err error
+	tx := s.db.Begin()
+	if tx.Error != nil {
+		s.log.Error("ERROR starting transaction: ", tx.Error)
+		return tx.Error
+	}
+
+	for _, item := range req.Товары {
+		diff := int(item.AcceptedCount - item.GivenCount)
+		err = tx.Exec(`
+			UPDATE store_products
+			SET 
+				unit_quantity = store_products.unit_quantity + ?,
+				pack_quantity = store_products.pack_quantity + (? / p.unit_per_pack)
+			FROM products p
+			WHERE store_products.product_id = p.id
+			  AND store_products.id = ?`,
+			diff, diff, item.StoreProductId,
+		).Error
+		if err != nil {
+			s.log.Error("ERROR on updating product quantity: ", err)
+			tx.Rollback()
+			return err
+		}
+	}
+
+	// Remove "NP-" prefix safely
+	publicId := strings.TrimPrefix(req.Dok.DocumentNumber, "NP-")
+
+	// Update transfer status
+	err = tx.Exec(`
+		UPDATE transfers
+		SET 
+			status = ?,
+			updated_at = NOW()
+		WHERE public_id = ?`,
+		config.COMPLETED,
+		publicId,
+	).Error
+
+	if err != nil {
+		s.log.Error("ERROR on updating transfer status: ", err)
+		tx.Rollback()
+		return err
+	}
+
+	if err = tx.Commit().Error; err != nil {
+		s.log.Error("ERROR on committing transaction: ", err)
+		return err
+	}
+
+	return nil
 }
