@@ -99,3 +99,14 @@ type RepricingRequest1C struct {
 	Apteka Apteka                    `json:"Apteka"`
 	Товары []ProductRepricingRequest `json:"Товары"`
 }
+
+type UpdateQuantityRequest1C struct {
+	Dok    Document                       `json:"Dok"`
+	Товары []ProductUpdateQuantityRequest `json:"Товары"`
+}
+
+type ProductUpdateQuantityRequest struct {
+	StoreProductId string  `gorm:"store_product_id" json:"store_product_id"`
+	AcceptedCount  float64 `gorm:"accepted_count" json:"accepted_count"`
+	GivenCount     float64 `gorm:"given_count" json:"given_count"`
+}

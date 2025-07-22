@@ -1024,11 +1024,11 @@ func (h *SaleHandler) AddDiscountCard(c *gin.Context) {
 	}
 
 	// get discount card info by customer id
-	err = tx.First(&customerDiscount, "customer_id = ? AND sale_id = ? AND discount_card_id = ? ", body.CustomerID, body.SaleID, discountCard.Id).Error
+	err = tx.First(&customerDiscount, "customer_id = ? AND sale_id = ? AND discount_card_id = ? ", body.CustomerID, body.SaleID, discountCard.ID).Error
 	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
 		// create new customer_discounts
 		err = tx.Raw(`INSERT INTO sale_customer_discounts(customer_id, sale_id, discount_card_id, discount_percent) VALUES(?, ?, ?, ?) RETURNING *`,
-			body.CustomerID, body.SaleID, discountCard.Id, discountCard.Percent).Scan(&customerDiscount).Error
+			body.CustomerID, body.SaleID, discountCard.ID, discountCard.Percent).Scan(&customerDiscount).Error
 		if err != nil {
 			if errors.Is(err, gorm.ErrDuplicatedKey) {
 				handleResponse(c, BadRequest, "duplicate.discount_cart.not.accepted")

@@ -29,6 +29,7 @@ func (h *Product1cHandler) Product1cRoutes(r *gin.RouterGroup) {
 		group1C.POST("", h.Create)
 		group1C.GET("/list/:code", h.ListProductByStoreCode)
 		group1C.POST("/repricing", h.ProductRepricing)
+		group1C.POST("/quantity", h.UpdateQuantity)
 	}
 }
 
@@ -357,5 +358,37 @@ func (h *Product1cHandler) ProductRepricing(c *gin.Context) {
 		return
 	}
 
+	handleResponse(c, OK, "UPDATED")
+}
+
+// Update retail price by 1C
+// @Summary Update retail price by 1C
+// @Description Update retail price by 1C
+// @Tags 	1C Api
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param 	product body domain.UpdateQuantityRequest1C true "product"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product1c/quantity [POST]
+func (h *Product1cHandler) UpdateQuantity(c *gin.Context) {
+	var (
+		body domain.UpdateQuantityRequest1C
+		err  error
+	)
+	// bind request body
+	if err = c.ShouldBindJSON(&body); err != nil {
+		handleResponse(c, BadRequest, "Invalid received info, Please try again")
+		return
+	}
+	// update quantity service
+	err = h.service.UpdateProductQuantity(&body)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, "Can't update quantity")
+		return
+	}
 	handleResponse(c, OK, "UPDATED")
 }
