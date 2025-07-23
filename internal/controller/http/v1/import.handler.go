@@ -1,19 +1,17 @@
 package v1
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/xuri/excelize/v2"
-	"gorm.io/gorm"
 )
 
 type ImportHandler struct {
@@ -681,58 +679,22 @@ func (h *ImportHandler) AcceptImport(c *gin.Context) {
 	var id = c.Param("id")
 
 	// validate id
-	if err := uuid.Validate(id); err != nil {
-		handleResponse(c, BadRequest, "Invalid import id")
+	err := uuid.Validate(id)
+	if err != nil {
+		handleResponse(c, BadRequest, constants.InvalidQueryError)
 		return
 	}
 	// get user id from in context
 	userID, ok := c.Get("user_id")
 	if !ok {
-		handleResponse(c, InternalError, "User ID not found in context")
-		return
-	}
-	// start transaction
-	tx := h.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-	var imports domain.Import
-	err := h.db.First(&imports, "id = ?", id).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			handleResponse(c, NotFound, "Import Not found")
-			return
-		}
-		h.log.Warn("ERROR on getting import info: %v", err)
-		handleResponse(c, InternalError, "Can't ")
-	}
-
-	if imports.Status == config.COMPLETED {
-		handleResponse(c, CONFLICT, "Import already completed")
+		handleResponse(c, InternalError, constants.UnauthorizedError)
 		return
 	}
 
 	// update imports status to completed
-	importData, err := h.service.AcceptImport(tx, id, userID.(string))
+	err = h.service.AcceptImport(id, userID.(string), "all")
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
-		tx.Rollback()
-		return
-	}
-	// add products to store
-	err = h.service.AddAllProductsToStore(tx, importData)
-	if err != nil {
-		handleResponse(c, InternalError, err.Error())
-		tx.Rollback()
-		return
-	}
-	// commit transaction
-	if err = tx.Commit().Error; err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		tx.Rollback()
 		return
 	}
 
@@ -823,51 +785,10 @@ func (h *ImportHandler) AcceptSomeImport(c *gin.Context) {
 		return
 	}
 
-	// start transaction
-	tx := h.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-
-	var imports domain.Import
-	err := h.db.First(&imports, "id = ?", id).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			handleResponse(c, NotFound, "Import Not found")
-			return
-		}
-		h.log.Warn("ERROR on getting import info: %v", err)
-		handleResponse(c, InternalError, "Can't ")
-	}
-
-	if imports.Status == config.COMPLETED {
-		handleResponse(c, CONFLICT, "Import already completed")
-		return
-	}
-
 	// update import status to completed
-	importData, err := h.service.AcceptImport(tx, id, userID.(string))
+	err := h.service.AcceptImport(id, userID.(string), "some")
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
-		tx.Rollback()
-		return
-	}
-	// add products import_details to store_products
-	err = h.service.AddSomeImportedProductsToStore(tx, importData)
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		tx.Rollback()
-		return
-	}
-
-	// check transaction is commit
-	if err = tx.Commit().Error; err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		tx.Rollback()
 		return
 	}
 

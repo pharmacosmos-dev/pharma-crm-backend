@@ -13,6 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/spf13/cast"
@@ -32,22 +33,77 @@ func (s *Services) UpdateImportByField(tx *gorm.DB, id string, field, value stri
 	return &res, nil
 }
 
-// Accept import
-func (s *Services) AcceptImport(tx *gorm.DB, id string, userID string) (*domain.Import, error) {
+func (s *Services) UpdateImportCompletedStatus(tx *gorm.DB, importID, userID string) error {
 	var res domain.Import
 	// update import status
-	err := tx.Raw(`UPDATE imports SET status = ?, accepted_by = ? WHERE id = ? RETURNING *`, config.COMPLETED_IMPORT, userID, id).Scan(&res).Error
+	err := tx.Raw(`UPDATE imports SET status = ?, accepted_by = ? WHERE id = ? RETURNING *`, config.COMPLETED_IMPORT, userID, importID).Scan(&res).Error
 	if err != nil {
-		s.log.Error(err)
-		return nil, err
+		s.log.Error("could not update import(%s) status: %v", importID, err)
+		return err
 	}
-	// set accepted count from scanned_count
-	err = tx.Exec(`UPDATE import_details SET accepted_count = scanned_count WHERE import_id = ?`, id).Error
+
+	return nil
+}
+
+// Accept import
+func (s *Services) AcceptImport(importID string, userID string, acceptType string) error {
+	// begin transactions
+	tx := s.db.Begin()
+
+	// Get import info
+	var res domain.Import
+	err := tx.First(&res, "id = ?", importID).Error
 	if err != nil {
-		s.log.Error(err)
-		return nil, err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New(constants.NotFoundError)
+		}
+		s.log.Error("could not get import(%s) info: %v", importID, err)
+		return errors.New(constants.InternalServerError)
 	}
-	return &res, nil
+
+	// check error and rollback
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// update import status
+	err = s.UpdateImportCompletedStatus(tx, importID, userID)
+	if err != nil {
+		s.log.Error("could not update import(%s) status: %v", importID, err)
+		return errors.New(constants.InternalServerError)
+	}
+
+	if acceptType == "all" {
+		// update accepted_count and scanned_count to received_count
+		err = s.UpdateImportDetailsAccepted(tx, importID)
+		if err != nil {
+			return errors.New(constants.InternalServerError)
+		}
+
+		// add all imported products to store_products and send 1C
+		err = s.AddAllProductsToStore(tx, &res)
+		if err != nil {
+			s.log.Error("could not accept import products: %v", err)
+			return errors.New(constants.InternalServerError)
+		}
+	} else {
+		err = s.AddSomeImportedProductsToStore(tx, &res)
+		if err != nil {
+			s.log.Error("could not accept some import products: %v", err)
+			return errors.New(constants.InternalServerError)
+		}
+	}
+
+	// completed transaction
+	err = tx.Commit().Error
+	if err != nil {
+		s.log.Error("could not completed transaction: %v", err)
+		return errors.New(constants.InternalServerError)
+	}
+
+	return nil
 }
 
 // Canceled import
@@ -63,9 +119,8 @@ func (s *Services) CancelImport(tx *gorm.DB, id string, userID string) (*domain.
 
 // Add some imported products to stores
 func (s *Services) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domain.Import) error {
-	var (
-		reqFakt domain.AcceptImport1C
-	)
+	var reqFakt domain.AcceptImport1C
+
 	// import_detail list by import_id
 	importDetails, err := s.GetImportDetailsByImportId(importData.Id)
 	if err != nil {
@@ -147,14 +202,11 @@ func (s *Services) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domai
 	if len(reqFakt.Товары) == 0 {
 		return errors.New("accepted products are not available")
 	}
-	if s.cfg.BaseUrl1C != "test" {
-		// send fakt to 1C
-		err = s.DoRequest(context.Background(), reqFakt, "/prihod")
-		if err != nil {
-			s.log.Warn("ERROR on sending prixod to 1C: %v", err)
-			tx.Rollback()
-			return errors.New("failed to send fakt to 1C")
-		}
+
+	// send fakt to 1C
+	err = s.DoRequest(context.Background(), reqFakt, "/prihod")
+	if err != nil {
+		s.log.Error("could not send prixod response: %v", err)
 	}
 
 	return nil
@@ -163,24 +215,12 @@ func (s *Services) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domai
 // add all imported products to store
 func (s *Services) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import) error {
 	var (
-		importDetails []domain.ImportDetail
-		reqFakt       domain.AcceptImport1C
-		store         *domain.Store
+		reqFakt domain.AcceptImport1C
+		store   *domain.Store
 	)
-	// update imports detail accepted_count to received_count
-	err := tx.Exec(`
-	UPDATE import_details 
-	SET
-		accepted_count = received_count,
-		scanned_count = received_count
-	WHERE import_id = ?`, importData.Id).Error
-	if err != nil {
-		s.log.Error(err)
-		return err
-	}
 
 	// get import_detail list by import_id
-	importDetails, err = s.GetImportDetailsByImportId(importData.Id)
+	details, err := s.GetImportDetailsByImportId(importData.Id)
 	if err != nil {
 		return err
 	}
@@ -216,7 +256,7 @@ func (s *Services) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import)
 		is_marking
 		) 
 	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	for _, item := range importDetails {
+	for _, item := range details {
 		if item.ReceivedCount > 0 {
 			// agar N30 lik tovar bo'lsa va 2.67 quantity qabul qilinsa hisoblanish
 			// packQt = 2 butun qismini oladi, frac esa 0.67 qismi oladi va 0.67 ni 30 ga ko'paytiradi: 20.1
@@ -242,7 +282,7 @@ func (s *Services) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import)
 				item.IsMarking,
 			).Error
 			if err != nil {
-				s.log.Error(err)
+				s.log.Error("could not add import products to store_product: %v", err)
 				return err
 			}
 
@@ -259,15 +299,12 @@ func (s *Services) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import)
 		}
 	}
 
-	if s.cfg.BaseUrl1C != "test" {
-		// send fakt to 1C
-		err = s.DoRequest(context.Background(), reqFakt, "/prihod")
-		if err != nil {
-			s.log.Error(err)
-			tx.Rollback()
-			return errors.New("failed to send fakt to 1C")
-		}
+	// send fakt to 1C
+	err = s.DoRequest(context.Background(), reqFakt, "/prihod")
+	if err != nil {
+		s.log.Error("could not send request to 1C", err)
 	}
+
 	return nil
 }
 
@@ -276,6 +313,15 @@ func (s *Services) UpdateImportDetailsToCancel(tx *gorm.DB, importID string) err
 	err := tx.Exec(`UPDATE import_details SET canceled_count = received_count WHERE import_id = ?`, importID).Error
 	if err != nil {
 		s.log.Error(err)
+		return err
+	}
+	return nil
+}
+
+func (s *Services) UpdateImportDetailsAccepted(tx *gorm.DB, importID string) error {
+	err := tx.Exec("UPDATE import_details SET accepted_count = received_count, scanned_count = received_count, updated_at = NOW() WHERE import_id = ?", importID).Error
+	if err != nil {
+		s.log.Error("could not update import details counts: %v", err)
 		return err
 	}
 	return nil

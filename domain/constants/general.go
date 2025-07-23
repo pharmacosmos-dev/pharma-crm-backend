@@ -128,6 +128,7 @@ type Error struct {
 // region error types
 var (
 	BadRequestError         = "bad.request"
+	NotFoundError           = "not.found"
 	InternalServerError     = "internal.server.error"
 	InvalidRequestBodyError = "invalid.request.body"
 	UnauthorizedError       = "user.not.authorized"
