@@ -1,7 +1,11 @@
 package services
 
 import (
+	"errors"
 	"fmt"
+	"github.com/gin-gonic/gin"
+	"github.com/pharma-crm-backend/pkg/helper"
+	"gorm.io/gorm"
 	"time"
 
 	"github.com/pharma-crm-backend/domain"
@@ -132,6 +136,15 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 		  AND im.entry_type = 1
 		  AND im.created_at >= NOW() - interval '24 hour'`
 
+		notLast24HImportCount int
+		queryImportCountNot24 = `
+		SELECT COUNT(*)
+		FROM imports im
+		WHERE im.status = 'new'
+ 		 AND im.entry_type = 1
+  		 AND im.created_at < NOW() - interval '24 hour'
+`
+
 		filter  = ""
 		filterc = ""
 	)
@@ -182,8 +195,21 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 		return nil, err
 	}
 
+	if len(param.StoreIds) > 0 {
+		queryImportCountNot24 += " AND im.store_id IN (?)"
+		err = s.db.Raw(queryImportCountNot24, param.StoreIds).Scan(&notLast24HImportCount).Error
+	} else {
+		err = s.db.Raw(queryImportCountNot24).Scan(&notLast24HImportCount).Error
+	}
+
+	if err != nil {
+		s.log.Error(err)
+		return nil, err
+	}
+
 	// Map results
 	res.ImportAmount = imported.ImportAmount
+	res.NotLast24HImportCount = float64(notLast24HImportCount)
 	res.BeforeImportAmount = imported.BeforeImportAmount
 	res.Last24HImportAmount = last24hAmount
 	res.TotalSaleCount = sale.SaleCount
@@ -714,4 +740,79 @@ func (s *Services) DashboardTransaction(param *domain.DashboardQueryParam) ([]do
 	}
 
 	return res, nil
+}
+
+func (s *Services) DashboardOldImports(c *gin.Context, limit, offset int) ([]domain.Import, int64, error) {
+	var (
+		imports    []domain.Import
+		totalCount int64
+		search     = c.Query("search")
+		storeID    = c.Query("store_id")
+		err        error
+	)
+
+	// get user id from header
+	userId, ok := c.Get("user_id")
+	if !ok {
+		return nil, 0, errors.New("user not found in context")
+	}
+
+	// check employee role
+	var employee domain.Employee
+	err = s.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			err = errors.New("employee not found")
+		}
+		s.log.Error(err)
+		return nil, 0, err
+	}
+
+	// If not admin, restrict to their store
+	if !helper.IsAdmin(employee, s.cfg) && employee.StoreId != "" {
+		storeID = employee.StoreId
+	}
+
+	// Main query
+	query := s.db.Model(&domain.Import{}).
+		Preload("Store").
+		Preload("Sender").
+		Preload("Receiver").
+		Select(`
+			imports.*,
+			ROUND(SUM(import_details.retail_price * import_details.received_count)::numeric, 2) AS received_amount,
+			ROUND(SUM(import_details.retail_price * import_details.accepted_count)::numeric, 2) AS accepted_amount,
+			ROUND(SUM(import_details.retail_price_vat * import_details.received_count)::numeric, 2) AS received_amount_vat,
+			ROUND(SUM(import_details.retail_price_vat * import_details.accepted_count)::numeric, 2) AS accepted_amount_vat,
+			ROUND(SUM(import_details.received_count)::numeric, 2) AS received_count,
+			ROUND(SUM(import_details.accepted_count)::numeric, 2) AS accepted_count
+		`).Joins("LEFT JOIN import_details ON imports.id = import_details.import_id").
+		Where("imports.entry_type = ?", 1).
+		Where("imports.created_at < NOW() - interval '24 hours'").
+		Where("imports.status = ?", "new")
+
+	// Apply filters
+	if search != "" {
+		search = fmt.Sprintf("%%%s%%", search)
+		query = query.Where(`
+			imports.document_number ILIKE ? OR 
+			CAST(imports.public_id AS TEXT) LIKE ?`, search, search)
+	}
+	if storeID != "" {
+		query = query.Where("imports.store_id = ?", storeID)
+	}
+
+	// Grouping, count, pagination
+	err = query.Group("imports.id").
+		Order("imports.created_at DESC").
+		Count(&totalCount).
+		Limit(limit).
+		Offset(offset).
+		Find(&imports).Error
+	if err != nil {
+		s.log.Error(err)
+		return nil, 0, err
+	}
+
+	return imports, totalCount, nil
 }
