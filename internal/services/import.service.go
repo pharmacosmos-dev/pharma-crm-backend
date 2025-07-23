@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"net/http"
 	"time"
@@ -16,7 +17,6 @@ import (
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
-	"github.com/spf13/cast"
 	"gorm.io/gorm"
 )
 
@@ -696,7 +696,7 @@ func (s *Services) ListImportDetailByLastUpdated(c *gin.Context, limit, offset i
 // send request to 1C for answering import details
 func (s *Services) DoRequest(ctx context.Context, data any, url string) error {
 	client := &http.Client{
-		Timeout: 60 * time.Second,
+		Timeout: 120 * time.Second,
 	}
 
 	buf := bytes.Buffer{}
@@ -717,74 +717,23 @@ func (s *Services) DoRequest(ctx context.Context, data any, url string) error {
 	req.SetBasicAuth(s.cfg.BaseUsername1C, s.cfg.BasePassword1C)
 	req.Header.Set("Content-Type", "application/json")
 
-	// extract doc meta
-	docDate, docNum := extractDocMeta(data)
-
 	// Execute request
 	response, err := client.Do(req)
 	if err != nil {
-		if err := s.Request1CCreate(domain.InventoryHelper{
-			Method:   "POST",
-			Payload:  data,
-			Response: response,
-			Action:   url,
-			DocDate:  docDate,
-			DocNum:   docNum,
-			Status:   "error",
-		}); err != nil {
-			s.log.Warn("ERROR on creating Request1C: %v", err)
-		}
 		s.log.Error("failed to execute HTTP request: %v", err)
 		return fmt.Errorf("failed to execute HTTP request: %v", err)
 	}
 	// close response body
 	defer response.Body.Close()
 
-	var info map[string]any
-	// read response body
-	err = json.NewDecoder(response.Body).Decode(&info)
+	// var info map[string]any
+	res, err := io.ReadAll(response.Body)
 	if err != nil {
-		if err := s.Request1CCreate(domain.InventoryHelper{
-			Method:  "POST",
-			Payload: data,
-			Action:  url,
-			DocDate: docDate,
-			DocNum:  docNum,
-			Status:  "error",
-		}); err != nil {
-			s.log.Warn("ERROR on creating Request1C: %v", err)
-		}
-		s.log.Error("ERROR on decoding response: %w", err)
+		s.log.Error("could not decode response: %w", err)
 		return err
 	}
 
-	// Validate "ok" field
-	if !cast.ToBool(info["ok"]) {
-		if err := s.Request1CCreate(domain.InventoryHelper{
-			Method:   "POST",
-			Payload:  data,
-			Response: response,
-			Action:   url,
-			DocDate:  docDate,
-			DocNum:   docNum,
-			Status:   "error",
-		}); err != nil {
-			s.log.Warn("ERROR on creating Request1C: %v", err)
-		}
-		s.log.Error("Invalid response: %v", info)
-		return fmt.Errorf("failed to answer prihod response: %v", info)
-	}
-	if err := s.Request1CCreate(domain.InventoryHelper{
-		Method:   "POST",
-		Payload:  data,
-		Action:   url,
-		Response: response,
-		DocDate:  docDate,
-		DocNum:   docNum,
-		Status:   "success",
-	}); err != nil {
-		s.log.Warn("ERROR on creating Request1C: %v", err)
-	}
+	s.log.Info("RASXOD RESPONSE: %v", string(res))
 
 	return nil
 }
