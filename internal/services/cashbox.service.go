@@ -1,6 +1,7 @@
 package services
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -248,8 +249,23 @@ func (s *Services) CreateCashboxOperation(req *domain.CashboxOperationRequest, u
 	var (
 		res result
 	)
-
 	err := tx.Raw(`
+		SELECT id, device_id 
+		FROM cashbox_operations 
+		WHERE is_open = TRUE AND current_employee_id = ? 
+		LIMIT 1
+	`, userId).Scan(&res).Error
+	if err != nil {
+		s.log.Error("failed to check open cashbox:", err)
+		tx.Rollback()
+		return nil, err
+	}
+	if res.ID != "" {
+		tx.Rollback()
+		return nil, errors.New("you already have an open cashbox operation")
+	}
+
+	err = tx.Raw(`
 	INSERT INTO cashbox_operations (
 			cash_box_id, employee_id, current_employee_id, device_id, opened_amount, open_cashless_amount, is_open, start_time, description
 			) 
