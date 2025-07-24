@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/helper"
+	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
 )
 
@@ -27,7 +28,7 @@ func (h *DashboardHandler) DashboardRoutes(r *gin.RouterGroup) {
 		dashboard.POST("/top-seller", h.TopSeller)
 		dashboard.POST("/payments", h.Payments)
 		dashboard.POST("/transaction", h.Transaction)
-
+		dashboard.POST("/old-import", h.OldImport)
 	}
 }
 
@@ -473,4 +474,34 @@ func (h *DashboardHandler) Transaction(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, res)
+}
+
+// OldImport godoc
+// @Summary Get all import stats
+// @Description Get all import stats
+// @Tags 	dashboard
+// @Security     BearerAuth
+// @Produce json
+// @Param 	limit 	query string false "Limit"
+// @Param 	offset query string false 	"Offset"
+// @Param   store_id 	query string false "Store ID"
+// @Param   search 	query string false "Search"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /dashboard/old-import [POST]
+func (h *DashboardHandler) OldImport(c *gin.Context) {
+	limit, offset, err := getPaginationParams(c)
+	if err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+	res, totalCount, err := h.service.DashboardOldImports(c, limit, offset)
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to get import")
+		return
+	}
+	result := utils.ListResponse(res, totalCount, limit, offset)
+
+	handleResponse(c, OK, result)
 }

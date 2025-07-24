@@ -5,6 +5,7 @@ import "time"
 // Count and Amount stats structure
 type DashboardCountStats struct {
 	ImportAmount             float64 `json:"import_amount"`
+	NotLast24HImportCount    float64 `json:"not_last_24h_import_count"`
 	BeforeImportAmount       float64 `json:"before_import_amount"`
 	Last24HImportAmount      float64 `json:"last_24h_import_amount"`
 	TotalSaleCount           int64   `gorm:"total_sale_count" json:"total_sale_count"`
