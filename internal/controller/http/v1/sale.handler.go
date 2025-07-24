@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/spf13/cast"
@@ -614,13 +615,14 @@ func (h *SaleHandler) Update(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /sale/final [post]
 func (h *SaleHandler) ProccessingSale(c *gin.Context) {
-	var (
-		body domain.FinalSale
-		sale domain.Sale
-		err  error
-	)
+	var body domain.FinalSale
+
+	// Create context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
 	// bind request body
-	err = c.ShouldBindJSON(&body)
+	err := c.ShouldBindJSON(&body)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
@@ -633,7 +635,7 @@ func (h *SaleHandler) ProccessingSale(c *gin.Context) {
 
 	// validate payment types
 	if len(body.PaymentTypes) == 0 {
-		handleResponse(c, BadRequest, "at least one payment type is required")
+		handleResponse(c, BadRequest, "payment.type.required")
 		return
 	}
 
@@ -641,66 +643,59 @@ func (h *SaleHandler) ProccessingSale(c *gin.Context) {
 	tx := h.db.Begin()
 
 	// get sale info
-	err = tx.First(&sale, "id = ?", body.SaleID).Error
+	sale, err := h.service.GetSaleById(ctx, tx, body.SaleID)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			tx.Rollback()
-			handleResponse(c, NotFound, "sale.not.found")
-			return
-		}
-		h.log.Error("ERROR on getting sale info: %v", err)
-		tx.Rollback()
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
+	// Ensure the transaction is rolled back if any error occurs
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
 	// check sale is completed or no
 	if sale.Status == config.COMPLETED {
-		tx.Rollback()
-		handleResponse(c, CONFLICT, "sale.already.completed")
+		handleResponse(c, CONFLICT, constants.AlreadyCompletedError)
 		return
 	}
 
 	// add marking to cart_items
-	err = h.service.AddMarkingCount(tx, body.MarkingData)
+	err = h.service.AddMarkingCount(ctx, tx, body.MarkingData)
 	if err != nil {
-		tx.Rollback()
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
 	// validate amounts (total_amount | payment_type_amount | cart_item_total_amount)
-	if !(h.service.ValidateSaleAmount(&body)) {
-		tx.Rollback()
+	if !(h.service.ValidateSaleAmount(ctx, &body)) {
 		handleResponse(c, BadRequest, "invalid.calculate.amount")
 		return
 	}
 
 	// delete sale_payments which depends on the sale
-	err = tx.Exec(`DELETE FROM sale_payments WHERE sale_id = ?`, body.SaleID).Error
+	err = h.service.DeleteSalePayments(ctx, tx, sale.ID)
 	if err != nil {
-		h.log.Error("ERROR on deleting sale_payments: ", err)
-		tx.Rollback()
-		handleResponse(c, BadRequest, "internal.server.error")
+		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 
 	// process payment types
 	for _, item := range body.PaymentTypes {
-		err = processPaymentType(c.Request.Context(), tx, h, body, item)
+		err = processPaymentType(ctx, tx, h, body, item)
 		if err != nil {
 			h.log.Warn("ERROR on payment process: %v", err.Error())
-			tx.Rollback()
 			handleResponse(c, InternalError, err.Error())
 			return
 		}
 	}
 
 	// complete sale
-	err = h.service.CompleteSale(tx, &sale)
+	err = h.service.CompleteSale(ctx, tx, sale)
 	if err != nil {
 		h.log.Error("ERROR on completing sale: %v", err)
-		tx.Rollback()
 		handleResponse(c, InternalError, "Failed to complete sale")
 		return
 	}
@@ -778,17 +773,18 @@ func processPaymentType(
 // @Failure 500 {object} v1.Response
 // @Router /sale/epos-result [post]
 func (h *SaleHandler) EposResponse(c *gin.Context) {
-	var (
-		body domain.EposResponseRequest
-		sale domain.Sale
-	)
+	var body domain.EposResponseRequest
+
 	// get user_id from the context
 	userId, ok := c.Get("user_id")
 	if !ok {
-		h.log.Error("user_id not found in context")
-		handleResponse(c, InternalError, "user_id not found in context")
+		handleResponse(c, UNAUTHORIZED, constants.UnauthorizedError)
 		return
 	}
+
+	// Create context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 
 	// Bind request body
 	err := c.ShouldBindJSON(&body)
@@ -811,35 +807,38 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 
 	// Start transaction
 	tx := h.db.Begin()
-	// Transaction rollback if any error occurs
-	defer recoverTransaction(tx, h.log)
-	defer RollbackIfError(tx, &err)
 
-	// get sale info
-	err = h.db.First(&sale, "id = ?", body.SaleId).Error
+	// Get sale by ID
+	sale, err := h.service.GetSaleById(ctx, tx, body.SaleId)
 	if err != nil {
-		h.log.Warn("ERROR on getting sale info: %v", err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
+	// Ensure the transaction is rolled back if any error occurs
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
 	if body.Error {
 		// delete sale_payments which depends on the sale
-		err = tx.Exec(`DELETE FROM sale_payments WHERE sale_id = ?`, body.SaleId).Error
+		err = tx.WithContext(ctx).Exec(`DELETE FROM sale_payments WHERE sale_id = ?`, body.SaleId).Error
 		if err != nil {
 			h.log.Error("ERROR on deleting sale_payments: ", err)
 			handleResponse(c, InternalError, "Failed remove sale_payments")
 			return
 		}
 		// Save to epos_responses table
-		err = tx.WithContext(c.Request.Context()).Table("epos_responses").Create(&body).Error
+		err = tx.WithContext(ctx).Table("epos_responses").Create(&body).Error
 		if err != nil {
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())
 			return
 		}
 		// return sale status and quantities
-		err = h.service.ReturnSale(tx, &sale)
+		err = h.service.ReturnSale(ctx, tx, sale)
 		if err != nil {
 			h.log.Warn("Failed to update sale status: %v", err)
 			handleResponse(c, InternalError, "Failed to update sale status")
@@ -848,7 +847,7 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 	} else {
 		// Save to epos_responses table
 		body.Status = 1
-		err = tx.WithContext(c.Request.Context()).Table("epos_responses").Create(&body).Error
+		err = tx.WithContext(ctx).Table("epos_responses").Create(&body).Error
 		if err != nil {
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())
@@ -928,11 +927,11 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 	err = tx.Commit().Error
 	if err != nil {
 		h.log.Warn("ERROR on commiting transaction: %v", err)
-		handleResponse(c, InternalError, "Can't commit transcation")
+		handleResponse(c, InternalError, "not.completed.transaction")
 		return
 	}
 
-	handleResponse(c, BadRequest, "Sale not completed")
+	handleResponse(c, BadRequest, "sale.not.completed")
 }
 
 // List godoc

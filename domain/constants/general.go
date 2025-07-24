@@ -10,20 +10,19 @@ const (
 	RefreshTokenExpiresInTime time.Duration = 30 * 24 * time.Hour
 
 	// Context timeouts for reports and other long-running operations
-	ContextTimeoutForReports time.Duration = 1 * time.Minute
-	ContextTimeout           time.Duration = 10 * time.Second
-
-	DATE_FORMAT               = "2006-01-02"
-	DATE_TIME                 = "2006-01-02 15:04:05"
-	DATE_1C_FORMAT            = "2006-01-02T15:04:05"
-	DefaultLimit              = 10
-	DefaultOffset             = 0
-	ContentTypeJson           = "application/json"
-	ContentTypeFormUrlEncoded = "application/x-www-form-urlencoded"
-	AuthBasic                 = "Basic"
-	AuthBearer                = "Bearer"
-	HeaderXAuth               = "X-Auth"
-	HeaderHost                = "Host"
+	ContextTimeoutForReports  time.Duration = 1 * time.Minute
+	DefaultContextTimeout     time.Duration = 30 * time.Second
+	DATE_FORMAT                             = "2006-01-02"
+	DATE_TIME                               = "2006-01-02 15:04:05"
+	DATE_1C_FORMAT                          = "2006-01-02T15:04:05"
+	DefaultLimit                            = 10
+	DefaultOffset                           = 0
+	ContentTypeJson                         = "application/json"
+	ContentTypeFormUrlEncoded               = "application/x-www-form-urlencoded"
+	AuthBasic                               = "Basic"
+	AuthBearer                              = "Bearer"
+	HeaderXAuth                             = "X-Auth"
+	HeaderHost                              = "Host"
 )
 
 const (
@@ -140,6 +139,7 @@ var (
 	RateLimitExceededError  = "rate.limit.exceeded"
 	AlreadyExistsError      = "already.exists"
 	DependencyFailedError   = "dependency.failed"
+	AlreadyCompletedError   = "already.completed"
 )
 
 // // Error makes it compatible with the `error` interface.

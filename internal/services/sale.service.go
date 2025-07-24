@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/helper"
 	"gorm.io/gorm"
 )
@@ -248,18 +250,18 @@ func (s *Services) UpdateSaleFieldValue(saleID string, field, value string) erro
 }
 
 // complete sale
-func (s *Services) CompleteSale(tx *gorm.DB, sale *domain.Sale) error {
+func (s *Services) CompleteSale(ctx context.Context, tx *gorm.DB, sale *domain.Sale) error {
 	var err error
 	switch sale.SaleType {
 	case config.SALE_TYPE_SALE:
 		// reduce store_product quantities and add employee bonus
-		err = s.DeductStoreProductQuantities(tx, sale)
+		err = s.DeductStoreProductQuantities(ctx, tx, sale)
 		if err != nil {
 			s.log.Warn("ERROR on reducing store_product quantity: %v", err)
 			return err
 		}
 	case config.SALE_TYPE_RETURN:
-		err = s.RestoreStoreProductQuantities(tx, sale)
+		err = s.RestoreStoreProductQuantities(ctx, tx, sale)
 		if err != nil {
 			s.log.Warn("ERROR on restore store_product quantity: %v", err)
 			return err
@@ -277,7 +279,7 @@ func (s *Services) CompleteSale(tx *gorm.DB, sale *domain.Sale) error {
 	WHERE id = ?
 	`
 	// complete the query
-	err = tx.Exec(query, sale.ID, sale.ID, config.COMPLETED, sale.ID).Error
+	err = tx.WithContext(ctx).Exec(query, sale.ID, sale.ID, config.COMPLETED, sale.ID).Error
 	if err != nil {
 		s.log.Warn("ERROR on update sale to completed: %v", err)
 		return err
@@ -286,8 +288,8 @@ func (s *Services) CompleteSale(tx *gorm.DB, sale *domain.Sale) error {
 }
 
 // return sale to pending status and reset quantities
-func (s *Services) ReturnSale(tx *gorm.DB, sale *domain.Sale) error {
-	err := s.RestoreStoreProductQuantities(tx, sale)
+func (s *Services) ReturnSale(ctx context.Context, tx *gorm.DB, sale *domain.Sale) error {
+	err := s.RestoreStoreProductQuantities(ctx, tx, sale)
 	if err != nil {
 		s.log.Warn("ERROR on restoring store_product quantity: %v", err)
 		return err
@@ -300,10 +302,10 @@ func (s *Services) ReturnSale(tx *gorm.DB, sale *domain.Sale) error {
 		total_amount = 0,
 		total_discount = 0,
 		status = ?, completed_at = NULL, updated_at = NOW()
-	WHERE id = ?
+	WHERE id = ?;
 	`
 	// complete the query
-	err = tx.Exec(query, config.PENDING, sale.ID).Error
+	err = tx.WithContext(ctx).Exec(query, config.PENDING, sale.ID).Error
 	if err != nil {
 		s.log.Warn("ERROR on update sale to returned: %v", err)
 		return err
@@ -313,9 +315,9 @@ func (s *Services) ReturnSale(tx *gorm.DB, sale *domain.Sale) error {
 }
 
 // Update cart item status and reduce store product quantities and add employee bonus after completed the sale
-func (s *Services) DeductStoreProductQuantities(tx *gorm.DB, sale *domain.Sale) error {
+func (s *Services) DeductStoreProductQuantities(ctx context.Context, tx *gorm.DB, sale *domain.Sale) error {
 	var cartItems []domain.CartItem
-	err := tx.Raw(`
+	err := tx.WithContext(ctx).Raw(`
 		SELECT 
 			ci.id, 
 			ci.store_product_id, 
@@ -343,7 +345,7 @@ func (s *Services) DeductStoreProductQuantities(tx *gorm.DB, sale *domain.Sale) 
 	}
 	var bonusAmount float64
 	for _, item := range cartItems {
-		err = tx.Exec(`
+		err = tx.WithContext(ctx).Exec(`
 		UPDATE store_products
 		SET
 			pack_quantity = GREATEST(CASE WHEN ? > 0 THEN (unit_quantity - ?)/products.unit_per_pack - ? ELSE pack_quantity - ? END, 0),
@@ -363,7 +365,7 @@ func (s *Services) DeductStoreProductQuantities(tx *gorm.DB, sale *domain.Sale) 
 				bonusAmount += item.BonusAmount / float64(item.UnitPerPack) * float64(item.UnitQuantity)
 			}
 			// add employee bonus service
-			err = s.AddEmployeeBonus(tx, &domain.EmployeeBonusRequest{
+			err = s.AddEmployeeBonus(ctx, tx, &domain.EmployeeBonusRequest{
 				EmployeeId:         sale.EmployeeID,
 				CashboxOperationId: sale.CashBoxOperationId,
 				SaleId:             sale.ID,
@@ -382,10 +384,10 @@ func (s *Services) DeductStoreProductQuantities(tx *gorm.DB, sale *domain.Sale) 
 }
 
 // update return sale cart items
-func (s *Services) RestoreStoreProductQuantities(tx *gorm.DB, sale *domain.Sale) error {
+func (s *Services) RestoreStoreProductQuantities(ctx context.Context, tx *gorm.DB, sale *domain.Sale) error {
 	var cartItems []domain.CartItem
 	// get cart items
-	err := tx.Raw(`
+	err := tx.WithContext(ctx).Raw(`
 		SELECT
 			id, 
 			store_product_id,
@@ -405,7 +407,7 @@ func (s *Services) RestoreStoreProductQuantities(tx *gorm.DB, sale *domain.Sale)
 	}
 	// update store product quantities
 	for _, item := range cartItems {
-		err = tx.Exec(`
+		err = tx.WithContext(ctx).Exec(`
 		UPDATE 
 			store_products
 		SET
@@ -427,7 +429,7 @@ func (s *Services) RestoreStoreProductQuantities(tx *gorm.DB, sale *domain.Sale)
 		}
 	}
 	// delete employee bonus for return sale
-	err = tx.Exec(`DELETE FROM employee_bonus WHERE sale_id = ?`, sale.ID).Error
+	err = tx.WithContext(ctx).Exec(`DELETE FROM employee_bonus WHERE sale_id = ?`, sale.ID).Error
 	if err != nil {
 		s.log.Warn("ERROR on deleting employee_bonus: %v", err)
 		return err
@@ -568,6 +570,21 @@ func (s *Services) ListSale(param *domain.QueryParam, userId string) ([]domain.S
 	return res, totalCount, nil
 }
 
+// Get sale by Id
+func (s *Services) GetSaleById(ctx context.Context, tx *gorm.DB, saleId string) (*domain.Sale, error) {
+	var sale domain.Sale
+	err := s.db.WithContext(ctx).First(&sale, "id = ?", saleId).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return &sale, errors.New(constants.NotFoundError)
+		}
+		s.log.Error("could not get sale(%s) info: %v", saleId, err)
+		return &sale, errors.New(constants.InternalServerError)
+	}
+
+	return &sale, nil
+}
+
 // Get sale list
 func (s *Services) GetSaleList(param *domain.QueryParam) ([]domain.SaleResponse, int64, error) {
 	var totalCount int64
@@ -648,9 +665,9 @@ func (s *Services) SetFiscalId(saleID string, fiscalID string) error {
 }
 
 // Validate sale amount (SUM(cart_items) == SUM(sale_payments) == total_amount)
-func (s *Services) ValidateSaleAmount(req *domain.FinalSale) bool {
+func (s *Services) ValidateSaleAmount(ctx context.Context, req *domain.FinalSale) bool {
 	// get cart item sum
-	cartItemSum, err := s.cartItemsSumBySaleID(req.SaleID)
+	cartItemSum, err := s.cartItemsSumBySaleID(ctx, req.SaleID)
 	if err != nil {
 		return false
 	}
@@ -666,9 +683,9 @@ func (s *Services) ValidateSaleAmount(req *domain.FinalSale) bool {
 }
 
 // cart items sum of the sale
-func (s *Services) cartItemsSumBySaleID(saleID string) (float64, error) {
+func (s *Services) cartItemsSumBySaleID(ctx context.Context, saleID string) (float64, error) {
 	var sum float64
-	err := s.db.Raw(`
+	err := s.db.WithContext(ctx).Raw(`
 		SELECT SUM(total_price) - SUM(discount_amount) AS sum FROM cart_items WHERE sale_id = ?
 	`, saleID).Scan(&sum).Error
 	if err != nil {
@@ -993,6 +1010,17 @@ func (s *Services) CancelOnlineSale(req *domain.ConfirmOnlineSaleRequest) error 
 	}
 
 	return nil
+}
+
+// delete sale_payments by sale_id
+func (s *Services) DeleteSalePayments(ctx context.Context, tx *gorm.DB, saleId string) error {
+	err := tx.WithContext(ctx).Exec(`DELETE FROM sale_payments WHERE sale_id = ?`, saleId).Error
+	if err != nil {
+		s.log.Error("could not delete sale_payments: %v", err)
+		return errors.New(constants.InternalServerError)
+	}
+	return nil
+
 }
 
 // end region

@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -102,7 +103,7 @@ func (s *Services) GetEmployeeBonusAmount(param *domain.DashboardQueryParam, id 
 }
 
 // add employee bonus
-func (s *Services) AddEmployeeBonus(tx *gorm.DB, req *domain.EmployeeBonusRequest) error {
+func (s *Services) AddEmployeeBonus(ctx context.Context, tx *gorm.DB, req *domain.EmployeeBonusRequest) error {
 	err := tx.Exec(`
 	INSERT INTO employee_bonus (
 		employee_id, 

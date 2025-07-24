@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -210,7 +211,7 @@ func (s *Services) GetCartItemsTotalAmount(saleID string) (float64, error) {
 }
 
 // add marking count to cart items
-func (s *Services) AddMarkingCount(tx *gorm.DB, req []domain.MarkingData) error {
+func (s *Services) AddMarkingCount(ctx context.Context, tx *gorm.DB, req []domain.MarkingData) error {
 	if len(req) == 0 {
 		return nil
 	}
@@ -233,7 +234,7 @@ func (s *Services) AddMarkingCount(tx *gorm.DB, req []domain.MarkingData) error 
 	`, strings.Join(valueStrings, ","))
 
 	// Execute raw SQL
-	err := tx.Exec(query).Error
+	err := tx.WithContext(ctx).Exec(query).Error
 	if err != nil {
 		s.log.Warn("ERROR on bulk updating cart_item marking_count: %v", err)
 		return err
