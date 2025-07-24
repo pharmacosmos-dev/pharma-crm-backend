@@ -709,6 +709,7 @@ func (s *Services) DoRequest(ctx context.Context, data any, url string) error {
 	req := &http.Request{}
 	if url == "/rasxod" {
 		req, err = http.NewRequestWithContext(ctx, "POST", "http://192.168.100.74"+url, &buf)
+		fmt.Println(data)
 		if err != nil {
 			s.log.Error("failed to create HTTP request: %v", err)
 			return fmt.Errorf("failed to create HTTP request: %v", err)
