@@ -243,14 +243,13 @@ func (s *Services) CreateCashboxOperation(req *domain.CashboxOperationRequest, u
 	}()
 
 	type result struct {
-		ID       string
-		DeviceID string
+		ID string
 	}
 	var (
 		res result
 	)
 	err := tx.Raw(`
-		SELECT id, device_id 
+		SELECT id
 		FROM cashbox_operations 
 		WHERE is_open = TRUE AND current_employee_id = ? 
 		LIMIT 1
@@ -267,10 +266,10 @@ func (s *Services) CreateCashboxOperation(req *domain.CashboxOperationRequest, u
 
 	err = tx.Raw(`
 	INSERT INTO cashbox_operations (
-			cash_box_id, employee_id, current_employee_id, device_id, opened_amount, open_cashless_amount, is_open, start_time, description
+			cash_box_id, employee_id, current_employee_id, opened_amount, open_cashless_amount, is_open, start_time, description
 			) 
-	VALUES (?, ?, ?, ?,?, ?, ?, ?, ?) RETURNING id,device_id
-	`, req.CashBoxID, userId, userId, req.DeviceID,
+	VALUES (?, ?, ?, ?,?, ?, ?, ?) RETURNING id
+	`, req.CashBoxID, userId, userId,
 		req.OpenedAmount, req.OpenCashlessAmount, true, time.Now(),
 		req.Description).Scan(&res).Error
 	if err != nil {
@@ -296,6 +295,5 @@ func (s *Services) CreateCashboxOperation(req *domain.CashboxOperationRequest, u
 		tx.Rollback()
 		return nil, err
 	}
-	sale.DeviceID = res.DeviceID
 	return &sale, nil
 }
