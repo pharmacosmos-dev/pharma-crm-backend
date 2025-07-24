@@ -707,24 +707,18 @@ func (s *Services) DoRequest(ctx context.Context, data any, url string) error {
 		return fmt.Errorf("failed to encode request data: %v", err)
 	}
 	req := &http.Request{}
-	if url == "/rasxod" {
-		req, err = http.NewRequestWithContext(ctx, "POST", "http://192.168.100.74"+url, &buf)
-		fmt.Println(data)
-		if err != nil {
-			s.log.Error("failed to create HTTP request: %v", err)
-			return fmt.Errorf("failed to create HTTP request: %v", err)
-		}
-	} else {
-		// Construct request
-		req, err = http.NewRequestWithContext(ctx, "POST", s.cfg.BaseUrl1C+url, &buf)
-		if err != nil {
-			s.log.Error("failed to create HTTP request: %v", err)
-			return fmt.Errorf("failed to create HTTP request: %v", err)
-		}
+
+	// Construct request
+	req, err = http.NewRequestWithContext(ctx, "POST", s.cfg.BaseUrl1C+url, &buf)
+	if err != nil {
+		s.log.Error("failed to create HTTP request: %v", err)
+		return fmt.Errorf("failed to create HTTP request: %v", err)
 	}
+
 	// set basic auth username and password
 	req.SetBasicAuth(s.cfg.BaseUsername1C, s.cfg.BasePassword1C)
 	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
 
 	// Execute request
 	response, err := client.Do(req)
