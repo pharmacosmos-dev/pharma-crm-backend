@@ -900,7 +900,7 @@ func (h *HelperHandler) UploadProductMinMax(c *gin.Context) {
 	}
 
 	for _, pr := range products {
-		productMap[pr.Name] = pr.Id
+		productMap[normalizeName(pr.Name)] = pr.Id
 	}
 
 	// Validate file extension
@@ -966,7 +966,7 @@ func (h *HelperHandler) UploadProductMinMax(c *gin.Context) {
 		productName := strings.TrimSpace(row[2])
 		minQty := cast.ToFloat64(row[4])
 		maxQty := cast.ToFloat64(row[5])
-
+		productName = normalizeName(productName)
 		storeID, storeOk := storeMap[storeName]
 		productID, productOk := productMap[productName]
 		if !storeOk || !productOk {
@@ -1026,6 +1026,10 @@ func (h *HelperHandler) UploadProductMinMax(c *gin.Context) {
 		"updated": updated,
 		"skipped": skippedRows,
 	})
+}
+func normalizeName(s string) string {
+	// Tashqi bo‘shliqlarni olib tashlash + ketma-ket bo‘shliqlarni 1 ta bo‘shliqqa qisqartirish
+	return strings.Join(strings.Fields(strings.TrimSpace(s)), " ")
 }
 
 // UploadProductMinMax godoc
