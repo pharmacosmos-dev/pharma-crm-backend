@@ -941,11 +941,11 @@ func (h *HelperHandler) UploadProductMinMax(c *gin.Context) {
 	}
 
 	// SQL update
-	//query := `
-	//	UPDATE store_product_thresholds
-	//	SET min_quantity = ?, max_quantity = ?
-	//	WHERE store_id = ? AND product_id = ?
-	//`
+	query := `
+		UPDATE store_product_thresholds
+		SET min_quantity = ?, max_quantity = ?
+		WHERE store_id = ? AND product_id = ?
+	`
 	// Skipped rows to return as JSON
 	var skippedRows []map[string]any
 
@@ -990,20 +990,19 @@ func (h *HelperHandler) UploadProductMinMax(c *gin.Context) {
 			})
 			continue
 		}
-		fmt.Println(minQty, maxQty, storeID, productID)
 
-		//err = h.db.Exec(query, minQty, maxQty, storeID, productID).Error
-		//if err != nil {
-		//	h.log.Warn("Failed to update row %d: %v", rowNumber, err)
-		//	skippedRows = append(skippedRows, map[string]any{
-		//		"row":     rowNumber,
-		//		"reason":  err.Error(),
-		//		"store":   storeName,
-		//		"product": productName,
-		//		"data":    row,
-		//	})
-		//	continue
-		//}
+		err = h.db.Exec(query, minQty, maxQty, storeID, productID).Error
+		if err != nil {
+			h.log.Warn("Failed to update row %d: %v", rowNumber, err)
+			skippedRows = append(skippedRows, map[string]any{
+				"row":     rowNumber,
+				"reason":  err.Error(),
+				"store":   storeName,
+				"product": productName,
+				"data":    row,
+			})
+			continue
+		}
 		updated++
 	}
 	// Put skipped rows to file
