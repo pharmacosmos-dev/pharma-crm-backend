@@ -1217,12 +1217,6 @@ const docTemplate = `{
                         "description": "Store ID",
                         "name": "store_id",
                         "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Device ID",
-                        "name": "device_id",
-                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -12970,7 +12964,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/product1c/list/{code}": {
+        "/product1c/list": {
             "get": {
                 "security": [
                     {
@@ -12992,9 +12986,14 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "Store CODE",
-                        "name": "code",
-                        "in": "path",
-                        "required": true
+                        "name": "store_code",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Material Code",
+                        "name": "material_code",
+                        "in": "query"
                     }
                 ],
                 "responses": {

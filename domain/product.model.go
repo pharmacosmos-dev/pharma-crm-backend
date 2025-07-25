@@ -298,6 +298,8 @@ type ProductRes1C struct {
 	Id           string     `gorm:"id" json:"id"`
 	MaterialCode int        `gorm:"material_code" json:"material_code"`
 	Name         string     `gorm:"name" json:"name"`
+	StoreName    string     `gorm:"store_name" json:"store_name"`
+	StoreCode    int        `gorm:"store_code" json:"store_code"`
 	Barcode      string     `gorm:"barcode" json:"barcode"`
 	Manufacturer string     `gorm:"manufacturer" json:"manufacturer"`
 	SerialNumber string     `gorm:"serial_number" json:"serial_number"`

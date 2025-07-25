@@ -2341,10 +2341,6 @@ paths:
         in: query
         name: store_id
         type: string
-      - description: Device ID
-        in: query
-        name: device_id
-        type: string
       produces:
       - application/json
       responses:
@@ -9769,16 +9765,19 @@ paths:
       summary: Create a product
       tags:
       - 1C Api
-  /product1c/list/{code}:
+  /product1c/list:
     get:
       consumes:
       - application/json
       description: Get product list by store_code
       parameters:
       - description: Store CODE
-        in: path
-        name: code
-        required: true
+        in: query
+        name: store_code
+        type: string
+      - description: Material Code
+        in: query
+        name: material_code
         type: string
       produces:
       - application/json

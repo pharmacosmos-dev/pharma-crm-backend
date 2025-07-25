@@ -1210,12 +1210,6 @@
                         "description": "Store ID",
                         "name": "store_id",
                         "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Device ID",
-                        "name": "device_id",
-                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -12963,7 +12957,7 @@
                 }
             }
         },
-        "/product1c/list/{code}": {
+        "/product1c/list": {
             "get": {
                 "security": [
                     {
@@ -12985,9 +12979,14 @@
                     {
                         "type": "string",
                         "description": "Store CODE",
-                        "name": "code",
-                        "in": "path",
-                        "required": true
+                        "name": "store_code",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Material Code",
+                        "name": "material_code",
+                        "in": "query"
                     }
                 ],
                 "responses": {

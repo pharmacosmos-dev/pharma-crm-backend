@@ -36,16 +36,16 @@ func (s *Services) GetStoreByImportId(importId string) (*domain.Store, error) {
 // get store info by field and value
 func (s *Services) GetStoreByField(field string, value string) (*domain.Store, error) {
 	var store domain.Store
-	query := fmt.Sprintf("SELECT * FROM WHERE %s = ?", field)
+	query := fmt.Sprintf("SELECT * FROM stores WHERE %s = ?", field)
 	err := s.db.Raw(query, value).Scan(&store).Error
 	// check if store is found
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, errors.New("store not found")
+		return nil, errors.New("store.not.found")
 	}
 	// handle error
 	if err != nil {
 		s.log.Error("Error on getting store info: %w", err)
-		return nil, err
+		return nil, errors.New("internal.server.error")
 	}
 	return &store, nil
 }

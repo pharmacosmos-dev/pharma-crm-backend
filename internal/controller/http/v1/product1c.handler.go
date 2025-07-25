@@ -3,6 +3,7 @@ package v1
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -27,7 +28,7 @@ func (h *Product1cHandler) Product1cRoutes(r *gin.RouterGroup) {
 	group1C := r.Group("/product1c")
 	{
 		group1C.POST("", h.Create)
-		group1C.GET("/list/:code", h.ListProductByStoreCode)
+		group1C.GET("/list", h.ListProductByStoreCode)
 		group1C.POST("/repricing", h.ProductRepricing)
 		group1C.POST("/quantity", h.UpdateQuantity)
 	}
@@ -181,52 +182,65 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept 	json
 // @Produce json
-// @Param 	code path string true "Store CODE"
+// @Param 	store_code 		query string false "Store CODE"
+// @Param 	material_code 	query string false "Material Code"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /product1c/list/{code} [GET]
+// @Router /product1c/list [GET]
 func (h *Product1cHandler) ListProductByStoreCode(c *gin.Context) {
 	var (
-		code  = c.Param("code")
-		err   error
-		store domain.Store
+		storeCode    = c.Query("store_code")
+		materialCode = c.Query("material_code")
 	)
-	if code == "" {
-		handleResponse(c, BadRequest, "store_code.is.required")
-		return
-	}
-	// get store info by store code
-	err = h.db.First(&store, "store_code = ?", code).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			handleResponse(c, NotFound, "store.not.found")
+
+	query := h.db.
+		Table("store_products sp").
+		Select(
+			"sp.id",
+			"p.material_code",
+			"p.name",
+			"s.name as store_name",
+			"s.store_code",
+			"p.barcode",
+			"COALESCE(pr.code, '') as manufacturer",
+			"ROUND(sp.pack_quantity::numeric + (sp.unit_quantity::numeric % p.unit_per_pack)/p.unit_per_pack, 4) as quantity",
+			"sp.serial_number",
+			"COALESCE(sp.expire_date, '3000-01-01') AS expire_date",
+			"sp.retail_price",
+			"sp.supply_price",
+			"ROUND((sp.pack_quantity::numeric + (sp.unit_quantity::numeric % p.unit_per_pack)/p.unit_per_pack) * retail_price, 2) AS sum",
+		).
+		Joins("JOIN products p ON sp.product_id = p.id").
+		Joins("JOIN stores s ON sp.store_id = s.id").
+		Joins("LEFT JOIN producers pr ON p.producer_id = pr.id").
+		Where("(sp.pack_quantity > 0 or sp.unit_quantity > 0)")
+
+	if storeCode != "" {
+		store, err := h.service.GetStoreByField("store_code", storeCode)
+		if err != nil {
+			handleResponse(c, InternalError, err.Error())
 			return
 		}
-		handleResponse(c, InternalError, "failed.to.get.store")
-		return
+		query = query.Where("sp.store_id = ?", store.Id)
 	}
-	// get available product list by store_id
+
+	if materialCode != "" {
+		code, err := strconv.ParseInt(materialCode, 10, 64)
+		if err != nil {
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+		productID, err := h.service.GetProductIDByCode(code)
+		if err != nil {
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+		query = query.Where("sp.product_id = ?", productID)
+	}
+
 	var res []domain.ProductRes1C
-	err = h.db.Raw(`
-	SELECT
-		sp.id,
-		p.material_code,
-		p.name,
-		p.barcode,
-		COALESCE(pr.code, '') as manufacturer,
-		ROUND(sp.pack_quantity::numeric + (sp.unit_quantity::numeric % p.unit_per_pack)/p.unit_per_pack, 4) as quantity,
-		sp.serial_number,
-		COALESCE(sp.expire_date, '3000-01-01') AS expire_date,
-		sp.retail_price,
-		sp.supply_price,
-		ROUND((sp.pack_quantity::numeric + (sp.unit_quantity::numeric % p.unit_per_pack)/p.unit_per_pack) * retail_price, 2) AS sum
-	FROM store_products sp
-	JOIN products p ON sp.product_id = p.id
-	LEFT JOIN producers pr ON p.producer_id = pr.id
-	WHERE sp.store_id = ? and
-      (sp.pack_quantity > 0 or sp.unit_quantity > 0);
-	`, store.Id).Scan(&res).Error
+	err := query.Find(&res).Error
 	if err != nil {
 		h.log.Warn("ERROR on getting product list: %v", err)
 		handleResponse(c, InternalError, "failed.to.get.product_list")
@@ -320,7 +334,7 @@ func (h *Product1cHandler) ProductRepricing(c *gin.Context) {
 	var products []domain.PriceRevalutionDetailRequest
 	for _, v := range body.Товары {
 		// get product_id by material_code
-		productID, err := h.service.GetProductIDByCode(v.MaterialCode)
+		productID, err := h.service.GetProductIDByCode(int64(v.MaterialCode))
 		if err != nil {
 			h.log.Warn("ERROR on getting product_id by material_code: %v", err)
 		}

@@ -4,10 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/pharma-crm-backend/config"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/pharma-crm-backend/config"
 
 	"github.com/pharma-crm-backend/domain"
 
@@ -808,7 +809,7 @@ func (s *Services) ProductListForArzon(storeId string) ([]domain.ProductArzon, e
 }
 
 // get product id by material_code
-func (s *Services) GetProductIDByCode(code int) (string, error) {
+func (s *Services) GetProductIDByCode(code int64) (string, error) {
 	var id string
 	err := s.db.Raw(`SELECT id FROM products WHERE material_code = ?`, code).Scan(&id).Error
 	if err != nil {
