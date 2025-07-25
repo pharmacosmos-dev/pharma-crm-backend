@@ -867,20 +867,20 @@ func (h *HelperHandler) UploadProductMinMax(c *gin.Context) {
 	var (
 		stores     []domain.Store
 		products   []domain.Product
-		storeMap   = make(map[int]any)
-		productMap = make(map[int]any)
+		storeMap   = make(map[string]any)
+		productMap = make(map[string]any)
+		file       domain.File
+		err        error
 	)
-	var (
-		file domain.File
-		err  error
-	)
-	// bind request file
+
+	// Bind uploaded file
 	if err = c.ShouldBind(&file); err != nil {
 		h.log.Error("Failed to bind file: ", err.Error())
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 
+	// Load stores
 	err = h.db.Find(&stores).Error
 	if err != nil {
 		h.log.Warn("ERROR on getting store list: %v", err)
@@ -888,20 +888,22 @@ func (h *HelperHandler) UploadProductMinMax(c *gin.Context) {
 		return
 	}
 	for _, st := range stores {
-		storeMap[st.StoreCode] = st.Id
+		storeMap[st.Name] = st.Id
 	}
 
+	// Load products
 	err = h.db.Find(&products).Error
 	if err != nil {
-		h.log.Warn("ERROR on getting store list: %v", err)
-		handleResponse(c, InternalError, "failed.get.store_list")
+		h.log.Warn("ERROR on getting product list: %v", err)
+		handleResponse(c, InternalError, "failed.get.product_list")
 		return
 	}
 
 	for _, pr := range products {
-		productMap[pr.MaterialCode] = pr.Id
+		productMap[normalizeName(pr.Name)] = pr.Id
 	}
 
+	// Validate file extension
 	ext := filepath.Ext(file.File.Filename)
 	if ext != ".xlsx" && ext != ".xls" {
 		h.log.Error("Unsupported file format: ", ext)
@@ -909,7 +911,7 @@ func (h *HelperHandler) UploadProductMinMax(c *gin.Context) {
 		return
 	}
 
-	// Save the uploaded file
+	// Save uploaded file
 	newFilename := uuid.New().String() + ext
 	savePath := filepath.Join("uploads", newFilename)
 	err = c.SaveUploadedFile(file.File, savePath)
@@ -919,8 +921,9 @@ func (h *HelperHandler) UploadProductMinMax(c *gin.Context) {
 		return
 	}
 
-	// defer os.Remove(savePath)
-	// Open the Excel file
+	defer os.Remove(savePath)
+
+	// Open Excel
 	xlsx, err := excelize.OpenFile(savePath)
 	if err != nil {
 		h.log.Error("Failed to open .xlsx file: ", err.Error())
@@ -928,6 +931,7 @@ func (h *HelperHandler) UploadProductMinMax(c *gin.Context) {
 		return
 	}
 	defer xlsx.Close()
+
 	sheetName := xlsx.GetSheetName(0)
 	rows, err := xlsx.GetRows(sheetName)
 	if err != nil {
@@ -936,25 +940,95 @@ func (h *HelperHandler) UploadProductMinMax(c *gin.Context) {
 		return
 	}
 
-	// build query
+	// SQL update
 	query := `
-		INSERT INTO store_product_thresholds(store_id, product_id, kvant, min_quantity, max_quantity)
-		VALUES (?, ?, ?, ?, ?)
+		UPDATE store_product_thresholds
+		SET min_quantity = ?, max_quantity = ?
+		WHERE store_id = ? AND product_id = ?
 	`
+	// Skipped rows to return as JSON
+	var skippedRows []map[string]any
 
-	var count = 0
-	// Process rows
-	for _, row := range rows[1:] {
-
-		// // create measurements
-		err = h.db.Exec(query, storeMap[cast.ToInt(row[0])], productMap[cast.ToInt(row[2])], cast.ToInt(row[4]), cast.ToInt(row[5]), cast.ToInt(row[6])).Error
-		if err != nil {
-			h.log.Warn("ERROR on creating customers: %v", err)
+	updated := 0
+	for idx, row := range rows[1:] {
+		rowNumber := idx + 2 // Excel row number (1-based + header)
+		if len(row) < 6 {
+			h.log.Warn("Row %d skipped, not enough columns", rowNumber)
+			skippedRows = append(skippedRows, map[string]any{
+				"row":    rowNumber,
+				"reason": "not enough columns",
+				"data":   row,
+			})
+			continue
 		}
-		count++
-	}
-	handleResponse(c, OK, "Successfully updated: "+cast.ToString(count))
 
+		storeName := strings.TrimSpace(row[0])
+		productName := strings.TrimSpace(row[2])
+		minQty := cast.ToFloat64(row[4])
+		maxQty := cast.ToFloat64(row[5])
+		productName = normalizeName(productName)
+		storeID, storeOk := storeMap[storeName]
+		productID, productOk := productMap[productName]
+		if !storeOk || !productOk {
+			h.log.Warn("Row %d skipped, store or product not found: %s / %s", rowNumber, storeName, productName)
+			reason := "not found: "
+			if !storeOk {
+				reason += "store "
+			}
+			if !productOk {
+				if !storeOk {
+					reason += "and "
+				}
+				reason += "product"
+			}
+			skippedRows = append(skippedRows, map[string]any{
+				"row":     rowNumber,
+				"reason":  reason,
+				"store":   storeName,
+				"product": productName,
+				"data":    row,
+			})
+			continue
+		}
+
+		err = h.db.Exec(query, minQty, maxQty, storeID, productID).Error
+		if err != nil {
+			h.log.Warn("Failed to update row %d: %v", rowNumber, err)
+			skippedRows = append(skippedRows, map[string]any{
+				"row":     rowNumber,
+				"reason":  err.Error(),
+				"store":   storeName,
+				"product": productName,
+				"data":    row,
+			})
+			continue
+		}
+		updated++
+	}
+	// Put skipped rows to file
+	if len(skippedRows) > 0 {
+		skippedFile := filepath.Join("uploads", fmt.Sprintf("skipped_rows_%s.json", time.Now().Format("20060102_150405")))
+		skippedJSON, err := json.MarshalIndent(skippedRows, "", "\t")
+		if err != nil {
+			h.log.Error("Failed to marshal skipped rows: ", err)
+			return
+		}
+		if err = os.WriteFile(skippedFile, skippedJSON, 0644); err != nil {
+			h.log.Error("Failed to write skipped rows to file: ", err)
+			return
+		}
+		h.log.Info("Skipped rows saved to file: ", skippedFile)
+	}
+
+	// Return full result
+	handleResponse(c, OK, gin.H{
+		"updated": updated,
+		"skipped": skippedRows,
+	})
+}
+func normalizeName(s string) string {
+	// Tashqi bo‘shliqlarni olib tashlash + ketma-ket bo‘shliqlarni 1 ta bo‘shliqqa qisqartirish
+	return strings.Join(strings.Fields(strings.TrimSpace(s)), " ")
 }
 
 // UploadProductMinMax godoc
