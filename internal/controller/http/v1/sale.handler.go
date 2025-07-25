@@ -50,6 +50,7 @@ func (h *SaleHandler) SaleRoutes(r *gin.RouterGroup) {
 		sale.POST("online-cancel", h.CancelOnlineSale)
 		sale.GET("/online-list", h.OnlineSaleList)
 		sale.GET("/pending-list", h.PendingSaleList)
+		sale.GET("/dmed/prescriptions", h.DMEDGetPrescriptions)
 	}
 }
 
@@ -1342,6 +1343,37 @@ func (h *SaleHandler) PendingSaleList(c *gin.Context) {
 
 	result := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
 	handleResponse(c, OK, result)
+}
+
+// DMEDGetPrescriptions godoc
+// @Summary      Get prescriptions from DMED
+// @Description  Fetch prescriptions for a patient from DMED API
+// @Tags         sales
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        patient_id query string true "Patient ID"
+// @Param        safe_code  query string true "Safe Code"
+// @Success      200 {object} v1.Response
+// @Failure      400 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /sale/dmed/prescriptions [get]
+func (h *SaleHandler) DMEDGetPrescriptions(c *gin.Context) {
+	patientID := c.Query("patient_id")
+	safeCode := c.Query("safe_code")
+
+	if patientID == "" || safeCode == "" {
+		handleResponse(c, BadRequest, "invalid.query.param")
+		return
+	}
+	var respBody []domain.Prescription
+	var err error
+	respBody, err = h.service.GetPrescriptionsFromDMED(patientID, safeCode)
+	if err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	handleResponse(c, OK, fmt.Sprintf("%s %.0f %s", respBody[0].DrugAppointment.Medication.Title, respBody[0].DrugAppointment.Medication.SubstanceDosage.Dosage, respBody[0].DrugAppointment.Medication.SubstanceDosage.MeasurementUnit.Title))
 }
 
 // lock order for parallel request

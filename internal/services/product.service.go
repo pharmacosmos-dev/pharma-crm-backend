@@ -688,8 +688,15 @@ func (s *Services) GetProductMovements(productId, storeId string, limit, offset 
 					im.id, im.public_id,
 					im.entry_type, im.created_at,
 					s.name AS store_name,
-					SUM(imd.accepted_count) AS count,
-					SUM(imd.accepted_count * imd.retail_price_vat) AS sum,
+        			SUM(CASE
+        			        WHEN im.entry_type = 2 THEN imd.scanned_count
+        			        ELSE imd.accepted_count
+        			    END) AS count,
+        			SUM(CASE
+        			        WHEN im.entry_type = 2 THEN imd.scanned_count
+        			        ELSE imd.accepted_count
+        			    END
+        			    * imd.retail_price_vat) AS sum,
 					im.name AS name
 			FROM imports im
 			JOIN stores s ON im.store_id = s.id
