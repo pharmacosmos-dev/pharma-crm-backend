@@ -694,7 +694,7 @@ func (h *ReturnHandler) ExportReturnNakladnoyPDF(c *gin.Context) {
 	}
 
 	// check if return is not completed
-	if returnData.Status != config.COMPLETED && returnData.Status != config.SENT {
+	if returnData.Status != config.COMPLETED && returnData.Status != config.SENT && returnData.Status != config.SENT_TO_1C {
 		handleResponse(c, BadRequest, "return.not.completed")
 		return
 	}
