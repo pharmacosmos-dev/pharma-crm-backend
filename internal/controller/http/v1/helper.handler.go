@@ -900,7 +900,7 @@ func (h *HelperHandler) UploadProductMinMax(c *gin.Context) {
 	}
 
 	for _, pr := range products {
-		productMap[pr.Name] = pr.Id
+		productMap[normalizeName(pr.Name)] = pr.Id
 	}
 
 	// Validate file extension
@@ -941,11 +941,11 @@ func (h *HelperHandler) UploadProductMinMax(c *gin.Context) {
 	}
 
 	// SQL update
-	//query := `
-	//	UPDATE store_product_thresholds
-	//	SET min_quantity = ?, max_quantity = ?
-	//	WHERE store_id = ? AND product_id = ?
-	//`
+	query := `
+		UPDATE store_product_thresholds
+		SET min_quantity = ?, max_quantity = ?
+		WHERE store_id = ? AND product_id = ?
+	`
 	// Skipped rows to return as JSON
 	var skippedRows []map[string]any
 
@@ -966,7 +966,7 @@ func (h *HelperHandler) UploadProductMinMax(c *gin.Context) {
 		productName := strings.TrimSpace(row[2])
 		minQty := cast.ToFloat64(row[4])
 		maxQty := cast.ToFloat64(row[5])
-
+		productName = normalizeName(productName)
 		storeID, storeOk := storeMap[storeName]
 		productID, productOk := productMap[productName]
 		if !storeOk || !productOk {
@@ -990,20 +990,19 @@ func (h *HelperHandler) UploadProductMinMax(c *gin.Context) {
 			})
 			continue
 		}
-		fmt.Println(minQty, maxQty, storeID, productID)
 
-		//err = h.db.Exec(query, minQty, maxQty, storeID, productID).Error
-		//if err != nil {
-		//	h.log.Warn("Failed to update row %d: %v", rowNumber, err)
-		//	skippedRows = append(skippedRows, map[string]any{
-		//		"row":     rowNumber,
-		//		"reason":  err.Error(),
-		//		"store":   storeName,
-		//		"product": productName,
-		//		"data":    row,
-		//	})
-		//	continue
-		//}
+		err = h.db.Exec(query, minQty, maxQty, storeID, productID).Error
+		if err != nil {
+			h.log.Warn("Failed to update row %d: %v", rowNumber, err)
+			skippedRows = append(skippedRows, map[string]any{
+				"row":     rowNumber,
+				"reason":  err.Error(),
+				"store":   storeName,
+				"product": productName,
+				"data":    row,
+			})
+			continue
+		}
 		updated++
 	}
 	// Put skipped rows to file
@@ -1026,6 +1025,10 @@ func (h *HelperHandler) UploadProductMinMax(c *gin.Context) {
 		"updated": updated,
 		"skipped": skippedRows,
 	})
+}
+func normalizeName(s string) string {
+	// Tashqi bo‘shliqlarni olib tashlash + ketma-ket bo‘shliqlarni 1 ta bo‘shliqqa qisqartirish
+	return strings.Join(strings.Fields(strings.TrimSpace(s)), " ")
 }
 
 // UploadProductMinMax godoc
