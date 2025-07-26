@@ -182,6 +182,8 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept 	json
 // @Produce json
+// @Param   limit 			query int false "Limit"
+// @Param   offset 			query int false "Offset"
 // @Param 	store_code 		query string false "Store CODE"
 // @Param 	material_code 	query string false "Material Code"
 // @Success 200 {object} v1.Response
@@ -192,6 +194,8 @@ func (h *Product1cHandler) ListProductByStoreCode(c *gin.Context) {
 	var (
 		storeCode    = c.Query("store_code")
 		materialCode = c.Query("material_code")
+		// limitStr     = c.Query("limit")
+		// offsetStr    = c.Query("offset")
 	)
 
 	query := h.db.

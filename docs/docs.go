@@ -12984,6 +12984,18 @@ const docTemplate = `{
                 "summary": "Get product list by store_code",
                 "parameters": [
                     {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
                         "type": "string",
                         "description": "Store CODE",
                         "name": "store_code",

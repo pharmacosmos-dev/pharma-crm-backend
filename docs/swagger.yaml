@@ -9771,6 +9771,14 @@ paths:
       - application/json
       description: Get product list by store_code
       parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
       - description: Store CODE
         in: query
         name: store_code

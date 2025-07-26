@@ -508,7 +508,6 @@ func (s *Services) InventoryDetailStatsCount(param *domain.InventoryParam) (doma
 func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 	// start transaction
 	tx := s.db.Begin()
-	defer recoverTransaction(tx, s.log)
 
 	var res domain.Inventory
 	// update confirm inventory
@@ -519,7 +518,12 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 		tx.Rollback()
 		return err
 	}
-	defer RollbackIfError(tx, &err)
+
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
 	// delete correct inventory products if current and fact will be equal (received_count = scanned_count)
 	// err = tx.Exec(`DELETE FROM import_details WHERE import_id = ? AND received_count = scanned_count`, inventoryId).Error
 	// if err != nil {
@@ -573,7 +577,7 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 		imd.product_id,
 		?,
 		ROUND((imd.scanned_count - imd.received_count)/p.unit_per_pack),
-		imd.scanned_count,
+		imd.scanned_count - imd.received_count,
 		imd.retail_price_vat,
 		imd.supply_price_vat,
 		12,

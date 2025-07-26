@@ -1017,7 +1017,7 @@ func (h *HelperHandler) UploadProductMinMax(c *gin.Context) {
 			h.log.Error("Failed to write skipped rows to file: ", err)
 			return
 		}
-		h.log.Info("Skipped rows saved to file: ", skippedFile)
+		h.log.Info("Skipped rows saved to file: %v", skippedFile)
 	}
 
 	// Return full result
