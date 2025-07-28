@@ -134,6 +134,22 @@ func (h *ShiftHandler) Create(c *gin.Context) {
 		tx.Rollback()
 		return
 	}
+	var id string
+	err = tx.Raw(`
+		SELECT id
+		FROM cashbox_operations 
+		WHERE is_open = TRUE AND current_employee_id = ? 
+		LIMIT 1
+	`, body.ToEmployeeId).Scan(&id).Error
+	if err != nil {
+		tx.Rollback()
+		handleResponse(c, InternalError, "Failed to get cashbox operation")
+	}
+	if id != "" {
+		tx.Rollback()
+		handleResponse(c, CONFLICT, "you.already.have.an.open.cashbox.operation")
+		return
+	}
 	// update cashbox_operations current_employee_id
 	err = tx.Exec(`
 		UPDATE cashbox_operations
