@@ -305,6 +305,7 @@ func (s *Services) ReturnDetailList(param *domain.ReturnDetailParam) ([]domain.R
 			FLOOR(transfer_details.scanned_count) AS scanned_count,
 			ROUND(MOD(transfer_details.scanned_count * p.unit_per_pack, p.unit_per_pack), 0) AS scanned_unit,
 			FLOOR(transfer_details.accepted_count) AS accepted_count,
+			FLOOR(transfer_details.onec_count) AS onec_count,
 			ROUND(MOD(transfer_details.accepted_count * p.unit_per_pack, p.unit_per_pack), 0) AS accepted_unit,
 			ROUND(transfer_details.received_count*transfer_details.retail_price, 2) AS received_sum,
 			ROUND(transfer_details.scanned_count*transfer_details.retail_price, 2) AS scanned_sum,

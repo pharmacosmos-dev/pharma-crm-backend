@@ -66,6 +66,7 @@ type ReturnDetail struct {
 	ScannedUnit    float64    `gorm:"scanned_unit" json:"scanned_unit"`
 	AcceptedCount  float64    `gorm:"accepted_count" json:"accepted_count"`
 	AcceptedUnit   float64    `gorm:"accepted_unit" json:"accepted_unit"`
+	OnecCount      float64    `gorm:"onec_count" json:"onec_count"`
 	Name           string     `gorm:"name" json:"name"`
 	MaterialCode   int        `gorm:"material_code" json:"material_code"`
 	Barcode        string     `gorm:"barcode" json:"barcode"`

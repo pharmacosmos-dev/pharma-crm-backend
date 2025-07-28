@@ -45,7 +45,7 @@ func (h *SaleHandler) SaleRoutes(r *gin.RouterGroup) {
 		sale.GET("/get-list", h.GetSaleList)
 		sale.POST("/discount-card", h.AddDiscountCard)
 		sale.DELETE("/discount-card", h.RemoveCustomerDiscount)
-		// sale.GET("/online-count", h.GetOnlineSaleCount)
+		sale.GET("/online-count", h.GetOnlineSaleCount)
 		sale.POST("/online-accept", h.AcceptOnlineSale)
 		sale.POST("online-cancel", h.CancelOnlineSale)
 		sale.GET("/online-list", h.OnlineSaleList)
