@@ -68,6 +68,8 @@ type (
 		SoliqIkpuBaseUrl string `env-required:"true" yaml:"soliq_ikpu_base_url" env:"SOLIQ_IKPU_BASE_URL"`
 		NoorBaseUrl      string `env-required:"true" yaml:"noor_base_url" env:"NOOR_BASE_URL"`
 		NoorToken        string `env-required:"true" yaml:"noor_token" env:"NOOR_TOKEN"`
+		DMEDBaseUrl      string `env-required:"true" yaml:"dmed_base_url" env:"DMED_BASE_URL"`
+		DMEDToken        string `env-required:"true" yaml:"dmed_token" env:"DMED_TOKEN"`
 	}
 )
 
@@ -105,6 +107,8 @@ func Load() Config {
 	c.Integration.SoliqIkpuBaseUrl = cast.ToString(GetOrReturnDefaultValue("SOLIQ_IKPU_BASE_URL", "http://localhost:8080"))
 	c.Integration.NoorBaseUrl = cast.ToString(GetOrReturnDefaultValue("NOOR_BASE_URL", "http://localhost:80"))
 	c.Integration.NoorToken = cast.ToString(GetOrReturnDefaultValue("NOOR_TOKEN", "token"))
+	c.Integration.DMEDBaseUrl = cast.ToString(GetOrReturnDefaultValue("DMED_BASE_URL", "http://localhost:80"))
+	c.Integration.DMEDToken = cast.ToString(GetOrReturnDefaultValue("DMED_TOKEN", "token"))
 
 	return c
 }
