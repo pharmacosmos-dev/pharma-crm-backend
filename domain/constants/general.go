@@ -23,6 +23,9 @@ const (
 	AuthBearer                              = "Bearer"
 	HeaderXAuth                             = "X-Auth"
 	HeaderHost                              = "Host"
+
+	// WebSocket events
+	WsEventNoorOrder = "noor_order"
 )
 
 const (

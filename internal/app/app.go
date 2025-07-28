@@ -11,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	v1 "github.com/pharma-crm-backend/internal/controller/http"
+	"github.com/pharma-crm-backend/internal/controller/ws"
 	"github.com/pharma-crm-backend/internal/services"
 	"github.com/pharma-crm-backend/pkg/db"
 	"github.com/robfig/cron/v3"
@@ -34,8 +35,12 @@ func Run(cfg *config.Config) {
 		l.Error(err)
 	}
 
+	// 🧠 WebSocket hub
+	hub := ws.NewHub()
+	go hub.Run()
+
 	// New storage
-	service := services.NewService(connDB, l, cfg)
+	service := services.NewService(connDB, l, cfg, hub)
 
 	// HTTP Server
 	handler := gin.New()
@@ -46,7 +51,7 @@ func Run(cfg *config.Config) {
 		Log:     l,
 		Cfg:     cfg,
 		Service: service,
-	})
+	}, hub)
 
 	// call to http server
 	httpServer := httpserver.New(handler, httpserver.Port(cfg.HTTP.Port))

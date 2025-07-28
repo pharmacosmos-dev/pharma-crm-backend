@@ -11,6 +11,7 @@ import (
 	_ "github.com/pharma-crm-backend/docs"
 	"github.com/pharma-crm-backend/internal/controller/http/middleware"
 	v1 "github.com/pharma-crm-backend/internal/controller/http/v1"
+	"github.com/pharma-crm-backend/internal/controller/ws"
 	"github.com/pharma-crm-backend/internal/services"
 	"github.com/pharma-crm-backend/pkg/logger"
 	"github.com/pharma-crm-backend/pkg/token"
@@ -40,7 +41,7 @@ type Options struct {
 // @in header
 // @name Authorization
 // NewRouter -.
-func NewRouter(option Options) {
+func NewRouter(option Options, hub *ws.Hub) {
 
 	// Basic Auth
 	basicAuth := middleware.BasicAuth()
@@ -69,13 +70,18 @@ func NewRouter(option Options) {
 
 	// Handlers
 	handler := v1.NewHandler(
-		option.Cfg, 
-		option.Db, 
-		option.Log, 
+		option.Cfg,
+		option.Db,
+		option.Log,
 		&jwtHandler,
-		option.Service, 
-		validator)
+		option.Service,
+		validator,
+		hub,
+	)
 	handler.InitRoutes(option.Gin)
+
+	// WS Handler
+	option.Gin.GET("/ws", ws.ServeWs(hub))
 
 	// PING
 	option.Gin.GET("/", Ping)

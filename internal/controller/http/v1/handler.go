@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/internal/controller/http/middleware"
+	"github.com/pharma-crm-backend/internal/controller/ws"
 	"github.com/pharma-crm-backend/internal/services"
 	"github.com/pharma-crm-backend/pkg/logger"
 	"github.com/pharma-crm-backend/pkg/token"
@@ -21,6 +22,7 @@ type Handler struct {
 	service         *services.Services
 	validator       *utils.Validator
 	ordersToMutexes sync.Map
+	hub             *ws.Hub
 }
 
 func NewHandler(
@@ -30,6 +32,7 @@ func NewHandler(
 	jwt *token.JWTHandler,
 	service *services.Services,
 	validator *utils.Validator,
+	hub *ws.Hub,
 ) *Handler {
 
 	return &Handler{
@@ -40,6 +43,7 @@ func NewHandler(
 		service:         service,
 		validator:       validator,
 		ordersToMutexes: sync.Map{},
+		hub:             hub,
 	}
 }
 
@@ -66,6 +70,7 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 	// Handlers
 	{
 		h.NewAuthHandler(public)
+		h.NewAutoOrderHandler(v1)
 		h.NewBrandController(v1)
 		h.NewCategoryHander(v1)
 		h.NewCustomerHandler(v1)
@@ -87,7 +92,6 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		h.NewProduct1cHandler(v1c)
 		h.NewTokenGeneratorHandler(public)
 		h.NewShiftHandler(v1)
-		h.NewAutoOrderHandler(v1)
 		h.NewProducerHandler(v1)
 		h.NewDashboardHandler(v1)
 		h.NewDiscountCardHandler(v1)

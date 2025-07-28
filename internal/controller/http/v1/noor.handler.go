@@ -24,6 +24,7 @@ func (h *NoorHandler) NoorRoutes(r *gin.RouterGroup) {
 	noor.GET("/store/list", h.StoreList)
 	noor.GET("/category/list", h.CategoryList)
 	noor.POST("/order", h.CreateOrder)
+	noor.POST("/send-ws-test-message", h.SendWSTestMessage)
 }
 
 // List Products
@@ -236,5 +237,19 @@ func (h *NoorHandler) CreateOrder(c *gin.Context) {
 		return
 	}
 
+	go h.service.NotifyOnlineOrder(body.ShopId, res.SaleNumber)
+
 	handleResponseNoor(c, http.StatusOK, domain.OnlineOrderResponse{Message: "success", OrderID: res.SaleNumber})
+}
+
+func (h *NoorHandler) SendWSTestMessage(c *gin.Context) {
+	storeID := c.Query("store_id")
+	if storeID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "store_id is required"})
+		return
+	}
+
+	go h.service.NotifyOnlineOrder(storeID, 12345)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Test message sent"})
 }
