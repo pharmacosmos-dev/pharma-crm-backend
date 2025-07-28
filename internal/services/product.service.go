@@ -1074,8 +1074,28 @@ func (s *Services) UpdateProductQuantity(req *domain.UpdateQuantityRequest1C) er
 	var err error
 	tx := s.db.Begin()
 	if tx.Error != nil {
-		s.log.Error("ERROR starting transaction: ", tx.Error)
+		s.log.Error("Failed to start transaction: ", tx.Error)
 		return tx.Error
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			s.log.Error("Panic recovered in UpdateProductQuantity: ", r)
+		}
+	}()
+
+	publicId := strings.TrimPrefix(req.Dok.DocumentNumber, "NP-")
+
+	var transferID string
+	err = tx.Raw(`SELECT id FROM transfers WHERE public_id = ?`, publicId).Scan(&transferID).Error
+	if err != nil {
+		s.log.Error("Failed to get transfer ID by public_id: ", err)
+		tx.Rollback()
+		return err
+	}
+	if transferID == "" {
+		tx.Rollback()
+		return errors.New("transfer not found for given public_id")
 	}
 
 	for _, item := range req.Товары {
@@ -1083,8 +1103,8 @@ func (s *Services) UpdateProductQuantity(req *domain.UpdateQuantityRequest1C) er
 		err = tx.Exec(`
 			UPDATE store_products
 			SET 
-				unit_quantity = store_products.unit_quantity + ?,
-				pack_quantity = store_products.pack_quantity + (? / p.unit_per_pack)
+				unit_quantity = unit_quantity + ?,
+				pack_quantity = pack_quantity + (? / p.unit_per_pack)
 			FROM products p
 			WHERE store_products.product_id = p.id
 			  AND store_products.id = ?`,
@@ -1095,10 +1115,19 @@ func (s *Services) UpdateProductQuantity(req *domain.UpdateQuantityRequest1C) er
 			tx.Rollback()
 			return err
 		}
-	}
 
-	// Remove "NP-" prefix safely
-	publicId := strings.TrimPrefix(req.Dok.DocumentNumber, "NP-")
+		err = tx.Exec(`
+			UPDATE transfer_details
+			SET onec_count = ?, updated_at = NOW()
+			WHERE transfer_id = ? AND store_product_id = ?`,
+			item.GivenCount, transferID, item.StoreProductId,
+		).Error
+		if err != nil {
+			s.log.Error("ERROR on updating transfer details: ", err)
+			tx.Rollback()
+			return err
+		}
+	}
 
 	// Update transfer status
 	err = tx.Exec(`
@@ -1106,19 +1135,19 @@ func (s *Services) UpdateProductQuantity(req *domain.UpdateQuantityRequest1C) er
 		SET 
 			status = ?,
 			updated_at = NOW()
-		WHERE public_id = ?`,
+		WHERE id = ?`,
 		config.COMPLETED,
-		publicId,
+		transferID,
 	).Error
 
 	if err != nil {
-		s.log.Error("ERROR on updating transfer status: ", err)
+		s.log.Error("Failed to update transfer status: ", err)
 		tx.Rollback()
 		return err
 	}
 
 	if err = tx.Commit().Error; err != nil {
-		s.log.Error("ERROR on committing transaction: ", err)
+		s.log.Error("Failed to commit transaction: ", err)
 		return err
 	}
 

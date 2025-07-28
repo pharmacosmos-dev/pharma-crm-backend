@@ -1366,14 +1366,27 @@ func (h *SaleHandler) DMEDGetPrescriptions(c *gin.Context) {
 		handleResponse(c, BadRequest, "invalid.query.param")
 		return
 	}
-	var respBody []domain.Prescription
-	var err error
-	respBody, err = h.service.GetPrescriptionsFromDMED(patientID, safeCode)
+
+	respBody, err := h.service.GetPrescriptionsFromDMED(patientID, safeCode)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, fmt.Sprintf("%s %.0f %s", respBody[0].DrugAppointment.Medication.Title, respBody[0].DrugAppointment.Medication.SubstanceDosage.Dosage, respBody[0].DrugAppointment.Medication.SubstanceDosage.MeasurementUnit.Title))
+
+	// Format prescriptions for response
+	preparations := make([]string, 0, len(respBody))
+	for _, p := range respBody {
+		prep := p.DrugAppointment.Medication
+		dose := prep.SubstanceDosage
+		preparations = append(preparations, fmt.Sprintf("%s %.0f %s", prep.Title, dose.Dosage, dose.MeasurementUnit.Title))
+	}
+
+	if len(preparations) == 0 {
+		handleResponse(c, OK, "Prescriptions not found")
+		return
+	}
+
+	handleResponse(c, OK, preparations)
 }
 
 // lock order for parallel request
