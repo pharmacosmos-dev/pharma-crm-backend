@@ -129,20 +129,21 @@ type Error struct {
 
 // region error types
 var (
-	BadRequestError         = "bad.request"
-	NotFoundError           = "not.found"
-	InternalServerError     = "internal.server.error"
-	InvalidRequestBodyError = "invalid.request.body"
-	UnauthorizedError       = "user.not.authorized"
-	ForbiddinError          = "forbidden"
-	InvalidQueryError       = "invalid.query.param"
-	NotEnoughProductError   = "not.enough.product"
-	ConflictError           = "conflict"
-	ResourceNotFoundError   = "resource.not.found"
-	RateLimitExceededError  = "rate.limit.exceeded"
-	AlreadyExistsError      = "already.exists"
-	DependencyFailedError   = "dependency.failed"
-	AlreadyCompletedError   = "already.completed"
+	BadRequestError          = "bad.request"
+	NotFoundError            = "not.found"
+	InternalServerError      = "internal.server.error"
+	InvalidRequestBodyError  = "invalid.request.body"
+	UnauthorizedError        = "user.not.authorized"
+	ForbiddinError           = "forbidden"
+	InvalidQueryError        = "invalid.query.param"
+	NotEnoughProductError    = "not.enough.product"
+	ConflictError            = "conflict"
+	ResourceNotFoundError    = "resource.not.found"
+	RateLimitExceededError   = "rate.limit.exceeded"
+	AlreadyExistsError       = "already.exists"
+	DependencyFailedError    = "dependency.failed"
+	AlreadyCompletedError    = "already.completed"
+	PaymentTypeRequiredError = "payment.type.required"
 )
 
 // // Error makes it compatible with the `error` interface.

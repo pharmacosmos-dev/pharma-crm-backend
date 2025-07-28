@@ -39,9 +39,9 @@ func (h *SaleHandler) SaleRoutes(r *gin.RouterGroup) {
 		sale.GET("/list", h.List)
 		sale.GET("/export-excel", h.ExportSaleExcel)
 		sale.PUT("/:id", h.Update)
-		sale.POST("/final", h.ProccessingSale)
-		sale.GET("/stats", h.SaleStats)
+		sale.POST("/final", h.FinalSale)
 		sale.POST("/epos-result", h.EposResponse)
+		sale.GET("/stats", h.SaleStats)
 		sale.GET("/get-list", h.GetSaleList)
 		sale.POST("/discount-card", h.AddDiscountCard)
 		sale.DELETE("/discount-card", h.RemoveCustomerDiscount)
@@ -615,20 +615,37 @@ func (h *SaleHandler) Update(c *gin.Context) {
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /sale/final [post]
-func (h *SaleHandler) ProccessingSale(c *gin.Context) {
-	var body domain.FinalSale
+func (h *SaleHandler) FinalSale(c *gin.Context) {
+	var (
+		body domain.FinalSale
+		err  error
+	)
 
 	// Create context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
+	// start transaction
+	tx := h.db.Begin()
+
+	// Ensure the transaction is rolled back if any error occurs
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+			panic(p)
+		} else if err != nil {
+			tx.Rollback()
+		}
+	}()
+
 	// bind request body
-	err := c.ShouldBindJSON(&body)
+	err = c.ShouldBindJSON(&body)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+
 	// lock parallel request
 	mu := h.getOrderLock(body.SaleID)
 	mu.Lock()
@@ -636,12 +653,9 @@ func (h *SaleHandler) ProccessingSale(c *gin.Context) {
 
 	// validate payment types
 	if len(body.PaymentTypes) == 0 {
-		handleResponse(c, BadRequest, "payment.type.required")
+		handleResponse(c, BadRequest, constants.PaymentTypeRequiredError)
 		return
 	}
-
-	// create transaction
-	tx := h.db.Begin()
 
 	// get sale info
 	sale, err := h.service.GetSaleById(ctx, tx, body.SaleID)
@@ -649,13 +663,6 @@ func (h *SaleHandler) ProccessingSale(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-
-	// Ensure the transaction is rolled back if any error occurs
-	defer func() {
-		if err != nil {
-			tx.Rollback()
-		}
-	}()
 
 	// check sale is completed or no
 	if sale.Status == config.COMPLETED {
@@ -696,15 +703,15 @@ func (h *SaleHandler) ProccessingSale(c *gin.Context) {
 	// complete sale
 	err = h.service.CompleteSale(ctx, tx, sale)
 	if err != nil {
-		h.log.Error("ERROR on completing sale: %v", err)
-		handleResponse(c, InternalError, "Failed to complete sale")
+		h.log.Error("could not complete the sale(%s): %v", sale.ID, err)
+		handleResponse(c, InternalError, constants.InternalServerError)
 		return
 	}
 
 	// Commit transaction
 	err = tx.Commit().Error
 	if err != nil {
-		handleResponse(c, InternalError, "not.completed.transaction")
+		handleResponse(c, InternalError, constants.InternalServerError)
 		return
 	}
 
@@ -774,8 +781,10 @@ func processPaymentType(
 // @Failure 500 {object} v1.Response
 // @Router /sale/epos-result [post]
 func (h *SaleHandler) EposResponse(c *gin.Context) {
-	var body domain.EposResponseRequest
-
+	var (
+		body domain.EposResponseRequest
+		err  error
+	)
 	// get user_id from the context
 	userId, ok := c.Get("user_id")
 	if !ok {
@@ -783,12 +792,12 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 		return
 	}
 
-	// Create context with timeout
+	// context
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	// Bind request body
-	err := c.ShouldBindJSON(&body)
+	// bind request
+	err = c.ShouldBindJSON(&body)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
@@ -806,22 +815,24 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 	// Convert string to []byte and store in Response field
 	body.Response = []byte(responseDataStr)
 
-	// Start transaction
+	// start transaction
 	tx := h.db.Begin()
 
+	// Ensure the transaction is rolled back if any error occurs
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+			panic(p)
+		} else if err != nil {
+			tx.Rollback()
+		}
+	}()
 	// Get sale by ID
 	sale, err := h.service.GetSaleById(ctx, tx, body.SaleId)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-
-	// Ensure the transaction is rolled back if any error occurs
-	defer func() {
-		if err != nil {
-			tx.Rollback()
-		}
-	}()
 
 	if body.Error {
 		// delete sale_payments which depends on the sale

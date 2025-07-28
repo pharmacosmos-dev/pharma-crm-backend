@@ -687,9 +687,9 @@ func (s *Services) ValidateSaleAmount(ctx context.Context, req *domain.FinalSale
 // cart items sum of the sale
 func (s *Services) cartItemsSumBySaleID(ctx context.Context, saleID string) (float64, error) {
 	var sum float64
-	err := s.db.WithContext(ctx).Raw(`
-		SELECT SUM(total_price) - SUM(discount_amount) AS sum FROM cart_items WHERE sale_id = ?
-	`, saleID).Scan(&sum).Error
+	err := s.db.
+		WithContext(ctx).
+		Raw(`SELECT SUM(total_price) - SUM(discount_amount) AS sum FROM cart_items WHERE sale_id = ?`, saleID).Scan(&sum).Error
 	if err != nil {
 		s.log.Warn("ERROR on calucating cart_items sum: %v", err)
 		return sum, errors.New("failed.calculate.cart_items.sum")
