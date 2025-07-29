@@ -43,6 +43,7 @@ func (h *TransferHandler) TransferRoutes(r *gin.RouterGroup) {
 		transfer.GET("/export-nakladnoy", h.ExportTransferNakladnoyPDF)
 		transfer.PUT("/update-by-barcode/:id", h.UpdateByBarcode)
 		transfer.PUT("/edit-status-to-checking/:id", h.EditStatusToChecking)
+		transfer.DELETE("/:id", h.DeleteTransfer)
 
 	}
 	detail := r.Group("transfer-detail")
@@ -929,4 +930,27 @@ func (h *TransferHandler) ExportTransferNakladnoyPDF(c *gin.Context) {
 	pdf.CellFormat(100, 7, "Товар отпустил: _______________", "", 1, "L", false, 0, "")
 
 	savePdfToUploads(c, pdf, *h.log, "Nakladnoy_"+transfer.PublicId)
+}
+
+// DeleteTransfer godoc
+// @Summary Delete Transfer
+// @Description Delete Transfer
+// @Tags 	Transfer
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param   id path string true "Transfer ID"
+// @Success 200 {object} v1.Response "Transfer deleted"
+// @Failure 400 {object} v1.Response "Invalid request parameters"
+// @Failure 500 {object} v1.Response "Internal server error"
+// @Router /transfer/{id} [delete]
+func (h *TransferHandler) DeleteTransfer(c *gin.Context) {
+	var transferId = c.Param("id")
+
+	err := h.service.DeleteTransfer(transferId)
+	if err != nil {
+		handleResponse(c, InternalError, "transfer.delete.error")
+		return
+	}
+	handleResponse(c, OK, "transfer.delete.success")
 }

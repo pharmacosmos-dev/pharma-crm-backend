@@ -627,3 +627,24 @@ func (s *Services) CancelTransfer(returnId string, userId string) error {
 
 	return nil
 }
+
+func (s *Services) DeleteTransfer(transferId string) error {
+	// start transaction
+	tx := s.db.Begin()
+	defer recoverTransaction(tx, s.log)
+	// update confirm inventory
+	query := `DELETE FROM transfers WHERE id = ?`
+	err := tx.Exec(query, transferId).Error
+	if err != nil {
+		s.log.Warn("ERROR on updating inventory %v", err)
+		return err
+	}
+	defer RollbackIfError(tx, &err)
+	err = tx.Commit().Error
+	if err != nil {
+		s.log.Warn("ERROR on commiting transaction %v", err)
+		return err
+	}
+
+	return nil
+}
