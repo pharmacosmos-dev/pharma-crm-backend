@@ -85,25 +85,27 @@ func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, d
 	-- Current stock per product name
 	stock_data AS (
 		SELECT
-			p.name,
-			ROUND(SUM(sp.pack_quantity + (sp.unit_quantity::numeric % p.unit_per_pack) / p.unit_per_pack), 4) AS current_stock
-		FROM store_products sp
-		JOIN products p ON sp.product_id = p.id
-		JOIN vars v ON sp.store_id = v.store_id
-		GROUP BY p.name
+            p.name,
+            ROUND(SUM(sp.unit_quantity::numeric/p.unit_per_pack), 4) as current_stock
+        FROM store_products sp
+        JOIN products p ON sp.product_id = p.id
+        JOIN vars v ON v.store_id = sp.store_id
+        WHERE sp.store_id = v.store_id
+        GROUP BY p.name
 	),
 
 	-- Sales count per product name in the last N days
 	sales_data AS (
 		SELECT
 			p.name,
-			ROUND(SUM(ci.quantity + (ci.unit_quantity::numeric / p.unit_per_pack)), 4) AS sale_count
+			ROUND(SUM(ci.quantity::numeric + (ci.unit_quantity::numeric / p.unit_per_pack)), 4) AS sale_count
 		FROM store_products sp
 		JOIN cart_items ci ON sp.id = ci.store_product_id
-		JOIN sales sl ON sl.id = ci.sale_id AND sl.status = 'completed'
+		JOIN sales sl ON sl.id = ci.sale_id
 		JOIN products p ON sp.product_id = p.id
 		JOIN vars v ON sl.store_id = v.store_id
 		WHERE (sl.completed_at + interval '5 hours')::date >= (CURRENT_DATE - v.sale_period * INTERVAL '1 day')
+		AND sl.status = 'completed' AND sl.store_id = v.store_id
 		GROUP BY p.name
 	),
 
@@ -118,6 +120,7 @@ func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, d
 		FROM store_product_thresholds spt
 		JOIN products p ON spt.product_id = p.id
 		JOIN vars v ON spt.store_id = v.store_id
+		WHERE spt.store_id = v.store_id
 		GROUP BY p.name
 	),
 
@@ -141,27 +144,18 @@ func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, d
 		JOIN product_with_max_code pmc ON t.name = pmc.name
 	),
 
-	-- Excluded products (name-based)
-	excluded_products_union AS (
-		SELECT p.name
-		FROM excluded_products ep
-		JOIN products p ON ep.product_id = p.id
-		JOIN vars v ON ep.store_id = v.store_id
-		UNION
-		SELECT p.name
-		FROM excluded_products ep
-		JOIN products p ON ep.product_id = p.id
-		WHERE ep.store_id IS NULL
-	),
+
 
 	-- Count of new imports per product name
 	imports AS (
-		SELECT p.name, COUNT(*) AS new_imports_count
-		FROM imports i
-		JOIN import_details ip ON i.id = ip.import_id
-		JOIN products p ON ip.product_id = p.id
-		JOIN vars v ON i.store_id = v.store_id
-		WHERE i.status = 'new'
+		SELECT
+		    p.name,
+		    SUM(imd.scanned_count) AS new_imports_count
+		FROM import_details imd
+        JOIN imports im ON im.id = imd.import_id
+        JOIN products p ON imd.product_id = p.id
+		JOIN vars v ON im.store_id = v.store_id
+		WHERE im.status = 'new' AND im.entry_type = 1 AND im.store_id = v.store_id
 		GROUP BY p.name
 	),
 
@@ -192,10 +186,10 @@ func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, d
 		SELECT
 			*,
 			ROUND(sale_count / sale_period, 4) AS daily_sale_count,
-			ROUND(sale_count / sale_period * import_day, 4) AS delivery_day_consumption,
-			current_stock - ROUND(sale_count / sale_period * import_day, 4) AS stock_on_delivery_date,
-			ROUND(sale_count / sale_period * 3, 4) AS reserve_quantity,
-			current_stock - ROUND(sale_count / sale_period * import_day, 4) + ROUND(sale_count / sale_period * 3, 4) AS future_stock
+			ROUND((sale_count / sale_period) * import_day, 4) AS delivery_day_consumption,
+			current_stock - ROUND((sale_count / sale_period) * import_day, 4) AS stock_on_delivery_date,
+			ROUND((sale_count / sale_period) * 3, 4) AS reserve_quantity,
+			current_stock - ROUND((sale_count / sale_period) * import_day, 4) + ROUND((sale_count / sale_period )* 3, 4) AS future_stock
 		FROM all_data
 	),
 
@@ -210,8 +204,6 @@ func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, d
 			END) - COALESCE(im.new_imports_count, 0) AS order_count
 		FROM final_calc fc
 		LEFT JOIN imports im ON im.name = fc.name
-		LEFT JOIN excluded_products_union ex ON ex.name = fc.name
-		WHERE ex.name IS NULL
 	)
 
 	-- Final output
