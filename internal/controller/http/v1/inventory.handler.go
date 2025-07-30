@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"strconv"
@@ -9,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/spf13/cast"
@@ -37,6 +39,7 @@ func (h *InventoryHandler) InventoryRoutes(r *gin.RouterGroup) {
 		inventory.POST("/confirm/:id", h.Confirm)
 		inventory.POST("/send1c/:id", h.Send1C)
 		inventory.POST("/cancel/:id", h.Cancel)
+		inventory.DELETE("/:inventory_id", h.DeleteInventory)
 	}
 	detail := r.Group("inventory-detail")
 	{
@@ -894,7 +897,7 @@ func (h *InventoryHandler) InventoryDetailUpload(c *gin.Context) {
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /inventory-detail/price-option [GET]
-func (h InventoryHandler) PriceOption(c *gin.Context) {
+func (h *InventoryHandler) PriceOption(c *gin.Context) {
 	var (
 		param domain.InventoryParam
 		res   []domain.InventoryPriceOption
@@ -935,4 +938,36 @@ func (h InventoryHandler) PriceOption(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, res)
+}
+
+// godoc DeleteInventory
+// @Summary Delete inventory
+// @Description Delete inventory
+// @Tags Inventory
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param   inventory_id path string true "Inventory ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /inventory/{inventory_id} [DELETE]
+func (h *InventoryHandler) DeleteInventory(c *gin.Context) {
+	var id = c.Param("inventory_id")
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+	err := uuid.Validate(id)
+	if err != nil {
+		handleResponse(c, BadRequest, constants.InvalidQueryError)
+		return
+	}
+
+	err = h.service.DeleteInventory(ctx, id)
+	if err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	handleResponse(c, OK, "DELETED")
 }

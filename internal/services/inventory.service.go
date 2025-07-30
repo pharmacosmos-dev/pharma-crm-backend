@@ -9,6 +9,7 @@ import (
 
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/spf13/cast"
 )
@@ -506,31 +507,24 @@ func (s *Services) InventoryDetailStatsCount(param *domain.InventoryParam) (doma
 
 // confirm inventory
 func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
+	var err error
 	// start transaction
 	tx := s.db.Begin()
-
-	var res domain.Inventory
-	// update confirm inventory
-	query := `UPDATE imports SET status = ?, accepted_by = ?, updated_at = NOW() WHERE id = ? RETURNING *`
-	err := tx.Raw(query, config.COMPLETED, userId, inventoryId).Scan(&res).Error
-	if err != nil {
-		s.log.Warn("ERROR on updating inventory %v", err)
-		tx.Rollback()
-		return err
-	}
 
 	defer func() {
 		if err != nil {
 			tx.Rollback()
 		}
 	}()
-	// delete correct inventory products if current and fact will be equal (received_count = scanned_count)
-	// err = tx.Exec(`DELETE FROM import_details WHERE import_id = ? AND received_count = scanned_count`, inventoryId).Error
-	// if err != nil {
-	// 	s.log.Warn("ERROR on deleting inventory_details recieve and scan will be equal: %v", err)
-	// 	tx.Rollback()
-	// 	return err
-	// }
+
+	var res domain.Inventory
+	// update confirm inventory
+	query := `UPDATE imports SET status = ?, accepted_by = ?, updated_at = NOW() WHERE id = ? RETURNING *`
+	err = tx.Raw(query, config.COMPLETED, userId, inventoryId).Scan(&res).Error
+	if err != nil {
+		s.log.Warn("ERROR on updating inventory %v", err)
+		return err
+	}
 
 	// get inventory details list if fact and current quantity will not be equal
 	var inventoryDetails []domain.ImportDetail
@@ -652,7 +646,6 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 	err = tx.Commit().Error
 	if err != nil {
 		s.log.Warn("ERROR on commiting transaction: %v", err)
-		tx.Rollback()
 		return err
 	}
 
@@ -766,5 +759,18 @@ func (s *Services) SendInventory1C(inventoryID string) error {
 		return err
 	}
 
+	return nil
+}
+
+func (s *Services) DeleteInventory(ctx context.Context, inventoryId string) error {
+	err := s.db.
+		WithContext(ctx).
+		Delete(&domain.Import{}, "id = ?", inventoryId).
+		Where("status = ?", constants.NEW).
+		Where("entry_type = ?", 2).Error
+	if err != nil {
+		s.log.Error("could not delete inventory(%s): %v", inventoryId, err)
+		return errors.New(constants.InternalServerError)
+	}
 	return nil
 }
