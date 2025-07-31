@@ -142,36 +142,30 @@ func (s *Services) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domai
 	// add products to store
 	storeProductQuery := `
 	INSERT INTO store_products(
-		store_id, 
-		product_id, 
-		pack_quantity, 
-		unit_quantity, 
-		supply_price, 
-		retail_price, 
-		vat, 
-		expire_date, 
-		vat_price, 
-		import_detail_id, 
-		serial_number, 
-		mxik, 
-		unit_code, 
-		unit_label, 
+		store_id,
+		product_id,
+		pack_quantity,
+		unit_quantity,
+		supply_price,
+		retail_price,
+		vat,
+		expire_date,
+		vat_price,
+		import_detail_id,
+		serial_number,
+		mxik,
+		unit_code,
+		unit_label,
 		is_marking
 		)
 	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	for _, item := range importDetails {
 		if item.AcceptedCount > 0 {
-			// agar N30 lik tovar bo'lsa va 2.67 quantity qabul qilinsa hisoblanish
-			// packQt = 2 butun qismini oladi, frac esa 0.67 qismi oladi va 0.67 ni 30 ga ko'paytiradi: 20.1
-			// unitQt umumiy donalar sonini qabul qiladi 2.67 * 30 = 80
-			packQty, _ := math.Modf(item.ScannedCount)
-			unitQty := item.ScannedCount * float64(item.UnitPerPack)
-			// add imported products to store_products
 			err = tx.Exec(storeProductQuery,
 				importData.StoreID,
 				item.ProductID,
-				int(packQty),
-				int(unitQty),
+			    utils.NearestRound(item.ScannedCount),
+		    	math.Round(item.ScannedCount * float64(item.UnitPerPack)),
 				item.SupplyPriceVat,
 				item.RetailPriceVat,
 				item.Vat, item.ExpireDate,
@@ -239,36 +233,31 @@ func (s *Services) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import)
 	// add products to store
 	storeProductQuery := `
 	INSERT INTO store_products(
-		store_id, 
-		product_id, 
-		pack_quantity, 
-		unit_quantity, 
-		supply_price, 
-		retail_price, 
-		vat, 
-		expire_date, 
-		vat_price, 
-		import_detail_id, 
+		store_id,
+		product_id,
+		pack_quantity,
+		unit_quantity,
+		supply_price,
+		retail_price,
+		vat,
+		expire_date,
+		vat_price,
+		import_detail_id,
 		serial_number,
-		mxik, 
-		unit_code, 
+		mxik,
+		unit_code,
 		unit_label,
 		is_marking
-		) 
+		)
 	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	for _, item := range details {
 		if item.ReceivedCount > 0 {
-			// agar N30 lik tovar bo'lsa va 2.67 quantity qabul qilinsa hisoblanish
-			// packQt = 2 butun qismini oladi, frac esa 0.67 qismi oladi va 0.67 ni 30 ga ko'paytiradi: 20.1
-			// unitQt umumiy donalar sonini qabul qiladi 2.67 * 30 = 80.01 ya'ni 80 dona bor degani
-			packQty, _ := math.Modf(item.ReceivedCount)
-			unitQty := item.ReceivedCount * float64(item.UnitPerPack)
 
 			err = tx.Exec(storeProductQuery,
 				importData.StoreID,
 				item.ProductID,
-				int(packQty),
-				int(unitQty),
+				utils.NearestRound(item.ReceivedCount),
+				math.Round(item.ReceivedCount * float64(item.UnitPerPack)),
 				item.SupplyPriceVat,
 				item.RetailPriceVat,
 				item.Vat,
@@ -416,7 +405,7 @@ func (s *Services) ListImport(c *gin.Context, limit, offset int) ([]domain.Impor
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
 		query = query.Where(`
-		imports.document_number ILIKE ? OR 
+		imports.document_number ILIKE ? OR
 		CAST(imports.public_id AS TEXT) LIKE ?`, search, search)
 	}
 	if storeID != "" {
@@ -566,7 +555,7 @@ func (s *Services) ListImportDetail(param *domain.ImportDetailQueryParams) ([]do
 	if param.Search != "" {
 		param.Search = fmt.Sprintf("%%%s%%", param.Search)
 		query = query.Where(`
-		products.barcode LIKE ? OR 
+		products.barcode LIKE ? OR
 		products.name ILIKE ? OR
 		CAST(products.material_code AS TEXT) LIKE ?`, param.Search, param.Search, param.Search)
 	}
@@ -601,18 +590,18 @@ func (s *Services) ListImportDetail(param *domain.ImportDetailQueryParams) ([]do
 func (s *Services) GetImportDetailsByImportId(importId string) ([]domain.ImportDetail, error) {
 	var importDetails []domain.ImportDetail
 	err := s.db.Raw(`
-		SELECT 
-			import_details.*, 
-			products.unit_per_pack, 
-			products.barcode, 
-			products.name as product_name, 
-			products.material_code, 
-			COALESCE(pr.name, '') as producer_name, 
-			products.mxik, 
-			products.unit_code, 
+		SELECT
+			import_details.*,
+			products.unit_per_pack,
+			products.barcode,
+			products.name as product_name,
+			products.material_code,
+			COALESCE(pr.name, '') as producer_name,
+			products.mxik,
+			products.unit_code,
 			products.unit_label,
 			products.is_marking
-		FROM import_details 
+		FROM import_details
 		JOIN products ON products.id = import_details.product_id
 		LEFT JOIN producers pr ON pr.id = products.producer_id
 		 WHERE import_id = ?`,
@@ -654,7 +643,7 @@ func (s *Services) ListImportDetailByLastUpdated(c *gin.Context, limit, offset i
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
 		query = query.Where(`
-		products.barcode LIKE ? OR 
+		products.barcode LIKE ? OR
 		products.name ILIKE ? OR
 		CAST(products.material_code AS TEXT) LIKE ?`, search, search, search)
 	}

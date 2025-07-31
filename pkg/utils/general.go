@@ -183,9 +183,19 @@ func NormalizePhoneNumber(phone string) string {
 	return phone
 }
 
-// Round to number with decimal place: 
+// Round to number with decimal place:
 // RoundTo(1.333333333, 4) -> 1.3334
 func RoundTo(x float64, decimalPlaces int) float64 {
 	factor := math.Pow(10, float64(decimalPlaces))
 	return math.Round(x*factor) / factor
+}
+
+
+func NearestRound(f float64) int {
+	decimal := f - math.Floor(f)
+
+	if decimal >= 0.90 {
+		return int(math.Ceil(f))
+	}
+	return int(math.Round(f))
 }
