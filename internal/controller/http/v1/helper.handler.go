@@ -12,11 +12,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/agnivade/levenshtein"
 	"github.com/gin-gonic/gin"
+	"golang.org/x/text/unicode/norm"
 
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/spf13/cast"
 	"github.com/xuri/excelize/v2"
@@ -45,6 +48,7 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		helper.GET("picture", h.GetProductPictureFromTasnif)
 		helper.POST("/product-min-max", h.UploadProductMinMax)
 		helper.POST("/product-kvant", h.UploadProductKvant)
+		helper.POST("/set-product-photo", h.SetProductPhoto)
 	}
 }
 
@@ -1135,4 +1139,154 @@ func (h *HelperHandler) UploadProductKvant(c *gin.Context) {
 	}
 	handleResponse(c, OK, "Successfully updated: "+cast.ToString(count))
 
+}
+
+// SetProductPhotos godoc
+// @Summary Set product photos
+// @Description Set product photos
+// @Tags helper
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /helper/set-product-photo [POST]
+func (h *HelperHandler) SetProductPhoto(c *gin.Context) {
+
+	imageDir := "./app/uploads/images"
+	targetDir := "./app/uploads"
+
+	files, err := os.ReadDir(imageDir)
+	if err != nil {
+		panic(err)
+	}
+
+	var products []struct {
+		Id   string `gorm:"id"`
+		Name string `gorm:"name"`
+	}
+
+	err = h.db.Raw(`SELECT id, name FROM products`).Scan(&products).Error
+	if err != nil {
+		h.log.Error("could not get product list: %v", err)
+		handleResponse(c, InternalError, constants.InternalServerError)
+		return
+	}
+
+	// Map for productID -> photos[]
+	productPhotos := map[string]utils.StringArray{}
+	var (
+		matchCount   = 0
+		noMatchCount = 0
+	)
+	for _, f := range files {
+		if f.IsDir() {
+			continue
+		}
+
+		normImageName := norm.NFC.String(normalizeFileName(f.Name()))
+		normImageNameLower := strings.ToLower(normImageName)
+
+		bestMatchID := ""
+		bestScore := 999 // smaller is better (for Levenshtein)
+
+		for _, p := range products {
+			normProductName := norm.NFC.String(strings.ToLower(p.Name))
+
+			// Option 1: if image name is contained in product name
+			if strings.Contains(normProductName, normImageNameLower) {
+				bestMatchID = p.Id
+				bestScore = 0
+				break
+			}
+
+			// Option 2: fuzzy match
+			distance := levenshtein.ComputeDistance(normImageNameLower, normProductName)
+			if distance < bestScore && distance <= 15 { // set a threshold
+				bestMatchID = p.Id
+				bestScore = distance
+			}
+		}
+
+		if bestMatchID == "" {
+			noMatchCount++
+			fmt.Printf("❌ No match for image: %s\n", normImageName)
+			continue
+		}
+
+		// Generate new filename and copy
+		newFileName := uuid.New().String() + filepath.Ext(f.Name())
+		srcPath := filepath.Join(imageDir, f.Name())
+		dstPath := filepath.Join(targetDir, newFileName)
+
+		if err := copyFile(srcPath, dstPath); err != nil {
+			fmt.Printf("❌ Copy error: %v\n", err)
+			continue
+		}
+
+		productPhotos[bestMatchID] = append(productPhotos[bestMatchID], newFileName)
+		fmt.Printf("✅ Matched: %s → %s (product_id: %s)\n", f.Name(), newFileName, bestMatchID)
+		matchCount++
+
+	}
+
+	// Save photos to DB
+	for productID, photos := range productPhotos {
+		err = h.db.Exec(`
+			UPDATE products
+			SET photos = ?, updated_at = now()
+			WHERE id = ?
+		`, utils.StringArray(photos), productID).Error
+		if err != nil {
+			fmt.Printf("❌ Failed to update product %s: %v\n", productID, err)
+		} else {
+			fmt.Printf("✅ Updated product %s with %d photos\n", productID, len(photos))
+		}
+	}
+
+	handleResponse(c, OK, gin.H{
+		"match":    matchCount,
+		"no_match": noMatchCount,
+	})
+}
+
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, in)
+	return err
+}
+
+func normalizeFileName(fileName string) string {
+	// Remove extension first
+	name := strings.TrimSuffix(fileName, filepath.Ext(fileName))
+
+	// Remove trailing _digit
+	parts := strings.Split(name, "_")
+	if len(parts) > 1 && isNumeric(parts[len(parts)-1]) {
+		parts = parts[:len(parts)-1] // remove last part
+	}
+
+	// Join with space
+	return strings.Join(parts, " ")
+}
+
+func isNumeric(s string) bool {
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
 }

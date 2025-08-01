@@ -5566,6 +5566,31 @@ paths:
       summary: Upload package min, max count
       tags:
       - helper
+  /helper/set-product-photo:
+    post:
+      consumes:
+      - application/json
+      description: Set product photos
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Set product photos
+      tags:
+      - helper
   /helper/upload-category:
     post:
       consumes:
