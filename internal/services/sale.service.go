@@ -19,13 +19,13 @@ import (
 )
 
 // create new sale
-func (s *Services) CreateSale(req *domain.SaleRequest) (*domain.Sale, error) {
+func (s *Services) CreateSale(tx *gorm.DB, req *domain.SaleRequest) (*domain.Sale, error) {
 	var res domain.Sale
-	err := s.db.Raw(`INSERT INTO sales(employee_id, cash_box_operation_id, store_id, cashbox_id) VALUES(?, ?, ?, ?) RETURNING *`,
+	err := tx.Raw(`INSERT INTO sales(employee_id, cash_box_operation_id, store_id, cashbox_id) VALUES(?, ?, ?, ?) RETURNING *`,
 		req.EmployeeID, req.CashBoxOperationId, req.StoreId, req.CashboxId).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on creating new sale: %v", err)
-		return nil, err
+		return &res, err
 	}
 	return &res, nil
 }
@@ -35,21 +35,29 @@ func (s *Services) CreateReturnSale(req *domain.SaleReturnRequest) (*domain.Sale
 	var (
 		sale             domain.Sale
 		cashboxOperation domain.CashboxOperation
+		err              error
 	)
+
+	// start transaction
+	tx := s.db.Begin()
+	// Ensure the transaction is rolled back if any error occurs
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+			panic(p)
+		} else if err != nil {
+			tx.Rollback()
+		}
+	}()
+
 	// get cashbox operation
-	err := s.db.First(&cashboxOperation, "id = ?", req.CashBoxOperationId).Error
+	err = tx.First(&cashboxOperation, "id = ?", req.CashBoxOperationId).Error
 	if err != nil {
 		s.log.Error("ERROR on getting cashbox_operation: ", err)
 		return nil, err
 	}
 	req.CashboxId = cashboxOperation.CashBoxID
-	// start transaction
-	tx := s.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
+
 	// build query
 	query := `
 	INSERT INTO sales (
@@ -59,7 +67,6 @@ func (s *Services) CreateReturnSale(req *domain.SaleReturnRequest) (*domain.Sale
 	err = tx.Raw(query, req.EmployeeID, req.CashBoxOperationId, req.CashboxId, config.SALE_TYPE_RETURN, req.SaleId).Scan(&sale).Error
 	if err != nil {
 		s.log.Error("ERROR on creating return sale: ", err)
-		tx.Rollback()
 		return nil, err
 	}
 	// cart item create query
@@ -73,27 +80,25 @@ func (s *Services) CreateReturnSale(req *domain.SaleReturnRequest) (*domain.Sale
 		err = tx.Exec(cquery, item.SaleId, item.Quantity, item.UnitQuantity, item.Quantity, item.UnitQuantity, config.PENDING, item.StoreProductId).Error
 		if err != nil {
 			s.log.Error("ERROR on creating return sale items: ", err)
-			tx.Rollback()
 			return nil, err
 		}
 	}
 
 	// commit transaction
-	if err = tx.Commit().Error; err != nil {
+	err = tx.Commit().Error
+	if err != nil {
 		s.log.Error("ERROR on commiting transaction: ", err)
-		tx.Rollback()
 		return nil, err
 	}
 	return &sale, nil
 }
 
 // create new sale or get pending sale
-func (s *Services) CreateOrGetSale(req *domain.SaleRequest) (*domain.Sale, error) {
+func (s *Services) CreateOrGetSale(ctx context.Context, tx *gorm.DB, req *domain.SaleRequest) (*domain.Sale, error) {
 	var res *domain.Sale
 
 	// getting pending sale with no cart items
-	err := s.db.
-		Raw(`
+	err := tx.Raw(`
 			SELECT * FROM sales 
 			WHERE 
 				store_id = ? AND 
@@ -108,17 +113,17 @@ func (s *Services) CreateOrGetSale(req *domain.SaleRequest) (*domain.Sale, error
 				SELECT 1 FROM cart_items WHERE cart_items.sale_id = sales.id
 			)
 			LIMIT 1`,
-			req.StoreId,
-			req.EmployeeID,
-			req.CashBoxOperationId,
-			req.CashboxId,
-			config.PENDING,
-			config.SALE_TYPE_OFFLINE,
-			config.ONLINE_STATUS_DEFAULT,
-			config.SALE_TYPE_SALE).Scan(&res).Error
+		req.StoreId,
+		req.EmployeeID,
+		req.CashBoxOperationId,
+		req.CashboxId,
+		config.PENDING,
+		config.SALE_TYPE_OFFLINE,
+		config.ONLINE_STATUS_DEFAULT,
+		config.SALE_TYPE_SALE).Scan(&res).Error
 
 	if errors.Is(err, gorm.ErrRecordNotFound) || res == nil || res.ID == "" {
-		res, err = s.CreateSale(req)
+		res, err = s.CreateSale(tx, req)
 		if err != nil {
 			s.log.Warn("ERROR on creating sale: %v", err)
 			return res, err
@@ -133,7 +138,7 @@ func (s *Services) CreateOrGetSale(req *domain.SaleRequest) (*domain.Sale, error
 }
 
 // create new sale or get pending sale
-func (s *Services) CreateOrGetSalePending(req *domain.SaleRequest) (*domain.Sale, error) {
+func (s *Services) CreateOrGetSalePending(tx *gorm.DB, req *domain.SaleRequest) (*domain.Sale, error) {
 	var res *domain.Sale
 
 	// getting pending sale with no cart items
@@ -147,7 +152,7 @@ func (s *Services) CreateOrGetSalePending(req *domain.SaleRequest) (*domain.Sale
 		Scan(&res).Error
 
 	if errors.Is(err, gorm.ErrRecordNotFound) || res == nil || res.ID == "" {
-		res, err = s.CreateSale(req)
+		res, err = s.CreateSale(tx, req)
 		if err != nil {
 			s.log.Warn("ERROR on creating sale: %v", err)
 			return res, err
@@ -205,12 +210,12 @@ func (s *Services) CreateSalePayment(tx *gorm.DB, req domain.FinalSale, item dom
 }
 
 // Get Payment service with store id and payment type  if status is active
-func (s *Services) GetPaymentServiceByStoreId(storeId string, paymentType string) (*domain.PaymentService, error) {
+func (s *Services) GetPaymentServiceByStoreId(storeId string, tx *gorm.DB, paymentType string) (*domain.PaymentService, error) {
 	var res domain.PaymentService
-	err := s.db.Raw(`SELECT * FROM payment_services WHERE store_id = ? AND type = ? AND is_active = true`,
+	err := tx.Raw(`SELECT * FROM payment_services WHERE store_id = ? AND type = ? AND is_active = true`,
 		storeId, paymentType).Scan(&res).Error
 	if err != nil {
-		return nil, err
+		return &res, err
 	}
 	return &res, nil
 }
@@ -640,7 +645,7 @@ func (s *Services) GetSaleList(param *domain.QueryParam) ([]domain.SaleResponse,
 }
 
 // get sale payments by sale_id
-func (s *Services) GetPaymeSalePayment(saleID string) *domain.SalePayment {
+func (s *Services) GetPaymeSalePayment(ctx context.Context, tx *gorm.DB, saleID string) (*domain.SalePayment, error) {
 	var salePayment domain.SalePayment
 	query := `
 	SELECT sp.*
@@ -648,17 +653,17 @@ func (s *Services) GetPaymeSalePayment(saleID string) *domain.SalePayment {
 	JOIN payment_types pt ON pt.id = sp.payment_type_id
 	WHERE sp.sale_id = ? AND pt.type = ?
 	`
-	err := s.db.Raw(query, saleID, config.PAYME).Scan(&salePayment).Error
+	err := tx.Raw(query, saleID, config.PAYME).Scan(&salePayment).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting sale_payments by saleID: %v", err)
-		return &salePayment
+		return &salePayment, err
 	}
-	return &salePayment
+	return &salePayment, nil
 }
 
 // set ficalsign to sale
-func (s *Services) SetFiscalId(saleID string, fiscalID string) error {
-	err := s.db.Exec(`UPDATE sales SET fiscal_sign = ?, updated_at = NOW() WHERE id = ?`, fiscalID, saleID).Error
+func (s *Services) SetFiscalId(ctx context.Context, tx *gorm.DB, saleID string, fiscalID string) error {
+	err := tx.WithContext(ctx).Exec(`UPDATE sales SET fiscal_sign = ?, updated_at = NOW() WHERE id = ?`, fiscalID, saleID).Error
 	if err != nil {
 		s.log.Warn("ERROR on setting fiscal_id: %v", err)
 		return err
@@ -667,32 +672,32 @@ func (s *Services) SetFiscalId(saleID string, fiscalID string) error {
 }
 
 // Validate sale amount (SUM(cart_items) == SUM(sale_payments) == total_amount)
-func (s *Services) ValidateSaleAmount(ctx context.Context, req *domain.FinalSale) bool {
+func (s *Services) ValidateSaleAmount(ctx context.Context, tx *gorm.DB, req *domain.FinalSale) (bool, error) {
 	// get cart item sum
-	cartItemSum, err := s.cartItemsSumBySaleID(ctx, req.SaleID)
+	cartItemSum, err := s.cartItemsSumBySaleID(ctx, tx, req.SaleID)
 	if err != nil {
-		return false
+		return false, err
 	}
 	// get payment type amounts sum
 	paymentTypeSum := s.collectSalePaymentAmount(req.PaymentTypes)
 
 	// checking total amounts
 	if cartItemSum != req.TotalAmount && paymentTypeSum != req.TotalAmount {
-		return false
+		return false, errors.New("invalid.sale.amount")
 	}
 
-	return true
+	return true, nil
 }
 
 // cart items sum of the sale
-func (s *Services) cartItemsSumBySaleID(ctx context.Context, saleID string) (float64, error) {
+func (s *Services) cartItemsSumBySaleID(ctx context.Context, tx *gorm.DB, saleID string) (float64, error) {
 	var sum float64
-	err := s.db.
+	err := tx.
 		WithContext(ctx).
 		Raw(`SELECT SUM(total_price) - SUM(discount_amount) AS sum FROM cart_items WHERE sale_id = ?`, saleID).Scan(&sum).Error
 	if err != nil {
 		s.log.Warn("ERROR on calucating cart_items sum: %v", err)
-		return sum, errors.New("failed.calculate.cart_items.sum")
+		return sum, err
 	}
 	return sum, nil
 }
@@ -709,12 +714,23 @@ func (s *Services) collectSalePaymentAmount(typeAmounts []domain.FinalPaymentTyp
 // region online sale
 // create sale for online order
 func (s *Services) CreateOnlineSale(saleId string, storeID string, customer *domain.Customer, cartItems []domain.CartItemOnlineRequest) (*domain.Sale, error) {
-	var sale domain.Sale
+	var (
+		sale domain.Sale
+		err  error
+	)
 	tx := s.db.Begin()
-	defer recoverTransaction(tx, s.log) // recover panic
+	// Ensure the transaction is rolled back if any error occurs
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+			panic(p)
+		} else if err != nil {
+			tx.Rollback()
+		}
+	}()
 
 	// create new sale
-	err := tx.Raw(`
+	err = tx.Raw(`
 	INSERT INTO sales(
 		id,
 		store_id,
@@ -733,9 +749,6 @@ func (s *Services) CreateOnlineSale(saleId string, storeID string, customer *dom
 	if err != nil {
 		return &sale, errors.New("not.created.cart_items")
 	}
-
-	// rollback transaction
-	defer RollbackIfError(tx, &err) // return transaction
 
 	err = tx.Commit().Error
 	if err != nil {
@@ -906,17 +919,25 @@ func (s *Services) ListPendingSales(param *domain.QueryParam, userId string) ([]
 
 // accept order
 func (s *Services) AcceptOnlineSale(req *domain.ConfirmOnlineSaleRequest) error {
+	var err error
 	tx := s.db.Begin()
-	defer recoverTransaction(tx, s.log)
+	// Ensure the transaction is rolled back if any error occurs
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+			panic(p)
+		} else if err != nil {
+			tx.Rollback()
+		}
+	}()
 	var sale *domain.Sale
-	err := tx.First(&sale, "id = ?", req.SaleID).Error
+	err = tx.First(&sale, "id = ?", req.SaleID).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.New("sale.not.found")
 		}
 		return err
 	}
-	defer RollbackIfError(tx, &err)
 	// accepted online sale
 	err = tx.Exec(`
 	UPDATE 
@@ -961,17 +982,25 @@ func (s *Services) AcceptOnlineSale(req *domain.ConfirmOnlineSaleRequest) error 
 
 // accept order
 func (s *Services) CancelOnlineSale(req *domain.ConfirmOnlineSaleRequest) error {
+	var err error
 	tx := s.db.Begin()
-	defer recoverTransaction(tx, s.log)
+	// Ensure the transaction is rolled back if any error occurs
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+			panic(p)
+		} else if err != nil {
+			tx.Rollback()
+		}
+	}()
 	var sale *domain.Sale
-	err := tx.First(&sale, "id = ?", req.SaleID).Error
+	err = tx.First(&sale, "id = ?", req.SaleID).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.New("sale.not.found")
 		}
 		return err
 	}
-	defer RollbackIfError(tx, &err)
 	// accepted online sale
 	err = tx.Exec(`
 	UPDATE 
@@ -1019,7 +1048,7 @@ func (s *Services) DeleteSalePayments(ctx context.Context, tx *gorm.DB, saleId s
 	err := tx.WithContext(ctx).Exec(`DELETE FROM sale_payments WHERE sale_id = ?`, saleId).Error
 	if err != nil {
 		s.log.Error("could not delete sale_payments: %v", err)
-		return errors.New(constants.InternalServerError)
+		return err
 	}
 	return nil
 

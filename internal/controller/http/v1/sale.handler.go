@@ -678,7 +678,13 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	}
 
 	// validate amounts (total_amount | payment_type_amount | cart_item_total_amount)
-	if !(h.service.ValidateSaleAmount(ctx, &body)) {
+	amountValidate, err := h.service.ValidateSaleAmount(ctx, tx, &body)
+	if err != nil {
+		handleResponse(c, BadRequest, "invalid.calculate.amount")
+		return
+	}
+
+	if !amountValidate {
 		handleResponse(c, BadRequest, "invalid.calculate.amount")
 		return
 	}
@@ -726,10 +732,10 @@ func processPaymentType(
 	item domain.FinalPaymentType,
 ) error {
 	if item.Type == "app" && (item.AppType == config.CLICK || item.AppType == config.PAYME || item.AppType == config.UZUM || item.AppType == config.ALIF) {
-		paymentService, err := h.service.GetPaymentServiceByStoreId(body.StoreID, item.AppType)
+		paymentService, err := h.service.GetPaymentServiceByStoreId(body.StoreID, tx, item.AppType)
 		if err != nil {
 			h.log.Error("could not get payment service by store id: (%v)", body.StoreID)
-			return errors.New("failed to get payment service")
+			return err
 		}
 
 		paymentHandlers := map[string]func(ctx context.Context, tx *gorm.DB, service *domain.PaymentService, data *domain.FinalPaymentType, cashOpID string, transactionID string, saleID string) (map[string]any, error){
@@ -741,7 +747,7 @@ func processPaymentType(
 		// get payment handlers for integration app services
 		handler, exists := paymentHandlers[item.AppType]
 		if !exists {
-			return errors.New("invalid payment type")
+			return errors.New("invalid.payment.type")
 		}
 		// create new sale_payment
 		salePayment, err := h.service.CreateSalePayment(tx, body, item, &paymentService.ID)
@@ -762,7 +768,7 @@ func processPaymentType(
 			return err
 		}
 	} else {
-		return errors.New("invalid payment type")
+		return errors.New("invalid.payment.type")
 	}
 
 	return nil
@@ -876,7 +882,7 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 			successResp.Message.FiscalSign = successResp.Info.FiscalSign
 		}
 		// update sale status to completed
-		err = h.service.SetFiscalId(sale.ID, successResp.Message.FiscalSign)
+		err = h.service.SetFiscalId(ctx, tx, sale.ID, successResp.Message.FiscalSign)
 		if err != nil {
 			h.log.Warn("Failed to complete sale status: %v", err)
 			handleResponse(c, InternalError, "Failed to complete sale status")
@@ -884,7 +890,11 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 		}
 
 		// check payme exists
-		salePayment := h.service.GetPaymeSalePayment(sale.ID)
+		salePayment, err := h.service.GetPaymeSalePayment(ctx, tx, sale.ID)
+		if err != nil {
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
 		// set fiscal data if payment completed with payme
 		if salePayment.ReceiptId != "" {
 			var paymentService domain.PaymentService
@@ -912,7 +922,7 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 		}
 
 		// create or get sale
-		res, err := h.service.CreateOrGetSale(&domain.SaleRequest{
+		res, err := h.service.CreateOrGetSale(ctx, tx, &domain.SaleRequest{
 			EmployeeID:         userId.(string),
 			StoreId:            sale.StoreId,
 			CashBoxOperationId: sale.CashBoxOperationId,

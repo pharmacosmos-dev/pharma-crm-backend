@@ -279,9 +279,15 @@ func (h *CartItemHandler) UpdateBySaleID(c *gin.Context) {
 	}
 	// start transaction
 	tx := h.db.Begin()
-	defer recoverTransaction(tx, h.log) // recover transaction if panic occurs
-	// rollback transaction if error occurs
-	defer RollbackIfError(tx, &err)
+	// Ensure the transaction is rolled back if any error occurs
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+			panic(p)
+		} else if err != nil {
+			tx.Rollback()
+		}
+	}()
 
 	var (
 		cartItems []domain.CartItem
@@ -289,7 +295,7 @@ func (h *CartItemHandler) UpdateBySaleID(c *gin.Context) {
 		count     int64
 	)
 	// get cart_items by sale_id
-	err = h.db.Model(&domain.CartItem{}).Where("sale_id = ?", saleId).Count(&count).Find(&cartItems).Error
+	err = tx.Model(&domain.CartItem{}).Where("sale_id = ?", saleId).Count(&count).Find(&cartItems).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, "Failed to fetch cart items")
@@ -302,7 +308,7 @@ func (h *CartItemHandler) UpdateBySaleID(c *gin.Context) {
 		return
 	}
 	// get sum of unit_prices
-	err = h.db.Raw("SELECT SUM(total_price) FROM cart_items WHERE sale_id = ?", saleId).Scan(&sum).Error
+	err = tx.Raw("SELECT SUM(total_price) FROM cart_items WHERE sale_id = ?", saleId).Scan(&sum).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, "Failed to get sum of unit prices")

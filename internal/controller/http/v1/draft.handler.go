@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
 )
 
@@ -52,40 +54,45 @@ func (h *DraftHandler) Create(c *gin.Context) {
 		err       error
 	)
 	// bind request body
-	if err = c.ShouldBindJSON(&body); err != nil {
+	err = c.ShouldBindJSON(&body)
+	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 	// start transaction
 	tx := h.db.Begin()
+	// Ensure the transaction is rolled back if any error occurs
 	defer func() {
-		if r := recover(); r != nil {
+		if p := recover(); p != nil {
+			tx.Rollback()
+			panic(p)
+		} else if err != nil {
 			tx.Rollback()
 		}
 	}()
 	// update sale status to drafted
 	var saleInfo domain.Sale
-	err = tx.Raw(`UPDATE sales SET status = 'drafted' WHERE id = ? RETURNING *`, body.SaleID).Scan(&saleInfo).Error
+	err = tx.WithContext(ctx).Raw(`UPDATE sales SET status = 'drafted' WHERE id = ? RETURNING *`, body.SaleID).Scan(&saleInfo).Error
 	if err != nil {
-		tx.Rollback()
 		h.log.Error(err)
 		handleResponse(c, InternalError, "Error updating sale status")
 		return
 	}
 	// get cart_item list by sale_id
-	err = h.db.
+	err = tx.WithContext(ctx).
 		Where("sale_id = ?", body.SaleID).
 		Find(&cartItems).Error
 	if err != nil {
-		tx.Rollback()
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 	// check cart_items status
 	if len(cartItems) < 1 {
-		tx.Rollback()
 		handleResponse(c, BadRequest, "No items in the cart")
 		return
 	}
@@ -98,10 +105,9 @@ func (h *DraftHandler) Create(c *gin.Context) {
 			DraftID:    body.ID,
 		})
 		// decrease pack_quantity and unit_quantity on store_products
-		err = tx.Exec(`UPDATE store_products SET pack_quantity = GREATEST(pack_quantity - ?, 0), unit_quantity = GREATEST(unit_quantity - ?, 0) WHERE id = ?`,
+		err = tx.WithContext(ctx).Exec(`UPDATE store_products SET pack_quantity = GREATEST(pack_quantity - ?, 0), unit_quantity = GREATEST(unit_quantity - ?, 0) WHERE id = ?`,
 			item.Quantity, item.UnitQuantity, item.StoreProductID).Error
 		if err != nil {
-			tx.Rollback()
 			h.log.Warn("ERROR on update quantity in store_products: %v", err)
 			handleResponse(c, InternalError, "Can't update quantity")
 			return
@@ -109,47 +115,43 @@ func (h *DraftHandler) Create(c *gin.Context) {
 	}
 	// create new draft
 	body.Status = config.PENDING
-	err = tx.Table("drafts").Create(&body).Error
+	err = tx.WithContext(ctx).Table("drafts").Create(&body).Error
 	if err != nil {
-		tx.Rollback()
 		h.log.Warn("ERROR on creating new draft: %v", err)
 		handleResponse(c, InternalError, "Can't create new draft")
 		return
 	}
 	// create cart_item_draft for saving draft history
-	err = tx.
+	err = tx.WithContext(ctx).
 		Table("cart_item_drafts").
 		Create(&cartDrafts).Error
 	if err != nil {
-		tx.Rollback()
 		h.log.Warn("ERROR on creating cart_item_drafts: %v", err)
 		handleResponse(c, InternalError, "Can't create cart_item_draft")
 		return
 	}
 	// update cart items status to drafted
-	err = tx.Exec(`UPDATE cart_items SET status = 'drafted' WHERE sale_id = ?`, body.SaleID).Error
+	err = tx.WithContext(ctx).Exec(`UPDATE cart_items SET status = 'drafted' WHERE sale_id = ?`, body.SaleID).Error
 	if err != nil {
-		tx.Rollback()
 		h.log.Warn("ERROR on updating cart_item status: %v", err)
 		handleResponse(c, InternalError, "Can't draft to cart items")
 		return
 	}
 	// create or get sale
-	res, err := h.service.CreateOrGetSale(&domain.SaleRequest{
+	res, err := h.service.CreateOrGetSale(ctx, tx, &domain.SaleRequest{
 		EmployeeID:         body.CreatedBy,
 		CashBoxOperationId: saleInfo.CashBoxOperationId,
 		StoreId:            saleInfo.StoreId,
 		CashboxId:          saleInfo.CashboxId,
 	})
 	if err != nil {
-		tx.Rollback()
 		h.log.Warn("ERROR on creating new sale: %v", err)
 		handleResponse(c, InternalError, "Can't create new sale after drafted")
 		return
 	}
 	// commit transcation
-	if err = tx.Commit().Error; err != nil {
-		tx.Rollback()
+	err = tx.Commit().Error
+	if err != nil {
 		h.log.Warn("ERROR on commiting transaction: %v", err)
 		handleResponse(c, InternalError, "Can't commit transcation")
 		return
@@ -348,25 +350,32 @@ func (h *DraftHandler) Update(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /draft/{id} [delete]
 func (h *DraftHandler) Delete(c *gin.Context) {
-	var id = c.Param("id")
+	var (
+		id  = c.Param("id")
+		err error
+	)
+
 	tx := h.db.Begin()
+	// Ensure the transaction is rolled back if any error occurs
 	defer func() {
-		if r := recover(); r != nil {
+		if p := recover(); p != nil {
+			tx.Rollback()
+			panic(p)
+		} else if err != nil {
 			tx.Rollback()
 		}
 	}()
+
 	draft, err := h.service.UpdateDraftField(tx, "status", "deleted", "id", id)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
-		tx.Rollback()
 		return
 	}
 	cartItems, err := h.service.ListCartItemsBySaleID(draft.SaleID)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
-		tx.Rollback()
 		return
 	}
 	for _, item := range cartItems {
@@ -374,15 +383,13 @@ func (h *DraftHandler) Delete(c *gin.Context) {
 		if err != nil {
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())
-			tx.Rollback()
 			return
 		}
 	}
-
-	if err = tx.Commit().Error; err != nil {
+	err = tx.Commit().Error
+	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
-		tx.Rollback()
 		return
 	}
 	handleResponse(c, OK, "DELETED")
@@ -406,17 +413,21 @@ func (h *DraftHandler) CompleteDraft(c *gin.Context) {
 		err error
 	)
 	tx := h.db.Begin()
+	// Ensure the transaction is rolled back if any error occurs
 	defer func() {
-		if r := recover(); r != nil {
+		if p := recover(); p != nil {
+			tx.Rollback()
+			panic(p)
+		} else if err != nil {
 			tx.Rollback()
 		}
 	}()
+
 	// update draft status
 	draft, err := h.service.UpdateDraftField(tx, "status", "completed", "id", id)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
-		tx.Rollback()
 		return
 	}
 
@@ -447,15 +458,14 @@ func (h *DraftHandler) CompleteDraft(c *gin.Context) {
 		if err != nil {
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())
-			tx.Rollback()
 			return
 		}
 	}
 	// commit transaction
-	if err = tx.Commit().Error; err != nil {
+	err = tx.Commit().Error
+	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
-		tx.Rollback()
 		return
 	}
 

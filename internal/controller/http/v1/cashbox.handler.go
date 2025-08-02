@@ -52,7 +52,8 @@ func (h *CashBoxHandler) Create(c *gin.Context) {
 		body domain.CashBoxRequest
 		err  error
 	)
-	if err = c.ShouldBindJSON(&body); err != nil {
+	err = c.ShouldBindJSON(&body)
+	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
@@ -62,8 +63,12 @@ func (h *CashBoxHandler) Create(c *gin.Context) {
 		return
 	}
 	tx := h.db.Begin()
+	// Ensure the transaction is rolled back if any error occurs
 	defer func() {
-		if r := recover(); r != nil {
+		if p := recover(); p != nil {
+			tx.Rollback()
+			panic(p)
+		} else if err != nil {
 			tx.Rollback()
 		}
 	}()
@@ -75,7 +80,6 @@ func (h *CashBoxHandler) Create(c *gin.Context) {
 		Table("cash_boxes").
 		Create(&body).Error
 	if err != nil {
-		tx.Rollback()
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -88,14 +92,13 @@ func (h *CashBoxHandler) Create(c *gin.Context) {
 			Table("cashbox_payment_types").
 			Create(&body.PaymentTypes).Error
 		if err != nil {
-			tx.Rollback()
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())
 			return
 		}
 	}
-	if err = tx.Commit().Error; err != nil {
-		tx.Rollback()
+	err = tx.Commit().Error
+	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -414,9 +417,17 @@ func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
 	// Check if there is an open cashbox operation for this employee
 	var cashboxOperation domain.CashboxOperation
 	err = h.db.Raw(`
-	SELECT co.* FROM cashbox_operations co 
-    JOIN cash_boxes cb ON co.cash_box_id = cb.id 
-         WHERE co.end_time IS NULL AND co.current_employee_id = ? AND cb.store_id = ?;`, userID, storeId).Scan(&cashboxOperation).Error
+	SELECT 
+		co.* 
+	FROM 
+		cashbox_operations co 
+    JOIN 
+		cash_boxes cb ON co.cash_box_id = cb.id 
+    WHERE 
+		co.end_time IS NULL AND 
+		co.current_employee_id = ? AND 
+		cb.store_id = ?;`, userID, storeId).Scan(&cashboxOperation).Error
+
 	if errors.Is(err, gorm.ErrRecordNotFound) || cashboxOperation.ID == "" {
 		handleResponse(c, NotFound, "You have no open cashbox operation")
 		return
@@ -433,7 +444,7 @@ func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
 	if cashboxOperation.ID != "" {
 		// Check for a pending sale linked to this cashbox operation
 		var sale *domain.Sale
-		sale, err = h.service.CreateOrGetSalePending(&domain.SaleRequest{
+		sale, err = h.service.CreateOrGetSalePending(h.db, &domain.SaleRequest{
 			CashBoxOperationId: cashboxOperation.ID,
 			EmployeeID:         userID.(string),
 			StoreId:            storeId,

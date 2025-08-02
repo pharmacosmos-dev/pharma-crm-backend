@@ -506,8 +506,15 @@ func (h *CategoryHander) UploadCategory(c *gin.Context) {
 	}
 
 	tx := h.db.Begin()
-	defer recoverTransaction(tx, h.log)
-	defer RollbackIfError(tx, &err)
+	// Ensure the transaction is rolled back if any error occurs
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+			panic(p)
+		} else if err != nil {
+			tx.Rollback()
+		}
+	}()
 
 	err = tx.Table("categories").Create(&categories).Error
 	if err != nil {
