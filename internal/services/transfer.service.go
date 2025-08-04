@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"github.com/pharma-crm-backend/domain/constants"
 	"math"
 	"time"
 
@@ -445,6 +446,24 @@ func (s *Services) SendTransferTo1C(transferID string) error {
 	return nil
 }
 
+// check accepted_count is not null
+func (s *Services) CheckAcceptedCount(transferID string) error {
+	var count int64
+	err := s.db.Table("transfer_details").
+		Where("transfer_id = ? AND accepted_count IS NULL", transferID).
+		Count(&count).Error
+
+	if err != nil {
+		s.log.Error("failed to check accepted_count nulls:", err)
+		return err
+	}
+
+	if count > 0 {
+		return fmt.Errorf(constants.AcceptedCountError)
+	}
+	return nil
+}
+
 // confirm inventory
 func (s *Services) ConfirmTransfer(transferID string, userId string) error {
 	// start transaction
@@ -609,16 +628,17 @@ func (s *Services) ConfirmTransfer(transferID string, userId string) error {
 // canceled inventory
 func (s *Services) CancelTransfer(returnId string, userId string) error {
 	// start transaction
+	var err error
 	tx := s.db.Begin()
 	defer recoverTransaction(tx, s.log)
+	defer RollbackIfError(tx, &err)
 	// update confirm inventory
 	query := `UPDATE transfers SET status = ?, accepted_by = ?, updated_at = NOW() WHERE id = ?`
-	err := tx.Exec(query, config.CANCELED, userId, returnId).Error
+	err = tx.Exec(query, config.CANCELED, userId, returnId).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating inventory %v", err)
 		return err
 	}
-	defer RollbackIfError(tx, &err)
 	err = tx.Commit().Error
 	if err != nil {
 		s.log.Warn("ERROR on commiting transaction %v", err)
@@ -631,15 +651,16 @@ func (s *Services) CancelTransfer(returnId string, userId string) error {
 func (s *Services) DeleteTransfer(transferId string) error {
 	// start transaction
 	tx := s.db.Begin()
+	var err error
 	defer recoverTransaction(tx, s.log)
+	defer RollbackIfError(tx, &err)
 	// update confirm inventory
 	query := `DELETE FROM transfers WHERE id = ?`
-	err := tx.Exec(query, transferId).Error
+	err = tx.Exec(query, transferId).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating inventory %v", err)
 		return err
 	}
-	defer RollbackIfError(tx, &err)
 	err = tx.Commit().Error
 	if err != nil {
 		s.log.Warn("ERROR on commiting transaction %v", err)

@@ -433,7 +433,7 @@ func (h *TransferHandler) UpdateByBarcode(c *gin.Context) {
 	}
 
 	if req.Id != "" {
-		err = h.db.Exec(fmt.Sprintf(`UPDATE transfer_details SET %s = %s + ? WHERE id = ? AND received_count >= %s + ?;`, updatedField, updatedField, updatedField), req.Count, req.Id, req.Count).Error
+		err = h.db.Exec(fmt.Sprintf(`UPDATE transfer_details SET %s = COALESCE(%s, 0) + ? WHERE id = ? AND received_count >= COALESCE(%s,0) + ?;`, updatedField, updatedField, updatedField), req.Count, req.Id, req.Count).Error
 		if err != nil {
 			h.log.Error("could not update transfer_details(%s) scanned_count: %v", req.Id, err)
 			handleResponse(c, InternalError, "internal.server.error")
@@ -453,13 +453,13 @@ func (h *TransferHandler) UpdateByBarcode(c *gin.Context) {
 		}
 		err = h.db.Exec(fmt.Sprintf(`
 		UPDATE transfer_details t 
-		SET %s = %s + ? 
+		SET %s = COALESCE(%s, 0) + ? 
 		FROM products p 
 		WHERE 
 			t.transfer_id = ? AND 
 			p.id = t.product_id AND 
 			p.barcode = ? AND 
-			t.received_count >= t.%s + ?;`, updatedField, updatedField, updatedField), req.Count, id, req.Barcode, req.Count).Error
+			t.received_count >= COALESCE(t.%s,0) + ?;`, updatedField, updatedField, updatedField), req.Count, id, req.Barcode, req.Count).Error
 		if err != nil {
 			h.log.Error("could not update transfer_details by barcode(%s): %v", req.Barcode, err)
 			handleResponse(c, InternalError, "internal.server.error")
@@ -565,8 +565,15 @@ func (h *TransferHandler) Confirm(c *gin.Context) {
 		handleResponse(c, UNAUTHORIZED, "user id not found from the context")
 		return
 	}
+
+	// check is accepted_count is not null
+	err := h.service.CheckAcceptedCount(id)
+	if err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
 	// confirm return service
-	err := h.service.ConfirmTransfer(id, userId.(string))
+	err = h.service.ConfirmTransfer(id, userId.(string))
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to confirm return")
 		return
