@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"github.com/pharma-crm-backend/domain/constants"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -34,7 +35,7 @@ func (s *Services) ListEmployee(c *gin.Context, limit, offset int) ([]domain.Emp
 
 	query := s.db.
 		Model(&domain.Employee{}).
-		Preload("Store").Preload("Roles")
+		Preload("Store").Preload("Roles").Where("status != ?", constants.DELETED)
 	if roleId != "" {
 		query = query.
 			Joins("JOIN employee_roles ON employee_roles.employee_id = employees.id").

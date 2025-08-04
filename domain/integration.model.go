@@ -1,6 +1,10 @@
 package domain
 
-import "time"
+import (
+	"encoding/json"
+	"fmt"
+	"time"
+)
 
 type Request1C struct {
 	ID        *string    `gorm:"type:uuid;default:gen_random_uuid()" json:"id"`
@@ -18,6 +22,11 @@ type Request1C struct {
 type PrescriptionResponse struct {
 	Data []Prescription `json:"data"`
 }
+type DmedResponse struct {
+	Prescriptions []string `json:"prescriptions"`
+	Count         []int    `json:"count"`
+	PerDay        []int    `json:"per_day"`
+}
 
 type Prescription struct {
 	ID               int             `json:"id"`
@@ -33,18 +42,18 @@ type Prescription struct {
 }
 
 type DrugAppointment struct {
-	ID                        int        `json:"id"`
-	SingleDose                string     `json:"single_dose"`
-	AdministrationFrequency   int        `json:"administration_frequency"`
-	AdministrationFreqMeasure string     `json:"administration_frequency_measure"`
-	CountDays                 int        `json:"count_days"`
-	TotalAmount               int        `json:"total_amount"`
-	Medication                Medication `json:"medication"`
-	ATCs                      []ATC      `json:"atcs"`
-	RemainingCount            int        `json:"remaining_count"`
-	DosageForm                TitleOnly  `json:"dosage_form"`
-	DrugAdministrationRoute   TitleOnly  `json:"drug_administration_route"`
-	DrugAdministrationTimes   []any      `json:"drug_administration_times"` // or create struct if needed
+	ID                        int          `json:"id"`
+	SingleDose                string       `json:"single_dose"`
+	AdministrationFrequency   int          `json:"administration_frequency"`
+	AdministrationFreqMeasure string       `json:"administration_frequency_measure"`
+	CountDays                 int          `json:"count_days"`
+	TotalAmount               int          `json:"total_amount"`
+	Medications               []Medication `json:"medication"` // ← faqat array
+	ATCs                      []ATC        `json:"atcs"`
+	RemainingCount            int          `json:"remaining_count"`
+	DosageForm                TitleOnly    `json:"dosage_form"`
+	DrugAdministrationRoute   TitleOnly    `json:"drug_administration_route"`
+	DrugAdministrationTimes   []any        `json:"drug_administration_times"`
 }
 
 type Medication struct {
@@ -71,4 +80,35 @@ type ATC struct {
 type TitleOnly struct {
 	ID    int    `json:"id"`
 	Title string `json:"title"`
+}
+
+func (d *DrugAppointment) UnmarshalJSON(data []byte) error {
+	type Alias DrugAppointment
+
+	aux := &struct {
+		*Alias
+		Medication json.RawMessage `json:"medication"`
+	}{
+		Alias: (*Alias)(d),
+	}
+
+	if err := json.Unmarshal(data, &aux); err != nil {
+		return err
+	}
+
+	// Try array
+	var meds []Medication
+	if err := json.Unmarshal(aux.Medication, &meds); err == nil {
+		d.Medications = meds
+		return nil
+	}
+
+	// Try object
+	var single Medication
+	if err := json.Unmarshal(aux.Medication, &single); err == nil {
+		d.Medications = []Medication{single}
+		return nil
+	}
+
+	return fmt.Errorf("invalid medication format")
 }
