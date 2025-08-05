@@ -664,28 +664,31 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	if sale.Type == config.DMED {
-		var cartItems *domain.CartItemForDMED
-		cartItems, err = h.service.GetCartItems(ctx, tx, sale.ID)
-		if err != nil {
-			handleResponse(c, InternalError, err.Error())
-			return
-		}
-		// check dmed
-		err = h.service.CheckDMED(ctx, tx, &body, sale.Employee.FullName, *cartItems)
-		if err != nil {
-			handleResponse(c, InternalError, constants.DMEDError)
-			return
-		}
-	}
 
 	// check sale is completed or no
-	if sale.Status == config.COMPLETED {
-		tx.Rollback()
-		handleResponse(c, CONFLICT, constants.AlreadyCompletedError)
-		return
-	}
+	//if sale.Status == config.COMPLETED {
+	//	tx.Rollback()
+	//	handleResponse(c, CONFLICT, constants.AlreadyCompletedError)
+	//	return
+	//}
 
+	if body.ServiceType != nil && *body.ServiceType == config.DMED {
+
+		//var cartItems *domain.CartItemForDMED
+		//cartItems, err = h.service.GetCartItems(ctx, tx, sale.ID)
+		//if err != nil {
+		//	handleResponse(c, InternalError, err.Error())
+		//	return
+		//} todo
+		//// check dmed
+		//err = h.service.CheckDMED(ctx, tx, &body, sale.Employee.FullName, *cartItems)
+		//if err != nil {
+		//	handleResponse(c, InternalError, constants.DMEDError)
+		//	return
+		//}
+	} else {
+		body.ServiceType = nil
+	}
 	// add marking to cart_items
 	err = h.service.AddMarkingCount(ctx, tx, body.MarkingData)
 	if err != nil {
@@ -724,7 +727,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	}
 
 	// complete sale
-	err = h.service.CompleteSale(ctx, tx, sale)
+	err = h.service.CompleteSale(ctx, tx, sale, body.ServiceType)
 	if err != nil {
 		h.log.Error("could not complete the sale(%s): %v", sale.ID, err)
 		handleResponse(c, InternalError, constants.InternalServerError)

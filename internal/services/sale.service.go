@@ -257,7 +257,7 @@ func (s *Services) UpdateSaleFieldValue(saleID string, field, value string) erro
 }
 
 // complete sale
-func (s *Services) CompleteSale(ctx context.Context, tx *gorm.DB, sale *domain.Sale) error {
+func (s *Services) CompleteSale(ctx context.Context, tx *gorm.DB, sale *domain.Sale, serviceType *string) error {
 	var err error
 	defer RollbackIfError(tx, &err)
 	switch sale.SaleType {
@@ -282,12 +282,13 @@ func (s *Services) CompleteSale(ctx context.Context, tx *gorm.DB, sale *domain.S
 		total_amount = (SELECT SUM(total_price)-SUM(discount_amount) FROM cart_items WHERE sale_id = ?),
 		total_discount = (SELECT SUM(discount_amount) FROM cart_items WHERE sale_id = ?),
 		status = ?,
+		service_type = ?,
 		completed_at = NOW(),
 		updated_at = NOW()
 	WHERE id = ?
 	`
 	// complete the query
-	err = tx.WithContext(ctx).Exec(query, sale.ID, sale.ID, config.COMPLETED, sale.ID).Error
+	err = tx.WithContext(ctx).Exec(query, sale.ID, sale.ID, config.COMPLETED, serviceType, sale.ID).Error
 	if err != nil {
 		s.log.Warn("ERROR on update sale to completed: %v", err)
 		return err
@@ -585,7 +586,7 @@ func (s *Services) GetSaleById(ctx context.Context, tx *gorm.DB, saleId string) 
 		sale domain.Sale
 	)
 	defer RollbackIfError(tx, &err)
-	err = s.db.WithContext(ctx).First(&sale, "id = ?", saleId).Error
+	err = s.db.WithContext(ctx).Preload("Employee").First(&sale, "id = ?", saleId).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return &sale, errors.New(constants.NotFoundError)

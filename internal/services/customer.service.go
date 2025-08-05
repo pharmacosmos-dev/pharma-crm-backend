@@ -34,13 +34,8 @@ func (s *Services) ListCustomer(param *domain.QueryParam) ([]domain.Customer, in
 		Where("customers.is_active = ?", true)
 
 	if param.Search != "" {
-		switch utils.DefineProductSearchQuery(param.Search) {
-		case "barcode":
-			query = query.Where("dc.barcode = ?", param.Search)
-		default:
-			query = query.Where("customers.full_name ILIKE ? OR customers.phone LIKE ? ",
-				"%"+param.Search+"%", "%"+param.Search+"%")
-		}
+		query = query.Where("dc.barcode = ?", param.Search)
+
 	}
 	if param.StoreID != "" {
 		query = query.Where("customers.store_id = ?", param.StoreID)
