@@ -73,10 +73,11 @@ func (s *Services) ListAutoOrder(param *domain.AutoOrderParam) ([]domain.AutoOrd
 		JOIN stores s ON lo.store_id = s.id
 		LEFT JOIN auto_order_details aod ON lo.id = aod.auto_order_id
 		GROUP BY lo.id, lo.public_id, lo.store_id, lo.status, lo.auto_order_date, lo.completed_date, lo.created_by, lo.updated_by, lo.created_at, lo.updated_at
+		ORDER BY lo.created_at DESC
 	`, whereSQL)
 
 	// 5. Run query
-	err = s.db.Debug().Raw(query, params).Scan(&autoOrders).Error
+	err = s.db.Raw(query, params).Scan(&autoOrders).Error
 	if err != nil {
 		s.log.Warn("Failed to get auto orders: %v", err)
 		return nil, 0, err
@@ -109,9 +110,9 @@ func (s *Services) ListAutoOrder(param *domain.AutoOrderParam) ([]domain.AutoOrd
 	countQuery := fmt.Sprintf(`SELECT COUNT(*) as count FROM auto_orders %s`, whereSQL)
 
 	if whereSQL != "" {
-		err = s.db.Debug().Raw(countQuery, countParams).Scan(&totalCount).Error
+		err = s.db.Raw(countQuery, countParams).Scan(&totalCount).Error
 	} else {
-		err = s.db.Debug().Raw(countQuery).Scan(&totalCount).Error
+		err = s.db.Raw(countQuery).Scan(&totalCount).Error
 	}
 
 	if err != nil {
