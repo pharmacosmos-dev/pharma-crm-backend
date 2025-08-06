@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/helper"
@@ -11,61 +12,113 @@ import (
 func (s *Services) ListAutoOrder(param *domain.AutoOrderParam) ([]domain.AutoOrder, int64, error) {
 	var (
 		autoOrders []domain.AutoOrder
-		err        error
 		totalCount int64
 	)
 
-	// get employee info
+	// 1. get employee info
 	var employee domain.Employee
-	err = s.db.First(&employee, "id = ?", param.UserId).Error
+	err := s.db.First(&employee, "id = ?", param.UserId).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, 0, err
 	}
-	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, s.cfg) {
-		if employee.StoreId != "" {
-			param.StoreID = employee.StoreId
-		}
+	if !helper.IsAdmin(employee, s.cfg) && employee.StoreId != "" {
+		param.StoreID = employee.StoreId
 	}
-	// build query
-	query := s.db.
-		Model(&domain.AutoOrder{}).
-		Preload("Store").
-		Select(`auto_orders.*,
-			SUM(aod.order_count) AS adjusted_order_quantity,
-			SUM(aod.response_order_count) AS response_order_quantity`).
-		Joins("JOIN stores s ON auto_orders.store_id = s.id").
-		Joins("LEFT JOIN auto_order_details aod ON auto_orders.id = aod.auto_order_id")
 
-	if param.Search != "" {
-		param.Search = fmt.Sprintf("%%%s%%", param.Search)
-		query = query.Where("CAST(auto_orders.public_id AS TEXT) LIKE ? OR s.name ILIKE ?", param.Search, param.Search)
+	// 2. Build WHERE conditions dynamically
+	var whereClauses []string
+	params := map[string]interface{}{
+		"limit":  param.Limit,
+		"offset": param.Offset,
 	}
 
 	if param.StoreID != "" {
-		query = query.Where("auto_orders.store_id = ?", param.StoreID)
+		whereClauses = append(whereClauses, "store_id = @store_id")
+		params["store_id"] = param.StoreID
 	}
-
 	if param.Status != "" {
-		query = query.Where("auto_orders.status = ?", param.Status)
+		whereClauses = append(whereClauses, "status = @status")
+		params["status"] = param.Status
 	}
-
+	if param.Search != "" {
+		whereClauses = append(whereClauses, "(CAST(public_id AS TEXT) ILIKE @search OR EXISTS (SELECT 1 FROM stores s WHERE s.id = auto_orders.store_id AND s.name ILIKE @search))")
+		params["search"] = "%" + param.Search + "%"
+	}
 	if param.StartDate != "" && param.EndDate != "" {
-		query = query.Where("auto_orders.created_at::date BETWEEN ? AND ?", param.StartDate, param.EndDate)
+		whereClauses = append(whereClauses, "created_at::date BETWEEN @start_date AND @end_date")
+		params["start_date"] = param.StartDate
+		params["end_date"] = param.EndDate
 	}
 
-	err = query.
-		Group("auto_orders.id").
-		Count(&totalCount).
-		Limit(param.Limit).
-		Offset(param.Offset).
-		Order("auto_orders.created_at DESC").
-		Find(&autoOrders).Error
+	// 3. Join WHERE clauses
+	whereSQL := ""
+	if len(whereClauses) > 0 {
+		whereSQL = "WHERE " + strings.Join(whereClauses, " AND ")
+	}
+
+	// 4. Main query with CTE
+	query := fmt.Sprintf(`
+		WITH latest_orders AS (
+			SELECT * FROM auto_orders
+			%s
+			ORDER BY created_at DESC 
+			LIMIT @limit OFFSET @offset
+		)
+		SELECT
+			lo.*,
+			SUM(aod.order_count) AS adjusted_order_quantity,
+			SUM(aod.response_order_count) AS response_order_quantity
+		FROM latest_orders lo
+		JOIN stores s ON lo.store_id = s.id
+		LEFT JOIN auto_order_details aod ON lo.id = aod.auto_order_id
+		GROUP BY lo.id, lo.public_id, lo.store_id, lo.status, lo.auto_order_date, lo.completed_date, lo.created_by, lo.updated_by, lo.created_at, lo.updated_at
+	`, whereSQL)
+
+	// 5. Run query
+	err = s.db.Debug().Raw(query, params).Scan(&autoOrders).Error
 	if err != nil {
 		s.log.Warn("Failed to get auto orders: %v", err)
 		return nil, 0, err
 	}
+
+	var stores []domain.Store
+	err = s.db.Find(&stores).Error
+	if err != nil {
+		s.log.Warn("could not get store list: %v", err)
+		return nil, 0, err
+	}
+	storesMap := make(map[string]*domain.Store, len(stores))
+
+	for _, v := range stores {
+		storesMap[v.Id] = &v
+	}
+
+	for i, k := range autoOrders {
+		autoOrders[i].Store = storesMap[k.StoreId]
+	}
+
+	// faqat filterlar kerak
+	countParams := map[string]any{}
+	for k, v := range params {
+		if k != "limit" && k != "offset" {
+			countParams[k] = v
+		}
+	}
+
+	countQuery := fmt.Sprintf(`SELECT COUNT(*) as count FROM auto_orders %s`, whereSQL)
+
+	if whereSQL != "" {
+		err = s.db.Debug().Raw(countQuery, countParams).Scan(&totalCount).Error
+	} else {
+		err = s.db.Debug().Raw(countQuery).Scan(&totalCount).Error
+	}
+
+	if err != nil {
+		s.log.Warn("Failed to count auto orders: %v", err)
+		return nil, 0, err
+	}
+
 	return autoOrders, totalCount, nil
 }
 

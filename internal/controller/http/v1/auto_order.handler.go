@@ -151,6 +151,12 @@ func (h *AutoOrderHandler) List(c *gin.Context) {
 		handleResponse(c, UNAUTHORIZED, "User not found from the context")
 		return
 	}
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
+		handleResponse(c, BadRequest, constants.InvalidQueryError)
+		return
+	}
+
 	// get defaul limit and offset
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 	// get user id
@@ -395,50 +401,48 @@ func (h *AutoOrderHandler) SendAutoOrder(c *gin.Context) {
 	data.Apteka.Name = autoOrder.Store.Name
 	data.Apteka.StoreCode = autoOrder.Store.StoreCode
 
-	res, err := h.DoRequest(c.Request.Context(), data, "/zakaz")
-	if err != nil {
-		h.log.Error("could not do request auto order: %v", err)
-		handleResponse(c, InternalError, constants.InternalServerError)
-		return
-	}
-
-	if len(res.Products) == 0 {
-		handleResponse(c, OK, "No such products found")
-		return
-	}
-
-	// start transaction
-	tx := h.db.Begin()
-	defer recoverTransaction(tx, h.log) // check recover for panic
-	defer RollbackIfError(tx, &err)     // rollback transaction if error happened
-
-	for _, item := range res.Products {
-		// update response_order_count after receive 1C response
-		err = tx.Exec(`UPDATE auto_order_details SET response_order_count = ? WHERE product_id = (SELECT id FROM products WHERE material_code = ?)`,
-			item.QuantityFakt, item.MaterialCode).Error
-		if err != nil {
-			h.log.Error("could not update response order count: %v", err)
-			handleResponse(c, InternalError, constants.InternalServerError)
-			return
-		}
-	}
-
 	// update auto_order status to completed
-	err = tx.Exec(`UPDATE auto_orders SET status = ?, completed_date = NOW(), updated_by = ? WHERE id = ?`, config.COMPLETED, id, userId).Error
+	err = h.db.Debug().Exec(`UPDATE auto_orders SET status = ?, completed_date = NOW(), updated_by = ? WHERE id = ?`, config.SENT, userId, id).Error
 	if err != nil {
 		h.log.Error("could not update auto_order(%s): %v", id, err)
 		handleResponse(c, InternalError, constants.InternalServerError)
 		return
 	}
-	// commit transaction
-	err = tx.Commit().Error
+
+	go h.sentAutoOrderTo1C(id, userId.(string), &data)
+
+	handleResponse(c, OK, "SENT")
+}
+
+func (h *AutoOrderHandler) sentAutoOrderTo1C(id string, userId string, data *domain.AutoOrderDetailSendRequest) {
+
+	res, err := h.DoRequest(context.Background(), data, "/zakaz")
 	if err != nil {
-		h.log.Error("could not completed transaction: %v", err)
-		handleResponse(c, InternalError, constants.InternalServerError)
+		h.log.Error("could not do request auto order: %v", err)
 		return
 	}
 
-	handleResponse(c, OK, res.Data)
+	if len(res.Products) == 0 {
+		return
+	}
+
+	for _, item := range res.Products {
+		// update response_order_count after receive 1C response
+		err = h.db.Exec(`UPDATE auto_order_details SET response_order_count = ? WHERE product_id = (SELECT id FROM products WHERE material_code = ?)`,
+			item.QuantityFakt, item.MaterialCode).Error
+		if err != nil {
+			h.log.Error("could not update response order count: %v", err)
+			return
+		}
+	}
+
+	// update auto_order status to completed
+	err = h.db.Exec(`UPDATE auto_orders SET status = ?, completed_date = NOW(), updated_by = ? WHERE id = ?`, config.COMPLETED, userId, id).Error
+	if err != nil {
+		h.log.Error("could not update auto_order(%s): %v", id, err)
+		return
+	}
+
 }
 
 // SendAutoOrder godoc
