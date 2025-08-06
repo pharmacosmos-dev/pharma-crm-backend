@@ -73,7 +73,6 @@ func (s *Services) ListAutoOrder(param *domain.AutoOrderParam) ([]domain.AutoOrd
 func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, day float64) ([]*domain.AutoOrderDetailRequest, error) {
 	var res []*domain.AutoOrderDetailRequest
 	query := `
-	-- Vars: constants for easier reuse
 	WITH vars AS (
 		SELECT
 			?::uuid AS store_id,
@@ -85,75 +84,57 @@ func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, d
 	-- Current stock per product name
 	stock_data AS (
 		SELECT
-            p.name,
-            ROUND(SUM(sp.unit_quantity::numeric/p.unit_per_pack), 4) as current_stock
-        FROM store_products sp
-        JOIN products p ON sp.product_id = p.id
-        JOIN vars v ON v.store_id = sp.store_id
-        WHERE sp.store_id = v.store_id
-        GROUP BY p.name
+			p.name,
+			ROUND(SUM(sp.unit_quantity::numeric / NULLIF(p.unit_per_pack, 0)), 4) AS current_stock
+		FROM store_products sp
+		JOIN products p ON sp.product_id = p.id
+		JOIN vars v ON v.store_id = sp.store_id
+		WHERE sp.store_id = v.store_id
+		GROUP BY p.name
 	),
 
 	-- Sales count per product name in the last N days
 	sales_data AS (
 		SELECT
 			p.name,
-			ROUND(SUM(ci.quantity::numeric + (ci.unit_quantity::numeric / p.unit_per_pack)), 4) AS sale_count
+			ROUND(SUM(ci.quantity::numeric + (ci.unit_quantity::numeric / NULLIF(p.unit_per_pack, 0))), 4) AS sale_count
 		FROM store_products sp
 		JOIN cart_items ci ON sp.id = ci.store_product_id
 		JOIN sales sl ON sl.id = ci.sale_id
 		JOIN products p ON sp.product_id = p.id
 		JOIN vars v ON sl.store_id = v.store_id
 		WHERE (sl.completed_at + interval '5 hours')::date >= (CURRENT_DATE - v.sale_period * INTERVAL '1 day')
-		AND sl.status = 'completed' AND sl.store_id = v.store_id
+		AND sl.status = 'completed'
+		AND sl.store_id = v.store_id
 		GROUP BY p.name
 	),
 
-	-- Thresholds per product name
-	thresholds AS (
+	-- Get all products with or without thresholds
+	products_with_thresholds AS (
 		SELECT
-			p.name,
-			MAX(spt.kvant) AS kvant,
-			MAX(spt.min_quantity) AS min_stock,
-			MAX(spt.max_quantity) AS max_stock,
-			MAX(p.unit_per_pack) AS unit_per_pack
-		FROM store_product_thresholds spt
-		JOIN products p ON spt.product_id = p.id
-		JOIN vars v ON spt.store_id = v.store_id
-		WHERE spt.store_id = v.store_id
-		GROUP BY p.name
-	),
-
-	-- Select product_id and material_code of the product with max material_code per name
-	product_with_max_code AS (
-		SELECT DISTINCT ON (p.name)
 			p.name,
 			p.id AS product_id,
-			p.material_code
-		FROM products p
-		ORDER BY p.name, p.material_code DESC
+			p.material_code,
+			COALESCE(MAX(spt.kvant), 1) AS kvant,
+			COALESCE(MAX(spt.min_quantity), 1) AS min_stock,
+			COALESCE(MAX(spt.max_quantity), 1000) AS max_stock,
+			COALESCE(NULLIF(p.unit_per_pack, 0), 1) AS unit_per_pack
+		FROM store_products sp
+		JOIN products p ON sp.product_id = p.id
+		LEFT JOIN store_product_thresholds spt
+			ON p.id = spt.product_id AND spt.store_id = sp.store_id
+		WHERE sp.store_id = (SELECT store_id FROM vars LIMIT 1)
+		GROUP BY p.name, p.id, p.material_code, p.unit_per_pack
 	),
-
-	-- Merge thresholds with max-code product_id
-	thresholds_with_code AS (
-		SELECT
-			t.*,
-			pmc.product_id,
-			pmc.material_code
-		FROM thresholds t
-		JOIN product_with_max_code pmc ON t.name = pmc.name
-	),
-
-
 
 	-- Count of new imports per product name
 	imports AS (
 		SELECT
-		    p.name,
-		    SUM(imd.scanned_count) AS new_imports_count
+			p.name,
+			SUM(imd.scanned_count) AS new_imports_count
 		FROM import_details imd
-        JOIN imports im ON im.id = imd.import_id
-        JOIN products p ON imd.product_id = p.id
+		JOIN imports im ON im.id = imd.import_id
+		JOIN products p ON imd.product_id = p.id
 		JOIN vars v ON im.store_id = v.store_id
 		WHERE im.status = 'new' AND im.entry_type = 1 AND im.store_id = v.store_id
 		GROUP BY p.name
@@ -169,13 +150,13 @@ func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, d
 			t.material_code,
 			COALESCE(sd.current_stock, 0) AS current_stock,
 			COALESCE(sa.sale_count, 0) AS sale_count,
-			COALESCE(t.kvant, 0) AS kvant,
-			COALESCE(t.min_stock, 0) AS min_stock,
-			COALESCE(t.max_stock, 0) AS max_stock,
-			COALESCE(t.unit_per_pack, 1) AS unit_per_pack,
+			t.kvant,
+			t.min_stock,
+			t.max_stock,
+			t.unit_per_pack,
 			v.import_day,
 			v.sale_period
-		FROM thresholds_with_code t
+		FROM products_with_thresholds t
 		JOIN vars v ON TRUE
 		LEFT JOIN stock_data sd ON t.name = sd.name
 		LEFT JOIN sales_data sa ON t.name = sa.name
@@ -189,7 +170,8 @@ func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, d
 			ROUND((sale_count / sale_period) * import_day, 4) AS delivery_day_consumption,
 			current_stock - ROUND((sale_count / sale_period) * import_day, 4) AS stock_on_delivery_date,
 			ROUND((sale_count / sale_period) * 3, 4) AS reserve_quantity,
-			current_stock - ROUND((sale_count / sale_period) * import_day, 4) + ROUND((sale_count / sale_period )* 3, 4) AS future_stock
+			current_stock - ROUND((sale_count / sale_period) * import_day, 4)
+				+ ROUND((sale_count / sale_period) * 3, 4) AS future_stock
 		FROM all_data
 	),
 
@@ -199,8 +181,15 @@ func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, d
 			fc.*,
 			GREATEST(min_stock - stock_on_delivery_date, 0) AS required_stock,
 			(CASE
-				WHEN kvant > 0 THEN ROUND(ROUND(GREATEST(min_stock - stock_on_delivery_date, 0) / kvant) * kvant)
-				ELSE 0
+				WHEN sale_count = 0 THEN 0
+				ELSE LEAST(GREATEST(min_stock - stock_on_delivery_date, 0), max_stock)
+			END) AS raw_order,
+
+			(CASE
+				WHEN sale_count = 0 THEN 0
+				ELSE COALESCE(ROUND(ROUND(
+					LEAST(GREATEST(min_stock - stock_on_delivery_date, 0), max_stock) / 1
+				) * 1), 0)
 			END) - COALESCE(im.new_imports_count, 0) AS order_count
 		FROM final_calc fc
 		LEFT JOIN imports im ON im.name = fc.name
@@ -223,7 +212,7 @@ func (s *Services) GenerateAutoOrderDetail(autoOrderID string, storeID string, d
 		stock_on_delivery_date,
 		reserve_quantity,
 		future_stock,
-		order_count
+		GREATEST(order_count, 0) AS order_count
 	FROM order_calc
 	WHERE order_count > 0
 	ORDER BY name;
