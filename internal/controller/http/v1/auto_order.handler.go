@@ -401,17 +401,35 @@ func (h *AutoOrderHandler) SendAutoOrder(c *gin.Context) {
 	data.Apteka.Name = autoOrder.Store.Name
 	data.Apteka.StoreCode = autoOrder.Store.StoreCode
 
+	res, err := h.DoRequest(context.Background(), data, "/zakaz")
+	if err != nil {
+		h.log.Error("could not do request auto order: %v", err)
+		return
+	}
+
+	if len(res.Products) == 0 {
+		return
+	}
+
+	for _, item := range res.Products {
+		// update response_order_count after receive 1C response
+		err = h.db.Exec(`UPDATE auto_order_details SET response_order_count = ? WHERE product_id = (SELECT id FROM products WHERE material_code = ?)`,
+			item.QuantityFakt, item.MaterialCode).Error
+		if err != nil {
+			h.log.Error("could not update response order count: %v", err)
+			return
+		}
+	}
+
 	// update auto_order status to completed
-	err = h.db.Debug().Exec(`UPDATE auto_orders SET status = ?, completed_date = NOW(), updated_by = ? WHERE id = ?`, config.SENT, userId, id).Error
+	err = h.db.Exec(`UPDATE auto_orders SET status = ?, completed_date = NOW(), updated_by = ? WHERE id = ?`, config.COMPLETED, userId, id).Error
 	if err != nil {
 		h.log.Error("could not update auto_order(%s): %v", id, err)
 		handleResponse(c, InternalError, constants.InternalServerError)
 		return
 	}
 
-	go h.sentAutoOrderTo1C(id, userId.(string), &data)
-
-	handleResponse(c, OK, "SENT")
+	handleResponse(c, OK, res.Data)
 }
 
 func (h *AutoOrderHandler) sentAutoOrderTo1C(id string, userId string, data *domain.AutoOrderDetailSendRequest) {
