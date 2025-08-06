@@ -105,9 +105,9 @@ func (h *SaleHandler) Create(c *gin.Context) {
 	err = h.db.
 		WithContext(c.Request.Context()).
 		Raw(`
-		INSERT INTO sales (id, employee_id, cash_box_operation_id, cashbox_id, store_id)
-		VALUES (?, ?, ?, ?, ?) RETURNING *`,
-			body.ID, body.EmployeeID, body.CashBoxOperationId, body.CashboxId, body.StoreId).
+		INSERT INTO sales (id, employee_id, cash_box_operation_id, cashbox_id, store_id,service_type)
+		VALUES (?, ?, ?, ?, ?, ?) RETURNING *`,
+			body.ID, body.EmployeeID, body.CashBoxOperationId, body.CashboxId, body.StoreId, body.ServiceType).
 		Scan(&res).Error
 	if err != nil {
 		h.log.Warn("")
@@ -653,6 +653,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 
 	// validate payment types
 	if len(body.PaymentTypes) == 0 {
+		tx.Rollback()
 		handleResponse(c, BadRequest, constants.PaymentTypeRequiredError)
 		return
 	}
@@ -665,11 +666,29 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	}
 
 	// check sale is completed or no
-	if sale.Status == config.COMPLETED {
-		handleResponse(c, CONFLICT, constants.AlreadyCompletedError)
-		return
-	}
+	//if sale.Status == config.COMPLETED {
+	//	tx.Rollback()
+	//	handleResponse(c, CONFLICT, constants.AlreadyCompletedError)
+	//	return
+	//}
 
+	if body.ServiceType != nil && *body.ServiceType == config.DMED {
+
+		//var cartItems *domain.CartItemForDMED
+		//cartItems, err = h.service.GetCartItems(ctx, tx, sale.ID)
+		//if err != nil {
+		//	handleResponse(c, InternalError, err.Error())
+		//	return
+		//} todo
+		//// check dmed
+		//err = h.service.CheckDMED(ctx, tx, &body, sale.Employee.FullName, *cartItems)
+		//if err != nil {
+		//	handleResponse(c, InternalError, constants.DMEDError)
+		//	return
+		//}
+	} else {
+		body.ServiceType = nil
+	}
 	// add marking to cart_items
 	err = h.service.AddMarkingCount(ctx, tx, body.MarkingData)
 	if err != nil {
@@ -685,6 +704,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	}
 
 	if !amountValidate {
+		tx.Rollback()
 		handleResponse(c, BadRequest, "invalid.calculate.amount")
 		return
 	}
@@ -707,7 +727,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	}
 
 	// complete sale
-	err = h.service.CompleteSale(ctx, tx, sale)
+	err = h.service.CompleteSale(ctx, tx, sale, body.ServiceType)
 	if err != nil {
 		h.log.Error("could not complete the sale(%s): %v", sale.ID, err)
 		handleResponse(c, InternalError, constants.InternalServerError)
@@ -731,8 +751,11 @@ func processPaymentType(
 	body domain.FinalSale,
 	item domain.FinalPaymentType,
 ) error {
+	var err error
+	defer RollbackIfError(tx, &err)
 	if item.Type == "app" && (item.AppType == config.CLICK || item.AppType == config.PAYME || item.AppType == config.UZUM || item.AppType == config.ALIF) {
-		paymentService, err := h.service.GetPaymentServiceByStoreId(body.StoreID, tx, item.AppType)
+		var paymentService *domain.PaymentService
+		paymentService, err = h.service.GetPaymentServiceByStoreId(body.StoreID, tx, item.AppType)
 		if err != nil {
 			h.log.Error("could not get payment service by store id: (%v)", body.StoreID)
 			return err
@@ -747,15 +770,19 @@ func processPaymentType(
 		// get payment handlers for integration app services
 		handler, exists := paymentHandlers[item.AppType]
 		if !exists {
-			return errors.New("invalid.payment.type")
+
+			tx.Rollback()
+			return errors.New("invalid payment type")
 		}
 		// create new sale_payment
-		salePayment, err := h.service.CreateSalePayment(tx, body, item, &paymentService.ID)
+		var salePayment *domain.SalePayment
+		salePayment, err = h.service.CreateSalePayment(tx, body, item, &paymentService.ID)
 		if err != nil {
 			return err
 		}
 		// check if sale_payment is created
-		resp, err := handler(ctx, tx, paymentService, &item, body.CashBoxOperationId, salePayment.ID, body.SaleID)
+		var resp map[string]any
+		resp, err = handler(ctx, tx, paymentService, &item, body.CashBoxOperationId, salePayment.ID, body.SaleID)
 		if err != nil || cast.ToString(resp["error_code"]) != "0" {
 			return err
 		}
@@ -763,12 +790,13 @@ func processPaymentType(
 		return h.service.UpdateSalePaymentStatus(tx, salePayment.ID)
 	} else if item.Type == config.CASH || item.Type == config.CARD {
 		// Insert sale payments if payment is cash or card
-		_, err := h.service.CreateSalePayment(tx, body, item, nil)
+		_, err = h.service.CreateSalePayment(tx, body, item, nil)
 		if err != nil {
 			return err
 		}
 	} else {
-		return errors.New("invalid.payment.type")
+		tx.Rollback()
+		return errors.New("invalid payment type")
 	}
 
 	return nil
@@ -890,7 +918,8 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 		}
 
 		// check payme exists
-		salePayment, err := h.service.GetPaymeSalePayment(ctx, tx, sale.ID)
+		var salePayment *domain.SalePayment
+		salePayment, err = h.service.GetPaymeSalePayment(ctx, tx, sale.ID)
 		if err != nil {
 			handleResponse(c, InternalError, err.Error())
 			return
@@ -898,7 +927,7 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 		// set fiscal data if payment completed with payme
 		if salePayment.ReceiptId != "" {
 			var paymentService domain.PaymentService
-			err := h.db.First(&paymentService, "store_id = ?", sale.StoreId).Error
+			err = h.db.First(&paymentService, "store_id = ?", sale.StoreId).Error
 			if err != nil {
 				h.log.Warn("ERROR on getting payment service: %v", err)
 				handleResponse(c, InternalError, "failed_to_get_payment_service")
@@ -920,9 +949,10 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 				return
 			}
 		}
-
+		var res *domain.Sale
 		// create or get sale
-		res, err := h.service.CreateOrGetSale(ctx, tx, &domain.SaleRequest{
+
+		res, err = h.service.CreateOrGetSale(ctx, tx, &domain.SaleRequest{
 			EmployeeID:         userId.(string),
 			StoreId:            sale.StoreId,
 			CashBoxOperationId: sale.CashBoxOperationId,
@@ -1394,20 +1424,7 @@ func (h *SaleHandler) DMEDGetPrescriptions(c *gin.Context) {
 		return
 	}
 
-	// Format prescriptions for response
-	preparations := make([]string, 0, len(respBody))
-	for _, p := range respBody {
-		prep := p.DrugAppointment.Medication
-		dose := prep.SubstanceDosage
-		preparations = append(preparations, fmt.Sprintf("%s %.0f %s", prep.Title, dose.Dosage, dose.MeasurementUnit.Title))
-	}
-
-	if len(preparations) == 0 {
-		handleResponse(c, OK, "Prescriptions not found")
-		return
-	}
-
-	handleResponse(c, OK, preparations)
+	handleResponse(c, OK, respBody)
 }
 
 // lock order for parallel request

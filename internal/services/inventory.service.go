@@ -350,7 +350,7 @@ func (s *Services) InventoryDetailList(param *domain.InventoryParam) ([]domain.I
 	case "-difference_sum":
 		orderBy = " ORDER BY difference_sum DESC "
 	default:
-		orderBy = " ORDER BY current_quantity DESC "
+		orderBy = " ORDER BY p.name ASC "
 	}
 	// execute total count query
 	tquery += filter

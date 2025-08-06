@@ -141,3 +141,11 @@ type CartItemOnlineRequest struct {
 	UnitPrice      float64 `gorm:"unit_price" json:"-"`
 	TotalPrice     float64 `gorm:"total_price" json:"-"`
 }
+
+type CartItemForDMED struct {
+	ID           string  `gorm:"id" json:"id"`
+	UnitPrice    float64 `gorm:"unit_price" json:"unit_price"`
+	UnitQuantity int     `gorm:"unit_quantity" json:"unit_quantity"`
+	Barcode      string  `gorm:"barcode" json:"barcode"`
+	SerialNumber string  `gorm:"serial_number" json:"serial_number"`
+}

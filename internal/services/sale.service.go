@@ -257,8 +257,9 @@ func (s *Services) UpdateSaleFieldValue(saleID string, field, value string) erro
 }
 
 // complete sale
-func (s *Services) CompleteSale(ctx context.Context, tx *gorm.DB, sale *domain.Sale) error {
+func (s *Services) CompleteSale(ctx context.Context, tx *gorm.DB, sale *domain.Sale, serviceType *string) error {
 	var err error
+	defer RollbackIfError(tx, &err)
 	switch sale.SaleType {
 	case config.SALE_TYPE_SALE:
 		// reduce store_product quantities and add employee bonus
@@ -281,12 +282,13 @@ func (s *Services) CompleteSale(ctx context.Context, tx *gorm.DB, sale *domain.S
 		total_amount = (SELECT SUM(total_price)-SUM(discount_amount) FROM cart_items WHERE sale_id = ?),
 		total_discount = (SELECT SUM(discount_amount) FROM cart_items WHERE sale_id = ?),
 		status = ?,
+		service_type = ?,
 		completed_at = NOW(),
 		updated_at = NOW()
 	WHERE id = ?
 	`
 	// complete the query
-	err = tx.WithContext(ctx).Exec(query, sale.ID, sale.ID, config.COMPLETED, sale.ID).Error
+	err = tx.WithContext(ctx).Exec(query, sale.ID, sale.ID, config.COMPLETED, serviceType, sale.ID).Error
 	if err != nil {
 		s.log.Warn("ERROR on update sale to completed: %v", err)
 		return err
@@ -579,8 +581,12 @@ func (s *Services) ListSale(param *domain.QueryParam, userId string) ([]domain.S
 
 // Get sale by Id
 func (s *Services) GetSaleById(ctx context.Context, tx *gorm.DB, saleId string) (*domain.Sale, error) {
-	var sale domain.Sale
-	err := s.db.WithContext(ctx).First(&sale, "id = ?", saleId).Error
+	var (
+		err  error
+		sale domain.Sale
+	)
+	defer RollbackIfError(tx, &err)
+	err = s.db.WithContext(ctx).Preload("Employee").First(&sale, "id = ?", saleId).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return &sale, errors.New(constants.NotFoundError)
@@ -930,6 +936,8 @@ func (s *Services) AcceptOnlineSale(req *domain.ConfirmOnlineSaleRequest) error 
 			tx.Rollback()
 		}
 	}()
+	defer recoverTransaction(tx, s.log)
+	defer RollbackIfError(tx, &err)
 	var sale *domain.Sale
 	err = tx.First(&sale, "id = ?", req.SaleID).Error
 	if err != nil {
@@ -993,6 +1001,8 @@ func (s *Services) CancelOnlineSale(req *domain.ConfirmOnlineSaleRequest) error 
 			tx.Rollback()
 		}
 	}()
+	defer recoverTransaction(tx, s.log)
+	defer RollbackIfError(tx, &err)
 	var sale *domain.Sale
 	err = tx.First(&sale, "id = ?", req.SaleID).Error
 	if err != nil {
@@ -1047,6 +1057,7 @@ func (s *Services) CancelOnlineSale(req *domain.ConfirmOnlineSaleRequest) error 
 func (s *Services) DeleteSalePayments(ctx context.Context, tx *gorm.DB, saleId string) error {
 	err := tx.WithContext(ctx).Exec(`DELETE FROM sale_payments WHERE sale_id = ?`, saleId).Error
 	if err != nil {
+		tx.Rollback()
 		s.log.Error("could not delete sale_payments: %v", err)
 		return err
 	}
@@ -1111,4 +1122,33 @@ func (s *Services) doRequestToDMED(method, url string, data any) ([]byte, error)
 	}
 
 	return respBody, nil
+}
+
+func (s *Services) CheckDMED(ctx context.Context, tx *gorm.DB, body *domain.FinalSale, employeeName string, cartItems domain.CartItemForDMED) error {
+	// Build request payload
+	var err error
+	defer RollbackIfError(tx, &err)
+	payload := map[string]any{
+		"drug_amount":         cartItems.UnitQuantity,
+		"price":               cartItems.UnitPrice,
+		"issued_by_full_name": employeeName,
+	}
+	if cartItems.SerialNumber != "" && cartItems.Barcode != "" {
+		payload["serial_number"] = cartItems.SerialNumber
+		payload["gtin"] = "010" + cartItems.Barcode
+	} else if body.MarkingData[0].MarkingList[0] != "" {
+		payload["marking_code"] = body.MarkingData[0].MarkingList[0]
+	} else {
+		return errors.New("serial number or marking code is required")
+	}
+
+	url := fmt.Sprintf("/prescriptions/%s/check-issue", *body.PrescriptionID)
+
+	// Send request to DMED
+	_, err = s.doRequestToDMED(http.MethodPost, url, payload)
+	if err != nil {
+		return fmt.Errorf("DMED check failed: %w", err)
+	}
+
+	return nil // success
 }

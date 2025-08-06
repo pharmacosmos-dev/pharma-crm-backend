@@ -130,6 +130,8 @@ type Error struct {
 // region error types
 var (
 	BadRequestError          = "bad.request"
+	DMEDError                = "dmed.error"
+	AcceptedCountError       = "warning.accepted_count.is.null"
 	NotFoundError            = "not.found"
 	InternalServerError      = "internal.server.error"
 	InvalidRequestBodyError  = "invalid.request.body"
