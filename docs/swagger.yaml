@@ -487,7 +487,11 @@ definitions:
         items:
           $ref: '#/definitions/domain.FinalPaymentType'
         type: array
+      prescription_id:
+        type: string
       sale_id:
+        type: string
+      service_type:
         type: string
       store_id:
         type: string
@@ -646,6 +650,10 @@ definitions:
         type: string
       marking_count:
         type: integer
+      marking_list:
+        items:
+          type: string
+        type: array
     type: object
   domain.MinMaxProductRequest:
     properties:
@@ -1215,6 +1223,8 @@ definitions:
       employee_id:
         type: string
       id:
+        type: string
+      service_type:
         type: string
       store_id:
         type: string
@@ -10702,6 +10712,124 @@ paths:
       security:
       - BearerAuth: []
       summary: Get Store report stats
+      tags:
+      - Report
+  /report/store-summary:
+    post:
+      description: Returns sales, stock and import summary of stores
+      parameters:
+      - description: Order
+        in: query
+        name: order
+        type: string
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: List of Store IDs
+        in: body
+        name: store_ids
+        schema:
+          items:
+            type: string
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get daily store summary
+      tags:
+      - Report
+  /report/store-summary/export-excel:
+    post:
+      description: Export Store Summary to Excel
+      parameters:
+      - description: Order
+        in: query
+        name: order
+        type: string
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Store ids
+        in: body
+        name: store_ids
+        schema:
+          items:
+            type: string
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Export Store Summary to Excel
       tags:
       - Report
   /report/top-products:

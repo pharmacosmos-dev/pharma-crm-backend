@@ -1078,3 +1078,120 @@ func (s *Services) ReportBonusProducts(param *domain.ReportQueryParam) ([]domain
 
 	return res, totalCount, nil
 }
+
+func (s *Services) ReportStoreSummary(param *domain.ReportQueryParam) ([]domain.StoreSummary, int64, error) {
+	var (
+		res       []domain.StoreSummary
+		args      []any
+		startTime time.Time
+		endTime   time.Time
+		err       error
+	)
+
+	startTime, err = time.Parse(time.RFC3339, param.StartDate)
+	if err != nil {
+		s.log.Error("Invalid start_date format: %v", err)
+		return nil, 0, err
+	}
+	if param.EndDate != "" {
+		endTime, err = time.Parse(time.RFC3339, param.EndDate)
+		if err != nil {
+			s.log.Error("Invalid end_date format: %v", err)
+			return nil, 0, err
+		}
+	} else {
+		endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+		param.EndDate = endTime.Format(time.RFC3339)
+	}
+	var total int64
+	// Count query (total store count)
+	countQuery := `SELECT COUNT(*) FROM stores WHERE is_active = true`
+	err = s.db.Raw(countQuery).Scan(&total).Error
+	if err != nil {
+		s.log.Error("Failed to count stores: ", err)
+		return nil, 0, err
+	}
+
+	query := `
+	WITH sale_cte AS (
+		SELECT
+			store_id,
+			SUM(CASE
+					WHEN (completed_at + interval '5 hours') BETWEEN ? AND ?
+						THEN CASE
+								WHEN sale_type = 'SALE' THEN total_amount
+								WHEN sale_type = 'RETURN' THEN -total_amount
+							END
+					ELSE 0
+				END) AS sale_amount
+		FROM sales
+		WHERE status = 'completed'
+		GROUP BY store_id
+	),
+	import_cte AS (
+		SELECT
+			im.store_id,
+			COALESCE(SUM(CASE
+							 WHEN (im.created_at) BETWEEN ? AND ?
+							 THEN imd.received_count * imd.retail_price_vat
+							 ELSE 0
+						 END), 0) AS import_amount
+		FROM import_details imd
+				 JOIN imports im ON imd.import_id = im.id
+		WHERE im.status = 'new' AND im.entry_type = 1
+		GROUP BY im.store_id
+	),
+	stock_cte AS (
+		SELECT
+			sp.store_id,
+			ROUND(SUM(sp.pack_quantity * sp.retail_price) +
+				  SUM((sp.retail_price / p.unit_per_pack) * (sp.unit_quantity % p.unit_per_pack)), 2) AS stock_amount
+		FROM store_products sp
+				 JOIN products p ON sp.product_id = p.id
+		GROUP BY sp.store_id
+	)
+	SELECT
+		st.name AS name,
+		COALESCE(s.sale_amount, 0) AS sale_amount,
+		COALESCE(i.import_amount, 0) AS import_amount,
+		COALESCE(k.stock_amount, 0) AS stock_amount,
+		ROUND(COALESCE(s.sale_amount, 0) + COALESCE(i.import_amount, 0) + COALESCE(k.stock_amount, 0), 2) AS total
+	FROM stores st
+	LEFT JOIN sale_cte s ON st.id = s.store_id
+	LEFT JOIN import_cte i ON st.id = i.store_id
+	LEFT JOIN stock_cte k ON st.id = k.store_id
+	WHERE st.is_active = true
+	`
+
+	// 4 timestamps for 2 BETWEENs (sales & imports)
+	args = append(args, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339)) // sales
+	args = append(args, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339)) // imports
+	if param.Order != "" {
+		order := utils.BuildStoreSummaryOrderClause(param.Order)
+		query += order
+	}
+	if param.Search != "" {
+		query += " AND st.name LIKE ?"
+		args = append(args, "%"+param.Search+"%")
+	}
+	if len(param.StoreIds) > 0 {
+		query += " AND st.id = ?"
+		args = append(args, param.StoreIds)
+	}
+	if param.Limit > 0 {
+		query += " LIMIT ?"
+		args = append(args, param.Limit)
+	}
+	if param.Offset > 0 {
+		query += " OFFSET ?"
+		args = append(args, param.Offset)
+	}
+	// Execute query
+	err = s.db.Raw(query, args...).Scan(&res).Error
+	if err != nil {
+		s.log.Error("Failed to get store summary report: ", err)
+		return nil, 0, err
+	}
+
+	return res, total, nil
+}

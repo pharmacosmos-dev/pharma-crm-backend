@@ -435,3 +435,34 @@ func BuildTopSellerOrderClause(orderField string) string {
 
 	return " ORDER BY curr.total_amount DESC "
 }
+
+func BuildStoreSummaryOrderClause(orderField string) string {
+	allowedFields := map[string]string{
+		"name":          "st.name",
+		"sale_amount":   "sale_amount",
+		"import_amount": "import_amount",
+		"stock_amount":  "stock_amount",
+		"total":         "total",
+	}
+
+	if orderField == "" {
+		return " ORDER BY total DESC "
+	}
+
+	direction := "ASC"
+	field := orderField
+
+	if strings.HasPrefix(orderField, "-") {
+		direction = "DESC"
+		field = strings.TrimPrefix(orderField, "-")
+	} else if strings.HasPrefix(orderField, "+") {
+		field = strings.TrimPrefix(orderField, "+")
+	}
+
+	if dbColumn, ok := allowedFields[field]; ok {
+		return fmt.Sprintf(" ORDER BY %s %s ", dbColumn, direction)
+	}
+
+	// Default fallback
+	return " ORDER BY total DESC "
+}

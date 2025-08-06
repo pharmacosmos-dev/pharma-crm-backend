@@ -47,6 +47,8 @@ func (h *ReportHandler) ReportRoutes(r *gin.RouterGroup) {
 		report.POST("/top-stores/export-excel", h.TopStoresExportExcel)
 		report.POST("/bonus-products", h.ReportBonusProducts)
 		report.POST("/bonus-products/export-excel", h.BonusProductsExportExcel)
+		report.POST("/store-summary", h.ReportStoreSummary)
+		report.POST("/store-summary/export-excel", h.StoreSummaryExportExcel)
 	}
 }
 
@@ -1146,4 +1148,115 @@ func (h *ReportHandler) BonusProductsExportExcel(c *gin.Context) {
 	}
 
 	saveExcelToUploads(c, f, *h.log, "Bonus_products")
+}
+
+// ReportStoreSummary godoc
+// @Summary Get daily store summary
+// @Description Returns sales, stock and import summary of stores
+// @Tags Report
+// @Security BearerAuth
+// @Produce json
+// @Param   order       query string false "Order"
+// @Param   search      query string false "Search"
+// @Param   limit       query int false "Limit"
+// @Param   offset      query int false "Offset"
+// @Param   start_date  query string false "Start Date"
+// @Param   end_date    query string false "End Date"
+// @Param   store_id    query string false "Store ID"
+// @Param   store_ids   body  []string false "List of Store IDs"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /report/store-summary [POST]
+func (h *ReportHandler) ReportStoreSummary(c *gin.Context) {
+	var param domain.ReportQueryParam
+
+	// bind query parameters
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "Invalid query parameters")
+		return
+	}
+
+	// bind store ids optional
+	_ = c.ShouldBindJSON(&param.StoreIds)
+
+	// pagination fallback
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	// call service layer
+	data, total, err := h.service.ReportStoreSummary(&param)
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to get store summary")
+		return
+	}
+
+	result := utils.ListResponse(data, total, param.Limit, param.Offset)
+	handleResponse(c, OK, result)
+}
+
+// Store Summary Export godoc
+// @Summary Export Store Summary to Excel
+// @Description Export Store Summary to Excel
+// @Tags Report
+// @Security BearerAuth
+// @Produce json
+// @Param   order       query string   false "Order"
+// @Param   search      query string   false "Search"
+// @Param   limit       query int      false "Limit"
+// @Param   offset      query int      false "Offset"
+// @Param   start_date  query string   false "Start Date"
+// @Param   end_date    query string   false "End Date"
+// @Param   store_id    query string   false "Store ID"
+// @Param   store_ids   body   []string false "Store ids"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /report/store-summary/export-excel [POST]
+func (h *ReportHandler) StoreSummaryExportExcel(c *gin.Context) {
+	var param domain.ReportQueryParam
+
+	// bind query parameters
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "Invalid query parameters")
+		return
+	}
+	_ = c.ShouldBindJSON(&param.StoreIds)
+
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	// get store summary data
+	res, _, err := h.service.ReportStoreSummary(&param)
+	if err != nil {
+		handleResponse(c, InternalError, "Can't get store summary data")
+		return
+	}
+
+	// create Excel
+	f := excelize.NewFile()
+	sheet := "Остаток Аптека"
+	f.SetSheetName("Sheet1", sheet)
+
+	// set headers
+	headers := []string{
+		"№", "Аптека", "Общая сумма продажа", "Импорт ожидании", "Общая сумма баланса", "Итог",
+	}
+	if err := setExcelHeaders(f, sheet, headers); err != nil {
+		h.log.Error("Failed to create style:", err)
+		handleResponse(c, InternalError, "Error on giving style to excel")
+		return
+	}
+
+	// fill rows
+	for i, val := range res {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheet, "A"+row, i+1)
+		f.SetCellValue(sheet, "B"+row, val.Name)
+		f.SetCellValue(sheet, "C"+row, val.SaleAmount)
+		f.SetCellValue(sheet, "D"+row, val.ImportAmount)
+		f.SetCellValue(sheet, "E"+row, val.StockAmount)
+		f.SetCellValue(sheet, "F"+row, val.Total)
+	}
+
+	// save to /uploads
+	saveExcelToUploads(c, f, *h.log, "Остаток Аптека")
 }
