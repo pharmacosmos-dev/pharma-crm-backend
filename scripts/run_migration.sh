@@ -12,7 +12,7 @@ if [ -f /var/www/app/.env ]; then
 fi
 
 # Construct full DB URL
-DB_URL="postgres://${DB_USER}:${PG_PASS}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=disable"
+DB_URL="postgres://${PG_USER}:${PG_PASS}@${PG_HOST}:${PG_PORT}/${PG_DB}?sslmode=disable"
 
 # Run migrations
 migrate -path /app/migrations -database "$DB_URL" up
