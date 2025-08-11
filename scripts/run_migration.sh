@@ -4,12 +4,14 @@ set -e
 
 echo "Running migrations..."
 
-# Load environment variables (if not already loaded)
+# Load environment variables safely
 if [ -f /var/www/app/.env ]; then
-  export $(grep -v '^#' /var/www/app/.env | xargs)
+  set -a
+  . /var/www/app/.env
+  set +a
 fi
 
-# Construct full DB URL (adjust variables as needed)
+# Construct full DB URL
 DB_URL="postgres://${DB_USER}:${PG_PASS}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=disable"
 
 # Run migrations
