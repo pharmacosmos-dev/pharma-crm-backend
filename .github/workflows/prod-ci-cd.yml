@@ -43,23 +43,30 @@ jobs:
           cache-from: type=registry,ref=${{ env.DOCKER_USERNAME }}/pharma-backend:buildcache
           cache-to: type=registry,ref=${{ env.DOCKER_USERNAME }}/pharma-backend:buildcache,mode=max
   
-  # migrate:
-  #   needs: build_and_push
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v3
-
-  #     - name: Install migrate tool
-  #       run: |
-  #         wget https://github.com/golang-migrate/migrate/releases/download/v4.14.1/migrate.linux-amd64.tar.gz
-  #         tar -xvf migrate.linux-amd64.tar.gz
-  #         mv migrate.linux-amd64 migrate
-  #         chmod +x migrate
-
-  #     - name: Run Migrations
-  #       run: |
-  #         ./migrate -path=$PWD/migrations -database="${{ env.DB_URL }}" up
+  migrate:
+    needs: build_and_push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run migrations on server
+        uses: appleboy/ssh-action@master
+        with:
+          host: "${{ env.SSH_HOST }}"
+          username: "${{ env.SSH_USER }}"
+          key: "${{ env.SSH_KEY }}"
+          port: 2002
+          script: |
+            set -e
+            docker login -u ${{ env.DOCKER_USERNAME }} -p ${{ env.DOCKER_PASSWORD }}
+            # ensure image is present
+            docker pull "${{ env.DOCKER_USERNAME }}/pharma-backend:${{ github.sha }}"
+            # Option A (recommended if migrations are backward-compatible):
+            # run migrations without stopping the old app
+            docker run --rm \
+              --env-file /var/www/app/.env \
+              -v /var/www/app/.env:/var/www/app/.env \
+              --network host \
+              "${{ env.DOCKER_USERNAME }}/pharma-backend:${{ github.sha }}" \
+              /app/scripts/run_migration.sh
 
   deploy:
     needs: build_and_push
@@ -73,8 +80,8 @@ jobs:
           key: "${{ env.SSH_KEY }}"
           port: 2002
           script: |
-            docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
-            docker pull "${{ secrets.DOCKER_USERNAME }}/pharma-backend:${{ github.sha }}"
+            docker login -u ${{ env.DOCKER_USERNAME }} -p ${{ env.DOCKER_PASSWORD }}
+            docker pull "${{ env.DOCKER_USERNAME }}/pharma-backend:${{ github.sha }}"
             docker stop "${{ env.CONTAINER_NAME }}" || true
             docker rm "${{ env.CONTAINER_NAME }}" || true
-            docker run -d --name "${{ env.CONTAINER_NAME }}" --network host  -p "${{ env.PORT }}" --env-file /var/www/app/.env -v /var/www/app/uploads:/app/uploads "${{ secrets.DOCKER_USERNAME }}/pharma-backend:${{ github.sha }}"
+            docker run -d --name "${{ env.CONTAINER_NAME }}" --network host  -p "${{ env.PORT }}" --env-file /var/www/app/.env -v /var/www/app/uploads:/app/uploads "${{ env.DOCKER_USERNAME }}/pharma-backend:${{ github.sha }}"
