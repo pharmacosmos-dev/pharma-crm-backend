@@ -861,11 +861,15 @@ func (h *TransferHandler) ExportTransferNakladnoyPDF(c *gin.Context) {
 	var total float64
 	var count = 1
 	for _, p := range res {
+		expireDateStr := ""
+		if p.ExpireDate != nil {
+			expireDateStr = p.ExpireDate.Format("02.01.2006")
+		}
 		row := []string{
 			strconv.Itoa(count),
 			p.Name,
 			p.SerialNumber,
-			p.ExpireDate.Format("02.01.2006"),
+			expireDateStr,
 			p.ShortName,
 			strconv.FormatFloat(p.ExpectedCount, 'f', 2, 64),
 			formatWithSpaceSeparator(p.SupplyPrice),
