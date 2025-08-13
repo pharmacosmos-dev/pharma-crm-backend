@@ -103,3 +103,11 @@ type StoreReportStats struct {
 	Click        float64 `gorm:"click" json:"click"`
 	Payme        float64 `gorm:"payme" json:"payme"`
 }
+
+type StoreSummary struct {
+	Name         string  `json:"name"`
+	SaleAmount   float64 `json:"sale_amount"`
+	ImportAmount float64 `json:"import_amount"`
+	StockAmount  float64 `json:"stock_amount"`
+	Total        float64 `json:"total"`
+}

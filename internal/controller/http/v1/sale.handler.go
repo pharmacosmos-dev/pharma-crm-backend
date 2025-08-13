@@ -846,8 +846,40 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 		return
 	}
 
-	// Convert string to []byte and store in Response field
-	body.Response = []byte(responseDataStr)
+	// Parse the original JSON string into a map
+	var raw map[string]any
+	if err = json.Unmarshal([]byte(responseDataStr), &raw); err != nil {
+		h.log.Error("failed to unmarshal response_data: %v", err)
+		handleResponse(c, BadRequest, "invalid response_data JSON")
+		return
+	}
+
+	// Extract "message" object
+	msg, ok := raw["message"].(map[string]any)
+	if !ok {
+		h.log.Error("message field is missing or invalid")
+		handleResponse(c, BadRequest, "message field is missing or invalid")
+		return
+	}
+
+	// Create new filtered object
+	filtered := map[string]any{
+		"dateTime":   msg["dateTime"],
+		"fiscalSign": msg["fiscalSign"],
+		"receiptSeq": msg["receiptSeq"],
+		"terminalId": msg["terminalId"],
+	}
+	raw["message"] = filtered
+	// Convert filtered object back to JSON
+	filteredBytes, err := json.Marshal(raw)
+	if err != nil {
+		h.log.Error("failed to marshal filtered message: %v", err)
+		handleResponse(c, InternalError, "failed to process message")
+		return
+	}
+	fmt.Println(string(filteredBytes))
+	// Store in Response as []byte
+	body.Response = filteredBytes
 
 	// start transaction
 	tx := h.db.Begin()
