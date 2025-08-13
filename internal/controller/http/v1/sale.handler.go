@@ -666,11 +666,11 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	}
 
 	// check sale is completed or no
-	//if sale.Status == config.COMPLETED {
-	//	tx.Rollback()
-	//	handleResponse(c, CONFLICT, constants.AlreadyCompletedError)
-	//	return
-	//}
+	if sale.Status == config.COMPLETED {
+		tx.Rollback()
+		handleResponse(c, CONFLICT, constants.AlreadyCompletedError)
+		return
+	}
 
 	if body.ServiceType != nil && *body.ServiceType == config.DMED {
 
