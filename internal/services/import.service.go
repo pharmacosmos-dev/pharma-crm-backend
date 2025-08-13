@@ -160,7 +160,7 @@ func (s *Services) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domai
 		)
 	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	for _, item := range importDetails {
-		if item.AcceptedCount > 0 {
+		if item.ScannedCount > 0 {
 			err = tx.Exec(storeProductQuery,
 				importData.StoreID,
 				item.ProductID,
