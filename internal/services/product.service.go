@@ -333,9 +333,8 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 		p.unit_per_pack, p.is_marking, p.mxik, p.unit_code, 
 		p.unit_label, p.created_at, p.updated_at,
 		pr.name AS manufacturer, u.unit_name, u.short_name,
-		SUM(sp.pack_quantity) AS quantity,
 		%s
-		SUM(sp.unit_quantity)%sp.unit_per_pack AS unit_quantity,
+    	CONCAT(SUM(sp.unit_quantity)/p.unit_per_pack,'(', SUM(sp.unit_quantity) %s p.unit_per_pack, '/', p.unit_per_pack, ')') AS units,
 		COUNT(1) OVER() AS total_count
 	FROM store_products sp
 	RIGHT JOIN products p ON sp.product_id = p.id
