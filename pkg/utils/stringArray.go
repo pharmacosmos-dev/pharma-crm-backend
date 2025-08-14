@@ -466,3 +466,37 @@ func BuildStoreSummaryOrderClause(orderField string) string {
 	// Default fallback
 	return " ORDER BY total DESC "
 }
+
+func BuildProductOrderClause(orderField string) string {
+	allowedFields := map[string]string{
+		"product_id":           "b.product_id",
+		"name":                 "b.name",
+		"final_pack_quantity":  "final_pack_quantity",
+		"final_unit_quantity":  "final_unit_quantity",
+		"cart_pack_change":     "cart_pack_change",
+		"cart_unit_change":     "cart_unit_change",
+		"transfer_pack_change": "transfer_pack_change",
+		"transfer_unit_change": "transfer_unit_change",
+	}
+
+	if orderField == "" {
+		return " ORDER BY b.product_id"
+	}
+
+	direction := "ASC"
+	field := orderField
+
+	if strings.HasPrefix(orderField, "-") {
+		direction = "DESC"
+		field = strings.TrimPrefix(orderField, "-")
+	} else if strings.HasPrefix(orderField, "+") {
+		field = strings.TrimPrefix(orderField, "+")
+	}
+
+	if dbColumn, ok := allowedFields[field]; ok {
+		return fmt.Sprintf(" ORDER BY %s %s ", dbColumn, direction)
+	}
+
+	// Default fallback
+	return " ORDER BY b.product_id"
+}

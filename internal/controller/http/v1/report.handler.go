@@ -49,6 +49,7 @@ func (h *ReportHandler) ReportRoutes(r *gin.RouterGroup) {
 		report.POST("/bonus-products/export-excel", h.BonusProductsExportExcel)
 		report.POST("/store-summary", h.ReportStoreSummary)
 		report.POST("/store-summary/export-excel", h.StoreSummaryExportExcel)
+		report.POST("/store-products-given-day", h.StoreProductsGivenDay)
 	}
 }
 
@@ -1259,4 +1260,38 @@ func (h *ReportHandler) StoreSummaryExportExcel(c *gin.Context) {
 
 	// save to /uploads
 	saveExcelToUploads(c, f, *h.log, "Остаток Аптека")
+}
+
+// StoreProductsGivenDay godoc
+// @Summary Get Store Products Given Day
+// @Description Get Store Products Given Day
+// @Tags Report
+// @Security BearerAuth
+// @Produce json
+// @Param   order       query string false "Order"
+// @Param   search      query string false "Search"
+// @Param   limit       query int false "Limit"
+// @Param   offset      query int false "Offset"
+// @Param   start_date  query string false "Start Date (YYYY-MM-DD)"
+// @Param   store_id    query string false "Store ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /report/store-products-given-day [POST]
+func (h *ReportHandler) StoreProductsGivenDay(c *gin.Context) {
+	var param domain.ReportQueryParam
+
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "Invalid query parameters")
+		return
+	}
+
+	data, total, err := h.service.StoreProductsGivenDay(&param)
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to get store products given day")
+		return
+	}
+
+	result := utils.ListResponse(data, total, param.Limit, param.Offset)
+	handleResponse(c, OK, result)
 }

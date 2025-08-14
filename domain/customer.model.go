@@ -53,7 +53,7 @@ type DiscountCardWithCustomer struct {
 
 type CustomerRequest struct {
 	Id        string  `gorm:"id" json:"-"`
-	StoreId   string  `gorm:"store_id" json:"store_id"`
+	StoreId   *string `gorm:"store_id" json:"store_id"`
 	FirstName string  `gorm:"first_name" json:"first_name"`
 	LastName  string  `gorm:"last_name" json:"last_name,omitempty"`
 	FullName  string  `gorm:"full_name" json:"full_name,omitempty"`

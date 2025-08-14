@@ -274,6 +274,7 @@ type ProductData struct {
 	ExpireDay    int               `gorm:"expire_day" json:"expire_day"`
 	SerialNumber string            `gorm:"serial_number" json:"serial_number"`
 	UnitQuantity float64           `gorm:"unit_quantity" json:"unit_quantity"`
+	Units        string            `gorm:"units" json:"units"`
 	CategoryName string            `gorm:"category_name" json:"category_name"`
 	SupplyPrice  float64           `gorm:"supply_price" json:"supply_price"`
 	RetailPrice  float64           `gorm:"retail_price" json:"retail_price"`

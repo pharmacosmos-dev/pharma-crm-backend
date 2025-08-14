@@ -111,3 +111,17 @@ type StoreSummary struct {
 	StockAmount  float64 `json:"stock_amount"`
 	Total        float64 `json:"total"`
 }
+
+type StoreProductsReport struct {
+	ProductID          string  `json:"product_id"`
+	StoreID            string  `json:"store_id"`
+	Name               string  `json:"name"`
+	FinalPackQuantity  float64 `json:"final_pack_quantity"`
+	FinalUnitQuantity  float64 `json:"final_unit_quantity"`
+	CartPackChange     float64 `json:"cart_pack_change"`
+	CartUnitChange     float64 `json:"cart_unit_change"`
+	TransferPackChange float64 `json:"transfer_pack_change"`
+	TransferUnitChange float64 `json:"transfer_unit_change"`
+	PackQty            float64 `json:"pack_qty"`
+	UnitQty            float64 `json:"unit_qty"`
+}
