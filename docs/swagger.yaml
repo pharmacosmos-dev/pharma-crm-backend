@@ -1073,6 +1073,20 @@ definitions:
       unit_type_id:
         type: string
     type: object
+  domain.RejectedProductRequest:
+    properties:
+      product_id:
+        description: nullable
+        type: string
+      product_name:
+        type: string
+      reason:
+        type: string
+      store_id:
+        type: string
+    required:
+    - store_id
+    type: object
   domain.RepricingRequest:
     properties:
       created_by:
@@ -9937,6 +9951,38 @@ paths:
       summary: Update retail price by 1C
       tags:
       - 1C Api
+  /rejected-products:
+    post:
+      consumes:
+      - application/json
+      description: Create a rejected product
+      parameters:
+      - description: Rejected product request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.RejectedProductRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a rejected product
+      tags:
+      - rejected-products
   /report/bonus:
     post:
       consumes:
