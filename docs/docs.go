@@ -13221,6 +13221,57 @@ const docTemplate = `{
                 }
             }
         },
+        "/rejected-products": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a rejected product",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "rejected-products"
+                ],
+                "summary": "Create a rejected product",
+                "parameters": [
+                    {
+                        "description": "Rejected product request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.RejectedProductRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/report/bonus": {
             "post": {
                 "security": [
@@ -23235,6 +23286,27 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "unit_type_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.RejectedProductRequest": {
+            "type": "object",
+            "required": [
+                "store_id"
+            ],
+            "properties": {
+                "product_id": {
+                    "description": "nullable",
+                    "type": "string"
+                },
+                "product_name": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "store_id": {
                     "type": "string"
                 }
             }
