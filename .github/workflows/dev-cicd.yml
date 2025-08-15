@@ -72,8 +72,8 @@ jobs:
           username: "${{ env.SSH_USER }}"
           key: "${{ env.SSH_KEY }}"
           script: |
-            docker login -u ${{ secrets.DOCKER_USERNAME }} -p ${{ secrets.DOCKER_PASSWORD }}
-            docker pull "${{ secrets.DOCKER_USERNAME }}/pharma-backend:${{ github.sha }}"
+            docker login -u ${{ env.DOCKER_USERNAME }} -p ${{ env.DOCKER_PASSWORD }}
+            docker pull "${{ env.DOCKER_USERNAME }}/pharma-backend:${{ github.sha }}"
             docker stop "${{ env.CONTAINER_NAME }}" || true
             docker rm "${{ env.CONTAINER_NAME }}" || true
-            docker run -d --name "${{ env.CONTAINER_NAME }}" --network host -p "${{ env.PORT }}" --env-file /var/www/app/.env -v /var/www/app/uploads:/app/uploads "${{ secrets.DOCKER_USERNAME }}/pharma-backend:${{ github.sha }}"
+            docker run -d --name "${{ env.CONTAINER_NAME }}" --network host -p "${{ env.PORT }}" --env-file /var/www/app/.env -v /var/www/app/uploads:/app/uploads "${{ env.DOCKER_USERNAME }}/pharma-backend:${{ github.sha }}"
