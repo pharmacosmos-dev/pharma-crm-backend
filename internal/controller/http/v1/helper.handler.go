@@ -49,6 +49,7 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		helper.POST("/product-min-max", h.UploadProductMinMax)
 		helper.POST("/product-kvant", h.UploadProductKvant)
 		helper.POST("/set-product-photo", h.SetProductPhoto)
+		helper.POST("/fix-product-quantity", h.FixProductQuantity)
 	}
 }
 
@@ -1249,6 +1250,88 @@ func (h *HelperHandler) SetProductPhoto(c *gin.Context) {
 		"match":    matchCount,
 		"no_match": noMatchCount,
 	})
+}
+
+// FixProductQuantity godoc
+// @Summary Fix product quantity
+// @Description Fix product quantity
+// @Tags helper
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param 	file formData file true "Excel file (.xlsx) containing product data"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /helper/fix-product-quantity [POST]
+func (h *HelperHandler) FixProductQuantity(c *gin.Context) {
+	var (
+		file domain.File
+		err  error
+	)
+	// bind request file
+	if err = c.ShouldBind(&file); err != nil {
+		h.log.Error("Failed to bind file: ", err.Error())
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		h.log.Error("Unsupported file format: ", ext)
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+
+	// Save the uploaded file
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+	err = c.SaveUploadedFile(file.File, savePath)
+	if err != nil {
+		h.log.Error("Failed to save file: ", err.Error())
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+
+	// defer os.Remove(savePath)
+	// Open the Excel file
+	xlsx, err := excelize.OpenFile(savePath)
+	if err != nil {
+		h.log.Error("Failed to open .xlsx file: ", err.Error())
+		handleResponse(c, BadRequest, "Failed to process file")
+		return
+	}
+	defer xlsx.Close()
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		h.log.Error("Failed to get rows: ", err.Error())
+		handleResponse(c, InternalError, "Failed to get rows")
+		return
+	}
+
+	// build query
+	query := `
+		UPDATE store_products SET pack_quantity = ?, unit_quantity = ?, updated_at = now() WHERE id = ?;
+	`
+
+	var count = 0
+	// Process rows
+	for _, row := range rows[1:] {
+		quantity := cast.ToInt(row[10])
+		if quantity > 0 {
+			unitPerPack := cast.ToInt(row[3])
+			packQuantity := utils.NearestRound(float64(quantity) / float64(unitPerPack))
+			err = h.db.Debug().Exec(query, packQuantity, quantity, row[0]).Error
+			if err != nil {
+				h.log.Error("could not update store_products(%s) -> %v", row[0], err)
+			}
+			count++
+		}
+	}
+
+	handleResponse(c, OK, "Successfully updated: "+cast.ToString(count))
+
 }
 
 func copyFile(src, dst string) error {
