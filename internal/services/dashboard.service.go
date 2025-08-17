@@ -621,37 +621,80 @@ func (s *Services) DashboardPayments(param *domain.DashboardQueryParam) ([]domai
 		}
 	}
 
+	// Oldingi davrni hisoblash
+	beforeStart, beforeEnd := utils.BeforeDatesTime(startTime, endTime)
+
 	// Format timestamps for SQL
 	startStr := startTime.Format("2006-01-02 15:04:05")
 	endStr := endTime.Format("2006-01-02 15:04:05")
+	beforeStartStr := beforeStart.Format("2006-01-02 15:04:05")
+	beforeEndStr := beforeEnd.Format("2006-01-02 15:04:05")
 
+	// Query
 	query := `
+	SELECT
+		curr.id,
+		curr.name,
+		curr.amount,
+		curr.count,
+		prev.amount AS previous_amount,
+		ROUND(
+			CASE 
+				WHEN COALESCE(prev.amount, 0) = 0 THEN 100
+				ELSE ((curr.amount - prev.amount) * 100.0) / NULLIF(prev.amount, 0)
+			END, 2
+		) AS percent
+	FROM (
 		SELECT
-			pt.id, pt.name,
+			pt.id,
+			pt.name,
 			SUM(sp.amount) AS amount,
 			COUNT(sp.id) AS count
 		FROM sale_payments sp
 		JOIN payment_types pt ON sp.payment_type_id = pt.id
+		JOIN sales s ON sp.sale_id = s.id
+		WHERE (sp.created_at + interval '5 hours') BETWEEN ? AND ?
+			%s
+		GROUP BY pt.id, pt.name
+	) curr
+	LEFT JOIN (
+		SELECT
+			pt.id,
+			SUM(sp.amount) AS amount
+		FROM sale_payments sp
+		JOIN payment_types pt ON sp.payment_type_id = pt.id
+		JOIN sales s ON sp.sale_id = s.id
+		WHERE (sp.created_at + interval '5 hours') BETWEEN ? AND ?
+			%s
+		GROUP BY pt.id
+	) prev ON curr.id = prev.id
+	ORDER BY curr.amount DESC;
 	`
 
-	join := "JOIN sales s ON sp.sale_id = s.id"
-	filter := " WHERE 1 = 1 "
-	group := " GROUP BY pt.id "
-	order := " ORDER BY amount DESC;"
-	args := []any{}
-
-	// Store filter
+	// Store filter if provided
+	storeFilter := ""
 	if len(param.StoreIds) > 0 {
-		filter += " AND s.store_id IN (?) "
-		join = "JOIN sales s ON sp.sale_id = s.id"
+		storeFilter = " AND s.store_id IN (?) "
+	}
+
+	// Build final query with store filter
+	query = fmt.Sprintf(query, storeFilter, storeFilter)
+
+	// Build args
+	args := []any{
+		// curr
+		startStr, endStr,
+	}
+	if len(param.StoreIds) > 0 {
+		args = append(args, param.StoreIds)
+	}
+	// prev
+	args = append(args, beforeStartStr, beforeEndStr)
+	if len(param.StoreIds) > 0 {
 		args = append(args, param.StoreIds)
 	}
 
-	// Date range filter (with time)
-	filter += " AND (sp.created_at + interval '5 hours') BETWEEN ? AND ? "
-	args = append(args, startStr, endStr)
-
-	query = query + join + filter + group + order
+	// Execute query
 	err = s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting dashboard payment stats: %v", err)
@@ -679,61 +722,139 @@ func (s *Services) DashboardTransaction(param *domain.DashboardQueryParam) ([]do
 		endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
 	}
 
+	// Oldingi davrni hisoblash
+	beforeStart, beforeEnd := utils.BeforeDatesTime(startTime, endTime)
+
 	// Format for SQL
 	startStr := startTime.Format("2006-01-02 15:04:05")
 	endStr := endTime.Format("2006-01-02 15:04:05")
+	beforeStartStr := beforeStart.Format("2006-01-02 15:04:05")
+	beforeEndStr := beforeEnd.Format("2006-01-02 15:04:05")
 
 	res := []domain.DashboardTransaction{}
 
 	// Build WHERE clause for sales
-	args := []any{startStr, endStr}
+	args := []any{startStr, endStr, beforeStartStr, beforeEndStr}
 	whereClause := `s.status = 'completed' AND s.sale_type = 'SALE' AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?`
 
 	if len(param.StoreIds) > 0 {
 		whereClause += ` AND s.store_id IN (?)`
-		args = append(args, param.StoreIds)
+		args = append(args, param.StoreIds, param.StoreIds)
 	}
 
+	// SALES query
 	saleQuery := fmt.Sprintf(`
 	SELECT
 		'Товары' AS name,
-		SUM(sub.total_amount) as amount,
-		COALESCE(ROUND(SUM(sub.quantity + (sub.unit_quantity / 100.0)), 0),0) AS count
+		curr.amount,
+		curr.count,
+		prev.amount AS previous_amount,
+		ROUND(
+			CASE 
+				WHEN COALESCE(prev.amount, 0) = 0 THEN 100
+				ELSE ((curr.amount - prev.amount) * 100.0) / NULLIF(prev.amount, 0)
+			END, 2
+		) AS percent
 	FROM (
-		SELECT s.total_amount, SUM(ci.quantity) as quantity, SUM(ci.unit_quantity) as unit_quantity
+		SELECT
+			SUM(s.total_amount) AS amount,
+			COALESCE(ROUND(SUM(ci.quantity + (ci.unit_quantity / 100.0)), 0), 0) AS count
 		FROM sales s
 		JOIN cart_items ci ON ci.sale_id = s.id
 		WHERE %s
-		GROUP BY s.id, s.total_amount
-	) sub`, whereClause)
+	) curr
+	LEFT JOIN (
+		SELECT
+			SUM(s.total_amount) AS amount
+		FROM sales s
+		JOIN cart_items ci ON ci.sale_id = s.id
+		WHERE s.status = 'completed' AND s.sale_type = 'SALE' 
+			AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?
+			%s
+	) prev ON 1=1
+	`, whereClause,
+		// Store ID condition for previous period if needed
+		func() string {
+			if len(param.StoreIds) > 0 {
+				return "AND s.store_id IN (?)"
+			}
+			return ""
+		}(),
+	)
 
-	// Reset args for returns
-	argsReturn := []any{startStr, endStr}
-	whereClauseReturn := `s.status = 'completed' AND s.sale_type = 'RETURN' AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?`
-
-	if len(param.StoreIds) > 0 {
-		whereClauseReturn += ` AND s.store_id IN (?)`
-		argsReturn = append(argsReturn, param.StoreIds)
-	}
-
+	// RETURN query
 	returnQuery := fmt.Sprintf(`
 	SELECT
 		'Возвраты' AS name,
-		SUM(sub.total_amount) as amount,
-		COALESCE(ROUND(SUM(sub.quantity + (sub.unit_quantity / 100.0)), 0),0) AS count
+		curr.amount,
+		curr.count,
+		prev.amount AS previous_amount,
+		ROUND(
+			CASE 
+				WHEN COALESCE(prev.amount, 0) = 0 THEN 100
+				ELSE ((curr.amount - prev.amount) * 100.0) / NULLIF(prev.amount, 0)
+			END, 2
+		) AS percent
 	FROM (
-		SELECT s.total_amount, SUM(ci.quantity) as quantity, SUM(ci.unit_quantity) as unit_quantity
+		SELECT
+			SUM(s.total_amount) AS amount,
+			COALESCE(ROUND(SUM(ci.quantity + (ci.unit_quantity / 100.0)), 0), 0) AS count
 		FROM sales s
 		JOIN cart_items ci ON ci.sale_id = s.id
-		WHERE %s
-		GROUP BY s.id, s.total_amount
-	) sub`, whereClauseReturn)
+		WHERE s.status = 'completed' AND s.sale_type = 'RETURN'
+			AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?
+			%s
+	) curr
+	LEFT JOIN (
+		SELECT
+			SUM(s.total_amount) AS amount
+		FROM sales s
+		JOIN cart_items ci ON ci.sale_id = s.id
+		WHERE s.status = 'completed' AND s.sale_type = 'RETURN'
+			AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?
+			%s
+	) prev ON 1=1
+	`,
+		func() string {
+			if len(param.StoreIds) > 0 {
+				return "AND s.store_id IN (?)"
+			}
+			return ""
+		}(),
+		func() string {
+			if len(param.StoreIds) > 0 {
+				return "AND s.store_id IN (?)"
+			}
+			return ""
+		}(),
+	)
 
-	// Combine both queries
+	// Combine queries
 	fullQuery := fmt.Sprintf(`%s UNION ALL %s`, saleQuery, returnQuery)
 
-	// Execute query with both sets of arguments
-	err = s.db.Raw(fullQuery, append(args, argsReturn...)...).Scan(&res).Error
+	// Build args (sequence: sales curr, sales prev, returns curr, returns prev)
+	finalArgs := []any{
+		// Sales curr
+		startStr, endStr,
+		// Sales prev
+		beforeStartStr, beforeEndStr,
+	}
+	if len(param.StoreIds) > 0 {
+		finalArgs = append(finalArgs, param.StoreIds, param.StoreIds)
+	}
+	// Returns curr
+	finalArgs = append(finalArgs, startStr, endStr)
+	if len(param.StoreIds) > 0 {
+		finalArgs = append(finalArgs, param.StoreIds)
+	}
+	// Returns prev
+	finalArgs = append(finalArgs, beforeStartStr, beforeEndStr)
+	if len(param.StoreIds) > 0 {
+		finalArgs = append(finalArgs, param.StoreIds)
+	}
+
+	// Execute
+	err = s.db.Raw(fullQuery, finalArgs...).Scan(&res).Error
 	if err != nil {
 		s.log.Error("Error fetching dashboard transaction stats: %v", err)
 		return res, err

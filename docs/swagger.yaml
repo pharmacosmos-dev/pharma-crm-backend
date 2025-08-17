@@ -1073,6 +1073,20 @@ definitions:
       unit_type_id:
         type: string
     type: object
+  domain.RejectedProductRequest:
+    properties:
+      product_id:
+        description: nullable
+        type: string
+      product_name:
+        type: string
+      reason:
+        type: string
+      store_id:
+        type: string
+    required:
+    - store_id
+    type: object
   domain.RepricingRequest:
     properties:
       created_by:
@@ -9937,6 +9951,175 @@ paths:
       summary: Update retail price by 1C
       tags:
       - 1C Api
+  /rejected-products:
+    post:
+      consumes:
+      - application/json
+      description: Create a rejected product
+      parameters:
+      - description: Rejected product request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.RejectedProductRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a rejected product
+      tags:
+      - rejected-products
+  /rejected-products/export-excel:
+    post:
+      description: Export grouped rejected products to Excel
+      parameters:
+      - description: Order
+        in: query
+        name: order
+        type: string
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Export Rejected Products to Excel
+      tags:
+      - rejected-products
+  /rejected-products/list:
+    get:
+      consumes:
+      - application/json
+      description: Get rejected products grouped by store_id and product (id or name)
+        with total count per group
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Product ID
+        in: query
+        name: product_id
+        type: string
+      - description: Product Name
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get rejected products list
+      tags:
+      - rejected-products
+  /rejected-products/products:
+    get:
+      consumes:
+      - application/json
+      description: Get list of products
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get list of products
+      tags:
+      - rejected-products
   /report/bonus:
     post:
       consumes:

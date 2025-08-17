@@ -99,16 +99,20 @@ type DashboardQueryParam struct {
 
 // Dashboard payments structure
 type DashboardPayment struct {
-	Name   string  `gorm:"name" json:"name"`
-	Count  int64   `gorm:"count" json:"count"`
-	Amount float64 `gorm:"amount" json:"amount"`
+	Name                string  `gorm:"name" json:"name"`
+	Count               int64   `gorm:"count" json:"count"`
+	Amount              float64 `gorm:"amount" json:"amount"`
+	Percent             float64 `gorm:"percent" json:"percent"`
+	PreviousTotalAmount float64 `gorm:"previous_total_amount" json:"previous_total_amount"`
 }
 
 // Dashboard transactions structure
 type DashboardTransaction struct {
-	Name   string  `gorm:"name" json:"name"`
-	Count  string  `gorm:"count" json:"count"`
-	Amount float64 `gorm:"amount" json:"amount"`
+	Name                string  `gorm:"name" json:"name"`
+	Count               string  `gorm:"count" json:"count"`
+	Amount              float64 `gorm:"amount" json:"amount"`
+	Percent             float64 `gorm:"percent" json:"percent"`
+	PreviousTotalAmount float64 `gorm:"previous_total_amount" json:"previous_total_amount"`
 }
 
 // Dashboard count stats sale
