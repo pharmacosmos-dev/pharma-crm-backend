@@ -112,6 +112,13 @@ type StoreSummary struct {
 	Total        float64 `json:"total"`
 }
 
+type StoreSummaryStats struct {
+	TotalSaleAmount   float64 `json:"total_sale_amount"`
+	TotalImportAmount float64 `json:"total_import_amount"`
+	TotalStockAmount  float64 `json:"total_stock_amount"`
+	Total             float64 `json:"total"`
+}
+
 type StoreProductsReport struct {
 	ProductID          string  `json:"product_id"`
 	StoreID            string  `json:"store_id"`
@@ -124,4 +131,18 @@ type StoreProductsReport struct {
 	TransferUnitChange float64 `json:"transfer_unit_change"`
 	PackQty            float64 `json:"pack_qty"`
 	UnitQty            float64 `json:"unit_qty"`
+}
+
+type DiscountCardReport struct {
+	Id                   int     `json:"id"`
+	StoreID              string  `json:"store_id"`
+	StoreName            string  `json:"store_name"`
+	CustomerID           string  `json:"customer_id"`
+	CustomerName         string  `json:"customer_name"`
+	CheckCount           int64   `json:"check_count"`
+	Percent              int     `json:"percent"`
+	TotalWithoutDiscount float64 `json:"total_without_discount"`
+	TotalDiscount        float64 `json:"total_discount"`
+	TotalWithDiscount    float64 `json:"total_with_discount"`
+	TotalCount           int64   `json:"-"`
 }

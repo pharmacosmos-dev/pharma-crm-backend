@@ -48,8 +48,10 @@ func (h *ReportHandler) ReportRoutes(r *gin.RouterGroup) {
 		report.POST("/bonus-products", h.ReportBonusProducts)
 		report.POST("/bonus-products/export-excel", h.BonusProductsExportExcel)
 		report.POST("/store-summary", h.ReportStoreSummary)
+		report.POST("/store-summary-stats", h.ReportStoreSummaryStats)
 		report.POST("/store-summary/export-excel", h.StoreSummaryExportExcel)
 		report.POST("/store-products-given-day", h.StoreProductsGivenDay)
+		report.POST("/discount-card", h.DiscountCardReport)
 	}
 }
 
@@ -1195,6 +1197,45 @@ func (h *ReportHandler) ReportStoreSummary(c *gin.Context) {
 	handleResponse(c, OK, result)
 }
 
+// ReportStoreSummaryStats godoc
+// @Summary Get daily store summary stats
+// @Description Returns sales, stock and import summary of stores
+// @Tags Report
+// @Security BearerAuth
+// @Produce json
+// @Param   order       query string false "Order"
+// @Param   search      query string false "Search"
+// @Param   limit       query int false "Limit"
+// @Param   offset      query int false "Offset"
+// @Param   start_date  query string false "Start Date"
+// @Param   end_date    query string false "End Date"
+// @Param   store_id    query string false "Store ID"
+// @Param   store_ids   body  []string false "List of Store IDs"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /report/store-summary-stats [POST]
+func (h *ReportHandler) ReportStoreSummaryStats(c *gin.Context) {
+	var param domain.ReportQueryParam
+
+	// bind query parameters
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "Invalid query parameters")
+		return
+	}
+
+	_ = c.ShouldBindJSON(&param.StoreIds)
+
+	// call service layer
+	data, err := h.service.ReportStoreSummaryStats(&param)
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to get store summary stats")
+		return
+	}
+
+	handleResponse(c, OK, data)
+}
+
 // Store Summary Export godoc
 // @Summary Export Store Summary to Excel
 // @Description Export Store Summary to Excel
@@ -1294,4 +1335,47 @@ func (h *ReportHandler) StoreProductsGivenDay(c *gin.Context) {
 
 	result := utils.ListResponse(data, total, param.Limit, param.Offset)
 	handleResponse(c, OK, result)
+}
+
+// Discount card report godoc
+// @Summary Get discount card report
+// @Description Get discount card report
+// @Tags Report
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param 	limit query int false "Limit"
+// @Param 	offset query int false "Offset"
+// @Param   start_date query string false "Start Date"
+// @Param   end_date query string false "End Date"
+// @Param   search query string false "Search (customer full name)"
+// @Param   store_ids body []string false "Store ids"
+// @Param   order query string false "every field in response is sorted by this field")
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /report/discount-card [POST]
+func (h *ReportHandler) DiscountCardReport(c *gin.Context) {
+	var param domain.ReportQueryParam
+	// bind query param
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "Invalid query parameters")
+		return
+	}
+	// bind store_ids
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&param.StoreIds)
+	}
+	// get default limit and offset
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	// service call
+	res, totalCount, err := h.service.DiscountCardReport(&param)
+	if err != nil {
+		handleResponse(c, InternalError, "Can't get discount card report")
+		return
+	}
+
+	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+	handleResponse(c, OK, data)
 }

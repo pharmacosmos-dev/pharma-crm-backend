@@ -1195,6 +1195,101 @@ func (s *Services) ReportStoreSummary(param *domain.ReportQueryParam) ([]domain.
 
 	return res, total, nil
 }
+func (s *Services) ReportStoreSummaryStats(param *domain.ReportQueryParam) (domain.StoreSummaryStats, error) {
+	var (
+		res       domain.StoreSummaryStats
+		args      []any
+		startTime time.Time
+		endTime   time.Time
+		err       error
+	)
+
+	startTime, err = time.Parse(time.RFC3339, param.StartDate)
+	if err != nil {
+		s.log.Error("Invalid start_date format: %v", err)
+		return res, err
+	}
+	if param.EndDate != "" {
+		endTime, err = time.Parse(time.RFC3339, param.EndDate)
+		if err != nil {
+			s.log.Error("Invalid end_date format: %v", err)
+			return res, err
+		}
+	} else {
+		endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+		param.EndDate = endTime.Format(time.RFC3339)
+	}
+
+	query := `
+	WITH sale_cte AS (
+		SELECT
+			store_id,
+			SUM(CASE
+					WHEN (completed_at + interval '5 hours') BETWEEN ? AND ?
+						THEN CASE
+								WHEN sale_type = 'SALE' THEN total_amount
+								WHEN sale_type = 'RETURN' THEN -total_amount
+							END
+					ELSE 0
+				END) AS sale_amount
+		FROM sales
+		WHERE status = 'completed'
+		GROUP BY store_id
+	),
+	import_cte AS (
+		SELECT
+			im.store_id,
+			COALESCE(SUM(CASE
+							 WHEN (im.created_at) BETWEEN ? AND ?
+							 THEN imd.received_count * imd.retail_price_vat
+							 ELSE 0
+						 END), 0) AS import_amount
+		FROM import_details imd
+				 JOIN imports im ON imd.import_id = im.id
+		WHERE im.status = 'new' AND im.entry_type = 1
+		GROUP BY im.store_id
+	),
+	stock_cte AS (
+		SELECT
+			sp.store_id,
+			ROUND(SUM(sp.pack_quantity * sp.retail_price) +
+				  SUM((sp.retail_price / p.unit_per_pack) * (sp.unit_quantity % p.unit_per_pack)), 2) AS stock_amount
+		FROM store_products sp
+				 JOIN products p ON sp.product_id = p.id
+		GROUP BY sp.store_id
+	),
+	store_summary AS (
+		SELECT
+			st.id,
+			COALESCE(s.sale_amount, 0) AS sale_amount,
+			COALESCE(i.import_amount, 0) AS import_amount,
+			COALESCE(k.stock_amount, 0) AS stock_amount,
+			ROUND(COALESCE(s.sale_amount, 0) + COALESCE(i.import_amount, 0) + COALESCE(k.stock_amount, 0), 2) AS total
+		FROM stores st
+		LEFT JOIN sale_cte s ON st.id = s.store_id
+		LEFT JOIN import_cte i ON st.id = i.store_id
+		LEFT JOIN stock_cte k ON st.id = k.store_id
+		WHERE st.is_active = true
+	)
+	SELECT
+		SUM(sale_amount) AS total_sale_amount,
+		SUM(import_amount) AS total_import_amount,
+		SUM(stock_amount) AS total_stock_amount,
+		SUM(total) AS total
+	FROM store_summary
+	`
+
+	args = append(args, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339)) // sales
+	args = append(args, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339)) // imports
+
+	err = s.db.Raw(query, args...).Scan(&res).Error
+	if err != nil {
+		s.log.Error("Failed to get store summary stats: ", err)
+		return res, err
+	}
+
+	return res, nil
+}
 
 func (s *Services) StoreProductsGivenDay(param *domain.ReportQueryParam) ([]domain.StoreProductsReport, int64, error) {
 	var (
@@ -1354,4 +1449,73 @@ func (s *Services) StoreProductsGivenDay(param *domain.ReportQueryParam) ([]doma
 	}
 
 	return res, total, nil
+}
+
+func (s *Services) DiscountCardReport(param *domain.ReportQueryParam) ([]domain.DiscountCardReport, int64, error) {
+	var (
+		res        []domain.DiscountCardReport
+		totalCount int64
+		args       []any
+	)
+
+	query := `
+		SELECT
+		    ROW_NUMBER() OVER(ORDER BY s.id) as id,
+    		s.id as store_id,
+    		s.name AS store_name,
+    		c.id as customer_id,
+    		c.full_name AS customer_name,
+    		COUNT(DISTINCT sa.id) AS check_count,
+    		MAX(dc.percent) as percent,
+			ROUND(SUM(sa.total_amount + sa.total_discount), 2) AS total_without_discount,
+			ROUND(SUM(sa.total_discount), 2) AS total_discount,
+			ROUND(SUM(sa.total_amount), 2) AS total_with_discount,
+			COUNT(*) OVER() AS total_count
+		FROM sales sa
+		JOIN customers c ON sa.customer_id = c.id
+		JOIN stores s ON sa.store_id = s.id
+        LEFT JOIN discount_cards dc on c.id = dc.customer_id
+	`
+
+	filter := " WHERE sa.status = 'completed' AND sa.sale_type = 'SALE' "
+	group := " GROUP BY s.id, s.name, c.id, c.full_name "
+	order := utils.BuildDiscountCardOrderClause(param.Order)
+
+	// Store filter
+	if len(param.StoreIds) > 0 {
+		filter += " AND s.id IN (?)"
+		args = append(args, param.StoreIds)
+	}
+
+	// Search filter (by customer name)
+	if param.Search != "" {
+		search := "%" + param.Search + "%"
+		filter += " AND (c.full_name ILIKE ?)"
+		args = append(args, search)
+	}
+
+	// Date filter
+	if param.StartDate != "" && param.EndDate != "" {
+		filter += " AND sa.completed_at BETWEEN ? AND ?"
+		args = append(args, param.StartDate, param.EndDate)
+	} else if param.StartDate != "" {
+		filter += " AND sa.completed_at >= ?"
+		args = append(args, param.StartDate)
+	}
+
+	// Final query
+	finalQuery := query + filter + group + order + " LIMIT ? OFFSET ?"
+	args = append(args, param.Limit, param.Offset)
+
+	err := s.db.Raw(finalQuery, args...).Scan(&res).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting discount card report: %v", err)
+		return res, 0, err
+	}
+
+	if len(res) > 0 {
+		totalCount = res[0].TotalCount
+	}
+
+	return res, totalCount, nil
 }

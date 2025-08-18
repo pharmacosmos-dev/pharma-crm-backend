@@ -500,3 +500,35 @@ func BuildProductOrderClause(orderField string) string {
 	// Default fallback
 	return " ORDER BY b.product_id"
 }
+
+func BuildDiscountCardOrderClause(orderField string) string {
+	allowedFields := map[string]string{
+		"check_count":            "check_count",
+		"total_without_discount": "total_without_discount",
+		"total_discount":         "total_discount",
+		"total_with_discount":    "total_with_discount",
+		"percent":                "percent",
+		"customer_name":          "customer_name",
+		"store_name":             "store_name",
+	}
+
+	if orderField == "" {
+		return " ORDER BY check_count DESC "
+	}
+
+	direction := "ASC"
+	field := orderField
+
+	if strings.HasPrefix(orderField, "-") {
+		direction = "DESC"
+		field = strings.TrimPrefix(orderField, "-")
+	} else if strings.HasPrefix(orderField, "+") {
+		field = strings.TrimPrefix(orderField, "+")
+	}
+
+	if dbColumn, ok := allowedFields[field]; ok {
+		return fmt.Sprintf(" ORDER BY %s %s", dbColumn, direction)
+	}
+
+	return " ORDER BY check_count DESC "
+}
