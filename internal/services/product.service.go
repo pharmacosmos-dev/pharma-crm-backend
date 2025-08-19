@@ -334,13 +334,25 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 		p.unit_label, p.created_at, p.updated_at,
 		pr.name AS manufacturer, u.unit_name, u.short_name,
 		%s
-    	CONCAT(SUM(sp.unit_quantity)/p.unit_per_pack,'(', SUM(sp.unit_quantity) %s p.unit_per_pack, '/', p.unit_per_pack, ')') AS units,
+		CASE
+		    WHEN COALESCE((SUM(sp.unit_quantity) %s p.unit_per_pack), 0) = 0
+		        THEN COALESCE(SUM(sp.unit_quantity) / p.unit_per_pack,0)::text
+		    ELSE 
+		        CONCAT(
+		            (SUM(sp.unit_quantity) / p.unit_per_pack)::text,
+		            ' (',
+		            COALESCE((SUM(sp.unit_quantity) %s p.unit_per_pack),0)::text,
+		            '/',
+		            p.unit_per_pack::text,
+		            ')'
+		        )
+		END AS units,
 		COUNT(1) OVER() AS total_count
 	FROM store_products sp
 	RIGHT JOIN products p ON sp.product_id = p.id
 	LEFT JOIN producers pr ON p.producer_id = pr.id
 	LEFT JOIN unit_types u ON p.unit_type_id = u.id
-	`, expireDayPart, "%")
+	`, expireDayPart, "%", "%")
 
 	// collect query
 	query += filter + group + order + " LIMIT ? OFFSET ?"
