@@ -368,7 +368,7 @@ func (s *Services) DeductStoreProductQuantities(ctx context.Context, tx *gorm.DB
 			return err
 		}
 		// add employee bonus
-		if item.BonusAmount > 0 {
+		if item.BonusAmount > 0 && sale.SaleType == config.SALE_TYPE_SALE {
 			bonusAmount += item.BonusAmount * float64(item.Quantity)
 			if item.UnitPerPack > 0 && item.UnitQuantity > 0 {
 				bonusAmount += item.BonusAmount / float64(item.UnitPerPack) * float64(item.UnitQuantity)
@@ -420,7 +420,7 @@ func (s *Services) RestoreStoreProductQuantities(ctx context.Context, tx *gorm.D
 		UPDATE 
 			store_products
 		SET
-			pack_quantity = store_products.pack_quantity + ?,
+			pack_quantity = FLOOR((? + store_products.unit_quantity + (? * products.unit_per_pack)) / products.unit_per_pack),
 			unit_quantity = store_products.unit_quantity + (? * products.unit_per_pack + ?), 
 			updated_at = NOW()
 		FROM 
@@ -428,6 +428,7 @@ func (s *Services) RestoreStoreProductQuantities(ctx context.Context, tx *gorm.D
 		WHERE 
 			products.id = store_products.product_id AND  
 			store_products.id = ?`,
+			item.UnitQuantity,
 			item.Quantity,
 			item.Quantity,
 			item.UnitQuantity,

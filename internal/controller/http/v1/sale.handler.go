@@ -883,12 +883,22 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 			handleResponse(c, InternalError, err.Error())
 			return
 		}
-		// return sale status and quantities
-		err = h.service.ReturnSale(ctx, tx, sale)
-		if err != nil {
-			h.log.Warn("Failed to update sale status: %v", err)
-			handleResponse(c, InternalError, "Failed to update sale status")
-			return
+		if sale.SaleType == config.SALE_TYPE_SALE {
+			// return sale status and quantities
+			err = h.service.ReturnSale(ctx, tx, sale)
+			if err != nil {
+				h.log.Warn("Failed to update sale status: %v", err)
+				handleResponse(c, InternalError, "Failed to update sale status")
+				return
+			}
+		} else if sale.SaleType == config.SALE_TYPE_RETURN {
+			// return sale status and quantities
+			err = h.service.DeductStoreProductQuantities(ctx, tx, sale)
+			if err != nil {
+				h.log.Warn("ERROR on reducing store_product quantity: %v", err)
+				handleResponse(c, InternalError, "Failed to update sale status")
+				return
+			}
 		}
 	} else {
 		// Save to epos_responses table
@@ -950,8 +960,8 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 			}
 		}
 		var res *domain.Sale
-		// create or get sale
 
+		// create or get sale
 		res, err = h.service.CreateOrGetSale(ctx, tx, &domain.SaleRequest{
 			EmployeeID:         userId.(string),
 			StoreId:            sale.StoreId,
