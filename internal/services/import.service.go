@@ -554,10 +554,10 @@ func (s *Services) ListImportDetail(param *domain.ImportDetailQueryParams) ([]do
 
 	if param.Search != "" {
 		param.Search = fmt.Sprintf("%%%s%%", param.Search)
-		query = query.Where(`
+		query = query.Where(`(
 		products.barcode LIKE ? OR
 		products.name ILIKE ? OR
-		CAST(products.material_code AS TEXT) LIKE ?`, param.Search, param.Search, param.Search)
+		CAST(products.material_code AS TEXT) LIKE ?)`, param.Search, param.Search, param.Search)
 	}
 	if param.ReceivedAmountFrom > 0 {
 		query = query.Where("import_details.received_amount >= ?", param.ReceivedAmountFrom)
@@ -573,7 +573,7 @@ func (s *Services) ListImportDetail(param *domain.ImportDetailQueryParams) ([]do
 	if param.NoMarking {
 		query = query.Where("array_length(import_details.marking, 1) IS NULL OR array_length(import_details.marking, 1) = 0")
 	}
-	err := query.
+	err := query.Debug().
 		Count(&totalCount).
 		Limit(param.Limit).
 		Offset(param.Offset).
@@ -583,6 +583,7 @@ func (s *Services) ListImportDetail(param *domain.ImportDetailQueryParams) ([]do
 		s.log.Error(err)
 		return nil, 0, err
 	}
+	fmt.Println(totalCount, "and", len(importDetails))
 	return importDetails, totalCount, nil
 }
 
