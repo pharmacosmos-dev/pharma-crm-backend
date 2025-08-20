@@ -444,7 +444,7 @@ func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
 	if cashboxOperation.ID != "" {
 		// Check for a pending sale linked to this cashbox operation
 		var sale *domain.Sale
-		sale, err = h.service.CreateOrGetSalePending(h.db, &domain.SaleRequest{
+		sale, err = h.service.CreateSale(h.db, &domain.SaleRequest{
 			CashBoxOperationId: cashboxOperation.ID,
 			EmployeeID:         userID.(string),
 			StoreId:            storeId,

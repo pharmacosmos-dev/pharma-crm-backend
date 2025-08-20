@@ -962,7 +962,7 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 		var res *domain.Sale
 
 		// create or get sale
-		res, err = h.service.CreateOrGetSale(ctx, tx, &domain.SaleRequest{
+		res, err = h.service.CreateSale(tx, &domain.SaleRequest{
 			EmployeeID:         userId.(string),
 			StoreId:            sale.StoreId,
 			CashBoxOperationId: sale.CashBoxOperationId,

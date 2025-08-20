@@ -138,7 +138,7 @@ func (h *DraftHandler) Create(c *gin.Context) {
 		return
 	}
 	// create or get sale
-	res, err := h.service.CreateOrGetSale(ctx, tx, &domain.SaleRequest{
+	res, err := h.service.CreateSale(tx, &domain.SaleRequest{
 		EmployeeID:         body.CreatedBy,
 		CashBoxOperationId: saleInfo.CashBoxOperationId,
 		StoreId:            saleInfo.StoreId,
