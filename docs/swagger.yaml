@@ -38,6 +38,15 @@ definitions:
       store_code:
         type: integer
     type: object
+  domain.AptekaWithProductsRepricing:
+    properties:
+      Apteka:
+        $ref: '#/definitions/domain.Apteka'
+      Товары:
+        items:
+          $ref: '#/definitions/domain.ProductRepricingRequest'
+        type: array
+    type: object
   domain.AutoOrderRequest:
     properties:
       auto_order_date:
@@ -684,6 +693,15 @@ definitions:
         type: integer
       product_id:
         type: string
+    type: object
+  domain.MultiRepricingRequest1C:
+    properties:
+      Aptekas:
+        items:
+          $ref: '#/definitions/domain.AptekaWithProductsRepricing'
+        type: array
+      Dok:
+        $ref: '#/definitions/domain.Document'
     type: object
   domain.NoorCategory:
     properties:
@@ -9916,6 +9934,38 @@ paths:
       security:
       - BearerAuth: []
       summary: Get product list by store_code
+      tags:
+      - 1C Api
+  /product1c/multi-repricing:
+    post:
+      consumes:
+      - application/json
+      description: Update retail price by 1C for multiple aptekas
+      parameters:
+      - description: repricing request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/domain.MultiRepricingRequest1C'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update retail price by 1C (multi-apteka)
       tags:
       - 1C Api
   /product1c/quantity:

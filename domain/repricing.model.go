@@ -110,3 +110,14 @@ type ProductUpdateQuantityRequest struct {
 	AcceptedCount  float64 `gorm:"accepted_count" json:"accepted_count"`
 	GivenCount     float64 `gorm:"given_count" json:"given_count"`
 }
+
+// Multi repricing
+type MultiRepricingRequest1C struct {
+	Dok     Document                      `json:"Dok"`
+	Aptekas []AptekaWithProductsRepricing `json:"Aptekas"`
+}
+
+type AptekaWithProductsRepricing struct {
+	Apteka Apteka                    `json:"Apteka"`
+	Товары []ProductRepricingRequest `json:"Товары"`
+}

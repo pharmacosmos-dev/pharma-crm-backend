@@ -30,6 +30,7 @@ func (h *Product1cHandler) Product1cRoutes(r *gin.RouterGroup) {
 		group1C.POST("", h.Create)
 		group1C.GET("/list", h.ListProductByStoreCode)
 		group1C.POST("/repricing", h.ProductRepricing)
+		group1C.POST("/multi-repricing", h.MultiProductRepricing)
 		group1C.POST("/quantity", h.UpdateQuantity)
 	}
 }
@@ -338,7 +339,8 @@ func (h *Product1cHandler) ProductRepricing(c *gin.Context) {
 	var products []domain.PriceRevalutionDetailRequest
 	for _, v := range body.Товары {
 		// get product_id by material_code
-		productID, err := h.service.GetProductIDByCode(int64(v.MaterialCode))
+		var productID string
+		productID, err = h.service.GetProductIDByCode(int64(v.MaterialCode))
 		if err != nil {
 			h.log.Warn("ERROR on getting product_id by material_code: %v", err)
 		}
@@ -408,5 +410,132 @@ func (h *Product1cHandler) UpdateQuantity(c *gin.Context) {
 		handleResponse(c, InternalError, "Can't update quantity")
 		return
 	}
+	handleResponse(c, OK, "UPDATED")
+}
+
+// MultiProductRepricing godoc
+// Update retail price by 1C for multiple aptekas
+// @Summary Update retail price by 1C (multi-apteka)
+// @Description Update retail price by 1C for multiple aptekas
+// @Tags 	1C Api
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param 	request body domain.MultiRepricingRequest1C true "repricing request"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product1c/multi-repricing [POST]
+func (h *Product1cHandler) MultiProductRepricing(c *gin.Context) {
+	var (
+		body domain.MultiRepricingRequest1C
+		err  error
+	)
+
+	// bind request body
+	if err = c.ShouldBindJSON(&body); err != nil {
+		h.log.Warn("ERROR on binding request body: %v", err)
+		handleResponse(c, BadRequest, "invalid.request.body")
+		return
+	}
+
+	if len(body.Aptekas) < 1 {
+		handleResponse(c, BadRequest, "received.empty.aptekas")
+		return
+	}
+
+	// start transaction (bitta hujjat bo‘yicha umumiy transaction)
+	tx := h.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	for _, aptekaReq := range body.Aptekas {
+		// get store info
+		var store domain.Store
+		if err = tx.First(&store, "store_code = ?", aptekaReq.Apteka.StoreCode).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				handleResponse(c, NotFound, "store.not.found")
+				return
+			}
+			h.log.Warn("ERROR on getting store info: %v", err)
+			handleResponse(c, InternalError, "failed.to.get.store")
+			return
+		}
+
+		if len(aptekaReq.Товары) < 1 {
+			continue // skip empty products
+		}
+
+		// check if price revalution already exists
+		var res *domain.PriceRevalution
+		err = tx.First(&res, "name = ? AND store_id = ?", body.Dok.DocumentNumber, store.Id).Error
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				// create new price revalution for this store
+				res, err = h.service.CreateRepricingBy1C(tx, &domain.RepricingRequest{
+					Name:      body.Dok.DocumentNumber,
+					StoreId:   store.Id,
+					CreatedBy: nil,
+					Type:      "retail_price",
+					Status:    config.COMPLETED,
+				})
+				if err != nil {
+					h.log.Warn("ERROR on creating price_revalution: %v", err)
+					handleResponse(c, InternalError, "failed.to.create.repricing")
+					return
+				}
+			}
+		}
+
+		// collect details
+		var products []domain.PriceRevalutionDetailRequest
+		for _, v := range aptekaReq.Товары {
+			// get product_id by material_code
+			var productID string
+			productID, err = h.service.GetProductIDByCode(int64(v.MaterialCode))
+			if err != nil {
+				h.log.Warn("ERROR on getting product_id: %v", err)
+			}
+
+			// update retail price
+			if err = h.service.UpdateRetailPrice(v.Id, v.NewRetailPrice); err != nil {
+				h.log.Warn("ERROR on updating retail_price: %v", err)
+				handleResponse(c, InternalError, "failed.update.retail_price")
+				return
+			}
+
+			products = append(products, domain.PriceRevalutionDetailRequest{
+				PriceRevalutionId: res.Id,
+				ProductID:         productID,
+				StoreProductID:    v.Id,
+				OldRetailPrice:    v.RetailPrice,
+				NewRetailPrice:    v.NewRetailPrice,
+				OldSupplyPrice:    v.SupplyPrice,
+				OldExpireDate:     v.ExpireDate,
+				SerialNumber:      v.SerialNumber,
+			})
+		}
+
+		// create details
+		if err = h.service.CreatePriceRevalutionDetail(tx, products); err != nil {
+			handleResponse(c, InternalError, "failed.to.create.repricing.details")
+			return
+		}
+	}
+
+	// commit transaction
+	if err = tx.Commit().Error; err != nil {
+		handleResponse(c, InternalError, "not.committed.transaction")
+		return
+	}
+
 	handleResponse(c, OK, "UPDATED")
 }

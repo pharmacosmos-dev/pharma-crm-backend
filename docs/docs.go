@@ -13168,6 +13168,57 @@ const docTemplate = `{
                 }
             }
         },
+        "/product1c/multi-repricing": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update retail price by 1C for multiple aptekas",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "1C Api"
+                ],
+                "summary": "Update retail price by 1C (multi-apteka)",
+                "parameters": [
+                    {
+                        "description": "repricing request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.MultiRepricingRequest1C"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/product1c/quantity": {
             "post": {
                 "security": [
@@ -22169,6 +22220,20 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.AptekaWithProductsRepricing": {
+            "type": "object",
+            "properties": {
+                "Apteka": {
+                    "$ref": "#/definitions/domain.Apteka"
+                },
+                "Товары": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.ProductRepricingRequest"
+                    }
+                }
+            }
+        },
         "domain.AutoOrderRequest": {
             "type": "object",
             "properties": {
@@ -23146,6 +23211,20 @@ const docTemplate = `{
                 },
                 "product_id": {
                     "type": "string"
+                }
+            }
+        },
+        "domain.MultiRepricingRequest1C": {
+            "type": "object",
+            "properties": {
+                "Aptekas": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.AptekaWithProductsRepricing"
+                    }
+                },
+                "Dok": {
+                    "$ref": "#/definitions/domain.Document"
                 }
             }
         },
