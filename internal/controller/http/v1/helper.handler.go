@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -291,26 +292,22 @@ func (h *HelperHandler) CorrectMXIK(c *gin.Context) {
 
 	// build query
 	query := `
-	UPDATE products SET mxik = ?, is_marking = ? WHERE material_code = ?
+	UPDATE products SET mxik = ?, unit_code = ?, updated_at = now() WHERE material_code = ?
 	`
 	var count = 0
 	// Process rows
 	for _, row := range rows[1:] {
-		if len(row) > 8 {
-			if row[5] != "" && row[5] != "#N/A" && row[2] == "Да" {
+		if len(row) > 3 {
+			err := h.db.Debug().Exec(query, strings.TrimSpace(row[2]), strings.TrimSpace(row[3]), strings.TrimSpace(row[0])).Error
+			if err != nil {
+				h.log.Error("could not updated product(%s) mxik(%s): %v", strings.TrimSpace(row[2]), err)
+			} else {
 				count++
-				// // create measurements
-				err = h.db.Exec(query, row[4], true, parseIntComma(row[1])).Error
-				if err != nil {
-					h.log.Error(err)
-					handleResponse(c, InternalError, err.Error())
-					return
-				}
 			}
 		}
 
 	}
-	handleResponse(c, OK, "Products MXIK CODE uploaded successfully: ")
+	handleResponse(c, OK, "UPDATED: "+strconv.Itoa(count))
 }
 
 // Epos transmitter godoc
