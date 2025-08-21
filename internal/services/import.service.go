@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"net/http"
 	"time"
 
@@ -165,7 +164,7 @@ func (s *Services) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domai
 				importData.StoreID,
 				item.ProductID,
 				utils.NearestRound(item.ScannedCount),
-				math.Round(item.ScannedCount*float64(item.UnitPerPack)),
+				utils.NearestRound(item.ScannedCount*float64(item.UnitPerPack)),
 				item.SupplyPriceVat,
 				item.RetailPriceVat,
 				item.Vat, item.ExpireDate,
@@ -257,7 +256,7 @@ func (s *Services) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import)
 				importData.StoreID,
 				item.ProductID,
 				utils.NearestRound(item.ReceivedCount),
-				math.Round(item.ReceivedCount*float64(item.UnitPerPack)),
+				utils.NearestRound(item.ReceivedCount*float64(item.UnitPerPack)),
 				item.SupplyPriceVat,
 				item.RetailPriceVat,
 				item.Vat,
@@ -476,7 +475,7 @@ func (s *Services) ListImportStatus(c *gin.Context) (*domain.ImportStatusSummary
 		WHERE imports.entry_type = 1
 	`
 
-	var args []interface{}
+	var args []any
 
 	if storeID != "" {
 		query += " AND imports.store_id = ?"

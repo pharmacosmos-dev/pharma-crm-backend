@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"time"
 
 	"github.com/pharma-crm-backend/config"
@@ -601,7 +600,7 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 				pack_quantity = ?, 
 				unit_quantity = ? 
 			WHERE id = ?;`,
-				int(math.Round(imd.ScannedCount/float64(imd.UnitPerPack))),
+				utils.NearestRound(imd.ScannedCount/float64(imd.UnitPerPack)),
 				imd.ScannedCount,
 				imd.StoreProductId).Error
 			if err != nil {
