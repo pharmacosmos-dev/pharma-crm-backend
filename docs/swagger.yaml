@@ -5664,6 +5664,37 @@ paths:
       summary: Set product photos
       tags:
       - helper
+  /helper/update-product-info:
+    post:
+      consumes:
+      - application/json
+      description: update product infos
+      parameters:
+      - description: Excel file (.xlsx) containing product data
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: update product infos
+      tags:
+      - helper
   /helper/upload-category:
     post:
       consumes:

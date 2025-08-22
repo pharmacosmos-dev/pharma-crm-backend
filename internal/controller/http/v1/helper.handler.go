@@ -51,6 +51,7 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		helper.POST("/product-kvant", h.UploadProductKvant)
 		helper.POST("/set-product-photo", h.SetProductPhoto)
 		helper.POST("/fix-product-quantity", h.FixProductQuantity)
+		helper.POST("/update-product-info", h.UpdateProductInfo)
 	}
 }
 
@@ -1329,6 +1330,166 @@ func (h *HelperHandler) FixProductQuantity(c *gin.Context) {
 
 	handleResponse(c, OK, "Successfully updated: "+cast.ToString(count))
 
+}
+
+// UpdateProductInfo godoc
+// @Summary update product infos
+// @Description update product infos
+// @Tags helper
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param 	file formData file true "Excel file (.xlsx) containing product data"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /helper/update-product-info [POST]
+func (h *HelperHandler) UpdateProductInfo(c *gin.Context) {
+	var (
+		file domain.File
+		err  error
+	)
+	// bind request file
+	if err = c.ShouldBind(&file); err != nil {
+		h.log.Error("Failed to bind file: ", err.Error())
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		h.log.Error("Unsupported file format: ", ext)
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+
+	// Save the uploaded file
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+	err = c.SaveUploadedFile(file.File, savePath)
+	if err != nil {
+		h.log.Error("Failed to save file: ", err.Error())
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+
+	// defer os.Remove(savePath)
+	// Open the Excel file
+	xlsx, err := excelize.OpenFile(savePath)
+	if err != nil {
+		h.log.Error("Failed to open .xlsx file: ", err.Error())
+		handleResponse(c, BadRequest, "Failed to process file")
+		return
+	}
+	defer xlsx.Close()
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		h.log.Error("Failed to get rows: ", err.Error())
+		handleResponse(c, InternalError, "Failed to get rows")
+		return
+	}
+
+	// build query
+	query := `
+	UPDATE products
+	SET 
+		name_uz = ?, name_ru = ?, name_kr = ?, 
+		photos = ?, unit_code = ?,
+		description_ru = ?, description_uz = ?, description_kr = ?,
+		trade_name_ru = ?, trade_name_uz = ?, trade_name_kr = ?,
+		composition_uz = ?, composition_ru = ?, composition_kr = ?,
+		pharmacotherapeutic_group_uz = ?, pharmacotherapeutic_group_ru = ?, pharmacotherapeutic_group_kr = ?,
+		indications_for_use_ru = ?, indications_for_use_uz = ?, indications_for_use_kr = ?,
+		dosage_and_how_to_take_ru = ?, dosage_and_how_to_take_uz = ?, dosage_and_how_to_take_kr = ?,
+		contraindications_uz = ?, contraindications_ru = ?, contraindications_kr = ?,
+		side_effects_ru = ?, side_effects_uz = ?, side_effects_kr = ?,
+		special_instructions_ru = ?, special_instructions_uz = ?, special_instructions_kr = ?,
+		slug = ?, brand_name = ?, updated_at = now()
+	WHERE mxik = ?;
+	`
+
+	var count = 0
+	// Process rows
+	for _, row := range rows[1:] {
+		fmt.Println("LENG: ", len(row))
+		if len(row) > 40 {
+			// --- image handle ---
+			var photos utils.StringArray
+			if row[5] != "" {
+				localPath, err := DownloadAndSaveImage(row[5], "uploads")
+				if err != nil {
+					h.log.Error("image download error: ", err)
+				} else if localPath != "" {
+					photos = append(photos, localPath)
+				}
+			}
+
+			err = h.db.Debug().Exec(query,
+				row[2], row[3], row[4],
+				utils.StringArray(photos), row[38],
+				row[7], row[8], row[9],
+				row[10], row[11], row[12],
+				row[13], row[14], row[15],
+				row[16], row[17], row[18],
+				row[19], row[20], row[21],
+				row[22], row[23], row[24],
+				row[25], row[26], row[27],
+				row[28], row[29], row[30],
+				row[31], row[32], row[33],
+				row[34], row[40],
+				row[35],
+			).Error
+			if err != nil {
+				h.log.Error("could not update store_products(%s) -> %v", row[0], err)
+			}
+			count++
+		}
+	}
+
+	handleResponse(c, OK, "Successfully updated: "+cast.ToString(count))
+}
+
+func DownloadAndSaveImage(url string, uploadDir string) (string, error) {
+	if url == "" {
+		return "", nil
+	}
+
+	// extension olish (.jpg, .png, .webp va h.k.)
+	ext := filepath.Ext(url)
+	if ext == "" || len(ext) > 5 {
+		ext = ".jpg" // default
+	}
+
+	newImgName := uuid.New().String() + ext
+	localPath := filepath.Join(uploadDir, newImgName)
+
+	// HTTP orqali yuklab olish
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", fmt.Errorf("failed to download image: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// uploads papkasini borligini tekshirish
+	if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
+		if err := os.MkdirAll(uploadDir, 0755); err != nil {
+			return "", fmt.Errorf("failed to create upload dir: %w", err)
+		}
+	}
+
+	out, err := os.Create(localPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to create file: %w", err)
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to save image: %w", err)
+	}
+
+	return newImgName, nil
 }
 
 func copyFile(src, dst string) error {
