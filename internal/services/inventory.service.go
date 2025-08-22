@@ -537,11 +537,11 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 		pr.code AS producer_code
 	FROM 
 		import_details imd
-	JOIN 
+	JOIN
 		products p ON imd.product_id = p.id
-	LEFT JOIN 
+	LEFT JOIN
 		producers pr ON p.producer_id = pr.id
-	WHERE 
+	WHERE
 		imd.import_id = ? AND imd.received_count != imd.scanned_count
 	`
 	// execute get import details as inventory details
@@ -569,7 +569,7 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 	SELECT
 		imd.product_id,
 		?,
-		ROUND((imd.scanned_count - imd.received_count)/p.unit_per_pack),
+		FLOOR((imd.scanned_count - imd.received_count)/p.unit_per_pack),
 		imd.scanned_count - imd.received_count,
 		imd.retail_price_vat,
 		imd.supply_price_vat,
@@ -600,7 +600,7 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 				pack_quantity = ?, 
 				unit_quantity = ? 
 			WHERE id = ?;`,
-				utils.NearestRound(imd.ScannedCount/float64(imd.UnitPerPack)),
+				int(imd.ScannedCount/float64(imd.UnitPerPack)),
 				imd.ScannedCount,
 				imd.StoreProductId).Error
 			if err != nil {
