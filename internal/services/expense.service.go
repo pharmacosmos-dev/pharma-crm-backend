@@ -132,6 +132,7 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string) error {
 	var expenseData domain.SendExpense
 	expenseData.Store.StoreCode = store.StoreCode
 	expenseData.Store.Name = store.Name
+
 	// get expense docs number
 	docNumberQuery := `
 	SELECT 
@@ -160,34 +161,89 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string) error {
 	// get expense products query
 	expenseProductQuery := `
 	SELECT
-		sp.product_id,
-		p.material_code,
-		p.name,
-		p.barcode,
-		p.mxik AS ikpu,
-		COALESCE(pr.name, '') AS manufacturer,
-		COALESCE(sp.serial_number, '') AS product_series_number,
-		sp.expire_date::date,
-		ROUND(SUM(ci.quantity)::NUMERIC + (SUM(ci.unit_quantity)::NUMERIC / p.unit_per_pack), 4) AS quantity,
-		sp.supply_price AS supply_price_vat,
-		sp.retail_price AS retail_price_vat,
-		id.supply_price,
-		id.retail_price,
-		sp.vat,
-		ROUND((sp.vat_price*SUM(ci.quantity)) + ((sp.vat_price/p.unit_per_pack)*SUM(ci.unit_quantity)), 2) AS vat_sum,
-		ROUND((id.retail_price*SUM(ci.quantity)) + ((id.retail_price/p.unit_per_pack)*SUM(ci.unit_quantity)), 2) AS sum,
-		SUM(ci.total_price) AS sum_vat
+	    sp.product_id,
+	    p.material_code,
+	    p.name,
+	    p.barcode,
+	    p.mxik AS ikpu,
+	    COALESCE(pr.name, '') AS manufacturer,
+	    COALESCE(sp.serial_number, '') AS product_series_number,
+	    sp.expire_date::date,
+	    ROUND(
+	            SUM(
+	                    CASE
+	                        WHEN s.sale_type = 'SALE'
+	                            THEN ci.quantity + (ci.unit_quantity::NUMERIC / p.unit_per_pack)
+	                        WHEN s.sale_type = 'RETURN'
+	                            THEN (ci.quantity + (ci.unit_quantity::NUMERIC / p.unit_per_pack)) * -1
+	                        ELSE 0
+	                        END
+	            )::NUMERIC
+	        , 4) AS quantity,
+	    sp.supply_price AS supply_price_vat,
+	    sp.retail_price AS retail_price_vat,
+	    id.supply_price,
+	    id.retail_price,
+	    sp.vat,
+	    ROUND(
+	            SUM(
+	                    CASE
+	                        WHEN s.sale_type = 'SALE'
+	                            THEN (sp.vat_price * ci.quantity) + ((sp.vat_price / p.unit_per_pack) * ci.unit_quantity)
+	                        WHEN s.sale_type = 'RETURN'
+	                            THEN -1 * ((sp.vat_price * ci.quantity) + ((sp.vat_price / p.unit_per_pack) * ci.unit_quantity))
+	                        ELSE 0
+	                        END
+	            )
+	        , 2) AS vat_sum,
+	    ROUND(
+	            SUM(
+	                    CASE
+	                        WHEN s.sale_type = 'SALE'
+	                            THEN (id.retail_price * ci.quantity) + ((id.retail_price / p.unit_per_pack) * ci.unit_quantity)
+	                        WHEN s.sale_type = 'RETURN'
+	                            THEN -1 * ((id.retail_price * ci.quantity) + ((id.retail_price / p.unit_per_pack) * ci.unit_quantity))
+	                        ELSE 0
+	                        END
+	            )
+	        , 2) AS sum,
+	    SUM(
+	            CASE
+	                WHEN s.sale_type = 'SALE'
+	                    THEN ci.total_price
+	                WHEN s.sale_type = 'RETURN'
+	                    THEN -1 * ci.total_price
+	                ELSE 0
+	                END
+	    ) AS sum_vat
 	FROM sales s
-	LEFT JOIN sales s_return ON s_return.parent_id = s.id AND s_return.sale_type = 'RETURN' AND s_return.status = 'completed'
-	JOIN cart_items ci ON s.id = ci.sale_id
-	JOIN store_products sp ON ci.store_product_id = sp.id
-	JOIN products p ON sp.product_id = p.id
-	LEFT JOIN producers pr ON p.producer_id = pr.id
-	LEFT JOIN import_details id ON sp.import_detail_id = id.id
+	         LEFT JOIN sales s_return
+	                   ON s_return.parent_id = s.id
+	                       AND s_return.sale_type = 'RETURN'
+	                       AND s_return.status = 'completed'
+	         JOIN cart_items ci ON s.id = ci.sale_id
+	         JOIN store_products sp ON ci.store_product_id = sp.id
+	         JOIN products p ON sp.product_id = p.id
+	         LEFT JOIN producers pr ON p.producer_id = pr.id
+	         LEFT JOIN import_details id ON sp.import_detail_id = id.id
 	WHERE s.store_id = ?
-	AND s.status = 'completed' AND s.sale_type = 'SALE' AND s_return.id IS NULL AND (s.completed_at+interval '5 hours')::date BETWEEN ? AND ?
+	  AND s.status = 'completed'
+	  AND (s.completed_at + interval '5 hours')::date
+	    BETWEEN ? AND ?
 	GROUP BY
-		p.id, pr.id, sp.id, id.id;
+		p.id, pr.id, sp.id, id.id
+	HAVING
+	    ROUND(
+	            SUM(
+	                    CASE
+	                        WHEN s.sale_type = 'SALE'
+	                            THEN ci.quantity + (ci.unit_quantity::NUMERIC / p.unit_per_pack)
+	                        WHEN s.sale_type = 'RETURN'
+	                            THEN (ci.quantity + (ci.unit_quantity::NUMERIC / p.unit_per_pack)) * -1
+	                        ELSE 0
+	                        END
+	            )::NUMERIC
+	        , 4) != 0;
 	`
 	// complete get expense product list
 	err = s.db.Raw(expenseProductQuery, store.Id, date, date).Scan(&expenseData.Товары).Error

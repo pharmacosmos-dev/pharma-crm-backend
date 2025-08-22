@@ -1089,7 +1089,7 @@ func (s *Services) doRequestToDMED(method, url string, data any) ([]byte, error)
 		bodyReader io.Reader
 		err        error
 	)
-
+	fmt.Println(data, url)
 	if data != nil {
 		body, err = json.Marshal(data)
 		if err != nil {
@@ -1125,31 +1125,43 @@ func (s *Services) doRequestToDMED(method, url string, data any) ([]byte, error)
 	return respBody, nil
 }
 
-func (s *Services) CheckDMED(ctx context.Context, tx *gorm.DB, body *domain.FinalSale, employeeName string, cartItems domain.CartItemForDMED) error {
-	// Build request payload
-	var err error
-	defer RollbackIfError(tx, &err)
-	payload := map[string]any{
-		"drug_amount":         cartItems.UnitQuantity,
-		"price":               cartItems.UnitPrice,
-		"issued_by_full_name": employeeName,
-	}
-	if cartItems.SerialNumber != "" && cartItems.Barcode != "" {
-		payload["serial_number"] = cartItems.SerialNumber
-		payload["gtin"] = "010" + cartItems.Barcode
-	} else if body.MarkingData[0].MarkingList[0] != "" {
-		payload["marking_code"] = body.MarkingData[0].MarkingList[0]
-	} else {
-		return errors.New("serial number or marking code is required")
-	}
+func (s *Services) DMEDGiveReceipt(cartItems []*domain.CartItemForDMED, markingData []domain.MarkingData, employeeName, prescriptionID, action string) error {
+	for i, cartItem := range cartItems {
+		q := cartItem.Quantity
+		uq := cartItem.UnitQuantity
+		j := 0
 
-	url := fmt.Sprintf("/prescriptions/%s/check-issue", *body.PrescriptionID)
+		for q > 0 || uq > 0 {
+			var drugAmount int
+			if q > 0 {
+				drugAmount = cartItem.UnitPerPack
+				q--
+			} else if uq > 0 {
+				drugAmount = uq
+				uq = 0
+			}
 
-	// Send request to DMED
-	_, err = s.doRequestToDMED(http.MethodPost, url, payload)
-	if err != nil {
-		return fmt.Errorf("DMED check failed: %w", err)
+			payload := map[string]any{
+				"drug_amount":         drugAmount,
+				"price":               cartItem.UnitPrice,
+				"issued_by_full_name": employeeName,
+				// //   "pharmacy_id": 123,
+			}
+			if j < len(markingData[i].MarkingList) && markingData[i].MarkingList[j] != "" {
+				payload["marking_code"] = markingData[i].MarkingList[j]
+			} else if cartItem.SerialNumber != "" && cartItem.Barcode != "" {
+				payload["serial_number"] = cartItem.SerialNumber
+				payload["gtin"] = "010" + cartItem.Barcode
+			} else {
+				return errors.New("serial number or marking code is required")
+			}
+
+			url := fmt.Sprintf("/prescriptions/%s/%s", prescriptionID, action)
+			if _, err := s.doRequestToDMED(http.MethodPost, url, payload); err != nil {
+				return fmt.Errorf("DMED %s failed: %w", action, err)
+			}
+			j++
+		}
 	}
-
-	return nil // success
+	return nil
 }

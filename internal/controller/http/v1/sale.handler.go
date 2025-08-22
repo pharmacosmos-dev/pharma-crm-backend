@@ -673,19 +673,24 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	}
 
 	if body.ServiceType != nil && *body.ServiceType == config.DMED {
-
-		//var cartItems *domain.CartItemForDMED
-		//cartItems, err = h.service.GetCartItems(ctx, tx, sale.ID)
-		//if err != nil {
-		//	handleResponse(c, InternalError, err.Error())
-		//	return
-		//} todo
-		//// check dmed
-		//err = h.service.CheckDMED(ctx, tx, &body, sale.Employee.FullName, *cartItems)
-		//if err != nil {
-		//	handleResponse(c, InternalError, constants.DMEDError)
-		//	return
-		//}
+		var cartItems []*domain.CartItemForDMED
+		cartItems, err = h.service.GetCartItems(ctx, tx, sale.ID)
+		if err != nil {
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+		fmt.Println(body.MarkingData)
+		// send req dmed
+		err = h.service.DMEDGiveReceipt(cartItems, body.MarkingData, sale.Employee.FullName, body.PrescriptionID, "check-issue")
+		if err != nil {
+			handleResponse(c, InternalError, constants.DMEDError)
+			return
+		}
+		err = h.service.DMEDGiveReceipt(cartItems, body.MarkingData, sale.Employee.FullName, body.PrescriptionID, "issue")
+		if err != nil {
+			handleResponse(c, InternalError, constants.DMEDError)
+			return
+		}
 	} else {
 		body.ServiceType = nil
 	}
