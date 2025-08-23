@@ -594,6 +594,9 @@ func (s *Services) GetNoorProducts(param *domain.NoorQueryParam) ([]domain.NoorP
 		p.name,
 		p.photos,
 		p.description,
+		p.description_uz,
+		p.description_ru,
+		p.description_kr,
 		ARRAY_AGG(cp.category_id) FILTER (WHERE cp.category_id IS NOT NULL) AS categories
 	FROM
 		products p

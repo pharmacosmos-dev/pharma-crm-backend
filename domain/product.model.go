@@ -395,11 +395,14 @@ type MinMaxProduct struct {
 // region Noor
 // Noor API response structure
 type NoorProduct struct {
-	Id          string            `gorm:"id" json:"id"`
-	Name        string            `gorm:"name" json:"name"`
-	Photos      utils.StringArray `gorm:"type:text[]" json:"photos"`
-	Description string            `gorm:"description" json:"description"`
-	Categories  utils.StringArray `gorm:"type:text[]" json:"categories"`
+	Id            string            `gorm:"id" json:"id"`
+	Name          string            `gorm:"name" json:"name"`
+	Photos        utils.StringArray `gorm:"type:text[]" json:"photos"`
+	Description   string            `gorm:"description" json:"description"`
+	DescriptionRu string            `gorm:"description_ru" json:"description_ru"`
+	DescriptionUz string            `gorm:"description_uz" json:"description_uz"`
+	DescriptionKr string            `gorm:"description_kr" json:"description_kr"`
+	Categories    utils.StringArray `gorm:"type:text[]" json:"categories"`
 }
 
 // Noor API store_products structure
