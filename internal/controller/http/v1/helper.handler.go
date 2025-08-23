@@ -1374,6 +1374,12 @@ func (h *HelperHandler) UpdateProductInfo(c *gin.Context) {
 	}
 
 	// defer os.Remove(savePath)
+	go h.processExcel(c, savePath)
+
+	handleResponse(c, OK, "Successfully uploaded")
+}
+
+func (h *HelperHandler) processExcel(c *gin.Context, savePath string) {
 	// Open the Excel file
 	xlsx, err := excelize.OpenFile(savePath)
 	if err != nil {
@@ -1412,7 +1418,6 @@ func (h *HelperHandler) UpdateProductInfo(c *gin.Context) {
 	var count = 0
 	// Process rows
 	for _, row := range rows[1:] {
-		fmt.Println("LENG: ", len(row))
 		if len(row) > 40 {
 			// --- image handle ---
 			var photos utils.StringArray
@@ -1446,8 +1451,6 @@ func (h *HelperHandler) UpdateProductInfo(c *gin.Context) {
 			count++
 		}
 	}
-
-	handleResponse(c, OK, "Successfully updated: "+cast.ToString(count))
 }
 
 func DownloadAndSaveImage(url string, uploadDir string) (string, error) {
