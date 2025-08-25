@@ -265,7 +265,7 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 		totalCount    int64
 		args          []any
 		filter        = "WHERE 1=1 "
-		order         = " ORDER BY p.created_at DESC "
+		order         = " ORDER BY p.updated_at DESC "
 		group         = " GROUP BY p.id, pr.id, u.id "
 		expireDayPart = ""
 	)
@@ -280,7 +280,7 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 	case "-expire_date":
 		order = " ORDER BY MIN(sp.expire_date) DESC "
 	default:
-		order = " ORDER BY p.created_at DESC "
+		order = " ORDER BY p.updated_at DESC "
 	}
 
 	// filter with store_id
