@@ -1400,29 +1400,22 @@ func (h *HelperHandler) processExcel(c *gin.Context, savePath string) {
 	query := `
 	UPDATE products
 	SET 
-		name_uz = ?, name_ru = ?, name_kr = ?, 
-		photos = ?, unit_code = ?,
+		name_ru = ?, name_uz = ?, name_kr = ?, 
+		photos = ?, 
 		description_ru = ?, description_uz = ?, description_kr = ?,
-		trade_name_ru = ?, trade_name_uz = ?, trade_name_kr = ?,
-		composition_uz = ?, composition_ru = ?, composition_kr = ?,
-		pharmacotherapeutic_group_uz = ?, pharmacotherapeutic_group_ru = ?, pharmacotherapeutic_group_kr = ?,
-		indications_for_use_ru = ?, indications_for_use_uz = ?, indications_for_use_kr = ?,
-		dosage_and_how_to_take_ru = ?, dosage_and_how_to_take_uz = ?, dosage_and_how_to_take_kr = ?,
-		contraindications_uz = ?, contraindications_ru = ?, contraindications_kr = ?,
-		side_effects_ru = ?, side_effects_uz = ?, side_effects_kr = ?,
-		special_instructions_ru = ?, special_instructions_uz = ?, special_instructions_kr = ?,
-		slug = ?, brand_name = ?, updated_at = now()
-	WHERE mxik = ?;
+		mxik = ?, unit_code = ?,
+		updated_at = now()
+	WHERE material_code = ?;
 	`
 
 	var count = 0
 	// Process rows
 	for _, row := range rows[1:] {
-		if len(row) > 40 {
+		if len(row) > 11 {
 			// --- image handle ---
 			var photos utils.StringArray
-			if row[5] != "" {
-				localPath, err := DownloadAndSaveImage(row[5], "uploads")
+			if row[6] != "" {
+				localPath, err := DownloadAndSaveImage(row[6], "uploads")
 				if err != nil {
 					h.log.Error("image download error: ", err)
 				} else if localPath != "" {
@@ -1431,22 +1424,14 @@ func (h *HelperHandler) processExcel(c *gin.Context, savePath string) {
 			}
 
 			err = h.db.Debug().Exec(query,
-				row[2], row[3], row[4],
-				utils.StringArray(photos), row[38],
+				row[2], row[4], row[5],
+				utils.StringArray(photos),
 				row[7], row[8], row[9],
-				row[10], row[11], row[12],
-				row[13], row[14], row[15],
-				row[16], row[17], row[18],
-				row[19], row[20], row[21],
-				row[22], row[23], row[24],
-				row[25], row[26], row[27],
-				row[28], row[29], row[30],
-				row[31], row[32], row[33],
-				row[34], row[40],
-				row[35],
+				row[10], row[11],
+				cast.ToInt(row[0]),
 			).Error
 			if err != nil {
-				h.log.Error("could not update store_products(%s) -> %v", row[0], err)
+				h.log.Error("could not update product(%s) -> %v", row[0], err)
 			}
 			count++
 		}
