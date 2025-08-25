@@ -679,7 +679,6 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 			handleResponse(c, InternalError, err.Error())
 			return
 		}
-		fmt.Println(body.MarkingData)
 		// send req dmed
 		err = h.service.DMEDGiveReceipt(cartItems, body.MarkingData, sale.Employee.FullName, body.PrescriptionID, "check-issue")
 		if err != nil {
@@ -691,6 +690,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 			handleResponse(c, InternalError, constants.DMEDError)
 			return
 		}
+
 	} else {
 		body.ServiceType = nil
 	}
@@ -720,15 +720,11 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-
-	// process payment types
-	for _, item := range body.PaymentTypes {
-		err = processPaymentType(ctx, tx, h, body, item)
-		if err != nil {
-			h.log.Warn("ERROR on payment process: %v", err.Error())
-			handleResponse(c, InternalError, err.Error())
-			return
-		}
+	err = paymentCheck(ctx, tx, h, body, sale)
+	if err != nil {
+		h.log.Warn("ERROR on payment process: %v", err.Error())
+		handleResponse(c, InternalError, err.Error())
+		return
 	}
 
 	// complete sale
@@ -755,6 +751,7 @@ func processPaymentType(
 	tx *gorm.DB, h *SaleHandler,
 	body domain.FinalSale,
 	item domain.FinalPaymentType,
+	sale *domain.Sale,
 ) error {
 	var err error
 	defer RollbackIfError(tx, &err)
@@ -766,7 +763,7 @@ func processPaymentType(
 			return err
 		}
 
-		paymentHandlers := map[string]func(ctx context.Context, tx *gorm.DB, service *domain.PaymentService, data *domain.FinalPaymentType, cashOpID string, transactionID string, saleID string) (map[string]any, error){
+		paymentHandlers := map[string]func(ctx context.Context, tx *gorm.DB, service *domain.PaymentService, data *domain.FinalPaymentType, cashOpID string, saleNumber string, saleID string) (map[string]any, error){
 			config.CLICK: h.service.ClickPass,
 			config.PAYME: h.service.PaymeGo,
 			config.UZUM:  h.service.UzumFastPay,
@@ -775,33 +772,72 @@ func processPaymentType(
 		// get payment handlers for integration app services
 		handler, exists := paymentHandlers[item.AppType]
 		if !exists {
-
 			tx.Rollback()
 			return errors.New("invalid payment type")
 		}
 		// create new sale_payment
-		var salePayment *domain.SalePayment
-		salePayment, err = h.service.CreateSalePayment(tx, body, item, &paymentService.ID)
-		if err != nil {
-			return err
-		}
+		//var salePayment *domain.SalePayment
+		//salePayment, err = h.service.CreateSalePayment(tx, body, item, &paymentService.ID)
+		//if err != nil {
+		//	return err
+		//}
 		// check if sale_payment is created
 		var resp map[string]any
-		resp, err = handler(ctx, tx, paymentService, &item, body.CashBoxOperationId, salePayment.ID, body.SaleID)
+		resp, err = handler(ctx, tx, paymentService, &item, body.CashBoxOperationId, fmt.Sprintf("%d", sale.SaleNumber), body.SaleID)
 		if err != nil || cast.ToString(resp["error_code"]) != "0" {
 			return err
 		}
 		// update sale_payment if payment is success
-		return h.service.UpdateSalePaymentStatus(tx, salePayment.ID)
+		return h.service.UpdateSalePaymentStatus(tx, sale.ID, item.AppType, item.Amount)
 	} else if item.Type == config.CASH || item.Type == config.CARD {
 		// Insert sale payments if payment is cash or card
-		_, err = h.service.CreateSalePayment(tx, body, item, nil)
-		if err != nil {
-			return err
-		}
+		err = h.service.UpdateSalePaymentStatus(tx, sale.ID, item.Type, item.Amount)
+		//_, err = h.service.CreateSalePayment(tx, body, item, nil)
+		//if err != nil {
+		//	return err
+		//}
 	} else {
 		tx.Rollback()
 		return errors.New("invalid payment type")
+	}
+
+	return nil
+}
+
+func paymentCheck(ctx context.Context, tx *gorm.DB, h *SaleHandler, body domain.FinalSale, sale *domain.Sale) error {
+	payments := map[string]float64{
+		"cash":   sale.Cash,
+		"click":  sale.Click,
+		"humo":   sale.Humo,
+		"uzcard": sale.Uzcard,
+		"payme":  sale.Payme,
+		"alif":   sale.Alif,
+	}
+
+	for _, item := range body.PaymentTypes {
+		expected, ok := payments[item.Type]
+		if !ok {
+			expected, ok = payments[item.AppType]
+			if !ok {
+				return fmt.Errorf("unknown payment type: %s (apptype=%s)", item.Type, item.AppType)
+			}
+		}
+
+		switch {
+		case item.Amount > expected:
+			// ortiqcha to'langan -> process qilish
+			if err := processPaymentType(ctx, tx, h, body, item, sale); err != nil {
+				return err
+			}
+
+		case !sale.IsPaid && item.Amount == expected:
+			// hammasi to'g'ri -> davom etamiz
+			continue
+
+		case !sale.IsPaid && item.Amount < expected:
+			// kam pul berilgan
+			return fmt.Errorf("given money (%.2f) is less than expected (%.2f) for %s", item.Amount, expected, item.Type)
+		}
 	}
 
 	return nil

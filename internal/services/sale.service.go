@@ -221,8 +221,8 @@ func (s *Services) GetPaymentServiceByStoreId(storeId string, tx *gorm.DB, payme
 }
 
 // update sale payment status
-func (s *Services) UpdateSalePaymentStatus(tx *gorm.DB, salePaymentID string) error {
-	err := tx.Exec(`UPDATE sale_payments SET status = 'paid' WHERE id = ?`, salePaymentID).Error
+func (s *Services) UpdateSalePaymentStatus(tx *gorm.DB, saleId, appType string, amount float64) error {
+	err := tx.Exec(`UPDATE sales SET ? = ?, is_paid = true WHERE id = ?`, appType, amount, saleId).Error
 	if err != nil {
 		s.log.Error("ERROR on updating sale payment status: ", err)
 		return err
@@ -540,7 +540,7 @@ func (s *Services) ListSale(param *domain.QueryParam, userId string) ([]domain.S
 	}
 	// search condition
 	if param.Search != "" {
-		filter += " AND st.name ILIKE ? OR CAST(s.sale_number AS TEXT) LIKE ? "
+		filter += " AND (st.name ILIKE ? OR CAST(s.sale_number AS TEXT) LIKE ?) "
 		args = append(args, "%"+param.Search+"%", "%"+param.Search+"%")
 	}
 
@@ -1097,6 +1097,7 @@ func (s *Services) doRequestToDMED(method, url string, data any) ([]byte, error)
 		}
 		bodyReader = bytes.NewReader(body)
 	}
+	fmt.Println(string(body))
 
 	req, err := http.NewRequest(method, s.cfg.DMEDBaseUrl+url, bodyReader)
 	if err != nil {
@@ -1156,8 +1157,12 @@ func (s *Services) DMEDGiveReceipt(cartItems []*domain.CartItemForDMED, markingD
 				return errors.New("serial number or marking code is required")
 			}
 
-			url := fmt.Sprintf("/prescriptions/%s/%s", prescriptionID, action)
-			if _, err := s.doRequestToDMED(http.MethodPost, url, payload); err != nil {
+			url := fmt.Sprintf("/prescriptions/%s/%s", markingData[i].DmedId, action)
+			method := http.MethodPost
+			if action == "issue" {
+				method = http.MethodPut
+			}
+			if _, err := s.doRequestToDMED(method, url, payload); err != nil {
 				return fmt.Errorf("DMED %s failed: %w", action, err)
 			}
 			j++

@@ -23,6 +23,13 @@ type Sale struct {
 	Status             string         `gorm:"status" json:"status"`
 	OnlineStatus       int            `gorm:"online_status" json:"online_status"`
 	IsDelivered        bool           `gorm:"is_delivered" json:"is_delivered"`
+	Cash               float64        `gorm:"cash" json:"cash"`
+	Click              float64        `gorm:"click" json:"click"`
+	Humo               float64        `gorm:"humo" json:"humo"`
+	Uzcard             float64        `gorm:"uzcard" json:"uzcard"`
+	Payme              float64        `gorm:"payme" json:"payme"`
+	Alif               float64        `gorm:"alif" json:"alif"`
+	IsPaid             bool           `gorm:"is_paid" json:"is_paid"`
 	CreatedAt          *time.Time     `gorm:"created_at" json:"created_at"`
 	UpdatedAt          *time.Time     `gorm:"updated_at" json:"updated_at"`
 	CompletedAt        *time.Time     `gorm:"completed_at" json:"completed_at"`
@@ -124,6 +131,7 @@ type FinalSale struct {
 
 type MarkingData struct {
 	Id           string   `json:"id" gorm:"id"`
+	DmedId       string   `json:"dmed_id"`
 	MarkingCount int      `json:"marking_count" gorm:"marking_count"`
 	MarkingList  []string `json:"marking_list" gorm:"marking_list"`
 }
