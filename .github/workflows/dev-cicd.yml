@@ -16,7 +16,7 @@ env:
   SSH_KEY: ${{ secrets.DEV_SSH_PRIVATE_KEY }}
   SSH_PASS: ${{ secrets.DEV_SERVER_PASSWORD }}
   DB_URL: ${{ secrets.DEV_PHARMA_DATABASE_URL }}
-  PORT: 8080:8080
+  PORT: 8090:8090
 
 jobs:
   build_and_push:
@@ -47,19 +47,26 @@ jobs:
     needs: build_and_push
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Install migrate tool
-        run: |
-          wget https://github.com/golang-migrate/migrate/releases/download/v4.14.1/migrate.linux-amd64.tar.gz
-          tar -xvf migrate.linux-amd64.tar.gz
-          mv migrate.linux-amd64 migrate
-          chmod +x migrate
-
-      - name: Run Migrations
-        run: |
-          ./migrate -path=$PWD/migrations -database="${{ env.DB_URL }}" up
+      - name: Run migrations on server
+        uses: appleboy/ssh-action@master
+        with:
+          host: "${{ env.SSH_HOST }}"
+          username: "${{ env.SSH_USER }}"
+          key: "${{ env.SSH_KEY }}"
+          port: 2002
+          script: |
+            set -e
+            docker login -u ${{ env.DOCKER_USERNAME }} -p ${{ env.DOCKER_PASSWORD }}
+            # ensure image is present
+            docker pull "${{ env.DOCKER_USERNAME }}/pharma-backend:${{ github.sha }}"
+            # Option A (recommended if migrations are backward-compatible):
+            # run migrations without stopping the old app
+            docker run --rm \
+              --env-file /var/www/app/.env \
+              -v /var/www/app/.env:/var/www/app/.env \
+              --network host \
+              "${{ env.DOCKER_USERNAME }}/pharma-backend:${{ github.sha }}" \
+              /app/scripts/run_migration.sh
 
   deploy:
     needs: build_and_push
