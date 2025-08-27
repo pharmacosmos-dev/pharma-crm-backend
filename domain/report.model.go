@@ -92,6 +92,7 @@ type StoreAmount struct {
 	Alif         float64 `gorm:"alif" json:"alif"`
 	ReturnAmount float64 `gorm:"return_amount" json:"return_amount"`
 	TotalAmount  float64 `gorm:"total_amount" json:"total_amount"`
+	ChequeCount  int     `gorm:"cheque_count" json:"cheque_count"`
 }
 
 type StoreReportStats struct {

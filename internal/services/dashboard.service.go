@@ -130,12 +130,12 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 
 		query24h = `
 		SELECT
-			COALESCE(SUM(imd.received_count * imd.retail_price_vat), 0) AS last_24h_import_amount
+			COALESCE(SUM(imd.received_count * imd.retail_price_vat), 0) AS not_last_24h_import_amount
 		FROM import_details imd
 		JOIN imports im ON imd.import_id = im.id
 		WHERE im.status = 'new'
 		  AND im.entry_type = 1
-		  AND im.created_at >= NOW() - interval '24 hour'`
+		  AND im.created_at < NOW() - interval '24 hour'`
 
 		notLast24HImportCount int
 		queryImportCountNot24 = `
@@ -189,8 +189,8 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 		return nil, err
 	}
 
-	var last24hAmount float64
-	err = s.db.Raw(query24h, args...).Scan(&last24hAmount).Error
+	var notLast24hAmount float64
+	err = s.db.Raw(query24h, args...).Scan(&notLast24hAmount).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
@@ -212,7 +212,7 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 	res.ImportAmount = imported.ImportAmount
 	res.NotLast24HImportCount = float64(notLast24HImportCount)
 	res.BeforeImportAmount = imported.BeforeImportAmount
-	res.Last24HImportAmount = last24hAmount
+	res.NotLast24HImportAmount = notLast24hAmount
 	res.TotalSaleCount = sale.SaleCount
 	res.BeforeSaleCount = sale.BeforeSaleCount
 	res.TotalSaleAmount = sale.SaleAmount

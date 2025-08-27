@@ -222,7 +222,24 @@ func (s *Services) GetPaymentServiceByStoreId(storeId string, tx *gorm.DB, payme
 
 // update sale payment status
 func (s *Services) UpdateSalePaymentStatus(tx *gorm.DB, saleId, appType string, amount float64) error {
-	err := tx.Exec(`UPDATE sales SET ? = ?, is_paid = true WHERE id = ?`, appType, amount, saleId).Error
+	// faqat allowed columnlarni whitelist qilamiz (SQL injectionni oldini olish uchun)
+	allowedColumns := map[string]bool{
+		"cash":   true,
+		"click":  true,
+		"humo":   true,
+		"uzcard": true,
+		"payme":  true,
+		"alif":   true,
+	}
+
+	if !allowedColumns[appType] {
+		return fmt.Errorf("invalid appType: %s", appType)
+	}
+
+	// column nomini qo‘shib yozamiz, qiymatlarni esa param qilib yuboramiz
+	query := fmt.Sprintf(`UPDATE sales SET %s = ?, is_paid = true WHERE id = ?`, appType)
+
+	err := tx.Exec(query, amount, saleId).Error
 	if err != nil {
 		s.log.Error("ERROR on updating sale payment status: ", err)
 		return err
@@ -320,6 +337,25 @@ func (s *Services) ReturnSale(ctx context.Context, tx *gorm.DB, sale *domain.Sal
 		return err
 	}
 
+	return nil
+}
+
+func (s *Services) ReturnStatusPending(ctx context.Context, tx *gorm.DB, sale *domain.Sale) error {
+	// build query for update sale status to return
+	query := `
+	UPDATE sales
+	SET
+		total_amount = 0,
+		total_discount = 0,
+		status = ?, completed_at = NULL, updated_at = NOW()
+	WHERE id = ?;
+	`
+	// complete the query
+	err := tx.WithContext(ctx).Exec(query, config.PENDING, sale.ID).Error
+	if err != nil {
+		s.log.Warn("ERROR on update sale to returned: %v", err)
+		return err
+	}
 	return nil
 }
 

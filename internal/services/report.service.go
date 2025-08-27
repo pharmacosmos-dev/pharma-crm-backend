@@ -530,11 +530,16 @@ func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.S
 					WHEN pt.name = 'Click' AND sa.sale_type = 'SALE' THEN sp.amount
 					WHEN pt.name = 'Click' AND sa.sale_type = 'RETURN' THEN sp.amount*(-1)
 					ELSE 0 END) AS click,
+		    	SUM(CASE
+					WHEN pt.name = 'Payme' AND sa.sale_type = 'SALE' THEN sp.amount
+					WHEN pt.name = 'Payme' AND sa.sale_type = 'RETURN' THEN sp.amount*(-1)
+					ELSE 0 END) AS payme,
 				SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS return_amount,
 				SUM(CASE
 					WHEN sa.sale_type = 'SALE' THEN sp.amount
 					WHEN sa.sale_type = 'RETURN' THEN sp.amount*(-1)
-					ELSE 0 END)  AS total_amount
+					ELSE 0 END)  AS total_amount,
+				COUNT(DISTINCT sa.id) AS cheque_count
 		FROM stores s
 		JOIN sales sa ON s.id = sa.store_id
 		JOIN sale_payments sp ON sa.id = sp.sale_id
@@ -1131,11 +1136,7 @@ func (s *Services) ReportStoreSummary(param *domain.ReportQueryParam) ([]domain.
 	import_cte AS (
 		SELECT
 			im.store_id,
-			COALESCE(SUM(CASE
-							 WHEN (im.created_at) BETWEEN ? AND ?
-							 THEN imd.received_count * imd.retail_price_vat
-							 ELSE 0
-						 END), 0) AS import_amount
+			COALESCE(SUM(imd.received_count * imd.retail_price_vat), 0) AS import_amount
 		FROM import_details imd
 				 JOIN imports im ON imd.import_id = im.id
 		WHERE im.status = 'new' AND im.entry_type = 1
@@ -1165,7 +1166,6 @@ func (s *Services) ReportStoreSummary(param *domain.ReportQueryParam) ([]domain.
 
 	// 4 timestamps for 2 BETWEENs (sales & imports)
 	args = append(args, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339)) // sales
-	args = append(args, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339)) // imports
 	if param.Order != "" {
 		order := utils.BuildStoreSummaryOrderClause(param.Order)
 		query += order
@@ -1195,6 +1195,7 @@ func (s *Services) ReportStoreSummary(param *domain.ReportQueryParam) ([]domain.
 
 	return res, total, nil
 }
+
 func (s *Services) ReportStoreSummaryStats(param *domain.ReportQueryParam) (domain.StoreSummaryStats, error) {
 	var (
 		res       domain.StoreSummaryStats
@@ -1239,11 +1240,7 @@ func (s *Services) ReportStoreSummaryStats(param *domain.ReportQueryParam) (doma
 	import_cte AS (
 		SELECT
 			im.store_id,
-			COALESCE(SUM(CASE
-							 WHEN (im.created_at) BETWEEN ? AND ?
-							 THEN imd.received_count * imd.retail_price_vat
-							 ELSE 0
-						 END), 0) AS import_amount
+			COALESCE(SUM(imd.received_count * imd.retail_price_vat), 0) AS import_amount
 		FROM import_details imd
 				 JOIN imports im ON imd.import_id = im.id
 		WHERE im.status = 'new' AND im.entry_type = 1
@@ -1280,7 +1277,6 @@ func (s *Services) ReportStoreSummaryStats(param *domain.ReportQueryParam) (doma
 	`
 
 	args = append(args, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339)) // sales
-	args = append(args, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339)) // imports
 
 	err = s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {

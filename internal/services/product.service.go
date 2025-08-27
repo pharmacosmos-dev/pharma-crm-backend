@@ -691,103 +691,142 @@ func (s *Services) GetProductMovements(productId, storeId string, limit, offset 
 	var (
 		res        []domain.ImportProductData
 		totalCount int64
+		query      string
+		params     []any
 	)
 
-	// Base query without store_id filter
-	query := `
-	SELECT *, COUNT(*) OVER() AS total_count FROM (
-			SELECT
-					im.id, im.public_id,
-					im.entry_type, im.created_at,
-					s.name AS store_name,
-        			SUM(CASE
-        			        WHEN im.entry_type = 2 THEN imd.scanned_count
-        			        ELSE imd.accepted_count
-        			    END) AS count,
-        			SUM(CASE
-        			        WHEN im.entry_type = 2 THEN imd.scanned_count
-        			        ELSE imd.accepted_count
-        			    END
-        			    * imd.retail_price_vat) AS sum,
-					im.name AS name
-			FROM imports im
-			JOIN stores s ON im.store_id = s.id
-			LEFT JOIN import_details imd ON im.id = imd.import_id
-			LEFT JOIN products p ON imd.product_id = p.id
-			WHERE imd.product_id = ?
-			AND im.status = 'completed'
-			GROUP BY im.id, s.id
-
-			UNION ALL
-
-			SELECT
-					sa.id AS id,
-					sa.sale_number AS public_id,
-					4 AS entry_type,
-					sa.completed_at AS created_at,
-					st.name AS store_name,
-					ROUND(SUM(ci.quantity)::numeric + SUM(ci.unit_quantity::numeric/p.unit_per_pack), 4) AS count,
-					sa.total_amount AS sum,
-					sa.sale_type AS name
-			FROM sales sa
-			JOIN stores st ON st.id = sa.store_id
-			JOIN cart_items ci ON ci.sale_id = sa.id
-			JOIN store_products sp ON sp.id = ci.store_product_id
-			JOIN products p ON sp.product_id = p.id
-			WHERE sp.product_id = ?
-			AND sa.status = 'completed'
-			GROUP BY sa.id, st.id
-	) AS all_data
+	baseQuery := `
+	WITH var_data AS (
+		SELECT
+			p.id AS product_id,
+			p.unit_per_pack
+		FROM products p
+		WHERE p.id = ?
+	),
+	import_data AS (
+		SELECT
+			im.id, im.public_id, im.entry_type, im.created_at,
+			s.name AS store_name,
+			SUM(imd.accepted_count*vd.unit_per_pack) AS count,
+			SUM(imd.accepted_count * imd.retail_price_vat) AS sum,
+			im.name AS name,
+			vd.unit_per_pack
+		FROM imports im
+		JOIN stores s ON im.store_id = s.id
+		JOIN import_details imd ON im.id = imd.import_id
+		JOIN var_data vd ON imd.product_id = vd.product_id
+		WHERE im.entry_type = 1 AND im.status = 'completed'
+		%s
+		GROUP BY im.id, s.id, vd.unit_per_pack
+	),
+	inventory_data AS (
+		SELECT
+			im.id, im.public_id, im.entry_type, im.created_at,
+			s.name AS store_name,
+			SUM(imd.scanned_count) AS count,
+			SUM((imd.accepted_count/vd.unit_per_pack) * imd.retail_price_vat) AS sum,
+			im.name AS name,
+			vd.unit_per_pack
+		FROM imports im
+		JOIN stores s ON im.store_id = s.id
+		JOIN import_details imd ON im.id = imd.import_id
+		JOIN var_data vd ON imd.product_id = vd.product_id
+		WHERE im.entry_type = 2 AND im.status = 'completed'
+		%s
+		GROUP BY im.id, s.id, vd.unit_per_pack
+	),
+	sales_data AS (
+		SELECT
+			sa.id, sa.sale_number AS public_id,
+			4 AS entry_type,
+			sa.completed_at AS created_at,
+			st.name AS store_name,
+			SUM((ci.quantity*vd.unit_per_pack) + ci.unit_quantity) AS count,
+			sa.total_amount AS sum,
+			sa.sale_type AS name,
+			vd.unit_per_pack
+		FROM sales sa
+		JOIN stores st ON st.id = sa.store_id
+		JOIN cart_items ci ON ci.sale_id = sa.id
+		JOIN store_products sp ON sp.id = ci.store_product_id
+		JOIN var_data vd ON sp.product_id = vd.product_id
+		WHERE sa.status = 'completed'
+		%s
+		GROUP BY sa.id, st.id, vd.unit_per_pack
+	),
+	vozvrat_data AS (
+		SELECT
+			tr.id, tr.public_id::int, 5 AS entry_type, tr.created_at,
+			s.name AS store_name,
+			SUM(td.accepted_count * vd.unit_per_pack) as count,
+			SUM((td.accepted_count/vd.unit_per_pack) * td.retail_price) AS sum,
+			tr.name as name,
+			vd.unit_per_pack
+		FROM transfer_details td
+		JOIN transfers tr ON td.transfer_id = tr.id
+		JOIN var_data vd ON td.product_id = vd.product_id
+		JOIN stores s ON s.id = tr.from_store_id
+		WHERE tr.status = 'completed' AND tr.entry_type = 2
+		%s
+		GROUP BY tr.id, s.id, vd.unit_per_pack
+	),
+	transfer_data AS (
+		SELECT
+			tr.id, tr.public_id::int, 
+			6 AS entry_type,
+			tr.created_at,
+			fs.name || ' -> ' || ts.name as store_name,
+			SUM(td.accepted_count * vd.unit_per_pack) as count,
+			SUM((td.accepted_count/vd.unit_per_pack) * td.retail_price) AS sum,
+			tr.name as name,
+			vd.unit_per_pack
+		FROM transfer_details td
+		JOIN transfers tr ON td.transfer_id = tr.id
+		JOIN var_data vd ON td.product_id = vd.product_id
+		JOIN stores fs ON fs.id = tr.from_store_id
+		JOIN stores ts ON ts.id = tr.to_store_id
+		WHERE tr.status = 'completed' AND tr.entry_type = 1
+		%s
+		GROUP BY tr.id, fs.id, ts.id, vd.unit_per_pack
+	)
+	SELECT *, COUNT(*) OVER() AS total_count
+	FROM (
+		SELECT * FROM import_data
+		UNION ALL
+		SELECT * FROM sales_data
+		UNION ALL
+		SELECT * FROM inventory_data
+		UNION ALL
+		SELECT * FROM vozvrat_data
+		UNION ALL
+		SELECT * FROM transfer_data
+	) all_data
 	ORDER BY created_at DESC
 	LIMIT ? OFFSET ?;
 	`
 
-	// Parameters for the query
-	params := []any{productId, productId, limit, offset}
-
-	// Modify query to include store_id filter if provided
-	if storeId != "" {
-		query = `
-		SELECT *, COUNT(*) OVER() AS total_count FROM (
-				SELECT
-						im.id, im.public_id,
-						im.entry_type, im.created_at,
-						s.name AS store_name,
-						SUM(imd.accepted_count) AS count,
-						SUM(imd.accepted_count * imd.retail_price_vat) AS sum,
-						im.name AS name
-				FROM imports im
-				JOIN stores s ON im.store_id = s.id
-				LEFT JOIN import_details imd ON im.id = imd.import_id
-				LEFT JOIN products p ON imd.product_id = p.id
-				WHERE im.store_id = ? AND imd.product_id = ?
-				AND im.status = 'completed'
-				GROUP BY im.id, s.id
-
-				UNION ALL
-
-				SELECT
-						sa.id AS id,
-						sa.sale_number AS public_id,
-						4 AS entry_type,
-						sa.completed_at AS created_at,
-						st.name AS store_name,
-						ROUND(SUM(ci.quantity)::numeric + SUM(ci.unit_quantity::numeric/p.unit_per_pack), 4) AS count,
-						sa.total_amount AS sum,
-						sa.sale_type AS name
-				FROM sales sa
-				JOIN stores st ON st.id = sa.store_id
-				JOIN cart_items ci ON ci.sale_id = sa.id
-				JOIN store_products sp ON sp.id = ci.store_product_id
-				JOIN products p ON sp.product_id = p.id
-				WHERE sa.store_id = ? AND sp.product_id = ?
-				AND sa.status = 'completed'
-				GROUP BY sa.id, st.id
-		) AS all_data
-		ORDER BY created_at DESC
-		LIMIT ? OFFSET ?;
-		`
-		params = []any{storeId, productId, storeId, productId, limit, offset}
+	if storeId == "" {
+		query = fmt.Sprintf(baseQuery, "", "", "", "", "")
+		params = []any{productId, limit, offset}
+	} else {
+		query = fmt.Sprintf(
+			baseQuery,
+			"AND im.store_id = ?",
+			"AND im.store_id = ?",
+			"AND sa.store_id = ?",
+			"AND tr.from_store_id = ?",
+			"AND (tr.from_store_id = ? OR tr.to_store_id = ?)",
+		)
+		params = []any{
+			productId,
+			storeId, // import_data
+			storeId, // inventory_data
+			storeId, // sales_data
+			storeId, // vozvrat_data
+			storeId, // transfer_data (from)
+			storeId, // transfer_data (to)
+			limit, offset,
+		}
 	}
 
 	// Execute query
