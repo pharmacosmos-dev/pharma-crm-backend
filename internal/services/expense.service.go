@@ -435,7 +435,6 @@ func (s *Services) SendExpenseTo1CFromExcel(filePath string) error {
 		}
 		fmt.Printf("✅ Successfully sent report for store=%s date=%s\n", store.Name, k.Date)
 		time.Sleep(5 * time.Second)
-		break
 	}
 
 	return nil
