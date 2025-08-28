@@ -430,11 +430,11 @@ func (s *Services) SendExpenseTo1CFromExcel(filePath string) error {
 		}
 		fmt.Printf("Sending report for store=%s date=%s...\n", store.Name, k.Date)
 		if err = s.sendReportTo1C(&store, k.Date); err != nil {
-			fmt.Printf("❌ Failed for store=%s date=%s: %v\n", store.Name, k.Date, err)
+			fmt.Printf("Failed for store=%s date=%s: %v\n", store.Name, k.Date, err)
 			continue
 		}
-		fmt.Printf("✅ Successfully sent report for store=%s date=%s\n", store.Name, k.Date)
-		time.Sleep(5 * time.Second)
+		fmt.Printf("Successfully sent report for store=%s date=%s\n", store.Name, k.Date)
+		time.Sleep(1 * time.Second)
 	}
 
 	return nil
