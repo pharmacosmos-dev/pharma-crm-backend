@@ -14,10 +14,12 @@ fi
 # Construct full DB URL
 DB_URL="postgres://${PG_USER}:${PG_PASS}@${PG_HOST}:${PG_PORT}/${PG_DB}?sslmode=disable"
 
-# Optional: Reset dirty flag and force to latest migration version
-LATEST_VERSION=$(ls /app/migrations | grep -E '^[0-9]+' | sort -n | tail -1 | cut -d'_' -f1)
-echo "Forcing migration version to $LATEST_VERSION"
-migrate -path /app/migrations -database "$DB_URL" force "$LATEST_VERSION"
+# Agar migration "dirty" bo‘lsa, tozalab olish
+if migrate -path /app/migrations -database "$DB_URL" version 2>&1 | grep -q "dirty"; then
+  echo "Database is dirty, forcing to clean state..."
+  VERSION=$(migrate -path /app/migrations -database "$DB_URL" version | awk '{print $1}')
+  migrate -path /app/migrations -database "$DB_URL" force "$VERSION"
+fi
 
 # Run migrations
 migrate -path /app/migrations -database "$DB_URL" up
