@@ -4926,6 +4926,37 @@ paths:
       summary: Unblock employee
       tags:
       - employees
+  /expense/expense-given-excel:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Read Excel (ID, Дата) and send each to 1C
+      parameters:
+      - description: Excel File
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Send expenses to 1C from Excel
+      tags:
+      - Shift Expenses
   /expense/send:
     post:
       consumes:

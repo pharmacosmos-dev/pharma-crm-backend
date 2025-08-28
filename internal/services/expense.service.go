@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pharma-crm-backend/domain"
+	"github.com/xuri/excelize/v2"
 )
 
 var mu sync.Mutex
@@ -132,6 +133,7 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string) error {
 	var expenseData domain.SendExpense
 	expenseData.Store.StoreCode = store.StoreCode
 	expenseData.Store.Name = store.Name
+
 	// get expense docs number
 	docNumberQuery := `
 	SELECT 
@@ -160,34 +162,89 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string) error {
 	// get expense products query
 	expenseProductQuery := `
 	SELECT
-		sp.product_id,
-		p.material_code,
-		p.name,
-		p.barcode,
-		p.mxik AS ikpu,
-		COALESCE(pr.name, '') AS manufacturer,
-		COALESCE(sp.serial_number, '') AS product_series_number,
-		sp.expire_date::date,
-		ROUND(SUM(ci.quantity)::NUMERIC + (SUM(ci.unit_quantity)::NUMERIC / p.unit_per_pack), 4) AS quantity,
-		sp.supply_price AS supply_price_vat,
-		sp.retail_price AS retail_price_vat,
-		id.supply_price,
-		id.retail_price,
-		sp.vat,
-		ROUND((sp.vat_price*SUM(ci.quantity)) + ((sp.vat_price/p.unit_per_pack)*SUM(ci.unit_quantity)), 2) AS vat_sum,
-		ROUND((id.retail_price*SUM(ci.quantity)) + ((id.retail_price/p.unit_per_pack)*SUM(ci.unit_quantity)), 2) AS sum,
-		SUM(ci.total_price) AS sum_vat
+	    sp.product_id,
+	    p.material_code,
+	    p.name,
+	    p.barcode,
+	    p.mxik AS ikpu,
+	    COALESCE(pr.name, '') AS manufacturer,
+	    COALESCE(sp.serial_number, '') AS product_series_number,
+	    sp.expire_date::date,
+	    ROUND(
+	            SUM(
+	                    CASE
+	                        WHEN s.sale_type = 'SALE'
+	                            THEN ci.quantity + (ci.unit_quantity::NUMERIC / p.unit_per_pack)
+	                        WHEN s.sale_type = 'RETURN'
+	                            THEN (ci.quantity + (ci.unit_quantity::NUMERIC / p.unit_per_pack)) * -1
+	                        ELSE 0
+	                        END
+	            )::NUMERIC
+	        , 4) AS quantity,
+	    sp.supply_price AS supply_price_vat,
+	    sp.retail_price AS retail_price_vat,
+	    id.supply_price,
+	    id.retail_price,
+	    sp.vat,
+	    ROUND(
+	            SUM(
+	                    CASE
+	                        WHEN s.sale_type = 'SALE'
+	                            THEN (sp.vat_price * ci.quantity) + ((sp.vat_price / p.unit_per_pack) * ci.unit_quantity)
+	                        WHEN s.sale_type = 'RETURN'
+	                            THEN -1 * ((sp.vat_price * ci.quantity) + ((sp.vat_price / p.unit_per_pack) * ci.unit_quantity))
+	                        ELSE 0
+	                        END
+	            )
+	        , 2) AS vat_sum,
+	    ROUND(
+	            SUM(
+	                    CASE
+	                        WHEN s.sale_type = 'SALE'
+	                            THEN (id.retail_price * ci.quantity) + ((id.retail_price / p.unit_per_pack) * ci.unit_quantity)
+	                        WHEN s.sale_type = 'RETURN'
+	                            THEN -1 * ((id.retail_price * ci.quantity) + ((id.retail_price / p.unit_per_pack) * ci.unit_quantity))
+	                        ELSE 0
+	                        END
+	            )
+	        , 2) AS sum,
+	    SUM(
+	            CASE
+	                WHEN s.sale_type = 'SALE'
+	                    THEN ci.total_price
+	                WHEN s.sale_type = 'RETURN'
+	                    THEN -1 * ci.total_price
+	                ELSE 0
+	                END
+	    ) AS sum_vat
 	FROM sales s
-	LEFT JOIN sales s_return ON s_return.parent_id = s.id AND s_return.sale_type = 'RETURN' AND s_return.status = 'completed'
-	JOIN cart_items ci ON s.id = ci.sale_id
-	JOIN store_products sp ON ci.store_product_id = sp.id
-	JOIN products p ON sp.product_id = p.id
-	LEFT JOIN producers pr ON p.producer_id = pr.id
-	LEFT JOIN import_details id ON sp.import_detail_id = id.id
+	         LEFT JOIN sales s_return
+	                   ON s_return.parent_id = s.id
+	                       AND s_return.sale_type = 'RETURN'
+	                       AND s_return.status = 'completed'
+	         JOIN cart_items ci ON s.id = ci.sale_id
+	         JOIN store_products sp ON ci.store_product_id = sp.id
+	         JOIN products p ON sp.product_id = p.id
+	         LEFT JOIN producers pr ON p.producer_id = pr.id
+	         LEFT JOIN import_details id ON sp.import_detail_id = id.id
 	WHERE s.store_id = ?
-	AND s.status = 'completed' AND s.sale_type = 'SALE' AND s_return.id IS NULL AND (s.completed_at+interval '5 hours')::date BETWEEN ? AND ?
+	  AND s.status = 'completed'
+	  AND (s.completed_at + interval '5 hours')::date
+	    BETWEEN ? AND ?
 	GROUP BY
-		p.id, pr.id, sp.id, id.id;
+		p.id, pr.id, sp.id, id.id
+	HAVING
+	    ROUND(
+	            SUM(
+	                    CASE
+	                        WHEN s.sale_type = 'SALE'
+	                            THEN ci.quantity + (ci.unit_quantity::NUMERIC / p.unit_per_pack)
+	                        WHEN s.sale_type = 'RETURN'
+	                            THEN (ci.quantity + (ci.unit_quantity::NUMERIC / p.unit_per_pack)) * -1
+	                        ELSE 0
+	                        END
+	            )::NUMERIC
+	        , 4) != 0;
 	`
 	// complete get expense product list
 	err = s.db.Raw(expenseProductQuery, store.Id, date, date).Scan(&expenseData.Товары).Error
@@ -316,4 +373,70 @@ func (s *Services) SendBacklogReportsSequentially(start, end time.Time) {
 		time.Sleep(10 * time.Minute) // Wait 10 minutes before next day
 	}
 
+}
+
+// Excel fayldan olib yuborish
+func (s *Services) SendExpenseTo1CFromExcel(filePath string) error {
+	f, err := excelize.OpenFile(filePath)
+	if err != nil {
+		return fmt.Errorf("cannot open excel: %v", err)
+	}
+	defer f.Close()
+
+	rows, err := f.GetRows("List")
+	if err != nil {
+		return fmt.Errorf("cannot read sheet: %v", err)
+	}
+
+	type key struct {
+		StoreCode string
+		Date      string
+	}
+	unique := make(map[key]struct{}) // set
+
+	for i, row := range rows {
+		if i == 0 { // skip header
+			continue
+		}
+		if len(row) < 3 {
+			continue
+		}
+		//if len(row) < 15 {
+		//	continue
+		//} else {
+		//	r := strings.TrimSpace(row[17])
+		//	if r == "" || r == "0" || r == "0.0" {
+		//		continue
+		//	}
+		//}
+
+		storeCode := row[0] // ID
+		date := row[2]      // Дата (2025-03-10T00:00:00Z)
+		parsedDate, err := time.Parse(time.RFC3339, date)
+		if err != nil {
+			return fmt.Errorf("invalid date format at row %d: %v", i+1, err)
+		}
+		sendDate := parsedDate.Format("2006-01-02")
+		k := key{StoreCode: storeCode, Date: sendDate}
+		unique[k] = struct{}{} // faqat unikallar qoladi
+	}
+
+	// Endi faqat unikal kombinatsiyalar bo‘yicha yuboramiz
+	for k := range unique {
+		var store domain.Store
+		err = s.db.Raw("SELECT * FROM stores WHERE store_code = ?", k.StoreCode).Scan(&store).Error
+		if err != nil {
+			return fmt.Errorf("cannot find store with code %s: %v", k.StoreCode, err)
+		}
+		fmt.Printf("Sending report for store=%s date=%s...\n", store.Name, k.Date)
+		if err = s.sendReportTo1C(&store, k.Date); err != nil {
+			fmt.Printf("❌ Failed for store=%s date=%s: %v\n", store.Name, k.Date, err)
+			continue
+		}
+		fmt.Printf("✅ Successfully sent report for store=%s date=%s\n", store.Name, k.Date)
+		time.Sleep(5 * time.Second)
+		break
+	}
+
+	return nil
 }

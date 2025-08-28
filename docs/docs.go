@@ -5316,6 +5316,55 @@ const docTemplate = `{
                 }
             }
         },
+        "/expense/expense-given-excel": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Read Excel (ID, Дата) and send each to 1C",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Shift Expenses"
+                ],
+                "summary": "Send expenses to 1C from Excel",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Excel File",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/expense/send": {
             "post": {
                 "security": [
