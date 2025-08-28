@@ -53,7 +53,6 @@ jobs:
           host: "${{ env.SSH_HOST }}"
           username: "${{ env.SSH_USER }}"
           key: "${{ env.SSH_KEY }}"
-          port: 2002
           script: |
             set -e
             docker login -u ${{ env.DOCKER_USERNAME }} -p ${{ env.DOCKER_PASSWORD }}
