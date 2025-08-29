@@ -142,6 +142,13 @@ func (h *StoreHandler) List(c *gin.Context) {
 		return
 	}
 
+	companyId, ok := c.Get("company_id")
+	if !ok {
+		h.log.Warn("Error on getting user id from context")
+		handleResponse(c, BadRequest, "User not authorized")
+		return
+	}
+
 	query := h.db.
 		Model(&domain.StoreWithProducts{}).Table("stores s")
 	if productID != "" {
@@ -160,6 +167,10 @@ func (h *StoreHandler) List(c *gin.Context) {
             ORDER BY sp.store_id, sp.created_at DESC
         ) sp ON s.id = sp.store_id
     `, productID)
+	}
+
+	if companyId != "" {
+		query = query.Where("s.company_id = ?", companyId)
 	}
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
@@ -232,6 +243,12 @@ func (h *StoreHandler) ExportExcel(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	companyId, ok := c.Get("company_id")
+	if !ok {
+		h.log.Warn("Error on getting user id from context")
+		handleResponse(c, BadRequest, "User not authorized")
+		return
+	}
 
 	query := h.db.
 		Model(&domain.StoreWithProducts{}).Table("stores s")
@@ -251,6 +268,9 @@ func (h *StoreHandler) ExportExcel(c *gin.Context) {
 			ORDER BY sp.store_id, sp.created_at DESC
 		) sp ON s.id = sp.store_id
 	`, productID)
+	}
+	if companyId != "" {
+		query = query.Where("s.company_id = ?", companyId)
 	}
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)

@@ -160,6 +160,17 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 		args1 = append(args1, param.StoreIds)
 	}
 
+	// filter by company_id
+	if param.CompanyId != "" {
+		filter += " AND company_id = ?"
+		filterc += " AND s.company_id = ?"
+		args = append(args, param.CompanyId)
+		query1 += " AND im.company_id = ?"
+		query24h += " AND im.company_id = ?"
+		args1 = append(args1, param.CompanyId)
+		queryImportCountNot24 += " AND im.company_id = ?"
+	}
+
 	// Execute queries
 	querys += filter
 	err = s.db.Raw(querys, args...).Scan(&sale).Error
@@ -241,6 +252,7 @@ func (s *Services) DashboardChartStats(param *domain.DashboardQueryParam) ([]dom
 		interval     string
 		timeTruncCol string
 	)
+
 	// Parse start and end dates
 	startTime, err := time.Parse(time.RFC3339, param.StartDate)
 	if err != nil {
@@ -261,6 +273,7 @@ func (s *Services) DashboardChartStats(param *domain.DashboardQueryParam) ([]dom
 		}
 	}
 
+	// Group type
 	switch param.Type {
 	case "HALF_HOURLY":
 		interval = "30 minutes"
@@ -301,6 +314,10 @@ func (s *Services) DashboardChartStats(param *domain.DashboardQueryParam) ([]dom
 	if len(param.StoreIds) > 0 {
 		filter += " AND s.store_id IN (?)"
 		args = append(args, param.StoreIds)
+	}
+	if param.CompanyId != "" {
+		filter += " AND s.company_id = ?"
+		args = append(args, param.CompanyId)
 	}
 
 	// yakuniy query
@@ -347,6 +364,12 @@ func (s *Services) DashboardTopStores(param *domain.DashboardQueryParam) ([]doma
 		group  = ` GROUP BY stores.id`
 		order  = ` ORDER BY total_amount DESC`
 	)
+
+	// Company filter
+	if param.CompanyId != "" {
+		filter += " AND stores.company_id = ?"
+		args = append(args, param.CompanyId)
+	}
 
 	// Parse and apply date filters
 	var startStr, endStr string
@@ -417,6 +440,12 @@ func (s *Services) DashboardTopProducts(param *domain.DashboardQueryParam) ([]do
 		order  = ` ORDER BY total_amount DESC`
 	)
 
+	// Filter by company_id
+	if param.CompanyId != "" {
+		filter += ` AND sp.company_id = ?`
+		args = append(args, param.CompanyId)
+	}
+
 	// Filter by one store
 	if param.StoreId != "" {
 		filter += ` AND sp.store_id = ?`
@@ -482,17 +511,22 @@ func (s *Services) DashboardBonusProducts(param *domain.DashboardQueryParam) ([]
 			SUM(eb.bonus_amount) AS bonus_amount
 		FROM employee_bonus eb
 		JOIN products p ON eb.product_id = p.id
+		JOIN employees e ON eb.employee_id = e.id
 		`
-		join   = ""
-		filter = " WHERE 1 = 1 "
+		filter = " WHERE 1=1 "
 		group  = " GROUP BY p.id "
 		order  = " ORDER BY count DESC"
 	)
 
+	// company_id
+	if param.CompanyId != "" {
+		filter += " AND e.company_id = ? "
+		args = append(args, param.CompanyId)
+	}
+
 	// check store_ids
 	if len(param.StoreIds) > 0 {
 		filter += " AND e.store_id IN (?) "
-		join = " JOIN employees e ON eb.employee_id = e.id "
 		args = append(args, param.StoreIds)
 	}
 
@@ -518,7 +552,7 @@ func (s *Services) DashboardBonusProducts(param *domain.DashboardQueryParam) ([]
 	args = append(args, startStr, endStr)
 
 	// Limit / Offset
-	query = query + join + filter + group + order + " LIMIT ? OFFSET ?"
+	query = query + filter + group + order + " LIMIT ? OFFSET ?"
 	args = append(args, param.Limit, param.Offset)
 
 	// Execute
@@ -554,6 +588,12 @@ func (s *Services) DashboardTopSeller(param *domain.DashboardQueryParam) ([]doma
 		order  = " ORDER BY total_amount DESC"
 		offset = " LIMIT ? OFFSET ?"
 	)
+
+	// Company filter
+	if param.CompanyId != "" {
+		filter += " AND st.company_id = ?"
+		args = append(args, param.CompanyId)
+	}
 
 	// Filter by one store
 	if param.StoreId != "" {
@@ -675,7 +715,10 @@ func (s *Services) DashboardPayments(param *domain.DashboardQueryParam) ([]domai
 	// Store filter if provided
 	storeFilter := ""
 	if len(param.StoreIds) > 0 {
-		storeFilter = " AND s.store_id IN (?) "
+		storeFilter += " AND s.store_id IN (?) "
+	}
+	if param.CompanyId != "" {
+		storeFilter += " AND s.company_id = ? "
 	}
 
 	// Build final query with store filter
@@ -689,7 +732,9 @@ func (s *Services) DashboardPayments(param *domain.DashboardQueryParam) ([]domai
 	if len(param.StoreIds) > 0 {
 		args = append(args, param.StoreIds)
 	}
-	// prev
+	if param.CompanyId != "" {
+		args = append(args, param.CompanyId)
+	}
 	args = append(args, beforeStartStr, beforeEndStr)
 	if len(param.StoreIds) > 0 {
 		args = append(args, param.StoreIds)
@@ -742,6 +787,10 @@ func (s *Services) DashboardTransaction(param *domain.DashboardQueryParam) ([]do
 		whereClause += ` AND s.store_id IN (?)`
 		args = append(args, param.StoreIds, param.StoreIds)
 	}
+	if param.CompanyId != "" {
+		whereClause += ` AND s.store_id IN (SELECT id FROM stores WHERE company_id = ?)`
+		args = append(args, param.CompanyId, param.CompanyId)
+	}
 
 	// SALES query
 	saleQuery := fmt.Sprintf(`
@@ -776,10 +825,14 @@ func (s *Services) DashboardTransaction(param *domain.DashboardQueryParam) ([]do
 	`, whereClause,
 		// Store ID condition for previous period if needed
 		func() string {
+			extra := ""
 			if len(param.StoreIds) > 0 {
-				return "AND s.store_id IN (?)"
+				extra += " AND s.store_id IN (?)"
 			}
-			return ""
+			if param.CompanyId != "" {
+				extra += " AND s.store_id IN (SELECT id FROM stores WHERE company_id = ?)"
+			}
+			return extra
 		}(),
 	)
 
@@ -870,6 +923,7 @@ func (s *Services) DashboardOldImports(c *gin.Context, limit, offset int) ([]dom
 		totalCount int64
 		search     = c.Query("search")
 		storeID    = c.Query("store_id")
+		companyId  = c.Query("company_id")
 		err        error
 	)
 
@@ -893,6 +947,7 @@ func (s *Services) DashboardOldImports(c *gin.Context, limit, offset int) ([]dom
 	// If not admin, restrict to their store
 	if !helper.IsAdmin(employee, s.cfg) && employee.StoreId != "" {
 		storeID = employee.StoreId
+		companyId = employee.CompanyId
 	}
 
 	// Main query
@@ -914,6 +969,10 @@ func (s *Services) DashboardOldImports(c *gin.Context, limit, offset int) ([]dom
 		Where("imports.status = ?", "new")
 
 	// Apply filters
+	if companyId != "" {
+		query = query.Joins("JOIN stores ON imports.store_id = stores.id").
+			Where("stores.company_id = ?", companyId)
+	}
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
 		query = query.Where(`
