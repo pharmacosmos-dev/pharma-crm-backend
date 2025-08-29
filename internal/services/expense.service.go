@@ -42,7 +42,7 @@ func (s *Services) SendExpenseTo1C(sendDate string) error {
 		}
 
 		fmt.Printf("Successfully sent report for %s\n", store.Name)
-		time.Sleep(5 * time.Second)
+		time.Sleep(10 * time.Second)
 	}
 
 	return nil
@@ -434,7 +434,7 @@ func (s *Services) SendExpenseTo1CFromExcel(filePath string) error {
 			continue
 		}
 		fmt.Printf("Successfully sent report for store=%s date=%s\n", store.Name, k.Date)
-		time.Sleep(1 * time.Second)
+		time.Sleep(10 * time.Second)
 	}
 
 	return nil
