@@ -131,7 +131,7 @@ type FinalSale struct {
 
 type MarkingData struct {
 	Id           string   `json:"id" gorm:"id"`
-	DmedId       string   `json:"dmed_id"`
+	DmedId       int      `json:"dmed_id"`
 	MarkingCount int      `json:"marking_count" gorm:"marking_count"`
 	MarkingList  []string `json:"marking_list" gorm:"marking_list"`
 }

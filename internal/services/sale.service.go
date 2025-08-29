@@ -1193,7 +1193,7 @@ func (s *Services) DMEDGiveReceipt(cartItems []*domain.CartItemForDMED, markingD
 				return errors.New("serial number or marking code is required")
 			}
 
-			url := fmt.Sprintf("/prescriptions/%s/%s", markingData[i].DmedId, action)
+			url := fmt.Sprintf("/prescriptions/%d/%s", markingData[i].DmedId, action)
 			method := http.MethodPost
 			if action == "issue" {
 				method = http.MethodPut
