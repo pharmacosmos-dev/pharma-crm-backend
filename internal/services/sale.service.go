@@ -1118,7 +1118,7 @@ func (s *Services) doRequestToDMED(method, url string, data any) ([]byte, error)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
-
+	fmt.Println(string(respBody))
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("DMED API error: %s", string(respBody))
 	}
