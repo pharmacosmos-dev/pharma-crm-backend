@@ -1144,7 +1144,7 @@ func (s *Services) DMEDGiveReceipt(cartItems []*domain.CartItemForDMED, markingD
 
 			payload := map[string]any{
 				"drug_amount":         drugAmount,
-				"price":               cartItem.UnitPrice,
+				"price":               int(cartItem.UnitPrice),
 				"issued_by_full_name": employeeName,
 				// //   "pharmacy_id": 123,
 			}
