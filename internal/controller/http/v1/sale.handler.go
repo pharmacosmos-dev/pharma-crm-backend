@@ -903,6 +903,14 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 				handleResponse(c, InternalError, "Failed to update sale status")
 				return
 			}
+
+			// update return
+			err = h.service.ReturnStatusPending(ctx, tx, sale)
+			if err != nil {
+				h.log.Warn("Failed to update return status: %v", err)
+				handleResponse(c, InternalError, "Failed to update return status")
+				return
+			}
 		}
 	} else {
 		// Save to epos_responses table

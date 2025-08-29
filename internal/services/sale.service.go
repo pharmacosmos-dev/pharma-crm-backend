@@ -1170,3 +1170,22 @@ func (s *Services) DMEDGiveReceipt(cartItems []*domain.CartItemForDMED, markingD
 	}
 	return nil
 }
+
+func (s *Services) ReturnStatusPending(ctx context.Context, tx *gorm.DB, sale *domain.Sale) error {
+	// build query for update sale status to return
+	query := `
+	UPDATE sales
+	SET
+		total_amount = 0,
+		total_discount = 0,
+		status = ?, completed_at = NULL, updated_at = NOW()
+	WHERE id = ?;
+	`
+	// complete the query
+	err := tx.WithContext(ctx).Exec(query, config.PENDING, sale.ID).Error
+	if err != nil {
+		s.log.Warn("ERROR on update sale to returned: %v", err)
+		return err
+	}
+	return nil
+}
