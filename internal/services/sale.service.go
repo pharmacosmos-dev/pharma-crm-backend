@@ -1095,6 +1095,7 @@ func (s *Services) doRequestToDMED(method, url string, data any) ([]byte, error)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal data: %w", err)
 		}
+		fmt.Printf("Request body DMEDD: %s\n", string(body))
 		bodyReader = bytes.NewReader(body)
 	}
 
