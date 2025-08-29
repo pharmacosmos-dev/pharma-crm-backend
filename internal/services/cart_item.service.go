@@ -297,23 +297,25 @@ func (s *Services) GetOrCheckOnlineCartItems(req []domain.OnlineCartItemRequest,
 	return cartItems, nil
 }
 
-func (s *Services) GetCartItems(ctx context.Context, tx *gorm.DB, saleID string) (*domain.CartItemForDMED, error) {
+func (s *Services) GetCartItems(ctx context.Context, tx *gorm.DB, saleID string) ([]*domain.CartItemForDMED, error) {
 	var (
 		err error
-		res *domain.CartItemForDMED
+		res []*domain.CartItemForDMED
 	)
 	defer RollbackIfError(tx, &err)
 	err = tx.WithContext(ctx).Raw(`
 		SELECT
     		ci.id,
-    		ci.unit_quantity + (ci.quantity * p.unit_per_pack) as unit_quantity,
+    		ci.quantity,
+    		ci.unit_quantity  as unit_quantity,
     		ci.unit_price / p.unit_per_pack as unit_price,
+    		p.unit_per_pack,
     		p.barcode,
    			sp.serial_number
 		FROM cart_items ci
          		LEFT JOIN store_products sp ON ci.store_product_id = sp.id
          		LEFT JOIN products p ON sp.product_id = p.id
-		WHERE ci.sale_id = ? LIMIT 1`, saleID).Scan(&res).Error
+		WHERE ci.sale_id = ?`, saleID).Scan(&res).Error
 	if err != nil {
 		s.log.Error("", err)
 		return nil, err
