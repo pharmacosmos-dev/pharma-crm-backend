@@ -660,7 +660,7 @@ func (h *Services) AlifPay(ctx context.Context, tx *gorm.DB, paymentService *dom
 		return nil, err
 	}
 
-	res, err := h.AlifPayDoRequest(ctx, "/v2/pay", alifData, paymentService.SecretKey)
+	res, err := h.AlifPayDoRequest(ctx, "/v2/pay", alifData, paymentService.CashboxId)
 	if err != nil {
 		return nil, err
 	}
@@ -672,6 +672,11 @@ func (h *Services) AlifPay(ctx context.Context, tx *gorm.DB, paymentService *dom
 	})
 	if err != nil {
 		return nil, err
+	}
+
+	if status, ok := res["status"].(string); ok && status == "DECLINED" {
+		h.log.Warn("Payment declined for transactionID=%s", transactionID)
+		return res, fmt.Errorf("payment declined by alif")
 	}
 
 	return res, nil
@@ -708,7 +713,7 @@ func (h *Services) AlifPayDoRequest(ctx context.Context, url string, data any, t
 		return nil, fmt.Errorf("failed to create HTTP request: %v", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Token", token)
+	req.Header.Set("Store-Token", token)
 
 	// Execute request
 	resp, err := client.Do(req)
