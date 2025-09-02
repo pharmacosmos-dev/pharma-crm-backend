@@ -170,6 +170,7 @@ func (h *TransferHandler) List(c *gin.Context) {
 	if !helper.IsAdmin(employee, h.cfg) {
 		if employee.StoreId != "" {
 			param.StoreId = employee.StoreId
+			param.CompanyId = employee.CompanyId
 		}
 	}
 
@@ -226,6 +227,7 @@ func (h *TransferHandler) TransferStatus(c *gin.Context) {
 	}
 	if !helper.IsAdmin(employee, h.cfg) && employee.StoreId != "" {
 		param.StoreId = employee.StoreId
+		param.CompanyId = employee.CompanyId
 	}
 
 	// get aggregated transfer stats
@@ -282,6 +284,7 @@ func (h *TransferHandler) ExportTransferExcel(c *gin.Context) {
 	if !helper.IsAdmin(employee, h.cfg) {
 		if employee.StoreId != "" {
 			param.StoreId = employee.StoreId
+			param.CompanyId = employee.CompanyId
 		}
 	}
 

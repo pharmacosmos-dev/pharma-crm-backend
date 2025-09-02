@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
@@ -132,6 +133,7 @@ func (h *StoreHandler) List(c *gin.Context) {
 	var (
 		res        []domain.StoreWithProducts
 		totalCount int64
+		CompanyID  string
 		search     = c.Query("search")
 		productID  = c.Query("product_id")
 	)
@@ -141,12 +143,28 @@ func (h *StoreHandler) List(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-
-	companyId, ok := c.Get("company_id")
+	userId, ok := c.Get("user_id")
 	if !ok {
-		h.log.Warn("Error on getting user id from context")
-		handleResponse(c, BadRequest, "User not authorized")
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
 		return
+	}
+	// get employee info
+	var employee domain.Employee
+	err = h.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			CompanyID = employee.CompanyId
+		}
 	}
 
 	query := h.db.
@@ -169,8 +187,8 @@ func (h *StoreHandler) List(c *gin.Context) {
     `, productID)
 	}
 
-	if companyId != "" {
-		query = query.Where("s.company_id = ?", companyId)
+	if CompanyID != "" {
+		query = query.Where("s.company_id = ?", CompanyID)
 	}
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)

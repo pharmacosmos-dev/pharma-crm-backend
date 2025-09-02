@@ -62,6 +62,10 @@ func (s *Services) ListRejectedProducts(param *domain.RejectedProductQueryParam)
 		filter += " AND rp.store_id = ?"
 		args = append(args, param.StoreID)
 	}
+	if param.CompanyId != "" {
+		filter += " AND s.company_id = ?"
+		args = append(args, param.CompanyId)
+	}
 	if param.ProductID != "" {
 		filter += " AND rp.product_id = ?"
 		args = append(args, param.ProductID)

@@ -73,6 +73,10 @@ func (s *Services) WriteOffList(param *domain.WriteOffParam) ([]domain.WriteOff,
 	if param.StoreId != "" {
 		query = query.Where("imports.store_id = ? ", param.StoreId)
 	}
+	if param.CompanyId != "" {
+		query = query.Where("stores.company_id = ?", param.CompanyId).
+			Joins("LEFT JOIN stores ON imports.store_id = stores.id")
+	}
 	// filter by search keyword
 	if param.Search != "" {
 		param.Search = fmt.Sprintf("%%%s%%", param.Search)
@@ -104,6 +108,7 @@ func (s *Services) WriteOffStatus(param *domain.WriteOffParam) (*domain.WriteOff
 			COALESCE(SUM(imd.accepted_count * imd.retail_price_vat), 0) AS retail_price
 		FROM imports
 		LEFT JOIN import_details imd ON imports.id = imd.import_id
+		LEFT JOIN stores ON imports.store_id = stores.id
 		WHERE imports.entry_type = 3
 	`
 
@@ -113,6 +118,10 @@ func (s *Services) WriteOffStatus(param *domain.WriteOffParam) (*domain.WriteOff
 	if param.StoreId != "" {
 		filters = append(filters, "imports.store_id = ?")
 		args = append(args, param.StoreId)
+	}
+	if param.CompanyId != "" {
+		query += " AND stores.company_id = ?"
+		args = append(args, param.CompanyId)
 	}
 	if param.Search != "" {
 		search := "%" + param.Search + "%"

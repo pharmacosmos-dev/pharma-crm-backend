@@ -8,6 +8,7 @@ type InventoryParam struct {
 	Offset      int    `form:"offset"`
 	InventoryId string `form:"inventory_id"`
 	StoreId     string `form:"store_id"`
+	CompanyId   string `form:"company_id"`
 	Type        string `form:"type"`
 	Status      string `form:"status"`
 	Search      string `form:"search"`

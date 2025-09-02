@@ -21,6 +21,7 @@ func (h *CompanyHandler) CompanyRoutes(r *gin.RouterGroup) {
 	{
 		company.POST("", h.Create)
 		company.GET("/:id", h.Get)
+		company.POST("/list", h.List)
 		company.GET("/info", h.GetInfo)
 		company.PUT("/:id", h.Update)
 	}
@@ -97,6 +98,53 @@ func (h *CompanyHandler) Get(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, company)
+}
+
+// List company
+// @Summary List companies
+// @Description List companies with pagination
+// @Tags companies
+// @Security     BearerAuth
+// @Accept  json
+// @Produce json
+// @Param  limit  query int true "limit"
+// @Param  offset query int true "offset"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /company/list [post]
+func (h *CompanyHandler) List(c *gin.Context) {
+	var (
+		companies  []domain.Company
+		totalCount int64
+	)
+
+	limit, offset, err := getPaginationParams(c)
+	if err != nil {
+		handleResponse(c, BadRequest, "Received invalid pagination")
+		return
+	}
+
+	// total count
+	if err = h.db.Model(&domain.Company{}).Count(&totalCount).Error; err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	// select companies
+	if err = h.db.
+		Limit(limit).
+		Offset(offset).
+		Order("created_at DESC").
+		Find(&companies).Error; err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	data := utils.ListResponse(companies, totalCount, limit, offset)
+
+	handleResponse(c, OK, data)
 }
 
 // Get company

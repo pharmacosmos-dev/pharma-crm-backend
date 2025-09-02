@@ -289,6 +289,10 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 		expireDayPart = " DATE_PART('day', MIN(sp.expire_date)::timestamp - NOW()) AS expire_day, MIN(sp.expire_date) AS expire_date, "
 		args = append(args, param.StoreID)
 	}
+	if param.CompanyID != "" {
+		filter += " AND st.company_id = ?"
+		args = append(args, param.CompanyID)
+	}
 	// filter with producer id
 	if param.ProducerID != "" {
 		filter += " AND p.producer_id = ? "
@@ -352,6 +356,7 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 	RIGHT JOIN products p ON sp.product_id = p.id
 	LEFT JOIN producers pr ON p.producer_id = pr.id
 	LEFT JOIN unit_types u ON p.unit_type_id = u.id
+	LEFT JOIN stores st ON sp.store_id = st.id
 	`, expireDayPart, "%", "%")
 
 	// collect query
@@ -491,6 +496,11 @@ func (s *Services) ListProductStats(param *domain.ProductQueryParam) (domain.Pro
 	if param.StoreID != "" {
 		filter += " AND sp.store_id = ?"
 		args = append(args, param.StoreID)
+	}
+
+	if param.CompanyID != "" {
+		filter += " AND sp.company_id = ?"
+		args = append(args, param.CompanyID)
 	}
 
 	// filter with producer_id
@@ -907,6 +917,10 @@ func (s *Services) GetProductListByImport(param *domain.ProductQueryParam) ([]do
 	if param.StoreID != "" {
 		filter += " AND sp.store_id = ? "
 		args = append(args, param.StoreID)
+	}
+	if param.CompanyID != "" {
+		filter += " AND sp.company_id = ? "
+		args = append(args, param.CompanyID)
 	}
 	// filter by search keyword
 	if param.SearchField != "" {

@@ -470,6 +470,7 @@ func (s *Services) ListSale(param *domain.QueryParam, userId string) ([]domain.S
 	if !helper.IsAdmin(employee, s.cfg) {
 		if employee.StoreId != "" {
 			param.StoreID = employee.StoreId
+			param.CompanyId = employee.CompanyId
 		}
 	}
 	var res = []domain.SaleResponse{}
@@ -522,6 +523,10 @@ func (s *Services) ListSale(param *domain.QueryParam, userId string) ([]domain.S
 	if param.StoreID != "" {
 		filter += " AND s.store_id = ? "
 		args = append(args, param.StoreID)
+	}
+	if param.CompanyId != "" {
+		filter += " AND st.company_id = ? "
+		args = append(args, param.CompanyId)
 	}
 	// filter by cashbox id
 	if param.CashBoxID != "" {
