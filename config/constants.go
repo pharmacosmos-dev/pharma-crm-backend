@@ -82,6 +82,7 @@ const (
 	CONFIRMED  = "confirmed"
 	SENT       = "sent"
 	CHECKING   = "checking"
+	DECLINED   = "DECLINED"
 
 	// region online status
 

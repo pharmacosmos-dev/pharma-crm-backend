@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"gorm.io/gorm"
 )
@@ -674,7 +675,7 @@ func (h *Services) AlifPay(ctx context.Context, tx *gorm.DB, paymentService *dom
 		return nil, err
 	}
 
-	if status, ok := res["status"].(string); ok && status == "DECLINED" {
+	if status, ok := res["status"].(string); ok && status == config.DECLINED {
 		h.log.Warn("Payment declined for transactionID=%s", transactionID)
 		return res, fmt.Errorf("payment declined by alif")
 	}
