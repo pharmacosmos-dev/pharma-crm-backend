@@ -383,8 +383,8 @@ func (s *Services) ListImport(c *gin.Context, limit, offset int) ([]domain.Impor
 	if !helper.IsAdmin(employee, s.cfg) {
 		if employee.StoreId != "" {
 			storeID = employee.StoreId
-			companyID = employee.CompanyId
 		}
+		companyID = employee.CompanyId
 	}
 
 	// Fetch imports with detailed data
@@ -467,8 +467,10 @@ func (s *Services) ListImportStatus(c *gin.Context) (*domain.ImportStatusSummary
 		return nil, errors.New("employee not found")
 	}
 
-	if !helper.IsAdmin(employee, s.cfg) && employee.StoreId != "" {
-		storeID = employee.StoreId
+	if !helper.IsAdmin(employee, s.cfg) {
+		if employee.StoreId != "" {
+			storeID = employee.StoreId
+		}
 		companyID = employee.CompanyId
 	}
 

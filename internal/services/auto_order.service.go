@@ -22,8 +22,10 @@ func (s *Services) ListAutoOrder(param *domain.AutoOrderParam) ([]domain.AutoOrd
 		s.log.Error(err)
 		return nil, 0, err
 	}
-	if !helper.IsAdmin(employee, s.cfg) && employee.StoreId != "" {
-		param.StoreID = employee.StoreId
+	if !helper.IsAdmin(employee, s.cfg) {
+		if employee.StoreId != "" {
+			param.StoreID = employee.StoreId
+		}
 		param.CompanyID = employee.CompanyId
 	}
 

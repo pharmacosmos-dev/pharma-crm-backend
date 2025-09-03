@@ -7,9 +7,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/spf13/cast"
 	"github.com/xuri/excelize/v2"
+	"gorm.io/gorm"
 )
 
 type RepricingHandler struct {
@@ -138,6 +140,31 @@ func (h *RepricingHandler) List(c *gin.Context) {
 	}
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 
+	// get user_id from the context
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	// get employee info
+	var employee domain.Employee
+	err := h.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			param.StoreID = employee.StoreId
+		}
+		param.CompanyId = employee.CompanyId
+	}
+
 	res, totalCount, err := h.service.RepricingList(&param)
 	if err != nil {
 		h.log.Warn("ERROR on getting repricing list: %v", err)
@@ -172,6 +199,31 @@ func (h *RepricingHandler) RepricingStatus(c *gin.Context) {
 	if err := c.ShouldBindQuery(&param); err != nil {
 		handleResponse(c, BadRequest, "Invalid query param")
 		return
+	}
+
+	// get user_id from the context
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	// get employee info
+	var employee domain.Employee
+	err := h.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			param.StoreID = employee.StoreId
+		}
+		param.CompanyId = employee.CompanyId
 	}
 
 	res, err := h.service.RepricingStatus(&param)
@@ -210,7 +262,30 @@ func (h *RepricingHandler) ExportRepricingExcel(c *gin.Context) {
 		return
 	}
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
-
+	// get user_id from the context
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	// get employee info
+	var employee domain.Employee
+	err := h.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			param.StoreID = employee.StoreId
+		}
+		param.CompanyId = employee.CompanyId
+	}
 	res, _, err := h.service.RepricingList(&param)
 	if err != nil {
 		h.log.Warn("ERROR on getting repricing list: %v", err)

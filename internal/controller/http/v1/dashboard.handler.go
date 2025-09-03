@@ -86,8 +86,10 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 		return
 	}
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) && employee.StoreId != "" {
-		param.StoreIds = []string{employee.StoreId}
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			param.StoreIds = []string{employee.StoreId}
+		}
 		param.CompanyId = employee.CompanyId
 	}
 	// get dashboard data
@@ -152,8 +154,10 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 	}
 
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) && employee.StoreId != "" {
-		param.StoreIds = []string{employee.StoreId}
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			param.StoreIds = []string{employee.StoreId}
+		}
 		param.CompanyId = employee.CompanyId
 	}
 
@@ -208,8 +212,10 @@ func (h *DashboardHandler) TopStores(c *gin.Context) {
 		return
 	}
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) && employee.StoreId != "" {
-		param.StoreIds = []string{employee.StoreId}
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			param.StoreIds = []string{employee.StoreId}
+		}
 		param.CompanyId = employee.CompanyId
 	}
 	// get dashboard data
@@ -271,8 +277,10 @@ func (h *DashboardHandler) TopProducts(c *gin.Context) {
 		return
 	}
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) && employee.StoreId != "" {
-		param.StoreIds = []string{employee.StoreId}
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			param.StoreIds = []string{employee.StoreId}
+		}
 		param.CompanyId = employee.CompanyId
 	}
 	// get dashboard data
@@ -336,8 +344,10 @@ func (h *DashboardHandler) BonusProducts(c *gin.Context) {
 	}
 
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) && employee.StoreId != "" {
-		param.StoreIds = []string{employee.StoreId}
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			param.StoreIds = []string{employee.StoreId}
+		}
 		param.CompanyId = employee.CompanyId
 	}
 	// get dashboard data
@@ -398,8 +408,10 @@ func (h *DashboardHandler) TopSeller(c *gin.Context) {
 		return
 	}
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) && employee.StoreId != "" {
-		param.StoreIds = []string{employee.StoreId}
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			param.StoreIds = []string{employee.StoreId}
+		}
 		param.CompanyId = employee.CompanyId
 	}
 	// get dashboard data

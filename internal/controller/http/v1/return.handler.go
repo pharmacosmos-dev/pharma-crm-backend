@@ -165,8 +165,8 @@ func (h *ReturnHandler) List(c *gin.Context) {
 	if !helper.IsAdmin(employee, h.cfg) {
 		if employee.StoreId != "" {
 			param.StoreId = employee.StoreId
-			param.CompanyId = employee.CompanyId
 		}
+		param.CompanyId = employee.CompanyId
 	}
 
 	// get default limit and offset
@@ -219,8 +219,11 @@ func (h *ReturnHandler) ReturnStatus(c *gin.Context) {
 		handleResponse(c, InternalError, "Failed to get user info")
 		return
 	}
-	if !helper.IsAdmin(employee, h.cfg) && employee.StoreId != "" {
-		param.StoreId = employee.StoreId
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			param.StoreId = employee.StoreId
+		}
+		param.CompanyId = employee.CompanyId
 	}
 
 	// get return summary
@@ -278,8 +281,8 @@ func (h *ReturnHandler) ExportReturnExcel(c *gin.Context) {
 	if !helper.IsAdmin(employee, h.cfg) {
 		if employee.StoreId != "" {
 			param.StoreId = employee.StoreId
-			param.CompanyId = employee.CompanyId
 		}
+		param.CompanyId = employee.CompanyId
 	}
 
 	// get default limit and offset

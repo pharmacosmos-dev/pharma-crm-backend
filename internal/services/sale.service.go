@@ -471,8 +471,8 @@ func (s *Services) ListSale(param *domain.QueryParam, userId string) ([]domain.S
 	if !helper.IsAdmin(employee, s.cfg) {
 		if employee.StoreId != "" {
 			param.StoreID = employee.StoreId
-			param.CompanyId = employee.CompanyId
 		}
+		param.CompanyId = employee.CompanyId
 	}
 	var res = []domain.SaleResponse{}
 	query := `
