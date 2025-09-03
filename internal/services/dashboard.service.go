@@ -118,11 +118,24 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 
 		query24h = `
 		SELECT
-			COALESCE(SUM(imd.received_count * imd.retail_price_vat), 0) AS import_amount,
-			COALESCE(SUM(CASE
-				WHEN im.created_at < NOW() - interval '24 hour'
-				THEN imd.received_count * imd.retail_price_vat ELSE 0
-			END), 0) AS not_last_24h_import_amount
+			-- 24 soatdan eski (hammasi)
+			COALESCE(SUM(
+				CASE 
+					WHEN im.created_at < NOW() - interval '24 hour'
+					THEN imd.received_count * imd.retail_price_vat 
+					ELSE 0 
+				END
+			), 0) AS import_amount,
+		
+			-- 24–48 soat oralig‘i
+			COALESCE(SUM(
+				CASE
+					WHEN im.created_at BETWEEN NOW() - interval '48 hour' AND NOW() - interval '24 hour'
+					THEN imd.received_count * imd.retail_price_vat 
+					ELSE 0 
+				END
+			), 0) AS not_last_24h_import_amount
+		
 		FROM import_details imd
 		JOIN imports im ON imd.import_id = im.id
 		LEFT JOIN stores st ON im.store_id = st.id
