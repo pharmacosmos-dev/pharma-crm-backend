@@ -96,6 +96,7 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 		SUM(ci.discount_amount) AS discount_amount,
 		MAX(dc.percent) AS card_percent,
 		ROUND(SUM(sp.vat_price * quantity + (sp.vat_price / p.unit_per_pack) * ci.unit_quantity), 2) AS vat_sum,
+		SUM(total_price) - SUM(ci.discount_amount) as total_amount,
 		COUNT(*) AS count
 	FROM cart_items ci
 	JOIN store_products sp ON sp.id = ci.store_product_id
@@ -112,8 +113,8 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 		res = []domain.CartItemResponse{}
 	}
 
-	data.TotalAmount = data.Sum - data.DiscountAmount
 	data.Data = res
+
 	return &data, nil
 }
 
