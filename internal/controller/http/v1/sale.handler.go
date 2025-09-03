@@ -500,6 +500,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 		FROM payment_types pt
 		LEFT JOIN sale_payments sp ON sp.payment_type_id = pt.id
 		LEFT JOIN sales s ON sp.sale_id = s.id
+		LEFT JOIN stores st ON s.store_id = st.id   
 		`
 		filter = ` s.status = 'completed' `
 		join   = ""
@@ -523,7 +524,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 	}
 	if param.CompanyId != "" {
 		args = append(args, param.CompanyId)
-		filter += " AND s.company_id = ?"
+		filter += " AND st.company_id = ?"
 	}
 	// filter by cashbox_id
 	if param.CashBoxID != "" {
