@@ -186,8 +186,8 @@ func (h *CashBoxHandler) List(c *gin.Context) {
 	if !helper.IsAdmin(employee, h.cfg) {
 		if employee.StoreId != "" {
 			storeID = employee.StoreId
-			companyID = employee.CompanyId
 		}
+		companyID = employee.CompanyId
 	}
 
 	// get limit, offset with getting or default

@@ -1640,9 +1640,10 @@ func (h *ProductHandler) ProductMovements(c *gin.Context) {
 		if employee.StoreId != "" {
 			storeId = employee.StoreId
 		}
+		companyId = employee.CompanyId
 	}
 	// get product-movements data from the product service
-	res, totalCount, err := h.service.GetProductMovements(productId, storeId, limit, offset)
+	res, totalCount, err := h.service.GetProductMovements(productId, storeId, limit, offset, companyId)
 	if err != nil {
 		h.log.Info("Failed to get product-movement: %v", err)
 		handleResponse(c, InternalError, "Can't get product-movements")
@@ -2489,6 +2490,11 @@ func (h *ProductHandler) CreateExcludedProduct(c *gin.Context) {
 		handleResponse(c, UNAUTHORIZED, "User ID not found")
 		return
 	}
+	companyId, ok := c.Get("company_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
 
 	// Validation: at least one of producer_id or product_id is required
 	if body.ProducerID == nil && len(body.ProductID) == 0 {
@@ -2531,11 +2537,11 @@ func (h *ProductHandler) CreateExcludedProduct(c *gin.Context) {
 		if len(body.StoreID) == 0 {
 			// Global exclude (store_id = NULL)
 			excludeID := uuid.New().String()
-			err := tx.Exec(`
-				INSERT INTO excluded_products (id, store_id, product_id, created_by, created_at)
-				VALUES (?, NULL, ?, ?, ?)
-				ON CONFLICT (store_id, product_id) DO NOTHING
-			`, excludeID, productID, userId, now).Error
+			err = tx.Exec(`
+				INSERT INTO excluded_products (id, store_id, product_id, company_id, created_by, created_at)
+				VALUES (?, NULL, ?, ?, ?, ?)
+				ON CONFLICT (store_id, product_id, company_id) DO NOTHING
+			`, excludeID, productID, companyId, userId, now).Error
 			if err != nil {
 				h.log.Error(err)
 				handleResponse(c, InternalError, "Failed to exclude product globally")
@@ -2548,11 +2554,11 @@ func (h *ProductHandler) CreateExcludedProduct(c *gin.Context) {
 					continue
 				}
 				excludeID := uuid.New().String()
-				err := tx.Exec(`
-					INSERT INTO excluded_products (id, store_id, product_id, created_by, created_at)
-					VALUES (?, ?, ?, ?, ?)
-					ON CONFLICT (store_id, product_id) DO NOTHING
-				`, excludeID, *store, productID, userId, now).Error
+				err = tx.Exec(`
+					INSERT INTO excluded_products (id, store_id, product_id, company_id, created_by, created_at)
+					VALUES (?, ?, ?, ?, ?, ?)
+					ON CONFLICT (store_id, product_id, company_id) DO NOTHING
+				`, excludeID, *store, productID, companyId, userId, now).Error
 				if err != nil {
 					h.log.Error(err)
 					handleResponse(c, InternalError, "Failed to exclude product for store")
@@ -2594,7 +2600,29 @@ func (h *ProductHandler) ListExcludedProducts(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid query parameters: "+err.Error())
 		return
 	}
-
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	// get employee info
+	var employee domain.Employee
+	err = h.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			param.StoreID = employee.StoreId
+		}
+		param.CompanyID = employee.CompanyId
+	}
 	// defaults
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 

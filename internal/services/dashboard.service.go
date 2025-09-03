@@ -940,8 +940,10 @@ func (s *Services) DashboardOldImports(c *gin.Context, limit, offset int) ([]dom
 	}
 
 	// If not admin, restrict to their store
-	if !helper.IsAdmin(employee, s.cfg) && employee.StoreId != "" {
-		storeID = employee.StoreId
+	if !helper.IsAdmin(employee, s.cfg) {
+		if employee.StoreId != "" {
+			storeID = employee.StoreId
+		}
 		companyId = employee.CompanyId
 	}
 

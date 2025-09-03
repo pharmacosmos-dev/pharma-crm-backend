@@ -700,7 +700,7 @@ func (s *Services) UpdateProductIsMarking(req *domain.UpdateIsMarking) error {
 }
 
 // get product movements(Import, Inventory, Write-Off, Sale)
-func (s *Services) GetProductMovements(productId, storeId string, limit, offset int) ([]domain.ImportProductData, int64, error) {
+func (s *Services) GetProductMovements(productId, storeId string, limit, offset int, companyId string) ([]domain.ImportProductData, int64, error) {
 	var (
 		res        []domain.ImportProductData
 		totalCount int64
@@ -818,10 +818,11 @@ func (s *Services) GetProductMovements(productId, storeId string, limit, offset 
 	LIMIT ? OFFSET ?;
 	`
 
-	if storeId == "" {
+	if storeId == "" && companyId == "" {
 		query = fmt.Sprintf(baseQuery, "", "", "", "", "")
 		params = []any{productId, limit, offset}
-	} else {
+
+	} else if storeId != "" && companyId == "" {
 		query = fmt.Sprintf(
 			baseQuery,
 			"AND im.store_id = ?",
@@ -832,12 +833,43 @@ func (s *Services) GetProductMovements(productId, storeId string, limit, offset 
 		)
 		params = []any{
 			productId,
-			storeId, // import_data
-			storeId, // inventory_data
-			storeId, // sales_data
-			storeId, // vozvrat_data
-			storeId, // transfer_data (from)
-			storeId, // transfer_data (to)
+			storeId, storeId, storeId, storeId,
+			storeId, storeId, // for transfer_data
+			limit, offset,
+		}
+
+	} else if storeId == "" && companyId != "" {
+		query = fmt.Sprintf(
+			baseQuery,
+			"AND s.company_id = ?",
+			"AND s.company_id = ?",
+			"AND st.company_id = ?",
+			"AND s.company_id = ?",
+			"AND (fs.company_id = ? OR ts.company_id = ?)",
+		)
+		params = []any{
+			productId,
+			companyId, companyId, companyId, companyId,
+			companyId, companyId, // for transfer_data
+			limit, offset,
+		}
+
+	} else { // both storeId and companyId
+		query = fmt.Sprintf(
+			baseQuery,
+			"AND im.store_id = ? AND s.company_id = ?",
+			"AND im.store_id = ? AND s.company_id = ?",
+			"AND sa.store_id = ? AND st.company_id = ?",
+			"AND tr.from_store_id = ? AND s.company_id = ?",
+			"AND (tr.from_store_id = ? OR tr.to_store_id = ?) AND (fs.company_id = ? OR ts.company_id = ?)",
+		)
+		params = []any{
+			productId,
+			storeId, companyId, // import_data
+			storeId, companyId, // inventory_data
+			storeId, companyId, // sales_data
+			storeId, companyId, // vozvrat_data
+			storeId, storeId, companyId, companyId, // transfer_data
 			limit, offset,
 		}
 	}
@@ -1077,6 +1109,11 @@ func (s *Services) ListExcludedProducts(param *domain.ProductQueryParam) ([]doma
 		filter += " AND ep.store_id = ?"
 		args = append(args, param.StoreID)
 		countArgs = append(countArgs, param.StoreID)
+	}
+	if param.CompanyID != "" {
+		filter += " AND s.company_id = ?"
+		args = append(args, param.CompanyID)
+		countArgs = append(countArgs, param.CompanyID)
 	}
 
 	// filter by product name

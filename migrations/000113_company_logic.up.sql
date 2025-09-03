@@ -7,3 +7,5 @@ ALTER TABLE IF EXISTS store_products
 -- Add company_id to employees
 ALTER TABLE IF EXISTS employees
     ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES companies ON DELETE CASCADE;
+ALTER TABLE IF EXISTS excluded_products
+    ADD COLUMN IF NOT EXISTS company_id uuid REFERENCES companies ON DELETE CASCADE;

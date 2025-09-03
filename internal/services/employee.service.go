@@ -54,9 +54,7 @@ func (s *Services) ListEmployee(c *gin.Context, limit, offset int) ([]domain.Emp
 
 	// check if employee is not admin or superadmin
 	if !helper.IsAdmin(employee, s.cfg) {
-		if employee.StoreId != "" {
-			CompanyID = employee.CompanyId
-		}
+		CompanyID = employee.CompanyId
 	}
 	query := s.db.
 		Model(&domain.Employee{}).
