@@ -15,6 +15,7 @@ import (
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/helper"
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 )
 
@@ -221,25 +222,8 @@ func (s *Services) GetPaymentServiceByStoreId(storeId string, tx *gorm.DB, payme
 }
 
 // update sale payment status
-func (s *Services) UpdateSalePaymentStatus(tx *gorm.DB, saleId, appType string, amount float64) error {
-	// faqat allowed columnlarni whitelist qilamiz (SQL injectionni oldini olish uchun)
-	allowedColumns := map[string]bool{
-		"cash":   true,
-		"click":  true,
-		"humo":   true,
-		"uzcard": true,
-		"payme":  true,
-		"alif":   true,
-	}
-
-	if !allowedColumns[appType] {
-		return fmt.Errorf("invalid appType: %s", appType)
-	}
-
-	// column nomini qo‘shib yozamiz, qiymatlarni esa param qilib yuboramiz
-	query := fmt.Sprintf(`UPDATE sales SET %s = ?, is_paid = true WHERE id = ?`, appType)
-
-	err := tx.Exec(query, amount, saleId).Error
+func (s *Services) UpdateSalePaymentStatus(tx *gorm.DB, salePaymentID string) error {
+	err := tx.Exec(`UPDATE sale_payments SET status = 'paid' WHERE id = ?`, salePaymentID).Error
 	if err != nil {
 		s.log.Error("ERROR on updating sale payment status: ", err)
 		return err
@@ -337,25 +321,6 @@ func (s *Services) ReturnSale(ctx context.Context, tx *gorm.DB, sale *domain.Sal
 		return err
 	}
 
-	return nil
-}
-
-func (s *Services) ReturnStatusPending(ctx context.Context, tx *gorm.DB, sale *domain.Sale) error {
-	// build query for update sale status to return
-	query := `
-	UPDATE sales
-	SET
-		total_amount = 0,
-		total_discount = 0,
-		status = ?, completed_at = NULL, updated_at = NOW()
-	WHERE id = ?;
-	`
-	// complete the query
-	err := tx.WithContext(ctx).Exec(query, config.PENDING, sale.ID).Error
-	if err != nil {
-		s.log.Warn("ERROR on update sale to returned: %v", err)
-		return err
-	}
 	return nil
 }
 
@@ -728,12 +693,16 @@ func (s *Services) ValidateSaleAmount(ctx context.Context, tx *gorm.DB, req *dom
 	}
 	// get payment type amounts sum
 	paymentTypeSum := s.collectSalePaymentAmount(req.PaymentTypes)
+	cart := decimal.NewFromFloat(cartItemSum)
+	reqAmount := decimal.NewFromFloat(req.TotalAmount)
 
-	// checking total amounts
-	if cartItemSum != req.TotalAmount || paymentTypeSum != req.TotalAmount {
+	if !cart.Equal(reqAmount) || paymentTypeSum != req.TotalAmount {
 		return false, errors.New("invalid.sale.amount")
 	}
-
+	//// checking total amounts
+	//if cartItemSum != req.TotalAmount || paymentTypeSum != req.TotalAmount {
+	//	return false, errors.New("invalid.sale.amount")
+	//}
 	return true, nil
 }
 
@@ -1130,15 +1099,15 @@ func (s *Services) doRequestToDMED(method, url string, data any) ([]byte, error)
 		bodyReader io.Reader
 		err        error
 	)
-	fmt.Println(data, url)
+
 	if data != nil {
 		body, err = json.Marshal(data)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal data: %w", err)
 		}
+		fmt.Printf("Request body DMEDD: %s\n", string(body))
 		bodyReader = bytes.NewReader(body)
 	}
-	fmt.Println(string(body))
 
 	req, err := http.NewRequest(method, s.cfg.DMEDBaseUrl+url, bodyReader)
 	if err != nil {
@@ -1185,7 +1154,7 @@ func (s *Services) DMEDGiveReceipt(cartItems []*domain.CartItemForDMED, markingD
 
 			payload := map[string]any{
 				"drug_amount":         drugAmount,
-				"price":               cartItem.UnitPrice,
+				"price":               int(cartItem.UnitPrice),
 				"issued_by_full_name": employeeName,
 				// //   "pharmacy_id": 123,
 			}
@@ -1208,6 +1177,25 @@ func (s *Services) DMEDGiveReceipt(cartItems []*domain.CartItemForDMED, markingD
 			}
 			j++
 		}
+	}
+	return nil
+}
+
+func (s *Services) ReturnStatusPending(ctx context.Context, tx *gorm.DB, sale *domain.Sale) error {
+	// build query for update sale status to return
+	query := `
+	UPDATE sales
+	SET
+		total_amount = 0,
+		total_discount = 0,
+		status = ?, completed_at = NULL, updated_at = NOW()
+	WHERE id = ?;
+	`
+	// complete the query
+	err := tx.WithContext(ctx).Exec(query, config.PENDING, sale.ID).Error
+	if err != nil {
+		s.log.Warn("ERROR on update sale to returned: %v", err)
+		return err
 	}
 	return nil
 }
