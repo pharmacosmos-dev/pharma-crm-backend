@@ -1598,6 +1598,7 @@ func (h *ProductHandler) ProductMovements(c *gin.Context) {
 	// get product id from the path param
 	productId := c.Param("id")
 	storeId := c.Query("store_id")
+	var companyId string
 	// validate product id
 	if err := uuid.Validate(productId); err != nil {
 		handleResponse(c, BadRequest, "Invalid product id")
