@@ -143,8 +143,8 @@ type DashboardCountStatsIncome struct {
 	BeforeIncomeAmount float64 `gorm:"before_income_amount" json:"before_income_amount"`
 }
 type DashboardImport struct {
-	ImportAmount       float64 `json:"import_amount"`
-	BeforeImportAmount float64 `json:"before_import_amount"`
+	ImportAmount           float64 `gorm:"column:import_amount" json:"import_amount"`
+	NotLast24hImportAmount float64 `gorm:"column:not_last_24h_import_amount" json:"not_last_24h_import_amount"`
 }
 
 type DashboardCountStatsBonus struct {

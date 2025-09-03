@@ -116,30 +116,18 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 		WHERE s.status = 'completed' AND s.sale_type = 'SALE'`,
 			startStr, endStr, beforeStartStr, beforeEndStr)
 
-		query1 = `
-		SELECT
-			COALESCE(SUM(CASE
-				WHEN im.created_at BETWEEN ? AND ?
-				THEN imd.received_count * imd.retail_price_vat ELSE 0
-			END), 0) AS import_amount,
-			COALESCE(SUM(CASE
-				WHEN im.created_at BETWEEN ? AND ?
-				THEN imd.received_count * imd.retail_price_vat ELSE 0
-			END), 0) AS before_import_amount
-		FROM import_details imd
-		JOIN imports im ON imd.import_id = im.id
-		LEFT JOIN stores st ON im.store_id = st.id
-		WHERE im.status = 'new' AND im.entry_type = 1`
-
 		query24h = `
 		SELECT
-			COALESCE(SUM(imd.received_count * imd.retail_price_vat), 0) AS not_last_24h_import_amount
+			COALESCE(SUM(imd.received_count * imd.retail_price_vat), 0) AS import_amount,
+			COALESCE(SUM(CASE
+				WHEN im.created_at < NOW() - interval '24 hour'
+				THEN imd.received_count * imd.retail_price_vat ELSE 0
+			END), 0) AS not_last_24h_import_amount
 		FROM import_details imd
 		JOIN imports im ON imd.import_id = im.id
 		LEFT JOIN stores st ON im.store_id = st.id
 		WHERE im.status = 'new'
-		  AND im.entry_type = 1
-		  AND im.created_at < NOW() - interval '24 hour'`
+		  AND im.entry_type = 1`
 
 		notLast24HImportCount int
 		queryImportCountNot24 = `
@@ -160,7 +148,6 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 		filter += " AND store_id IN (?)"
 		filterc += " AND s.store_id IN (?)"
 		args = append(args, param.StoreIds)
-		query1 += " AND im.store_id IN (?)"
 		query24h += " AND im.store_id IN (?)"
 		args1 = append(args1, param.StoreIds)
 	}
@@ -170,7 +157,6 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 		filter += " AND st.company_id = ?"
 		filterc += " AND p.company_id = ?"
 		args = append(args, param.CompanyId)
-		query1 += " AND st.company_id = ?"
 		query24h += " AND st.company_id = ?"
 		args1 = append(args1, param.CompanyId)
 	}
@@ -198,14 +184,7 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 		return nil, err
 	}
 
-	err = s.db.Raw(query1, args1...).Scan(&imported).Error
-	if err != nil {
-		s.log.Error(err)
-		return nil, err
-	}
-
-	var notLast24hAmount float64
-	err = s.db.Raw(query24h, args...).Scan(&notLast24hAmount).Error
+	err = s.db.Raw(query24h, args...).Scan(&imported).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
@@ -222,8 +201,7 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 	// Map results
 	res.ImportAmount = imported.ImportAmount
 	res.NotLast24HImportCount = float64(notLast24HImportCount)
-	res.BeforeImportAmount = imported.BeforeImportAmount
-	res.NotLast24HImportAmount = notLast24hAmount
+	res.NotLast24HImportAmount = imported.NotLast24hImportAmount
 	res.TotalSaleCount = sale.SaleCount
 	res.BeforeSaleCount = sale.BeforeSaleCount
 	res.TotalSaleAmount = sale.SaleAmount
