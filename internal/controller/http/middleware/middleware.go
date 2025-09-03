@@ -89,6 +89,7 @@ func (a *MiddlewareHandler) CheckPermission(c *gin.Context) (bool, error) {
 	// 	return false, nil
 	// }
 	c.Set("user_id", claims["user_id"])
+	c.Set("company_id", claims["company_id"])
 
 	return true, nil
 }
@@ -137,5 +138,3 @@ func (a *MiddlewareHandler) Check1CAuth() gin.HandlerFunc {
 		c.Next()
 	}
 }
-
-

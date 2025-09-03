@@ -86,6 +86,7 @@ type ReturnParam struct {
 	Limit      int    `form:"limit"`
 	Offset     int    `form:"offset"`
 	StoreId    string `form:"store_id"`
+	CompanyId  string `form:"company_id"`
 	Status     string `form:"status"`
 	Search     string `form:"search"`
 	StartDate  string `form:"start_date"`

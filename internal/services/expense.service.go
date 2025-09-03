@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pharma-crm-backend/domain"
+	"github.com/xuri/excelize/v2"
 )
 
 var mu sync.Mutex
@@ -41,7 +42,7 @@ func (s *Services) SendExpenseTo1C(sendDate string) error {
 		}
 
 		fmt.Printf("Successfully sent report for %s\n", store.Name)
-		time.Sleep(5 * time.Second)
+		time.Sleep(10 * time.Second)
 	}
 
 	return nil
@@ -372,4 +373,69 @@ func (s *Services) SendBacklogReportsSequentially(start, end time.Time) {
 		time.Sleep(10 * time.Minute) // Wait 10 minutes before next day
 	}
 
+}
+
+// Excel fayldan olib yuborish
+func (s *Services) SendExpenseTo1CFromExcel(filePath string) error {
+	f, err := excelize.OpenFile(filePath)
+	if err != nil {
+		return fmt.Errorf("cannot open excel: %v", err)
+	}
+	defer f.Close()
+
+	rows, err := f.GetRows("List")
+	if err != nil {
+		return fmt.Errorf("cannot read sheet: %v", err)
+	}
+
+	type key struct {
+		StoreCode string
+		Date      string
+	}
+	unique := make(map[key]struct{}) // set
+
+	for i, row := range rows {
+		if i == 0 { // skip header
+			continue
+		}
+		if len(row) < 3 {
+			continue
+		}
+		//if len(row) < 15 {
+		//	continue
+		//} else {
+		//	r := strings.TrimSpace(row[17])
+		//	if r == "" || r == "0" || r == "0.0" {
+		//		continue
+		//	}
+		//}
+
+		storeCode := row[0] // ID
+		date := row[2]      // Дата (2025-03-10T00:00:00Z)
+		parsedDate, err := time.Parse(time.RFC3339, date)
+		if err != nil {
+			return fmt.Errorf("invalid date format at row %d: %v", i+1, err)
+		}
+		sendDate := parsedDate.Format("2006-01-02")
+		k := key{StoreCode: storeCode, Date: sendDate}
+		unique[k] = struct{}{} // faqat unikallar qoladi
+	}
+
+	// Endi faqat unikal kombinatsiyalar bo‘yicha yuboramiz
+	for k := range unique {
+		var store domain.Store
+		err = s.db.Raw("SELECT * FROM stores WHERE store_code = ?", k.StoreCode).Scan(&store).Error
+		if err != nil {
+			return fmt.Errorf("cannot find store with code %s: %v", k.StoreCode, err)
+		}
+		fmt.Printf("Sending report for store=%s date=%s...\n", store.Name, k.Date)
+		if err = s.sendReportTo1C(&store, k.Date); err != nil {
+			fmt.Printf("Failed for store=%s date=%s: %v\n", store.Name, k.Date, err)
+			continue
+		}
+		fmt.Printf("Successfully sent report for store=%s date=%s\n", store.Name, k.Date)
+		time.Sleep(10 * time.Second)
+	}
+
+	return nil
 }

@@ -51,6 +51,7 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		helper.POST("/product-kvant", h.UploadProductKvant)
 		helper.POST("/set-product-photo", h.SetProductPhoto)
 		helper.POST("/fix-product-quantity", h.FixProductQuantity)
+		helper.POST("/update-product-info", h.UpdateProductInfo)
 	}
 }
 
@@ -1329,6 +1330,154 @@ func (h *HelperHandler) FixProductQuantity(c *gin.Context) {
 
 	handleResponse(c, OK, "Successfully updated: "+cast.ToString(count))
 
+}
+
+// UpdateProductInfo godoc
+// @Summary update product infos
+// @Description update product infos
+// @Tags helper
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param 	file formData file true "Excel file (.xlsx) containing product data"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /helper/update-product-info [POST]
+func (h *HelperHandler) UpdateProductInfo(c *gin.Context) {
+	var (
+		file domain.File
+		err  error
+	)
+	// bind request file
+	if err = c.ShouldBind(&file); err != nil {
+		h.log.Error("Failed to bind file: ", err.Error())
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		h.log.Error("Unsupported file format: ", ext)
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+
+	// Save the uploaded file
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+	err = c.SaveUploadedFile(file.File, savePath)
+	if err != nil {
+		h.log.Error("Failed to save file: ", err.Error())
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+
+	// defer os.Remove(savePath)
+	go h.processExcel(c, savePath)
+
+	handleResponse(c, OK, "Successfully uploaded")
+}
+
+func (h *HelperHandler) processExcel(c *gin.Context, savePath string) {
+	// Open the Excel file
+	xlsx, err := excelize.OpenFile(savePath)
+	if err != nil {
+		h.log.Error("Failed to open .xlsx file: ", err.Error())
+		handleResponse(c, BadRequest, "Failed to process file")
+		return
+	}
+	defer xlsx.Close()
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		h.log.Error("Failed to get rows: ", err.Error())
+		handleResponse(c, InternalError, "Failed to get rows")
+		return
+	}
+
+	// build query
+	query := `
+	UPDATE products
+	SET 
+		name_ru = ?, name_uz = ?, name_kr = ?, 
+		photos = ?, 
+		description_ru = ?, description_uz = ?, description_kr = ?,
+		mxik = ?, unit_code = ?,
+		updated_at = now()
+	WHERE material_code = ?;
+	`
+
+	var count = 0
+	// Process rows
+	for _, row := range rows[1:] {
+		if len(row) > 11 {
+			// --- image handle ---
+			var photos utils.StringArray
+			if row[6] != "" {
+				localPath, err := DownloadAndSaveImage(row[6], "uploads")
+				if err != nil {
+					h.log.Error("image download error: ", err)
+				} else if localPath != "" {
+					photos = append(photos, localPath)
+				}
+			}
+
+			err = h.db.Debug().Exec(query,
+				row[2], row[4], row[5],
+				utils.StringArray(photos),
+				row[7], row[8], row[9],
+				row[10], row[11],
+				cast.ToInt(row[0]),
+			).Error
+			if err != nil {
+				h.log.Error("could not update product(%s) -> %v", row[0], err)
+			}
+			count++
+		}
+	}
+}
+
+func DownloadAndSaveImage(url string, uploadDir string) (string, error) {
+	if url == "" {
+		return "", nil
+	}
+
+	// extension olish (.jpg, .png, .webp va h.k.)
+	ext := filepath.Ext(url)
+	if ext == "" || len(ext) > 5 {
+		ext = ".jpg" // default
+	}
+
+	newImgName := uuid.New().String() + ext
+	localPath := filepath.Join(uploadDir, newImgName)
+
+	// HTTP orqali yuklab olish
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", fmt.Errorf("failed to download image: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// uploads papkasini borligini tekshirish
+	if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
+		if err := os.MkdirAll(uploadDir, 0755); err != nil {
+			return "", fmt.Errorf("failed to create upload dir: %w", err)
+		}
+	}
+
+	out, err := os.Create(localPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to create file: %w", err)
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to save image: %w", err)
+	}
+
+	return newImgName, nil
 }
 
 func copyFile(src, dst string) error {

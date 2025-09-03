@@ -165,6 +165,7 @@ func (h *ReturnHandler) List(c *gin.Context) {
 	if !helper.IsAdmin(employee, h.cfg) {
 		if employee.StoreId != "" {
 			param.StoreId = employee.StoreId
+			param.CompanyId = employee.CompanyId
 		}
 	}
 
@@ -277,6 +278,7 @@ func (h *ReturnHandler) ExportReturnExcel(c *gin.Context) {
 	if !helper.IsAdmin(employee, h.cfg) {
 		if employee.StoreId != "" {
 			param.StoreId = employee.StoreId
+			param.CompanyId = employee.CompanyId
 		}
 	}
 

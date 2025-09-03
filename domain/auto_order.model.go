@@ -5,6 +5,7 @@ import "time"
 // Auto order query param
 type AutoOrderParam struct {
 	StoreID     string `form:"store_id"`
+	CompanyID   string `form:"company_id"`
 	Search      string `form:"search"`
 	Status      string `form:"status"`
 	Limit       int    `form:"limit"`

@@ -374,6 +374,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 	if !helper.IsAdmin(employee, h.cfg) {
 		if employee.StoreId != "" {
 			param.StoreID = employee.StoreId
+			param.CompanyID = employee.CompanyId
 		}
 	}
 
@@ -447,6 +448,7 @@ func (h *ProductHandler) ExportProductExcel(c *gin.Context) {
 	if !helper.IsAdmin(employee, h.cfg) {
 		if employee.StoreId != "" {
 			param.StoreID = employee.StoreId
+			param.CompanyID = employee.CompanyId
 		}
 	}
 
@@ -526,6 +528,7 @@ func (h *ProductHandler) TotalStatusCount(c *gin.Context) {
 	if !helper.IsAdmin(employee, h.cfg) {
 		if employee.StoreId != "" {
 			param.StoreID = employee.StoreId
+			param.CompanyID = employee.CompanyId
 		}
 	}
 
@@ -2674,7 +2677,7 @@ func (h *ProductHandler) DeleteExcludedProduct(c *gin.Context) {
 		handleResponse(c, NotFound, "Excluded product not found")
 		return
 	}
-	
+
 	err = tx.Commit().Error
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())

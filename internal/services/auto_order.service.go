@@ -24,6 +24,7 @@ func (s *Services) ListAutoOrder(param *domain.AutoOrderParam) ([]domain.AutoOrd
 	}
 	if !helper.IsAdmin(employee, s.cfg) && employee.StoreId != "" {
 		param.StoreID = employee.StoreId
+		param.CompanyID = employee.CompanyId
 	}
 
 	// 2. Build WHERE conditions dynamically
@@ -36,6 +37,10 @@ func (s *Services) ListAutoOrder(param *domain.AutoOrderParam) ([]domain.AutoOrd
 	if param.StoreID != "" {
 		whereClauses = append(whereClauses, "store_id = @store_id")
 		params["store_id"] = param.StoreID
+	}
+	if param.CompanyID != "" {
+		whereClauses = append(whereClauses, "s.company_id = @company_id")
+		params["company_id"] = param.CompanyID
 	}
 	if param.Status != "" {
 		whereClauses = append(whereClauses, "status = @status")
@@ -60,9 +65,11 @@ func (s *Services) ListAutoOrder(param *domain.AutoOrderParam) ([]domain.AutoOrd
 	// 4. Main query with CTE
 	query := fmt.Sprintf(`
 		WITH latest_orders AS (
-			SELECT * FROM auto_orders
+			SELECT ao.*
+			FROM auto_orders ao
+			JOIN stores s ON ao.store_id = s.id
 			%s
-			ORDER BY created_at DESC 
+			ORDER BY ao.created_at DESC
 			LIMIT @limit OFFSET @offset
 		)
 		SELECT
@@ -107,7 +114,12 @@ func (s *Services) ListAutoOrder(param *domain.AutoOrderParam) ([]domain.AutoOrd
 		}
 	}
 
-	countQuery := fmt.Sprintf(`SELECT COUNT(*) as count FROM auto_orders %s`, whereSQL)
+	countQuery := fmt.Sprintf(`
+		SELECT COUNT(*) as count
+		FROM auto_orders ao
+		JOIN stores s ON ao.store_id = s.id
+		%s
+	`, whereSQL)
 
 	if whereSQL != "" {
 		err = s.db.Raw(countQuery, countParams).Scan(&totalCount).Error

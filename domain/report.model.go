@@ -12,6 +12,7 @@ type ReportQueryParam struct {
 	Order      string   `form:"order"`
 	EmployeeId string   `form:"employee_id"`
 	ProducerId string   `form:"producer_id"`
+	CompanyId  string   `form:"company_id"`
 	StoreIds   []string `json:"store_ids"`
 }
 

@@ -26,6 +26,10 @@ func (s *Services) ProductReportWithDate(param *domain.ReportQueryParam) ([]map[
 		filter += " AND sp.store_id IN (?) "
 		args = append(args, param.StoreIds)
 	}
+	if param.CompanyId != "" {
+		filter += " AND st.company_id = ? "
+		args = append(args, param.CompanyId)
+	}
 	// filter with producer_id
 	if param.ProducerId != "" {
 		filter += " AND p.producer_id = ? "
@@ -62,6 +66,7 @@ func (s *Services) ProductReportWithDate(param *domain.ReportQueryParam) ([]map[
 		JOIN store_products sp ON p.id = sp.product_id
 		LEFT JOIN cart_items ci ON sp.id = ci.store_product_id
 		LEFT JOIN sales s ON ci.sale_id = s.id
+		LEFT JOIN stores st ON s.store_id = st.id
 	`, datesQuery, param.StartDate, param.EndDate)
 
 	query = query + filter + group + order
@@ -110,6 +115,10 @@ func (s *Services) BonusReport(param *domain.ReportQueryParam) ([]domain.BonusRe
 	if len(param.StoreIds) > 0 {
 		filter += " AND s.id IN (?)"
 		args = append(args, param.StoreIds)
+	}
+	if param.CompanyId != "" {
+		filter += " AND s.company_id ? "
+		args = append(args, param.CompanyId)
 	}
 
 	// Search filter
@@ -213,6 +222,10 @@ func (s *Services) ProductReport(ctx context.Context, param *domain.ReportQueryP
 		filter += " AND sl.store_id IN (?) "
 		args = append(args, param.StoreIds)
 	}
+	if param.CompanyId != "" {
+		filter += " AND s.company_id ? "
+		args = append(args, param.CompanyId)
+	}
 	// producer filter
 	if param.ProducerId != "" {
 		filter += " AND p.producer_id = ? "
@@ -283,7 +296,7 @@ func (s *Services) ProductStatusReport(ctx context.Context, param *domain.Report
 	)
 
 	// Conditionally add joins
-	if param.Search != "" || len(param.StoreIds) > 0 {
+	if param.Search != "" || len(param.StoreIds) > 0 || param.CompanyId != "" {
 		joins = append([]string{"INNER JOIN stores s ON sl.store_id = s.id"}, joins...)
 	}
 	if param.EmployeeId != "" {
@@ -302,6 +315,10 @@ func (s *Services) ProductStatusReport(ctx context.Context, param *domain.Report
 	if len(param.StoreIds) > 0 {
 		filter += " AND sl.store_id IN (?) "
 		args = append(args, param.StoreIds)
+	}
+	if param.CompanyId != "" {
+		filter += " AND s.company_id ? "
+		args = append(args, param.CompanyId)
 	}
 	if param.ProducerId != "" {
 		filter += " AND p.producer_id = ? "
@@ -470,6 +487,10 @@ func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.S
 		filter += " AND s.id = ?"
 		args = append(args, param.StoreId)
 	}
+	if param.CompanyId != "" {
+		filter += " AND s.company_id ? "
+		args = append(args, param.CompanyId)
+	}
 	if param.Search != "" {
 		filter += " AND s.name ILIKE ?"
 		args = append(args, "%"+param.Search+"%")
@@ -572,6 +593,10 @@ func (s *Services) ReportByStoreStats(param *domain.ReportQueryParam) (domain.St
 	if param.StoreId != "" {
 		filter += " AND s.id = ?"
 		args = append(args, param.StoreId)
+	}
+	if param.CompanyId != "" {
+		filter += " AND s.company_id ? "
+		args = append(args, param.CompanyId)
 	}
 	if param.Search != "" {
 		filter += " AND s.name ILIKE ?"
@@ -713,6 +738,10 @@ func (s *Services) ReportTopProducts(param *domain.ReportQueryParam) ([]domain.T
 		where += " AND EXISTS (SELECT 1 FROM store_products sp2 WHERE sp2.product_id = curr.id AND sp2.store_id = ?)"
 		args = append(args, param.StoreId)
 	}
+	if param.CompanyId != "" {
+		where += " AND s.company_id ? "
+		args = append(args, param.CompanyId)
+	}
 	if len(param.StoreIds) > 0 {
 		where += " AND EXISTS (SELECT 1 FROM store_products sp3 WHERE sp3.product_id = curr.id AND sp3.store_id IN (?))"
 		args = append(args, param.StoreIds)
@@ -788,6 +817,7 @@ func (s *Services) ReportTopSeller(param *domain.ReportQueryParam) ([]domain.Top
 			e.id,
 			e.full_name,
 			st.name AS store_name,
+			st.company_id,
 			COUNT(s.id) AS count,
 			SUM(s.total_amount) AS total_amount
 		FROM sales s
@@ -826,6 +856,10 @@ func (s *Services) ReportTopSeller(param *domain.ReportQueryParam) ([]domain.Top
 	if param.StoreId != "" {
 		where += " AND curr.store_name = (SELECT name FROM stores WHERE id = ?)"
 		args = append(args, param.StoreId)
+	}
+	if param.CompanyId != "" {
+		where += " AND curr.company_id ? "
+		args = append(args, param.CompanyId)
 	}
 	// check store_ids
 	if len(param.StoreIds) > 0 {
@@ -938,6 +972,10 @@ func (s *Services) ReportTopStores(param *domain.ReportQueryParam) ([]domain.Top
 		whereClauses = append(whereClauses, "curr.store_id = ?")
 		args = append(args, param.StoreId)
 	}
+	if param.CompanyId != "" {
+		whereClauses = append(whereClauses, " AND stores.company_id ? ")
+		args = append(args, param.CompanyId)
+	}
 
 	// Append filters
 	if len(whereClauses) > 0 {
@@ -1032,6 +1070,10 @@ func (s *Services) ReportBonusProducts(param *domain.ReportQueryParam) ([]domain
 	if param.Search != "" {
 		filter += " AND p.name ILIKE ?"
 		args = append(args, "%"+param.Search+"%")
+	}
+	if param.CompanyId != "" {
+		filter += " AND p.company_id ? "
+		args = append(args, param.CompanyId)
 	}
 	filter += " AND (eb.created_at + interval '5 hours') BETWEEN ? AND ?"
 	args = append(args, param.StartDate, param.EndDate)
@@ -1177,6 +1219,10 @@ func (s *Services) ReportStoreSummary(param *domain.ReportQueryParam) ([]domain.
 	if len(param.StoreIds) > 0 {
 		query += " AND st.id = ?"
 		args = append(args, param.StoreIds)
+	}
+	if param.CompanyId != "" {
+		query += " AND st.company_id ? "
+		args = append(args, param.CompanyId)
 	}
 	if param.Limit > 0 {
 		query += " LIMIT ?"
@@ -1325,7 +1371,9 @@ func (s *Services) StoreProductsGivenDay(param *domain.ReportQueryParam) ([]doma
             p.name
         FROM store_products sp
         JOIN products p ON p.id = sp.product_id
+        JOIN stores st ON st.id = sp.store_id
         WHERE sp.store_id = ?
+            AND st.company_id = ?
         GROUP BY sp.product_id, sp.store_id, p.unit_per_pack, p.name
     ),
     future_actions AS (
@@ -1413,7 +1461,7 @@ func (s *Services) StoreProductsGivenDay(param *domain.ReportQueryParam) ([]doma
 
 	// Args massivi, so'rovdagi `?` belgilarining to'g'ri tartibiga moslangan
 	args = append(args,
-		param.StoreId,                  // base_stock: sp.store_id = ?
+		param.StoreId, param.CompanyId, // base_stock: sp.store_id = ?
 		param.StoreId, param.StartDate, // future_actions: sp.store_id = ?, ci.created_at::date > ?
 		param.StoreId, param.StoreId, // transfer_actions: 1-CASE: t.from_store_id = ?, t.to_store_id = ?
 		param.StoreId, param.StoreId, // transfer_actions: 2-CASE: t.from_store_id = ?, t.to_store_id = ?
@@ -1481,6 +1529,10 @@ func (s *Services) DiscountCardReport(param *domain.ReportQueryParam) ([]domain.
 	if len(param.StoreIds) > 0 {
 		filter += " AND s.id IN (?)"
 		args = append(args, param.StoreIds)
+	}
+	if param.CompanyId != "" {
+		filter += " AND s.company_id ? "
+		args = append(args, param.CompanyId)
 	}
 
 	// Search filter (by customer name)

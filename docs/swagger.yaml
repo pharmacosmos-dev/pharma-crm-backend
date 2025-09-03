@@ -338,6 +338,8 @@ definitions:
         type: string
       cashbox:
         $ref: '#/definitions/domain.EmployeeCashbox'
+      company_id:
+        type: string
       created_at:
         type: string
       email:
@@ -728,6 +730,12 @@ definitions:
           type: string
         type: array
       description:
+        type: string
+      description_kr:
+        type: string
+      description_ru:
+        type: string
+      description_uz:
         type: string
       id:
         type: string
@@ -3366,6 +3374,42 @@ paths:
       summary: Get a company
       tags:
       - companies
+  /company/list:
+    post:
+      consumes:
+      - application/json
+      description: List companies with pagination
+      parameters:
+      - description: limit
+        in: query
+        name: limit
+        required: true
+        type: integer
+      - description: offset
+        in: query
+        name: offset
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: List companies
+      tags:
+      - companies
   /customer:
     post:
       consumes:
@@ -4926,6 +4970,37 @@ paths:
       summary: Unblock employee
       tags:
       - employees
+  /expense/expense-given-excel:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Read Excel (ID, Дата) and send each to 1C
+      parameters:
+      - description: Excel File
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Send expenses to 1C from Excel
+      tags:
+      - Shift Expenses
   /expense/send:
     post:
       consumes:
@@ -5662,6 +5737,37 @@ paths:
       security:
       - BearerAuth: []
       summary: Set product photos
+      tags:
+      - helper
+  /helper/update-product-info:
+    post:
+      consumes:
+      - application/json
+      description: update product infos
+      parameters:
+      - description: Excel file (.xlsx) containing product data
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: update product infos
       tags:
       - helper
   /helper/upload-category:

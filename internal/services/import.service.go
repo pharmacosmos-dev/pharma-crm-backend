@@ -163,8 +163,8 @@ func (s *Services) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domai
 			err = tx.Exec(storeProductQuery,
 				importData.StoreID,
 				item.ProductID,
-				utils.NearestRound(item.ScannedCount),
-				utils.NearestRound(item.ScannedCount*float64(item.UnitPerPack)),
+				int(item.ScannedCount),
+				int(item.ScannedCount*float64(item.UnitPerPack)),
 				item.SupplyPriceVat,
 				item.RetailPriceVat,
 				item.Vat, item.ExpireDate,
@@ -255,8 +255,8 @@ func (s *Services) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import)
 			err = tx.Exec(storeProductQuery,
 				importData.StoreID,
 				item.ProductID,
-				utils.NearestRound(item.ReceivedCount),
-				utils.NearestRound(item.ReceivedCount*float64(item.UnitPerPack)),
+				int(item.ReceivedCount),
+				int(item.ReceivedCount*float64(item.UnitPerPack)),
 				item.SupplyPriceVat,
 				item.RetailPriceVat,
 				item.Vat,
@@ -356,6 +356,7 @@ func (s *Services) ListImport(c *gin.Context, limit, offset int) ([]domain.Impor
 		totalCount       int64
 		search           = c.Query("search")
 		storeID          = c.Query("store_id")
+		companyID        = c.Query("company_id")
 		startDate        = c.Query("start_date")
 		endDate          = c.Query("end_date")
 		status           = c.Query("status")
@@ -382,6 +383,7 @@ func (s *Services) ListImport(c *gin.Context, limit, offset int) ([]domain.Impor
 	if !helper.IsAdmin(employee, s.cfg) {
 		if employee.StoreId != "" {
 			storeID = employee.StoreId
+			companyID = employee.CompanyId
 		}
 	}
 
@@ -409,6 +411,10 @@ func (s *Services) ListImport(c *gin.Context, limit, offset int) ([]domain.Impor
 	}
 	if storeID != "" {
 		query = query.Where("imports.store_id = ?", storeID)
+	}
+	if companyID != "" {
+		query = query.Where("stores.company_id = ?", companyID).
+			Joins("LEFT JOIN stores ON imports.store_id = stores.id")
 	}
 	if startDate != "" {
 		query = query.Where("imports.import_date >= ?", startDate)
@@ -441,6 +447,7 @@ func (s *Services) ListImport(c *gin.Context, limit, offset int) ([]domain.Impor
 func (s *Services) ListImportStatus(c *gin.Context) (*domain.ImportStatusSummary, error) {
 	var (
 		storeID      = c.Query("store_id")
+		companyID    = c.Query("company_id")
 		startDate    = c.Query("start_date")
 		endDate      = c.Query("end_date")
 		search       = c.Query("search")
@@ -462,6 +469,7 @@ func (s *Services) ListImportStatus(c *gin.Context) (*domain.ImportStatusSummary
 
 	if !helper.IsAdmin(employee, s.cfg) && employee.StoreId != "" {
 		storeID = employee.StoreId
+		companyID = employee.CompanyId
 	}
 
 	query := `
@@ -472,6 +480,7 @@ func (s *Services) ListImportStatus(c *gin.Context) (*domain.ImportStatusSummary
 			COALESCE(SUM(CASE WHEN imports.status = 'new' THEN import_details.received_count ELSE 0 END), 0) AS new_received_count
 		FROM imports
 		LEFT JOIN import_details ON imports.id = import_details.import_id
+		LEFT JOIN stores ON imports.store_id = stores.id
 		WHERE imports.entry_type = 1
 	`
 
@@ -480,6 +489,10 @@ func (s *Services) ListImportStatus(c *gin.Context) (*domain.ImportStatusSummary
 	if storeID != "" {
 		query += " AND imports.store_id = ?"
 		args = append(args, storeID)
+	}
+	if companyID != "" {
+		query += " AND stores.company_id = ?"
+		args = append(args, companyID)
 	}
 	if startDate != "" {
 		query += " AND imports.import_date >= ?"

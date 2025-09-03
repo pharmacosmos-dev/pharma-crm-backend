@@ -265,7 +265,7 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 		totalCount    int64
 		args          []any
 		filter        = "WHERE 1=1 "
-		order         = " ORDER BY p.created_at DESC "
+		order         = " ORDER BY p.updated_at DESC "
 		group         = " GROUP BY p.id, pr.id, u.id "
 		expireDayPart = ""
 	)
@@ -280,7 +280,7 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 	case "-expire_date":
 		order = " ORDER BY MIN(sp.expire_date) DESC "
 	default:
-		order = " ORDER BY p.created_at DESC "
+		order = " ORDER BY p.updated_at DESC "
 	}
 
 	// filter with store_id
@@ -288,6 +288,10 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 		filter += " AND sp.store_id IN (?) "
 		expireDayPart = " DATE_PART('day', MIN(sp.expire_date)::timestamp - NOW()) AS expire_day, MIN(sp.expire_date) AS expire_date, "
 		args = append(args, param.StoreID)
+	}
+	if param.CompanyID != "" {
+		filter += " AND st.company_id = ?"
+		args = append(args, param.CompanyID)
 	}
 	// filter with producer id
 	if param.ProducerID != "" {
@@ -352,6 +356,7 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 	RIGHT JOIN products p ON sp.product_id = p.id
 	LEFT JOIN producers pr ON p.producer_id = pr.id
 	LEFT JOIN unit_types u ON p.unit_type_id = u.id
+	LEFT JOIN stores st ON sp.store_id = st.id
 	`, expireDayPart, "%", "%")
 
 	// collect query
@@ -493,6 +498,11 @@ func (s *Services) ListProductStats(param *domain.ProductQueryParam) (domain.Pro
 		args = append(args, param.StoreID)
 	}
 
+	if param.CompanyID != "" {
+		filter += " AND sp.company_id = ?"
+		args = append(args, param.CompanyID)
+	}
+
 	// filter with producer_id
 	if param.ProducerID != "" {
 		filter += " AND p.producer_id = ?"
@@ -594,6 +604,9 @@ func (s *Services) GetNoorProducts(param *domain.NoorQueryParam) ([]domain.NoorP
 		p.name,
 		p.photos,
 		p.description,
+		p.description_uz,
+		p.description_ru,
+		p.description_kr,
 		ARRAY_AGG(cp.category_id) FILTER (WHERE cp.category_id IS NOT NULL) AS categories
 	FROM
 		products p
@@ -943,6 +956,10 @@ func (s *Services) GetProductListByImport(param *domain.ProductQueryParam) ([]do
 	if param.StoreID != "" {
 		filter += " AND sp.store_id = ? "
 		args = append(args, param.StoreID)
+	}
+	if param.CompanyID != "" {
+		filter += " AND sp.company_id = ? "
+		args = append(args, param.CompanyID)
 	}
 	// filter by search keyword
 	if param.SearchField != "" {

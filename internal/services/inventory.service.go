@@ -170,6 +170,10 @@ func (s *Services) InventoryList(param *domain.InventoryParam) ([]domain.Invento
 	if param.StoreId != "" {
 		query = query.Where("imports.store_id = ? ", param.StoreId)
 	}
+	if param.CompanyId != "" {
+		query = query.Where("stores.company_id = ? ", param.CompanyId)
+		query = query.Joins(" LEFT JOIN stores ON imports.store_id = stores.id")
+	}
 	// filter by search keyword
 	if param.Search != "" {
 		param.Search = fmt.Sprintf("%%%s%%", param.Search)
@@ -213,6 +217,7 @@ func (s *Services) InventoryStatus(param *domain.InventoryParam) (*domain.Invent
 	FROM import_details imd
 	JOIN products p ON imd.product_id = p.id
 	JOIN imports im ON im.id = imd.import_id
+	LEFT JOIN stores ON im.store_id = stores.id
 	WHERE im.entry_type = 2;
 	`
 
@@ -221,6 +226,10 @@ func (s *Services) InventoryStatus(param *domain.InventoryParam) (*domain.Invent
 	if param.StoreId != "" {
 		query += " AND im.store_id = ?"
 		args = append(args, param.StoreId)
+	}
+	if param.CompanyId != "" {
+		query += " AND stores.company_id = ?"
+		args = append(args, param.CompanyId)
 	}
 	if param.Search != "" {
 		search := fmt.Sprintf("%%%s%%", param.Search)
@@ -537,11 +546,11 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 		pr.code AS producer_code
 	FROM 
 		import_details imd
-	JOIN 
+	JOIN
 		products p ON imd.product_id = p.id
-	LEFT JOIN 
+	LEFT JOIN
 		producers pr ON p.producer_id = pr.id
-	WHERE 
+	WHERE
 		imd.import_id = ? AND imd.received_count != imd.scanned_count
 	`
 	// execute get import details as inventory details
@@ -569,7 +578,7 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 	SELECT
 		imd.product_id,
 		?,
-		ROUND((imd.scanned_count - imd.received_count)/p.unit_per_pack),
+		FLOOR((imd.scanned_count - imd.received_count)/p.unit_per_pack),
 		imd.scanned_count - imd.received_count,
 		imd.retail_price_vat,
 		imd.supply_price_vat,
@@ -600,7 +609,7 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 				pack_quantity = ?, 
 				unit_quantity = ? 
 			WHERE id = ?;`,
-				utils.NearestRound(imd.ScannedCount/float64(imd.UnitPerPack)),
+				int(imd.ScannedCount/float64(imd.UnitPerPack)),
 				imd.ScannedCount,
 				imd.StoreProductId).Error
 			if err != nil {

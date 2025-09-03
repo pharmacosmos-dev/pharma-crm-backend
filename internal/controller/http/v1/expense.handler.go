@@ -18,6 +18,7 @@ func (h *ExpenseHandler) ExpenseRoutes(r *gin.RouterGroup) {
 	{
 		expense.POST("/send", h.Send)
 		expense.POST("/send-with-number", h.SendWithNumber)
+		expense.POST("/expense-given-excel", h.SendFromExcel)
 	}
 }
 
@@ -86,4 +87,39 @@ func (h *ExpenseHandler) SendWithNumber(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, "Sent Successfully")
+}
+
+// SendFromExcel godoc
+// @Summary Send expenses to 1C from Excel
+// @Description Read Excel (ID, Дата) and send each to 1C
+// @Security BearerAuth
+// @Tags Shift Expenses
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "Excel File"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /expense/expense-given-excel [post]
+func (h *ExpenseHandler) SendFromExcel(c *gin.Context) {
+	file, err := c.FormFile("file")
+	if err != nil {
+		handleResponse(c, BadRequest, "Excel file required")
+		return
+	}
+
+	filePath := "/tmp/" + file.Filename
+	if err = c.SaveUploadedFile(file, filePath); err != nil {
+		handleResponse(c, InternalError, "Cannot save uploaded file")
+		return
+	}
+
+	err = h.service.SendExpenseTo1CFromExcel(filePath)
+	if err != nil {
+		h.log.Warn("ERROR on sending expense from excel: %v", err)
+		handleResponse(c, InternalError, "Can't send expense to 1C from excel")
+		return
+	}
+
+	handleResponse(c, OK, "Sent Successfully from Excel")
 }

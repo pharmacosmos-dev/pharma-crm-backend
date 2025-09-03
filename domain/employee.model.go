@@ -15,6 +15,7 @@ type LoginResponse struct {
 
 type Employee struct {
 	Id         string           `gorm:"id" json:"id"`
+	CompanyId  string           `gorm:"company_id" json:"company_id"`
 	StoreId    string           `gorm:"store_id" json:"store_id"`
 	PublicId   int              `gorm:"public_id" json:"public_id"`
 	Position   string           `gorm:"position" json:"position"`
