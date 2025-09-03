@@ -15,6 +15,7 @@ import (
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/helper"
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 )
 
@@ -687,12 +688,16 @@ func (s *Services) ValidateSaleAmount(ctx context.Context, tx *gorm.DB, req *dom
 	}
 	// get payment type amounts sum
 	paymentTypeSum := s.collectSalePaymentAmount(req.PaymentTypes)
+	cart := decimal.NewFromFloat(cartItemSum)
+	reqAmount := decimal.NewFromFloat(req.TotalAmount)
 
-	// checking total amounts
-	if cartItemSum != req.TotalAmount || paymentTypeSum != req.TotalAmount {
+	if !cart.Equal(reqAmount) || paymentTypeSum != req.TotalAmount {
 		return false, errors.New("invalid.sale.amount")
 	}
-
+	//// checking total amounts
+	//if cartItemSum != req.TotalAmount || paymentTypeSum != req.TotalAmount {
+	//	return false, errors.New("invalid.sale.amount")
+	//}
 	return true, nil
 }
 
