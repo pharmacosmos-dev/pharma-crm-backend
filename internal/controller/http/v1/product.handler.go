@@ -1164,7 +1164,7 @@ func (h *ProductHandler) ListStoreProductProductId(c *gin.Context) {
 		query = query.Where("store_products.store_id = ?", storeID)
 	}
 	if companyID != "" {
-		query = query.Where("st.company_id = ?").Joins("LEFT JOIN stores st ON store_products.store_id = st.id ")
+		query = query.Where("st.company_id = ?", companyID).Joins("LEFT JOIN stores st ON store_products.store_id = st.id ")
 	}
 	// complete query
 	err = query.
