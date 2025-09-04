@@ -771,7 +771,7 @@ func (s *Services) GetProductMovements(productId, storeId string, limit, offset 
 		SELECT
 			tr.id, tr.public_id::int, 5 AS entry_type, tr.created_at,
 			s.name AS store_name,
-			SUM(td.accepted_count * vd.unit_per_pack) as count,
+			SUM(td.accepted_count) as count,
 			SUM((td.accepted_count/vd.unit_per_pack) * td.retail_price) AS sum,
 			tr.name as name,
 			vd.unit_per_pack
@@ -779,7 +779,7 @@ func (s *Services) GetProductMovements(productId, storeId string, limit, offset 
 		JOIN transfers tr ON td.transfer_id = tr.id
 		JOIN var_data vd ON td.product_id = vd.product_id
 		JOIN stores s ON s.id = tr.from_store_id
-		WHERE tr.status = 'completed' AND tr.entry_type = 2
+		WHERE (tr.status = 'completed' OR tr.status = 'sent-to-1c') AND tr.entry_type = 2
 		%s
 		GROUP BY tr.id, s.id, vd.unit_per_pack
 	),
@@ -789,7 +789,7 @@ func (s *Services) GetProductMovements(productId, storeId string, limit, offset 
 			6 AS entry_type,
 			tr.created_at,
 			fs.name || ' -> ' || ts.name as store_name,
-			SUM(td.accepted_count * vd.unit_per_pack) as count,
+			SUM(td.accepted_count) as count,
 			SUM((td.accepted_count/vd.unit_per_pack) * td.retail_price) AS sum,
 			tr.name as name,
 			vd.unit_per_pack
@@ -798,7 +798,7 @@ func (s *Services) GetProductMovements(productId, storeId string, limit, offset 
 		JOIN var_data vd ON td.product_id = vd.product_id
 		JOIN stores fs ON fs.id = tr.from_store_id
 		JOIN stores ts ON ts.id = tr.to_store_id
-		WHERE tr.status = 'completed' AND tr.entry_type = 1
+		WHERE (tr.status = 'completed' OR tr.status = 'sent-to-1c') AND tr.entry_type = 1
 		%s
 		GROUP BY tr.id, fs.id, ts.id, vd.unit_per_pack
 	)
