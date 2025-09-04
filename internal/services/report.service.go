@@ -488,7 +488,7 @@ func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.S
 		args = append(args, param.StoreId)
 	}
 	if param.CompanyId != "" {
-		filter += " AND s.company_id ? "
+		filter += " AND s.company_id = ? "
 		args = append(args, param.CompanyId)
 	}
 	if param.Search != "" {
