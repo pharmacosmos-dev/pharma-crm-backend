@@ -575,7 +575,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 		return
 	}
 	// collect payment type sum query
-	pquery = pquery + " AND " + filter + group + " ORDER BY sum DESC;"
+	pquery = pquery + " WHERE " + filter + group + " ORDER BY sum DESC;"
 	// replace with :param with ?
 	err = h.db.Raw(pquery, args...).Scan(&res.PaymentTypeStats).Error
 	if err != nil {
