@@ -71,10 +71,19 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 			SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN
 				CASE WHEN sale_type = 'SALE' THEN total_amount
 					 WHEN sale_type = 'RETURN' THEN -total_amount
-				END ELSE 0 END) AS before_sale_amount
+				END ELSE 0 END) AS before_sale_amount,
+			SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN
+				CASE WHEN sale_type = 'SALE' THEN total_discount
+					 WHEN sale_type = 'RETURN' THEN -total_discount
+				END ELSE 0 END) AS discount_amount,
+		    SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN
+				CASE WHEN sale_type = 'SALE' THEN total_discount
+					 WHEN sale_type = 'RETURN' THEN -total_discount
+				END ELSE 0 END) AS before_discount_amount
 		FROM sales
 		LEFT JOIN stores st on sales.store_id = st.id
 		WHERE status = 'completed'`,
+			startStr, endStr, beforeStartStr, beforeEndStr,
 			startStr, endStr, beforeStartStr, beforeEndStr,
 			startStr, endStr, beforeStartStr, beforeEndStr)
 
@@ -219,6 +228,8 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 	res.BeforeSaleCount = sale.BeforeSaleCount
 	res.TotalSaleAmount = sale.SaleAmount
 	res.BeforeSaleAmount = sale.BeforeSaleAmount
+	res.DiscountAmount = sale.DiscountAmount
+	res.BeforeDiscountAmount = sale.BeforeDiscountAmount
 	res.TotalProductCount = product.StockCount
 	res.BeforeProductCount = product.BeforeStockCount
 	res.StockTotalAmount = product.StockAmount

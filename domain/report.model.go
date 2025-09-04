@@ -80,45 +80,49 @@ type LflReportDetail struct {
 
 // Store report amount with payment types
 type StoreAmount struct {
-	UID          int     `gorm:"uid" json:"uid"`
-	ID           string  `gorm:"id" json:"id"`
-	StoreCode    int     `gorm:"store_code" json:"store_code"`
-	StoreName    string  `gorm:"store_name" json:"store_name"`
-	SaleDate     string  `gorm:"sale_date" json:"sale_date"`
-	Cash         float64 `gorm:"cash" json:"cash"`
-	Uzcard       float64 `gorm:"uzcard" json:"uzcard"`
-	Humo         float64 `gorm:"humo" json:"humo"`
-	Click        float64 `gorm:"click" json:"click"`
-	Payme        float64 `gorm:"payme" json:"payme"`
-	Alif         float64 `gorm:"alif" json:"alif"`
-	ReturnAmount float64 `gorm:"return_amount" json:"return_amount"`
-	TotalAmount  float64 `gorm:"total_amount" json:"total_amount"`
-	ChequeCount  int     `gorm:"cheque_count" json:"cheque_count"`
+	UID            int     `gorm:"uid" json:"uid"`
+	ID             string  `gorm:"id" json:"id"`
+	StoreCode      int     `gorm:"store_code" json:"store_code"`
+	StoreName      string  `gorm:"store_name" json:"store_name"`
+	SaleDate       string  `gorm:"sale_date" json:"sale_date"`
+	Cash           float64 `gorm:"cash" json:"cash"`
+	Uzcard         float64 `gorm:"uzcard" json:"uzcard"`
+	Humo           float64 `gorm:"humo" json:"humo"`
+	Click          float64 `gorm:"click" json:"click"`
+	Payme          float64 `gorm:"payme" json:"payme"`
+	Alif           float64 `gorm:"alif" json:"alif"`
+	ReturnAmount   float64 `gorm:"return_amount" json:"return_amount"`
+	TotalAmount    float64 `gorm:"total_amount" json:"total_amount"`
+	DiscountAmount float64 `gorm:"discount_amount" json:"discount_amount"`
+	ChequeCount    int     `gorm:"cheque_count" json:"cheque_count"`
 }
 
 type StoreReportStats struct {
-	TotalAmount  float64 `gorm:"total_amount" json:"total_amount"`
-	ReturnAmount float64 `gorm:"return_amount" json:"return_amount"`
-	Cash         float64 `gorm:"cash" json:"cash"`
-	Uzcard       float64 `gorm:"uzcard" json:"uzcard"`
-	Humo         float64 `gorm:"humo" json:"humo"`
-	Click        float64 `gorm:"click" json:"click"`
-	Payme        float64 `gorm:"payme" json:"payme"`
+	TotalAmount    float64 `gorm:"total_amount" json:"total_amount"`
+	ReturnAmount   float64 `gorm:"return_amount" json:"return_amount"`
+	Cash           float64 `gorm:"cash" json:"cash"`
+	Uzcard         float64 `gorm:"uzcard" json:"uzcard"`
+	Humo           float64 `gorm:"humo" json:"humo"`
+	Click          float64 `gorm:"click" json:"click"`
+	Payme          float64 `gorm:"payme" json:"payme"`
+	DiscountAmount float64 `gorm:"discount_amount" json:"discount_amount"`
 }
 
 type StoreSummary struct {
-	Name         string  `json:"name"`
-	SaleAmount   float64 `json:"sale_amount"`
-	ImportAmount float64 `json:"import_amount"`
-	StockAmount  float64 `json:"stock_amount"`
-	Total        float64 `json:"total"`
+	Name           string  `json:"name"`
+	SaleAmount     float64 `json:"sale_amount"`
+	DiscountAmount float64 `gorm:"discount_amount" json:"discount_amount"`
+	ImportAmount   float64 `json:"import_amount"`
+	StockAmount    float64 `json:"stock_amount"`
+	Total          float64 `json:"total"`
 }
 
 type StoreSummaryStats struct {
-	TotalSaleAmount   float64 `json:"total_sale_amount"`
-	TotalImportAmount float64 `json:"total_import_amount"`
-	TotalStockAmount  float64 `json:"total_stock_amount"`
-	Total             float64 `json:"total"`
+	TotalSaleAmount     float64 `json:"total_sale_amount"`
+	TotalDiscountAmount float64 `gorm:"total_discount_amount" json:"total_discount_amount"`
+	TotalImportAmount   float64 `json:"total_import_amount"`
+	TotalStockAmount    float64 `json:"total_stock_amount"`
+	Total               float64 `json:"total"`
 }
 
 type StoreProductsReport struct {

@@ -453,7 +453,7 @@ func (s *Services) ListSale(param *domain.QueryParam, userId string) ([]domain.S
 		totalCount int64
 		filter     = " WHERE s.status = 'completed' "
 		args       = []any{}
-		groupBy    = " GROUP BY s.id, em.id, st.id, customers.id, cash_boxes.id "
+		groupBy    = " GROUP BY s.id, em.id, st.id, customers.id, cash_boxes.id, dc.barcode "
 		orderBy    = " ORDER BY s.completed_at DESC "
 	)
 	// get employee info
@@ -480,6 +480,7 @@ func (s *Services) ListSale(param *domain.QueryParam, userId string) ([]domain.S
 		em.full_name, em.phone,
 		st.name AS store_name,
 		COALESCE(customers.full_name, '') as customer_name,
+		CONCAT(REPEAT('*', GREATEST(LENGTH(dc.barcode) - 4, 0)),RIGHT(dc.barcode, 4)) AS discount_barcode,
 		COALESCE(customers.phone, '') AS customer_phone,
 		cash_boxes.name AS cash_box_name,
 		COALESCE(SUM(CASE WHEN pt.name = 'Naqd' THEN sp.amount ELSE 0 END), 0.00) AS cash,
@@ -495,6 +496,7 @@ func (s *Services) ListSale(param *domain.QueryParam, userId string) ([]domain.S
 		LEFT JOIN customers ON s.customer_id = customers.id
 		LEFT JOIN sale_payments sp ON sp.sale_id = s.id
 		LEFT JOIN payment_types pt ON sp.payment_type_id = pt.id
+		LEFT JOIN discount_cards dc ON customers.id = dc.customer_id
 	`
 	totalCountQuery := `
 		SELECT

@@ -96,6 +96,7 @@ type SaleResponse struct {
 	Humo               float64        `gorm:"humo" json:"humo"`
 	Click              float64        `gorm:"click" json:"click"`
 	Payme              float64        `gorm:"payme" json:"payme"`
+	DiscountBarcode    string         `gorm:"discount_barcode" json:"discount_barcode"`
 	IsDelivered        bool           `gorm:"is_delivered" json:"is_delivered"`
 	FiscalSign         string         `gorm:"fiscal_sign" json:"fiscal_sign"`
 	CustomerName       *string        `gorm:"customer_name" json:"customer_name"`
@@ -177,6 +178,7 @@ type SaleTotalAmount struct {
 type SaleStats struct {
 	TotalTransactionsSum float64            `gorm:"total_transactions_sum" json:"total_transactions_sum"`
 	TotalReturnalsSum    float64            `gorm:"total_returnals_sum" json:"total_returnals_sum"`
+	TotalDiscountAmount  float64            `gorm:"total_discount_amount" json:"total_discount_amount"`
 	TotalCount           int64              `gorm:"total_count" json:"total_count"`
 	TotalProductCount    int64              `gorm:"total_product_count" json:"total_product_count"`
 	PaymentTypeStats     []PaymentTypeStats `gorm:"-" json:"payment_type_stats"`

@@ -12,6 +12,8 @@ type DashboardCountStats struct {
 	BeforeSaleCount          int64   `gorm:"before_sale_count" json:"before_sale_count"`
 	TotalSaleAmount          float64 `gorm:"total_sale_amount" json:"total_sale_amount"`
 	BeforeSaleAmount         float64 `gorm:"before_sale_amount" json:"before_sale_amount"`
+	DiscountAmount           float64 `gorm:"discount_amount" json:"discount_amount"`
+	BeforeDiscountAmount     float64 `gorm:"before_discount_amount" json:"before_discount_amount"`
 	TotalProductCount        float64 `gorm:"total_product_count" json:"total_product_count"`
 	BeforeProductCount       float64 `gorm:"before_product_count" json:"before_product_count"`
 	StockTotalAmount         float64 `gorm:"stock_total_amount" json:"stock_total_amount"`
@@ -118,10 +120,12 @@ type DashboardTransaction struct {
 
 // Dashboard count stats sale
 type DashboardCountStatsSale struct {
-	SaleCount        int64   `gorm:"sale_count" json:"sale_count"`
-	BeforeSaleCount  int64   `gorm:"before_sale_count" json:"before_sale_count"`
-	SaleAmount       float64 `gorm:"sale_amount" json:"sale_amount"`
-	BeforeSaleAmount float64 `gorm:"before_sale_amount" json:"before_sale_amount"`
+	SaleCount            int64   `gorm:"sale_count" json:"sale_count"`
+	BeforeSaleCount      int64   `gorm:"before_sale_count" json:"before_sale_count"`
+	SaleAmount           float64 `gorm:"sale_amount" json:"sale_amount"`
+	BeforeSaleAmount     float64 `gorm:"before_sale_amount" json:"before_sale_amount"`
+	DiscountAmount       float64 `gorm:"discount_amount" json:"discount_amount"`
+	BeforeDiscountAmount float64 `gorm:"before_discount_amount" json:"before_discount_amount"`
 }
 
 // Dashboard count stats product

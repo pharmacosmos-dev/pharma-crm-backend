@@ -560,6 +560,10 @@ func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.S
 					WHEN sa.sale_type = 'SALE' THEN sp.amount
 					WHEN sa.sale_type = 'RETURN' THEN sp.amount*(-1)
 					ELSE 0 END)  AS total_amount,
+				SUM(CASE
+					WHEN sa.sale_type = 'SALE' THEN sa.total_discount
+					WHEN sa.sale_type = 'RETURN' THEN sa.total_discount*(-1)
+					ELSE 0 END)  AS discount_amount,
 				COUNT(DISTINCT sa.id) AS cheque_count
 		FROM stores s
 		JOIN sales sa ON s.id = sa.store_id
@@ -630,7 +634,11 @@ func (s *Services) ReportByStoreStats(param *domain.ReportQueryParam) (domain.St
 			SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS return_amount,
 
 			SUM(CASE WHEN sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
-			SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS total_amount
+			SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS total_amount,
+			SUM(CASE
+				WHEN sa.sale_type = 'SALE' THEN sa.total_discount
+				WHEN sa.sale_type = 'RETURN' THEN sa.total_discount*(-1)
+				ELSE 0 END)  AS discount_amount	    
 		FROM stores s
 		JOIN sales sa ON s.id = sa.store_id
 		JOIN sale_payments sp ON sa.id = sp.sale_id
@@ -1170,7 +1178,15 @@ func (s *Services) ReportStoreSummary(param *domain.ReportQueryParam) ([]domain.
 								WHEN sale_type = 'RETURN' THEN -total_amount
 							END
 					ELSE 0
-				END) AS sale_amount
+				END) AS sale_amount,
+			SUM(CASE
+					WHEN (completed_at + interval '5 hours') BETWEEN ? AND ?
+						THEN CASE
+								WHEN sale_type = 'SALE' THEN total_discount
+								WHEN sale_type = 'RETURN' THEN -total_discount
+							END
+					ELSE 0
+				END) AS discount_amount
 		FROM sales
 		WHERE status = 'completed'
 		GROUP BY store_id
@@ -1196,9 +1212,10 @@ func (s *Services) ReportStoreSummary(param *domain.ReportQueryParam) ([]domain.
 	SELECT
 		st.name AS name,
 		COALESCE(s.sale_amount, 0) AS sale_amount,
+		COALESCE(s.discount_amount, 0) AS discount_amount,
 		COALESCE(i.import_amount, 0) AS import_amount,
 		COALESCE(k.stock_amount, 0) AS stock_amount,
-		ROUND(COALESCE(s.sale_amount, 0) + COALESCE(i.import_amount, 0) + COALESCE(k.stock_amount, 0), 2) AS total
+		ROUND(COALESCE(s.sale_amount, 0) - COALESCE(s.discount_amount, 0) + COALESCE(i.import_amount, 0) + COALESCE(k.stock_amount, 0), 2) AS total
 	FROM stores st
 	LEFT JOIN sale_cte s ON st.id = s.store_id
 	LEFT JOIN import_cte i ON st.id = i.store_id
@@ -1207,7 +1224,7 @@ func (s *Services) ReportStoreSummary(param *domain.ReportQueryParam) ([]domain.
 	`
 
 	// 4 timestamps for 2 BETWEENs (sales & imports)
-	args = append(args, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339)) // sales
+	args = append(args, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339), startTime.Format(time.RFC3339), endTime.Format(time.RFC3339)) // sales
 	if param.Order != "" {
 		order := utils.BuildStoreSummaryOrderClause(param.Order)
 		query += order
@@ -1278,7 +1295,15 @@ func (s *Services) ReportStoreSummaryStats(param *domain.ReportQueryParam) (doma
 								WHEN sale_type = 'RETURN' THEN -total_amount
 							END
 					ELSE 0
-				END) AS sale_amount
+				END) AS sale_amount,
+			SUM(CASE
+					WHEN (completed_at + interval '5 hours') BETWEEN ? AND ?
+						THEN CASE
+								WHEN sale_type = 'SALE' THEN total_discount
+								WHEN sale_type = 'RETURN' THEN -total_discount
+							END
+					ELSE 0
+				END) AS discount_amount
 		FROM sales
 		WHERE status = 'completed'
 		GROUP BY store_id
@@ -1303,11 +1328,12 @@ func (s *Services) ReportStoreSummaryStats(param *domain.ReportQueryParam) (doma
 	),
 	store_summary AS (
 		SELECT
-			st.id,
+			st.name AS name,
 			COALESCE(s.sale_amount, 0) AS sale_amount,
+			COALESCE(s.discount_amount, 0) AS discount_amount,
 			COALESCE(i.import_amount, 0) AS import_amount,
 			COALESCE(k.stock_amount, 0) AS stock_amount,
-			ROUND(COALESCE(s.sale_amount, 0) + COALESCE(i.import_amount, 0) + COALESCE(k.stock_amount, 0), 2) AS total
+			ROUND(COALESCE(s.sale_amount, 0) - COALESCE(s.discount_amount, 0) + COALESCE(i.import_amount, 0) + COALESCE(k.stock_amount, 0), 2) AS total
 		FROM stores st
 		LEFT JOIN sale_cte s ON st.id = s.store_id
 		LEFT JOIN import_cte i ON st.id = i.store_id
@@ -1316,13 +1342,14 @@ func (s *Services) ReportStoreSummaryStats(param *domain.ReportQueryParam) (doma
 	)
 	SELECT
 		SUM(sale_amount) AS total_sale_amount,
+		SUM(discount_amount) AS total_discount_amount,
 		SUM(import_amount) AS total_import_amount,
 		SUM(stock_amount) AS total_stock_amount,
 		SUM(total) AS total
 	FROM store_summary
 	`
 
-	args = append(args, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339)) // sales
+	args = append(args, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339), startTime.Format(time.RFC3339), endTime.Format(time.RFC3339)) // sales
 
 	err = s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {

@@ -485,6 +485,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 		SELECT
 			SUM(CASE WHEN s.sale_type = 'SALE' THEN s.total_amount ELSE 0 END) - SUM(CASE WHEN s.sale_type = 'RETURN' THEN s.total_amount ELSE 0 END) AS total_transactions_sum,
         	SUM(CASE WHEN s.sale_type = 'RETURN' THEN s.total_amount ELSE 0 END) AS total_returnals_sum,
+        	SUM(s.total_discount) AS total_discount_amount,
 			COUNT(*) AS total_count
 		FROM sales s
 		JOIN stores st ON s.store_id = st.id
