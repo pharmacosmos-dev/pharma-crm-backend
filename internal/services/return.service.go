@@ -214,6 +214,10 @@ func (s *Services) ReturnList(param *domain.ReturnParam) ([]domain.Return, int64
 	if param.StoreId != "" {
 		query = query.Where("transfers.from_store_id = ? ", param.StoreId)
 	}
+	if param.CompanyId != "" {
+		query = query.Joins("LEFT JOIN stores st ON transfers.from_store_id = st.id").
+			Where("st.company_id = ?", param.CompanyId)
+	}
 
 	// filter by search keyword
 	if param.Search != "" {
@@ -249,6 +253,7 @@ func (s *Services) ReturnStatus(param *domain.ReturnParam) (*domain.ReturnStatus
 			COALESCE(SUM(trd.accepted_count * trd.retail_price), 0) AS accepted_retail_sum
 		FROM transfers
 		LEFT JOIN transfer_details trd ON transfers.id = trd.transfer_id
+		LEFT JOIN stores st ON transfers.from_store_id = st.id
 		WHERE transfers.entry_type = 2
 	`
 
@@ -258,6 +263,10 @@ func (s *Services) ReturnStatus(param *domain.ReturnParam) (*domain.ReturnStatus
 	if param.StoreId != "" {
 		filters = append(filters, "transfers.from_store_id = ?")
 		args = append(args, param.StoreId)
+	}
+	if param.CompanyId != "" {
+		filters = append(filters, "st.company_id = ?")
+		args = append(args, param.CompanyId)
 	}
 	if param.Search != "" {
 		search := "%" + param.Search + "%"

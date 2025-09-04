@@ -11,6 +11,7 @@ type RejectedProductQueryParam struct {
 	Limit       int    `form:"limit"`
 	Offset      int    `form:"offset"`
 	Search      string `form:"search"`
+	CompanyId   string `form:"company_id"`
 	StoreID     string `form:"store_id"`
 	ProductID   string `form:"product_id"`
 	ProductName string `form:"product_name"`

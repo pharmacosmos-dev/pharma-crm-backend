@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
@@ -132,6 +133,7 @@ func (h *StoreHandler) List(c *gin.Context) {
 	var (
 		res        []domain.StoreWithProducts
 		totalCount int64
+		CompanyID  string
 		search     = c.Query("search")
 		productID  = c.Query("product_id")
 	)
@@ -140,6 +142,27 @@ func (h *StoreHandler) List(c *gin.Context) {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
+	}
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	// get employee info
+	var employee domain.Employee
+	err = h.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(employee, h.cfg) {
+		CompanyID = employee.CompanyId
 	}
 
 	query := h.db.
@@ -160,6 +183,10 @@ func (h *StoreHandler) List(c *gin.Context) {
             ORDER BY sp.store_id, sp.created_at DESC
         ) sp ON s.id = sp.store_id
     `, productID)
+	}
+
+	if CompanyID != "" {
+		query = query.Where("s.company_id = ?", CompanyID)
 	}
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
@@ -223,6 +250,7 @@ func (h *StoreHandler) ExportExcel(c *gin.Context) {
 	var (
 		res        []domain.StoreWithProducts
 		totalCount int64
+		companyId  string
 		search     = c.Query("search")
 		productID  = c.Query("product_id")
 	)
@@ -231,6 +259,28 @@ func (h *StoreHandler) ExportExcel(c *gin.Context) {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
+	}
+
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	// get employee info
+	var employee domain.Employee
+	err = h.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(employee, h.cfg) {
+		companyId = employee.CompanyId
 	}
 
 	query := h.db.
@@ -251,6 +301,9 @@ func (h *StoreHandler) ExportExcel(c *gin.Context) {
 			ORDER BY sp.store_id, sp.created_at DESC
 		) sp ON s.id = sp.store_id
 	`, productID)
+	}
+	if companyId != "" {
+		query = query.Where("s.company_id = ?", companyId)
 	}
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)

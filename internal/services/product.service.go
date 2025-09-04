@@ -289,6 +289,10 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 		expireDayPart = " DATE_PART('day', MIN(sp.expire_date)::timestamp - NOW()) AS expire_day, MIN(sp.expire_date) AS expire_date, "
 		args = append(args, param.StoreID)
 	}
+	if param.CompanyID != "" {
+		filter += " AND st.company_id = ?"
+		args = append(args, param.CompanyID)
+	}
 	// filter with producer id
 	if param.ProducerID != "" {
 		filter += " AND p.producer_id = ? "
@@ -352,6 +356,7 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 	RIGHT JOIN products p ON sp.product_id = p.id
 	LEFT JOIN producers pr ON p.producer_id = pr.id
 	LEFT JOIN unit_types u ON p.unit_type_id = u.id
+	LEFT JOIN stores st ON sp.store_id = st.id
 	`, expireDayPart, "%", "%")
 
 	// collect query
@@ -491,6 +496,11 @@ func (s *Services) ListProductStats(param *domain.ProductQueryParam) (domain.Pro
 	if param.StoreID != "" {
 		filter += " AND sp.store_id = ?"
 		args = append(args, param.StoreID)
+	}
+
+	if param.CompanyID != "" {
+		filter += " AND sp.company_id = ?"
+		args = append(args, param.CompanyID)
 	}
 
 	// filter with producer_id
@@ -690,107 +700,178 @@ func (s *Services) UpdateProductIsMarking(req *domain.UpdateIsMarking) error {
 }
 
 // get product movements(Import, Inventory, Write-Off, Sale)
-func (s *Services) GetProductMovements(productId, storeId string, limit, offset int) ([]domain.ImportProductData, int64, error) {
+func (s *Services) GetProductMovements(productId, storeId string, limit, offset int, companyId string) ([]domain.ImportProductData, int64, error) {
 	var (
 		res        []domain.ImportProductData
 		totalCount int64
+		query      string
+		params     []any
 	)
 
-	// Base query without store_id filter
-	query := `
-	SELECT *, COUNT(*) OVER() AS total_count FROM (
-			SELECT
-					im.id, im.public_id,
-					im.entry_type, im.created_at,
-					s.name AS store_name,
-        			SUM(CASE
-        			        WHEN im.entry_type = 2 THEN imd.scanned_count
-        			        ELSE imd.accepted_count
-        			    END) AS count,
-        			SUM(CASE
-        			        WHEN im.entry_type = 2 THEN imd.scanned_count
-        			        ELSE imd.accepted_count
-        			    END
-        			    * imd.retail_price_vat) AS sum,
-					im.name AS name
-			FROM imports im
-			JOIN stores s ON im.store_id = s.id
-			LEFT JOIN import_details imd ON im.id = imd.import_id
-			LEFT JOIN products p ON imd.product_id = p.id
-			WHERE imd.product_id = ?
-			AND im.status = 'completed'
-			GROUP BY im.id, s.id
-
-			UNION ALL
-
-			SELECT
-					sa.id AS id,
-					sa.sale_number AS public_id,
-					4 AS entry_type,
-					sa.completed_at AS created_at,
-					st.name AS store_name,
-					ROUND(SUM(ci.quantity)::numeric + SUM(ci.unit_quantity::numeric/p.unit_per_pack), 4) AS count,
-					sa.total_amount AS sum,
-					sa.sale_type AS name
-			FROM sales sa
-			JOIN stores st ON st.id = sa.store_id
-			JOIN cart_items ci ON ci.sale_id = sa.id
-			JOIN store_products sp ON sp.id = ci.store_product_id
-			JOIN products p ON sp.product_id = p.id
-			WHERE sp.product_id = ?
-			AND sa.status = 'completed'
-			GROUP BY sa.id, st.id
-	) AS all_data
+	baseQuery := `
+	WITH var_data AS (
+		SELECT
+			p.id AS product_id,
+			p.unit_per_pack
+		FROM products p
+		WHERE p.id = ?
+	),
+	import_data AS (
+		SELECT
+			im.id, im.public_id, im.entry_type, im.created_at,
+			s.name AS store_name,
+			SUM(imd.accepted_count*vd.unit_per_pack) AS count,
+			SUM(imd.accepted_count * imd.retail_price_vat) AS sum,
+			im.name AS name,
+			vd.unit_per_pack
+		FROM imports im
+		JOIN stores s ON im.store_id = s.id
+		JOIN import_details imd ON im.id = imd.import_id
+		JOIN var_data vd ON imd.product_id = vd.product_id
+		WHERE im.entry_type = 1 AND im.status = 'completed'
+		%s
+		GROUP BY im.id, s.id, vd.unit_per_pack
+	),
+	inventory_data AS (
+		SELECT
+			im.id, im.public_id, im.entry_type, im.created_at,
+			s.name AS store_name,
+			SUM(imd.scanned_count) AS count,
+			SUM((imd.accepted_count/vd.unit_per_pack) * imd.retail_price_vat) AS sum,
+			im.name AS name,
+			vd.unit_per_pack
+		FROM imports im
+		JOIN stores s ON im.store_id = s.id
+		JOIN import_details imd ON im.id = imd.import_id
+		JOIN var_data vd ON imd.product_id = vd.product_id
+		WHERE im.entry_type = 2 AND im.status = 'completed'
+		%s
+		GROUP BY im.id, s.id, vd.unit_per_pack
+	),
+	sales_data AS (
+		SELECT
+			sa.id, sa.sale_number AS public_id,
+			4 AS entry_type,
+			sa.completed_at AS created_at,
+			st.name AS store_name,
+			SUM((ci.quantity*vd.unit_per_pack) + ci.unit_quantity) AS count,
+			sa.total_amount AS sum,
+			sa.sale_type AS name,
+			vd.unit_per_pack
+		FROM sales sa
+		JOIN stores st ON st.id = sa.store_id
+		JOIN cart_items ci ON ci.sale_id = sa.id
+		JOIN store_products sp ON sp.id = ci.store_product_id
+		JOIN var_data vd ON sp.product_id = vd.product_id
+		WHERE sa.status = 'completed'
+		%s
+		GROUP BY sa.id, st.id, vd.unit_per_pack
+	),
+	vozvrat_data AS (
+		SELECT
+			tr.id, tr.public_id::int, 5 AS entry_type, tr.created_at,
+			s.name AS store_name,
+			SUM(td.accepted_count) as count,
+			SUM((td.accepted_count/vd.unit_per_pack) * td.retail_price) AS sum,
+			tr.name as name,
+			vd.unit_per_pack
+		FROM transfer_details td
+		JOIN transfers tr ON td.transfer_id = tr.id
+		JOIN var_data vd ON td.product_id = vd.product_id
+		JOIN stores s ON s.id = tr.from_store_id
+		WHERE (tr.status = 'completed' OR tr.status = 'sent-to-1c') AND tr.entry_type = 2
+		%s
+		GROUP BY tr.id, s.id, vd.unit_per_pack
+	),
+	transfer_data AS (
+		SELECT
+			tr.id, tr.public_id::int, 
+			6 AS entry_type,
+			tr.created_at,
+			fs.name || ' -> ' || ts.name as store_name,
+			SUM(td.accepted_count) as count,
+			SUM((td.accepted_count/vd.unit_per_pack) * td.retail_price) AS sum,
+			tr.name as name,
+			vd.unit_per_pack
+		FROM transfer_details td
+		JOIN transfers tr ON td.transfer_id = tr.id
+		JOIN var_data vd ON td.product_id = vd.product_id
+		JOIN stores fs ON fs.id = tr.from_store_id
+		JOIN stores ts ON ts.id = tr.to_store_id
+		WHERE (tr.status = 'completed' OR tr.status = 'sent-to-1c') AND tr.entry_type = 1
+		%s
+		GROUP BY tr.id, fs.id, ts.id, vd.unit_per_pack
+	)
+	SELECT *, COUNT(*) OVER() AS total_count
+	FROM (
+		SELECT * FROM import_data
+		UNION ALL
+		SELECT * FROM sales_data
+		UNION ALL
+		SELECT * FROM inventory_data
+		UNION ALL
+		SELECT * FROM vozvrat_data
+		UNION ALL
+		SELECT * FROM transfer_data
+	) all_data
 	ORDER BY created_at DESC
 	LIMIT ? OFFSET ?;
 	`
 
-	// Parameters for the query
-	params := []any{productId, productId, limit, offset}
+	if storeId == "" && companyId == "" {
+		query = fmt.Sprintf(baseQuery, "", "", "", "", "")
+		params = []any{productId, limit, offset}
 
-	// Modify query to include store_id filter if provided
-	if storeId != "" {
-		query = `
-		SELECT *, COUNT(*) OVER() AS total_count FROM (
-				SELECT
-						im.id, im.public_id,
-						im.entry_type, im.created_at,
-						s.name AS store_name,
-						SUM(imd.accepted_count) AS count,
-						SUM(imd.accepted_count * imd.retail_price_vat) AS sum,
-						im.name AS name
-				FROM imports im
-				JOIN stores s ON im.store_id = s.id
-				LEFT JOIN import_details imd ON im.id = imd.import_id
-				LEFT JOIN products p ON imd.product_id = p.id
-				WHERE im.store_id = ? AND imd.product_id = ?
-				AND im.status = 'completed'
-				GROUP BY im.id, s.id
+	} else if storeId != "" && companyId == "" {
+		query = fmt.Sprintf(
+			baseQuery,
+			"AND im.store_id = ?",
+			"AND im.store_id = ?",
+			"AND sa.store_id = ?",
+			"AND tr.from_store_id = ?",
+			"AND (tr.from_store_id = ? OR tr.to_store_id = ?)",
+		)
+		params = []any{
+			productId,
+			storeId, storeId, storeId, storeId,
+			storeId, storeId, // for transfer_data
+			limit, offset,
+		}
 
-				UNION ALL
+	} else if storeId == "" && companyId != "" {
+		query = fmt.Sprintf(
+			baseQuery,
+			"AND s.company_id = ?",
+			"AND s.company_id = ?",
+			"AND st.company_id = ?",
+			"AND s.company_id = ?",
+			"AND (fs.company_id = ? OR ts.company_id = ?)",
+		)
+		params = []any{
+			productId,
+			companyId, companyId, companyId, companyId,
+			companyId, companyId, // for transfer_data
+			limit, offset,
+		}
 
-				SELECT
-						sa.id AS id,
-						sa.sale_number AS public_id,
-						4 AS entry_type,
-						sa.completed_at AS created_at,
-						st.name AS store_name,
-						ROUND(SUM(ci.quantity)::numeric + SUM(ci.unit_quantity::numeric/p.unit_per_pack), 4) AS count,
-						sa.total_amount AS sum,
-						sa.sale_type AS name
-				FROM sales sa
-				JOIN stores st ON st.id = sa.store_id
-				JOIN cart_items ci ON ci.sale_id = sa.id
-				JOIN store_products sp ON sp.id = ci.store_product_id
-				JOIN products p ON sp.product_id = p.id
-				WHERE sa.store_id = ? AND sp.product_id = ?
-				AND sa.status = 'completed'
-				GROUP BY sa.id, st.id
-		) AS all_data
-		ORDER BY created_at DESC
-		LIMIT ? OFFSET ?;
-		`
-		params = []any{storeId, productId, storeId, productId, limit, offset}
+	} else { // both storeId and companyId
+		query = fmt.Sprintf(
+			baseQuery,
+			"AND im.store_id = ? AND s.company_id = ?",
+			"AND im.store_id = ? AND s.company_id = ?",
+			"AND sa.store_id = ? AND st.company_id = ?",
+			"AND tr.from_store_id = ? AND s.company_id = ?",
+			"AND (tr.from_store_id = ? OR tr.to_store_id = ?) AND (fs.company_id = ? OR ts.company_id = ?)",
+		)
+		params = []any{
+			productId,
+			storeId, companyId, // import_data
+			storeId, companyId, // inventory_data
+			storeId, companyId, // sales_data
+			storeId, companyId, // vozvrat_data
+			storeId, storeId, companyId, companyId, // transfer_data
+			limit, offset,
+		}
 	}
 
 	// Execute query
@@ -908,6 +989,10 @@ func (s *Services) GetProductListByImport(param *domain.ProductQueryParam) ([]do
 		filter += " AND sp.store_id = ? "
 		args = append(args, param.StoreID)
 	}
+	if param.CompanyID != "" {
+		filter += " AND sp.company_id = ? "
+		args = append(args, param.CompanyID)
+	}
 	// filter by search keyword
 	if param.SearchField != "" {
 		filter += " AND (p.name ILIKE ? OR p.barcode LIKE ?) "
@@ -986,6 +1071,10 @@ func (s *Services) GetMinMaxProducts(param *domain.ProductQueryParam) ([]domain.
 		filter += " AND spt.store_id = ? "
 		args = append(args, param.StoreID)
 	}
+	if param.CompanyID != "" {
+		filter += " AND s.company_id = ?"
+		args = append(args, param.CompanyID)
+	}
 
 	if param.SearchField != "" {
 		filter += " AND p.name ILIKE ? "
@@ -1024,6 +1113,11 @@ func (s *Services) ListExcludedProducts(param *domain.ProductQueryParam) ([]doma
 		filter += " AND ep.store_id = ?"
 		args = append(args, param.StoreID)
 		countArgs = append(countArgs, param.StoreID)
+	}
+	if param.CompanyID != "" {
+		filter += " AND s.company_id = ?"
+		args = append(args, param.CompanyID)
+		countArgs = append(countArgs, param.CompanyID)
 	}
 
 	// filter by product name
@@ -1074,6 +1168,7 @@ func (s *Services) ListExcludedProducts(param *domain.ProductQueryParam) ([]doma
 		SELECT COUNT(*)
 		FROM excluded_products ep
 		JOIN products p ON p.id = ep.product_id
+		LEFT JOIN stores s ON ep.store_id = s.id
 	` + filter
 
 	if err := s.db.Raw(countQuery, countArgs...).Scan(&totalCount).Error; err != nil {

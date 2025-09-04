@@ -86,8 +86,11 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 		return
 	}
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) && employee.StoreId != "" {
-		param.StoreIds = []string{employee.StoreId}
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			param.StoreIds = []string{employee.StoreId}
+		}
+		param.CompanyId = employee.CompanyId
 	}
 	// get dashboard data
 	res, err := h.service.DashboardTotalCountStats(&param)
@@ -151,8 +154,11 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 	}
 
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) && employee.StoreId != "" {
-		param.StoreIds = []string{employee.StoreId}
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			param.StoreIds = []string{employee.StoreId}
+		}
+		param.CompanyId = employee.CompanyId
 	}
 
 	// get dashboard data
@@ -206,8 +212,11 @@ func (h *DashboardHandler) TopStores(c *gin.Context) {
 		return
 	}
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) && employee.StoreId != "" {
-		param.StoreIds = []string{employee.StoreId}
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			param.StoreIds = []string{employee.StoreId}
+		}
+		param.CompanyId = employee.CompanyId
 	}
 	// get dashboard data
 	res, err := h.service.DashboardTopStores(&param)
@@ -268,8 +277,11 @@ func (h *DashboardHandler) TopProducts(c *gin.Context) {
 		return
 	}
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) && employee.StoreId != "" {
-		param.StoreIds = []string{employee.StoreId}
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			param.StoreIds = []string{employee.StoreId}
+		}
+		param.CompanyId = employee.CompanyId
 	}
 	// get dashboard data
 	res, err := h.service.DashboardTopProducts(&param)
@@ -332,8 +344,11 @@ func (h *DashboardHandler) BonusProducts(c *gin.Context) {
 	}
 
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) && employee.StoreId != "" {
-		param.StoreIds = []string{employee.StoreId}
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			param.StoreIds = []string{employee.StoreId}
+		}
+		param.CompanyId = employee.CompanyId
 	}
 	// get dashboard data
 	res, err := h.service.DashboardBonusProducts(&param)
@@ -393,8 +408,11 @@ func (h *DashboardHandler) TopSeller(c *gin.Context) {
 		return
 	}
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) && employee.StoreId != "" {
-		param.StoreIds = []string{employee.StoreId}
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			param.StoreIds = []string{employee.StoreId}
+		}
+		param.CompanyId = employee.CompanyId
 	}
 	// get dashboard data
 	res, err := h.service.DashboardTopSeller(&param)
@@ -422,6 +440,13 @@ func (h *DashboardHandler) TopSeller(c *gin.Context) {
 // @Router /dashboard/payments [POST]
 func (h *DashboardHandler) Payments(c *gin.Context) {
 	var param domain.DashboardQueryParam
+	// company_id from header
+	companyId, ok := c.Get("company_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "Company ID not found")
+		return
+	}
+	param.CompanyId = companyId.(string)
 	// bind query parameters
 	err := c.ShouldBindQuery(&param)
 	if err != nil {
@@ -464,6 +489,13 @@ func (h *DashboardHandler) Transaction(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid query parameters")
 		return
 	}
+	// company_id from header
+	companyId, ok := c.Get("company_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "Company ID not found")
+		return
+	}
+	param.CompanyId = companyId.(string)
 	// bind store ids
 	if c.Request.Body != nil {
 		_ = c.ShouldBindJSON(&param.StoreIds)

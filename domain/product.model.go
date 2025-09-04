@@ -223,6 +223,7 @@ type ProductQueryParam struct {
 	Offset          int     `form:"offset"`
 	SearchField     string  `form:"search"`
 	StoreID         string  `form:"store_id"`
+	CompanyID       string  `form:"company_id"`
 	SupplyPriceFrom float64 `form:"supply_price_from"`
 	SupplyPriceTo   float64 `form:"supply_price_to"`
 	RetailPriceFrom float64 `form:"retail_price_from"`

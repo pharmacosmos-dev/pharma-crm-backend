@@ -7,8 +7,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/xuri/excelize/v2"
+	"gorm.io/gorm"
 )
 
 type ProductBonusHandler struct {
@@ -54,6 +56,12 @@ func (h *ProductBonusHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+	companyId, ok := c.Get("company_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "Company ID not found")
+		return
+	}
+	body.CompanyId = companyId.(string)
 	// check product bonus with product id
 	var count int64
 	err = h.db.Table("product_bonuses").Where("product_id = ?", body.ProductId).Count(&count).Error
@@ -137,7 +145,29 @@ func (h *ProductBonusHandler) List(c *gin.Context) {
 
 	// get default limit offset
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
-
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	// get employee info
+	var employee domain.Employee
+	err := h.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			param.StoreID = employee.StoreId
+		}
+		param.CompanyId = employee.CompanyId
+	}
 	// get bonus product list
 	res, totalCount, err := h.service.ProductBonusList(&param)
 	if err != nil {

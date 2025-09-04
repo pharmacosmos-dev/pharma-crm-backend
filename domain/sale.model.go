@@ -23,6 +23,13 @@ type Sale struct {
 	Status             string         `gorm:"status" json:"status"`
 	OnlineStatus       int            `gorm:"online_status" json:"online_status"`
 	IsDelivered        bool           `gorm:"is_delivered" json:"is_delivered"`
+	Cash               float64        `gorm:"cash" json:"cash"`
+	Click              float64        `gorm:"click" json:"click"`
+	Humo               float64        `gorm:"humo" json:"humo"`
+	Uzcard             float64        `gorm:"uzcard" json:"uzcard"`
+	Payme              float64        `gorm:"payme" json:"payme"`
+	Alif               float64        `gorm:"alif" json:"alif"`
+	IsPaid             bool           `gorm:"is_paid" json:"is_paid"`
 	CreatedAt          *time.Time     `gorm:"created_at" json:"created_at"`
 	UpdatedAt          *time.Time     `gorm:"updated_at" json:"updated_at"`
 	CompletedAt        *time.Time     `gorm:"completed_at" json:"completed_at"`
@@ -89,6 +96,7 @@ type SaleResponse struct {
 	Humo               float64        `gorm:"humo" json:"humo"`
 	Click              float64        `gorm:"click" json:"click"`
 	Payme              float64        `gorm:"payme" json:"payme"`
+	DiscountBarcode    string         `gorm:"discount_barcode" json:"discount_barcode"`
 	IsDelivered        bool           `gorm:"is_delivered" json:"is_delivered"`
 	FiscalSign         string         `gorm:"fiscal_sign" json:"fiscal_sign"`
 	CustomerName       *string        `gorm:"customer_name" json:"customer_name"`
@@ -119,6 +127,7 @@ type FinalSale struct {
 	ServiceType        *string            `gorm:"service_type" json:"service_type"`
 	PaymentTypes       []FinalPaymentType `json:"payment_types"`
 	MarkingData        []MarkingData      `json:"marking_data"`
+	EposData           [][]EposItem       `json:"epos_data"`
 }
 
 type MarkingData struct {
@@ -126,6 +135,20 @@ type MarkingData struct {
 	DmedId       int      `json:"dmed_id"`
 	MarkingCount int      `json:"marking_count" gorm:"marking_count"`
 	MarkingList  []string `json:"marking_list" gorm:"marking_list"`
+}
+type EposItem struct {
+	Barcode     string `json:"barcode"`
+	Amount      int    `json:"amount"`
+	Price       int    `json:"price"`
+	Discount    int    `json:"discount"`
+	VatPercent  int    `json:"vatPercent"`
+	Vat         int    `json:"vat"`
+	Label       string `json:"label"`
+	Name        string `json:"name"`
+	ClassCode   string `json:"classCode"`
+	PackageCode string `json:"packageCode"`
+	Other       int    `json:"other"`
+	OwnerType   int    `json:"ownerType"`
 }
 
 // FinalPaymentType structure
@@ -155,6 +178,7 @@ type SaleTotalAmount struct {
 type SaleStats struct {
 	TotalTransactionsSum float64            `gorm:"total_transactions_sum" json:"total_transactions_sum"`
 	TotalReturnalsSum    float64            `gorm:"total_returnals_sum" json:"total_returnals_sum"`
+	TotalDiscountAmount  float64            `gorm:"total_discount_amount" json:"total_discount_amount"`
 	TotalCount           int64              `gorm:"total_count" json:"total_count"`
 	TotalProductCount    int64              `gorm:"total_product_count" json:"total_product_count"`
 	PaymentTypeStats     []PaymentTypeStats `gorm:"-" json:"payment_type_stats"`

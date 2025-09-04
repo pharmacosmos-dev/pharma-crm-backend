@@ -62,8 +62,8 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 		// get sale stats information
 		querys = fmt.Sprintf(`
 		SELECT
-			COUNT(CASE WHEN sale_type = 'SALE' AND (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN id END) AS sale_count,
-			COUNT(CASE WHEN sale_type = 'SALE' AND (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN id END) AS before_sale_count,
+			COUNT(CASE WHEN sale_type = 'SALE' AND (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN sales.id END) AS sale_count,
+			COUNT(CASE WHEN sale_type = 'SALE' AND (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN sales.id END) AS before_sale_count,
 			SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN
 				CASE WHEN sale_type = 'SALE' THEN total_amount
 					 WHEN sale_type = 'RETURN' THEN -total_amount
@@ -71,9 +71,19 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 			SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN
 				CASE WHEN sale_type = 'SALE' THEN total_amount
 					 WHEN sale_type = 'RETURN' THEN -total_amount
-				END ELSE 0 END) AS before_sale_amount
+				END ELSE 0 END) AS before_sale_amount,
+			SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN
+				CASE WHEN sale_type = 'SALE' THEN total_discount
+					 WHEN sale_type = 'RETURN' THEN -total_discount
+				END ELSE 0 END) AS discount_amount,
+		    SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN
+				CASE WHEN sale_type = 'SALE' THEN total_discount
+					 WHEN sale_type = 'RETURN' THEN -total_discount
+				END ELSE 0 END) AS before_discount_amount
 		FROM sales
+		LEFT JOIN stores st on sales.store_id = st.id
 		WHERE status = 'completed'`,
+			startStr, endStr, beforeStartStr, beforeEndStr,
 			startStr, endStr, beforeStartStr, beforeEndStr,
 			startStr, endStr, beforeStartStr, beforeEndStr)
 
@@ -91,6 +101,7 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 			ROUND(SUM(CASE WHEN expire_date <= NOW() THEN COALESCE(ci_sold.amount, 0) ELSE 0 END), 2) AS before_expired_amount
 		FROM store_products sp
 		JOIN products p ON sp.product_id = p.id
+		LEFT JOIN stores st ON sp.store_id = st.id
 		LEFT JOIN (
 			SELECT store_product_id, SUM(quantity) AS quantity, SUM(quantity * unit_price) AS amount
 			FROM cart_items
@@ -114,33 +125,37 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 		WHERE s.status = 'completed' AND s.sale_type = 'SALE'`,
 			startStr, endStr, beforeStartStr, beforeEndStr)
 
-		query1 = `
-		SELECT
-			COALESCE(SUM(CASE
-				WHEN im.created_at BETWEEN ? AND ?
-				THEN imd.received_count * imd.retail_price_vat ELSE 0
-			END), 0) AS import_amount,
-			COALESCE(SUM(CASE
-				WHEN im.created_at BETWEEN ? AND ?
-				THEN imd.received_count * imd.retail_price_vat ELSE 0
-			END), 0) AS before_import_amount
-		FROM import_details imd
-		JOIN imports im ON imd.import_id = im.id
-		WHERE im.status = 'new' AND im.entry_type = 1`
-
 		query24h = `
 		SELECT
-			COALESCE(SUM(imd.received_count * imd.retail_price_vat), 0) AS last_24h_import_amount
+			-- 24 soatdan eski (hammasi)
+			COALESCE(SUM(
+				CASE 
+					WHEN im.created_at < NOW() - interval '24 hour'
+					THEN imd.received_count * imd.retail_price_vat 
+					ELSE 0 
+				END
+			), 0) AS import_amount,
+		
+			-- 24–48 soat oralig‘i
+			COALESCE(SUM(
+				CASE
+					WHEN im.created_at BETWEEN NOW() - interval '48 hour' AND NOW() - interval '24 hour'
+					THEN imd.received_count * imd.retail_price_vat 
+					ELSE 0 
+				END
+			), 0) AS not_last_24h_import_amount
+		
 		FROM import_details imd
 		JOIN imports im ON imd.import_id = im.id
+		LEFT JOIN stores st ON im.store_id = st.id
 		WHERE im.status = 'new'
-		  AND im.entry_type = 1
-		  AND im.created_at >= NOW() - interval '24 hour'`
+		  AND im.entry_type = 1`
 
 		notLast24HImportCount int
 		queryImportCountNot24 = `
 		SELECT COUNT(*)
 		FROM imports im
+		LEFT JOIN stores st ON im.store_id = st.id
 		WHERE im.status = 'new'
  		 AND im.entry_type = 1
   		 AND im.created_at < NOW() - interval '24 hour'
@@ -155,9 +170,17 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 		filter += " AND store_id IN (?)"
 		filterc += " AND s.store_id IN (?)"
 		args = append(args, param.StoreIds)
-		query1 += " AND im.store_id IN (?)"
 		query24h += " AND im.store_id IN (?)"
 		args1 = append(args1, param.StoreIds)
+	}
+
+	// filter by company_id
+	if param.CompanyId != "" {
+		filter += " AND st.company_id = ?"
+		filterc += " AND p.company_id = ?"
+		args = append(args, param.CompanyId)
+		query24h += " AND st.company_id = ?"
+		args1 = append(args1, param.CompanyId)
 	}
 
 	// Execute queries
@@ -183,25 +206,14 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 		return nil, err
 	}
 
-	err = s.db.Raw(query1, args1...).Scan(&imported).Error
+	err = s.db.Raw(query24h, args...).Scan(&imported).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
 	}
 
-	var last24hAmount float64
-	err = s.db.Raw(query24h, args...).Scan(&last24hAmount).Error
-	if err != nil {
-		s.log.Error(err)
-		return nil, err
-	}
-
-	if len(param.StoreIds) > 0 {
-		queryImportCountNot24 += " AND im.store_id IN (?)"
-		err = s.db.Raw(queryImportCountNot24, param.StoreIds).Scan(&notLast24HImportCount).Error
-	} else {
-		err = s.db.Raw(queryImportCountNot24).Scan(&notLast24HImportCount).Error
-	}
+	queryImportCountNot24 += filter
+	err = s.db.Raw(queryImportCountNot24, args...).Scan(&notLast24HImportCount).Error
 
 	if err != nil {
 		s.log.Error(err)
@@ -211,12 +223,13 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 	// Map results
 	res.ImportAmount = imported.ImportAmount
 	res.NotLast24HImportCount = float64(notLast24HImportCount)
-	res.BeforeImportAmount = imported.BeforeImportAmount
-	res.Last24HImportAmount = last24hAmount
+	res.NotLast24HImportAmount = imported.NotLast24hImportAmount
 	res.TotalSaleCount = sale.SaleCount
 	res.BeforeSaleCount = sale.BeforeSaleCount
 	res.TotalSaleAmount = sale.SaleAmount
 	res.BeforeSaleAmount = sale.BeforeSaleAmount
+	res.DiscountAmount = sale.DiscountAmount
+	res.BeforeDiscountAmount = sale.BeforeDiscountAmount
 	res.TotalProductCount = product.StockCount
 	res.BeforeProductCount = product.BeforeStockCount
 	res.StockTotalAmount = product.StockAmount
@@ -241,6 +254,7 @@ func (s *Services) DashboardChartStats(param *domain.DashboardQueryParam) ([]dom
 		interval     string
 		timeTruncCol string
 	)
+
 	// Parse start and end dates
 	startTime, err := time.Parse(time.RFC3339, param.StartDate)
 	if err != nil {
@@ -261,6 +275,7 @@ func (s *Services) DashboardChartStats(param *domain.DashboardQueryParam) ([]dom
 		}
 	}
 
+	// Group type
 	switch param.Type {
 	case "HALF_HOURLY":
 		interval = "30 minutes"
@@ -302,6 +317,10 @@ func (s *Services) DashboardChartStats(param *domain.DashboardQueryParam) ([]dom
 		filter += " AND s.store_id IN (?)"
 		args = append(args, param.StoreIds)
 	}
+	if param.CompanyId != "" {
+		filter += " AND st.company_id = ?"
+		args = append(args, param.CompanyId)
+	}
 
 	// yakuniy query
 	query := fmt.Sprintf(`
@@ -322,6 +341,7 @@ func (s *Services) DashboardChartStats(param *domain.DashboardQueryParam) ([]dom
 		%s = ts.period
 		AND s.status = 'completed'
 		AND s.sale_type = 'SALE'
+	LEFT JOIN stores st ON s.store_id = st.id
 	%s
 	GROUP BY ts.period
 	ORDER BY ts.period;
@@ -382,6 +402,12 @@ func (s *Services) DashboardTopStores(param *domain.DashboardQueryParam) ([]doma
 		args = append(args, param.StoreId)
 	}
 
+	// Company filter
+	if param.CompanyId != "" {
+		filter += " AND stores.company_id = ?"
+		args = append(args, param.CompanyId)
+	}
+
 	// Limit & Offset
 	var q = query + filter + group + order + " LIMIT ? OFFSET ?"
 	args = append(args, param.Limit, param.Offset)
@@ -416,6 +442,12 @@ func (s *Services) DashboardTopProducts(param *domain.DashboardQueryParam) ([]do
 		group  = ` GROUP BY p.id, p.name, p.unit_per_pack`
 		order  = ` ORDER BY total_amount DESC`
 	)
+
+	// Filter by company_id
+	if param.CompanyId != "" {
+		filter += ` AND sp.company_id = ?`
+		args = append(args, param.CompanyId)
+	}
 
 	// Filter by one store
 	if param.StoreId != "" {
@@ -482,17 +514,22 @@ func (s *Services) DashboardBonusProducts(param *domain.DashboardQueryParam) ([]
 			SUM(eb.bonus_amount) AS bonus_amount
 		FROM employee_bonus eb
 		JOIN products p ON eb.product_id = p.id
+		JOIN employees e ON eb.employee_id = e.id
 		`
-		join   = ""
-		filter = " WHERE 1 = 1 "
+		filter = " WHERE 1=1 "
 		group  = " GROUP BY p.id "
 		order  = " ORDER BY count DESC"
 	)
 
+	// company_id
+	if param.CompanyId != "" {
+		filter += " AND e.company_id = ? "
+		args = append(args, param.CompanyId)
+	}
+
 	// check store_ids
 	if len(param.StoreIds) > 0 {
 		filter += " AND e.store_id IN (?) "
-		join = " JOIN employees e ON eb.employee_id = e.id "
 		args = append(args, param.StoreIds)
 	}
 
@@ -518,7 +555,7 @@ func (s *Services) DashboardBonusProducts(param *domain.DashboardQueryParam) ([]
 	args = append(args, startStr, endStr)
 
 	// Limit / Offset
-	query = query + join + filter + group + order + " LIMIT ? OFFSET ?"
+	query = query + filter + group + order + " LIMIT ? OFFSET ?"
 	args = append(args, param.Limit, param.Offset)
 
 	// Execute
@@ -554,6 +591,12 @@ func (s *Services) DashboardTopSeller(param *domain.DashboardQueryParam) ([]doma
 		order  = " ORDER BY total_amount DESC"
 		offset = " LIMIT ? OFFSET ?"
 	)
+
+	// Company filter
+	if param.CompanyId != "" {
+		filter += " AND st.company_id = ?"
+		args = append(args, param.CompanyId)
+	}
 
 	// Filter by one store
 	if param.StoreId != "" {
@@ -654,6 +697,7 @@ func (s *Services) DashboardPayments(param *domain.DashboardQueryParam) ([]domai
 		FROM sale_payments sp
 		JOIN payment_types pt ON sp.payment_type_id = pt.id
 		JOIN sales s ON sp.sale_id = s.id
+		JOIN stores st ON s.store_id = st.id
 		WHERE (sp.created_at + interval '5 hours') BETWEEN ? AND ?
 			%s
 		GROUP BY pt.id, pt.name
@@ -665,6 +709,7 @@ func (s *Services) DashboardPayments(param *domain.DashboardQueryParam) ([]domai
 		FROM sale_payments sp
 		JOIN payment_types pt ON sp.payment_type_id = pt.id
 		JOIN sales s ON sp.sale_id = s.id
+		JOIN stores st ON s.store_id = st.id
 		WHERE (sp.created_at + interval '5 hours') BETWEEN ? AND ?
 			%s
 		GROUP BY pt.id
@@ -675,7 +720,10 @@ func (s *Services) DashboardPayments(param *domain.DashboardQueryParam) ([]domai
 	// Store filter if provided
 	storeFilter := ""
 	if len(param.StoreIds) > 0 {
-		storeFilter = " AND s.store_id IN (?) "
+		storeFilter += " AND s.store_id IN ? "
+	}
+	if param.CompanyId != "" {
+		storeFilter += " AND st.company_id = ? "
 	}
 
 	// Build final query with store filter
@@ -689,10 +737,17 @@ func (s *Services) DashboardPayments(param *domain.DashboardQueryParam) ([]domai
 	if len(param.StoreIds) > 0 {
 		args = append(args, param.StoreIds)
 	}
-	// prev
+	if param.CompanyId != "" {
+		args = append(args, param.CompanyId)
+	}
+
+	// old period args
 	args = append(args, beforeStartStr, beforeEndStr)
 	if len(param.StoreIds) > 0 {
 		args = append(args, param.StoreIds)
+	}
+	if param.CompanyId != "" {
+		args = append(args, param.CompanyId)
 	}
 
 	// Execute query
@@ -706,9 +761,13 @@ func (s *Services) DashboardPayments(param *domain.DashboardQueryParam) ([]domai
 }
 
 func (s *Services) DashboardTransaction(param *domain.DashboardQueryParam) ([]domain.DashboardTransaction, error) {
-	var startTime, endTime time.Time
+	var (
+		startTime, endTime time.Time
+		err                error
+	)
+
 	// Parse datetimes
-	startTime, err := time.Parse(time.RFC3339, param.StartDate)
+	startTime, err = time.Parse(time.RFC3339, param.StartDate)
 	if err != nil {
 		s.log.Error("Invalid start_date format: %v", err)
 		return nil, err
@@ -734,13 +793,13 @@ func (s *Services) DashboardTransaction(param *domain.DashboardQueryParam) ([]do
 
 	res := []domain.DashboardTransaction{}
 
-	// Build WHERE clause for sales
-	args := []any{startStr, endStr, beforeStartStr, beforeEndStr}
-	whereClause := `s.status = 'completed' AND s.sale_type = 'SALE' AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?`
-
+	// ---- FILTERS ----
+	storeFilter := ""
 	if len(param.StoreIds) > 0 {
-		whereClause += ` AND s.store_id IN (?)`
-		args = append(args, param.StoreIds, param.StoreIds)
+		storeFilter += " AND s.store_id IN ? "
+	}
+	if param.CompanyId != "" {
+		storeFilter += " AND s.store_id IN (SELECT id FROM stores WHERE company_id = ?) "
 	}
 
 	// SALES query
@@ -762,26 +821,22 @@ func (s *Services) DashboardTransaction(param *domain.DashboardQueryParam) ([]do
 			COALESCE(ROUND(SUM(ci.quantity + (ci.unit_quantity / 100.0)), 0), 0) AS count
 		FROM sales s
 		JOIN cart_items ci ON ci.sale_id = s.id
-		WHERE %s
+		WHERE s.status = 'completed' 
+			AND s.sale_type = 'SALE' 
+			AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?
+			%s
 	) curr
 	LEFT JOIN (
 		SELECT
 			SUM(s.total_amount) AS amount
 		FROM sales s
 		JOIN cart_items ci ON ci.sale_id = s.id
-		WHERE s.status = 'completed' AND s.sale_type = 'SALE' 
+		WHERE s.status = 'completed' 
+			AND s.sale_type = 'SALE' 
 			AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?
 			%s
 	) prev ON 1=1
-	`, whereClause,
-		// Store ID condition for previous period if needed
-		func() string {
-			if len(param.StoreIds) > 0 {
-				return "AND s.store_id IN (?)"
-			}
-			return ""
-		}(),
-	)
+	`, storeFilter, storeFilter)
 
 	// RETURN query
 	returnQuery := fmt.Sprintf(`
@@ -802,7 +857,8 @@ func (s *Services) DashboardTransaction(param *domain.DashboardQueryParam) ([]do
 			COALESCE(ROUND(SUM(ci.quantity + (ci.unit_quantity / 100.0)), 0), 0) AS count
 		FROM sales s
 		JOIN cart_items ci ON ci.sale_id = s.id
-		WHERE s.status = 'completed' AND s.sale_type = 'RETURN'
+		WHERE s.status = 'completed' 
+			AND s.sale_type = 'RETURN'
 			AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?
 			%s
 	) curr
@@ -811,47 +867,50 @@ func (s *Services) DashboardTransaction(param *domain.DashboardQueryParam) ([]do
 			SUM(s.total_amount) AS amount
 		FROM sales s
 		JOIN cart_items ci ON ci.sale_id = s.id
-		WHERE s.status = 'completed' AND s.sale_type = 'RETURN'
+		WHERE s.status = 'completed' 
+			AND s.sale_type = 'RETURN'
 			AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?
 			%s
 	) prev ON 1=1
-	`,
-		func() string {
-			if len(param.StoreIds) > 0 {
-				return "AND s.store_id IN (?)"
-			}
-			return ""
-		}(),
-		func() string {
-			if len(param.StoreIds) > 0 {
-				return "AND s.store_id IN (?)"
-			}
-			return ""
-		}(),
-	)
+	`, storeFilter, storeFilter)
 
 	// Combine queries
 	fullQuery := fmt.Sprintf(`%s UNION ALL %s`, saleQuery, returnQuery)
 
-	// Build args (sequence: sales curr, sales prev, returns curr, returns prev)
+	// ---- ARGS ----
 	finalArgs := []any{
 		// Sales curr
 		startStr, endStr,
-		// Sales prev
-		beforeStartStr, beforeEndStr,
 	}
 	if len(param.StoreIds) > 0 {
-		finalArgs = append(finalArgs, param.StoreIds, param.StoreIds)
+		finalArgs = append(finalArgs, param.StoreIds)
 	}
-	// Returns curr
+	if param.CompanyId != "" {
+		finalArgs = append(finalArgs, param.CompanyId)
+	}
+	// sales prev
+	finalArgs = append(finalArgs, beforeStartStr, beforeEndStr)
+	if len(param.StoreIds) > 0 {
+		finalArgs = append(finalArgs, param.StoreIds)
+	}
+	if param.CompanyId != "" {
+		finalArgs = append(finalArgs, param.CompanyId)
+	}
+	// returns curr
 	finalArgs = append(finalArgs, startStr, endStr)
 	if len(param.StoreIds) > 0 {
 		finalArgs = append(finalArgs, param.StoreIds)
 	}
-	// Returns prev
+	if param.CompanyId != "" {
+		finalArgs = append(finalArgs, param.CompanyId)
+	}
+	// returns prev
 	finalArgs = append(finalArgs, beforeStartStr, beforeEndStr)
 	if len(param.StoreIds) > 0 {
 		finalArgs = append(finalArgs, param.StoreIds)
+	}
+	if param.CompanyId != "" {
+		finalArgs = append(finalArgs, param.CompanyId)
 	}
 
 	// Execute
@@ -870,6 +929,7 @@ func (s *Services) DashboardOldImports(c *gin.Context, limit, offset int) ([]dom
 		totalCount int64
 		search     = c.Query("search")
 		storeID    = c.Query("store_id")
+		companyId  = c.Query("company_id")
 		err        error
 	)
 
@@ -891,8 +951,11 @@ func (s *Services) DashboardOldImports(c *gin.Context, limit, offset int) ([]dom
 	}
 
 	// If not admin, restrict to their store
-	if !helper.IsAdmin(employee, s.cfg) && employee.StoreId != "" {
-		storeID = employee.StoreId
+	if !helper.IsAdmin(employee, s.cfg) {
+		if employee.StoreId != "" {
+			storeID = employee.StoreId
+		}
+		companyId = employee.CompanyId
 	}
 
 	// Main query
@@ -914,6 +977,10 @@ func (s *Services) DashboardOldImports(c *gin.Context, limit, offset int) ([]dom
 		Where("imports.status = ?", "new")
 
 	// Apply filters
+	if companyId != "" {
+		query = query.Joins("JOIN stores ON imports.store_id = stores.id").
+			Where("stores.company_id = ?", companyId)
+	}
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
 		query = query.Where(`

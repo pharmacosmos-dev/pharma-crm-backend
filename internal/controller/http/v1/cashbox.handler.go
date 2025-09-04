@@ -157,6 +157,7 @@ func (h *CashBoxHandler) List(c *gin.Context) {
 		totalCount int64
 		err        error
 		storeID    = c.Query("store_id")
+		companyID  = c.Query("company_id")
 		search     = c.Query("search")
 		filter     = " WHERE c.is_active = true "
 		args       = []any{}
@@ -186,6 +187,7 @@ func (h *CashBoxHandler) List(c *gin.Context) {
 		if employee.StoreId != "" {
 			storeID = employee.StoreId
 		}
+		companyID = employee.CompanyId
 	}
 
 	// get limit, offset with getting or default
@@ -230,6 +232,10 @@ func (h *CashBoxHandler) List(c *gin.Context) {
 	if storeID != "" {
 		filter += " AND c.store_id = ? "
 		args = append(args, storeID)
+	}
+	if companyID != "" {
+		filter += " AND s.company_id = ? "
+		args = append(args, companyID)
 	}
 	if search != "" {
 		search = "%" + search + "%"

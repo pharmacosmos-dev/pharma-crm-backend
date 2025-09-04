@@ -7,11 +7,13 @@ type DashboardCountStats struct {
 	ImportAmount             float64 `json:"import_amount"`
 	NotLast24HImportCount    float64 `json:"not_last_24h_import_count"`
 	BeforeImportAmount       float64 `json:"before_import_amount"`
-	Last24HImportAmount      float64 `json:"last_24h_import_amount"`
+	NotLast24HImportAmount   float64 `json:"not_last_24h_import_amount"`
 	TotalSaleCount           int64   `gorm:"total_sale_count" json:"total_sale_count"`
 	BeforeSaleCount          int64   `gorm:"before_sale_count" json:"before_sale_count"`
 	TotalSaleAmount          float64 `gorm:"total_sale_amount" json:"total_sale_amount"`
 	BeforeSaleAmount         float64 `gorm:"before_sale_amount" json:"before_sale_amount"`
+	DiscountAmount           float64 `gorm:"discount_amount" json:"discount_amount"`
+	BeforeDiscountAmount     float64 `gorm:"before_discount_amount" json:"before_discount_amount"`
 	TotalProductCount        float64 `gorm:"total_product_count" json:"total_product_count"`
 	BeforeProductCount       float64 `gorm:"before_product_count" json:"before_product_count"`
 	StockTotalAmount         float64 `gorm:"stock_total_amount" json:"stock_total_amount"`
@@ -95,6 +97,7 @@ type DashboardQueryParam struct {
 	Limit     int      `form:"limit"`
 	Offset    int      `form:"offset"`
 	StoreIds  []string `form:"store_ids"`
+	CompanyId string   `form:"company_id"`
 }
 
 // Dashboard payments structure
@@ -117,10 +120,12 @@ type DashboardTransaction struct {
 
 // Dashboard count stats sale
 type DashboardCountStatsSale struct {
-	SaleCount        int64   `gorm:"sale_count" json:"sale_count"`
-	BeforeSaleCount  int64   `gorm:"before_sale_count" json:"before_sale_count"`
-	SaleAmount       float64 `gorm:"sale_amount" json:"sale_amount"`
-	BeforeSaleAmount float64 `gorm:"before_sale_amount" json:"before_sale_amount"`
+	SaleCount            int64   `gorm:"sale_count" json:"sale_count"`
+	BeforeSaleCount      int64   `gorm:"before_sale_count" json:"before_sale_count"`
+	SaleAmount           float64 `gorm:"sale_amount" json:"sale_amount"`
+	BeforeSaleAmount     float64 `gorm:"before_sale_amount" json:"before_sale_amount"`
+	DiscountAmount       float64 `gorm:"discount_amount" json:"discount_amount"`
+	BeforeDiscountAmount float64 `gorm:"before_discount_amount" json:"before_discount_amount"`
 }
 
 // Dashboard count stats product
@@ -142,8 +147,8 @@ type DashboardCountStatsIncome struct {
 	BeforeIncomeAmount float64 `gorm:"before_income_amount" json:"before_income_amount"`
 }
 type DashboardImport struct {
-	ImportAmount       float64 `json:"import_amount"`
-	BeforeImportAmount float64 `json:"before_import_amount"`
+	ImportAmount           float64 `gorm:"column:import_amount" json:"import_amount"`
+	NotLast24hImportAmount float64 `gorm:"column:not_last_24h_import_amount" json:"not_last_24h_import_amount"`
 }
 
 type DashboardCountStatsBonus struct {

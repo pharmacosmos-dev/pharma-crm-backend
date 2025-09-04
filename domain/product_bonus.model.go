@@ -23,6 +23,7 @@ type ProductBonusRequest struct {
 	ProductId   string  `json:"product_id"`
 	StoreId     *string `json:"store_id"`
 	BonusAmount float64 `json:"bonus_amount"`
+	CompanyId   string  `json:"company_id"`
 	Status      int     `json:"status"`
 	StartDate   string  `json:"start_date"`
 	EndDate     string  `json:"end_date"`

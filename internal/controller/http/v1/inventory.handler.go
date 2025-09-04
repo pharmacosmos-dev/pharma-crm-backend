@@ -15,6 +15,7 @@ import (
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/spf13/cast"
 	"github.com/xuri/excelize/v2"
+	"gorm.io/gorm"
 )
 
 type InventoryHandler struct {
@@ -160,7 +161,30 @@ func (h *InventoryHandler) List(c *gin.Context) {
 		return
 	}
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
-
+	// get user_id from the context
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	// get employee info
+	var employee domain.Employee
+	err = h.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			param.StoreId = employee.StoreId
+		}
+		param.CompanyId = employee.CompanyId
+	}
 	res, totalCount, err := h.service.InventoryList(&param)
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to get inventory list")
@@ -192,6 +216,31 @@ func (h *InventoryHandler) InventoryStatus(c *gin.Context) {
 	if err != nil {
 		handleResponse(c, BadRequest, "Invalid query param")
 		return
+	}
+
+	// get user_id from the context
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	// get employee info
+	var employee domain.Employee
+	err = h.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			param.StoreId = employee.StoreId
+		}
+		param.CompanyId = employee.CompanyId
 	}
 
 	res, err := h.service.InventoryStatus(&param)
@@ -228,6 +277,31 @@ func (h *InventoryHandler) InventoryExportExcel(c *gin.Context) {
 		return
 	}
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	// get user_id from the context
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	// get employee info
+	var employee domain.Employee
+	err = h.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			param.StoreId = employee.StoreId
+		}
+		param.CompanyId = employee.CompanyId
+	}
 
 	res, _, err := h.service.InventoryList(&param)
 	if err != nil {

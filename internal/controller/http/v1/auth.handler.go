@@ -75,10 +75,12 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	m := map[string]interface{}{
-		"user_id": res.Id,
+		"user_id":    res.Id,
+		"company_id": res.CompanyId,
 	}
 	refreshClaims := map[string]interface{}{
-		"user_id": res.Id,
+		"user_id":    res.Id,
+		"company_id": res.CompanyId,
 	}
 	// generate tokens
 	accessToken, refreshToken, err := h.JwtHandler.GenerateTokens(m, refreshClaims)

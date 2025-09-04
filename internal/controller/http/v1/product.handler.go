@@ -375,6 +375,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 		if employee.StoreId != "" {
 			param.StoreID = employee.StoreId
 		}
+		param.CompanyID = employee.CompanyId
 	}
 
 	// Pagination parameters
@@ -448,6 +449,7 @@ func (h *ProductHandler) ExportProductExcel(c *gin.Context) {
 		if employee.StoreId != "" {
 			param.StoreID = employee.StoreId
 		}
+		param.CompanyID = employee.CompanyId
 	}
 
 	// get products list
@@ -527,6 +529,7 @@ func (h *ProductHandler) TotalStatusCount(c *gin.Context) {
 		if employee.StoreId != "" {
 			param.StoreID = employee.StoreId
 		}
+		param.CompanyID = employee.CompanyId
 	}
 
 	res, err := h.service.ListProductStats(&param)
@@ -1105,6 +1108,7 @@ func (h *ProductHandler) ListStoreProductProductId(c *gin.Context) {
 		id         = c.Param("id")
 		res        []domain.StoreProduct
 		totalCount int64
+		companyID  string
 		employee   domain.Employee
 		storeID    string
 	)
@@ -1136,6 +1140,7 @@ func (h *ProductHandler) ListStoreProductProductId(c *gin.Context) {
 		if employee.StoreId != "" {
 			storeID = employee.StoreId
 		}
+		companyID = employee.CompanyId
 	}
 
 	// get limit, offset
@@ -1157,6 +1162,9 @@ func (h *ProductHandler) ListStoreProductProductId(c *gin.Context) {
 
 	if storeID != "" {
 		query = query.Where("store_products.store_id = ?", storeID)
+	}
+	if companyID != "" {
+		query = query.Where("st.company_id = ?", companyID).Joins("LEFT JOIN stores st ON store_products.store_id = st.id ")
 	}
 	// complete query
 	err = query.
@@ -1595,6 +1603,7 @@ func (h *ProductHandler) ProductMovements(c *gin.Context) {
 	// get product id from the path param
 	productId := c.Param("id")
 	storeId := c.Query("store_id")
+	var companyId string
 	// validate product id
 	if err := uuid.Validate(productId); err != nil {
 		handleResponse(c, BadRequest, "Invalid product id")
@@ -1637,9 +1646,10 @@ func (h *ProductHandler) ProductMovements(c *gin.Context) {
 		if employee.StoreId != "" {
 			storeId = employee.StoreId
 		}
+		companyId = employee.CompanyId
 	}
 	// get product-movements data from the product service
-	res, totalCount, err := h.service.GetProductMovements(productId, storeId, limit, offset)
+	res, totalCount, err := h.service.GetProductMovements(productId, storeId, limit, offset, companyId)
 	if err != nil {
 		h.log.Info("Failed to get product-movement: %v", err)
 		handleResponse(c, InternalError, "Can't get product-movements")
@@ -1791,6 +1801,30 @@ func (h *ProductHandler) ProductListByImport(c *gin.Context) {
 		handleResponse(c, BadRequest, "invalid.query.param")
 		return
 	}
+	// get user_id from the context
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	// get employee info
+	var employee domain.Employee
+	err = h.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			param.StoreID = employee.StoreId
+		}
+		param.CompanyID = employee.CompanyId
+	}
 
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 
@@ -1834,7 +1868,30 @@ func (h *ProductHandler) ExportProductListByImport(c *gin.Context) {
 	}
 
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
-
+	// get user_id from the context
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	// get employee info
+	var employee domain.Employee
+	err = h.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			param.StoreID = employee.StoreId
+		}
+		param.CompanyID = employee.CompanyId
+	}
 	res, _, err := h.service.GetProductListByImport(&param)
 	if err != nil {
 		handleResponse(c, InternalError, "failed.to.get.product_list")
@@ -2149,6 +2206,30 @@ func (h *ProductHandler) GetMinMaxProducts(c *gin.Context) {
 		handleResponse(c, BadRequest, "invalid.query.param")
 		return
 	}
+	// get user_id from the context
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	// get employee info
+	var employee domain.Employee
+	err = h.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			param.StoreID = employee.StoreId
+		}
+		param.CompanyID = employee.CompanyId
+	}
 
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 
@@ -2187,6 +2268,30 @@ func (h *ProductHandler) ExportMinMaxProducts(c *gin.Context) {
 	if err != nil {
 		handleResponse(c, BadRequest, "invalid.query.param")
 		return
+	}
+	// get user_id from the context
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	// get employee info
+	var employee domain.Employee
+	err = h.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			param.StoreID = employee.StoreId
+		}
+		param.CompanyID = employee.CompanyId
 	}
 
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
@@ -2439,6 +2544,11 @@ func (h *ProductHandler) CreateExcludedProduct(c *gin.Context) {
 		handleResponse(c, UNAUTHORIZED, "User ID not found")
 		return
 	}
+	companyId, ok := c.Get("company_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
 
 	// Validation: at least one of producer_id or product_id is required
 	if body.ProducerID == nil && len(body.ProductID) == 0 {
@@ -2481,11 +2591,11 @@ func (h *ProductHandler) CreateExcludedProduct(c *gin.Context) {
 		if len(body.StoreID) == 0 {
 			// Global exclude (store_id = NULL)
 			excludeID := uuid.New().String()
-			err := tx.Exec(`
-				INSERT INTO excluded_products (id, store_id, product_id, created_by, created_at)
-				VALUES (?, NULL, ?, ?, ?)
-				ON CONFLICT (store_id, product_id) DO NOTHING
-			`, excludeID, productID, userId, now).Error
+			err = tx.Exec(`
+				INSERT INTO excluded_products (id, store_id, product_id, company_id, created_by, created_at)
+				VALUES (?, NULL, ?, ?, ?, ?)
+				ON CONFLICT (store_id, product_id, company_id) DO NOTHING
+			`, excludeID, productID, companyId, userId, now).Error
 			if err != nil {
 				h.log.Error(err)
 				handleResponse(c, InternalError, "Failed to exclude product globally")
@@ -2498,11 +2608,11 @@ func (h *ProductHandler) CreateExcludedProduct(c *gin.Context) {
 					continue
 				}
 				excludeID := uuid.New().String()
-				err := tx.Exec(`
-					INSERT INTO excluded_products (id, store_id, product_id, created_by, created_at)
-					VALUES (?, ?, ?, ?, ?)
-					ON CONFLICT (store_id, product_id) DO NOTHING
-				`, excludeID, *store, productID, userId, now).Error
+				err = tx.Exec(`
+					INSERT INTO excluded_products (id, store_id, product_id, company_id, created_by, created_at)
+					VALUES (?, ?, ?, ?, ?, ?)
+					ON CONFLICT (store_id, product_id, company_id) DO NOTHING
+				`, excludeID, *store, productID, companyId, userId, now).Error
 				if err != nil {
 					h.log.Error(err)
 					handleResponse(c, InternalError, "Failed to exclude product for store")
@@ -2544,7 +2654,29 @@ func (h *ProductHandler) ListExcludedProducts(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid query parameters: "+err.Error())
 		return
 	}
-
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	// get employee info
+	var employee domain.Employee
+	err = h.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			param.StoreID = employee.StoreId
+		}
+		param.CompanyID = employee.CompanyId
+	}
 	// defaults
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 
@@ -2674,7 +2806,7 @@ func (h *ProductHandler) DeleteExcludedProduct(c *gin.Context) {
 		handleResponse(c, NotFound, "Excluded product not found")
 		return
 	}
-	
+
 	err = tx.Commit().Error
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())

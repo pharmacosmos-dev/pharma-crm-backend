@@ -171,6 +171,7 @@ func (h *TransferHandler) List(c *gin.Context) {
 		if employee.StoreId != "" {
 			param.StoreId = employee.StoreId
 		}
+		param.CompanyId = employee.CompanyId
 	}
 
 	// get default limit and offset
@@ -224,8 +225,11 @@ func (h *TransferHandler) TransferStatus(c *gin.Context) {
 		handleResponse(c, InternalError, "Failed to get user info")
 		return
 	}
-	if !helper.IsAdmin(employee, h.cfg) && employee.StoreId != "" {
-		param.StoreId = employee.StoreId
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			param.StoreId = employee.StoreId
+		}
+		param.CompanyId = employee.CompanyId
 	}
 
 	// get aggregated transfer stats
@@ -283,6 +287,7 @@ func (h *TransferHandler) ExportTransferExcel(c *gin.Context) {
 		if employee.StoreId != "" {
 			param.StoreId = employee.StoreId
 		}
+		param.CompanyId = employee.CompanyId
 	}
 
 	// get default limit and offset

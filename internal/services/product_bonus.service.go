@@ -25,6 +25,9 @@ func (s *Services) ProductBonusList(param *domain.QueryParam) ([]domain.ProductB
 		query = query.Joins("JOIN products ON product_bonuses.product_id = products.id").
 			Where("products.name ILIKE ?", "%"+param.Search+"%")
 	}
+	if param.CompanyId != "" {
+		query = query.Where("company_id = ?", param.CompanyId)
+	}
 	// complete query
 	err := query.
 		Count(&totalCount).

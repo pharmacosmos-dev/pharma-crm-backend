@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/pharma-crm-backend/domain/constants"
+	"github.com/pharma-crm-backend/pkg/helper"
+
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -27,12 +29,33 @@ func (s *Services) ListEmployee(c *gin.Context, limit, offset int) ([]domain.Emp
 	var (
 		res        []domain.Employee
 		totalCount int64
+		CompanyID  string
 		roleId     = c.Query("role_id")
 		storeId    = c.Query("store_id")
 		search     = c.Query("search")
 		status     = c.Query("status")
 	)
+	userId, ok := c.Get("user_id")
+	if !ok {
+		s.log.Warn("Error on getting company id from context")
+		return nil, 0, fmt.Errorf("error on getting company id from context")
+	}
+	// get employee info
+	var employee domain.Employee
+	err := s.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			s.log.Warn("User not found")
+			return nil, 0, fmt.Errorf("user not found")
+		}
+		s.log.Warn("Can't get employee info")
+		return nil, 0, fmt.Errorf("can't get employee info")
+	}
 
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(employee, s.cfg) {
+		CompanyID = employee.CompanyId
+	}
 	query := s.db.
 		Model(&domain.Employee{}).
 		Preload("Store").Preload("Roles").Where("status != ?", constants.DELETED)
@@ -43,6 +66,9 @@ func (s *Services) ListEmployee(c *gin.Context, limit, offset int) ([]domain.Emp
 	}
 	if storeId != "" {
 		query = query.Where("store_id = ?", storeId)
+	}
+	if CompanyID != "" {
+		query = query.Where("company_id = ?", CompanyID)
 	}
 
 	if search != "" {
@@ -57,7 +83,7 @@ func (s *Services) ListEmployee(c *gin.Context, limit, offset int) ([]domain.Emp
 		query = query.Where("status = ?", status)
 	}
 
-	err := query.
+	err = query.
 		Count(&totalCount).
 		Limit(limit).
 		Offset(offset).

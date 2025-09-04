@@ -1,0 +1,2 @@
+ALTER TABLE IF EXISTS stores
+    ADD COLUMN IF NOT EXISTS dmed_id bigint;

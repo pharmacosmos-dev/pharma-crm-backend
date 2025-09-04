@@ -40,6 +40,9 @@ func (s *Services) ListCustomer(param *domain.QueryParam) ([]domain.Customer, in
 	if param.StoreID != "" {
 		query = query.Where("customers.store_id = ?", param.StoreID)
 	}
+	if param.CompanyId != "" {
+		query = query.Where("st.company_id = ? ", param.CompanyId).Joins("LEFT JOIN stores st ON sales.store_id = st.id")
+	}
 	err := query.
 		Group("customers.id, dc.barcode").
 		Count(&totalCount).
@@ -91,6 +94,9 @@ func (s *Services) ListDiscountCards(param *domain.QueryParam) ([]domain.Discoun
 
 	if param.StoreID != "" {
 		query = query.Where("customers.store_id = ?", param.StoreID)
+	}
+	if param.CompanyId != "" {
+		query = query.Where("stores.company_id = ?", param.CompanyId)
 	}
 
 	err := query.

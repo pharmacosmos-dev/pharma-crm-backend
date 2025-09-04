@@ -24,6 +24,7 @@ type Store struct {
 type StoreRequest struct {
 	Id            string  `gorm:"id" json:"-"`
 	Name          string  `gorm:"name" json:"name"`
+	CompanyId     string  `gorm:"company_id" json:"company_id"`
 	Phone         *string `gorm:"phone" json:"phone"`
 	WorkHours     string  `gorm:"work_hours" json:"work_hours"`
 	DetailedName  string  `gorm:"detailed_name" json:"detailed_name"`

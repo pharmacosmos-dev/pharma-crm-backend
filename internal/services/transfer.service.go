@@ -134,6 +134,12 @@ func (s *Services) TransferList(param *domain.ReturnParam) ([]domain.Transfer, i
 	if param.StoreId != "" {
 		query = query.Where("transfers.from_store_id = ?  OR transfers.to_store_id = ?", param.StoreId, param.StoreId)
 	}
+	if param.CompanyId != "" {
+		query = query.
+			Joins("LEFT JOIN stores fs ON transfers.from_store_id = fs.id").
+			Joins("LEFT JOIN stores ts ON transfers.to_store_id = ts.id").
+			Where("fs.company_id = ? OR ts.company_id = ?", param.CompanyId, param.CompanyId)
+	}
 
 	// filter by search keyword
 	if param.Search != "" {
@@ -178,6 +184,8 @@ func (s *Services) TransferStatus(param *domain.ReturnParam) (*domain.TransferSt
 			COALESCE(SUM(trd.accepted_count * trd.retail_price), 0) AS accepted_retail_sum
 		FROM transfers
 		LEFT JOIN transfer_details trd ON transfers.id = trd.transfer_id
+		LEFT JOIN stores from_stores ON transfers.from_store_id = from_stores.id
+		LEFT JOIN stores to_stores   ON transfers.to_store_id = to_stores.id
 		WHERE transfers.entry_type = 1
 	`
 
@@ -186,6 +194,10 @@ func (s *Services) TransferStatus(param *domain.ReturnParam) (*domain.TransferSt
 	if param.StoreId != "" {
 		query += " AND (transfers.from_store_id = ? OR transfers.to_store_id = ?)"
 		args = append(args, param.StoreId, param.StoreId)
+	}
+	if param.CompanyId != "" {
+		query += " AND (from_stores.company_id = ? OR to_stores.company_id = ?)"
+		args = append(args, param.CompanyId, param.CompanyId)
 	}
 	if param.Search != "" {
 		search := fmt.Sprintf("%%%s%%", param.Search)

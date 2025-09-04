@@ -170,6 +170,10 @@ func (s *Services) InventoryList(param *domain.InventoryParam) ([]domain.Invento
 	if param.StoreId != "" {
 		query = query.Where("imports.store_id = ? ", param.StoreId)
 	}
+	if param.CompanyId != "" {
+		query = query.Where("stores.company_id = ? ", param.CompanyId)
+		query = query.Joins(" LEFT JOIN stores ON imports.store_id = stores.id")
+	}
 	// filter by search keyword
 	if param.Search != "" {
 		param.Search = fmt.Sprintf("%%%s%%", param.Search)
@@ -213,6 +217,7 @@ func (s *Services) InventoryStatus(param *domain.InventoryParam) (*domain.Invent
 	FROM import_details imd
 	JOIN products p ON imd.product_id = p.id
 	JOIN imports im ON im.id = imd.import_id
+	LEFT JOIN stores ON im.store_id = stores.id
 	WHERE im.entry_type = 2;
 	`
 
@@ -221,6 +226,10 @@ func (s *Services) InventoryStatus(param *domain.InventoryParam) (*domain.Invent
 	if param.StoreId != "" {
 		query += " AND im.store_id = ?"
 		args = append(args, param.StoreId)
+	}
+	if param.CompanyId != "" {
+		query += " AND stores.company_id = ?"
+		args = append(args, param.CompanyId)
 	}
 	if param.Search != "" {
 		search := fmt.Sprintf("%%%s%%", param.Search)

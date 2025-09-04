@@ -148,6 +148,9 @@ func (s *Services) RepricingList(param *domain.QueryParam) ([]domain.PriceRevalu
 	if param.StoreID != "" {
 		query = query.Where("price_revalutions.store_id = ?", param.StoreID)
 	}
+	if param.CompanyId != "" {
+		query = query.Where("st.company_id = ?", param.CompanyId).Joins("LEFT JOIN stores st ON price_revalutions.store_id = st.id")
+	}
 	if param.Search != "" {
 		query = query.
 			Joins("JOIN stores s ON s.id = price_revalutions.store_id").
@@ -186,6 +189,7 @@ func (s *Services) RepricingStatus(param *domain.QueryParam) (*domain.RepricingS
 			COALESCE(SUM(prd.new_retail_price), 0) AS total_new_retail_price
 		FROM price_revalutions
 		LEFT JOIN price_revalution_details prd ON price_revalutions.id = prd.price_revalution_id
+		LEFT JOIN stores st ON price_revalutions.store_id = st.id
 	`
 
 	var conditions []string
@@ -201,6 +205,10 @@ func (s *Services) RepricingStatus(param *domain.QueryParam) (*domain.RepricingS
 		))`)
 		search := "%" + param.Search + "%"
 		args = append(args, search, search)
+	}
+	if param.CompanyId != "" {
+		conditions = append(conditions, "st.company_id = ?")
+		args = append(args, param.CompanyId)
 	}
 	if param.EndDate == "" {
 		param.EndDate = param.StartDate
@@ -223,7 +231,7 @@ func (s *Services) RepricingStatus(param *domain.QueryParam) (*domain.RepricingS
 		s.log.Error("Failed to get repricing summary: %v", err)
 		return nil, err
 	}
-	
+
 	return &res, nil
 }
 

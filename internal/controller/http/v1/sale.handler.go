@@ -350,6 +350,24 @@ func (h *SaleHandler) ExportSaleExcel(c *gin.Context) {
 	// get limit offset
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 
+	// get employee info
+	var employee domain.Employee
+	err := h.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			param.StoreID = employee.StoreId
+		}
+		param.CompanyId = employee.CompanyId
+	}
 	// get sale list data
 	res, _, err := h.service.ListSale(&param, userId.(string))
 	if err != nil {
@@ -458,6 +476,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 		if employee.StoreId != "" {
 			param.StoreID = employee.StoreId
 		}
+		param.CompanyId = employee.CompanyId
 	}
 	var (
 		args []any
@@ -466,6 +485,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 		SELECT
 			SUM(CASE WHEN s.sale_type = 'SALE' THEN s.total_amount ELSE 0 END) - SUM(CASE WHEN s.sale_type = 'RETURN' THEN s.total_amount ELSE 0 END) AS total_transactions_sum,
         	SUM(CASE WHEN s.sale_type = 'RETURN' THEN s.total_amount ELSE 0 END) AS total_returnals_sum,
+        	SUM(s.total_discount) AS total_discount_amount,
 			COUNT(*) AS total_count
 		FROM sales s
 		JOIN stores st ON s.store_id = st.id
@@ -481,6 +501,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 		FROM payment_types pt
 		LEFT JOIN sale_payments sp ON sp.payment_type_id = pt.id
 		LEFT JOIN sales s ON sp.sale_id = s.id
+		LEFT JOIN stores st ON s.store_id = st.id   
 		`
 		filter = ` s.status = 'completed' `
 		join   = ""
@@ -501,6 +522,10 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 	if param.StoreID != "" {
 		args = append(args, param.StoreID)
 		filter += " AND s.store_id = ?"
+	}
+	if param.CompanyId != "" {
+		args = append(args, param.CompanyId)
+		filter += " AND st.company_id = ?"
 	}
 	// filter by cashbox_id
 	if param.CashBoxID != "" {
@@ -550,7 +575,7 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 		return
 	}
 	// collect payment type sum query
-	pquery = pquery + " AND " + filter + group + " ORDER BY sum DESC;"
+	pquery = pquery + " WHERE " + filter + group + " ORDER BY sum DESC;"
 	// replace with :param with ?
 	err = h.db.Raw(pquery, args...).Scan(&res.PaymentTypeStats).Error
 	if err != nil {

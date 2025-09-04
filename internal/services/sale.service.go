@@ -454,7 +454,7 @@ func (s *Services) ListSale(param *domain.QueryParam, userId string) ([]domain.S
 		totalCount int64
 		filter     = " WHERE s.status = 'completed' "
 		args       = []any{}
-		groupBy    = " GROUP BY s.id, em.id, st.id, customers.id, cash_boxes.id "
+		groupBy    = " GROUP BY s.id, em.id, st.id, customers.id, cash_boxes.id, dc.barcode "
 		orderBy    = " ORDER BY s.completed_at DESC "
 	)
 	// get employee info
@@ -472,6 +472,7 @@ func (s *Services) ListSale(param *domain.QueryParam, userId string) ([]domain.S
 		if employee.StoreId != "" {
 			param.StoreID = employee.StoreId
 		}
+		param.CompanyId = employee.CompanyId
 	}
 	var res = []domain.SaleResponse{}
 	query := `
@@ -480,6 +481,7 @@ func (s *Services) ListSale(param *domain.QueryParam, userId string) ([]domain.S
 		em.full_name, em.phone,
 		st.name AS store_name,
 		COALESCE(customers.full_name, '') as customer_name,
+		CONCAT(REPEAT('*', GREATEST(LENGTH(dc.barcode) - 4, 0)),RIGHT(dc.barcode, 4)) AS discount_barcode,
 		COALESCE(customers.phone, '') AS customer_phone,
 		cash_boxes.name AS cash_box_name,
 		COALESCE(SUM(CASE WHEN pt.name = 'Naqd' THEN sp.amount ELSE 0 END), 0.00) AS cash,
@@ -495,6 +497,7 @@ func (s *Services) ListSale(param *domain.QueryParam, userId string) ([]domain.S
 		LEFT JOIN customers ON s.customer_id = customers.id
 		LEFT JOIN sale_payments sp ON sp.sale_id = s.id
 		LEFT JOIN payment_types pt ON sp.payment_type_id = pt.id
+		LEFT JOIN discount_cards dc ON customers.id = dc.customer_id
 	`
 	totalCountQuery := `
 		SELECT
@@ -524,6 +527,10 @@ func (s *Services) ListSale(param *domain.QueryParam, userId string) ([]domain.S
 		filter += " AND s.store_id = ? "
 		args = append(args, param.StoreID)
 	}
+	if param.CompanyId != "" {
+		filter += " AND st.company_id = ? "
+		args = append(args, param.CompanyId)
+	}
 	// filter by cashbox id
 	if param.CashBoxID != "" {
 		filter += " AND co.cash_box_id = ? "
@@ -541,7 +548,7 @@ func (s *Services) ListSale(param *domain.QueryParam, userId string) ([]domain.S
 	}
 	// search condition
 	if param.Search != "" {
-		filter += " AND st.name ILIKE ? OR CAST(s.sale_number AS TEXT) LIKE ? "
+		filter += " AND (st.name ILIKE ? OR CAST(s.sale_number AS TEXT) LIKE ?) "
 		args = append(args, "%"+param.Search+"%", "%"+param.Search+"%")
 	}
 

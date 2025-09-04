@@ -26,6 +26,10 @@ func (s *Services) ProductReportWithDate(param *domain.ReportQueryParam) ([]map[
 		filter += " AND sp.store_id IN (?) "
 		args = append(args, param.StoreIds)
 	}
+	if param.CompanyId != "" {
+		filter += " AND st.company_id = ? "
+		args = append(args, param.CompanyId)
+	}
 	// filter with producer_id
 	if param.ProducerId != "" {
 		filter += " AND p.producer_id = ? "
@@ -62,6 +66,7 @@ func (s *Services) ProductReportWithDate(param *domain.ReportQueryParam) ([]map[
 		JOIN store_products sp ON p.id = sp.product_id
 		LEFT JOIN cart_items ci ON sp.id = ci.store_product_id
 		LEFT JOIN sales s ON ci.sale_id = s.id
+		LEFT JOIN stores st ON s.store_id = st.id
 	`, datesQuery, param.StartDate, param.EndDate)
 
 	query = query + filter + group + order
@@ -110,6 +115,10 @@ func (s *Services) BonusReport(param *domain.ReportQueryParam) ([]domain.BonusRe
 	if len(param.StoreIds) > 0 {
 		filter += " AND s.id IN (?)"
 		args = append(args, param.StoreIds)
+	}
+	if param.CompanyId != "" {
+		filter += " AND s.company_id ? "
+		args = append(args, param.CompanyId)
 	}
 
 	// Search filter
@@ -213,6 +222,10 @@ func (s *Services) ProductReport(ctx context.Context, param *domain.ReportQueryP
 		filter += " AND sl.store_id IN (?) "
 		args = append(args, param.StoreIds)
 	}
+	if param.CompanyId != "" {
+		filter += " AND s.company_id ? "
+		args = append(args, param.CompanyId)
+	}
 	// producer filter
 	if param.ProducerId != "" {
 		filter += " AND p.producer_id = ? "
@@ -283,7 +296,7 @@ func (s *Services) ProductStatusReport(ctx context.Context, param *domain.Report
 	)
 
 	// Conditionally add joins
-	if param.Search != "" || len(param.StoreIds) > 0 {
+	if param.Search != "" || len(param.StoreIds) > 0 || param.CompanyId != "" {
 		joins = append([]string{"INNER JOIN stores s ON sl.store_id = s.id"}, joins...)
 	}
 	if param.EmployeeId != "" {
@@ -302,6 +315,10 @@ func (s *Services) ProductStatusReport(ctx context.Context, param *domain.Report
 	if len(param.StoreIds) > 0 {
 		filter += " AND sl.store_id IN (?) "
 		args = append(args, param.StoreIds)
+	}
+	if param.CompanyId != "" {
+		filter += " AND s.company_id ? "
+		args = append(args, param.CompanyId)
 	}
 	if param.ProducerId != "" {
 		filter += " AND p.producer_id = ? "
@@ -470,6 +487,10 @@ func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.S
 		filter += " AND s.id = ?"
 		args = append(args, param.StoreId)
 	}
+	if param.CompanyId != "" {
+		filter += " AND s.company_id = ? "
+		args = append(args, param.CompanyId)
+	}
 	if param.Search != "" {
 		filter += " AND s.name ILIKE ?"
 		args = append(args, "%"+param.Search+"%")
@@ -530,11 +551,20 @@ func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.S
 					WHEN pt.name = 'Click' AND sa.sale_type = 'SALE' THEN sp.amount
 					WHEN pt.name = 'Click' AND sa.sale_type = 'RETURN' THEN sp.amount*(-1)
 					ELSE 0 END) AS click,
+		    	SUM(CASE
+					WHEN pt.name = 'Payme' AND sa.sale_type = 'SALE' THEN sp.amount
+					WHEN pt.name = 'Payme' AND sa.sale_type = 'RETURN' THEN sp.amount*(-1)
+					ELSE 0 END) AS payme,
 				SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS return_amount,
 				SUM(CASE
 					WHEN sa.sale_type = 'SALE' THEN sp.amount
 					WHEN sa.sale_type = 'RETURN' THEN sp.amount*(-1)
-					ELSE 0 END)  AS total_amount
+					ELSE 0 END)  AS total_amount,
+				SUM(CASE
+					WHEN sa.sale_type = 'SALE' THEN sa.total_discount
+					WHEN sa.sale_type = 'RETURN' THEN sa.total_discount*(-1)
+					ELSE 0 END)  AS discount_amount,
+				COUNT(DISTINCT sa.id) AS cheque_count
 		FROM stores s
 		JOIN sales sa ON s.id = sa.store_id
 		JOIN sale_payments sp ON sa.id = sp.sale_id
@@ -568,6 +598,10 @@ func (s *Services) ReportByStoreStats(param *domain.ReportQueryParam) (domain.St
 		filter += " AND s.id = ?"
 		args = append(args, param.StoreId)
 	}
+	if param.CompanyId != "" {
+		filter += " AND s.company_id = ? "
+		args = append(args, param.CompanyId)
+	}
 	if param.Search != "" {
 		filter += " AND s.name ILIKE ?"
 		args = append(args, "%"+param.Search+"%")
@@ -600,7 +634,11 @@ func (s *Services) ReportByStoreStats(param *domain.ReportQueryParam) (domain.St
 			SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS return_amount,
 
 			SUM(CASE WHEN sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
-			SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS total_amount
+			SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS total_amount,
+			SUM(CASE
+				WHEN sa.sale_type = 'SALE' THEN sa.total_discount
+				WHEN sa.sale_type = 'RETURN' THEN sa.total_discount*(-1)
+				ELSE 0 END)  AS discount_amount	    
 		FROM stores s
 		JOIN sales sa ON s.id = sa.store_id
 		JOIN sale_payments sp ON sa.id = sp.sale_id
@@ -708,6 +746,10 @@ func (s *Services) ReportTopProducts(param *domain.ReportQueryParam) ([]domain.T
 		where += " AND EXISTS (SELECT 1 FROM store_products sp2 WHERE sp2.product_id = curr.id AND sp2.store_id = ?)"
 		args = append(args, param.StoreId)
 	}
+	if param.CompanyId != "" {
+		where += " AND s.company_id ? "
+		args = append(args, param.CompanyId)
+	}
 	if len(param.StoreIds) > 0 {
 		where += " AND EXISTS (SELECT 1 FROM store_products sp3 WHERE sp3.product_id = curr.id AND sp3.store_id IN (?))"
 		args = append(args, param.StoreIds)
@@ -783,6 +825,7 @@ func (s *Services) ReportTopSeller(param *domain.ReportQueryParam) ([]domain.Top
 			e.id,
 			e.full_name,
 			st.name AS store_name,
+			st.company_id,
 			COUNT(s.id) AS count,
 			SUM(s.total_amount) AS total_amount
 		FROM sales s
@@ -821,6 +864,10 @@ func (s *Services) ReportTopSeller(param *domain.ReportQueryParam) ([]domain.Top
 	if param.StoreId != "" {
 		where += " AND curr.store_name = (SELECT name FROM stores WHERE id = ?)"
 		args = append(args, param.StoreId)
+	}
+	if param.CompanyId != "" {
+		where += " AND curr.company_id ? "
+		args = append(args, param.CompanyId)
 	}
 	// check store_ids
 	if len(param.StoreIds) > 0 {
@@ -933,6 +980,10 @@ func (s *Services) ReportTopStores(param *domain.ReportQueryParam) ([]domain.Top
 		whereClauses = append(whereClauses, "curr.store_id = ?")
 		args = append(args, param.StoreId)
 	}
+	if param.CompanyId != "" {
+		whereClauses = append(whereClauses, " AND stores.company_id ? ")
+		args = append(args, param.CompanyId)
+	}
 
 	// Append filters
 	if len(whereClauses) > 0 {
@@ -1027,6 +1078,10 @@ func (s *Services) ReportBonusProducts(param *domain.ReportQueryParam) ([]domain
 	if param.Search != "" {
 		filter += " AND p.name ILIKE ?"
 		args = append(args, "%"+param.Search+"%")
+	}
+	if param.CompanyId != "" {
+		filter += " AND p.company_id ? "
+		args = append(args, param.CompanyId)
 	}
 	filter += " AND (eb.created_at + interval '5 hours') BETWEEN ? AND ?"
 	args = append(args, param.StartDate, param.EndDate)
@@ -1123,7 +1178,15 @@ func (s *Services) ReportStoreSummary(param *domain.ReportQueryParam) ([]domain.
 								WHEN sale_type = 'RETURN' THEN -total_amount
 							END
 					ELSE 0
-				END) AS sale_amount
+				END) AS sale_amount,
+			SUM(CASE
+					WHEN (completed_at + interval '5 hours') BETWEEN ? AND ?
+						THEN CASE
+								WHEN sale_type = 'SALE' THEN total_discount
+								WHEN sale_type = 'RETURN' THEN -total_discount
+							END
+					ELSE 0
+				END) AS discount_amount
 		FROM sales
 		WHERE status = 'completed'
 		GROUP BY store_id
@@ -1131,11 +1194,7 @@ func (s *Services) ReportStoreSummary(param *domain.ReportQueryParam) ([]domain.
 	import_cte AS (
 		SELECT
 			im.store_id,
-			COALESCE(SUM(CASE
-							 WHEN (im.created_at) BETWEEN ? AND ?
-							 THEN imd.received_count * imd.retail_price_vat
-							 ELSE 0
-						 END), 0) AS import_amount
+			COALESCE(SUM(imd.received_count * imd.retail_price_vat), 0) AS import_amount
 		FROM import_details imd
 				 JOIN imports im ON imd.import_id = im.id
 		WHERE im.status = 'new' AND im.entry_type = 1
@@ -1153,9 +1212,10 @@ func (s *Services) ReportStoreSummary(param *domain.ReportQueryParam) ([]domain.
 	SELECT
 		st.name AS name,
 		COALESCE(s.sale_amount, 0) AS sale_amount,
+		COALESCE(s.discount_amount, 0) AS discount_amount,
 		COALESCE(i.import_amount, 0) AS import_amount,
 		COALESCE(k.stock_amount, 0) AS stock_amount,
-		ROUND(COALESCE(s.sale_amount, 0) + COALESCE(i.import_amount, 0) + COALESCE(k.stock_amount, 0), 2) AS total
+		ROUND(COALESCE(s.sale_amount, 0) - COALESCE(s.discount_amount, 0) + COALESCE(i.import_amount, 0) + COALESCE(k.stock_amount, 0), 2) AS total
 	FROM stores st
 	LEFT JOIN sale_cte s ON st.id = s.store_id
 	LEFT JOIN import_cte i ON st.id = i.store_id
@@ -1164,8 +1224,7 @@ func (s *Services) ReportStoreSummary(param *domain.ReportQueryParam) ([]domain.
 	`
 
 	// 4 timestamps for 2 BETWEENs (sales & imports)
-	args = append(args, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339)) // sales
-	args = append(args, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339)) // imports
+	args = append(args, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339), startTime.Format(time.RFC3339), endTime.Format(time.RFC3339)) // sales
 	if param.Order != "" {
 		order := utils.BuildStoreSummaryOrderClause(param.Order)
 		query += order
@@ -1177,6 +1236,10 @@ func (s *Services) ReportStoreSummary(param *domain.ReportQueryParam) ([]domain.
 	if len(param.StoreIds) > 0 {
 		query += " AND st.id = ?"
 		args = append(args, param.StoreIds)
+	}
+	if param.CompanyId != "" {
+		query += " AND st.company_id ? "
+		args = append(args, param.CompanyId)
 	}
 	if param.Limit > 0 {
 		query += " LIMIT ?"
@@ -1195,6 +1258,7 @@ func (s *Services) ReportStoreSummary(param *domain.ReportQueryParam) ([]domain.
 
 	return res, total, nil
 }
+
 func (s *Services) ReportStoreSummaryStats(param *domain.ReportQueryParam) (domain.StoreSummaryStats, error) {
 	var (
 		res       domain.StoreSummaryStats
@@ -1231,7 +1295,15 @@ func (s *Services) ReportStoreSummaryStats(param *domain.ReportQueryParam) (doma
 								WHEN sale_type = 'RETURN' THEN -total_amount
 							END
 					ELSE 0
-				END) AS sale_amount
+				END) AS sale_amount,
+			SUM(CASE
+					WHEN (completed_at + interval '5 hours') BETWEEN ? AND ?
+						THEN CASE
+								WHEN sale_type = 'SALE' THEN total_discount
+								WHEN sale_type = 'RETURN' THEN -total_discount
+							END
+					ELSE 0
+				END) AS discount_amount
 		FROM sales
 		WHERE status = 'completed'
 		GROUP BY store_id
@@ -1239,11 +1311,7 @@ func (s *Services) ReportStoreSummaryStats(param *domain.ReportQueryParam) (doma
 	import_cte AS (
 		SELECT
 			im.store_id,
-			COALESCE(SUM(CASE
-							 WHEN (im.created_at) BETWEEN ? AND ?
-							 THEN imd.received_count * imd.retail_price_vat
-							 ELSE 0
-						 END), 0) AS import_amount
+			COALESCE(SUM(imd.received_count * imd.retail_price_vat), 0) AS import_amount
 		FROM import_details imd
 				 JOIN imports im ON imd.import_id = im.id
 		WHERE im.status = 'new' AND im.entry_type = 1
@@ -1260,11 +1328,12 @@ func (s *Services) ReportStoreSummaryStats(param *domain.ReportQueryParam) (doma
 	),
 	store_summary AS (
 		SELECT
-			st.id,
+			st.name AS name,
 			COALESCE(s.sale_amount, 0) AS sale_amount,
+			COALESCE(s.discount_amount, 0) AS discount_amount,
 			COALESCE(i.import_amount, 0) AS import_amount,
 			COALESCE(k.stock_amount, 0) AS stock_amount,
-			ROUND(COALESCE(s.sale_amount, 0) + COALESCE(i.import_amount, 0) + COALESCE(k.stock_amount, 0), 2) AS total
+			ROUND(COALESCE(s.sale_amount, 0) - COALESCE(s.discount_amount, 0) + COALESCE(i.import_amount, 0) + COALESCE(k.stock_amount, 0), 2) AS total
 		FROM stores st
 		LEFT JOIN sale_cte s ON st.id = s.store_id
 		LEFT JOIN import_cte i ON st.id = i.store_id
@@ -1273,14 +1342,14 @@ func (s *Services) ReportStoreSummaryStats(param *domain.ReportQueryParam) (doma
 	)
 	SELECT
 		SUM(sale_amount) AS total_sale_amount,
+		SUM(discount_amount) AS total_discount_amount,
 		SUM(import_amount) AS total_import_amount,
 		SUM(stock_amount) AS total_stock_amount,
 		SUM(total) AS total
 	FROM store_summary
 	`
 
-	args = append(args, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339)) // sales
-	args = append(args, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339)) // imports
+	args = append(args, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339), startTime.Format(time.RFC3339), endTime.Format(time.RFC3339)) // sales
 
 	err = s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
@@ -1329,7 +1398,9 @@ func (s *Services) StoreProductsGivenDay(param *domain.ReportQueryParam) ([]doma
             p.name
         FROM store_products sp
         JOIN products p ON p.id = sp.product_id
+        JOIN stores st ON st.id = sp.store_id
         WHERE sp.store_id = ?
+            AND st.company_id = ?
         GROUP BY sp.product_id, sp.store_id, p.unit_per_pack, p.name
     ),
     future_actions AS (
@@ -1417,7 +1488,7 @@ func (s *Services) StoreProductsGivenDay(param *domain.ReportQueryParam) ([]doma
 
 	// Args massivi, so'rovdagi `?` belgilarining to'g'ri tartibiga moslangan
 	args = append(args,
-		param.StoreId,                  // base_stock: sp.store_id = ?
+		param.StoreId, param.CompanyId, // base_stock: sp.store_id = ?
 		param.StoreId, param.StartDate, // future_actions: sp.store_id = ?, ci.created_at::date > ?
 		param.StoreId, param.StoreId, // transfer_actions: 1-CASE: t.from_store_id = ?, t.to_store_id = ?
 		param.StoreId, param.StoreId, // transfer_actions: 2-CASE: t.from_store_id = ?, t.to_store_id = ?
@@ -1485,6 +1556,10 @@ func (s *Services) DiscountCardReport(param *domain.ReportQueryParam) ([]domain.
 	if len(param.StoreIds) > 0 {
 		filter += " AND s.id IN (?)"
 		args = append(args, param.StoreIds)
+	}
+	if param.CompanyId != "" {
+		filter += " AND s.company_id ? "
+		args = append(args, param.CompanyId)
 	}
 
 	// Search filter (by customer name)

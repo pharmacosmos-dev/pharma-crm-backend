@@ -1,0 +1,11 @@
+-- Add company_id to products
+ALTER TABLE IF EXISTS products
+    DROP COLUMN IF EXISTS company_id;
+-- Add company_id to store_products
+ALTER TABLE IF EXISTS store_products
+    DROP COLUMN IF EXISTS company_id;
+-- Add company_id to employees
+ALTER TABLE IF EXISTS employees
+    DROP COLUMN IF EXISTS company_id;
+ALTER TABLE IF EXISTS excluded_products
+    DROP COLUMN IF EXISTS company_id;
