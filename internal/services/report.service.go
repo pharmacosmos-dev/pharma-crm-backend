@@ -599,7 +599,7 @@ func (s *Services) ReportByStoreStats(param *domain.ReportQueryParam) (domain.St
 		args = append(args, param.StoreId)
 	}
 	if param.CompanyId != "" {
-		filter += " AND s.company_id ? "
+		filter += " AND s.company_id = ? "
 		args = append(args, param.CompanyId)
 	}
 	if param.Search != "" {

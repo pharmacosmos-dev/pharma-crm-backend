@@ -1108,6 +1108,7 @@ func (h *ProductHandler) ListStoreProductProductId(c *gin.Context) {
 		id         = c.Param("id")
 		res        []domain.StoreProduct
 		totalCount int64
+		companyID  string
 		employee   domain.Employee
 		storeID    string
 	)
@@ -1139,6 +1140,7 @@ func (h *ProductHandler) ListStoreProductProductId(c *gin.Context) {
 		if employee.StoreId != "" {
 			storeID = employee.StoreId
 		}
+		companyID = employee.CompanyId
 	}
 
 	// get limit, offset
@@ -1160,6 +1162,9 @@ func (h *ProductHandler) ListStoreProductProductId(c *gin.Context) {
 
 	if storeID != "" {
 		query = query.Where("store_products.store_id = ?", storeID)
+	}
+	if companyID != "" {
+		query = query.Where("st.company_id = ?").Joins("LEFT JOIN stores st ON store_products.store_id = st.id ")
 	}
 	// complete query
 	err = query.
