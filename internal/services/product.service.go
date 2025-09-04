@@ -1071,6 +1071,10 @@ func (s *Services) GetMinMaxProducts(param *domain.ProductQueryParam) ([]domain.
 		filter += " AND spt.store_id = ? "
 		args = append(args, param.StoreID)
 	}
+	if param.CompanyID != "" {
+		filter += " AND s.company_id = ?"
+		args = append(args, param.CompanyID)
+	}
 
 	if param.SearchField != "" {
 		filter += " AND p.name ILIKE ? "
