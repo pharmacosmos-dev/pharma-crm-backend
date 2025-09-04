@@ -1164,6 +1164,7 @@ func (s *Services) ListExcludedProducts(param *domain.ProductQueryParam) ([]doma
 		SELECT COUNT(*)
 		FROM excluded_products ep
 		JOIN products p ON p.id = ep.product_id
+		LEFT JOIN stores s ON ep.store_id = s.id
 	` + filter
 
 	if err := s.db.Raw(countQuery, countArgs...).Scan(&totalCount).Error; err != nil {
