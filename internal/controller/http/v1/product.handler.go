@@ -2206,6 +2206,30 @@ func (h *ProductHandler) GetMinMaxProducts(c *gin.Context) {
 		handleResponse(c, BadRequest, "invalid.query.param")
 		return
 	}
+	// get user_id from the context
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	// get employee info
+	var employee domain.Employee
+	err = h.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			param.StoreID = employee.StoreId
+		}
+		param.CompanyID = employee.CompanyId
+	}
 
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 
