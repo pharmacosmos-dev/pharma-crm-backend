@@ -706,6 +706,7 @@ func (s *Services) ReportTopProducts(param *domain.ReportQueryParam) ([]domain.T
 		SELECT
 			p.id,
 			p.name,
+			s.company_id,
 			SUM(ci.quantity) + FLOOR(SUM(ci.unit_quantity)::decimal / p.unit_per_pack) AS count,
 			(SUM(ci.unit_quantity) % p.unit_per_pack) AS unit_quantity,
 			p.unit_per_pack,
@@ -713,8 +714,9 @@ func (s *Services) ReportTopProducts(param *domain.ReportQueryParam) ([]domain.T
 		FROM cart_items ci
 		JOIN store_products sp ON ci.store_product_id = sp.id
 		JOIN products p ON sp.product_id = p.id
+		JOIN stores s ON sp.store_id = s.id
 		WHERE (ci.updated_at+ interval '5 hours') BETWEEN ? AND ?
-		GROUP BY p.id, p.name, p.unit_per_pack
+		GROUP BY p.id, p.name, p.unit_per_pack,s.company_id
 	) AS curr
 	LEFT JOIN (
 		SELECT
@@ -747,7 +749,7 @@ func (s *Services) ReportTopProducts(param *domain.ReportQueryParam) ([]domain.T
 		args = append(args, param.StoreId)
 	}
 	if param.CompanyId != "" {
-		where += " AND s.company_id = ? "
+		where += " AND curr.company_id = ? "
 		args = append(args, param.CompanyId)
 	}
 	if len(param.StoreIds) > 0 {
@@ -834,7 +836,7 @@ func (s *Services) ReportTopSeller(param *domain.ReportQueryParam) ([]domain.Top
 		WHERE s.status = 'completed'
 		AND s.sale_type = 'SALE'
 		AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?
-		GROUP BY e.id, e.full_name, st.name
+		GROUP BY e.id, e.full_name, st.name, st.company_id
 	) AS curr
 	LEFT JOIN (
 		SELECT
@@ -981,7 +983,7 @@ func (s *Services) ReportTopStores(param *domain.ReportQueryParam) ([]domain.Top
 		args = append(args, param.StoreId)
 	}
 	if param.CompanyId != "" {
-		whereClauses = append(whereClauses, " AND stores.company_id = ? ")
+		whereClauses = append(whereClauses, " stores.company_id = ? ")
 		args = append(args, param.CompanyId)
 	}
 
