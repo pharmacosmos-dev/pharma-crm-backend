@@ -1099,6 +1099,7 @@ func (h *ProductHandler) GetProductImports(c *gin.Context) {
 // @Param id path string true "Product ID"
 // @Param limit query int false "Limit"
 // @Param offset query int false "Offset"
+// @Param store_id query string false "Store id"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -1117,6 +1118,7 @@ func (h *ProductHandler) ListStoreProductProductId(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid product id")
 		return
 	}
+	storeID = c.Query("store_id")
 	// get user_id from header context
 	userId, ok := c.Get("user_id")
 	if !ok {
