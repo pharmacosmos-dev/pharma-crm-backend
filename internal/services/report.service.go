@@ -223,7 +223,7 @@ func (s *Services) ProductReport(ctx context.Context, param *domain.ReportQueryP
 		args = append(args, param.StoreIds)
 	}
 	if param.CompanyId != "" {
-		filter += " AND s.company_id ? "
+		filter += " AND s.company_id = ? "
 		args = append(args, param.CompanyId)
 	}
 	// producer filter
@@ -317,7 +317,7 @@ func (s *Services) ProductStatusReport(ctx context.Context, param *domain.Report
 		args = append(args, param.StoreIds)
 	}
 	if param.CompanyId != "" {
-		filter += " AND s.company_id ? "
+		filter += " AND s.company_id = ? "
 		args = append(args, param.CompanyId)
 	}
 	if param.ProducerId != "" {
