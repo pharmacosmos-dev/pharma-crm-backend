@@ -117,7 +117,7 @@ func (s *Services) BonusReport(param *domain.ReportQueryParam) ([]domain.BonusRe
 		args = append(args, param.StoreIds)
 	}
 	if param.CompanyId != "" {
-		filter += " AND s.company_id ? "
+		filter += " AND s.company_id = ? "
 		args = append(args, param.CompanyId)
 	}
 
@@ -747,7 +747,7 @@ func (s *Services) ReportTopProducts(param *domain.ReportQueryParam) ([]domain.T
 		args = append(args, param.StoreId)
 	}
 	if param.CompanyId != "" {
-		where += " AND s.company_id ? "
+		where += " AND s.company_id = ? "
 		args = append(args, param.CompanyId)
 	}
 	if len(param.StoreIds) > 0 {
@@ -866,7 +866,7 @@ func (s *Services) ReportTopSeller(param *domain.ReportQueryParam) ([]domain.Top
 		args = append(args, param.StoreId)
 	}
 	if param.CompanyId != "" {
-		where += " AND curr.company_id ? "
+		where += " AND curr.company_id = ? "
 		args = append(args, param.CompanyId)
 	}
 	// check store_ids
@@ -981,7 +981,7 @@ func (s *Services) ReportTopStores(param *domain.ReportQueryParam) ([]domain.Top
 		args = append(args, param.StoreId)
 	}
 	if param.CompanyId != "" {
-		whereClauses = append(whereClauses, " AND stores.company_id ? ")
+		whereClauses = append(whereClauses, " AND stores.company_id = ? ")
 		args = append(args, param.CompanyId)
 	}
 
@@ -1080,7 +1080,7 @@ func (s *Services) ReportBonusProducts(param *domain.ReportQueryParam) ([]domain
 		args = append(args, "%"+param.Search+"%")
 	}
 	if param.CompanyId != "" {
-		filter += " AND p.company_id ? "
+		filter += " AND p.company_id = ? "
 		args = append(args, param.CompanyId)
 	}
 	filter += " AND (eb.created_at + interval '5 hours') BETWEEN ? AND ?"
@@ -1238,7 +1238,7 @@ func (s *Services) ReportStoreSummary(param *domain.ReportQueryParam) ([]domain.
 		args = append(args, param.StoreIds)
 	}
 	if param.CompanyId != "" {
-		query += " AND st.company_id ? "
+		query += " AND st.company_id = ? "
 		args = append(args, param.CompanyId)
 	}
 	if param.Limit > 0 {
@@ -1558,7 +1558,7 @@ func (s *Services) DiscountCardReport(param *domain.ReportQueryParam) ([]domain.
 		args = append(args, param.StoreIds)
 	}
 	if param.CompanyId != "" {
-		filter += " AND s.company_id ? "
+		filter += " AND s.company_id = ? "
 		args = append(args, param.CompanyId)
 	}
 
