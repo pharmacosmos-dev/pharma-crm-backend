@@ -416,10 +416,13 @@ func (s *Services) ListImport(c *gin.Context, limit, offset int) ([]domain.Impor
 		query = query.Where("stores.company_id = ?", companyID).
 			Joins("LEFT JOIN stores ON imports.store_id = stores.id")
 	}
-	if startDate != "" {
+	if startDate != "" && endDate == "" {
+		query = query.Where(
+			"imports.import_date BETWEEN ?::timestamp AND (?::timestamp + interval '24 hour')",
+			startDate, startDate,
+		)
+	} else if startDate != "" && endDate != "" {
 		query = query.Where("imports.import_date >= ?", startDate)
-	}
-	if endDate != "" {
 		query = query.Where("imports.import_date <= ?", endDate)
 	}
 	if status != "" {
