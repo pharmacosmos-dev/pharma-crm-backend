@@ -542,8 +542,8 @@ func (s *Services) ListSale(param *domain.QueryParam, userId string) ([]domain.S
 	}
 	// filter by start date
 	if param.StartDate != "" && param.EndDate == "" {
-		filter += " AND (s.completed_at + interval '5 hours') >= ? "
-		args = append(args, param.StartDate)
+		filter += " AND (s.completed_at + interval '5 hours') BETWEEN ? AND (?::timestamp + interval '24 hours') "
+		args = append(args, param.StartDate, param.StartDate)
 	}
 	// search condition
 	if param.Search != "" {

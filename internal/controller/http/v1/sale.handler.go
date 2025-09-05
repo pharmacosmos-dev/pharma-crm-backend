@@ -522,8 +522,8 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 
 	// filter by start_date
 	if param.StartDate != "" && param.EndDate == "" {
-		args = append(args, param.StartDate)
-		filter += " AND (s.completed_at + interval '5 hours') >= ?"
+		filter += " AND (s.completed_at + interval '5 hours') BETWEEN ? AND (?::timestamp + interval '24 hours') "
+		args = append(args, param.StartDate, param.StartDate)
 	}
 
 	// filter by total amount for less
