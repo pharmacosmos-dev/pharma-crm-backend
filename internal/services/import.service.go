@@ -423,7 +423,7 @@ func (s *Services) ListImport(c *gin.Context, limit, offset int) ([]domain.Impor
 		)
 	} else if startDate != "" && endDate != "" {
 		query = query.Where("imports.import_date >= ?", startDate)
-		query = query.Where("imports.import_date <= ?", endDate)
+		query = query.Where("imports.import_date <= (?::timestamp + interval '24 hour') ", endDate)
 	}
 	if status != "" {
 		query = query.Where("imports.status = ?", status)
