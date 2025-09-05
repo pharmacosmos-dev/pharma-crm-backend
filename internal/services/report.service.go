@@ -183,7 +183,7 @@ func (s *Services) ProductReport(ctx context.Context, param *domain.ReportQueryP
 		ROUND((ci.quantity * sp.retail_price) + (ci.unit_quantity * (sp.retail_price / p.unit_per_pack)), 2) AS retail_price_sum,
 		ROUND((ci.quantity * (sp.retail_price-sp.supply_price)) + (ci.unit_quantity * ((sp.retail_price-sp.supply_price) / p.unit_per_pack)), 2) AS markup_sum,
 		ROUND((ci.quantity * sp.vat_price) + (ci.unit_quantity * (sp.vat_price / p.unit_per_pack)), 2) AS vat_sum,
-		(sl.completed_at + interval '5 hours') AS completed_at,
+		(sl.completed_at) AS completed_at,
 		e.full_name,
 		sl.sale_number,
 		sl.sale_type,
@@ -1084,7 +1084,7 @@ func (s *Services) ReportBonusProducts(param *domain.ReportQueryParam) ([]domain
 		args = append(args, param.CompanyId)
 	}
 	filter += " AND (eb.created_at + interval '5 hours') BETWEEN ? AND ?"
-	args = append(args, param.StartDate, param.EndDate)
+	args = append(args, startTime, endTime)
 
 	// Close current subquery
 	group := " GROUP BY p.id, p.name, p.unit_per_pack ) AS curr"
