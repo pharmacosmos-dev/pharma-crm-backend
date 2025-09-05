@@ -503,7 +503,7 @@ func (s *Services) ListImportStatus(c *gin.Context) (*domain.ImportStatusSummary
 		query += " AND imports.import_date BETWEEN ?::timestamp AND (?::timestamp + interval '24 hour')"
 		args = append(args, startDate, startDate)
 	} else if startDate != "" && endDate != "" {
-		query += " AND imports.import_date >= ?::timestamp AND imports.import_date <= (?::timestamp + + interval '24 hour')"
+		query += " AND imports.import_date >= ?::timestamp AND imports.import_date <= (?::timestamp + interval '24 hour')"
 		args = append(args, startDate, endDate)
 	}
 	if search != "" {
