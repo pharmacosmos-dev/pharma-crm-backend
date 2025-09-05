@@ -3,6 +3,9 @@ package v1
 import (
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
@@ -10,8 +13,6 @@ import (
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
-	"strconv"
-	"strings"
 )
 
 type EmployeeHandler struct {
@@ -337,6 +338,7 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 		"full_name":  body.FullName,
 		"first_name": body.FirstName,
 		"last_name":  body.LastName,
+		"company_id": body.CompanyId,
 		"phone":      body.Phone,
 		"gender":     body.Gender,
 		"language":   body.Language,
