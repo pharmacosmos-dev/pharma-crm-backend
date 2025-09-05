@@ -499,13 +499,12 @@ func (s *Services) ListImportStatus(c *gin.Context) (*domain.ImportStatusSummary
 		query += " AND stores.company_id = ?"
 		args = append(args, companyID)
 	}
-	if startDate != "" {
-		query += " AND imports.import_date >= ?"
-		args = append(args, startDate)
-	}
-	if endDate != "" {
-		query += " AND imports.import_date <= ?"
-		args = append(args, endDate)
+	if startDate != "" && endDate == "" {
+		query += " AND imports.import_date BETWEEN ?::timestamp AND (?::timestamp + interval '24 hour')"
+		args = append(args, startDate, startDate)
+	} else if startDate != "" && endDate != "" {
+		query += " AND imports.import_date >= ?::timestamp AND imports.import_date <= ?::timestamp"
+		args = append(args, startDate, endDate)
 	}
 	if search != "" {
 		searchPattern := fmt.Sprintf("%%%s%%", search)
