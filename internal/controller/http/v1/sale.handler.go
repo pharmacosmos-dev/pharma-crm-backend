@@ -350,24 +350,6 @@ func (h *SaleHandler) ExportSaleExcel(c *gin.Context) {
 	// get limit offset
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 
-	// get employee info
-	var employee domain.Employee
-	err := h.db.First(&employee, "id = ?", userId).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		handleResponse(c, InternalError, "Can't get employee info")
-		return
-	}
-	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
-		if employee.StoreId != "" {
-			param.StoreID = employee.StoreId
-		}
-		param.CompanyId = employee.CompanyId
-	}
 	// get sale list data
 	res, _, err := h.service.ListSale(&param, userId.(string))
 	if err != nil {
@@ -406,7 +388,7 @@ func (h *SaleHandler) ExportSaleExcel(c *gin.Context) {
 		} else {
 			f.SetCellValue(sheetName, "I"+row, sale.TotalAmount)
 		}
-		f.SetCellValue(sheetName, "J"+row, sale.CompletedAt.Format(time.DateOnly))
+		f.SetCellValue(sheetName, "J"+row, sale.CompletedAt.Add(time.Hour*5).Format(time.DateOnly))
 		f.SetCellValue(sheetName, "K"+row, sale.CompletedAt.Add(time.Hour*5).Format(time.TimeOnly))
 		f.SetCellValue(sheetName, "L"+row, sale.CashBoxName)
 		f.SetCellValue(sheetName, "M"+row, sale.FullName)
