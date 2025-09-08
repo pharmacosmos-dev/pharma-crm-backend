@@ -340,15 +340,11 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 		%s
 		CASE
 		    WHEN COALESCE((SUM(sp.unit_quantity) %s p.unit_per_pack), 0) = 0
-		        THEN COALESCE(SUM(sp.unit_quantity) / p.unit_per_pack,0)::text
+		        THEN CONCAT(COALESCE(SUM(sp.unit_quantity) / p.unit_per_pack,0)::text, ' уп')
 		    ELSE 
 		        CONCAT(
-		            (SUM(sp.unit_quantity) / p.unit_per_pack)::text,
-		            ' (',
-		            COALESCE((SUM(sp.unit_quantity) %s p.unit_per_pack),0)::text,
-		            '/',
-		            p.unit_per_pack::text,
-		            ')'
+		            (SUM(sp.unit_quantity) / p.unit_per_pack)::text,' уп ',
+		            COALESCE((SUM(sp.unit_quantity) %s p.unit_per_pack),0)::text,' шт'
 		        )
 		END AS units,
 		COUNT(1) OVER() AS total_count
@@ -720,7 +716,18 @@ func (s *Services) GetProductMovements(productId, storeId string, limit, offset 
 		SELECT
 			im.id, im.public_id, im.entry_type, im.created_at,
 			s.name AS store_name,
-			SUM(imd.accepted_count*vd.unit_per_pack) AS count,
+			CASE
+				WHEN COALESCE(SUM(imd.accepted_count), 0) = 0 THEN '0'
+				ELSE
+					CONCAT(
+						ROUND(SUM(imd.accepted_count), 0)::text, ' уп',
+						CASE 
+							WHEN (SUM(imd.accepted_count) %% vd.unit_per_pack)-(SUM(imd.accepted_count) %% vd.unit_per_pack) > 0 
+							THEN CONCAT(' ', ((SUM(imd.accepted_count) %% vd.unit_per_pack)-(SUM(imd.accepted_count) %% vd.unit_per_pack))::text, ' шт')
+							ELSE ''
+						END
+					)
+			END AS count,
 			SUM(imd.accepted_count * imd.retail_price_vat) AS sum,
 			im.name AS name,
 			vd.unit_per_pack
@@ -736,7 +743,18 @@ func (s *Services) GetProductMovements(productId, storeId string, limit, offset 
 		SELECT
 			im.id, im.public_id, im.entry_type, im.created_at,
 			s.name AS store_name,
-			SUM(imd.scanned_count) AS count,
+			CASE
+				WHEN COALESCE(SUM(imd.scanned_count), 0) = 0 THEN '0'
+				ELSE
+					CONCAT(
+						ROUND(SUM(imd.scanned_count), 0)::text, ' уп',
+						CASE 
+							WHEN (SUM(imd.scanned_count) %% vd.unit_per_pack) > 0 
+							THEN CONCAT(' ', (SUM(imd.scanned_count) %% vd.unit_per_pack)::text, ' шт')
+							ELSE ''
+						END
+					)
+			END AS count,
 			SUM((imd.accepted_count/vd.unit_per_pack) * imd.retail_price_vat) AS sum,
 			im.name AS name,
 			vd.unit_per_pack
@@ -754,7 +772,18 @@ func (s *Services) GetProductMovements(productId, storeId string, limit, offset 
 			4 AS entry_type,
 			sa.completed_at AS created_at,
 			st.name AS store_name,
-			SUM((ci.quantity*vd.unit_per_pack) + ci.unit_quantity) AS count,
+			CASE
+				WHEN COALESCE(SUM(ci.quantity + ci.unit_quantity), 0) = 0 THEN '0'
+				ELSE
+					CONCAT(
+						ROUND(SUM(ci.quantity), 0)::text, ' уп',
+						CASE 
+							WHEN (SUM(ci.unit_quantity)) > 0 
+							THEN CONCAT(' ', (SUM(ci.unit_quantity))::text, ' шт')
+							ELSE ''
+						END
+					)
+			END AS count,
 			sa.total_amount AS sum,
 			sa.sale_type AS name,
 			vd.unit_per_pack
@@ -771,7 +800,18 @@ func (s *Services) GetProductMovements(productId, storeId string, limit, offset 
 		SELECT
 			tr.id, tr.public_id::int, 5 AS entry_type, tr.created_at,
 			s.name AS store_name,
-			SUM(td.accepted_count) as count,
+			CASE
+				WHEN COALESCE(SUM(td.accepted_count), 0) = 0 THEN '0'
+				ELSE
+					CONCAT(
+						ROUND(SUM(td.accepted_count) / vd.unit_per_pack, 0)::text, ' уп',
+						CASE 
+							WHEN (SUM(td.accepted_count) %% vd.unit_per_pack) > 0 
+							THEN CONCAT(' ', (SUM(td.accepted_count) %% vd.unit_per_pack)::text, ' шт')
+							ELSE ''
+						END
+					)
+			END AS count,
 			SUM((td.accepted_count/vd.unit_per_pack) * td.retail_price) AS sum,
 			tr.name as name,
 			vd.unit_per_pack
@@ -789,7 +829,18 @@ func (s *Services) GetProductMovements(productId, storeId string, limit, offset 
 			6 AS entry_type,
 			tr.created_at,
 			fs.name || ' -> ' || ts.name as store_name,
-			SUM(td.accepted_count) as count,
+			CASE
+				WHEN COALESCE(SUM(td.accepted_count), 0) = 0 THEN '0'
+				ELSE
+					CONCAT(
+						ROUND(SUM(td.accepted_count), 0)::text, ' уп',
+						CASE 
+							WHEN ((SUM(td.accepted_count))-(SUM(td.accepted_count) %% vd.unit_per_pack)) > 0 
+							THEN CONCAT(' ', ((SUM(td.accepted_count))-(SUM(td.accepted_count) %% vd.unit_per_pack))::text, ' шт')
+							ELSE ''
+						END
+					)
+			END AS count,
 			SUM((td.accepted_count/vd.unit_per_pack) * td.retail_price) AS sum,
 			tr.name as name,
 			vd.unit_per_pack
@@ -818,6 +869,7 @@ func (s *Services) GetProductMovements(productId, storeId string, limit, offset 
 	LIMIT ? OFFSET ?;
 	`
 
+	// dynamic query conditions
 	if storeId == "" && companyId == "" {
 		query = fmt.Sprintf(baseQuery, "", "", "", "", "")
 		params = []any{productId, limit, offset}

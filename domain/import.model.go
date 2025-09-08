@@ -176,7 +176,7 @@ type ImportProductData struct {
 	Id         string     `gorm:"id" json:"id"`
 	PublicID   int        `gorm:"public_id" json:"public_id"`
 	EntryType  int        `gorm:"entry_type" json:"entry_type"`
-	Count      float64    `gorm:"count" json:"count"`
+	Count      string     `gorm:"count" json:"count"`
 	Sum        float64    `gorm:"sum" json:"sum"`
 	Name       string     `gorm:"name" json:"name"`
 	StoreName  string     `gorm:"store_name" json:"store_name"`
