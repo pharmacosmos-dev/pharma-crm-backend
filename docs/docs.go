@@ -12681,6 +12681,12 @@ const docTemplate = `{
                         "description": "Offset",
                         "name": "offset",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Store id",
+                        "name": "store_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -13013,6 +13019,69 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/product/update-packaging": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update product unit_per_pack and recalculate store_products.unit_quantity",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Update product packaging",
+                "parameters": [
+                    {
+                        "description": "Update Packaging",
+                        "name": "data",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.UpdatePackagingRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
                         }
@@ -22936,6 +23005,9 @@ const docTemplate = `{
                 "birthdate": {
                     "type": "string"
                 },
+                "company_id": {
+                    "type": "string"
+                },
                 "first_name": {
                     "type": "string"
                 },
@@ -23008,6 +23080,47 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.EposItem": {
+            "type": "object",
+            "properties": {
+                "amount": {
+                    "type": "integer"
+                },
+                "barcode": {
+                    "type": "string"
+                },
+                "classCode": {
+                    "type": "string"
+                },
+                "discount": {
+                    "type": "integer"
+                },
+                "label": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "other": {
+                    "type": "integer"
+                },
+                "ownerType": {
+                    "type": "integer"
+                },
+                "packageCode": {
+                    "type": "string"
+                },
+                "price": {
+                    "type": "integer"
+                },
+                "vat": {
+                    "type": "integer"
+                },
+                "vatPercent": {
+                    "type": "integer"
+                }
+            }
+        },
         "domain.EposResponseRequest": {
             "type": "object",
             "properties": {
@@ -23056,6 +23169,15 @@ const docTemplate = `{
                 },
                 "customer_id": {
                     "type": "string"
+                },
+                "epos_data": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/definitions/domain.EposItem"
+                        }
+                    }
                 },
                 "marking_data": {
                     "type": "array",
@@ -23311,6 +23433,9 @@ const docTemplate = `{
         "domain.MarkingData": {
             "type": "object",
             "properties": {
+                "dmed_id": {
+                    "type": "integer"
+                },
                 "id": {
                     "type": "string"
                 },
@@ -23696,6 +23821,9 @@ const docTemplate = `{
             "properties": {
                 "bonus_amount": {
                     "type": "number"
+                },
+                "company_id": {
+                    "type": "string"
                 },
                 "end_date": {
                     "type": "string"
@@ -24456,6 +24584,9 @@ const docTemplate = `{
                 "cash_box_count": {
                     "type": "integer"
                 },
+                "company_id": {
+                    "type": "string"
+                },
                 "detailed_name": {
                     "type": "string"
                 },
@@ -24618,6 +24749,22 @@ const docTemplate = `{
                 },
                 "store_product_id": {
                     "type": "string"
+                }
+            }
+        },
+        "domain.UpdatePackagingRequest": {
+            "type": "object",
+            "required": [
+                "product_id",
+                "unit_per_pack"
+            ],
+            "properties": {
+                "product_id": {
+                    "type": "string"
+                },
+                "unit_per_pack": {
+                    "type": "integer",
+                    "minimum": 1
                 }
             }
         },

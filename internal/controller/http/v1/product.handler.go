@@ -74,6 +74,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.DELETE("/exclude/:id", h.DeleteExcludedProduct)
 		product.GET("/excluded-list", h.ListExcludedProducts)
 		product.GET("/excluded-export", h.ExportExcludedProductsExcel)
+		product.PUT("/update-packaging", h.UpdatePackaging)
 	}
 }
 
@@ -2816,6 +2817,36 @@ func (h *ProductHandler) DeleteExcludedProduct(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, "Excluded product deleted successfully")
+}
+
+// UpdatePackaging godoc
+// @Summary Update product packaging
+// @Description Update product unit_per_pack and recalculate store_products.unit_quantity
+// @Tags products
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param data body domain.UpdatePackagingRequest true "Update Packaging"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 401 {object} v1.Response
+// @Failure 404 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/update-packaging [put]
+func (h *ProductHandler) UpdatePackaging(c *gin.Context) {
+	var req domain.UpdatePackagingRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		handleResponse(c, BadRequest, "Invalid request: "+err.Error())
+		return
+	}
+
+	// service call
+	if err := h.service.UpdatePackaging(&req); err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	handleResponse(c, OK, "Packaging updated successfully")
 }
 
 const charset = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"

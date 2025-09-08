@@ -404,6 +404,8 @@ definitions:
     properties:
       birthdate:
         type: string
+      company_id:
+        type: string
       first_name:
         type: string
       full_name:
@@ -457,6 +459,33 @@ definitions:
     required:
     - language
     type: object
+  domain.EposItem:
+    properties:
+      amount:
+        type: integer
+      barcode:
+        type: string
+      classCode:
+        type: string
+      discount:
+        type: integer
+      label:
+        type: string
+      name:
+        type: string
+      other:
+        type: integer
+      ownerType:
+        type: integer
+      packageCode:
+        type: string
+      price:
+        type: integer
+      vat:
+        type: integer
+      vatPercent:
+        type: integer
+    type: object
   domain.EposResponseRequest:
     properties:
       error:
@@ -490,6 +519,12 @@ definitions:
         type: string
       customer_id:
         type: string
+      epos_data:
+        items:
+          items:
+            $ref: '#/definitions/domain.EposItem'
+          type: array
+        type: array
       marking_data:
         items:
           $ref: '#/definitions/domain.MarkingData'
@@ -657,6 +692,8 @@ definitions:
     type: object
   domain.MarkingData:
     properties:
+      dmed_id:
+        type: integer
       id:
         type: string
       marking_count:
@@ -909,6 +946,8 @@ definitions:
     properties:
       bonus_amount:
         type: number
+      company_id:
+        type: string
       end_date:
         type: string
       product_id:
@@ -1411,6 +1450,8 @@ definitions:
         type: string
       cash_box_count:
         type: integer
+      company_id:
+        type: string
       detailed_name:
         type: string
       employee_count:
@@ -1519,6 +1560,17 @@ definitions:
         type: number
       store_product_id:
         type: string
+    type: object
+  domain.UpdatePackagingRequest:
+    properties:
+      product_id:
+        type: string
+      unit_per_pack:
+        minimum: 1
+        type: integer
+    required:
+    - product_id
+    - unit_per_pack
     type: object
   domain.UpdateQuantityRequest1C:
     properties:
@@ -9742,6 +9794,10 @@ paths:
         in: query
         name: offset
         type: integer
+      - description: Store id
+        in: query
+        name: store_id
+        type: string
       produces:
       - application/json
       responses:
@@ -9966,6 +10022,46 @@ paths:
       security:
       - BearerAuth: []
       summary: Update Mxik by product import
+      tags:
+      - products
+  /product/update-packaging:
+    put:
+      consumes:
+      - application/json
+      description: Update product unit_per_pack and recalculate store_products.unit_quantity
+      parameters:
+      - description: Update Packaging
+        in: body
+        name: data
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UpdatePackagingRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update product packaging
       tags:
       - products
   /product1c:

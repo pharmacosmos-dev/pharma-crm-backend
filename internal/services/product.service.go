@@ -1262,3 +1262,62 @@ func (s *Services) UpdateProductQuantity(req *domain.UpdateQuantityRequest1C) er
 
 	return nil
 }
+
+func (s *Services) UpdatePackaging(req *domain.UpdatePackagingRequest) error {
+	var err error
+	tx := s.db.Begin()
+	if tx.Error != nil {
+		s.log.Error("Failed to start transaction: ", tx.Error)
+		return tx.Error
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			s.log.Error("Panic recovered in UpdatePackaging: ", r)
+		}
+	}()
+
+	// 1. Check if product exists
+	var product domain.Product
+	err = tx.First(&product, "id = ?", req.ProductID).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			tx.Rollback()
+			return errors.New("product not found")
+		}
+		s.log.Error("Failed to get product: ", err)
+		tx.Rollback()
+		return err
+	}
+
+	// 2. Update product unit_per_pack
+	err = tx.Model(&domain.Product{}).
+		Where("id = ?", req.ProductID).
+		Update("unit_per_pack", req.UnitPerPack).Error
+	if err != nil {
+		s.log.Error("Failed to update product packaging: ", err)
+		tx.Rollback()
+		return err
+	}
+
+	// 3. Recalculate unit_quantity in store_products
+	err = tx.Exec(`
+		UPDATE store_products
+		SET unit_quantity = pack_quantity * ?
+		WHERE product_id = ?`,
+		req.UnitPerPack, req.ProductID,
+	).Error
+	if err != nil {
+		s.log.Error("Failed to recalc store_products.unit_quantity: ", err)
+		tx.Rollback()
+		return err
+	}
+
+	// 4. Commit transaction
+	if err = tx.Commit().Error; err != nil {
+		s.log.Error("Failed to commit transaction: ", err)
+		return err
+	}
+
+	return nil
+}
