@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS asil_belgi_tokens;

@@ -13537,6 +13537,57 @@
                 }
             }
         },
+        "/product1c/token-asil-belgi": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Save new Asil Belgi token (provided by 1C), deactivate old tokens",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "1C Api"
+                ],
+                "summary": "Save Asil Belgi Token",
+                "parameters": [
+                    {
+                        "description": "token",
+                        "name": "token",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.AsilBelgiTokenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/rejected-products": {
             "post": {
                 "security": [
@@ -22447,6 +22498,20 @@
                     "items": {
                         "$ref": "#/definitions/domain.ProductRepricingRequest"
                     }
+                }
+            }
+        },
+        "domain.AsilBelgiTokenRequest": {
+            "type": "object",
+            "required": [
+                "token"
+            ],
+            "properties": {
+                "expires_at": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
                 }
             }
         },

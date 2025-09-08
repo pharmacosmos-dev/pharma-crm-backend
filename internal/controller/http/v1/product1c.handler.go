@@ -32,6 +32,7 @@ func (h *Product1cHandler) Product1cRoutes(r *gin.RouterGroup) {
 		group1C.POST("/repricing", h.ProductRepricing)
 		group1C.POST("/multi-repricing", h.MultiProductRepricing)
 		group1C.POST("/quantity", h.UpdateQuantity)
+		group1C.POST("/token-asil-belgi", h.GetToken)
 	}
 }
 
@@ -533,6 +534,63 @@ func (h *Product1cHandler) MultiProductRepricing(c *gin.Context) {
 
 	// commit transaction
 	if err = tx.Commit().Error; err != nil {
+		handleResponse(c, InternalError, "not.committed.transaction")
+		return
+	}
+
+	handleResponse(c, OK, "UPDATED")
+}
+
+// GetToken godoc
+// @Summary Save Asil Belgi Token
+// @Description Save new Asil Belgi token (provided by 1C), deactivate old tokens
+// @Tags 	1C Api
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param 	token body domain.AsilBelgiTokenRequest true "token"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product1c/token-asil-belgi [POST]
+func (h *Product1cHandler) GetToken(c *gin.Context) {
+	var (
+		body domain.AsilBelgiTokenRequest
+		err  error
+	)
+
+	// bind request body
+	err = c.ShouldBindJSON(&body)
+	if err != nil {
+		h.log.Warn("ERROR on binding request body: %v", err)
+		handleResponse(c, BadRequest, "invalid.request.body")
+		return
+	}
+
+	// start transaction
+	tx := h.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// save new token (service call)
+	err = h.service.SaveAsilBelgiToken(tx, &body)
+	if err != nil {
+		h.log.Warn("ERROR on saving Asil Belgi token: %v", err)
+		handleResponse(c, InternalError, "failed.to.save.token")
+		return
+	}
+
+	// commit
+	err = tx.Commit().Error
+	if err != nil {
 		handleResponse(c, InternalError, "not.committed.transaction")
 		return
 	}

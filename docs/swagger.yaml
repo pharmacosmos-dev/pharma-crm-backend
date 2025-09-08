@@ -47,6 +47,15 @@ definitions:
           $ref: '#/definitions/domain.ProductRepricingRequest'
         type: array
     type: object
+  domain.AsilBelgiTokenRequest:
+    properties:
+      expires_at:
+        type: string
+      token:
+        type: string
+    required:
+    - token
+    type: object
   domain.AutoOrderRequest:
     properties:
       auto_order_date:
@@ -10232,6 +10241,38 @@ paths:
       security:
       - BearerAuth: []
       summary: Update retail price by 1C
+      tags:
+      - 1C Api
+  /product1c/token-asil-belgi:
+    post:
+      consumes:
+      - application/json
+      description: Save new Asil Belgi token (provided by 1C), deactivate old tokens
+      parameters:
+      - description: token
+        in: body
+        name: token
+        required: true
+        schema:
+          $ref: '#/definitions/domain.AsilBelgiTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Save Asil Belgi Token
       tags:
       - 1C Api
   /rejected-products:
