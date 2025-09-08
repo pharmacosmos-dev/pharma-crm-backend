@@ -252,6 +252,28 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string) error {
 		s.log.Warn("ERROR on getting expense products: %v", err)
 		return err
 	}
+
+	// get total discount
+	discountQuery := `
+    SELECT 
+        COALESCE(SUM(s.total_discount), 0) - 
+        COALESCE(SUM(s_return.total_discount), 0) AS discount_sum
+    FROM sales s
+        LEFT JOIN sales s_return
+            ON s_return.parent_id = s.id
+            AND s_return.sale_type = 'RETURN'
+            AND s_return.status = 'completed'
+    WHERE s.store_id = ?
+      AND s.status = 'completed'
+      AND (s.completed_at + interval '5 hours')::date
+        BETWEEN ? AND ?;
+`
+
+	err = s.db.Raw(discountQuery, store.Id, date, date).Scan(&expenseData.Document.DiscountSum).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting discount sum: %v", err)
+		return err
+	}
 	// check expense product length
 	if len(expenseData.Товары) < 1 {
 		return nil

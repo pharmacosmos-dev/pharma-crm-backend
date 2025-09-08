@@ -193,6 +193,7 @@ type SendExpense struct {
 type ExpenseDok struct {
 	DocumentDate string `gorm:"document_date" json:"data_dok"`
 	NumberDok    string `gorm:"nomer_dok" json:"nomer_dok"`
+	DiscountSum  string `gorm:"discont_sum" json:"discont_sum"`
 }
 
 // expense product structure
