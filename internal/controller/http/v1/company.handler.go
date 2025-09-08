@@ -4,7 +4,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
+	"gorm.io/gorm"
 )
 
 type CompanyHandler struct {
@@ -117,6 +119,7 @@ func (h *CompanyHandler) List(c *gin.Context) {
 	var (
 		companies  []domain.Company
 		totalCount int64
+		companyId  string
 	)
 
 	limit, offset, err := getPaginationParams(c)
@@ -125,15 +128,45 @@ func (h *CompanyHandler) List(c *gin.Context) {
 		return
 	}
 
+	// get user_id from the context
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+
+	// get employee info
+	var employee domain.Employee
+	err = h.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(employee, h.cfg) {
+		companyId = employee.CompanyId
+	}
+
+	// build query
+	query := h.db.Model(&domain.Company{})
+	if companyId != "" {
+		query = query.Where("id = ?", companyId)
+	}
+
 	// total count
-	if err = h.db.Model(&domain.Company{}).Count(&totalCount).Error; err != nil {
+	if err = query.Count(&totalCount).Error; err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
 	// select companies
-	if err = h.db.
+	if err = query.
 		Limit(limit).
 		Offset(offset).
 		Order("created_at DESC").
