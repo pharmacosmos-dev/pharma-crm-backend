@@ -679,8 +679,8 @@ func (s *Services) CancelInventory(inventoryId string, userId string) error {
 	// start transaction
 
 	// update confirm inventory
-	query := `UPDATE imports SET status = ?, accepted_by = ?, updated_at = NOW() WHERE id = ? AND status = ?`
-	err := s.db.Exec(query, config.CANCELED, userId, inventoryId, config.PENDING).Error
+	query := `UPDATE imports SET status = ?, accepted_by = ?, updated_at = NOW() WHERE id = ?`
+	err := s.db.Exec(query, config.CANCELED, userId, inventoryId).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating inventory %v", err)
 		return err
