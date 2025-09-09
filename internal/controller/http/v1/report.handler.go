@@ -1280,10 +1280,8 @@ func (h *ReportHandler) TopProductsExportExcel(c *gin.Context) {
 		return
 	}
 	// bind store ids
-	if err := c.ShouldBindJSON(&param.StoreIds); err != nil {
-		handleResponse(c, BadRequest, "Invalid store ids")
-		return
-	}
+	_ = c.ShouldBindJSON(&param.StoreIds)
+
 	// get user_id from the context
 	userId, ok := c.Get("user_id")
 	if !ok {
