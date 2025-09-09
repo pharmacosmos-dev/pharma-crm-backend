@@ -96,6 +96,7 @@ type SaleResponse struct {
 	Humo               float64        `gorm:"humo" json:"humo"`
 	Click              float64        `gorm:"click" json:"click"`
 	Payme              float64        `gorm:"payme" json:"payme"`
+	Alif               float64        `gorm:"alif" json:"alif"`
 	DiscountBarcode    string         `gorm:"discount_barcode" json:"discount_barcode"`
 	IsDelivered        bool           `gorm:"is_delivered" json:"is_delivered"`
 	FiscalSign         string         `gorm:"fiscal_sign" json:"fiscal_sign"`
