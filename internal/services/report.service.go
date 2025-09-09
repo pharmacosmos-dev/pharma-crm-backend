@@ -555,6 +555,10 @@ func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.S
 					WHEN pt.name = 'Payme' AND sa.sale_type = 'SALE' THEN sp.amount
 					WHEN pt.name = 'Payme' AND sa.sale_type = 'RETURN' THEN sp.amount*(-1)
 					ELSE 0 END) AS payme,
+		    	SUM(CASE
+					WHEN pt.name = 'Alif' AND sa.sale_type = 'SALE' THEN sp.amount
+					WHEN pt.name = 'Alif' AND sa.sale_type = 'RETURN' THEN sp.amount*(-1)
+					ELSE 0 END) AS alif,
 				SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS return_amount,
 				SUM(CASE
 					WHEN sa.sale_type = 'SALE' THEN sp.amount

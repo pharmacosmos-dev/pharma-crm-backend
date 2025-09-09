@@ -382,7 +382,7 @@ func (h *SaleHandler) ExportSaleExcel(c *gin.Context) {
 		f.SetCellValue(sheetName, "E"+row, sale.Uzcard)
 		f.SetCellValue(sheetName, "F"+row, sale.Payme)
 		f.SetCellValue(sheetName, "G"+row, sale.Click)
-		f.SetCellValue(sheetName, "H"+row, 0.00)
+		f.SetCellValue(sheetName, "H"+row, sale.Alif)
 		if sale.SaleType == "RETURN" {
 			f.SetCellValue(sheetName, "I"+row, sale.TotalAmount*(-1))
 		} else {
