@@ -700,6 +700,7 @@ func (s *Services) ReportTopProducts(param *domain.ReportQueryParam) ([]domain.T
 	SELECT
 		curr.id,
 		curr.name,
+		curr.producer_name,
 		curr.count,
 		curr.unit_quantity,
 		curr.unit_per_pack,
@@ -716,6 +717,7 @@ func (s *Services) ReportTopProducts(param *domain.ReportQueryParam) ([]domain.T
 		SELECT
 			p.id,
 			p.name,
+			ps.name AS producer_name,
 			s.company_id,
 			SUM(ci.quantity) + FLOOR(SUM(ci.unit_quantity)::decimal / p.unit_per_pack) AS count,
 			(SUM(ci.unit_quantity) % p.unit_per_pack) AS unit_quantity,
@@ -724,9 +726,10 @@ func (s *Services) ReportTopProducts(param *domain.ReportQueryParam) ([]domain.T
 		FROM cart_items ci
 		JOIN store_products sp ON ci.store_product_id = sp.id
 		JOIN products p ON sp.product_id = p.id
+		JOIN producers ps ON p.producer_id = ps.id
 		JOIN stores s ON sp.store_id = s.id
 		WHERE (ci.updated_at+ interval '5 hours') BETWEEN ? AND ?
-		GROUP BY p.id, p.name, p.unit_per_pack,s.company_id
+		GROUP BY p.id, p.name, ps.name, p.unit_per_pack,s.company_id
 	) AS curr
 	LEFT JOIN (
 		SELECT
@@ -776,7 +779,7 @@ func (s *Services) ReportTopProducts(param *domain.ReportQueryParam) ([]domain.T
 	args = append(args, param.Limit, param.Offset)
 
 	// Execute query
-	err = s.db.Raw(query, args...).Scan(&res).Error
+	err = s.db.Debug().Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Error("ERROR on getting top products: ", err)
 		return nil, 0, err

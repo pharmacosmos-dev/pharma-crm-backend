@@ -1320,7 +1320,7 @@ func (h *ReportHandler) TopProductsExportExcel(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheet)
 
 	// set headers
-	headers := []string{"ID", "Название", "Количество", "Общее количество", "Общая сумма"}
+	headers := []string{"ID", "Название", "Производитель", "Количество", "Общее количество", "Общая сумма"}
 	err = setExcelHeaders(f, sheet, headers)
 	if err != nil {
 		h.log.Error("Failed to create style:", err)
@@ -1332,9 +1332,10 @@ func (h *ReportHandler) TopProductsExportExcel(c *gin.Context) {
 		row := strconv.Itoa(i + 2)
 		f.SetCellValue(sheet, "A"+row, i+1)
 		f.SetCellValue(sheet, "B"+row, val.Name)
-		f.SetCellValue(sheet, "C"+row, val.Count)
-		f.SetCellValue(sheet, "D"+row, val.TotalCount)
-		f.SetCellValue(sheet, "E"+row, val.TotalAmount)
+		f.SetCellValue(sheet, "C"+row, val.ProducerName)
+		f.SetCellValue(sheet, "D"+row, val.Count)
+		f.SetCellValue(sheet, "E"+row, val.TotalCount)
+		f.SetCellValue(sheet, "F"+row, val.TotalAmount)
 	}
 
 	saveExcelToUploads(c, f, *h.log, "Top_products")
