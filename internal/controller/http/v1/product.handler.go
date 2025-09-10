@@ -1157,7 +1157,8 @@ func (h *ProductHandler) ListStoreProductProductId(c *gin.Context) {
 	query := h.db.
 		Model(&domain.StoreProduct{}).
 		Preload("Store").
-		Select("store_products.*, u.short_name").
+		Select("store_products.*, u.short_name,"+
+			"ROUND((store_products.retail_price/store_products.supply_price -1)*100, 3) AS markup ").
 		Joins("JOIN products p ON p.id = store_products.product_id").
 		Joins("LEFT JOIN unit_types u ON u.id = p.unit_type_id").
 		Where("store_products.product_id = ?", id).

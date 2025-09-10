@@ -755,7 +755,7 @@ func (s *Services) GetProductMovements(productId, storeId string, limit, offset 
 						END
 					)
 			END AS count,
-			SUM((imd.accepted_count/vd.unit_per_pack) * imd.retail_price_vat) AS sum,
+			ROUND(SUM(imd.retail_price_vat * (imd.scanned_count/vd.unit_per_pack)), 2) AS sum,
 			im.name AS name,
 			vd.unit_per_pack
 		FROM imports im
