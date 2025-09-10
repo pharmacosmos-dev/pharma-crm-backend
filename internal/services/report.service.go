@@ -1413,6 +1413,7 @@ func (s *Services) StoreProductsGivenDay(param *domain.ReportQueryParam) ([]doma
 	    SELECT
 	        sp.product_id,
 	        sp.store_id,
+			st.name AS store_name,
 	        SUM(sp.pack_quantity) AS pack_qty,
 	        SUM(sp.unit_quantity) AS unit_qty,
 	        p.unit_per_pack,
@@ -1422,7 +1423,7 @@ func (s *Services) StoreProductsGivenDay(param *domain.ReportQueryParam) ([]doma
 	    JOIN products p ON p.id = sp.product_id
 	    JOIN stores st ON st.id = sp.store_id
 	    WHERE sp.store_id = (SELECT target_store FROM vars)
-	    GROUP BY sp.product_id, sp.store_id, p.unit_per_pack, p.name, st.company_id
+	    GROUP BY sp.product_id, sp.store_id,st.name, p.unit_per_pack, p.name, st.company_id
 	),
 
 	-- 2. Future imports
@@ -1526,6 +1527,7 @@ func (s *Services) StoreProductsGivenDay(param *domain.ReportQueryParam) ([]doma
 	SELECT
 	    b.product_id,
 	    b.store_id,
+		b.store_name,
 	    b.name,
 	    (b.pack_qty
 	         - COALESCE(fi.pack_change,0)

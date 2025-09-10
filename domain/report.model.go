@@ -130,6 +130,7 @@ type StoreSummaryStats struct {
 type StoreProductsReport struct {
 	ProductID         string  `json:"product_id"`
 	StoreID           string  `json:"store_id"`
+	StoreName         string  `json:"store_name"`
 	Name              string  `json:"name"`
 	FinalPackQuantity float64 `json:"final_pack_quantity"`
 	FinalUnitQuantity float64 `json:"final_unit_quantity"`
