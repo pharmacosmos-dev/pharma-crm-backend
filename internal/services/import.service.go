@@ -725,24 +725,24 @@ func (s *Services) DoRequest(ctx context.Context, data any, url string) error {
 	req.SetBasicAuth(s.cfg.BaseUsername1C, s.cfg.BasePassword1C)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
+	if s.cfg.BaseUrl1C != "test" {
+		// Execute request
+		response, err := client.Do(req)
+		if err != nil {
+			s.log.Error("failed to execute HTTP request: %v", err)
+			return fmt.Errorf("failed to execute HTTP request: %v", err)
+		}
+		// close response body
+		defer response.Body.Close()
 
-	// Execute request
-	response, err := client.Do(req)
-	if err != nil {
-		s.log.Error("failed to execute HTTP request: %v", err)
-		return fmt.Errorf("failed to execute HTTP request: %v", err)
+		// var info map[string]any
+		res, err := io.ReadAll(response.Body)
+		if err != nil {
+			s.log.Error("could not decode response: %w", err)
+			return err
+		}
+
+		s.log.Info("RASXOD RESPONSE: %v", string(res))
 	}
-	// close response body
-	defer response.Body.Close()
-
-	// var info map[string]any
-	res, err := io.ReadAll(response.Body)
-	if err != nil {
-		s.log.Error("could not decode response: %w", err)
-		return err
-	}
-
-	s.log.Info("RASXOD RESPONSE: %v", string(res))
-
 	return nil
 }

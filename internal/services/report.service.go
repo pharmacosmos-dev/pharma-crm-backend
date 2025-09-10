@@ -180,9 +180,10 @@ func (s *Services) ProductReport(ctx context.Context, param *domain.ReportQueryP
 		sp.supply_price,
 		sp.retail_price,
 		ROUND((ci.quantity * sp.supply_price) + (ci.unit_quantity * (sp.supply_price / p.unit_per_pack)), 2) AS supply_price_sum,
-		ROUND((ci.quantity * sp.retail_price) + (ci.unit_quantity * (sp.retail_price / p.unit_per_pack)), 2) AS retail_price_sum,
+		ROUND((ci.quantity * sp.retail_price) + (ci.unit_quantity * (sp.retail_price / p.unit_per_pack) - sl.total_discount), 2) AS retail_price_sum,
 		ROUND((ci.quantity * (sp.retail_price-sp.supply_price)) + (ci.unit_quantity * ((sp.retail_price-sp.supply_price) / p.unit_per_pack)), 2) AS markup_sum,
 		ROUND((ci.quantity * sp.vat_price) + (ci.unit_quantity * (sp.vat_price / p.unit_per_pack)), 2) AS vat_sum,
+		ROUND(sl.total_discount, 2) AS total_discount,
 		(sl.completed_at) AS completed_at,
 		e.full_name,
 		sl.sale_number,
@@ -361,13 +362,18 @@ func (s *Services) ProductStatusReport(ctx context.Context, param *domain.Report
 			COALESCE(SUM(CASE WHEN sl.sale_type = 'SALE' THEN (ci.quantity + ci.unit_quantity / p.unit_per_pack) ELSE 0 END), 0) AS total_quantity,
 			COALESCE(SUM(CASE WHEN sl.sale_type = 'RETURN' THEN (ci.quantity + ci.unit_quantity / p.unit_per_pack) ELSE 0 END), 0) AS total_quantity_returned,
 			ROUND(COALESCE(SUM(CASE
-				WHEN sl.sale_type = 'SALE' THEN (ci.quantity * sp.retail_price) + (ci.unit_quantity * (sp.retail_price / p.unit_per_pack))
-				WHEN sl.sale_type = 'RETURN' THEN ((ci.quantity * sp.retail_price) + (ci.unit_quantity * (sp.retail_price / p.unit_per_pack))) * (-1)
+				WHEN sl.sale_type = 'SALE' THEN (ci.quantity * sp.retail_price) + (ci.unit_quantity * (sp.retail_price / p.unit_per_pack)) - sl.total_discount
+				WHEN sl.sale_type = 'RETURN' THEN ((ci.quantity * sp.retail_price) + (ci.unit_quantity * (sp.retail_price / p.unit_per_pack))) * (-1) - sl.total_discount
 				ELSE 0
 			END), 0), 2) AS total_retail_price_sum,
 			ROUND(COALESCE(SUM(CASE 
-				WHEN sl.sale_type = 'RETURN' THEN (ci.quantity * sp.retail_price) + (ci.unit_quantity * (sp.retail_price / p.unit_per_pack)) 
-				ELSE 0 END), 0), 2) AS total_retail_price_sum_returned
+				WHEN sl.sale_type = 'RETURN' THEN (ci.quantity * sp.retail_price) + (ci.unit_quantity * (sp.retail_price / p.unit_per_pack) - sl.total_discount) 
+				ELSE 0 END), 0), 2) AS total_retail_price_sum_returned,
+		    ROUND(COALESCE(SUM(CASE 
+		    	WHEN sl.sale_type = 'SALE' THEN sl.total_discount
+		        WHEN sl.sale_type = 'RETURN' THEN sl.total_discount * (-1)
+		    	ELSE 0
+		        END),0), 2) AS total_discount_sum
 		FROM sales sl
 		%s
 		%s
@@ -1401,13 +1407,13 @@ func (s *Services) StoreProductsGivenDay(param *domain.ReportQueryParam) ([]doma
             SUM(sp.pack_quantity) AS pack_qty,
             SUM(sp.unit_quantity) AS unit_qty,
             p.unit_per_pack,
-            p.name
+            p.name,
+            st.company_id
         FROM store_products sp
         JOIN products p ON p.id = sp.product_id
         JOIN stores st ON st.id = sp.store_id
         WHERE sp.store_id = ?
-            AND st.company_id = ?
-        GROUP BY sp.product_id, sp.store_id, p.unit_per_pack, p.name
+        GROUP BY sp.product_id, sp.store_id, p.unit_per_pack, p.name, st.company_id
     ),
     future_actions AS (
         SELECT
@@ -1494,7 +1500,7 @@ func (s *Services) StoreProductsGivenDay(param *domain.ReportQueryParam) ([]doma
 
 	// Args massivi, so'rovdagi `?` belgilarining to'g'ri tartibiga moslangan
 	args = append(args,
-		param.StoreId, param.CompanyId, // base_stock: sp.store_id = ?
+		param.StoreId,                  // base_stock: sp.store_id = ?
 		param.StoreId, param.StartDate, // future_actions: sp.store_id = ?, ci.created_at::date > ?
 		param.StoreId, param.StoreId, // transfer_actions: 1-CASE: t.from_store_id = ?, t.to_store_id = ?
 		param.StoreId, param.StoreId, // transfer_actions: 2-CASE: t.from_store_id = ?, t.to_store_id = ?
@@ -1505,6 +1511,10 @@ func (s *Services) StoreProductsGivenDay(param *domain.ReportQueryParam) ([]doma
 	if param.Search != "" {
 		query += " WHERE b.name ILIKE ?"
 		args = append(args, "%"+param.Search+"%")
+	}
+	if param.CompanyId != "" {
+		query += " AND b.company_id = ?"
+		args = append(args, param.CompanyId)
 	}
 
 	// Order, Limit, Offset
@@ -1520,7 +1530,7 @@ func (s *Services) StoreProductsGivenDay(param *domain.ReportQueryParam) ([]doma
 	}
 
 	// Execute query
-	if err = s.db.Raw(query, args...).Scan(&res).Error; err != nil {
+	if err = s.db.Debug().Raw(query, args...).Scan(&res).Error; err != nil {
 		s.log.Error("Failed to get store products given day: ", err)
 		return nil, 0, err
 	}

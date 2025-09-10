@@ -1842,6 +1842,7 @@ func (h *ReportHandler) StoreProductsGivenDay(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid query parameters")
 		return
 	}
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 	// get user_id from the context
 	userId, ok := c.Get("user_id")
 	if !ok {
