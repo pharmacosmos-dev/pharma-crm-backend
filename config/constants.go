@@ -73,6 +73,7 @@ const (
 	PROCESSING = "processing"
 	COMPLETED  = "completed"
 	DMED       = "dmed"
+	TAX_FREE   = "tax_free"
 	SENT_TO_1C = "sent-to-1c"
 	CANCELED   = "canceled"
 	DONE       = "done"

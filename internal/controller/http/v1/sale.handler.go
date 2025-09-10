@@ -700,6 +700,9 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	} else {
 		body.ServiceType = nil
 	}
+	if !body.TaxFree {
+		*body.ServiceType = config.TAX_FREE
+	}
 	// add marking to cart_items
 	err = h.service.AddMarkingCount(ctx, tx, body.MarkingData)
 	if err != nil {

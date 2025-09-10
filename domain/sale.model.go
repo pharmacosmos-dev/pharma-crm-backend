@@ -126,6 +126,7 @@ type FinalSale struct {
 	CashBoxOperationId string             `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
 	TotalAmount        float64            `gorm:"total_amount" json:"total_amount"`
 	ServiceType        *string            `gorm:"service_type" json:"service_type"`
+	TaxFree            bool               `gorm:"tax_free" json:"tax_free"`
 	PaymentTypes       []FinalPaymentType `json:"payment_types"`
 	MarkingData        []MarkingData      `json:"marking_data"`
 	EposData           [][]EposItem       `json:"epos_data"`
