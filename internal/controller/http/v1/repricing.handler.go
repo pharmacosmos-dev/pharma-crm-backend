@@ -557,9 +557,10 @@ func (h *RepricingHandler) ExportListDetail(c *gin.Context) {
 func (h *RepricingHandler) AddRetailPrice(c *gin.Context) {
 	var (
 		body domain.UpdateNewPrice
+		err  error
 	)
 	// bind request body
-	if err := c.ShouldBindJSON(&body); err != nil {
+	if err = c.ShouldBindJSON(&body); err != nil {
 		handleResponse(c, BadRequest, "invalid.request.body")
 		return
 	}
@@ -572,13 +573,24 @@ func (h *RepricingHandler) AddRetailPrice(c *gin.Context) {
 		}
 	}()
 
-	query := `
-	UPDATE price_revalution_details SET new_retail_price = ?, updated_at = NOW() WHERE id = ?
-	`
-	err := tx.Exec(query,
-		body.NewRetailPrice, body.Id).Error
-	if err != nil {
-		handleResponse(c, InternalError, "failed.update.retail_price")
+	if body.Percent > 0 {
+		query := `
+        UPDATE price_revalution_details
+        SET 
+            new_retail_price = old_supply_price * (1 + ?/100.00), 
+            updated_at = NOW()
+        WHERE id = ?
+    `
+		err = tx.Exec(query, body.Percent, body.Id).Error
+	} else if body.NewRetailPrice > 0 {
+		query := `
+        UPDATE price_revalution_details
+        SET new_retail_price = ?, updated_at = NOW()
+        WHERE id = ?
+    `
+		err = tx.Exec(query, body.NewRetailPrice, body.Id).Error
+	} else {
+		handleResponse(c, BadRequest, "invalid.price.value")
 		tx.Rollback()
 		return
 	}

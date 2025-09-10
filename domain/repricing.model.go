@@ -75,6 +75,7 @@ type PriceRevalutionDetailRequest struct {
 type UpdateNewPrice struct {
 	Id             string  `gorm:"id" json:"id"`
 	StoreProductId string  `gorm:"store_product_id" json:"store_product_id"`
+	Percent        float64 `gorm:"percent" json:"percent"`
 	NewRetailPrice float64 `gorm:"new_retail_price" json:"new_retail_price"`
 	NewExpireDate  string  `gorm:"new_expire_date" json:"new_expire_date"`
 }
