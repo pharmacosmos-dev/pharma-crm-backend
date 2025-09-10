@@ -128,17 +128,25 @@ type StoreSummaryStats struct {
 }
 
 type StoreProductsReport struct {
-	ProductID          string  `json:"product_id"`
-	StoreID            string  `json:"store_id"`
-	Name               string  `json:"name"`
-	FinalPackQuantity  float64 `json:"final_pack_quantity"`
-	FinalUnitQuantity  float64 `json:"final_unit_quantity"`
-	CartPackChange     float64 `json:"cart_pack_change"`
-	CartUnitChange     float64 `json:"cart_unit_change"`
-	TransferPackChange float64 `json:"transfer_pack_change"`
-	TransferUnitChange float64 `json:"transfer_unit_change"`
-	PackQty            float64 `json:"pack_qty"`
-	UnitQty            float64 `json:"unit_qty"`
+	ProductID         string  `json:"product_id"`
+	StoreID           string  `json:"store_id"`
+	Name              string  `json:"name"`
+	FinalPackQuantity float64 `json:"final_pack_quantity"`
+	FinalUnitQuantity float64 `json:"final_unit_quantity"`
+	PackQty           float64 `json:"pack_qty"`
+	UnitQty           float64 `json:"unit_qty"`
+
+	// Changes by source
+	ImportPackChange    float64 `json:"import_pack_change"`
+	ImportUnitChange    float64 `json:"import_unit_change"`
+	SalesPackChange     float64 `json:"sales_pack_change"`
+	SalesUnitChange     float64 `json:"sales_unit_change"`
+	ReturnPackChange    float64 `json:"return_pack_change"`
+	ReturnUnitChange    float64 `json:"return_unit_change"`
+	TransferPackChange  float64 `json:"transfer_pack_change"`
+	TransferUnitChange  float64 `json:"transfer_unit_change"`
+	InventoryPackChange float64 `json:"inventory_pack_change"`
+	InventoryUnitChange float64 `json:"inventory_unit_change"`
 }
 
 type DiscountCardReport struct {

@@ -469,14 +469,20 @@ func BuildStoreSummaryOrderClause(orderField string) string {
 
 func BuildProductOrderClause(orderField string) string {
 	allowedFields := map[string]string{
-		"product_id":           "b.product_id",
-		"name":                 "b.name",
-		"final_pack_quantity":  "final_pack_quantity",
-		"final_unit_quantity":  "final_unit_quantity",
-		"cart_pack_change":     "cart_pack_change",
-		"cart_unit_change":     "cart_unit_change",
-		"transfer_pack_change": "transfer_pack_change",
-		"transfer_unit_change": "transfer_unit_change",
+		"product_id":            "b.product_id",
+		"name":                  "b.name",
+		"final_pack_quantity":   "final_pack_quantity",
+		"final_unit_quantity":   "final_unit_quantity",
+		"import_pack_change":    "import_pack_change",
+		"import_unit_change":    "import_unit_change",
+		"sales_pack_change":     "sales_pack_change",
+		"sales_unit_change":     "sales_unit_change",
+		"return_pack_change":    "return_pack_change",
+		"return_unit_change":    "return_unit_change",
+		"transfer_pack_change":  "transfer_pack_change",
+		"transfer_unit_change":  "transfer_unit_change",
+		"inventory_pack_change": "inventory_pack_change",
+		"inventory_unit_change": "inventory_unit_change",
 	}
 
 	if orderField == "" {
