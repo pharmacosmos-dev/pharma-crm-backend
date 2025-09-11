@@ -550,6 +550,8 @@ definitions:
         type: string
       store_id:
         type: string
+      tax_free:
+        type: boolean
       total_amount:
         type: number
     type: object
@@ -1100,6 +1102,8 @@ definitions:
     type: object
   domain.ProductStatusReport:
     properties:
+      total_discount_sum:
+        type: number
       total_quantity:
         type: number
       total_quantity_returned:
@@ -1566,6 +1570,8 @@ definitions:
       new_expire_date:
         type: string
       new_retail_price:
+        type: number
+      percent:
         type: number
       store_product_id:
         type: string
@@ -11265,6 +11271,54 @@ paths:
       security:
       - BearerAuth: []
       summary: Get Store Products Given Day
+      tags:
+      - Report
+  /report/store-products-given-day/export-excel:
+    post:
+      description: Export Store Products Given Day to Excel
+      parameters:
+      - description: Order
+        in: query
+        name: order
+        type: string
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Start Date (YYYY-MM-DD)
+        in: query
+        name: start_date
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Export Store Products Given Day to Excel
       tags:
       - Report
   /report/store-stats:

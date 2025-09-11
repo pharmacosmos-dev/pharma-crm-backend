@@ -15132,6 +15132,81 @@
                 }
             }
         },
+        "/report/store-products-given-day/export-excel": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Export Store Products Given Day to Excel",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Report"
+                ],
+                "summary": "Export Store Products Given Day to Excel",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Order",
+                        "name": "order",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Start Date (YYYY-MM-DD)",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Store ID",
+                        "name": "store_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/report/store-stats": {
             "post": {
                 "security": [
@@ -23261,6 +23336,9 @@
                 "store_id": {
                     "type": "string"
                 },
+                "tax_free": {
+                    "type": "boolean"
+                },
                 "total_amount": {
                     "type": "number"
                 }
@@ -24092,6 +24170,9 @@
         "domain.ProductStatusReport": {
             "type": "object",
             "properties": {
+                "total_discount_sum": {
+                    "type": "number"
+                },
                 "total_quantity": {
                     "type": "number"
                 },
@@ -24803,6 +24884,9 @@
                     "type": "string"
                 },
                 "new_retail_price": {
+                    "type": "number"
+                },
+                "percent": {
                     "type": "number"
                 },
                 "store_product_id": {
