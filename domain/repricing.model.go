@@ -122,3 +122,12 @@ type AptekaWithProductsRepricing struct {
 	Apteka Apteka                    `json:"Apteka"`
 	Товары []ProductRepricingRequest `json:"Товары"`
 }
+
+type RepricingDetailStatusSummary struct {
+	Count               int64   `json:"count"`
+	TotalOldRetailPrice float64 `json:"total_old_retail_price"`
+	TotalNewRetailPrice float64 `json:"total_new_retail_price"`
+	TotalOldSupplyPrice float64 `json:"total_old_supply_price"`
+	AvgOldMarkup        float64 `json:"avg_old_markup"`
+	AvgNewMarkup        float64 `json:"avg_new_markup"`
+}
