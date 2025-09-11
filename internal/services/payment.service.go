@@ -639,7 +639,7 @@ func (h *Services) UzumFastPayDoRequest(ctx context.Context, url string, data an
 func (h *Services) AlifPay(ctx context.Context, tx *gorm.DB, paymentService *domain.PaymentService, data *domain.FinalPaymentType, CashOperationID string, transactionID string, saleID string) (map[string]any, error) {
 	alifData := domain.AlifPaymentRequest{
 		ID:     transactionID,
-		Amount: data.Amount,
+		Amount: data.Amount * 100,
 		Method: domain.AlifMethod{
 			Type:  "MOBI_SHOW_QR",
 			Token: data.OtpData,
