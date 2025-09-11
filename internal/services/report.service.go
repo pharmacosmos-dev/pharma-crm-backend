@@ -1430,7 +1430,7 @@ func (s *Services) StoreProductsGivenDay(param *domain.ReportQueryParam) ([]doma
 	future_imports AS (
 	    SELECT
 	        imd.product_id,
-	        COALESCE(SUM((imd.accepted_count) / p.unit_per_pack),0) AS pack_change,
+	        COALESCE(SUM(imd.accepted_count),0) AS pack_change,
 	        COALESCE(SUM((imd.accepted_count * p.unit_per_pack ) % p.unit_per_pack),0) AS unit_change
 	    FROM imports im
 	    JOIN import_details imd ON im.id = imd.import_id
@@ -1594,7 +1594,7 @@ func (s *Services) StoreProductsGivenDay(param *domain.ReportQueryParam) ([]doma
 	}
 
 	// Execute query
-	if err = s.db.Debug().Raw(query, args...).Scan(&res).Error; err != nil {
+	if err = s.db.Raw(query, args...).Scan(&res).Error; err != nil {
 		s.log.Error("Failed to get store products given day: ", err)
 		return nil, 0, err
 	}
