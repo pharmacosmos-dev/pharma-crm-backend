@@ -7,6 +7,7 @@ type Store struct {
 	Id            string     `gorm:"id" json:"id"`
 	StoreCode     int        `gorm:"store_code" json:"store_code"`
 	Name          string     `gorm:"name" json:"name"`
+	CompanyId     string     `gorm:"company_id" json:"company_id"`
 	Phone         string     `gorm:"phone" json:"phone"`
 	DetailedName  string     `gorm:"detailed_name" json:"detailed_name"`
 	Location      string     `gorm:"location" json:"location"`
