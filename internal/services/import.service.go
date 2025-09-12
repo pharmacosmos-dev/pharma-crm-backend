@@ -155,7 +155,8 @@ func (s *Services) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domai
 		mxik,
 		unit_code,
 		unit_label,
-		is_marking
+		is_marking,
+	    company_id
 		)
 	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	for _, item := range importDetails {
@@ -175,6 +176,7 @@ func (s *Services) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domai
 				item.UnitCode,
 				item.UnitLabel,
 				item.IsMarking,
+				store.CompanyId,
 			).Error
 			if err != nil {
 				s.log.Warn("ERROR on inserting import products to store_product: %v", err)
@@ -246,7 +248,8 @@ func (s *Services) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import)
 		mxik,
 		unit_code,
 		unit_label,
-		is_marking
+		is_marking,
+	    company_id
 		)
 	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	for _, item := range details {
@@ -268,6 +271,7 @@ func (s *Services) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import)
 				item.UnitCode,
 				item.UnitLabel,
 				item.IsMarking,
+				store.CompanyId,
 			).Error
 			if err != nil {
 				s.log.Error("could not add import products to store_product: %v", err)
