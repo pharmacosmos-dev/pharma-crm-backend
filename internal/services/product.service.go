@@ -692,6 +692,13 @@ func (s *Services) UpdateProductIsMarking(req *domain.UpdateIsMarking) error {
 		s.log.Warn("ERROR on updating is_marking: %v", err.Error())
 		return err
 	}
+	query = `UPDATE store_products SET is_marking = ? WHERE product_id = ?`
+	// complete the update query
+	err = s.db.Exec(query, req.IsMarking, req.ProductId).Error
+	if err != nil {
+		s.log.Warn("ERROR on updating is_marking: %v", err.Error())
+		return err
+	}
 	return nil
 }
 
