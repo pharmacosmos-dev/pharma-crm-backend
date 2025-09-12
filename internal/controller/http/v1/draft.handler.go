@@ -84,8 +84,12 @@ func (h *DraftHandler) Create(c *gin.Context) {
 	}
 	// get cart_item list by sale_id
 	err = tx.WithContext(ctx).
-		Where("sale_id = ?", body.SaleID).
-		Find(&cartItems).Error
+		Table("cart_items").
+		Select(`cart_items.*, p.unit_per_pack`).
+		Joins("JOIN store_products sp ON sp.id = cart_items.store_product_id").
+		Joins("JOIN products p ON p.id = sp.product_id").
+		Where("cart_items.sale_id = ?", body.SaleID).
+		Scan(&cartItems).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -104,6 +108,12 @@ func (h *DraftHandler) Create(c *gin.Context) {
 			CartItemID: item.ID,
 			DraftID:    body.ID,
 		})
+		item.UnitQuantity += item.Quantity * item.UnitPerPack
+		var sp domain.StoreProduct
+		err = h.db.Where("id = ?", item.StoreProductID).First(&sp).Error
+		if sp.UnitQuantity%item.UnitPerPack == 0 && float64(item.UnitQuantity)/float64(item.UnitPerPack) > float64(item.Quantity) {
+			item.Quantity += 1
+		}
 		// decrease pack_quantity and unit_quantity on store_products
 		err = tx.WithContext(ctx).Exec(`UPDATE store_products SET pack_quantity = GREATEST(pack_quantity - ?, 0), unit_quantity = GREATEST(unit_quantity - ?, 0) WHERE id = ?`,
 			item.Quantity, item.UnitQuantity, item.StoreProductID).Error
@@ -149,11 +159,11 @@ func (h *DraftHandler) Create(c *gin.Context) {
 		handleResponse(c, InternalError, "Can't create new sale after drafted")
 		return
 	}
-	// commit transcation
+	// commit transaction
 	err = tx.Commit().Error
 	if err != nil {
 		h.log.Warn("ERROR on commiting transaction: %v", err)
-		handleResponse(c, InternalError, "Can't commit transcation")
+		handleResponse(c, InternalError, "Can't commit transaction")
 		return
 	}
 	handleResponse(c, CREATED, res)
@@ -379,6 +389,12 @@ func (h *DraftHandler) Delete(c *gin.Context) {
 		return
 	}
 	for _, item := range cartItems {
+		item.UnitQuantity += item.Quantity * item.UnitPerPack
+		var sp domain.StoreProduct
+		err = h.db.Where("id = ?", item.StoreProductID).First(&sp).Error
+		if sp.UnitQuantity%item.UnitPerPack == 0 && float64(item.UnitQuantity)/float64(item.UnitPerPack) > float64(item.Quantity) {
+			item.Quantity += 1
+		}
 		err = h.service.ChangeStoreProductStock(tx, item.StoreProductID, item.Quantity, item.UnitQuantity, true)
 		if err != nil {
 			h.log.Error(err)
@@ -454,6 +470,12 @@ func (h *DraftHandler) CompleteDraft(c *gin.Context) {
 	}
 	// return product to store_products
 	for _, item := range cartItems {
+		item.UnitQuantity += item.Quantity * item.UnitPerPack
+		var sp domain.StoreProduct
+		err = h.db.Where("id = ?", item.StoreProductID).First(&sp).Error
+		if sp.UnitQuantity%item.UnitPerPack == 0 && float64(item.UnitQuantity)/float64(item.UnitPerPack) > float64(item.Quantity) {
+			item.Quantity += 1
+		}
 		err = h.service.ChangeStoreProductStock(tx, item.StoreProductID, item.Quantity, item.UnitQuantity, true)
 		if err != nil {
 			h.log.Error(err)
