@@ -473,6 +473,8 @@ func BuildProductOrderClause(orderField string) string {
 		"name":                  "b.name",
 		"final_pack_quantity":   "final_pack_quantity",
 		"final_unit_quantity":   "final_unit_quantity",
+		"pack_qty":              "b.pack_qty",
+		"unit_qty":              "b.unit_qty",
 		"import_pack_change":    "import_pack_change",
 		"import_unit_change":    "import_unit_change",
 		"sales_pack_change":     "sales_pack_change",

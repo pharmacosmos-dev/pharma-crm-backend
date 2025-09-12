@@ -1430,7 +1430,7 @@ func (s *Services) StoreProductsGivenDay(param *domain.ReportQueryParam) ([]doma
 	        sp.store_id,
 			st.name AS store_name,
 	        SUM(sp.pack_quantity) AS pack_qty,
-	        SUM(sp.unit_quantity) AS unit_qty,
+	        SUM(sp.unit_quantity) % p.unit_per_pack AS unit_qty,
 	        p.unit_per_pack,
 	        p.name,
 	        st.company_id
@@ -1462,7 +1462,7 @@ func (s *Services) StoreProductsGivenDay(param *domain.ReportQueryParam) ([]doma
 	    SELECT
 	        sp.product_id,
 	        COALESCE(SUM(ci.quantity),0) AS pack_change,
-	        COALESCE(SUM(ci.quantity * p.unit_per_pack + ci.unit_quantity),0) AS unit_change
+	        COALESCE(SUM(ci.quantity * p.unit_per_pack + ci.unit_quantity) % p.unit_per_pack,0)  AS unit_change
 	    FROM sales s
 	    JOIN cart_items ci ON ci.sale_id = s.id
 	    JOIN store_products sp ON sp.id = ci.store_product_id
@@ -1471,7 +1471,7 @@ func (s *Services) StoreProductsGivenDay(param *domain.ReportQueryParam) ([]doma
 	      AND s.status = 'completed'
 	      AND s.sale_type = 'SALE'
 	      AND s.completed_at > (SELECT target_date FROM vars)
-	    GROUP BY sp.product_id
+	    GROUP BY sp.product_id, p.unit_per_pack
 	),
 
 	-- 4. Future returns
@@ -1479,7 +1479,7 @@ func (s *Services) StoreProductsGivenDay(param *domain.ReportQueryParam) ([]doma
 	    SELECT
 	        sp.product_id,
 	        COALESCE(SUM(ci.quantity),0) AS pack_change,
-	        COALESCE(SUM(ci.quantity * p.unit_per_pack + ci.unit_quantity),0) AS unit_change
+	        COALESCE(SUM(ci.quantity * p.unit_per_pack + ci.unit_quantity) % p.unit_per_pack,0) AS unit_change
 	    FROM sales s
 	    JOIN cart_items ci ON ci.sale_id = s.id
 	    JOIN store_products sp ON sp.id = ci.store_product_id
@@ -1488,7 +1488,7 @@ func (s *Services) StoreProductsGivenDay(param *domain.ReportQueryParam) ([]doma
 	      AND s.status = 'completed'
 	      AND s.sale_type = 'RETURN'
 	      AND s.completed_at > (SELECT target_date FROM vars)
-	    GROUP BY sp.product_id
+	    GROUP BY sp.product_id, p.unit_per_pack
 	),
 
 	-- 5. Future transfers
@@ -1507,7 +1507,7 @@ func (s *Services) StoreProductsGivenDay(param *domain.ReportQueryParam) ([]doma
 	        SUM(
 	            CASE
 	                WHEN t.from_store_id = (SELECT target_store FROM vars)
-	                    THEN (td.accepted_count * p.unit_per_pack) / p.unit_per_pack
+	                    THEN (td.accepted_count * p.unit_per_pack) % p.unit_per_pack
 	                WHEN t.to_store_id = (SELECT target_store FROM vars)
 	                    THEN -(td.accepted_count * p.unit_per_pack) % p.unit_per_pack
 	                ELSE 0
