@@ -1377,10 +1377,11 @@ func (s *Services) ReportStoreSummaryStats(param *domain.ReportQueryParam) (doma
 
 func (s *Services) StoreProductsGivenDay(param *domain.ReportQueryParam) ([]domain.StoreProductsReport, int64, error) {
 	var (
-		res   []domain.StoreProductsReport
-		args  []any
-		total int64
-		err   error
+		res       []domain.StoreProductsReport
+		args      []any
+		countArgs []any
+		total     int64
+		err       error
 	)
 
 	startTime, err := time.Parse(time.RFC3339, param.StartDate)
@@ -1394,9 +1395,23 @@ func (s *Services) StoreProductsGivenDay(param *domain.ReportQueryParam) ([]doma
 	countQuery := `
         SELECT COUNT(DISTINCT sp.product_id)
         FROM store_products sp
+        JOIN products p ON p.id = sp.product_id
+        JOIN stores st ON st.id = sp.store_id
         WHERE sp.store_id = ?
     `
-	if err = s.db.Raw(countQuery, param.StoreId).Scan(&total).Error; err != nil {
+	countArgs = append(countArgs, param.StoreId)
+
+	if param.Search != "" {
+		countQuery += " AND p.name ILIKE ?"
+		countArgs = append(countArgs, "%"+param.Search+"%")
+	}
+
+	if param.CompanyId != "" {
+		countQuery += " AND st.company_id = ?"
+		countArgs = append(countArgs, param.CompanyId)
+	}
+
+	if err = s.db.Raw(countQuery, countArgs...).Scan(&total).Error; err != nil {
 		s.log.Error("Failed to count store products: ", err)
 		return nil, 0, err
 	}
@@ -1423,7 +1438,7 @@ func (s *Services) StoreProductsGivenDay(param *domain.ReportQueryParam) ([]doma
 	    JOIN products p ON p.id = sp.product_id
 	    JOIN stores st ON st.id = sp.store_id
 	    WHERE sp.store_id = (SELECT target_store FROM vars)
-	    GROUP BY sp.product_id, sp.store_id,st.name, p.unit_per_pack, p.name, st.company_id
+	    GROUP BY sp.product_id, sp.store_id, st.name, p.unit_per_pack, p.name, st.company_id
 	),
 
 	-- 2. Future imports
