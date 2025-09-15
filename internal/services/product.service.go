@@ -401,7 +401,11 @@ func (s *Services) ListProductExport(param *domain.ProductQueryParam) ([]domain.
 	query := fmt.Sprintf(`
 	SELECT
 		st.name AS store_name,
-		p.id,  p.material_code, p.name,  p.barcode,
+		p.id,  p.material_code,
+		ARRAY(
+        	SELECT 'https://tpharma.gofurov.me:4443/v1/upload/' || unnest(p.photos)
+    	) AS photos,
+		p.name,  p.barcode,
 		p.unit_per_pack, p.is_marking, p.mxik, p.created_at, p.updated_at,
 		pr.name AS manufacturer, u.unit_name, u.short_name,
 		sp.pack_quantity AS quantity,
