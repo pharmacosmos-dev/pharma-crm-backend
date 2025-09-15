@@ -173,7 +173,11 @@ func (s *Services) UpdateCartItemField(field string, value string, idField, idVa
 // get cart item list by sale id
 func (s *Services) ListCartItemsBySaleID(saleID string) ([]domain.CartItem, error) {
 	var res []domain.CartItem
-	err := s.db.Raw(`SELECT * FROM cart_items WHERE sale_id = ?`, saleID).Scan(&res).Error
+	err := s.db.Raw(`SELECT ci.*, p.unit_per_pack 
+			FROM cart_items ci 
+            JOIN store_products sp on ci.store_product_id = sp.id 
+            JOIN products p on sp.product_id = p.id
+            WHERE sale_id = ?`, saleID).Scan(&res).Error
 	if err != nil {
 		return nil, err
 	}

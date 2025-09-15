@@ -15139,6 +15139,81 @@ const docTemplate = `{
                 }
             }
         },
+        "/report/store-products-given-day/export-excel": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Export Store Products Given Day to Excel",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Report"
+                ],
+                "summary": "Export Store Products Given Day to Excel",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Order",
+                        "name": "order",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Start Date (YYYY-MM-DD)",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Store ID",
+                        "name": "store_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/report/store-stats": {
             "post": {
                 "security": [
@@ -16068,6 +16143,61 @@ const docTemplate = `{
                 "responses": {
                     "201": {
                         "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/repricing-detail/detail-status/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get total count, sums and markup averages for repricing details",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Repricing"
+                ],
+                "summary": "Get Repricing Detail summary stats",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Repricing ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search by product name or barcode",
+                        "name": "search",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
                         }
@@ -23268,6 +23398,9 @@ const docTemplate = `{
                 "store_id": {
                     "type": "string"
                 },
+                "tax_free": {
+                    "type": "boolean"
+                },
                 "total_amount": {
                     "type": "number"
                 }
@@ -24099,6 +24232,9 @@ const docTemplate = `{
         "domain.ProductStatusReport": {
             "type": "object",
             "properties": {
+                "total_discount_sum": {
+                    "type": "number"
+                },
                 "total_quantity": {
                     "type": "number"
                 },
@@ -24810,6 +24946,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "new_retail_price": {
+                    "type": "number"
+                },
+                "percent": {
                     "type": "number"
                 },
                 "store_product_id": {

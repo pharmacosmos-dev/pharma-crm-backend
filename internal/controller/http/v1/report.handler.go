@@ -52,6 +52,7 @@ func (h *ReportHandler) ReportRoutes(r *gin.RouterGroup) {
 		report.POST("/store-summary-stats", h.ReportStoreSummaryStats)
 		report.POST("/store-summary/export-excel", h.StoreSummaryExportExcel)
 		report.POST("/store-products-given-day", h.StoreProductsGivenDay)
+		report.POST("/store-products-given-day/export-excel", h.StoreProductsGivenDayExportExcel)
 		report.POST("/discount-card", h.DiscountCardReport)
 	}
 }
@@ -1280,10 +1281,8 @@ func (h *ReportHandler) TopProductsExportExcel(c *gin.Context) {
 		return
 	}
 	// bind store ids
-	if err := c.ShouldBindJSON(&param.StoreIds); err != nil {
-		handleResponse(c, BadRequest, "Invalid store ids")
-		return
-	}
+	_ = c.ShouldBindJSON(&param.StoreIds)
+
 	// get user_id from the context
 	userId, ok := c.Get("user_id")
 	if !ok {
@@ -1322,7 +1321,7 @@ func (h *ReportHandler) TopProductsExportExcel(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheet)
 
 	// set headers
-	headers := []string{"ID", "Название", "Количество", "Общее количество", "Общая сумма"}
+	headers := []string{"ID", "Название", "Производитель", "Количество", "Общее количество", "Общая сумма"}
 	err = setExcelHeaders(f, sheet, headers)
 	if err != nil {
 		h.log.Error("Failed to create style:", err)
@@ -1334,9 +1333,10 @@ func (h *ReportHandler) TopProductsExportExcel(c *gin.Context) {
 		row := strconv.Itoa(i + 2)
 		f.SetCellValue(sheet, "A"+row, i+1)
 		f.SetCellValue(sheet, "B"+row, val.Name)
-		f.SetCellValue(sheet, "C"+row, val.Count)
-		f.SetCellValue(sheet, "D"+row, val.TotalCount)
-		f.SetCellValue(sheet, "E"+row, val.TotalAmount)
+		f.SetCellValue(sheet, "C"+row, val.ProducerName)
+		f.SetCellValue(sheet, "D"+row, val.Count)
+		f.SetCellValue(sheet, "E"+row, val.TotalCount)
+		f.SetCellValue(sheet, "F"+row, val.TotalAmount)
 	}
 
 	saveExcelToUploads(c, f, *h.log, "Top_products")
@@ -1844,6 +1844,7 @@ func (h *ReportHandler) StoreProductsGivenDay(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid query parameters")
 		return
 	}
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 	// get user_id from the context
 	userId, ok := c.Get("user_id")
 	if !ok {
@@ -1876,6 +1877,122 @@ func (h *ReportHandler) StoreProductsGivenDay(c *gin.Context) {
 
 	result := utils.ListResponse(data, total, param.Limit, param.Offset)
 	handleResponse(c, OK, result)
+}
+
+// StoreProductsGivenDayExportExcel godoc
+// @Summary Export Store Products Given Day to Excel
+// @Description Export Store Products Given Day to Excel
+// @Tags Report
+// @Security BearerAuth
+// @Produce json
+// @Param   order       query string false "Order"
+// @Param   search      query string false "Search"
+// @Param   limit       query int    false "Limit"
+// @Param   offset      query int    false "Offset"
+// @Param   start_date  query string false "Start Date (YYYY-MM-DD)"
+// @Param   store_id    query string false "Store ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /report/store-products-given-day/export-excel [POST]
+func (h *ReportHandler) StoreProductsGivenDayExportExcel(c *gin.Context) {
+	var param domain.ReportQueryParam
+
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "Invalid query parameters")
+		return
+	}
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	// get user_id from context
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+
+	// get employee info
+	var employee domain.Employee
+	err := h.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			param.StoreId = employee.StoreId
+		}
+		param.CompanyId = employee.CompanyId
+	}
+
+	// get store products given day
+	res, _, err := h.service.StoreProductsGivenDay(&param)
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to get store products given day")
+		return
+	}
+
+	// create Excel
+	f := excelize.NewFile()
+	sheet := "Остаток по дате"
+	f.SetSheetName("Sheet1", sheet)
+
+	// headers mapping
+	headers := []string{
+		"№",
+		"Наименование товара",
+		"Аптека",
+		"Итог (упаковки)",
+		"Итог (штуки)",
+		"Текущий остаток (упаковки)",
+		"Текущий остаток (штуки)",
+		"Приход (упаковки)",
+		"Приход (штуки)",
+		"Продажа (упаковки)",
+		"Продажа (штуки)",
+		"Возврат (упаковки)",
+		"Возврат (штуки)",
+		"Перемещение (упаковки)",
+		"Перемещение (штуки)",
+		"Инвентаризация (упаковки)",
+		"Инвентаризация (штуки)",
+	}
+	if err := setExcelHeaders(f, sheet, headers); err != nil {
+		h.log.Error("Failed to set excel headers:", err)
+		handleResponse(c, InternalError, "Error on creating excel")
+		return
+	}
+
+	// fill rows
+	for i, val := range res {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheet, "A"+row, i+1)
+		f.SetCellValue(sheet, "B"+row, val.Name)
+		f.SetCellValue(sheet, "C"+row, val.StoreName)
+		f.SetCellValue(sheet, "D"+row, val.FinalPackQuantity)
+		f.SetCellValue(sheet, "E"+row, val.FinalUnitQuantity)
+		f.SetCellValue(sheet, "F"+row, val.PackQty)
+		f.SetCellValue(sheet, "G"+row, val.UnitQty)
+		f.SetCellValue(sheet, "H"+row, val.ImportPackChange)
+		f.SetCellValue(sheet, "I"+row, val.ImportUnitChange)
+		f.SetCellValue(sheet, "J"+row, val.SalesPackChange)
+		f.SetCellValue(sheet, "K"+row, val.SalesUnitChange)
+		f.SetCellValue(sheet, "L"+row, val.ReturnPackChange)
+		f.SetCellValue(sheet, "M"+row, val.ReturnUnitChange)
+		f.SetCellValue(sheet, "N"+row, val.TransferPackChange)
+		f.SetCellValue(sheet, "O"+row, val.TransferUnitChange)
+		f.SetCellValue(sheet, "P"+row, val.InventoryPackChange)
+		f.SetCellValue(sheet, "Q"+row, val.InventoryUnitChange)
+	}
+
+	// save to /uploads
+	saveExcelToUploads(c, f, *h.log, "Остаток по дате")
 }
 
 // Discount card report godoc

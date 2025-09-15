@@ -38,6 +38,7 @@ func (h *RepricingHandler) RepricingRoutes(r *gin.RouterGroup) {
 	detail := r.Group("repricing-detail")
 	{
 		detail.GET("/list/:id", h.ListDetail)
+		detail.GET("/detail-status/:id", h.RepricingDetailStatus)
 		detail.GET("/export-excel", h.ExportListDetail)
 	}
 }
@@ -456,6 +457,43 @@ func (h *RepricingHandler) ListDetail(c *gin.Context) {
 	handleResponse(c, OK, data)
 }
 
+// RepricingDetailStatus godoc
+// @Summary Get Repricing Detail summary stats
+// @Description Get total count, sums and markup averages for repricing details
+// @Tags Repricing
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param   id path int true "Repricing ID"
+// @Param   search query string false "Search by product name or barcode"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /repricing-detail/detail-status/{id} [get]
+func (h *RepricingHandler) RepricingDetailStatus(c *gin.Context) {
+	var param domain.QueryParam
+
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "Invalid query param")
+		return
+	}
+
+	repricingID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		handleResponse(c, BadRequest, "Invalid repricing_id")
+		return
+	}
+
+	res, err := h.service.RepricingDetailStatus(repricingID, &param)
+	if err != nil {
+		h.log.Error("ERROR on repricing detail status: %v", err)
+		handleResponse(c, InternalError, "Failed to get repricing detail summary")
+		return
+	}
+
+	handleResponse(c, OK, res)
+}
+
 // ExportListDetail godoc
 // @Summary Export Repricing Details to Excel
 // @Description Export repricing details to Excel
@@ -557,9 +595,10 @@ func (h *RepricingHandler) ExportListDetail(c *gin.Context) {
 func (h *RepricingHandler) AddRetailPrice(c *gin.Context) {
 	var (
 		body domain.UpdateNewPrice
+		err  error
 	)
 	// bind request body
-	if err := c.ShouldBindJSON(&body); err != nil {
+	if err = c.ShouldBindJSON(&body); err != nil {
 		handleResponse(c, BadRequest, "invalid.request.body")
 		return
 	}
@@ -572,13 +611,24 @@ func (h *RepricingHandler) AddRetailPrice(c *gin.Context) {
 		}
 	}()
 
-	query := `
-	UPDATE price_revalution_details SET new_retail_price = ?, updated_at = NOW() WHERE id = ?
-	`
-	err := tx.Exec(query,
-		body.NewRetailPrice, body.Id).Error
-	if err != nil {
-		handleResponse(c, InternalError, "failed.update.retail_price")
+	if body.Percent > 0 {
+		query := `
+        UPDATE price_revalution_details
+        SET 
+            new_retail_price = old_supply_price * (1 + ?/100.00), 
+            updated_at = NOW()
+        WHERE id = ?
+    `
+		err = tx.Exec(query, body.Percent, body.Id).Error
+	} else if body.NewRetailPrice > 0 {
+		query := `
+        UPDATE price_revalution_details
+        SET new_retail_price = ?, updated_at = NOW()
+        WHERE id = ?
+    `
+		err = tx.Exec(query, body.NewRetailPrice, body.Id).Error
+	} else {
+		handleResponse(c, BadRequest, "invalid.price.value")
 		tx.Rollback()
 		return
 	}

@@ -75,6 +75,7 @@ type PriceRevalutionDetailRequest struct {
 type UpdateNewPrice struct {
 	Id             string  `gorm:"id" json:"id"`
 	StoreProductId string  `gorm:"store_product_id" json:"store_product_id"`
+	Percent        float64 `gorm:"percent" json:"percent"`
 	NewRetailPrice float64 `gorm:"new_retail_price" json:"new_retail_price"`
 	NewExpireDate  string  `gorm:"new_expire_date" json:"new_expire_date"`
 }
@@ -120,4 +121,13 @@ type MultiRepricingRequest1C struct {
 type AptekaWithProductsRepricing struct {
 	Apteka Apteka                    `json:"Apteka"`
 	Товары []ProductRepricingRequest `json:"Товары"`
+}
+
+type RepricingDetailStatusSummary struct {
+	Count               int64   `json:"count"`
+	TotalOldRetailPrice float64 `json:"total_old_retail_price"`
+	TotalNewRetailPrice float64 `json:"total_new_retail_price"`
+	TotalOldSupplyPrice float64 `json:"total_old_supply_price"`
+	AvgOldMarkup        float64 `json:"avg_old_markup"`
+	AvgNewMarkup        float64 `json:"avg_new_markup"`
 }

@@ -751,10 +751,10 @@ func (s *Services) GetProductMovements(productId, storeId string, limit, offset 
 			im.id, im.public_id, im.entry_type, im.created_at,
 			s.name AS store_name,
 			CASE
-				WHEN COALESCE(SUM(imd.scanned_count), 0) = 0 THEN '0'
+				WHEN COALESCE(SUM(imd.scanned_count) / vd.unit_per_pack, 0) = 0 THEN '0'
 				ELSE
 					CONCAT(
-						ROUND(SUM(imd.scanned_count), 0)::text, ' уп',
+						FLOOR(SUM(imd.scanned_count) / vd.unit_per_pack)::text, ' уп',
 						CASE 
 							WHEN (SUM(imd.scanned_count) %% vd.unit_per_pack) > 0 
 							THEN CONCAT(' ', (SUM(imd.scanned_count) %% vd.unit_per_pack)::text, ' шт')
@@ -762,7 +762,7 @@ func (s *Services) GetProductMovements(productId, storeId string, limit, offset 
 						END
 					)
 			END AS count,
-			SUM((imd.accepted_count/vd.unit_per_pack) * imd.retail_price_vat) AS sum,
+			ROUND(SUM(imd.retail_price_vat * (imd.scanned_count/vd.unit_per_pack)), 2) AS sum,
 			im.name AS name,
 			vd.unit_per_pack
 		FROM imports im

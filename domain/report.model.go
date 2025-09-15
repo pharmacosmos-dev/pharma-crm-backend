@@ -21,6 +21,7 @@ type ProductStatusReport struct {
 	TotalQuantityReturned       float64 `json:"total_quantity_returned"`
 	TotalRetailPriceSum         float64 `json:"total_retail_price_sum"`
 	TotalRetailPriceSumReturned float64 `json:"total_retail_price_sum_returned"`
+	TotalDiscountSum            float64 `json:"total_discount_sum"`
 }
 
 // Bonus report structure
@@ -44,6 +45,7 @@ type ProductReport struct {
 	ProductName    string     `gorm:"product_name" json:"product_name"`
 	ProducerName   string     `gorm:"producer_name" json:"producer_name"`
 	SerialNumber   string     `gorm:"serial_number" json:"serial_number"`
+	TotalDiscount  float64    `gorm:"total_discount" json:"total_discount"`
 	ExpireDate     *time.Time `gorm:"expire_date" json:"expire_date"`
 	Quantity       float64    `gorm:"quantity" json:"quantity"`
 	SupplyPrice    float64    `gorm:"supply_price" json:"supply_price"`
@@ -126,17 +128,26 @@ type StoreSummaryStats struct {
 }
 
 type StoreProductsReport struct {
-	ProductID          string  `json:"product_id"`
-	StoreID            string  `json:"store_id"`
-	Name               string  `json:"name"`
-	FinalPackQuantity  float64 `json:"final_pack_quantity"`
-	FinalUnitQuantity  float64 `json:"final_unit_quantity"`
-	CartPackChange     float64 `json:"cart_pack_change"`
-	CartUnitChange     float64 `json:"cart_unit_change"`
-	TransferPackChange float64 `json:"transfer_pack_change"`
-	TransferUnitChange float64 `json:"transfer_unit_change"`
-	PackQty            float64 `json:"pack_qty"`
-	UnitQty            float64 `json:"unit_qty"`
+	ProductID         string  `json:"product_id"`
+	StoreID           string  `json:"store_id"`
+	StoreName         string  `json:"store_name"`
+	Name              string  `json:"name"`
+	FinalPackQuantity float64 `json:"final_pack_quantity"`
+	FinalUnitQuantity float64 `json:"final_unit_quantity"`
+	PackQty           float64 `json:"pack_qty"`
+	UnitQty           float64 `json:"unit_qty"`
+
+	// Changes by source
+	ImportPackChange    float64 `json:"import_pack_change"`
+	ImportUnitChange    float64 `json:"import_unit_change"`
+	SalesPackChange     float64 `json:"sales_pack_change"`
+	SalesUnitChange     float64 `json:"sales_unit_change"`
+	ReturnPackChange    float64 `json:"return_pack_change"`
+	ReturnUnitChange    float64 `json:"return_unit_change"`
+	TransferPackChange  float64 `json:"transfer_pack_change"`
+	TransferUnitChange  float64 `json:"transfer_unit_change"`
+	InventoryPackChange float64 `json:"inventory_pack_change"`
+	InventoryUnitChange float64 `json:"inventory_unit_change"`
 }
 
 type DiscountCardReport struct {

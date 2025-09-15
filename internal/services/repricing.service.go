@@ -297,6 +297,47 @@ func (s *Services) RepricingDetailList(repricingID int, param *domain.QueryParam
 	return res, totalCount, nil
 }
 
+func (s *Services) RepricingDetailStatus(repricingID int, param *domain.QueryParam) (*domain.RepricingDetailStatusSummary, error) {
+	query := `
+		SELECT
+			COALESCE(COUNT(prd.id), 0) AS count,
+			COALESCE(SUM(prd.old_retail_price), 0) AS total_old_retail_price,
+			COALESCE(SUM(prd.new_retail_price), 0) AS total_new_retail_price,
+			COALESCE(SUM(prd.old_supply_price), 0) AS total_old_supply_price,
+-- 			COALESCE(SUM(prd.new_supply_price), 0) AS total_new_supply_price,
+			ROUND(AVG(
+				CASE WHEN prd.old_supply_price = 0 THEN 0
+					 ELSE ((prd.old_retail_price - prd.old_supply_price) / prd.old_supply_price) * 100
+				END
+			), 2) AS avg_old_markup,
+			ROUND(AVG(
+				CASE WHEN prd.old_supply_price = 0 THEN 0
+					 ELSE ((prd.new_retail_price - prd.old_supply_price) / prd.old_supply_price) * 100
+				END
+			), 2) AS avg_new_markup
+		FROM price_revalution_details prd
+		JOIN products p ON p.id = prd.product_id
+		WHERE prd.price_revalution_id = ? and new_retail_price > 0
+	`
+
+	var args []any
+	args = append(args, repricingID)
+
+	if param.Search != "" {
+		query += " AND (p.name ILIKE ? OR p.barcode LIKE ?)"
+		search := "%" + param.Search + "%"
+		args = append(args, search, search)
+	}
+
+	var res domain.RepricingDetailStatusSummary
+	if err := s.db.Raw(query, args...).Scan(&res).Error; err != nil {
+		s.log.Error("Failed to get repricing detail status: %v", err)
+		return nil, err
+	}
+
+	return &res, nil
+}
+
 // confirm repricing
 func (s *Services) ConfirmRepricing(repricingID int, updatedBy string) error {
 	var (
