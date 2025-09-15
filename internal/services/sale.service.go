@@ -697,9 +697,9 @@ func (s *Services) ValidateSaleAmount(ctx context.Context, tx *gorm.DB, req *dom
 	// get payment type amounts sum
 	paymentTypeSum := s.collectSalePaymentAmount(req.PaymentTypes)
 
-	diff, err := s.GetStoreProductsDifference(ctx, tx, req.SaleID)
-	if math.Abs(diff) > 0.01 {
-		return false, errors.New("invalid.sale.amount")
+	err = s.GetStoreProductsDifference(ctx, tx, req.SaleID)
+	if err != nil {
+		return false, err
 	}
 
 	// checking total amounts
@@ -1204,24 +1204,34 @@ func (s *Services) ReturnStatusPending(ctx context.Context, tx *gorm.DB, sale *d
 	return nil
 }
 
-func (s *Services) GetStoreProductsDifference(ctx context.Context, tx *gorm.DB, saleId string) (float64, error) {
+func (s *Services) GetStoreProductsDifference(ctx context.Context, tx *gorm.DB, saleId string) error {
 	var (
-		err        error
-		difference float64
+		err   error
+		diffs domain.SaleDifference
 	)
 	defer RollbackIfError(tx, &err)
+
 	err = tx.WithContext(ctx).Raw(`
-		SELECT
-			ROUND(SUM(sp.retail_price * (ci.quantity + (ci.unit_quantity::numeric / p.unit_per_pack))) -SUM(ci.total_price),2) as difference
-		FROM cart_items ci
-		LEFT JOIN store_products sp ON ci.store_product_id = sp.id
-		JOIN products p ON sp.product_id = p.id
-		WHERE ci.sale_id = ?
-			
-`, saleId).Scan(&difference).Error
+        SELECT
+            ROUND(SUM(sp.retail_price * (ci.quantity + (ci.unit_quantity::numeric / p.unit_per_pack))) - SUM(ci.total_price), 2) as difference,
+            ROUND(SUM(sp.retail_price * (ci.quantity + (ci.unit_quantity::numeric / p.unit_per_pack))) - s.total_amount + s.total_discount, 2) as total_difference
+        FROM cart_items ci
+        LEFT JOIN sales s ON ci.sale_id = s.id
+        LEFT JOIN store_products sp ON ci.store_product_id = sp.id
+        JOIN products p ON sp.product_id = p.id
+        WHERE ci.sale_id = ?
+        GROUP BY s.id
+    `, saleId).Scan(&diffs).Error
+
 	if err != nil {
 		s.log.Error("", err)
-		return 0, err
+		return err
 	}
-	return difference, nil
+	if math.Abs(diffs.Difference) > 0.01 {
+		return errors.New("invalid.sale.amount")
+	}
+	if math.Abs(diffs.TotalDifference) > 0.01 {
+		return errors.New("invalid.sale.amount")
+	}
+	return nil
 }
