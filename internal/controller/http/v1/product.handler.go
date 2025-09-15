@@ -2467,7 +2467,7 @@ func (h *ProductHandler) productListExport(f *excelize.File, res []domain.Produc
 		f.SetCellValue(sheetName, "J"+row, math.Round((product.SupplyPrice*float64(product.Quantity)+(product.SupplyPrice/float64(product.UnitPerPack)*product.UnitQuantity))*100)/100)
 		f.SetCellValue(sheetName, "K"+row, math.Round((product.RetailPrice*float64(product.Quantity)+(product.RetailPrice/float64(product.UnitPerPack)*product.UnitQuantity))*100)/100)
 		f.SetCellValue(sheetName, "L"+row, product.Manufacturer)
-		f.SetCellValue(sheetName, "M"+row, product.Photos)
+		f.SetCellValue(sheetName, "M"+row, product.Photos[0])
 	}
 	return f, nil
 }
