@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"time"
 
@@ -696,6 +697,11 @@ func (s *Services) ValidateSaleAmount(ctx context.Context, tx *gorm.DB, req *dom
 	// get payment type amounts sum
 	paymentTypeSum := s.collectSalePaymentAmount(req.PaymentTypes)
 
+	diff, err := s.GetStoreProductsDifference(ctx, tx, req.SaleID)
+	if math.Abs(diff) > 0.01 {
+		return false, errors.New("invalid.sale.amount")
+	}
+
 	// checking total amounts
 	if cartItemSum != req.TotalAmount || paymentTypeSum != req.TotalAmount {
 		return false, errors.New("invalid.sale.amount")
@@ -1196,4 +1202,26 @@ func (s *Services) ReturnStatusPending(ctx context.Context, tx *gorm.DB, sale *d
 		return err
 	}
 	return nil
+}
+
+func (s *Services) GetStoreProductsDifference(ctx context.Context, tx *gorm.DB, saleId string) (float64, error) {
+	var (
+		err        error
+		difference float64
+	)
+	defer RollbackIfError(tx, &err)
+	err = tx.WithContext(ctx).Raw(`
+		SELECT
+			ROUND(SUM(sp.retail_price * (ci.quantity + (ci.unit_quantity::numeric / p.unit_per_pack))) -SUM(ci.total_price),2) as difference
+		FROM cart_items ci
+		LEFT JOIN store_products sp ON ci.store_product_id = sp.id
+		JOIN products p ON sp.product_id = p.id
+		WHERE ci.sale_id = ?
+			
+`, saleId).Scan(&difference).Error
+	if err != nil {
+		s.log.Error("", err)
+		return 0, err
+	}
+	return difference, nil
 }

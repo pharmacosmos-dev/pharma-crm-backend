@@ -143,11 +143,12 @@ type CartItemOnlineRequest struct {
 }
 
 type CartItemForDMED struct {
-	ID           string  `gorm:"id" json:"id"`
-	UnitPrice    float64 `gorm:"unit_price" json:"unit_price"`
-	Quantity     int     `gorm:"quantity" json:"quantity"`
-	UnitQuantity int     `gorm:"unit_quantity" json:"unit_quantity"`
-	UnitPerPack  int     `gorm:"unit_per_pack" json:"unit_per_pack"`
-	Barcode      string  `gorm:"barcode" json:"barcode"`
-	SerialNumber string  `gorm:"serial_number" json:"serial_number"`
+	ID             string  `gorm:"id" json:"id"`
+	UnitPrice      float64 `gorm:"unit_price" json:"unit_price"`
+	Quantity       int     `gorm:"quantity" json:"quantity"`
+	UnitQuantity   int     `gorm:"unit_quantity" json:"unit_quantity"`
+	UnitPerPack    int     `gorm:"unit_per_pack" json:"unit_per_pack"`
+	StoreProductId string  `gorm:"store_product_id" json:"store_product_id"`
+	Barcode        string  `gorm:"barcode" json:"barcode"`
+	SerialNumber   string  `gorm:"serial_number" json:"serial_number"`
 }

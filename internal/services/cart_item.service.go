@@ -316,7 +316,8 @@ func (s *Services) GetCartItems(ctx context.Context, tx *gorm.DB, saleID string)
     		ci.unit_price / p.unit_per_pack as unit_price,
     		p.unit_per_pack,
     		p.barcode,
-   			sp.serial_number
+   			sp.serial_number,
+   			ci.store_product_id
 		FROM cart_items ci
          		LEFT JOIN store_products sp ON ci.store_product_id = sp.id
          		LEFT JOIN products p ON sp.product_id = p.id
