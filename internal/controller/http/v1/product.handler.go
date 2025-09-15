@@ -1159,7 +1159,7 @@ func (h *ProductHandler) ListStoreProductProductId(c *gin.Context) {
 		Preload("Store").
 		Select("store_products.*, u.short_name,"+
 			"CASE "+
-			"WHEN store_products.supply_price = 0 THEN 100"+
+			"WHEN store_products.supply_price = 0 THEN 100 "+
 			"ELSE ROUND((store_products.retail_price / store_products.supply_price - 1) * 100, 3)"+
 			"END AS markup ").
 		Joins("JOIN products p ON p.id = store_products.product_id").
