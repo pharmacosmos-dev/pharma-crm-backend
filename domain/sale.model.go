@@ -299,3 +299,8 @@ type ConfirmOnlineSaleRequest struct {
 }
 
 // end region
+
+type SaleDifference struct {
+	Difference      float64 `gorm:"column:difference"`
+	TotalDifference float64 `gorm:"column:total_difference"`
+}

@@ -740,7 +740,7 @@ func (s *Services) GetProductMovements(productId, storeId string, limit, offset 
 					)
 			END AS count,
 			SUM(imd.accepted_count * imd.retail_price_vat) AS sum,
-			im.name AS name,
+			COALESCE(im.name, '') AS name,
 			vd.unit_per_pack
 		FROM imports im
 		JOIN stores s ON im.store_id = s.id
@@ -863,6 +863,38 @@ func (s *Services) GetProductMovements(productId, storeId string, limit, offset 
 		WHERE (tr.status = 'completed' OR tr.status = 'sent-to-1c') AND tr.entry_type = 1
 		%s
 		GROUP BY tr.id, fs.id, ts.id, vd.unit_per_pack
+     ),
+     draft_data AS (
+         SELECT
+             d.id,
+             d.draft_number AS public_id,
+             7 AS entry_type,
+             d.created_at,
+             s.name AS store_name,
+             CASE
+                 WHEN COALESCE(SUM(ci.quantity + ci.unit_quantity), 0) = 0 THEN '0'
+                 ELSE
+                     CONCAT(
+                             ROUND(SUM(ci.quantity), 0)::text, ' уп',
+                             CASE
+                                 WHEN (SUM(ci.unit_quantity)) > 0
+                                     THEN CONCAT(' ', (SUM(ci.unit_quantity))::text, ' шт')
+                                 ELSE ''
+                                 END
+                     )
+                 END AS count,
+             SUM(ci.total_price) AS sum,
+             d.status AS name, -- bu yerda draftning statusini chiqaramiz
+             vd.unit_per_pack
+         FROM drafts d
+                  JOIN stores s ON d.store_id = s.id
+                  JOIN cart_item_drafts cid ON cid.draft_id = d.id
+                  JOIN cart_items ci ON ci.id = cid.cart_item_id AND ci.status = 'drafted'
+                  JOIN store_products sp ON sp.id = ci.store_product_id
+                  JOIN var_data vd ON sp.product_id = vd.product_id
+         WHERE d.store_id = '031f207f-c867-4d24-8f1e-f6ce50e31120'
+           AND d.is_active = true
+         GROUP BY d.id, s.id, vd.unit_per_pack
 	)
 	SELECT *, COUNT(*) OVER() AS total_count
 	FROM (
@@ -875,6 +907,8 @@ func (s *Services) GetProductMovements(productId, storeId string, limit, offset 
 		SELECT * FROM vozvrat_data
 		UNION ALL
 		SELECT * FROM transfer_data
+		UNION ALL
+		SELECT * FROM draft_data
 	) all_data
 	ORDER BY created_at DESC
 	LIMIT ? OFFSET ?;
