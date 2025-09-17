@@ -11,8 +11,8 @@ import (
 // create store on importing products to branch
 func (s *Services) CreateStoreOnImport(req *domain.StoreRequest) (domain.Store, error) {
 	var res domain.Store
-	query := `INSERT INTO stores(name, detailed_name, store_code) VALUES(?, ?, ?) RETURNING *`
-	err := s.db.Raw(query, req.Name, req.Name, req.StoreCode).Scan(&res).Error
+	query := `INSERT INTO stores(name, detailed_name, store_code, company_id) VALUES(?, ?, ?, ?) RETURNING *`
+	err := s.db.Raw(query, req.Name, req.Name, req.StoreCode, req.CompanyId).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on creating new store: %v", err)
 		return res, err
