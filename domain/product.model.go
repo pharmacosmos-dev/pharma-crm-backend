@@ -261,6 +261,7 @@ type ProductData struct {
 	Name         string            `gorm:"name" json:"name"`
 	Photos       utils.StringArray `gorm:"type:text[]" json:"photos"`
 	Barcode      string            `gorm:"barcode" json:"barcode"`
+	Barcodes     utils.StringArray `gorm:"type:text[]" json:"barcodes"`
 	UnitPerPack  int               `gorm:"unit_per_pack" json:"unit_per_pack"`
 	MXIK         string            `gorm:"mxik" json:"mxik"`
 	UnitCode     string            `gorm:"unit_code" json:"unit_code"`

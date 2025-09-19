@@ -1494,6 +1494,19 @@ func (h *SaleHandler) AsilBelgiBarcode(c *gin.Context) {
 	}
 	body.UserID = userId.(string)
 
+	// get employee info by set user_id
+	var employee domain.Employee
+	err := h.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			handleResponse(c, NotFound, "user.not.found")
+			return
+		}
+		h.log.Warn("ERROR on getting employee info: %v", err)
+		handleResponse(c, InternalError, "not.get.user")
+		return
+	}
+
 	// markingCodeni 31 belgigacha qisqartirish
 	markingCode := body.Markirovka
 	if len(markingCode) > 31 {
@@ -1544,10 +1557,10 @@ func (h *SaleHandler) AsilBelgiBarcode(c *gin.Context) {
 		}
 		// product_barcodes log
 		if err = tx.Raw(`
-			INSERT INTO product_barcodes(product_id, old_barcode, barcode, created_by, status)
-			VALUES(?, ?, ?, ?, ?)
+			INSERT INTO product_barcodes(product_id, old_barcode, barcode, created_by, status, store_id)
+			VALUES(?, ?, ?, ?, ?, ?)
 			RETURNING id
-		`, body.ProductID, oldBarcode, barcode, body.UserID, constants.COMPLETED).Scan(&id).Error; err != nil {
+		`, body.ProductID, oldBarcode, barcode, body.UserID, constants.COMPLETED, employee.StoreId).Scan(&id).Error; err != nil {
 			h.log.Warn("ERROR on inserting product_barcode: %v", err)
 			handleResponse(c, InternalError, "failed.save.barcode.log")
 			return
@@ -1556,10 +1569,10 @@ func (h *SaleHandler) AsilBelgiBarcode(c *gin.Context) {
 	} else {
 		// pending log
 		if err = tx.Raw(`
-			INSERT INTO product_barcodes(product_id, old_barcode, barcode, created_by, status)
-			VALUES(?, ?, ?, ?, ?)
+			INSERT INTO product_barcodes(product_id, old_barcode, barcode, created_by, status, store_id)
+			VALUES(?, ?, ?, ?, ?, ?)
 			RETURNING id
-		`, body.ProductID, oldBarcode, barcode, body.UserID, constants.PENDING).Scan(&id).Error; err != nil {
+		`, body.ProductID, oldBarcode, barcode, body.UserID, constants.PENDING, employee.StoreId).Scan(&id).Error; err != nil {
 			h.log.Warn("ERROR on inserting pending product_barcode: %v", err)
 			handleResponse(c, InternalError, "failed.save.pending.barcode.log")
 			return
