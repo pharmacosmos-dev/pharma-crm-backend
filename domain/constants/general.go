@@ -36,6 +36,8 @@ const (
 	CANCELED_IMPORT  = "canceled"
 	WRITEOFF_IMPORT  = "writeoff"
 
+	PHARMA_COSMOS = "Pharma Cosmos"
+
 	// cart item status
 	PENDING_CART_ITEM = "pending"
 	ACTIVE_CART_ITEM  = "active"

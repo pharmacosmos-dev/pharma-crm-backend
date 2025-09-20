@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/spf13/cast"
 	"gorm.io/gorm"
@@ -66,11 +67,27 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 			tx.Rollback()
 		}
 	}()
+	var company domain.Company
+	if body.Apteka.Franshiza {
+		err = h.db.First(&company, "name ilike ?", "%"+constants.PHARMA_COSMOS+"%").Error // todo 1c given companyName
+		if err != nil {
+			tx.Rollback()
+			handleResponse(c, InternalError, "Failed to get company info")
+			return
+		}
+	} else {
+		err = h.db.First(&company, "name ilike ?", "%"+constants.PHARMA_COSMOS+"%").Error
+		if err != nil {
+			tx.Rollback()
+			handleResponse(c, InternalError, "Failed to get company info")
+			return
+		}
+	}
 	// get store info
 	var store domain.Store
 	err = h.db.First(&store, "store_code = ?", body.Apteka.StoreCode).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		store, err = h.service.CreateStoreOnImport(&domain.StoreRequest{Name: body.Apteka.Name, StoreCode: body.Apteka.StoreCode})
+		store, err = h.service.CreateStoreOnImport(&domain.StoreRequest{Name: body.Apteka.Name, StoreCode: body.Apteka.StoreCode, CompanyId: company.ID})
 		if err != nil {
 			tx.Rollback()
 			handleResponse(c, InternalError, "Failed to create new store")
@@ -116,16 +133,15 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 		productID := uuid.New().String()
 		// create or update product
 		err = tx.Raw(`
-		INSERT INTO products (material_code, name, barcode, producer_id, mxik, is_marking)
-		VALUES (?, ?, ?, ?, ?, ?)
+		INSERT INTO products (material_code, name, barcode, producer_id, mxik, is_marking,company_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT (material_code) DO UPDATE
 		SET
-			producer_id = EXCLUDED.producer_id, 
-			mxik = EXCLUDED.mxik, 
+			producer_id = EXCLUDED.producer_id,
 			is_marking = EXCLUDED.is_marking
 		RETURNING id`,
 			body.Товары[i].MaterialCode,
-			body.Товары[i].Name, body.Товары[i].Barcode, producer.Id, body.Товары[i].Ikpu, body.Товары[i].Mar).Scan(&productID).Error
+			body.Товары[i].Name, body.Товары[i].Barcode, producer.Id, body.Товары[i].Ikpu, body.Товары[i].Mar, company.ID).Scan(&productID).Error
 		if err != nil {
 			h.log.Warn("ERROR on creating new product: %v", err.Error())
 			handleResponse(c, BadRequest, "Error on checking product data")
