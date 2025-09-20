@@ -39,6 +39,7 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 		ci.created_at,
 		ci.updated_at,
 		ci.marking_count,
+		ci.markings,
 		p.name,
 		p.id as product_id,
 		COALESCE(sp.barcode, p.barcode) AS barcode,
