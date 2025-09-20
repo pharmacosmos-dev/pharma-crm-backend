@@ -1,6 +1,10 @@
 package domain
 
-import "time"
+import (
+	"time"
+
+	"github.com/pharma-crm-backend/pkg/utils"
+)
 
 // CartItem structure
 type CartItem struct {
@@ -22,6 +26,11 @@ type CartItem struct {
 	CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt      *time.Time `gorm:"updated_at" json:"updated_at"`
 	IsMarking      bool       `gorm:"is_marking" json:"is_marking"`
+}
+
+// UpdateMarkingsRequest structure
+type UpdateMarkingsRequest struct {
+	Markings utils.StringArray `json:"markings" binding:"required"`
 }
 
 // CartItemRequest structure

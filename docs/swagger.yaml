@@ -279,7 +279,7 @@ definitions:
       old_barcode:
         type: string
       product_id:
-        type: integer
+        type: string
       status:
         type: string
     type: object
@@ -1590,6 +1590,15 @@ definitions:
       product_id:
         type: string
     type: object
+  domain.UpdateMarkingsRequest:
+    properties:
+      markings:
+        items:
+          type: string
+        type: array
+    required:
+    - markings
+    type: object
   domain.UpdateNewPrice:
     properties:
       id:
@@ -2266,6 +2275,51 @@ paths:
       security:
       - BearerAuth: []
       summary: Update a cart item
+      tags:
+      - cart_items
+  /cart_item/{id}/markings:
+    put:
+      consumes:
+      - application/json
+      description: Update the markings array for a specific cart item
+      parameters:
+      - description: cart item ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Markings payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UpdateMarkingsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update cart item markings
       tags:
       - cart_items
   /cart_item/list:
