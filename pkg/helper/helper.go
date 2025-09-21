@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/agnivade/levenshtein"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 )
@@ -68,4 +69,16 @@ func SplitFloatParts(number float64) (intPart int, fracPart int) {
 		fmt.Sscanf(parts[1], "%d", &fracPart)
 	}
 	return
+}
+
+func CalcSimilarity(a, b string) float64 {
+	distance := levenshtein.ComputeDistance(strings.ToLower(a), strings.ToLower(b))
+	maxLen := len(a)
+	if len(b) > maxLen {
+		maxLen = len(b)
+	}
+	if maxLen == 0 {
+		return 1.0
+	}
+	return 1.0 - float64(distance)/float64(maxLen)
 }

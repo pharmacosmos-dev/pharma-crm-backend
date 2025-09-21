@@ -697,10 +697,10 @@ func (s *Services) ValidateSaleAmount(ctx context.Context, tx *gorm.DB, req *dom
 	// get payment type amounts sum
 	paymentTypeSum := s.collectSalePaymentAmount(req.PaymentTypes)
 
-	err = s.GetStoreProductsDifference(ctx, tx, req.SaleID)
-	if err != nil {
-		return false, err
-	}
+	//err = s.GetStoreProductsDifference(ctx, tx, req.SaleID)
+	//if err != nil {
+	//	return false, err
+	//}
 
 	// checking total amounts
 	if cartItemSum != req.TotalAmount || paymentTypeSum != req.TotalAmount {

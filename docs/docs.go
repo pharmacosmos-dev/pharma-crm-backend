@@ -1142,6 +1142,76 @@ const docTemplate = `{
                 }
             }
         },
+        "/cart_item/{id}/markings": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update the markings array for a specific cart item",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "cart_items"
+                ],
+                "summary": "Update cart item markings",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "cart item ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Markings payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.UpdateMarkingsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/cash_box": {
             "post": {
                 "security": [
@@ -18422,6 +18492,109 @@ const docTemplate = `{
                 }
             }
         },
+        "/sale/asil-belgi-barcode": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Markirovkani yuborib, AslBelgi API orqali productName va gtin ni oladi. Foydalanuvchi yuborgan productName bilan solishtiriladi. Agar 90%+ mos tushsa avtomatik update qiladi (status=completed), bo‘lmasa pending yoziladi va eski barcode ham log bo‘ladi.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sales"
+                ],
+                "summary": "Check and save product barcode by markingCode",
+                "parameters": [
+                    {
+                        "description": "Markirovka va productName",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.AsilBelgiRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/sale/asil-belgi-barcode-confirm/{id}": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Pending statusdagi barcode’ni admin tasdiqlaydi va product/store_products ga yoziladi",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sales"
+                ],
+                "summary": "Confirm pending product barcode",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ProductBarcode ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.ConfirmBarcodeResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/sale/discount-card": {
             "post": {
                 "security": [
@@ -22616,6 +22789,9 @@ const docTemplate = `{
         "domain.Apteka": {
             "type": "object",
             "properties": {
+                "franshiza": {
+                    "type": "boolean"
+                },
                 "name": {
                     "type": "string"
                 },
@@ -22635,6 +22811,23 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/domain.ProductRepricingRequest"
                     }
+                }
+            }
+        },
+        "domain.AsilBelgiRequest": {
+            "type": "object",
+            "properties": {
+                "markirovka": {
+                    "type": "string",
+                    "example": "010481260800223421Hu4FxE1AFYCLn"
+                },
+                "productId": {
+                    "type": "string",
+                    "example": "uuid"
+                },
+                "productName": {
+                    "type": "string",
+                    "example": "АРПЕФЛЮ Таблетки покрытые пленочной оболочкой 100 мг №20"
                 }
             }
         },
@@ -22957,6 +23150,23 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "postal_code": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.ConfirmBarcodeResponse": {
+            "type": "object",
+            "properties": {
+                "new_barcode": {
+                    "type": "string"
+                },
+                "old_barcode": {
+                    "type": "string"
+                },
+                "product_id": {
+                    "type": "string"
+                },
+                "status": {
                     "type": "string"
                 }
             }
@@ -24680,6 +24890,9 @@ const docTemplate = `{
                 "cash_box_count": {
                     "type": "integer"
                 },
+                "company_id": {
+                    "type": "string"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -24933,6 +25146,20 @@ const docTemplate = `{
                 },
                 "product_id": {
                     "type": "string"
+                }
+            }
+        },
+        "domain.UpdateMarkingsRequest": {
+            "type": "object",
+            "required": [
+                "markings"
+            ],
+            "properties": {
+                "markings": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
