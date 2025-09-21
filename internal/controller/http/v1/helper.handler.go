@@ -80,7 +80,7 @@ func (h *HelperHandler) GetIKPUDatafromSoliq(c *gin.Context) {
 		offset    = c.Query("offset")
 	)
 
-	url := h.cfg.SoliqIkpuBaseUrl + "/web-katalog"
+	url := h.cfg.TasnifApiUrl + "/web-katalog"
 	if lang != "" {
 		url += "?lang=" + lang
 	}

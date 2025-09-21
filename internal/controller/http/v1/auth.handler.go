@@ -62,7 +62,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 	// decrypt saved password
-	oldPassword, err := etc.Decrypt(res.Password, h.cfg.HeshKey)
+	oldPassword, err := etc.Decrypt(res.Password, h.cfg.HashKey)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())

@@ -30,8 +30,8 @@ func ExternalBasicAuth(cfg *config.Config) basicauth.Config {
 	return basicauth.Config{
 		Users: []basicauth.User{
 			{
-				UserName: cfg.ExternalAPIUsername,
-				Password: cfg.ExternalAPIPassword,
+				UserName: cfg.ExternalApiUsername,
+				Password: cfg.ExternalApiPassword,
 			},
 		},
 		RestrictedUrls: []string{

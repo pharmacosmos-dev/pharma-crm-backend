@@ -38,7 +38,7 @@ func (h *TokenGeneratorHandler) Generate1CToken(c *gin.Context) {
 		return
 	}
 
-	token, err := etc.Encrypt(req.Password, h.cfg.HeshKey)
+	token, err := etc.Encrypt(req.Password, h.cfg.HashKey)
 	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())

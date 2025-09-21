@@ -984,12 +984,12 @@ func (s *Services) AcceptOnlineSale(req *domain.ConfirmOnlineSaleRequest) error 
 	}
 	// Prepare Headers
 	headers := map[string]string{
-		"Authorization": fmt.Sprintf("Bearer %s", s.cfg.NoorToken),
+		"Authorization": fmt.Sprintf("Bearer %s", s.cfg.NoorApiToken),
 		"Content-Type":  "application/json",
 	}
 	requestData, err := json.Marshal(gin.H{"order_id": sale.SaleNumber})
 	var response *http.Response
-	url := s.cfg.NoorBaseUrl + fmt.Sprintf("/orders/vendor/%d/confirm", sale.SaleNumber)
+	url := s.cfg.NoorApiUrl + fmt.Sprintf("/orders/vendor/%d/confirm", sale.SaleNumber)
 	err = DoRequest(&response, "PATCH", url, requestData, headers)
 	if err != nil {
 		s.log.Warn("ERROR on sending confirm request: %v", err)
@@ -1049,12 +1049,12 @@ func (s *Services) CancelOnlineSale(req *domain.ConfirmOnlineSaleRequest) error 
 	}
 	// Prepare Headers
 	headers := map[string]string{
-		"Authorization": fmt.Sprintf("Bearer %s", s.cfg.NoorToken),
+		"Authorization": fmt.Sprintf("Bearer %s", s.cfg.NoorApiToken),
 		"Content-Type":  "application/json",
 	}
 	requestData, err := json.Marshal(gin.H{"order_id": sale.SaleNumber})
 	var response *http.Response
-	url := s.cfg.NoorBaseUrl + fmt.Sprintf("/orders/vendor/%d/cancel", sale.SaleNumber)
+	url := s.cfg.NoorApiUrl + fmt.Sprintf("/orders/vendor/%d/cancel", sale.SaleNumber)
 	err = DoRequest(&response, "PATCH", url, requestData, headers)
 	if err != nil {
 		s.log.Warn("ERROR on sending confirm request: %v", err)
@@ -1114,14 +1114,14 @@ func (s *Services) doRequestToDMED(method, url string, data any) ([]byte, error)
 		bodyReader = bytes.NewReader(body)
 	}
 
-	req, err := http.NewRequest(method, s.cfg.DMEDBaseUrl+url, bodyReader)
+	req, err := http.NewRequest(method, s.cfg.DmedApiUrl+url, bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+s.cfg.DMEDToken)
+	req.Header.Set("Authorization", "Bearer "+s.cfg.DmedApiToken)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

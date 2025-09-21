@@ -537,12 +537,12 @@ func (h *AutoOrderHandler) DoRequest(ctx context.Context, data interface{}, url 
 		return nil, fmt.Errorf("failed to encode request data: %v", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", h.cfg.BaseUrl1C+url, &buf)
+	req, err := http.NewRequestWithContext(ctx, "POST", h.cfg.OnecApiUrl+url, &buf)
 	if err != nil {
 		h.log.Error("failed to create HTTP request: %v", err)
 		return nil, fmt.Errorf("failed to create HTTP request: %v", err)
 	}
-	req.SetBasicAuth(h.cfg.BaseUsername1C, h.cfg.BasePassword1C)
+	req.SetBasicAuth(h.cfg.OnecApiUsername, h.cfg.OnecApiPassword)
 	req.Header.Set("Content-Type", "application/json")
 
 	// Execute request

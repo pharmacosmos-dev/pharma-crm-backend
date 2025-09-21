@@ -719,17 +719,17 @@ func (s *Services) DoRequest(ctx context.Context, data any, url string) error {
 	req := &http.Request{}
 
 	// Construct request
-	req, err = http.NewRequestWithContext(ctx, "POST", s.cfg.BaseUrl1C+url, &buf)
+	req, err = http.NewRequestWithContext(ctx, "POST", s.cfg.OnecApiUrl+url, &buf)
 	if err != nil {
 		s.log.Error("failed to create HTTP request: %v", err)
 		return fmt.Errorf("failed to create HTTP request: %v", err)
 	}
 
 	// set basic auth username and password
-	req.SetBasicAuth(s.cfg.BaseUsername1C, s.cfg.BasePassword1C)
+	req.SetBasicAuth(s.cfg.OnecApiUsername, s.cfg.OnecApiPassword)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-	if s.cfg.BaseUrl1C != "test" {
+	if s.cfg.OnecApiUrl != "test" {
 		// Execute request
 		response, err := client.Do(req)
 		if err != nil {

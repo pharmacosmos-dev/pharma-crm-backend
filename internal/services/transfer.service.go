@@ -628,7 +628,7 @@ func (s *Services) ConfirmTransfer(transferID string, userId string) error {
 	data1C.Apteka.StoreCode = toStore.StoreCode
 	data1C.AptekaOtkud.Name = fromStore.Name
 	data1C.AptekaOtkud.StoreCode = fromStore.StoreCode
-	if s.cfg.BaseUrl1C != "test" {
+	if s.cfg.OnecApiUrl != "test" {
 		// send inventory products data to 1C
 		err = s.DoRequest(context.Background(), data1C, "/perekit")
 		if err != nil {

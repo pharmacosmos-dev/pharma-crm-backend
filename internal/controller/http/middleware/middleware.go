@@ -125,12 +125,12 @@ func (a *MiddlewareHandler) Check1CAuth() gin.HandlerFunc {
 			return
 		}
 
-		password, err := etc.Decrypt(tokenString, a.cfg.HeshKey)
+		password, err := etc.Decrypt(tokenString, a.cfg.HashKey)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization format"})
 			return
 		}
-		if password != a.cfg.Password1C {
+		if password != a.cfg.OnecPassword {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "invalid token"})
 			return
 		}

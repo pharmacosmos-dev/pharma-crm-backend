@@ -105,7 +105,7 @@ func (h *ShiftHandler) Create(c *gin.Context) {
 		return
 	}
 	// get decrypted password
-	passoword, err := etc.Decrypt(toEmployee.Password, h.cfg.HeshKey)
+	passoword, err := etc.Decrypt(toEmployee.Password, h.cfg.HashKey)
 	if err != nil {
 		h.log.Error("ERROR decryption password: ", err)
 		handleResponse(c, InternalError, "Failed to parse password")

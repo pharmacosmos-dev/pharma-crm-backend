@@ -27,7 +27,7 @@ func Run(cfg *config.Config) {
 	gin.SetMode(gin.ReleaseMode)
 
 	// logger
-	l := logger.New(cfg.Log.Level)
+	l := logger.New(cfg.App.Level)
 
 	// database connection functio
 	connDB, err := db.NewConnDB(cfg)
@@ -54,10 +54,10 @@ func Run(cfg *config.Config) {
 	}, hub)
 
 	// call to http server
-	httpServer := httpserver.New(handler, httpserver.Port(cfg.HTTP.Port))
+	httpServer := httpserver.New(handler, httpserver.Port(cfg.App.Port))
 
 	// Start http server
-	fmt.Println("Server is running on port:", cfg.HTTP.Port)
+	fmt.Println("Server is running on port:", cfg.App.Port)
 
 	c := cron.New(
 		cron.WithLocation(time.UTC), // important: sets cron to UTC

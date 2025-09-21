@@ -71,7 +71,7 @@ func (h *EmployeeHandler) Create(c *gin.Context) {
 		return
 	}
 
-	hashedPassword, err := etc.Encrypt(*body.Password, h.cfg.HeshKey)
+	hashedPassword, err := etc.Encrypt(*body.Password, h.cfg.HashKey)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -300,7 +300,7 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 	// check password password not nill
 	if body.Password != nil {
 		// get encrypted new password
-		*body.Password, err = etc.Encrypt(*body.Password, h.cfg.HeshKey)
+		*body.Password, err = etc.Encrypt(*body.Password, h.cfg.HashKey)
 		if err != nil {
 			h.log.Warn("ERROR on encrypting new password: %v", err)
 			handleResponse(c, InternalError, "Can't encrypt new password")
@@ -541,7 +541,7 @@ func (h *EmployeeHandler) ResetPassword(c *gin.Context) {
 		return
 	}
 
-	hashedPassword, err := etc.Encrypt(body.ConfirmPassword, h.cfg.HeshKey)
+	hashedPassword, err := etc.Encrypt(body.ConfirmPassword, h.cfg.HashKey)
 	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())

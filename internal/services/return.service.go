@@ -666,7 +666,7 @@ func (s *Services) ConfirmReturn(returnId, storeId string, userId string) error 
 		s.log.Warn("ERROR on commiting transaction: %v", err)
 		return err
 	}
-	if s.cfg.BaseUrl1C != "test" {
+	if s.cfg.OnecApiUrl != "test" {
 		// send return to 1C
 		err = s.DoRequest(context.Background(), returnData, "/vozvrat")
 		if err != nil {

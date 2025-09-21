@@ -118,7 +118,7 @@ func (h *Services) ClickPassDoRequest(ctx context.Context, url string, data any,
 	}
 
 	// Construct request
-	fullURL := h.cfg.ClickEndpointUrl + url
+	fullURL := h.cfg.ClickApiUrl + url
 	req, err := http.NewRequestWithContext(ctx, "POST", fullURL, &buf)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request: %v", err)
@@ -420,7 +420,7 @@ func (s *Services) PaymeGoDoRequest(ctx context.Context, data any, paymentServic
 		return nil, fmt.Errorf("failed to encode request data: %w", err)
 	}
 	// Create HTTP request
-	req, err := http.NewRequestWithContext(ctx, "POST", s.cfg.Payment.PaymeGoEndpointUrl, &buf)
+	req, err := http.NewRequestWithContext(ctx, "POST", s.cfg.PaymeApiUrl, &buf)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request: %w", err)
 	}
@@ -600,7 +600,7 @@ func (h *Services) UzumFastPayDoRequest(ctx context.Context, url string, data an
 	}
 
 	// Construct request
-	fullURL := h.cfg.UzumEndpointUrl + url
+	fullURL := h.cfg.UzumApiUrl + url
 	req, err := http.NewRequestWithContext(ctx, "POST", fullURL, &buf)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request: %v", err)
@@ -708,7 +708,7 @@ func (h *Services) AlifPayDoRequest(ctx context.Context, url string, data any, t
 	}
 
 	// Construct request
-	fullURL := h.cfg.AlifBaseUrl + url
+	fullURL := h.cfg.AlifApiUrl + url
 	req, err := http.NewRequestWithContext(ctx, "POST", fullURL, &buf)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP request: %v", err)
