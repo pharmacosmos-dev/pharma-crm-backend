@@ -1601,6 +1601,9 @@ func (h *SaleHandler) AsilBelgiBarcode(c *gin.Context) {
 			return
 		}
 		similarityStr = constants.COMPLETED
+	} else if similarity <= 0.6 {
+		handleResponse(c, BadRequest, "similarity.not.enough")
+		return
 	} else {
 		// pending log
 		if err = tx.Raw(`
