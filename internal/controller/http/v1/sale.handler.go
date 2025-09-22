@@ -1513,6 +1513,40 @@ func (h *SaleHandler) AsilBelgiBarcode(c *gin.Context) {
 		markingCode = markingCode[:31]
 	}
 
+	// markirovkadan 3 tashlab, keyingi 13 belgini olish
+	var markingPart string
+	if len(body.Markirovka) > 16 {
+		markingPart = body.Markirovka[3:16] // 3-chi indexdan boshlab 13 ta belgini olish
+	}
+
+	// shu barcode bazada bormi?
+	var exists bool
+	err = h.db.Raw(`
+	SELECT EXISTS(
+		SELECT 1 FROM product_barcodes 
+		WHERE product_id = ? AND barcode = ?
+	)
+	`, body.ProductID, markingPart).Scan(&exists).Error
+	if err != nil {
+		h.log.Warn("ERROR on searching product_barcodes: %v", err)
+		handleResponse(c, InternalError, "failed.search.product_barcodes")
+		return
+	}
+
+	// agar topilsa -> completed qaytariladi
+	if exists {
+		resp := domain.AsilBelgiBarcodeResponse{
+			Id:          body.ProductID,
+			Status:      constants.COMPLETED,
+			OldBarcode:  markingPart,
+			NewBarcode:  markingPart,
+			RequestName: body.ProductName,
+			Similarity:  100,
+		}
+		handleResponse(c, OK, resp)
+		return
+	}
+
 	// Asl Belgi API chaqiramiz
 	cisInfo, err := h.service.FetchCisInfo(markingCode)
 	if err != nil {
