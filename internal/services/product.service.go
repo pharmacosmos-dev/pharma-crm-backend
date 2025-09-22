@@ -56,7 +56,8 @@ func (s *Services) ProductSearch(param *domain.StoreProductQueryParam) ([]*domai
 	if searchInput != "" {
 		switch utils.DefineProductSearchQuery(searchInput) {
 		case "barcode":
-			filter += " AND p.barcode = ? "
+			query += " JOIN product_barcodes pb2 ON pb2.product_id = p.id AND pb2.status = 'completed' "
+			filter += " AND pb2.barcode = ? "
 			args = append(args, searchInput)
 			order = " ORDER BY sp.expire_date "
 
@@ -266,7 +267,7 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 		args          []any
 		filter        = "WHERE 1=1 "
 		order         = " ORDER BY p.updated_at DESC "
-		group         = " GROUP BY p.id, pr.id, u.id "
+		group         = " GROUP BY p.id, pr.id, u.id, pb.barcodes "
 		expireDayPart = ""
 	)
 
@@ -323,7 +324,7 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 	// filter with search
 	if param.SearchField != "" {
 		search := "%" + param.SearchField + "%"
-		filter += " AND (p.name ILIKE ? OR p.barcode LIKE ?) "
+		filter += ` AND (p.name ILIKE ? OR EXISTS (SELECT 1 FROM product_barcodes pb2 WHERE pb2.product_id = p.id AND pb2.status = 'completed' AND pb2.barcode LIKE ?))`
 		args = append(args, search, search)
 	}
 	// filter with barcode
@@ -332,12 +333,19 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 	}
 
 	query := fmt.Sprintf(`
+	WITH pb AS (
+		SELECT product_id, ARRAY_AGG(DISTINCT barcode) AS barcodes
+		FROM product_barcodes
+		WHERE status = 'completed'
+		GROUP BY product_id
+	)
 	SELECT
 		p.id, p.name, p.photos, p.barcode, p.material_code, 
 		p.unit_per_pack, p.is_marking, p.mxik, p.unit_code, 
 		p.unit_label, p.created_at, p.updated_at,
 		pr.name AS manufacturer, u.unit_name, u.short_name,
 		%s
+		COALESCE(pb.barcodes, ARRAY[]::varchar[]) AS barcodes,
 		CASE
 		    WHEN COALESCE((SUM(sp.unit_quantity) %s p.unit_per_pack), 0) = 0
 		        THEN CONCAT(COALESCE(SUM(sp.unit_quantity) / p.unit_per_pack,0)::text, ' уп')
@@ -353,6 +361,7 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 	LEFT JOIN producers pr ON p.producer_id = pr.id
 	LEFT JOIN unit_types u ON p.unit_type_id = u.id
 	LEFT JOIN stores st ON sp.store_id = st.id
+	LEFT JOIN pb ON pb.product_id = p.id
 	`, expireDayPart, "%", "%")
 
 	// collect query
@@ -1047,7 +1056,18 @@ func (s *Services) GetProductListByImport(param *domain.ProductQueryParam) ([]do
 		st.name AS store_name,
 		COALESCE(im.document_number, '') AS import_number,
 		p.name,
-		COALESCE(sp.barcode, p.barcode) AS barcode,
+		COALESCE(
+			(SELECT pb1.barcode 
+			 FROM product_barcodes pb1 
+			 WHERE pb1.product_id = p.id AND pb1.store_id = sp.store_id 
+			 ORDER BY pb1.created_at DESC 
+			 LIMIT 1),
+			(SELECT pb2.barcode 
+			 FROM product_barcodes pb2 
+			 WHERE pb2.product_id = p.id and pb2.store_id is null
+			 ORDER BY pb2.created_at DESC 
+			 LIMIT 1)
+		) AS barcode,
 		COALESCE(pr.name, '') as producer_name,
 		sp.pack_quantity as quantity,
 		(sp.unit_quantity % p.unit_per_pack) AS unit_quantity,

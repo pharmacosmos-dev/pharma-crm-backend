@@ -36,6 +36,7 @@ const (
 	CANCELED_IMPORT  = "canceled"
 	WRITEOFF_IMPORT  = "writeoff"
 
+	// company
 	PHARMA_COSMOS = "Pharma Cosmos"
 
 	// cart item status

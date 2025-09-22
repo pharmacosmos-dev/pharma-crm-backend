@@ -148,6 +148,15 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 			tx.Rollback()
 			return
 		}
+		err = tx.Exec(`
+    		INSERT INTO product_barcodes (product_id, barcode, status)
+    		SELECT ?, ?, ?
+    		WHERE NOT EXISTS (
+    		    SELECT 1 FROM product_barcodes 
+    		    WHERE product_id = ? AND barcode = ? AND status = ?
+    		)
+		`, productID, body.Товары[i].Barcode, constants.COMPLETED,
+			productID, body.Товары[i].Barcode, constants.COMPLETED).Error
 		// create import_detail
 		var id string
 		err = tx.Raw(`

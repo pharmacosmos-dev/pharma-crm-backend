@@ -1157,11 +1157,22 @@ func (h *ProductHandler) ListStoreProductProductId(c *gin.Context) {
 	query := h.db.
 		Model(&domain.StoreProduct{}).
 		Preload("Store").
-		Select("store_products.*, u.short_name,"+
-			"CASE "+
-			"WHEN store_products.supply_price = 0 THEN 100 "+
-			"ELSE ROUND((store_products.retail_price / store_products.supply_price - 1) * 100, 3)"+
-			"END AS markup ").
+		Select(`store_products.*,u.short_name,
+		CASE 
+			WHEN store_products.supply_price = 0 THEN 100
+			ELSE ROUND((store_products.retail_price / store_products.supply_price - 1) * 100, 3)
+		END AS markup,
+		COALESCE(
+			(SELECT pb1.barcode 
+			 FROM product_barcodes pb1 
+			 WHERE pb1.product_id = p.id AND pb1.store_id = store_products.store_id 
+			 LIMIT 1),
+			(SELECT pb2.barcode 
+			 FROM product_barcodes pb2 
+			 WHERE pb2.product_id = p.id 
+			 LIMIT 1)
+		) AS barcode
+	`).
 		Joins("JOIN products p ON p.id = store_products.product_id").
 		Joins("LEFT JOIN unit_types u ON u.id = p.unit_type_id").
 		Where("store_products.product_id = ?", id).
@@ -1215,8 +1226,27 @@ func (h *ProductHandler) UpdateBarcode(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid product id")
 		return
 	}
+	userID, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+	}
+	userID = userID.(string)
+	// get employee info
+	var employee domain.Employee
+	err := h.db.First(&employee, "id = ?", userID).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+	if !helper.IsAdmin(employee, h.cfg) {
+		handleResponse(c, UNAUTHORIZED, "Unauthorized")
+	}
 	// bind request body
-	err := c.ShouldBindJSON(&body)
+	err = c.ShouldBindJSON(&body)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
@@ -1232,6 +1262,18 @@ func (h *ProductHandler) UpdateBarcode(c *gin.Context) {
 		}
 		// update barcode store_p
 		err = h.db.Model(&domain.StoreProduct{}).Where("product_id = ?", id).Update("barcode", body.Barcode).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+		// insert into product_barcodes
+		err = h.db.Exec(`
+			INSERT INTO product_barcodes (product_id, barcode, old_barcode, status, created_by)
+			SELECT p.id, ?, p.barcode, 'completed', ?
+			FROM products p
+			WHERE p.id = ?
+		`, body.Barcode, userID, id).Error
 		if err != nil {
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())
@@ -1982,9 +2024,17 @@ func (h *ProductHandler) ExportProductListByImport(c *gin.Context) {
 // @Router /product/update-mxik-import/{id} [put]
 func (h *ProductHandler) UpdateProductIkpuForStoreProduct(c *gin.Context) {
 	var (
-		body domain.UpdateBarcodeRequest
-		id   = c.Param("id")
+		body   domain.UpdateBarcodeRequest
+		id     = c.Param("id")
+		userID string
 	)
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	userID = userId.(string)
+
 	// validate id
 	err := uuid.Validate(id)
 	if err != nil {
@@ -2026,6 +2076,21 @@ func (h *ProductHandler) UpdateProductIkpuForStoreProduct(c *gin.Context) {
 
 	if body.Barcode != "" {
 		err = h.db.Exec("UPDATE store_products SET barcode = ? WHERE id = ?", body.Barcode, id).Error
+		if err != nil {
+			h.log.Error(err)
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+		// insert into product_barcodes
+		err = h.db.Exec(`
+		INSERT INTO product_barcodes (product_id, barcode, old_barcode, store_id, status, created_by)
+		SELECT p.id, ?, sp.barcode, sp.store_id, 'completed', ? 
+		FROM store_products sp
+		JOIN products p ON p.id = sp.product_id
+		WHERE sp.id = ?`,
+			body.Barcode, userID, id,
+		).Error
+
 		if err != nil {
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())

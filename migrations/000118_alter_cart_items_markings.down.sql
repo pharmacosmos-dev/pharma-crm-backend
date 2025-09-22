@@ -1,0 +1,2 @@
+ALTER TABLE IF EXISTS cart_items
+    DROP COLUMN IF EXISTS markings;

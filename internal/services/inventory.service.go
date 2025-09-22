@@ -313,7 +313,10 @@ func (s *Services) InventoryDetailList(param *domain.InventoryParam) ([]domain.I
 	if param.Search != "" {
 		switch utils.DefineProductSearchQuery(param.Search) {
 		case "barcode":
-			filter += " AND p.barcode LIKE ?"
+			query += " JOIN product_barcodes pb2 ON pb2.product_id = p.id AND pb2.status = 'completed' "
+			tquery += " JOIN product_barcodes pb2 ON pb2.product_id = p.id AND pb2.status = 'completed' "
+			totalQuery += " JOIN product_barcodes pb2 ON pb2.product_id = p.id AND pb2.status = 'completed' "
+			filter += " AND pb2.barcode ILIKE ? "
 			args = append(args, "%"+param.Search+"%")
 		case "name/category":
 			filter += " AND (p.name ILIKE ? OR pr.name ILIKE ?) "
