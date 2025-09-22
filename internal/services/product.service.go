@@ -334,7 +334,7 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 
 	query := fmt.Sprintf(`
 	WITH pb AS (
-		SELECT product_id, ARRAY_AGG(barcode) AS barcodes
+		SELECT product_id, ARRAY_AGG(DISTINCT barcode) AS barcodes
 		FROM product_barcodes
 		WHERE status = 'completed'
 		GROUP BY product_id
