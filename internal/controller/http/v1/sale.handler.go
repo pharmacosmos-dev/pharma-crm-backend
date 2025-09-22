@@ -54,6 +54,7 @@ func (h *SaleHandler) SaleRoutes(r *gin.RouterGroup) {
 		sale.GET("/dmed/prescriptions", h.DMEDGetPrescriptions)
 		sale.POST("/asil-belgi-barcode", h.AsilBelgiBarcode)
 		sale.POST("/asil-belgi-barcode-confirm/:id", h.AsilBelgiBarcodeConfirm)
+		sale.PUT("/pending/:id", h.PendingSale)
 	}
 }
 
@@ -1714,6 +1715,84 @@ func (h *SaleHandler) AsilBelgiBarcodeConfirm(c *gin.Context) {
 		ProductID:  barcodeLog.ProductID,
 		OldBarcode: barcodeLog.OldBarcode,
 		NewBarcode: barcodeLog.Barcode,
+	}
+
+	handleResponse(c, OK, resp)
+}
+
+// PendingSale godoc
+// @Summary      Move sale to pending
+// @Description  Update a sale record status to pending
+// @Tags         sales
+// @Security     BearerAuth
+// @Produce      json
+// @Param        id path string true "Sale ID"
+// @Success      200 {object} domain.PendingSaleResponse
+// @Failure      400 {object} v1.Response
+// @Failure      404 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /sale/pending/{id} [put]
+func (h *SaleHandler) PendingSale(c *gin.Context) {
+	var (
+		sale domain.Sale
+		err  error
+	)
+
+	id := c.Param("id")
+	if id == "" {
+		handleResponse(c, BadRequest, "id.required")
+		return
+	}
+
+	// get sale record
+	err = h.db.First(&sale, "id = ?", id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		handleResponse(c, NotFound, "sale.not.found")
+		return
+	}
+	if sale.Status == constants.PENDING {
+		resp := domain.PendingSaleResponse{
+			ID:     id,
+			Status: constants.PENDING,
+		}
+		handleResponse(c, OK, resp)
+		return
+	} else if sale.SaleType == constants.SALE_TYPE_RETURN {
+		handleResponse(c, BadRequest, "sale.return.not.allowed")
+		return
+	}
+	if err != nil {
+		h.log.Warn("ERROR on getting sale: %v", err)
+		handleResponse(c, InternalError, "failed.get.sale")
+		return
+	}
+
+	// begin transaction
+	tx := h.db.Begin()
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// update sale status to pending
+	err = tx.Exec(`UPDATE sales SET status = ? WHERE id = ?`, constants.PENDING, id).Error
+	if err != nil {
+		h.log.Warn("ERROR on updating sale status: %v", err)
+		handleResponse(c, InternalError, "failed.update.sale.status")
+		return
+	}
+
+	// commit
+	if err = tx.Commit().Error; err != nil {
+		h.log.Warn("ERROR on committing transaction: %v", err)
+		handleResponse(c, InternalError, "not.completed.transaction")
+		return
+	}
+
+	resp := domain.PendingSaleResponse{
+		ID:     id,
+		Status: constants.PENDING,
 	}
 
 	handleResponse(c, OK, resp)

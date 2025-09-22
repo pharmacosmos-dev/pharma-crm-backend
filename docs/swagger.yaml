@@ -915,6 +915,13 @@ definitions:
       type:
         type: string
     type: object
+  domain.PendingSaleResponse:
+    properties:
+      id:
+        type: string
+      status:
+        type: string
+    type: object
   domain.Permission:
     properties:
       children:
@@ -14176,6 +14183,39 @@ paths:
       security:
       - BearerAuth: []
       summary: Get pending sales
+      tags:
+      - sales
+  /sale/pending/{id}:
+    put:
+      description: Update a sale record status to pending
+      parameters:
+      - description: Sale ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.PendingSaleResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Move sale to pending
       tags:
       - sales
   /sale/return:
