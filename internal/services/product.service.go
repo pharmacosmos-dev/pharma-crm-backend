@@ -1060,10 +1060,12 @@ func (s *Services) GetProductListByImport(param *domain.ProductQueryParam) ([]do
 			(SELECT pb1.barcode 
 			 FROM product_barcodes pb1 
 			 WHERE pb1.product_id = p.id AND pb1.store_id = sp.store_id 
+			 ORDER BY pb1.created_at DESC 
 			 LIMIT 1),
 			(SELECT pb2.barcode 
 			 FROM product_barcodes pb2 
-			 WHERE pb2.product_id = p.id 
+			 WHERE pb2.product_id = p.id and pb2.store_id is null
+			 ORDER BY pb2.created_at DESC 
 			 LIMIT 1)
 		) AS barcode,
 		COALESCE(pr.name, '') as producer_name,
