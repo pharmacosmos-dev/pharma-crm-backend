@@ -1157,11 +1157,22 @@ func (h *ProductHandler) ListStoreProductProductId(c *gin.Context) {
 	query := h.db.
 		Model(&domain.StoreProduct{}).
 		Preload("Store").
-		Select("store_products.*, u.short_name,"+
-			"CASE "+
-			"WHEN store_products.supply_price = 0 THEN 100 "+
-			"ELSE ROUND((store_products.retail_price / store_products.supply_price - 1) * 100, 3)"+
-			"END AS markup ").
+		Select(`store_products.*,u.short_name,
+		CASE 
+			WHEN store_products.supply_price = 0 THEN 100
+			ELSE ROUND((store_products.retail_price / store_products.supply_price - 1) * 100, 3)
+		END AS markup,
+		COALESCE(
+			(SELECT pb1.barcode 
+			 FROM product_barcodes pb1 
+			 WHERE pb1.product_id = p.id AND pb1.store_id = store_products.store_id 
+			 LIMIT 1),
+			(SELECT pb2.barcode 
+			 FROM product_barcodes pb2 
+			 WHERE pb2.product_id = p.id 
+			 LIMIT 1)
+		) AS barcode
+	`).
 		Joins("JOIN products p ON p.id = store_products.product_id").
 		Joins("LEFT JOIN unit_types u ON u.id = p.unit_type_id").
 		Where("store_products.product_id = ?", id).
