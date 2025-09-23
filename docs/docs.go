@@ -1174,7 +1174,75 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.UpdateMarkingsRequest"
+                            "$ref": "#/definitions/domain.AppendMarkingRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Remove a single marking string from the markings array of a specific cart item",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "cart_items"
+                ],
+                "summary": "Delete marking from cart item",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "cart item ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Marking payload",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.AppendMarkingRequest"
                         }
                     }
                 ],
@@ -19461,6 +19529,58 @@ const docTemplate = `{
                 }
             }
         },
+        "/sale/pending/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update a sale record status to pending",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sales"
+                ],
+                "summary": "Move sale to pending",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sale ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.PendingSaleResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/sale/return": {
             "post": {
                 "security": [
@@ -22786,6 +22906,17 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.AppendMarkingRequest": {
+            "type": "object",
+            "required": [
+                "marking"
+            ],
+            "properties": {
+                "marking": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.Apteka": {
             "type": "object",
             "properties": {
@@ -24117,6 +24248,17 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.PendingSaleResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.Permission": {
             "type": "object",
             "properties": {
@@ -25146,20 +25288,6 @@ const docTemplate = `{
                 },
                 "product_id": {
                     "type": "string"
-                }
-            }
-        },
-        "domain.UpdateMarkingsRequest": {
-            "type": "object",
-            "required": [
-                "markings"
-            ],
-            "properties": {
-                "markings": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
                 }
             }
         },

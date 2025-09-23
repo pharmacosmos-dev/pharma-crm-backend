@@ -54,6 +54,7 @@ func (h *SaleHandler) SaleRoutes(r *gin.RouterGroup) {
 		sale.GET("/dmed/prescriptions", h.DMEDGetPrescriptions)
 		sale.POST("/asil-belgi-barcode", h.AsilBelgiBarcode)
 		sale.POST("/asil-belgi-barcode-confirm/:id", h.AsilBelgiBarcodeConfirm)
+		sale.PUT("/pending/:id", h.PendingSale)
 	}
 }
 
@@ -1513,6 +1514,40 @@ func (h *SaleHandler) AsilBelgiBarcode(c *gin.Context) {
 		markingCode = markingCode[:31]
 	}
 
+	// markirovkadan 3 tashlab, keyingi 13 belgini olish
+	var markingPart string
+	if len(body.Markirovka) > 16 {
+		markingPart = body.Markirovka[3:16] // 3-chi indexdan boshlab 13 ta belgini olish
+	}
+
+	// shu barcode bazada bormi?
+	var exists bool
+	err = h.db.Raw(`
+	SELECT EXISTS(
+		SELECT 1 FROM product_barcodes 
+		WHERE product_id = ? AND barcode = ?
+	)
+	`, body.ProductID, markingPart).Scan(&exists).Error
+	if err != nil {
+		h.log.Warn("ERROR on searching product_barcodes: %v", err)
+		handleResponse(c, InternalError, "failed.search.product_barcodes")
+		return
+	}
+
+	// agar topilsa -> completed qaytariladi
+	if exists {
+		resp := domain.AsilBelgiBarcodeResponse{
+			Id:          body.ProductID,
+			Status:      constants.COMPLETED,
+			OldBarcode:  markingPart,
+			NewBarcode:  markingPart,
+			RequestName: body.ProductName,
+			Similarity:  100,
+		}
+		handleResponse(c, OK, resp)
+		return
+	}
+
 	// Asl Belgi API chaqiramiz
 	cisInfo, err := h.service.FetchCisInfo(markingCode)
 	if err != nil {
@@ -1566,6 +1601,9 @@ func (h *SaleHandler) AsilBelgiBarcode(c *gin.Context) {
 			return
 		}
 		similarityStr = constants.COMPLETED
+	} else if similarity <= 0.6 {
+		handleResponse(c, BadRequest, "similarity.not.enough")
+		return
 	} else {
 		// pending log
 		if err = tx.Raw(`
@@ -1680,6 +1718,84 @@ func (h *SaleHandler) AsilBelgiBarcodeConfirm(c *gin.Context) {
 		ProductID:  barcodeLog.ProductID,
 		OldBarcode: barcodeLog.OldBarcode,
 		NewBarcode: barcodeLog.Barcode,
+	}
+
+	handleResponse(c, OK, resp)
+}
+
+// PendingSale godoc
+// @Summary      Move sale to pending
+// @Description  Update a sale record status to pending
+// @Tags         sales
+// @Security     BearerAuth
+// @Produce      json
+// @Param        id path string true "Sale ID"
+// @Success      200 {object} domain.PendingSaleResponse
+// @Failure      400 {object} v1.Response
+// @Failure      404 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /sale/pending/{id} [put]
+func (h *SaleHandler) PendingSale(c *gin.Context) {
+	var (
+		sale domain.Sale
+		err  error
+	)
+
+	id := c.Param("id")
+	if id == "" {
+		handleResponse(c, BadRequest, "id.required")
+		return
+	}
+
+	// get sale record
+	err = h.db.First(&sale, "id = ?", id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		handleResponse(c, NotFound, "sale.not.found")
+		return
+	}
+	if sale.Status == constants.PENDING {
+		resp := domain.PendingSaleResponse{
+			ID:     id,
+			Status: constants.PENDING,
+		}
+		handleResponse(c, OK, resp)
+		return
+	} else if sale.SaleType == constants.SALE_TYPE_RETURN {
+		handleResponse(c, BadRequest, "sale.return.not.allowed")
+		return
+	}
+	if err != nil {
+		h.log.Warn("ERROR on getting sale: %v", err)
+		handleResponse(c, InternalError, "failed.get.sale")
+		return
+	}
+
+	// begin transaction
+	tx := h.db.Begin()
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// update sale status to pending
+	err = tx.Exec(`UPDATE sales SET status = ? WHERE id = ?`, constants.PENDING, id).Error
+	if err != nil {
+		h.log.Warn("ERROR on updating sale status: %v", err)
+		handleResponse(c, InternalError, "failed.update.sale.status")
+		return
+	}
+
+	// commit
+	if err = tx.Commit().Error; err != nil {
+		h.log.Warn("ERROR on committing transaction: %v", err)
+		handleResponse(c, InternalError, "not.completed.transaction")
+		return
+	}
+
+	resp := domain.PendingSaleResponse{
+		ID:     id,
+		Status: constants.PENDING,
 	}
 
 	handleResponse(c, OK, resp)

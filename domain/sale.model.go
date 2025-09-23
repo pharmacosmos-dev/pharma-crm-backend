@@ -304,3 +304,8 @@ type SaleDifference struct {
 	Difference      float64 `gorm:"column:difference"`
 	TotalDifference float64 `gorm:"column:total_difference"`
 }
+
+type PendingSaleResponse struct {
+	ID     string `json:"id"`
+	Status string `json:"status"`
+}

@@ -334,7 +334,7 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 
 	query := fmt.Sprintf(`
 	WITH pb AS (
-		SELECT product_id, ARRAY_AGG(barcode) AS barcodes
+		SELECT product_id, ARRAY_AGG(DISTINCT barcode) AS barcodes
 		FROM product_barcodes
 		WHERE status = 'completed'
 		GROUP BY product_id
@@ -1056,7 +1056,18 @@ func (s *Services) GetProductListByImport(param *domain.ProductQueryParam) ([]do
 		st.name AS store_name,
 		COALESCE(im.document_number, '') AS import_number,
 		p.name,
-		COALESCE(sp.barcode, p.barcode) AS barcode,
+		COALESCE(
+			(SELECT pb1.barcode 
+			 FROM product_barcodes pb1 
+			 WHERE pb1.product_id = p.id AND pb1.store_id = sp.store_id 
+			 ORDER BY pb1.created_at DESC 
+			 LIMIT 1),
+			(SELECT pb2.barcode 
+			 FROM product_barcodes pb2 
+			 WHERE pb2.product_id = p.id and pb2.store_id is null
+			 ORDER BY pb2.created_at DESC 
+			 LIMIT 1)
+		) AS barcode,
 		COALESCE(pr.name, '') as producer_name,
 		sp.pack_quantity as quantity,
 		(sp.unit_quantity % p.unit_per_pack) AS unit_quantity,
