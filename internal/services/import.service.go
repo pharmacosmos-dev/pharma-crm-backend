@@ -199,7 +199,7 @@ func (s *Services) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domai
 	}
 
 	// send fakt to 1C
-	err = s.DoRequest(context.Background(), reqFakt, "/prihod")
+	err = s.DoRequest(context.Background(), reqFakt, constants.OnecPathPrihod)
 	if err != nil {
 		s.log.Error("could not send prixod response: %v", err)
 	}
@@ -292,7 +292,7 @@ func (s *Services) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import)
 	}
 
 	// send fakt to 1C
-	err = s.DoRequest(context.Background(), reqFakt, "/prihod")
+	err = s.DoRequest(context.Background(), reqFakt, constants.OnecPathPrihod)
 	if err != nil {
 		s.log.Error("could not send request to 1C", err)
 	}

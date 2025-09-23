@@ -620,6 +620,11 @@ func (h *RepricingHandler) AddRetailPrice(c *gin.Context) {
         WHERE id = ?
     `
 		err = tx.Exec(query, body.Percent, body.Id).Error
+		if err != nil {
+			handleResponse(c, BadRequest, "could not update retail price")
+			tx.Rollback()
+			return
+		}
 	} else if body.NewRetailPrice > 0 {
 		query := `
         UPDATE price_revalution_details
@@ -627,6 +632,11 @@ func (h *RepricingHandler) AddRetailPrice(c *gin.Context) {
         WHERE id = ?
     `
 		err = tx.Exec(query, body.NewRetailPrice, body.Id).Error
+		if err != nil {
+			handleResponse(c, BadRequest, "could not update retail price")
+			tx.Rollback()
+			return
+		}
 	} else {
 		handleResponse(c, BadRequest, "invalid.price.value")
 		tx.Rollback()

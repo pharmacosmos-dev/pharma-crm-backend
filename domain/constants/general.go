@@ -99,6 +99,14 @@ const (
 	SALE_TYPE_SALE   = "SALE"
 )
 
+// Onec Request Path
+const (
+	OnecPathPrihod  = "/prihod"
+	OnecPathRasxod  = "/rasxod"
+	OnecPathVozvrat = "/vozvrat"
+	OnecPathZakaz   = "/zakaz"
+)
+
 // region languages
 
 const (

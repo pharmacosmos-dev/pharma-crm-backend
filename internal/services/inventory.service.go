@@ -13,6 +13,8 @@ import (
 	"github.com/spf13/cast"
 )
 
+// region Create
+
 // Create inventory creates a new inventory
 func (s *Services) CreateInventory(req *domain.InventoryRequest) error {
 	var id string
@@ -69,6 +71,8 @@ func (s *Services) CreateInventory(req *domain.InventoryRequest) error {
 	return nil
 }
 
+
+// region Get
 // get inventory by id
 func (s *Services) GetInventoryById(param *domain.InventoryParam) (*domain.Inventory, error) {
 	var (
@@ -516,6 +520,8 @@ func (s *Services) InventoryDetailStatsCount(param *domain.InventoryParam) (doma
 	return res, nil
 }
 
+
+// region Update
 // confirm inventory
 func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 	var err error
@@ -773,6 +779,7 @@ func (s *Services) SendInventory1C(inventoryID string) error {
 	return nil
 }
 
+// region Delete
 func (s *Services) DeleteInventory(ctx context.Context, inventoryId string) error {
 	err := s.db.
 		WithContext(ctx).

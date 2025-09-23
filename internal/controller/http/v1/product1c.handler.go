@@ -157,6 +157,12 @@ func (h *Product1cHandler) Create(c *gin.Context) {
     		)
 		`, productID, body.Товары[i].Barcode, constants.COMPLETED,
 			productID, body.Товары[i].Barcode, constants.COMPLETED).Error
+		if err != nil {
+			h.log.Warn("ERROR on creating product barcode: %v", err.Error())
+			handleResponse(c, BadRequest, "could not create product barcode")
+			tx.Rollback()
+			return
+		}
 		// create import_detail
 		var id string
 		err = tx.Raw(`
