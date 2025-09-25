@@ -190,7 +190,6 @@ func RoundTo(x float64, decimalPlaces int) float64 {
 	return math.Round(x*factor) / factor
 }
 
-
 func NearestRound(f float64) int {
 	decimal := f - math.Floor(f)
 
@@ -198,4 +197,13 @@ func NearestRound(f float64) int {
 		return int(math.Ceil(f))
 	}
 	return int(math.Round(f))
+}
+
+func In[T comparable](item T, items ...T) bool {
+	for _, i := range items {
+		if i == item {
+			return true
+		}
+	}
+	return false
 }

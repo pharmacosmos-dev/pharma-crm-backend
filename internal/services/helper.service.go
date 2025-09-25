@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/logger"
 	"gorm.io/gorm"
@@ -97,4 +98,22 @@ func RollbackIfError(tx *gorm.DB, errPtr *error) {
 	if errPtr != nil && *errPtr != nil {
 		tx.Rollback()
 	}
+}
+
+func (s *Services) GetSignedUser(c *gin.Context) *domain.EmployeeClaims {
+	user := &domain.EmployeeClaims{}
+
+	if userId, ok := c.Get("user_id"); ok {
+		user.UserId = userId.(string)
+	}
+
+	if companyId, ok := c.Get("company_id"); ok {
+		user.CompanyId = companyId.(string)
+	}
+
+	if storeId, ok := c.Get("store_id"); ok {
+		user.StoreId = storeId.(string)
+	}
+
+	return user
 }

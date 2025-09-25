@@ -16,8 +16,12 @@ import (
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/helper"
+	"github.com/pharma-crm-backend/pkg/utils"
+	"github.com/spf13/cast"
 	"gorm.io/gorm"
 )
+
+// region Create
 
 // create new sale
 func (s *Services) CreateSale(tx *gorm.DB, req *domain.SaleRequest) (*domain.Sale, error) {
@@ -25,8 +29,8 @@ func (s *Services) CreateSale(tx *gorm.DB, req *domain.SaleRequest) (*domain.Sal
 	err := tx.Raw(`INSERT INTO sales(employee_id, cash_box_operation_id, store_id, cashbox_id) VALUES(?, ?, ?, ?) RETURNING *`,
 		req.EmployeeID, req.CashBoxOperationId, req.StoreId, req.CashboxId).Scan(&res).Error
 	if err != nil {
-		s.log.Warn("ERROR on creating new sale: %v", err)
-		return &res, err
+		s.log.Warn("could not create new sale: %v", err)
+		return &res, errors.New(constants.InternalServerError)
 	}
 	return &res, nil
 }
@@ -167,16 +171,6 @@ func (s *Services) CreateOrGetSalePending(tx *gorm.DB, req *domain.SaleRequest) 
 	return res, nil
 }
 
-// update sale with receiving field
-func (s *Services) UpdateSaleField(field string, value string, idField string, idValue string) (*domain.Sale, error) {
-	var res domain.Sale
-	err := s.db.Raw(`UPDATE sales SET `+field+` = ? WHERE `+idField+` = ? RETURNING *`, value, idValue).Scan(&res).Error
-	if err != nil {
-		return nil, err
-	}
-	return &res, nil
-}
-
 // Create sale payment
 func (s *Services) CreateSalePayment(tx *gorm.DB, req domain.FinalSale, item domain.FinalPaymentType, paymentServiceId *string) (*domain.SalePayment, error) {
 	var (
@@ -210,38 +204,69 @@ func (s *Services) CreateSalePayment(tx *gorm.DB, req domain.FinalSale, item dom
 	return &salePayment, nil
 }
 
-// Get Payment service with store id and payment type  if status is active
-func (s *Services) GetPaymentServiceByStoreId(storeId string, tx *gorm.DB, paymentType string) (*domain.PaymentService, error) {
-	var res domain.PaymentService
-	err := tx.Raw(`SELECT * FROM payment_services WHERE store_id = ? AND type = ? AND is_active = true`,
-		storeId, paymentType).Scan(&res).Error
+// create sale for online order
+func (s *Services) CreateOnlineSale(saleId string, storeID string, customer *domain.Customer, cartItems []domain.CartItemOnlineRequest) (*domain.Sale, error) {
+	var (
+		sale domain.Sale
+		err  error
+	)
+	tx := s.db.Begin()
+	// Ensure the transaction is rolled back if any error occurs
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+			panic(p)
+		} else if err != nil {
+			tx.Rollback()
+		}
+	}()
+
+	// create new sale
+	err = tx.Raw(`
+	INSERT INTO sales(
+		id,
+		store_id,
+		type,
+		online_status,
+		service_type,
+		customer_id
+		) 
+	VALUES(?, ?, ?, ?, ?, ?) RETURNING *`,
+		saleId, storeID, config.SALE_TYPE_ONLINE, config.ONLINE_STATUS_NEW, config.NOOR, customer.Id).Scan(&sale).Error
 	if err != nil {
-		return &res, err
+		return &sale, errors.New("not.created.new.order")
 	}
-	return &res, nil
+	// create cart_items
+	err = tx.Table("cart_items").Create(&cartItems).Error
+	if err != nil {
+		return &sale, errors.New("not.created.cart_items")
+	}
+
+	err = tx.Commit().Error
+	if err != nil {
+		s.log.Error(err)
+		return &sale, err
+	}
+
+	return &sale, nil
 }
+
+func (s *Services) SaveEposResponse(ctx context.Context, req *domain.EposResponseRequest) error {
+	err := s.db.WithContext(ctx).Table("epos_responses").Create(req).Error
+	if err != nil {
+		s.log.Error("could not save epos response: %v", err)
+		return errors.New(constants.InternalServerError)
+	}
+	return nil
+}
+
+// region Update
 
 // update sale payment status
 func (s *Services) UpdateSalePaymentStatus(tx *gorm.DB, salePaymentID string) error {
 	err := tx.Exec(`UPDATE sale_payments SET status = 'paid' WHERE id = ?`, salePaymentID).Error
 	if err != nil {
 		s.log.Error("ERROR on updating sale payment status: ", err)
-		return err
-	}
-	return nil
-}
-
-// Create or update sale payment summary with on conflict do update
-func (s *Services) CreateOrUpdateSalePaymentSummary(tx *gorm.DB, cashBoxOperationId string, paymentTypeId string, amount float64) error {
-	err := tx.Exec(`
-				INSERT INTO sale_payment_summary (
-					cash_box_operation_id, payment_type_id, total_amount
-					) 
-				VALUES (?, ?, ?)
-				ON CONFLICT (cash_box_operation_id, payment_type_id) 
-				DO UPDATE SET total_amount = EXCLUDED.total_amount + ?`, cashBoxOperationId, paymentTypeId, amount, amount).Error
-	if err != nil {
-		s.log.Error(err)
 		return err
 	}
 	return nil
@@ -257,44 +282,287 @@ func (s *Services) UpdateSaleFieldValue(saleID string, field, value string) erro
 	return nil
 }
 
-// complete sale
-func (s *Services) CompleteSale(ctx context.Context, tx *gorm.DB, sale *domain.Sale, serviceType *string) error {
-	var err error
-	defer RollbackIfError(tx, &err)
-	switch sale.SaleType {
-	case config.SALE_TYPE_SALE:
-		// reduce store_product quantities and add employee bonus
-		err = s.DeductStoreProductQuantities(ctx, tx, sale)
+// update sale with receiving field
+func (s *Services) UpdateSaleField(field string, value string, idField string, idValue string) (*domain.Sale, error) {
+	var res domain.Sale
+	err := s.db.Raw(`UPDATE sales SET `+field+` = ? WHERE `+idField+` = ? RETURNING *`, value, idValue).Scan(&res).Error
+	if err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+// finalize sale
+func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*domain.Sale, error) {
+
+	sale, err := s.GetSaleById(ctx, req.SaleID)
+	if err != nil {
+		return nil, err
+	}
+	// check if sale is already completed
+	if sale.Status == constants.COMPLETED {
+		return nil, errors.New(constants.SaleIsClosedError)
+	}
+	// check
+	if len(req.PaymentTypes) == 0 {
+		return nil, errors.New(constants.PaymentTypeRequiredError)
+	}
+
+	// check sale amount and validate payment types
+	req, err = s.matchingPaymentTypeSum(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.ServiceType != nil && *req.ServiceType == config.DMED {
+		var cartItems []*domain.CartItemForDMED
+		cartItems, err = s.GetCartItems(ctx, sale.ID)
 		if err != nil {
-			s.log.Warn("ERROR on reducing store_product quantity: %v", err)
-			return err
+			return nil, err
 		}
-	case config.SALE_TYPE_RETURN:
-		err = s.RestoreStoreProductQuantities(ctx, tx, sale)
+		// send req dmed
+		err = s.DmedGiveReceipt(cartItems, req.MarkingData, sale.Employee.FullName, req.PrescriptionID, "check-issue")
 		if err != nil {
-			s.log.Warn("ERROR on restore store_product quantity: %v", err)
-			return err
+			return sale, err
+		}
+		err = s.DmedGiveReceipt(cartItems, req.MarkingData, sale.Employee.FullName, req.PrescriptionID, "issue")
+		if err != nil {
+			return sale, err
+		}
+	} else {
+		req.ServiceType = nil
+	}
+	if !req.TaxFree {
+		val := config.TAX_FREE
+		req.ServiceType = &val
+	}
+
+	// start transaction
+	tx := s.db.Begin()
+
+	// add marking to cart_items
+	err = s.updateCartItemsMarkingCount(ctx, tx, req.MarkingData)
+	if err != nil {
+		_ = tx.Rollback()
+		return sale, err
+	}
+
+	for _, item := range req.PaymentTypes {
+		err = s.processPayment(ctx, tx, sale, item)
+		if err != nil {
+			s.log.Warn("ERROR on payment process: %v", err.Error())
+			_ = tx.Rollback()
+			return sale, err
 		}
 	}
-	// build query for update sale status to complete
+	// update sale data
+	sale, err = s.updateSaleToComplete(ctx, tx, req)
+	if err != nil {
+		_ = tx.Rollback()
+		return sale, err
+	}
+
+	if err = tx.Commit().Error; err != nil {
+		s.log.Error("could not commit transaction: %v", err)
+		return sale, errors.New(constants.InternalServerError)
+	}
+
+	return sale, nil
+}
+
+// epos result
+func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseRequest, user *domain.EmployeeClaims) (*domain.Sale, error) {
+	// Ensure response_data is a string
+	responseDataStr, ok := req.ResponseData.(string)
+	if !ok {
+		s.log.Error("response_data is not a valid string")
+		return nil, errors.New(constants.BadRequestError)
+	}
+
+	// Convert string to []byte and store in Response field
+	req.Response = []byte(responseDataStr)
+
+	// start transaction
+	tx := s.db.Begin()
+
+	// Get sale by ID
+	sale, err := s.GetSaleById(ctx, req.SaleId)
+	if err != nil {
+		return nil, err
+	}
+
+	if req.Error {
+		err = s.SaveEposResponse(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Save to epos_responses table
+	req.Status = 1
+	err = s.SaveEposResponse(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	// parse epos success json to structure
+	var successResp domain.EposSuccessResponse
+	if err = json.Unmarshal([]byte(responseDataStr), &successResp); err != nil {
+		s.log.Error("could not parse epos success response: %v", err)
+		return nil, errors.New(constants.BadRequestError)
+	}
+
+	if successResp.Message.FiscalSign == "" {
+		successResp.Message.FiscalSign = successResp.Info.FiscalSign
+	}
+
+	// set fiscal data if payment completed with payme
+	if sale.PaymentReceiptId != "" {
+		var paymentService domain.PaymentService
+		err = s.db.First(&paymentService, "store_id = ?", sale.StoreId).Error
+		if err != nil {
+			s.log.Error("could not get payment service: %v", err)
+			return nil, errors.New(constants.InternalServerError)
+		}
+		fiscalData := domain.FiscalData{
+			StatusCode: 0,
+			Message:    "accepted",
+			TerminalId: successResp.Message.TerminalId,
+			ReceiptId:  cast.ToInt(successResp.Message.ReceiptSeq),
+			Date:       successResp.Message.DateTime,
+			FiscalSign: successResp.Message.FiscalSign,
+			QrCodeUrl:  successResp.Message.QrCodeURL,
+		}
+		err = s.PaymeGoSetFiscalData(ctx, &fiscalData, sale, &paymentService)
+		if err != nil {
+			return nil, err
+		}
+
+	}
+
+	// create or get sale
+	res, err := s.CreateSale(tx, &domain.SaleRequest{
+		EmployeeID:         user.UserId,
+		StoreId:            sale.StoreId,
+		CashBoxOperationId: sale.CashBoxOperationId,
+		CashboxId:          sale.CashboxId,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+// Process payment type
+func (s *Services) processPayment(
+	ctx context.Context,
+	tx *gorm.DB,
+	sale *domain.Sale,
+	item domain.FinalPaymentType,
+) error {
+	if item.Type == constants.APP && utils.In(item.AppType, constants.AppPayments...) {
+		var paymentService *domain.PaymentService
+		paymentService, err := s.GetPaymentServiceByStoreId(tx, sale.StoreId, item.AppType)
+		if err != nil {
+			s.log.Error("could not get payment service by store id: (%v)", sale.StoreId)
+			return err
+		}
+
+		paymentHandlers := map[string]func(ctx context.Context, tx *gorm.DB, service *domain.PaymentService, data *domain.FinalPaymentType, sale *domain.Sale) (map[string]any, error){
+			constants.CLICK: s.ClickPass,
+			constants.PAYME: s.PaymeGo,
+			constants.UZUM:  s.UzumFastPay,
+			constants.ALIF:  s.AlifPay,
+		}
+
+		// get payment handlers for integration app services
+		handler, exists := paymentHandlers[item.AppType]
+		if !exists {
+			return errors.New(constants.InvalidPaymentTypeError)
+		}
+
+		// check if sale_payment is created
+		var resp map[string]any
+		resp, err = handler(ctx, tx, paymentService, &item, sale)
+		if err != nil || cast.ToString(resp["error_code"]) != "0" {
+			return err
+		}
+	} else if !utils.In(item.Type, constants.PaymentTypes...) {
+		return errors.New(constants.InvalidPaymentTypeError)
+	}
+
+	return nil
+}
+
+func (s *Services) matchingPaymentTypeSum(ctx context.Context, req *domain.FinalSale) (*domain.FinalSale, error) {
+	var sum float64
+	for _, item := range req.PaymentTypes {
+		sum += item.Amount - item.ReturnAmount
+		if item.Type == constants.CASH {
+			req.Cash = item.Amount - item.ReturnAmount
+		} else if item.Type == constants.CARD && item.AppType == constants.HUMO {
+			req.Humo = item.Amount
+		} else if item.Type == constants.CARD && item.AppType == constants.UZCARD {
+			req.Uzcard = item.Amount
+		} else if item.Type == constants.APP && item.AppType == constants.CLICK {
+			req.Click = item.Amount
+		} else if item.Type == constants.APP && item.AppType == constants.PAYME {
+			req.Payme = item.Amount
+		} else if item.Type == constants.APP && item.AppType == constants.ALIF {
+			req.Alif = item.Amount
+		} else {
+			return req, errors.New(constants.InvalidPaymentTypeError)
+		}
+	}
+	// get cart item sum
+	cartItemSum, err := s.cartItemsSumBySaleId(ctx, req.SaleID)
+	if err != nil {
+		return req, err
+	}
+	if sum != cartItemSum || req.TotalAmount != cartItemSum || req.TotalAmount != sum {
+		s.log.Warn("cartItemSum: %v, paymentTypeSum: %v, req.TotalAmount: %v", cartItemSum, sum, req.TotalAmount)
+		return req, errors.New(constants.InvalidSaleAmount)
+	}
+
+	return req, nil
+}
+
+func (s *Services) updateSaleToComplete(ctx context.Context, tx *gorm.DB, req *domain.FinalSale) (*domain.Sale, error) {
+	var res domain.Sale
 	query := `
 	UPDATE sales
-	SET
-		total_amount = (SELECT SUM(total_price)-SUM(discount_amount) FROM cart_items WHERE sale_id = ?),
-		total_discount = (SELECT SUM(discount_amount) FROM cart_items WHERE sale_id = ?),
-		status = ?,
-		service_type = ?,
-		completed_at = NOW(),
-		updated_at = NOW()
-	WHERE id = ?
+		SET
+			total_amount = (SELECT SUM(total_price)-SUM(discount_amount) FROM cart_items WHERE sale_id = ?),
+			total_discount = (SELECT SUM(discount_amount) FROM cart_items WHERE sale_id = ?),
+			status = ?,
+			cash = ?, 
+			humo = ?, 
+			uzcard = ?,
+			click = ?, 
+			payme = ?, 
+			alif = ?,
+			completed_at = NOW(),
+			updated_at = NOW()
+	WHERE id = ?;
 	`
-	// complete the query
-	err = tx.WithContext(ctx).Exec(query, sale.ID, sale.ID, config.COMPLETED, serviceType, sale.ID).Error
+	err := tx.WithContext(ctx).Raw(query,
+		req.SaleID,
+		req.SaleID,
+		constants.COMPLETED,
+		req.Cash,
+		req.Humo,
+		req.Uzcard,
+		req.Click,
+		req.Payme,
+		req.Alif,
+		req.SaleID,
+	).Scan(&res).Error
 	if err != nil {
-		s.log.Warn("ERROR on update sale to completed: %v", err)
-		return err
+		s.log.Error("could not complete sale(%s) error: %v", req.SaleID, err)
+		return &res, errors.New(constants.InternalServerError)
 	}
-	return nil
+
+	return &res, nil
 }
 
 // return sale to pending status and reset quantities
@@ -448,6 +716,18 @@ func (s *Services) RestoreStoreProductQuantities(ctx context.Context, tx *gorm.D
 	return nil
 }
 
+// set ficalsign to sale
+func (s *Services) SetFiscalId(ctx context.Context, tx *gorm.DB, saleID string, fiscalID string) error {
+	err := tx.WithContext(ctx).Exec(`UPDATE sales SET fiscal_sign = ?, updated_at = NOW() WHERE id = ?`, fiscalID, saleID).Error
+	if err != nil {
+		s.log.Warn("ERROR on setting fiscal_id: %v", err)
+		return err
+	}
+	return nil
+}
+
+// region Get
+
 // get sale list data
 func (s *Services) ListSale(param *domain.QueryParam, userId string) ([]domain.SaleResponse, int64, error) {
 	var (
@@ -590,12 +870,12 @@ func (s *Services) ListSale(param *domain.QueryParam, userId string) ([]domain.S
 }
 
 // Get sale by Id
-func (s *Services) GetSaleById(ctx context.Context, tx *gorm.DB, saleId string) (*domain.Sale, error) {
+func (s *Services) GetSaleById(ctx context.Context, saleId string) (*domain.Sale, error) {
 	var (
 		err  error
 		sale domain.Sale
 	)
-	defer RollbackIfError(tx, &err)
+
 	err = s.db.WithContext(ctx).Preload("Employee").First(&sale, "id = ?", saleId).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -677,49 +957,29 @@ func (s *Services) GetPaymeSalePayment(ctx context.Context, tx *gorm.DB, saleID 
 	return &salePayment, nil
 }
 
-// set ficalsign to sale
-func (s *Services) SetFiscalId(ctx context.Context, tx *gorm.DB, saleID string, fiscalID string) error {
-	err := tx.WithContext(ctx).Exec(`UPDATE sales SET fiscal_sign = ?, updated_at = NOW() WHERE id = ?`, fiscalID, saleID).Error
+// Get Payment service with store id and payment type  if status is active
+func (s *Services) GetPaymentServiceByStoreId(tx *gorm.DB, storeId, paymentType string) (*domain.PaymentService, error) {
+	var res domain.PaymentService
+	err := tx.
+		Where("store_id = ?", storeId).
+		Where("type = ? AND is_active = true", paymentType).
+		First(&res).Error
 	if err != nil {
-		s.log.Warn("ERROR on setting fiscal_id: %v", err)
-		return err
+		s.log.Error("could not get payment_service by store(%s) error: %v", storeId, err)
+		return &res, errors.New(constants.InternalServerError)
 	}
-	return nil
-}
-
-// Validate sale amount (SUM(cart_items) == SUM(sale_payments) == total_amount)
-func (s *Services) ValidateSaleAmount(ctx context.Context, tx *gorm.DB, req *domain.FinalSale) (bool, error) {
-	// get cart item sum
-	cartItemSum, err := s.cartItemsSumBySaleID(ctx, tx, req.SaleID)
-	if err != nil {
-		return false, err
-	}
-	// get payment type amounts sum
-	paymentTypeSum := s.collectSalePaymentAmount(req.PaymentTypes)
-
-	//err = s.GetStoreProductsDifference(ctx, tx, req.SaleID)
-	//if err != nil {
-	//	return false, err
-	//}
-
-	// checking total amounts
-	if cartItemSum != req.TotalAmount || paymentTypeSum != req.TotalAmount {
-		s.log.Warn("cartItemSum: %v, paymentTypeSum: %v, req.TotalAmount: %v", cartItemSum, paymentTypeSum, req.TotalAmount)
-		return false, errors.New("invalid.sale.amount")
-	}
-
-	return true, nil
+	return &res, nil
 }
 
 // cart items sum of the sale
-func (s *Services) cartItemsSumBySaleID(ctx context.Context, tx *gorm.DB, saleID string) (float64, error) {
+func (s *Services) cartItemsSumBySaleId(ctx context.Context, saleID string) (float64, error) {
 	var sum float64
-	err := tx.
+	err := s.db.
 		WithContext(ctx).
 		Raw(`SELECT SUM(total_price) - SUM(discount_amount) AS sum FROM cart_items WHERE sale_id = ?`, saleID).Scan(&sum).Error
 	if err != nil {
-		s.log.Warn("ERROR on calucating cart_items sum: %v", err)
-		return sum, err
+		s.log.Error("could not calculate cart_items sum: %v", err)
+		return sum, errors.New(constants.InternalServerError)
 	}
 	return sum, nil
 }
@@ -731,54 +991,6 @@ func (s *Services) collectSalePaymentAmount(typeAmounts []domain.FinalPaymentTyp
 		sum += (v.Amount - v.ReturnAmount)
 	}
 	return sum
-}
-
-// region online sale
-// create sale for online order
-func (s *Services) CreateOnlineSale(saleId string, storeID string, customer *domain.Customer, cartItems []domain.CartItemOnlineRequest) (*domain.Sale, error) {
-	var (
-		sale domain.Sale
-		err  error
-	)
-	tx := s.db.Begin()
-	// Ensure the transaction is rolled back if any error occurs
-	defer func() {
-		if p := recover(); p != nil {
-			tx.Rollback()
-			panic(p)
-		} else if err != nil {
-			tx.Rollback()
-		}
-	}()
-
-	// create new sale
-	err = tx.Raw(`
-	INSERT INTO sales(
-		id,
-		store_id,
-		type,
-		online_status,
-		service_type,
-		customer_id
-		) 
-	VALUES(?, ?, ?, ?, ?, ?) RETURNING *`,
-		saleId, storeID, config.SALE_TYPE_ONLINE, config.ONLINE_STATUS_NEW, config.NOOR, customer.Id).Scan(&sale).Error
-	if err != nil {
-		return &sale, errors.New("not.created.new.order")
-	}
-	// create cart_items
-	err = tx.Table("cart_items").Create(&cartItems).Error
-	if err != nil {
-		return &sale, errors.New("not.created.cart_items")
-	}
-
-	err = tx.Commit().Error
-	if err != nil {
-		s.log.Error(err)
-		return &sale, err
-	}
-
-	return &sale, nil
 }
 
 // online pending sale list
@@ -1141,7 +1353,7 @@ func (s *Services) doRequestToDMED(method, url string, data any) ([]byte, error)
 	return respBody, nil
 }
 
-func (s *Services) DMEDGiveReceipt(cartItems []*domain.CartItemForDMED, markingData []domain.MarkingData, employeeName, prescriptionID, action string) error {
+func (s *Services) DmedGiveReceipt(cartItems []*domain.CartItemForDMED, markingData []domain.MarkingData, employeeName, prescriptionID, action string) error {
 	for i, cartItem := range cartItems {
 		q := cartItem.Quantity
 		uq := cartItem.UnitQuantity
@@ -1169,7 +1381,8 @@ func (s *Services) DMEDGiveReceipt(cartItems []*domain.CartItemForDMED, markingD
 				payload["serial_number"] = cartItem.SerialNumber
 				payload["gtin"] = "010" + cartItem.Barcode
 			} else {
-				return errors.New("serial number or marking code is required")
+				s.log.Error("could not find serial number or marking code for dmed")
+				return errors.New(constants.SerialOrMarkingRequiredError)
 			}
 
 			url := fmt.Sprintf("/prescriptions/%d/%s", markingData[i].DmedId, action)
@@ -1178,6 +1391,7 @@ func (s *Services) DMEDGiveReceipt(cartItems []*domain.CartItemForDMED, markingD
 				method = http.MethodPut
 			}
 			if _, err := s.doRequestToDMED(method, url, payload); err != nil {
+				s.log.Error("could not send dmed %s request: %v", action, err)
 				return fmt.Errorf("DMED %s failed: %w", action, err)
 			}
 			j++

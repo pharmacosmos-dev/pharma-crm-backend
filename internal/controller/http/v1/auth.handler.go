@@ -74,16 +74,13 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	m := map[string]interface{}{
+	userClaims := map[string]any{
 		"user_id":    res.Id,
 		"company_id": res.CompanyId,
-	}
-	refreshClaims := map[string]interface{}{
-		"user_id":    res.Id,
-		"company_id": res.CompanyId,
+		"store_id":   res.StoreId,
 	}
 	// generate tokens
-	accessToken, refreshToken, err := h.JwtHandler.GenerateTokens(m, refreshClaims)
+	accessToken, refreshToken, err := h.JwtHandler.GenerateTokens(userClaims)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())

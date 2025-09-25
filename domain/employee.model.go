@@ -13,6 +13,12 @@ type LoginResponse struct {
 	Employee     Employee `json:"employee"`
 }
 
+type EmployeeClaims struct {
+	UserId    string `json:"user_id"`
+	CompanyId string `json:"company_id"`
+	StoreId   string `json:"store_id"`
+}
+
 type Employee struct {
 	Id         string           `gorm:"id" json:"id"`
 	CompanyId  string           `gorm:"company_id" json:"company_id"`

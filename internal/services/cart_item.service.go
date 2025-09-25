@@ -6,13 +6,199 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"gorm.io/gorm"
 )
 
-// get cart item list by sale id with limit, offset
+// region Create
+func (s *Services) CreateCartItem(ctx context.Context, user *domain.EmployeeClaims, req *domain.CartItemRequest) (*domain.CartItem, error) {
+
+	// get sale info by id
+	sale, err := s.GetSaleById(ctx, req.SaleId)
+	if err != nil {
+		return nil, err
+	}
+
+	// check sale status
+	if sale.Status == config.COMPLETED {
+		return nil, errors.New(constants.SaleIsClosedError)
+	}
+
+	storeProduct, err := s.GetStoreProductByIdAndStoreId(ctx, req.StoreProductID, user.StoreId)
+	if err != nil {
+		return nil, err
+	}
+
+	cart, err := s.GetCartItemBySaleIdAndSpId(ctx, req.SaleId, req.StoreProductID)
+	if err != nil {
+		res, err := s.createNewCartItem(ctx, req, storeProduct)
+		if err != nil {
+			return nil, err
+		}
+		return res, nil
+	}
+
+	cart, err = s.updateExistsCartItemQuantity(ctx, cart, storeProduct)
+	if err != nil {
+		return nil, err
+	}
+
+	return cart, nil
+}
+
+func (s *Services) createNewCartItem(ctx context.Context, req *domain.CartItemRequest, storeProduct *domain.StoreProduct) (*domain.CartItem, error) {
+	// check remaining quantity for add cart item
+	if storeProduct.UnitQuantity >= storeProduct.UnitPerPack {
+		req.UnitQuantity = storeProduct.UnitPerPack
+	} else if storeProduct.UnitQuantity > 0 {
+		req.UnitQuantity = 1
+	} else {
+		return nil, errors.New(constants.NotEnoughProductError)
+	}
+	// start transaction
+	tx := s.db.Begin()
+
+	var res domain.CartItem
+	err := tx.WithContext(ctx).Raw(`
+		INSERT INTO cart_items(
+			store_product_id,
+			sale_id, 
+			employee_id,
+			quantity,
+			unit_quantity,
+			unit_price,
+			total_price,
+			status,
+			is_marking,
+			discount_type,
+			discount_value
+			)
+			VALUES (
+			?,?,?,?,?,?,?,?,?,? ,COALESCE((SELECT COALESCE(discount_percent, 0) 
+		FROM sale_customer_discounts 
+			WHERE sale_id = ?
+			LIMIT 1),0)
+		)
+		RETURNING *`,
+		req.StoreProductID,
+		req.SaleId,
+		req.EmployeeID,
+		req.Quantity,
+		req.UnitQuantity,
+		req.UnitPrice,
+		req.TotalPrice,
+		config.PENDING_CART_ITEM,
+		storeProduct.IsMarking,
+		req.DiscountType,
+		req.SaleId).Scan(&res).Error
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Error("could not create cart_item: %v", err)
+		return nil, errors.New(constants.InternalServerError)
+	}
+
+	// update store_product remaining quantity
+	err = s.IncrementQuantity(tx, req.StoreProductID, -req.UnitQuantity)
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Error("could not update store_product quantity: %v", err)
+		return nil, errors.New(constants.InternalServerError)
+	}
+
+	// commit transaction
+	if err = tx.Commit().Error; err != nil {
+		s.log.Error("could not commit transaction: %v", err)
+		return nil, errors.New(constants.InternalServerError)
+	}
+
+	return &res, nil
+}
+
+// add marking count to cart items
+func (s *Services) updateCartItemsMarkingCount(ctx context.Context, tx *gorm.DB, req []domain.MarkingData) error {
+	if len(req) == 0 {
+		return nil
+	}
+	var err error
+	defer RollbackIfError(tx, &err)
+	// Build VALUES part: ('uuid1', 5), ('uuid2', 10), ...
+	var valueStrings []string
+	for _, r := range req {
+		valueStrings = append(valueStrings, fmt.Sprintf("('%s', %d)", r.Id, r.MarkingCount))
+	}
+
+	query := fmt.Sprintf(`
+		UPDATE 
+			cart_items AS c
+		SET 
+			marking_count = v.marking_count
+		FROM (
+			VALUES %s
+		) AS v(id, marking_count)
+		WHERE c.id = v.id::uuid;
+	`, strings.Join(valueStrings, ","))
+
+	// Execute raw SQL
+	err = tx.WithContext(ctx).Exec(query).Error
+	if err != nil {
+		s.log.Error("could not update cart_item marking_count: %v", err)
+		return errors.New(constants.InternalServerError)
+	}
+
+	return nil
+}
+
+// region Update
+func (s *Services) UpdateCartItemField(field string, value string, idField, idValue string) (*domain.CartItem, error) {
+	var res domain.CartItem
+	err := s.db.Raw(`UPDATE cart_items SET `+field+` = ? WHERE `+idField+` = ? RETURNING *`, value, idValue).Scan(&res).Error
+	if err != nil {
+		return nil, err
+	}
+	return &res, nil
+}
+
+func (s *Services) updateExistsCartItemQuantity(ctx context.Context, req *domain.CartItem, storeProduct *domain.StoreProduct) (*domain.CartItem, error) {
+	// check remaining quantity for add cart item
+	if storeProduct.UnitQuantity >= req.UnitQuantity+storeProduct.UnitPerPack {
+		req.UnitQuantity += storeProduct.UnitPerPack
+	} else if storeProduct.UnitQuantity > 0 {
+		req.UnitQuantity += 1
+	} else {
+		return nil, errors.New(constants.NotEnoughProductError)
+	}
+
+	req.TotalPrice = (req.UnitPrice / float64(storeProduct.UnitPerPack)) * float64(req.UnitQuantity)
+
+	tx := s.db.Begin()
+
+	var res domain.CartItem
+	query := `UPDATE cart_items SET unit_quantity = ?, total_price = ? WHERE id = ? RETURNING *`
+	err := tx.WithContext(ctx).Raw(query, req.UnitQuantity, req.TotalPrice, req.ID).Scan(&res).Error
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Error("could not update cart_item: %v", err)
+		return nil, errors.New(constants.InternalServerError)
+	}
+
+	err = s.IncrementQuantity(tx, req.StoreProductID, -req.UnitQuantity)
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Error("could not update store_product quantity: %v", err)
+		return nil, errors.New(constants.InternalServerError)
+	}
+
+	if err = tx.Commit().Error; err != nil {
+		s.log.Error("could not commit transaction: %v", err)
+		return nil, errors.New(constants.InternalServerError)
+	}
+
+	return &res, nil
+}
+
+// region Get
 func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartItemData, error) {
 	var res []domain.CartItemResponse
 	err := s.db.Raw(`
@@ -120,56 +306,19 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 	return &data, nil
 }
 
-// create cart item
-func (s *Services) CreateCartItem(req *domain.CartItemRequest) (*domain.CartItem, error) {
-	var res domain.CartItem
-	err := s.db.Raw(`
-		INSERT INTO cart_items(
-			id, 
-			store_product_id,
-			sale_id, 
-			employee_id,
-			quantity,
-			unit_quantity,
-			unit_price,
-			total_price,
-			status,
-			discount_type,
-			discount_value
-			)
-			VALUES (
-			?,?,?,?,?,?,?,?,?,?  ,COALESCE((SELECT COALESCE(discount_percent, 0) 
-     FROM sale_customer_discounts 
-     WHERE sale_id = ?
-     LIMIT 1),0)
-)
-RETURNING *`,
-		uuid.New().String(),
-		req.StoreProductID,
-		req.SaleId,
-		req.EmployeeID,
-		req.Quantity,
-		req.UnitQuantity,
-		req.UnitPrice,
-		req.TotalPrice,
-		config.PENDING_CART_ITEM,
-		req.DiscountType,
-		req.SaleId).Scan(&res).Error
+// Get cartItem by saleId and storeProductId
+func (s *Services) GetCartItemBySaleIdAndSpId(ctx context.Context, saleId, spId string) (*domain.CartItem, error) {
+	var cartItem domain.CartItem
+	err := s.db.Where("sale_id = ? AND store_product_id = ?", saleId, spId).First(&cartItem).Error
 	if err != nil {
-		return nil, err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New(constants.NotFoundError)
+		}
+		s.log.Error("could not get cart_item by id: %v", err)
+		return nil, errors.New(constants.InternalServerError)
 	}
 
-	return &res, nil
-}
-
-// update cart item by field
-func (s *Services) UpdateCartItemField(field string, value string, idField, idValue string) (*domain.CartItem, error) {
-	var res domain.CartItem
-	err := s.db.Raw(`UPDATE cart_items SET `+field+` = ? WHERE `+idField+` = ? RETURNING *`, value, idValue).Scan(&res).Error
-	if err != nil {
-		return nil, err
-	}
-	return &res, nil
+	return &cartItem, nil
 }
 
 // get cart item list by sale id
@@ -215,40 +364,6 @@ func (s *Services) GetCartItemsTotalAmount(saleID string) (float64, error) {
 	}
 	res.TotalAmount = res.Sum - res.DiscountAmount
 	return res.TotalAmount, nil
-}
-
-// add marking count to cart items
-func (s *Services) AddMarkingCount(ctx context.Context, tx *gorm.DB, req []domain.MarkingData) error {
-	if len(req) == 0 {
-		return nil
-	}
-	var err error
-	defer RollbackIfError(tx, &err)
-	// Build VALUES part: ('uuid1', 5), ('uuid2', 10), ...
-	var valueStrings []string
-	for _, r := range req {
-		valueStrings = append(valueStrings, fmt.Sprintf("('%s', %d)", r.Id, r.MarkingCount))
-	}
-
-	query := fmt.Sprintf(`
-		UPDATE 
-			cart_items AS c
-		SET 
-			marking_count = v.marking_count
-		FROM (
-			VALUES %s
-		) AS v(id, marking_count)
-		WHERE c.id = v.id::uuid;
-	`, strings.Join(valueStrings, ","))
-
-	// Execute raw SQL
-	err = tx.WithContext(ctx).Exec(query).Error
-	if err != nil {
-		s.log.Warn("ERROR on bulk updating cart_item marking_count: %v", err)
-		return err
-	}
-
-	return nil
 }
 
 // check order product quantity and return collect cart_item
@@ -304,13 +419,12 @@ func (s *Services) GetOrCheckOnlineCartItems(req []domain.OnlineCartItemRequest,
 	return cartItems, nil
 }
 
-func (s *Services) GetCartItems(ctx context.Context, tx *gorm.DB, saleID string) ([]*domain.CartItemForDMED, error) {
+func (s *Services) GetCartItems(ctx context.Context, saleID string) ([]*domain.CartItemForDMED, error) {
 	var (
 		err error
 		res []*domain.CartItemForDMED
 	)
-	defer RollbackIfError(tx, &err)
-	err = tx.WithContext(ctx).Raw(`
+	err = s.db.WithContext(ctx).Raw(`
 		SELECT
     		ci.id,
     		ci.quantity,
@@ -325,8 +439,8 @@ func (s *Services) GetCartItems(ctx context.Context, tx *gorm.DB, saleID string)
          		LEFT JOIN products p ON sp.product_id = p.id
 		WHERE ci.sale_id = ?`, saleID).Scan(&res).Error
 	if err != nil {
-		s.log.Error("", err)
-		return nil, err
+		s.log.Error("could not get cart_items for dmed: %v", err)
+		return nil, errors.New(constants.InternalServerError)
 	}
 	return res, nil
 }

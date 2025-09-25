@@ -30,6 +30,7 @@ type Sale struct {
 	Payme              float64        `gorm:"payme" json:"payme"`
 	Alif               float64        `gorm:"alif" json:"alif"`
 	IsPaid             bool           `gorm:"is_paid" json:"is_paid"`
+	PaymentReceiptId   string         `gorm:"payment_receipt_id" json:"payment_receipt_id"`
 	CreatedAt          *time.Time     `gorm:"created_at" json:"created_at"`
 	UpdatedAt          *time.Time     `gorm:"updated_at" json:"updated_at"`
 	CompletedAt        *time.Time     `gorm:"completed_at" json:"completed_at"`
@@ -127,6 +128,12 @@ type FinalSale struct {
 	TotalAmount        float64            `gorm:"total_amount" json:"total_amount"`
 	ServiceType        *string            `gorm:"service_type" json:"service_type"`
 	TaxFree            bool               `gorm:"tax_free" json:"tax_free"`
+	Cash               float64            `gorm:"cash" json:"cash"`
+	Humo               float64            `gorm:"humo" json:"humo"`
+	Uzcard             float64            `gorm:"uzcard" json:"uzcard"`
+	Click              float64            `gorm:"click" json:"click"`
+	Payme              float64            `gorm:"payme" json:"payme"`
+	Alif               float64            `gorm:"alif" json:"alif"`
 	PaymentTypes       []FinalPaymentType `json:"payment_types"`
 	MarkingData        []MarkingData      `json:"marking_data"`
 	EposData           [][]EposItem       `json:"epos_data"`

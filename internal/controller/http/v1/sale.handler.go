@@ -2,7 +2,6 @@ package v1
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -17,7 +16,6 @@ import (
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
-	"github.com/spf13/cast"
 	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
 )
@@ -41,7 +39,7 @@ func (h *SaleHandler) SaleRoutes(r *gin.RouterGroup) {
 		sale.GET("/export-excel", h.ExportSaleExcel)
 		sale.PUT("/:id", h.Update)
 		sale.POST("/final", h.FinalSale)
-		sale.POST("/epos-result", h.EposResponse)
+		sale.POST("/epos-result", h.EposResult)
 		sale.GET("/stats", h.SaleStats)
 		sale.GET("/get-list", h.GetSaleList)
 		sale.POST("/discount-card", h.AddDiscountCard)
@@ -627,198 +625,32 @@ func (h *SaleHandler) Update(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /sale/final [post]
 func (h *SaleHandler) FinalSale(c *gin.Context) {
-	var (
-		body domain.FinalSale
-		err  error
-	)
+
+	var body domain.FinalSale
+	// bind request body
+	err := c.ShouldBindJSON(&body)
+	if err != nil {
+		h.log.Error("could not bind request body: %v", err)
+		handleResponse(c, BadRequest, constants.InvalidRequestBodyError)
+		return
+	}
 
 	// Create context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
-
-	// start transaction
-	tx := h.db.Begin()
-
-	// Ensure the transaction is rolled back if any error occurs
-	defer func() {
-		if p := recover(); p != nil {
-			tx.Rollback()
-			panic(p)
-		} else if err != nil {
-			tx.Rollback()
-		}
-	}()
-
-	// bind request body
-	err = c.ShouldBindJSON(&body)
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
-		return
-	}
 
 	// lock parallel request
 	mu := h.getOrderLock(body.SaleID)
 	mu.Lock()
 	defer mu.Unlock()
 
-	// validate payment types
-	if len(body.PaymentTypes) == 0 {
-		tx.Rollback()
-		handleResponse(c, BadRequest, constants.PaymentTypeRequiredError)
-		return
-	}
-
-	// get sale info
-	sale, err := h.service.GetSaleById(ctx, tx, body.SaleID)
+	sale, err := h.service.FinalizeSale(ctx, &body)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
-	// check sale is completed or no
-	if sale.Status == config.COMPLETED {
-		tx.Rollback()
-		handleResponse(c, CONFLICT, constants.AlreadyCompletedError)
-		return
-	}
-
-	if body.ServiceType != nil && *body.ServiceType == config.DMED {
-		var cartItems []*domain.CartItemForDMED
-		cartItems, err = h.service.GetCartItems(ctx, tx, sale.ID)
-		if err != nil {
-			handleResponse(c, InternalError, err.Error())
-			return
-		}
-		// send req dmed
-		err = h.service.DMEDGiveReceipt(cartItems, body.MarkingData, sale.Employee.FullName, body.PrescriptionID, "check-issue")
-		if err != nil {
-			handleResponse(c, InternalError, constants.DMEDError)
-			return
-		}
-		err = h.service.DMEDGiveReceipt(cartItems, body.MarkingData, sale.Employee.FullName, body.PrescriptionID, "issue")
-		if err != nil {
-			handleResponse(c, InternalError, constants.DMEDError)
-			return
-		}
-	} else {
-		body.ServiceType = nil
-	}
-	if !body.TaxFree {
-		val := config.TAX_FREE
-		body.ServiceType = &val
-	}
-	// add marking to cart_items
-	err = h.service.AddMarkingCount(ctx, tx, body.MarkingData)
-	if err != nil {
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-
-	// validate amounts (total_amount | payment_type_amount | cart_item_total_amount)
-	amountValidate, err := h.service.ValidateSaleAmount(ctx, tx, &body)
-	if err != nil {
-		handleResponse(c, BadRequest, "invalid.calculate.amount")
-		return
-	}
-
-	if !amountValidate {
-		tx.Rollback()
-		handleResponse(c, BadRequest, "invalid.calculate.amount")
-		return
-	}
-
-	// delete sale_payments which depends on the sale
-	err = h.service.DeleteSalePayments(ctx, tx, sale.ID)
-	if err != nil {
-		handleResponse(c, BadRequest, err.Error())
-		return
-	}
-
-	// process payment types
-	for _, item := range body.PaymentTypes {
-		err = processPaymentType(ctx, tx, h, body, item)
-		if err != nil {
-			h.log.Warn("ERROR on payment process: %v", err.Error())
-			handleResponse(c, InternalError, err.Error())
-			return
-		}
-	}
-
-	// complete sale
-	err = h.service.CompleteSale(ctx, tx, sale, body.ServiceType)
-	if err != nil {
-		h.log.Error("could not complete the sale(%s): %v", sale.ID, err)
-		handleResponse(c, InternalError, constants.InternalServerError)
-		return
-	}
-
-	// Commit transaction
-	err = tx.Commit().Error
-	if err != nil {
-		handleResponse(c, InternalError, constants.InternalServerError)
-		return
-	}
-
-	handleResponse(c, OK, "COMPLETED")
-}
-
-// Process payment type
-func processPaymentType(
-	ctx context.Context,
-	tx *gorm.DB, h *SaleHandler,
-	body domain.FinalSale,
-	item domain.FinalPaymentType,
-) error {
-	var err error
-	defer RollbackIfError(tx, &err)
-	if item.Type == "app" && (item.AppType == config.CLICK || item.AppType == config.PAYME || item.AppType == config.UZUM || item.AppType == config.ALIF) {
-		var paymentService *domain.PaymentService
-		paymentService, err = h.service.GetPaymentServiceByStoreId(body.StoreID, tx, item.AppType)
-		if err != nil {
-			h.log.Error("could not get payment service by store id: (%v)", body.StoreID)
-			return err
-		}
-
-		paymentHandlers := map[string]func(ctx context.Context, tx *gorm.DB, service *domain.PaymentService, data *domain.FinalPaymentType, cashOpID string, transactionID string, saleID string) (map[string]any, error){
-			config.CLICK: h.service.ClickPass,
-			config.PAYME: h.service.PaymeGo,
-			config.UZUM:  h.service.UzumFastPay,
-			config.ALIF:  h.service.AlifPay,
-		}
-		// get payment handlers for integration app services
-		handler, exists := paymentHandlers[item.AppType]
-		if !exists {
-
-			tx.Rollback()
-			return errors.New("invalid payment type")
-		}
-		// create new sale_payment
-		var salePayment *domain.SalePayment
-		salePayment, err = h.service.CreateSalePayment(tx, body, item, &paymentService.ID)
-		if err != nil {
-			return err
-		}
-		// check if sale_payment is created
-		var resp map[string]any
-		resp, err = handler(ctx, tx, paymentService, &item, body.CashBoxOperationId, salePayment.ID, body.SaleID)
-		if err != nil || cast.ToString(resp["error_code"]) != "0" {
-			return err
-		}
-		// update sale_payment if payment is success
-		return h.service.UpdateSalePaymentStatus(tx, salePayment.ID)
-	} else if item.Type == config.CASH || item.Type == config.CARD {
-		// Insert sale payments if payment is cash or card
-		_, err = h.service.CreateSalePayment(tx, body, item, nil)
-		if err != nil {
-			return err
-		}
-	} else {
-		tx.Rollback()
-		return errors.New("invalid payment type")
-	}
-
-	return nil
+	handleResponse(c, OK, sale)
 }
 
 // EposRequest godoc
@@ -833,19 +665,19 @@ func processPaymentType(
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /sale/epos-result [post]
-func (h *SaleHandler) EposResponse(c *gin.Context) {
+func (h *SaleHandler) EposResult(c *gin.Context) {
 	var (
 		body domain.EposResponseRequest
 		err  error
 	)
-	// get user_id from the context
-	userId, ok := c.Get("user_id")
-	if !ok {
+	// get user id in context
+	user := h.service.GetSignedUser(c)
+	if user == nil {
 		handleResponse(c, UNAUTHORIZED, constants.UnauthorizedError)
 		return
 	}
 
-	// context
+	// context with timeout
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
@@ -857,170 +689,13 @@ func (h *SaleHandler) EposResponse(c *gin.Context) {
 		return
 	}
 
-	// Ensure response_data is a string
-	responseDataStr, ok := body.ResponseData.(string)
-	if !ok {
-		h.log.Error("response_data is not a valid string")
-		handleResponse(c, BadRequest, "response_data must be a string")
-		return
-	}
-
-	// Convert string to []byte and store in Response field
-	body.Response = []byte(responseDataStr)
-
-	// start transaction
-	tx := h.db.Begin()
-
-	// Ensure the transaction is rolled back if any error occurs
-	defer func() {
-		if p := recover(); p != nil {
-			tx.Rollback()
-			panic(p)
-		} else if err != nil {
-			tx.Rollback()
-		}
-	}()
-	// Get sale by ID
-	sale, err := h.service.GetSaleById(ctx, tx, body.SaleId)
+	sale, err := h.service.EposResult(ctx, &body, user)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
-	if body.Error {
-		// delete sale_payments which depends on the sale
-		err = tx.WithContext(ctx).Exec(`DELETE FROM sale_payments WHERE sale_id = ?`, body.SaleId).Error
-		if err != nil {
-			h.log.Error("ERROR on deleting sale_payments: ", err)
-			handleResponse(c, InternalError, "Failed remove sale_payments")
-			return
-		}
-		// Save to epos_responses table
-		err = tx.WithContext(ctx).Table("epos_responses").Create(&body).Error
-		if err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, err.Error())
-			return
-		}
-		if sale.SaleType == config.SALE_TYPE_SALE {
-			// return sale status and quantities
-			err = h.service.ReturnSale(ctx, tx, sale)
-			if err != nil {
-				h.log.Warn("Failed to update sale status: %v", err)
-				handleResponse(c, InternalError, "Failed to update sale status")
-				return
-			}
-		} else if sale.SaleType == config.SALE_TYPE_RETURN {
-			// return sale status and quantities
-			err = h.service.DeductStoreProductQuantities(ctx, tx, sale)
-			if err != nil {
-				h.log.Warn("ERROR on reducing store_product quantity: %v", err)
-				handleResponse(c, InternalError, "Failed to update sale status")
-				return
-			}
-
-			// update return
-			err = h.service.ReturnStatusPending(ctx, tx, sale)
-			if err != nil {
-				h.log.Warn("Failed to update return status: %v", err)
-				handleResponse(c, InternalError, "Failed to update return status")
-				return
-			}
-		}
-	} else {
-		// Save to epos_responses table
-		body.Status = 1
-		err = tx.WithContext(ctx).Table("epos_responses").Create(&body).Error
-		if err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, err.Error())
-			return
-		}
-		// parse epos success json to structure
-		var successResp domain.EposSuccessResponse
-		if err = json.Unmarshal([]byte(responseDataStr), &successResp); err != nil {
-			h.log.Error("failed to parse success response", err)
-			handleResponse(c, BadRequest, "invalid success response format")
-			return
-		}
-		if successResp.Message.FiscalSign == "" {
-			successResp.Message.FiscalSign = successResp.Info.FiscalSign
-		}
-		// update sale status to completed
-		err = h.service.SetFiscalId(ctx, tx, sale.ID, successResp.Message.FiscalSign)
-		if err != nil {
-			h.log.Warn("Failed to complete sale status: %v", err)
-			handleResponse(c, InternalError, "Failed to complete sale status")
-			return
-		}
-
-		// check payme exists
-		var salePayment *domain.SalePayment
-		salePayment, err = h.service.GetPaymeSalePayment(ctx, tx, sale.ID)
-		if err != nil {
-			handleResponse(c, InternalError, err.Error())
-			return
-		}
-		// set fiscal data if payment completed with payme
-		if salePayment.ReceiptId != "" {
-			var paymentService domain.PaymentService
-			err = h.db.First(&paymentService, "store_id = ?", sale.StoreId).Error
-			if err != nil {
-				h.log.Warn("ERROR on getting payment service: %v", err)
-				handleResponse(c, InternalError, "failed_to_get_payment_service")
-				return
-			}
-			err = h.service.PaymeGoSetFiscalData(c.Request.Context(), &domain.FiscalData{
-				StatusCode: 0,
-				Message:    "accepted",
-				TerminalId: successResp.Message.TerminalId,
-				ReceiptId:  cast.ToInt(successResp.Message.ReceiptSeq),
-				Date:       successResp.Message.DateTime,
-				FiscalSign: successResp.Message.FiscalSign,
-				QrCodeUrl:  successResp.Message.QrCodeURL,
-			}, salePayment, &paymentService)
-
-			if err != nil {
-				h.log.Warn("ERROR on set_fiscal_to_payme: %v", err)
-				handleResponse(c, InternalError, "failed_to_set_fiscal_to_payme")
-				return
-			}
-		}
-		var res *domain.Sale
-
-		// create or get sale
-		res, err = h.service.CreateSale(tx, &domain.SaleRequest{
-			EmployeeID:         userId.(string),
-			StoreId:            sale.StoreId,
-			CashBoxOperationId: sale.CashBoxOperationId,
-			CashboxId:          sale.CashboxId,
-		})
-		if err != nil {
-			h.log.Warn("ERROR on creating new sale: %v", err)
-			handleResponse(c, InternalError, "Can't create new sale")
-			return
-		}
-
-		// Commit transaction before responding
-		err = tx.Commit().Error
-		if err != nil {
-			h.log.Warn("ERROR on commiting transaction: %v", err)
-			handleResponse(c, InternalError, "Transaction not completed")
-			return
-		}
-		handleResponse(c, CREATED, res)
-		return
-	}
-
-	// Commit transaction before final response
-	err = tx.Commit().Error
-	if err != nil {
-		h.log.Warn("ERROR on commiting transaction: %v", err)
-		handleResponse(c, InternalError, "not.completed.transaction")
-		return
-	}
-
-	handleResponse(c, BadRequest, "sale.not.completed")
+	handleResponse(c, OK, sale)
 }
 
 // List godoc

@@ -28,6 +28,11 @@ const (
 	WsEventNoorOrder = "noor_order"
 )
 
+var (
+	AppPayments  = []string{CLICK, PAYME, ALIF, UZUM}
+	PaymentTypes = []string{CASH, CARD, APP}
+)
+
 const (
 	// region status
 	NEW_IMPORT       = "new"
@@ -59,11 +64,14 @@ const (
 
 	CASH    = "cash"
 	CARD    = "card"
+	APP     = "app"
 	CLICK   = "click"
 	PAYME   = "payme"
 	UZUM    = "uzum"
 	ALIF    = "alif"
 	PERCENT = "percent"
+	HUMO    = "humo"
+	UZCARD  = "uzcard"
 
 	// universal status types
 
@@ -88,23 +96,31 @@ const (
 	ONLINE_STATUS_CANCELED  = -1
 	ONLINE_STATUS_COMPLETED = 2
 
-	// order type
+	SALE_TYPE_RETURN = "RETURN"
+	SALE_TYPE_SALE   = "SALE"
+
 	SALE_TYPE_ONLINE  = "online"
 	SALE_TYPE_OFFLINE = "offline"
 
 	// Service types
 	NOOR = "noor"
-
-	SALE_TYPE_RETURN = "RETURN"
-	SALE_TYPE_SALE   = "SALE"
+	DMED = "dmed"
 )
 
-// Onec Request Path
+// Request Path
 const (
+	// Onec service paths
 	OnecPathPrihod  = "/prihod"
 	OnecPathRasxod  = "/rasxod"
 	OnecPathVozvrat = "/vozvrat"
 	OnecPathZakaz   = "/zakaz"
+
+	// DMED service paths
+	DmedPathPrescription        = "/prescriptions"
+	DmedPathPatient             = "/patients"
+	DmedPathAppointment         = "/appointments"
+	DmedRequestActionIssue      = "issue"
+	DmedRequestActionCheckIssue = "check-issue"
 )
 
 // region languages
@@ -132,46 +148,3 @@ const (
 	ACCOUNTANT = "ACCOUNTANT"
 	DIRECTOR   = "DIRECTOR"
 )
-
-type Error struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-}
-
-// region error types
-var (
-	BadRequestError          = "bad.request"
-	DMEDError                = "dmed.error"
-	AcceptedCountError       = "warning.accepted_count.is.null"
-	NotFoundError            = "not.found"
-	InternalServerError      = "internal.server.error"
-	InvalidRequestBodyError  = "invalid.request.body"
-	UnauthorizedError        = "user.not.authorized"
-	ForbiddinError           = "forbidden"
-	InvalidQueryError        = "invalid.query.param"
-	NotEnoughProductError    = "not.enough.product"
-	ConflictError            = "conflict"
-	ResourceNotFoundError    = "resource.not.found"
-	RateLimitExceededError   = "rate.limit.exceeded"
-	AlreadyExistsError       = "already.exists"
-	DependencyFailedError    = "dependency.failed"
-	AlreadyCompletedError    = "already.completed"
-	PaymentTypeRequiredError = "payment.type.required"
-)
-
-// // Error makes it compatible with the `error` interface.
-// func (e *Error) Error() string {
-// 	return e.Message
-// }
-
-// // NewError creates a new Error instance with an optional message
-// func NewError(code int, message ...string) *Error {
-// 	err := &Error{
-// 		Code:    code,
-// 		Message: utils.StatusMessage(code),
-// 	}
-// 	if len(message) > 0 {
-// 		err.Message = message[0]
-// 	}
-// 	return err
-// }

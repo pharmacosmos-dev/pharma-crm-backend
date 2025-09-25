@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pharma-crm-backend/config"
+	"github.com/pharma-crm-backend/domain/constants"
 
 	"github.com/pharma-crm-backend/domain"
 
@@ -171,54 +172,37 @@ func (s *Services) GetStoreProductByBarcode(ctx context.Context, barcode string)
 }
 
 // get store info by product id
-func (s *Services) GetStoreProductByIdOrBarcode(id string, marking string, storeId string) (*domain.StoreProduct, int, error) {
-	var (
-		storeProduct domain.StoreProduct
-		filter       = " WHERE 1=1 "
-		join         = ""
-		args         = []any{}
-	)
+func (s *Services) GetStoreProductByIdAndStoreId(ctx context.Context, id string, storeId string) (*domain.StoreProduct, error) {
+	var storeProduct domain.StoreProduct
 
-	query := `
-	SELECT 
-		sp.*, 
-		p.unit_per_pack, 
-		p.barcode
-	FROM store_products sp
-		JOIN products p ON sp.product_id = p.id
-	`
-	filter += " AND sp.store_id = ? "
-	args = append(args, storeId)
+	err := s.db.Select(
+		"sp.id",
+		"sp.product_id",
+		"sp.store_id",
+		"sp.pack_quantity",
+		"sp.unit_quantity",
+		"sp.retail_price",
+		"sp.supply_price",
+		"sp.vat",
+		"sp.is_marking",
+		"sp.expire_date",
+		"p.unit_per_pack",
+	).
+		Table("store_products sp").
+		Joins("JOIN products p ON sp.product_id = p.id").
+		Where("sp.store_id = ?", storeId).
+		Where("sp.id = ?", id).
+		First(&storeProduct).Error
 
-	if id != "" {
-		filter += " AND sp.id = ? "
-		args = append(args, id)
-	} else if marking != "" && utils.DefineProductSearchQuery(marking) == "marking" {
-		filter += " AND pm.marking = ? "
-		join = " LEFT JOIN product_markings pm ON pm.product_id = p.id AND pm.import_detail_id = sp.import_detail_id "
-		args = append(args, marking)
-	} else {
-		return nil, 404, errors.New("product not found")
-	}
-	// collect query
-	query = query + join + filter
-	// complete query
-	err := s.db.Raw(query, args...).Scan(&storeProduct).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting store_product: %v", err)
-		return &storeProduct, 500, err
-	}
-
-	if storeProduct.Id != "" {
-		if utils.DefineProductSearchQuery(marking) == "marking" {
-			isValid := utils.CheckBarcodeWithMarking(storeProduct.Barcode, marking) // <- check barcode with marking
-			if !isValid {
-				return nil, 422, errors.New("marking and barcode mismatch")
-			}
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New(constants.NotFoundError)
 		}
+		s.log.Error("could not get store_product by id: %v", err)
+		return nil, errors.New(constants.InternalServerError)
 	}
 
-	return &storeProduct, 200, nil
+	return &storeProduct, nil
 }
 
 // get store products by product id
@@ -1433,6 +1417,16 @@ func (s *Services) UpdatePackaging(req *domain.UpdatePackagingRequest) error {
 	// 4. Commit transaction
 	if err = tx.Commit().Error; err != nil {
 		s.log.Error("Failed to commit transaction: ", err)
+		return err
+	}
+
+	return nil
+}
+
+func (s *Services) IncrementQuantity(tx *gorm.DB, id string, quantity int) error {
+	err := tx.Exec(`UPDATE store_products SET unit_quantity = unit_quantity + ? WHERE id = ?`, quantity, id).Error
+	if err != nil {
+		s.log.Error("could not update store_product quantity: %v", err)
 		return err
 	}
 

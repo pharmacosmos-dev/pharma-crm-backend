@@ -17,16 +17,16 @@ type JWTHandler struct {
 }
 
 // GenerateTokens generates access and refresh tokens.
-func (j *JWTHandler) GenerateTokens(accessClaims map[string]interface{}, refreshClaims map[string]interface{}) (accessToken string, refreshToken string, err error) {
+func (j *JWTHandler) GenerateTokens(userClaims map[string]any) (accessToken string, refreshToken string, err error) {
 	// Generate access token
-	accessToken, err = j.generateToken(accessClaims, config.AccessTokenExpiresInTime)
+	accessToken, err = j.generateToken(userClaims, config.AccessTokenExpiresInTime)
 	if err != nil {
 		j.Log.Error("Failed to generate access token:", err)
 		return "", "", err
 	}
 
 	// Generate refresh token
-	refreshToken, err = j.generateToken(refreshClaims, config.RefreshTokenExpiresInTime)
+	refreshToken, err = j.generateToken(userClaims, config.RefreshTokenExpiresInTime)
 	if err != nil {
 		j.Log.Error("Failed to generate refresh token:", err)
 		return "", "", err
@@ -36,7 +36,7 @@ func (j *JWTHandler) GenerateTokens(accessClaims map[string]interface{}, refresh
 }
 
 // generateToken generates a JWT with the provided claims and expiration duration.
-func (j *JWTHandler) generateToken(claimsMap map[string]interface{}, expiresIn time.Duration) (string, error) {
+func (j *JWTHandler) generateToken(claimsMap map[string]any, expiresIn time.Duration) (string, error) {
 	token := jwt.New(jwt.SigningMethodHS256)
 
 	claims := token.Claims.(jwt.MapClaims)

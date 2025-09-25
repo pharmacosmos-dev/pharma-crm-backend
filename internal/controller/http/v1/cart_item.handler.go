@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"gorm.io/gorm"
 )
 
@@ -51,143 +53,32 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 	var (
 		body domain.CartItemRequest
 		err  error
-		sale domain.Sale
 	)
 	// get user id in context
-	vendorID, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "user.unauthorized")
+	user := h.service.GetSignedUser(c)
+	if user == nil {
+		handleResponse(c, UNAUTHORIZED, constants.UnauthorizedError)
 		return
 	}
 	// bind request body
-	if err = c.ShouldBindJSON(&body); err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, "invalid.request.body")
-		return
-	}
-
-	// get sale info by id
-	err = h.db.First(&sale, "id = ?", body.SaleId).Error
+	err = c.ShouldBindJSON(&body)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			handleResponse(c, NotFound, "sale.not.found")
-			return
-		}
-		h.log.Warn("ERROR on getting sale info: %v", err)
-		handleResponse(c, InternalError, "failed.get.sale")
+		h.log.Error("could not bind request body: %v", err)
+		handleResponse(c, BadRequest, constants.InvalidRequestBodyError)
 		return
 	}
 
-	// check sale status
-	if sale.Status == config.COMPLETED {
-		handleResponse(c, NotAcceptable, "sale.already.completed")
-		return
-	}
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
 
-	// get employee by user id
-	var employee domain.Employee
-	err = h.db.First(&employee, "id = ?", vendorID).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-
-	// get store product
-	storeProduct, statusCode, err := h.service.GetStoreProductByIdOrBarcode(body.StoreProductID, body.Barcode, employee.StoreId)
-	if err != nil {
-		switch statusCode {
-		case 404:
-			handleResponse(c, NotFound, "product.not.found")
-			return
-		case 422:
-			handleResponse(c, UnprocessableEntity, "marking.and.barcode.mismatch")
-			return
-		}
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	} else if storeProduct.Id == "" {
-		handleResponse(c, NotFound, "product.not.found")
-		return
-	}
-	// get cart item
-	var cartItem domain.CartItem
-	err = h.db.First(&cartItem, "store_product_id = ? AND sale_id = ?", storeProduct.Id, body.SaleId).Error
-	if err == nil {
-		cartItem.Quantity++
-		if cartItem.Quantity > storeProduct.PackQuantity && cartItem.UnitQuantity == 0 {
-			storeProduct.UnitQuantity -= storeProduct.PackQuantity * storeProduct.UnitPerPack
-			handleQuantityConflict(c, storeProduct, cartItem.Quantity, cartItem.UnitQuantity)
-			return
-		}
-		cartItem.TotalPrice += cartItem.UnitPrice
-		err = h.db.Exec(`UPDATE cart_items SET quantity = ?, total_price = ? WHERE id = ?`,
-			cartItem.Quantity, cartItem.TotalPrice, cartItem.ID).Error
-		if err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, "failed.to.update.cart_item")
-			return
-		}
-		// get cart item info
-		err = h.db.Raw(`
-		SELECT
-			ci.*,
-			p.is_marking AS is_marking
-		FROM cart_items ci
-			JOIN store_products sp ON ci.store_product_id = sp.id
-			JOIN products p ON sp.product_id = p.id 
-			WHERE ci.id = ?
-		`, cartItem.ID).Scan(&cartItem).Error
-		if err != nil {
-			h.log.Warn("ERROR on getting cart_item: %v", err)
-			handleResponse(c, InternalError, "failed.to.get.cart_item")
-			return
-		}
-
-		handleResponse(c, OK, cartItem)
-		return
-	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	// agar cart item yangi qo'shilayotgan bo'lsa quantity va total_priceni hisoblash
-	if storeProduct.PackQuantity > 0 {
-		body.Quantity = 1
-		body.TotalPrice = storeProduct.RetailPrice
-	} else if storeProduct.UnitQuantity > 0 {
-		body.UnitQuantity = 1
-		body.TotalPrice = storeProduct.RetailPrice / float64(storeProduct.UnitPerPack)
-	} else {
-		handleQuantityConflict(c, storeProduct, 1, 0)
-		return
-	}
-
-	body.UnitPrice = storeProduct.RetailPrice
-	body.EmployeeID = vendorID.(string)
-	body.StoreProductID = storeProduct.Id
-	res, err := h.service.CreateCartItem(&body)
+	// create cart item
+	res, err := h.service.CreateCartItem(ctx, user, &body)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	// get cart item info
-	err = h.db.Raw(`
-	SELECT 
-		ci.*,
-		p.is_marking AS is_marking
-	FROM cart_items ci
-		JOIN store_products sp ON ci.store_product_id = sp.id
-		JOIN products p ON sp.product_id = p.id 
-		WHERE ci.id = ?
-	`, res.ID).Scan(&cartItem).Error
-	if err != nil {
-		h.log.Warn("ERROR on getting cart_item: %v", err)
-		handleResponse(c, InternalError, "Cart Item updated but can't get")
-		return
-	}
 
-	handleResponse(c, OK, cartItem)
+	handleResponse(c, OK, res)
 }
 
 // Get godoc
@@ -204,20 +95,19 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 // @Router /cart_item/{id} [get]
 func (h *CartItemHandler) Get(c *gin.Context) {
 	var (
-		cartItem domain.CartItem
-		err      error
-		id       = c.Param("id")
+		res domain.CartItem
+		id  = c.Param("id")
 	)
-	err = h.db.
+	err := h.db.
 		WithContext(c.Request.Context()).
 		Where("id = ?", id).
-		First(&cartItem).Error
+		First(&res).Error
 	if err != nil {
 		h.log.Error(fmt.Errorf("err: %v", err))
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	handleResponse(c, OK, cartItem)
+	handleResponse(c, OK, res)
 }
 
 // List godoc
@@ -242,7 +132,7 @@ func (h *CartItemHandler) List(c *gin.Context) {
 	)
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
-		h.log.Error(err)
+		h.log.Error("could not get pagination params: %v", err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}

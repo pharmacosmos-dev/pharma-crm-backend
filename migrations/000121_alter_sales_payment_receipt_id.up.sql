@@ -1,0 +1,3 @@
+ALTER TABLE "sales"
+    ADD COLUMN IF NOT EXISTS "is_sent_to_tax" BOOLEAN DEFAULT FALSE,
+    ADD COLUMN IF NOT EXISTS "payment_receipt_id" VARCHAR(255) NULL;

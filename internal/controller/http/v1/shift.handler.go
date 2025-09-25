@@ -164,14 +164,14 @@ func (h *ShiftHandler) Create(c *gin.Context) {
 		return
 	}
 	// add user_id to claims
-	accessClaims := map[string]any{
-		"user_id": body.ToEmployeeId,
+	userClaims := map[string]any{
+		"user_id":    body.ToEmployeeId,
+		"company_id": toEmployee.CompanyId,
+		"store_id":   toEmployee.StoreId,
 	}
-	refreshClaims := map[string]any{
-		"user_id": body.ToEmployeeId,
-	}
+
 	// generating access and refresh tokens
-	accessToken, refreshToken, err := h.JwtHandler.GenerateTokens(accessClaims, refreshClaims)
+	accessToken, refreshToken, err := h.JwtHandler.GenerateTokens(userClaims)
 	if err != nil {
 		h.log.Error("ERROR on generating token: ", err)
 		handleResponse(c, InternalError, "Can't generate token")

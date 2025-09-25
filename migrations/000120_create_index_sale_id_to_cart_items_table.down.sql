@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS idx_cart_items_sale_id;
