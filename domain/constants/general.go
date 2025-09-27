@@ -31,6 +31,7 @@ const (
 var (
 	AppPayments  = []string{CLICK, PAYME, ALIF, UZUM}
 	PaymentTypes = []string{CASH, CARD, APP}
+	AdminRoles   = []string{ADMIN, SUPERADMIN, FOUNDER, ACCOUNTANT, DIRECTOR, AUTOZAKAZ, MANAGER}
 )
 
 const (

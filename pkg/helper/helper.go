@@ -7,6 +7,8 @@ import (
 	"github.com/agnivade/levenshtein"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
+	"github.com/pharma-crm-backend/pkg/utils"
 )
 
 // StatusToRussian converts a status string to a Russian translation
@@ -46,11 +48,7 @@ func SalePaymentAmount(salePayments []*domain.SalePayment, payType string) float
 
 // check user role is admin or superadmin
 func IsAdmin(employee domain.Employee, cfg *config.Config) bool {
-	role := employee.RoleType
-	if role != config.ADMIN && role != config.SUPERADMIN && role != config.FOUNDER && role != config.ACCOUNTANT && role != config.AUTOZAKAZ && role != config.DIRECTOR {
-		return false
-	}
-	return true
+	return utils.In(employee.RoleType, constants.AdminRoles...)
 }
 
 // divide float to integer and fractional section

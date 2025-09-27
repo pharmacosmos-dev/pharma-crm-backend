@@ -1,13 +1,95 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 )
+
+// region Create
+
+// create cashbox operation
+func (s *Services) CreateCashboxOperation(req *domain.CashboxOperationRequest, userId any) (*domain.Sale, error) {
+	// start transaction
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	type result struct {
+		ID string
+	}
+	var (
+		res result
+	)
+	err := tx.Raw(`
+		SELECT id
+		FROM cashbox_operations 
+		WHERE is_open = TRUE AND current_employee_id = ? 
+		LIMIT 1
+	`, userId).Scan(&res).Error
+	if err != nil {
+		s.log.Error("failed to check open cashbox:", err)
+		tx.Rollback()
+		return nil, err
+	}
+	if res.ID != "" {
+		tx.Rollback()
+		return nil, errors.New("you already have an open cashbox operation")
+	}
+
+	err = tx.Raw(`
+	INSERT INTO cashbox_operations (
+			cash_box_id, employee_id, current_employee_id, opened_amount, open_cashless_amount, is_open, start_time, description
+			) 
+	VALUES (?, ?, ?, ?,?, ?, ?, ?) RETURNING id
+	`, req.CashBoxID, userId, userId,
+		req.OpenedAmount, req.OpenCashlessAmount, true, time.Now(),
+		req.Description).Scan(&res).Error
+	if err != nil {
+		s.log.Error(err)
+		tx.Rollback()
+		return nil, err
+	}
+
+	var sale domain.Sale
+	// create new sale
+	err = tx.Raw(`
+		INSERT INTO sales (employee_id, store_id, cash_box_operation_id, cashbox_id) 
+		VALUES (?, ?, ?, ?) RETURNING *`,
+		userId, req.StoreID, res.ID, req.CashBoxID).Scan(&sale).Error
+	if err != nil {
+		s.log.Error(err)
+		tx.Rollback()
+		return nil, err
+	}
+	// commit transaction
+	if err = tx.Commit().Error; err != nil {
+		s.log.Error(err)
+		tx.Rollback()
+		return nil, err
+	}
+	return &sale, nil
+}
+
+// region Get
+
+func (s *Services) GetCashboxOperationByID(ctx context.Context, id string) (*domain.CashboxOperation, error) {
+	var res domain.CashboxOperation
+	err := s.db.Where("id = ?", id).First(&res).Error
+	if err != nil {
+		s.log.Errorf("could not get cashbox_operation: %v", err)
+		return nil, errors.New(constants.InternalServerError)
+	}
+	return &res, nil
+}
 
 // get cash box operation shift list
 func (s *Services) GetOperationShiftList(storeID, isOpen, search string, limit, offset int) ([]domain.CashboxOperationShift, int64, error) {
@@ -120,7 +202,7 @@ func (s *Services) GetOperationStats(storeID, isOpen, search string) (domain.Cas
 }
 
 // GetOperationHistory godoc
-func (s *Services) OperationHistory(storeID, isOpen, search string, limit, offset int) ([]domain.CashBoxOperationHistory, int64, error) {
+func (s *Services) GetOperationHistory(storeID, isOpen, search string, limit, offset int) ([]domain.CashBoxOperationHistory, int64, error) {
 	var (
 		group      = `co.id, co.operation_id, cb.name, s.name, co.start_time, e.full_name, co.end_time, em.full_name`
 		order      = "co.operation_id DESC"
@@ -181,6 +263,8 @@ func (s *Services) OperationHistory(storeID, isOpen, search string, limit, offse
 	return res, totalCount, nil
 }
 
+// region Update
+
 // close cashbox operation
 func (s *Services) CloseCashBoxOperation(cashBoxOperationID string, req *domain.CloseCashboxOperation, senderId string) error {
 	// start transaction
@@ -230,70 +314,4 @@ func (s *Services) CloseCashBoxOperation(cashBoxOperationID string, req *domain.
 		return err
 	}
 	return nil
-}
-
-// create cashbox operation
-func (s *Services) CreateCashboxOperation(req *domain.CashboxOperationRequest, userId any) (*domain.Sale, error) {
-	// start transaction
-	tx := s.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-
-	type result struct {
-		ID string
-	}
-	var (
-		res result
-	)
-	err := tx.Raw(`
-		SELECT id
-		FROM cashbox_operations 
-		WHERE is_open = TRUE AND current_employee_id = ? 
-		LIMIT 1
-	`, userId).Scan(&res).Error
-	if err != nil {
-		s.log.Error("failed to check open cashbox:", err)
-		tx.Rollback()
-		return nil, err
-	}
-	if res.ID != "" {
-		tx.Rollback()
-		return nil, errors.New("you already have an open cashbox operation")
-	}
-
-	err = tx.Raw(`
-	INSERT INTO cashbox_operations (
-			cash_box_id, employee_id, current_employee_id, opened_amount, open_cashless_amount, is_open, start_time, description
-			) 
-	VALUES (?, ?, ?, ?,?, ?, ?, ?) RETURNING id
-	`, req.CashBoxID, userId, userId,
-		req.OpenedAmount, req.OpenCashlessAmount, true, time.Now(),
-		req.Description).Scan(&res).Error
-	if err != nil {
-		s.log.Error(err)
-		tx.Rollback()
-		return nil, err
-	}
-
-	var sale domain.Sale
-	// create new sale
-	err = tx.Raw(`
-		INSERT INTO sales (employee_id, store_id, cash_box_operation_id, cashbox_id) 
-		VALUES (?, ?, ?, ?) RETURNING *`,
-		userId, req.StoreID, res.ID, req.CashBoxID).Scan(&sale).Error
-	if err != nil {
-		s.log.Error(err)
-		tx.Rollback()
-		return nil, err
-	}
-	// commit transaction
-	if err = tx.Commit().Error; err != nil {
-		s.log.Error(err)
-		tx.Rollback()
-		return nil, err
-	}
-	return &sale, nil
 }

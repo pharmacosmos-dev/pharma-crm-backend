@@ -25,7 +25,7 @@ func (s *Services) CreateCartItem(ctx context.Context, user *domain.EmployeeClai
 	if sale.Status == config.COMPLETED {
 		return nil, errors.New(constants.SaleIsClosedError)
 	}
-
+	req.EmployeeID = user.UserId
 	storeProduct, err := s.GetStoreProductByIdAndStoreId(ctx, req.StoreProductID, user.StoreId)
 	if err != nil {
 		return nil, err

@@ -3,7 +3,6 @@ package services
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
@@ -38,53 +37,6 @@ func (s *Services) Request1CCreate(req domain.InventoryHelper) error {
 	return nil
 }
 
-func extractDocMeta(data any) (docDate, docNum string) {
-	// Get the reflect.Value of the input
-	v := reflect.ValueOf(data)
-	if v.Kind() == reflect.Ptr {
-		v = v.Elem()
-	}
-	if v.Kind() != reflect.Struct {
-		return "", ""
-	}
-
-	// Find the field tagged with json:"Dok"
-	t := v.Type()
-	for i := 0; i < t.NumField(); i++ {
-		field := t.Field(i)
-		if field.Tag.Get("json") == "Dok" {
-			// Get the nested struct (Document or ExpenseDok)
-			dok := v.Field(i)
-			if dok.Kind() != reflect.Struct {
-				return "", ""
-			}
-
-			// Iterate through fields of the nested struct
-			dokType := dok.Type()
-			for j := 0; j < dokType.NumField(); j++ {
-				dokField := dokType.Field(j)
-				jsonTag := dokField.Tag.Get("json")
-				fieldValue := dok.Field(j)
-
-				// Ensure the field is a string before accessing
-				if fieldValue.Kind() != reflect.String {
-					continue
-				}
-
-				// Check JSON tags for data_dok and nomer_dok
-				switch jsonTag {
-				case "data_dok":
-					docDate = fieldValue.String()
-				case "nomer_dok":
-					docNum = fieldValue.String()
-				}
-			}
-			return docDate, docNum
-		}
-	}
-	return "", ""
-}
-
 // recoverTransaction handles panics and rolls back the transaction if necessary.
 func recoverTransaction(tx *gorm.DB, log logger.Interface) {
 	if r := recover(); r != nil {
@@ -103,16 +55,16 @@ func RollbackIfError(tx *gorm.DB, errPtr *error) {
 func (s *Services) GetSignedUser(c *gin.Context) *domain.EmployeeClaims {
 	user := &domain.EmployeeClaims{}
 
-	if userId, ok := c.Get("user_id"); ok {
-		user.UserId = userId.(string)
+	if userId, ok := c.Get("user_id"); ok && userId != nil {
+		user.UserId, _ = userId.(string)
 	}
 
-	if companyId, ok := c.Get("company_id"); ok {
-		user.CompanyId = companyId.(string)
+	if companyId, ok := c.Get("company_id"); ok && companyId != nil {
+		user.CompanyId, _ = companyId.(string)
 	}
 
-	if storeId, ok := c.Get("store_id"); ok {
-		user.StoreId = storeId.(string)
+	if storeId, ok := c.Get("store_id"); ok && storeId != nil {
+		user.StoreId, _ = storeId.(string)
 	}
 
 	return user

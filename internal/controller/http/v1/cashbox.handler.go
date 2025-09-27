@@ -1,12 +1,14 @@
 package v1
 
 import (
+	"context"
 	"errors"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
@@ -420,6 +422,8 @@ func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
 		return
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 	// Check if there is an open cashbox operation for this employee
 	var cashboxOperation domain.CashboxOperation
 	err = h.db.Raw(`
@@ -450,7 +454,7 @@ func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
 	if cashboxOperation.ID != "" {
 		// Check for a pending sale linked to this cashbox operation
 		var sale *domain.Sale
-		sale, err = h.service.CreateSale(h.db, &domain.SaleRequest{
+		sale, err = h.service.CreateSale(ctx, h.db, &domain.SaleRequest{
 			CashBoxOperationId: cashboxOperation.ID,
 			EmployeeID:         userID.(string),
 			StoreId:            storeId,

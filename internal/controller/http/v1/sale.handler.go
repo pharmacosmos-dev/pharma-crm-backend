@@ -69,50 +69,26 @@ func (h *SaleHandler) SaleRoutes(r *gin.RouterGroup) {
 // @Failure 500 {object} v1.Response
 // @Router /sale [post]
 func (h *SaleHandler) Create(c *gin.Context) {
-	var (
-		body             domain.SaleRequest
-		res              domain.Sale
-		cashboxOperation domain.CashboxOperation
-		err              error
-	)
 	// get user id from header
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
-		return
-	}
-	// bind request body
-	if err = c.ShouldBindJSON(&body); err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
-		return
-	}
-	// check store id
-	if body.StoreId == "" {
-		handleResponse(c, BadRequest, "Store ID is required")
-		return
-	}
-	// get cashbox operation
-	err = h.db.First(&cashboxOperation, "id = ?", body.CashBoxOperationId).Error
-	if err != nil {
-		h.log.Warn("ERROR on getting cashbox_operation: %v", err)
-		handleResponse(c, InternalError, err.Error())
+	user := h.service.GetSignedUser(c)
+	if user == nil {
+		handleResponse(c, UNAUTHORIZED, constants.UnauthorizedError)
 		return
 	}
 
-	body.ID = uuid.New().String()
-	body.EmployeeID = userId.(string)
-	body.CashboxId = cashboxOperation.CashBoxID
-	// create sale
-	err = h.db.
-		WithContext(c.Request.Context()).
-		Raw(`
-		INSERT INTO sales (id, employee_id, cash_box_operation_id, cashbox_id, store_id,service_type)
-		VALUES (?, ?, ?, ?, ?, ?) RETURNING *`,
-			body.ID, body.EmployeeID, body.CashBoxOperationId, body.CashboxId, body.StoreId, body.ServiceType).
-		Scan(&res).Error
+	var body domain.SaleRequest
+	// bind request body
+	err := c.ShouldBindJSON(&body)
 	if err != nil {
-		h.log.Warn("")
+		handleResponse(c, BadRequest, constants.BadRequestError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, err := h.service.CreateSale(ctx, h.db, &body)
+	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -133,26 +109,26 @@ func (h *SaleHandler) Create(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /sale/return [post]
 func (h *SaleHandler) CreateReturn(c *gin.Context) {
-	var (
-		body domain.SaleReturnRequest
-		err  error
-	)
+	var body domain.SaleReturnRequest
 	// bind request body
-	if err = c.ShouldBindJSON(&body); err != nil {
-		h.log.Error(err)
+	err := c.ShouldBindJSON(&body)
+	if err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 	// get user id in context
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
+	user := h.service.GetSignedUser(c)
+	if user == nil {
+		handleResponse(c, UNAUTHORIZED, constants.UnauthorizedError)
 		return
 	}
-	body.EmployeeID = userId.(string)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	body.EmployeeID = user.UserId
 	body.SaleType = config.SALE_TYPE_RETURN
 	// create sale return
-	sale, err := h.service.CreateReturnSale(&body)
+	sale, err := h.service.CreateReturnSale(ctx, &body)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -189,11 +165,6 @@ func (h *SaleHandler) Get(c *gin.Context) {
 		}).
 		Preload("Customer", func(db *gorm.DB) *gorm.DB {
 			return db.Select("id", "full_name", "first_name", "last_name") // keep it minimal
-		}).
-		Preload("SalePayments", func(db *gorm.DB) *gorm.DB {
-			return db.Preload("PaymentType", func(db *gorm.DB) *gorm.DB {
-				return db.Select("id", "name") // or whatever needed
-			})
 		}).First(&res, "id = ?", id).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -208,12 +179,22 @@ func (h *SaleHandler) Get(c *gin.Context) {
 	var products []domain.ProductRes
 	err = h.db.Raw(`
 	SELECT
-		p.id, sp.id AS store_product_id, p.name, p.barcode, p.is_marking,
-        p.photos, p.mxik AS class_code, p.unit_label AS package_name, 
+		p.id,
+		sp.id AS store_product_id, 
+		p.name,
+		p.barcode,
+		p.is_marking,
+        p.photos,
+		p.mxik AS class_code,
+		p.unit_label AS package_name, 
         ROUND(sp.vat_price * ci.quantity + (sp.vat_price / p.unit_per_pack) * ci.unit_quantity, 2) AS vat,
         sp.vat AS vat_percent,
-        ci.quantity, ci.unit_price AS pack_price,
-        ci.unit_quantity, ci.marking_count, ci.total_price, u.short_name,
+        ci.quantity,
+		ci.unit_price AS pack_price,
+        ci.unit_quantity,
+		ci.marking_count,
+		ci.total_price,
+		u.short_name,
         (ci.discount_price*ci.quantity) AS  total_discount,
         ROUND(ci.unit_price / p.unit_per_pack, 2) AS unit_price,
         pb.bonus_amount*ci.quantity+ ROUND((pb.bonus_amount/p.unit_per_pack)*ci.unit_quantity, 2) AS bonus_amount,
@@ -225,7 +206,7 @@ func (h *SaleHandler) Get(c *gin.Context) {
 	LEFT JOIN product_bonuses pb ON pb.product_id = p.id
 	WHERE ci.sale_id = ?`, id).Scan(&products).Error
 	if err != nil {
-		h.log.Warn("ERROR on getting sold products : %v", err)
+		h.log.Warn("could not get sale : %v", err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -234,7 +215,7 @@ func (h *SaleHandler) Get(c *gin.Context) {
 	var vatSum float64
 	err = h.db.Raw(`
 	SELECT
-			 COALESCE(SUM(ROUND(sp.vat_price * quantity +(sp.vat_price / p.unit_per_pack) * ci.unit_quantity, 2)), 0) AS vat_sum
+			COALESCE(SUM(ROUND(sp.vat_price * quantity +(sp.vat_price / p.unit_per_pack) * ci.unit_quantity, 2)), 0) AS vat_sum
 	FROM cart_items ci
 		JOIN store_products sp ON sp.id = ci.store_product_id
 		JOIN products p ON sp.product_id = p.id
@@ -284,31 +265,34 @@ func (h *SaleHandler) Get(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /sale/list [get]
 func (h *SaleHandler) List(c *gin.Context) {
-	var param domain.QueryParam
+	var params domain.SaleQueryParams
 
-	// get user_id from the context
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
+	// get user from the context
+	user := h.service.GetSignedUser(c)
+	if user == nil {
+		handleResponse(c, UNAUTHORIZED, constants.UnauthorizedError)
 		return
 	}
 
 	// bind query params
-	if err := c.ShouldBindQuery(&param); err != nil {
+	err := c.ShouldBindQuery(&params)
+	if err != nil {
 		h.log.Error("bind query params error: ", err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+
 	// get limit offset with checking default
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
 	// get sale list data
-	res, totalCount, err := h.service.ListSale(&param, userId.(string))
+	res, totalCount, err := h.service.GetSales(&params, user)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 	// added _meta section to response
-	result := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+	result := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
 
 	handleResponse(c, OK, result)
 }
@@ -336,24 +320,26 @@ func (h *SaleHandler) List(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /sale/export-excel [get]
 func (h *SaleHandler) ExportSaleExcel(c *gin.Context) {
-	var param domain.QueryParam
+	var params domain.SaleQueryParams
 	// get user_id from the context
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
+	user := h.service.GetSignedUser(c)
+	if user == nil {
+		handleResponse(c, UNAUTHORIZED, constants.UnauthorizedError)
 		return
 	}
 	// bind query params
-	if err := c.ShouldBindQuery(&param); err != nil {
+	err := c.ShouldBindQuery(&params)
+	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
+
 	// get limit offset
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
 	// get sale list data
-	res, _, err := h.service.ListSale(&param, userId.(string))
+	res, _, err := h.service.GetSales(&params, user)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return

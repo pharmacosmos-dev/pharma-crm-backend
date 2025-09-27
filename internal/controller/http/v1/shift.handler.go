@@ -168,6 +168,7 @@ func (h *ShiftHandler) Create(c *gin.Context) {
 		"user_id":    body.ToEmployeeId,
 		"company_id": toEmployee.CompanyId,
 		"store_id":   toEmployee.StoreId,
+		"role":       toEmployee.RoleType,
 	}
 
 	// generating access and refresh tokens

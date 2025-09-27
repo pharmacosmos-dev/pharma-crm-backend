@@ -9,13 +9,13 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
-	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/spf13/cast"
 	"gorm.io/gorm"
@@ -24,151 +24,149 @@ import (
 // region Create
 
 // create new sale
-func (s *Services) CreateSale(tx *gorm.DB, req *domain.SaleRequest) (*domain.Sale, error) {
+func (s *Services) CreateSale(ctx context.Context, tx *gorm.DB, req *domain.SaleRequest) (*domain.Sale, error) {
+	// check cashbox_id
+	if req.CashboxId == "" {
+		operation, err := s.GetCashboxOperationByID(ctx, req.CashBoxOperationId)
+		if err != nil {
+			return nil, err
+		}
+		req.CashboxId = operation.CashBoxID
+	}
+
 	var res domain.Sale
-	err := tx.Raw(`INSERT INTO sales(employee_id, cash_box_operation_id, store_id, cashbox_id) VALUES(?, ?, ?, ?) RETURNING *`,
-		req.EmployeeID, req.CashBoxOperationId, req.StoreId, req.CashboxId).Scan(&res).Error
+	query := "INSERT INTO sales(employee_id, cash_box_operation_id, store_id, cashbox_id) VALUES(?, ?, ?, ?) RETURNING *"
+	err := tx.Raw(query,
+		req.EmployeeID,
+		req.CashBoxOperationId,
+		req.StoreId,
+		req.CashboxId).
+		Scan(&res).Error
 	if err != nil {
-		s.log.Warn("could not create new sale: %v", err)
+		s.log.Errorf("could not create new sale: %v", err)
 		return &res, errors.New(constants.InternalServerError)
 	}
 	return &res, nil
 }
 
 // create return sale
-func (s *Services) CreateReturnSale(req *domain.SaleReturnRequest) (*domain.Sale, error) {
-	var (
-		sale             domain.Sale
-		cashboxOperation domain.CashboxOperation
-		err              error
-	)
+func (s *Services) CreateReturnSale(ctx context.Context, req *domain.SaleReturnRequest) (*domain.Sale, error) {
+
+	// get cashbox operation
+	if req.CashboxId == "" {
+		operation, err := s.GetCashboxOperationByID(ctx, req.CashBoxOperationId)
+		if err != nil {
+			return nil, err
+		}
+		req.CashboxId = operation.CashBoxID
+	}
 
 	// start transaction
 	tx := s.db.Begin()
-	// Ensure the transaction is rolled back if any error occurs
-	defer func() {
-		if p := recover(); p != nil {
-			tx.Rollback()
-			panic(p)
-		} else if err != nil {
-			tx.Rollback()
-		}
-	}()
 
-	// get cashbox operation
-	err = tx.First(&cashboxOperation, "id = ?", req.CashBoxOperationId).Error
-	if err != nil {
-		s.log.Error("ERROR on getting cashbox_operation: ", err)
-		return nil, err
-	}
-	req.CashboxId = cashboxOperation.CashBoxID
-
-	// build query
+	// build create sale query
 	query := `
 	INSERT INTO sales (
-		employee_id, cash_box_operation_id, cashbox_id, store_id, customer_id, sale_number, parent_id, sale_type, type)
-	SELECT ?, ?, ?, store_id, customer_id, sale_number, id, ?, type FROM sales where id = ?
-	RETURNING *;`
-	err = tx.Raw(query, req.EmployeeID, req.CashBoxOperationId, req.CashboxId, config.SALE_TYPE_RETURN, req.SaleId).Scan(&sale).Error
+		employee_id, 
+		cash_box_operation_id, 
+		cashbox_id, 
+		store_id, 
+		customer_id, 
+		sale_number, 
+		parent_id, 
+		sale_type, 
+		type
+		)
+	SELECT 
+		?, ?, ?, 
+		store_id, 
+		customer_id, 
+		sale_number, 
+		id, ?, type 
+	FROM 
+		sales 
+	WHERE 
+		id = ?
+	RETURNING *`
+
+	// execute new return sale query
+	var sale domain.Sale
+	err := tx.Raw(query,
+		req.EmployeeID,
+		req.CashBoxOperationId,
+		req.CashboxId,
+		config.SALE_TYPE_RETURN,
+		req.SaleId).Scan(&sale).Error
 	if err != nil {
-		s.log.Error("ERROR on creating return sale: ", err)
-		return nil, err
+		s.log.Errorf("could not create new return sale: %v", err)
+		_ = tx.Rollback()
+		return nil, errors.New(constants.InternalServerError)
 	}
 	// cart item create query
 	cquery := `
-	INSERT INTO cart_items(sale_id, store_product_id, quantity, unit_quantity, unit_price, total_price, status)
-	SELECT ?, sp.id, ?, ?, retail_price, (?*retail_price+(CASE WHEN p.unit_per_pack > 0 THEN retail_price / p.unit_per_pack ELSE 0 END) * ?), ?
-	FROM store_products sp JOIN products p ON p.id = sp.product_id WHERE sp.id = ?`
+	INSERT INTO cart_items(
+		sale_id,
+		store_product_id,
+		quantity,
+		unit_quantity,
+		unit_price,
+		total_price,
+		status)
+	SELECT 
+		?,
+		sp.id,
+		?,
+		?,
+		retail_price,
+		(?*retail_price+(CASE WHEN p.unit_per_pack > 0 THEN retail_price / p.unit_per_pack ELSE 0 END) * ?), ?
+	FROM
+		store_products sp
+	JOIN
+		products p ON p.id = sp.product_id
+	WHERE
+		sp.id = ?`
+
+	// increment store_products
+	spQuery := `
+	UPDATE 
+		store_products sp
+	SET
+		unit_quantity = unit_quantity + ? + (? * p.unit_per_pack)
+	FROM 
+		products p
+	WHERE 
+		p.id = sp.product_id AND sp.id = ?`
 	for _, item := range req.Items {
 		item.SaleId = sale.ID
-		// complete cart item create query
-		err = tx.Exec(cquery, item.SaleId, item.Quantity, item.UnitQuantity, item.Quantity, item.UnitQuantity, config.PENDING, item.StoreProductId).Error
+		err = tx.Exec(cquery,
+			item.SaleId,
+			item.Quantity,
+			item.UnitQuantity,
+			item.Quantity,
+			item.UnitQuantity,
+			config.PENDING,
+			item.StoreProductId).Error
 		if err != nil {
-			s.log.Error("ERROR on creating return sale items: ", err)
+			s.log.Errorf("could not create return sale items: %v", err)
+			_ = tx.Rollback()
 			return nil, err
+		}
+
+		// increment store product quantity
+		err = tx.Exec(spQuery, item.UnitQuantity, item.Quantity, item.StoreProductId).Error
+		if err != nil {
+			s.log.Errorf("could not increment store_product quantity: %v", err)
+			_ = tx.Rollback()
+			return nil, errors.New(constants.InternalServerError)
 		}
 	}
 
 	// commit transaction
-	err = tx.Commit().Error
-	if err != nil {
-		s.log.Error("ERROR on commiting transaction: ", err)
+	if err = tx.Commit().Error; err != nil {
+		s.log.Errorf("could not commit transaction: %v", err)
 		return nil, err
 	}
 	return &sale, nil
-}
-
-// create new sale or get pending sale
-func (s *Services) CreateOrGetSale(ctx context.Context, tx *gorm.DB, req *domain.SaleRequest) (*domain.Sale, error) {
-	var res *domain.Sale
-
-	// getting pending sale with no cart items
-	err := tx.Raw(`
-			SELECT * FROM sales 
-			WHERE 
-				store_id = ? AND 
-				employee_id = ? AND 
-				cash_box_operation_id = ? AND 
-				cashbox_id = ? AND 
-				status = ? AND 
-				type = ? AND 
-				online_status = ?  AND 
-				sale_type = ?
-			AND NOT EXISTS (
-				SELECT 1 FROM cart_items WHERE cart_items.sale_id = sales.id
-			)
-			LIMIT 1`,
-		req.StoreId,
-		req.EmployeeID,
-		req.CashBoxOperationId,
-		req.CashboxId,
-		config.PENDING,
-		config.SALE_TYPE_OFFLINE,
-		config.ONLINE_STATUS_DEFAULT,
-		config.SALE_TYPE_SALE).Scan(&res).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) || res == nil || res.ID == "" {
-		res, err = s.CreateSale(tx, req)
-		if err != nil {
-			s.log.Warn("ERROR on creating sale: %v", err)
-			return res, err
-		}
-		return res, nil // return new sale info
-	} else if err != nil {
-		s.log.Warn("ERROR on getting sale: %v", err)
-		return res, err
-	}
-
-	return res, nil
-}
-
-// create new sale or get pending sale
-func (s *Services) CreateOrGetSalePending(tx *gorm.DB, req *domain.SaleRequest) (*domain.Sale, error) {
-	var res *domain.Sale
-
-	// getting pending sale with no cart items
-	err := s.db.
-		Raw(`
-			SELECT * FROM sales 
-			WHERE store_id = ? AND employee_id = ? AND cash_box_operation_id = ? AND cashbox_id = ?
-			AND status = ?  AND sale_type = ?
-			LIMIT 1
-		`, req.StoreId, req.EmployeeID, req.CashBoxOperationId, req.CashboxId, config.PENDING, config.SALE_TYPE_SALE).
-		Scan(&res).Error
-
-	if errors.Is(err, gorm.ErrRecordNotFound) || res == nil || res.ID == "" {
-		res, err = s.CreateSale(tx, req)
-		if err != nil {
-			s.log.Warn("ERROR on creating sale: %v", err)
-			return res, err
-		}
-		return res, nil // return new sale info
-	} else if err != nil {
-		s.log.Warn("ERROR on getting sale: %v", err)
-		return res, err
-	}
-
-	return res, nil
 }
 
 // Create sale payment
@@ -261,26 +259,6 @@ func (s *Services) SaveEposResponse(ctx context.Context, req *domain.EposRespons
 }
 
 // region Update
-
-// update sale payment status
-func (s *Services) UpdateSalePaymentStatus(tx *gorm.DB, salePaymentID string) error {
-	err := tx.Exec(`UPDATE sale_payments SET status = 'paid' WHERE id = ?`, salePaymentID).Error
-	if err != nil {
-		s.log.Error("ERROR on updating sale payment status: ", err)
-		return err
-	}
-	return nil
-}
-
-// update sales one item with field and value
-func (s *Services) UpdateSaleFieldValue(saleID string, field, value string) error {
-	err := s.db.Exec(`UPDATE sales SET `+field+` = ? WHERE id = ?`, value, saleID).Error
-	if err != nil {
-		s.log.Warn("ERROR on updating sale status: %v", err)
-		return err
-	}
-	return nil
-}
 
 // update sale with receiving field
 func (s *Services) UpdateSaleField(field string, value string, idField string, idValue string) (*domain.Sale, error) {
@@ -440,7 +418,7 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 	}
 
 	// create or get sale
-	res, err := s.CreateSale(tx, &domain.SaleRequest{
+	res, err := s.CreateSale(ctx, tx, &domain.SaleRequest{
 		EmployeeID:         user.UserId,
 		StoreId:            sale.StoreId,
 		CashBoxOperationId: sale.CashBoxOperationId,
@@ -565,158 +543,7 @@ func (s *Services) updateSaleToComplete(ctx context.Context, tx *gorm.DB, req *d
 	return &res, nil
 }
 
-// return sale to pending status and reset quantities
-func (s *Services) ReturnSale(ctx context.Context, tx *gorm.DB, sale *domain.Sale) error {
-	err := s.RestoreStoreProductQuantities(ctx, tx, sale)
-	if err != nil {
-		s.log.Warn("ERROR on restoring store_product quantity: %v", err)
-		return err
-	}
-
-	// build query for update sale status to return
-	query := `
-	UPDATE sales
-	SET
-		total_amount = 0,
-		total_discount = 0,
-		status = ?, completed_at = NULL, updated_at = NOW()
-	WHERE id = ?;
-	`
-	// complete the query
-	err = tx.WithContext(ctx).Exec(query, config.PENDING, sale.ID).Error
-	if err != nil {
-		s.log.Warn("ERROR on update sale to returned: %v", err)
-		return err
-	}
-
-	return nil
-}
-
-// Update cart item status and reduce store product quantities and add employee bonus after completed the sale
-func (s *Services) DeductStoreProductQuantities(ctx context.Context, tx *gorm.DB, sale *domain.Sale) error {
-	var cartItems []domain.CartItem
-	err := tx.WithContext(ctx).Raw(`
-		SELECT 
-			ci.id, 
-			ci.store_product_id, 
-			sp.product_id,
-			ci.quantity, 
-			ci.unit_quantity, 
-			unit_price,
-			total_price, 
-			ci.status, 
-			pb.bonus_amount,
-			p.unit_per_pack
-		FROM 
-			cart_items ci
-		JOIN 
-			store_products sp ON sp.id = ci.store_product_id
-		JOIN 
-			products p ON sp.product_id = p.id
-		LEFT JOIN 
-			product_bonuses pb ON pb.product_id = sp.product_id
-		WHERE 
-			sale_id = ?`, sale.ID).Scan(&cartItems).Error
-	if err != nil {
-		s.log.Error("", err)
-		return err
-	}
-	var bonusAmount float64
-	for _, item := range cartItems {
-		err = tx.WithContext(ctx).Exec(`
-		UPDATE store_products
-		SET
-			pack_quantity = GREATEST(CASE WHEN ? > 0 THEN (unit_quantity - ?)/products.unit_per_pack - ? ELSE pack_quantity - ? END, 0),
-			unit_quantity = GREATEST(unit_quantity - (? * products.unit_per_pack + ?), 0),
-			updated_at = NOW()
-		FROM products
-		WHERE products.id = store_products.product_id AND  store_products.id = ?`,
-			item.UnitQuantity, item.UnitQuantity, item.Quantity, item.Quantity,
-			item.Quantity, item.UnitQuantity, item.StoreProductID).Error
-		if err != nil {
-			return err
-		}
-		// add employee bonus
-		if item.BonusAmount > 0 && sale.SaleType == config.SALE_TYPE_SALE {
-			bonusAmount += item.BonusAmount * float64(item.Quantity)
-			if item.UnitPerPack > 0 && item.UnitQuantity > 0 {
-				bonusAmount += item.BonusAmount / float64(item.UnitPerPack) * float64(item.UnitQuantity)
-			}
-			// add employee bonus service
-			err = s.AddEmployeeBonus(ctx, tx, &domain.EmployeeBonusRequest{
-				EmployeeId:         sale.EmployeeID,
-				CashboxOperationId: sale.CashBoxOperationId,
-				SaleId:             sale.ID,
-				ProductId:          item.ProductId,
-				Quantity:           item.Quantity,
-				UnitQuantity:       item.UnitQuantity,
-				BonusAmount:        bonusAmount,
-			})
-			if err != nil {
-				s.log.Error("ERROR on adding bonus to employee: ", err)
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-// update return sale cart items
-func (s *Services) RestoreStoreProductQuantities(ctx context.Context, tx *gorm.DB, sale *domain.Sale) error {
-	var cartItems []domain.CartItem
-	// get cart items
-	err := tx.WithContext(ctx).Raw(`
-		SELECT
-			id, 
-			store_product_id,
-			quantity, 
-			unit_quantity, 
-			unit_price,
-			total_price, 
-			status
-		FROM 
-			cart_items 
-		WHERE 
-			sale_id = ?`,
-		sale.ID).Scan(&cartItems).Error
-	if err != nil {
-		s.log.Warn("ERROR on getting cart_items: %v", err)
-		return err
-	}
-	// update store product quantities
-	for _, item := range cartItems {
-		err = tx.WithContext(ctx).Exec(`
-		UPDATE 
-			store_products
-		SET
-			pack_quantity = FLOOR((? + store_products.unit_quantity + (? * products.unit_per_pack)) / products.unit_per_pack),
-			unit_quantity = store_products.unit_quantity + (? * products.unit_per_pack + ?), 
-			updated_at = NOW()
-		FROM 
-			products
-		WHERE 
-			products.id = store_products.product_id AND  
-			store_products.id = ?`,
-			item.UnitQuantity,
-			item.Quantity,
-			item.Quantity,
-			item.UnitQuantity,
-			item.StoreProductID).Error
-		if err != nil {
-			s.log.Warn("ERROR on restoring store_products quantity: %v", err)
-			return err
-		}
-	}
-	// delete employee bonus for return sale
-	err = tx.WithContext(ctx).Exec(`DELETE FROM employee_bonus WHERE sale_id = ?`, sale.ID).Error
-	if err != nil {
-		s.log.Warn("ERROR on deleting employee_bonus: %v", err)
-		return err
-	}
-	return nil
-}
-
-// set ficalsign to sale
+// set fiscal_sign to sale
 func (s *Services) SetFiscalId(ctx context.Context, tx *gorm.DB, saleID string, fiscalID string) error {
 	err := tx.WithContext(ctx).Exec(`UPDATE sales SET fiscal_sign = ?, updated_at = NOW() WHERE id = ?`, fiscalID, saleID).Error
 	if err != nil {
@@ -728,142 +555,133 @@ func (s *Services) SetFiscalId(ctx context.Context, tx *gorm.DB, saleID string, 
 
 // region Get
 
-// get sale list data
-func (s *Services) ListSale(param *domain.QueryParam, userId string) ([]domain.SaleResponse, int64, error) {
-	var (
-		totalCount int64
-		filter     = " WHERE s.status = 'completed' "
-		args       = []any{}
-		groupBy    = " GROUP BY s.id, em.id, st.id, customers.id, cash_boxes.id, dc.barcode "
-		orderBy    = " ORDER BY s.completed_at DESC "
-	)
-	// get employee info
-	var employee domain.Employee
-	err := s.db.First(&employee, "id = ?", userId).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, 0, errors.New("employee not found")
+func (s *Services) GetSale(ctx context.Context, saleId string) (*domain.Sale, error) {
+	var res domain.Sale
+
+	return &res, nil
+}
+
+func (s *Services) GetSales(params *domain.SaleQueryParams, user *domain.EmployeeClaims) ([]domain.SaleResponse, int64, error) {
+	var totalCount int64
+	var res []domain.SaleResponse
+
+	if utils.In(user.Role, constants.AdminRoles...) {
+		params.CompanyId = user.CompanyId
+		params.StoreId = user.StoreId
+	}
+
+	// query builder
+	qb := s.db.
+		Table("sales s").
+		Joins("LEFT JOIN stores st ON st.id = s.store_id").
+		Joins("LEFT JOIN employees em ON em.id = s.employee_id").
+		Joins("LEFT JOIN cash_boxes ON s.cashbox_id = cash_boxes.id").
+		Joins("LEFT JOIN customers ON s.customer_id = customers.id")
+
+	// filters
+	qb = qb.Where("s.status = ?", constants.COMPLETED)
+
+	if params.Cash {
+		qb = qb.Where("s.cash > 0")
+	}
+	if params.Humo {
+		qb = qb.Where("s.humo > 0")
+	}
+	if params.Uzcard {
+		qb = qb.Where("s.uzcard > 0")
+	}
+	if params.Click {
+		qb = qb.Where("s.click > 0")
+	}
+	if params.Payme {
+		qb = qb.Where("s.payme > 0")
+	}
+	if params.Alif {
+		qb = qb.Where("s.alif > 0")
+	}
+	if params.VendorId != "" {
+		qb = qb.Where("s.employee_id = ?", params.VendorId)
+	}
+	if params.StoreId != "" {
+		qb = qb.Where("s.store_id = ?", params.StoreId)
+	}
+	if params.CompanyId != "" {
+		qb = qb.Where("st.company_id = ?", params.CompanyId)
+	}
+	if params.CashboxId != "" {
+		qb = qb.Where("s.cashbox_id = ?", params.CashboxId)
+	}
+
+	if params.StartDate != "" && params.EndDate != "" {
+		qb = qb.Where("(s.completed_at + interval '5 hours') BETWEEN ? AND ?", params.StartDate, params.EndDate)
+	}
+
+	if params.StartDate != "" && params.EndDate == "" {
+		qb = qb.Where("(s.completed_at + interval '5 hours') BETWEEN ? AND (?::timestamp + interval '24 hours')", params.StartDate, params.StartDate)
+	}
+
+	if params.Search != "" {
+		if num, err := strconv.Atoi(params.Search); err == nil {
+			// If will be digit
+			qb = qb.Where("s.sale_number = ?", num)
+		} else {
+			// otherwise text
+			qb = qb.Where("st.name ILIKE ?", "%"+params.Search+"%")
 		}
-		s.log.Error(err)
-		return nil, 0, err
 	}
-	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, s.cfg) {
-		if employee.StoreId != "" {
-			param.StoreID = employee.StoreId
-		}
-		param.CompanyId = employee.CompanyId
+	if params.TotalAmountFrom > 0 {
+		qb = qb.Where("s.total_amount >= ?", params.TotalAmountFrom)
 	}
-	var res = []domain.SaleResponse{}
-	query := `
-	SELECT
-		s.*,
-		em.full_name, em.phone,
-		st.name AS store_name,
-		COALESCE(customers.full_name, '') as customer_name,
-		CONCAT(REPEAT('*', GREATEST(LENGTH(dc.barcode) - 4, 0)),RIGHT(dc.barcode, 4)) AS discount_barcode,
-		COALESCE(customers.phone, '') AS customer_phone,
-		cash_boxes.name AS cash_box_name,
-		COALESCE(SUM(CASE WHEN pt.name = 'Naqd' THEN sp.amount ELSE 0 END), 0.00) AS cash,
-		COALESCE(SUM(CASE WHEN pt.name = 'Uzcard' THEN sp.amount ELSE 0 END), 0.00) AS uzcard,
-		COALESCE(SUM(CASE WHEN pt.name = 'Humo' THEN sp.amount ELSE 0 END), 0.00) AS humo,
-		COALESCE(SUM(CASE WHEN pt.name = 'Click' THEN sp.amount ELSE 0 END), 0.00) AS click,
-		COALESCE(SUM(CASE WHEN pt.name = 'Payme' THEN sp.amount ELSE 0 END), 0.00) AS payme,
-		COALESCE(SUM(CASE WHEN pt.name = 'Alif' THEN sp.amount ELSE 0 END), 0.00) AS alif
-	FROM sales s
-		LEFT JOIN stores st ON st.id = s.store_id
-		LEFT JOIN employees em ON em.id = s.employee_id
-		LEFT JOIN cashbox_operations co ON s.cash_box_operation_id = co.id
-		LEFT JOIN cash_boxes ON co.cash_box_id = cash_boxes.id
-		LEFT JOIN customers ON s.customer_id = customers.id
-		LEFT JOIN sale_payments sp ON sp.sale_id = s.id
-		LEFT JOIN payment_types pt ON sp.payment_type_id = pt.id
-		LEFT JOIN discount_cards dc ON customers.id = dc.customer_id
-	`
-	totalCountQuery := `
-		SELECT
-			COUNT(DISTINCT s.id) AS total_count
-		FROM sales s
-			LEFT JOIN stores st ON st.id = s.store_id
-			LEFT JOIN employees em ON em.id = s.employee_id
-			LEFT JOIN cashbox_operations co ON s.cash_box_operation_id = co.id
-			LEFT JOIN cash_boxes ON co.cash_box_id = cash_boxes.id
-			LEFT JOIN customers ON s.customer_id = customers.id
-			LEFT JOIN sale_payments sp ON sp.sale_id = s.id
-			LEFT JOIN payment_types pt ON sp.payment_type_id = pt.id
-	`
-
-	// filter by payment type
-	if param.PaymentTypeID != "" {
-		filter += " AND sp.payment_type_id = ? "
-		args = append(args, param.PaymentTypeID)
+	if params.TotalAmountTo > 0 {
+		qb = qb.Where("s.total_amount <= ?", params.TotalAmountTo)
 	}
-	// filter by employee
-	if param.VendorID != "" {
-		filter += " AND s.employee_id = ? "
-		args = append(args, param.VendorID)
-	}
-	// filter by store id
-	if param.StoreID != "" {
-		filter += " AND s.store_id = ? "
-		args = append(args, param.StoreID)
-	}
-	if param.CompanyId != "" {
-		filter += " AND st.company_id = ? "
-		args = append(args, param.CompanyId)
-	}
-	// filter by cashbox id
-	if param.CashBoxID != "" {
-		filter += " AND co.cash_box_id = ? "
-		args = append(args, param.CashBoxID)
-	}
-	// filter by start date and end date
-	if param.StartDate != "" && param.EndDate != "" {
-		filter += " AND (s.completed_at + interval '5 hours') BETWEEN ? AND ? "
-		args = append(args, param.StartDate, param.EndDate)
-	}
-	// filter by start date
-	if param.StartDate != "" && param.EndDate == "" {
-		filter += " AND (s.completed_at + interval '5 hours') BETWEEN ? AND (?::timestamp + interval '24 hours') "
-		args = append(args, param.StartDate, param.StartDate)
-	}
-	// search condition
-	if param.Search != "" {
-		filter += " AND (st.name ILIKE ? OR CAST(s.sale_number AS TEXT) LIKE ?) "
-		args = append(args, "%"+param.Search+"%", "%"+param.Search+"%")
+	if params.SaleType != "" {
+		qb = qb.Where("s.sale_type = ?", params.SaleType)
 	}
 
-	if param.TotalAmountFrom > 0 {
-		filter += " AND s.total_amount >= ? "
-		args = append(args, param.TotalAmountFrom)
+	// 1) get total count without (LIMIT/OFFSET)
+	if err := qb.Count(&totalCount).Error; err != nil {
+		s.log.Errorf("could not count sales: %v", err)
+		return nil, 0, errors.New(constants.InternalServerError)
 	}
 
-	if param.TotalAmountTo > 0 {
-		filter += " AND s.total_amount <= ? "
-		args = append(args, param.TotalAmountTo)
-	}
-	// filter by sale type (SALE || RETURN)
-	if param.SaleType != "" {
-		filter += " AND s.sale_type = ? "
-		args = append(args, param.SaleType)
-	}
-	// collect total count query
-	totalCountQuery += filter
-	err = s.db.Raw(totalCountQuery, args...).Scan(&totalCount).Error
+	// 2) get data with (LIMIT/OFFSET bilan)
+	err := qb.
+		Select(
+			"s.id",
+			"s.sale_number",
+			"s.sale_type",
+			"s.type",
+			"s.total_amount",
+			"s.return_amount",
+			"s.total_discount",
+			"s.cash",
+			"s.uzcard",
+			"s.humo",
+			"s.click",
+			"s.payme",
+			"s.alif",
+			"s.status",
+			"s.check_url",
+			"s.fiscal_sign",
+			"s.is_sent_to_tax",
+			"s.is_paid",
+			"s.created_at",
+			"s.completed_at",
+			"em.full_name",
+			"em.phone",
+			"st.name AS store_name",
+			"customers.full_name as customer_name",
+			"customers.phone AS customer_phone",
+			"cash_boxes.name AS cash_box_name",
+		).
+		Limit(params.Limit).
+		Offset(params.Offset).
+		Order("s.completed_at DESC").
+		Find(&res).Error
 	if err != nil {
-		s.log.Warn("ERROR on gettig total count: %v", err)
-		return nil, 0, err
-	}
-
-	// collect query
-	query += filter + groupBy + orderBy + " LIMIT ? OFFSET ?;"
-	args = append(args, param.Limit, param.Offset)
-
-	// complete query
-	err = s.db.Raw(query, args...).Scan(&res).Error
-	if err != nil {
-		s.log.Error(err)
-		return nil, 0, err
+		s.log.Errorf("could not get sales: %v", err)
+		return nil, 0, errors.New(constants.InternalServerError)
 	}
 
 	return res, totalCount, nil

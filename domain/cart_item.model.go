@@ -101,7 +101,7 @@ type CartItemResponse struct {
 	CreatedAt          *time.Time        `gorm:"created_at" json:"created_at"`
 	UpdatedAt          *time.Time        `gorm:"updated_at" json:"updated_at"`
 	Name               string            `gorm:"name" json:"name"`
-	Markings           utils.StringArray `gorm:"column:markings" json:"markings"`
+	Markings           utils.StringArray `gorm:"type:text[]" json:"markings"`
 	ProductID          string            `gorm:"product_id" json:"product_id"`
 	Description        string            `gorm:"description" json:"description"`
 	Vat                float64           `gorm:"vat" json:"vat"`

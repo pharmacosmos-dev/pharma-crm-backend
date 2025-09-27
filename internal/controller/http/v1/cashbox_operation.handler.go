@@ -423,7 +423,7 @@ func (h CashBoxOperationHandler) OperationHistory(c *gin.Context) {
 		return
 	}
 	// get cash box operation history
-	res, totalCount, err := h.service.OperationHistory(storeID, isOpen, search, limit, offset)
+	res, totalCount, err := h.service.GetOperationHistory(storeID, isOpen, search, limit, offset)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())

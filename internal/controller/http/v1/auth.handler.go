@@ -78,6 +78,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		"user_id":    res.Id,
 		"company_id": res.CompanyId,
 		"store_id":   res.StoreId,
+		"role":       res.RoleType,
 	}
 	// generate tokens
 	accessToken, refreshToken, err := h.JwtHandler.GenerateTokens(userClaims)

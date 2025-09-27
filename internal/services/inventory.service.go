@@ -71,7 +71,6 @@ func (s *Services) CreateInventory(req *domain.InventoryRequest) error {
 	return nil
 }
 
-
 // region Get
 // get inventory by id
 func (s *Services) GetInventoryById(param *domain.InventoryParam) (*domain.Inventory, error) {
@@ -387,7 +386,7 @@ func (s *Services) InventoryDetailList(param *domain.InventoryParam) ([]domain.I
 	query += filter + group + orderBy + " LIMIT ? OFFSET ?"
 	args = append(args, param.Limit, param.Offset)
 	// execute query
-	err = s.db.Raw(query, args...).Scan(&res).Error
+	err = s.db.Debug().Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting inventory detail list: %v", err)
 		return res, totalSumData, 0, err
@@ -519,7 +518,6 @@ func (s *Services) InventoryDetailStatsCount(param *domain.InventoryParam) (doma
 
 	return res, nil
 }
-
 
 // region Update
 // confirm inventory
