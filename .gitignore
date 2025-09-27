@@ -22,6 +22,9 @@ bin/
 # Dependency directories (remove the comment below to include it)
 vendor/
 
+/logger/*
+!/logger/.gitkeep
+
 /uploads/*
 !/uploads/.gitkeep
 
