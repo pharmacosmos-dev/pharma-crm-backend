@@ -175,19 +175,20 @@ func (s *Services) GetStoreProductByBarcode(ctx context.Context, barcode string)
 func (s *Services) GetStoreProductByIdAndStoreId(ctx context.Context, id string, storeId string) (*domain.StoreProduct, error) {
 	var storeProduct domain.StoreProduct
 
-	err := s.db.Select(
-		"sp.id",
-		"sp.product_id",
-		"sp.store_id",
-		"sp.pack_quantity",
-		"sp.unit_quantity",
-		"sp.retail_price",
-		"sp.supply_price",
-		"sp.vat",
-		"sp.is_marking",
-		"sp.expire_date",
-		"p.unit_per_pack",
-	).
+	err := s.db.
+		Select(
+			"sp.id",
+			"sp.product_id",
+			"sp.store_id",
+			"sp.pack_quantity",
+			"sp.unit_quantity",
+			"sp.retail_price",
+			"sp.supply_price",
+			"sp.vat",
+			"sp.is_marking",
+			"sp.expire_date",
+			"p.unit_per_pack",
+		).
 		Table("store_products sp").
 		Joins("JOIN products p ON sp.product_id = p.id").
 		Where("sp.store_id = ?", storeId).
@@ -1431,4 +1432,44 @@ func (s *Services) IncrementQuantity(tx *gorm.DB, id string, quantity int) error
 	}
 
 	return nil
+}
+
+func (s *Services) GetSoldProductsBySaleId(ctx context.Context, saleId string) ([]domain.ProductRes, error) {
+	// get products info
+	var products []domain.ProductRes
+	query := `
+	SELECT
+		p.id,
+		p.name,
+		p.barcode,
+		p.is_marking,
+        p.photos,
+		p.mxik AS class_code,
+		p.unit_label AS package_name,
+        ROUND((sp.vat_price / p.unit_per_pack) * ci.unit_quantity, 2) AS vat,
+        sp.id AS store_product_id,
+        sp.vat AS vat_percent,
+        ci.unit_quantity / p.unit_per_pack AS quantity,
+        ci.unit_quantity % p.unit_per_pack as unit_quantity,
+		ci.marking_count,
+		ci.unit_price AS pack_price,
+		ci.total_price,
+		ci.discount_amount,
+		((ci.discount_price/p.unit_per_pack)*ci.unit_quantity) AS  total_discount,
+        ROUND(ci.unit_price / p.unit_per_pack, 2) AS unit_price,
+        (pb.bonus_amount/p.unit_per_pack) * ci.unit_quantity AS bonus_amount
+	FROM cart_items ci
+	JOIN store_products sp ON ci.store_product_id = sp.id
+	JOIN products p ON sp.product_id = p.id
+	LEFT JOIN unit_types u ON p.unit_type_id = u.id
+	LEFT JOIN product_bonuses pb ON pb.product_id = sp.product_id
+	WHERE ci.sale_id = ?
+	`
+	err := s.db.WithContext(ctx).Raw(query, saleId).Scan(&products).Error
+	if err != nil {
+		s.log.Errorf("could not get sale products: %v", err)
+		return nil, errors.New(constants.InternalServerError)
+	}
+
+	return products, nil
 }

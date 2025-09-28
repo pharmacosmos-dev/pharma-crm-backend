@@ -67,5 +67,9 @@ func (s *Services) GetSignedUser(c *gin.Context) *domain.EmployeeClaims {
 		user.StoreId, _ = storeId.(string)
 	}
 
+	if role, ok := c.Get("role"); ok && role != nil {
+		user.Role, _ = role.(string)
+	}
+
 	return user
 }

@@ -179,19 +179,19 @@ func (s *Services) updateExistsCartItemQuantity(ctx context.Context, req *domain
 	err := tx.WithContext(ctx).Raw(query, req.UnitQuantity, req.TotalPrice, req.ID).Scan(&res).Error
 	if err != nil {
 		_ = tx.Rollback()
-		s.log.Error("could not update cart_item: %v", err)
+		s.log.Errorf("could not update cart_item: %v", err)
 		return nil, errors.New(constants.InternalServerError)
 	}
 
 	err = s.IncrementQuantity(tx, req.StoreProductID, -req.UnitQuantity)
 	if err != nil {
 		_ = tx.Rollback()
-		s.log.Error("could not update store_product quantity: %v", err)
+		s.log.Errorf("could not update store_product quantity: %v", err)
 		return nil, errors.New(constants.InternalServerError)
 	}
 
 	if err = tx.Commit().Error; err != nil {
-		s.log.Error("could not commit transaction: %v", err)
+		s.log.Errorf("could not commit transaction: %v", err)
 		return nil, errors.New(constants.InternalServerError)
 	}
 
@@ -199,7 +199,7 @@ func (s *Services) updateExistsCartItemQuantity(ctx context.Context, req *domain
 }
 
 // region Get
-func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartItemData, error) {
+func (s *Services) FetchCartItems(ctx context.Context, saleId string, limit, offset int) (*domain.CartItemData, error) {
 	var res []domain.CartItemResponse
 	err := s.db.Raw(`
 	WITH ci_amount AS (
@@ -265,10 +265,10 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 	LEFT JOIN product_bonuses pb ON p.id = pb.product_id
 	WHERE ci.sale_id = ?
 	ORDER BY ci.created_at DESC LIMIT ? OFFSET ?;
-	`, saleID, saleID, limit, offset).Scan(&res).Error
+	`, saleId, saleId, limit, offset).Scan(&res).Error
 	if err != nil {
-		s.log.Warn("Error on listing cart items for sale %s: %v", saleID, err.Error())
-		return nil, err
+		s.log.Errorf("cound not get cart_items by sale(%s) error: %v", saleId, err.Error())
+		return nil, errors.New(constants.InternalServerError)
 	}
 
 	for i := range res {
@@ -292,9 +292,9 @@ func (s *Services) CartItemList(saleID string, limit, offset int) (*domain.CartI
 	LEFT JOIN sale_customer_discounts cd ON cd.sale_id = ci.sale_id
 	LEFT JOIN discount_cards dc ON cd.customer_id = dc.customer_id
 	WHERE  ci.sale_id = ?
-	`, saleID).Scan(&data).Error
+	`, saleId).Scan(&data).Error
 	if err != nil {
-		s.log.Warn("Error on listing cart items for sale %s: %v", saleID, err.Error())
+		s.log.Warn("Error on listing cart items for sale %s: %v", saleId, err.Error())
 		return nil, err
 	}
 	if res == nil {

@@ -153,6 +153,7 @@ func (h *Services) ClickPassDoRequest(ctx context.Context, url string, data any,
 }
 
 // region Payme
+
 // Payme Go Handler functon
 // Improved PaymeGo Handler function
 func (s *Services) PaymeGo(
@@ -163,10 +164,9 @@ func (s *Services) PaymeGo(
 	sale *domain.Sale) (map[string]any, error) {
 	// Method receipt create
 	createRes, err := s.PaymeGoReceiptCreate(ctx, paymentService, data, sale)
-
 	if err != nil {
-		s.log.Error("Failed to create receipt: %v", err)
-		return nil, fmt.Errorf("receipt creation failed: %w", err)
+		s.log.Errorf("could not create payme receipt: %v", err)
+		return nil, errors.New(constants.InternalServerError)
 	}
 
 	// Validate receipt creation response

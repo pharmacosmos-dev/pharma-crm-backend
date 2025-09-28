@@ -78,3 +78,11 @@ type Tag struct {
 	Id   string `gorm:"id" json:"id"`
 	Name string `gorm:"name" json:"name"`
 }
+
+type CustomerForSale struct {
+	Id        string `json:"id"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	FullName  string `json:"full_name"`
+	Phone     string `json:"phone"`
+}

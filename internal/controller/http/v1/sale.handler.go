@@ -143,101 +143,26 @@ func (h *SaleHandler) CreateReturn(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param id path string true "sale ID"
+// @Param id path string true "sale_id"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /sale/{id} [get]
 func (h *SaleHandler) Get(c *gin.Context) {
-	var (
-		res domain.SaleResponse
-		id  = c.Param("id")
-	)
+	var id = c.Param("id")
+
 	if err := uuid.Validate(id); err != nil {
 		handleResponse(c, BadRequest, "invalid.sale.id")
 		return
 	}
-	// get sale info
-	err := h.db.
-		Table("sales").
-		Preload("Employee", func(db *gorm.DB) *gorm.DB {
-			return db.Select("id", "full_name", "first_name", "last_name", "phone") // keep it minimal
-		}).
-		Preload("Customer", func(db *gorm.DB) *gorm.DB {
-			return db.Select("id", "full_name", "first_name", "last_name") // keep it minimal
-		}).First(&res, "id = ?", id).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			handleResponse(c, OK, "Sale info not found")
-			return
-		}
-		h.log.Warn("ERROR on getting sale: %v", err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	// get products info
-	var products []domain.ProductRes
-	err = h.db.Raw(`
-	SELECT
-		p.id,
-		sp.id AS store_product_id, 
-		p.name,
-		p.barcode,
-		p.is_marking,
-        p.photos,
-		p.mxik AS class_code,
-		p.unit_label AS package_name, 
-        ROUND(sp.vat_price * ci.quantity + (sp.vat_price / p.unit_per_pack) * ci.unit_quantity, 2) AS vat,
-        sp.vat AS vat_percent,
-        ci.quantity,
-		ci.unit_price AS pack_price,
-        ci.unit_quantity,
-		ci.marking_count,
-		ci.total_price,
-		u.short_name,
-        (ci.discount_price*ci.quantity) AS  total_discount,
-        ROUND(ci.unit_price / p.unit_per_pack, 2) AS unit_price,
-        pb.bonus_amount*ci.quantity+ ROUND((pb.bonus_amount/p.unit_per_pack)*ci.unit_quantity, 2) AS bonus_amount,
-        ci.discount_amount
-	FROM cart_items ci
-	JOIN store_products sp ON ci.store_product_id = sp.id
-	JOIN products p ON sp.product_id = p.id
-	LEFT JOIN unit_types u ON p.unit_type_id = u.id
-	LEFT JOIN product_bonuses pb ON pb.product_id = p.id
-	WHERE ci.sale_id = ?`, id).Scan(&products).Error
-	if err != nil {
-		h.log.Warn("could not get sale : %v", err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 
-	// get vat sum
-	var vatSum float64
-	err = h.db.Raw(`
-	SELECT
-			COALESCE(SUM(ROUND(sp.vat_price * quantity +(sp.vat_price / p.unit_per_pack) * ci.unit_quantity, 2)), 0) AS vat_sum
-	FROM cart_items ci
-		JOIN store_products sp ON sp.id = ci.store_product_id
-		JOIN products p ON sp.product_id = p.id
-		WHERE  sale_id = ?;
-	`, id).Scan(&vatSum).Error
+	res, err := h.service.GetSaleOne(ctx, id)
 	if err != nil {
-		h.log.Warn("ERROR on getting vat_sum: %v", err)
-		handleResponse(c, InternalError, "Can't calculate vat sum")
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	if res.ParentId != "" {
-		// get epos response
-		err = h.db.Raw(`SELECT * FROM epos_responses WHERE sale_id = ? AND status = 1`, res.ParentId).Scan(&res.EposResponse).Error
-		if err != nil {
-			if !errors.Is(err, gorm.ErrRecordNotFound) {
-				h.log.Error(err)
-			}
-		}
-	}
-	// get cart item products list
-	res.Product = products
-	res.VatSum = vatSum
 
 	handleResponse(c, OK, res)
 }
@@ -282,11 +207,14 @@ func (h *SaleHandler) List(c *gin.Context) {
 		return
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
 	// get limit offset with checking default
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
 	// get sale list data
-	res, totalCount, err := h.service.GetSales(&params, user)
+	res, totalCount, err := h.service.GetSales(ctx, &params, user)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -335,11 +263,14 @@ func (h *SaleHandler) ExportSaleExcel(c *gin.Context) {
 		return
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
 	// get limit offset
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
 	// get sale list data
-	res, _, err := h.service.GetSales(&params, user)
+	res, _, err := h.service.GetSales(ctx, &params, user)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
@@ -703,27 +634,35 @@ func (h *SaleHandler) EposResult(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /sale/get-list [get]
 func (h *SaleHandler) GetSaleList(c *gin.Context) {
-	var (
-		param domain.QueryParam
-	)
-	// bind query params
-	if err := c.ShouldBindQuery(&param); err != nil {
-		h.log.Error("ERROR on binding query params: ", err)
-		handleResponse(c, BadRequest, err.Error())
+	user := h.service.GetSignedUser(c)
+
+	if user == nil {
+		handleResponse(c, UNAUTHORIZED, constants.UnauthorizedError)
 		return
 	}
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
-	// get sale list data
-	res, totalCount, err := h.service.GetSaleList(&param)
+
+	var params domain.SaleQueryParams
+	// bind query params
+	err := c.ShouldBindQuery(&params)
 	if err != nil {
-		h.log.Error("ERROR on getting sale list: ", err)
+		handleResponse(c, BadRequest, constants.InvalidQueryError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+	// get sale list data
+	res, totalCount, err := h.service.GetSaleList(ctx, &params, user)
+	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 	// added _meta section to response
-	result := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
 
-	handleResponse(c, OK, result)
+	handleResponse(c, OK, data)
 }
 
 // List godoc
@@ -1034,12 +973,14 @@ func (h *SaleHandler) OnlineSaleList(c *gin.Context) {
 		return
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 
-	res, totalCount, err := h.service.OnlinePendingSaleList(&param)
+	res, totalCount, err := h.service.GetOnlinePendingSaleList(ctx, &param)
 	if err != nil {
-		h.log.Warn("ERROR on getting online pending sale list: %v", err)
-		handleResponse(c, InternalError, "failed.get.online.sale")
+		handleResponse(c, InternalError, err.Error())
 		return
 	}
 	// get response data with pagination _meta data
@@ -1066,32 +1007,36 @@ func (h *SaleHandler) OnlineSaleList(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /sale/pending-list [get]
 func (h *SaleHandler) PendingSaleList(c *gin.Context) {
-	var param domain.QueryParam
+	var params domain.SaleQueryParams
 
 	// get user_id from context
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
+	user := h.service.GetSignedUser(c)
+	if user == nil {
+		handleResponse(c, UNAUTHORIZED, constants.UnauthorizedError)
 		return
 	}
 
-	if err := c.ShouldBindQuery(&param); err != nil {
-		h.log.Error("bind query error: ", err)
-		handleResponse(c, BadRequest, err.Error())
+	err := c.ShouldBindQuery(&params)
+	if err != nil {
+		handleResponse(c, BadRequest, constants.InvalidQueryError)
 		return
 	}
 
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
 	// get pending sales
-	res, totalCount, err := h.service.ListPendingSales(&param, userId.(string))
+	res, totalCount, err := h.service.GetPendingSales(ctx, &params, user)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
-	result := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
-	handleResponse(c, OK, result)
+	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
+
+	handleResponse(c, OK, data)
 }
 
 // DMEDGetPrescriptions godoc

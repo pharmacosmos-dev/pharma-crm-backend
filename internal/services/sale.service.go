@@ -36,7 +36,7 @@ func (s *Services) CreateSale(ctx context.Context, tx *gorm.DB, req *domain.Sale
 
 	var res domain.Sale
 	query := "INSERT INTO sales(employee_id, cash_box_operation_id, store_id, cashbox_id) VALUES(?, ?, ?, ?) RETURNING *"
-	err := tx.Raw(query,
+	err := tx.WithContext(ctx).Raw(query,
 		req.EmployeeID,
 		req.CashBoxOperationId,
 		req.StoreId,
@@ -272,7 +272,6 @@ func (s *Services) UpdateSaleField(field string, value string, idField string, i
 
 // finalize sale
 func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*domain.Sale, error) {
-
 	sale, err := s.GetSaleById(ctx, req.SaleID)
 	if err != nil {
 		return nil, err
@@ -360,20 +359,26 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 	// Convert string to []byte and store in Response field
 	req.Response = []byte(responseDataStr)
 
-	// start transaction
-	tx := s.db.Begin()
-
 	// Get sale by ID
 	sale, err := s.GetSaleById(ctx, req.SaleId)
 	if err != nil {
 		return nil, err
 	}
 
+	updates := map[string]any{}
+
 	if req.Error {
 		err = s.SaveEposResponse(ctx, req)
 		if err != nil {
 			return nil, err
 		}
+		updates["status"] = constants.PENDING
+		err = s.updateSaleFields(ctx, req.SaleId, updates)
+		if err != nil {
+			return nil, err
+		}
+
+		return sale, nil
 	}
 
 	// Save to epos_responses table
@@ -388,10 +393,18 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 		s.log.Error("could not parse epos success response: %v", err)
 		return nil, errors.New(constants.BadRequestError)
 	}
-
 	if successResp.Message.FiscalSign == "" {
 		successResp.Message.FiscalSign = successResp.Info.FiscalSign
+		successResp.Message.DateTime = successResp.Info.DateTime
+		successResp.Message.QrCodeUrl = successResp.Info.QrCodeURL
+		successResp.Message.QrCodeURL = successResp.Info.QrCodeURL
+		successResp.Message.ReceiptSeq = successResp.Info.ReceiptSeq
+		successResp.Message.TerminalId = successResp.Info.TerminalId
 	}
+
+	updates["fiscal_sign"] = successResp.Message.FiscalSign
+	updates["check_url"] = successResp.Message.QrCodeURL
+	updates["is_sent_to_tax"] = true
 
 	// set fiscal data if payment completed with payme
 	if sale.PaymentReceiptId != "" {
@@ -417,8 +430,13 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 
 	}
 
+	err = s.updateSaleFields(ctx, req.SaleId, updates)
+	if err != nil {
+		return nil, err
+	}
+
 	// create or get sale
-	res, err := s.CreateSale(ctx, tx, &domain.SaleRequest{
+	res, err := s.CreateSale(ctx, s.db, &domain.SaleRequest{
 		EmployeeID:         user.UserId,
 		StoreId:            sale.StoreId,
 		CashBoxOperationId: sale.CashBoxOperationId,
@@ -555,23 +573,211 @@ func (s *Services) SetFiscalId(ctx context.Context, tx *gorm.DB, saleID string, 
 
 // region Get
 
-func (s *Services) GetSale(ctx context.Context, saleId string) (*domain.Sale, error) {
-	var res domain.Sale
+func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleResponse, error) {
+	var tempSale struct {
+		Id                 string     `gorm:"id"`
+		ParentId           string     `gorm:"parent_id"`
+		EmployeeId         string     `gorm:"employee_id"`
+		CashBoxOperationId string     `gorm:"cash_box_operation_id"`
+		CustomerId         string     `gorm:"customer_id"`
+		SaleNumber         int        `gorm:"sale_number"`
+		TotalDiscount      float64    `gorm:"total_discount"`
+		TotalAmount        float64    `gorm:"total_amount"`
+		VatSum             float64    `gorm:"vat_sum"`
+		ReturnedAmount     float64    `gorm:"returned_amount"`
+		Status             string     `gorm:"status"`
+		OnlineStatus       int        `gorm:"online_status"`
+		Type               string     `gorm:"type"`
+		SaleType           string     `gorm:"sale_type"`
+		Cash               float64    `gorm:"cash"`
+		Uzcard             float64    `gorm:"uzcard"`
+		Humo               float64    `gorm:"humo"`
+		Click              float64    `gorm:"click"`
+		Payme              float64    `gorm:"payme"`
+		Alif               float64    `gorm:"alif"`
+		IsDelivered        bool       `gorm:"is_delivered"`
+		FiscalSign         string     `gorm:"fiscal_sign"`
+		CheckUrl           string     `gorm:"check_url"`
+		IsSentToTax        string     `gorm:"is_sent_to_tax"`
+		CreatedAt          *time.Time `gorm:"created_at"`
+		UpdatedAt          *time.Time `gorm:"updated_at"`
+		CompletedAt        *time.Time `gorm:"completed_at"`
+
+		StoreName   string `gorm:"store_name"`
+		CashBoxName string `gorm:"cash_box_name"`
+
+		EmFullName  string `gorm:"em_full_name"`
+		EmFirstName string `gorm:"em_first_name"`
+		EmLastname  string `gorm:"em_last_name"`
+		EmPhone     string `gorm:"em_phone"`
+
+		CFullName  string `gorm:"c_full_name"`
+		CFirstName string `gorm:"c_first_name"`
+		CLastName  string `gorm:"c_last_name"`
+		CPhone     string `gorm:"c_phone"`
+	}
+
+	var res domain.SaleResponse
+	// get sale info
+	err := s.db.
+		Select(
+			"s.id",
+			"s.parent_id",
+			"s.employee_id",
+			"s.cash_box_operation_id",
+			"s.store_id",
+			"s.customer_id",
+			"s.cashbox_id",
+			"s.sale_number",
+			"s.total_amount",
+			"s.total_discount",
+			"s.returned_amount",
+			"s.cash",
+			"s.humo",
+			"s.uzcard",
+			"s.payme",
+			"s.click",
+			"s.alif",
+			"s.status",
+			"s.online_status",
+			"s.sale_type",
+			"s.type",
+			"s.fiscal_sign",
+			"s.check_url",
+			"s.is_sent_to_tax",
+			"s.created_at",
+			"s.updated_at",
+			"s.completed_at",
+
+			"st.name AS store_name",
+			"ca.name AS cash_box_name",
+
+			"em.first_name AS em_first_name",
+			"em.last_name AS em_last_name",
+			"em.full_name AS em_full_name",
+			"em.phone AS em_phone",
+
+			"c.first_name AS c_first_name",
+			"c.last_name AS c_last_name",
+			"c.full_name AS c_full_name",
+			"c.phone AS c_phone",
+		).
+		Table("sales").
+		Joins("LEFT JOIN stores st ON s.store_id = st.id").
+		Joins("LEFT JOIN cash_boxes ca ON s.cashbox_id = ca.id").
+		Joins("LEFT JOIN employees em ON s.empoyee_id = em.id").
+		Joins("LEFT JOIN customers c ON s.customer_id = c.id").
+		First(&res).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New(constants.NotFoundError)
+		}
+		s.log.Errorf("could not get sale: %v", err)
+		return nil, errors.New(constants.InternalServerError)
+	}
+
+	res = domain.SaleResponse{
+		Id:                 tempSale.Id,
+		ParentId:           tempSale.ParentId,
+		EmployeeId:         tempSale.EmployeeId,
+		CustomerId:         tempSale.CustomerId,
+		CashBoxOperationId: tempSale.CashBoxOperationId,
+		SaleNumber:         tempSale.SaleNumber,
+		TotalAmount:        tempSale.TotalAmount,
+		TotalDiscount:      tempSale.TotalDiscount,
+		Cash:               tempSale.Cash,
+		Humo:               tempSale.Humo,
+		Uzcard:             tempSale.Uzcard,
+		Click:              tempSale.Click,
+		Payme:              tempSale.Payme,
+		Alif:               tempSale.Alif,
+		Status:             tempSale.Status,
+		OnlineStatus:       tempSale.OnlineStatus,
+		SaleType:           tempSale.SaleType,
+		Type:               tempSale.Type,
+		FiscalSign:         tempSale.FiscalSign,
+		CheckUrl:           tempSale.CheckUrl,
+		IsSentToTax:        tempSale.IsSentToTax,
+		CreatedAt:          tempSale.CreatedAt,
+		UpdatedAt:          tempSale.UpdatedAt,
+		CompletedAt:        tempSale.CompletedAt,
+
+		StoreName:   tempSale.StoreName,
+		CashBoxName: tempSale.CashBoxName,
+
+		Customer: &domain.CustomerForSale{
+			Id:        tempSale.CustomerId,
+			FirstName: tempSale.CFirstName,
+			LastName:  tempSale.CLastName,
+			FullName:  tempSale.CFullName,
+			Phone:     tempSale.CPhone,
+		},
+
+		Employee: &domain.EmployeeForSale{
+			Id:        tempSale.EmployeeId,
+			FirstName: tempSale.EmFirstName,
+			LastName:  tempSale.EmLastname,
+			FullName:  tempSale.EmFullName,
+			Phone:     tempSale.EmPhone,
+		},
+	}
+
+	res.Product, err = s.GetSoldProductsBySaleId(ctx, saleId)
+	if err != nil {
+		return nil, err
+	}
+
+	res.VatSum, err = s.getSaleVatSum(ctx, saleId)
+	if err != nil {
+		return nil, err
+	}
+
+	if res.ParentId != "" {
+		// get epos response
+		err = s.db.Raw(`SELECT * FROM epos_responses WHERE sale_id = ? AND status = 1`, res.ParentId).Scan(&res.EposResponse).Error
+		if err != nil {
+			if !errors.Is(err, gorm.ErrRecordNotFound) {
+				s.log.Errorf("could not get epos_response by sale: %v", err)
+			}
+		}
+	}
 
 	return &res, nil
 }
 
-func (s *Services) GetSales(params *domain.SaleQueryParams, user *domain.EmployeeClaims) ([]domain.SaleResponse, int64, error) {
+func (s *Services) GetSaleById(ctx context.Context, saleId string) (*domain.Sale, error) {
+	var (
+		err  error
+		sale domain.Sale
+	)
+
+	err = s.db.WithContext(ctx).Preload("Employee").First(&sale, "id = ?", saleId).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return &sale, errors.New(constants.NotFoundError)
+		}
+		s.log.Error("could not get sale(%s) info: %v", saleId, err)
+		return &sale, errors.New(constants.InternalServerError)
+	}
+
+	return &sale, nil
+}
+
+func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams, user *domain.EmployeeClaims) ([]domain.SaleResponse, int64, error) {
 	var totalCount int64
 	var res []domain.SaleResponse
 
 	if utils.In(user.Role, constants.AdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
 		params.CompanyId = user.CompanyId
-		params.StoreId = user.StoreId
 	}
 
 	// query builder
 	qb := s.db.
+		WithContext(ctx).
 		Table("sales s").
 		Joins("LEFT JOIN stores st ON st.id = s.store_id").
 		Joins("LEFT JOIN employees em ON em.id = s.employee_id").
@@ -687,74 +893,132 @@ func (s *Services) GetSales(params *domain.SaleQueryParams, user *domain.Employe
 	return res, totalCount, nil
 }
 
-// Get sale by Id
-func (s *Services) GetSaleById(ctx context.Context, saleId string) (*domain.Sale, error) {
-	var (
-		err  error
-		sale domain.Sale
-	)
-
-	err = s.db.WithContext(ctx).Preload("Employee").First(&sale, "id = ?", saleId).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return &sale, errors.New(constants.NotFoundError)
-		}
-		s.log.Error("could not get sale(%s) info: %v", saleId, err)
-		return &sale, errors.New(constants.InternalServerError)
-	}
-
-	return &sale, nil
-}
-
-// Get sale list
-func (s *Services) GetSaleList(param *domain.QueryParam) ([]domain.SaleResponse, int64, error) {
+func (s *Services) GetSaleList(ctx context.Context, params *domain.SaleQueryParams, user *domain.EmployeeClaims) ([]domain.SaleResponse, int64, error) {
 	var totalCount int64
-	// build sale get list query
-	var res = []domain.SaleResponse{}
-	query := s.db.Model(&domain.Sale{}).Table("sales s").
-		Preload("SalePayments", func(db *gorm.DB) *gorm.DB {
-			return db.Preload("PaymentType")
-		}).
-		Select(`s.*,st.name AS store_name, c.full_name as customer_name`).
-		// Change INNER JOIN to LEFT JOIN to include sales without store_id
-		Joins("JOIN stores st ON st.id = s.store_id").
-		Joins("LEFT JOIN customers c ON s.customer_id = c.id")
+	var res []domain.SaleResponse
 
-	// filter by employee
-	if param.VendorID != "" {
-		query = query.Where("s.employee_id = ?", param.VendorID)
-	}
-	// filter by store id
-	if param.StoreID != "" {
-		query = query.Where("s.store_id = ?", param.StoreID)
+	if utils.In(user.Role, constants.AdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
 	}
 
-	// filter by start date and end date
-	if param.StartDate != "" && param.EndDate != "" {
-		query = query.Where("s.completed_at::date >= ? AND s.completed_at::date <= ?  ", param.StartDate, param.EndDate)
+	// query builder
+	qb := s.db.
+		WithContext(ctx).
+		Table("sales s").
+		Joins("LEFT JOIN stores st ON st.id = s.store_id").
+		Joins("LEFT JOIN employees em ON em.id = s.employee_id").
+		Joins("LEFT JOIN cash_boxes ON s.cashbox_id = cash_boxes.id").
+		Joins("LEFT JOIN customers ON s.customer_id = customers.id")
+
+	// filters
+	qb = qb.Where("s.status = ?", constants.COMPLETED)
+
+	if params.Cash {
+		qb = qb.Where("s.cash > 0")
 	}
-	// filter by start date
-	if param.StartDate != "" && param.EndDate == "" {
-		query = query.Where("s.completed_at::date >= ?", param.StartDate)
+	if params.Humo {
+		qb = qb.Where("s.humo > 0")
 	}
-	// search condition
-	if param.Search != "" {
-		param.Search = fmt.Sprintf("%%%s%%", param.Search)
-		query = query.Where("st.name ILIKE ? OR CAST(s.sale_number AS TEXT) LIKE ?", param.Search, param.Search)
+	if params.Uzcard {
+		qb = qb.Where("s.uzcard > 0")
 	}
-	// complete query
-	err := query.
-		Where("s.status = 'completed'").
-		Count(&totalCount).
-		Limit(param.Limit).
-		Offset(param.Offset).
+	if params.Click {
+		qb = qb.Where("s.click > 0")
+	}
+	if params.Payme {
+		qb = qb.Where("s.payme > 0")
+	}
+	if params.Alif {
+		qb = qb.Where("s.alif > 0")
+	}
+	if params.VendorId != "" {
+		qb = qb.Where("s.employee_id = ?", params.VendorId)
+	}
+	if params.StoreId != "" {
+		qb = qb.Where("s.store_id = ?", params.StoreId)
+	}
+	if params.CompanyId != "" {
+		qb = qb.Where("st.company_id = ?", params.CompanyId)
+	}
+	if params.CashboxId != "" {
+		qb = qb.Where("s.cashbox_id = ?", params.CashboxId)
+	}
+
+	if params.StartDate != "" && params.EndDate != "" {
+		qb = qb.Where("(s.completed_at + interval '5 hours') BETWEEN ? AND ?", params.StartDate, params.EndDate)
+	}
+
+	if params.StartDate != "" && params.EndDate == "" {
+		qb = qb.Where("(s.completed_at + interval '5 hours') BETWEEN ? AND (?::timestamp + interval '24 hours')", params.StartDate, params.StartDate)
+	}
+
+	if params.Search != "" {
+		if num, err := strconv.Atoi(params.Search); err == nil {
+			// If will be digit
+			qb = qb.Where("s.sale_number = ?", num)
+		} else {
+			// otherwise text
+			qb = qb.Where("st.name ILIKE ?", "%"+params.Search+"%")
+		}
+	}
+	if params.TotalAmountFrom > 0 {
+		qb = qb.Where("s.total_amount >= ?", params.TotalAmountFrom)
+	}
+	if params.TotalAmountTo > 0 {
+		qb = qb.Where("s.total_amount <= ?", params.TotalAmountTo)
+	}
+	if params.SaleType != "" {
+		qb = qb.Where("s.sale_type = ?", params.SaleType)
+	}
+
+	// 1) get total count without (LIMIT/OFFSET)
+	if err := qb.Count(&totalCount).Error; err != nil {
+		s.log.Errorf("could not count sales: %v", err)
+		return nil, 0, errors.New(constants.InternalServerError)
+	}
+
+	// 2) get data with (LIMIT/OFFSET bilan)
+	err := qb.
+		Select(
+			"s.id",
+			"s.sale_number",
+			"s.sale_type",
+			"s.type",
+			"s.total_amount",
+			"s.return_amount",
+			"s.total_discount",
+			"s.cash",
+			"s.uzcard",
+			"s.humo",
+			"s.click",
+			"s.payme",
+			"s.alif",
+			"s.status",
+			"s.check_url",
+			"s.fiscal_sign",
+			"s.is_sent_to_tax",
+			"s.is_paid",
+			"s.created_at",
+			"s.completed_at",
+			"em.full_name",
+			"em.phone",
+			"st.name AS store_name",
+			"customers.full_name as customer_name",
+			"customers.phone AS customer_phone",
+			"cash_boxes.name AS cash_box_name",
+		).
+		Limit(params.Limit).
+		Offset(params.Offset).
 		Order("s.completed_at DESC").
 		Find(&res).Error
-
 	if err != nil {
-		s.log.Error(err)
-		return nil, 0, err
+		s.log.Errorf("could not get sales: %v", err)
+		return nil, 0, errors.New(constants.InternalServerError)
 	}
+
 	return res, totalCount, nil
 }
 
@@ -802,21 +1066,12 @@ func (s *Services) cartItemsSumBySaleId(ctx context.Context, saleID string) (flo
 	return sum, nil
 }
 
-// sum sale payment amounts
-func (s *Services) collectSalePaymentAmount(typeAmounts []domain.FinalPaymentType) float64 {
-	var sum float64
-	for _, v := range typeAmounts {
-		sum += (v.Amount - v.ReturnAmount)
-	}
-	return sum
-}
-
-// online pending sale list
-func (s *Services) OnlinePendingSaleList(param *domain.QueryParam) ([]domain.Sale, int64, error) {
+// get online pending sale list
+func (s *Services) GetOnlinePendingSaleList(ctx context.Context, params *domain.QueryParam) ([]domain.Sale, int64, error) {
 	var (
 		res        []domain.Sale
 		filter     = " WHERE s.store_id = ? AND (s.online_status = 1 OR s.online_status = 2) "
-		args       = []any{param.StoreID}
+		args       = []any{params.StoreID}
 		group      = " GROUP BY s.id "
 		order      = " ORDER BY s.created_at DESC "
 		totalCount int64
@@ -849,121 +1104,164 @@ func (s *Services) OnlinePendingSaleList(param *domain.QueryParam) ([]domain.Sal
 	LEFT JOIN cart_items ci ON s.id = ci.sale_id
 	`
 
-	if param.StartDate != "" {
+	if params.StartDate != "" {
 		filter += " AND (s.created_at + interval '5 hours')::date >= ? "
-		args = append(args, param.StartDate)
+		args = append(args, params.StartDate)
 	}
 
-	if param.EndDate != "" {
+	if params.EndDate != "" {
 		filter += " AND (s.created_at + interval '5 hours')::date <= ? "
-		args = append(args, param.EndDate)
+		args = append(args, params.EndDate)
 	}
 
-	if param.Search != "" {
+	if params.Search != "" {
 		filter += " AND CAST(s.sale_number AS TEXT) LIKE ? "
-		args = append(args, "%"+param.Search+"%")
+		args = append(args, "%"+params.Search+"%")
 	}
 	// collect and execute totalCount query
 	totalCountQuery += filter + group
-	err := s.db.Raw(totalCountQuery, args...).Scan(&totalCount).Error
+	err := s.db.WithContext(ctx).Raw(totalCountQuery, args...).Scan(&totalCount).Error
 	if err != nil {
-		s.log.Error("Error on getting total_count online sale: %v", err)
-		return res, totalCount, err
+		s.log.Errorf("could not get online sale count: %v", err)
+		return res, totalCount, errors.New(constants.InternalServerError)
 	}
 
 	// collect and execute query
 	query += filter + group + order + " LIMIT ? OFFSET ?;"
-	args = append(args, param.Limit, param.Offset)
-	err = s.db.Raw(query, args...).Scan(&res).Error
+	args = append(args, params.Limit, params.Offset)
+	err = s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
 	if err != nil {
-		s.log.Error("Error on getting online pending sale list: %v", err)
-		return res, totalCount, err
+		s.log.Errorf("could not get online sale list: %v", err)
+		return res, totalCount, errors.New(constants.InternalServerError)
 	}
 
 	return res, totalCount, nil
 }
 
-func (s *Services) ListPendingSales(param *domain.QueryParam, userId string) ([]domain.SaleResponse, int64, error) {
-	var (
-		totalCount int64
-		filter     = " WHERE s.status = 'pending' "
-		args       []any
-		groupBy    = " GROUP BY s.id, em.id, st.id, customers.id, cash_boxes.id"
-		orderBy    = " ORDER BY s.created_at DESC"
-		having     = " HAVING COALESCE(SUM(ci.quantity + (ci.unit_quantity::decimal / NULLIF(products.unit_per_pack, 0))), 0) > 0"
-	)
-
-	// SELECT query
-	query := `
-	SELECT
-		s.*,
-		em.full_name, em.phone,
-		st.name AS store_name,
-		COALESCE(customers.full_name, '') AS customer_name,
-		COALESCE(customers.phone, '') AS customer_phone,
-		cash_boxes.name AS cash_box_name,
-		round(COALESCE(SUM(ci.quantity + (ci.unit_quantity::decimal / NULLIF(products.unit_per_pack, 0))), 0), 2) AS product_count,
-		COUNT(*) OVER() AS total_count
-	FROM sales s
-		LEFT JOIN stores st ON st.id = s.store_id
-		LEFT JOIN employees em ON em.id = s.employee_id
-		LEFT JOIN cashbox_operations co ON s.cash_box_operation_id = co.id
-		LEFT JOIN cash_boxes ON co.cash_box_id = cash_boxes.id
-		LEFT JOIN customers ON s.customer_id = customers.id
-		LEFT JOIN cart_items ci ON ci.sale_id = s.id
-		LEFT JOIN store_products sp ON ci.store_product_id = sp.id
-		LEFT JOIN products ON sp.product_id = products.id
-	`
-
-	// COUNT query
-	totalCountQuery := `
-	SELECT COUNT(*) FROM (
-		SELECT s.id
-		FROM sales s
-			LEFT JOIN stores st ON st.id = s.store_id
-			LEFT JOIN employees em ON em.id = s.employee_id
-			LEFT JOIN cashbox_operations co ON s.cash_box_operation_id = co.id
-			LEFT JOIN cash_boxes ON co.cash_box_id = cash_boxes.id
-			LEFT JOIN customers ON s.customer_id = customers.id
-			LEFT JOIN cart_items ci ON ci.sale_id = s.id
-		    LEFT JOIN store_products sp ON ci.store_product_id = sp.id
-			LEFT JOIN products ON sp.product_id = products.id
-	`
-
-	// Filters
-	if param.StoreID != "" {
-		filter += " AND s.store_id = ?"
-		args = append(args, param.StoreID)
-	}
-	if param.StartDate != "" && param.EndDate != "" {
-		filter += " AND (s.created_at + interval '5 hours') BETWEEN ? AND ?"
-		args = append(args, param.StartDate, param.EndDate)
-	} else if param.StartDate != "" {
-		filter += " AND (s.created_at + interval '5 hours') >= ?"
-		args = append(args, param.StartDate)
-	}
-	if param.Search != "" {
-		filter += " AND (st.name ILIKE ? OR CAST(s.sale_number AS TEXT) ILIKE ?)"
-		args = append(args, "%"+param.Search+"%", "%"+param.Search+"%")
-	}
-
-	// Finalize total count query
-	totalCountQuery += filter + groupBy + having + ") AS temp"
-	err := s.db.Raw(totalCountQuery, args...).Scan(&totalCount).Error
-	if err != nil {
-		s.log.Error("count query error: %v", err)
-		return nil, 0, err
-	}
-
-	// Final SELECT query
-	query += filter + groupBy + having + orderBy + " LIMIT ? OFFSET ?"
-	args = append(args, param.Limit, param.Offset)
-
+func (s *Services) GetPendingSales(ctx context.Context, params *domain.SaleQueryParams, user *domain.EmployeeClaims) ([]domain.SaleResponse, int64, error) {
+	var totalCount int64
 	var res []domain.SaleResponse
-	err = s.db.Raw(query, args...).Scan(&res).Error
+
+	if utils.In(user.Role, constants.AdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
+	}
+
+	// query builder
+	qb := s.db.
+		WithContext(ctx).
+		Table("sales s").
+		Joins("LEFT JOIN stores st ON st.id = s.store_id").
+		Joins("LEFT JOIN employees em ON em.id = s.employee_id").
+		Joins("LEFT JOIN cash_boxes ON s.cashbox_id = cash_boxes.id").
+		Joins("LEFT JOIN customers ON s.customer_id = customers.id")
+
+	// filters
+	qb = qb.Where("s.status = ?", constants.PENDING)
+
+	if params.Cash {
+		qb = qb.Where("s.cash > 0")
+	}
+	if params.Humo {
+		qb = qb.Where("s.humo > 0")
+	}
+	if params.Uzcard {
+		qb = qb.Where("s.uzcard > 0")
+	}
+	if params.Click {
+		qb = qb.Where("s.click > 0")
+	}
+	if params.Payme {
+		qb = qb.Where("s.payme > 0")
+	}
+	if params.Alif {
+		qb = qb.Where("s.alif > 0")
+	}
+	if params.VendorId != "" {
+		qb = qb.Where("s.employee_id = ?", params.VendorId)
+	}
+	if params.StoreId != "" {
+		qb = qb.Where("s.store_id = ?", params.StoreId)
+	}
+	if params.CompanyId != "" {
+		qb = qb.Where("st.company_id = ?", params.CompanyId)
+	}
+	if params.CashboxId != "" {
+		qb = qb.Where("s.cashbox_id = ?", params.CashboxId)
+	}
+
+	if params.StartDate != "" && params.EndDate != "" {
+		qb = qb.Where("(s.completed_at + interval '5 hours') BETWEEN ? AND ?", params.StartDate, params.EndDate)
+	}
+
+	if params.StartDate != "" && params.EndDate == "" {
+		qb = qb.Where("(s.completed_at + interval '5 hours') BETWEEN ? AND (?::timestamp + interval '24 hours')", params.StartDate, params.StartDate)
+	}
+
+	if params.Search != "" {
+		if num, err := strconv.Atoi(params.Search); err == nil {
+			// If will be digit
+			qb = qb.Where("s.sale_number = ?", num)
+		} else {
+			// otherwise text
+			qb = qb.Where("st.name ILIKE ?", "%"+params.Search+"%")
+		}
+	}
+	if params.TotalAmountFrom > 0 {
+		qb = qb.Where("s.total_amount >= ?", params.TotalAmountFrom)
+	}
+	if params.TotalAmountTo > 0 {
+		qb = qb.Where("s.total_amount <= ?", params.TotalAmountTo)
+	}
+	if params.SaleType != "" {
+		qb = qb.Where("s.sale_type = ?", params.SaleType)
+	}
+
+	// 1) get total count without (LIMIT/OFFSET)
+	if err := qb.Count(&totalCount).Error; err != nil {
+		s.log.Errorf("could not count sales: %v", err)
+		return nil, 0, errors.New(constants.InternalServerError)
+	}
+
+	// 2) get data with (LIMIT/OFFSET bilan)
+	err := qb.
+		Select(
+			"s.id",
+			"s.sale_number",
+			"s.sale_type",
+			"s.type",
+			"s.total_amount",
+			"s.return_amount",
+			"s.total_discount",
+			"s.cash",
+			"s.uzcard",
+			"s.humo",
+			"s.click",
+			"s.payme",
+			"s.alif",
+			"s.status",
+			"s.check_url",
+			"s.fiscal_sign",
+			"s.is_sent_to_tax",
+			"s.is_paid",
+			"s.created_at",
+			"s.completed_at",
+			"em.full_name",
+			"em.phone",
+			"st.name AS store_name",
+			"customers.full_name as customer_name",
+			"customers.phone AS customer_phone",
+			"cash_boxes.name AS cash_box_name",
+		).
+		Limit(params.Limit).
+		Offset(params.Offset).
+		Order("s.completed_at DESC").
+		Find(&res).Error
 	if err != nil {
-		s.log.Error("list query error: %v", err)
-		return nil, 0, err
+		s.log.Errorf("could not get sales: %v", err)
+		return nil, 0, errors.New(constants.InternalServerError)
 	}
 
 	return res, totalCount, nil
@@ -1265,6 +1563,39 @@ func (s *Services) GetStoreProductsDifference(ctx context.Context, tx *gorm.DB, 
 	}
 	if math.Abs(diffs.TotalDifference) > 0.01 {
 		return errors.New("invalid.sale.amount")
+	}
+	return nil
+}
+
+func (s *Services) getSaleVatSum(ctx context.Context, saleId string) (float64, error) {
+	// get vat sum
+	var vatSum float64
+	err := s.db.
+		WithContext(ctx).
+		Raw(`
+			SELECT
+				COALESCE(SUM(ROUND((sp.vat_price / p.unit_per_pack) * ci.unit_quantity, 2)), 0) AS vat_sum
+			FROM 
+				cart_items ci
+			JOIN 
+				store_products sp ON sp.id = ci.store_product_id
+			JOIN 
+				products p ON sp.product_id = p.id
+			WHERE  
+				sale_id = ?;
+	`, saleId).Scan(&vatSum).Error
+	if err != nil {
+		s.log.Errorf("could not get sale: %v", err)
+		return 0, err
+	}
+	return vatSum, nil
+}
+
+func (s *Services) updateSaleFields(ctx context.Context, saleId string, updates map[string]any) error {
+	err := s.db.WithContext(ctx).Model(&domain.Sale{}).Where("id = ?", saleId).Updates(&updates).Error
+	if err != nil {
+		s.log.Errorf("could not update sale fields: %v", err)
+		return errors.New(constants.InternalServerError)
 	}
 	return nil
 }

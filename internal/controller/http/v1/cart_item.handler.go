@@ -111,32 +111,33 @@ func (h *CartItemHandler) Get(c *gin.Context) {
 }
 
 // List godoc
-// @Summary Get a cart item
+// @Summary 	Get a cart item
 // @Description Get a cart item from the request body
-// @Tags cart_items
-// @Security     BearerAuth
-// @Accept json
-// @Produce json
-// @Param limit query int false "Limit"
-// @Param offset query int false "Offset"
-// @Param sale_id query string true "Sale ID"
+// @Tags 		cart_items
+// @Security    BearerAuth
+// @Accept 		json
+// @Produce 	json
+// @Param 		limit query int false "Limit"
+// @Param 		offset query int false "Offset"
+// @Param 		sale_id query string true "saleId"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /cart_item/list [get]
 func (h *CartItemHandler) List(c *gin.Context) {
-	var (
-		res    *domain.CartItemData
-		saleID = c.Query("sale_id")
-		err    error
-	)
+	var saleID = c.Query("sale_id")
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.ContextTimeoutForReports)
+	defer cancel()
+
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
 		h.log.Error("could not get pagination params: %v", err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	res, err = h.service.CartItemList(saleID, limit, offset)
+
+	res, err := h.service.FetchCartItems(ctx, saleID, limit, offset)
 	if err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return

@@ -70,45 +70,50 @@ type SaleItem struct {
 }
 
 type SaleResponse struct {
-	ID                 string         `gorm:"id" json:"id"`
-	ParentId           string         `gorm:"parent_id" json:"parent_id"`
-	EmployeeID         string         `gorm:"employee_id" json:"employee_id"`
-	CashBoxOperationId string         `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
-	CustomerID         string         `gorm:"customer_id" json:"customer_id"`
-	SaleNumber         int            `gorm:"sale_number" json:"sale_number"`
-	TotalDiscount      float64        `gorm:"total_discount" json:"total_discount"`
-	TotalAmount        float64        `gorm:"total_amount" json:"total_amount"`
-	VatSum             float64        `gorm:"vat_sum" json:"vat_sum"`
-	ReturnedAmount     float64        `gorm:"returned_amount" json:"returned_amount"`
-	ProductCount       float64        `gorm:"product_count" json:"product_count"`
-	Status             string         `gorm:"status" json:"status"`
-	OnlineStatus       int            `gorm:"online_status" json:"online_status"`
-	CreatedAt          *time.Time     `gorm:"created_at" json:"created_at"`
-	UpdatedAt          *time.Time     `gorm:"updated_at" json:"updated_at"`
-	CompletedAt        *time.Time     `gorm:"completed_at" json:"completed_at"`
-	StoreName          string         `gorm:"store_name" json:"store_name"`
-	CashBoxName        string         `gorm:"cash_box_name" json:"cash_box_name"`
-	FullName           string         `gorm:"full_name" json:"full_name"`
-	Phone              string         `gorm:"phone" json:"phone"`
-	Type               string         `gorm:"type" json:"type"`
-	SaleType           string         `gorm:"sale_type" json:"sale_type"`
-	Cash               float64        `gorm:"cash" json:"cash"`
-	Uzcard             float64        `gorm:"uzcard" json:"uzcard"`
-	Humo               float64        `gorm:"humo" json:"humo"`
-	Click              float64        `gorm:"click" json:"click"`
-	Payme              float64        `gorm:"payme" json:"payme"`
-	Alif               float64        `gorm:"alif" json:"alif"`
-	DiscountBarcode    string         `gorm:"discount_barcode" json:"discount_barcode"`
-	IsDelivered        bool           `gorm:"is_delivered" json:"is_delivered"`
-	FiscalSign         string         `gorm:"fiscal_sign" json:"fiscal_sign"`
-	CustomerName       *string        `gorm:"customer_name" json:"customer_name"`
-	CustomerPhone      *string        `gorm:"customer_phone" json:"customer_phone"`
-	Employee           *Employee      `gorm:"foreignKey:EmployeeID" json:"employee"`
-	Customer           *Customer      `gorm:"foreignKey:CustomerID" json:"customer"`
-	SalePayments       []*SalePayment `gorm:"foreignKey:SaleID" json:"sale_payments"`
-	CartItems          []*CartItem    `gorm:"foreignKey:SaleId" json:"cart_items"`
-	Product            []ProductRes   `gorm:"-" json:"products"`
-	EposResponse       *EposResponse  `gorm:"-" json:"epos_response"`
+	Id              string     `gorm:"id" json:"id"`
+	ParentId        string     `gorm:"parent_id" json:"parent_id"`
+	SaleNumber      int        `gorm:"sale_number" json:"sale_number"`
+	TotalDiscount   float64    `gorm:"total_discount" json:"total_discount"`
+	TotalAmount     float64    `gorm:"total_amount" json:"total_amount"`
+	VatSum          float64    `gorm:"vat_sum" json:"vat_sum"`
+	ReturnedAmount  float64    `gorm:"returned_amount" json:"returned_amount"`
+	Cash            float64    `gorm:"cash" json:"cash"`
+	Uzcard          float64    `gorm:"uzcard" json:"uzcard"`
+	Humo            float64    `gorm:"humo" json:"humo"`
+	Click           float64    `gorm:"click" json:"click"`
+	Payme           float64    `gorm:"payme" json:"payme"`
+	Alif            float64    `gorm:"alif" json:"alif"`
+	ProductCount    float64    `gorm:"product_count" json:"product_count"`
+	Status          string     `gorm:"status" json:"status"`
+	OnlineStatus    int        `gorm:"online_status" json:"online_status"`
+	Type            string     `gorm:"type" json:"type"`
+	SaleType        string     `gorm:"sale_type" json:"sale_type"`
+	DiscountBarcode string     `gorm:"discount_barcode" json:"discount_barcode"`
+	IsDelivered     bool       `gorm:"is_delivered" json:"is_delivered"`
+	FiscalSign      string     `gorm:"fiscal_sign" json:"fiscal_sign"`
+	CheckUrl        string     `gorm:"check_url" json:"check_url"`
+	IsSentToTax     string     `gorm:"is_sent_to_tax" json:"is_sent_to_tax"`
+	CreatedAt       *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt       *time.Time `gorm:"updated_at" json:"updated_at"`
+	CompletedAt     *time.Time `gorm:"completed_at" json:"completed_at"`
+
+	CashBoxOperationId string `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
+	StoreName          string `gorm:"store_name" json:"store_name"`
+	CashBoxName        string `gorm:"cash_box_name" json:"cash_box_name"`
+
+	EmployeeId string `gorm:"employee_id" json:"employee_id"`
+	FullName   string `gorm:"full_name" json:"full_name"`
+	Phone      string `gorm:"phone" json:"phone"`
+
+	CustomerId    string           `gorm:"customer_id" json:"customer_id"`
+	CustomerName  *string          `gorm:"customer_name" json:"customer_name"`
+	CustomerPhone *string          `gorm:"customer_phone" json:"customer_phone"`
+	Employee      *EmployeeForSale `gorm:"-" json:"employee"`
+	Customer      *CustomerForSale `gorm:"-" json:"customer"`
+	SalePayments  []*SalePayment   `gorm:"-" json:"sale_payments"`
+	CartItems     []*CartItem      `gorm:"-" json:"cart_items"`
+	Product       []ProductRes     `gorm:"-" json:"products"`
+	EposResponse  *EposResponse    `gorm:"-" json:"epos_response"`
 }
 
 // SaleUpdateRequest structure for update

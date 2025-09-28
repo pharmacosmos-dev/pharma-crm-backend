@@ -120,3 +120,11 @@ type EmployeePreload struct {
 	LastName  string `gorm:"last_name" json:"last_name"`
 	FullName  string `gorm:"full_name" json:"full_name"`
 }
+
+type EmployeeForSale struct {
+	Id        string `json:"id"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	FullName  string `json:"full_name"`
+	Phone     string `json:"phone"`
+}
