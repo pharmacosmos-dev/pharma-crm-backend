@@ -8,7 +8,6 @@ import (
 
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
-	"github.com/pharma-crm-backend/domain/constants"
 )
 
 // region Create
@@ -86,7 +85,7 @@ func (s *Services) GetCashboxOperationByID(ctx context.Context, id string) (*dom
 	err := s.db.Where("id = ?", id).First(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get cashbox_operation: %v", err)
-		return nil, errors.New(constants.InternalServerError)
+		return nil, domain.InternalServerError
 	}
 	return &res, nil
 }

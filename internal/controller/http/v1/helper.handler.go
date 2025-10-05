@@ -20,7 +20,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
-	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/spf13/cast"
 	"github.com/xuri/excelize/v2"
@@ -1169,7 +1168,7 @@ func (h *HelperHandler) SetProductPhoto(c *gin.Context) {
 	err = h.db.Raw(`SELECT id, name FROM products`).Scan(&products).Error
 	if err != nil {
 		h.log.Error("could not get product list: %v", err)
-		handleResponse(c, InternalError, constants.InternalServerError)
+		handleResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 

@@ -54,10 +54,10 @@ func (s *Services) AcceptImport(importID string, userID string, acceptType strin
 	err := tx.First(&res, "id = ?", importID).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New(constants.NotFoundError)
+			return domain.NotFoundError
 		}
 		s.log.Error("could not get import(%s) info: %v", importID, err)
-		return errors.New(constants.InternalServerError)
+		return domain.InternalServerError
 	}
 
 	// check error and rollback
@@ -71,27 +71,27 @@ func (s *Services) AcceptImport(importID string, userID string, acceptType strin
 	err = s.UpdateImportCompletedStatus(tx, importID, userID)
 	if err != nil {
 		s.log.Error("could not update import(%s) status: %v", importID, err)
-		return errors.New(constants.InternalServerError)
+		return domain.InternalServerError
 	}
 
 	if acceptType == "all" {
 		// update accepted_count and scanned_count to received_count
 		err = s.UpdateImportDetailsAccepted(tx, importID)
 		if err != nil {
-			return errors.New(constants.InternalServerError)
+			return domain.InternalServerError
 		}
 
 		// add all imported products to store_products and send 1C
 		err = s.AddAllProductsToStore(tx, &res)
 		if err != nil {
 			s.log.Error("could not accept import products: %v", err)
-			return errors.New(constants.InternalServerError)
+			return domain.InternalServerError
 		}
 	} else {
 		err = s.AddSomeImportedProductsToStore(tx, &res)
 		if err != nil {
 			s.log.Error("could not accept some import products: %v", err)
-			return errors.New(constants.InternalServerError)
+			return domain.InternalServerError
 		}
 	}
 
@@ -99,7 +99,7 @@ func (s *Services) AcceptImport(importID string, userID string, acceptType strin
 	err = tx.Commit().Error
 	if err != nil {
 		s.log.Error("could not completed transaction: %v", err)
-		return errors.New(constants.InternalServerError)
+		return domain.InternalServerError
 	}
 
 	return nil

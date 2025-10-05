@@ -44,7 +44,7 @@ func (s *Services) CreateSale(ctx context.Context, tx *gorm.DB, req *domain.Sale
 		Scan(&res).Error
 	if err != nil {
 		s.log.Errorf("could not create new sale: %v", err)
-		return &res, errors.New(constants.InternalServerError)
+		return &res, domain.InternalServerError
 	}
 	return &res, nil
 }
@@ -100,7 +100,7 @@ func (s *Services) CreateReturnSale(ctx context.Context, req *domain.SaleReturnR
 	if err != nil {
 		s.log.Errorf("could not create new return sale: %v", err)
 		_ = tx.Rollback()
-		return nil, errors.New(constants.InternalServerError)
+		return nil, domain.InternalServerError
 	}
 	// cart item create query
 	cquery := `
@@ -157,7 +157,7 @@ func (s *Services) CreateReturnSale(ctx context.Context, req *domain.SaleReturnR
 		if err != nil {
 			s.log.Errorf("could not increment store_product quantity: %v", err)
 			_ = tx.Rollback()
-			return nil, errors.New(constants.InternalServerError)
+			return nil, domain.InternalServerError
 		}
 	}
 
@@ -253,22 +253,12 @@ func (s *Services) SaveEposResponse(ctx context.Context, req *domain.EposRespons
 	err := s.db.WithContext(ctx).Table("epos_responses").Create(req).Error
 	if err != nil {
 		s.log.Error("could not save epos response: %v", err)
-		return errors.New(constants.InternalServerError)
+		return domain.InternalServerError
 	}
 	return nil
 }
 
 // region Update
-
-// update sale with receiving field
-func (s *Services) UpdateSaleField(field string, value string, idField string, idValue string) (*domain.Sale, error) {
-	var res domain.Sale
-	err := s.db.Raw(`UPDATE sales SET `+field+` = ? WHERE `+idField+` = ? RETURNING *`, value, idValue).Scan(&res).Error
-	if err != nil {
-		return nil, err
-	}
-	return &res, nil
-}
 
 // finalize sale
 func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*domain.Sale, error) {
@@ -278,11 +268,11 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 	}
 	// check if sale is already completed
 	if sale.Status == constants.COMPLETED {
-		return nil, errors.New(constants.SaleIsClosedError)
+		return nil, domain.SaleIsClosedError
 	}
 	// check
 	if len(req.PaymentTypes) == 0 {
-		return nil, errors.New(constants.PaymentTypeRequiredError)
+		return nil, domain.PaymentTypeRequiredError
 	}
 
 	// check sale amount and validate payment types
@@ -341,7 +331,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 
 	if err = tx.Commit().Error; err != nil {
 		s.log.Error("could not commit transaction: %v", err)
-		return sale, errors.New(constants.InternalServerError)
+		return sale, domain.InternalServerError
 	}
 
 	return sale, nil
@@ -353,7 +343,7 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 	responseDataStr, ok := req.ResponseData.(string)
 	if !ok {
 		s.log.Error("response_data is not a valid string")
-		return nil, errors.New(constants.BadRequestError)
+		return nil, domain.BadRequestError
 	}
 
 	// Convert string to []byte and store in Response field
@@ -391,7 +381,7 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 	var successResp domain.EposSuccessResponse
 	if err = json.Unmarshal([]byte(responseDataStr), &successResp); err != nil {
 		s.log.Error("could not parse epos success response: %v", err)
-		return nil, errors.New(constants.BadRequestError)
+		return nil, domain.BadRequestError
 	}
 	if successResp.Message.FiscalSign == "" {
 		successResp.Message.FiscalSign = successResp.Info.FiscalSign
@@ -412,7 +402,7 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 		err = s.db.First(&paymentService, "store_id = ?", sale.StoreId).Error
 		if err != nil {
 			s.log.Error("could not get payment service: %v", err)
-			return nil, errors.New(constants.InternalServerError)
+			return nil, domain.InternalServerError
 		}
 		fiscalData := domain.FiscalData{
 			StatusCode: 0,
@@ -474,7 +464,7 @@ func (s *Services) processPayment(
 		// get payment handlers for integration app services
 		handler, exists := paymentHandlers[item.AppType]
 		if !exists {
-			return errors.New(constants.InvalidPaymentTypeError)
+			return domain.InvalidPaymentTypeError
 		}
 
 		// check if sale_payment is created
@@ -484,7 +474,7 @@ func (s *Services) processPayment(
 			return err
 		}
 	} else if !utils.In(item.Type, constants.PaymentTypes...) {
-		return errors.New(constants.InvalidPaymentTypeError)
+		return domain.InvalidPaymentTypeError
 	}
 
 	return nil
@@ -507,7 +497,7 @@ func (s *Services) matchingPaymentTypeSum(ctx context.Context, req *domain.Final
 		} else if item.Type == constants.APP && item.AppType == constants.ALIF {
 			req.Alif = item.Amount
 		} else {
-			return req, errors.New(constants.InvalidPaymentTypeError)
+			return req, domain.InvalidPaymentTypeError
 		}
 	}
 	// get cart item sum
@@ -517,7 +507,7 @@ func (s *Services) matchingPaymentTypeSum(ctx context.Context, req *domain.Final
 	}
 	if sum != cartItemSum || req.TotalAmount != cartItemSum || req.TotalAmount != sum {
 		s.log.Warn("cartItemSum: %v, paymentTypeSum: %v, req.TotalAmount: %v", cartItemSum, sum, req.TotalAmount)
-		return req, errors.New(constants.InvalidSaleAmount)
+		return req, domain.InvalidSaleAmount
 	}
 
 	return req, nil
@@ -555,7 +545,7 @@ func (s *Services) updateSaleToComplete(ctx context.Context, tx *gorm.DB, req *d
 	).Scan(&res).Error
 	if err != nil {
 		s.log.Error("could not complete sale(%s) error: %v", req.SaleID, err)
-		return &res, errors.New(constants.InternalServerError)
+		return &res, domain.InternalServerError
 	}
 
 	return &res, nil
@@ -671,10 +661,10 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New(constants.NotFoundError)
+			return nil, domain.NotFoundError
 		}
 		s.log.Errorf("could not get sale: %v", err)
-		return nil, errors.New(constants.InternalServerError)
+		return nil, domain.InternalServerError
 	}
 
 	res = domain.SaleResponse{
@@ -747,18 +737,15 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 }
 
 func (s *Services) GetSaleById(ctx context.Context, saleId string) (*domain.Sale, error) {
-	var (
-		err  error
-		sale domain.Sale
-	)
+	var sale domain.Sale
 
-	err = s.db.WithContext(ctx).Preload("Employee").First(&sale, "id = ?", saleId).Error
+	err := s.db.WithContext(ctx).Preload("Employee").First(&sale, "id = ?", saleId).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return &sale, errors.New(constants.NotFoundError)
+			return &sale, domain.NotFoundError
 		}
 		s.log.Error("could not get sale(%s) info: %v", saleId, err)
-		return &sale, errors.New(constants.InternalServerError)
+		return &sale, domain.InternalServerError
 	}
 
 	return &sale, nil
@@ -848,7 +835,7 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 	// 1) get total count without (LIMIT/OFFSET)
 	if err := qb.Count(&totalCount).Error; err != nil {
 		s.log.Errorf("could not count sales: %v", err)
-		return nil, 0, errors.New(constants.InternalServerError)
+		return nil, 0, domain.InternalServerError
 	}
 
 	// 2) get data with (LIMIT/OFFSET bilan)
@@ -887,7 +874,7 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 		Find(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get sales: %v", err)
-		return nil, 0, errors.New(constants.InternalServerError)
+		return nil, 0, domain.InternalServerError
 	}
 
 	return res, totalCount, nil
@@ -977,7 +964,7 @@ func (s *Services) GetSaleList(ctx context.Context, params *domain.SaleQueryPara
 	// 1) get total count without (LIMIT/OFFSET)
 	if err := qb.Count(&totalCount).Error; err != nil {
 		s.log.Errorf("could not count sales: %v", err)
-		return nil, 0, errors.New(constants.InternalServerError)
+		return nil, 0, domain.InternalServerError
 	}
 
 	// 2) get data with (LIMIT/OFFSET bilan)
@@ -1016,7 +1003,7 @@ func (s *Services) GetSaleList(ctx context.Context, params *domain.SaleQueryPara
 		Find(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get sales: %v", err)
-		return nil, 0, errors.New(constants.InternalServerError)
+		return nil, 0, domain.InternalServerError
 	}
 
 	return res, totalCount, nil
@@ -1048,7 +1035,7 @@ func (s *Services) GetPaymentServiceByStoreId(tx *gorm.DB, storeId, paymentType 
 		First(&res).Error
 	if err != nil {
 		s.log.Error("could not get payment_service by store(%s) error: %v", storeId, err)
-		return &res, errors.New(constants.InternalServerError)
+		return &res, domain.InternalServerError
 	}
 	return &res, nil
 }
@@ -1061,7 +1048,7 @@ func (s *Services) cartItemsSumBySaleId(ctx context.Context, saleID string) (flo
 		Raw(`SELECT SUM(total_price) - SUM(discount_amount) AS sum FROM cart_items WHERE sale_id = ?`, saleID).Scan(&sum).Error
 	if err != nil {
 		s.log.Error("could not calculate cart_items sum: %v", err)
-		return sum, errors.New(constants.InternalServerError)
+		return sum, domain.InternalServerError
 	}
 	return sum, nil
 }
@@ -1123,7 +1110,7 @@ func (s *Services) GetOnlinePendingSaleList(ctx context.Context, params *domain.
 	err := s.db.WithContext(ctx).Raw(totalCountQuery, args...).Scan(&totalCount).Error
 	if err != nil {
 		s.log.Errorf("could not get online sale count: %v", err)
-		return res, totalCount, errors.New(constants.InternalServerError)
+		return res, totalCount, domain.InternalServerError
 	}
 
 	// collect and execute query
@@ -1132,7 +1119,7 @@ func (s *Services) GetOnlinePendingSaleList(ctx context.Context, params *domain.
 	err = s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get online sale list: %v", err)
-		return res, totalCount, errors.New(constants.InternalServerError)
+		return res, totalCount, domain.InternalServerError
 	}
 
 	return res, totalCount, nil
@@ -1222,7 +1209,7 @@ func (s *Services) GetPendingSales(ctx context.Context, params *domain.SaleQuery
 	// 1) get total count without (LIMIT/OFFSET)
 	if err := qb.Count(&totalCount).Error; err != nil {
 		s.log.Errorf("could not count sales: %v", err)
-		return nil, 0, errors.New(constants.InternalServerError)
+		return nil, 0, domain.InternalServerError
 	}
 
 	// 2) get data with (LIMIT/OFFSET bilan)
@@ -1261,7 +1248,7 @@ func (s *Services) GetPendingSales(ctx context.Context, params *domain.SaleQuery
 		Find(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get sales: %v", err)
-		return nil, 0, errors.New(constants.InternalServerError)
+		return nil, 0, domain.InternalServerError
 	}
 
 	return res, totalCount, nil
@@ -1498,7 +1485,7 @@ func (s *Services) DmedGiveReceipt(cartItems []*domain.CartItemForDMED, markingD
 				payload["gtin"] = "010" + cartItem.Barcode
 			} else {
 				s.log.Error("could not find serial number or marking code for dmed")
-				return errors.New(constants.SerialOrMarkingRequiredError)
+				return domain.SerialOrMarkingRequiredError
 			}
 
 			url := fmt.Sprintf("/prescriptions/%d/%s", markingData[i].DmedId, action)
@@ -1595,7 +1582,20 @@ func (s *Services) updateSaleFields(ctx context.Context, saleId string, updates 
 	err := s.db.WithContext(ctx).Model(&domain.Sale{}).Where("id = ?", saleId).Updates(&updates).Error
 	if err != nil {
 		s.log.Errorf("could not update sale fields: %v", err)
-		return errors.New(constants.InternalServerError)
+		return domain.InternalServerError
 	}
 	return nil
+}
+
+func (s *Services) updateSaleField(ctx context.Context, tx *gorm.DB, field, value, saleId string) (*domain.Sale, error) {
+	var sale domain.Sale
+	err := tx.
+		WithContext(ctx).
+		Raw("UPDATE sales SET "+field+" = ? WHERE id = ? RETURNING *", value, saleId).
+		Scan(&sale).Error
+	if err != nil {
+		s.log.Errorf("could not update sale status to pending: %v", err)
+		return nil, domain.InternalServerError
+	}
+	return &sale, nil
 }

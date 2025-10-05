@@ -8,10 +8,10 @@ import (
 
 // CartItem structure
 type CartItem struct {
-	ID             string            `gorm:"column:id;primaryKey" json:"id"`
-	StoreProductID string            `gorm:"column:store_product_id" json:"store_product_id"`
+	Id             string            `gorm:"column:id;primaryKey" json:"id"`
+	StoreProductId string            `gorm:"column:store_product_id" json:"store_product_id"`
 	ProductId      string            `gorm:"column:product_id" json:"product_id"`
-	EmployeeID     string            `gorm:"column:employee_id" json:"employee_id"`
+	EmployeeId     string            `gorm:"column:employee_id" json:"employee_id"`
 	SaleId         string            `gorm:"column:sale_id" json:"sale_id"`
 	Quantity       int               `gorm:"column:quantity" json:"quantity"`
 	Markings       utils.StringArray `gorm:"column:markings;type:text[]" json:"markings"`
@@ -52,14 +52,15 @@ type CartItemRequest struct {
 }
 
 // Cart Item update product unit
-type CartItemUpdateProductUnit struct {
-	StoreProductID string `gorm:"store_product_id" json:"store_product_id"`
+type CartItemUpdateUnit struct {
+	Id             string `gorm:"id" json:"id"`
+	StoreProductId string `gorm:"store_product_id" json:"store_product_id"`
 	Quantity       int    `gorm:"quantity" json:"quantity"`
 	UnitQuantity   int    `gorm:"unit_quantity" json:"unit_quantity"`
 }
 
 // CartItemBySaleIDUpdateRequest structure
-type CartItemBySaleIDUpdateRequest struct {
+type CartItemDiscountRequest struct {
 	DiscountType  string  `gorm:"discount_type" json:"discount_type" example:"percent|cash"`
 	DiscountValue float64 `gorm:"discount_value" json:"discount_value"`
 }

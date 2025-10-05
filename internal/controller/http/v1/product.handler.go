@@ -947,7 +947,7 @@ func (h *ProductHandler) AddStoreProductByBarcode(c *gin.Context) {
 		newQuantity := cartItem.Quantity + 1
 		cartItem.TotalPrice = storeProduct.RetailPrice * float64(newQuantity)
 		err = h.db.Exec(`UPDATE cart_items SET quantity = ?, total_price = ? WHERE id = ?`,
-			newQuantity, cartItem.TotalPrice, cartItem.ID).Error
+			newQuantity, cartItem.TotalPrice, cartItem.Id).Error
 		if err != nil {
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())

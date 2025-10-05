@@ -8,7 +8,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
-	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/xuri/excelize/v2"
@@ -681,13 +680,13 @@ func (h *ImportHandler) AcceptImport(c *gin.Context) {
 	// validate id
 	err := uuid.Validate(id)
 	if err != nil {
-		handleResponse(c, BadRequest, constants.InvalidQueryError)
+		handleResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 	// get user id from in context
 	userID, ok := c.Get("user_id")
 	if !ok {
-		handleResponse(c, InternalError, constants.UnauthorizedError)
+		handleResponse(c, InternalError, domain.UnauthorizedError)
 		return
 	}
 

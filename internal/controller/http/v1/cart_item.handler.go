@@ -2,8 +2,6 @@ package v1
 
 import (
 	"context"
-	"errors"
-	"fmt"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -31,7 +29,7 @@ func (h *CartItemHandler) CartItemRoutes(r *gin.RouterGroup) {
 		cartItem.PUT("/:id", h.Update)
 		cartItem.DELETE("/:id", h.Delete)
 		cartItem.POST("/multiple", h.MultipleDelete)
-		cartItem.PUT("/sale/:sale_id", h.UpdateBySaleID)
+		cartItem.PUT("/sale/:sale_id", h.UpdateCartItemDiscount)
 		cartItem.PUT("/:id/markings", h.UpdateMarkings)
 		cartItem.DELETE("/:id/markings", h.DeleteMarking)
 	}
@@ -50,21 +48,18 @@ func (h *CartItemHandler) CartItemRoutes(r *gin.RouterGroup) {
 // @Failure 500 {object} v1.Response
 // @Router /cart_item [post]
 func (h *CartItemHandler) Create(c *gin.Context) {
-	var (
-		body domain.CartItemRequest
-		err  error
-	)
 	// get user id in context
 	user := h.service.GetSignedUser(c)
 	if user == nil {
-		handleResponse(c, UNAUTHORIZED, constants.UnauthorizedError)
+		handleResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
 		return
 	}
+
+	var body domain.CartItemRequest
 	// bind request body
-	err = c.ShouldBindJSON(&body)
+	err := c.ShouldBindJSON(&body)
 	if err != nil {
-		h.log.Error("could not bind request body: %v", err)
-		handleResponse(c, BadRequest, constants.InvalidRequestBodyError)
+		handleResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
 
@@ -98,13 +93,16 @@ func (h *CartItemHandler) Get(c *gin.Context) {
 		res domain.CartItem
 		id  = c.Param("id")
 	)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.ContextTimeoutForReports)
+	defer cancel()
+
 	err := h.db.
-		WithContext(c.Request.Context()).
+		WithContext(ctx).
 		Where("id = ?", id).
 		First(&res).Error
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
-		handleResponse(c, InternalError, err.Error())
+		h.log.Errorf("could not get cart_item by id: %v", err)
+		handleResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 	handleResponse(c, OK, res)
@@ -132,14 +130,13 @@ func (h *CartItemHandler) List(c *gin.Context) {
 
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
-		h.log.Error("could not get pagination params: %v", err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 
 	res, err := h.service.FetchCartItems(ctx, saleID, limit, offset)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
@@ -154,120 +151,29 @@ func (h *CartItemHandler) List(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param sale_id path string true "Sale ID"
-// @Param input body domain.CartItemBySaleIDUpdateRequest true "Cart item information"
+// @Param input body domain.CartItemDiscountRequest true "cartItemDiscount"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /cart_item/sale/{sale_id} [put]
-func (h *CartItemHandler) UpdateBySaleID(c *gin.Context) {
+func (h *CartItemHandler) UpdateCartItemDiscount(c *gin.Context) {
 	var (
-		body   domain.CartItemBySaleIDUpdateRequest
+		body   domain.CartItemDiscountRequest
 		saleId = c.Param("sale_id")
 	)
-	err := c.ShouldBindJSON(&body)
+	if err := c.ShouldBindJSON(&body); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	err := h.service.UpdateCartItemDiscount(ctx, saleId, &body)
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
-		return
-	}
-	// start transaction
-	tx := h.db.Begin()
-	// Ensure the transaction is rolled back if any error occurs
-	defer func() {
-		if p := recover(); p != nil {
-			tx.Rollback()
-			panic(p)
-		} else if err != nil {
-			tx.Rollback()
-		}
-	}()
-
-	var (
-		cartItems []domain.CartItem
-		sum       float64
-		count     int64
-	)
-	// get cart_items by sale_id
-	err = tx.Model(&domain.CartItem{}).Where("sale_id = ?", saleId).Count(&count).Find(&cartItems).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, "Failed to fetch cart items")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
-	// check cart_items count with 0
-	if count == 0 {
-		handleResponse(c, BadRequest, "Cart items not added yet")
-		return
-	}
-	// get sum of unit_prices
-	err = tx.Raw("SELECT SUM(total_price) FROM cart_items WHERE sale_id = ?", saleId).Scan(&sum).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, "Failed to get sum of unit prices")
-		return
-	}
-
-	// check sum with discount value
-	if body.DiscountType == "cash" && sum < body.DiscountValue {
-		handleResponse(c, CONFLICT, "Discount value is greater than sum of unit prices")
-		return
-	}
-	// validate discount type for percent or cash
-	if validateDiscountType(body.DiscountType) {
-		handleResponse(c, BadRequest, "invalid.discount_type")
-		return
-	}
-
-	// check discount type with percent or cash
-	var discountPercent float64
-	for i := range cartItems {
-		if body.DiscountValue == 0 {
-			cartItems[i].DiscountAmount = 0
-			discountPercent = 0
-		} else if body.DiscountType == "percent" && body.DiscountValue <= 100 {
-			cartItems[i].DiscountAmount = cartItems[i].UnitPrice * body.DiscountValue / 100
-			discountPercent = body.DiscountValue
-		} else if body.DiscountType == "cash" {
-			// a = 1100 b = 1200  d = 900
-			// x = d / (a + b) = (900 / (1100 + 1200)) * 1100 = 430.47
-			// y = d / (a + b) = (900 / (1100 + 1200)) * 1200 = 469.56
-			// percent = (1 - (430.47/1100)) * 100
-			discountPrice := (body.DiscountValue / sum) * cartItems[i].UnitPrice
-			discountPercent = 1 - (discountPrice/cartItems[i].UnitPrice)*100
-			cartItems[i].DiscountAmount = cartItems[i].UnitPrice - discountPrice
-		} else {
-			handleResponse(c, BadRequest, "Discount type or value is invalid")
-			return
-		}
-		err = tx.Exec(`
-		UPDATE cart_items
-		SET
-			discount_type = ?,
-			discount_value = ?,
-			discount_price = CASE
-			WHEN ? = 0 THEN 0
-			ELSE unit_price - ?
-		END
-		WHERE id = ?`,
-			body.DiscountType,
-			discountPercent,
-			body.DiscountValue,
-			cartItems[i].DiscountAmount,
-			cartItems[i].ID).Error
-		if err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, "failed.set.discount_price")
-			return
-		}
-	}
-
-	err = tx.Commit().Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, "not.commited.transaction")
-		return
-	}
 	handleResponse(c, OK, body)
 }
 
@@ -278,123 +184,36 @@ func (h *CartItemHandler) UpdateBySaleID(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept  json
 // @Produce json
-// @Param   id path string true "cart item ID"
-// @Param   input body domain.CartItemUpdateProductUnit true "Cart item information"
+// @Param   id path string true "cartItemId"
+// @Param   input body domain.CartItemUpdateUnit true "Update unit"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /cart_item/{id} [put]
 func (h *CartItemHandler) Update(c *gin.Context) {
 	var (
-		body domain.CartItemUpdateProductUnit
+		body domain.CartItemUpdateUnit
 		id   = c.Param("id")
 	)
-	// validate cart item id
-	err := uuid.Validate(id)
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, "invalid.cart_item.id")
-		return
-	}
+
 	// bind request body
-	err = c.ShouldBindJSON(&body)
+	if err := c.ShouldBindJSON(&body); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidRequestBodyError)
+		return
+	}
+
+	body.Id = id
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, err := h.service.UpdateCartItemQuantity(ctx, &body)
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
+		handleServiceResponse(c, nil, err)
 		return
 	}
 
-	// get one cart_item info by id
-	var cartItem domain.CartItem
-	err = h.db.First(&cartItem, "id = ?", id).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			handleResponse(c, NotFound, "cart_item.not.found")
-			return
-		}
-		h.log.Error(err)
-		handleResponse(c, InternalError, "failed.to.get.cart_item")
-		return
-	}
-
-	storeProduct, err := h.service.GetStoreProductByID(body.StoreProductID)
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, "failed.to.get.store_product")
-		return
-	}
-
-	// Agar unit_quantity unit_per_packga teng yoki katta bo'lsa pack_quantityga qiymat o'tkazish
-	if body.UnitQuantity >= storeProduct.UnitPerPack && storeProduct.UnitPerPack > 0 {
-		body.Quantity += body.UnitQuantity / storeProduct.UnitPerPack
-		body.UnitQuantity = body.UnitQuantity % storeProduct.UnitPerPack
-	}
-
-	// pack_quantity ni yetarli yoki yo'qligini tekshirish
-	if body.Quantity > 0 && body.UnitQuantity == 0 { // faqat pack_quantity ni o'zgartirmoqchi bo'lganidagi tekshiruv
-		if storeProduct.PackQuantity < body.Quantity { // kiritilayotgan miqdor bazadagi miqdordan katta bo'lib ketib qolishini tekshirish
-			storeProduct.UnitQuantity -= storeProduct.PackQuantity * storeProduct.UnitPerPack
-			handleQuantityConflict(c, storeProduct, body.Quantity, body.UnitQuantity)
-			return
-		}
-	} else if body.UnitQuantity > 0 && body.Quantity == 0 { // faqat unit_quantity ni o'zrgartirmoqchi bo'lganidagi tekshiruv
-		if storeProduct.UnitQuantity < body.UnitQuantity { // kiritilayotgan miqdor bazadagi miqdordan katta bo'lib ketib qolishini tekshirish
-			storeProduct.UnitQuantity -= storeProduct.PackQuantity * storeProduct.UnitPerPack
-			handleQuantityConflict(c, storeProduct, body.Quantity, body.UnitQuantity)
-			return
-		}
-	} else if body.Quantity > 0 && body.UnitQuantity > 0 { // pack_quantity va unit_quantity ni o'zrgartirmoqchi bo'lganidagi tekshiruv
-		if body.Quantity > storeProduct.PackQuantity || storeProduct.UnitQuantity-(body.Quantity*storeProduct.UnitPerPack) < body.UnitQuantity {
-			storeProduct.UnitQuantity -= storeProduct.PackQuantity * storeProduct.UnitPerPack
-			handleQuantityConflict(c, storeProduct, body.Quantity, body.UnitQuantity)
-			return
-		}
-	} else {
-		handleResponse(c, BadRequest, "invalid.quantity")
-		return
-	}
-
-	// Eski va yangi qiymatlarni solishtirish
-	quantityDiff := body.Quantity - cartItem.Quantity
-	unitQuantityDiff := body.UnitQuantity - cartItem.UnitQuantity
-	isIncrease := quantityDiff > 0 || unitQuantityDiff > 0
-
-	var unitPrice float64
-	if storeProduct.UnitPerPack > 0 {
-		unitPrice = (storeProduct.RetailPrice / float64(storeProduct.UnitPerPack)) * float64(body.UnitQuantity)
-	}
-
-	// Cart item ni yangilash
-	data := map[string]any{
-		"store_product_id": body.StoreProductID,
-		"quantity":         body.Quantity,
-		"unit_quantity":    body.UnitQuantity,
-		"total_price":      float64(body.Quantity)*storeProduct.RetailPrice + unitPrice,
-	}
-
-	err = h.db.
-		WithContext(c.Request.Context()).
-		Table("cart_items").
-		Where("id = ?", id).
-		Updates(&data).Error
-	if err != nil {
-		handleResponse(c, InternalError, "failed.to.update.cart_item")
-		return
-	}
-
-	// Yangilangan response
-	response := map[string]any{
-		"id":                 id,
-		"store_product_id":   body.StoreProductID,
-		"increase":           isIncrease,
-		"quantity":           body.Quantity,
-		"unit_quantity":      body.UnitQuantity,
-		"unit_per_pack":      storeProduct.UnitPerPack,
-		"quantity_diff":      quantityDiff,
-		"unit_quantity_diff": unitQuantityDiff,
-	}
-
-	handleResponse(c, OK, response)
+	handleResponse(c, OK, res)
 }
 
 // Delete godoc
@@ -410,43 +229,17 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /cart_item/{id} [delete]
 func (h *CartItemHandler) Delete(c *gin.Context) {
-	var (
-		id       = c.Param("id")
-		cartItem domain.CartItem
-	)
-	if err := uuid.Validate(id); err != nil {
-		handleResponse(c, BadRequest, "Invalid cart item id")
-		return
-	}
-	// getting cart item
-	err := h.db.First(&cartItem, "id = ?", id).Error
+	var id = c.Param("id")
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	err := h.service.DeleteCartItem(ctx, id)
 	if err != nil {
-		h.log.Warn("ERROR on getting cart_item: %v", err)
-		handleResponse(c, InternalError, "Can't get cart_items")
+		handleServiceResponse(c, nil, err)
 		return
 	}
 
-	// getting sale
-	var sale domain.Sale
-	err = h.db.First(&sale, "id = ?", cartItem.SaleId).Error
-	if err != nil {
-		h.log.Warn("ERROR on getting sale: %v", err)
-		handleResponse(c, InternalError, "Can't get sale")
-		return
-	}
-
-	if sale.Status == config.COMPLETED {
-		handleResponse(c, CONFLICT, "Cannot delete a cart item from a completed sale.")
-		return
-	}
-
-	// delete cart item
-	err = h.db.Delete(&domain.CartItem{}, "id = ?", id).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
 	handleResponse(c, OK, "DELETED")
 }
 
@@ -463,45 +256,28 @@ func (h *CartItemHandler) Delete(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /cart_item/multiple [post]
 func (h *CartItemHandler) MultipleDelete(c *gin.Context) {
-	var (
-		body     domain.Ids
-		err      error
-		cartItem domain.CartItem
-	)
+	var body domain.Ids
+
 	// bind cart item ids
-	if err = c.ShouldBindJSON(&body); err != nil {
-		handleResponse(c, BadRequest, "Invalid cart item ids")
+	if err := c.ShouldBindJSON(&body); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidRequestBodyError)
 		return
 	}
 
-	// getting cart item
-	err = h.db.First(&cartItem, "id = ?", body.Ids[0]).Error
-	if err != nil {
-		h.log.Warn("ERROR on getting cart_item: %v", err)
-		handleResponse(c, InternalError, "Can't get cart_items")
-		return
-	}
-	// getting sale
-	var sale domain.Sale
-	err = h.db.First(&sale, "id = ?", cartItem.SaleId).Error
-	if err != nil {
-		h.log.Warn("ERROR on getting sale: %v", err)
-		handleResponse(c, InternalError, "Can't get sale")
-		return
-	}
-	// check sale status
-	if sale.Status == config.COMPLETED {
-		handleResponse(c, CONFLICT, "Cannot delete a cart item from a completed sale.")
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	if len(body.Ids) == 0 {
+		handleServiceResponse(c, nil, domain.InvalidRequestBodyError)
 		return
 	}
 
-	// delete cart items
-	err = h.db.Delete(&domain.CartItem{}, "id in (?)", body.Ids).Error
+	err := h.service.DeleteCartItems(ctx, body.Ids)
 	if err != nil {
-		h.log.Warn("ERROR on deleting cart items: %v", err)
-		handleResponse(c, InternalError, "Can't delete cart items")
+		handleServiceResponse(c, nil, err)
 		return
 	}
+
 	handleResponse(c, OK, "DELETED")
 }
 
@@ -514,10 +290,6 @@ func handleQuantityConflict(c *gin.Context, storeProduct *domain.StoreProduct, q
 		"received_unit_quantity": unitQuantity,
 	})
 
-}
-
-func validateDiscountType(disType string) bool {
-	return disType != "percent" && disType != "cash"
 }
 
 // UpdateMarkings godoc

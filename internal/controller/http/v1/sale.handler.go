@@ -72,7 +72,7 @@ func (h *SaleHandler) Create(c *gin.Context) {
 	// get user id from header
 	user := h.service.GetSignedUser(c)
 	if user == nil {
-		handleResponse(c, UNAUTHORIZED, constants.UnauthorizedError)
+		handleResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
 		return
 	}
 
@@ -80,7 +80,7 @@ func (h *SaleHandler) Create(c *gin.Context) {
 	// bind request body
 	err := c.ShouldBindJSON(&body)
 	if err != nil {
-		handleResponse(c, BadRequest, constants.BadRequestError)
+		handleResponse(c, BadRequest, domain.BadRequestError)
 		return
 	}
 
@@ -119,7 +119,7 @@ func (h *SaleHandler) CreateReturn(c *gin.Context) {
 	// get user id in context
 	user := h.service.GetSignedUser(c)
 	if user == nil {
-		handleResponse(c, UNAUTHORIZED, constants.UnauthorizedError)
+		handleResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
 		return
 	}
 	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
@@ -195,7 +195,7 @@ func (h *SaleHandler) List(c *gin.Context) {
 	// get user from the context
 	user := h.service.GetSignedUser(c)
 	if user == nil {
-		handleResponse(c, UNAUTHORIZED, constants.UnauthorizedError)
+		handleResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
 		return
 	}
 
@@ -252,7 +252,7 @@ func (h *SaleHandler) ExportSaleExcel(c *gin.Context) {
 	// get user_id from the context
 	user := h.service.GetSignedUser(c)
 	if user == nil {
-		handleResponse(c, UNAUTHORIZED, constants.UnauthorizedError)
+		handleResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
 		return
 	}
 	// bind query params
@@ -548,7 +548,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	err := c.ShouldBindJSON(&body)
 	if err != nil {
 		h.log.Error("could not bind request body: %v", err)
-		handleResponse(c, BadRequest, constants.InvalidRequestBodyError)
+		handleResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
 
@@ -590,7 +590,7 @@ func (h *SaleHandler) EposResult(c *gin.Context) {
 	// get user id in context
 	user := h.service.GetSignedUser(c)
 	if user == nil {
-		handleResponse(c, UNAUTHORIZED, constants.UnauthorizedError)
+		handleResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
 		return
 	}
 
@@ -637,7 +637,7 @@ func (h *SaleHandler) GetSaleList(c *gin.Context) {
 	user := h.service.GetSignedUser(c)
 
 	if user == nil {
-		handleResponse(c, UNAUTHORIZED, constants.UnauthorizedError)
+		handleResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
 		return
 	}
 
@@ -645,7 +645,7 @@ func (h *SaleHandler) GetSaleList(c *gin.Context) {
 	// bind query params
 	err := c.ShouldBindQuery(&params)
 	if err != nil {
-		handleResponse(c, BadRequest, constants.InvalidQueryError)
+		handleResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 
@@ -1012,13 +1012,13 @@ func (h *SaleHandler) PendingSaleList(c *gin.Context) {
 	// get user_id from context
 	user := h.service.GetSignedUser(c)
 	if user == nil {
-		handleResponse(c, UNAUTHORIZED, constants.UnauthorizedError)
+		handleResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
 		return
 	}
 
 	err := c.ShouldBindQuery(&params)
 	if err != nil {
-		handleResponse(c, BadRequest, constants.InvalidQueryError)
+		handleResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 

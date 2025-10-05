@@ -786,7 +786,7 @@ func (s *Services) DeleteInventory(ctx context.Context, inventoryId string) erro
 		Where("entry_type = ?", 2).Error
 	if err != nil {
 		s.log.Error("could not delete inventory(%s): %v", inventoryId, err)
-		return errors.New(constants.InternalServerError)
+		return domain.InternalServerError
 	}
 	return nil
 }

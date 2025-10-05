@@ -66,14 +66,14 @@ func (h *AutoOrderHandler) Create(c *gin.Context) {
 	)
 	userId, ok := c.Get("user_id")
 	if !ok {
-		handleResponse(c, UNAUTHORIZED, constants.UnauthorizedError)
+		handleResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
 		return
 	}
 
 	err = c.ShouldBindJSON(&body) // bind request body
 	if err != nil {
 		h.log.Error(err)
-		handleResponse(c, BadRequest, constants.InvalidRequestBodyError)
+		handleResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
 	// start transaction
@@ -88,13 +88,13 @@ func (h *AutoOrderHandler) Create(c *gin.Context) {
 	autoOrderDetails, err := h.service.GenerateAutoOrderDetail(body.Id, body.StoreId, body.IntervalDay)
 	if err != nil {
 		h.log.Error("could not generate new auto order details: %v", err)
-		handleResponse(c, InternalError, constants.InternalServerError)
+		handleResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 
 	// check if there are enough products for the auto order
 	if len(autoOrderDetails) < 1 {
-		handleResponse(c, CONFLICT, constants.NotEnoughProductError)
+		handleResponse(c, CONFLICT, domain.NotEnoughProductError)
 		return
 	}
 
@@ -104,21 +104,21 @@ func (h *AutoOrderHandler) Create(c *gin.Context) {
 		Create(&body).Error
 	if err != nil {
 		h.log.Error("cound not create auto order details: %v", err)
-		handleResponse(c, InternalError, constants.InternalServerError)
+		handleResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 	// create auto order details
 	err = tx.Table("auto_order_details").Create(&autoOrderDetails).Error
 	if err != nil {
 		h.log.Warn("cound not create auto order details: %v", err)
-		handleResponse(c, InternalError, constants.InternalServerError)
+		handleResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 	// commit transaction
 	err = tx.Commit().Error
 	if err != nil {
 		h.log.Error("cound not completed transaction: %v", err)
-		handleResponse(c, InternalError, constants.InternalServerError)
+		handleResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 
@@ -153,7 +153,7 @@ func (h *AutoOrderHandler) List(c *gin.Context) {
 	}
 	err := c.ShouldBindQuery(&param)
 	if err != nil {
-		handleResponse(c, BadRequest, constants.InvalidQueryError)
+		handleResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 
@@ -374,7 +374,7 @@ func (h *AutoOrderHandler) SendAutoOrder(c *gin.Context) {
 			return
 		}
 		h.log.Error("could not get auto order(%s) info: %v", id, err)
-		handleResponse(c, InternalError, constants.InternalServerError)
+		handleResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 	err = h.db.Raw(`
@@ -393,7 +393,7 @@ func (h *AutoOrderHandler) SendAutoOrder(c *gin.Context) {
 		aod.order_count > 0 AND aod.auto_order_id = ?`, id).Scan(&data.Товары).Error
 	if err != nil {
 		h.log.Error("could not get auto order details: %v", err)
-		handleResponse(c, InternalError, constants.InternalServerError)
+		handleResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 	data.Dok.DataDok = autoOrder.CreatedAt.Format(config.DATE_1C_FORMAT)
@@ -425,7 +425,7 @@ func (h *AutoOrderHandler) SendAutoOrder(c *gin.Context) {
 	err = h.db.Exec(`UPDATE auto_orders SET status = ?, completed_date = NOW(), updated_by = ? WHERE id = ?`, config.COMPLETED, userId, id).Error
 	if err != nil {
 		h.log.Error("could not update auto_order(%s): %v", id, err)
-		handleResponse(c, InternalError, constants.InternalServerError)
+		handleResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 
@@ -517,7 +517,7 @@ func (h *AutoOrderHandler) Delete(c *gin.Context) {
 	err := h.db.WithContext(c.Request.Context()).Delete(&domain.AutoOrder{}, "id = ? AND status = ?", id, constants.NEW).Error
 	if err != nil {
 		h.log.Error("could not delete auto_order(%s): %v", id, err)
-		handleResponse(c, InternalError, constants.InternalServerError)
+		handleResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 

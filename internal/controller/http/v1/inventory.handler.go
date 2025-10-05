@@ -1033,7 +1033,7 @@ func (h *InventoryHandler) DeleteInventory(c *gin.Context) {
 	defer cancel()
 	err := uuid.Validate(id)
 	if err != nil {
-		handleResponse(c, BadRequest, constants.InvalidQueryError)
+		handleResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 

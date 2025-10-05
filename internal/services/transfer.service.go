@@ -2,12 +2,9 @@ package services
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"time"
-
-	"github.com/pharma-crm-backend/domain/constants"
 
 	"github.com/spf13/cast"
 
@@ -473,7 +470,7 @@ func (s *Services) CheckAcceptedCount(transferID string) error {
 	}
 
 	if count > 0 {
-		return errors.New(constants.AcceptedCountError)
+		return domain.AcceptedCountError
 	}
 	return nil
 }

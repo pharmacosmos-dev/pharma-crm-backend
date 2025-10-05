@@ -14,7 +14,6 @@ import (
 
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
-	"github.com/pharma-crm-backend/domain/constants"
 	"gorm.io/gorm"
 )
 
@@ -166,7 +165,7 @@ func (s *Services) PaymeGo(
 	createRes, err := s.PaymeGoReceiptCreate(ctx, paymentService, data, sale)
 	if err != nil {
 		s.log.Errorf("could not create payme receipt: %v", err)
-		return nil, errors.New(constants.InternalServerError)
+		return nil, domain.InternalServerError
 	}
 
 	// Validate receipt creation response
@@ -386,13 +385,13 @@ func (s *Services) PaymeGoSetFiscalData(
 	})
 	if err != nil {
 		s.log.Error("could not save set fiscal data request: %v", err)
-		return errors.New(constants.InternalServerError)
+		return domain.InternalServerError
 	}
 	// send do request to payme go
 	res, err := s.PaymeGoDoRequest(ctx, reqData, paymentService)
 	if err != nil {
 		s.log.Error("could not set fiscal data to payme: %v", err)
-		return errors.New(constants.InternalServerError)
+		return domain.InternalServerError
 	}
 	// response to json
 	r, _ := json.Marshal(res)
@@ -404,7 +403,7 @@ func (s *Services) PaymeGoSetFiscalData(
 	})
 	if err != nil {
 		s.log.Info("could not save payme go response: %v", err)
-		return errors.New(constants.InternalServerError)
+		return domain.InternalServerError
 	}
 	return nil
 }

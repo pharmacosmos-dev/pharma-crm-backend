@@ -88,6 +88,7 @@ const (
 	CONFIRMED  = "confirmed"
 	SENT       = "sent"
 	CHECKING   = "checking"
+	DRAFTED    = "drafted"
 
 	// online sale status
 

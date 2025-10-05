@@ -5,9 +5,9 @@ import "time"
 // Draft structure
 type Draft struct {
 	ID          string             `gorm:"id" json:"id"`
-	StoreID     string             `gorm:"store_id" json:"store_id"`
-	SaleID      string             `gorm:"sale_id" json:"sale_id"`
-	CustomerID  string             `gorm:"customer_id" json:"customer_id"`
+	StoreId     string             `gorm:"store_id" json:"store_id"`
+	SaleId      string             `gorm:"sale_id" json:"sale_id"`
+	CustomerId  string             `gorm:"customer_id" json:"customer_id"`
 	CreatedBy   string             `gorm:"created_by" json:"created_by"`
 	DraftNumber string             `gorm:"draft_number" json:"draft_number"`
 	Quantity    int                `gorm:"quantity" json:"quantity"`
@@ -25,9 +25,9 @@ type Draft struct {
 // DraftRequest structure for create, update
 type DraftRequest struct {
 	ID          string  `gorm:"id" json:"-"`
-	StoreID     string  `gorm:"store_id" json:"store_id"`
-	CustomerID  *string `gorm:"customer_id" json:"customer_id"`
-	SaleID      string  `gorm:"sale_id" json:"sale_id"`
+	StoreId     string  `gorm:"store_id" json:"store_id"`
+	CustomerId  *string `gorm:"customer_id" json:"customer_id"`
+	SaleId      string  `gorm:"sale_id" json:"sale_id"`
 	CreatedBy   string  `gorm:"created_by" json:"created_by"`
 	Description string  `gorm:"description" json:"description"`
 	DraftTime   string  `gorm:"draft_time" json:"draft_time"`
@@ -44,6 +44,15 @@ type DraftCreate struct {
 	Description string  `gorm:"description" json:"description"`
 	DraftTime   string  `gorm:"draft_time" json:"draft_time"`
 	ProductID   string  `gorm:"product_id" json:"product_id"`
+}
+
+type DraftQueryParams struct {
+	Search     string `form:"search"`
+	StoreId    string `form:"store_id"`
+	CustomerId string `form:"customer_id"`
+	DraftDate  string `form:"draft_date"`
+	Limit      int    `form:"limit"`
+	Offset     int    `form:"offset"`
 }
 
 type CartItemDraft struct {

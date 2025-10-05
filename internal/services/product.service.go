@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/pharma-crm-backend/config"
-	"github.com/pharma-crm-backend/domain/constants"
 
 	"github.com/pharma-crm-backend/domain"
 
@@ -197,34 +196,40 @@ func (s *Services) GetStoreProductByIdAndStoreId(ctx context.Context, id string,
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New(constants.NotFoundError)
+			return nil, domain.NotFoundError
 		}
 		s.log.Error("could not get store_product by id: %v", err)
-		return nil, errors.New(constants.InternalServerError)
+		return nil, domain.InternalServerError
 	}
 
 	return &storeProduct, nil
 }
 
 // get store products by product id
-func (s *Services) GetStoreProductByID(id string) (*domain.StoreProduct, error) {
+func (s *Services) GetStoreProductByID(ctx context.Context, id string) (*domain.StoreProduct, error) {
 	var storeProduct domain.StoreProduct
-	err := s.db.Raw(`
+	err := s.db.WithContext(ctx).Raw(`
 		SELECT 
-			sp.*, 
+			sp.id,
+			sp.product_id,
+			sp.store_id,
+			sp.unit_quantity,
+			sp.retail_price,
+			sp.supply_price,
+			sp.expire_date,
+			sp.vat_price,
+			sp.created_at,
+			sp.updated_at,
 			pb.bonus_amount AS bonus_amount, 
 			p.unit_per_pack AS unit_per_pack
-		FROM 
-			store_products sp 
-		JOIN 
-			products p ON sp.product_id = p.id
-		LEFT JOIN 
-			product_bonuses pb ON pb.product_id = p.id
-		WHERE 
-			sp.id = ?`, id).
-		Scan(&storeProduct).Error
+		FROM store_products sp 
+		JOIN products p ON sp.product_id = p.id
+		LEFT JOIN product_bonuses pb ON pb.product_id = p.id
+		WHERE sp.id = ?`, id).Scan(&storeProduct).Error
+
 	if err != nil {
-		return nil, err
+		s.log.Errorf("could not get store_product by id error: %v", err)
+		return nil, domain.InternalServerError
 	}
 
 	return &storeProduct, nil
@@ -1468,7 +1473,7 @@ func (s *Services) GetSoldProductsBySaleId(ctx context.Context, saleId string) (
 	err := s.db.WithContext(ctx).Raw(query, saleId).Scan(&products).Error
 	if err != nil {
 		s.log.Errorf("could not get sale products: %v", err)
-		return nil, errors.New(constants.InternalServerError)
+		return nil, domain.InternalServerError
 	}
 
 	return products, nil

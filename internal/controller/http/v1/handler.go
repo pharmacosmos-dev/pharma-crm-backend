@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/config"
+	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/internal/controller/http/middleware"
 	"github.com/pharma-crm-backend/internal/controller/ws"
 	"github.com/pharma-crm-backend/internal/services"
@@ -122,14 +123,10 @@ type Response struct {
 	Data    any    `json:"data"`
 }
 
-// Integration handler error response body
-type IntegrationErrorResponse struct {
-	Message string `json:"message"`
-}
-
 // handleResponse to send consistent JSON responses
 func handleResponse(c *gin.Context, status Status, data any, count ...int64) {
 	var responseCount int64
+
 	if len(count) > 0 {
 		responseCount = count[0]
 	}
@@ -141,6 +138,60 @@ func handleResponse(c *gin.Context, status Status, data any, count ...int64) {
 		Data:    data,
 		Count:   responseCount,
 	})
+}
+
+// handleServiceResponse handles responses from service layer
+// If error is domain.Error, it extracts the proper status code and message
+// Otherwise returns success response with data
+func handleServiceResponse(c *gin.Context, data any, err error) {
+	if err != nil {
+		// Check if error is domain.Error type
+		if domainErr, ok := err.(*domain.Error); ok {
+			// Map domain error code to Status
+			status := mapErrorCodeToStatus(domainErr.Code)
+			handleResponse(c, status, domainErr.Message)
+			return
+		}
+		// For unknown errors, return internal server error
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	// Success response
+	handleResponse(c, OK, data)
+}
+
+// mapErrorCodeToStatus maps HTTP status codes to Status objects
+func mapErrorCodeToStatus(code int) Status {
+	switch code {
+	case 400:
+		return BadRequest
+	case 401:
+		return UNAUTHORIZED
+	case 403:
+		return FORBIDDEN
+	case 404:
+		return NotFound
+	case 406:
+		return NotAcceptable
+	case 409:
+		return CONFLICT
+	case 422:
+		return UnprocessableEntity
+	case 429:
+		return TooManyRequests
+	case 500:
+		return InternalError
+	case 502:
+		return BadGateway
+	default:
+		return InternalError
+	}
+}
+
+// Integration handler error response body
+type IntegrationErrorResponse struct {
+	Message string `json:"message"`
 }
 
 // handle response for noor
