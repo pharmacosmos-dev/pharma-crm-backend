@@ -3,14 +3,12 @@ package v1
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
@@ -72,7 +70,7 @@ func (h *SaleHandler) Create(c *gin.Context) {
 	// get user id from header
 	user := h.service.GetSignedUser(c)
 	if user == nil {
-		handleResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
+		handleServiceResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
 		return
 	}
 
@@ -80,7 +78,7 @@ func (h *SaleHandler) Create(c *gin.Context) {
 	// bind request body
 	err := c.ShouldBindJSON(&body)
 	if err != nil {
-		handleResponse(c, BadRequest, domain.BadRequestError)
+		handleServiceResponse(c, BadRequest, domain.BadRequestError)
 		return
 	}
 
@@ -89,7 +87,7 @@ func (h *SaleHandler) Create(c *gin.Context) {
 
 	res, err := h.service.CreateSale(ctx, h.db, &body)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, nil, err)
 		return
 	}
 
@@ -109,19 +107,20 @@ func (h *SaleHandler) Create(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /sale/return [post]
 func (h *SaleHandler) CreateReturn(c *gin.Context) {
-	var body domain.SaleReturnRequest
-	// bind request body
-	err := c.ShouldBindJSON(&body)
-	if err != nil {
-		handleResponse(c, BadRequest, err.Error())
-		return
-	}
 	// get user id in context
 	user := h.service.GetSignedUser(c)
 	if user == nil {
 		handleResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
 		return
 	}
+
+	var body domain.SaleReturnRequest
+	// bind request body
+	if err := c.ShouldBindJSON(&body); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
 	defer cancel()
 
@@ -130,9 +129,10 @@ func (h *SaleHandler) CreateReturn(c *gin.Context) {
 	// create sale return
 	sale, err := h.service.CreateReturnSale(ctx, &body)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, nil, err)
 		return
 	}
+
 	handleResponse(c, CREATED, sale)
 }
 
@@ -149,18 +149,15 @@ func (h *SaleHandler) CreateReturn(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /sale/{id} [get]
 func (h *SaleHandler) Get(c *gin.Context) {
-	var id = c.Param("id")
+	id := c.Param("id")
 
-	if err := uuid.Validate(id); err != nil {
-		handleResponse(c, BadRequest, "invalid.sale.id")
-		return
-	}
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
+	// get one sale
 	res, err := h.service.GetSaleOne(ctx, id)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, nil, err)
 		return
 	}
 
@@ -174,36 +171,39 @@ func (h *SaleHandler) Get(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept 	json
 // @Produce json
-// @Param limit query int false "Limit"
-// @Param offset query int false "Offset"
-// @Param vendor_id query string false "Vendor ID"
-// @Param store_id query string false "Store ID"
-// @Param cashbox_id query string false "Cash Box ID"
-// @Param payment_type_id query string false "Payment Type ID"
-// @Param search query string false "Search"
-// @Param start_date query string false "Start Date"
-// @Param end_date query string false "End Date"
-// @Param total_amount_from query int false "Total Amount From"
-// @Param total_amount_to query int false "Total Amount To"
+// @Param limit 			query int false 	"limit"
+// @Param offset 			query int false 	"offset"
+// @Param vendor_id 		query string false 	"vendor_id"
+// @Param store_id 			query string false 	"store_id"
+// @Param cashbox_id 		query string false 	"cashbox_id"
+// @Param payment_type_id 	query string false 	"payment_type_id"
+// @Param search 			query string false 	"search"
+// @Param start_date 		query string false 	"start_date"
+// @Param end_date 			query string false 	"end_date"
+// @Param total_amount_from query int false 	"total_amount_from"
+// @Param total_amount_to 	query int false 	"total_amount_to"
+// @Param cash 				query bool false 	"cash"
+// @Param humo 				query bool false 	"humo"
+// @Param uzcard 			query bool false 	"uzcard"
+// @Param click 			query bool false 	"click"
+// @Param payme 			query bool false 	"payme"
+// @Param alif 				query bool false 	"alif"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /sale/list [get]
 func (h *SaleHandler) List(c *gin.Context) {
-	var params domain.SaleQueryParams
-
 	// get user from the context
 	user := h.service.GetSignedUser(c)
 	if user == nil {
-		handleResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
 
 	// bind query params
-	err := c.ShouldBindQuery(&params)
-	if err != nil {
-		h.log.Error("bind query params error: ", err)
-		handleResponse(c, BadRequest, err.Error())
+	var params domain.SaleQueryParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidRequestBodyError)
 		return
 	}
 
@@ -216,7 +216,7 @@ func (h *SaleHandler) List(c *gin.Context) {
 	// get sale list data
 	res, totalCount, err := h.service.GetSales(ctx, &params, user)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, nil, err)
 		return
 	}
 	// added _meta section to response
@@ -232,17 +232,23 @@ func (h *SaleHandler) List(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept 	json
 // @Produce json
-// @Param limit query int false "Limit"
-// @Param offset query int false "Offset"
-// @Param vendor_id query string false "Vendor ID"
-// @Param store_id query string false "Store ID"
-// @Param cashbox_id query string false "Cash Box ID"
-// @Param payment_type_id query string false "Payment Type ID"
-// @Param search query string false "Search"
-// @Param start_date query string false "Start Date"
-// @Param end_date query string false "End Date"
-// @Param total_amount_from query int false "Total Amount From"
-// @Param total_amount_to query int false "Total Amount To"
+// @Param limit 			query int false 	"limit"
+// @Param offset 			query int false 	"offset"
+// @Param vendor_id 		query string false 	"vendor_id"
+// @Param store_id 			query string false 	"store_id"
+// @Param cashbox_id 		query string false 	"cashbox_id"
+// @Param payment_type_id 	query string false 	"payment_type_id"
+// @Param search 			query string false 	"search"
+// @Param start_date 		query string false 	"start_date"
+// @Param end_date 			query string false 	"end_date"
+// @Param total_amount_from query int false 	"total_amount_from"
+// @Param total_amount_to 	query int false 	"total_amount_to"
+// @Param cash 				query bool false 	"cash"
+// @Param humo 				query bool false 	"humo"
+// @Param uzcard 			query bool false 	"uzcard"
+// @Param click 			query bool false 	"click"
+// @Param payme 			query bool false 	"payme"
+// @Param alif 				query bool false 	"alif"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -252,14 +258,12 @@ func (h *SaleHandler) ExportSaleExcel(c *gin.Context) {
 	// get user_id from the context
 	user := h.service.GetSignedUser(c)
 	if user == nil {
-		handleResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
 	// bind query params
-	err := c.ShouldBindQuery(&params)
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
 		return
 	}
 
@@ -272,7 +276,7 @@ func (h *SaleHandler) ExportSaleExcel(c *gin.Context) {
 	// get sale list data
 	res, _, err := h.service.GetSales(ctx, &params, user)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, nil, err)
 		return
 	}
 
@@ -286,8 +290,8 @@ func (h *SaleHandler) ExportSaleExcel(c *gin.Context) {
 
 	err = setExcelHeaders(f, sheetName, headers)
 	if err != nil {
-		h.log.Error("Failed to create style:", err)
-		handleResponse(c, InternalError, "Error on giving style to excel")
+		h.log.Errorf("could not create style: %v", err)
+		handleServiceResponse(c, nil, domain.InternalServerError)
 		return
 	}
 
@@ -302,11 +306,7 @@ func (h *SaleHandler) ExportSaleExcel(c *gin.Context) {
 		f.SetCellValue(sheetName, "F"+row, sale.Payme)
 		f.SetCellValue(sheetName, "G"+row, sale.Click)
 		f.SetCellValue(sheetName, "H"+row, sale.Alif)
-		if sale.SaleType == "RETURN" {
-			f.SetCellValue(sheetName, "I"+row, sale.TotalAmount*(-1))
-		} else {
-			f.SetCellValue(sheetName, "I"+row, sale.TotalAmount)
-		}
+		f.SetCellValue(sheetName, "I"+row, sale.TotalAmount)
 		f.SetCellValue(sheetName, "J"+row, sale.CompletedAt.Add(time.Hour*5).Format(time.DateOnly))
 		f.SetCellValue(sheetName, "K"+row, sale.CompletedAt.Add(time.Hour*5).Format(time.TimeOnly))
 		f.SetCellValue(sheetName, "L"+row, sale.CashBoxName)
@@ -329,165 +329,48 @@ func (h *SaleHandler) ExportSaleExcel(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept 	json
 // @Produce json
-// @Param vendor_id query string false "Vendor ID"
-// @Param store_id query string false "Store ID"
-// @Param cashbox_id query string false "Cash Box ID"
-// @Param payment_type_id query string false "Payment Type ID"
-// @Param search query string false "Search"
-// @Param start_date query string false "Start Date"
-// @Param end_date query string false "End Date"
-// @Param total_amount_from query int false "Total Amount From"
-// @Param total_amount_to query int false "Total Amount To"
-// @Param sale_type query string false "Sale Type (SALE, RETURN)"
+// @Param vendor_id 		query string false 	"vendor_id"
+// @Param store_id 			query string false 	"store_id"
+// @Param cashbox_id 		query string false 	"cashbox_id"
+// @Param payment_type_id 	query string false 	"payment_type_id"
+// @Param search 			query string false 	"search"
+// @Param start_date 		query string false 	"start_date"
+// @Param end_date 			query string false 	"end_date"
+// @Param total_amount_from query int false 	"total_amount_from"
+// @Param total_amount_to 	query int false 	"total_amount_to"
+// @Param cash 				query bool false 	"cash"
+// @Param humo 				query bool false 	"humo"
+// @Param uzcard 			query bool false 	"uzcard"
+// @Param click 			query bool false 	"click"
+// @Param payme 			query bool false 	"payme"
+// @Param alif 				query bool false 	"alif"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /sale/stats [get]
 func (h *SaleHandler) SaleStats(c *gin.Context) {
-	var (
-		res   domain.SaleStats
-		param domain.QueryParam
-		err   error
-	)
+	user := h.service.GetSignedUser(c)
+	if user == nil {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
 	// bind query param
-	if err = c.ShouldBindQuery(&param); err != nil {
-		handleResponse(c, BadRequest, err.Error())
+	var params domain.SaleQueryParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
 		return
 	}
-	// get userid from header
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, BadRequest, "User not found")
-		return
-	}
-	var employee domain.Employee
-	// get employee info
-	err = h.db.First(&employee, "id = ?", userId).Error
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, err := h.service.GetSalesStats(ctx, &params, user)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	// check user role
-	if !helper.IsAdmin(employee, h.cfg) {
-		if employee.StoreId != "" {
-			param.StoreID = employee.StoreId
-		}
-		param.CompanyId = employee.CompanyId
-	}
-	var (
-		args []any
-		// query for total transactions sum
-		squery = `
-		SELECT
-			SUM(CASE WHEN s.sale_type = 'SALE' THEN s.total_amount ELSE 0 END) - SUM(CASE WHEN s.sale_type = 'RETURN' THEN s.total_amount ELSE 0 END) AS total_transactions_sum,
-        	SUM(CASE WHEN s.sale_type = 'RETURN' THEN s.total_amount ELSE 0 END) AS total_returnals_sum,
-        	SUM(s.total_discount) AS total_discount_amount,
-			COUNT(*) AS total_count
-		FROM sales s
-		JOIN stores st ON s.store_id = st.id
-		`
-		// query for each payment types sum
-		pquery = `
-		SELECT
-			pt.id,
-			pt.name,
-			pt.type,
-			COALESCE(SUM(CASE WHEN s.sale_type = 'SALE' THEN sp.amount ELSE 0 END), 0) -
-			COALESCE(SUM(CASE WHEN s.sale_type = 'RETURN' THEN sp.amount ELSE 0 END), 0) AS sum
-		FROM payment_types pt
-		LEFT JOIN sale_payments sp ON sp.payment_type_id = pt.id
-		LEFT JOIN sales s ON sp.sale_id = s.id
-		LEFT JOIN stores st ON s.store_id = st.id   
-		`
-		filter = ` s.status = 'completed' `
-		join   = ""
-		group  = ` GROUP BY pt.id, pt.name, pt.type`
-	)
-	// filter by employee id
-	if param.VendorID != "" {
-		args = append(args, param.VendorID)
-		filter += " AND s.employee_id = ?"
-	}
-	// filter by payment type
-	if param.PaymentTypeID != "" {
-		filter += " AND sp.payment_type_id = ? "
-		join += " LEFT JOIN sale_payments sp ON sp.sale_id = s.id "
-		args = append(args, param.PaymentTypeID)
-	}
-	// filter by store_id
-	if param.StoreID != "" {
-		args = append(args, param.StoreID)
-		filter += " AND s.store_id = ?"
-	}
-	if param.CompanyId != "" {
-		args = append(args, param.CompanyId)
-		filter += " AND st.company_id = ?"
-	}
-	// filter by cashbox_id
-	if param.CashBoxID != "" {
-		args = append(args, param.CashBoxID)
-		filter += " AND s.cashbox_id = ?"
-	}
-	// filter by start_date, end_date
-	if param.StartDate != "" && param.EndDate != "" {
-		args = append(args, param.StartDate, param.EndDate)
-		filter += " AND (s.completed_at + interval '5 hours') BETWEEN ? AND ? "
-	}
-
-	// filter by start_date
-	if param.StartDate != "" && param.EndDate == "" {
-		filter += " AND (s.completed_at + interval '5 hours') BETWEEN ? AND (?::timestamp + interval '24 hours') "
-		args = append(args, param.StartDate, param.StartDate)
-	}
-
-	// filter by total amount for less
-	if param.TotalAmountFrom > 0 {
-		args = append(args, param.TotalAmountFrom)
-		filter += " AND s.total_amount >= ? "
-	}
-	// filter by total amount for greater
-	if param.TotalAmountTo > 0 {
-		args = append(args, param.TotalAmountTo)
-		filter += " AND s.total_amount <= ? "
-	}
-	// filter by search key
-	if param.Search != "" {
-		param.Search = fmt.Sprintf("%%%s%%", param.Search)
-		filter += fmt.Sprintf(" AND CAST(s.sale_number AS TEXT) LIKE '%s'", param.Search)
-	}
-
-	// filter by sale type
-	if param.SaleType != "" {
-		filter += " AND s.sale_type = ? "
-		args = append(args, param.SaleType)
-	}
-	// collect total transactions query
-	squery = squery + join + " WHERE " + filter
-	// replace with :param with ?
-	err = h.db.Raw(squery, args...).Scan(&res).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	// collect payment type sum query
-	pquery = pquery + " WHERE " + filter + group + " ORDER BY sum DESC;"
-	// replace with :param with ?
-	err = h.db.Raw(pquery, args...).Scan(&res.PaymentTypeStats).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, nil, err)
 		return
 	}
 
-	if res.PaymentTypeStats == nil {
-		res.PaymentTypeStats = []domain.PaymentTypeStats{}
-	}
 	handleResponse(c, OK, res)
 }
 
@@ -511,18 +394,21 @@ func (h *SaleHandler) Update(c *gin.Context) {
 	)
 	err := c.ShouldBindJSON(&body)
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
+		handleServiceResponse(c, nil, domain.InvalidRequestBodyError)
 		return
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
 	err = h.db.
-		WithContext(c.Request.Context()).
+		WithContext(ctx).
 		Table("sales").
 		Where("id = ?", id).
 		Updates(&body).Error
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		h.log.Errorf("could not update sale: %v", err)
+		handleServiceResponse(c, nil, domain.InternalServerError)
 		return
 	}
 
@@ -542,13 +428,11 @@ func (h *SaleHandler) Update(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /sale/final [post]
 func (h *SaleHandler) FinalSale(c *gin.Context) {
-
-	var body domain.FinalSale
 	// bind request body
+	var body domain.FinalSale
 	err := c.ShouldBindJSON(&body)
 	if err != nil {
-		h.log.Error("could not bind request body: %v", err)
-		handleResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		handleServiceResponse(c, nil, domain.InvalidRequestBodyError)
 		return
 	}
 
@@ -563,7 +447,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 
 	sale, err := h.service.FinalizeSale(ctx, &body)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, nil, err)
 		return
 	}
 
@@ -583,14 +467,10 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /sale/epos-result [post]
 func (h *SaleHandler) EposResult(c *gin.Context) {
-	var (
-		body domain.EposResponseRequest
-		err  error
-	)
 	// get user id in context
 	user := h.service.GetSignedUser(c)
 	if user == nil {
-		handleResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
 
@@ -599,16 +479,15 @@ func (h *SaleHandler) EposResult(c *gin.Context) {
 	defer cancel()
 
 	// bind request
-	err = c.ShouldBindJSON(&body)
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
+	var body domain.EposResponseRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidRequestBodyError)
 		return
 	}
 
 	sale, err := h.service.EposResult(ctx, &body, user)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, nil, err)
 		return
 	}
 
@@ -635,17 +514,15 @@ func (h *SaleHandler) EposResult(c *gin.Context) {
 // @Router /sale/get-list [get]
 func (h *SaleHandler) GetSaleList(c *gin.Context) {
 	user := h.service.GetSignedUser(c)
-
 	if user == nil {
-		handleResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
+		handleServiceResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
 		return
 	}
-
 	var params domain.SaleQueryParams
 	// bind query params
 	err := c.ShouldBindQuery(&params)
 	if err != nil {
-		handleResponse(c, BadRequest, domain.InvalidQueryError)
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
 		return
 	}
 
@@ -656,9 +533,10 @@ func (h *SaleHandler) GetSaleList(c *gin.Context) {
 	// get sale list data
 	res, totalCount, err := h.service.GetSaleList(ctx, &params, user)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, nil, err)
 		return
 	}
+
 	// added _meta section to response
 	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
 
@@ -684,28 +562,27 @@ func (h *SaleHandler) AddDiscountCard(c *gin.Context) {
 		discountCard     domain.DiscountCard
 	)
 	// bind request body
-	err := c.ShouldBindJSON(&body)
-	if err != nil {
-		handleResponse(c, BadRequest, "invalid.request.body")
+	if err := c.ShouldBindJSON(&body); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidRequestBodyError)
 		return
 	}
 	// start transcation
 	tx := h.db.Begin()
 	defer func() {
-		if err != nil {
-			tx.Rollback()
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
 		}
 	}()
 
 	// get discount card info by card number
-	err = tx.First(&discountCard, "barcode = ?", body.Barcode).Error
+	err := tx.First(&discountCard, "barcode = ?", body.Barcode).Error
 	if err != nil {
 		handleResponse(c, NotFound, "discount.card.not.found")
 		return
 	}
 
 	// delete sale_customer_discount
-	err = tx.Exec(`DELETE FROM sale_customer_discounts WHERE sale_id = ?`, body.SaleID).Error
+	err = tx.Exec(`DELETE FROM sale_customer_discounts WHERE sale_id = ?`, body.SaleId).Error
 	if err != nil {
 		h.log.Warn("ERROR on deleting sale_customer_discount: %v", err)
 		handleResponse(c, InternalError, "not.deleted.sale_discount")
@@ -713,11 +590,11 @@ func (h *SaleHandler) AddDiscountCard(c *gin.Context) {
 	}
 
 	// get discount card info by customer id
-	err = tx.First(&customerDiscount, "customer_id = ? AND sale_id = ? AND discount_card_id = ? ", body.CustomerID, body.SaleID, discountCard.ID).Error
+	err = tx.First(&customerDiscount, "customer_id = ? AND sale_id = ? AND discount_card_id = ? ", body.CustomerId, body.SaleId, discountCard.ID).Error
 	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
 		// create new customer_discounts
 		err = tx.Raw(`INSERT INTO sale_customer_discounts(customer_id, sale_id, discount_card_id, discount_percent) VALUES(?, ?, ?, ?) RETURNING *`,
-			body.CustomerID, body.SaleID, discountCard.ID, discountCard.Percent).Scan(&customerDiscount).Error
+			body.CustomerId, body.SaleId, discountCard.ID, discountCard.Percent).Scan(&customerDiscount).Error
 		if err != nil {
 			if errors.Is(err, gorm.ErrDuplicatedKey) {
 				handleResponse(c, BadRequest, "duplicate.discount_cart.not.accepted")
@@ -736,7 +613,7 @@ func (h *SaleHandler) AddDiscountCard(c *gin.Context) {
 	// update cart_items discount amount with total_price
 	err = tx.Exec(`
 	UPDATE cart_items SET discount_type = ?, discount_value = ? WHERE sale_id = ?;
-	`, config.PERCENT, discountCard.Percent, body.SaleID).Error
+	`, config.PERCENT, discountCard.Percent, body.SaleId).Error
 	if err != nil {
 		h.log.Warn("ERROR on updating cart_item discount_value and type : %v", err)
 		handleResponse(c, InternalError, "failed.set.discount")
@@ -748,7 +625,7 @@ func (h *SaleHandler) AddDiscountCard(c *gin.Context) {
 		sales
 	SET
 		customer_id = ?
-	WHERE id = ?`, body.CustomerID, body.SaleID).Error
+	WHERE id = ?`, body.CustomerId, body.SaleId).Error
 	if err != nil {
 		h.log.Warn("ERROR on updating sale: %v", err)
 		handleResponse(c, InternalError, "failed.update.sale.customer_id")

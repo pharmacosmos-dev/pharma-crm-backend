@@ -9,6 +9,7 @@ import (
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
+	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
 )
 
@@ -598,6 +599,67 @@ func (s *Services) UpdateCartItemQuantity(ctx context.Context, req *domain.CartI
 
 }
 
+func (s *Services) UpdateCartItemMarkings(ctx context.Context, id string, req *domain.AppendMarkingRequest) error {
+	// get cart item
+	cartItem, err := s.GetCartItemById(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	// get sale
+	sale, err := s.GetSaleById(ctx, cartItem.SaleId)
+	if err != nil {
+		return err
+	}
+
+	// check if sale is completed
+	if sale.Status == config.COMPLETED {
+		return domain.SaleIsClosedError
+	}
+
+	// check duplicate
+	if utils.In(req.Marking, cartItem.Markings...) {
+		return domain.AlreadyExistsError
+	}
+
+	// append new marking
+	err = s.db.Model(&cartItem).Update("markings", gorm.Expr("array_append(markings, ?)", req.Marking)).Error
+	if err != nil {
+		s.log.Errorf("could not update cart_item markings: %v", err)
+		return domain.InternalServerError
+	}
+
+	return nil
+}
+
+func (s *Services) DeleteCartItemMarkings(ctx context.Context, id string, req *domain.AppendMarkingRequest) error {
+	// get cart item
+	cartItem, err := s.GetCartItemById(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	// get sale
+	sale, err := s.GetSaleById(ctx, cartItem.SaleId)
+	if err != nil {
+		return err
+	}
+
+	// check if sale is completed
+	if sale.Status == config.COMPLETED {
+		return domain.SaleIsClosedError
+	}
+
+	// remove marking
+	err = s.db.Model(&cartItem).Update("markings", gorm.Expr("array_remove(markings, ?)", req.Marking)).Error
+	if err != nil {
+		s.log.Errorf("could not remove markings: %v", err)
+		return domain.InternalServerError
+	}
+
+	return nil
+}
+
 func (s *Services) updateCartItemUnit(ctx context.Context, tx *gorm.DB, updates map[string]any, id string) error {
 	err := tx.WithContext(ctx).Model(&domain.CartItem{}).Updates(&updates).Error
 	if err != nil {
@@ -641,7 +703,12 @@ func (s *Services) updateCartItemsMarkingCount(ctx context.Context, tx *gorm.DB,
 	return nil
 }
 
+// func (s *Services) updateCartItemDiscountValue(ctx context.Context, tx *gorm.DB, percent int, saleId string) error {
+
+// }
+
 // region Delete
+
 func (s *Services) DeleteCartItem(ctx context.Context, id string) error {
 	cartItem, err := s.GetCartItemById(ctx, id)
 	if err != nil {

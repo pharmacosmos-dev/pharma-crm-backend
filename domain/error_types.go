@@ -15,6 +15,7 @@ var (
 	InvalidSaleAmount            = NewError(http.StatusBadRequest, "invalid.sale.amount")
 	SerialOrMarkingRequiredError = NewError(http.StatusBadRequest, "serial.or.marking.required")
 	AcceptedCountError           = NewError(http.StatusBadRequest, "accepted.count.is.null")
+	DuplicateError               = NewError(http.StatusBadRequest, "duplicate")
 
 	// 401 – Unauthorized (token noto‘g‘ri yoki mavjud emas)
 	UnauthorizedError = NewError(http.StatusUnauthorized, "user.not.authorized")

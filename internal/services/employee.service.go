@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/helper"
 
@@ -22,6 +23,17 @@ func (s *Services) CheckFieldEmployee(field, value string) (bool, error) {
 		return false, err
 	}
 	return false, nil
+}
+
+// get one
+func (s *Services) GetEmployeeById(ctx context.Context, id string) (*domain.Employee, error) {
+	var employee domain.Employee
+	err := s.db.WithContext(ctx).First(&employee, "id = ?", id).Error
+	if err != nil {
+		s.log.Errorf("could not get employee by id: %v", err)
+		return nil, domain.InternalServerError
+	}
+	return &employee, nil
 }
 
 // get employee list data

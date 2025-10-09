@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	pdf "github.com/jung-kurt/gofpdf"
+	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/logger"
 	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
@@ -50,15 +51,15 @@ func saveExcelToUploads(c *gin.Context, f *excelize.File, log logger.Logger, pre
 
 	if _, err := os.Stat("uploads"); os.IsNotExist(err) {
 		if err := os.Mkdir("uploads", os.ModePerm); err != nil {
-			log.Error("Failed to create uploads directory:", err)
-			handleResponse(c, InternalError, "Failed to create uploads folder")
+			log.Errorf("could not create uploads directory: %v", err)
+			handleServiceResponse(c, nil, domain.InternalServerError)
 			return
 		}
 	}
 
 	if err := f.SaveAs(filePath); err != nil {
-		log.Error("Failed to save Excel file:", err)
-		handleResponse(c, InternalError, "Failed to save Excel file")
+		log.Errorf("could not save Excel file: %v", err)
+		handleServiceResponse(c, nil, domain.InternalServerError)
 		return
 	}
 

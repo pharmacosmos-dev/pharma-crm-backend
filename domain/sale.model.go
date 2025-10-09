@@ -193,6 +193,12 @@ type SaleStats struct {
 	TotalTransactionsSum float64            `gorm:"total_transactions_sum" json:"total_transactions_sum"`
 	TotalReturnalsSum    float64            `gorm:"total_returnals_sum" json:"total_returnals_sum"`
 	TotalDiscountAmount  float64            `gorm:"total_discount_amount" json:"total_discount_amount"`
+	TotalCash            float64            `gorm:"total_cash" json:"total_cash"`
+	TotalHumo            float64            `gorm:"total_humo" json:"total_humo"`
+	TotalUzcard          float64            `gorm:"total_uzcard" json:"total_uzcard"`
+	TotalClick           float64            `gorm:"total_click" json:"total_click"`
+	TotalPayme           float64            `gorm:"total_payme" json:"total_payme"`
+	TotalAlif            float64            `gorm:"total_alif" json:"total_alif"`
 	TotalCount           int64              `gorm:"total_count" json:"total_count"`
 	TotalProductCount    int64              `gorm:"total_product_count" json:"total_product_count"`
 	PaymentTypeStats     []PaymentTypeStats `gorm:"-" json:"payment_type_stats"`
@@ -268,8 +274,8 @@ type ErrorResponse struct {
 
 // Add discount card structure
 type AddDiscountCard struct {
-	CustomerID string `json:"customer_id"`
-	SaleID     string `json:"sale_id"`
+	CustomerId string `json:"customer_id"`
+	SaleId     string `json:"sale_id"`
 	Barcode    string `json:"barcode"`
 }
 

@@ -4,11 +4,8 @@ import (
 	"context"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
-	"gorm.io/gorm"
 )
 
 type CartItemHandler struct {
@@ -281,17 +278,6 @@ func (h *CartItemHandler) MultipleDelete(c *gin.Context) {
 	handleResponse(c, OK, "DELETED")
 }
 
-func handleQuantityConflict(c *gin.Context, storeProduct *domain.StoreProduct, quantity, unitQuantity int) {
-	handleResponse(c, CONFLICT, gin.H{
-		"message":                "Not enough Product",
-		"pack_quantity":          storeProduct.PackQuantity,
-		"unit_quantity":          storeProduct.UnitQuantity,
-		"received_pack_quantity": quantity,
-		"received_unit_quantity": unitQuantity,
-	})
-
-}
-
 // UpdateMarkings godoc
 // @Summary Update cart item markings
 // @Description Update the markings array for a specific cart item
@@ -309,61 +295,26 @@ func handleQuantityConflict(c *gin.Context, storeProduct *domain.StoreProduct, q
 // @Router /cart_item/{id}/markings [put]
 func (h *CartItemHandler) UpdateMarkings(c *gin.Context) {
 	var (
-		id       = c.Param("id")
-		cartItem domain.CartItem
-		req      domain.AppendMarkingRequest
+		id  = c.Param("id")
+		req domain.AppendMarkingRequest
 	)
-
-	// validate UUID
-	if err := uuid.Validate(id); err != nil {
-		handleResponse(c, BadRequest, "Invalid cart item id")
-		return
-	}
 
 	// bind request body
 	if err := c.ShouldBindJSON(&req); err != nil {
-		handleResponse(c, BadRequest, "Invalid request body")
+		handleServiceResponse(c, nil, domain.InvalidRequestBodyError)
 		return
 	}
 
-	// get cart item
-	if err := h.db.First(&cartItem, "id = ?", id).Error; err != nil {
-		h.log.Warn("ERROR on getting cart_item: %v", err)
-		handleResponse(c, NotFound, "Cart item not found")
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	err := h.service.UpdateCartItemMarkings(ctx, id, &req)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
 		return
 	}
 
-	// get related sale
-	var sale domain.Sale
-	if err := h.db.First(&sale, "id = ?", cartItem.SaleId).Error; err != nil {
-		h.log.Warn("ERROR on getting sale: %v", err)
-		handleResponse(c, InternalError, "Can't get sale")
-		return
-	}
-
-	// check if sale is completed
-	if sale.Status == config.COMPLETED {
-		handleResponse(c, CONFLICT, "Cannot update markings for a completed sale.")
-		return
-	}
-
-	// check duplicate
-	for _, m := range cartItem.Markings {
-		if m == req.Marking {
-			handleResponse(c, CONFLICT, "Marking already exists for this cart item")
-			return
-		}
-	}
-
-	// append new marking
-	if err := h.db.Model(&cartItem).
-		Update("markings", gorm.Expr("array_append(markings, ?)", req.Marking)).Error; err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-
-	handleResponse(c, OK, "Marking appended successfully")
+	handleResponse(c, OK, "UPDATED")
 }
 
 // DeleteMarking godoc
@@ -383,49 +334,21 @@ func (h *CartItemHandler) UpdateMarkings(c *gin.Context) {
 // @Router /cart_item/{id}/markings [delete]
 func (h *CartItemHandler) DeleteMarking(c *gin.Context) {
 	var (
-		id       = c.Param("id")
-		cartItem domain.CartItem
-		req      domain.AppendMarkingRequest
+		id  = c.Param("id")
+		req domain.AppendMarkingRequest
 	)
-
-	// validate UUID
-	if err := uuid.Validate(id); err != nil {
-		handleResponse(c, BadRequest, "Invalid cart item id")
-		return
-	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		handleResponse(c, BadRequest, "Invalid request body")
 		return
 	}
 
-	// get cart item
-	if err := h.db.First(&cartItem, "id = ?", id).Error; err != nil {
-		h.log.Warn("ERROR on getting cart_item: %v", err)
-		handleResponse(c, NotFound, "Cart item not found")
+	// drop marking from cart_item markings list
+	err := h.service.DeleteCartItemMarkings(context.TODO(), id, &req)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
 		return
 	}
 
-	// get related sale
-	var sale domain.Sale
-	if err := h.db.First(&sale, "id = ?", cartItem.SaleId).Error; err != nil {
-		h.log.Warn("ERROR on getting sale: %v", err)
-		handleResponse(c, InternalError, "Can't get sale")
-		return
-	}
-
-	if sale.Status == config.COMPLETED {
-		handleResponse(c, CONFLICT, "Cannot update markings for a completed sale.")
-		return
-	}
-
-	// remove marking
-	if err := h.db.Model(&cartItem).
-		Update("markings", gorm.Expr("array_remove(markings, ?)", req.Marking)).Error; err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-
-	handleResponse(c, OK, "Marking removed successfully")
+	handleResponse(c, OK, "DELETED")
 }

@@ -9,3 +9,7 @@ time=2025-09-27T11:26:35.07765Z level=ERROR msg="could not count sales: ERROR: o
 time=2025-09-27T11:27:38.627915Z level=ERROR msg="could not count sales: ERROR: operator does not exist: integer ~~* unknown (SQLSTATE 42883)"
 time=2025-09-27T12:07:35.227842Z level=ERROR msg="could not create cart_item: ERROR: invalid input syntax for type uuid: "" (SQLSTATE 22P02)"
 time=2025-09-27T12:07:43.128362Z level=ERROR msg="could not create cart_item: ERROR: invalid input syntax for type uuid: "" (SQLSTATE 22P02)"
+time=2025-10-08T14:44:21.416115Z level=ERROR msg="failed to connect to `host=localhost user=pharmadev database=pharma_db`: dial error (dial tcp 127.0.0.1:5432: connect: connection refused)"
+time=2025-10-08T14:45:59.40481Z level=ERROR msg="could not get sale_stats: ERROR: relation "sale_stats" does not exist (SQLSTATE 42P01)"
+time=2025-10-08T14:47:43.48269Z level=ERROR msg="could not get sale_stats: ERROR: column s.total_transactions_sum does not exist (SQLSTATE 42703)"
+time=2025-10-08T14:48:44.978968Z level=ERROR msg="could not get sale_stats: ERROR: column s.total_transactions_sum does not exist (SQLSTATE 42703)"

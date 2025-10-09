@@ -317,7 +317,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 	for _, item := range req.PaymentTypes {
 		err = s.processPayment(ctx, tx, sale, item)
 		if err != nil {
-			s.log.Warn("ERROR on payment process: %v", err.Error())
+			s.log.Errorf("could not payment process: %v", err)
 			_ = tx.Rollback()
 			return sale, err
 		}
@@ -342,7 +342,7 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 	// Ensure response_data is a string
 	responseDataStr, ok := req.ResponseData.(string)
 	if !ok {
-		s.log.Error("response_data is not a valid string")
+		s.log.Errorf("response_data is not a valid string")
 		return nil, domain.BadRequestError
 	}
 
@@ -552,13 +552,72 @@ func (s *Services) updateSaleToComplete(ctx context.Context, tx *gorm.DB, req *d
 }
 
 // set fiscal_sign to sale
-func (s *Services) SetFiscalId(ctx context.Context, tx *gorm.DB, saleID string, fiscalID string) error {
-	err := tx.WithContext(ctx).Exec(`UPDATE sales SET fiscal_sign = ?, updated_at = NOW() WHERE id = ?`, fiscalID, saleID).Error
+func (s *Services) SetFiscalId(ctx context.Context, tx *gorm.DB, saleId string, fiscalId string) error {
+	err := tx.WithContext(ctx).Exec(`UPDATE sales SET fiscal_sign = ?, updated_at = NOW() WHERE id = ?`, fiscalId, saleId).Error
 	if err != nil {
-		s.log.Warn("ERROR on setting fiscal_id: %v", err)
-		return err
+		s.log.Errorf("could not set fiscal_id: %v", err)
+		return domain.InternalServerError
 	}
 	return nil
+}
+
+func (s *Services) AddDiscountCard(ctx context.Context, req *domain.AddDiscountCard) (*domain.SaleCustomerDiscount, error) {
+	// get discount card info by barcode
+	discountCard, err := s.GetDiscountCardByBarcode(ctx, req.Barcode)
+	if err != nil {
+		return nil, err
+	}
+
+	// start transcation
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	// delete sale_customer_discount
+	err = s.DeleteSaleCustomerDiscount(ctx, tx, req)
+	if err != nil {
+		_ = tx.Rollback()
+		return nil, err
+	}
+
+	// create new customer_discounts
+	customerDiscount, err := s.CreateSaleCustomerDiscount(ctx, tx, req, discountCard)
+	if err != nil {
+		return nil, err
+	}
+
+	// update cart_items discount amount with total_price
+	err = tx.Exec(`
+	UPDATE cart_items SET discount_type = ?, discount_value = ? WHERE sale_id = ?;
+	`, config.PERCENT, discountCard.Percent, req.SaleId).Error
+	if err != nil {
+		s.log.Errorf("ERROR on updating cart_item discount_value and type : %v", err)
+		return nil, domain.InternalServerError
+	}
+	// set customer_id to sale
+	err = tx.Exec(`
+	UPDATE
+		sales
+	SET
+		customer_id = ?
+	WHERE id = ?`, req.CustomerId, req.SaleId).Error
+	if err != nil {
+		s.log.Warn("ERROR on updating sale: %v", err)
+
+		return nil, domain.InternalServerError
+	}
+	// commit transcation
+	err = tx.Commit().Error
+	if err != nil {
+		s.log.Warn("ERROR on commiting transcation: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	return customerDiscount, nil
+
 }
 
 // region Get
@@ -878,6 +937,103 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 	}
 
 	return res, totalCount, nil
+}
+
+func (s *Services) GetSalesStats(ctx context.Context, params *domain.SaleQueryParams, user *domain.EmployeeClaims) (*domain.SaleStats, error) {
+	// check user role
+	if utils.In(user.Role, constants.AdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
+	}
+
+	// query builder
+	qb := s.db.
+		Select(
+			"SUM(s.total_amount) AS total_transactions_sum",
+			"SUM(CASE WHEN s.sale_type = 'RETURN' THEN s.total_amount ELSE 0 END) AS total_returnals_sum",
+			"SUM(s.total_discount) AS total_discount_amount",
+			"SUM(s.cash) AS total_cash",
+			"SUM(s.humo) AS total_humo",
+			"SUM(s.uzcard) AS total_uzcard",
+			"SUM(s.click) AS total_click",
+			"SUM(s.payme) AS total_payme",
+			"SUM(s.alif) AS total_alif",
+			"COUNT(*) AS total_count",
+		).Table("sales s")
+
+	if params.Cash {
+		qb = qb.Where("s.cash > 0")
+	}
+	if params.Humo {
+		qb = qb.Where("s.humo > 0")
+	}
+	if params.Uzcard {
+		qb = qb.Where("s.uzcard > 0")
+	}
+	if params.Click {
+		qb = qb.Where("s.click > 0")
+	}
+	if params.Payme {
+		qb = qb.Where("s.payme > 0")
+	}
+	if params.Alif {
+		qb = qb.Where("s.alif > 0")
+	}
+	if params.VendorId != "" {
+		qb = qb.Where("s.employee_id = ?", params.VendorId)
+	}
+	if params.StoreId != "" {
+		qb = qb.Where("s.store_id = ?", params.StoreId)
+	}
+	if params.CompanyId != "" {
+		qb = qb.Where("st.company_id = ?", params.CompanyId)
+	}
+	if params.CashboxId != "" {
+		qb = qb.Where("s.cashbox_id = ?", params.CashboxId)
+	}
+
+	if params.StartDate != "" && params.EndDate != "" {
+		qb = qb.Where("(s.completed_at + interval '5 hours') BETWEEN ? AND ?", params.StartDate, params.EndDate)
+	}
+
+	if params.StartDate != "" && params.EndDate == "" {
+		qb = qb.Where("(s.completed_at + interval '5 hours') BETWEEN ? AND (?::timestamp + interval '24 hours')", params.StartDate, params.StartDate)
+	}
+
+	if params.Search != "" {
+		if num, err := strconv.Atoi(params.Search); err == nil {
+			// If will be digit
+			qb = qb.Where("s.sale_number = ?", num)
+		} else {
+			// otherwise text
+			qb = qb.Joins("stores st ON s.store_id = st.id").
+				Where("st.name ILIKE ?", "%"+params.Search+"%")
+		}
+	}
+	if params.TotalAmountFrom > 0 {
+		qb = qb.Where("s.total_amount >= ?", params.TotalAmountFrom)
+	}
+	if params.TotalAmountTo > 0 {
+		qb = qb.Where("s.total_amount <= ?", params.TotalAmountTo)
+	}
+	if params.SaleType != "" {
+		qb = qb.Where("s.sale_type = ?", params.SaleType)
+	}
+
+	var res domain.SaleStats
+	err := qb.WithContext(ctx).Take(&res).Debug().Error
+	if err != nil {
+		s.log.Errorf("could not get sale_stats: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	if res.PaymentTypeStats == nil {
+		res.PaymentTypeStats = []domain.PaymentTypeStats{}
+	}
+
+	return &res, nil
 }
 
 func (s *Services) GetSaleList(ctx context.Context, params *domain.SaleQueryParams, user *domain.EmployeeClaims) ([]domain.SaleResponse, int64, error) {
