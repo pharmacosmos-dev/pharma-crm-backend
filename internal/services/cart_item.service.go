@@ -93,20 +93,21 @@ func (s *Services) createNewCartItem(ctx context.Context, req *domain.CartItemRe
 		config.PENDING_CART_ITEM,
 		storeProduct.IsMarking,
 		req.DiscountType,
-		req.SaleId).Scan(&res).Error
+		req.SaleId,
+	).Scan(&res).Error
 	if err != nil {
 		_ = tx.Rollback()
 		s.log.Error("could not create cart_item: %v", err)
 		return nil, domain.InternalServerError
 	}
 
-	// update store_product remaining quantity
-	err = s.IncrementQuantity(tx, req.StoreProductId, -req.UnitQuantity)
-	if err != nil {
-		_ = tx.Rollback()
-		s.log.Error("could not update store_product quantity: %v", err)
-		return nil, domain.InternalServerError
-	}
+	// // update store_product remaining quantity
+	// err = s.IncrementQuantity(tx, req.StoreProductId, -req.UnitQuantity)
+	// if err != nil {
+	// 	_ = tx.Rollback()
+	// 	s.log.Error("could not update store_product quantity: %v", err)
+	// 	return nil, domain.InternalServerError
+	// }
 
 	// commit transaction
 	if err = tx.Commit().Error; err != nil {
@@ -414,41 +415,25 @@ func (s *Services) UpdateCartItemField(field string, value string, idField, idVa
 }
 
 func (s *Services) updateExistsCartItemQuantity(ctx context.Context, req *domain.CartItem, storeProduct *domain.StoreProduct) (*domain.CartItem, error) {
+	quantity := 0
+	totalPrice := 0.00
 	// check remaining quantity for add cart item
 	if storeProduct.UnitQuantity >= req.UnitQuantity+storeProduct.UnitPerPack {
-		req.UnitQuantity += storeProduct.UnitPerPack
+		quantity += storeProduct.UnitPerPack
+		totalPrice += req.UnitPrice
 	} else if storeProduct.UnitQuantity > 0 {
-		req.UnitQuantity += 1
+		quantity += 1
+		totalPrice += ((req.UnitPrice * 100) / float64(storeProduct.UnitPerPack)) / 100
 	} else {
 		return nil, domain.NotEnoughProductError
 	}
 
-	req.TotalPrice = (req.UnitPrice / float64(storeProduct.UnitPerPack)) * float64(req.UnitQuantity)
-
-	tx := s.db.Begin()
-
-	var res domain.CartItem
-	query := `UPDATE cart_items SET unit_quantity = ?, total_price = ? WHERE id = ? RETURNING *`
-	err := tx.WithContext(ctx).Raw(query, req.UnitQuantity, req.TotalPrice, req.Id).Scan(&res).Error
+	res, err := s.IncrementCartItemQuantity(ctx, s.db, req.Id, quantity, totalPrice)
 	if err != nil {
-		_ = tx.Rollback()
-		s.log.Errorf("could not update cart_item: %v", err)
-		return nil, domain.InternalServerError
+		return nil, err
 	}
 
-	err = s.IncrementQuantity(tx, req.StoreProductId, -req.UnitQuantity)
-	if err != nil {
-		_ = tx.Rollback()
-		s.log.Errorf("could not update store_product quantity: %v", err)
-		return nil, domain.InternalServerError
-	}
-
-	if err = tx.Commit().Error; err != nil {
-		s.log.Errorf("could not commit transaction: %v", err)
-		return nil, domain.InternalServerError
-	}
-
-	return &res, nil
+	return res, nil
 }
 
 func (s *Services) UpdateCartItemDiscount(ctx context.Context, saleId string, req *domain.CartItemDiscountRequest) error {
@@ -528,7 +513,7 @@ func (s *Services) UpdateCartItemQuantity(ctx context.Context, req *domain.CartI
 	}
 
 	// total remaining unit_quantity -> cart + store_product
-	ostatok := cartItem.UnitQuantity + storeProduct.UnitQuantity
+	ostatok := storeProduct.UnitQuantity
 
 	// total unit_quantity requested
 	reqUnitQuantity := req.UnitQuantity + (req.Quantity * storeProduct.UnitPerPack)
@@ -538,48 +523,19 @@ func (s *Services) UpdateCartItemQuantity(ctx context.Context, req *domain.CartI
 		return nil, domain.NotEnoughProductError
 	}
 
+	updateQuantity := reqUnitQuantity - cartItem.UnitQuantity
+
 	// compare old and new quantities
-	isIncrease := reqUnitQuantity-cartItem.UnitQuantity > 0
+	isIncrease := updateQuantity > 0
 	quantityDiff := req.Quantity - (cartItem.UnitQuantity / storeProduct.UnitPerPack)
 	unitQuantityDiff := req.UnitQuantity - (cartItem.UnitQuantity % storeProduct.UnitPerPack)
 
 	// calculate cart_item total_price
-	totalPrice := (storeProduct.RetailPrice / float64(storeProduct.UnitPerPack)) * float64(reqUnitQuantity)
+	totalPrice := (((storeProduct.RetailPrice * 100) / float64(storeProduct.UnitPerPack)) * float64(updateQuantity)) / 100
 
-	// cart_item update values
-	updates := map[string]any{
-		"store_product_id": req.StoreProductId,
-		"quantity":         req.Quantity,
-		"unit_quantity":    req.UnitQuantity,
-		"total_price":      totalPrice,
-	}
-	// start transaction
-	tx := s.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			_ = tx.Rollback()
-		}
-	}()
-
-	// update cart_item
-	err = s.updateCartItemUnit(ctx, tx, updates, req.Id)
+	_, err = s.IncrementCartItemQuantityBySpId(ctx, s.db, req.StoreProductId, updateQuantity, totalPrice)
 	if err != nil {
-		_ = tx.Rollback()
 		return nil, err
-	}
-
-	updatedOstatok := reqUnitQuantity - cartItem.UnitQuantity
-	// decrease  store_products unit_quantity
-	err = s.IncrementQuantity(tx, storeProduct.Id, -updatedOstatok)
-	if err != nil {
-		_ = tx.Rollback()
-		return nil, err
-	}
-
-	// commit transaction
-	if err = tx.Commit().Error; err != nil {
-		s.log.Errorf("could not commit transaction: %v", err)
-		return nil, domain.InternalServerError
 	}
 
 	// updated response
@@ -659,6 +615,28 @@ func (s *Services) DeleteCartItemMarkings(ctx context.Context, id string, req *d
 	return nil
 }
 
+func (s *Services) IncrementCartItemQuantity(ctx context.Context, tx *gorm.DB, id string, quantity int, totalPrice float64) (*domain.CartItem, error) {
+	var res domain.CartItem
+	query := `UPDATE cart_items SET unit_quantity = unit_quantity + ?, total_price = total_price + ? WHERE id = ? RETURNING *`
+	err := tx.WithContext(ctx).Raw(query, quantity, totalPrice, id).Scan(&res).Error
+	if err != nil {
+		s.log.Errorf("could not increment cart_item quantity: %v", err)
+		return nil, domain.InternalServerError
+	}
+	return &res, nil
+}
+
+func (s *Services) IncrementCartItemQuantityBySpId(ctx context.Context, tx *gorm.DB, spId string, quantity int, totalPrice float64) (*domain.CartItem, error) {
+	var res domain.CartItem
+	query := `UPDATE cart_items SET unit_quantity = unit_quantity + ?, total_price = total_price + ? WHERE store_product_id = ? RETURNING *`
+	err := tx.WithContext(ctx).Raw(query, quantity, totalPrice, spId).Scan(&res).Error
+	if err != nil {
+		s.log.Errorf("could not increment cart_item quantity: %v", err)
+		return nil, domain.InternalServerError
+	}
+	return &res, nil
+}
+
 func (s *Services) updateCartItemUnit(ctx context.Context, tx *gorm.DB, updates map[string]any, id string) error {
 	err := tx.WithContext(ctx).Model(&domain.CartItem{}).Updates(&updates).Error
 	if err != nil {
@@ -729,32 +707,11 @@ func (s *Services) DeleteCartItem(ctx context.Context, id string) error {
 	if sale.Status == constants.COMPLETED {
 		return domain.SaleIsClosedError
 	}
-	// start transaction
-	tx := s.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			_ = tx.Rollback()
-		}
-	}()
-
-	// return store_product remaining quantity
-	err = s.IncrementQuantity(tx, cartItem.StoreProductId, cartItem.UnitQuantity)
-	if err != nil {
-		_ = tx.Rollback()
-		return err
-	}
 
 	// delete cart_item
-	err = s.deleteCartItemByIds(ctx, tx, []string{id})
+	err = s.deleteCartItemByIds(ctx, s.db, []string{id})
 	if err != nil {
-		_ = tx.Rollback()
 		return err
-	}
-
-	// commit transaction
-	if err = tx.Commit().Error; err != nil {
-		s.log.Errorf("could not commit transaction: %v", err)
-		return domain.InternalServerError
 	}
 
 	return nil
@@ -785,32 +742,9 @@ func (s *Services) DeleteCartItems(ctx context.Context, ids []string) error {
 		return domain.SaleIsClosedError
 	}
 
-	// start transaction
-	tx := s.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			_ = tx.Rollback()
-		}
-	}()
-
-	for _, item := range cartItems {
-		err = s.IncrementQuantity(tx, item.StoreProductId, item.UnitQuantity)
-		if err != nil {
-			_ = tx.Rollback()
-			return err
-		}
-	}
-
-	err = s.deleteCartItemByIds(ctx, tx, ids)
+	err = s.deleteCartItemByIds(ctx, s.db, ids)
 	if err != nil {
-		_ = tx.Rollback()
 		return err
-	}
-
-	// commit transaction
-	if err = tx.Commit().Error; err != nil {
-		s.log.Errorf("could not commit transaction: %v", err)
-		return domain.InternalServerError
 	}
 
 	return nil
