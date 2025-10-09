@@ -36,9 +36,9 @@ type AppendMarkingRequest struct {
 
 // CartItemRequest structure
 type CartItemRequest struct {
-	ID             string  `gorm:"id" json:"-"`
-	EmployeeID     string  `gorm:"employee_id" json:"-"`
-	StoreProductID string  `gorm:"store_product_id" json:"store_product_id"`
+	Id             string  `gorm:"id" json:"-"`
+	EmployeeId     string  `gorm:"employee_id" json:"-"`
+	StoreProductId string  `gorm:"store_product_id" json:"store_product_id"`
 	Barcode        string  `gorm:"barcode" json:"barcode"`
 	SaleId         string  `gorm:"sale_id" json:"sale_id"`
 	Quantity       int     `gorm:"quantity" json:"-"`

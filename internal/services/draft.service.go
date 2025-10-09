@@ -43,7 +43,7 @@ func (s *Services) CreateDraft(ctx context.Context, req *domain.DraftRequest) (*
 
 	// create or get sale
 	res, err := s.CreateSale(ctx, tx, &domain.SaleRequest{
-		EmployeeID:         req.CreatedBy,
+		EmployeeId:         req.CreatedBy,
 		CashBoxOperationId: sale.CashBoxOperationId,
 		StoreId:            sale.StoreId,
 		CashboxId:          sale.CashboxId,

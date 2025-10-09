@@ -15,7 +15,6 @@ import (
 
 // region Create
 func (s *Services) CreateCartItem(ctx context.Context, user *domain.EmployeeClaims, req *domain.CartItemRequest) (*domain.CartItem, error) {
-
 	// get sale info by id
 	sale, err := s.GetSaleById(ctx, req.SaleId)
 	if err != nil {
@@ -27,13 +26,13 @@ func (s *Services) CreateCartItem(ctx context.Context, user *domain.EmployeeClai
 		return nil, domain.SaleIsClosedError
 	}
 
-	req.EmployeeID = user.UserId
-	storeProduct, err := s.GetStoreProductByIdAndStoreId(ctx, req.StoreProductID, user.StoreId)
+	req.EmployeeId = user.UserId
+	storeProduct, err := s.GetStoreProductByIdAndStoreId(ctx, req.StoreProductId, user.StoreId)
 	if err != nil {
 		return nil, err
 	}
 
-	cart, err := s.GetCartItemBySaleIdAndSpId(ctx, req.SaleId, req.StoreProductID)
+	cart, err := s.GetCartItemBySaleIdAndSpId(ctx, req.SaleId, req.StoreProductId)
 	if err != nil {
 		res, err := s.createNewCartItem(ctx, req, storeProduct)
 		if err != nil {
@@ -84,9 +83,9 @@ func (s *Services) createNewCartItem(ctx context.Context, req *domain.CartItemRe
 			LIMIT 1),0)
 		)
 		RETURNING *`,
-		req.StoreProductID,
+		req.StoreProductId,
 		req.SaleId,
-		req.EmployeeID,
+		req.EmployeeId,
 		req.Quantity,
 		req.UnitQuantity,
 		req.UnitPrice,
@@ -102,7 +101,7 @@ func (s *Services) createNewCartItem(ctx context.Context, req *domain.CartItemRe
 	}
 
 	// update store_product remaining quantity
-	err = s.IncrementQuantity(tx, req.StoreProductID, -req.UnitQuantity)
+	err = s.IncrementQuantity(tx, req.StoreProductId, -req.UnitQuantity)
 	if err != nil {
 		_ = tx.Rollback()
 		s.log.Error("could not update store_product quantity: %v", err)
@@ -703,9 +702,15 @@ func (s *Services) updateCartItemsMarkingCount(ctx context.Context, tx *gorm.DB,
 	return nil
 }
 
-// func (s *Services) updateCartItemDiscountValue(ctx context.Context, tx *gorm.DB, percent int, saleId string) error {
-
-// }
+func (s *Services) updateCartItemDiscountValue(ctx context.Context, tx *gorm.DB, percent int, saleId string) error {
+	err := tx.WithContext(ctx).Exec(`UPDATE cart_items SET discount_type = ?, discount_value = ? WHERE sale_id = ?;
+	`, constants.PERCENT, percent, saleId).Error
+	if err != nil {
+		s.log.Errorf("could not update cart_item discount_value and type: %v", err)
+		return domain.InternalServerError
+	}
+	return nil
+}
 
 // region Delete
 

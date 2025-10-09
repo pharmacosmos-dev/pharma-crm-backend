@@ -556,90 +556,22 @@ func (h *SaleHandler) GetSaleList(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /sale/discount-card [POST]
 func (h *SaleHandler) AddDiscountCard(c *gin.Context) {
-	var (
-		body             domain.AddDiscountCard
-		customerDiscount domain.SaleCustomerDiscount
-		discountCard     domain.DiscountCard
-	)
+	var body domain.AddDiscountCard
+
 	// bind request body
 	if err := c.ShouldBindJSON(&body); err != nil {
 		handleServiceResponse(c, nil, domain.InvalidRequestBodyError)
 		return
 	}
-	// start transcation
-	tx := h.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			_ = tx.Rollback()
-		}
-	}()
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 
-	// get discount card info by card number
-	err := tx.First(&discountCard, "barcode = ?", body.Barcode).Error
+	res, err := h.service.AttachDiscountCardToSale(ctx, &body)
 	if err != nil {
-		handleResponse(c, NotFound, "discount.card.not.found")
-		return
+		handleServiceResponse(c, nil, err)
 	}
 
-	// delete sale_customer_discount
-	err = tx.Exec(`DELETE FROM sale_customer_discounts WHERE sale_id = ?`, body.SaleId).Error
-	if err != nil {
-		h.log.Warn("ERROR on deleting sale_customer_discount: %v", err)
-		handleResponse(c, InternalError, "not.deleted.sale_discount")
-		return
-	}
-
-	// get discount card info by customer id
-	err = tx.First(&customerDiscount, "customer_id = ? AND sale_id = ? AND discount_card_id = ? ", body.CustomerId, body.SaleId, discountCard.ID).Error
-	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
-		// create new customer_discounts
-		err = tx.Raw(`INSERT INTO sale_customer_discounts(customer_id, sale_id, discount_card_id, discount_percent) VALUES(?, ?, ?, ?) RETURNING *`,
-			body.CustomerId, body.SaleId, discountCard.ID, discountCard.Percent).Scan(&customerDiscount).Error
-		if err != nil {
-			if errors.Is(err, gorm.ErrDuplicatedKey) {
-				handleResponse(c, BadRequest, "duplicate.discount_cart.not.accepted")
-				return
-			}
-			h.log.Warn("ERROR on creating sale discount: %v", err)
-			handleResponse(c, InternalError, "failed.create.sale.discount")
-			return
-		}
-	} else if err != nil {
-		// if error is not record not found
-		h.log.Warn("ERROR on getting discount card info: %v", err)
-		handleResponse(c, NotFound, "failed.get.discount.card")
-		return
-	}
-	// update cart_items discount amount with total_price
-	err = tx.Exec(`
-	UPDATE cart_items SET discount_type = ?, discount_value = ? WHERE sale_id = ?;
-	`, config.PERCENT, discountCard.Percent, body.SaleId).Error
-	if err != nil {
-		h.log.Warn("ERROR on updating cart_item discount_value and type : %v", err)
-		handleResponse(c, InternalError, "failed.set.discount")
-		return
-	}
-	// set customer_id to sale
-	err = tx.Exec(`
-	UPDATE
-		sales
-	SET
-		customer_id = ?
-	WHERE id = ?`, body.CustomerId, body.SaleId).Error
-	if err != nil {
-		h.log.Warn("ERROR on updating sale: %v", err)
-		handleResponse(c, InternalError, "failed.update.sale.customer_id")
-		return
-	}
-	// commit transcation
-	err = tx.Commit().Error
-	if err != nil {
-		h.log.Warn("ERROR on commiting transcation: %v", err)
-		handleResponse(c, InternalError, "not.completed.transcation")
-		return
-	}
-
-	handleResponse(c, OK, customerDiscount)
+	handleResponse(c, OK, res)
 }
 
 // List godoc
@@ -655,47 +587,19 @@ func (h *SaleHandler) AddDiscountCard(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /sale/discount-card [DELETE]
 func (h *SaleHandler) RemoveCustomerDiscount(c *gin.Context) {
-	var (
-		body domain.AddDiscountCard
-	)
+	var body domain.AddDiscountCard
 	// bind request body
-	err := c.ShouldBindJSON(&body)
-	if err != nil {
-		handleResponse(c, BadRequest, "Invalid request body")
-		return
-	}
-	// start transaction
-	tx := h.db.Begin()
-	defer recoverTransaction(tx, h.log)
-	defer RollbackIfError(tx, &err)
-
-	// delete customer discount by customer id
-	err = tx.Exec(`DELETE FROM sale_customer_discounts WHERE customer_id = ? AND sale_id = ?`,
-		body.CustomerID, body.SaleID).Error
-	if err != nil {
-		h.log.Warn("ERROR on deleting customer discount: %v", err)
-		handleResponse(c, InternalError, "Can't delete customer discount")
-		return
-	}
-	// update sale customer_id to null
-	err = tx.Exec(`UPDATE sales SET customer_id = NULL WHERE id = ?`, body.SaleID).Error
-	if err != nil {
-		h.log.Warn("ERROR on updating sale customer_id: %v", err)
-		handleResponse(c, InternalError, "failed.update.sale.customer_id")
-		return
-	}
-	// update discount_type and value to 0
-	err = tx.Exec(`UPDATE cart_items SET discount_value = ?, discount_type = ? WHERE sale_id = ?`, 0, "percent", body.SaleID).Error
-	if err != nil {
-		handleResponse(c, InternalError, "failed.update.cart_items")
+	if err := c.ShouldBindJSON(&body); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidRequestBodyError)
 		return
 	}
 
-	// commit transaction
-	err = tx.Commit().Error
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	err := h.service.DeleteDiscountCardFromSale(ctx, &body)
 	if err != nil {
-		handleResponse(c, InternalError, "transcation.not.commited")
-		return
+		handleServiceResponse(c, nil, err)
 	}
 
 	handleResponse(c, OK, "DELETED")

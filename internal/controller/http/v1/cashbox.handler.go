@@ -456,7 +456,7 @@ func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
 		var sale *domain.Sale
 		sale, err = h.service.CreateSale(ctx, h.db, &domain.SaleRequest{
 			CashBoxOperationId: cashboxOperation.ID,
-			EmployeeID:         userID.(string),
+			EmployeeId:         userID.(string),
 			StoreId:            storeId,
 			CashboxId:          cashboxOperation.CashBoxID,
 		})

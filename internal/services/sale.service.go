@@ -37,11 +37,11 @@ func (s *Services) CreateSale(ctx context.Context, tx *gorm.DB, req *domain.Sale
 	var res domain.Sale
 	query := "INSERT INTO sales(employee_id, cash_box_operation_id, store_id, cashbox_id) VALUES(?, ?, ?, ?) RETURNING *"
 	err := tx.WithContext(ctx).Raw(query,
-		req.EmployeeID,
+		req.EmployeeId,
 		req.CashBoxOperationId,
 		req.StoreId,
-		req.CashboxId).
-		Scan(&res).Error
+		req.CashboxId,
+	).Scan(&res).Error
 	if err != nil {
 		s.log.Errorf("could not create new sale: %v", err)
 		return &res, domain.InternalServerError
@@ -427,7 +427,7 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 
 	// create or get sale
 	res, err := s.CreateSale(ctx, s.db, &domain.SaleRequest{
-		EmployeeID:         user.UserId,
+		EmployeeId:         user.UserId,
 		StoreId:            sale.StoreId,
 		CashBoxOperationId: sale.CashBoxOperationId,
 		CashboxId:          sale.CashboxId,
@@ -551,7 +551,6 @@ func (s *Services) updateSaleToComplete(ctx context.Context, tx *gorm.DB, req *d
 	return &res, nil
 }
 
-// set fiscal_sign to sale
 func (s *Services) SetFiscalId(ctx context.Context, tx *gorm.DB, saleId string, fiscalId string) error {
 	err := tx.WithContext(ctx).Exec(`UPDATE sales SET fiscal_sign = ?, updated_at = NOW() WHERE id = ?`, fiscalId, saleId).Error
 	if err != nil {
@@ -561,7 +560,7 @@ func (s *Services) SetFiscalId(ctx context.Context, tx *gorm.DB, saleId string, 
 	return nil
 }
 
-func (s *Services) AddDiscountCard(ctx context.Context, req *domain.AddDiscountCard) (*domain.SaleCustomerDiscount, error) {
+func (s *Services) AttachDiscountCardToSale(ctx context.Context, req *domain.AddDiscountCard) (*domain.SaleCustomerDiscount, error) {
 	// get discount card info by barcode
 	discountCard, err := s.GetDiscountCardByBarcode(ctx, req.Barcode)
 	if err != nil {
@@ -586,29 +585,24 @@ func (s *Services) AddDiscountCard(ctx context.Context, req *domain.AddDiscountC
 	// create new customer_discounts
 	customerDiscount, err := s.CreateSaleCustomerDiscount(ctx, tx, req, discountCard)
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, err
 	}
 
 	// update cart_items discount amount with total_price
-	err = tx.Exec(`
-	UPDATE cart_items SET discount_type = ?, discount_value = ? WHERE sale_id = ?;
-	`, config.PERCENT, discountCard.Percent, req.SaleId).Error
+	err = s.updateCartItemDiscountValue(ctx, tx, discountCard.Percent, req.SaleId)
 	if err != nil {
-		s.log.Errorf("ERROR on updating cart_item discount_value and type : %v", err)
-		return nil, domain.InternalServerError
+		_ = tx.Rollback()
+		return nil, err
 	}
-	// set customer_id to sale
-	err = tx.Exec(`
-	UPDATE
-		sales
-	SET
-		customer_id = ?
-	WHERE id = ?`, req.CustomerId, req.SaleId).Error
-	if err != nil {
-		s.log.Warn("ERROR on updating sale: %v", err)
 
-		return nil, domain.InternalServerError
+	// set customer_id to sale
+	_, err = s.updateSaleField(ctx, tx, "customer_id", req.CustomerId, req.SaleId)
+	if err != nil {
+		_ = tx.Rollback()
+		return nil, err
 	}
+
 	// commit transcation
 	err = tx.Commit().Error
 	if err != nil {
@@ -618,6 +612,154 @@ func (s *Services) AddDiscountCard(ctx context.Context, req *domain.AddDiscountC
 
 	return customerDiscount, nil
 
+}
+
+func (s *Services) AcceptOnlineSale(req *domain.ConfirmOnlineSaleRequest) error {
+	var err error
+	tx := s.db.Begin()
+	// Ensure the transaction is rolled back if any error occurs
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+			panic(p)
+		} else if err != nil {
+			tx.Rollback()
+		}
+	}()
+	defer recoverTransaction(tx, s.log)
+	defer RollbackIfError(tx, &err)
+	var sale *domain.Sale
+	err = tx.First(&sale, "id = ?", req.SaleID).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("sale.not.found")
+		}
+		return err
+	}
+	// accepted online sale
+	err = tx.Exec(`
+	UPDATE 
+		sales
+	SET
+		cash_box_operation_id = ?,
+		cashbox_id = ?,
+		employee_id = ?,
+		online_status = ?
+	WHERE id = ?`,
+		req.CashBoxOperationID,
+		req.CashboxID,
+		req.EmployeeID,
+		config.ONLINE_STATUS_PENDING,
+		req.SaleID).Error
+
+	if err != nil {
+		s.log.Warn("ERROR on getting online sale count: %v", err)
+		return err
+	}
+	// Prepare Headers
+	headers := map[string]string{
+		"Authorization": fmt.Sprintf("Bearer %s", s.cfg.NoorApiToken),
+		"Content-Type":  "application/json",
+	}
+	requestData, err := json.Marshal(gin.H{"order_id": sale.SaleNumber})
+	var response *http.Response
+	url := s.cfg.NoorApiUrl + fmt.Sprintf("/orders/vendor/%d/confirm", sale.SaleNumber)
+	err = DoRequest(&response, "PATCH", url, requestData, headers)
+	if err != nil {
+		s.log.Warn("ERROR on sending confirm request: %v", err)
+		return err
+	}
+	// complete transaction
+	err = tx.Commit().Error
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// accept order
+func (s *Services) CancelOnlineSale(req *domain.ConfirmOnlineSaleRequest) error {
+	var err error
+	tx := s.db.Begin()
+	// Ensure the transaction is rolled back if any error occurs
+	defer func() {
+		if p := recover(); p != nil {
+			tx.Rollback()
+			panic(p)
+		} else if err != nil {
+			tx.Rollback()
+		}
+	}()
+	defer recoverTransaction(tx, s.log)
+	defer RollbackIfError(tx, &err)
+	var sale *domain.Sale
+	err = tx.First(&sale, "id = ?", req.SaleID).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("sale.not.found")
+		}
+		return err
+	}
+	// accepted online sale
+	err = tx.Exec(`
+	UPDATE 
+		sales
+	SET
+		cash_box_operation_id = ?,
+		cashbox_id = ?,
+		employee_id = ?,
+		online_status = ?
+	WHERE id = ?`,
+		req.CashBoxOperationID,
+		req.CashboxID,
+		req.EmployeeID,
+		config.ONLINE_STATUS_CANCELED,
+		req.SaleID).Error
+
+	if err != nil {
+		s.log.Warn("ERROR on getting online sale count: %v", err)
+		return err
+	}
+	// Prepare Headers
+	headers := map[string]string{
+		"Authorization": fmt.Sprintf("Bearer %s", s.cfg.NoorApiToken),
+		"Content-Type":  "application/json",
+	}
+	requestData, err := json.Marshal(gin.H{"order_id": sale.SaleNumber})
+	var response *http.Response
+	url := s.cfg.NoorApiUrl + fmt.Sprintf("/orders/vendor/%d/cancel", sale.SaleNumber)
+	err = DoRequest(&response, "PATCH", url, requestData, headers)
+	if err != nil {
+		s.log.Warn("ERROR on sending confirm request: %v", err)
+		return err
+	}
+	// complete transaction
+	err = tx.Commit().Error
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *Services) ReturnStatusPending(ctx context.Context, tx *gorm.DB, sale *domain.Sale) error {
+	// build query for update sale status to return
+	query := `
+	UPDATE sales
+	SET
+		total_amount = 0,
+		total_discount = 0,
+		status = ?, completed_at = NULL, updated_at = NOW()
+	WHERE id = ?;
+	`
+	// complete the query
+	err := tx.WithContext(ctx).Exec(query, config.PENDING, sale.ID).Error
+	if err != nil {
+		s.log.Warn("ERROR on update sale to returned: %v", err)
+		return err
+	}
+	return nil
 }
 
 // region Get
@@ -1410,148 +1552,6 @@ func (s *Services) GetPendingSales(ctx context.Context, params *domain.SaleQuery
 	return res, totalCount, nil
 }
 
-// accept order
-func (s *Services) AcceptOnlineSale(req *domain.ConfirmOnlineSaleRequest) error {
-	var err error
-	tx := s.db.Begin()
-	// Ensure the transaction is rolled back if any error occurs
-	defer func() {
-		if p := recover(); p != nil {
-			tx.Rollback()
-			panic(p)
-		} else if err != nil {
-			tx.Rollback()
-		}
-	}()
-	defer recoverTransaction(tx, s.log)
-	defer RollbackIfError(tx, &err)
-	var sale *domain.Sale
-	err = tx.First(&sale, "id = ?", req.SaleID).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("sale.not.found")
-		}
-		return err
-	}
-	// accepted online sale
-	err = tx.Exec(`
-	UPDATE 
-		sales
-	SET
-		cash_box_operation_id = ?,
-		cashbox_id = ?,
-		employee_id = ?,
-		online_status = ?
-	WHERE id = ?`,
-		req.CashBoxOperationID,
-		req.CashboxID,
-		req.EmployeeID,
-		config.ONLINE_STATUS_PENDING,
-		req.SaleID).Error
-
-	if err != nil {
-		s.log.Warn("ERROR on getting online sale count: %v", err)
-		return err
-	}
-	// Prepare Headers
-	headers := map[string]string{
-		"Authorization": fmt.Sprintf("Bearer %s", s.cfg.NoorApiToken),
-		"Content-Type":  "application/json",
-	}
-	requestData, err := json.Marshal(gin.H{"order_id": sale.SaleNumber})
-	var response *http.Response
-	url := s.cfg.NoorApiUrl + fmt.Sprintf("/orders/vendor/%d/confirm", sale.SaleNumber)
-	err = DoRequest(&response, "PATCH", url, requestData, headers)
-	if err != nil {
-		s.log.Warn("ERROR on sending confirm request: %v", err)
-		return err
-	}
-	// complete transaction
-	err = tx.Commit().Error
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// accept order
-func (s *Services) CancelOnlineSale(req *domain.ConfirmOnlineSaleRequest) error {
-	var err error
-	tx := s.db.Begin()
-	// Ensure the transaction is rolled back if any error occurs
-	defer func() {
-		if p := recover(); p != nil {
-			tx.Rollback()
-			panic(p)
-		} else if err != nil {
-			tx.Rollback()
-		}
-	}()
-	defer recoverTransaction(tx, s.log)
-	defer RollbackIfError(tx, &err)
-	var sale *domain.Sale
-	err = tx.First(&sale, "id = ?", req.SaleID).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("sale.not.found")
-		}
-		return err
-	}
-	// accepted online sale
-	err = tx.Exec(`
-	UPDATE 
-		sales
-	SET
-		cash_box_operation_id = ?,
-		cashbox_id = ?,
-		employee_id = ?,
-		online_status = ?
-	WHERE id = ?`,
-		req.CashBoxOperationID,
-		req.CashboxID,
-		req.EmployeeID,
-		config.ONLINE_STATUS_CANCELED,
-		req.SaleID).Error
-
-	if err != nil {
-		s.log.Warn("ERROR on getting online sale count: %v", err)
-		return err
-	}
-	// Prepare Headers
-	headers := map[string]string{
-		"Authorization": fmt.Sprintf("Bearer %s", s.cfg.NoorApiToken),
-		"Content-Type":  "application/json",
-	}
-	requestData, err := json.Marshal(gin.H{"order_id": sale.SaleNumber})
-	var response *http.Response
-	url := s.cfg.NoorApiUrl + fmt.Sprintf("/orders/vendor/%d/cancel", sale.SaleNumber)
-	err = DoRequest(&response, "PATCH", url, requestData, headers)
-	if err != nil {
-		s.log.Warn("ERROR on sending confirm request: %v", err)
-		return err
-	}
-	// complete transaction
-	err = tx.Commit().Error
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// delete sale_payments by sale_id
-func (s *Services) DeleteSalePayments(ctx context.Context, tx *gorm.DB, saleId string) error {
-	err := tx.WithContext(ctx).Exec(`DELETE FROM sale_payments WHERE sale_id = ?`, saleId).Error
-	if err != nil {
-		tx.Rollback()
-		s.log.Error("could not delete sale_payments: %v", err)
-		return err
-	}
-	return nil
-
-}
-
 func (s *Services) GetPrescriptionsFromDMED(patientID, safeCode string) ([]domain.Prescription, error) {
 	url := fmt.Sprintf("/prescriptions?patient_id=%s&safe_code=%s", patientID, safeCode)
 
@@ -1566,6 +1566,57 @@ func (s *Services) GetPrescriptionsFromDMED(patientID, safeCode string) ([]domai
 	}
 
 	return rawResp.Data, nil
+}
+
+// region Delete
+
+func (s *Services) DeleteSalePayments(ctx context.Context, tx *gorm.DB, saleId string) error {
+	err := tx.WithContext(ctx).Exec(`DELETE FROM sale_payments WHERE sale_id = ?`, saleId).Error
+	if err != nil {
+		tx.Rollback()
+		s.log.Error("could not delete sale_payments: %v", err)
+		return err
+	}
+	return nil
+
+}
+
+func (s *Services) DeleteDiscountCardFromSale(ctx context.Context, req *domain.AddDiscountCard) error {
+	// start transaction
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	// delete sale_customer_discount
+	err := s.DeleteSaleCustomerDiscount(ctx, tx, req)
+	if err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+
+	// update sale customer_id to null
+	_, err = s.updateSaleField(ctx, tx, "customer_id", nil, req.SaleId)
+	if err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	// update discount_type and value to 0
+	err = s.updateCartItemDiscountValue(ctx, tx, 0, req.SaleId)
+	if err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+
+	// commit transaction
+	if err = tx.Commit().Error; err != nil {
+		s.log.Errorf("could not commit transaction: %v", err)
+		return domain.InternalServerError
+	}
+
+	return nil
 }
 
 // Internal reusable method
@@ -1659,25 +1710,6 @@ func (s *Services) DmedGiveReceipt(cartItems []*domain.CartItemForDMED, markingD
 	return nil
 }
 
-func (s *Services) ReturnStatusPending(ctx context.Context, tx *gorm.DB, sale *domain.Sale) error {
-	// build query for update sale status to return
-	query := `
-	UPDATE sales
-	SET
-		total_amount = 0,
-		total_discount = 0,
-		status = ?, completed_at = NULL, updated_at = NOW()
-	WHERE id = ?;
-	`
-	// complete the query
-	err := tx.WithContext(ctx).Exec(query, config.PENDING, sale.ID).Error
-	if err != nil {
-		s.log.Warn("ERROR on update sale to returned: %v", err)
-		return err
-	}
-	return nil
-}
-
 func (s *Services) GetStoreProductsDifference(ctx context.Context, tx *gorm.DB, saleId string) error {
 	var (
 		err   error
@@ -1743,14 +1775,15 @@ func (s *Services) updateSaleFields(ctx context.Context, saleId string, updates 
 	return nil
 }
 
-func (s *Services) updateSaleField(ctx context.Context, tx *gorm.DB, field, value, saleId string) (*domain.Sale, error) {
+func (s *Services) updateSaleField(ctx context.Context, tx *gorm.DB, field string, value any, saleId string) (*domain.Sale, error) {
 	var sale domain.Sale
-	err := tx.
-		WithContext(ctx).
-		Raw("UPDATE sales SET "+field+" = ? WHERE id = ? RETURNING *", value, saleId).
+
+	query := fmt.Sprintf("UPDATE sales SET %s = ? WHERE id = ? RETURNING *", field)
+	err := tx.WithContext(ctx).
+		Raw(query, value, saleId).
 		Scan(&sale).Error
 	if err != nil {
-		s.log.Errorf("could not update sale status to pending: %v", err)
+		s.log.Errorf("could not update sale field %s: %v", field, err)
 		return nil, domain.InternalServerError
 	}
 	return &sale, nil
