@@ -1583,6 +1583,81 @@ func (s *Services) getSaleVatSum(ctx context.Context, saleId string) (float64, e
 	return vatSum, nil
 }
 
+func (s *Services) GetDatasByMarkings(ctx context.Context, tx *gorm.DB, markings []domain.MarkingData) (*domain.MarkingItemsResponse, error) {
+	var (
+		err   error
+		items []domain.BarcodeResponse
+	)
+
+	for _, m := range markings {
+		// 1. cart_items ni olib kelamiz
+		var cartItem domain.CartItem
+		err = tx.Table("cart_items").
+			Select("id, store_product_id, quantity, unit_quantity").
+			Where("id = ?", m.Id).
+			Scan(&cartItem).Error
+		if err != nil {
+			return nil, err
+		}
+
+		// 2. Agar MarkingList bo‘lsa → markinglardan barcode chiqaramiz
+		if len(m.MarkingList) > 0 {
+			for _, mark := range m.MarkingList {
+				if len(mark) >= 16 {
+					barcode := mark[3:16]
+
+					var br domain.BarcodeResponse
+					err = tx.Table("product_barcodes pb").
+						Select("pb.id, pb.barcode, pb.mxik, pb.unit_code").
+						Where("pb.barcode = ? AND pb.status = 'completed' AND pb.mxik is not null AND pb.unit_code is not null ", barcode).
+						Order("pb.created_at desc").
+						Limit(1).
+						Scan(&br).Error
+					if err != nil {
+						return nil, err
+					}
+					br.CartItemId = m.Id
+					items = append(items, br)
+				}
+			}
+		} else {
+			// 3. Agar MarkingList bo‘lmasa → store_product_id orqali barcode topamiz
+			var productID string
+			err = tx.Table("store_products").
+				Select("product_id").
+				Where("id = ?", cartItem.StoreProductId).
+				Scan(&productID).Error
+			if err != nil {
+				return nil, err
+			}
+
+			var br domain.BarcodeResponse
+			err = tx.Table("product_barcodes pb").
+				Select("pb.id, pb.barcode, pb.mxik, pb.unit_code").
+				Where("pb.product_id = ? AND pb.status = 'completed' AND pb.mxik is not null AND pb.unit_code is not null ", productID).
+				Order("pb.created_at desc").
+				Limit(1).
+				Scan(&br).Error
+			if err != nil {
+				return nil, err
+			}
+			br.CartItemId = m.Id
+
+			// quantity + unit_quantity hisoblash
+			total := cartItem.Quantity
+			if cartItem.UnitQuantity > 0 {
+				total += 1
+			}
+
+			for i := 0; i < total; i++ {
+				items = append(items, br)
+			}
+		}
+	}
+
+	return &domain.MarkingItemsResponse{Items: items}, nil
+}
+
 // region Delete
 
 func (s *Services) DeleteSalePayments(ctx context.Context, tx *gorm.DB, saleId string) error {

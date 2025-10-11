@@ -329,3 +329,11 @@ type PendingSaleResponse struct {
 	ID     string `json:"id"`
 	Status string `json:"status"`
 }
+
+type MarkingItemsResponse struct {
+	Items []BarcodeResponse `json:"product_barcodes"`
+}
+
+type BarcodeResponse struct {
+	CartItemId string `json:"cart_item_id"`
+}
