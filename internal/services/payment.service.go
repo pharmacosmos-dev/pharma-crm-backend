@@ -12,8 +12,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"gorm.io/gorm"
 )
 
@@ -27,7 +27,7 @@ func (h *Services) ClickPass(ctx context.Context, tx *gorm.DB, click *domain.Pay
 		OtpData:       data.OtpData,
 		CashboxCode:   sale.CashboxId,
 		Amount:        data.Amount,
-		TransactionID: sale.ID,
+		TransactionID: sale.Id,
 	}
 	// Marshal click pass request
 	t, _ := json.Marshal(clickData)
@@ -36,7 +36,7 @@ func (h *Services) ClickPass(ctx context.Context, tx *gorm.DB, click *domain.Pay
 		RequestId:       time.Now().Unix(),
 		Method:          "click_pass",
 		Payload:         t,
-		TransactionID:   sale.ID,
+		TransactionID:   sale.Id,
 		PaymentProvider: "click",
 	})
 	if err != nil {
@@ -58,7 +58,7 @@ func (h *Services) ClickPass(ctx context.Context, tx *gorm.DB, click *domain.Pay
 	}
 	// save response to database
 	err = h.SaveResponse(ctx, &domain.PaymentRequest{
-		TransactionID: sale.ID,
+		TransactionID: sale.Id,
 		Response:      temp,
 		Method:        "click_pass",
 	})
@@ -236,7 +236,7 @@ func (s *Services) PaymeGoReceiptCreate(ctx context.Context, paymentService *dom
 			RequestId:       requestID,
 			Method:          "receipts.create",
 			Payload:         reqJSON,
-			TransactionID:   sale.ID,
+			TransactionID:   sale.Id,
 			PaymentProvider: "payme",
 		}); err != nil {
 			s.log.Warn("could not save payme go request: %v", err)
@@ -253,7 +253,7 @@ func (s *Services) PaymeGoReceiptCreate(ctx context.Context, paymentService *dom
 	// Save response
 	if resJSON, err := json.Marshal(res); err == nil {
 		if err := s.SaveResponse(ctx, &domain.PaymentRequest{
-			TransactionID: sale.ID,
+			TransactionID: sale.Id,
 			Response:      resJSON,
 			Method:        "receipts.create",
 		}); err != nil {
@@ -285,7 +285,7 @@ func (s *Services) PaymeGoReceiptPay(
 		RequestId:       requestID,
 		Method:          "receipts.pay",
 		Payload:         t,
-		TransactionID:   sale.ID,
+		TransactionID:   sale.Id,
 		PaymentProvider: "payme",
 	})
 	if err != nil {
@@ -302,7 +302,7 @@ func (s *Services) PaymeGoReceiptPay(
 	r, _ := json.Marshal(res)
 	// save response
 	err = s.SaveResponse(ctx, &domain.PaymentRequest{
-		TransactionID: sale.ID,
+		TransactionID: sale.Id,
 		Response:      r,
 		Method:        "receipts.pay",
 	})
@@ -329,7 +329,7 @@ func (s *Services) PaymeGoReceiptCancel(ctx context.Context, paymentService *dom
 		RequestId:       requestID,
 		Method:          "receipts.cancel",
 		Payload:         t,
-		TransactionID:   sale.ID,
+		TransactionID:   sale.Id,
 		PaymentProvider: "payme",
 	})
 	if err != nil {
@@ -346,7 +346,7 @@ func (s *Services) PaymeGoReceiptCancel(ctx context.Context, paymentService *dom
 	r, _ := json.Marshal(res)
 	// save response
 	err = s.SaveResponse(ctx, &domain.PaymentRequest{
-		TransactionID: sale.ID,
+		TransactionID: sale.Id,
 		Response:      r,
 		Method:        "receipts.cancel",
 	})
@@ -397,7 +397,7 @@ func (s *Services) PaymeGoSetFiscalData(
 	r, _ := json.Marshal(res)
 	// save response
 	err = s.SaveResponse(ctx, &domain.PaymentRequest{
-		TransactionID: sale.ID,
+		TransactionID: sale.Id,
 		Response:      r,
 		Method:        "receipts.set_fiscal_data",
 	})
@@ -536,7 +536,7 @@ func (h *Services) UzumFastPay(ctx context.Context, tx *gorm.DB, paymentService 
 
 	uzumData := domain.UzumRequest{
 		OrderId:       strconv.Itoa(sale.SaleNumber),
-		TransactionID: sale.ID,
+		TransactionID: sale.Id,
 		CashboxCode:   sale.CashboxId,
 		ServiceID:     paymentService.ServiceID,
 		Amount:        data.Amount,
@@ -550,7 +550,7 @@ func (h *Services) UzumFastPay(ctx context.Context, tx *gorm.DB, paymentService 
 		RequestId:       time.Now().Unix(),
 		Method:          "uzum_fast_pay",
 		Payload:         t,
-		TransactionID:   sale.ID,
+		TransactionID:   sale.Id,
 		PaymentProvider: "uzum",
 	})
 	if err != nil {
@@ -569,7 +569,7 @@ func (h *Services) UzumFastPay(ctx context.Context, tx *gorm.DB, paymentService 
 	t, _ = json.Marshal(res)
 	// save response to database
 	err = h.SaveResponse(ctx, &domain.PaymentRequest{
-		TransactionID: sale.ID,
+		TransactionID: sale.Id,
 		Response:      t,
 		Method:        "uzum_fast_pay",
 	})
@@ -645,7 +645,7 @@ func (h *Services) UzumFastPayDoRequest(ctx context.Context, url string, data an
 // Alif Pay
 func (h *Services) AlifPay(ctx context.Context, tx *gorm.DB, paymentService *domain.PaymentService, data *domain.FinalPaymentType, sale *domain.Sale) (map[string]any, error) {
 	alifData := domain.AlifPaymentRequest{
-		ID:     sale.ID,
+		ID:     sale.Id,
 		Amount: data.Amount * 100,
 		Method: domain.AlifMethod{
 			Type:  "MOBI_SHOW_QR",
@@ -660,7 +660,7 @@ func (h *Services) AlifPay(ctx context.Context, tx *gorm.DB, paymentService *dom
 		RequestId:       time.Now().Unix(),
 		Method:          "alif_pay",
 		Payload:         t,
-		TransactionID:   sale.ID,
+		TransactionID:   sale.Id,
 		PaymentProvider: "alif",
 	})
 	if err != nil {
@@ -674,7 +674,7 @@ func (h *Services) AlifPay(ctx context.Context, tx *gorm.DB, paymentService *dom
 	}
 	t, _ = json.Marshal(res)
 	err = h.SaveResponse(ctx, &domain.PaymentRequest{
-		TransactionID: sale.ID,
+		TransactionID: sale.Id,
 		Response:      t,
 		Method:        "alif_pay",
 	})
@@ -682,8 +682,8 @@ func (h *Services) AlifPay(ctx context.Context, tx *gorm.DB, paymentService *dom
 		return nil, err
 	}
 
-	if status, ok := res["status"].(string); ok && status == config.DECLINED {
-		h.log.Warn("Payment declined for transactionID=%s", sale.ID)
+	if status, ok := res["status"].(string); ok && status == constants.GeneralStatusDeclined {
+		h.log.Warn("Payment declined for transactionID=%s", sale.Id)
 		return res, fmt.Errorf("payment declined by alif")
 	}
 

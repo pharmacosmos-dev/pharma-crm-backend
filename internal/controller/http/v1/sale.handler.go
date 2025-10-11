@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/helper"
@@ -33,33 +32,35 @@ func (h *SaleHandler) SaleRoutes(r *gin.RouterGroup) {
 		sale.POST("", h.Create)
 		sale.POST("/return", h.CreateReturn)
 		sale.GET("/:id", h.Get)
-		sale.GET("/list", h.List)
-		sale.GET("/export-excel", h.ExportSaleExcel)
+		sale.GET("/list", h.GetSales)
+		sale.GET("/export-excel", h.ExportSalesExcel)
+		sale.GET("/stats", h.GetSalesStats)
+		sale.GET("/get-list", h.GetSaleList)
+		sale.GET("/online-list", h.OnlineSaleList)
+		sale.GET("/pending-list", h.PendingSaleList)
+		sale.GET("/dmed/prescriptions", h.DMEDGetPrescriptions)
 		sale.PUT("/:id", h.Update)
 		sale.POST("/final", h.FinalSale)
 		sale.POST("/epos-result", h.EposResult)
-		sale.GET("/stats", h.SaleStats)
-		sale.GET("/get-list", h.GetSaleList)
 		sale.POST("/discount-card", h.AddDiscountCard)
 		sale.DELETE("/discount-card", h.RemoveCustomerDiscount)
 		sale.GET("/online-count", h.GetOnlineSaleCount)
 		sale.POST("/online-accept", h.AcceptOnlineSale)
 		sale.POST("online-cancel", h.CancelOnlineSale)
-		sale.GET("/online-list", h.OnlineSaleList)
-		sale.GET("/pending-list", h.PendingSaleList)
-		sale.GET("/dmed/prescriptions", h.DMEDGetPrescriptions)
 		sale.POST("/asil-belgi-barcode", h.AsilBelgiBarcode)
 		sale.POST("/asil-belgi-barcode-confirm/:id", h.AsilBelgiBarcodeConfirm)
 		sale.PUT("/pending/:id", h.PendingSale)
 	}
 }
 
+// region Create
+
 // Create godoc
-// @Summary Create a sale
+// @Summary 	Create a sale
 // @Description Create a sale from the request body
-// @Tags sales
-// @Security     BearerAuth
-// @Accept json
+// @Tags 	sales
+// @Security BearerAuth
+// @Accept 	json
 // @Produce json
 // @Param 	input body domain.SaleRequest true "Sale information"
 // @Success 200 {object} v1.Response
@@ -110,7 +111,7 @@ func (h *SaleHandler) CreateReturn(c *gin.Context) {
 	// get user id in context
 	user := h.service.GetSignedUser(c)
 	if user == nil {
-		handleResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
 
@@ -124,8 +125,8 @@ func (h *SaleHandler) CreateReturn(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	body.EmployeeID = user.UserId
-	body.SaleType = config.SALE_TYPE_RETURN
+	body.EmployeeId = user.UserId
+	body.SaleType = constants.SaleTypeReturn
 	// create sale return
 	sale, err := h.service.CreateReturnSale(ctx, &body)
 	if err != nil {
@@ -135,6 +136,8 @@ func (h *SaleHandler) CreateReturn(c *gin.Context) {
 
 	handleResponse(c, CREATED, sale)
 }
+
+// region Get
 
 // Get godoc
 // @Summary Get a sale
@@ -192,7 +195,7 @@ func (h *SaleHandler) Get(c *gin.Context) {
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /sale/list [get]
-func (h *SaleHandler) List(c *gin.Context) {
+func (h *SaleHandler) GetSales(c *gin.Context) {
 	// get user from the context
 	user := h.service.GetSignedUser(c)
 	if user == nil {
@@ -253,7 +256,7 @@ func (h *SaleHandler) List(c *gin.Context) {
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /sale/export-excel [get]
-func (h *SaleHandler) ExportSaleExcel(c *gin.Context) {
+func (h *SaleHandler) ExportSalesExcel(c *gin.Context) {
 	var params domain.SaleQueryParams
 	// get user_id from the context
 	user := h.service.GetSignedUser(c)
@@ -348,7 +351,7 @@ func (h *SaleHandler) ExportSaleExcel(c *gin.Context) {
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /sale/stats [get]
-func (h *SaleHandler) SaleStats(c *gin.Context) {
+func (h *SaleHandler) GetSalesStats(c *gin.Context) {
 	user := h.service.GetSignedUser(c)
 	if user == nil {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
@@ -373,6 +376,231 @@ func (h *SaleHandler) SaleStats(c *gin.Context) {
 
 	handleResponse(c, OK, res)
 }
+
+// List godoc
+// @Summary Get a sale
+// @Description Get a sale from the request body
+// @Tags sales
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Param vendor_id query string false "Vendor ID"
+// @Param store_id query string true "Store ID"
+// @Param search query string false "Search"
+// @Param start_date query string false "Start Date"
+// @Param end_date query string false "End Date"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /sale/get-list [get]
+func (h *SaleHandler) GetSaleList(c *gin.Context) {
+
+	user := h.service.GetSignedUser(c)
+	if user == nil {
+		handleServiceResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.SaleQueryParams
+	// bind query params
+	err := c.ShouldBindQuery(&params)
+	if err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+	// get sale list data
+	res, totalCount, err := h.service.GetSaleList(ctx, &params, user)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	// added _meta section to response
+	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
+
+	handleResponse(c, OK, data)
+}
+
+// Get online pending sale count
+// @Summary Get online pending sale count
+// @Description Get online pending sale count
+// @Tags sales
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param	store_id query string false "Store ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /sale/online-count [GET]
+func (h *SaleHandler) GetOnlineSaleCount(c *gin.Context) {
+	// get user_id from the set header
+	userID, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, BadRequest, "user.not.found.header")
+		return
+	}
+	// get employee info by set user_id
+	var employee domain.Employee
+	err := h.db.First(&employee, "id = ?", userID).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			handleResponse(c, NotFound, "user.not.found")
+			return
+		}
+		h.log.Warn("ERROR on getting employee info: %v", err)
+		handleResponse(c, InternalError, "not.get.user")
+		return
+	}
+	// get online order count
+	var count int64
+	err = h.db.Raw(`
+	SELECT
+		COUNT(*) AS count
+	FROM sales
+	WHERE store_id = ? AND
+		(online_status = 1 OR online_status = 2);
+	`, employee.StoreId).Scan(&count).Error
+
+	if err != nil {
+		h.log.Warn("ERROR on getting online sale count: %v", err)
+		handleResponse(c, InternalError, "internal.server.error")
+		return
+	}
+
+	handleResponse(c, OK, gin.H{"count": count})
+}
+
+// Get online pending sale list
+// @Summary Get online pending sale list
+// @Description Get online pending sale list
+// @Tags sales
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param   limit query int false "Limit"
+// @Param	offset query int false "Offset"
+// @Param   store_id query string true "Store ID"
+// @Param   search query string false "Search"
+// @Param	start_date query string false "StartDate"
+// @Param	end_date query string false "EndDate"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /sale/online-list [GET]
+func (h *SaleHandler) OnlineSaleList(c *gin.Context) {
+	var param domain.QueryParam
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
+		handleResponse(c, BadRequest, "invalid.query.param")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	res, totalCount, err := h.service.GetOnlinePendingSaleList(ctx, &param)
+	if err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+	// get response data with pagination _meta data
+	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+
+	handleResponse(c, OK, data)
+}
+
+// PendingSaleList godoc
+// @Summary Get pending sales
+// @Description Get all sales with status 'pending' filtered by store, date, search
+// @Tags sales
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Param store_id query string false "Store ID"
+// @Param search query string false "Search (sale number or store name)"
+// @Param start_date query string false "Created At Start Date (RFC3339)"
+// @Param end_date query string false "Created At End Date (RFC3339)"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /sale/pending-list [get]
+func (h *SaleHandler) PendingSaleList(c *gin.Context) {
+	var params domain.SaleQueryParams
+
+	// get user_id from context
+	user := h.service.GetSignedUser(c)
+	if user == nil {
+		handleResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
+		return
+	}
+
+	err := c.ShouldBindQuery(&params)
+	if err != nil {
+		handleResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	// get pending sales
+	res, totalCount, err := h.service.GetPendingSales(ctx, &params, user)
+	if err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
+
+	handleResponse(c, OK, data)
+}
+
+// DMEDGetPrescriptions godoc
+// @Summary      Get prescriptions from DMED
+// @Description  Fetch prescriptions for a patient from DMED API
+// @Tags         sales
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        patient_id query string true "Patient ID"
+// @Param        safe_code  query string true "Safe Code"
+// @Success      200 {object} v1.Response
+// @Failure      400 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /sale/dmed/prescriptions [get]
+func (h *SaleHandler) DMEDGetPrescriptions(c *gin.Context) {
+	patientID := c.Query("patient_id")
+	safeCode := c.Query("safe_code")
+
+	if patientID == "" || safeCode == "" {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	respBody, err := h.service.GetPrescriptionsFromDMED(patientID, safeCode)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, respBody)
+}
+
+// region Update
 
 // Update godoc
 // @Summary Update a sale
@@ -501,55 +729,6 @@ func (h *SaleHandler) EposResult(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept 	json
 // @Produce json
-// @Param limit query int false "Limit"
-// @Param offset query int false "Offset"
-// @Param vendor_id query string false "Vendor ID"
-// @Param store_id query string true "Store ID"
-// @Param search query string false "Search"
-// @Param start_date query string false "Start Date"
-// @Param end_date query string false "End Date"
-// @Success 200 {object} v1.Response
-// @Failure 400 {object} v1.Response
-// @Failure 500 {object} v1.Response
-// @Router /sale/get-list [get]
-func (h *SaleHandler) GetSaleList(c *gin.Context) {
-	user := h.service.GetSignedUser(c)
-	if user == nil {
-		handleServiceResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
-		return
-	}
-	var params domain.SaleQueryParams
-	// bind query params
-	err := c.ShouldBindQuery(&params)
-	if err != nil {
-		handleServiceResponse(c, nil, domain.InvalidQueryError)
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-	defer cancel()
-
-	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
-	// get sale list data
-	res, totalCount, err := h.service.GetSaleList(ctx, &params, user)
-	if err != nil {
-		handleServiceResponse(c, nil, err)
-		return
-	}
-
-	// added _meta section to response
-	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
-
-	handleResponse(c, OK, data)
-}
-
-// List godoc
-// @Summary Get a sale
-// @Description Get a sale from the request body
-// @Tags sales
-// @Security     BearerAuth
-// @Accept 	json
-// @Produce json
 // @Param 	body body domain.AddDiscountCard true "Add discount card"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
@@ -604,56 +783,6 @@ func (h *SaleHandler) RemoveCustomerDiscount(c *gin.Context) {
 
 	handleResponse(c, OK, "DELETED")
 
-}
-
-// Get online pending sale count
-// @Summary Get online pending sale count
-// @Description Get online pending sale count
-// @Tags sales
-// @Security     BearerAuth
-// @Accept 	json
-// @Produce json
-// @Param	store_id query string false "Store ID"
-// @Success 200 {object} v1.Response
-// @Failure 400 {object} v1.Response
-// @Failure 500 {object} v1.Response
-// @Router /sale/online-count [GET]
-func (h *SaleHandler) GetOnlineSaleCount(c *gin.Context) {
-	// get user_id from the set header
-	userID, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, BadRequest, "user.not.found.header")
-		return
-	}
-	// get employee info by set user_id
-	var employee domain.Employee
-	err := h.db.First(&employee, "id = ?", userID).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			handleResponse(c, NotFound, "user.not.found")
-			return
-		}
-		h.log.Warn("ERROR on getting employee info: %v", err)
-		handleResponse(c, InternalError, "not.get.user")
-		return
-	}
-	// get online order count
-	var count int64
-	err = h.db.Raw(`
-	SELECT
-		COUNT(*) AS count
-	FROM sales
-	WHERE store_id = ? AND
-		(online_status = 1 OR online_status = 2);
-	`, employee.StoreId).Scan(&count).Error
-
-	if err != nil {
-		h.log.Warn("ERROR on getting online sale count: %v", err)
-		handleResponse(c, InternalError, "internal.server.error")
-		return
-	}
-
-	handleResponse(c, OK, gin.H{"count": count})
 }
 
 // Confirm online sale
@@ -729,134 +858,6 @@ func (h *SaleHandler) CancelOnlineSale(c *gin.Context) {
 	handleResponse(c, OK, "CANCELED")
 }
 
-// Get online pending sale list
-// @Summary Get online pending sale list
-// @Description Get online pending sale list
-// @Tags sales
-// @Security     BearerAuth
-// @Accept 	json
-// @Produce json
-// @Param   limit query int false "Limit"
-// @Param	offset query int false "Offset"
-// @Param   store_id query string true "Store ID"
-// @Param   search query string false "Search"
-// @Param	start_date query string false "StartDate"
-// @Param	end_date query string false "EndDate"
-// @Success 200 {object} v1.Response
-// @Failure 400 {object} v1.Response
-// @Failure 500 {object} v1.Response
-// @Router /sale/online-list [GET]
-func (h *SaleHandler) OnlineSaleList(c *gin.Context) {
-	var param domain.QueryParam
-	err := c.ShouldBindQuery(&param)
-	if err != nil {
-		handleResponse(c, BadRequest, "invalid.query.param")
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-	defer cancel()
-
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
-
-	res, totalCount, err := h.service.GetOnlinePendingSaleList(ctx, &param)
-	if err != nil {
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	// get response data with pagination _meta data
-	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
-
-	handleResponse(c, OK, data)
-}
-
-// PendingSaleList godoc
-// @Summary Get pending sales
-// @Description Get all sales with status 'pending' filtered by store, date, search
-// @Tags sales
-// @Security     BearerAuth
-// @Accept 	json
-// @Produce json
-// @Param limit query int false "Limit"
-// @Param offset query int false "Offset"
-// @Param store_id query string false "Store ID"
-// @Param search query string false "Search (sale number or store name)"
-// @Param start_date query string false "Created At Start Date (RFC3339)"
-// @Param end_date query string false "Created At End Date (RFC3339)"
-// @Success 200 {object} v1.Response
-// @Failure 400 {object} v1.Response
-// @Failure 500 {object} v1.Response
-// @Router /sale/pending-list [get]
-func (h *SaleHandler) PendingSaleList(c *gin.Context) {
-	var params domain.SaleQueryParams
-
-	// get user_id from context
-	user := h.service.GetSignedUser(c)
-	if user == nil {
-		handleResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
-		return
-	}
-
-	err := c.ShouldBindQuery(&params)
-	if err != nil {
-		handleResponse(c, BadRequest, domain.InvalidQueryError)
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-	defer cancel()
-
-	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
-
-	// get pending sales
-	res, totalCount, err := h.service.GetPendingSales(ctx, &params, user)
-	if err != nil {
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-
-	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
-
-	handleResponse(c, OK, data)
-}
-
-// DMEDGetPrescriptions godoc
-// @Summary      Get prescriptions from DMED
-// @Description  Fetch prescriptions for a patient from DMED API
-// @Tags         sales
-// @Accept       json
-// @Produce      json
-// @Security     BearerAuth
-// @Param        patient_id query string true "Patient ID"
-// @Param        safe_code  query string true "Safe Code"
-// @Success      200 {object} v1.Response
-// @Failure      400 {object} v1.Response
-// @Failure      500 {object} v1.Response
-// @Router       /sale/dmed/prescriptions [get]
-func (h *SaleHandler) DMEDGetPrescriptions(c *gin.Context) {
-	patientID := c.Query("patient_id")
-	safeCode := c.Query("safe_code")
-
-	if patientID == "" || safeCode == "" {
-		handleResponse(c, BadRequest, "invalid.query.param")
-		return
-	}
-
-	respBody, err := h.service.GetPrescriptionsFromDMED(patientID, safeCode)
-	if err != nil {
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-
-	handleResponse(c, OK, respBody)
-}
-
-// lock order for parallel request
-func (h *SaleHandler) getOrderLock(orderId string) *sync.Mutex {
-	lock, _ := h.ordersToMutexes.LoadOrStore(orderId, &sync.Mutex{})
-	return lock.(*sync.Mutex)
-}
-
 // AsilBelgiBarcode godoc
 // @Summary      Check and save product barcode by markingCode
 // @Description  Markirovkani yuborib, AslBelgi API orqali productName va gtin ni oladi. Foydalanuvchi yuborgan productName bilan solishtiriladi. Agar 90%+ mos tushsa avtomatik update qiladi (status=completed), bo‘lmasa pending yoziladi va eski barcode ham log bo‘ladi.
@@ -925,7 +926,7 @@ func (h *SaleHandler) AsilBelgiBarcode(c *gin.Context) {
 	if exists {
 		resp := domain.AsilBelgiBarcodeResponse{
 			Id:          body.ProductID,
-			Status:      constants.COMPLETED,
+			Status:      constants.GeneralStatusCompleted,
 			OldBarcode:  markingPart,
 			NewBarcode:  markingPart,
 			RequestName: body.ProductName,
@@ -982,12 +983,12 @@ func (h *SaleHandler) AsilBelgiBarcode(c *gin.Context) {
 			INSERT INTO product_barcodes(product_id, old_barcode, barcode, created_by, status, store_id)
 			VALUES(?, ?, ?, ?, ?, ?)
 			RETURNING id
-		`, body.ProductID, oldBarcode, barcode, body.UserID, constants.COMPLETED, employee.StoreId).Scan(&id).Error; err != nil {
+		`, body.ProductID, oldBarcode, barcode, body.UserID, constants.GeneralStatusCompleted, employee.StoreId).Scan(&id).Error; err != nil {
 			h.log.Warn("ERROR on inserting product_barcode: %v", err)
 			handleResponse(c, InternalError, "failed.save.barcode.log")
 			return
 		}
-		similarityStr = constants.COMPLETED
+		similarityStr = constants.GeneralStatusCompleted
 	} else if similarity <= 0.6 {
 		handleResponse(c, BadRequest, "similarity.not.enough")
 		return
@@ -997,12 +998,12 @@ func (h *SaleHandler) AsilBelgiBarcode(c *gin.Context) {
 			INSERT INTO product_barcodes(product_id, old_barcode, barcode, created_by, status, store_id)
 			VALUES(?, ?, ?, ?, ?, ?)
 			RETURNING id
-		`, body.ProductID, oldBarcode, barcode, body.UserID, constants.PENDING, employee.StoreId).Scan(&id).Error; err != nil {
+		`, body.ProductID, oldBarcode, barcode, body.UserID, constants.GeneralStatusPending, employee.StoreId).Scan(&id).Error; err != nil {
 			h.log.Warn("ERROR on inserting pending product_barcode: %v", err)
 			handleResponse(c, InternalError, "failed.save.pending.barcode.log")
 			return
 		}
-		similarityStr = constants.PENDING
+		similarityStr = constants.GeneralStatusPending
 	}
 
 	if err = tx.Commit().Error; err != nil {
@@ -1050,7 +1051,7 @@ func (h *SaleHandler) AsilBelgiBarcodeConfirm(c *gin.Context) {
 	}
 
 	// pending yozuvni olish
-	err = h.db.First(&barcodeLog, "id = ? AND status = ?", id, constants.PENDING).Error
+	err = h.db.First(&barcodeLog, "id = ? AND status = ?", id, constants.GeneralStatusPending).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		handleResponse(c, NotFound, "pending.barcode.not.found")
 		return
@@ -1086,7 +1087,7 @@ func (h *SaleHandler) AsilBelgiBarcodeConfirm(c *gin.Context) {
 	}
 
 	// log statusni update qilish
-	err = tx.Exec(`UPDATE product_barcodes SET status = ? WHERE id = ?`, constants.COMPLETED, id).Error
+	err = tx.Exec(`UPDATE product_barcodes SET status = ? WHERE id = ?`, constants.GeneralStatusPending, id).Error
 	if err != nil {
 		h.log.Warn("ERROR on updating product_barcode status: %v", err)
 		handleResponse(c, InternalError, "failed.update.barcode.log")
@@ -1130,30 +1131,30 @@ func (h *SaleHandler) PendingSale(c *gin.Context) {
 
 	id := c.Param("id")
 	if id == "" {
-		handleResponse(c, BadRequest, "id.required")
+		handleServiceResponse(c, BadRequest, domain.BadRequestError)
 		return
 	}
 
 	// get sale record
 	err = h.db.First(&sale, "id = ?", id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		handleResponse(c, NotFound, "sale.not.found")
+		handleServiceResponse(c, NotFound, domain.NotFoundError)
 		return
 	}
-	if sale.Status == constants.PENDING {
+	if sale.Status == constants.GeneralStatusPending {
 		resp := domain.PendingSaleResponse{
 			ID:     id,
-			Status: constants.PENDING,
+			Status: constants.GeneralStatusPending,
 		}
 		handleResponse(c, OK, resp)
 		return
-	} else if sale.SaleType == constants.SALE_TYPE_RETURN {
-		handleResponse(c, BadRequest, "sale.return.not.allowed")
+	} else if sale.SaleType == constants.SaleTypeReturn {
+		handleServiceResponse(c, BadRequest, domain.BadRequestError)
 		return
 	}
 	if err != nil {
-		h.log.Warn("ERROR on getting sale: %v", err)
-		handleResponse(c, InternalError, "failed.get.sale")
+		h.log.Errorf("could not gett sale: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 
@@ -1166,24 +1167,30 @@ func (h *SaleHandler) PendingSale(c *gin.Context) {
 	}()
 
 	// update sale status to pending
-	err = tx.Exec(`UPDATE sales SET status = ? WHERE id = ?`, constants.PENDING, id).Error
+	err = tx.Exec(`UPDATE sales SET status = ? WHERE id = ?`, constants.GeneralStatusPending, id).Error
 	if err != nil {
-		h.log.Warn("ERROR on updating sale status: %v", err)
-		handleResponse(c, InternalError, "failed.update.sale.status")
+		h.log.Errorf("could not update sale status: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 
 	// commit
 	if err = tx.Commit().Error; err != nil {
-		h.log.Warn("ERROR on committing transaction: %v", err)
-		handleResponse(c, InternalError, "not.completed.transaction")
+		h.log.Errorf("could not commit transaction: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 
 	resp := domain.PendingSaleResponse{
 		ID:     id,
-		Status: constants.PENDING,
+		Status: constants.GeneralStatusPending,
 	}
 
 	handleResponse(c, OK, resp)
+}
+
+// lock order for parallel request
+func (h *SaleHandler) getOrderLock(orderId string) *sync.Mutex {
+	lock, _ := h.ordersToMutexes.LoadOrStore(orderId, &sync.Mutex{})
+	return lock.(*sync.Mutex)
 }

@@ -5,8 +5,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
 )
@@ -54,7 +54,7 @@ func (h *FinanceCategoryHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	body.Status = config.ACTIVE
+	body.Status = constants.GeneralStatusActive
 	// create finance category
 	err = h.db.WithContext(c.Request.Context()).
 		Table("finance_categories").

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"gorm.io/gorm"
 )
 
@@ -360,7 +360,7 @@ func (s *Services) ConfirmRepricing(repricingID int, updatedBy string) error {
 		return err
 	}
 
-	err = tx.Exec(`UPDATE price_revalutions SET status = ?, updated_by = ?, updated_at = NOW() WHERE id = ?`, config.COMPLETED, updatedBy, repricingID).Error
+	err = tx.Exec(`UPDATE price_revalutions SET status = ?, updated_by = ?, updated_at = NOW() WHERE id = ?`, constants.GeneralStatusCompleted, updatedBy, repricingID).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating price_revalution status: %v", err)
 		tx.Rollback()
@@ -406,7 +406,7 @@ func (s *Services) ConfirmRepricing(repricingID int, updatedBy string) error {
 func (s *Services) CancelRepricing(repricingID string, updatedBy string) error {
 	// check if repricing exists
 	err := s.db.Exec(`UPDATE price_revalutions SET status = ?, updated_by = ?, updated_at = NOW() WHERE id = ?`,
-		config.CANCELED, updatedBy, repricingID).Error
+		constants.GeneralStatusCanceled, updatedBy, repricingID).Error
 	if err != nil {
 		s.log.Warn("ERROR on canceling repricing: %v", err)
 		return err

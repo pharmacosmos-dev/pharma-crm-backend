@@ -9,7 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
-	"github.com/pharma-crm-backend/config"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/logger"
 )
 
@@ -70,7 +70,7 @@ func (v *Validator) ValidationMessage(c *gin.Context, errs error) gin.H {
 	for _, err := range validationErrors {
 		message, ok = localization[strings.ToLower(err.Tag())]
 		if !ok {
-			message = localization[config.DefaultValidationErrKey]
+			message = localization[constants.DefaultValidationErrKey]
 		}
 		response[v.camelToSnake(err.Namespace())] = message
 	}
@@ -88,7 +88,7 @@ func (v *Validator) CustomValidationMessage(c *gin.Context, key string, err stri
 	// Get default message if key is not found
 	message, ok := localization[strings.ToLower(err)]
 	if !ok {
-		message = localization[config.DefaultValidationErrKey]
+		message = localization[constants.DefaultValidationErrKey]
 	}
 
 	return gin.H{key: message}
@@ -99,8 +99,8 @@ func (v *Validator) getLocalizationByHeader(c *gin.Context) map[string]string {
 	acceptLanguage := c.GetHeader("Accept-Language")
 
 	// Check if the Accept-Language header contains language codes for English, Russian, or Uzbek
-	isEnglish := strings.Contains(acceptLanguage, config.LanguageEn)
-	isRussian := strings.Contains(acceptLanguage, config.LanguageRu)
+	isEnglish := strings.Contains(acceptLanguage, constants.LanguageEn)
+	isRussian := strings.Contains(acceptLanguage, constants.LanguageRu)
 
 	switch true {
 	case isEnglish:

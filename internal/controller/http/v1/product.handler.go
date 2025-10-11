@@ -15,8 +15,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/xuri/excelize/v2"
@@ -115,7 +115,7 @@ func (h *ProductHandler) Create(c *gin.Context) {
 	// generate id
 	body.Id = uuid.New().String()
 	body.Photos = utils.StringArray(body.Photos)
-	body.Status = config.ACTIVE_PRODUCT
+	body.Status = constants.ProductStatusActive
 	body.MaterialCode = utils.GenerateMaterialCode()
 	err = tx.
 		WithContext(c.Request.Context()).
@@ -982,7 +982,7 @@ func (h *ProductHandler) AddStoreProductByBarcode(c *gin.Context) {
 			) 
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			uuid.New().String(), storeProduct.Id, userId.(string), body.SaleID, 1,
-			storeProduct.RetailPrice, storeProduct.RetailPrice, config.PENDING,
+			storeProduct.RetailPrice, storeProduct.RetailPrice, constants.GeneralStatusPending,
 			body.DiscountType, discountPercent, discountPrice, discountAmount).Error
 		if err != nil {
 			h.log.Error(err)

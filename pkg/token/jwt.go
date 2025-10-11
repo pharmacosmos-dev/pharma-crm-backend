@@ -8,6 +8,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/pharma-crm-backend/config"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/logger"
 )
 
@@ -19,14 +20,14 @@ type JWTHandler struct {
 // GenerateTokens generates access and refresh tokens.
 func (j *JWTHandler) GenerateTokens(userClaims map[string]any) (accessToken string, refreshToken string, err error) {
 	// Generate access token
-	accessToken, err = j.generateToken(userClaims, config.AccessTokenExpiresInTime)
+	accessToken, err = j.generateToken(userClaims, constants.AccessTokenExpiresInTime)
 	if err != nil {
 		j.Log.Error("Failed to generate access token:", err)
 		return "", "", err
 	}
 
 	// Generate refresh token
-	refreshToken, err = j.generateToken(userClaims, config.RefreshTokenExpiresInTime)
+	refreshToken, err = j.generateToken(userClaims, constants.RefreshTokenExpiresInTime)
 	if err != nil {
 		j.Log.Error("Failed to generate refresh token:", err)
 		return "", "", err

@@ -12,9 +12,9 @@ const (
 	// Context timeouts for reports and other long-running operations
 	ContextTimeoutForReports  time.Duration = 1 * time.Minute
 	DefaultContextTimeout     time.Duration = 30 * time.Second
-	DATE_FORMAT                             = "2006-01-02"
-	DATE_TIME                               = "2006-01-02 15:04:05"
-	DATE_1C_FORMAT                          = "2006-01-02T15:04:05"
+	TimeOnlyDateFormat                      = "2006-01-02"
+	DateTimeFormat                          = "2006-01-02 15:04:05"
+	DateTimeFormatRFC3339                   = "2006-01-02T15:04:05"
 	DefaultLimit                            = 10
 	DefaultOffset                           = 0
 	ContentTypeJson                         = "application/json"
@@ -23,90 +23,161 @@ const (
 	AuthBearer                              = "Bearer"
 	HeaderXAuth                             = "X-Auth"
 	HeaderHost                              = "Host"
+	DiscountTypePercent                     = "percent"
+	// Languages
+	LanguageRu    = "ru"
+	LanguageUz    = "uz"
+	LanguageEn    = "en"
+	LanguageKiril = "cr"
+
+	// Validation
+	DefaultValidationErrKey     = "default"
+	MaxFileSizeValidationErrKey = "max_file_size"
+	MimeTypeValidationErrKey    = "mime_type"
 
 	// WebSocket events
 	WsEventNoorOrder = "noor_order"
 )
 
+// Payment Types slices
 var (
-	AppPayments  = []string{CLICK, PAYME, ALIF, UZUM}
-	PaymentTypes = []string{CASH, CARD, APP}
-	AdminRoles   = []string{ADMIN, SUPERADMIN, FOUNDER, ACCOUNTANT, DIRECTOR, AUTOZAKAZ, MANAGER}
+	PaymentAppTypes = []string{PaymentTypeClick, PaymentTypePayme, PaymentTypeAlif, PaymentTypeUzum}
+	PaymentTypes    = []string{PaymentTypeCash, PaymentTypeCard, PaymentTypeApp}
 )
 
+// Roles slices
+var (
+	AllAdminRoles = []string{RoleAdmin, RoleSuperAdmin, RoleFounder, RoleAccountant, RoleDirector, RoleAutoZakaz, RoleManager}
+)
+
+// Sale stages
 const (
-	// region status
-	NEW_IMPORT       = "new"
-	PENDING_IMPORT   = "pending"
-	COMPLETED_IMPORT = "completed"
-	CANCELED_IMPORT  = "canceled"
-	WRITEOFF_IMPORT  = "writeoff"
+	SaleStageNew            = 1
+	SaleStagePending        = 2
+	SaleStageDrafted        = 3
+	SaleStageOfdWaiting     = 4
+	SaleStageOfdCancelled   = 5
+	SaleStageOfdSent        = 6
+	SaleStagePayWaiting     = 7
+	SaleStageFinished       = 8
+	SaleStageReturning      = 9
+	SaleStageReturnedFinish = 10
+)
+
+var SaleStages = map[int]map[string]string{
+	SaleStageNew: {
+		"en": "New",
+		"ru": "Новый",
+		"uz": "Yangi",
+	},
+	SaleStagePending: {
+		"en": "Pending",
+		"ru": "В ожидании",
+		"uz": "Kutilmoqda",
+	},
+	SaleStageDrafted: {
+		"en": "Drafted",
+		"ru": "Черновик",
+		"uz": "Qoralama",
+	},
+	SaleStageOfdWaiting: {
+		"en": "OFD waiting",
+		"ru": "Ожидание ОФД",
+		"uz": "OFD kutilmoqda",
+	},
+	SaleStageOfdCancelled: {
+		"en": "OFD cancelled",
+		"ru": "Отменено ОФД",
+		"uz": "OFD bekor qilindi",
+	},
+	SaleStageOfdSent: {
+		"en": "OFD sent",
+		"ru": "Отправлено ОФД",
+		"uz": "OFD yuborildi",
+	},
+	SaleStagePayWaiting: {
+		"en": "Payment waiting",
+		"ru": "Ожидание оплаты",
+		"uz": "To‘lov kutilmoqda",
+	},
+	SaleStageFinished: {
+		"en": "Finished",
+		"ru": "Завершено",
+		"uz": "Yakunlandi",
+	},
+	SaleStageReturning: {
+		"en": "Returning",
+		"ru": "Возврат",
+		"uz": "Qaytarilmoqda",
+	},
+	SaleStageReturnedFinish: {
+		"en": "Return finished",
+		"ru": "Возврат завершён",
+		"uz": "Qaytarish yakunlandi",
+	},
+}
+
+const (
 
 	// company
-	PHARMA_COSMOS = "Pharma Cosmos"
-
-	// cart item status
-	PENDING_CART_ITEM = "pending"
-	ACTIVE_CART_ITEM  = "active"
-	DELETED_CART_ITEM = "deleted"
-	DRAFTED_CART_ITEM = "drafted"
-	SOLD_CART_ITEM    = "sold"
+	PharmaCosmos = "Pharma Cosmos"
 
 	// product status
 
-	ACTIVE_PRODUCT     = "active"
-	INACTIVE_PRODUCT   = "inactive"
-	LOW_STOCK_PRODUCT  = "low_stock"
-	ZERO_STOCK_PRODUCT = "zero_stock"
-	EXPIRED_PRODUCT    = "expired"
-	DELETED_PRODUCT    = "deleted"
+	ProductStatusActive    = "active"
+	ProductStatusInactive  = "inactive"
+	ProductStatusLowStock  = "low_stock"
+	ProductStatusZeroStock = "zero_stock"
+	ProductStatusExpired   = "expired"
+	ProductStatusDeleted   = "deleted"
 
 	// payment types
 
-	CASH    = "cash"
-	CARD    = "card"
-	APP     = "app"
-	CLICK   = "click"
-	PAYME   = "payme"
-	UZUM    = "uzum"
-	ALIF    = "alif"
-	PERCENT = "percent"
-	HUMO    = "humo"
-	UZCARD  = "uzcard"
+	PaymentTypeCash   = "cash"
+	PaymentTypeCard   = "card"
+	PaymentTypeApp    = "app"
+	PaymentTypeClick  = "click"
+	PaymentTypePayme  = "payme"
+	PaymentTypeUzum   = "uzum"
+	PaymentTypeAlif   = "alif"
+	PaymentTypeHumo   = "humo"
+	PaymentTypeUzcard = "uzcard"
 
-	// universal status types
+	// Universal status types
 
-	NEW        = "new"
-	PENDING    = "pending"
-	PROCESSING = "processing"
-	COMPLETED  = "completed"
-	CANCELED   = "canceled"
-	DONE       = "done"
-	DELETED    = "deleted"
-	ACTIVE     = "active"
-	INACTIVE   = "inactive"
-	CONFIRMED  = "confirmed"
-	SENT       = "sent"
-	CHECKING   = "checking"
-	DRAFTED    = "drafted"
+	GeneralStatusNew        = "new"
+	GeneralStatusPending    = "pending"
+	GeneralStatusProcessing = "processing"
+	GeneralStatusCompleted  = "completed"
+	GeneralStatusCanceled   = "canceled"
+	GeneralStatusDone       = "done"
+	GeneralStatusDeleted    = "deleted"
+	GeneralStatusActive     = "active"
+	GeneralStatusInactive   = "inactive"
+	GeneralStatusConfirmed  = "confirmed"
+	GeneralStatusSent       = "sent"
+	GeneralStatusChecking   = "checking"
+	GeneralStatusDrafted    = "drafted"
+	GeneralStatusWriteOff   = "writeoff"
+	GeneralStatusSentOnec   = ""
+	GeneralStatusDeclined   = ""
+	GeneralStatusTaxFree    = ""
 
-	// online sale status
+	// Online sale status
+	SaleOnlineStageDefault   = 0
+	SaleOnlineStageNew       = 1
+	SaleOnlineStagePending   = 2
+	SaleOnlineStageCanceled  = -1
+	SaleOnlineStageCompleted = 2
 
-	ONLINE_STATUS_DEFAULT   = 0
-	ONLINE_STATUS_NEW       = 1
-	ONLINE_STATUS_PENDING   = 2
-	ONLINE_STATUS_CANCELED  = -1
-	ONLINE_STATUS_COMPLETED = 2
-
-	SALE_TYPE_RETURN = "RETURN"
-	SALE_TYPE_SALE   = "SALE"
-
-	SALE_TYPE_ONLINE  = "online"
-	SALE_TYPE_OFFLINE = "offline"
+	SaleTypeReturn  = "RETURN"
+	SaleTypeSale    = "SALE"
+	SaleTypeOnline  = "online"
+	SaleTypeOffline = "offline"
 
 	// Service types
-	NOOR = "noor"
-	DMED = "dmed"
+	ServiceTypeNoor = "noor"
+	ServiceTypeDmed = "dmed"
 )
 
 // Request Path
@@ -125,28 +196,15 @@ const (
 	DmedRequestActionCheckIssue = "check-issue"
 )
 
-// region languages
-
+// region Roles
 const (
-	LanguageRu    = "ru"
-	LanguageUz    = "uz"
-	LanguageEn    = "en"
-	LanguageKiril = "kiril"
-)
-
-const (
-	DefaultValidationErrKey     = "default"
-	MaxFileSizeValidationErrKey = "max_file_size"
-	MimeTypeValidationErrKey    = "mime_type"
-)
-
-// region role types
-const (
-	ADMIN      = "ADMIN"
-	SUPERADMIN = "SUPERADMIN"
-	MANAGER    = "MANAGER"
-	AUTOZAKAZ  = "AUTOZAKAZ"
-	FOUNDER    = "FOUNDER"
-	ACCOUNTANT = "ACCOUNTANT"
-	DIRECTOR   = "DIRECTOR"
+	RoleAdmin         = "ADMIN"
+	RoleSuperAdmin    = "SUPERADMIN"
+	RoleManager       = "MANAGER"
+	RoleAutoZakaz     = "AUTOZAKAZ"
+	RoleFounder       = "FOUNDER"
+	RoleAccountant    = "ACCOUNTANT"
+	RoleDirector      = "DIRECTOR"
+	RoleCashier       = "CASHIER"
+	RoleHeadOfCashier = "HEADOFCASHIER"
 )

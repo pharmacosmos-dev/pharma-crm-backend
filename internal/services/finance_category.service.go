@@ -1,8 +1,8 @@
 package services
 
 import (
-	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 )
 
 func (s *Services) CreateOrUpdateFinanceCategory(req *domain.FinanceCategoryRequest) (*domain.FinanceCategory, error) {
@@ -20,7 +20,7 @@ func (s *Services) CreateOrUpdateFinanceCategory(req *domain.FinanceCategoryRequ
 		status = EXCLUDED.status 
 	RETURNING *`
 
-	err := s.db.Raw(query, req.Id, req.ParentId, req.Name, req.Description, req.AccountGroup, config.ACTIVE).Scan(&res).Error
+	err := s.db.Raw(query, req.Id, req.ParentId, req.Name, req.Description, req.AccountGroup, constants.GeneralStatusActive).Scan(&res).Error
 
 	if err != nil {
 		return nil, err

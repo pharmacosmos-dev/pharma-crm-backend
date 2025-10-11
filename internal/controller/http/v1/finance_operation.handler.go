@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
-	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
 )
 
@@ -58,7 +58,7 @@ func (h *FinanceOperationHandler) Create(c *gin.Context) {
 		return
 	}
 	body.EmployeeId = userId.(string)
-	body.Status = config.CONFIRMED
+	body.Status = constants.GeneralStatusConfirmed
 	// create finance operation
 	err = h.db.WithContext(c.Request.Context()).Create(&body).Error
 	if err != nil {

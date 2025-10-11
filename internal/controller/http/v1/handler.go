@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/internal/controller/http/middleware"
 	"github.com/pharma-crm-backend/internal/controller/ws"
 	"github.com/pharma-crm-backend/internal/services"
@@ -219,10 +220,10 @@ func handleResponseNoor(c *gin.Context, statusCode int, data any) {
 // default limit and offset
 func defaultLimitOffset(limit, offset int) (int, int) {
 	if limit == 0 {
-		limit = config.DefaultLimit
+		limit = constants.DefaultLimit
 	}
 	if offset == 0 {
-		offset = config.DefaultOffset
+		offset = constants.DefaultOffset
 	}
 	return limit, offset
 }

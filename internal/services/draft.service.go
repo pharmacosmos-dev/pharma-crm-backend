@@ -35,7 +35,7 @@ func (s *Services) CreateDraft(ctx context.Context, req *domain.DraftRequest) (*
 		return nil, err
 	}
 
-	sale, err := s.updateSaleField(ctx, tx, "status", constants.DRAFTED, req.SaleId)
+	sale, err := s.updateSaleField(ctx, tx, "status", constants.GeneralStatusDrafted, req.SaleId)
 	if err != nil {
 		_ = tx.Rollback()
 		return nil, err
@@ -90,13 +90,13 @@ func (s *Services) CompleteDraft(ctx context.Context, draftId string) (*domain.D
 		}
 	}()
 
-	draft, err := s.updateDraftField(ctx, tx, "status", constants.COMPLETED, draftId)
+	draft, err := s.updateDraftField(ctx, tx, "status", constants.GeneralStatusCompleted, draftId)
 	if err != nil {
 		_ = tx.Rollback()
 		return nil, err
 	}
 
-	_, err = s.updateSaleField(ctx, tx, "status", constants.PENDING, draft.SaleId)
+	_, err = s.updateSaleField(ctx, tx, "status", constants.GeneralStatusPending, draft.SaleId)
 	if err != nil {
 		_ = tx.Rollback()
 		return nil, err
@@ -152,7 +152,7 @@ func (s *Services) GetDrafts(ctx context.Context, params *domain.DraftQueryParam
 		Preload("Employee")
 
 	// Filters
-	query = query.Where("d.status = ?", constants.PENDING)
+	query = query.Where("d.status = ?", constants.GeneralStatusPending)
 
 	if params.Search != "" {
 		query = query.Where("CAST(d.draft_number AS TEXT) LIKE ? ", "%"+params.Search+"%")

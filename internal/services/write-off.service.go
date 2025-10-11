@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
 )
 
@@ -176,7 +176,7 @@ func (s *Services) ConfirmWriteOff(writeOffId string, userId string) error {
 	}()
 	// update confirm inventory
 	query := `UPDATE imports SET status = ?, accepted_by = ?, updated_at = NOW() WHERE id = ?`
-	err := tx.Exec(query, config.COMPLETED, userId, writeOffId).Error
+	err := tx.Exec(query, constants.GeneralStatusCompleted, userId, writeOffId).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating inventory %v", err)
 		tx.Rollback()
@@ -217,7 +217,7 @@ func (s *Services) CancelWriteOff(writeOffId string, userId string) error {
 	}()
 	// update confirm inventory
 	query := `UPDATE imports SET status = ?, accepted_by = ?, updated_at = NOW() WHERE id = ?`
-	err := tx.Exec(query, config.CANCELED, userId, writeOffId).Error
+	err := tx.Exec(query, constants.GeneralStatusCanceled, userId, writeOffId).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating inventory %v", err)
 		tx.Rollback()

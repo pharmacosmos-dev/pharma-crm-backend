@@ -47,7 +47,6 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 
 	// Calculate before period
 	beforeStart, beforeEnd := utils.BeforeDatesTime(startTime, endTime)
-
 	// Format all timestamps for SQL
 	startStr := startTime.Format("2006-01-02 15:04:05")
 	endStr := endTime.Format("2006-01-02 15:04:05")
@@ -56,49 +55,36 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 
 	// queries
 	var (
-		args  []any
-		args1 = []any{startStr, endStr, beforeStartStr, beforeEndStr}
-
+		args []any
 		// get sale stats information
 		querys = fmt.Sprintf(`
 		SELECT
-			COUNT(CASE WHEN sale_type = 'SALE' AND (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN sales.id END) AS sale_count,
-			COUNT(CASE WHEN sale_type = 'SALE' AND (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN sales.id END) AS before_sale_count,
-			SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN
-				CASE WHEN sale_type = 'SALE' THEN total_amount
-					 WHEN sale_type = 'RETURN' THEN -total_amount
-				END ELSE 0 END) AS sale_amount,
-			SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN
-				CASE WHEN sale_type = 'SALE' THEN total_amount
-					 WHEN sale_type = 'RETURN' THEN -total_amount
-				END ELSE 0 END) AS before_sale_amount,
-			SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN
-				CASE WHEN sale_type = 'SALE' THEN total_discount
-					 WHEN sale_type = 'RETURN' THEN -total_discount
-				END ELSE 0 END) AS discount_amount,
-		    SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN
-				CASE WHEN sale_type = 'SALE' THEN total_discount
-					 WHEN sale_type = 'RETURN' THEN -total_discount
-				END ELSE 0 END) AS before_discount_amount
+			COUNT(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN sales.id END) AS sale_count,
+			COUNT(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN sales.id END) AS before_sale_count,
+			SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN sales.total_amount ELSE 0 END) AS sale_amount,
+			SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN sales.total_amount ELSE 0 END) AS before_sale_amount,
+			SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN sales.total_discount ELSE 0 END) AS discount_amount,
+			SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN sales.total_discount ELSE 0 END) AS before_discount_amount
 		FROM sales
 		LEFT JOIN stores st on sales.store_id = st.id
-		WHERE status = 'completed'`,
+		WHERE status = 'completed'
+		`,
 			startStr, endStr, beforeStartStr, beforeEndStr,
 			startStr, endStr, beforeStartStr, beforeEndStr,
 			startStr, endStr, beforeStartStr, beforeEndStr)
 
 		queryp = fmt.Sprintf(`
 		SELECT
-			ROUND(SUM(pack_quantity::numeric + (sp.unit_quantity %% p.unit_per_pack)::numeric / p.unit_per_pack), 2) AS stock_count,
-			ROUND(SUM(pack_quantity::numeric + (sp.unit_quantity %% p.unit_per_pack)::numeric / p.unit_per_pack + COALESCE(ci_sold.quantity, 0)), 2) AS before_stock_count,
-			ROUND(SUM(pack_quantity * retail_price) + SUM((retail_price / p.unit_per_pack) * (sp.unit_quantity %% p.unit_per_pack)), 2) AS stock_amount,
-			ROUND(SUM((pack_quantity * retail_price) + ((retail_price / p.unit_per_pack) * (sp.unit_quantity %% p.unit_per_pack)) + COALESCE(ci_sold.amount, 0)), 2) AS before_stock_amount,
-			ROUND(SUM(CASE WHEN expire_date > NOW() AND expire_date <= NOW() + INTERVAL '3 month' THEN pack_quantity ELSE 0 END), 2) AS expiring_count,
-			ROUND(SUM(CASE WHEN expire_date > NOW() AND expire_date <= NOW() + INTERVAL '3 month' THEN (pack_quantity * retail_price) + (retail_price / p.unit_per_pack) ELSE 0 END), 2) AS expiring_amount,
-			ROUND(SUM(CASE WHEN expire_date > NOW() AND expire_date <= NOW() + INTERVAL '3 month' THEN COALESCE(ci_sold.amount, 0) ELSE 0 END), 2) AS before_expiring_amount,
-			ROUND(SUM(CASE WHEN expire_date <= NOW() THEN pack_quantity ELSE 0 END), 2) AS expired_count,
-			ROUND(SUM(CASE WHEN expire_date <= NOW() THEN (sp.pack_quantity * retail_price) + ((retail_price / p.unit_per_pack) * (sp.unit_quantity %% p.unit_per_pack))ELSE 0 END),2) AS expired_amount,
-			ROUND(SUM(CASE WHEN expire_date <= NOW() THEN COALESCE(ci_sold.amount, 0) ELSE 0 END), 2) AS before_expired_amount
+			ROUND(SUM(sp.unit_quantity / p.unit_per_pack), 2) AS stock_count,
+			ROUND(SUM(sp.unit_quantity / p.unit_per_pack + COALESCE(ci_sold.quantity, 0)), 2) AS before_stock_count,
+			ROUND(SUM((retail_price / p.unit_per_pack) * sp.unit_quantity), 2) AS stock_amount,
+			ROUND(SUM((retail_price / p.unit_per_pack) * sp.unit_quantity  + COALESCE(ci_sold.amount, 0)), 2) AS before_stock_amount,
+			ROUND(SUM(CASE WHEN expire_date > NOW() AND expire_date <= NOW() + INTERVAL '3 month' THEN (sp.unit_quantity/p.unit_per_pack) ELSE 0 END), 2) AS expiring_count,
+			ROUND(SUM(CASE WHEN expire_date > NOW() AND expire_date <= NOW() + INTERVAL '3 month' THEN ((retail_price/p.unit_per_pack) * sp.unit_quantity) ELSE 0 END), 2) AS expiring_amount,
+			ROUND(SUM(CASE WHEN expire_date > NOW() AND expire_date <= NOW() + INTERVAL '3 month' THEN ((retail_price/p.unit_per_pack) * sp.unit_quantity) + COALESCE(ci_sold.amount, 0) ELSE 0 END), 2) AS before_expiring_amount,
+			ROUND(SUM(CASE WHEN expire_date <= NOW() THEN (sp.unit_quantity/p.unit_per_pack) ELSE 0 END), 2) AS expired_count,
+			ROUND(SUM(CASE WHEN expire_date <= NOW() THEN ((retail_price/p.unit_per_pack) * sp.unit_quantity) ELSE 0 END),2) AS expired_amount,
+			ROUND(SUM(CASE WHEN expire_date <= NOW() THEN ((retail_price/p.unit_per_pack) * sp.unit_quantity) + COALESCE(ci_sold.amount, 0) ELSE 0 END), 2) AS before_expired_amount
 		FROM store_products sp
 		JOIN products p ON sp.product_id = p.id
 		LEFT JOIN stores st ON sp.store_id = st.id
@@ -107,17 +93,16 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 			FROM cart_items
 			JOIN sales s ON cart_items.sale_id = s.id
 			WHERE s.completed_at BETWEEN '%s' AND '%s'
-			  AND s.status = 'completed'
+			AND s.status = 'completed'
 			GROUP BY store_product_id
 		) AS ci_sold ON ci_sold.store_product_id = sp.id
-		WHERE 1 = 1`, beforeStartStr, beforeEndStr)
+		WHERE 1 = 1
+		`, beforeStartStr, beforeEndStr)
 
 		queryc = fmt.Sprintf(`
 		SELECT
-			ROUND(SUM(CASE WHEN completed_at BETWEEN '%s' AND '%s' THEN (ci.unit_price - sp.supply_price) * ci.quantity +
-				(CASE WHEN p.unit_per_pack > 0 THEN ((ci.unit_price - sp.supply_price) / p.unit_per_pack) * ci.unit_quantity ELSE 0 END) END), 2) AS income_amount,
-			ROUND(SUM(CASE WHEN completed_at BETWEEN '%s' AND '%s' THEN (ci.unit_price - sp.supply_price) * ci.quantity +
-				(CASE WHEN p.unit_per_pack > 0 THEN ((ci.unit_price - sp.supply_price) / p.unit_per_pack) * ci.unit_quantity ELSE 0 END) END), 2) AS before_income_amount
+			ROUND(SUM(CASE WHEN completed_at BETWEEN '%s' AND '%s' THEN ((ci.unit_price - sp.supply_price)/p.unit_per_pack) * ci.unit_quantity ELSE 0 END), 2) AS income_amount,
+			ROUND(SUM(CASE WHEN completed_at BETWEEN '%s' AND '%s' THEN ((ci.unit_price - sp.supply_price)/p.unit_per_pack) * ci.unit_quantity ELSE 0 END), 2) AS before_income_amount
 		FROM cart_items ci
 		JOIN store_products sp ON ci.store_product_id = sp.id
 		JOIN products p ON sp.product_id = p.id
@@ -171,7 +156,6 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 		filterc += " AND s.store_id IN (?)"
 		args = append(args, param.StoreIds)
 		query24h += " AND im.store_id IN (?)"
-		args1 = append(args1, param.StoreIds)
 	}
 
 	// filter by company_id
@@ -180,7 +164,6 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 		filterc += " AND p.company_id = ?"
 		args = append(args, param.CompanyId)
 		query24h += " AND st.company_id = ?"
-		args1 = append(args1, param.CompanyId)
 	}
 
 	// Execute queries

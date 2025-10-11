@@ -18,6 +18,11 @@ func GenerateCode() string {
 	return code
 }
 
+func GenerateRandomValue(min, max int) int {
+	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
+	return rnd.Intn(max-min) + min
+}
+
 func GenerateMaterialCode() int {
 	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	return rng.Intn(100000)

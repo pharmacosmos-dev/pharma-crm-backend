@@ -18,8 +18,8 @@ import (
 	"golang.org/x/text/unicode/norm"
 
 	"github.com/google/uuid"
-	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/spf13/cast"
 	"github.com/xuri/excelize/v2"
@@ -697,7 +697,7 @@ func (h *HelperHandler) UploadImport(c *gin.Context) {
 	newImport := domain.ImportRequest{
 		Id:             uuid.New().String(),
 		StoreID:        store.Id,
-		Status:         config.NEW_IMPORT,
+		Status:         constants.GeneralStatusNew,
 		ImportDate:     "2025-05-08 17:10:00",
 		DocumentNumber: "NP-2025050817",
 	}

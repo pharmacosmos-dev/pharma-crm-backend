@@ -13,7 +13,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
@@ -82,7 +81,7 @@ func (h *AutoOrderHandler) Create(c *gin.Context) {
 	defer RollbackIfError(tx, &err)     // return transaction if error happened
 	body.Id = uuid.New().String()
 	body.CreatedBy = userId.(string)
-	body.Status = config.NEW
+	body.Status = constants.GeneralStatusNew
 	body.AutoOrderDate = time.Now().Format("2006-01-02T15:04:05")
 	// get auro order products based on store_id and interval day
 	autoOrderDetails, err := h.service.GenerateAutoOrderDetail(body.Id, body.StoreId, body.IntervalDay)
@@ -396,7 +395,7 @@ func (h *AutoOrderHandler) SendAutoOrder(c *gin.Context) {
 		handleResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
-	data.Dok.DataDok = autoOrder.CreatedAt.Format(config.DATE_1C_FORMAT)
+	data.Dok.DataDok = autoOrder.CreatedAt.Format(constants.DateTimeFormatRFC3339)
 	data.Dok.NomerDok = "AZ-" + strconv.Itoa(autoOrder.PublicID)
 	data.Apteka.Name = autoOrder.Store.Name
 	data.Apteka.StoreCode = autoOrder.Store.StoreCode
@@ -422,7 +421,7 @@ func (h *AutoOrderHandler) SendAutoOrder(c *gin.Context) {
 	}
 
 	// update auto_order status to completed
-	err = h.db.Exec(`UPDATE auto_orders SET status = ?, completed_date = NOW(), updated_by = ? WHERE id = ?`, config.COMPLETED, userId, id).Error
+	err = h.db.Exec(`UPDATE auto_orders SET status = ?, completed_date = NOW(), updated_by = ? WHERE id = ?`, constants.GeneralStatusCompleted, userId, id).Error
 	if err != nil {
 		h.log.Error("could not update auto_order(%s): %v", id, err)
 		handleResponse(c, InternalError, domain.InternalServerError)
@@ -455,7 +454,7 @@ func (h *AutoOrderHandler) sentAutoOrderTo1C(id string, userId string, data *dom
 	}
 
 	// update auto_order status to completed
-	err = h.db.Exec(`UPDATE auto_orders SET status = ?, completed_date = NOW(), updated_by = ? WHERE id = ?`, config.COMPLETED, userId, id).Error
+	err = h.db.Exec(`UPDATE auto_orders SET status = ?, completed_date = NOW(), updated_by = ? WHERE id = ?`, constants.GeneralStatusCompleted, userId, id).Error
 	if err != nil {
 		h.log.Error("could not update auto_order(%s): %v", id, err)
 		return
@@ -514,7 +513,7 @@ func (h *AutoOrderHandler) Delete(c *gin.Context) {
 	var id = c.Param("id")
 
 	// delete auto order
-	err := h.db.WithContext(c.Request.Context()).Delete(&domain.AutoOrder{}, "id = ? AND status = ?", id, constants.NEW).Error
+	err := h.db.WithContext(c.Request.Context()).Delete(&domain.AutoOrder{}, "id = ? AND status = ?", id, constants.GeneralStatusNew).Error
 	if err != nil {
 		h.log.Error("could not delete auto_order(%s): %v", id, err)
 		handleResponse(c, InternalError, domain.InternalServerError)

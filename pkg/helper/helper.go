@@ -48,7 +48,7 @@ func SalePaymentAmount(salePayments []*domain.SalePayment, payType string) float
 
 // check user role is admin or superadmin
 func IsAdmin(employee domain.Employee, cfg *config.Config) bool {
-	return utils.In(employee.RoleType, constants.AdminRoles...)
+	return utils.In(employee.RoleType, constants.AllAdminRoles...)
 }
 
 // divide float to integer and fractional section

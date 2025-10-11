@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/helper"
@@ -35,7 +34,7 @@ func (s *Services) UpdateImportByField(tx *gorm.DB, id string, field, value stri
 func (s *Services) UpdateImportCompletedStatus(tx *gorm.DB, importID, userID string) error {
 	var res domain.Import
 	// update import status
-	err := tx.Raw(`UPDATE imports SET status = ?, accepted_by = ? WHERE id = ? RETURNING *`, config.COMPLETED_IMPORT, userID, importID).Scan(&res).Error
+	err := tx.Raw(`UPDATE imports SET status = ?, accepted_by = ? WHERE id = ? RETURNING *`, constants.GeneralStatusCanceled, userID, importID).Scan(&res).Error
 	if err != nil {
 		s.log.Error("could not update import(%s) status: %v", importID, err)
 		return err
@@ -108,7 +107,7 @@ func (s *Services) AcceptImport(importID string, userID string, acceptType strin
 // Canceled import
 func (s *Services) CancelImport(tx *gorm.DB, id string, userID string) (*domain.Import, error) {
 	var res domain.Import
-	err := tx.Raw(`UPDATE imports SET status = ?, accepted_by = ? WHERE id = ? RETURNING *`, config.CANCELED_IMPORT, userID, id).Scan(&res).Error
+	err := tx.Raw(`UPDATE imports SET status = ?, accepted_by = ? WHERE id = ? RETURNING *`, constants.GeneralStatusCanceled, userID, id).Scan(&res).Error
 	if err != nil {
 		s.log.Error(err)
 		return nil, err
@@ -134,7 +133,7 @@ func (s *Services) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domai
 
 	// collect send fakt data
 	reqFakt.Dok.DocumentNumber = importData.DocumentNumber
-	reqFakt.Dok.DocumentDate = importData.ImportDate.Format(config.DATE_1C_FORMAT)
+	reqFakt.Dok.DocumentDate = importData.ImportDate.Format(constants.DateTimeFormatRFC3339)
 	reqFakt.Apteka.StoreCode = store.StoreCode
 	reqFakt.Apteka.Name = store.Name
 
@@ -227,7 +226,7 @@ func (s *Services) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import)
 
 	// collect send fakt data
 	reqFakt.Dok.DocumentNumber = importData.DocumentNumber
-	reqFakt.Dok.DocumentDate = importData.ImportDate.Format(config.DATE_1C_FORMAT)
+	reqFakt.Dok.DocumentDate = importData.ImportDate.Format(constants.DateTimeFormatRFC3339)
 	reqFakt.Apteka.StoreCode = store.StoreCode
 	reqFakt.Apteka.Name = store.Name
 

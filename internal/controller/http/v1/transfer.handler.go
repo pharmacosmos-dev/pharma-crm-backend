@@ -10,8 +10,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	pdf "github.com/jung-kurt/gofpdf"
-	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/xuri/excelize/v2"
@@ -784,7 +784,7 @@ func (h *TransferHandler) ExportTransferNakladnoyPDF(c *gin.Context) {
 	}
 
 	// check if transfer is not completed
-	if transfer.Status != config.COMPLETED && transfer.Status != config.SENT {
+	if transfer.Status != constants.GeneralStatusCompleted && transfer.Status != constants.GeneralStatusSent {
 		handleResponse(c, BadRequest, "transfer.not.completed")
 		return
 	}

@@ -8,9 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pharma-crm-backend/config"
-
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 
 	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
@@ -1352,7 +1351,7 @@ func (s *Services) UpdateProductQuantity(req *domain.UpdateQuantityRequest1C) er
 			status = ?,
 			updated_at = NOW()
 		WHERE id = ?`,
-		config.COMPLETED,
+		constants.GeneralStatusCompleted,
 		transferID,
 	).Error
 

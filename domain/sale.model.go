@@ -6,13 +6,13 @@ import (
 
 // Sale structure
 type Sale struct {
-	ID                 string         `gorm:"id" json:"id"`
-	DeviceID           string         `gorm:"device_id" json:"device_id"`
+	Id                 string         `gorm:"id" json:"id"`
+	DeviceId           string         `gorm:"device_id" json:"device_id"`
 	StoreId            string         `gorm:"store_id" json:"store_id"`
-	EmployeeID         string         `gorm:"employee_id" json:"employee_id"`
+	EmployeeId         string         `gorm:"employee_id" json:"employee_id"`
 	CashBoxOperationId string         `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
 	CashboxId          string         `gorm:"cashbox_id" json:"cashbox_id"`
-	CustomerID         string         `gorm:"customer_id" json:"customer_id"`
+	CustomerId         string         `gorm:"customer_id" json:"customer_id"`
 	SaleNumber         int            `gorm:"sale_number" json:"sale_number"`
 	TotalDiscount      float64        `gorm:"total_discount" json:"total_discount"`
 	TotalAmount        float64        `gorm:"total_amount" json:"total_amount"`
@@ -21,6 +21,7 @@ type Sale struct {
 	Type               string         `gorm:"type" json:"type"`
 	SaleType           string         `gorm:"sale_type" json:"sale_type"`
 	Status             string         `gorm:"status" json:"status"`
+	Stage              int            `gorm:"stage" json:"stage"`
 	OnlineStatus       int            `gorm:"online_status" json:"online_status"`
 	IsDelivered        bool           `gorm:"is_delivered" json:"is_delivered"`
 	Cash               float64        `gorm:"cash" json:"cash"`
@@ -53,7 +54,7 @@ type SaleRequest struct {
 // SaleReturnRequest structure for create
 type SaleReturnRequest struct {
 	SaleId             string     `gorm:"sale_id" json:"sale_id"`
-	EmployeeID         string     `gorm:"employee_id" json:"employee_id"`
+	EmployeeId         string     `gorm:"employee_id" json:"employee_id"`
 	CashBoxOperationId string     `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
 	CashboxId          string     `gorm:"cashbox_id" json:"cashbox_id"`
 	SaleType           string     `gorm:"sale_type" json:"sale_type"`
@@ -85,6 +86,7 @@ type SaleResponse struct {
 	Alif            float64    `gorm:"alif" json:"alif"`
 	ProductCount    float64    `gorm:"product_count" json:"product_count"`
 	Status          string     `gorm:"status" json:"status"`
+	Stage           int        `gorm:"stage" json:"stage"`
 	OnlineStatus    int        `gorm:"online_status" json:"online_status"`
 	Type            string     `gorm:"type" json:"type"`
 	SaleType        string     `gorm:"sale_type" json:"sale_type"`

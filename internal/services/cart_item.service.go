@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
@@ -14,6 +13,7 @@ import (
 )
 
 // region Create
+
 func (s *Services) CreateCartItem(ctx context.Context, user *domain.EmployeeClaims, req *domain.CartItemRequest) (*domain.CartItem, error) {
 	// get sale info by id
 	sale, err := s.GetSaleById(ctx, req.SaleId)
@@ -22,7 +22,7 @@ func (s *Services) CreateCartItem(ctx context.Context, user *domain.EmployeeClai
 	}
 
 	// check sale status
-	if sale.Status == config.COMPLETED {
+	if sale.Status == constants.GeneralStatusCompleted {
 		return nil, domain.SaleIsClosedError
 	}
 
@@ -58,11 +58,9 @@ func (s *Services) createNewCartItem(ctx context.Context, req *domain.CartItemRe
 	} else {
 		return nil, domain.NotEnoughProductError
 	}
-	// start transaction
-	tx := s.db.Begin()
 
 	var res domain.CartItem
-	err := tx.WithContext(ctx).Raw(`
+	err := s.db.WithContext(ctx).Raw(`
 		INSERT INTO cart_items(
 			store_product_id,
 			sale_id, 
@@ -90,28 +88,13 @@ func (s *Services) createNewCartItem(ctx context.Context, req *domain.CartItemRe
 		req.UnitQuantity,
 		req.UnitPrice,
 		req.TotalPrice,
-		config.PENDING_CART_ITEM,
+		constants.GeneralStatusPending,
 		storeProduct.IsMarking,
 		req.DiscountType,
 		req.SaleId,
 	).Scan(&res).Error
 	if err != nil {
-		_ = tx.Rollback()
 		s.log.Error("could not create cart_item: %v", err)
-		return nil, domain.InternalServerError
-	}
-
-	// // update store_product remaining quantity
-	// err = s.IncrementQuantity(tx, req.StoreProductId, -req.UnitQuantity)
-	// if err != nil {
-	// 	_ = tx.Rollback()
-	// 	s.log.Error("could not update store_product quantity: %v", err)
-	// 	return nil, domain.InternalServerError
-	// }
-
-	// commit transaction
-	if err = tx.Commit().Error; err != nil {
-		s.log.Error("could not commit transaction: %v", err)
 		return nil, domain.InternalServerError
 	}
 
@@ -119,6 +102,7 @@ func (s *Services) createNewCartItem(ctx context.Context, req *domain.CartItemRe
 }
 
 // region Get
+
 func (s *Services) FetchCartItems(ctx context.Context, saleId string, limit, offset int) (*domain.CartItemData, error) {
 	var res []domain.CartItemResponse
 	err := s.db.WithContext(ctx).Raw(`
@@ -405,6 +389,7 @@ func (s *Services) getCartItemsByIds(ctx context.Context, ids []string) ([]domai
 }
 
 // region Update
+
 func (s *Services) UpdateCartItemField(field string, value string, idField, idValue string) (*domain.CartItem, error) {
 	var res domain.CartItem
 	err := s.db.Raw(`UPDATE cart_items SET `+field+` = ? WHERE `+idField+` = ? RETURNING *`, value, idValue).Scan(&res).Error
@@ -444,12 +429,12 @@ func (s *Services) UpdateCartItemDiscount(ctx context.Context, saleId string, re
 	}
 
 	// validate discount type
-	if req.DiscountType != constants.PERCENT && req.DiscountType != constants.CASH {
+	if req.DiscountType != constants.DiscountTypePercent && req.DiscountType != constants.PaymentTypeCash {
 		return domain.InvalidRequestBodyError
 	}
 
 	// validate sum with discount value
-	if req.DiscountType == constants.CASH && cartItemTotal.TotalAmount < req.DiscountValue {
+	if req.DiscountType == constants.PaymentTypeCash && cartItemTotal.TotalAmount < req.DiscountValue {
 		return domain.InvalidRequestBodyError
 	}
 
@@ -464,10 +449,10 @@ func (s *Services) UpdateCartItemDiscount(ctx context.Context, saleId string, re
 		if req.DiscountValue == 0 {
 			cartItems[i].DiscountAmount = 0
 			discountPercent = 0
-		} else if req.DiscountType == constants.PERCENT && req.DiscountValue <= 100 {
+		} else if req.DiscountType == constants.DiscountTypePercent && req.DiscountValue <= 100 {
 			cartItems[i].DiscountAmount = cartItems[i].UnitPrice * req.DiscountValue / 100
 			discountPercent = req.DiscountValue
-		} else if req.DiscountType == constants.CASH {
+		} else if req.DiscountType == constants.PaymentTypeCash {
 			// a = 1100 b = 1200  d = 900         / a, b items, d - discount sum
 			// x = (d / (a + b)) * a = (900 / (1100 + 1200)) * 1100 = 430.47
 			// y = (d / (a + b)) * b = (900 / (1100 + 1200)) * 1200 = 469.56
@@ -568,7 +553,7 @@ func (s *Services) UpdateCartItemMarkings(ctx context.Context, id string, req *d
 	}
 
 	// check if sale is completed
-	if sale.Status == config.COMPLETED {
+	if sale.Status == constants.GeneralStatusCompleted {
 		return domain.SaleIsClosedError
 	}
 
@@ -581,34 +566,6 @@ func (s *Services) UpdateCartItemMarkings(ctx context.Context, id string, req *d
 	err = s.db.Model(&cartItem).Update("markings", gorm.Expr("array_append(markings, ?)", req.Marking)).Error
 	if err != nil {
 		s.log.Errorf("could not update cart_item markings: %v", err)
-		return domain.InternalServerError
-	}
-
-	return nil
-}
-
-func (s *Services) DeleteCartItemMarkings(ctx context.Context, id string, req *domain.AppendMarkingRequest) error {
-	// get cart item
-	cartItem, err := s.GetCartItemById(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	// get sale
-	sale, err := s.GetSaleById(ctx, cartItem.SaleId)
-	if err != nil {
-		return err
-	}
-
-	// check if sale is completed
-	if sale.Status == config.COMPLETED {
-		return domain.SaleIsClosedError
-	}
-
-	// remove marking
-	err = s.db.Model(&cartItem).Update("markings", gorm.Expr("array_remove(markings, ?)", req.Marking)).Error
-	if err != nil {
-		s.log.Errorf("could not remove markings: %v", err)
 		return domain.InternalServerError
 	}
 
@@ -635,15 +592,6 @@ func (s *Services) IncrementCartItemQuantityBySpId(ctx context.Context, tx *gorm
 		return nil, domain.InternalServerError
 	}
 	return &res, nil
-}
-
-func (s *Services) updateCartItemUnit(ctx context.Context, tx *gorm.DB, updates map[string]any, id string) error {
-	err := tx.WithContext(ctx).Model(&domain.CartItem{}).Updates(&updates).Error
-	if err != nil {
-		s.log.Errorf("could not update cart_item unit: %v", err)
-		return domain.InternalServerError
-	}
-	return nil
 }
 
 // add marking count to cart items
@@ -682,7 +630,7 @@ func (s *Services) updateCartItemsMarkingCount(ctx context.Context, tx *gorm.DB,
 
 func (s *Services) updateCartItemDiscountValue(ctx context.Context, tx *gorm.DB, percent int, saleId string) error {
 	err := tx.WithContext(ctx).Exec(`UPDATE cart_items SET discount_type = ?, discount_value = ? WHERE sale_id = ?;
-	`, constants.PERCENT, percent, saleId).Error
+	`, constants.DiscountTypePercent, percent, saleId).Error
 	if err != nil {
 		s.log.Errorf("could not update cart_item discount_value and type: %v", err)
 		return domain.InternalServerError
@@ -704,7 +652,7 @@ func (s *Services) DeleteCartItem(ctx context.Context, id string) error {
 	}
 
 	// check sale completed status
-	if sale.Status == constants.COMPLETED {
+	if sale.Status == constants.GeneralStatusCompleted {
 		return domain.SaleIsClosedError
 	}
 
@@ -712,6 +660,34 @@ func (s *Services) DeleteCartItem(ctx context.Context, id string) error {
 	err = s.deleteCartItemByIds(ctx, s.db, []string{id})
 	if err != nil {
 		return err
+	}
+
+	return nil
+}
+
+func (s *Services) DeleteCartItemMarkings(ctx context.Context, id string, req *domain.AppendMarkingRequest) error {
+	// get cart item
+	cartItem, err := s.GetCartItemById(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	// get sale
+	sale, err := s.GetSaleById(ctx, cartItem.SaleId)
+	if err != nil {
+		return err
+	}
+
+	// check if sale is completed
+	if sale.Status == constants.GeneralStatusCompleted {
+		return domain.SaleIsClosedError
+	}
+
+	// remove marking
+	err = s.db.Model(&cartItem).Update("markings", gorm.Expr("array_remove(markings, ?)", req.Marking)).Error
+	if err != nil {
+		s.log.Errorf("could not remove markings: %v", err)
+		return domain.InternalServerError
 	}
 
 	return nil
@@ -738,7 +714,7 @@ func (s *Services) DeleteCartItems(ctx context.Context, ids []string) error {
 	}
 
 	// check sale completed status
-	if sale.Status == constants.COMPLETED {
+	if sale.Status == constants.GeneralStatusCompleted {
 		return domain.SaleIsClosedError
 	}
 

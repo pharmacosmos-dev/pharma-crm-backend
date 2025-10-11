@@ -8,7 +8,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
@@ -69,14 +68,14 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 	}()
 	var company domain.Company
 	if body.Apteka.Franshiza {
-		err = h.db.First(&company, "name ilike ?", "%"+constants.PHARMA_COSMOS+"%").Error // todo 1c given companyName
+		err = h.db.First(&company, "name ilike ?", "%"+constants.PharmaCosmos+"%").Error // todo 1c given companyName
 		if err != nil {
 			tx.Rollback()
 			handleResponse(c, InternalError, "Failed to get company info")
 			return
 		}
 	} else {
-		err = h.db.First(&company, "name ilike ?", "%"+constants.PHARMA_COSMOS+"%").Error
+		err = h.db.First(&company, "name ilike ?", "%"+constants.PharmaCosmos+"%").Error
 		if err != nil {
 			tx.Rollback()
 			handleResponse(c, InternalError, "Failed to get company info")
@@ -102,7 +101,7 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 	newImport := domain.ImportRequest{
 		Id:             uuid.New().String(),
 		StoreID:        store.Id,
-		Status:         config.NEW_IMPORT,
+		Status:         constants.GeneralStatusNew,
 		ImportDate:     body.Dok.DocumentDate,
 		DocumentNumber: body.Dok.DocumentNumber,
 	}
@@ -155,8 +154,8 @@ func (h *Product1cHandler) Create(c *gin.Context) {
     		    SELECT 1 FROM product_barcodes 
     		    WHERE product_id = ? AND barcode = ? AND status = ?
     		)
-		`, productID, body.Товары[i].Barcode, constants.COMPLETED,
-			productID, body.Товары[i].Barcode, constants.COMPLETED).Error
+		`, productID, body.Товары[i].Barcode, constants.GeneralStatusCompleted,
+			productID, body.Товары[i].Barcode, constants.GeneralStatusCompleted).Error
 		if err != nil {
 			h.log.Warn("ERROR on creating product barcode: %v", err.Error())
 			handleResponse(c, BadRequest, "could not create product barcode")
@@ -356,7 +355,7 @@ func (h *Product1cHandler) ProductRepricing(c *gin.Context) {
 				StoreId:   store.Id,
 				CreatedBy: nil,
 				Type:      "retail_price",
-				Status:    config.COMPLETED,
+				Status:    constants.GeneralStatusCompleted,
 			})
 			if err != nil {
 				h.log.Warn("ERROR on creating new price_revalution: %v", err)
@@ -517,7 +516,7 @@ func (h *Product1cHandler) MultiProductRepricing(c *gin.Context) {
 					StoreId:   store.Id,
 					CreatedBy: nil,
 					Type:      "retail_price",
-					Status:    config.COMPLETED,
+					Status:    constants.GeneralStatusCompleted,
 				})
 				if err != nil {
 					h.log.Warn("ERROR on creating price_revalution: %v", err)

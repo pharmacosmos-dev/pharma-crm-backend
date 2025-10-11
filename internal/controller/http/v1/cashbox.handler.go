@@ -466,7 +466,7 @@ func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
 			return
 		}
 		// If a pending sale exists
-		checkCashBox.SaleID = sale.ID
+		checkCashBox.SaleID = sale.Id
 		checkCashBox.IsOpen = true
 		handleResponse(c, OK, checkCashBox)
 		return

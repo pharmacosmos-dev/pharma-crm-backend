@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/pharma-crm-backend/config"
+	"github.com/pharma-crm-backend/domain/constants"
 )
 
 // do request
@@ -30,7 +30,7 @@ func DoRequest(
 	for key, value := range headers {
 		req.Header.Set(key, value)
 	}
-	req.Header.Set("Accept", config.ContentTypeJson)
+	req.Header.Set("Accept", constants.ContentTypeJson)
 
 	client = http.Client{
 		Timeout: time.Second * 20,

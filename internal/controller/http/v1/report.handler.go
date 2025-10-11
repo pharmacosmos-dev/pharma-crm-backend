@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/xuri/excelize/v2"
@@ -465,7 +465,7 @@ func (h *ReportHandler) BonusReportExport(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /report/product [POST]
 func (h *ReportHandler) ProductReport(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(c.Request.Context(), config.ContextTimeoutForReports)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.ContextTimeoutForReports)
 	defer cancel()
 
 	var param domain.ReportQueryParam
@@ -537,7 +537,7 @@ func (h *ReportHandler) ProductReport(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /report/product-status [POST]
 func (h *ReportHandler) ProductStatusReport(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(c.Request.Context(), config.ContextTimeoutForReports)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.ContextTimeoutForReports)
 	defer cancel()
 
 	var param domain.ReportQueryParam
@@ -605,7 +605,7 @@ func (h *ReportHandler) ProductStatusReport(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /report/product-export [POST]
 func (h *ReportHandler) ProductReportExportExcel(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(c.Request.Context(), config.ContextTimeoutForReports)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.ContextTimeoutForReports)
 	defer cancel()
 
 	var param domain.ReportQueryParam

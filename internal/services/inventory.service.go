@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
@@ -535,7 +534,7 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 	var res domain.Inventory
 	// update confirm inventory
 	query := `UPDATE imports SET status = ?, accepted_by = ?, updated_at = NOW() WHERE id = ? RETURNING *`
-	err = tx.Raw(query, config.COMPLETED, userId, inventoryId).Scan(&res).Error
+	err = tx.Raw(query, constants.GeneralStatusCompleted, userId, inventoryId).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating inventory %v", err)
 		return err
@@ -687,7 +686,7 @@ func (s *Services) CancelInventory(inventoryId string, userId string) error {
 
 	// update confirm inventory
 	query := `UPDATE imports SET status = ?, accepted_by = ?, updated_at = NOW() WHERE id = ?`
-	err := s.db.Exec(query, config.CANCELED, userId, inventoryId).Error
+	err := s.db.Exec(query, constants.GeneralStatusCanceled, userId, inventoryId).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating inventory %v", err)
 		return err
@@ -782,7 +781,7 @@ func (s *Services) DeleteInventory(ctx context.Context, inventoryId string) erro
 	err := s.db.
 		WithContext(ctx).
 		Delete(&domain.Import{}, "id = ?", inventoryId).
-		Where("status = ?", constants.NEW).
+		Where("status = ?", constants.GeneralStatusNew).
 		Where("entry_type = ?", 2).Error
 	if err != nil {
 		s.log.Error("could not delete inventory(%s): %v", inventoryId, err)

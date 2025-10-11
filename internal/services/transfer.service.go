@@ -8,8 +8,8 @@ import (
 
 	"github.com/spf13/cast"
 
-	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 )
 
 // Create inventory creates a new inventory
@@ -315,7 +315,7 @@ func (s *Services) SendTransfer(returnId string, userId string) error {
 
 	// update confirm inventory
 	query := `UPDATE transfers SET status = ?, updated_by = ? WHERE id = ?`
-	err := tx.Exec(query, config.SENT, userId, returnId).Error
+	err := tx.Exec(query, constants.GeneralStatusSent, userId, returnId).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating inventory %v", err)
 		return err
@@ -483,7 +483,7 @@ func (s *Services) ConfirmTransfer(transferID string, userId string) error {
 	// update confirm inventory
 	var transfer domain.Transfer
 	query := `UPDATE transfers SET status = ?, accepted_by = ?, accepted_at = NOW() WHERE id = ? RETURNING *`
-	err := tx.Raw(query, config.COMPLETED, userId, transferID).Scan(&transfer).Error
+	err := tx.Raw(query, constants.GeneralStatusCompleted, userId, transferID).Scan(&transfer).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating inventory %v", err)
 		return err
@@ -645,7 +645,7 @@ func (s *Services) CancelTransfer(returnId string, userId string) error {
 	defer RollbackIfError(tx, &err)
 	// update confirm inventory
 	query := `UPDATE transfers SET status = ?, accepted_by = ?, updated_at = NOW() WHERE id = ?`
-	err = tx.Exec(query, config.CANCELED, userId, returnId).Error
+	err = tx.Exec(query, constants.GeneralStatusCanceled, userId, returnId).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating inventory %v", err)
 		return err

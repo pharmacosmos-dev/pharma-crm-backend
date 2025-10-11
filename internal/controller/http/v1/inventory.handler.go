@@ -8,7 +8,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/helper"
@@ -634,7 +633,7 @@ func (h *InventoryHandler) Confirm(c *gin.Context) {
 	}
 
 	// check if inventory is already confirmed
-	if res.Status == config.COMPLETED {
+	if res.Status == constants.GeneralStatusCompleted {
 		handleResponse(c, CONFLICT, "Inventory already confirmed")
 		return
 	}

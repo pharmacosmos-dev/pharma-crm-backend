@@ -70,7 +70,7 @@ func (s *Services) ListEmployee(c *gin.Context, limit, offset int) ([]domain.Emp
 	}
 	query := s.db.
 		Model(&domain.Employee{}).
-		Preload("Store").Preload("Roles").Where("status != ?", constants.DELETED)
+		Preload("Store").Preload("Roles").Where("status != ?", constants.GeneralStatusDeleted)
 	if roleId != "" {
 		query = query.
 			Joins("JOIN employee_roles ON employee_roles.employee_id = employees.id").

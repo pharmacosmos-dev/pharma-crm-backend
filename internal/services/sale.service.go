@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
@@ -35,12 +34,13 @@ func (s *Services) CreateSale(ctx context.Context, tx *gorm.DB, req *domain.Sale
 	}
 
 	var res domain.Sale
-	query := "INSERT INTO sales(employee_id, cash_box_operation_id, store_id, cashbox_id) VALUES(?, ?, ?, ?) RETURNING *"
+	query := "INSERT INTO sales(employee_id, cash_box_operation_id, store_id, cashbox_id, display_id) VALUES(?, ?, ?, ?, ?) RETURNING *"
 	err := tx.WithContext(ctx).Raw(query,
 		req.EmployeeId,
 		req.CashBoxOperationId,
 		req.StoreId,
 		req.CashboxId,
+		s.generateDisplayId(),
 	).Scan(&res).Error
 	if err != nil {
 		s.log.Errorf("could not create new sale: %v", err)
@@ -63,6 +63,11 @@ func (s *Services) CreateReturnSale(ctx context.Context, req *domain.SaleReturnR
 
 	// start transaction
 	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
+		}
+	}()
 
 	// build create sale query
 	query := `
@@ -75,28 +80,35 @@ func (s *Services) CreateReturnSale(ctx context.Context, req *domain.SaleReturnR
 		sale_number, 
 		parent_id, 
 		sale_type, 
-		type
+		type,
+		display_id,
+		stage
 		)
 	SELECT 
-		?, ?, ?, 
+		?, 
+		?, 
+		?, 
 		store_id, 
 		customer_id, 
-		sale_number, 
-		id, ?, type 
-	FROM 
-		sales 
-	WHERE 
-		id = ?
-	RETURNING *`
+		sale_number,
+		id, 
+		?, 
+		type,
+		display_id,
+		?
+	FROM sales
+	WHERE id = ? RETURNING *`
 
 	// execute new return sale query
 	var sale domain.Sale
 	err := tx.Raw(query,
-		req.EmployeeID,
+		req.EmployeeId,
 		req.CashBoxOperationId,
 		req.CashboxId,
-		config.SALE_TYPE_RETURN,
-		req.SaleId).Scan(&sale).Error
+		constants.SaleTypeReturn,
+		constants.SaleStageReturning,
+		req.SaleId,
+	).Scan(&sale).Error
 	if err != nil {
 		s.log.Errorf("could not create new return sale: %v", err)
 		_ = tx.Rollback()
@@ -107,58 +119,32 @@ func (s *Services) CreateReturnSale(ctx context.Context, req *domain.SaleReturnR
 	INSERT INTO cart_items(
 		sale_id,
 		store_product_id,
-		quantity,
 		unit_quantity,
 		unit_price,
-		total_price,
-		status)
-	SELECT 
+		total_price
+		)
+	SELECT
 		?,
-		sp.id,
-		?,
-		?,
-		retail_price,
-		(?*retail_price+(CASE WHEN p.unit_per_pack > 0 THEN retail_price / p.unit_per_pack ELSE 0 END) * ?), ?
-	FROM
-		store_products sp
-	JOIN
-		products p ON p.id = sp.product_id
-	WHERE
-		sp.id = ?`
+		ci.store_product_id,
+		ci.unit_quantity * (-1),
+		ci.unit_price,
+		ci.total_price * (-1)
+	FROM cart_items ci
+	WHERE ci.sale_id = ? AND ci.store_product_id = ?;
+	`
 
-	// increment store_products
-	spQuery := `
-	UPDATE 
-		store_products sp
-	SET
-		unit_quantity = unit_quantity + ? + (? * p.unit_per_pack)
-	FROM 
-		products p
-	WHERE 
-		p.id = sp.product_id AND sp.id = ?`
 	for _, item := range req.Items {
-		item.SaleId = sale.ID
 		err = tx.Exec(cquery,
-			item.SaleId,
-			item.Quantity,
-			item.UnitQuantity,
-			item.Quantity,
-			item.UnitQuantity,
-			config.PENDING,
-			item.StoreProductId).Error
+			sale.Id,
+			req.SaleId,
+			item.StoreProductId,
+		).Error
 		if err != nil {
 			s.log.Errorf("could not create return sale items: %v", err)
 			_ = tx.Rollback()
 			return nil, err
 		}
 
-		// increment store product quantity
-		err = tx.Exec(spQuery, item.UnitQuantity, item.Quantity, item.StoreProductId).Error
-		if err != nil {
-			s.log.Errorf("could not increment store_product quantity: %v", err)
-			_ = tx.Rollback()
-			return nil, domain.InternalServerError
-		}
 	}
 
 	// commit transaction
@@ -167,39 +153,6 @@ func (s *Services) CreateReturnSale(ctx context.Context, req *domain.SaleReturnR
 		return nil, err
 	}
 	return &sale, nil
-}
-
-// Create sale payment
-func (s *Services) CreateSalePayment(tx *gorm.DB, req domain.FinalSale, item domain.FinalPaymentType, paymentServiceId *string) (*domain.SalePayment, error) {
-	var (
-		now         = time.Now()
-		salePayment = domain.SalePayment{}
-	)
-	query := `
-	INSERT INTO sale_payments(
-		sale_id, 
-		cash_box_operation_id, 
-		payment_service_id, 
-		payment_type_id, 
-		amount, 
-		return_amount, 
-		paid_at
-		) 
-	VALUES(?, ?, ?, ?, ?, ?, ?) 
-	RETURNING *`
-	// Insert sale payments
-	err := tx.Raw(query,
-		req.SaleID,
-		req.CashBoxOperationId,
-		paymentServiceId,
-		item.PaymentTypeID,
-		item.Amount-item.ReturnAmount,
-		item.ReturnAmount, now).Scan(&salePayment).Error
-	if err != nil {
-		s.log.Error("ERROR on creating new sale payment: %w", err)
-		return &salePayment, err
-	}
-	return &salePayment, nil
 }
 
 // create sale for online order
@@ -230,7 +183,7 @@ func (s *Services) CreateOnlineSale(saleId string, storeID string, customer *dom
 		customer_id
 		) 
 	VALUES(?, ?, ?, ?, ?, ?) RETURNING *`,
-		saleId, storeID, config.SALE_TYPE_ONLINE, config.ONLINE_STATUS_NEW, config.NOOR, customer.Id).Scan(&sale).Error
+		saleId, storeID, constants.SaleTypeOnline, constants.SaleOnlineStageNew, constants.ServiceTypeNoor, customer.Id).Scan(&sale).Error
 	if err != nil {
 		return &sale, errors.New("not.created.new.order")
 	}
@@ -252,7 +205,7 @@ func (s *Services) CreateOnlineSale(saleId string, storeID string, customer *dom
 func (s *Services) SaveEposResponse(ctx context.Context, req *domain.EposResponseRequest) error {
 	err := s.db.WithContext(ctx).Table("epos_responses").Create(req).Error
 	if err != nil {
-		s.log.Error("could not save epos response: %v", err)
+		s.log.Errorf("could not save epos response: %v", err)
 		return domain.InternalServerError
 	}
 	return nil
@@ -267,7 +220,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 		return nil, err
 	}
 	// check if sale is already completed
-	if sale.Status == constants.COMPLETED {
+	if sale.Status == constants.GeneralStatusCompleted {
 		return nil, domain.SaleIsClosedError
 	}
 	// check
@@ -281,9 +234,9 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 		return nil, err
 	}
 
-	if req.ServiceType != nil && *req.ServiceType == config.DMED {
+	if req.ServiceType != nil && *req.ServiceType == constants.ServiceTypeDmed {
 		var cartItems []*domain.CartItemForDMED
-		cartItems, err = s.GetCartItems(ctx, sale.ID)
+		cartItems, err = s.GetCartItems(ctx, sale.Id)
 		if err != nil {
 			return nil, err
 		}
@@ -300,7 +253,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 		req.ServiceType = nil
 	}
 	if !req.TaxFree {
-		val := config.TAX_FREE
+		val := constants.GeneralStatusTaxFree
 		req.ServiceType = &val
 	}
 
@@ -362,7 +315,7 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 		if err != nil {
 			return nil, err
 		}
-		updates["status"] = constants.PENDING
+		updates["status"] = constants.GeneralStatusPending
 		err = s.updateSaleFields(ctx, req.SaleId, updates)
 		if err != nil {
 			return nil, err
@@ -446,7 +399,7 @@ func (s *Services) processPayment(
 	sale *domain.Sale,
 	item domain.FinalPaymentType,
 ) error {
-	if item.Type == constants.APP && utils.In(item.AppType, constants.AppPayments...) {
+	if item.Type == constants.PaymentTypeApp && utils.In(item.AppType, constants.PaymentAppTypes...) {
 		var paymentService *domain.PaymentService
 		paymentService, err := s.GetPaymentServiceByStoreId(tx, sale.StoreId, item.AppType)
 		if err != nil {
@@ -455,10 +408,10 @@ func (s *Services) processPayment(
 		}
 
 		paymentHandlers := map[string]func(ctx context.Context, tx *gorm.DB, service *domain.PaymentService, data *domain.FinalPaymentType, sale *domain.Sale) (map[string]any, error){
-			constants.CLICK: s.ClickPass,
-			constants.PAYME: s.PaymeGo,
-			constants.UZUM:  s.UzumFastPay,
-			constants.ALIF:  s.AlifPay,
+			constants.PaymentTypeClick: s.ClickPass,
+			constants.PaymentTypePayme: s.PaymeGo,
+			constants.PaymentTypeUzum:  s.UzumFastPay,
+			constants.PaymentTypeAlif:  s.AlifPay,
 		}
 
 		// get payment handlers for integration app services
@@ -484,17 +437,17 @@ func (s *Services) matchingPaymentTypeSum(ctx context.Context, req *domain.Final
 	var sum float64
 	for _, item := range req.PaymentTypes {
 		sum += item.Amount - item.ReturnAmount
-		if item.Type == constants.CASH {
+		if item.Type == constants.PaymentTypeCash {
 			req.Cash = item.Amount - item.ReturnAmount
-		} else if item.Type == constants.CARD && item.AppType == constants.HUMO {
+		} else if item.Type == constants.PaymentTypeCard && item.AppType == constants.PaymentTypeHumo {
 			req.Humo = item.Amount
-		} else if item.Type == constants.CARD && item.AppType == constants.UZCARD {
+		} else if item.Type == constants.PaymentTypeCard && item.AppType == constants.PaymentTypeUzcard {
 			req.Uzcard = item.Amount
-		} else if item.Type == constants.APP && item.AppType == constants.CLICK {
+		} else if item.Type == constants.PaymentTypeApp && item.AppType == constants.PaymentTypeClick {
 			req.Click = item.Amount
-		} else if item.Type == constants.APP && item.AppType == constants.PAYME {
+		} else if item.Type == constants.PaymentTypeApp && item.AppType == constants.PaymentTypePayme {
 			req.Payme = item.Amount
-		} else if item.Type == constants.APP && item.AppType == constants.ALIF {
+		} else if item.Type == constants.PaymentTypeApp && item.AppType == constants.PaymentTypeAlif {
 			req.Alif = item.Amount
 		} else {
 			return req, domain.InvalidPaymentTypeError
@@ -534,7 +487,7 @@ func (s *Services) updateSaleToComplete(ctx context.Context, tx *gorm.DB, req *d
 	err := tx.WithContext(ctx).Raw(query,
 		req.SaleID,
 		req.SaleID,
-		constants.COMPLETED,
+		constants.GeneralStatusCompleted,
 		req.Cash,
 		req.Humo,
 		req.Uzcard,
@@ -649,7 +602,7 @@ func (s *Services) AcceptOnlineSale(req *domain.ConfirmOnlineSaleRequest) error 
 		req.CashBoxOperationID,
 		req.CashboxID,
 		req.EmployeeID,
-		config.ONLINE_STATUS_PENDING,
+		constants.SaleOnlineStagePending,
 		req.SaleID).Error
 
 	if err != nil {
@@ -714,7 +667,7 @@ func (s *Services) CancelOnlineSale(req *domain.ConfirmOnlineSaleRequest) error 
 		req.CashBoxOperationID,
 		req.CashboxID,
 		req.EmployeeID,
-		config.ONLINE_STATUS_CANCELED,
+		constants.SaleOnlineStageCanceled,
 		req.SaleID).Error
 
 	if err != nil {
@@ -754,12 +707,35 @@ func (s *Services) ReturnStatusPending(ctx context.Context, tx *gorm.DB, sale *d
 	WHERE id = ?;
 	`
 	// complete the query
-	err := tx.WithContext(ctx).Exec(query, config.PENDING, sale.ID).Error
+	err := tx.WithContext(ctx).Exec(query, constants.GeneralStatusPending, sale.Id).Error
 	if err != nil {
 		s.log.Warn("ERROR on update sale to returned: %v", err)
 		return err
 	}
 	return nil
+}
+
+func (s *Services) updateSaleFields(ctx context.Context, saleId string, updates map[string]any) error {
+	err := s.db.WithContext(ctx).Model(&domain.Sale{}).Where("id = ?", saleId).Updates(&updates).Error
+	if err != nil {
+		s.log.Errorf("could not update sale fields: %v", err)
+		return domain.InternalServerError
+	}
+	return nil
+}
+
+func (s *Services) updateSaleField(ctx context.Context, tx *gorm.DB, field string, value any, saleId string) (*domain.Sale, error) {
+	var sale domain.Sale
+
+	query := fmt.Sprintf("UPDATE sales SET %s = ? WHERE id = ? RETURNING *", field)
+	err := tx.WithContext(ctx).
+		Raw(query, value, saleId).
+		Scan(&sale).Error
+	if err != nil {
+		s.log.Errorf("could not update sale field %s: %v", field, err)
+		return nil, domain.InternalServerError
+	}
+	return &sale, nil
 }
 
 // region Get
@@ -956,7 +932,7 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 	var totalCount int64
 	var res []domain.SaleResponse
 
-	if utils.In(user.Role, constants.AdminRoles...) {
+	if utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreId = user.StoreId
 		}
@@ -973,7 +949,7 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 		Joins("LEFT JOIN customers ON s.customer_id = customers.id")
 
 	// filters
-	qb = qb.Where("s.status = ?", constants.COMPLETED)
+	qb = qb.Where("s.status = ?", constants.GeneralStatusCompleted)
 
 	if params.Cash {
 		qb = qb.Where("s.cash > 0")
@@ -1083,7 +1059,7 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 
 func (s *Services) GetSalesStats(ctx context.Context, params *domain.SaleQueryParams, user *domain.EmployeeClaims) (*domain.SaleStats, error) {
 	// check user role
-	if utils.In(user.Role, constants.AdminRoles...) {
+	if utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreId = user.StoreId
 		}
@@ -1182,7 +1158,7 @@ func (s *Services) GetSaleList(ctx context.Context, params *domain.SaleQueryPara
 	var totalCount int64
 	var res []domain.SaleResponse
 
-	if utils.In(user.Role, constants.AdminRoles...) {
+	if utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreId = user.StoreId
 		}
@@ -1199,7 +1175,7 @@ func (s *Services) GetSaleList(ctx context.Context, params *domain.SaleQueryPara
 		Joins("LEFT JOIN customers ON s.customer_id = customers.id")
 
 	// filters
-	qb = qb.Where("s.status = ?", constants.COMPLETED)
+	qb = qb.Where("s.status = ?", constants.GeneralStatusCompleted)
 
 	if params.Cash {
 		qb = qb.Where("s.cash > 0")
@@ -1307,23 +1283,6 @@ func (s *Services) GetSaleList(ctx context.Context, params *domain.SaleQueryPara
 	return res, totalCount, nil
 }
 
-// get sale payments by sale_id
-func (s *Services) GetPaymeSalePayment(ctx context.Context, tx *gorm.DB, saleID string) (*domain.SalePayment, error) {
-	var salePayment domain.SalePayment
-	query := `
-	SELECT sp.*
-	FROM sale_payments sp
-	JOIN payment_types pt ON pt.id = sp.payment_type_id
-	WHERE sp.sale_id = ? AND pt.type = ?
-	`
-	err := tx.Raw(query, saleID, config.PAYME).Scan(&salePayment).Error
-	if err != nil {
-		s.log.Warn("ERROR on getting sale_payments by saleID: %v", err)
-		return &salePayment, err
-	}
-	return &salePayment, nil
-}
-
 // Get Payment service with store id and payment type  if status is active
 func (s *Services) GetPaymentServiceByStoreId(tx *gorm.DB, storeId, paymentType string) (*domain.PaymentService, error) {
 	var res domain.PaymentService
@@ -1427,7 +1386,7 @@ func (s *Services) GetPendingSales(ctx context.Context, params *domain.SaleQuery
 	var totalCount int64
 	var res []domain.SaleResponse
 
-	if utils.In(user.Role, constants.AdminRoles...) {
+	if utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreId = user.StoreId
 		}
@@ -1444,7 +1403,7 @@ func (s *Services) GetPendingSales(ctx context.Context, params *domain.SaleQuery
 		Joins("LEFT JOIN customers ON s.customer_id = customers.id")
 
 	// filters
-	qb = qb.Where("s.status = ?", constants.PENDING)
+	qb = qb.Where("s.status = ?", constants.GeneralStatusPending)
 
 	if params.Cash {
 		qb = qb.Where("s.cash > 0")
@@ -1566,6 +1525,62 @@ func (s *Services) GetPrescriptionsFromDMED(patientID, safeCode string) ([]domai
 	}
 
 	return rawResp.Data, nil
+}
+
+func (s *Services) GetStoreProductsDifference(ctx context.Context, tx *gorm.DB, saleId string) error {
+	var (
+		err   error
+		diffs domain.SaleDifference
+	)
+	defer RollbackIfError(tx, &err)
+
+	err = tx.WithContext(ctx).Raw(`
+        SELECT
+            ROUND(SUM(sp.retail_price * (ci.quantity + (ci.unit_quantity::numeric / p.unit_per_pack))) - SUM(ci.total_price), 2) as difference,
+            ROUND(SUM(sp.retail_price * (ci.quantity + (ci.unit_quantity::numeric / p.unit_per_pack))) - s.total_amount + s.total_discount, 2) as total_difference
+        FROM cart_items ci
+        LEFT JOIN sales s ON ci.sale_id = s.id
+        LEFT JOIN store_products sp ON ci.store_product_id = sp.id
+        JOIN products p ON sp.product_id = p.id
+        WHERE ci.sale_id = ?
+        GROUP BY s.id
+    `, saleId).Scan(&diffs).Error
+
+	if err != nil {
+		s.log.Error("", err)
+		return err
+	}
+	if math.Abs(diffs.Difference) > 0.01 {
+		return errors.New("invalid.sale.amount")
+	}
+	if math.Abs(diffs.TotalDifference) > 0.01 {
+		return errors.New("invalid.sale.amount")
+	}
+	return nil
+}
+
+func (s *Services) getSaleVatSum(ctx context.Context, saleId string) (float64, error) {
+	// get vat sum
+	var vatSum float64
+	err := s.db.
+		WithContext(ctx).
+		Raw(`
+			SELECT
+				COALESCE(SUM(ROUND((sp.vat_price / p.unit_per_pack) * ci.unit_quantity, 2)), 0) AS vat_sum
+			FROM 
+				cart_items ci
+			JOIN 
+				store_products sp ON sp.id = ci.store_product_id
+			JOIN 
+				products p ON sp.product_id = p.id
+			WHERE  
+				sale_id = ?;
+	`, saleId).Scan(&vatSum).Error
+	if err != nil {
+		s.log.Errorf("could not get sale: %v", err)
+		return 0, err
+	}
+	return vatSum, nil
 }
 
 // region Delete
@@ -1710,81 +1725,7 @@ func (s *Services) DmedGiveReceipt(cartItems []*domain.CartItemForDMED, markingD
 	return nil
 }
 
-func (s *Services) GetStoreProductsDifference(ctx context.Context, tx *gorm.DB, saleId string) error {
-	var (
-		err   error
-		diffs domain.SaleDifference
-	)
-	defer RollbackIfError(tx, &err)
-
-	err = tx.WithContext(ctx).Raw(`
-        SELECT
-            ROUND(SUM(sp.retail_price * (ci.quantity + (ci.unit_quantity::numeric / p.unit_per_pack))) - SUM(ci.total_price), 2) as difference,
-            ROUND(SUM(sp.retail_price * (ci.quantity + (ci.unit_quantity::numeric / p.unit_per_pack))) - s.total_amount + s.total_discount, 2) as total_difference
-        FROM cart_items ci
-        LEFT JOIN sales s ON ci.sale_id = s.id
-        LEFT JOIN store_products sp ON ci.store_product_id = sp.id
-        JOIN products p ON sp.product_id = p.id
-        WHERE ci.sale_id = ?
-        GROUP BY s.id
-    `, saleId).Scan(&diffs).Error
-
-	if err != nil {
-		s.log.Error("", err)
-		return err
-	}
-	if math.Abs(diffs.Difference) > 0.01 {
-		return errors.New("invalid.sale.amount")
-	}
-	if math.Abs(diffs.TotalDifference) > 0.01 {
-		return errors.New("invalid.sale.amount")
-	}
-	return nil
-}
-
-func (s *Services) getSaleVatSum(ctx context.Context, saleId string) (float64, error) {
-	// get vat sum
-	var vatSum float64
-	err := s.db.
-		WithContext(ctx).
-		Raw(`
-			SELECT
-				COALESCE(SUM(ROUND((sp.vat_price / p.unit_per_pack) * ci.unit_quantity, 2)), 0) AS vat_sum
-			FROM 
-				cart_items ci
-			JOIN 
-				store_products sp ON sp.id = ci.store_product_id
-			JOIN 
-				products p ON sp.product_id = p.id
-			WHERE  
-				sale_id = ?;
-	`, saleId).Scan(&vatSum).Error
-	if err != nil {
-		s.log.Errorf("could not get sale: %v", err)
-		return 0, err
-	}
-	return vatSum, nil
-}
-
-func (s *Services) updateSaleFields(ctx context.Context, saleId string, updates map[string]any) error {
-	err := s.db.WithContext(ctx).Model(&domain.Sale{}).Where("id = ?", saleId).Updates(&updates).Error
-	if err != nil {
-		s.log.Errorf("could not update sale fields: %v", err)
-		return domain.InternalServerError
-	}
-	return nil
-}
-
-func (s *Services) updateSaleField(ctx context.Context, tx *gorm.DB, field string, value any, saleId string) (*domain.Sale, error) {
-	var sale domain.Sale
-
-	query := fmt.Sprintf("UPDATE sales SET %s = ? WHERE id = ? RETURNING *", field)
-	err := tx.WithContext(ctx).
-		Raw(query, value, saleId).
-		Scan(&sale).Error
-	if err != nil {
-		s.log.Errorf("could not update sale field %s: %v", field, err)
-		return nil, domain.InternalServerError
-	}
-	return &sale, nil
+func (s *Services) generateDisplayId() int {
+	displayId := utils.GenerateRandomValue(1000, 9999)
+	return displayId
 }

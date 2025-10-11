@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/spf13/cast"
 )
@@ -398,7 +398,7 @@ func (s *Services) SendReturn(returnId string, userId string) error {
 
 	// update confirm return
 	query := `UPDATE transfers SET status = ?, updated_by = ? WHERE id = ?`
-	err := tx.Exec(query, config.SENT, userId, returnId).Error
+	err := tx.Exec(query, constants.GeneralStatusSent, userId, returnId).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating return %v", err)
 		return err
@@ -520,7 +520,7 @@ func (s *Services) EditStatusToCheckingReturn(Id string, userId string) error {
 	// checking recover
 	defer recoverTransaction(tx, s.log)
 	// update transfer status
-	err := tx.Exec("UPDATE transfers SET status = ?, updated_by = ?, updated_at = NOW() WHERE id = ?", config.CHECKING, userId, Id).Error
+	err := tx.Exec("UPDATE transfers SET status = ?, updated_by = ?, updated_at = NOW() WHERE id = ?", constants.GeneralStatusChecking, userId, Id).Error
 	if err != nil {
 		s.log.Error("could not update transfer(%s) status: %v", Id, err)
 		return errors.New("internal.server.error")
@@ -583,7 +583,7 @@ func (s *Services) ConfirmReturn(returnId, storeId string, userId string) error 
 	var returnInfo domain.Return
 	// update confirm return
 	query := `UPDATE transfers SET status = ?, accepted_by = ?, accepted_at = NOW() WHERE id = ? RETURNING *`
-	err := tx.Raw(query, config.SENT_TO_1C, userId, returnId).Scan(&returnInfo).Error
+	err := tx.Raw(query, constants.GeneralStatusSentOnec, userId, returnId).Scan(&returnInfo).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating return %v", err)
 		return err
@@ -656,7 +656,7 @@ func (s *Services) ConfirmReturn(returnId, storeId string, userId string) error 
 	}
 
 	returnData.Dok.DocumentNumber = "NP-" + cast.ToString(returnInfo.PublicId)
-	returnData.Dok.DocumentDate = returnInfo.UpdatedAt.Format(config.DATE_1C_FORMAT)
+	returnData.Dok.DocumentDate = returnInfo.UpdatedAt.Format(constants.DateTimeFormatRFC3339)
 	returnData.Apteka.Name = store.Name
 	returnData.Apteka.StoreCode = store.StoreCode
 
@@ -689,7 +689,7 @@ func (s *Services) CancelReturn(returnId string, userId string) error {
 	}()
 	// update confirm inventory
 	query := `UPDATE transfers SET status = ?, accepted_by = ?, updated_at = NOW() WHERE id = ?`
-	err := tx.Exec(query, config.CANCELED, userId, returnId).Error
+	err := tx.Exec(query, constants.GeneralStatusCanceled, userId, returnId).Error
 	if err != nil {
 		s.log.Warn("ERROR on updating inventory %v", err)
 		tx.Rollback()

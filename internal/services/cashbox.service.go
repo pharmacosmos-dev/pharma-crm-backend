@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 )
 
 // region Create
@@ -300,7 +300,7 @@ func (s *Services) CloseCashBoxOperation(cashBoxOperationID string, req *domain.
 	err = tx.Exec(`
 	INSERT INTO cashbox_closures (
 		cashbox_operation_id, received_amount, sender_id, status) 
-	VALUES (?, ?, ?, ?)`, cashBoxOperationID, totalNetAmount, senderId, config.PENDING).Error
+	VALUES (?, ?, ?, ?)`, cashBoxOperationID, totalNetAmount, senderId, constants.GeneralStatusPending).Error
 	if err != nil {
 		s.log.Error(err)
 		tx.Rollback()

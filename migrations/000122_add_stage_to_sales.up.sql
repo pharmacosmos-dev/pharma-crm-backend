@@ -1,0 +1,4 @@
+ALTER TABLE 
+    "sales"
+        ADD COLUMN IF NOT EXISTS "stage" INT DEFAULT 1 NOT NULL,
+        ADD COLUMN IF NOT EXISTS "display_id" BIGINT NOT NULL;

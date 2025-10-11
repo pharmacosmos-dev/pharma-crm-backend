@@ -10,8 +10,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	pdf "github.com/jung-kurt/gofpdf"
-	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/xuri/excelize/v2"
@@ -494,7 +494,7 @@ func (h *ReturnHandler) Confirm(c *gin.Context) {
 		return
 	}
 	// check if return is already confirmed
-	if returnInfo.Status == config.COMPLETED {
+	if returnInfo.Status == constants.GeneralStatusCompleted {
 		handleResponse(c, BadRequest, "return.already.completed")
 		return
 	}
@@ -699,7 +699,7 @@ func (h *ReturnHandler) ExportReturnNakladnoyPDF(c *gin.Context) {
 	}
 
 	// check if return is not completed
-	if returnData.Status != config.COMPLETED && returnData.Status != config.SENT && returnData.Status != config.SENT_TO_1C {
+	if returnData.Status != constants.GeneralStatusCompleted && returnData.Status != constants.GeneralStatusSent && returnData.Status != constants.GeneralStatusSentOnec {
 		handleResponse(c, BadRequest, "return.not.completed")
 		return
 	}

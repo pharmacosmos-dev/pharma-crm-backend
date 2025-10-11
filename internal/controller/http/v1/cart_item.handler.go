@@ -24,10 +24,10 @@ func (h *CartItemHandler) CartItemRoutes(r *gin.RouterGroup) {
 		cartItem.GET("/:id", h.Get)
 		cartItem.GET("/list", h.List)
 		cartItem.PUT("/:id", h.Update)
-		cartItem.DELETE("/:id", h.Delete)
-		cartItem.POST("/multiple", h.MultipleDelete)
 		cartItem.PUT("/sale/:sale_id", h.UpdateCartItemDiscount)
 		cartItem.PUT("/:id/markings", h.UpdateMarkings)
+		cartItem.DELETE("/:id", h.Delete)
+		cartItem.POST("/multiple", h.MultipleDelete)
 		cartItem.DELETE("/:id/markings", h.DeleteMarking)
 	}
 }
@@ -213,6 +213,45 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 	handleResponse(c, OK, res)
 }
 
+// UpdateMarkings godoc
+// @Summary Update cart item markings
+// @Description Update the markings array for a specific cart item
+// @Tags cart_items
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "cart item ID"
+// @Param body body domain.AppendMarkingRequest true "Markings payload"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 404 {object} v1.Response
+// @Failure 409 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /cart_item/{id}/markings [put]
+func (h *CartItemHandler) UpdateMarkings(c *gin.Context) {
+	var (
+		id  = c.Param("id")
+		req domain.AppendMarkingRequest
+	)
+
+	// bind request body
+	if err := c.ShouldBindJSON(&req); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidRequestBodyError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	err := h.service.UpdateCartItemMarkings(ctx, id, &req)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, "UPDATED")
+}
+
 // Delete godoc
 // @Summary Delete a cart item
 // @Description Delete a cart item from the request body
@@ -276,45 +315,6 @@ func (h *CartItemHandler) MultipleDelete(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, "DELETED")
-}
-
-// UpdateMarkings godoc
-// @Summary Update cart item markings
-// @Description Update the markings array for a specific cart item
-// @Tags cart_items
-// @Security     BearerAuth
-// @Accept json
-// @Produce json
-// @Param id path string true "cart item ID"
-// @Param body body domain.AppendMarkingRequest true "Markings payload"
-// @Success 200 {object} v1.Response
-// @Failure 400 {object} v1.Response
-// @Failure 404 {object} v1.Response
-// @Failure 409 {object} v1.Response
-// @Failure 500 {object} v1.Response
-// @Router /cart_item/{id}/markings [put]
-func (h *CartItemHandler) UpdateMarkings(c *gin.Context) {
-	var (
-		id  = c.Param("id")
-		req domain.AppendMarkingRequest
-	)
-
-	// bind request body
-	if err := c.ShouldBindJSON(&req); err != nil {
-		handleServiceResponse(c, nil, domain.InvalidRequestBodyError)
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-	defer cancel()
-
-	err := h.service.UpdateCartItemMarkings(ctx, id, &req)
-	if err != nil {
-		handleServiceResponse(c, nil, err)
-		return
-	}
-
-	handleResponse(c, OK, "UPDATED")
 }
 
 // DeleteMarking godoc
