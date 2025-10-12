@@ -72,6 +72,7 @@ type SaleItem struct {
 
 type SaleResponse struct {
 	Id              string     `gorm:"id" json:"id"`
+	DisplayId       int        `gorm:"display_id" json:"display_id"`
 	ParentId        string     `gorm:"parent_id" json:"parent_id"`
 	SaleNumber      int        `gorm:"sale_number" json:"sale_number"`
 	TotalDiscount   float64    `gorm:"total_discount" json:"total_discount"`

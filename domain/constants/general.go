@@ -64,6 +64,10 @@ const (
 	SaleStageReturnedFinish = 10
 )
 
+var (
+	FinishedSaleStages = []int{SaleStageFinished, SaleStageReturnedFinish}
+)
+
 var SaleStages = map[int]map[string]string{
 	SaleStageNew: {
 		"en": "New",

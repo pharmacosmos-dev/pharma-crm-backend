@@ -214,16 +214,17 @@ func (s *Services) SaveEposResponse(ctx context.Context, req *domain.EposRespons
 // region Update
 
 // finalize sale
-func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*domain.Sale, error) {
+func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*domain.MarkingItemsResponse, error) {
 	sale, err := s.GetSaleById(ctx, req.SaleID)
 	if err != nil {
 		return nil, err
 	}
 	// check if sale is already completed
-	if sale.Status == constants.GeneralStatusCompleted {
+	if utils.In(sale.Stage, constants.FinishedSaleStages...) {
 		return nil, domain.SaleIsClosedError
 	}
-	// check
+
+	// check payment types
 	if len(req.PaymentTypes) == 0 {
 		return nil, domain.PaymentTypeRequiredError
 	}
@@ -243,11 +244,11 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 		// send req dmed
 		err = s.DmedGiveReceipt(cartItems, req.MarkingData, sale.Employee.FullName, req.PrescriptionID, "check-issue")
 		if err != nil {
-			return sale, err
+			return nil, err
 		}
 		err = s.DmedGiveReceipt(cartItems, req.MarkingData, sale.Employee.FullName, req.PrescriptionID, "issue")
 		if err != nil {
-			return sale, err
+			return nil, err
 		}
 	} else {
 		req.ServiceType = nil
@@ -264,30 +265,22 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 	err = s.updateCartItemsMarkingCount(ctx, tx, req.MarkingData)
 	if err != nil {
 		_ = tx.Rollback()
-		return sale, err
+		return nil, err
 	}
 
-	for _, item := range req.PaymentTypes {
-		err = s.processPayment(ctx, tx, sale, item)
-		if err != nil {
-			s.log.Errorf("could not payment process: %v", err)
-			_ = tx.Rollback()
-			return sale, err
-		}
-	}
 	// update sale data
-	sale, err = s.updateSaleToComplete(ctx, tx, req)
+	_, err = s.updateFinalizeSale(ctx, tx, req)
 	if err != nil {
 		_ = tx.Rollback()
-		return sale, err
+		return nil, err
 	}
 
 	if err = tx.Commit().Error; err != nil {
 		s.log.Error("could not commit transaction: %v", err)
-		return sale, domain.InternalServerError
+		return nil, domain.InternalServerError
 	}
 
-	return sale, nil
+	return nil, nil
 }
 
 // epos result
@@ -466,21 +459,22 @@ func (s *Services) matchingPaymentTypeSum(ctx context.Context, req *domain.Final
 	return req, nil
 }
 
-func (s *Services) updateSaleToComplete(ctx context.Context, tx *gorm.DB, req *domain.FinalSale) (*domain.Sale, error) {
+func (s *Services) updateFinalizeSale(ctx context.Context, tx *gorm.DB, req *domain.FinalSale) (*domain.Sale, error) {
 	var res domain.Sale
+
 	query := `
 	UPDATE sales
 		SET
 			total_amount = (SELECT SUM(total_price)-SUM(discount_amount) FROM cart_items WHERE sale_id = ?),
 			total_discount = (SELECT SUM(discount_amount) FROM cart_items WHERE sale_id = ?),
 			status = ?,
+			stage = ?,
 			cash = ?, 
 			humo = ?, 
 			uzcard = ?,
 			click = ?, 
 			payme = ?, 
 			alif = ?,
-			completed_at = NOW(),
 			updated_at = NOW()
 	WHERE id = ?;
 	`
@@ -488,6 +482,7 @@ func (s *Services) updateSaleToComplete(ctx context.Context, tx *gorm.DB, req *d
 		req.SaleID,
 		req.SaleID,
 		constants.GeneralStatusCompleted,
+		constants.SaleStageOfdWaiting,
 		req.Cash,
 		req.Humo,
 		req.Uzcard,
@@ -743,6 +738,7 @@ func (s *Services) updateSaleField(ctx context.Context, tx *gorm.DB, field strin
 func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleResponse, error) {
 	var tempSale struct {
 		Id                 string     `gorm:"id"`
+		DisplayId          int        `gorm:"display_id"`
 		ParentId           string     `gorm:"parent_id"`
 		EmployeeId         string     `gorm:"employee_id"`
 		CashBoxOperationId string     `gorm:"cash_box_operation_id"`
@@ -753,6 +749,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 		VatSum             float64    `gorm:"vat_sum"`
 		ReturnedAmount     float64    `gorm:"returned_amount"`
 		Status             string     `gorm:"status"`
+		Stage              int        `gorm:"stage"`
 		OnlineStatus       int        `gorm:"online_status"`
 		Type               string     `gorm:"type"`
 		SaleType           string     `gorm:"sale_type"`
@@ -789,6 +786,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 	err := s.db.
 		Select(
 			"s.id",
+			"s.display_id",
 			"s.parent_id",
 			"s.employee_id",
 			"s.cash_box_operation_id",
@@ -806,6 +804,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 			"s.click",
 			"s.alif",
 			"s.status",
+			"s.stage",
 			"s.online_status",
 			"s.sale_type",
 			"s.type",
@@ -846,6 +845,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 
 	res = domain.SaleResponse{
 		Id:                 tempSale.Id,
+		DisplayId:          tempSale.DisplayId,
 		ParentId:           tempSale.ParentId,
 		EmployeeId:         tempSale.EmployeeId,
 		CustomerId:         tempSale.CustomerId,
