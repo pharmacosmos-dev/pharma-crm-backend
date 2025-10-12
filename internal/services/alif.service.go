@@ -1,122 +1,139 @@
 package services
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
+	"github.com/pharma-crm-backend/pkg/utils"
 )
 
 // Alif Pay
-func (h *Services) AlifPay(ctx context.Context, paymentService *domain.PaymentService, sale *domain.Sale) error {
-	alifData := domain.AlifPaymentRequest{
+func (s *Services) AlifPay(ctx context.Context, paymentService *domain.PaymentService, sale *domain.Sale) (*domain.AlifPayResponse, error) {
+	payload := domain.AlifPaymentRequest{
 		ID:     sale.Id,
-		Amount: int64(sale.TotalAmount * constants.SumsToTiyns),
+		Amount: int64(sale.Alif * constants.SumsToTiyns),
 		Method: domain.AlifMethod{
-			Type:  "MOBI_SHOW_QR",
+			Type:  constants.AlifPaymentTypeQrShow,
 			Token: sale.OtpCode,
 		},
 	}
-	t, err := json.Marshal(alifData)
+	jsonBytes, err := json.Marshal(payload)
 	if err != nil {
-		return err
-	}
-	err = h.SaveRequest(ctx, &domain.PaymentRequest{
-		RequestId:       time.Now().Unix(),
-		Method:          "alif_pay",
-		Payload:         t,
-		TransactionID:   sale.Id,
-		PaymentProvider: "alif",
-	})
-	if err != nil {
-		h.log.Info("Error on saving alif pay request: %v", err.Error())
-		return err
+		return nil, err
 	}
 
-	res, err := h.AlifPayDoRequest(ctx, "/v2/pay", alifData, paymentService.CashboxId)
+	id, err := s.createAlifRequestInDb(ctx, payload, constants.AlifPay, sale.Id)
 	if err != nil {
-		return err
+		s.log.Errorf("could not save alif request: %v", err)
+		return nil, domain.InternalServerError
 	}
-	t, _ = json.Marshal(res)
-	err = h.SaveResponse(ctx, &domain.PaymentRequest{
-		TransactionID: sale.Id,
-		Response:      t,
-		Method:        "alif_pay",
-	})
-	if err != nil {
-		return err
+	// Send request to create receipt
+	var response *http.Response
+	if err = s.AlifRequest(
+		&response,
+		s.cfg.AlifApiUrl+constants.AlifPayCreatePath,
+		jsonBytes,
+		paymentService.CashboxId,
+	); err != nil {
+		s.log.Errorf("could not send create alifPay request: %v", err)
+		return nil, domain.InternalServerError
 	}
 
-	if status, ok := res["status"].(string); ok && status == constants.GeneralStatusDeclined {
-		h.log.Warn("Payment declined for transactionID=%s", sale.Id)
-		return fmt.Errorf("payment declined by alif")
+	defer utils.Close(response.Body, s.log)
+
+	// Decode response
+	result, bytes, err := DecodeAlifResponse[domain.AlifPayResponse](response.Body)
+	_ = s.updateAlifRequestInDb(ctx, id, bytes, constants.ActionCreateReceipt)
+
+	if err != nil {
+		return result.Result, err
+	}
+
+	return result.Result, nil
+}
+
+func (s *Services) createAlifRequestInDb(ctx context.Context, payload domain.AlifPaymentRequest, method string, saleId string) (int, error) {
+	var seqId int
+
+	// Prepare payload
+	payloadDb, err := json.Marshal(payload)
+	if err != nil {
+		s.log.Errorf("could not marshal payme payload: %v", err)
+		return seqId, err
+	}
+	query := `
+	INSERT INTO payment_requests (method, payload, transaction_id, payment_provider) VALUES (?, ?, ?, ?) RETURNING seq_id`
+	err = s.db.WithContext(ctx).Raw(
+		query,
+		method,
+		payloadDb,
+		saleId,
+		constants.PaymentTypeAlif,
+	).Scan(&seqId).Error
+	if err != nil {
+		s.log.Errorf("could not create click_pass request(%d) in db: %v", payload.Amount, err)
+		return seqId, err
+	}
+
+	return seqId, nil
+}
+
+func (s *Services) updateAlifRequestInDb(ctx context.Context, id int, response []byte, method string) error {
+	err := s.db.WithContext(ctx).Exec(
+		"UPDATE payment_requests SET response = ? WHERE seq_id = ? AND method = ?",
+		response, id, method,
+	).Error
+	if err != nil {
+		s.log.Errorf("could not update click request in db: %v", err)
+		return err
 	}
 
 	return nil
 }
 
-// alif confirm payment
-func (h *Services) AlifConfirmPayment(ctx context.Context, data1 *domain.FinalPaymentType, paymentId string) (map[string]any, error) {
-	data := map[string]any{
-		"id":  paymentId,
-		"otp": data1.OtpData,
-	}
-	res, err := h.AlifPayDoRequest(ctx, "/v2/confirmPayment", data, "TODO")
+func DecodeAlifResponse[T any](r io.Reader) (domain.AlifResponseWrapper[T], []byte, error) {
+	var result domain.AlifResponseWrapper[T]
+
+	response, err := io.ReadAll(r)
 	if err != nil {
-		return nil, err
-	}
-	return res, nil
-}
-
-// alif pay do request function
-func (h *Services) AlifPayDoRequest(ctx context.Context, url string, data any, token string) (map[string]any, error) {
-	client := &http.Client{}
-	buf := bytes.Buffer{}
-
-	// Encode data to JSON
-	err := json.NewEncoder(&buf).Encode(data)
-	if err != nil {
-		return nil, fmt.Errorf("failed to encode request data: %v", err)
+		return result, response, err
 	}
 
-	// Construct request
-	fullURL := h.cfg.AlifApiUrl + url
-	req, err := http.NewRequestWithContext(ctx, "POST", fullURL, &buf)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create HTTP request: %v", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Store-Token", token)
-
-	// Execute request
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to execute HTTP request: %v", err)
-	}
-	defer resp.Body.Close()
-
-	// Check response status code
-	if resp.StatusCode != http.StatusOK {
-		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(bodyBytes))
+	if err := json.Unmarshal(response, &result); err != nil {
+		return result, response, err
 	}
 
-	// Decode response body
-	var result map[string]any
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %v", err)
+	// Agar Alif xatolik yuborgan bo‘lsa
+	if result.Error != nil {
+		alifErr := fmt.Errorf(
+			"alif error: %d, message: %s",
+			result.Error.Code, result.Error.Message,
+		)
+
+		switch result.Error.Code {
+		case constants.AlifInvalidRequestBodyErrorCode:
+			return result, response, domain.AlifInvalidRequestBodyError
+		case constants.AlifUnauthorizedRequestErrorCode:
+			return result, response, domain.AlifUnauthorizedError
+		case constants.AlifInvalidParametersErrorCode:
+			return result, response, domain.AlifInvalidParametersError
+		case constants.AlifInvalidOtpErrorCode:
+			return result, response, domain.IncorrectOTPError
+		case constants.AlifOtpExpiredErrorCode:
+			return result, response, domain.IncorrectCardExpiryDateError
+		case constants.AlifInvalidCardDataErrorCode:
+			return result, response, domain.IncorrectCardError
+		case constants.AlifInsufficientFundsErrorCode:
+			return result, response, domain.InsufficientFunds
+		default:
+			return result, response, alifErr
+		}
 	}
 
-	err = json.Unmarshal(bodyBytes, &result)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode response: %v", err)
-	}
-	return result, nil
+	return result, response, nil
 }

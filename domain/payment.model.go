@@ -118,7 +118,32 @@ type AlifPaymentRequest struct {
 	Amount int64      `json:"amount"`
 	Method AlifMethod `json:"method"`
 }
+
+type AlifPayResponse struct {
+	Id     string     `json:"id"`
+	Amount int64      `json:"amount"`
+	Status string     `json:"status"`
+	Method AlifMethod `json:"method"`
+}
+
 type AlifMethod struct {
-	Type  string `json:"type"`
-	Token string `json:"token"`
+	Type    string   `json:"type"`
+	Token   string   `json:"token"`
+	Payload struct{} `json:"payload"`
+}
+
+// AlifError represents an error returned by Alif API
+type AlifError struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}
+
+// AlifResponseWrapper represents a general Alif API response
+type AlifResponseWrapper[T any] struct {
+	Id     string     `json:"id,omitempty"`
+	Amount int64      `json:"amount,omitempty"`
+	Status string     `json:"status,omitempty"`
+	Method any        `json:"method,omitempty"`
+	Error  *AlifError `json:"error,omitempty"`
+	Result *T         `json:"result,omitempty"`
 }

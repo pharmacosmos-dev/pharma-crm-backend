@@ -32,6 +32,16 @@ func (s *Services) ClickRequest(res **http.Response, url string, data []byte, to
 	return s.DoRequest(res, http.MethodPost, url, data, headers)
 }
 
+// alif request
+func (s *Services) AlifRequest(res **http.Response, url string, data []byte, token string) error {
+	headers := map[string]string{
+		constants.HeaderContentType: constants.ContentTypeJson,
+		constants.HeaderStoreToken:  token,
+	}
+
+	return s.DoRequest(res, http.MethodPost, url, data, headers)
+}
+
 // do request
 func (s *Services) DoRequest(
 	res **http.Response,

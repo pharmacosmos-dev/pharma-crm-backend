@@ -2,7 +2,7 @@ package constants
 
 import "time"
 
-// region general
+// region General
 const (
 	// Access token expire time 24 hour
 	AccessTokenExpiresInTime time.Duration = 2 * 60 * 24 * time.Minute
@@ -27,6 +27,7 @@ const (
 	AuthBearer                              = "Bearer"
 	HeaderXAuth                             = "X-Auth"
 	HeaderAuth                              = "Auth"
+	HeaderStoreToken                        = "Store-Token"
 	HeaderHost                              = "Host"
 	DiscountTypePercent                     = "percent"
 	// Languages
@@ -55,7 +56,7 @@ var (
 	AllAdminRoles = []string{RoleAdmin, RoleSuperAdmin, RoleFounder, RoleAccountant, RoleDirector, RoleAutoZakaz, RoleManager}
 )
 
-// Sale stages
+// region Stages
 const (
 	SaleStageNew            = 1
 	SaleStagePending        = 2
@@ -127,6 +128,8 @@ var SaleStages = map[int]map[string]string{
 		"uz": "Qaytarish yakunlandi",
 	},
 }
+
+// end region
 
 const (
 
@@ -302,7 +305,6 @@ const (
 	ClickPassCreatePath = "/click_pass/payment"
 	ClickPassCheckPath  = "/payment/status/"
 	ClickPassCancelPath = "/payment/reversal/"
-	
 )
 
 const (
@@ -310,4 +312,54 @@ const (
 	ClickPaymentCreateCode     = 0  // Payment created
 	ClickPaymentProcessingCode = 1  // Processing
 	ClickPaymentSucceedCode    = 2  // Payment successful
+)
+
+// end region
+
+// region Alif
+
+const (
+	AlifInvalidRequestBodyErrorCode     = 1001 // Неверное тело запроса — невалидный JSON или тип атрибута
+	AlifUnauthorizedRequestErrorCode    = 1002 // Неавторизованный запрос — неверный токен мерчанта
+	AlifInternalServerErrorCode         = 1003 // Внутренняя/неизвестная ошибка
+	AlifNotFoundErrorCode               = 1004 // Не найдено — карта, оплата и т.д.
+	AlifInvalidParametersErrorCode      = 1005 // Невалидные параметры — неверная сумма, пустой параметр
+	AlifOperationDeclinedErrorCode      = 1007 // Отказано — операция отклонена
+	AlifInvalidOtpErrorCode             = 1100 // Неверный OTP
+	AlifOtpExpiredErrorCode             = 1101 // Истёк срок действия OTP
+	AlifInvalidCardDataErrorCode        = 1102 // Неверные данные карты — неверный номер или срок действия
+	AlifCardExpiredErrorCode            = 1103 // Истёк срок действия карты
+	AlifSmsInformingNotEnabledErrorCode = 1104 // Не подключено СМС-информирование для карты
+	AlifDuplicateRequestErrorCode       = 1105 // Дублирование
+	AlifOtpAttemptsExceededErrorCode    = 1106 // Количество попыток ввода OTP исчерпано
+	AlifCardBlockedErrorCode            = 1107 // Карта заблокирована
+	AlifInsufficientFundsErrorCode      = 1108 // Недостаточно средств на карте
+	AlifLimitExceededErrorCode          = 1109 // Превышен лимит
+	AlifPhoneNumberMismatchErrorCode    = 1110 // Номер телефона не совпадает с номером телефона СМС-информирования
+)
+
+// Alif integration statuses
+const (
+	AlifStatusSucceeded            = "SUCCEEDED"               // Успешно
+	AlifStatusInsufficientFunds    = "INSUFFICIENT_FUNDS"      // Недостаточно средств
+	AlifStatusInvalidCard          = "INVALID_CARD"            // Невалидная карта
+	AlifStatusReverted             = "REVERTED"                // Отменена
+	AlifStatusOtpRequired          = "OTP_REQUIRED"            // Требуется ввод кода подтверждения
+	AlifStatusBlockedCard          = "BLOCKED_CARD"            // Заблокированная карта
+	AlifStatusExpiredCard          = "EXPIRED_CARD"            // Истек срок действия карты
+	AlifStatusSmsNotificationIsOff = "SMS_NOTIFICATION_IS_OFF" // Отключено СМС-информирование
+	AlifStatusIncorrectOtp         = "INCORRECT_OTP"           // Неправильный код подтверждения
+	AlifStatusExpiredOtp           = "EXPIRED_OTP"             // Просроченный код подтверждения
+	AlifStatusPending              = "PENDING"                 // В процессе обработки
+	AlifStatusPendingReversal      = "PENDING_REVERSAL"        // Отмена в процессе обработки
+	AlifStatusDeclined             = "DECLINED"                // Платеж отклонен
+	AlifStatusUnknownError         = "UNKNOWN_ERROR"           // Неизвестная ошибка
+)
+
+const (
+	AlifPaymentTypeQrShow = "MOBI_SHOW_QR"
+	AlifPaymentTypeCard   = "CARD"
+	AlifPay               = "alif_pay"
+	AlifPayCreatePath     = "/v2/pay"
+	AlifPayConfirmPath    = "/v2/confirmPayment"
 )

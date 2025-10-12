@@ -22,7 +22,7 @@ func (s *Services) CreateReceiptAndPay(
 	var response domain.ReceiptCreateResponseDto
 
 	var createReceiptBody domain.Receiptable = domain.NewReceiptCreateRequestDto(
-		utils.Abs(int(sale.TotalAmount)),
+		utils.Abs(int(sale.Payme)),
 		strconv.Itoa(sale.SaleNumber),
 	)
 

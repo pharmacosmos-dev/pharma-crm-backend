@@ -18,9 +18,13 @@ var (
 	DuplicateError               = NewError(http.StatusBadRequest, "duplicate")
 	IncorrectOTPError            = NewError(http.StatusBadRequest, "incorrect.otp")
 	IncorrectCardExpiryDateError = NewError(http.StatusBadRequest, "incorrect.expiry.date")
+	IncorrectCardError           = NewError(http.StatusBadRequest, "incorrect.card")
+	AlifInvalidRequestBodyError  = NewError(http.StatusBadRequest, "alif.invalid.request.body")
+	AlifInvalidParametersError   = NewError(http.StatusBadRequest, "alif.invalid.parameters")
 
 	// 401 – Unauthorized (token noto‘g‘ri yoki mavjud emas)
-	UnauthorizedError = NewError(http.StatusUnauthorized, "user.not.authorized")
+	UnauthorizedError     = NewError(http.StatusUnauthorized, "user.not.authorized")
+	AlifUnauthorizedError = NewError(http.StatusUnauthorized, "alif.unauthorized")
 
 	// 402 - PaymentRequired (mablag' yetarli emas)
 	InsufficientFunds = NewError(http.StatusPaymentRequired, "insufficient.funds")

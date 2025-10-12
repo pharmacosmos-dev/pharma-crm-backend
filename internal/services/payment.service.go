@@ -42,11 +42,11 @@ func (s *Services) Payment(
 	}
 
 	if sale.Alif > 0 {
-		payService, err := s.GetPaymentServiceByStoreId(ctx, tx, sale.StoreId, constants.PaymentTypePayme)
+		payService, err := s.GetPaymentServiceByStoreId(ctx, tx, sale.StoreId, constants.PaymentTypeAlif)
 		if err != nil {
 			return err
 		}
-		err = s.AlifPay(ctx, payService, sale)
+		_, err = s.AlifPay(ctx, payService, sale)
 		if err != nil {
 			return err
 		}

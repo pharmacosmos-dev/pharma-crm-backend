@@ -23,7 +23,7 @@ func (s *Services) ClickPass(ctx context.Context, click *domain.PaymentService, 
 		ServiceId:     click.ServiceID,
 		OtpData:       sale.OtpCode,
 		CashboxCode:   sale.CashboxId,
-		Amount:        sale.TotalAmount,
+		Amount:        sale.Click,
 		TransactionId: sale.Id,
 	}
 
