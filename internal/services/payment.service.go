@@ -46,8 +46,11 @@ func (s *Services) Payment(
 		if err != nil {
 			return err
 		}
-		s.AlifPay(ctx, payService, sale)
-
+		err = s.AlifPay(ctx, payService, sale)
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 
 	return nil
