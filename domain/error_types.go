@@ -16,9 +16,14 @@ var (
 	SerialOrMarkingRequiredError = NewError(http.StatusBadRequest, "serial.or.marking.required")
 	AcceptedCountError           = NewError(http.StatusBadRequest, "accepted.count.is.null")
 	DuplicateError               = NewError(http.StatusBadRequest, "duplicate")
+	IncorrectOTPError            = NewError(http.StatusBadRequest, "incorrect.otp")
+	IncorrectCardExpiryDateError = NewError(http.StatusBadRequest, "incorrect.expiry.date")
 
 	// 401 – Unauthorized (token noto‘g‘ri yoki mavjud emas)
 	UnauthorizedError = NewError(http.StatusUnauthorized, "user.not.authorized")
+
+	// 402 - PaymentRequired (mablag' yetarli emas)
+	InsufficientFunds = NewError(http.StatusPaymentRequired, "insufficient.funds")
 
 	// 403 – Forbidden (ruxsat yo‘q)
 	ForbiddinError = NewError(http.StatusForbidden, "forbidden")
@@ -26,6 +31,10 @@ var (
 	// 404 – Not Found (resurs topilmadi)
 	NotFoundError         = NewError(http.StatusNotFound, "not.found")
 	ResourceNotFoundError = NewError(http.StatusNotFound, "resource.not.found")
+	CardNotFoundError     = NewError(http.StatusNotFound, "card.not.found")
+
+	// 408 - Timeout (vaqt yetmadi)
+	OTPExpiredError = NewError(http.StatusRequestTimeout, "otp.expired")
 
 	// 409 – Conflict (mavjud ma'lumot bilan to‘qnashuv)
 	ConflictError         = NewError(http.StatusConflict, "conflict")
@@ -35,7 +44,9 @@ var (
 	SaleIsClosedError     = NewError(http.StatusConflict, "sale.is.closed")
 
 	// 424 – Failed Dependency (tashqi tizimga bog‘liq xatolik)
-	DependencyFailedError = NewError(http.StatusFailedDependency, "dependency.failed")
+	DependencyFailedError    = NewError(http.StatusFailedDependency, "dependency.failed")
+	PaymeNotOperationalError = NewError(http.StatusFailedDependency, "payme.not.operational")
+	ClickNotOperationalError = NewError(http.StatusFailedDependency, "click.not.operational")
 
 	// 429 – Too Many Requests (rate limit)
 	RateLimitExceededError = NewError(http.StatusTooManyRequests, "rate.limit.exceeded")

@@ -5,13 +5,35 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/pharma-crm-backend/domain/constants"
 )
 
+// payme request
+func (s *Services) PaymeRequest(res **http.Response, url string, data []byte, token string) error {
+	headers := map[string]string{
+		constants.HeaderContentType: constants.ContentTypeJson,
+		constants.HeaderXAuth:       token,
+		constants.HeaderHost:        strings.TrimPrefix(s.cfg.PaymeApiUrl, "https://"),
+	}
+
+	return s.DoRequest(res, http.MethodPost, url, data, headers)
+}
+
+// click request
+func (s *Services) ClickRequest(res **http.Response, url string, data []byte, token string) error {
+	headers := map[string]string{
+		constants.HeaderContentType: constants.ContentTypeJson,
+		constants.HeaderAuth:        token,
+	}
+
+	return s.DoRequest(res, http.MethodPost, url, data, headers)
+}
+
 // do request
-func DoRequest(
+func (s *Services) DoRequest(
 	res **http.Response,
 	method string,
 	url string,

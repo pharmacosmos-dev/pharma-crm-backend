@@ -1,6 +1,8 @@
 package services
 
 import (
+	"context"
+
 	"github.com/pharma-crm-backend/domain"
 )
 
@@ -39,4 +41,15 @@ func (s *Services) ProductBonusList(param *domain.QueryParam) ([]domain.ProductB
 		return res, 0, err
 	}
 	return res, totalCount, nil
+}
+
+func (s *Services) GetStoreProductsByIds(ctx context.Context, ids []string) ([]domain.StoreProduct, error) {
+	var res []domain.StoreProduct
+	err := s.db.WithContext(ctx).Where("id IN(?)", ids).Find(&res).Error
+	if err != nil {
+		s.log.Errorf("could not get store_products by ids: %v", err)
+		return res, domain.InternalServerError
+	}
+
+	return res, nil
 }

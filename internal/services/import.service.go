@@ -198,7 +198,7 @@ func (s *Services) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domai
 	}
 
 	// send fakt to 1C
-	err = s.DoRequest(context.Background(), reqFakt, constants.OnecPathPrihod)
+	err = s.DoRequestOnec(context.Background(), reqFakt, constants.OnecPathPrihod)
 	if err != nil {
 		s.log.Error("could not send prixod response: %v", err)
 	}
@@ -291,7 +291,7 @@ func (s *Services) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import)
 	}
 
 	// send fakt to 1C
-	err = s.DoRequest(context.Background(), reqFakt, constants.OnecPathPrihod)
+	err = s.DoRequestOnec(context.Background(), reqFakt, constants.OnecPathPrihod)
 	if err != nil {
 		s.log.Error("could not send request to 1C", err)
 	}
@@ -703,7 +703,7 @@ func (s *Services) ListImportDetailByLastUpdated(c *gin.Context, limit, offset i
 }
 
 // send request to 1C for answering import details
-func (s *Services) DoRequest(ctx context.Context, data any, url string) error {
+func (s *Services) DoRequestOnec(ctx context.Context, data any, url string) error {
 	client := &http.Client{
 		Timeout: 120 * time.Second,
 	}

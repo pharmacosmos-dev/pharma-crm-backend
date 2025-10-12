@@ -507,7 +507,7 @@ func (s *Services) SendReturn1C(returnId string) error {
 	}
 
 	// send return to 1C
-	err = s.DoRequest(context.Background(), returnData, "/vozvrat")
+	err = s.DoRequestOnec(context.Background(), returnData, "/vozvrat")
 	if err != nil {
 		s.log.Warn("ERROR on sending return to 1C: %v", err)
 		return err
@@ -668,7 +668,7 @@ func (s *Services) ConfirmReturn(returnId, storeId string, userId string) error 
 	}
 	if s.cfg.OnecApiUrl != "test" {
 		// send return to 1C
-		err = s.DoRequest(context.Background(), returnData, "/vozvrat")
+		err = s.DoRequestOnec(context.Background(), returnData, "/vozvrat")
 		if err != nil {
 			s.log.Warn("ERROR on sending return to 1C: %v", err)
 			return err

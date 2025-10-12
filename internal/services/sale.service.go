@@ -267,9 +267,14 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 		_ = tx.Rollback()
 		return nil, err
 	}
+	stage := constants.SaleStageOfdWaiting
+	if req.TaxFree {
+		// ...
+		stage = constants.SaleStageFinished
+	}
 
 	// update sale data
-	_, err = s.updateFinalizeSale(ctx, tx, req)
+	_, err = s.updateFinalizeSale(ctx, tx, req, stage)
 	if err != nil {
 		_ = tx.Rollback()
 		return nil, err
@@ -288,7 +293,7 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 	// Ensure response_data is a string
 	responseDataStr, ok := req.ResponseData.(string)
 	if !ok {
-		s.log.Errorf("response_data is not a valid string")
+		s.log.Error("response_data is not a valid string")
 		return nil, domain.BadRequestError
 	}
 
@@ -301,15 +306,24 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 		return nil, err
 	}
 
-	updates := map[string]any{}
+	// Check sale finish stages
+	if utils.In(sale.Stage, constants.FinishedSaleStages...) {
+		return nil, domain.SaleIsClosedError
+	}
 
+	updates := map[string]any{}
+	// Epos response error
 	if req.Error {
+
 		err = s.SaveEposResponse(ctx, req)
 		if err != nil {
 			return nil, err
 		}
-		updates["status"] = constants.GeneralStatusPending
-		err = s.updateSaleFields(ctx, req.SaleId, updates)
+
+		updates["stage"] = constants.SaleStageOfdCancelled
+		updates["updated_at"] = time.Now()
+
+		err = s.updateSaleFields(ctx, sale.Id, updates)
 		if err != nil {
 			return nil, err
 		}
@@ -323,104 +337,109 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 	if err != nil {
 		return nil, err
 	}
-	// parse epos success json to structure
-	var successResp domain.EposSuccessResponse
-	if err = json.Unmarshal([]byte(responseDataStr), &successResp); err != nil {
-		s.log.Error("could not parse epos success response: %v", err)
-		return nil, domain.BadRequestError
-	}
-	if successResp.Message.FiscalSign == "" {
-		successResp.Message.FiscalSign = successResp.Info.FiscalSign
-		successResp.Message.DateTime = successResp.Info.DateTime
-		successResp.Message.QrCodeUrl = successResp.Info.QrCodeURL
-		successResp.Message.QrCodeURL = successResp.Info.QrCodeURL
-		successResp.Message.ReceiptSeq = successResp.Info.ReceiptSeq
-		successResp.Message.TerminalId = successResp.Info.TerminalId
-	}
 
-	updates["fiscal_sign"] = successResp.Message.FiscalSign
-	updates["check_url"] = successResp.Message.QrCodeURL
-	updates["is_sent_to_tax"] = true
-
-	// set fiscal data if payment completed with payme
-	if sale.PaymentReceiptId != "" {
-		var paymentService domain.PaymentService
-		err = s.db.First(&paymentService, "store_id = ?", sale.StoreId).Error
-		if err != nil {
-			s.log.Error("could not get payment service: %v", err)
-			return nil, domain.InternalServerError
-		}
-		fiscalData := domain.FiscalData{
-			StatusCode: 0,
-			Message:    "accepted",
-			TerminalId: successResp.Message.TerminalId,
-			ReceiptId:  cast.ToInt(successResp.Message.ReceiptSeq),
-			Date:       successResp.Message.DateTime,
-			FiscalSign: successResp.Message.FiscalSign,
-			QrCodeUrl:  successResp.Message.QrCodeURL,
-		}
-		err = s.PaymeGoSetFiscalData(ctx, &fiscalData, sale, &paymentService)
-		if err != nil {
-			return nil, err
-		}
-
-	}
-
-	err = s.updateSaleFields(ctx, req.SaleId, updates)
+	fiscal, err := s.DecodeFiscalData(responseDataStr)
 	if err != nil {
 		return nil, err
 	}
 
+	updates["stage"] = constants.SaleStageOfdSent
+	updates["fiscal_sign"] = fiscal.FiscalSign
+	updates["check_url"] = fiscal.QrCodeUrl
+	updates["is_sent_to_tax"] = true
+
+	// start transaction
+	tx := s.db.Begin()
+
+	// Payment
+	err = s.Payment(ctx, tx, sale, &fiscal)
+	if err != nil {
+		_ = tx.Rollback()
+		return nil, err
+	}
+
+	updates["stage"] = constants.SaleStagePayFinished
+
+	// inventory store_product
+	err = s.ApplySaleInventoryUpdate(ctx, tx, sale)
+	if err != nil {
+		_ = tx.Rollback()
+		return nil, err
+	} else {
+		updates["stage"] = constants.SaleStageFinished
+	}
+
+	err = s.updateSaleFields(ctx, req.SaleId, updates)
+	if err != nil {
+		_ = tx.Rollback()
+		return nil, err
+	}
+
 	// create or get sale
-	res, err := s.CreateSale(ctx, s.db, &domain.SaleRequest{
+	res, err := s.CreateSale(ctx, tx, &domain.SaleRequest{
 		EmployeeId:         user.UserId,
 		StoreId:            sale.StoreId,
 		CashBoxOperationId: sale.CashBoxOperationId,
 		CashboxId:          sale.CashboxId,
 	})
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, err
+	}
+
+	if err = tx.Commit().Error; err != nil {
+		s.log.Errorf("could not commit epos-result transaction: %v", err)
+		return nil, domain.InternalServerError
 	}
 
 	return res, nil
 }
 
-// Process payment type
-func (s *Services) processPayment(
-	ctx context.Context,
-	tx *gorm.DB,
-	sale *domain.Sale,
-	item domain.FinalPaymentType,
-) error {
-	if item.Type == constants.PaymentTypeApp && utils.In(item.AppType, constants.PaymentAppTypes...) {
-		var paymentService *domain.PaymentService
-		paymentService, err := s.GetPaymentServiceByStoreId(tx, sale.StoreId, item.AppType)
-		if err != nil {
-			s.log.Error("could not get payment service by store id: (%v)", sale.StoreId)
-			return err
-		}
+func (s *Services) ApplySaleInventoryUpdate(ctx context.Context, tx *gorm.DB, sale *domain.Sale) error {
+	// Single query with JOIN to get both cart items and store product quantities
+	type CartItemWithProduct struct {
+		domain.CartItem
+		StoreProductUnitQuantity int `gorm:"column:sp_unit_quantity"`
+	}
 
-		paymentHandlers := map[string]func(ctx context.Context, tx *gorm.DB, service *domain.PaymentService, data *domain.FinalPaymentType, sale *domain.Sale) (map[string]any, error){
-			constants.PaymentTypeClick: s.ClickPass,
-			constants.PaymentTypePayme: s.PaymeGo,
-			constants.PaymentTypeUzum:  s.UzumFastPay,
-			constants.PaymentTypeAlif:  s.AlifPay,
-		}
+	var cartItemsWithProducts []CartItemWithProduct
+	err := tx.WithContext(ctx).
+		Table("cart_items ci").
+		Select("ci.*, sp.unit_quantity as sp_unit_quantity").
+		Joins("JOIN store_products sp ON sp.id = ci.store_product_id").
+		Where("ci.sale_id = ?", sale.Id).
+		Find(&cartItemsWithProducts).Error
 
-		// get payment handlers for integration app services
-		handler, exists := paymentHandlers[item.AppType]
-		if !exists {
-			return domain.InvalidPaymentTypeError
-		}
+	if err != nil {
+		s.log.Errorf("could not get cart_items with products: %v", err)
+		return domain.InternalServerError
+	}
 
-		// check if sale_payment is created
-		var resp map[string]any
-		resp, err = handler(ctx, tx, paymentService, &item, sale)
-		if err != nil || cast.ToString(resp["error_code"]) != "0" {
-			return err
+	for _, item := range cartItemsWithProducts {
+		if item.UnitQuantity > item.StoreProductUnitQuantity {
+			s.log.Warnf("Product not enough cart_item(%s) -> %d, store_product(%s) -> %d", item.Id, item.UnitQuantity, item.StoreProductId, item.StoreProductUnitQuantity)
+			return domain.NotEnoughProductError
 		}
-	} else if !utils.In(item.Type, constants.PaymentTypes...) {
-		return domain.InvalidPaymentTypeError
+	}
+
+	query := `
+	UPDATE store_products sp
+	SET unit_quantity = unit_quantity - ci.unit_quantity
+	FROM cart_items ci
+	WHERE sp.id = ci.store_product_id 
+	AND ci.sale_id = ?
+	AND sp.unit_quantity >= ci.unit_quantity
+	`
+
+	qb := tx.WithContext(ctx).Exec(query, sale.Id)
+
+	if qb.Error != nil {
+		s.log.Errorf("could not update store_product unit_quantity: %v", qb.Error)
+		return domain.InternalServerError
+	}
+
+	if qb.RowsAffected != int64(len(cartItemsWithProducts)) {
+		return domain.NotEnoughProductError
 	}
 
 	return nil
@@ -438,10 +457,13 @@ func (s *Services) matchingPaymentTypeSum(ctx context.Context, req *domain.Final
 			req.Uzcard = item.Amount
 		} else if item.Type == constants.PaymentTypeApp && item.AppType == constants.PaymentTypeClick {
 			req.Click = item.Amount
+			*req.OtpCode = item.OtpData
 		} else if item.Type == constants.PaymentTypeApp && item.AppType == constants.PaymentTypePayme {
 			req.Payme = item.Amount
+			*req.OtpCode = item.OtpData
 		} else if item.Type == constants.PaymentTypeApp && item.AppType == constants.PaymentTypeAlif {
 			req.Alif = item.Amount
+			*req.OtpCode = item.OtpData
 		} else {
 			return req, domain.InvalidPaymentTypeError
 		}
@@ -459,7 +481,7 @@ func (s *Services) matchingPaymentTypeSum(ctx context.Context, req *domain.Final
 	return req, nil
 }
 
-func (s *Services) updateFinalizeSale(ctx context.Context, tx *gorm.DB, req *domain.FinalSale) (*domain.Sale, error) {
+func (s *Services) updateFinalizeSale(ctx context.Context, tx *gorm.DB, req *domain.FinalSale, stage int) (*domain.Sale, error) {
 	var res domain.Sale
 
 	query := `
@@ -469,12 +491,14 @@ func (s *Services) updateFinalizeSale(ctx context.Context, tx *gorm.DB, req *dom
 			total_discount = (SELECT SUM(discount_amount) FROM cart_items WHERE sale_id = ?),
 			status = ?,
 			stage = ?,
-			cash = ?, 
-			humo = ?, 
+			cash = ?,
+			humo = ?,
 			uzcard = ?,
-			click = ?, 
-			payme = ?, 
+			click = ?,
+			payme = ?,
 			alif = ?,
+			tax_free = ?,
+			otp_code = ?,
 			updated_at = NOW()
 	WHERE id = ?;
 	`
@@ -482,13 +506,15 @@ func (s *Services) updateFinalizeSale(ctx context.Context, tx *gorm.DB, req *dom
 		req.SaleID,
 		req.SaleID,
 		constants.GeneralStatusCompleted,
-		constants.SaleStageOfdWaiting,
+		stage,
 		req.Cash,
 		req.Humo,
 		req.Uzcard,
 		req.Click,
 		req.Payme,
 		req.Alif,
+		req.TaxFree,
+		req.OtpCode,
 		req.SaleID,
 	).Scan(&res).Error
 	if err != nil {
@@ -612,7 +638,7 @@ func (s *Services) AcceptOnlineSale(req *domain.ConfirmOnlineSaleRequest) error 
 	requestData, err := json.Marshal(gin.H{"order_id": sale.SaleNumber})
 	var response *http.Response
 	url := s.cfg.NoorApiUrl + fmt.Sprintf("/orders/vendor/%d/confirm", sale.SaleNumber)
-	err = DoRequest(&response, "PATCH", url, requestData, headers)
+	err = s.DoRequest(&response, "PATCH", url, requestData, headers)
 	if err != nil {
 		s.log.Warn("ERROR on sending confirm request: %v", err)
 		return err
@@ -633,20 +659,18 @@ func (s *Services) CancelOnlineSale(req *domain.ConfirmOnlineSaleRequest) error 
 	// Ensure the transaction is rolled back if any error occurs
 	defer func() {
 		if p := recover(); p != nil {
-			tx.Rollback()
-			panic(p)
-		} else if err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 		}
 	}()
-	defer recoverTransaction(tx, s.log)
-	defer RollbackIfError(tx, &err)
+
 	var sale *domain.Sale
 	err = tx.First(&sale, "id = ?", req.SaleID).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			_ = tx.Rollback()
 			return errors.New("sale.not.found")
 		}
+		_ = tx.Rollback()
 		return err
 	}
 	// accepted online sale
@@ -666,6 +690,7 @@ func (s *Services) CancelOnlineSale(req *domain.ConfirmOnlineSaleRequest) error 
 		req.SaleID).Error
 
 	if err != nil {
+		_ = tx.Rollback()
 		s.log.Warn("ERROR on getting online sale count: %v", err)
 		return err
 	}
@@ -675,10 +700,15 @@ func (s *Services) CancelOnlineSale(req *domain.ConfirmOnlineSaleRequest) error 
 		"Content-Type":  "application/json",
 	}
 	requestData, err := json.Marshal(gin.H{"order_id": sale.SaleNumber})
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("could not parse online sale response: %v", err)
+	}
 	var response *http.Response
 	url := s.cfg.NoorApiUrl + fmt.Sprintf("/orders/vendor/%d/cancel", sale.SaleNumber)
-	err = DoRequest(&response, "PATCH", url, requestData, headers)
+	err = s.DoRequest(&response, "PATCH", url, requestData, headers)
 	if err != nil {
+		_ = tx.Rollback()
 		s.log.Warn("ERROR on sending confirm request: %v", err)
 		return err
 	}
@@ -733,6 +763,14 @@ func (s *Services) updateSaleField(ctx context.Context, tx *gorm.DB, field strin
 	return &sale, nil
 }
 
+func (s *Services) UpdateSalePaymentType(ctx context.Context, req *domain.ChangePaymentTypeRequest) error {
+
+	// Should write update payment type logic
+	// ...
+
+	return nil
+}
+
 // region Get
 
 func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleResponse, error) {
@@ -760,8 +798,10 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 		Payme              float64    `gorm:"payme"`
 		Alif               float64    `gorm:"alif"`
 		IsDelivered        bool       `gorm:"is_delivered"`
+		TaxFree            bool       `gorm:"tax_free"`
 		FiscalSign         string     `gorm:"fiscal_sign"`
 		CheckUrl           string     `gorm:"check_url"`
+		OtpCode            string     `gorm:"otp_code"`
 		IsSentToTax        string     `gorm:"is_sent_to_tax"`
 		CreatedAt          *time.Time `gorm:"created_at"`
 		UpdatedAt          *time.Time `gorm:"updated_at"`
@@ -811,6 +851,8 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 			"s.fiscal_sign",
 			"s.check_url",
 			"s.is_sent_to_tax",
+			"s.tax_free",
+			"s.otp_code",
 			"s.created_at",
 			"s.updated_at",
 			"s.completed_at",
@@ -866,6 +908,8 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 		FiscalSign:         tempSale.FiscalSign,
 		CheckUrl:           tempSale.CheckUrl,
 		IsSentToTax:        tempSale.IsSentToTax,
+		TaxFree:            tempSale.TaxFree,
+		OtpCode:            tempSale.OtpCode,
 		CreatedAt:          tempSale.CreatedAt,
 		UpdatedAt:          tempSale.UpdatedAt,
 		CompletedAt:        tempSale.CompletedAt,
@@ -916,7 +960,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 func (s *Services) GetSaleById(ctx context.Context, saleId string) (*domain.Sale, error) {
 	var sale domain.Sale
 
-	err := s.db.WithContext(ctx).Preload("Employee").First(&sale, "id = ?", saleId).Error
+	err := s.db.WithContext(ctx).First(&sale, "id = ?", saleId).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return &sale, domain.NotFoundError
@@ -1284,9 +1328,9 @@ func (s *Services) GetSaleList(ctx context.Context, params *domain.SaleQueryPara
 }
 
 // Get Payment service with store id and payment type  if status is active
-func (s *Services) GetPaymentServiceByStoreId(tx *gorm.DB, storeId, paymentType string) (*domain.PaymentService, error) {
+func (s *Services) GetPaymentServiceByStoreId(ctx context.Context, tx *gorm.DB, storeId, paymentType string) (*domain.PaymentService, error) {
 	var res domain.PaymentService
-	err := tx.
+	err := tx.WithContext(ctx).
 		Where("store_id = ?", storeId).
 		Where("type = ? AND is_active = true", paymentType).
 		First(&res).Error
@@ -1798,6 +1842,39 @@ func (s *Services) DmedGiveReceipt(cartItems []*domain.CartItemForDMED, markingD
 		}
 	}
 	return nil
+}
+
+func (s *Services) DecodeFiscalData(reqJsonStr string) (domain.FiscalData, error) {
+	var fiscal domain.FiscalData
+	// parse epos success json to structure
+	var successResp domain.EposSuccessResponse
+	if err := json.Unmarshal([]byte(reqJsonStr), &successResp); err != nil {
+		s.log.Error("could not parse epos success response: %v", err)
+		return fiscal, domain.BadRequestError
+	}
+	if successResp.Info.FiscalSign != "" {
+		fiscal = domain.FiscalData{
+			StatusCode: 0,
+			Message:    "accepted",
+			TerminalId: successResp.Info.TerminalId,
+			ReceiptId:  cast.ToInt(successResp.Info.ReceiptSeq),
+			Date:       successResp.Info.DateTime,
+			FiscalSign: successResp.Info.FiscalSign,
+			QrCodeUrl:  successResp.Info.QrCodeURL,
+		}
+	} else {
+		fiscal = domain.FiscalData{
+			StatusCode: 0,
+			Message:    "accepted",
+			TerminalId: successResp.Message.TerminalId,
+			ReceiptId:  cast.ToInt(successResp.Message.ReceiptSeq),
+			Date:       successResp.Message.DateTime,
+			FiscalSign: successResp.Message.FiscalSign,
+			QrCodeUrl:  successResp.Message.QrCodeURL,
+		}
+	}
+
+	return fiscal, nil
 }
 
 func (s *Services) generateDisplayId() int {

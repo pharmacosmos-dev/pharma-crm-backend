@@ -17,11 +17,16 @@ const (
 	DateTimeFormatRFC3339                   = "2006-01-02T15:04:05"
 	DefaultLimit                            = 10
 	DefaultOffset                           = 0
+	SumsToTiyns                             = 100
+	NoValue                                 = ""
+	HeaderContentType                       = "Content-Type"
+	HeaderAccept                            = "Accept"
 	ContentTypeJson                         = "application/json"
 	ContentTypeFormUrlEncoded               = "application/x-www-form-urlencoded"
 	AuthBasic                               = "Basic"
 	AuthBearer                              = "Bearer"
 	HeaderXAuth                             = "X-Auth"
+	HeaderAuth                              = "Auth"
 	HeaderHost                              = "Host"
 	DiscountTypePercent                     = "percent"
 	// Languages
@@ -59,13 +64,15 @@ const (
 	SaleStageOfdCancelled   = 5
 	SaleStageOfdSent        = 6
 	SaleStagePayWaiting     = 7
-	SaleStageFinished       = 8
-	SaleStageReturning      = 9
-	SaleStageReturnedFinish = 10
+	SaleStagePayFinished    = 8
+	SaleStageFinished       = 9
+	SaleStageReturning      = 10
+	SaleStageReturnedFinish = 11
 )
 
 var (
 	FinishedSaleStages = []int{SaleStageFinished, SaleStageReturnedFinish}
+	PendingSaleStages  = []int{SaleStageNew, SaleStagePending, SaleStageReturning}
 )
 
 var SaleStages = map[int]map[string]string{
@@ -163,9 +170,9 @@ const (
 	GeneralStatusChecking   = "checking"
 	GeneralStatusDrafted    = "drafted"
 	GeneralStatusWriteOff   = "writeoff"
-	GeneralStatusSentOnec   = ""
-	GeneralStatusDeclined   = ""
-	GeneralStatusTaxFree    = ""
+	GeneralStatusSentOnec   = "sent-to-1c"
+	GeneralStatusDeclined   = "DECLINED"
+	GeneralStatusTaxFree    = "tax_free"
 
 	// Online sale status
 	SaleOnlineStageDefault   = 0
@@ -211,4 +218,96 @@ const (
 	RoleDirector      = "DIRECTOR"
 	RoleCashier       = "CASHIER"
 	RoleHeadOfCashier = "HEADOFCASHIER"
+)
+
+// end region
+
+// region Payme
+const (
+	ActionCheckPerformTransaction = "CheckPerformTransaction"
+	ActionCreateTransaction       = "CreateTransaction"
+	ActionCheckTransaction        = "CheckTransaction"
+	ActionCancelTransaction       = "CancelTransaction"
+	ActionPerformTransaction      = "PerformTransaction"
+	ActionCreateCard              = "cards.create"
+	ActionGetVerifyCode           = "cards.get_verify_code"
+	ActionVerify                  = "cards.verify"
+	ActionCheck                   = "cards.check"
+	ActionCardsRemove             = "cards.remove"
+	ActionCreateReceipt           = "receipts.create"
+	ActionPayReceipt              = "receipts.pay"
+	ActionSetFiscalData           = "receipts.set_fiscal_data"
+	ActionCancelReceipt           = "receipts.cancel"
+	ActionConfirmHold             = "receipts.confirm_hold"
+)
+
+const (
+	PaymeMethodNotPostErrorCode           = -32300
+	PaymeJSONParseErrorCode               = -32700
+	PaymeMissingRequiredFieldsErrorCode   = -32600
+	PaymeMethodNotFoundErrorCode          = -32601
+	PaymeInsufficientFundsErrorCode       = -31630
+	PaymeCardNotFoundError                = -31400
+	PaymeInsufficientPrivilegesErrorCode  = -32504
+	PaymeSystemErrorCode                  = -32400
+	PaymeInvalidAmountErrorCode           = -31001
+	PaymeTransactionNotFoundErrorCode     = -31003
+	PaymeCannotCancelTransactionErrorCode = -31007
+	PaymeCannotPerformOperationErrorCode  = -31008
+	PaymeServerNotOperationalErrorCode    = -31100
+	PaymeTemporarilyUnavailableErrorCode  = -31625
+	PaymeUserInputErrorsCode              = -31050
+	PaymeIncorrectOTPError                = -31103
+	PaymeOTPExpiredErrorCode              = -31101
+	PaymeInvalidExpiryDateErrorCode       = -31300
+)
+
+const (
+	PaymeTransactionStateCreated              = 1
+	PaymeTransactionStateFinished             = 2
+	PaymeTransactionStateCancelled            = -1
+	PaymeTransactionStateCancelledAfterFinish = -2
+)
+
+const (
+	CheckPerformTransaction = "CheckPerformTransaction"
+	CreateTransaction       = "CreateTransaction"
+	PerformTransaction      = "PerformTransaction"
+	CancelTransaction       = "CancelTransaction"
+)
+
+const (
+	PaymeRecipientNotFoundOrInactive = 1  // One or more recipients have not been found or are inactive in Pay me Business.
+	PaymeDebitOperationError         = 2  // An error occurred when performing a debit transaction at the processing center.
+	PaymeTransactionError            = 3  // Transaction execution error.
+	PaymeTransactionTimeout          = 4  // The transaction was canceled due to a timeout.
+	PaymeRefund                      = 5  // Refund of money.
+	PaymeUnknownError                = 10 // Unknown error.
+)
+
+// end region
+
+// region Click
+
+// methods
+const (
+	ActionClickPassCreate       = "click_pass"
+	ActionClickPassCheck        = "click_pass_check"
+	ActionClickPassCancel       = "click_pass_cancel"
+	ActionClickPassConfirm      = "click_pass_confirm"
+	ActionClickPassConfirmation = "click_pass_confirmation"
+)
+
+const (
+	ClickPassCreatePath = "/click_pass/payment"
+	ClickPassCheckPath  = "/payment/status/"
+	ClickPassCancelPath = "/payment/reversal/"
+	
+)
+
+const (
+	ClickNotPaidErrorCode      = -1 // < 0 // Error (details in error_note)
+	ClickPaymentCreateCode     = 0  // Payment created
+	ClickPaymentProcessingCode = 1  // Processing
+	ClickPaymentSucceedCode    = 2  // Payment successful
 )

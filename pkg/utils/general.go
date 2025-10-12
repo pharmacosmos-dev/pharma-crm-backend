@@ -2,11 +2,15 @@ package utils
 
 import (
 	"fmt"
+	"io"
 	"math"
 	"math/rand"
+	"net/http"
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/pharma-crm-backend/pkg/logger"
 )
 
 // GenerateCode generates a 6-digit code where digits can repeat and leading zeros are allowed.
@@ -31,6 +35,52 @@ func GenerateMaterialCode() int {
 func GenerateDocumentNumber() string {
 	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	return fmt.Sprintf("PN-%06d", rng.Intn(1_000_000_000))
+}
+
+// Close is just a util function that makes the source code look leaner
+func Close(target io.Closer, l logger.Interface) {
+	if target == nil {
+		return
+	}
+
+	err := target.Close()
+	if err != nil {
+		l.Error(err)
+	}
+}
+
+func Abs(val int) int {
+	if val < 0 {
+		return -val
+	}
+
+	return val
+}
+
+// ConvertRequestToCurl converts an HTTP request to a curl command
+func ConvertRequestToCurl(req *http.Request) string {
+	curlCmd := "curl -X " + req.Method
+
+	// Add headers
+	req.Header.Del("Host") // Remove Host header, curl will add it automatically
+	for key, values := range req.Header {
+		for _, value := range values {
+			curlCmd += " -H '" + key + ": " + value + "'"
+		}
+	}
+
+	// Add request body if present
+	if req.Body != nil {
+		bodyBytes := make([]byte, req.ContentLength)
+		_, _ = req.Body.Read(bodyBytes)
+		_ = req.Body.Close()
+		curlCmd += " -d '" + strings.ReplaceAll(string(bodyBytes), "'", `\'`) + "'"
+	}
+
+	// Add URL
+	curlCmd += " '" + req.URL.String() + "'"
+
+	return curlCmd
 }
 
 func DefineProductSearchQuery(search string) string {

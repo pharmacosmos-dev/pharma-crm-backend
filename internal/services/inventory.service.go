@@ -671,7 +671,7 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 	data1C.Dok.DocumentNumber = "NP-" + cast.ToString(res.PublicId)
 
 	// send inventory products data to 1C
-	err = s.DoRequest(context.Background(), data1C, "/inventar")
+	err = s.DoRequestOnec(context.Background(), data1C, "/inventar")
 	if err != nil {
 		s.log.Warn("ERROR on sending inventory: %v", err)
 		return err
@@ -767,7 +767,7 @@ func (s *Services) SendInventory1C(inventoryID string) error {
 	data1C.Dok.DocumentNumber = "NP-" + cast.ToString(inventory.PublicID)
 
 	// send inventory products data to 1C
-	err = s.DoRequest(context.Background(), data1C, "/inventar")
+	err = s.DoRequestOnec(context.Background(), data1C, "/inventar")
 	if err != nil {
 		s.log.Warn("ERROR on sending inventory: %v", err)
 		return err

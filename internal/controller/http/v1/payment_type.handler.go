@@ -1,15 +1,17 @@
 package v1
 
 import (
+	"context"
 	"fmt"
-	"github.com/xuri/excelize/v2"
-	"net/http"
 	"strconv"
 	"time"
+
+	"github.com/xuri/excelize/v2"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
 )
 
@@ -529,18 +531,20 @@ func (h *PaymentTypeHandler) DeletePaymentService(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /payment-type/change-payment-type [put]
 func (h *PaymentTypeHandler) ChangePaymentType(c *gin.Context) {
-	var req domain.ChangePaymentTypeRequest
-
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": err.Error()})
-		return
-	}
-
-	err := h.service.UpdatePaymentType(req.SalePaymentID, req.PaymentTypeID)
+	var body domain.ChangePaymentTypeRequest
+	err := c.ShouldBindJSON(&body)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update payment type", "details": err.Error()})
+		handleServiceResponse(c, nil, domain.InvalidRequestBodyError)
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	err = h.service.UpdateSalePaymentType(ctx, &body)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Payment type updated successfully"})
+	handleResponse(c, OK, "UPDATED")
 }

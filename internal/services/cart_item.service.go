@@ -22,7 +22,7 @@ func (s *Services) CreateCartItem(ctx context.Context, user *domain.EmployeeClai
 	}
 
 	// check sale status
-	if sale.Status == constants.GeneralStatusCompleted {
+	if !utils.In(sale.Stage, constants.PendingSaleStages...) {
 		return nil, domain.SaleIsClosedError
 	}
 
@@ -388,6 +388,16 @@ func (s *Services) getCartItemsByIds(ctx context.Context, ids []string) ([]domai
 	return cartItems, nil
 }
 
+func (s *Services) getCartItemsForFinal(ctx context.Context, saleId string) ([]domain.CartItem, error) {
+	var res []domain.CartItem
+	err := s.db.WithContext(ctx).Where("sale_id = ?", saleId).Find(&res).Error
+	if err != nil {
+		s.log.Errorf("could not get cart_items for final: %v", err)
+		return res, domain.InternalServerError
+	}
+	return res, nil
+}
+
 // region Update
 
 func (s *Services) UpdateCartItemField(field string, value string, idField, idValue string) (*domain.CartItem, error) {
@@ -422,6 +432,17 @@ func (s *Services) updateExistsCartItemQuantity(ctx context.Context, req *domain
 }
 
 func (s *Services) UpdateCartItemDiscount(ctx context.Context, saleId string, req *domain.CartItemDiscountRequest) error {
+	// Get sale
+	sale, err := s.GetSaleById(ctx, saleId)
+	if err != nil {
+		return err
+	}
+
+	// check sale status
+	if !utils.In(sale.Stage, constants.PendingSaleStages...) {
+		return domain.SaleIsClosedError
+	}
+
 	// Get cart item total data
 	cartItemTotal, err := s.GetCartItemsTotalAmount(ctx, saleId)
 	if err != nil {
@@ -491,6 +512,17 @@ func (s *Services) UpdateCartItemQuantity(ctx context.Context, req *domain.CartI
 	if err != nil {
 		return nil, err
 	}
+
+	sale, err := s.GetSaleById(ctx, cartItem.SaleId)
+	if err != nil {
+		return nil, err
+	}
+
+	// check sale status
+	if !utils.In(sale.Stage, constants.PendingSaleStages...) {
+		return nil, domain.SaleIsClosedError
+	}
+
 	// get store_product by id
 	storeProduct, err := s.GetStoreProductByID(ctx, req.StoreProductId)
 	if err != nil {
@@ -553,7 +585,8 @@ func (s *Services) UpdateCartItemMarkings(ctx context.Context, id string, req *d
 	}
 
 	// check if sale is completed
-	if sale.Status == constants.GeneralStatusCompleted {
+	// check sale status
+	if !utils.In(sale.Stage, constants.PendingSaleStages...) {
 		return domain.SaleIsClosedError
 	}
 
@@ -599,8 +632,7 @@ func (s *Services) updateCartItemsMarkingCount(ctx context.Context, tx *gorm.DB,
 	if len(req) == 0 {
 		return nil
 	}
-	var err error
-	defer RollbackIfError(tx, &err)
+
 	// Build VALUES part: ('uuid1', 5), ('uuid2', 10), ...
 	var valueStrings []string
 	for _, r := range req {
@@ -619,7 +651,7 @@ func (s *Services) updateCartItemsMarkingCount(ctx context.Context, tx *gorm.DB,
 	`, strings.Join(valueStrings, ","))
 
 	// Execute raw SQL
-	err = tx.WithContext(ctx).Exec(query).Error
+	err := tx.WithContext(ctx).Exec(query).Error
 	if err != nil {
 		s.log.Error("could not update cart_item marking_count: %v", err)
 		return domain.InternalServerError
@@ -651,8 +683,8 @@ func (s *Services) DeleteCartItem(ctx context.Context, id string) error {
 		return err
 	}
 
-	// check sale completed status
-	if sale.Status == constants.GeneralStatusCompleted {
+	// check sale stage
+	if !utils.In(sale.Stage, constants.PendingSaleStages...) {
 		return domain.SaleIsClosedError
 	}
 
@@ -679,7 +711,8 @@ func (s *Services) DeleteCartItemMarkings(ctx context.Context, id string, req *d
 	}
 
 	// check if sale is completed
-	if sale.Status == constants.GeneralStatusCompleted {
+	// check sale status
+	if !utils.In(sale.Stage, constants.PendingSaleStages...) {
 		return domain.SaleIsClosedError
 	}
 
@@ -713,8 +746,8 @@ func (s *Services) DeleteCartItems(ctx context.Context, ids []string) error {
 		return err
 	}
 
-	// check sale completed status
-	if sale.Status == constants.GeneralStatusCompleted {
+	// check sale status
+	if !utils.In(sale.Stage, constants.PendingSaleStages...) {
 		return domain.SaleIsClosedError
 	}
 

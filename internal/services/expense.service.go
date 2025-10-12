@@ -280,7 +280,7 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string) error {
 	}
 
 	// send fakt to 1C
-	err = s.DoRequest(context.Background(), expenseData, "/rasxod")
+	err = s.DoRequestOnec(context.Background(), expenseData, "/rasxod")
 	if err != nil {
 		s.log.Warn("ERROR on send rasxod request: %v", err)
 		return err
@@ -353,7 +353,7 @@ func (s *Services) sendReportWithNumberTo1C(store *domain.Store, date, dockNumbe
 	}
 
 	// send fakt to 1C
-	err = s.DoRequest(context.Background(), expenseData, "/rasxod")
+	err = s.DoRequestOnec(context.Background(), expenseData, "/rasxod")
 	if err != nil {
 		s.log.Warn("ERROR on send rasxod request: %v", err)
 		return err
