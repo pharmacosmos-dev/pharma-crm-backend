@@ -881,7 +881,6 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 		CPhone     string `gorm:"c_phone"`
 	}
 
-	var res domain.SaleResponse
 	// get sale info
 	err := s.db.
 		Select(
@@ -935,7 +934,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 		Joins("LEFT JOIN cash_boxes ca ON s.cashbox_id = ca.id").
 		Joins("LEFT JOIN employees em ON s.employee_id = em.id").
 		Joins("LEFT JOIN customers c ON s.customer_id = c.id").
-		Take(&res).Error
+		Take(&tempSale).Error
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -945,7 +944,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 		return nil, domain.InternalServerError
 	}
 
-	res = domain.SaleResponse{
+	res := domain.SaleResponse{
 		Id:                 tempSale.Id,
 		DisplayId:          tempSale.DisplayId,
 		ParentId:           tempSale.ParentId,
