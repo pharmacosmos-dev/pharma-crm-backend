@@ -1183,7 +1183,8 @@ func (s *Services) GetSalesStats(ctx context.Context, params *domain.SaleQueryPa
 			"SUM(s.payme) AS total_payme",
 			"SUM(s.alif) AS total_alif",
 			"COUNT(*) AS total_count",
-		).Table("sales s")
+		).Table("sales s").
+		Joins("stores st ON s.store_id = st.id")
 
 	if params.Cash {
 		qb = qb.Where("s.cash > 0")
@@ -1230,8 +1231,7 @@ func (s *Services) GetSalesStats(ctx context.Context, params *domain.SaleQueryPa
 			qb = qb.Where("s.sale_number = ?", num)
 		} else {
 			// otherwise text
-			qb = qb.Joins("stores st ON s.store_id = st.id").
-				Where("st.name ILIKE ?", "%"+params.Search+"%")
+			qb = qb.Where("st.name ILIKE ?", "%"+params.Search+"%")
 		}
 	}
 	if params.TotalAmountFrom > 0 {
