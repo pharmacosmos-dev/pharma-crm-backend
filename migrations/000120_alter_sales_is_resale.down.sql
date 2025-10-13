@@ -1,0 +1,2 @@
+ALTER TABLE IF EXISTS sales
+    DROP COLUMN IF EXISTS is_resale;

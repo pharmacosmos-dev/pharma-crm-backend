@@ -1,0 +1,5 @@
+ALTER TABLE IF EXISTS product_barcodes
+    ADD COLUMN IF NOT EXISTS mxik VARCHAR(50);
+
+ALTER TABLE IF EXISTS product_barcodes
+    ADD COLUMN IF NOT EXISTS unit_code VARCHAR(50);

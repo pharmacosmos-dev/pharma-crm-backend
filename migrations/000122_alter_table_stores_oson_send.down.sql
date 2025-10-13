@@ -1,0 +1,2 @@
+ALTER TABLE IF EXISTS stores
+    DROP COLUMN IF EXISTS oson_send;
