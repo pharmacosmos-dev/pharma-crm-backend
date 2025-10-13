@@ -112,6 +112,11 @@ var SaleStages = map[int]map[string]string{
 		"ru": "Ожидание оплаты",
 		"uz": "To‘lov kutilmoqda",
 	},
+	SaleStagePayFinished: {
+		"en": "Payment finished",
+		"ru": "Оплата завершена",
+		"uz": "To‘lov yakunlandi",
+	},
 	SaleStageFinished: {
 		"en": "Finished",
 		"ru": "Завершено",

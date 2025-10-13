@@ -51,14 +51,16 @@ func (s *Services) CreateReceiptAndPay(
 	}
 
 	// set fiscal data
-	go s.SetFiscalDataReceipt(
-		ctx, domain.NewReceiptSetFiscalRequestDto(
-			receipt.Receipt.Id,
-			*fiscal,
-		),
-		*sale,
-		token,
-	)
+	if fiscal != nil {
+		go s.SetFiscalDataReceipt(
+			ctx, domain.NewReceiptSetFiscalRequestDto(
+				receipt.Receipt.Id,
+				*fiscal,
+			),
+			*sale,
+			token,
+		)
+	}
 
 	return response, nil
 }

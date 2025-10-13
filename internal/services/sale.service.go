@@ -267,9 +267,16 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 		_ = tx.Rollback()
 		return nil, err
 	}
-	stage := constants.SaleStageOfdWaiting
+	stage := sale.Stage
 	if req.TaxFree {
-		// ...
+		sale = s.getSalePayAmounts(sale, req)
+
+		err = s.Payment(ctx, tx, sale, nil)
+		if err != nil {
+			_ = tx.Rollback()
+			return nil, err
+		}
+
 		stage = constants.SaleStageFinished
 	}
 
@@ -311,71 +318,115 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 		return nil, domain.SaleIsClosedError
 	}
 
-	updates := map[string]any{}
 	// Epos response error
 	if req.Error {
+		if sale.Stage < constants.SaleStageOfdCancelled {
+			err = s.SaveEposResponse(ctx, req)
+			if err != nil {
+				return nil, err
+			}
+			updates := map[string]any{
+				"stage":      constants.SaleStageOfdCancelled,
+				"updated_at": time.Now(),
+			}
 
-		err = s.SaveEposResponse(ctx, req)
-		if err != nil {
-			return nil, err
-		}
-
-		updates["stage"] = constants.SaleStageOfdCancelled
-		updates["updated_at"] = time.Now()
-
-		err = s.updateSaleFields(ctx, sale.Id, updates)
-		if err != nil {
-			return nil, err
+			err = s.updateSaleFields(ctx, s.db, sale.Id, updates)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		return sale, nil
 	}
 
-	// Save to epos_responses table
-	req.Status = 1
-	err = s.SaveEposResponse(ctx, req)
-	if err != nil {
-		return nil, err
-	}
-
+	// Decode Fiscal Data
 	fiscal, err := s.DecodeFiscalData(responseDataStr)
 	if err != nil {
 		return nil, err
 	}
 
-	updates["stage"] = constants.SaleStageOfdSent
-	updates["fiscal_sign"] = fiscal.FiscalSign
-	updates["check_url"] = fiscal.QrCodeUrl
-	updates["is_sent_to_tax"] = true
-
-	// start transaction
+	// Start transaction
 	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			s.log.Errorf("Panic recovered in EposResult: %v", r)
+		}
+	}()
 
-	// Payment
-	err = s.Payment(ctx, tx, sale, &fiscal)
-	if err != nil {
-		_ = tx.Rollback()
-		return nil, err
-	}
+	updates := map[string]any{}
 
-	updates["stage"] = constants.SaleStagePayFinished
+	if sale.Stage < constants.SaleStageOfdSent {
+		req.Status = 1
+		err = s.SaveEposResponse(ctx, req)
+		if err != nil {
+			_ = tx.Rollback()
+			return nil, err
+		}
 
-	// inventory store_product
-	err = s.ApplySaleInventoryUpdate(ctx, tx, sale)
-	if err != nil {
-		_ = tx.Rollback()
-		return nil, err
+		updates["stage"] = constants.SaleStageOfdSent
+		updates["fiscal_sign"] = fiscal.FiscalSign
+		updates["check_url"] = fiscal.QrCodeUrl
+		updates["is_sent_to_tax"] = true
+		updates["updated_at"] = time.Now()
+
+		// Save fiscal data immediately within transaction
+		err = s.updateSaleFields(ctx, tx, sale.Id, updates)
+		if err != nil {
+			_ = tx.Rollback()
+			return nil, err
+		}
+
+		// Update sale object for next stages
+		sale.Stage = constants.SaleStageOfdSent
+
+		// Clear updates for next stages
+		updates = map[string]any{}
+
 	} else {
+		fiscal, err = s.getFiscalDataBySaleId(ctx, sale.Id)
+		if err != nil {
+			_ = tx.Rollback()
+			return nil, err
+		}
+	}
+
+	// Stage 2: Handle Payment (stages 7-8)
+	if sale.Stage < constants.SaleStagePayFinished {
+		err = s.Payment(ctx, tx, sale, &fiscal)
+		if err != nil {
+			_ = tx.Rollback()
+			return nil, err
+		}
+		updates["stage"] = constants.SaleStagePayFinished
+		updates["updated_at"] = time.Now()
+	} else {
+		s.log.Infof("Payment already processed for sale %s, skipping", sale.Id)
+	}
+
+	// Stage 3: Handle Inventory (stage 9)
+	if sale.Stage < constants.SaleStageFinished {
+		err = s.ApplySaleInventoryUpdate(ctx, tx, sale)
+		if err != nil {
+			_ = tx.Rollback()
+			return nil, err
+		}
 		updates["stage"] = constants.SaleStageFinished
+		updates["updated_at"] = time.Now()
+		updates["completed_at"] = time.Now()
+	} else {
+		s.log.Infof("Inventory already applied for sale %s, skipping", sale.Id)
 	}
 
-	err = s.updateSaleFields(ctx, req.SaleId, updates)
-	if err != nil {
-		_ = tx.Rollback()
-		return nil, err
+	if len(updates) > 0 {
+		err = s.updateSaleFields(ctx, tx, req.SaleId, updates)
+		if err != nil {
+			_ = tx.Rollback()
+			return nil, err
+		}
 	}
 
-	// create or get sale
+	// Create new sale for next operation
 	res, err := s.CreateSale(ctx, tx, &domain.SaleRequest{
 		EmployeeId:         user.UserId,
 		StoreId:            sale.StoreId,
@@ -387,6 +438,7 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 		return nil, err
 	}
 
+	// Commit transaction
 	if err = tx.Commit().Error; err != nil {
 		s.log.Errorf("could not commit epos-result transaction: %v", err)
 		return nil, domain.InternalServerError
@@ -499,6 +551,7 @@ func (s *Services) updateFinalizeSale(ctx context.Context, tx *gorm.DB, req *dom
 			alif = ?,
 			tax_free = ?,
 			otp_code = ?,
+			service_type = ?,
 			updated_at = NOW()
 	WHERE id = ?;
 	`
@@ -515,6 +568,7 @@ func (s *Services) updateFinalizeSale(ctx context.Context, tx *gorm.DB, req *dom
 		req.Alif,
 		req.TaxFree,
 		req.OtpCode,
+		req.ServiceType,
 		req.SaleID,
 	).Scan(&res).Error
 	if err != nil {
@@ -740,8 +794,8 @@ func (s *Services) ReturnStatusPending(ctx context.Context, tx *gorm.DB, sale *d
 	return nil
 }
 
-func (s *Services) updateSaleFields(ctx context.Context, saleId string, updates map[string]any) error {
-	err := s.db.WithContext(ctx).Model(&domain.Sale{}).Where("id = ?", saleId).Updates(&updates).Error
+func (s *Services) updateSaleFields(ctx context.Context, tx *gorm.DB, saleId string, updates map[string]any) error {
+	err := tx.WithContext(ctx).Model(&domain.Sale{}).Where("id = ?", saleId).Updates(&updates).Error
 	if err != nil {
 		s.log.Errorf("could not update sale fields: %v", err)
 		return domain.InternalServerError
@@ -1875,6 +1929,23 @@ func (s *Services) DecodeFiscalData(reqJsonStr string) (domain.FiscalData, error
 	}
 
 	return fiscal, nil
+}
+
+func (s *Services) getFiscalDataBySaleId(ctx context.Context, saleId string) (domain.FiscalData, error) {
+	var res domain.FiscalData
+
+	return res, nil
+}
+
+func (s *Services) getSalePayAmounts(sale *domain.Sale, req *domain.FinalSale) *domain.Sale {
+	sale.Cash = req.Cash
+	sale.Humo = req.Humo
+	sale.Uzcard = req.Uzcard
+	sale.Click = req.Click
+	sale.Payme = req.Payme
+	sale.Alif = req.Alif
+
+	return sale
 }
 
 func (s *Services) generateDisplayId() int {
