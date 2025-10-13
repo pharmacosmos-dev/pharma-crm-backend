@@ -1184,7 +1184,7 @@ func (s *Services) GetSalesStats(ctx context.Context, params *domain.SaleQueryPa
 			"SUM(s.alif) AS total_alif",
 			"COUNT(*) AS total_count",
 		).Table("sales s").
-		Joins("stores st ON s.store_id = st.id")
+		Joins("JOIN stores st ON s.store_id = st.id")
 
 	if params.Cash {
 		qb = qb.Where("s.cash > 0")
