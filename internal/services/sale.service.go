@@ -930,7 +930,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 			"c.full_name AS c_full_name",
 			"c.phone AS c_phone",
 		).
-		Table("sales").
+		Table("sales s").
 		Joins("LEFT JOIN stores st ON s.store_id = st.id").
 		Joins("LEFT JOIN cash_boxes ca ON s.cashbox_id = ca.id").
 		Joins("LEFT JOIN employees em ON s.empoyee_id = em.id").
