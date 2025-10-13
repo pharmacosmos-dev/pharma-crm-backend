@@ -287,12 +287,18 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 		return nil, err
 	}
 
+	res, err := s.GetDatasByMarkings(ctx, tx, req.MarkingData)
+	if err != nil {
+		_ = tx.Rollback()
+		return res, err
+	}
+
 	if err = tx.Commit().Error; err != nil {
 		s.log.Error("could not commit transaction: %v", err)
 		return nil, domain.InternalServerError
 	}
 
-	return nil, nil
+	return res, nil
 }
 
 // epos result

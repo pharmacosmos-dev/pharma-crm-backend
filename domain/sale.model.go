@@ -335,10 +335,14 @@ type PendingSaleResponse struct {
 	Status string `json:"status"`
 }
 
-type MarkingItemsResponse struct {
-	Items []BarcodeResponse `json:"product_barcodes"`
+type BarcodeResponse struct {
+	Id          string `gorm:"column:id" json:"id"`
+	CartItemId  string `gorm:"column:cart_item_id" json:"cart_item_id"`
+	Barcode     string `gorm:"column:barcode" json:"barcode"`
+	ClassCode   string `gorm:"column:mxik" json:"classCode"`
+	PackageCode string `gorm:"column:unit_code" json:"packageCode"`
 }
 
-type BarcodeResponse struct {
-	CartItemId string `json:"cart_item_id"`
+type MarkingItemsResponse struct {
+	Items []BarcodeResponse `json:"items"`
 }

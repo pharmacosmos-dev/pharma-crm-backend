@@ -673,13 +673,13 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	sale, err := h.service.FinalizeSale(ctx, &body)
+	res, err := h.service.FinalizeSale(ctx, &body)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return
 	}
 
-	handleResponse(c, OK, sale)
+	handleResponse(c, OK, res)
 }
 
 // EposRequest godoc
