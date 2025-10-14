@@ -961,6 +961,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 		Payme:              tempSale.Payme,
 		Alif:               tempSale.Alif,
 		Status:             tempSale.Status,
+		Stage:              tempSale.Stage,
 		OnlineStatus:       tempSale.OnlineStatus,
 		SaleType:           tempSale.SaleType,
 		Type:               tempSale.Type,
