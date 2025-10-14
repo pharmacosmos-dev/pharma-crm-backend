@@ -521,7 +521,7 @@ func (s *Services) ApplySaleInventoryUpdate(ctx context.Context, tx *gorm.DB, sa
 
 	query := `
 	UPDATE store_products sp
-	SET unit_quantity = unit_quantity - ci.unit_quantity
+	SET unit_quantity = sp.unit_quantity - ci.unit_quantity
 	FROM cart_items ci
 	WHERE sp.id = ci.store_product_id 
 	AND ci.sale_id = ?
