@@ -28,3 +28,9 @@ type ProductBonusRequest struct {
 	StartDate   string  `json:"start_date"`
 	EndDate     string  `json:"end_date"`
 }
+
+var EmployeeBonusBalance struct {
+	TotalBonus    float64 `json:"total_bonus"`
+	TotalSales    int64   `json:"total_sales"`
+	TotalProducts int64   `json:"total_products"`
+}

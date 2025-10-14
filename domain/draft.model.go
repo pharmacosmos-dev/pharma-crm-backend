@@ -16,8 +16,8 @@ type Draft struct {
 	DraftTime   string             `gorm:"draft_time" json:"draft_time"`
 	CreatedAt   *time.Time         `gorm:"created_at" json:"created_at"`
 	UpdatedAt   *time.Time         `gorm:"updated_at" json:"updated_at"`
-	Store       *Store             `gorm:"foreignKey:StoreID" json:"store"`
-	Customer    *Customer          `gorm:"foreignKey:CustomerID" json:"customer"`
+	Store       *Store             `gorm:"foreignKey:StoreId" json:"store"`
+	Customer    *Customer          `gorm:"foreignKey:CustomerId" json:"customer"`
 	Employee    *Employee          `gorm:"foreignKey:CreatedBy" json:"employee"`
 	CartItems   []CartItemResponse `gorm:"-" json:"cart_items"`
 }

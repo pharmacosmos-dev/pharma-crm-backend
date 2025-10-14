@@ -9,6 +9,7 @@ var (
 	// 400 – Bad Request (mijoz noto‘g‘ri so‘rov yuborgan)
 	BadRequestError              = NewError(http.StatusBadRequest, "bad.request")
 	InvalidRequestBodyError      = NewError(http.StatusBadRequest, "invalid.request.body")
+	InvalidTimeFormatError       = NewError(http.StatusBadRequest, "invalid.time.format")
 	InvalidQueryError            = NewError(http.StatusBadRequest, "invalid.query.param")
 	PaymentTypeRequiredError     = NewError(http.StatusBadRequest, "payment.type.required")
 	InvalidPaymentTypeError      = NewError(http.StatusBadRequest, "invalid.payment.type")

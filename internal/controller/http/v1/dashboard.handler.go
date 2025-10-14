@@ -417,7 +417,7 @@ func (h *DashboardHandler) TopSeller(c *gin.Context) {
 	// get dashboard data
 	res, err := h.service.DashboardTopSeller(&param)
 	if err != nil {
-		handleResponse(c, InternalError, "Can't get dashboard data")
+		handleServiceResponse(c, nil, err)
 		return
 	}
 	handleResponse(c, OK, res)

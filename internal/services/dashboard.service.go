@@ -596,14 +596,14 @@ func (s *Services) DashboardTopSeller(param *domain.DashboardQueryParam) ([]doma
 	// Date filter — RFC3339 parse
 	startTime, err := time.Parse(time.RFC3339, param.StartDate)
 	if err != nil {
-		s.log.Error("Invalid start_date format: %v", err)
-		return nil, err
+		s.log.Error("could not parse start_date: %v", err)
+		return nil, domain.InvalidTimeFormatError
 	}
 	if param.EndDate != "" {
 		endTime, err = time.Parse(time.RFC3339, param.EndDate)
 		if err != nil {
-			s.log.Error("Invalid end_date format: %v", err)
-			return nil, err
+			s.log.Errorf("could not parse end_date: %v", err)
+			return nil, domain.InvalidTimeFormatError
 		}
 	} else {
 		endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)

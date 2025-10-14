@@ -853,7 +853,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Sale ID",
+                        "description": "saleId",
                         "name": "sale_id",
                         "in": "query",
                         "required": true
@@ -959,12 +959,12 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "Cart item information",
+                        "description": "cartItemDiscount",
                         "name": "input",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.CartItemBySaleIDUpdateRequest"
+                            "$ref": "#/definitions/domain.CartItemDiscountRequest"
                         }
                     }
                 ],
@@ -1058,18 +1058,18 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "cart item ID",
+                        "description": "cartItemId",
                         "name": "id",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "Cart item information",
+                        "description": "Update unit",
                         "name": "input",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.CartItemUpdateProductUnit"
+                            "$ref": "#/definitions/domain.CartItemUpdateUnit"
                         }
                     }
                 ],
@@ -4451,7 +4451,7 @@ const docTemplate = `{
             }
         },
         "/draft/complete/{id}": {
-            "post": {
+            "put": {
                 "security": [
                     {
                         "BearerAuth": []
@@ -4602,62 +4602,6 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Update a draft from the request body",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "drafts"
-                ],
-                "summary": "Update a draft",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "draft ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Draft information",
-                        "name": "input",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/domain.DraftRequest"
-                        }
                     }
                 ],
                 "responses": {
@@ -10923,6 +10867,46 @@ const docTemplate = `{
                         }
                     }
                 ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/product-bonus/balance": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get total bonus amount and total sale count for current employee",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Product Bonus"
+                ],
+                "summary": "Get employee bonus balance",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -18891,68 +18875,104 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "Limit",
+                        "description": "limit",
                         "name": "limit",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "description": "Offset",
+                        "description": "offset",
                         "name": "offset",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Vendor ID",
+                        "description": "vendor_id",
                         "name": "vendor_id",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Store ID",
+                        "description": "store_id",
                         "name": "store_id",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Cash Box ID",
+                        "description": "cashbox_id",
                         "name": "cashbox_id",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Payment Type ID",
+                        "description": "payment_type_id",
                         "name": "payment_type_id",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Search",
+                        "description": "search",
                         "name": "search",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Start Date",
+                        "description": "start_date",
                         "name": "start_date",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "End Date",
+                        "description": "end_date",
                         "name": "end_date",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "description": "Total Amount From",
+                        "description": "total_amount_from",
                         "name": "total_amount_from",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "description": "Total Amount To",
+                        "description": "total_amount_to",
                         "name": "total_amount_to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "cash",
+                        "name": "cash",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "humo",
+                        "name": "humo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "uzcard",
+                        "name": "uzcard",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "click",
+                        "name": "click",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "payme",
+                        "name": "payme",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "alif",
+                        "name": "alif",
                         "in": "query"
                     }
                 ],
@@ -19135,68 +19155,104 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "Limit",
+                        "description": "limit",
                         "name": "limit",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "description": "Offset",
+                        "description": "offset",
                         "name": "offset",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Vendor ID",
+                        "description": "vendor_id",
                         "name": "vendor_id",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Store ID",
+                        "description": "store_id",
                         "name": "store_id",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Cash Box ID",
+                        "description": "cashbox_id",
                         "name": "cashbox_id",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Payment Type ID",
+                        "description": "payment_type_id",
                         "name": "payment_type_id",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Search",
+                        "description": "search",
                         "name": "search",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Start Date",
+                        "description": "start_date",
                         "name": "start_date",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "End Date",
+                        "description": "end_date",
                         "name": "end_date",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "description": "Total Amount From",
+                        "description": "total_amount_from",
                         "name": "total_amount_from",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "description": "Total Amount To",
+                        "description": "total_amount_to",
                         "name": "total_amount_to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "cash",
+                        "name": "cash",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "humo",
+                        "name": "humo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "uzcard",
+                        "name": "uzcard",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "click",
+                        "name": "click",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "payme",
+                        "name": "payme",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "alif",
+                        "name": "alif",
                         "in": "query"
                     }
                 ],
@@ -19653,62 +19709,92 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Vendor ID",
+                        "description": "vendor_id",
                         "name": "vendor_id",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Store ID",
+                        "description": "store_id",
                         "name": "store_id",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Cash Box ID",
+                        "description": "cashbox_id",
                         "name": "cashbox_id",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Payment Type ID",
+                        "description": "payment_type_id",
                         "name": "payment_type_id",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Search",
+                        "description": "search",
                         "name": "search",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Start Date",
+                        "description": "start_date",
                         "name": "start_date",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "End Date",
+                        "description": "end_date",
                         "name": "end_date",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "description": "Total Amount From",
+                        "description": "total_amount_from",
                         "name": "total_amount_from",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "description": "Total Amount To",
+                        "description": "total_amount_to",
                         "name": "total_amount_to",
                         "in": "query"
                     },
                     {
-                        "type": "string",
-                        "description": "Sale Type (SALE, RETURN)",
-                        "name": "sale_type",
+                        "type": "boolean",
+                        "description": "cash",
+                        "name": "cash",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "humo",
+                        "name": "humo",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "uzcard",
+                        "name": "uzcard",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "click",
+                        "name": "click",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "payme",
+                        "name": "payme",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "alif",
+                        "name": "alif",
                         "in": "query"
                     }
                 ],
@@ -19755,7 +19841,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "sale ID",
+                        "description": "sale_id",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -20747,41 +20833,6 @@ const docTemplate = `{
                         "in": "query"
                     }
                 ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/tasnif/update-package-code": {
-            "post": {
-                "description": "update package code with tasnif API",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Tasnif"
-                ],
-                "summary": "update package code with tasnif API",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -23027,7 +23078,7 @@ const docTemplate = `{
                 }
             }
         },
-        "domain.CartItemBySaleIDUpdateRequest": {
+        "domain.CartItemDiscountRequest": {
             "type": "object",
             "properties": {
                 "discount_type": {
@@ -23060,9 +23111,12 @@ const docTemplate = `{
                 }
             }
         },
-        "domain.CartItemUpdateProductUnit": {
+        "domain.CartItemUpdateUnit": {
             "type": "object",
             "properties": {
+                "id": {
+                    "type": "string"
+                },
                 "quantity": {
                     "type": "integer"
                 },
@@ -23220,15 +23274,14 @@ const docTemplate = `{
         },
         "domain.ChangePaymentTypeRequest": {
             "type": "object",
-            "required": [
-                "payment_type_id",
-                "sale_payment_id"
-            ],
             "properties": {
-                "payment_type_id": {
+                "from_payment_type": {
                     "type": "string"
                 },
-                "sale_payment_id": {
+                "sale_id": {
+                    "type": "string"
+                },
+                "to_payment_type": {
                     "type": "string"
                 }
             }
@@ -23700,8 +23753,17 @@ const docTemplate = `{
         "domain.FinalSale": {
             "type": "object",
             "properties": {
+                "alif": {
+                    "type": "number"
+                },
+                "cash": {
+                    "type": "number"
+                },
                 "cash_box_operation_id": {
                     "type": "string"
+                },
+                "click": {
+                    "type": "number"
                 },
                 "customer_id": {
                     "type": "string"
@@ -23715,11 +23777,20 @@ const docTemplate = `{
                         }
                     }
                 },
+                "humo": {
+                    "type": "number"
+                },
                 "marking_data": {
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/domain.MarkingData"
                     }
+                },
+                "otp_code": {
+                    "type": "string"
+                },
+                "payme": {
+                    "type": "number"
                 },
                 "payment_types": {
                     "type": "array",
@@ -23729,6 +23800,9 @@ const docTemplate = `{
                 },
                 "prescription_id": {
                     "type": "string"
+                },
+                "return_amount": {
+                    "type": "number"
                 },
                 "sale_id": {
                     "type": "string"
@@ -23743,6 +23817,9 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "total_amount": {
+                    "type": "number"
+                },
+                "uzcard": {
                     "type": "number"
                 }
             }

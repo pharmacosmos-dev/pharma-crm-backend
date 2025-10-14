@@ -110,7 +110,7 @@ definitions:
       name:
         type: string
     type: object
-  domain.CartItemBySaleIDUpdateRequest:
+  domain.CartItemDiscountRequest:
     properties:
       discount_type:
         example: percent|cash
@@ -132,8 +132,10 @@ definitions:
       store_product_id:
         type: string
     type: object
-  domain.CartItemUpdateProductUnit:
+  domain.CartItemUpdateUnit:
     properties:
+      id:
+        type: string
       quantity:
         type: integer
       store_product_id:
@@ -237,13 +239,12 @@ definitions:
     type: object
   domain.ChangePaymentTypeRequest:
     properties:
-      payment_type_id:
+      from_payment_type:
         type: string
-      sale_payment_id:
+      sale_id:
         type: string
-    required:
-    - payment_type_id
-    - sale_payment_id
+      to_payment_type:
+        type: string
     type: object
   domain.CloseCashboxOperation:
     properties:
@@ -556,8 +557,14 @@ definitions:
     type: object
   domain.FinalSale:
     properties:
+      alif:
+        type: number
+      cash:
+        type: number
       cash_box_operation_id:
         type: string
+      click:
+        type: number
       customer_id:
         type: string
       epos_data:
@@ -566,16 +573,24 @@ definitions:
             $ref: '#/definitions/domain.EposItem'
           type: array
         type: array
+      humo:
+        type: number
       marking_data:
         items:
           $ref: '#/definitions/domain.MarkingData'
         type: array
+      otp_code:
+        type: string
+      payme:
+        type: number
       payment_types:
         items:
           $ref: '#/definitions/domain.FinalPaymentType'
         type: array
       prescription_id:
         type: string
+      return_amount:
+        type: number
       sale_id:
         type: string
       service_type:
@@ -585,6 +600,8 @@ definitions:
       tax_free:
         type: boolean
       total_amount:
+        type: number
+      uzcard:
         type: number
     type: object
   domain.FinanceCategoryRequest:
@@ -2251,17 +2268,17 @@ paths:
       - application/json
       description: Update a cart item from the request body
       parameters:
-      - description: cart item ID
+      - description: cartItemId
         in: path
         name: id
         required: true
         type: string
-      - description: Cart item information
+      - description: Update unit
         in: body
         name: input
         required: true
         schema:
-          $ref: '#/definitions/domain.CartItemUpdateProductUnit'
+          $ref: '#/definitions/domain.CartItemUpdateUnit'
       produces:
       - application/json
       responses:
@@ -2386,7 +2403,7 @@ paths:
         in: query
         name: offset
         type: integer
-      - description: Sale ID
+      - description: saleId
         in: query
         name: sale_id
         required: true
@@ -2454,12 +2471,12 @@ paths:
         name: sale_id
         required: true
         type: string
-      - description: Cart item information
+      - description: cartItemDiscount
         in: body
         name: input
         required: true
         schema:
-          $ref: '#/definitions/domain.CartItemBySaleIDUpdateRequest'
+          $ref: '#/definitions/domain.CartItemDiscountRequest'
       produces:
       - application/json
       responses:
@@ -4552,44 +4569,8 @@ paths:
       summary: Get a draft
       tags:
       - drafts
-    put:
-      consumes:
-      - application/json
-      description: Update a draft from the request body
-      parameters:
-      - description: draft ID
-        in: path
-        name: id
-        required: true
-        type: string
-      - description: Draft information
-        in: body
-        name: input
-        required: true
-        schema:
-          $ref: '#/definitions/domain.DraftRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Update a draft
-      tags:
-      - drafts
   /draft/complete/{id}:
-    post:
+    put:
       consumes:
       - application/json
       description: Complete a draft from the request body
@@ -8694,6 +8675,31 @@ paths:
       security:
       - BearerAuth: []
       summary: Update product bonus
+      tags:
+      - Product Bonus
+  /product-bonus/balance:
+    post:
+      consumes:
+      - application/json
+      description: Get total bonus amount and total sale count for current employee
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get employee bonus balance
       tags:
       - Product Bonus
   /product-bonus/excel-import:
@@ -13502,7 +13508,7 @@ paths:
       - application/json
       description: Get a sale from the request body
       parameters:
-      - description: sale ID
+      - description: sale_id
         in: path
         name: id
         required: true
@@ -13769,50 +13775,74 @@ paths:
       - application/json
       description: Get a sale list excel
       parameters:
-      - description: Limit
+      - description: limit
         in: query
         name: limit
         type: integer
-      - description: Offset
+      - description: offset
         in: query
         name: offset
         type: integer
-      - description: Vendor ID
+      - description: vendor_id
         in: query
         name: vendor_id
         type: string
-      - description: Store ID
+      - description: store_id
         in: query
         name: store_id
         type: string
-      - description: Cash Box ID
+      - description: cashbox_id
         in: query
         name: cashbox_id
         type: string
-      - description: Payment Type ID
+      - description: payment_type_id
         in: query
         name: payment_type_id
         type: string
-      - description: Search
+      - description: search
         in: query
         name: search
         type: string
-      - description: Start Date
+      - description: start_date
         in: query
         name: start_date
         type: string
-      - description: End Date
+      - description: end_date
         in: query
         name: end_date
         type: string
-      - description: Total Amount From
+      - description: total_amount_from
         in: query
         name: total_amount_from
         type: integer
-      - description: Total Amount To
+      - description: total_amount_to
         in: query
         name: total_amount_to
         type: integer
+      - description: cash
+        in: query
+        name: cash
+        type: boolean
+      - description: humo
+        in: query
+        name: humo
+        type: boolean
+      - description: uzcard
+        in: query
+        name: uzcard
+        type: boolean
+      - description: click
+        in: query
+        name: click
+        type: boolean
+      - description: payme
+        in: query
+        name: payme
+        type: boolean
+      - description: alif
+        in: query
+        name: alif
+        type: boolean
       produces:
       - application/json
       responses:
@@ -13926,50 +13956,74 @@ paths:
       - application/json
       description: Get a sale from the request body
       parameters:
-      - description: Limit
+      - description: limit
         in: query
         name: limit
         type: integer
-      - description: Offset
+      - description: offset
         in: query
         name: offset
         type: integer
-      - description: Vendor ID
+      - description: vendor_id
         in: query
         name: vendor_id
         type: string
-      - description: Store ID
+      - description: store_id
         in: query
         name: store_id
         type: string
-      - description: Cash Box ID
+      - description: cashbox_id
         in: query
         name: cashbox_id
         type: string
-      - description: Payment Type ID
+      - description: payment_type_id
         in: query
         name: payment_type_id
         type: string
-      - description: Search
+      - description: search
         in: query
         name: search
         type: string
-      - description: Start Date
+      - description: start_date
         in: query
         name: start_date
         type: string
-      - description: End Date
+      - description: end_date
         in: query
         name: end_date
         type: string
-      - description: Total Amount From
+      - description: total_amount_from
         in: query
         name: total_amount_from
         type: integer
-      - description: Total Amount To
+      - description: total_amount_to
         in: query
         name: total_amount_to
         type: integer
+      - description: cash
+        in: query
+        name: cash
+        type: boolean
+      - description: humo
+        in: query
+        name: humo
+        type: boolean
+      - description: uzcard
+        in: query
+        name: uzcard
+        type: boolean
+      - description: click
+        in: query
+        name: click
+        type: boolean
+      - description: payme
+        in: query
+        name: payme
+        type: boolean
+      - description: alif
+        in: query
+        name: alif
+        type: boolean
       produces:
       - application/json
       responses:
@@ -14256,46 +14310,66 @@ paths:
       - application/json
       description: Get a sale stats from the request body
       parameters:
-      - description: Vendor ID
+      - description: vendor_id
         in: query
         name: vendor_id
         type: string
-      - description: Store ID
+      - description: store_id
         in: query
         name: store_id
         type: string
-      - description: Cash Box ID
+      - description: cashbox_id
         in: query
         name: cashbox_id
         type: string
-      - description: Payment Type ID
+      - description: payment_type_id
         in: query
         name: payment_type_id
         type: string
-      - description: Search
+      - description: search
         in: query
         name: search
         type: string
-      - description: Start Date
+      - description: start_date
         in: query
         name: start_date
         type: string
-      - description: End Date
+      - description: end_date
         in: query
         name: end_date
         type: string
-      - description: Total Amount From
+      - description: total_amount_from
         in: query
         name: total_amount_from
         type: integer
-      - description: Total Amount To
+      - description: total_amount_to
         in: query
         name: total_amount_to
         type: integer
-      - description: Sale Type (SALE, RETURN)
+      - description: cash
         in: query
-        name: sale_type
-        type: string
+        name: cash
+        type: boolean
+      - description: humo
+        in: query
+        name: humo
+        type: boolean
+      - description: uzcard
+        in: query
+        name: uzcard
+        type: boolean
+      - description: click
+        in: query
+        name: click
+        type: boolean
+      - description: payme
+        in: query
+        name: payme
+        type: boolean
+      - description: alif
+        in: query
+        name: alif
+        type: boolean
       produces:
       - application/json
       responses:
@@ -14907,29 +14981,6 @@ paths:
       summary: Get all tags
       tags:
       - tags
-  /tasnif/update-package-code:
-    post:
-      consumes:
-      - application/json
-      description: update package code with tasnif API
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      summary: update package code with tasnif API
-      tags:
-      - Tasnif
   /transaction:
     post:
       consumes:

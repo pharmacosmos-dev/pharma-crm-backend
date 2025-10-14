@@ -172,7 +172,7 @@ func (s *Services) GetDrafts(ctx context.Context, params *domain.DraftQueryParam
 	}
 
 	var totalCount int64
-	if err := query.Count(&totalCount).Error; err != nil {
+	if err := query.Model(&domain.Draft{}).Count(&totalCount).Error; err != nil {
 		s.log.Errorf("could not count sales: %v", err)
 		return nil, 0, domain.InternalServerError
 	}

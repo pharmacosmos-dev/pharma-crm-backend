@@ -31,7 +31,7 @@ func (h *ProductBonusHandler) ProductBonusRoutes(r *gin.RouterGroup) {
 		productBonus.PUT("/:id", h.Update)
 		productBonus.POST("/excel-import", h.ImportProductBonus)
 		productBonus.DELETE("", h.Delete)
-		productBonus.GET("/balance", h.BalanceProductBonus)
+		productBonus.POST("/balance", h.BalanceProductBonus)
 	}
 }
 
