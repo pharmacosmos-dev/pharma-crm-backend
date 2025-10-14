@@ -61,9 +61,9 @@ func (s *Services) CreateCashboxOperation(req *domain.CashboxOperationRequest, u
 	var sale domain.Sale
 	// create new sale
 	err = tx.Raw(`
-		INSERT INTO sales (employee_id, store_id, cash_box_operation_id, cashbox_id) 
-		VALUES (?, ?, ?, ?) RETURNING *`,
-		userId, req.StoreID, res.ID, req.CashBoxID).Scan(&sale).Error
+		INSERT INTO sales (employee_id, store_id, cash_box_operation_id, cashbox_id, display_id) 
+		VALUES (?, ?, ?, ?, ?) RETURNING *`,
+		userId, req.StoreID, res.ID, req.CashBoxID, s.generateDisplayId()).Scan(&sale).Error
 	if err != nil {
 		s.log.Error(err)
 		tx.Rollback()
