@@ -51,10 +51,12 @@ func (s *Services) CreateCartItem(ctx context.Context, user *domain.EmployeeClai
 
 func (s *Services) createNewCartItem(ctx context.Context, req *domain.CartItemRequest, storeProduct *domain.StoreProduct) (*domain.CartItem, error) {
 	// check remaining quantity for add cart item
+	totalPrice := storeProduct.RetailPrice
 	if storeProduct.UnitQuantity >= storeProduct.UnitPerPack {
 		req.UnitQuantity = storeProduct.UnitPerPack
 	} else if storeProduct.UnitQuantity > 0 {
 		req.UnitQuantity = 1
+		totalPrice = storeProduct.RetailPrice / float64(storeProduct.UnitPerPack)
 	} else {
 		return nil, domain.NotEnoughProductError
 	}
@@ -63,9 +65,8 @@ func (s *Services) createNewCartItem(ctx context.Context, req *domain.CartItemRe
 	err := s.db.WithContext(ctx).Raw(`
 		INSERT INTO cart_items(
 			store_product_id,
-			sale_id, 
+			sale_id,
 			employee_id,
-			quantity,
 			unit_quantity,
 			unit_price,
 			total_price,
@@ -75,8 +76,8 @@ func (s *Services) createNewCartItem(ctx context.Context, req *domain.CartItemRe
 			discount_value
 			)
 			VALUES (
-			?,?,?,?,?,?,?,?,?,? ,COALESCE((SELECT COALESCE(discount_percent, 0) 
-		FROM sale_customer_discounts 
+			?,?,?,?,?,?,?,?,? ,COALESCE((SELECT COALESCE(discount_percent, 0)
+		FROM sale_customer_discounts
 			WHERE sale_id = ?
 			LIMIT 1),0)
 		)
@@ -84,10 +85,9 @@ func (s *Services) createNewCartItem(ctx context.Context, req *domain.CartItemRe
 		req.StoreProductId,
 		req.SaleId,
 		req.EmployeeId,
-		req.Quantity,
 		req.UnitQuantity,
-		req.UnitPrice,
-		req.TotalPrice,
+		storeProduct.RetailPrice,
+		totalPrice,
 		constants.GeneralStatusPending,
 		storeProduct.IsMarking,
 		req.DiscountType,
@@ -126,10 +126,10 @@ func (s *Services) FetchCartItems(ctx context.Context, saleId string, limit, off
 		ci.unit_price,
 		ci.total_price,
 		ci.discount_price,
-		ci.created_at,
-		ci.updated_at,
 		ci.marking_count,
 		ci.markings,
+		ci.created_at,
+		ci.updated_at,
 		p.name,
 		p.id as product_id,
 		COALESCE(sp.barcode, p.barcode) AS barcode,
@@ -174,11 +174,6 @@ func (s *Services) FetchCartItems(ctx context.Context, saleId string, limit, off
 	if err != nil {
 		s.log.Errorf("cound not get cart_items by sale(%s) error: %v", saleId, err.Error())
 		return nil, domain.InternalServerError
-	}
-
-	for i := range res {
-		unitPrice := res[i].VatPrice / float64(res[i].UnitPerPack)
-		res[i].UnitVatPrice = unitPrice // ← no rounding
 	}
 
 	var data domain.CartItemData
