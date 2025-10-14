@@ -1059,8 +1059,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 
 func (s *Services) GetSaleById(ctx context.Context, saleId string) (*domain.Sale, error) {
 	var sale domain.Sale
-
-	err := s.db.WithContext(ctx).Preload("Employee").First(&sale, "id = ?", saleId).Error
+	err := s.db.WithContext(ctx).First(&sale, "id = ?", saleId).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return &sale, domain.NotFoundError
