@@ -36,8 +36,8 @@ type Sale struct {
 	CreatedAt          *time.Time     `gorm:"created_at" json:"created_at"`
 	UpdatedAt          *time.Time     `gorm:"updated_at" json:"updated_at"`
 	CompletedAt        *time.Time     `gorm:"completed_at" json:"completed_at"`
-	Employee           *Employee      `gorm:"foreignKey:EmployeeID" json:"employee"`
-	Customer           *Customer      `gorm:"foreignKey:CustomerID" json:"customer"`
+	Employee           *Employee      `gorm:"-" json:"employee"`
+	Customer           *Customer      `gorm:"-" json:"customer"`
 	SalePayments       []*SalePayment `gorm:"foreignKey:SaleID" json:"sale_payments"`
 	CartItems          []*CartItem    `gorm:"foreignKey:SaleId" json:"cart_items"`
 }
@@ -145,6 +145,7 @@ type FinalSale struct {
 	Click              float64            `gorm:"click" json:"click"`
 	Payme              float64            `gorm:"payme" json:"payme"`
 	Alif               float64            `gorm:"alif" json:"alif"`
+	ReturnAmount       float64            `gorm:"return_amount" json:"return_amount"`
 	OtpCode            *string            `gorm:"otp_code" json:"otp_code"`
 	PaymentTypes       []FinalPaymentType `json:"payment_types"`
 	MarkingData        []MarkingData      `json:"marking_data"`

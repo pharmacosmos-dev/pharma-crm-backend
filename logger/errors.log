@@ -16,3 +16,5 @@ time=2025-10-08T14:48:44.978968Z level=ERROR msg="could not get sale_stats: ERRO
 time=2025-10-13T09:21:36.460303Z level=ERROR msg="failed to connect to `host=localhost user=username database=dbname`: dial error (dial tcp [::1]:5432: connect: connection refused)"
 time=2025-10-14T12:54:51.780431Z level=ERROR msg="could not get sale: ERROR: column reference "id" is ambiguous (SQLSTATE 42702)"
 time=2025-10-14T12:54:53.623219Z level=ERROR msg="could not get sale: ERROR: column reference "id" is ambiguous (SQLSTATE 42702)"
+time=2025-10-14T13:39:28.518756Z level=ERROR msg="could not get sale(7dc0536c-8c11-4ce4-a169-d7c08ecb4b1c) info: invalid field found for struct github.com/pharma-crm-backend/domain.Sale's field Employee: define a valid foreign key for relations or implement the Valuer/Scanner interface"
+time=2025-10-14T13:39:53.803873Z level=ERROR msg="could not get sale(7dc0536c-8c11-4ce4-a169-d7c08ecb4b1c) info: invalid field found for struct github.com/pharma-crm-backend/domain.Sale's field Employee: define a valid foreign key for relations or implement the Valuer/Scanner interface"

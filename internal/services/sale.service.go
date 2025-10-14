@@ -267,21 +267,44 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 		_ = tx.Rollback()
 		return nil, err
 	}
-	stage := sale.Stage
+
+	updates := map[string]any{}
+	updates["tax_free"] = req.TaxFree
+	updates["otp_code"] = req.OtpCode
 	if req.TaxFree {
 		sale = s.getSalePayAmounts(sale, req)
-
-		err = s.Payment(ctx, tx, sale, nil)
-		if err != nil {
-			_ = tx.Rollback()
-			return nil, err
+		if sale.Stage < constants.SaleStagePayFinished {
+			err = s.Payment(ctx, tx, sale, nil)
+			if err != nil {
+				_ = tx.Rollback()
+				return nil, err
+			}
+			updates["cash"] = req.Cash - req.ReturnAmount
+			updates["humo"] = req.Humo
+			updates["uzcard"] = req.Uzcard
+			updates["click"] = req.Click
+			updates["payme"] = req.Payme
+			updates["alif"] = req.Alif
+			updates["total_amount"] = "(SELECT SUM(total_price)-SUM(discount_amount) FROM cart_items WHERE sale_id = ?)"
+			updates["total_discount"] = "(SELECT SUM(discount_amount) FROM cart_items WHERE sale_id = ?)"
+			updates["stage"] = constants.SaleStagePayFinished
+			updates["updated_at"] = time.Now()
 		}
 
-		stage = constants.SaleStageFinished
+		if sale.Stage < constants.SaleStageFinished {
+			err = s.ApplySaleInventoryUpdate(ctx, tx, sale)
+			if err != nil {
+				_ = tx.Rollback()
+				return nil, err
+			}
+			updates["stage"] = constants.SaleStageFinished
+			updates["updated_at"] = time.Now()
+			updates["completed_at"] = time.Now()
+		}
 	}
 
 	// update sale data
-	_, err = s.updateFinalizeSale(ctx, tx, req, stage)
+	err = s.updateSaleFields(ctx, tx, req.SaleID, updates)
 	if err != nil {
 		_ = tx.Rollback()
 		return nil, err
@@ -509,6 +532,7 @@ func (s *Services) matchingPaymentTypeSum(ctx context.Context, req *domain.Final
 		sum += item.Amount - item.ReturnAmount
 		if item.Type == constants.PaymentTypeCash {
 			req.Cash = item.Amount - item.ReturnAmount
+			req.ReturnAmount = item.ReturnAmount
 		} else if item.Type == constants.PaymentTypeCard && item.AppType == constants.PaymentTypeHumo {
 			req.Humo = item.Amount
 		} else if item.Type == constants.PaymentTypeCard && item.AppType == constants.PaymentTypeUzcard {
@@ -1020,7 +1044,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 func (s *Services) GetSaleById(ctx context.Context, saleId string) (*domain.Sale, error) {
 	var sale domain.Sale
 
-	err := s.db.WithContext(ctx).First(&sale, "id = ?", saleId).Error
+	err := s.db.WithContext(ctx).Preload("Employee").First(&sale, "id = ?", saleId).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return &sale, domain.NotFoundError
