@@ -31,6 +31,7 @@ func (h *ProductBonusHandler) ProductBonusRoutes(r *gin.RouterGroup) {
 		productBonus.PUT("/:id", h.Update)
 		productBonus.POST("/excel-import", h.ImportProductBonus)
 		productBonus.DELETE("", h.Delete)
+		productBonus.GET("/balance", h.BalanceProductBonus)
 	}
 }
 
@@ -341,4 +342,58 @@ func (h *ProductBonusHandler) Delete(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, "DELETED")
+}
+
+// BalanceProductBonus godoc
+// get employee bonus balance
+// @Summary Get employee bonus balance
+// @Description Get total bonus amount and total sale count for current employee
+// @Tags Product Bonus
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product-bonus/balance [post]
+func (h *ProductBonusHandler) BalanceProductBonus(c *gin.Context) {
+
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+
+	// get employee info
+	var employee domain.Employee
+	err := h.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+
+	res := domain.EmployeeBonusBalance
+
+	// query to aggregate employee bonus data
+	err = h.db.
+		Model(&domain.EmployeeBonus{}).
+		Select(`
+			COALESCE(SUM(bonus_amount), 0) AS total_bonus,
+			COUNT(DISTINCT sale_id) AS total_sales,
+			COALESCE(SUM(quantity), 0) AS total_products
+		`).
+		Where("employee_id = ?", employee.Id).
+		Scan(&res).Error
+
+	if err != nil {
+		h.log.Error("failed to get employee bonus balance: ", err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	handleResponse(c, OK, res)
 }
