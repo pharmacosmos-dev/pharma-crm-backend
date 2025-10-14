@@ -934,7 +934,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 		Joins("LEFT JOIN cash_boxes ca ON s.cashbox_id = ca.id").
 		Joins("LEFT JOIN employees em ON s.employee_id = em.id").
 		Joins("LEFT JOIN customers c ON s.customer_id = c.id").
-		Take(&tempSale).Error
+		Take(&tempSale, "s.id = ?", saleId).Error
 
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {

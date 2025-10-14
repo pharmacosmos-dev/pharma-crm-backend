@@ -14,3 +14,5 @@ time=2025-10-08T14:45:59.40481Z level=ERROR msg="could not get sale_stats: ERROR
 time=2025-10-08T14:47:43.48269Z level=ERROR msg="could not get sale_stats: ERROR: column s.total_transactions_sum does not exist (SQLSTATE 42703)"
 time=2025-10-08T14:48:44.978968Z level=ERROR msg="could not get sale_stats: ERROR: column s.total_transactions_sum does not exist (SQLSTATE 42703)"
 time=2025-10-13T09:21:36.460303Z level=ERROR msg="failed to connect to `host=localhost user=username database=dbname`: dial error (dial tcp [::1]:5432: connect: connection refused)"
+time=2025-10-14T12:54:51.780431Z level=ERROR msg="could not get sale: ERROR: column reference "id" is ambiguous (SQLSTATE 42702)"
+time=2025-10-14T12:54:53.623219Z level=ERROR msg="could not get sale: ERROR: column reference "id" is ambiguous (SQLSTATE 42702)"
