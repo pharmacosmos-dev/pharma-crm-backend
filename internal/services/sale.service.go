@@ -270,7 +270,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 
 	updates := map[string]any{}
 	updates["tax_free"] = req.TaxFree
-	updates["otp_code"] = req.OtpCode
+
 	if req.TaxFree {
 		sale = s.getSalePayAmounts(sale, req)
 		if sale.Stage < constants.SaleStagePayFinished {
@@ -285,8 +285,8 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 			updates["click"] = req.Click
 			updates["payme"] = req.Payme
 			updates["alif"] = req.Alif
-			updates["total_amount"] = "(SELECT SUM(total_price)-SUM(discount_amount) FROM cart_items WHERE sale_id = ?)"
-			updates["total_discount"] = "(SELECT SUM(discount_amount) FROM cart_items WHERE sale_id = ?)"
+			updates["total_amount"] = gorm.Expr("(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
+			updates["total_discount"] = gorm.Expr("(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
 			updates["stage"] = constants.SaleStagePayFinished
 			updates["updated_at"] = time.Now()
 		}
@@ -301,13 +301,29 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 			updates["updated_at"] = time.Now()
 			updates["completed_at"] = time.Now()
 		}
+	} else {
+		if sale.Stage < constants.SaleStagePayFinished {
+			updates["otp_code"] = req.OtpCode
+			updates["cash"] = req.Cash - req.ReturnAmount
+			updates["humo"] = req.Humo
+			updates["uzcard"] = req.Uzcard
+			updates["click"] = req.Click
+			updates["payme"] = req.Payme
+			updates["alif"] = req.Alif
+			updates["total_amount"] = gorm.Expr("(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
+			updates["total_discount"] = gorm.Expr("(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
+			updates["stage"] = constants.SaleStageOfdWaiting
+			updates["updated_at"] = time.Now()
+		}
 	}
 
 	// update sale data
-	err = s.updateSaleFields(ctx, tx, req.SaleID, updates)
-	if err != nil {
-		_ = tx.Rollback()
-		return nil, err
+	if len(updates) > 0 {
+		err = s.updateSaleFields(ctx, tx, req.SaleID, updates)
+		if err != nil {
+			_ = tx.Rollback()
+			return nil, err
+		}
 	}
 
 	res, err := s.GetDatasByMarkings(ctx, tx, req.MarkingData)
