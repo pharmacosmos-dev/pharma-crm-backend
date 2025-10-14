@@ -298,11 +298,9 @@ func (h *PermissionHandler) GetPermissionsByRoleID(c *gin.Context) {
 func (h *PermissionHandler) ListParents(c *gin.Context) {
 	var res []domain.Permission
 	err := h.db.Raw(`
-	WITH parent_permissions AS (
-    -- Fetch MODULE-level permissions
     SELECT
         id,
-        CAST(name || ' MODULE' AS VARCHAR) AS name,
+        CONCAT(name, ' ', type) AS name,
         route,
         type,
         parent_id,
@@ -312,32 +310,6 @@ func (h *PermissionHandler) ListParents(c *gin.Context) {
         created_at,
         updated_at
     FROM permissions
-    WHERE type = 'MODULE' AND deleted_at IS NULL
-),
-page_permissions AS (
-    -- Fetch PAGE-level permissions (children of MODULES)
-    SELECT
-        id,
-        name || ' PAGE' AS name,
-        route,
-        type,
-        parent_id,
-        description,
-        key,
-        method,
-        created_at,
-        updated_at
-    FROM permissions
-    WHERE parent_id IN (SELECT id FROM parent_permissions)
-)
--- Combine MODULES, PAGES, and ACTIONS (children of PAGES)
-SELECT id, name, route, type, parent_id, description, key, method, created_at, updated_at FROM parent_permissions
-UNION ALL
-SELECT id, name, route, type, parent_id, description, key, method, created_at, updated_at FROM page_permissions
-UNION ALL
-SELECT id, name || ' ACTION', route, type, parent_id, description, key, method, created_at, updated_at
-FROM permissions
-WHERE parent_id IN (SELECT id FROM page_permissions);
 	`).Scan(&res).Error
 	if err != nil {
 		h.log.Error(err)
