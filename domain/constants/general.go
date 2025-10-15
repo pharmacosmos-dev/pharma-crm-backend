@@ -73,7 +73,7 @@ const (
 
 var (
 	FinishedSaleStages = []int{SaleStageFinished, SaleStageReturnedFinish}
-	PendingSaleStages  = []int{SaleStageNew, SaleStagePending, SaleStageReturning}
+	PendingSaleStages  = []int{SaleStageNew, SaleStagePending, SaleStageOfdWaiting, SaleStageOfdCancelled, SaleStageReturning}
 )
 
 var SaleStages = map[int]map[string]string{
