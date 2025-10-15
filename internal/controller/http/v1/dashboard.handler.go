@@ -56,9 +56,11 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid query parameters")
 		return
 	}
+
+	var body domain.DashboardBody
 	// bind store ids
 	if c.Request.Body != nil {
-		_ = c.ShouldBindJSON(&param.StoreIds)
+		_ = c.ShouldBindJSON(&body)
 	}
 	// get user id from header
 	userId, ok := c.Get("user_id")
@@ -129,9 +131,10 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid query parameters")
 		return
 	}
+	var body domain.DashboardBody
 	// bind store ids
 	if c.Request.Body != nil {
-		_ = c.ShouldBindJSON(&param.StoreIds)
+		_ = c.ShouldBindJSON(&body)
 	}
 
 	// get user id from header
@@ -251,10 +254,10 @@ func (h *DashboardHandler) TopProducts(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid query parameters")
 		return
 	}
+	var body domain.DashboardBody
 	// bind store ids
-	if err = c.ShouldBindJSON(&param.StoreIds); err != nil {
-		handleResponse(c, BadRequest, "Invalid store ids")
-		return
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&body)
 	}
 	// get limit offset with checking default
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
@@ -316,10 +319,10 @@ func (h *DashboardHandler) BonusProducts(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid query parameters")
 		return
 	}
+	var body domain.DashboardBody
 	// bind store ids
-	if err = c.ShouldBindJSON(&param.StoreIds); err != nil {
-		handleResponse(c, BadRequest, "Invalid store ids")
-		return
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&body)
 	}
 
 	// get limit offset with checking default
@@ -383,9 +386,10 @@ func (h *DashboardHandler) TopSeller(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid query parameters")
 		return
 	}
+	var body domain.DashboardBody
 	// bind store ids
 	if c.Request.Body != nil {
-		_ = c.ShouldBindJSON(&param.StoreIds)
+		_ = c.ShouldBindJSON(&body)
 	}
 	// get limit offset with checking default
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
@@ -453,9 +457,10 @@ func (h *DashboardHandler) Payments(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid query parameters")
 		return
 	}
+	var body domain.DashboardBody
 	// bind store ids
 	if c.Request.Body != nil {
-		_ = c.ShouldBindJSON(&param.StoreIds)
+		_ = c.ShouldBindJSON(&body)
 	}
 
 	res, err := h.service.DashboardPayments(&param)
@@ -496,9 +501,10 @@ func (h *DashboardHandler) Transaction(c *gin.Context) {
 		return
 	}
 	param.CompanyId = companyId.(string)
+	var body domain.DashboardBody
 	// bind store ids
 	if c.Request.Body != nil {
-		_ = c.ShouldBindJSON(&param.StoreIds)
+		_ = c.ShouldBindJSON(&body)
 	}
 	res, err := h.service.DashboardTransaction(&param)
 	if err != nil {

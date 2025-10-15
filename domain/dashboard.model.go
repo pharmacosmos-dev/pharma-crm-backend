@@ -156,3 +156,8 @@ type DashboardCountStatsBonus struct {
 	BonusAmount       float64 `gorm:"bonus_amount" json:"bonus_amount"`
 	BeforeBonusAmount float64 `gorm:"before_bonus_amount" json:"before_bonus_amount"`
 }
+
+type DashboardBody struct {
+	StoreIds   []string `json:"store_ids"`
+	CompanyIds []string `json:"company_ids"`
+}
