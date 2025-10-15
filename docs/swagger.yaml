@@ -350,6 +350,17 @@ definitions:
       tag_id:
         type: string
     type: object
+  domain.DashboardBody:
+    properties:
+      company_ids:
+        items:
+          type: string
+        type: array
+      store_ids:
+        items:
+          type: string
+        type: array
+    type: object
   domain.Document:
     properties:
       data_dok:
@@ -3984,13 +3995,11 @@ paths:
         in: query
         name: store_id
         type: string
-      - description: Store ids
+      - description: Body
         in: body
-        name: store_ids
+        name: ids
         schema:
-          items:
-            type: string
-          type: array
+          $ref: '#/definitions/domain.DashboardBody'
       produces:
       - application/json
       responses:
@@ -4031,13 +4040,11 @@ paths:
         in: query
         name: store_id
         type: string
-      - description: Store ids
+      - description: Body
         in: body
-        name: store_ids
+        name: ids
         schema:
-          items:
-            type: string
-          type: array
+          $ref: '#/definitions/domain.DashboardBody'
       produces:
       - application/json
       responses:
@@ -4078,13 +4085,11 @@ paths:
         in: query
         name: type
         type: string
-      - description: Store ids
+      - description: Body
         in: body
-        name: store_ids
+        name: ids
         schema:
-          items:
-            type: string
-          type: array
+          $ref: '#/definitions/domain.DashboardBody'
       produces:
       - application/json
       responses:
@@ -4165,13 +4170,11 @@ paths:
         in: query
         name: store_id
         type: string
-      - description: Store ids
+      - description: Body
         in: body
-        name: store_ids
+        name: ids
         schema:
-          items:
-            type: string
-          type: array
+          $ref: '#/definitions/domain.DashboardBody'
       produces:
       - application/json
       responses:
@@ -4216,13 +4219,11 @@ paths:
         in: query
         name: store_id
         type: string
-      - description: Store ids
+      - description: Body
         in: body
-        name: store_ids
+        name: ids
         schema:
-          items:
-            type: string
-          type: array
+          $ref: '#/definitions/domain.DashboardBody'
       produces:
       - application/json
       responses:
@@ -4267,13 +4268,11 @@ paths:
         in: query
         name: store_id
         type: string
-      - description: Store ids
+      - description: Body
         in: body
-        name: store_ids
+        name: ids
         schema:
-          items:
-            type: string
-          type: array
+          $ref: '#/definitions/domain.DashboardBody'
       produces:
       - application/json
       responses:
@@ -4352,13 +4351,11 @@ paths:
         in: query
         name: store_id
         type: string
-      - description: Store ids
+      - description: Body
         in: body
-        name: store_ids
+        name: ids
         schema:
-          items:
-            type: string
-          type: array
+          $ref: '#/definitions/domain.DashboardBody'
       produces:
       - application/json
       responses:

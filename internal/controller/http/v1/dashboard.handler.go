@@ -42,7 +42,7 @@ func (h *DashboardHandler) DashboardRoutes(r *gin.RouterGroup) {
 // @Param   end_date 	query string false "End Date"
 // @Param   store_id 	query string false "Store ID"
 // @Param   type 		query string false "Type"
-// @Param   store_ids  	body  []string  false  "Store ids"
+// @Param   ids 		body  domain.DashboardBody false "Body"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -117,7 +117,7 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 // @Param   end_date 	query string false "End Date"
 // @Param   type 		query string false "Type might be -> (HOURLY, DAILY, WEEKLY, MONTHLY, YEARLY)"
 // @Param   store_id 	query string false "Store ID"
-// @Param   store_ids  	body  []string  false  "Store ids"
+// @Param   ids 		body  domain.DashboardBody false "Body"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -241,7 +241,7 @@ func (h *DashboardHandler) TopStores(c *gin.Context) {
 // @Param   start_date 	query string false "Start Date"
 // @Param   end_date 	query string false "End Date"
 // @Param   store_id 	query string false "Store ID"
-// @Param   store_ids  	body  []string  false  "Store ids"
+// @Param   ids 		body  domain.DashboardBody false "Body"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -301,12 +301,12 @@ func (h *DashboardHandler) TopProducts(c *gin.Context) {
 // @Tags dashboard
 // @Security     BearerAuth
 // @Produce json
-// @Param   limit 	query int false "Limit"
-// @Param 	offset query int false 	"Offset"
+// @Param   limit 		query int false "Limit"
+// @Param 	offset 		query int false 	"Offset"
 // @Param   start_date 	query string false "Start Date"
 // @Param   end_date 	query string false "End Date"
 // @Param   store_id 	query string false "Store ID"
-// @Param   store_ids  	body  []string  false  "Store ids"
+// @Param   ids 		body  domain.DashboardBody false "Body"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -373,7 +373,7 @@ func (h *DashboardHandler) BonusProducts(c *gin.Context) {
 // @Param   start_date 	query string false "Start Date"
 // @Param   end_date 	query string false "End Date"
 // @Param   store_id 	query string false "Store ID"
-// @Param   store_ids  	body  []string  false  "Store ids"
+// @Param   ids 		body  domain.DashboardBody false "Body"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -437,7 +437,7 @@ func (h *DashboardHandler) TopSeller(c *gin.Context) {
 // @Param   end_date 	query string false "End Date"
 // @Param   type 		query string false "Type might be -> (HOURLY, DAILY, WEEKLY, MONTHLY, YEARLY)"
 // @Param   store_id 	query string false "Store ID"
-// @Param   store_ids  	body  []string  false  "Store ids"
+// @Param   ids 		body  domain.DashboardBody false "Body"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -481,7 +481,7 @@ func (h *DashboardHandler) Payments(c *gin.Context) {
 // @Param   end_date 	query string true "End Date"
 // @Param   type 		query string false "Type might be -> (HOURLY, DAILY, WEEKLY, MONTHLY, YEARLY)"
 // @Param   store_id 	query string false "Store ID"
-// @Param   store_ids  	body  []string  false  "Store ids"
+// @Param   ids 		body  domain.DashboardBody false "Body"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
