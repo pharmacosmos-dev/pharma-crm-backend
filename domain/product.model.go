@@ -234,6 +234,7 @@ type ProductQueryParam struct {
 	Status          string  `form:"status"`
 	NoBarcode       bool    `form:"no_barcode"`
 	Order           string  `form:"order"`
+	Category        int     `form:"category"`
 }
 
 // update barcode structure
