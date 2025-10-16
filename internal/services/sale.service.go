@@ -555,13 +555,13 @@ func (s *Services) matchingPaymentTypeSum(ctx context.Context, req *domain.Final
 			req.Uzcard = item.Amount
 		} else if item.Type == constants.PaymentTypeApp && item.AppType == constants.PaymentTypeClick {
 			req.Click = item.Amount
-			*req.OtpCode = item.OtpData
+			req.OtpCode = item.OtpData
 		} else if item.Type == constants.PaymentTypeApp && item.AppType == constants.PaymentTypePayme {
 			req.Payme = item.Amount
-			*req.OtpCode = item.OtpData
+			req.OtpCode = item.OtpData
 		} else if item.Type == constants.PaymentTypeApp && item.AppType == constants.PaymentTypeAlif {
 			req.Alif = item.Amount
-			*req.OtpCode = item.OtpData
+			req.OtpCode = item.OtpData
 		} else {
 			return req, domain.InvalidPaymentTypeError
 		}
