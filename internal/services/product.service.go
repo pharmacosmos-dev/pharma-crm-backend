@@ -1477,3 +1477,73 @@ func (s *Services) GetSoldProductsBySaleId(ctx context.Context, saleId string) (
 
 	return products, nil
 }
+
+// Create
+func (s *Services) CreateProductPhotoAlert(req *domain.ProductPhotoAlertCreate) error {
+	alert := domain.CreateProductPhotoAlert{
+		ProductID: req.ProductID,
+		Category:  req.Category,
+		Reason:    req.Reason,
+		CreatedBy: &req.CreatedBy,
+		Status:    "pending",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	return s.db.Table("product_photo_alerts").Create(&alert).Error
+}
+
+// List
+func (s *Services) ListProductPhotoAlert(param *domain.ProductQueryParam) ([]domain.ProductPhotoAlert, int64, error) {
+	var (
+		alerts     []domain.ProductPhotoAlert
+		totalCount int64
+	)
+
+	query := s.db.Table("product_photo_alerts").Select("product_photo_alerts.*, p.name, p.photos, p.unit_per_pack, e.full_name as created_by").
+		Joins("JOIN products p ON p.id = product_photo_alerts.product_id").
+		Joins("JOIN employees e ON e.id = product_photo_alerts.created_by")
+
+	if param.Status != "" {
+		query = query.Where("status = ?", param.Status)
+	}
+	if param.Category != 0 {
+		query = query.Where("category = ?", param.Category)
+	}
+	if param.SearchField != "" {
+		query = query.Where("p.name ILIKE ?", "%"+param.SearchField+"%")
+	}
+	//if param.CompanyID != "" {
+	//	// agar products jadvalida company_id bo‘lsa, join qilib filterlash kerak
+	//	query = query.Joins("JOIN products p ON p.id = product_photo_alerts.product_id").
+	//		Where("p.company_id = ?", param.CompanyID)
+	//}
+
+	// count
+	if err := query.Count(&totalCount).Error; err != nil {
+		return nil, 0, err
+	}
+
+	// pagination
+	if param.Limit > 0 {
+		query = query.Limit(param.Limit).Offset(param.Offset)
+	}
+
+	if err := query.Order("created_at DESC").Scan(&alerts).Error; err != nil {
+		return nil, 0, err
+	}
+
+	return alerts, totalCount, nil
+}
+
+// Delete
+func (s *Services) DeleteProductPhotoAlert(id string) error {
+	res := s.db.Table("product_photo_alerts").Where("id = ?", id).Delete(nil)
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return errors.New("not found")
+	}
+	return nil
+}
