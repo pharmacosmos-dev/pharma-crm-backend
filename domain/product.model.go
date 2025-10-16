@@ -454,3 +454,31 @@ type UpdatePackagingRequest struct {
 	CompanyID   string `json:"-"`
 	StoreID     string `json:"-"`
 }
+
+// domain/product_photo_alert.go
+
+type ProductPhotoAlert struct {
+	ID          string            `json:"id"`
+	ProductID   string            `json:"product_id"`
+	Name        string            `json:"name"`
+	Photos      utils.StringArray `gorm:"type:text[]" json:"photos"`
+	UnitPerPack int               `json:"unit_per_pack"`
+	Category    int               `json:"category"`
+	Reason      string            `json:"reason"`
+	CreatedBy   *string           `json:"created_by"`
+	Status      string            `json:"status"`
+	ResolvedBy  *string           `json:"resolved_by"`
+	ResolvedAt  *time.Time        `json:"resolved_at"`
+	CreatedAt   time.Time         `json:"created_at"`
+	UpdatedAt   time.Time         `json:"updated_at"`
+}
+
+type CreateProductPhotoAlert struct {
+	ProductID string    `json:"product_id"`
+	Category  int       `json:"category"`
+	Reason    string    `json:"reason"`
+	CreatedBy *string   `json:"created_by"`
+	Status    string    `json:"status"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
