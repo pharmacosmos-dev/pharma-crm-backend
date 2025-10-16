@@ -1469,7 +1469,7 @@ func (s *Services) GetSoldProductsBySaleId(ctx context.Context, saleId string) (
 		ci.discount_amount,
 		((ci.discount_price/p.unit_per_pack)*ci.unit_quantity) AS  total_discount,
         ROUND(ci.unit_price / p.unit_per_pack, 2) AS unit_price,
-        (pb.bonus_amount/p.unit_per_pack) * ci.unit_quantity AS bonus_amount
+        ROUND((pb.bonus_amount/p.unit_per_pack) * ci.unit_quantity, 2) AS bonus_amount
 	FROM cart_items ci
 	JOIN store_products sp ON ci.store_product_id = sp.id
 	JOIN products p ON sp.product_id = p.id

@@ -303,7 +303,10 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 		}
 	} else {
 		if sale.Stage < constants.SaleStagePayFinished {
-			updates["otp_code"] = req.OtpCode
+			if req.OtpCode != "" {
+				updates["otp_code"] = req.OtpCode
+			}
+
 			updates["cash"] = req.Cash - req.ReturnAmount
 			updates["humo"] = req.Humo
 			updates["uzcard"] = req.Uzcard
