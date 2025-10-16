@@ -1149,6 +1149,103 @@ func (s *Services) ReportBonusProducts(param *domain.ReportQueryParam) ([]domain
 	return res, totalCount, nil
 }
 
+// get bonus products stats
+func (s *Services) ReportBonusProductsStats(param *domain.ReportQueryParam) (domain.BonusProductsStats, error) {
+	var (
+		res       domain.BonusProductsStats
+		args      []any
+		startTime time.Time
+		endTime   time.Time
+	)
+
+	// parse start date
+	startTime, err := time.Parse(time.RFC3339, param.StartDate)
+	if err != nil {
+		return res, err
+	}
+	if param.EndDate != "" {
+		endTime, err = time.Parse(time.RFC3339, param.EndDate)
+		if err != nil {
+			return res, err
+		}
+	} else {
+		endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+	}
+
+	beforeStart, beforeEnd := utils.BeforeDatesTime(startTime, endTime)
+
+	query := `
+	SELECT
+		COUNT(curr.id) AS documents_count,  -- nechta product (document) borligini sanaydi
+		COALESCE(SUM(curr.count), 0) + COALESCE(SUM(curr.unit_quantity * curr.unit_per_pack), 0)  AS total_count,
+		COALESCE(SUM(curr.unit_quantity), 0) AS total_unit_quantity,
+		COALESCE(SUM(curr.bonus_amount), 0) AS total_bonus_amount,
+		COALESCE(SUM(prev.bonus_amount), 0) AS previous_bonus_amount,
+		ROUND(
+			CASE 
+				WHEN COALESCE(SUM(prev.bonus_amount), 0) = 0 THEN 100
+				ELSE ((SUM(curr.bonus_amount) - SUM(prev.bonus_amount)) * 100.0) / NULLIF(SUM(prev.bonus_amount), 0)
+			END, 2
+		) AS percent
+	FROM (
+		SELECT
+			p.id,
+    		SUM(eb.unit_quantity) - ROUND(SUM(eb.unit_quantity)::decimal / p.unit_per_pack,0) * p.unit_per_pack AS unit_quantity,
+    		SUM(eb.quantity) + ROUND(SUM(eb.unit_quantity)::decimal / p.unit_per_pack,0) AS count,
+			SUM(eb.bonus_amount) AS bonus_amount,
+			p.unit_per_pack
+		FROM employee_bonus eb
+		JOIN products p ON eb.product_id = p.id
+	`
+
+	join := ""
+	filter := " WHERE 1=1 "
+	if len(param.StoreIds) > 0 {
+		join += " JOIN employees e ON eb.employee_id = e.id"
+		filter += " AND e.store_id IN (?)"
+		args = append(args, param.StoreIds)
+	}
+	if param.CompanyId != "" {
+		filter += " AND p.company_id = ? "
+		args = append(args, param.CompanyId)
+	}
+	filter += " AND (eb.created_at + interval '5 hours') BETWEEN ? AND ?"
+	args = append(args, startTime, endTime)
+
+	group := " GROUP BY p.id, p.unit_per_pack ) AS curr"
+
+	query += join + filter + group
+
+	// prev
+	query += `
+	LEFT JOIN (
+		SELECT
+			p.id,
+			SUM(eb.bonus_amount) AS bonus_amount
+		FROM employee_bonus eb
+		JOIN products p ON eb.product_id = p.id
+	`
+
+	prevJoin := ""
+	prevFilter := " WHERE 1=1 "
+	if len(param.StoreIds) > 0 {
+		prevJoin += " JOIN employees e ON eb.employee_id = e.id"
+		prevFilter += " AND e.store_id IN (?)"
+		args = append(args, param.StoreIds)
+	}
+	prevFilter += " AND (eb.created_at + interval '5 hours') BETWEEN ? AND ?"
+	args = append(args, beforeStart, beforeEnd)
+
+	query += prevJoin + prevFilter + " GROUP BY p.id ) AS prev ON curr.id = prev.id"
+
+	// execute
+	if err := s.db.Raw(query, args...).Scan(&res).Error; err != nil {
+		return res, err
+	}
+
+	return res, nil
+}
+
 func (s *Services) ReportStoreSummary(param *domain.ReportQueryParam) ([]domain.StoreSummary, int64, error) {
 	var (
 		res       []domain.StoreSummary
