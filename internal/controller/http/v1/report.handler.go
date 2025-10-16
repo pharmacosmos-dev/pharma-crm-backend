@@ -47,6 +47,7 @@ func (h *ReportHandler) ReportRoutes(r *gin.RouterGroup) {
 		report.POST("/top-stores", h.ReportTopStores)
 		report.POST("/top-stores/export-excel", h.TopStoresExportExcel)
 		report.POST("/bonus-products", h.ReportBonusProducts)
+		report.POST("/bonus-products-stats", h.ReportBonusProductsStats)
 		report.POST("/bonus-products/export-excel", h.BonusProductsExportExcel)
 		report.POST("/store-summary", h.ReportStoreSummary)
 		report.POST("/store-summary-stats", h.ReportStoreSummaryStats)
@@ -1600,6 +1601,60 @@ func (h *ReportHandler) BonusProductsExportExcel(c *gin.Context) {
 	}
 
 	saveExcelToUploads(c, f, *h.log, "Bonus_products")
+}
+
+// Bonus products stats godoc
+// @Summary Get bonus products stats
+// @Description Get bonus products stats (dashboard summary)
+// @Tags Report
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param   start_date  query string false "Start Date (RFC3339)"
+// @Param   end_date    query string false "End Date (RFC3339)"
+// @Param   store_id    query string false "Store ID"
+// @Param   store_ids   body []string false "Store IDs"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /report/bonus-products-stats [POST]
+func (h *ReportHandler) ReportBonusProductsStats(c *gin.Context) {
+	var param domain.ReportQueryParam
+
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleResponse(c, BadRequest, "Invalid query params")
+		return
+	}
+	if err := c.ShouldBindJSON(&param.StoreIds); err != nil {
+		// store_ids bo'lmasa error qaytmasin
+		param.StoreIds = []string{}
+	}
+
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	var employee domain.Employee
+	if err := h.db.First(&employee, "id = ?", userId).Error; err != nil {
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			param.StoreId = employee.StoreId
+		}
+		param.CompanyId = employee.CompanyId
+	}
+
+	res, err := h.service.ReportBonusProductsStats(&param)
+	if err != nil {
+		handleResponse(c, InternalError, "Can't get bonus products stats")
+		return
+	}
+
+	handleResponse(c, OK, res)
 }
 
 // ReportStoreSummary godoc
