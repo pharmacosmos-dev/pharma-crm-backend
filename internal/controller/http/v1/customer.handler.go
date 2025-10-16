@@ -1,7 +1,7 @@
 package v1
 
 import (
-	"errors"
+	"context"
 	"fmt"
 	"strconv"
 	"time"
@@ -9,10 +9,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
-	"github.com/spf13/cast"
 	"github.com/xuri/excelize/v2"
-	"gorm.io/gorm"
 )
 
 type CustomerHandler struct {
@@ -57,14 +56,16 @@ func (h *CustomerHandler) CustomerRoutes(r *gin.RouterGroup) {
 // @Failure 500 {object} v1.Response
 // @Router /customer [post]
 func (h *CustomerHandler) Create(c *gin.Context) {
-	var (
-		body     domain.CustomerRequest
-		customer domain.Customer
-		err      error
-	)
+	var body domain.CustomerRequest
+	// get user from the context
+	user := h.service.GetSignedUser(c)
+	if user == nil {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
 	// bind request body
-	err = c.ShouldBindJSON(&body)
-	if err != nil {
+	if err := c.ShouldBindJSON(&body); err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
@@ -73,66 +74,45 @@ func (h *CustomerHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid phone number, Format: 998901234567")
 		return
 	}
-	// get user id
-	createdBy, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
-		return
-	}
-	// generate id
-	body.Id = uuid.New().String()
-	body.CreatedBy = cast.ToString(createdBy)
-	// insert customer
-	err = h.db.
-		WithContext(c.Request.Context()).Raw(`
-		INSERT INTO customers 
-			(id, store_id, tag_id, first_name, last_name, full_name, phone, gender, birthday, created_by)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
-		body.Id, body.StoreId, body.TagId, body.FirstName, body.LastName, body.FirstName+" "+body.LastName,
-		body.Phone, body.Gender, body.Birthday, body.CreatedBy).Scan(&customer).Error
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	body.CreatedBy = user.UserId
+	res, err := h.service.CreateCustomer(ctx, &body)
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
-	handleResponse(c, CREATED, customer)
+
+	handleResponse(c, CREATED, res)
 }
 
 // Get godoc
-// @Summary Get a customer
+// @Summary 	Get a customer
 // @Description Get a customer from the request body
-// @Tags customers
+// @Tags 	customers
 // @Security     BearerAuth
-// @Accept json
+// @Accept 	json
 // @Produce json
-// @Param id path string true "customer ID"
+// @Param 	id path string true "customer ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /customer/{id} [get]
 func (h *CustomerHandler) Get(c *gin.Context) {
-	var (
-		customer domain.Customer
-		id       = c.Param("id")
-	)
-	// validate uuid
-	if err := uuid.Validate(id); err != nil {
-		handleResponse(c, BadRequest, "Invalid id")
-		return
-	}
-	err := h.db.
-		Preload("Tag").
-		First(&customer, "id = ?", id).Error
+	var id = c.Param("id")
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, err := h.service.GetCustomerById(ctx, id)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			handleResponse(c, NotFound, nil)
-			return
-		}
-		h.log.Error(fmt.Errorf("err: %v", err))
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, nil, err)
 		return
 	}
-	handleResponse(c, OK, customer)
+
+	handleResponse(c, OK, res)
 }
 
 // List godoc
@@ -151,23 +131,25 @@ func (h *CustomerHandler) Get(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /customer/list [get]
 func (h *CustomerHandler) List(c *gin.Context) {
-	var param domain.QueryParam
-	if err := c.ShouldBindQuery(&param); err != nil {
-		handleResponse(c, BadRequest, "Invalid query param")
+	var params domain.QueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 	// get customers data
-	res, totalCount, err := h.service.ListCustomer(&param)
+	res, totalCount, err := h.service.GetCustomers(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, nil, err)
 		return
 	}
 	// add _meta data
-	result := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
 
-	handleResponse(c, OK, result)
+	handleResponse(c, OK, data)
 }
 
 // Export customer excel godoc
@@ -187,24 +169,27 @@ func (h *CustomerHandler) List(c *gin.Context) {
 // @Router /customer/export-excel [get]
 func (h *CustomerHandler) ExportCustomerExcel(c *gin.Context) {
 
-	var param domain.QueryParam
+	var params domain.QueryParam
 	// bind query param
-	if err := c.ShouldBindQuery(&param); err != nil {
+	if err := c.ShouldBindQuery(&params); err != nil {
 		handleResponse(c, BadRequest, "Invalid query param")
 		return
 	}
 
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 	// get customers data
-	res, _, err := h.service.ListCustomer(&param)
+	res, _, err := h.service.GetCustomers(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, nil, err)
 		return
 	}
 
 	// Excel fayl yaratish
 	f := excelize.NewFile()
-	sheetName := "Clients"
+	sheetName := "Klients"
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
@@ -267,19 +252,25 @@ func (h *CustomerHandler) ExportCustomerExcel(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /customer/list-discount-cards [get]
 func (h *CustomerHandler) ListDiscountCards(c *gin.Context) {
-	var param domain.QueryParam
-	if err := c.ShouldBindQuery(&param); err != nil {
-		handleResponse(c, BadRequest, "Invalid query param")
+	var params domain.QueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
-	res, total, err := h.service.ListDiscountCards(&param)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	res, total, err := h.service.ListDiscountCards(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
-	result := utils.ListResponse(res, total, param.Limit, param.Offset)
+
+	result := utils.ListResponse(res, total, params.Limit, params.Offset)
+
 	handleResponse(c, OK, result)
 }
 
@@ -299,18 +290,20 @@ func (h *CustomerHandler) ListDiscountCards(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /customer/export-excel-discount-cards [get]
 func (h *CustomerHandler) ExportDiscountCardExcel(c *gin.Context) {
-	var param domain.QueryParam
-	if err := c.ShouldBindQuery(&param); err != nil {
-		handleResponse(c, BadRequest, "Invalid query param")
+	var params domain.QueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 
-	// Fetch data
-	res, _, err := h.service.ListDiscountCards(&param)
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	res, _, err := h.service.ListDiscountCards(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
@@ -336,7 +329,7 @@ func (h *CustomerHandler) ExportDiscountCardExcel(c *gin.Context) {
 	for i, dc := range res {
 		row := strconv.Itoa(i + 2)
 
-		f.SetCellValue(sheetName, "A"+row, dc.ID)
+		f.SetCellValue(sheetName, "A"+row, dc.Id)
 		f.SetCellValue(sheetName, "B"+row, dc.FullName)
 		f.SetCellValue(sheetName, "C"+row, dc.Phone)
 		f.SetCellValue(sheetName, "D"+row, dc.Birthday.Format("2006-01-02"))
@@ -376,24 +369,29 @@ func (h *CustomerHandler) Update(c *gin.Context) {
 	var (
 		body domain.CustomerRequest
 		id   = c.Param("id")
-		err  error
 	)
-	if err = c.ShouldBindJSON(&body); err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
-		handleResponse(c, BadRequest, err.Error())
+	err := c.ShouldBindJSON(&body)
+	if err != nil {
+		handleServiceResponse(c, nil, domain.InvalidRequestBodyError)
 		return
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
 	if !utils.IsValidPhone(body.Phone) {
-		handleResponse(c, BadRequest, "Invalid phone number, Format: 998901234567")
+		handleResponse(c, BadRequest, domain.InvalidPhoneError)
 		return
 	}
-	err = h.db.WithContext(c.Request.Context()).
+
+	err = h.db.WithContext(ctx).
 		Table("customers").
 		Where("id = ?", id).
 		Updates(&body).Error
+
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err.Error()))
-		handleResponse(c, InternalError, err.Error())
+		h.log.Errorf("could not update customer %v", err)
+		handleResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 	handleResponse(c, OK, body)
@@ -415,20 +413,19 @@ func (h *CustomerHandler) SoftDelete(c *gin.Context) {
 	var ids []string
 	err := c.ShouldBindJSON(&ids)
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err.Error()))
-		handleResponse(c, BadRequest, err.Error())
+		handleResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
 	err = h.db.
 		WithContext(c.Request.Context()).
 		Table("customers").
 		Where("id IN (?)", ids).
-		Updates(map[string]interface{}{
+		Updates(map[string]any{
 			"is_active":  false,
 			"deleted_at": time.Now()}).Error
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err))
-		handleResponse(c, InternalError, err.Error())
+		h.log.Errorf("could not soft_delete customer: %v", err)
+		handleResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 	handleResponse(c, OK, "DELETED")
@@ -450,18 +447,21 @@ func (h *CustomerHandler) HardDelete(c *gin.Context) {
 	var ids []string
 	err := c.ShouldBindJSON(&ids)
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err.Error()))
-		handleResponse(c, BadRequest, err.Error())
+		handleResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
 	err = h.db.
-		WithContext(c.Request.Context()).
+		WithContext(ctx).
 		Table("customers").
 		Where("id IN (?)", ids).
 		Delete(&domain.Customer{}).Error
 	if err != nil {
-		h.log.Error(fmt.Errorf("err: %v", err.Error()))
-		handleResponse(c, InternalError, err.Error())
+		h.log.Errorf("could not hard_delete customer: %v", err)
+		handleResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 	handleResponse(c, OK, "DELETED")

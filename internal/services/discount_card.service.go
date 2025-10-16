@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/jackc/pgconn"
 	"github.com/pharma-crm-backend/domain"
 	"gorm.io/gorm"
 )
@@ -56,18 +57,21 @@ func (s *Services) CreateSaleCustomerDiscount(ctx context.Context, tx *gorm.DB, 
 	err := tx.WithContext(ctx).Raw(`
 	INSERT INTO sale_customer_discounts(
 		customer_id, 
-		sale_id, 
-		discount_card_id, 
+		sale_id,
 		discount_percent
 		) 
-	VALUES(?, ?, ?, ?) RETURNING *`,
+	VALUES(?, ?, ?) RETURNING *`,
 		req.CustomerId,
 		req.SaleId,
-		discountCard.ID,
-		discountCard.Percent).Scan(&customerDiscount).Error
+		discountCard.Percent,
+	).Scan(&customerDiscount).Error
 	if err != nil {
-		if errors.Is(err, gorm.ErrDuplicatedKey) {
-			return nil, domain.DuplicateError
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) {
+			if pgErr.Code == "23505" {
+				// This — UNIQUE constraint violation
+				return nil, domain.DuplicateError
+			}
 		}
 		s.log.Errorf("could not creating sale customer discount: %v", err)
 		return nil, domain.InternalServerError

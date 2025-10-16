@@ -1,114 +1,274 @@
 package services
 
 import (
+	"context"
 	"errors"
+	"fmt"
+	"time"
 
+	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
 )
 
-// get customer list data
-func (s *Services) ListCustomer(param *domain.QueryParam) ([]domain.Customer, int64, error) {
-	var (
-		res        []domain.Customer
-		totalCount int64
+// region Create
+
+func (s *Services) CreateCustomer(ctx context.Context, req *domain.CustomerRequest) (*domain.Customer, error) {
+	var res domain.Customer
+	query := `
+	INSERT INTO customers (
+		id, 
+		store_id, 
+		tag_id, 
+		first_name, 
+		last_name, 
+		full_name, 
+		phone, 
+		gender, 
+		birthday, 
+		created_by,
+		discount_card,
+		discount_percent
+		)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
+	RETURNING *
+	`
+	// insert customer
+	err := s.db.WithContext(ctx).
+		Raw(query,
+			uuid.New().String(),
+			req.StoreId,
+			req.TagId,
+			req.FirstName,
+			req.LastName,
+			req.FirstName+" "+req.LastName,
+			req.Phone,
+			req.Gender,
+			req.Birthday,
+			req.CreatedBy,
+			req.DiscountCard,
+			req.DiscountPercent,
+		).Scan(&res).Error
+	if err != nil {
+		s.log.Errorf("could not create customer: %v", err)
+		return &res, domain.InternalServerError
+	}
+
+	return &res, nil
+}
+
+// create new customer with phone and name
+func (s *Services) CreateCustomerWithPhone(req *domain.NoorClientInfo) (*domain.Customer, error) {
+	var res domain.Customer
+	query := `
+	INSERT INTO customers(
+		first_name,
+		full_name,
+		phone
 	)
+	VALUES (?, ?, ?)
+	RETURNING *
+	`
+	err := s.db.Raw(query, req.Name, req.Name, req.Phone).Scan(&res).Error
+	if err != nil {
+		s.log.Error(err)
+		return &res, err
+	}
+	return &res, nil
+}
+
+// region Get
+
+// get customer list data
+func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam) ([]domain.Customer, int64, error) {
+	var tmpCustomer []struct {
+		Id              string     `gorm:"id" json:"id"`
+		PublicId        int        `gorm:"public_id" json:"public_id"`
+		StoreId         string     `gorm:"store_id" json:"store_id"`
+		TagId           string     `gorm:"tag_id" json:"tag_id"`
+		FirstName       string     `gorm:"first_name" json:"first_name"`
+		LastName        string     `gorm:"last_name" json:"last_name"`
+		FullName        string     `gorm:"full_name" json:"full_name"`
+		Phone           string     `gorm:"phone" json:"phone"`
+		Birthday        string     `gorm:"birthday" json:"birthday" example:"2006-01-02"`
+		Gender          string     `gorm:"gender" json:"gender" example:"male/female"`
+		Balance         float64    `gorm:"balance" json:"balance"`
+		DiscountCard    string     `gorm:"discount_card" json:"discount_card"`
+		DiscountPercent int        `gorm:"discount_percent" json:"discount_percent"`
+		CreatedAt       *time.Time `gorm:"created_at" json:"created_at"`
+		UpdatedAt       *time.Time `gorm:"updated_at" json:"updated_at"`
+
+		TId   string `gorm:"t_id"`
+		TName string `gorm:"t_name"`
+
+		SId   string `gorm:"s_id"`
+		SName string `gorm:"s_name"`
+	}
 
 	// Start building the query
 	query := s.db.
-		Model(&domain.Customer{}).
-		Preload("Store").
-		Preload("Tag").
-		Select(`
-		customers.*,
-		COALESCE(dc.barcode, '') AS discount_card,
-		(SELECT created_at
-		FROM sales
-		WHERE sales.customer_id = customers.id
-		ORDER BY sales.created_at DESC LIMIT 1)
-		AS sale_date,
-		COALESCE(SUM(sales.total_amount), 0) AS sale_amount`).
-		Joins("LEFT JOIN sales ON sales.customer_id = customers.id").
-		Joins("LEFT JOIN discount_cards dc ON dc.customer_id = customers.id").
-		Where("customers.is_active = ?", true)
+		Select(
+			"c.id",
+			"c.public_id",
+			"c.store_id",
+			"c.tag_id",
+			"c.first_name",
+			"c.last_name",
+			"c.full_name",
+			"c.phone",
+			"c.birthday",
+			"c.gender",
+			"c.balance",
+			"c.discount_card",
+			"c.discount_percent",
+			"c.created_at",
+			"c.updated_at",
 
-	if param.Search != "" {
-		query = query.Where("dc.barcode = ?", param.Search)
+			"s.id AS s_id",
+			"s.name AS s_name",
 
+			"t.id AS t_id",
+			"t.name AS t_name",
+		).Table("customers c").
+		Joins("LEFT JOIN stores s ON c.store_id = s.id").
+		Joins("LEFT JOIN tags t ON c.tag_id = t.id")
+
+	if params.Search != "" {
+		query = query.Where("c.discount_card = ?", params.Search)
 	}
-	if param.StoreID != "" {
-		query = query.Where("customers.store_id = ?", param.StoreID)
+
+	if params.StoreID != "" {
+		query = query.Where("c.store_id = ?", params.StoreID)
 	}
-	if param.CompanyId != "" {
-		query = query.Where("st.company_id = ? ", param.CompanyId).Joins("LEFT JOIN stores st ON sales.store_id = st.id")
+
+	if params.CompanyId != "" {
+		query = query.Where("s.company_id = ? ", params.CompanyId)
 	}
-	err := query.
-		Group("customers.id, dc.barcode").
+
+	var (
+		customers  []domain.Customer
+		totalCount int64
+	)
+
+	err := query.WithContext(ctx).
 		Count(&totalCount).
-		Limit(param.Limit).
-		Offset(param.Offset).
-		Order("customers.created_at DESC").
-		Find(&res).Error
+		Limit(params.Limit).
+		Offset(params.Offset).
+		Order("c.created_at DESC").
+		Find(&tmpCustomer).Error
 	if err != nil {
-		s.log.Error(err)
-		return nil, 0, err
+		s.log.Errorf("could not create new customer: %v", err)
+		return nil, 0, domain.InternalServerError
 	}
 
-	return res, totalCount, nil
+	for _, row := range tmpCustomer {
+		customers = append(customers, domain.Customer{
+			Id:              row.Id,
+			PublicId:        row.PublicId,
+			StoreId:         row.StoreId,
+			TagId:           row.TagId,
+			FirstName:       row.FirstName,
+			LastName:        row.LastName,
+			FullName:        row.FullName,
+			Phone:           row.Phone,
+			Birthday:        row.Birthday,
+			Gender:          row.Gender,
+			Balance:         row.Balance,
+			DiscountCard:    row.DiscountCard,
+			DiscountPercent: row.DiscountPercent,
+			CreatedAt:       row.CreatedAt,
+			UpdatedAt:       row.UpdatedAt,
+
+			Store: &domain.Store{
+				Id:   row.SId,
+				Name: row.SName,
+			},
+
+			Tag: &domain.Tag{
+				Id:   row.TId,
+				Name: row.TName,
+			},
+		})
+	}
+
+	return customers, totalCount, nil
 }
 
-func (s *Services) ListDiscountCards(param *domain.QueryParam) ([]domain.DiscountCardWithCustomer, int64, error) {
+func (s *Services) GetCustomerById(ctx context.Context, id string) (*domain.Customer, error) {
+	var res domain.Customer
+
+	err := s.db.WithContext(ctx).
+		Where("id = ?", id).
+		First(&res).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.NotFoundError
+		}
+		s.log.Errorf("could not get customer: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	var tag domain.Tag
+	err = s.db.WithContext(ctx).First(&tag, "id = ?", res.TagId).Error
+	if err != nil {
+		s.log.Errorf("could not get customer tag: %v", err)
+	}
+
+	res.Tag = &tag
+
+	return &res, nil
+}
+
+func (s *Services) ListDiscountCards(ctx context.Context, params *domain.QueryParam) ([]domain.DiscountCardWithCustomer, int64, error) {
 	var (
 		res        []domain.DiscountCardWithCustomer
 		totalCount int64
 	)
 
+	// Start building the query
 	query := s.db.
-		Table("discount_cards").
-		Select(`
-			discount_cards.*,
-			customers.full_name,
-			customers.phone,
-			customers.balance,
-			customers.store_id,
-			customers.tag_id,
-			stores.name AS store_name,
-			tags.name AS tag_name
-		`).
-		Joins("LEFT JOIN customers ON customers.id = discount_cards.customer_id").
-		Joins("LEFT JOIN stores ON stores.id = customers.store_id").
-		Joins("LEFT JOIN tags ON tags.id = customers.tag_id").
-		Where("customers.deleted_at IS NULL AND discount_cards.deleted_at IS NULL")
+		Select(
+			"c.id",
+			"c.store_id",
+			"c.tag_id",
+			"c.full_name",
+			"c.phone",
+			"c.birthday",
+			"c.gender",
+			"c.balance",
+			"c.discount_card AS barcode",
+			"c.discount_percent AS percent",
+			"c.created_at",
 
-	if param.Search != "" {
-		query = query.Where(`
-			customers.full_name ILIKE ? OR 
-			customers.phone ILIKE ? OR
-			discount_cards.barcode ILIKE ?`,
-			"%"+param.Search+"%",
-			"%"+param.Search+"%",
-			"%"+param.Search+"%",
-		)
+			"s.name AS store_name",
+			"t.name AS tag_name",
+		).Table("customers c").
+		Joins("LEFT JOIN stores s ON c.store_id = s.id").
+		Joins("LEFT JOIN tags t ON c.tag_id = t.id")
+
+	if params.Search != "" {
+		search := fmt.Sprintf("%%%s%%", params.Search)
+		query = query.Where("c.discount_card LIKE ? OR c.full_name ILIKE ? OR c.phone LIKE ?", search, search, search)
 	}
 
-	if param.StoreID != "" {
-		query = query.Where("customers.store_id = ?", param.StoreID)
-	}
-	if param.CompanyId != "" {
-		query = query.Where("stores.company_id = ?", param.CompanyId)
+	if params.StoreID != "" {
+		query = query.Where("c.store_id = ?", params.StoreID)
 	}
 
-	err := query.
+	if params.CompanyId != "" {
+		query = query.Where("s.company_id = ? ", params.CompanyId)
+	}
+
+	err := query.WithContext(ctx).
 		Count(&totalCount).
-		Limit(param.Limit).
-		Offset(param.Offset).
-		Order("discount_cards.created_at DESC").
-		Scan(&res).Error
-
+		Limit(params.Limit).
+		Offset(params.Offset).
+		Order("c.created_at DESC").
+		Find(&res).Error
 	if err != nil {
-		s.log.Error(err)
-		return nil, 0, err
+		s.log.Errorf("could not create new customer: %v", err)
+		return nil, 0, domain.InternalServerError
 	}
 
 	return res, totalCount, nil
@@ -134,24 +294,4 @@ func (s *Services) GetOrCreateCustomerByPhone(req *domain.NoorClientInfo) (*doma
 	// Any other database error
 	s.log.Warn("ERROR on getting customer info: %v", err)
 	return nil, err
-}
-
-// create new customer with phone and name
-func (s *Services) CreateCustomerWithPhone(req *domain.NoorClientInfo) (*domain.Customer, error) {
-	var res domain.Customer
-	query := `
-	INSERT INTO customers(
-		first_name,
-		full_name,
-		phone
-	)
-	VALUES (?, ?, ?)
-	RETURNING *
-	`
-	err := s.db.Raw(query, req.Name, req.Name, req.Phone).Scan(&res).Error
-	if err != nil {
-		s.log.Error(err)
-		return &res, err
-	}
-	return &res, nil
 }

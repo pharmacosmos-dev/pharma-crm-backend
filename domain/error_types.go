@@ -11,6 +11,7 @@ var (
 	InvalidRequestBodyError      = NewError(http.StatusBadRequest, "invalid.request.body")
 	InvalidTimeFormatError       = NewError(http.StatusBadRequest, "invalid.time.format")
 	InvalidQueryError            = NewError(http.StatusBadRequest, "invalid.query.param")
+	InvalidPhoneError            = NewError(http.StatusBadRequest, "invalid.phone.format")
 	PaymentTypeRequiredError     = NewError(http.StatusBadRequest, "payment.type.required")
 	InvalidPaymentTypeError      = NewError(http.StatusBadRequest, "invalid.payment.type")
 	InvalidSaleAmount            = NewError(http.StatusBadRequest, "invalid.sale.amount")

@@ -649,13 +649,6 @@ func (s *Services) AttachDiscountCardToSale(ctx context.Context, req *domain.Add
 		}
 	}()
 
-	// delete sale_customer_discount
-	err = s.DeleteSaleCustomerDiscount(ctx, tx, req)
-	if err != nil {
-		_ = tx.Rollback()
-		return nil, err
-	}
-
 	// create new customer_discounts
 	customerDiscount, err := s.CreateSaleCustomerDiscount(ctx, tx, req, discountCard)
 	if err != nil {
@@ -678,9 +671,8 @@ func (s *Services) AttachDiscountCardToSale(ctx context.Context, req *domain.Add
 	}
 
 	// commit transcation
-	err = tx.Commit().Error
-	if err != nil {
-		s.log.Warn("ERROR on commiting transcation: %v", err)
+	if err = tx.Commit().Error; err != nil {
+		s.log.Errorf("could not commit attach discount transaction: %v", err)
 		return nil, domain.InternalServerError
 	}
 
@@ -1092,7 +1084,7 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 		Joins("LEFT JOIN customers ON s.customer_id = customers.id")
 
 	// filters
-	qb = qb.Where("s.status = ?", constants.GeneralStatusCompleted)
+	qb = qb.Where("s.stage IN (?)", constants.FinishedSaleStages)
 
 	if params.Cash {
 		qb = qb.Where("s.cash > 0")
