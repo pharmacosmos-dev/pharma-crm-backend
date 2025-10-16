@@ -482,3 +482,10 @@ type CreateProductPhotoAlert struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
+
+type ProductPhotoAlertCreate struct {
+	ProductID string `json:"product_id" binding:"required"`
+	Category  int    `json:"category" binding:"required"`
+	Reason    string `json:"reason"`
+	CreatedBy string `json:"-"`
+}
