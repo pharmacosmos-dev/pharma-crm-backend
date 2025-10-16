@@ -75,6 +75,10 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.GET("/excluded-list", h.ListExcludedProducts)
 		product.GET("/excluded-export", h.ExportExcludedProductsExcel)
 		product.PUT("/update-packaging", h.UpdatePackaging)
+		product.POST("/list-store-products", h.ListStoreProducts)
+		product.POST("/photo-alert", h.CreateProductPhotoAlert)
+		product.POST("/photo-alert/list", h.ListProductPhotoAlert)
+		product.DELETE("/photo-alert/:id", h.DeleteProductPhotoAlert)
 	}
 }
 
