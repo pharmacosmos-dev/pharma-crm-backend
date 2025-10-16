@@ -77,6 +77,15 @@ type BonusProducts struct {
 	Percent             float64 `gorm:"percent" json:"percent"`
 }
 
+type BonusProductsStats struct {
+	DocumentsCount    int64   `json:"documents_count"`
+	TotalCount        int64   `json:"total_count"`
+	TotalUnitQuantity int64   `json:"total_unit_quantity"`
+	TotalBonusAmount  float64 `json:"total_bonus_amount"`
+	//PreviousBonusAmount float64 `json:"previous_bonus_amount"`
+	//Percent             float64 `json:"percent"`
+}
+
 // Top Seller structure
 type TopSeller struct {
 	Id                  string  `gorm:"id" json:"id"`
