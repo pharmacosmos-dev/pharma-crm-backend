@@ -310,6 +310,7 @@ func (h *PermissionHandler) ListParents(c *gin.Context) {
         created_at,
         updated_at
     FROM permissions
+	WHERE deleted_at IS NULL
 	`).Scan(&res).Error
 	if err != nil {
 		h.log.Error(err)
