@@ -151,6 +151,7 @@ func (h *ProductBonusHandler) List(c *gin.Context) {
 		handleResponse(c, UNAUTHORIZED, "User ID not found")
 		return
 	}
+
 	// get employee info
 	var employee domain.Employee
 	err := h.db.First(&employee, "id = ?", userId).Error

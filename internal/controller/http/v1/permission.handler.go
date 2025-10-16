@@ -146,7 +146,18 @@ func (h *PermissionHandler) List(c *gin.Context) {
 								LEFT JOIN role_permissions 
 								ON role_permissions.permission_id = permissions.id 
 								AND role_permissions.role_id = ?
+							`, roleID).Preload("Children", func(childDB *gorm.DB) *gorm.DB {
+							// Preload Children of Permissions
+							return childDB.Select(`
+								permissions.*,
+								COALESCE(role_permissions.is_active, false) AS is_active
+							`).
+								Joins(`
+								LEFT JOIN role_permissions 
+								ON role_permissions.permission_id = permissions.id 
+								AND role_permissions.role_id = ?
 							`, roleID).Preload("Children")
+						})
 					})
 			}
 			// Default Preload without role_id
