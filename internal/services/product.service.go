@@ -705,15 +705,21 @@ func (s *Services) UpdateProductIsMarking(req *domain.UpdateIsMarking) error {
 }
 
 // get product movements(Import, Inventory, Write-Off, Sale)
-func (s *Services) GetProductMovements(productId, storeId string, limit, offset int, companyId string) ([]domain.ImportProductData, int64, error) {
+func (s *Services) GetProductMovements(ctx context.Context, params *domain.ProductQueryParam, user *domain.EmployeeClaims) ([]domain.ImportProductData, int64, error) {
 	var (
 		res        []domain.ImportProductData
 		totalCount int64
 		query      string
-		params     []any
+		args       []any
 	)
 
-	
+	// check if employee is not admin or superadmin
+	if utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreID = user.StoreId
+		}
+		params.CompanyID = user.CompanyId
+	}
 
 	baseQuery := `
 	WITH var_data AS (
@@ -784,13 +790,13 @@ func (s *Services) GetProductMovements(productId, storeId string, limit, offset 
 			sa.completed_at AS created_at,
 			st.name AS store_name,
 			CASE
-				WHEN COALESCE(SUM(ci.quantity + ci.unit_quantity), 0) = 0 THEN '0'
+				WHEN COALESCE(SUM(ci.unit_quantity), 0) = 0 THEN '0'
 				ELSE
 					CONCAT(
-						ROUND(SUM(ci.quantity), 0)::text, ' уп',
+						ROUND(SUM(ci.unit_quantity/vd.unit_per_pack), 0)::text, ' уп',
 						CASE 
-							WHEN (SUM(ci.unit_quantity)) > 0 
-							THEN CONCAT(' ', (SUM(ci.unit_quantity))::text, ' шт')
+							WHEN (SUM(ci.unit_quantity%%vd.unit_per_pack)) > 0 
+							THEN CONCAT(' ', (SUM(ci.unit_quantity%%vd.unit_per_pack))::text, ' шт')
 							ELSE ''
 						END
 					)
@@ -803,7 +809,7 @@ func (s *Services) GetProductMovements(productId, storeId string, limit, offset 
 		JOIN cart_items ci ON ci.sale_id = sa.id
 		JOIN store_products sp ON sp.id = ci.store_product_id
 		JOIN var_data vd ON sp.product_id = vd.product_id
-		WHERE sa.status = 'completed'
+		WHERE sa.stage IN (9, 11)
 		%s
 		GROUP BY sa.id, st.id, vd.unit_per_pack
 	),
@@ -915,11 +921,11 @@ func (s *Services) GetProductMovements(productId, storeId string, limit, offset 
 	`
 
 	// dynamic query conditions
-	if storeId == "" && companyId == "" {
+	if params.StoreID == "" && params.CompanyID == "" {
 		query = fmt.Sprintf(baseQuery, "", "", "", "", "")
-		params = []any{productId, limit, offset}
+		args = []any{params.ProducerID, params.Limit, params.Offset}
 
-	} else if storeId != "" && companyId == "" {
+	} else if params.StoreID != "" && params.CompanyID == "" {
 		query = fmt.Sprintf(
 			baseQuery,
 			"AND im.store_id = ?",
@@ -928,14 +934,14 @@ func (s *Services) GetProductMovements(productId, storeId string, limit, offset 
 			"AND tr.from_store_id = ?",
 			"AND (tr.from_store_id = ? OR tr.to_store_id = ?)",
 		)
-		params = []any{
-			productId,
-			storeId, storeId, storeId, storeId,
-			storeId, storeId, // for transfer_data
-			limit, offset,
+		args = []any{
+			params.ProducerID,
+			params.StoreID, params.StoreID, params.StoreID, params.StoreID,
+			params.StoreID, params.StoreID, // for transfer_data
+			params.Limit, params.Offset,
 		}
 
-	} else if storeId == "" && companyId != "" {
+	} else if params.StoreID == "" && params.CompanyID != "" {
 		query = fmt.Sprintf(
 			baseQuery,
 			"AND s.company_id = ?",
@@ -944,11 +950,11 @@ func (s *Services) GetProductMovements(productId, storeId string, limit, offset 
 			"AND s.company_id = ?",
 			"AND (fs.company_id = ? OR ts.company_id = ?)",
 		)
-		params = []any{
-			productId,
-			companyId, companyId, companyId, companyId,
-			companyId, companyId, // for transfer_data
-			limit, offset,
+		args = []any{
+			params.ProducerID,
+			params.CompanyID, params.CompanyID, params.CompanyID, params.CompanyID,
+			params.CompanyID, params.CompanyID, // for transfer_data
+			params.Limit, params.Offset,
 		}
 
 	} else { // both storeId and companyId
@@ -960,21 +966,21 @@ func (s *Services) GetProductMovements(productId, storeId string, limit, offset 
 			"AND tr.from_store_id = ? AND s.company_id = ?",
 			"AND (tr.from_store_id = ? OR tr.to_store_id = ?) AND (fs.company_id = ? OR ts.company_id = ?)",
 		)
-		params = []any{
-			productId,
-			storeId, companyId, // import_data
-			storeId, companyId, // inventory_data
-			storeId, companyId, // sales_data
-			storeId, companyId, // vozvrat_data
-			storeId, storeId, companyId, companyId, // transfer_data
-			limit, offset,
+		args = []any{
+			params.ProducerID,
+			params.StoreID, params.CompanyID, // import_data
+			params.StoreID, params.CompanyID, // inventory_data
+			params.StoreID, params.CompanyID, // sales_data
+			params.StoreID, params.CompanyID, // vozvrat_data
+			params.StoreID, params.StoreID, params.CompanyID, params.CompanyID, // transfer_data
+			params.Limit, params.Offset,
 		}
 	}
 
 	// Execute query
-	err := s.db.Raw(query, params...).Scan(&res).Error
+	err := s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting product movements: %v", err)
+		s.log.Errorf("could not get product_movements: %v", err)
 		return res, totalCount, err
 	}
 

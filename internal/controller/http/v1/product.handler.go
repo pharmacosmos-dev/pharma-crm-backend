@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -1704,19 +1705,29 @@ func (h *ProductHandler) ProductMovements(c *gin.Context) {
 		}
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 	// get pagination with default
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
-		handleResponse(c, BadRequest, "Received invalid pagination")
+		handleResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 
+	var params domain.ProductQueryParam
+	params.ProducerID = productId
+	params.StoreID = storeId
+	params.CompanyID = companyId
+	params.Limit = limit
+	params.Offset = offset
+
 	// get product-movements data from the product service
-	res, totalCount, err := h.service.GetProductMovements(productId, storeId, limit, offset, companyId)
+	res, totalCount, err := h.service.GetProductMovements(ctx, &params, user)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)
 		return
 	}
+
 	// get pagintion data with _meta object
 	data := utils.ListResponse(res, totalCount, limit, offset)
 
