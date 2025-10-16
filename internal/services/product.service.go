@@ -713,6 +713,8 @@ func (s *Services) GetProductMovements(productId, storeId string, limit, offset 
 		params     []any
 	)
 
+	
+
 	baseQuery := `
 	WITH var_data AS (
 		SELECT

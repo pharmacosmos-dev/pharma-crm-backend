@@ -59,7 +59,7 @@ type SalePaymentSummary struct {
 
 // SalePayment structure for close cashbox
 type SalePaymentCloseCashBox struct {
-	ID               string  `gorm:"id" json:"id"`
+	Id               string  `gorm:"id" json:"id"`
 	Name             string  `gorm:"name" json:"name"`
 	Amount           float64 `gorm:"amount" json:"amount"`
 	NetAmount        float64 `gorm:"net_amount" json:"net_amount"`

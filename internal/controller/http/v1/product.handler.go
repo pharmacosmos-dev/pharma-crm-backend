@@ -1679,59 +1679,42 @@ func (h *ProductHandler) AttachBarcode(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /product/{id}/product-movement [get]
 func (h *ProductHandler) ProductMovements(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user == nil {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
 	// get product id from the path param
-	productId := c.Param("id")
-	storeId := c.Query("store_id")
+	var (
+		productId = c.Param("id")
+		storeId   = c.Query("store_id")
+	)
 	var companyId string
 	// validate product id
 	if err := uuid.Validate(productId); err != nil {
-		handleResponse(c, BadRequest, "Invalid product id")
+		handleResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 	// validate store id
 	if storeId != "" {
 		if err := uuid.Validate(storeId); err != nil {
-			handleResponse(c, BadRequest, "Invalid store id")
+			handleResponse(c, BadRequest, domain.InvalidQueryError)
 			return
 		}
 	}
 
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User not found")
-		return
-	}
 	// get pagination with default
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
 		handleResponse(c, BadRequest, "Received invalid pagination")
 		return
 	}
-	// get employee info
-	var employee domain.Employee
-	err = h.db.First(&employee, "id = ?", userId).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		h.log.Error("ERROR on getting employee info: ", err)
-		handleResponse(c, InternalError, "Can't get employee info")
-		return
-	}
 
-	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
-		if employee.StoreId != "" {
-			storeId = employee.StoreId
-		}
-		companyId = employee.CompanyId
-	}
 	// get product-movements data from the product service
 	res, totalCount, err := h.service.GetProductMovements(productId, storeId, limit, offset, companyId)
 	if err != nil {
-		h.log.Info("Failed to get product-movement: %v", err)
-		handleResponse(c, InternalError, "Can't get product-movements")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 	// get pagintion data with _meta object
