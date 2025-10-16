@@ -2949,6 +2949,132 @@ func (h *ProductHandler) UpdatePackaging(c *gin.Context) {
 	handleResponse(c, OK, "Packaging updated successfully")
 }
 
+
+// CreateProductPhotoAlert godoc
+// @Summary Create a product photo alert
+// @Description Create a new product photo alert (ml/doza noto'g'ri, ishlab chiqaruvchi noto'g'ri, rasm xato)
+// @Tags products
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param body body domain.ProductPhotoAlertCreate true "Product Photo Alert Create Body"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/photo-alert [post]
+func (h *ProductHandler) CreateProductPhotoAlert(c *gin.Context) {
+	var req domain.ProductPhotoAlertCreate
+	if err := c.ShouldBindJSON(&req); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	// user_id from context
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	req.CreatedBy = userId.(string)
+
+	err := h.service.CreateProductPhotoAlert(&req)
+	if err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	handleResponse(c, OK, "Product photo alert created successfully")
+}
+
+// ListProductPhotoAlert godoc
+// @Summary List product photo alerts
+// @Description Get a paginated list of product photo alerts
+// @Tags products
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Param status query string false "Status (pending || completed)"
+// @Param category query int false "Category (1=ml/doza noto'g'ri, 2=ishlab chiqaruvchi noto'g'ri, 3=butunlay rasm xato)"
+// @Param search query string false "Search"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/photo-alert/list [post]
+func (h *ProductHandler) ListProductPhotoAlert(c *gin.Context) {
+	var param domain.ProductQueryParam
+	if err := c.ShouldBind(&param); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	// get employee info for filtering
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User ID not found")
+		return
+	}
+	var employee domain.Employee
+	if err := h.db.First(&employee, "id = ?", userId).Error; err != nil {
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+	// Agar admin bo'lmasa filtering qo'shish
+	if !helper.IsAdmin(employee, h.cfg) {
+		param.CompanyID = employee.CompanyId
+		if employee.StoreId != "" {
+			param.StoreID = employee.StoreId
+		}
+	}
+
+	// pagination
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	// service call
+	alerts, totalCount, err := h.service.ListProductPhotoAlert(&param)
+	if err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	result := utils.ListResponse(alerts, totalCount, param.Limit, param.Offset)
+	handleResponse(c, OK, result)
+}
+
+// DeleteProductPhotoAlert godoc
+// @Summary Delete product photo alert
+// @Description Delete a product photo alert by ID
+// @Tags products
+// @Security BearerAuth
+// @Accept json
+// @Produce json
+// @Param id path string true "Photo Alert ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 404 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/photo-alert/{id} [delete]
+func (h *ProductHandler) DeleteProductPhotoAlert(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		handleResponse(c, BadRequest, "id is required")
+		return
+	}
+
+	err := h.service.DeleteProductPhotoAlert(id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			handleResponse(c, NotFound, "photo alert not found")
+			return
+		}
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	handleResponse(c, OK, "Product photo alert deleted successfully")
+}
+
 const charset = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
 
 func RandomString(length int) string {
