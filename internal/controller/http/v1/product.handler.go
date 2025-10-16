@@ -2949,6 +2949,105 @@ func (h *ProductHandler) UpdatePackaging(c *gin.Context) {
 	handleResponse(c, OK, "Packaging updated successfully")
 }
 
+// ListStoreProducts godoc
+// @Summary Get list of store products
+// @Description Get store products with product info and optional search
+// @Tags products
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Param store_id query string false "Store ID"
+// @Param search query string false "Search by product name"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/list-store-products [post]
+func (h *ProductHandler) ListStoreProducts(c *gin.Context) {
+	var (
+		res []struct {
+			domain.StoreProduct
+			ProductName string `json:"product_name"`
+			UnitPerPack int    `json:"unit_per_pack"`
+		}
+		totalCount int64
+		companyID  string
+		employee   domain.Employee
+		storeID    string
+		search     = c.Query("search")
+	)
+
+	// get store_id from query
+	storeID = c.Query("store_id")
+
+	// get user_id from header context
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, InternalError, "User ID not found in context")
+		return
+	}
+
+	// get employee info
+	err := h.db.First(&employee, "id = ?", userId).Error
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			handleResponse(c, NotFound, "User not found")
+			return
+		}
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	// apply employee restrictions if not admin
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			storeID = employee.StoreId
+		}
+		companyID = employee.CompanyId
+	}
+
+	// pagination
+	limit, offset, err := getPaginationParams(c)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	// build query
+	query := h.db.
+		Table("store_products sp").
+		Select(`sp.*, p.name as product_name, p.unit_per_pack`).
+		Joins("JOIN products p ON p.id = sp.product_id").
+		Where("sp.pack_quantity > 0 OR sp.unit_quantity > 0")
+
+	if storeID != "" {
+		query = query.Where("sp.store_id = ?", storeID)
+	}
+	if companyID != "" {
+		query = query.Joins("JOIN stores st ON st.id = sp.store_id").
+			Where("st.company_id = ?", companyID)
+	}
+	if search != "" {
+		query = query.Where("p.name ILIKE ?", "%"+search+"%")
+	}
+
+	// execute query
+	err = query.Count(&totalCount).
+		Limit(limit).Offset(offset).
+		Order("sp.created_at desc").
+		Scan(&res).Error
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	result := utils.ListResponse(res, totalCount, limit, offset)
+	handleResponse(c, OK, result)
+}
 
 // CreateProductPhotoAlert godoc
 // @Summary Create a product photo alert
