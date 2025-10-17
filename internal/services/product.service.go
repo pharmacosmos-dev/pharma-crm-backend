@@ -21,7 +21,7 @@ func (s *Services) ProductSearch(param *domain.StoreProductQueryParam) ([]*domai
 		res        []*domain.StoreProductResponse
 		err        error
 		args       = []any{}
-		filter     = " WHERE sp.store_id = ? AND (sp.pack_quantity > 0 OR sp.unit_quantity > 0) "
+		filter     = " WHERE sp.store_id = ? AND (sp.unit_quantity > 0) "
 		pagination = " LIMIT ? OFFSET ? "
 		order      = " ORDER BY similarity_score DESC NULLS LAST, sp.expire_date "
 	)
@@ -39,9 +39,22 @@ func (s *Services) ProductSearch(param *domain.StoreProductQueryParam) ([]*domai
 
 	query := fmt.Sprintf(`
 	SELECT
-		sp.*, p.name, pr.name AS producer_name, pb.bonus_amount, p.barcode, p.unit_per_pack,
+		sp.id,
+		sp.product_id,
+		sp.store_id,
+		sp.unit_quantity/p.unit_per_pack AS pack_quantity,
+		sp.unit_quantity %% p.unit_per_pack AS unit_quantity,
+		sp.small_quantity,
+		sp.retail_price,
+		sp.expire_date,
+		p.name,
+		pr.name AS producer_name, 
+		pb.bonus_amount, 
+		p.barcode, 
+		p.unit_per_pack,
 		DATE_PART('day', sp.expire_date::timestamp - NOW()) AS expire_day,
-		u.unit_name, u.short_name,
+		u.unit_name, 
+		u.short_name,
 		%s
 	FROM store_products sp
 		JOIN products p ON p.id = sp.product_id
@@ -88,10 +101,10 @@ func (s *Services) ProductSearch(param *domain.StoreProductQueryParam) ([]*domai
 
 	// quantity format
 	for i := range res {
-		if res[i].UnitPerPack > 0 && res[i].UnitQuantity != res[i].PackQuantity*res[i].UnitPerPack {
-			res[i].Quantity = fmt.Sprintf("%d (%d/%d)", res[i].PackQuantity, res[i].UnitQuantity%res[i].UnitPerPack, res[i].UnitPerPack)
+		if res[i].UnitQuantity%res[i].UnitPerPack > 0 {
+			res[i].Quantity = fmt.Sprintf("%d (%d/%d)", res[i].UnitQuantity/res[i].UnitPerPack, res[i].UnitQuantity%res[i].UnitPerPack, res[i].UnitPerPack)
 		} else {
-			res[i].Quantity = fmt.Sprintf("%d", res[i].PackQuantity)
+			res[i].Quantity = fmt.Sprintf("%d", res[i].UnitQuantity/res[i].UnitPerPack)
 		}
 	}
 	return res, nil
@@ -274,19 +287,19 @@ func (s *Services) ListProduct(param *domain.ProductQueryParam) ([]domain.Produc
 	}
 
 	// filter with store_id
-	if param.StoreID != "" {
+	if param.StoreId != "" {
 		filter += " AND sp.store_id IN (?) "
 		expireDayPart = " DATE_PART('day', MIN(sp.expire_date)::timestamp - NOW()) AS expire_day, MIN(sp.expire_date) AS expire_date, "
-		args = append(args, param.StoreID)
+		args = append(args, param.StoreId)
 	}
-	if param.CompanyID != "" {
+	if param.CompanyId != "" {
 		filter += " AND st.company_id = ?"
-		args = append(args, param.CompanyID)
+		args = append(args, param.CompanyId)
 	}
 	// filter with producer id
-	if param.ProducerID != "" {
+	if param.ProducerId != "" {
 		filter += " AND p.producer_id = ? "
-		args = append(args, param.ProducerID)
+		args = append(args, param.ProducerId)
 	}
 
 	// filter with statuses
@@ -384,16 +397,16 @@ func (s *Services) ListProductExport(param *domain.ProductQueryParam) ([]domain.
 		group  = " GROUP BY p.id, pr.id, u.id "
 	)
 	// filter with store_id
-	if param.StoreID != "" {
+	if param.StoreId != "" {
 		filter += " AND sp.store_id IN (?) "
 		order = " ORDER BY sp.expire_date "
 		group += " , sp.expire_date "
-		args = append(args, param.StoreID)
+		args = append(args, param.StoreId)
 	}
 	// filter with producer id
-	if param.ProducerID != "" {
+	if param.ProducerId != "" {
 		filter += " AND p.producer_id = ? "
-		args = append(args, param.ProducerID)
+		args = append(args, param.ProducerId)
 	}
 
 	query := fmt.Sprintf(`
@@ -491,20 +504,20 @@ func (s *Services) ListProductStats(param *domain.ProductQueryParam) (domain.Pro
 	`
 
 	// filter with store_ids
-	if param.StoreID != "" {
+	if param.StoreId != "" {
 		filter += " AND sp.store_id = ?"
-		args = append(args, param.StoreID)
+		args = append(args, param.StoreId)
 	}
 
-	if param.CompanyID != "" {
+	if param.CompanyId != "" {
 		filter += " AND sp.company_id = ?"
-		args = append(args, param.CompanyID)
+		args = append(args, param.CompanyId)
 	}
 
 	// filter with producer_id
-	if param.ProducerID != "" {
+	if param.ProducerId != "" {
 		filter += " AND p.producer_id = ?"
-		args = append(args, param.ProducerID)
+		args = append(args, param.ProducerId)
 	}
 
 	// filter with search
@@ -579,6 +592,69 @@ func (s *Services) GetProducerByCode(ctx context.Context, code string) (*domain.
 		return nil, err
 	}
 	return &producer, nil
+}
+
+func (s *Services) GetStoreProductsByProductId(ctx context.Context, params *domain.ProductQueryParam, user *domain.EmployeeClaims) ([]domain.StoreProduct, error) {
+	var (
+		res        []domain.StoreProduct
+		totalCount int64
+	)
+
+	if utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
+	}
+
+	// build query
+	query := s.db.
+		Select(
+			"sp.id",
+			"sp.store_id",
+			"sp.product_id",
+			"sp.unit_quantity/p.unit_per_pack AS pack_quantity",
+			"sp.unit_quantity%p.unit_quantity AS unit_quantity",
+			"sp.supply_price",
+			"sp.retail_price",
+			"sp.expire_date",
+			"sp.created_at",
+			"sp.updated_at",
+			"sp.vat",
+			"sp.vat_price",
+
+			"u.short_name",
+
+			"st.id AS st_id",
+			"st.name AS st_name",
+		).
+		Table("store_products sp").
+		Joins("JOIN products p ON p.id = sp.product_id").
+		Joins("JOIN stores st ON sp.store_id = st.id").
+		Joins("LEFT JOIN unit_types u ON u.id = p.unit_type_id").
+		Where("sp.product_id = ?", params.ProductId)
+
+	if params.StoreId != "" {
+		query = query.Where("sp.store_id = ?", params.StoreId)
+	}
+	if params.CompanyId != "" {
+		query = query.Where("st.company_id = ?", params.CompanyId)
+	}
+	// complete query
+	err := query.
+		Count(&totalCount).
+		Limit(params.Limit).
+		Offset(params.Offset).
+		Order("sp.created_at DESC").
+		Find(&res).Error
+	if err != nil {
+		s.log.Errorf("could not get store_products by product_id: %v", err)
+		return nil, domain.InternalServerError
+	}
+	for i := range res {
+		res[i].Quantity = res[i].PackQuantity
+	}
+	return res, nil
 }
 
 // create new producer
@@ -716,9 +792,9 @@ func (s *Services) GetProductMovements(ctx context.Context, params *domain.Produ
 	// check if employee is not admin or superadmin
 	if utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
-			params.StoreID = user.StoreId
+			params.StoreId = user.StoreId
 		}
-		params.CompanyID = user.CompanyId
+		params.CompanyId = user.CompanyId
 	}
 
 	baseQuery := `
@@ -921,11 +997,11 @@ func (s *Services) GetProductMovements(ctx context.Context, params *domain.Produ
 	`
 
 	// dynamic query conditions
-	if params.StoreID == "" && params.CompanyID == "" {
+	if params.StoreId == "" && params.CompanyId == "" {
 		query = fmt.Sprintf(baseQuery, "", "", "", "", "")
-		args = []any{params.ProducerID, params.Limit, params.Offset}
+		args = []any{params.ProducerId, params.Limit, params.Offset}
 
-	} else if params.StoreID != "" && params.CompanyID == "" {
+	} else if params.StoreId != "" && params.CompanyId == "" {
 		query = fmt.Sprintf(
 			baseQuery,
 			"AND im.store_id = ?",
@@ -935,13 +1011,13 @@ func (s *Services) GetProductMovements(ctx context.Context, params *domain.Produ
 			"AND (tr.from_store_id = ? OR tr.to_store_id = ?)",
 		)
 		args = []any{
-			params.ProducerID,
-			params.StoreID, params.StoreID, params.StoreID, params.StoreID,
-			params.StoreID, params.StoreID, // for transfer_data
+			params.ProducerId,
+			params.StoreId, params.StoreId, params.StoreId, params.StoreId,
+			params.StoreId, params.StoreId, // for transfer_data
 			params.Limit, params.Offset,
 		}
 
-	} else if params.StoreID == "" && params.CompanyID != "" {
+	} else if params.StoreId == "" && params.CompanyId != "" {
 		query = fmt.Sprintf(
 			baseQuery,
 			"AND s.company_id = ?",
@@ -951,9 +1027,9 @@ func (s *Services) GetProductMovements(ctx context.Context, params *domain.Produ
 			"AND (fs.company_id = ? OR ts.company_id = ?)",
 		)
 		args = []any{
-			params.ProducerID,
-			params.CompanyID, params.CompanyID, params.CompanyID, params.CompanyID,
-			params.CompanyID, params.CompanyID, // for transfer_data
+			params.ProducerId,
+			params.CompanyId, params.CompanyId, params.CompanyId, params.CompanyId,
+			params.CompanyId, params.CompanyId, // for transfer_data
 			params.Limit, params.Offset,
 		}
 
@@ -967,12 +1043,12 @@ func (s *Services) GetProductMovements(ctx context.Context, params *domain.Produ
 			"AND (tr.from_store_id = ? OR tr.to_store_id = ?) AND (fs.company_id = ? OR ts.company_id = ?)",
 		)
 		args = []any{
-			params.ProducerID,
-			params.StoreID, params.CompanyID, // import_data
-			params.StoreID, params.CompanyID, // inventory_data
-			params.StoreID, params.CompanyID, // sales_data
-			params.StoreID, params.CompanyID, // vozvrat_data
-			params.StoreID, params.StoreID, params.CompanyID, params.CompanyID, // transfer_data
+			params.ProducerId,
+			params.StoreId, params.CompanyId, // import_data
+			params.StoreId, params.CompanyId, // inventory_data
+			params.StoreId, params.CompanyId, // sales_data
+			params.StoreId, params.CompanyId, // vozvrat_data
+			params.StoreId, params.StoreId, params.CompanyId, params.CompanyId, // transfer_data
 			params.Limit, params.Offset,
 		}
 	}
@@ -1099,13 +1175,13 @@ func (s *Services) GetProductListByImport(param *domain.ProductQueryParam) ([]do
 	`
 
 	// filter by store_id
-	if param.StoreID != "" {
+	if param.StoreId != "" {
 		filter += " AND sp.store_id = ? "
-		args = append(args, param.StoreID)
+		args = append(args, param.StoreId)
 	}
-	if param.CompanyID != "" {
+	if param.CompanyId != "" {
 		filter += " AND sp.company_id = ? "
-		args = append(args, param.CompanyID)
+		args = append(args, param.CompanyId)
 	}
 	// filter by search keyword
 	if param.SearchField != "" {
@@ -1117,9 +1193,9 @@ func (s *Services) GetProductListByImport(param *domain.ProductQueryParam) ([]do
 		filter += " AND (p.barcode IS NULL OR p.barcode = '') "
 	}
 
-	if param.ProducerID != "" {
+	if param.ProducerId != "" {
 		filter += " AND p.producer_id = ? "
-		args = append(args, param.ProducerID)
+		args = append(args, param.ProducerId)
 	}
 
 	if param.ImportId != "" {
@@ -1181,13 +1257,13 @@ func (s *Services) GetMinMaxProducts(param *domain.ProductQueryParam) ([]domain.
 	JOIN products p ON spt.product_id = p.id
 	JOIN stores s ON spt.store_id = s.id
 	`
-	if param.StoreID != "" {
+	if param.StoreId != "" {
 		filter += " AND spt.store_id = ? "
-		args = append(args, param.StoreID)
+		args = append(args, param.StoreId)
 	}
-	if param.CompanyID != "" {
+	if param.CompanyId != "" {
 		filter += " AND s.company_id = ?"
-		args = append(args, param.CompanyID)
+		args = append(args, param.CompanyId)
 	}
 
 	if param.SearchField != "" {
@@ -1223,15 +1299,15 @@ func (s *Services) ListExcludedProducts(param *domain.ProductQueryParam) ([]doma
 	)
 
 	// filter by store if given
-	if param.StoreID != "" {
+	if param.StoreId != "" {
 		filter += " AND ep.store_id = ?"
-		args = append(args, param.StoreID)
-		countArgs = append(countArgs, param.StoreID)
+		args = append(args, param.StoreId)
+		countArgs = append(countArgs, param.StoreId)
 	}
-	if param.CompanyID != "" {
+	if param.CompanyId != "" {
 		filter += " AND s.company_id = ?"
-		args = append(args, param.CompanyID)
-		countArgs = append(countArgs, param.CompanyID)
+		args = append(args, param.CompanyId)
+		countArgs = append(countArgs, param.CompanyId)
 	}
 
 	// filter by product name

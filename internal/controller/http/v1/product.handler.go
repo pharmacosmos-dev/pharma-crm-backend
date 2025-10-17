@@ -379,9 +379,9 @@ func (h *ProductHandler) List(c *gin.Context) {
 	// check if employee is not admin or superadmin
 	if !helper.IsAdmin(employee, h.cfg) {
 		if employee.StoreId != "" {
-			param.StoreID = employee.StoreId
+			param.StoreId = employee.StoreId
 		}
-		param.CompanyID = employee.CompanyId
+		param.CompanyId = employee.CompanyId
 	}
 
 	// Pagination parameters
@@ -453,9 +453,9 @@ func (h *ProductHandler) ExportProductExcel(c *gin.Context) {
 	// check if employee is not admin or superadmin
 	if !helper.IsAdmin(employee, h.cfg) {
 		if employee.StoreId != "" {
-			param.StoreID = employee.StoreId
+			param.StoreId = employee.StoreId
 		}
-		param.CompanyID = employee.CompanyId
+		param.CompanyId = employee.CompanyId
 	}
 
 	// get products list
@@ -468,7 +468,7 @@ func (h *ProductHandler) ExportProductExcel(c *gin.Context) {
 	// Create excel file
 	f := excelize.NewFile()
 
-	if param.StoreID != "" {
+	if param.StoreId != "" {
 		f, err = h.productListExportByStoreId(f, res)
 
 		if err != nil {
@@ -533,9 +533,9 @@ func (h *ProductHandler) TotalStatusCount(c *gin.Context) {
 	// check if employee is not admin or superadmin
 	if !helper.IsAdmin(employee, h.cfg) {
 		if employee.StoreId != "" {
-			param.StoreID = employee.StoreId
+			param.StoreId = employee.StoreId
 		}
-		param.CompanyID = employee.CompanyId
+		param.CompanyId = employee.CompanyId
 	}
 
 	res, err := h.service.ListProductStats(&param)
@@ -1111,89 +1111,74 @@ func (h *ProductHandler) GetProductImports(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /product/store-product/{id} [get]
 func (h *ProductHandler) ListStoreProductProductId(c *gin.Context) {
-	var (
-		id         = c.Param("id")
-		res        []domain.StoreProduct
-		totalCount int64
-		companyID  string
-		employee   domain.Employee
-		storeID    string
-	)
-	// validate id
-	if err := uuid.Validate(id); err != nil {
-		handleResponse(c, BadRequest, "Invalid product id")
-		return
-	}
-	storeID = c.Query("store_id")
+
 	// get user_id from header context
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, InternalError, "User ID not found in context")
+	user := h.service.GetSignedUser(c)
+	if user == nil {
+		handleResponse(c, InternalError, domain.UnauthorizedError)
 		return
 	}
 
-	// get employee info
-	err := h.db.First(&employee, "id = ?", userId).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
+	var (
+		id         = c.Param("id")
+		storeId    = c.Query("store_id")
+		res        []domain.StoreProduct
+		totalCount int64
+		companyId  string
+	)
+
+	if utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			storeId = user.StoreId
 		}
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	// check user role
-	if !helper.IsAdmin(employee, h.cfg) {
-		if employee.StoreId != "" {
-			storeID = employee.StoreId
-		}
-		companyID = employee.CompanyId
+		companyId = user.CompanyId
 	}
 
 	// get limit, offset
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
+		handleResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 	// build query
 	query := h.db.
-		Model(&domain.StoreProduct{}).
-		Preload("Store").
-		Select(`store_products.*,u.short_name,
-		CASE 
-			WHEN store_products.supply_price = 0 THEN 100
-			ELSE ROUND((store_products.retail_price / store_products.supply_price - 1) * 100, 3)
-		END AS markup,
-		COALESCE(
-			(SELECT pb1.barcode 
-			 FROM product_barcodes pb1 
-			 WHERE pb1.product_id = p.id AND pb1.store_id = store_products.store_id 
-			 LIMIT 1),
-			(SELECT pb2.barcode 
-			 FROM product_barcodes pb2 
-			 WHERE pb2.product_id = p.id 
-			 LIMIT 1)
-		) AS barcode
-	`).
-		Joins("JOIN products p ON p.id = store_products.product_id").
-		Joins("LEFT JOIN unit_types u ON u.id = p.unit_type_id").
-		Where("store_products.product_id = ?", id).
-		Where("store_products.pack_quantity > 0 OR store_products.unit_quantity > 0")
+		Select(
+			"sp.id",
+			"sp.store_id",
+			"sp.product_id",
+			"sp.unit_quantity/p.unit_per_pack AS pack_quantity",
+			"sp.unit_quantity%p.unit_quantity AS unit_quantity",
+			"sp.supply_price",
+			"sp.retail_price",
+			"sp.expire_date",
+			"sp.created_at",
+			"sp.updated_at",
+			"sp.vat",
+			"sp.vat_price",
 
-	if storeID != "" {
-		query = query.Where("store_products.store_id = ?", storeID)
+			"u.short_name",
+
+			"st.id AS st_id",
+			"st.name AS st_name",
+		).
+		Table("store_products sp").
+		Joins("JOIN products p ON p.id = sp.product_id").
+		Joins("JOIN stores st ON sp.store_id = st.id").
+		Joins("LEFT JOIN unit_types u ON u.id = p.unit_type_id").
+		Where("sp.product_id = ?", id)
+
+	if storeId != "" {
+		query = query.Where("sp.store_id = ?", storeId)
 	}
-	if companyID != "" {
-		query = query.Where("st.company_id = ?", companyID).Joins("LEFT JOIN stores st ON store_products.store_id = st.id ")
+	if companyId != "" {
+		query = query.Where("st.company_id = ?", companyId)
 	}
 	// complete query
 	err = query.
 		Count(&totalCount).
-		Limit(limit).Offset(offset).
-		Order("store_products.created_at desc").
+		Limit(limit).
+		Offset(offset).
+		Order("sp.created_at desc").
 		Find(&res).Error
 	if err != nil {
 		h.log.Error(err)
@@ -1203,6 +1188,7 @@ func (h *ProductHandler) ListStoreProductProductId(c *gin.Context) {
 	for i := range res {
 		res[i].Quantity = res[i].PackQuantity
 	}
+
 	result := utils.ListResponse(res, totalCount, limit, offset)
 
 	handleResponse(c, OK, result)
@@ -1715,9 +1701,9 @@ func (h *ProductHandler) ProductMovements(c *gin.Context) {
 	}
 
 	var params domain.ProductQueryParam
-	params.ProducerID = productId
-	params.StoreID = storeId
-	params.CompanyID = companyId
+	params.ProducerId = productId
+	params.StoreId = storeId
+	params.CompanyId = companyId
 	params.Limit = limit
 	params.Offset = offset
 
@@ -1894,9 +1880,9 @@ func (h *ProductHandler) ProductListByImport(c *gin.Context) {
 	// check if employee is not admin or superadmin
 	if !helper.IsAdmin(employee, h.cfg) {
 		if employee.StoreId != "" {
-			param.StoreID = employee.StoreId
+			param.StoreId = employee.StoreId
 		}
-		param.CompanyID = employee.CompanyId
+		param.CompanyId = employee.CompanyId
 	}
 
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
@@ -1961,9 +1947,9 @@ func (h *ProductHandler) ExportProductListByImport(c *gin.Context) {
 	// check if employee is not admin or superadmin
 	if !helper.IsAdmin(employee, h.cfg) {
 		if employee.StoreId != "" {
-			param.StoreID = employee.StoreId
+			param.StoreId = employee.StoreId
 		}
-		param.CompanyID = employee.CompanyId
+		param.CompanyId = employee.CompanyId
 	}
 	res, _, err := h.service.GetProductListByImport(&param)
 	if err != nil {
@@ -2322,9 +2308,9 @@ func (h *ProductHandler) GetMinMaxProducts(c *gin.Context) {
 	// check if employee is not admin or superadmin
 	if !helper.IsAdmin(employee, h.cfg) {
 		if employee.StoreId != "" {
-			param.StoreID = employee.StoreId
+			param.StoreId = employee.StoreId
 		}
-		param.CompanyID = employee.CompanyId
+		param.CompanyId = employee.CompanyId
 	}
 
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
@@ -2385,9 +2371,9 @@ func (h *ProductHandler) ExportMinMaxProducts(c *gin.Context) {
 	// check if employee is not admin or superadmin
 	if !helper.IsAdmin(employee, h.cfg) {
 		if employee.StoreId != "" {
-			param.StoreID = employee.StoreId
+			param.StoreId = employee.StoreId
 		}
-		param.CompanyID = employee.CompanyId
+		param.CompanyId = employee.CompanyId
 	}
 
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
@@ -2774,9 +2760,9 @@ func (h *ProductHandler) ListExcludedProducts(c *gin.Context) {
 	// check if employee is not admin or superadmin
 	if !helper.IsAdmin(employee, h.cfg) {
 		if employee.StoreId != "" {
-			param.StoreID = employee.StoreId
+			param.StoreId = employee.StoreId
 		}
-		param.CompanyID = employee.CompanyId
+		param.CompanyId = employee.CompanyId
 	}
 	// defaults
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
@@ -3119,9 +3105,9 @@ func (h *ProductHandler) ListProductPhotoAlert(c *gin.Context) {
 	}
 	// Agar admin bo'lmasa filtering qo'shish
 	if !helper.IsAdmin(employee, h.cfg) {
-		param.CompanyID = employee.CompanyId
+		param.CompanyId = employee.CompanyId
 		if employee.StoreId != "" {
-			param.StoreID = employee.StoreId
+			param.StoreId = employee.StoreId
 		}
 	}
 
