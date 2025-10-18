@@ -52,6 +52,8 @@ func (s *Services) CreateSale(ctx context.Context, tx *gorm.DB, req *domain.Sale
 // create return sale
 func (s *Services) CreateReturnSale(ctx context.Context, req *domain.SaleReturnRequest) (*domain.Sale, error) {
 
+	return nil, domain.SaleIsClosedError
+
 	// get cashbox operation
 	if req.CashboxId == "" {
 		operation, err := s.GetCashboxOperationByID(ctx, req.CashBoxOperationId)
@@ -498,17 +500,23 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 }
 
 func (s *Services) ApplySaleInventoryUpdate(ctx context.Context, tx *gorm.DB, sale *domain.Sale) error {
-	// Single query with JOIN to get both cart items and store product quantities
-	type CartItemWithProduct struct {
-		domain.CartItem
-		StoreProductUnitQuantity int `gorm:"column:sp_unit_quantity"`
-	}
-
-	var cartItemsWithProducts []CartItemWithProduct
+	var cartItemsWithProducts []domain.CartItemWithProduct
 	err := tx.WithContext(ctx).
 		Table("cart_items ci").
-		Select("ci.*, sp.unit_quantity as sp_unit_quantity").
+		Select(
+			"ci.id",
+			"ci.sale_id",
+			"ci.store_product_id",
+			"ci.employee_id",
+			"ci.unit_quantity",
+			"sp.unit_quantity as sp_unit_quantity",
+			"p.id AS product_id",
+			"p.unit_per_pack",
+			"pb.bonus_amount",
+		).
 		Joins("JOIN store_products sp ON sp.id = ci.store_product_id").
+		Joins("products p ON sp.product_id = p.id").
+		Joins("LEFT JOIN product_bonuses pb ON p.id = pb.product_id").
 		Where("ci.sale_id = ?", sale.Id).
 		Find(&cartItemsWithProducts).Error
 
@@ -543,6 +551,8 @@ func (s *Services) ApplySaleInventoryUpdate(ctx context.Context, tx *gorm.DB, sa
 	if qb.RowsAffected != int64(len(cartItemsWithProducts)) {
 		return domain.NotEnoughProductError
 	}
+
+	go s.AddSaleBonuses(cartItemsWithProducts)
 
 	return nil
 }
@@ -584,50 +594,32 @@ func (s *Services) matchingPaymentTypeSum(ctx context.Context, req *domain.Final
 	return req, nil
 }
 
-func (s *Services) updateFinalizeSale(ctx context.Context, tx *gorm.DB, req *domain.FinalSale, stage int) (*domain.Sale, error) {
-	var res domain.Sale
+func (s *Services) AddSaleBonuses(req []domain.CartItemWithProduct) {
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+	var bonuses []domain.EmployeeBonusRequest
 
-	query := `
-	UPDATE sales
-		SET
-			total_amount = (SELECT SUM(total_price)-SUM(discount_amount) FROM cart_items WHERE sale_id = ?),
-			total_discount = (SELECT SUM(discount_amount) FROM cart_items WHERE sale_id = ?),
-			status = ?,
-			stage = ?,
-			cash = ?,
-			humo = ?,
-			uzcard = ?,
-			click = ?,
-			payme = ?,
-			alif = ?,
-			tax_free = ?,
-			otp_code = ?,
-			service_type = ?,
-			updated_at = NOW()
-	WHERE id = ?;
-	`
-	err := tx.WithContext(ctx).Raw(query,
-		req.SaleID,
-		req.SaleID,
-		constants.GeneralStatusCompleted,
-		stage,
-		req.Cash,
-		req.Humo,
-		req.Uzcard,
-		req.Click,
-		req.Payme,
-		req.Alif,
-		req.TaxFree,
-		req.OtpCode,
-		req.ServiceType,
-		req.SaleID,
-	).Scan(&res).Error
-	if err != nil {
-		s.log.Error("could not complete sale(%s) error: %v", req.SaleID, err)
-		return &res, domain.InternalServerError
+	for _, item := range req {
+		if item.BonusAmount > 0 {
+			bonuses = append(bonuses, domain.EmployeeBonusRequest{
+				EmployeeId:   item.EmployeeId,
+				SaleId:       item.SaleId,
+				ProductId:    item.ProductId,
+				BonusAmount:  (item.BonusAmount / float64(item.UnitPerPack)) * float64(item.UnitQuantity),
+				Quantity:     item.UnitQuantity / item.UnitPerPack,
+				UnitQuantity: item.UnitQuantity % item.UnitPerPack,
+			})
+		}
 	}
 
-	return &res, nil
+	if len(bonuses) > 0 {
+		err := s.db.WithContext(ctx).Table("employee_bonus").Create(&bonuses).Error
+		if err != nil {
+			s.log.Errorf("could not create employee_bonus: %v", err)
+			return
+		}
+	}
+
 }
 
 func (s *Services) SetFiscalId(ctx context.Context, tx *gorm.DB, saleId string, fiscalId string) error {

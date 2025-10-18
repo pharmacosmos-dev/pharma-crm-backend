@@ -147,18 +147,16 @@ func (s *Services) AddEmployeeBonus(ctx context.Context, tx *gorm.DB, req *domai
 	INSERT INTO employee_bonus (
 		employee_id, 
 		sale_id, 
-		cashbox_operation_id, 
 		product_id, 
 		quantity, 
 		unit_quantity, 
 		bonus_amount
 		) 
 	VALUES(
-		?, ?, ?, ?, ?, ?, ?
+		?, ?, ?, ?, ?, ?
 		)`,
 		req.EmployeeId,
 		req.SaleId,
-		req.CashboxOperationId,
 		req.ProductId,
 		req.Quantity,
 		req.UnitQuantity,
