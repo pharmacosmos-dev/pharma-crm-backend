@@ -1030,7 +1030,7 @@ func (s *Services) ReportTopStores(param *domain.ReportQueryParam) ([]domain.Top
 }
 
 // get dashboard bonus products
-func (s *Services) ReportBonusProducts(param *domain.ReportQueryParam) ([]domain.BonusProducts, int64, error) {
+func (s *Services) ReportBonusProducts(ctx context.Context, params *domain.ReportQueryParam) ([]domain.BonusProducts, int64, error) {
 	// declaration
 	var (
 		res        []domain.BonusProducts
@@ -1040,20 +1040,20 @@ func (s *Services) ReportBonusProducts(param *domain.ReportQueryParam) ([]domain
 		endTime    time.Time
 	)
 
-	startTime, err := time.Parse(time.RFC3339, param.StartDate)
+	startTime, err := time.Parse(time.RFC3339, params.StartDate)
 	if err != nil {
 		s.log.Error("Invalid start_date format: %v", err)
 		return nil, 0, err
 	}
-	if param.EndDate != "" {
-		endTime, err = time.Parse(time.RFC3339, param.EndDate)
+	if params.EndDate != "" {
+		endTime, err = time.Parse(time.RFC3339, params.EndDate)
 		if err != nil {
 			s.log.Error("Invalid end_date format: %v", err)
 			return nil, 0, err
 		}
 	} else {
 		endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
-		param.EndDate = endTime.Format(time.RFC3339)
+		params.EndDate = endTime.Format(time.RFC3339)
 	}
 	beforeStart, beforeEnd := utils.BeforeDatesTime(startTime, endTime)
 
@@ -1088,18 +1088,18 @@ func (s *Services) ReportBonusProducts(param *domain.ReportQueryParam) ([]domain
 	// Dynamic JOIN and filters
 	join := ""
 	filter := " WHERE 1 = 1"
-	if len(param.StoreIds) > 0 {
+	if len(params.StoreIds) > 0 {
 		join += " JOIN employees e ON eb.employee_id = e.id"
 		filter += " AND e.store_id IN (?)"
-		args = append(args, param.StoreIds)
+		args = append(args, params.StoreIds)
 	}
-	if param.Search != "" {
+	if params.Search != "" {
 		filter += " AND p.name ILIKE ?"
-		args = append(args, "%"+param.Search+"%")
+		args = append(args, "%"+params.Search+"%")
 	}
-	if param.CompanyId != "" {
+	if params.CompanyId != "" {
 		filter += " AND p.company_id = ? "
-		args = append(args, param.CompanyId)
+		args = append(args, params.CompanyId)
 	}
 	filter += " AND (eb.created_at + interval '5 hours') BETWEEN ? AND ?"
 	args = append(args, startTime, endTime)
@@ -1120,10 +1120,10 @@ func (s *Services) ReportBonusProducts(param *domain.ReportQueryParam) ([]domain
 
 	prevJoin := ""
 	prevFilter := " WHERE 1 = 1"
-	if len(param.StoreIds) > 0 {
+	if len(params.StoreIds) > 0 {
 		prevJoin += " JOIN employees e ON eb.employee_id = e.id"
 		prevFilter += " AND e.store_id IN (?)"
-		args = append(args, param.StoreIds)
+		args = append(args, params.StoreIds)
 	}
 	prevFilter += " AND (eb.created_at + interval '5 hours') BETWEEN ? AND ?"
 	args = append(args, beforeStart.Format(time.RFC3339), beforeEnd.Format(time.RFC3339))
@@ -1131,12 +1131,12 @@ func (s *Services) ReportBonusProducts(param *domain.ReportQueryParam) ([]domain
 	query += prevJoin + prevFilter + " GROUP BY p.id ) AS prev ON curr.id = prev.id"
 
 	// New flexible order logic
-	order := utils.BuildBonusProductOrderClause(param.Order)
+	order := utils.BuildBonusProductOrderClause(params.Order)
 	query += order
 
 	// Pagination
 	query += " LIMIT ? OFFSET ?"
-	args = append(args, param.Limit, param.Offset)
+	args = append(args, params.Limit, params.Offset)
 
 	// Execute query
 	err = s.db.Raw(query, args...).Scan(&res).Error
