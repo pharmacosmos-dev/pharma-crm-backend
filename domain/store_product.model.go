@@ -91,7 +91,7 @@ type StoreProductQueryParam struct {
 	Limit   int    `form:"limit"`
 	Offset  int    `form:"offset"`
 	Search  string `form:"search"`
-	StoreID string `form:"store_id"`
+	StoreId string `form:"store_id"`
 }
 
 // storeProductOnlineItem

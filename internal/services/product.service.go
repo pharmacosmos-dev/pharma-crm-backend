@@ -362,6 +362,7 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 		"ARRAY_AGG(pb.barcode) FILTER (WHERE pb.barcode IS NOT NULL) AS barcodes",
 
 		"SUM(sp.unit_quantity)  AS unit_quantity",
+		"MIN(sp.expire_date) AS expire_date",
 	).
 		Limit(params.Limit).
 		Offset(params.Offset).
@@ -389,23 +390,22 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 }
 
 // get store products get list
-func (s *Services) GetProductsForSearch(param *domain.StoreProductQueryParam) ([]*domain.StoreProductResponse, error) {
+func (s *Services) GetProductsForSearch(ctx context.Context, params *domain.StoreProductQueryParam) ([]*domain.StoreProductResponse, error) {
 	var (
 		res        []*domain.StoreProductResponse
 		err        error
 		args       = []any{}
 		filter     = " WHERE sp.store_id = ? AND (sp.unit_quantity > 0) "
 		pagination = " LIMIT ? OFFSET ? "
-		order      = " ORDER BY similarity_score DESC NULLS LAST, sp.expire_date "
+		order      = " ORDER BY similarity_score DESC NULLS LAST"
 	)
 
-	searchInput := strings.TrimSpace(param.Search)
-	translated := utils.Translit(searchInput)
+	params.Search = utils.Translit(params.Search)
 
 	var similarityExpr string
-	if searchInput != "" && utils.DefineProductSearchQuery(searchInput) == "name/category" {
+	if params.Search != "" && utils.DefineProductSearchQuery(params.Search) == "name/category" {
 		similarityExpr = "similarity(p.name, ?) AS similarity_score "
-		args = append(args, searchInput) // <== similarity uchun argument
+		args = append(args, params.Search) // <== similarity uchun argument
 	} else {
 		similarityExpr = "NULL AS similarity_score "
 	}
@@ -436,20 +436,20 @@ func (s *Services) GetProductsForSearch(param *domain.StoreProductQueryParam) ([
 		LEFT JOIN product_bonuses pb ON pb.product_id = p.id
 	`, similarityExpr)
 
-	args = append(args, param.StoreID)
+	args = append(args, params.StoreId)
 
-	if searchInput != "" {
-		switch utils.DefineProductSearchQuery(searchInput) {
+	if params.Search != "" {
+		switch utils.DefineProductSearchQuery(params.Search) {
 		case "barcode":
 			query += " JOIN product_barcodes pb2 ON pb2.product_id = p.id AND pb2.status = 'completed' "
 			filter += " AND pb2.barcode = ? "
-			args = append(args, searchInput)
+			args = append(args, params.Search)
 			order = " ORDER BY sp.expire_date "
 
 		case "marking":
 			query += " LEFT JOIN product_markings pm ON pm.import_detail_id = sp.import_detail_id "
 			filter += " AND pm.marking = ? "
-			args = append(args, searchInput)
+			args = append(args, params.Search)
 			order = " ORDER BY sp.expire_date "
 
 		default:
@@ -459,16 +459,16 @@ func (s *Services) GetProductsForSearch(param *domain.StoreProductQueryParam) ([
 					p.name ILIKE ?
 				)
 			`
-			args = append(args, "%"+searchInput+"%", "%"+translated+"%")
+			args = append(args, "%"+params.Search+"%", "%"+params.Search+"%")
 		}
 	}
 
 	query = query + filter + order + pagination
-	args = append(args, param.Limit, param.Offset)
+	args = append(args, params.Limit, params.Offset)
 
 	err = s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
-		s.log.Warn("Error on listing store products for store %s with search '%s': %v", param.StoreID, param.Search, err.Error())
+		s.log.Warn("Error on listing store products for store %s with search '%s': %v", params.StoreId, params.Search, err.Error())
 		return nil, err
 	}
 

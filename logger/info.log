@@ -1,6 +1,0 @@
-time=2025-10-13T12:52:33.040751Z level=INFO msg="Starting MXIK unit_code sync job"
-time=2025-10-16T12:45:18.062391Z level=INFO msg="app - Run - signal: interrupt"
-time=2025-10-16T12:45:44.979665Z level=INFO msg="app - Run - signal: interrupt"
-time=2025-10-16T12:46:36.532186Z level=INFO msg="app - Run - signal: interrupt"
-time=2025-10-16T13:36:29.092035Z level=INFO msg="app - Run - signal: interrupt"
-time=2025-10-16T13:38:51.289172Z level=INFO msg="app - Run - signal: interrupt"

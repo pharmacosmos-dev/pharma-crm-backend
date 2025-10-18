@@ -47,7 +47,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.POST("/excel-upload", h.UploadProduct)
 		product.GET("/producer", h.GetProducerList)
 		product.GET("/similar/:id", h.SimilarProducts)
-		product.GET("/store/:id", h.ListByStoreId)
+		product.GET("/store/:id", h.GetProductsForSearch)
 		product.GET("/import/:id", h.GetProductImports)
 		product.DELETE("/hard-delete", h.HardDelete)
 		product.DELETE("/soft-delete", h.SoftDelete)
@@ -553,31 +553,27 @@ func (h *ProductHandler) SimilarProducts(c *gin.Context) {
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /product/store/{id} [get]
-func (h *ProductHandler) ListByStoreId(c *gin.Context) {
+func (h *ProductHandler) GetProductsForSearch(c *gin.Context) {
 	var (
-		res     []*domain.StoreProductResponse
-		param   domain.StoreProductQueryParam
+		params  domain.StoreProductQueryParam
 		storeId = c.Param("id")
-		err     error
 	)
 	// bind query params
-	if err = c.ShouldBindQuery(&param); err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
 		return
 	}
-	// validate store_id
-	if err = uuid.Validate(storeId); err != nil {
-		handleResponse(c, BadRequest, "Invalid store_id")
-		return
-	}
-	param.StoreID = storeId
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	params.StoreId = storeId
 	// get limit offset
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 	// get store products list
-	res, err = h.service.GetProductsForSearch(&param)
+	res, err := h.service.GetProductsForSearch(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, "Failed to fetch products")
+		handleServiceResponse(c, nil, err)
 		return
 	}
 
