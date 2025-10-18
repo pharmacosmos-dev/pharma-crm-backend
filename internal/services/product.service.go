@@ -444,7 +444,7 @@ func (s *Services) GetProductStats(ctx context.Context, params *domain.ProductQu
 			COUNT(*) AS total_count,
 			SUM(total_unit_quantity / unit_per_pack)AS total_quantity,
 			SUM(total_amount) AS total_stock_amount,
-			COUNT(*) FILTER (WHERE total_unit_quantity / unit_per_pack < 3) AS low_stock_quantity,
+			COUNT(*) FILTER (WHERE (total_unit_quantity / unit_per_pack) < 3) AS low_stock_count,
 			COUNT(*) FILTER (WHERE total_unit_quantity = 0) AS zero_stock_count,
 			COUNT(*) FILTER (WHERE status = ?) AS active_count,
 			COUNT(*) FILTER (WHERE status = ?) AS inactive_count,
