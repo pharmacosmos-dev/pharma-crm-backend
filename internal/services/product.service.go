@@ -361,7 +361,7 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 		"pr.name AS manufacturer",
 		"ARRAY_AGG(pb.barcode) FILTER (WHERE pb.barcode IS NOT NULL) AS barcodes",
 
-		"SUM(sp.unit_quantity)  AS unit_quantity",
+		"COALESCE(SUM(DISTINCT sp.unit_quantity), 0)  AS unit_quantity",
 		"MIN(sp.expire_date) AS expire_date",
 		"DATE_PART('day', MIN(sp.expire_date)::timestamp - NOW()) AS expire_day",
 	).
@@ -376,7 +376,10 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 
 	for i := range res {
 		if res[i].UnitQuantity%res[i].UnitPerPack > 0 {
-			res[i].Units = fmt.Sprintf("%d (%d/%d)", res[i].UnitQuantity/res[i].UnitPerPack, res[i].UnitQuantity%res[i].UnitPerPack, res[i].UnitPerPack)
+			res[i].Units = fmt.Sprintf("%d (%d/%d)",
+				res[i].UnitQuantity/res[i].UnitPerPack,
+				res[i].UnitQuantity%res[i].UnitPerPack,
+				res[i].UnitPerPack)
 		} else {
 			res[i].Units = fmt.Sprintf("%d", res[i].UnitQuantity/res[i].UnitPerPack)
 		}
@@ -573,7 +576,7 @@ func (s *Services) GetProductsForSearch(ctx context.Context, params *domain.Stor
 
 	// quantity format
 	for i := range res {
-		if res[i].UnitQuantity%res[i].UnitPerPack > 0 {
+		if res[i].UQuantity%res[i].UnitPerPack > 0 {
 			res[i].Quantity = fmt.Sprintf("%d (%d/%d)",
 				res[i].UQuantity/res[i].UnitPerPack,
 				res[i].UQuantity%res[i].UnitPerPack,
@@ -836,7 +839,7 @@ func (s *Services) GetStoreProductsByProductId(ctx context.Context, params *doma
 			Name: res[i].StoreName,
 		}, res[i].StoreId != "")
 
-		if res[i].UnitQuantity%res[i].UnitPerPack > 0 {
+		if res[i].UQuantity%res[i].UnitPerPack > 0 {
 			res[i].Quantity = fmt.Sprintf("%d (%d/%d)",
 				res[i].UQuantity/res[i].UnitPerPack,
 				res[i].UQuantity%res[i].UnitPerPack,
