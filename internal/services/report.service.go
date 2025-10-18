@@ -81,76 +81,70 @@ func (s *Services) ProductReportWithDate(param *domain.ReportQueryParam) ([]map[
 }
 
 // get employee bonuses report service
-func (s *Services) BonusReport(param *domain.ReportQueryParam) ([]domain.BonusReport, int64, error) {
+func (s *Services) BonusReport(ctx context.Context, params *domain.ReportQueryParam) ([]domain.BonusReport, int64, error) {
 	var (
 		res        []domain.BonusReport
 		totalCount int64
-		args       []any
 	)
 
-	// Bazaviy query
-	query := `
-		SELECT
-			e.id AS id,
-			e.public_id,
-			e.full_name,
-			e.phone,
-			s.name AS store_name,
-			STRING_AGG(DISTINCT r.name, '/' ORDER BY r.name) AS role,
-			SUM(eb.bonus_amount) AS amount,
-			SUM(eb.quantity + (eb.unit_quantity / 10.0)) AS count,
-			COUNT(*) OVER() AS total_count
-		FROM employee_bonus eb
-		JOIN employees e ON eb.employee_id = e.id
-		JOIN stores s ON e.store_id = s.id
-		JOIN employee_roles er ON e.id = er.employee_id
-		JOIN roles r ON er.role_id = r.id
-	`
+	qb := s.db.WithContext(ctx).
+		Joins("JOIN employees e ON eb.employee_id = e.id").
+		Joins("JOIN products p ON eb.product_id = p.id").
+		Joins("LEFT JOIN stores s ON e.store_id = s.id").
+		Joins("LEFT JOIN employee_roles er ON e.id = er.employee_id").
+		Joins(`
+			LEFT JOIN (
+			SELECT
+				er.employee_id,
+				STRING_AGG(DISTINCT r.name, '/' ORDER BY r.name) AS role
+			FROM employee_roles er
+			JOIN roles r ON er.role_id = r.id
+			GROUP BY er.employee_id
+		) roles_agg ON e.id = roles_agg.employee_id
+		`).
+		Table("employee_bonus eb").
+		Group("e.id, s.id, roles_agg.role")
 
-	filter := " WHERE 1 = 1 "
-	group := " GROUP BY e.id, s.id "
-	order := utils.BuildBonusReportOrderClause(param.Order)
+	order := utils.BuildBonusReportOrderClause(params.Order)
 
 	// Store filter
-	if len(param.StoreIds) > 0 {
-		filter += " AND s.id IN (?)"
-		args = append(args, param.StoreIds)
+	if len(params.StoreIds) > 0 {
+		qb = qb.Where("e.store_id IN(?)", params.StoreIds)
 	}
-	if param.CompanyId != "" {
-		filter += " AND s.company_id = ? "
-		args = append(args, param.CompanyId)
+	if params.CompanyId != "" {
+		qb = qb.Where("s.company_id IN(?)", params.CompanyId)
 	}
 
 	// Search filter
-	if param.Search != "" {
-		search := "%" + param.Search + "%"
-		filter += " AND (e.full_name ILIKE ? OR e.phone LIKE ? OR CAST(e.public_id AS TEXT) LIKE ?)"
-		args = append(args, search, search, search)
+	if params.Search != "" {
+		qb = qb.Where("e.full_name ILIKE ?", "%"+params.Search+"%")
 	}
 
 	// Date filter
-	if param.StartDate != "" && param.EndDate != "" {
-		filter += " AND (eb.created_at + interval '5 hours') BETWEEN ? AND ?"
-		args = append(args, param.StartDate, param.EndDate)
-	} else if param.EndDate == "" && param.StartDate != "" {
-		filter += " AND (eb.created_at + interval '5 hours') = ?"
-		args = append(args, param.StartDate)
+	if params.StartDate != "" && params.EndDate != "" {
+		qb = qb.Where("(eb.created_at + interval '5 hours') BETWEEN ? AND ?", params.StartDate, params.EndDate)
+	} else if params.EndDate == "" && params.StartDate != "" {
+		qb = qb.Where("(eb.created_at + interval '5 hours') = ?", params.StartDate)
 	}
 
-	// Final query
-	finalQuery := query + filter + group + order + " LIMIT ? OFFSET ?"
-	args = append(args, param.Limit, param.Offset)
+	if err := qb.Count(&totalCount).Error; err != nil {
+		s.log.Errorf("cound not get bonus totalCount: %v", err)
+		return nil, 0, domain.InternalServerError
+	}
 
-	// So‘rovni bajarish
-	err := s.db.Raw(finalQuery, args...).Scan(&res).Error
+	err := qb.Select(
+		"e.id",
+		"e.public_id",
+		"e.full_name",
+		"e.phone",
+		"s.name AS store_name",
+		"roles_agg.role",
+		"SUM(eb.bonus_amount) AS amount",
+		"ROUND(SUM(eb.quantity::numeric + eb.unit_quantity::numeric/p.unit_per_pack), 2) AS count",
+	).Order(order).Find(&res).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting bonus report: %v", err)
-		return res, 0, nil
-	}
-
-	// Total count
-	if len(res) > 0 {
-		totalCount = res[0].TotalCount
+		s.log.Errorf("could not get employee_bonuses: %v", err)
+		return nil, 0, domain.InternalServerError
 	}
 
 	return res, totalCount, nil

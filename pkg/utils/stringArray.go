@@ -385,7 +385,7 @@ func BuildBonusReportOrderClause(orderField string) string {
 	}
 
 	if orderField == "" {
-		return " ORDER BY e.full_name "
+		return "e.full_name "
 	}
 
 	direction := "ASC"
@@ -399,10 +399,10 @@ func BuildBonusReportOrderClause(orderField string) string {
 	}
 
 	if dbColumn, ok := allowedFields[field]; ok {
-		return fmt.Sprintf(" ORDER BY %s %s", dbColumn, direction)
+		return fmt.Sprintf("%s %s", dbColumn, direction)
 	}
 
-	return " ORDER BY e.full_name"
+	return "e.full_name"
 }
 
 func BuildTopSellerOrderClause(orderField string) string {
