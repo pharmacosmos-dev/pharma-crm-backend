@@ -286,43 +286,27 @@ func (h *ProductHandler) ExportProductExcel(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /product/total-status-count [get]
 func (h *ProductHandler) TotalStatusCount(c *gin.Context) {
-	var (
-		param domain.ProductQueryParam
-	)
-	// bind query param
-	if err := c.ShouldBindQuery(&param); err != nil {
-		handleResponse(c, BadRequest, err.Error())
-		return
-	}
-
 	// get user_id from the context
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
+	user := h.service.GetSignedUser(c)
+	if user == nil {
+		handleServiceResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
 		return
-	}
-	// get employee info
-	var employee domain.Employee
-	err := h.db.First(&employee, "id = ?", userId).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		handleResponse(c, InternalError, "Can't get employee info")
-		return
-	}
-	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
-		if employee.StoreId != "" {
-			param.StoreId = employee.StoreId
-		}
-		param.CompanyId = employee.CompanyId
 	}
 
-	res, err := h.service.ListProductStats(&param)
+	var params domain.ProductQueryParam
+
+	// bind query param
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, err := h.service.GetProductStats(ctx, &params, user)
 	if err != nil {
-		handleResponse(c, InternalError, "Failed to get product stats")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
@@ -493,8 +477,7 @@ func (h *ProductHandler) GetProducerList(c *gin.Context) {
 	err = query.
 		Limit(limit).
 		Offset(offset).
-		Find(&res).
-		Error
+		Find(&res).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())

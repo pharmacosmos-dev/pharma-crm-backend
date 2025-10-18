@@ -276,7 +276,7 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 		totalCount int64
 	)
 
-	if utils.In(user.Role, constants.AllAdminRoles...) {
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreId = user.StoreId
 		}
@@ -314,7 +314,7 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 		case "active", "inactive":
 			qb = qb.Where("p.status = ?", params.Status)
 		case "low-stock":
-			qb = qb.Having("(SUM(sp.unit_quantity)/p.unit_per_pack) < 3")
+			qb = qb.Having("SUM(sp.unit_quantity)/p.unit_per_pack < 3")
 		case "zero-stock":
 			qb = qb.Having("SUM(sp.unit_quantity) = 0")
 		case "expired":
@@ -363,6 +363,7 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 
 		"SUM(sp.unit_quantity)  AS unit_quantity",
 		"MIN(sp.expire_date) AS expire_date",
+		"DATE_PART('day', MIN(sp.expire_date)::timestamp - NOW()) AS expire_day",
 	).
 		Limit(params.Limit).
 		Offset(params.Offset).
@@ -389,97 +390,199 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 	return res, totalCount, nil
 }
 
-// get store products get list
-func (s *Services) GetProductsForSearch(ctx context.Context, params *domain.StoreProductQueryParam) ([]*domain.StoreProductResponse, error) {
-	var (
-		res        []*domain.StoreProductResponse
-		err        error
-		args       = []any{}
-		filter     = " WHERE sp.store_id = ? AND (sp.unit_quantity > 0) "
-		pagination = " LIMIT ? OFFSET ? "
-		order      = " ORDER BY similarity_score DESC NULLS LAST"
-	)
-
-	params.Search = utils.Translit(params.Search)
-
-	var similarityExpr string
-	if params.Search != "" && utils.DefineProductSearchQuery(params.Search) == "name/category" {
-		similarityExpr = "similarity(p.name, ?) AS similarity_score "
-		args = append(args, params.Search) // <== similarity uchun argument
-	} else {
-		similarityExpr = "NULL AS similarity_score "
+// Get Products list stats
+func (s *Services) GetProductStats(ctx context.Context, params *domain.ProductQueryParam, user *domain.EmployeeClaims) (domain.ProductStats, error) {
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
 	}
 
-	query := fmt.Sprintf(`
-	SELECT
-		sp.id,
-		sp.product_id,
-		sp.store_id,
-		sp.unit_quantity/p.unit_per_pack AS pack_quantity,
-		sp.unit_quantity %% p.unit_per_pack AS unit_quantity,
-		sp.small_quantity,
-		sp.retail_price,
-		sp.expire_date,
-		p.name,
-		pr.name AS producer_name, 
-		pb.bonus_amount, 
-		p.barcode, 
-		p.unit_per_pack,
-		DATE_PART('day', sp.expire_date::timestamp - NOW()) AS expire_day,
-		u.unit_name, 
-		u.short_name,
-		%s
-	FROM store_products sp
-		JOIN products p ON p.id = sp.product_id
-		LEFT JOIN unit_types u ON p.unit_type_id = u.id
-		LEFT JOIN producers pr ON pr.id = p.producer_id
-		LEFT JOIN product_bonuses pb ON pb.product_id = p.id
-	`, similarityExpr)
+	now := time.Now().Add(constants.DateTimeTashkent)
+	threeMonthsLater := now.AddDate(0, 3, 0)
 
-	args = append(args, params.StoreId)
+	// Birinchi subquery - har bir mahsulot uchun aggregated ma'lumotlar
+	subQuery := s.db.WithContext(ctx).
+		Table("products p").
+		Select(
+			"p.id",
+			"p.status",
+			"p.unit_per_pack",
+			"COALESCE(SUM(sp.unit_quantity), 0) AS total_unit_quantity",
+			"MIN(sp.expire_date) AS min_expire_date",
+			"SUM(sp.retail_price * (sp.unit_quantity/p.unit_per_pack)) AS total_amount",
+		).
+		Joins("LEFT JOIN store_products sp ON p.id = sp.product_id").
+		Group("p.id")
 
-	if params.Search != "" {
-		switch utils.DefineProductSearchQuery(params.Search) {
-		case "barcode":
-			query += " JOIN product_barcodes pb2 ON pb2.product_id = p.id AND pb2.status = 'completed' "
-			filter += " AND pb2.barcode = ? "
-			args = append(args, params.Search)
-			order = " ORDER BY sp.expire_date "
-
-		case "marking":
-			query += " LEFT JOIN product_markings pm ON pm.import_detail_id = sp.import_detail_id "
-			filter += " AND pm.marking = ? "
-			args = append(args, params.Search)
-			order = " ORDER BY sp.expire_date "
-
-		default:
-			filter += `
-				AND (
-					p.name ILIKE ? OR 
-					p.name ILIKE ?
-				)
-			`
-			args = append(args, "%"+params.Search+"%", "%"+params.Search+"%")
+	// Filtrlarni subquery ga qo'shamiz
+	if params.StoreId != "" {
+		subQuery = subQuery.Where("sp.store_id IN(?)", params.StoreId)
+	}
+	if params.ProducerId != "" {
+		subQuery = subQuery.Where("p.producer_id = ?", params.ProducerId)
+	}
+	if params.NoBarcode {
+		subQuery = subQuery.Where("p.barcode IS NULL OR p.barcode = ''")
+	}
+	if params.SearchField != "" {
+		search := fmt.Sprintf("%%%s%%", params.SearchField)
+		if utils.DefineProductSearchQuery(params.SearchField) == "barcode" {
+			subQuery = subQuery.
+				Joins("LEFT JOIN product_barcodes pb ON p.id = pb.product_id AND pb.status = ?", constants.GeneralStatusCompleted).
+				Where("pb.barcode LIKE ?", search)
+		} else {
+			subQuery = subQuery.Where("p.name ILIKE ?", search)
 		}
 	}
 
-	query = query + filter + order + pagination
-	args = append(args, params.Limit, params.Offset)
+	// Raw SQL yordamida to'g'ridan-to'g'ri query
+	var res domain.ProductStats
+	query := `
+		SELECT 
+			COUNT(*) AS total_count,
+			SUM(total_unit_quantity / unit_per_pack)AS total_quantity,
+			SUM(total_amount) AS total_stock_amount,
+			COUNT(*) FILTER (WHERE total_unit_quantity / unit_per_pack < 3) AS low_stock_quantity,
+			COUNT(*) FILTER (WHERE total_unit_quantity = 0) AS zero_stock_count,
+			COUNT(*) FILTER (WHERE status = ?) AS active_count,
+			COUNT(*) FILTER (WHERE status = ?) AS inactive_count,
+			COUNT(*) FILTER (WHERE min_expire_date BETWEEN ? AND ? AND total_unit_quantity > 0) AS imminent_count,
+			COUNT(*) FILTER (WHERE min_expire_date < ? AND total_unit_quantity > 0) AS expired_count
+		FROM (?) as products_agg
+	`
 
-	err = s.db.Raw(query, args...).Scan(&res).Error
+	err := s.db.WithContext(ctx).
+		Raw(query,
+			constants.GeneralStatusActive,
+			constants.GeneralStatusInactive,
+			now,
+			threeMonthsLater,
+			now,
+			subQuery,
+		).
+		Scan(&res).Error
+
 	if err != nil {
-		s.log.Warn("Error on listing store products for store %s with search '%s': %v", params.StoreId, params.Search, err.Error())
-		return nil, err
+		s.log.Errorf("could not get product stats: %v", err)
+		return res, domain.InternalServerError
+	}
+
+	return res, nil
+}
+
+// get store products get list
+func (s *Services) GetProductsForSearch(ctx context.Context, params *domain.StoreProductQueryParam) ([]domain.StoreProductResponse, error) {
+
+	// Qidiruv tipini aniqlash
+	searchType := utils.DefineProductSearchQuery(params.Search)
+
+	// Agar nom bo'yicha qidiruv bo'lsa, translitdan o'tkazamiz
+	searchTerms := []string{params.Search}
+	if params.Search != "" && searchType == "name/category" {
+		transliterated := utils.Translit(params.Search)
+		// Agar translit qilingan qiymat asl qiymatdan farq qilsa, ikkalasini ham qo'shamiz
+		if transliterated != params.Search {
+			searchTerms = append(searchTerms, transliterated)
+		}
+	}
+
+	// Base select fields
+	selectFields := []string{
+		"sp.id",
+		"sp.product_id",
+		"sp.store_id",
+		"sp.unit_quantity/p.unit_per_pack AS pack_quantity",
+		"sp.unit_quantity % p.unit_per_pack AS unit_quantity",
+		"sp.unit_quantity AS u_quantity",
+		"sp.small_quantity",
+		"sp.retail_price",
+		"sp.expire_date",
+		"DATE_PART('day', sp.expire_date::timestamp - NOW()) AS expire_day",
+		"sp.created_at",
+		"sp.updated_at",
+
+		"p.name",
+		"p.barcode",
+		"p.unit_per_pack",
+
+		"pr.name AS producer_name",
+		"pb.bonus_amount",
+	}
+
+	// Similarity score faqat nom bo'yicha qidiruvda qo'shiladi
+	if params.Search != "" && searchType == "name/category" {
+		// Har ikkala search term uchun ham similarity hisoblaymiz va maksimumini olamiz
+		similarityParts := make([]string, len(searchTerms))
+		for i, term := range searchTerms {
+			similarityParts[i] = fmt.Sprintf("similarity(p.name, '%s')",
+				strings.ReplaceAll(term, "'", "''")) // SQL injection oldini olish
+		}
+		selectFields = append(selectFields,
+			fmt.Sprintf("GREATEST(%s) AS similarity_score", strings.Join(similarityParts, ", ")))
+	} else {
+		selectFields = append(selectFields, "NULL AS similarity_score")
+	}
+
+	qb := s.db.WithContext(ctx).
+		Select(strings.Join(selectFields, ", ")).
+		Table("store_products sp").
+		Joins("JOIN products p ON sp.product_id = p.id").
+		Joins("LEFT JOIN producers pr ON p.producer_id = pr.id").
+		Joins("LEFT JOIN product_bonuses pb ON pb.product_id = p.id").
+		Where("sp.store_id = ? AND sp.unit_quantity > 0", params.StoreId)
+
+	if params.Search != "" {
+		switch searchType {
+		case "barcode":
+			qb = qb.Joins("LEFT JOIN product_barcodes pbr ON pbr.product_id = p.id").
+				Where("pbr.barcode LIKE ?", "%"+params.Search+"%").
+				Order("sp.expire_date ASC")
+
+		case "marking":
+			qb = qb.Joins("LEFT JOIN product_markings pm ON pm.import_detail_id = sp.import_detail_id").
+				Where("pm.marking = ?", params.Search).
+				Order("sp.expire_date ASC")
+
+		default: // name/category
+			conditions := make([]string, 0, len(searchTerms)*2)
+			args := make([]interface{}, 0, len(searchTerms)*2)
+
+			for _, term := range searchTerms {
+				conditions = append(conditions, "p.name ILIKE ?")
+				args = append(args, "%"+term+"%")
+			}
+
+			whereClause := strings.Join(conditions, " OR ")
+			qb = qb.Where(whereClause, args...).
+				Order("similarity_score DESC")
+		}
+	}
+
+	var res []domain.StoreProductResponse
+	err := qb.
+		Limit(params.Limit).
+		Offset(params.Offset).
+		Find(&res).Error
+
+	if err != nil {
+		s.log.Errorf("could not search store_products: %v", err)
+		return nil, domain.InternalServerError
 	}
 
 	// quantity format
 	for i := range res {
 		if res[i].UnitQuantity%res[i].UnitPerPack > 0 {
-			res[i].Quantity = fmt.Sprintf("%d (%d/%d)", res[i].UnitQuantity/res[i].UnitPerPack, res[i].UnitQuantity%res[i].UnitPerPack, res[i].UnitPerPack)
+			res[i].Quantity = fmt.Sprintf("%d (%d/%d)",
+				res[i].UQuantity/res[i].UnitPerPack,
+				res[i].UQuantity%res[i].UnitPerPack,
+				res[i].UnitPerPack)
 		} else {
-			res[i].Quantity = fmt.Sprintf("%d", res[i].UnitQuantity/res[i].UnitPerPack)
+			res[i].Quantity = fmt.Sprintf("%d", res[i].UQuantity/res[i].UnitPerPack)
 		}
 	}
+
 	return res, nil
 }
 
@@ -591,7 +694,7 @@ func (s *Services) GetStoreProductByIdAndStoreId(ctx context.Context, id string,
 }
 
 // get store products by product id
-func (s *Services) GetStoreProductByID(ctx context.Context, id string) (*domain.StoreProduct, error) {
+func (s *Services) GetStoreProductById(ctx context.Context, id string) (*domain.StoreProduct, error) {
 	var storeProduct domain.StoreProduct
 	err := s.db.WithContext(ctx).Raw(`
 		SELECT 
@@ -634,90 +737,6 @@ func (s *Services) ChangeStoreProductStock(tx *gorm.DB, id string, quantity, uni
 	return nil
 }
 
-// Get Products list stats
-func (s *Services) ListProductStats(param *domain.ProductQueryParam) (domain.ProductStats, error) {
-	var (
-		res    domain.ProductStats
-		args   []any
-		filter = "WHERE 1=1"
-	)
-
-	query := `
-	SELECT
-		SUM(sp.pack_quantity) AS total_quantity,
-		SUM(CASE WHEN p.status = 'active' THEN sp.pack_quantity ELSE 0 END) AS active_count,
-		SUM(CASE WHEN p.status = 'inactive' THEN sp.pack_quantity ELSE 0 END) AS inactive_count,
-		ROUND(SUM(sp.pack_quantity * retail_price) + SUM((retail_price / p.unit_per_pack) * (sp.unit_quantity % p.unit_per_pack)), 2) AS total_stock_amount,
-		SUM(CASE WHEN sp.pack_quantity < 10 AND sp.pack_quantity > 0 THEN sp.pack_quantity ELSE 0 END) AS low_stock_quantity,
-		SUM(CASE WHEN sp.pack_quantity = 0 THEN 1 ELSE 0 END) AS zero_stock_count,
-		SUM(sp.pack_quantity) FILTER (WHERE sp.expire_date::date BETWEEN CURRENT_DATE AND (CURRENT_DATE + INTERVAL '3 month')) AS imminent_count,
-		SUM(sp.pack_quantity) FILTER (WHERE sp.expire_date::date < CURRENT_DATE) AS expired_count,
-		COUNT(DISTINCT p.id) AS total_count
-	FROM store_products sp
-	RIGHT JOIN products p ON sp.product_id = p.id
-	`
-
-	// filter with store_ids
-	if param.StoreId != "" {
-		filter += " AND sp.store_id = ?"
-		args = append(args, param.StoreId)
-	}
-
-	if param.CompanyId != "" {
-		filter += " AND sp.company_id = ?"
-		args = append(args, param.CompanyId)
-	}
-
-	// filter with producer_id
-	if param.ProducerId != "" {
-		filter += " AND p.producer_id = ?"
-		args = append(args, param.ProducerId)
-	}
-
-	// filter with search
-	if param.SearchField != "" {
-		search := "%" + param.SearchField + "%"
-		filter += " AND (p.name ILIKE ? OR p.barcode LIKE ?)"
-		args = append(args, search, search)
-	}
-
-	// filter with status
-	if param.Status != "" {
-		switch param.Status {
-		case "active", "inactive":
-			filter += " AND p.status = ?"
-			args = append(args, param.Status)
-		case "low-stock":
-			filter += " AND sp.pack_quantity <= 10 AND sp.pack_quantity > 0"
-		case "zero-stock":
-			filter += " AND sp.pack_quantity = 0 AND sp.unit_quantity = 0"
-		case "expired":
-			filter += " AND sp.expire_date::date < ?"
-			args = append(args, time.Now().Format("2006-01-02"))
-		case "imminent":
-			now := time.Now()
-			filter += " AND sp.expire_date::date BETWEEN ? AND ?"
-			args = append(args, now.Format("2006-01-02"), now.AddDate(0, 3, 0).Format("2006-01-02"))
-		}
-	}
-
-	// check barcode is null or emplty string
-	if param.NoBarcode {
-		filter += " AND (p.barcode IS NULL OR p.barcode = '')"
-	}
-
-	// finalize and run query
-	fullQuery := query + " " + filter
-
-	err := s.db.Raw(fullQuery, args...).Scan(&res).Error
-	if err != nil {
-		s.log.Warn("ERROR on getting product stats: %v", err)
-		return res, err
-	}
-
-	return res, nil
-}
-
 // get product ikpu by mxik
 func (s *Services) GetProductIKPUByMxik(ctx context.Context, mxik string) (*domain.ProductMeasurement, error) {
 	var measurement domain.ProductMeasurement
@@ -753,7 +772,7 @@ func (s *Services) GetStoreProductsByProductId(ctx context.Context, params *doma
 		totalCount int64
 	)
 
-	if utils.In(user.Role, constants.AllAdminRoles...) {
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreId = user.StoreId
 		}
@@ -768,6 +787,7 @@ func (s *Services) GetStoreProductsByProductId(ctx context.Context, params *doma
 			"sp.product_id",
 			"sp.unit_quantity/p.unit_per_pack AS pack_quantity",
 			"sp.unit_quantity%p.unit_per_pack AS unit_quantity",
+			"sp.unit_quantity AS u_quantity",
 			"sp.supply_price",
 			"sp.retail_price",
 			"CASE WHEN sp.supply_price = 0 OR sp.supply_price IS NULL THEN 0 "+
@@ -784,9 +804,7 @@ func (s *Services) GetStoreProductsByProductId(ctx context.Context, params *doma
 			"p.barcode",
 
 			"u.short_name",
-
-			"st.id AS st_id",
-			"st.name AS st_name",
+			"st.name AS store_name",
 		).
 		Table("store_products sp").
 		Joins("JOIN products p ON p.id = sp.product_id").
@@ -811,8 +829,21 @@ func (s *Services) GetStoreProductsByProductId(ctx context.Context, params *doma
 		s.log.Errorf("could not get store_products by product_id: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
+
 	for i := range res {
-		res[i].Quantity = res[i].UnitQuantity / res[i].UnitPerPack
+		res[i].Store = domain.NewNullStruct(domain.Store{
+			Id:   res[i].StoreId,
+			Name: res[i].StoreName,
+		}, res[i].StoreId != "")
+
+		if res[i].UnitQuantity%res[i].UnitPerPack > 0 {
+			res[i].Quantity = fmt.Sprintf("%d (%d/%d)",
+				res[i].UQuantity/res[i].UnitPerPack,
+				res[i].UQuantity%res[i].UnitPerPack,
+				res[i].UnitPerPack)
+		} else {
+			res[i].Quantity = fmt.Sprintf("%d", res[i].UQuantity/res[i].UnitPerPack)
+		}
 	}
 	return res, totalCount, nil
 }
@@ -918,7 +949,7 @@ func (s *Services) GetProductMovements(ctx context.Context, params *domain.Produ
 	)
 
 	// check if employee is not admin or superadmin
-	if utils.In(user.Role, constants.AllAdminRoles...) {
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreId = user.StoreId
 		}

@@ -24893,12 +24893,6 @@ const docTemplate = `{
                 "shelf_id": {
                     "type": "string"
                 },
-                "store_product": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/domain.StoreProductRequest"
-                    }
-                },
                 "unit_per_pack": {
                     "type": "integer"
                 },

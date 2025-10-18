@@ -519,7 +519,7 @@ func (s *Services) UpdateCartItemQuantity(ctx context.Context, req *domain.CartI
 	}
 
 	// get store_product by id
-	storeProduct, err := s.GetStoreProductByID(ctx, req.StoreProductId)
+	storeProduct, err := s.GetStoreProductById(ctx, req.StoreProductId)
 	if err != nil {
 		return nil, err
 	}

@@ -1,0 +1,3 @@
+time=2025-10-18T19:52:59.025899Z level=ERROR msg="could not get product stats: ERROR: syntax error at or near "05" (SQLSTATE 42601)"
+time=2025-10-18T19:55:55.573027Z level=ERROR msg="could not get product stats: ERROR: trailing junk after numeric literal at or near "19T" (SQLSTATE 42601)"
+time=2025-10-18T20:04:17.506177Z level=ERROR msg="could not get product stats: ERROR: could not determine data type of parameter $1 (SQLSTATE 42P18)"

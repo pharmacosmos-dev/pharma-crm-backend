@@ -1072,7 +1072,7 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 	var totalCount int64
 	var res []domain.SaleResponse
 
-	if utils.In(user.Role, constants.AllAdminRoles...) {
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreId = user.StoreId
 		}
@@ -1199,7 +1199,7 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 
 func (s *Services) GetSalesStats(ctx context.Context, params *domain.SaleQueryParams, user *domain.EmployeeClaims) (*domain.SaleStats, error) {
 	// check user role
-	if utils.In(user.Role, constants.AllAdminRoles...) {
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreId = user.StoreId
 		}
@@ -1298,7 +1298,7 @@ func (s *Services) GetSaleList(ctx context.Context, params *domain.SaleQueryPara
 	var totalCount int64
 	var res []domain.SaleResponse
 
-	if utils.In(user.Role, constants.AllAdminRoles...) {
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreId = user.StoreId
 		}
@@ -1526,7 +1526,7 @@ func (s *Services) GetPendingSales(ctx context.Context, params *domain.SaleQuery
 	var totalCount int64
 	var res []domain.SaleResponse
 
-	if utils.In(user.Role, constants.AllAdminRoles...) {
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreId = user.StoreId
 		}

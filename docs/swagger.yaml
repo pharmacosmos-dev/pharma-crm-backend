@@ -1112,10 +1112,6 @@ definitions:
         type: string
       shelf_id:
         type: string
-      store_product:
-        items:
-          $ref: '#/definitions/domain.StoreProductRequest'
-        type: array
       unit_per_pack:
         type: integer
       unit_type_id:
