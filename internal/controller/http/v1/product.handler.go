@@ -1102,96 +1102,49 @@ func (h *ProductHandler) GetProductImports(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param id path string true "Product ID"
-// @Param limit query int false "Limit"
-// @Param offset query int false "Offset"
-// @Param store_id query string false "Store id"
+// @Param 	id 			path  string 	true "ProductId"
+// @Param 	limit 		query int 		false "Limit"
+// @Param 	offset 		query int 		false "Offset"
+// @Param 	store_id 	query string 	false "StoreId"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /product/store-product/{id} [get]
 func (h *ProductHandler) ListStoreProductProductId(c *gin.Context) {
-
 	// get user_id from header context
 	user := h.service.GetSignedUser(c)
 	if user == nil {
-		handleResponse(c, InternalError, domain.UnauthorizedError)
+		handleServiceResponse(c, InternalError, domain.UnauthorizedError)
 		return
 	}
 
-	var (
-		id         = c.Param("id")
-		storeId    = c.Query("store_id")
-		res        []domain.StoreProduct
-		totalCount int64
-		companyId  string
-	)
+	var params domain.ProductQueryParam
 
-	if utils.In(user.Role, constants.AllAdminRoles...) {
-		if user.StoreId != "" {
-			storeId = user.StoreId
-		}
-		companyId = user.CompanyId
-	}
+	params.ProductId = c.Param("id")
+	params.StoreId = c.Query("store_id")
 
 	// get limit, offset
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
-		handleResponse(c, BadRequest, domain.InvalidQueryError)
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
 		return
 	}
-	// build query
-	query := h.db.
-		Select(
-			"sp.id",
-			"sp.store_id",
-			"sp.product_id",
-			"sp.unit_quantity/p.unit_per_pack AS pack_quantity",
-			"sp.unit_quantity%p.unit_quantity AS unit_quantity",
-			"sp.supply_price",
-			"sp.retail_price",
-			"sp.expire_date",
-			"sp.created_at",
-			"sp.updated_at",
-			"sp.vat",
-			"sp.vat_price",
 
-			"u.short_name",
+	params.Limit = limit
+	params.Offset = offset
 
-			"st.id AS st_id",
-			"st.name AS st_name",
-		).
-		Table("store_products sp").
-		Joins("JOIN products p ON p.id = sp.product_id").
-		Joins("JOIN stores st ON sp.store_id = st.id").
-		Joins("LEFT JOIN unit_types u ON u.id = p.unit_type_id").
-		Where("sp.product_id = ?", id)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 
-	if storeId != "" {
-		query = query.Where("sp.store_id = ?", storeId)
-	}
-	if companyId != "" {
-		query = query.Where("st.company_id = ?", companyId)
-	}
-	// complete query
-	err = query.
-		Count(&totalCount).
-		Limit(limit).
-		Offset(offset).
-		Order("sp.created_at desc").
-		Find(&res).Error
+	res, totalCount, err := h.service.GetStoreProductsByProductId(ctx, &params, user)
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, nil, err)
 		return
 	}
-	for i := range res {
-		res[i].Quantity = res[i].PackQuantity
-	}
 
-	result := utils.ListResponse(res, totalCount, limit, offset)
+	data := utils.ListResponse(res, totalCount, limit, offset)
 
-	handleResponse(c, OK, result)
+	handleResponse(c, OK, data)
 }
 
 // UpdateBarcode godoc

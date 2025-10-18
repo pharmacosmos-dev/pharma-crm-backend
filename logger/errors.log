@@ -37,3 +37,4 @@ time=2025-10-16T11:59:53.08811Z level=ERROR msg="could not get customer: Tag: un
 time=2025-10-16T12:01:21.305687Z level=ERROR msg="could not get customer tag: ERROR: trailing junk after numeric literal at or near "31b" (SQLSTATE 42601)"
 time=2025-10-16T12:01:48.106142Z level=ERROR msg="could not get customer tag: ERROR: trailing junk after numeric literal at or near "31b" (SQLSTATE 42601)"
 time=2025-10-16T14:11:26.443539Z level=ERROR msg="could not get product_movements: ERROR: invalid input syntax for type uuid: "" (SQLSTATE 22P02)"
+time=2025-10-18T08:28:59.292929Z level=ERROR msg="could not get store_products by product_id: ERROR: column p.unit_quantity does not exist (SQLSTATE 42703)"

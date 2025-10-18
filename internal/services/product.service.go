@@ -594,7 +594,7 @@ func (s *Services) GetProducerByCode(ctx context.Context, code string) (*domain.
 	return &producer, nil
 }
 
-func (s *Services) GetStoreProductsByProductId(ctx context.Context, params *domain.ProductQueryParam, user *domain.EmployeeClaims) ([]domain.StoreProduct, error) {
+func (s *Services) GetStoreProductsByProductId(ctx context.Context, params *domain.ProductQueryParam, user *domain.EmployeeClaims) ([]domain.StoreProduct, int64, error) {
 	var (
 		res        []domain.StoreProduct
 		totalCount int64
@@ -614,7 +614,7 @@ func (s *Services) GetStoreProductsByProductId(ctx context.Context, params *doma
 			"sp.store_id",
 			"sp.product_id",
 			"sp.unit_quantity/p.unit_per_pack AS pack_quantity",
-			"sp.unit_quantity%p.unit_quantity AS unit_quantity",
+			"sp.unit_quantity%p.unit_per_pack AS unit_quantity",
 			"sp.supply_price",
 			"sp.retail_price",
 			"sp.expire_date",
@@ -623,6 +623,9 @@ func (s *Services) GetStoreProductsByProductId(ctx context.Context, params *doma
 			"sp.vat",
 			"sp.vat_price",
 
+			"p.unit_per_pack",
+			"p.barcode",
+			
 			"u.short_name",
 
 			"st.id AS st_id",
@@ -649,12 +652,12 @@ func (s *Services) GetStoreProductsByProductId(ctx context.Context, params *doma
 		Find(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get store_products by product_id: %v", err)
-		return nil, domain.InternalServerError
+		return nil, 0, domain.InternalServerError
 	}
 	for i := range res {
-		res[i].Quantity = res[i].PackQuantity
+		res[i].Quantity = res[i].UnitQuantity / res[i].UnitPerPack
 	}
-	return res, nil
+	return res, totalCount, nil
 }
 
 // create new producer
