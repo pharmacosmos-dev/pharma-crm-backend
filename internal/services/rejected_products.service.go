@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/pharma-crm-backend/domain"
@@ -13,33 +14,39 @@ func (s *Services) CreateRejectedProduct(req *domain.RejectedProductRequest) err
 	return nil
 }
 
-func (s *Services) SearchProductsByName(name string, limit, offset int) ([]domain.Product, error) {
+func (s *Services) GetRejectedProductsSearch(ctx context.Context, params *domain.RejectedProductQueryParam) ([]domain.Product, error) {
 	var products []domain.Product
 
-	query := s.db.Preload("Producer").Table("products AS p").
+	query := s.db.
 		Select(`
 			p.id, 
 			p.name, 
 			p.barcode, 
 			p.unit_per_pack, 
-			pr.name AS producer_name
+			pr.id AS producer_id,
+			pr.name AS manufacturer
 		`).
+		Table("products p").
 		Joins("LEFT JOIN producers AS pr ON pr.id = p.producer_id").
 		Where("p.deleted_at IS NULL")
 
-	if name != "" {
-		query = query.Where("p.name ILIKE ?", fmt.Sprintf("%%%s%%", name))
+	if params.Search != "" {
+		query = query.Where("p.name ILIKE ?", fmt.Sprintf("%%%s%%", params.Search))
+	}
+	err := query.
+		Limit(params.Limit).
+		Offset(params.Offset).
+		Find(&products).Error
+	if err != nil {
+		s.log.Errorf("could not get rejected_products %v", err)
+		return nil, domain.InternalServerError
 	}
 
-	if limit > 0 {
-		query = query.Limit(limit)
-	}
-	if offset > 0 {
-		query = query.Offset(offset)
-	}
-
-	if err := query.Find(&products).Error; err != nil {
-		return nil, err
+	for i := range products {
+		products[i].Producer = domain.NewNullStruct(domain.Producer{
+			Id:   &products[i].ProducerID,
+			Name: products[i].Manufacturer,
+		}, products[i].ProducerID != "")
 	}
 
 	return products, nil
