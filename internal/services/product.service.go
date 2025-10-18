@@ -283,16 +283,28 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 		params.CompanyId = user.CompanyId
 	}
 
-	qb := s.db.WithContext(ctx).
-		Table("products p").
-		Joins("LEFT JOIN store_products sp ON p.id = sp.product_id").
-		Joins("LEFT JOIN producers pr ON p.producer_id = pr.id").
-		Joins("LEFT JOIN product_barcodes pb ON p.id = pb.product_id AND pb.status = ?", constants.GeneralStatusCompleted).
-		Group("p.id, pr.id")
+	// Pre-aggregate store_products
+	storeJoin := `LEFT JOIN (
+		SELECT 
+			product_id,
+			SUM(unit_quantity) as total_quantity,
+			MIN(expire_date) FILTER (WHERE unit_quantity > 0) as min_expire_date
+		FROM store_products`
 
 	if params.StoreId != "" {
-		qb = qb.Where("sp.store_id IN(?)", params.StoreId)
+		storeJoin += fmt.Sprintf(" WHERE store_id = '%s'", params.StoreId)
 	}
+
+	storeJoin += ` GROUP BY product_id
+	) sp_agg ON p.id = sp_agg.product_id`
+
+	qb := s.db.WithContext(ctx).
+		Table("products p").
+		Joins(storeJoin).
+		Joins("LEFT JOIN producers pr ON p.producer_id = pr.id").
+		Joins("LEFT JOIN product_barcodes pb ON p.id = pb.product_id AND pb.status = ?", constants.GeneralStatusCompleted).
+		Group("p.id, pr.id, sp_agg.total_quantity, sp_agg.min_expire_date")
+
 	if params.ProducerId != "" {
 		qb = qb.Where("p.producer_id = ?", params.ProducerId)
 	}
@@ -314,13 +326,13 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 		case "active", "inactive":
 			qb = qb.Where("p.status = ?", params.Status)
 		case "low-stock":
-			qb = qb.Having("SUM(sp.unit_quantity)/p.unit_per_pack < 3")
+			qb = qb.Having("sp_agg.total_quantity/p.unit_per_pack < 3")
 		case "zero-stock":
-			qb = qb.Having("SUM(sp.unit_quantity) = 0")
+			qb = qb.Having("sp_agg.total_quantity = 0")
 		case "expired":
-			qb = qb.Where("sp.expire_date < ?", now).Having("SUM(sp.unit_quantity) > 0")
+			qb = qb.Where("sp_agg.min_expire_date < ?", now).Having("sp_agg.total_quantity > 0")
 		case "imminent":
-			qb = qb.Where("sp.expire_date BETWEEN ? AND ?", now, now.AddDate(0, 3, 0)).Having("SUM(sp.unit_quantity) > 0")
+			qb = qb.Where("sp_agg.min_expire_date BETWEEN ? AND ?", now, now.AddDate(0, 3, 0)).Having("sp_agg.total_quantity > 0")
 		}
 	}
 
@@ -335,9 +347,9 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 	case "-name":
 		qb = qb.Order("p.name DESC")
 	case "+expire_date":
-		qb = qb.Order("MIN(sp.expire_date)")
+		qb = qb.Order("sp_agg.min_expire_date")
 	case "-expire_date":
-		qb = qb.Order("MIN(sp.expire_date) DESC")
+		qb = qb.Order("sp_agg.min_expire_date DESC")
 	default:
 		qb = qb.Order("p.updated_at DESC")
 	}
@@ -361,9 +373,9 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 		"pr.name AS manufacturer",
 		"ARRAY_AGG(pb.barcode) FILTER (WHERE pb.barcode IS NOT NULL) AS barcodes",
 
-		"COALESCE(SUM(DISTINCT sp.unit_quantity), 0)  AS unit_quantity",
-		"MIN(sp.expire_date) AS expire_date",
-		"DATE_PART('day', MIN(sp.expire_date)::timestamp - NOW()) AS expire_day",
+		"COALESCE(sp_agg.total_quantity, 0) AS unit_quantity",
+		"sp_agg.min_expire_date AS expire_date",
+		"DATE_PART('day', sp_agg.min_expire_date::timestamp - NOW()) AS expire_day",
 	).
 		Limit(params.Limit).
 		Offset(params.Offset).

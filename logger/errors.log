@@ -1,3 +1,6 @@
 time=2025-10-18T19:52:59.025899Z level=ERROR msg="could not get product stats: ERROR: syntax error at or near "05" (SQLSTATE 42601)"
 time=2025-10-18T19:55:55.573027Z level=ERROR msg="could not get product stats: ERROR: trailing junk after numeric literal at or near "19T" (SQLSTATE 42601)"
 time=2025-10-18T20:04:17.506177Z level=ERROR msg="could not get product stats: ERROR: could not determine data type of parameter $1 (SQLSTATE 42P18)"
+time=2025-10-18T22:17:34.487368Z level=ERROR msg="could not count products: ERROR: missing FROM-clause entry for table "sp" (SQLSTATE 42P01)"
+time=2025-10-18T22:18:57.222037Z level=ERROR msg="could not count products: ERROR: missing FROM-clause entry for table "sp" (SQLSTATE 42P01)"
+time=2025-10-18T22:18:58.252651Z level=ERROR msg="could not count products: ERROR: missing FROM-clause entry for table "sp" (SQLSTATE 42P01)"
