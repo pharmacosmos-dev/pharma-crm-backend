@@ -42,8 +42,9 @@ type Product struct {
 	UnitType        NullStruct[UnitType] `gorm:"-" json:"unit_type"`
 	Shelf           NullStruct[Shelf]    `gorm:"-" json:"shelf"`
 	Producer        NullStruct[Producer] `gorm:"-" json:"producer"`
-	CategoryName    string               `gorm:"category_name" json:"category_name"`
+	CategoryName    string               `gorm:"-" json:"category_name"`
 	Markings        []string             `gorm:"-" json:"markings"`
+	Categories      []Category           `gorm:"-" json:"categories"`
 }
 
 // Product create request
