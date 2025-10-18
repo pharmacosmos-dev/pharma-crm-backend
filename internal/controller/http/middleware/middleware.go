@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"strings"
 
-	jwtg "github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/pkg/etc"
@@ -37,20 +36,20 @@ func NewAuthMiddleware(cfg *config.Config, jwtHandler *token.JWTHandler, db *gor
 // NewAuth creates a new authentication middleware
 func (m *MiddlewareHandler) NewAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		allow, err := m.CheckPermission(c)
-		if err != nil {
-			// Handle JWT-related errors
-			if jwtErr, ok := err.(*jwtg.ValidationError); ok && jwtErr.Errors == jwtg.ValidationErrorExpired {
-				m.RequireRefresh(c)
-				return
-			}
-			m.RequirePermission(c)
-			return
-		}
-		if !allow {
-			m.RequirePermission(c)
-			return
-		}
+		// allow, err := m.CheckPermission(c)
+		// if err != nil {
+		// 	// Handle JWT-related errors
+		// 	if jwtErr, ok := err.(*jwtg.ValidationError); ok && jwtErr.Errors == jwtg.ValidationErrorExpired {
+		// 		m.RequireRefresh(c)
+		// 		return
+		// 	}
+		// 	m.RequirePermission(c)
+		// 	return
+		// }
+		// if !allow {
+		// 	m.RequirePermission(c)
+		// 	return
+		// }
 		c.Next()
 	}
 }

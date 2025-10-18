@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"time"
@@ -15,7 +16,43 @@ import (
 // region Create
 
 func (s *Services) CreateCustomer(ctx context.Context, req *domain.CustomerRequest) (*domain.Customer, error) {
-	var res domain.Customer
+	var (
+		res domain.Customer
+
+		loyaltyCardBarcode sql.NullString
+		loyaltyCardType    sql.NullString // "physical" // virtual
+
+		loyaltyCardPersent sql.NullInt64
+		loyaltyCardLevelID sql.NullString
+	)
+
+	// generate virtual loyalty card
+	if req.VirtualLoyaltyCardNeeded {
+		loyaltyCardBarcode = sql.NullString{String: utils.GenerateBarcode(), Valid: true}
+		loyaltyCardType = sql.NullString{String: "virtual", Valid: true}
+	} else if *req.LoyaltyCardBarcode != "" {
+		loyaltyCardBarcode = sql.NullString{String: *req.LoyaltyCardBarcode, Valid: true}
+		loyaltyCardType = sql.NullString{String: "physical", Valid: true}
+	}
+
+	// getting loyalty level
+	if req.VirtualLoyaltyCardNeeded || *req.LoyaltyCardBarcode != "" {
+		var loyaltyLevel domain.LoyaltyCardLevel
+		err := s.db.Order("position ASC").First(&loyaltyLevel).Error
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				s.log.Error("could not find loyalty level for new customer")
+				return &res, fmt.Errorf("could not find loyalty level for new customer: %s", err.Error())
+			} else {
+				s.log.Errorf("error on getting loyalty card level in db: %s", err.Error())
+				return &res, fmt.Errorf("error on getting loyalty card level in db: %s", err.Error())
+			}
+		}
+
+		loyaltyCardLevelID = sql.NullString{String: loyaltyLevel.Id, Valid: true}
+		loyaltyCardPersent = sql.NullInt64{Int64: int64(loyaltyLevel.CashbackPercent), Valid: true}
+	}
+
 	query := `
 	INSERT INTO customers (
 		id, 
@@ -29,9 +66,13 @@ func (s *Services) CreateCustomer(ctx context.Context, req *domain.CustomerReque
 		birthday, 
 		created_by,
 		discount_card,
-		discount_percent
+		discount_percent,
+		loyalty_card_barcode,
+		loyalty_card_percent,
+		loyalty_card_level_id,
+		loyalty_card_type
 		)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
 	RETURNING *
 	`
 	// insert customer
@@ -49,6 +90,10 @@ func (s *Services) CreateCustomer(ctx context.Context, req *domain.CustomerReque
 			req.CreatedBy,
 			req.DiscountCard,
 			req.DiscountPercent,
+			loyaltyCardBarcode,
+			loyaltyCardPersent,
+			loyaltyCardLevelID,
+			loyaltyCardType,
 		).Scan(&res).Error
 	if err != nil {
 		s.log.Errorf("could not create customer: %v", err)

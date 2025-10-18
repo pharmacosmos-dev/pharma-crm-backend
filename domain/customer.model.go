@@ -53,18 +53,20 @@ type DiscountCardWithCustomer struct {
 }
 
 type CustomerRequest struct {
-	Id              string  `gorm:"id" json:"-"`
-	StoreId         *string `gorm:"store_id" json:"store_id"`
-	FirstName       string  `gorm:"first_name" json:"first_name"`
-	LastName        string  `gorm:"last_name" json:"last_name,omitempty"`
-	FullName        string  `gorm:"full_name" json:"full_name,omitempty"`
-	Phone           string  `gorm:"phone" json:"phone"`
-	Birthday        *string `gorm:"birthday" json:"birthday,omitempty" example:"2006-01-02"`
-	Gender          string  `gorm:"gender" json:"gender,omitempty" example:"male/female"`
-	TagId           *string `gorm:"tag_id" json:"tag_id"`
-	DiscountCard    *string `gorm:"discount_card" json:"discount_card"`
-	DiscountPercent int     `gorm:"discount_percent" json:"discount_percent"`
-	CreatedBy       string  `gorm:"created_by" json:"created_by"`
+	Id                       string  `gorm:"id" json:"-"`
+	StoreId                  *string `gorm:"store_id" json:"store_id"`
+	FirstName                string  `gorm:"first_name" json:"first_name"`
+	LastName                 string  `gorm:"last_name" json:"last_name,omitempty"`
+	FullName                 string  `gorm:"full_name" json:"full_name,omitempty"`
+	Phone                    string  `gorm:"phone" json:"phone"`
+	Birthday                 *string `gorm:"birthday" json:"birthday,omitempty" example:"2006-01-02"`
+	Gender                   string  `gorm:"gender" json:"gender,omitempty" example:"male/female"`
+	TagId                    *string `gorm:"tag_id" json:"tag_id"`
+	DiscountCard             *string `gorm:"discount_card" json:"discount_card"`
+	DiscountPercent          int     `gorm:"discount_percent" json:"discount_percent"`
+	LoyaltyCardBarcode       *string `gorm:"loyalty_card_barcode" json:"loyalty_card_barcode"`
+	VirtualLoyaltyCardNeeded bool    `gorm:"virtual_loyalty_card_needed" json:"virtual_loyalty_card_needed"`
+	CreatedBy                string  `gorm:"created_by" json:"created_by"`
 }
 
 type Tag struct {

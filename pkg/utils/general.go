@@ -22,6 +22,14 @@ func GenerateCode() string {
 	return code
 }
 
+func GenerateBarcode() string {
+	var b = make([]byte, 10)
+	for i := range b {
+		b[i] = byte('0' + rand.Intn(10))
+	}
+	return string(b)
+}
+
 func GenerateRandomValue(min, max int) int {
 	rnd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	return rnd.Intn(max-min) + min

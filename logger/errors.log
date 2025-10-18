@@ -36,3 +36,7 @@ time=2025-10-16T11:59:19.160522Z level=ERROR msg="could not create new customer:
 time=2025-10-16T11:59:53.08811Z level=ERROR msg="could not get customer: Tag: unsupported relations for schema Customer"
 time=2025-10-16T12:01:21.305687Z level=ERROR msg="could not get customer tag: ERROR: trailing junk after numeric literal at or near "31b" (SQLSTATE 42601)"
 time=2025-10-16T12:01:48.106142Z level=ERROR msg="could not get customer tag: ERROR: trailing junk after numeric literal at or near "31b" (SQLSTATE 42601)"
+time=2025-10-17T13:57:30.653792Z level=ERROR msg="ERROR on getting bonus products: %!(EXTRA *pgconn.PgError=ERROR: invalid input syntax for type uuid: "string" (SQLSTATE 22P02))"
+time=2025-10-18T11:04:10.143324Z level=ERROR msg="could not find loyalty level for new customer"
+time=2025-10-18T11:16:47.725506Z level=ERROR msg="could not create customer: ERROR: invalid input syntax for type uuid: "" (SQLSTATE 22P02)"
+time=2025-10-18T11:18:25.472427Z level=ERROR msg="could not create customer: ERROR: invalid input syntax for type uuid: "" (SQLSTATE 22P02)"

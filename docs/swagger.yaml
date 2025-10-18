@@ -334,6 +334,10 @@ definitions:
         type: string
       created_by:
         type: string
+      discount_card:
+        type: string
+      discount_percent:
+        type: integer
       first_name:
         type: string
       full_name:
@@ -343,12 +347,16 @@ definitions:
         type: string
       last_name:
         type: string
+      loyalty_card_barcode:
+        type: string
       phone:
         type: string
       store_id:
         type: string
       tag_id:
         type: string
+      virtual_loyalty_card_needed:
+        type: boolean
     type: object
   domain.DashboardBody:
     properties:
@@ -1050,6 +1058,18 @@ definitions:
         items:
           type: string
         type: array
+    type: object
+  domain.ProductPhotoAlertCreate:
+    properties:
+      category:
+        type: integer
+      product_id:
+        type: string
+      reason:
+        type: string
+    required:
+    - category
+    - product_id
     type: object
   domain.ProductRepricingRequest:
     properties:
@@ -5559,10 +5579,12 @@ paths:
         name: end_date
         type: string
       - description: From Amount
+        format: float64
         in: query
         name: from_amount
         type: number
       - description: To Amount
+        format: float64
         in: query
         name: to_amount
         type: number
@@ -5627,10 +5649,12 @@ paths:
         name: end_date
         type: string
       - description: From Amount
+        format: float64
         in: query
         name: from_amount
         type: number
       - description: To Amount
+        format: float64
         in: query
         name: to_amount
         type: number
@@ -9652,6 +9676,48 @@ paths:
       summary: min, max products
       tags:
       - products
+  /product/list-store-products:
+    post:
+      consumes:
+      - application/json
+      description: Get store products with product info and optional search
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Search by product name
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get list of store products
+      tags:
+      - products
   /product/min-max:
     post:
       consumes:
@@ -9749,6 +9815,121 @@ paths:
       security:
       - BearerAuth: []
       summary: Update min max product
+      tags:
+      - products
+  /product/photo-alert:
+    post:
+      consumes:
+      - application/json
+      description: Create a new product photo alert (ml/doza noto'g'ri, ishlab chiqaruvchi
+        noto'g'ri, rasm xato)
+      parameters:
+      - description: Product Photo Alert Create Body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.ProductPhotoAlertCreate'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create a product photo alert
+      tags:
+      - products
+  /product/photo-alert/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Delete a product photo alert by ID
+      parameters:
+      - description: Photo Alert ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete product photo alert
+      tags:
+      - products
+  /product/photo-alert/list:
+    post:
+      consumes:
+      - application/json
+      description: Get a paginated list of product photo alerts
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Status (pending || completed)
+        in: query
+        name: status
+        type: string
+      - description: Category (1=ml/doza noto'g'ri, 2=ishlab chiqaruvchi noto'g'ri,
+          3=butunlay rasm xato)
+        in: query
+        name: category
+        type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: List product photo alerts
       tags:
       - products
   /product/producer:
@@ -10765,6 +10946,51 @@ paths:
       security:
       - BearerAuth: []
       summary: Get bonus products
+      tags:
+      - Report
+  /report/bonus-products-stats:
+    post:
+      consumes:
+      - application/json
+      description: Get bonus products stats (dashboard summary)
+      parameters:
+      - description: Start Date (RFC3339)
+        in: query
+        name: start_date
+        type: string
+      - description: End Date (RFC3339)
+        in: query
+        name: end_date
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Store IDs
+        in: body
+        name: store_ids
+        schema:
+          items:
+            type: string
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get bonus products stats
       tags:
       - Report
   /report/bonus-products/export-excel:
