@@ -515,7 +515,7 @@ func (s *Services) ApplySaleInventoryUpdate(ctx context.Context, tx *gorm.DB, sa
 			"pb.bonus_amount",
 		).
 		Joins("JOIN store_products sp ON sp.id = ci.store_product_id").
-		Joins("products p ON sp.product_id = p.id").
+		Joins("JOIN products p ON sp.product_id = p.id").
 		Joins("LEFT JOIN product_bonuses pb ON p.id = pb.product_id").
 		Where("ci.sale_id = ?", sale.Id).
 		Find(&cartItemsWithProducts).Error
