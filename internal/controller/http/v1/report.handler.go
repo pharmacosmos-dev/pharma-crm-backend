@@ -305,9 +305,8 @@ func (h *ReportHandler) BonusReport(c *gin.Context) {
 	}
 	var params domain.ReportQueryParam
 	// bind query param
-	err := c.ShouldBindQuery(&params)
-	if err != nil {
-		handleResponse(c, BadRequest, "Invalid query parameters")
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 	// bind store_ids

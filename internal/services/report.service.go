@@ -91,7 +91,6 @@ func (s *Services) BonusReport(ctx context.Context, params *domain.ReportQueryPa
 		Joins("JOIN employees e ON eb.employee_id = e.id").
 		Joins("JOIN products p ON eb.product_id = p.id").
 		Joins("LEFT JOIN stores s ON e.store_id = s.id").
-		Joins("LEFT JOIN employee_roles er ON e.id = er.employee_id").
 		Joins(`
 			LEFT JOIN (
 			SELECT
@@ -141,7 +140,7 @@ func (s *Services) BonusReport(ctx context.Context, params *domain.ReportQueryPa
 		"roles_agg.role",
 		"SUM(eb.bonus_amount) AS amount",
 		"ROUND(SUM(eb.quantity::numeric + eb.unit_quantity::numeric/p.unit_per_pack), 2) AS count",
-	).Order(order).Find(&res).Error
+	).Order(order).Debug().Find(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get employee_bonuses: %v", err)
 		return nil, 0, domain.InternalServerError
