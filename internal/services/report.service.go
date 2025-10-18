@@ -87,60 +87,70 @@ func (s *Services) BonusReport(ctx context.Context, params *domain.ReportQueryPa
 		totalCount int64
 	)
 
-	qb := s.db.WithContext(ctx).
+	// Base query for filtering
+	baseQuery := s.db.WithContext(ctx).
+		Table("employee_bonus eb").
 		Joins("JOIN employees e ON eb.employee_id = e.id").
 		Joins("JOIN products p ON eb.product_id = p.id").
-		Joins("LEFT JOIN stores s ON e.store_id = s.id").
-		Joins(`
-			LEFT JOIN (
-			SELECT
-				er.employee_id,
-				STRING_AGG(DISTINCT r.name, '/' ORDER BY r.name) AS role
-			FROM employee_roles er
-			JOIN roles r ON er.role_id = r.id
-			GROUP BY er.employee_id
-		) roles_agg ON e.id = roles_agg.employee_id
-		`).
-		Table("employee_bonus eb").
-		Group("e.id, s.id, roles_agg.role")
+		Joins("LEFT JOIN stores s ON e.store_id = s.id")
 
-	order := utils.BuildBonusReportOrderClause(params.Order)
-
-	// Store filter
+	// Apply filters to base query
 	if len(params.StoreIds) > 0 {
-		qb = qb.Where("e.store_id IN(?)", params.StoreIds)
+		baseQuery = baseQuery.Where("e.store_id IN(?)", params.StoreIds)
 	}
 	if params.CompanyId != "" {
-		qb = qb.Where("s.company_id IN(?)", params.CompanyId)
+		baseQuery = baseQuery.Where("s.company_id = ?", params.CompanyId)
 	}
-
-	// Search filter
 	if params.Search != "" {
-		qb = qb.Where("e.full_name ILIKE ?", "%"+params.Search+"%")
+		baseQuery = baseQuery.Where("e.full_name ILIKE ?", "%"+params.Search+"%")
 	}
 
 	// Date filter
 	if params.StartDate != "" && params.EndDate != "" {
-		qb = qb.Where("(eb.created_at + interval '5 hours') BETWEEN ? AND ?", params.StartDate, params.EndDate)
-	} else if params.EndDate == "" && params.StartDate != "" {
-		qb = qb.Where("(eb.created_at + interval '5 hours') = ?", params.StartDate)
+		baseQuery = baseQuery.Where("eb.created_at BETWEEN ? AND ?", params.StartDate, params.EndDate)
+	} else if params.StartDate != "" {
+		baseQuery = baseQuery.Where("DATE(eb.created_at) = DATE(?)", params.StartDate)
 	}
 
-	if err := qb.Count(&totalCount).Error; err != nil {
-		s.log.Errorf("cound not get bonus totalCount: %v", err)
+	// Count unique employees (before grouping)
+	countQuery := baseQuery.
+		Select("DISTINCT e.id").
+		Group("e.id")
+
+	if err := s.db.Table("(?) as sub", countQuery).Count(&totalCount).Error; err != nil {
+		s.log.Errorf("could not get bonus totalCount: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
 
-	err := qb.Select(
-		"e.id",
-		"e.public_id",
-		"e.full_name",
-		"e.phone",
-		"s.name AS store_name",
-		"roles_agg.role",
-		"SUM(eb.bonus_amount) AS amount",
-		"ROUND(SUM(eb.quantity::numeric + eb.unit_quantity::numeric/p.unit_per_pack), 2) AS count",
-	).Order(order).Debug().Find(&res).Error
+	// Main query with roles aggregation
+	qb := baseQuery.
+		Joins(`
+			LEFT JOIN (
+				SELECT
+					er.employee_id,
+					STRING_AGG(DISTINCT r.name, '/' ORDER BY r.name) AS role
+				FROM employee_roles er
+				JOIN roles r ON er.role_id = r.id
+				GROUP BY er.employee_id
+			) roles_agg ON e.id = roles_agg.employee_id
+		`).
+		Select(
+			"e.id",
+			"e.public_id",
+			"e.full_name",
+			"e.phone",
+			"s.name AS store_name",
+			"roles_agg.role",
+			"SUM(eb.bonus_amount) AS amount",
+			"ROUND(SUM(eb.quantity::numeric + eb.unit_quantity::numeric/p.unit_per_pack), 2) AS count",
+		).
+		Group("e.id, s.id, s.name, roles_agg.role")
+
+	// Apply ordering
+	order := utils.BuildBonusReportOrderClause(params.Order)
+	qb = qb.Order(order)
+
+	err := qb.Limit(params.Limit).Offset(params.Offset).Find(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get employee_bonuses: %v", err)
 		return nil, 0, domain.InternalServerError
