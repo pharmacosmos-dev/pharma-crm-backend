@@ -96,128 +96,25 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 // @Failure 500 {object} v1.Response
 // @Router /product [post]
 func (h *ProductHandler) Create(c *gin.Context) {
-	var (
-		body domain.ProductRequest
-		err  error
-	)
+	var body domain.ProductRequest
+
 	// bind request body
-	if err = c.ShouldBindJSON(&body); err != nil {
+	if err := c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	// begin transaction
-	tx := h.db.Begin()
-	// Ensure the transaction is rolled back if any error occurs
-	defer func() {
-		if p := recover(); p != nil {
-			tx.Rollback()
-			panic(p)
-		} else if err != nil {
-			tx.Rollback()
-		}
-	}()
-	// generate id
-	body.Id = uuid.New().String()
-	body.Photos = utils.StringArray(body.Photos)
-	body.Status = constants.ProductStatusActive
-	body.MaterialCode = utils.GenerateMaterialCode()
-	err = tx.
-		WithContext(c.Request.Context()).
-		Table("products").
-		Create(&body).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	// store products
-	// if len(body.StoreProduct) > 0 {
-	// 	var imports = make([]domain.ImportRequest, len(body.StoreProduct))
-	// 	var importDetail = make([]domain.ImportDetailRequest, len(body.StoreProduct))
-	// 	for i := range body.StoreProduct {
-	// 		// store products table take required fields
-	// 		body.StoreProduct[i].ProductID = body.Id
-	// 		body.StoreProduct[i].UnitQuantity = body.StoreProduct[i].PackQuantity * body.UnitPerPack
 
-	// 		// imports table take required fields
-	// 		imports[i].Id = uuid.New().String()
-	// 		imports[i].StoreID = body.StoreProduct[i].StoreID
-	// 		imports[i].Status = config.COMPLETED_IMPORT
-	// 		imports[i].DocumentNumber = utils.GenerateDocumentNumber()
-	// 		imports[i].ImportDate = time.Now().Format("2006-01-02 15:04:05")
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 
-	// 		// import detail take required fields
-	// 		importDetail[i].ImportID = imports[i].Id
-	// 		importDetail[i].ProductID = &body.Id
-	// 		importDetail[i].ReceivedCount = body.StoreProduct[i].PackQuantity
-	// 		importDetail[i].AcceptedCount = body.StoreProduct[i].PackQuantity
-	// 		importDetail[i].SupplyPrice = body.StoreProduct[i].SupplyPrice
-	// 		importDetail[i].RetailPrice = body.StoreProduct[i].RetailPrice
-	// 		importDetail[i].Vat = body.StoreProduct[i].Vat
-	// 		importDetail[i].VatSum = body.StoreProduct[i].RetailPrice - body.StoreProduct[i].SupplyPrice
-	// 		importDetail[i].ExpireDate = time.Now().Format("2006-01-02 15:04:05")
-	// 	}
-	// 	// store products
-	// 	err = tx.
-	// 		WithContext(c.Request.Context()).
-	// 		Table("store_products").
-	// 		Create(&body.StoreProduct).Error
-	// 	if err != nil {
-	// 		tx.Rollback()
-	// 		h.log.Error(err)
-	// 		handleResponse(c, InternalError, err.Error())
-	// 		return
-	// 	}
-	// 	// create new import
-	// 	err = tx.
-	// 		WithContext(c.Request.Context()).
-	// 		Table("imports").
-	// 		Create(&imports).Error
-	// 	if err != nil {
-	// 		tx.Rollback()
-	// 		h.log.Error(err)
-	// 		handleResponse(c, InternalError, err.Error())
-	// 		return
-	// 	}
-	// 	// create new import detail
-	// 	err = tx.
-	// 		WithContext(c.Request.Context()).
-	// 		Table("import_details").
-	// 		Create(&importDetail).Error
-	// 	if err != nil {
-	// 		tx.Rollback()
-	// 		h.log.Error(err)
-	// 		handleResponse(c, InternalError, err.Error())
-	// 		return
-	// 	}
-	// }
-	// check category length
-	if len(body.CategoryIds) > 0 {
-		var categoryProduct = make([]domain.CategoryProduct, len(body.CategoryIds))
-		for i := range body.CategoryIds {
-			categoryProduct[i].ProductId = body.Id
-			categoryProduct[i].CategoryId = body.CategoryIds[i]
-			categoryProduct[i].IsOpen = true
-		}
-		// create category products
-		err = tx.
-			WithContext(c.Request.Context()).
-			Create(&categoryProduct).Error
-		if err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, err.Error())
-			return
-		}
-	}
-	// commit transaction
-	err = tx.Commit().Error
+	res, err := h.service.CreateProduct(ctx, &body)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, nil, err)
 		return
 	}
 
-	handleResponse(c, CREATED, "CREATED")
+	handleResponse(c, CREATED, res)
 }
 
 // Get godoc
@@ -235,93 +132,17 @@ func (h *ProductHandler) Create(c *gin.Context) {
 // @Router /product/{id} [get]
 func (h *ProductHandler) Get(c *gin.Context) {
 	var (
-		res     domain.Product
 		id      = c.Param("id")
 		storeId = c.Query("store_id")
 	)
 
-	// validate id
-	if err := uuid.Validate(id); err != nil {
-		handleResponse(c, BadRequest, "Invalid product ID")
-		return
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 
-	// dynamic JOIN with subquery to get latest store_product
-	rawJoin := `
-		LEFT JOIN store_products sp ON sp.id = (
-			SELECT id FROM store_products
-			WHERE product_id = products.id
-	`
-	if storeId != "" {
-		rawJoin += " AND store_id = ?"
-	}
-	rawJoin += `
-			ORDER BY created_at DESC
-			LIMIT 1
-		)
-	`
-
-	pquery := h.db.
-		Preload("UnitType").
-		Preload("Shelf").
-		Preload("Producer").
-		Select(`
-			products.*,
-			ROUND(sp.retail_price / products.unit_per_pack, 2) AS retail_unit_price,
-			ROUND((sp.retail_price),2) AS retail_price
-		`).
-		Joins(rawJoin, storeId)
-
-	err := pquery.
-		First(&res, "products.id = ?", id).Error
-
+	res, err := h.service.GetProductById(ctx, id, storeId)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			handleResponse(c, NotFound, "Product not found")
-			return
-		}
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, nil, err)
 		return
-	}
-
-	// Get category tree
-	category := []*domain.Category{}
-	query := `
-		WITH RECURSIVE category_tree AS (
-			SELECT
-				c.id,
-				c.category_id,
-				c.name::TEXT AS name_path,
-				c.id AS root_category_id
-			FROM categories c
-			INNER JOIN category_products cp ON c.id = cp.category_id
-			WHERE cp.product_id = ?
-
-			UNION ALL
-
-			SELECT
-				parent.id,
-				parent.category_id,
-				(parent.name || ' > ' || child.name_path)::TEXT AS name_path,
-				child.root_category_id
-			FROM categories parent
-			INNER JOIN category_tree child ON parent.id = child.category_id
-		)
-		SELECT DISTINCT ON (root_category_id) id, category_id, name_path AS name
-		FROM category_tree
-		ORDER BY root_category_id, LENGTH(name_path) DESC;
-	`
-	if err := h.db.Raw(query, id).Scan(&category).Error; err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
-	res.Categories = category
-
-	// Get markings
-	if err := h.db.Raw(`SELECT marking FROM product_markings WHERE product_id = ?`, id).Scan(&res.Markings).Error; err != nil {
-		h.log.Warn("ERROR on getting product markings: %v", err)
 	}
 
 	handleResponse(c, OK, res)
@@ -348,53 +169,34 @@ func (h *ProductHandler) Get(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /product/list [get]
 func (h *ProductHandler) List(c *gin.Context) {
-	var (
-		param domain.ProductQueryParam
-		err   error
-	)
-	// bind
-	err = c.ShouldBindQuery(&param)
-	if err != nil {
-		handleResponse(c, BadRequest, err.Error())
+	user := h.service.GetSignedUser(c)
+	if user == nil {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
 
-	// get user_id from the context
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
+	var params domain.ProductQueryParam
+	// bind request params
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
 		return
 	}
-	// get employee info
-	var employee domain.Employee
-	err = h.db.First(&employee, "id = ?", userId).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		handleResponse(c, InternalError, "Can't get employee info")
-		return
-	}
-	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
-		if employee.StoreId != "" {
-			param.StoreId = employee.StoreId
-		}
-		param.CompanyId = employee.CompanyId
-	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 
 	// Pagination parameters
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
 	// get products list
-	products, totalCount, err := h.service.ListProduct(&param)
+	products, totalCount, err := h.service.GetProducts(ctx, &params, user)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
 	// Prepare the response
-	result := utils.ListResponse(products, totalCount, param.Limit, param.Offset)
+	result := utils.ListResponse(products, totalCount, params.Limit, params.Offset)
 
 	handleResponse(c, OK, result)
 }
@@ -420,69 +222,49 @@ func (h *ProductHandler) List(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /product/export-excel [get]
 func (h *ProductHandler) ExportProductExcel(c *gin.Context) {
-	var (
-		param domain.ProductQueryParam
-		res   []domain.ProductData
-	)
+	user := h.service.GetSignedUser(c)
+	if user == nil {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.ProductQueryParam
 	// bind query param
-	if err := c.ShouldBindQuery(&param); err != nil {
-		handleResponse(c, BadRequest, err.Error())
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
+
 	// Pagination parameters
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
-	// get user_id from the context
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
-		return
-	}
-	// get employee info
-	var employee domain.Employee
-	err := h.db.First(&employee, "id = ?", userId).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		handleResponse(c, InternalError, "Can't get employee info")
-		return
-	}
-
-	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
-		if employee.StoreId != "" {
-			param.StoreId = employee.StoreId
-		}
-		param.CompanyId = employee.CompanyId
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 
 	// get products list
-	res, err = h.service.ListProductExport(&param)
+	res, _, err := h.service.GetProducts(ctx, &params, user)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, nil, err)
 		return
 	}
 
 	// Create excel file
 	f := excelize.NewFile()
 
-	if param.StoreId != "" {
+	if params.StoreId != "" {
 		f, err = h.productListExportByStoreId(f, res)
-
 		if err != nil {
-			handleResponse(c, InternalError, "Failed to export product list")
+			handleServiceResponse(c, nil, domain.InternalServerError)
 			return
 		}
 	} else {
 		f, err = h.productListExport(f, res)
 		if err != nil {
-			handleResponse(c, InternalError, "Failed to export product list")
+			handleServiceResponse(c, nil, domain.InternalServerError)
 			return
 		}
 	}
-	saveExcelToUploads(c, f, *h.log, "Barcha_mahslulotlar")
+	saveExcelToUploads(c, f, *h.log, "products")
 }
 
 // Get godoc
@@ -644,90 +426,7 @@ func (h *ProductHandler) Update(c *gin.Context) {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	// var storeProducts []map[string]any
-	// if len(body.StoreProduct) > 0 {
-	// 	for i := range body.StoreProduct {
-	// 		// if body.StoreProduct[i].MeasurementValue != 0 {
-	// 		status := config.COMPLETED_IMPORT
-	// 		// operation := "+"
-	// 		// if body.StoreProduct[i].MeasurementValue < 0 {
-	// 		// 	status = config.WRITEOFF_IMPORT
-	// 		// 	operation = "-"
-	// 		// 	body.StoreProduct[i].MeasurementValue *= -1
-	// 		// }
-	// 		importReq := domain.ImportRequest{
-	// 			Id:             uuid.New().String(),
-	// 			StoreID:        body.StoreProduct[i].StoreID,
-	// 			Status:         status,
-	// 			ImportDate:     time.Now().Format(config.DATE_FORMAT),
-	// 			DocumentNumber: utils.GenerateDocumentNumber(),
-	// 		}
-	// 		// create new import
-	// 		err = tx.Table("imports").Create(&importReq).Error
-	// 		if err != nil {
-	// 			h.log.Error(err)
-	// 			handleResponse(c, InternalError, err.Error())
-	// 			tx.Rollback()
-	// 			return
-	// 		}
-	// 		// create new import details
-	// 		err = tx.Table("import_details").Create(&domain.ImportDetailRequest{
-	// 			ImportID:      importReq.Id,
-	// 			ProductID:     &productID,
-	// 			ReceivedCount: body.StoreProduct[i].PackQuantity,
-	// 			AcceptedCount: body.StoreProduct[i].PackQuantity,
-	// 			RetailPrice:   body.StoreProduct[i].RetailPrice,
-	// 			SupplyPrice:   body.StoreProduct[i].SupplyPrice,
-	// 			Vat:           body.StoreProduct[i].Vat,
-	// 			VatSum:        body.StoreProduct[i].RetailPrice - body.StoreProduct[i].SupplyPrice,
-	// 			ExpireDate:    body.StoreProduct[i].ExpireDate.Format(config.DATE_FORMAT),
-	// 		}).Error
-	// 		if err != nil {
-	// 			h.log.Error(err)
-	// 			handleResponse(c, InternalError, err.Error())
-	// 			tx.Rollback()
-	// 			return
-	// 		}
-	// 		storeProducts = append(storeProducts, map[string]interface{}{
-	// 			"store_id":       body.StoreProduct[i].StoreID,
-	// 			"product_id":     productID,
-	// 			"retail_price":   body.StoreProduct[i].RetailPrice,
-	// 			"supply_price":   body.StoreProduct[i].SupplyPrice,
-	// 			"vat":            body.StoreProduct[i].Vat,
-	// 			"markup":         body.StoreProduct[i].Markup,
-	// 			"pack_quantity":  body.StoreProduct[i].PackQuantity,
-	// 			"unit_quantity":  body.StoreProduct[i].PackQuantity * body.UnitPerPack,
-	// 			"small_quantity": body.StoreProduct[i].SmallQuantity,
-	// 			"bonus_percent":  body.StoreProduct[i].BonusPercent,
-	// 			"expire_date":    body.StoreProduct[i].ExpireDate,
-	// 		})
-	// 		// err = tx.Table("store_products").
-	// 		// 	Where("product_id = ? AND store_id = ? ", productID, body.StoreProduct[i].StoreID).
-	// 		// 	Updates(map[string]interface{}{
-	// 		// 		"pack_quantity":  gorm.Expr("pack_quantity "+operation+" ?", body.StoreProduct[i].MeasurementValue),
-	// 		// 		"unit_quantity":  gorm.Expr("(pack_quantity "+operation+" ?)*?", body.StoreProduct[i].MeasurementValue, body.UnitPerPack),
-	// 		// 		"small_quantity": body.StoreProduct[i].SmallQuantity,
-	// 		// 		"retail_price":   body.RetailPrice,
-	// 		// 		"supply_price":   body.SupplyPrice,
-	// 		// 		"vat":            body.Vat,
-	// 		// 		"markup":         body.Markup,
-	// 		// 	}).Error
-	// 		// if err != nil {
-	// 		// 	tx.Rollback()
-	// 		// 	h.log.Error(err)
-	// 		// 	handleResponse(c, InternalError, err.Error())
-	// 		// 	return
-	// 		// }
-	// 		// }
-	// 	}
-	// 	err = tx.Table("store_products").Create(&storeProducts).Error
-	// 	if err != nil {
-	// 		h.log.Error(err)
-	// 		handleResponse(c, InternalError, err.Error())
-	// 		tx.Rollback()
-	// 		return
-	// 	}
-	// }
+
 	if len(body.CategoryIds) > 0 {
 		var categoryProducts = make([]domain.CategoryProduct, len(body.CategoryIds))
 		for i, categoryId := range body.CategoryIds {
@@ -876,7 +575,7 @@ func (h *ProductHandler) ListByStoreId(c *gin.Context) {
 	// get limit offset
 	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 	// get store products list
-	res, err = h.service.ProductSearch(&param)
+	res, err = h.service.GetProductsForSearch(&param)
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to fetch products")
 		return
@@ -2457,7 +2156,7 @@ func (h *ProductHandler) productListExport(f *excelize.File, res []domain.Produc
 		f.SetCellValue(sheetName, "B"+row, product.MaterialCode)
 		f.SetCellValue(sheetName, "C"+row, product.Name)
 		f.SetCellValue(sheetName, "D"+row, product.Barcode)
-		f.SetCellValue(sheetName, "E"+row, math.Round((product.Quantity+product.UnitQuantity/float64(product.UnitPerPack))*10000)/10000)
+		f.SetCellValue(sheetName, "E"+row, math.Round(float64(product.Quantity+product.UnitQuantity/product.UnitPerPack)*10000)/10000)
 		if product.ExpireDate != nil {
 			f.SetCellValue(sheetName, "F"+row, product.ExpireDate)
 		} else {
@@ -2466,8 +2165,8 @@ func (h *ProductHandler) productListExport(f *excelize.File, res []domain.Produc
 		f.SetCellValue(sheetName, "G"+row, product.SerialNumber)
 		f.SetCellValue(sheetName, "H"+row, product.SupplyPrice)
 		f.SetCellValue(sheetName, "I"+row, product.RetailPrice)
-		f.SetCellValue(sheetName, "J"+row, math.Round((product.SupplyPrice*float64(product.Quantity)+(product.SupplyPrice/float64(product.UnitPerPack)*product.UnitQuantity))*100)/100)
-		f.SetCellValue(sheetName, "K"+row, math.Round((product.RetailPrice*float64(product.Quantity)+(product.RetailPrice/float64(product.UnitPerPack)*product.UnitQuantity))*100)/100)
+		f.SetCellValue(sheetName, "J"+row, math.Round((product.SupplyPrice*float64(product.Quantity)+(product.SupplyPrice/float64(product.UnitPerPack)*float64(product.UnitQuantity)))*100)/100)
+		f.SetCellValue(sheetName, "K"+row, math.Round((product.RetailPrice*float64(product.Quantity)+(product.RetailPrice/float64(product.UnitPerPack)*float64(product.UnitQuantity)))*100)/100)
 		f.SetCellValue(sheetName, "L"+row, product.Manufacturer)
 		if len(product.Photos) > 0 && product.Photos[0] != "" {
 			f.SetCellValue(sheetName, "M"+row, product.Photos[0])
@@ -2505,16 +2204,16 @@ func (h *ProductHandler) productListExportByStoreId(f *excelize.File, res []doma
 		f.SetCellValue(sheetName, "B"+row, product.Name)
 		f.SetCellValue(sheetName, "C"+row, product.Barcode)
 		f.SetCellValue(sheetName, "D"+row, product.Manufacturer)
-		f.SetCellValue(sheetName, "E"+row, math.Round((product.Quantity+(product.UnitQuantity/float64(product.UnitPerPack)))*10000)/10000)
+		f.SetCellValue(sheetName, "E"+row, math.Round(float64(product.Quantity+(product.UnitQuantity/product.UnitPerPack))*10000)/10000)
 		f.SetCellValue(sheetName, "F"+row, product.SupplyPrice)
-		f.SetCellValue(sheetName, "G"+row, math.Round((product.SupplyPrice*float64(product.Quantity)+(product.SupplyPrice/float64(product.UnitPerPack)*product.UnitQuantity))*100)/100)
+		f.SetCellValue(sheetName, "G"+row, math.Round((product.SupplyPrice*float64(product.Quantity)+(product.SupplyPrice/float64(product.UnitPerPack)*float64(product.UnitQuantity)))*100)/100)
 		f.SetCellValue(sheetName, "H"+row, product.RetailPrice)
-		f.SetCellValue(sheetName, "I"+row, math.Round((product.RetailPrice*float64(product.Quantity)+(product.RetailPrice/float64(product.UnitPerPack)*product.UnitQuantity))*100)/100)
+		f.SetCellValue(sheetName, "I"+row, math.Round((product.RetailPrice*float64(product.Quantity)+(product.RetailPrice/float64(product.UnitPerPack)*float64(product.UnitQuantity)))*100)/100)
 		f.SetCellValue(sheetName, "J"+row, product.RetailPrice-product.SupplyPrice)
-		f.SetCellValue(sheetName, "K"+row, math.Round(((product.RetailPrice-product.SupplyPrice)*float64(product.Quantity)+(product.RetailPrice-product.SupplyPrice)/float64(product.UnitPerPack)*product.UnitQuantity)*100)/100)
+		f.SetCellValue(sheetName, "K"+row, math.Round(((product.RetailPrice-product.SupplyPrice)*float64(product.Quantity)+(product.RetailPrice-product.SupplyPrice)/float64(product.UnitPerPack)*float64(product.UnitQuantity))*100)/100)
 		f.SetCellValue(sheetName, "L"+row, product.Vat)
 		f.SetCellValue(sheetName, "M"+row, product.VatPrice)
-		f.SetCellValue(sheetName, "N"+row, math.Round((product.VatPrice*float64(product.Quantity)+(product.VatPrice/float64(product.UnitPerPack)*product.UnitQuantity))*100)/100)
+		f.SetCellValue(sheetName, "N"+row, math.Round((product.VatPrice*float64(product.Quantity)+(product.VatPrice/float64(product.UnitPerPack)*float64(product.UnitQuantity)))*100)/100)
 		f.SetCellValue(sheetName, "O"+row, product.CategoryName)
 		f.SetCellValue(sheetName, "P"+row, product.MXIK)
 		f.SetCellValue(sheetName, "Q"+row, product.ExpireDate.Format("2006-01-02"))

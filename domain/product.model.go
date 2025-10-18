@@ -9,60 +9,57 @@ import (
 
 // Product structure
 type Product struct {
-	Id              string            `gorm:"id" json:"id"`
-	BrandId         string            `gorm:"-" json:"brand_id"`
-	UnitTypeID      string            `gorm:"unit_type_id" json:"unit_type_id"`
-	ShelfID         string            `gorm:"shelf_id" json:"shelf_id"`
-	ProducerID      string            `gorm:"producer_id" json:"producer_id"`
-	Name            string            `gorm:"name" json:"name"`
-	Barcode         string            `gorm:"barcode" json:"barcode"`
-	Photos          utils.StringArray `gorm:"type:text[]" json:"photos"`
-	SupplyPrice     float64           `gorm:"supply_price" json:"supply_price"`
-	RetailPrice     float64           `gorm:"retail_price" json:"retail_price"`
-	RetailUnitPrice float64           `gorm:"retail_unit_price" json:"retail_unit_price"`
-	Quantity        float64           `gorm:"quantity" json:"quantity"`
-	UnitPerPack     int               `gorm:"unit_per_pack" json:"unit_per_pack"`
-	Vat             float64           `gorm:"vat" json:"vat"`
-	Markup          float64           `gorm:"markup" json:"markup"`
-	VatPrice        float64           `gorm:"vat_price" json:"vat_price"`
-	MarkupPrice     float64           `gorm:"markup_price" json:"markup_price"`
-	Sum             float64           `gorm:"sum" json:"sum"`
-	Description     string            `gorm:"description" json:"description"`
-	Status          string            `gorm:"status" json:"status"`
-	Manufacturer    string            `gorm:"manufacturer" json:"manufacturer"`
-	MaterialCode    int               `gorm:"material_code" json:"material_code"`
-	ExpireDate      string            `gorm:"expire_date" json:"expire_date"`
-	IsActive        bool              `gorm:"is_active" json:"is_active"`
-	BonusPercent    float64           `gorm:"bonus_percent" json:"bonus_percent"`
-	BonusAmount     float64           `gorm:"bonus_amount" json:"bonus_amount"`
-	IsMarking       bool              `gorm:"is_marking" json:"is_marking"`
-	CreatedAt       *time.Time        `gorm:"created_at" json:"created_at"`
-	UpdatedAt       *time.Time        `gorm:"updated_at" json:"updated_at"`
-	UnitName        string            `gorm:"unit_name" json:"unit_name"`
-	Categories      []*Category       `gorm:"many2many:category_products;foreignKey:Id;joinForeignKey:ProductId;References:Id;joinReferences:CategoryId" json:"categories"`
-	StoreProduct    []*StoreProduct   `gorm:"foreignKey:ProductID" json:"store_product"`
-	UnitType        *UnitType         `gorm:"foreignKey:UnitTypeID" json:"unit_type"`
-	Shelf           *Shelf            `gorm:"foreignKey:ShelfID" json:"shelf"`
-	Producer        *Producer         `gorm:"foreignKey:ProducerID" json:"producer"`
-	CategoryName    string            `gorm:"category_name" json:"category_name"`
-	Markings        []string          `gorm:"-" json:"markings"`
+	Id              string               `gorm:"id" json:"id"`
+	BrandId         string               `gorm:"-" json:"brand_id"`
+	UnitTypeID      string               `gorm:"unit_type_id" json:"unit_type_id"`
+	ShelfID         string               `gorm:"shelf_id" json:"shelf_id"`
+	ProducerID      string               `gorm:"producer_id" json:"producer_id"`
+	Name            string               `gorm:"name" json:"name"`
+	Barcode         string               `gorm:"barcode" json:"barcode"`
+	Photos          utils.StringArray    `gorm:"type:text[]" json:"photos"`
+	SupplyPrice     float64              `gorm:"supply_price" json:"supply_price"`
+	RetailPrice     float64              `gorm:"retail_price" json:"retail_price"`
+	RetailUnitPrice float64              `gorm:"retail_unit_price" json:"retail_unit_price"`
+	Quantity        float64              `gorm:"quantity" json:"quantity"`
+	UnitPerPack     int                  `gorm:"unit_per_pack" json:"unit_per_pack"`
+	Vat             float64              `gorm:"vat" json:"vat"`
+	Markup          float64              `gorm:"markup" json:"markup"`
+	VatPrice        float64              `gorm:"vat_price" json:"vat_price"`
+	MarkupPrice     float64              `gorm:"markup_price" json:"markup_price"`
+	Sum             float64              `gorm:"sum" json:"sum"`
+	Description     string               `gorm:"description" json:"description"`
+	Status          string               `gorm:"status" json:"status"`
+	Manufacturer    string               `gorm:"manufacturer" json:"manufacturer"`
+	MaterialCode    int                  `gorm:"material_code" json:"material_code"`
+	ExpireDate      string               `gorm:"expire_date" json:"expire_date"`
+	IsActive        bool                 `gorm:"is_active" json:"is_active"`
+	BonusPercent    float64              `gorm:"bonus_percent" json:"bonus_percent"`
+	BonusAmount     float64              `gorm:"bonus_amount" json:"bonus_amount"`
+	IsMarking       bool                 `gorm:"is_marking" json:"is_marking"`
+	CreatedAt       *time.Time           `gorm:"created_at" json:"created_at"`
+	UpdatedAt       *time.Time           `gorm:"updated_at" json:"updated_at"`
+	UnitName        string               `gorm:"unit_name" json:"unit_name"`
+	UnitType        NullStruct[UnitType] `gorm:"-" json:"unit_type"`
+	Shelf           NullStruct[Shelf]    `gorm:"-" json:"shelf"`
+	Producer        NullStruct[Producer] `gorm:"-" json:"producer"`
+	CategoryName    string               `gorm:"category_name" json:"category_name"`
+	Markings        []string             `gorm:"-" json:"markings"`
 }
 
 // Product create request
 type ProductRequest struct {
-	Id           string                `gorm:"id" json:"-"`
-	UnitTypeID   string                `gorm:"unit_type_id" json:"unit_type_id"`
-	ShelfID      *string               `gorm:"shelf_id" json:"shelf_id"`
-	ProducerID   *string               `gorm:"producer_id" json:"producer_id"`
-	MaterialCode int                   `gorm:"material_code" json:"material_code"`
-	Name         string                `gorm:"name" json:"name"`
-	Barcode      string                `gorm:"barcode" json:"barcode"`
-	Photos       utils.StringArray     `gorm:"type:text[]" json:"photos"`
-	UnitPerPack  int                   `gorm:"unit_per_pack" json:"unit_per_pack"`
-	Description  string                `gorm:"description" json:"description"`
-	Status       string                `gorm:"status" json:"-" example:"active|inactive"`
-	StoreProduct []StoreProductRequest `gorm:"-" json:"store_product"`
-	CategoryIds  []string              `gorm:"-" json:"category_ids"`
+	Id           string            `gorm:"id" json:"-"`
+	UnitTypeId   string            `gorm:"unit_type_id" json:"unit_type_id"`
+	ShelfId      *string           `gorm:"shelf_id" json:"shelf_id"`
+	ProducerId   *string           `gorm:"producer_id" json:"producer_id"`
+	MaterialCode int               `gorm:"material_code" json:"material_code"`
+	Name         string            `gorm:"name" json:"name"`
+	Barcode      string            `gorm:"barcode" json:"barcode"`
+	Photos       utils.StringArray `gorm:"type:text[]" json:"photos"`
+	UnitPerPack  int               `gorm:"unit_per_pack" json:"unit_per_pack"`
+	Description  string            `gorm:"description" json:"description"`
+	Status       string            `gorm:"status" json:"-" example:"active|inactive"`
+	CategoryIds  []string          `gorm:"-" json:"category_ids"`
 }
 
 // ProductExcludeRequest request
@@ -234,6 +231,8 @@ type ProductQueryParam struct {
 	NoBarcode       bool    `form:"no_barcode"`
 	Order           string  `form:"order"`
 	Category        int     `form:"category"`
+	ExpiryFrom      string  `form:"expiry_from"`
+	ExpiryTo        string  `form:"expiry_to"`
 	Limit           int     `form:"limit"`
 	Offset          int     `form:"offset"`
 }
@@ -259,7 +258,7 @@ type UpdateIsMarking struct {
 type ProductData struct {
 	ID           string            `gorm:"id" json:"id"`
 	StoreName    string            `gorm:"store_name" json:"store_name"`
-	MaterialCode string            `gorm:"material_code" json:"material_code"`
+	MaterialCode int               `gorm:"material_code" json:"material_code"`
 	Name         string            `gorm:"name" json:"name"`
 	Photos       utils.StringArray `gorm:"type:text[]" json:"photos"`
 	Barcode      string            `gorm:"barcode" json:"barcode"`
@@ -274,21 +273,20 @@ type ProductData struct {
 	UnitName     string            `gorm:"unit_name" json:"unit_name"`
 	ShortName    string            `gorm:"short_name" json:"short_name"`
 	UnitLabel    string            `gorm:"unit_label" json:"unit_label"`
-	Quantity     float64           `gorm:"quantity" json:"quantity"`
 	ExpireDate   *time.Time        `gorm:"expire_date" json:"expire_date"`
 	ExpireDay    int               `gorm:"expire_day" json:"expire_day"`
 	SerialNumber string            `gorm:"serial_number" json:"serial_number"`
-	UnitQuantity float64           `gorm:"unit_quantity" json:"unit_quantity"`
+	UnitQuantity int               `gorm:"unit_quantity" json:"unit_quantity"`
+	Quantity     int               `gorm:"quantity" json:"quantity"`
 	Units        string            `gorm:"units" json:"units"`
 	CategoryName string            `gorm:"category_name" json:"category_name"`
 	SupplyPrice  float64           `gorm:"supply_price" json:"supply_price"`
 	RetailPrice  float64           `gorm:"retail_price" json:"retail_price"`
-	Vat          float64           `gorm:"vat" json:"vat"`
+	Vat          int               `gorm:"vat" json:"vat"`
 	Markup       float64           `gorm:"markup" json:"markup"`
 	VatPrice     float64           `gorm:"vat_price" json:"vat_price"`
 	MarkupPrice  float64           `gorm:"markup_price" json:"markup_price"`
 	Sum          float64           `gorm:"sum" json:"sum"`
-	TotalCount   int64             `gorm:"total_count" json:"-"`
 }
 
 // product response structure for arzon apteka
