@@ -769,7 +769,7 @@ func (s *Services) UpdateTransferByBarcode(
 			s.log.Error("could not update transfer_details by barcode(%s): %v", req.Barcode, err)
 			return domain.InternalServerError
 		}
-		return nil
+
 	} else {
 		return domain.InvalidRequestBodyError
 	}

@@ -177,7 +177,6 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 			s.log.Errorf("could not update transfer_details: %v", err)
 			return domain.InternalServerError
 		}
-		return nil
 	}
 
 	// update scanned count with unit quantity
@@ -208,7 +207,6 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 			s.log.Errorf("could not update transfer detail unit: %v", err)
 			return domain.InternalServerError
 		}
-		return nil
 	}
 
 	// save transfer log
@@ -291,7 +289,6 @@ func (s *Services) UpdateReturnByBarcode(ctx context.Context, req *domain.Transf
 			s.log.Errorf("could not update transfer_details by barcode(%s): %v", req.Barcode, err)
 			return domain.InternalServerError
 		}
-		return nil
 	} else {
 		return domain.InvalidRequestBodyError
 	}
