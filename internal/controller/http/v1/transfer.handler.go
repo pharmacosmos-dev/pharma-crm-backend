@@ -81,6 +81,8 @@ func (h *TransferHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, "User not authorized")
 		return
 	}
+	handleResponse(c, BadRequest, "transfer.temporary.not.working")
+	return 
 	// get creator id from set header
 	request.CreatedBy = userId.(string)
 
