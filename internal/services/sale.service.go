@@ -262,7 +262,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 
 	// start transaction
 	tx := s.db.Begin()
-	defer func ()  {
+	defer func() {
 		if r := recover(); r != nil {
 			_ = tx.Rollback()
 		}
@@ -405,7 +405,7 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 	tx := s.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			s.log.Errorf("Panic recovered in EposResult: %v", r)
 		}
 	}()
