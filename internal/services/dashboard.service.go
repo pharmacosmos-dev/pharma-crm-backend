@@ -341,7 +341,7 @@ func (s *Services) DashboardTopStores(ctx context.Context, params *domain.Dashbo
 	var (
 		args   []any
 		query  = `SELECT stores.id, stores.name, COUNT(*) AS count, SUM(sales.total_amount) AS total_amount FROM sales INNER JOIN stores ON sales.store_id = stores.id`
-		filter = ` WHERE sales.stage (9, 11)`
+		filter = ` WHERE sales.stage IN (9, 11)`
 		group  = ` GROUP BY stores.id`
 		order  = ` ORDER BY total_amount DESC`
 	)
