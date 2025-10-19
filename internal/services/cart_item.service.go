@@ -141,7 +141,7 @@ func (s *Services) FetchCartItems(ctx context.Context, saleId string, limit, off
 		sp.vat AS vat_percent,
 
 		ROUND(((ci.unit_price - ci_amount.d_amount) * 12) / 112, 2) AS vat_price,
-		ROUND((((ci.unit_price - ci_amount.d_amount) * 12) / 112) / p.unit_per_pack, 2) AS unit_vat_price,
+		ROUND((((ci.unit_price - ci_amount.d_amount) * 12) / 112) / p.unit_per_pack, 4) AS unit_vat_price,
 
 		ROUND((sp.vat_price / p.unit_per_pack) * ci.unit_quantity, 2) AS vat,
 		ROUND(ci.unit_price / p.unit_per_pack, 2) AS unit_quantity_price,
