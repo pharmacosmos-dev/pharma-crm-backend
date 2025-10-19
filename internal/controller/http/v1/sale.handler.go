@@ -70,7 +70,7 @@ func (h *SaleHandler) SaleRoutes(r *gin.RouterGroup) {
 func (h *SaleHandler) Create(c *gin.Context) {
 	// get user id from header
 	user := h.service.GetSignedUser(c)
-	if user == nil {
+	if user.UserId == "" {
 		handleServiceResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
 		return
 	}
@@ -110,7 +110,7 @@ func (h *SaleHandler) Create(c *gin.Context) {
 func (h *SaleHandler) CreateReturn(c *gin.Context) {
 	// get user id in context
 	user := h.service.GetSignedUser(c)
-	if user == nil {
+	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
@@ -198,7 +198,7 @@ func (h *SaleHandler) Get(c *gin.Context) {
 func (h *SaleHandler) GetSales(c *gin.Context) {
 	// get user from the context
 	user := h.service.GetSignedUser(c)
-	if user == nil {
+	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
@@ -260,7 +260,7 @@ func (h *SaleHandler) ExportSalesExcel(c *gin.Context) {
 	var params domain.SaleQueryParams
 	// get user_id from the context
 	user := h.service.GetSignedUser(c)
-	if user == nil {
+	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
@@ -353,7 +353,7 @@ func (h *SaleHandler) ExportSalesExcel(c *gin.Context) {
 // @Router /sale/stats [get]
 func (h *SaleHandler) GetSalesStats(c *gin.Context) {
 	user := h.service.GetSignedUser(c)
-	if user == nil {
+	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
@@ -398,7 +398,7 @@ func (h *SaleHandler) GetSalesStats(c *gin.Context) {
 func (h *SaleHandler) GetSaleList(c *gin.Context) {
 
 	user := h.service.GetSignedUser(c)
-	if user == nil {
+	if user.UserId == "" {
 		handleServiceResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
 		return
 	}
@@ -541,7 +541,7 @@ func (h *SaleHandler) PendingSaleList(c *gin.Context) {
 
 	// get user_id from context
 	user := h.service.GetSignedUser(c)
-	if user == nil {
+	if user.UserId == "" {
 		handleResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
 		return
 	}
@@ -697,7 +697,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 func (h *SaleHandler) EposResult(c *gin.Context) {
 	// get user id in context
 	user := h.service.GetSignedUser(c)
-	if user == nil {
+	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}

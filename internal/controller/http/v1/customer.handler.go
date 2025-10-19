@@ -59,7 +59,7 @@ func (h *CustomerHandler) Create(c *gin.Context) {
 	var body domain.CustomerRequest
 	// get user from the context
 	user := h.service.GetSignedUser(c)
-	if user == nil {
+	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}

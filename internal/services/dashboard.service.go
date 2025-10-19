@@ -1,20 +1,16 @@
 package services
 
 import (
-	"errors"
+	"context"
 	"fmt"
 	"time"
-
-	"github.com/gin-gonic/gin"
-	"github.com/pharma-crm-backend/pkg/helper"
-	"gorm.io/gorm"
 
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
 )
 
 // get dashboard count and amount data
-func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (*domain.DashboardCountStats, error) {
+func (s *Services) DashboardTotalCountStats(ctx context.Context, param *domain.DashboardQueryParam) (*domain.DashboardCountStats, error) {
 	// declarations
 	var (
 		sale      domain.DashboardCountStatsSale
@@ -29,8 +25,8 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 	// Parse start and end dates
 	startTime, err := time.Parse(time.RFC3339, param.StartDate)
 	if err != nil {
-		s.log.Error("Invalid start_date format: %v", err)
-		return nil, err
+		s.log.Errorf("could not parse start_date format: %v", err)
+		return nil, domain.InvalidTimeFormatError
 	}
 
 	if param.EndDate == "" { // get end time if end_date will be empty string 23 hour and 59 minute
@@ -40,8 +36,8 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 	if param.EndDate != "" {
 		endTime, err = time.Parse(time.RFC3339, param.EndDate)
 		if err != nil {
-			s.log.Error("Invalid end_date format: %v", err)
-			return nil, err
+			s.log.Errorf("could not parse end_date format: %v", err)
+			return nil, domain.InvalidTimeFormatError
 		}
 	}
 
@@ -168,39 +164,39 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 
 	// Execute queries
 	querys += filter
-	err = s.db.Raw(querys, args...).Scan(&sale).Error
+	err = s.db.WithContext(ctx).Raw(querys, args...).Scan(&sale).Error
 	if err != nil {
-		s.log.Error(err)
-		return nil, err
+		s.log.Errorf("could not get total sale amounts: %v", err)
+		return nil, domain.InternalServerError
 	}
 
 	// get total product count
 	queryp += filter
-	err = s.db.Raw(queryp, args...).Scan(&product).Error
+	err = s.db.WithContext(ctx).Raw(queryp, args...).Scan(&product).Error
 	if err != nil {
-		s.log.Error(err)
-		return nil, err
+		s.log.Errorf("could not get total product_amounts: %v", err)
+		return nil, domain.InternalServerError
 	}
 	// get total net income
 	queryc += filterc
-	err = s.db.Raw(queryc, args...).Scan(&income).Error
+	err = s.db.WithContext(ctx).Raw(queryc, args...).Scan(&income).Error
 	if err != nil {
-		s.log.Error(err)
-		return nil, err
+		s.log.Errorf("could not get total income: %v", err)
+		return nil, domain.InternalServerError
 	}
 
-	err = s.db.Raw(query24h, args...).Scan(&imported).Error
+	err = s.db.WithContext(ctx).Raw(query24h, args...).Scan(&imported).Error
 	if err != nil {
-		s.log.Error(err)
-		return nil, err
+		s.log.Errorf("could not get import_count for_24: %v", err)
+		return nil, domain.InternalServerError
 	}
 
 	queryImportCountNot24 += filter
-	err = s.db.Raw(queryImportCountNot24, args...).Scan(&notLast24HImportCount).Error
+	err = s.db.WithContext(ctx).Raw(queryImportCountNot24, args...).Scan(&notLast24HImportCount).Error
 
 	if err != nil {
-		s.log.Error(err)
-		return nil, err
+		s.log.Errorf("could not get import_count for_not_24: %v", err)
+		return nil, domain.InternalServerError
 	}
 
 	// Map results
@@ -230,36 +226,35 @@ func (s *Services) DashboardTotalCountStats(param *domain.DashboardQueryParam) (
 }
 
 // get dashboard chart stats data list
-func (s *Services) DashboardChartStats(param *domain.DashboardQueryParam) ([]domain.ChartResponse, error) {
-	var res []domain.ChartResponse
-	// vaqt formatlarini aniqlash
+func (s *Services) DashboardChartStats(ctx context.Context, params *domain.DashboardQueryParam) ([]domain.ChartResponse, error) {
 	var (
+		res          []domain.ChartResponse
 		interval     string
 		timeTruncCol string
 	)
 
 	// Parse start and end dates
-	startTime, err := time.Parse(time.RFC3339, param.StartDate)
+	startTime, err := time.Parse(time.RFC3339, params.StartDate)
 	if err != nil {
-		s.log.Error("Invalid start_date format: %v", err)
-		return nil, err
+		s.log.Errorf("could not parse start_date format: %v", err)
+		return nil, domain.InvalidTimeFormatError
 	}
 
 	endTime := startTime
-	if param.EndDate == "" { // get end time if end_date will be empty string, so add  23 hour and 59 minute
+	if params.EndDate == "" { // get end time if end_date will be empty string, so add  23 hour and 59 minute
 		endTime = startTime.Add(time.Minute * 1439)
 	}
 
-	if param.EndDate != "" {
-		endTime, err = time.Parse(time.RFC3339, param.EndDate)
+	if params.EndDate != "" {
+		endTime, err = time.Parse(time.RFC3339, params.EndDate)
 		if err != nil {
-			s.log.Error("Invalid end_date format: %v", err)
-			return nil, err
+			s.log.Errorf("could not parse end_date format: %v", err)
+			return nil, domain.InvalidTimeFormatError
 		}
 	}
 
 	// Group type
-	switch param.Type {
+	switch params.Type {
 	case "HALF_HOURLY":
 		interval = "30 minutes"
 		timeTruncCol = `
@@ -286,7 +281,7 @@ func (s *Services) DashboardChartStats(param *domain.DashboardQueryParam) ([]dom
 	}
 	// WEEKLY tanlangan bo‘lsa startDate ni truncate qilamiz
 
-	if param.Type == "WEEKLY" {
+	if params.Type == "WEEKLY" {
 		// haftaning boshiga truncate qilish (Dushanba)
 		offset := (int(startTime.Weekday()) + 6) % 7 // Monday = 0
 		startTime = startTime.AddDate(0, 0, -offset)
@@ -296,13 +291,13 @@ func (s *Services) DashboardChartStats(param *domain.DashboardQueryParam) ([]dom
 
 	// qo‘shimcha filterlar
 	filter := ""
-	if len(param.StoreIds) > 0 {
+	if len(params.StoreIds) > 0 {
 		filter += " AND s.store_id IN (?)"
-		args = append(args, param.StoreIds)
+		args = append(args, params.StoreIds)
 	}
-	if param.CompanyId != "" {
+	if params.CompanyId != "" {
 		filter += " AND st.company_id = ?"
-		args = append(args, param.CompanyId)
+		args = append(args, params.CompanyId)
 	}
 
 	// yakuniy query
@@ -331,16 +326,16 @@ func (s *Services) DashboardChartStats(param *domain.DashboardQueryParam) ([]dom
 	`, timeTruncCol, filter)
 
 	// bajarish
-	err = s.db.Raw(query, args...).Scan(&res).Error
+	err = s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting chart info: %v", err)
-		return res, err
+		s.log.Errorf("could not get chart info: %v", err)
+		return res, domain.InternalServerError
 	}
 	return res, nil
 }
 
 // get dashboard top stores
-func (s *Services) DashboardTopStores(param *domain.DashboardQueryParam) ([]domain.TopStores, error) {
+func (s *Services) DashboardTopStores(ctx context.Context, params *domain.DashboardQueryParam) ([]domain.TopStores, error) {
 	var res []domain.TopStores
 
 	var (
@@ -353,21 +348,21 @@ func (s *Services) DashboardTopStores(param *domain.DashboardQueryParam) ([]doma
 
 	// Parse and apply date filters
 	var startStr, endStr string
-	if param.StartDate != "" {
-		startTime, err := time.Parse(time.RFC3339, param.StartDate)
+	if params.StartDate != "" {
+		startTime, err := time.Parse(time.RFC3339, params.StartDate)
 		if err != nil {
-			s.log.Error("Invalid start_date format: %v", err)
-			return nil, err
+			s.log.Errorf("Invalid start_date format: %v", err)
+			return nil, domain.InvalidTimeFormatError
 		}
 		startStr = startTime.Format("2006-01-02 15:04:05")
 
 		// if end_date is empty → use start_date
 		var endTime time.Time
-		if param.EndDate != "" {
-			endTime, err = time.Parse(time.RFC3339, param.EndDate)
+		if params.EndDate != "" {
+			endTime, err = time.Parse(time.RFC3339, params.EndDate)
 			if err != nil {
-				s.log.Error("Invalid end_date format: %v", err)
-				return nil, err
+				s.log.Errorf("Invalid end_date format: %v", err)
+				return nil, domain.InvalidTimeFormatError
 			}
 		} else {
 			endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
@@ -380,33 +375,33 @@ func (s *Services) DashboardTopStores(param *domain.DashboardQueryParam) ([]doma
 	}
 
 	// Store filter
-	if param.StoreId != "" {
+	if params.StoreId != "" {
 		filter += " AND sales.store_id = ?"
-		args = append(args, param.StoreId)
+		args = append(args, params.StoreId)
 	}
 
 	// Company filter
-	if param.CompanyId != "" {
+	if params.CompanyId != "" {
 		filter += " AND stores.company_id = ?"
-		args = append(args, param.CompanyId)
+		args = append(args, params.CompanyId)
 	}
 
 	// Limit & Offset
 	var q = query + filter + group + order + " LIMIT ? OFFSET ?"
-	args = append(args, param.Limit, param.Offset)
+	args = append(args, params.Limit, params.Offset)
 
 	// Execute query
-	err := s.db.Raw(q, args...).Scan(&res).Error
+	err := s.db.WithContext(ctx).Raw(q, args...).Scan(&res).Error
 	if err != nil {
-		s.log.Error("Failed to get top stores: %v", err)
-		return nil, err
+		s.log.Errorf("Failed to get top stores: %v", err)
+		return nil, domain.InternalServerError
 	}
 
 	return res, nil
 }
 
 // get dashboard top products
-func (s *Services) DashboardTopProducts(param *domain.DashboardQueryParam) ([]domain.TopProducts, error) {
+func (s *Services) DashboardTopProducts(ctx context.Context, params *domain.DashboardQueryParam) ([]domain.TopProducts, error) {
 	var res []domain.TopProducts
 
 	var (
@@ -427,38 +422,38 @@ func (s *Services) DashboardTopProducts(param *domain.DashboardQueryParam) ([]do
 	)
 
 	// Filter by company_id
-	if param.CompanyId != "" {
+	if params.CompanyId != "" {
 		filter += ` AND sp.company_id = ?`
-		args = append(args, param.CompanyId)
+		args = append(args, params.CompanyId)
 	}
 
 	// Filter by one store
-	if param.StoreId != "" {
+	if params.StoreId != "" {
 		filter += ` AND sp.store_id = ?`
-		args = append(args, param.StoreId)
+		args = append(args, params.StoreId)
 	}
 
 	// Filter by multiple stores
-	if len(param.StoreIds) > 0 {
+	if len(params.StoreIds) > 0 {
 		filter += ` AND sp.store_id IN (?)`
-		args = append(args, param.StoreIds)
+		args = append(args, params.StoreIds)
 	}
 
 	// Parse RFC3339 date-time range
-	if param.StartDate != "" {
-		startTime, err := time.Parse(time.RFC3339, param.StartDate)
+	if params.StartDate != "" {
+		startTime, err := time.Parse(time.RFC3339, params.StartDate)
 		if err != nil {
-			s.log.Error("Invalid start_date format: %v", err)
-			return nil, err
+			s.log.Errorf("Invalid start_date format: %v", err)
+			return nil, domain.InvalidTimeFormatError
 		}
 		startStr := startTime.Format("2006-01-02 15:04:05")
 
 		var endTime time.Time
-		if param.EndDate != "" {
-			endTime, err = time.Parse(time.RFC3339, param.EndDate)
+		if params.EndDate != "" {
+			endTime, err = time.Parse(time.RFC3339, params.EndDate)
 			if err != nil {
-				s.log.Error("Invalid end_date format: %v", err)
-				return nil, err
+				s.log.Errorf("Invalid end_date format: %v", err)
+				return nil, domain.InvalidTimeFormatError
 			}
 		} else {
 			endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
@@ -470,20 +465,20 @@ func (s *Services) DashboardTopProducts(param *domain.DashboardQueryParam) ([]do
 	}
 
 	// Add pagination
-	args = append(args, param.Limit, param.Offset)
+	args = append(args, params.Limit, params.Offset)
 	query = query + filter + group + order + " LIMIT ? OFFSET ?"
 
-	err := s.db.Raw(query, args...).Scan(&res).Error
+	err := s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
 	if err != nil {
-		s.log.Error("ERROR on getting top products: %v", err)
-		return nil, err
+		s.log.Errorf("could not get top products: %v", err)
+		return nil, domain.InternalServerError
 	}
 
 	return res, nil
 }
 
 // get dashboard bonus products
-func (s *Services) DashboardBonusProducts(param *domain.DashboardQueryParam) ([]domain.BonusProducts, error) {
+func (s *Services) DashboardBonusProducts(ctx context.Context, params *domain.DashboardQueryParam) ([]domain.BonusProducts, error) {
 	var res []domain.BonusProducts
 
 	// query
@@ -505,28 +500,28 @@ func (s *Services) DashboardBonusProducts(param *domain.DashboardQueryParam) ([]
 	)
 
 	// company_id
-	if param.CompanyId != "" {
+	if params.CompanyId != "" {
 		filter += " AND e.company_id = ? "
-		args = append(args, param.CompanyId)
+		args = append(args, params.CompanyId)
 	}
 
 	// check store_ids
-	if len(param.StoreIds) > 0 {
+	if len(params.StoreIds) > 0 {
 		filter += " AND e.store_id IN (?) "
-		args = append(args, param.StoreIds)
+		args = append(args, params.StoreIds)
 	}
 
 	// Parse RFC3339 start va end vaqtlar
-	startTime, err := time.Parse(time.RFC3339, param.StartDate)
+	startTime, err := time.Parse(time.RFC3339, params.StartDate)
 	if err != nil {
-		s.log.Error("Invalid start_date format: %v", err)
-		return nil, err
+		s.log.Errorf("Invalid start_date format: %v", err)
+		return nil, domain.InvalidTimeFormatError
 	}
-	if param.EndDate != "" {
-		endTime, err = time.Parse(time.RFC3339, param.EndDate)
+	if params.EndDate != "" {
+		endTime, err = time.Parse(time.RFC3339, params.EndDate)
 		if err != nil {
-			s.log.Error("Invalid end_date format: %v", err)
-			return nil, err
+			s.log.Errorf("Invalid end_date format: %v", err)
+			return nil, domain.InvalidTimeFormatError
 		}
 	} else {
 		endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
@@ -539,10 +534,10 @@ func (s *Services) DashboardBonusProducts(param *domain.DashboardQueryParam) ([]
 
 	// Limit / Offset
 	query = query + filter + group + order + " LIMIT ? OFFSET ?"
-	args = append(args, param.Limit, param.Offset)
+	args = append(args, params.Limit, params.Offset)
 
 	// Execute
-	err = s.db.Raw(query, args...).Scan(&res).Error
+	err = s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Error("ERROR on getting bonus products: ", err)
 		return nil, err
@@ -552,7 +547,7 @@ func (s *Services) DashboardBonusProducts(param *domain.DashboardQueryParam) ([]
 }
 
 // get dashboard top seller
-func (s *Services) DashboardTopSeller(param *domain.DashboardQueryParam) ([]domain.TopSeller, error) {
+func (s *Services) DashboardTopSeller(ctx context.Context, params *domain.DashboardQueryParam) ([]domain.TopSeller, error) {
 	var res []domain.TopSeller
 
 	var (
@@ -576,31 +571,31 @@ func (s *Services) DashboardTopSeller(param *domain.DashboardQueryParam) ([]doma
 	)
 
 	// Company filter
-	if param.CompanyId != "" {
+	if params.CompanyId != "" {
 		filter += " AND st.company_id = ?"
-		args = append(args, param.CompanyId)
+		args = append(args, params.CompanyId)
 	}
 
 	// Filter by one store
-	if param.StoreId != "" {
+	if params.StoreId != "" {
 		filter += " AND s.store_id = ?"
-		args = append(args, param.StoreId)
+		args = append(args, params.StoreId)
 	}
 
 	// Filter by multiple stores
-	if len(param.StoreIds) > 0 {
+	if len(params.StoreIds) > 0 {
 		filter += " AND s.store_id IN (?)"
-		args = append(args, param.StoreIds)
+		args = append(args, params.StoreIds)
 	}
 
 	// Date filter — RFC3339 parse
-	startTime, err := time.Parse(time.RFC3339, param.StartDate)
+	startTime, err := time.Parse(time.RFC3339, params.StartDate)
 	if err != nil {
 		s.log.Error("could not parse start_date: %v", err)
 		return nil, domain.InvalidTimeFormatError
 	}
-	if param.EndDate != "" {
-		endTime, err = time.Parse(time.RFC3339, param.EndDate)
+	if params.EndDate != "" {
+		endTime, err = time.Parse(time.RFC3339, params.EndDate)
 		if err != nil {
 			s.log.Errorf("could not parse end_date: %v", err)
 			return nil, domain.InvalidTimeFormatError
@@ -616,35 +611,35 @@ func (s *Services) DashboardTopSeller(param *domain.DashboardQueryParam) ([]doma
 	args = append(args, startStr, endStr)
 
 	// Pagination
-	args = append(args, param.Limit, param.Offset)
+	args = append(args, params.Limit, params.Offset)
 
 	// Build and run query
 	var q = query + filter + group + order + offset
-	err = s.db.Raw(q, args...).Scan(&res).Error
+	err = s.db.WithContext(ctx).Raw(q, args...).Scan(&res).Error
 	if err != nil {
-		s.log.Error("ERROR on getting top seller: %v", err)
-		return nil, err
+		s.log.Errorf("ERROR on getting top seller: %v", err)
+		return nil, domain.InternalServerError
 	}
 
 	return res, nil
 }
 
 // get payment
-func (s *Services) DashboardPayments(param *domain.DashboardQueryParam) ([]domain.DashboardPayment, error) {
+func (s *Services) DashboardPayments(ctx context.Context, params *domain.DashboardQueryParam) ([]domain.DashboardPayment, error) {
 	var res []domain.DashboardPayment
 
 	// Parse start and end dates
-	startTime, err := time.Parse(time.RFC3339, param.StartDate)
+	startTime, err := time.Parse(time.RFC3339, params.StartDate)
 	if err != nil {
 		s.log.Error("Invalid start_date format: %v", err)
-		return res, err
+		return res, domain.InvalidTimeFormatError
 	}
 	endTime := startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
-	if param.EndDate != "" {
-		endTime, err = time.Parse(time.RFC3339, param.EndDate)
+	if params.EndDate != "" {
+		endTime, err = time.Parse(time.RFC3339, params.EndDate)
 		if err != nil {
 			s.log.Error("Invalid end_date format: %v", err)
-			return res, err
+			return res, domain.InvalidTimeFormatError
 		}
 	}
 
@@ -702,10 +697,10 @@ func (s *Services) DashboardPayments(param *domain.DashboardQueryParam) ([]domai
 
 	// Store filter if provided
 	storeFilter := ""
-	if len(param.StoreIds) > 0 {
+	if len(params.StoreIds) > 0 {
 		storeFilter += " AND s.store_id IN ? "
 	}
-	if param.CompanyId != "" {
+	if params.CompanyId != "" {
 		storeFilter += " AND st.company_id = ? "
 	}
 
@@ -717,49 +712,49 @@ func (s *Services) DashboardPayments(param *domain.DashboardQueryParam) ([]domai
 		// curr
 		startStr, endStr,
 	}
-	if len(param.StoreIds) > 0 {
-		args = append(args, param.StoreIds)
+	if len(params.StoreIds) > 0 {
+		args = append(args, params.StoreIds)
 	}
-	if param.CompanyId != "" {
-		args = append(args, param.CompanyId)
+	if params.CompanyId != "" {
+		args = append(args, params.CompanyId)
 	}
 
 	// old period args
 	args = append(args, beforeStartStr, beforeEndStr)
-	if len(param.StoreIds) > 0 {
-		args = append(args, param.StoreIds)
+	if len(params.StoreIds) > 0 {
+		args = append(args, params.StoreIds)
 	}
-	if param.CompanyId != "" {
-		args = append(args, param.CompanyId)
+	if params.CompanyId != "" {
+		args = append(args, params.CompanyId)
 	}
 
 	// Execute query
-	err = s.db.Raw(query, args...).Scan(&res).Error
+	err = s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting dashboard payment stats: %v", err)
-		return res, err
+		s.log.Errorf("could not get dashboard payment stats: %v", err)
+		return res, domain.InternalServerError
 	}
 
 	return res, nil
 }
 
-func (s *Services) DashboardTransaction(param *domain.DashboardQueryParam) ([]domain.DashboardTransaction, error) {
+func (s *Services) DashboardTransaction(ctx context.Context, params *domain.DashboardQueryParam) ([]domain.DashboardTransaction, error) {
 	var (
 		startTime, endTime time.Time
 		err                error
 	)
 
 	// Parse datetimes
-	startTime, err = time.Parse(time.RFC3339, param.StartDate)
+	startTime, err = time.Parse(time.RFC3339, params.StartDate)
 	if err != nil {
 		s.log.Error("Invalid start_date format: %v", err)
-		return nil, err
+		return nil, domain.InvalidTimeFormatError
 	}
-	if param.EndDate != "" {
-		endTime, err = time.Parse(time.RFC3339, param.EndDate)
+	if params.EndDate != "" {
+		endTime, err = time.Parse(time.RFC3339, params.EndDate)
 		if err != nil {
 			s.log.Error("Invalid end_date format: %v", err)
-			return nil, err
+			return nil, domain.InvalidTimeFormatError
 		}
 	} else {
 		endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
@@ -778,10 +773,10 @@ func (s *Services) DashboardTransaction(param *domain.DashboardQueryParam) ([]do
 
 	// ---- FILTERS ----
 	storeFilter := ""
-	if len(param.StoreIds) > 0 {
+	if len(params.StoreIds) > 0 {
 		storeFilter += " AND s.store_id IN ? "
 	}
-	if param.CompanyId != "" {
+	if params.CompanyId != "" {
 		storeFilter += " AND s.store_id IN (SELECT id FROM stores WHERE company_id = ?) "
 	}
 
@@ -865,84 +860,57 @@ func (s *Services) DashboardTransaction(param *domain.DashboardQueryParam) ([]do
 		// Sales curr
 		startStr, endStr,
 	}
-	if len(param.StoreIds) > 0 {
-		finalArgs = append(finalArgs, param.StoreIds)
+	if len(params.StoreIds) > 0 {
+		finalArgs = append(finalArgs, params.StoreIds)
 	}
-	if param.CompanyId != "" {
-		finalArgs = append(finalArgs, param.CompanyId)
+	if params.CompanyId != "" {
+		finalArgs = append(finalArgs, params.CompanyId)
 	}
 	// sales prev
 	finalArgs = append(finalArgs, beforeStartStr, beforeEndStr)
-	if len(param.StoreIds) > 0 {
-		finalArgs = append(finalArgs, param.StoreIds)
+	if len(params.StoreIds) > 0 {
+		finalArgs = append(finalArgs, params.StoreIds)
 	}
-	if param.CompanyId != "" {
-		finalArgs = append(finalArgs, param.CompanyId)
+	if params.CompanyId != "" {
+		finalArgs = append(finalArgs, params.CompanyId)
 	}
 	// returns curr
 	finalArgs = append(finalArgs, startStr, endStr)
-	if len(param.StoreIds) > 0 {
-		finalArgs = append(finalArgs, param.StoreIds)
+	if len(params.StoreIds) > 0 {
+		finalArgs = append(finalArgs, params.StoreIds)
 	}
-	if param.CompanyId != "" {
-		finalArgs = append(finalArgs, param.CompanyId)
+	if params.CompanyId != "" {
+		finalArgs = append(finalArgs, params.CompanyId)
 	}
 	// returns prev
 	finalArgs = append(finalArgs, beforeStartStr, beforeEndStr)
-	if len(param.StoreIds) > 0 {
-		finalArgs = append(finalArgs, param.StoreIds)
+	if len(params.StoreIds) > 0 {
+		finalArgs = append(finalArgs, params.StoreIds)
 	}
-	if param.CompanyId != "" {
-		finalArgs = append(finalArgs, param.CompanyId)
+	if params.CompanyId != "" {
+		finalArgs = append(finalArgs, params.CompanyId)
 	}
 
 	// Execute
-	err = s.db.Raw(fullQuery, finalArgs...).Scan(&res).Error
+	err = s.db.WithContext(ctx).Raw(fullQuery, finalArgs...).Scan(&res).Error
 	if err != nil {
-		s.log.Error("Error fetching dashboard transaction stats: %v", err)
-		return res, err
+		s.log.Errorf("Error fetching dashboard transaction stats: %v", err)
+		return res, domain.InternalServerError
 	}
 
 	return res, nil
 }
 
-func (s *Services) DashboardOldImports(c *gin.Context, limit, offset int) ([]domain.Import, int64, error) {
+func (s *Services) DashboardOldImports(ctx context.Context, params *domain.DashboardQueryParam) ([]domain.Import, int64, error) {
 	var (
 		imports    []domain.Import
 		totalCount int64
-		search     = c.Query("search")
-		storeID    = c.Query("store_id")
-		companyId  = c.Query("company_id")
-		err        error
+
+		err error
 	)
 
-	// get user id from header
-	userId, ok := c.Get("user_id")
-	if !ok {
-		return nil, 0, errors.New("user not found in context")
-	}
-
-	// check employee role
-	var employee domain.Employee
-	err = s.db.First(&employee, "id = ?", userId).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			err = errors.New("employee not found")
-		}
-		s.log.Error(err)
-		return nil, 0, err
-	}
-
-	// If not admin, restrict to their store
-	if !helper.IsAdmin(employee, s.cfg) {
-		if employee.StoreId != "" {
-			storeID = employee.StoreId
-		}
-		companyId = employee.CompanyId
-	}
-
 	// Main query
-	query := s.db.Model(&domain.Import{}).
+	query := s.db.WithContext(ctx).Model(&domain.Import{}).
 		Preload("Store").
 		Preload("Sender").
 		Preload("Receiver").
@@ -960,30 +928,30 @@ func (s *Services) DashboardOldImports(c *gin.Context, limit, offset int) ([]dom
 		Where("imports.status = ?", "new")
 
 	// Apply filters
-	if companyId != "" {
+	if params.CompanyId != "" {
 		query = query.Joins("JOIN stores ON imports.store_id = stores.id").
-			Where("stores.company_id = ?", companyId)
+			Where("stores.company_id = ?", params.CompanyId)
 	}
-	if search != "" {
-		search = fmt.Sprintf("%%%s%%", search)
+	if params.Search != "" {
+		search := fmt.Sprintf("%%%s%%", params.Search)
 		query = query.Where(`
 			imports.document_number ILIKE ? OR 
 			CAST(imports.public_id AS TEXT) LIKE ?`, search, search)
 	}
-	if storeID != "" {
-		query = query.Where("imports.store_id = ?", storeID)
+	if params.StoreId != "" {
+		query = query.Where("imports.store_id = ?", params.StoreId)
 	}
 
 	// Grouping, count, pagination
 	err = query.Group("imports.id").
 		Order("imports.created_at DESC").
 		Count(&totalCount).
-		Limit(limit).
-		Offset(offset).
+		Limit(params.Limit).
+		Offset(params.Offset).
 		Find(&imports).Error
 	if err != nil {
-		s.log.Error(err)
-		return nil, 0, err
+		s.log.Errorf("could not get old imports: %v", err)
+		return nil, 0, domain.InternalServerError
 	}
 
 	return imports, totalCount, nil

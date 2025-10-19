@@ -299,7 +299,7 @@ func (h *ReportHandler) ProductByDateExport(c *gin.Context) {
 // @Router /report/bonus [POST]
 func (h *ReportHandler) BonusReport(c *gin.Context) {
 	user := h.service.GetSignedUser(c)
-	if user == nil {
+	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
@@ -357,7 +357,7 @@ func (h *ReportHandler) BonusReport(c *gin.Context) {
 // @Router /report/bonus-export [POST]
 func (h *ReportHandler) BonusReportExport(c *gin.Context) {
 	user := h.service.GetSignedUser(c)
-	if user == nil {
+	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
@@ -1188,7 +1188,7 @@ func (h *ReportHandler) ReportTopStores(c *gin.Context) {
 func (h *ReportHandler) ReportBonusProducts(c *gin.Context) {
 	// get user_id from the context
 	user := h.service.GetSignedUser(c)
-	if user == nil {
+	if user.UserId == "" {
 		handleServiceResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
 		return
 	}
@@ -1511,7 +1511,7 @@ func (h *ReportHandler) TopStoresExportExcel(c *gin.Context) {
 func (h *ReportHandler) BonusProductsExportExcel(c *gin.Context) {
 	// get user_id from the context
 	user := h.service.GetSignedUser(c)
-	if user == nil {
+	if user.UserId == "" {
 		handleServiceResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
 		return
 	}

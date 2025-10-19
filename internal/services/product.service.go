@@ -553,8 +553,13 @@ func (s *Services) GetProductsForSearch(ctx context.Context, params *domain.Stor
 	if params.Search != "" {
 		switch searchType {
 		case "barcode":
-			qb = qb.Joins("LEFT JOIN product_barcodes pbr ON pbr.product_id = p.id").
-				Where("pbr.barcode LIKE ?", "%"+params.Search+"%").
+			qb = qb.Where(`
+				EXISTS (
+					SELECT 1
+					FROM product_barcodes pbr
+					WHERE pbr.product_id = p.id
+					AND pbr.barcode LIKE ?
+				)`, "%"+params.Search+"%").
 				Order("sp.expire_date ASC")
 
 		case "marking":

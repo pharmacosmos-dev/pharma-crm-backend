@@ -108,6 +108,7 @@ type DashboardQueryParam struct {
 	Offset    int      `form:"offset"`
 	StoreIds  []string `form:"store_ids"`
 	CompanyId string   `form:"company_id"`
+	Search    string   `form:"search"`
 }
 
 // Dashboard payments structure

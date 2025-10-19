@@ -170,7 +170,7 @@ func (h *ProductHandler) Get(c *gin.Context) {
 // @Router /product/list [get]
 func (h *ProductHandler) List(c *gin.Context) {
 	user := h.service.GetSignedUser(c)
-	if user == nil {
+	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
@@ -223,7 +223,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 // @Router /product/export-excel [get]
 func (h *ProductHandler) ExportProductExcel(c *gin.Context) {
 	user := h.service.GetSignedUser(c)
-	if user == nil {
+	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
@@ -288,7 +288,7 @@ func (h *ProductHandler) ExportProductExcel(c *gin.Context) {
 func (h *ProductHandler) TotalStatusCount(c *gin.Context) {
 	// get user_id from the context
 	user := h.service.GetSignedUser(c)
-	if user == nil {
+	if user.UserId == "" {
 		handleServiceResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
 		return
 	}
@@ -791,7 +791,7 @@ func (h *ProductHandler) GetProductImports(c *gin.Context) {
 func (h *ProductHandler) ListStoreProductProductId(c *gin.Context) {
 	// get user_id from header context
 	user := h.service.GetSignedUser(c)
-	if user == nil {
+	if user.UserId == "" {
 		handleServiceResponse(c, InternalError, domain.UnauthorizedError)
 		return
 	}
@@ -1298,7 +1298,7 @@ func (h *ProductHandler) AttachBarcode(c *gin.Context) {
 // @Router /product/{id}/product-movement [get]
 func (h *ProductHandler) ProductMovements(c *gin.Context) {
 	user := h.service.GetSignedUser(c)
-	if user == nil {
+	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
