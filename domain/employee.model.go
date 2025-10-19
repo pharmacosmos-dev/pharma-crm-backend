@@ -106,6 +106,7 @@ type EmployeeBonusRequest struct {
 	EmployeeId         string  `gorm:"employee_id" json:"employee_id"`
 	SaleId             string  `gorm:"sale_id" json:"sale_id"`
 	ProductId          string  `gorm:"product_id" json:"product_id"`
+	CashboxOperationId string  `gorm:"cashbox_operation_id" json:"cashbox_operation_id"`
 	BonusAmount        float64 `gorm:"bonus_amount" json:"bonus_amount"`
 	Quantity           int     `gorm:"quantity" json:"quantity"`
 	UnitQuantity       int     `gorm:"unit_quantity" json:"unit_quantity"`

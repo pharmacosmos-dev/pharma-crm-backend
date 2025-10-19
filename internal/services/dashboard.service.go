@@ -63,7 +63,7 @@ func (s *Services) DashboardTotalCountStats(ctx context.Context, param *domain.D
 			SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN sales.total_discount ELSE 0 END) AS before_discount_amount
 		FROM sales
 		LEFT JOIN stores st on sales.store_id = st.id
-		WHERE status = 'completed'
+		WHERE stage IN(9, 11)
 		`,
 			startStr, endStr, beforeStartStr, beforeEndStr,
 			startStr, endStr, beforeStartStr, beforeEndStr,
@@ -89,7 +89,7 @@ func (s *Services) DashboardTotalCountStats(ctx context.Context, param *domain.D
 			FROM cart_items
 			JOIN sales s ON cart_items.sale_id = s.id
 			WHERE s.completed_at BETWEEN '%s' AND '%s'
-			AND s.status = 'completed'
+			AND s.stage IN(9, 11)
 			GROUP BY store_product_id
 		) AS ci_sold ON ci_sold.store_product_id = sp.id
 		WHERE 1 = 1
@@ -103,7 +103,7 @@ func (s *Services) DashboardTotalCountStats(ctx context.Context, param *domain.D
 		JOIN store_products sp ON ci.store_product_id = sp.id
 		JOIN products p ON sp.product_id = p.id
 		JOIN sales s ON ci.sale_id = s.id
-		WHERE s.status = 'completed' AND s.sale_type = 'SALE'`,
+		WHERE s.stage IN(9, 11) AND s.sale_type = 'SALE'`,
 			startStr, endStr, beforeStartStr, beforeEndStr)
 
 		query24h = `
@@ -164,7 +164,7 @@ func (s *Services) DashboardTotalCountStats(ctx context.Context, param *domain.D
 
 	// Execute queries
 	querys += filter
-	err = s.db.WithContext(ctx).Raw(querys, args...).Scan(&sale).Error
+	err = s.db.WithContext(ctx).Debug().Raw(querys, args...).Scan(&sale).Error
 	if err != nil {
 		s.log.Errorf("could not get total sale amounts: %v", err)
 		return nil, domain.InternalServerError
@@ -317,7 +317,7 @@ func (s *Services) DashboardChartStats(ctx context.Context, params *domain.Dashb
 	FROM time_series ts
 	LEFT JOIN sales s ON
 		%s = ts.period
-		AND s.status = 'completed'
+		AND s.stage IN (9, 11)
 		AND s.sale_type = 'SALE'
 	LEFT JOIN stores st ON s.store_id = st.id
 	%s
@@ -341,7 +341,7 @@ func (s *Services) DashboardTopStores(ctx context.Context, params *domain.Dashbo
 	var (
 		args   []any
 		query  = `SELECT stores.id, stores.name, COUNT(*) AS count, SUM(sales.total_amount) AS total_amount FROM sales INNER JOIN stores ON sales.store_id = stores.id`
-		filter = ` WHERE sales.status = 'completed'`
+		filter = ` WHERE sales.stage (9, 11)`
 		group  = ` GROUP BY stores.id`
 		order  = ` ORDER BY total_amount DESC`
 	)
@@ -564,7 +564,7 @@ func (s *Services) DashboardTopSeller(ctx context.Context, params *domain.Dashbo
 		INNER JOIN employees e ON s.employee_id = e.id
 		INNER JOIN stores st ON s.store_id = st.id
 		`
-		filter = " WHERE s.status = 'completed' AND s.sale_type = 'SALE'"
+		filter = " WHERE s.stage IN(9, 11) AND s.sale_type = 'SALE'"
 		group  = " GROUP BY e.id, st.id"
 		order  = " ORDER BY total_amount DESC"
 		offset = " LIMIT ? OFFSET ?"
@@ -799,7 +799,7 @@ func (s *Services) DashboardTransaction(ctx context.Context, params *domain.Dash
 			COALESCE(ROUND(SUM(ci.quantity + (ci.unit_quantity / 100.0)), 0), 0) AS count
 		FROM sales s
 		JOIN cart_items ci ON ci.sale_id = s.id
-		WHERE s.status = 'completed' 
+		WHERE s.stage IN(9, 11)
 			AND s.sale_type = 'SALE' 
 			AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?
 			%s
@@ -809,7 +809,7 @@ func (s *Services) DashboardTransaction(ctx context.Context, params *domain.Dash
 			SUM(s.total_amount) AS amount
 		FROM sales s
 		JOIN cart_items ci ON ci.sale_id = s.id
-		WHERE s.status = 'completed' 
+		WHERE s.stage IN(9, 11)
 			AND s.sale_type = 'SALE' 
 			AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?
 			%s
@@ -835,7 +835,7 @@ func (s *Services) DashboardTransaction(ctx context.Context, params *domain.Dash
 			COALESCE(ROUND(SUM(ci.quantity + (ci.unit_quantity / 100.0)), 0), 0) AS count
 		FROM sales s
 		JOIN cart_items ci ON ci.sale_id = s.id
-		WHERE s.status = 'completed' 
+		WHERE s.stage IN(9, 11) 
 			AND s.sale_type = 'RETURN'
 			AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?
 			%s
@@ -845,7 +845,7 @@ func (s *Services) DashboardTransaction(ctx context.Context, params *domain.Dash
 			SUM(s.total_amount) AS amount
 		FROM sales s
 		JOIN cart_items ci ON ci.sale_id = s.id
-		WHERE s.status = 'completed' 
+		WHERE s.stage IN(9, 11) 
 			AND s.sale_type = 'RETURN'
 			AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?
 			%s

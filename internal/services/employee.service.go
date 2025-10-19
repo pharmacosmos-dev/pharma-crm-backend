@@ -150,10 +150,11 @@ func (s *Services) AddEmployeeBonus(ctx context.Context, tx *gorm.DB, req *domai
 		product_id, 
 		quantity, 
 		unit_quantity, 
-		bonus_amount
+		bonus_amount,
+		cashbox_operation_id
 		) 
 	VALUES(
-		?, ?, ?, ?, ?, ?
+		?, ?, ?, ?, ?, ?, ?
 		)`,
 		req.EmployeeId,
 		req.SaleId,
@@ -161,10 +162,11 @@ func (s *Services) AddEmployeeBonus(ctx context.Context, tx *gorm.DB, req *domai
 		req.Quantity,
 		req.UnitQuantity,
 		req.BonusAmount,
+		req.CashboxOperationId,
 	).Error
 	if err != nil {
-		s.log.Error("ERROR on adding bonus to employee: ", err)
-		return err
+		s.log.Errorf("could not add bonus to employee: %v", err)
+		return domain.InternalServerError
 	}
 
 	return nil

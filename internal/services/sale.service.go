@@ -556,7 +556,7 @@ func (s *Services) ApplySaleInventoryUpdate(ctx context.Context, tx *gorm.DB, sa
 		return domain.NotEnoughProductError
 	}
 
-	go s.AddSaleBonuses(cartItemsWithProducts)
+	go s.AddSaleBonuses(sale, cartItemsWithProducts)
 
 	return nil
 }
@@ -598,7 +598,7 @@ func (s *Services) matchingPaymentTypeSum(ctx context.Context, req *domain.Final
 	return req, nil
 }
 
-func (s *Services) AddSaleBonuses(req []domain.CartItemWithProduct) {
+func (s *Services) AddSaleBonuses(sale *domain.Sale, req []domain.CartItemWithProduct) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 	var bonuses []domain.EmployeeBonusRequest
@@ -606,12 +606,13 @@ func (s *Services) AddSaleBonuses(req []domain.CartItemWithProduct) {
 	for _, item := range req {
 		if item.BonusAmount > 0 {
 			bonuses = append(bonuses, domain.EmployeeBonusRequest{
-				EmployeeId:   item.EmployeeId,
-				SaleId:       item.SaleId,
-				ProductId:    item.ProductId,
-				BonusAmount:  (item.BonusAmount / float64(item.UnitPerPack)) * float64(item.UnitQuantity),
-				Quantity:     item.UnitQuantity / item.UnitPerPack,
-				UnitQuantity: item.UnitQuantity % item.UnitPerPack,
+				EmployeeId:         item.EmployeeId,
+				SaleId:             item.SaleId,
+				ProductId:          item.ProductId,
+				BonusAmount:        (item.BonusAmount / float64(item.UnitPerPack)) * float64(item.UnitQuantity),
+				Quantity:           item.UnitQuantity / item.UnitPerPack,
+				UnitQuantity:       item.UnitQuantity % item.UnitPerPack,
+				CashboxOperationId: sale.CashBoxOperationId,
 			})
 		}
 	}
