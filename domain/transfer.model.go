@@ -113,6 +113,21 @@ type TransferProduct1C struct {
 
 // transfer details for barcode response
 type TransferBarcodeResponse struct {
-	Id   string `gorm:"id" json:"id"`
-	Name string `gorm:"name" json:"name"`
+	Id        string `gorm:"id" json:"id"`
+	Name      string `gorm:"name" json:"name"`
+	ProductId string `gorm:"product_id" json:"product_id"`
+}
+
+type TransferLog struct {
+	Id               int64                `gorm:"column:serial;primaryKey;autoIncrement" json:"id"`
+	TransferId       string               `gorm:"transfer_id" json:"transfer_id"`
+	TransferDetailId string               `gorm:"transfer_detail_id" json:"transfer_detail_id"`
+	ProductId        string               `gorm:"product_id" json:"product_id"`
+	UserId           string               `gorm:"user_id" json:"user_id"`
+	TransferType     int                  `gorm:"transfer_type" json:"transfer_type"`
+	Stage            int                  `gorm:"stage" json:"stage"`
+	Quantity         int                  `gorm:"quantity" json:"quantity"`
+	CreatedAt        *time.Time           `gorm:"created_at" json:"created_at"`
+	UpdatedAt        *time.Time           `gorm:"updated_at" json:"updated_at"`
+	Employee         NullStruct[Employee] `gorm:"-" json:"employee,omitempty"`
 }

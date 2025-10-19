@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"fmt"
-	"math"
 	"time"
 
 	"github.com/spf13/cast"
@@ -13,13 +12,14 @@ import (
 )
 
 // Create inventory creates a new inventory
-func (s *Services) CreateTransfer(req *domain.TransferRequest) error {
+func (s *Services) CreateTransfer(ctx context.Context, req *domain.TransferRequest) error {
 	var id string
 	// start transaction
 	tx := s.db.Begin()
-	defer recoverTransaction(tx, s.log) // recover if panic happened
+
 	// insert inventory into inventories table
-	err := tx.Raw(`
+	err := tx.WithContext(ctx).
+		Raw(`
 	INSERT INTO 
 		transfers (
 			from_store_id, 
@@ -29,20 +29,21 @@ func (s *Services) CreateTransfer(req *domain.TransferRequest) error {
 			)
 	VALUES (?, ?, ?, ?) 
 	RETURNING id`,
-		req.FromStoreId,
-		req.ToStoreId,
-		req.Name,
-		req.CreatedBy,
-	).Scan(&id).Error
+			req.FromStoreId,
+			req.ToStoreId,
+			req.Name,
+			req.CreatedBy,
+		).Scan(&id).Error
 	if err != nil {
-		s.log.Warn("ERROR on creating return: %v", err)
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("could not create transfer: %v", err)
+		return domain.InternalServerError
 	}
-	defer RollbackIfError(tx, &err) // return transaction if error happened
 
 	// if no products provided, get all products from store_products
 	// and insert them into inventory_details
-	err = tx.Exec(`
+	err = tx.WithContext(ctx).
+		Exec(`
 		INSERT INTO transfer_details(
 			transfer_id, 
 			store_product_id, 
@@ -66,15 +67,15 @@ func (s *Services) CreateTransfer(req *domain.TransferRequest) error {
 			WHERE sp.store_id = ? AND (sp.pack_quantity > 0 OR sp.unit_quantity > 0);
 		`, id, req.FromStoreId).Error
 	if err != nil {
-		s.log.Error("ERROR on creating inventory details: ", err)
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("could not create transfer details: %v", err)
+		return domain.InternalServerError
 	}
 
 	// commit transaction
-	err = tx.Commit().Error
-	if err != nil {
-		s.log.Error("ERROR on committing transaction: ", err)
-		return err
+	if err = tx.Commit().Error; err != nil {
+		s.log.Errorf("could commit create transfer transaction: %v", err)
+		return domain.InternalServerError
 	}
 	return nil
 }
@@ -308,57 +309,62 @@ func (s *Services) TransferDetailStatsCount(param *domain.ReturnDetailParam) (do
 }
 
 // confirm inventory
-func (s *Services) SendTransfer(returnId string, userId string) error {
+func (s *Services) SendTransfer(ctx context.Context, returnId string, userId string) error {
 	// start transaction
 	tx := s.db.Begin()
-	defer recoverTransaction(tx, s.log)
+	defer func() {
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
+		}
+	}()
 
 	// update confirm inventory
 	query := `UPDATE transfers SET status = ?, updated_by = ? WHERE id = ?`
-	err := tx.Exec(query, constants.GeneralStatusSent, userId, returnId).Error
+	err := tx.WithContext(ctx).Exec(query, constants.GeneralStatusSent, userId, returnId).Error
 	if err != nil {
-		s.log.Warn("ERROR on updating inventory %v", err)
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("could not update transfer: %v", err)
+		return domain.InternalServerError
 	}
-	// rollback transaction if error happened
-	defer RollbackIfError(tx, &err)
 
 	query2 := `DELETE FROM transfer_details WHERE expected_count = 0 AND transfer_id = ?;`
-	err = tx.Exec(query2, returnId).Error
+	err = tx.WithContext(ctx).Exec(query2, returnId).Error
 	if err != nil {
-		s.log.Warn("ERROR on deleting scanned 0 inventory details: %v", err)
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("could not delete expected 0 transfer details: %v", err)
+		return domain.InternalServerError
 	}
 
-	var returnDetails []domain.TransferDetail
+	var details []domain.TransferDetail
 	query3 := `
 		SELECT td.*, p.unit_per_pack
         FROM transfer_details td
 		JOIN products p ON td.product_id = p.id
 		WHERE td.transfer_id = ? and td.expected_count > 0;
 	`
-	err = tx.Raw(query3, returnId).Scan(&returnDetails).Error
+	err = tx.WithContext(ctx).Raw(query3, returnId).Scan(&details).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting return details: %v", err)
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("could not get transfer details: %v", err)
+		return domain.InternalServerError
 	}
 
-	for _, detail := range returnDetails {
+	for _, detail := range details {
 		// update store product quantities
 		// if scanned count is 0, skip the update
-		err = tx.Exec(`UPDATE store_products SET pack_quantity = GREATEST(?, 0), unit_quantity = GREATEST(unit_quantity - ?, 0), updated_at = NOW() WHERE id = ?`,
-			int(detail.ReceivedCount-detail.ExpectedCount), math.Round(detail.ExpectedCount*float64(detail.UnitPerPack)), detail.StoreProductId).Error
+		err = tx.WithContext(ctx).Exec(`UPDATE store_products SET unit_quantity = unit_quantity - ?, updated_at = NOW() WHERE id = ?`,
+			detail.ExpectedCount*float64(detail.UnitPerPack), detail.StoreProductId).Error
 		if err != nil {
-			s.log.Warn("ERROR on updating store product pack quantity: %v", err)
-			return err
+			_ = tx.Rollback()
+			s.log.Errorf("could not update store product pack quantity: %v", err)
+			return domain.InternalServerError
 		}
 	}
 
 	// complete transaction
-	err = tx.Commit().Error
-	if err != nil {
-		s.log.Warn("ERROR on commiting transaction: %v", err)
-		return err
+	if err = tx.Commit().Error; err != nil {
+		s.log.Errorf("could not commit transaction: %v", err)
+		return domain.InternalServerError
 	}
 	return nil
 }
@@ -458,15 +464,15 @@ func (s *Services) SendTransferTo1C(transferID string) error {
 }
 
 // check accepted_count is not null
-func (s *Services) CheckAcceptedCount(transferID string) error {
+func (s *Services) CheckAcceptedCount(ctx context.Context, transferId string) error {
 	var count int64
-	err := s.db.Table("transfer_details").
-		Where("transfer_id = ? AND accepted_count IS NULL", transferID).
+	err := s.db.WithContext(ctx).Table("transfer_details").
+		Where("transfer_id = ? AND accepted_count IS NULL", transferId).
 		Count(&count).Error
 
 	if err != nil {
 		s.log.Error("failed to check accepted_count nulls:", err)
-		return err
+		return domain.InternalServerError
 	}
 
 	if count > 0 {
@@ -476,22 +482,27 @@ func (s *Services) CheckAcceptedCount(transferID string) error {
 }
 
 // confirm inventory
-func (s *Services) ConfirmTransfer(transferID string, userId string) error {
+func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userId string) error {
 	// start transaction
 	tx := s.db.Begin()
-	defer recoverTransaction(tx, s.log) // recover function for checking panic
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
 	// update confirm inventory
 	var transfer domain.Transfer
 	query := `UPDATE transfers SET status = ?, accepted_by = ?, accepted_at = NOW() WHERE id = ? RETURNING *`
-	err := tx.Raw(query, constants.GeneralStatusCompleted, userId, transferID).Scan(&transfer).Error
+	err := tx.WithContext(ctx).Raw(query, constants.GeneralStatusCompleted, userId, transferId).Scan(&transfer).Error
 	if err != nil {
-		s.log.Warn("ERROR on updating inventory %v", err)
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("could not update transfer %v", err)
+		return domain.InternalServerError
 	}
-	defer RollbackIfError(tx, &err) // rollback function for return transcation
 
 	var res []domain.TransferDetail
-	err = tx.Raw(`
+	err = tx.WithContext(ctx).Raw(`
 	SELECT
 		td.id,
 		td.transfer_id,
@@ -520,10 +531,11 @@ func (s *Services) ConfirmTransfer(transferID string, userId string) error {
 		LEFT JOIN import_details idt ON idt.id = sp.import_detail_id
 		WHERE
 			td.transfer_id = ? AND td.scanned_count > 0;
-	`, transferID).Scan(&res).Error
+	`, transferId).Scan(&res).Error
 	if err != nil {
-		s.log.Warn("ERROR on gettig transfer_detail list: %v", err)
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("could not get transfer_detail list: %v", err)
+		return domain.InternalServerError
 	}
 
 	// insert transfered products to store_product
@@ -531,53 +543,54 @@ func (s *Services) ConfirmTransfer(transferID string, userId string) error {
 		INSERT INTO store_products(
 				product_id, 
 				store_id, 
-				pack_quantity, 
 				unit_quantity, 
 				retail_price,
 				supply_price,
 				vat,
 				expire_date,
 				vat_price,
-				serial_number
+				serial_number,
+				import_detail_id
 		)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
-	var data1C domain.TransferData1C
+	var dataOnec domain.TransferData1C
 	for _, item := range res {
 		// return unscanned product to store
-		err = tx.Exec(`
+		err = tx.WithContext(ctx).Exec(`
 		UPDATE store_products 
 		SET 
-			pack_quantity = pack_quantity + ?,
 			unit_quantity = unit_quantity + ?
-		WHERE id = ?;`,
-			int(item.ScannedCount-item.AcceptedCount),
+		WHERE id = ?`,
 			(item.ScannedCount-item.AcceptedCount)*float64(item.UnitPerPack),
 			item.StoreProductId).Error
 		if err != nil {
-			s.log.Error("ERROR on updating store_product on return confirm: %v", err)
-			return err
+			_ = tx.Rollback()
+			s.log.Errorf("could not update store_product on return confirm: %v", err)
+			return domain.InternalServerError
 		}
 
 		// execute query
-		err = tx.Exec(query2,
+		err = tx.WithContext(ctx).Exec(query2,
 			item.ProductId,
 			transfer.ToStoreId,
-			item.ScannedCount,
-			math.Round(item.ScannedCount*float64(item.UnitPerPack)),
+			(item.ScannedCount * float64(item.UnitPerPack)),
 			item.RetailPriceVat,
 			item.SupplyPriceVat,
 			12,
 			item.ExpireDate,
 			(item.RetailPriceVat*12)/112,
-			item.SerialNumber).Error
+			item.SerialNumber,
+			item.Id,
+		).Error
 		if err != nil {
-			s.log.Warn("ERROR on inserting store product: %v", err)
-			return err
+			_ = tx.Rollback()
+			s.log.Errorf("could not insert store product: %v", err)
+			return domain.InternalServerError
 		}
 
 		// collect inventory products to send 1C
-		data1C.Товары = append(data1C.Товары, domain.TransferProduct1C{
+		dataOnec.Товары = append(dataOnec.Товары, domain.TransferProduct1C{
 			MaterialCode:        item.MaterialCode,
 			Name:                item.ProductName,
 			Barcode:             item.Barcode,
@@ -595,42 +608,43 @@ func (s *Services) ConfirmTransfer(transferID string, userId string) error {
 	}
 	// get store info
 	var toStore domain.Store
-	err = tx.First(&toStore, "id = ?", transfer.ToStoreId).Error
+	err = tx.WithContext(ctx).First(&toStore, "id = ?", transfer.ToStoreId).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting store info: %v", err)
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("could not get store info: %v", err)
+		return domain.InternalServerError
 	}
 
 	// get store info
 	var fromStore domain.Store
-	err = tx.First(&fromStore, "id = ?", transfer.FromStoreId).Error
+	err = tx.WithContext(ctx).First(&fromStore, "id = ?", transfer.FromStoreId).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting store info: %v", err)
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("could not get store info: %v", err)
+		return domain.InternalServerError
 	}
 
 	// complete transaction
-	err = tx.Commit().Error
-	if err != nil {
-		s.log.Warn("ERROR on commiting transaction: %v", err)
-		return err
+	if err = tx.Commit().Error; err != nil {
+		s.log.Errorf("could not commit transaction: %v", err)
+		return domain.InternalServerError
 	}
 
 	// get document data and number
-	data1C.Dok.DocumentDate = transfer.UpdatedAt.Format(time.RFC3339)
-	data1C.Dok.DocumentNumber = "NP-" + cast.ToString(transfer.PublicId)
+	dataOnec.Dok.DocumentDate = transfer.UpdatedAt.Format(time.RFC3339)
+	dataOnec.Dok.DocumentNumber = "NP-" + cast.ToString(transfer.PublicId)
 
 	// get store info
-	data1C.Apteka.Name = toStore.Name
-	data1C.Apteka.StoreCode = toStore.StoreCode
-	data1C.AptekaOtkud.Name = fromStore.Name
-	data1C.AptekaOtkud.StoreCode = fromStore.StoreCode
+	dataOnec.Apteka.Name = toStore.Name
+	dataOnec.Apteka.StoreCode = toStore.StoreCode
+	dataOnec.AptekaOtkud.Name = fromStore.Name
+	dataOnec.AptekaOtkud.StoreCode = fromStore.StoreCode
 	if s.cfg.OnecApiUrl != "test" {
 		// send inventory products data to 1C
-		err = s.DoRequestOnec(context.Background(), data1C, "/perekit")
+		err = s.DoRequestOnec(context.Background(), dataOnec, constants.OnecPathPerekit)
 		if err != nil {
-			s.log.Warn("ERROR on sending inventory: %v", err)
-			return err
+			s.log.Errorf("could not send transfer to onec: %v", err)
+			return domain.InternalServerError
 		}
 	}
 	return nil
@@ -659,6 +673,112 @@ func (s *Services) CancelTransfer(returnId string, userId string) error {
 	return nil
 }
 
+func (s *Services) UpdateTransferByBarcode(
+	ctx context.Context,
+	req *domain.TransferBarcodeRequest,
+	user *domain.EmployeeClaims,
+	transferType int,
+) error {
+	// default count is 1
+	if req.Count == 0 {
+		req.Count = 1
+	}
+
+	transferLog := domain.TransferLog{
+		TransferId:   req.TransferId,
+		UserId:       user.UserId,
+		TransferType: transferType,
+	}
+
+	transferLog.Stage = constants.TransferLogStageSent
+	// get default update field
+	updatedField := "scanned_count"
+	if req.Status == "checking" {
+		transferLog.Stage = constants.TransferLogStageChecking
+		updatedField = "accepted_count"
+	}
+
+	if req.Id != "" {
+		var transferDetailId string
+		err := s.db.WithContext(ctx).
+			Raw(fmt.Sprintf(`
+				UPDATE transfer_details 
+				SET %s = COALESCE(%s, 0) + ? 
+				WHERE id = ? AND 
+				received_count >= COALESCE(%s,0) + ? 
+				RETURNING id;`,
+				updatedField,
+				updatedField,
+				updatedField),
+				req.Count,
+				req.Id,
+				req.Count).
+			Scan(&transferDetailId).Error
+		if err != nil {
+			s.log.Errorf("could not update transfer_details(%s) scanned_count: %v", req.Id, err)
+			return domain.InternalServerError
+		}
+
+		transferLog.TransferDetailId = transferDetailId
+		transferLog.Quantity = req.Count
+
+	} else if req.Barcode != "" {
+		var barcodeResponse []domain.TransferBarcodeResponse
+		err := s.db.WithContext(ctx).
+			Raw(`
+			SELECT 
+				t.id, 
+				t.product_id,
+				p.name
+			FROM transfer_details t 
+			JOIN products p ON p.id = t.product_id 
+			WHERE p.barcode = ? AND t.transfer_id = ?`,
+				req.Barcode, req.TransferId).
+			Scan(&barcodeResponse).Error
+		if err != nil {
+			s.log.Errorf("could not get transfer_details by barcode(%s): %v", req.Barcode, err)
+			return domain.InternalServerError
+		}
+
+		if len(barcodeResponse) > 1 {
+			return domain.DuplicateError
+		}
+
+		transferLog.TransferDetailId = barcodeResponse[0].Id
+		transferLog.ProductId = barcodeResponse[0].ProductId
+		transferLog.Quantity = req.Count
+
+		err = s.db.WithContext(ctx).
+			Exec(fmt.Sprintf(`
+		UPDATE transfer_details t
+		SET %s = COALESCE(%s, 0) + ?
+		FROM products p 
+		WHERE
+			t.transfer_id = ? AND 
+			p.id = t.product_id AND 
+			p.barcode = ? AND 
+			t.received_count >= COALESCE(t.%s,0) + ?;`,
+				updatedField,
+				updatedField,
+				updatedField),
+				req.Count,
+				req.TransferId,
+				req.Barcode,
+				req.Count).Error
+		if err != nil {
+			s.log.Error("could not update transfer_details by barcode(%s): %v", req.Barcode, err)
+			return domain.InternalServerError
+		}
+		return nil
+	} else {
+		return domain.InvalidRequestBodyError
+	}
+
+	go s.SaveTransferLog(&transferLog)
+
+	return nil
+}
+
 func (s *Services) DeleteTransfer(transferId string) error {
 	// start transaction
 	tx := s.db.Begin()
@@ -679,4 +799,60 @@ func (s *Services) DeleteTransfer(transferId string) error {
 	}
 
 	return nil
+}
+
+func (s *Services) SaveTransferLog(req *domain.TransferLog) {
+	err := s.db.Create(&req).Error
+	if err != nil {
+		s.log.Errorf("could not save transfer log: %v", err)
+	}
+}
+
+func (s *Services) GetTransferLogs(ctx context.Context, transferId string) ([]domain.TransferLog, error) {
+	var tmpTransferLog []struct {
+		Id               int64      `gorm:"column:serial;primaryKey;autoIncrement" json:"id"`
+		TransferId       string     `gorm:"transfer_id" json:"transfer_id"`
+		TransferDetailId string     `gorm:"transfer_detail_id" json:"transfer_detail_id"`
+		ProductId        string     `gorm:"product_id" json:"product_id"`
+		UserId           string     `gorm:"user_id" json:"user_id"`
+		TransferType     int        `gorm:"transfer_type" json:"transfer_type"`
+		Stage            int        `gorm:"stage" json:"stage"`
+		Quantity         int        `gorm:"quantity" json:"quantity"`
+		CreatedAt        *time.Time `gorm:"created_at" json:"created_at"`
+		UpdatedAt        *time.Time `gorm:"updated_at" json:"updated_at"`
+		EmFullName       string     `gorm:"full_name" json:"em_full_name"`
+	}
+
+	var res []domain.TransferLog
+	err := s.db.WithContext(ctx).Model(&domain.TransferLog{}).
+		Select("transfer_logs.*, em.full_name").
+		Where("transfer_logs.transfer_id = ?", transferId).
+		Joins("employees em ON transfer_logs.user_id = em.id").
+		Order("transfer_logs.created_at DESC").
+		Find(&tmpTransferLog).Error
+	if err != nil {
+		s.log.Errorf("could not get transfer logs: %v", err)
+		return nil, err
+	}
+
+	for _, log := range tmpTransferLog {
+		res = append(res, domain.TransferLog{
+			Id:               log.Id,
+			TransferId:       log.TransferId,
+			TransferDetailId: log.TransferDetailId,
+			ProductId:        log.ProductId,
+			UserId:           log.UserId,
+			TransferType:     log.TransferType,
+			Stage:            log.Stage,
+			Quantity:         log.Quantity,
+			CreatedAt:        log.CreatedAt,
+			UpdatedAt:        log.UpdatedAt,
+			Employee: domain.NewNullStruct(domain.Employee{
+				Id:       log.UserId,
+				FullName: log.EmFullName,
+			}, log.UserId != ""),
+		})
+	}
+
+	return res, nil
 }

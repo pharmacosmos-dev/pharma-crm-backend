@@ -1,8 +1,8 @@
 package v1
 
 import (
+	"context"
 	"fmt"
-	"log"
 	"math"
 	"strconv"
 	"time"
@@ -31,16 +31,17 @@ func (h *TransferHandler) TransferRoutes(r *gin.RouterGroup) {
 	transfer := r.Group("/transfer")
 	{
 		transfer.POST("", h.Create)
-		transfer.GET("/:id", h.Get)
-		transfer.GET("/list", h.List)
-		transfer.GET("/list-status", h.TransferStatus)
-		transfer.GET("/export-excel", h.ExportTransferExcel)
-		transfer.PATCH("/:id/add-product-by-barcode", h.AddProductByBarcode)
 		transfer.POST("/send/:id", h.Send)
 		transfer.POST("/confirm/:id", h.Confirm)
 		transfer.POST("/send1c/:id", h.Send1C)
 		transfer.POST("/cancel/:id", h.Cancel)
+		transfer.GET("/:id", h.Get)
+		transfer.GET("/list", h.List)
+		transfer.GET("/list-status", h.TransferStatus)
+		transfer.GET("/export-excel", h.ExportTransferExcel)
+		transfer.GET("/:transfer_id/logs", h.GetTransferLogs)
 		transfer.GET("/export-nakladnoy", h.ExportTransferNakladnoyPDF)
+		transfer.PATCH("/:id/add-product-by-barcode", h.AddProductByBarcode)
 		transfer.PUT("/update-by-barcode/:id", h.UpdateByBarcode)
 		transfer.PUT("/edit-status-to-checking/:id", h.EditStatusToChecking)
 		transfer.DELETE("/:id", h.DeleteTransfer)
@@ -67,28 +68,29 @@ func (h *TransferHandler) TransferRoutes(r *gin.RouterGroup) {
 // @Failure 500 {object} v1.Response
 // @Router /transfer [POST]
 func (h *TransferHandler) Create(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
 	var request domain.TransferRequest
 	// Bind the request body to the ReturnRequest struct
-	err := c.ShouldBindJSON(&request)
-	if err != nil {
-		h.log.Warn("Error on binding request: %v", err.Error())
-		handleResponse(c, BadRequest, "Invalid request body")
+	if err := c.ShouldBindJSON(&request); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
-	userId, ok := c.Get("user_id")
-	if !ok {
-		h.log.Warn("Error on getting user id from context")
-		handleResponse(c, BadRequest, "User not authorized")
-		return
-	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
 	// get creator id from set header
-	request.CreatedBy = userId.(string)
+	request.CreatedBy = user.UserId
 
 	// create return
-	err = h.service.CreateTransfer(&request)
+	err := h.service.CreateTransfer(ctx, &request)
 	if err != nil {
-		h.log.Warn("Error on creating return: %v", err.Error())
-		handleResponse(c, InternalError, "Failed to create return")
+		handleServiceResponse(c, nil, err)
 		return
 	}
 
@@ -379,24 +381,31 @@ func (h *TransferHandler) ExportTransferExcel(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /transfer/{id}/add-product-by-barcode [PATCH]
 func (h *TransferHandler) AddProductByBarcode(c *gin.Context) {
-	var request domain.ReturnAddProduct
-	id := c.Param("id")
-	// validate return id
-	err := uuid.Validate(id)
-	if err != nil {
-		handleResponse(c, BadRequest, "Return id is invalid")
-		return
-	}
-	// bind request body
-	err = c.ShouldBindJSON(&request)
-	if err != nil {
-		handleResponse(c, BadRequest, "Invalid request body")
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
 
-	err = h.service.UpdateReturnDetailQuantity(id, &request)
+	id := c.Param("id")
+	if id == "" {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+	var request domain.ReturnAddProduct
+	// bind request body
+	if err := c.ShouldBindJSON(&request); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidRequestBodyError)
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	request.TransferId = id
+
+	err := h.service.UpdateReturnDetailQuantity(ctx, &request, user.UserId, constants.TransferTypeMove)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, nil, err)
 		return
 	}
 
@@ -410,70 +419,35 @@ func (h *TransferHandler) AddProductByBarcode(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path string true "Transfer ID or Return ID"
-// @Param request body domain.BarcodeRequest true "Barcode request payload"
+// @Param request body domain.TransferBarcodeRequest true "Barcode request payload"
 // @Success 200 {object} v1.Response "Update successful"
 // @Failure 400 {object} v1.Response "Invalid request parameters"
 // @Failure 500 {object} v1.Response "Internal server error"
 // @Router /transfer/update-by-barcode/{id} [put]
 func (h *TransferHandler) UpdateByBarcode(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
 	var (
-		req domain.BarcodeRequest
+		req domain.TransferBarcodeRequest
 		id  = c.Param("id")
 	)
 	// bind request body
-	err := c.ShouldBindJSON(&req)
+	if err := c.ShouldBindJSON(&req); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	req.TransferId = id
+	err := h.service.UpdateTransferByBarcode(ctx, &req, user, constants.TransferTypeMove)
 	if err != nil {
-		handleResponse(c, BadRequest, "invalid.request.body")
-		return
-	}
-	// default count is 1
-	if req.Count == 0 {
-		req.Count = 1
-	}
-
-	// get default update field
-	updatedField := "scanned_count"
-	if req.Status == "checking" {
-		updatedField = "accepted_count"
-	}
-
-	if req.Id != "" {
-		err = h.db.Exec(fmt.Sprintf(`UPDATE transfer_details SET %s = COALESCE(%s, 0) + ? WHERE id = ? AND received_count >= COALESCE(%s,0) + ?;`, updatedField, updatedField, updatedField), req.Count, req.Id, req.Count).Error
-		if err != nil {
-			h.log.Error("could not update transfer_details(%s) scanned_count: %v", req.Id, err)
-			handleResponse(c, InternalError, "internal.server.error")
-			return
-		}
-	} else if req.Barcode != "" {
-		var barcodeResponse []domain.TransferBarcodeResponse
-		err = h.db.Raw(`SELECT t.id, p.name FROM transfer_details t JOIN products p ON p.id = t.product_id WHERE p.barcode = ? AND t.transfer_id = ?`, req.Barcode, id).Scan(&barcodeResponse).Error
-		if err != nil {
-			h.log.Error("could not get transfer_details by barcode(%s): %v", req.Barcode, err)
-			handleResponse(c, InternalError, "internal.server.error")
-			return
-		}
-		if len(barcodeResponse) > 1 {
-			handleResponse(c, MultiStatus, barcodeResponse)
-			return
-		}
-		err = h.db.Exec(fmt.Sprintf(`
-		UPDATE transfer_details t 
-		SET %s = COALESCE(%s, 0) + ? 
-		FROM products p 
-		WHERE 
-			t.transfer_id = ? AND 
-			p.id = t.product_id AND 
-			p.barcode = ? AND 
-			t.received_count >= COALESCE(t.%s,0) + ?;`, updatedField, updatedField, updatedField), req.Count, id, req.Barcode, req.Count).Error
-		if err != nil {
-			h.log.Error("could not update transfer_details by barcode(%s): %v", req.Barcode, err)
-			handleResponse(c, InternalError, "internal.server.error")
-			return
-		}
-		handleResponse(c, OK, "UPDATED")
-		return
-	} else {
-		handleResponse(c, BadRequest, "invalid.request.body")
+		handleServiceResponse(c, nil, err)
 		return
 	}
 
@@ -493,20 +467,25 @@ func (h *TransferHandler) UpdateByBarcode(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /transfer/send/{id} [POST]
 func (h *TransferHandler) Send(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
 	id := c.Param("id")
-	if err := uuid.Validate(id); err != nil {
-		handleResponse(c, BadRequest, "Invalid return id")
+	if id == "" {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
 		return
 	}
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "user id not found from the context")
-		return
-	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
 	// confirm return service
-	err := h.service.SendTransfer(id, userId.(string))
+	err := h.service.SendTransfer(ctx, id, user.UserId)
 	if err != nil {
-		handleResponse(c, InternalError, "Failed to send return")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
@@ -524,27 +503,28 @@ func (h *TransferHandler) Send(c *gin.Context) {
 // @Failure 500 {object} v1.Response "Internal server error"
 // @Router /transfer/edit-status-to-checking/{id} [PUT]
 func (h *TransferHandler) EditStatusToChecking(c *gin.Context) {
-
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "user.not.authorized")
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
 
 	id := c.Param("id")
 	if id == "" {
-		handleResponse(c, BadRequest, "invalid.id")
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 
-	err := h.service.EditStatusToCheckingReturn(id, userId.(string))
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	err := h.service.EditStatusToCheckingReturn(ctx, id, user.UserId)
 	if err != nil {
-		log.Println("update by barcode error:", err)
-		handleResponse(c, InternalError, "internal.server.error")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
-	handleResponse(c, OK, "updated successfully")
+	handleResponse(c, OK, "UPDATED")
 }
 
 // confirm Return
@@ -560,27 +540,31 @@ func (h *TransferHandler) EditStatusToChecking(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /transfer/confirm/{id} [POST]
 func (h *TransferHandler) Confirm(c *gin.Context) {
-	id := c.Param("id")
-	if err := uuid.Validate(id); err != nil {
-		handleResponse(c, BadRequest, "Invalid return id")
-		return
-	}
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "user id not found from the context")
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
 
+	id := c.Param("id")
+	if id == "" {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
 	// check is accepted_count is not null
-	err := h.service.CheckAcceptedCount(id)
+	err := h.service.CheckAcceptedCount(ctx, id)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, nil, err)
 		return
 	}
 	// confirm return service
-	err = h.service.ConfirmTransfer(id, userId.(string))
+	err = h.service.ConfirmTransfer(ctx, id, user.UserId)
 	if err != nil {
-		handleResponse(c, InternalError, "Failed to confirm return")
+		handleServiceResponse(c, nil, err)
 		return
 	}
 
@@ -946,6 +930,37 @@ func (h *TransferHandler) ExportTransferNakladnoyPDF(c *gin.Context) {
 	pdf.CellFormat(100, 7, "Товар отпустил: _______________", "", 1, "L", false, 0, "")
 
 	savePdfToUploads(c, pdf, *h.log, "Nakladnoy_"+transfer.PublicId)
+}
+
+// GetTransferLogs godoc
+// @Summary Get Transfer Logs
+// @Description Get Transfer Logs
+// @Tags Transfer
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param   id path string true "Transfer ID"
+// @Success 200 {object} v1.Response "Transfer logs retrieved"
+// @Failure 400 {object} v1.Response "Invalid request parameters"
+// @Failure 500 {object} v1.Response "Internal server error"
+// @Router /transfer/{transfer_id}/logs [get]
+func (s *TransferHandler) GetTransferLogs(c *gin.Context) {
+	transferId := c.Param("transfer_id")
+	if err := uuid.Validate(transferId); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	logs, err := s.service.GetTransferLogs(ctx, transferId)
+	if err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	handleResponse(c, OK, logs)
 }
 
 // DeleteTransfer godoc

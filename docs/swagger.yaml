@@ -92,17 +92,6 @@ definitions:
       store_id:
         type: string
     type: object
-  domain.BarcodeRequest:
-    properties:
-      barcode:
-        type: string
-      count:
-        type: integer
-      id:
-        type: string
-      status:
-        type: string
-    type: object
   domain.BrandRequest:
     properties:
       logo:
@@ -1286,6 +1275,8 @@ definitions:
         type: integer
       status:
         type: string
+      transfer_id:
+        type: string
       type:
         type: string
     type: object
@@ -1579,6 +1570,19 @@ definitions:
       status:
         type: string
       transaction_id:
+        type: string
+    type: object
+  domain.TransferBarcodeRequest:
+    properties:
+      barcode:
+        type: string
+      count:
+        type: integer
+      id:
+        type: string
+      status:
+        type: string
+      transfer_id:
         type: string
     type: object
   domain.TransferRequest:
@@ -13208,7 +13212,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/domain.BarcodeRequest'
+          $ref: '#/definitions/domain.TransferBarcodeRequest'
       produces:
       - application/json
       responses:
@@ -15564,6 +15568,37 @@ paths:
       summary: Add product by barcode
       tags:
       - Transfer
+  /transfer/{transfer_id}/logs:
+    get:
+      consumes:
+      - application/json
+      description: Get Transfer Logs
+      parameters:
+      - description: Transfer ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Transfer logs retrieved
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Invalid request parameters
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Transfer Logs
+      tags:
+      - Transfer
   /transfer/cancel/{id}:
     post:
       consumes:
@@ -15894,7 +15929,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/domain.BarcodeRequest'
+          $ref: '#/definitions/domain.TransferBarcodeRequest'
       produces:
       - application/json
       responses:

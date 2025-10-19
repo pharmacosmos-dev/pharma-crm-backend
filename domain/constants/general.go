@@ -207,6 +207,7 @@ const (
 	OnecPathRasxod  = "/rasxod"
 	OnecPathVozvrat = "/vozvrat"
 	OnecPathZakaz   = "/zakaz"
+	OnecPathPerekit = "/perekit"
 
 	// DMED service paths
 	DmedPathPrescription        = "/prescriptions"
@@ -368,4 +369,16 @@ const (
 	AlifPay               = "alif_pay"
 	AlifPayCreatePath     = "/v2/pay"
 	AlifPayConfirmPath    = "/v2/confirmPayment"
+)
+
+// Transfer logs constants
+const (
+	TransferTypeMove   = 0
+	TransferTypeReturn = 1
+
+	TransferLogStageCreated   = 0
+	TransferLogStageSent      = 1
+	TransferLogStageReceived  = 2
+	TransferLogStageChecking  = 3
+	TransferLogStageCompleted = 4
 )

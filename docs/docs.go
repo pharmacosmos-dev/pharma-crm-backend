@@ -17941,7 +17941,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.BarcodeRequest"
+                            "$ref": "#/definitions/domain.TransferBarcodeRequest"
                         }
                     }
                 ],
@@ -22108,7 +22108,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.BarcodeRequest"
+                            "$ref": "#/definitions/domain.TransferBarcodeRequest"
                         }
                     }
                 ],
@@ -22281,6 +22281,55 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/transfer/{transfer_id}/logs": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get Transfer Logs",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Transfer"
+                ],
+                "summary": "Get Transfer Logs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Transfer ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Transfer logs retrieved",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request parameters",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
                         }
@@ -23397,23 +23446,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "store_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "domain.BarcodeRequest": {
-            "type": "object",
-            "properties": {
-                "barcode": {
-                    "type": "string"
-                },
-                "count": {
-                    "type": "integer"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "status": {
                     "type": "string"
                 }
             }
@@ -25207,6 +25239,9 @@ const docTemplate = `{
                 "status": {
                     "type": "string"
                 },
+                "transfer_id": {
+                    "type": "string"
+                },
                 "type": {
                     "type": "string"
                 }
@@ -25656,6 +25691,26 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "transaction_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.TransferBarcodeRequest": {
+            "type": "object",
+            "properties": {
+                "barcode": {
+                    "type": "string"
+                },
+                "count": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "transfer_id": {
                     "type": "string"
                 }
             }
