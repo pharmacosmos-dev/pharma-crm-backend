@@ -27,7 +27,7 @@ func (s *Services) CreateCartItem(ctx context.Context, user *domain.EmployeeClai
 	}
 
 	req.EmployeeId = user.UserId
-	storeProduct, err := s.GetStoreProductByIdAndStoreId(ctx, req.StoreProductId, user.StoreId)
+	storeProduct, err := s.GetStoreProductByIdAndStoreId(ctx, req.StoreProductId, sale.StoreId)
 	if err != nil {
 		return nil, err
 	}
