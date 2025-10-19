@@ -165,7 +165,6 @@ func (s *Services) DashboardTotalCountStats(ctx context.Context, param *domain.D
 		s.log.Errorf("could not get total sale amounts: %v", err)
 		return nil, domain.InternalServerError
 	}
-	fmt.Println("--->>> ", sale)
 	// get total product count
 	var product domain.DashboardCountStatsProduct
 	queryp += filter
@@ -196,7 +195,6 @@ func (s *Services) DashboardTotalCountStats(ctx context.Context, param *domain.D
 		s.log.Errorf("could not get import_count for_not_24: %v", err)
 		return nil, domain.InternalServerError
 	}
-	fmt.Println("SALE --->>> ", sale)
 	// Map results
 	res.ImportAmount = imported.ImportAmount
 	res.NotLast24HImportCount = float64(notLast24HImportCount)
@@ -219,7 +217,7 @@ func (s *Services) DashboardTotalCountStats(ctx context.Context, param *domain.D
 	res.BeforeExpiredSoonAmount = product.BeforeExpiredAmount
 	res.TotalNetIncome = income.IncomeAmount
 	res.BeforeTotalNetIncome = income.BeforeIncomeAmount
-	fmt.Println("SALE AMOUNT: ", res.TotalSaleAmount)
+
 	return &res, nil
 }
 
