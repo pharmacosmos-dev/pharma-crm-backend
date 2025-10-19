@@ -262,7 +262,11 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 
 	// start transaction
 	tx := s.db.Begin()
-
+	defer func ()  {
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
+		}
+	}()
 	// add marking to cart_items
 	err = s.updateCartItemsMarkingCount(ctx, tx, req.MarkingData)
 	if err != nil {

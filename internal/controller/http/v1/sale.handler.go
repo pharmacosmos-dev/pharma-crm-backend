@@ -85,7 +85,7 @@ func (h *SaleHandler) Create(c *gin.Context) {
 
 	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
 	defer cancel()
-
+	body.EmployeeId = user.UserId
 	res, err := h.service.CreateSale(ctx, h.db, &body)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
