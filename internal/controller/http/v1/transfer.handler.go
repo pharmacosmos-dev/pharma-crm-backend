@@ -39,7 +39,7 @@ func (h *TransferHandler) TransferRoutes(r *gin.RouterGroup) {
 		transfer.GET("/list", h.List)
 		transfer.GET("/list-status", h.TransferStatus)
 		transfer.GET("/export-excel", h.ExportTransferExcel)
-		transfer.GET("/:transfer_id/logs", h.GetTransferLogs)
+		transfer.GET("/logs/:transfer_id", h.GetTransferLogs)
 		transfer.GET("/export-nakladnoy", h.ExportTransferNakladnoyPDF)
 		transfer.PATCH("/:id/add-product-by-barcode", h.AddProductByBarcode)
 		transfer.PUT("/update-by-barcode/:id", h.UpdateByBarcode)
@@ -943,7 +943,7 @@ func (h *TransferHandler) ExportTransferNakladnoyPDF(c *gin.Context) {
 // @Success 200 {object} v1.Response "Transfer logs retrieved"
 // @Failure 400 {object} v1.Response "Invalid request parameters"
 // @Failure 500 {object} v1.Response "Internal server error"
-// @Router /transfer/{transfer_id}/logs [get]
+// @Router /transfer/logs/{transfer_id} [get]
 func (s *TransferHandler) GetTransferLogs(c *gin.Context) {
 	transferId := c.Param("transfer_id")
 	if err := uuid.Validate(transferId); err != nil {

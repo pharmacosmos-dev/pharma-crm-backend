@@ -15568,37 +15568,6 @@ paths:
       summary: Add product by barcode
       tags:
       - Transfer
-  /transfer/{transfer_id}/logs:
-    get:
-      consumes:
-      - application/json
-      description: Get Transfer Logs
-      parameters:
-      - description: Transfer ID
-        in: path
-        name: id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Transfer logs retrieved
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Invalid request parameters
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Get Transfer Logs
-      tags:
-      - Transfer
   /transfer/cancel/{id}:
     post:
       consumes:
@@ -15850,6 +15819,37 @@ paths:
       security:
       - BearerAuth: []
       summary: Get transfer total stats
+      tags:
+      - Transfer
+  /transfer/logs/{transfer_id}:
+    get:
+      consumes:
+      - application/json
+      description: Get Transfer Logs
+      parameters:
+      - description: Transfer ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Transfer logs retrieved
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Invalid request parameters
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Transfer Logs
       tags:
       - Transfer
   /transfer/send/{id}:
