@@ -322,7 +322,7 @@ func (s *Services) DashboardChartStats(ctx context.Context, params *domain.Dashb
 	`, timeTruncCol, filter)
 
 	// bajarish
-	err = s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
+	err = s.db.WithContext(ctx).Debug().Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get chart info: %v", err)
 		return res, domain.InternalServerError
