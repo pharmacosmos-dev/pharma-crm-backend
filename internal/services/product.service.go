@@ -265,6 +265,8 @@ func (s *Services) GetProductById(ctx context.Context, productId string, storeId
 			Name: tmpProduct.ShelfName,
 		}, tmpProduct.ShelfId != ""),
 	}
+	res.Categories = []domain.Category{}
+	res.Markings = []string{}
 
 	return &res, nil
 }
