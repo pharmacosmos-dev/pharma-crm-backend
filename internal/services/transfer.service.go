@@ -847,7 +847,7 @@ func (s *Services) GetTransferLogs(ctx context.Context, transferId string) ([]do
 			Quantity:         log.Quantity,
 			CreatedAt:        log.CreatedAt,
 			UpdatedAt:        log.UpdatedAt,
-			Employee: domain.NewNullStruct(domain.Employee{
+			Employee: domain.NewNullStruct(domain.EmployeeTransferLog{
 				Id:       log.UserId,
 				FullName: log.EmFullName,
 			}, log.UserId != ""),
