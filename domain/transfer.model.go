@@ -119,7 +119,7 @@ type TransferBarcodeResponse struct {
 }
 
 type TransferLog struct {
-	Id               int64                `gorm:"column:serial;primaryKey;autoIncrement" json:"id"`
+	Id               int64                `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
 	TransferId       string               `gorm:"transfer_id" json:"transfer_id"`
 	TransferDetailId string               `gorm:"transfer_detail_id" json:"transfer_detail_id"`
 	ProductId        string               `gorm:"product_id" json:"product_id"`
