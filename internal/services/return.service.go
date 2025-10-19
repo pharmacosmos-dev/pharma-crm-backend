@@ -134,6 +134,11 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 		return domain.InternalServerError
 	}
 
+	scannedPack := 0
+	if req.ScannedPack != nil {
+		scannedPack = *req.ScannedPack
+	}
+
 	// transfer log
 	transferLog := domain.TransferLog{
 		TransferId:       req.TransferId,
@@ -141,7 +146,7 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 		TransferDetailId: req.Id,
 		ProductId:        returnDetail.ProductId,
 		TransferType:     transferType,
-		Quantity:         *req.ScannedPack*int(returnDetail.UnitPerPack) + *req.ScannedUnit,
+		Quantity:         scannedPack,
 	}
 
 	// update scanned count with pack quantity
