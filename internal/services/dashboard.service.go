@@ -13,10 +13,6 @@ import (
 func (s *Services) DashboardTotalCountStats(ctx context.Context, param *domain.DashboardQueryParam) (*domain.DashboardCountStats, error) {
 	// declarations
 	var (
-		sale      domain.DashboardCountStatsSale
-		product   domain.DashboardCountStatsProduct
-		income    domain.DashboardCountStatsIncome
-		imported  domain.DashboardImport
 		res       domain.DashboardCountStats
 		startTime time.Time
 		endTime   time.Time
@@ -132,7 +128,6 @@ func (s *Services) DashboardTotalCountStats(ctx context.Context, param *domain.D
 		WHERE im.status = 'new'
 		  AND im.entry_type = 1`
 
-		notLast24HImportCount int
 		queryImportCountNot24 = `
 		SELECT COUNT(*)
 		FROM imports im
@@ -163,6 +158,7 @@ func (s *Services) DashboardTotalCountStats(ctx context.Context, param *domain.D
 	}
 
 	// Execute queries
+	var sale domain.DashboardCountStatsSale
 	querys += filter
 	err = s.db.WithContext(ctx).Debug().Raw(querys, args...).Scan(&sale).Error
 	if err != nil {
@@ -171,6 +167,7 @@ func (s *Services) DashboardTotalCountStats(ctx context.Context, param *domain.D
 	}
 	fmt.Println("--->>> ", sale)
 	// get total product count
+	var product domain.DashboardCountStatsProduct
 	queryp += filter
 	err = s.db.WithContext(ctx).Raw(queryp, args...).Scan(&product).Error
 	if err != nil {
@@ -178,19 +175,20 @@ func (s *Services) DashboardTotalCountStats(ctx context.Context, param *domain.D
 		return nil, domain.InternalServerError
 	}
 	// get total net income
+	var income domain.DashboardCountStatsIncome
 	queryc += filterc
 	err = s.db.WithContext(ctx).Raw(queryc, args...).Scan(&income).Error
 	if err != nil {
 		s.log.Errorf("could not get total income: %v", err)
 		return nil, domain.InternalServerError
 	}
-
+	var imported domain.DashboardImport
 	err = s.db.WithContext(ctx).Raw(query24h, args...).Scan(&imported).Error
 	if err != nil {
 		s.log.Errorf("could not get import_count for_24: %v", err)
 		return nil, domain.InternalServerError
 	}
-
+	var notLast24HImportCount int
 	queryImportCountNot24 += filter
 	err = s.db.WithContext(ctx).Raw(queryImportCountNot24, args...).Scan(&notLast24HImportCount).Error
 
@@ -198,7 +196,7 @@ func (s *Services) DashboardTotalCountStats(ctx context.Context, param *domain.D
 		s.log.Errorf("could not get import_count for_not_24: %v", err)
 		return nil, domain.InternalServerError
 	}
-
+	fmt.Println("SALE --->>> ", sale)
 	// Map results
 	res.ImportAmount = imported.ImportAmount
 	res.NotLast24HImportCount = float64(notLast24HImportCount)
@@ -221,7 +219,7 @@ func (s *Services) DashboardTotalCountStats(ctx context.Context, param *domain.D
 	res.BeforeExpiredSoonAmount = product.BeforeExpiredAmount
 	res.TotalNetIncome = income.IncomeAmount
 	res.BeforeTotalNetIncome = income.BeforeIncomeAmount
-
+	fmt.Println("SALE AMOUNT: ", res.TotalSaleAmount)
 	return &res, nil
 }
 
