@@ -827,7 +827,7 @@ func (s *Services) GetTransferLogs(ctx context.Context, transferId string) ([]do
 	err := s.db.WithContext(ctx).Model(&domain.TransferLog{}).
 		Select("transfer_logs.*, em.full_name").
 		Where("transfer_logs.transfer_id = ?", transferId).
-		Joins("employees em ON transfer_logs.user_id = em.id").
+		Joins("JOIN employees em ON transfer_logs.user_id = em.id").
 		Order("transfer_logs.created_at DESC").
 		Find(&tmpTransferLog).Error
 	if err != nil {

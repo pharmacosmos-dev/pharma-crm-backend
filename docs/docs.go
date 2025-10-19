@@ -22000,8 +22000,8 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Transfer ID",
-                        "name": "id",
+                        "description": "transfer_id",
+                        "name": "transfer_id",
                         "in": "path",
                         "required": true
                     }

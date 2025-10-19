@@ -15827,9 +15827,9 @@ paths:
       - application/json
       description: Get Transfer Logs
       parameters:
-      - description: Transfer ID
+      - description: transfer_id
         in: path
-        name: id
+        name: transfer_id
         required: true
         type: string
       produces:

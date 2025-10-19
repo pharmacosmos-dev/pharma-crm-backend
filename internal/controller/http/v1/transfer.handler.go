@@ -939,7 +939,7 @@ func (h *TransferHandler) ExportTransferNakladnoyPDF(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept 	json
 // @Produce json
-// @Param   id path string true "Transfer ID"
+// @Param   transfer_id path string true "transfer_id"
 // @Success 200 {object} v1.Response "Transfer logs retrieved"
 // @Failure 400 {object} v1.Response "Invalid request parameters"
 // @Failure 500 {object} v1.Response "Internal server error"
