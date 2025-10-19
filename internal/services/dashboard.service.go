@@ -169,7 +169,7 @@ func (s *Services) DashboardTotalCountStats(ctx context.Context, param *domain.D
 		s.log.Errorf("could not get total sale amounts: %v", err)
 		return nil, domain.InternalServerError
 	}
-
+	fmt.Println("--->>> ", sale)
 	// get total product count
 	queryp += filter
 	err = s.db.WithContext(ctx).Raw(queryp, args...).Scan(&product).Error
