@@ -537,7 +537,7 @@ func (s *Services) validateSaleProductQuantity(ctx context.Context, sale *domain
 	insufficientProducts := map[string]any{}
 	for _, item := range cartItemsWithProducts {
 		if item.UnitQuantity > item.StoreProductUnitQuantity {
-			insufficientProducts[item.ProductId] = map[string]any{
+			insufficientProducts = map[string]any{
 				"required_quantity":  item.UnitQuantity,
 				"available_quantity": item.StoreProductUnitQuantity,
 				"product_id":         item.ProductId,
