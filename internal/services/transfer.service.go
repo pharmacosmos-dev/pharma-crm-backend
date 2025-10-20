@@ -81,13 +81,9 @@ func (s *Services) CreateTransfer(ctx context.Context, req *domain.TransferReque
 }
 
 // get return by id
-func (s *Services) GetTransferById(transferID string) (*domain.Transfer, error) {
+func (s *Services) GetTransferById(ctx context.Context, transferID string) (*domain.Transfer, error) {
 	var res domain.Transfer
-	err := s.db.Model(&domain.Transfer{}).
-		Preload("FromStore").
-		Preload("ToStore").
-		Preload("CreatedBy").
-		Preload("AcceptedBy").
+	err := s.db.WithContext(ctx).
 		Select(`
 			transfers.*,
 			SUM(td.received_count) AS received_count,
@@ -106,70 +102,157 @@ func (s *Services) GetTransferById(transferID string) (*domain.Transfer, error) 
 
 // get inventory list
 func (s *Services) TransferList(ctx context.Context, params *domain.ReturnParam) ([]domain.Transfer, int64, error) {
-	var res []domain.Transfer
-	var totalCount int64
-	query := s.db.Model(&domain.Transfer{}).
-		Preload("FromStore").
-		Preload("ToStore").
-		Preload("CreatedBy").
-		Preload("UpdatedBy").
-		Preload("AcceptedBy").
-		Select(`
-			transfers.*,
-			SUM(trd.received_count) AS received_count,
-			SUM(trd.accepted_count) AS accepted_count,
-			SUM(trd.received_count-trd.scanned_count) AS shortage,
-			SUM(CASE WHEN trd.accepted_count > trd.received_count THEN trd.accepted_count - trd.received_count ELSE 0 END) AS surplus,
-			SUM(trd.received_count*trd.supply_price) AS received_supply_sum,
-			SUM(trd.received_count*trd.retail_price) AS received_retail_sum,
-			SUM(trd.accepted_count*trd.supply_price) AS accepted_supply_sum,
-			SUM(trd.accepted_count*trd.retail_price) AS accepted_retail_sum
-			`).
-		Joins("LEFT JOIN transfer_details trd ON transfers.id = trd.transfer_id").
-		Where("transfers.entry_type = ?", 1)
+	var tmpTransfer []struct {
+		Id                string     `gorm:"id"`
+		PublicId          string     `gorm:"public_id"`
+		FromStoreId       string     `gorm:"from_store_id"`
+		ToStoreId         string     `gorm:"to_store_id"`
+		Name              string     `gorm:"name"`
+		Status            string     `gorm:"status"`
+		ReceivedCount     float64    `gorm:"received_count"`
+		ExpectedCount     float64    `gorm:"expected_count"`
+		ScannedCount      float64    `gorm:"scanned_count"`
+		AcceptedCount     float64    `gorm:"accepted_count"`
+		ReceivedSupplySum float64    `gorm:"received_supply_sum"`
+		ReceivedRetailSum float64    `gorm:"received_retail_sum"`
+		AcceptedSupplySum float64    `gorm:"accepted_supply_sum"`
+		AcceptedRetailSum float64    `gorm:"accepted_retail_sum"`
+		FromStoreName     string     `gorm:"from_store_name"`
+		ToStoreName       string     `gorm:"to_store_name"`
+		CreatedBy         string     `gorm:"created_by"`
+		UpdatedBy         string     `gorm:"updated_by"`
+		AcceptedBy        string     `gorm:"accepted_by"`
+		CreatedByName     string     `gorm:"created_by_name"`
+		UpdatedByName     string     `gorm:"updated_by_name"`
+		AcceptedByName    string     `gorm:"accepted_by_name"`
+		CreatedAt         *time.Time `gorm:"created_at"`
+		UpdatedAt         *time.Time `gorm:"updated_at"`
+		AcceptedAt        *time.Time `gorm:"accepted_at"`
+	}
+
+	query := s.db.WithContext(ctx).
+		Select(
+			"t.id",
+			"t.public_id",
+			"t.name",
+			"t.from_store_id",
+			"t.to_store_id",
+			"t.status",
+			"t.created_at",
+			"t.updated_at",
+			"t.created_by",
+			"t.updated_by",
+			"t.accepted_by",
+			"t.accepted_at",
+			"SUM(trd.received_count) AS received_count",
+			"SUM(trd.expected_count) AS expected_count",
+			"SUM(trd.scanned_count) AS scanned_count",
+			"SUM(trd.accepted_count) AS accepted_count",
+			"SUM(trd.received_count*trd.supply_price) AS received_supply_sum",
+			"SUM(trd.received_count*trd.retail_price) AS received_retail_sum",
+			"SUM(trd.accepted_count*trd.supply_price) AS accepted_supply_sum",
+			"SUM(trd.accepted_count*trd.retail_price) AS accepted_retail_sum",
+			"fs.name AS from_store_name",
+			"ts.name AS to_store_name",
+			"e.full_name AS created_by_name",
+			"e2.full_name AS updated_by_by_name",
+			"e3.full_name AS accepted_by_name",
+		).
+		Table("transfers t").
+		Joins("LEFT JOIN transfer_details trd ON t.id = trd.transfer_id").
+		Joins("LEFT JOIN stores fs ON t.from_store_id = fs.id").
+		Joins("LEFT JOIN stores ts ON t.to_store_id = ts.id").
+		Joins("LEFT JOIN employees e ON t.created_by = e.id").
+		Joins("LEFT JOIN employees e2 ON t.accepted_by = e2.id").
+		Joins("LEFT JOIN employees e3 ON t.accepted_by = e3.id").
+		Where("t.entry_type = ?", 1)
 
 	// filter by from store id
-	if param.StoreId != "" {
-		query = query.Where("transfers.from_store_id = ?  OR transfers.to_store_id = ?", param.StoreId, param.StoreId)
+	if params.StoreId != "" {
+		query = query.Where("t.from_store_id = ? OR t.to_store_id = ?", params.StoreId, params.StoreId)
 	}
-	if param.CompanyId != "" {
-		query = query.
-			Joins("LEFT JOIN stores fs ON transfers.from_store_id = fs.id").
-			Joins("LEFT JOIN stores ts ON transfers.to_store_id = ts.id").
-			Where("fs.company_id = ? OR ts.company_id = ?", param.CompanyId, param.CompanyId)
+	if params.CompanyId != "" {
+		query = query.Where("fs.company_id = ? OR ts.company_id = ?", params.CompanyId, params.CompanyId)
 	}
 
 	// filter by search keyword
-	if param.Search != "" {
-		param.Search = fmt.Sprintf("%%%s%%", param.Search)
-		query = query.Where("transfers.public_id LIKE ? OR transfers.name ILIKE ?", param.Search, param.Search)
+	if params.Search != "" {
+		params.Search = fmt.Sprintf("%%%s%%", params.Search)
+		query = query.Where("t.public_id LIKE ? OR t.name ILIKE ?", params.Search, params.Search)
 	}
 
-	// filter by inventory status
-	if param.Status != "" {
-		query = query.Where("transfers.status = ?", param.Status)
+	if params.Status != "" {
+		query = query.Where("t.status = ?", params.Status)
 	}
 
-	if param.StartDate != "" {
-		query = query.Where("transfers.created_at >= ?", param.StartDate)
+	if params.StartDate != "" {
+		query = query.Where("t.created_at >= ?", params.StartDate)
 	}
 
-	if param.EndDate != "" {
-		query = query.Where("transfers.created_at <= ?", param.EndDate)
+	if params.EndDate != "" {
+		query = query.Where("t.created_at <= ?", params.EndDate)
 	}
 
+	var totalCount int64
 	// complete query
 	err := query.
-		Group("transfers.id").
-		Order("transfers.created_at DESC").
+		Group("t.id, fs.id, ts.id, e.id,e2.id,e3.id").
+		Order("t.created_at DESC").
 		Count(&totalCount).
-		Limit(param.Limit).
-		Offset(param.Offset).
-		Find(&res).Error
+		Limit(params.Limit).
+		Offset(params.Offset).
+		Find(&tmpTransfer).Error
 	if err != nil {
-		s.log.Error(err)
-		return res, 0, err
+		s.log.Errorf("could not get transfers: %v", err)
+		return nil, 0, err
 	}
+
+	var res []domain.Transfer
+	for _, item := range tmpTransfer {
+		res = append(res, domain.Transfer{
+			Id:                item.Id,
+			PublicId:          item.PublicId,
+			Name:              item.Name,
+			FromStoreId:       item.FromStoreId,
+			ToStoreId:         item.ToStoreId,
+			Status:            item.Status,
+			ReceivedCount:     item.ReceivedCount,
+			ExpectedCount:     item.ExpectedCount,
+			ScannedCount:      item.ScannedCount,
+			AcceptedCount:     item.AcceptedCount,
+			ReceivedSupplySum: item.ReceivedSupplySum,
+			ReceivedRetailSum: item.ReceivedRetailSum,
+			AcceptedSupplySum: item.AcceptedSupplySum,
+			AcceptedRetailSum: item.AcceptedRetailSum,
+			CreatedAt:         item.CreatedAt,
+			UpdatedAt:         item.UpdatedAt,
+			AcceptedAt:        item.AcceptedAt,
+			CreatedById:       item.CreatedBy,
+			UpdatedById:       item.UpdatedBy,
+			AcceptedById:      item.AcceptedBy,
+			CreatedBy: domain.NewNullStruct(domain.TransferEmployee{
+				Id:       item.CreatedBy,
+				FullName: item.CreatedByName,
+			}, item.CreatedBy != ""),
+			UpdatedBy: domain.NewNullStruct(domain.TransferEmployee{
+				Id:       item.UpdatedBy,
+				FullName: item.UpdatedByName,
+			}, item.UpdatedBy != ""),
+			AcceptedBy: domain.NewNullStruct(domain.TransferEmployee{
+				Id:       item.AcceptedBy,
+				FullName: item.AcceptedByName,
+			}, item.AcceptedBy != ""),
+			FromStore: domain.NewNullStruct(domain.TransferStore{
+				Id:   item.FromStoreId,
+				Name: item.FromStoreName,
+			}, item.FromStoreId != ""),
+			ToStore: domain.NewNullStruct(domain.TransferStore{
+				Id:   item.ToStoreId,
+				Name: item.ToStoreName,
+			}, item.ToStoreId != ""),
+		})
+	}
+
 	return res, totalCount, nil
 }
 

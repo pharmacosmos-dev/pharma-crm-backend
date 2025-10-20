@@ -112,14 +112,17 @@ func (h *TransferHandler) Create(c *gin.Context) {
 func (h *TransferHandler) Get(c *gin.Context) {
 	// get return by id
 	id := c.Param("id")
-	if err := uuid.Validate(id); err != nil {
-		handleResponse(c, BadRequest, "Invalid return id")
+	if id == "" {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
-	res, err := h.service.GetTransferById(id)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, err := h.service.GetTransferById(ctx, id)
 	if err != nil {
-		h.log.Warn("Error on getting transfer: %v", err.Error())
-		handleResponse(c, InternalError, "Failed to get transfer")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
@@ -300,13 +303,13 @@ func (h *TransferHandler) ExportTransferExcel(c *gin.Context) {
 		row := strconv.Itoa(i + 2)
 		f.SetCellValue(sheetName, "A"+row, r.PublicId)
 		f.SetCellValue(sheetName, "B"+row, r.Name)
-		if r.FromStore != nil {
-			f.SetCellValue(sheetName, "C"+row, r.FromStore.Name)
+		if r.FromStore.Valid {
+			f.SetCellValue(sheetName, "C"+row, r.FromStore.Value.Name)
 		} else {
 			f.SetCellValue(sheetName, "C"+row, "N/A")
 		}
-		if r.ToStore != nil {
-			f.SetCellValue(sheetName, "D"+row, r.ToStore.Name)
+		if r.ToStore.Valid {
+			f.SetCellValue(sheetName, "D"+row, r.ToStore.Value.Name)
 		} else {
 			f.SetCellValue(sheetName, "D"+row, "N/A")
 		}
@@ -324,18 +327,18 @@ func (h *TransferHandler) ExportTransferExcel(c *gin.Context) {
 		} else {
 			f.SetCellValue(sheetName, "J"+row, "N/A")
 		}
-		if r.CreatedBy != nil {
-			f.SetCellValue(sheetName, "K"+row, r.CreatedBy.FullName)
+		if r.CreatedBy.Valid {
+			f.SetCellValue(sheetName, "K"+row, r.CreatedBy.Value.FullName)
 		} else {
 			f.SetCellValue(sheetName, "K"+row, "N/A")
 		}
-		if r.UpdatedBy != nil {
-			f.SetCellValue(sheetName, "L"+row, r.UpdatedBy.FullName)
+		if r.UpdatedBy.Valid {
+			f.SetCellValue(sheetName, "L"+row, r.UpdatedBy.Value.FullName)
 		} else {
 			f.SetCellValue(sheetName, "L"+row, "N/A")
 		}
-		if r.AcceptedBy != nil {
-			f.SetCellValue(sheetName, "M"+row, r.AcceptedBy.FullName)
+		if r.AcceptedBy.Valid {
+			f.SetCellValue(sheetName, "M"+row, r.AcceptedBy.Value.FullName)
 		} else {
 			f.SetCellValue(sheetName, "M"+row, "N/A")
 		}
@@ -733,8 +736,6 @@ func (h *TransferHandler) ExportTransferNakladnoyPDF(c *gin.Context) {
 	// get transfer by id
 	err = h.db.
 		Model(&domain.Transfer{}).
-		Preload("FromStore").
-		Preload("ToStore").
 		First(&transfer, "id = ?", transferId).Error
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -762,12 +763,12 @@ func (h *TransferHandler) ExportTransferNakladnoyPDF(c *gin.Context) {
 
 	// nakladnoy name
 	nakladnoyName := fmt.Sprintf("НАКЛАДНАЯ № %s от %s г.", transfer.PublicId, time.Now().Format("02.01.2006"))
-	fromStore := "Поставщик: " + transfer.FromStore.Name
-	toStore := "Получатель: " + transfer.ToStore.Name
-	fromStoreAddress := "Адрес: " + transfer.FromStore.Address
-	toStoreAddress := "Адрес: " + transfer.ToStore.Address
-	fromStorePhone := fmt.Sprintf("Тел: +%s,%s", transfer.FromStore.Phone, "filial@pharma")
-	toStorePhone := fmt.Sprintf("Тел: +%s,%s", transfer.ToStore.Phone, "filial@pharma")
+	fromStore := "Поставщик: " + transfer.FromStore.Value.Name
+	toStore := "Получатель: " + transfer.ToStore.Value.Name
+	fromStoreAddress := "Адрес: " + transfer.FromStore.Value.Name
+	toStoreAddress := "Адрес: " + transfer.ToStore.Value.Name
+	fromStorePhone := fmt.Sprintf("Тел: +%s,%s", transfer.FromStore.Value.Name, "filial@pharma")
+	toStorePhone := fmt.Sprintf("Тел: +%s,%s", transfer.ToStore.Value.Name, "filial@pharma")
 
 	pdf := pdf.New("P", "mm", "A4", "")
 	pdf.AddUTF8Font("DejaVu", "", "./app/uploads/DejaVuSans.ttf")
