@@ -773,7 +773,7 @@ func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userI
 		err = tx.WithContext(ctx).Exec(query2,
 			item.ProductId,
 			transfer.ToStoreId,
-			(item.ScannedCount * float64(item.UnitPerPack)),
+			(item.AcceptedCount * float64(item.UnitPerPack)),
 			item.RetailPriceVat,
 			item.SupplyPriceVat,
 			12,
