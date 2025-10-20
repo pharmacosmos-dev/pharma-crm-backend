@@ -37,8 +37,10 @@ type TransferEmployee struct {
 }
 
 type TransferStore struct {
-	Id   string `gorm:"id" json:"id"`
-	Name string `gorm:"name" json:"name"`
+	Id      string `json:"id"`
+	Name    string `json:"name"`
+	Address string `json:"address"`
+	Phone   string `json:"phone"`
 }
 
 type TransferStatusSummary struct {

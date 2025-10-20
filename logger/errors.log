@@ -11,3 +11,8 @@ time=2025-10-20T14:08:40.087603Z level=ERROR msg="could not get transfers: ERROR
 time=2025-10-20T14:09:31.949758Z level=ERROR msg="could not get transfers: ERROR: column "fs.name" must appear in the GROUP BY clause or be used in an aggregate function (SQLSTATE 42803)"
 time=2025-10-20T14:10:30.723712Z level=ERROR msg="could not get transfers: ERROR: column "e.full_name" must appear in the GROUP BY clause or be used in an aggregate function (SQLSTATE 42803)"
 time=2025-10-20T14:10:32.018899Z level=ERROR msg="could not get transfers: ERROR: column "e.full_name" must appear in the GROUP BY clause or be used in an aggregate function (SQLSTATE 42803)"
+time=2025-10-20T14:46:07.798692Z level=ERROR msg="could not get transfer stats summary: ERROR: syntax error at or near "fs" (SQLSTATE 42601)"
+time=2025-10-20T14:46:10.452488Z level=ERROR msg="could not get transfer stats summary: ERROR: syntax error at or near "fs" (SQLSTATE 42601)"
+time=2025-10-20T14:47:05.555603Z level=ERROR msg="could not get transfer stats summary: ERROR: syntax error at or near "fs" (SQLSTATE 42601)"
+time=2025-10-20T14:47:06.296829Z level=ERROR msg="could not get transfer stats summary: ERROR: syntax error at or near "fs" (SQLSTATE 42601)"
+time=2025-10-20T14:47:29.558904Z level=ERROR msg="could not get transfer stats summary: ERROR: syntax error at or near "fs" (SQLSTATE 42601)"

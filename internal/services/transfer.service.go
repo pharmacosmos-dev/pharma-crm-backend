@@ -2,10 +2,12 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/spf13/cast"
+	"gorm.io/gorm"
 
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
@@ -81,22 +83,132 @@ func (s *Services) CreateTransfer(ctx context.Context, req *domain.TransferReque
 }
 
 // get return by id
-func (s *Services) GetTransferById(ctx context.Context, transferID string) (*domain.Transfer, error) {
-	var res domain.Transfer
-	err := s.db.WithContext(ctx).
-		Select(`
-			transfers.*,
-			SUM(td.received_count) AS received_count,
-			SUM(td.scanned_count) AS accepted_count,
-			SUM(td.scanned_count*td.supply_price) AS supply_price_sum,
-			SUM(td.scanned_count*td.retail_price) AS retail_price_sum`).
-		Joins("LEFT JOIN transfer_details td ON transfers.id = td.transfer_id").
-		Group("transfers.id").
-		First(&res, "transfers.id = ?", transferID).Error
-	if err != nil {
-		s.log.Warn("ERROR on getting return by id: %v", err)
-		return nil, err
+func (s *Services) GetTransferById(ctx context.Context, transferId string) (*domain.Transfer, error) {
+	var tmpTransfer struct {
+		Id                string     `gorm:"id"`
+		PublicId          string     `gorm:"public_id"`
+		FromStoreId       string     `gorm:"from_store_id"`
+		ToStoreId         string     `gorm:"to_store_id"`
+		Name              string     `gorm:"name"`
+		Status            string     `gorm:"status"`
+		ReceivedCount     float64    `gorm:"received_count"`
+		ExpectedCount     float64    `gorm:"expected_count"`
+		ScannedCount      float64    `gorm:"scanned_count"`
+		AcceptedCount     float64    `gorm:"accepted_count"`
+		ReceivedSupplySum float64    `gorm:"received_supply_sum"`
+		ReceivedRetailSum float64    `gorm:"received_retail_sum"`
+		AcceptedSupplySum float64    `gorm:"accepted_supply_sum"`
+		AcceptedRetailSum float64    `gorm:"accepted_retail_sum"`
+		FromStoreName     string     `gorm:"from_store_name"`
+		FromStoreAddress  string     `gorm:"from_store_address"`
+		FromStorePhone    string     `gorm:"from_store_phone"`
+		ToStoreName       string     `gorm:"to_store_name"`
+		ToStoreAddress    string     `gorm:"to_store_address"`
+		ToStorePhone      string     `gorm:"to_store_phone"`
+		CreatedBy         string     `gorm:"created_by"`
+		UpdatedBy         string     `gorm:"updated_by"`
+		AcceptedBy        string     `gorm:"accepted_by"`
+		CreatedByName     string     `gorm:"created_by_name"`
+		UpdatedByName     string     `gorm:"updated_by_name"`
+		AcceptedByName    string     `gorm:"accepted_by_name"`
+		CreatedAt         *time.Time `gorm:"created_at"`
+		UpdatedAt         *time.Time `gorm:"updated_at"`
+		AcceptedAt        *time.Time `gorm:"accepted_at"`
 	}
+
+	err := s.db.WithContext(ctx).
+		Select(
+			"t.id",
+			"t.public_id",
+			"t.name",
+			"t.from_store_id",
+			"t.to_store_id",
+			"t.status",
+			"t.created_at",
+			"t.updated_at",
+			"t.created_by",
+			"t.updated_by",
+			"t.accepted_by",
+			"t.accepted_at",
+			"SUM(trd.received_count) AS received_count",
+			"SUM(trd.expected_count) AS expected_count",
+			"SUM(trd.scanned_count) AS scanned_count",
+			"SUM(trd.accepted_count) AS accepted_count",
+			"SUM(trd.received_count*trd.supply_price) AS received_supply_sum",
+			"SUM(trd.received_count*trd.retail_price) AS received_retail_sum",
+			"SUM(trd.accepted_count*trd.supply_price) AS accepted_supply_sum",
+			"SUM(trd.accepted_count*trd.retail_price) AS accepted_retail_sum",
+			"fs.name AS from_store_name",
+			"fs.address AS from_store_address",
+			"fs.phone AS from_store_phone",
+			"ts.name AS to_store_name",
+			"ts.address AS to_store_address",
+			"ts.phone AS to_store_phone",
+			"e.full_name AS created_by_name",
+			"e2.full_name AS updated_by_by_name",
+			"e3.full_name AS accepted_by_name",
+		).
+		Table("transfers t").
+		Joins("LEFT JOIN transfer_details trd ON t.id = trd.transfer_id").
+		Joins("LEFT JOIN stores fs ON t.from_store_id = fs.id").
+		Joins("LEFT JOIN stores ts ON t.to_store_id = ts.id").
+		Joins("LEFT JOIN employees e ON t.created_by = e.id").
+		Joins("LEFT JOIN employees e2 ON t.accepted_by = e2.id").
+		Joins("LEFT JOIN employees e3 ON t.accepted_by = e3.id").
+		Where("t.id = ?", transferId).
+		Group("t.id, fs.id, ts.id, e.id, e2.id, e3.id").
+		Take(&tmpTransfer).Error
+	if err != nil {
+		s.log.Errorf("could not gett transfer by id: %v", err)
+		return nil, domain.InternalServerError
+	}
+	res := domain.Transfer{
+		Id:                tmpTransfer.Id,
+		PublicId:          tmpTransfer.PublicId,
+		Name:              tmpTransfer.Name,
+		FromStoreId:       tmpTransfer.FromStoreId,
+		ToStoreId:         tmpTransfer.ToStoreId,
+		Status:            tmpTransfer.Status,
+		ReceivedCount:     tmpTransfer.ReceivedCount,
+		ExpectedCount:     tmpTransfer.ExpectedCount,
+		ScannedCount:      tmpTransfer.ScannedCount,
+		AcceptedCount:     tmpTransfer.AcceptedCount,
+		ReceivedSupplySum: tmpTransfer.ReceivedSupplySum,
+		ReceivedRetailSum: tmpTransfer.ReceivedRetailSum,
+		AcceptedSupplySum: tmpTransfer.AcceptedSupplySum,
+		AcceptedRetailSum: tmpTransfer.AcceptedRetailSum,
+		CreatedAt:         tmpTransfer.CreatedAt,
+		UpdatedAt:         tmpTransfer.UpdatedAt,
+		AcceptedAt:        tmpTransfer.AcceptedAt,
+		CreatedById:       tmpTransfer.CreatedBy,
+		UpdatedById:       tmpTransfer.UpdatedBy,
+		AcceptedById:      tmpTransfer.AcceptedBy,
+		CreatedBy: domain.NewNullStruct(domain.TransferEmployee{
+			Id:       tmpTransfer.CreatedBy,
+			FullName: tmpTransfer.CreatedByName,
+		}, tmpTransfer.CreatedBy != ""),
+		UpdatedBy: domain.NewNullStruct(domain.TransferEmployee{
+			Id:       tmpTransfer.UpdatedBy,
+			FullName: tmpTransfer.UpdatedByName,
+		}, tmpTransfer.UpdatedBy != ""),
+		AcceptedBy: domain.NewNullStruct(domain.TransferEmployee{
+			Id:       tmpTransfer.AcceptedBy,
+			FullName: tmpTransfer.AcceptedByName,
+		}, tmpTransfer.AcceptedBy != ""),
+		FromStore: domain.NewNullStruct(domain.TransferStore{
+			Id:      tmpTransfer.FromStoreId,
+			Name:    tmpTransfer.FromStoreName,
+			Address: tmpTransfer.FromStoreAddress,
+			Phone:   tmpTransfer.FromStorePhone,
+		}, tmpTransfer.FromStoreId != ""),
+		ToStore: domain.NewNullStruct(domain.TransferStore{
+			Id:      tmpTransfer.ToStoreId,
+			Name:    tmpTransfer.ToStoreName,
+			Address: tmpTransfer.ToStoreAddress,
+			Phone:   tmpTransfer.ToStorePhone,
+		}, tmpTransfer.ToStoreId != ""),
+	}
+
 	return &res, nil
 }
 
@@ -196,7 +308,7 @@ func (s *Services) TransferList(ctx context.Context, params *domain.ReturnParam)
 	var totalCount int64
 	// complete query
 	err := query.
-		Group("t.id, fs.id, ts.id, e.id,e2.id,e3.id").
+		Group("t.id, fs.id, ts.id, e.id, e2.id, e3.id").
 		Order("t.created_at DESC").
 		Count(&totalCount).
 		Limit(params.Limit).
@@ -204,7 +316,7 @@ func (s *Services) TransferList(ctx context.Context, params *domain.ReturnParam)
 		Find(&tmpTransfer).Error
 	if err != nil {
 		s.log.Errorf("could not get transfers: %v", err)
-		return nil, 0, err
+		return nil, 0, domain.InternalServerError
 	}
 
 	var res []domain.Transfer
@@ -256,45 +368,46 @@ func (s *Services) TransferList(ctx context.Context, params *domain.ReturnParam)
 	return res, totalCount, nil
 }
 
-func (s *Services) TransferStatus(param *domain.ReturnParam) (*domain.TransferStatusSummary, error) {
+func (s *Services) TransferStats(ctx context.Context, params *domain.ReturnParam) (*domain.TransferStatusSummary, error) {
+
 	query := `
 		SELECT
 			COALESCE(SUM(trd.received_count), 0) AS received_count,
 			COALESCE(SUM(trd.accepted_count), 0) AS accepted_count,
 			COALESCE(SUM(trd.received_count * trd.retail_price), 0) AS received_retail_sum,
 			COALESCE(SUM(trd.accepted_count * trd.retail_price), 0) AS accepted_retail_sum
-		FROM transfers
-		LEFT JOIN transfer_details trd ON transfers.id = trd.transfer_id
-		LEFT JOIN stores from_stores ON transfers.from_store_id = from_stores.id
-		LEFT JOIN stores to_stores   ON transfers.to_store_id = to_stores.id
-		WHERE transfers.entry_type = 1
+		FROM transfers t
+		LEFT JOIN transfer_details trd ON t.id = trd.transfer_id
+		LEFT JOIN stores fs ON t.from_store_id = fs.id
+		LEFT JOIN stores ts ON t.to_store_id = ts.id
+		WHERE t.entry_type = 1
 	`
 
 	var args []any
 
-	if param.StoreId != "" {
-		query += " AND (transfers.from_store_id = ? OR transfers.to_store_id = ?)"
-		args = append(args, param.StoreId, param.StoreId)
+	if params.StoreId != "" {
+		query += " AND (t.from_store_id = ? OR t.to_store_id = ?)"
+		args = append(args, params.StoreId, params.StoreId)
 	}
-	if param.CompanyId != "" {
-		query += " AND (from_stores.company_id = ? OR to_stores.company_id = ?)"
-		args = append(args, param.CompanyId, param.CompanyId)
+	if params.CompanyId != "" {
+		query += " AND (fs.company_id = ? OR ts.company_id = ?)"
+		args = append(args, params.CompanyId, params.CompanyId)
 	}
-	if param.Search != "" {
-		search := fmt.Sprintf("%%%s%%", param.Search)
-		query += " AND (transfers.public_id ILIKE ? OR transfers.name ILIKE ?)"
+	if params.Search != "" {
+		search := fmt.Sprintf("%%%s%%", params.Search)
+		query += " AND (t.public_id LIKE ? OR t.name ILIKE ?)"
 		args = append(args, search, search)
 	}
-	if param.Status != "" {
-		query += " AND transfers.status = ?"
-		args = append(args, param.Status)
+	if params.Status != "" {
+		query += " AND t.status = ?"
+		args = append(args, params.Status)
 	}
 
 	var res domain.TransferStatusSummary
-	err := s.db.Raw(query, args...).Scan(&res).Error
+	err := s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
 	if err != nil {
-		s.log.Error("Failed to get transfer status summary: %v", err)
-		return nil, err
+		s.log.Errorf("could not get transfer stats summary: %v", err)
+		return nil, domain.InternalServerError
 	}
 
 	return &res, nil
@@ -452,12 +565,15 @@ func (s *Services) SendTransfer(ctx context.Context, returnId string, userId str
 	return nil
 }
 
-func (s *Services) SendTransferTo1C(transferID string) error {
+func (s *Services) SendTransferTo1C(ctx context.Context, transferId string) error {
 	var transfer domain.Transfer
-	err := s.db.First(&transfer, "id = ?", transferID).Error
+	err := s.db.WithContext(ctx).First(&transfer, "id = ?", transferId).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting transfer: %v", err)
-		return err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return domain.NotFoundError
+		}
+		s.log.Errorf("could not get transfer: %v", err)
+		return domain.InternalServerError
 	}
 
 	var details []domain.TransferDetail
@@ -490,7 +606,7 @@ func (s *Services) SendTransferTo1C(transferID string) error {
 		LEFT JOIN import_details idt ON idt.id = sp.import_detail_id
 	WHERE
 		td.transfer_id = ? AND td.scanned_count > 0;
-	`, transferID).Scan(&details).Error
+	`, transferId).Scan(&details).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting transfer_detail list: %v", err)
 		return err
@@ -734,23 +850,17 @@ func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userI
 }
 
 // canceled inventory
-func (s *Services) CancelTransfer(returnId string, userId string) error {
-	// start transaction
-	var err error
-	tx := s.db.Begin()
-	defer recoverTransaction(tx, s.log)
-	defer RollbackIfError(tx, &err)
-	// update confirm inventory
-	query := `UPDATE transfers SET status = ?, accepted_by = ?, updated_at = NOW() WHERE id = ?`
-	err = tx.Exec(query, constants.GeneralStatusCanceled, userId, returnId).Error
+func (s *Services) CancelTransfer(ctx context.Context, returnId string, userId string) error {
+	query := `UPDATE transfers SET status = ?, accepted_by = ?, updated_at = NOW() WHERE id = ? AND status = ?`
+	err := s.db.WithContext(ctx).Exec(query,
+		constants.GeneralStatusCanceled,
+		userId,
+		returnId,
+		constants.GeneralStatusNew,
+	).Error
 	if err != nil {
-		s.log.Warn("ERROR on updating inventory %v", err)
-		return err
-	}
-	err = tx.Commit().Error
-	if err != nil {
-		s.log.Warn("ERROR on commiting transaction %v", err)
-		return err
+		s.log.Errorf("could not update inventory %v", err)
+		return domain.InternalServerError
 	}
 
 	return nil
