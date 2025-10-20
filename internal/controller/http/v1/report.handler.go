@@ -298,51 +298,41 @@ func (h *ReportHandler) ProductByDateExport(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /report/bonus [POST]
 func (h *ReportHandler) BonusReport(c *gin.Context) {
-	var param domain.ReportQueryParam
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+	var params domain.ReportQueryParam
 	// bind query param
-	err := c.ShouldBindQuery(&param)
-	if err != nil {
-		handleResponse(c, BadRequest, "Invalid query parameters")
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 	// bind store_ids
 	if c.Request.Body != nil {
-		_ = c.ShouldBindJSON(&param.StoreIds)
+		_ = c.ShouldBindJSON(&params.StoreIds)
 	}
-	// get user_id from the context
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
-		return
-	}
-	// get employee info
-	var employee domain.Employee
-	err = h.db.First(&employee, "id = ?", userId).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		handleResponse(c, InternalError, "Can't get employee info")
-		return
-	}
+
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
-		if employee.StoreId != "" {
-			param.StoreId = employee.StoreId
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
 		}
-		param.CompanyId = employee.CompanyId
+		params.CompanyId = user.CompanyId
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 	// get default limit and offset for pagination
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 	// get bonus reports
-	res, totalCount, err := h.service.BonusReport(&param)
+	res, totalCount, err := h.service.BonusReport(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, "Can't get bonus report")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 	// get data with _meta pagination info
-	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
 
 	handleResponse(c, OK, data)
 }
@@ -366,45 +356,37 @@ func (h *ReportHandler) BonusReport(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /report/bonus-export [POST]
 func (h *ReportHandler) BonusReportExport(c *gin.Context) {
-	var param domain.ReportQueryParam
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+	var params domain.ReportQueryParam
 	// bind query param
-	err := c.ShouldBindQuery(&param)
+	err := c.ShouldBindQuery(&params)
 	if err != nil {
 		handleResponse(c, BadRequest, "Invalid query parameters")
 		return
 	}
 	// bind store_ids
 	if c.Request.Body != nil {
-		_ = c.ShouldBindJSON(&param.StoreIds)
+		_ = c.ShouldBindJSON(&params.StoreIds)
 	}
-	// get user_id from the context
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
-		return
-	}
-	// get employee info
-	var employee domain.Employee
-	err = h.db.First(&employee, "id = ?", userId).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		handleResponse(c, InternalError, "Can't get employee info")
-		return
-	}
+
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
-		if employee.StoreId != "" {
-			param.StoreId = employee.StoreId
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
 		}
-		param.CompanyId = employee.CompanyId
+		params.CompanyId = user.CompanyId
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
 	// get default limit and offset for pagination
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 	// get bonus reports
-	res, _, err := h.service.BonusReport(&param)
+	res, _, err := h.service.BonusReport(ctx, &params)
 	if err != nil {
 		handleResponse(c, InternalError, "Can't get bonus report")
 		return
@@ -1206,55 +1188,45 @@ func (h *ReportHandler) ReportTopStores(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /report/bonus-products [POST]
 func (h *ReportHandler) ReportBonusProducts(c *gin.Context) {
-	var param domain.ReportQueryParam
+	// get user_id from the context
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.ReportQueryParam
 	// bind query parameters
-	err := c.ShouldBindQuery(&param)
-	if err != nil {
-		handleResponse(c, BadRequest, "Invalid query parameters")
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 	// bind store ids
-	if err = c.ShouldBindJSON(&param.StoreIds); err != nil {
-		handleResponse(c, BadRequest, "Invalid store ids")
+	if err := c.ShouldBindJSON(&params.StoreIds); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
 
-	// // get user_id from the context
-	// userId, ok := c.Get("user_id")
-	// if !ok {
-	// 	handleResponse(c, UNAUTHORIZED, "User ID not found")
-	// 	return
-	// }
-
-	userId := "6673c653-60cb-4ada-bcd6-b8c1d17ffecb"
-	// get employee info
-	var employee domain.Employee
-	err = h.db.First(&employee, "id = ?", userId).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		handleResponse(c, InternalError, "Can't get employee info")
-		return
-	}
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
-		if employee.StoreId != "" {
-			param.StoreId = employee.StoreId
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
 		}
-		param.CompanyId = employee.CompanyId
+		params.CompanyId = user.CompanyId
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 
 	// get limit offset with checking default
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 	// get bonus products data
-	res, totalCount, err := h.service.ReportBonusProducts(&param)
+	res, totalCount, err := h.service.ReportBonusProducts(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, "Can't get bonus products data")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
-	result := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+	result := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
 
 	handleResponse(c, OK, result)
 }
@@ -1539,46 +1511,42 @@ func (h *ReportHandler) TopStoresExportExcel(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /report/bonus-products/export-excel [POST]
 func (h *ReportHandler) BonusProductsExportExcel(c *gin.Context) {
-	var param domain.ReportQueryParam
-
-	// bind query parameters
-	if err := c.ShouldBindQuery(&param); err != nil {
-		handleResponse(c, BadRequest, "Invalid query parameters")
-		return
-	}
-	if err := c.ShouldBindJSON(&param.StoreIds); err != nil {
-		handleResponse(c, BadRequest, "Invalid store ids")
-		return
-	}
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 	// get user_id from the context
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
 		return
 	}
-	// get employee info
-	var employee domain.Employee
-	err := h.db.First(&employee, "id = ?", userId).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		handleResponse(c, InternalError, "Can't get employee info")
+
+	var params domain.ReportQueryParam
+	// bind query parameters
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
+	// bind store ids
+	if err := c.ShouldBindJSON(&params.StoreIds); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
-		if employee.StoreId != "" {
-			param.StoreId = employee.StoreId
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
 		}
-		param.CompanyId = employee.CompanyId
+		params.CompanyId = user.CompanyId
 	}
-	// get top stores data
-	res, _, err := h.service.ReportBonusProducts(&param)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	// get limit offset with checking default
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+	// get bonus products data
+	res, _, err := h.service.ReportBonusProducts(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, "Can't get bonus products data")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 

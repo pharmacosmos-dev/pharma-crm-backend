@@ -13014,7 +13014,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Product ID",
+                        "description": "ProductId",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -13033,7 +13033,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Store id",
+                        "description": "StoreId",
                         "name": "store_id",
                         "in": "query"
                     }
@@ -17928,7 +17928,7 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "Transfer"
+                    "Return"
                 ],
                 "summary": "Update return or transfer by barcode",
                 "parameters": [
@@ -22081,6 +22081,63 @@ const docTemplate = `{
                 }
             }
         },
+        "/transfer/update-by-barcode/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Transfer"
+                ],
+                "summary": "Update return or transfer by barcode",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Transfer ID or Return ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Barcode request payload",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.BarcodeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Update successful",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request parameters",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/transfer/{id}": {
             "get": {
                 "security": [
@@ -24902,12 +24959,6 @@ const docTemplate = `{
                 },
                 "shelf_id": {
                     "type": "string"
-                },
-                "store_product": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/domain.StoreProductRequest"
-                    }
                 },
                 "unit_per_pack": {
                     "type": "integer"

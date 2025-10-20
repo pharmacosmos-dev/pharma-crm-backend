@@ -70,7 +70,7 @@ func (h *SaleHandler) SaleRoutes(r *gin.RouterGroup) {
 func (h *SaleHandler) Create(c *gin.Context) {
 	// get user id from header
 	user := h.service.GetSignedUser(c)
-	if user == nil {
+	if user.UserId == "" {
 		handleServiceResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
 		return
 	}
@@ -85,7 +85,7 @@ func (h *SaleHandler) Create(c *gin.Context) {
 
 	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
 	defer cancel()
-
+	body.EmployeeId = user.UserId
 	res, err := h.service.CreateSale(ctx, h.db, &body)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
@@ -110,7 +110,7 @@ func (h *SaleHandler) Create(c *gin.Context) {
 func (h *SaleHandler) CreateReturn(c *gin.Context) {
 	// get user id in context
 	user := h.service.GetSignedUser(c)
-	if user == nil {
+	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
@@ -198,7 +198,7 @@ func (h *SaleHandler) Get(c *gin.Context) {
 func (h *SaleHandler) GetSales(c *gin.Context) {
 	// get user from the context
 	user := h.service.GetSignedUser(c)
-	if user == nil {
+	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
@@ -260,7 +260,7 @@ func (h *SaleHandler) ExportSalesExcel(c *gin.Context) {
 	var params domain.SaleQueryParams
 	// get user_id from the context
 	user := h.service.GetSignedUser(c)
-	if user == nil {
+	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
@@ -353,7 +353,7 @@ func (h *SaleHandler) ExportSalesExcel(c *gin.Context) {
 // @Router /sale/stats [get]
 func (h *SaleHandler) GetSalesStats(c *gin.Context) {
 	user := h.service.GetSignedUser(c)
-	if user == nil {
+	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
@@ -398,7 +398,7 @@ func (h *SaleHandler) GetSalesStats(c *gin.Context) {
 func (h *SaleHandler) GetSaleList(c *gin.Context) {
 
 	user := h.service.GetSignedUser(c)
-	if user == nil {
+	if user.UserId == "" {
 		handleServiceResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
 		return
 	}
@@ -541,7 +541,7 @@ func (h *SaleHandler) PendingSaleList(c *gin.Context) {
 
 	// get user_id from context
 	user := h.service.GetSignedUser(c)
-	if user == nil {
+	if user.UserId == "" {
 		handleResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
 		return
 	}
@@ -697,7 +697,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 func (h *SaleHandler) EposResult(c *gin.Context) {
 	// get user id in context
 	user := h.service.GetSignedUser(c)
-	if user == nil {
+	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
@@ -969,11 +969,13 @@ func (h *SaleHandler) AsilBelgiBarcode(c *gin.Context) {
 	if similarity >= 0.9 {
 		// update products va store_products
 		if err = tx.Exec(`UPDATE products SET barcode = ? WHERE id = ?`, barcode, body.ProductID).Error; err != nil {
+			_ = tx.Rollback()
 			h.log.Warn("ERROR on updating product barcode: %v", err)
 			handleResponse(c, InternalError, "failed.update.product.barcode")
 			return
 		}
 		if err = tx.Exec(`UPDATE store_products SET barcode = ? WHERE product_id = ?`, barcode, body.ProductID).Error; err != nil {
+			_ = tx.Rollback()
 			h.log.Warn("ERROR on updating store_product barcode: %v", err)
 			handleResponse(c, InternalError, "failed.update.store_product.barcode")
 			return
@@ -984,12 +986,14 @@ func (h *SaleHandler) AsilBelgiBarcode(c *gin.Context) {
 			VALUES(?, ?, ?, ?, ?, ?)
 			RETURNING id
 		`, body.ProductID, oldBarcode, barcode, body.UserID, constants.GeneralStatusCompleted, employee.StoreId).Scan(&id).Error; err != nil {
+			_ = tx.Rollback()
 			h.log.Warn("ERROR on inserting product_barcode: %v", err)
 			handleResponse(c, InternalError, "failed.save.barcode.log")
 			return
 		}
 		similarityStr = constants.GeneralStatusCompleted
 	} else if similarity <= 0.6 {
+		_ = tx.Rollback()
 		handleResponse(c, BadRequest, "similarity.not.enough")
 		return
 	} else {
@@ -999,6 +1003,7 @@ func (h *SaleHandler) AsilBelgiBarcode(c *gin.Context) {
 			VALUES(?, ?, ?, ?, ?, ?)
 			RETURNING id
 		`, body.ProductID, oldBarcode, barcode, body.UserID, constants.GeneralStatusPending, employee.StoreId).Scan(&id).Error; err != nil {
+			_ = tx.Rollback()
 			h.log.Warn("ERROR on inserting pending product_barcode: %v", err)
 			handleResponse(c, InternalError, "failed.save.pending.barcode.log")
 			return
@@ -1065,14 +1070,15 @@ func (h *SaleHandler) AsilBelgiBarcodeConfirm(c *gin.Context) {
 	// transaction boshlash
 	tx := h.db.Begin()
 	defer func() {
-		if err != nil {
-			tx.Rollback()
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
 		}
 	}()
 
 	// products update
 	err = tx.Exec(`UPDATE products SET barcode = ? WHERE id = ?`, barcodeLog.Barcode, barcodeLog.ProductID).Error
 	if err != nil {
+		_ = tx.Rollback()
 		h.log.Warn("ERROR on updating product barcode: %v", err)
 		handleResponse(c, InternalError, "failed.update.product.barcode")
 		return
@@ -1081,6 +1087,7 @@ func (h *SaleHandler) AsilBelgiBarcodeConfirm(c *gin.Context) {
 	// store_products update
 	err = tx.Exec(`UPDATE store_products SET barcode = ? WHERE product_id = ?`, barcodeLog.Barcode, barcodeLog.ProductID).Error
 	if err != nil {
+		_ = tx.Rollback()
 		h.log.Warn("ERROR on updating store_product barcode: %v", err)
 		handleResponse(c, InternalError, "failed.update.store_product.barcode")
 		return
@@ -1089,6 +1096,7 @@ func (h *SaleHandler) AsilBelgiBarcodeConfirm(c *gin.Context) {
 	// log statusni update qilish
 	err = tx.Exec(`UPDATE product_barcodes SET status = ? WHERE id = ?`, constants.GeneralStatusPending, id).Error
 	if err != nil {
+		_ = tx.Rollback()
 		h.log.Warn("ERROR on updating product_barcode status: %v", err)
 		handleResponse(c, InternalError, "failed.update.barcode.log")
 		return
@@ -1158,25 +1166,10 @@ func (h *SaleHandler) PendingSale(c *gin.Context) {
 		return
 	}
 
-	// begin transaction
-	tx := h.db.Begin()
-	defer func() {
-		if err != nil {
-			tx.Rollback()
-		}
-	}()
-
 	// update sale status to pending
-	err = tx.Exec(`UPDATE sales SET status = ? WHERE id = ?`, constants.GeneralStatusPending, id).Error
+	err = h.db.Exec(`UPDATE sales SET status = ? WHERE id = ?`, constants.GeneralStatusPending, id).Error
 	if err != nil {
 		h.log.Errorf("could not update sale status: %v", err)
-		handleServiceResponse(c, InternalError, domain.InternalServerError)
-		return
-	}
-
-	// commit
-	if err = tx.Commit().Error; err != nil {
-		h.log.Errorf("could not commit transaction: %v", err)
 		handleServiceResponse(c, InternalError, domain.InternalServerError)
 		return
 	}

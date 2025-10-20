@@ -100,14 +100,16 @@ type TopSeller struct {
 
 // Dashboard query param
 type DashboardQueryParam struct {
-	StoreId   string   `form:"store_id"`
-	StartDate string   `form:"start_date"`
-	EndDate   string   `form:"end_date"`
-	Type      string   `form:"type"`
-	Limit     int      `form:"limit"`
-	Offset    int      `form:"offset"`
-	StoreIds  []string `form:"store_ids"`
-	CompanyId string   `form:"company_id"`
+	StoreId    string   `form:"store_id"`
+	StartDate  string   `form:"start_date"`
+	EndDate    string   `form:"end_date"`
+	Type       string   `form:"type"`
+	Limit      int      `form:"limit"`
+	Offset     int      `form:"offset"`
+	StoreIds   []string `form:"store_ids"`
+	CompanyIds []string `form:"company_ids"`
+	CompanyId  string   `form:"company_id"`
+	Search     string   `form:"search"`
 }
 
 // Dashboard payments structure

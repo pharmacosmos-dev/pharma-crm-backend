@@ -111,20 +111,20 @@ func (s *Services) ListEmployee(c *gin.Context, limit, offset int) ([]domain.Emp
 }
 
 // get employee bonus amount
-func (s *Services) GetEmployeeBonusAmount(param *domain.DashboardQueryParam, id string) (domain.DashboardCountStatsBonus, error) {
+func (s *Services) GetEmployeeBonusAmount(ctx context.Context, param *domain.DashboardQueryParam, id string) (domain.DashboardCountStatsBonus, error) {
 	var bonus domain.DashboardCountStatsBonus
 	// Parse start and end dates
 	startTime, err := time.Parse(time.RFC3339, param.StartDate)
 	if err != nil {
-		s.log.Error("invalid.start_date.format: %v", err)
-		return bonus, err
+		s.log.Errorf("could not parse start_time: %v", err)
+		return bonus, domain.InvalidTimeFormatError
 	}
 	endTime := startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
 	if param.EndDate != "" {
 		endTime, err = time.Parse(time.RFC3339, param.EndDate)
 		if err != nil {
-			s.log.Error("invalid.end_date.format: %v", err)
-			return bonus, err
+			s.log.Errorf("could not parse end_time: %v", err)
+			return bonus, domain.InvalidTimeFormatError
 		}
 	}
 	beforeStart, beforeEnd := utils.BeforeDatesTime(startTime, endTime)
@@ -133,10 +133,10 @@ func (s *Services) GetEmployeeBonusAmount(param *domain.DashboardQueryParam, id 
 		SUM(CASE WHEN created_at BETWEEN ? AND ? THEN bonus_amount END) AS bonus_amount,
 		SUM(CASE WHEN created_at BETWEEN ? AND ? THEN bonus_amount END) AS before_bonus_amount
 	FROM employee_bonus  WHERE employee_id = ?;`
-	err = s.db.Raw(query, startTime, endTime, beforeStart, beforeEnd, id).Scan(&bonus).Error
+	err = s.db.WithContext(ctx).Raw(query, startTime, endTime, beforeStart, beforeEnd, id).Scan(&bonus).Error
 	if err != nil {
-		s.log.Error(err)
-		return bonus, err
+		s.log.Errorf("could not get employee bonus amount: %v", err)
+		return bonus, domain.InternalServerError
 	}
 	return bonus, nil
 }
@@ -147,26 +147,26 @@ func (s *Services) AddEmployeeBonus(ctx context.Context, tx *gorm.DB, req *domai
 	INSERT INTO employee_bonus (
 		employee_id, 
 		sale_id, 
-		cashbox_operation_id, 
 		product_id, 
 		quantity, 
 		unit_quantity, 
-		bonus_amount
+		bonus_amount,
+		cashbox_operation_id
 		) 
 	VALUES(
 		?, ?, ?, ?, ?, ?, ?
 		)`,
 		req.EmployeeId,
 		req.SaleId,
-		req.CashboxOperationId,
 		req.ProductId,
 		req.Quantity,
 		req.UnitQuantity,
 		req.BonusAmount,
+		req.CashboxOperationId,
 	).Error
 	if err != nil {
-		s.log.Error("ERROR on adding bonus to employee: ", err)
-		return err
+		s.log.Errorf("could not add bonus to employee: %v", err)
+		return domain.InternalServerError
 	}
 
 	return nil

@@ -1,10 +1,12 @@
 package v1
 
 import (
+	"context"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/xuri/excelize/v2"
 )
@@ -88,17 +90,18 @@ func (h *RejectedProductsHandler) Create(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /rejected-products/products [get]
 func (h *RejectedProductsHandler) GetListOfProducts(c *gin.Context) {
-	var req domain.RejectedProductQueryParam
-	if err := c.ShouldBindQuery(&req); err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
+	var params domain.RejectedProductQueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
-	req.Limit, req.Offset = defaultLimitOffset(req.Limit, req.Offset)
-	products, err := h.service.SearchProductsByName(req.Search, req.Limit, req.Offset)
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	products, err := h.service.GetRejectedProductsSearch(ctx, &params)
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 	handleResponse(c, OK, products)

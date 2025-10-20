@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
@@ -9,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/etc"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/xuri/excelize/v2"
@@ -692,18 +694,21 @@ func (h *EmployeeHandler) SmenaBonus(c *gin.Context) {
 		employeeId  = c.Query("employee_id")
 	)
 	if operationId == "" || operationId == "undefined" {
-		handleResponse(c, BadRequest, "Operation ID is required")
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 	if employeeId == "" || employeeId == "undefined" {
-		handleResponse(c, BadRequest, "Employee ID is required")
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
-	err := h.db.
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	err := h.db.WithContext(ctx).
 		Raw(`SELECT COALESCE(SUM(bonus_amount), 0) AS bonus FROM employee_bonus WHERE cashbox_operation_id = ? AND employee_id = ?`, operationId, employeeId).Scan(&bonus).Error
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		h.log.Errorf("could not get employee shift bonus: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 	handleResponse(c, OK, gin.H{"bonus": bonus})

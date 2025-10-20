@@ -146,7 +146,7 @@ type FinalSale struct {
 	Payme              float64            `gorm:"payme" json:"payme"`
 	Alif               float64            `gorm:"alif" json:"alif"`
 	ReturnAmount       float64            `gorm:"return_amount" json:"return_amount"`
-	OtpCode            *string            `gorm:"otp_code" json:"otp_code"`
+	OtpCode            string             `gorm:"otp_code" json:"otp_code"`
 	PaymentTypes       []FinalPaymentType `json:"payment_types"`
 	MarkingData        []MarkingData      `json:"marking_data"`
 	EposData           [][]EposItem       `json:"epos_data"`

@@ -81,76 +81,79 @@ func (s *Services) ProductReportWithDate(param *domain.ReportQueryParam) ([]map[
 }
 
 // get employee bonuses report service
-func (s *Services) BonusReport(param *domain.ReportQueryParam) ([]domain.BonusReport, int64, error) {
+func (s *Services) BonusReport(ctx context.Context, params *domain.ReportQueryParam) ([]domain.BonusReport, int64, error) {
 	var (
 		res        []domain.BonusReport
 		totalCount int64
-		args       []any
 	)
 
-	// Bazaviy query
-	query := `
-		SELECT
-			e.id AS id,
-			e.public_id,
-			e.full_name,
-			e.phone,
-			s.name AS store_name,
-			STRING_AGG(DISTINCT r.name, '/' ORDER BY r.name) AS role,
-			SUM(eb.bonus_amount) AS amount,
-			SUM(eb.quantity + (eb.unit_quantity / 10.0)) AS count,
-			COUNT(*) OVER() AS total_count
-		FROM employee_bonus eb
-		JOIN employees e ON eb.employee_id = e.id
-		JOIN stores s ON e.store_id = s.id
-		JOIN employee_roles er ON e.id = er.employee_id
-		JOIN roles r ON er.role_id = r.id
-	`
+	// Base query for filtering
+	baseQuery := s.db.WithContext(ctx).
+		Table("employee_bonus eb").
+		Joins("JOIN employees e ON eb.employee_id = e.id").
+		Joins("JOIN products p ON eb.product_id = p.id").
+		Joins("LEFT JOIN stores s ON e.store_id = s.id")
 
-	filter := " WHERE 1 = 1 "
-	group := " GROUP BY e.id, s.id "
-	order := utils.BuildBonusReportOrderClause(param.Order)
-
-	// Store filter
-	if len(param.StoreIds) > 0 {
-		filter += " AND s.id IN (?)"
-		args = append(args, param.StoreIds)
+	// Apply filters to base query
+	if len(params.StoreIds) > 0 {
+		baseQuery = baseQuery.Where("e.store_id IN(?)", params.StoreIds)
 	}
-	if param.CompanyId != "" {
-		filter += " AND s.company_id = ? "
-		args = append(args, param.CompanyId)
+	if params.CompanyId != "" {
+		baseQuery = baseQuery.Where("s.company_id = ?", params.CompanyId)
 	}
-
-	// Search filter
-	if param.Search != "" {
-		search := "%" + param.Search + "%"
-		filter += " AND (e.full_name ILIKE ? OR e.phone LIKE ? OR CAST(e.public_id AS TEXT) LIKE ?)"
-		args = append(args, search, search, search)
+	if params.Search != "" {
+		baseQuery = baseQuery.Where("e.full_name ILIKE ?", "%"+params.Search+"%")
 	}
 
 	// Date filter
-	if param.StartDate != "" && param.EndDate != "" {
-		filter += " AND (eb.created_at + interval '5 hours') BETWEEN ? AND ?"
-		args = append(args, param.StartDate, param.EndDate)
-	} else if param.EndDate == "" && param.StartDate != "" {
-		filter += " AND (eb.created_at + interval '5 hours') = ?"
-		args = append(args, param.StartDate)
+	if params.StartDate != "" && params.EndDate != "" {
+		baseQuery = baseQuery.Where("eb.created_at BETWEEN ? AND ?", params.StartDate, params.EndDate)
+	} else if params.StartDate != "" {
+		baseQuery = baseQuery.Where("DATE(eb.created_at) = DATE(?)", params.StartDate)
 	}
 
-	// Final query
-	finalQuery := query + filter + group + order + " LIMIT ? OFFSET ?"
-	args = append(args, param.Limit, param.Offset)
+	// Count unique employees (before grouping)
+	countQuery := baseQuery.
+		Select("DISTINCT e.id").
+		Group("e.id")
 
-	// So‘rovni bajarish
-	err := s.db.Raw(finalQuery, args...).Scan(&res).Error
+	if err := s.db.Table("(?) as sub", countQuery).Count(&totalCount).Error; err != nil {
+		s.log.Errorf("could not get bonus totalCount: %v", err)
+		return nil, 0, domain.InternalServerError
+	}
+
+	// Main query with roles aggregation
+	qb := baseQuery.
+		Joins(`
+			LEFT JOIN (
+				SELECT
+					er.employee_id,
+					STRING_AGG(DISTINCT r.name, '/' ORDER BY r.name) AS role
+				FROM employee_roles er
+				JOIN roles r ON er.role_id = r.id
+				GROUP BY er.employee_id
+			) roles_agg ON e.id = roles_agg.employee_id
+		`).
+		Select(
+			"e.id",
+			"e.public_id",
+			"e.full_name",
+			"e.phone",
+			"s.name AS store_name",
+			"roles_agg.role",
+			"SUM(eb.bonus_amount) AS amount",
+			"ROUND(SUM(eb.quantity::numeric + eb.unit_quantity::numeric/p.unit_per_pack), 2) AS count",
+		).
+		Group("e.id, s.id, s.name, roles_agg.role")
+
+	// Apply ordering
+	order := utils.BuildBonusReportOrderClause(params.Order)
+	qb = qb.Order(order)
+
+	err := qb.Limit(params.Limit).Offset(params.Offset).Find(&res).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting bonus report: %v", err)
-		return res, 0, nil
-	}
-
-	// Total count
-	if len(res) > 0 {
-		totalCount = res[0].TotalCount
+		s.log.Errorf("could not get employee_bonuses: %v", err)
+		return nil, 0, domain.InternalServerError
 	}
 
 	return res, totalCount, nil
@@ -1027,7 +1030,7 @@ func (s *Services) ReportTopStores(param *domain.ReportQueryParam) ([]domain.Top
 }
 
 // get dashboard bonus products
-func (s *Services) ReportBonusProducts(param *domain.ReportQueryParam) ([]domain.BonusProducts, int64, error) {
+func (s *Services) ReportBonusProducts(ctx context.Context, params *domain.ReportQueryParam) ([]domain.BonusProducts, int64, error) {
 	// declaration
 	var (
 		res        []domain.BonusProducts
@@ -1037,20 +1040,20 @@ func (s *Services) ReportBonusProducts(param *domain.ReportQueryParam) ([]domain
 		endTime    time.Time
 	)
 
-	startTime, err := time.Parse(time.RFC3339, param.StartDate)
+	startTime, err := time.Parse(time.RFC3339, params.StartDate)
 	if err != nil {
 		s.log.Error("Invalid start_date format: %v", err)
 		return nil, 0, err
 	}
-	if param.EndDate != "" {
-		endTime, err = time.Parse(time.RFC3339, param.EndDate)
+	if params.EndDate != "" {
+		endTime, err = time.Parse(time.RFC3339, params.EndDate)
 		if err != nil {
 			s.log.Error("Invalid end_date format: %v", err)
 			return nil, 0, err
 		}
 	} else {
 		endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
-		param.EndDate = endTime.Format(time.RFC3339)
+		params.EndDate = endTime.Format(time.RFC3339)
 	}
 	beforeStart, beforeEnd := utils.BeforeDatesTime(startTime, endTime)
 
@@ -1085,18 +1088,18 @@ func (s *Services) ReportBonusProducts(param *domain.ReportQueryParam) ([]domain
 	// Dynamic JOIN and filters
 	join := ""
 	filter := " WHERE 1 = 1"
-	if len(param.StoreIds) > 0 {
+	if len(params.StoreIds) > 0 {
 		join += " JOIN employees e ON eb.employee_id = e.id"
 		filter += " AND e.store_id IN (?)"
-		args = append(args, param.StoreIds)
+		args = append(args, params.StoreIds)
 	}
-	if param.Search != "" {
+	if params.Search != "" {
 		filter += " AND p.name ILIKE ?"
-		args = append(args, "%"+param.Search+"%")
+		args = append(args, "%"+params.Search+"%")
 	}
-	if param.CompanyId != "" {
+	if params.CompanyId != "" {
 		filter += " AND p.company_id = ? "
-		args = append(args, param.CompanyId)
+		args = append(args, params.CompanyId)
 	}
 	filter += " AND (eb.created_at + interval '5 hours') BETWEEN ? AND ?"
 	args = append(args, startTime, endTime)
@@ -1117,10 +1120,10 @@ func (s *Services) ReportBonusProducts(param *domain.ReportQueryParam) ([]domain
 
 	prevJoin := ""
 	prevFilter := " WHERE 1 = 1"
-	if len(param.StoreIds) > 0 {
+	if len(params.StoreIds) > 0 {
 		prevJoin += " JOIN employees e ON eb.employee_id = e.id"
 		prevFilter += " AND e.store_id IN (?)"
-		args = append(args, param.StoreIds)
+		args = append(args, params.StoreIds)
 	}
 	prevFilter += " AND (eb.created_at + interval '5 hours') BETWEEN ? AND ?"
 	args = append(args, beforeStart.Format(time.RFC3339), beforeEnd.Format(time.RFC3339))
@@ -1128,12 +1131,12 @@ func (s *Services) ReportBonusProducts(param *domain.ReportQueryParam) ([]domain
 	query += prevJoin + prevFilter + " GROUP BY p.id ) AS prev ON curr.id = prev.id"
 
 	// New flexible order logic
-	order := utils.BuildBonusProductOrderClause(param.Order)
+	order := utils.BuildBonusProductOrderClause(params.Order)
 	query += order
 
 	// Pagination
 	query += " LIMIT ? OFFSET ?"
-	args = append(args, param.Limit, param.Offset)
+	args = append(args, params.Limit, params.Offset)
 
 	// Execute query
 	err = s.db.Raw(query, args...).Scan(&res).Error

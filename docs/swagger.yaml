@@ -1116,10 +1116,6 @@ definitions:
         type: string
       shelf_id:
         type: string
-      store_product:
-        items:
-          $ref: '#/definitions/domain.StoreProductRequest'
-        type: array
       unit_per_pack:
         type: integer
       unit_type_id:
@@ -10111,7 +10107,7 @@ paths:
       - application/json
       description: Get store products by product_id
       parameters:
-      - description: Product ID
+      - description: ProductId
         in: path
         name: id
         required: true
@@ -10124,7 +10120,7 @@ paths:
         in: query
         name: offset
         type: integer
-      - description: Store id
+      - description: StoreId
         in: query
         name: store_id
         type: string
@@ -13240,7 +13236,7 @@ paths:
       - BearerAuth: []
       summary: Update return or transfer by barcode
       tags:
-      - Transfer
+      - Return
   /role:
     post:
       consumes:
@@ -15889,6 +15885,42 @@ paths:
       security:
       - BearerAuth: []
       summary: Send Transfer
+      tags:
+      - Transfer
+  /transfer/update-by-barcode/{id}:
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: Transfer ID or Return ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Barcode request payload
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/domain.BarcodeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Update successful
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Invalid request parameters
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update return or transfer by barcode
       tags:
       - Transfer
   /unit-types:

@@ -165,3 +165,8 @@ type CartItemForDMED struct {
 	Barcode        string  `gorm:"barcode" json:"barcode"`
 	SerialNumber   string  `gorm:"serial_number" json:"serial_number"`
 }
+
+type CartItemWithProduct struct {
+	CartItem
+	StoreProductUnitQuantity int `gorm:"column:sp_unit_quantity"`
+}

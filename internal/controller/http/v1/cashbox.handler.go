@@ -52,55 +52,53 @@ func (h *CashBoxHandler) CashBoxRoutes(r *gin.RouterGroup) {
 func (h *CashBoxHandler) Create(c *gin.Context) {
 	var (
 		body domain.CashBoxRequest
-		err  error
 	)
-	err = c.ShouldBindJSON(&body)
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
+	if err := c.ShouldBindJSON(&body); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
 	if body.StoreID == "" {
 		handleResponse(c, BadRequest, "store_id is required")
 		return
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+	
 	tx := h.db.Begin()
 	// Ensure the transaction is rolled back if any error occurs
 	defer func() {
 		if p := recover(); p != nil {
-			tx.Rollback()
-			panic(p)
-		} else if err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 		}
 	}()
 	body.ID = uuid.New().String()
 	body.IsOpen = false
 	// Save to database
-	err = tx.
-		WithContext(c.Request.Context()).
+	err := tx.
+		WithContext(ctx).
 		Table("cash_boxes").
 		Create(&body).Error
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		_ = tx.Rollback()
+		h.log.Errorf("could not create cashbox: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 	if len(body.PaymentTypes) > 0 {
 		for i := range body.PaymentTypes {
 			body.PaymentTypes[i].CashBoxId = body.ID
 		}
-		err = tx.WithContext(c.Request.Context()).
+		err = tx.WithContext(ctx).
 			Table("cashbox_payment_types").
 			Create(&body.PaymentTypes).Error
 		if err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, err.Error())
+			_ = tx.Rollback()
+			h.log.Errorf("could not create cashbox_payment_type: %v", err)
+			handleServiceResponse(c, InternalError, domain.InternalServerError)
 			return
 		}
 	}
-	err = tx.Commit().Error
-	if err != nil {
+	if err = tx.Commit().Error; err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return

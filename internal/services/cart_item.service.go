@@ -27,7 +27,7 @@ func (s *Services) CreateCartItem(ctx context.Context, user *domain.EmployeeClai
 	}
 
 	req.EmployeeId = user.UserId
-	storeProduct, err := s.GetStoreProductByIdAndStoreId(ctx, req.StoreProductId, user.StoreId)
+	storeProduct, err := s.GetStoreProductByIdAndStoreId(ctx, req.StoreProductId, sale.StoreId)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +141,7 @@ func (s *Services) FetchCartItems(ctx context.Context, saleId string, limit, off
 		sp.vat AS vat_percent,
 
 		ROUND(((ci.unit_price - ci_amount.d_amount) * 12) / 112, 2) AS vat_price,
-		ROUND((((ci.unit_price - ci_amount.d_amount) * 12) / 112) / p.unit_per_pack, 2) AS unit_vat_price,
+		ROUND((((ci.unit_price - ci_amount.d_amount) * 12) / 112) / p.unit_per_pack, 4) AS unit_vat_price,
 
 		ROUND((sp.vat_price / p.unit_per_pack) * ci.unit_quantity, 2) AS vat,
 		ROUND(ci.unit_price / p.unit_per_pack, 2) AS unit_quantity_price,
@@ -519,7 +519,7 @@ func (s *Services) UpdateCartItemQuantity(ctx context.Context, req *domain.CartI
 	}
 
 	// get store_product by id
-	storeProduct, err := s.GetStoreProductByID(ctx, req.StoreProductId)
+	storeProduct, err := s.GetStoreProductById(ctx, req.StoreProductId)
 	if err != nil {
 		return nil, err
 	}

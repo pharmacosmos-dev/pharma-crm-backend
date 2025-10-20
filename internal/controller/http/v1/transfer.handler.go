@@ -81,6 +81,8 @@ func (h *TransferHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, "User not authorized")
 		return
 	}
+	handleResponse(c, BadRequest, "transfer.temporary.not.working")
+	return 
 	// get creator id from set header
 	request.CreatedBy = userId.(string)
 
@@ -414,7 +416,7 @@ func (h *TransferHandler) AddProductByBarcode(c *gin.Context) {
 // @Success 200 {object} v1.Response "Update successful"
 // @Failure 400 {object} v1.Response "Invalid request parameters"
 // @Failure 500 {object} v1.Response "Internal server error"
-// @Router /return/update-by-barcode/{id} [put]
+// @Router /transfer/update-by-barcode/{id} [put]
 func (h *TransferHandler) UpdateByBarcode(c *gin.Context) {
 	var (
 		req domain.BarcodeRequest

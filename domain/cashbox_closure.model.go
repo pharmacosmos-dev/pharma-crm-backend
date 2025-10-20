@@ -24,3 +24,8 @@ type CashboxClosureRequest struct {
 	Status             string  `json:"status"`
 	Comment            string  `json:"comment"`
 }
+
+type CashboxOperationSummary struct {
+	TotalSum       SalePaymentTotalAmount    `json:"total_data"`
+	PaymentTypeSum []SalePaymentCloseCashBox `json:"data"`
+}

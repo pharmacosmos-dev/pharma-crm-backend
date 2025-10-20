@@ -53,7 +53,7 @@ func RollbackIfError(tx *gorm.DB, errPtr *error) {
 }
 
 func (s *Services) GetSignedUser(c *gin.Context) *domain.EmployeeClaims {
-	user := &domain.EmployeeClaims{}
+	user := domain.EmployeeClaims{}
 
 	if userId, ok := c.Get("user_id"); ok && userId != nil {
 		user.UserId, _ = userId.(string)
@@ -71,5 +71,5 @@ func (s *Services) GetSignedUser(c *gin.Context) *domain.EmployeeClaims {
 		user.Role, _ = role.(string)
 	}
 
-	return user
+	return &user
 }

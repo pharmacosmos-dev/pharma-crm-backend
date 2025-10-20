@@ -101,3 +101,14 @@ func (h *Services) SaveResponse(ctx context.Context, req *domain.PaymentRequest)
 	}
 	return nil
 }
+
+func (s *Services) GetPaymentTypesMap(ctx context.Context) ([]domain.PaymentType, error) {
+	var res []domain.PaymentType
+	err := s.db.WithContext(ctx).Find(&res).Error
+	if err != nil {
+		s.log.Errorf("could not get payment_types: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	return res, nil
+}

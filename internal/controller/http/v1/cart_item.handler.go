@@ -47,7 +47,7 @@ func (h *CartItemHandler) CartItemRoutes(r *gin.RouterGroup) {
 func (h *CartItemHandler) Create(c *gin.Context) {
 	// get user id in context
 	user := h.service.GetSignedUser(c)
-	if user == nil {
+	if user.UserId == "" {
 		handleResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
 		return
 	}

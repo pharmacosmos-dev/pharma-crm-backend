@@ -78,6 +78,10 @@ func (h *ReturnHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, "user.not.found.header")
 		return
 	}
+
+	handleResponse(c, BadRequest, "vozvrat.temporary.not.working")
+	return
+
 	returnRequest.CreatedBy = userId.(string) // get creator id from set header
 
 	// create return

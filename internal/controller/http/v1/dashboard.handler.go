@@ -1,11 +1,12 @@
 package v1
 
 import (
+	"context"
+
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
-	"github.com/pharma-crm-backend/pkg/helper"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
-	"gorm.io/gorm"
 )
 
 type DashboardHandler struct {
@@ -48,12 +49,15 @@ func (h *DashboardHandler) DashboardRoutes(r *gin.RouterGroup) {
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/count-stats [POST]
 func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
-	var param domain.DashboardQueryParam
-
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+	var params domain.DashboardQueryParam
 	// bind query parameters
-	err := c.ShouldBindQuery(&param)
-	if err != nil {
-		handleResponse(c, BadRequest, "Invalid query parameters")
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 
@@ -62,42 +66,28 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 	if c.Request.Body != nil {
 		_ = c.ShouldBindJSON(&body)
 	}
-	// get user id from header
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
-		return
-	}
-	// get employee info
-	var employee domain.Employee
-	err = h.db.First(&employee, "id = ?", userId).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		h.log.Error("ERROR on getting employee info: ", err)
-		handleResponse(c, InternalError, "Can't get employee info")
-		return
-	}
-	var bonus domain.DashboardCountStatsBonus
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+	params.StoreIds = body.StoreIds
+	params.CompanyIds = body.CompanyIds
 	// get bonus amount
-	bonus, err = h.service.GetEmployeeBonusAmount(&param, userId.(string))
+	bonus, err := h.service.GetEmployeeBonusAmount(ctx, &params, user.UserId)
 	if err != nil {
-		handleResponse(c, InternalError, "Can't get employee bonus amount")
+		handleServiceResponse(c, nil, err)
 		return
 	}
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
-		if employee.StoreId != "" {
-			param.StoreIds = []string{employee.StoreId}
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreIds = []string{user.StoreId}
 		}
-		param.CompanyId = employee.CompanyId
+		params.CompanyId = user.CompanyId
 	}
 	// get dashboard data
-	res, err := h.service.DashboardTotalCountStats(&param)
+	res, err := h.service.DashboardTotalCountStats(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, "Can't get dashboard data")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 	// get employee bonus amount
@@ -123,12 +113,16 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/chart [POST]
 func (h *DashboardHandler) ChartStats(c *gin.Context) {
-	var param domain.DashboardQueryParam
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
 
+	var params domain.DashboardQueryParam
 	// bind query parameters
-	err := c.ShouldBindQuery(&param)
-	if err != nil {
-		handleResponse(c, BadRequest, "Invalid query parameters")
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 	var body domain.DashboardBody
@@ -137,37 +131,24 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 		_ = c.ShouldBindJSON(&body)
 	}
 
-	// get user id from header
-	vendorID, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
-		return
-	}
-	// get employee info
-	var employee domain.Employee
-	err = h.db.First(&employee, "id = ?", vendorID).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		h.log.Error("ERROR on getting employee info: ", err)
-		handleResponse(c, InternalError, "Can't get employee info")
-		return
-	}
+	params.StoreIds = body.StoreIds
+	params.CompanyIds = body.CompanyIds
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
-		if employee.StoreId != "" {
-			param.StoreIds = []string{employee.StoreId}
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreIds = []string{user.StoreId}
 		}
-		param.CompanyId = employee.CompanyId
+		params.CompanyId = user.CompanyId
 	}
 
 	// get dashboard data
-	res, err := h.service.DashboardChartStats(&param)
+	res, err := h.service.DashboardChartStats(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, "Can't get dashboard data")
+		handleServiceResponse(c, nil, err)
 		return
 	}
 	handleResponse(c, OK, res)
@@ -187,46 +168,37 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/top-stores [POST]
 func (h *DashboardHandler) TopStores(c *gin.Context) {
-	var param domain.DashboardQueryParam
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+	var params domain.DashboardQueryParam
 	// bind query parameters
-	err := c.ShouldBindQuery(&param)
-	if err != nil {
-		handleResponse(c, BadRequest, "Invalid query parameters")
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 	// get limit offset with checking default
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
-	// get user id from header
-	vendorID, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
-		return
-	}
-	// get employee info
-	var employee domain.Employee
-	err = h.db.First(&employee, "id = ?", vendorID).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		h.log.Error("ERROR on getting employee info: ", err)
-		handleResponse(c, InternalError, "Can't get employee info")
-		return
-	}
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
-		if employee.StoreId != "" {
-			param.StoreIds = []string{employee.StoreId}
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreIds = []string{user.StoreId}
 		}
-		param.CompanyId = employee.CompanyId
+		params.CompanyId = user.CompanyId
 	}
 	// get dashboard data
-	res, err := h.service.DashboardTopStores(&param)
+	res, err := h.service.DashboardTopStores(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, "Can't get dashboard data")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
+
 	handleResponse(c, OK, res)
 }
 
@@ -247,10 +219,14 @@ func (h *DashboardHandler) TopStores(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/top-products [POST]
 func (h *DashboardHandler) TopProducts(c *gin.Context) {
-	var param domain.DashboardQueryParam
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+	var params domain.DashboardQueryParam
 	// bind query parameters
-	err := c.ShouldBindQuery(&param)
-	if err != nil {
+	if err := c.ShouldBindQuery(&params); err != nil {
 		handleResponse(c, BadRequest, "Invalid query parameters")
 		return
 	}
@@ -259,37 +235,26 @@ func (h *DashboardHandler) TopProducts(c *gin.Context) {
 	if c.Request.Body != nil {
 		_ = c.ShouldBindJSON(&body)
 	}
+
+	params.StoreIds = body.StoreIds
+	params.CompanyIds = body.CompanyIds
 	// get limit offset with checking default
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
-	// get user id from header
-	vendorID, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
-		return
-	}
-	// get employee info
-	var employee domain.Employee
-	err = h.db.First(&employee, "id = ?", vendorID).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		h.log.Error("ERROR on getting employee info: ", err)
-		handleResponse(c, InternalError, "Can't get employee info")
-		return
-	}
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
-		if employee.StoreId != "" {
-			param.StoreIds = []string{employee.StoreId}
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreIds = []string{user.StoreId}
 		}
-		param.CompanyId = employee.CompanyId
+		params.CompanyId = user.CompanyId
 	}
 	// get dashboard data
-	res, err := h.service.DashboardTopProducts(&param)
+	res, err := h.service.DashboardTopProducts(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, "Can't get dashboard data")
+		handleServiceResponse(c, nil, err)
 		return
 	}
 	handleResponse(c, OK, res)
@@ -312,11 +277,16 @@ func (h *DashboardHandler) TopProducts(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/bonus-products [POST]
 func (h *DashboardHandler) BonusProducts(c *gin.Context) {
-	var param domain.DashboardQueryParam
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.DashboardQueryParam
 	// bind query parameters
-	err := c.ShouldBindQuery(&param)
-	if err != nil {
-		handleResponse(c, BadRequest, "Invalid query parameters")
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 	var body domain.DashboardBody
@@ -325,38 +295,26 @@ func (h *DashboardHandler) BonusProducts(c *gin.Context) {
 		_ = c.ShouldBindJSON(&body)
 	}
 
+	params.StoreIds = body.StoreIds
+	params.CompanyIds = body.CompanyIds
+
 	// get limit offset with checking default
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
-	// get user id from header
-	vendorID, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
-		return
-	}
-	// get employee info
-	var employee domain.Employee
-	err = h.db.First(&employee, "id = ?", vendorID).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		h.log.Error("ERROR on getting employee info: ", err)
-		handleResponse(c, InternalError, "Can't get employee info")
-		return
-	}
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
-		if employee.StoreId != "" {
-			param.StoreIds = []string{employee.StoreId}
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreIds = []string{user.StoreId}
 		}
-		param.CompanyId = employee.CompanyId
+		params.CompanyId = user.CompanyId
 	}
 	// get dashboard data
-	res, err := h.service.DashboardBonusProducts(&param)
+	res, err := h.service.DashboardBonusProducts(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, "Can't get dashboard data")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 	handleResponse(c, OK, res)
@@ -379,11 +337,15 @@ func (h *DashboardHandler) BonusProducts(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/top-seller [POST]
 func (h *DashboardHandler) TopSeller(c *gin.Context) {
-	var param domain.DashboardQueryParam
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+	var params domain.DashboardQueryParam
 	// bind query parameters
-	err := c.ShouldBindQuery(&param)
-	if err != nil {
-		handleResponse(c, BadRequest, "Invalid query parameters")
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 	var body domain.DashboardBody
@@ -391,35 +353,23 @@ func (h *DashboardHandler) TopSeller(c *gin.Context) {
 	if c.Request.Body != nil {
 		_ = c.ShouldBindJSON(&body)
 	}
+	params.StoreIds = body.StoreIds
+	params.CompanyIds = body.CompanyIds
 	// get limit offset with checking default
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
-	// get user id from header
-	vendorID, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
-		return
-	}
-	// get employee info
-	var employee domain.Employee
-	err = h.db.First(&employee, "id = ?", vendorID).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		h.log.Error("ERROR on getting employee info: ", err)
-		handleResponse(c, InternalError, "Can't get employee info")
-		return
-	}
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
-		if employee.StoreId != "" {
-			param.StoreIds = []string{employee.StoreId}
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreIds = []string{user.StoreId}
 		}
-		param.CompanyId = employee.CompanyId
+		params.CompanyId = user.CompanyId
 	}
 	// get dashboard data
-	res, err := h.service.DashboardTopSeller(&param)
+	res, err := h.service.DashboardTopSeller(ctx, &params)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return
@@ -443,18 +393,16 @@ func (h *DashboardHandler) TopSeller(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/payments [POST]
 func (h *DashboardHandler) Payments(c *gin.Context) {
-	var param domain.DashboardQueryParam
-	// company_id from header
-	companyId, ok := c.Get("company_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "Company ID not found")
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
-	param.CompanyId = companyId.(string)
+	var params domain.DashboardQueryParam
 	// bind query parameters
-	err := c.ShouldBindQuery(&param)
+	err := c.ShouldBindQuery(&params)
 	if err != nil {
-		handleResponse(c, BadRequest, "Invalid query parameters")
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 	var body domain.DashboardBody
@@ -462,10 +410,22 @@ func (h *DashboardHandler) Payments(c *gin.Context) {
 	if c.Request.Body != nil {
 		_ = c.ShouldBindJSON(&body)
 	}
+	params.StoreIds = body.StoreIds
+	params.CompanyIds = body.CompanyIds
 
-	res, err := h.service.DashboardPayments(&param)
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreIds = []string{user.StoreId}
+		}
+		params.CompanyId = user.CompanyId
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, err := h.service.DashboardPayments(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, "Failed to get payment type stats")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 	handleResponse(c, OK, res)
@@ -487,28 +447,32 @@ func (h *DashboardHandler) Payments(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/transaction [POST]
 func (h *DashboardHandler) Transaction(c *gin.Context) {
-	var param domain.DashboardQueryParam
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+	var params domain.DashboardQueryParam
 	// bind query parameters
-	err := c.ShouldBindQuery(&param)
-	if err != nil {
-		handleResponse(c, BadRequest, "Invalid query parameters")
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
-	// company_id from header
-	companyId, ok := c.Get("company_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "Company ID not found")
-		return
-	}
-	param.CompanyId = companyId.(string)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	params.CompanyId = user.CompanyId
 	var body domain.DashboardBody
 	// bind store ids
 	if c.Request.Body != nil {
 		_ = c.ShouldBindJSON(&body)
 	}
-	res, err := h.service.DashboardTransaction(&param)
+	params.StoreIds = body.StoreIds
+	params.CompanyIds = body.CompanyIds
+	res, err := h.service.DashboardTransaction(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, "Failed to get transaction")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 	handleResponse(c, OK, res)
@@ -529,14 +493,39 @@ func (h *DashboardHandler) Transaction(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/old-import [POST]
 func (h *DashboardHandler) OldImport(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+	var params domain.DashboardQueryParam
+	// bind query parameters
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	// check if employee is not admin or superadmin
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
+	}
+
+	// get limit and offset
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	res, totalCount, err := h.service.DashboardOldImports(c, limit, offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, totalCount, err := h.service.DashboardOldImports(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, "Failed to get import")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 	result := utils.ListResponse(res, totalCount, limit, offset)
