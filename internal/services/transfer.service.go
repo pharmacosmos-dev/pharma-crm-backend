@@ -105,7 +105,7 @@ func (s *Services) GetTransferById(transferID string) (*domain.Transfer, error) 
 }
 
 // get inventory list
-func (s *Services) TransferList(param *domain.ReturnParam) ([]domain.Transfer, int64, error) {
+func (s *Services) TransferList(ctx context.Context, params *domain.ReturnParam) ([]domain.Transfer, int64, error) {
 	var res []domain.Transfer
 	var totalCount int64
 	query := s.db.Model(&domain.Transfer{}).

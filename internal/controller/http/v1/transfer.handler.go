@@ -143,49 +143,38 @@ func (h *TransferHandler) Get(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /transfer/list [GET]
 func (h *TransferHandler) List(c *gin.Context) {
-	var param domain.ReturnParam
-	// get user_id from the context
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User not found")
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
+	var params domain.ReturnParam
 	// bind query param
-	err := c.ShouldBindQuery(&param)
-	if err != nil {
+	if err := c.ShouldBindQuery(&params); err != nil {
 		handleResponse(c, BadRequest, "Invalid query param")
 		return
 	}
-	// get user info
-	var employee domain.Employee
-	err = h.db.First(&employee, "id = ?", userId).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		h.log.Warn("ERROR on getting user: %v", err)
-		handleResponse(c, InternalError, "Failed to get user info")
-		return
-	}
+
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
-		if employee.StoreId != "" {
-			param.StoreId = employee.StoreId
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
 		}
-		param.CompanyId = employee.CompanyId
+		params.CompanyId = user.CompanyId
 	}
 
 	// get default limit and offset
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 	// get return list
-	res, totalCount, err := h.service.TransferList(&param)
+	res, totalCount, err := h.service.TransferList(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, "Failed to get return list")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
-	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
 
 	handleResponse(c, OK, data)
 }
@@ -260,43 +249,32 @@ func (h *TransferHandler) TransferStatus(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /transfer/export-excel [get]
 func (h *TransferHandler) ExportTransferExcel(c *gin.Context) {
-	var param domain.ReturnParam
-	// get user_id from the context
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User not found")
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
+	var params domain.ReturnParam
 	// bind query param
-	if err := c.ShouldBindQuery(&param); err != nil {
+	if err := c.ShouldBindQuery(&params); err != nil {
 		handleResponse(c, BadRequest, "Invalid query param")
 		return
 	}
-	// get user info
-	var employee domain.Employee
-	err := h.db.First(&employee, "id = ?", userId).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		h.log.Warn("ERROR on getting user: %v", err)
-		handleResponse(c, InternalError, "Failed to get user info")
-		return
-	}
+
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
-		if employee.StoreId != "" {
-			param.StoreId = employee.StoreId
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
 		}
-		param.CompanyId = employee.CompanyId
+		params.CompanyId = user.CompanyId
 	}
 
 	// get default limit and offset
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
-
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 	// get return list
-	res, _, err := h.service.TransferList(&param)
+	res, _, err := h.service.TransferList(ctx, &params)
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to get return list")
 		return
