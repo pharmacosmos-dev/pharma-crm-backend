@@ -78,6 +78,21 @@ func NewError(code int, message string) *Error {
 		Code:    code,
 		Message: message,
 	}
-
 	return err
+}
+
+type NotAdditionError struct {
+	Code int
+	Data map[string]any
+}
+
+func (e *NotAdditionError) Error() string {
+	return "not.addition.error"
+}
+
+func NewNotAdditionError(code int, data map[string]any) *NotAdditionError {
+	return &NotAdditionError{
+		Code: code,
+		Data: data,
+	}
 }

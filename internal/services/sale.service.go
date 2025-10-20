@@ -237,6 +237,11 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 		return nil, err
 	}
 
+	err = s.validateSaleProductQuantity(ctx, sale)
+	if err != nil {
+		return nil, err
+	}
+
 	if req.ServiceType != nil && *req.ServiceType == constants.ServiceTypeDmed {
 		var cartItems []*domain.CartItemForDMED
 		cartItems, err = s.GetCartItems(ctx, sale.Id)
@@ -503,6 +508,48 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 	return res, nil
 }
 
+func (s *Services) validateSaleProductQuantity(ctx context.Context, sale *domain.Sale) error {
+	var cartItemsWithProducts []domain.CartItemWithProduct
+	err := s.db.WithContext(ctx).
+		Table("cart_items ci").
+		Select(
+			"ci.id",
+			"ci.sale_id",
+			"ci.store_product_id",
+			"ci.employee_id",
+			"ci.unit_quantity",
+			"sp.unit_quantity as sp_unit_quantity",
+			"p.id AS product_id",
+			"p.unit_per_pack",
+			"p.name AS product_name",
+			"pb.bonus_amount",
+		).
+		Joins("JOIN store_products sp ON sp.id = ci.store_product_id").
+		Joins("JOIN products p ON sp.product_id = p.id").
+		Joins("LEFT JOIN product_bonuses pb ON p.id = pb.product_id").
+		Where("ci.sale_id = ?", sale.Id).
+		Find(&cartItemsWithProducts).Error
+
+	if err != nil {
+		s.log.Errorf("could not get cart_items with products: %v", err)
+		return domain.InternalServerError
+	}
+	insufficientProducts := map[string]any{}
+	for _, item := range cartItemsWithProducts {
+		if item.UnitQuantity > item.StoreProductUnitQuantity {
+			insufficientProducts[item.ProductId] = map[string]any{
+				"required_quantity":  item.UnitQuantity,
+				"available_quantity": item.StoreProductUnitQuantity,
+				"product_id":         item.ProductId,
+				"name":               item.ProductName,
+			}
+			return domain.NewNotAdditionError(http.StatusConflict, insufficientProducts)
+		}
+	}
+
+	return nil
+}
+
 func (s *Services) ApplySaleInventoryUpdate(ctx context.Context, tx *gorm.DB, sale *domain.Sale) error {
 	var cartItemsWithProducts []domain.CartItemWithProduct
 	err := tx.WithContext(ctx).
@@ -541,8 +588,7 @@ func (s *Services) ApplySaleInventoryUpdate(ctx context.Context, tx *gorm.DB, sa
 	SET unit_quantity = sp.unit_quantity - ci.unit_quantity
 	FROM cart_items ci
 	WHERE sp.id = ci.store_product_id 
-	AND ci.sale_id = ?
-	AND sp.unit_quantity >= ci.unit_quantity
+	AND ci.sale_id = ?;
 	`
 
 	qb := tx.WithContext(ctx).Exec(query, sale.Id)
@@ -550,10 +596,6 @@ func (s *Services) ApplySaleInventoryUpdate(ctx context.Context, tx *gorm.DB, sa
 	if qb.Error != nil {
 		s.log.Errorf("could not update store_product unit_quantity: %v", qb.Error)
 		return domain.InternalServerError
-	}
-
-	if qb.RowsAffected != int64(len(cartItemsWithProducts)) {
-		return domain.NotEnoughProductError
 	}
 
 	go s.AddSaleBonuses(sale, cartItemsWithProducts)

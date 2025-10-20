@@ -167,6 +167,25 @@ type CartItemForDMED struct {
 }
 
 type CartItemWithProduct struct {
-	CartItem
-	StoreProductUnitQuantity int `gorm:"column:sp_unit_quantity"`
+	Id                       string            `gorm:"column:id;primaryKey" json:"id"`
+	StoreProductId           string            `gorm:"column:store_product_id" json:"store_product_id"`
+	ProductId                string            `gorm:"column:product_id" json:"product_id"`
+	EmployeeId               string            `gorm:"column:employee_id" json:"employee_id"`
+	SaleId                   string            `gorm:"column:sale_id" json:"sale_id"`
+	Quantity                 int               `gorm:"column:quantity" json:"quantity"`
+	Markings                 utils.StringArray `gorm:"column:markings;type:text[]" json:"markings"`
+	UnitQuantity             int               `gorm:"column:unit_quantity" json:"unit_quantity"`
+	UnitPrice                float64           `gorm:"column:unit_price" json:"unit_price"`
+	DiscountPrice            float64           `gorm:"column:discount_price" json:"discount_price"`
+	DiscountType             string            `gorm:"column:discount_type" json:"discount_type" example:"percent|cash"`
+	DiscountValue            float64           `gorm:"column:discount_value" json:"discount_value"`
+	DiscountAmount           float64           `gorm:"column:discount_amount" json:"discount_amount"`
+	TotalPrice               float64           `gorm:"column:total_price" json:"total_price"`
+	BonusAmount              float64           `gorm:"column:bonus_amount" json:"bonus_amount"`
+	UnitPerPack              int               `gorm:"column:unit_per_pack" json:"unit_per_pack"`
+	CreatedAt                *time.Time        `gorm:"column:created_at" json:"created_at"`
+	UpdatedAt                *time.Time        `gorm:"column:updated_at" json:"updated_at"`
+	IsMarking                bool              `gorm:"column:is_marking" json:"is_marking"`
+	ProductName              string            `gorm:"column:product_name"`
+	StoreProductUnitQuantity int               `gorm:"column:sp_unit_quantity"`
 }
