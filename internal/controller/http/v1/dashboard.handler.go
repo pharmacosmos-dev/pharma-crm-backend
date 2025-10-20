@@ -66,9 +66,11 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 	if c.Request.Body != nil {
 		_ = c.ShouldBindJSON(&body)
 	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
-
+	params.StoreIds = body.StoreIds
+	params.CompanyIds = body.CompanyIds
 	// get bonus amount
 	bonus, err := h.service.GetEmployeeBonusAmount(ctx, &params, user.UserId)
 	if err != nil {
@@ -128,6 +130,9 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 	if c.Request.Body != nil {
 		_ = c.ShouldBindJSON(&body)
 	}
+
+	params.StoreIds = body.StoreIds
+	params.CompanyIds = body.CompanyIds
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
@@ -230,6 +235,9 @@ func (h *DashboardHandler) TopProducts(c *gin.Context) {
 	if c.Request.Body != nil {
 		_ = c.ShouldBindJSON(&body)
 	}
+
+	params.StoreIds = body.StoreIds
+	params.CompanyIds = body.CompanyIds
 	// get limit offset with checking default
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
@@ -287,6 +295,9 @@ func (h *DashboardHandler) BonusProducts(c *gin.Context) {
 		_ = c.ShouldBindJSON(&body)
 	}
 
+	params.StoreIds = body.StoreIds
+	params.CompanyIds = body.CompanyIds
+
 	// get limit offset with checking default
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
@@ -342,6 +353,8 @@ func (h *DashboardHandler) TopSeller(c *gin.Context) {
 	if c.Request.Body != nil {
 		_ = c.ShouldBindJSON(&body)
 	}
+	params.StoreIds = body.StoreIds
+	params.CompanyIds = body.CompanyIds
 	// get limit offset with checking default
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
@@ -397,6 +410,8 @@ func (h *DashboardHandler) Payments(c *gin.Context) {
 	if c.Request.Body != nil {
 		_ = c.ShouldBindJSON(&body)
 	}
+	params.StoreIds = body.StoreIds
+	params.CompanyIds = body.CompanyIds
 
 	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
@@ -437,9 +452,9 @@ func (h *DashboardHandler) Transaction(c *gin.Context) {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
-	var param domain.DashboardQueryParam
+	var params domain.DashboardQueryParam
 	// bind query parameters
-	if err := c.ShouldBindQuery(&param); err != nil {
+	if err := c.ShouldBindQuery(&params); err != nil {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
@@ -447,13 +462,15 @@ func (h *DashboardHandler) Transaction(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	param.CompanyId = user.CompanyId
+	params.CompanyId = user.CompanyId
 	var body domain.DashboardBody
 	// bind store ids
 	if c.Request.Body != nil {
 		_ = c.ShouldBindJSON(&body)
 	}
-	res, err := h.service.DashboardTransaction(ctx, &param)
+	params.StoreIds = body.StoreIds
+	params.CompanyIds = body.CompanyIds
+	res, err := h.service.DashboardTransaction(ctx, &params)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)
 		return
