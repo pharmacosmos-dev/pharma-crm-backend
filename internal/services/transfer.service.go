@@ -275,7 +275,7 @@ func (s *Services) TransferList(ctx context.Context, params *domain.ReturnParam)
 		Joins("LEFT JOIN stores fs ON t.from_store_id = fs.id").
 		Joins("LEFT JOIN stores ts ON t.to_store_id = ts.id").
 		Joins("LEFT JOIN employees e ON t.created_by = e.id").
-		Joins("LEFT JOIN employees e2 ON t.accepted_by = e2.id").
+		Joins("LEFT JOIN employees e2 ON t.updated_by = e2.id").
 		Joins("LEFT JOIN employees e3 ON t.accepted_by = e3.id").
 		Where("t.entry_type = ?", 1)
 
