@@ -752,13 +752,14 @@ func (s *Services) ConfirmReturn(ctx context.Context, returnId, storeId string, 
 	}
 
 	for i := range returnData.Товары {
-		err = tx.WithContext(ctx).Exec(`
+		err = tx.WithContext(ctx).
+			Exec(`
 		UPDATE store_products
 		SET
 			unit_quantity = unit_quantity + ?
 		WHERE id = ?;`,
-			(returnData.Товары[i].ScannedCount-returnData.Товары[i].AcceptedCount)*float64(returnData.Товары[i].UnitPerPack),
-			returnData.Товары[i].StoreProductId).Error
+				(returnData.Товары[i].ScannedCount-returnData.Товары[i].AcceptedCount)*float64(returnData.Товары[i].UnitPerPack),
+				returnData.Товары[i].StoreProductId).Error
 		if err != nil {
 			_ = tx.Rollback()
 			s.log.Errorf("could not update store_product on return confirm: %v", err)
@@ -780,11 +781,11 @@ func (s *Services) ConfirmReturn(ctx context.Context, returnId, storeId string, 
 	returnData.Apteka.StoreCode = store.StoreCode
 
 	// complete transaction
-	err = tx.Commit().Error
-	if err != nil {
+	if err = tx.Commit().Error; err != nil {
 		s.log.Errorf("could not commit transaction: %v", err)
 		return domain.InternalServerError
 	}
+
 	if s.cfg.OnecApiUrl != "test" {
 		// send return to 1C
 		err = s.DoRequestOnec(context.Background(), returnData, constants.OnecPathVozvrat)

@@ -267,7 +267,7 @@ func (s *Services) TransferList(ctx context.Context, params *domain.ReturnParam)
 			"fs.name AS from_store_name",
 			"ts.name AS to_store_name",
 			"e.full_name AS created_by_name",
-			"e2.full_name AS updated_by_by_name",
+			"e2.full_name AS updated_by_name",
 			"e3.full_name AS accepted_by_name",
 		).
 		Table("transfers t").
