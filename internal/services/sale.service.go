@@ -543,8 +543,11 @@ func (s *Services) validateSaleProductQuantity(ctx context.Context, sale *domain
 				"product_id":         item.ProductId,
 				"name":               item.ProductName,
 			}
-			return domain.NewNotAdditionError(http.StatusConflict, insufficientProducts)
 		}
+	}
+
+	if len(insufficientProducts) > 0 {
+		return domain.NewNotAdditionError(http.StatusConflict, insufficientProducts)
 	}
 
 	return nil

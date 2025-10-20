@@ -675,6 +675,11 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 
 	res, err := h.service.FinalizeSale(ctx, &body)
 	if err != nil {
+		if notAddErr, ok := err.(*domain.NotAdditionError); ok {
+			handleResponse(c, CONFLICT, notAddErr.Data)
+			return
+		}
+
 		handleServiceResponse(c, nil, err)
 		return
 	}
