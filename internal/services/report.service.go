@@ -164,7 +164,7 @@ func (s *Services) ProductReport(ctx context.Context, param *domain.ReportQueryP
 	var (
 		res        []domain.ProductReport
 		totalCount int64
-		filter     = " WHERE sl.status = 'completed' "
+		filter     = " WHERE sl.stage IN(9, 11) "
 		args       = []any{}
 		order      = utils.BuildProductReport(param.Order)
 		pagination = fmt.Sprintf(" LIMIT %d OFFSET %d ", param.Limit, param.Offset)
@@ -296,7 +296,7 @@ func (s *Services) ProductStatusReport(ctx context.Context, param *domain.Report
 			"INNER JOIN store_products sp ON ci.store_product_id = sp.id",
 			"INNER JOIN products p ON sp.product_id = p.id",
 		}
-		filter = " WHERE sl.status = 'completed' "
+		filter = " WHERE sl.stage IN(9, 11) "
 	)
 
 	// Conditionally add joins
@@ -420,7 +420,7 @@ func (s *Services) LflReport(param *domain.ReportQueryParam) (domain.LflReport, 
 		INNER JOIN category_products cp ON p.id = cp.product_id
 		INNER JOIN categories c ON cp.category_id = c.id
 		WHERE
-			sl.status = 'completed'
+			sl.stage IN(9, 11)
 			AND c.name IN ('Лекарственные средства', 'Парафармасевтика')
 			AND c.category_id IS NULL
 			AND TO_CHAR(sl.completed_at, 'YYYY-MM') = ?
@@ -485,7 +485,7 @@ func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.S
 	var (
 		res        []domain.StoreAmount
 		totalCount int64
-		filter     = " WHERE sa.status = 'completed' "
+		filter     = " WHERE sa.stage IN(9, 11) "
 		args       []any
 		group      = " GROUP BY s.id, s.name, sale_date"
 		order      = utils.BuildStoreReportOrderClause(param.Order)
@@ -602,7 +602,7 @@ func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.S
 func (s *Services) ReportByStoreStats(param *domain.ReportQueryParam) (domain.StoreReportStats, error) {
 	var (
 		res    domain.StoreReportStats
-		filter = " WHERE sa.status = 'completed' "
+		filter = " WHERE sa.stage IN(9, 11) "
 		args   []any
 	)
 
@@ -849,7 +849,7 @@ func (s *Services) ReportTopSeller(param *domain.ReportQueryParam) ([]domain.Top
 		FROM sales s
 		INNER JOIN employees e ON s.employee_id = e.id
 		INNER JOIN stores st ON s.store_id = st.id
-		WHERE s.status = 'completed'
+		WHERE s.stage IN(9, 11)
 		AND s.sale_type = 'SALE'
 		AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?
 		GROUP BY e.id, e.full_name, st.name, st.company_id
@@ -860,7 +860,7 @@ func (s *Services) ReportTopSeller(param *domain.ReportQueryParam) ([]domain.Top
 			SUM(s.total_amount) AS total_amount
 		FROM sales s
 		INNER JOIN employees e ON s.employee_id = e.id
-		WHERE s.status = 'completed'
+		WHERE s.stage IN(9, 11)
 		AND s.sale_type = 'SALE'
 		AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?
 		GROUP BY e.id
@@ -966,7 +966,7 @@ func (s *Services) ReportTopStores(param *domain.ReportQueryParam) ([]domain.Top
 				COUNT(*) AS count,
 				SUM(sales.total_amount) AS total_amount
 			FROM sales
-			WHERE sales.status = 'completed'
+			WHERE sales.stage IN(9, 11)
 			AND (sales.completed_at + interval '5 hours') BETWEEN ? AND ?
 			GROUP BY sales.store_id
 		) AS curr
@@ -975,7 +975,7 @@ func (s *Services) ReportTopStores(param *domain.ReportQueryParam) ([]domain.Top
 				sales.store_id,
 				SUM(sales.total_amount) AS total_amount
 			FROM sales
-			WHERE sales.status = 'completed'
+			WHERE sales.stage IN(9, 11)
 			AND (sales.completed_at + interval '5 hours') BETWEEN ? AND ?
 			GROUP BY sales.store_id
 		) AS prev ON curr.store_id = prev.store_id
@@ -1303,7 +1303,7 @@ func (s *Services) ReportStoreSummary(param *domain.ReportQueryParam) ([]domain.
 					ELSE 0
 				END) AS discount_amount
 		FROM sales
-		WHERE status = 'completed'
+		WHERE stage IN(9, 11)
 		GROUP BY store_id
 	),
 	import_cte AS (
@@ -1420,7 +1420,7 @@ func (s *Services) ReportStoreSummaryStats(param *domain.ReportQueryParam) (doma
 					ELSE 0
 				END) AS discount_amount
 		FROM sales
-		WHERE status = 'completed'
+		WHERE stage IN(9, 11)
 		GROUP BY store_id
 	),
 	import_cte AS (
@@ -1568,7 +1568,7 @@ func (s *Services) StoreProductsGivenDay(param *domain.ReportQueryParam) ([]doma
 	    JOIN store_products sp ON sp.id = ci.store_product_id
 	    JOIN products p ON p.id = sp.product_id
 	    WHERE s.store_id = (SELECT target_store FROM vars)
-	      AND s.status = 'completed'
+	      AND s.stage IN(9, 11)
 	      AND s.sale_type = 'SALE'
 	      AND s.completed_at > (SELECT target_date FROM vars)
 	    GROUP BY sp.product_id, p.unit_per_pack
@@ -1585,7 +1585,7 @@ func (s *Services) StoreProductsGivenDay(param *domain.ReportQueryParam) ([]doma
 	    JOIN store_products sp ON sp.id = ci.store_product_id
 	    JOIN products p ON p.id = sp.product_id
 	    WHERE s.store_id = (SELECT target_store FROM vars)
-	      AND s.status = 'completed'
+	      AND s.stage IN(9, 11)
 	      AND s.sale_type = 'RETURN'
 	      AND s.completed_at > (SELECT target_date FROM vars)
 	    GROUP BY sp.product_id, p.unit_per_pack
@@ -1743,7 +1743,7 @@ func (s *Services) DiscountCardReport(param *domain.ReportQueryParam) ([]domain.
         LEFT JOIN discount_cards dc on c.id = dc.customer_id
 	`
 
-	filter := " WHERE sa.status = 'completed' AND sa.sale_type = 'SALE' "
+	filter := " WHERE sa.stage IN(9, 11) AND sa.sale_type = 'SALE' "
 	group := " GROUP BY s.id, s.name, c.id, c.full_name "
 	order := utils.BuildDiscountCardOrderClause(param.Order)
 

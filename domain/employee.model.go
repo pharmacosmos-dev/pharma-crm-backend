@@ -41,6 +41,7 @@ type Employee struct {
 	CreatedAt  *time.Time       `gorm:"created_at" json:"created_at"`
 	UpdatedAt  *time.Time       `gorm:"updated_at" json:"updated_at"`
 	Store      *Store           `gorm:"foreignKey:StoreId" json:"store"`
+	Company    *Company         `gorm:"foreignKey:CompanyId" json:"company"`
 	Permission []Permission     `gorm:"-" json:"permissions"`
 	Roles      []Role           `gorm:"many2many:employee_roles;" json:"roles"`
 	Cashbox    *EmployeeCashbox `gorm:"-" json:"cashbox"`
