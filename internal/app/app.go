@@ -66,6 +66,10 @@ func Run(cfg *config.Config) {
 		log.Println("Starting send expense to 1C...")
 		service.SendReportsSequentially()
 	})
+	c.AddFunc("0 * * * *", func ()  {
+		log.Println("Staring checking customers' loyalty leveling up...")
+		
+	})
 
 	c.Start()
 

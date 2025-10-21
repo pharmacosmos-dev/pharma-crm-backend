@@ -769,6 +769,15 @@ definitions:
     required:
     - phone
     type: object
+  domain.LoyaltyCardCreateRequest:
+    properties:
+      customer_id:
+        type: string
+      loyalty_card_barcode:
+        type: string
+      virtual_loyalty_card_needed:
+        type: boolean
+    type: object
   domain.MarkingData:
     properties:
       dmed_id:
@@ -7508,6 +7517,36 @@ paths:
       summary: Login
       tags:
       - auth
+  /loyalty_card:
+    post:
+      consumes:
+      - application/json
+      description: create Loyalty Card
+      parameters:
+      - description: Loyalty Card info
+        in: body
+        name: loyalty_card
+        required: true
+        schema:
+          $ref: '#/definitions/domain.LoyaltyCardCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      summary: Create Loyalty Card
+      tags:
+      - loyalty_card
   /noor/category/list:
     get:
       description: Get a category list for filter

@@ -5,29 +5,35 @@ import (
 )
 
 type Customer struct {
-	Id              string     `gorm:"id" json:"id"`
-	StoreId         string     `gorm:"store_id" json:"store_id"`
-	FirstName       string     `gorm:"first_name" json:"first_name"`
-	LastName        string     `gorm:"last_name" json:"last_name"`
-	FullName        string     `gorm:"full_name" json:"full_name"`
-	PublicId        int        `gorm:"public_id" json:"public_id"`
-	Phone           string     `gorm:"phone" json:"phone"`
-	Birthday        string     `gorm:"birthday" json:"birthday" example:"2006-01-02"`
-	Gender          string     `gorm:"gender" json:"gender" example:"male/female"`
-	Balance         float64    `gorm:"balance" json:"balance"`
-	TagId           string     `gorm:"tag_id" json:"tag_id"`
-	DiscountCard    string     `gorm:"discount_card" json:"discount_card"`
-	DiscountPercent int        `gorm:"discount_percent" json:"discount_percent"`
-	CreatedBy       string     `gorm:"-" json:"created_by"`
-	UpdatedBy       string     `gorm:"-" json:"updated_by"`
-	DeletedBy       string     `gorm:"-" json:"deleted_by"`
-	CreatedAt       *time.Time `gorm:"created_at" json:"created_at"`
-	UpdatedAt       *time.Time `gorm:"updated_at" json:"updated_at"`
-	SaleDate        *time.Time `gorm:"sale_date" json:"sale_date"`
-	SaleAmount      float64    `gorm:"sale_amount" json:"sale_amount"`
-	DebtAmount      float64    `gorm:"debt_amount" json:"debt_amount"`
-	Tag             *Tag       `gorm:"-" json:"tag"`
-	Store           *Store     `gorm:"-" json:"store"`
+	Id                   string     `gorm:"id" json:"id"`
+	StoreId              string     `gorm:"store_id" json:"store_id"`
+	FirstName            string     `gorm:"first_name" json:"first_name"`
+	LastName             string     `gorm:"last_name" json:"last_name"`
+	FullName             string     `gorm:"full_name" json:"full_name"`
+	PublicId             int        `gorm:"public_id" json:"public_id"`
+	Phone                string     `gorm:"phone" json:"phone"`
+	Birthday             string     `gorm:"birthday" json:"birthday" example:"2006-01-02"`
+	Gender               string     `gorm:"gender" json:"gender" example:"male/female"`
+	Balance              float64    `gorm:"balance" json:"balance"`
+	TagId                string     `gorm:"tag_id" json:"tag_id"`
+	DiscountCard         string     `gorm:"discount_card" json:"discount_card"`
+	DiscountPercent      int        `gorm:"discount_percent" json:"discount_percent"`
+	CreatedBy            string     `gorm:"-" json:"created_by"`
+	UpdatedBy            string     `gorm:"-" json:"updated_by"`
+	DeletedBy            string     `gorm:"-" json:"deleted_by"`
+	CreatedAt            *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt            *time.Time `gorm:"updated_at" json:"updated_at"`
+	SaleDate             *time.Time `gorm:"sale_date" json:"sale_date"`
+	SaleAmount           float64    `gorm:"sale_amount" json:"sale_amount"`
+	DebtAmount           float64    `gorm:"debt_amount" json:"debt_amount"`
+	Tag                  *Tag       `gorm:"-" json:"tag"`
+	Store                *Store     `gorm:"-" json:"store"`
+	LoyaltyCardBarcode   string     `gorm:"loyalty_card_barcode" json:"loyalty_card_barcode"`
+	LoyaltyCardPercent   int        `gorm:"loyalty_card_percent" json:"loyalty_card_percent"`
+	LoyaltyCardLevelId   string     `gorm:"loyalty_card_level_id" json:"loyalty_card_level_id"`
+	LoyaltyCardType      string     `gorm:"loyalty_card_type" json:"loyalty_card_type"`
+	LoyaltyCardCreatedBy string     `gorm:"loyalty_card_created_by" json:"loyalty_card_created_by"`
+	TelegramChatId       int64      `gorm:"telegram_chat_id" json:"telegram_chat_id"`
 }
 
 type DiscountCardWithCustomer struct {

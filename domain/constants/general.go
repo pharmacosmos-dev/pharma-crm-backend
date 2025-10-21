@@ -153,15 +153,16 @@ const (
 
 	// payment types
 
-	PaymentTypeCash   = "cash"
-	PaymentTypeCard   = "card"
-	PaymentTypeApp    = "app"
-	PaymentTypeClick  = "click"
-	PaymentTypePayme  = "payme"
-	PaymentTypeUzum   = "uzum"
-	PaymentTypeAlif   = "alif"
-	PaymentTypeHumo   = "humo"
-	PaymentTypeUzcard = "uzcard"
+	PaymentTypeCash        = "cash"
+	PaymentTypeCard        = "card"
+	PaymentTypeApp         = "app"
+	PaymentTypeLoyaltyCard = "loyalty_cd"
+	PaymentTypeClick       = "click"
+	PaymentTypePayme       = "payme"
+	PaymentTypeUzum        = "uzum"
+	PaymentTypeAlif        = "alif"
+	PaymentTypeHumo        = "humo"
+	PaymentTypeUzcard      = "uzcard"
 
 	// Universal status types
 

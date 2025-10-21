@@ -97,3 +97,40 @@ func (s *Services) CreateLoyaltyCard(req *domain.LoyaltyCardCreateRequest) (*dom
 
 	return &res, nil
 }
+
+func (s *Services) LoyaltyCardLevelingUp() {
+
+	// update loyalty leveling up for customers
+	err := s.db.Exec(`
+UPDATE customers c
+SET
+    loyalty_card_level_id = sub.level_id,
+    loyalty_card_percent = sub.percent
+FROM (
+         SELECT
+             c.id AS customer_id,
+             l.id AS level_id,
+             l.cashback_percent AS percent
+         FROM customers c
+                  JOIN LATERAL (
+             SELECT l.id, l.cashback_percent
+             FROM loyalty_card_levels l
+             WHERE l.min_spent <= (
+                 SELECT COALESCE(SUM(s.total_amount), 0)
+                 FROM sales s
+                 WHERE s.customer_id = c.id
+             )
+             ORDER BY l.min_spent DESC
+             LIMIT 1
+             ) l ON TRUE
+     ) AS sub
+WHERE
+    c.id = sub.customer_id
+  AND (c.loyalty_card_barcode IS NOT NULL AND c.loyalty_card_barcode != '')`)
+	if err != nil {
+		s.log.Error("error on updating loyalty leveling up for customers: ", err)
+	}
+
+	// add leveling up logs to leveling up history table
+	
+}

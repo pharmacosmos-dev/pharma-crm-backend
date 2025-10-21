@@ -110,6 +110,7 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		h.NewExpenseHandler(v1)
 		h.NewRepricingHandler(v1)
 		h.NewRejectedProductsHandler(v1)
+		h.NewLoyaltyCardHandler(v1)
 		// handler for external apis
 		h.NewNoorHandler(external)
 	}
