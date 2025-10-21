@@ -545,7 +545,7 @@ func (s *Services) UpdateCartItemQuantity(ctx context.Context, req *domain.CartI
 	// calculate cart_item total_price
 	totalPrice := (((storeProduct.RetailPrice * 100) / float64(storeProduct.UnitPerPack)) * float64(updateQuantity)) / 100
 
-	_, err = s.IncrementCartItemQuantityBySpId(ctx, s.db, req.StoreProductId, updateQuantity, totalPrice)
+	_, err = s.IncrementCartItemQuantity(ctx, s.db, req.Id, updateQuantity, totalPrice)
 	if err != nil {
 		return nil, err
 	}
