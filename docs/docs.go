@@ -21759,20 +21759,32 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "STORE ID",
+                        "description": "store_id",
                         "name": "store_id",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "SEARCH KEY",
+                        "description": "search",
                         "name": "search",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "STATUS (0-\u003enew|1-\u003esent|2-\u003ecompleted)",
+                        "description": "status (0-\u003enew|1-\u003esent|2-\u003ecompleted)",
                         "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "start_date",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "end_date",
+                        "name": "end_date",
                         "in": "query"
                     }
                 ],
@@ -21868,32 +21880,44 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "LIMIT",
+                        "description": "limit",
                         "name": "limit",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "description": "OFFSET",
+                        "description": "offset",
                         "name": "offset",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "STORE ID",
+                        "description": "store_id",
                         "name": "store_id",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "SEARCH KEY",
+                        "description": "search",
                         "name": "search",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "STATUS (0-\u003enew|1-\u003esent|2-\u003ecompleted)",
+                        "description": "status (0-\u003enew|1-\u003esent|2-\u003ecompleted)",
                         "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "start_date",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "end_date",
+                        "name": "end_date",
                         "in": "query"
                     }
                 ],
@@ -21940,20 +21964,32 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Store ID",
+                        "description": "store_id",
                         "name": "store_id",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Search Keyword",
+                        "description": "search",
                         "name": "search",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Transfer Status (0-\u003enew|1-\u003esent|2-\u003ecompleted)",
+                        "description": "status (0-\u003enew|1-\u003esent|2-\u003ecompleted)",
                         "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "start_date",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "end_date",
+                        "name": "end_date",
                         "in": "query"
                     }
                 ],

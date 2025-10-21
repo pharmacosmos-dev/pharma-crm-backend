@@ -2,7 +2,6 @@ package v1
 
 import (
 	"errors"
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -10,30 +9,32 @@ import (
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
+	"github.com/pharma-crm-backend/pkg/etc"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/spf13/cast"
 	"gorm.io/gorm"
 )
 
-type Product1cHandler struct {
+type ProductOnecHandler struct {
 	*Handler
 }
 
-func (h *Handler) NewProduct1cHandler(r *gin.RouterGroup) {
-	product1c := &Product1cHandler{h}
-	product1c.Product1cRoutes(r)
+func (h *Handler) NewProductOnecHandler(r *gin.RouterGroup) {
+	product1c := &ProductOnecHandler{h}
+	product1c.ProductOnecRoutes(r)
 }
 
-func (h *Product1cHandler) Product1cRoutes(r *gin.RouterGroup) {
-	group1C := r.Group("/product1c")
+func (h *ProductOnecHandler) ProductOnecRoutes(r *gin.RouterGroup) {
+	onec := r.Group("/product1c")
 	{
-		group1C.POST("", h.Create)
-		group1C.GET("/list", h.ListProductByStoreCode)
-		group1C.POST("/repricing", h.ProductRepricing)
-		group1C.POST("/multi-repricing", h.MultiProductRepricing)
-		group1C.POST("/quantity", h.UpdateQuantity)
-		group1C.POST("/token-asil-belgi", h.GetToken)
+		onec.POST("", h.Create)
+		onec.GET("/list", h.ListProductByStoreCode)
+		onec.POST("/repricing", h.ProductRepricing)
+		onec.POST("/multi-repricing", h.MultiProductRepricing)
+		onec.POST("/quantity", h.UpdateQuantity)
+		onec.POST("/token-asil-belgi", h.GetToken)
 	}
+	r.POST("/generate-token", h.GenerateOnecToken)
 }
 
 // Create 	godoc
@@ -48,53 +49,49 @@ func (h *Product1cHandler) Product1cRoutes(r *gin.RouterGroup) {
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /product1c [POST]
-func (h *Product1cHandler) Create(c *gin.Context) {
-	var (
-		body domain.CreateProduct1C
-		err  error
-	)
+func (h *ProductOnecHandler) Create(c *gin.Context) {
+	var body domain.CreateProduct1C
 	// bind request body
-	if err = c.ShouldBindJSON(&body); err != nil {
+	if err := c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
+	}
+
+	var company domain.Company
+	if body.Apteka.Franshiza {
+		err := h.db.First(&company, "name ilike ?", "%"+constants.PharmaCosmos+"%").Error // todo 1c given companyName
+		if err != nil {
+			handleResponse(c, InternalError, "Failed to get company info")
+			return
+		}
+	} else {
+		err := h.db.First(&company, "name ilike ?", "%"+constants.PharmaCosmos+"%").Error
+		if err != nil {
+			handleResponse(c, InternalError, "Failed to get company info")
+			return
+		}
 	}
 	// start transaction
 	tx := h.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 		}
 	}()
-	var company domain.Company
-	if body.Apteka.Franshiza {
-		err = h.db.First(&company, "name ilike ?", "%"+constants.PharmaCosmos+"%").Error // todo 1c given companyName
-		if err != nil {
-			tx.Rollback()
-			handleResponse(c, InternalError, "Failed to get company info")
-			return
-		}
-	} else {
-		err = h.db.First(&company, "name ilike ?", "%"+constants.PharmaCosmos+"%").Error
-		if err != nil {
-			tx.Rollback()
-			handleResponse(c, InternalError, "Failed to get company info")
-			return
-		}
-	}
 	// get store info
 	var store domain.Store
-	err = h.db.First(&store, "store_code = ?", body.Apteka.StoreCode).Error
+	err := h.db.First(&store, "store_code = ?", body.Apteka.StoreCode).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		store, err = h.service.CreateStoreOnImport(&domain.StoreRequest{Name: body.Apteka.Name, StoreCode: body.Apteka.StoreCode, CompanyId: company.ID})
 		if err != nil {
-			tx.Rollback()
-			handleResponse(c, InternalError, "Failed to create new store")
+			_ = tx.Rollback()
+			handleResponse(c, InternalError, "could.not.create.store")
 			return
 		}
 	} else if err != nil {
-		tx.Rollback()
-		handleResponse(c, InternalError, "Failed to check store info")
+		_ = tx.Rollback()
+		handleResponse(c, InternalError, "could.not.check.store.info")
 		return
 	}
 	// collect import data
@@ -109,30 +106,38 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 	err = tx.Table("imports").Create(&newImport).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(err.Error(), "unique constraint") {
-			h.log.Warn("duplicate document_number: %v", err)
-			handleResponse(c, OK, "Document with this number already exists")
-			tx.Rollback()
+			_ = tx.Rollback()
+			h.log.Errorf("duplicate document_number: %v", err)
+			handleServiceResponse(c, OK, domain.AlreadyExistsError)
 			return
 		}
-		h.log.Error(fmt.Errorf("ERROR on creating dok: %v", err.Error()))
-		handleResponse(c, InternalError, "Failed to creating new import")
-		tx.Rollback()
+		_ = tx.Rollback()
+		h.log.Errorf("could not create dok: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 	for i := range body.Товары {
 		// get producer by code
 		producer, err := h.service.GetProducerByCode(c.Request.Context(), body.Товары[i].Manufacturer)
 		if err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, "Manufacturer not found or not created")
-			tx.Rollback()
+			_ = tx.Rollback()
+			h.log.Errorf("could not get producer by code: %v", err)
+			handleServiceResponse(c, InternalError, domain.InternalServerError)
 			return
 		}
 		// create product id
-		productID := uuid.New().String()
+		productId := uuid.New().String()
 		// create or update product
 		err = tx.Raw(`
-		INSERT INTO products (material_code, name, barcode, producer_id, mxik, is_marking,company_id)
+		INSERT INTO products (
+			material_code, 
+			name, 
+			barcode, 
+			producer_id, 
+			mxik, 
+			is_marking,
+			company_id
+			)
 		VALUES (?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT (material_code) DO UPDATE
 		SET
@@ -140,57 +145,109 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 			is_marking = EXCLUDED.is_marking
 		RETURNING id`,
 			body.Товары[i].MaterialCode,
-			body.Товары[i].Name, body.Товары[i].Barcode, producer.Id, body.Товары[i].Ikpu, body.Товары[i].Mar, company.ID).Scan(&productID).Error
+			body.Товары[i].Name,
+			body.Товары[i].Barcode,
+			producer.Id,
+			body.Товары[i].Ikpu,
+			body.Товары[i].Mar,
+			company.ID,
+		).Scan(&productId).Error
 		if err != nil {
-			h.log.Warn("ERROR on creating new product: %v", err.Error())
-			handleResponse(c, BadRequest, "Error on checking product data")
-			tx.Rollback()
+			_ = tx.Rollback()
+			h.log.Errorf("could not creating new product: %v", err)
+			handleServiceResponse(c, BadRequest, domain.InternalServerError)
 			return
 		}
 		err = tx.Exec(`
-    		INSERT INTO product_barcodes (product_id, barcode, status)
-    		SELECT ?, ?, ?
+    		INSERT INTO product_barcodes (
+				product_id, 
+				barcode, 
+				status
+				)
+    		SELECT 
+				?, ?, ?
     		WHERE NOT EXISTS (
     		    SELECT 1 FROM product_barcodes 
     		    WHERE product_id = ? AND barcode = ? AND status = ?
     		)
-		`, productID, body.Товары[i].Barcode, constants.GeneralStatusCompleted,
-			productID, body.Товары[i].Barcode, constants.GeneralStatusCompleted).Error
+		`, productId,
+			body.Товары[i].Barcode,
+			constants.GeneralStatusCompleted,
+			productId,
+			body.Товары[i].Barcode,
+			constants.GeneralStatusCompleted,
+		).Error
 		if err != nil {
-			h.log.Warn("ERROR on creating product barcode: %v", err.Error())
-			handleResponse(c, BadRequest, "could not create product barcode")
-			tx.Rollback()
+			_ = tx.Rollback()
+			h.log.Errorf("could not create product barcode: %v", err)
+			handleServiceResponse(c, BadRequest, domain.InternalServerError)
 			return
 		}
 		// create import_detail
 		var id string
 		err = tx.Raw(`
 		INSERT INTO import_details(
-			product_id, import_id,
-			received_count, scanned_count, supply_price, supply_price_vat,
-			retail_price, retail_price_vat,
-			vat, vat_sum, expire_date, series_number, 
-			sum_vat, marking) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
-			productID, newImport.Id, body.Товары[i].Quantity, body.Товары[i].Quantity, body.Товары[i].SupplyPrice,
-			body.Товары[i].SupplyPriceVat, body.Товары[i].RetailPrice, body.Товары[i].RetailPriceVat,
-			cast.ToInt(body.Товары[i].Vat), body.Товары[i].VatSum,
-			body.Товары[i].ExpireDate, body.Товары[i].ProductSeriesNumber,
-			body.Товары[i].SumVat, utils.StringArray(body.Товары[i].Markirovka)).Scan(&id).Error
+			product_id, 
+			import_id,
+			received_count, 
+			scanned_count, 
+			supply_price, 
+			supply_price_vat,
+			retail_price, 
+			retail_price_vat,
+			vat, 
+			vat_sum, 
+			expire_date, 
+			series_number, 
+			sum_vat, 
+			marking
+			) 
+			VALUES(
+				?, ?, ?, 
+				?, ?, ?, 
+				?, ?, ?, 
+				?, ?, ?, 
+				?, ?) 
+			RETURNING id`,
+			productId,
+			newImport.Id,
+			body.Товары[i].Quantity,
+			body.Товары[i].Quantity,
+			body.Товары[i].SupplyPrice,
+			body.Товары[i].SupplyPriceVat,
+			body.Товары[i].RetailPrice,
+			body.Товары[i].RetailPriceVat,
+			cast.ToInt(body.Товары[i].Vat),
+			body.Товары[i].VatSum,
+			body.Товары[i].ExpireDate,
+			body.Товары[i].ProductSeriesNumber,
+			body.Товары[i].SumVat,
+			utils.StringArray(body.Товары[i].Markirovka),
+		).Scan(&id).Error
 		if err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, "ERROR on creating import details")
-			tx.Rollback()
+			_ = tx.Rollback()
+			h.log.Errorf("could not create import_details: %v", err)
+			handleServiceResponse(c, InternalError, domain.InternalServerError)
 			return
 		}
 		for _, marking := range body.Товары[i].Markirovka {
 			err = tx.Exec(`
-				INSERT INTO product_markings (import_detail_id, product_id, marking, store_id)
+				INSERT INTO product_markings (
+					import_detail_id, 
+					product_id, 
+					marking, 
+					store_id
+					)
 				VALUES(?, ?, ?, ?)`,
-				id, productID, marking, store.Id).Error
+				id,
+				productId,
+				marking,
+				store.Id,
+			).Error
 			if err != nil {
-				h.log.Error("Failed to insert marking on importing: ", err)
-				handleResponse(c, InternalError, err.Error())
-				tx.Rollback()
+				_ = tx.Rollback()
+				h.log.Errorf("could not insert marking on importing: %v", err)
+				handleServiceResponse(c, InternalError, domain.InternalServerError)
 				return
 			}
 		}
@@ -198,9 +255,8 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 
 	// check transaction completed
 	if err = tx.Commit().Error; err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, "Failed to commit transaction")
-		tx.Rollback()
+		h.log.Errorf("could not commited transaction: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 
@@ -222,12 +278,10 @@ func (h *Product1cHandler) Create(c *gin.Context) {
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /product1c/list [GET]
-func (h *Product1cHandler) ListProductByStoreCode(c *gin.Context) {
+func (h *ProductOnecHandler) ListProductByStoreCode(c *gin.Context) {
 	var (
 		storeCode    = c.Query("store_code")
 		materialCode = c.Query("material_code")
-		// limitStr     = c.Query("limit")
-		// offsetStr    = c.Query("offset")
 	)
 
 	query := h.db.
@@ -298,7 +352,7 @@ func (h *Product1cHandler) ListProductByStoreCode(c *gin.Context) {
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /product1c/repricing [POST]
-func (h *Product1cHandler) ProductRepricing(c *gin.Context) {
+func (h *ProductOnecHandler) ProductRepricing(c *gin.Context) {
 	var (
 		body  domain.RepricingRequest1C
 		err   error
@@ -424,7 +478,7 @@ func (h *Product1cHandler) ProductRepricing(c *gin.Context) {
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /product1c/quantity [POST]
-func (h *Product1cHandler) UpdateQuantity(c *gin.Context) {
+func (h *ProductOnecHandler) UpdateQuantity(c *gin.Context) {
 	var (
 		body domain.UpdateQuantityRequest1C
 		err  error
@@ -457,7 +511,7 @@ func (h *Product1cHandler) UpdateQuantity(c *gin.Context) {
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /product1c/multi-repricing [POST]
-func (h *Product1cHandler) MultiProductRepricing(c *gin.Context) {
+func (h *ProductOnecHandler) MultiProductRepricing(c *gin.Context) {
 	var (
 		body domain.MultiRepricingRequest1C
 		err  error
@@ -583,7 +637,7 @@ func (h *Product1cHandler) MultiProductRepricing(c *gin.Context) {
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /product1c/token-asil-belgi [POST]
-func (h *Product1cHandler) GetToken(c *gin.Context) {
+func (h *ProductOnecHandler) GetToken(c *gin.Context) {
 	var (
 		body domain.AsilBelgiTokenRequest
 		err  error
@@ -626,4 +680,30 @@ func (h *Product1cHandler) GetToken(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, "UPDATED")
+}
+
+// @Summary Generate 1C token
+// @Description Generate 1C token
+// @Tags 1C token
+// @Accept json
+// @Produce json
+// @Param 	request body domain.GenerateOnecTokenRequest true "Generate 1C token"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /generate-token [post]
+func (h *ProductOnecHandler) GenerateOnecToken(c *gin.Context) {
+	var req domain.GenerateOnecTokenRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+
+	token, err := etc.Encrypt(req.Password, h.cfg.HashKey)
+	if err != nil {
+		h.log.Errorf("could not encrypt password: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
+		return
+	}
+	handleResponse(c, OK, token)
 }

@@ -15674,17 +15674,25 @@ paths:
         in: query
         name: offset
         type: integer
-      - description: STORE ID
+      - description: store_id
         in: query
         name: store_id
         type: string
-      - description: SEARCH KEY
+      - description: search
         in: query
         name: search
         type: string
-      - description: STATUS (0->new|1->sent|2->completed)
+      - description: status (0->new|1->sent|2->completed)
         in: query
         name: status
+        type: string
+      - description: start_date
+        in: query
+        name: start_date
+        type: string
+      - description: end_date
+        in: query
+        name: end_date
         type: string
       produces:
       - application/json
@@ -15743,25 +15751,33 @@ paths:
       - application/json
       description: Get Transfer list
       parameters:
-      - description: LIMIT
+      - description: limit
         in: query
         name: limit
         type: integer
-      - description: OFFSET
+      - description: offset
         in: query
         name: offset
         type: integer
-      - description: STORE ID
+      - description: store_id
         in: query
         name: store_id
         type: string
-      - description: SEARCH KEY
+      - description: search
         in: query
         name: search
         type: string
-      - description: STATUS (0->new|1->sent|2->completed)
+      - description: status (0->new|1->sent|2->completed)
         in: query
         name: status
+        type: string
+      - description: start_date
+        in: query
+        name: start_date
+        type: string
+      - description: end_date
+        in: query
+        name: end_date
         type: string
       produces:
       - application/json
@@ -15789,17 +15805,25 @@ paths:
       - application/json
       description: Get total sum and count stats for transfers
       parameters:
-      - description: Store ID
+      - description: store_id
         in: query
         name: store_id
         type: string
-      - description: Search Keyword
+      - description: search
         in: query
         name: search
         type: string
-      - description: Transfer Status (0->new|1->sent|2->completed)
+      - description: status (0->new|1->sent|2->completed)
         in: query
         name: status
+        type: string
+      - description: start_date
+        in: query
+        name: start_date
+        type: string
+      - description: end_date
+        in: query
+        name: end_date
         type: string
       produces:
       - application/json
