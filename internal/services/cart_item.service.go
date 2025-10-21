@@ -611,17 +611,6 @@ func (s *Services) IncrementCartItemQuantity(ctx context.Context, tx *gorm.DB, i
 	return &res, nil
 }
 
-func (s *Services) IncrementCartItemQuantityBySpId(ctx context.Context, tx *gorm.DB, spId string, quantity int, totalPrice float64) (*domain.CartItem, error) {
-	var res domain.CartItem
-	query := `UPDATE cart_items SET unit_quantity = unit_quantity + ?, total_price = total_price + ? WHERE store_product_id = ? RETURNING *`
-	err := tx.WithContext(ctx).Raw(query, quantity, totalPrice, spId).Scan(&res).Error
-	if err != nil {
-		s.log.Errorf("could not increment cart_item quantity: %v", err)
-		return nil, domain.InternalServerError
-	}
-	return &res, nil
-}
-
 // add marking count to cart items
 func (s *Services) updateCartItemsMarkingCount(ctx context.Context, tx *gorm.DB, req []domain.MarkingData) error {
 	if len(req) == 0 {
