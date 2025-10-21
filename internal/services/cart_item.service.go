@@ -602,7 +602,7 @@ func (s *Services) UpdateCartItemMarkings(ctx context.Context, id string, req *d
 
 func (s *Services) IncrementCartItemQuantity(ctx context.Context, tx *gorm.DB, id string, quantity int, totalPrice float64) (*domain.CartItem, error) {
 	var res domain.CartItem
-	query := `UPDATE cart_items SET unit_quantity = unit_quantity + ?, total_price = total_price + ? WHERE id = ? RETURNING *`
+	query := `UPDATE cart_items SET unit_quantity = unit_quantity + ?, total_price = total_price + ?, updated_at = NOW() WHERE id = ? RETURNING *`
 	err := tx.WithContext(ctx).Raw(query, quantity, totalPrice, id).Scan(&res).Error
 	if err != nil {
 		s.log.Errorf("could not increment cart_item quantity: %v", err)
