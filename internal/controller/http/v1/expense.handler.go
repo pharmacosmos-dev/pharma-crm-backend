@@ -2,6 +2,7 @@ package v1
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/pharma-crm-backend/domain"
 )
 
 type ExpenseHandler struct {
@@ -19,6 +20,7 @@ func (h *ExpenseHandler) ExpenseRoutes(r *gin.RouterGroup) {
 		expense.POST("/send", h.Send)
 		expense.POST("/send-with-number", h.SendWithNumber)
 		expense.POST("/expense-given-excel", h.SendFromExcel)
+		expense.POST("/send-temporary", h.SendTemporary)
 	}
 }
 
@@ -43,8 +45,8 @@ func (h *ExpenseHandler) Send(c *gin.Context) {
 	// send expense with manual request
 	err = h.service.SendExpenseTo1C(sendDate)
 	if err != nil {
-		h.log.Warn("ERROR on sending expense: %v", err)
-		handleResponse(c, InternalError, "Can't send expense to 1C")
+		h.log.Errorf("could not send expenses to onec: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 
@@ -122,4 +124,25 @@ func (h *ExpenseHandler) SendFromExcel(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, "Sent Successfully from Excel")
+}
+
+// CreateExpense godoc
+// @Summary Create 1c expense
+// @Description Create auto order
+// @Security     BearerAuth
+// @Tags 	Shift Expenses
+// @Accept 	json
+// @Produce json
+// @Param 	send_date query string true "Send Date (2006-01-02)"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /expense/send-temporary 	[post]
+func (h *ExpenseHandler) SendTemporary(c *gin.Context) {
+	var sendDate = c.Query("send_date")
+
+	// send expense with manual request
+	go h.service.SendChequesTemporary(sendDate)
+
+	handleResponse(c, OK, "Sent Successfully")
 }

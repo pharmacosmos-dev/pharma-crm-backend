@@ -5531,6 +5531,55 @@ const docTemplate = `{
                 }
             }
         },
+        "/expense/send-temporary": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create auto order",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Shift Expenses"
+                ],
+                "summary": "Create 1c expense",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Send Date (2006-01-02)",
+                        "name": "send_date",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/expense/send-with-number": {
             "post": {
                 "security": [
