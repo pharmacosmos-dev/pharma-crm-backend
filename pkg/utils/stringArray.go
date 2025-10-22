@@ -264,7 +264,7 @@ func BuildStoreReportOrderClause(orderField string) string {
 	}
 
 	if orderField == "" {
-		return " ORDER BY store_name "
+		return "store_name"
 	}
 
 	direction := "ASC"
@@ -278,11 +278,11 @@ func BuildStoreReportOrderClause(orderField string) string {
 	}
 
 	if col, ok := allowedFields[field]; ok {
-		return fmt.Sprintf(" ORDER BY %s %s ", col, direction)
+		return fmt.Sprintf("%s %s ", col, direction)
 	}
 
 	// fallback default
-	return " ORDER BY store_name, start_date "
+	return "store_name, start_date "
 }
 
 func BuildTopProductOrderClause(orderField string) string {

@@ -769,47 +769,38 @@ func (h *ReportHandler) LflReport(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /report/store-amount [POST]
 func (h *ReportHandler) StoreReportAmount(c *gin.Context) {
-	var param domain.ReportQueryParam
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
 
-	// bind request query param
-	err := c.ShouldBindQuery(&param)
-	if err != nil {
-		handleResponse(c, BadRequest, "invalid.query.param")
+	var params domain.ReportQueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
-	// get user_id from the context
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
-		return
-	}
-	// get employee info
-	var employee domain.Employee
-	err = h.db.First(&employee, "id = ?", userId).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		handleResponse(c, InternalError, "Can't get employee info")
-		return
-	}
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
-		if employee.StoreId != "" {
-			param.StoreId = employee.StoreId
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
 		}
-		param.CompanyId = employee.CompanyId
+		params.CompanyId = user.CompanyId
 	}
 	// get store report with payment type amounts
-	res, totalCount, err := h.service.StoreReportAmount(&param)
+	res, totalCount, err := h.service.StoreReportAmount(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, "Can't get store report amounts")
+		handleServiceResponse(c, nil, err)
 		return
 	}
 
-	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
 
 	handleResponse(c, OK, data)
 }
@@ -833,44 +824,34 @@ func (h *ReportHandler) StoreReportAmount(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /report/store-amount/export-excel [POST]
 func (h *ReportHandler) StoreReportAmountExport(c *gin.Context) {
-	var (
-		param domain.ReportQueryParam
-	)
-	// bind request query param
-	err := c.ShouldBindQuery(&param)
-	if err != nil {
-		handleResponse(c, BadRequest, "Invalid query param")
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
-	// get user_id from the context
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
+
+	var params domain.ReportQueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
-	// get employee info
-	var employee domain.Employee
-	err = h.db.First(&employee, "id = ?", userId).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		handleResponse(c, InternalError, "Can't get employee info")
-		return
-	}
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.ContextTimeoutForReports)
+	defer cancel()
+
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
-		if employee.StoreId != "" {
-			param.StoreId = employee.StoreId
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
 		}
-		param.CompanyId = employee.CompanyId
+		params.CompanyId = user.CompanyId
 	}
 	// get store report with payment type amounts
-	res, _, err := h.service.StoreReportAmount(&param)
+	res, _, err := h.service.StoreReportAmount(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, "Can't get store report amounts")
+		handleServiceResponse(c, nil, err)
 		return
 	}
 
@@ -880,11 +861,11 @@ func (h *ReportHandler) StoreReportAmountExport(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"ID", "Филиал", "Дата", "Наличные", "HUMO", "UZCARD", "CLICK", "PAYME", "ALIF", "Возврат", "Общая сумма"}
+	headers := []string{"ID", "АПТЕКА", "ДАТА", "НАЛИЧНЫЕ", "HUMO", "UZCARD", "CLICK", "PAYME", "ALIF", "ВОЗВРАТ", "ОБЩАЯ СУММА"}
 
 	err = setExcelHeaders(f, sheetName, headers)
 	if err != nil {
-		h.log.Error("Failed to create style:", err)
+		h.log.Errorf("Failed to create style: %v", err)
 		handleResponse(c, InternalError, "Error on giving style to excel")
 		return
 	}
@@ -905,7 +886,7 @@ func (h *ReportHandler) StoreReportAmountExport(c *gin.Context) {
 		f.SetCellValue(sheetName, "K"+row, value.TotalAmount)
 	}
 
-	saveExcelToUploads(c, f, *h.log, "Filial_hisoboti")
+	saveExcelToUploads(c, f, *h.log, "apteka_reports")
 }
 
 // Bonus report godoc
@@ -927,43 +908,35 @@ func (h *ReportHandler) StoreReportAmountExport(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /report/store-stats [POST]
 func (h *ReportHandler) StoreReportStats(c *gin.Context) {
-	var param domain.ReportQueryParam
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
 
-	// bind request query param
-	err := c.ShouldBindQuery(&param)
-	if err != nil {
-		handleResponse(c, BadRequest, "Invalid query param")
+	var params domain.ReportQueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
-	// get user_id from the context
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
-		return
-	}
-	// get employee info
-	var employee domain.Employee
-	err = h.db.First(&employee, "id = ?", userId).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		handleResponse(c, InternalError, "Can't get employee info")
-		return
-	}
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.ContextTimeoutForReports)
+	defer cancel()
+
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
-		if employee.StoreId != "" {
-			param.StoreId = employee.StoreId
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
 		}
-		param.CompanyId = employee.CompanyId
+		params.CompanyId = user.CompanyId
 	}
 
 	// get store report with payment type amounts
-	res, err := h.service.ReportByStoreStats(&param)
+	res, err := h.service.ReportByStoreStats(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, "Can't get store report stats")
+		handleServiceResponse(c, nil, err)
 		return
 	}
 
