@@ -278,19 +278,14 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 		totalCount int64
 	)
 
-	if !utils.In(user.Role, constants.AllAdminRoles...) {
-		if user.StoreId != "" {
-			params.StoreId = user.StoreId
-		}
-		params.CompanyId = user.CompanyId
-	}
-
 	// Pre-aggregate store_products
 	storeJoin := `LEFT JOIN (
 		SELECT 
 			product_id,
 			SUM(unit_quantity) as total_quantity,
-			MIN(expire_date) FILTER (WHERE unit_quantity > 0) as min_expire_date
+			MIN(expire_date) FILTER (WHERE unit_quantity > 0) as min_expire_date,
+			MAX(supply_price) AS supply_price,
+			MAX(retail_price) AS retail_price
 		FROM store_products`
 
 	if params.StoreId != "" {
@@ -305,7 +300,7 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 		Joins(storeJoin).
 		Joins("LEFT JOIN producers pr ON p.producer_id = pr.id").
 		Joins("LEFT JOIN product_barcodes pb ON p.id = pb.product_id AND pb.status = ?", constants.GeneralStatusCompleted).
-		Group("p.id, pr.id, sp_agg.total_quantity, sp_agg.min_expire_date")
+		Group("p.id, pr.id, sp_agg.total_quantity, sp_agg.min_expire_date, sp_agg.supply_price, sp_agg.retail_price")
 
 	if params.ProducerId != "" {
 		qb = qb.Where("p.producer_id = ?", params.ProducerId)
@@ -378,6 +373,8 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 		"COALESCE(sp_agg.total_quantity, 0) AS unit_quantity",
 		"sp_agg.min_expire_date AS expire_date",
 		"DATE_PART('day', sp_agg.min_expire_date::timestamp - NOW()) AS expire_day",
+		"sp_agg.supply_price",
+		"sp_agg.retail_price",
 	).
 		Limit(params.Limit).
 		Offset(params.Offset).
@@ -405,6 +402,40 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 	}
 
 	return res, totalCount, nil
+}
+
+func (s *Services) GetProductsByStores(ctx context.Context, params *domain.ProductQueryParam, user *domain.EmployeeClaims) ([]domain.ProductData, error) {
+
+	qb := s.db.WithContext(ctx).
+		Select(
+			"s.id AS store_id",
+			"s.name AS store_name",
+
+			"p.id",
+			"p.material_code",
+			"p.name",
+			"p.barcode",
+			"p.unit_per_pack",
+
+			"SUM(sp.unit_quantity) AS unit_quantity",
+			"MAX(sp.supply_price) AS supply_price",
+			"MAX(sp.retail_price) AS retail_price",
+			"MIN(sp.expire_date) AS expire_date",
+		).
+		Table("stores s").
+		Joins("JOIN store_products sp ON s.id = sp.store_id").
+		Joins("JOIN products p ON sp.product_id = p.id").
+		Group("s.id, s.name, p.id, p.name").
+		Order("s.name, p.name")
+	var res []domain.ProductData
+	err := qb.Limit(params.Limit).Offset(params.Offset).Find(&res).Error
+
+	if err != nil {
+		s.log.Errorf("could not get products list: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	return res, nil
 }
 
 // Get Products list stats

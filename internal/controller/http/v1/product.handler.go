@@ -182,6 +182,13 @@ func (h *ProductHandler) List(c *gin.Context) {
 		return
 	}
 
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
@@ -235,29 +242,42 @@ func (h *ProductHandler) ExportProductExcel(c *gin.Context) {
 		return
 	}
 
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
+	}
+
 	// Pagination parameters
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	// get products list
-	res, _, err := h.service.GetProducts(ctx, &params, user)
-	if err != nil {
-		handleServiceResponse(c, nil, err)
-		return
-	}
-
 	// Create excel file
 	f := excelize.NewFile()
 
 	if params.StoreId != "" {
+		// get products list
+		res, _, err := h.service.GetProducts(ctx, &params, user)
+		if err != nil {
+			handleServiceResponse(c, nil, err)
+			return
+		}
+
 		f, err = h.productListExportByStoreId(f, res)
 		if err != nil {
 			handleServiceResponse(c, nil, domain.InternalServerError)
 			return
 		}
 	} else {
+		res, err := h.service.GetProductsByStores(ctx, &params, user)
+		if err != nil {
+			handleServiceResponse(c, nil, err)
+			return
+		}
+
 		f, err = h.productListExport(f, res)
 		if err != nil {
 			handleServiceResponse(c, nil, domain.InternalServerError)
@@ -2111,22 +2131,13 @@ func (h *ProductHandler) productListExport(f *excelize.File, res []domain.Produc
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"Аптека", "Код", "Наименования", "Штрих-код", "Кол-во", "Срок годности", "Серия", "Цена приход С НДС", "Цена продажа СНДС", "Cумма прихода С НДС", "Сумма продажа С НДС", "Производитель", "URL Фото"}
+	headers := []string{"Аптека", "Код", "Наименования", "Штрих-код", "Кол-во", "Срок годности", "Цена прихода", "Cумма прихода", "Цена продажа", "Сумма продажа"}
 
 	err := setExcelHeaders(f, sheetName, headers)
 	if err != nil {
 		h.log.Error("Failed to create style:", err)
 		return nil, errors.New("failed to create style")
 	}
-
-	// give width to column
-	f.SetColWidth(sheetName, "A", "A", 10)
-	f.SetColWidth(sheetName, "B", "C", 30)
-	f.SetColWidth(sheetName, "D", "D", 10)
-	f.SetColWidth(sheetName, "E", "E", 30)
-	f.SetColWidth(sheetName, "F", "F", 15)
-	f.SetColWidth(sheetName, "J", "J", 15)
-	f.SetColWidth(sheetName, "H", "H", 20)
 
 	// Ma'lumotlarni qo'shish
 	for i, product := range res {
@@ -2135,23 +2146,16 @@ func (h *ProductHandler) productListExport(f *excelize.File, res []domain.Produc
 		f.SetCellValue(sheetName, "B"+row, product.MaterialCode)
 		f.SetCellValue(sheetName, "C"+row, product.Name)
 		f.SetCellValue(sheetName, "D"+row, product.Barcode)
-		f.SetCellValue(sheetName, "E"+row, math.Round(float64(product.Quantity+product.UnitQuantity/product.UnitPerPack)*10000)/10000)
+		f.SetCellValue(sheetName, "E"+row, math.Round((float64(product.UnitQuantity)/float64(product.UnitPerPack))*100)/100)
 		if product.ExpireDate != nil {
-			f.SetCellValue(sheetName, "F"+row, product.ExpireDate)
+			f.SetCellValue(sheetName, "F"+row, product.ExpireDate.Format(time.DateOnly))
 		} else {
 			f.SetCellValue(sheetName, "F"+row, "N/A")
 		}
-		f.SetCellValue(sheetName, "G"+row, product.SerialNumber)
-		f.SetCellValue(sheetName, "H"+row, product.SupplyPrice)
+		f.SetCellValue(sheetName, "G"+row, product.SupplyPrice)
+		f.SetCellValue(sheetName, "H"+row, math.Round(((product.SupplyPrice/float64(product.UnitPerPack))*float64(product.UnitQuantity))*100)/100)
 		f.SetCellValue(sheetName, "I"+row, product.RetailPrice)
-		f.SetCellValue(sheetName, "J"+row, math.Round((product.SupplyPrice*float64(product.Quantity)+(product.SupplyPrice/float64(product.UnitPerPack)*float64(product.UnitQuantity)))*100)/100)
-		f.SetCellValue(sheetName, "K"+row, math.Round((product.RetailPrice*float64(product.Quantity)+(product.RetailPrice/float64(product.UnitPerPack)*float64(product.UnitQuantity)))*100)/100)
-		f.SetCellValue(sheetName, "L"+row, product.Manufacturer)
-		if len(product.Photos) > 0 && product.Photos[0] != "" {
-			f.SetCellValue(sheetName, "M"+row, product.Photos[0])
-		} else {
-			f.SetCellValue(sheetName, "M"+row, "N/A")
-		}
+		f.SetCellValue(sheetName, "J"+row, math.Round(((product.RetailPrice/float64(product.UnitPerPack))*float64(product.UnitQuantity))*100)/100)
 	}
 	return f, nil
 }
@@ -2162,19 +2166,13 @@ func (h *ProductHandler) productListExportByStoreId(f *excelize.File, res []doma
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"Код", "Наименование", "Штрих-код", "Производитель", "Кол-во", "Цена поставки", "Cумма поставки", "Цена продажи", "Cумма продажи", "Цена наценка", "Cумма наценка", "НДС", "Цена НДС", "Cумма НДС", "Категория", "MXIK", "Срок годности"}
+	headers := []string{"Код", "Наименование", "Штрих-код", "Производитель", "Кол-во", "Цена поставки", "Cумма поставки", "Цена продажи", "Cумма продажи", "Цена наценка", "Cумма наценка", "НДС", "Цена НДС", "Срок годности"}
 
 	err := setExcelHeaders(f, sheetName, headers)
 	if err != nil {
 		h.log.Warn("Failed to create style: %v", err)
 		return nil, errors.New("failed to create style")
 	}
-
-	// give width to column
-	f.SetColWidth(sheetName, "A", "A", 10)
-	f.SetColWidth(sheetName, "B", "B", 30)
-	f.SetColWidth(sheetName, "C", "D", 20)
-	f.SetColWidth(sheetName, "E", "N", 10)
 
 	// Add product infos to excel column
 	for i, product := range res {
@@ -2183,20 +2181,22 @@ func (h *ProductHandler) productListExportByStoreId(f *excelize.File, res []doma
 		f.SetCellValue(sheetName, "B"+row, product.Name)
 		f.SetCellValue(sheetName, "C"+row, product.Barcode)
 		f.SetCellValue(sheetName, "D"+row, product.Manufacturer)
-		f.SetCellValue(sheetName, "E"+row, math.Round(float64(product.Quantity+(product.UnitQuantity/product.UnitPerPack))*10000)/10000)
+		f.SetCellValue(sheetName, "E"+row, math.Round((float64(product.UnitQuantity)/float64(product.UnitPerPack))*100)/100)
 		f.SetCellValue(sheetName, "F"+row, product.SupplyPrice)
-		f.SetCellValue(sheetName, "G"+row, math.Round((product.SupplyPrice*float64(product.Quantity)+(product.SupplyPrice/float64(product.UnitPerPack)*float64(product.UnitQuantity)))*100)/100)
+		f.SetCellValue(sheetName, "G"+row, math.Round(((product.SupplyPrice/float64(product.UnitPerPack))*float64(product.UnitQuantity))*100)/100)
 		f.SetCellValue(sheetName, "H"+row, product.RetailPrice)
-		f.SetCellValue(sheetName, "I"+row, math.Round((product.RetailPrice*float64(product.Quantity)+(product.RetailPrice/float64(product.UnitPerPack)*float64(product.UnitQuantity)))*100)/100)
+		f.SetCellValue(sheetName, "I"+row, math.Round(((product.RetailPrice/float64(product.UnitPerPack))*float64(product.UnitQuantity))*100)/100)
 		f.SetCellValue(sheetName, "J"+row, product.RetailPrice-product.SupplyPrice)
-		f.SetCellValue(sheetName, "K"+row, math.Round(((product.RetailPrice-product.SupplyPrice)*float64(product.Quantity)+(product.RetailPrice-product.SupplyPrice)/float64(product.UnitPerPack)*float64(product.UnitQuantity))*100)/100)
-		f.SetCellValue(sheetName, "L"+row, product.Vat)
-		f.SetCellValue(sheetName, "M"+row, product.VatPrice)
-		f.SetCellValue(sheetName, "N"+row, math.Round((product.VatPrice*float64(product.Quantity)+(product.VatPrice/float64(product.UnitPerPack)*float64(product.UnitQuantity)))*100)/100)
-		f.SetCellValue(sheetName, "O"+row, product.CategoryName)
-		f.SetCellValue(sheetName, "P"+row, product.MXIK)
-		f.SetCellValue(sheetName, "Q"+row, product.ExpireDate.Format("2006-01-02"))
+		f.SetCellValue(sheetName, "K"+row, math.Round((((product.RetailPrice-product.SupplyPrice)/float64(product.UnitPerPack))*float64(product.UnitQuantity))*100)/100)
+		f.SetCellValue(sheetName, "L"+row, 12)
+		f.SetCellValue(sheetName, "M"+row, math.Round((product.RetailPrice*12)/112))
+		if product.ExpireDate != nil {
+			f.SetCellValue(sheetName, "N"+row, product.ExpireDate.Format("2006-01-02"))
+		} else {
+			f.SetCellValue(sheetName, "N"+row, "N/A")
+		}
 	}
+
 	return f, nil
 }
 

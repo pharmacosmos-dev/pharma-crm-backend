@@ -257,6 +257,35 @@ definitions:
       is_open:
         type: boolean
     type: object
+  domain.Company:
+    properties:
+      city:
+        type: string
+      company_inn:
+        type: string
+      company_mfo:
+        type: string
+      country:
+        type: string
+      created_at:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      legal_address:
+        type: string
+      legal_name:
+        type: string
+      name:
+        type: string
+      phone:
+        type: string
+      postal_code:
+        type: string
+      updated_at:
+        type: string
+    type: object
   domain.CompanyRequest:
     properties:
       city:
@@ -395,6 +424,8 @@ definitions:
         type: string
       cashbox:
         $ref: '#/definitions/domain.EmployeeCashbox'
+      company:
+        $ref: '#/definitions/domain.Company'
       company_id:
         type: string
       created_at:
@@ -662,7 +693,7 @@ definitions:
       status:
         type: string
     type: object
-  domain.Generate1CTokenRequest:
+  domain.GenerateOnecTokenRequest:
     properties:
       password:
         type: string
@@ -5677,7 +5708,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/domain.Generate1CTokenRequest'
+          $ref: '#/definitions/domain.GenerateOnecTokenRequest'
       produces:
       - application/json
       responses:

@@ -6248,7 +6248,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.Generate1CTokenRequest"
+                            "$ref": "#/definitions/domain.GenerateOnecTokenRequest"
                         }
                     }
                 ],
@@ -23654,6 +23654,50 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.Company": {
+            "type": "object",
+            "properties": {
+                "city": {
+                    "type": "string"
+                },
+                "company_inn": {
+                    "type": "string"
+                },
+                "company_mfo": {
+                    "type": "string"
+                },
+                "country": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "legal_address": {
+                    "type": "string"
+                },
+                "legal_name": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "postal_code": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.CompanyRequest": {
             "type": "object",
             "properties": {
@@ -23862,6 +23906,9 @@ const docTemplate = `{
                 },
                 "cashbox": {
                     "$ref": "#/definitions/domain.EmployeeCashbox"
+                },
+                "company": {
+                    "$ref": "#/definitions/domain.Company"
                 },
                 "company_id": {
                     "type": "string"
@@ -24262,7 +24309,7 @@ const docTemplate = `{
                 }
             }
         },
-        "domain.Generate1CTokenRequest": {
+        "domain.GenerateOnecTokenRequest": {
             "type": "object",
             "required": [
                 "password"
