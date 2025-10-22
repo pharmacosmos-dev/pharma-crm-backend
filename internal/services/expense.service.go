@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -169,20 +170,20 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string) error {
 	    p.mxik AS ikpu,
 	    COALESCE(pr.name, '') AS manufacturer,
 	    COALESCE(sp.serial_number, '') AS product_series_number,
-	    sp.expire_date::date,
+	    sp.expire_date,
 	    ROUND(
 	            SUM(
 	                    CASE
 	                        WHEN s.sale_type = 'SALE'
-	                            THEN ci.quantity + (ci.unit_quantity::NUMERIC / p.unit_per_pack)
+	                            THEN (ci.unit_quantity::NUMERIC / p.unit_per_pack)
 	                        WHEN s.sale_type = 'RETURN'
-	                            THEN (ci.quantity + (ci.unit_quantity::NUMERIC / p.unit_per_pack)) * -1
+	                            THEN (ci.unit_quantity::NUMERIC / p.unit_per_pack) * (-1)
 	                        ELSE 0
 	                        END
 	            )::NUMERIC
 	        , 4) AS quantity,
-	    sp.supply_price AS supply_price_vat,
-	    sp.retail_price AS retail_price_vat,
+        sp.supply_price AS supply_price_vat,
+        sp.retail_price AS retail_price_vat,
 	    id.supply_price,
 	    id.retail_price,
 	    sp.vat,
@@ -190,9 +191,9 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string) error {
 	            SUM(
 	                    CASE
 	                        WHEN s.sale_type = 'SALE'
-	                            THEN (sp.vat_price * ci.quantity) + ((sp.vat_price / p.unit_per_pack) * ci.unit_quantity)
+	                            THEN (sp.vat_price / p.unit_per_pack) * ci.unit_quantity
 	                        WHEN s.sale_type = 'RETURN'
-	                            THEN -1 * ((sp.vat_price * ci.quantity) + ((sp.vat_price / p.unit_per_pack) * ci.unit_quantity))
+	                            THEN (-1) * ((sp.vat_price / p.unit_per_pack) * ci.unit_quantity)
 	                        ELSE 0
 	                        END
 	            )
@@ -201,9 +202,9 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string) error {
 	            SUM(
 	                    CASE
 	                        WHEN s.sale_type = 'SALE'
-	                            THEN (id.retail_price * ci.quantity) + ((id.retail_price / p.unit_per_pack) * ci.unit_quantity)
+	                            THEN (id.retail_price / p.unit_per_pack) * ci.unit_quantity
 	                        WHEN s.sale_type = 'RETURN'
-	                            THEN -1 * ((id.retail_price * ci.quantity) + ((id.retail_price / p.unit_per_pack) * ci.unit_quantity))
+	                            THEN (-1) *  ((id.retail_price / p.unit_per_pack) * ci.unit_quantity)
 	                        ELSE 0
 	                        END
 	            )
@@ -213,7 +214,7 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string) error {
 	                WHEN s.sale_type = 'SALE'
 	                    THEN ci.total_price
 	                WHEN s.sale_type = 'RETURN'
-	                    THEN -1 * ci.total_price
+	                    THEN (-1) * ci.total_price
 	                ELSE 0
 	                END
 	    ) AS sum_vat
@@ -221,16 +222,15 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string) error {
 	         LEFT JOIN sales s_return
 	                   ON s_return.parent_id = s.id
 	                       AND s_return.sale_type = 'RETURN'
-	                       AND s_return.status = 'completed'
+	                       AND s_return.stage IN (9, 11)
 	         JOIN cart_items ci ON s.id = ci.sale_id
 	         JOIN store_products sp ON ci.store_product_id = sp.id
 	         JOIN products p ON sp.product_id = p.id
 	         LEFT JOIN producers pr ON p.producer_id = pr.id
 	         LEFT JOIN import_details id ON sp.import_detail_id = id.id
 	WHERE s.store_id = ?
-	  AND s.status = 'completed'
-	  AND (s.completed_at + interval '5 hours')::date
-	    BETWEEN ? AND ?
+	  AND s.stage IN (9, 11)
+	  AND s.completed_at BETWEEN ? AND ?
 	GROUP BY
 		p.id, pr.id, sp.id, id.id
 	HAVING
@@ -238,40 +238,42 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string) error {
 	            SUM(
 	                    CASE
 	                        WHEN s.sale_type = 'SALE'
-	                            THEN ci.quantity + (ci.unit_quantity::NUMERIC / p.unit_per_pack)
+	                            THEN (ci.unit_quantity::NUMERIC / p.unit_per_pack)
 	                        WHEN s.sale_type = 'RETURN'
-	                            THEN (ci.quantity + (ci.unit_quantity::NUMERIC / p.unit_per_pack)) * -1
+	                            THEN (ci.unit_quantity::NUMERIC / p.unit_per_pack) * (-1)
 	                        ELSE 0
 	                        END
 	            )::NUMERIC
 	        , 4) != 0;
 	`
+	startTime := dokTime.Add(-5 * time.Hour)
+	endTime := dokTime.Add(19 * time.Hour)
+
 	// complete get expense product list
-	err = s.db.Raw(expenseProductQuery, store.Id, date, date).Scan(&expenseData.Товары).Error
+	err = s.db.Raw(
+		expenseProductQuery,
+		store.Id,
+		startTime,
+		endTime,
+	).Scan(&expenseData.Товары).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting expense products: %v", err)
-		return err
+		s.log.Errorf("could not get expense products: %v", err)
+		return domain.InternalServerError
 	}
 
 	// get total discount
 	discountQuery := `
-    SELECT 
-        COALESCE(SUM(s.total_discount), 0) - 
-        COALESCE(SUM(s_return.total_discount), 0) AS discount_sum
+    SELECT
+        COALESCE(SUM(s.total_discount), 0) AS discount_sum
     FROM sales s
-        LEFT JOIN sales s_return
-            ON s_return.parent_id = s.id
-            AND s_return.sale_type = 'RETURN'
-            AND s_return.status = 'completed'
     WHERE s.store_id = ?
-      AND s.status = 'completed'
-      AND (s.completed_at + interval '5 hours')::date
-        BETWEEN ? AND ?;
+      AND s.stage = 9
+      AND s.completed_at BETWEEN ? AND ?;
 `
 
-	err = s.db.Raw(discountQuery, store.Id, date, date).Scan(&expenseData.Document.DiscountSum).Error
+	err = s.db.Raw(discountQuery, store.Id, startTime, endTime).Scan(&expenseData.Document.DiscountSum).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting discount sum: %v", err)
+		s.log.Errorf("could not get discount sum: %v", err)
 		return err
 	}
 	// check expense product length
@@ -282,7 +284,7 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string) error {
 	// send fakt to 1C
 	err = s.DoRequestOnec(context.Background(), expenseData, "/rasxod")
 	if err != nil {
-		s.log.Warn("ERROR on send rasxod request: %v", err)
+		s.log.Errorf("could not send rasxod request: %v", err)
 		return err
 	}
 	// update expense status to 1 after successfully sent
@@ -459,5 +461,213 @@ func (s *Services) SendExpenseTo1CFromExcel(filePath string) error {
 		time.Sleep(10 * time.Second)
 	}
 
+	return nil
+}
+
+func (s *Services) SendChequesTemporary(sendDate string) {
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	var stores []domain.Store
+	// get store list
+	err := s.db.Find(&stores).Error
+	if err != nil {
+		s.log.Errorf("could not get store list: %v", err)
+		return
+	}
+
+	for _, store := range stores {
+		fmt.Printf("Sending report for %s...\n", store.Name)
+		if err = s.sendReportToTemporary(&store, sendDate); err != nil {
+			log.Printf("Failed to send report for %s: %v\n", store.Name, err)
+			// You can choose to retry here or log for manual retry
+			continue
+		}
+
+		fmt.Printf("Successfully sent report for %s\n", store.Name)
+		time.Sleep(10 * time.Second)
+	}
+}
+
+// send expense products to 1C
+func (s *Services) sendReportToTemporary(store *domain.Store, date string) error {
+	var expenseData domain.SendExpense
+	expenseData.Store.StoreCode = store.StoreCode
+	expenseData.Store.Name = store.Name
+
+	// get expense docs number
+	docNumberQuery := `
+	SELECT 
+		'NP-' || LPAD(store_code::TEXT, 5, '0') || '-' || TO_CHAR(?::DATE, 'YYYYMMDD') || '0000' AS nomer_dok
+	FROM stores
+	WHERE id = ?;`
+	err := s.db.Raw(docNumberQuery, date, store.Id).Scan(&expenseData.Document.NumberDok).Error
+	if err != nil {
+		s.log.Errorf("could not get expense docs number: %v", err)
+		return err
+	}
+
+	dokTime, err := time.Parse(time.DateOnly, date)
+	if err != nil {
+		s.log.Errorf("could not parse date: %v", err)
+		return domain.InvalidTimeFormatError
+	}
+
+	expenseData.Document.DocumentDate = dokTime.Format(time.RFC3339) // set document date
+	// create new shift expense
+	err = s.CreateNewExpense(store.Id, expenseData.Document.NumberDok, expenseData.Document.DocumentDate)
+	if err != nil {
+		s.log.Errorf("could not create shift expense: %v", err)
+	}
+
+	// get expense products query
+	expenseProductQuery := `
+	WITH valid_sales AS (
+		SELECT
+			s.id AS sale_id
+		FROM sales s
+		JOIN cart_items ci ON ci.sale_id = s.id
+		WHERE s.stage IN (9, 11) AND
+			(s.completed_at BETWEEN ? AND ?) AND
+			s.store_id = ?
+		GROUP BY s.id, s.total_amount, s.total_discount
+		HAVING ROUND(SUM(ci.total_price), 2) = ROUND((s.total_amount + s.total_discount), 2)
+	)
+	SELECT
+		sp.product_id,
+		p.material_code,
+		p.name,
+		p.barcode,
+		p.mxik AS ikpu,
+		COALESCE(pr.name, '') AS manufacturer,
+		COALESCE(sp.serial_number, '') AS product_series_number,
+		sp.expire_date,
+		ROUND(
+			SUM(
+				CASE
+					WHEN s.sale_type = 'SALE'
+						THEN (ci.unit_quantity::NUMERIC / p.unit_per_pack)
+					WHEN s.sale_type = 'RETURN'
+						THEN (ci.unit_quantity::NUMERIC / p.unit_per_pack) * (-1)
+					ELSE 0
+				END
+			)::NUMERIC, 4
+		) AS quantity,
+		sp.supply_price AS supply_price_vat,
+		sp.retail_price AS retail_price_vat,
+		id.supply_price,
+		id.retail_price,
+		sp.vat,
+		ROUND(
+			SUM(
+				CASE
+					WHEN s.sale_type = 'SALE'
+						THEN (sp.vat_price / p.unit_per_pack) * ci.unit_quantity
+					WHEN s.sale_type = 'RETURN'
+						THEN (-1) * ((sp.vat_price / p.unit_per_pack) * ci.unit_quantity)
+					ELSE 0
+				END
+			), 2
+		) AS vat_sum,
+		ROUND(
+			SUM(
+				CASE
+					WHEN s.sale_type = 'SALE'
+						THEN (id.retail_price / p.unit_per_pack) * ci.unit_quantity
+					WHEN s.sale_type = 'RETURN'
+						THEN (-1) * ((id.retail_price / p.unit_per_pack) * ci.unit_quantity)
+					ELSE 0
+				END
+			), 2
+		) AS sum,
+		SUM(
+			CASE
+				WHEN s.sale_type = 'SALE' THEN ci.total_price
+				WHEN s.sale_type = 'RETURN' THEN (-1) * ci.total_price
+				ELSE 0
+			END
+		) AS sum_vat
+	FROM sales s
+	JOIN valid_sales vs ON vs.sale_id = s.id
+	LEFT JOIN sales s_return
+		ON s_return.parent_id = s.id
+		AND s_return.sale_type = 'RETURN'
+		AND s_return.stage IN (9, 11)
+	JOIN cart_items ci ON s.id = ci.sale_id
+	JOIN store_products sp ON ci.store_product_id = sp.id
+	JOIN products p ON sp.product_id = p.id
+	LEFT JOIN producers pr ON p.producer_id = pr.id
+	LEFT JOIN import_details id ON sp.import_detail_id = id.id
+	WHERE s.store_id = ?
+	AND s.stage IN (9, 11)
+	AND s.completed_at BETWEEN ? AND ?
+	GROUP BY p.id, pr.id, sp.id, id.id
+	HAVING ROUND(
+		SUM(
+			CASE
+				WHEN s.sale_type = 'SALE'
+					THEN (ci.unit_quantity::NUMERIC / p.unit_per_pack)
+				WHEN s.sale_type = 'RETURN'
+					THEN (ci.unit_quantity::NUMERIC / p.unit_per_pack) * (-1)
+				ELSE 0
+			END
+		)::NUMERIC, 4
+	) != 0;
+	`
+	startTime := dokTime.Add(-5 * time.Hour)
+	endTime := dokTime.Add(19 * time.Hour)
+
+	// complete get expense product list
+	err = s.db.Raw(
+		expenseProductQuery,
+		startTime,
+		endTime,
+		store.Id,
+		store.Id,
+		startTime,
+		endTime,
+	).Scan(&expenseData.Товары).Error
+	if err != nil {
+		s.log.Errorf("could not get expense products: %v", err)
+		return err
+	}
+
+	// get total discount
+	discountQuery := `
+    SELECT
+        COALESCE(SUM(s.total_discount), 0) AS discount_sum
+    FROM sales s
+    WHERE s.store_id = ?
+      AND s.stage = 9
+      AND s.completed_at BETWEEN ? AND ?;
+`
+
+	err = s.db.Raw(
+		discountQuery,
+		store.Id,
+		startTime,
+		endTime,
+	).Scan(&expenseData.Document.DiscountSum).Error
+	if err != nil {
+		s.log.Errorf("could not get discount sum: %v", err)
+		return err
+	}
+	// check expense product length
+	if len(expenseData.Товары) < 1 {
+		return nil
+	}
+
+	// send fakt to 1C
+	err = s.DoRequestOnec(context.Background(), expenseData, constants.OnecPathRasxod)
+	if err != nil {
+		s.log.Errorf("could not send rasxod request: %v", err)
+		return err
+	}
+	// update expense status to 1 after successfully sent
+	err = s.UpdateExpenseStatusByDocNumber(1, expenseData.Document.NumberDok)
+	if err != nil {
+		return err
+	}
 	return nil
 }
