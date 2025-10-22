@@ -411,7 +411,7 @@ func (s *Services) updateExistsCartItemQuantity(ctx context.Context, req *domain
 	if storeProduct.UnitQuantity >= req.UnitQuantity+storeProduct.UnitPerPack {
 		quantity += storeProduct.UnitPerPack
 		totalPrice += req.UnitPrice
-	} else if storeProduct.UnitQuantity > 0 {
+	} else if storeProduct.UnitQuantity > 0 && storeProduct.UnitQuantity < req.UnitQuantity {
 		quantity += 1
 		totalPrice += ((req.UnitPrice * 100) / float64(storeProduct.UnitPerPack)) / 100
 	} else {
