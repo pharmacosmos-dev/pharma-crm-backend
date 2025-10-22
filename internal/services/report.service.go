@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
 
 	"github.com/pharma-crm-backend/domain"
@@ -480,188 +481,112 @@ func (s *Services) LflReport(param *domain.ReportQueryParam) (domain.LflReport, 
 }
 
 // get store report amount
-func (s *Services) StoreReportAmount(param *domain.ReportQueryParam) ([]domain.StoreAmount, int64, error) {
+func (s *Services) StoreReportAmount(ctx context.Context, params *domain.ReportQueryParam) ([]domain.StoreAmount, int64, error) {
 
-	var (
-		res        []domain.StoreAmount
-		totalCount int64
-		filter     = " WHERE sa.stage IN(9, 11) "
-		args       []any
-		group      = " GROUP BY s.id, s.name, sale_date"
-		order      = utils.BuildStoreReportOrderClause(param.Order)
-	)
+	qb := s.db.WithContext(ctx).
+		Table("stores s").
+		Joins("JOIN sales sa ON sa.store_id = s.id").
+		Where("sa.stage IN (?, ?)", constants.SaleStageFinished, constants.SaleStageReturnedFinish).
+		Group("s.id, s.name")
 
 	// Filters
-	if param.StoreId != "" {
-		filter += " AND s.id = ?"
-		args = append(args, param.StoreId)
+	if params.StoreId != "" {
+		qb = qb.Where("s.id = ?", params.StoreId)
 	}
-	if param.CompanyId != "" {
-		filter += " AND s.company_id = ? "
-		args = append(args, param.CompanyId)
+	if params.CompanyId != "" {
+		qb = qb.Where("s.company_id = ?", params.CompanyId)
 	}
-	if param.Search != "" {
-		filter += " AND s.name ILIKE ?"
-		args = append(args, "%"+param.Search+"%")
+	if params.Search != "" {
+		qb = qb.Where("s.name ILIKE ?", "%"+params.Search+"%")
 	}
-	if param.StartDate != "" {
-		filter += " AND (sa.completed_at + interval '5 hours') >= ?"
-		args = append(args, param.StartDate)
+	if params.StartDate != "" {
+		qb = qb.Where("(sa.completed_at + interval '5 hours') >= ?", params.StartDate)
 	}
-	if param.EndDate != "" {
-		filter += " AND (sa.completed_at + interval '5 hours') <= ?"
-		args = append(args, param.EndDate)
+	if params.EndDate != "" {
+		qb = qb.Where("(sa.completed_at + interval '5 hours') <= ?", params.EndDate)
 	}
+	var totalCount int64
+	if err := qb.Count(&totalCount).Error; err != nil {
+		s.log.Errorf("could not get store_amount report total_count: %v", err)
+		return nil, 0, domain.InternalServerError
+	}
+	var (
+		res   []domain.StoreAmount
+		order = utils.BuildStoreReportOrderClause(params.Order)
+	)
 
-	// Count query (count unique stores)
-	countQuery := fmt.Sprintf(`
-		SELECT 
-			COUNT(*) AS total_count 
-		FROM (
-			SELECT 
-				s.id, 
-				s.name, 
-				(sa.completed_at + interval '5 hours')::date AS sale_date
-			FROM stores s
-			JOIN sales sa ON s.id = sa.store_id
-			JOIN sale_payments sp ON sa.id = sp.sale_id
-			JOIN payment_types pt ON sp.payment_type_id = pt.id
-			%s
-			%s
-		) AS total_count_table
-	`, filter, group)
-
-	if err := s.db.Raw(countQuery, args...).Scan(&totalCount).Error; err != nil {
-		s.log.Warn("ERROR on getting store report total count: %v", err)
-		return res, 0, err
-	}
-
-	// Main query
-	mainQuery := fmt.Sprintf(`
-		SELECT
-				row_number() OVER (ORDER BY s.name) AS uid,
-				s.id,
-				s.store_code,
-				s.name AS store_name,
-				(sa.completed_at + interval '5 hours')::date AS sale_date,
-				SUM(CASE
-					WHEN pt.name = 'Naqd' AND sa.sale_type = 'SALE' THEN sp.amount
-					WHEN pt.name = 'Naqd' AND sa.sale_type = 'RETURN' THEN sp.amount*(-1)
-					ELSE 0 END) AS cash,
-				SUM(CASE
-					WHEN pt.name = 'Uzcard' AND sa.sale_type = 'SALE' THEN sp.amount
-					WHEN pt.name = 'Uzcard' AND sa.sale_type = 'RETURN' THEN sp.amount*(-1)
-					ELSE 0 END)  AS uzcard,
-				SUM(CASE
-					WHEN pt.name = 'Humo' AND sa.sale_type = 'SALE' THEN sp.amount
-					WHEN pt.name = 'Humo' AND sa.sale_type = 'RETURN' THEN sp.amount*(-1)
-					ELSE 0 END)  AS humo,
-				SUM(CASE
-					WHEN pt.name = 'Click' AND sa.sale_type = 'SALE' THEN sp.amount
-					WHEN pt.name = 'Click' AND sa.sale_type = 'RETURN' THEN sp.amount*(-1)
-					ELSE 0 END) AS click,
-		    	SUM(CASE
-					WHEN pt.name = 'Payme' AND sa.sale_type = 'SALE' THEN sp.amount
-					WHEN pt.name = 'Payme' AND sa.sale_type = 'RETURN' THEN sp.amount*(-1)
-					ELSE 0 END) AS payme,
-		    	SUM(CASE
-					WHEN pt.name = 'Alif' AND sa.sale_type = 'SALE' THEN sp.amount
-					WHEN pt.name = 'Alif' AND sa.sale_type = 'RETURN' THEN sp.amount*(-1)
-					ELSE 0 END) AS alif,
-				SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS return_amount,
-				SUM(CASE
-					WHEN sa.sale_type = 'SALE' THEN sp.amount
-					WHEN sa.sale_type = 'RETURN' THEN sp.amount*(-1)
-					ELSE 0 END)  AS total_amount,
-				SUM(CASE
-					WHEN sa.sale_type = 'SALE' THEN sa.total_discount
-					WHEN sa.sale_type = 'RETURN' THEN sa.total_discount*(-1)
-					ELSE 0 END)  AS discount_amount,
-				COUNT(DISTINCT sa.id) AS cheque_count
-		FROM stores s
-		JOIN sales sa ON s.id = sa.store_id
-		JOIN sale_payments sp ON sa.id = sp.sale_id
-		JOIN payment_types pt ON sp.payment_type_id = pt.id
-		%s
-		%s
-		%s
-		LIMIT ? OFFSET ?;
-	`, filter, group, order)
-
-	argsWithPagination := append(args, param.Limit, param.Offset)
-
-	if err := s.db.Raw(mainQuery, argsWithPagination...).Scan(&res).Error; err != nil {
-		s.log.Warn("ERROR on getting store payment amounts: %v", err)
-		return res, 0, err
+	err := qb.
+		Select(
+			"row_number() OVER (ORDER BY s.name) AS uid",
+			"s.id",
+			"s.store_code",
+			"s.name AS store_name",
+			"(sa.completed_at + interval '5 hours')::date AS sale_date",
+			"SUM(sa.cash) AS cash",
+			"SUM(sa.uzcard) AS uzcard",
+			"SUM(sa.humo) AS humo",
+			"SUM(sa.click) AS click",
+			"SUM(sa.payme) AS payme",
+			"SUM(sa.alif) AS alif",
+			"SUM(sa.total_amount) AS total_amount",
+			"SUM(sa.return_amount) AS return_amount",
+			"SUM(sa.total_discount) AS total_discount",
+			"COUNT(DISTINCT sa.id) AS cheque_count",
+		).
+		Limit(params.Limit).
+		Offset(params.Offset).
+		Group("sale_date").
+		Order(order).
+		Find(&res).Error
+	if err != nil {
+		s.log.Errorf("could not get store report amount: %v", err)
+		return nil, 0, domain.InternalServerError
 	}
 
 	return res, totalCount, nil
 }
 
 // get store report stats
-func (s *Services) ReportByStoreStats(param *domain.ReportQueryParam) (domain.StoreReportStats, error) {
-	var (
-		res    domain.StoreReportStats
-		filter = " WHERE sa.stage IN(9, 11) "
-		args   []any
-	)
+func (s *Services) ReportByStoreStats(ctx context.Context, params *domain.ReportQueryParam) (domain.StoreReportStats, error) {
 
-	// Filterlar
-	if param.StoreId != "" {
-		filter += " AND s.id = ?"
-		args = append(args, param.StoreId)
+	qb := s.db.WithContext(ctx).
+		Select(
+			"SUM(sa.cash) AS cash",
+			"SUM(sa.uzcard) AS uzcard",
+			"SUM(sa.humo) AS humo",
+			"SUM(sa.click) AS click",
+			"SUM(sa.payme) AS payme",
+			"SUM(sa.alif) AS alif",
+			"SUM(sa.total_amount) AS total_amount",
+			"SUM(sa.return_amount) AS return_amount",
+			"SUM(sa.total_discount) AS total_discount",
+		).
+		Table("stores s").
+		Joins("JOIN sales sa ON sa.store_id = s.id").
+		Where("sa.stage IN (?, ?)", constants.SaleStageFinished, constants.SaleStageReturnedFinish)
+
+		// Filters
+	if params.StoreId != "" {
+		qb = qb.Where("s.id = ?", params.StoreId)
 	}
-	if param.CompanyId != "" {
-		filter += " AND s.company_id = ? "
-		args = append(args, param.CompanyId)
+	if params.CompanyId != "" {
+		qb = qb.Where("s.company_id = ?", params.CompanyId)
 	}
-	if param.Search != "" {
-		filter += " AND s.name ILIKE ?"
-		args = append(args, "%"+param.Search+"%")
+	if params.Search != "" {
+		qb = qb.Where("s.name ILIKE ?", "%"+params.Search+"%")
 	}
-	if param.StartDate != "" && param.EndDate != "" {
-		filter += " AND (sa.completed_at + interval '5 hours') BETWEEN ? AND ?"
-		args = append(args, param.StartDate, param.EndDate)
-	} else if param.EndDate == "" && param.StartDate != "" {
-		filter += " AND (sa.completed_at + interval '5 hours') >= ?"
-		args = append(args, param.StartDate)
+	if params.StartDate != "" {
+		qb = qb.Where("(sa.completed_at + interval '5 hours') >= ?", params.StartDate)
 	}
+	if params.EndDate != "" {
+		qb = qb.Where("(sa.completed_at + interval '5 hours') <= ?", params.EndDate)
+	}
+	var res domain.StoreReportStats
+	err := qb.Take(&res).Error
 
-	query := fmt.Sprintf(`
-		SELECT
-			SUM(CASE WHEN pt.name = 'Naqd'   AND sa.sale_type = 'SALE'   THEN sp.amount ELSE 0 END) -
-			SUM(CASE WHEN pt.name = 'Naqd'   AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS cash,
-
-			SUM(CASE WHEN pt.name = 'Uzcard' AND sa.sale_type = 'SALE'   THEN sp.amount ELSE 0 END) -
-			SUM(CASE WHEN pt.name = 'Uzcard' AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS uzcard,
-
-			SUM(CASE WHEN pt.name = 'Humo'   AND sa.sale_type = 'SALE'   THEN sp.amount ELSE 0 END) -
-			SUM(CASE WHEN pt.name = 'Humo'   AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS humo,
-
-			SUM(CASE WHEN pt.name = 'Click'  AND sa.sale_type = 'SALE'   THEN sp.amount ELSE 0 END) -
-			SUM(CASE WHEN pt.name = 'Click'  AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS click,
-
-			SUM(CASE WHEN pt.name = 'Payme'  AND sa.sale_type = 'SALE'   THEN sp.amount ELSE 0 END) -
-			SUM(CASE WHEN pt.name = 'Payme'  AND sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS payme,
-
-			SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS return_amount,
-
-			SUM(CASE WHEN sa.sale_type = 'SALE' THEN sp.amount ELSE 0 END) -
-			SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sp.amount ELSE 0 END) AS total_amount,
-			SUM(CASE
-				WHEN sa.sale_type = 'SALE' THEN sa.total_discount
-				WHEN sa.sale_type = 'RETURN' THEN sa.total_discount*(-1)
-				ELSE 0 END)  AS discount_amount	    
-		FROM stores s
-		JOIN sales sa ON s.id = sa.store_id
-		JOIN sale_payments sp ON sa.id = sp.sale_id
-		JOIN payment_types pt ON sp.payment_type_id = pt.id
-		%s
-	`, filter)
-
-	if err := s.db.Raw(query, args...).Scan(&res).Error; err != nil {
-		s.log.Warn("ERROR on getting store report: %v", err)
-		return res, err
+	if err != nil {
+		s.log.Errorf("could not get store amount report stats: %v", err)
+		return res, domain.InternalServerError
 	}
 
 	return res, nil

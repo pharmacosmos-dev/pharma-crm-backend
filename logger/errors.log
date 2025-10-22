@@ -11,3 +11,8 @@ time=2025-10-22T03:35:41.233695Z level=ERROR msg="could not count products: ERRO
 time=2025-10-22T03:36:31.384889Z level=ERROR msg="could not count products: ERROR: missing FROM-clause entry for table "p" (SQLSTATE 42P01)"
 time=2025-10-22T03:37:01.12402Z level=ERROR msg="could not get products list: ERROR: column "pr.name" must appear in the GROUP BY clause or be used in an aggregate function (SQLSTATE 42803)"
 time=2025-10-22T03:59:01.389398Z level=ERROR msg="could not get products list: ERROR: column "sp_agg.supply_price" must appear in the GROUP BY clause or be used in an aggregate function (SQLSTATE 42803)"
+time=2025-10-22T05:52:18.161557Z level=ERROR msg="could not get store_amount report total_count: ERROR: syntax error at or near "sales" (SQLSTATE 42601)"
+time=2025-10-22T05:53:11.930073Z level=ERROR msg="could not get store_amount report total_count: ERROR: syntax error at or near "sales" (SQLSTATE 42601)"
+time=2025-10-22T05:53:12.929128Z level=ERROR msg="could not get store_amount report total_count: ERROR: syntax error at or near "sales" (SQLSTATE 42601)"
+time=2025-10-22T05:53:34.196323Z level=ERROR msg="could not get store report amount: ERROR: syntax error at or near "," (SQLSTATE 42601)"
+time=2025-10-22T05:54:56.576338Z level=ERROR msg="could not get store report amount: ERROR: column "sa.completed_at" must appear in the GROUP BY clause or be used in an aggregate function (SQLSTATE 42803)"
