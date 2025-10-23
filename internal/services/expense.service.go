@@ -33,7 +33,7 @@ func (s *Services) SendExpenseTo1C(sendDate string) error {
 		s.log.Warn("ERROR on getting store list: %v", err)
 		return errors.New("error on getting store")
 	}
-
+	fmt.Println("--->>> ", len(stores))
 	for _, store := range stores {
 		fmt.Printf("Sending report for %s...\n", store.Name)
 		if err = s.sendReportTo1C(&store, sendDate); err != nil {

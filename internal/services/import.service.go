@@ -34,7 +34,7 @@ func (s *Services) UpdateImportByField(tx *gorm.DB, id string, field, value stri
 func (s *Services) UpdateImportCompletedStatus(tx *gorm.DB, importID, userID string) error {
 	var res domain.Import
 	// update import status
-	err := tx.Raw(`UPDATE imports SET status = ?, accepted_by = ? WHERE id = ? RETURNING *`, constants.GeneralStatusCanceled, userID, importID).Scan(&res).Error
+	err := tx.Raw(`UPDATE imports SET status = ?, accepted_by = ? WHERE id = ? RETURNING *`, constants.GeneralStatusCompleted, userID, importID).Scan(&res).Error
 	if err != nil {
 		s.log.Error("could not update import(%s) status: %v", importID, err)
 		return err
