@@ -78,7 +78,7 @@ func (h *CustomerHandler) Create(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	body.CreatedBy = user.UserId
+	// body.CreatedBy = user.UserId
 	res, err := h.service.CreateCustomer(ctx, &body)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)

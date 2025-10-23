@@ -296,11 +296,16 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 			updates["click"] = req.Click
 			updates["payme"] = req.Payme
 			updates["alif"] = req.Alif
+			updates["loyalty_card"] = req.LoyaltyCard
 			updates["total_amount"] = gorm.Expr("(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
 			updates["total_discount"] = gorm.Expr("(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
 			updates["return_amount"] = req.ReturnAmount
 			updates["stage"] = constants.SaleStagePayFinished
 			updates["updated_at"] = time.Now()
+
+			if req.LoyaltyCardBarcode != "" {
+				updates["cash_back"] = gorm.Expr("(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) / 100 * ? FROM cart_items WHERE sale_id = ?)", sale.Customer.LoyaltyCardPercent, req.SaleID)
+			}
 		}
 
 		if sale.Stage < constants.SaleStageFinished {
@@ -325,11 +330,17 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 			updates["click"] = req.Click
 			updates["payme"] = req.Payme
 			updates["alif"] = req.Alif
+			updates["loyalty_card"] = req.LoyaltyCard
 			updates["total_amount"] = gorm.Expr("(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
 			updates["total_discount"] = gorm.Expr("(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
+			updates["cash_back"] = gorm.Expr("(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) / 100 * ? FROM cart_items WHERE sale_id = ?)", sale.Customer.LoyaltyCardPercent, req.SaleID)
 			updates["return_amount"] = req.ReturnAmount
 			updates["stage"] = constants.SaleStageOfdWaiting
 			updates["updated_at"] = time.Now()
+
+			if req.LoyaltyCardBarcode != "" {
+				updates["cash_back"] = gorm.Expr("(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) / 100 * ? FROM cart_items WHERE sale_id = ?)", sale.Customer.LoyaltyCardPercent, req.SaleID)
+			}
 		}
 	}
 
@@ -626,6 +637,8 @@ func (s *Services) matchingPaymentTypeSum(ctx context.Context, req *domain.Final
 		} else if item.Type == constants.PaymentTypeApp && item.AppType == constants.PaymentTypeAlif {
 			req.Alif = item.Amount
 			req.OtpCode = item.OtpData
+		} else if item.Type == constants.PaymentTypeLoyaltyCard {
+			req.LoyaltyCard = item.Amount
 		} else {
 			return req, domain.InvalidPaymentTypeError
 		}
@@ -2028,6 +2041,7 @@ func (s *Services) getSalePayAmounts(sale *domain.Sale, req *domain.FinalSale) *
 	sale.Click = req.Click
 	sale.Payme = req.Payme
 	sale.Alif = req.Alif
+	sale.LoyaltyCard = req.LoyaltyCard
 
 	return sale
 }

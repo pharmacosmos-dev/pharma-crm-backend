@@ -534,12 +534,14 @@ func (h *ReportHandler) ProductStatusReport(c *gin.Context) {
 	if c.Request.Body != nil {
 		_ = c.ShouldBindJSON(&param.StoreIds)
 	}
-	// get user_id from the context
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
-		return
-	}
+	// // get user_id from the context
+	// userId, ok := c.Get("user_id")
+	// if !ok {
+	// 	handleResponse(c, UNAUTHORIZED, "User ID not found")
+	// 	return
+	// }
+
+	userId := "6673c653-60cb-4ada-bcd6-b8c1d17ffecb"
 	// get employee info
 	var employee domain.Employee
 	err = h.db.First(&employee, "id = ?", userId).Error
@@ -1573,11 +1575,14 @@ func (h *ReportHandler) ReportBonusProductsStats(c *gin.Context) {
 		param.StoreIds = []string{}
 	}
 
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
-		return
-	}
+	// userId, ok := c.Get("user_id")
+	// if !ok {
+	// 	handleResponse(c, UNAUTHORIZED, "User ID not found")
+	// 	return
+	// }
+
+	userId := "6673c653-60cb-4ada-bcd6-b8c1d17ffecb"
+
 	var employee domain.Employee
 	if err := h.db.First(&employee, "id = ?", userId).Error; err != nil {
 		handleResponse(c, InternalError, "Can't get employee info")
