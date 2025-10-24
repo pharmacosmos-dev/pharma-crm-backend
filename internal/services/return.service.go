@@ -105,7 +105,7 @@ func (s *Services) GetReturnById(ctx context.Context, returnId string) (*domain.
 		s.log.Errorf("could not get return by id: %v", err)
 		return nil, domain.InternalServerError
 	}
-	
+
 	err = s.db.WithContext(ctx).First(&res.Store, "id = ?", res.FromStoreId).Error
 	if err != nil {
 		s.log.Errorf("could not get store: %v", err)
