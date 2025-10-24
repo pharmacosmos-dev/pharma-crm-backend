@@ -3,6 +3,8 @@ package services
 import (
 	"encoding/json"
 	"fmt"
+	"math"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
@@ -72,4 +74,16 @@ func (s *Services) GetSignedUser(c *gin.Context) *domain.EmployeeClaims {
 	}
 
 	return &user
+}
+
+func (s *Services) ConvertIntegerTo8DigitEquivalent(value int) (int, int) {
+	digitDifference := 8 - len(strconv.Itoa(value))
+
+	if digitDifference <= 0 {
+		return value, value
+	}
+
+	zeroes := int(math.Pow(float64(10), float64(digitDifference)))
+
+	return value * zeroes, (value + 1) * zeroes
 }

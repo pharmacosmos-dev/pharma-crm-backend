@@ -1175,11 +1175,10 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 	if params.StartDate != "" && params.EndDate == "" {
 		qb = qb.Where("(s.completed_at + interval '5 hours') BETWEEN ? AND (?::timestamp + interval '24 hours')", params.StartDate, params.StartDate)
 	}
-
 	if params.Search != "" {
-		if num, err := strconv.Atoi(params.Search); err == nil {
+		if _, err := strconv.Atoi(params.Search); err == nil {
 			// If will be digit
-			qb = qb.Where("s.sale_number = ?", num)
+			qb = qb.Where("s.sale_number::text LIKE ?", params.Search+"%")
 		} else {
 			// otherwise text
 			qb = qb.Where("st.name ILIKE ?", "%"+params.Search+"%")

@@ -15,6 +15,7 @@ import (
 // region Create
 
 func (s *Services) CreateCartItem(ctx context.Context, user *domain.EmployeeClaims, req *domain.CartItemRequest) (*domain.CartItem, error) {
+	
 	// get sale info by id
 	sale, err := s.GetSaleById(ctx, req.SaleId)
 	if err != nil {
@@ -381,16 +382,6 @@ func (s *Services) getCartItemsByIds(ctx context.Context, ids []string) ([]domai
 	}
 
 	return cartItems, nil
-}
-
-func (s *Services) getCartItemsForFinal(ctx context.Context, saleId string) ([]domain.CartItem, error) {
-	var res []domain.CartItem
-	err := s.db.WithContext(ctx).Where("sale_id = ?", saleId).Find(&res).Error
-	if err != nil {
-		s.log.Errorf("could not get cart_items for final: %v", err)
-		return res, domain.InternalServerError
-	}
-	return res, nil
 }
 
 // region Update
