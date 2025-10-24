@@ -65,31 +65,25 @@ func (h *ReturnHandler) ReturnRoutes(r *gin.RouterGroup) {
 // @Failure 500 {object} v1.Response
 // @Router /return [POST]
 func (h *ReturnHandler) Create(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
 	var returnRequest domain.ReturnRequest
-	// Bind the request body to the ReturnRequest struct
-	err := c.ShouldBindJSON(&returnRequest)
-	if err != nil {
-		h.log.Warn("Error on binding request: %v", err.Error())
-		handleResponse(c, BadRequest, "Invalid request body")
-		return
-	}
-	userId, ok := c.Get("user_id")
-	if !ok {
-		h.log.Warn("Error on getting user id from context")
-		handleResponse(c, BadRequest, "user.not.found.header")
+	if err := c.ShouldBindJSON(&returnRequest); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
 
-	handleResponse(c, BadRequest, "vozvrat.temporary.not.working")
-	return
-
-	returnRequest.CreatedBy = userId.(string) // get creator id from set header
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 
 	// create return
-	err = h.service.CreateReturn(&returnRequest)
+	err := h.service.CreateReturn(ctx, &returnRequest)
 	if err != nil {
-		h.log.Warn("Error on creating return: %v", err.Error())
-		handleResponse(c, InternalError, "Failed to create return")
+		handleResponse(c, InternalError, err)
 		return
 	}
 
@@ -112,14 +106,16 @@ func (h *ReturnHandler) Get(c *gin.Context) {
 	// get return by id
 	id := c.Param("id")
 	if err := uuid.Validate(id); err != nil {
-		handleResponse(c, BadRequest, "Invalid return id")
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
 		return
 	}
 
-	res, err := h.service.GetReturnById(id)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, err := h.service.GetReturnById(ctx, id)
 	if err != nil {
-		h.log.Warn("ERROR on getting return by id: %v", err)
-		handleResponse(c, InternalError, "failed.get.return")
+		handleServiceResponse(c, nil, err)
 		return
 	}
 	handleResponse(c, OK, res)
@@ -142,48 +138,40 @@ func (h *ReturnHandler) Get(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /return/list [GET]
 func (h *ReturnHandler) List(c *gin.Context) {
-	var param domain.ReturnParam
-	// get user_id from the context
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User not found")
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
+	var params domain.ReturnParam
+
 	// bind query param
-	if err := c.ShouldBindQuery(&param); err != nil {
-		handleResponse(c, BadRequest, "Invalid query param")
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
-	// get user info
-	var employee domain.Employee
-	err := h.db.First(&employee, "id = ?", userId).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		h.log.Warn("ERROR on getting user: %v", err)
-		handleResponse(c, InternalError, "Failed to get user info")
-		return
-	}
+
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
-		if employee.StoreId != "" {
-			param.StoreId = employee.StoreId
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
 		}
-		param.CompanyId = employee.CompanyId
+		params.CompanyId = user.CompanyId
 	}
 
 	// get default limit and offset
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 
 	// get return list
-	res, totalCount, err := h.service.ReturnList(&param)
+	res, totalCount, err := h.service.ReturnList(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, "Failed to get return list")
+		handleServiceResponse(c, nil, err)
 		return
 	}
-	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
 
 	handleResponse(c, OK, data)
 }
@@ -258,48 +246,39 @@ func (h *ReturnHandler) ReturnStatus(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /return/export-excel [get]
 func (h *ReturnHandler) ExportReturnExcel(c *gin.Context) {
-	var param domain.ReturnParam
-	// get user_id from the context
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User not found")
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
+	var params domain.ReturnParam
+
 	// bind query param
-	if err := c.ShouldBindQuery(&param); err != nil {
-		handleResponse(c, BadRequest, "Invalid query param")
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
-	// get user info
-	var employee domain.Employee
-	err := h.db.First(&employee, "id = ?", userId).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		h.log.Warn("ERROR on getting user: %v", err)
-		handleResponse(c, InternalError, "Failed to get user info")
-		return
-	}
+
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
-		if employee.StoreId != "" {
-			param.StoreId = employee.StoreId
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
 		}
-		param.CompanyId = employee.CompanyId
+		params.CompanyId = user.CompanyId
 	}
 
 	// get default limit and offset
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 
 	// get return list
-	res, _, err := h.service.ReturnList(&param)
+	res, _, err := h.service.ReturnList(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, "Failed to get return list")
+		handleServiceResponse(c, nil, err)
 		return
 	}
-
 	// Create excel file
 	f := excelize.NewFile()
 	sheetName := "List"

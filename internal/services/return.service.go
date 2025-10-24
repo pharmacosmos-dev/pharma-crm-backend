@@ -14,13 +14,17 @@ import (
 )
 
 // Create return creates a new return
-func (s *Services) CreateReturn(req *domain.ReturnRequest) error {
+func (s *Services) CreateReturn(ctx context.Context, req *domain.ReturnRequest) error {
 	var id string
 	// start transaction
 	tx := s.db.Begin()
-	defer recoverTransaction(tx, s.log)
+	defer func() {
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
+		}
+	}()
 	// insert return into inventories table
-	err := tx.Raw(`
+	err := tx.WithContext(ctx).Raw(`
 	INSERT INTO transfers (
 		from_store_id, 
 		name,  
@@ -33,14 +37,14 @@ func (s *Services) CreateReturn(req *domain.ReturnRequest) error {
 		2,
 	).Scan(&id).Error
 	if err != nil {
-		s.log.Warn("ERROR on creating return: %v", err)
-		tx.Rollback()
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("could not create return: %v", err)
+		return domain.InternalServerError
 	}
 
 	// if no products provided, get all products from store_products
 	// and insert them into return_details
-	err = tx.Exec(
+	err = tx.WithContext(ctx).Exec(
 		`INSERT INTO transfer_details(
 			transfer_id,
 			store_product_id,
@@ -66,24 +70,23 @@ func (s *Services) CreateReturn(req *domain.ReturnRequest) error {
 			sp.store_id = ? AND (sp.pack_quantity > 0 OR sp.unit_quantity > 0);`,
 		id, req.StoreId).Error
 	if err != nil {
-		s.log.Warn("ERROR on creating return details: %v", err)
-		tx.Rollback()
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("could not create return details: %v", err)
+		return domain.InternalServerError
 	}
 
 	// commit transaction
-	err = tx.Commit().Error
-	if err != nil {
-		s.log.Warn("ERROR on committing transaction: %v", err)
-		return err
+	if err = tx.Commit().Error; err != nil {
+		s.log.Errorf("could not commit create return transaction: %v", err)
+		return domain.InternalServerError
 	}
 	return nil
 }
 
 // get return by id
-func (s *Services) GetReturnById(returnId string) (*domain.Return, error) {
+func (s *Services) GetReturnById(ctx context.Context, returnId string) (*domain.Return, error) {
 	var res domain.Return
-	err := s.db.Model(&domain.Transfer{}).
+	err := s.db.WithContext(ctx).Model(&domain.Transfer{}).
 		Preload("CreatedBy").
 		Preload("UpdatedBy").
 		Select(`
@@ -97,13 +100,14 @@ func (s *Services) GetReturnById(returnId string) (*domain.Return, error) {
 		Group("transfers.id").
 		First(&res, "transfers.id = ?", returnId).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting return by id: %v", err)
-		return nil, err
+		s.log.Errorf("could not get return by id: %v", err)
+		return nil, domain.InternalServerError
 	}
-	err = s.db.First(&res.Store, "id = ?", res.FromStoreId).Error
+
+	err = s.db.WithContext(ctx).First(&res.Store, "id = ?", res.FromStoreId).Error
 	if err != nil {
-		s.log.Error(err)
-		return &res, err
+		s.log.Errorf("could not get store: %v", err)
+		return &res, domain.InternalServerError
 	}
 
 	return &res, nil
@@ -299,7 +303,7 @@ func (s *Services) UpdateReturnByBarcode(ctx context.Context, req *domain.Transf
 }
 
 // get return list
-func (s *Services) ReturnList(param *domain.ReturnParam) ([]domain.Return, int64, error) {
+func (s *Services) ReturnList(ctx context.Context, param *domain.ReturnParam) ([]domain.Return, int64, error) {
 	var res []domain.Return
 	var totalCount int64
 	query := s.db.Model(&domain.Transfer{}).
