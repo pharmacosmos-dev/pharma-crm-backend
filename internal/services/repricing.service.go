@@ -1,7 +1,6 @@
 package services
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/pharma-crm-backend/domain"
@@ -12,7 +11,9 @@ import (
 // create price_revalutions
 func (s *Services) CreateRepricing(req *domain.RepricingRequest) (*domain.PriceRevalution, error) {
 	var res domain.PriceRevalution
-	err := s.db.Raw(`INSERT INTO price_revalutions(store_id, name, type, created_by) VALUES(?, ?, ?, ?) RETURNING *`,
+	err := s.db.Raw(`
+		INSERT INTO price_revalutions(store_id, name, type, created_by) 
+		VALUES(?, ?, ?, ?) RETURNING *`,
 		req.StoreId, req.Name, req.Type, req.CreatedBy).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on creating price_revalution: %v", err)
@@ -26,39 +27,90 @@ func (s *Services) CreateRepricing(req *domain.RepricingRequest) (*domain.PriceR
 		}
 	}()
 
-	// if no products provided, get all products from store_products
-	// and insert them into inventory_details
-	err = tx.Exec(
-		`INSERT INTO price_revalution_details(
-			price_revalution_id,
-			store_product_id,
-			product_id,
-			old_supply_price,
-			old_retail_price,
-			old_expire_date,
-			serial_number)
-		SELECT  
-			?, 
-			sp.id,
-			sp.product_id, 
-			sp.supply_price, 
-			sp.retail_price, 
-			sp.expire_date, 
-			sp.serial_number
-		FROM store_products sp
-		JOIN
-			products p ON sp.product_id = p.id
-		WHERE 
-			sp.store_id = ? AND (sp.pack_quantity > 0 OR sp.unit_quantity > 0);`,
-		res.Id, req.StoreId).Error
+	switch req.Type {
+	case "IMPORT":
+		if req.ImportId != "" {
+			err = tx.Exec(`
+				INSERT INTO price_revalution_details(
+					price_revalution_id,
+					store_product_id,
+					product_id,
+					old_supply_price,
+					old_retail_price,
+					old_expire_date,
+					serial_number
+				)
+				SELECT
+					?,
+					sp.id,
+					sp.product_id,
+					sp.supply_price,
+					sp.retail_price,
+					sp.expire_date,
+					sp.serial_number
+				FROM store_products sp
+				JOIN import_details id ON id.id = sp.import_detail_id
+				WHERE id.import_id = ?;`,
+				res.Id, req.ImportId).Error
+		}
+
+	case "MEDICINE":
+		if req.StoreProductId != "" {
+			err = tx.Exec(`
+				INSERT INTO price_revalution_details(
+					price_revalution_id,
+					store_product_id,
+					product_id,
+					old_supply_price,
+					old_retail_price,
+					old_expire_date,
+					serial_number
+				)
+				SELECT
+					?,
+					sp.id,
+					sp.product_id,
+					sp.supply_price,
+					sp.retail_price,
+					sp.expire_date,
+					sp.serial_number
+				FROM store_products sp
+				WHERE sp.id = ?;`,
+				res.Id, req.StoreProductId).Error
+		}
+
+	default: // FULL repricing (store_id bo‘yicha)
+		err = tx.Exec(`
+			INSERT INTO price_revalution_details(
+				price_revalution_id,
+				store_product_id,
+				product_id,
+				old_supply_price,
+				old_retail_price,
+				old_expire_date,
+				serial_number
+			)
+			SELECT  
+				?, 
+				sp.id,
+				sp.product_id, 
+				sp.supply_price, 
+				sp.retail_price, 
+				sp.expire_date, 
+				sp.serial_number
+			FROM store_products sp
+			WHERE sp.store_id = ? AND (sp.pack_quantity > 0 OR sp.unit_quantity > 0);`,
+			res.Id, req.StoreId).Error
+	}
+
 	if err != nil {
-		s.log.Warn("ERROR on creating inventory details: %v", err)
+		s.log.Warn("ERROR on creating repricing details: %v", err)
 		tx.Rollback()
 		return &res, err
 	}
 
 	if err = tx.Commit().Error; err != nil {
-		s.log.Warn("ERROR on creating repricing details: %v", err)
+		s.log.Warn("ERROR on commit repricing: %v", err)
 		tx.Rollback()
 		return &res, err
 	}
@@ -244,9 +296,12 @@ func (s *Services) RepricingDetailList(repricingID int, param *domain.QueryParam
 		search     = ""
 	)
 
+	args := []any{repricingID}
 	// filter products by search key
 	if param.Search != "" {
-		search = fmt.Sprintf(" AND (p.name ILIKE %s OR p.barcode LIKE %s) ", "%"+param.Search+"%", "%"+param.Search+"%")
+		search = " AND (p.name ILIKE ? OR p.barcode LIKE ?) "
+		searchKey := "%" + param.Search + "%"
+		args = append(args, searchKey, searchKey)
 	}
 
 	query = `
@@ -280,10 +335,11 @@ func (s *Services) RepricingDetailList(repricingID int, param *domain.QueryParam
 	JOIN products p ON prd.product_id = p.id
 	WHERE prd.price_revalution_id = ?
 	`
+	args = append(args, param.Limit, param.Offset)
 	// collect query
-	query += search + " ORDER BY prd.updated_at DESC LIMIT ? OFFSET ?;" // add search condition and limit, offset
+	query += search + " ORDER BY  prd.updated_at DESC, p.name ASC LIMIT ? OFFSET ?;" // add search condition and limit, offset
 	// execute query
-	err := s.db.Raw(query, repricingID, param.Limit, param.Offset).Scan(&res).Error
+	err := s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting price revalution details: %v", err)
 		return res, 0, err
