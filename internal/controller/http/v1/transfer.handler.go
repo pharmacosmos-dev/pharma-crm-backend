@@ -937,11 +937,6 @@ func (s *TransferHandler) GetTransferLogs(c *gin.Context) {
 	}
 
 	var params domain.ReturnDetailParam
-	// bind query params
-	if err := c.ShouldBindQuery(&params); err != nil {
-		handleResponse(c, BadRequest, "Invalid query param")
-		return
-	}
 
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
@@ -950,13 +945,15 @@ func (s *TransferHandler) GetTransferLogs(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	logs, err := s.service.GetTransferLogs(ctx, &params)
+	logs, totalCount, err := s.service.GetTransferLogs(ctx, &params)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
-	handleResponse(c, OK, logs)
+	data := utils.ListResponse(logs, totalCount, params.Limit, params.Offset)
+
+	handleResponse(c, OK, data)
 }
 
 // DeleteTransfer godoc

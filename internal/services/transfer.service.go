@@ -1001,7 +1001,7 @@ func (s *Services) SaveTransferLog(req *domain.TransferLog) {
 	}
 }
 
-func (s *Services) GetTransferLogs(ctx context.Context, params *domain.ReturnDetailParam) ([]domain.TransferLog, error) {
+func (s *Services) GetTransferLogs(ctx context.Context, params *domain.ReturnDetailParam) ([]domain.TransferLog, int64, error) {
 	var tmpTransferLog []struct {
 		Id               int64      `gorm:"id"`
 		TransferId       string     `gorm:"transfer_id"`
@@ -1017,18 +1017,20 @@ func (s *Services) GetTransferLogs(ctx context.Context, params *domain.ReturnDet
 	}
 
 	var res []domain.TransferLog
+	var totalCount int64
 	err := s.db.WithContext(ctx).
 		Model(&domain.TransferLog{}).
 		Select("transfer_logs.*, em.full_name").
 		Where("transfer_logs.transfer_id = ?", params.TransferId).
 		Joins("JOIN employees em ON transfer_logs.user_id = em.id").
 		Order("transfer_logs.created_at DESC").
+		Count(&totalCount).
 		Limit(params.Limit).
 		Offset(params.Offset).
 		Find(&tmpTransferLog).Error
 	if err != nil {
 		s.log.Errorf("could not get transfer logs: %v", err)
-		return nil, err
+		return nil, 0, err
 	}
 
 	for _, log := range tmpTransferLog {
@@ -1050,5 +1052,5 @@ func (s *Services) GetTransferLogs(ctx context.Context, params *domain.ReturnDet
 		})
 	}
 
-	return res, nil
+	return res, totalCount, nil
 }
