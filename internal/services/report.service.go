@@ -562,10 +562,11 @@ func (s *Services) ReportByStoreStats(ctx context.Context, params *domain.Report
 			"SUM(sa.total_discount) AS total_discount",
 		).
 		Table("stores s").
-		Joins("JOIN sales sa ON sa.store_id = s.id").
-		Where("sa.stage IN (?, ?)", constants.SaleStageFinished, constants.SaleStageReturnedFinish)
+		Joins("JOIN sales sa ON sa.store_id = s.id")
 
-		// Filters
+	// Filters
+	qb = qb.Where("sa.stage IN (?)", constants.FinishedSaleStages)
+
 	if params.StoreId != "" {
 		qb = qb.Where("s.id = ?", params.StoreId)
 	}
