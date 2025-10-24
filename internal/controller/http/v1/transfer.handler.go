@@ -936,10 +936,21 @@ func (s *TransferHandler) GetTransferLogs(c *gin.Context) {
 		return
 	}
 
+	var params domain.ReturnDetailParam
+	// bind query params
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleResponse(c, BadRequest, "Invalid query param")
+		return
+	}
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	params.TransferId = transferId
+
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	logs, err := s.service.GetTransferLogs(ctx, transferId)
+	logs, err := s.service.GetTransferLogs(ctx, &params)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)
 		return

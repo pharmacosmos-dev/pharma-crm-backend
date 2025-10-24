@@ -1001,27 +1001,30 @@ func (s *Services) SaveTransferLog(req *domain.TransferLog) {
 	}
 }
 
-func (s *Services) GetTransferLogs(ctx context.Context, transferId string) ([]domain.TransferLog, error) {
+func (s *Services) GetTransferLogs(ctx context.Context, params *domain.ReturnDetailParam) ([]domain.TransferLog, error) {
 	var tmpTransferLog []struct {
-		Id               int64      `gorm:"column:serial;primaryKey;autoIncrement" json:"id"`
-		TransferId       string     `gorm:"transfer_id" json:"transfer_id"`
-		TransferDetailId string     `gorm:"transfer_detail_id" json:"transfer_detail_id"`
-		ProductId        string     `gorm:"product_id" json:"product_id"`
-		UserId           string     `gorm:"user_id" json:"user_id"`
-		TransferType     int        `gorm:"transfer_type" json:"transfer_type"`
-		Stage            int        `gorm:"stage" json:"stage"`
-		Quantity         int        `gorm:"quantity" json:"quantity"`
-		CreatedAt        *time.Time `gorm:"created_at" json:"created_at"`
-		UpdatedAt        *time.Time `gorm:"updated_at" json:"updated_at"`
-		EmFullName       string     `gorm:"full_name" json:"em_full_name"`
+		Id               int64      `gorm:"id"`
+		TransferId       string     `gorm:"transfer_id"`
+		TransferDetailId string     `gorm:"transfer_detail_id"`
+		ProductId        string     `gorm:"product_id"`
+		UserId           string     `gorm:"user_id"`
+		TransferType     int        `gorm:"transfer_type"`
+		Stage            int        `gorm:"stage"`
+		Quantity         int        `gorm:"quantity"`
+		CreatedAt        *time.Time `gorm:"created_at"`
+		UpdatedAt        *time.Time `gorm:"updated_at"`
+		FullName         string     `gorm:"full_name"`
 	}
 
 	var res []domain.TransferLog
-	err := s.db.WithContext(ctx).Model(&domain.TransferLog{}).
+	err := s.db.WithContext(ctx).
+		Model(&domain.TransferLog{}).
 		Select("transfer_logs.*, em.full_name").
-		Where("transfer_logs.transfer_id = ?", transferId).
+		Where("transfer_logs.transfer_id = ?", params.TransferId).
 		Joins("JOIN employees em ON transfer_logs.user_id = em.id").
 		Order("transfer_logs.created_at DESC").
+		Limit(params.Limit).
+		Offset(params.Offset).
 		Find(&tmpTransferLog).Error
 	if err != nil {
 		s.log.Errorf("could not get transfer logs: %v", err)
@@ -1042,7 +1045,7 @@ func (s *Services) GetTransferLogs(ctx context.Context, transferId string) ([]do
 			UpdatedAt:        log.UpdatedAt,
 			Employee: domain.NewNullStruct(domain.EmployeeTransferLog{
 				Id:       log.UserId,
-				FullName: log.EmFullName,
+				FullName: log.FullName,
 			}, log.UserId != ""),
 		})
 	}
