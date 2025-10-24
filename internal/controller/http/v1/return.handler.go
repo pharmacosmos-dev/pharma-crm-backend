@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"math"
@@ -64,31 +65,25 @@ func (h *ReturnHandler) ReturnRoutes(r *gin.RouterGroup) {
 // @Failure 500 {object} v1.Response
 // @Router /return [POST]
 func (h *ReturnHandler) Create(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
 	var returnRequest domain.ReturnRequest
-	// Bind the request body to the ReturnRequest struct
-	err := c.ShouldBindJSON(&returnRequest)
-	if err != nil {
-		h.log.Warn("Error on binding request: %v", err.Error())
-		handleResponse(c, BadRequest, "Invalid request body")
-		return
-	}
-	userId, ok := c.Get("user_id")
-	if !ok {
-		h.log.Warn("Error on getting user id from context")
-		handleResponse(c, BadRequest, "user.not.found.header")
+	if err := c.ShouldBindJSON(&returnRequest); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
 
-	handleResponse(c, BadRequest, "vozvrat.temporary.not.working")
-	return
-
-	returnRequest.CreatedBy = userId.(string) // get creator id from set header
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 
 	// create return
-	err = h.service.CreateReturn(&returnRequest)
+	err := h.service.CreateReturn(ctx, &returnRequest)
 	if err != nil {
-		h.log.Warn("Error on creating return: %v", err.Error())
-		handleResponse(c, InternalError, "Failed to create return")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
@@ -111,14 +106,15 @@ func (h *ReturnHandler) Get(c *gin.Context) {
 	// get return by id
 	id := c.Param("id")
 	if err := uuid.Validate(id); err != nil {
-		handleResponse(c, BadRequest, "Invalid return id")
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 
-	res, err := h.service.GetReturnById(id)
+	res, err := h.service.GetReturnById(ctx, id)
 	if err != nil {
-		h.log.Warn("ERROR on getting return by id: %v", err)
-		handleResponse(c, InternalError, "failed.get.return")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 	handleResponse(c, OK, res)
