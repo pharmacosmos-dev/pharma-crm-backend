@@ -29,11 +29,13 @@ type RepricingStatusSummary struct {
 
 // repricing off create request
 type RepricingRequest struct {
-	Name      string  `gorm:"name" json:"name"`
-	StoreId   string  `gorm:"store_id" json:"store_id"`
-	CreatedBy *string `gorm:"created_by" json:"created_by"`
-	Status    string  `gorm:"status" json:"status"`
-	Type      string  `gorm:"type" json:"type" example:"retail_price|supply_price|expire_date"`
+	Name           string  `gorm:"name" json:"name"`
+	StoreId        string  `gorm:"store_id" json:"store_id"`
+	ImportId       string  `gorm:"import_id" json:"import_id"`
+	StoreProductId string  `gorm:"store_product_id" json:"store_product_id"`
+	CreatedBy      *string `gorm:"created_by" json:"created_by"`
+	Status         string  `gorm:"status" json:"status"`
+	Type           string  `gorm:"type" json:"type" example:"retail_price|supply_price|expire_date"`
 }
 
 // repricing detail structure
