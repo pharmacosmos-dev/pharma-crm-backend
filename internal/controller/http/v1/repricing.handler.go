@@ -579,7 +579,7 @@ func (h *RepricingHandler) ExportListDetail(c *gin.Context) {
 	saveExcelToUploads(c, f, *h.log, fmt.Sprintf("Repricing_Detail_%d", param.RepricingID))
 }
 
-// add new retail price
+// AddRetailPrice godoc
 // @Summary add new retail price
 // @Description add new retail price
 // @Tags Repricing
@@ -612,40 +612,60 @@ func (h *RepricingHandler) AddRetailPrice(c *gin.Context) {
 	}()
 
 	if body.Percent > 0 {
-		query := `
-        UPDATE price_revalution_details
-        SET 
-            new_retail_price = old_supply_price * (1 + ?/100.00), 
-            updated_at = NOW()
-        WHERE id = ?
-    `
-		err = tx.Exec(query, body.Percent, body.Id).Error
+		if body.Id != "" { // faqat bitta id bo‘yicha update
+			query := `
+				UPDATE price_revalution_details
+				SET 
+					new_retail_price = ROUND(old_supply_price * (1 + ?/100.00), -2), 
+					updated_at = NOW()
+				WHERE id = ?
+			`
+			err = tx.Exec(query, body.Percent, body.Id).Error
+			if err != nil {
+				_ = tx.Rollback()
+				handleResponse(c, BadRequest, "could.not.update.retail.price")
+				return
+			}
+		} else { // agar id yo‘q bo‘lsa -> hammasini update
+			query := `
+				UPDATE price_revalution_details
+				SET 
+					new_retail_price = ROUND(old_supply_price * (1 + ?/100.00), -2), 
+					updated_at = NOW()
+			`
+			err = tx.Exec(query, body.Percent).Error
+			if err != nil {
+				_ = tx.Rollback()
+				handleResponse(c, BadRequest, "could.not.update.retail.price")
+				return
+			}
+		}
 		if err != nil {
-			handleResponse(c, BadRequest, "could not update retail price")
-			tx.Rollback()
+			_ = tx.Rollback()
+			handleResponse(c, BadRequest, "could.not.update.retail.price")
 			return
 		}
-	} else if body.NewRetailPrice > 0 {
+	} else if body.NewRetailPrice > 0 && body.Id != "" {
+		// faqat id bo‘lsa va qiymat berilsa update qilamiz
 		query := `
-        UPDATE price_revalution_details
-        SET new_retail_price = ?, updated_at = NOW()
-        WHERE id = ?
-    `
+			UPDATE price_revalution_details
+			SET new_retail_price = ?, updated_at = NOW()
+			WHERE id = ?
+		`
 		err = tx.Exec(query, body.NewRetailPrice, body.Id).Error
 		if err != nil {
-			handleResponse(c, BadRequest, "could not update retail price")
-			tx.Rollback()
+			_ = tx.Rollback()
+			handleResponse(c, BadRequest, "could.not.update.retail.price")
 			return
 		}
 	} else {
+		_ = tx.Rollback()
 		handleResponse(c, BadRequest, "invalid.price.value")
-		tx.Rollback()
 		return
 	}
 
 	if err = tx.Commit().Error; err != nil {
-		tx.Rollback()
-		handleResponse(c, InternalError, "not.completed.transcation")
+		handleResponse(c, InternalError, "not.completed.transaction")
 		return
 	}
 
