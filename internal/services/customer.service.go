@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"time"
@@ -15,7 +16,54 @@ import (
 // region Create
 
 func (s *Services) CreateCustomer(ctx context.Context, req *domain.CustomerRequest) (*domain.Customer, error) {
-	var res domain.Customer
+	var (
+		res domain.Customer
+
+		loyaltyCardBarcode sql.NullString
+		loyaltyCardType    sql.NullString // "physical" // virtual
+
+		loyaltyCardPersent      sql.NullInt64
+		loyaltyCardLevelID      sql.NullString
+		loyaltyCardShouldCreate bool = req.VirtualLoyaltyCardNeeded || *req.LoyaltyCardBarcode != ""
+		loyaltyCardCreatedBy    sql.NullString
+	)
+
+	// generate virtual loyalty card
+	if req.VirtualLoyaltyCardNeeded {
+		loyaltyCardBarcode = sql.NullString{String: utils.GenerateBarcode(), Valid: true}
+		loyaltyCardType = sql.NullString{String: "virtual", Valid: true}
+	} else if *req.LoyaltyCardBarcode != "" {
+		loyaltyCardBarcode = sql.NullString{String: *req.LoyaltyCardBarcode, Valid: true}
+		loyaltyCardType = sql.NullString{String: "physical", Valid: true}
+	}
+
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	// getting loyalty level
+	if loyaltyCardShouldCreate {
+		var loyaltyLevel domain.LoyaltyCardLevel
+		err := tx.Order("position ASC").First(&loyaltyLevel).Error
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				s.log.Error("could not find loyalty level for new customer")
+				_ = tx.Rollback()
+				return &res, fmt.Errorf("could not find loyalty level for new customer: %s", err.Error())
+			}
+			s.log.Errorf("error on getting loyalty card level in db: %s", err.Error())
+			_ = tx.Rollback()
+			return &res, fmt.Errorf("error on getting loyalty card level in db: %s", err.Error())
+		}
+
+		loyaltyCardLevelID = sql.NullString{String: loyaltyLevel.Id, Valid: true}
+		loyaltyCardPersent = sql.NullInt64{Int64: int64(loyaltyLevel.CashbackPercent), Valid: true}
+		loyaltyCardCreatedBy = sql.NullString{String: req.CreatedBy, Valid: true}
+	}
+
 	query := `
 	INSERT INTO customers (
 		id, 
@@ -29,13 +77,18 @@ func (s *Services) CreateCustomer(ctx context.Context, req *domain.CustomerReque
 		birthday, 
 		created_by,
 		discount_card,
-		discount_percent
+		discount_percent,
+		loyalty_card_barcode,
+		loyalty_card_percent,
+		loyalty_card_level_id,
+		loyalty_card_type,
+		loyalty_card_created_by
 		)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
 	RETURNING *
 	`
 	// insert customer
-	err := s.db.WithContext(ctx).
+	err := tx.WithContext(ctx).
 		Raw(query,
 			uuid.New().String(),
 			req.StoreId,
@@ -49,10 +102,35 @@ func (s *Services) CreateCustomer(ctx context.Context, req *domain.CustomerReque
 			req.CreatedBy,
 			req.DiscountCard,
 			req.DiscountPercent,
+			loyaltyCardBarcode,
+			loyaltyCardPersent,
+			loyaltyCardLevelID,
+			loyaltyCardType,
+			loyaltyCardCreatedBy,
 		).Scan(&res).Error
 	if err != nil {
 		s.log.Errorf("could not create customer: %v", err)
+		_ = tx.Rollback()
 		return &res, domain.InternalServerError
+	}
+
+	// writing loyalty card history
+	if loyaltyCardShouldCreate {
+		err = tx.Exec(`insert into loyalty_card_levelup_history(
+			customer_id, loyalty_card_level_id, total_spent
+		) values (
+				?, ?, ?
+		)`, res.Id, loyaltyCardLevelID, 0).Error
+		if err != nil {
+			s.log.Errorf("error on creating loyalty card levelup history: %s", err.Error())
+			_ = tx.Rollback()
+			return &res, fmt.Errorf("error on creating loyalty card levelup history: %s", err.Error())
+		}
+	}
+
+	if err = tx.Commit().Error; err != nil {
+		s.log.Errorf("error on commit transaction: %s", err.Error())
+		return nil, fmt.Errorf("error on commit transaction: %s", err.Error())
 	}
 
 	return &res, nil
@@ -83,21 +161,27 @@ func (s *Services) CreateCustomerWithPhone(req *domain.NoorClientInfo) (*domain.
 // get customer list data
 func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam) ([]domain.Customer, int64, error) {
 	var tmpCustomer []struct {
-		Id              string     `gorm:"id" json:"id"`
-		PublicId        int        `gorm:"public_id" json:"public_id"`
-		StoreId         string     `gorm:"store_id" json:"store_id"`
-		TagId           string     `gorm:"tag_id" json:"tag_id"`
-		FirstName       string     `gorm:"first_name" json:"first_name"`
-		LastName        string     `gorm:"last_name" json:"last_name"`
-		FullName        string     `gorm:"full_name" json:"full_name"`
-		Phone           string     `gorm:"phone" json:"phone"`
-		Birthday        string     `gorm:"birthday" json:"birthday" example:"2006-01-02"`
-		Gender          string     `gorm:"gender" json:"gender" example:"male/female"`
-		Balance         float64    `gorm:"balance" json:"balance"`
-		DiscountCard    string     `gorm:"discount_card" json:"discount_card"`
-		DiscountPercent int        `gorm:"discount_percent" json:"discount_percent"`
-		CreatedAt       *time.Time `gorm:"created_at" json:"created_at"`
-		UpdatedAt       *time.Time `gorm:"updated_at" json:"updated_at"`
+		Id                   string     `gorm:"id" json:"id"`
+		PublicId             int        `gorm:"public_id" json:"public_id"`
+		StoreId              string     `gorm:"store_id" json:"store_id"`
+		TagId                string     `gorm:"tag_id" json:"tag_id"`
+		FirstName            string     `gorm:"first_name" json:"first_name"`
+		LastName             string     `gorm:"last_name" json:"last_name"`
+		FullName             string     `gorm:"full_name" json:"full_name"`
+		Phone                string     `gorm:"phone" json:"phone"`
+		Birthday             string     `gorm:"birthday" json:"birthday" example:"2006-01-02"`
+		Gender               string     `gorm:"gender" json:"gender" example:"male/female"`
+		Balance              float64    `gorm:"balance" json:"balance"`
+		DiscountCard         string     `gorm:"discount_card" json:"discount_card"`
+		DiscountPercent      int        `gorm:"discount_percent" json:"discount_percent"`
+		LoyaltyCardBarcode   string     `gorm:"loyalty_card_barcode" json:"loyalty_card_barcode"`
+		LoyaltyCardPercent   int        `gorm:"loyalty_card_percent" json:"loyalty_card_percent"`
+		LoyaltyCardLevelId   string     `gorm:"loyalty_card_level_id" json:"loyalty_card_level_id"`
+		LoyaltyCardType      string     `gorm:"loyalty_card_type" json:"loyalty_card_type"`
+		LoyaltyCardCreatedBy string     `gorm:"loyalty_card_created_by" json:"loyalty_card_created_by"`
+		TelegramChatId       int64      `gorm:"telegram_chat_id" json:"telegram_chat_id"`
+		CreatedAt            *time.Time `gorm:"created_at" json:"created_at"`
+		UpdatedAt            *time.Time `gorm:"updated_at" json:"updated_at"`
 
 		TId   string `gorm:"t_id"`
 		TName string `gorm:"t_name"`
@@ -122,6 +206,12 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam) 
 			"c.balance",
 			"c.discount_card",
 			"c.discount_percent",
+			"c.loyalty_card_barcode",
+			"c.loyalty_card_percent",
+			"c.loyalty_card_level_id",
+			"c.loyalty_card_type",
+			"c.loyalty_card_created_by",
+			"c.telegram_chat_id",
 			"c.created_at",
 			"c.updated_at",
 
@@ -135,7 +225,7 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam) 
 		Joins("LEFT JOIN tags t ON c.tag_id = t.id")
 
 	if params.Search != "" {
-		query = query.Where("c.discount_card = ?", params.Search)
+		query = query.Where("c.discount_card = ? or c.loyalty_card_barcode = ?", params.Search, params.Search)
 	}
 
 	if params.StoreID != "" {
@@ -164,21 +254,27 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam) 
 
 	for _, row := range tmpCustomer {
 		customers = append(customers, domain.Customer{
-			Id:              row.Id,
-			PublicId:        row.PublicId,
-			StoreId:         row.StoreId,
-			TagId:           row.TagId,
-			FirstName:       row.FirstName,
-			LastName:        row.LastName,
-			FullName:        row.FullName,
-			Phone:           row.Phone,
-			Birthday:        row.Birthday,
-			Gender:          row.Gender,
-			Balance:         row.Balance,
-			DiscountCard:    row.DiscountCard,
-			DiscountPercent: row.DiscountPercent,
-			CreatedAt:       row.CreatedAt,
-			UpdatedAt:       row.UpdatedAt,
+			Id:                   row.Id,
+			PublicId:             row.PublicId,
+			StoreId:              row.StoreId,
+			TagId:                row.TagId,
+			FirstName:            row.FirstName,
+			LastName:             row.LastName,
+			FullName:             row.FullName,
+			Phone:                row.Phone,
+			Birthday:             row.Birthday,
+			Gender:               row.Gender,
+			Balance:              row.Balance,
+			DiscountCard:         row.DiscountCard,
+			DiscountPercent:      row.DiscountPercent,
+			LoyaltyCardBarcode:   row.LoyaltyCardBarcode,
+			LoyaltyCardPercent:   row.LoyaltyCardPercent,
+			LoyaltyCardLevelId:   row.LoyaltyCardLevelId,
+			LoyaltyCardType:      row.LoyaltyCardType,
+			LoyaltyCardCreatedBy: row.LoyaltyCardCreatedBy,
+			TelegramChatId:       row.TelegramChatId,
+			CreatedAt:            row.CreatedAt,
+			UpdatedAt:            row.UpdatedAt,
 
 			Store: &domain.Store{
 				Id:   row.SId,

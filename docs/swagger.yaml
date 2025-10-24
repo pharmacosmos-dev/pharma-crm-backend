@@ -365,12 +365,16 @@ definitions:
         type: string
       last_name:
         type: string
+      loyalty_card_barcode:
+        type: string
       phone:
         type: string
       store_id:
         type: string
       tag_id:
         type: string
+      virtual_loyalty_card_needed:
+        type: boolean
     type: object
   domain.DashboardBody:
     properties:
@@ -784,6 +788,15 @@ definitions:
         type: string
     required:
     - phone
+    type: object
+  domain.LoyaltyCardCreateRequest:
+    properties:
+      customer_id:
+        type: string
+      loyalty_card_barcode:
+        type: string
+      virtual_loyalty_card_needed:
+        type: boolean
     type: object
   domain.MarkingData:
     properties:
@@ -5637,10 +5650,12 @@ paths:
         name: end_date
         type: string
       - description: From Amount
+        format: float64
         in: query
         name: from_amount
         type: number
       - description: To Amount
+        format: float64
         in: query
         name: to_amount
         type: number
@@ -5705,10 +5720,12 @@ paths:
         name: end_date
         type: string
       - description: From Amount
+        format: float64
         in: query
         name: from_amount
         type: number
       - description: To Amount
+        format: float64
         in: query
         name: to_amount
         type: number
@@ -7566,6 +7583,36 @@ paths:
       summary: Login
       tags:
       - auth
+  /loyalty_card:
+    post:
+      consumes:
+      - application/json
+      description: create Loyalty Card
+      parameters:
+      - description: Loyalty Card info
+        in: body
+        name: loyalty_card
+        required: true
+        schema:
+          $ref: '#/definitions/domain.LoyaltyCardCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      summary: Create Loyalty Card
+      tags:
+      - loyalty_card
   /noor/category/list:
     get:
       description: Get a category list for filter

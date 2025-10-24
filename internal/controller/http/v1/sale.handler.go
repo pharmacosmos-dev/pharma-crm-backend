@@ -650,7 +650,7 @@ func (h *SaleHandler) Update(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param 	input body domain.FinalSale true "Sale information"
+// @Param 	input body domain.FinalSale true "Sale information" 
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response

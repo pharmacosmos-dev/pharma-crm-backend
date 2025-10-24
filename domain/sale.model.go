@@ -30,6 +30,7 @@ type Sale struct {
 	Uzcard             float64        `gorm:"uzcard" json:"uzcard"`
 	Payme              float64        `gorm:"payme" json:"payme"`
 	Alif               float64        `gorm:"alif" json:"alif"`
+	LoyaltyCard        float64        `gorm:"loyalty_card" json:"loyalty_card"`
 	IsPaid             bool           `gorm:"is_paid" json:"is_paid"`
 	OtpCode            string         `gorm:"otp_code" json:"otp_code"`
 	PaymentReceiptId   string         `gorm:"payment_receipt_id" json:"payment_receipt_id"`
@@ -86,6 +87,7 @@ type SaleResponse struct {
 	Click           float64    `gorm:"click" json:"click"`
 	Payme           float64    `gorm:"payme" json:"payme"`
 	Alif            float64    `gorm:"alif" json:"alif"`
+	LoyaltyCard     float64    `gorm:"loyalty_card" json:"loyalty_card"`
 	ProductCount    float64    `gorm:"product_count" json:"product_count"`
 	Status          string     `gorm:"status" json:"status"`
 	Stage           int        `gorm:"stage" json:"stage"`
@@ -145,7 +147,9 @@ type FinalSale struct {
 	Click              float64            `gorm:"click" json:"click"`
 	Payme              float64            `gorm:"payme" json:"payme"`
 	Alif               float64            `gorm:"alif" json:"alif"`
+	LoyaltyCard        float64            `gorm:"loyalty_card" json:"loyalty_card"`
 	ReturnAmount       float64            `gorm:"return_amount" json:"return_amount"`
+	LoyaltyCardBarcode string             `gorm:"loyalty_card_barcode" json:"loyalty_card_barcode"`
 	OtpCode            string             `gorm:"otp_code" json:"otp_code"`
 	PaymentTypes       []FinalPaymentType `json:"payment_types"`
 	MarkingData        []MarkingData      `json:"marking_data"`

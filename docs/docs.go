@@ -6040,12 +6040,14 @@ const docTemplate = `{
                     },
                     {
                         "type": "number",
+                        "format": "float64",
                         "description": "From Amount",
                         "name": "from_amount",
                         "in": "query"
                     },
                     {
                         "type": "number",
+                        "format": "float64",
                         "description": "To Amount",
                         "name": "to_amount",
                         "in": "query"
@@ -6145,12 +6147,14 @@ const docTemplate = `{
                     },
                     {
                         "type": "number",
+                        "format": "float64",
                         "description": "From Amount",
                         "name": "from_amount",
                         "in": "query"
                     },
                     {
                         "type": "number",
+                        "format": "float64",
                         "description": "To Amount",
                         "name": "to_amount",
                         "in": "query"
@@ -9135,6 +9139,52 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/loyalty_card": {
+            "post": {
+                "description": "create Loyalty Card",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "loyalty_card"
+                ],
+                "summary": "Create Loyalty Card",
+                "parameters": [
+                    {
+                        "description": "Loyalty Card info",
+                        "name": "loyalty_card",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.LoyaltyCardCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
                         }
@@ -23950,6 +24000,9 @@ const docTemplate = `{
                 "last_name": {
                     "type": "string"
                 },
+                "loyalty_card_barcode": {
+                    "type": "string"
+                },
                 "phone": {
                     "type": "string"
                 },
@@ -23958,6 +24011,9 @@ const docTemplate = `{
                 },
                 "tag_id": {
                     "type": "string"
+                },
+                "virtual_loyalty_card_needed": {
+                    "type": "boolean"
                 }
             }
         },
@@ -24581,6 +24637,20 @@ const docTemplate = `{
                 },
                 "phone": {
                     "type": "string"
+                }
+            }
+        },
+        "domain.LoyaltyCardCreateRequest": {
+            "type": "object",
+            "properties": {
+                "customer_id": {
+                    "type": "string"
+                },
+                "loyalty_card_barcode": {
+                    "type": "string"
+                },
+                "virtual_loyalty_card_needed": {
+                    "type": "boolean"
                 }
             }
         },
