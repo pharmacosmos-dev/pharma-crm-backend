@@ -80,6 +80,7 @@ func (h *ReturnHandler) Create(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
+	returnRequest.CreatedBy = user.UserId
 	// create return
 	err := h.service.CreateReturn(ctx, &returnRequest)
 	if err != nil {
