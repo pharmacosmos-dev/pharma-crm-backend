@@ -672,15 +672,6 @@ func (s *Services) AddSaleBonuses(sale *domain.Sale, req []domain.CartItemWithPr
 
 }
 
-func (s *Services) SetFiscalId(ctx context.Context, tx *gorm.DB, saleId string, fiscalId string) error {
-	err := tx.WithContext(ctx).Exec(`UPDATE sales SET fiscal_sign = ?, updated_at = NOW() WHERE id = ?`, fiscalId, saleId).Error
-	if err != nil {
-		s.log.Errorf("could not set fiscal_id: %v", err)
-		return domain.InternalServerError
-	}
-	return nil
-}
-
 func (s *Services) AttachDiscountCardToSale(ctx context.Context, req *domain.AddDiscountCard) (*domain.SaleCustomerDiscount, error) {
 	// get discount card info by barcode
 	discountCard, err := s.GetDiscountCardByBarcode(ctx, req.Barcode)
@@ -1249,7 +1240,7 @@ func (s *Services) GetSalesStats(ctx context.Context, params *domain.SaleQueryPa
 	}
 
 	// query builder
-	qb := s.db.
+	qb := s.db.WithContext(ctx).
 		Select(
 			"SUM(s.total_amount) AS total_transactions_sum",
 			"SUM(CASE WHEN s.sale_type = 'RETURN' THEN s.total_amount ELSE 0 END) AS total_returnals_sum",
@@ -1263,6 +1254,8 @@ func (s *Services) GetSalesStats(ctx context.Context, params *domain.SaleQueryPa
 			"COUNT(*) AS total_count",
 		).Table("sales s").
 		Joins("JOIN stores st ON s.store_id = st.id")
+
+	qb = qb.Where("s.stage IN (?)", constants.FinishedSaleStages)
 
 	if params.Cash {
 		qb = qb.Where("s.cash > 0")
@@ -1323,7 +1316,7 @@ func (s *Services) GetSalesStats(ctx context.Context, params *domain.SaleQueryPa
 	}
 
 	var res domain.SaleStats
-	err := qb.WithContext(ctx).Take(&res).Debug().Error
+	err := qb.Debug().Take(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get sale_stats: %v", err)
 		return nil, domain.InternalServerError

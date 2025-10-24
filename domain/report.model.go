@@ -107,6 +107,7 @@ type StoreReportStats struct {
 	Humo           float64 `gorm:"humo" json:"humo"`
 	Click          float64 `gorm:"click" json:"click"`
 	Payme          float64 `gorm:"payme" json:"payme"`
+	Alif           float64 `gorm:"alif" json:"alif"`
 	DiscountAmount float64 `gorm:"discount_amount" json:"discount_amount"`
 }
 
