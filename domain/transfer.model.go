@@ -3,30 +3,44 @@ package domain
 import "time"
 
 type Transfer struct {
-	Id                string     `gorm:"id" json:"id"`
-	PublicId          string     `gorm:"public_id" json:"public_id"`
-	FromStoreId       string     `gorm:"from_store_id" json:"from_store_id"`
-	ToStoreId         string     `gorm:"to_store_id" json:"to_store_id"`
-	Name              string     `gorm:"name" json:"name"`
-	Status            string     `gorm:"status" json:"status"`
-	ReceivedCount     float64    `gorm:"received_count" json:"received_count"`
-	AcceptedCount     float64    `gorm:"accepted_count" json:"accepted_count"`
-	Comment           string     `gorm:"comment" json:"comment"`
-	CreatedAt         *time.Time `gorm:"created_at" json:"created_at"`
-	UpdatedAt         *time.Time `gorm:"updated_at" json:"updated_at"`
-	AcceptedAt        *time.Time `gorm:"accepted_at" json:"accepted_at"`
-	ReceivedSupplySum float64    `gorm:"received_supply_sum" json:"received_supply_sum"`
-	ReceivedRetailSum float64    `gorm:"received_retail_sum" json:"received_retail_sum"`
-	AcceptedSupplySum float64    `gorm:"accepted_supply_sum" json:"accepted_supply_sum"`
-	AcceptedRetailSum float64    `gorm:"accepted_retail_sum" json:"accepted_retail_sum"`
-	CreatedById       string     `gorm:"column:created_by" json:"created_by_id"`
-	UpdatedById       string     `gorm:"column:updated_by" json:"updated_by_id"`
-	AcceptedById      string     `gorm:"column:accepted_by" json:"accepted_by_id"`
-	FromStore         *Store     `gorm:"foreignKey:FromStoreId" json:"store"`
-	ToStore           *Store     `gorm:"foreignKey:ToStoreId" json:"to_store"`
-	CreatedBy         *Employee  `gorm:"foreignKey:CreatedById" json:"created_by"`
-	UpdatedBy         *Employee  `gorm:"foreignKey:UpdatedById" json:"updated_by"`
-	AcceptedBy        *Employee  `gorm:"foreignKey:AcceptedById" json:"accepted_by"`
+	Id                string                       `gorm:"id" json:"id"`
+	PublicId          string                       `gorm:"public_id" json:"public_id"`
+	FromStoreId       string                       `gorm:"from_store_id" json:"from_store_id"`
+	ToStoreId         string                       `gorm:"to_store_id" json:"to_store_id"`
+	Name              string                       `gorm:"name" json:"name"`
+	Status            string                       `gorm:"status" json:"status"`
+	ReceivedCount     float64                      `gorm:"received_count" json:"received_count"`
+	ExpectedCount     float64                      `gorm:"expected_count" json:"expected_count"`
+	ScannedCount      float64                      `gorm:"scanned_count" json:"scanned_count"`
+	AcceptedCount     float64                      `gorm:"accepted_count" json:"accepted_count"`
+	Comment           string                       `gorm:"comment" json:"comment"`
+	CreatedAt         *time.Time                   `gorm:"created_at" json:"created_at"`
+	UpdatedAt         *time.Time                   `gorm:"updated_at" json:"updated_at"`
+	AcceptedAt        *time.Time                   `gorm:"accepted_at" json:"accepted_at"`
+	ReceivedSupplySum float64                      `gorm:"received_supply_sum" json:"received_supply_sum"`
+	ReceivedRetailSum float64                      `gorm:"received_retail_sum" json:"received_retail_sum"`
+	AcceptedSupplySum float64                      `gorm:"accepted_supply_sum" json:"accepted_supply_sum"`
+	AcceptedRetailSum float64                      `gorm:"accepted_retail_sum" json:"accepted_retail_sum"`
+	CreatedById       string                       `gorm:"column:created_by" json:"created_by_id"`
+	UpdatedById       string                       `gorm:"column:updated_by" json:"updated_by_id"`
+	AcceptedById      string                       `gorm:"column:accepted_by" json:"accepted_by_id"`
+	FromStore         NullStruct[TransferStore]    `gorm:"-" json:"store"`
+	ToStore           NullStruct[TransferStore]    `gorm:"-" json:"to_store"`
+	CreatedBy         NullStruct[TransferEmployee] `gorm:"-" json:"created_by"`
+	UpdatedBy         NullStruct[TransferEmployee] `gorm:"-" json:"updated_by"`
+	AcceptedBy        NullStruct[TransferEmployee] `gorm:"-" json:"accepted_by"`
+}
+
+type TransferEmployee struct {
+	Id       string `gorm:"id" json:"id"`
+	FullName string `gorm:"full_name" json:"full_name"`
+}
+
+type TransferStore struct {
+	Id      string `json:"id"`
+	Name    string `json:"name"`
+	Address string `json:"address"`
+	Phone   string `json:"phone"`
 }
 
 type TransferStatusSummary struct {
@@ -113,6 +127,26 @@ type TransferProduct1C struct {
 
 // transfer details for barcode response
 type TransferBarcodeResponse struct {
-	Id   string `gorm:"id" json:"id"`
-	Name string `gorm:"name" json:"name"`
+	Id        string `gorm:"id" json:"id"`
+	Name      string `gorm:"name" json:"name"`
+	ProductId string `gorm:"product_id" json:"product_id"`
+}
+
+type TransferLog struct {
+	Id               int64                           `gorm:"column:id;primaryKey;autoIncrement" json:"id"`
+	TransferId       string                          `gorm:"transfer_id" json:"transfer_id"`
+	TransferDetailId string                          `gorm:"transfer_detail_id" json:"transfer_detail_id"`
+	ProductId        string                          `gorm:"product_id" json:"product_id"`
+	UserId           string                          `gorm:"user_id" json:"user_id"`
+	TransferType     int                             `gorm:"transfer_type" json:"transfer_type"`
+	Stage            int                             `gorm:"stage" json:"stage"`
+	Quantity         int                             `gorm:"quantity" json:"quantity"`
+	CreatedAt        *time.Time                      `gorm:"created_at" json:"created_at"`
+	UpdatedAt        *time.Time                      `gorm:"updated_at" json:"updated_at"`
+	Employee         NullStruct[EmployeeTransferLog] `gorm:"-" json:"employee,omitempty"`
+}
+
+type EmployeeTransferLog struct {
+	Id       string `gorm:"id" json:"id"`
+	FullName string `gorm:"full_name" json:"full_name"`
 }
