@@ -91,7 +91,7 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		h.NewPermissionHandler(v1)
 		h.NewSalePaymentHandler(v1)
 		h.NewImportHandler(v1)
-		h.NewProduct1cHandler(v1c)
+		h.NewProductOnecHandler(v1c)
 		h.NewTokenGeneratorHandler(public)
 		h.NewShiftHandler(v1)
 		h.NewProducerHandler(v1)
