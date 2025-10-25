@@ -60,6 +60,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.POST("/generate-marking", h.GenerateMarkingProducts)
 		product.PATCH("/is-marking", h.UpdateIsMarking)
 		product.GET("/:id/product-movement", h.ProductMovements)
+		product.GET("/:id/product-movement/export-excel", h.ExportProductMovementsExcel)
 		product.GET("/export-arzon", h.ArzonProductExport)
 		product.GET("/list-arzon", h.ArzonProductList)
 		product.GET("/list-by-import", h.ProductListByImport)
@@ -1324,40 +1325,41 @@ func (h *ProductHandler) ProductMovements(c *gin.Context) {
 	}
 
 	// get product id from the path param
-	var (
-		productId = c.Param("id")
-		storeId   = c.Query("store_id")
-	)
-	var companyId string
+	var productId = c.Param("id")
 	// validate product id
 	if err := uuid.Validate(productId); err != nil {
 		handleResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
+
+	var params domain.ProductQueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+
 	// validate store id
-	if storeId != "" {
-		if err := uuid.Validate(storeId); err != nil {
-			handleResponse(c, BadRequest, domain.InvalidQueryError)
+	if params.StoreId != "" {
+		if err := uuid.Validate(params.StoreId); err != nil {
+			handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 			return
 		}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
-	// get pagination with default
-	limit, offset, err := getPaginationParams(c)
-	if err != nil {
-		handleResponse(c, BadRequest, domain.InvalidQueryError)
-		return
+
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
 	}
 
-	var params domain.ProductQueryParam
-	params.ProducerId = productId
-	params.StoreId = storeId
-	params.CompanyId = companyId
-	params.Limit = limit
-	params.Offset = offset
+	// get pagination with default
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
+	params.ProducerId = productId
 	// get product-movements data from the product service
 	res, totalCount, err := h.service.GetProductMovements(ctx, &params, user)
 	if err != nil {
@@ -1366,7 +1368,7 @@ func (h *ProductHandler) ProductMovements(c *gin.Context) {
 	}
 
 	// get pagintion data with _meta object
-	data := utils.ListResponse(res, totalCount, limit, offset)
+	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
 
 	handleResponse(c, OK, data)
 }
@@ -1386,55 +1388,52 @@ func (h *ProductHandler) ProductMovements(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /product/{id}/product-movement/export-excel [get]
 func (h *ProductHandler) ExportProductMovementsExcel(c *gin.Context) {
-	// product_id
-	productId := c.Param("id")
-	if err := uuid.Validate(productId); err != nil {
-		handleResponse(c, BadRequest, "Invalid product id")
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
 
-	// store_id
-	storeId := c.Query("store_id")
-	if storeId != "" {
-		if err := uuid.Validate(storeId); err != nil {
-			handleResponse(c, BadRequest, "Invalid store id")
+	// get product id from the path param
+	var productId = c.Param("id")
+	// validate product id
+	if err := uuid.Validate(productId); err != nil {
+		handleResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	var params domain.ProductQueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+
+	// validate store id
+	if params.StoreId != "" {
+		if err := uuid.Validate(params.StoreId); err != nil {
+			handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 			return
 		}
 	}
 
-	// user_id
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User not found")
-		return
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 
-	// pagination
-	limit, offset, err := getPaginationParams(c)
-	if err != nil {
-		handleResponse(c, BadRequest, "Invalid pagination")
-		return
-	}
-
-	// employee
-	var employee domain.Employee
-	if err := h.db.First(&employee, "id = ?", userId).Error; err != nil {
-		handleResponse(c, InternalError, "Can't get employee info")
-		return
-	}
-
-	var companyId string
-	if !helper.IsAdmin(employee, h.cfg) {
-		if employee.StoreId != "" {
-			storeId = employee.StoreId
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
 		}
-		companyId = employee.CompanyId
+		params.CompanyId = user.CompanyId
 	}
 
-	// service call
-	res, _, err := h.service.GetProductMovements(productId, storeId, limit, offset, companyId)
+	// get pagination with default
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	params.ProducerId = productId
+	// get product-movements data from the product service
+	res, _, err := h.service.GetProductMovements(ctx, &params, user)
 	if err != nil {
-		handleResponse(c, InternalError, "Can't get product-movements")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
@@ -1467,7 +1466,7 @@ func (h *ProductHandler) ExportProductMovementsExcel(c *gin.Context) {
 	}
 
 	// save
-	saveExcelToUploads(c, f, *h.log, "Перемещения_продуктов")
+	saveExcelToUploads(c, f, *h.log, "product_movements")
 }
 
 // Update ismarking godoc

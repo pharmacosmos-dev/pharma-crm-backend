@@ -197,3 +197,26 @@ func splitText(pdf *pdf.Fpdf, text string, maxWidth float64, fontSize float64) [
 	}
 	return lines
 }
+
+// helper: translate entry_type int -> text
+func entryTypeToString(entryType int) string {
+	switch entryType {
+	case 1:
+		return "Импорт"
+	case 2:
+		return "Инвентаризация"
+	case 4:
+		return "Продажа"
+	case 5:
+		return "Возврат"
+	case 6:
+		return "Перемещение"
+	case 7:
+		return "Черновик"
+	case 8:
+		return "Возврат продажи"
+
+	default:
+		return "Unknown"
+	}
+}

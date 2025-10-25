@@ -6040,14 +6040,12 @@ const docTemplate = `{
                     },
                     {
                         "type": "number",
-                        "format": "float64",
                         "description": "From Amount",
                         "name": "from_amount",
                         "in": "query"
                     },
                     {
                         "type": "number",
-                        "format": "float64",
                         "description": "To Amount",
                         "name": "to_amount",
                         "in": "query"
@@ -6147,14 +6145,12 @@ const docTemplate = `{
                     },
                     {
                         "type": "number",
-                        "format": "float64",
                         "description": "From Amount",
                         "name": "from_amount",
                         "in": "query"
                     },
                     {
                         "type": "number",
-                        "format": "float64",
                         "description": "To Amount",
                         "name": "to_amount",
                         "in": "query"
@@ -13693,6 +13689,70 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Store ID",
                         "name": "store_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/product/{id}/product-movement/export-excel": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Export product movements to Excel",
+                "produces": [
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Export product movements to Excel",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Product ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Store ID",
+                        "name": "store_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
                         "in": "query"
                     }
                 ],
@@ -24374,6 +24434,12 @@ const docTemplate = `{
                 "humo": {
                     "type": "number"
                 },
+                "loyalty_card": {
+                    "type": "number"
+                },
+                "loyalty_card_barcode": {
+                    "type": "string"
+                },
                 "marking_data": {
                     "type": "array",
                     "items": {
@@ -24925,6 +24991,9 @@ const docTemplate = `{
                 "description": {
                     "type": "string"
                 },
+                "front_name": {
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 },
@@ -25383,6 +25452,9 @@ const docTemplate = `{
                 "created_by": {
                     "type": "string"
                 },
+                "import_id": {
+                    "type": "string"
+                },
                 "name": {
                     "type": "string"
                 },
@@ -25390,6 +25462,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "store_id": {
+                    "type": "string"
+                },
+                "store_product_id": {
                     "type": "string"
                 },
                 "type": {
