@@ -1371,6 +1371,105 @@ func (h *ProductHandler) ProductMovements(c *gin.Context) {
 	handleResponse(c, OK, data)
 }
 
+// ExportProductMovementsExcel godoc
+// @Summary Export product movements to Excel
+// @Description Export product movements to Excel
+// @Tags products
+// @Security BearerAuth
+// @Produce  application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+// @Param id path string true "Product ID"
+// @Param store_id query string false "Store ID"
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/{id}/product-movement/export-excel [get]
+func (h *ProductHandler) ExportProductMovementsExcel(c *gin.Context) {
+	// product_id
+	productId := c.Param("id")
+	if err := uuid.Validate(productId); err != nil {
+		handleResponse(c, BadRequest, "Invalid product id")
+		return
+	}
+
+	// store_id
+	storeId := c.Query("store_id")
+	if storeId != "" {
+		if err := uuid.Validate(storeId); err != nil {
+			handleResponse(c, BadRequest, "Invalid store id")
+			return
+		}
+	}
+
+	// user_id
+	userId, ok := c.Get("user_id")
+	if !ok {
+		handleResponse(c, UNAUTHORIZED, "User not found")
+		return
+	}
+
+	// pagination
+	limit, offset, err := getPaginationParams(c)
+	if err != nil {
+		handleResponse(c, BadRequest, "Invalid pagination")
+		return
+	}
+
+	// employee
+	var employee domain.Employee
+	if err := h.db.First(&employee, "id = ?", userId).Error; err != nil {
+		handleResponse(c, InternalError, "Can't get employee info")
+		return
+	}
+
+	var companyId string
+	if !helper.IsAdmin(employee, h.cfg) {
+		if employee.StoreId != "" {
+			storeId = employee.StoreId
+		}
+		companyId = employee.CompanyId
+	}
+
+	// service call
+	res, _, err := h.service.GetProductMovements(productId, storeId, limit, offset, companyId)
+	if err != nil {
+		handleResponse(c, InternalError, "Can't get product-movements")
+		return
+	}
+
+	// create excel
+	f := excelize.NewFile()
+	sheetName := "Movements"
+	f.SetSheetName("Sheet1", sheetName)
+
+	// headers
+	headers := []string{"ID", "Номер", "Тип", "Колличество", "Сумма", "Название", "Аптека", "Дата создания"}
+	if err := setExcelHeaders(f, sheetName, headers); err != nil {
+		h.log.Error("Excel style error:", err)
+		handleResponse(c, InternalError, "Error on creating excel")
+		return
+	}
+
+	// fill rows
+	for i, item := range res {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheetName, "A"+row, item.Id)
+		f.SetCellValue(sheetName, "B"+row, item.PublicId)
+		f.SetCellValue(sheetName, "C"+row, entryTypeToString(item.EntryType)) // helper func
+		f.SetCellValue(sheetName, "D"+row, item.Count)
+		f.SetCellValue(sheetName, "E"+row, item.Sum)
+		f.SetCellValue(sheetName, "F"+row, item.Name)
+		f.SetCellValue(sheetName, "G"+row, item.StoreName)
+		if item.CreatedAt != nil {
+			f.SetCellValue(sheetName, "H"+row, item.CreatedAt.Add(time.Hour*5).Format("2006-01-02 15:04:05"))
+		}
+	}
+
+	// save
+	saveExcelToUploads(c, f, *h.log, "Перемещения_продуктов")
+}
+
 // Update ismarking godoc
 // @Summary Update product ismarking
 // @Description Update product ismarking
