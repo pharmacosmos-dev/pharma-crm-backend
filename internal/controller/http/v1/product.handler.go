@@ -63,8 +63,8 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.GET("/:id/product-movement/export-excel", h.ExportProductMovementsExcel)
 		product.GET("/export-arzon", h.ArzonProductExport)
 		product.GET("/list-arzon", h.ArzonProductList)
-		product.GET("/list-by-import", h.ProductListByImport)
-		product.GET("/export-by-import", h.ExportProductListByImport)
+		product.GET("/list-by-import", h.GetProductsByImport)
+		product.GET("/export-by-import", h.GetProductsByImportExport)
 		product.PUT("/update-mxik-import/:id", h.UpdateProductIkpuForStoreProduct)
 		product.PATCH("/store-is-marking", h.UpdateStoreProductIsMarking)
 		product.POST("/min-max", h.CreateMinMaxProduct)
@@ -1517,13 +1517,16 @@ func (h *ProductHandler) ArzonProductList(c *gin.Context) {
 	storeId := c.Query("store_id")
 
 	if err := uuid.Validate(storeId); err != nil {
-		handleResponse(c, BadRequest, "invalid.store_id")
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
 		return
 	}
 
-	res, err := h.service.ProductListForArzon(storeId)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, err := h.service.ProductListForArzon(ctx, storeId)
 	if err != nil {
-		handleResponse(c, InternalError, "failed.get.product_list")
+		handleServiceResponse(c, nil, err)
 		return
 	}
 	handleResponse(c, OK, res)
@@ -1545,13 +1548,16 @@ func (h *ProductHandler) ArzonProductExport(c *gin.Context) {
 	storeId := c.Query("store_id")
 
 	if err := uuid.Validate(storeId); err != nil {
-		handleResponse(c, BadRequest, "invalid.store_id")
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
 		return
 	}
 
-	res, err := h.service.ProductListForArzon(storeId)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, err := h.service.ProductListForArzon(ctx, storeId)
 	if err != nil {
-		handleResponse(c, InternalError, "failed.get.product_list")
+		handleServiceResponse(c, nil, err)
 		return
 	}
 
@@ -1565,8 +1571,8 @@ func (h *ProductHandler) ArzonProductExport(c *gin.Context) {
 
 	err = setExcelHeaders(f, sheetName, headers)
 	if err != nil {
-		h.log.Error("Failed to create style:", err)
-		handleResponse(c, InternalError, "Error on giving style to excel")
+		h.log.Errorf("could not create excel style: %v", err)
+		handleServiceResponse(c, nil, domain.InternalServerError)
 		return
 	}
 
@@ -1600,49 +1606,40 @@ func (h *ProductHandler) ArzonProductExport(c *gin.Context) {
 // @Failure 400 {object} v1.Response "Invalid store_id"
 // @Failure 500 {object} v1.Response "Internal server error"
 // @Router /product/list-by-import [GET]
-func (h *ProductHandler) ProductListByImport(c *gin.Context) {
-	var (
-		param domain.ProductQueryParam
-	)
-	err := c.ShouldBindQuery(&param)
-	if err != nil {
-		handleResponse(c, BadRequest, "invalid.query.param")
+func (h *ProductHandler) GetProductsByImport(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
-	// get user_id from the context
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
+
+	var params domain.ProductQueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
 		return
 	}
-	// get employee info
-	var employee domain.Employee
-	err = h.db.First(&employee, "id = ?", userId).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		handleResponse(c, InternalError, "Can't get employee info")
-		return
-	}
+
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
-		if employee.StoreId != "" {
-			param.StoreId = employee.StoreId
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
 		}
-		param.CompanyId = employee.CompanyId
+		params.CompanyId = user.CompanyId
 	}
 
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
-	res, totalCount, err := h.service.GetProductListByImport(&param)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, totalCount, err := h.service.GetProductsByImport(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, "failed.to.get.product_list")
+		handleServiceResponse(c, nil, err)
 		return
 	}
 
-	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
+
 	handleResponse(c, OK, data)
 }
 
@@ -1665,59 +1662,50 @@ func (h *ProductHandler) ProductListByImport(c *gin.Context) {
 // @Failure 400 {object} v1.Response "Invalid store_id"
 // @Failure 500 {object} v1.Response "Internal server error"
 // @Router /product/export-by-import [GET]
-func (h *ProductHandler) ExportProductListByImport(c *gin.Context) {
-	var (
-		param domain.ProductQueryParam
-	)
-	err := c.ShouldBindQuery(&param)
-	if err != nil {
-		handleResponse(c, BadRequest, "invalid.query.param")
+func (h *ProductHandler) GetProductsByImportExport(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
 
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
-	// get user_id from the context
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
+	var params domain.ProductQueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
 		return
 	}
-	// get employee info
-	var employee domain.Employee
-	err = h.db.First(&employee, "id = ?", userId).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		handleResponse(c, InternalError, "Can't get employee info")
-		return
-	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
-		if employee.StoreId != "" {
-			param.StoreId = employee.StoreId
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
 		}
-		param.CompanyId = employee.CompanyId
+		params.CompanyId = user.CompanyId
 	}
-	res, _, err := h.service.GetProductListByImport(&param)
+
+	res, _, err := h.service.GetProductsByImport(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, "failed.to.get.product_list")
+		handleServiceResponse(c, nil, err)
 		return
 	}
 	// Create excel file
 	f := excelize.NewFile()
 
-	sheetName := "Products"
+	sheetName := "List1"
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"Код", "Наименование", "Штрих-код", "Номер Импорт", "Производитель", "Кол-во", "IKPU", "Код.Уп", "Наз.Уп", "Маркировка", "Цена поставки", "Цена продажи"}
+	headers := []string{"Код", "Наименование", "Кол-во", "Штрихкод", "Производитель", "ИКПУ", "Код.Уп", "Наз.Уп", "Маркировка", "Цена поставки", "Цена продажи"}
 
 	err = setExcelHeaders(f, sheetName, headers)
 	if err != nil {
-		h.log.Warn("Failed to create style: %v", err)
-		handleResponse(c, InternalError, "failed.to.create.newstyle")
+		h.log.Errorf("could not create excel style: %v", err)
+		handleServiceResponse(c, nil, domain.InternalServerError)
 		return
 	}
 
@@ -1726,13 +1714,12 @@ func (h *ProductHandler) ExportProductListByImport(c *gin.Context) {
 		row := strconv.Itoa(i + 2)
 		f.SetCellValue(sheetName, "A"+row, product.MaterialCode)
 		f.SetCellValue(sheetName, "B"+row, product.Name)
-		f.SetCellValue(sheetName, "C"+row, product.Barcode)
-		f.SetCellValue(sheetName, "D"+row, product.ImportNumber)
+		f.SetCellValue(sheetName, "C"+row, math.Round(float64(product.UnitQuantity)/float64(product.UnitPerPack)))
+		f.SetCellValue(sheetName, "D"+row, product.Barcode)
 		f.SetCellValue(sheetName, "E"+row, product.ProducerName)
-		f.SetCellValue(sheetName, "F"+row, math.Round(product.Quantity+(product.UnitQuantity/float64(product.UnitPerPack))))
-		f.SetCellValue(sheetName, "G"+row, product.Mxik)
-		f.SetCellValue(sheetName, "H"+row, product.UnitCode)
-		f.SetCellValue(sheetName, "I"+row, product.UnitLabel)
+		f.SetCellValue(sheetName, "F"+row, product.Mxik)
+		f.SetCellValue(sheetName, "G"+row, product.UnitCode)
+		f.SetCellValue(sheetName, "H"+row, product.UnitLabel)
 		f.SetCellValue(sheetName, "J"+row, product.IsMarking)
 		f.SetCellValue(sheetName, "K"+row, product.SupplyPrice)
 		f.SetCellValue(sheetName, "L"+row, product.RetailPrice)

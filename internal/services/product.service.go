@@ -438,7 +438,6 @@ func (s *Services) GetProductsByStores(ctx context.Context, params *domain.Produ
 	return res, nil
 }
 
-// Get Products list stats
 func (s *Services) GetProductStats(ctx context.Context, params *domain.ProductQueryParam, user *domain.EmployeeClaims) (domain.ProductStats, error) {
 	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
@@ -520,7 +519,6 @@ func (s *Services) GetProductStats(ctx context.Context, params *domain.ProductQu
 	return res, nil
 }
 
-// get store products get list
 func (s *Services) GetProductsForSearch(ctx context.Context, params *domain.StoreProductQueryParam) ([]domain.StoreProductResponse, error) {
 
 	// Qidiruv tipini aniqlash
@@ -639,7 +637,6 @@ func (s *Services) GetProductsForSearch(ctx context.Context, params *domain.Stor
 	return res, nil
 }
 
-// get similar products list
 func (s *Services) SimilarProducts(ctx context.Context, productID string, offset int, limit int) ([]domain.StoreProductResponse, error) {
 	var res []domain.StoreProductResponse
 	err := s.db.WithContext(ctx).
@@ -683,7 +680,6 @@ func (s *Services) SimilarProducts(ctx context.Context, productID string, offset
 	return res, nil
 }
 
-// get store product info by barcode
 func (s *Services) GetStoreProductByBarcode(ctx context.Context, barcode string) (domain.StoreProductResponse, error) {
 	var res domain.StoreProductResponse
 	err := s.db.Raw(`
@@ -711,7 +707,6 @@ func (s *Services) GetStoreProductByBarcode(ctx context.Context, barcode string)
 	return res, nil
 }
 
-// get store info by product id
 func (s *Services) GetStoreProductByIdAndStoreId(ctx context.Context, id string, storeId string) (*domain.StoreProduct, error) {
 	var storeProduct domain.StoreProduct
 
@@ -746,7 +741,6 @@ func (s *Services) GetStoreProductByIdAndStoreId(ctx context.Context, id string,
 	return &storeProduct, nil
 }
 
-// get store products by product id
 func (s *Services) GetStoreProductById(ctx context.Context, id string) (*domain.StoreProduct, error) {
 	var storeProduct domain.StoreProduct
 	err := s.db.WithContext(ctx).Raw(`
@@ -776,7 +770,6 @@ func (s *Services) GetStoreProductById(ctx context.Context, id string) (*domain.
 	return &storeProduct, nil
 }
 
-// Change store product stock based on situation (increase or decrease)
 func (s *Services) ChangeStoreProductStock(tx *gorm.DB, id string, quantity, unitQuantity int, isIncrease bool) error {
 	var operation = "-"
 	if isIncrease {
@@ -790,7 +783,6 @@ func (s *Services) ChangeStoreProductStock(tx *gorm.DB, id string, quantity, uni
 	return nil
 }
 
-// get product ikpu by mxik
 func (s *Services) GetProductIKPUByMxik(ctx context.Context, mxik string) (*domain.ProductMeasurement, error) {
 	var measurement domain.ProductMeasurement
 	err := s.db.First(&measurement, "mxik_code = ?", mxik).Error
@@ -801,7 +793,6 @@ func (s *Services) GetProductIKPUByMxik(ctx context.Context, mxik string) (*doma
 	return &measurement, nil
 }
 
-// get producer info by code
 func (s *Services) GetProducerByCode(ctx context.Context, code string) (*domain.Producer, error) {
 	var producer domain.Producer
 	err := s.db.Raw(`SELECT id, name, code, created_at, updated_at FROM producers WHERE code = ?`, code).Scan(&producer).Error
@@ -901,7 +892,6 @@ func (s *Services) GetStoreProductsByProductId(ctx context.Context, params *doma
 	return res, totalCount, nil
 }
 
-// get noor products list
 func (s *Services) GetNoorProducts(param *domain.NoorQueryParam) ([]domain.NoorProduct, error) {
 	var res []domain.NoorProduct
 	query := `
@@ -931,7 +921,6 @@ func (s *Services) GetNoorProducts(param *domain.NoorQueryParam) ([]domain.NoorP
 	return res, nil
 }
 
-// get noor store_products for auto fill
 func (s *Services) GetNoorStoreProducts(param *domain.NoorQueryParam) ([]domain.NoorStoreProduct, error) {
 	var res []domain.NoorStoreProduct
 
@@ -957,7 +946,6 @@ func (s *Services) GetNoorStoreProducts(param *domain.NoorQueryParam) ([]domain.
 	return res, nil
 }
 
-// store list for noor service
 func (s *Services) GetNoorStores() ([]domain.NoorStore, error) {
 	var (
 		res []domain.NoorStore
@@ -992,7 +980,6 @@ func (s *Services) GetNoorStores() ([]domain.NoorStore, error) {
 	return res, nil
 }
 
-// get product movements(Import, Inventory, Write-Off, Sale)
 func (s *Services) GetProductMovements(ctx context.Context, params *domain.ProductQueryParam, user *domain.EmployeeClaims) ([]domain.ImportProductData, int64, error) {
 	var (
 		res        []domain.ImportProductData
@@ -1202,10 +1189,10 @@ LIMIT ? OFFSET ?;
 	return res, totalCount, nil
 }
 
-// get produt list for arzon apteka
-func (s *Services) ProductListForArzon(storeId string) ([]domain.ProductArzon, error) {
+func (s *Services) ProductListForArzon(ctx context.Context, storeId string) ([]domain.ProductArzon, error) {
 	var res []domain.ProductArzon
-	err := s.db.Raw(`
+	err := s.db.WithContext(ctx).
+		Raw(`
 	SELECT 
 		p.id, p.name, 
 		COALESCE(pr.name, '') AS producer_name, 
@@ -1213,17 +1200,16 @@ func (s *Services) ProductListForArzon(storeId string) ([]domain.ProductArzon, e
 	FROM store_products sp
 	JOIN products p ON sp.product_id = p.id
 	LEFT JOIN producers pr ON p.producer_id = pr.id
-	WHERE sp.store_id = ? AND (sp.pack_quantity > 0 OR sp.unit_quantity > 0)
+	WHERE sp.store_id = ? AND sp.unit_quantity > 0
 	GROUP BY p.id, pr.id;
 	`, storeId).Scan(&res).Error
 	if err != nil {
-		s.log.Error(err)
-		return res, err
+		s.log.Errorf("could not get products for arzon_apteka: %v", err)
+		return res, domain.InternalServerError
 	}
 	return res, nil
 }
 
-// get product id by material_code
 func (s *Services) GetProductIDByCode(code int64) (string, error) {
 	var id string
 	err := s.db.Raw(`SELECT id FROM products WHERE material_code = ?`, code).Scan(&id).Error
@@ -1234,7 +1220,6 @@ func (s *Services) GetProductIDByCode(code int64) (string, error) {
 	return id, nil
 }
 
-// get min, max products
 func (s *Services) GetMinMaxProducts(param *domain.ProductQueryParam) ([]domain.MinMaxProduct, int64, error) {
 	var (
 		res        []domain.MinMaxProduct
@@ -1382,111 +1367,92 @@ func (s *Services) ListExcludedProducts(param *domain.ProductQueryParam) ([]doma
 	return res, totalCount, nil
 }
 
-// get product list with import and ikpu
-func (s *Services) GetProductListByImport(param *domain.ProductQueryParam) ([]domain.ProductByIkpu, int64, error) {
-	var (
-		filter     = " WHERE (sp.pack_quantity > 0 or sp.unit_quantity > 0) "
-		order      = " ORDER BY sp.created_at DESC "
-		args       = []any{}
-		res        []domain.ProductByIkpu
-		totalCount int64
-	)
-
-	query := `
-	SELECT
-		sp.id,
-		sp.product_id,
-		p.material_code,
-		st.name AS store_name,
-		COALESCE(im.document_number, '') AS import_number,
-		p.name,
-		COALESCE(
-			(SELECT pb1.barcode 
-			 FROM product_barcodes pb1 
-			 WHERE pb1.product_id = p.id AND pb1.store_id = sp.store_id 
-			 ORDER BY pb1.created_at DESC 
-			 LIMIT 1),
-			(SELECT pb2.barcode 
-			 FROM product_barcodes pb2 
-			 WHERE pb2.product_id = p.id and pb2.store_id is null
-			 ORDER BY pb2.created_at DESC 
-			 LIMIT 1)
-		) AS barcode,
-		COALESCE(pr.name, '') as producer_name,
-		sp.pack_quantity as quantity,
-		(sp.unit_quantity % p.unit_per_pack) AS unit_quantity,
-		p.unit_per_pack,
-		sp.is_marking,
-		sp.is_checking,
-		sp.serial_number,
-		sp.expire_date,
-		sp.retail_price,
-		sp.supply_price,
-		sp.mxik, 
-		sp.unit_code, 
-		sp.unit_label,
-		sp.created_at,
-		sp.updated_at
-	FROM store_products sp
-		JOIN products p ON sp.product_id = p.id
-		JOIN stores st ON sp.store_id = st.id
-	LEFT JOIN import_details imd ON sp.import_detail_id = imd.id
-	LEFT JOIN imports im ON imd.import_id = im.id
-	LEFT JOIN producers pr ON p.producer_id = pr.id
-	`
-	totalQuery := `
-	SELECT
-		COUNT(*) as total_count
-	FROM store_products sp
-		JOIN products p ON sp.product_id = p.id
-		JOIN stores st ON sp.store_id = st.id
-	LEFT JOIN import_details imd ON sp.import_detail_id = imd.id
-	LEFT JOIN imports im ON imd.import_id = im.id
-	LEFT JOIN producers pr ON p.producer_id = pr.id
-	`
+func (s *Services) GetProductsByImport(ctx context.Context, params *domain.ProductQueryParam) ([]domain.ProductByImport, int64, error) {
+	qb := s.db.WithContext(ctx).
+		Table("store_products sp").
+		Joins("JOIN products p ON sp.product_id = p.id").
+		Joins("JOIN stores st ON sp.store_id = st.id").
+		Joins("LEFT JOIN import_details imd ON sp.import_detail_id = imd.id").
+		Joins("LEFT JOIN producers pr ON p.producer_id = pr.id")
 
 	// filter by store_id
-	if param.StoreId != "" {
-		filter += " AND sp.store_id = ? "
-		args = append(args, param.StoreId)
-	}
-	if param.CompanyId != "" {
-		filter += " AND sp.company_id = ? "
-		args = append(args, param.CompanyId)
-	}
-	// filter by search keyword
-	if param.SearchField != "" {
-		filter += " AND (p.name ILIKE ? OR p.barcode LIKE ?) "
-		args = append(args, "%"+param.SearchField+"%", "%"+param.SearchField+"%")
-	}
-	// filter with barcode
-	if param.NoBarcode {
-		filter += " AND (p.barcode IS NULL OR p.barcode = '') "
+	if params.StoreId != "" {
+		qb = qb.Where("sp.store_id = ?", params.StoreId)
 	}
 
-	if param.ProducerId != "" {
-		filter += " AND p.producer_id = ? "
-		args = append(args, param.ProducerId)
+	if params.CompanyId != "" {
+		qb = qb.Where("sp.company_id = ?", params.CompanyId)
 	}
 
-	if param.ImportId != "" {
-		filter += " AND imd.import_id = ? "
-		args = append(args, param.ImportId)
+	if params.SearchField != "" {
+		search := fmt.Sprintf("%%%s%%", params.SearchField)
+		if utils.DefineProductSearchQuery(params.SearchField) == "barcode" {
+			qb = qb.Where("p.barcode LIKE ?", search)
+		} else {
+			qb = qb.Where("p.name ILIKE ?", search)
+		}
 	}
-	// collect total count query with filters
-	totalQuery += filter
-	err := s.db.Raw(totalQuery, args...).Scan(&totalCount).Error
-	if err != nil {
-		s.log.Warn("ERROR on getting products by ikpu total_count: %v", err)
-		return res, totalCount, err
+
+	if params.NoBarcode {
+		qb = qb.Where("(p.barcode IS NULL OR p.barcode = '')")
 	}
-	// collect get list query
-	query += filter + order + "LIMIT ? OFFSET ? "
-	args = append(args, param.Limit, param.Offset)
-	err = s.db.Raw(query, args...).Scan(&res).Error
+
+	if params.ProducerId != "" {
+		qb = qb.Where("p.producer_id = ?", params.ProducerId)
+	}
+
+	if params.ImportId != "" {
+		qb = qb.Where("imd.import_id = ?", params.ImportId)
+	}
+	var totalCount int64
+	if err := qb.Count(&totalCount).Error; err != nil {
+		s.log.Errorf("could not get total_count in get_products_by_import: %v", err)
+		return nil, 0, domain.InternalServerError
+	}
+
+	var res []domain.ProductByImport
+	err := qb.
+		Select(
+			"p.material_code",
+			"p.name",
+			"p.barcode",
+			"p.unit_per_pack",
+
+			"st.name AS store_name",
+
+			"sp.id",
+			"sp.product_id",
+			"sp.unit_quantity",
+			"sp.is_marking",
+			"sp.is_checking",
+			"sp.serial_number",
+			"sp.expire_date",
+			"sp.retail_price",
+			"sp.supply_price",
+			"sp.mxik",
+			"sp.unit_code",
+			"sp.unit_label",
+			"sp.created_at",
+			"sp.updated_at",
+		).
+		Order("sp.created_at DESC").
+		Limit(params.Limit).
+		Offset(params.Offset).
+		Find(&res).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting products by ikpu: %v", err)
-		return res, totalCount, err
+		s.log.Errorf("could not get product by import: %v", err)
+		return nil, 0, domain.InternalServerError
+	}
+
+	for i := range res {
+		if res[i].UnitQuantity%res[i].UnitPerPack > 0 {
+			res[i].Quantity = fmt.Sprintf("%d (%d/%d)",
+				res[i].UnitQuantity/res[i].UnitPerPack,
+				res[i].UnitQuantity%res[i].UnitPerPack,
+				res[i].UnitPerPack)
+		} else {
+			res[i].Quantity = fmt.Sprintf("%d", res[i].UnitQuantity/res[i].UnitPerPack)
+		}
 	}
 
 	return res, totalCount, nil
