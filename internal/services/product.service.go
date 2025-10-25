@@ -1010,202 +1010,113 @@ func (s *Services) GetProductMovements(ctx context.Context, params *domain.Produ
 	}
 
 	baseQuery := `
-	WITH var_data AS (
-		SELECT
-			p.id AS product_id,
-			p.unit_per_pack
-		FROM products p
-		WHERE p.id = ?
-	),
-	import_data AS (
-		SELECT
-			im.id, im.public_id, im.entry_type, im.created_at,
-			s.name AS store_name,
-			CASE
-				WHEN COALESCE(SUM(imd.accepted_count), 0) = 0 THEN '0'
-				ELSE
-					CONCAT(
-						ROUND(SUM(imd.accepted_count), 0)::text, ' уп',
-						CASE 
-							WHEN (SUM(imd.accepted_count) %% vd.unit_per_pack)-(SUM(imd.accepted_count) %% vd.unit_per_pack) > 0 
-							THEN CONCAT(' ', ((SUM(imd.accepted_count) %% vd.unit_per_pack)-(SUM(imd.accepted_count) %% vd.unit_per_pack))::text, ' шт')
-							ELSE ''
-						END
-					)
-			END AS count,
-			SUM(imd.accepted_count * imd.retail_price_vat) AS sum,
-			COALESCE(im.name, '') AS name,
-			vd.unit_per_pack
-		FROM imports im
-		JOIN stores s ON im.store_id = s.id
-		JOIN import_details imd ON im.id = imd.import_id
-		JOIN var_data vd ON imd.product_id = vd.product_id
-		WHERE im.entry_type = 1 AND im.status = 'completed'
-		%s
-		GROUP BY im.id, s.id, vd.unit_per_pack
-	),
-	inventory_data AS (
-		SELECT
-			im.id, im.public_id, im.entry_type, im.created_at,
-			s.name AS store_name,
-			CASE
-				WHEN COALESCE(SUM(imd.scanned_count) / vd.unit_per_pack, 0) = 0 THEN '0'
-				ELSE
-					CONCAT(
-						FLOOR(SUM(imd.scanned_count) / vd.unit_per_pack)::text, ' уп',
-						CASE 
-							WHEN (SUM(imd.scanned_count) %% vd.unit_per_pack) > 0 
-							THEN CONCAT(' ', (SUM(imd.scanned_count) %% vd.unit_per_pack)::text, ' шт')
-							ELSE ''
-						END
-					)
-			END AS count,
-			ROUND(SUM(imd.retail_price_vat * (imd.scanned_count/vd.unit_per_pack)), 2) AS sum,
-			im.name AS name,
-			vd.unit_per_pack
-		FROM imports im
-		JOIN stores s ON im.store_id = s.id
-		JOIN import_details imd ON im.id = imd.import_id
-		JOIN var_data vd ON imd.product_id = vd.product_id
-		WHERE im.entry_type = 2 AND im.status = 'completed'
-		%s
-		GROUP BY im.id, s.id, vd.unit_per_pack
-	),
-	sales_data AS (
-		SELECT
-			sa.id, sa.sale_number AS public_id,
-			4 AS entry_type,
-			sa.completed_at AS created_at,
-			st.name AS store_name,
-			CASE
-				WHEN COALESCE(SUM(ci.unit_quantity), 0) = 0 THEN '0'
-				ELSE
-					CONCAT(
-						ROUND(SUM(ci.unit_quantity/vd.unit_per_pack), 0)::text, ' уп',
-						CASE 
-							WHEN (SUM(ci.unit_quantity%%vd.unit_per_pack)) > 0 
-							THEN CONCAT(' ', (SUM(ci.unit_quantity%%vd.unit_per_pack))::text, ' шт')
-							ELSE ''
-						END
-					)
-			END AS count,
-			sa.total_amount AS sum,
-			sa.sale_type AS name,
-			vd.unit_per_pack
-		FROM sales sa
-		JOIN stores st ON st.id = sa.store_id
-		JOIN cart_items ci ON ci.sale_id = sa.id
-		JOIN store_products sp ON sp.id = ci.store_product_id
-		JOIN var_data vd ON sp.product_id = vd.product_id
-		WHERE sa.stage IN (9, 11)
-		%s
-		GROUP BY sa.id, st.id, vd.unit_per_pack
-	),
-	vozvrat_data AS (
-		SELECT
-			tr.id, tr.public_id::int, 5 AS entry_type, tr.created_at,
-			s.name AS store_name,
-			CASE
-				WHEN COALESCE(SUM(td.accepted_count), 0) = 0 THEN '0'
-				ELSE
-					CONCAT(
-						ROUND(SUM(td.accepted_count) / vd.unit_per_pack, 0)::text, ' уп',
-						CASE 
-							WHEN (SUM(td.accepted_count) %% vd.unit_per_pack) > 0 
-							THEN CONCAT(' ', (SUM(td.accepted_count) %% vd.unit_per_pack)::text, ' шт')
-							ELSE ''
-						END
-					)
-			END AS count,
-			SUM((td.accepted_count/vd.unit_per_pack) * td.retail_price) AS sum,
-			tr.name as name,
-			vd.unit_per_pack
-		FROM transfer_details td
-		JOIN transfers tr ON td.transfer_id = tr.id
-		JOIN var_data vd ON td.product_id = vd.product_id
-		JOIN stores s ON s.id = tr.from_store_id
-		WHERE (tr.status = 'completed' OR tr.status = 'sent-to-1c') AND tr.entry_type = 2
-		%s
-		GROUP BY tr.id, s.id, vd.unit_per_pack
-	),
-	transfer_data AS (
-		SELECT
-			tr.id, tr.public_id::int, 
-			6 AS entry_type,
-			tr.created_at,
-			fs.name || ' -> ' || ts.name as store_name,
-			CASE
-				WHEN COALESCE(SUM(td.accepted_count), 0) = 0 THEN '0'
-				ELSE
-					CONCAT(
-						ROUND(SUM(td.accepted_count), 0)::text, ' уп',
-						CASE 
-							WHEN ((SUM(td.accepted_count))-(SUM(td.accepted_count) %% vd.unit_per_pack)) > 0 
-							THEN CONCAT(' ', ((SUM(td.accepted_count))-(SUM(td.accepted_count) %% vd.unit_per_pack))::text, ' шт')
-							ELSE ''
-						END
-					)
-			END AS count,
-			SUM((td.accepted_count/vd.unit_per_pack) * td.retail_price) AS sum,
-			tr.name as name,
-			vd.unit_per_pack
-		FROM transfer_details td
-		JOIN transfers tr ON td.transfer_id = tr.id
-		JOIN var_data vd ON td.product_id = vd.product_id
-		JOIN stores fs ON fs.id = tr.from_store_id
-		JOIN stores ts ON ts.id = tr.to_store_id
-		WHERE (tr.status = 'completed' OR tr.status = 'sent-to-1c') AND tr.entry_type = 1
-		%s
-		GROUP BY tr.id, fs.id, ts.id, vd.unit_per_pack
-     ),
-     draft_data AS (
-         SELECT
-             d.id,
-             d.draft_number AS public_id,
-             7 AS entry_type,
-             d.created_at,
-             s.name AS store_name,
-             CASE
-                 WHEN COALESCE(SUM(ci.quantity + ci.unit_quantity), 0) = 0 THEN '0'
-                 ELSE
-                     CONCAT(
-                             ROUND(SUM(ci.quantity), 0)::text, ' уп',
-                             CASE
-                                 WHEN (SUM(ci.unit_quantity)) > 0
-                                     THEN CONCAT(' ', (SUM(ci.unit_quantity))::text, ' шт')
-                                 ELSE ''
-                                 END
-                     )
-                 END AS count,
-             SUM(ci.total_price) AS sum,
-             d.status AS name, -- bu yerda draftning statusini chiqaramiz
-             vd.unit_per_pack
-         FROM drafts d
-                  JOIN stores s ON d.store_id = s.id
-                  JOIN cart_item_drafts cid ON cid.draft_id = d.id
-                  JOIN cart_items ci ON ci.id = cid.cart_item_id AND ci.status = 'drafted'
-                  JOIN store_products sp ON sp.id = ci.store_product_id
-                  JOIN var_data vd ON sp.product_id = vd.product_id
-         WHERE d.store_id = '031f207f-c867-4d24-8f1e-f6ce50e31120'
-           AND d.is_active = true
-         GROUP BY d.id, s.id, vd.unit_per_pack
-	)
-	SELECT *, COUNT(*) OVER() AS total_count
-	FROM (
-		SELECT * FROM import_data
-		UNION ALL
-		SELECT * FROM sales_data
-		UNION ALL
-		SELECT * FROM inventory_data
-		UNION ALL
-		SELECT * FROM vozvrat_data
-		UNION ALL
-		SELECT * FROM transfer_data
-		UNION ALL
-		SELECT * FROM draft_data
-	) all_data
-	ORDER BY created_at DESC
-	LIMIT ? OFFSET ?;
+WITH var_data AS (
+SELECT
+	p.id AS product_id,
+	p.unit_per_pack
+FROM products p
+WHERE p.id = ?
+),
+import_data AS (
+    SELECT
+        im.id, im.public_id, im.entry_type, im.created_at,
+        s.name AS store_name,
+        SUM(imd.accepted_count) * vd.unit_per_pack AS quantity,
+        SUM(imd.accepted_count * imd.retail_price_vat) AS sum,
+        COALESCE(im.name, '') AS name,
+        vd.unit_per_pack
+    FROM imports im
+    JOIN stores s ON im.store_id = s.id
+    JOIN import_details imd ON im.id = imd.import_id
+    JOIN var_data vd ON imd.product_id = vd.product_id
+    WHERE im.entry_type = 1 AND im.status = 'completed'
+    %s
+    GROUP BY im.id, s.id, vd.unit_per_pack
+),
+inventory_data AS (
+    SELECT
+        im.id, im.public_id, im.entry_type, im.created_at,
+        s.name AS store_name,
+        SUM(imd.scanned_count) AS quantity,
+        ROUND(SUM(imd.retail_price_vat * (imd.scanned_count/vd.unit_per_pack)), 2) AS sum,
+        im.name AS name,
+        vd.unit_per_pack
+    FROM imports im
+    JOIN stores s ON im.store_id = s.id
+    JOIN import_details imd ON im.id = imd.import_id
+    JOIN var_data vd ON imd.product_id = vd.product_id
+    WHERE im.entry_type = 2 AND im.status = 'completed'
+    %s
+    GROUP BY im.id, s.id, vd.unit_per_pack
+),
+sales_data AS (
+    SELECT
+        sa.id, sa.sale_number AS public_id,
+        4 AS entry_type,
+        sa.completed_at AS created_at,
+        st.name AS store_name,
+        SUM(ci.unit_quantity) AS quantity,
+        sa.total_amount AS sum,
+        sa.sale_type AS name,
+        vd.unit_per_pack
+    FROM sales sa
+    JOIN stores st ON st.id = sa.store_id
+    JOIN cart_items ci ON ci.sale_id = sa.id
+    JOIN store_products sp ON sp.id = ci.store_product_id
+    JOIN var_data vd ON sp.product_id = vd.product_id
+    WHERE sa.stage IN (9, 11)
+    %s
+    GROUP BY sa.id, st.id, vd.unit_per_pack
+),
+vozvrat_data AS (
+    SELECT
+        tr.id, tr.public_id::int, 5 AS entry_type, tr.created_at,
+        s.name AS store_name,
+        SUM(td.accepted_count) * vd.unit_per_pack AS quantity,
+        SUM((td.accepted_count/vd.unit_per_pack) * td.retail_price) AS sum,
+        tr.name as name,
+        vd.unit_per_pack
+    FROM transfer_details td
+    JOIN transfers tr ON td.transfer_id = tr.id
+    JOIN var_data vd ON td.product_id = vd.product_id
+    JOIN stores s ON s.id = tr.from_store_id
+    WHERE (tr.status = 'completed' OR tr.status = 'sent-to-1c') AND tr.entry_type = 2
+    %s
+    GROUP BY tr.id, s.id, vd.unit_per_pack
+),
+transfer_data AS (
+    SELECT
+        tr.id, tr.public_id::int,
+        6 AS entry_type,
+        tr.created_at,
+        fs.name || ' -> ' || ts.name as store_name,
+        SUM(td.accepted_count) * vd.unit_per_pack AS quantity,
+        SUM((td.accepted_count/vd.unit_per_pack) * td.retail_price) AS sum,
+        tr.name as name,
+        vd.unit_per_pack
+    FROM transfer_details td
+    JOIN transfers tr ON td.transfer_id = tr.id
+    JOIN var_data vd ON td.product_id = vd.product_id
+    JOIN stores fs ON fs.id = tr.from_store_id
+    JOIN stores ts ON ts.id = tr.to_store_id
+    WHERE (tr.status = 'completed' OR tr.status = 'sent-to-1c') AND tr.entry_type = 1
+    %s
+    GROUP BY tr.id, fs.id, ts.id, vd.unit_per_pack
+ )
+SELECT *, COUNT(*) OVER() AS total_count
+FROM (
+    SELECT * FROM import_data
+    UNION ALL
+    SELECT * FROM sales_data
+    UNION ALL
+    SELECT * FROM inventory_data
+    UNION ALL
+    SELECT * FROM vozvrat_data
+    UNION ALL
+    SELECT * FROM transfer_data
+) all_data
+ORDER BY created_at DESC
+LIMIT ? OFFSET ?;
 	`
 
 	// dynamic query conditions
@@ -1275,6 +1186,17 @@ func (s *Services) GetProductMovements(ctx context.Context, params *domain.Produ
 	// Get total count
 	if len(res) > 0 {
 		totalCount = res[0].TotalCount
+	}
+
+	for i := range res {
+		if int(res[i].Quantity)%res[i].UnitPerPack > 0 {
+			res[i].Count = fmt.Sprintf("%d (%d/%d)",
+				int(res[i].Quantity)/res[i].UnitPerPack,
+				int(res[i].Quantity)%res[i].UnitPerPack,
+				res[i].UnitPerPack)
+		} else {
+			res[i].Count = fmt.Sprintf("%d", int(res[i].Quantity)/res[i].UnitPerPack)
+		}
 	}
 
 	return res, totalCount, nil
