@@ -71,9 +71,6 @@ func (h *ReturnHandler) Create(c *gin.Context) {
 		return
 	}
 
-	handleResponse(c, BadRequest, "return.temporary.not.working")
-	return
-
 	var returnRequest domain.ReturnRequest
 	if err := c.ShouldBindJSON(&returnRequest); err != nil {
 		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
