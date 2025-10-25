@@ -491,3 +491,7 @@ type ProductPhotoAlertCreate struct {
 	Reason    string `json:"reason"`
 	CreatedBy string `json:"-"`
 }
+
+type GenerateOnecTokenRequest struct {
+	Password string `json:"password" validate:"required"`
+}
