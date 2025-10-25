@@ -1594,16 +1594,15 @@ func (h *ProductHandler) ArzonProductExport(c *gin.Context) {
 // @Security BearerAuth
 // @Accept  json
 // @Produce json
-// @Param limit query int false "Limit"
-// @Param offset query int false "Offset"
-// @Param search query string false "Search"
-// @Param status query string false "Status (active || inactive || low-stock || zero-stock || expired || imminent)"
-// @Param store_id query string true "Store ID"
-// @Param category_id query string false "Category ID"
-// @Param producer_id query string false "Producer ID"
-// @Param no_barcode query bool false "No Barcode"
-// @Success 200 {object} v1.Response "Product list"
-// @Failure 400 {object} v1.Response "Invalid store_id"
+// @Param limit 	query int false "limit"
+// @Param offset 	query int false "offset"
+// @Param search 	query string false "search"
+// @Param status 	query string false "status (active || inactive || low-stock || zero-stock || expired || imminent)"
+// @Param store_id  query string false "store_id"
+// @Param producer_id query string false "producer_id"
+// @Param no_barcode query bool false "no_barcode"
+// @Success 200 {object} v1.Response "products"
+// @Failure 400 {object} v1.Response "invalid request query"
 // @Failure 500 {object} v1.Response "Internal server error"
 // @Router /product/list-by-import [GET]
 func (h *ProductHandler) GetProductsByImport(c *gin.Context) {
@@ -1714,7 +1713,7 @@ func (h *ProductHandler) GetProductsByImportExport(c *gin.Context) {
 		row := strconv.Itoa(i + 2)
 		f.SetCellValue(sheetName, "A"+row, product.MaterialCode)
 		f.SetCellValue(sheetName, "B"+row, product.Name)
-		f.SetCellValue(sheetName, "C"+row, math.Round(float64(product.UnitQuantity)/float64(product.UnitPerPack)))
+		f.SetCellValue(sheetName, "C"+row, math.Round(float64(product.UQuantity)/float64(product.UnitPerPack)))
 		f.SetCellValue(sheetName, "D"+row, product.Barcode)
 		f.SetCellValue(sheetName, "E"+row, product.ProducerName)
 		f.SetCellValue(sheetName, "F"+row, product.Mxik)
