@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	"errors"
 	"strconv"
 	"strings"
@@ -479,20 +480,18 @@ func (h *ProductOnecHandler) ProductRepricing(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /product1c/quantity [POST]
 func (h *ProductOnecHandler) UpdateQuantity(c *gin.Context) {
-	var (
-		body domain.UpdateQuantityRequest1C
-		err  error
-	)
+	var body domain.UpdateQuantityRequest1C
 	// bind request body
-	if err = c.ShouldBindJSON(&body); err != nil {
-		handleResponse(c, BadRequest, "Invalid received info, Please try again")
+	if err := c.ShouldBindJSON(&body); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 	// update quantity service
-	err = h.service.UpdateProductQuantity(&body)
+	err := h.service.UpdateProductQuantity(ctx, &body)
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, "Can't update quantity")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 	handleResponse(c, OK, "UPDATED")

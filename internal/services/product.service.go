@@ -1571,85 +1571,85 @@ func (s *Services) UpdateRetailPrice(id string, newPrice float64) error {
 	return nil
 }
 
-func (s *Services) UpdateProductQuantity(req *domain.UpdateQuantityRequest1C) error {
-	var err error
+func (s *Services) UpdateProductQuantity(ctx context.Context, req *domain.UpdateQuantityRequest1C) error {
 	tx := s.db.Begin()
-	if tx.Error != nil {
-		s.log.Error("Failed to start transaction: ", tx.Error)
-		return tx.Error
-	}
 	defer func() {
 		if r := recover(); r != nil {
-			tx.Rollback()
-			s.log.Error("Panic recovered in UpdateProductQuantity: ", r)
+			_ = tx.Rollback()
+			s.log.Errorf("Panic recovered in UpdateProductQuantity: %v", r)
 		}
 	}()
 
 	publicId := strings.TrimPrefix(req.Dok.DocumentNumber, "NP-")
 
-	var transferID string
-	err = tx.Raw(`SELECT id FROM transfers WHERE public_id = ?`, publicId).Scan(&transferID).Error
+	var transferId string
+	err := tx.WithContext(ctx).
+		Raw(`SELECT id FROM transfers WHERE public_id = ?`,
+			publicId).Scan(&transferId).Error
 	if err != nil {
-		s.log.Error("Failed to get transfer ID by public_id: ", err)
-		tx.Rollback()
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("could not get transfer Id by public_id: %v", err)
+		return domain.InternalServerError
 	}
-	if transferID == "" {
-		tx.Rollback()
-		return errors.New("transfer not found for given public_id")
+	if transferId == "" {
+		_ = tx.Rollback()
+		s.log.Error("could not get transfer_id by id")
+		return domain.InternalServerError
 	}
 
 	for _, item := range req.Товары {
 		diff := int(item.AcceptedCount - item.GivenCount)
-		err = tx.Exec(`
+		err = tx.WithContext(ctx).
+			Exec(`
 			UPDATE store_products
 			SET 
-				unit_quantity = unit_quantity + ?,
-				pack_quantity = pack_quantity + (? / p.unit_per_pack)
+				unit_quantity = unit_quantity + ?
 			FROM products p
 			WHERE store_products.product_id = p.id
 			  AND store_products.id = ?`,
-			diff, diff, item.StoreProductId,
-		).Error
+				diff, item.StoreProductId,
+			).Error
 		if err != nil {
+			_ = tx.Rollback()
 			s.log.Error("ERROR on updating product quantity: ", err)
-			tx.Rollback()
-			return err
+			return domain.InternalServerError
 		}
 
-		err = tx.Exec(`
+		err = tx.WithContext(ctx).
+			Exec(`
 			UPDATE transfer_details
 			SET onec_count = ?, updated_at = NOW()
 			WHERE transfer_id = ? AND store_product_id = ?`,
-			item.GivenCount, transferID, item.StoreProductId,
-		).Error
+				item.GivenCount, transferId, item.StoreProductId,
+			).Error
 		if err != nil {
-			s.log.Error("ERROR on updating transfer details: ", err)
-			tx.Rollback()
-			return err
+			_ = tx.Rollback()
+			s.log.Errorf("could not update transfer details: %v", err)
+			return domain.InternalServerError
 		}
 	}
 
 	// Update transfer status
-	err = tx.Exec(`
+	err = tx.WithContext(ctx).
+		Exec(`
 		UPDATE transfers
 		SET 
 			status = ?,
 			updated_at = NOW()
 		WHERE id = ?`,
-		constants.GeneralStatusCompleted,
-		transferID,
-	).Error
+			constants.GeneralStatusCompleted,
+			transferId,
+		).Error
 
 	if err != nil {
-		s.log.Error("Failed to update transfer status: ", err)
-		tx.Rollback()
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("could not update transfer status: %v", err)
+		return domain.InternalServerError
 	}
 
 	if err = tx.Commit().Error; err != nil {
-		s.log.Error("Failed to commit transaction: ", err)
-		return err
+		s.log.Errorf("could not commit transaction accept vozvrat from onec: %v", err)
+		return domain.InternalServerError
 	}
 
 	return nil
