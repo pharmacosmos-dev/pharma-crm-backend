@@ -9677,37 +9677,32 @@ paths:
       - application/json
       description: Get product list by import
       parameters:
-      - description: Limit
+      - description: limit
         in: query
         name: limit
         type: integer
-      - description: Offset
+      - description: offset
         in: query
         name: offset
         type: integer
-      - description: Search
+      - description: search
         in: query
         name: search
         type: string
-      - description: Status (active || inactive || low-stock || zero-stock || expired
+      - description: status (active || inactive || low-stock || zero-stock || expired
           || imminent)
         in: query
         name: status
         type: string
-      - description: Store ID
+      - description: store_id
         in: query
         name: store_id
-        required: true
         type: string
-      - description: Category ID
-        in: query
-        name: category_id
-        type: string
-      - description: Producer ID
+      - description: producer_id
         in: query
         name: producer_id
         type: string
-      - description: No Barcode
+      - description: no_barcode
         in: query
         name: no_barcode
         type: boolean
@@ -9715,11 +9710,11 @@ paths:
       - application/json
       responses:
         "200":
-          description: Product list
+          description: products
           schema:
             $ref: '#/definitions/v1.Response'
         "400":
-          description: Invalid store_id
+          description: invalid request query
           schema:
             $ref: '#/definitions/v1.Response'
         "500":

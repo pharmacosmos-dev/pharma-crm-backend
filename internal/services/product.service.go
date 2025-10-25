@@ -1418,11 +1418,11 @@ func (s *Services) GetProductsByImport(ctx context.Context, params *domain.Produ
 			"p.barcode",
 			"p.unit_per_pack",
 
-			"st.name AS store_name",
-
 			"sp.id",
 			"sp.product_id",
-			"sp.unit_quantity",
+			"sp.unit_quantity / p.unit_per_pack AS quantity",
+			"sp.unit_quantity % p.unit_per_pack AS unit_quantity",
+			"sp.unit_quantity AS u_quantity",
 			"sp.is_marking",
 			"sp.is_checking",
 			"sp.serial_number",
@@ -1434,6 +1434,9 @@ func (s *Services) GetProductsByImport(ctx context.Context, params *domain.Produ
 			"sp.unit_label",
 			"sp.created_at",
 			"sp.updated_at",
+
+			"st.name AS store_name",
+			"pr.name AS producer_name",
 		).
 		Order("sp.created_at DESC").
 		Limit(params.Limit).
@@ -1442,17 +1445,6 @@ func (s *Services) GetProductsByImport(ctx context.Context, params *domain.Produ
 	if err != nil {
 		s.log.Errorf("could not get product by import: %v", err)
 		return nil, 0, domain.InternalServerError
-	}
-
-	for i := range res {
-		if res[i].UnitQuantity%res[i].UnitPerPack > 0 {
-			res[i].Quantity = fmt.Sprintf("%d (%d/%d)",
-				res[i].UnitQuantity/res[i].UnitPerPack,
-				res[i].UnitQuantity%res[i].UnitPerPack,
-				res[i].UnitPerPack)
-		} else {
-			res[i].Quantity = fmt.Sprintf("%d", res[i].UnitQuantity/res[i].UnitPerPack)
-		}
 	}
 
 	return res, totalCount, nil

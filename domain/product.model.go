@@ -331,8 +331,9 @@ type ProductByImport struct {
 	IsChecking   bool       `gorm:"is_checking" json:"is_checking"`
 	Manufacturer string     `gorm:"manufacturer" json:"manufacturer"`
 	SerialNumber string     `gorm:"serial_number" json:"serial_number"`
-	Quantity     string     `gorm:"quantity" json:"quantity"`
+	Quantity     int        `gorm:"quantity" json:"quantity"`
 	UnitQuantity int        `gorm:"unit_quantity" json:"unit_quantity"`
+	UQuantity    int        `gorm:"u_quantity" json:"u_quantity"`
 	UnitPerPack  int        `gorm:"unit_per_pack" json:"unit_per_pack"`
 	Mxik         string     `gorm:"mxik" json:"mxik"`
 	UnitCode     string     `gorm:"unit_code" json:"unit_code"`
