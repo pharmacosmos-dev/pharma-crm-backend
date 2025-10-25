@@ -621,6 +621,10 @@ definitions:
         type: array
       humo:
         type: number
+      loyalty_card:
+        type: number
+      loyalty_card_barcode:
+        type: string
       marking_data:
         items:
           $ref: '#/definitions/domain.MarkingData'
@@ -973,6 +977,8 @@ definitions:
     properties:
       description:
         type: string
+      front_name:
+        type: string
       name:
         type: string
       type:
@@ -1279,11 +1285,15 @@ definitions:
     properties:
       created_by:
         type: string
+      import_id:
+        type: string
       name:
         type: string
       status:
         type: string
       store_id:
+        type: string
+      store_product_id:
         type: string
       type:
         example: retail_price|supply_price|expire_date
@@ -8959,6 +8969,47 @@ paths:
       security:
       - BearerAuth: []
       summary: Get product movements
+      tags:
+      - products
+  /product/{id}/product-movement/export-excel:
+    get:
+      description: Export product movements to Excel
+      parameters:
+      - description: Product ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Export product movements to Excel
       tags:
       - products
   /product/attach-barcode:
