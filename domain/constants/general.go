@@ -153,15 +153,16 @@ const (
 
 	// payment types
 
-	PaymentTypeCash   = "cash"
-	PaymentTypeCard   = "card"
-	PaymentTypeApp    = "app"
-	PaymentTypeClick  = "click"
-	PaymentTypePayme  = "payme"
-	PaymentTypeUzum   = "uzum"
-	PaymentTypeAlif   = "alif"
-	PaymentTypeHumo   = "humo"
-	PaymentTypeUzcard = "uzcard"
+	PaymentTypeCash        = "cash"
+	PaymentTypeCard        = "card"
+	PaymentTypeApp         = "app"
+	PaymentTypeLoyaltyCard = "loyalty_cd"
+	PaymentTypeClick       = "click"
+	PaymentTypePayme       = "payme"
+	PaymentTypeUzum        = "uzum"
+	PaymentTypeAlif        = "alif"
+	PaymentTypeHumo        = "humo"
+	PaymentTypeUzcard      = "uzcard"
 
 	// Universal status types
 
@@ -207,6 +208,7 @@ const (
 	OnecPathRasxod  = "/rasxod"
 	OnecPathVozvrat = "/vozvrat"
 	OnecPathZakaz   = "/zakaz"
+	OnecPathPerekit = "/perekit"
 
 	// DMED service paths
 	DmedPathPrescription        = "/prescriptions"
@@ -368,4 +370,16 @@ const (
 	AlifPay               = "alif_pay"
 	AlifPayCreatePath     = "/v2/pay"
 	AlifPayConfirmPath    = "/v2/confirmPayment"
+)
+
+// Transfer logs constants
+const (
+	TransferTypeMove   = 0
+	TransferTypeReturn = 1
+
+	TransferLogStageCreated   = 0
+	TransferLogStageSent      = 1
+	TransferLogStageReceived  = 2
+	TransferLogStageChecking  = 3
+	TransferLogStageCompleted = 4
 )
