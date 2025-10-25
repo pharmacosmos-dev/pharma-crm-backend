@@ -30,11 +30,12 @@ type Return struct {
 	AcceptedBy        *Employee  `gorm:"foreignKey:AcceptedById" json:"accepted_by"`
 }
 
-type BarcodeRequest struct {
-	Id      string `json:"id"`
-	Barcode string `json:"barcode"`
-	Count   int    `json:"count"`
-	Status  string `json:"status"`
+type TransferBarcodeRequest struct {
+	Id         string `json:"id"`
+	TransferId string `json:"transfer_id"`
+	Barcode    string `json:"barcode"`
+	Count      int    `json:"count"`
+	Status     string `json:"status"`
 }
 
 type ReturnStatusSummary struct {
@@ -119,6 +120,7 @@ type ReturnDetailStatus struct {
 
 type ReturnAddProduct struct {
 	Id          string `gorm:"id" json:"id"`
+	TransferId  string `gorm:"transfer_id" json:"transfer_id"`
 	ScannedPack *int   `gorm:"scanned_pack" json:"scanned_pack"`
 	ScannedUnit *int   `gorm:"scanned_unit" json:"scanned_unit"`
 	Type        string `gorm:"type" json:"type"`

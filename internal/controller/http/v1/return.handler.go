@@ -895,7 +895,7 @@ func (h *ReturnHandler) ExportReturnNakladnoyPDF(c *gin.Context) {
 // @Router /return/update-by-barcode/{id} [put]
 func (h *ReturnHandler) UpdateByBarcode(c *gin.Context) {
 	var (
-		req domain.BarcodeRequest
+		req domain.TransferBarcodeRequest
 		id  = c.Param("id")
 	)
 	// bind request body
