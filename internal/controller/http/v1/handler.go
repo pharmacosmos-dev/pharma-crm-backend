@@ -92,7 +92,6 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		h.NewSalePaymentHandler(v1)
 		h.NewImportHandler(v1)
 		h.NewProductOnecHandler(v1c)
-		h.NewTokenGeneratorHandler(public)
 		h.NewShiftHandler(v1)
 		h.NewProducerHandler(v1)
 		h.NewDashboardHandler(v1)
