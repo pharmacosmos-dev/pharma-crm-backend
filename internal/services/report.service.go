@@ -168,8 +168,8 @@ func (s *Services) GetProductsReport(ctx context.Context, params *domain.ReportQ
 	qb := s.db.WithContext(ctx).
 		Table("sales s").
 		Joins("JOIN stores st ON s.store_id = st.id").
-		Joins("JOIN employees e ON sl.employee_id = e.id").
-		Joins("JOIN cart_items ci ON sl.id = ci.sale_id").
+		Joins("JOIN employees e ON s.employee_id = e.id").
+		Joins("JOIN cart_items ci ON s.id = ci.sale_id").
 		Joins("JOIN store_products sp ON ci.store_product_id = sp.id").
 		Joins("JOIN products p ON sp.product_id = p.id").
 		Joins("LEFT JOIN producers pr ON p.producer_id = pr.id")
@@ -264,14 +264,13 @@ func (s *Services) GetProductsReport(ctx context.Context, params *domain.ReportQ
 }
 
 func (s *Services) GetProductsReportStats(ctx context.Context, params *domain.ReportQueryParam) (*domain.ProductStatusReport, error) {
-
 	qb := s.db.WithContext(ctx).
 		Select(
-			fmt.Sprintf("COALESCE(SUM(CASE WHEN s.sale_type = %s THEN (ci.unit_quantity / p.unit_per_pack) ELSE 0 END), 0) AS total_quantity", constants.SaleTypeSale),
-			fmt.Sprintf("COALESCE(SUM(CASE WHEN s.sale_type = %s THEN (ci.unit_quantity / p.unit_per_pack) ELSE 0 END), 0) AS total_quantity_returned", constants.SaleTypeReturn),
+			fmt.Sprintf("COALESCE(SUM(CASE WHEN s.sale_type ='%s' THEN (ci.unit_quantity / p.unit_per_pack) ELSE 0 END), 0) AS total_quantity", constants.SaleTypeSale),
+			fmt.Sprintf("COALESCE(SUM(CASE WHEN s.sale_type = '%s' THEN (ci.unit_quantity / p.unit_per_pack) ELSE 0 END), 0) AS total_quantity_returned", constants.SaleTypeReturn),
 			fmt.Sprintf(`ROUND(COALESCE(SUM(CASE
-				WHEN s.sale_type = %s THEN (ci.unit_quantity * ((ci.unit_price - ci.discount_amount) / p.unit_per_pack))
-				WHEN s.sale_type = %s THEN (ci.unit_quantity * (ci.unit_price / p.unit_per_pack)) * (-1)
+				WHEN s.sale_type = '%s' THEN (ci.unit_quantity * ((ci.unit_price - ci.discount_amount) / p.unit_per_pack))
+				WHEN s.sale_type = '%s' THEN (ci.unit_quantity * (ci.unit_price / p.unit_per_pack)) * (-1)
 				ELSE 0
 				END), 0), 2) AS total_retail_price_sum`, constants.SaleTypeSale, constants.SaleTypeReturn),
 			"ROUND(COALESCE(SUM(CASE WHEN s.sale_type = 'RETURN' THEN (ci.unit_quantity * (ci.unit_price / p.unit_per_pack)) ELSE 0 END), 0), 2) AS total_retail_price_sum_returned",
@@ -411,7 +410,7 @@ func (s *Services) LflReport(ctx context.Context, params *domain.ReportQueryPara
 }
 
 // get store report amount
-func (s *Services) StoreReportAmount(ctx context.Context, params *domain.ReportQueryParam) ([]domain.StoreAmount, int64, error) {
+func (s *Services) GetStoreAmountReport(ctx context.Context, params *domain.ReportQueryParam) ([]domain.StoreAmount, int64, error) {
 
 	qb := s.db.WithContext(ctx).
 		Table("stores s").
@@ -459,7 +458,7 @@ func (s *Services) StoreReportAmount(ctx context.Context, params *domain.ReportQ
 			"SUM(sa.payme) AS payme",
 			"SUM(sa.alif) AS alif",
 			"SUM(sa.total_amount) AS total_amount",
-			"SUM(sa.return_amount) AS return_amount",
+			"SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sa.total_amount * (-1)) AS return_amount",
 			"SUM(sa.total_discount) AS total_discount",
 			"COUNT(DISTINCT sa.id) AS cheque_count",
 		).
@@ -488,7 +487,7 @@ func (s *Services) ReportByStoreStats(ctx context.Context, params *domain.Report
 			"SUM(sa.payme) AS payme",
 			"SUM(sa.alif) AS alif",
 			"SUM(sa.total_amount) AS total_amount",
-			"SUM(sa.return_amount) AS return_amount",
+			"SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sa.total_amount * (-1)) AS return_amount",
 			"SUM(sa.total_discount) AS total_discount",
 		).
 		Table("stores s").
@@ -536,20 +535,20 @@ func (s *Services) GetTopProductsReport(ctx context.Context, params *domain.Repo
 
 	startTime, err := time.Parse(time.RFC3339, params.StartDate)
 	if err != nil {
-		s.log.Warn("Invalid start_date format: %v", err)
-		return nil, 0, err
+		s.log.Errorf("coluld not parse start_date in get top_products: %v", err)
+		return nil, 0, domain.InvalidTimeFormatError
 	}
 	if params.EndDate != "" {
 		endTime, err = time.Parse(time.RFC3339, params.EndDate)
 		if err != nil {
-			s.log.Warn("Invalid end_date format: %v", err)
-			return nil, 0, err
+			s.log.Errorf("coluld not parse end_date in get top_products: %v", err)
+			return nil, 0, domain.InvalidTimeFormatError
 		}
 	} else {
 		endTime, err = time.Parse(time.RFC3339, params.StartDate)
 		if err != nil {
-			s.log.Warn("Invalid end_date format: %v", err)
-			return nil, 0, err
+			s.log.Errorf("coluld not parse start_date in get top_products: %v", err)
+			return nil, 0, domain.InvalidTimeFormatError
 		}
 		endTime = endTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
 	}
@@ -578,7 +577,7 @@ func (s *Services) GetTopProductsReport(ctx context.Context, params *domain.Repo
 			p.name,
 			ps.name AS producer_name,
 			s.company_id,
-			SUM(ci.quantity) + FLOOR(SUM(ci.unit_quantity)::decimal / p.unit_per_pack) AS count,
+			SUM(ci.unit_quantity) / p.unit_per_pack AS count,
 			(SUM(ci.unit_quantity) % p.unit_per_pack) AS unit_quantity,
 			p.unit_per_pack,
 			SUM(ci.total_price) as total_amount
@@ -663,14 +662,14 @@ func (s *Services) GetTopSellersReport(ctx context.Context, params *domain.Repor
 
 	startTime, err := time.Parse(time.RFC3339, params.StartDate)
 	if err != nil {
-		s.log.Error("Invalid start_date format: %v", err)
-		return nil, 0, err
+		s.log.Errorf("coluld not parse start_date in get top_products: %v", err)
+		return nil, 0, domain.InvalidTimeFormatError
 	}
 	if params.EndDate != "" {
 		endTime, err = time.Parse(time.RFC3339, params.EndDate)
 		if err != nil {
-			s.log.Warn("Invalid end_date format: %v", err)
-			return nil, 0, err
+			s.log.Errorf("coluld not parse end_date in get top_products: %v", err)
+			return nil, 0, domain.InvalidTimeFormatError
 		}
 	} else {
 		endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
@@ -759,10 +758,10 @@ func (s *Services) GetTopSellersReport(ctx context.Context, params *domain.Repor
 	finalQuery := query + where + order + limitOffset
 
 	// Execute
-	err = s.db.Raw(finalQuery, args...).Scan(&res).Error
+	err = s.db.WithContext(ctx).Raw(finalQuery, args...).Scan(&res).Error
 	if err != nil {
-		s.log.Error("ERROR on getting top seller: ", err)
-		return nil, 0, err
+		s.log.Errorf("could not get top seller: %v", err)
+		return nil, 0, domain.InternalServerError
 	}
 	// get total count
 	if len(res) > 0 {
@@ -886,7 +885,7 @@ func (s *Services) GetTopStoresReport(ctx context.Context, param *domain.ReportQ
 }
 
 // get dashboard bonus products
-func (s *Services) ReportBonusProducts(ctx context.Context, params *domain.ReportQueryParam) ([]domain.BonusProducts, int64, error) {
+func (s *Services) GetBonusProductsReport(ctx context.Context, params *domain.ReportQueryParam) ([]domain.BonusProducts, int64, error) {
 	// declaration
 	var (
 		res        []domain.BonusProducts
