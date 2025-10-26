@@ -31,6 +31,7 @@ const (
 	HeaderStoreToken                        = "Store-Token"
 	HeaderHost                              = "Host"
 	DiscountTypePercent                     = "percent"
+	DefaultSheetName                        = "List1"
 	// Languages
 	LanguageRu    = "ru"
 	LanguageUz    = "uz"

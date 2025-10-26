@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -12,7 +13,7 @@ import (
 	"github.com/pharma-crm-backend/domain"
 )
 
-func (s *Services) ProductReportWithDate(param *domain.ReportQueryParam) ([]map[string]any, error) {
+func (s *Services) ProductReportWithDate(ctx context.Context, params *domain.ReportQueryParam) ([]map[string]any, error) {
 
 	var (
 		dateColumns []string
@@ -23,25 +24,25 @@ func (s *Services) ProductReportWithDate(param *domain.ReportQueryParam) ([]map[
 		args        = []any{}
 	)
 	// filter by store ids
-	if len(param.StoreIds) > 0 {
+	if len(params.StoreIds) > 0 {
 		filter += " AND sp.store_id IN (?) "
-		args = append(args, param.StoreIds)
+		args = append(args, params.StoreIds)
 	}
-	if param.CompanyId != "" {
+	if params.CompanyId != "" {
 		filter += " AND st.company_id = ? "
-		args = append(args, param.CompanyId)
+		args = append(args, params.CompanyId)
 	}
 	// filter with producer_id
-	if param.ProducerId != "" {
+	if params.ProducerId != "" {
 		filter += " AND p.producer_id = ? "
-		args = append(args, param.ProducerId)
+		args = append(args, params.ProducerId)
 	}
 	// var dateList []time.Time
-	startDate, err := time.Parse("2006-01-02", param.StartDate)
+	startDate, err := time.Parse("2006-01-02", params.StartDate)
 	if err != nil {
 		return res, fmt.Errorf("invalid start date")
 	}
-	endDate, err := time.Parse("2006-01-02", param.EndDate)
+	endDate, err := time.Parse("2006-01-02", params.EndDate)
 	if err != nil {
 		return res, fmt.Errorf("invalid end date")
 	}
@@ -68,7 +69,7 @@ func (s *Services) ProductReportWithDate(param *domain.ReportQueryParam) ([]map[
 		LEFT JOIN cart_items ci ON sp.id = ci.store_product_id
 		LEFT JOIN sales s ON ci.sale_id = s.id
 		LEFT JOIN stores st ON s.store_id = st.id
-	`, datesQuery, param.StartDate, param.EndDate)
+	`, datesQuery, params.StartDate, params.EndDate)
 
 	query = query + filter + group + order
 	// Queryni bajarish
@@ -161,238 +162,167 @@ func (s *Services) BonusReport(ctx context.Context, params *domain.ReportQueryPa
 }
 
 // get product report service
-func (s *Services) ProductReport(ctx context.Context, param *domain.ReportQueryParam) ([]domain.ProductReport, int64, error) {
-	var (
-		res        []domain.ProductReport
-		totalCount int64
-		filter     = " WHERE sl.stage IN(9, 11) "
-		args       = []any{}
-		order      = utils.BuildProductReport(param.Order)
-		pagination = fmt.Sprintf(" LIMIT %d OFFSET %d ", param.Limit, param.Offset)
-	)
+func (s *Services) GetProductsReport(ctx context.Context, params *domain.ReportQueryParam) ([]domain.ProductReport, int64, error) {
+	var order = utils.BuildProductReport(params.Order)
 
-	query := `
-	SELECT
-		ci.id AS cart_item_id,
-		p.material_code,
-		s.name AS store_name,
-		p.name AS product_name,
-		COALESCE(pr.name, '') AS producer_name,
-		sp.serial_number,
-		sp.expire_date,
-		ROUND(ci.quantity::numeric + ci.unit_quantity::numeric/p.unit_per_pack, 4) AS quantity,
-		sp.supply_price,
-		sp.retail_price,
-		ROUND((ci.quantity * sp.supply_price) + (ci.unit_quantity * (sp.supply_price / p.unit_per_pack)), 2) AS supply_price_sum,
-		ROUND((ci.quantity * sp.retail_price) + (ci.unit_quantity * (sp.retail_price / p.unit_per_pack) - sl.total_discount), 2) AS retail_price_sum,
-		ROUND((ci.quantity * (sp.retail_price-sp.supply_price)) + (ci.unit_quantity * ((sp.retail_price-sp.supply_price) / p.unit_per_pack)), 2) AS markup_sum,
-		ROUND((ci.quantity * sp.vat_price) + (ci.unit_quantity * (sp.vat_price / p.unit_per_pack)), 2) AS vat_sum,
-		ROUND(sl.total_discount, 2) AS total_discount,
-		(sl.completed_at) AS completed_at,
-		e.full_name,
-		sl.sale_number,
-		sl.sale_type,
-		ci.marking_count
-	FROM
-		sales sl
-		INNER JOIN stores s ON sl.store_id = s.id
-		INNER JOIN employees e ON sl.employee_id = e.id
-		INNER JOIN cart_items ci ON sl.id = ci.sale_id
-		INNER JOIN store_products sp ON ci.store_product_id = sp.id
-		INNER JOIN products p ON sp.product_id = p.id
-		LEFT JOIN producers pr ON p.producer_id = pr.id
-	`
+	qb := s.db.WithContext(ctx).
+		Table("sales s").
+		Joins("JOIN stores st ON s.store_id = st.id").
+		Joins("JOIN employees e ON sl.employee_id = e.id").
+		Joins("JOIN cart_items ci ON sl.id = ci.sale_id").
+		Joins("JOIN store_products sp ON ci.store_product_id = sp.id").
+		Joins("JOIN products p ON sp.product_id = p.id").
+		Joins("LEFT JOIN producers pr ON p.producer_id = pr.id")
 
-	tquery := `
-	SELECT
-		COUNT(*) AS total_count
-	FROM
-		sales sl
-		INNER JOIN stores s ON sl.store_id = s.id
-		INNER JOIN employees e ON sl.employee_id = e.id
-		INNER JOIN cart_items ci ON sl.id = ci.sale_id
-		INNER JOIN store_products sp ON ci.store_product_id = sp.id
-		INNER JOIN products p ON sp.product_id = p.id
-		LEFT JOIN producers pr ON p.producer_id = pr.id
-	`
+	// filters
+	qb = qb.Where("s.stage IN (?)", constants.FinishedSaleStages)
 
-	// search filter
-	if param.Search != "" {
-		filter += " AND (p.name ILIKE ? OR s.name ILIKE ?) "
-		param.Search = "%" + param.Search + "%"
-		args = append(args, param.Search, param.Search)
-	}
-	// store_ids filter
-	if len(param.StoreIds) > 0 {
-		filter += " AND sl.store_id IN (?) "
-		args = append(args, param.StoreIds)
-	}
-	if param.CompanyId != "" {
-		filter += " AND s.company_id = ? "
-		args = append(args, param.CompanyId)
-	}
-	// producer filter
-	if param.ProducerId != "" {
-		filter += " AND p.producer_id = ? "
-		args = append(args, param.ProducerId)
-	}
-	// employee filter
-	if param.EmployeeId != "" {
-		filter += " AND sl.employee_id = ? "
-		args = append(args, param.EmployeeId)
-	}
-
-	// Apply date filter with full datetime support
-	if param.StartDate != "" && param.EndDate != "" {
-		startTime, err := time.Parse(time.RFC3339, param.StartDate)
-		if err != nil {
-			s.log.Warn("Invalid start_date format: %v", err)
-			return res, 0, err
+	if params.Search != "" {
+		if _, err := strconv.Atoi(params.Search); err == nil {
+			qb = qb.Where("s.sale_number::text LIKE ?", params.Search+"%")
+		} else {
+			qb = qb.Where("p.name ILIKE ?", "%"+params.Search+"%")
 		}
-		endTime, err := time.Parse(time.RFC3339, param.EndDate)
-		if err != nil {
-			s.log.Warn("Invalid end_date format: %v", err)
-			return res, 0, err
-		}
-		startStr := startTime.Format("2006-01-02 15:04:05")
-		endStr := endTime.Format("2006-01-02 15:04:05")
-		filter += " AND (sl.completed_at + interval '5 hours') BETWEEN ? AND ? "
-		args = append(args, startStr, endStr)
-	} else if param.EndDate == "" && param.StartDate != "" {
-		endTime, err := time.Parse(time.RFC3339, param.StartDate)
-		if err != nil {
-			s.log.Warn("Invalid start_date format: %v", err)
-			return res, 0, err
-		}
-		endStr := endTime.Format("2006-01-02 15:04:05")
-		filter += " AND (sl.completed_at + interval '5 hours') >= ? "
-		args = append(args, endStr)
 	}
 
-	// Total count query
-	tquery += filter
-	err := s.db.Raw(tquery, args...).Scan(&totalCount).Error
+	if len(params.StoreIds) > 0 {
+		qb = qb.Where("s.store_id IN (?)", params.StoreIds)
+	}
+	if params.CompanyId != "" {
+		qb = qb.Where("st.company_id = ?", params.CompanyId)
+	}
+	if params.ProducerId != "" {
+		qb = qb.Where("p.producer_id = ?", params.ProducerId)
+	}
+	if params.EmployeeId != "" {
+		qb = qb.Where("s.employee_id = ?", params.EmployeeId)
+	}
+	if params.StartDate != "" {
+		qb = qb.Where("(s.completed_at + interval '5 hours') >= ?", params.StartDate)
+	}
+	if params.EndDate != "" {
+		qb = qb.Where("(s.completed_at + interval '5 hours') <= ?", params.EndDate)
+	}
+	var totalCount int64
+	if err := qb.Count(&totalCount).Error; err != nil {
+		s.log.Errorf("could not get products report total_count: %v", err)
+		return nil, 0, domain.InternalServerError
+	}
+
+	var res []domain.ProductReport
+	err := qb.Select(
+		"p.material_code",
+		"p.name AS product_name",
+		"p.unit_per_pack",
+		"pr.name AS producer_name",
+
+		"st.name AS store_name",
+
+		"sp.id AS store_product_id",
+		"sp.serial_number",
+		"sp.expire_date",
+		"sp.supply_price",
+		"sp.retail_price",
+		"(sp.supply_price / p.unit_per_pack) * ci.unit_quantity AS supply_price_sum",
+		"(sp.retail_price / p.unit_per_pack) * ci.unit_quantity AS retail_price_sum",
+		"((sp.retail_price - sp.supply_price) / p.unit_per_pack) * ci.unit_quantity AS markup_sum",
+		"(sp.vat_price / p.unit_per_pack) * ci.unit_quantity AS vat_sum",
+
+		"ci.id AS cart_item_id",
+		"ci.unit_quantity",
+		"ci.marking_count",
+
+		"s.sale_number",
+		"s.sale_type",
+		"s.total_discount",
+		"s.completed_at",
+
+		"e.full_name",
+	).
+		Limit(params.Limit).
+		Offset(params.Offset).
+		Order(order).
+		Find(&res).Error
+
 	if err != nil {
-		s.log.Warn("ERROR on getting product report total count: %v", err)
-		return res, 0, nil
+		s.log.Errorf("could not get products report: %v", err)
+		return nil, 0, domain.InternalServerError
 	}
 
-	// Main query
-	query += filter + order + pagination
-	err = s.db.Raw(query, args...).Scan(&res).Error
-	if err != nil {
-		s.log.Warn("ERROR on getting product report: %v", err)
-		return res, 0, nil
+	for i := range res {
+		if res[i].UnitQuantity%res[i].UnitPerPack > 0 {
+			res[i].Quantity = fmt.Sprintf("%d (%d/%d)",
+				res[i].UnitQuantity/res[i].UnitPerPack,
+				res[i].UnitQuantity%res[i].UnitPerPack,
+				res[i].UnitPerPack)
+		} else {
+			res[i].Quantity = fmt.Sprintf("%d", res[i].UnitQuantity/res[i].UnitPerPack)
+		}
 	}
 
 	return res, totalCount, nil
 }
 
-func (s *Services) ProductStatusReport(ctx context.Context, param *domain.ReportQueryParam) (domain.ProductStatusReport, error) {
-	var (
-		res   domain.ProductStatusReport
-		args  []any
-		joins = []string{
-			"INNER JOIN cart_items ci ON sl.id = ci.sale_id",
-			"INNER JOIN store_products sp ON ci.store_product_id = sp.id",
-			"INNER JOIN products p ON sp.product_id = p.id",
-		}
-		filter = " WHERE sl.stage IN(9, 11) "
-	)
+func (s *Services) GetProductsReportStats(ctx context.Context, params *domain.ReportQueryParam) (*domain.ProductStatusReport, error) {
 
-	// Conditionally add joins
-	if param.Search != "" || len(param.StoreIds) > 0 || param.CompanyId != "" {
-		joins = append([]string{"INNER JOIN stores s ON sl.store_id = s.id"}, joins...)
-	}
-	if param.EmployeeId != "" {
-		joins = append(joins, "INNER JOIN employees e ON sl.employee_id = e.id")
-	}
-	if param.ProducerId != "" {
-		joins = append(joins, "LEFT JOIN producers pr ON p.producer_id = pr.id")
-	}
-
-	// Filters
-	if param.Search != "" {
-		filter += " AND (p.name ILIKE ? OR s.name ILIKE ?) "
-		param.Search = "%" + param.Search + "%"
-		args = append(args, param.Search, param.Search)
-	}
-	if len(param.StoreIds) > 0 {
-		filter += " AND sl.store_id IN (?) "
-		args = append(args, param.StoreIds)
-	}
-	if param.CompanyId != "" {
-		filter += " AND s.company_id = ? "
-		args = append(args, param.CompanyId)
-	}
-	if param.ProducerId != "" {
-		filter += " AND p.producer_id = ? "
-		args = append(args, param.ProducerId)
-	}
-	if param.EmployeeId != "" {
-		filter += " AND sl.employee_id = ? "
-		args = append(args, param.EmployeeId)
-	}
-	if param.StartDate != "" && param.EndDate != "" {
-		startTime, err := time.Parse(time.RFC3339, param.StartDate)
-		if err != nil {
-			s.log.Warn("Invalid start_date format: %v", err)
-			return res, err
-		}
-		endTime, err := time.Parse(time.RFC3339, param.EndDate)
-		if err != nil {
-			s.log.Warn("Invalid end_date format: %v", err)
-			return res, err
-		}
-		startStr := startTime.Format("2006-01-02 15:04:05")
-		endStr := endTime.Format("2006-01-02 15:04:05")
-
-		filter += " AND (sl.completed_at + interval '5 hours') BETWEEN ? AND ? "
-		args = append(args, startStr, endStr)
-	} else if param.EndDate == "" && param.StartDate != "" {
-		endTime, err := time.Parse(time.RFC3339, param.StartDate)
-		if err != nil {
-			s.log.Warn("Invalid start_date format: %v", err)
-			return res, err
-		}
-		endStr := endTime.Format("2006-01-02 15:04:05")
-		filter += " AND (sl.completed_at + interval '5 hours') >= ? "
-		args = append(args, endStr)
-	}
-
-	// Build and run query
-	query := fmt.Sprintf(`
-		SELECT
-			COALESCE(SUM(CASE WHEN sl.sale_type = 'SALE' THEN (ci.quantity + ci.unit_quantity / p.unit_per_pack) ELSE 0 END), 0) AS total_quantity,
-			COALESCE(SUM(CASE WHEN sl.sale_type = 'RETURN' THEN (ci.quantity + ci.unit_quantity / p.unit_per_pack) ELSE 0 END), 0) AS total_quantity_returned,
-			ROUND(COALESCE(SUM(CASE
-				WHEN sl.sale_type = 'SALE' THEN (ci.quantity * sp.retail_price) + (ci.unit_quantity * (sp.retail_price / p.unit_per_pack)) - sl.total_discount
-				WHEN sl.sale_type = 'RETURN' THEN ((ci.quantity * sp.retail_price) + (ci.unit_quantity * (sp.retail_price / p.unit_per_pack))) * (-1) - sl.total_discount
+	qb := s.db.WithContext(ctx).
+		Select(
+			fmt.Sprintf("COALESCE(SUM(CASE WHEN s.sale_type = %s THEN (ci.unit_quantity / p.unit_per_pack) ELSE 0 END), 0) AS total_quantity", constants.SaleTypeSale),
+			fmt.Sprintf("COALESCE(SUM(CASE WHEN s.sale_type = %s THEN (ci.unit_quantity / p.unit_per_pack) ELSE 0 END), 0) AS total_quantity_returned", constants.SaleTypeReturn),
+			fmt.Sprintf(`ROUND(COALESCE(SUM(CASE
+				WHEN s.sale_type = %s THEN (ci.unit_quantity * ((ci.unit_price - ci.discount_amount) / p.unit_per_pack))
+				WHEN s.sale_type = %s THEN (ci.unit_quantity * (ci.unit_price / p.unit_per_pack)) * (-1)
 				ELSE 0
-			END), 0), 2) AS total_retail_price_sum,
-			ROUND(COALESCE(SUM(CASE 
-				WHEN sl.sale_type = 'RETURN' THEN (ci.quantity * sp.retail_price) + (ci.unit_quantity * (sp.retail_price / p.unit_per_pack) - sl.total_discount) 
-				ELSE 0 END), 0), 2) AS total_retail_price_sum_returned,
-		    ROUND(COALESCE(SUM(CASE 
-		    	WHEN sl.sale_type = 'SALE' THEN sl.total_discount
-		        WHEN sl.sale_type = 'RETURN' THEN sl.total_discount * (-1)
-		    	ELSE 0
-		        END),0), 2) AS total_discount_sum
-		FROM sales sl
-		%s
-		%s
-	`, strings.Join(joins, "\n"), filter)
+				END), 0), 2) AS total_retail_price_sum`, constants.SaleTypeSale, constants.SaleTypeReturn),
+			"ROUND(COALESCE(SUM(CASE WHEN s.sale_type = 'RETURN' THEN (ci.unit_quantity * (ci.unit_price / p.unit_per_pack)) ELSE 0 END), 0), 2) AS total_retail_price_sum_returned",
+			"ROUND(COALESCE(SUM(s.total_discount), 0), 2) AS total_discount_sum",
+		).
+		Table("sales s").
+		Joins("JOIN cart_items ci ON s.id = ci.sale_id").
+		Joins("JOIN store_products sp ON ci.store_product_id = sp.id").
+		Joins("JOIN products p ON sp.product_id = p.id")
 
-	err := s.db.Raw(query, args...).Scan(&res).Error
-	if err != nil {
-		s.log.Warn("ERROR on getting product status report: %v", err)
-		return res, err
+	// filters
+	qb = qb.Where("s.stage IN (?)", constants.FinishedSaleStages)
+
+	if params.Search != "" {
+		if _, err := strconv.Atoi(params.Search); err == nil {
+			qb = qb.Where("s.sale_number::text LIKE ?", params.Search+"%")
+		} else {
+			qb = qb.Where("p.name ILIKE ?", "%"+params.Search+"%")
+		}
 	}
-	return res, nil
+	if len(params.StoreIds) > 0 {
+		qb = qb.Where("s.store_id IN(?)", params.StoreIds)
+	}
+	if params.CompanyId != "" {
+		qb = qb.Joins("JOIN stores st ON s.store_id = st.id").Where("st.company_id = ?", params.CompanyId)
+	}
+	if params.EmployeeId != "" {
+		qb = qb.Where("s.employee_id = ?", params.EmployeeId)
+	}
+	if params.ProducerId != "" {
+		qb = qb.Where("p.producer_id = ?", params.ProducerId)
+	}
+	if params.StartDate != "" {
+		qb = qb.Where("(s.completed_at + interval '5 hours') >= ?", params.StartDate)
+	}
+	if params.EndDate != "" {
+		qb = qb.Where("(s.completed_at + interval '5 hours') <= ?", params.EndDate)
+	}
+
+	var res domain.ProductStatusReport
+	err := qb.Take(&res).Error
+	if err != nil {
+		s.log.Errorf("coudl not get get products report stats: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	return &res, nil
 }
 
 // get lfl report service
-func (s *Services) LflReport(param *domain.ReportQueryParam) (domain.LflReport, int64, error) {
+func (s *Services) LflReport(ctx context.Context, params *domain.ReportQueryParam) (domain.LflReport, int64, error) {
 	var (
 		res        domain.LflReport
 		totalCount int64
@@ -465,16 +395,16 @@ func (s *Services) LflReport(param *domain.ReportQueryParam) (domain.LflReport, 
 	ORDER BY week_number, weekday;
 	`
 	// get first month
-	err := s.db.Raw(query, param.StartDate).Scan(&res.FirstMonth).Error
+	err := s.db.WithContext(ctx).Raw(query, params.StartDate).Scan(&res.FirstMonth).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting lfl first month: %v", err)
-		return res, 0, err
+		s.log.Errorf("could get lfl first month: %v", err)
+		return res, 0, domain.InternalServerError
 	}
 	// get second month
-	err = s.db.Raw(query, param.EndDate).Scan(&res.SecondMonth).Error
+	err = s.db.WithContext(ctx).Raw(query, params.EndDate).Scan(&res.SecondMonth).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting lfl second month: %v", err)
-		return res, 0, err
+		s.log.Errorf("could not get lfl second month: %v", err)
+		return res, 0, domain.InternalServerError
 	}
 
 	return res, totalCount, nil
@@ -594,7 +524,7 @@ func (s *Services) ReportByStoreStats(ctx context.Context, params *domain.Report
 }
 
 // get report top products
-func (s *Services) ReportTopProducts(param *domain.ReportQueryParam) ([]domain.TopProducts, int64, error) {
+func (s *Services) GetTopProductsReport(ctx context.Context, params *domain.ReportQueryParam) ([]domain.TopProducts, int64, error) {
 	// declaration
 	var (
 		res        []domain.TopProducts
@@ -604,19 +534,19 @@ func (s *Services) ReportTopProducts(param *domain.ReportQueryParam) ([]domain.T
 		endTime    time.Time
 	)
 
-	startTime, err := time.Parse(time.RFC3339, param.StartDate)
+	startTime, err := time.Parse(time.RFC3339, params.StartDate)
 	if err != nil {
 		s.log.Warn("Invalid start_date format: %v", err)
 		return nil, 0, err
 	}
-	if param.EndDate != "" {
-		endTime, err = time.Parse(time.RFC3339, param.EndDate)
+	if params.EndDate != "" {
+		endTime, err = time.Parse(time.RFC3339, params.EndDate)
 		if err != nil {
 			s.log.Warn("Invalid end_date format: %v", err)
 			return nil, 0, err
 		}
 	} else {
-		endTime, err = time.Parse(time.RFC3339, param.StartDate)
+		endTime, err = time.Parse(time.RFC3339, params.StartDate)
 		if err != nil {
 			s.log.Warn("Invalid end_date format: %v", err)
 			return nil, 0, err
@@ -682,36 +612,36 @@ func (s *Services) ReportTopProducts(param *domain.ReportQueryParam) ([]domain.T
 
 	// Filters
 	where := " WHERE 1 = 1"
-	if param.Search != "" {
+	if params.Search != "" {
 		where += " AND curr.name ILIKE ?"
-		args = append(args, "%"+param.Search+"%")
+		args = append(args, "%"+params.Search+"%")
 	}
-	if param.StoreId != "" {
+	if params.StoreId != "" {
 		where += " AND EXISTS (SELECT 1 FROM store_products sp2 WHERE sp2.product_id = curr.id AND sp2.store_id = ?)"
-		args = append(args, param.StoreId)
+		args = append(args, params.StoreId)
 	}
-	if param.CompanyId != "" {
+	if params.CompanyId != "" {
 		where += " AND curr.company_id = ? "
-		args = append(args, param.CompanyId)
+		args = append(args, params.CompanyId)
 	}
-	if len(param.StoreIds) > 0 {
+	if len(params.StoreIds) > 0 {
 		where += " AND EXISTS (SELECT 1 FROM store_products sp3 WHERE sp3.product_id = curr.id AND sp3.store_id IN (?))"
-		args = append(args, param.StoreIds)
+		args = append(args, params.StoreIds)
 	}
 
 	// Sorting (replaced switch)
-	order := utils.BuildTopProductOrderClause(param.Order)
+	order := utils.BuildTopProductOrderClause(params.Order)
 	query += where + order
 
 	// Pagination
 	query += " LIMIT ? OFFSET ?"
-	args = append(args, param.Limit, param.Offset)
+	args = append(args, params.Limit, params.Offset)
 
 	// Execute query
-	err = s.db.Debug().Raw(query, args...).Scan(&res).Error
+	err = s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
 	if err != nil {
-		s.log.Error("ERROR on getting top products: ", err)
-		return nil, 0, err
+		s.log.Errorf("could not get top products: %v", err)
+		return nil, 0, domain.InternalServerError
 	}
 
 	if len(res) > 0 {
@@ -722,7 +652,7 @@ func (s *Services) ReportTopProducts(param *domain.ReportQueryParam) ([]domain.T
 }
 
 // get report top seller
-func (s *Services) ReportTopSeller(param *domain.ReportQueryParam) ([]domain.TopSeller, int64, error) {
+func (s *Services) GetTopSellersReport(ctx context.Context, params *domain.ReportQueryParam) ([]domain.TopSeller, int64, error) {
 	var (
 		res        []domain.TopSeller
 		totalCount int64
@@ -731,20 +661,20 @@ func (s *Services) ReportTopSeller(param *domain.ReportQueryParam) ([]domain.Top
 		endTime    time.Time
 	)
 
-	startTime, err := time.Parse(time.RFC3339, param.StartDate)
+	startTime, err := time.Parse(time.RFC3339, params.StartDate)
 	if err != nil {
 		s.log.Error("Invalid start_date format: %v", err)
 		return nil, 0, err
 	}
-	if param.EndDate != "" {
-		endTime, err = time.Parse(time.RFC3339, param.EndDate)
+	if params.EndDate != "" {
+		endTime, err = time.Parse(time.RFC3339, params.EndDate)
 		if err != nil {
 			s.log.Warn("Invalid end_date format: %v", err)
 			return nil, 0, err
 		}
 	} else {
 		endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
-		param.EndDate = endTime.Format(time.RFC3339)
+		params.EndDate = endTime.Format(time.RFC3339)
 	}
 	beforeStart, beforeEnd := utils.BeforeDatesTime(startTime, endTime)
 
@@ -795,36 +725,36 @@ func (s *Services) ReportTopSeller(param *domain.ReportQueryParam) ([]domain.Top
 
 	// First 4 args: 2 for current, 2 for previous range
 	args = append(args,
-		param.StartDate, param.EndDate,
+		params.StartDate, params.EndDate,
 		beforeStart.Format(time.RFC3339), beforeEnd.Format(time.RFC3339),
 	)
 
 	// Optional filters
 	where := " WHERE 1 = 1"
-	if param.Search != "" {
+	if params.Search != "" {
 		where += " AND curr.full_name ILIKE ?"
-		args = append(args, "%"+param.Search+"%")
+		args = append(args, "%"+params.Search+"%")
 	}
-	if param.StoreId != "" {
+	if params.StoreId != "" {
 		where += " AND curr.store_name = (SELECT name FROM stores WHERE id = ?)"
-		args = append(args, param.StoreId)
+		args = append(args, params.StoreId)
 	}
-	if param.CompanyId != "" {
+	if params.CompanyId != "" {
 		where += " AND curr.company_id = ? "
-		args = append(args, param.CompanyId)
+		args = append(args, params.CompanyId)
 	}
 	// check store_ids
-	if len(param.StoreIds) > 0 {
+	if len(params.StoreIds) > 0 {
 		where += " AND curr.store_name IN (SELECT name FROM stores WHERE id IN (?))"
-		args = append(args, param.StoreIds)
+		args = append(args, params.StoreIds)
 	}
 
 	// Apply flexible ordering
-	order := utils.BuildTopSellerOrderClause(param.Order)
+	order := utils.BuildTopSellerOrderClause(params.Order)
 
 	// Pagination
 	limitOffset := " LIMIT ? OFFSET ?"
-	args = append(args, param.Limit, param.Offset)
+	args = append(args, params.Limit, params.Offset)
 
 	finalQuery := query + where + order + limitOffset
 
@@ -842,7 +772,7 @@ func (s *Services) ReportTopSeller(param *domain.ReportQueryParam) ([]domain.Top
 	return res, totalCount, nil
 }
 
-func (s *Services) ReportTopStores(param *domain.ReportQueryParam) ([]domain.TopStores, int64, error) {
+func (s *Services) GetTopStoresReport(ctx context.Context, param *domain.ReportQueryParam) ([]domain.TopStores, int64, error) {
 	var (
 		res        []domain.TopStores
 		totalCount int64
@@ -942,10 +872,10 @@ func (s *Services) ReportTopStores(param *domain.ReportQueryParam) ([]domain.Top
 	args = append(args, param.Limit, param.Offset)
 
 	// Execute
-	err = s.db.Raw(query, args...).Scan(&res).Error
+	err = s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
 	if err != nil {
-		s.log.Error(err)
-		return nil, 0, err
+		s.log.Errorf("could not get top stores report: %v", err)
+		return nil, 0, domain.InternalServerError
 	}
 
 	// Extract total count
@@ -1079,7 +1009,7 @@ func (s *Services) ReportBonusProducts(ctx context.Context, params *domain.Repor
 }
 
 // get bonus products stats
-func (s *Services) ReportBonusProductsStats(param *domain.ReportQueryParam) (domain.BonusProductsStats, error) {
+func (s *Services) GetBonusProductsReportStats(ctx context.Context, params *domain.ReportQueryParam) (domain.BonusProductsStats, error) {
 	var (
 		res       domain.BonusProductsStats
 		args      []any
@@ -1088,12 +1018,12 @@ func (s *Services) ReportBonusProductsStats(param *domain.ReportQueryParam) (dom
 	)
 
 	// parse start date
-	startTime, err := time.Parse(time.RFC3339, param.StartDate)
+	startTime, err := time.Parse(time.RFC3339, params.StartDate)
 	if err != nil {
 		return res, err
 	}
-	if param.EndDate != "" {
-		endTime, err = time.Parse(time.RFC3339, param.EndDate)
+	if params.EndDate != "" {
+		endTime, err = time.Parse(time.RFC3339, params.EndDate)
 		if err != nil {
 			return res, err
 		}
@@ -1129,14 +1059,14 @@ func (s *Services) ReportBonusProductsStats(param *domain.ReportQueryParam) (dom
 
 	join := ""
 	filter := " WHERE 1=1 "
-	if len(param.StoreIds) > 0 {
+	if len(params.StoreIds) > 0 {
 		join += " JOIN employees e ON eb.employee_id = e.id"
 		filter += " AND e.store_id IN (?)"
-		args = append(args, param.StoreIds)
+		args = append(args, params.StoreIds)
 	}
-	if param.CompanyId != "" {
+	if params.CompanyId != "" {
 		filter += " AND p.company_id = ? "
-		args = append(args, param.CompanyId)
+		args = append(args, params.CompanyId)
 	}
 	filter += " AND (eb.created_at + interval '5 hours') BETWEEN ? AND ?"
 	args = append(args, startTime, endTime)
@@ -1157,10 +1087,10 @@ func (s *Services) ReportBonusProductsStats(param *domain.ReportQueryParam) (dom
 
 	prevJoin := ""
 	prevFilter := " WHERE 1=1 "
-	if len(param.StoreIds) > 0 {
+	if len(params.StoreIds) > 0 {
 		prevJoin += " JOIN employees e ON eb.employee_id = e.id"
 		prevFilter += " AND e.store_id IN (?)"
-		args = append(args, param.StoreIds)
+		args = append(args, params.StoreIds)
 	}
 	prevFilter += " AND (eb.created_at + interval '5 hours') BETWEEN ? AND ?"
 	args = append(args, beforeStart, beforeEnd)
@@ -1168,14 +1098,15 @@ func (s *Services) ReportBonusProductsStats(param *domain.ReportQueryParam) (dom
 	query += prevJoin + prevFilter + " GROUP BY p.id ) AS prev ON curr.id = prev.id"
 
 	// execute
-	if err := s.db.Raw(query, args...).Scan(&res).Error; err != nil {
-		return res, err
+	if err := s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error; err != nil {
+		s.log.Errorf("could not get bonus_products report stats: %v", err)
+		return res, domain.InternalServerError
 	}
 
 	return res, nil
 }
 
-func (s *Services) ReportStoreSummary(param *domain.ReportQueryParam) ([]domain.StoreSummary, int64, error) {
+func (s *Services) GetStoreSummaryReport(ctx context.Context, params *domain.ReportQueryParam) ([]domain.StoreSummary, int64, error) {
 	var (
 		res       []domain.StoreSummary
 		args      []any
@@ -1184,20 +1115,20 @@ func (s *Services) ReportStoreSummary(param *domain.ReportQueryParam) ([]domain.
 		err       error
 	)
 
-	startTime, err = time.Parse(time.RFC3339, param.StartDate)
+	startTime, err = time.Parse(time.RFC3339, params.StartDate)
 	if err != nil {
 		s.log.Error("Invalid start_date format: %v", err)
 		return nil, 0, err
 	}
-	if param.EndDate != "" {
-		endTime, err = time.Parse(time.RFC3339, param.EndDate)
+	if params.EndDate != "" {
+		endTime, err = time.Parse(time.RFC3339, params.EndDate)
 		if err != nil {
 			s.log.Error("Invalid end_date format: %v", err)
 			return nil, 0, err
 		}
 	} else {
 		endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
-		param.EndDate = endTime.Format(time.RFC3339)
+		params.EndDate = endTime.Format(time.RFC3339)
 	}
 	var total int64
 	// Count query (total store count)
@@ -1266,41 +1197,41 @@ func (s *Services) ReportStoreSummary(param *domain.ReportQueryParam) ([]domain.
 
 	// 4 timestamps for 2 BETWEENs (sales & imports)
 	args = append(args, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339), startTime.Format(time.RFC3339), endTime.Format(time.RFC3339)) // sales
-	if param.Order != "" {
-		order := utils.BuildStoreSummaryOrderClause(param.Order)
+	if params.Order != "" {
+		order := utils.BuildStoreSummaryOrderClause(params.Order)
 		query += order
 	}
-	if param.Search != "" {
+	if params.Search != "" {
 		query += " AND st.name LIKE ?"
-		args = append(args, "%"+param.Search+"%")
+		args = append(args, "%"+params.Search+"%")
 	}
-	if len(param.StoreIds) > 0 {
+	if len(params.StoreIds) > 0 {
 		query += " AND st.id = ?"
-		args = append(args, param.StoreIds)
+		args = append(args, params.StoreIds)
 	}
-	if param.CompanyId != "" {
+	if params.CompanyId != "" {
 		query += " AND st.company_id = ? "
-		args = append(args, param.CompanyId)
+		args = append(args, params.CompanyId)
 	}
-	if param.Limit > 0 {
+	if params.Limit > 0 {
 		query += " LIMIT ?"
-		args = append(args, param.Limit)
+		args = append(args, params.Limit)
 	}
-	if param.Offset > 0 {
+	if params.Offset > 0 {
 		query += " OFFSET ?"
-		args = append(args, param.Offset)
+		args = append(args, params.Offset)
 	}
 	// Execute query
-	err = s.db.Raw(query, args...).Scan(&res).Error
+	err = s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
 	if err != nil {
-		s.log.Error("Failed to get store summary report: ", err)
-		return nil, 0, err
+		s.log.Errorf("could not get store summary report: %v", err)
+		return nil, 0, domain.InternalServerError
 	}
 
 	return res, total, nil
 }
 
-func (s *Services) ReportStoreSummaryStats(param *domain.ReportQueryParam) (domain.StoreSummaryStats, error) {
+func (s *Services) GetStoreSummaryReportStats(ctx context.Context, params *domain.ReportQueryParam) (domain.StoreSummaryStats, error) {
 	var (
 		res       domain.StoreSummaryStats
 		args      []any
@@ -1309,20 +1240,20 @@ func (s *Services) ReportStoreSummaryStats(param *domain.ReportQueryParam) (doma
 		err       error
 	)
 
-	startTime, err = time.Parse(time.RFC3339, param.StartDate)
+	startTime, err = time.Parse(time.RFC3339, params.StartDate)
 	if err != nil {
 		s.log.Error("Invalid start_date format: %v", err)
 		return res, err
 	}
-	if param.EndDate != "" {
-		endTime, err = time.Parse(time.RFC3339, param.EndDate)
+	if params.EndDate != "" {
+		endTime, err = time.Parse(time.RFC3339, params.EndDate)
 		if err != nil {
 			s.log.Error("Invalid end_date format: %v", err)
 			return res, err
 		}
 	} else {
 		endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
-		param.EndDate = endTime.Format(time.RFC3339)
+		params.EndDate = endTime.Format(time.RFC3339)
 	}
 
 	query := `
@@ -1392,16 +1323,16 @@ func (s *Services) ReportStoreSummaryStats(param *domain.ReportQueryParam) (doma
 
 	args = append(args, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339), startTime.Format(time.RFC3339), endTime.Format(time.RFC3339)) // sales
 
-	err = s.db.Raw(query, args...).Scan(&res).Error
+	err = s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
 	if err != nil {
-		s.log.Error("Failed to get store summary stats: ", err)
-		return res, err
+		s.log.Errorf("could not get store summary stats: %v", err)
+		return res, domain.InternalServerError
 	}
 
 	return res, nil
 }
 
-func (s *Services) StoreProductsGivenDay(param *domain.ReportQueryParam) ([]domain.StoreProductsReport, int64, error) {
+func (s *Services) GetStoreProductsGivenDay(ctx context.Context, params *domain.ReportQueryParam) ([]domain.StoreProductsReport, int64, error) {
 	var (
 		res       []domain.StoreProductsReport
 		args      []any
@@ -1410,12 +1341,12 @@ func (s *Services) StoreProductsGivenDay(param *domain.ReportQueryParam) ([]doma
 		err       error
 	)
 
-	startTime, err := time.Parse(time.RFC3339, param.StartDate)
+	startTime, err := time.Parse(time.RFC3339, params.StartDate)
 	if err != nil {
 		s.log.Error("Invalid start_date format: %v", err)
 		return nil, 0, err
 	}
-	param.StartDate = startTime.Format(time.RFC3339)
+	params.StartDate = startTime.Format(time.RFC3339)
 
 	// Count total products for store
 	countQuery := `
@@ -1425,16 +1356,16 @@ func (s *Services) StoreProductsGivenDay(param *domain.ReportQueryParam) ([]doma
         JOIN stores st ON st.id = sp.store_id
         WHERE sp.store_id = ?
     `
-	countArgs = append(countArgs, param.StoreId)
+	countArgs = append(countArgs, params.StoreId)
 
-	if param.Search != "" {
+	if params.Search != "" {
 		countQuery += " AND p.name ILIKE ?"
-		countArgs = append(countArgs, "%"+param.Search+"%")
+		countArgs = append(countArgs, "%"+params.Search+"%")
 	}
 
-	if param.CompanyId != "" {
+	if params.CompanyId != "" {
 		countQuery += " AND st.company_id = ?"
-		countArgs = append(countArgs, param.CompanyId)
+		countArgs = append(countArgs, params.CompanyId)
 	}
 
 	if err = s.db.Raw(countQuery, countArgs...).Scan(&total).Error; err != nil {
@@ -1606,44 +1537,44 @@ func (s *Services) StoreProductsGivenDay(param *domain.ReportQueryParam) ([]doma
 	`
 
 	// args
-	args = append(args, param.StartDate, param.StoreId)
+	args = append(args, params.StartDate, params.StoreId)
 
 	// Filters
-	if param.Search != "" {
+	if params.Search != "" {
 		query += " WHERE b.name ILIKE ?"
-		args = append(args, "%"+param.Search+"%")
+		args = append(args, "%"+params.Search+"%")
 	}
-	if param.CompanyId != "" {
+	if params.CompanyId != "" {
 		if strings.Contains(query, "WHERE") {
 			query += " AND b.company_id = ?"
 		} else {
 			query += " WHERE b.company_id = ?"
 		}
-		args = append(args, param.CompanyId)
+		args = append(args, params.CompanyId)
 	}
 
 	// Order, Limit, Offset
-	query += utils.BuildProductOrderClause(param.Order)
+	query += utils.BuildProductOrderClause(params.Order)
 
-	if param.Limit > 0 {
+	if params.Limit > 0 {
 		query += " LIMIT ?"
-		args = append(args, param.Limit)
+		args = append(args, params.Limit)
 	}
-	if param.Offset > 0 {
+	if params.Offset > 0 {
 		query += " OFFSET ?"
-		args = append(args, param.Offset)
+		args = append(args, params.Offset)
 	}
 
 	// Execute query
-	if err = s.db.Raw(query, args...).Scan(&res).Error; err != nil {
-		s.log.Error("Failed to get store products given day: ", err)
-		return nil, 0, err
+	if err = s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error; err != nil {
+		s.log.Errorf("could not get store products given day: %v", err)
+		return nil, 0, domain.InternalServerError
 	}
 
 	return res, total, nil
 }
 
-func (s *Services) DiscountCardReport(param *domain.ReportQueryParam) ([]domain.DiscountCardReport, int64, error) {
+func (s *Services) GetDiscountCardReport(ctx context.Context, params *domain.ReportQueryParam) ([]domain.DiscountCardReport, int64, error) {
 	var (
 		res        []domain.DiscountCardReport
 		totalCount int64
@@ -1671,42 +1602,42 @@ func (s *Services) DiscountCardReport(param *domain.ReportQueryParam) ([]domain.
 
 	filter := " WHERE sa.stage IN(9, 11) AND sa.sale_type = 'SALE' "
 	group := " GROUP BY s.id, s.name, c.id, c.full_name "
-	order := utils.BuildDiscountCardOrderClause(param.Order)
+	order := utils.BuildDiscountCardOrderClause(params.Order)
 
 	// Store filter
-	if len(param.StoreIds) > 0 {
+	if len(params.StoreIds) > 0 {
 		filter += " AND s.id IN (?)"
-		args = append(args, param.StoreIds)
+		args = append(args, params.StoreIds)
 	}
-	if param.CompanyId != "" {
+	if params.CompanyId != "" {
 		filter += " AND s.company_id = ? "
-		args = append(args, param.CompanyId)
+		args = append(args, params.CompanyId)
 	}
 
 	// Search filter (by customer name)
-	if param.Search != "" {
-		search := "%" + param.Search + "%"
+	if params.Search != "" {
+		search := "%" + params.Search + "%"
 		filter += " AND (c.full_name ILIKE ?)"
 		args = append(args, search)
 	}
 
 	// Date filter
-	if param.StartDate != "" && param.EndDate != "" {
+	if params.StartDate != "" && params.EndDate != "" {
 		filter += " AND sa.completed_at BETWEEN ? AND ?"
-		args = append(args, param.StartDate, param.EndDate)
-	} else if param.StartDate != "" {
+		args = append(args, params.StartDate, params.EndDate)
+	} else if params.StartDate != "" {
 		filter += " AND sa.completed_at >= ?"
-		args = append(args, param.StartDate)
+		args = append(args, params.StartDate)
 	}
 
 	// Final query
 	finalQuery := query + filter + group + order + " LIMIT ? OFFSET ?"
-	args = append(args, param.Limit, param.Offset)
+	args = append(args, params.Limit, params.Offset)
 
-	err := s.db.Raw(finalQuery, args...).Scan(&res).Error
+	err := s.db.WithContext(ctx).Raw(finalQuery, args...).Scan(&res).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting discount card report: %v", err)
-		return res, 0, err
+		s.log.Errorf("could not get discount card report: %v", err)
+		return res, 0, domain.InternalServerError
 	}
 
 	if len(res) > 0 {

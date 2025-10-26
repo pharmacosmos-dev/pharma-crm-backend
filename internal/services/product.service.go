@@ -1220,7 +1220,7 @@ func (s *Services) GetProductIDByCode(code int64) (string, error) {
 	return id, nil
 }
 
-func (s *Services) GetMinMaxProducts(param *domain.ProductQueryParam) ([]domain.MinMaxProduct, int64, error) {
+func (s *Services) GetMinMaxProducts(ctx context.Context, params *domain.ProductQueryParam) ([]domain.MinMaxProduct, int64, error) {
 	var (
 		res        []domain.MinMaxProduct
 		totalCount int64
@@ -1255,33 +1255,33 @@ func (s *Services) GetMinMaxProducts(param *domain.ProductQueryParam) ([]domain.
 	JOIN products p ON spt.product_id = p.id
 	JOIN stores s ON spt.store_id = s.id
 	`
-	if param.StoreId != "" {
+	if params.StoreId != "" {
 		filter += " AND spt.store_id = ? "
-		args = append(args, param.StoreId)
+		args = append(args, params.StoreId)
 	}
-	if param.CompanyId != "" {
+	if params.CompanyId != "" {
 		filter += " AND s.company_id = ?"
-		args = append(args, param.CompanyId)
+		args = append(args, params.CompanyId)
 	}
 
-	if param.SearchField != "" {
+	if params.SearchField != "" {
 		filter += " AND p.name ILIKE ? "
-		args = append(args, "%"+param.SearchField+"%")
+		args = append(args, "%"+params.SearchField+"%")
 	}
 	// collect total query
 	totalCountQuery += filter
 	err := s.db.Raw(totalCountQuery, args...).Scan(&totalCount).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting total_count: %v", err)
-		return res, totalCount, err
+		s.log.Errorf("could not get min_max_products total_count: %v", err)
+		return res, totalCount, domain.InternalServerError
 	}
 	// collect query
 	query += filter + order + " LIMIT ? OFFSET ?" // add limit, offset for pagination
-	args = append(args, param.Limit, param.Offset)
-	err = s.db.Raw(query, args...).Scan(&res).Error
+	args = append(args, params.Limit, params.Offset)
+	err = s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting min_max_products: %v", err)
-		return res, totalCount, err
+		s.log.Errorf("could not get min_max_products: %v", err)
+		return res, totalCount, domain.InternalServerError
 	}
 
 	return res, totalCount, nil
@@ -1490,24 +1490,24 @@ func (s *Services) GetSoldProductsBySaleId(ctx context.Context, saleId string) (
 	return products, nil
 }
 
-func (s *Services) ListProductPhotoAlert(param *domain.ProductQueryParam) ([]domain.ProductPhotoAlert, int64, error) {
+func (s *Services) ListProductPhotoAlert(ctx context.Context, params *domain.ProductQueryParam) ([]domain.ProductPhotoAlert, int64, error) {
 	var (
 		alerts     []domain.ProductPhotoAlert
 		totalCount int64
 	)
 
-	query := s.db.Table("product_photo_alerts").Select("product_photo_alerts.*, p.name, p.photos, p.unit_per_pack, e.full_name as created_by").
+	query := s.db.WithContext(ctx).Table("product_photo_alerts").Select("product_photo_alerts.*, p.name, p.photos, p.unit_per_pack, e.full_name as created_by").
 		Joins("JOIN products p ON p.id = product_photo_alerts.product_id").
 		Joins("JOIN employees e ON e.id = product_photo_alerts.created_by")
 
-	if param.Status != "" {
-		query = query.Where("status = ?", param.Status)
+	if params.Status != "" {
+		query = query.Where("status = ?", params.Status)
 	}
-	if param.Category != 0 {
-		query = query.Where("category = ?", param.Category)
+	if params.Category != 0 {
+		query = query.Where("category = ?", params.Category)
 	}
-	if param.SearchField != "" {
-		query = query.Where("p.name ILIKE ?", "%"+param.SearchField+"%")
+	if params.SearchField != "" {
+		query = query.Where("p.name ILIKE ?", "%"+params.SearchField+"%")
 	}
 	//if param.CompanyID != "" {
 	//	// agar products jadvalida company_id bo‘lsa, join qilib filterlash kerak
@@ -1521,8 +1521,8 @@ func (s *Services) ListProductPhotoAlert(param *domain.ProductQueryParam) ([]dom
 	}
 
 	// pagination
-	if param.Limit > 0 {
-		query = query.Limit(param.Limit).Offset(param.Offset)
+	if params.Limit > 0 {
+		query = query.Limit(params.Limit).Offset(params.Offset)
 	}
 
 	if err := query.Order("created_at DESC").Scan(&alerts).Error; err != nil {
@@ -1711,6 +1711,82 @@ func (s *Services) IncrementQuantity(tx *gorm.DB, id string, quantity int) error
 	if err != nil {
 		s.log.Error("could not update store_product quantity: %v", err)
 		return err
+	}
+
+	return nil
+}
+
+func (s *Services) UpdateProductUnitValues(ctx context.Context, req *domain.UpdateBarcodeRequest, user *domain.EmployeeClaims) error {
+	if req.Barcode != "" {
+		// update barcode
+		err := s.db.WithContext(ctx).Model(&domain.Product{}).Where("id = ?", req.Id).Update("barcode", req.Barcode).Error
+		if err != nil {
+			s.log.Errorf("could not update product barcode: %v", err)
+			return domain.InternalServerError
+		}
+		// update barcode store_products
+		err = s.db.WithContext(ctx).Model(&domain.StoreProduct{}).Where("product_id = ?", req.Id).Update("barcode", req.Barcode).Error
+		if err != nil {
+			s.log.Errorf("could not update store_products barcode: %v", err)
+			return domain.InternalServerError
+		}
+		// insert into product_barcodes
+		err = s.db.WithContext(ctx).Exec(`
+			INSERT INTO product_barcodes (
+				product_id, 
+				barcode, 
+				old_barcode, 
+				status, 
+				created_by
+				)
+			SELECT 
+				p.id, 
+				?, 
+				p.barcode, 
+				'completed', 
+				?
+			FROM products p
+			WHERE p.id = ?
+		`, req.Barcode, user.UserId, req.Id).Error
+		if err != nil {
+			s.log.Errorf("could not create product_barcodes: %v", err)
+			return domain.InternalServerError
+		}
+	} else if req.Mxik != "" {
+		// update mxik
+		err := s.db.WithContext(ctx).Model(&domain.Product{}).Where("id = ?", req.Id).Update("mxik", req.Mxik).Error
+		if err != nil {
+			s.log.Errorf("could not update products mxik: %v", err)
+			return domain.InternalServerError
+		}
+		// store mxik
+		err = s.db.WithContext(ctx).Model(&domain.StoreProduct{}).Where("product_id = ?", req.Id).Update("mxik", req.Mxik).Error
+		if err != nil {
+			s.log.Errorf("could not update store_products mxik: %v", err)
+			return domain.InternalServerError
+		}
+	} else if req.UnitCode != "" {
+		err := s.db.WithContext(ctx).Model(&domain.Product{}).Where("id = ?", req.Id).Update("unit_code", req.UnitCode).Error
+		if err != nil {
+			s.log.Errorf("could not update products unit_code: %v", err)
+			return domain.InternalServerError
+		}
+		err = s.db.WithContext(ctx).Model(&domain.StoreProduct{}).Where("product_id = ?", req.Id).Update("unit_code", req.UnitCode).Error
+		if err != nil {
+			s.log.Errorf("could not update store_products unit_code: %v", err)
+			return domain.InternalServerError
+		}
+	} else if req.UnitLabel != "" {
+		err := s.db.WithContext(ctx).Model(&domain.Product{}).Where("id = ?", req.Id).Update("unit_label", req.UnitLabel).Error
+		if err != nil {
+			s.log.Errorf("could not update products unit_label: %v", err)
+			return domain.InternalServerError
+		}
+		err = s.db.WithContext(ctx).Model(&domain.StoreProduct{}).Where("product_id = ?", req.Id).Update("unit_label", req.UnitLabel).Error
+		if err != nil {
+			s.log.Errorf("could not update store_products unit_label: %v", err)
+			return domain.InternalServerError
+		}
 	}
 
 	return nil

@@ -192,38 +192,31 @@ func (h *ReturnHandler) List(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /return/list-status [get]
 func (h *ReturnHandler) ReturnStatus(c *gin.Context) {
-	var param domain.ReturnParam
-
-	// get user_id from context
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User not found")
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
 
-	if err := c.ShouldBindQuery(&param); err != nil {
-		handleResponse(c, BadRequest, "Invalid query param")
+	var params domain.ReturnParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 
-	// get employee and restrict store if not admin
-	var employee domain.Employee
-	if err := h.db.First(&employee, "id = ?", userId).Error; err != nil {
-		h.log.Warn("Failed to fetch employee: %v", err)
-		handleResponse(c, InternalError, "Failed to get user info")
-		return
-	}
-	if !helper.IsAdmin(employee, h.cfg) {
-		if employee.StoreId != "" {
-			param.StoreId = employee.StoreId
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
 		}
-		param.CompanyId = employee.CompanyId
+		params.CompanyId = user.CompanyId
 	}
 
 	// get return summary
-	res, err := h.service.ReturnStatus(&param)
+	res, err := h.service.GetReturnStats(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, "Failed to get return summary")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 

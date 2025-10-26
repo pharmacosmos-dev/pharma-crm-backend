@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"time"
@@ -8,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/xuri/excelize/v2"
@@ -129,27 +131,37 @@ func (h *ImportHandler) Get(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /import/list [get]
 func (h *ImportHandler) List(c *gin.Context) {
-	var (
-		imports    []domain.Import
-		totalCount int64
-		err        error
-	)
-
-	// Get pagination parameters
-	limit, offset, err := getPaginationParams(c)
-	if err != nil {
-		handleResponse(c, BadRequest, err.Error())
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
+	var params domain.ImportQueryParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
 	// Get import list data
-	imports, totalCount, err = h.service.ListImport(c, limit, offset)
+	res, totalCount, err := h.service.GetImports(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
-	// Prepare response
-	data := utils.ListResponse(imports, totalCount, limit, offset)
+	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
 
 	handleResponse(c, OK, data)
 }
@@ -173,11 +185,33 @@ func (h *ImportHandler) List(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /import/list-status [get]
 func (h *ImportHandler) ListStatus(c *gin.Context) {
-	result, err := h.service.ListImportStatus(c)
-	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
+	var params domain.ImportQueryParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	result, err := h.service.GetImportsStats(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
 	handleResponse(c, OK, result)
 }
 
@@ -202,28 +236,39 @@ func (h *ImportHandler) ListStatus(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /import/export-excel [get]
 func (h *ImportHandler) ExportImportExcel(c *gin.Context) {
-	var (
-		imports []domain.Import
-		err     error
-	)
-
-	// Get pagination parameters
-	limit, offset, err := getPaginationParams(c)
-	if err != nil {
-		handleResponse(c, BadRequest, err.Error())
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
+	var params domain.ImportQueryParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
 	// Get import list data
-	imports, _, err = h.service.ListImport(c, limit, offset)
+	res, _, err := h.service.GetImports(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
 	// Create excel file
 	f := excelize.NewFile()
-	sheetName := "Imports"
+	sheetName := constants.DefaultSheetName
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
@@ -237,7 +282,7 @@ func (h *ImportHandler) ExportImportExcel(c *gin.Context) {
 	}
 
 	// Ma'lumotlarni qo'shish
-	for i, imp := range imports {
+	for i, imp := range res {
 		row := strconv.Itoa(i + 2)
 		f.SetCellValue(sheetName, "A"+row, imp.PublicID)
 		f.SetCellValue(sheetName, "B"+row, imp.DocumentNumber)
@@ -314,7 +359,7 @@ func (h *ImportHandler) ListImportDetail(c *gin.Context) {
 	var (
 		importDetails []domain.ImportDetail
 		totalCount    int64
-		param         domain.ImportDetailQueryParams
+		param         domain.ImportQueryParams
 		err           error
 	)
 
@@ -361,7 +406,7 @@ func (h *ImportHandler) ListImportDetail(c *gin.Context) {
 func (h *ImportHandler) ExportImporDetailExcel(c *gin.Context) {
 	var (
 		importDetails []domain.ImportDetail
-		param         domain.ImportDetailQueryParams
+		param         domain.ImportQueryParams
 		err           error
 	)
 

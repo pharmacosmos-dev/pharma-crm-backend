@@ -130,39 +130,27 @@ func (h *StoreHandler) Get(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /store/list [get]
 func (h *StoreHandler) List(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
 	var (
-		res        []domain.StoreWithProducts
-		totalCount int64
-		CompanyID  string
-		search     = c.Query("search")
-		productID  = c.Query("product_id")
+		CompanyId string
+		search    = c.Query("search")
+		productID = c.Query("product_id")
 	)
+
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
-		return
-	}
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
-		return
-	}
-	// get employee info
-	var employee domain.Employee
-	err = h.db.First(&employee, "id = ?", userId).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		handleResponse(c, InternalError, "Can't get employee info")
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
-		CompanyID = employee.CompanyId
+	if !helper.IsAdmin(user) {
+		CompanyId = user.CompanyId
 	}
 
 	query := h.db.
@@ -185,12 +173,11 @@ func (h *StoreHandler) List(c *gin.Context) {
     `, productID)
 	}
 
-	if CompanyID != "" {
-		query = query.Where("s.company_id = ?", CompanyID)
+	if CompanyId != "" {
+		query = query.Where("s.company_id = ?", CompanyId)
 	}
 	if search != "" {
-		search = fmt.Sprintf("%%%s%%", search)
-		query = query.Where("s.name ILIKE ?", search)
+		query = query.Where("s.name ILIKE ?", "%"+search+"%")
 	}
 
 	// Use conditional ordering at the end
@@ -200,6 +187,8 @@ func (h *StoreHandler) List(c *gin.Context) {
 		query = query.Order("s.store_code DESC")
 	}
 
+	var totalCount int64
+	var res []domain.StoreWithProducts
 	err = query.
 		Where("s.is_active = ?", true).
 		Count(&totalCount).
@@ -208,8 +197,8 @@ func (h *StoreHandler) List(c *gin.Context) {
 		Find(&res).Error
 
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		h.log.Errorf("could not get stores: %v", err)
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 	var ids []string
@@ -247,40 +236,27 @@ func (h *StoreHandler) List(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /store/export-excel [get]
 func (h *StoreHandler) ExportExcel(c *gin.Context) {
-	var (
-		res        []domain.StoreWithProducts
-		totalCount int64
-		companyId  string
-		search     = c.Query("search")
-		productID  = c.Query("product_id")
-	)
-	limit, offset, err := getPaginationParams(c)
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
 
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
-		return
-	}
-	// get employee info
-	var employee domain.Employee
-	err = h.db.First(&employee, "id = ?", userId).Error
+	var (
+		CompanyId string
+		search    = c.Query("search")
+		productID = c.Query("product_id")
+	)
+
+	limit, offset, err := getPaginationParams(c)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		handleResponse(c, InternalError, "Can't get employee info")
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
-		companyId = employee.CompanyId
+	if !helper.IsAdmin(user) {
+		CompanyId = user.CompanyId
 	}
 
 	query := h.db.
@@ -302,14 +278,16 @@ func (h *StoreHandler) ExportExcel(c *gin.Context) {
 		) sp ON s.id = sp.store_id
 	`, productID)
 	}
-	if companyId != "" {
-		query = query.Where("s.company_id = ?", companyId)
+	if CompanyId != "" {
+		query = query.Where("s.company_id = ?", CompanyId)
 	}
 	if search != "" {
 		search = fmt.Sprintf("%%%s%%", search)
 		query = query.Where("s.name ILIKE ?", search)
 	}
 
+	var totalCount int64
+	var res []domain.StoreWithProducts
 	err = query.
 		Where("s.is_active = ?", true).
 		Count(&totalCount).

@@ -13,7 +13,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
-	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
 )
@@ -353,42 +352,11 @@ func (s *Services) CreateProductMarking(tx *gorm.DB, req domain.ProductMarkingRe
 }
 
 // list import
-func (s *Services) ListImport(c *gin.Context, limit, offset int) ([]domain.Import, int64, error) {
+func (s *Services) GetImports(ctx context.Context, params *domain.ImportQueryParams) ([]domain.Import, int64, error) {
 	var (
-		imports          []domain.Import
-		totalCount       int64
-		search           = c.Query("search")
-		storeID          = c.Query("store_id")
-		companyID        = c.Query("company_id")
-		startDate        = c.Query("start_date")
-		endDate          = c.Query("end_date")
-		status           = c.Query("status")
-		receivePriceFrom = c.Query("receive_amount_from")
-		receivePriceTo   = c.Query("receive_amount_to")
-		err              error
+		imports    []domain.Import
+		totalCount int64
 	)
-	// get user id from header
-	userId, ok := c.Get("user_id")
-	if !ok {
-		err = errors.New("user not found in context")
-		return nil, 0, err
-	}
-	var employee domain.Employee
-	err = s.db.First(&employee, "id = ?", userId).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			err = errors.New("employee not found")
-		}
-		s.log.Error(err)
-		return nil, 0, err
-	}
-	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, s.cfg) {
-		if employee.StoreId != "" {
-			storeID = employee.StoreId
-		}
-		companyID = employee.CompanyId
-	}
 
 	// Fetch imports with detailed data
 	query := s.db.Model(&domain.Import{}).
@@ -406,80 +374,45 @@ func (s *Services) ListImport(c *gin.Context, limit, offset int) ([]domain.Impor
 		`).Joins("LEFT JOIN import_details ON imports.id = import_details.import_id").
 		Where("imports.entry_type = ?", 1)
 
-	if search != "" {
-		search = fmt.Sprintf("%%%s%%", search)
+	if params.Search != "" {
+		params.Search = fmt.Sprintf("%%%s%%", params.Search)
 		query = query.Where(`
 		imports.document_number ILIKE ? OR
-		CAST(imports.public_id AS TEXT) LIKE ?`, search, search)
+		CAST(imports.public_id AS TEXT) LIKE ?`, params.Search, params.Search)
 	}
-	if storeID != "" {
-		query = query.Where("imports.store_id = ?", storeID)
+	if params.StoreId != "" {
+		query = query.Where("imports.store_id = ?", params.StoreId)
 	}
-	if companyID != "" {
-		query = query.Where("stores.company_id = ?", companyID).
+	if params.CompanyId != "" {
+		query = query.Where("stores.company_id = ?", params.CompanyId).
 			Joins("LEFT JOIN stores ON imports.store_id = stores.id")
 	}
-	if startDate != "" && endDate == "" {
-		query = query.Where(
-			"imports.import_date BETWEEN ?::timestamp AND (?::timestamp + interval '24 hour')",
-			startDate, startDate,
-		)
-	} else if startDate != "" && endDate != "" {
-		query = query.Where("imports.import_date >= ?", startDate)
-		query = query.Where("imports.import_date <= (?::timestamp + interval '24 hour') ", endDate)
+	if params.StartDate != "" && params.EndDate != "" {
+		query = query.Where("imports.created_at BETWEEN ? AND ?", params.StartDate, params.EndDate)
 	}
-	if status != "" {
-		query = query.Where("imports.status = ?", status)
+	if params.Status != "" {
+		query = query.Where("imports.status = ?", params.Status)
 	}
-	if receivePriceFrom != "" {
-		query = query.Where("received_amount >= ?", receivePriceFrom)
+	if params.ReceivedAmountFrom > 0 {
+		query = query.Where("received_amount >= ?", params.ReceivedAmountFrom)
 	}
-	if receivePriceTo != "" {
-		query = query.Where("received_amount <= ?", receivePriceTo)
+	if params.ReceivedAmountTo > 0 {
+		query = query.Where("received_amount <= ?", params.ReceivedAmountTo)
 	}
-	err = query.Group("imports.id").
+	err := query.Group("imports.id").
 		Order("imports.created_at DESC").
 		Count(&totalCount).
-		Limit(limit).
-		Offset(offset).
+		Limit(params.Limit).
+		Offset(params.Offset).
 		Find(&imports).Error
 	if err != nil {
-		s.log.Error(err)
-		return nil, 0, err
+		s.log.Errorf("could not get imports: %v", err)
+		return nil, 0, domain.InternalServerError
 	}
 	return imports, totalCount, nil
 }
 
-func (s *Services) ListImportStatus(c *gin.Context) (*domain.ImportStatusSummary, error) {
-	var (
-		storeID      = c.Query("store_id")
-		companyID    = c.Query("company_id")
-		startDate    = c.Query("start_date")
-		endDate      = c.Query("end_date")
-		search       = c.Query("search")
-		statusFilter = c.Query("status")
-		receiveFrom  = c.Query("receive_amount_from")
-		receiveTo    = c.Query("receive_amount_to")
-	)
-
-	userId, ok := c.Get("user_id")
-	if !ok {
-		return nil, errors.New("user not found in context")
-	}
-	var employee domain.Employee
-	err := s.db.First(&employee, "id = ?", userId).Error
-	if err != nil {
-		s.log.Error(err)
-		return nil, errors.New("employee not found")
-	}
-
-	if !helper.IsAdmin(employee, s.cfg) {
-		if employee.StoreId != "" {
-			storeID = employee.StoreId
-		}
-		companyID = employee.CompanyId
-	}
-
+func (s *Services) GetImportsStats(ctx context.Context, params *domain.ImportQueryParams) (*domain.ImportStatusSummary, error) {
 	query := `
 		SELECT
 			COALESCE(SUM(CASE WHEN imports.status = 'completed' THEN import_details.retail_price_vat * import_details.accepted_count ELSE 0 END), 0) AS completed_received_vat_amount,
@@ -494,31 +427,29 @@ func (s *Services) ListImportStatus(c *gin.Context) (*domain.ImportStatusSummary
 
 	var args []any
 
-	if storeID != "" {
+	if params.StoreId != "" {
 		query += " AND imports.store_id = ?"
-		args = append(args, storeID)
+		args = append(args, params.StoreId)
 	}
-	if companyID != "" {
+	if params.CompanyId != "" {
 		query += " AND stores.company_id = ?"
-		args = append(args, companyID)
+		args = append(args, params.CompanyId)
 	}
-	if startDate != "" && endDate == "" {
-		query += " AND imports.import_date BETWEEN ?::timestamp AND (?::timestamp + interval '24 hour')"
-		args = append(args, startDate, startDate)
-	} else if startDate != "" && endDate != "" {
-		query += " AND imports.import_date >= ?::timestamp AND imports.import_date <= (?::timestamp + interval '24 hour')"
-		args = append(args, startDate, endDate)
+
+	if params.StartDate != "" && params.EndDate != "" {
+		query += " AND imports.created_at BETWEEN ? AND ? "
+		args = append(args, params.StartDate, params.EndDate)
 	}
-	if search != "" {
-		searchPattern := fmt.Sprintf("%%%s%%", search)
+	if params.Search != "" {
+		params.Search = fmt.Sprintf("%%%s%%", params.Search)
 		query += " AND (imports.document_number ILIKE ? OR CAST(imports.public_id AS TEXT) ILIKE ?)"
-		args = append(args, searchPattern, searchPattern)
+		args = append(args, params.Search, params.Search)
 	}
-	if statusFilter != "" {
+	if params.Status != "" {
 		query += " AND imports.status = ?"
-		args = append(args, statusFilter)
+		args = append(args, params.Status)
 	}
-	if receiveFrom != "" {
+	if params.ReceivedAmountFrom > 0 {
 		query += `
 		AND (
 			SELECT ROUND(SUM(d.retail_price * d.received_count)::numeric, 2)
@@ -526,9 +457,9 @@ func (s *Services) ListImportStatus(c *gin.Context) (*domain.ImportStatusSummary
 			WHERE d.import_id = imports.id
 		) >= ?
 		`
-		args = append(args, receiveFrom)
+		args = append(args, params.ReceivedAmountFrom)
 	}
-	if receiveTo != "" {
+	if params.ReceivedAmountTo > 0 {
 		query += `
 		AND (
 			SELECT ROUND(SUM(d.retail_price * d.received_count)::numeric, 2)
@@ -536,20 +467,20 @@ func (s *Services) ListImportStatus(c *gin.Context) (*domain.ImportStatusSummary
 			WHERE d.import_id = imports.id
 		) <= ?
 		`
-		args = append(args, receiveTo)
+		args = append(args, params.ReceivedAmountTo)
 	}
 
 	var summary domain.ImportStatusSummary
-	err = s.db.Raw(query, args...).Scan(&summary).Error
+	err := s.db.WithContext(ctx).Raw(query, args...).Scan(&summary).Error
 	if err != nil {
-		s.log.Error(err)
-		return nil, err
+		s.log.Errorf("could not get imports stats: %v", err)
+		return nil, domain.InternalServerError
 	}
 	return &summary, nil
 }
 
 // list import detail
-func (s *Services) ListImportDetail(param *domain.ImportDetailQueryParams) ([]domain.ImportDetail, int64, error) {
+func (s *Services) ListImportDetail(param *domain.ImportQueryParams) ([]domain.ImportDetail, int64, error) {
 	var (
 		importDetails []domain.ImportDetail
 		totalCount    int64

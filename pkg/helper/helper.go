@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/agnivade/levenshtein"
-	"github.com/pharma-crm-backend/config"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
@@ -47,8 +46,8 @@ func SalePaymentAmount(salePayments []*domain.SalePayment, payType string) float
 }
 
 // check user role is admin or superadmin
-func IsAdmin(employee domain.Employee, cfg *config.Config) bool {
-	return utils.In(employee.RoleType, constants.AllAdminRoles...)
+func IsAdmin(user *domain.EmployeeClaims) bool {
+	return utils.In(user.Role, constants.AllAdminRoles...)
 }
 
 // divide float to integer and fractional section

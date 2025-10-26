@@ -129,3 +129,13 @@ type EmployeeForSale struct {
 	FullName  string `json:"full_name"`
 	Phone     string `json:"phone"`
 }
+
+type EmployeeQueryParams struct {
+	Search    string `form:"search"`
+	StoreId   string `form:"store_id"`
+	CompanyId string `form:"company_id"`
+	RoleId    string `form:"role_id"`
+	Status    string `form:"status"`
+	Limit     int    `form:"limit"`
+	Offset    int    `form:"offset"`
+}

@@ -6,7 +6,7 @@ import (
 	"github.com/pharma-crm-backend/domain"
 )
 
-func (s *Services) ProductBonusList(param *domain.QueryParam) ([]domain.ProductBonus, int64, error) {
+func (s *Services) GetProductBonuses(ctx context.Context, params *domain.QueryParam) ([]domain.ProductBonus, int64, error) {
 	var (
 		totalCount int64
 		res        []domain.ProductBonus
@@ -19,21 +19,21 @@ func (s *Services) ProductBonusList(param *domain.QueryParam) ([]domain.ProductB
 		Preload("Store")
 
 	// filter with store id
-	if param.StoreID != "" {
-		query = query.Where("store_id = ?", param.StoreID)
+	if params.StoreID != "" {
+		query = query.Where("store_id = ?", params.StoreID)
 	}
 	// if search is received it joins with products table and add search condtion
-	if param.Search != "" {
+	if params.Search != "" {
 		query = query.Joins("JOIN products ON product_bonuses.product_id = products.id").
-			Where("products.name ILIKE ?", "%"+param.Search+"%")
+			Where("products.name ILIKE ?", "%"+params.Search+"%")
 	}
-	if param.CompanyId != "" {
-		query = query.Where("company_id = ?", param.CompanyId)
+	if params.CompanyId != "" {
+		query = query.Where("company_id = ?", params.CompanyId)
 	}
 	// complete query
 	err := query.
 		Count(&totalCount).
-		Limit(param.Limit).Offset(param.Offset).
+		Limit(params.Limit).Offset(params.Offset).
 		Order("created_at desc").
 		Find(&res).Error
 	if err != nil {

@@ -151,10 +151,11 @@ func (s *Services) GetInventoryById(param *domain.InventoryParam) (*domain.Inven
 }
 
 // get inventory list
-func (s *Services) InventoryList(param *domain.InventoryParam) ([]domain.Inventory, int64, error) {
+func (s *Services) InventoryList(ctx context.Context, params *domain.InventoryParam) ([]domain.Inventory, int64, error) {
 	var res []domain.Inventory
 	var totalCount int64
-	query := s.db.Model(&domain.Import{}).
+	query := s.db.WithContext(ctx).
+		Model(&domain.Import{}).
 		Preload("Store").
 		Preload("CreatedBy").
 		Preload("UpdatedBy").
@@ -169,32 +170,32 @@ func (s *Services) InventoryList(param *domain.InventoryParam) ([]domain.Invento
 		`).
 		Where("entry_type = ?", 2)
 	// filter by store id
-	if param.StoreId != "" {
-		query = query.Where("imports.store_id = ? ", param.StoreId)
+	if params.StoreId != "" {
+		query = query.Where("imports.store_id = ? ", params.StoreId)
 	}
-	if param.CompanyId != "" {
-		query = query.Where("stores.company_id = ? ", param.CompanyId)
+	if params.CompanyId != "" {
+		query = query.Where("stores.company_id = ? ", params.CompanyId)
 		query = query.Joins(" LEFT JOIN stores ON imports.store_id = stores.id")
 	}
 	// filter by search keyword
-	if param.Search != "" {
-		param.Search = fmt.Sprintf("%%%s%%", param.Search)
-		query = query.Where("CAST(imports.public_id AS TEXT) LIKE ? OR imports.name ILIKE ?", param.Search, param.Search)
+	if params.Search != "" {
+		params.Search = fmt.Sprintf("%%%s%%", params.Search)
+		query = query.Where("CAST(imports.public_id AS TEXT) LIKE ? OR imports.name ILIKE ?", params.Search, params.Search)
 	}
 	// filter by inventory type
-	if param.Type != "" {
-		query = query.Where("imports.inventory_type = ?", param.Type)
+	if params.Type != "" {
+		query = query.Where("imports.inventory_type = ?", params.Type)
 	}
 	// filter by inventory status
-	if param.Status != "" {
-		query = query.Where("imports.status = ?", param.Status)
+	if params.Status != "" {
+		query = query.Where("imports.status = ?", params.Status)
 	}
 	// complete query
 	err := query.
 		Order("imports.created_at DESC").
 		Count(&totalCount).
-		Limit(param.Limit).
-		Offset(param.Offset).
+		Limit(params.Limit).
+		Offset(params.Offset).
 		Find(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting inventory list: %v", err)
@@ -207,7 +208,7 @@ func (s *Services) InventoryList(param *domain.InventoryParam) ([]domain.Invento
 	return res, totalCount, nil
 }
 
-func (s *Services) InventoryStatus(param *domain.InventoryParam) (*domain.InventoryStatusSummary, error) {
+func (s *Services) InventoryStatus(ctx context.Context, params *domain.InventoryParam) (*domain.InventoryStatusSummary, error) {
 	query := `
 	SELECT
 		ROUND(COALESCE(SUM((imd.received_count::numeric/p.unit_per_pack) * imd.retail_price_vat), 0), 2) AS current_sum,
@@ -225,26 +226,26 @@ func (s *Services) InventoryStatus(param *domain.InventoryParam) (*domain.Invent
 
 	var args []any
 
-	if param.StoreId != "" {
+	if params.StoreId != "" {
 		query += " AND im.store_id = ?"
-		args = append(args, param.StoreId)
+		args = append(args, params.StoreId)
 	}
-	if param.CompanyId != "" {
+	if params.CompanyId != "" {
 		query += " AND stores.company_id = ?"
-		args = append(args, param.CompanyId)
+		args = append(args, params.CompanyId)
 	}
-	if param.Search != "" {
-		search := fmt.Sprintf("%%%s%%", param.Search)
+	if params.Search != "" {
+		search := fmt.Sprintf("%%%s%%", params.Search)
 		query += " AND (CAST(im.public_id AS TEXT) LIKE ? OR im.name ILIKE ?)"
 		args = append(args, search, search)
 	}
-	if param.Type != "" {
+	if params.Type != "" {
 		query += " AND im.inventory_type = ?"
-		args = append(args, param.Type)
+		args = append(args, params.Type)
 	}
-	if param.Status != "" {
+	if params.Status != "" {
 		query += " AND im.status = ?"
-		args = append(args, param.Status)
+		args = append(args, params.Status)
 	}
 
 	var result domain.InventoryStatusSummary

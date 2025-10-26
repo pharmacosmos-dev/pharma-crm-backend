@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -219,4 +220,46 @@ func entryTypeToString(entryType int) string {
 	default:
 		return "Unknown"
 	}
+}
+
+// Helper function to safely parse float values
+func parseFloat(value string) float64 {
+	value = strings.TrimSpace(value)
+	f, err := strconv.ParseFloat(strings.ReplaceAll(value, ",", ""), 64) // Remove commas
+	if err != nil {
+		return 0
+	}
+	return f
+}
+
+// Parse a string to int if value like 2324,34
+func parseIntComma(value string) int {
+	i, err := strconv.Atoi(strings.ReplaceAll(value, ",", ""))
+	if err != nil {
+		return 0
+	}
+
+	return i
+}
+
+// GenBarcode
+func (h *ProductHandler) GenBarcode() string {
+	var barcode string
+	for {
+		// Generate random 13-digit barcode
+		barcode = generateRandomBarcode(13)
+
+		// Check if barcode already exists in the database
+		var count int64
+		err := h.db.Model(&domain.Product{}).Where("barcode = ?", barcode).Count(&count).Error
+		if err != nil {
+
+			return ""
+		}
+		// If barcode is unique, return it
+		if count == 0 {
+			break
+		}
+	}
+	return barcode
 }

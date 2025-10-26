@@ -209,7 +209,6 @@ func appendArrayQuotedBytes(b, v []byte) []byte {
 
 func BuildProductReport(orderField string) string {
 	allowedFields := map[string]string{
-		"cart_item_id":     "cart_item_id",
 		"material_code":    "p.material_code",
 		"store_name":       "store_name",
 		"product_name":     "product_name",
@@ -231,7 +230,7 @@ func BuildProductReport(orderField string) string {
 	}
 
 	if orderField == "" {
-		return " ORDER BY sl.completed_at DESC "
+		return "sl.completed_at DESC "
 	}
 
 	direction := "ASC"
@@ -245,10 +244,10 @@ func BuildProductReport(orderField string) string {
 	}
 
 	if dbColumn, ok := allowedFields[field]; ok {
-		return fmt.Sprintf(" ORDER BY %s %s ", dbColumn, direction)
+		return fmt.Sprintf("%s %s ", dbColumn, direction)
 	}
 
-	return " ORDER BY sl.completed_at DESC "
+	return "sl.completed_at DESC "
 }
 
 func BuildStoreReportOrderClause(orderField string) string {

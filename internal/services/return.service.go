@@ -358,7 +358,7 @@ func (s *Services) ReturnList(ctx context.Context, param *domain.ReturnParam) ([
 }
 
 // get
-func (s *Services) ReturnStatus(param *domain.ReturnParam) (*domain.ReturnStatusSummary, error) {
+func (s *Services) GetReturnStats(ctx context.Context, params *domain.ReturnParam) (*domain.ReturnStatusSummary, error) {
 	query := `
 		SELECT
 			SUM(trd.scanned_count) AS return_count,
@@ -373,22 +373,22 @@ func (s *Services) ReturnStatus(param *domain.ReturnParam) (*domain.ReturnStatus
 	var args []any
 	var filters []string
 
-	if param.StoreId != "" {
+	if params.StoreId != "" {
 		filters = append(filters, "transfers.from_store_id = ?")
-		args = append(args, param.StoreId)
+		args = append(args, params.StoreId)
 	}
-	if param.CompanyId != "" {
+	if params.CompanyId != "" {
 		filters = append(filters, "st.company_id = ?")
-		args = append(args, param.CompanyId)
+		args = append(args, params.CompanyId)
 	}
-	if param.Search != "" {
-		search := "%" + param.Search + "%"
+	if params.Search != "" {
+		search := "%" + params.Search + "%"
 		filters = append(filters, "(transfers.public_id ILIKE ? OR transfers.name ILIKE ?)")
 		args = append(args, search, search)
 	}
-	if param.Status != "" {
+	if params.Status != "" {
 		filters = append(filters, "transfers.status = ?")
-		args = append(args, param.Status)
+		args = append(args, params.Status)
 	}
 
 	if len(filters) > 0 {
@@ -396,9 +396,9 @@ func (s *Services) ReturnStatus(param *domain.ReturnParam) (*domain.ReturnStatus
 	}
 
 	var res domain.ReturnStatusSummary
-	if err := s.db.Raw(query, args...).Scan(&res).Error; err != nil {
-		s.log.Error("Failed to get return status summary: %v", err)
-		return nil, err
+	if err := s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error; err != nil {
+		s.log.Errorf("could not get return status summary: %v", err)
+		return nil, domain.InternalServerError
 	}
 
 	return &res, nil
