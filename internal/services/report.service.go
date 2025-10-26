@@ -152,7 +152,10 @@ func (s *Services) BonusReport(ctx context.Context, params *domain.ReportQueryPa
 	order := utils.BuildBonusReportOrderClause(params.Order)
 	qb = qb.Order(order)
 
-	err := qb.Limit(params.Limit).Offset(params.Offset).Find(&res).Error
+	err := qb.
+		Limit(params.Limit).
+		Offset(params.Offset).
+		Find(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get employee_bonuses: %v", err)
 		return nil, 0, domain.InternalServerError
@@ -266,15 +269,11 @@ func (s *Services) GetProductsReport(ctx context.Context, params *domain.ReportQ
 func (s *Services) GetProductsReportStats(ctx context.Context, params *domain.ReportQueryParam) (*domain.ProductStatusReport, error) {
 	qb := s.db.WithContext(ctx).
 		Select(
-			fmt.Sprintf("COALESCE(SUM(CASE WHEN s.sale_type ='%s' THEN (ci.unit_quantity / p.unit_per_pack) ELSE 0 END), 0) AS total_quantity", constants.SaleTypeSale),
-			fmt.Sprintf("COALESCE(SUM(CASE WHEN s.sale_type = '%s' THEN (ci.unit_quantity / p.unit_per_pack) ELSE 0 END), 0) AS total_quantity_returned", constants.SaleTypeReturn),
-			fmt.Sprintf(`ROUND(COALESCE(SUM(CASE
-				WHEN s.sale_type = '%s' THEN (ci.unit_quantity * ((ci.unit_price - ci.discount_amount) / p.unit_per_pack))
-				WHEN s.sale_type = '%s' THEN (ci.unit_quantity * (ci.unit_price / p.unit_per_pack)) * (-1)
-				ELSE 0
-				END), 0), 2) AS total_retail_price_sum`, constants.SaleTypeSale, constants.SaleTypeReturn),
-			"ROUND(COALESCE(SUM(CASE WHEN s.sale_type = 'RETURN' THEN (ci.unit_quantity * (ci.unit_price / p.unit_per_pack)) ELSE 0 END), 0), 2) AS total_retail_price_sum_returned",
-			"ROUND(COALESCE(SUM(s.total_discount), 0), 2) AS total_discount_sum",
+			"COALESCE(SUM(CASE WHEN s.sale_type ='SALE' THEN (ci.unit_quantity / p.unit_per_pack) ELSE 0 END), 0) AS total_quantity",
+			"COALESCE(SUM(CASE WHEN s.sale_type = 'RETURN' THEN (ci.unit_quantity / p.unit_per_pack) ELSE 0 END), 0) AS total_quantity_returned",
+			"ROUND(COALESCE(SUM(CASE WHEN s.sale_type = 'SALE' THEN (ci.total_price - ci.discount_amount)  END), 0), 2) AS total_retail_price_sum",
+			"ROUND(COALESCE(SUM(CASE WHEN s.sale_type = 'RETURN' THEN (ci.total_price - ci.discount_amount)  ELSE 0 END), 0), 2) AS total_retail_price_sum_returned",
+			"ROUND(COALESCE(SUM(ci.discount_amount), 0), 2) AS total_discount_sum",
 		).
 		Table("sales s").
 		Joins("JOIN cart_items ci ON s.id = ci.sale_id").
