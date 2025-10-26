@@ -5,11 +5,9 @@ import (
 	"fmt"
 
 	"github.com/pharma-crm-backend/domain/constants"
-	"github.com/pharma-crm-backend/pkg/helper"
 
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
@@ -37,74 +35,49 @@ func (s *Services) GetEmployeeById(ctx context.Context, id string) (*domain.Empl
 }
 
 // get employee list data
-func (s *Services) ListEmployee(c *gin.Context, limit, offset int) ([]domain.Employee, int64, error) {
+func (s *Services) GetEmployees(ctx context.Context, params *domain.EmployeeQueryParams) ([]domain.Employee, int64, error) {
 	var (
 		res        []domain.Employee
 		totalCount int64
-		CompanyID  string
-		roleId     = c.Query("role_id")
-		storeId    = c.Query("store_id")
-		search     = c.Query("search")
-		status     = c.Query("status")
 	)
-	userId, ok := c.Get("user_id")
-	if !ok {
-		s.log.Warn("Error on getting company id from context")
-		return nil, 0, fmt.Errorf("error on getting company id from context")
-	}
-	// get employee info
-	var employee domain.Employee
-	err := s.db.First(&employee, "id = ?", userId).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			s.log.Warn("User not found")
-			return nil, 0, fmt.Errorf("user not found")
-		}
-		s.log.Warn("Can't get employee info")
-		return nil, 0, fmt.Errorf("can't get employee info")
-	}
 
-	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, s.cfg) {
-		CompanyID = employee.CompanyId
-	}
 	query := s.db.
 		Model(&domain.Employee{}).
 		Preload("Store").Preload("Roles").Where("status != ?", constants.GeneralStatusDeleted)
-	if roleId != "" {
+	if params.RoleId != "" {
 		query = query.
 			Joins("JOIN employee_roles ON employee_roles.employee_id = employees.id").
-			Where("role_id = ?", roleId)
+			Where("role_id = ?", params.RoleId)
 	}
-	if storeId != "" {
-		query = query.Where("store_id = ?", storeId)
+	if params.StoreId != "" {
+		query = query.Where("store_id = ?", params.StoreId)
 	}
-	if CompanyID != "" {
-		query = query.Where("company_id = ?", CompanyID)
+	if params.CompanyId != "" {
+		query = query.Where("company_id = ?", params.CompanyId)
 	}
 
-	if search != "" {
-		search = fmt.Sprintf("%%%s%%", search)
+	if params.Search != "" {
+		params.Search = fmt.Sprintf("%%%s%%", params.Search)
 		query = query.Where(`
 		full_name ILIKE ? OR
 		phone LIKE ? OR 
 		CAST(public_id AS TEXT) LIKE ?`,
-			search, search, search)
+			params.Search, params.Search, params.Search)
 	}
-	if status != "" {
-		query = query.Where("status = ?", status)
+	if params.Status != "" {
+		query = query.Where("status = ?", params.Status)
 	}
 
-	err = query.
+	err := query.WithContext(ctx).
 		Count(&totalCount).
-		Limit(limit).
-		Offset(offset).
+		Limit(params.Limit).
+		Offset(params.Offset).
 		Order("created_at DESC").
 		Find(&res).Error
 
 	if err != nil {
-		s.log.Error(query.Error)
-		return nil, 0, err
+		s.log.Errorf("could not employees: %v", err)
+		return nil, 0, domain.InternalServerError
 	}
 
 	return res, totalCount, nil

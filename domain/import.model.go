@@ -160,15 +160,20 @@ type AcceptImport1CResponse struct {
 }
 
 // import detail query params
-type ImportDetailQueryParams struct {
-	Limit              int     `form:"limit"`
-	Offset             int     `form:"offset"`
+type ImportQueryParams struct {
+	StoreId            string  `form:"store_id"`
+	CompanyId          string  `form:"company_id"`
 	ImportId           string  `form:"import_id"`
 	Search             string  `form:"search"`
 	ReceivedAmountFrom float64 `form:"received_amount_from"`
 	ReceivedAmountTo   float64 `form:"received_amount_to"`
 	NoMarking          bool    `form:"no_marking"`
 	NoBarcode          bool    `form:"no_barcode"`
+	StartDate          string  `form:"start_date"`
+	EndDate            string  `form:"end_date"`
+	Status             string  `form:"status"`
+	Limit              int     `form:"limit"`
+	Offset             int     `form:"offset"`
 }
 
 // Import data

@@ -1,12 +1,14 @@
 package v1
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/xuri/excelize/v2"
@@ -136,48 +138,38 @@ func (h *ProductBonusHandler) Get(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /product-bonus/list [get]
 func (h *ProductBonusHandler) List(c *gin.Context) {
-	var param domain.QueryParam
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 
-	// bind query param
-	if err := c.ShouldBindQuery(&param); err != nil {
-		handleResponse(c, BadRequest, "Invalid query param received")
+	var params domain.QueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 
 	// get default limit offset
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
-		return
-	}
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
-	// get employee info
-	var employee domain.Employee
-	err := h.db.First(&employee, "id = ?", userId).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		handleResponse(c, InternalError, "Can't get employee info")
-		return
-	}
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
-		if employee.StoreId != "" {
-			param.StoreID = employee.StoreId
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			params.StoreID = user.StoreId
 		}
-		param.CompanyId = employee.CompanyId
+		params.CompanyId = user.CompanyId
 	}
 	// get bonus product list
-	res, totalCount, err := h.service.ProductBonusList(&param)
+	res, totalCount, err := h.service.GetProductBonuses(ctx, &params)
 	if err != nil {
 		handleResponse(c, InternalError, "Failed to get bonus product")
 		return
 	}
 	// get with pagination data
-	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
 
 	// return response
 	handleResponse(c, OK, data)

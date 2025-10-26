@@ -43,11 +43,13 @@ type ProductReport struct {
 	MaterialCode   int        `gorm:"material_code" json:"material_code"`
 	StoreName      string     `gorm:"store_name" json:"store_name"`
 	ProductName    string     `gorm:"product_name" json:"product_name"`
+	UnitPerPack    int        `gorm:"unit_per_pack" json:"unit_per_pack"`
 	ProducerName   string     `gorm:"producer_name" json:"producer_name"`
 	SerialNumber   string     `gorm:"serial_number" json:"serial_number"`
 	TotalDiscount  float64    `gorm:"total_discount" json:"total_discount"`
 	ExpireDate     *time.Time `gorm:"expire_date" json:"expire_date"`
-	Quantity       float64    `gorm:"quantity" json:"quantity"`
+	Quantity       string     `gorm:"quantity" json:"quantity"`
+	UnitQuantity   int        `gorm:"unit_quantity" json:"unit_quantity"`
 	SupplyPrice    float64    `gorm:"supply_price" json:"supply_price"`
 	RetailPrice    float64    `gorm:"retail_price" json:"retail_price"`
 	SupplyPriceSum float64    `gorm:"supply_price_sum" json:"supply_price_sum"`

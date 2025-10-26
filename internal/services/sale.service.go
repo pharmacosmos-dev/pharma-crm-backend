@@ -51,7 +51,6 @@ func (s *Services) CreateSale(ctx context.Context, tx *gorm.DB, req *domain.Sale
 
 // create return sale
 func (s *Services) CreateReturnSale(ctx context.Context, req *domain.SaleReturnRequest) (*domain.Sale, error) {
-
 	return nil, domain.SaleIsClosedError
 
 	// get cashbox operation
@@ -112,8 +111,8 @@ func (s *Services) CreateReturnSale(ctx context.Context, req *domain.SaleReturnR
 		req.SaleId,
 	).Scan(&sale).Error
 	if err != nil {
-		s.log.Errorf("could not create new return sale: %v", err)
 		_ = tx.Rollback()
+		s.log.Errorf("could not create new return sale: %v", err)
 		return nil, domain.InternalServerError
 	}
 	// cart item create query
@@ -128,9 +127,9 @@ func (s *Services) CreateReturnSale(ctx context.Context, req *domain.SaleReturnR
 	SELECT
 		?,
 		ci.store_product_id,
-		ci.unit_quantity * (-1),
+		ci.unit_quantity,
 		ci.unit_price,
-		ci.total_price * (-1)
+		ci.total_price
 	FROM cart_items ci
 	WHERE ci.sale_id = ? AND ci.store_product_id = ?;
 	`
@@ -142,8 +141,8 @@ func (s *Services) CreateReturnSale(ctx context.Context, req *domain.SaleReturnR
 			item.StoreProductId,
 		).Error
 		if err != nil {
-			s.log.Errorf("could not create return sale items: %v", err)
 			_ = tx.Rollback()
+			s.log.Errorf("could not create return sale items: %v", err)
 			return nil, err
 		}
 

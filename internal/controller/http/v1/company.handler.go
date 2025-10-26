@@ -6,7 +6,6 @@ import (
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
-	"gorm.io/gorm"
 )
 
 type CompanyHandler struct {
@@ -109,13 +108,19 @@ func (h *CompanyHandler) Get(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept  json
 // @Produce json
-// @Param  limit  query int true "limit"
-// @Param  offset query int true "offset"
+// @Param   limit  query int true "limit"
+// @Param   offset query int true "offset"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /company/list [post]
 func (h *CompanyHandler) List(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
 	var (
 		companies  []domain.Company
 		totalCount int64
@@ -124,32 +129,13 @@ func (h *CompanyHandler) List(c *gin.Context) {
 
 	limit, offset, err := getPaginationParams(c)
 	if err != nil {
-		handleResponse(c, BadRequest, "Received invalid pagination")
-		return
-	}
-
-	// get user_id from the context
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
-		return
-	}
-
-	// get employee info
-	var employee domain.Employee
-	err = h.db.First(&employee, "id = ?", userId).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		handleResponse(c, InternalError, "Can't get employee info")
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
-		companyId = employee.CompanyId
+	if !helper.IsAdmin(user) {
+		companyId = user.CompanyId
 	}
 
 	// build query

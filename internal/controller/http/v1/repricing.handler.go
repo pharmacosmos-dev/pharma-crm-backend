@@ -1,17 +1,18 @@
 package v1
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/spf13/cast"
 	"github.com/xuri/excelize/v2"
-	"gorm.io/gorm"
 )
 
 type RepricingHandler struct {
@@ -100,14 +101,16 @@ func (h *RepricingHandler) Get(c *gin.Context) {
 	id := c.Param("id")
 	// validate id
 	if id == "" {
-		handleResponse(c, BadRequest, "invalid.repricing.id")
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
 	// get repricing by id
-	res, err := h.service.GetRepricingByID(id)
+	res, err := h.service.GetRepricingByID(ctx, id)
 	if err != nil {
-		h.log.Warn("Error on getting repricing: %v", err.Error())
-		handleResponse(c, InternalError, "Failed to get repricing")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
@@ -133,47 +136,37 @@ func (h *RepricingHandler) Get(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /repricing/list [get]
 func (h *RepricingHandler) List(c *gin.Context) {
-	var param domain.QueryParam
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
 
-	if err := c.ShouldBindQuery(&param); err != nil {
-		handleResponse(c, BadRequest, "Invalid query param")
+	var params domain.QueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
-	// get user_id from the context
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
-		return
-	}
-	// get employee info
-	var employee domain.Employee
-	err := h.db.First(&employee, "id = ?", userId).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		handleResponse(c, InternalError, "Can't get employee info")
-		return
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
-		if employee.StoreId != "" {
-			param.StoreID = employee.StoreId
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			params.StoreID = user.StoreId
 		}
-		param.CompanyId = employee.CompanyId
+		params.CompanyId = user.CompanyId
 	}
 
-	res, totalCount, err := h.service.RepricingList(&param)
+	res, totalCount, err := h.service.GetRepricingList(ctx, &params)
 	if err != nil {
-		h.log.Warn("ERROR on getting repricing list: %v", err)
-		handleResponse(c, InternalError, "Failed to get repricing list")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
-	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
 
 	handleResponse(c, OK, data)
 }
@@ -195,42 +188,33 @@ func (h *RepricingHandler) List(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /repricing/list-status [get]
 func (h *RepricingHandler) RepricingStatus(c *gin.Context) {
-	var param domain.QueryParam
-
-	if err := c.ShouldBindQuery(&param); err != nil {
-		handleResponse(c, BadRequest, "Invalid query param")
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
 
-	// get user_id from the context
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
+	var params domain.QueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
-	// get employee info
-	var employee domain.Employee
-	err := h.db.First(&employee, "id = ?", userId).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		handleResponse(c, InternalError, "Can't get employee info")
-		return
-	}
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
-		if employee.StoreId != "" {
-			param.StoreID = employee.StoreId
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			params.StoreID = user.StoreId
 		}
-		param.CompanyId = employee.CompanyId
+		params.CompanyId = user.CompanyId
 	}
 
-	res, err := h.service.RepricingStatus(&param)
+	res, err := h.service.GetRepricingStats(ctx, &params)
 	if err != nil {
-		h.log.Error("ERROR on repricing status summary: %v", err)
-		handleResponse(c, InternalError, "Failed to get repricing summary")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
@@ -256,47 +240,39 @@ func (h *RepricingHandler) RepricingStatus(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /repricing/export-excel [get]
 func (h *RepricingHandler) ExportRepricingExcel(c *gin.Context) {
-	var param domain.QueryParam
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
 
-	if err := c.ShouldBindQuery(&param); err != nil {
-		handleResponse(c, BadRequest, "Invalid query param")
+	var params domain.QueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
-	// get user_id from the context
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
-		return
-	}
-	// get employee info
-	var employee domain.Employee
-	err := h.db.First(&employee, "id = ?", userId).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		handleResponse(c, InternalError, "Can't get employee info")
-		return
-	}
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(employee, h.cfg) {
-		if employee.StoreId != "" {
-			param.StoreID = employee.StoreId
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			params.StoreID = user.StoreId
 		}
-		param.CompanyId = employee.CompanyId
+		params.CompanyId = user.CompanyId
 	}
-	res, _, err := h.service.RepricingList(&param)
+
+	res, _, err := h.service.GetRepricingList(ctx, &params)
 	if err != nil {
-		h.log.Warn("ERROR on getting repricing list: %v", err)
-		handleResponse(c, InternalError, "Failed to get repricing list")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
 	// Create excel file
 	f := excelize.NewFile()
-	sheetName := "List1"
+	sheetName := constants.DefaultSheetName
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
@@ -335,7 +311,7 @@ func (h *RepricingHandler) ExportRepricingExcel(c *gin.Context) {
 		f.SetCellValue(sheetName, "I"+row, imp.CreatedAt.Format(time.DateTime))
 
 	}
-	saveExcelToUploads(c, f, *h.log, "Qayta_baholash")
+	saveExcelToUploads(c, f, *h.log, "product_repricing")
 }
 
 // confirm repricing

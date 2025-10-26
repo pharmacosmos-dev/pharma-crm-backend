@@ -12,6 +12,7 @@ import (
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/etc"
+	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
@@ -173,23 +174,32 @@ func (h *EmployeeHandler) Get(c *gin.Context) {
 // @Failure      500  {object}  v1.Response
 // @Router       /employee/list [get]
 func (h *EmployeeHandler) List(c *gin.Context) {
-	var (
-		res        []domain.Employee
-		totalCount int64
-	)
-	limit, offset, err := getPaginationParams(c)
-	if err != nil {
-		handleResponse(c, BadRequest, err.Error())
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
+	var params domain.EmployeeQueryParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	if !helper.IsAdmin(user) {
+		params.CompanyId = user.CompanyId
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 	// get employee list data
-	res, totalCount, err = h.service.ListEmployee(c, limit, offset)
+	res, totalCount, err := h.service.GetEmployees(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 	// add _meta for pagination response
-	result := utils.ListResponse(res, totalCount, limit, offset)
+	result := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
 
 	handleResponse(c, OK, result)
 }
@@ -209,27 +219,34 @@ func (h *EmployeeHandler) List(c *gin.Context) {
 // @Failure      500  {object}  v1.Response
 // @Router       /employee/export-excel [get]
 func (h *EmployeeHandler) ExportEmployeeExcel(c *gin.Context) {
-	var (
-		employees []domain.Employee
-		err       error
-	)
-	// get limit and offset
-	limit, offset, err := getPaginationParams(c)
-	if err != nil {
-		handleResponse(c, BadRequest, err.Error())
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
+	var params domain.EmployeeQueryParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
+	if !helper.IsAdmin(user) {
+		params.CompanyId = user.CompanyId
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 	// get employee list data
-	employees, _, err = h.service.ListEmployee(c, limit, offset)
+	res, _, err := h.service.GetEmployees(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
 	// Excel fayl yaratish
 	f := excelize.NewFile()
-	sheetName := "Employees"
+	sheetName := constants.DefaultSheetName
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
@@ -243,7 +260,7 @@ func (h *EmployeeHandler) ExportEmployeeExcel(c *gin.Context) {
 	}
 
 	// Ma'lumotlarni qo'shish
-	for i, emp := range employees {
+	for i, emp := range res {
 		row := strconv.Itoa(i + 2)
 		f.SetCellValue(sheetName, "A"+row, emp.PublicId)
 		f.SetCellValue(sheetName, "B"+row, emp.FullName)

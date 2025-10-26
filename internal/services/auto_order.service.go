@@ -1,61 +1,47 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	"github.com/pharma-crm-backend/domain"
-	"github.com/pharma-crm-backend/pkg/helper"
 )
 
 // get auto order get list
-func (s *Services) ListAutoOrder(param *domain.AutoOrderParam) ([]domain.AutoOrder, int64, error) {
+func (s *Services) GetAutoOrders(ctx context.Context, params *domain.AutoOrderParam) ([]domain.AutoOrder, int64, error) {
 	var (
 		autoOrders []domain.AutoOrder
 		totalCount int64
 	)
 
-	// 1. get employee info
-	var employee domain.Employee
-	err := s.db.First(&employee, "id = ?", param.UserId).Error
-	if err != nil {
-		s.log.Error(err)
-		return nil, 0, err
-	}
-	if !helper.IsAdmin(employee, s.cfg) {
-		if employee.StoreId != "" {
-			param.StoreID = employee.StoreId
-		}
-		param.CompanyID = employee.CompanyId
-	}
-
 	// 2. Build WHERE conditions dynamically
 	var whereClauses []string
-	params := map[string]interface{}{
-		"limit":  param.Limit,
-		"offset": param.Offset,
+	paramsMap := map[string]interface{}{
+		"limit":  params.Limit,
+		"offset": params.Offset,
 	}
 
-	if param.StoreID != "" {
+	if params.StoreID != "" {
 		whereClauses = append(whereClauses, "store_id = @store_id")
-		params["store_id"] = param.StoreID
+		paramsMap["store_id"] = params.StoreID
 	}
-	if param.CompanyID != "" {
+	if params.CompanyID != "" {
 		whereClauses = append(whereClauses, "s.company_id = @company_id")
-		params["company_id"] = param.CompanyID
+		paramsMap["company_id"] = params.CompanyID
 	}
-	if param.Status != "" {
+	if params.Status != "" {
 		whereClauses = append(whereClauses, "status = @status")
-		params["status"] = param.Status
+		paramsMap["status"] = params.Status
 	}
-	if param.Search != "" {
+	if params.Search != "" {
 		whereClauses = append(whereClauses, "(CAST(public_id AS TEXT) ILIKE @search OR EXISTS (SELECT 1 FROM stores s WHERE s.id = auto_orders.store_id AND s.name ILIKE @search))")
-		params["search"] = "%" + param.Search + "%"
+		paramsMap["search"] = "%" + params.Search + "%"
 	}
-	if param.StartDate != "" && param.EndDate != "" {
+	if params.StartDate != "" && params.EndDate != "" {
 		whereClauses = append(whereClauses, "created_at::date BETWEEN @start_date AND @end_date")
-		params["start_date"] = param.StartDate
-		params["end_date"] = param.EndDate
+		paramsMap["start_date"] = params.StartDate
+		paramsMap["end_date"] = params.EndDate
 	}
 
 	// 3. Join WHERE clauses
@@ -86,17 +72,17 @@ func (s *Services) ListAutoOrder(param *domain.AutoOrderParam) ([]domain.AutoOrd
 	`, whereSQL)
 
 	// 5. Run query
-	err = s.db.Raw(query, params).Scan(&autoOrders).Error
+	err := s.db.WithContext(ctx).Raw(query, params).Scan(&autoOrders).Error
 	if err != nil {
-		s.log.Warn("Failed to get auto orders: %v", err)
-		return nil, 0, err
+		s.log.Errorf("could not get auto orders: %v", err)
+		return nil, 0, domain.InternalServerError
 	}
 
 	var stores []domain.Store
-	err = s.db.Find(&stores).Error
+	err = s.db.WithContext(ctx).Find(&stores).Error
 	if err != nil {
-		s.log.Warn("could not get store list: %v", err)
-		return nil, 0, err
+		s.log.Errorf("could not get store list: %v", err)
+		return nil, 0, domain.InternalServerError
 	}
 	storesMap := make(map[string]*domain.Store, len(stores))
 
@@ -110,7 +96,7 @@ func (s *Services) ListAutoOrder(param *domain.AutoOrderParam) ([]domain.AutoOrd
 
 	// faqat filterlar kerak
 	countParams := map[string]any{}
-	for k, v := range params {
+	for k, v := range paramsMap {
 		if k != "limit" && k != "offset" {
 			countParams[k] = v
 		}
@@ -130,8 +116,8 @@ func (s *Services) ListAutoOrder(param *domain.AutoOrderParam) ([]domain.AutoOrd
 	}
 
 	if err != nil {
-		s.log.Warn("Failed to count auto orders: %v", err)
-		return nil, 0, err
+		s.log.Errorf("could not count auto orders: %v", err)
+		return nil, 0, domain.InternalServerError
 	}
 
 	return autoOrders, totalCount, nil

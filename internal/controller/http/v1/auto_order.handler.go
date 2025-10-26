@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
+	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/xuri/excelize/v2"
 	"gorm.io/gorm"
@@ -143,31 +144,39 @@ func (h *AutoOrderHandler) Create(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /auto-order/list [get]
 func (h *AutoOrderHandler) List(c *gin.Context) {
-	var param domain.AutoOrderParam
-	// get user id from the header
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User not found from the context")
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
-	err := c.ShouldBindQuery(&param)
+
+	var params domain.AutoOrderParam
+	err := c.ShouldBindQuery(&params)
 	if err != nil {
-		handleResponse(c, BadRequest, domain.InvalidQueryError)
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 
 	// get defaul limit and offset
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
-	// get user id
-	param.UserId = userId.(string)
-	// get auto order list
-	res, totalCount, err := h.service.ListAutoOrder(&param)
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			params.StoreID = user.StoreId
+		}
+		params.CompanyID = user.CompanyId
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, totalCount, err := h.service.GetAutoOrders(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
-	result := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+	result := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
 
 	handleResponse(c, OK, result)
 }

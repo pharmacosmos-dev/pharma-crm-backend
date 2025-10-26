@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"strings"
 
 	"github.com/pharma-crm-backend/domain"
@@ -162,31 +163,33 @@ func (s *Services) CreatePriceRevalutionDetail(tx *gorm.DB, req []domain.PriceRe
 }
 
 // get repricing by id
-func (s *Services) GetRepricingByID(repricingID string) (*domain.PriceRevalution, error) {
+func (s *Services) GetRepricingByID(ctx context.Context, repricingId string) (*domain.PriceRevalution, error) {
 	var res domain.PriceRevalution
-	err := s.db.Model(&domain.PriceRevalution{}).
+	err := s.db.WithContext(ctx).
+		Model(&domain.PriceRevalution{}).
 		Preload("Store").
 		Preload("CreatedBy").
 		Preload("UpdatedBy").
 		Select(`
 			price_revalutions.*
 			`).
-		First(&res, "price_revalutions.id = ?", repricingID).Error
+		First(&res, "price_revalutions.id = ?", repricingId).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting write-off by id: %v", err)
-		return nil, err
+		s.log.Errorf("could not get repricing by id: %v", err)
+		return nil, domain.InternalServerError
 	}
 	return &res, nil
 }
 
 // repricing get list
-func (s *Services) RepricingList(param *domain.QueryParam) ([]domain.PriceRevalution, int64, error) {
+func (s *Services) GetRepricingList(ctx context.Context, params *domain.QueryParam) ([]domain.PriceRevalution, int64, error) {
 	var (
 		res        []domain.PriceRevalution
 		totalCount int64
 	)
 
-	query := s.db.Model(&domain.PriceRevalution{}).
+	query := s.db.WithContext(ctx).
+		Model(&domain.PriceRevalution{}).
 		Preload("Store").
 		Preload("CreatedBy").
 		Preload("UpdatedBy").
@@ -197,43 +200,43 @@ func (s *Services) RepricingList(param *domain.QueryParam) ([]domain.PriceRevalu
 		`).Joins("LEFT JOIN price_revalution_details prd ON price_revalutions.id = prd.price_revalution_id").
 		Group("price_revalutions.id")
 
-	if param.StoreID != "" {
-		query = query.Where("price_revalutions.store_id = ?", param.StoreID)
+	if params.StoreID != "" {
+		query = query.Where("price_revalutions.store_id = ?", params.StoreID)
 	}
-	if param.CompanyId != "" {
-		query = query.Where("st.company_id = ?", param.CompanyId).Joins("LEFT JOIN stores st ON price_revalutions.store_id = st.id")
+	if params.CompanyId != "" {
+		query = query.Where("st.company_id = ?", params.CompanyId).Joins("LEFT JOIN stores st ON price_revalutions.store_id = st.id")
 	}
-	if param.Search != "" {
+	if params.Search != "" {
 		query = query.
 			Joins("JOIN stores s ON s.id = price_revalutions.store_id").
-			Where("CAST(price_revalutions.id AS TEXT) like ? OR s.name ilike ?", "%"+param.Search+"%", "%"+param.Search+"%")
+			Where("CAST(price_revalutions.id AS TEXT) like ? OR s.name ilike ?", "%"+params.Search+"%", "%"+params.Search+"%")
 	}
-	if param.EndDate == "" {
-		param.EndDate = param.StartDate
+	if params.EndDate == "" {
+		params.EndDate = params.StartDate
 	}
-	if param.StartDate != "" && param.EndDate != "" {
-		query = query.Where("price_revalutions.created_at::date BETWEEN ? AND ?", param.StartDate, param.EndDate)
+	if params.StartDate != "" && params.EndDate != "" {
+		query = query.Where("price_revalutions.created_at::date BETWEEN ? AND ?", params.StartDate, params.EndDate)
 	}
 
-	if param.Status != "" {
-		query = query.Where("price_revalutions.status = ?", param.Status)
+	if params.Status != "" {
+		query = query.Where("price_revalutions.status = ?", params.Status)
 	}
 
 	err := query.
 		Count(&totalCount).
 		Order("price_revalutions.created_at DESC").
-		Limit(param.Limit).
-		Offset(param.Offset).
+		Limit(params.Limit).
+		Offset(params.Offset).
 		Find(&res).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting price revalution: %v", err)
-		return res, 0, err
+		s.log.Errorf("could not get price revalution: %v", err)
+		return res, 0, domain.InternalServerError
 	}
 
 	return res, totalCount, nil
 }
 
-func (s *Services) RepricingStatus(param *domain.QueryParam) (*domain.RepricingStatusSummary, error) {
+func (s *Services) GetRepricingStats(ctx context.Context, params *domain.QueryParam) (*domain.RepricingStatusSummary, error) {
 	query := `
 		SELECT
 			COALESCE(COUNT(prd.store_product_id), 0) AS count,
@@ -247,31 +250,31 @@ func (s *Services) RepricingStatus(param *domain.QueryParam) (*domain.RepricingS
 	var conditions []string
 	var args []any
 
-	if param.StoreID != "" {
+	if params.StoreID != "" {
 		conditions = append(conditions, "price_revalutions.store_id = ?")
-		args = append(args, param.StoreID)
+		args = append(args, params.StoreID)
 	}
-	if param.Search != "" {
+	if params.Search != "" {
 		conditions = append(conditions, `(CAST(price_revalutions.id AS TEXT) ILIKE ? OR EXISTS (
 			SELECT 1 FROM stores s WHERE s.id = price_revalutions.store_id AND s.name ILIKE ?
 		))`)
-		search := "%" + param.Search + "%"
+		search := "%" + params.Search + "%"
 		args = append(args, search, search)
 	}
-	if param.CompanyId != "" {
+	if params.CompanyId != "" {
 		conditions = append(conditions, "st.company_id = ?")
-		args = append(args, param.CompanyId)
+		args = append(args, params.CompanyId)
 	}
-	if param.EndDate == "" {
-		param.EndDate = param.StartDate
+	if params.EndDate == "" {
+		params.EndDate = params.StartDate
 	}
-	if param.StartDate != "" && param.EndDate != "" {
+	if params.StartDate != "" && params.EndDate != "" {
 		conditions = append(conditions, "price_revalutions.created_at::date BETWEEN ? AND ?")
-		args = append(args, param.StartDate, param.EndDate)
+		args = append(args, params.StartDate, params.EndDate)
 	}
-	if param.Status != "" {
+	if params.Status != "" {
 		conditions = append(conditions, "price_revalutions.status = ?")
-		args = append(args, param.Status)
+		args = append(args, params.Status)
 	}
 
 	if len(conditions) > 0 {
@@ -279,9 +282,9 @@ func (s *Services) RepricingStatus(param *domain.QueryParam) (*domain.RepricingS
 	}
 
 	var res domain.RepricingStatusSummary
-	if err := s.db.Raw(query, args...).Scan(&res).Error; err != nil {
-		s.log.Error("Failed to get repricing summary: %v", err)
-		return nil, err
+	if err := s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error; err != nil {
+		s.log.Errorf("could not get repricing summary: %v", err)
+		return nil, domain.InternalServerError
 	}
 
 	return &res, nil

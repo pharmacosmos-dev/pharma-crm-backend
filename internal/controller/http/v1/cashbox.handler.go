@@ -63,7 +63,7 @@ func (h *CashBoxHandler) Create(c *gin.Context) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
-	
+
 	tx := h.db.Begin()
 	// Ensure the transaction is rolled back if any error occurs
 	defer func() {
@@ -152,6 +152,12 @@ func (h *CashBoxHandler) Get(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /cash_box/list [get]
 func (h *CashBoxHandler) List(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
 	var (
 		res        []domain.CashboxOpenData
 		totalCount int64
@@ -162,32 +168,13 @@ func (h *CashBoxHandler) List(c *gin.Context) {
 		filter     = " WHERE c.is_active = true "
 		args       = []any{}
 	)
-	// get user id from header
-	userId, ok := c.Get("user_id")
-	if !ok {
-		h.log.Error(err)
-		handleResponse(c, InternalError, "User ID not found")
-		return
-	}
-	var employee domain.Employee
-	// get employee info
-	err = h.db.First(&employee, "id = ?", userId).Error
-	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
 
 	// check employee role
-	if !helper.IsAdmin(employee, h.cfg) {
-		if employee.StoreId != "" {
-			storeID = employee.StoreId
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			storeID = user.StoreId
 		}
-		companyID = employee.CompanyId
+		companyID = user.CompanyId
 	}
 
 	// get limit, offset with getting or default
