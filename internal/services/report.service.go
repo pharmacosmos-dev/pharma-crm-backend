@@ -458,7 +458,7 @@ func (s *Services) GetStoreAmountReport(ctx context.Context, params *domain.Repo
 			"SUM(sa.payme) AS payme",
 			"SUM(sa.alif) AS alif",
 			"SUM(sa.total_amount) AS total_amount",
-			"SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sa.total_amount * (-1)) AS return_amount",
+			"SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sa.total_amount * (-1) ELSE 0 END) AS return_amount",
 			"SUM(sa.total_discount) AS total_discount",
 			"COUNT(DISTINCT sa.id) AS cheque_count",
 		).
@@ -487,7 +487,7 @@ func (s *Services) ReportByStoreStats(ctx context.Context, params *domain.Report
 			"SUM(sa.payme) AS payme",
 			"SUM(sa.alif) AS alif",
 			"SUM(sa.total_amount) AS total_amount",
-			"SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sa.total_amount * (-1)) AS return_amount",
+			"SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sa.total_amount * (-1) ELSE 0 END) AS return_amount",
 			"SUM(sa.total_discount) AS total_discount",
 		).
 		Table("stores s").

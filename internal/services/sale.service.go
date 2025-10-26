@@ -53,7 +53,6 @@ func (s *Services) CreateSale(ctx context.Context, tx *gorm.DB, req *domain.Sale
 func (s *Services) CreateReturnSale(ctx context.Context, req *domain.SaleReturnRequest) (*domain.Sale, error) {
 	return nil, domain.SaleIsClosedError
 
-	
 	// get cashbox operation
 	if req.CashboxId == "" {
 		operation, err := s.GetCashboxOperationByID(ctx, req.CashBoxOperationId)
