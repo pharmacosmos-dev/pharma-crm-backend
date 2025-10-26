@@ -222,15 +222,15 @@ func BuildProductReport(orderField string) string {
 		"retail_price_sum": "retail_price_sum",
 		"markup_sum":       "markup_sum",
 		"vat_sum":          "vat_sum",
-		"completed_at":     "sl.completed_at",
+		"completed_at":     "s.completed_at",
 		"full_name":        "e.full_name",
-		"sale_number":      "sl.sale_number",
-		"sale_type":        "sl.sale_type",
-		"marking_count":    "sl.marking_count",
+		"sale_number":      "s.sale_number",
+		"sale_type":        "s.sale_type",
+		"marking_count":    "s.marking_count",
 	}
 
 	if orderField == "" {
-		return "sl.completed_at DESC "
+		return "s.completed_at DESC "
 	}
 
 	direction := "ASC"
@@ -247,7 +247,7 @@ func BuildProductReport(orderField string) string {
 		return fmt.Sprintf("%s %s ", dbColumn, direction)
 	}
 
-	return "sl.completed_at DESC "
+	return "s.completed_at DESC "
 }
 
 func BuildStoreReportOrderClause(orderField string) string {

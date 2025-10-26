@@ -728,7 +728,7 @@ func (h *ReportHandler) StoreReportAmount(c *gin.Context) {
 		params.CompanyId = user.CompanyId
 	}
 	// get store report with payment type amounts
-	res, totalCount, err := h.service.StoreReportAmount(ctx, &params)
+	res, totalCount, err := h.service.GetStoreAmountReport(ctx, &params)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return
@@ -783,7 +783,7 @@ func (h *ReportHandler) StoreReportAmountExport(c *gin.Context) {
 		params.CompanyId = user.CompanyId
 	}
 	// get store report with payment type amounts
-	res, _, err := h.service.StoreReportAmount(ctx, &params)
+	res, _, err := h.service.GetStoreAmountReport(ctx, &params)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return
@@ -1269,7 +1269,7 @@ func (h *ReportHandler) ReportBonusProducts(c *gin.Context) {
 	// get limit offset with checking default
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 	// get bonus products data
-	res, totalCount, err := h.service.ReportBonusProducts(ctx, &params)
+	res, totalCount, err := h.service.GetBonusProductsReport(ctx, &params)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)
 		return
@@ -1412,7 +1412,7 @@ func (h *ReportHandler) BonusProductsExportExcel(c *gin.Context) {
 	// get limit offset with checking default
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 	// get bonus products data
-	res, _, err := h.service.ReportBonusProducts(ctx, &params)
+	res, _, err := h.service.GetBonusProductsReport(ctx, &params)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)
 		return

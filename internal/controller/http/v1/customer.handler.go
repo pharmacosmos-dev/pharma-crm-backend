@@ -391,7 +391,7 @@ func (h *CustomerHandler) Update(c *gin.Context) {
 
 	if err != nil {
 		h.log.Errorf("could not update customer %v", err)
-		handleResponse(c, InternalError, domain.InternalServerError)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 	handleResponse(c, OK, body)
