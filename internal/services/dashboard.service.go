@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/pharma-crm-backend/domain"
@@ -727,27 +728,27 @@ func (s *Services) DashboardPayments(ctx context.Context, params *domain.Dashboa
 	}
 	// cash
 	if tmpPreviues.CashPrevius != 0 {
-		res.CashPercent = (((res.Cash - tmpPreviues.CashPrevius) * 100) / tmpPreviues.CashPrevius) * 100
+		res.CashPercent = math.Round((((res.Cash - tmpPreviues.CashPrevius) * 100) / tmpPreviues.CashPrevius) * 100)
 	}
 	// humo
 	if tmpPreviues.HumoPrevius != 0 {
-		res.HumoPercent = (((res.Humo - tmpPreviues.HumoPrevius) * 100) / tmpPreviues.HumoPrevius) * 100
+		res.HumoPercent = math.Round((((res.Humo - tmpPreviues.HumoPrevius) * 100) / tmpPreviues.HumoPrevius) * 100)
 	}
 	// uzcard
 	if tmpPreviues.UzcardPrevius != 0 {
-		res.UzcardPercent = (((res.Uzcard - tmpPreviues.UzcardPrevius) * 100) / tmpPreviues.UzcardPrevius) * 100
+		res.UzcardPercent = math.Round((((res.Uzcard - tmpPreviues.UzcardPrevius) * 100) / tmpPreviues.UzcardPrevius) * 100)
 	}
 	// click
 	if tmpPreviues.ClickPrevius != 0 {
-		res.ClickPercent = (((res.Cash - tmpPreviues.ClickPrevius) * 100) / tmpPreviues.ClickPrevius) * 100
+		res.ClickPercent = math.Round((((res.Cash - tmpPreviues.ClickPrevius) * 100) / tmpPreviues.ClickPrevius) * 100)
 	}
 	// payme
 	if tmpPreviues.PaymePrevius != 0 {
-		res.PaymePercent = (((res.Cash - tmpPreviues.PaymePrevius) * 100) / tmpPreviues.PaymePrevius) * 100
+		res.PaymePercent = math.Round((((res.Cash - tmpPreviues.PaymePrevius) * 100) / tmpPreviues.PaymePrevius) * 100)
 	}
 	// alif
 	if tmpPreviues.AlifPrevius != 0 {
-		res.AlifPercent = (((res.Cash - tmpPreviues.AlifPrevius) * 100) / tmpPreviues.AlifPrevius) * 100
+		res.AlifPercent = math.Round((((res.Cash - tmpPreviues.AlifPrevius) * 100) / tmpPreviues.AlifPrevius) * 100)
 	}
 
 	return &res, nil
