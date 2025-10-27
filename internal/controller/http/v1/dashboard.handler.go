@@ -399,14 +399,13 @@ func (h *DashboardHandler) Payments(c *gin.Context) {
 		return
 	}
 	var params domain.DashboardQueryParam
-	// bind query parameters
 	err := c.ShouldBindQuery(&params)
 	if err != nil {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
+
 	var body domain.DashboardBody
-	// bind store ids
 	if c.Request.Body != nil {
 		_ = c.ShouldBindJSON(&body)
 	}
@@ -425,7 +424,7 @@ func (h *DashboardHandler) Payments(c *gin.Context) {
 
 	res, err := h.service.DashboardPayments(ctx, &params)
 	if err != nil {
-		handleServiceResponse(c, InternalError, err)
+		handleServiceResponse(c, nil, err)
 		return
 	}
 	handleResponse(c, OK, res)

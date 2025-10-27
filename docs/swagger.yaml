@@ -1655,6 +1655,8 @@ definitions:
       expire_date:
         description: 'format: 2006-01-02'
         type: string
+      id:
+        type: string
       mxik:
         type: string
       unit_code:
@@ -9415,7 +9417,7 @@ paths:
         in: query
         name: search
         type: string
-      - description: Status (active || inactive
+      - description: Status (active || inactive)
         in: query
         name: status
         type: string
@@ -11401,19 +11403,19 @@ paths:
         in: query
         name: search
         type: string
-      - description: Start Date
+      - description: start_date
         in: query
         name: start_date
         type: string
-      - description: End Date
+      - description: end_date
         in: query
         name: end_date
         type: string
-      - description: Producer ID
+      - description: producer_id
         in: query
         name: producer_id
         type: string
-      - description: Store ids
+      - description: store_ids
         in: body
         name: store_ids
         schema:

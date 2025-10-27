@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
 )
 
@@ -284,15 +285,16 @@ func (s *Services) DashboardChartStats(ctx context.Context, params *domain.Dashb
 	}
 
 	args := []any{startTime, endTime, interval}
-
+	fmt.Println("--->>> ", params.StoreIds)
 	// qo‘shimcha filterlar
-	filter := ""
+	storeFilter := ""
 	if len(params.StoreIds) > 0 {
-		filter += " AND s.store_id IN (?)"
+		storeFilter += " AND s.store_id IN (?)"
 		args = append(args, params.StoreIds)
 	}
+	companyFilter := ""
 	if params.CompanyId != "" {
-		filter += " AND st.company_id = ?"
+		companyFilter += " AND st.company_id = ?"
 		args = append(args, params.CompanyId)
 	}
 
@@ -315,14 +317,15 @@ func (s *Services) DashboardChartStats(ctx context.Context, params *domain.Dashb
 		%s = ts.period
 		AND s.stage IN (9, 11)
 		AND s.sale_type = 'SALE'
+		%s
 	LEFT JOIN stores st ON s.store_id = st.id
 	%s
 	GROUP BY ts.period
 	ORDER BY ts.period;
-	`, timeTruncCol, filter)
+	`, timeTruncCol, storeFilter, companyFilter)
 
 	// bajarish
-	err = s.db.WithContext(ctx).Debug().Raw(query, args...).Scan(&res).Error
+	err = s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get chart info: %v", err)
 		return res, domain.InternalServerError
@@ -336,7 +339,7 @@ func (s *Services) DashboardTopStores(ctx context.Context, params *domain.Dashbo
 
 	var (
 		args   []any
-		query  = `SELECT stores.id, stores.name, COUNT(*) AS count, SUM(sales.total_amount) AS total_amount FROM sales INNER JOIN stores ON sales.store_id = stores.id`
+		query  = `SELECT stores.id, stores.name, COUNT(*) AS count, SUM(sales.total_amount) AS total_amount FROM sales JOIN stores ON sales.store_id = stores.id`
 		filter = ` WHERE sales.stage IN (9, 11)`
 		group  = ` GROUP BY stores.id`
 		order  = ` ORDER BY total_amount DESC`
@@ -404,9 +407,10 @@ func (s *Services) DashboardTopProducts(ctx context.Context, params *domain.Dash
 		args  []any
 		query = `
 		SELECT
-			p.id, p.name,
-			SUM(ci.quantity) + FLOOR(SUM(ci.unit_quantity)::decimal / p.unit_per_pack) AS count,
-			(SUM(ci.unit_quantity) % p.unit_per_pack) AS unit_quantity,
+			p.id, 
+			p.name,
+			SUM(ci.unit_quantity) / p.unit_per_pack AS count,
+			SUM(ci.unit_quantity) % p.unit_per_pack AS unit_quantity,
 			p.unit_per_pack,
 			sum(ci.total_price) as total_amount
 		FROM cart_items ci
@@ -621,117 +625,132 @@ func (s *Services) DashboardTopSeller(ctx context.Context, params *domain.Dashbo
 }
 
 // get payment
-func (s *Services) DashboardPayments(ctx context.Context, params *domain.DashboardQueryParam) ([]domain.DashboardPayment, error) {
-	var res []domain.DashboardPayment
-
-	// Parse start and end dates
+func (s *Services) DashboardPayments(ctx context.Context, params *domain.DashboardQueryParam) (*domain.DashboardPaymentDto, error) {
+	var startTime, endTime time.Time
+	// Parse datetimes
 	startTime, err := time.Parse(time.RFC3339, params.StartDate)
 	if err != nil {
 		s.log.Error("Invalid start_date format: %v", err)
-		return res, domain.InvalidTimeFormatError
+		return nil, domain.InvalidTimeFormatError
 	}
-	endTime := startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
 	if params.EndDate != "" {
 		endTime, err = time.Parse(time.RFC3339, params.EndDate)
 		if err != nil {
 			s.log.Error("Invalid end_date format: %v", err)
-			return res, domain.InvalidTimeFormatError
+			return nil, domain.InvalidTimeFormatError
 		}
+	} else {
+		endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
 	}
 
 	// Oldingi davrni hisoblash
 	beforeStart, beforeEnd := utils.BeforeDatesTime(startTime, endTime)
 
-	// Format timestamps for SQL
-	startStr := startTime.Format("2006-01-02 15:04:05")
-	endStr := endTime.Format("2006-01-02 15:04:05")
-	beforeStartStr := beforeStart.Format("2006-01-02 15:04:05")
-	beforeEndStr := beforeEnd.Format("2006-01-02 15:04:05")
+	var res domain.DashboardPaymentDto
+	qb := s.db.WithContext(ctx).
+		Select(
+			"SUM(s.cash) AS cash",
+			"COUNT(1) FILTER (WHERE s.cash > 0) AS cash_count",
+			"SUM(s.humo) AS humo",
+			"COUNT(1) FILTER (WHERE s.humo > 0) AS humo_count",
+			"SUM(s.uzcard) AS uzcard",
+			"COUNT(1) FILTER (WHERE s.uzcard > 0) AS uzcard_count",
+			"SUM(s.click) AS click",
+			"COUNT(1) FILTER (WHERE s.click > 0) AS click_count",
+			"SUM(s.payme) AS payme",
+			"COUNT(1) FILTER (WHERE s.payme > 0) AS payme_count",
+			"SUM(s.alif) AS alif",
+			"COUNT(1) FILTER (WHERE s.alif > 0) AS alif_count",
+		).
+		Table("sales s").
+		Where("s.stage IN(?)", constants.FinishedSaleStages)
 
-	// Query
-	query := `
-	SELECT
-		curr.id,
-		curr.name,
-		curr.amount,
-		curr.count,
-		prev.amount AS previous_amount,
-		ROUND(
-			CASE 
-				WHEN COALESCE(prev.amount, 0) = 0 THEN 100
-				ELSE ((curr.amount - prev.amount) * 100.0) / NULLIF(prev.amount, 0)
-			END, 2
-		) AS percent
-	FROM (
-		SELECT
-			pt.id,
-			pt.name,
-			SUM(sp.amount) AS amount,
-			COUNT(sp.id) AS count
-		FROM sale_payments sp
-		JOIN payment_types pt ON sp.payment_type_id = pt.id
-		JOIN sales s ON sp.sale_id = s.id
-		JOIN stores st ON s.store_id = st.id
-		WHERE (sp.created_at + interval '5 hours') BETWEEN ? AND ?
-			%s
-		GROUP BY pt.id, pt.name
-	) curr
-	LEFT JOIN (
-		SELECT
-			pt.id,
-			SUM(sp.amount) AS amount
-		FROM sale_payments sp
-		JOIN payment_types pt ON sp.payment_type_id = pt.id
-		JOIN sales s ON sp.sale_id = s.id
-		JOIN stores st ON s.store_id = st.id
-		WHERE (sp.created_at + interval '5 hours') BETWEEN ? AND ?
-			%s
-		GROUP BY pt.id
-	) prev ON curr.id = prev.id
-	ORDER BY curr.amount DESC;
-	`
-
-	// Store filter if provided
-	storeFilter := ""
+	// filters
 	if len(params.StoreIds) > 0 {
-		storeFilter += " AND s.store_id IN ? "
+		qb = qb.Where("s.store_id IN(?)", params.StoreIds)
 	}
 	if params.CompanyId != "" {
-		storeFilter += " AND st.company_id = ? "
+		qb = qb.Joins("JOIN stores st ON s.store_id = st.id AND st.company_id IN(?)", params.CompanyId)
+	}
+	if params.StartDate != "" {
+		qb = qb.Where("(s.completed_at + interval '5 hours') >= ?", startTime)
+	}
+	if params.EndDate != "" {
+		qb = qb.Where("(s.completed_at + interval '5 hours') <= ?", endTime)
 	}
 
-	// Build final query with store filter
-	query = fmt.Sprintf(query, storeFilter, storeFilter)
-
-	// Build args
-	args := []any{
-		// curr
-		startStr, endStr,
-	}
-	if len(params.StoreIds) > 0 {
-		args = append(args, params.StoreIds)
-	}
-	if params.CompanyId != "" {
-		args = append(args, params.CompanyId)
-	}
-
-	// old period args
-	args = append(args, beforeStartStr, beforeEndStr)
-	if len(params.StoreIds) > 0 {
-		args = append(args, params.StoreIds)
-	}
-	if params.CompanyId != "" {
-		args = append(args, params.CompanyId)
-	}
-
-	// Execute query
-	err = s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
+	err = qb.Take(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get dashboard payment stats: %v", err)
-		return res, domain.InternalServerError
+		return &res, domain.InternalServerError
 	}
 
-	return res, nil
+	// previus data
+	var tmpPreviues struct {
+		CashPrevius   float64 `gorm:"cash_previus"`
+		HumoPrevius   float64 `gorm:"humo_previus"`
+		UzcardPrevius float64 `gorm:"uzcard_previus"`
+		ClickPrevius  float64 `gorm:"click_previus"`
+		PaymePrevius  float64 `gorm:"payme_previus"`
+		AlifPrevius   float64 `gorm:"alif_previus"`
+	}
+
+	qbPrev := s.db.WithContext(ctx).
+		Select(
+			"SUM(s.cash) AS cash_previus",
+			"SUM(s.humo) AS humo_previus",
+			"SUM(s.uzcard) AS uzcard_previus",
+			"SUM(s.click) AS click_previus",
+			"SUM(s.payme) AS payme_previus",
+			"SUM(s.alif) AS alif_previus",
+		).
+		Table("sales s").
+		Where("s.stage IN(?)", constants.FinishedSaleStages)
+
+	// previus filter
+	if len(params.StoreIds) > 0 {
+		qbPrev = qbPrev.Where("s.store_id IN(?)", params.StoreIds)
+	}
+	if params.CompanyId != "" {
+		qbPrev = qbPrev.Joins("JOIN stores st ON s.store_id = st.id AND st.company_id IN(?)", params.CompanyId)
+	}
+	if params.StartDate != "" {
+		qbPrev = qbPrev.Where("(s.completed_at + interval '5 hours') >= ?", beforeStart)
+	}
+	if params.EndDate != "" {
+		qbPrev = qbPrev.Where("(s.completed_at + interval '5 hours') <= ?", beforeEnd)
+	}
+	err = qbPrev.Take(&tmpPreviues).Error
+	if err != nil {
+		s.log.Errorf("could not get dashboard payment stats for previus: %v", err)
+		return &res, domain.InternalServerError
+	}
+	// cash
+	if tmpPreviues.CashPrevius != 0 {
+		res.CashPercent = (((res.Cash - tmpPreviues.CashPrevius) * 100) / tmpPreviues.CashPrevius) * 100
+	}
+	// humo
+	if tmpPreviues.HumoPrevius != 0 {
+		res.HumoPercent = (((res.Humo - tmpPreviues.HumoPrevius) * 100) / tmpPreviues.HumoPrevius) * 100
+	}
+	// uzcard
+	if tmpPreviues.UzcardPrevius != 0 {
+		res.UzcardPercent = (((res.Uzcard - tmpPreviues.UzcardPrevius) * 100) / tmpPreviues.UzcardPrevius) * 100
+	}
+	// click
+	if tmpPreviues.ClickPrevius != 0 {
+		res.ClickPercent = (((res.Cash - tmpPreviues.ClickPrevius) * 100) / tmpPreviues.ClickPrevius) * 100
+	}
+	// payme
+	if tmpPreviues.PaymePrevius != 0 {
+		res.PaymePercent = (((res.Cash - tmpPreviues.PaymePrevius) * 100) / tmpPreviues.PaymePrevius) * 100
+	}
+	// alif
+	if tmpPreviues.AlifPrevius != 0 {
+		res.AlifPercent = (((res.Cash - tmpPreviues.AlifPrevius) * 100) / tmpPreviues.AlifPrevius) * 100
+	}
+
+	return &res, nil
 }
 
 func (s *Services) DashboardTransaction(ctx context.Context, params *domain.DashboardQueryParam) ([]domain.DashboardTransaction, error) {
