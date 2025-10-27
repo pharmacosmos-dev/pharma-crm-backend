@@ -2580,6 +2580,43 @@ paths:
       summary: Update a cart item
       tags:
       - cart_items
+  /cart_item/temporary/{id}:
+    put:
+      consumes:
+      - application/json
+      description: Update a cart item from the request body
+      parameters:
+      - description: cartItemId
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update unit
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CartItemUpdateUnit'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update a cart item
+      tags:
+      - cart_items
   /cash_box:
     post:
       consumes:
@@ -5662,10 +5699,12 @@ paths:
         name: end_date
         type: string
       - description: From Amount
+        format: float64
         in: query
         name: from_amount
         type: number
       - description: To Amount
+        format: float64
         in: query
         name: to_amount
         type: number
@@ -5730,10 +5769,12 @@ paths:
         name: end_date
         type: string
       - description: From Amount
+        format: float64
         in: query
         name: from_amount
         type: number
       - description: To Amount
+        format: float64
         in: query
         name: to_amount
         type: number
