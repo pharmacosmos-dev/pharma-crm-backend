@@ -121,6 +121,33 @@ type DashboardPayment struct {
 	PreviousTotalAmount float64 `gorm:"previous_total_amount" json:"previous_total_amount"`
 }
 
+type DashboardPaymentDto struct {
+	Cash          float64 `gorm:"cash" json:"cash"`
+	CashCount     int     `gorm:"cash_count" json:"cash_count"`
+	CashPrevius   float64 `gorm:"cash_previus" json:"cash_previus"`
+	CashPercent   float64 `gorm:"cash_percent" json:"cash_percent"`
+	Humo          float64 `gorm:"humo" json:"humo"`
+	HumoCount     int     `gorm:"humo_count" json:"humo_count"`
+	HumoPrevius   float64 `gorm:"humo_previus" json:"humo_previus"`
+	HumoPercent   float64 `gorm:"humo_percent" json:"humo_percent"`
+	Uzcard        float64 `gorm:"uzcard" json:"uzcard"`
+	UzcardCount   int     `gorm:"uzcard_count" json:"uzcard_count"`
+	UzcardPrevius float64 `gorm:"uzcard_prevuis" json:"uzcard_prevuis"`
+	UzcardPercent float64 `gorm:"uzcard_percent" json:"uzcard_percent"`
+	Click         float64 `gorm:"click" json:"click"`
+	ClickCount    int     `gorm:"click_count" json:"click_count"`
+	ClickPrevius  float64 `gorm:"click_previus" json:"click_previus"`
+	ClickPercent  float64 `gorm:"click_percent" json:"click_percent"`
+	Payme         float64 `gorm:"payme" json:"payme"`
+	PaymeCount    int     `gorm:"payme_count" json:"payme_count"`
+	PaymePrevius  float64 `gorm:"payme_previus" json:"payme_previus"`
+	PaymePercent  float64 `gorm:"payme_percent" json:"payme_percent"`
+	Alif          float64 `gorm:"alif" json:"alif"`
+	AlifCount     int     `gorm:"alif_count" json:"alif_count"`
+	AlifPrevius   float64 `gorm:"alif_previus" json:"alif_previus"`
+	AlifPercent   float64 `gorm:"alif_percent" json:"alif_percent"`
+}
+
 // Dashboard transactions structure
 type DashboardTransaction struct {
 	Name                string  `gorm:"name" json:"name"`

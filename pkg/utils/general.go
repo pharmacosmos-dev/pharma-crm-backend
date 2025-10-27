@@ -192,7 +192,7 @@ func BeforeDates(startDateStr, endDateStr string) (string, string) {
 	beforeStart := startDate.Add(-diff)
 	beforeEnd := startDate.Add(-time.Hour * 24) // endDate oldingi kun
 
-	return beforeStart.Format("2006-01-02"), beforeEnd.Format("2006-01-02")
+	return beforeStart.Format(time.RFC3339), beforeEnd.Format(time.RFC3339)
 }
 
 // BeforeDatesTime returns the previous period (beforeStart, beforeEnd) based on the duration between start and end.

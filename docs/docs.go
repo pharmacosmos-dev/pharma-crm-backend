@@ -11857,7 +11857,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Status (active || inactive",
+                        "description": "Status (active || inactive)",
                         "name": "status",
                         "in": "query"
                     },
@@ -15204,24 +15204,24 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Start Date",
+                        "description": "start_date",
                         "name": "start_date",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "End Date",
+                        "description": "end_date",
                         "name": "end_date",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Producer ID",
+                        "description": "producer_id",
                         "name": "producer_id",
                         "in": "query"
                     },
                     {
-                        "description": "Store ids",
+                        "description": "store_ids",
                         "name": "store_ids",
                         "in": "body",
                         "schema": {
@@ -26033,6 +26033,9 @@ const docTemplate = `{
                 },
                 "expire_date": {
                     "description": "format: 2006-01-02",
+                    "type": "string"
+                },
+                "id": {
                     "type": "string"
                 },
                 "mxik": {
