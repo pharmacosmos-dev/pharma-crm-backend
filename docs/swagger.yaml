@@ -1672,6 +1672,8 @@ definitions:
       expire_date:
         description: 'format: 2006-01-02'
         type: string
+      id:
+        type: string
       mxik:
         type: string
       unit_code:
@@ -2558,6 +2560,43 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/domain.CartItemDiscountRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update a cart item
+      tags:
+      - cart_items
+  /cart_item/temporary/{id}:
+    put:
+      consumes:
+      - application/json
+      description: Update a cart item from the request body
+      parameters:
+      - description: cartItemId
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update unit
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CartItemUpdateUnit'
       produces:
       - application/json
       responses:
@@ -5660,10 +5699,12 @@ paths:
         name: end_date
         type: string
       - description: From Amount
+        format: float64
         in: query
         name: from_amount
         type: number
       - description: To Amount
+        format: float64
         in: query
         name: to_amount
         type: number
@@ -5728,10 +5769,12 @@ paths:
         name: end_date
         type: string
       - description: From Amount
+        format: float64
         in: query
         name: from_amount
         type: number
       - description: To Amount
+        format: float64
         in: query
         name: to_amount
         type: number
@@ -9462,7 +9505,7 @@ paths:
         in: query
         name: search
         type: string
-      - description: Status (active || inactive
+      - description: Status (active || inactive)
         in: query
         name: status
         type: string
@@ -11448,19 +11491,19 @@ paths:
         in: query
         name: search
         type: string
-      - description: Start Date
+      - description: start_date
         in: query
         name: start_date
         type: string
-      - description: End Date
+      - description: end_date
         in: query
         name: end_date
         type: string
-      - description: Producer ID
+      - description: producer_id
         in: query
         name: producer_id
         type: string
-      - description: Store ids
+      - description: store_ids
         in: body
         name: store_ids
         schema:

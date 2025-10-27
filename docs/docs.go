@@ -990,6 +990,64 @@ const docTemplate = `{
                 }
             }
         },
+        "/cart_item/temporary/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update a cart item from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "cart_items"
+                ],
+                "summary": "Update a cart item",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "cartItemId",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update unit",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.CartItemUpdateUnit"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/cart_item/{id}": {
             "get": {
                 "security": [
@@ -6040,12 +6098,14 @@ const docTemplate = `{
                     },
                     {
                         "type": "number",
+                        "format": "float64",
                         "description": "From Amount",
                         "name": "from_amount",
                         "in": "query"
                     },
                     {
                         "type": "number",
+                        "format": "float64",
                         "description": "To Amount",
                         "name": "to_amount",
                         "in": "query"
@@ -6145,12 +6205,14 @@ const docTemplate = `{
                     },
                     {
                         "type": "number",
+                        "format": "float64",
                         "description": "From Amount",
                         "name": "from_amount",
                         "in": "query"
                     },
                     {
                         "type": "number",
+                        "format": "float64",
                         "description": "To Amount",
                         "name": "to_amount",
                         "in": "query"
@@ -11857,7 +11919,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Status (active || inactive",
+                        "description": "Status (active || inactive)",
                         "name": "status",
                         "in": "query"
                     },
@@ -15204,24 +15266,24 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Start Date",
+                        "description": "start_date",
                         "name": "start_date",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "End Date",
+                        "description": "end_date",
                         "name": "end_date",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Producer ID",
+                        "description": "producer_id",
                         "name": "producer_id",
                         "in": "query"
                     },
                     {
-                        "description": "Store ids",
+                        "description": "store_ids",
                         "name": "store_ids",
                         "in": "body",
                         "schema": {
@@ -26033,6 +26095,9 @@ const docTemplate = `{
                 },
                 "expire_date": {
                     "description": "format: 2006-01-02",
+                    "type": "string"
+                },
+                "id": {
                     "type": "string"
                 },
                 "mxik": {

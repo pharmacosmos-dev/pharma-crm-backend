@@ -15,7 +15,7 @@ import (
 // region Create
 
 func (s *Services) CreateCartItem(ctx context.Context, user *domain.EmployeeClaims, req *domain.CartItemRequest) (*domain.CartItem, error) {
-	
+
 	// get sale info by id
 	sale, err := s.GetSaleById(ctx, req.SaleId)
 	if err != nil {
@@ -525,6 +525,71 @@ func (s *Services) UpdateCartItemQuantity(ctx context.Context, req *domain.CartI
 	if ostatok < reqUnitQuantity {
 		return nil, domain.NotEnoughProductError
 	}
+
+	updateQuantity := reqUnitQuantity - cartItem.UnitQuantity
+
+	// compare old and new quantities
+	isIncrease := updateQuantity > 0
+	quantityDiff := req.Quantity - (cartItem.UnitQuantity / storeProduct.UnitPerPack)
+	unitQuantityDiff := req.UnitQuantity - (cartItem.UnitQuantity % storeProduct.UnitPerPack)
+
+	// calculate cart_item total_price
+	totalPrice := (((storeProduct.RetailPrice * 100) / float64(storeProduct.UnitPerPack)) * float64(updateQuantity)) / 100
+
+	_, err = s.IncrementCartItemQuantity(ctx, s.db, req.Id, updateQuantity, totalPrice)
+	if err != nil {
+		return nil, err
+	}
+
+	// updated response
+	response := map[string]any{
+		"id":                 req.Id,
+		"store_product_id":   req.StoreProductId,
+		"increase":           isIncrease,
+		"quantity":           req.Quantity,
+		"unit_quantity":      req.UnitQuantity,
+		"unit_per_pack":      storeProduct.UnitPerPack,
+		"quantity_diff":      quantityDiff,
+		"unit_quantity_diff": unitQuantityDiff,
+	}
+
+	return response, nil
+
+}
+
+func (s *Services) UpdateCartItemQuantityTemporary(ctx context.Context, req *domain.CartItemUpdateUnit) (map[string]any, error) {
+	// get cart_item before update
+	cartItem, err := s.GetCartItemById(ctx, req.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	// sale, err := s.GetSaleById(ctx, cartItem.SaleId)
+	// if err != nil {
+	//   return nil, err
+	// }
+
+	// // check sale status
+	// if !utils.In(sale.Stage, constants.PendingSaleStages...) {
+	//   return nil, domain.SaleIsClosedError
+	// }
+
+	// get store_product by id
+	storeProduct, err := s.GetStoreProductById(ctx, req.StoreProductId)
+	if err != nil {
+		return nil, err
+	}
+
+	// // total remaining unit_quantity -> cart + store_product
+	// ostatok := storeProduct.UnitQuantity
+
+	// total unit_quantity requested
+	reqUnitQuantity := req.UnitQuantity + (req.Quantity * storeProduct.UnitPerPack)
+
+	// // validate quantity enough or no
+	// if ostatok < reqUnitQuantity {
+	//   return nil, domain.NotEnoughProductError
+	// }
 
 	updateQuantity := reqUnitQuantity - cartItem.UnitQuantity
 
