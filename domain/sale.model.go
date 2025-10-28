@@ -24,6 +24,7 @@ type Sale struct {
 	Stage              int            `gorm:"stage" json:"stage"`
 	OnlineStatus       int            `gorm:"online_status" json:"online_status"`
 	IsDelivered        bool           `gorm:"is_delivered" json:"is_delivered"`
+	IsReturned         bool           `gorm:"is_returned" json:"is_returned"`
 	Cash               float64        `gorm:"cash" json:"cash"`
 	Click              float64        `gorm:"click" json:"click"`
 	Humo               float64        `gorm:"humo" json:"humo"`
@@ -97,6 +98,7 @@ type SaleResponse struct {
 	SaleType        string     `gorm:"sale_type" json:"sale_type"`
 	DiscountBarcode string     `gorm:"discount_barcode" json:"discount_barcode"`
 	IsDelivered     bool       `gorm:"is_delivered" json:"is_delivered"`
+	IsReturned      bool       `gorm:"is_returned" json:"is_returned"`
 	FiscalSign      string     `gorm:"fiscal_sign" json:"fiscal_sign"`
 	CheckUrl        string     `gorm:"check_url" json:"check_url"`
 	OtpCode         string     `gorm:"otp_code" json:"otp_code"`
@@ -105,7 +107,7 @@ type SaleResponse struct {
 	CreatedAt       *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt       *time.Time `gorm:"updated_at" json:"updated_at"`
 	CompletedAt     *time.Time `gorm:"completed_at" json:"completed_at"`
-	CashBack        float64    `gorm"cash_back" json:"cash_back"`
+	CashBack        float64    `gorm:"cash_back" json:"cash_back"`
 
 	CashBoxOperationId string `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
 	StoreName          string `gorm:"store_name" json:"store_name"`

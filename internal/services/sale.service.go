@@ -412,7 +412,6 @@ func (s *Services) FinalizeReturnSale(ctx context.Context, req *domain.FinalSale
 			updates["click"] = -req.Click
 			updates["payme"] = -req.Payme
 			updates["alif"] = -req.Alif
-			updates["loyalty_card"] = -req.LoyaltyCard
 			updates["total_amount"] = gorm.Expr("-(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
 			updates["total_discount"] = gorm.Expr("(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
 			updates["return_amount"] = req.ReturnAmount
@@ -427,6 +426,7 @@ func (s *Services) FinalizeReturnSale(ctx context.Context, req *domain.FinalSale
 				_ = tx.Rollback()
 				return nil, err
 			}
+			updates["is_returned"] = true
 			updates["stage"] = constants.SaleStageReturnedFinish
 			updates["updated_at"] = time.Now()
 			updates["completed_at"] = time.Now()
@@ -438,7 +438,6 @@ func (s *Services) FinalizeReturnSale(ctx context.Context, req *domain.FinalSale
 		updates["click"] = -req.Click
 		updates["payme"] = -req.Payme
 		updates["alif"] = -req.Alif
-		updates["loyalty_card"] = -req.LoyaltyCard
 		updates["total_amount"] = gorm.Expr("-(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
 		updates["total_discount"] = gorm.Expr("(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
 		updates["return_amount"] = req.ReturnAmount
@@ -700,7 +699,7 @@ func (s *Services) EposResultReturn(
 			_ = tx.Rollback()
 			return nil, err
 		}
-
+		updates["is_returned"] = true
 		updates["stage"] = constants.SaleStageReturnedFinish
 		updates["updated_at"] = time.Now()
 		updates["completed_at"] = time.Now()
@@ -1201,6 +1200,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 		CheckUrl           string     `gorm:"check_url"`
 		OtpCode            string     `gorm:"otp_code"`
 		IsSentToTax        string     `gorm:"is_sent_to_tax"`
+		IsReturned         bool       `gorm:"is_returned"`
 		CreatedAt          *time.Time `gorm:"created_at"`
 		UpdatedAt          *time.Time `gorm:"updated_at"`
 		CompletedAt        *time.Time `gorm:"completed_at"`
@@ -1248,6 +1248,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 			"s.fiscal_sign",
 			"s.check_url",
 			"s.is_sent_to_tax",
+			"s.is_returned",
 			"s.tax_free",
 			"s.otp_code",
 			"s.created_at",
@@ -1306,6 +1307,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 		FiscalSign:         tempSale.FiscalSign,
 		CheckUrl:           tempSale.CheckUrl,
 		IsSentToTax:        tempSale.IsSentToTax,
+		IsReturned:         tempSale.IsReturned,
 		TaxFree:            tempSale.TaxFree,
 		OtpCode:            tempSale.OtpCode,
 		CreatedAt:          tempSale.CreatedAt,
@@ -1476,6 +1478,7 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 			"s.fiscal_sign",
 			"s.is_sent_to_tax",
 			"s.is_paid",
+			"s.is_returned",
 			"s.created_at",
 			"s.completed_at",
 			"em.full_name",
@@ -1703,6 +1706,7 @@ func (s *Services) GetSaleList(ctx context.Context, params *domain.SaleQueryPara
 			"s.check_url",
 			"s.fiscal_sign",
 			"s.is_sent_to_tax",
+			"s.is_returned",
 			"s.is_paid",
 			"s.created_at",
 			"s.completed_at",
