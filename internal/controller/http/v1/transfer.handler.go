@@ -15,7 +15,6 @@ import (
 	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/xuri/excelize/v2"
-	"gorm.io/gorm"
 )
 
 type TransferHandler struct {
@@ -428,6 +427,11 @@ func (h *TransferHandler) UpdateByBarcode(c *gin.Context) {
 	req.TransferId = id
 	err := h.service.UpdateTransferByBarcode(ctx, &req, user, constants.TransferTypeMove)
 	if err != nil {
+		if notAddErr, ok := err.(*domain.NotAdditionError); ok {
+			handleResponse(c, MultiStatus, notAddErr.Data)
+			return
+		}
+
 		handleServiceResponse(c, nil, err)
 		return
 	}
@@ -738,17 +742,13 @@ func (h *TransferHandler) ExportTransferNakladnoyPDF(c *gin.Context) {
 		handleResponse(c, BadRequest, "invalid.transfer.id")
 		return
 	}
-	var transfer domain.Transfer
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
 	// get transfer by id
-	err = h.db.
-		Model(&domain.Transfer{}).
-		First(&transfer, "id = ?", transferId).Error
+	transfer, err := h.service.GetTransferById(ctx, transferId)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "transfer.not.found")
-			return
-		}
-		handleResponse(c, InternalError, "failed.get.transfer")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
@@ -771,10 +771,10 @@ func (h *TransferHandler) ExportTransferNakladnoyPDF(c *gin.Context) {
 	nakladnoyName := fmt.Sprintf("НАКЛАДНАЯ № %s от %s г.", transfer.PublicId, time.Now().Format("02.01.2006"))
 	fromStore := "Поставщик: " + transfer.FromStore.Value.Name
 	toStore := "Получатель: " + transfer.ToStore.Value.Name
-	fromStoreAddress := "Адрес: " + transfer.FromStore.Value.Name
-	toStoreAddress := "Адрес: " + transfer.ToStore.Value.Name
-	fromStorePhone := fmt.Sprintf("Тел: +%s,%s", transfer.FromStore.Value.Name, "filial@pharma")
-	toStorePhone := fmt.Sprintf("Тел: +%s,%s", transfer.ToStore.Value.Name, "filial@pharma")
+	fromStoreAddress := "Адрес: " + transfer.FromStore.Value.Address
+	toStoreAddress := "Адрес: " + transfer.ToStore.Value.Address
+	fromStorePhone := fmt.Sprintf("Тел: +%s,%s", transfer.FromStore.Value.Phone, "filial@pharma")
+	toStorePhone := fmt.Sprintf("Тел: +%s,%s", transfer.ToStore.Value.Phone, "filial@pharma")
 
 	pdf := pdf.New("P", "mm", "A4", "")
 	pdf.AddUTF8Font("DejaVu", "", "./app/uploads/DejaVuSans.ttf")
