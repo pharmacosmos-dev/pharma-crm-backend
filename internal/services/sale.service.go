@@ -284,7 +284,6 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 
 	updates := map[string]any{}
 	updates["tax_free"] = req.TaxFree
-
 	if req.TaxFree {
 		sale = s.getSalePayAmounts(sale, req)
 		if sale.Stage < constants.SaleStagePayFinished {
@@ -299,16 +298,16 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 			updates["click"] = req.Click
 			updates["payme"] = req.Payme
 			updates["alif"] = req.Alif
-			updates["loyalty_card"] = req.LoyaltyCard
+			// updates["loyalty_card"] = req.LoyaltyCard
 			updates["total_amount"] = gorm.Expr("(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
 			updates["total_discount"] = gorm.Expr("(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
 			updates["return_amount"] = req.ReturnAmount
 			updates["stage"] = constants.SaleStagePayFinished
 			updates["updated_at"] = time.Now()
 
-			if req.LoyaltyCardBarcode != "" {
-				updates["cash_back"] = gorm.Expr("(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) / 100 * ? FROM cart_items WHERE sale_id = ?)", sale.Customer.LoyaltyCardPercent, req.SaleID)
-			}
+			// if req.LoyaltyCardBarcode != "" {
+			// 	updates["cash_back"] = gorm.Expr("(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) / 100 * ? FROM cart_items WHERE sale_id = ?)", sale.Customer.LoyaltyCardPercent, req.SaleID)
+			// }
 		}
 
 		if sale.Stage < constants.SaleStageFinished {
@@ -326,25 +325,22 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 			if req.OtpCode != "" {
 				updates["otp_code"] = req.OtpCode
 			}
-			fmt.Println("-->> ", req.TotalAmount, req.Cash)
 			updates["cash"] = req.Cash
 			updates["humo"] = req.Humo
 			updates["uzcard"] = req.Uzcard
 			updates["click"] = req.Click
 			updates["payme"] = req.Payme
 			updates["alif"] = req.Alif
-			updates["loyalty_card"] = req.LoyaltyCard
+			// updates["loyalty_card"] = req.LoyaltyCard
 			updates["total_amount"] = gorm.Expr("(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
 			updates["total_discount"] = gorm.Expr("(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
-			updates["cash_back"] = gorm.Expr("(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) / 100 * ? FROM cart_items WHERE sale_id = ?)", sale.Customer.LoyaltyCardPercent, req.SaleID)
 			updates["return_amount"] = req.ReturnAmount
 			updates["stage"] = constants.SaleStageOfdWaiting
 			updates["updated_at"] = time.Now()
 
-			if req.LoyaltyCardBarcode != "" {
-				updates["cash_back"] = gorm.Expr("(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) / 100 * ? FROM cart_items WHERE sale_id = ?)", sale.Customer.LoyaltyCardPercent, req.SaleID)
-			}
-			fmt.Println("updates: --> ", updates)
+			// if req.LoyaltyCardBarcode != "" {
+			// 	updates["cash_back"] = gorm.Expr("(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) / 100 * ? FROM cart_items WHERE sale_id = ?)", sale.Customer.LoyaltyCardPercent, req.SaleID)
+			// }
 		}
 	}
 
@@ -364,7 +360,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 	}
 
 	if err = tx.Commit().Error; err != nil {
-		s.log.Error("could not commit transaction: %v", err)
+		s.log.Error("could not commit finalize sale transaction: %v", err)
 		return nil, domain.InternalServerError
 	}
 
@@ -1143,7 +1139,7 @@ func (s *Services) ReturnStatusPending(ctx context.Context, tx *gorm.DB, sale *d
 }
 
 func (s *Services) updateSaleFields(ctx context.Context, tx *gorm.DB, saleId string, updates map[string]any) error {
-	err := tx.WithContext(ctx).Model(&domain.Sale{}).Where("id = ?", saleId).Debug().Updates(&updates).Error
+	err := tx.WithContext(ctx).Model(&domain.Sale{}).Where("id = ?", saleId).Updates(&updates).Error
 	if err != nil {
 		s.log.Errorf("could not update sale fields: %v", err)
 		return domain.InternalServerError
