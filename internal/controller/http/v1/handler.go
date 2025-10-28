@@ -165,6 +165,8 @@ func handleServiceResponse(c *gin.Context, data any, err error) {
 // mapErrorCodeToStatus maps HTTP status codes to Status objects
 func mapErrorCodeToStatus(code int) Status {
 	switch code {
+	case 207:
+		return MultiStatus
 	case 400:
 		return BadRequest
 	case 401:
