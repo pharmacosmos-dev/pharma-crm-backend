@@ -52,7 +52,7 @@ func (s *Services) CreateSale(ctx context.Context, tx *gorm.DB, req *domain.Sale
 // create return sale
 func (s *Services) CreateReturnSale(ctx context.Context, req *domain.SaleReturnRequest) (*domain.Sale, error) {
 	return nil, domain.SaleIsClosedError
-	
+
 	// get cashbox operation
 	if req.CashboxId == "" {
 		operation, err := s.GetCashboxOperationByID(ctx, req.CashBoxOperationId)
@@ -404,7 +404,7 @@ func (s *Services) FinalizeReturnSale(ctx context.Context, req *domain.FinalSale
 		updates["click"] = -req.Click
 		updates["payme"] = -req.Payme
 		updates["alif"] = -req.Alif
-		updates["loyalty_card"] = -req.LoyaltyCard
+		// updates["loyalty_card"] = -req.LoyaltyCard
 		updates["total_amount"] = gorm.Expr("(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
 		updates["total_discount"] = gorm.Expr("(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
 		updates["return_amount"] = req.ReturnAmount
