@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/spf13/cast"
@@ -934,7 +935,7 @@ func (s *Services) UpdateTransferByBarcode(
 		}
 
 		if len(barcodeResponse) > 1 {
-			return domain.MultiStatus
+			return domain.NewNotAdditionError(http.StatusMultiStatus, barcodeResponse)
 		}
 
 		transferLog.TransferDetailId = barcodeResponse[0].Id
