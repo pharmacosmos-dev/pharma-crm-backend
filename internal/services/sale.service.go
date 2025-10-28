@@ -1558,16 +1558,24 @@ func (s *Services) GetSalesStats(ctx context.Context, params *domain.SaleQueryPa
 	// query builder
 	qb := s.db.WithContext(ctx).
 		Select(
-			"SUM(s.total_amount) AS total_transactions_sum",
+			"SUM(s.total_amount) AS total_transaction_sum",
+			"COUNT(*) AS total_transaction_count",
 			"SUM(CASE WHEN s.sale_type = 'RETURN' THEN s.total_amount ELSE 0 END) AS total_returnals_sum",
-			"SUM(s.total_discount) AS total_discount_amount",
-			"SUM(s.cash) AS total_cash",
-			"SUM(s.humo) AS total_humo",
-			"SUM(s.uzcard) AS total_uzcard",
-			"SUM(s.click) AS total_click",
-			"SUM(s.payme) AS total_payme",
-			"SUM(s.alif) AS total_alif",
-			"COUNT(*) AS total_count",
+			"COUNT(CASE WHEN s.sale_type = 'RETURN' THEN 1 ELSE 0 END) AS total_returned_count",
+			"SUM(s.total_discount) AS total_discount_sum",
+			"COUNT(*) FILTER (WHERE s.total_discount > 0) AS total_discount_count",
+			"SUM(s.cash) AS total_cash_sum",
+			"COUNT(*) FILTER (WHERE s.cash != 0) AS total_cash_count",
+			"SUM(s.humo) AS total_humo_sum",
+			"COUNT(*) FILTER (WHERE s.humo != 0) AS total_humo_count",
+			"SUM(s.uzcard) AS total_uzcard_sum",
+			"COUNT(*) FILTER (WHERE s.uzcard != 0) AS total_uzcard_count",
+			"SUM(s.click) AS total_click_sum",
+			"COUNT(*) FILTER (WHERE s.click != 0) AS total_click_count",
+			"SUM(s.payme) AS total_payme_sum",
+			"COUNT(*) FILTER (WHERE s.payme != 0) AS total_payme_count",
+			"SUM(s.alif) AS total_alif_sum",
+			"COUNT(*) FILTER (WHERE s.alif != 0) AS total_alif_count",
 		).Table("sales s").
 		Joins("JOIN stores st ON s.store_id = st.id")
 
@@ -1632,14 +1640,10 @@ func (s *Services) GetSalesStats(ctx context.Context, params *domain.SaleQueryPa
 	}
 
 	var res domain.SaleStats
-	err := qb.Debug().Take(&res).Error
+	err := qb.Take(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get sale_stats: %v", err)
 		return nil, domain.InternalServerError
-	}
-
-	if res.PaymentTypeStats == nil {
-		res.PaymentTypeStats = []domain.PaymentTypeStats{}
 	}
 
 	return &res, nil
