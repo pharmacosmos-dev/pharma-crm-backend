@@ -326,6 +326,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 			if req.OtpCode != "" {
 				updates["otp_code"] = req.OtpCode
 			}
+			fmt.Println("-->> ", req.TotalAmount, req.Cash)
 			updates["cash"] = req.Cash
 			updates["humo"] = req.Humo
 			updates["uzcard"] = req.Uzcard
@@ -343,6 +344,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 			if req.LoyaltyCardBarcode != "" {
 				updates["cash_back"] = gorm.Expr("(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) / 100 * ? FROM cart_items WHERE sale_id = ?)", sale.Customer.LoyaltyCardPercent, req.SaleID)
 			}
+			fmt.Println("updates: --> ", updates)
 		}
 	}
 
