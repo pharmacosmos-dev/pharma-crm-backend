@@ -934,7 +934,7 @@ func (s *Services) UpdateTransferByBarcode(
 		}
 
 		if len(barcodeResponse) > 1 {
-			return domain.DuplicateError
+			return domain.MultiStatus
 		}
 
 		transferLog.TransferDetailId = barcodeResponse[0].Id
