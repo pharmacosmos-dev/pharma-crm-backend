@@ -326,7 +326,6 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 			if req.OtpCode != "" {
 				updates["otp_code"] = req.OtpCode
 			}
-			fmt.Println("--->>> ", req)
 			updates["cash"] = req.Cash
 			updates["humo"] = req.Humo
 			updates["uzcard"] = req.Uzcard
