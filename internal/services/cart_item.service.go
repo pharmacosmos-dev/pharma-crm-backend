@@ -522,7 +522,7 @@ func (s *Services) UpdateCartItemQuantity(ctx context.Context, req *domain.CartI
 	reqUnitQuantity := req.UnitQuantity + (req.Quantity * storeProduct.UnitPerPack)
 
 	// validate quantity enough or no
-	if ostatok < reqUnitQuantity {
+	if sale.SaleType == constants.SaleTypeSale && ostatok < reqUnitQuantity {
 		return nil, domain.NotEnoughProductError
 	}
 

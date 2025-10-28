@@ -40,13 +40,13 @@ func (s *Services) CreateLoyaltyCard(req *domain.LoyaltyCardCreateRequest) (*dom
 	err := tx.Order("position ASC").First(&loyaltyLevel).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			s.log.Error("could not find loyalty level for new customer")
 			_ = tx.Rollback()
-			return &res, fmt.Errorf("could not find loyalty level for new customer: %s", err.Error())
+			s.log.Error("could not find loyalty level for new customer")
+			return &res, domain.NotFoundError
 		}
-		s.log.Errorf("error on getting loyalty card level in db: %s", err.Error())
 		_ = tx.Rollback()
-		return &res, fmt.Errorf("error on getting loyalty card level in db: %s", err.Error())
+		s.log.Errorf("error on getting loyalty card level in db: %s", err.Error())
+		return &res, domain.InternalServerError
 	}
 
 	loyaltyCardLevelID = loyaltyLevel.Id
@@ -60,9 +60,9 @@ func (s *Services) CreateLoyaltyCard(req *domain.LoyaltyCardCreateRequest) (*dom
 			?, ?, ?
 	)`, req.CustomerID, loyaltyCardLevelID, 0).Error
 	if err != nil {
-		s.log.Errorf("error on creating loyalty card levelup history: %s", err.Error())
 		_ = tx.Rollback()
-		return &res, fmt.Errorf("error on creating loyalty card levelup history: %s", err.Error())
+		s.log.Errorf("error on creating loyalty card levelup history: %s", err.Error())
+		return &res, domain.InternalServerError
 	}
 
 	// add to loyalty card to customer
@@ -85,14 +85,14 @@ func (s *Services) CreateLoyaltyCard(req *domain.LoyaltyCardCreateRequest) (*dom
 		req.CustomerID,
 	).Scan(&res).Error
 	if err != nil {
-		s.log.Errorf("error on adding loyalty card to customer: %s", err.Error())
 		_ = tx.Rollback()
-		return &res, fmt.Errorf("error on adding loyalty card to customer: %s", err.Error())
+		s.log.Errorf("error on adding loyalty card to customer: %s", err.Error())
+		return &res, domain.InternalServerError
 	}
 
 	if err = tx.Commit().Error; err != nil {
 		s.log.Errorf("error on commit transaction: %s", err.Error())
-		return nil, fmt.Errorf("error on commit transaction: %s", err.Error())
+		return nil, domain.InternalServerError
 	}
 
 	return &res, nil
@@ -132,5 +132,5 @@ WHERE
 	}
 
 	// add leveling up logs to leveling up history table
-	
+
 }

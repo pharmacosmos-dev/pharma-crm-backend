@@ -1,12 +1,10 @@
 package v1
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
-	"gorm.io/gorm"
 )
 
 type LoyaltyCardHandler struct {
@@ -42,8 +40,12 @@ func (h *LoyaltyCardHandler) LoyaltyCardRoutes(r *gin.RouterGroup) {
 // @Failure 500 {object} v1.Response
 // @Router /loyalty_card [post]
 func (h *LoyaltyCardHandler) Create(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
 	var req domain.LoyaltyCardCreateRequest
-
 	if err := c.ShouldBindJSON(&req); err != nil {
 		handleResponse(c, BadRequest, fmt.Sprintf("Invalid request: %s", err.Error()))
 		return
@@ -54,31 +56,10 @@ func (h *LoyaltyCardHandler) Create(c *gin.Context) {
 		return
 	}
 
-	userId, ok := c.Get("user_id")
-	if !ok {
-		// handleResponse(c, UNAUTHORIZED, "User ID not found")
-		// return
-	}
-
-	userId = "6673c653-60cb-4ada-bcd6-b8c1d17ffecb"
-
-	var employee domain.Employee
-	err := h.db.First(&employee, "id = ?", userId).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		h.log.Error("Error on getting employee info: ", err)
-		handleResponse(c, InternalError, "Can't get employee info")
-		return
-	}
-
-	req.LoyaltyCardCreatedBy = employee.Id
+	req.LoyaltyCardCreatedBy = user.UserId
 	customer, err := h.service.CreateLoyaltyCard(&req)
 	if err != nil {
-		h.log.Error("error on creating customer: ", err)
-		handleResponse(c, InternalError, fmt.Sprintf("error on creating loyalty card: %s", err.Error()))
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 

@@ -51,7 +51,7 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 	// get user id in context
 	user := h.service.GetSignedUser(c)
 	if user.UserId == "" {
-		handleResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
+		handleServiceResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
 		return
 	}
 
@@ -59,7 +59,7 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 	// bind request body
 	err := c.ShouldBindJSON(&body)
 	if err != nil {
-		handleResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
 
@@ -69,7 +69,7 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 	// create cart item
 	res, err := h.service.CreateCartItem(ctx, user, &body)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
