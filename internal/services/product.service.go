@@ -1595,7 +1595,7 @@ func (s *Services) UpdateProductQuantity(ctx context.Context, req *domain.Update
 			Exec(`
 			UPDATE store_products
 			SET 
-				unit_quantity = unit_quantity + ?
+				unit_quantity = unit_quantity + (? * p.unit_per_pack)
 			FROM products p
 			WHERE store_products.product_id = p.id
 			  AND store_products.id = ?`,
