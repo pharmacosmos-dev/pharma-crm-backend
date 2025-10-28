@@ -51,7 +51,6 @@ func (s *Services) CreateSale(ctx context.Context, tx *gorm.DB, req *domain.Sale
 
 // create return sale
 func (s *Services) CreateReturnSale(ctx context.Context, req *domain.SaleReturnRequest) (*domain.Sale, error) {
-	return nil, domain.SaleIsClosedError
 
 	// get cashbox operation
 	if req.CashboxId == "" {
@@ -327,7 +326,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 			if req.OtpCode != "" {
 				updates["otp_code"] = req.OtpCode
 			}
-
+			fmt.Println("--->>> ", req)
 			updates["cash"] = req.Cash
 			updates["humo"] = req.Humo
 			updates["uzcard"] = req.Uzcard
@@ -1136,7 +1135,7 @@ func (s *Services) ReturnStatusPending(ctx context.Context, tx *gorm.DB, sale *d
 }
 
 func (s *Services) updateSaleFields(ctx context.Context, tx *gorm.DB, saleId string, updates map[string]any) error {
-	err := tx.WithContext(ctx).Model(&domain.Sale{}).Where("id = ?", saleId).Updates(&updates).Error
+	err := tx.WithContext(ctx).Model(&domain.Sale{}).Where("id = ?", saleId).Debug().Updates(&updates).Error
 	if err != nil {
 		s.log.Errorf("could not update sale fields: %v", err)
 		return domain.InternalServerError
