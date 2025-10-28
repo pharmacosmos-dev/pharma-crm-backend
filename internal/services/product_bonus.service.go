@@ -18,10 +18,10 @@ func (s *Services) GetProductBonuses(ctx context.Context, params *domain.QueryPa
 		Preload("Product").
 		Preload("Store")
 
-	// filter with store id
-	if params.StoreID != "" {
-		query = query.Where("store_id = ?", params.StoreID)
-	}
+	// // filter with store id
+	// if params.StoreID != "" {
+	// 	query = query.Where("store_id = ?", params.StoreID)
+	// }
 	// if search is received it joins with products table and add search condtion
 	if params.Search != "" {
 		query = query.Joins("JOIN products ON product_bonuses.product_id = products.id").
