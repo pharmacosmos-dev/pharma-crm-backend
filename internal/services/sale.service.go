@@ -398,7 +398,7 @@ func (s *Services) FinalizeReturnSale(ctx context.Context, req *domain.FinalSale
 
 	if req.TaxFree {
 		// For returns, we process refund instead of payment
-		if sale.Stage < constants.SaleStagePayFinished {
+		if sale.Stage != constants.SaleStageReturnedFinish {
 			// err = s.ProcessRefund(ctx, tx, sale, req)
 			// if err != nil {
 			// 	_ = tx.Rollback()
@@ -412,10 +412,8 @@ func (s *Services) FinalizeReturnSale(ctx context.Context, req *domain.FinalSale
 			updates["click"] = -req.Click
 			updates["payme"] = -req.Payme
 			updates["alif"] = -req.Alif
-			fmt.Println("1 --->>> ", updates)
 			updates["total_amount"] = gorm.Expr("-(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
 			updates["total_discount"] = gorm.Expr("(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
-			fmt.Println("2 --->>> ", updates)
 			updates["return_amount"] = req.ReturnAmount
 			updates["stage"] = constants.SaleStagePayFinished
 			updates["updated_at"] = time.Now()
@@ -440,10 +438,8 @@ func (s *Services) FinalizeReturnSale(ctx context.Context, req *domain.FinalSale
 		updates["click"] = -req.Click
 		updates["payme"] = -req.Payme
 		updates["alif"] = -req.Alif
-		fmt.Println("1 ===>>> ", updates)
 		updates["total_amount"] = gorm.Expr("-(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
 		updates["total_discount"] = gorm.Expr("(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
-		fmt.Println("2 ===>>> ", updates)
 		updates["return_amount"] = req.ReturnAmount
 		updates["stage"] = constants.SaleStageOfdWaiting
 		updates["updated_at"] = time.Now()
