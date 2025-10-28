@@ -1162,8 +1162,44 @@ func (s *Services) updateSaleField(ctx context.Context, tx *gorm.DB, field strin
 
 func (s *Services) UpdateSalePaymentType(ctx context.Context, req *domain.ChangePaymentTypeRequest) error {
 
-	// Should write update payment type logic
-	// ...
+	// geting sale
+	var sale domain.Sale
+	err := s.db.Where("id = ?", req.SaleId).First(&sale).Error
+	if err != nil {
+		s.log.Errorf("could not get sale by id: %v", err)
+		return domain.InternalServerError
+	}
+
+	var getPaymentTypeAmount = func(s domain.Sale, paymentType string) float64 {
+		var amount float64
+		switch paymentType {
+		case "cash":
+			amount = s.Cash
+		case "click":
+			amount = s.Click
+		case "humo":
+			amount = s.Humo
+		case "uzcard":
+			amount = s.Uzcard
+		case "payme":
+			amount = s.Payme
+		case "alif":
+			amount = s.Alif
+		default:
+			amount = 0
+		}
+
+		return amount
+	}
+
+	var (
+		fromPaymentTypeAmount = getPaymentTypeAmount(sale, req.FromPaymentType)
+	)
+	err = s.db.Exec(fmt.Sprintf("UPDATE sales SET %s = %f, %s = 0 where id = '%s'", req.ToPaymentType, fromPaymentTypeAmount, req.FromPaymentType, req.SaleId)).Error
+	if err != nil {
+		s.log.Errorf("could not update sale payment type: %v", err)
+		return domain.InternalServerError
+	}
 
 	return nil
 }
