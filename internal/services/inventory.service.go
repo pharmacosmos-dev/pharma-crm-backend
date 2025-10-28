@@ -316,10 +316,13 @@ func (s *Services) InventoryDetailList(param *domain.InventoryParam) ([]domain.I
 	if param.Search != "" {
 		switch utils.DefineProductSearchQuery(param.Search) {
 		case "barcode":
-			query += " JOIN product_barcodes pb2 ON pb2.product_id = p.id AND pb2.status = 'completed' "
-			tquery += " JOIN product_barcodes pb2 ON pb2.product_id = p.id AND pb2.status = 'completed' "
-			totalQuery += " JOIN product_barcodes pb2 ON pb2.product_id = p.id AND pb2.status = 'completed' "
-			filter += " AND pb2.barcode ILIKE ? "
+			filter += ` AND EXISTS (
+				SELECT 1
+				FROM product_barcodes pb2
+				WHERE pb2.product_id = p.id
+				  AND pb2.status = 'completed'
+				  AND pb2.barcode ILIKE ?
+			)`
 			args = append(args, "%"+param.Search+"%")
 		case "name/category":
 			filter += " AND (p.name ILIKE ? OR pr.name ILIKE ?) "
@@ -386,7 +389,7 @@ func (s *Services) InventoryDetailList(param *domain.InventoryParam) ([]domain.I
 	query += filter + group + orderBy + " LIMIT ? OFFSET ?"
 	args = append(args, param.Limit, param.Offset)
 	// execute query
-	err = s.db.Debug().Raw(query, args...).Scan(&res).Error
+	err = s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting inventory detail list: %v", err)
 		return res, totalSumData, 0, err
