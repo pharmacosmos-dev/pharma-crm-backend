@@ -227,7 +227,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 
 	// Route to appropriate handler based on sale type
 	if sale.SaleType == constants.SaleTypeReturn {
-		// return s.FinalizeReturnSale(ctx, req, sale)
+		return s.FinalizeReturnSale(ctx, req, sale)
 	}
 
 	// check payment types
@@ -400,39 +400,54 @@ func (s *Services) FinalizeReturnSale(ctx context.Context, req *domain.FinalSale
 
 	updates := map[string]any{}
 
-	// For returns, we process refund instead of payment
-	if sale.Stage < constants.SaleStagePayFinished {
-		// err = s.ProcessRefund(ctx, tx, sale, req)
-		// if err != nil {
-		// 	_ = tx.Rollback()
-		// 	return nil, err
-		// }
+	if req.TaxFree {
+		// For returns, we process refund instead of payment
+		if sale.Stage < constants.SaleStagePayFinished {
+			// err = s.ProcessRefund(ctx, tx, sale, req)
+			// if err != nil {
+			// 	_ = tx.Rollback()
+			// 	return nil, err
+			// }
 
-		// Store refund amounts (negative values for returns)
+			// Store refund amounts (negative values for returns)
+			updates["cash"] = -req.Cash
+			updates["humo"] = -req.Humo
+			updates["uzcard"] = -req.Uzcard
+			updates["click"] = -req.Click
+			updates["payme"] = -req.Payme
+			updates["alif"] = -req.Alif
+			updates["loyalty_card"] = -req.LoyaltyCard
+			updates["total_amount"] = gorm.Expr("-(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
+			updates["total_discount"] = gorm.Expr("(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
+			updates["return_amount"] = req.ReturnAmount
+			updates["stage"] = constants.SaleStagePayFinished
+			updates["updated_at"] = time.Now()
+		}
+
+		// Reverse inventory (add back to stock)
+		if sale.Stage < constants.SaleStageReturnedFinish {
+			err = s.ReverseInventoryUpdate(ctx, tx, sale)
+			if err != nil {
+				_ = tx.Rollback()
+				return nil, err
+			}
+			updates["stage"] = constants.SaleStageReturnedFinish
+			updates["updated_at"] = time.Now()
+			updates["completed_at"] = time.Now()
+		}
+	} else {
 		updates["cash"] = -req.Cash
 		updates["humo"] = -req.Humo
 		updates["uzcard"] = -req.Uzcard
 		updates["click"] = -req.Click
 		updates["payme"] = -req.Payme
 		updates["alif"] = -req.Alif
-		// updates["loyalty_card"] = -req.LoyaltyCard
-		updates["total_amount"] = gorm.Expr("(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
+		updates["loyalty_card"] = -req.LoyaltyCard
+		updates["total_amount"] = gorm.Expr("-(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
 		updates["total_discount"] = gorm.Expr("(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
 		updates["return_amount"] = req.ReturnAmount
-		updates["stage"] = constants.SaleStagePayFinished
+		updates["stage"] = constants.SaleStageOfdWaiting
 		updates["updated_at"] = time.Now()
-	}
-
-	// Reverse inventory (add back to stock)
-	if sale.Stage < constants.SaleStageReturnedFinish {
-		err = s.ReverseInventoryUpdate(ctx, tx, sale)
-		if err != nil {
-			_ = tx.Rollback()
-			return nil, err
-		}
-		updates["stage"] = constants.SaleStageReturnedFinish
-		updates["updated_at"] = time.Now()
-		updates["completed_at"] = time.Now()
 	}
 
 	// Update sale data
@@ -451,7 +466,7 @@ func (s *Services) FinalizeReturnSale(ctx context.Context, req *domain.FinalSale
 	}
 
 	if err = tx.Commit().Error; err != nil {
-		s.log.Error("could not commit transaction: %v", err)
+		s.log.Errorf("could not commit final sale  transaction: %v", err)
 		return nil, domain.InternalServerError
 	}
 
@@ -506,6 +521,10 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 	fiscal, err := s.DecodeFiscalData(responseDataStr)
 	if err != nil {
 		return nil, err
+	}
+
+	if sale.SaleType == constants.SaleTypeReturn {
+		return s.EposResultReturn(ctx, req, sale, fiscal, user)
 	}
 
 	// Start transaction
@@ -575,6 +594,118 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 			return nil, err
 		}
 		updates["stage"] = constants.SaleStageFinished
+		updates["updated_at"] = time.Now()
+		updates["completed_at"] = time.Now()
+	} else {
+		s.log.Infof("Inventory already applied for sale %s, skipping", sale.Id)
+	}
+
+	if len(updates) > 0 {
+		err = s.updateSaleFields(ctx, tx, req.SaleId, updates)
+		if err != nil {
+			_ = tx.Rollback()
+			return nil, err
+		}
+	}
+
+	// Create new sale for next operation
+	res, err := s.CreateSale(ctx, tx, &domain.SaleRequest{
+		EmployeeId:         user.UserId,
+		StoreId:            sale.StoreId,
+		CashBoxOperationId: sale.CashBoxOperationId,
+		CashboxId:          sale.CashboxId,
+	})
+	if err != nil {
+		_ = tx.Rollback()
+		return nil, err
+	}
+
+	// Commit transaction
+	if err = tx.Commit().Error; err != nil {
+		s.log.Errorf("could not commit epos-result transaction: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	return res, nil
+}
+
+func (s *Services) EposResultReturn(
+	ctx context.Context,
+	req *domain.EposResponseRequest,
+	sale *domain.Sale,
+	fiscal domain.FiscalData,
+	user *domain.EmployeeClaims,
+) (*domain.Sale, error) {
+	var err error
+	// Start transaction
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
+			s.log.Errorf("Panic recovered in EposResult: %v", r)
+		}
+	}()
+
+	updates := map[string]any{}
+
+	if sale.Stage < constants.SaleStageOfdSent {
+		req.Status = 1
+		err = s.SaveEposResponse(ctx, req)
+		if err != nil {
+			_ = tx.Rollback()
+			return nil, err
+		}
+
+		updates["stage"] = constants.SaleStageOfdSent
+		updates["fiscal_sign"] = fiscal.FiscalSign
+		updates["check_url"] = fiscal.QrCodeUrl
+		updates["is_sent_to_tax"] = true
+		updates["updated_at"] = time.Now()
+
+		// Save fiscal data immediately within transaction
+		err = s.updateSaleFields(ctx, tx, sale.Id, updates)
+		if err != nil {
+			_ = tx.Rollback()
+			return nil, err
+		}
+
+		// Update sale object for next stages
+		sale.Stage = constants.SaleStageOfdSent
+
+		// Clear updates for next stages
+		updates = map[string]any{}
+
+	} else {
+		fiscal, err = s.getFiscalDataBySaleId(ctx, sale.Id)
+		if err != nil {
+			_ = tx.Rollback()
+			return nil, err
+		}
+	}
+
+	// Stage 2: Handle Payment (stages 7-8)
+	if sale.Stage < constants.SaleStagePayFinished {
+		// err = s.ProcessRefund(ctx, tx, sale, req)
+		// if err != nil {
+		// 	_ = tx.Rollback()
+		// 	return nil, err
+		// }
+		updates["stage"] = constants.SaleStagePayFinished
+		updates["updated_at"] = time.Now()
+	} else {
+		s.log.Infof("Payment already processed for sale %s, skipping", sale.Id)
+	}
+
+	// Stage 3: Handle Inventory (stage 9)
+	if sale.Stage != constants.SaleStageReturnedFinish {
+		// Reverse inventory (add back to stock)
+		err = s.ReverseInventoryUpdate(ctx, tx, sale)
+		if err != nil {
+			_ = tx.Rollback()
+			return nil, err
+		}
+
+		updates["stage"] = constants.SaleStageReturnedFinish
 		updates["updated_at"] = time.Now()
 		updates["completed_at"] = time.Now()
 	} else {
