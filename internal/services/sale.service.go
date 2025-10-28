@@ -412,8 +412,10 @@ func (s *Services) FinalizeReturnSale(ctx context.Context, req *domain.FinalSale
 			updates["click"] = -req.Click
 			updates["payme"] = -req.Payme
 			updates["alif"] = -req.Alif
+			fmt.Println("1 --->>> ", updates)
 			updates["total_amount"] = gorm.Expr("-(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
 			updates["total_discount"] = gorm.Expr("(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
+			fmt.Println("2 --->>> ", updates)
 			updates["return_amount"] = req.ReturnAmount
 			updates["stage"] = constants.SaleStagePayFinished
 			updates["updated_at"] = time.Now()
@@ -438,8 +440,10 @@ func (s *Services) FinalizeReturnSale(ctx context.Context, req *domain.FinalSale
 		updates["click"] = -req.Click
 		updates["payme"] = -req.Payme
 		updates["alif"] = -req.Alif
+		fmt.Println("1 ===>>> ", updates)
 		updates["total_amount"] = gorm.Expr("-(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
 		updates["total_discount"] = gorm.Expr("(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
+		fmt.Println("2 ===>>> ", updates)
 		updates["return_amount"] = req.ReturnAmount
 		updates["stage"] = constants.SaleStageOfdWaiting
 		updates["updated_at"] = time.Now()
@@ -448,6 +452,11 @@ func (s *Services) FinalizeReturnSale(ctx context.Context, req *domain.FinalSale
 	// Update sale data
 	if len(updates) > 0 {
 		err = s.updateSaleFields(ctx, tx, req.SaleID, updates)
+		if err != nil {
+			_ = tx.Rollback()
+			return nil, err
+		}
+		_, err = s.updateSaleField(ctx, tx, "is_returned", true, sale.ParentId)
 		if err != nil {
 			_ = tx.Rollback()
 			return nil, err
@@ -709,6 +718,11 @@ func (s *Services) EposResultReturn(
 
 	if len(updates) > 0 {
 		err = s.updateSaleFields(ctx, tx, req.SaleId, updates)
+		if err != nil {
+			_ = tx.Rollback()
+			return nil, err
+		}
+		_, err = s.updateSaleField(ctx, tx, "is_returned", true, sale.ParentId)
 		if err != nil {
 			_ = tx.Rollback()
 			return nil, err
@@ -1138,7 +1152,7 @@ func (s *Services) ReturnStatusPending(ctx context.Context, tx *gorm.DB, sale *d
 }
 
 func (s *Services) updateSaleFields(ctx context.Context, tx *gorm.DB, saleId string, updates map[string]any) error {
-	err := tx.WithContext(ctx).Model(&domain.Sale{}).Where("id = ?", saleId).Updates(&updates).Error
+	err := tx.WithContext(ctx).Model(&domain.Sale{}).Where("id = ?", saleId).Debug().Updates(&updates).Error
 	if err != nil {
 		s.log.Errorf("could not update sale fields: %v", err)
 		return domain.InternalServerError

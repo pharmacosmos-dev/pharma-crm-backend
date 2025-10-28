@@ -13,6 +13,7 @@ type Sale struct {
 	CashBoxOperationId string         `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
 	CashboxId          string         `gorm:"cashbox_id" json:"cashbox_id"`
 	CustomerId         string         `gorm:"customer_id" json:"customer_id"`
+	ParentId           string         `gorm:"parent_id" json:"parent_id"`
 	SaleNumber         int            `gorm:"sale_number" json:"sale_number"`
 	TotalDiscount      float64        `gorm:"total_discount" json:"total_discount"`
 	TotalAmount        float64        `gorm:"total_amount" json:"total_amount"`
@@ -42,7 +43,7 @@ type Sale struct {
 	Customer           *Customer      `gorm:"-" json:"customer"`
 	SalePayments       []*SalePayment `gorm:"foreignKey:SaleID" json:"sale_payments"`
 	CartItems          []*CartItem    `gorm:"foreignKey:SaleId" json:"cart_items"`
-	CashBack           float64        `gorm"cash_back" json:"cash_back"`
+	CashBack           float64        `gorm:"cash_back" json:"cash_back"`
 }
 
 // SaleRequest structure for create
