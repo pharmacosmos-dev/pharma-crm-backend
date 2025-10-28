@@ -207,27 +207,27 @@ type SaleTotalAmount struct {
 
 // SaleStats structure
 type SaleStats struct {
-	TotalTransactionSum   float64 `gorm:"total_transaction_sum" json:"total_transaction_sum"`
-	TotalTransactionCount int     `gorm:"total_transaction_count" json:"total_transaction_count"`
-	TotalReturnalsSum     float64 `gorm:"total_returnals_sum" json:"total_returnals_sum"`
-	TotalReturnedCount    int     `gorm:"total_returned_count" json:"total_returned_count"`
-	TotalDiscountSum      float64 `gorm:"total_discount_sum" json:"total_discount_sum"`
-	TotalDiscountCount    int     `gorm:"total_discount_count" json:"total_discount_count"`
-	TotalCashSum          float64 `gorm:"total_cash_sum" json:"total_cash_sum"`
-	TotalCashCount        int     `gorm:"total_cash_count" json:"total_cash_count"`
-	TotalHumoSum          float64 `gorm:"total_humo_sum" json:"total_humo_sum"`
-	TotalHumoCount        int     `gorm:"total_humo_count" json:"total_humo_count"`
-	TotalUzcardSum        float64 `gorm:"total_uzcard_sum" json:"total_uzcard_sum"`
-	TotalUzcardCount      int     `gorm:"total_uzcard_count" json:"total_uzcard_count"`
-	TotalClickSum         float64 `gorm:"total_click_sum" json:"total_click_sum"`
-	TotalClickCount       int     `gorm:"total_click_count" json:"total_click_count"`
-	TotalPaymeSum         float64 `gorm:"total_payme_sum" json:"total_payme_sum"`
-	TotalPaymeCount       int     `gorm:"total_payme_count" json:"total_payme_count"`
-	TotalAlifSum          float64 `gorm:"total_alif_sum" json:"total_alif_sum"`
-	TotalAlifCount        int     `gorm:"total_alif_count" json:"total_alif_count"`
-	TotalCashbackSum      float64 `gorm:"total_cashback_sum" json:"total_cashback_sum"`
-	TotalCashbackCount    float64 `gorm:"total_cashback_count" json:"total_cashback_count"`
-	TotalProductCount     int64   `gorm:"total_product_count" json:"total_product_count"`
+	TotalTransactionSum float64 `gorm:"total_transaction_sum" json:"total_transaction_sum"`
+	TotalTransaction    int     `gorm:"total_transaction" json:"total_transaction"`
+	TotalReturnalsSum   float64 `gorm:"total_returnals_sum" json:"total_returnals_sum"`
+	TotalReturnedCount  int     `gorm:"total_returned_count" json:"total_returned_count"`
+	TotalDiscountSum    float64 `gorm:"total_discount_sum" json:"total_discount_sum"`
+	TotalDiscountCount  int     `gorm:"total_discount_count" json:"total_discount_count"`
+	TotalCashSum        float64 `gorm:"total_cash_sum" json:"total_cash_sum"`
+	TotalCashCount      int     `gorm:"total_cash_count" json:"total_cash_count"`
+	TotalHumoSum        float64 `gorm:"total_humo_sum" json:"total_humo_sum"`
+	TotalHumoCount      int     `gorm:"total_humo_count" json:"total_humo_count"`
+	TotalUzcardSum      float64 `gorm:"total_uzcard_sum" json:"total_uzcard_sum"`
+	TotalUzcardCount    int     `gorm:"total_uzcard_count" json:"total_uzcard_count"`
+	TotalClickSum       float64 `gorm:"total_click_sum" json:"total_click_sum"`
+	TotalClickCount     int     `gorm:"total_click_count" json:"total_click_count"`
+	TotalPaymeSum       float64 `gorm:"total_payme_sum" json:"total_payme_sum"`
+	TotalPaymeCount     int     `gorm:"total_payme_count" json:"total_payme_count"`
+	TotalAlifSum        float64 `gorm:"total_alif_sum" json:"total_alif_sum"`
+	TotalAlifCount      int     `gorm:"total_alif_count" json:"total_alif_count"`
+	TotalCashbackSum    float64 `gorm:"total_cashback_sum" json:"total_cashback_sum"`
+	TotalCashbackCount  float64 `gorm:"total_cashback_count" json:"total_cashback_count"`
+	TotalProductCount   int64   `gorm:"total_product_count" json:"total_product_count"`
 }
 
 // { sum_prop: 'total_transaction_sum', title: 'Транзакции', count_prop: 'total_transaction' },
