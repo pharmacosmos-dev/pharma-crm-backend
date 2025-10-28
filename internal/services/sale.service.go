@@ -926,6 +926,13 @@ func (s *Services) AddSaleBonuses(sale *domain.Sale, req []domain.CartItemWithPr
 		}
 	}
 
+	if sale.CashBack > 0 {
+		err := s.db.Exec(`UPDATE customers SET balance = balance + ? WHERE id = ?`, sale.CashBack, sale.CustomerId).Error
+		if err != nil {
+			s.log.Errorf("could not update customer balance: %v", err)
+			return
+		}
+	}
 }
 
 func (s *Services) RemoveBonusBySaleId(saleId string) {

@@ -41,6 +41,7 @@ type Sale struct {
 	Customer           *Customer      `gorm:"-" json:"customer"`
 	SalePayments       []*SalePayment `gorm:"foreignKey:SaleID" json:"sale_payments"`
 	CartItems          []*CartItem    `gorm:"foreignKey:SaleId" json:"cart_items"`
+	CashBack           float64        `gorm"cash_back" json:"cash_back"`
 }
 
 // SaleRequest structure for create
@@ -104,6 +105,7 @@ type SaleResponse struct {
 	CreatedAt       *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt       *time.Time `gorm:"updated_at" json:"updated_at"`
 	CompletedAt     *time.Time `gorm:"completed_at" json:"completed_at"`
+	CashBack        float64    `gorm"cash_back" json:"cash_back"`
 
 	CashBoxOperationId string `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
 	StoreName          string `gorm:"store_name" json:"store_name"`
