@@ -1561,7 +1561,7 @@ func (s *Services) GetSalesStats(ctx context.Context, params *domain.SaleQueryPa
 			"SUM(s.total_amount) AS total_transaction_sum",
 			"COUNT(*) AS total_transaction_count",
 			"SUM(CASE WHEN s.sale_type = 'RETURN' THEN s.total_amount ELSE 0 END) AS total_returnals_sum",
-			"COUNT(CASE WHEN s.sale_type = 'RETURN' THEN 1 ELSE 0 END) AS total_returned_count",
+			"COUNT(*) FILTER (WHERE s.sale_type = 'RETURN') AS total_returned_count",
 			"SUM(s.total_discount) AS total_discount_sum",
 			"COUNT(*) FILTER (WHERE s.total_discount > 0) AS total_discount_count",
 			"SUM(s.cash) AS total_cash_sum",
