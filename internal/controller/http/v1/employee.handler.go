@@ -141,6 +141,7 @@ func (h *EmployeeHandler) Get(c *gin.Context) {
 	err := h.db.
 		Preload("Store").
 		Preload("Roles").
+		Preload("Company").
 		First(&res, "id = ?", id).Error
 
 	if err != nil {

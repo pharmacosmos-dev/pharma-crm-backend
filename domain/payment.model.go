@@ -7,6 +7,7 @@ type PaymentType struct {
 	ID          string     `gorm:"id" json:"id"`
 	Name        string     `gorm:"name" json:"name"`
 	Type        string     `gorm:"type" json:"type"`
+	FrontName   string     `gorm:"front_name" json:"front_name"`
 	IsActive    bool       `gorm:"is_active" json:"is_active"`
 	Description string     `gorm:"description" json:"description"`
 	CreatedAt   *time.Time `gorm:"created_at" json:"created_at"`
@@ -18,6 +19,7 @@ type PaymentTypeRequest struct {
 	ID          string `gorm:"id" json:"-"`
 	Name        string `gorm:"name" json:"name"`
 	Type        string `gorm:"type" json:"type"`
+	FrontName   string `gorm:"front_name" json:"front_name"`
 	Description string `gorm:"description" json:"description"`
 }
 

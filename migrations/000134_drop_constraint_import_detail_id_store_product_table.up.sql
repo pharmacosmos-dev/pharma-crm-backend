@@ -1,0 +1,2 @@
+ALTER TABLE store_products
+DROP CONSTRAINT IF EXISTS store_products_import_detail_id_fkey;

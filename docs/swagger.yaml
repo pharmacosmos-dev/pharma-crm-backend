@@ -92,17 +92,6 @@ definitions:
       store_id:
         type: string
     type: object
-  domain.BarcodeRequest:
-    properties:
-      barcode:
-        type: string
-      count:
-        type: integer
-      id:
-        type: string
-      status:
-        type: string
-    type: object
   domain.BrandRequest:
     properties:
       logo:
@@ -376,12 +365,16 @@ definitions:
         type: string
       last_name:
         type: string
+      loyalty_card_barcode:
+        type: string
       phone:
         type: string
       store_id:
         type: string
       tag_id:
         type: string
+      virtual_loyalty_card_needed:
+        type: boolean
     type: object
   domain.DashboardBody:
     properties:
@@ -799,6 +792,15 @@ definitions:
         type: string
     required:
     - phone
+    type: object
+  domain.LoyaltyCardCreateRequest:
+    properties:
+      customer_id:
+        type: string
+      loyalty_card_barcode:
+        type: string
+      virtual_loyalty_card_needed:
+        type: boolean
     type: object
   domain.MarkingData:
     properties:
@@ -1327,6 +1329,8 @@ definitions:
         type: integer
       status:
         type: string
+      transfer_id:
+        type: string
       type:
         type: string
     type: object
@@ -1620,6 +1624,19 @@ definitions:
       status:
         type: string
       transaction_id:
+        type: string
+    type: object
+  domain.TransferBarcodeRequest:
+    properties:
+      barcode:
+        type: string
+      count:
+        type: integer
+      id:
+        type: string
+      status:
+        type: string
+      transfer_id:
         type: string
     type: object
   domain.TransferRequest:
@@ -2543,6 +2560,43 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/domain.CartItemDiscountRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update a cart item
+      tags:
+      - cart_items
+  /cart_item/temporary/{id}:
+    put:
+      consumes:
+      - application/json
+      description: Update a cart item from the request body
+      parameters:
+      - description: cartItemId
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Update unit
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CartItemUpdateUnit'
       produces:
       - application/json
       responses:
@@ -5645,10 +5699,12 @@ paths:
         name: end_date
         type: string
       - description: From Amount
+        format: float64
         in: query
         name: from_amount
         type: number
       - description: To Amount
+        format: float64
         in: query
         name: to_amount
         type: number
@@ -5713,10 +5769,12 @@ paths:
         name: end_date
         type: string
       - description: From Amount
+        format: float64
         in: query
         name: from_amount
         type: number
       - description: To Amount
+        format: float64
         in: query
         name: to_amount
         type: number
@@ -7574,6 +7632,36 @@ paths:
       summary: Login
       tags:
       - auth
+  /loyalty_card:
+    post:
+      consumes:
+      - application/json
+      description: create Loyalty Card
+      parameters:
+      - description: Loyalty Card info
+        in: body
+        name: loyalty_card
+        required: true
+        schema:
+          $ref: '#/definitions/domain.LoyaltyCardCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      summary: Create Loyalty Card
+      tags:
+      - loyalty_card
   /noor/category/list:
     get:
       description: Get a category list for filter
@@ -13318,7 +13406,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/domain.BarcodeRequest'
+          $ref: '#/definitions/domain.TransferBarcodeRequest'
       produces:
       - application/json
       responses:
@@ -15780,17 +15868,25 @@ paths:
         in: query
         name: offset
         type: integer
-      - description: STORE ID
+      - description: store_id
         in: query
         name: store_id
         type: string
-      - description: SEARCH KEY
+      - description: search
         in: query
         name: search
         type: string
-      - description: STATUS (0->new|1->sent|2->completed)
+      - description: status (0->new|1->sent|2->completed)
         in: query
         name: status
+        type: string
+      - description: start_date
+        in: query
+        name: start_date
+        type: string
+      - description: end_date
+        in: query
+        name: end_date
         type: string
       produces:
       - application/json
@@ -15849,25 +15945,33 @@ paths:
       - application/json
       description: Get Transfer list
       parameters:
-      - description: LIMIT
+      - description: limit
         in: query
         name: limit
         type: integer
-      - description: OFFSET
+      - description: offset
         in: query
         name: offset
         type: integer
-      - description: STORE ID
+      - description: store_id
         in: query
         name: store_id
         type: string
-      - description: SEARCH KEY
+      - description: search
         in: query
         name: search
         type: string
-      - description: STATUS (0->new|1->sent|2->completed)
+      - description: status (0->new|1->sent|2->completed)
         in: query
         name: status
+        type: string
+      - description: start_date
+        in: query
+        name: start_date
+        type: string
+      - description: end_date
+        in: query
+        name: end_date
         type: string
       produces:
       - application/json
@@ -15895,17 +15999,25 @@ paths:
       - application/json
       description: Get total sum and count stats for transfers
       parameters:
-      - description: Store ID
+      - description: store_id
         in: query
         name: store_id
         type: string
-      - description: Search Keyword
+      - description: search
         in: query
         name: search
         type: string
-      - description: Transfer Status (0->new|1->sent|2->completed)
+      - description: status (0->new|1->sent|2->completed)
         in: query
         name: status
+        type: string
+      - description: start_date
+        in: query
+        name: start_date
+        type: string
+      - description: end_date
+        in: query
+        name: end_date
         type: string
       produces:
       - application/json
@@ -15925,6 +16037,37 @@ paths:
       security:
       - BearerAuth: []
       summary: Get transfer total stats
+      tags:
+      - Transfer
+  /transfer/logs/{transfer_id}:
+    get:
+      consumes:
+      - application/json
+      description: Get Transfer Logs
+      parameters:
+      - description: transfer_id
+        in: path
+        name: transfer_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Transfer logs retrieved
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Invalid request parameters
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Transfer Logs
       tags:
       - Transfer
   /transfer/send/{id}:
@@ -16004,7 +16147,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/domain.BarcodeRequest'
+          $ref: '#/definitions/domain.TransferBarcodeRequest'
       produces:
       - application/json
       responses:

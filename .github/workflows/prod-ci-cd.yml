@@ -17,6 +17,7 @@ env:
   SSH_PASS: ${{ secrets.SERVER_PASSWORD }}
   DB_URL: ${{ secrets.PHARMA_DATABASE_URL }}
   PORT: 8090:8090
+  SERVER_PORT: 2002
 
 jobs:
   build_and_push:
@@ -53,7 +54,7 @@ jobs:
           host: "${{ env.SSH_HOST }}"
           username: "${{ env.SSH_USER }}"
           key: "${{ env.SSH_KEY }}"
-          port: 2002
+          port: "${{ env.SERVER_PORT }}"
           script: |
             set -e
             docker login -u ${{ env.DOCKER_USERNAME }} -p ${{ env.DOCKER_PASSWORD }}
@@ -78,7 +79,7 @@ jobs:
           host: "${{ env.SSH_HOST }}"
           username: "${{ env.SSH_USER }}"
           key: "${{ env.SSH_KEY }}"
-          port: 2002
+          port: "${{ env.SERVER_PORT }}"
           script: |
             docker login -u ${{ env.DOCKER_USERNAME }} -p ${{ env.DOCKER_PASSWORD }}
             docker pull "${{ env.DOCKER_USERNAME }}/pharma-backend:${{ github.sha }}"

@@ -496,3 +496,7 @@ type ProductPhotoAlertCreate struct {
 type GenerateOnecTokenRequest struct {
 	Password string `json:"password" validate:"required"`
 }
+
+type GenerateOnecTokenResponse struct {
+	Token string `json:"token"`
+}

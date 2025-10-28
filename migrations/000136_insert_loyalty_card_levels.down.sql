@@ -1,0 +1,1 @@
+truncate loyalty_card_levels CASCADE;

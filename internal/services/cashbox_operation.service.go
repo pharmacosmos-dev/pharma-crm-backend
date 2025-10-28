@@ -11,13 +11,13 @@ func (s *Services) GetCashboxOperationSummary(ctx context.Context, operationId s
 	var saleStats domain.SaleStats
 	query := `
 	SELECT
-		SUM(s.total_amount) AS amount,
-		SUM(s.cash) AS total_cash,
-		SUM(s.humo) AS total_humo,
-		SUM(s.uzcard) AS total_uzcard,
-		SUM(s.click) AS total_click,
-		SUM(s.payme) AS total_payme,
-		SUM(s.alif) AS total_alif
+		SUM(s.total_amount) AS total_transaction_sum,
+		SUM(s.cash) AS total_cash_sum,
+		SUM(s.humo) AS total_humo_sum,
+		SUM(s.uzcard) AS total_uzcard_sum,
+		SUM(s.click) AS total_click_sum,
+		SUM(s.payme) AS total_payme_sum,
+		SUM(s.alif) AS total_alif_sum
 	FROM sales s
 	WHERE s.cash_box_operation_id = ? ORDER BY s.total_amount DESC;
 	`
@@ -33,38 +33,38 @@ func (s *Services) GetCashboxOperationSummary(ctx context.Context, operationId s
 		domain.SalePaymentCloseCashBox{
 			Id:     "",
 			Name:   "Naqd",
-			Amount: saleStats.TotalCash,
+			Amount: saleStats.TotalCashSum,
 		},
 		domain.SalePaymentCloseCashBox{
 			Id:     "",
 			Name:   "Humo",
-			Amount: saleStats.TotalHumo,
+			Amount: saleStats.TotalHumoSum,
 		},
 		domain.SalePaymentCloseCashBox{
 			Id:     "",
 			Name:   "Uzcard",
-			Amount: saleStats.TotalUzcard,
+			Amount: saleStats.TotalUzcardSum,
 		},
 		domain.SalePaymentCloseCashBox{
 			Id:     "",
 			Name:   "Click",
-			Amount: saleStats.TotalClick,
+			Amount: saleStats.TotalClickSum,
 		},
 		domain.SalePaymentCloseCashBox{
 			Id:     "",
 			Name:   "Payme",
-			Amount: saleStats.TotalPayme,
+			Amount: saleStats.TotalPaymeSum,
 		},
 		domain.SalePaymentCloseCashBox{
 			Id:     "",
 			Name:   "Alif",
-			Amount: saleStats.TotalAlif,
+			Amount: saleStats.TotalAlifSum,
 		},
 	)
 
 	var res domain.CashboxOperationSummary
 	res.PaymentTypeSum = typeSums
-	res.TotalSum.TotalAmount = saleStats.TotalTransactionsSum
+	res.TotalSum.TotalAmount = saleStats.TotalTransactionSum
 
 	return &res, nil
 }

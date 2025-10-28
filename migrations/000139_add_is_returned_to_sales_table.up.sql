@@ -1,0 +1,3 @@
+ALTER TABLE 
+    "sales"
+        ADD COLUMN IF NOT EXISTS "is_returned" BOOLEAN DEFAULT FALSE;

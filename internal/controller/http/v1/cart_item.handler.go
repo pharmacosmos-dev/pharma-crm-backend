@@ -29,6 +29,9 @@ func (h *CartItemHandler) CartItemRoutes(r *gin.RouterGroup) {
 		cartItem.DELETE("/:id", h.Delete)
 		cartItem.POST("/multiple", h.MultipleDelete)
 		cartItem.DELETE("/:id/markings", h.DeleteMarking)
+
+		// temporary update
+		cartItem.PUT("/temporary/:id", h.TemporaryUpdate)
 	}
 }
 
@@ -48,7 +51,7 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 	// get user id in context
 	user := h.service.GetSignedUser(c)
 	if user.UserId == "" {
-		handleResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
+		handleServiceResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
 		return
 	}
 
@@ -56,7 +59,7 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 	// bind request body
 	err := c.ShouldBindJSON(&body)
 	if err != nil {
-		handleResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
 
@@ -66,7 +69,7 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 	// create cart item
 	res, err := h.service.CreateCartItem(ctx, user, &body)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
@@ -205,6 +208,45 @@ func (h *CartItemHandler) Update(c *gin.Context) {
 	defer cancel()
 
 	res, err := h.service.UpdateCartItemQuantity(ctx, &body)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, res)
+}
+
+// Update cart item godoc
+// @Summary Update a cart item
+// @Description Update a cart item from the request body
+// @Tags    cart_items
+// @Security     BearerAuth
+// @Accept  json
+// @Produce json
+// @Param   id path string true "cartItemId"
+// @Param   input body domain.CartItemUpdateUnit true "Update unit"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /cart_item/temporary/{id} [put]
+func (h *CartItemHandler) TemporaryUpdate(c *gin.Context) {
+	var (
+		body domain.CartItemUpdateUnit
+		id   = c.Param("id")
+	)
+
+	// bind request body
+	if err := c.ShouldBindJSON(&body); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidRequestBodyError)
+		return
+	}
+
+	body.Id = id
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, err := h.service.UpdateCartItemQuantityTemporary(ctx, &body)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return

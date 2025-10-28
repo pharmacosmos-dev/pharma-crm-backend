@@ -990,6 +990,64 @@ const docTemplate = `{
                 }
             }
         },
+        "/cart_item/temporary/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update a cart item from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "cart_items"
+                ],
+                "summary": "Update a cart item",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "cartItemId",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update unit",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.CartItemUpdateUnit"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/cart_item/{id}": {
             "get": {
                 "security": [
@@ -6040,12 +6098,14 @@ const docTemplate = `{
                     },
                     {
                         "type": "number",
+                        "format": "float64",
                         "description": "From Amount",
                         "name": "from_amount",
                         "in": "query"
                     },
                     {
                         "type": "number",
+                        "format": "float64",
                         "description": "To Amount",
                         "name": "to_amount",
                         "in": "query"
@@ -6145,12 +6205,14 @@ const docTemplate = `{
                     },
                     {
                         "type": "number",
+                        "format": "float64",
                         "description": "From Amount",
                         "name": "from_amount",
                         "in": "query"
                     },
                     {
                         "type": "number",
+                        "format": "float64",
                         "description": "To Amount",
                         "name": "to_amount",
                         "in": "query"
@@ -9135,6 +9197,52 @@ const docTemplate = `{
                     },
                     "403": {
                         "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/loyalty_card": {
+            "post": {
+                "description": "create Loyalty Card",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "loyalty_card"
+                ],
+                "summary": "Create Loyalty Card",
+                "parameters": [
+                    {
+                        "description": "Loyalty Card info",
+                        "name": "loyalty_card",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.LoyaltyCardCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
                         }
@@ -18047,7 +18155,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.BarcodeRequest"
+                            "$ref": "#/definitions/domain.TransferBarcodeRequest"
                         }
                     }
                 ],
@@ -21865,20 +21973,32 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "STORE ID",
+                        "description": "store_id",
                         "name": "store_id",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "SEARCH KEY",
+                        "description": "search",
                         "name": "search",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "STATUS (0-\u003enew|1-\u003esent|2-\u003ecompleted)",
+                        "description": "status (0-\u003enew|1-\u003esent|2-\u003ecompleted)",
                         "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "start_date",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "end_date",
+                        "name": "end_date",
                         "in": "query"
                     }
                 ],
@@ -21974,32 +22094,44 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "LIMIT",
+                        "description": "limit",
                         "name": "limit",
                         "in": "query"
                     },
                     {
                         "type": "integer",
-                        "description": "OFFSET",
+                        "description": "offset",
                         "name": "offset",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "STORE ID",
+                        "description": "store_id",
                         "name": "store_id",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "SEARCH KEY",
+                        "description": "search",
                         "name": "search",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "STATUS (0-\u003enew|1-\u003esent|2-\u003ecompleted)",
+                        "description": "status (0-\u003enew|1-\u003esent|2-\u003ecompleted)",
                         "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "start_date",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "end_date",
+                        "name": "end_date",
                         "in": "query"
                     }
                 ],
@@ -22046,20 +22178,32 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Store ID",
+                        "description": "store_id",
                         "name": "store_id",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Search Keyword",
+                        "description": "search",
                         "name": "search",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Transfer Status (0-\u003enew|1-\u003esent|2-\u003ecompleted)",
+                        "description": "status (0-\u003enew|1-\u003esent|2-\u003ecompleted)",
                         "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "start_date",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "end_date",
+                        "name": "end_date",
                         "in": "query"
                     }
                 ],
@@ -22078,6 +22222,55 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/transfer/logs/{transfer_id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get Transfer Logs",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Transfer"
+                ],
+                "summary": "Get Transfer Logs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "transfer_id",
+                        "name": "transfer_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Transfer logs retrieved",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request parameters",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
                         }
@@ -22214,7 +22407,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.BarcodeRequest"
+                            "$ref": "#/definitions/domain.TransferBarcodeRequest"
                         }
                     }
                 ],
@@ -23507,23 +23700,6 @@ const docTemplate = `{
                 }
             }
         },
-        "domain.BarcodeRequest": {
-            "type": "object",
-            "properties": {
-                "barcode": {
-                    "type": "string"
-                },
-                "count": {
-                    "type": "integer"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string"
-                }
-            }
-        },
         "domain.BrandRequest": {
             "type": "object",
             "properties": {
@@ -23939,6 +24115,9 @@ const docTemplate = `{
                 "last_name": {
                     "type": "string"
                 },
+                "loyalty_card_barcode": {
+                    "type": "string"
+                },
                 "phone": {
                     "type": "string"
                 },
@@ -23947,6 +24126,9 @@ const docTemplate = `{
                 },
                 "tag_id": {
                     "type": "string"
+                },
+                "virtual_loyalty_card_needed": {
+                    "type": "boolean"
                 }
             }
         },
@@ -24576,6 +24758,20 @@ const docTemplate = `{
                 },
                 "phone": {
                     "type": "string"
+                }
+            }
+        },
+        "domain.LoyaltyCardCreateRequest": {
+            "type": "object",
+            "properties": {
+                "customer_id": {
+                    "type": "string"
+                },
+                "loyalty_card_barcode": {
+                    "type": "string"
+                },
+                "virtual_loyalty_card_needed": {
+                    "type": "boolean"
                 }
             }
         },
@@ -25375,6 +25571,9 @@ const docTemplate = `{
                 "status": {
                     "type": "string"
                 },
+                "transfer_id": {
+                    "type": "string"
+                },
                 "type": {
                     "type": "string"
                 }
@@ -25824,6 +26023,26 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "transaction_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.TransferBarcodeRequest": {
+            "type": "object",
+            "properties": {
+                "barcode": {
+                    "type": "string"
+                },
+                "count": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "transfer_id": {
                     "type": "string"
                 }
             }
