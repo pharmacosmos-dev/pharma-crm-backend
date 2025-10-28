@@ -6,6 +6,8 @@ import (
 
 // region ERROR keys
 var (
+	MultiStatus = NewError(http.StatusMultiStatus, "duplicate")
+
 	// 400 – Bad Request (mijoz noto‘g‘ri so‘rov yuborgan)
 	BadRequestError              = NewError(http.StatusBadRequest, "bad.request")
 	InvalidRequestBodyError      = NewError(http.StatusBadRequest, "invalid.request.body")

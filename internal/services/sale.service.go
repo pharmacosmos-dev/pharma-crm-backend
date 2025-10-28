@@ -52,7 +52,7 @@ func (s *Services) CreateSale(ctx context.Context, tx *gorm.DB, req *domain.Sale
 // create return sale
 func (s *Services) CreateReturnSale(ctx context.Context, req *domain.SaleReturnRequest) (*domain.Sale, error) {
 	return nil, domain.SaleIsClosedError
-
+	
 	// get cashbox operation
 	if req.CashboxId == "" {
 		operation, err := s.GetCashboxOperationByID(ctx, req.CashBoxOperationId)
@@ -225,6 +225,11 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 		return nil, domain.SaleIsClosedError
 	}
 
+	// Route to appropriate handler based on sale type
+	if sale.SaleType == constants.SaleTypeReturn {
+		// return s.FinalizeReturnSale(ctx, req, sale)
+	}
+
 	// check payment types
 	if len(req.PaymentTypes) == 0 {
 		return nil, domain.PaymentTypeRequiredError
@@ -344,6 +349,93 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 	}
 
 	// update sale data
+	if len(updates) > 0 {
+		err = s.updateSaleFields(ctx, tx, req.SaleID, updates)
+		if err != nil {
+			_ = tx.Rollback()
+			return nil, err
+		}
+	}
+
+	res, err := s.GetDatasByMarkings(ctx, tx, req.MarkingData)
+	if err != nil {
+		_ = tx.Rollback()
+		return res, err
+	}
+
+	if err = tx.Commit().Error; err != nil {
+		s.log.Error("could not commit transaction: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	return res, nil
+}
+
+func (s *Services) FinalizeReturnSale(ctx context.Context, req *domain.FinalSale, sale *domain.Sale) (*domain.MarkingItemsResponse, error) {
+	// Validate payment types for return
+	if len(req.PaymentTypes) == 0 {
+		return nil, domain.PaymentTypeRequiredError
+	}
+
+	// Match payment type sum (returns typically refund money)
+	req, err := s.matchingPaymentTypeSum(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	// Start transaction
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	// Update marking for returned items
+	err = s.updateCartItemsMarkingCount(ctx, tx, req.MarkingData)
+	if err != nil {
+		_ = tx.Rollback()
+		return nil, err
+	}
+
+	updates := map[string]any{}
+
+	// For returns, we process refund instead of payment
+	if sale.Stage < constants.SaleStagePayFinished {
+		// err = s.ProcessRefund(ctx, tx, sale, req)
+		// if err != nil {
+		// 	_ = tx.Rollback()
+		// 	return nil, err
+		// }
+
+		// Store refund amounts (negative values for returns)
+		updates["cash"] = -req.Cash
+		updates["humo"] = -req.Humo
+		updates["uzcard"] = -req.Uzcard
+		updates["click"] = -req.Click
+		updates["payme"] = -req.Payme
+		updates["alif"] = -req.Alif
+		updates["loyalty_card"] = -req.LoyaltyCard
+		updates["total_amount"] = gorm.Expr("(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
+		updates["total_discount"] = gorm.Expr("(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
+		updates["return_amount"] = req.ReturnAmount
+		updates["stage"] = constants.SaleStagePayFinished
+		updates["updated_at"] = time.Now()
+	}
+
+	// Reverse inventory (add back to stock)
+	if sale.Stage < constants.SaleStageReturnedFinish {
+		err = s.ReverseInventoryUpdate(ctx, tx, sale)
+		if err != nil {
+			_ = tx.Rollback()
+			return nil, err
+		}
+		updates["stage"] = constants.SaleStageReturnedFinish
+		updates["updated_at"] = time.Now()
+		updates["completed_at"] = time.Now()
+	}
+
+	// Update sale data
 	if len(updates) > 0 {
 		err = s.updateSaleFields(ctx, tx, req.SaleID, updates)
 		if err != nil {
@@ -616,6 +708,28 @@ func (s *Services) ApplySaleInventoryUpdate(ctx context.Context, tx *gorm.DB, sa
 	return nil
 }
 
+func (s *Services) ReverseInventoryUpdate(ctx context.Context, tx *gorm.DB, sale *domain.Sale) error {
+
+	query := `
+	UPDATE store_products sp
+	SET unit_quantity = sp.unit_quantity + ci.unit_quantity, updated_at = NOW()
+	FROM cart_items ci
+	WHERE sp.id = ci.store_product_id 
+	AND ci.sale_id = ?;
+	`
+
+	qb := tx.WithContext(ctx).Exec(query, sale.Id)
+
+	if qb.Error != nil {
+		s.log.Errorf("could not update store_product unit_quantity: %v", qb.Error)
+		return domain.InternalServerError
+	}
+
+	go s.RemoveBonusBySaleId(sale.Id)
+
+	return nil
+}
+
 func (s *Services) matchingPaymentTypeSum(ctx context.Context, req *domain.FinalSale) (*domain.FinalSale, error) {
 	var sum float64
 	for _, item := range req.PaymentTypes {
@@ -682,6 +796,14 @@ func (s *Services) AddSaleBonuses(sale *domain.Sale, req []domain.CartItemWithPr
 		}
 	}
 
+}
+
+func (s *Services) RemoveBonusBySaleId(saleId string) {
+	err := s.db.Exec("DELETE FROM employee_bonus WHERE sale_id = ?", saleId).Error
+	if err != nil {
+		s.log.Errorf("could not remove employee_bonus in sale(%s) %v", saleId, err)
+		return
+	}
 }
 
 func (s *Services) AttachDiscountCardToSale(ctx context.Context, req *domain.AddDiscountCard) (*domain.SaleCustomerDiscount, error) {
