@@ -102,15 +102,15 @@ type StoreAmount struct {
 }
 
 type StoreReportStats struct {
-	TotalAmount    float64 `gorm:"total_amount" json:"total_amount"`
-	ReturnAmount   float64 `gorm:"return_amount" json:"return_amount"`
-	Cash           float64 `gorm:"cash" json:"cash"`
-	Uzcard         float64 `gorm:"uzcard" json:"uzcard"`
-	Humo           float64 `gorm:"humo" json:"humo"`
-	Click          float64 `gorm:"click" json:"click"`
-	Payme          float64 `gorm:"payme" json:"payme"`
-	Alif           float64 `gorm:"alif" json:"alif"`
-	DiscountAmount float64 `gorm:"discount_amount" json:"discount_amount"`
+	TotalAmount   float64 `gorm:"total_amount" json:"total_amount"`
+	ReturnAmount  float64 `gorm:"return_amount" json:"return_amount"`
+	Cash          float64 `gorm:"cash" json:"cash"`
+	Uzcard        float64 `gorm:"uzcard" json:"uzcard"`
+	Humo          float64 `gorm:"humo" json:"humo"`
+	Click         float64 `gorm:"click" json:"click"`
+	Payme         float64 `gorm:"payme" json:"payme"`
+	Alif          float64 `gorm:"alif" json:"alif"`
+	TotalDiscount float64 `gorm:"total_discount" json:"total_discount"`
 }
 
 type StoreSummary struct {
