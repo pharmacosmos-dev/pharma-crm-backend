@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
+	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 )
 
@@ -30,6 +31,7 @@ func (h *DashboardHandler) DashboardRoutes(r *gin.RouterGroup) {
 		dashboard.POST("/payments", h.Payments)
 		dashboard.POST("/transaction", h.Transaction)
 		dashboard.POST("/old-import", h.OldImport)
+
 	}
 }
 
@@ -530,4 +532,50 @@ func (h *DashboardHandler) OldImport(c *gin.Context) {
 	result := utils.ListResponse(res, totalCount, limit, offset)
 
 	handleResponse(c, OK, result)
+}
+
+// TotalSaleDashboard godoc
+// @Summary Get total sale
+// @Description Get total sale
+// @Tags 	dashboard
+// @Security     BearerAuth
+// @Produce json
+// @Param 	limit 		query string false "limit"
+// @Param 	offset 		query string false 	"offset"
+// @Param   store_id 	query string false "store_id"
+// @Param   search 		query string false "search"
+// @Param 	body 		body  domain.DashboardBody false "request_ids"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /dashboard/old-import [POST]
+func (h *DashboardHandler) TotalSaleDashboard(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.DashboardQueryParam
+	if err := c.ShouldBindJSON(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+
+	var body domain.DashboardBody
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&body)
+	}
+	params.CompanyIds = body.CompanyIds
+	params.StoreIds = body.StoreIds
+
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			params.StoreIds = []string{user.StoreId}
+		}
+		params.CompanyIds = []string{user.CompanyId}
+	}
+
+	
 }

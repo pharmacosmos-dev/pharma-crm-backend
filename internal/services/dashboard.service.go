@@ -972,3 +972,11 @@ func (s *Services) DashboardOldImports(ctx context.Context, params *domain.Dashb
 
 	return imports, totalCount, nil
 }
+
+func (s *Services) GetTotalSaleStats(ctx context.Context, params *domain.DashboardQueryParam) (*domain.TotalSaleDto, error) {
+	// qb := s.db.WithContext(ctx).Error
+
+	var res domain.TotalSaleDto
+
+	return &res, nil
+}
