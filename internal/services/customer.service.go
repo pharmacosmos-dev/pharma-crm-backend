@@ -399,17 +399,18 @@ func (s *Services) CreateCustomerDiscountCard(ctx context.Context, req *domain.C
 	}
 	// check customer is exists
 	var count int64
-	err := s.db.WithContext(ctx).Where("id = ?", req.CustomerId).Count(&count).Error
+	err := s.db.WithContext(ctx).
+		Model(&domain.Customer{}).
+		Where("id = ?", req.CustomerId).
+		Count(&count).Error
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, domain.NotFoundError
-		}
-		s.log.Errorf("could not get customers count: %v", err)
+		s.log.Errorf("could not count customers: %v", err)
 		return nil, domain.InternalServerError
 	}
-	if count < 1 {
+	if count == 0 {
 		return nil, domain.NotFoundError
 	}
+
 	var customer domain.Customer
 	err = s.db.WithContext(ctx).
 		Raw("UPDATE customers SET discount_card = ?, discount_percent = ? WHERE id = ? RETURNING *",
@@ -428,10 +429,14 @@ func (s *Services) CreateCustomerDiscountCard(ctx context.Context, req *domain.C
 }
 
 func (s *Services) checkDiscountCardExists(ctx context.Context, discountCard string) bool {
-	var isExists bool
-	err := s.db.WithContext(ctx).Raw("SELECT 1 FROM customers WHERE discount_card = ?", discountCard).Scan(&isExists).Error
+	var count int64
+	err := s.db.WithContext(ctx).
+		Model(&domain.Customer{}).
+		Where("discount_card = ?", discountCard).
+		Count(&count).Error
 	if err != nil {
+		s.log.Errorf("could not check discount card existence: %v", err)
 		return false
 	}
-	return isExists
+	return count > 0
 }

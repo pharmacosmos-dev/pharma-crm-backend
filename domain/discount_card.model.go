@@ -31,15 +31,15 @@ type SaleCustomerDiscount struct {
 }
 
 type CreateDiscountCardRequest struct {
-	Barcode    string `json:"barcode" binding:"required,len=13"`
+	Barcode    string `json:"barcode" binding:"required,min=10,max=20"`
 	CustomerId string `json:"customer_id"`
 	Percent    int    `json:"percent" binding:"gte=0,lte=100"`
 }
 
 type UpdateDiscountCardRequest struct {
 	Id         string `json:"-"`
-	CustomerId string `json:"customer_id,omitempty"` // optional
-	Percent    int    `json:"percent,omitempty" binding:"gte=0,lte=100"`
+	CustomerId string `json:"customer_id"`
+	Percent    int    `json:"percent" binding:"gte=0,lte=100"`
 	UpdatedBy  string `json:"-"`
 }
 

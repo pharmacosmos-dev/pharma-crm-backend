@@ -87,10 +87,6 @@ func (h *DiscountCardHandler) UpdateDiscountCard(c *gin.Context) {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
-	if req.CustomerId == "" {
-		handleServiceResponse(c, nil, domain.InvalidRequestBodyError)
-		return
-	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
