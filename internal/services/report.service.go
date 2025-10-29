@@ -487,7 +487,7 @@ func (s *Services) ReportByStoreStats(ctx context.Context, params *domain.Report
 			"SUM(sa.alif) AS alif",
 			"SUM(sa.total_amount) AS total_amount",
 			"SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sa.total_amount * (-1) ELSE 0 END) AS return_amount",
-			"SUM(sa.total_discount) AS total_discount",
+			"SUM(sa.total_discount) AS discount_amount",
 		).
 		Table("stores s").
 		Joins("JOIN sales sa ON sa.store_id = s.id")
