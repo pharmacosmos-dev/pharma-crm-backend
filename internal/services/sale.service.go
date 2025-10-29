@@ -325,7 +325,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 		}
 
 		if sale.Stage < constants.SaleStageFinished {
-			err = s.ApplySaleInventoryUpdate(ctx, tx, sale)
+			err = s.ApplySaleInventoryUpdate(ctx, tx, sale, req.LoyaltyCardBarcode)
 			if err != nil {
 				_ = tx.Rollback()
 				return nil, err
@@ -606,7 +606,7 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 
 	// Stage 3: Handle Inventory (stage 9)
 	if sale.Stage < constants.SaleStageFinished {
-		err = s.ApplySaleInventoryUpdate(ctx, tx, sale)
+		err = s.ApplySaleInventoryUpdate(ctx, tx, sale, "")
 		if err != nil {
 			_ = tx.Rollback()
 			return nil, err
@@ -809,7 +809,7 @@ func (s *Services) validateSaleProductQuantity(ctx context.Context, sale *domain
 	return nil
 }
 
-func (s *Services) ApplySaleInventoryUpdate(ctx context.Context, tx *gorm.DB, sale *domain.Sale) error {
+func (s *Services) ApplySaleInventoryUpdate(ctx context.Context, tx *gorm.DB, sale *domain.Sale, loyaltyCardBarcode string) error {
 	var cartItemsWithProducts []domain.CartItemWithProduct
 	err := tx.WithContext(ctx).
 		Table("cart_items ci").
@@ -857,7 +857,7 @@ func (s *Services) ApplySaleInventoryUpdate(ctx context.Context, tx *gorm.DB, sa
 		return domain.InternalServerError
 	}
 
-	go s.AddSaleBonuses(sale, cartItemsWithProducts)
+	go s.AddSaleBonuses(sale, cartItemsWithProducts, loyaltyCardBarcode)
 
 	return nil
 }
@@ -923,7 +923,7 @@ func (s *Services) matchingPaymentTypeSum(ctx context.Context, req *domain.Final
 	return req, nil
 }
 
-func (s *Services) AddSaleBonuses(sale *domain.Sale, req []domain.CartItemWithProduct) {
+func (s *Services) AddSaleBonuses(sale *domain.Sale, req []domain.CartItemWithProduct, loyaltyCardBarcode string) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 	var bonuses []domain.EmployeeBonusRequest
@@ -951,8 +951,13 @@ func (s *Services) AddSaleBonuses(sale *domain.Sale, req []domain.CartItemWithPr
 	}
 	fmt.Println("CustomerId", sale.CustomerId)
 
-	if sale.CashBack > 0 {
-		err := s.db.Exec(`UPDATE customers SET balance = balance + ? WHERE id = ?`, sale.CashBack, sale.Customer.Id).Error
+	if sale.CashBack > 0 || loyaltyCardBarcode != "" {
+		err := s.db.Exec(`
+UPDATE
+    customers
+SET
+    balance = balance + (SELECT (COALESCE(SUM(total_price) - SUM(discount_amount), 0)::numeric * 1 / 100) FROM cart_items WHERE sale_id = ?)
+WHERE id = ?`, sale.Id, sale.Customer.Id).Error
 		if err != nil {
 			s.log.Errorf("could not update customer balance: %v", err)
 			return
