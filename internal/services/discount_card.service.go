@@ -23,22 +23,13 @@ func (s *Services) GetDiscountCardByBarcode(ctx context.Context, barcode string)
 	return &res, nil
 }
 
-func (s *Services) UpdateDiscountCard(req *domain.UpdateDiscountCardRequest) error {
-	var card = domain.UpdateDiscountCard{
-		Percent:   req.Percent,
-		UpdatedBy: req.UpdatedBy,
-		UpdatedAt: time.Now(),
+func (s *Services) UpdateDiscountCard(ctx context.Context, req *domain.UpdateDiscountCardRequest) error {
+	err := s.db.WithContext(ctx).Exec("UPDATE customers SET discount_percent = ? WHERE id = ?", req.Percent, req.Id).Error
+	if err != nil {
+		s.log.Errorf("could not update customer discount_percent: %v", err)
+		return domain.InternalServerError
 	}
-
-	if req.CustomerID != nil {
-		card.CustomerID = req.CustomerID
-	}
-
-	return s.db.
-		Model(&domain.DiscountCard{}).
-		Where("id = ? AND deleted_at IS NULL", req.ID).
-		Updates(card).
-		Error
+	return nil
 }
 
 func (s *Services) DeleteDiscountCard(id, deletedBy string) error {

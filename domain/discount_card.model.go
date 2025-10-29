@@ -1,16 +1,17 @@
 package domain
 
 import (
-	"gorm.io/gorm"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 // discount card structure
 type DiscountCard struct {
-	ID         string  `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
-	CustomerID *string `gorm:"type:uuid"`
-	Barcode    string  `gorm:"size:13;unique;not null"`
-	Percent    int     `gorm:"default:0"`
+	ID         string `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
+	CustomerID string `gorm:"type:uuid"`
+	Barcode    string `gorm:"size:13;unique;not null"`
+	Percent    int    `gorm:"default:0"`
 	CreatedBy  string
 	UpdatedBy  *string
 	DeletedBy  *string
@@ -30,16 +31,16 @@ type SaleCustomerDiscount struct {
 }
 
 type CreateDiscountCardRequest struct {
-	Barcode    string  `json:"barcode" binding:"required,len=13"`
-	CustomerID *string `json:"customer_id,omitempty"` // optional
-	Percent    int     `json:"percent" binding:"gte=0,lte=100"`
+	Barcode    string `json:"barcode" binding:"required,len=13"`
+	CustomerId string `json:"customer_id"`
+	Percent    int    `json:"percent" binding:"gte=0,lte=100"`
 }
 
 type UpdateDiscountCardRequest struct {
-	ID         string  `json:"-"`
-	CustomerID *string `json:"customer_id,omitempty"` // optional
-	Percent    int     `json:"percent,omitempty" binding:"gte=0,lte=100"`
-	UpdatedBy  string  `json:"-"`
+	Id         string `json:"-"`
+	CustomerId string `json:"customer_id,omitempty"` // optional
+	Percent    int    `json:"percent,omitempty" binding:"gte=0,lte=100"`
+	UpdatedBy  string `json:"-"`
 }
 
 type UpdateDiscountCard struct {

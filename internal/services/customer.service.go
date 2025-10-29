@@ -391,3 +391,47 @@ func (s *Services) GetOrCreateCustomerByPhone(req *domain.NoorClientInfo) (*doma
 	s.log.Warn("ERROR on getting customer info: %v", err)
 	return nil, err
 }
+
+func (s *Services) CreateCustomerDiscountCard(ctx context.Context, req *domain.CreateDiscountCardRequest) (*domain.DiscountCard, error) {
+	// check discount card is exists
+	if s.checkDiscountCardExists(ctx, req.Barcode) {
+		return nil, domain.DuplicateError
+	}
+	// check customer is exists
+	var count int64
+	err := s.db.WithContext(ctx).Where("id = ?", req.CustomerId).Count(&count).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.NotFoundError
+		}
+		s.log.Errorf("could not get customers count: %v", err)
+		return nil, domain.InternalServerError
+	}
+	if count < 1 {
+		return nil, domain.NotFoundError
+	}
+	var customer domain.Customer
+	err = s.db.WithContext(ctx).
+		Raw("UPDATE customers SET discount_card = ?, discount_percent = ? WHERE id = ? RETURNING *",
+			req.Barcode, req.Percent, req.CustomerId).Scan(&customer).Error
+	if err != nil {
+		s.log.Errorf("could not attach discount_card to customer: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	return &domain.DiscountCard{
+		ID:         customer.Id,
+		CustomerID: customer.Id,
+		Barcode:    customer.DiscountCard,
+		Percent:    customer.DiscountPercent,
+	}, nil
+}
+
+func (s *Services) checkDiscountCardExists(ctx context.Context, discountCard string) bool {
+	var isExists bool
+	err := s.db.WithContext(ctx).Raw("SELECT 1 FROM customers WHERE discount_card = ?", discountCard).Scan(&isExists).Error
+	if err != nil {
+		return false
+	}
+	return isExists
+}
