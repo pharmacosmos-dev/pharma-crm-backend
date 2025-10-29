@@ -321,6 +321,7 @@ func (s *Services) DashboardChartStats(ctx context.Context, params *domain.Dashb
 		%s
 	LEFT JOIN stores st ON s.store_id = st.id
 	%s
+	WHERE s.stage IN(9, 11)
 	GROUP BY ts.period
 	ORDER BY ts.period;
 	`, timeTruncCol, storeFilter, companyFilter)
@@ -347,14 +348,12 @@ func (s *Services) DashboardTopStores(ctx context.Context, params *domain.Dashbo
 	)
 
 	// Parse and apply date filters
-	var startStr, endStr string
 	if params.StartDate != "" {
 		startTime, err := time.Parse(time.RFC3339, params.StartDate)
 		if err != nil {
 			s.log.Errorf("Invalid start_date format: %v", err)
 			return nil, domain.InvalidTimeFormatError
 		}
-		startStr = startTime.Format("2006-01-02 15:04:05")
 
 		// if end_date is empty → use start_date
 		var endTime time.Time
@@ -367,11 +366,10 @@ func (s *Services) DashboardTopStores(ctx context.Context, params *domain.Dashbo
 		} else {
 			endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
 		}
-		endStr = endTime.Format("2006-01-02 15:04:05")
 
 		// Apply filter
-		filter += " AND sales.completed_at BETWEEN ? AND ?"
-		args = append(args, startStr, endStr)
+		filter += " AND (sales.completed_at + interval '5 hours') BETWEEN ? AND ?"
+		args = append(args, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339))
 	}
 
 	// Store filter
