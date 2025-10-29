@@ -458,7 +458,7 @@ func (s *Services) GetProductStats(ctx context.Context, params *domain.ProductQu
 			"p.unit_per_pack",
 			"COALESCE(SUM(sp.unit_quantity), 0) AS total_unit_quantity",
 			"MIN(sp.expire_date) AS min_expire_date",
-			"SUM(sp.retail_price * (sp.unit_quantity/p.unit_per_pack)) AS total_amount",
+			"SUM(sp.unit_quantity * (sp.retail_price/p.unit_per_pack)) AS total_amount",
 		).
 		Joins("LEFT JOIN store_products sp ON p.id = sp.product_id").
 		Group("p.id")
@@ -489,7 +489,7 @@ func (s *Services) GetProductStats(ctx context.Context, params *domain.ProductQu
 	query := `
 		SELECT 
 			COUNT(*) AS total_count,
-			SUM(total_unit_quantity / unit_per_pack)AS total_quantity,
+			SUM(total_unit_quantity / unit_per_pack) AS total_quantity,
 			SUM(total_amount) AS total_stock_amount,
 			COUNT(*) FILTER (WHERE (total_unit_quantity / unit_per_pack) < 3) AS low_stock_count,
 			COUNT(*) FILTER (WHERE total_unit_quantity = 0) AS zero_stock_count,
