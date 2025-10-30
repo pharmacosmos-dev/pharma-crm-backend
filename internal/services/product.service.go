@@ -1669,7 +1669,7 @@ func (s *Services) UpdatePackaging(req *domain.UpdatePackagingRequest) error {
 			tx.Rollback()
 			return errors.New("product not found")
 		}
-		s.log.Error("Failed to get product: ", err)
+		s.log.Errorf("Failed to get product: %v", err)
 		tx.Rollback()
 		return err
 	}
@@ -1679,8 +1679,8 @@ func (s *Services) UpdatePackaging(req *domain.UpdatePackagingRequest) error {
 		Where("id = ?", req.ProductID).
 		Update("unit_per_pack", req.UnitPerPack).Error
 	if err != nil {
-		s.log.Error("Failed to update product packaging: ", err)
 		tx.Rollback()
+		s.log.Errorf("Failed to update product packaging: %v", err)
 		return err
 	}
 
@@ -1692,14 +1692,14 @@ func (s *Services) UpdatePackaging(req *domain.UpdatePackagingRequest) error {
 		req.UnitPerPack, req.ProductID,
 	).Error
 	if err != nil {
-		s.log.Error("Failed to recalc store_products.unit_quantity: ", err)
 		tx.Rollback()
+		s.log.Errorf("Failed to recalc store_products.unit_quantity: %v", err)
 		return err
 	}
 
 	// 4. Commit transaction
 	if err = tx.Commit().Error; err != nil {
-		s.log.Error("Failed to commit transaction: ", err)
+		s.log.Errorf("Failed to commit transaction: %v", err)
 		return err
 	}
 

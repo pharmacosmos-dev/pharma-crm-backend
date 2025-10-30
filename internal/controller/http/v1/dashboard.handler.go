@@ -6,7 +6,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
-	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 )
 
@@ -32,6 +31,11 @@ func (h *DashboardHandler) DashboardRoutes(r *gin.RouterGroup) {
 		dashboard.POST("/transaction", h.Transaction)
 		dashboard.POST("/old-import", h.OldImport)
 
+		dashboard.POST("/sale-statistic", h.SaleStatistic)
+		dashboard.POST("/net-profit-statistic", h.NetProfitStatistic)
+		dashboard.POST("/import-statistic", h.ImportStatistic)
+		dashboard.POST("/product-statistic", h.ProductStatistic)
+		dashboard.POST("/employee-bonus", h.EmployeeBonus)
 	}
 }
 
@@ -534,48 +538,279 @@ func (h *DashboardHandler) OldImport(c *gin.Context) {
 	handleResponse(c, OK, result)
 }
 
-// TotalSaleDashboard godoc
-// @Summary Get total sale
-// @Description Get total sale
-// @Tags 	dashboard
+// TotalCountStats godoc
+// @Summary Get total count stats
+// @Description Get total count stats
+// @Tags dashboard
 // @Security     BearerAuth
 // @Produce json
-// @Param 	limit 		query string false "limit"
-// @Param 	offset 		query string false 	"offset"
-// @Param   store_id 	query string false "store_id"
-// @Param   search 		query string false "search"
-// @Param 	body 		body  domain.DashboardBody false "request_ids"
+// @Param   start_date 	query string false "Start Date"
+// @Param   end_date 	query string false "End Date"
+// @Param   store_id 	query string false "Store ID"
+// @Param   type 		query string false "Type"
+// @Param   ids 		body  domain.DashboardBody false "Body"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /dashboard/old-import [POST]
-func (h *DashboardHandler) TotalSaleDashboard(c *gin.Context) {
+// @Router /dashboard/sale-statistic [POST]
+func (h *DashboardHandler) SaleStatistic(c *gin.Context) {
 	user := h.service.GetSignedUser(c)
-
 	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
-
 	var params domain.DashboardQueryParam
-	if err := c.ShouldBindJSON(&params); err != nil {
-		handleServiceResponse(c, nil, domain.InvalidQueryError)
+	// bind query parameters
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 
 	var body domain.DashboardBody
+	// bind store ids
 	if c.Request.Body != nil {
 		_ = c.ShouldBindJSON(&body)
 	}
-	params.CompanyIds = body.CompanyIds
-	params.StoreIds = body.StoreIds
 
-	if !helper.IsAdmin(user) {
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+	params.StoreIds = body.StoreIds
+	params.CompanyIds = body.CompanyIds
+
+	// check if employee is not admin or superadmin
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
-		params.CompanyIds = []string{user.CompanyId}
+		params.CompanyId = user.CompanyId
 	}
 
-	
+	// get dashboard data
+	res, err := h.service.DashboardSaleStatistic(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	handleResponse(c, OK, res)
+}
+
+// TotalCountStats godoc
+// @Summary Get total count stats
+// @Description Get total count stats
+// @Tags dashboard
+// @Security     BearerAuth
+// @Produce json
+// @Param   start_date 	query string false "Start Date"
+// @Param   end_date 	query string false "End Date"
+// @Param   store_id 	query string false "Store ID"
+// @Param   type 		query string false "Type"
+// @Param   ids 		body  domain.DashboardBody false "Body"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /dashboard/net-profit-statistic [POST]
+func (h *DashboardHandler) NetProfitStatistic(c *gin.Context) {
+	// user := h.service.GetSignedUser(c)
+	// if user.UserId == "" {
+	// 	handleServiceResponse(c, nil, domain.UnauthorizedError)
+	// 	return
+	// }
+	var params domain.DashboardQueryParam
+	// bind query parameters
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	var body domain.DashboardBody
+	// bind store ids
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&body)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+	params.StoreIds = body.StoreIds
+	params.CompanyIds = body.CompanyIds
+
+	// // check if employee is not admin or superadmin
+	// if !utils.In(user.Role, constants.AllAdminRoles...) {
+	// 	if user.StoreId != "" {
+	// 		params.StoreIds = []string{user.StoreId}
+	// 	}
+	// 	params.CompanyId = user.CompanyId
+	// }
+
+	// get dashboard data
+	res, err := h.service.DashboardNetProfitStatistic(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	handleResponse(c, OK, res)
+}
+
+// TotalCountStats godoc
+// @Summary Get total count stats
+// @Description Get total count stats
+// @Tags dashboard
+// @Security     BearerAuth
+// @Produce json
+// @Param   start_date 	query string false "Start Date"
+// @Param   end_date 	query string false "End Date"
+// @Param   store_id 	query string false "Store ID"
+// @Param   type 		query string false "Type"
+// @Param   ids 		body  domain.DashboardBody false "Body"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /dashboard/import-statistic [POST]
+func (h *DashboardHandler) ImportStatistic(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+	var params domain.DashboardQueryParam
+	// bind query parameters
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	var body domain.DashboardBody
+	// bind store ids
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&body)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+	params.StoreIds = body.StoreIds
+	params.CompanyIds = body.CompanyIds
+
+	// check if employee is not admin or superadmin
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreIds = []string{user.StoreId}
+		}
+		params.CompanyId = user.CompanyId
+	}
+
+	// get dashboard data
+	res, err := h.service.DashboardImportStatistic(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	handleResponse(c, OK, res)
+}
+
+// TotalCountStats godoc
+// @Summary Get total count stats
+// @Description Get total count stats
+// @Tags dashboard
+// @Security     BearerAuth
+// @Produce json
+// @Param   start_date 	query string false "Start Date"
+// @Param   end_date 	query string false "End Date"
+// @Param   store_id 	query string false "Store ID"
+// @Param   type 		query string false "Type"
+// @Param   ids 		body  domain.DashboardBody false "Body"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /dashboard/product-statistic [POST]
+func (h *DashboardHandler) ProductStatistic(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+	var params domain.DashboardQueryParam
+	// bind query parameters
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	var body domain.DashboardBody
+	// bind store ids
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&body)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+	params.StoreIds = body.StoreIds
+	params.CompanyIds = body.CompanyIds
+
+	// check if employee is not admin or superadmin
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreIds = []string{user.StoreId}
+		}
+		params.CompanyId = user.CompanyId
+	}
+
+	// get dashboard data
+	res, err := h.service.DashboardProductStatistic(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	handleResponse(c, OK, res)
+}
+
+// TotalCountStats godoc
+// @Summary Get total count stats
+// @Description Get total count stats
+// @Tags dashboard
+// @Security     BearerAuth
+// @Produce json
+// @Param   start_date 	query string false "Start Date"
+// @Param   end_date 	query string false "End Date"
+// @Param   store_id 	query string false "Store ID"
+// @Param   type 		query string false "Type"
+// @Param   ids 		body  domain.DashboardBody false "Body"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /dashboard/employee-bonus [POST]
+func (h *DashboardHandler) EmployeeBonus(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+	var params domain.DashboardQueryParam
+	// bind query parameters
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	var body domain.DashboardBody
+	// bind store ids
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&body)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+	params.StoreIds = body.StoreIds
+	params.CompanyIds = body.CompanyIds
+
+	// get bonus amount
+	bonus, err := h.service.GetEmployeeBonusAmount(ctx, &params, user.UserId)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, bonus)
 }
