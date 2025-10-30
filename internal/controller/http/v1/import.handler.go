@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -735,6 +736,11 @@ func (h *ImportHandler) AcceptImport(c *gin.Context) {
 		return
 	}
 
+	// lock parallel request
+	mu := h.getImportLock(id)
+	mu.Lock()
+	defer mu.Unlock()
+
 	// update imports status to completed
 	err = h.service.AcceptImport(id, userID.(string), "all")
 	if err != nil {
@@ -770,6 +776,12 @@ func (h *ImportHandler) CancelImport(c *gin.Context) {
 		handleResponse(c, InternalError, "User ID not found in context")
 		return
 	}
+
+	// lock parallel request
+	mu := h.getImportLock(id)
+	mu.Lock()
+	defer mu.Unlock()
+
 	// start transaction
 	tx := h.db.Begin()
 	defer func() {
@@ -829,6 +841,11 @@ func (h *ImportHandler) AcceptSomeImport(c *gin.Context) {
 		return
 	}
 
+	// lock parallel request
+	mu := h.getImportLock(id)
+	mu.Lock()
+	defer mu.Unlock()
+
 	// update import status to completed
 	err := h.service.AcceptImport(id, userID.(string), "some")
 	if err != nil {
@@ -879,4 +896,10 @@ func (h *ImportHandler) GetStockStatusCounts(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, res)
+}
+
+// lock order for parallel request
+func (h *ImportHandler) getImportLock(importId string) *sync.Mutex {
+	lock, _ := h.ordersToMutexes.LoadOrStore(importId, &sync.Mutex{})
+	return lock.(*sync.Mutex)
 }

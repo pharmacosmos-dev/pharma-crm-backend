@@ -458,7 +458,7 @@ func (s *Services) GetProductStats(ctx context.Context, params *domain.ProductQu
 			"p.unit_per_pack",
 			"COALESCE(SUM(sp.unit_quantity), 0) AS total_unit_quantity",
 			"MIN(sp.expire_date) AS min_expire_date",
-			"SUM(sp.retail_price * (sp.unit_quantity/p.unit_per_pack)) AS total_amount",
+			"SUM(sp.unit_quantity * (sp.retail_price/p.unit_per_pack)) AS total_amount",
 		).
 		Joins("LEFT JOIN store_products sp ON p.id = sp.product_id").
 		Group("p.id")
@@ -489,7 +489,7 @@ func (s *Services) GetProductStats(ctx context.Context, params *domain.ProductQu
 	query := `
 		SELECT 
 			COUNT(*) AS total_count,
-			SUM(total_unit_quantity / unit_per_pack)AS total_quantity,
+			SUM(total_unit_quantity / unit_per_pack) AS total_quantity,
 			SUM(total_amount) AS total_stock_amount,
 			COUNT(*) FILTER (WHERE (total_unit_quantity / unit_per_pack) < 3) AS low_stock_count,
 			COUNT(*) FILTER (WHERE total_unit_quantity = 0) AS zero_stock_count,
@@ -1669,7 +1669,7 @@ func (s *Services) UpdatePackaging(req *domain.UpdatePackagingRequest) error {
 			tx.Rollback()
 			return errors.New("product not found")
 		}
-		s.log.Error("Failed to get product: ", err)
+		s.log.Errorf("Failed to get product: %v", err)
 		tx.Rollback()
 		return err
 	}
@@ -1679,8 +1679,8 @@ func (s *Services) UpdatePackaging(req *domain.UpdatePackagingRequest) error {
 		Where("id = ?", req.ProductID).
 		Update("unit_per_pack", req.UnitPerPack).Error
 	if err != nil {
-		s.log.Error("Failed to update product packaging: ", err)
 		tx.Rollback()
+		s.log.Errorf("Failed to update product packaging: %v", err)
 		return err
 	}
 
@@ -1692,14 +1692,14 @@ func (s *Services) UpdatePackaging(req *domain.UpdatePackagingRequest) error {
 		req.UnitPerPack, req.ProductID,
 	).Error
 	if err != nil {
-		s.log.Error("Failed to recalc store_products.unit_quantity: ", err)
 		tx.Rollback()
+		s.log.Errorf("Failed to recalc store_products.unit_quantity: %v", err)
 		return err
 	}
 
 	// 4. Commit transaction
 	if err = tx.Commit().Error; err != nil {
-		s.log.Error("Failed to commit transaction: ", err)
+		s.log.Errorf("Failed to commit transaction: %v", err)
 		return err
 	}
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
@@ -271,7 +272,7 @@ func (s *Services) UpdateReturnByBarcode(ctx context.Context, req *domain.Transf
 			return domain.InternalServerError
 		}
 		if len(barcodeResponse) > 1 {
-			return domain.DuplicateError
+			return domain.NewNotAdditionError(http.StatusMultiStatus, barcodeResponse)
 		}
 		transferLog.TransferDetailId = barcodeResponse[0].Id
 		transferLog.ProductId = barcodeResponse[0].ProductId

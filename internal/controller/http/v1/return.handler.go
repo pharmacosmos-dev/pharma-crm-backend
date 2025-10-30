@@ -911,6 +911,10 @@ func (h *ReturnHandler) UpdateByBarcode(c *gin.Context) {
 
 	err := h.service.UpdateReturnByBarcode(ctx, &req, user)
 	if err != nil {
+		if notAddErr, ok := err.(*domain.NotAdditionError); ok {
+			handleResponse(c, MultiStatus, notAddErr.Data)
+			return
+		}
 		handleServiceResponse(c, nil, err)
 		return
 	}

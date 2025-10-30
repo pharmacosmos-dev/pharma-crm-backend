@@ -1,12 +1,11 @@
 package v1
 
 import (
+	"context"
+
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
-	"github.com/spf13/cast"
-	"gorm.io/gorm"
-	"net/http"
-	"strings"
+	"github.com/pharma-crm-backend/domain/constants"
 )
 
 type DiscountCardHandler struct {
@@ -40,49 +39,28 @@ func (h *DiscountCardHandler) DiscountCardRoutes(r *gin.RouterGroup) {
 // @Failure 500 {object} v1.Response
 // @Router /discount-card [post]
 func (h *DiscountCardHandler) CreateDiscountCard(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
 	var req domain.CreateDiscountCardRequest
-
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request", "details": err.Error()})
+		handleServiceResponse(c, nil, domain.InvalidRequestBodyError)
 		return
 	}
 
-	// get user id from header
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
-		return
-	}
-	// get employee info
-	var employee domain.Employee
-	err := h.db.First(&employee, "id = ?", userId).Error
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, err := h.service.CreateCustomerDiscountCard(ctx, &req)
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, "User not found")
-			return
-		}
-		h.log.Error("ERROR on getting employee info: ", err)
-		handleResponse(c, InternalError, "Can't get employee info")
+		handleServiceResponse(c, nil, err)
 		return
 	}
 
-	card := &domain.DiscountCard{
-		Barcode:    req.Barcode,
-		CustomerID: req.CustomerID,
-		Percent:    req.Percent,
-		CreatedBy:  employee.Id,
-	}
-
-	if err = h.db.Create(&card).Error; err != nil {
-		if strings.Contains(err.Error(), "duplicate key") {
-			c.JSON(http.StatusConflict, gin.H{"error": "Discount card with this barcode already exists"})
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not create discount card"})
-		}
-		return
-	}
-
-	handleResponse(c, CREATED, card)
+	handleResponse(c, CREATED, res)
 }
 
 // Update godoc
@@ -100,26 +78,24 @@ func (h *DiscountCardHandler) CreateDiscountCard(c *gin.Context) {
 func (h *DiscountCardHandler) UpdateDiscountCard(c *gin.Context) {
 	var req domain.UpdateDiscountCardRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		handleResponse(c, BadRequest, "Invalid request body")
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
 
 	id := c.Param("id")
 	if id == "" {
-		handleResponse(c, BadRequest, "ID is required")
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
-	req.ID = id
 
-	userID, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "unauthorized")
-		return
-	}
-	req.UpdatedBy = cast.ToString(userID)
-	err := h.service.UpdateDiscountCard(&req)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	req.Id = id
+
+	err := h.service.UpdateDiscountCard(ctx, &req)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
