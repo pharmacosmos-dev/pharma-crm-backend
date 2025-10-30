@@ -1095,13 +1095,16 @@ func (s *Services) DashboardNetProfitStatistic(ctx context.Context, param *domai
 
 		queryc = fmt.Sprintf(`
 		SELECT
-			ROUND(SUM(CASE WHEN completed_at BETWEEN '%s' AND '%s' THEN ((ci.unit_price - sp.supply_price)/p.unit_per_pack) * ci.unit_quantity ELSE 0 END), 2) AS income_amount,
-			ROUND(SUM(CASE WHEN completed_at BETWEEN '%s' AND '%s' THEN ((ci.unit_price - sp.supply_price)/p.unit_per_pack) * ci.unit_quantity ELSE 0 END), 2) AS before_income_amount
+			ROUND(SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN ((ci.unit_price - sp.supply_price)/p.unit_per_pack) * ci.unit_quantity ELSE 0 END), 2) AS income_amount,
+			ROUND(SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN ((ci.unit_price - sp.supply_price)/p.unit_per_pack) * ci.unit_quantity ELSE 0 END), 2) AS before_income_amount,
+			ROUND(SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN (sp.supply_price/p.unit_per_pack) * ci.unit_quantity ELSE 0 END), 2) AS production_cost,
+			ROUND(SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN (sp.supply_price/p.unit_per_pack) * ci.unit_quantity ELSE 0 END), 2) AS before_production_cost
 		FROM cart_items ci
 		JOIN store_products sp ON ci.store_product_id = sp.id
 		JOIN products p ON sp.product_id = p.id
 		JOIN sales s ON ci.sale_id = s.id
 		WHERE s.stage IN(9, 11) AND s.sale_type = 'SALE'`,
+			startStr, endStr, beforeStartStr, beforeEndStr,
 			startStr, endStr, beforeStartStr, beforeEndStr)
 
 		filter  = ""
@@ -1270,7 +1273,7 @@ func (s *Services) DashboardProductStatistic(ctx context.Context, param *domain.
 			SELECT store_product_id, SUM(quantity) AS quantity, SUM(quantity * unit_price) AS amount
 			FROM cart_items
 			JOIN sales s ON cart_items.sale_id = s.id
-			WHERE s.completed_at BETWEEN '%s' AND '%s'
+			WHERE (s.completed_at + interval '5 hours') BETWEEN '%s' AND '%s'
 			AND s.stage IN(9, 11)
 			GROUP BY store_product_id
 		) AS ci_sold ON ci_sold.store_product_id = sp.id

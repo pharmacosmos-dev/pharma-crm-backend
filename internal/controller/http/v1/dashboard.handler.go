@@ -611,11 +611,11 @@ func (h *DashboardHandler) SaleStatistic(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/net-profit-statistic [POST]
 func (h *DashboardHandler) NetProfitStatistic(c *gin.Context) {
-	user := h.service.GetSignedUser(c)
-	if user.UserId == "" {
-		handleServiceResponse(c, nil, domain.UnauthorizedError)
-		return
-	}
+	// user := h.service.GetSignedUser(c)
+	// if user.UserId == "" {
+	// 	handleServiceResponse(c, nil, domain.UnauthorizedError)
+	// 	return
+	// }
 	var params domain.DashboardQueryParam
 	// bind query parameters
 	if err := c.ShouldBindQuery(&params); err != nil {
@@ -634,13 +634,13 @@ func (h *DashboardHandler) NetProfitStatistic(c *gin.Context) {
 	params.StoreIds = body.StoreIds
 	params.CompanyIds = body.CompanyIds
 
-	// check if employee is not admin or superadmin
-	if !utils.In(user.Role, constants.AllAdminRoles...) {
-		if user.StoreId != "" {
-			params.StoreIds = []string{user.StoreId}
-		}
-		params.CompanyId = user.CompanyId
-	}
+	// // check if employee is not admin or superadmin
+	// if !utils.In(user.Role, constants.AllAdminRoles...) {
+	// 	if user.StoreId != "" {
+	// 		params.StoreIds = []string{user.StoreId}
+	// 	}
+	// 	params.CompanyId = user.CompanyId
+	// }
 
 	// get dashboard data
 	res, err := h.service.DashboardNetProfitStatistic(ctx, &params)
