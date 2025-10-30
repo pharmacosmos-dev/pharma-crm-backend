@@ -4219,6 +4219,141 @@ paths:
       summary: Get total count stats
       tags:
       - dashboard
+  /dashboard/employee-bonus:
+    post:
+      description: Get total count stats
+      parameters:
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Type
+        in: query
+        name: type
+        type: string
+      - description: Body
+        in: body
+        name: ids
+        schema:
+          $ref: '#/definitions/domain.DashboardBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get total count stats
+      tags:
+      - dashboard
+  /dashboard/import-statistic:
+    post:
+      description: Get total count stats
+      parameters:
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Type
+        in: query
+        name: type
+        type: string
+      - description: Body
+        in: body
+        name: ids
+        schema:
+          $ref: '#/definitions/domain.DashboardBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get total count stats
+      tags:
+      - dashboard
+  /dashboard/net-profit-statistic:
+    post:
+      description: Get total count stats
+      parameters:
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Type
+        in: query
+        name: type
+        type: string
+      - description: Body
+        in: body
+        name: ids
+        schema:
+          $ref: '#/definitions/domain.DashboardBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get total count stats
+      tags:
+      - dashboard
   /dashboard/old-import:
     post:
       description: Get all import stats
@@ -4302,6 +4437,96 @@ paths:
       security:
       - BearerAuth: []
       summary: Get all payments stats
+      tags:
+      - dashboard
+  /dashboard/product-statistic:
+    post:
+      description: Get total count stats
+      parameters:
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Type
+        in: query
+        name: type
+        type: string
+      - description: Body
+        in: body
+        name: ids
+        schema:
+          $ref: '#/definitions/domain.DashboardBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get total count stats
+      tags:
+      - dashboard
+  /dashboard/sale-statistic:
+    post:
+      description: Get total count stats
+      parameters:
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Type
+        in: query
+        name: type
+        type: string
+      - description: Body
+        in: body
+        name: ids
+        schema:
+          $ref: '#/definitions/domain.DashboardBody'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get total count stats
       tags:
       - dashboard
   /dashboard/top-products:

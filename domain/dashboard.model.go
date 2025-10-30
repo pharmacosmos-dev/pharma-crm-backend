@@ -167,6 +167,13 @@ type DashboardCountStatsSale struct {
 	BeforeDiscountAmount float64 `gorm:"before_discount_amount" json:"before_discount_amount"`
 }
 
+type DashboardSaleStatistic struct {
+	SaleCount        int64   `gorm:"sale_count" json:"sale_count"`
+	BeforeSaleCount  int64   `gorm:"before_sale_count" json:"before_sale_count"`
+	SaleAmount       float64 `gorm:"sale_amount" json:"sale_amount"`
+	BeforeSaleAmount float64 `gorm:"before_sale_amount" json:"before_sale_amount"`
+}
+
 // Dashboard count stats product
 type DashboardCountStatsProduct struct {
 	StockCount           float64 `gorm:"stock_count" json:"stock_count"`
@@ -181,6 +188,20 @@ type DashboardCountStatsProduct struct {
 	BeforeExpiredAmount  float64 `gorm:"before_expired_amount" json:"before_expired_amount"`
 }
 
+type DashboardProductStatistic struct {
+	TotalProductCount        float64 `gorm:"total_product_count" json:"total_product_count"`
+	BeforeProductCount       float64 `gorm:"before_product_count" json:"before_product_count"`
+	StockTotalAmount         float64 `gorm:"stock_total_amount" json:"stock_total_amount"`
+	BeforeStockAmount        float64 `gorm:"before_stock_amount" json:"before_stock_amount"`
+	ExpiringSoonCount        float64 `gorm:"expiring_soon_count" json:"expiring_soon_count"`
+	ExpiredSoonCount         float64 `gorm:"expired_soon_count" json:"expired_soon_count"`
+	BeforeExpiringSoonCount  float64 `gorm:"before_expiring_soon_count" json:"before_expiring_soon_count"`
+	ExpiringSoonAmount       float64 `gorm:"expiring_soon_amount" json:"expiring_soon_amount"`
+	ExpiredSoonAmount        float64 `gorm:"expired_soon_amount" json:"expired_soon_amount"`
+	BeforeExpiringSoonAmount float64 `gorm:"before_expiring_soon_amount" json:"before_expiring_soon_amount"`
+	BeforeExpiredSoonAmount  float64 `gorm:"before_expired_soon_amount" json:"before_expired_soon_amount"`
+}
+
 type DashboardCountStatsIncome struct {
 	IncomeAmount       float64 `gorm:"income_amount" json:"income_amount"`
 	BeforeIncomeAmount float64 `gorm:"before_income_amount" json:"before_income_amount"`
@@ -188,6 +209,13 @@ type DashboardCountStatsIncome struct {
 type DashboardImport struct {
 	ImportAmount           float64 `gorm:"column:import_amount" json:"import_amount"`
 	NotLast24hImportAmount float64 `gorm:"column:not_last_24h_import_amount" json:"not_last_24h_import_amount"`
+}
+
+type DashboardImportStatistic struct {
+	ImportAmount           float64 `json:"import_amount"`
+	NotLast24HImportCount  float64 `json:"not_last_24h_import_count"`
+	BeforeImportAmount     float64 `json:"before_import_amount"`
+	NotLast24HImportAmount float64 `json:"not_last_24h_import_amount"`
 }
 
 type DashboardCountStatsBonus struct {
