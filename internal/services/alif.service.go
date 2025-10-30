@@ -135,5 +135,34 @@ func DecodeAlifResponse[T any](r io.Reader) (domain.AlifResponseWrapper[T], []by
 		}
 	}
 
-	return result, response, nil
+	switch result.Status {
+	case constants.AlifStatusSucceeded:
+		return result, response, nil
+	case constants.AlifStatusInsufficientFunds:
+		return result, response, domain.InsufficientFunds
+	case constants.AlifStatusInvalidCard:
+		return result, response, domain.IncorrectCardError
+	case constants.AlifStatusReverted:
+		return result, response, domain.AlreadyCompletedError
+	case constants.AlifStatusOtpRequired:
+		return result, response, domain.IncorrectOTPError
+	case constants.AlifStatusBlockedCard:
+		return result, response, domain.ForbiddinError
+	case constants.AlifStatusExpiredCard:
+		return result, response, domain.IncorrectCardExpiryDateError
+	case constants.AlifStatusSmsNotificationIsOff:
+		return result, response, domain.DependencyFailedError
+	case constants.AlifStatusIncorrectOtp:
+		return result, response, domain.IncorrectOTPError
+	case constants.AlifStatusExpiredOtp:
+		return result, response, domain.OTPExpiredError
+	case constants.AlifStatusPending, constants.AlifStatusPendingReversal:
+		return result, response, domain.DependencyFailedError
+	case constants.AlifStatusDeclined:
+		return result, response, domain.AlreadyCompletedError
+	case constants.AlifStatusUnknownError:
+		return result, response, domain.InternalServerError
+	default:
+		return result, response, fmt.Errorf("unknown alif status: %s", result.Status)
+	}
 }
