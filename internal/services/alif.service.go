@@ -48,7 +48,7 @@ func (s *Services) AlifPay(ctx context.Context, paymentService *domain.PaymentSe
 
 	// Decode response
 	result, bytes, err := DecodeAlifResponse[domain.AlifPayResponse](response.Body)
-	_ = s.updateAlifRequestInDb(ctx, id, bytes, constants.ActionCreateReceipt)
+	_ = s.updateAlifRequestInDb(ctx, id, bytes, constants.AlifPay)
 
 	if err != nil {
 		return result.Result, err
@@ -89,7 +89,7 @@ func (s *Services) updateAlifRequestInDb(ctx context.Context, id int, response [
 		response, id, method,
 	).Error
 	if err != nil {
-		s.log.Errorf("could not update click request in db: %v", err)
+		s.log.Errorf("could not update alif request in db: %v", err)
 		return err
 	}
 
