@@ -233,7 +233,7 @@ func (s *Services) GetCartItemsTotalAmount(ctx context.Context, saleID string) (
 			"MAX(dc.percent) AS card_percent",
 			"ROUND(SUM((sp.vat_price / p.unit_per_pack) * ci.unit_quantity), 2) AS vat_sum",
 			"SUM(total_price) - SUM(ci.discount_amount) as total_amount",
-		).Scan(&res).Error
+		).Table("cart_items ci").Scan(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get cart_items total_price: %v", err)
 		return nil, domain.InternalServerError
