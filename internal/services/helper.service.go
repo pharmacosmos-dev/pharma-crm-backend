@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
@@ -86,4 +87,36 @@ func (s *Services) ConvertIntegerTo8DigitEquivalent(value int) (int, int) {
 	zeroes := int(math.Pow(float64(10), float64(digitDifference)))
 
 	return value * zeroes, (value + 1) * zeroes
+}
+
+func (s *Services) FormatDatetimeParams(startTime, endTime string) (domain.FilterDatetimeDto, error) {
+	if endTime == "" {
+		endTime = startTime
+	}
+	fromTime, err := time.Parse(time.RFC3339, startTime)
+	if err != nil {
+		s.log.Errorf("could not parse filter start_time: %v", err)
+		return domain.FilterDatetimeDto{}, domain.InvalidTimeFormatError
+	}
+	tillTime, err := time.Parse(time.RFC3339, endTime)
+	if err != nil {
+		s.log.Errorf("could not parse filter end_time: %v", err)
+		return domain.FilterDatetimeDto{}, domain.InvalidTimeFormatError
+	}
+
+	diff := tillTime.Sub(fromTime)
+	if diff == 0 {
+		diff = 24 * time.Hour
+	} else {
+		diff += 24 * time.Hour
+	}
+
+	res := domain.FilterDatetimeDto{
+		StartTime:     fromTime,
+		EndTime:       tillTime,
+		PrevStartTime: fromTime.Add(-diff),
+		PrevEndTime:   tillTime.Add(-time.Hour * 24),
+	}
+
+	return res, nil
 }
