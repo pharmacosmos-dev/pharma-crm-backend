@@ -1131,7 +1131,6 @@ func (s *Services) GetBonusProductsByEmployeeId(ctx context.Context, params *dom
 		"eb.sale_id",
 		"eb.bonus_amount",
 		"eb.unit_quantity",
-		"eb.quantity",
 		"(eb.quantity * p.unit_per_pack) + eb.unit_quantity AS u_quantity",
 		"eb.created_at",
 
@@ -1150,6 +1149,18 @@ func (s *Services) GetBonusProductsByEmployeeId(ctx context.Context, params *dom
 	if err != nil {
 		s.log.Errorf("could not get bonus_products: %v", err)
 		return nil, 0, domain.InternalServerError
+	}
+
+	for i := range res {
+		if res[i].UQuantity%res[i].UnitPerPack > 0 {
+			res[i].Quantity = fmt.Sprintf("%d (%d/%d)",
+				res[i].UQuantity/res[i].UnitPerPack,
+				res[i].UQuantity%res[i].UnitPerPack,
+				res[i].UnitPerPack)
+		} else {
+			res[i].Quantity = fmt.Sprintf("%d", res[i].UQuantity/res[i].UnitPerPack)
+		}
+
 	}
 
 	return res, totalCount, nil
