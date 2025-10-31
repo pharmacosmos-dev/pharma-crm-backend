@@ -51,6 +51,7 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		helper.POST("/set-product-photo", h.SetProductPhoto)
 		helper.POST("/fix-product-quantity", h.FixProductQuantity)
 		helper.POST("/update-product-info", h.UpdateProductInfo)
+		helper.POST("/update-wrong-items", h.UpdateSaleItems)
 	}
 }
 
@@ -1376,6 +1377,85 @@ func (h *HelperHandler) UpdateProductInfo(c *gin.Context) {
 	go h.processExcel(c, savePath)
 
 	handleResponse(c, OK, "Successfully uploaded")
+}
+
+// UpdateSaleItems godoc
+// @Summary update product infos
+// @Description update product infos
+// @Tags helper
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param 	file formData file true "Excel file (.xlsx) containing product data"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /helper/update-wrong-items [POST]
+func (h *HelperHandler) UpdateSaleItems(c *gin.Context) {
+	var (
+		file domain.File
+		err  error
+	)
+	// bind request file
+	if err = c.ShouldBind(&file); err != nil {
+		h.log.Error("Failed to bind file: ", err.Error())
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		h.log.Error("Unsupported file format: ", ext)
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+
+	// Save the uploaded file
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+	err = c.SaveUploadedFile(file.File, savePath)
+	if err != nil {
+		h.log.Error("Failed to save file: ", err.Error())
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+
+	// defer os.Remove(savePath)
+	// Open the Excel file
+	xlsx, err := excelize.OpenFile(savePath)
+	if err != nil {
+		h.log.Errorf("Failed to open .xlsx file: %v", err)
+		handleServiceResponse(c, BadRequest, domain.InternalServerError)
+		return
+	}
+	defer xlsx.Close()
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		h.log.Errorf("Failed to get rows: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
+		return
+	}
+
+	// build query
+	query := `
+		UPDATE cart_items SET unit_quantity = ?, total_price = ?, updated_at = NOW() WHERE id = ?;
+	`
+
+	var count = 0
+	// Process rows
+	for _, row := range rows[1:] {
+		if len(row) > 12 {
+			quantity := cast.ToInt(row[4])
+			price := cast.ToFloat64(row[5])
+			err = h.db.Debug().Exec(query, quantity, float64(quantity)*price, row[0]).Error
+			if err != nil {
+				h.log.Errorf("could not update cart_item(%s) -> %v", row[0], err)
+			}
+			count++
+		}
+	}
+	handleResponse(c, OK, fmt.Sprintf("%d - items update succesfully", count))
 }
 
 func (h *HelperHandler) processExcel(c *gin.Context, savePath string) {
