@@ -229,3 +229,10 @@ type DashboardBody struct {
 	StoreIds   []string `json:"store_ids"`
 	CompanyIds []string `json:"company_ids"`
 }
+
+type TotalSaleDto struct {
+	TotalSaleSum      float64 `json:"total_sale_sum"`
+	TotalSaleCount    float64 `json:"total_sale_count"`
+	PreviousSaleSum   float64 `json:"previous_sale_sum"`
+	PreviousSaleCount float64 `json:"previous_sale_count"`
+}

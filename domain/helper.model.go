@@ -57,3 +57,10 @@ type EposResponseInfoParam struct {
 	ReceiptSeq string `json:"receiptSeq"`
 	TerminalId string `json:"terminalId"`
 }
+
+type FilterDatetimeDto struct {
+	StartTime     time.Time `json:"start_time"`
+	EndTime       time.Time `json:"end_time"`
+	PrevStartTime time.Time `json:"prev_start_time"`
+	PrevEndTime   time.Time `json:"prev_end_time"`
+}
