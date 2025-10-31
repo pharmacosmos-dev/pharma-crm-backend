@@ -6091,14 +6091,12 @@
                     },
                     {
                         "type": "number",
-                        "format": "float64",
                         "description": "From Amount",
                         "name": "from_amount",
                         "in": "query"
                     },
                     {
                         "type": "number",
-                        "format": "float64",
                         "description": "To Amount",
                         "name": "to_amount",
                         "in": "query"
@@ -6198,14 +6196,12 @@
                     },
                     {
                         "type": "number",
-                        "format": "float64",
                         "description": "From Amount",
                         "name": "from_amount",
                         "in": "query"
                     },
                     {
                         "type": "number",
-                        "format": "float64",
                         "description": "To Amount",
                         "name": "to_amount",
                         "in": "query"
@@ -6741,6 +6737,55 @@
             }
         },
         "/helper/update-product-info": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "update product infos",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "helper"
+                ],
+                "summary": "update product infos",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Excel file (.xlsx) containing product data",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/helper/update-wrong-items": {
             "post": {
                 "security": [
                     {
@@ -24049,10 +24094,11 @@
             ],
             "properties": {
                 "barcode": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 20,
+                    "minLength": 10
                 },
                 "customer_id": {
-                    "description": "optional",
                     "type": "string"
                 },
                 "percent": {
@@ -26108,7 +26154,6 @@
             "type": "object",
             "properties": {
                 "customer_id": {
-                    "description": "optional",
                     "type": "string"
                 },
                 "percent": {
