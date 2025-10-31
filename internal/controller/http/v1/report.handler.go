@@ -48,6 +48,8 @@ func (h *ReportHandler) ReportRoutes(r *gin.RouterGroup) {
 		report.POST("/top-stores/export-excel", h.TopStoresExcel)
 		report.POST("/bonus-products", h.ReportBonusProducts)
 		report.POST("/bonus-products-stats", h.ReportBonusProductsStats)
+		report.POST("/bonus-items", h.FetchBonusItemsByEmployee)
+		report.POST("/bonus-items-export", h.FetchBonusItemsByEmployeeExport)
 		report.POST("/bonus-products/export-excel", h.BonusProductsExportExcel)
 		report.POST("/store-summary", h.ReportStoreSummary)
 		report.POST("/store-summary-stats", h.ReportStoreSummaryStats)
@@ -1492,6 +1494,141 @@ func (h *ReportHandler) ReportBonusProductsStats(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, res)
+}
+
+// Bonus products stats godoc
+// @Summary Get bonus products stats
+// @Description Get bonus products stats (dashboard summary)
+// @Tags Report
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param   limit  		query string false "limit"
+// @Param   offset    	query string false "offset"
+// @Param   employee_id query string false "employee_id"
+// @Param   start_date  query string false "start_date"
+// @Param   end_date    query string false "end_date"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /report/bonus-items [POST]
+func (h *ReportHandler) FetchBonusItemsByEmployee(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.ReportQueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+
+	if params.EmployeeId == "" {
+		handleServiceResponse(c, nil, domain.UserIdIsRequiredError)
+		return
+	}
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, totalCount, err := h.service.GetBonusProductsByEmployeeId(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
+
+	handleResponse(c, OK, data)
+}
+
+// Bonus products stats godoc
+// @Summary Get bonus products stats
+// @Description Get bonus products stats (dashboard summary)
+// @Tags Report
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param   limit  		query string false "limit"
+// @Param   offset    	query string false "offset"
+// @Param   employee_id query string false "employee_id"
+// @Param   start_date  query string false "start_date"
+// @Param   end_date    query string false "end_date"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /report/bonus-items-export [POST]
+func (h *ReportHandler) FetchBonusItemsByEmployeeExport(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.ReportQueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+
+	if params.EmployeeId == "" {
+		handleServiceResponse(c, nil, domain.UserIdIsRequiredError)
+		return
+	}
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, _, err := h.service.GetBonusProductsByEmployeeId(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	// create Excel
+	f := excelize.NewFile()
+	sheet := "List1"
+	f.SetSheetName("Sheet1", sheet)
+
+	// set headers
+	headers := []string{
+		"Чек ID", "Товар ID", "Наименование", "Кол-во", "Сумма бонус", "Дата",
+	}
+	if err := setExcelHeaders(f, sheet, headers); err != nil {
+		h.log.Error("Failed to create style:", err)
+		handleResponse(c, InternalError, "Error on giving style to excel")
+		return
+	}
+
+	// fill rows
+	for i, val := range res {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheet, "A"+row, val.SaleNumber)
+		f.SetCellValue(sheet, "B"+row, val.MaterialCode)
+		f.SetCellValue(sheet, "C"+row, val.ProductName)
+		f.SetCellValue(sheet, "D"+row, math.Round(float64(val.UQuantity)/float64(val.UnitPerPack)*100)/100)
+		f.SetCellValue(sheet, "E"+row, val.BonusAmount)
+		if val.CreatedAt != nil {
+			f.SetCellValue(sheet, "F"+row, val.CreatedAt.Format(constants.TimeOnlyDateFormat))
+		} else {
+			f.SetCellValue(sheet, "F"+row, "N/A")
+		}
+		if val.CreatedAt != nil {
+			f.SetCellValue(sheet, "G"+row, val.CreatedAt.Format(time.TimeOnly))
+		} else {
+			f.SetCellValue(sheet, "G"+row, "N/A")
+		}
+	}
+
+	// save to /uploads
+	saveExcelToUploads(c, f, *h.log, "bonus_items")
+
 }
 
 // ReportStoreSummary godoc

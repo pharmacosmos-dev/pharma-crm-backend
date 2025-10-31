@@ -199,3 +199,20 @@ type DashboardBody struct {
 	StoreIds   []string `json:"store_ids"`
 	CompanyIds []string `json:"company_ids"`
 }
+
+type BonusProductsByEmployeeDto struct {
+	Id           string     `gorm:"id" json:"id"`
+	EmployeeId   string     `gorm:"employee_id" json:"employee_id"`
+	SaleId       string     `gorm:"sale_id" json:"sale_id"`
+	BonusAmount  float64    `gorm:"bonus_amount" json:"bonus_amount"`
+	Quantity     int        `gorm:"quantity" json:"quantity"`
+	UnitQuantity int        `gorm:"unit_quantity" json:"unit_quantity"`
+	UQuantity    int        `gorm:"u_quantity" json:"u_quantity"`
+	CreatedAt    *time.Time `gorm:"created_at" json:"created_at"`
+	ProductId    string     `gorm:"product_id" json:"product_id"`
+	MaterialCode int        `gorm:"material_code" json:"material_code"`
+	ProductName  string     `gorm:"product_name" json:"product_name"`
+	UnitPerPack  int        `gorm:"unit_per_pack" json:"unit_per_pack"`
+	SaleNumber   int        `gorm:"sale_number" json:"sale_number"`
+	SaleType     string     `gorm:"sale_type" json:"sale_type"`
+}

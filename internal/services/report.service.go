@@ -1104,6 +1104,57 @@ func (s *Services) GetBonusProductsReportStats(ctx context.Context, params *doma
 	return res, nil
 }
 
+func (s *Services) GetBonusProductsByEmployeeId(ctx context.Context, params *domain.ReportQueryParam) ([]domain.BonusProductsByEmployeeDto, int64, error) {
+	qb := s.db.WithContext(ctx).
+		Joins("JOIN products p ON eb.product_id = p.id").
+		Joins("JOIN sales s ON s.id = eb.sale_id").
+		Table("employee_bonus eb")
+
+	qb = qb.Where("eb.employee_id = ?", params.EmployeeId)
+
+	if params.StartDate != "" {
+		qb = qb.Where("(eb.created_at + interval '5 hours') >= ?", params.StartDate)
+	}
+	if params.EndDate != "" {
+		qb = qb.Where("(eb.created_at + interval '5 hours') <= ?", params.EndDate)
+	}
+
+	var totalCount int64
+	if err := qb.Count(&totalCount).Error; err != nil {
+		s.log.Errorf("could not get bonus_products total_count; %v", err)
+		return nil, 0, domain.InternalServerError
+	}
+
+	var res []domain.BonusProductsByEmployeeDto
+	err := qb.Select(
+		"eb.id",
+		"eb.sale_id",
+		"eb.bonus_amount",
+		"eb.unit_quantity",
+		"eb.quantity",
+		"(eb.quantity * p.unit_per_pack) + eb.unit_quantity AS u_quantity",
+		"eb.created_at",
+
+		"p.id AS product_id",
+		"p.material_code",
+		"p.name AS product_name",
+		"p.unit_per_pack",
+
+		"s.sale_number",
+		"s.sale_type",
+	).
+		Limit(params.Limit).
+		Offset(params.Offset).
+		Order("eb.created_at DESC").
+		Find(&res).Error
+	if err != nil {
+		s.log.Errorf("could not get bonus_products: %v", err)
+		return nil, 0, domain.InternalServerError
+	}
+
+	return res, totalCount, nil
+}
+
 func (s *Services) GetStoreSummaryReport(ctx context.Context, params *domain.ReportQueryParam) ([]domain.StoreSummary, int64, error) {
 	var (
 		res       []domain.StoreSummary
