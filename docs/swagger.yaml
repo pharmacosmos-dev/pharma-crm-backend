@@ -8931,6 +8931,48 @@ paths:
       summary: Import product bonus
       tags:
       - Product Bonus
+  /product-bonus/export:
+    get:
+      consumes:
+      - application/json
+      description: Get product bonus list
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Search
+        in: query
+        name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get product bonus list
+      tags:
+      - Product Bonus
   /product-bonus/list:
     get:
       consumes:

@@ -4,17 +4,28 @@ import "time"
 
 // product bonus structure
 type ProductBonus struct {
-	Id          int64      `gorm:"id" json:"id"`
-	ProductId   string     `gorm:"product_id" json:"product_id"`
-	StoreId     string     `gorm:"store_id" json:"store_id"`
-	BonusAmount float64    `gorm:"bonus_amount" json:"bonus_amount"`
-	Status      int        `gorm:"status" json:"status"`
-	StartDate   string     `gorm:"start_date" json:"start_date"`
-	EndDate     string     `gorm:"end_date" json:"end_date"`
-	CreatedAt   *time.Time `gorm:"created_at" json:"created_at"`
-	UpdatedAt   *time.Time `gorm:"updated_at" json:"updated_at"`
-	Product     *Product   `gorm:"foreignKey:ProductId" json:"product"`
-	Store       *Store     `gorm:"foreignKey:StoreId" json:"store"`
+	Id          int64                       `gorm:"id" json:"id"`
+	ProductId   string                      `gorm:"product_id" json:"product_id"`
+	StoreId     string                      `gorm:"store_id" json:"store_id"`
+	BonusAmount float64                     `gorm:"bonus_amount" json:"bonus_amount"`
+	Status      int                         `gorm:"status" json:"status"`
+	StartDate   string                      `gorm:"start_date" json:"start_date"`
+	EndDate     string                      `gorm:"end_date" json:"end_date"`
+	CreatedAt   *time.Time                  `gorm:"created_at" json:"created_at"`
+	UpdatedAt   *time.Time                  `gorm:"updated_at" json:"updated_at"`
+	Product     NullStruct[ProductForBonus] `gorm:"-" json:"product"`
+	Store       NullStruct[StoreForBonus]   `gorm:"-" json:"store"`
+}
+
+type ProductForBonus struct {
+	Id           string `gorm:"id" json:"id"`
+	Name         string `gorm:"name" json:"name"`
+	MaterialCode int    `gorm:"material_code" json:"material_code"`
+}
+
+type StoreForBonus struct {
+	Id   string `gorm:"id" json:"id"`
+	Name string `gorm:"name" json:"name"`
 }
 
 // product bonus request structure
