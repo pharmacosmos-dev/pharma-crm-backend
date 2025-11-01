@@ -71,7 +71,17 @@ func (s *Services) SendExpenseWithNumberTo1C(sendDate, storeID, dockNumber strin
 }
 
 func (s *Services) CreateNewExpense(storeID string, dockNumer, sendAt string) error {
-	query := `INSERT INTO shift_expenses(store_id, docs_number, sent_at) VALUES(?, ?, ?)`
+	query := `
+	INSERT INTO shift_expenses (
+		store_id,
+		docs_number,
+		sent_at
+	) VALUES (?, ?, ?)
+	ON CONFLICT (docs_number)
+	DO UPDATE SET
+		sent_at = NOW(),
+		updated_at = NOW();
+	`
 	err := s.db.Exec(query, storeID, dockNumer, sendAt).Error
 	if err != nil {
 		s.log.Warn("ERROR on creating shift_expenses: %v", err)
@@ -603,97 +613,89 @@ func (s *Services) sendReportToTemporary(store *domain.Store, date string) error
 
 	// get expense products query
 	expenseProductQuery := `
-	WITH valid_sales AS (
-		SELECT
-			s.id AS sale_id
-		FROM sales s
-		JOIN cart_items ci ON ci.sale_id = s.id
-		WHERE s.stage IN (9, 11) AND
-			(s.completed_at BETWEEN ? AND ?) AND
-			s.store_id = ?
-		GROUP BY s.id, s.total_amount, s.total_discount
-		HAVING ROUND(SUM(ci.total_price), 2) = ROUND((s.total_amount + s.total_discount), 2)
-	)
 	SELECT
-		sp.product_id,
-		p.material_code,
-		p.name,
-		p.barcode,
-		p.mxik AS ikpu,
-		COALESCE(pr.name, '') AS manufacturer,
-		COALESCE(sp.serial_number, '') AS product_series_number,
-		sp.expire_date,
-		ROUND(
-			SUM(
-				CASE
-					WHEN s.sale_type = 'SALE'
-						THEN (ci.unit_quantity::NUMERIC / p.unit_per_pack)
-					WHEN s.sale_type = 'RETURN'
-						THEN (ci.unit_quantity::NUMERIC / p.unit_per_pack) * (-1)
-					ELSE 0
-				END
-			)::NUMERIC, 4
-		) AS quantity,
-		sp.supply_price AS supply_price_vat,
-		sp.retail_price AS retail_price_vat,
-		id.supply_price,
-		id.retail_price,
-		sp.vat,
-		ROUND(
-			SUM(
-				CASE
-					WHEN s.sale_type = 'SALE'
-						THEN (sp.vat_price / p.unit_per_pack) * ci.unit_quantity
-					WHEN s.sale_type = 'RETURN'
-						THEN (-1) * ((sp.vat_price / p.unit_per_pack) * ci.unit_quantity)
-					ELSE 0
-				END
-			), 2
-		) AS vat_sum,
-		ROUND(
-			SUM(
-				CASE
-					WHEN s.sale_type = 'SALE'
-						THEN (id.retail_price / p.unit_per_pack) * ci.unit_quantity
-					WHEN s.sale_type = 'RETURN'
-						THEN (-1) * ((id.retail_price / p.unit_per_pack) * ci.unit_quantity)
-					ELSE 0
-				END
-			), 2
-		) AS sum,
-		SUM(
-			CASE
-				WHEN s.sale_type = 'SALE' THEN ci.total_price
-				WHEN s.sale_type = 'RETURN' THEN (-1) * ci.total_price
-				ELSE 0
-			END
-		) AS sum_vat
+	    sp.product_id,
+	    p.material_code,
+	    p.name,
+	    p.barcode,
+	    p.mxik AS ikpu,
+	    COALESCE(pr.name, '') AS manufacturer,
+	    COALESCE(sp.serial_number, '') AS product_series_number,
+	    sp.expire_date,
+	    ROUND(
+	            SUM(
+	                    CASE
+	                        WHEN s.sale_type = 'SALE'
+	                            THEN (ci.unit_quantity::NUMERIC / p.unit_per_pack)
+	                        WHEN s.sale_type = 'RETURN'
+	                            THEN (ci.unit_quantity::NUMERIC / p.unit_per_pack) * (-1)
+	                        ELSE 0
+	                        END
+	            )::NUMERIC
+	        , 4) AS quantity,
+        sp.supply_price AS supply_price_vat,
+        sp.retail_price AS retail_price_vat,
+	    id.supply_price,
+	    id.retail_price,
+	    sp.vat,
+	    ROUND(
+	            SUM(
+	                    CASE
+	                        WHEN s.sale_type = 'SALE'
+	                            THEN (sp.vat_price / p.unit_per_pack) * ci.unit_quantity
+	                        WHEN s.sale_type = 'RETURN'
+	                            THEN (-1) * ((sp.vat_price / p.unit_per_pack) * ci.unit_quantity)
+	                        ELSE 0
+	                        END
+	            )
+	        , 2) AS vat_sum,
+	    ROUND(
+	            SUM(
+	                    CASE
+	                        WHEN s.sale_type = 'SALE'
+	                            THEN (id.retail_price / p.unit_per_pack) * ci.unit_quantity
+	                        WHEN s.sale_type = 'RETURN'
+	                            THEN (-1) *  ((id.retail_price / p.unit_per_pack) * ci.unit_quantity)
+	                        ELSE 0
+	                        END
+	            )
+	        , 2) AS sum,
+	    SUM(
+	            CASE
+	                WHEN s.sale_type = 'SALE'
+	                    THEN ci.total_price
+	                WHEN s.sale_type = 'RETURN'
+	                    THEN (-1) * ci.total_price
+	                ELSE 0
+	                END
+	    ) AS sum_vat
 	FROM sales s
-	JOIN valid_sales vs ON vs.sale_id = s.id
-	LEFT JOIN sales s_return
-		ON s_return.parent_id = s.id
-		AND s_return.sale_type = 'RETURN'
-		AND s_return.stage IN (9, 11)
-	JOIN cart_items ci ON s.id = ci.sale_id
-	JOIN store_products sp ON ci.store_product_id = sp.id
-	JOIN products p ON sp.product_id = p.id
-	LEFT JOIN producers pr ON p.producer_id = pr.id
-	LEFT JOIN import_details id ON sp.import_detail_id = id.id
+	         LEFT JOIN sales s_return
+	                   ON s_return.parent_id = s.id
+	                       AND s_return.sale_type = 'RETURN'
+	                       AND s_return.stage IN (9, 11)
+	         JOIN cart_items ci ON s.id = ci.sale_id
+	         JOIN store_products sp ON ci.store_product_id = sp.id
+	         JOIN products p ON sp.product_id = p.id
+	         LEFT JOIN producers pr ON p.producer_id = pr.id
+	         LEFT JOIN import_details id ON sp.import_detail_id = id.id
 	WHERE s.store_id = ?
-	AND s.stage IN (9, 11)
-	AND s.completed_at BETWEEN ? AND ?
-	GROUP BY p.id, pr.id, sp.id, id.id
-	HAVING ROUND(
-		SUM(
-			CASE
-				WHEN s.sale_type = 'SALE'
-					THEN (ci.unit_quantity::NUMERIC / p.unit_per_pack)
-				WHEN s.sale_type = 'RETURN'
-					THEN (ci.unit_quantity::NUMERIC / p.unit_per_pack) * (-1)
-				ELSE 0
-			END
-		)::NUMERIC, 4
-	) != 0;
+	  AND s.stage IN (9, 11)
+	  AND s.completed_at BETWEEN ? AND ?
+	GROUP BY
+		p.id, pr.id, sp.id, id.id
+	HAVING
+	    ROUND(
+	            SUM(
+	                    CASE
+	                        WHEN s.sale_type = 'SALE'
+	                            THEN (ci.unit_quantity::NUMERIC / p.unit_per_pack)
+	                        WHEN s.sale_type = 'RETURN'
+	                            THEN (ci.unit_quantity::NUMERIC / p.unit_per_pack) * (-1)
+	                        ELSE 0
+	                        END
+	            )::NUMERIC
+	        , 4) != 0;
 	`
 	startTime := dokTime.Add(-5 * time.Hour)
 	endTime := dokTime.Add(19 * time.Hour)
@@ -701,16 +703,13 @@ func (s *Services) sendReportToTemporary(store *domain.Store, date string) error
 	// complete get expense product list
 	err = s.db.Raw(
 		expenseProductQuery,
-		startTime,
-		endTime,
-		store.Id,
 		store.Id,
 		startTime,
 		endTime,
 	).Scan(&expenseData.Товары).Error
 	if err != nil {
 		s.log.Errorf("could not get expense products: %v", err)
-		return err
+		return domain.InternalServerError
 	}
 
 	// get total discount
@@ -723,12 +722,7 @@ func (s *Services) sendReportToTemporary(store *domain.Store, date string) error
       AND s.completed_at BETWEEN ? AND ?;
 `
 
-	err = s.db.Raw(
-		discountQuery,
-		store.Id,
-		startTime,
-		endTime,
-	).Scan(&expenseData.Document.DiscountSum).Error
+	err = s.db.Raw(discountQuery, store.Id, startTime, endTime).Scan(&expenseData.Document.DiscountSum).Error
 	if err != nil {
 		s.log.Errorf("could not get discount sum: %v", err)
 		return err
