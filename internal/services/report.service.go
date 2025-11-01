@@ -108,10 +108,11 @@ func (s *Services) BonusReport(ctx context.Context, params *domain.ReportQueryPa
 	}
 
 	// Date filter
-	if params.StartDate != "" && params.EndDate != "" {
-		baseQuery = baseQuery.Where("eb.created_at BETWEEN ? AND ?", params.StartDate, params.EndDate)
-	} else if params.StartDate != "" {
-		baseQuery = baseQuery.Where("DATE(eb.created_at) = DATE(?)", params.StartDate)
+	if params.StartDate != "" {
+		baseQuery = baseQuery.Where("(eb.created_at + interval '5 hours') >= ?", params.StartDate)
+	}
+	if params.EndDate != "" {
+		baseQuery = baseQuery.Where("(eb.created_at + interval '5 hours') <= ?", params.EndDate)
 	}
 
 	// Count unique employees (before grouping)
@@ -144,7 +145,7 @@ func (s *Services) BonusReport(ctx context.Context, params *domain.ReportQueryPa
 			"s.name AS store_name",
 			"roles_agg.role",
 			"SUM(eb.bonus_amount) AS amount",
-			"ROUND(SUM(eb.quantity::numeric + eb.unit_quantity::numeric/p.unit_per_pack), 2) AS count",
+			"ROUND(SUM(eb.quantity + (eb.unit_quantity::numeric/p.unit_per_pack)), 2) AS count",
 		).
 		Group("e.id, s.id, s.name, roles_agg.role")
 

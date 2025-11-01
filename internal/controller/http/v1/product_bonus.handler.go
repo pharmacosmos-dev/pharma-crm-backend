@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -25,15 +26,16 @@ func (h *Handler) NewProductBonusHandler(r *gin.RouterGroup) {
 }
 
 func (h *ProductBonusHandler) ProductBonusRoutes(r *gin.RouterGroup) {
-	productBonus := r.Group("/product-bonus")
+	bonus := r.Group("/product-bonus")
 	{
-		productBonus.POST("", h.Create)
-		productBonus.GET("/:id", h.Get)
-		productBonus.GET("/list", h.List)
-		productBonus.PUT("/:id", h.Update)
-		productBonus.POST("/excel-import", h.ImportProductBonus)
-		productBonus.DELETE("", h.Delete)
-		productBonus.POST("/balance", h.BalanceProductBonus)
+		bonus.POST("", h.Create)
+		bonus.GET("/:id", h.Get)
+		bonus.GET("/list", h.List)
+		bonus.GET("/export", h.ExcelExport)
+		bonus.PUT("/:id", h.Update)
+		bonus.POST("/excel-import", h.ImportProductBonus)
+		bonus.DELETE("", h.Delete)
+		bonus.POST("/balance", h.BalanceProductBonus)
 	}
 }
 
@@ -165,7 +167,7 @@ func (h *ProductBonusHandler) List(c *gin.Context) {
 	// get bonus product list
 	res, totalCount, err := h.service.GetProductBonuses(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, "Failed to get bonus product")
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 	// get with pagination data
@@ -173,6 +175,82 @@ func (h *ProductBonusHandler) List(c *gin.Context) {
 
 	// return response
 	handleResponse(c, OK, data)
+}
+
+// get product bonus list
+// @Summary Get product bonus list
+// @Description Get product bonus list
+// @Tags Product Bonus
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param 	limit    query int false "Limit"
+// @Param 	offset   query int false "Offset"
+// @Param 	store_id query string false "Store ID"
+// @Param   search   query string false "Search"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product-bonus/export [get]
+func (h *ProductBonusHandler) ExcelExport(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	var params domain.QueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	// get default limit offset
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			params.StoreID = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
+	}
+	// get bonus product list
+	res, _, err := h.service.GetProductBonuses(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	// Create excel file
+	f := excelize.NewFile()
+	sheetName := "List1"
+	f.SetSheetName("Sheet1", sheetName)
+
+	// Headerlar
+	headers := []string{"ID", "NAME", "BONUS", "START_DATE", "END_DATE"}
+
+	err = setExcelHeaders(f, sheetName, headers)
+	if err != nil {
+		h.log.Error("Failed to create excel style:", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
+		return
+	}
+
+	// Set information to columns
+	for i, value := range res {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheetName, "A"+row, value.Product.Value.MaterialCode)
+		f.SetCellValue(sheetName, "B"+row, value.Product.Value.Name)
+		f.SetCellValue(sheetName, "C"+row, value.BonusAmount)
+		f.SetCellValue(sheetName, "D"+row, value.StartDate)
+		f.SetCellValue(sheetName, "E"+row, value.EndDate)
+	}
+
+	saveExcelToUploads(c, f, *h.log, "bonusli_mahsulotlar")
+
 }
 
 // update product bonus
