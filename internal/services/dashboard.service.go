@@ -1229,15 +1229,37 @@ func (s *Services) DashboardNetProfitStatistic(ctx context.Context, param *domai
 
 		queryc = fmt.Sprintf(`
 		SELECT
-			ROUND(SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN ((ci.unit_price - sp.supply_price)/p.unit_per_pack) * ci.unit_quantity ELSE 0 END), 2) AS income_amount,
-			ROUND(SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN ((ci.unit_price - sp.supply_price)/p.unit_per_pack) * ci.unit_quantity ELSE 0 END), 2) AS before_income_amount,
-			ROUND(SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN (sp.supply_price/p.unit_per_pack) * ci.unit_quantity ELSE 0 END), 2) AS production_cost,
-			ROUND(SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN (sp.supply_price/p.unit_per_pack) * ci.unit_quantity ELSE 0 END), 2) AS before_production_cost
-		FROM cart_items ci
-		JOIN store_products sp ON ci.store_product_id = sp.id
-		JOIN products p ON sp.product_id = p.id
-		JOIN sales s ON ci.sale_id = s.id
-		WHERE s.stage IN(9, 11) AND s.sale_type = 'SALE'`,
+			ROUND(curr.income_amount - prev.income_amount, 2) AS income_amount,
+			ROUND(curr.before_income_amount - prev.before_income_amount, 2) AS before_income_amount,
+			ROUND(curr.production_cost - prev.production_cost, 2) AS production_cost,
+			ROUND(curr.before_production_cost - prev.before_production_cost, 2) AS before_production_cost
+		FROM (
+				SELECT
+					ROUND(SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN ((ci.unit_price - sp.supply_price)/p.unit_per_pack) * ci.unit_quantity ELSE 0 END), 2) AS income_amount,
+					ROUND(SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN ((ci.unit_price - sp.supply_price)/p.unit_per_pack) * ci.unit_quantity ELSE 0 END), 2) AS before_income_amount,
+					ROUND(SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN (sp.supply_price/p.unit_per_pack) * ci.unit_quantity ELSE 0 END), 2) AS production_cost,
+					ROUND(SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN (sp.supply_price/p.unit_per_pack) * ci.unit_quantity ELSE 0 END), 2) AS before_production_cost
+				FROM cart_items ci
+						JOIN store_products sp ON ci.store_product_id = sp.id
+						JOIN products p ON sp.product_id = p.id
+						JOIN sales s ON ci.sale_id = s.id
+				WHERE s.stage IN(9, 11) AND s.sale_type = 'SALE'
+			) AS curr,
+			(
+				SELECT
+					ROUND(SUM(CASE WHEN (s.completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN ((ci.unit_price - sp.supply_price)/p.unit_per_pack) * ci.unit_quantity ELSE 0 END), 2) AS income_amount,
+					ROUND(SUM(CASE WHEN (s.completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN ((ci.unit_price - sp.supply_price)/p.unit_per_pack) * ci.unit_quantity ELSE 0 END), 2) AS before_income_amount,
+					ROUND(SUM(CASE WHEN (s.completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN (sp.supply_price/p.unit_per_pack) * ci.unit_quantity ELSE 0 END), 2) AS production_cost,
+					ROUND(SUM(CASE WHEN (s.completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN (sp.supply_price/p.unit_per_pack) * ci.unit_quantity ELSE 0 END), 2) AS before_production_cost
+				FROM cart_items ci
+						JOIN store_products sp ON ci.store_product_id = sp.id
+						JOIN products p ON sp.product_id = p.id
+						JOIN sales rs ON ci.sale_id = rs.id and rs.sale_type = 'RETURN'
+						join sales as s on rs.parent_id = s.id AND s.sale_type = 'SALE'
+				WHERE s.stage IN(9, 11)
+			) AS prev`,
+			startStr, endStr, beforeStartStr, beforeEndStr,
+			startStr, endStr, beforeStartStr, beforeEndStr,
 			startStr, endStr, beforeStartStr, beforeEndStr,
 			startStr, endStr, beforeStartStr, beforeEndStr)
 
