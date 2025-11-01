@@ -565,40 +565,42 @@ func (s *Services) GetTopProductsReport(ctx context.Context, params *domain.Repo
 		curr.total_amount,
 		prev.total_amount AS previous_total_amount,
 		ROUND(
-			CASE 
-				WHEN COALESCE(prev.total_amount, 0) = 0 THEN 100
-				ELSE ((curr.total_amount - prev.total_amount) * 100.0) / NULLIF(prev.total_amount, 0)
-			END, 2
+				CASE
+					WHEN COALESCE(prev.total_amount, 0) = 0 THEN 100
+					ELSE ((curr.total_amount - prev.total_amount) * 100.0) / NULLIF(prev.total_amount, 0)
+					END, 2
 		) AS percent,
 		COUNT(*) OVER() AS total_count
 	FROM (
+			SELECT
+				p.id,
+				p.name,
+				ps.name AS producer_name,
+				s.company_id,
+				SUM(ci.unit_quantity) / p.unit_per_pack AS count,
+				SUM(ci.unit_quantity) % p.unit_per_pack AS unit_quantity,
+				p.unit_per_pack,
+				SUM(ci.total_price) as total_amount
+			FROM cart_items ci
+					JOIN store_products sp ON ci.store_product_id = sp.id
+					JOIN products p ON sp.product_id = p.id
+					JOIN producers ps ON p.producer_id = ps.id
+					JOIN stores s ON sp.store_id = s.id
+			WHERE (ci.updated_at+ interval '5 hours') BETWEEN ? AND ?
+			GROUP BY p.id, p.name, ps.name, p.unit_per_pack,s.company_id
+		) AS curr
+			left JOIN (
 		SELECT
 			p.id,
-			p.name,
-			ps.name AS producer_name,
 			s.company_id,
-			SUM(ci.unit_quantity) / p.unit_per_pack AS count,
-			(SUM(ci.unit_quantity) % p.unit_per_pack) AS unit_quantity,
-			p.unit_per_pack,
-			SUM(ci.total_price) as total_amount
-		FROM cart_items ci
-		JOIN store_products sp ON ci.store_product_id = sp.id
-		JOIN products p ON sp.product_id = p.id
-		JOIN producers ps ON p.producer_id = ps.id
-		JOIN stores s ON sp.store_id = s.id
-		WHERE (ci.updated_at+ interval '5 hours') BETWEEN ? AND ?
-		GROUP BY p.id, p.name, ps.name, p.unit_per_pack,s.company_id
-	) AS curr
-	LEFT JOIN (
-		SELECT
-			p.id,
 			SUM(ci.total_price) AS total_amount
 		FROM cart_items ci
-		JOIN store_products sp ON ci.store_product_id = sp.id
-		JOIN products p ON sp.product_id = p.id
+				JOIN store_products sp ON ci.store_product_id = sp.id
+				JOIN products p ON sp.product_id = p.id
+				JOIN stores s ON sp.store_id = s.id
 		WHERE (ci.updated_at+ interval '5 hours') BETWEEN ? AND ?
-		GROUP BY p.id
-	) AS prev ON curr.id = prev.id
+		GROUP BY p.id, s.company_id
+	) AS prev ON curr.id = prev.id and curr.company_id = prev.company_id
 `
 
 	// Arguments for current and previous period
@@ -933,8 +935,8 @@ func (s *Services) GetBonusProductsReport(ctx context.Context, params *domain.Re
 			p.id,
 			p.name,
     		p.unit_per_pack,
-    		SUM(eb.unit_quantity)-ROUND(SUM(eb.unit_quantity)::decimal / p.unit_per_pack,0)*p.unit_per_pack as unit_quantity,
-    		SUM(eb.quantity) + ROUND(SUM(eb.unit_quantity)::decimal / p.unit_per_pack,0) AS count,
+    		SUM(eb.unit_quantity) % p.unit_per_pack as unit_quantity,
+			SUM(eb.quantity) + ROUND(SUM(eb.unit_quantity) / p.unit_per_pack,0) AS count,
 			SUM(eb.bonus_amount) AS bonus_amount
 		FROM employee_bonus eb
 		JOIN products p ON eb.product_id = p.id

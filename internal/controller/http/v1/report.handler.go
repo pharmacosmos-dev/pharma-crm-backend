@@ -1238,12 +1238,12 @@ func (h *ReportHandler) TopStoresExcel(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /report/bonus-products [POST]
 func (h *ReportHandler) ReportBonusProducts(c *gin.Context) {
-	// get user_id from the context
-	user := h.service.GetSignedUser(c)
-	if user.UserId == "" {
-		handleServiceResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
-		return
-	}
+	// // get user_id from the context
+	// user := h.service.GetSignedUser(c)
+	// if user.UserId == "" {
+	// 	handleServiceResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
+	// 	return
+	// }
 
 	var params domain.ReportQueryParam
 	// bind query parameters
@@ -1257,13 +1257,13 @@ func (h *ReportHandler) ReportBonusProducts(c *gin.Context) {
 		return
 	}
 
-	// check if employee is not admin or superadmin
-	if !utils.In(user.Role, constants.AllAdminRoles...) {
-		if user.StoreId != "" {
-			params.StoreId = user.StoreId
-		}
-		params.CompanyId = user.CompanyId
-	}
+	// // check if employee is not admin or superadmin
+	// if !utils.In(user.Role, constants.AllAdminRoles...) {
+	// 	if user.StoreId != "" {
+	// 		params.StoreId = user.StoreId
+	// 	}
+	// 	params.CompanyId = user.CompanyId
+	// }
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
