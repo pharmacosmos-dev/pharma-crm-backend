@@ -87,59 +87,81 @@ func (s *Services) CreateInventory(req *domain.InventoryRequest) error {
 
 // region Get
 // get inventory by id
-func (s *Services) GetInventoryById(param *domain.InventoryParam) (*domain.Inventory, error) {
-	var (
-		res          domain.Inventory
-		totalSumData domain.InventoryDetailSum
-		args         = []any{}
-		filter       = " WHERE imd.import_id = ? "
-	)
-	args = append(args, param.InventoryId)
+func (s *Services) GetInventoryById(ctx context.Context, params *domain.InventoryParam) (*domain.Inventory, error) {
+	var tmp struct {
+		Id            string     `gorm:"id"`
+		PublicId      string     `gorm:"public_id"`
+		StoreId       string     `gorm:"store_id"`
+		Name          string     `gorm:"name"`
+		InventoryType string     `gorm:"inventory_type"`
+		Status        string     `gorm:"status"`
+		CreatedBy     string     `gorm:"created_by"`
+		UpdatedBy     string     `gorm:"updated_by"`
+		ReceivedCount float64    `gorm:"received_count"`
+		ReceivedSum   float64    `gorm:"received_sum"`
+		CreatedAt     *time.Time `gorm:"created_at"`
+		UpdatedAt     *time.Time `gorm:"updated_at"`
+		StoreName     string     `gorm:"store_name"`
+	}
 
-	err := s.db.Model(&domain.Import{}).
-		Preload("Store").
-		Preload("CreatedBy").
-		Preload("UpdatedBy").
-		Select(`
-			id, public_id,
-			store_id, name,
-			inventory_type,
-			status, created_by,
-			accepted_by as updated_by,
-			created_at, updated_at
-		`).First(&res, "id = ?", param.InventoryId).Error
+	err := s.db.WithContext(ctx).
+		Select(
+			"im.id",
+			"im.public_id",
+			"im.store_id",
+			"im.name",
+			"im.inventory_type",
+			"im.status",
+			"im.created_by",
+			"im.accepted_by as updated_by",
+			"im.created_at",
+			"im.updated_at",
+			"im.received_count",
+			"im.received_sum",
+			"s.name AS store_name",
+		).
+		Table("imports im").
+		Joins("JOIN stores s ON im.store_id = s.id").
+		Where("im.id = ?", params.InventoryId).
+		Take(&tmp).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting write-off by id: %v", err)
-		return nil, err
+		s.log.Errorf("could not get inventory by id: %v", err)
+		return nil, domain.InternalServerError
 	}
 
 	totalQuery := `
 	SELECT
-		SUM(imd.retail_price_vat * (imd.received_count/p.unit_per_pack)) AS total_current_sum,
-		SUM(imd.retail_price_vat * (imd.scanned_count/p.unit_per_pack)) AS total_fact_sum,
-		SUM(imd.retail_price_vat * ((imd.scanned_count - imd.received_count)/p.unit_per_pack)) AS total_difference_sum
+		ROUND(SUM(imd.scanned_count/p.unit_per_pack), 2) AS total_fact_count,
+		ROUND(SUM(imd.retail_price_vat * (imd.scanned_count/p.unit_per_pack)), 2) AS total_fact_sum,
+		ROUND(SUM(imd.retail_price_vat * ((imd.scanned_count - imd.received_count)/p.unit_per_pack)), 2) AS total_difference_sum
 	FROM import_details imd
 	JOIN products p ON imd.product_id = p.id
 	LEFT JOIN producers pr ON p.producer_id = pr.id
 	`
+	var (
+		totalSumData domain.InventoryDetailSum
+		args         = []any{}
+		filter       = " WHERE imd.import_id = ? "
+	)
+	args = append(args, params.InventoryId)
 	// filter by search key
-	if param.Search != "" {
-		switch utils.DefineProductSearchQuery(param.Search) {
+	if params.Search != "" {
+		switch utils.DefineProductSearchQuery(params.Search) {
 		case "barcode":
 			filter += " AND p.barcode LIKE ?"
-			args = append(args, "%"+param.Search+"%")
+			args = append(args, "%"+params.Search+"%")
 		case "name/category":
 			filter += " AND (p.name ILIKE ? OR pr.name ILIKE ?) "
-			args = append(args, "%"+param.Search+"%", "%"+param.Search+"%")
+			args = append(args, "%"+params.Search+"%", "%"+params.Search+"%")
 		default:
 			filter += " AND (p.name ILIKE ? OR p.barcode LIKE ?)"
-			args = append(args, "%"+param.Search+"%", "%"+param.Search+"%")
+			args = append(args, "%"+params.Search+"%", "%"+params.Search+"%")
 		}
 	}
 
 	// filter with inventory stats
-	if param.Type != "" {
-		switch param.Type {
+	if params.Type != "" {
+		switch params.Type {
 		case "shortage":
 			filter += " AND imd.received_count > imd.scanned_count "
 		case "scanned":
@@ -155,121 +177,199 @@ func (s *Services) GetInventoryById(param *domain.InventoryParam) (*domain.Inven
 	totalQuery += filter
 	err = s.db.Raw(totalQuery, args...).Scan(&totalSumData).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting total_sum_data on inventory details: %v", err)
-		return &res, err
+		s.log.Errorf("could not inventory total_sum_data on inventory details: %v", err)
+		return nil, err
 	}
-	res.CurrentSum = totalSumData.TotalCurrentSum
-	res.FactSum = totalSumData.TotalFactSum
-	res.DifferenceSum = totalSumData.TotalDifferenceSum
+	res := domain.Inventory{
+		Id:            tmp.Id,
+		PublicId:      tmp.PublicId,
+		StoreId:       tmp.StoreId,
+		Name:          tmp.Name,
+		InventoryType: tmp.InventoryType,
+		Status:        tmp.Status,
+		CreatedById:   tmp.CreatedBy,
+		UpdatedById:   tmp.UpdatedBy,
+		CreatedAt:     tmp.CreatedAt,
+		UpdatedAt:     tmp.UpdatedAt,
+		Store: domain.NewNullStruct(domain.InventoryStore{
+			Id:   tmp.StoreId,
+			Name: tmp.StoreName,
+		}, tmp.StoreId != ""),
+		CurrentCount:  tmp.ReceivedCount,
+		CurrentSum:    tmp.ReceivedSum,
+		FactCount:     totalSumData.TotalFactCount,
+		FactSum:       totalSumData.TotalFactSum,
+		DifferenceSum: totalSumData.TotalDifferenceSum,
+	}
 
 	return &res, nil
 }
 
 // get inventory list
-func (s *Services) InventoryList(ctx context.Context, params *domain.InventoryParam) ([]domain.Inventory, int64, error) {
-	var res []domain.Inventory
-	var totalCount int64
-	query := s.db.WithContext(ctx).
-		Model(&domain.Import{}).
-		Preload("Store").
-		Preload("CreatedBy").
-		Preload("UpdatedBy").
-		Select(`
-			imports.*,
-			0 AS current_count,
-			0 AS fact_count,
-			0 AS difference_count,
-			0 AS current_sum,
-			0 AS fact_sum,
-			0 AS difference_sum
-		`).
+func (s *Services) GetInventories(ctx context.Context, params *domain.InventoryParam) ([]domain.Inventory, int64, error) {
+	var tmp []struct {
+		Id              string     `gorm:"id"`
+		PublicId        string     `gorm:"public_id"`
+		StoreId         string     `gorm:"store_id"`
+		Name            string     `gorm:"name"`
+		InventoryType   string     `gorm:"inventory_type"`
+		Status          string     `gorm:"status"`
+		CreatedBy       string     `gorm:"created_by"`
+		UpdatedBy       string     `gorm:"updated_by"`
+		CurrentCount    float64    `gorm:"current_count"`
+		CurrentSum      float64    `gorm:"current_sum"`
+		FactCount       float64    `gorm:"fact_count"`
+		FactSum         float64    `gorm:"fact_sum"`
+		DifferenceCount float64    `gorm:"difference_count"`
+		DifferenceSum   float64    `gorm:"difference_sum"`
+		CreatedAt       *time.Time `gorm:"created_at"`
+		UpdatedAt       *time.Time `gorm:"updated_at"`
+		StoreName       string     `gorm:"store_name"`
+		CreatedByName   string     `gorm:"created_by_name"`
+		UpdatedByName   string     `gorm:"updated_by_name"`
+	}
+
+	qb := s.db.WithContext(ctx).
+		Joins("JOIN stores s ON im.store_id = s.id").
+		Joins("LEFT JOIN employees em ON im.created_by = em.id").
+		Joins("LEFT JOIN employees em2 ON im.accepted_by = em2.id").
+		Table("imports im").
 		Where("entry_type = ?", 2)
 	// filter by store id
 	if params.StoreId != "" {
-		query = query.Where("imports.store_id = ? ", params.StoreId)
+		qb = qb.Where("im.store_id = ? ", params.StoreId)
 	}
 	if params.CompanyId != "" {
-		query = query.Where("stores.company_id = ? ", params.CompanyId)
-		query = query.Joins(" LEFT JOIN stores ON imports.store_id = stores.id")
+		qb = qb.Where("stores.company_id = ? ", params.CompanyId)
+		qb = qb.Joins(" LEFT JOIN stores ON im.store_id = stores.id")
 	}
 	// filter by search keyword
 	if params.Search != "" {
 		params.Search = fmt.Sprintf("%%%s%%", params.Search)
-		query = query.Where("CAST(imports.public_id AS TEXT) LIKE ? OR imports.name ILIKE ?", params.Search, params.Search)
+		qb = qb.Where("im.public_id::text LIKE ? OR im.name ILIKE ?", params.Search, params.Search)
 	}
 	// filter by inventory type
 	if params.Type != "" {
-		query = query.Where("imports.inventory_type = ?", params.Type)
+		qb = qb.Where("im.inventory_type = ?", params.Type)
 	}
 	// filter by inventory status
 	if params.Status != "" {
-		query = query.Where("imports.status = ?", params.Status)
+		qb = qb.Where("im.status = ?", params.Status)
 	}
-	// complete query
-	err := query.
-		Order("imports.created_at DESC").
-		Count(&totalCount).
+	var totalCount int64
+	if err := qb.Count(&totalCount).Error; err != nil {
+		s.log.Errorf("could not get inventory total_count: %v", err)
+		return nil, 0, domain.InternalServerError
+	}
+
+	// complete qb
+	err := qb.
+		Select(
+			"im.id",
+			"im.public_id",
+			"im.store_id",
+			"im.name",
+			"im.inventory_type",
+			"im.status",
+			"im.entry_type",
+			"im.created_by",
+			"im.accepted_by AS updated_by",
+			"im.received_count AS current_count",
+			"im.received_sum AS current_sum",
+			"im.scanned_count AS fact_count",
+			"im.scanned_sum AS scanned_sum",
+			"(im.scanned_count - im.received_count) AS difference_count",
+			"(im.scanned_sum - im.received_sum) AS difference_sum",
+			"im.created_at",
+			"im.updated_at",
+
+			"s.name AS store_name",
+			"em.full_name AS created_by_name",
+			"em2.full_name AS updated_by_name",
+		).
+		Order("im.created_at DESC").
 		Limit(params.Limit).
 		Offset(params.Offset).
-		Find(&res).Error
+		Find(&tmp).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting inventory list: %v", err)
-		return res, 0, err
+		s.log.Errorf("could not get inventory list: %v", err)
+		return nil, 0, domain.InternalServerError
 	}
-	if len(res) == 0 {
-		res = []domain.Inventory{}
+
+	var res = []domain.Inventory{}
+	for _, item := range tmp {
+		res = append(res, domain.Inventory{
+			Id:              item.Id,
+			PublicId:        item.PublicId,
+			StoreId:         item.StoreId,
+			Name:            item.Name,
+			Status:          item.Status,
+			InventoryType:   item.InventoryType,
+			CurrentCount:    item.CurrentCount,
+			CurrentSum:      item.CurrentSum,
+			FactCount:       item.FactCount,
+			FactSum:         item.FactSum,
+			DifferenceCount: item.DifferenceCount,
+			DifferenceSum:   item.DifferenceSum,
+			CreatedById:     item.CreatedBy,
+			CreatedBy: domain.NewNullStruct(domain.InventoryEmployee{
+				Id:       item.CreatedBy,
+				FullName: item.CreatedByName,
+			}, item.CreatedBy != ""),
+			UpdatedById: item.UpdatedBy,
+			UpdatedBy: domain.NewNullStruct(domain.InventoryEmployee{
+				Id:       item.UpdatedBy,
+				FullName: item.UpdatedByName,
+			}, item.UpdatedBy != ""),
+			Store: domain.NewNullStruct(domain.InventoryStore{
+				Id:   item.StoreId,
+				Name: item.StoreName,
+			}, item.StoreId != ""),
+		})
 	}
 
 	return res, totalCount, nil
 }
 
-func (s *Services) InventoryStatus(ctx context.Context, params *domain.InventoryParam) (*domain.InventoryStatusSummary, error) {
-	query := `
-	SELECT
-		ROUND(COALESCE(SUM((imd.received_count::numeric/p.unit_per_pack) * imd.retail_price_vat), 0), 2) AS current_sum,
-		ROUND(COALESCE(SUM((imd.scanned_count::numeric/p.unit_per_pack) * imd.retail_price_vat), 0), 2) AS fact_sum,
-		ROUND(COALESCE(SUM(((imd.scanned_count-imd.received_count)::numeric/p.unit_per_pack)  * imd.retail_price_vat), 0), 2) AS difference_sum,
-		ROUND(COALESCE(SUM(imd.received_count::numeric/p.unit_per_pack), 0)) AS current_count,
-		ROUND(COALESCE(SUM(imd.scanned_count::numeric/p.unit_per_pack), 0)) AS fact_count,
-		ROUND(COALESCE(SUM((imd.scanned_count - imd.received_count)::numeric/p.unit_per_pack), 0)) AS difference_count
-	FROM import_details imd
-	JOIN products p ON imd.product_id = p.id
-	JOIN imports im ON im.id = imd.import_id
-	LEFT JOIN stores ON im.store_id = stores.id
-	WHERE im.entry_type = 2;
-	`
+func (s *Services) GetInventoryStats(ctx context.Context, params *domain.InventoryParam) (*domain.InventoryStatusSummary, error) {
 
-	var args []any
+	qb := s.db.WithContext(ctx).
+		Select(
+			"SUM(im.received_count) AS current_count",
+			"SUM(im.received_sum) AS current_sum",
+			"SUM(im.scanned_count) AS fact_count",
+			"SUM(im.scanned_sum) AS fact_sum",
+			"SUM(im.scanned_count - im.received_count) AS difference_count",
+			"SUM(im.scanned_sum - im.received_sum) AS difference_sum",
+		).Table("imports im").
+		Joins("JOIN stores st ON im.store_id = st.id")
+	qb = qb.Where("im.entry_type = ?", 2)
 
 	if params.StoreId != "" {
-		query += " AND im.store_id = ?"
-		args = append(args, params.StoreId)
+		qb = qb.Where("im.store_id = ?", params.StoreId)
 	}
 	if params.CompanyId != "" {
-		query += " AND stores.company_id = ?"
-		args = append(args, params.CompanyId)
+		qb = qb.Where("st.company_id = ?", params.CompanyId)
 	}
 	if params.Search != "" {
 		search := fmt.Sprintf("%%%s%%", params.Search)
-		query += " AND (CAST(im.public_id AS TEXT) LIKE ? OR im.name ILIKE ?)"
-		args = append(args, search, search)
+		qb = qb.Where("im.public_id::text LIKE ? OR im.name ILIKE ?", search)
 	}
 	if params.Type != "" {
-		query += " AND im.inventory_type = ?"
-		args = append(args, params.Type)
+		qb = qb.Where("im.inventory_type = ?", params.Type)
 	}
 	if params.Status != "" {
-		query += " AND im.status = ?"
-		args = append(args, params.Status)
+		qb = qb.Where("im.status = ?", params.Status)
 	}
 
-	var result domain.InventoryStatusSummary
-	if err := s.db.Raw(query, args...).Scan(&result).Error; err != nil {
-		s.log.Error("Failed to get inventory status stats: %v", err)
-		return nil, err
+	var res domain.InventoryStatusSummary
+	err := qb.Take(&res).Error
+	if err != nil {
+		s.log.Errorf("could not get inventory stats: %v", err)
+		return nil, domain.InternalServerError
 	}
 
-	return &result, nil
+	return &res, nil
 }
 
 // get inventory detail list
@@ -772,7 +872,7 @@ func (s *Services) SendInventory1C(inventoryID string) error {
 
 	// get store info
 	var store domain.Store
-	err = s.db.First(&store, "id = ?", inventory.StoreID).Error
+	err = s.db.First(&store, "id = ?", inventory.StoreId).Error
 	if err != nil {
 		s.log.Warn("ERROR on getting store info: %v", err)
 		return err
@@ -783,7 +883,7 @@ func (s *Services) SendInventory1C(inventoryID string) error {
 
 	// get document data and number
 	data1C.Dok.DocumentDate = inventory.UpdatedAt.Format("2006-01-02T15:04:05")
-	data1C.Dok.DocumentNumber = "NP-" + cast.ToString(inventory.PublicID)
+	data1C.Dok.DocumentNumber = "NP-" + cast.ToString(inventory.PublicId)
 
 	// send inventory products data to 1C
 	err = s.DoRequestOnec(context.Background(), data1C, "/inventar")

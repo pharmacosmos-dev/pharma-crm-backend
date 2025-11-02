@@ -59,8 +59,8 @@ type EposResponseInfoParam struct {
 }
 
 type FilterDatetimeDto struct {
-	StartTime     time.Time `json:"start_time"`
-	EndTime       time.Time `json:"end_time"`
-	PrevStartTime time.Time `json:"prev_start_time"`
-	PrevEndTime   time.Time `json:"prev_end_time"`
+	StartTime     string `json:"start_time"`
+	EndTime       string `json:"end_time"`
+	PrevStartTime string `json:"prev_start_time"`
+	PrevEndTime   string `json:"prev_end_time"`
 }

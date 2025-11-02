@@ -1048,141 +1048,176 @@ func (s *Services) DashboardTransaction(ctx context.Context, params *domain.Dash
 }
 
 func (s *Services) DashboardOldImports(ctx context.Context, params *domain.DashboardQueryParam) ([]domain.Import, int64, error) {
-	var (
-		imports    []domain.Import
-		totalCount int64
-
-		err error
-	)
-
-	// Main query
-	query := s.db.WithContext(ctx).Model(&domain.Import{}).
-		Preload("Store").
-		Preload("Sender").
-		Preload("Receiver").
-		Select(`
-			imports.*,
-			ROUND(SUM(import_details.retail_price * import_details.received_count)::numeric, 2) AS received_amount,
-			ROUND(SUM(import_details.retail_price * import_details.accepted_count)::numeric, 2) AS accepted_amount,
-			ROUND(SUM(import_details.retail_price_vat * import_details.received_count)::numeric, 2) AS received_amount_vat,
-			ROUND(SUM(import_details.retail_price_vat * import_details.accepted_count)::numeric, 2) AS accepted_amount_vat,
-			ROUND(SUM(import_details.received_count)::numeric, 2) AS received_count,
-			ROUND(SUM(import_details.accepted_count)::numeric, 2) AS accepted_count
-		`).Joins("LEFT JOIN import_details ON imports.id = import_details.import_id").
-		Where("imports.entry_type = ?", 1).
-		Where("imports.created_at < NOW() - interval '24 hours'").
-		Where("imports.status = ?", "new")
-
-	// Apply filters
-	if params.CompanyId != "" {
-		query = query.Joins("JOIN stores ON imports.store_id = stores.id").
-			Where("stores.company_id = ?", params.CompanyId)
+	var tmpImport []struct {
+		Id                string     `gorm:"id"`
+		PublicId          int        `gorm:"public_id"`
+		StoreId           string     `gorm:"store_id"`
+		CreatedBy         string     `gorm:"created_by"`
+		AcceptedBy        string     `gorm:"accepted_by"`
+		DocumentNumber    string     `gorm:"document_number"`
+		DocumentYear      int        `gorm:"document_year"`
+		Status            string     `gorm:"status"`
+		ImportDate        *time.Time `gorm:"import_date"`
+		AcceptedAmount    float64    `gorm:"accepted_amount"`
+		ReceivedAmount    float64    `gorm:"received_amount"`
+		ReceivedCount     float64    `gorm:"received_count"`
+		AcceptedCount     float64    `gorm:"accepted_count"`
+		AcceptedAmountVat float64    `gorm:"accepted_amount_vat"`
+		ReceivedAmountVat float64    `gorm:"received_amount_vat"`
+		CreatedAt         *time.Time `gorm:"created_at"`
+		UpdatedAt         *time.Time `gorm:"updated_at"`
+		StoreName         string     `gorm:"store_name"`
+		CreatedByName     string     `gorm:"created_by_name"`
+		AcceptedByName    string     `gorm:"accepted_by_name"`
 	}
+
+	// Fetch imports with detailed data
+	qb := s.db.
+		WithContext(ctx).
+		Table("imports im").
+		Joins("JOIN stores st ON st.id = im.store_id").
+		Where("im.entry_type = ?", constants.ProductMovementImport).
+		Where("im.created_at <= NOW() - interval '24 hours'")
+
 	if params.Search != "" {
-		search := fmt.Sprintf("%%%s%%", params.Search)
-		query = query.Where(`
-			imports.document_number ILIKE ? OR 
-			CAST(imports.public_id AS TEXT) LIKE ?`, search, search)
+		params.Search = fmt.Sprintf("%%%s%%", params.Search)
+		qb = qb.Where("im.document_number ILIKE ? OR im.public_id::text LIKE ?", params.Search, params.Search)
 	}
-	if params.StoreId != "" {
-		query = query.Where("imports.store_id = ?", params.StoreId)
+	if len(params.StoreIds) > 0 {
+		qb = qb.Where("im.store_id IN(?)", params.StoreIds)
 	}
 
-	// Grouping, count, pagination
-	err = query.Group("imports.id").
-		Order("imports.created_at DESC").
-		Count(&totalCount).
-		Limit(params.Limit).
-		Offset(params.Offset).
-		Find(&imports).Error
-	if err != nil {
-		s.log.Errorf("could not get old imports: %v", err)
+	if params.IsFranchise {
+		if len(params.CompanyIds) == 0 {
+			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
+		}
+		qb = qb.Where("st.company_id IN(?)", params.CompanyIds)
+	} else {
+		if len(params.CompanyIds) == 0 {
+			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
+		}
+		qb = qb.Where("st.company_id IN(?)", params.CompanyIds)
+	}
+
+	if params.CompanyId != "" {
+		qb = qb.Where("st.company_id = ?", params.CompanyId)
+	}
+	var totalCount int64
+	if err := qb.Count(&totalCount).Error; err != nil {
+		s.log.Errorf("could not get imports total_count: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
 
-	return imports, totalCount, nil
+	err := qb.
+		Select(
+			"im.id",
+			"im.public_id",
+			"im.store_id",
+			"im.name",
+			"im.document_number",
+			"im.document_year",
+			"im.status",
+			"im.import_date",
+			"im.received_count AS received_count",
+			"im.received_sum AS received_amount_vat",
+			"im.scanned_count AS accepted_count",
+			"im.scanned_sum AS accepted_amount_vat",
+			"im.created_by",
+			"im.accepted_by",
+			"im.created_at",
+			"im.updated_at",
+
+			"st.name AS store_name",
+		).
+		Order("im.created_at DESC").
+		Limit(params.Limit).
+		Offset(params.Offset).
+		Find(&tmpImport).Error
+	if err != nil {
+		s.log.Errorf("could not get imports: %v", err)
+		return nil, 0, domain.InternalServerError
+	}
+
+	var res = []domain.Import{}
+	for _, item := range tmpImport {
+		res = append(res, domain.Import{
+			Id:                item.Id,
+			PublicId:          item.PublicId,
+			StoreId:           item.StoreId,
+			DocumentNumber:    item.DocumentNumber,
+			DocumentYear:      item.DocumentYear,
+			Status:            item.Status,
+			ReceivedCount:     item.ReceivedCount,
+			ReceivedAmountVat: item.ReceivedAmountVat,
+			AcceptedCount:     item.AcceptedCount,
+			AcceptedAmountVat: item.AcceptedAmountVat,
+			CreatedBy:         item.CreatedBy,
+			AcceptedBy:        item.AcceptedBy,
+			CreatedAt:         item.CreatedAt,
+			UpdatedAt:         item.UpdatedAt,
+			ImportDate:        item.ImportDate,
+			Store: domain.NewNullStruct(domain.ImportStore{
+				Id:   item.StoreId,
+				Name: item.StoreName,
+			}, item.StoreId != ""),
+			Sender: domain.NewNullStruct(domain.ImportEmployee{
+				Id:       item.CreatedBy,
+				FullName: item.CreatedByName,
+			}, item.CreatedBy != ""),
+			Receiver: domain.NewNullStruct(domain.ImportEmployee{
+				Id:       item.AcceptedBy,
+				FullName: item.AcceptedByName,
+			}, item.AcceptedBy != ""),
+		})
+	}
+
+	return res, totalCount, nil
 }
 
 // get dashboard count and amount data
-func (s *Services) DashboardSaleStatistic(ctx context.Context, param *domain.DashboardQueryParam) (*domain.DashboardSaleStatistic, error) {
-	// declarations
-	var (
-		sale      domain.DashboardSaleStatistic
-		startTime time.Time
-		endTime   time.Time
-	)
-
-	// Parse start and end dates
-	startTime, err := time.Parse(time.RFC3339, param.StartDate)
+func (s *Services) DashboardSaleStatistic(ctx context.Context, params *domain.DashboardQueryParam) (*domain.DashboardSaleStatistic, error) {
+	date, err := s.FormatDatetimeParams(params.StartDate, params.EndDate)
 	if err != nil {
-		s.log.Errorf("could not parse start_date format: %v", err)
-		return nil, domain.InvalidTimeFormatError
+		return nil, err
 	}
 
-	if param.EndDate == "" { // get end time if end_date will be empty string 23 hour and 59 minute
-		endTime = startTime.Add(time.Minute * 1439)
+	qb := s.db.
+		WithContext(ctx).
+		Select(
+			fmt.Sprintf("COUNT(CASE WHEN s.completed_at BETWEEN '%s' AND '%s' THEN s.id END) AS sale_count", date.StartTime, date.EndTime),
+			fmt.Sprintf("SUM(CASE WHEN s.completed_at BETWEEN '%s' AND '%s' THEN s.total_amount ELSE 0 END) AS sale_amount", date.StartTime, date.EndTime),
+			fmt.Sprintf("COUNT(CASE WHEN s.completed_at BETWEEN '%s' AND '%s' THEN s.id END) AS before_sale_count", date.PrevStartTime, date.PrevEndTime),
+			fmt.Sprintf("SUM(CASE WHEN s.completed_at BETWEEN '%s' AND '%s' THEN s.total_amount ELSE 0 END) AS before_sale_amount", date.PrevStartTime, date.PrevEndTime),
+		).
+		Table("sales s").
+		Joins("JOIN stores st ON s.store_id = st.id")
+
+	qb = qb.Where("s.stage IN(?)", constants.FinishedSaleStages)
+
+	if len(params.StoreIds) > 0 {
+		qb = qb.Where("s.store_id IN(?)", params.StoreIds)
 	}
 
-	if param.EndDate != "" {
-		endTime, err = time.Parse(time.RFC3339, param.EndDate)
-		if err != nil {
-			s.log.Errorf("could not parse end_date format: %v", err)
-			return nil, domain.InvalidTimeFormatError
+	if params.IsFranchise {
+		if len(params.CompanyIds) == 0 {
+			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
 		}
+		qb = qb.Where("st.company_id IN(?)", params.CompanyIds)
+	} else {
+		if len(params.CompanyIds) == 0 {
+			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
+		}
+		qb = qb.Where("st.company_id IN(?)", params.CompanyIds)
 	}
 
-	// Calculate before period
-	beforeStart, beforeEnd := utils.BeforeDatesTime(startTime, endTime)
-	// Format all timestamps for SQL
-	startStr := startTime.Format("2006-01-02 15:04:05")
-	endStr := endTime.Format("2006-01-02 15:04:05")
-	beforeStartStr := beforeStart.Format("2006-01-02 15:04:05")
-	beforeEndStr := beforeEnd.Format("2006-01-02 15:04:05")
-
-	// queries
-	var (
-		args []any
-		// get sale stats information
-		querys = fmt.Sprintf(`
-		SELECT
-			COUNT(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN sales.id END) AS sale_count,
-			COUNT(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN sales.id END) AS before_sale_count,
-			SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN sales.total_amount ELSE 0 END) AS sale_amount,
-			SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN sales.total_amount ELSE 0 END) AS before_sale_amount
-		FROM sales
-		LEFT JOIN stores st on sales.store_id = st.id
-		WHERE stage IN(9, 11)
-		`,
-			startStr, endStr, beforeStartStr, beforeEndStr,
-			startStr, endStr, beforeStartStr, beforeEndStr)
-
-		filter  = ""
-		filterc = ""
-	)
-
-	// filter by several store ids
-	if len(param.StoreIds) > 0 {
-		filter += " AND store_id IN (?)"
-		filterc += " AND s.store_id IN (?)"
-		args = append(args, param.StoreIds)
-	}
-
-	// filter by company_id
-	if param.CompanyId != "" {
-		filter += " AND st.company_id = ?"
-		filterc += " AND p.company_id = ?"
-		args = append(args, param.CompanyId)
-	}
-
-	// Execute queries
-	querys += filter
-	err = s.db.WithContext(ctx).Debug().Raw(querys, args...).Scan(&sale).Error
+	var res domain.DashboardSaleStatistic
+	err = qb.Take(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get total sale amounts: %v", err)
 		return nil, domain.InternalServerError
 	}
 
-	return &sale, nil
+	return &res, nil
 }
 
 // get dashboard count and amount data
@@ -1293,81 +1328,37 @@ func (s *Services) DashboardNetProfitStatistic(ctx context.Context, param *domai
 
 // get dashboard count and amount data
 func (s *Services) DashboardImportStatistic(ctx context.Context, params *domain.DashboardQueryParam) (*domain.DashboardImportStatistic, error) {
-	// declarations
-	var res domain.DashboardImportStatistic
+	qb := s.db.WithContext(ctx).
+		Select(
+			"SUM(im.received_sum) AS import_amount",
+			"SUM(CASE WHEN im.created_at < NOW() - interval '24 hour' THEN im.received_sum ELSE 0 END) AS not_last_24h_import_amount",
+		).
+		Table("imports im").
+		Joins("JOIN stores st ON im.store_id = st.id")
 
-	// queries
-	var (
-		args []any
-		// get sale stats information
-
-		query24h = `
-		SELECT
-			-- (hammasi)
-			COALESCE(SUM(imd.received_count * imd.retail_price_vat), 0) AS import_amount,
-
-			-- 24 soatdan o'tib ketganlari
-			COALESCE(SUM(
-							CASE
-								WHEN im.created_at < NOW() - interval '24 hour'
-									THEN imd.received_count * imd.retail_price_vat
-								ELSE 0
-							END
-					), 0) AS not_last_24h_import_amount
-
-		FROM import_details imd
-				JOIN imports im ON imd.import_id = im.id
-				LEFT JOIN stores st ON im.store_id = st.id
-		WHERE im.status = 'new'
-		AND im.entry_type = 1`
-
-		queryImportCountNot24 = `
-		SELECT COUNT(*)
-		FROM imports im
-		LEFT JOIN stores st ON im.store_id = st.id
-		WHERE im.status = 'new'
- 		 AND im.entry_type = 1
-  		 AND im.created_at < NOW() - interval '24 hour'
-`
-
-		filter = ""
-	)
-
+	qb = qb.Where("im.entry_type = ?", constants.ProductMovementImport)
 	// filter by several store ids
 	if len(params.StoreIds) > 0 {
-		filter += " AND store_id IN (?)"
-		args = append(args, params.StoreIds)
-		query24h += " AND im.store_id IN (?)"
+		qb = qb.Where("im.store_id IN(?)", params.StoreIds)
 	}
 
 	if params.IsFranchise {
 		if len(params.CompanyIds) == 0 {
 			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
 		}
-		filter += " AND st.company_id IN(?)"
-		args = append(args, params.CompanyIds)
+		qb = qb.Where("st.company_id IN(?)", params.CompanyIds)
 	} else {
 		if len(params.CompanyIds) == 0 {
 			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
 		}
-		filter += " AND st.company_id IN(?)"
-		args = append(args, params.CompanyIds)
+		qb = qb.Where("st.company_id IN(?)", params.CompanyIds)
 	}
-
-	err := s.db.WithContext(ctx).Raw(query24h, args...).Scan(&res).Error
+	var res domain.DashboardImportStatistic
+	err := qb.Take(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get import_count for_24: %v", err)
 		return nil, domain.InternalServerError
 	}
-
-	var count float64
-	queryImportCountNot24 += filter
-	err = s.db.WithContext(ctx).Raw(queryImportCountNot24, args...).Scan(&count).Error
-	if err != nil {
-		s.log.Errorf("could not get import_count for_not_24: %v", err)
-		return nil, domain.InternalServerError
-	}
-	res.NotLast24HImportCount = count
 
 	return &res, nil
 }

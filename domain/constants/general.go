@@ -200,6 +200,10 @@ const (
 	// Service types
 	ServiceTypeNoor = "noor"
 	ServiceTypeDmed = "dmed"
+
+	ProductMovementImport    = 1
+	ProductMovementInventory = 2
+	
 )
 
 // Request Path

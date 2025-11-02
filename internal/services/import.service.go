@@ -43,60 +43,55 @@ func (s *Services) UpdateImportCompletedStatus(tx *gorm.DB, importID, userID str
 }
 
 // Accept import
-func (s *Services) AcceptImport(importID string, userID string, acceptType string) error {
+func (s *Services) AcceptImport(ctx context.Context, importId string, userId string, acceptType string) error {
 	// begin transactions
 	tx := s.db.Begin()
-
-	// Get import info
-	var res domain.Import
-	err := tx.First(&res, "id = ?", importID).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return domain.NotFoundError
-		}
-		s.log.Error("could not get import(%s) info: %v", importID, err)
-		return domain.InternalServerError
-	}
-
-	// check error and rollback
 	defer func() {
-		if err != nil {
-			tx.Rollback()
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
 		}
 	}()
 
+	// Get import info
+	var res domain.Import
 	// update import status
-	err = s.UpdateImportCompletedStatus(tx, importID, userID)
+	err := tx.WithContext(ctx).
+		Raw(`UPDATE imports SET status = ?, accepted_by = ? WHERE id = ? RETURNING *`,
+			constants.GeneralStatusCompleted,
+			userId,
+			importId,
+		).Scan(&res).Error
 	if err != nil {
-		s.log.Error("could not update import(%s) status: %v", importID, err)
-		return domain.InternalServerError
+		_ = tx.Rollback()
+		s.log.Errorf("could not update import(%s) status: %v", importId, err)
+		return err
 	}
 
 	if acceptType == "all" {
 		// update accepted_count and scanned_count to received_count
-		err = s.UpdateImportDetailsAccepted(tx, importID)
+		err = s.UpdateImportDetailsAccepted(tx, importId)
 		if err != nil {
-			return domain.InternalServerError
+			_ = tx.Rollback()
+			return err
 		}
 
 		// add all imported products to store_products and send 1C
-		err = s.AddAllProductsToStore(tx, &res)
+		err = s.AddAllProductsToStore(ctx, tx, &res)
 		if err != nil {
-			s.log.Error("could not accept import products: %v", err)
-			return domain.InternalServerError
+			_ = tx.Rollback()
+			return err
 		}
 	} else {
-		err = s.AddSomeImportedProductsToStore(tx, &res)
+		err = s.AddSomeImportedProductsToStore(ctx, tx, &res)
 		if err != nil {
-			s.log.Error("could not accept some import products: %v", err)
-			return domain.InternalServerError
+			_ = tx.Rollback()
+			return err
 		}
 	}
 
 	// completed transaction
-	err = tx.Commit().Error
-	if err != nil {
-		s.log.Error("could not completed transaction: %v", err)
+	if err = tx.Commit().Error; err != nil {
+		s.log.Errorf("could not completed confirm import transaction: %v", err)
 		return domain.InternalServerError
 	}
 
@@ -104,18 +99,44 @@ func (s *Services) AcceptImport(importID string, userID string, acceptType strin
 }
 
 // Canceled import
-func (s *Services) CancelImport(tx *gorm.DB, id string, userID string) (*domain.Import, error) {
-	var res domain.Import
-	err := tx.Raw(`UPDATE imports SET status = ?, accepted_by = ? WHERE id = ? RETURNING *`, constants.GeneralStatusCanceled, userID, id).Scan(&res).Error
+func (s *Services) CancelImport(ctx context.Context, id string, userID string) error {
+	// start transaction
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	err := tx.WithContext(ctx).
+		Exec(`UPDATE imports SET status = ?, accepted_by = ? WHERE id = ?;`,
+			constants.GeneralStatusCanceled,
+			userID,
+			id,
+		).Error
 	if err != nil {
-		s.log.Error(err)
-		return nil, err
+		_ = tx.Rollback()
+		s.log.Errorf("could not cancel import %v", err)
+		return domain.InternalServerError
 	}
-	return &res, nil
+
+	err = s.UpdateImportDetailsToCancel(tx, id)
+	if err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+
+	// completed transaction
+	if err = tx.Commit().Error; err != nil {
+		s.log.Errorf("could not commit cancel import tranaction: %v", err)
+		return domain.InternalServerError
+	}
+
+	return nil
 }
 
 // Add some imported products to stores
-func (s *Services) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domain.Import) error {
+func (s *Services) AddSomeImportedProductsToStore(ctx context.Context, tx *gorm.DB, importData *domain.Import) error {
 	var reqFakt domain.AcceptImport1C
 
 	// import_detail list by import_id
@@ -159,26 +180,27 @@ func (s *Services) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domai
 	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	for _, item := range importDetails {
 		if item.ScannedCount > 0 {
-			err = tx.Exec(storeProductQuery,
-				importData.StoreID,
-				item.ProductID,
-				int(item.ScannedCount),
-				int(item.ScannedCount*float64(item.UnitPerPack)),
-				item.SupplyPriceVat,
-				item.RetailPriceVat,
-				item.Vat, item.ExpireDate,
-				item.RetailPriceVat*12/112,
-				item.Id,
-				item.SeriesNumber,
-				item.Mxik,
-				item.UnitCode,
-				item.UnitLabel,
-				item.IsMarking,
-				store.CompanyId,
-			).Error
+			err = tx.WithContext(ctx).
+				Exec(storeProductQuery,
+					importData.StoreId,
+					item.ProductID,
+					int(item.ScannedCount),
+					int(item.ScannedCount*float64(item.UnitPerPack)),
+					item.SupplyPriceVat,
+					item.RetailPriceVat,
+					item.Vat, item.ExpireDate,
+					item.RetailPriceVat*12/112,
+					item.Id,
+					item.SeriesNumber,
+					item.Mxik,
+					item.UnitCode,
+					item.UnitLabel,
+					item.IsMarking,
+					store.CompanyId,
+				).Error
 			if err != nil {
-				s.log.Warn("ERROR on inserting import products to store_product: %v", err)
-				return err
+				s.log.Errorf("could not inserting import products to store_product: %v", err)
+				return domain.InternalServerError
 			}
 			// collect fakt data
 			reqFakt.Товары = append(reqFakt.Товары, domain.AcceptImport1CResponse{
@@ -199,14 +221,14 @@ func (s *Services) AddSomeImportedProductsToStore(tx *gorm.DB, importData *domai
 	// send fakt to 1C
 	err = s.DoRequestOnec(context.Background(), reqFakt, constants.OnecPathPrihod)
 	if err != nil {
-		s.log.Error("could not send prixod response: %v", err)
+		s.log.Errorf("could not send prixod response: %v", err)
 	}
 
 	return nil
 }
 
 // add all imported products to store
-func (s *Services) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import) error {
+func (s *Services) AddAllProductsToStore(ctx context.Context, tx *gorm.DB, importData *domain.Import) error {
 	var (
 		reqFakt domain.AcceptImport1C
 		store   *domain.Store
@@ -253,8 +275,8 @@ func (s *Services) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import)
 	for _, item := range details {
 		if item.ReceivedCount > 0 {
 
-			err = tx.Exec(storeProductQuery,
-				importData.StoreID,
+			err = tx.WithContext(ctx).Exec(storeProductQuery,
+				importData.StoreId,
 				item.ProductID,
 				int(item.ReceivedCount),
 				int(item.ReceivedCount*float64(item.UnitPerPack)),
@@ -272,8 +294,8 @@ func (s *Services) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import)
 				store.CompanyId,
 			).Error
 			if err != nil {
-				s.log.Error("could not add import products to store_product: %v", err)
-				return err
+				s.log.Errorf("could not add import products to store_product: %v", err)
+				return domain.InternalServerError
 			}
 
 			// collect product fakt data
@@ -292,7 +314,7 @@ func (s *Services) AddAllProductsToStore(tx *gorm.DB, importData *domain.Import)
 	// send fakt to 1C
 	err = s.DoRequestOnec(context.Background(), reqFakt, constants.OnecPathPrihod)
 	if err != nil {
-		s.log.Error("could not send request to 1C", err)
+		s.log.Errorf("could not send confirm import to onec: %v", err)
 	}
 
 	return nil
@@ -353,130 +375,183 @@ func (s *Services) CreateProductMarking(tx *gorm.DB, req domain.ProductMarkingRe
 
 // list import
 func (s *Services) GetImports(ctx context.Context, params *domain.ImportQueryParams) ([]domain.Import, int64, error) {
-	var (
-		imports    []domain.Import
-		totalCount int64
-	)
+	var tmpImport []struct {
+		Id                string     `gorm:"id"`
+		PublicId          int        `gorm:"public_id"`
+		StoreId           string     `gorm:"store_id"`
+		CreatedBy         string     `gorm:"created_by"`
+		AcceptedBy        string     `gorm:"accepted_by"`
+		DocumentNumber    string     `gorm:"document_number"`
+		DocumentYear      int        `gorm:"document_year"`
+		Status            string     `gorm:"status"`
+		ImportDate        *time.Time `gorm:"import_date"`
+		AcceptedAmount    float64    `gorm:"accepted_amount"`
+		ReceivedAmount    float64    `gorm:"received_amount"`
+		ReceivedCount     float64    `gorm:"received_count"`
+		AcceptedCount     float64    `gorm:"accepted_count"`
+		AcceptedAmountVat float64    `gorm:"accepted_amount_vat"`
+		ReceivedAmountVat float64    `gorm:"received_amount_vat"`
+		CreatedAt         *time.Time `gorm:"created_at"`
+		UpdatedAt         *time.Time `gorm:"updated_at"`
+		StoreName         string     `gorm:"store_name"`
+		CreatedByName     string     `gorm:"created_by_name"`
+		AcceptedByName    string     `gorm:"accepted_by_name"`
+	}
 
 	// Fetch imports with detailed data
-	query := s.db.Model(&domain.Import{}).
-		Preload("Store").
-		Preload("Sender").
-		Preload("Receiver").
-		Select(`
-			imports.*,
-			ROUND(SUM(import_details.retail_price * import_details.received_count)::numeric, 2) AS received_amount,
-			ROUND(SUM(import_details.retail_price * import_details.accepted_count)::numeric, 2) AS accepted_amount,
-			ROUND(SUM(import_details.retail_price_vat * import_details.received_count)::numeric, 2) AS received_amount_vat,
-			ROUND(SUM(import_details.retail_price_vat * import_details.accepted_count)::numeric, 2) AS accepted_amount_vat,
-			ROUND(SUM(import_details.received_count)::numeric, 2) AS received_count,
-			ROUND(SUM(import_details.accepted_count)::numeric, 2) AS accepted_count
-		`).Joins("LEFT JOIN import_details ON imports.id = import_details.import_id").
-		Where("imports.entry_type = ?", 1)
+	qb := s.db.
+		WithContext(ctx).
+		Table("imports im").
+		Joins("JOIN stores st ON st.id = im.store_id").
+		Joins("LEFT JOIN employees em ON im.created_by = em.id").
+		Joins("LEFT JOIN employees em2 ON im.accepted_by = em2.id").
+		Where("im.entry_type = ?", 1)
 
 	if params.Search != "" {
 		params.Search = fmt.Sprintf("%%%s%%", params.Search)
-		query = query.Where(`
-		imports.document_number ILIKE ? OR
-		CAST(imports.public_id AS TEXT) LIKE ?`, params.Search, params.Search)
+		qb = qb.Where("im.document_number ILIKE ? OR im.public_id::text LIKE ?", params.Search, params.Search)
 	}
 	if params.StoreId != "" {
-		query = query.Where("imports.store_id = ?", params.StoreId)
+		qb = qb.Where("im.store_id = ?", params.StoreId)
 	}
 	if params.CompanyId != "" {
-		query = query.Where("stores.company_id = ?", params.CompanyId).
-			Joins("LEFT JOIN stores ON imports.store_id = stores.id")
+		qb = qb.Where("st.company_id = ?", params.CompanyId)
 	}
-	if params.StartDate != "" && params.EndDate != "" {
-		query = query.Where("imports.created_at BETWEEN ? AND ?", params.StartDate, params.EndDate)
+	if params.StartDate != "" {
+		qb = qb.Where("(im.created_at + interval '5 hours') >= ?", params.StartDate)
+	}
+	if params.EndDate != "" {
+		qb = qb.Where("(im.created_at + interval '5 hours') <= ?", params.EndDate)
 	}
 	if params.Status != "" {
-		query = query.Where("imports.status = ?", params.Status)
+		qb = qb.Where("im.status = ?", params.Status)
 	}
 	if params.ReceivedAmountFrom > 0 {
-		query = query.Where("received_amount >= ?", params.ReceivedAmountFrom)
+		qb = qb.Where("im.received_sum >= ?", params.ReceivedAmountFrom)
 	}
 	if params.ReceivedAmountTo > 0 {
-		query = query.Where("received_amount <= ?", params.ReceivedAmountTo)
+		qb = qb.Where("im.received_sum <= ?", params.ReceivedAmountTo)
 	}
-	err := query.Group("imports.id").
-		Order("imports.created_at DESC").
-		Count(&totalCount).
+	var totalCount int64
+	if err := qb.Count(&totalCount).Error; err != nil {
+		s.log.Errorf("could not get imports total_count: %v", err)
+		return nil, 0, domain.InternalServerError
+	}
+
+	err := qb.
+		Select(
+			"im.id",
+			"im.public_id",
+			"im.store_id",
+			"im.name",
+			"im.document_number",
+			"im.document_year",
+			"im.status",
+			"im.import_date",
+			"im.received_count AS received_count",
+			"im.received_sum AS received_amount_vat",
+			"im.scanned_count AS accepted_count",
+			"im.scanned_sum AS accepted_amount_vat",
+			"im.created_by",
+			"im.accepted_by",
+			"im.created_at",
+			"im.updated_at",
+
+			"st.name AS store_name",
+			"em.full_name AS created_by_name",
+			"em2.full_name AS accepted_by_name",
+		).
+		Order("im.created_at DESC").
 		Limit(params.Limit).
 		Offset(params.Offset).
-		Find(&imports).Error
+		Find(&tmpImport).Error
 	if err != nil {
 		s.log.Errorf("could not get imports: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
-	return imports, totalCount, nil
+
+	var res = []domain.Import{}
+	for _, item := range tmpImport {
+		res = append(res, domain.Import{
+			Id:                item.Id,
+			PublicId:          item.PublicId,
+			StoreId:           item.StoreId,
+			DocumentNumber:    item.DocumentNumber,
+			DocumentYear:      item.DocumentYear,
+			Status:            item.Status,
+			ReceivedCount:     item.ReceivedCount,
+			ReceivedAmountVat: item.ReceivedAmountVat,
+			AcceptedCount:     item.AcceptedCount,
+			AcceptedAmountVat: item.AcceptedAmountVat,
+			CreatedBy:         item.CreatedBy,
+			AcceptedBy:        item.AcceptedBy,
+			CreatedAt:         item.CreatedAt,
+			UpdatedAt:         item.UpdatedAt,
+			ImportDate:        item.ImportDate,
+			Store: domain.NewNullStruct(domain.ImportStore{
+				Id:   item.StoreId,
+				Name: item.StoreName,
+			}, item.StoreId != ""),
+			Sender: domain.NewNullStruct(domain.ImportEmployee{
+				Id:       item.CreatedBy,
+				FullName: item.CreatedByName,
+			}, item.CreatedBy != ""),
+			Receiver: domain.NewNullStruct(domain.ImportEmployee{
+				Id:       item.AcceptedBy,
+				FullName: item.AcceptedByName,
+			}, item.AcceptedBy != ""),
+		})
+	}
+
+	return res, totalCount, nil
 }
 
 func (s *Services) GetImportsStats(ctx context.Context, params *domain.ImportQueryParams) (*domain.ImportStatusSummary, error) {
-	query := `
-		SELECT
-			COALESCE(SUM(CASE WHEN imports.status = 'completed' THEN import_details.retail_price_vat * import_details.accepted_count ELSE 0 END), 0) AS completed_received_vat_amount,
-			COALESCE(SUM(CASE WHEN imports.status = 'new' THEN import_details.retail_price_vat * import_details.received_count ELSE 0 END), 0) AS new_accepted_vat_amount,
-			COALESCE(SUM(CASE WHEN imports.status = 'completed' THEN import_details.accepted_count ELSE 0 END), 0) AS completed_accepted_count,
-			COALESCE(SUM(CASE WHEN imports.status = 'new' THEN import_details.received_count ELSE 0 END), 0) AS new_received_count
-		FROM imports
-		LEFT JOIN import_details ON imports.id = import_details.import_id
-		LEFT JOIN stores ON imports.store_id = stores.id
-		WHERE imports.entry_type = 1
-	`
 
-	var args []any
+	qb := s.db.WithContext(ctx).
+		Select(
+			"SUM(im.received_count) AS new_received_count",
+			"SUM(im.received_sum) AS new_accepted_vat_amount",
+			"SUM(im.scanned_count) AS completed_accepted_count",
+			"SUM(im.scanned_sum) AS completed_received_vat_amount",
+		).
+		Table("imports im").
+		Joins("JOIN stores st ON im.store_id = st.id")
 
 	if params.StoreId != "" {
-		query += " AND imports.store_id = ?"
-		args = append(args, params.StoreId)
+		qb = qb.Where("im.store_id = ?", params.StoreId)
 	}
 	if params.CompanyId != "" {
-		query += " AND stores.company_id = ?"
-		args = append(args, params.CompanyId)
+		qb = qb.Where("st.company_id = ?", params.CompanyId)
 	}
 
-	if params.StartDate != "" && params.EndDate != "" {
-		query += " AND imports.created_at BETWEEN ? AND ? "
-		args = append(args, params.StartDate, params.EndDate)
+	if params.StartDate != "" {
+		qb = qb.Where("(im.created_at + interval '5 hours') >= ?", params.StartDate)
+	}
+	if params.EndDate != "" {
+		qb = qb.Where("(im.created_at + interval '5 hours') <= ?", params.EndDate)
 	}
 	if params.Search != "" {
 		params.Search = fmt.Sprintf("%%%s%%", params.Search)
-		query += " AND (imports.document_number ILIKE ? OR CAST(imports.public_id AS TEXT) ILIKE ?)"
-		args = append(args, params.Search, params.Search)
+		qb = qb.Where("im.document_number ILIKE ? OR im.public_id::text LIKE ?", params.Search, params.Search)
 	}
 	if params.Status != "" {
-		query += " AND imports.status = ?"
-		args = append(args, params.Status)
+		qb = qb.Where("im.status = ?", params.Status)
 	}
 	if params.ReceivedAmountFrom > 0 {
-		query += `
-		AND (
-			SELECT ROUND(SUM(d.retail_price * d.received_count)::numeric, 2)
-			FROM import_details d
-			WHERE d.import_id = imports.id
-		) >= ?
-		`
-		args = append(args, params.ReceivedAmountFrom)
+		qb = qb.Where("im.received_sum >= ?", params.ReceivedAmountFrom)
 	}
 	if params.ReceivedAmountTo > 0 {
-		query += `
-		AND (
-			SELECT ROUND(SUM(d.retail_price * d.received_count)::numeric, 2)
-			FROM import_details d
-			WHERE d.import_id = imports.id
-		) <= ?
-		`
-		args = append(args, params.ReceivedAmountTo)
+		qb = qb.Where("im.received_sum <= ?", params.ReceivedAmountTo)
 	}
 
-	var summary domain.ImportStatusSummary
-	err := s.db.WithContext(ctx).Raw(query, args...).Scan(&summary).Error
+	var res domain.ImportStatusSummary
+	err := qb.Take(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get imports stats: %v", err)
 		return nil, domain.InternalServerError
 	}
-	return &summary, nil
+	return &res, nil
 }
 
 // list import detail
