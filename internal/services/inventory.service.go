@@ -26,20 +26,36 @@ func (s *Services) CreateInventory(req *domain.InventoryRequest) error {
 	}()
 	// insert inventory into inventories table
 	err := tx.Raw(`
-	INSERT INTO imports (store_id, name, inventory_type, created_by, entry_type, import_date)
-	VALUES (?, ?, ?, ?, ?, ?) RETURNING id`,
+	INSERT INTO imports (
+		store_id, 
+		name, 
+		inventory_type, 
+		created_by, 
+		entry_type, 
+		import_date
+		)
+	VALUES (?, ?, ?, ?, ?, ?) 
+	RETURNING id`,
 		req.StoreId, req.Name, req.Type, req.CreatedBy, 2, time.Now(),
 	).Scan(&id).Error
 	if err != nil {
-		s.log.Warn("ERROR on creating inventory: %v", err)
-		tx.Rollback()
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("could not create inventory: %v", err)
+		return domain.InternalServerError
 	}
 	// insert all products (including those not in store_products)
 	err = tx.Exec(`
 		INSERT INTO import_details (
-			import_id, product_id, store_product_id,  received_count, supply_price_vat, retail_price_vat, expire_date, series_number, imported_at
-				)
+			import_id, 
+			product_id, 
+			store_product_id,  
+			received_count, 
+			supply_price_vat, 
+			retail_price_vat, 
+			expire_date, 
+			series_number, 
+			imported_at
+			)
 		SELECT
 			?,
 			p.id,
@@ -56,17 +72,16 @@ func (s *Services) CreateInventory(req *domain.InventoryRequest) error {
 			store_products sp ON sp.product_id = p.id and sp.store_id = ?
 		`, id, req.StoreId).Error
 	if err != nil {
-		s.log.Warn("ERROR on creating inventory detail: %v", err)
-		tx.Rollback()
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("could create inventory details: %v", err)
+		return domain.InternalServerError
 	}
 	// commit transaction
-	err = tx.Commit().Error
-	if err != nil {
-		s.log.Warn("ERROR on committing transaction: %v", err)
-		tx.Rollback()
-		return err
+	if err = tx.Commit().Error; err != nil {
+		s.log.Errorf("could not commit create inventory transaction: %v", err)
+		return domain.InternalServerError
 	}
+
 	return nil
 }
 

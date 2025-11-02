@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
+	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 )
 
@@ -696,7 +697,7 @@ func (h *DashboardHandler) ImportStatistic(c *gin.Context) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
-		params.CompanyId = user.CompanyId
+		params.CompanyIds = []string{user.CompanyId}
 	}
 
 	// get dashboard data
@@ -745,15 +746,16 @@ func (h *DashboardHandler) ProductStatistic(c *gin.Context) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
+
 	params.StoreIds = body.StoreIds
 	params.CompanyIds = body.CompanyIds
 
 	// check if employee is not admin or superadmin
-	if !utils.In(user.Role, constants.AllAdminRoles...) {
+	if !helper.IsAdmin(user) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
-		params.CompanyId = user.CompanyId
+		params.CompanyIds = []string{user.CompanyId}
 	}
 
 	// get dashboard data

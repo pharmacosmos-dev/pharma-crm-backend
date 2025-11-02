@@ -321,9 +321,9 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 	if params.Status != "" {
 		switch params.Status {
 		case "active", "inactive":
-			qb = qb.Where("p.status = ?", params.Status)
+			qb = qb.Where("p.status = ?", params.Status).Having("sp_agg.total_quantity > 0")
 		case "low-stock":
-			qb = qb.Having("sp_agg.total_quantity/p.unit_per_pack < 3")
+			qb = qb.Having("sp_agg.total_quantity/p.unit_per_pack < 3").Having("sp_agg.total_quantity > 0")
 		case "zero-stock":
 			qb = qb.Having("sp_agg.total_quantity = 0")
 		case "expired":
@@ -404,7 +404,7 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 	return res, totalCount, nil
 }
 
-func (s *Services) GetProductsByStores(ctx context.Context, params *domain.ProductQueryParam, user *domain.EmployeeClaims) ([]domain.ProductData, error) {
+func (s *Services) GetProductsByStores(ctx context.Context, params *domain.ProductQueryParam) ([]domain.ProductData, error) {
 
 	qb := s.db.WithContext(ctx).
 		Select(
@@ -438,13 +438,7 @@ func (s *Services) GetProductsByStores(ctx context.Context, params *domain.Produ
 	return res, nil
 }
 
-func (s *Services) GetProductStats(ctx context.Context, params *domain.ProductQueryParam, user *domain.EmployeeClaims) (domain.ProductStats, error) {
-	if !utils.In(user.Role, constants.AllAdminRoles...) {
-		if user.StoreId != "" {
-			params.StoreId = user.StoreId
-		}
-		params.CompanyId = user.CompanyId
-	}
+func (s *Services) GetProductStats(ctx context.Context, params *domain.ProductQueryParam) (domain.ProductStats, error) {
 
 	now := time.Now().Add(constants.DateTimeTashkent)
 	threeMonthsLater := now.AddDate(0, 3, 0)
@@ -489,11 +483,11 @@ func (s *Services) GetProductStats(ctx context.Context, params *domain.ProductQu
 	query := `
 		SELECT 
 			COUNT(*) AS total_count,
-			SUM(total_unit_quantity / unit_per_pack) AS total_quantity,
-			SUM(total_amount) AS total_stock_amount,
-			COUNT(*) FILTER (WHERE (total_unit_quantity / unit_per_pack) < 3) AS low_stock_count,
+			ROUND(SUM(total_unit_quantity / unit_per_pack), 2) AS total_quantity,
+			ROUND(SUM(total_amount), 2) AS total_stock_amount,
+			COUNT(*) FILTER (WHERE (total_unit_quantity / unit_per_pack) < 3 AND total_unit_quantity > 0) AS low_stock_count,
 			COUNT(*) FILTER (WHERE total_unit_quantity = 0) AS zero_stock_count,
-			COUNT(*) FILTER (WHERE status = ?) AS active_count,
+			COUNT(*) FILTER (WHERE status = ? AND total_unit_quantity > 0) AS active_count,
 			COUNT(*) FILTER (WHERE status = ?) AS inactive_count,
 			COUNT(*) FILTER (WHERE min_expire_date BETWEEN ? AND ? AND total_unit_quantity > 0) AS imminent_count,
 			COUNT(*) FILTER (WHERE min_expire_date < ? AND total_unit_quantity > 0) AS expired_count
@@ -508,8 +502,7 @@ func (s *Services) GetProductStats(ctx context.Context, params *domain.ProductQu
 			threeMonthsLater,
 			now,
 			subQuery,
-		).
-		Scan(&res).Error
+		).Scan(&res).Error
 
 	if err != nil {
 		s.log.Errorf("could not get product stats: %v", err)
