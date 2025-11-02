@@ -51,6 +51,7 @@ func (h *DashboardHandler) DashboardRoutes(r *gin.RouterGroup) {
 // @Param   store_id 	query string false "Store ID"
 // @Param   type 		query string false "Type"
 // @Param   ids 		body  domain.DashboardBody false "Body"
+// @Param	is_franchise query bool false 	"is_franchise"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -115,6 +116,7 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 // @Param   type 		query string false "Type might be -> (HOURLY, DAILY, WEEKLY, MONTHLY, YEARLY)"
 // @Param   store_id 	query string false "Store ID"
 // @Param   ids 		body  domain.DashboardBody false "Body"
+// @Param	is_franchise query bool false 	"is_franchise"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -170,6 +172,7 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 // @Param   start_date 	query string false "Start Date"
 // @Param   end_date 	query string false "End Date"
 // @Param   store_id 	query string false "Store ID"
+// @Param	is_franchise query bool false 	"is_franchise"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -221,6 +224,7 @@ func (h *DashboardHandler) TopStores(c *gin.Context) {
 // @Param   end_date 	query string false "End Date"
 // @Param   store_id 	query string false "Store ID"
 // @Param   ids 		body  domain.DashboardBody false "Body"
+// @Param	is_franchise query bool false 	"is_franchise"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -279,6 +283,7 @@ func (h *DashboardHandler) TopProducts(c *gin.Context) {
 // @Param   end_date 	query string false "End Date"
 // @Param   store_id 	query string false "Store ID"
 // @Param   ids 		body  domain.DashboardBody false "Body"
+// @Param	is_franchise query bool false 	"is_franchise"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -339,6 +344,7 @@ func (h *DashboardHandler) BonusProducts(c *gin.Context) {
 // @Param   end_date 	query string false "End Date"
 // @Param   store_id 	query string false "Store ID"
 // @Param   ids 		body  domain.DashboardBody false "Body"
+// @Param	is_franchise query bool false 	"is_franchise"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -395,6 +401,7 @@ func (h *DashboardHandler) TopSeller(c *gin.Context) {
 // @Param   type 		query string false "Type might be -> (HOURLY, DAILY, WEEKLY, MONTHLY, YEARLY)"
 // @Param   store_id 	query string false "Store ID"
 // @Param   ids 		body  domain.DashboardBody false "Body"
+// @Param	is_franchise query bool false 	"is_franchise"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -423,7 +430,7 @@ func (h *DashboardHandler) Payments(c *gin.Context) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
-		params.CompanyId = user.CompanyId
+		params.CompanyIds = []string{user.CompanyId}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
@@ -448,6 +455,7 @@ func (h *DashboardHandler) Payments(c *gin.Context) {
 // @Param   type 		query string false "Type might be -> (HOURLY, DAILY, WEEKLY, MONTHLY, YEARLY)"
 // @Param   store_id 	query string false "Store ID"
 // @Param   ids 		body  domain.DashboardBody false "Body"
+// @Param	is_franchise query bool false 	"is_franchise"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -468,7 +476,6 @@ func (h *DashboardHandler) Transaction(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	params.CompanyId = user.CompanyId
 	var body domain.DashboardBody
 	// bind store ids
 	if c.Request.Body != nil {
@@ -494,6 +501,7 @@ func (h *DashboardHandler) Transaction(c *gin.Context) {
 // @Param 	offset query string false 	"Offset"
 // @Param   store_id 	query string false "Store ID"
 // @Param   search 	query string false "Search"
+// @Param	is_franchise query bool false 	"is_franchise"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -516,7 +524,7 @@ func (h *DashboardHandler) OldImport(c *gin.Context) {
 		if user.StoreId != "" {
 			params.StoreId = user.StoreId
 		}
-		params.CompanyId = user.CompanyId
+		params.CompanyIds = []string{user.CompanyId}
 	}
 
 	// get limit and offset
@@ -550,6 +558,7 @@ func (h *DashboardHandler) OldImport(c *gin.Context) {
 // @Param   store_id 	query string false "Store ID"
 // @Param   type 		query string false "Type"
 // @Param   ids 		body  domain.DashboardBody false "Body"
+// @Param	is_franchise query bool false 	"is_franchise"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -583,7 +592,7 @@ func (h *DashboardHandler) SaleStatistic(c *gin.Context) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
-		params.CompanyId = user.CompanyId
+		params.CompanyIds = []string{user.CompanyId}
 	}
 
 	// get dashboard data
@@ -607,6 +616,7 @@ func (h *DashboardHandler) SaleStatistic(c *gin.Context) {
 // @Param   store_id 	query string false "Store ID"
 // @Param   type 		query string false "Type"
 // @Param   ids 		body  domain.DashboardBody false "Body"
+// @Param	is_franchise query bool false 	"is_franchise"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -640,7 +650,7 @@ func (h *DashboardHandler) NetProfitStatistic(c *gin.Context) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
-		params.CompanyId = user.CompanyId
+		params.CompanyIds = []string{user.CompanyId}
 	}
 
 	// get dashboard data
@@ -664,6 +674,7 @@ func (h *DashboardHandler) NetProfitStatistic(c *gin.Context) {
 // @Param   store_id 	query string false "Store ID"
 // @Param   type 		query string false "Type"
 // @Param   ids 		body  domain.DashboardBody false "Body"
+// @Param	is_franchise query bool false 	"is_franchise"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -721,6 +732,7 @@ func (h *DashboardHandler) ImportStatistic(c *gin.Context) {
 // @Param   store_id 	query string false "Store ID"
 // @Param   type 		query string false "Type"
 // @Param   ids 		body  domain.DashboardBody false "Body"
+// @Param	is_franchise query bool false 	"is_franchise"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -779,6 +791,7 @@ func (h *DashboardHandler) ProductStatistic(c *gin.Context) {
 // @Param   store_id 	query string false "Store ID"
 // @Param   type 		query string false "Type"
 // @Param   ids 		body  domain.DashboardBody false "Body"
+// @Param	is_franchise query bool false 	"is_franchise"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response

@@ -293,9 +293,9 @@ func (s *Services) DashboardChartStats(ctx context.Context, params *domain.Dashb
 		args = append(args, params.StoreIds)
 	}
 	companyFilter := ""
-	if params.CompanyId != "" {
-		companyFilter += " AND st.company_id = ?"
-		args = append(args, params.CompanyId)
+	if len(params.CompanyIds) > 0 {
+		companyFilter += " AND st.company_id IN(?)"
+		args = append(args, params.CompanyIds)
 	}
 
 	// yakuniy query
@@ -800,8 +800,8 @@ func (s *Services) DashboardPayments(ctx context.Context, params *domain.Dashboa
 	if len(params.StoreIds) > 0 {
 		qb = qb.Where("s.store_id IN(?)", params.StoreIds)
 	}
-	if params.CompanyId != "" {
-		qb = qb.Joins("JOIN stores st ON s.store_id = st.id AND st.company_id IN(?)", params.CompanyId)
+	if len(params.CompanyIds) > 0 {
+		qb = qb.Joins("JOIN stores st ON s.store_id = st.id AND st.company_id IN(?)", params.CompanyIds)
 	}
 	if params.StartDate != "" {
 		qb = qb.Where("(s.completed_at + interval '5 hours') >= ?", startTime)
@@ -842,7 +842,15 @@ func (s *Services) DashboardPayments(ctx context.Context, params *domain.Dashboa
 	if len(params.StoreIds) > 0 {
 		qbPrev = qbPrev.Where("s.store_id IN(?)", params.StoreIds)
 	}
-	if params.CompanyId != "" {
+	if params.IsFranchise {
+		if len(params.CompanyIds) == 0 {
+			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
+		}
+		qbPrev = qbPrev.Joins("JOIN stores st ON s.store_id = st.id AND st.company_id IN(?)", params.CompanyId)
+	} else {
+		if len(params.CompanyIds) == 0 {
+			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
+		}
 		qbPrev = qbPrev.Joins("JOIN stores st ON s.store_id = st.id AND st.company_id IN(?)", params.CompanyId)
 	}
 	if params.StartDate != "" {
@@ -1221,109 +1229,49 @@ func (s *Services) DashboardSaleStatistic(ctx context.Context, params *domain.Da
 }
 
 // get dashboard count and amount data
-func (s *Services) DashboardNetProfitStatistic(ctx context.Context, param *domain.DashboardQueryParam) (*domain.DashboardCountStatsIncome, error) {
-	// declarations
-	var (
-		income    domain.DashboardCountStatsIncome
-		startTime time.Time
-		endTime   time.Time
-	)
-
-	// Parse start and end dates
-	startTime, err := time.Parse(time.RFC3339, param.StartDate)
+func (s *Services) DashboardNetProfitStatistic(ctx context.Context, params *domain.DashboardQueryParam) (*domain.DashboardCountStatsIncome, error) {
+	date, err := s.FormatDatetimeParams(params.StartDate, params.EndDate)
 	if err != nil {
-		s.log.Errorf("could not parse start_date format: %v", err)
-		return nil, domain.InvalidTimeFormatError
+		return nil, err
 	}
-
-	if param.EndDate == "" { // get end time if end_date will be empty string 23 hour and 59 minute
-		endTime = startTime.Add(time.Minute * 1439)
-	}
-
-	if param.EndDate != "" {
-		endTime, err = time.Parse(time.RFC3339, param.EndDate)
-		if err != nil {
-			s.log.Errorf("could not parse end_date format: %v", err)
-			return nil, domain.InvalidTimeFormatError
-		}
-	}
-
-	// Calculate before period
-	beforeStart, beforeEnd := utils.BeforeDatesTime(startTime, endTime)
-	// Format all timestamps for SQL
-	startStr := startTime.Format("2006-01-02 15:04:05")
-	endStr := endTime.Format("2006-01-02 15:04:05")
-	beforeStartStr := beforeStart.Format("2006-01-02 15:04:05")
-	beforeEndStr := beforeEnd.Format("2006-01-02 15:04:05")
-
-	// queries
-	var (
-		args []any
-
-		queryc = fmt.Sprintf(`
-		SELECT
-			ROUND(curr.income_amount - prev.income_amount, 2) AS income_amount,
-			ROUND(curr.before_income_amount - prev.before_income_amount, 2) AS before_income_amount,
-			ROUND(curr.production_cost - prev.production_cost, 2) AS production_cost,
-			ROUND(curr.before_production_cost - prev.before_production_cost, 2) AS before_production_cost
-		FROM (
-				SELECT
-					ROUND(SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN ((ci.unit_price - sp.supply_price)/p.unit_per_pack) * ci.unit_quantity ELSE 0 END), 2) AS income_amount,
-					ROUND(SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN ((ci.unit_price - sp.supply_price)/p.unit_per_pack) * ci.unit_quantity ELSE 0 END), 2) AS before_income_amount,
-					ROUND(SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN (sp.supply_price/p.unit_per_pack) * ci.unit_quantity ELSE 0 END), 2) AS production_cost,
-					ROUND(SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN (sp.supply_price/p.unit_per_pack) * ci.unit_quantity ELSE 0 END), 2) AS before_production_cost
-				FROM cart_items ci
-						JOIN store_products sp ON ci.store_product_id = sp.id
-						JOIN products p ON sp.product_id = p.id
-						JOIN sales s ON ci.sale_id = s.id
-				WHERE s.stage IN(9, 11) AND s.sale_type = 'SALE'
-			) AS curr,
-			(
-				SELECT
-					ROUND(SUM(CASE WHEN (s.completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN ((ci.unit_price - sp.supply_price)/p.unit_per_pack) * ci.unit_quantity ELSE 0 END), 2) AS income_amount,
-					ROUND(SUM(CASE WHEN (s.completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN ((ci.unit_price - sp.supply_price)/p.unit_per_pack) * ci.unit_quantity ELSE 0 END), 2) AS before_income_amount,
-					ROUND(SUM(CASE WHEN (s.completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN (sp.supply_price/p.unit_per_pack) * ci.unit_quantity ELSE 0 END), 2) AS production_cost,
-					ROUND(SUM(CASE WHEN (s.completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN (sp.supply_price/p.unit_per_pack) * ci.unit_quantity ELSE 0 END), 2) AS before_production_cost
-				FROM cart_items ci
-						JOIN store_products sp ON ci.store_product_id = sp.id
-						JOIN products p ON sp.product_id = p.id
-						JOIN sales rs ON ci.sale_id = rs.id and rs.sale_type = 'RETURN'
-						join sales as s on rs.parent_id = s.id AND s.sale_type = 'SALE'
-				WHERE s.stage IN(9, 11)
-			) AS prev`,
-			startStr, endStr, beforeStartStr, beforeEndStr,
-			startStr, endStr, beforeStartStr, beforeEndStr,
-			startStr, endStr, beforeStartStr, beforeEndStr,
-			startStr, endStr, beforeStartStr, beforeEndStr)
-
-		filter  = ""
-		filterc = ""
-	)
+	qb := s.db.WithContext(ctx).
+		Select(
+			"ROUND(SUM(((ci.unit_price - sp.supply_price)/p.unit_per_pack) * ci.unit_quantity), 2) AS income_amount",
+			"ROUND(SUM(((sp.supply_price)/p.unit_per_pack) * ci.unit_quantity), 2) AS production_cost",
+		).
+		Table("sales s").
+		Joins("JOIN stores st ON s.store_id = st.id").
+		Joins("JOIN cart_items ci ON s.id = ci.sale_id").
+		Joins("JOIN store_products sp ON ci.store_product_id = sp.id").
+		Joins("JOIN products p ON sp.product_id = p.id").
+		Where("s.stage IN(?)", constants.FinishedSaleStages).
+		Where("s.completed_at BETWEEN ? AND ?", date.StartTime, date.EndTime)
 
 	// filter by several store ids
-	if len(param.StoreIds) > 0 {
-		filter += " AND store_id IN (?)"
-		filterc += " AND s.store_id IN (?)"
-		args = append(args, param.StoreIds)
+	if len(params.StoreIds) > 0 {
+		qb = qb.Where("s.store_id IN(?)", params.StoreIds)
 	}
 
-	// filter by company_id
-	if param.CompanyId != "" {
-		filter += " AND st.company_id = ?"
-		filterc += " AND p.company_id = ?"
-		args = append(args, param.CompanyId)
+	if params.IsFranchise {
+		if len(params.CompanyIds) == 0 {
+			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
+		}
+		qb = qb.Where("st.company_id IN(?)", params.CompanyIds)
+	} else {
+		if len(params.CompanyIds) == 0 {
+			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
+		}
+		qb = qb.Where("st.company_id IN(?)", params.CompanyIds)
 	}
 
-	// Execute queries
-	// get total net income
-	queryc += filterc
-	err = s.db.WithContext(ctx).Raw(queryc, args...).Scan(&income).Error
+	var res domain.DashboardCountStatsIncome
+	err = qb.Take(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get total income: %v", err)
 		return nil, domain.InternalServerError
 	}
 
-	return &income, nil
+	return &res, nil
 }
 
 // get dashboard count and amount data
@@ -1334,9 +1282,10 @@ func (s *Services) DashboardImportStatistic(ctx context.Context, params *domain.
 			"SUM(CASE WHEN im.created_at < NOW() - interval '24 hour' THEN im.received_sum ELSE 0 END) AS not_last_24h_import_amount",
 		).
 		Table("imports im").
-		Joins("JOIN stores st ON im.store_id = st.id")
+		Joins("JOIN stores st ON im.store_id = st.id").
+		Where("im.entry_type = ?", constants.ProductMovementImport).
+		Where("im.status = ?", constants.GeneralStatusNew)
 
-	qb = qb.Where("im.entry_type = ?", constants.ProductMovementImport)
 	// filter by several store ids
 	if len(params.StoreIds) > 0 {
 		qb = qb.Where("im.store_id IN(?)", params.StoreIds)
