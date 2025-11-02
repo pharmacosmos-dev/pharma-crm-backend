@@ -286,7 +286,6 @@ func (s *Services) DashboardChartStats(ctx context.Context, params *domain.Dashb
 	}
 
 	args := []any{startTime, endTime, interval}
-	fmt.Println("--->>> ", params.StoreIds)
 	// qo‘shimcha filterlar
 	storeFilter := ""
 	if len(params.StoreIds) > 0 {
@@ -317,7 +316,6 @@ func (s *Services) DashboardChartStats(ctx context.Context, params *domain.Dashb
 	LEFT JOIN sales s ON
 		%s = ts.period
 		AND s.stage IN (9, 11)
-		AND s.sale_type = 'SALE'
 		%s
 	LEFT JOIN stores st ON s.store_id = st.id
 	%s
