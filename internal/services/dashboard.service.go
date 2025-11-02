@@ -1292,11 +1292,9 @@ func (s *Services) DashboardNetProfitStatistic(ctx context.Context, param *domai
 }
 
 // get dashboard count and amount data
-func (s *Services) DashboardImportStatistic(ctx context.Context, param *domain.DashboardQueryParam) (*domain.DashboardImportStatistic, error) {
+func (s *Services) DashboardImportStatistic(ctx context.Context, params *domain.DashboardQueryParam) (*domain.DashboardImportStatistic, error) {
 	// declarations
-	var (
-		imported domain.DashboardImportStatistic
-	)
+	var res domain.DashboardImportStatistic
 
 	// queries
 	var (
@@ -1336,20 +1334,27 @@ func (s *Services) DashboardImportStatistic(ctx context.Context, param *domain.D
 	)
 
 	// filter by several store ids
-	if len(param.StoreIds) > 0 {
+	if len(params.StoreIds) > 0 {
 		filter += " AND store_id IN (?)"
-		args = append(args, param.StoreIds)
+		args = append(args, params.StoreIds)
 		query24h += " AND im.store_id IN (?)"
 	}
 
-	// filter by company_id
-	if param.CompanyId != "" {
-		filter += " AND st.company_id = ?"
-		args = append(args, param.CompanyId)
-		query24h += " AND st.company_id = ?"
+	if params.IsFranchise {
+		if len(params.CompanyIds) == 0 {
+			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
+		}
+		filter += " AND st.company_id IN(?)"
+		args = append(args, params.CompanyIds)
+	} else {
+		if len(params.CompanyIds) == 0 {
+			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
+		}
+		filter += " AND st.company_id IN(?)"
+		args = append(args, params.CompanyIds)
 	}
 
-	err := s.db.WithContext(ctx).Raw(query24h, args...).Scan(&imported).Error
+	err := s.db.WithContext(ctx).Raw(query24h, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get import_count for_24: %v", err)
 		return nil, domain.InternalServerError
@@ -1362,101 +1367,64 @@ func (s *Services) DashboardImportStatistic(ctx context.Context, param *domain.D
 		s.log.Errorf("could not get import_count for_not_24: %v", err)
 		return nil, domain.InternalServerError
 	}
-	imported.NotLast24HImportCount = count
+	res.NotLast24HImportCount = count
 
-	return &imported, nil
+	return &res, nil
 }
 
 // get dashboard count and amount data
-func (s *Services) DashboardProductStatistic(ctx context.Context, param *domain.DashboardQueryParam) (*domain.DashboardProductStatistic, error) {
+func (s *Services) DashboardProductStatistic(ctx context.Context, params *domain.DashboardQueryParam) (*domain.DashboardProductStatistic, error) {
 	// declarations
-	var (
-		product   domain.DashboardProductStatistic
-		startTime time.Time
-		endTime   time.Time
-	)
-
-	// Parse start and end dates
-	startTime, err := time.Parse(time.RFC3339, param.StartDate)
-	if err != nil {
-		s.log.Errorf("could not parse start_date format: %v", err)
-		return nil, domain.InvalidTimeFormatError
-	}
-
-	if param.EndDate == "" { // get end time if end_date will be empty string 23 hour and 59 minute
-		endTime = startTime.Add(time.Minute * 1439)
-	}
-
-	if param.EndDate != "" {
-		endTime, err = time.Parse(time.RFC3339, param.EndDate)
-		if err != nil {
-			s.log.Errorf("could not parse end_date format: %v", err)
-			return nil, domain.InvalidTimeFormatError
-		}
-	}
-
-	// Calculate before period
-	beforeStart, beforeEnd := utils.BeforeDatesTime(startTime, endTime)
-	// Format all timestamps for SQL
-
-	// startStr := startTime.Format("2006-01-02 15:04:05")
-	// endStr := endTime.Format("2006-01-02 15:04:05")
-	beforeStartStr := beforeStart.Format("2006-01-02 15:04:05")
-	beforeEndStr := beforeEnd.Format("2006-01-02 15:04:05")
+	var res domain.DashboardProductStatistic
 
 	// queries
 	var (
 		args []any
 		// get sale stats information
-		queryp = fmt.Sprintf(`
+		query = `
 		SELECT
 			ROUND(SUM(sp.unit_quantity / p.unit_per_pack), 2) AS total_product_count,
-			ROUND(SUM(sp.unit_quantity / p.unit_per_pack + COALESCE(ci_sold.quantity, 0)), 2) AS before_product_count,
 			ROUND(SUM((retail_price / p.unit_per_pack) * sp.unit_quantity), 2) AS stock_total_amount,
-			ROUND(SUM((retail_price / p.unit_per_pack) * sp.unit_quantity  + COALESCE(ci_sold.amount, 0)), 2) AS before_stock_amount,
 			ROUND(SUM(CASE WHEN expire_date > NOW() AND expire_date <= NOW() + INTERVAL '3 month' THEN (sp.unit_quantity/p.unit_per_pack) ELSE 0 END), 2) AS expiring_soon_count,
 			ROUND(SUM(CASE WHEN expire_date > NOW() AND expire_date <= NOW() + INTERVAL '3 month' THEN ((retail_price/p.unit_per_pack) * sp.unit_quantity) ELSE 0 END), 2) AS expiring_soon_amount,
-			ROUND(SUM(CASE WHEN expire_date > NOW() AND expire_date <= NOW() + INTERVAL '3 month' THEN ((retail_price/p.unit_per_pack) * sp.unit_quantity) + COALESCE(ci_sold.amount, 0) ELSE 0 END), 2) AS before_expiring_soon_amount,
 			ROUND(SUM(CASE WHEN expire_date <= NOW() THEN (sp.unit_quantity/p.unit_per_pack) ELSE 0 END), 2) AS expired_soon_count,
-			ROUND(SUM(CASE WHEN expire_date <= NOW() THEN ((retail_price/p.unit_per_pack) * sp.unit_quantity) ELSE 0 END),2) AS expired_soon_amount,
-			ROUND(SUM(CASE WHEN expire_date <= NOW() THEN ((retail_price/p.unit_per_pack) * sp.unit_quantity) + COALESCE(ci_sold.amount, 0) ELSE 0 END), 2) AS before_expired_soon_amount
+			ROUND(SUM(CASE WHEN expire_date <= NOW() THEN ((retail_price/p.unit_per_pack) * sp.unit_quantity) ELSE 0 END),2) AS expired_soon_amount
 		FROM store_products sp
 		JOIN products p ON sp.product_id = p.id
-		LEFT JOIN stores st ON sp.store_id = st.id
-		LEFT JOIN (
-			SELECT store_product_id, SUM(quantity) AS quantity, SUM(quantity * unit_price) AS amount
-			FROM cart_items
-			JOIN sales s ON cart_items.sale_id = s.id
-			WHERE (s.completed_at + interval '5 hours') BETWEEN '%s' AND '%s'
-			AND s.stage IN(9, 11)
-			GROUP BY store_product_id
-		) AS ci_sold ON ci_sold.store_product_id = sp.id
-		WHERE 1 = 1
-		`, beforeStartStr, beforeEndStr)
-
+		JOIN stores st ON sp.store_id = st.id
+		WHERE sp.unit_quantity > 0
+		`
 		filter = ""
 	)
 
 	// filter by several store ids
-	if len(param.StoreIds) > 0 {
-		filter += " AND store_id IN (?)"
-		args = append(args, param.StoreIds)
+	if len(params.StoreIds) > 0 {
+		filter += " AND sp.store_id IN (?)"
+		args = append(args, params.StoreIds)
 	}
 
-	// filter by company_id
-	if param.CompanyId != "" {
-		filter += " AND st.company_id = ?"
-		args = append(args, param.CompanyId)
+	if params.IsFranchise {
+		if len(params.CompanyIds) == 0 {
+			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
+		}
+		filter += " AND st.company_id IN(?)"
+		args = append(args, params.CompanyIds)
+	} else {
+		if len(params.CompanyIds) == 0 {
+			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
+		}
+		filter += " AND st.company_id IN(?)"
+		args = append(args, params.CompanyIds)
 	}
 
 	// Execute queries
 	// get total product count
-	queryp += filter
-	err = s.db.WithContext(ctx).Raw(queryp, args...).Scan(&product).Error
+	query += filter
+	err := s.db.WithContext(ctx).Raw(query, args...).Debug().Scan(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get total product_amounts: %v", err)
 		return nil, domain.InternalServerError
 	}
 
-	return &product, nil
+	return &res, nil
 }

@@ -271,7 +271,7 @@ func (h *ProductHandler) ExportProductExcel(c *gin.Context) {
 			return
 		}
 	} else {
-		res, err := h.service.GetProductsByStores(ctx, &params, user)
+		res, err := h.service.GetProductsByStores(ctx, &params)
 		if err != nil {
 			handleServiceResponse(c, nil, err)
 			return
@@ -313,7 +313,6 @@ func (h *ProductHandler) TotalStatusCount(c *gin.Context) {
 	}
 
 	var params domain.ProductQueryParam
-
 	// bind query param
 	if err := c.ShouldBindQuery(&params); err != nil {
 		handleServiceResponse(c, nil, domain.InvalidQueryError)
@@ -323,7 +322,14 @@ func (h *ProductHandler) TotalStatusCount(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	res, err := h.service.GetProductStats(ctx, &params, user)
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
+	}
+
+	res, err := h.service.GetProductStats(ctx, &params)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)
 		return
