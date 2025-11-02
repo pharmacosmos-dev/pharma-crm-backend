@@ -311,6 +311,8 @@ func (s *Services) GetInventories(ctx context.Context, params *domain.InventoryP
 			FactSum:         item.FactSum,
 			DifferenceCount: item.DifferenceCount,
 			DifferenceSum:   item.DifferenceSum,
+			CreatedAt:       item.CreatedAt,
+			UpdatedAt:       item.UpdatedAt,
 			CreatedById:     item.CreatedBy,
 			CreatedBy: domain.NewNullStruct(domain.InventoryEmployee{
 				Id:       item.CreatedBy,
@@ -343,7 +345,7 @@ func (s *Services) GetInventoryStats(ctx context.Context, params *domain.Invento
 			"SUM(im.scanned_sum - im.received_sum) AS difference_sum",
 		).Table("imports im").
 		Joins("JOIN stores st ON im.store_id = st.id")
-	qb = qb.Where("im.entry_type = ?", 2)
+	qb = qb.Where("im.entry_type = ?", constants.ProductMovementInventory)
 
 	if params.StoreId != "" {
 		qb = qb.Where("im.store_id = ?", params.StoreId)

@@ -215,10 +215,11 @@ type DashboardImport struct {
 }
 
 type DashboardImportStatistic struct {
-	ImportAmount           float64 `json:"import_amount"`
-	NotLast24HImportCount  float64 `json:"not_last_24h_import_count"`
-	BeforeImportAmount     float64 `json:"before_import_amount"`
-	NotLast24HImportAmount float64 `json:"not_last_24h_import_amount"`
+	ImportAmount           float64 `gorm:"import_amount" json:"import_amount"`
+	NotLast24HImportCount  float64 `gorm:"not_last_24h_import_count" json:"not_last_24h_import_count"`
+	BeforeImportAmount     float64 `gorm:"before_import_amount" json:"before_import_amount"`
+	NotLast24HImportAmount float64 `gorm:"not_last_24h_import_amount" json:"not_last_24h_import_amount"`
+	ExpiredImportAmount    float64 `gorm:"expired_import_amount" json:"-"`
 }
 
 type DashboardCountStatsBonus struct {

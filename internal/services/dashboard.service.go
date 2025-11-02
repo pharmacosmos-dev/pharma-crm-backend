@@ -846,12 +846,12 @@ func (s *Services) DashboardPayments(ctx context.Context, params *domain.Dashboa
 		if len(params.CompanyIds) == 0 {
 			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
 		}
-		qbPrev = qbPrev.Joins("JOIN stores st ON s.store_id = st.id AND st.company_id IN(?)", params.CompanyId)
+		qbPrev = qbPrev.Joins("JOIN stores st ON s.store_id = st.id AND st.company_id IN(?)", params.CompanyIds)
 	} else {
 		if len(params.CompanyIds) == 0 {
 			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
 		}
-		qbPrev = qbPrev.Joins("JOIN stores st ON s.store_id = st.id AND st.company_id IN(?)", params.CompanyId)
+		qbPrev = qbPrev.Joins("JOIN stores st ON s.store_id = st.id AND st.company_id IN(?)", params.CompanyIds)
 	}
 	if params.StartDate != "" {
 		qbPrev = qbPrev.Where("(s.completed_at + interval '5 hours') >= ?", beforeStart)
@@ -1279,7 +1279,7 @@ func (s *Services) DashboardImportStatistic(ctx context.Context, params *domain.
 	qb := s.db.WithContext(ctx).
 		Select(
 			"SUM(im.received_sum) AS import_amount",
-			"SUM(CASE WHEN im.created_at < NOW() - interval '24 hour' THEN im.received_sum ELSE 0 END) AS not_last_24h_import_amount",
+			"SUM(CASE WHEN im.created_at < NOW() - interval '24 hour' THEN im.received_sum ELSE 0 END) AS expired_import_amount",
 		).
 		Table("imports im").
 		Joins("JOIN stores st ON im.store_id = st.id").
@@ -1308,6 +1308,8 @@ func (s *Services) DashboardImportStatistic(ctx context.Context, params *domain.
 		s.log.Errorf("could not get import_count for_24: %v", err)
 		return nil, domain.InternalServerError
 	}
+
+	res.NotLast24HImportAmount = res.ExpiredImportAmount
 
 	return &res, nil
 }
