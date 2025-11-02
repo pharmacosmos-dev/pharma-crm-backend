@@ -1170,87 +1170,52 @@ func (s *Services) GetBonusProductsByEmployeeId(ctx context.Context, params *dom
 }
 
 func (s *Services) GetStoreSummaryReport(ctx context.Context, params *domain.ReportQueryParam) ([]domain.StoreSummary, int64, error) {
-	var (
-		res       []domain.StoreSummary
-		args      []any
-		startTime time.Time
-		endTime   time.Time
-		err       error
-	)
 
-	startTime, err = time.Parse(time.RFC3339, params.StartDate)
+	date, err := s.FormatDatetimeParams(params.StartDate, params.EndDate)
 	if err != nil {
-		s.log.Error("Invalid start_date format: %v", err)
 		return nil, 0, err
 	}
-	if params.EndDate != "" {
-		endTime, err = time.Parse(time.RFC3339, params.EndDate)
-		if err != nil {
-			s.log.Error("Invalid end_date format: %v", err)
-			return nil, 0, err
-		}
-	} else {
-		endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
-		params.EndDate = endTime.Format(time.RFC3339)
-	}
-	var total int64
-	// Count query (total store count)
+	var totalCount int64
 	countQuery := `SELECT COUNT(*) FROM stores WHERE is_active = true`
-	err = s.db.Raw(countQuery).Scan(&total).Error
+	err = s.db.WithContext(ctx).Raw(countQuery).Scan(&totalCount).Error
 	if err != nil {
-		s.log.Error("Failed to count stores: ", err)
-		return nil, 0, err
+		s.log.Errorf("could not get stores summary total_count: %v", err)
+		return nil, 0, domain.InternalServerError
 	}
 
 	query := `
 	WITH sale_cte AS (
-		SELECT
-			store_id,
-			SUM(CASE
-					WHEN (completed_at + interval '5 hours') BETWEEN ? AND ?
-						THEN CASE
-								WHEN sale_type = 'SALE' THEN total_amount
-								WHEN sale_type = 'RETURN' THEN -total_amount
-							END
-					ELSE 0
-				END) AS sale_amount,
-			SUM(CASE
-					WHEN (completed_at + interval '5 hours') BETWEEN ? AND ?
-						THEN CASE
-								WHEN sale_type = 'SALE' THEN total_discount
-								WHEN sale_type = 'RETURN' THEN -total_discount
-							END
-					ELSE 0
-				END) AS discount_amount
-		FROM sales
-		WHERE stage IN(9, 11)
-		GROUP BY store_id
+        SELECT
+                store_id,
+                SUM(total_amount) AS sale_amount,
+                SUM(total_discount) AS discount_amount
+        FROM sales
+        WHERE stage IN(9, 11) AND (completed_at BETWEEN ? AND ?)
+        GROUP BY store_id
 	),
 	import_cte AS (
-		SELECT
-			im.store_id,
-			COALESCE(SUM(imd.received_count * imd.retail_price_vat), 0) AS import_amount
-		FROM import_details imd
-				 JOIN imports im ON imd.import_id = im.id
-		WHERE im.status = 'new' AND im.entry_type = 1
-		GROUP BY im.store_id
+			SELECT
+					im.store_id,
+					COALESCE(SUM(im.received_sum), 0) AS import_amount
+			FROM imports im
+			WHERE im.status = 'new' AND im.entry_type = 1
+			GROUP BY im.store_id
 	),
 	stock_cte AS (
-		SELECT
-			sp.store_id,
-			ROUND(SUM(sp.pack_quantity * sp.retail_price) +
-				  SUM((sp.retail_price / p.unit_per_pack) * (sp.unit_quantity % p.unit_per_pack)), 2) AS stock_amount
-		FROM store_products sp
-				 JOIN products p ON sp.product_id = p.id
-		GROUP BY sp.store_id
+			SELECT
+					sp.store_id,
+					ROUND(SUM(sp.unit_quantity * (sp.retail_price / p.unit_per_pack)), 2) AS stock_amount
+			FROM store_products sp
+				JOIN products p ON sp.product_id = p.id
+			GROUP BY sp.store_id
 	)
 	SELECT
-		st.name AS name,
-		COALESCE(s.sale_amount, 0) AS sale_amount,
-		COALESCE(s.discount_amount, 0) AS discount_amount,
-		COALESCE(i.import_amount, 0) AS import_amount,
-		COALESCE(k.stock_amount, 0) AS stock_amount,
-		ROUND(COALESCE(s.sale_amount, 0) - COALESCE(s.discount_amount, 0) + COALESCE(i.import_amount, 0) + COALESCE(k.stock_amount, 0), 2) AS total
+			st.name AS name,
+			COALESCE(s.sale_amount, 0) AS sale_amount,
+			COALESCE(s.discount_amount, 0) AS discount_amount,
+			COALESCE(i.import_amount, 0) AS import_amount,
+			COALESCE(k.stock_amount, 0) AS stock_amount,
+			ROUND(COALESCE(s.sale_amount, 0) - COALESCE(s.discount_amount, 0) + COALESCE(i.import_amount, 0) + COALESCE(k.stock_amount, 0), 2) AS total
 	FROM stores st
 	LEFT JOIN sale_cte s ON st.id = s.store_id
 	LEFT JOIN import_cte i ON st.id = i.store_id
@@ -1258,12 +1223,8 @@ func (s *Services) GetStoreSummaryReport(ctx context.Context, params *domain.Rep
 	WHERE st.is_active = true
 	`
 
-	// 4 timestamps for 2 BETWEENs (sales & imports)
-	args = append(args, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339), startTime.Format(time.RFC3339), endTime.Format(time.RFC3339)) // sales
-	if params.Order != "" {
-		order := utils.BuildStoreSummaryOrderClause(params.Order)
-		query += order
-	}
+	var args []any
+	args = append(args, date.StartTime, date.EndTime)
 	if params.Search != "" {
 		query += " AND st.name LIKE ?"
 		args = append(args, "%"+params.Search+"%")
@@ -1276,14 +1237,14 @@ func (s *Services) GetStoreSummaryReport(ctx context.Context, params *domain.Rep
 		query += " AND st.company_id = ? "
 		args = append(args, params.CompanyId)
 	}
-	if params.Limit > 0 {
-		query += " LIMIT ?"
-		args = append(args, params.Limit)
+	if params.Order != "" {
+		order := utils.BuildStoreSummaryOrderClause(params.Order)
+		query += order
 	}
-	if params.Offset > 0 {
-		query += " OFFSET ?"
-		args = append(args, params.Offset)
-	}
+	query += " LIMIT ? OFFSET ? "
+	args = append(args, params.Limit, params.Offset)
+
+	var res []domain.StoreSummary
 	// Execute query
 	err = s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
 	if err != nil {
@@ -1291,72 +1252,42 @@ func (s *Services) GetStoreSummaryReport(ctx context.Context, params *domain.Rep
 		return nil, 0, domain.InternalServerError
 	}
 
-	return res, total, nil
+	return res, totalCount, nil
 }
 
 func (s *Services) GetStoreSummaryReportStats(ctx context.Context, params *domain.ReportQueryParam) (domain.StoreSummaryStats, error) {
 	var (
-		res       domain.StoreSummaryStats
-		args      []any
-		startTime time.Time
-		endTime   time.Time
-		err       error
+		res  domain.StoreSummaryStats
+		args []any
 	)
 
-	startTime, err = time.Parse(time.RFC3339, params.StartDate)
+	date, err := s.FormatDatetimeParams(params.StartDate, params.EndDate)
 	if err != nil {
-		s.log.Error("Invalid start_date format: %v", err)
 		return res, err
-	}
-	if params.EndDate != "" {
-		endTime, err = time.Parse(time.RFC3339, params.EndDate)
-		if err != nil {
-			s.log.Error("Invalid end_date format: %v", err)
-			return res, err
-		}
-	} else {
-		endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
-		params.EndDate = endTime.Format(time.RFC3339)
 	}
 
 	query := `
 	WITH sale_cte AS (
 		SELECT
 			store_id,
-			SUM(CASE
-					WHEN (completed_at + interval '5 hours') BETWEEN ? AND ?
-						THEN CASE
-								WHEN sale_type = 'SALE' THEN total_amount
-								WHEN sale_type = 'RETURN' THEN -total_amount
-							END
-					ELSE 0
-				END) AS sale_amount,
-			SUM(CASE
-					WHEN (completed_at + interval '5 hours') BETWEEN ? AND ?
-						THEN CASE
-								WHEN sale_type = 'SALE' THEN total_discount
-								WHEN sale_type = 'RETURN' THEN -total_discount
-							END
-					ELSE 0
-				END) AS discount_amount
+			SUM(total_amount) AS sale_amount,
+			SUM(total_discount) AS discount_amount
 		FROM sales
-		WHERE stage IN(9, 11)
+		WHERE stage IN(9, 11) AND (completed_at BETWEEN ? AND ?)
 		GROUP BY store_id
 	),
 	import_cte AS (
 		SELECT
 			im.store_id,
-			COALESCE(SUM(imd.received_count * imd.retail_price_vat), 0) AS import_amount
-		FROM import_details imd
-				 JOIN imports im ON imd.import_id = im.id
+			COALESCE(SUM(im.received_sum), 0) AS import_amount
+		FROM imports im
 		WHERE im.status = 'new' AND im.entry_type = 1
 		GROUP BY im.store_id
 	),
 	stock_cte AS (
 		SELECT
 			sp.store_id,
-			ROUND(SUM(sp.pack_quantity * sp.retail_price) +
-				  SUM((sp.retail_price / p.unit_per_pack) * (sp.unit_quantity % p.unit_per_pack)), 2) AS stock_amount
+			ROUND(SUM(sp.unit_quantity * (sp.retail_price/p.unit_per_pack)), 2) AS stock_amount
 		FROM store_products sp
 				 JOIN products p ON sp.product_id = p.id
 		GROUP BY sp.store_id
@@ -1384,7 +1315,7 @@ func (s *Services) GetStoreSummaryReportStats(ctx context.Context, params *domai
 	FROM store_summary
 	`
 
-	args = append(args, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339), startTime.Format(time.RFC3339), endTime.Format(time.RFC3339)) // sales
+	args = append(args, date.StartTime, date.EndTime)
 
 	err = s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
 	if err != nil {

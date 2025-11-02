@@ -1668,7 +1668,7 @@ func (h *ReportHandler) ReportStoreSummary(c *gin.Context) {
 	// check if employee is not admin or superadmin
 	if !helper.IsAdmin(user) {
 		if user.StoreId != "" {
-			params.StoreId = user.StoreId
+			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyId = user.CompanyId
 	}

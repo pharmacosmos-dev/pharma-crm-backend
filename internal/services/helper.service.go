@@ -90,20 +90,22 @@ func (s *Services) ConvertIntegerTo8DigitEquivalent(value int) (int, int) {
 }
 
 func (s *Services) FormatDatetimeParams(startTime, endTime string) (domain.FilterDatetimeDto, error) {
-	if endTime == "" {
-		endTime = startTime
-	}
-
 	fromTime, err := time.Parse(time.RFC3339, startTime)
 	if err != nil {
 		s.log.Errorf("could not parse filter start_time: %v", err)
 		return domain.FilterDatetimeDto{}, domain.InvalidTimeFormatError
 	}
 
-	tillTime, err := time.Parse(time.RFC3339, endTime)
-	if err != nil {
-		s.log.Errorf("could not parse filter end_time: %v", err)
-		return domain.FilterDatetimeDto{}, domain.InvalidTimeFormatError
+	var tillTime time.Time
+	if endTime == "" {
+		// if endTime will be empty, startTime + 24 soat
+		tillTime = fromTime.Add(24 * time.Hour)
+	} else {
+		tillTime, err = time.Parse(time.RFC3339, endTime)
+		if err != nil {
+			s.log.Errorf("could not parse filter end_time: %v", err)
+			return domain.FilterDatetimeDto{}, domain.InvalidTimeFormatError
+		}
 	}
 
 	// Convert to UTC timezone
