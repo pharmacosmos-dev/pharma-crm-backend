@@ -31,7 +31,7 @@ func (h *InventoryHandler) InventoryRoutes(r *gin.RouterGroup) {
 		inventory.POST("", h.Create)
 		inventory.GET("/:id", h.Get)
 		inventory.GET("/list", h.List)
-		inventory.GET("/list-status", h.InventoryStatus)
+		inventory.GET("/list-status", h.GetInventoryStats)
 		inventory.GET("/export-excel", h.InventoryExportExcel)
 		inventory.PATCH("/:id/add-product-by-barcode", h.UpdateFactQuantity)
 		inventory.PATCH("/:id/detailed-flow", h.UpdateDetailedFactQuantity)
@@ -107,9 +107,8 @@ func (h *InventoryHandler) Create(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /inventory/{id} [GET]
 func (h *InventoryHandler) Get(c *gin.Context) {
-	var param domain.InventoryParam
-	err := c.ShouldBindQuery(&param)
-	if err != nil {
+	var params domain.InventoryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
 		handleResponse(c, BadRequest, "Invalid query param")
 		return
 	}
@@ -117,16 +116,17 @@ func (h *InventoryHandler) Get(c *gin.Context) {
 	// get inventory by id
 	id := c.Param("id")
 	if err := uuid.Validate(id); err != nil {
-		handleResponse(c, BadRequest, "Invalid inventory id")
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 
-	param.InventoryId = id
+	params.InventoryId = id
 
-	res, err := h.service.GetInventoryById(&param)
+	res, err := h.service.GetInventoryById(ctx, &params)
 	if err != nil {
-		h.log.Warn("Error on getting inventory: %v", err.Error())
-		handleResponse(c, InternalError, "Failed to get inventory")
+		handleServiceResponse(c, nil, err)
 		return
 	}
 
@@ -174,11 +174,12 @@ func (h *InventoryHandler) List(c *gin.Context) {
 		}
 		params.CompanyId = user.CompanyId
 	}
-	res, totalCount, err := h.service.InventoryList(ctx, &params)
+	res, totalCount, err := h.service.GetInventories(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, "Failed to get inventory list")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
+
 	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
 
 	handleResponse(c, OK, data)
@@ -199,7 +200,7 @@ func (h *InventoryHandler) List(c *gin.Context) {
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /inventory/list-status [get]
-func (h *InventoryHandler) InventoryStatus(c *gin.Context) {
+func (h *InventoryHandler) GetInventoryStats(c *gin.Context) {
 	user := h.service.GetSignedUser(c)
 	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
@@ -224,9 +225,9 @@ func (h *InventoryHandler) InventoryStatus(c *gin.Context) {
 		params.CompanyId = user.CompanyId
 	}
 
-	res, err := h.service.InventoryStatus(ctx, &params)
+	res, err := h.service.GetInventoryStats(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
@@ -274,9 +275,9 @@ func (h *InventoryHandler) InventoryExportExcel(c *gin.Context) {
 		}
 		params.CompanyId = user.CompanyId
 	}
-	res, _, err := h.service.InventoryList(ctx, &params)
+	res, _, err := h.service.GetInventories(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, "Failed to get inventory list")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 	// Excel fayl yaratish
@@ -299,8 +300,8 @@ func (h *InventoryHandler) InventoryExportExcel(c *gin.Context) {
 		row := strconv.Itoa(i + 2)
 		f.SetCellValue(sheetName, "A"+row, imp.PublicId)
 		f.SetCellValue(sheetName, "B"+row, imp.Name)
-		if imp.Store != nil {
-			f.SetCellValue(sheetName, "C"+row, imp.Store.Name)
+		if imp.Store.Valid {
+			f.SetCellValue(sheetName, "C"+row, imp.Store.Value.Name)
 		} else {
 			f.SetCellValue(sheetName, "C"+row, "N/A")
 		}
@@ -321,13 +322,13 @@ func (h *InventoryHandler) InventoryExportExcel(c *gin.Context) {
 		} else {
 			f.SetCellValue(sheetName, "L"+row, "N/A")
 		}
-		if imp.CreatedBy != nil {
-			f.SetCellValue(sheetName, "M"+row, imp.CreatedBy.FullName)
+		if imp.CreatedBy.Valid {
+			f.SetCellValue(sheetName, "M"+row, imp.CreatedBy.Value.FullName)
 		} else {
 			f.SetCellValue(sheetName, "M"+row, "N/A")
 		}
-		if imp.UpdatedBy != nil {
-			f.SetCellValue(sheetName, "N"+row, imp.UpdatedBy.FullName)
+		if imp.UpdatedBy.Valid {
+			f.SetCellValue(sheetName, "N"+row, imp.UpdatedBy.Value.FullName)
 		} else {
 			f.SetCellValue(sheetName, "N"+row, "N/A")
 		}

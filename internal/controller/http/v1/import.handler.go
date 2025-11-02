@@ -32,7 +32,7 @@ func (h *ImportHandler) ImportRoutes(r *gin.RouterGroup) {
 		imports.GET("/:id", h.Get)
 		imports.GET("/list", h.List)
 		imports.GET("/list-status", h.ListStatus)
-		imports.GET("/export-excel", h.ExportImportExcel)
+		imports.GET("/export-excel", h.ExportImports)
 	}
 	importDetail := r.Group("/import-detail")
 	{
@@ -100,12 +100,12 @@ func (h *ImportHandler) Create(c *gin.Context) {
 func (h *ImportHandler) Get(c *gin.Context) {
 	var (
 		res domain.Import
-		err error
 		id  = c.Param("id")
 	)
-	err = h.db.First(&res, "id = ?", id).Error
+	err := h.db.First(&res, "id = ?", id).Error
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		h.log.Errorf("could not get import by Id: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 	handleResponse(c, OK, res)
@@ -236,7 +236,7 @@ func (h *ImportHandler) ListStatus(c *gin.Context) {
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /import/export-excel [get]
-func (h *ImportHandler) ExportImportExcel(c *gin.Context) {
+func (h *ImportHandler) ExportImports(c *gin.Context) {
 	user := h.service.GetSignedUser(c)
 	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
@@ -273,38 +273,36 @@ func (h *ImportHandler) ExportImportExcel(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"Импорный номер", "Номер документа", "Филиал", "Дата создания", "Дата закрытия", "Полученная сумма", "Принятая сумма", "Полученная сумма СНДС", "Принятая сумма СНДС", "Полученное количество", "Принятое количество", "Статус"}
+	headers := []string{"Импорный номер", "Номер документа", "Филиал", "Дата создания", "Дата закрытия", "Полученное количество", "Полученная сумма СНДС", "Принятое количество", "Принятая сумма СНДС", "Статус"}
 
 	err = setExcelHeaders(f, sheetName, headers)
 	if err != nil {
-		h.log.Error("Failed to create style:", err)
-		handleResponse(c, InternalError, "Error on giving style to excel")
+		h.log.Errorf("could not create imports excel style: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 
 	// Ma'lumotlarni qo'shish
 	for i, imp := range res {
 		row := strconv.Itoa(i + 2)
-		f.SetCellValue(sheetName, "A"+row, imp.PublicID)
+		f.SetCellValue(sheetName, "A"+row, imp.PublicId)
 		f.SetCellValue(sheetName, "B"+row, imp.DocumentNumber)
-		if imp.Store != nil {
-			f.SetCellValue(sheetName, "C"+row, imp.Store.Name)
+		if imp.Store.Valid {
+			f.SetCellValue(sheetName, "C"+row, imp.Store.Value.Name)
 		} else {
 			f.SetCellValue(sheetName, "C"+row, "N/A")
 		}
 
 		f.SetCellValue(sheetName, "D"+row, imp.ImportDate.Format(time.DateOnly))
 		f.SetCellValue(sheetName, "E"+row, imp.UpdatedAt.Format(time.DateOnly))
-		f.SetCellValue(sheetName, "F"+row, imp.ReceivedAmount)
-		f.SetCellValue(sheetName, "G"+row, imp.AcceptedAmount)
-		f.SetCellValue(sheetName, "H"+row, imp.ReceivedAmountVat)
+		f.SetCellValue(sheetName, "F"+row, imp.ReceivedCount)
+		f.SetCellValue(sheetName, "G"+row, imp.ReceivedAmountVat)
+		f.SetCellValue(sheetName, "H"+row, imp.AcceptedCount)
 		f.SetCellValue(sheetName, "I"+row, imp.AcceptedAmountVat)
-		f.SetCellValue(sheetName, "J"+row, imp.ReceivedCount)
-		f.SetCellValue(sheetName, "K"+row, imp.AcceptedCount)
-		f.SetCellValue(sheetName, "L"+row, helper.StatusToRussian(imp.Status))
+		f.SetCellValue(sheetName, "J"+row, helper.StatusToRussian(imp.Status))
 
 	}
-	saveExcelToUploads(c, f, *h.log, "Imports")
+	saveExcelToUploads(c, f, *h.log, "imports")
 }
 
 // Create godoc
@@ -721,30 +719,29 @@ func (h *ImportHandler) UpdateImportDetail(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /import-detail/accept-all/{id} [patch]
 func (h *ImportHandler) AcceptImport(c *gin.Context) {
-	var id = c.Param("id")
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+	importId := c.Param("id")
+	if err := uuid.Validate(importId); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
 
-	// validate id
-	err := uuid.Validate(id)
-	if err != nil {
-		handleResponse(c, BadRequest, domain.InvalidQueryError)
-		return
-	}
-	// get user id from in context
-	userID, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, InternalError, domain.UnauthorizedError)
-		return
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 
 	// lock parallel request
-	mu := h.getImportLock(id)
+	mu := h.getImportLock(importId)
 	mu.Lock()
 	defer mu.Unlock()
 
 	// update imports status to completed
-	err = h.service.AcceptImport(id, userID.(string), "all")
+	err := h.service.AcceptImport(ctx, importId, user.UserId, "all")
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
@@ -764,16 +761,15 @@ func (h *ImportHandler) AcceptImport(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /import-detail/cancel-all/{id} [patch]
 func (h *ImportHandler) CancelImport(c *gin.Context) {
-	var id = c.Param("id")
-
-	// validate id
-	if err := uuid.Validate(id); err != nil {
-		handleResponse(c, BadRequest, "Invalid import id")
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
-	userID, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, InternalError, "User ID not found in context")
+
+	var id = c.Param("id")
+	if err := uuid.Validate(id); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 
@@ -782,33 +778,13 @@ func (h *ImportHandler) CancelImport(c *gin.Context) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	// start transaction
-	tx := h.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-	// update import status to cancel
-	importData, err := h.service.CancelImport(tx, id, userID.(string))
-	if err != nil {
-		handleResponse(c, InternalError, "Error on canceling import")
-		tx.Rollback()
-		return
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 
-	// update import details to canceled_count
-	err = h.service.UpdateImportDetailsToCancel(tx, importData.Id)
+	// update import status to cancel
+	err := h.service.CancelImport(ctx, id, user.UserId)
 	if err != nil {
-		handleResponse(c, InternalError, "Error on canceling import")
-		tx.Rollback()
-		return
-	}
-	// completed transaction
-	if err = tx.Commit().Error; err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, "Error on commit transaction")
-		tx.Rollback()
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
@@ -828,18 +804,20 @@ func (h *ImportHandler) CancelImport(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /import-detail/accept-some/{id} [patch]
 func (h *ImportHandler) AcceptSomeImport(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
 	var id = c.Param("id")
-	// validate request id
 	if err := uuid.Validate(id); err != nil {
 		handleResponse(c, BadRequest, "Invalid import id")
 		return
 	}
-	// get user id from context
-	userID, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, InternalError, "User ID not found in context")
-		return
-	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 
 	// lock parallel request
 	mu := h.getImportLock(id)
@@ -847,9 +825,9 @@ func (h *ImportHandler) AcceptSomeImport(c *gin.Context) {
 	defer mu.Unlock()
 
 	// update import status to completed
-	err := h.service.AcceptImport(id, userID.(string), "some")
+	err := h.service.AcceptImport(ctx, id, user.UserId, "some")
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 

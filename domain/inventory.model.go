@@ -18,25 +18,35 @@ type InventoryParam struct {
 
 // Inventory structure
 type Inventory struct {
-	Id              string     `gorm:"id" json:"id"`
-	PublicId        string     `gorm:"public_id" json:"public_id"`
-	StoreId         string     `gorm:"store_id" json:"store_id"`
-	Name            string     `gorm:"name" json:"name"`
-	InventoryType   string     `gorm:"inventory_type" json:"type"`
-	CurrentCount    int64      `gorm:"current_count" json:"current_count"`
-	FactCount       int64      `gorm:"fact_count" json:"fact_count"`
-	DifferenceCount int64      `gorm:"difference_count" json:"difference_count"`
-	Status          string     `gorm:"status" json:"status"`
-	CreatedById     string     `gorm:"column:created_by" json:"created_by_id"`
-	UpdatedById     string     `gorm:"column:accepted_by" json:"updated_by_id"`
-	CurrentSum      float64    `gorm:"current_sum" json:"current_sum"`
-	FactSum         float64    `gorm:"fact_sum" json:"fact_sum"`
-	DifferenceSum   float64    `gorm:"difference_sum" json:"difference_sum"`
-	CreatedAt       *time.Time `gorm:"created_at" json:"created_at"`
-	UpdatedAt       *time.Time `gorm:"updated_at" json:"updated_at"`
-	Store           *Store     `gorm:"foreignKey:StoreId" json:"store"`
-	CreatedBy       *Employee  `gorm:"foreignKey:CreatedById" json:"created_by"`
-	UpdatedBy       *Employee  `gorm:"foreignKey:UpdatedById" json:"updated_by"`
+	Id              string                        `gorm:"id" json:"id"`
+	PublicId        string                        `gorm:"public_id" json:"public_id"`
+	StoreId         string                        `gorm:"store_id" json:"store_id"`
+	Name            string                        `gorm:"name" json:"name"`
+	InventoryType   string                        `gorm:"inventory_type" json:"type"`
+	Status          string                        `gorm:"status" json:"status"`
+	CreatedById     string                        `gorm:"column:created_by" json:"created_by_id"`
+	UpdatedById     string                        `gorm:"column:accepted_by" json:"updated_by_id"`
+	CurrentCount    float64                       `gorm:"current_count" json:"current_count"`
+	CurrentSum      float64                       `gorm:"current_sum" json:"current_sum"`
+	FactCount       float64                       `gorm:"fact_count" json:"fact_count"`
+	FactSum         float64                       `gorm:"fact_sum" json:"fact_sum"`
+	DifferenceCount float64                       `gorm:"difference_count" json:"difference_count"`
+	DifferenceSum   float64                       `gorm:"difference_sum" json:"difference_sum"`
+	CreatedAt       *time.Time                    `gorm:"created_at" json:"created_at"`
+	UpdatedAt       *time.Time                    `gorm:"updated_at" json:"updated_at"`
+	Store           NullStruct[InventoryStore]    `gorm:"-" json:"store"`
+	CreatedBy       NullStruct[InventoryEmployee] `gorm:"-" json:"created_by"`
+	UpdatedBy       NullStruct[InventoryEmployee] `gorm:"-" json:"updated_by"`
+}
+
+type InventoryStore struct {
+	Id   string `gorm:"id" json:"id"`
+	Name string `gorm:"name" json:"name"`
+}
+
+type InventoryEmployee struct {
+	Id       string `gorm:"id" json:"id"`
+	FullName string `gorm:"full_name" json:"full_name"`
 }
 
 type InventoryStatusSummary struct {
@@ -111,8 +121,8 @@ type InventoryAddProduct struct {
 }
 
 type InventoryDetailSum struct {
+	TotalFactCount     float64 `gorm:"total_fact_count" json:"total_fact_count"`
 	TotalFactSum       float64 `gorm:"total_fact_sum" json:"total_fact_sum"`
-	TotalCurrentSum    float64 `gorm:"total_current_sum" json:"total_current_sum"`
 	TotalDifferenceSum float64 `gorm:"total_difference_sum" json:"total_difference_sum"`
 }
 

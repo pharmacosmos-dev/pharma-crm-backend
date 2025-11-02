@@ -93,29 +93,33 @@ func (s *Services) FormatDatetimeParams(startTime, endTime string) (domain.Filte
 	if endTime == "" {
 		endTime = startTime
 	}
+
 	fromTime, err := time.Parse(time.RFC3339, startTime)
 	if err != nil {
 		s.log.Errorf("could not parse filter start_time: %v", err)
 		return domain.FilterDatetimeDto{}, domain.InvalidTimeFormatError
 	}
+
 	tillTime, err := time.Parse(time.RFC3339, endTime)
 	if err != nil {
 		s.log.Errorf("could not parse filter end_time: %v", err)
 		return domain.FilterDatetimeDto{}, domain.InvalidTimeFormatError
 	}
 
-	diff := tillTime.Sub(fromTime)
+	// Convert to UTC timezone
+	fromTimeUTC := fromTime.UTC()
+	tillTimeUTC := tillTime.UTC()
+
+	diff := tillTimeUTC.Sub(fromTimeUTC)
 	if diff == 0 {
 		diff = 24 * time.Hour
-	} else {
-		diff += 24 * time.Hour
 	}
 
 	res := domain.FilterDatetimeDto{
-		StartTime:     fromTime,
-		EndTime:       tillTime,
-		PrevStartTime: fromTime.Add(-diff),
-		PrevEndTime:   tillTime.Add(-time.Hour * 24),
+		StartTime:     fromTimeUTC.Format(time.RFC3339),
+		EndTime:       tillTimeUTC.Format(time.RFC3339),
+		PrevStartTime: fromTimeUTC.Add(-diff).Format(time.RFC3339),
+		PrevEndTime:   tillTimeUTC.Add(-diff).Format(time.RFC3339),
 	}
 
 	return res, nil
