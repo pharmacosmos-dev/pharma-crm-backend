@@ -279,7 +279,8 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 	)
 
 	// Pre-aggregate store_products
-	storeJoin := `LEFT JOIN (
+	storeJoin := `
+	LEFT JOIN (
 		SELECT 
 			product_id,
 			SUM(unit_quantity) as total_quantity,
@@ -459,8 +460,14 @@ func (s *Services) GetProductStats(ctx context.Context, params *domain.ProductQu
 
 	// Filtrlarni subquery ga qo'shamiz
 	if params.StoreId != "" {
-		subQuery = subQuery.Where("sp.store_id IN(?)", params.StoreId)
+		subQuery = subQuery.Where("sp.store_id = ?", params.StoreId)
 	}
+
+	if params.CompanyId != "" {
+		subQuery = subQuery.Joins("LEFT JOIN stores st ON sp.store_id = st.id").
+			Where("st.company_id = ?", params.CompanyId)
+	}
+
 	if params.ProducerId != "" {
 		subQuery = subQuery.Where("p.producer_id = ?", params.ProducerId)
 	}

@@ -12372,14 +12372,14 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Store ID",
+                        "description": "store_id",
                         "name": "store_id",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Category ID",
-                        "name": "category_id",
+                        "description": "company_id",
+                        "name": "company_id",
                         "in": "query"
                     },
                     {
@@ -12752,8 +12752,14 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Store ID",
+                        "description": "store_id",
                         "name": "store_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "company_id",
+                        "name": "company_id",
                         "in": "query"
                     },
                     {
@@ -13909,14 +13915,14 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Store ID",
+                        "description": "store_id",
                         "name": "store_id",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "Category ID",
-                        "name": "category_id",
+                        "description": "company_id",
+                        "name": "company_id",
                         "in": "query"
                     },
                     {
@@ -16257,14 +16263,11 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
-                        "description": "Store ids",
-                        "name": "store_ids",
+                        "description": "ids",
+                        "name": "body",
                         "in": "body",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/domain.DashboardBody"
                         }
                     }
                 ],
@@ -16348,14 +16351,11 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
-                        "description": "Store ids",
-                        "name": "store_ids",
+                        "description": "ids",
+                        "name": "body",
                         "in": "body",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/domain.DashboardBody"
                         }
                     }
                 ],
@@ -16589,14 +16589,11 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
-                        "description": "Store ids",
-                        "name": "store_ids",
+                        "description": "ids",
+                        "name": "body",
                         "in": "body",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/domain.DashboardBody"
                         }
                     }
                 ],
@@ -16681,14 +16678,11 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
-                        "description": "List of Store IDs",
-                        "name": "store_ids",
+                        "description": "ids",
+                        "name": "body",
                         "in": "body",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/domain.DashboardBody"
                         }
                     }
                 ],
@@ -16773,14 +16767,11 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
-                        "description": "List of Store IDs",
-                        "name": "store_ids",
+                        "description": "ids",
+                        "name": "body",
                         "in": "body",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/domain.DashboardBody"
                         }
                     }
                 ],

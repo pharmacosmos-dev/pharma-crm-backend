@@ -14,6 +14,7 @@ type ReportQueryParam struct {
 	ProducerId string   `form:"producer_id"`
 	CompanyId  string   `form:"company_id"`
 	StoreIds   []string `json:"store_ids"`
+	CompanyIds []string `json:"company_ids"`
 }
 
 type ProductStatusReport struct {

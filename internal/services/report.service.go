@@ -419,11 +419,11 @@ func (s *Services) GetStoreAmountReport(ctx context.Context, params *domain.Repo
 		Group("s.id, s.name")
 
 	// Filters
-	if params.StoreId != "" {
-		qb = qb.Where("s.id = ?", params.StoreId)
+	if len(params.StoreIds) > 0 {
+		qb = qb.Where("s.id IN(?)", params.StoreIds)
 	}
-	if params.CompanyId != "" {
-		qb = qb.Where("s.company_id = ?", params.CompanyId)
+	if len(params.CompanyIds) > 0 {
+		qb = qb.Where("s.company_id IN(?)", params.CompanyIds)
 	}
 	if params.Search != "" {
 		qb = qb.Where("s.name ILIKE ?", "%"+params.Search+"%")
@@ -505,11 +505,11 @@ func (s *Services) ReportByStoreStats(ctx context.Context, params *domain.Report
 	// Filters
 	qb = qb.Where("sa.stage IN (?)", constants.FinishedSaleStages)
 
-	if params.StoreId != "" {
-		qb = qb.Where("s.id = ?", params.StoreId)
+	if len(params.StoreIds) > 0 {
+		qb = qb.Where("s.id IN(?)", params.StoreIds)
 	}
-	if params.CompanyId != "" {
-		qb = qb.Where("s.company_id = ?", params.CompanyId)
+	if len(params.CompanyIds) > 0 {
+		qb = qb.Where("s.company_id IN(?)", params.CompanyIds)
 	}
 	if params.Search != "" {
 		qb = qb.Where("s.name ILIKE ?", "%"+params.Search+"%")
@@ -1179,7 +1179,6 @@ func (s *Services) GetBonusProductsByEmployeeId(ctx context.Context, params *dom
 }
 
 func (s *Services) GetStoreSummaryReport(ctx context.Context, params *domain.ReportQueryParam) ([]domain.StoreSummary, int64, error) {
-
 	date, err := s.FormatDatetimeParams(params.StartDate, params.EndDate)
 	if err != nil {
 		return nil, 0, err
@@ -1240,12 +1239,12 @@ func (s *Services) GetStoreSummaryReport(ctx context.Context, params *domain.Rep
 		args = append(args, "%"+params.Search+"%")
 	}
 	if len(params.StoreIds) > 0 {
-		query += " AND st.id = ?"
+		query += " AND st.id IN(?)"
 		args = append(args, params.StoreIds)
 	}
-	if params.CompanyId != "" {
-		query += " AND st.company_id = ? "
-		args = append(args, params.CompanyId)
+	if len(params.CompanyIds) > 0 {
+		query += " AND st.company_id IN(?)"
+		args = append(args, params.CompanyIds)
 	}
 	if params.Order != "" {
 		order := utils.BuildStoreSummaryOrderClause(params.Order)
@@ -1256,7 +1255,7 @@ func (s *Services) GetStoreSummaryReport(ctx context.Context, params *domain.Rep
 
 	var res []domain.StoreSummary
 	// Execute query
-	err = s.db.WithContext(ctx).Debug().Raw(query, args...).Scan(&res).Error
+	err = s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get store summary report: %v", err)
 		return nil, 0, domain.InternalServerError
@@ -1267,8 +1266,9 @@ func (s *Services) GetStoreSummaryReport(ctx context.Context, params *domain.Rep
 
 func (s *Services) GetStoreSummaryReportStats(ctx context.Context, params *domain.ReportQueryParam) (domain.StoreSummaryStats, error) {
 	var (
-		res  domain.StoreSummaryStats
-		args []any
+		res    domain.StoreSummaryStats
+		args   []any
+		filter = ""
 	)
 
 	date, err := s.FormatDatetimeParams(params.StartDate, params.EndDate)
@@ -1276,7 +1276,21 @@ func (s *Services) GetStoreSummaryReportStats(ctx context.Context, params *domai
 		return res, err
 	}
 
-	query := `
+	args = append(args, date.StartTime, date.EndTime)
+	if params.Search != "" {
+		filter += " AND st.name LIKE ?"
+		args = append(args, "%"+params.Search+"%")
+	}
+	if len(params.StoreIds) > 0 {
+		filter += " AND st.id IN(?)"
+		args = append(args, params.StoreIds)
+	}
+	if len(params.CompanyIds) > 0 {
+		filter += " AND st.company_id IN(?)"
+		args = append(args, params.CompanyIds)
+	}
+
+	query := fmt.Sprintf(`
 	WITH sale_cte AS (
 		SELECT
 			store_id,
@@ -1316,6 +1330,7 @@ func (s *Services) GetStoreSummaryReportStats(ctx context.Context, params *domai
 		LEFT JOIN import_cte i ON st.id = i.store_id
 		LEFT JOIN stock_cte k ON st.id = k.store_id
 		WHERE st.is_active = true
+		%s
 	)
 	SELECT
 		SUM(sale_amount) AS total_sale_amount,
@@ -1324,11 +1339,9 @@ func (s *Services) GetStoreSummaryReportStats(ctx context.Context, params *domai
 		SUM(stock_amount) AS total_stock_amount,
 		SUM(total) AS total
 	FROM store_summary
-	`
+	`, filter)
 
-	args = append(args, date.StartTime, date.EndTime)
-
-	err = s.db.WithContext(ctx).Debug().Raw(query, args...).Scan(&res).Error
+	err = s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get store summary stats: %v", err)
 		return res, domain.InternalServerError

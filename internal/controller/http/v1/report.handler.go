@@ -699,7 +699,7 @@ func (h *ReportHandler) LflReport(c *gin.Context) {
 // @Param   search query string false "Search"
 // @Param   order query string false "Order: +store_code, -store_name, -sale_date, +uzcard etc."
 // @Param   store_id query string false "Store ID"
-// @Param   store_ids body []string false "Store ids"
+// @Param   body body domain.DashboardBody false "ids"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -717,6 +717,15 @@ func (h *ReportHandler) StoreReportAmount(c *gin.Context) {
 		return
 	}
 
+	var body domain.DashboardBody
+	// bind store ids
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&body)
+	}
+
+	params.StoreIds = body.StoreIds
+	params.CompanyIds = body.CompanyIds
+
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
@@ -725,9 +734,9 @@ func (h *ReportHandler) StoreReportAmount(c *gin.Context) {
 	// check if employee is not admin or superadmin
 	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
-			params.StoreId = user.StoreId
+			params.StoreIds = []string{user.StoreId}
 		}
-		params.CompanyId = user.CompanyId
+		params.CompanyIds = []string{user.CompanyId}
 	}
 	// get store report with payment type amounts
 	res, totalCount, err := h.service.GetStoreAmountReport(ctx, &params)
@@ -754,7 +763,7 @@ func (h *ReportHandler) StoreReportAmount(c *gin.Context) {
 // @Param   end_date query string false "End Date Format(2025-04)"
 // @Param   search query string false "Search"
 // @Param   store_id query string false "Store ID"
-// @Param   store_ids body []string false "Store ids"
+// @Param   body body domain.DashboardBody false "ids"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -772,6 +781,15 @@ func (h *ReportHandler) StoreReportAmountExport(c *gin.Context) {
 		return
 	}
 
+	var body domain.DashboardBody
+	// bind store ids
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&body)
+	}
+
+	params.StoreIds = body.StoreIds
+	params.CompanyIds = body.CompanyIds
+
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.ContextTimeoutForReports)
@@ -780,9 +798,9 @@ func (h *ReportHandler) StoreReportAmountExport(c *gin.Context) {
 	// check if employee is not admin or superadmin
 	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
-			params.StoreId = user.StoreId
+			params.StoreIds = []string{user.StoreId}
 		}
-		params.CompanyId = user.CompanyId
+		params.CompanyIds = []string{user.CompanyId}
 	}
 	// get store report with payment type amounts
 	res, _, err := h.service.GetStoreAmountReport(ctx, &params)
@@ -838,7 +856,7 @@ func (h *ReportHandler) StoreReportAmountExport(c *gin.Context) {
 // @Param   end_date query string false "End Date Format(2025-04)"
 // @Param   search query string false "Search"
 // @Param   store_id query string false "Store ID"
-// @Param   store_ids body []string false "Store ids"
+// @Param   body body domain.DashboardBody false "ids"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -856,6 +874,15 @@ func (h *ReportHandler) StoreReportStats(c *gin.Context) {
 		return
 	}
 
+	var body domain.DashboardBody
+	// bind store ids
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&body)
+	}
+
+	params.StoreIds = body.StoreIds
+	params.CompanyIds = body.CompanyIds
+
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.ContextTimeoutForReports)
@@ -864,9 +891,9 @@ func (h *ReportHandler) StoreReportStats(c *gin.Context) {
 	// check if employee is not admin or superadmin
 	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
-			params.StoreId = user.StoreId
+			params.StoreIds = []string{user.StoreId}
 		}
-		params.CompanyId = user.CompanyId
+		params.CompanyIds = []string{user.CompanyId}
 	}
 
 	// get store report with payment type amounts
@@ -1644,7 +1671,7 @@ func (h *ReportHandler) FetchBonusItemsByEmployeeExport(c *gin.Context) {
 // @Param   start_date  query string false "Start Date"
 // @Param   end_date    query string false "End Date"
 // @Param   store_id    query string false "Store ID"
-// @Param   store_ids   body  []string false "List of Store IDs"
+// @Param   body   		body  domain.DashboardBody false "ids"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -1662,15 +1689,21 @@ func (h *ReportHandler) ReportStoreSummary(c *gin.Context) {
 		return
 	}
 
-	// bind store ids optional
-	_ = c.ShouldBindJSON(&params.StoreIds)
+	var body domain.DashboardBody
+	// bind store ids
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&body)
+	}
+
+	params.StoreIds = body.StoreIds
+	params.CompanyIds = body.CompanyIds
 
 	// check if employee is not admin or superadmin
 	if !helper.IsAdmin(user) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
-		params.CompanyId = user.CompanyId
+		params.CompanyIds = []string{user.CompanyId}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
@@ -1704,7 +1737,7 @@ func (h *ReportHandler) ReportStoreSummary(c *gin.Context) {
 // @Param   start_date  query string false "Start Date"
 // @Param   end_date    query string false "End Date"
 // @Param   store_id    query string false "Store ID"
-// @Param   store_ids   body  []string false "List of Store IDs"
+// @Param   body   		body  domain.DashboardBody false "ids"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -1722,15 +1755,21 @@ func (h *ReportHandler) ReportStoreSummaryStats(c *gin.Context) {
 		return
 	}
 
-	// bind store ids optional
-	_ = c.ShouldBindJSON(&params.StoreIds)
+	var body domain.DashboardBody
+	// bind store ids
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&body)
+	}
+
+	params.StoreIds = body.StoreIds
+	params.CompanyIds = body.CompanyIds
 
 	// check if employee is not admin or superadmin
 	if !helper.IsAdmin(user) {
 		if user.StoreId != "" {
-			params.StoreId = user.StoreId
+			params.StoreIds = []string{user.StoreId}
 		}
-		params.CompanyId = user.CompanyId
+		params.CompanyIds = []string{user.CompanyId}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)

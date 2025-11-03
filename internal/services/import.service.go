@@ -755,3 +755,26 @@ func (s *Services) DoRequestOnec(ctx context.Context, data any, url string) erro
 	}
 	return nil
 }
+
+func (s *Services) performImportTotals(ctx context.Context) {
+	newUpdateQuery := `
+	UPDATE imports i
+	SET
+		received_count = t.received_count,
+		received_sum   = t.received_sum
+	FROM (
+		SELECT
+			import_id,
+			COALESCE(SUM(received_count), 0) AS received_count,
+			COALESCE(SUM(received_count * retail_price_vat), 0) AS received_sum
+		FROM import_details
+		GROUP BY import_id
+	) AS t
+	WHERE i.id = t.import_id AND i.status = 'new' AND (received_sum = 0 OR received_count = 0 )
+	AND i.entry_type = 1;
+	`
+	err := s.db.WithContext(ctx).Raw(newUpdateQuery).Error
+	if err != nil {
+		s.log.Errorf("could not update new imports total: %v", err)
+	}
+}

@@ -158,7 +158,8 @@ func (h *ProductHandler) Get(c *gin.Context) {
 // @Param offset query int false "Offset"
 // @Param search query string false "Search"
 // @Param status query string false "Status (active || inactive || low-stock || zero-stock || expired || imminent)"
-// @Param store_id query string false "Store ID"
+// @Param store_id query string false "store_id"
+// @Param company_id query string false "company_id"
 // @Param category_id query string false "Category ID"
 // @Param producer_id query string false "Producer ID"
 // @Param no_barcode query bool false "No Barcode"
@@ -181,7 +182,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 		return
 	}
 
-	if !utils.In(user.Role, constants.AllAdminRoles...) {
+	if !helper.IsAdmin(user) {
 		if user.StoreId != "" {
 			params.StoreId = user.StoreId
 		}
@@ -218,8 +219,8 @@ func (h *ProductHandler) List(c *gin.Context) {
 // @Param offset query int false "Offset"
 // @Param search query string false "Search"
 // @Param status query string false "Status (active || inactive || low-stock || zero-stock || expired || imminent)"
-// @Param store_id query string false "Store ID"
-// @Param category_id query string false "Category ID"
+// @Param store_id query string false "store_id"
+// @Param company_id query string false "company_id"
 // @Param producer_id query string false "Producer ID"
 // @Param no_barcode query bool false "No Barcode"
 // @Param order query string false "Order by (+name || -name || +expire_date || -expire_date)"
@@ -241,7 +242,7 @@ func (h *ProductHandler) ExportProductExcel(c *gin.Context) {
 		return
 	}
 
-	if !utils.In(user.Role, constants.AllAdminRoles...) {
+	if !helper.IsAdmin(user) {
 		if user.StoreId != "" {
 			params.StoreId = user.StoreId
 		}
@@ -296,8 +297,8 @@ func (h *ProductHandler) ExportProductExcel(c *gin.Context) {
 // @Param offset query int false "Offset"
 // @Param search query string false "Search"
 // @Param status query string false "Status (active || inactive || low-stock || zero-stock || expired || imminent)"
-// @Param store_id query string false "Store ID"
-// @Param category_id query string false "Category ID"
+// @Param store_id query string false "store_id"
+// @Param company_id query string false "company_id"
 // @Param producer_id query string false "Producer ID"
 // @Param no_barcode query bool false "No Barcode"
 // @Success 200 {object} v1.Response
@@ -322,7 +323,7 @@ func (h *ProductHandler) TotalStatusCount(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	if !utils.In(user.Role, constants.AllAdminRoles...) {
+	if !helper.IsAdmin(user) {
 		if user.StoreId != "" {
 			params.StoreId = user.StoreId
 		}
