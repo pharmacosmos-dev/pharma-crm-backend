@@ -6,6 +6,8 @@ definitions:
         type: string
       customer_id:
         type: string
+      percent:
+        type: integer
       sale_id:
         type: string
     type: object
@@ -4109,6 +4111,10 @@ paths:
         name: ids
         schema:
           $ref: '#/definitions/domain.DashboardBody'
+      - description: is_franchise
+        in: query
+        name: is_franchise
+        type: boolean
       produces:
       - application/json
       responses:
@@ -4154,6 +4160,10 @@ paths:
         name: ids
         schema:
           $ref: '#/definitions/domain.DashboardBody'
+      - description: is_franchise
+        in: query
+        name: is_franchise
+        type: boolean
       produces:
       - application/json
       responses:
@@ -4199,6 +4209,10 @@ paths:
         name: ids
         schema:
           $ref: '#/definitions/domain.DashboardBody'
+      - description: is_franchise
+        in: query
+        name: is_franchise
+        type: boolean
       produces:
       - application/json
       responses:
@@ -4244,6 +4258,10 @@ paths:
         name: ids
         schema:
           $ref: '#/definitions/domain.DashboardBody'
+      - description: is_franchise
+        in: query
+        name: is_franchise
+        type: boolean
       produces:
       - application/json
       responses:
@@ -4289,6 +4307,10 @@ paths:
         name: ids
         schema:
           $ref: '#/definitions/domain.DashboardBody'
+      - description: is_franchise
+        in: query
+        name: is_franchise
+        type: boolean
       produces:
       - application/json
       responses:
@@ -4334,6 +4356,10 @@ paths:
         name: ids
         schema:
           $ref: '#/definitions/domain.DashboardBody'
+      - description: is_franchise
+        in: query
+        name: is_franchise
+        type: boolean
       produces:
       - application/json
       responses:
@@ -4374,6 +4400,10 @@ paths:
         in: query
         name: search
         type: string
+      - description: is_franchise
+        in: query
+        name: is_franchise
+        type: boolean
       produces:
       - application/json
       responses:
@@ -4419,6 +4449,10 @@ paths:
         name: ids
         schema:
           $ref: '#/definitions/domain.DashboardBody'
+      - description: is_franchise
+        in: query
+        name: is_franchise
+        type: boolean
       produces:
       - application/json
       responses:
@@ -4464,6 +4498,10 @@ paths:
         name: ids
         schema:
           $ref: '#/definitions/domain.DashboardBody'
+      - description: is_franchise
+        in: query
+        name: is_franchise
+        type: boolean
       produces:
       - application/json
       responses:
@@ -4509,6 +4547,10 @@ paths:
         name: ids
         schema:
           $ref: '#/definitions/domain.DashboardBody'
+      - description: is_franchise
+        in: query
+        name: is_franchise
+        type: boolean
       produces:
       - application/json
       responses:
@@ -4558,6 +4600,10 @@ paths:
         name: ids
         schema:
           $ref: '#/definitions/domain.DashboardBody'
+      - description: is_franchise
+        in: query
+        name: is_franchise
+        type: boolean
       produces:
       - application/json
       responses:
@@ -4607,6 +4653,10 @@ paths:
         name: ids
         schema:
           $ref: '#/definitions/domain.DashboardBody'
+      - description: is_franchise
+        in: query
+        name: is_franchise
+        type: boolean
       produces:
       - application/json
       responses:
@@ -4643,6 +4693,10 @@ paths:
         in: query
         name: store_id
         type: string
+      - description: is_franchise
+        in: query
+        name: is_franchise
+        type: boolean
       produces:
       - application/json
       responses:
@@ -4690,6 +4744,10 @@ paths:
         name: ids
         schema:
           $ref: '#/definitions/domain.DashboardBody'
+      - description: is_franchise
+        in: query
+        name: is_franchise
+        type: boolean
       produces:
       - application/json
       responses:
@@ -5579,19 +5637,14 @@ paths:
       - application/json
       description: Create auto order
       parameters:
-      - description: Send Date (2006-01-02)
+      - description: send_date (2006-01-02)
         in: query
         name: send_date
         required: true
         type: string
-      - description: Store ID (required)
+      - description: store_id(required)
         in: query
         name: store_id
-        required: true
-        type: string
-      - description: Send Number (required)
-        in: query
-        name: send_number
         required: true
         type: string
       produces:

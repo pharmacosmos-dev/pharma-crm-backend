@@ -3698,6 +3698,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/domain.DashboardBody"
                         }
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is_franchise",
+                        "name": "is_franchise",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -3769,6 +3775,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/domain.DashboardBody"
                         }
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is_franchise",
+                        "name": "is_franchise",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -3840,6 +3852,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/domain.DashboardBody"
                         }
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is_franchise",
+                        "name": "is_franchise",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -3911,6 +3929,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/domain.DashboardBody"
                         }
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is_franchise",
+                        "name": "is_franchise",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -3982,6 +4006,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/domain.DashboardBody"
                         }
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is_franchise",
+                        "name": "is_franchise",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -4053,6 +4083,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/domain.DashboardBody"
                         }
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is_franchise",
+                        "name": "is_franchise",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -4115,6 +4151,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Search",
                         "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is_franchise",
+                        "name": "is_franchise",
                         "in": "query"
                     }
                 ],
@@ -4187,6 +4229,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/domain.DashboardBody"
                         }
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is_franchise",
+                        "name": "is_franchise",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -4258,6 +4306,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/domain.DashboardBody"
                         }
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is_franchise",
+                        "name": "is_franchise",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -4329,6 +4383,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/domain.DashboardBody"
                         }
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is_franchise",
+                        "name": "is_franchise",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -4406,6 +4466,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/domain.DashboardBody"
                         }
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is_franchise",
+                        "name": "is_franchise",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -4483,6 +4549,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/domain.DashboardBody"
                         }
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is_franchise",
+                        "name": "is_franchise",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -4539,6 +4611,12 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Store ID",
                         "name": "store_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is_franchise",
+                        "name": "is_franchise",
                         "in": "query"
                     }
                 ],
@@ -4613,6 +4691,12 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/domain.DashboardBody"
                         }
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is_franchise",
+                        "name": "is_franchise",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -6014,22 +6098,15 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Send Date (2006-01-02)",
+                        "description": "send_date (2006-01-02)",
                         "name": "send_date",
                         "in": "query",
                         "required": true
                     },
                     {
                         "type": "string",
-                        "description": "Store ID (required)",
+                        "description": "store_id(required)",
                         "name": "store_id",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Send Number (required)",
-                        "name": "send_number",
                         "in": "query",
                         "required": true
                     }
@@ -24177,6 +24254,9 @@ const docTemplate = `{
                 },
                 "customer_id": {
                     "type": "string"
+                },
+                "percent": {
+                    "type": "integer"
                 },
                 "sale_id": {
                     "type": "string"
