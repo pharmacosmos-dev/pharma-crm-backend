@@ -226,9 +226,8 @@ func (s *Services) DashboardTotalCountStats(ctx context.Context, param *domain.D
 // get dashboard chart stats data list
 func (s *Services) DashboardChartStats(ctx context.Context, params *domain.DashboardQueryParam) ([]domain.ChartResponse, error) {
 	var (
-		res          []domain.ChartResponse
-		interval     string
-		timeTruncCol string
+		res      []domain.ChartResponse
+		interval string
 	)
 
 	// Parse start and end dates
@@ -255,37 +254,53 @@ func (s *Services) DashboardChartStats(ctx context.Context, params *domain.Dashb
 	switch params.Type {
 	case "HALF_HOURLY":
 		interval = "30 minutes"
-		timeTruncCol = `
-		DATE_TRUNC('hour', s.completed_at + INTERVAL '5 hours') +
-		INTERVAL '30 minutes' * FLOOR(EXTRACT(minute FROM s.completed_at + INTERVAL '5 hours') / 30)`
+		startTime = startTime.Truncate(30 * time.Minute)
+
 	case "HOURLY":
 		interval = "1 hour"
-		timeTruncCol = "DATE_TRUNC('hour', s.completed_at + INTERVAL '5 hours')"
+		startTime = startTime.Truncate(time.Hour)
+
 	case "DAILY":
 		interval = "1 day"
-		timeTruncCol = "(s.completed_at + INTERVAL '5 hours')::date"
+		startTime = time.Date(
+			startTime.Year(), startTime.Month(), startTime.Day(),
+			0, 0, 0, 0, startTime.Location(),
+		)
+
 	case "WEEKLY":
 		interval = "1 week"
-		timeTruncCol = "DATE_TRUNC('week', s.completed_at + INTERVAL '5 hours')"
+		// Move to start of the week (Monday)
+		weekday := int(startTime.Weekday())
+		if weekday == 0 {
+			weekday = 7 // Sunday should move to previous Monday
+		}
+		startTime = time.Date(
+			startTime.Year(), startTime.Month(), startTime.Day()-weekday+1,
+			0, 0, 0, 0, startTime.Location(),
+		)
+
 	case "MONTHLY":
 		interval = "1 month"
-		timeTruncCol = "DATE_TRUNC('month', s.completed_at + INTERVAL '5 hours')"
+		startTime = time.Date(
+			startTime.Year(), startTime.Month(), 1,
+			0, 0, 0, 0, startTime.Location(),
+		)
+
 	case "YEARLY":
 		interval = "1 year"
-		timeTruncCol = "DATE_TRUNC('year', s.completed_at + INTERVAL '5 hours')"
+		startTime = time.Date(
+			startTime.Year(), 1, 1,
+			0, 0, 0, 0, startTime.Location(),
+		)
+
 	default:
 		interval = "1 hour"
-		timeTruncCol = "DATE_TRUNC('hour', s.completed_at + INTERVAL '5 hours')"
+		startTime = startTime.Truncate(time.Hour)
 	}
 	// WEEKLY tanlangan bo‘lsa startDate ni truncate qilamiz
 
-	if params.Type == "WEEKLY" {
-		// haftaning boshiga truncate qilish (Dushanba)
-		offset := (int(startTime.Weekday()) + 6) % 7 // Monday = 0
-		startTime = startTime.AddDate(0, 0, -offset)
-	}
-
 	args := []any{startTime, endTime, interval}
+
 	// qo‘shimcha filterlar
 	storeFilter := ""
 	if len(params.StoreIds) > 0 {
@@ -314,7 +329,7 @@ func (s *Services) DashboardChartStats(ctx context.Context, params *domain.Dashb
 		COALESCE(SUM(s.total_amount), 0) AS total_amount
 	FROM time_series ts
 	LEFT JOIN sales s ON
-		%s = ts.period
+		(s.completed_at + INTERVAL '5 hours') >= ts.period AND (s.completed_at + INTERVAL '5 hours') < ts.period + INTERVAL '%s' 
 		AND s.stage IN (9, 11)
 		%s
 	LEFT JOIN stores st ON s.store_id = st.id
@@ -322,7 +337,7 @@ func (s *Services) DashboardChartStats(ctx context.Context, params *domain.Dashb
 	WHERE s.stage IN(9, 11)
 	GROUP BY ts.period
 	ORDER BY ts.period;
-	`, timeTruncCol, storeFilter, companyFilter)
+	`, interval, storeFilter, companyFilter)
 
 	// bajarish
 	err = s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
@@ -1101,8 +1116,7 @@ func (s *Services) DashboardOldImports(ctx context.Context, params *domain.Dashb
 		Table("imports im").
 		Joins("JOIN stores st ON st.id = im.store_id").
 		Where("im.entry_type = ?", constants.ProductMovementImport).
-		Where("im.created_at <= NOW() - interval '24 hours'").
-		Where("im.status = ?", constants.GeneralStatusNew)
+		Where("im.created_at <= NOW() - interval '24 hours'")
 
 	if params.Search != "" {
 		params.Search = fmt.Sprintf("%%%s%%", params.Search)
