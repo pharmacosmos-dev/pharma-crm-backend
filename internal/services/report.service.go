@@ -1207,6 +1207,7 @@ func (s *Services) GetStoreSummaryReport(ctx context.Context, params *domain.Rep
 					ROUND(SUM(sp.unit_quantity * (sp.retail_price / p.unit_per_pack)), 2) AS stock_amount
 			FROM store_products sp
 				JOIN products p ON sp.product_id = p.id
+					WHERE sp.unit_quantity > 0
 			GROUP BY sp.store_id
 	)
 	SELECT
@@ -1246,7 +1247,7 @@ func (s *Services) GetStoreSummaryReport(ctx context.Context, params *domain.Rep
 
 	var res []domain.StoreSummary
 	// Execute query
-	err = s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
+	err = s.db.WithContext(ctx).Debug().Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get store summary report: %v", err)
 		return nil, 0, domain.InternalServerError
@@ -1289,7 +1290,8 @@ func (s *Services) GetStoreSummaryReportStats(ctx context.Context, params *domai
 			sp.store_id,
 			ROUND(SUM(sp.unit_quantity * (sp.retail_price/p.unit_per_pack)), 2) AS stock_amount
 		FROM store_products sp
-				 JOIN products p ON sp.product_id = p.id
+			JOIN products p ON sp.product_id = p.id
+				WHERE sp.unit_quantity > 0
 		GROUP BY sp.store_id
 	),
 	store_summary AS (
@@ -1317,7 +1319,7 @@ func (s *Services) GetStoreSummaryReportStats(ctx context.Context, params *domai
 
 	args = append(args, date.StartTime, date.EndTime)
 
-	err = s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
+	err = s.db.WithContext(ctx).Debug().Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get store summary stats: %v", err)
 		return res, domain.InternalServerError
