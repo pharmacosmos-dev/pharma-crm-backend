@@ -1,9 +1,11 @@
 package services
 
 import (
+	"context"
 	"time"
 
 	"github.com/pharma-crm-backend/config"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/internal/controller/ws"
 	"github.com/pharma-crm-backend/pkg/logger"
 	"gorm.io/gorm"
@@ -23,7 +25,12 @@ func NewService(db *gorm.DB, log *logger.Logger, cfg *config.Config, hub *ws.Hub
 		cfg: cfg,
 		hub: hub,
 	}
+	// check product mxiks
 	go s.changeByMxik()
+
+	// update import totals arguments
+	go s.updateImportTotalsLoop()
+
 	return s
 }
 
@@ -39,5 +46,17 @@ func (s *Services) changeByMxik() {
 		} else {
 			s.log.Info("Finished MXIK unit_code sync job")
 		}
+	}
+}
+
+func (s *Services) updateImportTotalsLoop() {
+	for {
+		ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+
+		s.performImportTotals(ctx)
+
+		cancel()
+
+		time.Sleep(time.Minute * 2)
 	}
 }

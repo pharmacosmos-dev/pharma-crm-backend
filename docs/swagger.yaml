@@ -9741,13 +9741,13 @@ paths:
         in: query
         name: status
         type: string
-      - description: Store ID
+      - description: store_id
         in: query
         name: store_id
         type: string
-      - description: Category ID
+      - description: company_id
         in: query
-        name: category_id
+        name: company_id
         type: string
       - description: Producer ID
         in: query
@@ -9984,9 +9984,13 @@ paths:
         in: query
         name: status
         type: string
-      - description: Store ID
+      - description: store_id
         in: query
         name: store_id
+        type: string
+      - description: company_id
+        in: query
+        name: company_id
         type: string
       - description: Category ID
         in: query
@@ -10724,13 +10728,13 @@ paths:
         in: query
         name: status
         type: string
-      - description: Store ID
+      - description: store_id
         in: query
         name: store_id
         type: string
-      - description: Category ID
+      - description: company_id
         in: query
-        name: category_id
+        name: company_id
         type: string
       - description: Producer ID
         in: query
@@ -12071,13 +12075,11 @@ paths:
         in: query
         name: store_id
         type: string
-      - description: Store ids
+      - description: ids
         in: body
-        name: store_ids
+        name: body
         schema:
-          items:
-            type: string
-          type: array
+          $ref: '#/definitions/domain.DashboardBody'
       produces:
       - application/json
       responses:
@@ -12130,13 +12132,11 @@ paths:
         in: query
         name: store_id
         type: string
-      - description: Store ids
+      - description: ids
         in: body
-        name: store_ids
+        name: body
         schema:
-          items:
-            type: string
-          type: array
+          $ref: '#/definitions/domain.DashboardBody'
       produces:
       - application/json
       responses:
@@ -12285,13 +12285,11 @@ paths:
         in: query
         name: store_id
         type: string
-      - description: Store ids
+      - description: ids
         in: body
-        name: store_ids
+        name: body
         schema:
-          items:
-            type: string
-          type: array
+          $ref: '#/definitions/domain.DashboardBody'
       produces:
       - application/json
       responses:
@@ -12344,13 +12342,11 @@ paths:
         in: query
         name: store_id
         type: string
-      - description: List of Store IDs
+      - description: ids
         in: body
-        name: store_ids
+        name: body
         schema:
-          items:
-            type: string
-          type: array
+          $ref: '#/definitions/domain.DashboardBody'
       produces:
       - application/json
       responses:
@@ -12403,13 +12399,11 @@ paths:
         in: query
         name: store_id
         type: string
-      - description: List of Store IDs
+      - description: ids
         in: body
-        name: store_ids
+        name: body
         schema:
-          items:
-            type: string
-          type: array
+          $ref: '#/definitions/domain.DashboardBody'
       produces:
       - application/json
       responses:
