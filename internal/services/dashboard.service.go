@@ -1085,7 +1085,8 @@ func (s *Services) DashboardOldImports(ctx context.Context, params *domain.Dashb
 		Table("imports im").
 		Joins("JOIN stores st ON st.id = im.store_id").
 		Where("im.entry_type = ?", constants.ProductMovementImport).
-		Where("im.created_at <= NOW() - interval '24 hours'")
+		Where("im.created_at <= NOW() - interval '24 hours'").
+		Where("im.status = ?", constants.GeneralStatusNew)
 
 	if params.Search != "" {
 		params.Search = fmt.Sprintf("%%%s%%", params.Search)
