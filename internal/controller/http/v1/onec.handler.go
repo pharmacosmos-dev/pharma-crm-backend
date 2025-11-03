@@ -393,12 +393,6 @@ func (h *ProductOnecHandler) ProductRepricing(c *gin.Context) {
 		}
 	}()
 
-	// rollback function
-	defer func() {
-		if err != nil {
-			tx.Rollback()
-		}
-	}()
 	// check if price revalution already exists
 	var res *domain.PriceRevalution
 	err = tx.First(&res, "name = ? ", body.Dok.DocumentNumber).Error
@@ -413,12 +407,15 @@ func (h *ProductOnecHandler) ProductRepricing(c *gin.Context) {
 				Status:    constants.GeneralStatusCompleted,
 			})
 			if err != nil {
-				h.log.Warn("ERROR on creating new price_revalution: %v", err)
-				handleResponse(c, InternalError, "failed.to.create.repricing")
+				_ = tx.Rollback()
+				h.log.Errorf("could not create new price_revalution: %v", err)
+				handleServiceResponse(c, InternalError, domain.NotFoundError)
 				return
 			}
 		}
-
+		_ = tx.Rollback()
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
+		return
 	}
 
 	// collect price revalution details
@@ -433,8 +430,9 @@ func (h *ProductOnecHandler) ProductRepricing(c *gin.Context) {
 		// update retail price by store_product id
 		err = h.service.UpdateRetailPrice(v.Id, v.NewRetailPrice)
 		if err != nil {
-			h.log.Warn("ERROR on updating retail_price: %v", err)
-			handleResponse(c, InternalError, "failed.update.retail_price")
+			_ = tx.Rollback()
+			h.log.Errorf("could not update retail_price: %v", err)
+			handleServiceResponse(c, InternalError, domain.InternalServerError)
 			return
 		}
 		// collect detail data
@@ -453,14 +451,14 @@ func (h *ProductOnecHandler) ProductRepricing(c *gin.Context) {
 	// create price revalution details
 	err = h.service.CreatePriceRevalutionDetail(tx, products)
 	if err != nil {
-		handleResponse(c, InternalError, "failed to create price revalution")
+		_ = tx.Rollback()
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 
 	// commit transaction
-	err = tx.Commit().Error
-	if err != nil {
-		handleResponse(c, InternalError, "not.committed.transcation")
+	if err = tx.Commit().Error; err != nil {
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 
@@ -518,8 +516,7 @@ func (h *ProductOnecHandler) MultiProductRepricing(c *gin.Context) {
 
 	// bind request body
 	if err = c.ShouldBindJSON(&body); err != nil {
-		h.log.Warn("ERROR on binding request body: %v", err)
-		handleResponse(c, BadRequest, "invalid.request.body")
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
 
