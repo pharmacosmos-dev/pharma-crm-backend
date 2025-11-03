@@ -480,15 +480,24 @@ func (s *Services) ReportByStoreStats(ctx context.Context, params *domain.Report
 
 	qb := s.db.WithContext(ctx).
 		Select(
-			"SUM(sa.cash) AS cash",
-			"SUM(sa.uzcard) AS uzcard",
-			"SUM(sa.humo) AS humo",
-			"SUM(sa.click) AS click",
-			"SUM(sa.payme) AS payme",
-			"SUM(sa.alif) AS alif",
-			"SUM(sa.total_amount) AS total_amount",
-			"SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sa.total_amount * (-1) ELSE 0 END) AS return_amount",
-			"SUM(sa.total_discount) AS discount_amount",
+			"SUM(sa.total_amount) AS total_transaction_sum",
+			"COUNT(*) AS total_transaction",
+			"SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sa.total_amount ELSE 0 END) AS total_returnals_sum",
+			"COUNT(*) FILTER (WHERE sa.sale_type = 'RETURN') AS total_returned_count",
+			"SUM(sa.total_discount) AS total_discount_sum",
+			"COUNT(*) FILTER (WHERE sa.total_discount > 0) AS total_discount_count",
+			"SUM(sa.cash) AS total_cash_sum",
+			"COUNT(*) FILTER (WHERE sa.cash != 0) AS total_cash_count",
+			"SUM(sa.humo) AS total_humo_sum",
+			"COUNT(*) FILTER (WHERE sa.humo != 0) AS total_humo_count",
+			"SUM(sa.uzcard) AS total_uzcard_sum",
+			"COUNT(*) FILTER (WHERE sa.uzcard != 0) AS total_uzcard_count",
+			"SUM(sa.click) AS total_click_sum",
+			"COUNT(*) FILTER (WHERE sa.click != 0) AS total_click_count",
+			"SUM(sa.payme) AS total_payme_sum",
+			"COUNT(*) FILTER (WHERE sa.payme != 0) AS total_payme_count",
+			"SUM(sa.alif) AS total_alif_sum",
+			"COUNT(*) FILTER (WHERE sa.alif != 0) AS total_alif_count",
 		).
 		Table("stores s").
 		Joins("JOIN sales sa ON sa.store_id = s.id")
