@@ -123,6 +123,7 @@ type InventoryAddProduct struct {
 type InventoryDetailSum struct {
 	TotalFactCount     float64 `gorm:"total_fact_count" json:"total_fact_count"`
 	TotalFactSum       float64 `gorm:"total_fact_sum" json:"total_fact_sum"`
+	TotalCurrentSum    float64 `gorm:"total_current_sum" json:"total_current_sum"`
 	TotalDifferenceSum float64 `gorm:"total_difference_sum" json:"total_difference_sum"`
 }
 
