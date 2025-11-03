@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -12,6 +11,7 @@ import (
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/xuri/excelize/v2"
+	"gorm.io/gorm"
 )
 
 var mu sync.Mutex
@@ -52,19 +52,22 @@ func (s *Services) SendExpenseTo1C(sendDate string) error {
 
 // send expense products to 1C with dock number
 // This function is used to send expense reports with a specific document number
-func (s *Services) SendExpenseWithNumberTo1C(sendDate, storeID, dockNumber string) error {
+func (s *Services) SendExpenseWithNumberToOnec(sendDate string, storeId string) error {
 	var store domain.Store
 	// get store info
-	err := s.db.First(&store, "id = ?", storeID).Error
+	err := s.db.First(&store, "id = ?", storeId).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting store list: %v", err)
-		return errors.New("error on getting store")
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return domain.NotFoundError
+		}
+		s.log.Errorf("could not get store by id: %v", err)
+		return domain.InternalServerError
 	}
 	// send expense with dock number
-	err = s.sendReportWithNumberTo1C(&store, sendDate, dockNumber)
+	err = s.sendReportWithNumberTo1C(&store, sendDate)
 	if err != nil {
 		log.Printf("Failed to send report for %s: %v\n", store.Name, err)
-		return errors.New("error on sending report with number")
+		return err
 	}
 	fmt.Printf("Successfully sent report for %s\n", store.Name)
 	return nil
@@ -307,19 +310,37 @@ func (s *Services) sendReportTo1C(store *domain.Store, date string) error {
 }
 
 // send expense with docs number products to 1C
-func (s *Services) sendReportWithNumberTo1C(store *domain.Store, date, dockNumber string) error {
+func (s *Services) sendReportWithNumberTo1C(store *domain.Store, date string) error {
 	var expenseData domain.SendExpense
 	expenseData.Store.StoreCode = store.StoreCode
 	expenseData.Store.Name = store.Name
 
+	// get expense docs number
+	docNumberQuery := `
+	SELECT 
+		'NP-' || LPAD(store_code::TEXT, 5, '0') || '-' || TO_CHAR(?::DATE, 'YYYYMMDD') || '0000' AS nomer_dok
+	FROM stores
+	WHERE id = ?;`
+	err := s.db.Raw(docNumberQuery, date, store.Id).Scan(&expenseData.Document.NumberDok).Error
+	if err != nil {
+		s.log.Warn("ERROR on getting expense docs number: %v", err)
+		return err
+	}
+
 	dokTime, err := time.Parse(time.DateOnly, date)
 	if err != nil {
-		s.log.Warn("ERROR on parsing date: %v", err)
+		s.log.Errorf("could not parsing date: %v", err)
 		return errors.New("error on parsing date")
 	}
 
 	expenseData.Document.DocumentDate = dokTime.Format(time.RFC3339) // set document date
-	expenseData.Document.NumberDok = dockNumber
+	// create new shift expense
+	err = s.CreateNewExpense(store.Id, expenseData.Document.NumberDok, expenseData.Document.DocumentDate)
+	if err != nil {
+		s.log.Errorf("could not create shift expense: %v", err)
+	}
+
+	expenseData.Document.DocumentDate = dokTime.Format(time.RFC3339) // set document date
 
 	// get expense products query
 	expenseProductQuery := `
@@ -411,7 +432,7 @@ func (s *Services) sendReportWithNumberTo1C(store *domain.Store, date, dockNumbe
 	endTime := dokTime.Add(19 * time.Hour)
 
 	// complete get expense product list
-	err = s.db.Raw(
+	err = s.db.Debug().Raw(
 		expenseProductQuery,
 		store.Id,
 		startTime,
@@ -439,15 +460,13 @@ func (s *Services) sendReportWithNumberTo1C(store *domain.Store, date, dockNumbe
 	}
 	// check expense product length
 	if len(expenseData.Товары) < 1 {
-		return nil
+		return domain.NotEnoughProductError
 	}
-	t, _ := json.Marshal(expenseData)
 
-	fmt.Println("--->> ", string(t))
 	// send fakt to 1C
 	err = s.DoRequestOnec(context.Background(), expenseData, "/rasxod")
 	if err != nil {
-		s.log.Warn("ERROR on send rasxod request: %v", err)
+		s.log.Errorf("could not send rasxod request to onec: %v", err)
 		return err
 	}
 	// update expense status to 1 after successfully sent
