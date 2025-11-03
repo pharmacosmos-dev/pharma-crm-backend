@@ -4115,6 +4115,10 @@ paths:
         in: query
         name: is_franchise
         type: boolean
+      - description: order
+        in: query
+        name: order
+        type: string
       produces:
       - application/json
       responses:
@@ -4604,6 +4608,10 @@ paths:
         in: query
         name: is_franchise
         type: boolean
+      - description: order
+        in: query
+        name: order
+        type: string
       produces:
       - application/json
       responses:
@@ -4657,6 +4665,10 @@ paths:
         in: query
         name: is_franchise
         type: boolean
+      - description: order
+        in: query
+        name: order
+        type: string
       produces:
       - application/json
       responses:
@@ -4697,6 +4709,10 @@ paths:
         in: query
         name: is_franchise
         type: boolean
+      - description: order
+        in: query
+        name: order
+        type: string
       produces:
       - application/json
       responses:
@@ -5977,10 +5993,12 @@ paths:
         name: end_date
         type: string
       - description: From Amount
+        format: float64
         in: query
         name: from_amount
         type: number
       - description: To Amount
+        format: float64
         in: query
         name: to_amount
         type: number
@@ -6045,10 +6063,12 @@ paths:
         name: end_date
         type: string
       - description: From Amount
+        format: float64
         in: query
         name: from_amount
         type: number
       - description: To Amount
+        format: float64
         in: query
         name: to_amount
         type: number

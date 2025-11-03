@@ -111,6 +111,7 @@ type DashboardQueryParam struct {
 	IsFranchise bool     `form:"is_franchise"`
 	Limit       int      `form:"limit"`
 	Offset      int      `form:"offset"`
+	Order       string   `form:"order"`
 }
 
 // Dashboard payments structure

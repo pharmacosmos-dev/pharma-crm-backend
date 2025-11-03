@@ -357,7 +357,7 @@ func (s *Services) DashboardTopStores(ctx context.Context, params *domain.Dashbo
 		query  = `SELECT stores.id, stores.name, COUNT(*) AS count, SUM(sales.total_amount) AS total_amount FROM sales JOIN stores ON sales.store_id = stores.id`
 		filter = ` WHERE sales.stage IN (9, 11)`
 		group  = ` GROUP BY stores.id`
-		order  = ` ORDER BY total_amount DESC`
+		order  = utils.BuildTopStoreOrderClauseForDashBoard(params.Order)
 	)
 
 	// Parse and apply date filters
@@ -519,7 +519,7 @@ func (s *Services) DashboardTopProducts(ctx context.Context, params *domain.Dash
 	}
 
 	// Sorting (replaced switch)
-	order := utils.BuildTopProductOrderClause("")
+	order := utils.BuildTopProductOrderClause(params.Order)
 	query += where + order
 
 	// Pagination
@@ -637,7 +637,7 @@ func (s *Services) DashboardBonusProducts(ctx context.Context, params *domain.Da
 	query += prevJoin + prevFilter + " GROUP BY p.id ) AS prev ON curr.id = prev.id"
 
 	// New flexible order logic
-	order := utils.BuildBonusProductOrderClause("")
+	order := utils.BuildBonusProductOrderClause(params.Order)
 	query += order
 
 	// Pagination
@@ -752,7 +752,7 @@ func (s *Services) DashboardTopSeller(ctx context.Context, params *domain.Dashbo
 	}
 
 	// Apply flexible ordering
-	order := utils.BuildTopSellerOrderClause("")
+	order := utils.BuildTopSellerOrderClause(params.Order)
 
 	// Pagination
 	limitOffset := " LIMIT ? OFFSET ?"
