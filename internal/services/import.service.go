@@ -770,7 +770,7 @@ func (s *Services) performImportTotals(ctx context.Context) {
 		FROM import_details
 		GROUP BY import_id
 	) AS t
-	WHERE i.id = t.import_id AND i.status = 'new' AND (received_sum = 0 OR received_count = 0 )
+	WHERE i.id = t.import_id AND i.status = 'new' AND (i.received_sum = 0 OR i.received_count = 0 )
 	AND i.entry_type = 1;
 	`
 	err := s.db.WithContext(ctx).Raw(newUpdateQuery).Error
