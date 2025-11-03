@@ -314,6 +314,7 @@ type AddDiscountCard struct {
 	CustomerId string `json:"customer_id"`
 	SaleId     string `json:"sale_id"`
 	Barcode    string `json:"barcode"`
+	Percent    int    `json:"percent"`
 }
 
 // region Online sale

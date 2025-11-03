@@ -8,8 +8,8 @@ import (
 
 // discount card structure
 type DiscountCard struct {
-	ID         string `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
-	CustomerID string `gorm:"type:uuid"`
+	Id         string `gorm:"type:uuid;default:uuid_generate_v4();primaryKey"`
+	CustomerId string `gorm:"type:uuid"`
 	Barcode    string `gorm:"size:13;unique;not null"`
 	Percent    int    `gorm:"default:0"`
 	CreatedBy  string
