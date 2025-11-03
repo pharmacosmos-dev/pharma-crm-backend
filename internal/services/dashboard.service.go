@@ -935,79 +935,95 @@ func (s *Services) DashboardTransaction(ctx context.Context, params *domain.Dash
 	}
 
 	// SALES query
-	saleQuery := fmt.Sprintf(`
+	fullQuery := fmt.Sprintf(`
+	WITH sales_data AS (
+		SELECT
+			'Товары' AS name,
+			curr.amount,
+			curr.count,
+			prev.amount AS previous_amount,
+			ROUND(
+					CASE
+						WHEN COALESCE(prev.amount, 0) = 0 THEN 100
+						ELSE ((curr.amount - prev.amount) * 100.0) / NULLIF(prev.amount, 0)
+						END, 2
+			) AS percent
+		FROM (
+				SELECT
+					SUM(s.total_amount) AS amount,
+					COALESCE(ROUND(SUM(ci.quantity + (ci.unit_quantity / p.unit_per_pack)), 0), 0) AS count
+				FROM sales s
+						JOIN cart_items ci ON ci.sale_id = s.id
+						JOIN store_products as sp on ci.store_product_id = sp.id
+						JOIN products as p on sp.product_id = p.id
+				WHERE s.stage IN(9, 11)
+				AND s.sale_type = 'SALE'
+				AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?
+				%s
+			) curr
+				LEFT JOIN (
+			SELECT
+				SUM(s.total_amount) AS amount
+			FROM sales s
+					JOIN cart_items ci ON ci.sale_id = s.id
+			WHERE s.stage IN(9, 11)
+			AND s.sale_type = 'SALE'
+			AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?
+			%s
+		) prev ON 1=1
+	),
+		returns_data AS (
+			SELECT
+				'Возвраты' AS name,
+				curr.amount,
+				curr.count,
+				prev.amount AS previous_amount,
+				ROUND(
+						CASE
+							WHEN COALESCE(prev.amount, 0) = 0 THEN 100
+							ELSE ((curr.amount - prev.amount) * 100.0) / NULLIF(prev.amount, 0)
+							END, 2
+				) AS percent
+			FROM (
+					SELECT
+						SUM(s.total_amount) AS amount,
+						COALESCE(ROUND(SUM(ci.quantity + (ci.unit_quantity / p.unit_per_pack)), 0), 0) AS count
+					FROM sales s
+							JOIN cart_items ci ON ci.sale_id = s.id
+							JOIN store_products as sp on ci.store_product_id = sp.id
+							JOIN products as p on sp.product_id = p.id
+					WHERE s.stage IN(9, 11)
+						AND s.sale_type = 'RETURN'
+						AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?
+						%s
+				) curr
+					LEFT JOIN (
+				SELECT
+					SUM(s.total_amount) AS amount
+				FROM sales s
+						JOIN cart_items ci ON ci.sale_id = s.id
+				WHERE s.stage IN(9, 11)
+				AND s.sale_type = 'RETURN'
+				AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?
+				%s
+			) prev ON 1=1
+		)
 	SELECT
-		'Товары' AS name,
-		curr.amount,
-		curr.count,
-		prev.amount AS previous_amount,
+		name,
+		amount + COALESCE((SELECT amount FROM returns_data), 0) AS amount,
+		count - COALESCE((SELECT count FROM returns_data), 0) AS count,
+		previous_amount + COALESCE((SELECT previous_amount FROM returns_data), 0) AS previous_amount,
 		ROUND(
-			CASE 
-				WHEN COALESCE(prev.amount, 0) = 0 THEN 100
-				ELSE ((curr.amount - prev.amount) * 100.0) / NULLIF(prev.amount, 0)
-			END, 2
+				CASE
+					WHEN COALESCE(previous_amount - COALESCE((SELECT previous_amount FROM returns_data), 0), 0) = 0 THEN 100
+					ELSE (((amount - COALESCE((SELECT amount FROM returns_data), 0)) - (previous_amount - COALESCE((SELECT previous_amount FROM returns_data), 0))) * 100.0) /
+						NULLIF(previous_amount - COALESCE((SELECT previous_amount FROM returns_data), 0), 0)
+					END, 2
 		) AS percent
-	FROM (
-		SELECT
-			SUM(s.total_amount) AS amount,
-			COALESCE(ROUND(SUM(ci.quantity + (ci.unit_quantity / 100.0)), 0), 0) AS count
-		FROM sales s
-		JOIN cart_items ci ON ci.sale_id = s.id
-		WHERE s.stage IN(9, 11)
-			AND s.sale_type = 'SALE' 
-			AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?
-			%s
-	) curr
-	LEFT JOIN (
-		SELECT
-			SUM(s.total_amount) AS amount
-		FROM sales s
-		JOIN cart_items ci ON ci.sale_id = s.id
-		WHERE s.stage IN(9, 11)
-			AND s.sale_type = 'SALE' 
-			AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?
-			%s
-	) prev ON 1=1
-	`, storeFilter, storeFilter)
-
-	// RETURN query
-	returnQuery := fmt.Sprintf(`
-	SELECT
-		'Возвраты' AS name,
-		curr.amount,
-		curr.count,
-		prev.amount AS previous_amount,
-		ROUND(
-			CASE 
-				WHEN COALESCE(prev.amount, 0) = 0 THEN 100
-				ELSE ((curr.amount - prev.amount) * 100.0) / NULLIF(prev.amount, 0)
-			END, 2
-		) AS percent
-	FROM (
-		SELECT
-			SUM(s.total_amount) AS amount,
-			COALESCE(ROUND(SUM(ci.quantity + (ci.unit_quantity / 100.0)), 0), 0) AS count
-		FROM sales s
-		JOIN cart_items ci ON ci.sale_id = s.id
-		WHERE s.stage IN(9, 11) 
-			AND s.sale_type = 'RETURN'
-			AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?
-			%s
-	) curr
-	LEFT JOIN (
-		SELECT
-			SUM(s.total_amount) AS amount
-		FROM sales s
-		JOIN cart_items ci ON ci.sale_id = s.id
-		WHERE s.stage IN(9, 11) 
-			AND s.sale_type = 'RETURN'
-			AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?
-			%s
-	) prev ON 1=1
-	`, storeFilter, storeFilter)
-
-	// Combine queries
-	fullQuery := fmt.Sprintf(`%s UNION ALL %s`, saleQuery, returnQuery)
+	FROM sales_data
+	UNION ALL
+	SELECT * FROM returns_data
+	`, storeFilter, storeFilter, storeFilter, storeFilter)
 
 	// ---- ARGS ----
 	finalArgs := []any{
@@ -1326,15 +1342,15 @@ func (s *Services) DashboardProductStatistic(ctx context.Context, params *domain
 		// get sale stats information
 		query = `
 		SELECT
-			ROUND(SUM(sp.unit_quantity / p.unit_per_pack), 2) AS total_product_count,
+			ROUND(SUM(sp.unit_quantity), 2) AS total_product_count,
 			ROUND(SUM((retail_price / p.unit_per_pack) * sp.unit_quantity), 2) AS stock_total_amount,
-			ROUND(SUM(CASE WHEN expire_date > NOW() AND expire_date <= NOW() + INTERVAL '3 month' THEN (sp.unit_quantity/p.unit_per_pack) ELSE 0 END), 2) AS expiring_soon_count,
-			ROUND(SUM(CASE WHEN expire_date > NOW() AND expire_date <= NOW() + INTERVAL '3 month' THEN ((retail_price/p.unit_per_pack) * sp.unit_quantity) ELSE 0 END), 2) AS expiring_soon_amount,
-			ROUND(SUM(CASE WHEN expire_date <= NOW() THEN (sp.unit_quantity/p.unit_per_pack) ELSE 0 END), 2) AS expired_soon_count,
-			ROUND(SUM(CASE WHEN expire_date <= NOW() THEN ((retail_price/p.unit_per_pack) * sp.unit_quantity) ELSE 0 END),2) AS expired_soon_amount
+			ROUND(SUM(CASE WHEN expire_date BETWEEN NOW() AND NOW() + INTERVAL '3 month' THEN sp.unit_quantity ELSE 0 END), 2) AS expiring_soon_count,
+			ROUND(SUM(CASE WHEN expire_date BETWEEN NOW() AND NOW() + INTERVAL '3 month' THEN ((retail_price/p.unit_per_pack) * sp.unit_quantity) ELSE 0 END), 2) AS expiring_soon_amount,
+			ROUND(SUM(CASE WHEN expire_date < NOW() THEN sp.unit_quantity ELSE 0 END), 2) AS expired_soon_count,
+			ROUND(SUM(CASE WHEN expire_date < NOW() THEN ((retail_price/p.unit_per_pack) * sp.unit_quantity) ELSE 0 END),2) AS expired_soon_amount
 		FROM store_products sp
-		JOIN products p ON sp.product_id = p.id
-		JOIN stores st ON sp.store_id = st.id
+			JOIN products p ON sp.product_id = p.id
+			JOIN stores st ON sp.store_id = st.id
 		WHERE sp.unit_quantity > 0
 		`
 		filter = ""
