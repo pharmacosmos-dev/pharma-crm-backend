@@ -10,17 +10,20 @@ import (
 	"gorm.io/gorm"
 )
 
-func (s *Services) GetDiscountCardByBarcode(ctx context.Context, barcode string) (*domain.DiscountCard, error) {
-	var res domain.DiscountCard
-	err := s.db.First(&res, "barcode = ?", barcode).Error
+func (s *Services) GetDiscountCardByBarcode(ctx context.Context, barcode string) (int, error) {
+	var percent int
+	err := s.db.WithContext(ctx).Raw("SELECT discount_percent FROM customers WHERE discount_card = ?", barcode).Scan(&percent).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, domain.NotFoundError
+			return 0, domain.NotFoundError
 		}
 		s.log.Errorf("could not get discount_card: %v", err)
-		return nil, domain.InternalServerError
+		return 0, domain.InternalServerError
 	}
-	return &res, nil
+	if percent == 0 {
+		return 0, domain.NotFoundError
+	}
+	return percent, nil
 }
 
 func (s *Services) UpdateDiscountCard(ctx context.Context, req *domain.UpdateDiscountCardRequest) error {
@@ -43,7 +46,11 @@ func (s *Services) DeleteDiscountCard(id, deletedBy string) error {
 		Error
 }
 
-func (s *Services) CreateSaleCustomerDiscount(ctx context.Context, tx *gorm.DB, req *domain.AddDiscountCard, discountCard *domain.DiscountCard) (*domain.SaleCustomerDiscount, error) {
+func (s *Services) CreateSaleCustomerDiscount(
+	ctx context.Context,
+	tx *gorm.DB,
+	req *domain.AddDiscountCard,
+) (*domain.SaleCustomerDiscount, error) {
 	var customerDiscount domain.SaleCustomerDiscount
 	err := tx.WithContext(ctx).Raw(`
 	INSERT INTO sale_customer_discounts(
@@ -54,7 +61,7 @@ func (s *Services) CreateSaleCustomerDiscount(ctx context.Context, tx *gorm.DB, 
 	VALUES(?, ?, ?) RETURNING *`,
 		req.CustomerId,
 		req.SaleId,
-		discountCard.Percent,
+		req.Percent,
 	).Scan(&customerDiscount).Error
 	if err != nil {
 		var pgErr *pgconn.PgError

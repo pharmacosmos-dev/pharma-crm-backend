@@ -975,7 +975,7 @@ func (s *Services) RemoveBonusBySaleId(saleId string) {
 
 func (s *Services) AttachDiscountCardToSale(ctx context.Context, req *domain.AddDiscountCard) (*domain.SaleCustomerDiscount, error) {
 	// get discount card info by barcode
-	discountCard, err := s.GetDiscountCardByBarcode(ctx, req.Barcode)
+	discountPercent, err := s.GetDiscountCardByBarcode(ctx, req.Barcode)
 	if err != nil {
 		return nil, err
 	}
@@ -988,15 +988,17 @@ func (s *Services) AttachDiscountCardToSale(ctx context.Context, req *domain.Add
 		}
 	}()
 
+	req.Percent = discountPercent
+
 	// create new customer_discounts
-	customerDiscount, err := s.CreateSaleCustomerDiscount(ctx, tx, req, discountCard)
+	customerDiscount, err := s.CreateSaleCustomerDiscount(ctx, tx, req)
 	if err != nil {
 		_ = tx.Rollback()
 		return nil, err
 	}
 
 	// update cart_items discount amount with total_price
-	err = s.updateCartItemDiscountValue(ctx, tx, discountCard.Percent, req.SaleId)
+	err = s.updateCartItemDiscountValue(ctx, tx, discountPercent, req.SaleId)
 	if err != nil {
 		_ = tx.Rollback()
 		return nil, err

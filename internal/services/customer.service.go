@@ -421,8 +421,8 @@ func (s *Services) CreateCustomerDiscountCard(ctx context.Context, req *domain.C
 	}
 
 	return &domain.DiscountCard{
-		ID:         customer.Id,
-		CustomerID: customer.Id,
+		Id:         customer.Id,
+		CustomerId: customer.Id,
 		Barcode:    customer.DiscountCard,
 		Percent:    customer.DiscountPercent,
 	}, nil
