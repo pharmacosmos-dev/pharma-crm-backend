@@ -376,6 +376,34 @@ func BuildTopStoreOrderClause(orderField string) string {
 	return " ORDER BY curr.total_amount DESC "
 }
 
+func BuildTopStoreOrderClauseForDashBoard(orderField string) string {
+	allowedFields := map[string]string{
+		"count":        "count",
+		"total_count":  "count",
+		"total_amount": "total_amount",
+	}
+
+	if orderField == "" {
+		return " ORDER BY total_amount DESC "
+	}
+
+	direction := "ASC"
+	field := orderField
+
+	if strings.HasPrefix(orderField, "-") {
+		direction = "DESC"
+		field = strings.TrimPrefix(orderField, "-")
+	} else if strings.HasPrefix(orderField, "+") {
+		field = strings.TrimPrefix(orderField, "+")
+	}
+
+	if dbColumn, ok := allowedFields[field]; ok {
+		return fmt.Sprintf(" ORDER BY %s %s ", dbColumn, direction)
+	}
+
+	return " ORDER BY total_amount DESC "
+}
+
 func BuildBonusReportOrderClause(orderField string) string {
 	allowedFields := map[string]string{
 		"full_name": "e.full_name",

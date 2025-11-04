@@ -173,6 +173,7 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 // @Param   end_date 	query string false "End Date"
 // @Param   store_id 	query string false "Store ID"
 // @Param	is_franchise query bool false 	"is_franchise"
+// @Param	order 		query string false "order"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -225,6 +226,7 @@ func (h *DashboardHandler) TopStores(c *gin.Context) {
 // @Param   store_id 	query string false "Store ID"
 // @Param   ids 		body  domain.DashboardBody false "Body"
 // @Param	is_franchise query bool false 	"is_franchise"
+// @Param	order 		query string false "order"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -284,6 +286,7 @@ func (h *DashboardHandler) TopProducts(c *gin.Context) {
 // @Param   store_id 	query string false "Store ID"
 // @Param   ids 		body  domain.DashboardBody false "Body"
 // @Param	is_franchise query bool false 	"is_franchise"
+// @Param	order 		query string false "order"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -345,6 +348,7 @@ func (h *DashboardHandler) BonusProducts(c *gin.Context) {
 // @Param   store_id 	query string false "Store ID"
 // @Param   ids 		body  domain.DashboardBody false "Body"
 // @Param	is_franchise query bool false 	"is_franchise"
+// @Param	order 		query string false "order"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response

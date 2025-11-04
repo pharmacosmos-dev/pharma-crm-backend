@@ -3704,6 +3704,12 @@ const docTemplate = `{
                         "description": "is_franchise",
                         "name": "is_franchise",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "order",
+                        "name": "order",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -4472,6 +4478,12 @@ const docTemplate = `{
                         "description": "is_franchise",
                         "name": "is_franchise",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "order",
+                        "name": "order",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -4555,6 +4567,12 @@ const docTemplate = `{
                         "description": "is_franchise",
                         "name": "is_franchise",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "order",
+                        "name": "order",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -4617,6 +4635,12 @@ const docTemplate = `{
                         "type": "boolean",
                         "description": "is_franchise",
                         "name": "is_franchise",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "order",
+                        "name": "order",
                         "in": "query"
                     }
                 ],
@@ -6530,12 +6554,14 @@ const docTemplate = `{
                     },
                     {
                         "type": "number",
+                        "format": "float64",
                         "description": "From Amount",
                         "name": "from_amount",
                         "in": "query"
                     },
                     {
                         "type": "number",
+                        "format": "float64",
                         "description": "To Amount",
                         "name": "to_amount",
                         "in": "query"
@@ -6635,12 +6661,14 @@ const docTemplate = `{
                     },
                     {
                         "type": "number",
+                        "format": "float64",
                         "description": "From Amount",
                         "name": "from_amount",
                         "in": "query"
                     },
                     {
                         "type": "number",
+                        "format": "float64",
                         "description": "To Amount",
                         "name": "to_amount",
                         "in": "query"
