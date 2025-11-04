@@ -2360,13 +2360,15 @@ func (h *ProductHandler) DeleteExcludedProduct(c *gin.Context) {
 func (h *ProductHandler) UpdatePackaging(c *gin.Context) {
 	var req domain.UpdatePackagingRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		handleResponse(c, BadRequest, "Invalid request: "+err.Error())
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 	// service call
-	if err := h.service.UpdatePackaging(&req); err != nil {
-		handleResponse(c, InternalError, err.Error())
+	if err := h.service.UpdatePackaging(ctx, &req); err != nil {
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
