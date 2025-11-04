@@ -454,10 +454,8 @@ type NoorCategory struct {
 // end region
 
 type UpdatePackagingRequest struct {
-	ProductID   string `json:"product_id" binding:"required"`
+	ProductId   string `json:"product_id" binding:"required"`
 	UnitPerPack int    `json:"unit_per_pack" binding:"required,min=1"`
-	CompanyID   string `json:"-"`
-	StoreID     string `json:"-"`
 }
 
 // domain/product_photo_alert.go

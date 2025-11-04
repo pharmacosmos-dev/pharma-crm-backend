@@ -1647,60 +1647,44 @@ func (s *Services) UpdateProductQuantity(ctx context.Context, req *domain.Update
 	return nil
 }
 
-func (s *Services) UpdatePackaging(req *domain.UpdatePackagingRequest) error {
-	var err error
+func (s *Services) UpdatePackaging(ctx context.Context, req *domain.UpdatePackagingRequest) error {
+	// start transaction
 	tx := s.db.Begin()
-	if tx.Error != nil {
-		s.log.Error("Failed to start transaction: ", tx.Error)
-		return tx.Error
-	}
 	defer func() {
 		if r := recover(); r != nil {
-			tx.Rollback()
-			s.log.Error("Panic recovered in UpdatePackaging: ", r)
+			_ = tx.Rollback()
 		}
 	}()
 
-	// 1. Check if product exists
-	var product domain.Product
-	err = tx.First(&product, "id = ?", req.ProductID).Error
+	err := tx.WithContext(ctx).Exec("UPDATE products SET unit_per_pack = ? WHERE unit_per_pack = 1 AND id = ?;",
+		req.UnitPerPack, req.ProductId).Error
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			tx.Rollback()
-			return errors.New("product not found")
-		}
-		s.log.Errorf("Failed to get product: %v", err)
-		tx.Rollback()
-		return err
-	}
-
-	// 2. Update product unit_per_pack
-	err = tx.Model(&domain.Product{}).
-		Where("id = ?", req.ProductID).
-		Update("unit_per_pack", req.UnitPerPack).Error
-	if err != nil {
-		tx.Rollback()
-		s.log.Errorf("Failed to update product packaging: %v", err)
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("could not update product packaging: %v", err)
+		return domain.InternalServerError
 	}
 
 	// 3. Recalculate unit_quantity in store_products
-	err = tx.Exec(`
-		UPDATE store_products
-		SET unit_quantity = pack_quantity * ?
-		WHERE product_id = ?`,
-		req.UnitPerPack, req.ProductID,
-	).Error
+	err = tx.WithContext(ctx).
+		Exec(`
+		UPDATE store_products sp
+			SET unit_quantity = unit_quantity * ?
+		FROM products p
+		  WHERE sp.product_id = p.id
+			AND p.unit_per_pack = 1
+			AND sp.product_id = ?;`,
+			req.UnitPerPack, req.ProductId,
+		).Error
 	if err != nil {
-		tx.Rollback()
-		s.log.Errorf("Failed to recalc store_products.unit_quantity: %v", err)
+		_ = tx.Rollback()
+		s.log.Errorf("could not recalc store_products.unit_quantity: %v", err)
 		return err
 	}
 
 	// 4. Commit transaction
 	if err = tx.Commit().Error; err != nil {
-		s.log.Errorf("Failed to commit transaction: %v", err)
-		return err
+		s.log.Errorf("could not commit update packaging transaction: %v", err)
+		return domain.InternalServerError
 	}
 
 	return nil
