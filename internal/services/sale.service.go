@@ -227,6 +227,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 			return nil, err
 		}
 		sale.Customer = customer
+		sale.CustomerId = customer.Id
 	}
 
 	// check if sale is already completed
@@ -321,6 +322,12 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 					sale.Customer.LoyaltyCardPercent,
 					req.SaleID,
 				)
+				updates["customer_id"] = sale.Customer.Id
+			}
+
+			// adding loyalty card payment to sale for minus from customer balance in future
+			if req.LoyaltyCard > 0 {
+				sale.LoyaltyCard = req.LoyaltyCard
 			}
 		}
 
@@ -358,6 +365,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 					sale.Customer.LoyaltyCardPercent,
 					req.SaleID,
 				)
+				updates["customer_id"] = sale.Customer.Id
 			}
 		}
 	}
@@ -606,6 +614,15 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 
 	// Stage 3: Handle Inventory (stage 9)
 	if sale.Stage < constants.SaleStageFinished {
+		// get customer if loyalty card added to sale
+		if sale.CashBack > 0 && sale.CustomerId != "" {
+			customer, err := s.GetCustomerById(ctx, sale.CustomerId)
+			if err != nil {
+				return nil, err
+			}
+			sale.Customer = customer
+		}
+
 		err = s.ApplySaleInventoryUpdate(ctx, tx, sale, "")
 		if err != nil {
 			_ = tx.Rollback()
@@ -949,17 +966,31 @@ func (s *Services) AddSaleBonuses(sale *domain.Sale, req []domain.CartItemWithPr
 			return
 		}
 	}
-	fmt.Println("CustomerId", sale.CustomerId)
 
+	// add cashback to customer balance
 	if sale.CashBack > 0 || loyaltyCardBarcode != "" {
 		err := s.db.Exec(`
 UPDATE
     customers
 SET
     balance = balance + (SELECT (COALESCE(SUM(total_price) - SUM(discount_amount), 0)::numeric * 1 / 100) FROM cart_items WHERE sale_id = ?)
-WHERE id = ?`, sale.Id, sale.Customer.Id).Error
+WHERE id = ?`, sale.Id, sale.CustomerId).Error
 		if err != nil {
 			s.log.Errorf("could not update customer balance: %v", err)
+			return
+		}
+	}
+
+	// deduct from loyalty card balance
+	if sale.LoyaltyCard > 0 && sale.CustomerId != "" {
+		err := s.db.Exec(`
+UPDATE
+	customers
+SET
+	balance = balance - ?
+WHERE id = ?`, sale.LoyaltyCard, sale.CustomerId).Error
+		if err != nil {
+			s.log.Errorf("could not deduct from customer balance: %v", err)
 			return
 		}
 	}
