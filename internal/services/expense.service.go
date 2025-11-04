@@ -432,7 +432,7 @@ func (s *Services) sendReportWithNumberTo1C(store *domain.Store, date string) er
 	endTime := dokTime.Add(19 * time.Hour)
 
 	// complete get expense product list
-	err = s.db.Debug().Raw(
+	err = s.db.Raw(
 		expenseProductQuery,
 		store.Id,
 		startTime,
@@ -449,7 +449,7 @@ func (s *Services) sendReportWithNumberTo1C(store *domain.Store, date string) er
         COALESCE(SUM(s.total_discount), 0) AS discount_sum
     FROM sales s
     WHERE s.store_id = ?
-      AND s.stage = 9
+      AND s.stage IN(9, 11)
       AND s.completed_at BETWEEN ? AND ?;
 `
 
