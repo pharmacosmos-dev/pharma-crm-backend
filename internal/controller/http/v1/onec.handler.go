@@ -356,26 +356,23 @@ func (h *ProductOnecHandler) ListProductByStoreCode(c *gin.Context) {
 func (h *ProductOnecHandler) ProductRepricing(c *gin.Context) {
 	var (
 		body  domain.RepricingRequest1C
-		err   error
 		store domain.Store
 	)
 	// bind request body
-	err = c.ShouldBindJSON(&body)
-	if err != nil {
-		h.log.Warn("ERROR on binding request body: %v", err)
-		handleResponse(c, BadRequest, "invalid.request.body")
+	if err := c.ShouldBindJSON(&body); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
 
 	// get store info
-	err = h.db.First(&store, "store_code = ?", body.Apteka.StoreCode).Error
+	err := h.db.First(&store, "store_code = ?", body.Apteka.StoreCode).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			handleResponse(c, NotFound, "store.not.found")
+			handleServiceResponse(c, NotFound, domain.NotFoundError)
 			return
 		}
-		h.log.Warn("ERROR on getting store info: %v", err)
-		handleResponse(c, InternalError, "failed.to.get.store")
+		h.log.Errorf("could not get store info: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 
@@ -385,6 +382,9 @@ func (h *ProductOnecHandler) ProductRepricing(c *gin.Context) {
 		return
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
 	// start transaction
 	tx := h.db.Begin()
 	defer func() {
@@ -393,12 +393,6 @@ func (h *ProductOnecHandler) ProductRepricing(c *gin.Context) {
 		}
 	}()
 
-	// rollback function
-	defer func() {
-		if err != nil {
-			tx.Rollback()
-		}
-	}()
 	// check if price revalution already exists
 	var res *domain.PriceRevalution
 	err = tx.First(&res, "name = ? ", body.Dok.DocumentNumber).Error
@@ -413,8 +407,9 @@ func (h *ProductOnecHandler) ProductRepricing(c *gin.Context) {
 				Status:    constants.GeneralStatusCompleted,
 			})
 			if err != nil {
-				h.log.Warn("ERROR on creating new price_revalution: %v", err)
-				handleResponse(c, InternalError, "failed.to.create.repricing")
+				_ = tx.Rollback()
+				h.log.Errorf("could not create new price_revalution: %v", err)
+				handleServiceResponse(c, nil, domain.InternalServerError)
 				return
 			}
 		}
@@ -425,22 +420,26 @@ func (h *ProductOnecHandler) ProductRepricing(c *gin.Context) {
 	var products []domain.PriceRevalutionDetailRequest
 	for _, v := range body.Товары {
 		// get product_id by material_code
-		var productID string
-		productID, err = h.service.GetProductIDByCode(int64(v.MaterialCode))
+		var productId string
+		productId, err = h.service.GetProductIDByCode(int64(v.MaterialCode))
 		if err != nil {
-			h.log.Warn("ERROR on getting product_id by material_code: %v", err)
+			_ = tx.Rollback()
+			h.log.Errorf("could not get product_id by material_code: %v", err)
+			handleServiceResponse(c, nil, domain.NotFoundError)
+			return
 		}
 		// update retail price by store_product id
 		err = h.service.UpdateRetailPrice(v.Id, v.NewRetailPrice)
 		if err != nil {
-			h.log.Warn("ERROR on updating retail_price: %v", err)
-			handleResponse(c, InternalError, "failed.update.retail_price")
+			_ = tx.Rollback()
+			h.log.Errorf("could not update retail_price: %v", err)
+			handleServiceResponse(c, InternalError, domain.InternalServerError)
 			return
 		}
 		// collect detail data
 		products = append(products, domain.PriceRevalutionDetailRequest{
 			PriceRevalutionId: res.Id,
-			ProductID:         productID,
+			ProductID:         productId,
 			StoreProductID:    v.Id,
 			OldRetailPrice:    v.RetailPrice,
 			NewRetailPrice:    v.NewRetailPrice,
@@ -451,16 +450,17 @@ func (h *ProductOnecHandler) ProductRepricing(c *gin.Context) {
 	}
 
 	// create price revalution details
-	err = h.service.CreatePriceRevalutionDetail(tx, products)
+	err = h.service.CreatePriceRevalutionDetail(ctx, tx, products)
 	if err != nil {
-		handleResponse(c, InternalError, "failed to create price revalution")
+		_ = tx.Rollback()
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
 	// commit transaction
-	err = tx.Commit().Error
-	if err != nil {
-		handleResponse(c, InternalError, "not.committed.transcation")
+	if err = tx.Commit().Error; err != nil {
+		h.log.Errorf("could not commit product repricing transaction: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 
@@ -511,15 +511,10 @@ func (h *ProductOnecHandler) UpdateQuantity(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /product1c/multi-repricing [POST]
 func (h *ProductOnecHandler) MultiProductRepricing(c *gin.Context) {
-	var (
-		body domain.MultiRepricingRequest1C
-		err  error
-	)
-
+	var body domain.MultiRepricingRequest1C
 	// bind request body
-	if err = c.ShouldBindJSON(&body); err != nil {
-		h.log.Warn("ERROR on binding request body: %v", err)
-		handleResponse(c, BadRequest, "invalid.request.body")
+	if err := c.ShouldBindJSON(&body); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
 
@@ -528,6 +523,9 @@ func (h *ProductOnecHandler) MultiProductRepricing(c *gin.Context) {
 		return
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
 	// start transaction (bitta hujjat bo‘yicha umumiy transaction)
 	tx := h.db.Begin()
 	defer func() {
@@ -535,22 +533,19 @@ func (h *ProductOnecHandler) MultiProductRepricing(c *gin.Context) {
 			tx.Rollback()
 		}
 	}()
-	defer func() {
-		if err != nil {
-			tx.Rollback()
-		}
-	}()
 
 	for _, aptekaReq := range body.Aptekas {
 		// get store info
 		var store domain.Store
-		if err = tx.First(&store, "store_code = ?", aptekaReq.Apteka.StoreCode).Error; err != nil {
+		if err := tx.First(&store, "store_code = ?", aptekaReq.Apteka.StoreCode).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				handleResponse(c, NotFound, "store.not.found")
+				_ = tx.Rollback()
+				handleServiceResponse(c, NotFound, domain.NotFoundError)
 				return
 			}
-			h.log.Warn("ERROR on getting store info: %v", err)
-			handleResponse(c, InternalError, "failed.to.get.store")
+			_ = tx.Rollback()
+			h.log.Errorf("could not get store info: %v", err)
+			handleResponse(c, InternalError, domain.InternalServerError)
 			return
 		}
 
@@ -560,7 +555,7 @@ func (h *ProductOnecHandler) MultiProductRepricing(c *gin.Context) {
 
 		// check if price revalution already exists
 		var res *domain.PriceRevalution
-		err = tx.First(&res, "name = ? AND store_id = ?", body.Dok.DocumentNumber, store.Id).Error
+		err := tx.First(&res, "name = ? AND store_id = ?", body.Dok.DocumentNumber, store.Id).Error
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				// create new price revalution for this store
@@ -572,8 +567,9 @@ func (h *ProductOnecHandler) MultiProductRepricing(c *gin.Context) {
 					Status:    constants.GeneralStatusCompleted,
 				})
 				if err != nil {
-					h.log.Warn("ERROR on creating price_revalution: %v", err)
-					handleResponse(c, InternalError, "failed.to.create.repricing")
+					_ = tx.Rollback()
+					h.log.Errorf("could not create price_revalution: %v", err)
+					handleServiceResponse(c, InternalError, domain.InternalServerError)
 					return
 				}
 			}
@@ -583,22 +579,26 @@ func (h *ProductOnecHandler) MultiProductRepricing(c *gin.Context) {
 		var products []domain.PriceRevalutionDetailRequest
 		for _, v := range aptekaReq.Товары {
 			// get product_id by material_code
-			var productID string
-			productID, err = h.service.GetProductIDByCode(int64(v.MaterialCode))
+			var productId string
+			productId, err = h.service.GetProductIDByCode(int64(v.MaterialCode))
 			if err != nil {
-				h.log.Warn("ERROR on getting product_id: %v", err)
+				_ = tx.Rollback()
+				h.log.Errorf("could not get product_id: %v", err)
+				handleServiceResponse(c, nil, domain.NotFoundError)
+				return
 			}
 
 			// update retail price
 			if err = h.service.UpdateRetailPrice(v.Id, v.NewRetailPrice); err != nil {
-				h.log.Warn("ERROR on updating retail_price: %v", err)
-				handleResponse(c, InternalError, "failed.update.retail_price")
+				_ = tx.Rollback()
+				h.log.Errorf("could not update retail_price: %v", err)
+				handleServiceResponse(c, InternalError, domain.InternalServerError)
 				return
 			}
 
 			products = append(products, domain.PriceRevalutionDetailRequest{
 				PriceRevalutionId: res.Id,
-				ProductID:         productID,
+				ProductID:         productId,
 				StoreProductID:    v.Id,
 				OldRetailPrice:    v.RetailPrice,
 				NewRetailPrice:    v.NewRetailPrice,
@@ -609,15 +609,17 @@ func (h *ProductOnecHandler) MultiProductRepricing(c *gin.Context) {
 		}
 
 		// create details
-		if err = h.service.CreatePriceRevalutionDetail(tx, products); err != nil {
-			handleResponse(c, InternalError, "failed.to.create.repricing.details")
+		if err = h.service.CreatePriceRevalutionDetail(ctx, tx, products); err != nil {
+			_ = tx.Rollback()
+			handleServiceResponse(c, InternalError, err)
 			return
 		}
 	}
 
 	// commit transaction
-	if err = tx.Commit().Error; err != nil {
-		handleResponse(c, InternalError, "not.committed.transaction")
+	if err := tx.Commit().Error; err != nil {
+		h.log.Errorf("could not commit multi repricing transaction: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 

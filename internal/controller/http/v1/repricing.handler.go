@@ -11,7 +11,6 @@ import (
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
-	"github.com/spf13/cast"
 	"github.com/xuri/excelize/v2"
 )
 
@@ -57,27 +56,25 @@ func (h *RepricingHandler) RepricingRoutes(r *gin.RouterGroup) {
 // @Failure 500 {object} v1.Response
 // @Router /repricing [POST]
 func (h *RepricingHandler) Create(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
 	var request domain.RepricingRequest
-	// Bind the request body to the ReturnRequest struct
 	if err := c.ShouldBindJSON(&request); err != nil {
-		h.log.Warn("Error on binding request: %v", err.Error())
-		handleResponse(c, BadRequest, "invalid.request.body")
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
-	// get user_id from the set header
-	userId, ok := c.Get("user_id")
-	if !ok {
-		h.log.Warn("Error on getting user id from context")
-		handleResponse(c, BadRequest, "not.authorized")
-		return
-	}
-	createdBy := cast.ToString(userId)
-	request.CreatedBy = &createdBy // get creator id from set header
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	request.CreatedBy = &user.UserId
 	// create repricing
-	_, err := h.service.CreateRepricing(&request)
+	_, err := h.service.CreateRepricing(ctx, &request)
 	if err != nil {
-		h.log.Warn("Error on creating repricing: %v", err)
-		handleResponse(c, InternalError, "failed.to.create.repricing")
+		handleServiceResponse(c, nil, err)
 		return
 	}
 
@@ -327,24 +324,26 @@ func (h *RepricingHandler) ExportRepricingExcel(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /repricing/confirm/{id} [POST]
 func (h *RepricingHandler) Confirm(c *gin.Context) {
-	var id = c.Param("id")
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
 
+	var id = c.Param("id")
 	repricingId, err := strconv.Atoi(id)
 	if err != nil {
-		handleResponse(c, BadRequest, "Ivlaid repricing ID")
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 
-	// get user id from the context
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "user id not found from the context")
-		return
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
 	// confirm repricing service
-	err = h.service.ConfirmRepricing(repricingId, userId.(string))
+	err = h.service.ConfirmRepricing(ctx, repricingId, user.UserId)
 	if err != nil {
-		handleResponse(c, InternalError, "Failed to confirm repricing")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
