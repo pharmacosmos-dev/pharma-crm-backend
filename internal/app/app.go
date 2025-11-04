@@ -68,7 +68,7 @@ func Run(cfg *config.Config) {
 	})
 	c.AddFunc("0 * * * *", func ()  {
 		log.Println("Staring checking customers' loyalty leveling up...")
-		
+		service.LoyaltyCardLevelingUp()
 	})
 
 	c.Start()
