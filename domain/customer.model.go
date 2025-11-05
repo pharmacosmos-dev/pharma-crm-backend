@@ -15,6 +15,7 @@ type Customer struct {
 	Birthday             string     `gorm:"birthday" json:"birthday" example:"2006-01-02"`
 	Gender               string     `gorm:"gender" json:"gender" example:"male/female"`
 	Balance              float64    `gorm:"balance" json:"balance"`
+	SpendingFromBalance  float64    `gorm:"spending_from_balance" json:"spending_from_balance"`
 	TagId                string     `gorm:"tag_id" json:"tag_id"`
 	DiscountCard         string     `gorm:"discount_card" json:"discount_card"`
 	DiscountPercent      int        `gorm:"discount_percent" json:"discount_percent"`
@@ -33,6 +34,7 @@ type Customer struct {
 	LoyaltyCardLevelId   string     `gorm:"loyalty_card_level_id" json:"loyalty_card_level_id"`
 	LoyaltyCardType      string     `gorm:"loyalty_card_type" json:"loyalty_card_type"`
 	LoyaltyCardCreatedBy string     `gorm:"loyalty_card_created_by" json:"loyalty_card_created_by"`
+	LoyaltyCardCreatedAt *time.Time `gorm:"loyalty_card_created_at" json:"loyalty_card_created_at"`
 	TelegramChatId       int64      `gorm:"telegram_chat_id" json:"telegram_chat_id"`
 }
 

@@ -73,7 +73,8 @@ func (s *Services) CreateLoyaltyCard(req *domain.LoyaltyCardCreateRequest) (*dom
 		loyalty_card_percent = ?,
 		loyalty_card_level_id = ?,
 		loyalty_card_type = ?,
-		loyalty_card_created_by = ?
+		loyalty_card_created_by = ?,
+		loyalty_card_created_at = NOW()
 	WHERE
 		id = ?
 	RETURNING *`,

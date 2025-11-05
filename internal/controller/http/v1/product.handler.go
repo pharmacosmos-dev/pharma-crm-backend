@@ -79,6 +79,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.POST("/photo-alert", h.CreateProductPhotoAlert)
 		product.POST("/photo-alert/list", h.ListProductPhotoAlert)
 		product.DELETE("/photo-alert/:id", h.DeleteProductPhotoAlert)
+		// product.GET("/remaining-product-by-date", h.RemainingProductsByDate)
 	}
 }
 
