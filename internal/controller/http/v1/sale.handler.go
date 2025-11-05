@@ -718,6 +718,11 @@ func (h *SaleHandler) EposResult(c *gin.Context) {
 		return
 	}
 
+	// Get order lock
+	lock := h.getOrderLock(body.SaleId)
+	lock.Lock()
+	defer lock.Unlock()
+
 	sale, err := h.service.EposResult(ctx, &body, user)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
