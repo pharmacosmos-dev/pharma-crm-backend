@@ -1,0 +1,281 @@
+package services
+
+import (
+	"context"
+	"errors"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
+	"github.com/pharma-crm-backend/pkg/utils"
+	"github.com/spf13/cast"
+	"gorm.io/gorm"
+)
+
+func (s *Services) CreateImportFromOnec(ctx context.Context, req *domain.CreateOnecImportDto) error {
+	company, err := s.getCompanyForCheckFranchise(ctx, req.Apteka.Franshiza)
+	if err != nil {
+		return err
+	}
+
+	// start transaction
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
+		}
+	}()
+	// get store info
+	store, err := s.getOrCreateStoreByStoreCode(ctx, tx, &req.Apteka, company.ID)
+	if err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+
+	// create new import
+	importId, err := s.createNewImportOnImportingOnec(ctx, tx, &domain.ImportRequest{
+		StoreID:        store.Id,
+		DocumentNumber: req.Dok.DocumentNumber,
+	})
+	if err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+
+	// create or get product(markings, barcodes) and create import_details
+	err = s.createOrGetProductAndImportDetails(ctx, tx, req.Товары, importId, company.ID, store.Id)
+	if err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+
+	// check transaction completed
+	if err = tx.Commit().Error; err != nil {
+		s.log.Errorf("could not commited create onec import transaction: %v", err)
+		return domain.InternalServerError
+	}
+
+	go s.updateImportTotalsAfterCreateNewImport(importId)
+
+	return nil
+}
+
+func (s *Services) getCompanyForCheckFranchise(ctx context.Context, isFranchise bool) (*domain.Company, error) {
+	var company domain.Company
+	if isFranchise {
+		err := s.db.WithContext(ctx).First(&company, "name ilike ?", "%"+constants.PharmaCosmos+"%").Error // todo 1c given companyName
+		if err != nil {
+			s.log.Errorf("could not get company for check franchise: %v", err)
+			return nil, domain.InternalServerError
+		}
+	} else {
+		err := s.db.WithContext(ctx).First(&company, "name ilike ?", "%"+constants.PharmaCosmos+"%").Error
+		if err != nil {
+			s.log.Errorf("could not get company for check franchise: %v", err)
+			return nil, domain.InternalServerError
+		}
+	}
+
+	return &company, nil
+}
+
+func (s *Services) getOrCreateStoreByStoreCode(ctx context.Context, tx *gorm.DB, req *domain.Apteka, companyId string) (*domain.Store, error) {
+	// get store info
+	var store domain.Store
+	err := tx.WithContext(ctx).First(&store, "store_code = ?", req.StoreCode).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		store, err = s.CreateStoreOnImport(ctx, tx, &domain.StoreRequest{Name: req.Name, StoreCode: req.StoreCode, CompanyId: companyId})
+		if err != nil {
+			return nil, err
+		}
+	} else if err != nil {
+		s.log.Errorf("could not get store by store_code on importing: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	return &store, nil
+}
+
+func (s *Services) createNewImportOnImportingOnec(ctx context.Context, tx *gorm.DB, req *domain.ImportRequest) (string, error) {
+	var importId string
+	// create new import
+	query := `INSERT INTO imports(store_id, status, import_date, document_number) VALUES(?, ?, ?, ?) RETURNING id;`
+	err := tx.WithContext(ctx).Debug().Raw(query, req.StoreID, constants.GeneralStatusNew, time.Now(), req.DocumentNumber).Scan(&importId).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(err.Error(), "unique constraint") {
+			s.log.Errorf("duplicate document_number: %v", err)
+			return "", domain.AlreadyExistsError
+		}
+		s.log.Errorf("could not create new import dok on importing: %v", err)
+		return "", domain.InternalServerError
+	}
+
+	return importId, nil
+}
+
+func (s *Services) createOrGetProductAndImportDetails(
+	ctx context.Context,
+	tx *gorm.DB,
+	products []domain.ProductRequestOnecDto,
+	importId string,
+	companyId string,
+	storeId string,
+) error {
+	for i := range products {
+		// get producer by code
+		producer, err := s.GetProducerByCode(ctx, tx, products[i].Manufacturer)
+		if err != nil {
+			s.log.Errorf("could not get producer by code on importing: %v", err)
+			return domain.InternalServerError
+		}
+		// create product id
+		productId := uuid.New().String()
+		// create or update product
+		err = tx.WithContext(ctx).Raw(`
+		INSERT INTO products (
+			material_code, 
+			name, 
+			barcode, 
+			producer_id, 
+			mxik, 
+			is_marking,
+			company_id
+			)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT (material_code) DO UPDATE
+		SET
+			producer_id = EXCLUDED.producer_id,
+			is_marking = EXCLUDED.is_marking
+		RETURNING id`,
+			products[i].MaterialCode,
+			products[i].Name,
+			products[i].Barcode,
+			producer.Id,
+			products[i].Ikpu,
+			products[i].Mar,
+			companyId,
+		).Scan(&productId).Error
+		if err != nil {
+			s.log.Errorf("could not creating new product on importing: %v", err)
+			return domain.InternalServerError
+		}
+		err = tx.WithContext(ctx).Exec(`
+    		INSERT INTO product_barcodes (
+				product_id, 
+				barcode, 
+				status
+				)
+    		SELECT 
+				?, ?, ?
+    		WHERE NOT EXISTS (
+    		    SELECT 1 FROM product_barcodes 
+    		    WHERE product_id = ? AND barcode = ? AND status = ?
+    		)
+		`, productId,
+			products[i].Barcode,
+			constants.GeneralStatusCompleted,
+			productId,
+			products[i].Barcode,
+			constants.GeneralStatusCompleted,
+		).Error
+		if err != nil {
+			s.log.Errorf("could not create product barcode: %v", err)
+			return domain.InternalServerError
+		}
+		// create import_detail
+		var id string
+		err = tx.WithContext(ctx).Debug().Raw(`
+		INSERT INTO import_details(
+			product_id, 
+			import_id,
+			received_count, 
+			scanned_count, 
+			supply_price, 
+			supply_price_vat,
+			retail_price, 
+			retail_price_vat,
+			vat, 
+			vat_sum, 
+			expire_date, 
+			series_number, 
+			sum_vat, 
+			marking
+			) 
+			VALUES(
+				?, ?, ?, 
+				?, ?, ?, 
+				?, ?, ?, 
+				?, ?, ?, 
+				?, ?) 
+			RETURNING id`,
+			productId,
+			importId,
+			products[i].Quantity,
+			products[i].Quantity,
+			products[i].SupplyPrice,
+			products[i].SupplyPriceVat,
+			products[i].RetailPrice,
+			products[i].RetailPriceVat,
+			cast.ToInt(products[i].Vat),
+			products[i].VatSum,
+			products[i].ExpireDate,
+			products[i].ProductSeriesNumber,
+			products[i].SumVat,
+			utils.StringArray(products[i].Markirovka),
+		).Scan(&id).Error
+		if err != nil {
+			s.log.Errorf("could not create import_details on importing: %v", err)
+			return domain.InternalServerError
+		}
+		for _, marking := range products[i].Markirovka {
+			err = tx.WithContext(ctx).Exec(`
+				INSERT INTO product_markings (
+					import_detail_id, 
+					product_id, 
+					marking, 
+					store_id
+					)
+				VALUES(?, ?, ?, ?)`,
+				id,
+				productId,
+				marking,
+				storeId,
+			).Error
+			if err != nil {
+				s.log.Errorf("could not insert marking on importing on importing: %v", err)
+				return domain.InternalServerError
+			}
+		}
+	}
+
+	return nil
+
+}
+
+func (s *Services) updateImportTotalsAfterCreateNewImport(importId string) {
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	query := `
+	UPDATE imports i
+	SET
+		received_count = t.received_count,
+		received_sum   = t.received_sum
+	FROM (
+		SELECT
+			import_id,
+			COALESCE(SUM(received_count), 0) AS received_count,
+			COALESCE(SUM(received_count * retail_price_vat), 0) AS received_sum
+		FROM import_details
+		GROUP BY import_id
+	) AS t
+	WHERE i.id = ? AND i.id = t.import_id  AND i.entry_type = 1;
+	`
+	err := s.db.WithContext(ctx).Exec(query, importId).Error
+	if err != nil {
+		s.log.Errorf("could not update import totals after create new import: %v", err)
+		return
+	}
+}

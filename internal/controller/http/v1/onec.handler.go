@@ -4,15 +4,11 @@ import (
 	"context"
 	"errors"
 	"strconv"
-	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/etc"
-	"github.com/pharma-crm-backend/pkg/utils"
-	"github.com/spf13/cast"
 	"gorm.io/gorm"
 )
 
@@ -51,217 +47,22 @@ func (h *ProductOnecHandler) ProductOnecRoutes(r *gin.RouterGroup) {
 // @Failure 500 {object} v1.Response
 // @Router /product1c [POST]
 func (h *ProductOnecHandler) Create(c *gin.Context) {
-	var body domain.CreateProduct1C
+	var body domain.CreateOnecImportDto
 	// bind request body
 	if err := c.ShouldBindJSON(&body); err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
+		h.log.Errorf("could not bind onec import request: %v", err)
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
 
-	var company domain.Company
-	if body.Apteka.Franshiza {
-		err := h.db.First(&company, "name ilike ?", "%"+constants.PharmaCosmos+"%").Error // todo 1c given companyName
-		if err != nil {
-			handleResponse(c, InternalError, "Failed to get company info")
-			return
-		}
-	} else {
-		err := h.db.First(&company, "name ilike ?", "%"+constants.PharmaCosmos+"%").Error
-		if err != nil {
-			handleResponse(c, InternalError, "Failed to get company info")
-			return
-		}
-	}
-	// start transaction
-	tx := h.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			_ = tx.Rollback()
-		}
-	}()
-	// get store info
-	var store domain.Store
-	err := h.db.First(&store, "store_code = ?", body.Apteka.StoreCode).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		store, err = h.service.CreateStoreOnImport(&domain.StoreRequest{Name: body.Apteka.Name, StoreCode: body.Apteka.StoreCode, CompanyId: company.ID})
-		if err != nil {
-			_ = tx.Rollback()
-			handleResponse(c, InternalError, "could.not.create.store")
-			return
-		}
-	} else if err != nil {
-		_ = tx.Rollback()
-		handleResponse(c, InternalError, "could.not.check.store.info")
-		return
-	}
-	// collect import data
-	newImport := domain.ImportRequest{
-		Id:             uuid.New().String(),
-		StoreID:        store.Id,
-		Status:         constants.GeneralStatusNew,
-		ImportDate:     body.Dok.DocumentDate,
-		DocumentNumber: body.Dok.DocumentNumber,
-	}
-	// create new import
-	err = tx.Table("imports").Create(&newImport).Error
+	ctx, cancel := context.WithTimeout(context.Background(), constants.ContextTimeoutForReports)
+	defer cancel()
+
+	err := h.service.CreateImportFromOnec(ctx, &body)
 	if err != nil {
-		if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(err.Error(), "unique constraint") {
-			_ = tx.Rollback()
-			h.log.Errorf("duplicate document_number: %v", err)
-			handleServiceResponse(c, OK, domain.AlreadyExistsError)
-			return
-		}
-		_ = tx.Rollback()
-		h.log.Errorf("could not create dok: %v", err)
-		handleServiceResponse(c, InternalError, domain.InternalServerError)
+		handleServiceResponse(c, nil, err)
 		return
 	}
-	for i := range body.Товары {
-		// get producer by code
-		producer, err := h.service.GetProducerByCode(c.Request.Context(), body.Товары[i].Manufacturer)
-		if err != nil {
-			_ = tx.Rollback()
-			h.log.Errorf("could not get producer by code: %v", err)
-			handleServiceResponse(c, InternalError, domain.InternalServerError)
-			return
-		}
-		// create product id
-		productId := uuid.New().String()
-		// create or update product
-		err = tx.Raw(`
-		INSERT INTO products (
-			material_code, 
-			name, 
-			barcode, 
-			producer_id, 
-			mxik, 
-			is_marking,
-			company_id
-			)
-		VALUES (?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT (material_code) DO UPDATE
-		SET
-			producer_id = EXCLUDED.producer_id,
-			is_marking = EXCLUDED.is_marking
-		RETURNING id`,
-			body.Товары[i].MaterialCode,
-			body.Товары[i].Name,
-			body.Товары[i].Barcode,
-			producer.Id,
-			body.Товары[i].Ikpu,
-			body.Товары[i].Mar,
-			company.ID,
-		).Scan(&productId).Error
-		if err != nil {
-			_ = tx.Rollback()
-			h.log.Errorf("could not creating new product: %v", err)
-			handleServiceResponse(c, BadRequest, domain.InternalServerError)
-			return
-		}
-		err = tx.Exec(`
-    		INSERT INTO product_barcodes (
-				product_id, 
-				barcode, 
-				status
-				)
-    		SELECT 
-				?, ?, ?
-    		WHERE NOT EXISTS (
-    		    SELECT 1 FROM product_barcodes 
-    		    WHERE product_id = ? AND barcode = ? AND status = ?
-    		)
-		`, productId,
-			body.Товары[i].Barcode,
-			constants.GeneralStatusCompleted,
-			productId,
-			body.Товары[i].Barcode,
-			constants.GeneralStatusCompleted,
-		).Error
-		if err != nil {
-			_ = tx.Rollback()
-			h.log.Errorf("could not create product barcode: %v", err)
-			handleServiceResponse(c, BadRequest, domain.InternalServerError)
-			return
-		}
-		// create import_detail
-		var id string
-		err = tx.Raw(`
-		INSERT INTO import_details(
-			product_id, 
-			import_id,
-			received_count, 
-			scanned_count, 
-			supply_price, 
-			supply_price_vat,
-			retail_price, 
-			retail_price_vat,
-			vat, 
-			vat_sum, 
-			expire_date, 
-			series_number, 
-			sum_vat, 
-			marking
-			) 
-			VALUES(
-				?, ?, ?, 
-				?, ?, ?, 
-				?, ?, ?, 
-				?, ?, ?, 
-				?, ?) 
-			RETURNING id`,
-			productId,
-			newImport.Id,
-			body.Товары[i].Quantity,
-			body.Товары[i].Quantity,
-			body.Товары[i].SupplyPrice,
-			body.Товары[i].SupplyPriceVat,
-			body.Товары[i].RetailPrice,
-			body.Товары[i].RetailPriceVat,
-			cast.ToInt(body.Товары[i].Vat),
-			body.Товары[i].VatSum,
-			body.Товары[i].ExpireDate,
-			body.Товары[i].ProductSeriesNumber,
-			body.Товары[i].SumVat,
-			utils.StringArray(body.Товары[i].Markirovka),
-		).Scan(&id).Error
-		if err != nil {
-			_ = tx.Rollback()
-			h.log.Errorf("could not create import_details: %v", err)
-			handleServiceResponse(c, InternalError, domain.InternalServerError)
-			return
-		}
-		for _, marking := range body.Товары[i].Markirovka {
-			err = tx.Exec(`
-				INSERT INTO product_markings (
-					import_detail_id, 
-					product_id, 
-					marking, 
-					store_id
-					)
-				VALUES(?, ?, ?, ?)`,
-				id,
-				productId,
-				marking,
-				store.Id,
-			).Error
-			if err != nil {
-				_ = tx.Rollback()
-				h.log.Errorf("could not insert marking on importing: %v", err)
-				handleServiceResponse(c, InternalError, domain.InternalServerError)
-				return
-			}
-		}
-	}
-
-	// check transaction completed
-	if err = tx.Commit().Error; err != nil {
-		h.log.Errorf("could not commited transaction: %v", err)
-		handleServiceResponse(c, InternalError, domain.InternalServerError)
-		return
-	}
-
-	go h.service.UpdateImportTotal(newImport.Id)
 
 	handleResponse(c, OK, "CREATED")
 }

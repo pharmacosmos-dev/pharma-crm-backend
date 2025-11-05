@@ -778,29 +778,3 @@ func (s *Services) performImportTotals(ctx context.Context) {
 		s.log.Errorf("could not update new imports total: %v", err)
 	}
 }
-
-func (s *Services) UpdateImportTotal(importId string) {
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-	defer cancel()
-
-	query := `
-	UPDATE imports i
-	SET
-		received_count = t.received_count,
-		received_sum   = t.received_sum
-	FROM (
-		SELECT
-			import_id,
-			COALESCE(SUM(received_count), 0) AS received_count,
-			COALESCE(SUM(received_count * retail_price_vat), 0) AS received_sum
-		FROM import_details
-		GROUP BY import_id
-	) AS t
-	WHERE i.id = ? AND i.id = t.import_id  AND i.entry_type = 1;
-	`
-	err := s.db.WithContext(ctx).Exec(query, importId).Error
-	if err != nil {
-		s.log.Errorf("could not update import totals after create new import: %v", err)
-		return
-	}
-}

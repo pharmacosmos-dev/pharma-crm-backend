@@ -3,7 +3,6 @@ package domain
 import (
 	"time"
 
-	"github.com/go-playground/validator/v10"
 	"github.com/pharma-crm-backend/pkg/utils"
 )
 
@@ -134,7 +133,7 @@ type Apteka struct {
 }
 
 // Request structure for 1C API
-type ProductRequest1C struct {
+type ProductRequestOnecDto struct {
 	Id                  string   `gorm:"type:uuid;default:gen_random_uuid()" json:"-" validate:"omitempty,uuid4"`
 	MaterialCode        int      `gorm:"material_code" json:"material_code" validate:"required,gt=0"`
 	Name                string   `gorm:"name" json:"name" validate:"required,min=1,max=500"`
@@ -158,24 +157,11 @@ type ProductRequest1C struct {
 	Markirovka          []string `gorm:"-" json:"markirovka"`
 }
 
-var validate *validator.Validate
-
-// Validate checks the struct fields.
-func (p *ProductRequest1C) Validate() error {
-
-	// Check struct validations
-	if err := validate.Struct(p); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // Create Tovar structure for 1C API
-type CreateProduct1C struct {
-	Dok    Document           `json:"Dok"`
-	Apteka Apteka             `json:"Apteka"`
-	Товары []ProductRequest1C `json:"Товары"`
+type CreateOnecImportDto struct {
+	Dok    Document                `json:"Dok"`
+	Apteka Apteka                  `json:"Apteka"`
+	Товары []ProductRequestOnecDto `json:"Товары"`
 }
 
 // Product response with cart items

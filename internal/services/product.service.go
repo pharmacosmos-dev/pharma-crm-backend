@@ -96,10 +96,10 @@ func (s *Services) CreateProduct(ctx context.Context, req *domain.ProductRequest
 }
 
 // create new producer
-func (s *Services) CreateProducer(ctx context.Context, code string) (*domain.Producer, error) {
+func (s *Services) CreateProducer(ctx context.Context, tx *gorm.DB, code string) (*domain.Producer, error) {
 	var producer domain.Producer
 	query := `INSERT INTO producers (code) VALUES (?) RETURNING *`
-	err := s.db.WithContext(ctx).Raw(query, code).Scan(&producer).Error
+	err := tx.WithContext(ctx).WithContext(ctx).Raw(query, code).Scan(&producer).Error
 	if err != nil {
 		s.log.Errorf("could not create new producer: %v", err)
 		return nil, domain.InternalServerError
@@ -793,14 +793,14 @@ func (s *Services) GetProductIKPUByMxik(ctx context.Context, mxik string) (*doma
 	return &measurement, nil
 }
 
-func (s *Services) GetProducerByCode(ctx context.Context, code string) (*domain.Producer, error) {
+func (s *Services) GetProducerByCode(ctx context.Context, tx *gorm.DB, code string) (*domain.Producer, error) {
 	var producer domain.Producer
-	err := s.db.Raw(`SELECT id, name, code, created_at, updated_at FROM producers WHERE code = ?`, code).Scan(&producer).Error
+	err := tx.WithContext(ctx).Raw(`SELECT id, name, code, created_at, updated_at FROM producers WHERE code = ?`, code).Scan(&producer).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			producerData, err := s.CreateProducer(ctx, code)
+			producerData, err := s.CreateProducer(ctx, tx, code)
 			if err != nil {
-				return nil, domain.NotFoundError
+				return nil, err
 			}
 			producer = *producerData
 		}
