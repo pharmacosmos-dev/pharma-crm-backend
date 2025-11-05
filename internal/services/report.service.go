@@ -419,8 +419,8 @@ func (s *Services) GetStoreAmountReport(ctx context.Context, params *domain.Repo
 		Group("s.id, s.name")
 
 	// Filters
-	if len(params.StoreIds) > 0 {
-		qb = qb.Where("s.id IN(?)", params.StoreIds)
+	if params.StoreId != "" {
+		qb = qb.Where("s.id = ?", params.StoreId)
 	}
 	if len(params.CompanyIds) > 0 {
 		qb = qb.Where("s.company_id IN(?)", params.CompanyIds)
@@ -505,8 +505,8 @@ func (s *Services) ReportByStoreStats(ctx context.Context, params *domain.Report
 	// Filters
 	qb = qb.Where("sa.stage IN (?)", constants.FinishedSaleStages)
 
-	if len(params.StoreIds) > 0 {
-		qb = qb.Where("s.id IN(?)", params.StoreIds)
+	if params.StoreId != "" {
+		qb = qb.Where("s.id = ?", params.StoreId)
 	}
 	if len(params.CompanyIds) > 0 {
 		qb = qb.Where("s.company_id IN(?)", params.CompanyIds)
