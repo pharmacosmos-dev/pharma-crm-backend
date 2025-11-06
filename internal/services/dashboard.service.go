@@ -1401,3 +1401,28 @@ func (s *Services) DashboardProductStatistic(ctx context.Context, params *domain
 
 	return &res, nil
 }
+
+func (s *Services) LoyaltyCardStatistic(ctx context.Context, params *domain.DashboardQueryParam) (*domain.DashboardLoyaltyCardStatistic, error) {
+	var res domain.DashboardLoyaltyCardStatistic
+
+	date, err := s.FormatDatetimeParams(params.StartDate, params.EndDate)
+	if err != nil {
+		return nil, err
+	}
+
+	var query = `
+select
+    sum(case when loyalty_card_barcode is not null THEN 1 ELSE 0 END) as total_loyalty_card_count,
+    sum(balance) as total_loyalty_card_balance,
+    sum(case when (loyalty_card_created_at + interval '5 hour') between ? and ? then 1 else 0 end) as today_created_loyalty_card_count
+from
+    customers
+	`
+	err = s.db.WithContext(ctx).Raw(query, date.StartTime, date.EndTime).Scan(&res).Error
+	if err != nil {
+		s.log.Errorf("could not get loyalty card stats: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	return &res, nil
+}

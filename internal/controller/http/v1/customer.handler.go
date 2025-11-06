@@ -384,17 +384,13 @@ func (h *CustomerHandler) Update(c *gin.Context) {
 		return
 	}
 
-	err = h.db.WithContext(ctx).
-		Table("customers").
-		Where("id = ?", id).
-		Updates(&body).Error
-
+	body.Id = id
+	customer, err := h.service.UpdateCustomer(ctx, &body)
 	if err != nil {
-		h.log.Errorf("could not update customer %v", err)
-		handleServiceResponse(c, InternalError, domain.InternalServerError)
+		handleResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
-	handleResponse(c, OK, body)
+	handleResponse(c, OK, customer)
 }
 
 // SoftDelete godoc

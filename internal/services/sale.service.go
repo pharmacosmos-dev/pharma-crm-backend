@@ -246,7 +246,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 	}
 
 	// check sale amount and validate payment types
-	req, err = s.matchingPaymentTypeSum(ctx, req)
+	req, err = s.matchingPaymentTypeSum(ctx, req, sale.Customer.Balance)
 	if err != nil {
 		return nil, err
 	}
@@ -400,7 +400,7 @@ func (s *Services) FinalizeReturnSale(ctx context.Context, req *domain.FinalSale
 	}
 
 	// Match payment type sum (returns typically refund money)
-	req, err := s.matchingPaymentTypeSum(ctx, req)
+	req, err := s.matchingPaymentTypeSum(ctx, req, sale.Customer.Balance)
 	if err != nil {
 		return nil, err
 	}
@@ -901,7 +901,7 @@ func (s *Services) ReverseInventoryUpdate(ctx context.Context, tx *gorm.DB, sale
 	return nil
 }
 
-func (s *Services) matchingPaymentTypeSum(ctx context.Context, req *domain.FinalSale) (*domain.FinalSale, error) {
+func (s *Services) matchingPaymentTypeSum(ctx context.Context, req *domain.FinalSale, balance float64) (*domain.FinalSale, error) {
 	var sum float64
 	for _, item := range req.PaymentTypes {
 		sum += item.Amount - item.ReturnAmount
@@ -922,6 +922,10 @@ func (s *Services) matchingPaymentTypeSum(ctx context.Context, req *domain.Final
 			req.Alif = item.Amount
 			req.OtpCode = item.OtpData
 		} else if item.Type == constants.PaymentTypeLoyaltyCard {
+			if item.Amount > balance {
+				s.log.Warn("Payment for balance is higher! Balance: %.2f, Amount: %.2f", balance, item.Amount)
+				return req, domain.InvalidSaleAmount
+			}
 			req.LoyaltyCard = item.Amount
 		} else {
 			return req, domain.InvalidPaymentTypeError
@@ -987,8 +991,9 @@ WHERE id = ?`, sale.Id, sale.CustomerId).Error
 UPDATE
 	customers
 SET
-	balance = balance - ?
-WHERE id = ?`, sale.LoyaltyCard, sale.CustomerId).Error
+	balance = balance - ?,
+	spending_from_balance = spending_from_balance + ?
+WHERE id = ?`, sale.LoyaltyCard, sale.LoyaltyCard, sale.CustomerId).Error
 		if err != nil {
 			s.log.Errorf("could not deduct from customer balance: %v", err)
 			return

@@ -204,6 +204,12 @@ type DashboardProductStatistic struct {
 	BeforeExpiredSoonAmount  float64 `gorm:"before_expired_soon_amount" json:"before_expired_soon_amount"`
 }
 
+type DashboardLoyaltyCardStatistic struct {
+	TotalLoyaltyCardCount        int     `gorm:"total_loyalty_card_count" json:"total_loyalty_card_count"`
+	TotalLoyaltyCardBalance      float64 `gorm:"total_loyalty_card_balance" json:"total_loyalty_card_balance"`
+	TodayCreatedLoyaltyCardCount int     `gorm:"today_created_loyalty_card_count" json:"today_created_loyalty_card_count"`
+}
+
 type DashboardCountStatsIncome struct {
 	IncomeAmount         float64 `gorm:"income_amount" json:"income_amount"`
 	BeforeIncomeAmount   float64 `gorm:"before_income_amount" json:"before_income_amount"`
