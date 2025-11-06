@@ -10,6 +10,7 @@ import (
 	"math"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -2288,10 +2289,10 @@ func (s *Services) doRequestToDMED(method, url string, data any) ([]byte, error)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-
+	newToken := strings.Trim(s.cfg.DmedApiToken, `"'`)
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+s.cfg.DmedApiToken)
+	req.Header.Set("Authorization", "Bearer "+newToken)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

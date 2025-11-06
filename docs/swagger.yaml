@@ -6233,6 +6233,31 @@ paths:
       summary: Fix product quantity
       tags:
       - helper
+  /helper/get-dmed-token:
+    get:
+      consumes:
+      - application/json
+      description: update product infos
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: update product infos
+      tags:
+      - helper
   /helper/get-ikpu-data-from-soliq:
     post:
       consumes:
