@@ -1,9 +1,4 @@
--- 1. imports jadvalidagi eski triggerni o'chirish
-DROP TRIGGER IF EXISTS trg_update_imports_totals ON imports;
-DROP TRIGGER IF EXISTS trg_update_imports_from_details ON import_details;
-DROP FUNCTION IF EXISTS update_imports_totals();
-
--- 2. Asosiy hisoblash funksiyasi
+-- Modified function with better logic
 CREATE OR REPLACE FUNCTION calculate_import_totals(p_import_id INTEGER)
 RETURNS VOID AS $$
 DECLARE
@@ -22,32 +17,33 @@ BEGIN
 
     -- entry_type = 1 (dona hisobida)
     IF v_entry_type = 1 THEN
-        IF v_status = 'new' THEN
-            UPDATE imports
-            SET 
-                received_count = COALESCE((
-                    SELECT SUM(d.received_count)
-                    FROM import_details d
-                    WHERE d.import_id = p_import_id
-                ), 0),
-                received_sum = COALESCE((
-                    SELECT SUM(d.received_count * d.retail_price_vat)
-                    FROM import_details d
-                    WHERE d.import_id = p_import_id
-                ), 0),
-                updated_at = NOW()
-            WHERE id = p_import_id;
-            
-        ELSIF v_status = 'completed' THEN
+        -- NEW status uchun received hisoblash
+        UPDATE imports
+        SET 
+            received_count = COALESCE((
+                SELECT SUM(d.received_count)
+                FROM import_details d
+                WHERE d.import_id = p_import_id
+            ), 0),
+            received_sum = COALESCE((
+                SELECT SUM(d.received_count * d.retail_price_vat)
+                FROM import_details d
+                WHERE d.import_id = p_import_id
+            ), 0),
+            updated_at = NOW()
+        WHERE id = p_import_id;
+        
+        -- COMPLETED status uchun scanned hisoblash
+        IF v_status = 'completed' THEN
             UPDATE imports
             SET 
                 scanned_count = COALESCE((
-                    SELECT SUM(d.scanned_count)
+                    SELECT SUM(COALESCE(d.scanned_count, 0))
                     FROM import_details d
                     WHERE d.import_id = p_import_id
                 ), 0),
                 scanned_sum = COALESCE((
-                    SELECT SUM(d.scanned_count * d.retail_price_vat)
+                    SELECT SUM(COALESCE(d.scanned_count, 0) * d.retail_price_vat)
                     FROM import_details d
                     WHERE d.import_id = p_import_id
                 ), 0),
@@ -58,35 +54,34 @@ BEGIN
 
     -- entry_type = 2 (quti/pack hisobida)
     IF v_entry_type = 2 THEN
-        IF v_status = 'new' THEN
-            UPDATE imports
-            SET 
-                received_count = COALESCE((
-                    SELECT SUM(d.received_count / p.unit_per_pack)
-                    FROM import_details d
-                    JOIN products p ON p.id = d.product_id
-                    WHERE d.import_id = p_import_id
-                ), 0),
-                received_sum = COALESCE((
-                    SELECT SUM((d.received_count / p.unit_per_pack) * d.retail_price_vat)
-                    FROM import_details d
-                    JOIN products p ON p.id = d.product_id
-                    WHERE d.import_id = p_import_id
-                ), 0),
-                updated_at = NOW()
-            WHERE id = p_import_id;
-            
-        ELSIF v_status = 'completed' THEN
+        UPDATE imports
+        SET 
+            received_count = COALESCE((
+                SELECT SUM(d.received_count / NULLIF(p.unit_per_pack, 0))
+                FROM import_details d
+                JOIN products p ON p.id = d.product_id
+                WHERE d.import_id = p_import_id
+            ), 0),
+            received_sum = COALESCE((
+                SELECT SUM((d.received_count / NULLIF(p.unit_per_pack, 0)) * d.retail_price_vat)
+                FROM import_details d
+                JOIN products p ON p.id = d.product_id
+                WHERE d.import_id = p_import_id
+            ), 0),
+            updated_at = NOW()
+        WHERE id = p_import_id;
+        
+        IF v_status = 'completed' THEN
             UPDATE imports
             SET 
                 scanned_count = COALESCE((
-                    SELECT SUM(d.scanned_count / p.unit_per_pack)
+                    SELECT SUM(COALESCE(d.scanned_count, 0) / NULLIF(p.unit_per_pack, 0))
                     FROM import_details d
                     JOIN products p ON p.id = d.product_id
                     WHERE d.import_id = p_import_id
                 ), 0),
                 scanned_sum = COALESCE((
-                    SELECT SUM((d.scanned_count / p.unit_per_pack) * d.retail_price_vat)
+                    SELECT SUM((COALESCE(d.scanned_count, 0) / NULLIF(p.unit_per_pack, 0)) * d.retail_price_vat)
                     FROM import_details d
                     JOIN products p ON p.id = d.product_id
                     WHERE d.import_id = p_import_id
