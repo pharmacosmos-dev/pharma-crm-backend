@@ -707,10 +707,10 @@ func (s *Services) GetStoreProductByBarcode(ctx context.Context, barcode string)
 	return res, nil
 }
 
-func (s *Services) GetStoreProductByIdAndStoreId(ctx context.Context, id string, storeId string) (*domain.StoreProduct, error) {
+func (s *Services) GetStoreProductByIdAndStoreId(ctx context.Context, tx *gorm.DB, id string, storeId string) (*domain.StoreProduct, error) {
 	var storeProduct domain.StoreProduct
 
-	err := s.db.
+	err := tx.WithContext(ctx).
 		Select(
 			"sp.id",
 			"sp.product_id",

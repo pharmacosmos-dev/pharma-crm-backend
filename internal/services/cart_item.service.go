@@ -15,42 +15,64 @@ import (
 // region Create
 
 func (s *Services) CreateCartItem(ctx context.Context, user *domain.EmployeeClaims, req *domain.CartItemRequest) (*domain.CartItem, error) {
-
+	// start transaction for add cart_item
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
+		}
+	}()
 	// get sale info by id
-	sale, err := s.GetSaleById(ctx, req.SaleId)
+	sale, err := s.GetSaleByIdWithLocking(ctx, tx, req.SaleId)
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, err
 	}
 
 	// check sale status
 	if !utils.In(sale.Stage, constants.PendingSaleStages...) {
+		_ = tx.Rollback()
 		return nil, domain.SaleIsClosedError
 	}
 
 	req.EmployeeId = user.UserId
-	storeProduct, err := s.GetStoreProductByIdAndStoreId(ctx, req.StoreProductId, sale.StoreId)
+	storeProduct, err := s.GetStoreProductByIdAndStoreId(ctx, tx, req.StoreProductId, sale.StoreId)
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, err
 	}
 
-	cart, err := s.GetCartItemBySaleIdAndSpId(ctx, req.SaleId, req.StoreProductId)
+	cart, err := s.GetCartItemBySaleIdAndSpId(ctx, tx, req.SaleId, req.StoreProductId)
 	if err != nil {
-		res, err := s.createNewCartItem(ctx, req, storeProduct)
+		res, err := s.createNewCartItem(ctx, tx, req, storeProduct)
 		if err != nil {
+			_ = tx.Rollback()
 			return nil, err
+		}
+		// commit transaction
+		if err = tx.Commit().Error; err != nil {
+			s.log.Errorf("could not commit add cart_item transaction: %v", err)
+			return nil, domain.InternalServerError
 		}
 		return res, nil
 	}
 
-	cart, err = s.updateExistsCartItemQuantity(ctx, cart, storeProduct)
+	cart, err = s.updateExistsCartItemQuantity(ctx, tx, cart, storeProduct)
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, err
+	}
+
+	// commit transaction
+	if err = tx.Commit().Error; err != nil {
+		s.log.Errorf("could not commit add cart_item transaction: %v", err)
+		return nil, domain.InternalServerError
 	}
 
 	return cart, nil
 }
 
-func (s *Services) createNewCartItem(ctx context.Context, req *domain.CartItemRequest, storeProduct *domain.StoreProduct) (*domain.CartItem, error) {
+func (s *Services) createNewCartItem(ctx context.Context, tx *gorm.DB, req *domain.CartItemRequest, storeProduct *domain.StoreProduct) (*domain.CartItem, error) {
 	// check remaining quantity for add cart item
 	totalPrice := storeProduct.RetailPrice
 	if storeProduct.UnitQuantity >= storeProduct.UnitPerPack {
@@ -63,7 +85,8 @@ func (s *Services) createNewCartItem(ctx context.Context, req *domain.CartItemRe
 	}
 
 	var res domain.CartItem
-	err := s.db.WithContext(ctx).Raw(`
+	err := tx.WithContext(ctx).
+		Raw(`
 		INSERT INTO cart_items(
 			store_product_id,
 			sale_id,
@@ -83,17 +106,17 @@ func (s *Services) createNewCartItem(ctx context.Context, req *domain.CartItemRe
 			LIMIT 1),0)
 		)
 		RETURNING *`,
-		req.StoreProductId,
-		req.SaleId,
-		req.EmployeeId,
-		req.UnitQuantity,
-		storeProduct.RetailPrice,
-		totalPrice,
-		constants.GeneralStatusPending,
-		storeProduct.IsMarking,
-		req.DiscountType,
-		req.SaleId,
-	).Scan(&res).Error
+			req.StoreProductId,
+			req.SaleId,
+			req.EmployeeId,
+			req.UnitQuantity,
+			storeProduct.RetailPrice,
+			totalPrice,
+			constants.GeneralStatusPending,
+			storeProduct.IsMarking,
+			req.DiscountType,
+			req.SaleId,
+		).Scan(&res).Error
 	if err != nil {
 		s.log.Error("could not create cart_item: %v", err)
 		return nil, domain.InternalServerError
@@ -208,9 +231,9 @@ func (s *Services) FetchCartItems(ctx context.Context, saleId string, limit, off
 }
 
 // Get cartItem by saleId and storeProductId
-func (s *Services) GetCartItemBySaleIdAndSpId(ctx context.Context, saleId, spId string) (*domain.CartItem, error) {
+func (s *Services) GetCartItemBySaleIdAndSpId(ctx context.Context, tx *gorm.DB, saleId, spId string) (*domain.CartItem, error) {
 	var cartItem domain.CartItem
-	err := s.db.WithContext(ctx).Where("sale_id = ? AND store_product_id = ?", saleId, spId).First(&cartItem).Error
+	err := tx.WithContext(ctx).Where("sale_id = ? AND store_product_id = ?", saleId, spId).First(&cartItem).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, domain.NotFoundError
@@ -223,17 +246,21 @@ func (s *Services) GetCartItemBySaleIdAndSpId(ctx context.Context, saleId, spId 
 }
 
 // get cart items total amount
-func (s *Services) GetCartItemsTotalAmount(ctx context.Context, saleID string) (*domain.CartItemData, error) {
+func (s *Services) GetCartItemsTotalAmount(ctx context.Context, tx *gorm.DB, saleId string) (*domain.CartItemData, error) {
 	var res domain.CartItemData
-	err := s.db.WithContext(ctx).
+	err := tx.WithContext(ctx).
 		Select(
-			"SUM(total_price) AS sum",
+			"SUM(ci.total_price) AS sum",
 			"SUM(ci.unit_quantity/p.unit_per_pack) AS item_count",
 			"SUM(ci.discount_amount) AS discount_amount",
-			"MAX(dc.percent) AS card_percent",
 			"ROUND(SUM((sp.vat_price / p.unit_per_pack) * ci.unit_quantity), 2) AS vat_sum",
-			"SUM(total_price) - SUM(ci.discount_amount) as total_amount",
-		).Table("cart_items ci").Scan(&res).Error
+			"SUM(ci.total_price) - SUM(ci.discount_amount) as total_amount",
+		).
+		Table("cart_items ci").
+		Joins("JOIN store_products sp ON ci.store_product_id = sp.id").
+		Joins("JOIN products p ON sp.product_id = p.id").
+		Where("ci.sale_id = ?", saleId).
+		Take(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get cart_items total_price: %v", err)
 		return nil, domain.InternalServerError
@@ -395,7 +422,7 @@ func (s *Services) UpdateCartItemField(field string, value string, idField, idVa
 	return &res, nil
 }
 
-func (s *Services) updateExistsCartItemQuantity(ctx context.Context, req *domain.CartItem, storeProduct *domain.StoreProduct) (*domain.CartItem, error) {
+func (s *Services) updateExistsCartItemQuantity(ctx context.Context, tx *gorm.DB, req *domain.CartItem, storeProduct *domain.StoreProduct) (*domain.CartItem, error) {
 	quantity := 0
 	totalPrice := 0.00
 	// check remaining quantity for add cart item
@@ -409,7 +436,7 @@ func (s *Services) updateExistsCartItemQuantity(ctx context.Context, req *domain
 		return nil, domain.NotEnoughProductError
 	}
 
-	res, err := s.IncrementCartItemQuantity(ctx, s.db, req.Id, quantity, totalPrice)
+	res, err := s.IncrementCartItemQuantity(ctx, tx, req.Id, quantity, totalPrice)
 	if err != nil {
 		return nil, err
 	}
@@ -418,35 +445,48 @@ func (s *Services) updateExistsCartItemQuantity(ctx context.Context, req *domain
 }
 
 func (s *Services) UpdateCartItemDiscount(ctx context.Context, saleId string, req *domain.CartItemDiscountRequest) error {
+	// start transaction for update cart_items discount
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
+		}
+	}()
 	// Get sale
-	sale, err := s.GetSaleById(ctx, saleId)
+	sale, err := s.GetSaleByIdWithLocking(ctx, tx, saleId)
 	if err != nil {
+		_ = tx.Rollback()
 		return err
 	}
 
 	// check sale status
 	if !utils.In(sale.Stage, constants.PendingSaleStages...) {
+		_ = tx.Rollback()
 		return domain.SaleIsClosedError
 	}
 
 	// Get cart item total data
-	cartItemTotal, err := s.GetCartItemsTotalAmount(ctx, saleId)
+	cartItemTotal, err := s.GetCartItemsTotalAmount(ctx, tx, saleId)
 	if err != nil {
+		_ = tx.Rollback()
 		return err
 	}
 
 	// validate discount type
 	if req.DiscountType != constants.DiscountTypePercent && req.DiscountType != constants.PaymentTypeCash {
+		_ = tx.Rollback()
 		return domain.InvalidRequestBodyError
 	}
 
 	// validate sum with discount value
 	if req.DiscountType == constants.PaymentTypeCash && cartItemTotal.TotalAmount < req.DiscountValue {
+		_ = tx.Rollback()
 		return domain.InvalidRequestBodyError
 	}
 
 	cartItems, err := s.getCartItemWithProducts(ctx, saleId)
 	if err != nil {
+		_ = tx.Rollback()
 		return err
 	}
 
@@ -469,30 +509,45 @@ func (s *Services) UpdateCartItemDiscount(ctx context.Context, saleId string, re
 			discountPercent = 1 - (discountPrice/cartItems[i].UnitPrice)*100
 			cartItems[i].DiscountAmount = cartItems[i].UnitPrice - discountPrice
 		} else {
+			_ = tx.Rollback()
 			return domain.InvalidRequestBodyError
 		}
-		err = s.db.Exec(`
+		err = tx.WithContext(ctx).
+			Exec(`
 		UPDATE cart_items
 		SET
 			discount_type = ?,
 			discount_value = ?,
 			discount_price = (CASE WHEN ? = 0 THEN 0 ELSE unit_price - ? END)
 		WHERE id = ?`,
-			req.DiscountType,
-			discountPercent,
-			req.DiscountValue,
-			cartItems[i].DiscountAmount,
-			cartItems[i].ID).Error
+				req.DiscountType,
+				discountPercent,
+				req.DiscountValue,
+				cartItems[i].DiscountAmount,
+				cartItems[i].ID).Error
 		if err != nil {
+			_ = tx.Rollback()
 			s.log.Errorf("could not update cart_items discount: %v", err)
 			return domain.InternalServerError
 		}
+	}
+	// commit transaction
+	if err = tx.Commit().Error; err != nil {
+		s.log.Errorf("could not commit update cart_items discount transaction: %v", err)
+		return domain.InternalServerError
 	}
 
 	return nil
 }
 
 func (s *Services) UpdateCartItemQuantity(ctx context.Context, req *domain.CartItemUpdateUnit) (map[string]any, error) {
+	// start transaction for update cart_items discount
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
+		}
+	}()
 	// get cart_item before update
 	cartItem, err := s.GetCartItemById(ctx, req.Id)
 	if err != nil {
