@@ -247,7 +247,11 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 	}
 
 	// check sale amount and validate payment types
-	req, err = s.matchingPaymentTypeSum(ctx, req, sale.Customer.Balance)
+	var customerBalance float64 = 0.00
+	if sale.Customer != nil {
+		customerBalance = sale.Customer.Balance
+	}
+	req, err = s.matchingPaymentTypeSum(ctx, req, customerBalance)
 	if err != nil {
 		return nil, err
 	}
@@ -311,6 +315,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 			updates["payme"] = req.Payme
 			updates["alif"] = req.Alif
 			updates["loyalty_card"] = req.LoyaltyCard
+			updates["uzum"] = req.Uzum
 			updates["total_amount"] = gorm.Expr("(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
 			updates["total_discount"] = gorm.Expr("(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
 			updates["return_amount"] = req.ReturnAmount
@@ -354,6 +359,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 			updates["payme"] = req.Payme
 			updates["alif"] = req.Alif
 			updates["loyalty_card"] = req.LoyaltyCard
+			updates["uzum"] = req.Uzum
 			updates["total_amount"] = gorm.Expr("(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
 			updates["total_discount"] = gorm.Expr("(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
 			updates["return_amount"] = req.ReturnAmount
@@ -401,7 +407,11 @@ func (s *Services) FinalizeReturnSale(ctx context.Context, req *domain.FinalSale
 	}
 
 	// Match payment type sum (returns typically refund money)
-	req, err := s.matchingPaymentTypeSum(ctx, req, sale.Customer.Balance)
+	var customerBalance float64 = 0.00
+	if sale.Customer != nil {
+		customerBalance = sale.Customer.Balance
+	}
+	req, err := s.matchingPaymentTypeSum(ctx, req, customerBalance)
 	if err != nil {
 		return nil, err
 	}
@@ -439,6 +449,8 @@ func (s *Services) FinalizeReturnSale(ctx context.Context, req *domain.FinalSale
 			updates["click"] = -req.Click
 			updates["payme"] = -req.Payme
 			updates["alif"] = -req.Alif
+			updates["uzum"] = -req.Uzum
+			updates["loyalty_card"] = -req.LoyaltyCard
 			updates["total_amount"] = gorm.Expr("-(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
 			updates["total_discount"] = gorm.Expr("(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
 			updates["return_amount"] = req.ReturnAmount
@@ -465,6 +477,8 @@ func (s *Services) FinalizeReturnSale(ctx context.Context, req *domain.FinalSale
 		updates["click"] = -req.Click
 		updates["payme"] = -req.Payme
 		updates["alif"] = -req.Alif
+		updates["uzum"] = -req.Uzum
+		updates["loyalty_card"] = -req.LoyaltyCard
 		updates["total_amount"] = gorm.Expr("-(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
 		updates["total_discount"] = gorm.Expr("(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
 		updates["return_amount"] = req.ReturnAmount
@@ -922,6 +936,9 @@ func (s *Services) matchingPaymentTypeSum(ctx context.Context, req *domain.Final
 		} else if item.Type == constants.PaymentTypeApp && item.AppType == constants.PaymentTypeAlif {
 			req.Alif = item.Amount
 			req.OtpCode = item.OtpData
+		} else if item.Type == constants.PaymentTypeApp && item.AppType == constants.PaymentTypeUzum {
+			req.Uzum = item.Amount
+			req.OtpCode = item.OtpData
 		} else if item.Type == constants.PaymentTypeLoyaltyCard {
 			if item.Amount > balance {
 				s.log.Warn("Payment for balance is higher! Balance: %.2f, Amount: %.2f", balance, item.Amount)
@@ -1303,6 +1320,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 		Click              float64    `gorm:"click"`
 		Payme              float64    `gorm:"payme"`
 		Alif               float64    `gorm:"alif"`
+		LoyaltyCard        float64    `gorm:"loyalty_card"`
 		IsDelivered        bool       `gorm:"is_delivered"`
 		TaxFree            bool       `gorm:"tax_free"`
 		FiscalSign         string     `gorm:"fiscal_sign"`
@@ -1310,6 +1328,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 		OtpCode            string     `gorm:"otp_code"`
 		IsSentToTax        string     `gorm:"is_sent_to_tax"`
 		IsReturned         bool       `gorm:"is_returned"`
+		CashBack           float64    `gorm:"cash_back"`
 		CreatedAt          *time.Time `gorm:"created_at"`
 		UpdatedAt          *time.Time `gorm:"updated_at"`
 		CompletedAt        *time.Time `gorm:"completed_at"`
@@ -1349,6 +1368,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 			"s.payme",
 			"s.click",
 			"s.alif",
+			"s.loyalty_card",
 			"s.status",
 			"s.stage",
 			"s.online_status",
@@ -1358,6 +1378,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 			"s.check_url",
 			"s.is_sent_to_tax",
 			"s.is_returned",
+			"s.cash_back",
 			"s.tax_free",
 			"s.otp_code",
 			"s.created_at",
@@ -1408,6 +1429,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 		Click:              tempSale.Click,
 		Payme:              tempSale.Payme,
 		Alif:               tempSale.Alif,
+		LoyaltyCard:        tempSale.LoyaltyCard,
 		Status:             tempSale.Status,
 		Stage:              tempSale.Stage,
 		OnlineStatus:       tempSale.OnlineStatus,
@@ -1417,6 +1439,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 		CheckUrl:           tempSale.CheckUrl,
 		IsSentToTax:        tempSale.IsSentToTax,
 		IsReturned:         tempSale.IsReturned,
+		CashBack:           tempSale.CashBack,
 		TaxFree:            tempSale.TaxFree,
 		OtpCode:            tempSale.OtpCode,
 		CreatedAt:          tempSale.CreatedAt,
