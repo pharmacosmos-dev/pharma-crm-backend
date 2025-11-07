@@ -26,6 +26,7 @@ var (
 	AlifInvalidRequestBodyError  = NewError(http.StatusBadRequest, "alif.invalid.request.body")
 	AlifInvalidParametersError   = NewError(http.StatusBadRequest, "alif.invalid.parameters")
 	UserIdIsRequiredError        = NewError(http.StatusBadRequest, "user.id.is.required")
+	FiscalSignRequiredError      = NewError(http.StatusBadRequest, "fiscal.sign.required")
 
 	// 401 – Unauthorized (token noto‘g‘ri yoki mavjud emas)
 	UnauthorizedError     = NewError(http.StatusUnauthorized, "user.not.authorized")

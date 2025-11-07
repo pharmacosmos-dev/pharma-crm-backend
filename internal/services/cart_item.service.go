@@ -10,6 +10,7 @@ import (
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // region Create
@@ -22,7 +23,7 @@ func (s *Services) CreateCartItem(ctx context.Context, user *domain.EmployeeClai
 			_ = tx.Rollback()
 		}
 	}()
-	// get sale info by id
+	// get sale info by id with row-level lock
 	sale, err := s.GetSaleByIdWithLocking(ctx, tx, req.SaleId)
 	if err != nil {
 		_ = tx.Rollback()
@@ -42,8 +43,10 @@ func (s *Services) CreateCartItem(ctx context.Context, user *domain.EmployeeClai
 		return nil, err
 	}
 
-	cart, err := s.GetCartItemBySaleIdAndSpId(ctx, tx, req.SaleId, req.StoreProductId)
+	// Try to get existing cart item with lock
+	cart, err := s.GetCartItemBySaleIdAndSpIdWithLocking(ctx, tx, req.SaleId, req.StoreProductId)
 	if err != nil {
+		// Cart item doesn't exist, create new one
 		res, err := s.createNewCartItem(ctx, tx, req, storeProduct)
 		if err != nil {
 			_ = tx.Rollback()
@@ -57,6 +60,7 @@ func (s *Services) CreateCartItem(ctx context.Context, user *domain.EmployeeClai
 		return res, nil
 	}
 
+	// Cart item exists, update quantity
 	cart, err = s.updateExistsCartItemQuantity(ctx, tx, cart, storeProduct)
 	if err != nil {
 		_ = tx.Rollback()
@@ -245,6 +249,24 @@ func (s *Services) GetCartItemBySaleIdAndSpId(ctx context.Context, tx *gorm.DB, 
 	return &cartItem, nil
 }
 
+// Get cartItem by saleId and storeProductId with row-level lock
+func (s *Services) GetCartItemBySaleIdAndSpIdWithLocking(ctx context.Context, tx *gorm.DB, saleId, spId string) (*domain.CartItem, error) {
+	var cartItem domain.CartItem
+	err := tx.WithContext(ctx).
+		Where("sale_id = ? AND store_product_id = ?", saleId, spId).
+		Clauses(clause.Locking{Strength: "UPDATE"}).
+		First(&cartItem).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.NotFoundError
+		}
+		s.log.Error("could not get cart_item by id with locking: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	return &cartItem, nil
+}
+
 // get cart items total amount
 func (s *Services) GetCartItemsTotalAmount(ctx context.Context, tx *gorm.DB, saleId string) (*domain.CartItemData, error) {
 	var res domain.CartItemData
@@ -363,9 +385,22 @@ func (s *Services) GetCartItemById(ctx context.Context, id string) (*domain.Cart
 	return &cartItem, nil
 }
 
-func (s *Services) getCartItemWithProducts(ctx context.Context, saleId string) ([]domain.CartItemResponse, error) {
+func (s *Services) GetCartItemByIdWithLocking(ctx context.Context, tx *gorm.DB, id string) (*domain.CartItem, error) {
+	var cartItem domain.CartItem
+	err := tx.WithContext(ctx).Take(&cartItem, "id = ?", id).Clauses(clause.Locking{Strength: "UPDATE"}).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.NotFoundError
+		}
+		s.log.Errorf("could not get cart_item by id error: %v", err)
+		return nil, domain.InternalServerError
+	}
+	return &cartItem, nil
+}
+
+func (s *Services) getCartItemWithProducts(ctx context.Context, tx *gorm.DB, saleId string) ([]domain.CartItemResponse, error) {
 	var cartItems []domain.CartItemResponse
-	err := s.db.
+	err := tx.
 		WithContext(ctx).
 		Model(&domain.CartItem{}).
 		Select(
@@ -452,7 +487,7 @@ func (s *Services) UpdateCartItemDiscount(ctx context.Context, saleId string, re
 			_ = tx.Rollback()
 		}
 	}()
-	// Get sale
+	// Get sale with row-level lock
 	sale, err := s.GetSaleByIdWithLocking(ctx, tx, saleId)
 	if err != nil {
 		_ = tx.Rollback()
@@ -484,7 +519,7 @@ func (s *Services) UpdateCartItemDiscount(ctx context.Context, saleId string, re
 		return domain.InvalidRequestBodyError
 	}
 
-	cartItems, err := s.getCartItemWithProducts(ctx, saleId)
+	cartItems, err := s.getCartItemWithProducts(ctx, tx, saleId)
 	if err != nil {
 		_ = tx.Rollback()
 		return err
@@ -549,24 +584,28 @@ func (s *Services) UpdateCartItemQuantity(ctx context.Context, req *domain.CartI
 		}
 	}()
 	// get cart_item before update
-	cartItem, err := s.GetCartItemById(ctx, req.Id)
+	cartItem, err := s.GetCartItemByIdWithLocking(ctx, tx, req.Id)
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, err
 	}
 
-	sale, err := s.GetSaleById(ctx, cartItem.SaleId)
+	sale, err := s.GetSaleByIdWithLocking(ctx, tx, cartItem.SaleId)
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, err
 	}
 
 	// check sale status
 	if !utils.In(sale.Stage, constants.PendingSaleStages...) {
+		_ = tx.Rollback()
 		return nil, domain.SaleIsClosedError
 	}
 
 	// get store_product by id
-	storeProduct, err := s.GetStoreProductById(ctx, req.StoreProductId)
+	storeProduct, err := s.GetStoreProductById(ctx, tx, req.StoreProductId)
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, err
 	}
 
@@ -578,6 +617,7 @@ func (s *Services) UpdateCartItemQuantity(ctx context.Context, req *domain.CartI
 
 	// validate quantity enough or no
 	if sale.SaleType == constants.SaleTypeSale && ostatok < reqUnitQuantity {
+		_ = tx.Rollback()
 		return nil, domain.NotEnoughProductError
 	}
 
@@ -591,8 +631,9 @@ func (s *Services) UpdateCartItemQuantity(ctx context.Context, req *domain.CartI
 	// calculate cart_item total_price
 	totalPrice := (((storeProduct.RetailPrice * 100) / float64(storeProduct.UnitPerPack)) * float64(updateQuantity)) / 100
 
-	_, err = s.IncrementCartItemQuantity(ctx, s.db, req.Id, updateQuantity, totalPrice)
+	_, err = s.IncrementCartItemQuantity(ctx, tx, req.Id, updateQuantity, totalPrice)
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, err
 	}
 
@@ -606,6 +647,11 @@ func (s *Services) UpdateCartItemQuantity(ctx context.Context, req *domain.CartI
 		"unit_per_pack":      storeProduct.UnitPerPack,
 		"quantity_diff":      quantityDiff,
 		"unit_quantity_diff": unitQuantityDiff,
+	}
+	// commit transaction
+	if err = tx.Commit().Error; err != nil {
+		s.log.Errorf("could not commit update cart_item transaction: %v", err)
+		return nil, domain.InternalServerError
 	}
 
 	return response, nil
@@ -630,7 +676,7 @@ func (s *Services) UpdateCartItemQuantityTemporary(ctx context.Context, req *dom
 	// }
 
 	// get store_product by id
-	storeProduct, err := s.GetStoreProductById(ctx, req.StoreProductId)
+	storeProduct, err := s.GetStoreProductById(ctx, s.db, req.StoreProductId)
 	if err != nil {
 		return nil, err
 	}
@@ -768,25 +814,45 @@ func (s *Services) updateCartItemDiscountValue(ctx context.Context, tx *gorm.DB,
 // region Delete
 
 func (s *Services) DeleteCartItem(ctx context.Context, id string) error {
-	cartItem, err := s.GetCartItemById(ctx, id)
+	// start transaction for delete cart_item
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	// Get cart item with lock
+	cartItem, err := s.GetCartItemByIdWithLocking(ctx, tx, id)
 	if err != nil {
+		_ = tx.Rollback()
 		return err
 	}
 
-	sale, err := s.GetSaleById(ctx, cartItem.SaleId)
+	// Get sale with lock
+	sale, err := s.GetSaleByIdWithLocking(ctx, tx, cartItem.SaleId)
 	if err != nil {
+		_ = tx.Rollback()
 		return err
 	}
 
 	// check sale stage
 	if !utils.In(sale.Stage, constants.PendingSaleStages...) {
+		_ = tx.Rollback()
 		return domain.SaleIsClosedError
 	}
 
 	// delete cart_item
-	err = s.deleteCartItemByIds(ctx, s.db, []string{id})
+	err = s.deleteCartItemByIds(ctx, tx, []string{id})
 	if err != nil {
+		_ = tx.Rollback()
 		return err
+	}
+
+	// commit transaction
+	if err = tx.Commit().Error; err != nil {
+		s.log.Errorf("could not commit delete cart_item transaction: %v", err)
+		return domain.InternalServerError
 	}
 
 	return nil
@@ -831,24 +897,49 @@ func (s *Services) deleteCartItemByIds(ctx context.Context, tx *gorm.DB, id []st
 }
 
 func (s *Services) DeleteCartItems(ctx context.Context, ids []string) error {
+	// start transaction for delete cart_items
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
 	// getting cart item
 	cartItems, err := s.getCartItemsByIds(ctx, ids)
 	if err != nil {
+		_ = tx.Rollback()
 		return err
 	}
-	sale, err := s.GetSaleById(ctx, cartItems[0].SaleId)
+
+	if len(cartItems) == 0 {
+		_ = tx.Rollback()
+		return domain.NotFoundError
+	}
+
+	// Get sale with lock
+	sale, err := s.GetSaleByIdWithLocking(ctx, tx, cartItems[0].SaleId)
 	if err != nil {
+		_ = tx.Rollback()
 		return err
 	}
 
 	// check sale status
 	if !utils.In(sale.Stage, constants.PendingSaleStages...) {
+		_ = tx.Rollback()
 		return domain.SaleIsClosedError
 	}
 
-	err = s.deleteCartItemByIds(ctx, s.db, ids)
+	err = s.deleteCartItemByIds(ctx, tx, ids)
 	if err != nil {
+		_ = tx.Rollback()
 		return err
+	}
+
+	// commit transaction
+	if err = tx.Commit().Error; err != nil {
+		s.log.Errorf("could not commit delete cart_items transaction: %v", err)
+		return domain.InternalServerError
 	}
 
 	return nil

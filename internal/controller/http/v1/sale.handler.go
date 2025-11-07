@@ -669,7 +669,7 @@ func (h *SaleHandler) FinalSale(c *gin.Context) {
 	defer cancel()
 
 	// lock parallel request
-	mu := h.getOrderLock(body.SaleID)
+	mu := h.getOrderLock(body.SaleId)
 	mu.Lock()
 	defer mu.Unlock()
 
