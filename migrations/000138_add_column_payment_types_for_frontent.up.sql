@@ -10,7 +10,7 @@ SET "front_name" =
         WHEN name = 'Naqd' THEN 'cash'
         WHEN name = 'Uzum' THEN 'uzum'
         WHEN name = 'Payme' THEN 'payme'
-        WHEN name = 'Balans' THEN 'loyalty_cd'
+        WHEN name = 'Balans' THEN 'loyalty_card'
         WHEN name = 'Alif' THEN 'alif'
         ELSE ''
     END;

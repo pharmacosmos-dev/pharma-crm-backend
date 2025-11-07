@@ -164,7 +164,7 @@ func (s *Services) CreateCustomerWithPhone(req *domain.NoorClientInfo) (*domain.
 // region Get
 
 // get customer list data
-func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam) ([]domain.Customer, int64, error) {
+func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, usedInSalePage bool) ([]domain.Customer, int64, error) {
 	var tmpCustomer []struct {
 		Id                   string     `gorm:"id" json:"id"`
 		PublicId             int        `gorm:"public_id" json:"public_id"`
@@ -235,7 +235,11 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam) 
 		Joins("LEFT JOIN tags t ON c.tag_id = t.id")
 
 	if params.Search != "" {
-		query = query.Where("c.discount_card = ? or c.loyalty_card_barcode = ?", params.Search, params.Search)
+		if usedInSalePage {
+			query = query.Where("c.discount_card = ? or c.loyalty_card_barcode = ?", params.Search, params.Search)
+		} else {
+			query = query.Where("c.public_id ilike ? or c.phone ilike ? or c.full_name ilike ?", "%"+params.Search+"%", "%"+params.Search+"%", "%"+params.Search+"%")
+		}
 	}
 
 	if params.StoreID != "" {

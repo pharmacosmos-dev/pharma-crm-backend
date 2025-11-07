@@ -157,7 +157,7 @@ const (
 	PaymentTypeCash        = "cash"
 	PaymentTypeCard        = "card"
 	PaymentTypeApp         = "app"
-	PaymentTypeLoyaltyCard = "loyalty_cd"
+	PaymentTypeLoyaltyCard = "loyalty_card"
 	PaymentTypeClick       = "click"
 	PaymentTypePayme       = "payme"
 	PaymentTypeUzum        = "uzum"
