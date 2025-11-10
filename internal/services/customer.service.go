@@ -238,7 +238,7 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 		if usedInSalePage {
 			query = query.Where("c.discount_card = ? or c.loyalty_card_barcode = ?", params.Search, params.Search)
 		} else {
-			query = query.Where("c.public_id ilike ? or c.phone ilike ? or c.full_name ilike ?", "%"+params.Search+"%", "%"+params.Search+"%", "%"+params.Search+"%")
+			query = query.Where("c.public_id::text ilike ? or c.phone::text ilike ? or c.full_name ilike ?", "%"+params.Search+"%", "%"+params.Search+"%", "%"+params.Search+"%")
 		}
 	}
 
@@ -262,7 +262,7 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 		Order("c.created_at DESC").
 		Find(&tmpCustomer).Error
 	if err != nil {
-		s.log.Errorf("could not create new customer: %v", err)
+		s.log.Errorf("could not get new customer: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
 

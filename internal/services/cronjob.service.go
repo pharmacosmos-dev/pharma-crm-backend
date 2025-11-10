@@ -41,3 +41,7 @@ func (s *Services) syncUnitCodes() error {
 	}
 	return nil
 }
+
+func (s *Services) SendRemainingQuantityToOsonApteka() error {
+	return nil
+}
