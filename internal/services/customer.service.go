@@ -307,10 +307,10 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, 
 	return customers, totalCount, nil
 }
 
-func (s *Services) GetCustomerById(ctx context.Context, id string) (*domain.Customer, error) {
+func (s *Services) GetCustomerById(ctx context.Context, tx *gorm.DB, id string) (*domain.Customer, error) {
 	var res domain.Customer
 
-	err := s.db.WithContext(ctx).
+	err := tx.WithContext(ctx).
 		Where("id = ?", id).
 		First(&res).Error
 	if err != nil {

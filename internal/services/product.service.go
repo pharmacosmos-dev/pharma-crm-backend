@@ -707,10 +707,10 @@ func (s *Services) GetStoreProductByBarcode(ctx context.Context, barcode string)
 	return res, nil
 }
 
-func (s *Services) GetStoreProductByIdAndStoreId(ctx context.Context, id string, storeId string) (*domain.StoreProduct, error) {
+func (s *Services) GetStoreProductByIdAndStoreId(ctx context.Context, tx *gorm.DB, id string, storeId string) (*domain.StoreProduct, error) {
 	var storeProduct domain.StoreProduct
 
-	err := s.db.
+	err := tx.WithContext(ctx).
 		Select(
 			"sp.id",
 			"sp.product_id",
@@ -741,9 +741,10 @@ func (s *Services) GetStoreProductByIdAndStoreId(ctx context.Context, id string,
 	return &storeProduct, nil
 }
 
-func (s *Services) GetStoreProductById(ctx context.Context, id string) (*domain.StoreProduct, error) {
+func (s *Services) GetStoreProductById(ctx context.Context, tx *gorm.DB, id string) (*domain.StoreProduct, error) {
 	var storeProduct domain.StoreProduct
-	err := s.db.WithContext(ctx).Raw(`
+	err := tx.WithContext(ctx).
+		Raw(`
 		SELECT 
 			sp.id,
 			sp.product_id,
@@ -760,7 +761,8 @@ func (s *Services) GetStoreProductById(ctx context.Context, id string) (*domain.
 		FROM store_products sp 
 		JOIN products p ON sp.product_id = p.id
 		LEFT JOIN product_bonuses pb ON pb.product_id = p.id
-		WHERE sp.id = ?`, id).Scan(&storeProduct).Error
+		WHERE sp.id = ?`, id).
+		Scan(&storeProduct).Error
 
 	if err != nil {
 		s.log.Errorf("could not get store_product by id error: %v", err)

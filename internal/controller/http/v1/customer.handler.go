@@ -107,7 +107,7 @@ func (h *CustomerHandler) Get(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	res, err := h.service.GetCustomerById(ctx, id)
+	res, err := h.service.GetCustomerById(ctx, h.db, id)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return
