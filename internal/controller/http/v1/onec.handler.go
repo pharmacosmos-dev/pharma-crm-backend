@@ -64,8 +64,6 @@ func (h *ProductOnecHandler) Create(c *gin.Context) {
 		return
 	}
 
-	go h.service.UpdateImportTotal(newImport.Id)
-
 	handleResponse(c, OK, "CREATED")
 }
 
