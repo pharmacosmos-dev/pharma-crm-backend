@@ -332,6 +332,8 @@ func (h *HelperHandler) EposTransmitter(c *gin.Context) {
 		return
 	}
 
+	time.Sleep(5 * time.Minute)
+
 	client := &http.Client{
 		Timeout: 30 * time.Second, // Set a timeout for the request
 	}
