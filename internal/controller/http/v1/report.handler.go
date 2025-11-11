@@ -734,7 +734,7 @@ func (h *ReportHandler) StoreReportAmount(c *gin.Context) {
 	// check if employee is not admin or superadmin
 	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
-			params.StoreId = user.StoreId
+			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
 	}
@@ -798,7 +798,7 @@ func (h *ReportHandler) StoreReportAmountExport(c *gin.Context) {
 	// check if employee is not admin or superadmin
 	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
-			params.StoreId = user.StoreId
+			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
 	}
@@ -891,7 +891,7 @@ func (h *ReportHandler) StoreReportStats(c *gin.Context) {
 	// check if employee is not admin or superadmin
 	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
-			params.StoreId = user.StoreId
+			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
 	}

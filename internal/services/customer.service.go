@@ -26,15 +26,18 @@ func (s *Services) CreateCustomer(ctx context.Context, req *domain.CustomerReque
 		loyaltyCardLevelID      sql.NullString
 		loyaltyCardShouldCreate bool = req.VirtualLoyaltyCardNeeded || *req.LoyaltyCardBarcode != ""
 		loyaltyCardCreatedBy    sql.NullString
+		loyaltyCardCreatedAt    sql.NullTime
 	)
 
 	// generate virtual loyalty card
 	if req.VirtualLoyaltyCardNeeded {
 		loyaltyCardBarcode = sql.NullString{String: utils.GenerateBarcode(), Valid: true}
 		loyaltyCardType = sql.NullString{String: "virtual", Valid: true}
+		loyaltyCardCreatedAt = sql.NullTime{Time: time.Now(), Valid: true}
 	} else if *req.LoyaltyCardBarcode != "" {
 		loyaltyCardBarcode = sql.NullString{String: *req.LoyaltyCardBarcode, Valid: true}
 		loyaltyCardType = sql.NullString{String: "physical", Valid: true}
+		loyaltyCardCreatedAt = sql.NullTime{Time: time.Now(), Valid: true}
 	}
 
 	tx := s.db.Begin()
@@ -82,9 +85,10 @@ func (s *Services) CreateCustomer(ctx context.Context, req *domain.CustomerReque
 		loyalty_card_percent,
 		loyalty_card_level_id,
 		loyalty_card_type,
-		loyalty_card_created_by
+		loyalty_card_created_by,
+		loyalty_card_created_at
 		)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) 
 	RETURNING *
 	`
 	// insert customer
@@ -107,6 +111,7 @@ func (s *Services) CreateCustomer(ctx context.Context, req *domain.CustomerReque
 			loyaltyCardLevelID,
 			loyaltyCardType,
 			loyaltyCardCreatedBy,
+			loyaltyCardCreatedAt,
 		).Scan(&res).Error
 	if err != nil {
 		s.log.Errorf("could not create customer: %v", err)
@@ -159,7 +164,7 @@ func (s *Services) CreateCustomerWithPhone(req *domain.NoorClientInfo) (*domain.
 // region Get
 
 // get customer list data
-func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam) ([]domain.Customer, int64, error) {
+func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, usedInSalePage bool) ([]domain.Customer, int64, error) {
 	var tmpCustomer []struct {
 		Id                   string     `gorm:"id" json:"id"`
 		PublicId             int        `gorm:"public_id" json:"public_id"`
@@ -172,6 +177,7 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam) 
 		Birthday             string     `gorm:"birthday" json:"birthday" example:"2006-01-02"`
 		Gender               string     `gorm:"gender" json:"gender" example:"male/female"`
 		Balance              float64    `gorm:"balance" json:"balance"`
+		SpendingFromBalance  float64    `gorm:"spending_from_balance" json:"spending_from_balance"`
 		DiscountCard         string     `gorm:"discount_card" json:"discount_card"`
 		DiscountPercent      int        `gorm:"discount_percent" json:"discount_percent"`
 		LoyaltyCardBarcode   string     `gorm:"loyalty_card_barcode" json:"loyalty_card_barcode"`
@@ -179,9 +185,11 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam) 
 		LoyaltyCardLevelId   string     `gorm:"loyalty_card_level_id" json:"loyalty_card_level_id"`
 		LoyaltyCardType      string     `gorm:"loyalty_card_type" json:"loyalty_card_type"`
 		LoyaltyCardCreatedBy string     `gorm:"loyalty_card_created_by" json:"loyalty_card_created_by"`
-		TelegramChatId       int64      `gorm:"telegram_chat_id" json:"telegram_chat_id"`
-		CreatedAt            *time.Time `gorm:"created_at" json:"created_at"`
-		UpdatedAt            *time.Time `gorm:"updated_at" json:"updated_at"`
+		LoyaltyCardCreatedAt *time.Time `gorm:"loyalty_card_created_at" json:"loyalty_card_created_at"`
+
+		TelegramChatId int64      `gorm:"telegram_chat_id" json:"telegram_chat_id"`
+		CreatedAt      *time.Time `gorm:"created_at" json:"created_at"`
+		UpdatedAt      *time.Time `gorm:"updated_at" json:"updated_at"`
 
 		TId   string `gorm:"t_id"`
 		TName string `gorm:"t_name"`
@@ -204,6 +212,7 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam) 
 			"c.birthday",
 			"c.gender",
 			"c.balance",
+			"c.spending_from_balance",
 			"c.discount_card",
 			"c.discount_percent",
 			"c.loyalty_card_barcode",
@@ -211,6 +220,7 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam) 
 			"c.loyalty_card_level_id",
 			"c.loyalty_card_type",
 			"c.loyalty_card_created_by",
+			"c.loyalty_card_created_at",
 			"c.telegram_chat_id",
 			"c.created_at",
 			"c.updated_at",
@@ -225,7 +235,11 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam) 
 		Joins("LEFT JOIN tags t ON c.tag_id = t.id")
 
 	if params.Search != "" {
-		query = query.Where("c.discount_card = ? or c.loyalty_card_barcode = ?", params.Search, params.Search)
+		if usedInSalePage {
+			query = query.Where("c.discount_card = ? or c.loyalty_card_barcode = ?", params.Search, params.Search)
+		} else {
+			query = query.Where("c.public_id::text ilike ? or c.phone::text ilike ? or c.full_name ilike ?", "%"+params.Search+"%", "%"+params.Search+"%", "%"+params.Search+"%")
+		}
 	}
 
 	if params.StoreID != "" {
@@ -248,7 +262,7 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam) 
 		Order("c.created_at DESC").
 		Find(&tmpCustomer).Error
 	if err != nil {
-		s.log.Errorf("could not create new customer: %v", err)
+		s.log.Errorf("could not get new customer: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
 
@@ -265,6 +279,7 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam) 
 			Birthday:             row.Birthday,
 			Gender:               row.Gender,
 			Balance:              row.Balance,
+			SpendingFromBalance:  row.SpendingFromBalance,
 			DiscountCard:         row.DiscountCard,
 			DiscountPercent:      row.DiscountPercent,
 			LoyaltyCardBarcode:   row.LoyaltyCardBarcode,
@@ -272,6 +287,7 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam) 
 			LoyaltyCardLevelId:   row.LoyaltyCardLevelId,
 			LoyaltyCardType:      row.LoyaltyCardType,
 			LoyaltyCardCreatedBy: row.LoyaltyCardCreatedBy,
+			LoyaltyCardCreatedAt: row.LoyaltyCardCreatedAt,
 			TelegramChatId:       row.TelegramChatId,
 			CreatedAt:            row.CreatedAt,
 			UpdatedAt:            row.UpdatedAt,
@@ -439,4 +455,160 @@ func (s *Services) checkDiscountCardExists(ctx context.Context, discountCard str
 		return false
 	}
 	return count > 0
+}
+
+// region Update
+
+func (s *Services) UpdateCustomer(ctx context.Context, req *domain.CustomerRequest) (*domain.Customer, error) {
+	var (
+		res domain.Customer
+
+		loyaltyCardBarcode sql.NullString
+		loyaltyCardType    sql.NullString // "physical" // virtual
+
+		loyaltyCardPersent      sql.NullInt64
+		loyaltyCardLevelID      sql.NullString
+		loyaltyCardShouldCreate bool = req.VirtualLoyaltyCardNeeded || *req.LoyaltyCardBarcode != ""
+		loyaltyCardCreatedBy    sql.NullString
+		loyaltyCardCreatedAt    sql.NullTime
+	)
+
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	// getting existing customer for checking loyalty card exists
+	var existingCustomer domain.Customer
+	err := tx.WithContext(ctx).
+		Where("id = ?", req.Id).
+		First(&existingCustomer).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			s.log.Error("could not find customer to update")
+			_ = tx.Rollback()
+			return &res, domain.NotFoundError
+		}
+		s.log.Errorf("error on getting existing customer in db: %s", err.Error())
+		_ = tx.Rollback()
+		return &res, fmt.Errorf("error on getting existing customer in db: %s", err.Error())
+	}
+
+	if existingCustomer.LoyaltyCardBarcode != "" {
+		loyaltyCardShouldCreate = false
+	}
+
+	// generate virtual loyalty card
+	if req.VirtualLoyaltyCardNeeded && loyaltyCardShouldCreate {
+		loyaltyCardBarcode = sql.NullString{String: utils.GenerateBarcode(), Valid: true}
+		loyaltyCardType = sql.NullString{String: "virtual", Valid: true}
+		loyaltyCardCreatedAt = sql.NullTime{Time: time.Now(), Valid: true}
+	} else if *req.LoyaltyCardBarcode != "" && loyaltyCardShouldCreate {
+		loyaltyCardBarcode = sql.NullString{String: *req.LoyaltyCardBarcode, Valid: true}
+		loyaltyCardType = sql.NullString{String: "physical", Valid: true}
+		loyaltyCardCreatedAt = sql.NullTime{Time: time.Now(), Valid: true}
+	} else if !loyaltyCardShouldCreate {
+		loyaltyCardBarcode = sql.NullString{String: existingCustomer.LoyaltyCardBarcode, Valid: true}
+		loyaltyCardType = sql.NullString{String: existingCustomer.LoyaltyCardType, Valid: true}
+		loyaltyCardPersent = sql.NullInt64{Int64: int64(existingCustomer.LoyaltyCardPercent), Valid: true}
+		loyaltyCardLevelID = sql.NullString{String: existingCustomer.LoyaltyCardLevelId, Valid: true}
+		loyaltyCardCreatedBy = sql.NullString{String: existingCustomer.LoyaltyCardCreatedBy, Valid: true}
+		loyaltyCardCreatedAt = sql.NullTime{Time: *existingCustomer.LoyaltyCardCreatedAt, Valid: true}
+	}
+
+	// getting loyalty level
+	if loyaltyCardShouldCreate {
+		var loyaltyLevel domain.LoyaltyCardLevel
+		err := tx.Order("position ASC").First(&loyaltyLevel).Error
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				s.log.Error("could not find loyalty level for new customer")
+				_ = tx.Rollback()
+				return &res, fmt.Errorf("could not find loyalty level for new customer: %s", err.Error())
+			}
+			s.log.Errorf("error on getting loyalty card level in db: %s", err.Error())
+			_ = tx.Rollback()
+			return &res, fmt.Errorf("error on getting loyalty card level in db: %s", err.Error())
+		}
+
+		loyaltyCardLevelID = sql.NullString{String: loyaltyLevel.Id, Valid: true}
+		loyaltyCardPersent = sql.NullInt64{Int64: int64(loyaltyLevel.CashbackPercent), Valid: true}
+		loyaltyCardCreatedBy = sql.NullString{String: req.CreatedBy, Valid: true}
+	}
+
+	query := `
+	UPDATE customers
+	SET
+		store_id = ?,
+		tag_id = ?,
+		first_name = ?,
+		last_name = ?,
+		full_name = ?,
+		phone = ?,
+		gender = ?,
+		birthday = ?,
+		created_by = ?,
+		discount_card = ?,
+		discount_percent = ?,
+		loyalty_card_barcode = ?,
+		loyalty_card_percent = ?,
+		loyalty_card_level_id = ?,
+		loyalty_card_type = ?,
+		loyalty_card_created_by = ?,
+		loyalty_card_created_at = ?,
+		updated_at = now()
+	WHERE
+		id = ?
+	RETURNING *
+	`
+	// insert customer
+	err = tx.WithContext(ctx).
+		Raw(query,
+			req.StoreId,
+			req.TagId,
+			req.FirstName,
+			req.LastName,
+			req.FirstName+" "+req.LastName,
+			req.Phone,
+			req.Gender,
+			req.Birthday,
+			req.CreatedBy,
+			req.DiscountCard,
+			req.DiscountPercent,
+			loyaltyCardBarcode,
+			loyaltyCardPersent,
+			loyaltyCardLevelID,
+			loyaltyCardType,
+			loyaltyCardCreatedBy,
+			loyaltyCardCreatedAt,
+			req.Id,
+		).Scan(&res).Error
+	if err != nil {
+		s.log.Errorf("could not update customer: %v", err)
+		_ = tx.Rollback()
+		return &res, domain.InternalServerError
+	}
+
+	// writing loyalty card history
+	if loyaltyCardShouldCreate {
+		err = tx.Exec(`insert into loyalty_card_levelup_history(
+			customer_id, loyalty_card_level_id, total_spent
+		) values (
+				?, ?, ?
+		)`, res.Id, loyaltyCardLevelID, 0).Error
+		if err != nil {
+			s.log.Errorf("error on creating loyalty card levelup history: %s", err.Error())
+			_ = tx.Rollback()
+			return &res, fmt.Errorf("error on creating loyalty card levelup history: %s", err.Error())
+		}
+	}
+
+	if err = tx.Commit().Error; err != nil {
+		s.log.Errorf("error on commit transaction: %s", err.Error())
+		return nil, fmt.Errorf("error on commit transaction: %s", err.Error())
+	}
+
+	return &res, nil
 }

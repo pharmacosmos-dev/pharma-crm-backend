@@ -1534,6 +1534,11 @@ func (s *Services) ListProductPhotoAlert(ctx context.Context, params *domain.Pro
 	return alerts, totalCount, nil
 }
 
+func (s *Services) GetRemainingProductsByDate(ctx context.Context, params *domain.ProductQueryParam) ([]domain.RemainingProduct, int64, error) {
+
+	return nil, 0, nil
+}
+
 // region Update
 
 func (s *Services) UpdateProductIsMarking(req *domain.UpdateIsMarking) error {

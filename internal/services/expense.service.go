@@ -432,7 +432,7 @@ func (s *Services) sendReportWithNumberTo1C(store *domain.Store, date string) er
 	endTime := dokTime.Add(19 * time.Hour)
 
 	// complete get expense product list
-	err = s.db.Raw(
+	err = s.db.Debug().Raw(
 		expenseProductQuery,
 		store.Id,
 		startTime,

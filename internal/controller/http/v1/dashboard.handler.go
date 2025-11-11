@@ -37,6 +37,7 @@ func (h *DashboardHandler) DashboardRoutes(r *gin.RouterGroup) {
 		dashboard.POST("/import-statistic", h.ImportStatistic)
 		dashboard.POST("/product-statistic", h.ProductStatistic)
 		dashboard.POST("/employee-bonus", h.EmployeeBonus)
+		dashboard.POST("/loyalty_card-statistic", h.LoyaltyCardStatistic)
 	}
 }
 
@@ -173,6 +174,7 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 // @Param   end_date 	query string false "End Date"
 // @Param   store_id 	query string false "Store ID"
 // @Param	is_franchise query bool false 	"is_franchise"
+// @Param	order 		query string false "order"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -225,6 +227,7 @@ func (h *DashboardHandler) TopStores(c *gin.Context) {
 // @Param   store_id 	query string false "Store ID"
 // @Param   ids 		body  domain.DashboardBody false "Body"
 // @Param	is_franchise query bool false 	"is_franchise"
+// @Param	order 		query string false "order"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -284,6 +287,7 @@ func (h *DashboardHandler) TopProducts(c *gin.Context) {
 // @Param   store_id 	query string false "Store ID"
 // @Param   ids 		body  domain.DashboardBody false "Body"
 // @Param	is_franchise query bool false 	"is_franchise"
+// @Param	order 		query string false "order"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -345,6 +349,7 @@ func (h *DashboardHandler) BonusProducts(c *gin.Context) {
 // @Param   store_id 	query string false "Store ID"
 // @Param   ids 		body  domain.DashboardBody false "Body"
 // @Param	is_franchise query bool false 	"is_franchise"
+// @Param	order 		query string false "order"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -828,4 +833,63 @@ func (h *DashboardHandler) EmployeeBonus(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, bonus)
+}
+
+// TotalCountStats godoc
+// @Summary Get total count stats
+// @Description Get total count stats
+// @Tags dashboard
+// @Security     BearerAuth
+// @Produce json
+// @Param   start_date 	query string false "Start Date"
+// @Param   end_date 	query string false "End Date"
+// @Param   store_id 	query string false "Store ID"
+// @Param   type 		query string false "Type"
+// @Param   ids 		body  domain.DashboardBody false "Body"
+// @Param	is_franchise query bool false 	"is_franchise"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /dashboard/loyalty_card-statistic [POST]
+func (h *DashboardHandler) LoyaltyCardStatistic(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+	var params domain.DashboardQueryParam
+	// bind query parameters
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	var body domain.DashboardBody
+	// bind store ids
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&body)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	params.StoreIds = body.StoreIds
+	params.CompanyIds = body.CompanyIds
+
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			params.StoreIds = []string{user.StoreId}
+		}
+		params.CompanyIds = []string{user.CompanyId}
+	}
+
+	// get dashboard data
+	res, err := h.service.LoyaltyCardStatistic(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	handleResponse(c, OK, res)
 }

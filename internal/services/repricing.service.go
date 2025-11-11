@@ -10,16 +10,7 @@ import (
 )
 
 // create price_revalutions
-func (s *Services) CreateRepricing(req *domain.RepricingRequest) (*domain.PriceRevalution, error) {
-	var res domain.PriceRevalution
-	err := s.db.Raw(`
-		INSERT INTO price_revalutions(store_id, name, type, created_by) 
-		VALUES(?, ?, ?, ?) RETURNING *`,
-		req.StoreId, req.Name, req.Type, req.CreatedBy).Scan(&res).Error
-	if err != nil {
-		s.log.Warn("ERROR on creating price_revalution: %v", err)
-		return &res, err
-	}
+func (s *Services) CreateRepricing(ctx context.Context, req *domain.RepricingRequest) (*domain.PriceRevalution, error) {
 	// start transaction
 	tx := s.db.Begin()
 	defer func() {
@@ -28,10 +19,32 @@ func (s *Services) CreateRepricing(req *domain.RepricingRequest) (*domain.PriceR
 		}
 	}()
 
+	var res domain.PriceRevalution
+	err := tx.WithContext(ctx).
+		Raw(`
+		INSERT INTO price_revalutions(
+			store_id, 
+			name, 
+			type, 
+			created_by
+			) 
+		VALUES(?, ?, ?, ?) 
+		RETURNING *`,
+			req.StoreId,
+			req.Name,
+			req.Type,
+			req.CreatedBy,
+		).Scan(&res).Error
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("could not create price_revalution: %v", err)
+		return &res, domain.InternalServerError
+	}
 	switch req.Type {
 	case "IMPORT":
 		if req.ImportId != "" {
-			err = tx.Exec(`
+			err = tx.WithContext(ctx).
+				Exec(`
 				INSERT INTO price_revalution_details(
 					price_revalution_id,
 					store_product_id,
@@ -52,12 +65,13 @@ func (s *Services) CreateRepricing(req *domain.RepricingRequest) (*domain.PriceR
 				FROM store_products sp
 				JOIN import_details id ON id.id = sp.import_detail_id
 				WHERE id.import_id = ?;`,
-				res.Id, req.ImportId).Error
+					res.Id, req.ImportId).Error
 		}
 
 	case "MEDICINE":
 		if req.StoreProductId != "" {
-			err = tx.Exec(`
+			err = tx.WithContext(ctx).
+				Exec(`
 				INSERT INTO price_revalution_details(
 					price_revalution_id,
 					store_product_id,
@@ -77,11 +91,12 @@ func (s *Services) CreateRepricing(req *domain.RepricingRequest) (*domain.PriceR
 					sp.serial_number
 				FROM store_products sp
 				WHERE sp.id = ?;`,
-				res.Id, req.StoreProductId).Error
+					res.Id, req.StoreProductId).Error
 		}
 
 	default: // FULL repricing (store_id bo‘yicha)
-		err = tx.Exec(`
+		err = tx.WithContext(ctx).
+			Exec(`
 			INSERT INTO price_revalution_details(
 				price_revalution_id,
 				store_product_id,
@@ -100,20 +115,22 @@ func (s *Services) CreateRepricing(req *domain.RepricingRequest) (*domain.PriceR
 				sp.expire_date, 
 				sp.serial_number
 			FROM store_products sp
-			WHERE sp.store_id = ? AND (sp.pack_quantity > 0 OR sp.unit_quantity > 0);`,
-			res.Id, req.StoreId).Error
+			WHERE sp.store_id = ? 
+			AND (sp.pack_quantity > 0 OR sp.unit_quantity > 0);`,
+				res.Id,
+				req.StoreId,
+			).Error
 	}
 
 	if err != nil {
-		s.log.Warn("ERROR on creating repricing details: %v", err)
-		tx.Rollback()
-		return &res, err
+		_ = tx.Rollback()
+		s.log.Errorf("could not create repricing details: %v", err)
+		return &res, domain.InternalServerError
 	}
 
 	if err = tx.Commit().Error; err != nil {
-		s.log.Warn("ERROR on commit repricing: %v", err)
-		tx.Rollback()
-		return &res, err
+		s.log.Errorf("could not commit create repricing transaction: %v", err)
+		return &res, domain.InternalServerError
 	}
 
 	return &res, nil
@@ -125,15 +142,15 @@ func (s *Services) CreateRepricingBy1C(tx *gorm.DB, req *domain.RepricingRequest
 	err := tx.Raw(`INSERT INTO price_revalutions(store_id, name, type, created_by, status) VALUES(?, ?, ?, ?, ?) RETURNING *`,
 		req.StoreId, req.Name, req.Type, req.CreatedBy, req.Status).Scan(&res).Error
 	if err != nil {
-		s.log.Warn("ERROR on creating price_revalution: %v", err)
-		return &res, err
+		s.log.Errorf("could not create price_revalution: %v", err)
+		return &res, domain.InternalServerError
 	}
 
 	return &res, nil
 }
 
 // create price_revalution detail
-func (s *Services) CreatePriceRevalutionDetail(tx *gorm.DB, req []domain.PriceRevalutionDetailRequest) error {
+func (s *Services) CreatePriceRevalutionDetail(ctx context.Context, tx *gorm.DB, req []domain.PriceRevalutionDetailRequest) error {
 	query := `
 	INSERT INTO price_revalution_details(
 		price_revalution_id,
@@ -151,11 +168,20 @@ func (s *Services) CreatePriceRevalutionDetail(tx *gorm.DB, req []domain.PriceRe
 		new_retail_price = EXCLUDED.new_retail_price
 	`
 	for _, v := range req {
-		err := tx.Exec(query, v.PriceRevalutionId, v.StoreProductID, v.ProductID, v.OldSupplyPrice, v.OldRetailPrice, v.NewRetailPrice, v.OldExpireDate, v.SerialNumber).Error
+		err := tx.WithContext(ctx).
+			Exec(query,
+				v.PriceRevalutionId,
+				v.StoreProductID,
+				v.ProductID,
+				v.OldSupplyPrice,
+				v.OldRetailPrice,
+				v.NewRetailPrice,
+				v.OldExpireDate,
+				v.SerialNumber,
+			).Error
 		if err != nil {
-			s.log.Warn("ERROR on updating price_revalution_details: %v", err)
-			tx.Rollback()
-			return err
+			s.log.Errorf("could not update price_revalution_details: %v", err)
+			return domain.InternalServerError
 		}
 	}
 
@@ -398,7 +424,7 @@ func (s *Services) RepricingDetailStatus(repricingID int, param *domain.QueryPar
 }
 
 // confirm repricing
-func (s *Services) ConfirmRepricing(repricingID int, updatedBy string) error {
+func (s *Services) ConfirmRepricing(ctx context.Context, repricingID int, updatedBy string) error {
 	var (
 		res     domain.PriceRevalution
 		details []domain.PriceRevalutionDetail
@@ -412,50 +438,61 @@ func (s *Services) ConfirmRepricing(repricingID int, updatedBy string) error {
 		}
 	}()
 
-	err := tx.First(&res, "id = ?", repricingID).Error
+	err := tx.WithContext(ctx).First(&res, "id = ?", repricingID).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting price_revalution: %v", err)
-		tx.Rollback()
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("could not get price_revalution: %v", err)
+		return domain.InternalServerError
 	}
 
-	err = tx.Exec(`UPDATE price_revalutions SET status = ?, updated_by = ?, updated_at = NOW() WHERE id = ?`, constants.GeneralStatusCompleted, updatedBy, repricingID).Error
+	err = tx.WithContext(ctx).
+		Exec(`
+		UPDATE price_revalutions 
+		SET 
+			status = ?, 
+			updated_by = ?, 
+			updated_at = NOW() 
+		WHERE id = ?`,
+			constants.GeneralStatusCompleted,
+			updatedBy,
+			repricingID,
+		).Error
 	if err != nil {
-		s.log.Warn("ERROR on updating price_revalution status: %v", err)
-		tx.Rollback()
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("could not update price_revalution status: %v", err)
+		return domain.InternalServerError
 	}
 
-	err = tx.Exec(`DELETE FROM price_revalution_details WHERE new_retail_price = 0 and price_revalution_id = ?`, repricingID).Error
+	err = tx.WithContext(ctx).
+		Exec(`DELETE FROM price_revalution_details WHERE new_retail_price = 0 and price_revalution_id = ?`, repricingID).Error
 	if err != nil {
-		s.log.Warn("ERROR on deleting price_revalution_details if price will be zero: %v", err)
-		tx.Rollback()
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("could not delete price_revalution_details if price will be zero: %v", err)
+		return domain.InternalServerError
 	}
 
-	err = tx.Find(&details, "price_revalution_id = ? AND new_retail_price > 0", repricingID).Error
+	err = tx.WithContext(ctx).Find(&details, "price_revalution_id = ? AND new_retail_price > 0", repricingID).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting price_revalution_detail list: %v", err)
-		tx.Rollback()
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("could not get price_revalution_detail list: %v", err)
+		return domain.InternalServerError
 	}
 
 	for _, v := range details {
-		err = tx.Exec(`
+		err = tx.WithContext(ctx).Exec(`
 		UPDATE store_products SET retail_price = ? WHERE id = ?
 		`, v.NewRetailPrice, v.StoreProductID).Error
 		if err != nil {
-			s.log.Warn("ERROR on updating store_product price: %v", err)
-			tx.Rollback()
+			_ = tx.Rollback()
+			s.log.Errorf("could not update store_product price: %v", err)
 			return err
 		}
 	}
 
 	// commit transaction
 	if err = tx.Commit().Error; err != nil {
-		s.log.Warn("ERROR on commiting transaction: %v", err)
-		tx.Rollback()
-		return err
+		s.log.Errorf("could not commit confirm repricing transaction: %v", err)
+		return domain.InternalServerError
 	}
 
 	return nil

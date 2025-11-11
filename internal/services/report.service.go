@@ -419,8 +419,8 @@ func (s *Services) GetStoreAmountReport(ctx context.Context, params *domain.Repo
 		Group("s.id, s.name")
 
 	// Filters
-	if params.StoreId != "" {
-		qb = qb.Where("s.id = ?", params.StoreId)
+	if len(params.StoreIds) > 0 {
+		qb = qb.Where("s.id IN(?)", params.StoreIds)
 	}
 	if len(params.CompanyIds) > 0 {
 		qb = qb.Where("s.company_id IN(?)", params.CompanyIds)
@@ -505,8 +505,8 @@ func (s *Services) ReportByStoreStats(ctx context.Context, params *domain.Report
 	// Filters
 	qb = qb.Where("sa.stage IN (?)", constants.FinishedSaleStages)
 
-	if params.StoreId != "" {
-		qb = qb.Where("s.id = ?", params.StoreId)
+	if len(params.StoreIds) > 0 {
+		qb = qb.Where("s.id IN(?)", params.StoreIds)
 	}
 	if len(params.CompanyIds) > 0 {
 		qb = qb.Where("s.company_id IN(?)", params.CompanyIds)
@@ -1215,6 +1215,7 @@ func (s *Services) GetStoreSummaryReport(ctx context.Context, params *domain.Rep
 					ROUND(SUM(sp.unit_quantity * (sp.retail_price / p.unit_per_pack)), 2) AS stock_amount
 			FROM store_products sp
 				JOIN products p ON sp.product_id = p.id
+					WHERE sp.unit_quantity > 0
 			GROUP BY sp.store_id
 	)
 	SELECT
@@ -1312,7 +1313,8 @@ func (s *Services) GetStoreSummaryReportStats(ctx context.Context, params *domai
 			sp.store_id,
 			ROUND(SUM(sp.unit_quantity * (sp.retail_price/p.unit_per_pack)), 2) AS stock_amount
 		FROM store_products sp
-				 JOIN products p ON sp.product_id = p.id
+			JOIN products p ON sp.product_id = p.id
+				WHERE sp.unit_quantity > 0
 		GROUP BY sp.store_id
 	),
 	store_summary AS (

@@ -3486,6 +3486,72 @@ const docTemplate = `{
                 }
             }
         },
+        "/customer/list-for-sale": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get a customer from the request body",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "customers"
+                ],
+                "summary": "Get a customer",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Store ID",
+                        "name": "store_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/customer/soft-delete": {
             "delete": {
                 "security": [
@@ -3703,6 +3769,12 @@ const docTemplate = `{
                         "type": "boolean",
                         "description": "is_franchise",
                         "name": "is_franchise",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "order",
+                        "name": "order",
                         "in": "query"
                     }
                 ],
@@ -3960,6 +4032,83 @@ const docTemplate = `{
             }
         },
         "/dashboard/import-statistic": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get total count stats",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "dashboard"
+                ],
+                "summary": "Get total count stats",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Start Date",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End Date",
+                        "name": "end_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Store ID",
+                        "name": "store_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Type",
+                        "name": "type",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Body",
+                        "name": "ids",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/domain.DashboardBody"
+                        }
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "is_franchise",
+                        "name": "is_franchise",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/dashboard/loyalty_card-statistic": {
             "post": {
                 "security": [
                     {
@@ -4472,6 +4621,12 @@ const docTemplate = `{
                         "description": "is_franchise",
                         "name": "is_franchise",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "order",
+                        "name": "order",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -4555,6 +4710,12 @@ const docTemplate = `{
                         "description": "is_franchise",
                         "name": "is_franchise",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "order",
+                        "name": "order",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -4617,6 +4778,12 @@ const docTemplate = `{
                         "type": "boolean",
                         "description": "is_franchise",
                         "name": "is_franchise",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "order",
+                        "name": "order",
                         "in": "query"
                     }
                 ],
@@ -6530,12 +6697,14 @@ const docTemplate = `{
                     },
                     {
                         "type": "number",
+                        "format": "float64",
                         "description": "From Amount",
                         "name": "from_amount",
                         "in": "query"
                     },
                     {
                         "type": "number",
+                        "format": "float64",
                         "description": "To Amount",
                         "name": "to_amount",
                         "in": "query"
@@ -6635,12 +6804,14 @@ const docTemplate = `{
                     },
                     {
                         "type": "number",
+                        "format": "float64",
                         "description": "From Amount",
                         "name": "from_amount",
                         "in": "query"
                     },
                     {
                         "type": "number",
+                        "format": "float64",
                         "description": "To Amount",
                         "name": "to_amount",
                         "in": "query"
@@ -13549,6 +13720,148 @@ const docTemplate = `{
                         "type": "string",
                         "description": "Search",
                         "name": "search",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/product/remaining-product-by-date": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Retrieve products with various filters and pagination",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Get a product",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Start Date",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End Date",
+                        "name": "end_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search term",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Status (active | inactive | low-stock | zero-stock | expired | imminent)",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Store ID",
+                        "name": "store_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Company ID",
+                        "name": "company_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Category ID",
+                        "name": "category_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Producer ID",
+                        "name": "producer_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "number",
+                        "format": "float64",
+                        "description": "Supply Price From",
+                        "name": "supply_price_from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "number",
+                        "format": "float64",
+                        "description": "Supply Price To",
+                        "name": "supply_price_to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "number",
+                        "format": "float64",
+                        "description": "Retail Price From",
+                        "name": "retail_price_from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "number",
+                        "format": "float64",
+                        "description": "Retail Price To",
+                        "name": "retail_price_to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Filter products without barcode",
+                        "name": "no_barcode",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Order by (+name | -name | +expire_date | -expire_date)",
+                        "name": "order",
                         "in": "query"
                     }
                 ],
@@ -25257,6 +25570,9 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "uzcard": {
+                    "type": "number"
+                },
+                "uzum": {
                     "type": "number"
                 }
             }

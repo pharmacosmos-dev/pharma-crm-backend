@@ -153,6 +153,7 @@ type FinalSale struct {
 	Payme              float64            `gorm:"payme" json:"payme"`
 	Alif               float64            `gorm:"alif" json:"alif"`
 	LoyaltyCard        float64            `gorm:"loyalty_card" json:"loyalty_card"`
+	Uzum               float64            `gorm:"uzum" json:"uzum"`
 	ReturnAmount       float64            `gorm:"return_amount" json:"return_amount"`
 	LoyaltyCardBarcode string             `gorm:"loyalty_card_barcode" json:"loyalty_card_barcode"`
 	OtpCode            string             `gorm:"otp_code" json:"otp_code"`

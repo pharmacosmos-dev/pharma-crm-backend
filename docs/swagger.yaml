@@ -649,6 +649,8 @@ definitions:
         type: number
       uzcard:
         type: number
+      uzum:
+        type: number
     type: object
   domain.FinanceCategoryRequest:
     properties:
@@ -4048,6 +4050,48 @@ paths:
       summary: Get discount cards
       tags:
       - customers
+  /customer/list-for-sale:
+    get:
+      consumes:
+      - application/json
+      description: Get a customer from the request body
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a customer
+      tags:
+      - customers
   /customer/soft-delete:
     delete:
       consumes:
@@ -4115,6 +4159,10 @@ paths:
         in: query
         name: is_franchise
         type: boolean
+      - description: order
+        in: query
+        name: order
+        type: string
       produces:
       - application/json
       responses:
@@ -4283,6 +4331,55 @@ paths:
       tags:
       - dashboard
   /dashboard/import-statistic:
+    post:
+      description: Get total count stats
+      parameters:
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Type
+        in: query
+        name: type
+        type: string
+      - description: Body
+        in: body
+        name: ids
+        schema:
+          $ref: '#/definitions/domain.DashboardBody'
+      - description: is_franchise
+        in: query
+        name: is_franchise
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get total count stats
+      tags:
+      - dashboard
+  /dashboard/loyalty_card-statistic:
     post:
       description: Get total count stats
       parameters:
@@ -4604,6 +4701,10 @@ paths:
         in: query
         name: is_franchise
         type: boolean
+      - description: order
+        in: query
+        name: order
+        type: string
       produces:
       - application/json
       responses:
@@ -4657,6 +4758,10 @@ paths:
         in: query
         name: is_franchise
         type: boolean
+      - description: order
+        in: query
+        name: order
+        type: string
       produces:
       - application/json
       responses:
@@ -4697,6 +4802,10 @@ paths:
         in: query
         name: is_franchise
         type: boolean
+      - description: order
+        in: query
+        name: order
+        type: string
       produces:
       - application/json
       responses:
@@ -5977,10 +6086,12 @@ paths:
         name: end_date
         type: string
       - description: From Amount
+        format: float64
         in: query
         name: from_amount
         type: number
       - description: To Amount
+        format: float64
         in: query
         name: to_amount
         type: number
@@ -6045,10 +6156,12 @@ paths:
         name: end_date
         type: string
       - description: From Amount
+        format: float64
         in: query
         name: from_amount
         type: number
       - description: To Amount
+        format: float64
         in: query
         name: to_amount
         type: number
@@ -10549,6 +10662,101 @@ paths:
       - description: Search
         in: query
         name: search
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a product
+      tags:
+      - products
+  /product/remaining-product-by-date:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve products with various filters and pagination
+      parameters:
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search term
+        in: query
+        name: search
+        type: string
+      - description: Status (active | inactive | low-stock | zero-stock | expired
+          | imminent)
+        in: query
+        name: status
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Company ID
+        in: query
+        name: company_id
+        type: string
+      - description: Category ID
+        in: query
+        name: category_id
+        type: string
+      - description: Producer ID
+        in: query
+        name: producer_id
+        type: string
+      - description: Supply Price From
+        format: float64
+        in: query
+        name: supply_price_from
+        type: number
+      - description: Supply Price To
+        format: float64
+        in: query
+        name: supply_price_to
+        type: number
+      - description: Retail Price From
+        format: float64
+        in: query
+        name: retail_price_from
+        type: number
+      - description: Retail Price To
+        format: float64
+        in: query
+        name: retail_price_to
+        type: number
+      - description: Filter products without barcode
+        in: query
+        name: no_barcode
+        type: boolean
+      - description: Order by (+name | -name | +expire_date | -expire_date)
+        in: query
+        name: order
         type: string
       produces:
       - application/json
