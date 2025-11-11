@@ -79,7 +79,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.POST("/photo-alert", h.CreateProductPhotoAlert)
 		product.POST("/photo-alert/list", h.ListProductPhotoAlert)
 		product.DELETE("/photo-alert/:id", h.DeleteProductPhotoAlert)
-		// product.GET("/remaining-product-by-date", h.RemainingProductsByDate)
+		product.GET("/remaining-product-by-date", h.GetRemainingProductsByDate)
 	}
 }
 
@@ -2689,4 +2689,74 @@ func (h *ProductHandler) productListExportByStoreId(f *excelize.File, res []doma
 	}
 
 	return f, nil
+}
+
+// Get godoc
+// @Summary     Get a product
+// @Description Retrieve products with various filters and pagination
+// @Tags        products
+// @Security    BearerAuth
+// @Accept      json
+// @Produce     json
+//
+// @Param       start_date          query string  false  "Start Date"
+// @Param       end_date            query string  false  "End Date"
+// @Param       limit               query int     false  "Limit"
+// @Param       offset              query int     false  "Offset"
+// @Param       search              query string  false  "Search term"
+// @Param       status              query string  false  "Status (active | inactive | low-stock | zero-stock | expired | imminent)"
+// @Param       store_id            query string  false  "Store ID"
+// @Param       company_id          query string  false  "Company ID"
+// @Param       category_id         query string  false  "Category ID"
+// @Param       producer_id         query string  false  "Producer ID"
+// @Param       supply_price_from   query float64   false  "Supply Price From"
+// @Param       supply_price_to     query float64   false  "Supply Price To"
+// @Param       retail_price_from   query float64   false  "Retail Price From"
+// @Param       retail_price_to     query float64   false  "Retail Price To"
+// @Param       no_barcode          query bool    false  "Filter products without barcode"
+// @Param       order               query string  false  "Order by (+name | -name | +expire_date | -expire_date)"
+//
+// @Success     200 {object} v1.Response
+// @Failure     400 {object} v1.Response
+// @Failure     500 {object} v1.Response
+//
+// @Router      /product/remaining-product-by-date [get]
+func (h *ProductHandler) GetRemainingProductsByDate(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.ProductQueryParam
+	// bind request params
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	// Pagination parameters
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	// get products list
+	products, totalCount, err := h.service.GetRemainingProductsByDate(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	// Prepare the response
+	result := utils.ListResponse(products, totalCount, params.Limit, params.Offset)
+
+	handleResponse(c, OK, result)
 }

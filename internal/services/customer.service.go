@@ -164,7 +164,7 @@ func (s *Services) CreateCustomerWithPhone(req *domain.NoorClientInfo) (*domain.
 // region Get
 
 // get customer list data
-func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam) ([]domain.Customer, int64, error) {
+func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam, usedInSalePage bool) ([]domain.Customer, int64, error) {
 	var tmpCustomer []struct {
 		Id                   string     `gorm:"id" json:"id"`
 		PublicId             int        `gorm:"public_id" json:"public_id"`
@@ -235,7 +235,11 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam) 
 		Joins("LEFT JOIN tags t ON c.tag_id = t.id")
 
 	if params.Search != "" {
-		query = query.Where("c.discount_card = ? or c.loyalty_card_barcode = ?", params.Search, params.Search)
+		if usedInSalePage {
+			query = query.Where("c.discount_card = ? or c.loyalty_card_barcode = ?", params.Search, params.Search)
+		} else {
+			query = query.Where("c.public_id::text ilike ? or c.phone::text ilike ? or c.full_name ilike ?", "%"+params.Search+"%", "%"+params.Search+"%", "%"+params.Search+"%")
+		}
 	}
 
 	if params.StoreID != "" {
@@ -258,7 +262,7 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam) 
 		Order("c.created_at DESC").
 		Find(&tmpCustomer).Error
 	if err != nil {
-		s.log.Errorf("could not create new customer: %v", err)
+		s.log.Errorf("could not get new customer: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
 
@@ -303,10 +307,10 @@ func (s *Services) GetCustomers(ctx context.Context, params *domain.QueryParam) 
 	return customers, totalCount, nil
 }
 
-func (s *Services) GetCustomerById(ctx context.Context, id string) (*domain.Customer, error) {
+func (s *Services) GetCustomerById(ctx context.Context, tx *gorm.DB, id string) (*domain.Customer, error) {
 	var res domain.Customer
 
-	err := s.db.WithContext(ctx).
+	err := tx.WithContext(ctx).
 		Where("id = ?", id).
 		First(&res).Error
 	if err != nil {

@@ -126,12 +126,12 @@ func (s *Services) GetDraftById(ctx context.Context, id string) (*domain.Draft, 
 		return nil, domain.InternalServerError
 	}
 
-	cartItems, err := s.getCartItemWithProducts(ctx, draft.SaleId)
+	cartItems, err := s.getCartItemWithProducts(ctx, s.db, draft.SaleId)
 	if err != nil {
 		return nil, err
 	}
 
-	cartItemTotal, err := s.GetCartItemsTotalAmount(ctx, draft.SaleId)
+	cartItemTotal, err := s.GetCartItemsTotalAmount(ctx, s.db, draft.SaleId)
 	if err != nil {
 		return nil, err
 	}

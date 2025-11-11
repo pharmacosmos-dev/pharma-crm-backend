@@ -1118,6 +1118,8 @@ func (s *Services) DashboardOldImports(ctx context.Context, params *domain.Dashb
 		Where("im.entry_type = ?", constants.ProductMovementImport).
 		Where("im.created_at <= NOW() - interval '24 hours'")
 
+	qb = qb.Where("im.status = ?", constants.GeneralStatusNew)
+
 	if params.Search != "" {
 		params.Search = fmt.Sprintf("%%%s%%", params.Search)
 		qb = qb.Where("im.document_number ILIKE ? OR im.public_id::text LIKE ?", params.Search, params.Search)

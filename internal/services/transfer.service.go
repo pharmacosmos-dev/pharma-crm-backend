@@ -841,11 +841,10 @@ func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userI
 	dataOnec.AptekaOtkud.StoreCode = fromStore.StoreCode
 	if s.cfg.OnecApiUrl != "test" {
 		// send inventory products data to 1C
-		err = s.DoRequestOnec(context.Background(), dataOnec, constants.OnecPathPerekit)
-		if err != nil {
-			s.log.Errorf("could not send transfer to onec: %v", err)
-			return domain.InternalServerError
-		}
+		go s.DoRequestOnec(context.Background(), dataOnec, constants.OnecPathPerekit)
+		// if err != nil {
+		// 	s.log.Errorf("could not send transfer to onec: %v", err)
+		// }
 	}
 	return nil
 }

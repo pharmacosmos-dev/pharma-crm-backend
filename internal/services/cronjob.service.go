@@ -1,6 +1,15 @@
 package services
 
-import "fmt"
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"time"
+
+	"github.com/pharma-crm-backend/domain"
+)
 
 func (s *Services) syncUnitCodes() error {
 	// store_products update
@@ -39,5 +48,110 @@ func (s *Services) syncUnitCodes() error {
     `).Error; err != nil {
 		return fmt.Errorf("failed to update products: %w", err)
 	}
+	return nil
+}
+
+func (s *Services) SendRemainingQuantityToOsonApteka() error {
+	var query = `
+WITH valid_stores AS (
+    SELECT
+        id,
+        oson_apteka_login,
+        oson_apteka_parol
+    FROM
+        stores
+    WHERE
+        oson_apteka_login IS NOT NULL AND oson_apteka_login != '' AND
+        oson_apteka_parol IS NOT NULL AND oson_apteka_parol != ''
+)
+SELECT
+    json_build_object(
+            'store', vs.oson_apteka_login,
+            'code', vs.oson_apteka_parol,
+            'remain_count', COUNT(*),  -- Simplified: all rows already filtered
+            'programm', 13,
+            'drugs', json_agg(
+                    json_build_object(
+                            'id', sp.id,
+                            'drug_id', p.unit_code,
+                            'barcode', p.barcode,
+                            'name', p.name,
+                            'manufacturer', pr.name,
+                            'price', sp.retail_price,
+                            'qty', ROUND(sp.unit_quantity / p.unit_per_pack, 0),
+                            'expiry_date', sp.expire_date
+                    )
+                     )
+    ) AS result
+FROM
+    valid_stores AS vs
+        INNER JOIN  -- Changed from LEFT JOIN since we need products
+        store_products AS sp ON vs.id = sp.store_id AND sp.unit_quantity > 0
+        INNER JOIN
+    products AS p ON p.id = sp.product_id
+        LEFT JOIN  -- Keep LEFT JOIN if producer can be null
+        producers AS pr ON pr.id = p.producer_id
+GROUP BY
+    vs.id, vs.oson_apteka_login, vs.oson_apteka_parol
+	`
+
+	// Scan and process in one pass
+	var stores []string
+	if err := s.db.Raw(query).Scan(&stores).Error; err != nil {
+		return fmt.Errorf("failed to fetch remaining quantities for OsonApteka: %w", err)
+	}
+
+	for _, jsonStr := range stores {
+		var store domain.OsonAptekaRequest
+		if err := json.Unmarshal([]byte(jsonStr), &store); err != nil {
+			return fmt.Errorf("failed to unmarshal store data: %w", err)
+		}
+
+		// Process immediately - no second loop needed
+		jsonData, err := json.MarshalIndent(store, "", "  ")
+		if err != nil {
+			return fmt.Errorf("failed to marshal store data: %w", err)
+		}
+		// fmt.Println("Sending to OsonApteka:", string(jsonData))
+
+		// Send to API
+		req, err := http.NewRequest("POST", "https://remains.osonapteka.uz/api/set-app-remains", bytes.NewBuffer(jsonData))
+		if err != nil {
+			return fmt.Errorf("failed to create request: %w", err)
+		}
+
+		client := &http.Client{
+			Timeout: 30 * time.Second,
+		}
+
+		req.Header.Set("Content-Type", "application/json")
+
+		resp, err := client.Do(req)
+		if err != nil {
+			return fmt.Errorf("failed to send request: %w", err)
+		}
+		defer resp.Body.Close()
+
+		// print response
+		fmt.Println("Response from OsonApteka:")
+		bodyByte, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("failed to read response body: %w", err)
+		}
+		fmt.Println("string(bodyByte): ", string(bodyByte))
+
+		fmt.Println("resp.Status, resp.StatusCode: ", resp.Status, resp.StatusCode)
+		response := domain.OsonAptekaRemainingQuantityResponse{}
+		if err := json.Unmarshal(bodyByte, &response); err != nil {
+			return fmt.Errorf("failed to decode response: %w", err)
+		}
+		fmt.Printf("Response from OsonApteka: %+v\n", response)
+
+		// check response
+		if !response.Succeeded {
+			return fmt.Errorf("oson apteka returned error: %+v", response)
+		}
+	}
+
 	return nil
 }

@@ -138,10 +138,10 @@ type SaleUpdateRequest struct {
 
 // FinalSale structure
 type FinalSale struct {
-	StoreID            string             `gorm:"store_id" json:"store_id"`
-	SaleID             string             `gorm:"sale_id" json:"sale_id"`
-	PrescriptionID     string             `gorm:"prescription_id" json:"prescription_id"`
-	CustomerID         *string            `gorm:"customer_id" json:"customer_id"`
+	StoreId            string             `gorm:"store_id" json:"store_id"`
+	SaleId             string             `gorm:"sale_id" json:"sale_id"`
+	PrescriptionId     string             `gorm:"prescription_id" json:"prescription_id"`
+	CustomerId         *string            `gorm:"customer_id" json:"customer_id"`
 	CashBoxOperationId string             `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
 	TotalAmount        float64            `gorm:"total_amount" json:"total_amount"`
 	ServiceType        *string            `gorm:"service_type" json:"service_type"`
@@ -153,6 +153,7 @@ type FinalSale struct {
 	Payme              float64            `gorm:"payme" json:"payme"`
 	Alif               float64            `gorm:"alif" json:"alif"`
 	LoyaltyCard        float64            `gorm:"loyalty_card" json:"loyalty_card"`
+	Uzum               float64            `gorm:"uzum" json:"uzum"`
 	ReturnAmount       float64            `gorm:"return_amount" json:"return_amount"`
 	LoyaltyCardBarcode string             `gorm:"loyalty_card_barcode" json:"loyalty_card_barcode"`
 	OtpCode            string             `gorm:"otp_code" json:"otp_code"`

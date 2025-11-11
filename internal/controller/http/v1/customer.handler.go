@@ -29,6 +29,7 @@ func (h *CustomerHandler) CustomerRoutes(r *gin.RouterGroup) {
 		customer.POST("", h.Create)
 		customer.GET("/:id", h.Get)
 		customer.GET("/list", h.List)
+		customer.GET("/list-for-sale", h.ListForSale)
 		customer.GET("/export-excel", h.ExportCustomerExcel)
 		customer.GET("/list-discount-cards", h.ListDiscountCards)
 		customer.GET("/export-excel-discount-cards", h.ExportDiscountCardExcel)
@@ -106,7 +107,7 @@ func (h *CustomerHandler) Get(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	res, err := h.service.GetCustomerById(ctx, id)
+	res, err := h.service.GetCustomerById(ctx, h.db, id)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return
@@ -141,7 +142,44 @@ func (h *CustomerHandler) List(c *gin.Context) {
 
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 	// get customers data
-	res, totalCount, err := h.service.GetCustomers(ctx, &params)
+	res, totalCount, err := h.service.GetCustomers(ctx, &params, false)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+	// add _meta data
+	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
+
+	handleResponse(c, OK, data)
+}
+
+// List godoc
+// @Summary Get a customer
+// @Description Get a customer from the request body
+// @Tags customers
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param limit query int false "Limit"
+// @Param offset query int false "Offset"
+// @Param search query string false "Search"
+// @Param store_id query string false "Store ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /customer/list-for-sale [get]
+func (h *CustomerHandler) ListForSale(c *gin.Context) {
+	var params domain.QueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+	// get customers data
+	res, totalCount, err := h.service.GetCustomers(ctx, &params, true)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return
@@ -181,7 +219,7 @@ func (h *CustomerHandler) ExportCustomerExcel(c *gin.Context) {
 
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 	// get customers data
-	res, _, err := h.service.GetCustomers(ctx, &params)
+	res, _, err := h.service.GetCustomers(ctx, &params, false)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return
