@@ -97,10 +97,10 @@ func RegisterCronJobs(service *services.Services) (*cron.Cron, error) {
 		log.Println("Starting send expense to 1C...")
 		service.SendReportsSequentially()
 	})
-	// c.AddFunc("0 * * * *", func() {
-	// 	log.Println("Staring checking customers' loyalty leveling up...")
-	// 	service.LoyaltyCardLevelingUp()
-	// })
+	c.AddFunc("0 * * * *", func() {
+		log.Println("Staring checking customers' loyalty leveling up...")
+		service.LoyaltyCardLevelingUp()
+	})
 	// c.AddFunc("0 * * * *", func() {
 	// 	log.Println("Starting sending remaining quantity of products to OsonApteka...")
 	// 	service.SendRemainingQuantityToOsonApteka()
