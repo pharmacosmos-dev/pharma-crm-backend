@@ -75,7 +75,7 @@ const (
 
 var (
 	FinishedSaleStages = []int{SaleStageFinished, SaleStageReturnedFinish}
-	PendingSaleStages  = []int{SaleStageNew, SaleStagePending, SaleStageOfdWaiting, SaleStageOfdCancelled, SaleStageReturning}
+	PendingSaleStages  = []int{SaleStageNew, SaleStagePending, SaleStageReturning}
 )
 
 var SaleStages = map[int]map[string]string{
@@ -203,7 +203,6 @@ const (
 
 	ProductMovementImport    = 1
 	ProductMovementInventory = 2
-	
 )
 
 // Request Path
