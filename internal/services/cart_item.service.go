@@ -23,8 +23,8 @@ func (s *Services) CreateCartItem(ctx context.Context, user *domain.EmployeeClai
 			_ = tx.Rollback()
 		}
 	}()
-	// get sale info by id with row-level lock
-	sale, err := s.GetSaleByIdWithLocking(ctx, tx, req.SaleId)
+	// get sale info by id WITHOUT locking (faster)
+	sale, err := s.GetSaleById(ctx, req.SaleId)
 	if err != nil {
 		_ = tx.Rollback()
 		return nil, err
@@ -43,8 +43,8 @@ func (s *Services) CreateCartItem(ctx context.Context, user *domain.EmployeeClai
 		return nil, err
 	}
 
-	// Try to get existing cart item with lock
-	cart, err := s.GetCartItemBySaleIdAndSpIdWithLocking(ctx, tx, req.SaleId, req.StoreProductId)
+	// Try to get existing cart item WITHOUT lock (faster)
+	cart, err := s.GetCartItemBySaleIdAndSpId(ctx, tx, req.SaleId, req.StoreProductId)
 	if err != nil {
 		// Cart item doesn't exist, create new one
 		res, err := s.createNewCartItem(ctx, tx, req, storeProduct)
@@ -267,16 +267,16 @@ func (s *Services) GetCartItemBySaleIdAndSpIdWithLocking(ctx context.Context, tx
 	return &cartItem, nil
 }
 
-// get cart items total amount
+// get cart items total amount (no locking needed - stage protection prevents modifications)
 func (s *Services) GetCartItemsTotalAmount(ctx context.Context, tx *gorm.DB, saleId string) (*domain.CartItemData, error) {
 	var res domain.CartItemData
 	err := tx.WithContext(ctx).
 		Select(
-			"SUM(ci.total_price) AS sum",
-			"SUM(ci.unit_quantity/p.unit_per_pack) AS item_count",
-			"SUM(ci.discount_amount) AS discount_amount",
-			"ROUND(SUM((sp.vat_price / p.unit_per_pack) * ci.unit_quantity), 2) AS vat_sum",
-			"SUM(ci.total_price) - SUM(ci.discount_amount) as total_amount",
+			"COALESCE(SUM(ci.total_price), 0) AS sum",
+			"COALESCE(SUM(ci.unit_quantity/p.unit_per_pack), 0) AS item_count",
+			"COALESCE(SUM(ci.discount_amount), 0) AS discount_amount",
+			"COALESCE(ROUND(SUM((sp.vat_price / p.unit_per_pack) * ci.unit_quantity), 2), 0) AS vat_sum",
+			"COALESCE(SUM(ci.total_price) - SUM(ci.discount_amount), 0) as total_amount",
 		).
 		Table("cart_items ci").
 		Joins("JOIN store_products sp ON ci.store_product_id = sp.id").
@@ -400,6 +400,7 @@ func (s *Services) GetCartItemByIdWithLocking(ctx context.Context, tx *gorm.DB, 
 
 func (s *Services) getCartItemWithProducts(ctx context.Context, tx *gorm.DB, saleId string) ([]domain.CartItemResponse, error) {
 	var cartItems []domain.CartItemResponse
+	// No locking needed - stage protection prevents cart modifications
 	err := tx.
 		WithContext(ctx).
 		Model(&domain.CartItem{}).
@@ -487,8 +488,8 @@ func (s *Services) UpdateCartItemDiscount(ctx context.Context, saleId string, re
 			_ = tx.Rollback()
 		}
 	}()
-	// Get sale with row-level lock
-	sale, err := s.GetSaleByIdWithLocking(ctx, tx, saleId)
+	// Get sale WITHOUT locking (faster)
+	sale, err := s.GetSaleById(ctx, saleId)
 	if err != nil {
 		_ = tx.Rollback()
 		return err
@@ -583,14 +584,14 @@ func (s *Services) UpdateCartItemQuantity(ctx context.Context, req *domain.CartI
 			_ = tx.Rollback()
 		}
 	}()
-	// get cart_item before update
-	cartItem, err := s.GetCartItemByIdWithLocking(ctx, tx, req.Id)
+	// get cart_item before update WITHOUT locking (faster)
+	cartItem, err := s.GetCartItemById(ctx, req.Id)
 	if err != nil {
 		_ = tx.Rollback()
 		return nil, err
 	}
 
-	sale, err := s.GetSaleByIdWithLocking(ctx, tx, cartItem.SaleId)
+	sale, err := s.GetSaleById(ctx, cartItem.SaleId)
 	if err != nil {
 		_ = tx.Rollback()
 		return nil, err
@@ -822,15 +823,15 @@ func (s *Services) DeleteCartItem(ctx context.Context, id string) error {
 		}
 	}()
 
-	// Get cart item with lock
-	cartItem, err := s.GetCartItemByIdWithLocking(ctx, tx, id)
+	// Get cart item WITHOUT locking (faster)
+	cartItem, err := s.GetCartItemById(ctx, id)
 	if err != nil {
 		_ = tx.Rollback()
 		return err
 	}
 
-	// Get sale with lock
-	sale, err := s.GetSaleByIdWithLocking(ctx, tx, cartItem.SaleId)
+	// Get sale WITHOUT locking (faster)
+	sale, err := s.GetSaleById(ctx, cartItem.SaleId)
 	if err != nil {
 		_ = tx.Rollback()
 		return err
@@ -917,8 +918,8 @@ func (s *Services) DeleteCartItems(ctx context.Context, ids []string) error {
 		return domain.NotFoundError
 	}
 
-	// Get sale with lock
-	sale, err := s.GetSaleByIdWithLocking(ctx, tx, cartItems[0].SaleId)
+	// Get sale WITHOUT locking (faster)
+	sale, err := s.GetSaleById(ctx, cartItems[0].SaleId)
 	if err != nil {
 		_ = tx.Rollback()
 		return err

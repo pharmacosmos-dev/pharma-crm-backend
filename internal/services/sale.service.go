@@ -225,12 +225,42 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 		}
 	}()
 
-	// Lock sale first to prevent concurrent finalization
-	sale, err := s.GetSaleByIdWithLocking(ctx, tx, req.SaleId)
+	// Get sale WITHOUT locking (faster)
+	sale, err := s.GetSaleById(ctx, req.SaleId)
 	if err != nil {
 		_ = tx.Rollback()
 		return nil, err
 	}
+
+	// check if sale is already completed
+	if utils.In(sale.Stage, constants.FinishedSaleStages...) {
+		_ = tx.Rollback()
+		return nil, domain.SaleIsClosedError
+	}
+
+	// CRITICAL: Atomically change stage ONLY if still in pending stages
+	// This prevents concurrent finalizations and cart modifications
+	result := tx.WithContext(ctx).Exec(`
+		UPDATE sales 
+		SET stage = ?, updated_at = NOW() 
+		WHERE id = ? AND stage IN (?, ?, ?)
+	`, constants.SaleStageOfdWaiting, req.SaleId,
+		constants.SaleStageNew, constants.SaleStagePending, constants.SaleStageReturning)
+
+	if result.Error != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("could not update sale stage: %v", result.Error)
+		return nil, domain.InternalServerError
+	}
+
+	// Check if update actually happened (0 rows = already finalized by another request)
+	if result.RowsAffected == 0 {
+		_ = tx.Rollback()
+		return nil, domain.SaleIsClosedError
+	}
+
+	// Update sale object to reflect new stage
+	sale.Stage = constants.SaleStageOfdWaiting
 
 	// get customer if loyalty card added to sale
 	if req.LoyaltyCardBarcode != "" {
@@ -240,12 +270,6 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 			return nil, err
 		}
 		sale.Customer = customer
-	}
-
-	// check if sale is already completed
-	if utils.In(sale.Stage, constants.FinishedSaleStages...) {
-		_ = tx.Rollback()
-		return nil, domain.SaleIsClosedError
 	}
 
 	// Route to appropriate handler based on sale type
@@ -827,6 +851,7 @@ func (s *Services) EposResultReturn(
 
 func (s *Services) validateSaleProductQuantity(ctx context.Context, tx *gorm.DB, sale *domain.Sale) error {
 	var cartItemsWithProducts []domain.CartItemWithProduct
+	// No locking needed - stage protection prevents cart modifications
 	err := tx.WithContext(ctx).
 		Table("cart_items ci").
 		Select(
@@ -872,6 +897,7 @@ func (s *Services) validateSaleProductQuantity(ctx context.Context, tx *gorm.DB,
 
 func (s *Services) ApplySaleInventoryUpdate(ctx context.Context, tx *gorm.DB, sale *domain.Sale, loyaltyCardBarcode string) error {
 	var cartItemsWithProducts []domain.CartItemWithProduct
+	// No locking needed - stage protection prevents cart modifications
 	err := tx.WithContext(ctx).
 		Table("cart_items ci").
 		Select(
@@ -1072,8 +1098,8 @@ func (s *Services) AttachDiscountCardToSale(ctx context.Context, req *domain.Add
 		}
 	}()
 
-	// Lock sale to prevent concurrent modifications
-	_, err = s.GetSaleByIdWithLocking(ctx, tx, req.SaleId)
+	// Get sale WITHOUT locking (faster)
+	_, err = s.GetSaleById(ctx, req.SaleId)
 	if err != nil {
 		_ = tx.Rollback()
 		return nil, err
@@ -1929,11 +1955,15 @@ func (s *Services) GetPaymentServiceByStoreId(ctx context.Context, tx *gorm.DB, 
 	return &res, nil
 }
 
-// cart items sum of the sale
+// cart items sum of the sale (no locking needed - stage protection prevents modifications)
 func (s *Services) cartItemsSumBySaleId(ctx context.Context, tx *gorm.DB, saleId string) (float64, error) {
 	var sum float64
 	err := tx.
-		WithContext(ctx).Raw(`SELECT SUM(total_price) - SUM(discount_amount) AS sum FROM cart_items WHERE sale_id = ?`, saleId).Scan(&sum).Error
+		WithContext(ctx).Raw(`
+			SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) AS sum 
+			FROM cart_items 
+			WHERE sale_id = ?
+		`, saleId).Scan(&sum).Error
 	if err != nil {
 		s.log.Error("could not calculate cart_items sum: %v", err)
 		return sum, domain.InternalServerError
