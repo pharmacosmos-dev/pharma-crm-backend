@@ -59,18 +59,16 @@ func Run(cfg *config.Config) {
 	// Start http server
 	fmt.Println("Server is running on port:", cfg.App.Port)
 
-	c := cron.New(
-		cron.WithLocation(time.UTC), // important: sets cron to UTC
-	)
-	c.AddFunc("00 23 * * *", func() {
-		log.Println("Starting send expense to 1C...")
-		service.SendReportsSequentially()
-	})
-	c.AddFunc("0 * * * *", func ()  {
-		log.Println("Staring checking customers' loyalty leveling up...")
-		service.LoyaltyCardLevelingUp()
-	})
+	// // for test
+	// err = service.SendRemainingQuantityToOsonApteka()
+	// if err != nil {
+	// 	l.Error(err)
+	// }
 
+	c, err := RegisterCronJobs(service)
+	if err != nil {
+		l.Error(err)
+	}
 	c.Start()
 
 	// Waiting signal
@@ -88,4 +86,25 @@ func Run(cfg *config.Config) {
 	if err != nil {
 		l.Error(fmt.Errorf("app - Run - httpServer.Shutdown: %w", err))
 	}
+}
+
+func RegisterCronJobs(service *services.Services) (*cron.Cron, error) {
+
+	c := cron.New(
+		cron.WithLocation(time.UTC), // important: sets cron to UTC
+	)
+	c.AddFunc("00 23 * * *", func() {
+		log.Println("Starting send expense to 1C...")
+		service.SendReportsSequentially()
+	})
+	c.AddFunc("0 * * * *", func() {
+		log.Println("Staring checking customers' loyalty leveling up...")
+		service.LoyaltyCardLevelingUp()
+	})
+	// c.AddFunc("0 * * * *", func() {
+	// 	log.Println("Starting sending remaining quantity of products to OsonApteka...")
+	// 	service.SendRemainingQuantityToOsonApteka()
+	// })
+
+	return c, nil
 }

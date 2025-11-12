@@ -1,10 +1,10 @@
 INSERT INTO payment_types (name, type, description, is_active, order_number)
-VALUES ('Balans', 'loyalty_cd', 'Loyalty karta ortali to`lov', true, 8);
+VALUES ('Balans', 'loyalty_card', 'Loyalty karta ortali to`lov', true, 8);
 
 INSERT INTO cashbox_payment_types (cash_box_id, payment_type_id, is_active)
 SELECT c.id, p.id, true
 FROM cash_boxes c
-         JOIN payment_types p ON p.type = 'loyalty_cd'
+         JOIN payment_types p ON p.type = 'loyalty_card'
 WHERE NOT EXISTS (
     SELECT 1
     FROM cashbox_payment_types cp

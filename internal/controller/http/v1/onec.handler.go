@@ -212,11 +212,13 @@ func (h *ProductOnecHandler) ProductRepricing(c *gin.Context) {
 			if err != nil {
 				_ = tx.Rollback()
 				h.log.Errorf("could not create new price_revalution: %v", err)
-				handleServiceResponse(c, nil, domain.InternalServerError)
+				handleServiceResponse(c, InternalError, domain.NotFoundError)
 				return
 			}
 		}
-
+		_ = tx.Rollback()
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
+		return
 	}
 
 	// collect price revalution details
@@ -256,7 +258,7 @@ func (h *ProductOnecHandler) ProductRepricing(c *gin.Context) {
 	err = h.service.CreatePriceRevalutionDetail(ctx, tx, products)
 	if err != nil {
 		_ = tx.Rollback()
-		handleServiceResponse(c, InternalError, err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 

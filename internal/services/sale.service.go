@@ -19,6 +19,7 @@ import (
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/spf13/cast"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // region Create
@@ -216,23 +217,34 @@ func (s *Services) SaveEposResponse(ctx context.Context, req *domain.EposRespons
 
 // finalize sale
 func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*domain.MarkingItemsResponse, error) {
-	sale, err := s.GetSaleById(ctx, req.SaleID)
+	// start transaction
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	// Lock sale first to prevent concurrent finalization
+	sale, err := s.GetSaleByIdWithLocking(ctx, tx, req.SaleId)
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, err
 	}
 
 	// get customer if loyalty card added to sale
 	if req.LoyaltyCardBarcode != "" {
-		customer, err := s.GetCustomerById(ctx, *req.CustomerID)
+		customer, err := s.GetCustomerById(ctx, tx, *req.CustomerId)
 		if err != nil {
+			_ = tx.Rollback()
 			return nil, err
 		}
 		sale.Customer = customer
-		sale.CustomerId = customer.Id
 	}
 
 	// check if sale is already completed
 	if utils.In(sale.Stage, constants.FinishedSaleStages...) {
+		_ = tx.Rollback()
 		return nil, domain.SaleIsClosedError
 	}
 
@@ -243,6 +255,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 
 	// check payment types
 	if len(req.PaymentTypes) == 0 {
+		_ = tx.Rollback()
 		return nil, domain.PaymentTypeRequiredError
 	}
 
@@ -251,13 +264,17 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 	if sale.Customer != nil {
 		customerBalance = sale.Customer.Balance
 	}
-	req, err = s.matchingPaymentTypeSum(ctx, req, customerBalance)
+	// check sale amount and validate payment types (now with locked cart items)
+	req, err = s.matchingPaymentTypeSum(ctx, tx, req, customerBalance)
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, err
 	}
 
-	err = s.validateSaleProductQuantity(ctx, sale)
+	// validate product quantities (now with locked cart items)
+	err = s.validateSaleProductQuantity(ctx, tx, sale)
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, err
 	}
 
@@ -265,15 +282,18 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 		var cartItems []*domain.CartItemForDMED
 		cartItems, err = s.GetCartItems(ctx, sale.Id)
 		if err != nil {
+			_ = tx.Rollback()
 			return nil, err
 		}
 		// send req dmed
-		err = s.DmedGiveReceipt(cartItems, req.MarkingData, sale.Employee.FullName, req.PrescriptionID, "check-issue")
+		err = s.DmedGiveReceipt(cartItems, req.MarkingData, sale.Employee.FullName, req.PrescriptionId, "check-issue")
 		if err != nil {
+			_ = tx.Rollback()
 			return nil, err
 		}
-		err = s.DmedGiveReceipt(cartItems, req.MarkingData, sale.Employee.FullName, req.PrescriptionID, "issue")
+		err = s.DmedGiveReceipt(cartItems, req.MarkingData, sale.Employee.FullName, req.PrescriptionId, "issue")
 		if err != nil {
+			_ = tx.Rollback()
 			return nil, err
 		}
 	} else {
@@ -284,13 +304,6 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 		req.ServiceType = &val
 	}
 
-	// start transaction
-	tx := s.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			_ = tx.Rollback()
-		}
-	}()
 	// add marking to cart_items
 	err = s.updateCartItemsMarkingCount(ctx, tx, req.MarkingData)
 	if err != nil {
@@ -316,17 +329,17 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 			updates["alif"] = req.Alif
 			updates["loyalty_card"] = req.LoyaltyCard
 			updates["uzum"] = req.Uzum
-			updates["total_amount"] = gorm.Expr("(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
-			updates["total_discount"] = gorm.Expr("(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
+			updates["total_amount"] = gorm.Expr("(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleId)
+			updates["total_discount"] = gorm.Expr("(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleId)
 			updates["return_amount"] = req.ReturnAmount
 			updates["stage"] = constants.SaleStagePayFinished
 			updates["updated_at"] = time.Now()
 
 			if req.LoyaltyCardBarcode != "" {
 				updates["cash_back"] = gorm.Expr(
-					"(SELECT (COALESCE(SUM(total_price) - SUM(discount_amount), 0)::numeric * ? / 100) FROM cart_items WHERE sale_id = ?)",
+					"(SELECT (COALESCE(SUM(total_price) - SUM(discount_amount), 0)::numeric / 100 * ? ) FROM cart_items WHERE sale_id = ?)",
 					sale.Customer.LoyaltyCardPercent,
-					req.SaleID,
+					req.SaleId,
 				)
 				updates["customer_id"] = sale.Customer.Id
 			}
@@ -360,17 +373,17 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 			updates["alif"] = req.Alif
 			updates["loyalty_card"] = req.LoyaltyCard
 			updates["uzum"] = req.Uzum
-			updates["total_amount"] = gorm.Expr("(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
-			updates["total_discount"] = gorm.Expr("(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
+			updates["total_amount"] = gorm.Expr("(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleId)
+			updates["total_discount"] = gorm.Expr("(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleId)
 			updates["return_amount"] = req.ReturnAmount
 			updates["stage"] = constants.SaleStageOfdWaiting
 			updates["updated_at"] = time.Now()
 
 			if req.LoyaltyCardBarcode != "" {
 				updates["cash_back"] = gorm.Expr(
-					"(SELECT (COALESCE(SUM(total_price) - SUM(discount_amount), 0)::numeric * ? / 100) FROM cart_items WHERE sale_id = ?)",
+					"(SELECT (COALESCE(SUM(total_price) - SUM(discount_amount), 0)::numeric / 100 * ?) FROM cart_items WHERE sale_id = ?)",
 					sale.Customer.LoyaltyCardPercent,
-					req.SaleID,
+					req.SaleId,
 				)
 				updates["customer_id"] = sale.Customer.Id
 			}
@@ -379,7 +392,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 
 	// update sale data
 	if len(updates) > 0 {
-		err = s.updateSaleFields(ctx, tx, req.SaleID, updates)
+		err = s.updateSaleFields(ctx, tx, req.SaleId, updates)
 		if err != nil {
 			_ = tx.Rollback()
 			return nil, err
@@ -406,16 +419,6 @@ func (s *Services) FinalizeReturnSale(ctx context.Context, req *domain.FinalSale
 		return nil, domain.PaymentTypeRequiredError
 	}
 
-	// Match payment type sum (returns typically refund money)
-	var customerBalance float64 = 0.00
-	if sale.Customer != nil {
-		customerBalance = sale.Customer.Balance
-	}
-	req, err := s.matchingPaymentTypeSum(ctx, req, customerBalance)
-	if err != nil {
-		return nil, err
-	}
-
 	// Start transaction
 	tx := s.db.Begin()
 	defer func() {
@@ -423,6 +426,17 @@ func (s *Services) FinalizeReturnSale(ctx context.Context, req *domain.FinalSale
 			_ = tx.Rollback()
 		}
 	}()
+
+	// Match payment type sum (returns typically refund money)
+	var customerBalance float64 = 0.00
+	if sale.Customer != nil {
+		customerBalance = sale.Customer.Balance
+	}
+	req, err := s.matchingPaymentTypeSum(ctx, tx, req, customerBalance)
+	if err != nil {
+		_ = tx.Rollback()
+		return nil, err
+	}
 
 	// Update marking for returned items
 	err = s.updateCartItemsMarkingCount(ctx, tx, req.MarkingData)
@@ -451,8 +465,8 @@ func (s *Services) FinalizeReturnSale(ctx context.Context, req *domain.FinalSale
 			updates["alif"] = -req.Alif
 			updates["uzum"] = -req.Uzum
 			updates["loyalty_card"] = -req.LoyaltyCard
-			updates["total_amount"] = gorm.Expr("-(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
-			updates["total_discount"] = gorm.Expr("(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
+			updates["total_amount"] = gorm.Expr("-(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleId)
+			updates["total_discount"] = gorm.Expr("(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleId)
 			updates["return_amount"] = req.ReturnAmount
 			updates["stage"] = constants.SaleStagePayFinished
 			updates["updated_at"] = time.Now()
@@ -479,8 +493,8 @@ func (s *Services) FinalizeReturnSale(ctx context.Context, req *domain.FinalSale
 		updates["alif"] = -req.Alif
 		updates["uzum"] = -req.Uzum
 		updates["loyalty_card"] = -req.LoyaltyCard
-		updates["total_amount"] = gorm.Expr("-(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
-		updates["total_discount"] = gorm.Expr("(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleID)
+		updates["total_amount"] = gorm.Expr("-(SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleId)
+		updates["total_discount"] = gorm.Expr("(SELECT COALESCE(SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)", req.SaleId)
 		updates["return_amount"] = req.ReturnAmount
 		updates["stage"] = constants.SaleStageOfdWaiting
 		updates["updated_at"] = time.Now()
@@ -488,7 +502,7 @@ func (s *Services) FinalizeReturnSale(ctx context.Context, req *domain.FinalSale
 
 	// Update sale data
 	if len(updates) > 0 {
-		err = s.updateSaleFields(ctx, tx, req.SaleID, updates)
+		err = s.updateSaleFields(ctx, tx, req.SaleId, updates)
 		if err != nil {
 			_ = tx.Rollback()
 			return nil, err
@@ -526,14 +540,24 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 	// Convert string to []byte and store in Response field
 	req.Response = []byte(responseDataStr)
 
-	// Get sale by ID
-	sale, err := s.GetSaleById(ctx, req.SaleId)
+	// start transaction
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	// Lock sale to prevent concurrent modifications
+	sale, err := s.GetSaleByIdWithLocking(ctx, tx, req.SaleId)
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, err
 	}
 
 	// Check sale finish stages
 	if utils.In(sale.Stage, constants.FinishedSaleStages...) {
+		_ = tx.Rollback()
 		return nil, domain.SaleIsClosedError
 	}
 
@@ -542,6 +566,7 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 		if sale.Stage < constants.SaleStageOfdCancelled {
 			err = s.SaveEposResponse(ctx, req)
 			if err != nil {
+				_ = tx.Rollback()
 				return nil, err
 			}
 			updates := map[string]any{
@@ -551,8 +576,14 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 
 			err = s.updateSaleFields(ctx, s.db, sale.Id, updates)
 			if err != nil {
+				_ = tx.Rollback()
 				return nil, err
 			}
+		}
+
+		if err = tx.Commit().Error; err != nil {
+			s.log.Errorf("could not commit epos_result first transaction: %v", err)
+			return nil, domain.InternalServerError
 		}
 
 		return sale, nil
@@ -561,21 +592,18 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 	// Decode Fiscal Data
 	fiscal, err := s.DecodeFiscalData(responseDataStr)
 	if err != nil {
+		_ = tx.Rollback()
 		return nil, err
+	}
+
+	if sale.Stage < constants.SaleStageFinished && fiscal.FiscalSign == "" {
+		_ = tx.Rollback()
+		return nil, domain.FiscalSignRequiredError
 	}
 
 	if sale.SaleType == constants.SaleTypeReturn {
 		return s.EposResultReturn(ctx, req, sale, fiscal, user)
 	}
-
-	// Start transaction
-	tx := s.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			_ = tx.Rollback()
-			s.log.Errorf("Panic recovered in EposResult: %v", r)
-		}
-	}()
 
 	updates := map[string]any{}
 
@@ -631,8 +659,9 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 	if sale.Stage < constants.SaleStageFinished {
 		// get customer if loyalty card added to sale
 		if sale.CashBack > 0 && sale.CustomerId != "" {
-			customer, err := s.GetCustomerById(ctx, sale.CustomerId)
+			customer, err := s.GetCustomerById(ctx, tx, sale.CustomerId)
 			if err != nil {
+				_ = tx.Rollback()
 				return nil, err
 			}
 			sale.Customer = customer
@@ -796,9 +825,9 @@ func (s *Services) EposResultReturn(
 	return res, nil
 }
 
-func (s *Services) validateSaleProductQuantity(ctx context.Context, sale *domain.Sale) error {
+func (s *Services) validateSaleProductQuantity(ctx context.Context, tx *gorm.DB, sale *domain.Sale) error {
 	var cartItemsWithProducts []domain.CartItemWithProduct
-	err := s.db.WithContext(ctx).
+	err := tx.WithContext(ctx).
 		Table("cart_items ci").
 		Select(
 			"ci.id",
@@ -916,7 +945,7 @@ func (s *Services) ReverseInventoryUpdate(ctx context.Context, tx *gorm.DB, sale
 	return nil
 }
 
-func (s *Services) matchingPaymentTypeSum(ctx context.Context, req *domain.FinalSale, balance float64) (*domain.FinalSale, error) {
+func (s *Services) matchingPaymentTypeSum(ctx context.Context, tx *gorm.DB, req *domain.FinalSale, balance float64) (*domain.FinalSale, error) {
 	var sum float64
 	for _, item := range req.PaymentTypes {
 		sum += item.Amount - item.ReturnAmount
@@ -950,7 +979,7 @@ func (s *Services) matchingPaymentTypeSum(ctx context.Context, req *domain.Final
 		}
 	}
 	// get cart item sum
-	cartItemSum, err := s.cartItemsSumBySaleId(ctx, req.SaleID)
+	cartItemSum, err := s.cartItemsSumBySaleId(ctx, tx, req.SaleId)
 	if err != nil {
 		return req, err
 	}
@@ -988,6 +1017,7 @@ func (s *Services) AddSaleBonuses(sale *domain.Sale, req []domain.CartItemWithPr
 			return
 		}
 	}
+	fmt.Println("CustomerId", sale.CustomerId)
 
 	// add cashback to customer balance
 	if sale.CashBack > 0 || loyaltyCardBarcode != "" {
@@ -995,8 +1025,8 @@ func (s *Services) AddSaleBonuses(sale *domain.Sale, req []domain.CartItemWithPr
 UPDATE
     customers
 SET
-    balance = balance + (SELECT (COALESCE(SUM(total_price) - SUM(discount_amount), 0)::numeric * 1 / 100) FROM cart_items WHERE sale_id = ?)
-WHERE id = ?`, sale.Id, sale.CustomerId).Error
+    balance = balance + (SELECT (COALESCE(SUM(total_price) - SUM(discount_amount), 0)::numeric / 100 * ?) FROM cart_items WHERE sale_id = ?)
+WHERE id = ?`, sale.Customer.LoyaltyCardPercent, sale.Id, sale.CustomerId).Error
 		if err != nil {
 			s.log.Errorf("could not update customer balance: %v", err)
 			return
@@ -1041,6 +1071,13 @@ func (s *Services) AttachDiscountCardToSale(ctx context.Context, req *domain.Add
 			_ = tx.Rollback()
 		}
 	}()
+
+	// Lock sale to prevent concurrent modifications
+	_, err = s.GetSaleByIdWithLocking(ctx, tx, req.SaleId)
+	if err != nil {
+		_ = tx.Rollback()
+		return nil, err
+	}
 
 	req.Percent = discountPercent
 
@@ -1228,7 +1265,7 @@ func (s *Services) ReturnStatusPending(ctx context.Context, tx *gorm.DB, sale *d
 }
 
 func (s *Services) updateSaleFields(ctx context.Context, tx *gorm.DB, saleId string, updates map[string]any) error {
-	err := tx.WithContext(ctx).Model(&domain.Sale{}).Where("id = ?", saleId).Debug().Updates(&updates).Error
+	err := tx.WithContext(ctx).Model(&domain.Sale{}).Where("id = ?", saleId).Updates(&updates).Error
 	if err != nil {
 		s.log.Errorf("could not update sale fields: %v", err)
 		return domain.InternalServerError
@@ -1500,6 +1537,19 @@ func (s *Services) GetSaleById(ctx context.Context, saleId string) (*domain.Sale
 		return &sale, domain.InternalServerError
 	}
 
+	return &sale, nil
+}
+
+func (s *Services) GetSaleByIdWithLocking(ctx context.Context, tx *gorm.DB, saleId string) (*domain.Sale, error) {
+	var sale domain.Sale
+	err := tx.WithContext(ctx).Take(&sale, "id = ?", saleId).Clauses(clause.Locking{Strength: "UPDATE"}).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.NotFoundError
+		}
+		s.log.Errorf("could not get sale with locking: %v", err)
+		return nil, domain.InternalServerError
+	}
 	return &sale, nil
 }
 
@@ -1880,11 +1930,10 @@ func (s *Services) GetPaymentServiceByStoreId(ctx context.Context, tx *gorm.DB, 
 }
 
 // cart items sum of the sale
-func (s *Services) cartItemsSumBySaleId(ctx context.Context, saleID string) (float64, error) {
+func (s *Services) cartItemsSumBySaleId(ctx context.Context, tx *gorm.DB, saleId string) (float64, error) {
 	var sum float64
-	err := s.db.
-		WithContext(ctx).
-		Raw(`SELECT SUM(total_price) - SUM(discount_amount) AS sum FROM cart_items WHERE sale_id = ?`, saleID).Scan(&sum).Error
+	err := tx.
+		WithContext(ctx).Raw(`SELECT SUM(total_price) - SUM(discount_amount) AS sum FROM cart_items WHERE sale_id = ?`, saleId).Scan(&sum).Error
 	if err != nil {
 		s.log.Error("could not calculate cart_items sum: %v", err)
 		return sum, domain.InternalServerError
