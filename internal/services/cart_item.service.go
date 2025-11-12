@@ -186,7 +186,7 @@ func (s *Services) FetchCartItems(ctx context.Context, saleId string, limit, off
 
 		ci_amount.d_amount AS discount_amount,
 		ROUND(ci_amount.d_amount / p.unit_per_pack, 2) AS discount_unit_amount,
-		ROUND(ci.unit_quantity::numeric / p.unit_per_pack, 2) AS unit_amount
+		ROUND((ci.unit_quantity % p.unit_per_pack)::numeric / p.unit_per_pack, 2) AS unit_amount
 
 	FROM cart_items ci
 		JOIN ci_amount ON ci.id = ci_amount.ci_id
