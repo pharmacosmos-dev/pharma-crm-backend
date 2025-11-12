@@ -1673,6 +1673,7 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 		Limit(params.Limit).
 		Offset(params.Offset).
 		Order("s.completed_at DESC").
+		Debug().
 		Find(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get sales: %v", err)
@@ -1776,7 +1777,7 @@ func (s *Services) GetSalesStats(ctx context.Context, params *domain.SaleQueryPa
 	}
 
 	var res domain.SaleStats
-	err := qb.Take(&res).Error
+	err := qb.Debug().Take(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get sale_stats: %v", err)
 		return nil, domain.InternalServerError
