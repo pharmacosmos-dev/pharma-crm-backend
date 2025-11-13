@@ -281,40 +281,6 @@ type ProductData struct {
 	Sum          float64           `gorm:"sum" json:"sum"`
 }
 
-type RemainingProduct struct {
-	ID           string            `gorm:"id" json:"id"`
-	MaterialCode int               `gorm:"material_code" json:"material_code"`
-	Name         string            `gorm:"name" json:"name"`
-	Photos       utils.StringArray `gorm:"type:text[]" json:"photos"`
-	Barcode      string            `gorm:"barcode" json:"barcode"`
-	Barcodes     utils.StringArray `gorm:"type:text[]" json:"barcodes"`
-	UnitPerPack  int               `gorm:"unit_per_pack" json:"unit_per_pack"`
-	MXIK         string            `gorm:"mxik" json:"mxik"`
-	UnitCode     string            `gorm:"unit_code" json:"unit_code"`
-	IsMarking    bool              `gorm:"is_marking" json:"is_marking"`
-	CreatedAt    time.Time         `gorm:"created_at" json:"created_at"`
-	UpdatedAt    time.Time         `gorm:"updated_at" json:"updated_at"`
-	Manufacturer string            `gorm:"manufacturer" json:"manufacturer"`
-	UnitName     string            `gorm:"unit_name" json:"unit_name"`
-	UnitLabel    string            `gorm:"unit_label" json:"unit_label"`
-	ExpireDate   *time.Time        `gorm:"expire_date" json:"expire_date"`
-	ExpireDay    int               `gorm:"expire_day" json:"expire_day"`
-	UnitQuantity int               `gorm:"unit_quantity" json:"unit_quantity"`
-	CategoryName string            `gorm:"category_name" json:"category_name"`
-	// StoreName    string            `gorm:"store_name" json:"store_name"`
-	// ShortName    string            `gorm:"short_name" json:"short_name"`
-	// SerialNumber string            `gorm:"serial_number" json:"serial_number"`
-	// Quantity     int               `gorm:"quantity" json:"quantity"`
-	// Units        string            `gorm:"units" json:"units"`
-	// SupplyPrice  float64           `gorm:"supply_price" json:"supply_price"`
-	// RetailPrice  float64           `gorm:"retail_price" json:"retail_price"`
-	// Vat          int               `gorm:"vat" json:"vat"`
-	// Markup       float64           `gorm:"markup" json:"markup"`
-	// VatPrice     float64           `gorm:"vat_price" json:"vat_price"`
-	// MarkupPrice  float64           `gorm:"markup_price" json:"markup_price"`
-	// Sum          float64           `gorm:"sum" json:"sum"`
-}
-
 // product response structure for arzon apteka
 type ProductArzon struct {
 	Id           string  `gorm:"id" json:"id"`
@@ -338,6 +304,22 @@ type ProductRes1C struct {
 	RetailPrice  float64    `gorm:"retail_price" json:"retail_price"`
 	SupplyPrice  float64    `gorm:"supply_price" json:"supply_price"`
 	Sum          float64    `gorm:"sum" json:"sum"`
+}
+
+type SingeProductDashoard struct {
+	UnitQuantity        int     `gorm:"unit_quantity" json:"unit_quantity"`
+	SaleCount           int     `gorm:"sale_count" json:"sale_count"`
+	SaleAmount          float64 `gorm:"sale_amount" json:"sale_amount"`
+	ReturnSaleCount     int     `gorm:"return_sale_count" json:"return_sale_count"`
+	ReturnSaleAmount    float64 `gorm:"return_sale_amount" json:"return_sale_amount"`
+	ImportCount         int     `gorm:"import_count" json:"import_count"`
+	ImportAmount        float64 `gorm:"import_amount" json:"import_amount"`
+	ReturnToSkladCount  int     `gorm:"return_to_sklad_count" json:"return_to_sklad_count"`
+	ReturnToSkladAmount float64 `gorm:"return_to_sklad_amount" json:"return_to_sklad_amount"`
+	TransferOutCount    int     `gorm:"transfer_out_count" json:"transfer_out_count"`
+	TransferOutAmount   float64 `gorm:"transfer_out_amount" json:"transfer_out_amount"`
+	TransferInCount     int     `gorm:"transfer_in_count" json:"transfer_in_count"`
+	TransferInAmount    float64 `gorm:"transfer_in_amount" json:"transfer_in_amount"`
 }
 
 // region product by import

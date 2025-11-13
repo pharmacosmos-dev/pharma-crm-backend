@@ -1,6 +1,10 @@
 package domain
 
-import "time"
+import (
+	"time"
+
+	"github.com/pharma-crm-backend/pkg/utils"
+)
 
 type ReportQueryParam struct {
 	StoreId    string   `form:"store_id"`
@@ -178,4 +182,23 @@ type DiscountCardReport struct {
 	TotalDiscount        float64 `json:"total_discount"`
 	TotalWithDiscount    float64 `json:"total_with_discount"`
 	TotalCount           int64   `json:"-"`
+}
+
+type RemainingProduct struct {
+	ID           string            `gorm:"id" json:"id"`
+	StoreID      string            `gorm:"store_id" json:"store_id"`
+	UnitQuantity int               `gorm:"unit_quantity" json:"unit_quantity"`
+	MaterialCode int               `gorm:"material_code" json:"material_code"`
+	Name         string            `gorm:"name" json:"name"`
+	Photos       utils.StringArray `gorm:"type:text[]" json:"photos"`
+	Barcode      string            `gorm:"barcode" json:"barcode"`
+	UnitPerPack  int               `gorm:"unit_per_pack" json:"unit_per_pack"`
+	MXIK         string            `gorm:"mxik" json:"mxik"`
+	UnitCode     string            `gorm:"unit_code" json:"unit_code"`
+	IsMarking    bool              `gorm:"is_marking" json:"is_marking"`
+	CreatedAt    time.Time         `gorm:"created_at" json:"created_at"`
+	UpdatedAt    time.Time         `gorm:"updated_at" json:"updated_at"`
+	Manufacturer string            `gorm:"manufacturer" json:"manufacturer"`
+	UnitName     string            `gorm:"unit_name" json:"unit_name"`
+	UnitLabel    string            `gorm:"unit_label" json:"unit_label"`
 }

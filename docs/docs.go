@@ -13745,148 +13745,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/product/remaining-product-by-date": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Retrieve products with various filters and pagination",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "products"
-                ],
-                "summary": "Get a product",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Start Date",
-                        "name": "start_date",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "End Date",
-                        "name": "end_date",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Limit",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Offset",
-                        "name": "offset",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Search term",
-                        "name": "search",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Status (active | inactive | low-stock | zero-stock | expired | imminent)",
-                        "name": "status",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Store ID",
-                        "name": "store_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Company ID",
-                        "name": "company_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Category ID",
-                        "name": "category_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Producer ID",
-                        "name": "producer_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "number",
-                        "format": "float64",
-                        "description": "Supply Price From",
-                        "name": "supply_price_from",
-                        "in": "query"
-                    },
-                    {
-                        "type": "number",
-                        "format": "float64",
-                        "description": "Supply Price To",
-                        "name": "supply_price_to",
-                        "in": "query"
-                    },
-                    {
-                        "type": "number",
-                        "format": "float64",
-                        "description": "Retail Price From",
-                        "name": "retail_price_from",
-                        "in": "query"
-                    },
-                    {
-                        "type": "number",
-                        "format": "float64",
-                        "description": "Retail Price To",
-                        "name": "retail_price_to",
-                        "in": "query"
-                    },
-                    {
-                        "type": "boolean",
-                        "description": "Filter products without barcode",
-                        "name": "no_barcode",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Order by (+name | -name | +expire_date | -expire_date)",
-                        "name": "order",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            }
-        },
         "/product/similar/{id}": {
             "get": {
                 "security": [
@@ -14604,6 +14462,61 @@ const docTemplate = `{
                 }
             }
         },
+        "/product/{id}/dashboard": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get single product dashboard",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Get single product dashboard",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "product ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/product/{id}/product-movement": {
             "get": {
                 "security": [
@@ -14760,7 +14673,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.CreateProduct1C"
+                            "$ref": "#/definitions/domain.CreateOnecImportDto"
                         }
                     }
                 ],
@@ -16535,6 +16448,107 @@ const docTemplate = `{
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/report/remaining-products": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get remaining products report",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Report"
+                ],
+                "summary": "Get remaining products report",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter with producer id",
+                        "name": "producer_id",
+                        "in": "query"
+                    },
+                    {
+                        "description": "Store ids",
+                        "name": "store_ids",
+                        "in": "body",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    {
+                        "type": "string",
+                        "description": "Company ID",
+                        "name": "company_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Start Date",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End Date",
+                        "name": "end_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search (customer full name)",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "every field in response is sorted by this field",
+                        "name": "order",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
                         }
                     },
                     "400": {
@@ -25104,7 +25118,7 @@ const docTemplate = `{
                 }
             }
         },
-        "domain.CreateProduct1C": {
+        "domain.CreateOnecImportDto": {
             "type": "object",
             "properties": {
                 "Apteka": {
@@ -25116,7 +25130,7 @@ const docTemplate = `{
                 "Товары": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/domain.ProductRequest1C"
+                        "$ref": "#/definitions/domain.ProductRequestOnecDto"
                     }
                 }
             }
@@ -26354,7 +26368,7 @@ const docTemplate = `{
                 }
             }
         },
-        "domain.ProductRequest1C": {
+        "domain.ProductRequestOnecDto": {
             "type": "object",
             "required": [
                 "barcode",
