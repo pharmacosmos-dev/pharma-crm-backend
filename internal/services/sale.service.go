@@ -589,6 +589,24 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 		return sale, nil
 	}
 
+	// get cart_items sum by saleId
+	itemsSum, err := s.cartItemsSumBySaleId(ctx, tx, sale.Id)
+	if err != nil {
+		_ = tx.Rollback()
+		return nil, err
+	}
+
+	// validate sale total_amount and cart_items total_price sum:
+	if sale.TotalAmount != itemsSum {
+		err = s.SaveEposResponse(ctx, req)
+		if err != nil {
+			_ = tx.Rollback()
+			return nil, err
+		}
+		_ = tx.Rollback()
+		return nil, err
+	}
+
 	// Decode Fiscal Data
 	fiscal, err := s.DecodeFiscalData(responseDataStr)
 	if err != nil {
