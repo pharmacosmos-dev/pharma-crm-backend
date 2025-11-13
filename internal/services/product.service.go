@@ -1551,7 +1551,7 @@ WITH var_data AS (
 ),  
 import_data AS (
     SELECT
-        ROUND((SUM(imd.accepted_count) * vd.unit_per_pack), 0) AS import_count,
+        (SUM(imd.accepted_count) * vd.unit_per_pack)::INTEGER AS import_count,
         SUM(imd.accepted_count * imd.retail_price_vat) AS import_amount
     FROM imports im
         JOIN stores s ON im.store_id = s.id
@@ -1563,7 +1563,7 @@ import_data AS (
 ),
 sales_data AS (
     SELECT
-        ROUND(SUM(ci.unit_quantity), 0) AS sale_count,
+        SUM(ci.unit_quantity)::INTEGER AS sale_count,
         sum(sa.total_amount) AS sale_amount
     FROM sales sa
         JOIN stores st ON st.id = sa.store_id
@@ -1575,7 +1575,7 @@ sales_data AS (
 ),
 return_sales_data AS (
     SELECT
-        ROUND(SUM(ci.unit_quantity), 0) AS return_sale_count,
+        SUM(ci.unit_quantity)::INTEGER AS return_sale_count,
         sum(sa.total_amount) AS return_sale_amount
     FROM sales sa
         JOIN stores st ON st.id = sa.store_id
@@ -1587,7 +1587,7 @@ return_sales_data AS (
 ),
 vozvrat_data AS (
     SELECT
-        ROUND(SUM(td.accepted_count) * vd.unit_per_pack,0) AS return_to_sklad_count,
+        (SUM(td.accepted_count) * vd.unit_per_pack)::INTEGER AS return_to_sklad_count,
         ROUND(SUM((td.accepted_count/vd.unit_per_pack) * td.retail_price), 2) AS return_to_sklad_amount
     FROM transfer_details td
         JOIN transfers tr ON td.transfer_id = tr.id
@@ -1599,10 +1599,10 @@ vozvrat_data AS (
 ),
 transfer_data AS (
     SELECT
-        ROUND(SUM(td.accepted_count) %s * vd.unit_per_pack, 0) AS transfer_out_count,
-        ROUND(SUM((td.accepted_count/vd.unit_per_pack) * td.retail_price), 0) %s AS transfer_out_amount,
-        ROUND(SUM(td.accepted_count) %s * vd.unit_per_pack, 0) AS transfer_in_count,
-        ROUND(SUM((td.accepted_count/vd.unit_per_pack)  * td.retail_price), 0) %s AS transfer_in_amount
+        (SUM(td.accepted_count) %s * vd.unit_per_pack)::INTEGER AS transfer_out_count,
+        SUM((td.accepted_count/vd.unit_per_pack) * td.retail_price) %s AS transfer_out_amount,
+        (SUM(td.accepted_count) %s * vd.unit_per_pack)::INTEGER AS transfer_in_count,
+        SUM((td.accepted_count/vd.unit_per_pack)  * td.retail_price) %s AS transfer_in_amount
     FROM transfer_details td
         JOIN transfers tr ON td.transfer_id = tr.id
         JOIN var_data vd ON td.product_id = vd.product_id
@@ -1614,7 +1614,7 @@ transfer_data AS (
 ),
 product_quantity as (
     select
-        ROUND(sum(sp.unit_quantity),0) as unit_quantity
+        sum(sp.unit_quantity)::INTEGER as unit_quantity
     from
         store_products as sp
     join var_data vd on vd.product_id = sp.product_id
@@ -1663,11 +1663,15 @@ LEFT JOIN transfer_data td ON true
 		)
 		args = []any{
 			params.ProductId,
-			params.StoreId, // import_data
-			params.StoreId, // sales_data
-			params.StoreId, // return_sales_data
-			params.StoreId, // vozvrat_data
-			params.StoreId, // transfer_data
+			params.StoreId,                 // import_data
+			params.StoreId,                 // sales_data
+			params.StoreId,                 // return_sales_data
+			params.StoreId,                 // vozvrat_data
+			params.StoreId,                 // transfer_data
+			params.StoreId,                 // transfer_data
+			params.StoreId,                 // transfer_data
+			params.StoreId,                 // transfer_data
+			params.StoreId, params.StoreId, // transfer_data
 			params.StoreId, // product_quantity
 		}
 
@@ -1687,11 +1691,15 @@ LEFT JOIN transfer_data td ON true
 		)
 		args = []any{
 			params.ProductId,
-			params.CompanyId, // import_data
-			params.CompanyId, // sales_data
-			params.CompanyId, // return_sales_data
-			params.CompanyId, // vozvrat_data
-			params.CompanyId, // transfer_data
+			params.CompanyId,                   // import_data
+			params.CompanyId,                   // sales_data
+			params.CompanyId,                   // return_sales_data
+			params.CompanyId,                   // vozvrat_data
+			params.CompanyId,                   // transfer_data
+			params.CompanyId,                   // transfer_data
+			params.CompanyId,                   // transfer_data
+			params.CompanyId,                   // transfer_data
+			params.CompanyId, params.CompanyId, // transfer_data
 			params.CompanyId, // product_quantity
 		}
 
@@ -1723,9 +1731,6 @@ LEFT JOIN transfer_data td ON true
 			params.StoreId, // product_quantity
 		}
 	}
-
-	// fmt.Println(query)
-	// fmt.Println(args...)
 
 	// Execute query
 	err := s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
