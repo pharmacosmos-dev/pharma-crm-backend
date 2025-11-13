@@ -604,7 +604,7 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 			return nil, err
 		}
 		_ = tx.Rollback()
-		return nil, err
+		return nil, domain.InvalidSaleAmount
 	}
 
 	// Decode Fiscal Data
