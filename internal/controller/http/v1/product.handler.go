@@ -2698,6 +2698,7 @@ func (h *ProductHandler) productListExportByStoreId(f *excelize.File, res []doma
 // @Security BearerAuth
 // @Accept json
 // @Produce json
+// @Param id path string true "product ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 404 {object} v1.Response

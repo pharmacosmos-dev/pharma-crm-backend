@@ -14480,6 +14480,15 @@ const docTemplate = `{
                     "products"
                 ],
                 "summary": "Get single product dashboard",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "product ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -14664,7 +14673,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.CreateProduct1C"
+                            "$ref": "#/definitions/domain.CreateOnecImportDto"
                         }
                     }
                 ],
@@ -25109,7 +25118,7 @@ const docTemplate = `{
                 }
             }
         },
-        "domain.CreateProduct1C": {
+        "domain.CreateOnecImportDto": {
             "type": "object",
             "properties": {
                 "Apteka": {
@@ -25121,7 +25130,7 @@ const docTemplate = `{
                 "Товары": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/domain.ProductRequest1C"
+                        "$ref": "#/definitions/domain.ProductRequestOnecDto"
                     }
                 }
             }
@@ -26359,7 +26368,7 @@ const docTemplate = `{
                 }
             }
         },
-        "domain.ProductRequest1C": {
+        "domain.ProductRequestOnecDto": {
             "type": "object",
             "required": [
                 "barcode",

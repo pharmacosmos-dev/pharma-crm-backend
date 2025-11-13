@@ -337,7 +337,7 @@ definitions:
     required:
     - barcode
     type: object
-  domain.CreateProduct1C:
+  domain.CreateOnecImportDto:
     properties:
       Apteka:
         $ref: '#/definitions/domain.Apteka'
@@ -345,7 +345,7 @@ definitions:
         $ref: '#/definitions/domain.Document'
       Товары:
         items:
-          $ref: '#/definitions/domain.ProductRequest1C'
+          $ref: '#/definitions/domain.ProductRequestOnecDto'
         type: array
     type: object
   domain.CustomerRequest:
@@ -1161,7 +1161,7 @@ definitions:
       unit_type_id:
         type: string
     type: object
-  domain.ProductRequest1C:
+  domain.ProductRequestOnecDto:
     properties:
       barcode:
         maxLength: 255
@@ -9508,6 +9508,12 @@ paths:
       consumes:
       - application/json
       description: Get single product dashboard
+      parameters:
+      - description: product ID
+        in: path
+        name: id
+        required: true
+        type: string
       produces:
       - application/json
       responses:
@@ -11109,7 +11115,7 @@ paths:
         name: product
         required: true
         schema:
-          $ref: '#/definitions/domain.CreateProduct1C'
+          $ref: '#/definitions/domain.CreateOnecImportDto'
       produces:
       - application/json
       responses:

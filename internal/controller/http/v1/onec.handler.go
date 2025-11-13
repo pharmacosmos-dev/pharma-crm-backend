@@ -41,7 +41,7 @@ func (h *ProductOnecHandler) ProductOnecRoutes(r *gin.RouterGroup) {
 // @Security     BearerAuth
 // @Accept 	json
 // @Produce json
-// @Param 	product body domain.CreateProduct1C true "product"
+// @Param 	product body domain.CreateOnecImportDto true "product"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
