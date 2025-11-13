@@ -1534,9 +1534,23 @@ func (s *Services) ListProductPhotoAlert(ctx context.Context, params *domain.Pro
 	return alerts, totalCount, nil
 }
 
-func (s *Services) GetRemainingProductsByDate(ctx context.Context, params *domain.ProductQueryParam) ([]domain.RemainingProduct, int64, error) {
+func (s *Services) GetSingleProductDashboard(ctx context.Context, params *domain.ProductQueryParam) (*domain.SingeProductDashoard, error) {
 
-	return nil, 0, nil
+	return &domain.SingeProductDashoard{
+		UnitQuantity:        0,
+		SaleCount:           0,
+		SaleAmount:          0,
+		ReturnSaleCount:     0,
+		ReturnSaleAmount:    0,
+		ImportCount:         0,
+		ImportAmount:        0,
+		ReturnToSkladCount:  0,
+		ReturnToSkladAmount: 0,
+		TransferOutCount:    0,
+		TransferOutAmount:   0,
+		TransferInCount:     0,
+		TransferInAmount:    0,
+	}, nil
 }
 
 // region Update

@@ -57,6 +57,7 @@ func (h *ReportHandler) ReportRoutes(r *gin.RouterGroup) {
 		report.POST("/store-products-given-day", h.StoreProductsGivenDay)
 		report.POST("/store-products-given-day/export-excel", h.StoreProductsGivenDayExportExcel)
 		report.POST("/discount-card", h.DiscountCardReport)
+		report.POST("/remaining-products", h.RemainingProducts)
 	}
 }
 
@@ -2076,6 +2077,69 @@ func (h *ReportHandler) DiscountCardReport(c *gin.Context) {
 	defer cancel()
 
 	res, totalCount, err := h.service.GetDiscountCardReport(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
+
+	handleResponse(c, OK, data)
+}
+
+// Remaining products report godoc
+// @Summary Get remaining products report
+// @Description Get remaining products report
+// @Tags Report
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param	producer_id query string false "Filter with producer id"
+// @Param   store_ids body []string false "Store ids"
+// @Param	company_id query string false "Company ID"
+// @Param   start_date query string false "Start Date"
+// @Param   end_date query string false "End Date"
+// @Param   search query string false "Search (customer full name)"
+// @Param   order query string false "every field in response is sorted by this field")
+// @Param 	limit query int false "Limit"
+// @Param 	offset query int false "Offset"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /report/remaining-products [POST]
+func (h *ReportHandler) RemainingProducts(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.ReportQueryParam
+	// bind query param
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+	// bind store_ids
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&params.StoreIds)
+	}
+
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
+	}
+
+	// get default limit and offset
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, totalCount, err := h.service.GetRemainingProducts(ctx, &params)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)
 		return

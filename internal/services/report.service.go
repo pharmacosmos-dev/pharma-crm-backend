@@ -1664,3 +1664,7 @@ func (s *Services) GetDiscountCardReport(ctx context.Context, params *domain.Rep
 
 	return res, totalCount, nil
 }
+
+func (s *Services) GetRemainingProducts(ctx context.Context, params *domain.ReportQueryParam) ([]domain.RemainingProduct, int64, error) {
+	return nil, 0, nil
+}
