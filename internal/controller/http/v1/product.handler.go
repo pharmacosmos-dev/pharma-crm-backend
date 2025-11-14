@@ -2734,9 +2734,6 @@ func (h *ProductHandler) SingleProductDashboard(c *gin.Context) {
 		}
 	}
 
-	params.StoreId = "4965acde-c7d2-4776-9049-57d730cda966"
-	params.ProductId = "7c49cb6b-be92-40dd-9604-5734d8271a55"
-
 	// pagination
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
