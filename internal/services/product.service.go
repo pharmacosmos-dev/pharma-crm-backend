@@ -1643,7 +1643,7 @@ transfer_data AS (
         JOIN stores ts ON ts.id = tr.to_store_id
     WHERE (tr.status = 'completed' OR tr.status = 'sent-to-1c') AND tr.entry_type = 1
         %s
-    GROUP BY tr.id, fs.id, ts.id, vd.unit_per_pack
+    GROUP BY vd.unit_per_pack
 ),
 product_quantity as (
     select
