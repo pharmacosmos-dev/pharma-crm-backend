@@ -1377,7 +1377,7 @@ func (h *ProductHandler) ExportProductMovementsExcel(c *gin.Context) {
 		f.SetCellValue(sheetName, "A"+row, item.Id)
 		f.SetCellValue(sheetName, "B"+row, item.PublicId)
 		f.SetCellValue(sheetName, "C"+row, entryTypeToString(item.EntryType)) // helper func
-		f.SetCellValue(sheetName, "D"+row, item.Count)
+		f.SetCellValue(sheetName, "D"+row, item.Quantity)
 		f.SetCellValue(sheetName, "E"+row, item.Sum)
 		f.SetCellValue(sheetName, "F"+row, item.Name)
 		f.SetCellValue(sheetName, "G"+row, item.StoreName)
