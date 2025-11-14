@@ -1619,6 +1619,18 @@ product_quantity as (
         store_products as sp
     join var_data vd on vd.product_id = sp.product_id
     where 1 = 1 %s
+),
+imventory_quantity as (
+	SELECT
+		(SUM(case when imd.scanned_count-imd.received_count > 0 then imd.scanned_count-imd.received_count else 0 end))::INTEGER AS inventory_plus_count,
+		(SUM(case when imd.scanned_count-imd.received_count < 0 then imd.scanned_count-imd.received_count else 0 end))::INTEGER AS inventory_minus_count,
+		ROUND(SUM(case when imd.scanned_count-imd.received_count > 0 then imd.retail_price_vat * ((imd.scanned_count - imd.received_count)/p.unit_per_pack) else 0 end), 2) AS inventory_plus_amount,
+		ROUND(SUM(case when imd.scanned_count-imd.received_count < 0 then imd.retail_price_vat * ((imd.scanned_count - imd.received_count)/p.unit_per_pack) else 0 end), 2) AS inventory_minus_amount
+	FROM import_details imd
+	JOIN imports im on im.id = imd.import_id
+	JOIN products p ON imd.product_id = p.id
+	LEFT JOIN stores s ON s.id = im.store_id
+	WHERE 1 = 1 %s
 )
 SELECT
     COALESCE(pq.unit_quantity, 0) AS unit_quantity,
@@ -1633,18 +1645,23 @@ SELECT
     COALESCE(td.transfer_out_count, 0) AS transfer_out_count,
     COALESCE(td.transfer_out_amount, 0) AS transfer_out_amount,
     COALESCE(td.transfer_in_count, 0) AS transfer_in_count,
-    COALESCE(td.transfer_in_amount, 0) AS transfer_in_amount
+    COALESCE(td.transfer_in_amount, 0) AS transfer_in_amount,
+	COALESCE(imq.inventory_plus_count, 0) AS inventory_plus_count,
+	COALESCE(imq.inventory_minus_count, 0) AS inventory_minus_count,
+	COALESCE(imq.inventory_plus_amount, 0) AS inventory_plus_amount,
+	COALESCE(imq.inventory_minus_amount, 0) AS inventory_minus_amount	
 FROM product_quantity pq
 LEFT JOIN import_data id ON true
 LEFT JOIN sales_data sd ON true
 LEFT JOIN return_sales_data rsd ON true
 LEFT JOIN vozvrat_data vd ON true
 LEFT JOIN transfer_data td ON true
+LEFT JOIN imventory_quantity imq ON true
 `
 
 	// dynamic query conditions
 	if params.StoreId == "" && params.CompanyId == "" {
-		query = fmt.Sprintf(baseQuery, "", "", "", "", "", "", "", "", "", "")
+		query = fmt.Sprintf(baseQuery, "", "", "", "", "", "", "", "", "", "", "")
 		args = []any{params.ProductId}
 
 	} else if params.StoreId != "" && params.CompanyId == "" {
@@ -1660,6 +1677,7 @@ LEFT JOIN transfer_data td ON true
 			"filter ( where tr.to_store_id = ? )",
 			"AND (tr.from_store_id = ? OR tr.to_store_id = ?)",
 			"AND store_id = ?",
+			"AND s.id = ?",
 		)
 		args = []any{
 			params.ProductId,
@@ -1673,6 +1691,7 @@ LEFT JOIN transfer_data td ON true
 			params.StoreId,                 // transfer_data
 			params.StoreId, params.StoreId, // transfer_data
 			params.StoreId, // product_quantity
+			params.StoreId, // inventory_quantity
 		}
 
 	} else if params.StoreId == "" && params.CompanyId != "" {
@@ -1688,6 +1707,7 @@ LEFT JOIN transfer_data td ON true
 			"filter ( where ts.company_id = ? )",
 			"AND (fs.company_id = ? OR ts.company_id = ?)",
 			"AND company_id = ?",
+			"AND s.company_id = ?",
 		)
 		args = []any{
 			params.ProductId,
@@ -1701,6 +1721,7 @@ LEFT JOIN transfer_data td ON true
 			params.CompanyId,                   // transfer_data
 			params.CompanyId, params.CompanyId, // transfer_data
 			params.CompanyId, // product_quantity
+			params.CompanyId, // import_quantity
 		}
 
 	} else { // both storeId and companyId
@@ -1716,6 +1737,7 @@ LEFT JOIN transfer_data td ON true
 			"filter ( where tr.to_store_id = ? )",
 			"AND (tr.from_store_id = ? OR tr.to_store_id = ?)",
 			"AND store_id = ?",
+			"AND s.id = ?", // inventory_quantity
 		)
 		args = []any{
 			params.ProductId,
@@ -1729,6 +1751,7 @@ LEFT JOIN transfer_data td ON true
 			params.StoreId,                 // transfer_data
 			params.StoreId, params.StoreId, // transfer_data
 			params.StoreId, // product_quantity
+			params.StoreId, // inventory_quantity
 		}
 	}
 

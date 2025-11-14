@@ -307,19 +307,23 @@ type ProductRes1C struct {
 }
 
 type SingeProductDashoard struct {
-	UnitQuantity        int     `gorm:"unit_quantity" json:"unit_quantity"`
-	SaleCount           int     `gorm:"sale_count" json:"sale_count"`
-	SaleAmount          float64 `gorm:"sale_amount" json:"sale_amount"`
-	ReturnSaleCount     int     `gorm:"return_sale_count" json:"return_sale_count"`
-	ReturnSaleAmount    float64 `gorm:"return_sale_amount" json:"return_sale_amount"`
-	ImportCount         int     `gorm:"import_count" json:"import_count"`
-	ImportAmount        float64 `gorm:"import_amount" json:"import_amount"`
-	ReturnToSkladCount  int     `gorm:"return_to_sklad_count" json:"return_to_sklad_count"`
-	ReturnToSkladAmount float64 `gorm:"return_to_sklad_amount" json:"return_to_sklad_amount"`
-	TransferOutCount    int     `gorm:"transfer_out_count" json:"transfer_out_count"`
-	TransferOutAmount   float64 `gorm:"transfer_out_amount" json:"transfer_out_amount"`
-	TransferInCount     int     `gorm:"transfer_in_count" json:"transfer_in_count"`
-	TransferInAmount    float64 `gorm:"transfer_in_amount" json:"transfer_in_amount"`
+	UnitQuantity         int     `gorm:"unit_quantity" json:"unit_quantity"`
+	SaleCount            int     `gorm:"sale_count" json:"sale_count"`
+	SaleAmount           float64 `gorm:"sale_amount" json:"sale_amount"`
+	ReturnSaleCount      int     `gorm:"return_sale_count" json:"return_sale_count"`
+	ReturnSaleAmount     float64 `gorm:"return_sale_amount" json:"return_sale_amount"`
+	ImportCount          int     `gorm:"import_count" json:"import_count"`
+	ImportAmount         float64 `gorm:"import_amount" json:"import_amount"`
+	ReturnToSkladCount   int     `gorm:"return_to_sklad_count" json:"return_to_sklad_count"`
+	ReturnToSkladAmount  float64 `gorm:"return_to_sklad_amount" json:"return_to_sklad_amount"`
+	TransferOutCount     int     `gorm:"transfer_out_count" json:"transfer_out_count"`
+	TransferOutAmount    float64 `gorm:"transfer_out_amount" json:"transfer_out_amount"`
+	TransferInCount      int     `gorm:"transfer_in_count" json:"transfer_in_count"`
+	TransferInAmount     float64 `gorm:"transfer_in_amount" json:"transfer_in_amount"`
+	InventoryPlusCount   int     `gorm:"inventory_plus_count" json:"inventory_plus_count"`
+	InventoryMinusCount  int     `gorm:"inventory_minus_count" json:"inventory_minus_count"`
+	InventoryPlusAmount  float64 `gorm:"inventory_plus_amount" json:"inventory_plus_amount"`
+	InventoryMinusAmount float64 `gorm:"inventory_minus_amount" json:"inventory_minus_amount"`
 }
 
 // region product by import
