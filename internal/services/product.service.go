@@ -1026,8 +1026,8 @@ inventory_data AS (
     SELECT
         im.id, im.public_id, im.entry_type, im.created_at,
         s.name AS store_name,
-        SUM(imd.scanned_count) AS quantity,
-        ROUND(SUM(imd.retail_price_vat * (imd.scanned_count/vd.unit_per_pack)), 2) AS sum,
+        SUM(imd.scanned_count-imd.received_count) AS quantity,
+        ROUND(SUM(imd.retail_price_vat * ((imd.scanned_count - imd.received_count)/vd.unit_per_pack)), 2) AS sum,
         im.name AS name,
         vd.unit_per_pack
     FROM imports im
@@ -1044,7 +1044,7 @@ sales_data AS (
         4 AS entry_type,
         sa.completed_at AS created_at,
         st.name AS store_name,
-        SUM(ci.unit_quantity) AS quantity,
+        CASE WHEN sa.sale_type = 'SALE' THEN SUM(ci.unit_quantity) * (-1) ELSE SUM(ci.unit_quantity) END AS quantity,
         sa.total_amount AS sum,
         sa.sale_type AS name,
         vd.unit_per_pack
@@ -1061,7 +1061,7 @@ vozvrat_data AS (
     SELECT
         tr.id, tr.public_id::int, 5 AS entry_type, tr.created_at,
         s.name AS store_name,
-        SUM(td.accepted_count) * vd.unit_per_pack AS quantity,
+        SUM(td.accepted_count) * vd.unit_per_pack * (-1) AS quantity,
         SUM((td.accepted_count/vd.unit_per_pack) * td.retail_price) AS sum,
         tr.name as name,
         vd.unit_per_pack
@@ -1073,13 +1073,32 @@ vozvrat_data AS (
     %s
     GROUP BY tr.id, s.id, vd.unit_per_pack
 ),
-transfer_data AS (
+transfer_in_data AS (
     SELECT
         tr.id, tr.public_id::int,
         6 AS entry_type,
         tr.created_at,
         fs.name || ' -> ' || ts.name as store_name,
         SUM(td.accepted_count) * vd.unit_per_pack AS quantity,
+        SUM((td.accepted_count/vd.unit_per_pack) * td.retail_price) AS sum,
+        tr.name as name,
+        vd.unit_per_pack
+    FROM transfer_details td
+    JOIN transfers tr ON td.transfer_id = tr.id
+    JOIN var_data vd ON td.product_id = vd.product_id
+    JOIN stores fs ON fs.id = tr.from_store_id
+    JOIN stores ts ON ts.id = tr.to_store_id
+    WHERE (tr.status = 'completed' OR tr.status = 'sent-to-1c') AND tr.entry_type = 1
+    %s
+    GROUP BY tr.id, fs.id, ts.id, vd.unit_per_pack
+ ),
+ transfer_out_data AS (
+    SELECT
+        tr.id, tr.public_id::int,
+        6 AS entry_type,
+        tr.created_at,
+        fs.name || ' -> ' || ts.name as store_name,
+        SUM(td.accepted_count) * vd.unit_per_pack * (-1) AS quantity,
         SUM((td.accepted_count/vd.unit_per_pack) * td.retail_price) AS sum,
         tr.name as name,
         vd.unit_per_pack
@@ -1102,7 +1121,9 @@ FROM (
     UNION ALL
     SELECT * FROM vozvrat_data
     UNION ALL
-    SELECT * FROM transfer_data
+    SELECT * FROM transfer_in_data
+	UNION ALL
+    SELECT * FROM transfer_out_data
 ) all_data
 ORDER BY created_at DESC
 LIMIT ? OFFSET ?;
@@ -1110,7 +1131,7 @@ LIMIT ? OFFSET ?;
 
 	// dynamic query conditions
 	if params.StoreId == "" && params.CompanyId == "" {
-		query = fmt.Sprintf(baseQuery, "", "", "", "", "")
+		query = fmt.Sprintf(baseQuery, "", "", "", "", "", "")
 		args = []any{params.ProducerId, params.Limit, params.Offset}
 
 	} else if params.StoreId != "" && params.CompanyId == "" {
@@ -1120,12 +1141,17 @@ LIMIT ? OFFSET ?;
 			"AND im.store_id = ?",
 			"AND sa.store_id = ?",
 			"AND tr.from_store_id = ?",
-			"AND (tr.from_store_id = ? OR tr.to_store_id = ?)",
+			"AND tr.to_store_id = ?",
+			"AND tr.from_store_id = ?",
 		)
 		args = []any{
 			params.ProducerId,
-			params.StoreId, params.StoreId, params.StoreId, params.StoreId,
-			params.StoreId, params.StoreId, // for transfer_data
+			params.StoreId,
+			params.StoreId,
+			params.StoreId,
+			params.StoreId,
+			params.StoreId,
+			params.StoreId, // for transfer_data
 			params.Limit, params.Offset,
 		}
 
@@ -1136,12 +1162,17 @@ LIMIT ? OFFSET ?;
 			"AND s.company_id = ?",
 			"AND st.company_id = ?",
 			"AND s.company_id = ?",
-			"AND (fs.company_id = ? OR ts.company_id = ?)",
+			"AND ts.company_id = ?",
+			"AND fs.company_id = ?",
 		)
 		args = []any{
 			params.ProducerId,
-			params.CompanyId, params.CompanyId, params.CompanyId, params.CompanyId,
-			params.CompanyId, params.CompanyId, // for transfer_data
+			params.CompanyId,
+			params.CompanyId,
+			params.CompanyId,
+			params.CompanyId,
+			params.CompanyId,
+			params.CompanyId, // for transfer_data
 			params.Limit, params.Offset,
 		}
 
@@ -1152,7 +1183,8 @@ LIMIT ? OFFSET ?;
 			"AND im.store_id = ? AND s.company_id = ?",
 			"AND sa.store_id = ? AND st.company_id = ?",
 			"AND tr.from_store_id = ? AND s.company_id = ?",
-			"AND (tr.from_store_id = ? OR tr.to_store_id = ?) AND (fs.company_id = ? OR ts.company_id = ?)",
+			"AND tr.to_store_id = ? AND ts.company_id = ?",
+			"AND tr.from_store_id = ? AND fs.company_id = ?",
 		)
 		args = []any{
 			params.ProducerId,
@@ -1160,7 +1192,8 @@ LIMIT ? OFFSET ?;
 			params.StoreId, params.CompanyId, // inventory_data
 			params.StoreId, params.CompanyId, // sales_data
 			params.StoreId, params.CompanyId, // vozvrat_data
-			params.StoreId, params.StoreId, params.CompanyId, params.CompanyId, // transfer_data
+			params.StoreId, params.CompanyId,
+			params.StoreId, params.CompanyId, // transfer_data
 			params.Limit, params.Offset,
 		}
 	}
@@ -1575,7 +1608,7 @@ sales_data AS (
 ),
 return_sales_data AS (
     SELECT
-        SUM(ci.unit_quantity)::INTEGER AS return_sale_count,
+        SUM(ci.unit_quantity)::INTEGER * (-1) AS return_sale_count,
         sum(sa.total_amount) AS return_sale_amount
     FROM sales sa
         JOIN stores st ON st.id = sa.store_id
@@ -1587,7 +1620,7 @@ return_sales_data AS (
 ),
 vozvrat_data AS (
     SELECT
-        (SUM(td.accepted_count) * vd.unit_per_pack)::INTEGER AS return_to_sklad_count,
+        (SUM(td.accepted_count) * vd.unit_per_pack)::INTEGER * (-1) AS return_to_sklad_count,
         ROUND(SUM((td.accepted_count/vd.unit_per_pack) * td.retail_price), 2) AS return_to_sklad_amount
     FROM transfer_details td
         JOIN transfers tr ON td.transfer_id = tr.id
@@ -1599,7 +1632,7 @@ vozvrat_data AS (
 ),
 transfer_data AS (
     SELECT
-        (SUM(td.accepted_count) %s * vd.unit_per_pack)::INTEGER AS transfer_out_count,
+        (SUM(td.accepted_count) %s * vd.unit_per_pack)::INTEGER * (-1) AS transfer_out_count,
         SUM((td.accepted_count/vd.unit_per_pack) * td.retail_price) %s AS transfer_out_amount,
         (SUM(td.accepted_count) %s * vd.unit_per_pack)::INTEGER AS transfer_in_count,
         SUM((td.accepted_count/vd.unit_per_pack)  * td.retail_price) %s AS transfer_in_amount
@@ -1628,7 +1661,7 @@ imventory_quantity as (
 		ROUND(SUM(case when imd.scanned_count-imd.received_count < 0 then imd.retail_price_vat * ((imd.scanned_count - imd.received_count)/p.unit_per_pack) else 0 end), 2) AS inventory_minus_amount
 	FROM import_details imd
 	JOIN imports im on im.id = imd.import_id
-	JOIN products p ON imd.product_id = p.id
+	JOIN var_data p ON imd.product_id = p.product_id
 	LEFT JOIN stores s ON s.id = im.store_id
 	WHERE im.entry_type = 2 AND im.status = 'completed' %s
 )
