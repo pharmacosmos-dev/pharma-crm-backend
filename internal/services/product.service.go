@@ -1630,7 +1630,7 @@ imventory_quantity as (
 	JOIN imports im on im.id = imd.import_id
 	JOIN products p ON imd.product_id = p.id
 	LEFT JOIN stores s ON s.id = im.store_id
-	WHERE 1 = 1 %s
+	WHERE im.entry_type = 2 AND im.status = 'completed' %s
 )
 SELECT
     COALESCE(pq.unit_quantity, 0) AS unit_quantity,
@@ -1754,6 +1754,9 @@ LEFT JOIN imventory_quantity imq ON true
 			params.StoreId, // inventory_quantity
 		}
 	}
+
+	fmt.Println(query)
+	fmt.Println(args...)
 
 	// Execute query
 	err := s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
