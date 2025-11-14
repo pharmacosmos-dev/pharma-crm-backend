@@ -2466,7 +2466,7 @@ func (s *Services) DecodeFiscalData(reqJsonStr string) (domain.FiscalData, error
 			ReceiptId:  cast.ToInt(successResp.Info.ReceiptSeq),
 			Date:       successResp.Info.DateTime,
 			FiscalSign: successResp.Info.FiscalSign,
-			QrCodeUrl:  successResp.Info.QrCodeURL,
+			QrCodeUrl:  successResp.Message.QrCodeURL + successResp.Message.QrCodeUrl,
 		}
 	} else {
 		fiscal = domain.FiscalData{
@@ -2476,7 +2476,7 @@ func (s *Services) DecodeFiscalData(reqJsonStr string) (domain.FiscalData, error
 			ReceiptId:  cast.ToInt(successResp.Message.ReceiptSeq),
 			Date:       successResp.Message.DateTime,
 			FiscalSign: successResp.Message.FiscalSign,
-			QrCodeUrl:  successResp.Message.QrCodeURL,
+			QrCodeUrl:  successResp.Message.QrCodeURL + successResp.Message.QrCodeUrl,
 		}
 	}
 
