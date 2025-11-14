@@ -96,10 +96,10 @@ func (s *Services) CreateProduct(ctx context.Context, req *domain.ProductRequest
 }
 
 // create new producer
-func (s *Services) CreateProducer(ctx context.Context, code string) (*domain.Producer, error) {
+func (s *Services) CreateProducer(ctx context.Context, tx *gorm.DB, code string) (*domain.Producer, error) {
 	var producer domain.Producer
 	query := `INSERT INTO producers (code) VALUES (?) RETURNING *`
-	err := s.db.WithContext(ctx).Raw(query, code).Scan(&producer).Error
+	err := tx.WithContext(ctx).WithContext(ctx).Raw(query, code).Scan(&producer).Error
 	if err != nil {
 		s.log.Errorf("could not create new producer: %v", err)
 		return nil, domain.InternalServerError
@@ -795,14 +795,14 @@ func (s *Services) GetProductIKPUByMxik(ctx context.Context, mxik string) (*doma
 	return &measurement, nil
 }
 
-func (s *Services) GetProducerByCode(ctx context.Context, code string) (*domain.Producer, error) {
+func (s *Services) GetProducerByCode(ctx context.Context, tx *gorm.DB, code string) (*domain.Producer, error) {
 	var producer domain.Producer
-	err := s.db.Raw(`SELECT id, name, code, created_at, updated_at FROM producers WHERE code = ?`, code).Scan(&producer).Error
+	err := tx.WithContext(ctx).Raw(`SELECT id, name, code, created_at, updated_at FROM producers WHERE code = ?`, code).Scan(&producer).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			producerData, err := s.CreateProducer(ctx, code)
+			producerData, err := s.CreateProducer(ctx, tx, code)
 			if err != nil {
-				return nil, domain.NotFoundError
+				return nil, err
 			}
 			producer = *producerData
 		}
@@ -1534,9 +1534,234 @@ func (s *Services) ListProductPhotoAlert(ctx context.Context, params *domain.Pro
 	return alerts, totalCount, nil
 }
 
-func (s *Services) GetRemainingProductsByDate(ctx context.Context, params *domain.ProductQueryParam) ([]domain.RemainingProduct, int64, error) {
+func (s *Services) GetSingleProductDashboard(ctx context.Context, params *domain.ProductQueryParam) (domain.SingeProductDashoard, error) {
+	var (
+		res   domain.SingeProductDashoard
+		query string
+		args  []any
+	)
 
-	return nil, 0, nil
+	baseQuery := `
+WITH var_data AS (
+    SELECT
+        p.id AS product_id,
+        p.unit_per_pack
+    FROM products p
+    WHERE p.id = ?
+),  
+import_data AS (
+    SELECT
+        (SUM(imd.accepted_count) * vd.unit_per_pack)::INTEGER AS import_count,
+        SUM(imd.accepted_count * imd.retail_price_vat) AS import_amount
+    FROM imports im
+        JOIN stores s ON im.store_id = s.id
+        JOIN import_details imd ON im.id = imd.import_id
+        JOIN var_data vd ON imd.product_id = vd.product_id
+    WHERE im.entry_type = 1 AND im.status = 'completed'
+        %s
+    GROUP BY vd.unit_per_pack
+),
+sales_data AS (
+    SELECT
+        SUM(ci.unit_quantity)::INTEGER AS sale_count,
+        sum(sa.total_amount) AS sale_amount
+    FROM sales sa
+        JOIN stores st ON st.id = sa.store_id
+        JOIN cart_items ci ON ci.sale_id = sa.id
+        JOIN store_products sp ON sp.id = ci.store_product_id
+        JOIN var_data vd ON sp.product_id = vd.product_id
+    WHERE sa.stage IN (9, 11) and sale_type = 'SALE'
+        %s
+),
+return_sales_data AS (
+    SELECT
+        SUM(ci.unit_quantity)::INTEGER AS return_sale_count,
+        sum(sa.total_amount) AS return_sale_amount
+    FROM sales sa
+        JOIN stores st ON st.id = sa.store_id
+        JOIN cart_items ci ON ci.sale_id = sa.id
+        JOIN store_products sp ON sp.id = ci.store_product_id
+        JOIN var_data vd ON sp.product_id = vd.product_id
+    WHERE sa.stage IN (9, 11) and sale_type = 'RETURN'
+        %s
+),
+vozvrat_data AS (
+    SELECT
+        (SUM(td.accepted_count) * vd.unit_per_pack)::INTEGER AS return_to_sklad_count,
+        ROUND(SUM((td.accepted_count/vd.unit_per_pack) * td.retail_price), 2) AS return_to_sklad_amount
+    FROM transfer_details td
+        JOIN transfers tr ON td.transfer_id = tr.id
+        JOIN var_data vd ON td.product_id = vd.product_id
+        JOIN stores s ON s.id = tr.from_store_id
+    WHERE (tr.status = 'completed' OR tr.status = 'sent-to-1c') AND tr.entry_type = 2
+        %s
+    GROUP BY vd.unit_per_pack
+),
+transfer_data AS (
+    SELECT
+        (SUM(td.accepted_count) %s * vd.unit_per_pack)::INTEGER AS transfer_out_count,
+        SUM((td.accepted_count/vd.unit_per_pack) * td.retail_price) %s AS transfer_out_amount,
+        (SUM(td.accepted_count) %s * vd.unit_per_pack)::INTEGER AS transfer_in_count,
+        SUM((td.accepted_count/vd.unit_per_pack)  * td.retail_price) %s AS transfer_in_amount
+    FROM transfer_details td
+        JOIN transfers tr ON td.transfer_id = tr.id
+        JOIN var_data vd ON td.product_id = vd.product_id
+        JOIN stores fs ON fs.id = tr.from_store_id
+        JOIN stores ts ON ts.id = tr.to_store_id
+    WHERE (tr.status = 'completed' OR tr.status = 'sent-to-1c') AND tr.entry_type = 1
+        %s
+    GROUP BY tr.id, fs.id, ts.id, vd.unit_per_pack
+),
+product_quantity as (
+    select
+        sum(sp.unit_quantity)::INTEGER as unit_quantity
+    from
+        store_products as sp
+    join var_data vd on vd.product_id = sp.product_id
+    where 1 = 1 %s
+),
+imventory_quantity as (
+	SELECT
+		(SUM(case when imd.scanned_count-imd.received_count > 0 then imd.scanned_count-imd.received_count else 0 end))::INTEGER AS inventory_plus_count,
+		(SUM(case when imd.scanned_count-imd.received_count < 0 then imd.scanned_count-imd.received_count else 0 end))::INTEGER AS inventory_minus_count,
+		ROUND(SUM(case when imd.scanned_count-imd.received_count > 0 then imd.retail_price_vat * ((imd.scanned_count - imd.received_count)/p.unit_per_pack) else 0 end), 2) AS inventory_plus_amount,
+		ROUND(SUM(case when imd.scanned_count-imd.received_count < 0 then imd.retail_price_vat * ((imd.scanned_count - imd.received_count)/p.unit_per_pack) else 0 end), 2) AS inventory_minus_amount
+	FROM import_details imd
+	JOIN imports im on im.id = imd.import_id
+	JOIN products p ON imd.product_id = p.id
+	LEFT JOIN stores s ON s.id = im.store_id
+	WHERE 1 = 1 %s
+)
+SELECT
+    COALESCE(pq.unit_quantity, 0) AS unit_quantity,
+    COALESCE(sd.sale_count, 0) AS sale_count,
+    COALESCE(sd.sale_amount, 0) AS sale_amount,
+    COALESCE(rsd.return_sale_count, 0) AS return_sale_count,
+    COALESCE(rsd.return_sale_amount, 0) AS return_sale_amount,
+    COALESCE(id.import_count, 0) AS import_count,
+    COALESCE(id.import_amount, 0) AS import_amount,
+    COALESCE(vd.return_to_sklad_count, 0) AS return_to_sklad_count,
+    COALESCE(vd.return_to_sklad_amount, 0) AS return_to_sklad_amount,
+    COALESCE(td.transfer_out_count, 0) AS transfer_out_count,
+    COALESCE(td.transfer_out_amount, 0) AS transfer_out_amount,
+    COALESCE(td.transfer_in_count, 0) AS transfer_in_count,
+    COALESCE(td.transfer_in_amount, 0) AS transfer_in_amount,
+	COALESCE(imq.inventory_plus_count, 0) AS inventory_plus_count,
+	COALESCE(imq.inventory_minus_count, 0) AS inventory_minus_count,
+	COALESCE(imq.inventory_plus_amount, 0) AS inventory_plus_amount,
+	COALESCE(imq.inventory_minus_amount, 0) AS inventory_minus_amount	
+FROM product_quantity pq
+LEFT JOIN import_data id ON true
+LEFT JOIN sales_data sd ON true
+LEFT JOIN return_sales_data rsd ON true
+LEFT JOIN vozvrat_data vd ON true
+LEFT JOIN transfer_data td ON true
+LEFT JOIN imventory_quantity imq ON true
+`
+
+	// dynamic query conditions
+	if params.StoreId == "" && params.CompanyId == "" {
+		query = fmt.Sprintf(baseQuery, "", "", "", "", "", "", "", "", "", "", "")
+		args = []any{params.ProductId}
+
+	} else if params.StoreId != "" && params.CompanyId == "" {
+		query = fmt.Sprintf(
+			baseQuery,
+			"AND im.store_id = ?",
+			"AND sa.store_id = ?",
+			"AND sa.store_id = ?",
+			"AND tr.from_store_id = ?",
+			"filter ( where tr.from_store_id = ? )",
+			"filter ( where tr.from_store_id = ? )",
+			"filter ( where tr.to_store_id = ? )",
+			"filter ( where tr.to_store_id = ? )",
+			"AND (tr.from_store_id = ? OR tr.to_store_id = ?)",
+			"AND store_id = ?",
+			"AND s.id = ?",
+		)
+		args = []any{
+			params.ProductId,
+			params.StoreId,                 // import_data
+			params.StoreId,                 // sales_data
+			params.StoreId,                 // return_sales_data
+			params.StoreId,                 // vozvrat_data
+			params.StoreId,                 // transfer_data
+			params.StoreId,                 // transfer_data
+			params.StoreId,                 // transfer_data
+			params.StoreId,                 // transfer_data
+			params.StoreId, params.StoreId, // transfer_data
+			params.StoreId, // product_quantity
+			params.StoreId, // inventory_quantity
+		}
+
+	} else if params.StoreId == "" && params.CompanyId != "" {
+		query = fmt.Sprintf(
+			baseQuery,
+			"AND s.company_id = ?",
+			"AND st.company_id = ?",
+			"AND st.company_id = ?",
+			"AND s.company_id = ?",
+			"filter ( where fs.company_id = ?)",
+			"filter ( where fs.company_id = ? )",
+			"filter ( where ts.company_id = ? )",
+			"filter ( where ts.company_id = ? )",
+			"AND (fs.company_id = ? OR ts.company_id = ?)",
+			"AND company_id = ?",
+			"AND s.company_id = ?",
+		)
+		args = []any{
+			params.ProductId,
+			params.CompanyId,                   // import_data
+			params.CompanyId,                   // sales_data
+			params.CompanyId,                   // return_sales_data
+			params.CompanyId,                   // vozvrat_data
+			params.CompanyId,                   // transfer_data
+			params.CompanyId,                   // transfer_data
+			params.CompanyId,                   // transfer_data
+			params.CompanyId,                   // transfer_data
+			params.CompanyId, params.CompanyId, // transfer_data
+			params.CompanyId, // product_quantity
+			params.CompanyId, // import_quantity
+		}
+
+	} else { // both storeId and companyId
+		query = fmt.Sprintf(
+			baseQuery,
+			"AND im.store_id = ? AND s.company_id = ?",
+			"AND sa.store_id = ? AND st.company_id = ?",
+			"AND sa.store_id = ? AND st.company_id = ?",
+			"AND tr.from_store_id = ? AND s.company_id = ?",
+			"filter ( where tr.from_store_id = ? )",
+			"filter ( where tr.from_store_id = ? )",
+			"filter ( where tr.to_store_id = ? )",
+			"filter ( where tr.to_store_id = ? )",
+			"AND (tr.from_store_id = ? OR tr.to_store_id = ?)",
+			"AND store_id = ?",
+			"AND s.id = ?", // inventory_quantity
+		)
+		args = []any{
+			params.ProductId,
+			params.StoreId, params.CompanyId, // import_data
+			params.StoreId, params.CompanyId, // sales_data
+			params.StoreId, params.CompanyId, // return_sales_data
+			params.StoreId, params.CompanyId, // vozvrat_data
+			params.StoreId,                 // transfer_data
+			params.StoreId,                 // transfer_data
+			params.StoreId,                 // transfer_data
+			params.StoreId,                 // transfer_data
+			params.StoreId, params.StoreId, // transfer_data
+			params.StoreId, // product_quantity
+			params.StoreId, // inventory_quantity
+		}
+	}
+
+	// Execute query
+	err := s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
+	if err != nil {
+		s.log.Errorf("could not get single product dashboard: %v", err)
+		return res, err
+	}
+	return res, nil
 }
 
 // region Update

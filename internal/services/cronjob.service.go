@@ -2,9 +2,11 @@ package services
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"time"
 
@@ -112,10 +114,22 @@ GROUP BY
 		if err != nil {
 			return fmt.Errorf("failed to marshal store data: %w", err)
 		}
-		// fmt.Println("Sending to OsonApteka:", string(jsonData))
+
+		// 2️⃣ Compress via GZIP
+		var buf bytes.Buffer
+		gzipWriter := gzip.NewWriter(&buf)
+		gzipWriter.Write(jsonData)
+		gzipWriter.Close()
+		compressedData := buf.Bytes()
+
+		// // 3️⃣ Encode []byte to Base64 so it can be in JSON
+		jsonFromBytes, err := json.Marshal(compressedData)
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		// Send to API
-		req, err := http.NewRequest("POST", "https://remains.osonapteka.uz/api/set-app-remains", bytes.NewBuffer(jsonData))
+		req, err := http.NewRequest("POST", "https://remains.osonapteka.uz/api/set-app-remains", bytes.NewBuffer(jsonFromBytes))
 		if err != nil {
 			return fmt.Errorf("failed to create request: %w", err)
 		}
@@ -133,24 +147,22 @@ GROUP BY
 		defer resp.Body.Close()
 
 		// print response
-		fmt.Println("Response from OsonApteka:")
 		bodyByte, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return fmt.Errorf("failed to read response body: %w", err)
 		}
-		fmt.Println("string(bodyByte): ", string(bodyByte))
 
-		fmt.Println("resp.Status, resp.StatusCode: ", resp.Status, resp.StatusCode)
 		response := domain.OsonAptekaRemainingQuantityResponse{}
 		if err := json.Unmarshal(bodyByte, &response); err != nil {
 			return fmt.Errorf("failed to decode response: %w", err)
 		}
-		fmt.Printf("Response from OsonApteka: %+v\n", response)
 
 		// check response
 		if !response.Succeeded {
 			return fmt.Errorf("oson apteka returned error: %+v", response)
 		}
+
+		s.log.Info("Sent remainings to oson apteka successfully")
 	}
 
 	return nil

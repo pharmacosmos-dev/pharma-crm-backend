@@ -337,7 +337,7 @@ definitions:
     required:
     - barcode
     type: object
-  domain.CreateProduct1C:
+  domain.CreateOnecImportDto:
     properties:
       Apteka:
         $ref: '#/definitions/domain.Apteka'
@@ -345,7 +345,7 @@ definitions:
         $ref: '#/definitions/domain.Document'
       Товары:
         items:
-          $ref: '#/definitions/domain.ProductRequest1C'
+          $ref: '#/definitions/domain.ProductRequestOnecDto'
         type: array
     type: object
   domain.CustomerRequest:
@@ -1161,7 +1161,7 @@ definitions:
       unit_type_id:
         type: string
     type: object
-  domain.ProductRequest1C:
+  domain.ProductRequestOnecDto:
     properties:
       barcode:
         maxLength: 255
@@ -9503,6 +9503,41 @@ paths:
       summary: Update a product
       tags:
       - products
+  /product/{id}/dashboard:
+    get:
+      consumes:
+      - application/json
+      description: Get single product dashboard
+      parameters:
+      - description: product ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get single product dashboard
+      tags:
+      - products
   /product/{id}/product-movement:
     get:
       consumes:
@@ -10683,101 +10718,6 @@ paths:
       summary: Get a product
       tags:
       - products
-  /product/remaining-product-by-date:
-    get:
-      consumes:
-      - application/json
-      description: Retrieve products with various filters and pagination
-      parameters:
-      - description: Start Date
-        in: query
-        name: start_date
-        type: string
-      - description: End Date
-        in: query
-        name: end_date
-        type: string
-      - description: Limit
-        in: query
-        name: limit
-        type: integer
-      - description: Offset
-        in: query
-        name: offset
-        type: integer
-      - description: Search term
-        in: query
-        name: search
-        type: string
-      - description: Status (active | inactive | low-stock | zero-stock | expired
-          | imminent)
-        in: query
-        name: status
-        type: string
-      - description: Store ID
-        in: query
-        name: store_id
-        type: string
-      - description: Company ID
-        in: query
-        name: company_id
-        type: string
-      - description: Category ID
-        in: query
-        name: category_id
-        type: string
-      - description: Producer ID
-        in: query
-        name: producer_id
-        type: string
-      - description: Supply Price From
-        format: float64
-        in: query
-        name: supply_price_from
-        type: number
-      - description: Supply Price To
-        format: float64
-        in: query
-        name: supply_price_to
-        type: number
-      - description: Retail Price From
-        format: float64
-        in: query
-        name: retail_price_from
-        type: number
-      - description: Retail Price To
-        format: float64
-        in: query
-        name: retail_price_to
-        type: number
-      - description: Filter products without barcode
-        in: query
-        name: no_barcode
-        type: boolean
-      - description: Order by (+name | -name | +expire_date | -expire_date)
-        in: query
-        name: order
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Get a product
-      tags:
-      - products
   /product/similar/{id}:
     get:
       consumes:
@@ -11175,7 +11115,7 @@ paths:
         name: product
         required: true
         schema:
-          $ref: '#/definitions/domain.CreateProduct1C'
+          $ref: '#/definitions/domain.CreateOnecImportDto'
       produces:
       - application/json
       responses:
@@ -12323,6 +12263,71 @@ paths:
       security:
       - BearerAuth: []
       summary: Get product status report
+      tags:
+      - Report
+  /report/remaining-products:
+    post:
+      consumes:
+      - application/json
+      description: Get remaining products report
+      parameters:
+      - description: Filter with producer id
+        in: query
+        name: producer_id
+        type: string
+      - description: Store ids
+        in: body
+        name: store_ids
+        schema:
+          items:
+            type: string
+          type: array
+      - description: Company ID
+        in: query
+        name: company_id
+        type: string
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: Search (customer full name)
+        in: query
+        name: search
+        type: string
+      - description: every field in response is sorted by this field
+        in: query
+        name: order
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get remaining products report
       tags:
       - Report
   /report/store-amount:

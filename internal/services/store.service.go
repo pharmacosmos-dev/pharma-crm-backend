@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -9,13 +10,13 @@ import (
 )
 
 // create store on importing products to branch
-func (s *Services) CreateStoreOnImport(req *domain.StoreRequest) (domain.Store, error) {
+func (s *Services) CreateStoreOnImport(ctx context.Context, tx *gorm.DB, req *domain.StoreRequest) (domain.Store, error) {
 	var res domain.Store
 	query := `INSERT INTO stores(name, detailed_name, store_code, company_id) VALUES(?, ?, ?, ?) RETURNING *`
-	err := s.db.Raw(query, req.Name, req.Name, req.StoreCode, req.CompanyId).Scan(&res).Error
+	err := tx.WithContext(ctx).Debug().Raw(query, req.Name, req.Name, req.StoreCode, req.CompanyId).Scan(&res).Error
 	if err != nil {
-		s.log.Warn("ERROR on creating new store: %v", err)
-		return res, err
+		s.log.Errorf("could not create new store on importing: %v", err)
+		return res, domain.InternalServerError
 	}
 
 	return res, nil
