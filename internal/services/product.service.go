@@ -1596,7 +1596,7 @@ import_data AS (
 ),
 sales_data AS (
     SELECT
-        SUM(ci.unit_quantity)::INTEGER AS sale_count,
+        SUM(ci.unit_quantity)::INTEGER * (-1) AS sale_count,
         sum(sa.total_amount) AS sale_amount
     FROM sales sa
         JOIN stores st ON st.id = sa.store_id
@@ -1608,7 +1608,7 @@ sales_data AS (
 ),
 return_sales_data AS (
     SELECT
-        SUM(ci.unit_quantity)::INTEGER * (-1) AS return_sale_count,
+        SUM(ci.unit_quantity)::INTEGER AS return_sale_count,
         sum(sa.total_amount) AS return_sale_amount
     FROM sales sa
         JOIN stores st ON st.id = sa.store_id
