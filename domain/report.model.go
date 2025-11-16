@@ -148,26 +148,23 @@ type StoreSummaryStats struct {
 }
 
 type StoreProductsReport struct {
-	ProductID         string  `json:"product_id"`
-	StoreID           string  `json:"store_id"`
-	StoreName         string  `json:"store_name"`
-	Name              string  `json:"name"`
-	FinalPackQuantity float64 `json:"final_pack_quantity"`
-	FinalUnitQuantity float64 `json:"final_unit_quantity"`
-	PackQty           float64 `json:"pack_qty"`
-	UnitQty           float64 `json:"unit_qty"`
-
-	// Changes by source
-	ImportPackChange    float64 `json:"import_pack_change"`
-	ImportUnitChange    float64 `json:"import_unit_change"`
-	SalesPackChange     float64 `json:"sales_pack_change"`
-	SalesUnitChange     float64 `json:"sales_unit_change"`
-	ReturnPackChange    float64 `json:"return_pack_change"`
-	ReturnUnitChange    float64 `json:"return_unit_change"`
-	TransferPackChange  float64 `json:"transfer_pack_change"`
-	TransferUnitChange  float64 `json:"transfer_unit_change"`
-	InventoryPackChange float64 `json:"inventory_pack_change"`
-	InventoryUnitChange float64 `json:"inventory_unit_change"`
+	ID           string            `gorm:"id" json:"id"`
+	StoreID      string            `gorm:"store_id" json:"store_id"`
+	StoreName    string            `gorm:"store_name" json:"store_name"`
+	Name         string            `gorm:"name" json:"name"`
+	UnitQuantity int               `gorm:"unit_quantity" json:"unit_quantity"`
+	MaterialCode int               `gorm:"material_code" json:"material_code"`
+	Photos       utils.StringArray `gorm:"type:text[]" json:"photos"`
+	Barcode      string            `gorm:"barcode" json:"barcode"`
+	UnitPerPack  int               `gorm:"unit_per_pack" json:"unit_per_pack"`
+	MXIK         string            `gorm:"mxik" json:"mxik"`
+	UnitCode     string            `gorm:"unit_code" json:"unit_code"`
+	IsMarking    bool              `gorm:"is_marking" json:"is_marking"`
+	CreatedAt    time.Time         `gorm:"created_at" json:"created_at"`
+	UpdatedAt    time.Time         `gorm:"updated_at" json:"updated_at"`
+	Manufacturer string            `gorm:"manufacturer" json:"manufacturer"`
+	UnitName     string            `gorm:"unit_name" json:"unit_name"`
+	UnitLabel    string            `gorm:"unit_label" json:"unit_label"`
 }
 
 type DiscountCardReport struct {
@@ -184,21 +181,21 @@ type DiscountCardReport struct {
 	TotalCount           int64   `json:"-"`
 }
 
-type RemainingProduct struct {
-	ID           string            `gorm:"id" json:"id"`
-	StoreID      string            `gorm:"store_id" json:"store_id"`
-	UnitQuantity int               `gorm:"unit_quantity" json:"unit_quantity"`
-	MaterialCode int               `gorm:"material_code" json:"material_code"`
-	Name         string            `gorm:"name" json:"name"`
-	Photos       utils.StringArray `gorm:"type:text[]" json:"photos"`
-	Barcode      string            `gorm:"barcode" json:"barcode"`
-	UnitPerPack  int               `gorm:"unit_per_pack" json:"unit_per_pack"`
-	MXIK         string            `gorm:"mxik" json:"mxik"`
-	UnitCode     string            `gorm:"unit_code" json:"unit_code"`
-	IsMarking    bool              `gorm:"is_marking" json:"is_marking"`
-	CreatedAt    time.Time         `gorm:"created_at" json:"created_at"`
-	UpdatedAt    time.Time         `gorm:"updated_at" json:"updated_at"`
-	Manufacturer string            `gorm:"manufacturer" json:"manufacturer"`
-	UnitName     string            `gorm:"unit_name" json:"unit_name"`
-	UnitLabel    string            `gorm:"unit_label" json:"unit_label"`
-}
+// type RemainingProduct struct {
+// 	ID           string            `gorm:"id" json:"id"`
+// 	StoreID      string            `gorm:"store_id" json:"store_id"`
+// 	UnitQuantity int               `gorm:"unit_quantity" json:"unit_quantity"`
+// 	MaterialCode int               `gorm:"material_code" json:"material_code"`
+// 	Name         string            `gorm:"name" json:"name"`
+// 	Photos       utils.StringArray `gorm:"type:text[]" json:"photos"`
+// 	Barcode      string            `gorm:"barcode" json:"barcode"`
+// 	UnitPerPack  int               `gorm:"unit_per_pack" json:"unit_per_pack"`
+// 	MXIK         string            `gorm:"mxik" json:"mxik"`
+// 	UnitCode     string            `gorm:"unit_code" json:"unit_code"`
+// 	IsMarking    bool              `gorm:"is_marking" json:"is_marking"`
+// 	CreatedAt    time.Time         `gorm:"created_at" json:"created_at"`
+// 	UpdatedAt    time.Time         `gorm:"updated_at" json:"updated_at"`
+// 	Manufacturer string            `gorm:"manufacturer" json:"manufacturer"`
+// 	UnitName     string            `gorm:"unit_name" json:"unit_name"`
+// 	UnitLabel    string            `gorm:"unit_label" json:"unit_label"`
+// }
