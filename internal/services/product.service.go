@@ -1939,7 +1939,6 @@ func (s *Services) UpdatePackaging(ctx context.Context, req *domain.UpdatePackag
 			SET unit_quantity = unit_quantity * ?
 		FROM products p
 		  WHERE sp.product_id = p.id
-			AND p.unit_per_pack = 1
 			AND sp.product_id = ?;`,
 			req.UnitPerPack, req.ProductId,
 		).Error
