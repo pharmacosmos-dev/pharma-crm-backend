@@ -597,7 +597,7 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 	}
 
 	// validate sale total_amount and cart_items total_price sum:
-	if sale.TotalAmount != itemsSum {
+	if sale.TotalAmount*(-1) != itemsSum {
 		err = s.SaveEposResponse(ctx, req)
 		if err != nil {
 			_ = tx.Rollback()
