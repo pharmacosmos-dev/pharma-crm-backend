@@ -1080,7 +1080,7 @@ transfer_in_data AS (
         tr.created_at,
         fs.name || ' -> ' || ts.name as store_name,
         SUM(td.accepted_count) * vd.unit_per_pack AS quantity,
-        SUM(td.accepted_count) * td.retail_price) AS sum,
+        SUM(td.accepted_count * td.retail_price) AS sum,
         tr.name as name,
         vd.unit_per_pack
     FROM transfer_details td
@@ -1099,7 +1099,7 @@ transfer_in_data AS (
         tr.created_at,
         fs.name || ' -> ' || ts.name as store_name,
         SUM(td.accepted_count) * vd.unit_per_pack * (-1) AS quantity,
-        SUM(td.accepted_count) * td.retail_price) * (-1) AS sum,
+        SUM(td.accepted_count * td.retail_price * (-1)) AS sum,
         tr.name as name,
         vd.unit_per_pack
     FROM transfer_details td
