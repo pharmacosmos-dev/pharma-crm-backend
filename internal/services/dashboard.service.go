@@ -1225,10 +1225,10 @@ func (s *Services) DashboardSaleStatistic(ctx context.Context, params *domain.Da
 	qb := s.db.
 		WithContext(ctx).
 		Select(
-			fmt.Sprintf("COUNT(CASE WHEN s.completed_at BETWEEN '%s' AND '%s' THEN s.id END) AS sale_count", date.StartTime, date.EndTime),
-			fmt.Sprintf("SUM(CASE WHEN s.completed_at BETWEEN '%s' AND '%s' THEN s.total_amount ELSE 0 END) AS sale_amount", date.StartTime, date.EndTime),
-			fmt.Sprintf("COUNT(CASE WHEN s.completed_at BETWEEN '%s' AND '%s' THEN s.id END) AS before_sale_count", date.PrevStartTime, date.PrevEndTime),
-			fmt.Sprintf("SUM(CASE WHEN s.completed_at BETWEEN '%s' AND '%s' THEN s.total_amount ELSE 0 END) AS before_sale_amount", date.PrevStartTime, date.PrevEndTime),
+			fmt.Sprintf("COUNT(CASE WHEN (s.completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN s.id END) AS sale_count", date.StartTime, date.EndTime),
+			fmt.Sprintf("SUM(CASE WHEN (s.completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN s.total_amount ELSE 0 END) AS sale_amount", date.StartTime, date.EndTime),
+			fmt.Sprintf("COUNT(CASE WHEN (s.completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN s.id END) AS before_sale_count", date.PrevStartTime, date.PrevEndTime),
+			fmt.Sprintf("SUM(CASE WHEN (s.completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN s.total_amount ELSE 0 END) AS before_sale_amount", date.PrevStartTime, date.PrevEndTime),
 		).
 		Table("sales s").
 		Joins("JOIN stores st ON s.store_id = st.id")
@@ -1269,7 +1269,7 @@ func (s *Services) DashboardNetProfitStatistic(ctx context.Context, params *doma
 	}
 	qb := s.db.WithContext(ctx).
 		Select(
-			"ROUND(SUM(((ci.unit_price - sp.supply_price)/p.unit_per_pack) * ci.unit_quantity), 2) AS income_amount",
+			"ROUND(SUM(((ci.unit_price - sp.supply_price) / p.unit_per_pack) * ci.unit_quantity - ci.discount_amount), 2) AS income_amount",
 			"ROUND(SUM(((sp.supply_price)/p.unit_per_pack) * ci.unit_quantity), 2) AS production_cost",
 		).
 		Table("sales s").
@@ -1278,7 +1278,7 @@ func (s *Services) DashboardNetProfitStatistic(ctx context.Context, params *doma
 		Joins("JOIN store_products sp ON ci.store_product_id = sp.id").
 		Joins("JOIN products p ON sp.product_id = p.id").
 		Where("s.stage IN(?)", constants.FinishedSaleStages).
-		Where("s.completed_at BETWEEN ? AND ?", date.StartTime, date.EndTime)
+		Where("(s.completed_at + interval '5 hours') BETWEEN ? AND ?", date.StartTime, date.EndTime)
 
 	// filter by several store ids
 	if len(params.StoreIds) > 0 {
