@@ -1232,7 +1232,7 @@ func (s *Services) DashboardSaleStatistic(ctx context.Context, params *domain.Da
 		Joins("JOIN cart_items ci ON s.id = ci.sale_id").
 		Joins("JOIN stores st ON s.store_id = st.id").
 		Where("s.stage IN(?)", constants.FinishedSaleStages).
-		Where("(s.completed_at + interval '5 hours') BETWEEN ? AND ?", date.StartTime, date.EndTime)
+		Where("s.completed_at BETWEEN ? AND ?", date.StartTime, date.EndTime)
 
 	if len(params.StoreIds) > 0 {
 		qb = qb.Where("s.store_id IN(?)", params.StoreIds)
@@ -1294,7 +1294,7 @@ func (s *Services) DashboardNetProfitStatistic(ctx context.Context, params *doma
 		Joins("JOIN store_products sp ON ci.store_product_id = sp.id").
 		Joins("JOIN products p ON sp.product_id = p.id").
 		Where("s.stage IN(?)", constants.FinishedSaleStages).
-		Where("(s.completed_at + interval '5 hours') BETWEEN ? AND ?", date.StartTime, date.EndTime)
+		Where("s.completed_at BETWEEN ? AND ?", date.StartTime, date.EndTime)
 
 	// filter by several store ids
 	if len(params.StoreIds) > 0 {
