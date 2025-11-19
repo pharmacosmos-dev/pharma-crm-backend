@@ -1238,6 +1238,9 @@ func (s *Services) DashboardSaleStatistic(ctx context.Context, params *domain.Da
 		qb = qb.Where("s.store_id IN(?)", params.StoreIds)
 	}
 
+	fmt.Println("Date TIme", date.StartTime)
+	fmt.Println("Date TIme End", date.EndTime)
+
 	if params.IsFranchise {
 		if len(params.CompanyIds) == 0 {
 			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
