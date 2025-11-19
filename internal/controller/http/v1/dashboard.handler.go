@@ -70,6 +70,12 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 		return
 	}
 
+	// check starting date is given
+	if params.StartDate == nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
 	var body domain.DashboardBody
 	// bind store ids
 	if c.Request.Body != nil {
@@ -135,6 +141,13 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
+
+	// check starting date is given
+	if params.StartDate == nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
 	var body domain.DashboardBody
 	// bind store ids
 	if c.Request.Body != nil {
@@ -194,6 +207,12 @@ func (h *DashboardHandler) TopStores(c *gin.Context) {
 	// get limit offset with checking default
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
+	// check starting date is given
+	if params.StartDate == nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
@@ -244,6 +263,13 @@ func (h *DashboardHandler) TopProducts(c *gin.Context) {
 		handleResponse(c, BadRequest, "Invalid query parameters")
 		return
 	}
+
+	// check starting date is given
+	if params.StartDate == nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
 	var body domain.DashboardBody
 	// bind store ids
 	if c.Request.Body != nil {
@@ -305,6 +331,13 @@ func (h *DashboardHandler) BonusProducts(c *gin.Context) {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
+
+	// check starting date is given
+	if params.StartDate == nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
 	var body domain.DashboardBody
 	// bind store ids
 	if c.Request.Body != nil {
@@ -366,6 +399,13 @@ func (h *DashboardHandler) TopSeller(c *gin.Context) {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
+
+	// check starting date is given
+	if params.StartDate == nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
 	var body domain.DashboardBody
 	// bind store ids
 	if c.Request.Body != nil {
@@ -424,6 +464,12 @@ func (h *DashboardHandler) Payments(c *gin.Context) {
 		return
 	}
 
+	// check starting date is given
+	if params.StartDate == nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
 	var body domain.DashboardBody
 	if c.Request.Body != nil {
 		_ = c.ShouldBindJSON(&body)
@@ -474,6 +520,12 @@ func (h *DashboardHandler) Transaction(c *gin.Context) {
 	var params domain.DashboardQueryParam
 	// bind query parameters
 	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	// check starting date is given
+	if params.StartDate == nil {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
@@ -581,6 +633,12 @@ func (h *DashboardHandler) SaleStatistic(c *gin.Context) {
 		return
 	}
 
+	// check starting date is given
+	if params.StartDate == nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
 	var body domain.DashboardBody
 	// bind store ids
 	if c.Request.Body != nil {
@@ -635,6 +693,12 @@ func (h *DashboardHandler) NetProfitStatistic(c *gin.Context) {
 	var params domain.DashboardQueryParam
 	// bind query parameters
 	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	// check starting date is given
+	if params.StartDate == nil {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
@@ -860,6 +924,12 @@ func (h *DashboardHandler) LoyaltyCardStatistic(c *gin.Context) {
 	var params domain.DashboardQueryParam
 	// bind query parameters
 	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	// check starting date is given
+	if params.StartDate == nil {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
