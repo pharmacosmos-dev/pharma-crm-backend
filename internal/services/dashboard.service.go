@@ -1225,15 +1225,14 @@ func (s *Services) DashboardSaleStatistic(ctx context.Context, params *domain.Da
 	qb := s.db.
 		WithContext(ctx).
 		Select(
-			fmt.Sprintf("COUNT(CASE WHEN (s.completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN s.id END) AS sale_count", date.StartTime, date.EndTime),
-			fmt.Sprintf("SUM(CASE WHEN (s.completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN s.total_amount ELSE 0 END) AS sale_amount", date.StartTime, date.EndTime),
-			fmt.Sprintf("COUNT(CASE WHEN (s.completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN s.id END) AS before_sale_count", date.PrevStartTime, date.PrevEndTime),
-			fmt.Sprintf("SUM(CASE WHEN (s.completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN s.total_amount ELSE 0 END) AS before_sale_amount", date.PrevStartTime, date.PrevEndTime),
+			"COUNT(distinct s.id) filter ( where s.sale_type = 'SALE' ) AS sale_count",
+			"SUM(CASE WHEN s.sale_type = 'SALE' THEN ci.total_price - ci.discount_amount ELSE (ci.total_price - ci.discount_amount) * (-1) END) AS sale_amount",
 		).
 		Table("sales s").
-		Joins("JOIN stores st ON s.store_id = st.id")
-
-	qb = qb.Where("s.stage IN(?)", constants.FinishedSaleStages)
+		Joins("JOIN cart_items ci ON s.id = ci.sale_id").
+		Joins("JOIN stores st ON s.store_id = st.id").
+		Where("s.stage IN(?)", constants.FinishedSaleStages).
+		Where("(s.completed_at + interval '5 hours') BETWEEN ? AND ?", date.StartTime, date.EndTime)
 
 	if len(params.StoreIds) > 0 {
 		qb = qb.Where("s.store_id IN(?)", params.StoreIds)
@@ -1269,8 +1268,22 @@ func (s *Services) DashboardNetProfitStatistic(ctx context.Context, params *doma
 	}
 	qb := s.db.WithContext(ctx).
 		Select(
-			"ROUND(SUM(((ci.unit_price - sp.supply_price) / p.unit_per_pack) * ci.unit_quantity - ci.discount_amount), 2) AS income_amount",
-			"ROUND(SUM(((sp.supply_price)/p.unit_per_pack) * ci.unit_quantity), 2) AS production_cost",
+			`ROUND(
+                 SUM(
+                     case
+                         when s.sale_type = 'SALE'
+                         then ((ci.unit_price - sp.supply_price) / p.unit_per_pack) * ci.unit_quantity - ci.discount_amount
+                         else (((ci.unit_price - sp.supply_price) / p.unit_per_pack) * ci.unit_quantity - ci.discount_amount)*(-1)
+                     end
+                 ), 2) AS income_amount`,
+			`ROUND(
+                 SUM(
+                     case
+                         when s.sale_type = 'SALE'
+                         then (sp.supply_price / p.unit_per_pack) * ci.unit_quantity
+                         else ((sp.supply_price / p.unit_per_pack) * ci.unit_quantity) * (-1)
+                     end
+                 ), 2) AS production_cost`,
 		).
 		Table("sales s").
 		Joins("JOIN stores st ON s.store_id = st.id").
