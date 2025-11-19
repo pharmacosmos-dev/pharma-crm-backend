@@ -1,6 +1,9 @@
 package plagins
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 var (
 	TashkentTimeDif             = 5 * time.Hour
@@ -31,15 +34,27 @@ func (c CustomTime) PrevDay() CustomTime {
 	return CustomTime(c.Add(-Duration24Hours))
 }
 
-// func convertStringToCustomeTime(str string) (customTime CustomTime, err error) {
-// 	var t time.Time
-// 	t, err = time.Parse(DateTime, str)
-// 	if err != nil {
-// 		return
-// 	}
+// UnmarshalParam implements the binding.UnmarshalParam interface for query parameter binding
+func (ct *CustomTime) UnmarshalParam(param string) error {
+	if param == "" {
+		return nil
+	}
 
-// 	return CustomTime{t}
-// }
+	// Define the expected format(s) for your dates
+	formats := []string{
+		"2006-01-02T15:04:05Z07:00", // RFC3339
+	}
+
+	for _, format := range formats {
+		t, err := time.Parse(format, param)
+		if err == nil {
+			*ct = CustomTime(t)
+			return nil
+		}
+	}
+
+	return fmt.Errorf("unable to parse time parameter: %s", param)
+}
 
 // default duration: 23 hours and 59 minutes
 func AddDefaultDuration(defaultTime CustomTime, t *CustomTime) CustomTime {
