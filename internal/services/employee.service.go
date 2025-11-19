@@ -5,11 +5,9 @@ import (
 	"fmt"
 
 	"github.com/pharma-crm-backend/domain/constants"
-
-	"time"
+	"github.com/pharma-crm-backend/plagins"
 
 	"github.com/pharma-crm-backend/domain"
-	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
 )
 
@@ -85,28 +83,25 @@ func (s *Services) GetEmployees(ctx context.Context, params *domain.EmployeeQuer
 
 // get employee bonus amount
 func (s *Services) GetEmployeeBonusAmount(ctx context.Context, param *domain.DashboardQueryParam, id string) (domain.DashboardCountStatsBonus, error) {
-	var bonus domain.DashboardCountStatsBonus
-	// Parse start and end dates
-	startTime, err := time.Parse(time.RFC3339, param.StartDate)
-	if err != nil {
-		s.log.Errorf("could not parse start_time: %v", err)
-		return bonus, domain.InvalidTimeFormatError
-	}
-	endTime := startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
-	if param.EndDate != "" {
-		endTime, err = time.Parse(time.RFC3339, param.EndDate)
-		if err != nil {
-			s.log.Errorf("could not parse end_time: %v", err)
-			return bonus, domain.InvalidTimeFormatError
-		}
-	}
-	beforeStart, beforeEnd := utils.BeforeDatesTime(startTime, endTime)
+	var (
+		bonus domain.DashboardCountStatsBonus
+
+		startTimeInUTC = (*param.StartDate).ToUTC()
+		endTimeInUTC   = plagins.AddDefaultDuration(*param.StartDate, param.EndDate).ToUTC()
+
+		startTimeStr       = startTimeInUTC.GetString()
+		endTimeStr         = endTimeInUTC.GetString()
+		beforeStartTimeStr = startTimeInUTC.PrevDay().GetString()
+		beforeEndTimeStr   = endTimeInUTC.PrevDay().GetString()
+	)
+
 	query := `
 	SELECT
 		SUM(CASE WHEN created_at BETWEEN ? AND ? THEN bonus_amount END) AS bonus_amount,
 		SUM(CASE WHEN created_at BETWEEN ? AND ? THEN bonus_amount END) AS before_bonus_amount
 	FROM employee_bonus  WHERE employee_id = ?;`
-	err = s.db.WithContext(ctx).Raw(query, startTime, endTime, beforeStart, beforeEnd, id).Scan(&bonus).Error
+
+	err := s.db.WithContext(ctx).Raw(query, startTimeStr, endTimeStr, beforeStartTimeStr, beforeEndTimeStr, id).Scan(&bonus).Error
 	if err != nil {
 		s.log.Errorf("could not get employee bonus amount: %v", err)
 		return bonus, domain.InternalServerError

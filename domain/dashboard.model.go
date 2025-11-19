@@ -1,6 +1,10 @@
 package domain
 
-import "time"
+import (
+	"time"
+
+	"github.com/pharma-crm-backend/plagins"
+)
 
 // Count and Amount stats structure
 type DashboardCountStats struct {
@@ -100,18 +104,18 @@ type TopSeller struct {
 
 // Dashboard query param
 type DashboardQueryParam struct {
-	StoreId     string   `form:"store_id"`
-	CompanyId   string   `form:"company_id"`
-	StoreIds    []string `form:"store_ids"`
-	CompanyIds  []string `form:"company_ids"`
-	StartDate   string   `form:"start_date"`
-	EndDate     string   `form:"end_date"`
-	Type        string   `form:"type"`
-	Search      string   `form:"search"`
-	IsFranchise bool     `form:"is_franchise"`
-	Limit       int      `form:"limit"`
-	Offset      int      `form:"offset"`
-	Order       string   `form:"order"`
+	StoreId     string              `form:"store_id"`
+	CompanyId   string              `form:"company_id"`
+	StoreIds    []string            `form:"store_ids"`
+	CompanyIds  []string            `form:"company_ids"`
+	StartDate   *plagins.CustomTime `form:"start_date"`
+	EndDate     *plagins.CustomTime `form:"end_date"`
+	Type        string              `form:"type"`
+	Search      string              `form:"search"`
+	IsFranchise bool                `form:"is_franchise"`
+	Limit       int                 `form:"limit"`
+	Offset      int                 `form:"offset"`
+	Order       string              `form:"order"`
 }
 
 // Dashboard payments structure
