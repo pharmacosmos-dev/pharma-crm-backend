@@ -61,7 +61,7 @@ franchises as (
             )
         ) as data
     from companies c
-    join stores s on c.id = s.company_id
+    left join stores s on c.id = s.company_id
     where c.is_franchise = true
     group by c.id
 ),
