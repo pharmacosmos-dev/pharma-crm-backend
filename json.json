@@ -1,0 +1,46 @@
+[
+    {
+        "group": "pharma cosmos",
+        "is_franchise": false,
+        "items": [
+            {
+                "is_franchise": false,
+                "group": "sergeli 5a",
+                "items": []
+            },
+            {
+                "is_franchise": false,
+                "group": "sputnik",
+                "items": []
+            }
+        ]
+    },
+    {
+        "group": "vse b2b",
+        "is_franchise": true,
+        "items": [
+            {
+                "is_franchise": true,
+                "group": "Manoba Oxy",
+                "items": [
+                    {
+                        "is_franchise": true,
+                        "group": "FRANCHISE MED ONE PLUS",
+                        "items": []
+                    }
+                ]
+            },
+            {
+                "is_franchise": true,
+                "group": "Med Pharm",
+                "items": [
+                    {
+                        "is_franchise": true,
+                        "group": "FRANCHISE MANOBA OXY F-L",
+                        "items": []
+                    }
+                ]
+            }
+        ]
+    }
+]
