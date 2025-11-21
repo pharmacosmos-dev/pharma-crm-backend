@@ -11,6 +11,7 @@ var (
 	Duration24Hours             = 24 * time.Hour
 	DateTime                    = "2006-01-02 15:04:05"
 	TimeQueryFormat             = "2006-01-02T15:04:05+07:00"
+	BeginingTime, _             = time.Parse(DateTime, "1970-01-01 00:00:00")
 )
 
 type CustomTime time.Time
@@ -41,21 +42,21 @@ func (ct *CustomTime) UnmarshalParam(param string) error {
 		return nil
 	}
 
-	_, err := time.Parse(time.RFC3339, param)
-	if err != nil {
-		return fmt.Errorf("invalid time format: %v", err)
-	}
-
 	// Define the expected format(s) for your dates
 	formats := []string{
 		"2006-01-02T15:04:05Z07:00", // RFC3339
 	}
+
+	fmt.Println("BeginingTime", BeginingTime)
 
 	for _, format := range formats {
 		t, err := time.Parse(format, param)
 		if err == nil {
 			*ct = CustomTime(t)
 			return nil
+		}
+		if !t.After(BeginingTime) {
+			return fmt.Errorf("invlid time")
 		}
 	}
 
