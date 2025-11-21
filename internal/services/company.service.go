@@ -25,58 +25,62 @@ func (s *Services) GetCompaniesWithStores(ctx context.Context) (*domain.CompanyW
 	result := domain.CompanyWithStoresResponse{}
 
 	query := `
-WITH pharmaCosmos as (
-    select
+WITH pharmaCosmos AS (
+    SELECT
         json_build_object(
-            'id', c.id,
-            'company', c.name,
-            'is_franchise', c.is_franchise,
-            'stores', json_agg(
-                json_build_object(
-                    'id', s.id,
-                    'name', s.name,
-                    'is_franchise', c.is_franchise
-                )
-            )
-        ) as data
-    from companies c
-    join stores s on c.id = s.company_id
-    where c.is_franchise = false
-    group by c.id
-    limit 1
+                'id', c.id,
+                'company', c.name,
+                'is_franchise', c.is_franchise,
+                'stores', COALESCE(
+                                json_agg(
+                                json_build_object(
+                                        'id', s.id,
+                                        'name', s.name,
+                                        'is_franchise', c.is_franchise
+                                )
+                                        ) FILTER (WHERE s.id IS NOT NULL), '[]'::json
+                          )
+        ) AS data
+    FROM companies c
+             LEFT JOIN stores s ON c.id = s.company_id
+    WHERE c.is_franchise = false
+    GROUP BY c.id
+    LIMIT 1
 ),
 
-franchises as (
-    select
-        json_build_object(
-            'id', c.id,
-            'company', c.name,
-            'is_franchise', c.is_franchise,
-            'stores', json_agg(
-                json_build_object(
-                    'id', s.id,
-                    'name', s.name,
-                    'is_franchise', c.is_franchise
-                )
-            )
-        ) as data
-    from companies c
-    left join stores s on c.id = s.company_id
-    where c.is_franchise = true
-    group by c.id
-),
+     franchises AS (
+         SELECT
+             json_build_object(
+                     'id', c.id,
+                     'company', c.name,
+                     'is_franchise', c.is_franchise,
+                     'stores', COALESCE(
+                                     json_agg(
+                                     json_build_object(
+                                             'id', s.id,
+                                             'name', s.name,
+                                             'is_franchise', c.is_franchise
+                                     )
+                                             ) FILTER (WHERE s.id IS NOT NULL), '[]'::json
+                               )
+             ) AS data
+         FROM companies c
+                  LEFT JOIN stores s ON c.id = s.company_id
+         WHERE c.is_franchise = true
+         GROUP BY c.id
+     ),
 
-franchise_list AS (
-    SELECT json_agg(data) AS data
-    FROM franchises
-)
+     franchise_list AS (
+         SELECT json_agg(data) AS data
+         FROM franchises
+     )
 
 SELECT json_build_object(
                'pharma_cosmos', p.data,
                'franchises', fl.data
        )
 FROM pharmaCosmos p
- CROSS JOIN franchise_list fl`
+         CROSS JOIN franchise_list fl`
 
 	var jsonResult string
 	if err := s.db.WithContext(ctx).Raw(query).Scan(&jsonResult).Error; err != nil {
