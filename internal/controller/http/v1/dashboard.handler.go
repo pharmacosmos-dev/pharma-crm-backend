@@ -886,11 +886,11 @@ func (h *DashboardHandler) EmployeeBonus(c *gin.Context) {
 	}
 
 	if params.StartDate != nil {
-		fmt.Println("params.StartDate", *params.StartDate)
+		fmt.Println("params.StartDate", params.StartDate.GetTime())
 	}
 
 	if params.EndDate != nil {
-		fmt.Println("params.EndDate", *params.EndDate)
+		fmt.Println("params.EndDate", params.EndDate.GetTime())
 	}
 
 	var body domain.DashboardBody
