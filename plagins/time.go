@@ -38,23 +38,17 @@ func (c CustomTime) PrevDay() CustomTime {
 // UnmarshalParam implements the binding.UnmarshalParam interface for query parameter binding
 func (ct *CustomTime) UnmarshalParam(param string) error {
 	if param == "" {
-		return nil
+		return nil // leave pointer nil
 	}
 
-	// Define the expected format(s) for your dates
-	formats := []string{
-		"2006-01-02T15:04:05Z07:00", // RFC3339
+	t, err := time.Parse(time.RFC3339, param)
+	if err != nil {
+		return fmt.Errorf("invalid time format: %v", err)
 	}
 
-	for _, format := range formats {
-		t, err := time.Parse(format, param)
-		if err == nil {
-			*ct = CustomTime(t)
-			return nil
-		}
-	}
-
-	return fmt.Errorf("unable to parse time parameter: %s", param)
+	temp := CustomTime(t)
+	ct = &temp
+	return nil
 }
 
 // default duration: 23 hours and 59 minutes
