@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
@@ -876,6 +877,20 @@ func (h *DashboardHandler) EmployeeBonus(c *gin.Context) {
 	if err := c.ShouldBindQuery(&params); err != nil {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
+	}
+
+	// check starting date is given
+	if params.StartDate == nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	if params.StartDate != nil {
+		fmt.Println("params.StartDate", *params.StartDate)
+	}
+
+	if params.EndDate != nil {
+		fmt.Println("params.EndDate", *params.EndDate)
 	}
 
 	var body domain.DashboardBody

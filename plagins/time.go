@@ -10,6 +10,7 @@ var (
 	Duration23HoursAnd59Minutes = 23*time.Hour + 59*time.Minute
 	Duration24Hours             = 24 * time.Hour
 	DateTime                    = "2006-01-02 15:04:05"
+	TimeQueryFormat             = "2006-01-02T15:04:05+07:00"
 )
 
 type CustomTime time.Time
@@ -58,6 +59,7 @@ func (ct *CustomTime) UnmarshalParam(param string) error {
 
 // default duration: 23 hours and 59 minutes
 func AddDefaultDuration(defaultTime CustomTime, t *CustomTime) CustomTime {
+	// && _, err := time.Parse(TimeQueryFormat, time.Time(*t)); err != nil
 	if t == nil {
 		return defaultTime.Add(Duration23HoursAnd59Minutes)
 	}

@@ -95,6 +95,9 @@ func (s *Services) GetEmployeeBonusAmount(ctx context.Context, param *domain.Das
 		beforeEndTimeStr   = endTimeInUTC.PrevDay().GetString()
 	)
 
+	fmt.Println("startTimeStr", startTimeStr)
+	fmt.Println("endTimeStr", endTimeStr)
+
 	query := `
 	SELECT
 		SUM(CASE WHEN created_at BETWEEN ? AND ? THEN bonus_amount END) AS bonus_amount,
