@@ -61,5 +61,5 @@ func AddDefaultDuration(defaultTime CustomTime, t *CustomTime) CustomTime {
 	if t == nil {
 		return defaultTime.Add(Duration23HoursAnd59Minutes)
 	}
-	return CustomTime(defaultTime.Add(Duration23HoursAnd59Minutes))
+	return *t
 }
