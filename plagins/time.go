@@ -47,8 +47,6 @@ func (ct *CustomTime) UnmarshalParam(param string) error {
 		"2006-01-02T15:04:05Z07:00", // RFC3339
 	}
 
-	fmt.Println("BeginingTime", BeginingTime)
-
 	for _, format := range formats {
 		t, err := time.Parse(format, param)
 		if err == nil {
@@ -65,8 +63,7 @@ func (ct *CustomTime) UnmarshalParam(param string) error {
 
 // default duration: 23 hours and 59 minutes
 func AddDefaultDuration(defaultTime CustomTime, t *CustomTime) CustomTime {
-	// && _, err := time.Parse(TimeQueryFormat, time.Time(*t)); err != nil
-	if t == nil {
+	if t == nil || time.Time(*t).IsZero() {
 		return defaultTime.Add(Duration23HoursAnd59Minutes)
 	}
 	return *t
