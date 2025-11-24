@@ -9,43 +9,22 @@ import (
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
+	"github.com/pharma-crm-backend/plagins"
 )
 
 // get dashboard count and amount data
 func (s *Services) DashboardTotalCountStats(ctx context.Context, param *domain.DashboardQueryParam) (*domain.DashboardCountStats, error) {
 	// declarations
 	var (
-		res       domain.DashboardCountStats
-		startTime time.Time
-		endTime   time.Time
+		res            domain.DashboardCountStats
+		startTimeInUTC = (*param.StartDate).ToUTC()
+		endTimeInUTC   = plagins.AddDefaultDuration(*param.StartDate, param.EndDate).ToUTC()
+
+		startStr       = startTimeInUTC.GetString()
+		endStr         = endTimeInUTC.GetString()
+		beforeStartStr = startTimeInUTC.PrevDay().GetString()
+		beforeEndStr   = endTimeInUTC.PrevDay().GetString()
 	)
-
-	// Parse start and end dates
-	startTime, err := time.Parse(time.RFC3339, param.StartDate)
-	if err != nil {
-		s.log.Errorf("could not parse start_date format: %v", err)
-		return nil, domain.InvalidTimeFormatError
-	}
-
-	if param.EndDate == "" { // get end time if end_date will be empty string 23 hour and 59 minute
-		endTime = startTime.Add(time.Minute * 1439)
-	}
-
-	if param.EndDate != "" {
-		endTime, err = time.Parse(time.RFC3339, param.EndDate)
-		if err != nil {
-			s.log.Errorf("could not parse end_date format: %v", err)
-			return nil, domain.InvalidTimeFormatError
-		}
-	}
-
-	// Calculate before period
-	beforeStart, beforeEnd := utils.BeforeDatesTime(startTime, endTime)
-	// Format all timestamps for SQL
-	startStr := startTime.Format("2006-01-02 15:04:05")
-	endStr := endTime.Format("2006-01-02 15:04:05")
-	beforeStartStr := beforeStart.Format("2006-01-02 15:04:05")
-	beforeEndStr := beforeEnd.Format("2006-01-02 15:04:05")
 
 	// queries
 	var (
@@ -53,12 +32,12 @@ func (s *Services) DashboardTotalCountStats(ctx context.Context, param *domain.D
 		// get sale stats information
 		querys = fmt.Sprintf(`
 		SELECT
-			COUNT(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN sales.id END) AS sale_count,
-			COUNT(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN sales.id END) AS before_sale_count,
-			SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN sales.total_amount ELSE 0 END) AS sale_amount,
-			SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN sales.total_amount ELSE 0 END) AS before_sale_amount,
-			SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN sales.total_discount ELSE 0 END) AS discount_amount,
-			SUM(CASE WHEN (completed_at + interval '5 hours') BETWEEN '%s' AND '%s' THEN sales.total_discount ELSE 0 END) AS before_discount_amount
+			COUNT(CASE WHEN completed_at BETWEEN '%s' AND '%s' THEN sales.id END) AS sale_count,
+			COUNT(CASE WHEN completed_at BETWEEN '%s' AND '%s' THEN sales.id END) AS before_sale_count,
+			SUM(CASE WHEN completed_at BETWEEN '%s' AND '%s' THEN sales.total_amount ELSE 0 END) AS sale_amount,
+			SUM(CASE WHEN completed_at BETWEEN '%s' AND '%s' THEN sales.total_amount ELSE 0 END) AS before_sale_amount,
+			SUM(CASE WHEN completed_at BETWEEN '%s' AND '%s' THEN sales.total_discount ELSE 0 END) AS discount_amount,
+			SUM(CASE WHEN completed_at BETWEEN '%s' AND '%s' THEN sales.total_discount ELSE 0 END) AS before_discount_amount
 		FROM sales
 		LEFT JOIN stores st on sales.store_id = st.id
 		WHERE stage IN(9, 11)
@@ -152,17 +131,17 @@ func (s *Services) DashboardTotalCountStats(ctx context.Context, param *domain.D
 	}
 
 	// filter by company_id
-	if param.CompanyId != "" {
-		filter += " AND st.company_id = ?"
-		filterc += " AND p.company_id = ?"
-		args = append(args, param.CompanyId)
-		query24h += " AND st.company_id = ?"
+	if len(param.CompanyIds) > 0 {
+		filter += " AND st.company_id IN (?)"
+		filterc += " AND p.company_id IN (?)"
+		query24h += " AND st.company_id IN (?)"
+		args = append(args, param.CompanyIds)
 	}
 
 	// Execute queries
 	var sale domain.DashboardCountStatsSale
 	querys += filter
-	err = s.db.WithContext(ctx).Debug().Raw(querys, args...).Scan(&sale).Error
+	err := s.db.WithContext(ctx).Debug().Raw(querys, args...).Scan(&sale).Error
 	if err != nil {
 		s.log.Errorf("could not get total sale amounts: %v", err)
 		return nil, domain.InternalServerError
@@ -226,80 +205,62 @@ func (s *Services) DashboardTotalCountStats(ctx context.Context, param *domain.D
 // get dashboard chart stats data list
 func (s *Services) DashboardChartStats(ctx context.Context, params *domain.DashboardQueryParam) ([]domain.ChartResponse, error) {
 	var (
-		res      []domain.ChartResponse
-		interval string
+		res            []domain.ChartResponse
+		interval       string
+		startTimeInUTC = (*params.StartDate).ToUTC().GetTime()
+		endTimeInUTC   = plagins.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC().GetTime()
 	)
-
-	// Parse start and end dates
-	startTime, err := time.Parse(time.RFC3339, params.StartDate)
-	if err != nil {
-		s.log.Errorf("could not parse start_date format: %v", err)
-		return nil, domain.InvalidTimeFormatError
-	}
-
-	endTime := startTime
-	if params.EndDate == "" { // get end time if end_date will be empty string, so add  23 hour and 59 minute
-		endTime = startTime.Add(time.Minute * 1439)
-	}
-
-	if params.EndDate != "" {
-		endTime, err = time.Parse(time.RFC3339, params.EndDate)
-		if err != nil {
-			s.log.Errorf("could not parse end_date format: %v", err)
-			return nil, domain.InvalidTimeFormatError
-		}
-	}
 
 	// Group type
 	switch params.Type {
 	case "HALF_HOURLY":
 		interval = "30 minutes"
-		startTime = startTime.Truncate(30 * time.Minute)
+		startTimeInUTC = startTimeInUTC.Truncate(30 * time.Minute)
 
 	case "HOURLY":
 		interval = "1 hour"
-		startTime = startTime.Truncate(time.Hour)
+		startTimeInUTC = startTimeInUTC.Truncate(time.Hour)
 
 	case "DAILY":
 		interval = "1 day"
-		startTime = time.Date(
-			startTime.Year(), startTime.Month(), startTime.Day(),
-			0, 0, 0, 0, startTime.Location(),
+		startTimeInUTC = time.Date(
+			startTimeInUTC.Year(), startTimeInUTC.Month(), startTimeInUTC.Day(),
+			0, 0, 0, 0, startTimeInUTC.Location(),
 		)
 
 	case "WEEKLY":
 		interval = "1 week"
 		// Move to start of the week (Monday)
-		weekday := int(startTime.Weekday())
+		weekday := int(startTimeInUTC.Weekday())
 		if weekday == 0 {
 			weekday = 7 // Sunday should move to previous Monday
 		}
-		startTime = time.Date(
-			startTime.Year(), startTime.Month(), startTime.Day()-weekday+1,
-			0, 0, 0, 0, startTime.Location(),
+		startTimeInUTC = time.Date(
+			startTimeInUTC.Year(), startTimeInUTC.Month(), startTimeInUTC.Day()-weekday+1,
+			0, 0, 0, 0, startTimeInUTC.Location(),
 		)
 
 	case "MONTHLY":
 		interval = "1 month"
-		startTime = time.Date(
-			startTime.Year(), startTime.Month(), 1,
-			0, 0, 0, 0, startTime.Location(),
+		startTimeInUTC = time.Date(
+			startTimeInUTC.Year(), startTimeInUTC.Month(), 1,
+			0, 0, 0, 0, startTimeInUTC.Location(),
 		)
 
 	case "YEARLY":
 		interval = "1 year"
-		startTime = time.Date(
-			startTime.Year(), 1, 1,
-			0, 0, 0, 0, startTime.Location(),
+		startTimeInUTC = time.Date(
+			startTimeInUTC.Year(), 1, 1,
+			0, 0, 0, 0, startTimeInUTC.Location(),
 		)
 
 	default:
 		interval = "1 hour"
-		startTime = startTime.Truncate(time.Hour)
+		startTimeInUTC = startTimeInUTC.Truncate(time.Hour)
 	}
 	// WEEKLY tanlangan bo‘lsa startDate ni truncate qilamiz
 
-	args := []any{startTime, endTime, interval}
+	args := []any{startTimeInUTC, endTimeInUTC, interval}
 
 	// qo‘shimcha filterlar
 	storeFilter := ""
@@ -329,7 +290,7 @@ func (s *Services) DashboardChartStats(ctx context.Context, params *domain.Dashb
 		COALESCE(SUM(s.total_amount), 0) AS total_amount
 	FROM time_series ts
 	LEFT JOIN sales s ON
-		(s.completed_at + INTERVAL '5 hours') >= ts.period AND (s.completed_at + INTERVAL '5 hours') < ts.period + INTERVAL '%s' 
+		s.completed_at >= ts.period AND s.completed_at < ts.period + INTERVAL '%s' 
 		AND s.stage IN (9, 11)
 		%s
 	LEFT JOIN stores st ON s.store_id = st.id
@@ -340,7 +301,7 @@ func (s *Services) DashboardChartStats(ctx context.Context, params *domain.Dashb
 	`, interval, storeFilter, companyFilter)
 
 	// bajarish
-	err = s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
+	err := s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get chart info: %v", err)
 		return res, domain.InternalServerError
@@ -358,43 +319,25 @@ func (s *Services) DashboardTopStores(ctx context.Context, params *domain.Dashbo
 		filter = ` WHERE sales.stage IN (9, 11)`
 		group  = ` GROUP BY stores.id`
 		order  = utils.BuildTopStoreOrderClauseForDashBoard(params.Order)
+
+		startTimeInUTCStr = (*params.StartDate).ToUTC().GetString()
+		endTimeInUTCStr   = plagins.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC().GetString()
 	)
 
-	// Parse and apply date filters
-	if params.StartDate != "" {
-		startTime, err := time.Parse(time.RFC3339, params.StartDate)
-		if err != nil {
-			s.log.Errorf("Invalid start_date format: %v", err)
-			return nil, domain.InvalidTimeFormatError
-		}
-
-		// if end_date is empty → use start_date
-		var endTime time.Time
-		if params.EndDate != "" {
-			endTime, err = time.Parse(time.RFC3339, params.EndDate)
-			if err != nil {
-				s.log.Errorf("Invalid end_date format: %v", err)
-				return nil, domain.InvalidTimeFormatError
-			}
-		} else {
-			endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
-		}
-
-		// Apply filter
-		filter += " AND (sales.completed_at + interval '5 hours') BETWEEN ? AND ?"
-		args = append(args, startTime.Format(time.RFC3339), endTime.Format(time.RFC3339))
-	}
+	// Apply filter
+	filter += " AND sales.completed_at BETWEEN ? AND ?"
+	args = append(args, startTimeInUTCStr, endTimeInUTCStr)
 
 	// Store filter
-	if params.StoreId != "" {
-		filter += " AND sales.store_id = ?"
-		args = append(args, params.StoreId)
+	if len(params.StoreIds) > 0 {
+		filter += " AND sales.store_id IN (?)"
+		args = append(args, params.StoreIds)
 	}
 
 	// Company filter
-	if params.CompanyId != "" {
-		filter += " AND stores.company_id = ?"
-		args = append(args, params.CompanyId)
+	if len(params.CompanyIds) > 0 {
+		filter += " AND stores.company_id IN (?)"
+		args = append(args, params.CompanyIds)
 	}
 
 	// Limit & Offset
@@ -415,32 +358,17 @@ func (s *Services) DashboardTopStores(ctx context.Context, params *domain.Dashbo
 func (s *Services) DashboardTopProducts(ctx context.Context, params *domain.DashboardQueryParam) ([]domain.TopProducts, error) {
 	// declaration
 	var (
-		res       []domain.TopProducts
-		args      []any
-		startTime time.Time
-		endTime   time.Time
-	)
+		res  []domain.TopProducts
+		args []any
 
-	startTime, err := time.Parse(time.RFC3339, params.StartDate)
-	if err != nil {
-		s.log.Errorf("coluld not parse start_date in get top_products: %v", err)
-		return nil, domain.InvalidTimeFormatError
-	}
-	if params.EndDate != "" {
-		endTime, err = time.Parse(time.RFC3339, params.EndDate)
-		if err != nil {
-			s.log.Errorf("coluld not parse end_date in get top_products: %v", err)
-			return nil, domain.InvalidTimeFormatError
-		}
-	} else {
-		endTime, err = time.Parse(time.RFC3339, params.StartDate)
-		if err != nil {
-			s.log.Errorf("coluld not parse start_date in get top_products: %v", err)
-			return nil, domain.InvalidTimeFormatError
-		}
-		endTime = endTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
-	}
-	beforeStart, beforeEnd := utils.BeforeDatesTime(startTime, endTime)
+		startTimeInUTC = (*params.StartDate).ToUTC()
+		endTimeInUTC   = plagins.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC()
+
+		startTimeStr       = startTimeInUTC.GetString()
+		endTimeStr         = endTimeInUTC.GetString()
+		beforeStartTimeStr = startTimeInUTC.PrevDay().GetString()
+		beforeEndTimeStr   = endTimeInUTC.PrevDay().GetString()
+	)
 
 	query := `
 	SELECT
@@ -474,7 +402,7 @@ func (s *Services) DashboardTopProducts(ctx context.Context, params *domain.Dash
 					JOIN products p ON sp.product_id = p.id
 					JOIN producers ps ON p.producer_id = ps.id
 					JOIN stores s ON sp.store_id = s.id
-			WHERE (ci.updated_at+ interval '5 hours') BETWEEN ? AND ?
+			WHERE ci.updated_at BETWEEN ? AND ?
 			GROUP BY p.id, p.name, ps.name, p.unit_per_pack,s.company_id
 		) AS curr
 			left JOIN (
@@ -486,17 +414,17 @@ func (s *Services) DashboardTopProducts(ctx context.Context, params *domain.Dash
 				JOIN store_products sp ON ci.store_product_id = sp.id
 				JOIN products p ON sp.product_id = p.id
 				JOIN stores s ON sp.store_id = s.id
-		WHERE (ci.updated_at+ interval '5 hours') BETWEEN ? AND ?
+		WHERE ci.updated_at BETWEEN ? AND ?
 		GROUP BY p.id, s.company_id
 	) AS prev ON curr.id = prev.id and curr.company_id = prev.company_id
 `
 
 	// Arguments for current and previous period
 	args = append(args,
-		startTime.Format(time.RFC3339),
-		endTime.Format(time.RFC3339),
-		beforeStart.Format(time.RFC3339),
-		beforeEnd.Format(time.RFC3339),
+		startTimeStr,
+		endTimeStr,
+		beforeStartTimeStr,
+		beforeEndTimeStr,
 	)
 
 	// Filters
@@ -505,13 +433,9 @@ func (s *Services) DashboardTopProducts(ctx context.Context, params *domain.Dash
 		where += " AND curr.name ILIKE ?"
 		args = append(args, "%"+params.Search+"%")
 	}
-	if params.StoreId != "" {
-		where += " AND EXISTS (SELECT 1 FROM store_products sp2 WHERE sp2.product_id = curr.id AND sp2.store_id = ?)"
-		args = append(args, params.StoreId)
-	}
-	if params.CompanyId != "" {
-		where += " AND curr.company_id = ? "
-		args = append(args, params.CompanyId)
+	if len(params.CompanyIds) > 0 {
+		where += " AND curr.company_id IN (?) "
+		args = append(args, params.CompanyIds)
 	}
 	if len(params.StoreIds) > 0 {
 		where += " AND EXISTS (SELECT 1 FROM store_products sp3 WHERE sp3.product_id = curr.id AND sp3.store_id IN (?))"
@@ -527,7 +451,7 @@ func (s *Services) DashboardTopProducts(ctx context.Context, params *domain.Dash
 	args = append(args, params.Limit, params.Offset)
 
 	// Execute query
-	err = s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
+	err := s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get top products: %v", err)
 		return nil, domain.InternalServerError
@@ -540,28 +464,17 @@ func (s *Services) DashboardTopProducts(ctx context.Context, params *domain.Dash
 func (s *Services) DashboardBonusProducts(ctx context.Context, params *domain.DashboardQueryParam) ([]domain.BonusProducts, error) {
 	// declaration
 	var (
-		res       []domain.BonusProducts
-		args      []any
-		startTime time.Time
-		endTime   time.Time
-	)
+		res  []domain.BonusProducts
+		args []any
 
-	startTime, err := time.Parse(time.RFC3339, params.StartDate)
-	if err != nil {
-		s.log.Error("Invalid start_date format: %v", err)
-		return nil, err
-	}
-	if params.EndDate != "" {
-		endTime, err = time.Parse(time.RFC3339, params.EndDate)
-		if err != nil {
-			s.log.Error("Invalid end_date format: %v", err)
-			return nil, err
-		}
-	} else {
-		endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
-		params.EndDate = endTime.Format(time.RFC3339)
-	}
-	beforeStart, beforeEnd := utils.BeforeDatesTime(startTime, endTime)
+		startTimeInUTC = (*params.StartDate).ToUTC()
+		endTimeInUTC   = plagins.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC()
+
+		startTimeStr       = startTimeInUTC.GetString()
+		endTimeStr         = endTimeInUTC.GetString()
+		beforeStartTimeStr = startTimeInUTC.PrevDay().GetString()
+		beforeEndTimeStr   = endTimeInUTC.PrevDay().GetString()
+	)
 
 	query := `
 	SELECT
@@ -603,12 +516,12 @@ func (s *Services) DashboardBonusProducts(ctx context.Context, params *domain.Da
 		filter += " AND p.name ILIKE ?"
 		args = append(args, "%"+params.Search+"%")
 	}
-	if params.CompanyId != "" {
-		filter += " AND p.company_id = ? "
-		args = append(args, params.CompanyId)
+	if len(params.CompanyIds) > 0 {
+		filter += " AND p.company_id IN (?) "
+		args = append(args, params.CompanyIds)
 	}
-	filter += " AND (eb.created_at + interval '5 hours') BETWEEN ? AND ?"
-	args = append(args, startTime, endTime)
+	filter += " AND eb.created_at BETWEEN ? AND ?"
+	args = append(args, startTimeStr, endTimeStr)
 
 	// Close current subquery
 	group := " GROUP BY p.id, p.name, p.unit_per_pack ) AS curr"
@@ -631,8 +544,8 @@ func (s *Services) DashboardBonusProducts(ctx context.Context, params *domain.Da
 		prevFilter += " AND e.store_id IN (?)"
 		args = append(args, params.StoreIds)
 	}
-	prevFilter += " AND (eb.created_at + interval '5 hours') BETWEEN ? AND ?"
-	args = append(args, beforeStart.Format(time.RFC3339), beforeEnd.Format(time.RFC3339))
+	prevFilter += " AND eb.created_at BETWEEN ? AND ?"
+	args = append(args, beforeStartTimeStr, beforeEndTimeStr)
 
 	query += prevJoin + prevFilter + " GROUP BY p.id ) AS prev ON curr.id = prev.id"
 
@@ -645,7 +558,7 @@ func (s *Services) DashboardBonusProducts(ctx context.Context, params *domain.Da
 	args = append(args, params.Limit, params.Offset)
 
 	// Execute query
-	err = s.db.Raw(query, args...).Scan(&res).Error
+	err := s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Error("ERROR on getting bonus products: ", err)
 		return nil, err
@@ -657,28 +570,17 @@ func (s *Services) DashboardBonusProducts(ctx context.Context, params *domain.Da
 // get dashboard top seller
 func (s *Services) DashboardTopSeller(ctx context.Context, params *domain.DashboardQueryParam) ([]domain.TopSeller, error) {
 	var (
-		res       []domain.TopSeller
-		args      []any
-		startTime time.Time
-		endTime   time.Time
-	)
+		res  []domain.TopSeller
+		args []any
 
-	startTime, err := time.Parse(time.RFC3339, params.StartDate)
-	if err != nil {
-		s.log.Errorf("coluld not parse start_date in get top_products: %v", err)
-		return nil, domain.InvalidTimeFormatError
-	}
-	if params.EndDate != "" {
-		endTime, err = time.Parse(time.RFC3339, params.EndDate)
-		if err != nil {
-			s.log.Errorf("coluld not parse end_date in get top_products: %v", err)
-			return nil, domain.InvalidTimeFormatError
-		}
-	} else {
-		endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
-		params.EndDate = endTime.Format(time.RFC3339)
-	}
-	beforeStart, beforeEnd := utils.BeforeDatesTime(startTime, endTime)
+		startTimeInUTC = (*params.StartDate).ToUTC()
+		endTimeInUTC   = plagins.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC()
+
+		startTimeStr       = startTimeInUTC.GetString()
+		endTimeStr         = endTimeInUTC.GetString()
+		beforeStartTimeStr = startTimeInUTC.PrevDay().GetString()
+		beforeEndTimeStr   = endTimeInUTC.PrevDay().GetString()
+	)
 
 	// Main query
 	query := `
@@ -709,7 +611,7 @@ func (s *Services) DashboardTopSeller(ctx context.Context, params *domain.Dashbo
 		INNER JOIN stores st ON s.store_id = st.id
 		WHERE s.stage IN(9, 11)
 		AND s.sale_type = 'SALE'
-		AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?
+		AND s.completed_at BETWEEN ? AND ?
 		GROUP BY e.id, e.full_name, st.name, st.company_id
 	) AS curr
 	LEFT JOIN (
@@ -720,15 +622,15 @@ func (s *Services) DashboardTopSeller(ctx context.Context, params *domain.Dashbo
 		INNER JOIN employees e ON s.employee_id = e.id
 		WHERE s.stage IN(9, 11)
 		AND s.sale_type = 'SALE'
-		AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?
+		AND s.completed_at BETWEEN ? AND ?
 		GROUP BY e.id
 	) AS prev ON curr.id = prev.id
 `
 
 	// First 4 args: 2 for current, 2 for previous range
 	args = append(args,
-		params.StartDate, params.EndDate,
-		beforeStart.Format(time.RFC3339), beforeEnd.Format(time.RFC3339),
+		startTimeStr, endTimeStr,
+		beforeStartTimeStr, beforeEndTimeStr,
 	)
 
 	// Optional filters
@@ -737,13 +639,9 @@ func (s *Services) DashboardTopSeller(ctx context.Context, params *domain.Dashbo
 		where += " AND curr.full_name ILIKE ?"
 		args = append(args, "%"+params.Search+"%")
 	}
-	if params.StoreId != "" {
-		where += " AND curr.store_name = (SELECT name FROM stores WHERE id = ?)"
-		args = append(args, params.StoreId)
-	}
-	if params.CompanyId != "" {
-		where += " AND curr.company_id = ? "
-		args = append(args, params.CompanyId)
+	if len(params.CompanyIds) > 0 {
+		where += " AND curr.company_id IN (?) "
+		args = append(args, params.CompanyIds)
 	}
 	// check store_ids
 	if len(params.StoreIds) > 0 {
@@ -761,7 +659,7 @@ func (s *Services) DashboardTopSeller(ctx context.Context, params *domain.Dashbo
 	finalQuery := query + where + order + limitOffset
 
 	// Execute
-	err = s.db.WithContext(ctx).Raw(finalQuery, args...).Scan(&res).Error
+	err := s.db.WithContext(ctx).Raw(finalQuery, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get top seller: %v", err)
 		return nil, domain.InternalServerError
@@ -772,27 +670,18 @@ func (s *Services) DashboardTopSeller(ctx context.Context, params *domain.Dashbo
 
 // get payment
 func (s *Services) DashboardPayments(ctx context.Context, params *domain.DashboardQueryParam) (*domain.DashboardPaymentDto, error) {
-	var startTime, endTime time.Time
-	// Parse datetimes
-	startTime, err := time.Parse(time.RFC3339, params.StartDate)
-	if err != nil {
-		s.log.Error("Invalid start_date format: %v", err)
-		return nil, domain.InvalidTimeFormatError
-	}
-	if params.EndDate != "" {
-		endTime, err = time.Parse(time.RFC3339, params.EndDate)
-		if err != nil {
-			s.log.Error("Invalid end_date format: %v", err)
-			return nil, domain.InvalidTimeFormatError
-		}
-	} else {
-		endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
-	}
+	var (
+		res domain.DashboardPaymentDto
 
-	// Oldingi davrni hisoblash
-	beforeStart, beforeEnd := utils.BeforeDatesTime(startTime, endTime)
+		startTimeInUTC = (*params.StartDate).ToUTC()
+		endTimeInUTC   = plagins.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC()
 
-	var res domain.DashboardPaymentDto
+		startTimeStr       = startTimeInUTC.GetString()
+		endTimeStr         = endTimeInUTC.GetString()
+		beforeStartTimeStr = startTimeInUTC.PrevDay().GetString()
+		beforeEndTimeStr   = endTimeInUTC.PrevDay().GetString()
+	)
+
 	qb := s.db.WithContext(ctx).
 		Select(
 			"SUM(s.cash) AS cash",
@@ -809,7 +698,8 @@ func (s *Services) DashboardPayments(ctx context.Context, params *domain.Dashboa
 			"COUNT(1) FILTER (WHERE s.alif > 0) AS alif_count",
 		).
 		Table("sales s").
-		Where("s.stage IN(?)", constants.FinishedSaleStages)
+		Where("s.stage IN(?)", constants.FinishedSaleStages).
+		Where("s.completed_at between ? and ? ", startTimeStr, endTimeStr)
 
 	// filters
 	if len(params.StoreIds) > 0 {
@@ -818,14 +708,8 @@ func (s *Services) DashboardPayments(ctx context.Context, params *domain.Dashboa
 	if len(params.CompanyIds) > 0 {
 		qb = qb.Joins("JOIN stores st ON s.store_id = st.id AND st.company_id IN(?)", params.CompanyIds)
 	}
-	if params.StartDate != "" {
-		qb = qb.Where("(s.completed_at + interval '5 hours') >= ?", startTime)
-	}
-	if params.EndDate != "" {
-		qb = qb.Where("(s.completed_at + interval '5 hours') <= ?", endTime)
-	}
 
-	err = qb.Take(&res).Error
+	err := qb.Take(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get dashboard payment stats: %v", err)
 		return &res, domain.InternalServerError
@@ -851,29 +735,18 @@ func (s *Services) DashboardPayments(ctx context.Context, params *domain.Dashboa
 			"SUM(s.alif) AS alif_previus",
 		).
 		Table("sales s").
-		Where("s.stage IN(?)", constants.FinishedSaleStages)
+		Where("s.stage IN(?)", constants.FinishedSaleStages).
+		Where("s.completed_at between ? and ? ", beforeStartTimeStr, beforeEndTimeStr)
 
 	// previus filter
 	if len(params.StoreIds) > 0 {
 		qbPrev = qbPrev.Where("s.store_id IN(?)", params.StoreIds)
 	}
-	if params.IsFranchise {
-		if len(params.CompanyIds) == 0 {
-			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
-		}
-		qbPrev = qbPrev.Joins("JOIN stores st ON s.store_id = st.id AND st.company_id IN(?)", params.CompanyIds)
-	} else {
-		if len(params.CompanyIds) == 0 {
-			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
-		}
+
+	if len(params.CompanyIds) > 0 {
 		qbPrev = qbPrev.Joins("JOIN stores st ON s.store_id = st.id AND st.company_id IN(?)", params.CompanyIds)
 	}
-	if params.StartDate != "" {
-		qbPrev = qbPrev.Where("(s.completed_at + interval '5 hours') >= ?", beforeStart)
-	}
-	if params.EndDate != "" {
-		qbPrev = qbPrev.Where("(s.completed_at + interval '5 hours') <= ?", beforeEnd)
-	}
+
 	err = qbPrev.Take(&tmpPreviues).Error
 	if err != nil {
 		s.log.Errorf("could not get dashboard payment stats for previus: %v", err)
@@ -909,34 +782,16 @@ func (s *Services) DashboardPayments(ctx context.Context, params *domain.Dashboa
 
 func (s *Services) DashboardTransaction(ctx context.Context, params *domain.DashboardQueryParam) ([]domain.DashboardTransaction, error) {
 	var (
-		startTime, endTime time.Time
-		err                error
+		err error
+
+		startTimeInUTC = (*params.StartDate).ToUTC()
+		endTimeInUTC   = plagins.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC()
+
+		startTimeStr       = startTimeInUTC.GetString()
+		endTimeStr         = endTimeInUTC.GetString()
+		beforeStartTimeStr = startTimeInUTC.PrevDay().GetString()
+		beforeEndTimeStr   = endTimeInUTC.PrevDay().GetString()
 	)
-
-	// Parse datetimes
-	startTime, err = time.Parse(time.RFC3339, params.StartDate)
-	if err != nil {
-		s.log.Error("Invalid start_date format: %v", err)
-		return nil, domain.InvalidTimeFormatError
-	}
-	if params.EndDate != "" {
-		endTime, err = time.Parse(time.RFC3339, params.EndDate)
-		if err != nil {
-			s.log.Error("Invalid end_date format: %v", err)
-			return nil, domain.InvalidTimeFormatError
-		}
-	} else {
-		endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
-	}
-
-	// Oldingi davrni hisoblash
-	beforeStart, beforeEnd := utils.BeforeDatesTime(startTime, endTime)
-
-	// Format for SQL
-	startStr := startTime.Format("2006-01-02 15:04:05")
-	endStr := endTime.Format("2006-01-02 15:04:05")
-	beforeStartStr := beforeStart.Format("2006-01-02 15:04:05")
-	beforeEndStr := beforeEnd.Format("2006-01-02 15:04:05")
 
 	res := []domain.DashboardTransaction{}
 
@@ -945,8 +800,8 @@ func (s *Services) DashboardTransaction(ctx context.Context, params *domain.Dash
 	if len(params.StoreIds) > 0 {
 		storeFilter += " AND s.store_id IN ? "
 	}
-	if params.CompanyId != "" {
-		storeFilter += " AND s.store_id IN (SELECT id FROM stores WHERE company_id = ?) "
+	if len(params.CompanyIds) > 0 {
+		storeFilter += " AND s.store_id IN (SELECT id FROM stores WHERE company_id IN (?) ) "
 	}
 
 	// SALES query
@@ -973,7 +828,7 @@ func (s *Services) DashboardTransaction(ctx context.Context, params *domain.Dash
 						JOIN products as p on sp.product_id = p.id
 				WHERE s.stage IN(9, 11)
 				AND s.sale_type = 'SALE'
-				AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?
+				AND s.completed_at BETWEEN ? AND ?
 				%s
 			) curr
 				LEFT JOIN (
@@ -983,7 +838,7 @@ func (s *Services) DashboardTransaction(ctx context.Context, params *domain.Dash
 					JOIN cart_items ci ON ci.sale_id = s.id
 			WHERE s.stage IN(9, 11)
 			AND s.sale_type = 'SALE'
-			AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?
+			AND s.completed_at BETWEEN ? AND ?
 			%s
 		) prev ON 1=1
 	),
@@ -1009,7 +864,7 @@ func (s *Services) DashboardTransaction(ctx context.Context, params *domain.Dash
 							JOIN products as p on sp.product_id = p.id
 					WHERE s.stage IN(9, 11)
 						AND s.sale_type = 'RETURN'
-						AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?
+						AND s.completed_at BETWEEN ? AND ?
 						%s
 				) curr
 					LEFT JOIN (
@@ -1019,7 +874,7 @@ func (s *Services) DashboardTransaction(ctx context.Context, params *domain.Dash
 						JOIN cart_items ci ON ci.sale_id = s.id
 				WHERE s.stage IN(9, 11)
 				AND s.sale_type = 'RETURN'
-				AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?
+				AND s.completed_at BETWEEN ? AND ?
 				%s
 			) prev ON 1=1
 		)
@@ -1043,37 +898,37 @@ func (s *Services) DashboardTransaction(ctx context.Context, params *domain.Dash
 	// ---- ARGS ----
 	finalArgs := []any{
 		// Sales curr
-		startStr, endStr,
+		startTimeStr, endTimeStr,
 	}
 	if len(params.StoreIds) > 0 {
 		finalArgs = append(finalArgs, params.StoreIds)
 	}
-	if params.CompanyId != "" {
-		finalArgs = append(finalArgs, params.CompanyId)
+	if len(params.CompanyIds) > 0 {
+		finalArgs = append(finalArgs, params.CompanyIds)
 	}
 	// sales prev
-	finalArgs = append(finalArgs, beforeStartStr, beforeEndStr)
+	finalArgs = append(finalArgs, beforeStartTimeStr, beforeEndTimeStr)
 	if len(params.StoreIds) > 0 {
 		finalArgs = append(finalArgs, params.StoreIds)
 	}
-	if params.CompanyId != "" {
-		finalArgs = append(finalArgs, params.CompanyId)
+	if len(params.CompanyIds) > 0 {
+		finalArgs = append(finalArgs, params.CompanyIds)
 	}
 	// returns curr
-	finalArgs = append(finalArgs, startStr, endStr)
+	finalArgs = append(finalArgs, startTimeStr, endTimeStr)
 	if len(params.StoreIds) > 0 {
 		finalArgs = append(finalArgs, params.StoreIds)
 	}
-	if params.CompanyId != "" {
-		finalArgs = append(finalArgs, params.CompanyId)
+	if len(params.CompanyIds) > 0 {
+		finalArgs = append(finalArgs, params.CompanyIds)
 	}
 	// returns prev
-	finalArgs = append(finalArgs, beforeStartStr, beforeEndStr)
+	finalArgs = append(finalArgs, beforeStartTimeStr, beforeEndTimeStr)
 	if len(params.StoreIds) > 0 {
 		finalArgs = append(finalArgs, params.StoreIds)
 	}
-	if params.CompanyId != "" {
-		finalArgs = append(finalArgs, params.CompanyId)
+	if len(params.CompanyIds) > 0 {
+		finalArgs = append(finalArgs, params.CompanyIds)
 	}
 
 	// Execute
@@ -1128,20 +983,8 @@ func (s *Services) DashboardOldImports(ctx context.Context, params *domain.Dashb
 		qb = qb.Where("im.store_id IN(?)", params.StoreIds)
 	}
 
-	if params.IsFranchise {
-		if len(params.CompanyIds) == 0 {
-			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
-		}
-		qb = qb.Where("st.company_id IN(?)", params.CompanyIds)
-	} else {
-		if len(params.CompanyIds) == 0 {
-			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
-		}
-		qb = qb.Where("st.company_id IN(?)", params.CompanyIds)
-	}
-
-	if params.CompanyId != "" {
-		qb = qb.Where("st.company_id = ?", params.CompanyId)
+	if len(params.CompanyIds) > 0 {
+		qb = qb.Where("st.company_id IN (?) ", params.CompanyIds)
 	}
 	var totalCount int64
 	if err := qb.Count(&totalCount).Error; err != nil {
@@ -1217,42 +1060,33 @@ func (s *Services) DashboardOldImports(ctx context.Context, params *domain.Dashb
 
 // get dashboard count and amount data
 func (s *Services) DashboardSaleStatistic(ctx context.Context, params *domain.DashboardQueryParam) (*domain.DashboardSaleStatistic, error) {
-	date, err := s.FormatDatetimeParams(params.StartDate, params.EndDate)
-	if err != nil {
-		return nil, err
-	}
+	var (
+		startTimeInUTC = (*params.StartDate).ToUTC().GetString()
+		endTimeInUTC   = plagins.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC().GetString()
+	)
 
 	qb := s.db.
 		WithContext(ctx).
 		Select(
-			fmt.Sprintf("COUNT(CASE WHEN s.completed_at BETWEEN '%s' AND '%s' THEN s.id END) AS sale_count", date.StartTime, date.EndTime),
-			fmt.Sprintf("SUM(CASE WHEN s.completed_at BETWEEN '%s' AND '%s' THEN s.total_amount ELSE 0 END) AS sale_amount", date.StartTime, date.EndTime),
-			fmt.Sprintf("COUNT(CASE WHEN s.completed_at BETWEEN '%s' AND '%s' THEN s.id END) AS before_sale_count", date.PrevStartTime, date.PrevEndTime),
-			fmt.Sprintf("SUM(CASE WHEN s.completed_at BETWEEN '%s' AND '%s' THEN s.total_amount ELSE 0 END) AS before_sale_amount", date.PrevStartTime, date.PrevEndTime),
+			"COUNT(distinct s.id) filter ( where s.sale_type = 'SALE' ) AS sale_count",
+			"SUM(CASE WHEN s.sale_type = 'SALE' THEN ci.total_price - ci.discount_amount ELSE (ci.total_price - ci.discount_amount) * (-1) END) AS sale_amount",
 		).
 		Table("sales s").
-		Joins("JOIN stores st ON s.store_id = st.id")
-
-	qb = qb.Where("s.stage IN(?)", constants.FinishedSaleStages)
+		Joins("JOIN cart_items ci ON s.id = ci.sale_id").
+		Joins("JOIN stores st ON s.store_id = st.id").
+		Where("s.stage IN(?)", constants.FinishedSaleStages).
+		Where("s.completed_at BETWEEN ? AND ?", startTimeInUTC, endTimeInUTC)
 
 	if len(params.StoreIds) > 0 {
 		qb = qb.Where("s.store_id IN(?)", params.StoreIds)
 	}
 
-	if params.IsFranchise {
-		if len(params.CompanyIds) == 0 {
-			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
-		}
-		qb = qb.Where("st.company_id IN(?)", params.CompanyIds)
-	} else {
-		if len(params.CompanyIds) == 0 {
-			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
-		}
+	if len(params.CompanyIds) > 0 {
 		qb = qb.Where("st.company_id IN(?)", params.CompanyIds)
 	}
 
 	var res domain.DashboardSaleStatistic
-	err = qb.Take(&res).Error
+	err := qb.Take(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get total sale amounts: %v", err)
 		return nil, domain.InternalServerError
@@ -1263,14 +1097,29 @@ func (s *Services) DashboardSaleStatistic(ctx context.Context, params *domain.Da
 
 // get dashboard count and amount data
 func (s *Services) DashboardNetProfitStatistic(ctx context.Context, params *domain.DashboardQueryParam) (*domain.DashboardCountStatsIncome, error) {
-	date, err := s.FormatDatetimeParams(params.StartDate, params.EndDate)
-	if err != nil {
-		return nil, err
-	}
+	var (
+		startTimeInUTC = (*params.StartDate).ToUTC().GetString()
+		endTimeInUTC   = plagins.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC().GetString()
+	)
+
 	qb := s.db.WithContext(ctx).
 		Select(
-			"ROUND(SUM(((ci.unit_price - sp.supply_price)/p.unit_per_pack) * ci.unit_quantity), 2) AS income_amount",
-			"ROUND(SUM(((sp.supply_price)/p.unit_per_pack) * ci.unit_quantity), 2) AS production_cost",
+			`ROUND(
+                 SUM(
+                     case
+                         when s.sale_type = 'SALE'
+                         then ((ci.unit_price - sp.supply_price) / p.unit_per_pack) * ci.unit_quantity - ci.discount_amount
+                         else (((ci.unit_price - sp.supply_price) / p.unit_per_pack) * ci.unit_quantity - ci.discount_amount)*(-1)
+                     end
+                 ), 2) AS income_amount`,
+			`ROUND(
+                 SUM(
+                     case
+                         when s.sale_type = 'SALE'
+                         then (sp.supply_price / p.unit_per_pack) * ci.unit_quantity
+                         else ((sp.supply_price / p.unit_per_pack) * ci.unit_quantity) * (-1)
+                     end
+                 ), 2) AS production_cost`,
 		).
 		Table("sales s").
 		Joins("JOIN stores st ON s.store_id = st.id").
@@ -1278,27 +1127,19 @@ func (s *Services) DashboardNetProfitStatistic(ctx context.Context, params *doma
 		Joins("JOIN store_products sp ON ci.store_product_id = sp.id").
 		Joins("JOIN products p ON sp.product_id = p.id").
 		Where("s.stage IN(?)", constants.FinishedSaleStages).
-		Where("s.completed_at BETWEEN ? AND ?", date.StartTime, date.EndTime)
+		Where("s.completed_at BETWEEN ? AND ?", startTimeInUTC, endTimeInUTC)
 
 	// filter by several store ids
 	if len(params.StoreIds) > 0 {
 		qb = qb.Where("s.store_id IN(?)", params.StoreIds)
 	}
 
-	if params.IsFranchise {
-		if len(params.CompanyIds) == 0 {
-			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
-		}
-		qb = qb.Where("st.company_id IN(?)", params.CompanyIds)
-	} else {
-		if len(params.CompanyIds) == 0 {
-			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
-		}
+	if len(params.CompanyIds) > 0 {
 		qb = qb.Where("st.company_id IN(?)", params.CompanyIds)
 	}
 
 	var res domain.DashboardCountStatsIncome
-	err = qb.Take(&res).Error
+	err := qb.Take(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get total income: %v", err)
 		return nil, domain.InternalServerError
@@ -1324,17 +1165,10 @@ func (s *Services) DashboardImportStatistic(ctx context.Context, params *domain.
 		qb = qb.Where("im.store_id IN(?)", params.StoreIds)
 	}
 
-	if params.IsFranchise {
-		if len(params.CompanyIds) == 0 {
-			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
-		}
-		qb = qb.Where("st.company_id IN(?)", params.CompanyIds)
-	} else {
-		if len(params.CompanyIds) == 0 {
-			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
-		}
+	if len(params.CompanyIds) > 0 {
 		qb = qb.Where("st.company_id IN(?)", params.CompanyIds)
 	}
+
 	var res domain.DashboardImportStatistic
 	err := qb.Take(&res).Error
 	if err != nil {
@@ -1378,16 +1212,7 @@ func (s *Services) DashboardProductStatistic(ctx context.Context, params *domain
 		args = append(args, params.StoreIds)
 	}
 
-	if params.IsFranchise {
-		if len(params.CompanyIds) == 0 {
-			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
-		}
-		filter += " AND st.company_id IN(?)"
-		args = append(args, params.CompanyIds)
-	} else {
-		if len(params.CompanyIds) == 0 {
-			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
-		}
+	if len(params.CompanyIds) > 0 {
 		filter += " AND st.company_id IN(?)"
 		args = append(args, params.CompanyIds)
 	}
@@ -1405,22 +1230,23 @@ func (s *Services) DashboardProductStatistic(ctx context.Context, params *domain
 }
 
 func (s *Services) LoyaltyCardStatistic(ctx context.Context, params *domain.DashboardQueryParam) (*domain.DashboardLoyaltyCardStatistic, error) {
-	var res domain.DashboardLoyaltyCardStatistic
+	var (
+		res domain.DashboardLoyaltyCardStatistic
 
-	date, err := s.FormatDatetimeParams(params.StartDate, params.EndDate)
-	if err != nil {
-		return nil, err
-	}
+		startTimeInUTC = (*params.StartDate).ToUTC().GetString()
+		endTimeInUTC   = plagins.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC().GetString()
+	)
 
 	var query = `
 select
     sum(case when loyalty_card_barcode is not null THEN 1 ELSE 0 END) as total_loyalty_card_count,
     sum(balance) as total_loyalty_card_balance,
-    sum(case when (loyalty_card_created_at + interval '5 hour') between ? and ? then 1 else 0 end) as today_created_loyalty_card_count
+    sum(case when loyalty_card_created_at between ? and ? then 1 else 0 end) as today_created_loyalty_card_count
 from
     customers
 	`
-	err = s.db.WithContext(ctx).Raw(query, date.StartTime, date.EndTime).Scan(&res).Error
+
+	err := s.db.WithContext(ctx).Raw(query, startTimeInUTC, endTimeInUTC).Scan(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get loyalty card stats: %v", err)
 		return nil, domain.InternalServerError

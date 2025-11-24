@@ -57,7 +57,6 @@ func (h *ReportHandler) ReportRoutes(r *gin.RouterGroup) {
 		report.POST("/store-products-given-day", h.StoreProductsGivenDay)
 		report.POST("/store-products-given-day/export-excel", h.StoreProductsGivenDayExportExcel)
 		report.POST("/discount-card", h.DiscountCardReport)
-		report.POST("/remaining-products", h.RemainingProducts)
 	}
 }
 
@@ -2006,20 +2005,18 @@ func (h *ReportHandler) StoreProductsGivenDayExportExcel(c *gin.Context) {
 		f.SetCellValue(sheet, "A"+row, i+1)
 		f.SetCellValue(sheet, "B"+row, val.Name)
 		f.SetCellValue(sheet, "C"+row, val.StoreName)
-		f.SetCellValue(sheet, "D"+row, val.FinalPackQuantity)
-		f.SetCellValue(sheet, "E"+row, val.FinalUnitQuantity)
-		f.SetCellValue(sheet, "F"+row, val.PackQty)
-		f.SetCellValue(sheet, "G"+row, val.UnitQty)
-		f.SetCellValue(sheet, "H"+row, val.ImportPackChange)
-		f.SetCellValue(sheet, "I"+row, val.ImportUnitChange)
-		f.SetCellValue(sheet, "J"+row, val.SalesPackChange)
-		f.SetCellValue(sheet, "K"+row, val.SalesUnitChange)
-		f.SetCellValue(sheet, "L"+row, val.ReturnPackChange)
-		f.SetCellValue(sheet, "M"+row, val.ReturnUnitChange)
-		f.SetCellValue(sheet, "N"+row, val.TransferPackChange)
-		f.SetCellValue(sheet, "O"+row, val.TransferUnitChange)
-		f.SetCellValue(sheet, "P"+row, val.InventoryPackChange)
-		f.SetCellValue(sheet, "Q"+row, val.InventoryUnitChange)
+		f.SetCellValue(sheet, "D"+row, val.UnitQuantity)
+		f.SetCellValue(sheet, "E"+row, val.MaterialCode)
+		f.SetCellValue(sheet, "F"+row, val.Barcode)
+		f.SetCellValue(sheet, "G"+row, val.UnitPerPack)
+		f.SetCellValue(sheet, "H"+row, val.MXIK)
+		f.SetCellValue(sheet, "I"+row, val.UnitCode)
+		f.SetCellValue(sheet, "J"+row, val.IsMarking)
+		f.SetCellValue(sheet, "K"+row, val.Manufacturer)
+		f.SetCellValue(sheet, "L"+row, val.UnitName)
+		f.SetCellValue(sheet, "M"+row, val.UnitLabel)
+		f.SetCellValue(sheet, "N"+row, val.CreatedAt)
+		f.SetCellValue(sheet, "O"+row, val.UpdatedAt)
 	}
 
 	// save to /uploads
@@ -2077,69 +2074,6 @@ func (h *ReportHandler) DiscountCardReport(c *gin.Context) {
 	defer cancel()
 
 	res, totalCount, err := h.service.GetDiscountCardReport(ctx, &params)
-	if err != nil {
-		handleServiceResponse(c, InternalError, err)
-		return
-	}
-
-	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
-
-	handleResponse(c, OK, data)
-}
-
-// Remaining products report godoc
-// @Summary Get remaining products report
-// @Description Get remaining products report
-// @Tags Report
-// @Security     BearerAuth
-// @Accept json
-// @Produce json
-// @Param	producer_id query string false "Filter with producer id"
-// @Param   store_ids body []string false "Store ids"
-// @Param	company_id query string false "Company ID"
-// @Param   start_date query string false "Start Date"
-// @Param   end_date query string false "End Date"
-// @Param   search query string false "Search (customer full name)"
-// @Param   order query string false "every field in response is sorted by this field")
-// @Param 	limit query int false "Limit"
-// @Param 	offset query int false "Offset"
-// @Success 200 {object} v1.Response
-// @Failure 400 {object} v1.Response
-// @Failure 500 {object} v1.Response
-// @Router /report/remaining-products [POST]
-func (h *ReportHandler) RemainingProducts(c *gin.Context) {
-	user := h.service.GetSignedUser(c)
-	if user.UserId == "" {
-		handleServiceResponse(c, nil, domain.UnauthorizedError)
-		return
-	}
-
-	var params domain.ReportQueryParam
-	// bind query param
-	if err := c.ShouldBindQuery(&params); err != nil {
-		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
-		return
-	}
-	// bind store_ids
-	if c.Request.Body != nil {
-		_ = c.ShouldBindJSON(&params.StoreIds)
-	}
-
-	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(user) {
-		if user.StoreId != "" {
-			params.StoreId = user.StoreId
-		}
-		params.CompanyId = user.CompanyId
-	}
-
-	// get default limit and offset
-	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
-
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-	defer cancel()
-
-	res, totalCount, err := h.service.GetRemainingProducts(ctx, &params)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)
 		return

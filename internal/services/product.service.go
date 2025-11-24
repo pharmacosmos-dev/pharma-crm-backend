@@ -1041,11 +1041,11 @@ inventory_data AS (
 sales_data AS (
     SELECT
         sa.id, sa.sale_number AS public_id,
-        4 AS entry_type,
+        CASE WHEN sa.sale_type = 'SALE' THEN 4 ELSE 7 END AS entry_type,
         sa.completed_at AS created_at,
         st.name AS store_name,
         CASE WHEN sa.sale_type = 'SALE' THEN SUM(ci.unit_quantity) * (-1) ELSE SUM(ci.unit_quantity) END AS quantity,
-        sa.total_amount AS sum,
+		CASE WHEN sa.sale_type = 'SALE' THEN sa.total_amount * (-1) ELSE sa.total_amount END as sum,
         sa.sale_type AS name,
         vd.unit_per_pack
     FROM sales sa
@@ -1062,7 +1062,7 @@ vozvrat_data AS (
         tr.id, tr.public_id::int, 5 AS entry_type, tr.created_at,
         s.name AS store_name,
         SUM(td.accepted_count) * vd.unit_per_pack * (-1) AS quantity,
-        SUM((td.accepted_count/vd.unit_per_pack) * td.retail_price) AS sum,
+        SUM((td.accepted_count/vd.unit_per_pack) * td.retail_price) * (-1) AS sum,
         tr.name as name,
         vd.unit_per_pack
     FROM transfer_details td
@@ -1080,7 +1080,7 @@ transfer_in_data AS (
         tr.created_at,
         fs.name || ' -> ' || ts.name as store_name,
         SUM(td.accepted_count) * vd.unit_per_pack AS quantity,
-        SUM((td.accepted_count/vd.unit_per_pack) * td.retail_price) AS sum,
+        SUM(td.accepted_count * td.retail_price) AS sum,
         tr.name as name,
         vd.unit_per_pack
     FROM transfer_details td
@@ -1099,7 +1099,7 @@ transfer_in_data AS (
         tr.created_at,
         fs.name || ' -> ' || ts.name as store_name,
         SUM(td.accepted_count) * vd.unit_per_pack * (-1) AS quantity,
-        SUM((td.accepted_count/vd.unit_per_pack) * td.retail_price) AS sum,
+        SUM(td.accepted_count * td.retail_price * (-1)) AS sum,
         tr.name as name,
         vd.unit_per_pack
     FROM transfer_details td
@@ -1597,7 +1597,7 @@ import_data AS (
 sales_data AS (
     SELECT
         SUM(ci.unit_quantity)::INTEGER * (-1) AS sale_count,
-        sum(sa.total_amount) AS sale_amount
+        sum(sa.total_amount * (-1)) AS sale_amount
     FROM sales sa
         JOIN stores st ON st.id = sa.store_id
         JOIN cart_items ci ON ci.sale_id = sa.id
@@ -1609,7 +1609,7 @@ sales_data AS (
 return_sales_data AS (
     SELECT
         SUM(ci.unit_quantity)::INTEGER AS return_sale_count,
-        sum(sa.total_amount) AS return_sale_amount
+        sum(sa.total_amount * (-1)) AS return_sale_amount
     FROM sales sa
         JOIN stores st ON st.id = sa.store_id
         JOIN cart_items ci ON ci.sale_id = sa.id
@@ -1621,7 +1621,7 @@ return_sales_data AS (
 vozvrat_data AS (
     SELECT
         (SUM(td.accepted_count) * vd.unit_per_pack)::INTEGER * (-1) AS return_to_sklad_count,
-        ROUND(SUM((td.accepted_count/vd.unit_per_pack) * td.retail_price), 2) AS return_to_sklad_amount
+        ROUND(SUM((td.accepted_count/vd.unit_per_pack) * td.retail_price), 2) * (-1) AS return_to_sklad_amount
     FROM transfer_details td
         JOIN transfers tr ON td.transfer_id = tr.id
         JOIN var_data vd ON td.product_id = vd.product_id
@@ -1633,9 +1633,9 @@ vozvrat_data AS (
 transfer_data AS (
     SELECT
         (SUM(td.accepted_count) %s * vd.unit_per_pack)::INTEGER * (-1) AS transfer_out_count,
-        SUM((td.accepted_count/vd.unit_per_pack) * td.retail_price) %s AS transfer_out_amount,
+        SUM(td.accepted_count * td.retail_price * (-1)) %s AS transfer_out_amount,
         (SUM(td.accepted_count) %s * vd.unit_per_pack)::INTEGER AS transfer_in_count,
-        SUM((td.accepted_count/vd.unit_per_pack)  * td.retail_price) %s AS transfer_in_amount
+        SUM(td.accepted_count  * td.retail_price) %s AS transfer_in_amount
     FROM transfer_details td
         JOIN transfers tr ON td.transfer_id = tr.id
         JOIN var_data vd ON td.product_id = vd.product_id

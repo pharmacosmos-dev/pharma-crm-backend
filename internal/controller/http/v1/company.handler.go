@@ -23,6 +23,7 @@ func (h *CompanyHandler) CompanyRoutes(r *gin.RouterGroup) {
 		company.POST("", h.Create)
 		company.GET("/:id", h.Get)
 		company.POST("/list", h.List)
+		company.GET("/list_with_stores", h.ListWithStores)
 		company.GET("/info", h.GetInfo)
 		company.PUT("/:id", h.Update)
 	}
@@ -164,6 +165,33 @@ func (h *CompanyHandler) List(c *gin.Context) {
 	data := utils.ListResponse(companies, totalCount, limit, offset)
 
 	handleResponse(c, OK, data)
+}
+
+// List company with stores
+// @Summary List companies with stores
+// @Description List companies with stores without pagination
+// @Tags companies
+// @Security     BearerAuth
+// @Accept  json
+// @Produce json
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /company/list_with_stores [get]
+func (h *CompanyHandler) ListWithStores(c *gin.Context) {
+	var (
+		resp *domain.CompanyWithStoresResponse
+		err  error
+	)
+
+	resp, err = h.service.GetCompaniesWithStores(c)
+	if err != nil {
+		h.log.Error(err)
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	handleResponse(c, OK, *resp)
 }
 
 // Get company
