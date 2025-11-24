@@ -313,6 +313,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 
 	updates := map[string]any{}
 	updates["tax_free"] = req.TaxFree
+	updates["service_type"] = req.ServiceType
 	if req.TaxFree {
 		sale = s.getSalePayAmounts(sale, req)
 		if sale.Stage < constants.SaleStagePayFinished {
@@ -2386,7 +2387,7 @@ func (s *Services) doRequestToDMED(method, url string, data any) ([]byte, error)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal data: %w", err)
 		}
-		fmt.Printf("Request body DMEDD: %s\n", string(body))
+		fmt.Printf("Request body DMED: %s\n", string(body))
 		bodyReader = bytes.NewReader(body)
 	}
 
@@ -2411,6 +2412,7 @@ func (s *Services) doRequestToDMED(method, url string, data any) ([]byte, error)
 	}
 	fmt.Println(string(respBody))
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		s.log.Errorf("dmed request failed: %s", string(respBody))
 		return nil, fmt.Errorf("DMED API error: %s", string(respBody))
 	}
 

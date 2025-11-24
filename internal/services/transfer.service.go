@@ -936,9 +936,10 @@ func (s *Services) UpdateTransferByBarcode(
 		if len(barcodeResponse) > 1 {
 			return domain.NewNotAdditionError(http.StatusMultiStatus, barcodeResponse)
 		}
-
-		transferLog.TransferDetailId = barcodeResponse[0].Id
-		transferLog.ProductId = barcodeResponse[0].ProductId
+		if len(barcodeResponse) > 0 {
+			transferLog.TransferDetailId = barcodeResponse[0].Id
+			transferLog.ProductId = barcodeResponse[0].ProductId
+		}
 		transferLog.Quantity = req.Count
 
 		err = s.db.WithContext(ctx).
