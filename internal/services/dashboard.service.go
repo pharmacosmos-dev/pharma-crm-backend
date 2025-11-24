@@ -211,6 +211,10 @@ func (s *Services) DashboardChartStats(ctx context.Context, params *domain.Dashb
 		endTimeInUTC   = plagins.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC().GetTime()
 	)
 
+	if params.EndDate == nil {
+		endTimeInUTC = startTimeInUTC
+	}
+
 	// Group type
 	switch params.Type {
 	case "HALF_HOURLY":
