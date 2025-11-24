@@ -344,11 +344,9 @@ func (s *Services) GetOrCheckOnlineCartItems(req []domain.OnlineCartItemRequest,
 	return cartItems, nil
 }
 
-func (s *Services) GetCartItems(ctx context.Context, saleID string) ([]*domain.CartItemForDMED, error) {
-	var (
-		err error
-		res []*domain.CartItemForDMED
-	)
+func (s *Services) GetCartItems(ctx context.Context, tx *gorm.DB, saleID string) ([]domain.CartItemForDMED, error) {
+	var res []domain.CartItemForDMED
+
 	query := `
 	SELECT
 		ci.id,
@@ -364,9 +362,9 @@ func (s *Services) GetCartItems(ctx context.Context, saleID string) ([]*domain.C
 	JOIN products p ON sp.product_id = p.id
 	WHERE ci.sale_id = ?
 	`
-	err = s.db.WithContext(ctx).Raw(query, saleID).Scan(&res).Error
+	err := tx.WithContext(ctx).Raw(query, saleID).Scan(&res).Error
 	if err != nil {
-		s.log.Error("could not get cart_items for dmed: %v", err)
+		s.log.Errorf("could not get cart_items for dmed: %v", err)
 		return nil, domain.InternalServerError
 	}
 	return res, nil

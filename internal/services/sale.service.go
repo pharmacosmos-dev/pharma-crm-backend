@@ -279,8 +279,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 	}
 
 	if req.ServiceType == constants.ServiceTypeDmed {
-		var cartItems []*domain.CartItemForDMED
-		cartItems, err = s.GetCartItems(ctx, sale.Id)
+		cartItems, err := s.GetCartItems(ctx, tx, sale.Id)
 		if err != nil {
 			_ = tx.Rollback()
 			return nil, err
@@ -297,7 +296,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 			return nil, err
 		}
 	}
-
+	s.log.Infof("request -->> 1 %v", req.ServiceType)
 	// add marking to cart_items
 	err = s.updateCartItemsMarkingCount(ctx, tx, req.MarkingData)
 	if err != nil {
@@ -387,6 +386,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 
 	// update sale data
 	if len(updates) > 0 {
+		s.log.Infof("updates -->> last: %v", updates)
 		err = s.updateSaleFields(ctx, tx, req.SaleId, updates)
 		if err != nil {
 			_ = tx.Rollback()
@@ -2413,7 +2413,7 @@ func (s *Services) doRequestToDMED(method, url string, data any) ([]byte, error)
 	return respBody, nil
 }
 
-func (s *Services) DmedGiveReceipt(cartItems []*domain.CartItemForDMED, markingData []domain.MarkingData, employeeName, prescriptionID, action string) error {
+func (s *Services) DmedGiveReceipt(cartItems []domain.CartItemForDMED, markingData []domain.MarkingData, employeeName, prescriptionID, action string) error {
 	for i, cartItem := range cartItems {
 		q := cartItem.Quantity
 		uq := cartItem.UnitQuantity
