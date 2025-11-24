@@ -299,6 +299,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 	} else {
 		req.ServiceType = nil
 	}
+	
 	if !req.TaxFree {
 		val := constants.GeneralStatusTaxFree
 		req.ServiceType = &val

@@ -29,6 +29,7 @@ COPY scripts/run_migration.sh /app/scripts/run_migration.sh
 
 RUN chmod +x /app/scripts/run_migration.sh
 RUN mkdir -p /app/uploads
+RUN mkdir -p /app/logger
 
 CMD ["/app/bin/app"]
 
