@@ -7,7 +7,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
-	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 )
 
@@ -59,13 +58,18 @@ func (h *DashboardHandler) DashboardRoutes(r *gin.RouterGroup) {
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/count-stats [POST]
 func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	// check user
 	user := h.service.GetSignedUser(c)
 	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
-	var params domain.DashboardQueryParam
+
 	// bind query parameters
+	var params domain.DashboardQueryParam
 	if err := c.ShouldBindQuery(&params); err != nil {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
@@ -77,35 +81,45 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 		return
 	}
 
-	var body domain.DashboardBody
 	// bind store ids
+	var body domain.DashboardBody
 	if c.Request.Body != nil {
 		_ = c.ShouldBindJSON(&body)
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-	defer cancel()
 	params.StoreIds = body.StoreIds
 	params.CompanyIds = body.CompanyIds
+
 	// get bonus amount
 	bonus, err := h.service.GetEmployeeBonusAmount(ctx, &params, user.UserId)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return
 	}
+
 	// check if employee is not admin or superadmin
 	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
-		params.CompanyId = user.CompanyId
+		params.CompanyIds = []string{user.CompanyId}
 	}
+
+	// check pharma or franchise
+	if params.IsFranchise != nil && *params.IsFranchise {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+		params.StoreIds = []string{}
+	} else if params.IsPharma != nil && *params.IsPharma {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
+		params.StoreIds = []string{}
+	}
+
 	// get dashboard data
 	res, err := h.service.DashboardTotalCountStats(ctx, &params)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)
 		return
 	}
+
 	// get employee bonus amount
 	res.BonusAmount = bonus.BonusAmount
 	res.BeforeBonusAmount = bonus.BeforeBonusAmount
@@ -130,14 +144,18 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/chart [POST]
 func (h *DashboardHandler) ChartStats(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	// check user
 	user := h.service.GetSignedUser(c)
 	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
 
-	var params domain.DashboardQueryParam
 	// bind query parameters
+	var params domain.DashboardQueryParam
 	if err := c.ShouldBindQuery(&params); err != nil {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
@@ -149,24 +167,29 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 		return
 	}
 
-	var body domain.DashboardBody
 	// bind store ids
+	var body domain.DashboardBody
 	if c.Request.Body != nil {
 		_ = c.ShouldBindJSON(&body)
 	}
-
 	params.StoreIds = body.StoreIds
 	params.CompanyIds = body.CompanyIds
-
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-	defer cancel()
 
 	// check if employee is not admin or superadmin
 	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
-		params.CompanyId = user.CompanyId
+		params.CompanyIds = []string{user.CompanyId}
+	}
+
+	// check pharma or franchise
+	if params.IsFranchise != nil && *params.IsFranchise {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+		params.StoreIds = []string{}
+	} else if params.IsPharma != nil && *params.IsPharma {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
+		params.StoreIds = []string{}
 	}
 
 	// get dashboard data
@@ -194,19 +217,22 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/top-stores [POST]
 func (h *DashboardHandler) TopStores(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	// check user
 	user := h.service.GetSignedUser(c)
 	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
-	var params domain.DashboardQueryParam
+
 	// bind query parameters
+	var params domain.DashboardQueryParam
 	if err := c.ShouldBindQuery(&params); err != nil {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
-	// get limit offset with checking default
-	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
 	// check starting date is given
 	if params.StartDate == nil {
@@ -214,16 +240,34 @@ func (h *DashboardHandler) TopStores(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-	defer cancel()
+	// bind store ids
+	var body domain.DashboardBody
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&body)
+	}
+	params.StoreIds = body.StoreIds
+	params.CompanyIds = body.CompanyIds
+
+	// get limit offset with checking default
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
 	// check if employee is not admin or superadmin
 	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
-		params.CompanyId = user.CompanyId
+		params.CompanyIds = []string{user.CompanyId}
 	}
+
+	// check pharma or franchise
+	if params.IsFranchise != nil && *params.IsFranchise {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+		params.StoreIds = []string{}
+	} else if params.IsPharma != nil && *params.IsPharma {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
+		params.StoreIds = []string{}
+	}
+
 	// get dashboard data
 	res, err := h.service.DashboardTopStores(ctx, &params)
 	if err != nil {
@@ -253,13 +297,18 @@ func (h *DashboardHandler) TopStores(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/top-products [POST]
 func (h *DashboardHandler) TopProducts(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	// check user
 	user := h.service.GetSignedUser(c)
 	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
-	var params domain.DashboardQueryParam
+
 	// bind query parameters
+	var params domain.DashboardQueryParam
 	if err := c.ShouldBindQuery(&params); err != nil {
 		handleResponse(c, BadRequest, "Invalid query parameters")
 		return
@@ -271,27 +320,34 @@ func (h *DashboardHandler) TopProducts(c *gin.Context) {
 		return
 	}
 
-	var body domain.DashboardBody
 	// bind store ids
+	var body domain.DashboardBody
 	if c.Request.Body != nil {
 		_ = c.ShouldBindJSON(&body)
 	}
-
 	params.StoreIds = body.StoreIds
 	params.CompanyIds = body.CompanyIds
+
 	// get limit offset with checking default
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
-
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-	defer cancel()
 
 	// check if employee is not admin or superadmin
 	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
-		params.CompanyId = user.CompanyId
+		params.CompanyIds = []string{user.CompanyId}
 	}
+
+	// check pharma or franchise
+	if params.IsFranchise != nil && *params.IsFranchise {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+		params.StoreIds = []string{}
+	} else if params.IsPharma != nil && *params.IsPharma {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
+		params.StoreIds = []string{}
+	}
+
 	// get dashboard data
 	res, err := h.service.DashboardTopProducts(ctx, &params)
 	if err != nil {
@@ -320,14 +376,18 @@ func (h *DashboardHandler) TopProducts(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/bonus-products [POST]
 func (h *DashboardHandler) BonusProducts(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	// check user
 	user := h.service.GetSignedUser(c)
 	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
 
-	var params domain.DashboardQueryParam
 	// bind query parameters
+	var params domain.DashboardQueryParam
 	if err := c.ShouldBindQuery(&params); err != nil {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
@@ -339,28 +399,34 @@ func (h *DashboardHandler) BonusProducts(c *gin.Context) {
 		return
 	}
 
-	var body domain.DashboardBody
 	// bind store ids
+	var body domain.DashboardBody
 	if c.Request.Body != nil {
 		_ = c.ShouldBindJSON(&body)
 	}
-
 	params.StoreIds = body.StoreIds
 	params.CompanyIds = body.CompanyIds
 
 	// get limit offset with checking default
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-	defer cancel()
-
 	// check if employee is not admin or superadmin
 	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
-		params.CompanyId = user.CompanyId
+		params.CompanyIds = []string{user.CompanyId}
 	}
+
+	// check pharma or franchise
+	if params.IsFranchise != nil && *params.IsFranchise {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+		params.StoreIds = []string{}
+	} else if params.IsPharma != nil && *params.IsPharma {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
+		params.StoreIds = []string{}
+	}
+
 	// get dashboard data
 	res, err := h.service.DashboardBonusProducts(ctx, &params)
 	if err != nil {
@@ -389,13 +455,18 @@ func (h *DashboardHandler) BonusProducts(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/top-seller [POST]
 func (h *DashboardHandler) TopSeller(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	// check user
 	user := h.service.GetSignedUser(c)
 	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
-	var params domain.DashboardQueryParam
+
 	// bind query parameters
+	var params domain.DashboardQueryParam
 	if err := c.ShouldBindQuery(&params); err != nil {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
@@ -407,26 +478,34 @@ func (h *DashboardHandler) TopSeller(c *gin.Context) {
 		return
 	}
 
-	var body domain.DashboardBody
 	// bind store ids
+	var body domain.DashboardBody
 	if c.Request.Body != nil {
 		_ = c.ShouldBindJSON(&body)
 	}
 	params.StoreIds = body.StoreIds
 	params.CompanyIds = body.CompanyIds
+
 	// get limit offset with checking default
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
-
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-	defer cancel()
 
 	// check if employee is not admin or superadmin
 	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
-		params.CompanyId = user.CompanyId
+		params.CompanyIds = []string{user.CompanyId}
 	}
+
+	// check pharma or franchise
+	if params.IsFranchise != nil && *params.IsFranchise {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+		params.StoreIds = []string{}
+	} else if params.IsPharma != nil && *params.IsPharma {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
+		params.StoreIds = []string{}
+	}
+
 	// get dashboard data
 	res, err := h.service.DashboardTopSeller(ctx, &params)
 	if err != nil {
@@ -453,11 +532,17 @@ func (h *DashboardHandler) TopSeller(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/payments [POST]
 func (h *DashboardHandler) Payments(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	// check user
 	user := h.service.GetSignedUser(c)
 	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
+
+	// bind query parameters
 	var params domain.DashboardQueryParam
 	err := c.ShouldBindQuery(&params)
 	if err != nil {
@@ -471,6 +556,7 @@ func (h *DashboardHandler) Payments(c *gin.Context) {
 		return
 	}
 
+	// bind store ids
 	var body domain.DashboardBody
 	if c.Request.Body != nil {
 		_ = c.ShouldBindJSON(&body)
@@ -478,6 +564,7 @@ func (h *DashboardHandler) Payments(c *gin.Context) {
 	params.StoreIds = body.StoreIds
 	params.CompanyIds = body.CompanyIds
 
+	// check if employee is not admin or superadmin
 	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
@@ -485,8 +572,14 @@ func (h *DashboardHandler) Payments(c *gin.Context) {
 		params.CompanyIds = []string{user.CompanyId}
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-	defer cancel()
+	// check pharma or franchise
+	if params.IsFranchise != nil && *params.IsFranchise {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+		params.StoreIds = []string{}
+	} else if params.IsPharma != nil && *params.IsPharma {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
+		params.StoreIds = []string{}
+	}
 
 	res, err := h.service.DashboardPayments(ctx, &params)
 	if err != nil {
@@ -513,13 +606,18 @@ func (h *DashboardHandler) Payments(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/transaction [POST]
 func (h *DashboardHandler) Transaction(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	// check user
 	user := h.service.GetSignedUser(c)
 	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
-	var params domain.DashboardQueryParam
+
 	// bind query parameters
+	var params domain.DashboardQueryParam
 	if err := c.ShouldBindQuery(&params); err != nil {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
@@ -531,16 +629,31 @@ func (h *DashboardHandler) Transaction(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-	defer cancel()
-
-	var body domain.DashboardBody
 	// bind store ids
+	var body domain.DashboardBody
 	if c.Request.Body != nil {
 		_ = c.ShouldBindJSON(&body)
 	}
 	params.StoreIds = body.StoreIds
 	params.CompanyIds = body.CompanyIds
+
+	// check if employee is not admin or superadmin
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreIds = []string{user.StoreId}
+		}
+		params.CompanyIds = []string{user.CompanyId}
+	}
+
+	// check pharma or franchise
+	if params.IsFranchise != nil && *params.IsFranchise {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+		params.StoreIds = []string{}
+	} else if params.IsPharma != nil && *params.IsPharma {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
+		params.StoreIds = []string{}
+	}
+
 	res, err := h.service.DashboardTransaction(ctx, &params)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)
@@ -565,24 +678,46 @@ func (h *DashboardHandler) Transaction(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/old-import [POST]
 func (h *DashboardHandler) OldImport(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	// check user
 	user := h.service.GetSignedUser(c)
 	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
-	var params domain.DashboardQueryParam
+
 	// bind query parameters
+	var params domain.DashboardQueryParam
 	if err := c.ShouldBindQuery(&params); err != nil {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 
+	// bind store ids
+	var body domain.DashboardBody
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&body)
+	}
+	params.StoreIds = body.StoreIds
+	params.CompanyIds = body.CompanyIds
+
 	// check if employee is not admin or superadmin
 	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
-			params.StoreId = user.StoreId
+			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+	}
+
+	// check pharma or franchise
+	if params.IsFranchise != nil && *params.IsFranchise {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+		params.StoreIds = []string{}
+	} else if params.IsPharma != nil && *params.IsPharma {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
+		params.StoreIds = []string{}
 	}
 
 	// get limit and offset
@@ -591,9 +726,6 @@ func (h *DashboardHandler) OldImport(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-	defer cancel()
 
 	res, totalCount, err := h.service.DashboardOldImports(ctx, &params)
 	if err != nil {
@@ -622,13 +754,18 @@ func (h *DashboardHandler) OldImport(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/sale-statistic [POST]
 func (h *DashboardHandler) SaleStatistic(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	// check user
 	user := h.service.GetSignedUser(c)
 	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
-	var params domain.DashboardQueryParam
+
 	// bind query parameters
+	var params domain.DashboardQueryParam
 	if err := c.ShouldBindQuery(&params); err != nil {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
@@ -640,14 +777,11 @@ func (h *DashboardHandler) SaleStatistic(c *gin.Context) {
 		return
 	}
 
-	var body domain.DashboardBody
 	// bind store ids
+	var body domain.DashboardBody
 	if c.Request.Body != nil {
 		_ = c.ShouldBindJSON(&body)
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-	defer cancel()
 	params.StoreIds = body.StoreIds
 	params.CompanyIds = body.CompanyIds
 
@@ -657,6 +791,15 @@ func (h *DashboardHandler) SaleStatistic(c *gin.Context) {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+	}
+
+	// check pharma or franchise
+	if params.IsFranchise != nil && *params.IsFranchise {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+		params.StoreIds = []string{}
+	} else if params.IsPharma != nil && *params.IsPharma {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
+		params.StoreIds = []string{}
 	}
 
 	// get dashboard data
@@ -686,13 +829,18 @@ func (h *DashboardHandler) SaleStatistic(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/net-profit-statistic [POST]
 func (h *DashboardHandler) NetProfitStatistic(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	// check user
 	user := h.service.GetSignedUser(c)
 	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
-	var params domain.DashboardQueryParam
+
 	// bind query parameters
+	var params domain.DashboardQueryParam
 	if err := c.ShouldBindQuery(&params); err != nil {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
@@ -704,14 +852,11 @@ func (h *DashboardHandler) NetProfitStatistic(c *gin.Context) {
 		return
 	}
 
-	var body domain.DashboardBody
 	// bind store ids
+	var body domain.DashboardBody
 	if c.Request.Body != nil {
 		_ = c.ShouldBindJSON(&body)
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-	defer cancel()
 	params.StoreIds = body.StoreIds
 	params.CompanyIds = body.CompanyIds
 
@@ -721,6 +866,17 @@ func (h *DashboardHandler) NetProfitStatistic(c *gin.Context) {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+	}
+
+	// check pharma or franchise
+	if params.IsFranchise != nil && *params.IsFranchise {
+		fmt.Println("*params.IsFranchise: ", *params.IsFranchise)
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+		params.StoreIds = []string{}
+	} else if params.IsPharma != nil && *params.IsPharma {
+		fmt.Println("*params.IsPharma: ", *params.IsPharma)
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
+		params.StoreIds = []string{}
 	}
 
 	// get dashboard data
@@ -750,26 +906,28 @@ func (h *DashboardHandler) NetProfitStatistic(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/import-statistic [POST]
 func (h *DashboardHandler) ImportStatistic(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	// check user
 	user := h.service.GetSignedUser(c)
 	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
-	var params domain.DashboardQueryParam
+
 	// bind query parameters
+	var params domain.DashboardQueryParam
 	if err := c.ShouldBindQuery(&params); err != nil {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 
-	var body domain.DashboardBody
 	// bind store ids
+	var body domain.DashboardBody
 	if c.Request.Body != nil {
 		_ = c.ShouldBindJSON(&body)
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-	defer cancel()
 	params.StoreIds = body.StoreIds
 	params.CompanyIds = body.CompanyIds
 
@@ -779,6 +937,15 @@ func (h *DashboardHandler) ImportStatistic(c *gin.Context) {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+	}
+
+	// check pharma or franchise
+	if params.IsFranchise != nil && *params.IsFranchise {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+		params.StoreIds = []string{}
+	} else if params.IsPharma != nil && *params.IsPharma {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
+		params.StoreIds = []string{}
 	}
 
 	// get dashboard data
@@ -808,36 +975,46 @@ func (h *DashboardHandler) ImportStatistic(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/product-statistic [POST]
 func (h *DashboardHandler) ProductStatistic(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	// check user
 	user := h.service.GetSignedUser(c)
 	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
-	var params domain.DashboardQueryParam
+
 	// bind query parameters
+	var params domain.DashboardQueryParam
 	if err := c.ShouldBindQuery(&params); err != nil {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 
-	var body domain.DashboardBody
 	// bind store ids
+	var body domain.DashboardBody
 	if c.Request.Body != nil {
 		_ = c.ShouldBindJSON(&body)
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-	defer cancel()
-
 	params.StoreIds = body.StoreIds
 	params.CompanyIds = body.CompanyIds
 
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(user) {
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+	}
+
+	// check pharma or franchise
+	if params.IsFranchise != nil && *params.IsFranchise {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+		params.StoreIds = []string{}
+	} else if params.IsPharma != nil && *params.IsPharma {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
+		params.StoreIds = []string{}
 	}
 
 	// get dashboard data
@@ -867,13 +1044,18 @@ func (h *DashboardHandler) ProductStatistic(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/employee-bonus [POST]
 func (h *DashboardHandler) EmployeeBonus(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	// check user
 	user := h.service.GetSignedUser(c)
 	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
-	var params domain.DashboardQueryParam
+
 	// bind query parameters
+	var params domain.DashboardQueryParam
 	if err := c.ShouldBindQuery(&params); err != nil {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
@@ -885,24 +1067,30 @@ func (h *DashboardHandler) EmployeeBonus(c *gin.Context) {
 		return
 	}
 
-	if params.StartDate != nil {
-		fmt.Println("params.StartDate", params.StartDate.GetTime())
-	}
-
-	if params.EndDate != nil {
-		fmt.Println("params.EndDate", params.EndDate.GetTime())
-	}
-
-	var body domain.DashboardBody
 	// bind store ids
+	var body domain.DashboardBody
 	if c.Request.Body != nil {
 		_ = c.ShouldBindJSON(&body)
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-	defer cancel()
 	params.StoreIds = body.StoreIds
 	params.CompanyIds = body.CompanyIds
+
+	// check if employee is not admin or superadmin
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
+		if user.StoreId != "" {
+			params.StoreIds = []string{user.StoreId}
+		}
+		params.CompanyIds = []string{user.CompanyId}
+	}
+
+	// check pharma or franchise
+	if params.IsFranchise != nil && *params.IsFranchise {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+		params.StoreIds = []string{}
+	} else if params.IsPharma != nil && *params.IsPharma {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
+		params.StoreIds = []string{}
+	}
 
 	// get bonus amount
 	bonus, err := h.service.GetEmployeeBonusAmount(ctx, &params, user.UserId)
@@ -931,13 +1119,18 @@ func (h *DashboardHandler) EmployeeBonus(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/loyalty_card-statistic [POST]
 func (h *DashboardHandler) LoyaltyCardStatistic(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	// check user
 	user := h.service.GetSignedUser(c)
 	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
-	var params domain.DashboardQueryParam
+
 	// bind query parameters
+	var params domain.DashboardQueryParam
 	if err := c.ShouldBindQuery(&params); err != nil {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
@@ -949,24 +1142,29 @@ func (h *DashboardHandler) LoyaltyCardStatistic(c *gin.Context) {
 		return
 	}
 
-	var body domain.DashboardBody
 	// bind store ids
+	var body domain.DashboardBody
 	if c.Request.Body != nil {
 		_ = c.ShouldBindJSON(&body)
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-	defer cancel()
-
 	params.StoreIds = body.StoreIds
 	params.CompanyIds = body.CompanyIds
 
 	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(user) {
+	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+	}
+
+	// check pharma or franchise
+	if params.IsFranchise != nil && *params.IsFranchise {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+		params.StoreIds = []string{}
+	} else if params.IsPharma != nil && *params.IsPharma {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
+		params.StoreIds = []string{}
 	}
 
 	// get dashboard data
