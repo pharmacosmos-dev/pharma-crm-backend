@@ -881,7 +881,7 @@ func (h *DashboardHandler) NetProfitStatistic(c *gin.Context) {
 	}
 
 	marshaledJson, _ := json.Marshal(params)
-	fmt.Println("marshaledJson: ", marshaledJson)
+	fmt.Println("marshaledJson: ", string(marshaledJson))
 
 	// get dashboard data
 	res, err := h.service.DashboardNetProfitStatistic(ctx, &params)
