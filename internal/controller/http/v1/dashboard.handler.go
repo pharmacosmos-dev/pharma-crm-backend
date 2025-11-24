@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
@@ -878,6 +879,9 @@ func (h *DashboardHandler) NetProfitStatistic(c *gin.Context) {
 		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
 		params.StoreIds = []string{}
 	}
+
+	marshaledJson, _ := json.Marshal(params)
+	fmt.Println("marshaledJson: ", marshaledJson)
 
 	// get dashboard data
 	res, err := h.service.DashboardNetProfitStatistic(ctx, &params)
