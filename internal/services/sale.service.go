@@ -284,19 +284,24 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 			_ = tx.Rollback()
 			return nil, err
 		}
-		// send req dmed
-		err = s.DmedGiveReceipt(cartItems, req.MarkingData, sale.Employee.FullName, req.PrescriptionId, "check-issue")
+		employee, err := s.GetEmployeeById(ctx, tx, sale.EmployeeId)
 		if err != nil {
 			_ = tx.Rollback()
 			return nil, err
 		}
-		err = s.DmedGiveReceipt(cartItems, req.MarkingData, sale.Employee.FullName, req.PrescriptionId, "issue")
+		// send req dmed
+		err = s.DmedGiveReceipt(cartItems, req.MarkingData, employee.FullName, req.PrescriptionId, "check-issue")
+		if err != nil {
+			_ = tx.Rollback()
+			return nil, err
+		}
+		err = s.DmedGiveReceipt(cartItems, req.MarkingData, employee.FullName, req.PrescriptionId, "issue")
 		if err != nil {
 			_ = tx.Rollback()
 			return nil, err
 		}
 	}
-	s.log.Infof("request -->> 1 %v", req.ServiceType)
+
 	// add marking to cart_items
 	err = s.updateCartItemsMarkingCount(ctx, tx, req.MarkingData)
 	if err != nil {
@@ -386,7 +391,6 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 
 	// update sale data
 	if len(updates) > 0 {
-		s.log.Infof("updates -->> last: %v", updates)
 		err = s.updateSaleFields(ctx, tx, req.SaleId, updates)
 		if err != nil {
 			_ = tx.Rollback()
