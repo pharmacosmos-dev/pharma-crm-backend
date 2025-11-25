@@ -290,14 +290,13 @@ func (s *Services) DashboardChartStats(ctx context.Context, params *domain.Dashb
 	SELECT
 		ts.period - INTERVAL '5 hours' AS id,
 		ts.period - INTERVAL '5 hours' AS created_at,
-		COUNT(distinct s.id) filter ( where s.sale_type = 'SALE' ) AS count,
-    	SUM(CASE WHEN s.sale_type = 'SALE' THEN ci.total_price - ci.discount_amount ELSE (ci.total_price - ci.discount_amount) * (-1) END) AS total_amount
+		COUNT(s.id) AS count,
+		COALESCE(SUM(s.total_amount), 0) AS total_amount
 	FROM time_series ts
 	LEFT JOIN sales s ON
 		(s.completed_at + INTERVAL '5 hours') >= ts.period AND (s.completed_at + INTERVAL '5 hours') < ts.period + INTERVAL '%s' 
 		AND s.stage IN (9, 11)
 		%s
-	LEFT JOIN cart_items ci ON ci.sale_id = s.id
 	LEFT JOIN stores st ON s.store_id = st.id
 	%s
 	WHERE s.stage IN(9, 11)
