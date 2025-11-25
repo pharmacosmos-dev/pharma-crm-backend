@@ -215,9 +215,6 @@ func (s *Services) DashboardChartStats(ctx context.Context, params *domain.Dashb
 		endTime = startTime
 	}
 
-	fmt.Println("startTime", startTime)
-	fmt.Println("endTime", endTime)
-
 	// Group type
 	switch params.Type {
 	case "HALF_HOURLY":
