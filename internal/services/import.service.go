@@ -140,13 +140,13 @@ func (s *Services) AddSomeImportedProductsToStore(ctx context.Context, tx *gorm.
 	var reqFakt domain.AcceptImport1C
 
 	// import_detail list by import_id
-	importDetails, err := s.GetImportDetailsByImportId(importData.Id)
+	importDetails, err := s.GetImportDetailsByImportId(ctx, tx, importData.Id)
 	if err != nil {
 		return err
 	}
 
 	// get store info by using import_id
-	store, err := s.GetStoreByImportId(importData.Id)
+	store, err := s.GetStoreByImportId(ctx, tx, importData.Id)
 	if err != nil {
 		return err
 	}
@@ -219,10 +219,7 @@ func (s *Services) AddSomeImportedProductsToStore(ctx context.Context, tx *gorm.
 	}
 
 	// send fakt to 1C
-	err = s.DoRequestOnec(context.Background(), reqFakt, constants.OnecPathPrihod)
-	if err != nil {
-		s.log.Errorf("could not send prixod response: %v", err)
-	}
+	go s.DoRequestOnec(context.Background(), reqFakt, constants.OnecPathPrihod)
 
 	return nil
 }
@@ -235,12 +232,12 @@ func (s *Services) AddAllProductsToStore(ctx context.Context, tx *gorm.DB, impor
 	)
 
 	// get import_detail list by import_id
-	details, err := s.GetImportDetailsByImportId(importData.Id)
+	details, err := s.GetImportDetailsByImportId(ctx, tx, importData.Id)
 	if err != nil {
 		return err
 	}
 	// get store info by import_id
-	store, err = s.GetStoreByImportId(importData.Id)
+	store, err = s.GetStoreByImportId(ctx, tx, importData.Id)
 	if err != nil {
 		return err
 	}
@@ -274,7 +271,6 @@ func (s *Services) AddAllProductsToStore(ctx context.Context, tx *gorm.DB, impor
 	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	for _, item := range details {
 		if item.ReceivedCount > 0 {
-
 			err = tx.WithContext(ctx).Exec(storeProductQuery,
 				importData.StoreId,
 				item.ProductID,
@@ -312,10 +308,7 @@ func (s *Services) AddAllProductsToStore(ctx context.Context, tx *gorm.DB, impor
 	}
 
 	// send fakt to 1C
-	err = s.DoRequestOnec(context.Background(), reqFakt, constants.OnecPathPrihod)
-	if err != nil {
-		s.log.Errorf("could not send confirm import to onec: %v", err)
-	}
+	go s.DoRequestOnec(context.Background(), reqFakt, constants.OnecPathPrihod)
 
 	return nil
 }
@@ -613,9 +606,10 @@ func (s *Services) ListImportDetail(param *domain.ImportQueryParams) ([]domain.I
 }
 
 // get import details by import id
-func (s *Services) GetImportDetailsByImportId(importId string) ([]domain.ImportDetail, error) {
+func (s *Services) GetImportDetailsByImportId(ctx context.Context, tx *gorm.DB, importId string) ([]domain.ImportDetail, error) {
 	var importDetails []domain.ImportDetail
-	err := s.db.Raw(`
+	err := tx.WithContext(ctx).
+		Raw(`
 		SELECT
 			import_details.*,
 			products.unit_per_pack,
@@ -631,11 +625,12 @@ func (s *Services) GetImportDetailsByImportId(importId string) ([]domain.ImportD
 		JOIN products ON products.id = import_details.product_id
 		LEFT JOIN producers pr ON pr.id = products.producer_id
 		 WHERE import_id = ?`,
-		importId).Scan(&importDetails).Error
+			importId).Scan(&importDetails).Error
 	if err != nil {
-		s.log.Error(err)
-		return nil, err
+		s.log.Errorf("could not get import details by import id: %v", err)
+		return nil, domain.InternalServerError
 	}
+
 	return importDetails, nil
 }
 
@@ -718,7 +713,7 @@ func (s *Services) DoRequestOnec(ctx context.Context, data any, url string) erro
 	// Encode data to JSON
 	err := json.NewEncoder(&buf).Encode(data)
 	if err != nil {
-		s.log.Error("failed to encode request data: %v", err)
+		s.log.Errorf("failed to encode request data: %v", err)
 		return fmt.Errorf("failed to encode request data: %v", err)
 	}
 	req := &http.Request{}
@@ -726,7 +721,7 @@ func (s *Services) DoRequestOnec(ctx context.Context, data any, url string) erro
 	// Construct request
 	req, err = http.NewRequestWithContext(ctx, "POST", s.cfg.OnecApiUrl+url, &buf)
 	if err != nil {
-		s.log.Error("failed to create HTTP request: %v", err)
+		s.log.Errorf("failed to create HTTP request: %v", err)
 		return fmt.Errorf("failed to create HTTP request: %v", err)
 	}
 
@@ -738,20 +733,19 @@ func (s *Services) DoRequestOnec(ctx context.Context, data any, url string) erro
 		// Execute request
 		response, err := client.Do(req)
 		if err != nil {
-			s.log.Error("failed to execute HTTP request: %v", err)
+			s.log.Errorf("failed to execute HTTP request: %v", err)
 			return fmt.Errorf("failed to execute HTTP request: %v", err)
 		}
 		// close response body
 		defer response.Body.Close()
 
 		// var info map[string]any
-		res, err := io.ReadAll(response.Body)
+		_, err = io.ReadAll(response.Body)
 		if err != nil {
-			s.log.Error("could not decode response: %w", err)
+			s.log.Errorf("could not decode response: %v", err)
 			return err
 		}
 
-		s.log.Info("RASXOD RESPONSE: %v", string(res))
 	}
 	return nil
 }

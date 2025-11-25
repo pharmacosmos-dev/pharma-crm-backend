@@ -278,30 +278,28 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 		return nil, err
 	}
 
-	if req.ServiceType != nil && *req.ServiceType == constants.ServiceTypeDmed {
-		var cartItems []*domain.CartItemForDMED
-		cartItems, err = s.GetCartItems(ctx, sale.Id)
+	if req.ServiceType == constants.ServiceTypeDmed {
+		cartItems, err := s.GetCartItems(ctx, tx, sale.Id)
+		if err != nil {
+			_ = tx.Rollback()
+			return nil, err
+		}
+		employee, err := s.GetEmployeeById(ctx, tx, sale.EmployeeId)
 		if err != nil {
 			_ = tx.Rollback()
 			return nil, err
 		}
 		// send req dmed
-		err = s.DmedGiveReceipt(cartItems, req.MarkingData, sale.Employee.FullName, req.PrescriptionId, "check-issue")
+		err = s.DmedGiveReceipt(cartItems, req.MarkingData, employee.FullName, req.PrescriptionId, "check-issue")
 		if err != nil {
 			_ = tx.Rollback()
 			return nil, err
 		}
-		err = s.DmedGiveReceipt(cartItems, req.MarkingData, sale.Employee.FullName, req.PrescriptionId, "issue")
+		err = s.DmedGiveReceipt(cartItems, req.MarkingData, employee.FullName, req.PrescriptionId, "issue")
 		if err != nil {
 			_ = tx.Rollback()
 			return nil, err
 		}
-	} else {
-		req.ServiceType = nil
-	}
-	if !req.TaxFree {
-		val := constants.GeneralStatusTaxFree
-		req.ServiceType = &val
 	}
 
 	// add marking to cart_items
@@ -313,6 +311,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 
 	updates := map[string]any{}
 	updates["tax_free"] = req.TaxFree
+	updates["service_type"] = req.ServiceType
 	if req.TaxFree {
 		sale = s.getSalePayAmounts(sale, req)
 		if sale.Stage < constants.SaleStagePayFinished {
@@ -2386,7 +2385,7 @@ func (s *Services) doRequestToDMED(method, url string, data any) ([]byte, error)
 		if err != nil {
 			return nil, fmt.Errorf("failed to marshal data: %w", err)
 		}
-		fmt.Printf("Request body DMEDD: %s\n", string(body))
+		fmt.Printf("Request body DMED: %s\n", string(body))
 		bodyReader = bytes.NewReader(body)
 	}
 
@@ -2411,13 +2410,14 @@ func (s *Services) doRequestToDMED(method, url string, data any) ([]byte, error)
 	}
 	fmt.Println(string(respBody))
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		s.log.Errorf("dmed request failed: %s", string(respBody))
 		return nil, fmt.Errorf("DMED API error: %s", string(respBody))
 	}
 
 	return respBody, nil
 }
 
-func (s *Services) DmedGiveReceipt(cartItems []*domain.CartItemForDMED, markingData []domain.MarkingData, employeeName, prescriptionID, action string) error {
+func (s *Services) DmedGiveReceipt(cartItems []domain.CartItemForDMED, markingData []domain.MarkingData, employeeName, prescriptionID, action string) error {
 	for i, cartItem := range cartItems {
 		q := cartItem.Quantity
 		uq := cartItem.UnitQuantity

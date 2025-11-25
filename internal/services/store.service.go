@@ -23,12 +23,12 @@ func (s *Services) CreateStoreOnImport(ctx context.Context, tx *gorm.DB, req *do
 }
 
 // get store info by import id
-func (s *Services) GetStoreByImportId(importId string) (*domain.Store, error) {
+func (s *Services) GetStoreByImportId(ctx context.Context, tx *gorm.DB, importId string) (*domain.Store, error) {
 	var store domain.Store
-	err := s.db.Raw(`SELECT stores.* FROM imports JOIN stores ON stores.id = imports.store_id WHERE imports.id = ?`, importId).Scan(&store).Error
+	err := tx.WithContext(ctx).Raw(`SELECT stores.* FROM imports JOIN stores ON stores.id = imports.store_id WHERE imports.id = ?`, importId).Scan(&store).Error
 	if err != nil {
-		s.log.Error(err)
-		return nil, err
+		s.log.Errorf("could not get store by import id: %v", err)
+		return nil, domain.InternalServerError
 	}
 
 	return &store, nil
