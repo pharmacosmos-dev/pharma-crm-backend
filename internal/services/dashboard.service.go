@@ -205,66 +205,66 @@ func (s *Services) DashboardTotalCountStats(ctx context.Context, param *domain.D
 // get dashboard chart stats data list
 func (s *Services) DashboardChartStats(ctx context.Context, params *domain.DashboardQueryParam) ([]domain.ChartResponse, error) {
 	var (
-		res            []domain.ChartResponse
-		interval       string
-		startTimeInUTC = (*params.StartDate).ToUTC().GetTime()
-		endTimeInUTC   = plagins.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC().GetTime()
+		res       []domain.ChartResponse
+		interval  string
+		startTime = (*params.StartDate).GetTime()
+		endTime   = plagins.AddDefaultDuration(*params.StartDate, params.EndDate).GetTime()
 	)
 
 	if params.EndDate == nil {
-		endTimeInUTC = startTimeInUTC
+		endTime = startTime
 	}
 
 	// Group type
 	switch params.Type {
 	case "HALF_HOURLY":
 		interval = "30 minutes"
-		startTimeInUTC = startTimeInUTC.Truncate(30 * time.Minute)
+		startTime = startTime.Truncate(30 * time.Minute)
 
 	case "HOURLY":
 		interval = "1 hour"
-		startTimeInUTC = startTimeInUTC.Truncate(time.Hour)
+		startTime = startTime.Truncate(time.Hour)
 
 	case "DAILY":
 		interval = "1 day"
-		startTimeInUTC = time.Date(
-			startTimeInUTC.Year(), startTimeInUTC.Month(), startTimeInUTC.Day(),
-			0, 0, 0, 0, startTimeInUTC.Location(),
+		startTime = time.Date(
+			startTime.Year(), startTime.Month(), startTime.Day(),
+			0, 0, 0, 0, startTime.Location(),
 		)
 
 	case "WEEKLY":
 		interval = "1 week"
 		// Move to start of the week (Monday)
-		weekday := int(startTimeInUTC.Weekday())
+		weekday := int(startTime.Weekday())
 		if weekday == 0 {
 			weekday = 7 // Sunday should move to previous Monday
 		}
-		startTimeInUTC = time.Date(
-			startTimeInUTC.Year(), startTimeInUTC.Month(), startTimeInUTC.Day()-weekday+1,
-			0, 0, 0, 0, startTimeInUTC.Location(),
+		startTime = time.Date(
+			startTime.Year(), startTime.Month(), startTime.Day()-weekday+1,
+			0, 0, 0, 0, startTime.Location(),
 		)
 
 	case "MONTHLY":
 		interval = "1 month"
-		startTimeInUTC = time.Date(
-			startTimeInUTC.Year(), startTimeInUTC.Month(), 1,
-			0, 0, 0, 0, startTimeInUTC.Location(),
+		startTime = time.Date(
+			startTime.Year(), startTime.Month(), 1,
+			0, 0, 0, 0, startTime.Location(),
 		)
 
 	case "YEARLY":
 		interval = "1 year"
-		startTimeInUTC = time.Date(
-			startTimeInUTC.Year(), 1, 1,
-			0, 0, 0, 0, startTimeInUTC.Location(),
+		startTime = time.Date(
+			startTime.Year(), 1, 1,
+			0, 0, 0, 0, startTime.Location(),
 		)
 
 	default:
 		interval = "1 hour"
-		startTimeInUTC = startTimeInUTC.Truncate(time.Hour)
+		startTime = startTime.Truncate(time.Hour)
 	}
 	// WEEKLY tanlangan bo‘lsa startDate ni truncate qilamiz
 
-	args := []any{startTimeInUTC, endTimeInUTC, interval}
+	args := []any{startTime, endTime, interval}
 
 	// qo‘shimcha filterlar
 	storeFilter := ""
@@ -290,13 +290,14 @@ func (s *Services) DashboardChartStats(ctx context.Context, params *domain.Dashb
 	SELECT
 		ts.period - INTERVAL '5 hours' AS id,
 		ts.period - INTERVAL '5 hours' AS created_at,
-		COUNT(s.id) AS count,
-		COALESCE(SUM(s.total_amount), 0) AS total_amount
+		COUNT(distinct s.id) filter ( where s.sale_type = 'SALE' ) AS count,
+    	SUM(CASE WHEN s.sale_type = 'SALE' THEN ci.total_price - ci.discount_amount ELSE (ci.total_price - ci.discount_amount) * (-1) END) AS total_amount
 	FROM time_series ts
 	LEFT JOIN sales s ON
-		s.completed_at >= ts.period AND s.completed_at < ts.period + INTERVAL '%s' 
+		(s.completed_at + INTERVAL '5 hours') >= ts.period AND (s.completed_at + INTERVAL '5 hours') < ts.period + INTERVAL '%s' 
 		AND s.stage IN (9, 11)
 		%s
+	LEFT JOIN cart_items ci ON ci.sale_id = s.id
 	LEFT JOIN stores st ON s.store_id = st.id
 	%s
 	WHERE s.stage IN(9, 11)
