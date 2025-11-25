@@ -213,6 +213,7 @@ const (
 	OnecPathVozvrat = "/vozvrat"
 	OnecPathZakaz   = "/zakaz"
 	OnecPathPerekit = "/perekit"
+	OnecPathInventar = "/inventar"
 
 	// DMED service paths
 	DmedPathPrescription        = "/prescriptions"
