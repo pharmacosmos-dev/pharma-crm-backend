@@ -104,15 +104,16 @@ type TopSeller struct {
 
 // Dashboard query param
 type DashboardQueryParam struct {
-	StoreId     string              `form:"store_id"`
-	CompanyId   string              `form:"company_id"`
+	// StoreId     string              `form:"store_id"`
+	// CompanyId   string              `form:"company_id"`
 	StoreIds    []string            `form:"store_ids"`
 	CompanyIds  []string            `form:"company_ids"`
 	StartDate   *plagins.CustomTime `form:"start_date"`
 	EndDate     *plagins.CustomTime `form:"end_date"`
 	Type        string              `form:"type"`
 	Search      string              `form:"search"`
-	IsFranchise bool                `form:"is_franchise"`
+	IsFranchise *bool               `form:"is_franchise"`
+	IsPharma    *bool               `form:"is_pharma"`
 	Limit       int                 `form:"limit"`
 	Offset      int                 `form:"offset"`
 	Order       string              `form:"order"`

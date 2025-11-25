@@ -7,7 +7,7 @@ import (
 	"github.com/pharma-crm-backend/domain"
 )
 
-func (s *Services) getCompanyIds(ctx context.Context, isFranchise bool) ([]string, error) {
+func (s *Services) GetCompanyIds(ctx context.Context, isFranchise bool) ([]string, error) {
 	var companyIds []string
 	err := s.db.WithContext(ctx).
 		Model(&domain.Company{}).

@@ -131,11 +131,11 @@ func (s *Services) DashboardTotalCountStats(ctx context.Context, param *domain.D
 	}
 
 	// filter by company_id
-	if param.CompanyId != "" {
-		filter += " AND st.company_id = ?"
-		filterc += " AND p.company_id = ?"
-		args = append(args, param.CompanyId)
-		query24h += " AND st.company_id = ?"
+	if len(param.CompanyIds) > 0 {
+		filter += " AND st.company_id IN (?)"
+		filterc += " AND p.company_id IN (?)"
+		query24h += " AND st.company_id IN (?)"
+		args = append(args, param.CompanyIds)
 	}
 
 	// Execute queries
@@ -332,15 +332,15 @@ func (s *Services) DashboardTopStores(ctx context.Context, params *domain.Dashbo
 	args = append(args, startTimeInUTCStr, endTimeInUTCStr)
 
 	// Store filter
-	if params.StoreId != "" {
-		filter += " AND sales.store_id = ?"
-		args = append(args, params.StoreId)
+	if len(params.StoreIds) > 0 {
+		filter += " AND sales.store_id IN (?)"
+		args = append(args, params.StoreIds)
 	}
 
 	// Company filter
-	if params.CompanyId != "" {
-		filter += " AND stores.company_id = ?"
-		args = append(args, params.CompanyId)
+	if len(params.CompanyIds) > 0 {
+		filter += " AND stores.company_id IN (?)"
+		args = append(args, params.CompanyIds)
 	}
 
 	// Limit & Offset
@@ -436,13 +436,9 @@ func (s *Services) DashboardTopProducts(ctx context.Context, params *domain.Dash
 		where += " AND curr.name ILIKE ?"
 		args = append(args, "%"+params.Search+"%")
 	}
-	if params.StoreId != "" {
-		where += " AND EXISTS (SELECT 1 FROM store_products sp2 WHERE sp2.product_id = curr.id AND sp2.store_id = ?)"
-		args = append(args, params.StoreId)
-	}
-	if params.CompanyId != "" {
-		where += " AND curr.company_id = ? "
-		args = append(args, params.CompanyId)
+	if len(params.CompanyIds) > 0 {
+		where += " AND curr.company_id IN (?) "
+		args = append(args, params.CompanyIds)
 	}
 	if len(params.StoreIds) > 0 {
 		where += " AND EXISTS (SELECT 1 FROM store_products sp3 WHERE sp3.product_id = curr.id AND sp3.store_id IN (?))"
@@ -523,9 +519,9 @@ func (s *Services) DashboardBonusProducts(ctx context.Context, params *domain.Da
 		filter += " AND p.name ILIKE ?"
 		args = append(args, "%"+params.Search+"%")
 	}
-	if params.CompanyId != "" {
-		filter += " AND p.company_id = ? "
-		args = append(args, params.CompanyId)
+	if len(params.CompanyIds) > 0 {
+		filter += " AND p.company_id IN (?) "
+		args = append(args, params.CompanyIds)
 	}
 	filter += " AND eb.created_at BETWEEN ? AND ?"
 	args = append(args, startTimeStr, endTimeStr)
@@ -646,13 +642,9 @@ func (s *Services) DashboardTopSeller(ctx context.Context, params *domain.Dashbo
 		where += " AND curr.full_name ILIKE ?"
 		args = append(args, "%"+params.Search+"%")
 	}
-	if params.StoreId != "" {
-		where += " AND curr.store_name = (SELECT name FROM stores WHERE id = ?)"
-		args = append(args, params.StoreId)
-	}
-	if params.CompanyId != "" {
-		where += " AND curr.company_id = ? "
-		args = append(args, params.CompanyId)
+	if len(params.CompanyIds) > 0 {
+		where += " AND curr.company_id IN (?) "
+		args = append(args, params.CompanyIds)
 	}
 	// check store_ids
 	if len(params.StoreIds) > 0 {
@@ -753,15 +745,8 @@ func (s *Services) DashboardPayments(ctx context.Context, params *domain.Dashboa
 	if len(params.StoreIds) > 0 {
 		qbPrev = qbPrev.Where("s.store_id IN(?)", params.StoreIds)
 	}
-	if params.IsFranchise {
-		if len(params.CompanyIds) == 0 {
-			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
-		}
-		qbPrev = qbPrev.Joins("JOIN stores st ON s.store_id = st.id AND st.company_id IN(?)", params.CompanyIds)
-	} else {
-		if len(params.CompanyIds) == 0 {
-			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
-		}
+
+	if len(params.CompanyIds) > 0 {
 		qbPrev = qbPrev.Joins("JOIN stores st ON s.store_id = st.id AND st.company_id IN(?)", params.CompanyIds)
 	}
 
@@ -818,8 +803,8 @@ func (s *Services) DashboardTransaction(ctx context.Context, params *domain.Dash
 	if len(params.StoreIds) > 0 {
 		storeFilter += " AND s.store_id IN ? "
 	}
-	if params.CompanyId != "" {
-		storeFilter += " AND s.store_id IN (SELECT id FROM stores WHERE company_id = ?) "
+	if len(params.CompanyIds) > 0 {
+		storeFilter += " AND s.store_id IN (SELECT id FROM stores WHERE company_id IN (?) ) "
 	}
 
 	// SALES query
@@ -921,32 +906,32 @@ func (s *Services) DashboardTransaction(ctx context.Context, params *domain.Dash
 	if len(params.StoreIds) > 0 {
 		finalArgs = append(finalArgs, params.StoreIds)
 	}
-	if params.CompanyId != "" {
-		finalArgs = append(finalArgs, params.CompanyId)
+	if len(params.CompanyIds) > 0 {
+		finalArgs = append(finalArgs, params.CompanyIds)
 	}
 	// sales prev
 	finalArgs = append(finalArgs, beforeStartTimeStr, beforeEndTimeStr)
 	if len(params.StoreIds) > 0 {
 		finalArgs = append(finalArgs, params.StoreIds)
 	}
-	if params.CompanyId != "" {
-		finalArgs = append(finalArgs, params.CompanyId)
+	if len(params.CompanyIds) > 0 {
+		finalArgs = append(finalArgs, params.CompanyIds)
 	}
 	// returns curr
 	finalArgs = append(finalArgs, startTimeStr, endTimeStr)
 	if len(params.StoreIds) > 0 {
 		finalArgs = append(finalArgs, params.StoreIds)
 	}
-	if params.CompanyId != "" {
-		finalArgs = append(finalArgs, params.CompanyId)
+	if len(params.CompanyIds) > 0 {
+		finalArgs = append(finalArgs, params.CompanyIds)
 	}
 	// returns prev
 	finalArgs = append(finalArgs, beforeStartTimeStr, beforeEndTimeStr)
 	if len(params.StoreIds) > 0 {
 		finalArgs = append(finalArgs, params.StoreIds)
 	}
-	if params.CompanyId != "" {
-		finalArgs = append(finalArgs, params.CompanyId)
+	if len(params.CompanyIds) > 0 {
+		finalArgs = append(finalArgs, params.CompanyIds)
 	}
 
 	// Execute
@@ -1001,20 +986,8 @@ func (s *Services) DashboardOldImports(ctx context.Context, params *domain.Dashb
 		qb = qb.Where("im.store_id IN(?)", params.StoreIds)
 	}
 
-	if params.IsFranchise {
-		if len(params.CompanyIds) == 0 {
-			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
-		}
-		qb = qb.Where("st.company_id IN(?)", params.CompanyIds)
-	} else {
-		if len(params.CompanyIds) == 0 {
-			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
-		}
-		qb = qb.Where("st.company_id IN(?)", params.CompanyIds)
-	}
-
-	if params.CompanyId != "" {
-		qb = qb.Where("st.company_id = ?", params.CompanyId)
+	if len(params.CompanyIds) > 0 {
+		qb = qb.Where("st.company_id IN (?) ", params.CompanyIds)
 	}
 	var totalCount int64
 	if err := qb.Count(&totalCount).Error; err != nil {
@@ -1111,15 +1084,7 @@ func (s *Services) DashboardSaleStatistic(ctx context.Context, params *domain.Da
 		qb = qb.Where("s.store_id IN(?)", params.StoreIds)
 	}
 
-	if params.IsFranchise {
-		if len(params.CompanyIds) == 0 {
-			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
-		}
-		qb = qb.Where("st.company_id IN(?)", params.CompanyIds)
-	} else {
-		if len(params.CompanyIds) == 0 {
-			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
-		}
+	if len(params.CompanyIds) > 0 {
 		qb = qb.Where("st.company_id IN(?)", params.CompanyIds)
 	}
 
@@ -1172,15 +1137,7 @@ func (s *Services) DashboardNetProfitStatistic(ctx context.Context, params *doma
 		qb = qb.Where("s.store_id IN(?)", params.StoreIds)
 	}
 
-	if params.IsFranchise {
-		if len(params.CompanyIds) == 0 {
-			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
-		}
-		qb = qb.Where("st.company_id IN(?)", params.CompanyIds)
-	} else {
-		if len(params.CompanyIds) == 0 {
-			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
-		}
+	if len(params.CompanyIds) > 0 {
 		qb = qb.Where("st.company_id IN(?)", params.CompanyIds)
 	}
 
@@ -1211,17 +1168,10 @@ func (s *Services) DashboardImportStatistic(ctx context.Context, params *domain.
 		qb = qb.Where("im.store_id IN(?)", params.StoreIds)
 	}
 
-	if params.IsFranchise {
-		if len(params.CompanyIds) == 0 {
-			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
-		}
-		qb = qb.Where("st.company_id IN(?)", params.CompanyIds)
-	} else {
-		if len(params.CompanyIds) == 0 {
-			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
-		}
+	if len(params.CompanyIds) > 0 {
 		qb = qb.Where("st.company_id IN(?)", params.CompanyIds)
 	}
+
 	var res domain.DashboardImportStatistic
 	err := qb.Take(&res).Error
 	if err != nil {
@@ -1265,16 +1215,7 @@ func (s *Services) DashboardProductStatistic(ctx context.Context, params *domain
 		args = append(args, params.StoreIds)
 	}
 
-	if params.IsFranchise {
-		if len(params.CompanyIds) == 0 {
-			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
-		}
-		filter += " AND st.company_id IN(?)"
-		args = append(args, params.CompanyIds)
-	} else {
-		if len(params.CompanyIds) == 0 {
-			params.CompanyIds, _ = s.getCompanyIds(ctx, params.IsFranchise)
-		}
+	if len(params.CompanyIds) > 0 {
 		filter += " AND st.company_id IN(?)"
 		args = append(args, params.CompanyIds)
 	}
