@@ -168,6 +168,11 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 		return
 	}
 
+	fmt.Println(params.StartDate)
+	if params.EndDate != nil {
+		fmt.Println("params.EndDate:", params.EndDate)
+	}
+
 	// bind store ids
 	var body domain.DashboardBody
 	if c.Request.Body != nil {
