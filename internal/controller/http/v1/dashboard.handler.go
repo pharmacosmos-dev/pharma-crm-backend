@@ -98,18 +98,21 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 	}
 
 	// check if employee is not admin or superadmin
+	var isAdmin bool
 	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+
+		isAdmin = true
 	}
 
 	// check pharma or franchise
-	if params.IsFranchise != nil && *params.IsFranchise {
+	if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
 		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
 		params.StoreIds = []string{}
-	} else if params.IsPharma != nil && *params.IsPharma {
+	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
 		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
 		params.StoreIds = []string{}
 	}
@@ -177,18 +180,21 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 	params.CompanyIds = body.CompanyIds
 
 	// check if employee is not admin or superadmin
+	var isAdmin bool
 	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+
+		isAdmin = true
 	}
 
 	// check pharma or franchise
-	if params.IsFranchise != nil && *params.IsFranchise {
+	if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
 		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
 		params.StoreIds = []string{}
-	} else if params.IsPharma != nil && *params.IsPharma {
+	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
 		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
 		params.StoreIds = []string{}
 	}
@@ -253,18 +259,21 @@ func (h *DashboardHandler) TopStores(c *gin.Context) {
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
 	// check if employee is not admin or superadmin
+	var isAdmin bool
 	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+
+		isAdmin = true
 	}
 
 	// check pharma or franchise
-	if params.IsFranchise != nil && *params.IsFranchise {
+	if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
 		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
 		params.StoreIds = []string{}
-	} else if params.IsPharma != nil && *params.IsPharma {
+	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
 		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
 		params.StoreIds = []string{}
 	}
@@ -333,18 +342,21 @@ func (h *DashboardHandler) TopProducts(c *gin.Context) {
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
 	// check if employee is not admin or superadmin
+	var isAdmin bool
 	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+
+		isAdmin = true
 	}
 
 	// check pharma or franchise
-	if params.IsFranchise != nil && *params.IsFranchise {
+	if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
 		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
 		params.StoreIds = []string{}
-	} else if params.IsPharma != nil && *params.IsPharma {
+	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
 		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
 		params.StoreIds = []string{}
 	}
@@ -412,18 +424,21 @@ func (h *DashboardHandler) BonusProducts(c *gin.Context) {
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
 	// check if employee is not admin or superadmin
+	var isAdmin bool
 	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+
+		isAdmin = true
 	}
 
 	// check pharma or franchise
-	if params.IsFranchise != nil && *params.IsFranchise {
+	if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
 		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
 		params.StoreIds = []string{}
-	} else if params.IsPharma != nil && *params.IsPharma {
+	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
 		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
 		params.StoreIds = []string{}
 	}
@@ -491,18 +506,21 @@ func (h *DashboardHandler) TopSeller(c *gin.Context) {
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
 	// check if employee is not admin or superadmin
+	var isAdmin bool
 	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+
+		isAdmin = true
 	}
 
 	// check pharma or franchise
-	if params.IsFranchise != nil && *params.IsFranchise {
+	if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
 		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
 		params.StoreIds = []string{}
-	} else if params.IsPharma != nil && *params.IsPharma {
+	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
 		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
 		params.StoreIds = []string{}
 	}
@@ -566,18 +584,21 @@ func (h *DashboardHandler) Payments(c *gin.Context) {
 	params.CompanyIds = body.CompanyIds
 
 	// check if employee is not admin or superadmin
+	var isAdmin bool
 	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+
+		isAdmin = true
 	}
 
 	// check pharma or franchise
-	if params.IsFranchise != nil && *params.IsFranchise {
+	if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
 		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
 		params.StoreIds = []string{}
-	} else if params.IsPharma != nil && *params.IsPharma {
+	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
 		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
 		params.StoreIds = []string{}
 	}
@@ -639,18 +660,21 @@ func (h *DashboardHandler) Transaction(c *gin.Context) {
 	params.CompanyIds = body.CompanyIds
 
 	// check if employee is not admin or superadmin
+	var isAdmin bool
 	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+
+		isAdmin = true
 	}
 
 	// check pharma or franchise
-	if params.IsFranchise != nil && *params.IsFranchise {
+	if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
 		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
 		params.StoreIds = []string{}
-	} else if params.IsPharma != nil && *params.IsPharma {
+	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
 		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
 		params.StoreIds = []string{}
 	}
@@ -705,18 +729,21 @@ func (h *DashboardHandler) OldImport(c *gin.Context) {
 	params.CompanyIds = body.CompanyIds
 
 	// check if employee is not admin or superadmin
+	var isAdmin bool
 	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+
+		isAdmin = true
 	}
 
 	// check pharma or franchise
-	if params.IsFranchise != nil && *params.IsFranchise {
+	if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
 		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
 		params.StoreIds = []string{}
-	} else if params.IsPharma != nil && *params.IsPharma {
+	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
 		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
 		params.StoreIds = []string{}
 	}
@@ -787,18 +814,21 @@ func (h *DashboardHandler) SaleStatistic(c *gin.Context) {
 	params.CompanyIds = body.CompanyIds
 
 	// check if employee is not admin or superadmin
+	var isAdmin bool
 	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+
+		isAdmin = true
 	}
 
 	// check pharma or franchise
-	if params.IsFranchise != nil && *params.IsFranchise {
+	if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
 		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
 		params.StoreIds = []string{}
-	} else if params.IsPharma != nil && *params.IsPharma {
+	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
 		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
 		params.StoreIds = []string{}
 	}
@@ -862,20 +892,21 @@ func (h *DashboardHandler) NetProfitStatistic(c *gin.Context) {
 	params.CompanyIds = body.CompanyIds
 
 	// check if employee is not admin or superadmin
+	var isAdmin bool
 	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+
+		isAdmin = true
 	}
 
 	// check pharma or franchise
-	if params.IsFranchise != nil && *params.IsFranchise {
-		fmt.Println("*params.IsFranchise: ", *params.IsFranchise)
+	if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
 		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
 		params.StoreIds = []string{}
-	} else if params.IsPharma != nil && *params.IsPharma {
-		fmt.Println("*params.IsPharma: ", *params.IsPharma)
+	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
 		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
 		params.StoreIds = []string{}
 	}
@@ -936,18 +967,21 @@ func (h *DashboardHandler) ImportStatistic(c *gin.Context) {
 	params.CompanyIds = body.CompanyIds
 
 	// check if employee is not admin or superadmin
+	var isAdmin bool
 	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+
+		isAdmin = true
 	}
 
 	// check pharma or franchise
-	if params.IsFranchise != nil && *params.IsFranchise {
+	if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
 		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
 		params.StoreIds = []string{}
-	} else if params.IsPharma != nil && *params.IsPharma {
+	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
 		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
 		params.StoreIds = []string{}
 	}
@@ -1005,21 +1039,25 @@ func (h *DashboardHandler) ProductStatistic(c *gin.Context) {
 	params.CompanyIds = body.CompanyIds
 
 	// check if employee is not admin or superadmin
+	var isAdmin bool
 	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+
+		isAdmin = true
 	}
 
 	// check pharma or franchise
-	if params.IsFranchise != nil && *params.IsFranchise {
+	if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
 		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
 		params.StoreIds = []string{}
-	} else if params.IsPharma != nil && *params.IsPharma {
+	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
 		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
 		params.StoreIds = []string{}
 	}
+
 	// get dashboard data
 	res, err := h.service.DashboardProductStatistic(ctx, &params)
 	if err != nil {
@@ -1079,18 +1117,21 @@ func (h *DashboardHandler) EmployeeBonus(c *gin.Context) {
 	params.CompanyIds = body.CompanyIds
 
 	// check if employee is not admin or superadmin
+	var isAdmin bool
 	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+
+		isAdmin = true
 	}
 
 	// check pharma or franchise
-	if params.IsFranchise != nil && *params.IsFranchise {
+	if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
 		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
 		params.StoreIds = []string{}
-	} else if params.IsPharma != nil && *params.IsPharma {
+	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
 		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
 		params.StoreIds = []string{}
 	}
@@ -1154,18 +1195,21 @@ func (h *DashboardHandler) LoyaltyCardStatistic(c *gin.Context) {
 	params.CompanyIds = body.CompanyIds
 
 	// check if employee is not admin or superadmin
+	var isAdmin bool
 	if !utils.In(user.Role, constants.AllAdminRoles...) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
 		params.CompanyIds = []string{user.CompanyId}
+
+		isAdmin = true
 	}
 
 	// check pharma or franchise
-	if params.IsFranchise != nil && *params.IsFranchise {
+	if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
 		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
 		params.StoreIds = []string{}
-	} else if params.IsPharma != nil && *params.IsPharma {
+	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
 		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
 		params.StoreIds = []string{}
 	}
