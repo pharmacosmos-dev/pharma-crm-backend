@@ -419,6 +419,8 @@ func (h *InventoryHandler) UpdateFactQuantity(c *gin.Context) {
 	}
 
 	if request.FactQuantity == 0 && request.FactUnit == 0 {
+		h.log.Info("Resetting scanned_count - inventoryID: %s, productID: %s", inventoryID, request.Id)
+
 		err = h.db.Model(&domain.ImportDetail{}).
 			Where("import_id = ? AND product_id = ?", inventoryID, request.Id).
 			Update("scanned_count", 0).Error
