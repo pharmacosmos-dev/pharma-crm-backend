@@ -63,26 +63,27 @@ func (h *InventoryHandler) InventoryRoutes(r *gin.RouterGroup) {
 // @Failure 500 {object} v1.Response
 // @Router /inventory [POST]
 func (h *InventoryHandler) Create(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
 	var inventoryRequest domain.InventoryRequest
-	// Bind the request body to the InventoryRequest struct
 	err := c.ShouldBindJSON(&inventoryRequest)
 	if err != nil {
-		h.log.Warn("Error on binding request: %v", err.Error())
-		handleResponse(c, BadRequest, "Invalid request body")
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
-	userId, ok := c.Get("user_id")
-	if !ok {
-		h.log.Warn("Error on getting user id from context")
-		handleResponse(c, UNAUTHORIZED, "unauthorized")
-		return
-	}
-	inventoryRequest.CreatedBy = userId.(string)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	inventoryRequest.CreatedBy = user.UserId
 	// create inventory
-	err = h.service.CreateInventory(&inventoryRequest)
+	err = h.service.CreateInventory(ctx, &inventoryRequest)
 	if err != nil {
-		h.log.Warn("Error on creating inventory: %v", err.Error())
-		handleResponse(c, InternalError, "Failed to create inventory")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
@@ -585,36 +586,35 @@ func (h *InventoryHandler) UpdateDetailedFactQuantity(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /inventory/confirm/{id} [POST]
 func (h *InventoryHandler) Confirm(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
+		return
+	}
+
 	var id = c.Param("id")
-	err := uuid.Validate(id)
-	if err != nil {
-		handleResponse(c, BadRequest, "Invalid inventory id")
-		return
-	}
-	// get user id from the context
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "user id not found from the context")
-		return
-	}
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
 	// get inventory by id
 	var res domain.Inventory
-	err = h.db.Raw(`SELECT * FROM imports WHERE id = ?`, id).Scan(&res).Error
+	err := h.db.WithContext(ctx).Raw(`SELECT * FROM imports WHERE id = ?`, id).Scan(&res).Error
 	if err != nil {
-		handleResponse(c, InternalError, "Failed to get inventory")
+		h.log.Errorf("could not get inventory: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 
 	// check if inventory is already confirmed
 	if res.Status == constants.GeneralStatusCompleted {
-		handleResponse(c, CONFLICT, "Inventory already confirmed")
+		handleServiceResponse(c, CONFLICT, domain.AlreadyCompletedError)
 		return
 	}
 
 	// confirm inventory service
-	err = h.service.ConfirmInventory(id, userId.(string))
+	err = h.service.ConfirmInventory(ctx, id, user.UserId)
 	if err != nil {
-		handleResponse(c, InternalError, fmt.Sprintf("Failed to confirm inventory %v", err))
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 

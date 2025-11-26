@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -15,17 +14,18 @@ import (
 // region Create
 
 // Create inventory creates a new inventory
-func (s *Services) CreateInventory(req *domain.InventoryRequest) error {
+func (s *Services) CreateInventory(ctx context.Context, req *domain.InventoryRequest) error {
 	var id string
 	// start transaction
 	tx := s.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 		}
 	}()
 	// insert inventory into inventories table
-	err := tx.Raw(`
+	err := tx.WithContext(ctx).
+		Raw(`
 	INSERT INTO imports (
 		store_id, 
 		name, 
@@ -36,15 +36,15 @@ func (s *Services) CreateInventory(req *domain.InventoryRequest) error {
 		)
 	VALUES (?, ?, ?, ?, ?, ?) 
 	RETURNING id`,
-		req.StoreId, req.Name, req.Type, req.CreatedBy, 2, time.Now(),
-	).Scan(&id).Error
+			req.StoreId, req.Name, req.Type, req.CreatedBy, 2, time.Now(),
+		).Scan(&id).Error
 	if err != nil {
 		_ = tx.Rollback()
 		s.log.Errorf("could not create inventory: %v", err)
 		return domain.InternalServerError
 	}
 	// insert all products (including those not in store_products)
-	err = tx.Exec(`
+	err = tx.WithContext(ctx).Exec(`
 		INSERT INTO import_details (
 			import_id, 
 			product_id, 
@@ -82,7 +82,36 @@ func (s *Services) CreateInventory(req *domain.InventoryRequest) error {
 		return domain.InternalServerError
 	}
 
+	go s.setNewInventoryAmount(id)
+
 	return nil
+}
+
+func (s *Services) setNewInventoryAmount(inventoryId string) {
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+	query := `
+	UPDATE imports
+	SET
+		received_count = COALESCE((
+			SELECT SUM(d.received_count / NULLIF(p.unit_per_pack, 0))
+			FROM import_details d
+			JOIN products p ON p.id = d.product_id
+			WHERE d.import_id = ?
+		), 0),
+		received_sum = COALESCE((
+			SELECT SUM((d.received_count / NULLIF(p.unit_per_pack, 0)) * d.retail_price_vat)
+			FROM import_details d
+			JOIN products p ON p.id = d.product_id
+			WHERE d.import_id = ?
+		), 0),
+		updated_at = NOW()
+	WHERE id = ?;
+	`
+	err := s.db.WithContext(ctx).Exec(query, inventoryId, inventoryId, inventoryId).Error
+	if err != nil {
+		s.log.Errorf("could not set new inventory amount: %v", err)
+	}
 }
 
 // region Get
@@ -641,24 +670,24 @@ func (s *Services) InventoryDetailStatsCount(param *domain.InventoryParam) (doma
 
 // region Update
 // confirm inventory
-func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
+func (s *Services) ConfirmInventory(ctx context.Context, inventoryId string, userId string) error {
 	var err error
 	// start transaction
 	tx := s.db.Begin()
-
 	defer func() {
-		if err != nil {
-			tx.Rollback()
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
 		}
 	}()
 
 	var res domain.Inventory
 	// update confirm inventory
 	query := `UPDATE imports SET status = ?, accepted_by = ?, updated_at = NOW() WHERE id = ? RETURNING *`
-	err = tx.Raw(query, constants.GeneralStatusCompleted, userId, inventoryId).Scan(&res).Error
+	err = tx.WithContext(ctx).Raw(query, constants.GeneralStatusCompleted, userId, inventoryId).Scan(&res).Error
 	if err != nil {
-		s.log.Warn("ERROR on updating inventory %v", err)
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("could not update to confirm inventory %v", err)
+		return domain.InternalServerError
 	}
 
 	// get inventory details list if fact and current quantity will not be equal
@@ -681,10 +710,11 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 		imd.import_id = ? AND imd.received_count != imd.scanned_count
 	`
 	// execute get import details as inventory details
-	err = tx.Raw(query1, inventoryId).Scan(&inventoryDetails).Error
+	err = tx.WithContext(ctx).Raw(query1, inventoryId).Scan(&inventoryDetails).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting inventory_details: %v", err)
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("could not get inventory_details on confirming: %v", err)
+		return domain.InternalServerError
 	}
 	// add new inventory products to store_products if fact greater then current quantity
 	// We only add delta -> (scanned_count - received_count) as a new product
@@ -719,17 +749,18 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 	WHERE imd.import_id = ? AND imd.scanned_count > imd.received_count;
 	`
 	// execute store_product create query
-	err = tx.Exec(storeProduct, res.StoreId, inventoryId).Error
+	err = tx.WithContext(ctx).Exec(storeProduct, res.StoreId, inventoryId).Error
 	if err != nil {
-		s.log.Warn("ERROR on inserting inventory to store_product: %v", err)
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("could not inserting inventory to store_product: %v", err)
+		return domain.InternalServerError
 	}
 	// update store_products quantities if fact quantity greater then current (received_count > scanned_count)
 	// collect 1C inventar request data
-	var data1C domain.InventoryData1C
+	var dataOnec domain.InventoryData1C
 	for _, imd := range inventoryDetails {
 		if imd.ScannedCount < imd.ReceivedCount {
-			err = tx.Exec(`
+			err = tx.WithContext(ctx).Exec(`
 			UPDATE 
 				store_products 
 			SET 
@@ -738,14 +769,16 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 			WHERE id = ?;`,
 				int(imd.ScannedCount/float64(imd.UnitPerPack)),
 				imd.ScannedCount,
-				imd.StoreProductId).Error
+				imd.StoreProductId,
+			).Error
 			if err != nil {
-				s.log.Warn("ERROR on updating store_product quantity on confirm inventory: %v", err)
-				return err
+				_ = tx.Rollback()
+				s.log.Errorf("could not update store_product quantity on confirm inventory: %v", err)
+				return domain.InternalServerError
 			}
 		}
 		// collect inventory products to send 1C
-		data1C.Товары = append(data1C.Товары, domain.InventoryProduct1C{
+		dataOnec.Товары = append(dataOnec.Товары, domain.InventoryProduct1C{
 			MaterialCode:        imd.MaterialCode,
 			Name:                imd.ProductName,
 			Barcode:             imd.Barcode,
@@ -764,41 +797,68 @@ func (s *Services) ConfirmInventory(inventoryId string, userId string) error {
 
 	}
 
-	if len(data1C.Товары) < 1 {
-		s.log.Warn("empty products list in confirm inventory: %v", err)
-		return errors.New("not enough products in the inventory")
+	if len(dataOnec.Товары) < 1 {
+		_ = tx.Rollback()
+		s.log.Warnf("empty products list in confirm inventory: %v", err)
+		return domain.NotEnoughProductError
 	}
 
 	// get store info
 	var store domain.Store
-	err = tx.First(&store, "id = ?", res.StoreId).Error
+	err = tx.WithContext(ctx).First(&store, "id = ?", res.StoreId).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting store info: %v", err)
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("could not get store info: %v", err)
+		return domain.InternalServerError
 	}
 
 	// complete transaction
-	err = tx.Commit().Error
-	if err != nil {
-		s.log.Warn("ERROR on commiting transaction: %v", err)
-		return err
+	if err = tx.Commit().Error; err != nil {
+		s.log.Errorf("could not commit transaction on confirming inventory: %v", err)
+		return domain.InternalServerError
 	}
 
 	// get store info
-	data1C.Apteka.Name = store.Name
-	data1C.Apteka.StoreCode = store.StoreCode
+	dataOnec.Apteka.Name = store.Name
+	dataOnec.Apteka.StoreCode = store.StoreCode
 	// get document data and number
-	data1C.Dok.DocumentDate = res.UpdatedAt.Format("2006-01-02T15:04:05")
-	data1C.Dok.DocumentNumber = "NP-" + cast.ToString(res.PublicId)
+	dataOnec.Dok.DocumentDate = res.UpdatedAt.Format("2006-01-02T15:04:05")
+	dataOnec.Dok.DocumentNumber = "NP-" + cast.ToString(res.PublicId)
 
+	go s.setConfirmInventoryAmount(inventoryId)
 	// send inventory products data to 1C
-	err = s.DoRequestOnec(context.Background(), data1C, "/inventar")
-	if err != nil {
-		s.log.Warn("ERROR on sending inventory: %v", err)
-		return err
-	}
+	go s.DoRequestOnec(context.Background(), dataOnec, constants.OnecPathInventar)
 
 	return nil
+}
+
+func (s *Services) setConfirmInventoryAmount(inventoryId string) {
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+	query := `
+		UPDATE imports
+            SET
+                scanned_count = COALESCE((
+                    SELECT SUM(COALESCE(d.scanned_count, 0) / NULLIF(p.unit_per_pack, 0))
+                    FROM import_details d
+                    JOIN products p ON p.id = d.product_id
+                    WHERE d.import_id = ?
+                ), 0),
+                scanned_sum = COALESCE((
+                    SELECT SUM((COALESCE(d.scanned_count, 0) / NULLIF(p.unit_per_pack, 0)) * d.retail_price_vat)
+                    FROM import_details d
+                    JOIN products p ON p.id = d.product_id
+                    WHERE d.import_id = ?
+                ), 0),
+                updated_at = NOW()
+            WHERE id = ?;
+	`
+
+	err := s.db.WithContext(ctx).Exec(query, inventoryId, inventoryId, inventoryId).Error
+	if err != nil {
+		s.log.Errorf("could not set confirm inventory amount: %v", err)
+		return
+	}
 }
 
 // canceled inventory
