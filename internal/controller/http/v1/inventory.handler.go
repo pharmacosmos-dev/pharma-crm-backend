@@ -419,7 +419,9 @@ func (h *InventoryHandler) UpdateFactQuantity(c *gin.Context) {
 	}
 
 	if request.FactQuantity == 0 && request.FactUnit == 0 {
-		err = h.db.Exec(`UPDATE import_details SET scanned_count = 0 WHERE import_id = ? and product_id = ?`, inventoryID, request.Id).Error
+		err = h.db.Model(&domain.ImportDetail{}).
+			Where("import_id = ? AND product_id = ?", inventoryID, request.Id).
+			Update("scanned_count", 0).Error
 		if err != nil {
 			h.log.Warn("Error on updating scanned_count: %v", err)
 			handleResponse(c, InternalError, "Failed to update scanned_count")
