@@ -4257,55 +4257,6 @@ paths:
       summary: Get total chart stats
       tags:
       - dashboard
-  /dashboard/chart2:
-    post:
-      description: Get total chart stats
-      parameters:
-      - description: Start Date
-        in: query
-        name: start_date
-        type: string
-      - description: End Date
-        in: query
-        name: end_date
-        type: string
-      - description: Type might be -> (HOURLY, DAILY, WEEKLY, MONTHLY, YEARLY)
-        in: query
-        name: type
-        type: string
-      - description: Store ID
-        in: query
-        name: store_id
-        type: string
-      - description: Body
-        in: body
-        name: ids
-        schema:
-          $ref: '#/definitions/domain.DashboardBody'
-      - description: is_franchise
-        in: query
-        name: is_franchise
-        type: boolean
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Get total chart stats
-      tags:
-      - dashboard
   /dashboard/count-stats:
     post:
       description: Get total count stats
