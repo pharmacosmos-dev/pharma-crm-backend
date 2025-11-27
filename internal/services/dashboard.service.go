@@ -210,6 +210,9 @@ func (s *Services) DashboardChartStats(ctx context.Context, params *domain.Dashb
 		endTime   = plagins.AddDefaultDuration(*params.StartDate, params.EndDate).GetTime()
 	)
 
+	fmt.Println("*params.StartDate", *params.StartDate)
+	fmt.Println("*params.EndDate", *params.EndDate)
+
 	if params.EndDate == nil {
 		endTime = startTime
 	}
@@ -218,22 +221,22 @@ func (s *Services) DashboardChartStats(ctx context.Context, params *domain.Dashb
 	switch params.Type {
 	case "HALF_HOURLY":
 		// PostgreSQL doesn't have native 30-minute trunc, so we'll use a formula
-		truncFunc = "date_trunc('hour', s.completed_at) + INTERVAL '30 minutes' * FLOOR(EXTRACT(MINUTE FROM s.completed_at) / 30)"
+		truncFunc = "date_trunc('hour', s.completed_at + INTERVAL '5 hours') + INTERVAL '30 minutes' * FLOOR(EXTRACT(MINUTE FROM s.completed_at) / 30)"
 		startTime = startTime.Truncate(30 * time.Minute)
 
 	case "HOURLY":
-		truncFunc = "date_trunc('hour', s.completed_at)"
+		truncFunc = "date_trunc('hour', s.completed_at + INTERVAL '5 hours')"
 		startTime = startTime.Truncate(time.Hour)
 
 	case "DAILY":
-		truncFunc = "date_trunc('day', s.completed_at)"
+		truncFunc = "date_trunc('day', s.completed_at + INTERVAL '5 hours')"
 		startTime = time.Date(
 			startTime.Year(), startTime.Month(), startTime.Day(),
 			0, 0, 0, 0, startTime.Location(),
 		)
 
 	case "WEEKLY":
-		truncFunc = "date_trunc('week', s.completed_at + INTERVAL '1 day')"
+		truncFunc = "date_trunc('week', s.completed_at + INTERVAL '1 day' + INTERVAL '5 hours')"
 		// Move to start of the week (Monday)
 		weekday := int(startTime.Weekday()) - 1
 		startTime = time.Date(
@@ -242,21 +245,21 @@ func (s *Services) DashboardChartStats(ctx context.Context, params *domain.Dashb
 		)
 
 	case "MONTHLY":
-		truncFunc = "date_trunc('month', s.completed_at)"
+		truncFunc = "date_trunc('month', s.completed_at + INTERVAL '5 hours')"
 		startTime = time.Date(
 			startTime.Year(), startTime.Month(), 2,
 			0, 0, 0, 0, startTime.Location(),
 		)
 
 	case "YEARLY":
-		truncFunc = "date_trunc('year', s.completed_at)"
+		truncFunc = "date_trunc('year', s.completed_at + INTERVAL '5 hours')"
 		startTime = time.Date(
 			startTime.Year(), 1, 1,
 			0, 0, 0, 0, startTime.Location(),
 		)
 
 	default:
-		truncFunc = "date_trunc('hour', s.completed_at)"
+		truncFunc = "date_trunc('hour', s.completed_at + INTERVAL '5 hours')"
 		startTime = startTime.Truncate(time.Hour)
 	}
 
