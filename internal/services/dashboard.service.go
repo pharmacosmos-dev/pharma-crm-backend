@@ -299,6 +299,7 @@ func (s *Services) DashboardChartStats(ctx context.Context, params *domain.Dashb
 		%s
 	LEFT JOIN stores st ON s.store_id = st.id
 	%s
+	WHERE s.stage IN (9, 11)
 	GROUP BY ts.period
 	ORDER BY ts.period;
 	`, interval, storeFilter, companyFilter)
