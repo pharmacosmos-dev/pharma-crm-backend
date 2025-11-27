@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
@@ -148,7 +149,7 @@ func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/chart [POST]
 func (h *DashboardHandler) ChartStats(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*30)
 	defer cancel()
 
 	// check user
