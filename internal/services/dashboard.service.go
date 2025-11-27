@@ -274,8 +274,8 @@ func (s *Services) DashboardChartStats(ctx context.Context, params *domain.Dashb
 	}
 	companyFilter := ""
 	if len(params.CompanyIds) > 0 {
-		companyFilter += " AND st.company_id IN(?)"
-		args = append(args, params.CompanyIds)
+		// companyFilter += " AND st.company_id IN(?)"
+		// args = append(args, params.CompanyIds)
 	}
 
 	// yakuniy query
