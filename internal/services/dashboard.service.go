@@ -202,11 +202,10 @@ func (s *Services) DashboardTotalCountStats(ctx context.Context, param *domain.D
 	return &res, nil
 }
 
-// get dashboard chart stats data list
 func (s *Services) DashboardChartStats(ctx context.Context, params *domain.DashboardQueryParam) ([]domain.ChartResponse, error) {
 	var (
 		res       []domain.ChartResponse
-		interval  string
+		truncFunc string
 		startTime = (*params.StartDate).GetTime()
 		endTime   = plagins.AddDefaultDuration(*params.StartDate, params.EndDate).GetTime()
 	)
@@ -215,101 +214,100 @@ func (s *Services) DashboardChartStats(ctx context.Context, params *domain.Dashb
 		endTime = startTime
 	}
 
-	// Group type
+	// Group type - determine the date_trunc function to use
 	switch params.Type {
 	case "HALF_HOURLY":
-		interval = "30 minutes"
+		// PostgreSQL doesn't have native 30-minute trunc, so we'll use a formula
+		truncFunc = "date_trunc('hour', s.completed_at) + INTERVAL '30 minutes' * FLOOR(EXTRACT(MINUTE FROM s.completed_at) / 30)"
 		startTime = startTime.Truncate(30 * time.Minute)
 
 	case "HOURLY":
-		interval = "1 hour"
+		truncFunc = "date_trunc('hour', s.completed_at)"
 		startTime = startTime.Truncate(time.Hour)
 
 	case "DAILY":
-		interval = "1 day"
+		truncFunc = "date_trunc('day', s.completed_at)"
 		startTime = time.Date(
 			startTime.Year(), startTime.Month(), startTime.Day(),
 			0, 0, 0, 0, startTime.Location(),
 		)
 
 	case "WEEKLY":
-		interval = "1 week"
+		truncFunc = "date_trunc('week', s.completed_at + INTERVAL '1 day')"
 		// Move to start of the week (Monday)
-		weekday := int(startTime.Weekday())
-		if weekday == 0 {
-			weekday = 7 // Sunday should move to previous Monday
-		}
+		weekday := int(startTime.Weekday()) - 1
 		startTime = time.Date(
-			startTime.Year(), startTime.Month(), startTime.Day()-weekday+1,
+			startTime.Year(), startTime.Month(), startTime.Day()-weekday,
 			0, 0, 0, 0, startTime.Location(),
 		)
 
 	case "MONTHLY":
-		interval = "1 month"
+		truncFunc = "date_trunc('month', s.completed_at)"
 		startTime = time.Date(
-			startTime.Year(), startTime.Month(), 1,
+			startTime.Year(), startTime.Month(), 2,
 			0, 0, 0, 0, startTime.Location(),
 		)
 
 	case "YEARLY":
-		interval = "1 year"
+		truncFunc = "date_trunc('year', s.completed_at)"
 		startTime = time.Date(
 			startTime.Year(), 1, 1,
 			0, 0, 0, 0, startTime.Location(),
 		)
 
 	default:
-		interval = "1 hour"
+		truncFunc = "date_trunc('hour', s.completed_at)"
 		startTime = startTime.Truncate(time.Hour)
 	}
-	// WEEKLY tanlangan bo‘lsa startDate ni truncate qilamiz
 
-	args := []any{startTime, endTime, interval}
+	args := []any{startTime, endTime}
 
-	// qo‘shimcha filterlar
+	// Additional filters
 	storeFilter := ""
 	if len(params.StoreIds) > 0 {
-		storeFilter += " AND s.store_id IN (?)"
+		storeFilter = " AND s.store_id IN (?)"
 		args = append(args, params.StoreIds)
 	}
+
 	companyFilter := ""
 	if len(params.CompanyIds) > 0 {
-		// companyFilter += " AND st.company_id IN(?)"
-		// args = append(args, params.CompanyIds)
+		companyFilter = " AND st.company_id IN (?)"
+		args = append(args, params.CompanyIds)
 	}
 
-	// yakuniy query
+	// Join stores only if company filter is needed
+	storeJoin := ""
+	if companyFilter != "" {
+		storeJoin = "LEFT JOIN stores st ON s.store_id = st.id"
+	}
+
+	// Optimized query without time_series generation
 	query := fmt.Sprintf(`
-	WITH time_series AS (
-		SELECT generate_series(
-			?::timestamp,
-			?::timestamp,
-			?::interval
-		) AS period
-	)
 	SELECT
-		ts.period - INTERVAL '5 hours' AS id,
-		ts.period - INTERVAL '5 hours' AS created_at,
+		%s - INTERVAL '5 hours' AS id,
+		%s - INTERVAL '5 hours' AS created_at,
 		COUNT(s.id) AS count,
 		COALESCE(SUM(s.total_amount), 0) AS total_amount
-	FROM time_series ts
-	LEFT JOIN sales s ON
-		(s.completed_at + INTERVAL '5 hours') >= ts.period AND (s.completed_at + INTERVAL '5 hours') < ts.period + INTERVAL '%s' 
-		AND s.stage IN (9, 11)
-		%s
-	LEFT JOIN stores st ON s.store_id = st.id
+	FROM sales s
 	%s
-	WHERE s.stage IN (9, 11)
-	GROUP BY ts.period
-	ORDER BY ts.period;
-	`, interval, storeFilter, companyFilter)
+	WHERE (s.completed_at + INTERVAL '5 hours') >= ?::timestamp
+	  AND (s.completed_at + INTERVAL '5 hours') < ?::timestamp
+	  AND s.stage IN (9, 11)
+	  %s
+	  %s
+	GROUP BY %s
+	ORDER BY id
+	`, truncFunc, truncFunc, storeJoin, storeFilter, companyFilter, truncFunc)
 
-	// bajarish
+	s.db = s.db.Debug()
+
+	// Execute
 	err := s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get chart info: %v", err)
 		return res, domain.InternalServerError
 	}
+
 	return res, nil
 }
 
