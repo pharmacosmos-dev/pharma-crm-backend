@@ -210,9 +210,6 @@ func (s *Services) DashboardChartStats(ctx context.Context, params *domain.Dashb
 		endTime   = plagins.AddDefaultDuration(*params.StartDate, params.EndDate).GetTime()
 	)
 
-	fmt.Println("*params.StartDate", *params.StartDate)
-	fmt.Println("*params.EndDate", *params.EndDate)
-
 	if params.EndDate == nil {
 		endTime = startTime
 	}
@@ -301,8 +298,6 @@ func (s *Services) DashboardChartStats(ctx context.Context, params *domain.Dashb
 	GROUP BY %s
 	ORDER BY id
 	`, truncFunc, truncFunc, storeJoin, storeFilter, companyFilter, truncFunc)
-
-	s.db = s.db.Debug()
 
 	// Execute
 	err := s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
