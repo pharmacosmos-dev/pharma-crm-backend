@@ -1831,7 +1831,7 @@ func (s *Services) UpdateRetailPrice(id string, newPrice float64) error {
 	return nil
 }
 
-func (s *Services) UpdateProductQuantity(ctx context.Context, req *domain.UpdateQuantityRequest1C) error {
+func (s *Services) UpdateProductQuantity(ctx context.Context, req *domain.OnecUpdateQuantityRequest) error {
 	tx := s.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {

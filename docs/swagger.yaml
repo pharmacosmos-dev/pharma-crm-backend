@@ -55,7 +55,7 @@ definitions:
         $ref: '#/definitions/domain.Apteka'
       Товары:
         items:
-          $ref: '#/definitions/domain.ProductRepricingRequest'
+          $ref: '#/definitions/domain.OnecProductRepricing'
         type: array
     type: object
   domain.AsilBelgiRequest:
@@ -850,15 +850,6 @@ definitions:
       product_id:
         type: string
     type: object
-  domain.MultiRepricingRequest1C:
-    properties:
-      Aptekas:
-        items:
-          $ref: '#/definitions/domain.AptekaWithProductsRepricing'
-        type: array
-      Dok:
-        $ref: '#/definitions/domain.Document'
-    type: object
   domain.NoorCategory:
     properties:
       id:
@@ -925,6 +916,58 @@ definitions:
         type: integer
       shop_id:
         type: string
+    type: object
+  domain.OnecMultiRepricingRequest:
+    properties:
+      Aptekas:
+        items:
+          $ref: '#/definitions/domain.AptekaWithProductsRepricing'
+        type: array
+      Dok:
+        $ref: '#/definitions/domain.Document'
+    type: object
+  domain.OnecProductRepricing:
+    properties:
+      barcode:
+        type: string
+      expire_date:
+        type: string
+      id:
+        type: string
+      manufacturer:
+        type: string
+      material_code:
+        type: integer
+      name:
+        type: string
+      new_retail_price:
+        type: number
+      retail_price:
+        type: number
+      serial_number:
+        type: string
+      supply_price:
+        type: number
+    type: object
+  domain.OnecRepricingRequest:
+    properties:
+      Apteka:
+        $ref: '#/definitions/domain.Apteka'
+      Dok:
+        $ref: '#/definitions/domain.Document'
+      Товары:
+        items:
+          $ref: '#/definitions/domain.OnecProductRepricing'
+        type: array
+    type: object
+  domain.OnecUpdateQuantityRequest:
+    properties:
+      Dok:
+        $ref: '#/definitions/domain.Document'
+      Товары:
+        items:
+          $ref: '#/definitions/domain.ProductUpdateQuantityRequest'
+        type: array
     type: object
   domain.OnlineCartItemRequest:
     properties:
@@ -1111,29 +1154,6 @@ definitions:
     - category
     - product_id
     type: object
-  domain.ProductRepricingRequest:
-    properties:
-      barcode:
-        type: string
-      expire_date:
-        type: string
-      id:
-        type: string
-      manufacturer:
-        type: string
-      material_code:
-        type: integer
-      name:
-        type: string
-      new_retail_price:
-        type: number
-      retail_price:
-        type: number
-      serial_number:
-        type: string
-      supply_price:
-        type: number
-    type: object
   domain.ProductRequest:
     properties:
       barcode:
@@ -1305,17 +1325,6 @@ definitions:
       type:
         example: retail_price|supply_price|expire_date
         type: string
-    type: object
-  domain.RepricingRequest1C:
-    properties:
-      Apteka:
-        $ref: '#/definitions/domain.Apteka'
-      Dok:
-        $ref: '#/definitions/domain.Document'
-      Товары:
-        items:
-          $ref: '#/definitions/domain.ProductRepricingRequest'
-        type: array
     type: object
   domain.ResetPasswordRequest:
     properties:
@@ -1731,15 +1740,6 @@ definitions:
     required:
     - product_id
     - unit_per_pack
-    type: object
-  domain.UpdateQuantityRequest1C:
-    properties:
-      Dok:
-        $ref: '#/definitions/domain.Document'
-      Товары:
-        items:
-          $ref: '#/definitions/domain.ProductUpdateQuantityRequest'
-        type: array
     type: object
   domain.WriteOffRequest:
     properties:
@@ -6111,12 +6111,10 @@ paths:
         name: end_date
         type: string
       - description: From Amount
-        format: float64
         in: query
         name: from_amount
         type: number
       - description: To Amount
-        format: float64
         in: query
         name: to_amount
         type: number
@@ -6181,12 +6179,10 @@ paths:
         name: end_date
         type: string
       - description: From Amount
-        format: float64
         in: query
         name: from_amount
         type: number
       - description: To Amount
-        format: float64
         in: query
         name: to_amount
         type: number
@@ -11214,7 +11210,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/domain.MultiRepricingRequest1C'
+          $ref: '#/definitions/domain.OnecMultiRepricingRequest'
       produces:
       - application/json
       responses:
@@ -11246,7 +11242,7 @@ paths:
         name: product
         required: true
         schema:
-          $ref: '#/definitions/domain.UpdateQuantityRequest1C'
+          $ref: '#/definitions/domain.OnecUpdateQuantityRequest'
       produces:
       - application/json
       responses:
@@ -11278,7 +11274,7 @@ paths:
         name: product
         required: true
         schema:
-          $ref: '#/definitions/domain.RepricingRequest1C'
+          $ref: '#/definitions/domain.OnecRepricingRequest'
       produces:
       - application/json
       responses:

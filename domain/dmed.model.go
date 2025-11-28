@@ -6,19 +6,6 @@ import (
 	"time"
 )
 
-type Request1C struct {
-	ID        *string    `gorm:"type:uuid;default:gen_random_uuid()" json:"id"`
-	Method    string     `gorm:"method" json:"method"`
-	Payload   []byte     `gorm:"payload" json:"payload"`
-	Response  []byte     `gorm:"response" json:"response"`
-	Action    string     `gorm:"action" json:"action"`
-	DocDate   string     `gorm:"doc_date" json:"doc_date"`
-	DocNum    string     `gorm:"doc_num" json:"doc_num"`
-	Status    string     `gorm:"status" json:"status"`
-	CreatedAt *time.Time `gorm:"created_at" json:"created_at"`
-	UpdatedAt *time.Time `gorm:"updated_at" json:"updated_at"`
-}
-
 type PrescriptionResponse struct {
 	Data []Prescription `json:"data"`
 }
@@ -36,7 +23,7 @@ type Prescription struct {
 	Type             string          `json:"type"`
 	DistributionType string          `json:"distribution_type"`
 	ExpirationDate   string          `json:"expiration_date"`
-	Price            *float64        `json:"price"`
+	Price            *any            `json:"price"`
 	CreatedAt        string          `json:"created_at"`
 	DrugAppointment  DrugAppointment `json:"drug_appointment"`
 }
@@ -111,4 +98,14 @@ func (d *DrugAppointment) UnmarshalJSON(data []byte) error {
 	}
 
 	return fmt.Errorf("invalid medication format")
+}
+
+type DmedRequestLog struct {
+	Id        int        `gorm:"id" json:"id"`
+	Payload   string     `gorm:"payload" json:"payload"`
+	Method    string     `gorm:"method" json:"method"`
+	Response  string     `gorm:"response" json:"response"`
+	Status    int        `gorm:"status" json:"status"`
+	CreatedAt *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt *time.Time `gorm:"updated_at" json:"updated_at"`
 }

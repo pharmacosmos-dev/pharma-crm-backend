@@ -24,7 +24,7 @@ func (s *Services) Request1CCreate(req domain.InventoryHelper) error {
 		return fmt.Errorf("failed to marshal response: %w", err)
 	}
 
-	err = s.db.Table("requests_1c").Create(&domain.Request1C{
+	err = s.db.Table("requests_1c").Create(&domain.RequestOnec{
 		Method:   req.Method,
 		Payload:  payloadBytes,
 		Response: responseBytes,
@@ -34,7 +34,7 @@ func (s *Services) Request1CCreate(req domain.InventoryHelper) error {
 		Status:   req.Status,
 	}).Error
 	if err != nil {
-		return fmt.Errorf("failed to create Request1C: %w", err)
+		return fmt.Errorf("failed to create RequestOnec: %w", err)
 	}
 
 	return nil

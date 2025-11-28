@@ -6737,14 +6737,12 @@ const docTemplate = `{
                     },
                     {
                         "type": "number",
-                        "format": "float64",
                         "description": "From Amount",
                         "name": "from_amount",
                         "in": "query"
                     },
                     {
                         "type": "number",
-                        "format": "float64",
                         "description": "To Amount",
                         "name": "to_amount",
                         "in": "query"
@@ -6844,14 +6842,12 @@ const docTemplate = `{
                     },
                     {
                         "type": "number",
-                        "format": "float64",
                         "description": "From Amount",
                         "name": "from_amount",
                         "in": "query"
                     },
                     {
                         "type": "number",
-                        "format": "float64",
                         "description": "To Amount",
                         "name": "to_amount",
                         "in": "query"
@@ -14830,7 +14826,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.MultiRepricingRequest1C"
+                            "$ref": "#/definitions/domain.OnecMultiRepricingRequest"
                         }
                     }
                 ],
@@ -14881,7 +14877,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.UpdateQuantityRequest1C"
+                            "$ref": "#/definitions/domain.OnecUpdateQuantityRequest"
                         }
                     }
                 ],
@@ -14932,7 +14928,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.RepricingRequest1C"
+                            "$ref": "#/definitions/domain.OnecRepricingRequest"
                         }
                     }
                 ],
@@ -24628,7 +24624,7 @@ const docTemplate = `{
                 "Товары": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/domain.ProductRepricingRequest"
+                        "$ref": "#/definitions/domain.OnecProductRepricing"
                     }
                 }
             }
@@ -25832,20 +25828,6 @@ const docTemplate = `{
                 }
             }
         },
-        "domain.MultiRepricingRequest1C": {
-            "type": "object",
-            "properties": {
-                "Aptekas": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/domain.AptekaWithProductsRepricing"
-                    }
-                },
-                "Dok": {
-                    "$ref": "#/definitions/domain.Document"
-                }
-            }
-        },
         "domain.NoorCategory": {
             "type": "object",
             "properties": {
@@ -25946,6 +25928,86 @@ const docTemplate = `{
                 },
                 "shop_id": {
                     "type": "string"
+                }
+            }
+        },
+        "domain.OnecMultiRepricingRequest": {
+            "type": "object",
+            "properties": {
+                "Aptekas": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.AptekaWithProductsRepricing"
+                    }
+                },
+                "Dok": {
+                    "$ref": "#/definitions/domain.Document"
+                }
+            }
+        },
+        "domain.OnecProductRepricing": {
+            "type": "object",
+            "properties": {
+                "barcode": {
+                    "type": "string"
+                },
+                "expire_date": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "manufacturer": {
+                    "type": "string"
+                },
+                "material_code": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "new_retail_price": {
+                    "type": "number"
+                },
+                "retail_price": {
+                    "type": "number"
+                },
+                "serial_number": {
+                    "type": "string"
+                },
+                "supply_price": {
+                    "type": "number"
+                }
+            }
+        },
+        "domain.OnecRepricingRequest": {
+            "type": "object",
+            "properties": {
+                "Apteka": {
+                    "$ref": "#/definitions/domain.Apteka"
+                },
+                "Dok": {
+                    "$ref": "#/definitions/domain.Document"
+                },
+                "Товары": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.OnecProductRepricing"
+                    }
+                }
+            }
+        },
+        "domain.OnecUpdateQuantityRequest": {
+            "type": "object",
+            "properties": {
+                "Dok": {
+                    "$ref": "#/definitions/domain.Document"
+                },
+                "Товары": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.ProductUpdateQuantityRequest"
+                    }
                 }
             }
         },
@@ -26231,41 +26293,6 @@ const docTemplate = `{
                 }
             }
         },
-        "domain.ProductRepricingRequest": {
-            "type": "object",
-            "properties": {
-                "barcode": {
-                    "type": "string"
-                },
-                "expire_date": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "manufacturer": {
-                    "type": "string"
-                },
-                "material_code": {
-                    "type": "integer"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "new_retail_price": {
-                    "type": "number"
-                },
-                "retail_price": {
-                    "type": "number"
-                },
-                "serial_number": {
-                    "type": "string"
-                },
-                "supply_price": {
-                    "type": "number"
-                }
-            }
-        },
         "domain.ProductRequest": {
             "type": "object",
             "properties": {
@@ -26516,23 +26543,6 @@ const docTemplate = `{
                 "type": {
                     "type": "string",
                     "example": "retail_price|supply_price|expire_date"
-                }
-            }
-        },
-        "domain.RepricingRequest1C": {
-            "type": "object",
-            "properties": {
-                "Apteka": {
-                    "$ref": "#/definitions/domain.Apteka"
-                },
-                "Dok": {
-                    "$ref": "#/definitions/domain.Document"
-                },
-                "Товары": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/domain.ProductRepricingRequest"
-                    }
                 }
             }
         },
@@ -27167,20 +27177,6 @@ const docTemplate = `{
                 "unit_per_pack": {
                     "type": "integer",
                     "minimum": 1
-                }
-            }
-        },
-        "domain.UpdateQuantityRequest1C": {
-            "type": "object",
-            "properties": {
-                "Dok": {
-                    "$ref": "#/definitions/domain.Document"
-                },
-                "Товары": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/domain.ProductUpdateQuantityRequest"
-                    }
                 }
             }
         },

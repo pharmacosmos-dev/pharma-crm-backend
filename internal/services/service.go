@@ -25,6 +25,7 @@ func NewService(db *gorm.DB, log *logger.Logger, cfg *config.Config, hub *ws.Hub
 		cfg: cfg,
 		hub: hub,
 	}
+
 	// check product mxiks
 	go s.changeByMxik()
 

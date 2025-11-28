@@ -133,11 +133,11 @@ func (h *ProductOnecHandler) ListProductByStoreCode(c *gin.Context) {
 		query = query.Where("sp.product_id = ?", productID)
 	}
 
-	var res []domain.ProductRes1C
+	var res []domain.OnecProductRes
 	err := query.Find(&res).Error
 	if err != nil {
-		h.log.Warn("ERROR on getting product list: %v", err)
-		handleResponse(c, InternalError, "failed.to.get.product_list")
+		h.log.Errorf("could not get product list: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 
@@ -151,14 +151,14 @@ func (h *ProductOnecHandler) ListProductByStoreCode(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept 	json
 // @Produce json
-// @Param 	product body domain.RepricingRequest1C true "product"
+// @Param 	product body domain.OnecRepricingRequest true "product"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /product1c/repricing [POST]
 func (h *ProductOnecHandler) ProductRepricing(c *gin.Context) {
 	var (
-		body  domain.RepricingRequest1C
+		body  domain.OnecRepricingRequest
 		store domain.Store
 	)
 	// bind request body
@@ -279,13 +279,13 @@ func (h *ProductOnecHandler) ProductRepricing(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept 	json
 // @Produce json
-// @Param 	product body domain.UpdateQuantityRequest1C true "product"
+// @Param 	product body domain.OnecUpdateQuantityRequest true "product"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /product1c/quantity [POST]
 func (h *ProductOnecHandler) UpdateQuantity(c *gin.Context) {
-	var body domain.UpdateQuantityRequest1C
+	var body domain.OnecUpdateQuantityRequest
 	// bind request body
 	if err := c.ShouldBindJSON(&body); err != nil {
 		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
@@ -310,13 +310,13 @@ func (h *ProductOnecHandler) UpdateQuantity(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept 	json
 // @Produce json
-// @Param 	request body domain.MultiRepricingRequest1C true "repricing request"
+// @Param 	request body domain.OnecMultiRepricingRequest true "repricing request"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /product1c/multi-repricing [POST]
 func (h *ProductOnecHandler) MultiProductRepricing(c *gin.Context) {
-	var body domain.MultiRepricingRequest1C
+	var body domain.OnecMultiRepricingRequest
 	// bind request body
 	if err := c.ShouldBindJSON(&body); err != nil {
 		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
@@ -428,7 +428,7 @@ func (h *ProductOnecHandler) MultiProductRepricing(c *gin.Context) {
 		return
 	}
 
-	handleResponse(c, OK, "UPDATED")
+	handleResponse(c, OK, "CREATED")
 }
 
 // GetToken godoc

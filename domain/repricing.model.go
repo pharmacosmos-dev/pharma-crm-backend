@@ -82,49 +82,6 @@ type UpdateNewPrice struct {
 	NewExpireDate  string  `gorm:"new_expire_date" json:"new_expire_date"`
 }
 
-// Request structure for 1C API
-type ProductRepricingRequest struct {
-	Id             string  `gorm:"id" json:"id"`
-	MaterialCode   int     `gorm:"material_code" json:"material_code"`
-	Name           string  `gorm:"name" json:"name"`
-	Barcode        string  `gorm:"barcode" json:"barcode"`
-	Manufacturer   string  `gorm:"manufacturer" json:"manufacturer"`
-	SerialNumber   string  `gorm:"serial_number" json:"serial_number"`
-	RetailPrice    float64 `gorm:"retail_price" json:"retail_price"`
-	NewRetailPrice float64 `gorm:"new_retail_price" json:"new_retail_price"`
-	SupplyPrice    float64 `gorm:"supply_price" json:"supply_price"`
-	ExpireDate     string  `gorm:"expire_date" json:"expire_date"`
-}
-
-// Price revalution request
-type RepricingRequest1C struct {
-	Dok    Document                  `json:"Dok"`
-	Apteka Apteka                    `json:"Apteka"`
-	Товары []ProductRepricingRequest `json:"Товары"`
-}
-
-type UpdateQuantityRequest1C struct {
-	Dok    Document                       `json:"Dok"`
-	Товары []ProductUpdateQuantityRequest `json:"Товары"`
-}
-
-type ProductUpdateQuantityRequest struct {
-	StoreProductId string  `gorm:"store_product_id" json:"store_product_id"`
-	AcceptedCount  float64 `gorm:"accepted_count" json:"accepted_count"`
-	GivenCount     float64 `gorm:"given_count" json:"given_count"`
-}
-
-// Multi repricing
-type MultiRepricingRequest1C struct {
-	Dok     Document                      `json:"Dok"`
-	Aptekas []AptekaWithProductsRepricing `json:"Aptekas"`
-}
-
-type AptekaWithProductsRepricing struct {
-	Apteka Apteka                    `json:"Apteka"`
-	Товары []ProductRepricingRequest `json:"Товары"`
-}
-
 type RepricingDetailStatusSummary struct {
 	Count               int64   `json:"count"`
 	TotalOldRetailPrice float64 `json:"total_old_retail_price"`

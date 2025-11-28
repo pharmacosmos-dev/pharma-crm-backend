@@ -1,16 +1,13 @@
 package services
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"math"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -2174,22 +2171,6 @@ func (s *Services) GetPendingSales(ctx context.Context, params *domain.SaleQuery
 	return res, totalCount, nil
 }
 
-func (s *Services) GetPrescriptionsFromDMED(patientID, safeCode string) ([]domain.Prescription, error) {
-	url := fmt.Sprintf("/prescriptions?patient_id=%s&safe_code=%s", patientID, safeCode)
-
-	respBody, err := s.doRequestToDMED("GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	var rawResp = domain.PrescriptionResponse{}
-	if err = json.Unmarshal(respBody, &rawResp); err != nil {
-		return nil, fmt.Errorf("unmarshal failed: %w", err)
-	}
-
-	return rawResp.Data, nil
-}
-
 func (s *Services) GetStoreProductsDifference(ctx context.Context, tx *gorm.DB, saleId string) error {
 	var (
 		err   error
@@ -2369,98 +2350,6 @@ func (s *Services) DeleteDiscountCardFromSale(ctx context.Context, req *domain.A
 		return domain.InternalServerError
 	}
 
-	return nil
-}
-
-// Internal reusable method
-func (s *Services) doRequestToDMED(method, url string, data any) ([]byte, error) {
-	var (
-		body       []byte
-		bodyReader io.Reader
-		err        error
-	)
-
-	if data != nil {
-		body, err = json.Marshal(data)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal data: %w", err)
-		}
-		fmt.Printf("Request body DMED: %s\n", string(body))
-		bodyReader = bytes.NewReader(body)
-	}
-
-	req, err := http.NewRequest(method, s.cfg.DmedApiUrl+url, bodyReader)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	newToken := strings.Trim(s.cfg.DmedApiToken, `"'`)
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+newToken)
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-	fmt.Println(string(respBody))
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		s.log.Errorf("dmed request failed: %s", string(respBody))
-		return nil, fmt.Errorf("DMED API error: %s", string(respBody))
-	}
-
-	return respBody, nil
-}
-
-func (s *Services) DmedGiveReceipt(cartItems []domain.CartItemForDMED, markingData []domain.MarkingData, employeeName, prescriptionID, action string) error {
-	for i, cartItem := range cartItems {
-		q := cartItem.Quantity
-		uq := cartItem.UnitQuantity
-		j := 0
-
-		for q > 0 || uq > 0 {
-			var drugAmount int
-			if q > 0 {
-				drugAmount = cartItem.UnitPerPack
-				q--
-			} else if uq > 0 {
-				drugAmount = uq
-				uq = 0
-			}
-
-			payload := map[string]any{
-				"drug_amount":         drugAmount,
-				"price":               int(cartItem.UnitPrice),
-				"issued_by_full_name": employeeName,
-				// //   "pharmacy_id": 123,
-			}
-			if j < len(markingData[i].MarkingList) && markingData[i].MarkingList[j] != "" {
-				payload["marking_code"] = markingData[i].MarkingList[j]
-			} else if cartItem.SerialNumber != "" && cartItem.Barcode != "" {
-				payload["serial_number"] = cartItem.SerialNumber
-				payload["gtin"] = "010" + cartItem.Barcode
-			} else {
-				s.log.Error("could not find serial number or marking code for dmed")
-				return domain.SerialOrMarkingRequiredError
-			}
-
-			url := fmt.Sprintf("/prescriptions/%d/%s", markingData[i].DmedId, action)
-			method := http.MethodPost
-			if action == "issue" {
-				method = http.MethodPut
-			}
-			if _, err := s.doRequestToDMED(method, url, payload); err != nil {
-				s.log.Error("could not send dmed %s request: %v", action, err)
-				return fmt.Errorf("DMED %s failed: %w", action, err)
-			}
-			j++
-		}
-	}
 	return nil
 }
 

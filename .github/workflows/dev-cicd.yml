@@ -82,4 +82,9 @@ jobs:
             docker pull "${{ env.DOCKER_USERNAME }}/pharma-backend:${{ github.sha }}"
             docker stop "${{ env.CONTAINER_NAME }}" || true
             docker rm "${{ env.CONTAINER_NAME }}" || true
-            docker run -d --name "${{ env.CONTAINER_NAME }}" --network host -p "${{ env.PORT }}" --env-file /var/www/app/.env -v /var/www/app/uploads:/app/uploads -v /var/www/app/logger:/app/logger "${{ env.DOCKER_USERNAME }}/pharma-backend:${{ github.sha }}"
+            docker run -d --name "${{ env.CONTAINER_NAME }}" \
+              --network host -p "${{ env.PORT }}" \
+              --env-file /var/www/app/.env \
+              -v /var/www/app/uploads:/app/uploads \
+              -v /var/www/app/logger:/logger \
+              "${{ env.DOCKER_USERNAME }}/pharma-backend:${{ github.sha }}"
