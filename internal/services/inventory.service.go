@@ -145,8 +145,6 @@ func (s *Services) GetInventoryById(ctx context.Context, params *domain.Inventor
 			"im.accepted_by as updated_by",
 			"im.created_at",
 			"im.updated_at",
-			"im.received_count",
-			"im.received_sum",
 			"s.name AS store_name",
 		).
 		Table("imports im").
@@ -160,6 +158,8 @@ func (s *Services) GetInventoryById(ctx context.Context, params *domain.Inventor
 
 	totalQuery := `
 	SELECT
+		ROUND(SUM(imd.received_count/p.unit_per_pack), 2) AS total_current_count,
+		ROUND(SUM(imd.retail_price_vat * (imd.received_count/p.unit_per_pack)), 2) AS total_current_sum,
 		ROUND(SUM(imd.scanned_count/p.unit_per_pack), 2) AS total_fact_count,
 		ROUND(SUM(imd.retail_price_vat * (imd.scanned_count/p.unit_per_pack)), 2) AS total_fact_sum,
 		ROUND(SUM(imd.retail_price_vat * ((imd.scanned_count - imd.received_count)/p.unit_per_pack)), 2) AS total_difference_sum
@@ -204,7 +204,7 @@ func (s *Services) GetInventoryById(ctx context.Context, params *domain.Inventor
 
 	// total sum query completed
 	totalQuery += filter
-	err = s.db.Raw(totalQuery, args...).Scan(&totalSumData).Error
+	err = s.db.WithContext(ctx).Raw(totalQuery, args...).Scan(&totalSumData).Error
 	if err != nil {
 		s.log.Errorf("could not inventory total_sum_data on inventory details: %v", err)
 		return nil, err
@@ -224,8 +224,8 @@ func (s *Services) GetInventoryById(ctx context.Context, params *domain.Inventor
 			Id:   tmp.StoreId,
 			Name: tmp.StoreName,
 		}, tmp.StoreId != ""),
-		CurrentCount:  tmp.ReceivedCount,
-		CurrentSum:    tmp.ReceivedSum,
+		CurrentCount:  totalSumData.TotalCurrentCount,
+		CurrentSum:    totalSumData.TotalCurrentSum,
 		FactCount:     totalSumData.TotalFactCount,
 		FactSum:       totalSumData.TotalFactSum,
 		DifferenceSum: totalSumData.TotalDifferenceSum,
@@ -306,7 +306,7 @@ func (s *Services) GetInventories(ctx context.Context, params *domain.InventoryP
 			"im.received_count AS current_count",
 			"im.received_sum AS current_sum",
 			"im.scanned_count AS fact_count",
-			"im.scanned_sum AS scanned_sum",
+			"im.scanned_sum AS fact_sum",
 			"(im.scanned_count - im.received_count) AS difference_count",
 			"(im.scanned_sum - im.received_sum) AS difference_sum",
 			"im.created_at",
@@ -404,7 +404,7 @@ func (s *Services) GetInventoryStats(ctx context.Context, params *domain.Invento
 }
 
 // get inventory detail list
-func (s *Services) InventoryDetailList(param *domain.InventoryParam) ([]domain.InventoryDetail, domain.InventoryDetailSum, int64, error) {
+func (s *Services) InventoryDetailList(ctx context.Context, params *domain.InventoryParam) ([]domain.InventoryDetail, domain.InventoryDetailSum, int64, error) {
 	var (
 		res          []domain.InventoryDetail
 		totalSumData domain.InventoryDetailSum
@@ -414,7 +414,7 @@ func (s *Services) InventoryDetailList(param *domain.InventoryParam) ([]domain.I
 		orderBy      = ""
 		group        = " GROUP BY p.id, pr.id, imd.import_id "
 	)
-	args = append(args, param.InventoryId)
+	args = append(args, params.InventoryId)
 	//
 	query := `
 	SELECT
@@ -459,8 +459,8 @@ func (s *Services) InventoryDetailList(param *domain.InventoryParam) ([]domain.I
 	LEFT JOIN producers pr ON p.producer_id = pr.id
 	`
 
-	if param.Search != "" {
-		switch utils.DefineProductSearchQuery(param.Search) {
+	if params.Search != "" {
+		switch utils.DefineProductSearchQuery(params.Search) {
 		case "barcode":
 			filter += ` AND EXISTS (
 				SELECT 1
@@ -469,18 +469,18 @@ func (s *Services) InventoryDetailList(param *domain.InventoryParam) ([]domain.I
 				  AND pb2.status = 'completed'
 				  AND pb2.barcode ILIKE ?
 			)`
-			args = append(args, "%"+param.Search+"%")
+			args = append(args, "%"+params.Search+"%")
 		case "name/category":
 			filter += " AND (p.name ILIKE ? OR pr.name ILIKE ?) "
-			args = append(args, "%"+param.Search+"%", "%"+param.Search+"%")
+			args = append(args, "%"+params.Search+"%", "%"+params.Search+"%")
 		default:
 			filter += " AND (p.name ILIKE ? OR p.barcode LIKE ?)"
-			args = append(args, "%"+param.Search+"%", "%"+param.Search+"%")
+			args = append(args, "%"+params.Search+"%", "%"+params.Search+"%")
 		}
 	}
 	// filter with inventory stats
-	if param.Type != "" {
-		switch param.Type {
+	if params.Type != "" {
+		switch params.Type {
 		case "shortage":
 			filter += " AND imd.received_count > imd.scanned_count "
 		case "scanned":
@@ -495,7 +495,7 @@ func (s *Services) InventoryDetailList(param *domain.InventoryParam) ([]domain.I
 	}
 
 	// order by
-	switch param.Order {
+	switch params.Order {
 	case "+name":
 		orderBy = " ORDER BY p.name ASC "
 	case "-name":
@@ -518,26 +518,26 @@ func (s *Services) InventoryDetailList(param *domain.InventoryParam) ([]domain.I
 	// execute total count query
 	tquery += filter
 	// get total count
-	err := s.db.Raw(tquery, args...).Scan(&totalCount).Error
+	err := s.db.WithContext(ctx).Raw(tquery, args...).Scan(&totalCount).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting total count: %v", err)
-		return res, totalSumData, 0, err
+		s.log.Errorf("could not getting inventory details total count: %v", err)
+		return res, totalSumData, 0, domain.InternalServerError
 	}
 
 	// total sum query completed
 	totalQuery += filter
-	err = s.db.Raw(totalQuery, args...).Scan(&totalSumData).Error
+	err = s.db.WithContext(ctx).Raw(totalQuery, args...).Scan(&totalSumData).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting total_sum_data on inventory details: %v", err)
+		s.log.Errorf("could not get total_sum_data on inventory details: %v", err)
 		return res, totalSumData, 0, err
 	}
 	// complete query
 	query += filter + group + orderBy + " LIMIT ? OFFSET ?"
-	args = append(args, param.Limit, param.Offset)
+	args = append(args, params.Limit, params.Offset)
 	// execute query
-	err = s.db.Raw(query, args...).Scan(&res).Error
+	err = s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting inventory detail list: %v", err)
+		s.log.Errorf("could not get inventory detail list: %v", err)
 		return res, totalSumData, 0, err
 	}
 	if len(res) == 0 {
@@ -548,7 +548,7 @@ func (s *Services) InventoryDetailList(param *domain.InventoryParam) ([]domain.I
 }
 
 // get inventory detail list
-func (s *Services) InventoryDetailedFlow(param *domain.InventoryParam) ([]domain.InventoryDetail, domain.InventoryDetailSum, int64, error) {
+func (s *Services) InventoryDetailedFlow(ctx context.Context, params *domain.InventoryParam) ([]domain.InventoryDetail, domain.InventoryDetailSum, int64, error) {
 	var (
 		res        []domain.InventoryDetail
 		totalData  domain.InventoryDetailSum
@@ -557,7 +557,7 @@ func (s *Services) InventoryDetailedFlow(param *domain.InventoryParam) ([]domain
 		filter     = " WHERE import_id = ? AND product_id = ? "
 		orderBy    = " ORDER BY imd.imported_at DESC"
 	)
-	args = append(args, param.InventoryId, param.ProductId)
+	args = append(args, params.InventoryId, params.ProductId)
 	//
 	query := `
 	SELECT
@@ -597,44 +597,44 @@ func (s *Services) InventoryDetailedFlow(param *domain.InventoryParam) ([]domain
         JOIN products p ON imd.product_id = p.id
 	`
 
-	if param.Search != "" {
-		switch utils.DefineProductSearchQuery(param.Search) {
+	if params.Search != "" {
+		switch utils.DefineProductSearchQuery(params.Search) {
 		case "barcode":
 			filter += " AND p.barcode LIKE ?"
-			args = append(args, "%"+param.Search+"%")
+			args = append(args, "%"+params.Search+"%")
 		case "name/category":
 			filter += " AND p.name ILIKE ?"
-			args = append(args, "%"+param.Search+"%")
+			args = append(args, "%"+params.Search+"%")
 		default:
 			filter += " AND (p.name ILIKE ? OR p.barcode LIKE ?)"
-			args = append(args, "%"+param.Search+"%", "%"+param.Search+"%")
+			args = append(args, "%"+params.Search+"%", "%"+params.Search+"%")
 		}
 	}
 
 	// execute total count query
 	tquery += filter
 	// get total count
-	err := s.db.Raw(tquery, args...).Scan(&totalCount).Error
+	err := s.db.WithContext(ctx).Raw(tquery, args...).Scan(&totalCount).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting total count: %v", err)
-		return res, totalData, 0, err
+		s.log.Errorf("could not get total count: %v", err)
+		return res, totalData, 0, domain.InternalServerError
 	}
 	// execute total sum query
 	totalQuery += filter
-	err = s.db.Raw(totalQuery, args...).Scan(&totalData).Error
+	err = s.db.WithContext(ctx).Raw(totalQuery, args...).Scan(&totalData).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting inventory flow total data: %v", err)
-		return res, totalData, totalCount, err
+		s.log.Errorf("could not get inventory flow total data: %v", err)
+		return res, totalData, totalCount, domain.InternalServerError
 	}
 
 	// complete query
 	query += filter + orderBy + " LIMIT ? OFFSET ?;"
-	args = append(args, param.Limit, param.Offset)
+	args = append(args, params.Limit, params.Offset)
 	// execute query
-	err = s.db.Raw(query, args...).Scan(&res).Error
+	err = s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting inventory detail list: %v", err)
-		return res, totalData, 0, err
+		s.log.Errorf("could not get inventory detail list: %v", err)
+		return res, totalData, 0, domain.InternalServerError
 	}
 
 	return res, totalData, totalCount, nil

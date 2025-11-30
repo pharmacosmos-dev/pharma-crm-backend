@@ -110,7 +110,7 @@ func (h *InventoryHandler) Create(c *gin.Context) {
 func (h *InventoryHandler) Get(c *gin.Context) {
 	var params domain.InventoryParam
 	if err := c.ShouldBindQuery(&params); err != nil {
-		handleResponse(c, BadRequest, "Invalid query param")
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 
@@ -120,6 +120,7 @@ func (h *InventoryHandler) Get(c *gin.Context) {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
@@ -707,25 +708,28 @@ func (h *InventoryHandler) Cancel(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /inventory-detail/list [GET]
 func (h *InventoryHandler) InventoryDetailList(c *gin.Context) {
-	var param domain.InventoryParam
-	if err := c.ShouldBindQuery(&param); err != nil {
-		handleResponse(c, BadRequest, "Invalid query param")
+	var params domain.InventoryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
-	res, totalData, totalCount, err := h.service.InventoryDetailList(&param)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, totalData, totalCount, err := h.service.InventoryDetailList(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, "Failed to get inventory detail list")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
 	data := map[string]any{
 		"_meta": utils.Meta{
 			TotalCount:  totalCount,
-			PerPage:     param.Limit,
-			CurrentPage: (param.Offset / param.Limit) + 1,
-			PageCount:   int((totalCount + int64(param.Limit) - 1) / int64(param.Limit)),
+			PerPage:     params.Limit,
+			CurrentPage: (params.Offset / params.Limit) + 1,
+			PageCount:   int((totalCount + int64(params.Limit) - 1) / int64(params.Limit)),
 		},
 		"data":       res,
 		"total_data": totalData,
@@ -752,17 +756,19 @@ func (h *InventoryHandler) InventoryDetailList(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /inventory-detail/export-excel [GET]
 func (h *InventoryHandler) InventoryDetailExport(c *gin.Context) {
-	var param domain.InventoryParam
-	err := c.ShouldBindQuery(&param)
-	if err != nil {
-		handleResponse(c, BadRequest, "Invalid query param")
+	var params domain.InventoryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
-	res, _, _, err := h.service.InventoryDetailList(&param)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, _, _, err := h.service.InventoryDetailList(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, "Failed to get inventory detail list")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
@@ -819,26 +825,29 @@ func (h *InventoryHandler) InventoryDetailExport(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /inventory-detail/detailed-flow [GET]
 func (h *InventoryHandler) InventoryDetailedFlow(c *gin.Context) {
-	var param domain.InventoryParam
-	err := c.ShouldBindQuery(&param)
-	if err != nil {
-		handleResponse(c, BadRequest, "Invalid query param")
+	var params domain.InventoryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
 
-	res, totalData, totalCount, err := h.service.InventoryDetailedFlow(&param)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	res, totalData, totalCount, err := h.service.InventoryDetailedFlow(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, "Failed to get inventory detail list")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
 	data := map[string]any{
 		"_meta": utils.Meta{
 			TotalCount:  totalCount,
-			PerPage:     param.Limit,
-			CurrentPage: (param.Offset / param.Limit) + 1,
-			PageCount:   int((totalCount + int64(param.Limit) - 1) / int64(param.Limit)),
+			PerPage:     params.Limit,
+			CurrentPage: (params.Offset / params.Limit) + 1,
+			PageCount:   int((totalCount + int64(params.Limit) - 1) / int64(params.Limit)),
 		},
 		"data":       res,
 		"total_data": totalData,
