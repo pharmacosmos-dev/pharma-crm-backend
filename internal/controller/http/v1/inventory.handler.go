@@ -869,42 +869,38 @@ func (h *InventoryHandler) InventoryDetailUpload(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /inventory-detail/price-option [GET]
 func (h *InventoryHandler) PriceOption(c *gin.Context) {
-	var (
-		param domain.InventoryParam
-		res   []domain.InventoryPriceOption
-		err   error
-	)
+	var params domain.InventoryParam
 	// bind query param
-	if err = c.ShouldBindQuery(&param); err != nil {
-		handleResponse(c, BadRequest, "invalid.query.param")
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 
 	// validate product_id
-	if err = uuid.Validate(param.ProductId); err != nil {
-		handleResponse(c, BadRequest, "invalid.product_id")
+	if err := uuid.Validate(params.ProductId); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 
 	// get default limit, offset
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	var res []domain.InventoryPriceOption
 	// execute query
-	err = h.db.Table("import_details imd").
-		Select(`
-			imd.product_id,
-    		imd.retail_price_vat AS retail_price,
-    		imd.expire_date`,
-		).
-		Joins("JOIN imports im ON imd.import_id = im.id").
-		Where("im.entry_type = 2 AND imd.product_id = ? ", param.ProductId).
-		Order("imd.created_at DESC").
-		Limit(param.Limit).
-		Offset(param.Offset).
+	err := h.db.WithContext(ctx).
+		Select("DISTINCT ON (product_id, retail_price) product_id, retail_price, expire_date").
+		Table("store_products").
+		Where("product_id = ?", params.ProductId).
+		Order("product_id, retail_price").
+		Limit(params.Limit).
+		Offset(params.Offset).
 		Find(&res).Error
 	if err != nil {
-		h.log.Warn("ERROR on getting price_options: %v", err)
-		handleResponse(c, InternalError, "failed.get.price.options")
+		h.log.Errorf("could not get price_options: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 

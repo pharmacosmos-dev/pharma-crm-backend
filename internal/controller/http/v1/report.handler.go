@@ -1278,11 +1278,6 @@ func (h *ReportHandler) ReportBonusProducts(c *gin.Context) {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
-	// bind store ids
-	if err := c.ShouldBindJSON(&params.StoreIds); err != nil {
-		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
-		return
-	}
 
 	// // check if employee is not admin or superadmin
 	// if !utils.In(user.Role, constants.AllAdminRoles...) {
