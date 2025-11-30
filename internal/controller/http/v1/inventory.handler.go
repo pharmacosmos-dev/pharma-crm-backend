@@ -354,114 +354,26 @@ func (h *InventoryHandler) InventoryExportExcel(c *gin.Context) {
 func (h *InventoryHandler) UpdateFactQuantity(c *gin.Context) {
 	var (
 		request     domain.InventoryAddProduct
-		inventoryID = c.Param("id")
-		err         error
+		inventoryId = c.Param("id")
 	)
 	// validate inventory id
-	err = uuid.Validate(inventoryID)
+	if inventoryId == constants.NoValue {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	// bind request body
+	if err := c.ShouldBindJSON(&request); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+
+	err := h.service.UpdateInventoryFactQuantity(ctx, &request, inventoryId)
 	if err != nil {
-		handleResponse(c, BadRequest, "Inventory id is invalid")
+		handleServiceResponse(c, nil, err)
 		return
-	}
-	// parse
-	err = c.ShouldBindJSON(&request)
-	if err != nil {
-		handleResponse(c, BadRequest, "Invalid request body")
-		return
-	}
-	// update barcode
-	if request.Barcode != "" && request.RetailPrice > 0 {
-		err = h.db.Exec(`UPDATE products SET barcode = ? WHERE id = ?`, request.Barcode, request.Id).Error
-		if err != nil {
-			h.log.Warn("ERROR on updating product barcode: %v", err)
-			handleResponse(c, InternalError, "Failed to update barcode")
-			return
-		}
-		err = h.db.Exec(`UPDATE import_details SET retail_price_vat = ? WHERE retail_price_vat = 0 AND product_id = ? AND import_id = ?`,
-			request.RetailPrice, request.Id, inventoryID).Error
-		if err != nil {
-			h.log.Warn("ERROR on updating retail_price_vat on inventory_details: %v", err)
-			handleResponse(c, InternalError, "Failed to update retail_price")
-			return
-		}
-
-		handleResponse(c, OK, "UPDATED")
-		return
-	}
-
-	var res []domain.ImportDetail
-	// find import_detail row
-	err = h.db.Raw(`
-	SELECT 
-		import_details.*, 
-		p.unit_per_pack
-	FROM 
-		import_details
-	JOIN 
-		products p ON p.id = import_details.product_id
-	WHERE 
-		product_id = ? AND import_id = ? ORDER BY imported_at
-`, request.Id, inventoryID).Scan(&res).Error
-	if err != nil {
-		h.log.Warn("Failed to find import_detail row: %v", err)
-		handleResponse(c, InternalError, "Not found import detail row")
-		return
-	}
-
-	if len(res) == 0 {
-		handleResponse(c, NotFound, "No import detail rows found")
-		return
-	}
-
-	unitPerPack := res[0].UnitPerPack
-	if unitPerPack <= 0 {
-		handleResponse(c, BadRequest, "Invalid unit_per_pack value")
-		return
-	}
-
-	if request.FactQuantity == 0 && request.FactUnit == 0 {
-		h.log.Info("Resetting scanned_count - inventoryID: %s, productID: %s", inventoryID, request.Id)
-
-		err = h.db.Model(&domain.ImportDetail{}).
-			Where("import_id = ? AND product_id = ?", inventoryID, request.Id).
-			Update("scanned_count", 0).Error
-		if err != nil {
-			h.log.Warn("Error on updating scanned_count: %v", err)
-			handleResponse(c, InternalError, "Failed to update scanned_count")
-			return
-		}
-		handleResponse(c, OK, "Scanned count reset to zero")
-		return
-	}
-
-	// Calculate total fact as quantity + (unit / unitPerPack)
-	remainingFact := request.FactQuantity*float64(unitPerPack) + request.FactUnit
-	for i := 0; i < len(res); i++ {
-		if i == len(res)-1 {
-			res[i].ScannedCount = remainingFact
-		} else {
-			available := res[i].ReceivedCount
-			if remainingFact >= available {
-				res[i].ScannedCount = available
-				remainingFact -= available
-			} else {
-				res[i].ScannedCount = remainingFact
-				remainingFact = 0
-			}
-		}
-		// Update each row
-		err := h.db.Exec(`
-			UPDATE 
-				import_details
-			SET 
-				scanned_count = scanned_count+?
-			WHERE id = ?
-		`, res[i].ScannedCount, res[i].Id).Error
-		if err != nil {
-			h.log.Warn("Failed to update scanned_count: %v", err)
-			handleResponse(c, InternalError, "Failed to update scanned count")
-			return
-		}
 	}
 
 	handleResponse(c, OK, "UPDATED")

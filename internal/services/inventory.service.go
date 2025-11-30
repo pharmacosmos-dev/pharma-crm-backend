@@ -861,6 +861,144 @@ func (s *Services) setConfirmInventoryAmount(inventoryId string) {
 	}
 }
 
+func (s *Services) UpdateInventoryFactQuantity(ctx context.Context, request *domain.InventoryAddProduct, inventoryId string) error {
+
+	// update barcode and retail price
+	if request.Barcode != "" && request.RetailPrice > 0 {
+		err := s.updateInventoryBarcodeAndPrice(ctx, request, inventoryId)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	var tmp []struct {
+		Id            string  `gorm:"id"`
+		ScannedCount  float64 `gorm:"scanned_count"`
+		ReceivedCount float64 `gorm:"received_count"`
+		UnitPerPack   int     `gorm:"unit_per_pack"`
+	}
+	// find import_detail row
+	err := s.db.WithContext(ctx).Raw(`
+	SELECT
+		imd.id AS id,
+		imd.scanned_count AS scanned_count,
+		imd.received_count AS received_count,
+		p.unit_per_pack AS unit_per_pack
+	FROM import_details imd
+	JOIN products p ON p.id = imd.product_id
+	WHERE imd.product_id = ? AND imd.import_id = ? ORDER BY imd.imported_at`,
+		request.Id, inventoryId,
+	).Scan(&tmp).Error
+	if err != nil {
+		s.log.Errorf("could not find import_detail row: %v", err)
+		return domain.InternalServerError
+	}
+
+	if len(tmp) == 0 {
+		return domain.NotFoundError
+	}
+
+	unitPerPack := tmp[0].UnitPerPack
+	if unitPerPack <= 0 {
+		return domain.InvalidRequestBodyError
+	}
+
+	if request.FactQuantity == 0 && request.FactUnit == 0 {
+		s.log.Infof("Resetting scanned_count - inventoryId: %s, productId: %s", inventoryId, request.Id)
+		err = s.db.WithContext(ctx).Exec("UPDATE import_details SET scanned_count = ? WHERE import_id = ? AND product_id = ?", 0, inventoryId, request.Id).Error
+		if err != nil {
+			s.log.Errorf("Error on updating scanned_count: %v", err)
+			return domain.InternalServerError
+		}
+		return nil
+	}
+
+	// Calculate total fact as quantity + (unit / unitPerPack)
+	remainingFact := request.FactQuantity*float64(unitPerPack) + request.FactUnit
+	for i := 0; i < len(tmp); i++ {
+		if i == len(tmp)-1 {
+			tmp[i].ScannedCount = remainingFact
+		} else {
+			available := tmp[i].ReceivedCount
+			if remainingFact >= available {
+				tmp[i].ScannedCount = available
+				remainingFact -= available
+			} else {
+				tmp[i].ScannedCount = remainingFact
+				remainingFact = 0
+			}
+		}
+		// Update each row
+		err := s.db.WithContext(ctx).Exec(`
+			UPDATE import_details
+			SET scanned_count = scanned_count+?
+			WHERE id = ?
+		`, tmp[i].ScannedCount, tmp[i].Id).Error
+		if err != nil {
+			s.log.Errorf("could not update scanned_count: %v", err)
+			return domain.InternalServerError
+		}
+	}
+
+	return nil
+}
+
+func (s *Services) updateInventoryBarcodeAndPrice(ctx context.Context, request *domain.InventoryAddProduct, inventoryId string) error {
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	err := tx.WithContext(ctx).Exec("UPDATE products SET barcode = ? WHERE id = ?", request.Barcode, request.Id).Error
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("could not update product barcode: %v", err)
+		return domain.InternalServerError
+	}
+
+	err = tx.WithContext(ctx).Exec(`
+	INSERT INTO product_barcodes (
+				product_id, 
+				barcode, 
+				status
+				)
+    		SELECT 
+				?, ?, ?
+    		WHERE NOT EXISTS (
+    		    SELECT 1 FROM product_barcodes 
+    		    WHERE product_id = ? AND barcode = ? AND status = ?
+    		)
+	`,
+		request.Id,
+		request.Barcode,
+		constants.GeneralStatusCompleted,
+		request.Id,
+		request.Barcode,
+		constants.GeneralStatusCompleted,
+	).Error
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("could not insert product barcode: %v", err)
+		return domain.InternalServerError
+	}
+
+	err = tx.WithContext(ctx).Exec("UPDATE import_details SET retail_price_vat = ? WHERE retail_price_vat = 0 AND product_id = ? AND import_id = ?",
+		request.RetailPrice, request.Id, inventoryId).Error
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("could not update retail_price_vat on inventory_details: %v", err)
+		return domain.InternalServerError
+	}
+	if err := tx.Commit().Error; err != nil {
+		s.log.Errorf("could not commit inventory update barcode transaction: %v", err)
+		return domain.InternalServerError
+	}
+	return nil
+}
+
 // canceled inventory
 func (s *Services) CancelInventory(inventoryId string, userId string) error {
 	// start transaction
