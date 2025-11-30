@@ -312,7 +312,9 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 	if req.TaxFree {
 		sale = s.getSalePayAmounts(sale, req)
 		if sale.Stage < constants.SaleStagePayFinished {
-			err = s.Payment(ctx, tx, sale, nil)
+			payCtx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+			defer cancel()
+			err = s.Payment(payCtx, tx, sale, nil)
 			if err != nil {
 				_ = tx.Rollback()
 				return nil, err
@@ -670,7 +672,9 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 
 	// Stage 2: Handle Payment (stages 7-8)
 	if sale.Stage < constants.SaleStagePayFinished {
-		err = s.Payment(ctx, tx, sale, &fiscal)
+		payCtx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+		defer cancel()
+		err = s.Payment(payCtx, tx, sale, &fiscal)
 		if err != nil {
 			_ = tx.Rollback()
 			return nil, err
