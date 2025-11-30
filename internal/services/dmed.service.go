@@ -21,15 +21,14 @@ func (s *Services) GetPrescriptionsFromDMED(patientID, safeCode string) ([]domai
 		"safe_code":  safeCode,
 		"url":        url,
 	}
-	paylBytes, _ := json.Marshal(reqPayload)
-	id, _ := s.SaveDmedRequest(context.Background(), "GET-prescriptions", paylBytes)
+	id, _ := s.SaveDmedRequest(context.Background(), "GET-prescriptions", reqPayload)
 
 	respBody, err := s.doRequestToDMED("GET", url, nil)
 	if err != nil {
 		return nil, err
 	}
 	// save response payload
-	_ = s.SaveDmedResponse(context.Background(), id, respBody)
+	_ = s.SaveDmedResponse(context.Background(), id, respBody, 1)
 
 	var rawResp = domain.PrescriptionResponse{}
 	if err = json.Unmarshal(respBody, &rawResp); err != nil {
@@ -77,15 +76,14 @@ func (s *Services) DmedGiveReceipt(cartItems []domain.CartItemForDMED, markingDa
 				method = http.MethodPut
 			}
 
-			paylBytes, _ := json.Marshal(payload)
-			id, _ := s.SaveDmedRequest(context.Background(), method+action, paylBytes)
+			id, _ := s.SaveDmedRequest(context.Background(), method+action, payload)
 
 			res, err := s.doRequestToDMED(method, url, payload)
 			if err != nil {
 				s.log.Error("could not send dmed %s request: %v", action, err)
 				return fmt.Errorf("DMED %s failed: %w", action, err)
 			}
-			_ = s.SaveDmedResponse(context.Background(), id, res)
+			_ = s.SaveDmedResponse(context.Background(), id, res, 1)
 			j++
 		}
 	}
@@ -136,11 +134,18 @@ func (s *Services) doRequestToDMED(method, url string, data any) ([]byte, error)
 	return respBody, nil
 }
 
-func (s *Services) SaveDmedRequest(ctx context.Context, method string, payload []byte) (int, error) {
-	var id int
-	err := s.db.WithContext(ctx).Raw("INSERT INTO dmed_requests(payload, method) VALUES(?, ?) RETURNING id;",
-		payload, method,
-	).Scan(&id).Error
+func (s *Services) SaveDmedRequest(ctx context.Context, method string, payload map[string]any) (int64, error) {
+	payloadDb, err := json.Marshal(payload)
+	if err != nil {
+		s.log.Errorf("could not marshal dmed request payload: %v", err)
+		return 0, domain.InternalServerError
+	}
+
+	var id int64
+	err = s.db.WithContext(ctx).
+		Raw("INSERT INTO dmed_requests(payload, method) VALUES(?, ?) RETURNING id;",
+			payloadDb, method,
+		).Scan(&id).Error
 	if err != nil {
 		s.log.Errorf("could not save dmed request payload: %v", err)
 		return 0, domain.InternalServerError
@@ -149,9 +154,9 @@ func (s *Services) SaveDmedRequest(ctx context.Context, method string, payload [
 	return id, nil
 }
 
-func (s *Services) SaveDmedResponse(ctx context.Context, reqId int, response []byte) error {
-	err := s.db.WithContext(ctx).Raw("UPDATE dmed_requests SET response = ?, updated_at = NOW() WHERE id = ?;",
-		response, reqId,
+func (s *Services) SaveDmedResponse(ctx context.Context, reqId int64, response []byte, status int) error {
+	err := s.db.WithContext(ctx).Raw("UPDATE dmed_requests SET response = ?, status = ?, updated_at = NOW() WHERE id = ?;",
+		response, status, reqId,
 	).Error
 	if err != nil {
 		s.log.Errorf("could not save dmed response payload: %v", err)
