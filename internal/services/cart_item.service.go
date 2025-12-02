@@ -292,7 +292,7 @@ func (s *Services) GetCartItemsTotalAmount(ctx context.Context, tx *gorm.DB, sal
 }
 
 // check order product quantity and return collect cart_item
-func (s *Services) GetOrCheckOnlineCartItems(req []domain.OnlineCartItemRequest, saleID string) ([]domain.CartItemOnlineRequest, error) {
+func (s *Services) GetOrCheckOnlineCartItems(ctx context.Context, req []domain.OnlineCartItemRequest, saleId string) ([]domain.CartItemOnlineRequest, error) {
 	// store product get query
 	query := `
 	SELECT
@@ -316,13 +316,13 @@ func (s *Services) GetOrCheckOnlineCartItems(req []domain.OnlineCartItemRequest,
 		cartItems = []domain.CartItemOnlineRequest{} // cart item request structure
 	)
 	for i := range req {
-		err := s.db.Raw(query, req[i].Quantity, req[i].ProductId).Scan(&temp).Error
+		err := s.db.WithContext(ctx).Raw(query, req[i].Quantity, req[i].ProductId).Scan(&temp).Error
 		if err != nil {
-			s.log.Warn("ERROR getting store_product: %v", err)
+			s.log.Errorf("could not get store_product: %v", err)
 			return cartItems, errors.New("store_product.not.get")
 		}
 		if temp.Quantity < req[i].Quantity { // checking quantity enough or not enough
-			s.log.Warn("Noor Not enough product")
+			s.log.Warnf("Noor Not enough product: %v", strings.TrimSpace(temp.ProductName))
 			return cartItems, fmt.Errorf("not.enough.product: %s", temp.ProductName)
 		}
 		// quantity calculate:  req.quantity = order_quantity -> based on blister_count
@@ -332,13 +332,17 @@ func (s *Services) GetOrCheckOnlineCartItems(req []domain.OnlineCartItemRequest,
 		// cart_item.unit_quantity = order_quantity * (unit_per_pack/blister_count) = 2 * (50/5) = 20
 		quantity := (req[i].Quantity * (temp.UnitPerPack / temp.BlisterCount)) / temp.UnitPerPack
 		cartItems = append(cartItems, domain.CartItemOnlineRequest{
-			SaleId:         saleID,
-			StoreProductID: temp.ID,
+			SaleId:         saleId,
+			StoreProductId: temp.Id,
 			Quantity:       quantity,
 			UnitQuantity:   req[i].Quantity * (temp.UnitPerPack / temp.BlisterCount),
 			UnitPrice:      temp.RetailPrice,
 			TotalPrice:     (temp.RetailPrice / float64(temp.UnitPerPack)) * float64(req[i].Quantity*(temp.UnitPerPack/temp.BlisterCount)),
 		})
+	}
+
+	if len(cartItems) == 0 {
+		return nil, domain.NotEnoughProductError
 	}
 
 	return cartItems, nil

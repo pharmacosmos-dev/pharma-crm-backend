@@ -142,7 +142,7 @@ func (s *Services) CreateCustomer(ctx context.Context, req *domain.CustomerReque
 }
 
 // create new customer with phone and name
-func (s *Services) CreateCustomerWithPhone(req *domain.NoorClientInfo) (*domain.Customer, error) {
+func (s *Services) CreateCustomerWithPhone(ctx context.Context, req *domain.NoorClientInfo) (*domain.Customer, error) {
 	var res domain.Customer
 	query := `
 	INSERT INTO customers(
@@ -153,10 +153,10 @@ func (s *Services) CreateCustomerWithPhone(req *domain.NoorClientInfo) (*domain.
 	VALUES (?, ?, ?)
 	RETURNING *
 	`
-	err := s.db.Raw(query, req.Name, req.Name, req.Phone).Scan(&res).Error
+	err := s.db.WithContext(ctx).Raw(query, req.Name, req.Name, req.Phone).Scan(&res).Error
 	if err != nil {
-		s.log.Error(err)
-		return &res, err
+		s.log.Errorf("could not create customer with phone: %v", err)
+		return &res, domain.InternalServerError
 	}
 	return &res, nil
 }
@@ -387,11 +387,11 @@ func (s *Services) ListDiscountCards(ctx context.Context, params *domain.QueryPa
 }
 
 // get or create customer by existing phone
-func (s *Services) GetOrCreateCustomerByPhone(req *domain.NoorClientInfo) (*domain.Customer, error) {
+func (s *Services) GetOrCreateCustomerByPhone(ctx context.Context, req *domain.NoorClientInfo) (*domain.Customer, error) {
 	var customer *domain.Customer
 	req.Phone = utils.NormalizePhoneNumber(req.Phone)
 
-	err := s.db.First(&customer, "phone = ?", req.Phone).Error
+	err := s.db.WithContext(ctx).First(&customer, "phone = ?", req.Phone).Error
 
 	// If record found, return it
 	if err == nil {
@@ -400,12 +400,13 @@ func (s *Services) GetOrCreateCustomerByPhone(req *domain.NoorClientInfo) (*doma
 
 	// If record not found, create new customer
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return s.CreateCustomerWithPhone(req)
+		return s.CreateCustomerWithPhone(ctx, req)
 	}
 
 	// Any other database error
-	s.log.Warn("ERROR on getting customer info: %v", err)
-	return nil, err
+	s.log.Errorf("could not get customer on creating online sale: %v", err)
+
+	return nil, domain.InternalServerError
 }
 
 func (s *Services) CreateCustomerDiscountCard(ctx context.Context, req *domain.CreateDiscountCardRequest) (*domain.DiscountCard, error) {

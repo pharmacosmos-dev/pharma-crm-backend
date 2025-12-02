@@ -99,9 +99,9 @@ type StoreProductQueryParam struct {
 
 // storeProductOnlineItem
 type StoreProductOnline struct {
-	ID           string     `gorm:"id" json:"id"`
-	StoreID      string     `gorm:"store_id" json:"store_id"`
-	ProductID    string     `gorm:"product_id" json:"product_id"`
+	Id           string     `gorm:"id" json:"id"`
+	StoreId      string     `gorm:"store_id" json:"store_id"`
+	ProductId    string     `gorm:"product_id" json:"product_id"`
 	ProductName  string     `gorm:"product_name" json:"product_name"`
 	RetailPrice  float64    `gorm:"retail_price" json:"retail_price"`
 	PackQuantity int        `gorm:"pack_quantity" json:"pack_quantity"`

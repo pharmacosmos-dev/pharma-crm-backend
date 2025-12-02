@@ -809,24 +809,25 @@ func (h *SaleHandler) RemoveCustomerDiscount(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router 	/sale/online-accept [POST]
 func (h *SaleHandler) AcceptOnlineSale(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
+		return
+	}
 	var body domain.ConfirmOnlineSaleRequest
-	// bind request body
-	err := c.ShouldBindJSON(&body)
-	if err != nil {
-		handleResponse(c, BadRequest, "invalid.request.body")
+	if err := c.ShouldBindJSON(&body); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
-	// get user_id from the set header
-	userID, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, BadRequest, "user.not.found.header")
-		return
-	}
-	body.EmployeeID = userID.(string)
 
-	err = h.service.AcceptOnlineSale(&body)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	body.EmployeeId = user.UserId
+
+	err := h.service.AcceptOnlineSale(ctx, &body)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
@@ -846,24 +847,25 @@ func (h *SaleHandler) AcceptOnlineSale(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /sale/online-cancel [POST]
 func (h *SaleHandler) CancelOnlineSale(c *gin.Context) {
-	var body domain.ConfirmOnlineSaleRequest
-	// bind request body
-	err := c.ShouldBindJSON(&body)
-	if err != nil {
-		handleResponse(c, BadRequest, "invalid.request.body")
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
 		return
 	}
-	// get user_id from the set header
-	userID, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, BadRequest, "user.not.found.header")
-		return
-	}
-	body.EmployeeID = userID.(string)
 
-	err = h.service.CancelOnlineSale(&body)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	var body domain.ConfirmOnlineSaleRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+
+	body.EmployeeId = user.UserId
+	err := h.service.CancelOnlineSale(ctx, &body)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 	handleResponse(c, OK, "CANCELED")

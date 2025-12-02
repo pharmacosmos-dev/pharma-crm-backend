@@ -1,11 +1,13 @@
 package v1
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 )
 
 type NoorHandler struct {
@@ -203,43 +205,43 @@ func (h *NoorHandler) CategoryList(c *gin.Context) {
 // @Router 		/noor/order [post]
 func (h *NoorHandler) CreateOrder(c *gin.Context) {
 	var body domain.OnlineOrderRequest
-
 	// bind request body
-	err := c.ShouldBindJSON(&body)
-	if err != nil {
+	if err := c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(err)
-		handleResponseNoor(c, http.StatusBadRequest, "invalid.request.body")
+		handleServiceResponse(c, http.StatusBadRequest, domain.InvalidRequestBodyError)
 		return
 	}
 
-	// // create sale id
-	saleID := uuid.New().String()
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	// create sale id
+	saleId := uuid.New().String()
 
 	// checking product quantity and get collect cart_items
-	cartItems, err := h.service.GetOrCheckOnlineCartItems(body.Products, saleID)
+	cartItems, err := h.service.GetOrCheckOnlineCartItems(ctx, body.Products, saleId)
 	if err != nil {
-		handleResponseNoor(c, http.StatusBadRequest, err.Error())
+		handleServiceResponse(c, http.StatusBadRequest, err)
 		return
 	}
 
 	// create or get customer
-	customer, err := h.service.GetOrCreateCustomerByPhone(&body.ClientInfo)
+	customer, err := h.service.GetOrCreateCustomerByPhone(ctx, &body.ClientInfo)
 	if err != nil {
-		handleResponseNoor(c, http.StatusInternalServerError, "client.not.created.or.get")
+		handleServiceResponse(c, http.StatusInternalServerError, err)
 		return
 	}
 
 	// create online sale
-	res, err := h.service.CreateOnlineSale(saleID, body.ShopId, customer, cartItems)
+	res, err := h.service.CreateOnlineSale(ctx, saleId, body.ShopId, customer, cartItems)
 	if err != nil {
-		h.log.Error(err)
-		handleResponseNoor(c, http.StatusInternalServerError, err.Error())
+		handleServiceResponse(c, http.StatusInternalServerError, err)
 		return
 	}
 
 	go h.service.NotifyOnlineOrder(body.ShopId, res.SaleNumber)
 
-	handleResponseNoor(c, http.StatusOK, domain.OnlineOrderResponse{Message: "success", OrderID: res.SaleNumber})
+	handleResponseNoor(c, http.StatusOK, domain.OnlineOrderResponse{Message: "success", OrderId: res.SaleNumber})
 }
 
 func (h *NoorHandler) SendWSTestMessage(c *gin.Context) {

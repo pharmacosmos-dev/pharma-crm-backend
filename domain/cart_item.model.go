@@ -148,7 +148,7 @@ type CartItemR struct {
 // cart item create request for online sale
 type CartItemOnlineRequest struct {
 	SaleId         string  `gorm:"sale_id" json:"sale_id"`
-	StoreProductID string  `gorm:"store_product_id" json:"store_product_id"`
+	StoreProductId string  `gorm:"store_product_id" json:"store_product_id"`
 	Quantity       int     `gorm:"quantity" json:"-"`
 	UnitQuantity   int     `gorm:"unit_quantity" json:"-"`
 	UnitPrice      float64 `gorm:"unit_price" json:"-"`

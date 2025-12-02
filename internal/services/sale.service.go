@@ -155,24 +155,17 @@ func (s *Services) CreateReturnSale(ctx context.Context, req *domain.SaleReturnR
 }
 
 // create sale for online order
-func (s *Services) CreateOnlineSale(saleId string, storeID string, customer *domain.Customer, cartItems []domain.CartItemOnlineRequest) (*domain.Sale, error) {
-	var (
-		sale domain.Sale
-		err  error
-	)
+func (s *Services) CreateOnlineSale(ctx context.Context, saleId string, storeId string, customer *domain.Customer, cartItems []domain.CartItemOnlineRequest) (*domain.Sale, error) {
+	// start transaction
 	tx := s.db.Begin()
-	// Ensure the transaction is rolled back if any error occurs
 	defer func() {
-		if p := recover(); p != nil {
-			tx.Rollback()
-			panic(p)
-		} else if err != nil {
-			tx.Rollback()
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
 		}
 	}()
-
+	var sale domain.Sale
 	// create new sale
-	err = tx.Raw(`
+	err := tx.WithContext(ctx).Raw(`
 	INSERT INTO sales(
 		id,
 		store_id,
@@ -182,20 +175,29 @@ func (s *Services) CreateOnlineSale(saleId string, storeID string, customer *dom
 		customer_id
 		) 
 	VALUES(?, ?, ?, ?, ?, ?) RETURNING *`,
-		saleId, storeID, constants.SaleTypeOnline, constants.SaleOnlineStageNew, constants.ServiceTypeNoor, customer.Id).Scan(&sale).Error
+		saleId, storeId,
+		constants.SaleTypeOnline,
+		constants.SaleOnlineStageNew,
+		constants.ServiceTypeNoor,
+		customer.Id,
+	).Scan(&sale).Error
 	if err != nil {
-		return &sale, errors.New("not.created.new.order")
+		_ = tx.Rollback()
+		s.log.Errorf("could not create online sale: %v", err)
+		return &sale, domain.InternalServerError
 	}
 	// create cart_items
-	err = tx.Table("cart_items").Create(&cartItems).Error
+	err = tx.WithContext(ctx).Table("cart_items").Create(&cartItems).Error
 	if err != nil {
-		return &sale, errors.New("not.created.cart_items")
+		_ = tx.Rollback()
+		s.log.Errorf("could not create online sale cart_items: %v", err)
+		return &sale, domain.InternalServerError
 	}
 
-	err = tx.Commit().Error
-	if err != nil {
-		s.log.Error(err)
-		return &sale, err
+	// commit transaction
+	if err = tx.Commit().Error; err != nil {
+		s.log.Errorf("could not commit create online sale transaction: %v", err)
+		return &sale, domain.InternalServerError
 	}
 
 	return &sale, nil
@@ -1142,93 +1144,102 @@ func (s *Services) AttachDiscountCardToSale(ctx context.Context, req *domain.Add
 
 }
 
-func (s *Services) AcceptOnlineSale(req *domain.ConfirmOnlineSaleRequest) error {
-	var err error
+func (s *Services) AcceptOnlineSale(ctx context.Context, req *domain.ConfirmOnlineSaleRequest) error {
+	// start transaction
 	tx := s.db.Begin()
-	// Ensure the transaction is rolled back if any error occurs
 	defer func() {
-		if p := recover(); p != nil {
-			tx.Rollback()
-			panic(p)
-		} else if err != nil {
-			tx.Rollback()
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
 		}
 	}()
-	defer recoverTransaction(tx, s.log)
-	defer RollbackIfError(tx, &err)
+
 	var sale *domain.Sale
-	err = tx.First(&sale, "id = ?", req.SaleID).Error
+	err := tx.WithContext(ctx).First(&sale, "id = ?", req.SaleId).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("sale.not.found")
+			_ = tx.Rollback()
+			return domain.NotFoundError
 		}
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("could not get sale on accepting online sale: %v", err)
+		return domain.InternalServerError
 	}
 	// accepted online sale
-	err = tx.Exec(`
+	err = tx.WithContext(ctx).Exec(`
 	UPDATE 
 		sales
 	SET
 		cash_box_operation_id = ?,
 		cashbox_id = ?,
 		employee_id = ?,
-		online_status = ?
+		online_status = ?,
+		total_amount = (SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)
 	WHERE id = ?`,
-		req.CashBoxOperationID,
-		req.CashboxID,
-		req.EmployeeID,
+		req.CashBoxOperationId,
+		req.CashboxId,
+		req.EmployeeId,
 		constants.SaleOnlineStagePending,
-		req.SaleID).Error
+		req.SaleId,
+		req.SaleId,
+	).Error
 
 	if err != nil {
-		s.log.Warn("ERROR on getting online sale count: %v", err)
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("could not update online sale: %v", err)
+		return domain.InternalServerError
 	}
 	// Prepare Headers
 	headers := map[string]string{
 		"Authorization": fmt.Sprintf("Bearer %s", s.cfg.NoorApiToken),
-		"Content-Type":  "application/json",
+		"Content-Type":  constants.ContentTypeJson,
 	}
 	requestData, err := json.Marshal(gin.H{"order_id": sale.SaleNumber})
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("could not parse online sale response: %v", err)
+		return domain.InternalServerError
+	}
+
 	var response *http.Response
 	url := s.cfg.NoorApiUrl + fmt.Sprintf("/orders/vendor/%d/confirm", sale.SaleNumber)
-	err = s.DoRequest(&response, "PATCH", url, requestData, headers)
+	err = s.DoRequest(&response, http.MethodPatch, url, requestData, headers)
 	if err != nil {
-		s.log.Warn("ERROR on sending confirm request: %v", err)
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("could not send confirm request: %v", err)
+		return domain.InternalServerError
 	}
 	// complete transaction
-	err = tx.Commit().Error
-	if err != nil {
-		return err
+	if err := tx.Commit().Error; err != nil {
+		s.log.Errorf("could not commit accept online sale transaction: %v", err)
+		return domain.InternalServerError
 	}
 
 	return nil
 }
 
 // accept order
-func (s *Services) CancelOnlineSale(req *domain.ConfirmOnlineSaleRequest) error {
-	var err error
+func (s *Services) CancelOnlineSale(ctx context.Context, req *domain.ConfirmOnlineSaleRequest) error {
+	// start transaction
 	tx := s.db.Begin()
-	// Ensure the transaction is rolled back if any error occurs
 	defer func() {
-		if p := recover(); p != nil {
+		if r := recover(); r != nil {
 			_ = tx.Rollback()
 		}
 	}()
 
 	var sale *domain.Sale
-	err = tx.First(&sale, "id = ?", req.SaleID).Error
+	err := tx.WithContext(ctx).First(&sale, "id = ?", req.SaleId).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			_ = tx.Rollback()
-			return errors.New("sale.not.found")
+			return domain.NotFoundError
 		}
 		_ = tx.Rollback()
-		return err
+		s.log.Errorf("could not get sale on canceling online sale: %v", err)
+		return domain.InternalServerError
 	}
 	// accepted online sale
-	err = tx.Exec(`
+	err = tx.WithContext(ctx).Exec(`
 	UPDATE 
 		sales
 	SET
@@ -1237,39 +1248,41 @@ func (s *Services) CancelOnlineSale(req *domain.ConfirmOnlineSaleRequest) error 
 		employee_id = ?,
 		online_status = ?
 	WHERE id = ?`,
-		req.CashBoxOperationID,
-		req.CashboxID,
-		req.EmployeeID,
+		req.CashBoxOperationId,
+		req.CashboxId,
+		req.EmployeeId,
 		constants.SaleOnlineStageCanceled,
-		req.SaleID).Error
+		req.SaleId,
+	).Error
 
 	if err != nil {
 		_ = tx.Rollback()
-		s.log.Warn("ERROR on getting online sale count: %v", err)
-		return err
+		s.log.Errorf("could not update online sale on canceling: %v", err)
+		return domain.InternalServerError
 	}
 	// Prepare Headers
 	headers := map[string]string{
 		"Authorization": fmt.Sprintf("Bearer %s", s.cfg.NoorApiToken),
-		"Content-Type":  "application/json",
+		"Content-Type":  constants.ContentTypeJson,
 	}
 	requestData, err := json.Marshal(gin.H{"order_id": sale.SaleNumber})
 	if err != nil {
 		_ = tx.Rollback()
 		s.log.Errorf("could not parse online sale response: %v", err)
+		return domain.InternalServerError
 	}
 	var response *http.Response
 	url := s.cfg.NoorApiUrl + fmt.Sprintf("/orders/vendor/%d/cancel", sale.SaleNumber)
 	err = s.DoRequest(&response, "PATCH", url, requestData, headers)
 	if err != nil {
 		_ = tx.Rollback()
-		s.log.Warn("ERROR on sending confirm request: %v", err)
-		return err
+		s.log.Errorf("could not send cancel request: %v", err)
+		return domain.InternalServerError
 	}
-	// complete transaction
-	err = tx.Commit().Error
-	if err != nil {
-		return err
+	// commit transaction
+	if err = tx.Commit().Error; err != nil {
+		s.log.Errorf("could not commit cancel online sale transaction: %v", err)
+		return domain.InternalServerError
 	}
 
 	return nil
