@@ -221,6 +221,8 @@ func (s *Services) AddSomeImportedProductsToStore(ctx context.Context, tx *gorm.
 	// send fakt to 1C
 	go s.DoRequestOnec(context.Background(), reqFakt, constants.OnecPathPrihod)
 
+	go s.updateImportTotalsAfterConfirm(importData.Id)
+
 	return nil
 }
 
@@ -309,8 +311,32 @@ func (s *Services) AddAllProductsToStore(ctx context.Context, tx *gorm.DB, impor
 
 	// send fakt to 1C
 	go s.DoRequestOnec(context.Background(), reqFakt, constants.OnecPathPrihod)
-
+	go s.updateImportTotalsAfterConfirm(importData.Id)
 	return nil
+}
+
+func (s *Services) updateImportTotalsAfterConfirm(importId string) {
+	// update import totals
+	query := `
+	UPDATE imports
+            SET 
+                scanned_count = COALESCE((
+                    SELECT SUM(COALESCE(d.scanned_count, 0))
+                    FROM import_details d
+                    WHERE d.import_id = ?
+                ), 0),
+                scanned_sum = COALESCE((
+                    SELECT SUM(COALESCE(d.scanned_count, 0) * d.retail_price_vat)
+                    FROM import_details d
+                    WHERE d.import_id = ?
+                ), 0),
+                updated_at = NOW()
+            WHERE id = ?;`
+	err := s.db.Exec(query, importId, importId, importId).Error
+	if err != nil {
+		s.log.Error("could not update import totals after confirm: %v", err)
+		return
+	}
 }
 
 // update import details to cancel
