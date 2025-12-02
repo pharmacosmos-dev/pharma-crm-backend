@@ -429,7 +429,7 @@ func (s *Services) GetProductsByStores(ctx context.Context, params *domain.Produ
 		Group("s.id, s.name, p.id, p.name").
 		Order("s.name, p.name")
 	var res []domain.ProductData
-	err := qb.Limit(params.Limit).Offset(params.Offset).Find(&res).Error
+	err := qb.Limit(params.Limit).Offset(params.Offset).Debug().Find(&res).Error
 
 	if err != nil {
 		s.log.Errorf("could not get products list: %v", err)
