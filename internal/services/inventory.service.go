@@ -16,15 +16,15 @@ import (
 // Create inventory creates a new inventory
 func (s *Services) CreateInventory(ctx context.Context, req *domain.InventoryRequest) error {
 	var id string
-	// start transaction
-	tx := s.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			_ = tx.Rollback()
-		}
-	}()
+	// // start transaction
+	// tx := s.db.Begin()
+	// defer func() {
+	// 	if r := recover(); r != nil {
+	// 		_ = tx.Rollback()
+	// 	}
+	// }()
 	// insert inventory into inventories table
-	err := tx.WithContext(ctx).
+	err := s.db.WithContext(ctx).
 		Raw(`
 	INSERT INTO imports (
 		store_id, 
@@ -39,12 +39,12 @@ func (s *Services) CreateInventory(ctx context.Context, req *domain.InventoryReq
 			req.StoreId, req.Name, req.Type, req.CreatedBy, 2, time.Now(),
 		).Scan(&id).Error
 	if err != nil {
-		_ = tx.Rollback()
+		// _ = tx.Rollback()
 		s.log.Errorf("could not create inventory: %v", err)
 		return domain.InternalServerError
 	}
 	// insert all products (including those not in store_products)
-	err = tx.WithContext(ctx).Exec(`
+	err = s.db.WithContext(ctx).Exec(`
 		INSERT INTO import_details (
 			import_id, 
 			product_id, 
@@ -72,15 +72,15 @@ func (s *Services) CreateInventory(ctx context.Context, req *domain.InventoryReq
 			store_products sp ON sp.product_id = p.id and sp.store_id = ?
 		`, id, req.StoreId).Error
 	if err != nil {
-		_ = tx.Rollback()
+		// _ = tx.Rollback()
 		s.log.Errorf("could create inventory details: %v", err)
 		return domain.InternalServerError
 	}
-	// commit transaction
-	if err = tx.Commit().Error; err != nil {
-		s.log.Errorf("could not commit create inventory transaction: %v", err)
-		return domain.InternalServerError
-	}
+	// // commit transaction
+	// if err = tx.Commit().Error; err != nil {
+	// 	s.log.Errorf("could not commit create inventory transaction: %v", err)
+	// 	return domain.InternalServerError
+	// }
 
 	go s.setNewInventoryAmount(id)
 
