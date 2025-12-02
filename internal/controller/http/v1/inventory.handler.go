@@ -77,7 +77,7 @@ func (h *InventoryHandler) Create(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 	defer cancel()
 
 	inventoryRequest.CreatedBy = user.UserId
