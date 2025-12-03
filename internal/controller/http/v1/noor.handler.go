@@ -2,6 +2,8 @@ package v1
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -215,6 +217,9 @@ func (h *NoorHandler) CreateOrder(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
+	t, _ := json.Marshal(&body)
+	h.log.Info("Noor CreateOrder request: %s", string(t))
+
 	// create sale id
 	saleId := uuid.New().String()
 
@@ -238,6 +243,7 @@ func (h *NoorHandler) CreateOrder(c *gin.Context) {
 		handleServiceResponse(c, http.StatusInternalServerError, err)
 		return
 	}
+	fmt.Println("Noor create online sale: ", res.SaleNumber)
 
 	go h.service.NotifyOnlineOrder(body.ShopId, res.SaleNumber)
 
