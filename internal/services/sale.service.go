@@ -1171,15 +1171,9 @@ func (s *Services) AcceptOnlineSale(ctx context.Context, req *domain.ConfirmOnli
 	UPDATE 
 		sales
 	SET
-		cash_box_operation_id = ?,
-		cashbox_id = ?,
-		employee_id = ?,
 		online_status = ?,
 		total_amount = (SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)
 	WHERE id = ?`,
-		req.CashBoxOperationId,
-		req.CashboxId,
-		req.EmployeeId,
 		constants.SaleOnlineStagePending,
 		req.SaleId,
 		req.SaleId,
