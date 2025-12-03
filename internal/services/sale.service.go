@@ -2424,6 +2424,6 @@ func (s *Services) getSalePayAmounts(sale *domain.Sale, req *domain.FinalSale) *
 }
 
 func (s *Services) generateDisplayId() int {
-	displayId := utils.GenerateRandomValue(1000, 9999)
+	displayId := utils.GenerateRandomValue(10_000_000, 99_999_999)
 	return displayId
 }
