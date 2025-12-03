@@ -1189,16 +1189,16 @@ func (s *Services) AcceptOnlineSale(ctx context.Context, req *domain.ConfirmOnli
 		"Authorization": fmt.Sprintf("Bearer %s", s.cfg.NoorApiToken),
 		"Content-Type":  constants.ContentTypeJson,
 	}
-	requestData, err := json.Marshal(gin.H{"order_id": sale.SaleNumber})
-	if err != nil {
-		_ = tx.Rollback()
-		s.log.Errorf("could not parse online sale response: %v", err)
-		return domain.InternalServerError
-	}
+	// requestData, err := json.Marshal(gin.H{"order_id": sale.SaleNumber})
+	// if err != nil {
+	// 	_ = tx.Rollback()
+	// 	s.log.Errorf("could not parse online sale response: %v", err)
+	// 	return domain.InternalServerError
+	// }
 
 	var response *http.Response
 	url := s.cfg.NoorApiUrl + fmt.Sprintf("/orders/vendor/%d/confirm", sale.SaleNumber)
-	err = s.DoRequest(&response, http.MethodPatch, url, requestData, headers)
+	err = s.DoRequest(&response, http.MethodPatch, url, nil, headers)
 	if err != nil {
 		_ = tx.Rollback()
 		s.log.Errorf("could not send confirm request: %v", err)
