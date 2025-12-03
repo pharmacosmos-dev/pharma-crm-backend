@@ -172,14 +172,16 @@ func (s *Services) CreateOnlineSale(ctx context.Context, saleId string, storeId 
 		type,
 		online_status,
 		service_type,
-		customer_id
+		customer_id,
+		display_id
 		) 
-	VALUES(?, ?, ?, ?, ?, ?) RETURNING *`,
+	VALUES(?, ?, ?, ?, ?, ?, ?) RETURNING *`,
 		saleId, storeId,
 		constants.SaleTypeOnline,
 		constants.SaleOnlineStageNew,
 		constants.ServiceTypeNoor,
 		customer.Id,
+		s.generateDisplayId(),
 	).Scan(&sale).Error
 	if err != nil {
 		_ = tx.Rollback()
