@@ -457,6 +457,7 @@ func (s *Services) GetStoreAmountReport(ctx context.Context, params *domain.Repo
 			"SUM(sa.click) AS click",
 			"SUM(sa.payme) AS payme",
 			"SUM(sa.alif) AS alif",
+			"SUM(sa.uzum) AS uzum",
 			"SUM(sa.total_amount) AS total_amount",
 			"SUM(CASE WHEN sa.sale_type = 'RETURN' THEN sa.total_amount * (-1) ELSE 0 END) AS return_amount",
 			"SUM(sa.total_discount) AS discount_amount",
@@ -498,6 +499,8 @@ func (s *Services) ReportByStoreStats(ctx context.Context, params *domain.Report
 			"COUNT(*) FILTER (WHERE sa.payme != 0) AS total_payme_count",
 			"SUM(sa.alif) AS total_alif_sum",
 			"COUNT(*) FILTER (WHERE sa.alif != 0) AS total_alif_count",
+			"SUM(sa.uzum) AS total_uzum_sum",
+			"COUNT(*) FILTER (WHERE sa.uzum != 0) AS total_uzum_count",
 		).
 		Table("stores s").
 		Joins("JOIN sales sa ON sa.store_id = s.id")

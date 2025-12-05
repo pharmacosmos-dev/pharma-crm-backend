@@ -32,8 +32,10 @@ type Sale struct {
 	Uzcard             float64        `gorm:"uzcard" json:"uzcard"`
 	Payme              float64        `gorm:"payme" json:"payme"`
 	Alif               float64        `gorm:"alif" json:"alif"`
+	Uzum               float64        `gorm:"uzum" json:"uzum"`
 	LoyaltyCard        float64        `gorm:"loyalty_card" json:"loyalty_card"`
 	IsPaid             bool           `gorm:"is_paid" json:"is_paid"`
+	IsCorporate        bool           `gorm:"is_corporate" json:"is_corporate"`
 	OtpCode            string         `gorm:"otp_code" json:"otp_code"`
 	PaymentReceiptId   string         `gorm:"payment_receipt_id" json:"payment_receipt_id"`
 	CreatedAt          *time.Time     `gorm:"created_at" json:"created_at"`
@@ -90,6 +92,7 @@ type SaleResponse struct {
 	Click           float64    `gorm:"click" json:"click"`
 	Payme           float64    `gorm:"payme" json:"payme"`
 	Alif            float64    `gorm:"alif" json:"alif"`
+	Uzum            float64    `gorm:"uzum" json:"uzum"`
 	LoyaltyCard     float64    `gorm:"loyalty_card" json:"loyalty_card"`
 	ProductCount    float64    `gorm:"product_count" json:"product_count"`
 	Status          string     `gorm:"status" json:"status"`
@@ -105,6 +108,7 @@ type SaleResponse struct {
 	OtpCode         string     `gorm:"otp_code" json:"otp_code"`
 	IsSentToTax     string     `gorm:"is_sent_to_tax" json:"is_sent_to_tax"`
 	TaxFree         bool       `gorm:"tax_free" json:"tax_free"`
+	IsCorporate     bool       `gorm:"is_corporate" json:"is_corporate"`
 	CreatedAt       *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt       *time.Time `gorm:"updated_at" json:"updated_at"`
 	CompletedAt     *time.Time `gorm:"completed_at" json:"completed_at"`
@@ -157,6 +161,7 @@ type FinalSale struct {
 	ReturnAmount       float64            `gorm:"return_amount" json:"return_amount"`
 	LoyaltyCardBarcode string             `gorm:"loyalty_card_barcode" json:"loyalty_card_barcode"`
 	OtpCode            string             `gorm:"otp_code" json:"otp_code"`
+	IsCorporate        bool               `gorm:"is_corporate" json:"is_corporate"`
 	PaymentTypes       []FinalPaymentType `json:"payment_types"`
 	MarkingData        []MarkingData      `json:"marking_data"`
 	EposData           [][]EposItem       `json:"epos_data"`
@@ -226,6 +231,8 @@ type SaleStats struct {
 	TotalPaymeCount     int     `gorm:"total_payme_count" json:"total_payme_count"`
 	TotalAlifSum        float64 `gorm:"total_alif_sum" json:"total_alif_sum"`
 	TotalAlifCount      int     `gorm:"total_alif_count" json:"total_alif_count"`
+	TotalUzumSum        float64 `gorm:"total_uzum_sum" json:"total_uzum_sum"`
+	TotalUzumCount      int     `gorm:"total_uzum_count" json:"total_uzum_count"`
 	TotalCashbackSum    float64 `gorm:"total_cashback_sum" json:"total_cashback_sum"`
 	TotalCashbackCount  float64 `gorm:"total_cashback_count" json:"total_cashback_count"`
 	TotalProductCount   int64   `gorm:"total_product_count" json:"total_product_count"`

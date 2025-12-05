@@ -100,6 +100,7 @@ type StoreAmount struct {
 	Click          float64 `gorm:"click" json:"click"`
 	Payme          float64 `gorm:"payme" json:"payme"`
 	Alif           float64 `gorm:"alif" json:"alif"`
+	Uzum           float64 `gorm:"uzum" json:"uzum"`
 	ReturnAmount   float64 `gorm:"return_amount" json:"return_amount"`
 	TotalAmount    float64 `gorm:"total_amount" json:"total_amount"`
 	DiscountAmount float64 `gorm:"discount_amount" json:"discount_amount"`
@@ -125,6 +126,8 @@ type StoreReportStats struct {
 	TotalPaymeCount     int     `gorm:"total_payme_count" json:"total_payme_count"`
 	TotalAlifSum        float64 `gorm:"total_alif_sum" json:"total_alif_sum"`
 	TotalAlifCount      int     `gorm:"total_alif_count" json:"total_alif_count"`
+	TotalUzumCount      int     `gorm:"total_uzum_count" json:"total_uzum_count"`
+	TotalUzumSum        float64 `gorm:"total_uzum_sum" json:"total_uzum_sum"`
 	TotalCashbackSum    float64 `gorm:"total_cashback_sum" json:"total_cashback_sum"`
 	TotalCashbackCount  float64 `gorm:"total_cashback_count" json:"total_cashback_count"`
 	TotalProductCount   int64   `gorm:"total_product_count" json:"total_product_count"`

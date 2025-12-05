@@ -336,6 +336,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 			updates["return_amount"] = req.ReturnAmount
 			updates["stage"] = constants.SaleStagePayFinished
 			updates["updated_at"] = time.Now()
+			updates["is_corporate"] = req.IsCorporate
 
 			if req.LoyaltyCardBarcode != "" {
 				updates["cash_back"] = gorm.Expr(
@@ -380,6 +381,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 			updates["return_amount"] = req.ReturnAmount
 			updates["stage"] = constants.SaleStageOfdWaiting
 			updates["updated_at"] = time.Now()
+			updates["is_corporate"] = req.IsCorporate
 
 			if req.LoyaltyCardBarcode != "" {
 				updates["cash_back"] = gorm.Expr(
@@ -1396,6 +1398,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 		Click              float64    `gorm:"click"`
 		Payme              float64    `gorm:"payme"`
 		Alif               float64    `gorm:"alif"`
+		Uzum               float64    `gorm:"uzum"`
 		LoyaltyCard        float64    `gorm:"loyalty_card"`
 		IsDelivered        bool       `gorm:"is_delivered"`
 		TaxFree            bool       `gorm:"tax_free"`
@@ -1404,6 +1407,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 		OtpCode            string     `gorm:"otp_code"`
 		IsSentToTax        string     `gorm:"is_sent_to_tax"`
 		IsReturned         bool       `gorm:"is_returned"`
+		IsCorporate        bool       `gorm:"is_corporate"`
 		CashBack           float64    `gorm:"cash_back"`
 		CreatedAt          *time.Time `gorm:"created_at"`
 		UpdatedAt          *time.Time `gorm:"updated_at"`
@@ -1444,6 +1448,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 			"s.payme",
 			"s.click",
 			"s.alif",
+			"s.uzum",
 			"s.loyalty_card",
 			"s.status",
 			"s.stage",
@@ -1454,6 +1459,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 			"s.check_url",
 			"s.is_sent_to_tax",
 			"s.is_returned",
+			"s.is_corporate",
 			"s.cash_back",
 			"s.tax_free",
 			"s.otp_code",
@@ -1505,6 +1511,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 		Click:              tempSale.Click,
 		Payme:              tempSale.Payme,
 		Alif:               tempSale.Alif,
+		Uzum:               tempSale.Uzum,
 		LoyaltyCard:        tempSale.LoyaltyCard,
 		Status:             tempSale.Status,
 		Stage:              tempSale.Stage,
@@ -1515,6 +1522,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 		CheckUrl:           tempSale.CheckUrl,
 		IsSentToTax:        tempSale.IsSentToTax,
 		IsReturned:         tempSale.IsReturned,
+		IsCorporate:        tempSale.IsCorporate,
 		CashBack:           tempSale.CashBack,
 		TaxFree:            tempSale.TaxFree,
 		OtpCode:            tempSale.OtpCode,
@@ -1633,6 +1641,10 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 	if params.Alif {
 		qb = qb.Where("s.alif > 0")
 	}
+	if params.Uzum {
+		qb = qb.Where("s.uzum > 0")
+	}
+
 	if params.VendorId != "" {
 		qb = qb.Where("s.employee_id = ?", params.VendorId)
 	}
@@ -1671,6 +1683,9 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 	if params.SaleType != "" {
 		qb = qb.Where("s.sale_type = ?", params.SaleType)
 	}
+	if params.IsCorporate {
+		qb = qb.Where("s.is_corporate = TRUE")
+	}
 
 	// 1) get total count without (LIMIT/OFFSET)
 	if err := qb.Count(&totalCount).Error; err != nil {
@@ -1694,6 +1709,7 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 			"s.click",
 			"s.payme",
 			"s.alif",
+			"s.uzum",
 			"s.loyalty_card",
 			"s.cash_back",
 			"s.status",
@@ -1702,6 +1718,7 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 			"s.is_sent_to_tax",
 			"s.is_paid",
 			"s.is_returned",
+			"s.is_corporate",
 			"s.created_at",
 			"s.completed_at",
 			"em.full_name",
@@ -1754,6 +1771,8 @@ func (s *Services) GetSalesStats(ctx context.Context, params *domain.SaleQueryPa
 			"COUNT(*) FILTER (WHERE s.payme != 0) AS total_payme_count",
 			"SUM(s.alif) AS total_alif_sum",
 			"COUNT(*) FILTER (WHERE s.alif != 0) AS total_alif_count",
+			"SUM(s.uzum) AS total_uzum_sum",
+			"COUNT(*) FILTER (WHERE s.uzum != 0) AS total_uzum_count",
 		).Table("sales s").
 		Joins("JOIN stores st ON s.store_id = st.id")
 
@@ -1816,9 +1835,12 @@ func (s *Services) GetSalesStats(ctx context.Context, params *domain.SaleQueryPa
 	if params.SaleType != "" {
 		qb = qb.Where("s.sale_type = ?", params.SaleType)
 	}
+	if params.IsCorporate {
+		qb = qb.Where("s.is_corporate = TRUE")
+	}
 
 	var res domain.SaleStats
-	err := qb.Debug().Take(&res).Error
+	err := qb.Take(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get sale_stats: %v", err)
 		return nil, domain.InternalServerError
@@ -1930,11 +1952,13 @@ func (s *Services) GetSaleList(ctx context.Context, params *domain.SaleQueryPara
 			"s.click",
 			"s.payme",
 			"s.alif",
+			"s.uzum",
 			"s.status",
 			"s.check_url",
 			"s.fiscal_sign",
 			"s.is_sent_to_tax",
 			"s.is_returned",
+			"s.is_corporate",
 			"s.is_paid",
 			"s.created_at",
 			"s.completed_at",

@@ -696,6 +696,8 @@ func (s *Services) DashboardPayments(ctx context.Context, params *domain.Dashboa
 			"COUNT(1) FILTER (WHERE s.payme > 0) AS payme_count",
 			"SUM(s.alif) AS alif",
 			"COUNT(1) FILTER (WHERE s.alif > 0) AS alif_count",
+			"SUM(s.uzum) AS uzum",
+			"COUNT(1) FILTER (WHERE s.uzum > 0) AS uzum_count",
 		).
 		Table("sales s").
 		Where("s.stage IN(?)", constants.FinishedSaleStages).
@@ -723,6 +725,7 @@ func (s *Services) DashboardPayments(ctx context.Context, params *domain.Dashboa
 		ClickPrevius  float64 `gorm:"click_previus"`
 		PaymePrevius  float64 `gorm:"payme_previus"`
 		AlifPrevius   float64 `gorm:"alif_previus"`
+		UzumPrevius   float64 `gorm:"uzum_previus"`
 	}
 
 	qbPrev := s.db.WithContext(ctx).
@@ -733,6 +736,7 @@ func (s *Services) DashboardPayments(ctx context.Context, params *domain.Dashboa
 			"SUM(s.click) AS click_previus",
 			"SUM(s.payme) AS payme_previus",
 			"SUM(s.alif) AS alif_previus",
+			"SUM(s.uzum) AS uzum_previus",
 		).
 		Table("sales s").
 		Where("s.stage IN(?)", constants.FinishedSaleStages).
@@ -775,6 +779,10 @@ func (s *Services) DashboardPayments(ctx context.Context, params *domain.Dashboa
 	// alif
 	if tmpPreviues.AlifPrevius != 0 {
 		res.AlifPercent = math.Round((((res.Cash - tmpPreviues.AlifPrevius) * 100) / tmpPreviues.AlifPrevius) * 100)
+	}
+	// uzum
+	if tmpPreviues.UzumPrevius != 0 {
+		res.UzumPercent = math.Round((((res.Uzum - tmpPreviues.UzumPrevius) * 100) / tmpPreviues.UzumPrevius) * 100)
 	}
 
 	return &res, nil

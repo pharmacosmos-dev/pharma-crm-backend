@@ -47,4 +47,6 @@ type SaleQueryParams struct {
 	Click           bool    `form:"click"`
 	Payme           bool    `form:"payme"`
 	Alif            bool    `form:"alif"`
+	Uzum            bool    `form:"uzum"`
+	IsCorporate     bool    `form:"is_corporate"`
 }

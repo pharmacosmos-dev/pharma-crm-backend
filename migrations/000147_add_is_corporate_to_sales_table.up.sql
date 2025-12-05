@@ -1,0 +1,2 @@
+ALTER TABLE 
+    "sales" ADD COLUMN "is_corporate" BOOLEAN NOT NULL DEFAULT FALSE;
