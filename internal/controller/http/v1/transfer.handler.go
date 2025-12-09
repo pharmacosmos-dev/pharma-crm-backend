@@ -32,7 +32,7 @@ func (h *TransferHandler) TransferRoutes(r *gin.RouterGroup) {
 		transfer.POST("", h.Create)
 		transfer.POST("/send/:id", h.Send)
 		transfer.POST("/confirm/:id", h.Confirm)
-		transfer.POST("/send1c/:id", h.Send1C)
+		transfer.POST("/send1c/:id", h.SendOnec)
 		transfer.POST("/cancel/:id", h.Cancel)
 		transfer.GET("/:id", h.Get)
 		transfer.GET("/list", h.List)
@@ -568,7 +568,7 @@ func (h *TransferHandler) Confirm(c *gin.Context) {
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /transfer/send1c/{id} [POST]
-func (h *TransferHandler) Send1C(c *gin.Context) {
+func (h *TransferHandler) SendOnec(c *gin.Context) {
 	transferId := c.Param("id")
 	if transferId == "" {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
@@ -578,7 +578,7 @@ func (h *TransferHandler) Send1C(c *gin.Context) {
 	defer cancel()
 
 	// send transfer info to 1C
-	err := h.service.SendTransferTo1C(ctx, transferId)
+	err := h.service.SendTransferToOnec(ctx, transferId)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)
 		return
@@ -736,12 +736,11 @@ func (h *TransferHandler) ExportTransferDetailList(c *gin.Context) {
 // @Router /transfer/export-nakladnoy [GET]
 func (h *TransferHandler) ExportTransferNakladnoyPDF(c *gin.Context) {
 	var transferId = c.Query("transfer_id")
-	// validate transfer id
-	err := uuid.Validate(transferId)
-	if err != nil {
-		handleResponse(c, BadRequest, "invalid.transfer.id")
+	if transferId == "" {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 

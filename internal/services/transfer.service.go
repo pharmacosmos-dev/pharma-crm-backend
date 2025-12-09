@@ -566,7 +566,7 @@ func (s *Services) SendTransfer(ctx context.Context, returnId string, userId str
 	return nil
 }
 
-func (s *Services) SendTransferTo1C(ctx context.Context, transferId string) error {
+func (s *Services) SendTransferToOnec(ctx context.Context, transferId string) error {
 	var transfer domain.Transfer
 	err := s.db.WithContext(ctx).First(&transfer, "id = ?", transferId).Error
 	if err != nil {
@@ -578,7 +578,7 @@ func (s *Services) SendTransferTo1C(ctx context.Context, transferId string) erro
 	}
 
 	var details []domain.TransferDetail
-	err = s.db.Raw(`
+	err = s.db.WithContext(ctx).Raw(`
 	SELECT
 		td.id,
 		td.transfer_id,
@@ -609,21 +609,21 @@ func (s *Services) SendTransferTo1C(ctx context.Context, transferId string) erro
 		td.transfer_id = ? AND td.scanned_count > 0;
 	`, transferId).Scan(&details).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting transfer_detail list: %v", err)
+		s.log.Errorf("could not get transfer_detail list: %v", err)
 		return err
 	}
 
 	// get store info
 	var toStore, fromStore domain.Store
-	err = s.db.First(&toStore, "id = ?", transfer.ToStoreId).Error
+	err = s.db.WithContext(ctx).First(&toStore, "id = ?", transfer.ToStoreId).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting toStore info: %v", err)
+		s.log.Errorf("could not get toStore info: %v", err)
 		return err
 	}
 
-	err = s.db.First(&fromStore, "id = ?", transfer.FromStoreId).Error
+	err = s.db.WithContext(ctx).First(&fromStore, "id = ?", transfer.FromStoreId).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting fromStore info: %v", err)
+		s.log.Errorf("could not get fromStore info: %v", err)
 		return err
 	}
 
@@ -637,13 +637,13 @@ func (s *Services) SendTransferTo1C(ctx context.Context, transferId string) erro
 			Manufacturer:        v.ProducerCode,
 			ProductSeriesNumber: v.SerialNumber,
 			ExpireDate:          v.ExpireDate,
-			Quantity:            v.ReceivedCount,
+			Quantity:            v.AcceptedCount,
 			RetailPrice:         v.RetailPrice,
 			RetailPriceVat:      v.RetailPriceVat,
 			SupplyPrice:         v.SupplyPrice,
 			SupplyPriceVat:      v.SupplyPriceVat,
-			Sum:                 v.ScannedCount * v.RetailPrice,
-			SumVat:              v.ScannedCount * v.RetailPriceVat,
+			Sum:                 v.AcceptedCount * v.RetailPrice,
+			SumVat:              v.AcceptedCount * v.RetailPriceVat,
 		})
 	}
 
@@ -656,7 +656,7 @@ func (s *Services) SendTransferTo1C(ctx context.Context, transferId string) erro
 	data1C.AptekaOtkud.StoreCode = fromStore.StoreCode
 	err = s.DoRequestOnec(context.Background(), data1C, "/perekit")
 	if err != nil {
-		s.log.Warn("ERROR on sending to 1C: %v", err)
+		s.log.Errorf("could not send transfer to Onec: %v", err)
 		return err
 	}
 
@@ -797,13 +797,13 @@ func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userI
 			Manufacturer:        item.ProducerCode,
 			ProductSeriesNumber: item.SerialNumber,
 			ExpireDate:          item.ExpireDate,
-			Quantity:            item.ReceivedCount,
+			Quantity:            item.AcceptedCount,
 			RetailPrice:         item.RetailPrice, // vat bilan oddiysi almashgan
 			RetailPriceVat:      item.RetailPriceVat,
 			SupplyPrice:         item.SupplyPrice,
 			SupplyPriceVat:      item.SupplyPriceVat,
-			Sum:                 item.ScannedCount * item.RetailPrice,
-			SumVat:              item.ScannedCount * item.RetailPriceVat,
+			Sum:                 item.AcceptedCount * item.RetailPrice,
+			SumVat:              item.AcceptedCount * item.RetailPriceVat,
 		})
 	}
 	// get store info
