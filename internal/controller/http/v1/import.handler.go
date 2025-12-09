@@ -679,28 +679,30 @@ func (h *ImportHandler) UpdateImportDetail(c *gin.Context) {
 	var (
 		id   = c.Param("id")
 		body domain.ImportUpdateRequest
-		err  error
 	)
 	// validate uuid
-	if err = uuid.Validate(id); err != nil {
-		handleResponse(c, BadRequest, "Invalid id")
+	if err := uuid.Validate(id); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 	// bind request body
-	if err = c.ShouldBindJSON(&body); err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
+	if err := c.ShouldBindJSON(&body); err != nil {
+		h.log.Errorf("could not bind request body: %v", err)
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
 	// update scanned_count
-	err = h.db.
+	err := h.db.
 		WithContext(c.Request.Context()).
 		Table("import_details").
 		Where("id = ?", id).
-		Update("scanned_count", body.ScannedCount).Error
+		Updates(map[string]any{
+			"scanned_count":  body.ScannedCount,
+			"accepted_count": body.ScannedCount,
+		}).Error
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		h.log.Errorf("could not update import_details: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 	handleResponse(c, OK, "UPDATED")
