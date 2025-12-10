@@ -523,13 +523,6 @@ func (s *Services) SendReturn(ctx context.Context, returnId string, userId strin
 		return domain.InternalServerError
 	}
 
-	query2 := `DELETE FROM transfer_details WHERE expected_count = 0 AND transfer_id = ?;`
-	err = tx.WithContext(ctx).Exec(query2, returnId).Error
-	if err != nil {
-		_ = tx.Rollback()
-		s.log.Errorf("could not delete scanned 0 return details: %v", err)
-		return domain.InternalServerError
-	}
 	var details []domain.ReturnDetail
 	query3 := `
 		SELECT 
@@ -561,6 +554,18 @@ func (s *Services) SendReturn(ctx context.Context, returnId string, userId strin
 	// complete transaction
 	if err = tx.Commit().Error; err != nil {
 		s.log.Errorf("could not commit transaction: %v", err)
+		return domain.InternalServerError
+	}
+
+	go s.deleteReturnDetailByReturnId(returnId)
+
+	return nil
+}
+
+func (s *Services) deleteReturnDetailByReturnId(returnId string) error {
+	err := s.db.Exec("DELETE FROM transfer_details WHERE expected_count = 0 AND transfer_id = ?;", returnId).Error
+	if err != nil {
+		s.log.Errorf("could not delete scanned 0 return details: %v", err)
 		return domain.InternalServerError
 	}
 	return nil
