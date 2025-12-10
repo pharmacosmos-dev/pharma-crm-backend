@@ -617,6 +617,8 @@ definitions:
         type: array
       humo:
         type: number
+      is_corporate:
+        type: boolean
       loyalty_card:
         type: number
       loyalty_card_barcode:
@@ -6236,6 +6238,56 @@ paths:
       summary: Generate 1C token
       tags:
       - 1C token
+  /helper/add-categories:
+    post:
+      consumes:
+      - application/json
+      description: add categories
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: add categories
+      tags:
+      - helper
+  /helper/attach-category-to-products:
+    post:
+      consumes:
+      - application/json
+      description: attach category to products
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: attach category to products
+      tags:
+      - helper
   /helper/epos:
     post:
       consumes:

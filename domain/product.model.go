@@ -162,6 +162,7 @@ type ProductQueryParam struct {
 	CompanyId       string   `form:"company_id"`
 	ProducerId      string   `form:"producer_id"`
 	ImportId        string   `form:"import_id"`
+	CategoryId      string   `form:"category_id"`
 	SearchField     string   `form:"search"`
 	SupplyPriceFrom float64  `form:"supply_price_from"`
 	SupplyPriceTo   float64  `form:"supply_price_to"`

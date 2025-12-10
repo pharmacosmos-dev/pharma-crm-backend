@@ -53,6 +53,8 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		helper.POST("/update-product-info", h.UpdateProductInfo)
 		helper.POST("/update-wrong-items", h.UpdateSaleItems)
 		helper.GET("/get-dmed-token", h.GetDmedToken)
+		helper.POST("/add-categories", h.AddCategories)
+		helper.POST("/attach-category-to-products", h.AttachCategoryToProducts)
 	}
 }
 
@@ -1476,6 +1478,146 @@ func (h *HelperHandler) GetDmedToken(c *gin.Context) {
 		"dmed_token": h.cfg.DmedApiToken,
 		"new_token":  newToken,
 	})
+}
+
+// AddCategories godoc
+// @Summary add categories
+// @Description add categories
+// @Tags helper
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /helper/add-categories [POST]
+func (h *HelperHandler) AddCategories(c *gin.Context) {
+	// read categories from json file
+	filePath := "./app/uploads/categories.json"
+	fileData, err := os.ReadFile(filePath)
+	if err != nil {
+		h.log.Errorf("Failed to read categories file: %v", err)
+		handleResponse(c, InternalError, "Failed to read categories file")
+		return
+	}
+
+	type TempName struct {
+		Kr string `json:"kr"`
+		Ru string `json:"ru"`
+		Uz string `json:"uz"`
+	}
+
+	var tmpCategories []struct {
+		UId       string   `json:"uid"`
+		ParentUid *string  `json:"parent_uid"`
+		Name      TempName `json:"name"`
+	}
+
+	type Categories struct {
+		Id         string  `json:"uid" gorm:"id"`
+		CategoryId *string `json:"parent_uid" gorm:"category_id"`
+		Name       string  `json:"name_ru" gorm:"name"`
+		NameUz     string  `json:"name_uz" gorm:"name_uz"`
+		NameKr     string  `json:"name_kr" gorm:"name_kr"`
+		NameEn     string  `json:"name_en" gorm:"name_en"`
+	}
+
+	err = json.Unmarshal(fileData, &tmpCategories)
+	if err != nil {
+		h.log.Errorf("Failed to unmarshal categories: %v", err)
+		handleResponse(c, InternalError, "Failed to parse categories data")
+		return
+	}
+
+	var parentCategories []Categories
+	for _, cat := range tmpCategories {
+		if cat.ParentUid == nil {
+			parentCategories = append(parentCategories, Categories{
+				Id:         cat.UId,
+				CategoryId: cat.ParentUid,
+				Name:       cat.Name.Ru,
+				NameUz:     cat.Name.Uz,
+				NameKr:     cat.Name.Kr,
+				NameEn:     cat.Name.Uz,
+			})
+		}
+	}
+
+	err = h.db.Table("categories").Create(&parentCategories).Error
+	if err != nil {
+		h.log.Errorf("Failed to insert parent categories: %v", err)
+		handleResponse(c, InternalError, "Failed to insert parent categories")
+		return
+	}
+
+	var childCategories []Categories
+	for _, cat := range tmpCategories {
+		if cat.ParentUid != nil {
+			childCategories = append(childCategories, Categories{
+				Id:         cat.UId,
+				CategoryId: cat.ParentUid,
+				Name:       cat.Name.Ru,
+				NameUz:     cat.Name.Uz,
+				NameKr:     cat.Name.Kr,
+				NameEn:     cat.Name.Uz,
+			})
+		}
+	}
+
+	// Insert categories into database
+	err = h.db.Table("categories").Create(&childCategories).Error
+	if err != nil {
+		h.log.Errorf("Failed to insert categories: %v", err)
+		handleResponse(c, InternalError, "Failed to insert child categories")
+		return
+	}
+
+	handleResponse(c, OK, fmt.Sprintf("Successfully added %d categories", len(parentCategories)+len(childCategories)))
+}
+
+// AttachCategoryToProducts godoc
+// @Summary attach category to products
+// @Description attach category to products
+// @Tags helper
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /helper/attach-category-to-products [POST]
+func (h *HelperHandler) AttachCategoryToProducts(c *gin.Context) {
+	// read categories from json file
+	filePath := "./app/uploads/category_products.json"
+	fileData, err := os.ReadFile(filePath)
+	if err != nil {
+		h.log.Errorf("Failed to read categories file: %v", err)
+		handleResponse(c, InternalError, "Failed to read categories file")
+		return
+	}
+
+	var products []struct {
+		Id          string `json:"id"`
+		Name        string `json:"name"`
+		CategoryUid string `json:"category_uid"`
+	}
+
+	err = json.Unmarshal(fileData, &products)
+	if err != nil {
+		h.log.Errorf("Failed to unmarshal categories: %v", err)
+		handleResponse(c, InternalError, "Failed to parse categories data")
+		return
+	}
+
+	// Update products with category IDs
+	for _, prod := range products {
+		err = h.db.Exec("UPDATE products SET category_id = ? WHERE id = ?", prod.CategoryUid, prod.Id).Error
+		if err != nil {
+			h.log.Errorf("Failed to update product %s: %v", prod.Id, err)
+		}
+	}
+
+	handleResponse(c, OK, fmt.Sprintf("Successfully added %d products", len(products)))
 }
 
 func (h *HelperHandler) processExcel(c *gin.Context, savePath string) {

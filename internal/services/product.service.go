@@ -300,8 +300,9 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 		Table("products p").
 		Joins(storeJoin).
 		Joins("LEFT JOIN producers pr ON p.producer_id = pr.id").
+		Joins("LEFT JOIN categories c ON p.category_id = c.id").
 		Joins("LEFT JOIN product_barcodes pb ON p.id = pb.product_id AND pb.status = ?", constants.GeneralStatusCompleted).
-		Group("p.id, pr.id, sp_agg.total_quantity, sp_agg.min_expire_date, sp_agg.supply_price, sp_agg.retail_price")
+		Group("p.id, pr.id, c.id, sp_agg.total_quantity, sp_agg.min_expire_date, sp_agg.supply_price, sp_agg.retail_price")
 
 	if params.ProducerId != "" {
 		qb = qb.Where("p.producer_id = ?", params.ProducerId)
@@ -332,6 +333,9 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 		case "imminent":
 			qb = qb.Where("sp_agg.min_expire_date BETWEEN ? AND ?", now, now.AddDate(0, 3, 0)).Having("sp_agg.total_quantity > 0")
 		}
+	}
+	if params.CategoryId != "" {
+		qb = qb.Where("p.category_id = ?", params.CategoryId)
 	}
 
 	if err := qb.Count(&totalCount).Error; err != nil {
@@ -370,6 +374,7 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 
 		"pr.name AS manufacturer",
 		"ARRAY_AGG(pb.barcode) FILTER (WHERE pb.barcode IS NOT NULL) AS barcodes",
+		"c.name AS category_name",
 
 		"COALESCE(sp_agg.total_quantity, 0) AS unit_quantity",
 		"sp_agg.min_expire_date AS expire_date",
