@@ -1245,12 +1245,12 @@ func (s *Services) ProductListForArzon(ctx context.Context, storeId string) ([]d
 	return res, nil
 }
 
-func (s *Services) GetProductIDByCode(code int64) (string, error) {
+func (s *Services) GetProductIdByCode(ctx context.Context, code int64) (string, error) {
 	var id string
-	err := s.db.Raw(`SELECT id FROM products WHERE material_code = ?`, code).Scan(&id).Error
+	err := s.db.WithContext(ctx).Raw(`SELECT id FROM products WHERE material_code = ?`, code).Scan(&id).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting product_id by material_code: %v", err)
-		return id, err
+		s.log.Errorf("could not get product_id by material_code: %v", err)
+		return id, domain.InternalServerError
 	}
 	return id, nil
 }
@@ -1821,12 +1821,12 @@ func (s *Services) UpdateProductIsMarking(req *domain.UpdateIsMarking) error {
 	return nil
 }
 
-func (s *Services) UpdateRetailPrice(id string, newPrice float64) error {
+func (s *Services) UpdateRetailPrice(ctx context.Context, tx *gorm.DB, id string, newPrice float64) error {
 	// update retail price
-	err := s.db.Exec(`UPDATE store_products SET retail_price = ? WHERE id = ?`, newPrice, id).Error
+	err := tx.WithContext(ctx).Exec(`UPDATE store_products SET retail_price = ? WHERE id = ?`, newPrice, id).Error
 	if err != nil {
-		s.log.Warn("ERROR on updating store_product retail_price: %v", err)
-		return err
+		s.log.Errorf("could not update store_product retail_price: %v", err)
+		return domain.InternalServerError
 	}
 	return nil
 }

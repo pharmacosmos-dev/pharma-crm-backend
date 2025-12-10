@@ -64,8 +64,8 @@ type PriceRevalutionDetail struct {
 // price revalution detail request
 type PriceRevalutionDetailRequest struct {
 	PriceRevalutionId int     `gorm:"price_revalution_id" json:"price_revalution_id"`
-	ProductID         string  `gorm:"product_id" json:"product_id"`
-	StoreProductID    string  `gorm:"store_product_id" json:"store_product_id"`
+	ProductId         string  `gorm:"product_id" json:"product_id"`
+	StoreProductId    string  `gorm:"store_product_id" json:"store_product_id"`
 	OldRetailPrice    float64 `gorm:"old_retail_price" json:"old_retail_price"`
 	NewRetailPrice    float64 `gorm:"new_retail_price" json:"new_retail_price"`
 	OldSupplyPrice    float64 `gorm:"old_supply_price" json:"old_supply_price"`

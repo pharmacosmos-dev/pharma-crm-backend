@@ -137,9 +137,9 @@ func (s *Services) CreateRepricing(ctx context.Context, req *domain.RepricingReq
 }
 
 // create price_revalution by 1C
-func (s *Services) CreateRepricingBy1C(tx *gorm.DB, req *domain.RepricingRequest) (*domain.PriceRevalution, error) {
+func (s *Services) CreateRepricingByOnec(ctx context.Context, tx *gorm.DB, req *domain.RepricingRequest) (*domain.PriceRevalution, error) {
 	var res domain.PriceRevalution
-	err := tx.Raw(`INSERT INTO price_revalutions(store_id, name, type, created_by, status) VALUES(?, ?, ?, ?, ?) RETURNING *`,
+	err := tx.WithContext(ctx).Raw(`INSERT INTO price_revalutions(store_id, name, type, created_by, status) VALUES(?, ?, ?, ?, ?) RETURNING *`,
 		req.StoreId, req.Name, req.Type, req.CreatedBy, req.Status).Scan(&res).Error
 	if err != nil {
 		s.log.Errorf("could not create price_revalution: %v", err)
@@ -171,8 +171,8 @@ func (s *Services) CreatePriceRevalutionDetail(ctx context.Context, tx *gorm.DB,
 		err := tx.WithContext(ctx).
 			Exec(query,
 				v.PriceRevalutionId,
-				v.StoreProductID,
-				v.ProductID,
+				v.StoreProductId,
+				v.ProductId,
 				v.OldSupplyPrice,
 				v.OldRetailPrice,
 				v.NewRetailPrice,

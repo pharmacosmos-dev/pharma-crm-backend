@@ -88,7 +88,10 @@ func (h *ProductOnecHandler) ListProductByStoreCode(c *gin.Context) {
 		materialCode = c.Query("material_code")
 	)
 
-	query := h.db.
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	query := h.db.WithContext(ctx).
 		Table("store_products sp").
 		Select(
 			"sp.id",
@@ -125,16 +128,16 @@ func (h *ProductOnecHandler) ListProductByStoreCode(c *gin.Context) {
 			handleResponse(c, InternalError, err.Error())
 			return
 		}
-		productID, err := h.service.GetProductIDByCode(code)
+		productID, err := h.service.GetProductIdByCode(ctx, code)
 		if err != nil {
-			handleResponse(c, InternalError, err.Error())
+			handleServiceResponse(c, InternalError, err)
 			return
 		}
 		query = query.Where("sp.product_id = ?", productID)
 	}
 
 	var res []domain.OnecProductRes
-	err := query.Find(&res).Error
+	err := query.WithContext(ctx).Find(&res).Error
 	if err != nil {
 		h.log.Errorf("could not get product list: %v", err)
 		handleServiceResponse(c, InternalError, domain.InternalServerError)
@@ -166,9 +169,11 @@ func (h *ProductOnecHandler) ProductRepricing(c *gin.Context) {
 		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 
 	// get store info
-	err := h.db.First(&store, "store_code = ?", body.Apteka.StoreCode).Error
+	err := h.db.WithContext(ctx).First(&store, "store_code = ?", body.Apteka.StoreCode).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			handleServiceResponse(c, NotFound, domain.NotFoundError)
@@ -185,9 +190,6 @@ func (h *ProductOnecHandler) ProductRepricing(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-	defer cancel()
-
 	// start transaction
 	tx := h.db.Begin()
 	defer func() {
@@ -198,11 +200,11 @@ func (h *ProductOnecHandler) ProductRepricing(c *gin.Context) {
 
 	// check if price revalution already exists
 	var res *domain.PriceRevalution
-	err = tx.First(&res, "name = ? ", body.Dok.DocumentNumber).Error
+	err = tx.WithContext(ctx).First(&res, "name = ? ", body.Dok.DocumentNumber).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			// create new price revalution
-			res, err = h.service.CreateRepricingBy1C(tx, &domain.RepricingRequest{
+			res, err = h.service.CreateRepricingByOnec(ctx, tx, &domain.RepricingRequest{
 				Name:      body.Dok.DocumentNumber,
 				StoreId:   store.Id,
 				CreatedBy: nil,
@@ -215,10 +217,11 @@ func (h *ProductOnecHandler) ProductRepricing(c *gin.Context) {
 				handleServiceResponse(c, InternalError, domain.NotFoundError)
 				return
 			}
+		} else if err != nil {
+			_ = tx.Rollback()
+			handleServiceResponse(c, InternalError, domain.InternalServerError)
+			return
 		}
-		_ = tx.Rollback()
-		handleServiceResponse(c, InternalError, domain.InternalServerError)
-		return
 	}
 
 	// collect price revalution details
@@ -226,15 +229,14 @@ func (h *ProductOnecHandler) ProductRepricing(c *gin.Context) {
 	for _, v := range body.Товары {
 		// get product_id by material_code
 		var productId string
-		productId, err = h.service.GetProductIDByCode(int64(v.MaterialCode))
+		productId, err = h.service.GetProductIdByCode(ctx, int64(v.MaterialCode))
 		if err != nil {
 			_ = tx.Rollback()
-			h.log.Errorf("could not get product_id by material_code: %v", err)
 			handleServiceResponse(c, nil, domain.NotFoundError)
 			return
 		}
 		// update retail price by store_product id
-		err = h.service.UpdateRetailPrice(v.Id, v.NewRetailPrice)
+		err = h.service.UpdateRetailPrice(ctx, tx, v.Id, v.NewRetailPrice)
 		if err != nil {
 			_ = tx.Rollback()
 			h.log.Errorf("could not update retail_price: %v", err)
@@ -244,8 +246,8 @@ func (h *ProductOnecHandler) ProductRepricing(c *gin.Context) {
 		// collect detail data
 		products = append(products, domain.PriceRevalutionDetailRequest{
 			PriceRevalutionId: res.Id,
-			ProductID:         productId,
-			StoreProductID:    v.Id,
+			ProductId:         productId,
+			StoreProductId:    v.Id,
 			OldRetailPrice:    v.RetailPrice,
 			NewRetailPrice:    v.NewRetailPrice,
 			OldSupplyPrice:    v.SupplyPrice,
@@ -342,7 +344,7 @@ func (h *ProductOnecHandler) MultiProductRepricing(c *gin.Context) {
 	for _, aptekaReq := range body.Aptekas {
 		// get store info
 		var store domain.Store
-		if err := tx.First(&store, "store_code = ?", aptekaReq.Apteka.StoreCode).Error; err != nil {
+		if err := tx.WithContext(ctx).First(&store, "store_code = ?", aptekaReq.Apteka.StoreCode).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				_ = tx.Rollback()
 				handleServiceResponse(c, NotFound, domain.NotFoundError)
@@ -360,11 +362,11 @@ func (h *ProductOnecHandler) MultiProductRepricing(c *gin.Context) {
 
 		// check if price revalution already exists
 		var res *domain.PriceRevalution
-		err := tx.First(&res, "name = ? AND store_id = ?", body.Dok.DocumentNumber, store.Id).Error
+		err := tx.WithContext(ctx).First(&res, "name = ? AND store_id = ?", body.Dok.DocumentNumber, store.Id).Error
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				// create new price revalution for this store
-				res, err = h.service.CreateRepricingBy1C(tx, &domain.RepricingRequest{
+				res, err = h.service.CreateRepricingByOnec(ctx, tx, &domain.RepricingRequest{
 					Name:      body.Dok.DocumentNumber,
 					StoreId:   store.Id,
 					CreatedBy: nil,
@@ -385,7 +387,7 @@ func (h *ProductOnecHandler) MultiProductRepricing(c *gin.Context) {
 		for _, v := range aptekaReq.Товары {
 			// get product_id by material_code
 			var productId string
-			productId, err = h.service.GetProductIDByCode(int64(v.MaterialCode))
+			productId, err = h.service.GetProductIdByCode(ctx, int64(v.MaterialCode))
 			if err != nil {
 				_ = tx.Rollback()
 				h.log.Errorf("could not get product_id: %v", err)
@@ -394,7 +396,7 @@ func (h *ProductOnecHandler) MultiProductRepricing(c *gin.Context) {
 			}
 
 			// update retail price
-			if err = h.service.UpdateRetailPrice(v.Id, v.NewRetailPrice); err != nil {
+			if err = h.service.UpdateRetailPrice(ctx, tx, v.Id, v.NewRetailPrice); err != nil {
 				_ = tx.Rollback()
 				h.log.Errorf("could not update retail_price: %v", err)
 				handleServiceResponse(c, InternalError, domain.InternalServerError)
@@ -403,8 +405,8 @@ func (h *ProductOnecHandler) MultiProductRepricing(c *gin.Context) {
 
 			products = append(products, domain.PriceRevalutionDetailRequest{
 				PriceRevalutionId: res.Id,
-				ProductID:         productId,
-				StoreProductID:    v.Id,
+				ProductId:         productId,
+				StoreProductId:    v.Id,
 				OldRetailPrice:    v.RetailPrice,
 				NewRetailPrice:    v.NewRetailPrice,
 				OldSupplyPrice:    v.SupplyPrice,
