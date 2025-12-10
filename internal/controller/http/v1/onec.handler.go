@@ -87,12 +87,26 @@ func (h *ProductOnecHandler) ListProductByStoreCode(c *gin.Context) {
 		storeCode    = c.Query("store_code")
 		materialCode = c.Query("material_code")
 	)
+	// parse limit and offset
+	limitStr := c.DefaultQuery("limit", "10000000")
+	offsetStr := c.DefaultQuery("offset", "0")
+
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	offset, err := strconv.Atoi(offsetStr)
+	if err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
 	query := h.db.WithContext(ctx).
-		Table("store_products sp").
 		Select(
 			"sp.id",
 			"p.material_code",
@@ -101,13 +115,14 @@ func (h *ProductOnecHandler) ListProductByStoreCode(c *gin.Context) {
 			"s.store_code",
 			"p.barcode",
 			"COALESCE(pr.code, '') as manufacturer",
-			"ROUND(sp.pack_quantity::numeric + (sp.unit_quantity::numeric % p.unit_per_pack)/p.unit_per_pack, 4) as quantity",
+			"ROUND(sp.unit_quantity::numeric/p.unit_per_pack, 4) as quantity",
 			"sp.serial_number",
 			"COALESCE(sp.expire_date, '3000-01-01') AS expire_date",
 			"sp.retail_price",
 			"sp.supply_price",
-			"ROUND((sp.pack_quantity::numeric + (sp.unit_quantity::numeric % p.unit_per_pack)/p.unit_per_pack) * retail_price, 2) AS sum",
+			"ROUND((sp.unit_quantity::numeric/p.unit_per_pack) * retail_price, 2) AS sum",
 		).
+		Table("store_products sp").
 		Joins("JOIN products p ON sp.product_id = p.id").
 		Joins("JOIN stores s ON sp.store_id = s.id").
 		Joins("LEFT JOIN producers pr ON p.producer_id = pr.id").
@@ -116,7 +131,7 @@ func (h *ProductOnecHandler) ListProductByStoreCode(c *gin.Context) {
 	if storeCode != "" {
 		store, err := h.service.GetStoreByField("store_code", storeCode)
 		if err != nil {
-			handleResponse(c, InternalError, err.Error())
+			handleServiceResponse(c, InternalError, domain.InternalServerError)
 			return
 		}
 		query = query.Where("sp.store_id = ?", store.Id)
@@ -125,19 +140,19 @@ func (h *ProductOnecHandler) ListProductByStoreCode(c *gin.Context) {
 	if materialCode != "" {
 		code, err := strconv.ParseInt(materialCode, 10, 64)
 		if err != nil {
-			handleResponse(c, InternalError, err.Error())
+			handleServiceResponse(c, InternalError, domain.InvalidQueryError)
 			return
 		}
-		productID, err := h.service.GetProductIdByCode(ctx, code)
+		productId, err := h.service.GetProductIdByCode(ctx, code)
 		if err != nil {
 			handleServiceResponse(c, InternalError, err)
 			return
 		}
-		query = query.Where("sp.product_id = ?", productID)
+		query = query.Where("sp.product_id = ?", productId)
 	}
 
 	var res []domain.OnecProductRes
-	err := query.WithContext(ctx).Find(&res).Error
+	err = query.WithContext(ctx).Limit(limit).Offset(offset).Find(&res).Error
 	if err != nil {
 		h.log.Errorf("could not get product list: %v", err)
 		handleServiceResponse(c, InternalError, domain.InternalServerError)

@@ -41,12 +41,12 @@ func (s *Services) GetStoreByField(field string, value string) (*domain.Store, e
 	err := s.db.Raw(query, value).Scan(&store).Error
 	// check if store is found
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, errors.New("store.not.found")
+		return nil, domain.NotFoundError
 	}
 	// handle error
 	if err != nil {
-		s.log.Error("Error on getting store info: %w", err)
-		return nil, errors.New("internal.server.error")
+		s.log.Errorf("could not get store info by field: %v", err)
+		return nil, domain.InternalServerError
 	}
 	return &store, nil
 }
