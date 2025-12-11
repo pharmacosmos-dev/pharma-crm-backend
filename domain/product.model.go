@@ -390,9 +390,12 @@ type NoorQueryParam struct {
 }
 
 type NoorCategory struct {
-	ID       string `gorm:"id" json:"id"`
-	Name     string `gorm:"name" json:"name"`
-	ParentID string `gorm:"parent_id" json:"parent_id"`
+	Id       string `gorm:"id" json:"id"`
+	NameUz   string `gorm:"name_uz" json:"name_uz"`
+	NameRu   string `gorm:"name_ru" json:"name_ru"`
+	NameEn   string `gorm:"name_en" json:"name_en"`
+	NameKr   string `gorm:"name_kr" json:"name_kr"`
+	ParentId string `gorm:"parent_id" json:"parent_id"`
 	Photo    string `gorm:"photo" json:"photo"`
 }
 
