@@ -568,13 +568,18 @@ func (h *RepricingHandler) ExportListDetail(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /repricing/new-price/{id} [POST]
 func (h *RepricingHandler) AddRetailPrice(c *gin.Context) {
-	var (
-		body domain.UpdateNewPrice
-		err  error
-	)
+	var body domain.UpdateNewPrice
 	// bind request body
-	if err = c.ShouldBindJSON(&body); err != nil {
-		handleResponse(c, BadRequest, "invalid.request.body")
+	if err := c.ShouldBindJSON(&body); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+	// get repricing id from path
+	repricingId := c.Param("id")
+	if repricingId == "" {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 
@@ -586,61 +591,42 @@ func (h *RepricingHandler) AddRetailPrice(c *gin.Context) {
 		}
 	}()
 
-	if body.Percent > 0 {
-		if body.Id != "" { // faqat bitta id bo‘yicha update
-			query := `
+	if body.Percent > 0 && repricingId != "" {
+		query := `
 				UPDATE price_revalution_details
 				SET 
 					new_retail_price = ROUND(old_supply_price * (1 + ?/100.00), -2), 
 					updated_at = NOW()
-				WHERE id = ?
+				WHERE price_revalution_id = ?
 			`
-			err = tx.Exec(query, body.Percent, body.Id).Error
-			if err != nil {
-				_ = tx.Rollback()
-				handleResponse(c, BadRequest, "could.not.update.retail.price")
-				return
-			}
-		} else { // agar id yo‘q bo‘lsa -> hammasini update
-			query := `
-				UPDATE price_revalution_details
-				SET 
-					new_retail_price = ROUND(old_supply_price * (1 + ?/100.00), -2), 
-					updated_at = NOW()
-			`
-			err = tx.Exec(query, body.Percent).Error
-			if err != nil {
-				_ = tx.Rollback()
-				handleResponse(c, BadRequest, "could.not.update.retail.price")
-				return
-			}
-		}
+		err := tx.WithContext(ctx).Exec(query, body.Percent, repricingId).Error
 		if err != nil {
 			_ = tx.Rollback()
-			handleResponse(c, BadRequest, "could.not.update.retail.price")
+			h.log.Errorf("could not update multiple product price: %v", err)
+			handleResponse(c, BadRequest, domain.InternalServerError)
 			return
 		}
 	} else if body.NewRetailPrice > 0 && body.Id != "" {
-		// faqat id bo‘lsa va qiymat berilsa update qilamiz
 		query := `
 			UPDATE price_revalution_details
 			SET new_retail_price = ?, updated_at = NOW()
 			WHERE id = ?
 		`
-		err = tx.Exec(query, body.NewRetailPrice, body.Id).Error
+		err := tx.WithContext(ctx).Exec(query, body.NewRetailPrice, body.Id).Error
 		if err != nil {
 			_ = tx.Rollback()
-			handleResponse(c, BadRequest, "could.not.update.retail.price")
+			handleServiceResponse(c, BadRequest, domain.InternalServerError)
 			return
 		}
 	} else {
 		_ = tx.Rollback()
-		handleResponse(c, BadRequest, "invalid.price.value")
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
 
-	if err = tx.Commit().Error; err != nil {
-		handleResponse(c, InternalError, "not.completed.transaction")
+	if err := tx.Commit().Error; err != nil {
+		h.log.Errorf("could not commit new repricing transaction: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 
