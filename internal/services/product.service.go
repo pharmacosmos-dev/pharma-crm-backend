@@ -910,27 +910,30 @@ func (s *Services) GetNoorProducts(param *domain.NoorQueryParam) ([]domain.NoorP
 		p.description_uz,
 		p.description_ru,
 		p.description_kr,
-		ARRAY_AGG(cp.category_id) FILTER (WHERE cp.category_id IS NOT NULL) AS categories
+		p.category_id
 	FROM
 		products p
-	LEFT JOIN
-		category_products cp ON cp.product_id = p.id
-	GROUP BY
-		p.id
 	LIMIT ? OFFSET ?;
 `
 	err := s.db.Raw(query, param.Limit, param.Offset).Scan(&res).Error
 	if err != nil {
-		s.log.Error("ERROR on listing noor products: %v", err)
+		s.log.Errorf("could not get products for noor: %v", err)
 		return res, err
 	}
 
 	return res, nil
 }
 
-func (s *Services) GetNoorStoreProducts(param *domain.NoorQueryParam) ([]domain.NoorStoreProduct, error) {
-	var res []domain.NoorStoreProduct
+func (s *Services) GetNoorStoreProducts(params *domain.NoorQueryParam) ([]domain.NoorStoreProduct, error) {
+	if _, err := time.Parse(time.RFC3339, params.UpdatedAt); err != nil {
+		s.log.Errorf("could not parse updated_at param: %v", err)
+		return nil, &domain.Error{
+			Code:    domain.InvalidTimeFormatError.Code,
+			Message: "",
+		}
+	}
 
+	var res []domain.NoorStoreProduct
 	query := `
 	SELECT
 		sp.store_id,
@@ -944,10 +947,10 @@ func (s *Services) GetNoorStoreProducts(param *domain.NoorQueryParam) ([]domain.
 	LIMIT ? OFFSET ?;
 	`
 	// execute query
-	err := s.db.Raw(query, param.UpdatedAt, param.Limit, param.Offset).Scan(&res).Error
+	err := s.db.Raw(query, params.UpdatedAt, params.Limit, params.Offset).Scan(&res).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting noor store_products: %v", err)
-		return res, err
+		s.log.Errorf("could not get store_products for noor: %v", err)
+		return res, domain.InternalServerError
 	}
 
 	return res, nil

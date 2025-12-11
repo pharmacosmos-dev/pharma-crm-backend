@@ -82,20 +82,17 @@ func (h *NoorHandler) ProductList(c *gin.Context) {
 // @Failure 	500 {object} v1.IntegrationErrorResponse
 // @Router 		/noor/store-product/list 	[GET]
 func (h *NoorHandler) StoreProductList(c *gin.Context) {
-	var param domain.NoorQueryParam
-
+	var params domain.NoorQueryParam
 	// bind query param
-	err := c.ShouldBindQuery(&param)
-	if err != nil {
-		h.log.Warn("ERROR on binding noor query param: %v", err)
-		handleResponseNoor(c, http.StatusBadRequest, "invalied.query.param")
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, http.StatusBadRequest, domain.InvalidQueryError)
 		return
 	}
 
 	// get store products info
-	res, err := h.service.GetNoorStoreProducts(&param)
+	res, err := h.service.GetNoorStoreProducts(&params)
 	if err != nil {
-		handleResponseNoor(c, http.StatusInternalServerError, err.Error())
+		handleServiceResponse(c, http.StatusInternalServerError, err)
 		return
 	}
 
