@@ -1953,6 +1953,19 @@ func (s *Services) UpdatePackaging(ctx context.Context, req *domain.UpdatePackag
 		return err
 	}
 
+	err = tx.WithContext(ctx).Exec(`
+	UPDATE cart_items ci
+	SET unit_quantity = ci.unit_quantity * ?
+	FROM store_products sp
+	WHERE ci.store_product_id = sp.id
+	AND sp.product_id = ?
+		`, req.UnitPerPack, req.ProductId).Error
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("could not recalc cart_items.unit_quantity with unit_per_pack: %v", err)
+		return domain.InternalServerError
+	}
+
 	// 4. Commit transaction
 	if err = tx.Commit().Error; err != nil {
 		s.log.Errorf("could not commit update packaging transaction: %v", err)
