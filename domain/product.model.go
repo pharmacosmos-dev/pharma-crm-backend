@@ -448,3 +448,20 @@ type GenerateOnecTokenRequest struct {
 type GenerateOnecTokenResponse struct {
 	Token string `json:"token"`
 }
+
+type MovementUnitsResponse struct {
+	ProductId           string `gorm:"product_id" json:"product_id"`
+	StoreProductId      string `gorm:"store_product_id" json:"store_product_id"`
+	StoreId             string `gorm:"store_id" json:"store_id"`
+	Name                string `gorm:"name" json:"name"`
+	UnitPerPack         int    `gorm:"unit_per_pack" json:"unit_per_pack"`
+	UnitQuantity        int    `gorm:"unit_quantity" json:"unit_quantity"`
+	ImportQuantity      int    `gorm:"import_quantity" json:"import_quantity"`
+	SoldQuantity        int    `gorm:"sold_quantity" json:"sold_quantity"`
+	ReturnedQuantity    int    `gorm:"returned_quantity" json:"returned_quantity"`
+	VozvratQuantity     int    `gorm:"vozvrat_quantity" json:"vozvrat_quantity"`
+	TransferInQuantity  int    `gorm:"transfer_in_quantity" json:"transfer_in_quantity"`
+	TransferOutQuantity int    `gorm:"transfer_out_quantity" json:"transfer_out_quantity"`
+	CorrectQuantity     int    `gorm:"correct_quantity" json:"correct_quantity"`
+	Diff                int    `gorm:"diff" json:"diff"`
+}

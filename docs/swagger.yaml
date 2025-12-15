@@ -10616,6 +10616,90 @@ paths:
       summary: Update min max product
       tags:
       - products
+  /product/movement-units:
+    get:
+      consumes:
+      - application/json
+      description: Get a product from the request body
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: store_id
+        in: query
+        name: store_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a product
+      tags:
+      - products
+  /product/movement-units-export:
+    get:
+      consumes:
+      - application/json
+      description: Get a product from the request body
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: store_id
+        in: query
+        name: store_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get a product
+      tags:
+      - products
   /product/photo-alert:
     post:
       consumes:
@@ -11151,6 +11235,42 @@ paths:
       security:
       - BearerAuth: []
       summary: Update Mxik by product import
+      tags:
+      - products
+  /product/update-ostatok/{store_product_id}:
+    put:
+      consumes:
+      - application/json
+      description: Get a product from the request body
+      parameters:
+      - description: store_product_id
+        in: path
+        name: store_product_id
+        required: true
+        type: string
+      - description: Correct quantity
+        in: query
+        name: quantity
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update store_product unit
       tags:
       - products
   /product/update-packaging:

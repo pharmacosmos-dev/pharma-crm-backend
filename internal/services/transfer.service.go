@@ -762,7 +762,7 @@ func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userI
 		// return unscanned product to store
 		err = tx.WithContext(ctx).Exec(`
 		UPDATE store_products 
-		SET 
+		SET
 			unit_quantity = unit_quantity + ?
 		WHERE id = ?`,
 			(item.ScannedCount-item.AcceptedCount)*float64(item.UnitPerPack),

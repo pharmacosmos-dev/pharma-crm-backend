@@ -2073,3 +2073,135 @@ func (s *Services) DeleteProductPhotoAlert(id string) error {
 	}
 	return nil
 }
+
+func (s *Services) GetProductMovementUnits(ctx context.Context, params *domain.ProductQueryParam) ([]domain.MovementUnitsResponse, error) {
+	query := `
+	WITH import_data AS (
+		SELECT
+			sp.id AS store_product_id,
+			SUM(imd.received_count * p.unit_per_pack) AS received_count,
+			SUM(ROUND(COALESCE(imd.scanned_count * p.unit_per_pack, 0))) AS scanned_count
+		FROM store_products sp
+		JOIN import_details imd ON sp.import_detail_id = imd.id
+		JOIN products p ON p.id = imd.product_id
+		JOIN imports im ON im.id = imd.import_id
+		WHERE sp.store_id = ? AND im.status = 'completed'
+		GROUP BY sp.id
+	),
+	sold AS (
+		SELECT
+			sp.id AS store_product_id,
+			SUM(ci.unit_quantity) AS sold_quantity
+		FROM store_products sp
+		JOIN cart_items ci ON ci.store_product_id = sp.id
+		JOIN sales s ON s.id = ci.sale_id
+		WHERE sp.store_id = ? AND s.stage = 9 AND s.sale_type = 'SALE'
+		GROUP BY sp.id
+	),
+	return_sales AS (
+		SELECT
+			sp.id AS store_product_id,
+			SUM(ci.unit_quantity) AS sold_quantity
+		FROM store_products sp
+		JOIN cart_items ci ON ci.store_product_id = sp.id
+		JOIN sales s ON s.id = ci.sale_id
+		WHERE sp.store_id = ? AND s.stage = 11 AND s.sale_type = 'RETURN'
+		GROUP BY sp.id
+	),
+	transfer_in AS (
+		SELECT
+			sp.id AS store_product_id,
+			SUM(td.received_count * p.unit_per_pack) AS received_count,
+			SUM(COALESCE(td.scanned_count * p.unit_per_pack, 0)) AS scanned_count
+		FROM store_products sp
+		JOIN transfer_details td ON td.id = sp.import_detail_id
+		JOIN products p ON p.id = td.product_id
+		JOIN transfers t ON t.id = td.transfer_id
+		WHERE sp.store_id = ? AND t.to_store_id = ? AND t.status = 'completed'
+		GROUP BY sp.id
+	),
+	transfer_out AS (
+		SELECT
+			sp.id AS store_product_id,
+			SUM(td.received_count * p.unit_per_pack) AS received_count,
+			SUM(COALESCE(td.accepted_count * p.unit_per_pack, 0)) AS scanned_count
+		FROM store_products sp
+		JOIN transfer_details td ON td.store_product_id = sp.id
+		JOIN products p ON p.id = td.product_id
+		JOIN transfers t ON t.id = td.transfer_id
+		WHERE sp.store_id = ? AND t.entry_type = 1 AND t.status = 'completed'
+		GROUP BY sp.id
+	),
+	vozvrat AS (
+		SELECT
+			sp.id AS store_product_id,
+			SUM(td.received_count * p.unit_per_pack) AS received_count,
+			SUM(COALESCE(td.accepted_count * p.unit_per_pack, 0)) AS scanned_count
+		FROM store_products sp
+		JOIN transfer_details td ON td.store_product_id = sp.id
+		JOIN products p ON p.id = td.product_id
+		JOIN transfers t ON t.id = td.transfer_id
+		WHERE sp.store_id = ? AND t.entry_type = 2
+		GROUP BY sp.id
+	)
+	SELECT
+	p.id                                  AS product_id,
+	sp.id                                 AS store_product_id,
+	p.material_code                       AS ID,
+	p.name,
+	p.unit_per_pack,
+	COALESCE(im.scanned_count, 0)         AS import_quantity,
+	COALESCE(sp.unit_quantity, 0)         AS unit_quantity,
+	COALESCE(s.sold_quantity, 0)          AS sold_quantity,
+	COALESCE(rs.sold_quantity, 0)         AS returned_quantity,
+	COALESCE(tin.scanned_count, 0)        AS transfer_in_quantity,
+	COALESCE(tout.scanned_count, 0)       AS transfer_out_quantity,
+	COALESCE(v.scanned_count, 0)          AS vozvrat_quantity,
+	COALESCE(im.scanned_count, 0) + COALESCE(rs.sold_quantity, 0) + COALESCE(tin.scanned_count, 0) -
+	COALESCE(s.sold_quantity, 0) - COALESCE(tout.scanned_count, 0) - COALESCE(v.scanned_count, 0) AS correct_quantity,
+	COALESCE(im.scanned_count, 0) + COALESCE(rs.sold_quantity, 0) + COALESCE(tin.scanned_count, 0) -
+	COALESCE(s.sold_quantity, 0) - COALESCE(tout.scanned_count, 0) - COALESCE(v.scanned_count, 0) - COALESCE(sp.unit_quantity, 0) AS diff
+	FROM store_products sp
+	JOIN products p ON sp.product_id = p.id
+	LEFT JOIN import_data im ON im.store_product_id = sp.id
+	LEFT JOIN sold s ON s.store_product_id = sp.id
+	LEFT JOIN transfer_in tin ON tin.store_product_id = sp.id
+	LEFT JOIN transfer_out tout ON tout.store_product_id = sp.id
+	LEFT JOIN vozvrat v ON v.store_product_id = sp.id
+	LEFT JOIN return_sales rs ON rs.store_product_id = sp.id
+	WHERE sp.store_id = ?
+	ORDER BY sp.created_at DESC`
+	if params.Limit > 0 {
+		query += fmt.Sprintf(" LIMIT %d OFFSET %d", params.Limit, params.Offset)
+	}
+
+	var res []domain.MovementUnitsResponse
+
+	// Pass store_id 8 times for all placeholders
+	err := s.db.WithContext(ctx).Raw(query,
+		params.StoreId, // import_data CTE
+		params.StoreId, // sold CTE
+		params.StoreId, // return_sales CTE
+		params.StoreId, // transfer_in CTE (sp.store_id)
+		params.StoreId, // transfer_in CTE (t.to_store_id)
+		params.StoreId, // transfer_out CTE
+		params.StoreId, // vozvrat CTE
+		params.StoreId, // main query WHERE
+	).Scan(&res).Error
+
+	if err != nil {
+		s.log.Errorf("could not get movement_units: %v", err)
+		return res, domain.InternalServerError
+	}
+
+	return res, nil
+}
+
+func (s *Services) UpdateStoreProductOstatok(ctx context.Context, storeProductId string, quantity int64) error {
+	err := s.db.WithContext(ctx).Exec("UPDATE store_products SET unit_quantity = ? WHERE id = ?", quantity, storeProductId).Error
+	if err != nil {
+		s.log.Errorf("could not update store_products ostatok: %v", err)
+		return domain.InternalServerError
+	}
+	return nil
+}

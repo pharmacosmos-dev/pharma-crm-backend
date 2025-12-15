@@ -80,6 +80,9 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.POST("/photo-alert/list", h.ListProductPhotoAlert)
 		product.DELETE("/photo-alert/:id", h.DeleteProductPhotoAlert)
 		product.GET("/:id/dashboard", h.SingleProductDashboard)
+		product.GET("/movement-units", h.GetMovementUnits)
+		product.GET("/movement-units-export", h.ExportMovementUnits)
+		product.PUT("/update-ostatok/:store_product_id", h.UpdateOstatok)
 	}
 }
 
@@ -2748,4 +2751,189 @@ func (h *ProductHandler) SingleProductDashboard(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, resp)
+}
+
+// Get godoc
+// @Summary Get a product
+// @Description Get a product from the request body
+// @Tags products
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param limit  query int false "Limit"
+// @Param offset query int false "Offset"
+// @Param search query string false "Search"
+// @Param store_id query string false "store_id"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/movement-units [GET]
+func (h *ProductHandler) GetMovementUnits(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.ProductQueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
+	}
+
+	// Pagination parameters
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, err := h.service.GetProductMovementUnits(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, res)
+}
+
+// Get godoc
+// @Summary Get a product
+// @Description Get a product from the request body
+// @Tags products
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param limit  query int false "Limit"
+// @Param offset query int false "Offset"
+// @Param search query string false "Search"
+// @Param store_id query string false "store_id"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/movement-units-export [GET]
+func (h *ProductHandler) ExportMovementUnits(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.ProductQueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
+	}
+
+	// Pagination parameters
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, err := h.service.GetProductMovementUnits(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	// Create excel file
+	f := excelize.NewFile()
+
+	sheetName := "List1"
+
+	f.SetSheetName("Sheet1", sheetName)
+
+	// Headerlar
+	headers := []string{
+		"Товары ID", "По-Импорт-ID", "Наименования", "№",
+		"Остаток", "Импорт Кол-во", "Продано Кол-во",
+		"Возврат От клиент Кол-во", "Возврат склад Кол-во",
+		"Трансфер-In", "Трансфер-Out", "Фиксированное Кол-во", "Разница"}
+
+	err = setExcelHeaders(f, sheetName, headers)
+	if err != nil {
+		h.log.Errorf("Failed to create style: %v", err)
+		handleServiceResponse(c, nil, domain.InternalServerError)
+		return
+	}
+
+	// Ma'lumotlarni qo'shish
+	for i, product := range res {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheetName, "A"+row, product.ProductId)
+		f.SetCellValue(sheetName, "B"+row, product.StoreProductId)
+		f.SetCellValue(sheetName, "C"+row, product.Name)
+		f.SetCellValue(sheetName, "D"+row, product.UnitPerPack)
+		f.SetCellValue(sheetName, "E"+row, product.UnitQuantity)
+		f.SetCellValue(sheetName, "F"+row, product.ImportQuantity)
+		f.SetCellValue(sheetName, "G"+row, product.SoldQuantity)
+		f.SetCellValue(sheetName, "H"+row, product.ReturnedQuantity)
+		f.SetCellValue(sheetName, "I"+row, product.VozvratQuantity)
+		f.SetCellValue(sheetName, "J"+row, product.TransferInQuantity)
+		f.SetCellValue(sheetName, "K"+row, product.TransferOutQuantity)
+		f.SetCellValue(sheetName, "J"+row, product.CorrectQuantity)
+		f.SetCellValue(sheetName, "L"+row, product.Diff)
+	}
+
+	saveExcelToUploads(c, f, *h.log, "product-full-movements")
+}
+
+// UpdateOstatok godoc
+// @Summary Update store_product unit
+// @Description Get a product from the request body
+// @Tags products
+// @Security     BearerAuth
+// @Accept  json
+// @Produce json
+// @Param   store_product_id path string true "store_product_id"
+// @Param   quantity query int true "Correct quantity"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product/update-ostatok/{store_product_id} [PUT]
+func (h *ProductHandler) UpdateOstatok(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	storeProductId := c.Param("store_product_id")
+	if storeProductId == "" {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+
+	qtyStr := c.Query("quantity")
+	quantity, err := strconv.ParseInt(qtyStr, 10, 64)
+	if err != nil {
+		h.log.Errorf("could not parse quantity in update ostatok: %v", err)
+		handleServiceResponse(c, nil, domain.InvalidRequestBodyError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	err = h.service.UpdateStoreProductOstatok(ctx, storeProductId, quantity)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, "UPDATED")
 }
