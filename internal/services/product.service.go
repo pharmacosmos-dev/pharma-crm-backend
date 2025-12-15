@@ -1796,11 +1796,8 @@ LEFT JOIN imventory_quantity imq ON true
 		}
 	}
 
-	fmt.Println(query)
-	fmt.Println(args...)
-
 	// Execute query
-	err := s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
+	err := s.db.WithContext(ctx).Debug().Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get single product dashboard: %v", err)
 		return res, err

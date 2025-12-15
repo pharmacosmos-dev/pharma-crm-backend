@@ -856,7 +856,13 @@ definitions:
     properties:
       id:
         type: string
-      name:
+      name_en:
+        type: string
+      name_kr:
+        type: string
+      name_ru:
+        type: string
+      name_uz:
         type: string
       parent_id:
         type: string
@@ -872,10 +878,8 @@ definitions:
     type: object
   domain.NoorProduct:
     properties:
-      categories:
-        items:
-          type: string
-        type: array
+      category_id:
+        type: string
       description:
         type: string
       description_kr:
@@ -9582,10 +9586,22 @@ paths:
       - application/json
       description: Get single product dashboard
       parameters:
-      - description: product ID
+      - description: product Id
         in: path
         name: id
         required: true
+        type: string
+      - description: Start date in format YYYY-MM-DD
+        in: query
+        name: start_date
+        type: string
+      - description: End date in format YYYY-MM-DD
+        in: query
+        name: end_date
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
         type: string
       produces:
       - application/json

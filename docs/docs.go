@@ -14599,10 +14599,28 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "product ID",
+                        "description": "product Id",
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Start date in format YYYY-MM-DD",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End date in format YYYY-MM-DD",
+                        "name": "end_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Store ID",
+                        "name": "store_id",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -25917,7 +25935,16 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
-                "name": {
+                "name_en": {
+                    "type": "string"
+                },
+                "name_kr": {
+                    "type": "string"
+                },
+                "name_ru": {
+                    "type": "string"
+                },
+                "name_uz": {
                     "type": "string"
                 },
                 "parent_id": {
@@ -25942,11 +25969,8 @@ const docTemplate = `{
         "domain.NoorProduct": {
             "type": "object",
             "properties": {
-                "categories": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
+                "category_id": {
+                    "type": "string"
                 },
                 "description": {
                     "type": "string"

@@ -2694,11 +2694,14 @@ func (h *ProductHandler) productListExportByStoreId(f *excelize.File, res []doma
 // SingleProductDashboard godoc
 // @Summary Get single product dashboard
 // @Description Get single product dashboard
-// @Tags products
+// @Tags 	products
 // @Security BearerAuth
-// @Accept json
+// @Accept 	json
 // @Produce json
-// @Param id path string true "product ID"
+// @Param 	id path string true "product Id"
+// @Param 	start_date query string false "Start date in format YYYY-MM-DD"
+// @Param 	end_date query string false "End date in format YYYY-MM-DD"
+// @Param 	store_id query string false "Store ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 404 {object} v1.Response
