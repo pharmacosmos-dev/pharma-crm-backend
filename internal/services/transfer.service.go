@@ -506,7 +506,7 @@ func (s *Services) TransferDetailStatsCount(param *domain.ReturnDetailParam) (do
 }
 
 // confirm inventory
-func (s *Services) SendTransfer(ctx context.Context, returnId string, userId string) error {
+func (s *Services) SendTransfer(ctx context.Context, transferId string, userId string) error {
 	// start transaction
 	tx := s.db.Begin()
 	defer func() {
@@ -517,18 +517,10 @@ func (s *Services) SendTransfer(ctx context.Context, returnId string, userId str
 
 	// update confirm inventory
 	query := `UPDATE transfers SET status = ?, updated_by = ? WHERE id = ?`
-	err := tx.WithContext(ctx).Exec(query, constants.GeneralStatusSent, userId, returnId).Error
+	err := tx.WithContext(ctx).Exec(query, constants.GeneralStatusSent, userId, transferId).Error
 	if err != nil {
 		_ = tx.Rollback()
 		s.log.Errorf("could not update transfer: %v", err)
-		return domain.InternalServerError
-	}
-
-	query2 := `DELETE FROM transfer_details WHERE expected_count = 0 AND transfer_id = ?;`
-	err = tx.WithContext(ctx).Exec(query2, returnId).Error
-	if err != nil {
-		_ = tx.Rollback()
-		s.log.Errorf("could not delete expected 0 transfer details: %v", err)
 		return domain.InternalServerError
 	}
 
@@ -539,7 +531,7 @@ func (s *Services) SendTransfer(ctx context.Context, returnId string, userId str
 		JOIN products p ON td.product_id = p.id
 		WHERE td.transfer_id = ? and td.expected_count > 0;
 	`
-	err = tx.WithContext(ctx).Raw(query3, returnId).Scan(&details).Error
+	err = tx.WithContext(ctx).Raw(query3, transferId).Scan(&details).Error
 	if err != nil {
 		_ = tx.Rollback()
 		s.log.Errorf("could not get transfer details: %v", err)
@@ -560,10 +552,21 @@ func (s *Services) SendTransfer(ctx context.Context, returnId string, userId str
 
 	// complete transaction
 	if err = tx.Commit().Error; err != nil {
-		s.log.Errorf("could not commit transaction: %v", err)
+		s.log.Errorf("could not commit send tranfer details transaction: %v", err)
 		return domain.InternalServerError
 	}
+
+	go s.deleteNotInsertedTransferDetails(transferId)
+
 	return nil
+}
+
+func (s *Services) deleteNotInsertedTransferDetails(transferId string) {
+	err := s.db.Exec("DELETE FROM transfer_details WHERE expected_count = 0 AND transfer_id = ?", transferId).Error
+	if err != nil {
+		s.log.Errorf("could not delete expected 0 transfer details: %v", err)
+	}
+
 }
 
 func (s *Services) SendTransferToOnec(ctx context.Context, transferId string) error {
