@@ -1605,7 +1605,7 @@ import_data AS (
 sales_data AS (
     SELECT
         SUM(ci.unit_quantity)::INTEGER * (-1) AS sale_count,
-        sum(sa.total_amount * (-1)) AS sale_amount
+        sum(ci.total_price * (-1)) AS sale_amount
     FROM sales sa
         JOIN stores st ON st.id = sa.store_id
         JOIN cart_items ci ON ci.sale_id = sa.id

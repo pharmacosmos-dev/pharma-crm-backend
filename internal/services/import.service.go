@@ -52,19 +52,37 @@ func (s *Services) AcceptImport(ctx context.Context, importId string, userId str
 		}
 	}()
 
-	// Get import info
 	var res domain.Import
+	err := tx.WithContext(ctx).First(&res, "id = ?", importId).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return domain.NotFoundError
+		}
+		s.log.Errorf("could not get import: %v", err)
+		return domain.InternalServerError
+	}
+
+	if res.Status == constants.GeneralStatusCompleted {
+		return domain.AlreadyCompletedError
+	}
+
 	// update import status
-	err := tx.WithContext(ctx).
-		Raw(`UPDATE imports SET status = ?, accepted_by = ? WHERE id = ? RETURNING *`,
+	err = tx.WithContext(ctx).
+		Raw("UPDATE imports SET status = ?, accepted_by = ? WHERE id = ? AND status != ? RETURNING *",
 			constants.GeneralStatusCompleted,
 			userId,
 			importId,
+			constants.GeneralStatusCompleted,
 		).Scan(&res).Error
 	if err != nil {
 		_ = tx.Rollback()
 		s.log.Errorf("could not update import(%s) status: %v", importId, err)
 		return err
+	}
+
+	if res.Id == "" {
+		_ = tx.Rollback()
+		return domain.AlreadyCompletedError
 	}
 
 	if acceptType == "all" {
