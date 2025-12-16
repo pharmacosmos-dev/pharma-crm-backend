@@ -2885,8 +2885,8 @@ func (h *ProductHandler) ExportMovementUnits(c *gin.Context) {
 		f.SetCellValue(sheetName, "I"+row, product.VozvratQuantity)
 		f.SetCellValue(sheetName, "J"+row, product.TransferInQuantity)
 		f.SetCellValue(sheetName, "K"+row, product.TransferOutQuantity)
-		f.SetCellValue(sheetName, "J"+row, product.CorrectQuantity)
-		f.SetCellValue(sheetName, "L"+row, product.Diff)
+		f.SetCellValue(sheetName, "L"+row, product.CorrectQuantity)
+		f.SetCellValue(sheetName, "M"+row, product.Diff)
 	}
 
 	saveExcelToUploads(c, f, *h.log, "product-full-movements")
