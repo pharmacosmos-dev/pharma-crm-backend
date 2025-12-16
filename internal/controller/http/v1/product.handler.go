@@ -2791,7 +2791,7 @@ func (h *ProductHandler) GetMovementUnits(c *gin.Context) {
 	// Pagination parameters
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*2)
 	defer cancel()
 
 	res, err := h.service.GetProductMovementUnits(ctx, &params)
@@ -2841,7 +2841,7 @@ func (h *ProductHandler) ExportMovementUnits(c *gin.Context) {
 	// Pagination parameters
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*2)
 	defer cancel()
 
 	res, err := h.service.GetProductMovementUnits(ctx, &params)
