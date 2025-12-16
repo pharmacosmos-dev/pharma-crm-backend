@@ -37,7 +37,6 @@ func (s *Services) AlifRequest(res **http.Response, url string, data []byte, tok
 	headers := map[string]string{
 		constants.HeaderContentType: constants.ContentTypeJson,
 		constants.HeaderStoreToken:  token,
-		"Lang":                      constants.LanguageEn,
 	}
 
 	return s.DoRequest(res, http.MethodPost, url, data, headers)
@@ -49,6 +48,7 @@ func (s *Services) DmedRequest(res **http.Response, method string, url string, d
 	headers := map[string]string{
 		constants.HeaderContentType: constants.ContentTypeJson,
 		"Authorization":             auth,
+		"Lang":                      constants.LanguageEn,
 	}
 	return s.DoRequest(res, method, url, data, headers)
 }
