@@ -100,6 +100,12 @@ func (s *Services) AcceptImport(ctx context.Context, importId string, userId str
 			return err
 		}
 	} else {
+		err = s.UpdateImportDetailsScanToAccept(tx, importId)
+		if err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+
 		err = s.AddSomeImportedProductsToStore(ctx, tx, &res)
 		if err != nil {
 			_ = tx.Rollback()
@@ -369,6 +375,15 @@ func (s *Services) UpdateImportDetailsToCancel(tx *gorm.DB, importID string) err
 
 func (s *Services) UpdateImportDetailsAccepted(tx *gorm.DB, importID string) error {
 	err := tx.Exec("UPDATE import_details SET accepted_count = received_count, scanned_count = received_count, updated_at = NOW() WHERE import_id = ?", importID).Error
+	if err != nil {
+		s.log.Error("could not update import details counts: %v", err)
+		return err
+	}
+	return nil
+}
+
+func (s *Services) UpdateImportDetailsScanToAccept(tx *gorm.DB, importId string) error {
+	err := tx.Exec("UPDATE import_details SET accepted_count = scanned_count, updated_at = NOW() WHERE import_id = ?", importId).Error
 	if err != nil {
 		s.log.Error("could not update import details counts: %v", err)
 		return err
