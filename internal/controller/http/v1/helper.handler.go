@@ -1501,25 +1501,22 @@ func (h *HelperHandler) AddCategories(c *gin.Context) {
 		return
 	}
 
-	type TempName struct {
-		Kr string `json:"kr"`
-		Ru string `json:"ru"`
-		Uz string `json:"uz"`
-	}
-
 	var tmpCategories []struct {
-		UId       string   `json:"uid"`
-		ParentUid *string  `json:"parent_uid"`
-		Name      TempName `json:"name"`
+		UId    string `json:"uid"`
+		Name   string `json:"name"`
+		NameUz string `json:"name_uz"`
+		NameEn string `json:"name_en"`
+		NameKr string `json:"name_kr"`
+		Photo  string `json:"photo"`
 	}
 
 	type Categories struct {
-		Id         string  `json:"uid" gorm:"id"`
-		CategoryId *string `json:"parent_uid" gorm:"category_id"`
-		Name       string  `json:"name_ru" gorm:"name"`
-		NameUz     string  `json:"name_uz" gorm:"name_uz"`
-		NameKr     string  `json:"name_kr" gorm:"name_kr"`
-		NameEn     string  `json:"name_en" gorm:"name_en"`
+		Id     string `json:"uid" gorm:"id"`
+		Name   string `json:"name_ru" gorm:"name"`
+		NameUz string `json:"name_uz" gorm:"name_uz"`
+		NameKr string `json:"name_kr" gorm:"name_kr"`
+		NameEn string `json:"name_en" gorm:"name_en"`
+		Photo  string `json:"photo" gorm:"photo"`
 	}
 
 	err = json.Unmarshal(fileData, &tmpCategories)
@@ -1531,48 +1528,29 @@ func (h *HelperHandler) AddCategories(c *gin.Context) {
 
 	var parentCategories []Categories
 	for _, cat := range tmpCategories {
-		if cat.ParentUid == nil {
-			parentCategories = append(parentCategories, Categories{
-				Id:         cat.UId,
-				CategoryId: cat.ParentUid,
-				Name:       cat.Name.Ru,
-				NameUz:     cat.Name.Uz,
-				NameKr:     cat.Name.Kr,
-				NameEn:     cat.Name.Uz,
-			})
+		photoUrl, err := DownloadAndSaveImage(cat.Photo, "./app/uploads/")
+		if err != nil {
+			h.log.Errorf("download image from web: %v", err)
 		}
+		parentCategories = append(parentCategories, Categories{
+			Id:     cat.UId,
+			Name:   cat.Name,
+			NameUz: cat.NameUz,
+			NameKr: cat.NameKr,
+			NameEn: cat.NameEn,
+			Photo:  photoUrl,
+		})
+
 	}
 
 	err = h.db.Table("categories").Create(&parentCategories).Error
 	if err != nil {
 		h.log.Errorf("Failed to insert parent categories: %v", err)
-		handleResponse(c, InternalError, "Failed to insert parent categories")
+		handleResponse(c, InternalError, err)
 		return
 	}
 
-	var childCategories []Categories
-	for _, cat := range tmpCategories {
-		if cat.ParentUid != nil {
-			childCategories = append(childCategories, Categories{
-				Id:         cat.UId,
-				CategoryId: cat.ParentUid,
-				Name:       cat.Name.Ru,
-				NameUz:     cat.Name.Uz,
-				NameKr:     cat.Name.Kr,
-				NameEn:     cat.Name.Uz,
-			})
-		}
-	}
-
-	// Insert categories into database
-	err = h.db.Table("categories").Create(&childCategories).Error
-	if err != nil {
-		h.log.Errorf("Failed to insert categories: %v", err)
-		handleResponse(c, InternalError, "Failed to insert child categories")
-		return
-	}
-
-	handleResponse(c, OK, fmt.Sprintf("Successfully added %d categories", len(parentCategories)+len(childCategories)))
+	handleResponse(c, OK, fmt.Sprintf("Successfully added %d categories", len(parentCategories)))
 }
 
 // AttachCategoryToProducts godoc
@@ -1687,7 +1665,7 @@ func DownloadAndSaveImage(url string, uploadDir string) (string, error) {
 	// extension olish (.jpg, .png, .webp va h.k.)
 	ext := filepath.Ext(url)
 	if ext == "" || len(ext) > 5 {
-		ext = ".jpg" // default
+		ext = ".png" // default
 	}
 
 	newImgName := uuid.New().String() + ext
