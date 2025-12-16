@@ -1,41 +1,56 @@
 package services
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/utils"
 )
 
-func (s *Services) GetPrescriptionsFromDMED(patientID, safeCode string) ([]domain.Prescription, error) {
-	url := fmt.Sprintf("/prescriptions?patient_id=%s&safe_code=%s", patientID, safeCode)
+func (s *Services) GetPrescriptionsFromDMED(patientId, safeCode string) ([]domain.Prescription, error) {
+	url := fmt.Sprintf("/prescriptions?patient_id=%s&safe_code=%s", patientId, safeCode)
 
 	// request payload for logging
 	reqPayload := map[string]any{
-		"patient_id": patientID,
+		"patient_id": patientId,
 		"safe_code":  safeCode,
 		"url":        url,
 	}
-	id, _ := s.SaveDmedRequest(context.Background(), "GET-prescriptions", reqPayload)
 
-	respBody, err := s.doRequestToDMED("GET", url, nil)
+	jsonBytes, err := json.Marshal(reqPayload)
 	if err != nil {
 		return nil, err
 	}
-	// save response payload
-	_ = s.SaveDmedResponse(context.Background(), id, respBody, 1)
 
-	var rawResp = domain.PrescriptionResponse{}
-	if err = json.Unmarshal(respBody, &rawResp); err != nil {
-		return nil, fmt.Errorf("unmarshal failed: %w", err)
+	id, _ := s.SaveDmedRequest(context.Background(), "GET-prescriptions", jsonBytes)
+
+	// Send request dmed receipt
+	var response *http.Response
+	if err := s.DmedRequest(
+		&response,
+		http.MethodGet,
+		s.cfg.DmedApiUrl+url,
+		nil,
+	); err != nil {
+		s.log.Errorf("could not send dmed request: %v", err)
+		return nil, err
 	}
 
-	return rawResp.Data, nil
+	defer utils.Close(response.Body, s.log)
+
+	result, bytes, err := DecodeDmedResponse[domain.PrescriptionResponse](response.Body)
+	// save response payload
+	_ = s.SaveDmedResponse(context.Background(), id, bytes, 1)
+	if err != nil {
+		s.log.Errorf("could not decode get prescriptions response: %v", err)
+		return result.Data, err
+	}
+
+	return result.Data, nil
 }
 
 func (s *Services) DmedGiveReceipt(cartItems []domain.CartItemForDMED, markingData []domain.MarkingData, employeeName, prescriptionID, action string) error {
@@ -76,75 +91,88 @@ func (s *Services) DmedGiveReceipt(cartItems []domain.CartItemForDMED, markingDa
 				method = http.MethodPut
 			}
 
-			id, _ := s.SaveDmedRequest(context.Background(), method+action, payload)
-
-			res, err := s.doRequestToDMED(method, url, payload)
+			jsonBytes, err := json.Marshal(payload)
 			if err != nil {
-				s.log.Error("could not send dmed %s request: %v", action, err)
-				return fmt.Errorf("DMED %s failed: %w", action, err)
+				return err
 			}
-			_ = s.SaveDmedResponse(context.Background(), id, res, 1)
+
+			id, _ := s.SaveDmedRequest(context.Background(), method+action, jsonBytes)
+
+			// Send request dmed receipt
+			var response *http.Response
+			if err := s.DmedRequest(
+				&response,
+				method,
+				s.cfg.DmedApiUrl+url,
+				jsonBytes,
+			); err != nil {
+				s.log.Errorf("could not send dmed request: %v", err)
+				return domain.InternalServerError
+			}
+
+			defer utils.Close(response.Body, s.log)
+
+			dmedRes, err := io.ReadAll(response.Body)
+			if err != nil {
+				s.log.Errorf("could not decode dmed response: %v", err)
+				return domain.InternalServerError
+			}
+			_ = s.SaveDmedResponse(context.Background(), id, dmedRes, 1)
 			j++
 		}
 	}
 	return nil
 }
 
-func (s *Services) doRequestToDMED(method, url string, data any) ([]byte, error) {
-	var (
-		body       []byte
-		bodyReader io.Reader
-		err        error
-	)
+// func (s *Services) doRequestToDMED(method, url string, data any) ([]byte, error) {
+// 	var (
+// 		body       []byte
+// 		bodyReader io.Reader
+// 		err        error
+// 	)
 
-	if data != nil {
-		body, err = json.Marshal(data)
-		if err != nil {
-			return nil, fmt.Errorf("failed to marshal data: %w", err)
-		}
-		fmt.Printf("Request body DMED: %s\n", string(body))
-		bodyReader = bytes.NewReader(body)
-	}
+// 	if data != nil {
+// 		body, err = json.Marshal(data)
+// 		if err != nil {
+// 			return nil, fmt.Errorf("failed to marshal data: %w", err)
+// 		}
+// 		fmt.Printf("Request body DMED: %s\n", string(body))
+// 		bodyReader = bytes.NewReader(body)
+// 	}
 
-	req, err := http.NewRequest(method, s.cfg.DmedApiUrl+url, bodyReader)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	newToken := strings.Trim(s.cfg.DmedApiToken, `"'`)
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+newToken)
+// 	req, err := http.NewRequest(method, s.cfg.DmedApiUrl+url, bodyReader)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to create request: %w", err)
+// 	}
+// 	newToken := strings.Trim(s.cfg.DmedApiToken, `"'`)
+// 	req.Header.Set("Accept", "application/json")
+// 	req.Header.Set("Content-Type", "application/json")
+// 	req.Header.Set("Authorization", "Bearer "+newToken)
 
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
+// 	resp, err := http.DefaultClient.Do(req)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to send request: %w", err)
+// 	}
+// 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-	fmt.Println(string(respBody))
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		s.log.Errorf("dmed request failed: %s", string(respBody))
-		return nil, fmt.Errorf("DMED API error: %s", string(respBody))
-	}
+// 	respBody, err := io.ReadAll(resp.Body)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to read response: %w", err)
+// 	}
+// 	fmt.Println(string(respBody))
+// 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+// 		s.log.Errorf("dmed request failed: %s", string(respBody))
+// 		return nil, fmt.Errorf("DMED API error: %s", string(respBody))
+// 	}
 
-	return respBody, nil
-}
+// 	return respBody, nil
+// }
 
-func (s *Services) SaveDmedRequest(ctx context.Context, method string, payload map[string]any) (int64, error) {
-	payloadDb, err := json.Marshal(payload)
-	if err != nil {
-		s.log.Errorf("could not marshal dmed request payload: %v", err)
-		return 0, domain.InternalServerError
-	}
-
+func (s *Services) SaveDmedRequest(ctx context.Context, method string, payload []byte) (int64, error) {
 	var id int64
-	err = s.db.WithContext(ctx).
+	err := s.db.WithContext(ctx).Debug().
 		Raw("INSERT INTO dmed_requests(payload, method) VALUES(?, ?) RETURNING id;",
-			payloadDb, method,
+			payload, method,
 		).Scan(&id).Error
 	if err != nil {
 		s.log.Errorf("could not save dmed request payload: %v", err)
@@ -164,4 +192,19 @@ func (s *Services) SaveDmedResponse(ctx context.Context, reqId int64, response [
 	}
 
 	return nil
+}
+
+func DecodeDmedResponse[T any](r io.Reader) (domain.PrescriptionResponse, []byte, error) {
+	var result domain.PrescriptionResponse
+
+	response, err := io.ReadAll(r)
+	if err != nil {
+		return result, response, err
+	}
+
+	if err := json.Unmarshal(response, &result); err != nil {
+		return result, response, err
+	}
+
+	return result, response, nil
 }

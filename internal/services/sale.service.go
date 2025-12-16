@@ -1006,7 +1006,7 @@ func (s *Services) matchingPaymentTypeSum(ctx context.Context, tx *gorm.DB, req 
 			req.OtpCode = item.OtpData
 		} else if item.Type == constants.PaymentTypeLoyaltyCard {
 			if item.Amount > balance {
-				s.log.Warn("Payment for balance is higher! Balance: %.2f, Amount: %.2f", balance, item.Amount)
+				s.log.Warnf("Payment for balance is higher! Balance: %.2f, Amount: %.2f", balance, item.Amount)
 				return req, domain.InvalidSaleAmount
 			}
 			req.LoyaltyCard = item.Amount

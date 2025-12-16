@@ -561,6 +561,17 @@ func (s *Services) SendTransfer(ctx context.Context, transferId string, userId s
 	return nil
 }
 
+func (s *Services) EditStatusToCheckingTransfer(ctx context.Context, Id string, userId string) error {
+	// update transfer status
+	err := s.db.WithContext(ctx).Exec("UPDATE transfers SET status = ?, updated_by = ?, updated_at = NOW() WHERE id = ?", constants.GeneralStatusChecking, userId, Id).Error
+	if err != nil {
+		s.log.Errorf("could not update transfer(%s) status: %v", Id, err)
+		return domain.InternalServerError
+	}
+
+	return nil
+}
+
 func (s *Services) deleteNotInsertedTransferDetails(transferId string) {
 	err := s.db.Exec("DELETE FROM transfer_details WHERE expected_count = 0 AND transfer_id = ?", transferId).Error
 	if err != nil {
@@ -712,6 +723,7 @@ func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userI
 		td.product_id,
 		td.store_product_id,
 		td.received_count,
+		td.expected_count,
 		td.scanned_count,
 		td.accepted_count,
 		td.expire_date,
@@ -732,8 +744,7 @@ func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userI
 		LEFT JOIN producers pr ON pr.id = p.producer_id
 		LEFT JOIN store_products sp ON sp.id = td.store_product_id
 		LEFT JOIN import_details idt ON idt.id = sp.import_detail_id
-		WHERE
-			td.transfer_id = ? AND td.scanned_count > 0;
+		WHERE td.transfer_id = ?;
 	`, transferId).Scan(&res).Error
 	if err != nil {
 		_ = tx.Rollback()
@@ -764,8 +775,8 @@ func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userI
 		UPDATE store_products 
 		SET
 			unit_quantity = unit_quantity + ?
-		WHERE id = ?`,
-			(item.ScannedCount-item.AcceptedCount)*float64(item.UnitPerPack),
+		WHERE id = ?;`,
+			(item.ExpectedCount-item.AcceptedCount)*float64(item.UnitPerPack),
 			item.StoreProductId).Error
 		if err != nil {
 			_ = tx.Rollback()
@@ -901,8 +912,10 @@ func (s *Services) UpdateTransferByBarcode(
 				UPDATE transfer_details 
 				SET %s = COALESCE(%s, 0) + ? 
 				WHERE id = ? AND 
-				received_count >= COALESCE(%s,0) + ? 
+				received_count >= COALESCE(%s,0) + ? AND
+				expected_count >= COALESCE(%s,0) + ?
 				RETURNING id;`,
+				updatedField,
 				updatedField,
 				updatedField,
 				updatedField),

@@ -175,8 +175,8 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 			transfer_details
 		SET
 			%s = ?, updated_at = NOW()
-		WHERE
-			id = ? AND transfer_id = ?;`, updateField),
+		WHERE id = ? 
+		AND transfer_id = ?;`, updateField),
 			req.ScannedPack, req.Id, req.TransferId).Error
 		if err != nil {
 			s.log.Errorf("could not update transfer_details: %v", err)
@@ -638,61 +638,11 @@ func (s *Services) SendReturn1C(returnId string) error {
 }
 
 func (s *Services) EditStatusToCheckingReturn(ctx context.Context, Id string, userId string) error {
-	// start transaction
-	tx := s.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			_ = tx.Rollback()
-		}
-	}()
-
 	// update transfer status
-	err := tx.WithContext(ctx).Exec("UPDATE transfers SET status = ?, updated_by = ?, updated_at = NOW() WHERE id = ?", constants.GeneralStatusChecking, userId, Id).Error
+	err := s.db.WithContext(ctx).Exec("UPDATE transfers SET status = ?, updated_by = ?, updated_at = NOW() WHERE id = ?", constants.GeneralStatusChecking, userId, Id).Error
 	if err != nil {
-		_ = tx.Rollback()
-		s.log.Errorf("could not update transfer(%s) status: %v", Id, err)
-		return domain.InternalServerError
-	}
 
-	var res []domain.TransferDetail
-	err = tx.WithContext(ctx).
-		Raw(`
-	SELECT 
-		t.id, 
-		t.received_count,
-		t.expected_count,
-		t.scanned_count,
-		t.store_product_id,
-		p.unit_per_pack
-	FROM 
-		transfer_details t 
-	JOIN 
-		products p ON p.id = t.product_id 
-	WHERE 
-		t.transfer_id = ?`, Id).Scan(&res).Error
-	if err != nil {
-		_ = tx.Rollback()
-		s.log.Errorf("could not select transfer_details by transfer_id(%s): %v", Id, err)
-		return domain.InternalServerError
-	}
-	for _, item := range res {
-		err = tx.WithContext(ctx).
-			Exec(`
-		UPDATE store_products 
-		SET 
-			unit_quantity = unit_quantity + ?
-		WHERE id = ?;`,
-				(item.ExpectedCount-item.ScannedCount)*float64(item.UnitPerPack),
-				item.StoreProductId).Error
-		if err != nil {
-			_ = tx.Rollback()
-			s.log.Errorf("could not update store_products(%s) %v", item.StoreProductId, err)
-			return domain.InternalServerError
-		}
-	}
-	// complete transaction
-	if err = tx.Commit().Error; err != nil {
-		s.log.Error("could not completed transaction: %v", err)
+		s.log.Errorf("could not update transfer(%s) status: %v", Id, err)
 		return domain.InternalServerError
 	}
 
@@ -718,10 +668,7 @@ func (s *Services) ConfirmReturn(ctx context.Context, returnId, storeId string, 
 		return domain.InternalServerError
 	}
 
-	var (
-		returnData domain.ReturnData1C
-		store      domain.Store
-	)
+	var returnData domain.ReturnData1C
 
 	// get return data
 	query2 := `
@@ -739,6 +686,7 @@ func (s *Services) ConfirmReturn(ctx context.Context, returnId, storeId string, 
 		td.supply_price AS supply_price_vat,
 		td.retail_price AS retail_price_vat,
 		(td.retail_price*td.accepted_count) AS sum_vat,
+		td.expected_count,
 		td.scanned_count,
 		td.accepted_count,
 		td.store_product_id
@@ -746,7 +694,7 @@ func (s *Services) ConfirmReturn(ctx context.Context, returnId, storeId string, 
 		JOIN transfers tr ON td.transfer_id = tr.id
 		JOIN products p ON td.product_id = p.id
 		LEFT JOIN producers pr ON p.producer_id = pr.id
-		WHERE td.transfer_id = ? AND tr.status = 'sent-to-1c';
+		WHERE td.transfer_id = ?;
 	`
 	// get return data
 	err = tx.WithContext(ctx).Raw(query2, returnId).Scan(&returnData.Товары).Error
@@ -761,22 +709,22 @@ func (s *Services) ConfirmReturn(ctx context.Context, returnId, storeId string, 
 		return domain.NotEnoughProductError
 	}
 
-	for i := range returnData.Товары {
+	for _, p := range returnData.Товары {
 		err = tx.WithContext(ctx).
 			Exec(`
 		UPDATE store_products
 		SET
 			unit_quantity = unit_quantity + ?
 		WHERE id = ?;`,
-				(returnData.Товары[i].ScannedCount-returnData.Товары[i].AcceptedCount)*float64(returnData.Товары[i].UnitPerPack),
-				returnData.Товары[i].StoreProductId).Error
+				(p.ExpectedCount-p.AcceptedCount)*float64(p.UnitPerPack),
+				p.StoreProductId).Error
 		if err != nil {
 			_ = tx.Rollback()
 			s.log.Errorf("could not update store_product on return confirm: %v", err)
 			return domain.InternalServerError
 		}
 	}
-
+	var store domain.Store
 	// get store data
 	err = tx.WithContext(ctx).First(&store, "id = ?", storeId).Error
 	if err != nil {
@@ -798,11 +746,7 @@ func (s *Services) ConfirmReturn(ctx context.Context, returnId, storeId string, 
 
 	if s.cfg.OnecApiUrl != "test" {
 		// send return to 1C
-		err = s.DoRequestOnec(context.Background(), returnData, constants.OnecPathVozvrat)
-		if err != nil {
-			s.log.Errorf("could not send return to 1C: %v", err)
-			return domain.InternalServerError
-		}
+		go s.DoRequestOnec(context.Background(), returnData, constants.OnecPathVozvrat)
 	}
 
 	return nil

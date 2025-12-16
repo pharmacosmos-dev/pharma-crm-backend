@@ -83,8 +83,14 @@ func (h *SaleHandler) Create(c *gin.Context) {
 		return
 	}
 
+	if body.StoreId != user.StoreId {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
 	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
 	defer cancel()
+
 	body.EmployeeId = user.UserId
 	res, err := h.service.CreateSale(ctx, h.db, &body)
 	if err != nil {
@@ -656,11 +662,22 @@ func (h *SaleHandler) Update(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /sale/final [post]
 func (h *SaleHandler) FinalSale(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
 	// bind request body
 	var body domain.FinalSale
 	err := c.ShouldBindJSON(&body)
 	if err != nil {
 		handleServiceResponse(c, nil, domain.InvalidRequestBodyError)
+		return
+	}
+
+	if body.StoreId != user.StoreId {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
 
@@ -707,16 +724,16 @@ func (h *SaleHandler) EposResult(c *gin.Context) {
 		return
 	}
 
-	// context with timeout
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-	defer cancel()
-
 	// bind request
 	var body domain.EposResponseRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
 		handleServiceResponse(c, nil, domain.InvalidRequestBodyError)
 		return
 	}
+
+	// context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 
 	// Get order lock
 	lock := h.getOrderLock(body.SaleId)

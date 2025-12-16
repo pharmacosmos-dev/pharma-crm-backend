@@ -144,6 +144,7 @@ type ReturnDetail1C struct {
 	UnitPerPack         int        `gorm:"unit_per_pack" json:"-"`
 	ScannedCount        float64    `gorm:"scanned_count" json:"-"`
 	AcceptedCount       float64    `gorm:"accepted_count" json:"-"`
+	ExpectedCount       float64    `gorm:"expected_count" json:"-"`
 	StoreProductId      string     `gorm:"store_product_id" json:"store_product_id"`
 }
 

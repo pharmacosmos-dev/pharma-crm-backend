@@ -42,6 +42,16 @@ func (s *Services) AlifRequest(res **http.Response, url string, data []byte, tok
 	return s.DoRequest(res, http.MethodPost, url, data, headers)
 }
 
+func (s *Services) DmedRequest(res **http.Response, method string, url string, data []byte) error {
+	newToken := strings.Trim(s.cfg.DmedApiToken, `"'`)
+	auth := fmt.Sprintf("Bearer %s", newToken)
+	headers := map[string]string{
+		constants.HeaderContentType: constants.ContentTypeJson,
+		"Authorization":             auth,
+	}
+	return s.DoRequest(res, method, url, data, headers)
+}
+
 // do request
 func (s *Services) DoRequest(
 	res **http.Response,

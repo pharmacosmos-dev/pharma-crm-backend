@@ -393,25 +393,25 @@ func (h *CashBoxHandler) SoftDelete(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /cash_box/check [get]
 func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
-	storeId := c.Query("store_id")
-	// validate store_id
-	err := uuid.Validate(storeId)
-	if err != nil {
-		handleResponse(c, BadRequest, "Invalid store_id")
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
-	// Get the user ID from the context
-	userID, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
+
+	storeId := c.Query("store_id")
+
+	if storeId != user.StoreId {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
+
 	// Check if there is an open cashbox operation for this employee
 	var cashboxOperation domain.CashboxOperation
-	err = h.db.Raw(`
+	err := h.db.WithContext(ctx).Raw(`
 	SELECT 
 		co.* 
 	FROM 
@@ -421,7 +421,7 @@ func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
     WHERE 
 		co.end_time IS NULL AND 
 		co.current_employee_id = ? AND 
-		cb.store_id = ?;`, userID, storeId).Scan(&cashboxOperation).Error
+		cb.store_id = ?;`, user.UserId, storeId).Scan(&cashboxOperation).Error
 
 	if errors.Is(err, gorm.ErrRecordNotFound) || cashboxOperation.ID == "" {
 		handleResponse(c, NotFound, "You have no open cashbox operation")
@@ -441,8 +441,8 @@ func (h *CashBoxHandler) CheckCashBox(c *gin.Context) {
 		var sale *domain.Sale
 		sale, err = h.service.CreateSale(ctx, h.db, &domain.SaleRequest{
 			CashBoxOperationId: cashboxOperation.ID,
-			EmployeeId:         userID.(string),
-			StoreId:            storeId,
+			EmployeeId:         user.UserId,
+			StoreId:            user.StoreId,
 			CashboxId:          cashboxOperation.CashBoxID,
 		})
 		if err != nil {

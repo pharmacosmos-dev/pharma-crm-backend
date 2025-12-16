@@ -208,11 +208,11 @@ const (
 // Request Path
 const (
 	// Onec service paths
-	OnecPathPrihod  = "/prihod"
-	OnecPathRasxod  = "/rasxod"
-	OnecPathVozvrat = "/vozvrat"
-	OnecPathZakaz   = "/zakaz"
-	OnecPathPerekit = "/perekit"
+	OnecPathPrihod   = "/prihod"
+	OnecPathRasxod   = "/rasxod"
+	OnecPathVozvrat  = "/vozvrat"
+	OnecPathZakaz    = "/zakaz"
+	OnecPathPerekit  = "/perekit"
 	OnecPathInventar = "/inventar"
 
 	// DMED service paths
