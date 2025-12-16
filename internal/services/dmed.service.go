@@ -172,7 +172,7 @@ func (s *Services) SaveDmedRequest(ctx context.Context, method string, payload [
 	var id int64
 	err := s.db.WithContext(ctx).Debug().
 		Raw("INSERT INTO dmed_requests(payload, method) VALUES(?, ?) RETURNING id;",
-			payload, method,
+			json.RawMessage(payload), method,
 		).Scan(&id).Error
 	if err != nil {
 		s.log.Errorf("could not save dmed request payload: %v", err)
@@ -184,7 +184,7 @@ func (s *Services) SaveDmedRequest(ctx context.Context, method string, payload [
 
 func (s *Services) SaveDmedResponse(ctx context.Context, reqId int64, response []byte, status int) error {
 	err := s.db.WithContext(ctx).Raw("UPDATE dmed_requests SET response = ?, status = ?, updated_at = NOW() WHERE id = ?;",
-		response, status, reqId,
+		json.RawMessage(response), status, reqId,
 	).Error
 	if err != nil {
 		s.log.Errorf("could not save dmed response payload: %v", err)
