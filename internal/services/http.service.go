@@ -37,6 +37,7 @@ func (s *Services) AlifRequest(res **http.Response, url string, data []byte, tok
 	headers := map[string]string{
 		constants.HeaderContentType: constants.ContentTypeJson,
 		constants.HeaderStoreToken:  token,
+		"Lang":                      constants.LanguageEn,
 	}
 
 	return s.DoRequest(res, http.MethodPost, url, data, headers)
