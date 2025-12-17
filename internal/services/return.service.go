@@ -240,7 +240,8 @@ func (s *Services) UpdateReturnByBarcode(ctx context.Context, req *domain.Transf
 			Raw(`
 		UPDATE transfer_details
 		SET scanned_count = scanned_count + ?
-		WHERE id = ? AND received_count >= scanned_count + ?
+		WHERE id = ? 
+			AND received_count >= scanned_count + ?
 		RETURNING product_id;`,
 				req.Count,
 				req.Id,
@@ -261,9 +262,9 @@ func (s *Services) UpdateReturnByBarcode(ctx context.Context, req *domain.Transf
 				t.id,
 				t.product_id,
 				p.name
-			FROM transfer_details t 
-			JOIN products p ON p.id = t.product_id 
-			WHERE p.barcode = ? AND t.transfer_id = ?`,
+			FROM transfer_details t
+			JOIN products p ON p.id = t.product_id
+			WHERE p.barcode = ? AND t.transfer_id = ?;`,
 				req.Barcode,
 				req.TransferId).
 			Scan(&barcodeResponse).Error
@@ -285,7 +286,7 @@ func (s *Services) UpdateReturnByBarcode(ctx context.Context, req *domain.Transf
 			t.transfer_id = ? AND 
 			p.id = t.product_id AND 
 			p.barcode = ? AND 
-			t.received_count >= t.scanned_count + ?;`,
+			t.expected_count >= t.scanned_count + ?;`,
 			req.Count,
 			req.TransferId,
 			req.Barcode,

@@ -996,14 +996,15 @@ func (s *Services) UpdateTransferByBarcode(
 			t.transfer_id = ? AND 
 			p.id = t.product_id AND 
 			p.barcode = ? AND 
-			t.received_count >= COALESCE(t.%s,0) + ?;`,
+			t.expected_count >= COALESCE(t.%s,0) + ?;`,
 				updatedField,
 				updatedField,
 				updatedField),
 				req.Count,
 				req.TransferId,
 				req.Barcode,
-				req.Count).Error
+				req.Count,
+			).Error
 		if err != nil {
 			s.log.Error("could not update transfer_details by barcode(%s): %v", req.Barcode, err)
 			return domain.InternalServerError
