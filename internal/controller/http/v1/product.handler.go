@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -2370,6 +2371,12 @@ func (h *ProductHandler) UpdatePackaging(c *gin.Context) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
+
+	// lock parallel request
+	mu := h.getProductLock(req.ProductId)
+	mu.Lock()
+	defer mu.Unlock()
+
 	// service call
 	if err := h.service.UpdatePackaging(ctx, &req); err != nil {
 		handleServiceResponse(c, InternalError, err)
@@ -2936,4 +2943,10 @@ func (h *ProductHandler) UpdateOstatok(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, "UPDATED")
+}
+
+// lock order for parallel request
+func (h *ProductHandler) getProductLock(productId string) *sync.Mutex {
+	lock, _ := h.ordersToMutexes.LoadOrStore(productId, &sync.Mutex{})
+	return lock.(*sync.Mutex)
 }

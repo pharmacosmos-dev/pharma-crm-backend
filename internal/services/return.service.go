@@ -523,11 +523,29 @@ func (s *Services) SendReturn(ctx context.Context, returnId string, userId strin
 		return domain.InternalServerError
 	}
 
-	var details []domain.ReturnDetail
+	var details []struct {
+		Id             string  `gorm:"id" json:"id"`
+		TransferId     string  `gorm:"transfer_id" json:"transfer_id"`
+		StoreProductId string  `gorm:"store_product_id" json:"store_product_id"`
+		ProductId      string  `gorm:"product_id" json:"product_id"`
+		Name           string  `gorm:"name" json:"name"`
+		UnitPerPack    float64 `gorm:"unit_per_pack" json:"unit_per_pack"`
+		ReceivedCount  float64 `gorm:"received_count" json:"received_count"`
+		ExpectedCount  float64 `gorm:"expected_count" json:"expected_count"`
+		UnitQuantity   float64 `gorm:"unit_quantity" json:"unit_quantity"`
+	}
+
 	query3 := `
 		SELECT 
-			td.*, 
-			p.unit_per_pack
+			td.id,
+			td.transfer_id,
+			td.store_product_id,
+			td.product_id,
+			td.received_count,
+			td.expected_count,
+			p.name,
+			p.unit_per_pack,
+			sp.unit_quantity
         FROM transfer_details td
 		JOIN products p ON td.product_id = p.id
 		WHERE td.transfer_id = ? and td.expected_count > 0;
@@ -540,10 +558,17 @@ func (s *Services) SendReturn(ctx context.Context, returnId string, userId strin
 	}
 
 	for _, detail := range details {
+		if (detail.ExpectedCount * detail.UnitPerPack) > detail.UnitQuantity {
+			return domain.NewNotAdditionError(http.StatusConflict, map[string]any{
+				"available_quantity": (detail.UnitQuantity / detail.UnitPerPack),
+				"name":               detail.Name,
+			})
+		}
 		// update store product quantities
 		// if scanned count is 0, skip the update
-		err = tx.WithContext(ctx).Exec(`UPDATE store_products SET unit_quantity = unit_quantity - ?, updated_at = NOW() WHERE id = ?`,
-			(detail.ExpectedCount * float64(detail.UnitPerPack)), detail.StoreProductId).Error
+		err = tx.WithContext(ctx).
+			Exec(`UPDATE store_products SET unit_quantity = unit_quantity - ?, updated_at = NOW() WHERE id = ?`,
+				(detail.ExpectedCount * float64(detail.UnitPerPack)), detail.StoreProductId).Error
 		if err != nil {
 			_ = tx.Rollback()
 			s.log.Errorf("could not update store product pack quantity: %v", err)

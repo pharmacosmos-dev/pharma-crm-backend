@@ -98,7 +98,7 @@ func (s *Services) DmedGiveReceipt(cartItems []domain.CartItemForDMED, markingDa
 				Request: payload,
 			}
 
-			id, _ := SaveDmedRequest(context.Background(), s.db, s.log, method+action, reqPayload)
+			id, _ := SaveDmedRequest(context.Background(), s.db, s.log, method+"-"+action, reqPayload)
 
 			// Send request dmed receipt
 			var response *http.Response
@@ -108,6 +108,13 @@ func (s *Services) DmedGiveReceipt(cartItems []domain.CartItemForDMED, markingDa
 				s.cfg.DmedApiUrl+url,
 				jsonBytes,
 			); err != nil {
+				dmedRes, err := io.ReadAll(response.Body)
+				if err != nil {
+					s.log.Errorf("could not decode dmed response: %v", err)
+					return domain.InternalServerError
+				}
+				_ = s.SaveDmedResponse(context.Background(), id, dmedRes, 0)
+
 				s.log.Errorf("could not send dmed request: %v", err)
 				return domain.InternalServerError
 			}
@@ -183,7 +190,6 @@ func SaveDmedRequest[T any](
 		log.Errorf("could not marshal dmed payload: %v", err)
 		return 0, err
 	}
-	fmt.Println("dmed req: ", string(payloadDb))
 	var id int64
 	err = db.WithContext(ctx).
 		Raw(

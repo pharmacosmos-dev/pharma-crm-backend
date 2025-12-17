@@ -1502,21 +1502,23 @@ func (h *HelperHandler) AddCategories(c *gin.Context) {
 	}
 
 	var tmpCategories []struct {
-		UId    string `json:"uid"`
-		Name   string `json:"name"`
-		NameUz string `json:"name_uz"`
-		NameEn string `json:"name_en"`
-		NameKr string `json:"name_kr"`
-		Photo  string `json:"photo"`
+		UId       string  `json:"uid"`
+		ParentUId *string `json:"parentUID"`
+		Name      string  `json:"name"`
+		// NameUz    string  `json:"name_uz"`
+		// NameEn    string  `json:"name_en"`
+		// NameKr    string  `json:"name_kr"`
+		Photo string `json:"photo"`
 	}
 
 	type Categories struct {
-		Id     string `json:"uid" gorm:"id"`
-		Name   string `json:"name_ru" gorm:"name"`
-		NameUz string `json:"name_uz" gorm:"name_uz"`
-		NameKr string `json:"name_kr" gorm:"name_kr"`
-		NameEn string `json:"name_en" gorm:"name_en"`
-		Photo  string `json:"photo" gorm:"photo"`
+		Id         string  `json:"uid" gorm:"id"`
+		CategoryId *string `json:"category_id" gorm:"category_id"`
+		Name       string  `json:"name_ru" gorm:"name"`
+		// NameUz     string  `json:"name_uz" gorm:"name_uz"`
+		// NameKr     string  `json:"name_kr" gorm:"name_kr"`
+		// NameEn     string  `json:"name_en" gorm:"name_en"`
+		Photo string `json:"photo" gorm:"photo"`
 	}
 
 	err = json.Unmarshal(fileData, &tmpCategories)
@@ -1527,19 +1529,31 @@ func (h *HelperHandler) AddCategories(c *gin.Context) {
 	}
 
 	var parentCategories []Categories
+	var childCategories []Categories
 	for _, cat := range tmpCategories {
 		photoUrl, err := DownloadAndSaveImage(cat.Photo, "./app/uploads/")
 		if err != nil {
 			h.log.Errorf("download image from web: %v", err)
 		}
-		parentCategories = append(parentCategories, Categories{
-			Id:     cat.UId,
-			Name:   cat.Name,
-			NameUz: cat.NameUz,
-			NameKr: cat.NameKr,
-			NameEn: cat.NameEn,
-			Photo:  photoUrl,
-		})
+		if cat.ParentUId == nil {
+			parentCategories = append(parentCategories, Categories{
+				Id:   cat.UId,
+				Name: cat.Name,
+				// NameUz: cat.NameUz,
+				// NameKr: cat.NameKr,
+				// NameEn: cat.NameEn,
+				Photo: photoUrl,
+			})
+		}
+
+		if cat.ParentUId != nil {
+			childCategories = append(childCategories, Categories{
+				Id:         cat.UId,
+				CategoryId: cat.ParentUId,
+				Name:       cat.Name,
+				Photo:      photoUrl,
+			})
+		}
 
 	}
 
@@ -1550,7 +1564,14 @@ func (h *HelperHandler) AddCategories(c *gin.Context) {
 		return
 	}
 
-	handleResponse(c, OK, fmt.Sprintf("Successfully added %d categories", len(parentCategories)))
+	err = h.db.Table("categories").Create(&childCategories).Error
+	if err != nil {
+		h.log.Errorf("Failed to insert child categories: %v", err)
+		handleResponse(c, InternalError, err)
+		return
+	}
+
+	handleResponse(c, OK, fmt.Sprintf("Successfully added %d categories", len(parentCategories)+len(childCategories)))
 }
 
 // AttachCategoryToProducts godoc
