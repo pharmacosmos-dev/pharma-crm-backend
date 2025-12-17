@@ -559,6 +559,7 @@ func (s *Services) SendReturn(ctx context.Context, returnId string, userId strin
 
 	for _, detail := range details {
 		if (detail.ExpectedCount * detail.UnitPerPack) > detail.UnitQuantity {
+			_ = tx.Rollback()
 			return domain.NewNotAdditionError(http.StatusConflict, map[string]any{
 				"available_quantity": (detail.UnitQuantity / detail.UnitPerPack),
 				"name":               detail.Name,
