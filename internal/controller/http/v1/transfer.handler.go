@@ -470,6 +470,10 @@ func (h *TransferHandler) Send(c *gin.Context) {
 	// confirm return service
 	err := h.service.SendTransfer(ctx, id, user.UserId)
 	if err != nil {
+		if notAddErr, ok := err.(*domain.NotAdditionError); ok {
+			handleResponse(c, CONFLICT, notAddErr.Data)
+			return
+		}
 		handleServiceResponse(c, InternalError, err)
 		return
 	}

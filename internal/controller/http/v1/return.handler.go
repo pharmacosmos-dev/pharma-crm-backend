@@ -412,6 +412,10 @@ func (h *ReturnHandler) Send(c *gin.Context) {
 	// confirm return service
 	err := h.service.SendReturn(ctx, id, user.UserId)
 	if err != nil {
+		if notAddErr, ok := err.(*domain.NotAdditionError); ok {
+			handleResponse(c, CONFLICT, notAddErr.Data)
+			return
+		}
 		handleServiceResponse(c, nil, err)
 		return
 	}
