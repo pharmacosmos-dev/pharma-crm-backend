@@ -183,12 +183,12 @@ func SaveDmedRequest[T any](
 		log.Errorf("could not marshal dmed payload: %v", err)
 		return 0, err
 	}
-
+	fmt.Println("dmed req: ", string(payloadDb))
 	var id int64
 	err = db.WithContext(ctx).
 		Raw(
 			"INSERT INTO dmed_requests(payload, method) VALUES(?, ?) RETURNING id;",
-			payloadDb, method,
+			string(payloadDb), method,
 		).
 		Scan(&id).Error
 
