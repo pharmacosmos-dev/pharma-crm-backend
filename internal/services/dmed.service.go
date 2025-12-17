@@ -15,13 +15,13 @@ func (s *Services) GetPrescriptionsFromDMED(patientId, safeCode string) ([]domai
 	url := fmt.Sprintf("/prescriptions?patient_id=%s&safe_code=%s", patientId, safeCode)
 
 	// request payload for logging
-	reqPayload := map[string]any{
-		"patient_id": patientId,
-		"safe_code":  safeCode,
-		"url":        url,
+	reqPayload := domain.DmedGerPrescripReq{
+		PatientId: patientId,
+		SafeCode:  safeCode,
+		Url:       url,
 	}
 
-	jsonBytes, err := json.Marshal(reqPayload)
+	jsonBytes, err := json.Marshal(&reqPayload)
 	if err != nil {
 		return nil, err
 	}
@@ -68,18 +68,17 @@ func (s *Services) DmedGiveReceipt(cartItems []domain.CartItemForDMED, markingDa
 				drugAmount = uq
 				uq = 0
 			}
-
-			payload := map[string]any{
-				"drug_amount":         drugAmount,
-				"price":               int(cartItem.UnitPrice),
-				"issued_by_full_name": employeeName,
-				// //   "pharmacy_id": 123,
+			payload := domain.DmedGiveReceiptReq{
+				DrugAmount:       drugAmount,
+				Price:            int(cartItem.UnitPrice),
+				IssuedByFullName: employeeName,
 			}
+
 			if j < len(markingData[i].MarkingList) && markingData[i].MarkingList[j] != "" {
-				payload["marking_code"] = markingData[i].MarkingList[j]
+				payload.MarkingCode = markingData[i].MarkingList[j]
 			} else if cartItem.SerialNumber != "" && cartItem.Barcode != "" {
-				payload["serial_number"] = cartItem.SerialNumber
-				payload["gtin"] = "010" + cartItem.Barcode
+				payload.SerialNumber = cartItem.SerialNumber
+				payload.Gtin = "010" + cartItem.Barcode
 			} else {
 				s.log.Error("could not find serial number or marking code for dmed")
 				return domain.SerialOrMarkingRequiredError
@@ -91,7 +90,7 @@ func (s *Services) DmedGiveReceipt(cartItems []domain.CartItemForDMED, markingDa
 				method = http.MethodPut
 			}
 
-			jsonBytes, err := json.Marshal(payload)
+			jsonBytes, err := json.Marshal(&payload)
 			if err != nil {
 				return err
 			}

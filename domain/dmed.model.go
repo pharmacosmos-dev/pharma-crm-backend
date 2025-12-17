@@ -109,3 +109,18 @@ type DmedRequestLog struct {
 	CreatedAt *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt *time.Time `gorm:"updated_at" json:"updated_at"`
 }
+
+type DmedGerPrescripReq struct {
+	PatientId string `json:"patient_id"`
+	SafeCode  string `json:"safe_code"`
+	Url       string `json:"url"`
+}
+
+type DmedGiveReceiptReq struct {
+	DrugAmount       int    `json:"drug_amount"`
+	Price            int    `json:"price"`
+	IssuedByFullName string `json:"issued_by_full_name"`
+	MarkingCode      string `json:"marking_code,omitempty"`
+	Gtin             string `json:"gtin,omitempty"`
+	SerialNumber     string `json:"serial_number,omitempty"`
+}
