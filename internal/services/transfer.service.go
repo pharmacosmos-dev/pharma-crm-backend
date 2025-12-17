@@ -561,6 +561,7 @@ func (s *Services) SendTransfer(ctx context.Context, transferId string, userId s
 
 	for _, detail := range details {
 		if (detail.ExpectedCount * detail.UnitPerPack) > detail.UnitQuantity {
+			_ = tx.Rollback()
 			return domain.NewNotAdditionError(http.StatusConflict, map[string]any{
 				"available_quantity": (detail.UnitQuantity / detail.UnitPerPack),
 				"name":               detail.Name,
