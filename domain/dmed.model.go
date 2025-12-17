@@ -124,3 +124,7 @@ type DmedGiveReceiptReq struct {
 	Gtin             string `json:"gtin,omitempty"`
 	SerialNumber     string `json:"serial_number,omitempty"`
 }
+
+type DmedGeneral[T any] struct {
+	Request T
+}

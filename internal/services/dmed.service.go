@@ -8,25 +8,24 @@ import (
 	"net/http"
 
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/pkg/logger"
 	"github.com/pharma-crm-backend/pkg/utils"
+	"gorm.io/gorm"
 )
 
 func (s *Services) GetPrescriptionsFromDMED(patientId, safeCode string) ([]domain.Prescription, error) {
 	url := fmt.Sprintf("/prescriptions?patient_id=%s&safe_code=%s", patientId, safeCode)
 
 	// request payload for logging
-	reqPayload := domain.DmedGerPrescripReq{
-		PatientId: patientId,
-		SafeCode:  safeCode,
-		Url:       url,
+	payload := domain.DmedGeneral[domain.DmedGerPrescripReq]{
+		Request: domain.DmedGerPrescripReq{
+			PatientId: patientId,
+			SafeCode:  safeCode,
+			Url:       url,
+		},
 	}
 
-	jsonBytes, err := json.Marshal(&reqPayload)
-	if err != nil {
-		return nil, err
-	}
-
-	id, _ := s.SaveDmedRequest(context.Background(), "GET-prescriptions", jsonBytes)
+	id, _ := SaveDmedRequest(context.Background(), s.db, s.log, "GET-prescriptions", payload)
 
 	// Send request dmed receipt
 	var response *http.Response
@@ -95,7 +94,11 @@ func (s *Services) DmedGiveReceipt(cartItems []domain.CartItemForDMED, markingDa
 				return err
 			}
 
-			id, _ := s.SaveDmedRequest(context.Background(), method+action, jsonBytes)
+			reqPayload := domain.DmedGeneral[domain.DmedGiveReceiptReq]{
+				Request: payload,
+			}
+
+			id, _ := SaveDmedRequest(context.Background(), s.db, s.log, method+action, reqPayload)
 
 			// Send request dmed receipt
 			var response *http.Response
@@ -167,14 +170,30 @@ func (s *Services) DmedGiveReceipt(cartItems []domain.CartItemForDMED, markingDa
 // 	return respBody, nil
 // }
 
-func (s *Services) SaveDmedRequest(ctx context.Context, method string, payload []byte) (int64, error) {
-	var id int64
-	err := s.db.WithContext(ctx).Debug().
-		Raw("INSERT INTO dmed_requests(payload, method) VALUES(?, ?) RETURNING id;",
-			json.RawMessage(payload), method,
-		).Scan(&id).Error
+func SaveDmedRequest[T any](
+	ctx context.Context,
+	db *gorm.DB,
+	log *logger.Logger,
+	method string,
+	payload domain.DmedGeneral[T],
+) (int64, error) {
+
+	payloadDb, err := json.Marshal(payload.Request)
 	if err != nil {
-		s.log.Errorf("could not save dmed request payload: %v", err)
+		log.Errorf("could not marshal dmed payload: %v", err)
+		return 0, err
+	}
+
+	var id int64
+	err = db.WithContext(ctx).
+		Raw(
+			"INSERT INTO dmed_requests(payload, method) VALUES(?, ?) RETURNING id;",
+			payloadDb, method,
+		).
+		Scan(&id).Error
+
+	if err != nil {
+		log.Errorf("could not save dmed request payload: %v", err)
 		return 0, domain.InternalServerError
 	}
 
@@ -182,9 +201,10 @@ func (s *Services) SaveDmedRequest(ctx context.Context, method string, payload [
 }
 
 func (s *Services) SaveDmedResponse(ctx context.Context, reqId int64, response []byte, status int) error {
-	err := s.db.WithContext(ctx).Raw("UPDATE dmed_requests SET response = ?, status = ?, updated_at = NOW() WHERE id = ?;",
-		json.RawMessage(response), status, reqId,
-	).Error
+	err := s.db.WithContext(ctx).
+		Exec("UPDATE dmed_requests SET response = ?, status = ?, updated_at = NOW() WHERE id = ?;",
+			response, status, reqId,
+		).Error
 	if err != nil {
 		s.log.Errorf("could not save dmed response payload: %v", err)
 		return domain.InternalServerError
