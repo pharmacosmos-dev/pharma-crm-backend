@@ -785,8 +785,8 @@ func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userI
 	query2 := `
 		INSERT INTO store_products(
 				product_id, 
-				store_id, 
-				unit_quantity, 
+				store_id,
+				unit_quantity,
 				retail_price,
 				supply_price,
 				vat,
@@ -802,8 +802,7 @@ func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userI
 		// return unscanned product to store
 		err = tx.WithContext(ctx).Exec(`
 		UPDATE store_products 
-		SET
-			unit_quantity = unit_quantity + ?
+		SET unit_quantity = unit_quantity + ?
 		WHERE id = ?;`,
 			(item.ExpectedCount-item.AcceptedCount)*float64(item.UnitPerPack),
 			item.StoreProductId).Error
@@ -841,7 +840,7 @@ func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userI
 			ProductSeriesNumber: item.SerialNumber,
 			ExpireDate:          item.ExpireDate,
 			Quantity:            item.AcceptedCount,
-			RetailPrice:         item.RetailPrice, // vat bilan oddiysi almashgan
+			RetailPrice:         item.RetailPrice,
 			RetailPriceVat:      item.RetailPriceVat,
 			SupplyPrice:         item.SupplyPrice,
 			SupplyPriceVat:      item.SupplyPriceVat,
@@ -941,10 +940,8 @@ func (s *Services) UpdateTransferByBarcode(
 				UPDATE transfer_details 
 				SET %s = COALESCE(%s, 0) + ? 
 				WHERE id = ? AND 
-				received_count >= COALESCE(%s,0) + ? AND
 				expected_count >= COALESCE(%s,0) + ?
 				RETURNING id;`,
-				updatedField,
 				updatedField,
 				updatedField,
 				updatedField),

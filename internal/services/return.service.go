@@ -549,6 +549,7 @@ func (s *Services) SendReturn(ctx context.Context, returnId string, userId strin
 			sp.unit_quantity
         FROM transfer_details td
 		JOIN products p ON td.product_id = p.id
+		JOIN store_products sp ON td.store_product_id = sp.id
 		WHERE td.transfer_id = ? and td.expected_count > 0;
 	`
 	err = tx.WithContext(ctx).Raw(query3, returnId).Scan(&details).Error
