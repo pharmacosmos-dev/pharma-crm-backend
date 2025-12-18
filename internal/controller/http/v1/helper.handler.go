@@ -55,6 +55,7 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		helper.GET("/get-dmed-token", h.GetDmedToken)
 		helper.POST("/add-categories", h.AddCategories)
 		helper.POST("/attach-category-to-products", h.AttachCategoryToProducts)
+		helper.POST("/upload-categories-json", h.UploadCategoryJson)
 	}
 }
 
@@ -1528,6 +1529,13 @@ func (h *HelperHandler) AddCategories(c *gin.Context) {
 		return
 	}
 
+	err = h.db.Exec("DELETE FROM categories WHERE name is not null;").Error
+	if err != nil {
+		h.log.Errorf("could not delete categories: %v", err)
+		handleResponse(c, InternalError, "Failed to delete categories")
+		return
+	}
+
 	var parentCategories []Categories
 	var childCategories []Categories
 	for _, cat := range tmpCategories {
@@ -1617,6 +1625,67 @@ func (h *HelperHandler) AttachCategoryToProducts(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, fmt.Sprintf("Successfully added %d products", len(products)))
+}
+
+// UploadCategoryJson godoc
+// @Summary Upload Category Json
+// @Description Upload Category Json
+// @Tags helper
+// @Security     BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "Product file"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /helper/upload-categories-json [POST]
+func (h *HelperHandler) UploadCategoryJson(c *gin.Context) {
+	var file domain.File
+
+	// Bind the file data
+	err := c.ShouldBind(&file)
+	if err != nil {
+		h.log.Error("Failed to bind file: ", err)
+		handleResponse(c, BadRequest, "Failed to bind file")
+		return
+	}
+
+	// Check the file size (maximum 5 MB)
+	maxFileSize := int64(5 * 1024 * 1024) // 5 MB
+	if file.File.Size > maxFileSize {
+		h.log.Error("File size exceeds the maximum limit of 5 MB")
+		handleResponse(c, BadRequest, "File size exceeds the maximum limit of 5 MB")
+		return
+	}
+
+	// Check file type
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".json" {
+		h.log.Error("Invalid file type")
+		handleResponse(c, UnprocessableEntity, "Invalid file type. Only .jpg, .jpeg, and .png files are allowed.")
+		return
+	}
+
+	// Define the save path (adjust the directory as needed)
+	savePath := filepath.Join("./app/uploads", file.File.Filename)
+
+	// Remove the file after sending
+	if err := os.Remove(savePath); err != nil {
+		h.log.Error("Error deleting file after send: %v", err)
+	}
+
+	// Save the file
+	err = c.SaveUploadedFile(file.File, savePath)
+	if err != nil {
+		h.log.Warn("Failed to save file: %v", err.Error())
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+
+	// Return the file URL in the response
+	c.JSON(http.StatusOK, gin.H{
+		"file_url": file.File.Filename,
+	})
 }
 
 func (h *HelperHandler) processExcel(c *gin.Context, savePath string) {

@@ -6610,6 +6610,37 @@ paths:
       summary: update product infos
       tags:
       - helper
+  /helper/upload-categories-json:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload Category Json
+      parameters:
+      - description: Product file
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Upload Category Json
+      tags:
+      - helper
   /helper/upload-category:
     post:
       consumes:
