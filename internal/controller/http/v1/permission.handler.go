@@ -2,7 +2,6 @@ package v1
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -128,7 +127,7 @@ func (h *PermissionHandler) List(c *gin.Context) {
 			// Preload Permissions (children of MainPermission)
 			if roleID != "" {
 				return db.Select(`
-						permissions.*, 
+						permissions.*,
 						COALESCE(role_permissions.is_active, false) AS is_active
 					`).
 					Joins(`
@@ -247,18 +246,15 @@ func (h *PermissionHandler) Update(c *gin.Context) {
 // @Router /permission/delete [delete]
 func (h *PermissionHandler) Delete(c *gin.Context) {
 	var ids []string
-	// bind the request body
-	err := c.ShouldBindJSON(&ids)
-	if err != nil {
+	if err := c.ShouldBindJSON(&ids); err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	// delete the permissions
-	err = h.db.Model(&domain.Permission{}).Where("id IN (?)", ids).Update("deleted_at", time.Now()).Error
+	err := h.db.Exec("DELETE FROM permissions WHERE id IN(?)", ids).Error
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		h.log.Errorf("could not delete permissions: %v", err)
+		handleServiceResponse(c, nil, domain.InternalServerError)
 		return
 	}
 	handleResponse(c, OK, "DELETED")

@@ -8152,6 +8152,50 @@ paths:
       summary: Login
       tags:
       - auth
+  /logs:
+    get:
+      description: Get all transaction stats
+      parameters:
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: Type might be -> (payme, click, epos, dmed)
+        in: query
+        name: provider_type
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get all transaction stats
+      tags:
+      - Logs
   /loyalty_card:
     post:
       consumes:
