@@ -1572,11 +1572,13 @@ func (h *HelperHandler) AddCategories(c *gin.Context) {
 		return
 	}
 
-	err = h.db.Table("categories").Create(&childCategories).Error
-	if err != nil {
-		h.log.Errorf("Failed to insert child categories: %v", err)
-		handleResponse(c, InternalError, err)
-		return
+	if len(childCategories) > 0 {
+		err = h.db.Table("categories").Create(&childCategories).Error
+		if err != nil {
+			h.log.Errorf("Failed to insert child categories: %v", err)
+			handleResponse(c, InternalError, err)
+			return
+		}
 	}
 
 	handleResponse(c, OK, fmt.Sprintf("Successfully added %d categories", len(parentCategories)+len(childCategories)))
