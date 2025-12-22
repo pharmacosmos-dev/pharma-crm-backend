@@ -6354,31 +6354,6 @@ paths:
       summary: Fix product quantity
       tags:
       - helper
-  /helper/get-dmed-token:
-    get:
-      consumes:
-      - application/json
-      description: update product infos
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: update product infos
-      tags:
-      - helper
   /helper/get-ikpu-data-from-soliq:
     post:
       consumes:
@@ -8424,6 +8399,95 @@ paths:
       summary: List Store Products
       tags:
       - Noor API
+  /ostatok:
+    get:
+      consumes:
+      - application/json
+      description: Get Wrong Ostatok Data
+      parameters:
+      - description: Store ID
+        in: query
+        name: store_id
+        required: true
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Wrong Ostatok Data
+      tags:
+      - Ostatok
+  /ostatok/correct:
+    post:
+      consumes:
+      - application/json
+      description: update correct ostatok
+      parameters:
+      - description: Excel file (.xlsx) containing ostatok corrections
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: update correct ostatok
+      tags:
+      - Ostatok
+  /ostatok/excel/{xlsx}:
+    get:
+      description: Serve a file by its filename
+      parameters:
+      - description: File name
+        in: path
+        name: xlsx
+        required: true
+        type: string
+      produces:
+      - octet/stream
+      responses:
+        "200":
+          description: File content
+          schema:
+            type: file
+      summary: Serve a file
+      tags:
+      - Ostatok
   /payment-service:
     post:
       consumes:

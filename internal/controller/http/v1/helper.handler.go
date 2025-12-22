@@ -52,7 +52,6 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		helper.POST("/fix-product-quantity", h.FixProductQuantity)
 		helper.POST("/update-product-info", h.UpdateProductInfo)
 		helper.POST("/update-wrong-items", h.UpdateSaleItems)
-		helper.GET("/get-dmed-token", h.GetDmedToken)
 		helper.POST("/add-categories", h.AddCategories)
 		helper.POST("/attach-category-to-products", h.AttachCategoryToProducts)
 		helper.POST("/upload-categories-json", h.UploadCategoryJson)
@@ -1460,25 +1459,6 @@ func (h *HelperHandler) UpdateSaleItems(c *gin.Context) {
 		}
 	}
 	handleResponse(c, OK, fmt.Sprintf("%d - items update succesfully", count))
-}
-
-// GetDmedToken godoc
-// @Summary update product infos
-// @Description update product infos
-// @Tags helper
-// @Security     BearerAuth
-// @Accept 	json
-// @Produce json
-// @Success 200 {object} v1.Response
-// @Failure 400 {object} v1.Response
-// @Failure 500 {object} v1.Response
-// @Router /helper/get-dmed-token [GET]
-func (h *HelperHandler) GetDmedToken(c *gin.Context) {
-	newToken := strings.Trim(h.cfg.DmedApiToken, `"'`)
-	c.JSON(http.StatusOK, map[string]string{
-		"dmed_token": h.cfg.DmedApiToken,
-		"new_token":  newToken,
-	})
 }
 
 // AddCategories godoc

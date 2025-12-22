@@ -111,6 +111,7 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		h.NewRejectedProductsHandler(v1)
 		h.NewLoyaltyCardHandler(v1)
 		h.NewLogHandler(v1)
+		h.NewOstatokHandler(public)
 		// handler for external apis
 		h.NewNoorHandler(external)
 	}
