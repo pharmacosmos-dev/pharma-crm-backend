@@ -68,7 +68,7 @@ func (s *Services) CreateReturn(ctx context.Context, req *domain.ReturnRequest) 
 		JOIN
 			products p ON sp.product_id = p.id
 		WHERE 
-			sp.store_id = ? AND (sp.pack_quantity > 0 OR sp.unit_quantity > 0);`,
+			sp.store_id = ? AND sp.unit_quantity/p.unit_per_pack > 0;`,
 		id, req.StoreId).Error
 	if err != nil {
 		_ = tx.Rollback()
