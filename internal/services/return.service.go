@@ -691,7 +691,7 @@ func (s *Services) EditStatusToCheckingReturn(ctx context.Context, Id string, us
 }
 
 // confirm return
-func (s *Services) ConfirmReturn(ctx context.Context, returnId, storeId string, userId string) error {
+func (s *Services) ConfirmReturn(ctx context.Context, returnId, userId string) error {
 	// start transaction
 	tx := s.db.Begin()
 	defer func() {
@@ -699,18 +699,31 @@ func (s *Services) ConfirmReturn(ctx context.Context, returnId, storeId string, 
 			_ = tx.Rollback()
 		}
 	}()
-	var returnInfo domain.Return
-	// update confirm return
-	query := `UPDATE transfers SET status = ?, accepted_by = ?, accepted_at = NOW() WHERE id = ? RETURNING *`
-	err := tx.WithContext(ctx).Raw(query, constants.GeneralStatusSentOnec, userId, returnId).Scan(&returnInfo).Error
+
+	var transfer domain.Transfer
+	// get return info
+	err := tx.WithContext(ctx).First(&transfer, "id = ?", returnId).Error
 	if err != nil {
 		_ = tx.Rollback()
-		s.log.Errorf("could not update return %v", err)
+		s.log.Errorf("could not get return: %v", err)
+		return domain.InternalServerError
+	}
+	// check if return is already confirmed
+	if transfer.Status == constants.GeneralStatusSentOnec {
+		_ = tx.Rollback()
+		return domain.AlreadyCompletedError
+	}
+
+	// update confirm return
+	query := `UPDATE transfers SET status = ?, accepted_by = ?, accepted_at = NOW() WHERE id = ? RETURNING *`
+	err = tx.WithContext(ctx).Raw(query, constants.GeneralStatusSentOnec, userId, returnId).Scan(&transfer).Error
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("could not update return: %v", err)
 		return domain.InternalServerError
 	}
 
 	var returnData domain.ReturnData1C
-
 	// get return data
 	query2 := `
 	SELECT
@@ -767,15 +780,15 @@ func (s *Services) ConfirmReturn(ctx context.Context, returnId, storeId string, 
 	}
 	var store domain.Store
 	// get store data
-	err = tx.WithContext(ctx).First(&store, "id = ?", storeId).Error
+	err = tx.WithContext(ctx).First(&store, "id = ?", transfer.FromStoreId).Error
 	if err != nil {
 		_ = tx.Rollback()
 		s.log.Errorf("could not get store data: %v", err)
 		return domain.InternalServerError
 	}
 
-	returnData.Dok.DocumentNumber = "NP-" + cast.ToString(returnInfo.PublicId)
-	returnData.Dok.DocumentDate = returnInfo.UpdatedAt.Format(constants.DateTimeFormatRFC3339)
+	returnData.Dok.DocumentNumber = "NP-" + cast.ToString(transfer.PublicId)
+	returnData.Dok.DocumentDate = transfer.UpdatedAt.Format(constants.DateTimeFormatRFC3339)
 	returnData.Apteka.Name = store.Name
 	returnData.Apteka.StoreCode = store.StoreCode
 

@@ -2,7 +2,6 @@ package v1
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"strconv"
@@ -491,26 +490,8 @@ func (h *ReturnHandler) Confirm(c *gin.Context) {
 	mu.Lock()
 	defer mu.Unlock()
 
-	var returnInfo domain.Return
-	// get return info
-	err := h.db.WithContext(ctx).Raw(`SELECT * FROM transfers WHERE id = ?`, id).Scan(&returnInfo).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) || returnInfo.Id == "" {
-			handleServiceResponse(c, NotFound, domain.NotFoundError)
-			return
-		}
-		h.log.Errorf("Error on getting return: %v", err.Error())
-		handleServiceResponse(c, InternalError, domain.InternalServerError)
-		return
-	}
-	// check if return is already confirmed
-	if returnInfo.Status == constants.GeneralStatusCompleted {
-		handleServiceResponse(c, BadRequest, domain.AlreadyCompletedError)
-		return
-	}
-
 	// confirm return service
-	err = h.service.ConfirmReturn(ctx, id, returnInfo.FromStoreId, user.UserId)
+	err := h.service.ConfirmReturn(ctx, id, user.UserId)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return
