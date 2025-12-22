@@ -158,7 +158,7 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 
 	// update scanned count with pack quantity
 	if req.ScannedPack != nil {
-		if float64(*req.ScannedPack) > returnDetail.ExpectedCount {
+		if float64(*req.ScannedPack) > returnDetail.ReceivedCount {
 			return errors.New("invalid.quantity")
 		}
 		updateField := "expected_count"
@@ -167,9 +167,15 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 		case "checking":
 			updateField = "accepted_count"
 			transferLog.Stage = constants.TransferLogStageChecking
+			if float64(*req.ScannedPack) > returnDetail.ExpectedCount {
+				return errors.New("invalid.quantity")
+			}
 		case "get":
 			updateField = "scanned_count"
 			transferLog.Stage = constants.TransferLogStageSent
+			if float64(*req.ScannedPack) > returnDetail.ExpectedCount {
+				return errors.New("invalid.quantity")
+			}
 		}
 		// add scanned count by transfer detail id
 		err = s.db.WithContext(ctx).Exec(fmt.Sprintf(`
@@ -189,7 +195,7 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 	// update scanned count with unit quantity
 	if req.ScannedUnit != nil {
 		quantity := float64(int(returnDetail.ScannedCount)) + float64(*req.ScannedUnit)/returnDetail.UnitPerPack
-		if quantity > returnDetail.ExpectedCount {
+		if quantity > returnDetail.ReceivedCount {
 			return errors.New("invalid.quantity")
 		}
 		updateField := "expected_count"
@@ -197,9 +203,15 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 		case "checking":
 			transferLog.Stage = constants.TransferLogStageChecking
 			updateField = "accepted_count"
+			if quantity > returnDetail.ExpectedCount {
+				return errors.New("invalid.quantity")
+			}
 		case "get":
 			transferLog.Stage = constants.TransferLogStageSent
 			updateField = "scanned_count"
+			if quantity > returnDetail.ExpectedCount {
+				return errors.New("invalid.quantity")
+			}
 		}
 		// add scanned count by transfer detail id
 		err = s.db.WithContext(ctx).Exec(fmt.Sprintf(`

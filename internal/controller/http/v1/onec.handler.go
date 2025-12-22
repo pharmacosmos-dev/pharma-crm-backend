@@ -232,7 +232,8 @@ func (h *ProductOnecHandler) ProductRepricing(c *gin.Context) {
 				handleServiceResponse(c, InternalError, domain.NotFoundError)
 				return
 			}
-		} else if err != nil {
+		} else {
+			// Handle any other database error (not RecordNotFound)
 			_ = tx.Rollback()
 			handleServiceResponse(c, InternalError, domain.InternalServerError)
 			return
