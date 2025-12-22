@@ -122,11 +122,13 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 		ProductId     string  `gorm:"product_id"`
 		UnitPerPack   float64 `gorm:"unit_per_pack"`
 		ReceivedCount float64 `gorm:"received_count"`
+		ExpectedCount float64 `gorm:"expected_count"`
 		ScannedCount  float64 `gorm:"scanned_count"`
 	}
-	err := s.db.Raw(`
+	err := s.db.WithContext(ctx).Raw(`
 	SELECT
 		td.received_count,
+		td.expected_count,
 		td.scanned_count,
 		p.id AS product_id,
 		p.unit_per_pack
@@ -156,8 +158,8 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 
 	// update scanned count with pack quantity
 	if req.ScannedPack != nil {
-		if float64(*req.ScannedPack) > returnDetail.ReceivedCount {
-			return errors.New("expected_count could not be greater current count")
+		if float64(*req.ScannedPack) > returnDetail.ExpectedCount {
+			return errors.New("invalid.quantity")
 		}
 		updateField := "expected_count"
 
@@ -170,7 +172,7 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 			transferLog.Stage = constants.TransferLogStageSent
 		}
 		// add scanned count by transfer detail id
-		err = s.db.Exec(fmt.Sprintf(`
+		err = s.db.WithContext(ctx).Exec(fmt.Sprintf(`
 		UPDATE 
 			transfer_details
 		SET
@@ -187,8 +189,8 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 	// update scanned count with unit quantity
 	if req.ScannedUnit != nil {
 		quantity := float64(int(returnDetail.ScannedCount)) + float64(*req.ScannedUnit)/returnDetail.UnitPerPack
-		if quantity > returnDetail.ReceivedCount {
-			return errors.New("expected_count could not be greater current count")
+		if quantity > returnDetail.ExpectedCount {
+			return errors.New("invalid.quantity")
 		}
 		updateField := "expected_count"
 		switch req.Status {
@@ -200,10 +202,10 @@ func (s *Services) UpdateReturnDetailQuantity(ctx context.Context, req *domain.R
 			updateField = "scanned_count"
 		}
 		// add scanned count by transfer detail id
-		err = s.db.Exec(fmt.Sprintf(`
+		err = s.db.WithContext(ctx).Exec(fmt.Sprintf(`
 		UPDATE 
 			transfer_details
-		SET 
+		SET
 			%s = ?, updated_at = NOW()
 		WHERE 
 			id = ? AND transfer_id = ?;`, updateField),
