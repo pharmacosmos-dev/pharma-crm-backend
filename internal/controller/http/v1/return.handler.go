@@ -487,6 +487,10 @@ func (h *ReturnHandler) Confirm(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
+	mu := h.getReturnLock(id)
+	mu.Lock()
+	defer mu.Unlock()
+
 	var returnInfo domain.Return
 	// get return info
 	err := h.db.WithContext(ctx).Raw(`SELECT * FROM transfers WHERE id = ?`, id).Scan(&returnInfo).Error

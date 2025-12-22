@@ -749,8 +749,20 @@ func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userI
 
 	// update confirm inventory
 	var transfer domain.Transfer
+	err := tx.WithContext(ctx).First(&transfer, "id = ?", transferId).Error
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("could not get transfer %v", err)
+		return domain.InternalServerError
+	}
+
+	if transfer.Status == constants.GeneralStatusCompleted {
+		_ = tx.Rollback()
+		return domain.AlreadyCompletedError
+	}
+
 	query := `UPDATE transfers SET status = ?, accepted_by = ?, accepted_at = NOW() WHERE id = ? RETURNING *`
-	err := tx.WithContext(ctx).Raw(query, constants.GeneralStatusCompleted, userId, transferId).Scan(&transfer).Error
+	err = tx.WithContext(ctx).Raw(query, constants.GeneralStatusCompleted, userId, transferId).Scan(&transfer).Error
 	if err != nil {
 		_ = tx.Rollback()
 		s.log.Errorf("could not update transfer %v", err)

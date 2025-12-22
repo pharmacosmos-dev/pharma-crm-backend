@@ -550,6 +550,10 @@ func (h *TransferHandler) Confirm(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
+	mu := h.getTransferLock(id)
+	mu.Lock()
+	defer mu.Unlock()
+
 	// check is accepted_count is not null
 	err := h.service.CheckAcceptedCount(ctx, id)
 	if err != nil {
