@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -408,6 +409,11 @@ func (h *ReturnHandler) Send(c *gin.Context) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
+
+	// lock parallel request
+	mu := h.getReturnLock(id)
+	mu.Lock()
+	defer mu.Unlock()
 
 	// confirm return service
 	err := h.service.SendReturn(ctx, id, user.UserId)
@@ -960,4 +966,10 @@ func (h *ReturnHandler) EditStatusToChecking(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, "UPDATED")
+}
+
+// lock order for parallel request
+func (h *ReturnHandler) getReturnLock(importId string) *sync.Mutex {
+	lock, _ := h.ordersToMutexes.LoadOrStore(importId, &sync.Mutex{})
+	return lock.(*sync.Mutex)
 }

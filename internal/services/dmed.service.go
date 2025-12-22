@@ -133,50 +133,6 @@ func (s *Services) DmedGiveReceipt(cartItems []domain.CartItemForDMED, markingDa
 	return nil
 }
 
-// func (s *Services) doRequestToDMED(method, url string, data any) ([]byte, error) {
-// 	var (
-// 		body       []byte
-// 		bodyReader io.Reader
-// 		err        error
-// 	)
-
-// 	if data != nil {
-// 		body, err = json.Marshal(data)
-// 		if err != nil {
-// 			return nil, fmt.Errorf("failed to marshal data: %w", err)
-// 		}
-// 		fmt.Printf("Request body DMED: %s\n", string(body))
-// 		bodyReader = bytes.NewReader(body)
-// 	}
-
-// 	req, err := http.NewRequest(method, s.cfg.DmedApiUrl+url, bodyReader)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to create request: %w", err)
-// 	}
-// 	newToken := strings.Trim(s.cfg.DmedApiToken, `"'`)
-// 	req.Header.Set("Accept", "application/json")
-// 	req.Header.Set("Content-Type", "application/json")
-// 	req.Header.Set("Authorization", "Bearer "+newToken)
-
-// 	resp, err := http.DefaultClient.Do(req)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to send request: %w", err)
-// 	}
-// 	defer resp.Body.Close()
-
-// 	respBody, err := io.ReadAll(resp.Body)
-// 	if err != nil {
-// 		return nil, fmt.Errorf("failed to read response: %w", err)
-// 	}
-// 	fmt.Println(string(respBody))
-// 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-// 		s.log.Errorf("dmed request failed: %s", string(respBody))
-// 		return nil, fmt.Errorf("DMED API error: %s", string(respBody))
-// 	}
-
-// 	return respBody, nil
-// }
-
 func SaveDmedRequest[T any](
 	ctx context.Context,
 	db *gorm.DB,

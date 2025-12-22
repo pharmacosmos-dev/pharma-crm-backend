@@ -515,9 +515,22 @@ func (s *Services) SendTransfer(ctx context.Context, transferId string, userId s
 		}
 	}()
 
+	var transfer domain.Transfer
+	err := tx.WithContext(ctx).First(&transfer, "id = ?", transferId).Error
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("could not get transfer: %v", err)
+		return domain.InternalServerError
+	}
+
+	if transfer.Status == constants.GeneralStatusSent {
+		_ = tx.Rollback()
+		return domain.AlreadySentError
+	}
+
 	// update confirm inventory
 	query := `UPDATE transfers SET status = ?, updated_by = ? WHERE id = ?`
-	err := tx.WithContext(ctx).Exec(query, constants.GeneralStatusSent, userId, transferId).Error
+	err = tx.WithContext(ctx).Exec(query, constants.GeneralStatusSent, userId, transferId).Error
 	if err != nil {
 		_ = tx.Rollback()
 		s.log.Errorf("could not update transfer: %v", err)

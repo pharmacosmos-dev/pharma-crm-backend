@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -466,6 +467,11 @@ func (h *TransferHandler) Send(c *gin.Context) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
+
+	// lock parallel request
+	mu := h.getTransferLock(id)
+	mu.Lock()
+	defer mu.Unlock()
 
 	// confirm return service
 	err := h.service.SendTransfer(ctx, id, user.UserId)
@@ -980,4 +986,10 @@ func (h *TransferHandler) DeleteTransfer(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, "transfer.delete.success")
+}
+
+// lock order for parallel request
+func (h *TransferHandler) getTransferLock(importId string) *sync.Mutex {
+	lock, _ := h.ordersToMutexes.LoadOrStore(importId, &sync.Mutex{})
+	return lock.(*sync.Mutex)
 }

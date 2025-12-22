@@ -51,6 +51,7 @@ var (
 	NotEnoughProductError = NewError(http.StatusConflict, "not.enough.product")
 	AlreadyExistsError    = NewError(http.StatusConflict, "already.exists")
 	AlreadyCompletedError = NewError(http.StatusConflict, "already.completed")
+	AlreadySentError      = NewError(http.StatusConflict, "already.sent")
 	SaleIsClosedError     = NewError(http.StatusConflict, "sale.is.closed")
 
 	// 424 – Failed Dependency (tashqi tizimga bog‘liq xatolik)
