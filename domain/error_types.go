@@ -57,6 +57,7 @@ var (
 	AlreadySentError           = NewError(http.StatusConflict, "already.sent")
 	SaleIsClosedError          = NewError(http.StatusConflict, "sale.is.closed")
 	PrescriptionsAlreadyIssued = NewError(http.StatusConflict, "prescriptions.already.issued")
+	AlreadyUpdatedError        = NewError(http.StatusConflict, "already.updated")
 
 	// 424 – Failed Dependency (tashqi tizimga bog‘liq xatolik)
 	DependencyFailedError    = NewError(http.StatusFailedDependency, "dependency.failed")

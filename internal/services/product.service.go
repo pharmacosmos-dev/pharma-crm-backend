@@ -1933,7 +1933,25 @@ func (s *Services) UpdatePackaging(ctx context.Context, req *domain.UpdatePackag
 		}
 	}()
 
-	err := tx.WithContext(ctx).Exec("UPDATE products SET unit_per_pack = ? WHERE unit_per_pack = 1 AND id = ?;",
+	var product struct {
+		Id          string `gorm:"id"`
+		UnitPerPack int    `gorm:"unit_per_pack"`
+	}
+
+	err := tx.WithContext(ctx).First(&product, "id = ?", req.ProductId).Error
+	if err != nil {
+		_ = tx.Rollback()
+		s.log.Errorf("could not find product by id: %v", err)
+		return domain.InternalServerError
+	}
+
+	if product.UnitPerPack != 1 {
+		_ = tx.Rollback()
+		s.log.Error("product unit_per_pack is not 1, cannot update packaging")
+		return domain.AlreadyUpdatedError
+	}
+
+	err = tx.WithContext(ctx).Exec("UPDATE products SET unit_per_pack = ? WHERE unit_per_pack = 1 AND id = ?;",
 		req.UnitPerPack, req.ProductId).Error
 	if err != nil {
 		_ = tx.Rollback()
