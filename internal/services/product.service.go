@@ -931,13 +931,18 @@ func (s *Services) GetNoorProducts(param *domain.NoorQueryParam) ([]domain.NoorP
 func (s *Services) GetNoorStoreProducts(params *domain.NoorQueryParam) ([]domain.NoorStoreProduct, error) {
 	if _, err := time.Parse(time.RFC3339, params.UpdatedAt); err != nil {
 		s.log.Errorf("could not parse updated_at param: %v", err)
-		return nil, &domain.Error{
-			Code:    domain.InvalidTimeFormatError.Code,
-			Message: "",
-		}
+		return nil, domain.InvalidTimeFormatError
 	}
 
-	var res []domain.NoorStoreProduct
+	var (
+		res    []domain.NoorStoreProduct
+		filter = " WHERE sp.updated_at >= ? "
+	)
+
+	if params.ShopId != "" {
+		filter += " AND sp.store_id = '" + params.ShopId + "' "
+	}
+
 	query := `
 	SELECT
 		sp.store_id,
@@ -946,7 +951,7 @@ func (s *Services) GetNoorStoreProducts(params *domain.NoorQueryParam) ([]domain
 		ROUND(MIN(sp.retail_price/p.blister_count), 0) AS price
 	FROM store_products sp
 	JOIN products p ON sp.product_id = p.id
-	WHERE sp.unit_quantity/p.blister_count > 0 AND sp.updated_at >= ?
+	` + filter + `
 	GROUP BY sp.product_id, sp.store_id
 	LIMIT ? OFFSET ?;
 	`

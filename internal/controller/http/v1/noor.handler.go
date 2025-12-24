@@ -75,6 +75,7 @@ func (h *NoorHandler) ProductList(c *gin.Context) {
 // @Accept 		json
 // @Produce 	json
 // @Param		updatedAt query   string   false "updatedAt"
+// @Param		shopId  query   string   false "Shop ID"
 // @Param   	limit 	query     int      false "Limit"
 // @Param   	offset 	query     int      false "Offset"
 // @Success 	200 {object} []domain.NoorStoreProduct

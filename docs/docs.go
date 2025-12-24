@@ -10323,6 +10323,12 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "string",
+                        "description": "Shop ID",
+                        "name": "shopId",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "description": "Limit",
                         "name": "limit",
@@ -25365,6 +25371,9 @@ const docTemplate = `{
                 },
                 "photo": {
                     "type": "string"
+                },
+                "product_count": {
+                    "type": "integer"
                 },
                 "sub_category": {
                     "type": "array",

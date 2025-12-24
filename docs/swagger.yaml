@@ -212,6 +212,8 @@ definitions:
         type: string
       photo:
         type: string
+      product_count:
+        type: integer
       sub_category:
         items:
           $ref: '#/definitions/domain.Category'
@@ -8341,6 +8343,10 @@ paths:
       - description: updatedAt
         in: query
         name: updatedAt
+        type: string
+      - description: Shop ID
+        in: query
+        name: shopId
         type: string
       - description: Limit
         in: query

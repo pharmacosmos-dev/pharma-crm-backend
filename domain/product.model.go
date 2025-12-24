@@ -387,6 +387,7 @@ type NoorQueryParam struct {
 	Limit     int    `form:"limit"`
 	Offset    int    `form:"offset"`
 	Search    string `form:"search"`
+	ShopId    string `form:"shopId"`
 }
 
 type NoorCategory struct {
