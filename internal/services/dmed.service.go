@@ -37,7 +37,28 @@ func (s *Services) GetPrescriptionsFromDMED(patientId, safeCode string) ([]domai
 		s.cfg.DmedApiUrl+url,
 		nil,
 	); err != nil {
-		s.log.Errorf("could not send dmed request: %v", err)
+		var dmedErr *domain.DmedError
+		if errors.As(err, &dmedErr) {
+			// ✅ Save real API error response
+			_ = s.SaveDmedResponse(
+				context.Background(),
+				id,
+				dmedErr.Body,
+				0,
+			)
+
+			s.log.Errorf(
+				"dmed error: status=%d body=%s",
+				dmedErr.StatusCode,
+				string(dmedErr.Body),
+			)
+			err = FormatDmedErrorResponse(dmedErr.Body)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			s.log.Errorf("unexpected dmed error: %v", err)
+		}
 		return nil, err
 	}
 
