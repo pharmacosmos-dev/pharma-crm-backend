@@ -87,8 +87,8 @@ func (s *Services) DoRequest(
 	}
 
 	*res = response
-	errBody, _ := io.ReadAll(response.Body)
-	s.log.Infof("Response: Code: %d: Res: %s", response.StatusCode, string(errBody))
+	resStr, _ := io.ReadAll(response.Body)
+	s.log.Infof("Response: Code: %d: Res: %s", response.StatusCode, string(resStr))
 	// Check response status code
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
 		errBody, err := io.ReadAll(response.Body)
