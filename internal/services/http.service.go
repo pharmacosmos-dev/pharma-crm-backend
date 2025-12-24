@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
 )
 
@@ -42,15 +43,45 @@ func (s *Services) AlifRequest(res **http.Response, url string, data []byte, tok
 	return s.DoRequest(res, http.MethodPost, url, data, headers)
 }
 
-func (s *Services) DmedRequest(res **http.Response, method string, url string, data []byte) error {
+func (s *Services) DmedRequest(
+	res **http.Response,
+	method, url string,
+	data []byte,
+) error {
+
 	newToken := strings.Trim(s.cfg.DmedApiToken, `"'`)
 	auth := fmt.Sprintf("Bearer %s", newToken)
-	headers := map[string]string{
-		constants.HeaderContentType: constants.ContentTypeJson,
-		"Authorization":             auth,
-		"Lang":                      constants.LanguageEn,
+
+	req, err := http.NewRequest(method, url, bytes.NewReader(data))
+	if err != nil {
+		return fmt.Errorf("create request: %w", err)
 	}
-	return s.DoRequest(res, method, url, data, headers)
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", auth)
+	req.Header.Set("Lang", constants.LanguageEn)
+	req.Header.Set("Accept", constants.ContentTypeJson)
+
+	client := http.Client{Timeout: 20 * time.Second}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("send request: %w", err)
+	}
+
+	*res = resp
+
+	// Check response status code
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		return &domain.DmedError{
+			StatusCode: resp.StatusCode,
+			Body:       body,
+		}
+	}
+
+	return nil
 }
 
 // do request
@@ -87,16 +118,13 @@ func (s *Services) DoRequest(
 	}
 
 	*res = response
-	resStr, _ := io.ReadAll(response.Body)
-	s.log.Infof("Response: Code: %d: Res: %s", response.StatusCode, string(resStr))
+
 	// Check response status code
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
 		errBody, err := io.ReadAll(response.Body)
 		if err != nil {
-			s.log.Errorf("could not read response body from %s: %v %v", url, err, errBody)
 			fmt.Printf("call to %s resulted in %d status code, body: %e", url, response.StatusCode, err)
 		}
-
 		err = fmt.Errorf(
 			"call to %s resulted in %d status code, body: %s",
 			url,

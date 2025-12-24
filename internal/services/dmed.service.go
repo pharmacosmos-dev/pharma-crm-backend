@@ -3,11 +3,13 @@ package services
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/logger"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
@@ -41,7 +43,7 @@ func (s *Services) GetPrescriptionsFromDMED(patientId, safeCode string) ([]domai
 
 	defer utils.Close(response.Body, s.log)
 
-	result, bytes, err := DecodeDmedResponse[domain.PrescriptionResponse](response.Body)
+	result, bytes, err := DecodeDmedResponse[[]domain.Prescription](response.Body)
 	// save response payload
 	_ = s.SaveDmedResponse(context.Background(), id, bytes, 1)
 	if err != nil {
@@ -108,25 +110,40 @@ func (s *Services) DmedGiveReceipt(cartItems []domain.CartItemForDMED, markingDa
 				s.cfg.DmedApiUrl+url,
 				jsonBytes,
 			); err != nil {
-				dmedRes, err := io.ReadAll(response.Body)
-				if err != nil {
-					s.log.Errorf("could not decode dmed response: info: %v err: %v", string(dmedRes), err)
-					return domain.InternalServerError
-				}
-				_ = s.SaveDmedResponse(context.Background(), id, dmedRes, 0)
+				var dmedErr *domain.DmedError
+				if errors.As(err, &dmedErr) {
+					// ✅ Save real API error response
+					_ = s.SaveDmedResponse(
+						context.Background(),
+						id,
+						dmedErr.Body,
+						0,
+					)
 
-				s.log.Errorf("could not send dmed request: %v", err)
-				return domain.InternalServerError
+					s.log.Errorf(
+						"dmed error: status=%d body=%s",
+						dmedErr.StatusCode,
+						string(dmedErr.Body),
+					)
+					err = FormatDmedErrorResponse(dmedErr.Body)
+					if err != nil {
+						return err
+					}
+				} else {
+					s.log.Errorf("unexpected dmed error: %v", err)
+				}
+				return err
 			}
 
 			defer utils.Close(response.Body, s.log)
 
-			dmedRes, err := io.ReadAll(response.Body)
+			_, bytes, err := DecodeDmedResponse[[]domain.Prescription](response.Body)
+			// save response payload
+			_ = s.SaveDmedResponse(context.Background(), id, bytes, 1)
 			if err != nil {
-				s.log.Errorf("could not decode dmed response: %v", err)
-				return domain.InternalServerError
+				s.log.Errorf("could not decode get prescriptions response: %v", err)
+				return err
 			}
-			_ = s.SaveDmedResponse(context.Background(), id, dmedRes, 1)
 			j++
 		}
 	}
@@ -168,15 +185,15 @@ func (s *Services) SaveDmedResponse(ctx context.Context, reqId int64, response [
 			response, status, reqId,
 		).Error
 	if err != nil {
-		s.log.Errorf("could not save dmed response payload: %v", err)
+		s.log.Errorf("could not save dmed response payload: %v -> %s", err, string(response))
 		return domain.InternalServerError
 	}
 
 	return nil
 }
 
-func DecodeDmedResponse[T any](r io.Reader) (domain.PrescriptionResponse, []byte, error) {
-	var result domain.PrescriptionResponse
+func DecodeDmedResponse[T any](r io.Reader) (domain.DmedResponseWrapper[T], []byte, error) {
+	var result domain.DmedResponseWrapper[T]
 
 	response, err := io.ReadAll(r)
 	if err != nil {
@@ -187,5 +204,51 @@ func DecodeDmedResponse[T any](r io.Reader) (domain.PrescriptionResponse, []byte
 		return result, response, err
 	}
 
+	if result.Message != "" {
+		error := fmt.Errorf(
+			"dmed error message: %s",
+			result.Message,
+		)
+		// Convert payme errors to out own
+		switch result.Message {
+		case constants.DmedPrescriptionsNotFound:
+			return result, response, domain.PrescriptionNotFound
+		case constants.DmedPrescriptionsExpired:
+			return result, response, domain.PrescriptionExpiredError
+		case constants.DmedPrescriptionsAlreadyIssued:
+			return result, response, domain.PrescriptionsAlreadyIssued
+		default:
+			return result, response, error
+		}
+	}
+
 	return result, response, nil
+}
+
+func FormatDmedErrorResponse(resp []byte) error {
+	var result domain.DmedResponseWrapper[any]
+
+	if err := json.Unmarshal(resp, &result); err != nil {
+		return err
+	}
+
+	if result.Message != "" {
+		error := fmt.Errorf(
+			"dmed error message: %s",
+			result.Message,
+		)
+		// Convert payme errors to out own
+		switch result.Message {
+		case constants.DmedPrescriptionsNotFound:
+			return domain.PrescriptionNotFound
+		case constants.DmedPrescriptionsExpired:
+			return domain.PrescriptionExpiredError
+		case constants.DmedPrescriptionsAlreadyIssued:
+			return domain.PrescriptionsAlreadyIssued
+		default:
+			return error
+		}
+	}
+
+	return nil
 }

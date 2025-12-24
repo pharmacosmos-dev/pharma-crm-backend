@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"fmt"
 	"net/http"
 )
 
@@ -42,17 +43,20 @@ var (
 	NotFoundError         = NewError(http.StatusNotFound, "not.found")
 	ResourceNotFoundError = NewError(http.StatusNotFound, "resource.not.found")
 	CardNotFoundError     = NewError(http.StatusNotFound, "card.not.found")
+	PrescriptionNotFound  = NewError(http.StatusNotFound, "prescription.not.found")
 
 	// 408 - Timeout (vaqt yetmadi)
-	OTPExpiredError = NewError(http.StatusRequestTimeout, "otp.expired")
+	OTPExpiredError          = NewError(http.StatusRequestTimeout, "otp.expired")
+	PrescriptionExpiredError = NewError(http.StatusRequestTimeout, "prescription.expired")
 
 	// 409 – Conflict (mavjud ma'lumot bilan to‘qnashuv)
-	ConflictError         = NewError(http.StatusConflict, "conflict")
-	NotEnoughProductError = NewError(http.StatusConflict, "not.enough.product")
-	AlreadyExistsError    = NewError(http.StatusConflict, "already.exists")
-	AlreadyCompletedError = NewError(http.StatusConflict, "already.completed")
-	AlreadySentError      = NewError(http.StatusConflict, "already.sent")
-	SaleIsClosedError     = NewError(http.StatusConflict, "sale.is.closed")
+	ConflictError              = NewError(http.StatusConflict, "conflict")
+	NotEnoughProductError      = NewError(http.StatusConflict, "not.enough.product")
+	AlreadyExistsError         = NewError(http.StatusConflict, "already.exists")
+	AlreadyCompletedError      = NewError(http.StatusConflict, "already.completed")
+	AlreadySentError           = NewError(http.StatusConflict, "already.sent")
+	SaleIsClosedError          = NewError(http.StatusConflict, "sale.is.closed")
+	PrescriptionsAlreadyIssued = NewError(http.StatusConflict, "prescriptions.already.issued")
 
 	// 424 – Failed Dependency (tashqi tizimga bog‘liq xatolik)
 	DependencyFailedError    = NewError(http.StatusFailedDependency, "dependency.failed")
@@ -100,4 +104,17 @@ func NewNotAdditionError(code int, data any) *NotAdditionError {
 		Code: code,
 		Data: data,
 	}
+}
+
+type DmedError struct {
+	StatusCode int
+	Body       []byte
+}
+
+func (e *DmedError) Error() string {
+	return fmt.Sprintf(
+		"dmed request failed: status=%d body=%s",
+		e.StatusCode,
+		string(e.Body),
+	)
 }

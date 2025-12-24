@@ -128,3 +128,17 @@ type DmedGiveReceiptReq struct {
 type DmedGeneral[T any] struct {
 	Request T
 }
+
+type DmedResponseWrapper[T any] struct {
+	Data    T      `json:"data"`
+	Message string `json:"message"`
+}
+
+func (p *DmedResponseWrapper[T]) FormatResponseError(code int, message string) {
+	p.Message = message
+}
+
+type DmedResponseError struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+}

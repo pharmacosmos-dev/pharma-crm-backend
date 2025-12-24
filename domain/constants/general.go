@@ -388,3 +388,11 @@ const (
 	TransferLogStageChecking  = 3
 	TransferLogStageCompleted = 4
 )
+
+// region
+const (
+	DmedPrescriptionsNotFound      = "errors.prescriptions.not_found"
+	DmedPrescriptionsExpired       = "errors.prescriptions.expired"
+	DmedPrescriptionsAlreadyIssued = "errors.prescriptions.already_issued"
+	
+)
