@@ -110,7 +110,7 @@ func (s *Services) DmedGiveReceipt(cartItems []domain.CartItemForDMED, markingDa
 			); err != nil {
 				dmedRes, err := io.ReadAll(response.Body)
 				if err != nil {
-					s.log.Errorf("could not decode dmed response: %v", err)
+					s.log.Errorf("could not decode dmed response: info: %v err: %v", string(dmedRes), err)
 					return domain.InternalServerError
 				}
 				_ = s.SaveDmedResponse(context.Background(), id, dmedRes, 0)
