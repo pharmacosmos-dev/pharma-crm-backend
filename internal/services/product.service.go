@@ -1938,8 +1938,13 @@ func (s *Services) UpdatePackaging(ctx context.Context, req *domain.UpdatePackag
 		UnitPerPack int    `gorm:"unit_per_pack"`
 	}
 
-	err := tx.WithContext(ctx).First(&product, "id = ?", req.ProductId).Error
+	err := tx.WithContext(ctx).Table("products").Take(&product, "id = ?", req.ProductId).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			_ = tx.Rollback()
+			s.log.Error("product not found by id")
+			return domain.NotFoundError
+		}
 		_ = tx.Rollback()
 		s.log.Errorf("could not find product by id: %v", err)
 		return domain.InternalServerError
