@@ -92,6 +92,7 @@ func (s *Services) DoRequest(
 	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
 		errBody, err := io.ReadAll(response.Body)
 		if err != nil {
+			s.log.Errorf("could not read response body from %s: %v %v", url, err, errBody)
 			fmt.Printf("call to %s resulted in %d status code, body: %e", url, response.StatusCode, err)
 		}
 
