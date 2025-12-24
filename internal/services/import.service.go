@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"time"
 
@@ -208,7 +209,7 @@ func (s *Services) AddSomeImportedProductsToStore(ctx context.Context, tx *gorm.
 					importData.StoreId,
 					item.ProductId,
 					int(item.ScannedCount),
-					int(item.ScannedCount*float64(item.UnitPerPack)),
+					math.Round(item.ScannedCount*float64(item.UnitPerPack)),
 					item.SupplyPriceVat,
 					item.RetailPriceVat,
 					item.Vat, item.ExpireDate,
@@ -300,7 +301,7 @@ func (s *Services) AddAllProductsToStore(ctx context.Context, tx *gorm.DB, impor
 				importData.StoreId,
 				item.ProductId,
 				int(item.ReceivedCount),
-				int(item.ReceivedCount*float64(item.UnitPerPack)),
+				math.Round(item.ReceivedCount*float64(item.UnitPerPack)),
 				item.SupplyPriceVat,
 				item.RetailPriceVat,
 				item.Vat,

@@ -256,7 +256,7 @@ func RoundTo(x float64, decimalPlaces int) float64 {
 func NearestRound(f float64) int {
 	decimal := f - math.Floor(f)
 
-	if decimal >= 0.90 {
+	if decimal >= 0.6 {
 		return int(math.Ceil(f))
 	}
 	return int(math.Round(f))
