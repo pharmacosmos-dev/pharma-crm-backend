@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
@@ -207,7 +206,7 @@ func (s *Services) AddSomeImportedProductsToStore(ctx context.Context, tx *gorm.
 			err = tx.WithContext(ctx).
 				Exec(storeProductQuery,
 					importData.StoreId,
-					item.ProductID,
+					item.ProductId,
 					int(item.ScannedCount),
 					int(item.ScannedCount*float64(item.UnitPerPack)),
 					item.SupplyPriceVat,
@@ -299,7 +298,7 @@ func (s *Services) AddAllProductsToStore(ctx context.Context, tx *gorm.DB, impor
 		if item.ReceivedCount > 0 {
 			err = tx.WithContext(ctx).Exec(storeProductQuery,
 				importData.StoreId,
-				item.ProductID,
+				item.ProductId,
 				int(item.ReceivedCount),
 				int(item.ReceivedCount*float64(item.UnitPerPack)),
 				item.SupplyPriceVat,
@@ -478,11 +477,11 @@ func (s *Services) GetImports(ctx context.Context, params *domain.ImportQueryPar
 	if params.Status != "" {
 		qb = qb.Where("im.status = ?", params.Status)
 	}
-	if params.ReceivedAmountFrom > 0 {
-		qb = qb.Where("im.received_sum >= ?", params.ReceivedAmountFrom)
+	if params.ReceivedAmountFrom != nil {
+		qb = qb.Where("im.received_sum >= ?", *params.ReceivedAmountFrom)
 	}
-	if params.ReceivedAmountTo > 0 {
-		qb = qb.Where("im.received_sum <= ?", params.ReceivedAmountTo)
+	if params.ReceivedAmountTo != nil {
+		qb = qb.Where("im.received_sum <= ?", *params.ReceivedAmountTo)
 	}
 	var totalCount int64
 	if err := qb.Count(&totalCount).Error; err != nil {
@@ -590,11 +589,11 @@ func (s *Services) GetImportsStats(ctx context.Context, params *domain.ImportQue
 	if params.Status != "" {
 		qb = qb.Where("im.status = ?", params.Status)
 	}
-	if params.ReceivedAmountFrom > 0 {
-		qb = qb.Where("im.received_sum >= ?", params.ReceivedAmountFrom)
+	if params.ReceivedAmountFrom != nil {
+		qb = qb.Where("im.received_sum >= ?", *params.ReceivedAmountFrom)
 	}
-	if params.ReceivedAmountTo > 0 {
-		qb = qb.Where("im.received_sum <= ?", params.ReceivedAmountTo)
+	if params.ReceivedAmountTo != nil {
+		qb = qb.Where("im.received_sum <= ?", *params.ReceivedAmountTo)
 	}
 
 	var res domain.ImportStatusSummary
@@ -607,60 +606,156 @@ func (s *Services) GetImportsStats(ctx context.Context, params *domain.ImportQue
 }
 
 // list import detail
-func (s *Services) ListImportDetail(param *domain.ImportQueryParams) ([]domain.ImportDetail, int64, error) {
-	var (
-		importDetails []domain.ImportDetail
-		totalCount    int64
-	)
+func (s *Services) GetImportDetails(ctx context.Context, params *domain.ImportQueryParams) ([]domain.ImportDetail, int64, error) {
+	// ImportDetail structure
+	var res []struct {
+		Id                string     `gorm:"id" json:"id"`
+		ImportId          string     `gorm:"import_id" json:"import_id"`
+		ProductId         string     `gorm:"product_id" json:"product_id"`
+		ReceivedCount     float64    `gorm:"received_count" json:"received_count"`
+		AcceptedCount     float64    `gorm:"accepted_count" json:"accepted_count"`
+		ScannedCount      float64    `gorm:"scanned_count" json:"scanned_count"`
+		SupplyPrice       float64    `gorm:"supply_price" json:"supply_price"`
+		SupplyPriceVat    float64    `gorm:"supply_price_vat" json:"supply_price_vat"`
+		RetailPrice       float64    `gorm:"retail_price" json:"retail_price"`
+		RetailPriceVat    float64    `gorm:"retail_price_vat" json:"retail_price_vat"`
+		UnitName          string     `gorm:"unit_name" json:"unit_name"`
+		ReceivedAmount    float64    `gorm:"received_amount" json:"received_amount"`
+		ReceivedAmountVat float64    `gorm:"received_amount_vat" json:"received_amount_vat"`
+		AcceptedAmount    float64    `gorm:"accepted_amount" json:"accepted_amount"`
+		AcceptedAmountVat float64    `gorm:"accepted_amount_vat" json:"accepted_amount_vat"`
+		SeriesNumber      string     `gorm:"series_number" json:"series_number"`
+		ExpireDate        *time.Time `gorm:"expire_date" json:"expire_date"`
+		Vat               int        `gorm:"vat" json:"vat"`
+		VatSum            float64    `gorm:"vat_sum" json:"vat_sum"`
+		SumVat            float64    `gorm:"sum_vat" json:"sum_vat"`
+
+		DocumentNumber string `gorm:"document_number" json:"document_number"`
+		Status         string `gorm:"status" json:"status"`
+
+		ProductName  string `gorm:"product_name" json:"product_name,omitempty"`
+		MaterialCode int    `gorm:"material_code" json:"material_code,omitempty"`
+		Barcode      string `gorm:"barcode" json:"barcode,omitempty"`
+		UnitPerPack  int    `gorm:"unit_per_pack" json:"unit_per_pack"`
+
+		CreatedAt *time.Time `gorm:"created_at" json:"created_at"`
+		UpdatedAt *time.Time `gorm:"updated_at" json:"updated_at"`
+	}
 
 	// Fetch import details with detailed data
-	query := s.db.Model(&domain.ImportDetail{}).
-		Preload("Product").
-		Preload("Import").
-		Select(`
-		import_details.*,
-		ROUND((import_details.retail_price*received_count)::numeric, 2) as received_amount,
-		ROUND((import_details.retail_price*accepted_count)::numeric, 2) as accepted_amount,
-		ROUND(sum_vat, 2) as received_amount_vat,
-		ROUND((import_details.retail_price_vat*accepted_count)::numeric, 2) as accepted_amount_vat,
-		COALESCE(unit_types.short_name, '') as unit_name
-		`).
-		Joins("LEFT JOIN products ON import_details.product_id = products.id").
-		Joins("LEFT JOIN unit_types ON products.unit_type_id = unit_types.id").
-		Where("import_id = ?", param.ImportId)
+	query := s.db.WithContext(ctx).
+		Select(
+			"imd.id",
+			"imd.import_id",
+			"imd.product_id",
+			"imd.received_count",
+			"imd.scanned_count",
+			"imd.accepted_count",
+			"imd.supply_price",
+			"imd.supply_price_vat",
+			"imd.retail_price",
+			"imd.retail_price_vat",
+			"imd.series_number",
+			"imd.expire_date",
+			"imd.vat",
+			"imd.vat_sum",
+			"imd.sum_vat",
+			"imd.created_at",
+			"imd.updated_at",
+			"ROUND(imd.received_count * imd.retail_price, 2) AS received_amount",
+			"ROUND(imd.received_count * imd.retail_price_vat, 2) AS received_amount_vat",
+			"ROUND(imd.accepted_count * imd.retail_price, 2) AS accepted_amount",
+			"ROUND(imd.accepted_count * imd.retail_price_vat, 2) AS accepted_amount_vat",
 
-	if param.Search != "" {
-		param.Search = fmt.Sprintf("%%%s%%", param.Search)
-		query = query.Where(`(
-		products.barcode LIKE ? OR
-		products.name ILIKE ? OR
-		CAST(products.material_code AS TEXT) LIKE ?)`, param.Search, param.Search, param.Search)
+			"im.document_number",
+			"im.status",
+
+			"p.name AS product_name",
+			"p.barcode AS barcode",
+			"p.material_code AS material_code",
+
+			"COALESCE(u.short_name, '') AS unit_name",
+		).
+		Table("import_details imd").
+		Joins("JOIN imports im ON imd.import_id = im.id").
+		Joins("JOIN products p ON imd.product_id = p.id").
+		Joins("LEFT JOIN unit_types u ON p.unit_type_id = u.id").
+		Where("imd.import_id = ?", params.ImportId)
+
+	if params.Search != "" {
+		params.Search = fmt.Sprintf("%%%s%%", params.Search)
+		query = query.Where(`p.barcode LIKE ? OR p.name ILIKE ?`, params.Search, params.Search)
 	}
-	if param.ReceivedAmountFrom > 0 {
-		query = query.Where("import_details.received_amount >= ?", param.ReceivedAmountFrom)
+	if params.ReceivedAmountFrom != nil {
+		query = query.Where("imd.retail_price_vat >= ?", *params.ReceivedAmountFrom)
 	}
-	if param.ReceivedAmountTo > 0 {
-		query = query.Where("import_details.received_amount <= ?", param.ReceivedAmountTo)
+	if params.ReceivedAmountTo != nil {
+		query = query.Where("imd.retail_price_vat <= ?", *params.ReceivedAmountTo)
 	}
 
-	if param.NoBarcode {
-		query = query.Where("products.barcode IS NULL OR products.barcode = ''")
+	if params.NoBarcode {
+		query = query.Where("p.barcode IS NULL OR products.barcode = ''")
 	}
 
-	if param.NoMarking {
-		query = query.Where("array_length(import_details.marking, 1) IS NULL OR array_length(import_details.marking, 1) = 0")
+	if params.NoMarking {
+		query = query.Where("array_length(imd.marking, 1) IS NULL OR array_length(imd.marking, 1) = 0")
 	}
-	err := query.Debug().
-		Count(&totalCount).
-		Limit(param.Limit).
-		Offset(param.Offset).
-		Order("products.name").
-		Find(&importDetails).Error
-	if err != nil {
-		s.log.Error(err)
+
+	var totalCount int64
+	if err := query.Count(&totalCount).Error; err != nil {
+		s.log.Errorf("could not get import_details total_count: %v", err)
 		return nil, 0, err
 	}
-	fmt.Println(totalCount, "and", len(importDetails))
+
+	err := query.
+		Limit(params.Limit).
+		Offset(params.Offset).
+		Order("imd.updated_at DESC").
+		Find(&res).Error
+	if err != nil {
+		s.log.Errorf("coult not get import_details list: %v", err)
+		return nil, 0, err
+	}
+	var importDetails []domain.ImportDetail
+	for _, item := range res {
+		importDetails = append(importDetails, domain.ImportDetail{
+			Id:                item.Id,
+			ImportId:          item.ImportId,
+			ProductId:         item.ProductId,
+			ReceivedCount:     item.ReceivedCount,
+			ScannedCount:      item.ScannedCount,
+			AcceptedCount:     item.AcceptedCount,
+			SupplyPrice:       item.SupplyPrice,
+			SupplyPriceVat:    item.SupplyPriceVat,
+			RetailPrice:       item.RetailPrice,
+			RetailPriceVat:    item.RetailPriceVat,
+			ReceivedAmount:    item.ReceivedAmount,
+			ReceivedAmountVat: item.ReceivedAmountVat,
+			AcceptedAmount:    item.AcceptedAmount,
+			AcceptedAmountVat: item.AcceptedAmountVat,
+			SeriesNumber:      item.SeriesNumber,
+			ExpireDate:        item.ExpireDate,
+			Vat:               item.Vat,
+			VatSum:            item.VatSum,
+			SumVat:            item.SumVat,
+			CreatedAt:         item.CreatedAt,
+			UpdatedAt:         item.UpdatedAt,
+			Product: domain.NewNullStruct(domain.ProductForImportDetail{
+				Id:           item.ProductId,
+				Name:         item.ProductName,
+				Barcode:      item.Barcode,
+				MaterialCode: item.MaterialCode,
+			}, item.ProductId != ""),
+			Import: domain.NewNullStruct(domain.ImportForImportDetail{
+				Id:             item.ImportId,
+				DocumentNumber: item.DocumentNumber,
+				Status:         item.Status,
+				CreatedAt:      item.CreatedAt,
+			}, item.ImportId != ""),
+			UnitName: item.UnitName,
+		})
+	}
+
 	return importDetails, totalCount, nil
 }
 
@@ -694,71 +789,168 @@ func (s *Services) GetImportDetailsByImportId(ctx context.Context, tx *gorm.DB, 
 }
 
 // get import detail list order by updated_at
-func (s *Services) ListImportDetailByLastUpdated(c *gin.Context, limit, offset int) ([]domain.ImportDetail, int64, error) {
-	var (
-		importDetails      []domain.ImportDetail
-		totalCount         int64
-		importId           = c.Query("import_id")
-		search             = c.Query("search")
-		receivedAmountFrom = c.Query("received_amount_from")
-		receivedAmountTo   = c.Query("received_amount_to")
-		valueType          = c.Query("type")
-	)
+func (s *Services) GetImportDetailsByLastUpdated(ctx context.Context, params *domain.ImportQueryParams) ([]domain.ImportDetail, int64, error) {
+	// ImportDetail structure
+	var res []struct {
+		Id                string     `gorm:"id" json:"id"`
+		ImportId          string     `gorm:"import_id" json:"import_id"`
+		ProductId         string     `gorm:"product_id" json:"product_id"`
+		ReceivedCount     float64    `gorm:"received_count" json:"received_count"`
+		AcceptedCount     float64    `gorm:"accepted_count" json:"accepted_count"`
+		ScannedCount      float64    `gorm:"scanned_count" json:"scanned_count"`
+		SupplyPrice       float64    `gorm:"supply_price" json:"supply_price"`
+		SupplyPriceVat    float64    `gorm:"supply_price_vat" json:"supply_price_vat"`
+		RetailPrice       float64    `gorm:"retail_price" json:"retail_price"`
+		RetailPriceVat    float64    `gorm:"retail_price_vat" json:"retail_price_vat"`
+		UnitName          string     `gorm:"unit_name" json:"unit_name"`
+		ReceivedAmount    float64    `gorm:"received_amount" json:"received_amount"`
+		ReceivedAmountVat float64    `gorm:"received_amount_vat" json:"received_amount_vat"`
+		AcceptedAmount    float64    `gorm:"accepted_amount" json:"accepted_amount"`
+		AcceptedAmountVat float64    `gorm:"accepted_amount_vat" json:"accepted_amount_vat"`
+		SeriesNumber      string     `gorm:"series_number" json:"series_number"`
+		ExpireDate        *time.Time `gorm:"expire_date" json:"expire_date"`
+		Vat               int        `gorm:"vat" json:"vat"`
+		VatSum            float64    `gorm:"vat_sum" json:"vat_sum"`
+		SumVat            float64    `gorm:"sum_vat" json:"sum_vat"`
+
+		DocumentNumber string `gorm:"document_number" json:"document_number"`
+		Status         string `gorm:"status" json:"status"`
+
+		ProductName  string `gorm:"product_name" json:"product_name,omitempty"`
+		MaterialCode int    `gorm:"material_code" json:"material_code,omitempty"`
+		Barcode      string `gorm:"barcode" json:"barcode,omitempty"`
+		UnitPerPack  int    `gorm:"unit_per_pack" json:"unit_per_pack"`
+
+		CreatedAt *time.Time `gorm:"created_at" json:"created_at"`
+		UpdatedAt *time.Time `gorm:"updated_at" json:"updated_at"`
+	}
 
 	// Fetch import details with detailed data
-	query := s.db.Model(&domain.ImportDetail{}).
-		Preload("Product").
-		Preload("Import").
-		Select(`
-		import_details.*,
-		(import_details.retail_price*received_count) as received_amount,
-		(import_details.retail_price*accepted_count) as accepted_amount,
-		sum_vat as received_amount_vat,
-		(import_details.retail_price_vat*accepted_count) as accepted_amount_vat,
-		COALESCE(unit_types.short_name, '') as unit_name`).
-		Joins("LEFT JOIN products ON import_details.product_id = products.id").
-		Joins("LEFT JOIN unit_types ON products.unit_type_id = unit_types.id").
-		Where("import_id = ?", importId)
-	// get search
-	if search != "" {
-		search = fmt.Sprintf("%%%s%%", search)
-		query = query.Where(`
-		products.barcode LIKE ? OR
-		products.name ILIKE ? OR
-		CAST(products.material_code AS TEXT) LIKE ?`, search, search, search)
+	query := s.db.WithContext(ctx).
+		Select(
+			"imd.id",
+			"imd.import_id",
+			"imd.product_id",
+			"imd.received_count",
+			"imd.scanned_count",
+			"imd.accepted_count",
+			"imd.supply_price",
+			"imd.supply_price_vat",
+			"imd.retail_price",
+			"imd.retail_price_vat",
+			"imd.series_number",
+			"imd.expire_date",
+			"imd.vat",
+			"imd.vat_sum",
+			"imd.sum_vat",
+			"imd.created_at",
+			"imd.updated_at",
+			"ROUND(imd.received_count * imd.retail_price, 2) AS received_amount",
+			"ROUND(imd.received_count * imd.retail_price_vat, 2) AS received_amount_vat",
+			"ROUND(imd.accepted_count * imd.retail_price, 2) AS accepted_amount",
+			"ROUND(imd.accepted_count * imd.retail_price_vat, 2) AS accepted_amount_vat",
+
+			"im.document_number",
+			"im.status",
+
+			"p.name AS product_name",
+			"p.barcode AS barcode",
+			"p.material_code AS material_code",
+
+			"COALESCE(u.short_name, '') AS unit_name",
+		).
+		Table("import_details imd").
+		Joins("JOIN imports im ON imd.import_id = im.id").
+		Joins("JOIN products p ON imd.product_id = p.id").
+		Joins("LEFT JOIN unit_types u ON p.unit_type_id = u.id").
+		Where("imd.import_id = ?", params.ImportId)
+
+	if params.Search != "" {
+		params.Search = fmt.Sprintf("%%%s%%", params.Search)
+		query = query.Where(`p.barcode LIKE ? OR p.name ILIKE ?`, params.Search, params.Search)
 	}
-	// get received amount
-	if receivedAmountFrom != "" {
-		query = query.Where("import_details.received_amount >= ?", receivedAmountFrom)
+	if params.ReceivedAmountFrom != nil {
+		query = query.Where("imd.retail_price_vat >= ?", *params.ReceivedAmountFrom)
 	}
-	// get received amount to
-	if receivedAmountTo != "" {
-		query = query.Where("import_details.received_amount <= ?", receivedAmountTo)
+	if params.ReceivedAmountTo != nil {
+		query = query.Where("imd.retail_price_vat <= ?", *params.ReceivedAmountTo)
+	}
+
+	if params.NoBarcode {
+		query = query.Where("p.barcode IS NULL OR products.barcode = ''")
+	}
+
+	if params.NoMarking {
+		query = query.Where("array_length(imd.marking, 1) IS NULL OR array_length(imd.marking, 1) = 0")
 	}
 
 	// get value type
-	if valueType != "" {
-		switch valueType {
+	if params.Type != "" {
+		switch params.Type {
 		case "shortage":
-			query = query.Where("import_details.received_count > import_details.accepted_count")
+			query = query.Where("imd.received_count > imd.scanned_count")
 		case "scanned":
-			query = query.Where("import_details.accepted_count > 0")
+			query = query.Where("imd.scanned_count > 0")
 		case "surplus":
-			query = query.Where("import_details.accepted_count > import_details.received_count")
+			query = query.Where("imd.scanned_count > imd.received_count")
 		}
 	}
 
-	err := query.
-		Count(&totalCount).
-		Limit(limit).
-		Offset(offset).
-		Order("import_details.updated_at DESC").
-		Find(&importDetails).Error
-
-	if err != nil {
-		s.log.Error(err)
+	var totalCount int64
+	if err := query.Count(&totalCount).Error; err != nil {
+		s.log.Errorf("could not get import_details total_count: %v", err)
 		return nil, 0, err
 	}
+
+	err := query.
+		Limit(params.Limit).
+		Offset(params.Offset).
+		Order("imd.updated_at DESC").
+		Find(&res).Error
+	if err != nil {
+		s.log.Errorf("coult not get import_details list: %v", err)
+		return nil, 0, err
+	}
+	var importDetails []domain.ImportDetail
+	for _, item := range res {
+		importDetails = append(importDetails, domain.ImportDetail{
+			Id:                item.Id,
+			ImportId:          item.ImportId,
+			ProductId:         item.ProductId,
+			ReceivedCount:     item.ReceivedCount,
+			ScannedCount:      item.ScannedCount,
+			AcceptedCount:     item.AcceptedCount,
+			SupplyPrice:       item.SupplyPrice,
+			SupplyPriceVat:    item.SupplyPriceVat,
+			RetailPrice:       item.RetailPrice,
+			RetailPriceVat:    item.RetailPriceVat,
+			ReceivedAmount:    item.ReceivedAmount,
+			ReceivedAmountVat: item.ReceivedAmountVat,
+			AcceptedAmount:    item.AcceptedAmount,
+			AcceptedAmountVat: item.AcceptedAmountVat,
+			SeriesNumber:      item.SeriesNumber,
+			ExpireDate:        item.ExpireDate,
+			Vat:               item.Vat,
+			VatSum:            item.VatSum,
+			SumVat:            item.SumVat,
+			CreatedAt:         item.CreatedAt,
+			UpdatedAt:         item.UpdatedAt,
+			Product: domain.NewNullStruct(domain.ProductForImportDetail{
+				Id:           item.ProductId,
+				Name:         item.ProductName,
+				Barcode:      item.Barcode,
+				MaterialCode: item.MaterialCode,
+			}, item.ProductId != ""),
+			Import: domain.NewNullStruct(domain.ImportForImportDetail{
+				Id:             item.ImportId,
+				DocumentNumber: item.DocumentNumber,
+				Status:         item.Status,
+				CreatedAt:      item.CreatedAt,
+			}, item.ImportId != ""),
+			UnitName: item.UnitName,
+		})
+	}
+
 	return importDetails, totalCount, nil
 }
 

@@ -490,6 +490,10 @@ func (s *Services) GetProductStats(ctx context.Context, params *domain.ProductQu
 		}
 	}
 
+	if params.CategoryId != "" {
+		subQuery = subQuery.Where("p.category_id = ?", params.CategoryId)
+	}
+
 	// Raw SQL yordamida to'g'ridan-to'g'ri query
 	var res domain.ProductStats
 	query := `

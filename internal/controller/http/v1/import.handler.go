@@ -355,31 +355,29 @@ func (h *ImportHandler) CreateImportDetail(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /import-detail/list [get]
 func (h *ImportHandler) ListImportDetail(c *gin.Context) {
-	var (
-		importDetails []domain.ImportDetail
-		totalCount    int64
-		param         domain.ImportQueryParams
-		err           error
-	)
-
+	var params domain.ImportQueryParams
 	// Bind query parameters
-	if err = c.ShouldBindQuery(&param); err != nil {
-		handleResponse(c, BadRequest, err.Error())
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 
 	// Get pagination parameters
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 
 	// Get import detail list data
-	importDetails, totalCount, err = h.service.ListImportDetail(&param)
+	res, totalCount, err := h.service.GetImportDetails(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
 	// Prepare response
-	data := utils.ListResponse(importDetails, totalCount, param.Limit, param.Offset)
+	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
+
 	handleResponse(c, OK, data)
 }
 
@@ -403,25 +401,23 @@ func (h *ImportHandler) ListImportDetail(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /import-detail/export-excel [get]
 func (h *ImportHandler) ExportImporDetailExcel(c *gin.Context) {
-	var (
-		importDetails []domain.ImportDetail
-		param         domain.ImportQueryParams
-		err           error
-	)
-
+	var params domain.ImportQueryParams
 	// Bind query parameters
-	if err = c.ShouldBindQuery(&param); err != nil {
-		handleResponse(c, BadRequest, err.Error())
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 
 	// Get pagination parameters
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 
 	// Get import detail list data
-	importDetails, _, err = h.service.ListImportDetail(&param)
+	res, _, err := h.service.GetImportDetails(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
@@ -441,16 +437,16 @@ func (h *ImportHandler) ExportImporDetailExcel(c *gin.Context) {
 	}
 
 	// Ma'lumotlarni qo'shish
-	for i, imp := range importDetails {
+	for i, imp := range res {
 		row := strconv.Itoa(i + 2)
-		f.SetCellValue(sheetName, "A"+row, imp.Product.MaterialCode)
-		f.SetCellValue(sheetName, "B"+row, imp.Product.Name)
-		f.SetCellValue(sheetName, "C"+row, imp.Product.Barcode)
+		f.SetCellValue(sheetName, "A"+row, imp.Product.Value.MaterialCode)
+		f.SetCellValue(sheetName, "B"+row, imp.Product.Value.Name)
+		f.SetCellValue(sheetName, "C"+row, imp.Product.Value.Barcode)
 		f.SetCellValue(sheetName, "D"+row, imp.SupplyPrice)
 		f.SetCellValue(sheetName, "E"+row, imp.SupplyPriceVat)
 		f.SetCellValue(sheetName, "F"+row, imp.RetailPrice)
 		f.SetCellValue(sheetName, "G"+row, imp.RetailPriceVat)
-		f.SetCellValue(sheetName, "H"+row, helper.StatusToRussian(imp.Import.Status))
+		f.SetCellValue(sheetName, "H"+row, helper.StatusToRussian(imp.Import.Value.Status))
 		f.SetCellValue(sheetName, "I"+row, imp.ReceivedCount)
 		f.SetCellValue(sheetName, "J"+row, imp.AcceptedCount)
 		f.SetCellValue(sheetName, "K"+row, imp.ReceivedAmount)
@@ -482,34 +478,34 @@ func (h *ImportHandler) ExportImporDetailExcel(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /import-detail/list/by-last-updated [get]
 func (h *ImportHandler) ImportDetailListByLastUpdated(c *gin.Context) {
-	var (
-		importDetails []domain.ImportDetail
-		totalCount    int64
-		err           error
-	)
+	var params domain.ImportQueryParams
 
-	// Get pagination parameters
-	limit, offset, err := getPaginationParams(c)
-	if err != nil {
-		handleResponse(c, BadRequest, err.Error())
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
 	// Get import detail list data
-	importDetails, totalCount, err = h.service.ListImportDetailByLastUpdated(c, limit, offset)
+	res, totalCount, err := h.service.GetImportDetailsByLastUpdated(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
 	// Prepare response
-	data := map[string]interface{}{
+	data := map[string]any{
 		"_meta": utils.Meta{
 			TotalCount:  totalCount,
-			PerPage:     limit,
-			CurrentPage: (offset / limit) + 1,
-			PageCount:   int((totalCount + int64(limit) - 1) / int64(limit)),
+			PerPage:     params.Limit,
+			CurrentPage: (params.Offset / params.Limit) + 1,
+			PageCount:   int((totalCount + int64(params.Limit) - 1) / int64(params.Limit)),
 		},
-		"data":  importDetails,
+		"data":  res,
 		"stats": gin.H{},
 	}
 
@@ -662,15 +658,15 @@ func (h *ImportHandler) AddAScanById(c *gin.Context) {
 	})
 }
 
-// UpdateImportDetail
-// @Summary Update an import detail
+// UpdateImportDetail godoc
+// @Summary 	Update an import detail
 // @Description Update an import detail from the request body
-// @Tags import_details
+// @Tags 	import_details
 // @Security     BearerAuth
-// @Accept json
+// @Accept 	json
 // @Produce json
-// @Param id path string true "import detail ID"
-// @Param input body domain.ImportUpdateRequest true "Import detail information"
+// @Param 	id path string true "import detail ID"
+// @Param 	input body domain.ImportUpdateRequest true "Import detail information"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -680,26 +676,55 @@ func (h *ImportHandler) UpdateImportDetail(c *gin.Context) {
 		id   = c.Param("id")
 		body domain.ImportUpdateRequest
 	)
-	// validate uuid
-	if err := uuid.Validate(id); err != nil {
-		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
-		return
-	}
+
 	// bind request body
 	if err := c.ShouldBindJSON(&body); err != nil {
 		h.log.Errorf("could not bind request body: %v", err)
 		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	var importDetail struct {
+		Id       string `gorm:"id"`
+		ImportId string `gorm:"import_id"`
+	}
+
+	// get import detail
+	err := h.db.WithContext(ctx).Table("import_details").
+		First(&importDetail, "id = ?", id).Error
+	if err != nil {
+		h.log.Errorf("could not get import detail: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
+		return
+	}
+
+	// get import
+	var imp struct {
+		Id     string `gorm:"id"`
+		Status string `gorm:"status"`
+	}
+	err = h.db.WithContext(ctx).Table("imports").
+		First(&imp, "id = ?", importDetail.ImportId).Error
+	if err != nil {
+		h.log.Errorf("could not get import: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
+		return
+	}
+
+	// check import status
+	if imp.Status == constants.GeneralStatusCompleted || imp.Status == constants.GeneralStatusCanceled {
+		handleServiceResponse(c, CONFLICT, domain.AlreadyCompletedError)
+		return
+	}
+
 	// update scanned_count
-	err := h.db.
-		WithContext(c.Request.Context()).
-		Table("import_details").
-		Where("id = ?", id).
-		Updates(map[string]any{
-			"scanned_count":  body.ScannedCount,
-			"accepted_count": body.ScannedCount,
-		}).Error
+	err = h.db.WithContext(ctx).
+		Exec(
+			"UPDATE import_details SET scanned_count = ?, accepted_count = ?, updated_at = NOW() WHERE id = ?",
+			body.ScannedCount, body.ScannedCount, id).Error
 	if err != nil {
 		h.log.Errorf("could not update import_details: %v", err)
 		handleServiceResponse(c, InternalError, domain.InternalServerError)

@@ -213,32 +213,27 @@ func (h *CategoryHander) Get(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /category/list [get]
 func (h *CategoryHander) List(c *gin.Context) {
-	var (
-		res        []domain.Category
-		parentID   = c.Query("parent_id")
-		search     = c.Query("search")
-		productID  = c.Query("product_id")
-		totalCount int64
-	)
+	var params domain.CategoryParams
+
+	// Bind query parameters
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
 	// Build the base query
 	query := h.db.Model(&domain.Category{})
 
 	// Filter by `parent_id`
-	if parentID != "" {
-		query = query.Where("category_id = ?", parentID)
+	if params.ParentId != "" {
+		query = query.Where("category_id = ?", params.ParentId)
 	} else {
 		// Root categories (no parent)
 		query = query.Where("category_id IS NULL")
 	}
-	limit, offset, err := getPaginationParams(c)
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
-		return
-	}
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
 	// Apply search filter if provided
-	if search != "" {
+	if params.Search != "" {
 		query = query.
 			Where(`
             id IN (
@@ -253,7 +248,7 @@ func (h *CategoryHander) List(c *gin.Context) {
                 )
                 SELECT id FROM category_tree WHERE category_id IS NULL
             )
-        `, "%"+search+"%")
+        `, "%"+params.Search+"%")
 	}
 
 	// Preload SubCategories recursively
@@ -265,7 +260,7 @@ func (h *CategoryHander) List(c *gin.Context) {
 		})
 
 	// Modified recursive CTE to correctly check child categories
-	if productID != "" {
+	if params.ProductId != "" {
 		query = query.Select(`
 				categories.*,
 				EXISTS (
@@ -283,21 +278,28 @@ func (h *CategoryHander) List(c *gin.Context) {
 					INNER JOIN category_products cp ON cp.category_id = ct.id
 					WHERE cp.product_id = ?
 				) AS is_open
-			`, productID)
+			`, params.ProductId)
 	}
 
-	// Execute the query
-	err = query.
-		Count(&totalCount).
-		Limit(limit).
-		Offset(offset).
-		Find(&res).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+	var totalCount int64
+	if err := query.Count(&totalCount).Error; err != nil {
+		h.log.Errorf("could not count categories: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
-	result := utils.ListResponse(res, totalCount, limit, offset)
+
+	var res []domain.Category
+	// Execute the query
+	err := query.
+		Limit(params.Limit).
+		Offset(params.Offset).
+		Find(&res).Error
+	if err != nil {
+		h.log.Errorf("could not get category list: %v", err)
+		handleResponse(c, InternalError, domain.InternalServerError)
+		return
+	}
+	result := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
 
 	handleResponse(c, OK, result, totalCount)
 }
