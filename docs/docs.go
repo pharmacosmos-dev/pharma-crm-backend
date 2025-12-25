@@ -26981,11 +26981,8 @@ const docTemplate = `{
                 "barcode": {
                     "type": "string"
                 },
-                "category_ids": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
+                "category_id": {
+                    "type": "string"
                 },
                 "description": {
                     "type": "string"
@@ -27004,12 +27001,6 @@ const docTemplate = `{
                 },
                 "shelf_id": {
                     "type": "string"
-                },
-                "store_product": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/domain.StoreProductRequest"
-                    }
                 },
                 "unit_per_pack": {
                     "type": "integer"
@@ -27439,47 +27430,6 @@ const docTemplate = `{
                 },
                 "sale_id": {
                     "type": "string"
-                }
-            }
-        },
-        "domain.StoreProductRequest": {
-            "type": "object",
-            "properties": {
-                "bonus_percent": {
-                    "type": "number"
-                },
-                "expire_date": {
-                    "type": "string"
-                },
-                "markup": {
-                    "type": "number"
-                },
-                "measurement_value": {
-                    "type": "integer"
-                },
-                "pack_quantity": {
-                    "type": "integer"
-                },
-                "product_id": {
-                    "type": "string"
-                },
-                "retail_price": {
-                    "type": "number"
-                },
-                "small_quantity": {
-                    "type": "integer"
-                },
-                "store_id": {
-                    "type": "string"
-                },
-                "supply_price": {
-                    "type": "number"
-                },
-                "unit_quantity": {
-                    "type": "integer"
-                },
-                "vat": {
-                    "type": "integer"
                 }
             }
         },

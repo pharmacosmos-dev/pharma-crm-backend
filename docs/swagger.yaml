@@ -1277,10 +1277,8 @@ definitions:
     properties:
       barcode:
         type: string
-      category_ids:
-        items:
-          type: string
-        type: array
+      category_id:
+        type: string
       description:
         type: string
       name:
@@ -1293,10 +1291,6 @@ definitions:
         type: string
       shelf_id:
         type: string
-      store_product:
-        items:
-          $ref: '#/definitions/domain.StoreProductRequest'
-        type: array
       unit_per_pack:
         type: integer
       unit_type_id:
@@ -1577,33 +1571,6 @@ definitions:
         type: string
       sale_id:
         type: string
-    type: object
-  domain.StoreProductRequest:
-    properties:
-      bonus_percent:
-        type: number
-      expire_date:
-        type: string
-      markup:
-        type: number
-      measurement_value:
-        type: integer
-      pack_quantity:
-        type: integer
-      product_id:
-        type: string
-      retail_price:
-        type: number
-      small_quantity:
-        type: integer
-      store_id:
-        type: string
-      supply_price:
-        type: number
-      unit_quantity:
-        type: integer
-      vat:
-        type: integer
     type: object
   domain.StoreRequest:
     properties:

@@ -23,7 +23,6 @@ import (
 	"github.com/xuri/excelize/v2"
 
 	"gorm.io/gorm"
-	"gorm.io/gorm/clause"
 )
 
 type ProductHandler struct {
@@ -390,11 +389,11 @@ func (h *ProductHandler) ProductList(c *gin.Context) {
 }
 
 // Get godoc
-// @Summary Update a product
+// @Summary 	Update a product
 // @Description Update a product from the request body
-// @Tags products
+// @Tags 	products
 // @Security     BearerAuth
-// @Accept json
+// @Accept 	json
 // @Produce json
 // @Param   id path string true "Product ID"
 // @Param   input body domain.ProductUpdateRequest true "Product information"
@@ -405,69 +404,58 @@ func (h *ProductHandler) ProductList(c *gin.Context) {
 func (h *ProductHandler) Update(c *gin.Context) {
 	var (
 		body      domain.ProductUpdateRequest
-		err       error
-		productID = c.Param("id")
+		productId = c.Param("id")
 	)
-	if productID == "" || productID == "undefined" {
+	if productId == "" || productId == "undefined" {
 		handleResponse(c, BadRequest, "Product ID is required")
 		return
 	}
 
-	err = c.ShouldBindJSON(&body)
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
+	if err := c.ShouldBindJSON(&body); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
-
-	tx := h.db.Begin()
-	// Ensure the transaction is rolled back if any error occurs
-	defer func() {
-		if p := recover(); p != nil {
-			tx.Rollback()
-			panic(p)
-		} else if err != nil {
-			tx.Rollback()
-		}
-	}()
+	product := make(map[string]any)
+	if body.Name != "" {
+		product["name"] = body.Name
+	}
+	if body.Description != "" {
+		product["description"] = body.Description
+	}
+	if body.Barcode != "" {
+		product["barcode"] = body.Barcode
+	}
+	if body.UnitTypeId != "" {
+		product["unit_type_id"] = body.UnitTypeId
+	}
+	if body.ProducerId != "" {
+		product["producer_id"] = body.ProducerId
+	}
+	if body.ShelfId != "" {
+		product["shelf_id"] = body.ShelfId
+	}
+	if len(body.Photos) > 0 {
+		product["photos"] = body.Photos
+	}
+	if body.UnitPerPack != 0 {
+		product["unit_per_pack"] = body.UnitPerPack
+	}
+	if body.CategoryId != "" {
+		product["category_id"] = body.CategoryId
+	}
+	product["updated_at"] = time.Now()
 	// match array
 	body.Photos = utils.StringArray(body.Photos)
-	err = tx.
+	err := h.db.
 		Model(&domain.Product{}).
-		Where("id = ?", productID).
-		Updates(&body).Error
+		Where("id = ?", productId).
+		Updates(&product).Error
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		h.log.Errorf("could not update product: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 
-	if len(body.CategoryIds) > 0 {
-		var categoryProducts = make([]domain.CategoryProduct, len(body.CategoryIds))
-		for i, categoryId := range body.CategoryIds {
-			categoryProducts[i] = domain.CategoryProduct{
-				ProductId:  productID,
-				CategoryId: categoryId,
-			}
-		}
-		err = tx.Table("category_products").
-			Clauses(clause.OnConflict{
-				Columns:   []clause.Column{{Name: "product_id"}, {Name: "category_id"}},
-				DoNothing: false,
-				DoUpdates: clause.AssignmentColumns([]string{"updated_at"}),
-			}).Create(&categoryProducts).Error
-		if err != nil {
-			h.log.Error(err)
-			handleResponse(c, InternalError, err.Error())
-			return
-		}
-	}
-	err = tx.Commit().Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
 	handleResponse(c, OK, "UPDATED")
 }
 

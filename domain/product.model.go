@@ -82,16 +82,15 @@ type ExcludedProductResponse struct {
 
 // Product update request
 type ProductUpdateRequest struct {
-	Name         string                `gorm:"name" json:"name"`
-	Description  string                `gorm:"description" json:"description"`
-	Barcode      string                `gorm:"barcode" json:"barcode"`
-	UnitTypeID   *string               `gorm:"unit_type_id" json:"unit_type_id"`
-	ProducerID   *string               `gorm:"producer_id" json:"producer_id"`
-	ShelfID      *string               `gorm:"shelf_id" json:"shelf_id"`
-	Photos       utils.StringArray     `gorm:"type:text[]" json:"photos"`
-	UnitPerPack  int                   `gorm:"unit_per_pack" json:"unit_per_pack"`
-	StoreProduct []StoreProductRequest `gorm:"-" json:"store_product"`
-	CategoryIds  []string              `gorm:"-" json:"category_ids"`
+	Name        string            `gorm:"name" json:"name"`
+	Description string            `gorm:"description" json:"description"`
+	Barcode     string            `gorm:"barcode" json:"barcode"`
+	UnitTypeId  string            `gorm:"unit_type_id" json:"unit_type_id"`
+	ProducerId  string            `gorm:"producer_id" json:"producer_id"`
+	ShelfId     string            `gorm:"shelf_id" json:"shelf_id"`
+	Photos      utils.StringArray `gorm:"type:text[]" json:"photos"`
+	UnitPerPack int               `gorm:"unit_per_pack" json:"unit_per_pack"`
+	CategoryId  string            `gorm:"category_id" json:"category_id"`
 }
 
 // Product Upload request
