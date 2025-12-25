@@ -903,8 +903,21 @@ func (s *Services) GetStoreProductsByProductId(ctx context.Context, params *doma
 	return res, totalCount, nil
 }
 
-func (s *Services) GetNoorProducts(param *domain.NoorQueryParam) ([]domain.NoorProduct, error) {
-	var res []domain.NoorProduct
+func (s *Services) GetNoorProducts(params *domain.NoorQueryParam) ([]domain.NoorProduct, error) {
+	var (
+		res    []domain.NoorProduct
+		filter string
+		args   []any
+	)
+
+	if params.UpdatedAt != "" {
+		if _, err := time.Parse(time.RFC3339, params.UpdatedAt); err != nil {
+			s.log.Errorf("could not parse updated_at param: %v", err)
+			return nil, domain.InvalidTimeFormatError
+		}
+		filter = " WHERE p.updated_at >= ? "
+		args = append(args, params.UpdatedAt)
+	}
 	query := `
 	SELECT
 		p.id,
@@ -917,12 +930,15 @@ func (s *Services) GetNoorProducts(param *domain.NoorQueryParam) ([]domain.NoorP
 		p.category_id
 	FROM
 		products p
-	LIMIT ? OFFSET ?;
-`
-	err := s.db.Raw(query, param.Limit, param.Offset).Scan(&res).Error
+	` + filter + `
+	LIMIT ? OFFSET ?;`
+
+	args = append(args, params.Limit, params.Offset)
+
+	err := s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get products for noor: %v", err)
-		return res, err
+		return res, domain.InternalServerError
 	}
 
 	return res, nil
@@ -1025,9 +1041,12 @@ WHERE p.id = ?
 ),
 import_data AS (
     SELECT
-        im.id, im.public_id, im.entry_type, im.created_at,
+        im.id, 
+		im.public_id, 
+		im.entry_type, 
+		im.created_at,
         s.name AS store_name,
-        SUM(imd.accepted_count) * vd.unit_per_pack AS quantity,
+        ROUND(SUM(imd.accepted_count * vd.unit_per_pack)) AS quantity,
         SUM(imd.accepted_count * imd.retail_price_vat) AS sum,
         COALESCE(im.name, '') AS name,
         vd.unit_per_pack
@@ -1111,7 +1130,8 @@ transfer_in_data AS (
  ),
  transfer_out_data AS (
     SELECT
-        tr.id, tr.public_id::int,
+        tr.id, 
+		tr.public_id::int,
         6 AS entry_type,
         tr.created_at,
         fs.name || ' -> ' || ts.name as store_name,

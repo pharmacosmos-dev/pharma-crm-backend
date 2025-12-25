@@ -40,27 +40,24 @@ func (h *NoorHandler) NoorRoutes(r *gin.RouterGroup) {
 // @Produce 	json
 // @Param   	limit 	query     int      false "Limit"
 // @Param   	offset 	query     int      false "Offset"
+// @param		updatedAt query   string   false "updatedAt"
 // @Success 	200 {object} []domain.NoorProduct
 // @Failure 	400 {object} v1.IntegrationErrorResponse
 // @Failure 	500 {object} v1.IntegrationErrorResponse
 // @Router 		/noor/product/list 	[GET]
 func (h *NoorHandler) ProductList(c *gin.Context) {
-	var (
-		res   []domain.NoorProduct
-		param domain.NoorQueryParam
-	)
-	err := c.ShouldBindQuery(&param)
-	if err != nil {
-		h.log.Warn("ERROR on binding query param: %v", err)
-		handleResponseNoor(c, http.StatusBadRequest, "invalid.query.param")
+	var params domain.NoorQueryParam
+
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, http.StatusBadRequest, domain.InvalidQueryError)
 		return
 	}
 	// get default product
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
-	res, err = h.service.GetNoorProducts(&param)
+	res, err := h.service.GetNoorProducts(&params)
 	if err != nil {
-		handleResponseNoor(c, http.StatusInternalServerError, err.Error())
+		handleServiceResponse(c, http.StatusInternalServerError, err)
 		return
 	}
 

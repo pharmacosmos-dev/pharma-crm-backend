@@ -10270,6 +10270,12 @@ const docTemplate = `{
                         "description": "Offset",
                         "name": "offset",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "updatedAt",
+                        "name": "updatedAt",
+                        "in": "query"
                     }
                 ],
                 "responses": {
