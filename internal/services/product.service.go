@@ -1961,7 +1961,7 @@ func (s *Services) UpdatePackaging(ctx context.Context, req *domain.UpdatePackag
 		return domain.AlreadyUpdatedError
 	}
 
-	err = tx.WithContext(ctx).Exec("UPDATE products SET unit_per_pack = ? WHERE unit_per_pack = 1 AND id = ?;",
+	err = tx.WithContext(ctx).Exec("UPDATE products SET unit_per_pack = ?, updated_at = NOW() WHERE unit_per_pack = 1 AND id = ?;",
 		req.UnitPerPack, req.ProductId).Error
 	if err != nil {
 		_ = tx.Rollback()
