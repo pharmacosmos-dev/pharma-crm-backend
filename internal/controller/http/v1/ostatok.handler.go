@@ -1,12 +1,14 @@
 package v1
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -30,6 +32,9 @@ func (h *OstatokHandler) OstatokRoutes(r *gin.RouterGroup) {
 		ostatok.GET("", h.GetOstatok)
 		ostatok.POST("/correct", h.UploadCorrectOstatok)
 		ostatok.GET("/excel/:xlsx", h.ServeExcelFile)
+		ostatok.POST("/fixed-plus", h.FixedPlus)
+		ostatok.POST("/fixed-minus", h.FixedMinus)
+		ostatok.GET("/fixed-stores", h.FixedStores)
 	}
 }
 
@@ -344,4 +349,418 @@ func (h *OstatokHandler) ServeExcelFile(c *gin.Context) {
 	if err := os.Remove(filePath); err != nil {
 		h.log.Error("Error deleting file after send: %v", err)
 	}
+}
+
+// FixedPlus godoc
+// @Summary fixed plus ostatok
+// @Description fixed plus ostatok
+// @Tags 		 Ostatok
+// @Security     BearerAuth
+// @Accept 		json
+// @Produce 	json
+// @Param 	store_id   query    string  true "Store ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /ostatok/fixed-plus [POST]
+func (h *OstatokHandler) FixedPlus(c *gin.Context) {
+	storeId := c.Query("store_id")
+	if storeId == "" {
+		handleResponse(c, BadRequest, "store_id is required")
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
+	defer cancel()
+
+	// begin transaction
+	tx := h.db.Begin()
+	defer func() {
+		if err := recover(); err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	query := `
+	WITH import_data AS (
+		SELECT
+			p.id AS product_id,
+			p.unit_per_pack,
+			SUM(imd.scanned_count * p.unit_per_pack) AS import_count
+		FROM import_details imd
+		JOIN products p ON imd.product_id = p.id
+		JOIN imports im ON imd.import_id = im.id
+		WHERE  im.entry_type = 1 AND im.status = 'completed' AND im.store_id = ?
+		GROUP BY p.id
+		),
+		sale_data AS (
+			SELECT
+				p.id AS product_id,
+				SUM(ci.unit_quantity) AS sale_count
+			FROM cart_items ci
+			JOIN sales s on ci.sale_id = s.id
+			JOIN store_products sp on ci.store_product_id = sp.id
+			JOIN products p ON sp.product_id = p.id
+			WHERE s.stage = 9 AND s.store_id = ?
+			GROUP BY p.id
+		),
+		return_data AS (
+			SELECT
+				p.id AS product_id,
+				SUM(ci.unit_quantity) AS sale_count
+			FROM cart_items ci
+			JOIN sales s on ci.sale_id = s.id
+			JOIN store_products sp on ci.store_product_id = sp.id
+			JOIN products p ON sp.product_id = p.id
+			WHERE s.stage = 11 AND s.store_id = ?
+			GROUP BY p.id
+		),
+		vozvrat_data AS (
+			SELECT
+				p.id AS product_id,
+				SUM(td.accepted_count * p.unit_per_pack) AS vozvrat_count
+			FROM transfer_details td
+			JOIN transfers tr ON td.transfer_id = tr.id
+			JOIN products p ON td.product_id = p.id
+			WHERE tr.entry_type = 2 AND tr.from_store_id = ? AND tr.status = 'sent-to-1c'
+			GROUP BY p.id
+		),
+		transfer_in_data AS (
+			SELECT
+				p.id AS product_id,
+				SUM(td.accepted_count * p.unit_per_pack) AS transfer_count
+			FROM transfer_details td
+			JOIN transfers tr ON td.transfer_id = tr.id
+			JOIN products p ON td.product_id = p.id
+			WHERE  tr.entry_type = 1 AND tr.to_store_id = ? AND tr.status = 'completed'
+			GROUP BY p.id
+		),
+		transfer_out_data AS (
+			SELECT
+				p.id AS product_id,
+				SUM(td.accepted_count * p.unit_per_pack) AS transfer_count
+			FROM transfer_details td
+			JOIN transfers tr ON td.transfer_id = tr.id
+			JOIN products p ON td.product_id = p.id
+			WHERE  tr.entry_type = 1 AND tr.from_store_id = ? AND tr.status = 'completed'
+			GROUP BY p.id
+		),
+		ostatok AS (
+			SELECT
+				p.id AS product_id,
+				SUM(sp.unit_quantity) AS ostatok
+			FROM store_products sp
+			JOIN products p ON sp.product_id = p.id
+			WHERE sp.store_id = ?
+			GROUP BY p.id
+		),
+		fixed_ostatok AS (
+			SELECT
+				p.id AS product_id,
+				p.name,
+				p.unit_per_pack,
+				COALESCE(o.ostatok, 0) AS ostatok,
+				COALESCE(imd.import_count, 0) AS import,
+				COALESCE(sd.sale_count, 0) AS sale,
+				COALESCE(rd.sale_count, 0) AS return,
+				COALESCE(vd.vozvrat_count, 0) AS vozvrat,
+				COALESCE(tid.transfer_count, 0) AS transfer_in,
+				COALESCE(tod.transfer_count, 0) AS transfer_out,
+				COALESCE(imd.import_count, 0) - COALESCE(sd.sale_count, 0) + COALESCE(rd.sale_count, 0) - COALESCE(vd.vozvrat_count, 0) + COALESCE(tid.transfer_count, 0) - COALESCE(tod.transfer_count, 0) AS fixed_count,
+				COALESCE(imd.import_count, 0) - COALESCE(sd.sale_count, 0) +
+				COALESCE(rd.sale_count, 0) - COALESCE(vd.vozvrat_count, 0) +
+				COALESCE(tid.transfer_count, 0) - COALESCE(tod.transfer_count, 0) - COALESCE(o.ostatok, 0) AS add_count
+			FROM products p
+			LEFT JOIN import_data imd ON imd.product_id = p.id
+			LEFT JOIN sale_data sd ON sd.product_id = p.id
+			LEFT JOIN return_data rd ON rd.product_id = p.id
+			LEFT JOIN vozvrat_data vd ON vd.product_id = p.id
+			LEFT JOIN transfer_in_data tid ON tid.product_id = p.id
+			LEFT JOIN transfer_out_data tod ON tod.product_id = p.id
+			LEFT JOIN ostatok o ON o.product_id = p.id
+			WHERE
+				COALESCE(imd.import_count, 0) - COALESCE(sd.sale_count, 0) +
+				COALESCE(rd.sale_count, 0) - COALESCE(vd.vozvrat_count, 0) +
+				COALESCE(tid.transfer_count, 0) - COALESCE(tod.transfer_count, 0) != COALESCE(o.ostatok, 0)
+			AND COALESCE(imd.import_count, 0) - COALESCE(sd.sale_count, 0) +
+				COALESCE(rd.sale_count, 0) - COALESCE(vd.vozvrat_count, 0) +
+				COALESCE(tid.transfer_count, 0) - COALESCE(tod.transfer_count, 0) - COALESCE(o.ostatok, 0) > 0
+				),
+		latest_store_products AS (
+		SELECT DISTINCT ON (sp.product_id)
+			sp.id,
+			sp.product_id,
+			sp.unit_quantity,
+			sp.store_id
+		FROM store_products sp
+		WHERE sp.store_id = ?
+		ORDER BY sp.product_id, sp.created_at DESC
+	)
+	UPDATE store_products sp
+	SET unit_quantity = sp.unit_quantity + fo.add_count
+	FROM latest_store_products lsp
+	JOIN fixed_ostatok fo ON lsp.product_id = fo.product_id;
+	`
+	err := tx.WithContext(ctx).Exec(query, storeId, storeId, storeId, storeId, storeId, storeId, storeId, storeId).Error
+	if err != nil {
+		_ = tx.Rollback()
+		h.log.Errorf("could not fixed plus ostatok for store_id(%s) err: %v", storeId, err)
+		handleResponse(c, InternalError, "could not fixed plus ostatok")
+		return
+	}
+
+	err = tx.WithContext(ctx).Exec("UPDATE stores SET fixed_stage = 1 WHERE id = ?", storeId).Error
+	if err != nil {
+		_ = tx.Rollback()
+		h.log.Errorf("could not update fixed_stage for store_id(%s) err: %v", storeId, err)
+		handleResponse(c, InternalError, "could not fixed plus ostatok")
+		return
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		h.log.Errorf("could not commit transaction for fixed plus ostatok store_id(%s) err: %v", storeId, err)
+		handleResponse(c, InternalError, "could not fixed plus ostatok")
+		return
+	}
+
+	handleResponse(c, OK, "Ostatok fixed plus successfully")
+}
+
+// FixedMinus godoc
+// @Summary fixed minus ostatok
+// @Description fixed minus ostatok
+// @Tags 		 Ostatok
+// @Security     BearerAuth
+// @Accept 		json
+// @Produce 	json
+// @Param 	store_id   query    string  true "Store ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /ostatok/fixed-minus [POST]
+func (h *OstatokHandler) FixedMinus(c *gin.Context) {
+	storeId := c.Query("store_id")
+	if storeId == "" {
+		handleResponse(c, BadRequest, "store_id is required")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
+	defer cancel()
+
+	// begin transaction
+	tx := h.db.Begin()
+	defer func() {
+		if err := recover(); err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	query := `
+	WITH import_data AS (
+    SELECT
+        p.id AS product_id,
+        p.unit_per_pack,
+        SUM(imd.scanned_count * p.unit_per_pack) AS import_count
+    FROM import_details imd
+    JOIN products p ON imd.product_id = p.id
+    JOIN imports im ON imd.import_id = im.id
+    WHERE  im.entry_type = 1 AND im.status = 'completed' AND im.store_id = ?
+    GROUP BY p.id
+    ),
+    sale_data AS (
+        SELECT
+            p.id AS product_id,
+            SUM(ci.unit_quantity) AS sale_count
+        FROM cart_items ci
+        JOIN sales s on ci.sale_id = s.id
+        JOIN store_products sp on ci.store_product_id = sp.id
+        JOIN products p ON sp.product_id = p.id
+        WHERE s.stage = 9 AND s.store_id = ?
+        GROUP BY p.id
+    ),
+    return_data AS (
+        SELECT
+            p.id AS product_id,
+            SUM(ci.unit_quantity) AS sale_count
+        FROM cart_items ci
+        JOIN sales s on ci.sale_id = s.id
+        JOIN store_products sp on ci.store_product_id = sp.id
+        JOIN products p ON sp.product_id = p.id
+        WHERE s.stage = 11 AND s.store_id = ?
+        GROUP BY p.id
+    ),
+    vozvrat_data AS (
+        SELECT
+            p.id AS product_id,
+            SUM(td.accepted_count * p.unit_per_pack) AS vozvrat_count
+        FROM transfer_details td
+        JOIN transfers tr ON td.transfer_id = tr.id
+        JOIN products p ON td.product_id = p.id
+        WHERE tr.entry_type = 2 AND tr.from_store_id = ? AND tr.status = 'sent-to-1c'
+        GROUP BY p.id
+    ),
+    transfer_in_data AS (
+        SELECT
+            p.id AS product_id,
+            SUM(td.accepted_count * p.unit_per_pack) AS transfer_count
+        FROM transfer_details td
+        JOIN transfers tr ON td.transfer_id = tr.id
+        JOIN products p ON td.product_id = p.id
+        WHERE  tr.entry_type = 1 AND tr.to_store_id = ? AND tr.status = 'completed'
+        GROUP BY p.id
+    ),
+    transfer_out_data AS (
+        SELECT
+            p.id AS product_id,
+            SUM(td.accepted_count * p.unit_per_pack) AS transfer_count
+        FROM transfer_details td
+        JOIN transfers tr ON td.transfer_id = tr.id
+        JOIN products p ON td.product_id = p.id
+        WHERE  tr.entry_type = 1 AND tr.from_store_id = ? AND tr.status = 'completed'
+        GROUP BY p.id
+    ),
+    ostatok AS (
+        SELECT
+            p.id AS product_id,
+            SUM(sp.unit_quantity) AS ostatok
+        FROM store_products sp
+        JOIN products p ON sp.product_id = p.id
+        WHERE sp.store_id = ?
+        GROUP BY p.id
+    ),
+    fixed_ostatok AS (
+        SELECT
+            p.id AS product_id,
+            p.name,
+            p.unit_per_pack,
+            COALESCE(o.ostatok, 0) AS ostatok,
+            COALESCE(imd.import_count, 0) AS import,
+            COALESCE(sd.sale_count, 0) AS sale,
+            COALESCE(rd.sale_count, 0) AS return,
+            COALESCE(vd.vozvrat_count, 0) AS vozvrat,
+            COALESCE(tid.transfer_count, 0) AS transfer_in,
+            COALESCE(tod.transfer_count, 0) AS transfer_out,
+            COALESCE(imd.import_count, 0) - COALESCE(sd.sale_count, 0) + COALESCE(rd.sale_count, 0) - COALESCE(vd.vozvrat_count, 0) + COALESCE(tid.transfer_count, 0) - COALESCE(tod.transfer_count, 0) AS fixed_count,
+            COALESCE(imd.import_count, 0) - COALESCE(sd.sale_count, 0) +
+            COALESCE(rd.sale_count, 0) - COALESCE(vd.vozvrat_count, 0) +
+            COALESCE(tid.transfer_count, 0) - COALESCE(tod.transfer_count, 0) - COALESCE(o.ostatok, 0) AS minus_count
+        FROM products p
+        LEFT JOIN import_data imd ON imd.product_id = p.id
+        LEFT JOIN sale_data sd ON sd.product_id = p.id
+        LEFT JOIN return_data rd ON rd.product_id = p.id
+        LEFT JOIN vozvrat_data vd ON vd.product_id = p.id
+        LEFT JOIN transfer_in_data tid ON tid.product_id = p.id
+        LEFT JOIN transfer_out_data tod ON tod.product_id = p.id
+        LEFT JOIN ostatok o ON o.product_id = p.id
+        WHERE
+            COALESCE(imd.import_count, 0) - COALESCE(sd.sale_count, 0) +
+            COALESCE(rd.sale_count, 0) - COALESCE(vd.vozvrat_count, 0) +
+            COALESCE(tid.transfer_count, 0) - COALESCE(tod.transfer_count, 0) != COALESCE(o.ostatok, 0)
+        AND COALESCE(imd.import_count, 0) - COALESCE(sd.sale_count, 0) +
+            COALESCE(rd.sale_count, 0) - COALESCE(vd.vozvrat_count, 0) +
+            COALESCE(tid.transfer_count, 0) - COALESCE(tod.transfer_count, 0) - COALESCE(o.ostatok, 0) < 0
+            ),
+    store_products_with_deduction AS (
+    SELECT
+        sp.id,
+        sp.product_id,
+        sp.unit_quantity,
+        fo.minus_count,
+        ABS(fo.minus_count) AS minus_to_apply,
+
+        -- oxiridan boshlab yig‘ilayotgan summa
+        SUM(sp.unit_quantity) OVER (
+            PARTITION BY sp.product_id
+            ORDER BY sp.created_at DESC
+            ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS running_sum
+    FROM store_products sp
+    JOIN fixed_ostatok fo ON fo.product_id = sp.product_id
+    WHERE sp.store_id = ?
+	),
+		deduction_calc AS (
+		SELECT
+			id,
+			product_id,
+			unit_quantity,
+			minus_to_apply,
+			running_sum,
+
+			CASE
+				WHEN running_sum <= minus_to_apply
+					THEN unit_quantity
+				WHEN running_sum - unit_quantity < minus_to_apply
+					THEN minus_to_apply - (running_sum - unit_quantity)
+				ELSE 0
+			END AS deduct_quantity
+		FROM store_products_with_deduction
+	)
+
+	UPDATE store_products sp
+	SET unit_quantity = sp.unit_quantity - dc.deduct_quantity
+	FROM deduction_calc dc
+	WHERE sp.id = dc.id
+	AND dc.deduct_quantity > 0;
+	`
+	err := tx.WithContext(ctx).Exec(query, storeId, storeId, storeId, storeId, storeId, storeId, storeId, storeId).Error
+	if err != nil {
+		h.log.Errorf("could not fixed plus ostatok for store_id(%s) err: %v", storeId, err)
+		handleResponse(c, InternalError, "could not fixed plus ostatok")
+		return
+	}
+
+	err = tx.WithContext(ctx).Exec("UPDATE stores SET fixed_stage = 2 WHERE id = ?", storeId).Error
+	if err != nil {
+		_ = tx.Rollback()
+		h.log.Errorf("could not update fixed_stage for store_id(%s) err: %v", storeId, err)
+		handleResponse(c, InternalError, "could not fixed plus ostatok")
+		return
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		h.log.Errorf("could not commit transaction for fixed plus ostatok store_id(%s) err: %v", storeId, err)
+		handleResponse(c, InternalError, "could not fixed plus ostatok")
+		return
+	}
+
+	handleResponse(c, OK, "Ostatok fixed minus successfully")
+}
+
+// FixedStores godoc
+// @Summary 	fixed stores
+// @Description fixed stores
+// @Tags 		 Ostatok
+// @Security     BearerAuth
+// @Accept 		json
+// @Produce 	json
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /ostatok/fixed-stores [GET]
+func (h *OstatokHandler) FixedStores(c *gin.Context) {
+	var stores []struct {
+		Id           string     `gorm:"id" json:"id"`
+		Name         string     `gorm:"name" json:"name"`
+		HasInventory bool       `gorm:"has_inventor" json:"has_inventor"`
+		FixedStage   int        `gorm:"fixed_stage" json:"fixed_stage"`
+		CreatedAt    *time.Time `gorm:"created_at" json:"created_at"`
+	}
+
+	query := `
+	SELECT
+		id,
+		name,
+		created_at,
+		exists(SELECT 1 FROM imports where entry_type = 2 AND store_id = s.id AND status = 'completed') AS has_inventor
+	FROM stores s WHERE is_active = true ORDER BY created_at;
+	`
+
+	err := h.db.Raw(query).Scan(&stores).Error
+	if err != nil {
+		h.log.Errorf("could not fetch fixed stores err: %v", err)
+		handleResponse(c, InternalError, "could not fetch fixed stores")
+		return
+	}
+
+	handleResponse(c, OK, stores)
 }

@@ -8465,6 +8465,93 @@ paths:
       summary: Serve a file
       tags:
       - Ostatok
+  /ostatok/fixed-minus:
+    post:
+      consumes:
+      - application/json
+      description: fixed minus ostatok
+      parameters:
+      - description: Store ID
+        in: query
+        name: store_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: fixed minus ostatok
+      tags:
+      - Ostatok
+  /ostatok/fixed-plus:
+    post:
+      consumes:
+      - application/json
+      description: fixed plus ostatok
+      parameters:
+      - description: Store ID
+        in: query
+        name: store_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: fixed plus ostatok
+      tags:
+      - Ostatok
+  /ostatok/fixed-stores:
+    get:
+      consumes:
+      - application/json
+      description: fixed stores
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: fixed stores
+      tags:
+      - Ostatok
   /payment-service:
     post:
       consumes:
