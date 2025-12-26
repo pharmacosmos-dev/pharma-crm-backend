@@ -342,17 +342,19 @@ func (h *OstatokHandler) GetOstatokByImport(c *gin.Context) {
 	ORDER BY sp.created_at desc;
 	`
 	var results []struct {
-		ProductId   string  `gorm:"product_id" json:"product_id"`
-		Name        string  `gorm:"name" json:"name"`
-		UnitPerPack float64 `gorm:"unit_per_pack" json:"unit_per_pack"`
-		Ostatok     float64 `gorm:"ostatok" json:"ostatok"`
-		Import      float64 `gorm:"import" json:"import"`
-		Sale        float64 `gorm:"sale" json:"sale"`
-		Return      float64 `gorm:"return" json:"return"`
-		Vozvrat     float64 `gorm:"vozvrat" json:"vozvrat"`
-		TransferIn  float64 `gorm:"transfer_in" json:"transfer_in"`
-		TransferOut float64 `gorm:"transfer_out" json:"transfer_out"`
-		FixedCount  float64 `gorm:"fixed_count" json:"fixed_count"`
+		StoreProductId string  `gorm:"store_product_id" json:"store_product_id"`
+		ProductId      string  `gorm:"product_id" json:"product_id"`
+		StoreName      string  `gorm:"store_name" json:"store_name"`
+		ProductName    string  `gorm:"product_name" json:"product_name"`
+		UnitPerPack    float64 `gorm:"unit_per_pack" json:"unit_per_pack"`
+		Ostatok        float64 `gorm:"ostatok" json:"ostatok"`
+		Import         float64 `gorm:"import" json:"import"`
+		Sale           float64 `gorm:"sale" json:"sale"`
+		Return         float64 `gorm:"return" json:"return"`
+		Vozvrat        float64 `gorm:"vozvrat" json:"vozvrat"`
+		TransferIn     float64 `gorm:"transfer_in" json:"transfer_in"`
+		TransferOut    float64 `gorm:"transfer_out" json:"transfer_out"`
+		FixedCount     float64 `gorm:"fixed_count" json:"fixed_count"`
 	}
 	err := h.db.Raw(query, storeId, storeId, storeId, storeId, storeId, storeId, storeId).Scan(&results).Error
 	if err != nil {
@@ -368,7 +370,7 @@ func (h *OstatokHandler) GetOstatokByImport(c *gin.Context) {
 
 	// headers
 	headers := []string{
-		"ProductID", "ProductName", "№", "Ostatok",
+		"StoreProductId", "ProductID", "Apteka", "ProductName", "№", "Ostatok",
 		"ImportUnits", "SaleUnits",
 		"ReturnedUnits", "VozvratUnits", "TransferInUnits",
 		"TransferOutUnits", "FixedCount"}
@@ -388,17 +390,19 @@ func (h *OstatokHandler) GetOstatokByImport(c *gin.Context) {
 	// fill rows
 	for i, item := range results {
 		row := strconv.Itoa(i + 2)
-		f.SetCellValue(sheetName, "A"+row, item.ProductId)
-		f.SetCellValue(sheetName, "B"+row, item.Name)
-		f.SetCellValue(sheetName, "C"+row, item.UnitPerPack)
-		f.SetCellValue(sheetName, "D"+row, item.Ostatok)
-		f.SetCellValue(sheetName, "E"+row, item.Import)
-		f.SetCellValue(sheetName, "F"+row, item.Sale)
-		f.SetCellValue(sheetName, "G"+row, item.Return)
-		f.SetCellValue(sheetName, "H"+row, item.Vozvrat)
-		f.SetCellValue(sheetName, "I"+row, item.TransferIn)
-		f.SetCellValue(sheetName, "J"+row, item.TransferOut)
-		f.SetCellValue(sheetName, "K"+row, item.FixedCount)
+		f.SetCellValue(sheetName, "A"+row, item.StoreProductId)
+		f.SetCellValue(sheetName, "B"+row, item.ProductId)
+		f.SetCellValue(sheetName, "C"+row, item.StoreName)
+		f.SetCellValue(sheetName, "D"+row, item.ProductName)
+		f.SetCellValue(sheetName, "E"+row, item.UnitPerPack)
+		f.SetCellValue(sheetName, "F"+row, item.Ostatok)
+		f.SetCellValue(sheetName, "G"+row, item.Import)
+		f.SetCellValue(sheetName, "H"+row, item.Sale)
+		f.SetCellValue(sheetName, "I"+row, item.Return)
+		f.SetCellValue(sheetName, "J"+row, item.Vozvrat)
+		f.SetCellValue(sheetName, "K"+row, item.TransferIn)
+		f.SetCellValue(sheetName, "L"+row, item.TransferOut)
+		f.SetCellValue(sheetName, "M"+row, item.FixedCount)
 	}
 
 	fileName := strings.Replace(storeName, " ", "_", 10) + "_ostatok_" + time.Now().Format("2006-01-02")
