@@ -1,7 +1,6 @@
 package v1
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"os"
@@ -30,7 +29,7 @@ func (h *OstatokHandler) OstatokRoutes(r *gin.RouterGroup) {
 	ostatok := r.Group("/ostatok")
 	{
 		ostatok.GET("", h.GetOstatok)
-		ostatok.POST("/correct", h.UploadCorrectOstatok)
+		// ostatok.POST("/correct", h.UploadCorrectOstatok)
 		ostatok.GET("/excel/:xlsx", h.ServeExcelFile)
 		ostatok.POST("/fixed-plus", h.FixedPlus)
 		ostatok.POST("/fixed-minus", h.FixedMinus)
@@ -367,8 +366,6 @@ func (h *OstatokHandler) FixedPlus(c *gin.Context) {
 		handleResponse(c, BadRequest, "store_id is required")
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
-	defer cancel()
 
 	query := `
 	WITH import_data AS (
@@ -490,19 +487,20 @@ func (h *OstatokHandler) FixedPlus(c *gin.Context) {
 	FROM latest_store_products lsp
 	JOIN fixed_ostatok fo ON lsp.product_id = fo.product_id;
 	`
-	err := h.db.WithContext(ctx).Exec(query, storeId, storeId, storeId, storeId, storeId, storeId, storeId, storeId).Error
-	if err != nil {
-		h.log.Errorf("could not fixed plus ostatok for store_id(%s) err: %v", storeId, err)
-		handleResponse(c, InternalError, "could not fixed plus ostatok")
-		return
-	}
-
-	err = h.db.WithContext(ctx).Exec("UPDATE stores SET fixed_stage = 1 WHERE id = ?", storeId).Error
-	if err != nil {
-		h.log.Errorf("could not update fixed_stage for store_id(%s) err: %v", storeId, err)
-		handleResponse(c, InternalError, "could not fixed plus ostatok")
-		return
-	}
+	go func() {
+		err := h.db.Exec(query, storeId, storeId, storeId, storeId, storeId, storeId, storeId, storeId).Error
+		if err != nil {
+			h.log.Errorf("could not fixed plus ostatok for store_id(%s) err: %v", storeId, err)
+			handleResponse(c, InternalError, "could not fixed plus ostatok")
+			return
+		}
+		err = h.db.Exec("UPDATE stores SET fixed_stage = 1 WHERE id = ?", storeId).Error
+		if err != nil {
+			h.log.Errorf("could not update fixed_stage for store_id(%s) err: %v", storeId, err)
+			handleResponse(c, InternalError, "could not fixed plus ostatok")
+			return
+		}
+	}()
 
 	handleResponse(c, OK, "Ostatok fixed plus successfully")
 }
@@ -525,9 +523,6 @@ func (h *OstatokHandler) FixedMinus(c *gin.Context) {
 		handleResponse(c, BadRequest, "store_id is required")
 		return
 	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
-	defer cancel()
 
 	query := `
 	WITH import_data AS (
@@ -676,19 +671,21 @@ func (h *OstatokHandler) FixedMinus(c *gin.Context) {
 	WHERE sp.id = dc.id
 	AND dc.deduct_quantity > 0;
 	`
-	err := h.db.WithContext(ctx).Exec(query, storeId, storeId, storeId, storeId, storeId, storeId, storeId, storeId).Error
-	if err != nil {
-		h.log.Errorf("could not fixed plus ostatok for store_id(%s) err: %v", storeId, err)
-		handleResponse(c, InternalError, "could not fixed plus ostatok")
-		return
-	}
+	go func() {
+		err := h.db.Exec(query, storeId, storeId, storeId, storeId, storeId, storeId, storeId, storeId).Error
+		if err != nil {
+			h.log.Errorf("could not fixed plus ostatok for store_id(%s) err: %v", storeId, err)
+			handleResponse(c, InternalError, "could not fixed plus ostatok")
+			return
+		}
 
-	err = h.db.WithContext(ctx).Exec("UPDATE stores SET fixed_stage = 2 WHERE id = ?", storeId).Error
-	if err != nil {
-		h.log.Errorf("could not update fixed_stage for store_id(%s) err: %v", storeId, err)
-		handleResponse(c, InternalError, "could not fixed plus ostatok")
-		return
-	}
+		err = h.db.Exec("UPDATE stores SET fixed_stage = 2 WHERE id = ?", storeId).Error
+		if err != nil {
+			h.log.Errorf("could not update fixed_stage for store_id(%s) err: %v", storeId, err)
+			handleResponse(c, InternalError, "could not fixed plus ostatok")
+			return
+		}
+	}()
 
 	handleResponse(c, OK, "Ostatok fixed minus successfully")
 }
