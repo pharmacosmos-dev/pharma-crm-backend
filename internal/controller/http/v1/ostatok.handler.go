@@ -739,11 +739,11 @@ func (h *OstatokHandler) FixedMinus(c *gin.Context) {
 // @Router /ostatok/fixed-stores [GET]
 func (h *OstatokHandler) FixedStores(c *gin.Context) {
 	var stores []struct {
-		Id           string     `gorm:"id" json:"id"`
-		Name         string     `gorm:"name" json:"name"`
-		HasInventory bool       `gorm:"has_inventor" json:"has_inventor"`
-		FixedStage   int        `gorm:"fixed_stage" json:"fixed_stage"`
-		CreatedAt    *time.Time `gorm:"created_at" json:"created_at"`
+		Id          string     `gorm:"id" json:"id"`
+		Name        string     `gorm:"name" json:"name"`
+		HasInventor bool       `gorm:"has_inventor" json:"has_inventor"`
+		FixedStage  int        `gorm:"fixed_stage" json:"fixed_stage"`
+		CreatedAt   *time.Time `gorm:"created_at" json:"created_at"`
 	}
 
 	query := `
