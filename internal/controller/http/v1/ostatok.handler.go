@@ -28,7 +28,8 @@ func (h *Handler) NewOstatokHandler(r *gin.RouterGroup) {
 func (h *OstatokHandler) OstatokRoutes(r *gin.RouterGroup) {
 	ostatok := r.Group("/ostatok")
 	{
-		ostatok.GET("", h.GetOstatok)
+		ostatok.GET("", h.GetOstatokByProduct)
+		ostatok.GET("/by-import", h.GetOstatokByImport)
 		ostatok.POST("/correct", h.UploadCorrectOstatok)
 		ostatok.GET("/excel/:xlsx", h.ServeExcelFile)
 		ostatok.POST("/fixed-plus", h.FixedPlus)
@@ -38,8 +39,8 @@ func (h *OstatokHandler) OstatokRoutes(r *gin.RouterGroup) {
 }
 
 // GetOstatok godoc
-// @Summary Get Wrong Ostatok Data
-// @Description Get Wrong Ostatok Data
+// @Summary Get Wrong Ostatok Data by Product
+// @Description Get Wrong Ostatok Data by Product
 // @Tags 		 Ostatok
 // @Security     BearerAuth
 // @Accept       json
@@ -51,7 +52,7 @@ func (h *OstatokHandler) OstatokRoutes(r *gin.RouterGroup) {
 // @Failure      400  {object}  v1.Response
 // @Failure      500  {object}  v1.Response
 // @Router       /ostatok [GET]
-func (h *OstatokHandler) GetOstatok(c *gin.Context) {
+func (h *OstatokHandler) GetOstatokByProduct(c *gin.Context) {
 	storeId := c.Query("store_id")
 	if storeId == "" {
 		handleResponse(c, BadRequest, "store_id is required")
@@ -99,7 +100,7 @@ func (h *OstatokHandler) GetOstatok(c *gin.Context) {
         FROM transfer_details td
         JOIN transfers tr ON td.transfer_id = tr.id
         JOIN products p ON td.product_id = p.id
-        WHERE tr.entry_type = 2 AND tr.from_store_id = ? AND tr.status = 'sent-to-1c'
+        WHERE tr.entry_type = 2 AND tr.status IN('sent-to-1c', 'completed') AND tr.from_store_id = ?
         GROUP BY p.id
     ),
     transfer_in_data AS (
@@ -169,6 +170,190 @@ func (h *OstatokHandler) GetOstatok(c *gin.Context) {
 		TransferOut float64 `gorm:"transfer_out" json:"transfer_out"`
 		FixedCount  float64 `gorm:"fixed_count" json:"fixed_count"`
 	}
+	err := h.db.Raw(query, storeId, storeId, storeId, storeId, storeId, storeId).Scan(&results).Error
+	if err != nil {
+		h.log.Errorf("could not fetch ostatok by store_id(%s) err: %v", storeId, err)
+		handleResponse(c, InternalError, "could not fetch ostatok data")
+		return
+	}
+
+	// create excel
+	f := excelize.NewFile()
+	sheetName := "List"
+	f.SetSheetName("Sheet1", sheetName)
+
+	// headers
+	headers := []string{
+		"ProductID", "ProductName", "№", "Ostatok",
+		"ImportUnits", "SaleUnits",
+		"ReturnedUnits", "VozvratUnits", "TransferInUnits",
+		"TransferOutUnits", "FixedCount"}
+	if err := setExcelHeaders(f, sheetName, headers); err != nil {
+		h.log.Error("Excel style error:", err)
+		handleResponse(c, InternalError, "Error on creating excel")
+		return
+	}
+
+	var storeName string
+	err = h.db.Raw("SELECT name AS store_name FROM stores WHERE id = ?", storeId).Scan(&storeName).Error
+	if err != nil {
+		h.log.Errorf("could not fetch store name: %v", err)
+		storeName = "store"
+	}
+
+	// fill rows
+	for i, item := range results {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheetName, "A"+row, item.ProductId)
+		f.SetCellValue(sheetName, "B"+row, item.Name)
+		f.SetCellValue(sheetName, "C"+row, item.UnitPerPack)
+		f.SetCellValue(sheetName, "D"+row, item.Ostatok)
+		f.SetCellValue(sheetName, "E"+row, item.Import)
+		f.SetCellValue(sheetName, "F"+row, item.Sale)
+		f.SetCellValue(sheetName, "G"+row, item.Return)
+		f.SetCellValue(sheetName, "H"+row, item.Vozvrat)
+		f.SetCellValue(sheetName, "I"+row, item.TransferIn)
+		f.SetCellValue(sheetName, "J"+row, item.TransferOut)
+		f.SetCellValue(sheetName, "K"+row, item.FixedCount)
+	}
+
+	fileName := strings.Replace(storeName, " ", "_", 10) + "_ostatok_" + time.Now().Format("2006-01-02")
+	// save
+	saveExcelToUploads(c, f, *h.log, fileName)
+
+}
+
+// GetOstatok godoc
+// @Summary Get Wrong Ostatok Data by Import
+// @Description Get Wrong Ostatok Data by Import
+// @Tags 		 Ostatok
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param 		 store_id   query    string  true "Store ID"
+// @Param        limit      query    int     false "Limit"
+// @Param        offset     query    int     false "Offset"
+// @Success      200  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /ostatok/by-import [GET]
+func (h *OstatokHandler) GetOstatokByImport(c *gin.Context) {
+	storeId := c.Query("store_id")
+	if storeId == "" {
+		handleResponse(c, BadRequest, "store_id is required")
+		return
+	}
+
+	query := `
+	WITH import_data AS (
+		SELECT
+			p.id as product_id,
+			sp.id AS store_product_id,
+			COALESCE(imd.scanned_count * p.unit_per_pack, 0) AS scanned_count
+		FROM import_details imd
+		JOIN products p ON p.id = imd.product_id
+		JOIN store_products sp ON sp.import_detail_id = imd.id
+		JOIN imports im ON im.id = imd.import_id
+		WHERE im.entry_type = 1 AND im.status = 'completed' AND im.store_id = ?
+	),
+	sold AS (
+		SELECT
+			sp.product_id,
+			sp.id AS store_product_id,
+			COALESCE(SUM(ci.unit_quantity), 0) AS sold_quantity
+		FROM cart_items ci
+		JOIN store_products sp ON ci.store_product_id = sp.id
+		JOIN products p ON sp.product_id = p.id
+		JOIN sales s ON s.id = ci.sale_id
+		WHERE s.stage = 9 AND s.sale_type = 'SALE' AND s.store_id = ?
+		GROUP BY sp.id
+	),
+	return_sales AS (
+		SELECT
+			sp.product_id,
+			sp.id AS store_product_id,
+			COALESCE(SUM(ci.unit_quantity), 0) AS sold_quantity
+		FROM cart_items ci
+		JOIN store_products sp ON ci.store_product_id = sp.id
+		JOIN products p ON sp.product_id = p.id
+		JOIN sales s ON s.id = ci.sale_id
+		WHERE s.stage = 11 AND s.sale_type = 'RETURN' AND s.store_id = ?
+		GROUP BY sp.id
+	),
+	tranfer_in AS (
+		SELECT
+			p.id as product_id,
+			sp.id as store_product_id,
+			td.received_count * p.unit_per_pack AS received_count,
+			COALESCE((td.accepted_count * p.unit_per_pack), 0) AS scanned_count
+		FROM transfer_details td
+		JOIN products p ON p.id = td.product_id
+		JOIN store_products sp ON td.id = sp.import_detail_id
+		JOIN transfers t ON t.id = td.transfer_id
+		WHERE t.entry_type = 1 AND t.status = 'completed' AND t.to_store_id = ?
+	),
+	tranfer_out AS (
+		SELECT
+			p.id as product_id,
+			sp.id as store_product_id,
+			COALESCE((td.accepted_count * p.unit_per_pack), 0) AS scanned_count
+		FROM transfer_details td
+		JOIN products p ON p.id = td.product_id
+		JOIN store_products sp ON td.store_product_id = sp.id
+		JOIN transfers t ON t.id = td.transfer_id
+		WHERE t.entry_type = 1 AND t.status = 'completed' AND t.from_store_id = ?
+	),
+	vozvrat AS (
+		SELECT
+			p.id as product_id,
+			sp.id as store_product_id,
+			COALESCE(td.accepted_count * p.unit_per_pack, 0) AS scanned_count
+		FROM transfer_details td
+		JOIN products p ON p.id = td.product_id
+		JOIN store_products sp ON sp.id = td.store_product_id
+		JOIN transfers t ON t.id = td.transfer_id
+		WHERE t.entry_type = 2 AND t.status IN ('sent-to-1c', 'completed') AND t.from_store_id = ?
+	)
+	SELECT
+		sp.id                                 AS store_product_id,
+		p.id                                  AS product_id,
+		st.name                               AS store_name,
+		p.name                                AS product_name,
+		p.unit_per_pack                       AS unit_per_pack,
+		COALESCE(sp.unit_quantity, 0)         AS ostatok,
+		COALESCE(im.scanned_count, 0)         AS import,
+		COALESCE(s.sold_quantity, 0)          AS sale,
+		COALESCE(rs.sold_quantity, 0)         AS return,
+		COALESCE(tin.scanned_count, 0)        AS transfer_in,
+		COALESCE(tout.scanned_count, 0)       AS transfer_out,
+		COALESCE(v.scanned_count, 0)          AS vozvrat,
+		COALESCE(im.scanned_count, 0) - COALESCE(s.sold_quantity, 0) + COALESCE(rs.sold_quantity, 0) + COALESCE(tin.scanned_count, 0) - COALESCE(tout.scanned_count, 0) - COALESCE(v.scanned_count, 0) AS fixed_count
+	FROM store_products sp
+			JOIN products p ON sp.product_id = p.id
+			JOIN stores st ON sp.store_id = st.id
+			LEFT JOIN import_data im ON im.store_product_id = sp.id
+			LEFT JOIN sold s ON s.store_product_id = sp.id
+			LEFT JOIN tranfer_in tin ON tin.store_product_id = sp.id
+			LEFT JOIN tranfer_out tout ON tout.store_product_id = sp.id
+			LEFT JOIN vozvrat v ON v.store_product_id = sp.id
+			LEFT JOIN return_sales rs ON rs.store_product_id = sp.id
+	WHERE sp.store_id = ?
+	AND COALESCE(im.scanned_count, 0) - COALESCE(s.sold_quantity, 0) + COALESCE(rs.sold_quantity, 0) + COALESCE(tin.scanned_count, 0) - COALESCE(tout.scanned_count, 0) - COALESCE(v.scanned_count, 0) != sp.unit_quantity
+	ORDER BY sp.created_at desc;
+	`
+	var results []struct {
+		ProductId   string  `gorm:"product_id" json:"product_id"`
+		Name        string  `gorm:"name" json:"name"`
+		UnitPerPack float64 `gorm:"unit_per_pack" json:"unit_per_pack"`
+		Ostatok     float64 `gorm:"ostatok" json:"ostatok"`
+		Import      float64 `gorm:"import" json:"import"`
+		Sale        float64 `gorm:"sale" json:"sale"`
+		Return      float64 `gorm:"return" json:"return"`
+		Vozvrat     float64 `gorm:"vozvrat" json:"vozvrat"`
+		TransferIn  float64 `gorm:"transfer_in" json:"transfer_in"`
+		TransferOut float64 `gorm:"transfer_out" json:"transfer_out"`
+		FixedCount  float64 `gorm:"fixed_count" json:"fixed_count"`
+	}
 	err := h.db.Raw(query, storeId, storeId, storeId, storeId, storeId, storeId, storeId).Scan(&results).Error
 	if err != nil {
 		h.log.Errorf("could not fetch ostatok by store_id(%s) err: %v", storeId, err)
@@ -185,8 +370,8 @@ func (h *OstatokHandler) GetOstatok(c *gin.Context) {
 	headers := []string{
 		"ProductID", "ProductName", "№", "Ostatok",
 		"ImportUnits", "SaleUnits",
-		"ReturnedUnits", "TransferInUnits",
-		"TransferOutUnits", "VozvratUnits", "FixedCount"}
+		"ReturnedUnits", "VozvratUnits", "TransferInUnits",
+		"TransferOutUnits", "FixedCount"}
 	if err := setExcelHeaders(f, sheetName, headers); err != nil {
 		h.log.Error("Excel style error:", err)
 		handleResponse(c, InternalError, "Error on creating excel")
@@ -408,7 +593,7 @@ func (h *OstatokHandler) FixedPlus(c *gin.Context) {
 			FROM transfer_details td
 			JOIN transfers tr ON td.transfer_id = tr.id
 			JOIN products p ON td.product_id = p.id
-			WHERE tr.entry_type = 2 AND tr.from_store_id = ? AND tr.status = 'sent-to-1c'
+			WHERE tr.entry_type = 2 AND  tr.status IN('sent-to-1c', 'completed') AND tr.from_store_id = ?
 			GROUP BY p.id
 		),
 		transfer_in_data AS (
@@ -565,7 +750,7 @@ func (h *OstatokHandler) FixedMinus(c *gin.Context) {
         FROM transfer_details td
         JOIN transfers tr ON td.transfer_id = tr.id
         JOIN products p ON td.product_id = p.id
-        WHERE tr.entry_type = 2 AND tr.from_store_id = ? AND tr.status = 'sent-to-1c'
+        WHERE tr.entry_type = 2 AND  tr.status IN('sent-to-1c', 'completed') AND tr.from_store_id = ?
         GROUP BY p.id
     ),
     transfer_in_data AS (
