@@ -29,7 +29,7 @@ func (h *OstatokHandler) OstatokRoutes(r *gin.RouterGroup) {
 	ostatok := r.Group("/ostatok")
 	{
 		ostatok.GET("", h.GetOstatok)
-		// ostatok.POST("/correct", h.UploadCorrectOstatok)
+		ostatok.POST("/correct", h.UploadCorrectOstatok)
 		ostatok.GET("/excel/:xlsx", h.ServeExcelFile)
 		ostatok.POST("/fixed-plus", h.FixedPlus)
 		ostatok.POST("/fixed-minus", h.FixedMinus)
