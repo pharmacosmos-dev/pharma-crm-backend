@@ -10422,7 +10422,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get Wrong Ostatok Data",
+                "description": "Get Wrong Ostatok Data by Product",
                 "consumes": [
                     "application/json"
                 ],
@@ -10432,7 +10432,68 @@ const docTemplate = `{
                 "tags": [
                     "Ostatok"
                 ],
-                "summary": "Get Wrong Ostatok Data",
+                "summary": "Get Wrong Ostatok Data by Product",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Store ID",
+                        "name": "store_id",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/ostatok/by-import": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get Wrong Ostatok Data by Import",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Ostatok"
+                ],
+                "summary": "Get Wrong Ostatok Data by Import",
                 "parameters": [
                     {
                         "type": "string",

@@ -170,7 +170,7 @@ func (h *OstatokHandler) GetOstatokByProduct(c *gin.Context) {
 		TransferOut float64 `gorm:"transfer_out" json:"transfer_out"`
 		FixedCount  float64 `gorm:"fixed_count" json:"fixed_count"`
 	}
-	err := h.db.Raw(query, storeId, storeId, storeId, storeId, storeId, storeId).Scan(&results).Error
+	err := h.db.Raw(query, storeId, storeId, storeId, storeId, storeId, storeId, storeId).Scan(&results).Error
 	if err != nil {
 		h.log.Errorf("could not fetch ostatok by store_id(%s) err: %v", storeId, err)
 		handleResponse(c, InternalError, "could not fetch ostatok data")
