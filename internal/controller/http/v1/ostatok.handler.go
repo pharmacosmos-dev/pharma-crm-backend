@@ -32,8 +32,8 @@ func (h *OstatokHandler) OstatokRoutes(r *gin.RouterGroup) {
 		ostatok.GET("/by-import", h.GetOstatokByImport)
 		ostatok.POST("/correct", h.UploadCorrectOstatok)
 		ostatok.GET("/excel/:xlsx", h.ServeExcelFile)
-		ostatok.POST("/fixed-plus", h.FixedPlus)
-		ostatok.POST("/fixed-minus", h.FixedMinus)
+		// ostatok.POST("/fixed-plus", h.FixedPlus)
+		// ostatok.POST("/fixed-minus", h.FixedMinus)
 		ostatok.GET("/fixed-stores", h.FixedStores)
 	}
 }
@@ -64,7 +64,7 @@ func (h *OstatokHandler) GetOstatokByProduct(c *gin.Context) {
     SELECT
         p.id AS product_id,
         p.unit_per_pack,
-        SUM(imd.scanned_count * p.unit_per_pack) AS import_count
+        ROUND(SUM(imd.scanned_count * p.unit_per_pack)) AS import_count
     FROM import_details imd
     JOIN products p ON imd.product_id = p.id
     JOIN imports im ON imd.import_id = im.id
