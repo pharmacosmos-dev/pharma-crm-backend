@@ -158,9 +158,9 @@ func (s *Services) DmedGiveReceipt(cartItems []domain.CartItemForDMED, markingDa
 
 			defer utils.Close(response.Body, s.log)
 
-			_, bytes, err := DecodeDmedResponse[[]domain.Prescription](response.Body)
+			resBytes, err := io.ReadAll(response.Body)
 			// save response payload
-			_ = s.SaveDmedResponse(context.Background(), id, bytes, 1)
+			_ = s.SaveDmedResponse(context.Background(), id, resBytes, 1)
 			if err != nil {
 				s.log.Errorf("could not decode get prescriptions response: %v", err)
 				return err
