@@ -37,6 +37,7 @@ func (h *OstatokHandler) OstatokRoutes(r *gin.RouterGroup) {
 		ostatok.GET("/fixed-stores", h.FixedStores)
 		ostatok.GET("/inventory", h.GetOstatokByInventory)
 		ostatok.GET("/inventory-by-import", h.GetOstatokInventoryByImport)
+		ostatok.POST("/correct-inventory", h.UploadCorrectInventoryOstatok)
 	}
 }
 
@@ -942,6 +943,83 @@ func (h *OstatokHandler) UploadCorrectOstatok(c *gin.Context) {
 	for _, row := range rows[1:] {
 		if len(row) > 11 {
 			unitQuantity := cast.ToInt(row[12])
+			err = h.db.Exec(query, unitQuantity, row[0]).Error
+			if err != nil {
+				h.log.Errorf("could not update store_product(%s) -> %v", row[0], err)
+				handleResponse(c, InternalError, err.Error())
+				return
+			}
+			count++
+		}
+	}
+
+	handleResponse(c, OK, "Successfully uploaded "+strconv.Itoa(count)+" records")
+}
+
+// UploadCorrectOstatok godoc
+// @Summary update correct ostatok
+// @Description update correct ostatok
+// @Tags 		 Ostatok
+// @Security     BearerAuth
+// @Accept 		json
+// @Produce 	json
+// @Param 	file formData file true "Excel file (.xlsx) containing ostatok corrections"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /ostatok/correct-inventory [POST]
+func (h *OstatokHandler) UploadCorrectInventoryOstatok(c *gin.Context) {
+	var file domain.File
+	// bind request file
+	if err := c.ShouldBind(&file); err != nil {
+		h.log.Error("Failed to bind file: ", err.Error())
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		h.log.Error("Unsupported file format: ", ext)
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+
+	// Save the uploaded file
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+	err := c.SaveUploadedFile(file.File, savePath)
+	if err != nil {
+		h.log.Error("Failed to save file: ", err.Error())
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+
+	// Open the Excel file
+	xlsx, err := excelize.OpenFile(savePath)
+	if err != nil {
+		h.log.Errorf("Failed to open .xlsx file: %v", err)
+		handleServiceResponse(c, BadRequest, domain.InternalServerError)
+		return
+	}
+	defer xlsx.Close()
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		h.log.Errorf("Failed to get rows: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
+		return
+	}
+
+	// build query
+	query := `
+		UPDATE store_products SET unit_quantity = ?, updated_at = NOW() WHERE id = ?;
+	`
+
+	var count = 0
+	// Process rows
+	for _, row := range rows[1:] {
+		if len(row) > 12 {
+			unitQuantity := cast.ToInt(row[13])
 			err = h.db.Exec(query, unitQuantity, row[0]).Error
 			if err != nil {
 				h.log.Errorf("could not update store_product(%s) -> %v", row[0], err)

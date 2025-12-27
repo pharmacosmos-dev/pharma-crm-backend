@@ -10586,6 +10586,55 @@ const docTemplate = `{
                 }
             }
         },
+        "/ostatok/correct-inventory": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "update correct ostatok",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Ostatok"
+                ],
+                "summary": "update correct ostatok",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Excel file (.xlsx) containing ostatok corrections",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/ostatok/excel/{xlsx}": {
             "get": {
                 "description": "Serve a file by its filename",
