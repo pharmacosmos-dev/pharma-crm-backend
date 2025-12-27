@@ -8591,6 +8591,94 @@ paths:
       summary: fixed stores
       tags:
       - Ostatok
+  /ostatok/inventory:
+    get:
+      consumes:
+      - application/json
+      description: Get Ostatok Data by Inventory
+      parameters:
+      - description: Store ID
+        in: query
+        name: store_id
+        required: true
+        type: string
+      - description: Inventory Date in format YYYY-MM-DD
+        in: query
+        name: date
+        required: true
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Ostatok Data by Inventory
+      tags:
+      - Ostatok
+  /ostatok/inventory-by-import:
+    get:
+      consumes:
+      - application/json
+      description: Get Ostatok Data by Inventory by Import
+      parameters:
+      - description: Store ID
+        in: query
+        name: store_id
+        required: true
+        type: string
+      - description: Inventory Date in format YYYY-MM-DD
+        in: query
+        name: date
+        required: true
+        type: string
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Ostatok Data by Inventory by Import
+      tags:
+      - Ostatok
   /payment-service:
     post:
       consumes:

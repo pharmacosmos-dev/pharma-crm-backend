@@ -35,6 +35,8 @@ func (h *OstatokHandler) OstatokRoutes(r *gin.RouterGroup) {
 		// ostatok.POST("/fixed-plus", h.FixedPlus)
 		// ostatok.POST("/fixed-minus", h.FixedMinus)
 		ostatok.GET("/fixed-stores", h.FixedStores)
+		ostatok.GET("/inventory", h.GetOstatokByInventory)
+		ostatok.GET("/inventory-by-import", h.GetOstatokInventoryByImport)
 	}
 }
 
@@ -409,6 +411,471 @@ func (h *OstatokHandler) GetOstatokByImport(c *gin.Context) {
 	// save
 	saveExcelToUploads(c, f, *h.log, fileName)
 
+}
+
+// GetOstatok godoc
+// @Summary Get Ostatok Data by Inventory
+// @Description Get Ostatok Data by Inventory
+// @Tags 		 Ostatok
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param 		 store_id   query    string  true "Store ID"
+// @Param 		 date   	query    string  true "Inventory Date in format YYYY-MM-DD"
+// @Param        limit      query    int     false "Limit"
+// @Param        offset     query    int     false "Offset"
+// @Success      200  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /ostatok/inventory [GET]
+func (h *OstatokHandler) GetOstatokByInventory(c *gin.Context) {
+	storeId := c.Query("store_id")
+	if storeId == "" {
+		handleResponse(c, BadRequest, "store_id is required")
+		return
+	}
+	date := c.Query("date")
+	if date == "" {
+		handleResponse(c, BadRequest, "date is required")
+		return
+	}
+
+	query := `
+	WITH import_data AS (
+		SELECT
+			p.id AS product_id,
+			p.unit_per_pack,
+			ROUND(SUM(imd.scanned_count * p.unit_per_pack)) AS import_count
+		FROM import_details imd
+		JOIN products p ON imd.product_id = p.id
+		JOIN imports im ON imd.import_id = im.id
+		WHERE  im.entry_type = 1
+		AND im.status = 'completed'
+		AND im.store_id = ?
+		AND im.created_at > ?
+		GROUP BY p.id
+		),
+		inventory_data AS (
+			SELECT
+				p.id AS product_id,
+				p.unit_per_pack,
+				SUM(imd.scanned_count) AS inventory_count
+			FROM import_details imd
+			JOIN products p ON imd.product_id = p.id
+			JOIN imports im ON imd.import_id = im.id
+			WHERE im.entry_type = 2
+			AND im.status = 'completed'
+			AND im.store_id = ?
+			AND im.created_at > ?
+			GROUP BY p.id
+		),
+		sale_data AS (
+			SELECT
+				p.id AS product_id,
+				SUM(ci.unit_quantity) AS sale_count
+			FROM cart_items ci
+			JOIN sales s on ci.sale_id = s.id
+			JOIN store_products sp on ci.store_product_id = sp.id
+			JOIN products p ON sp.product_id = p.id
+			WHERE s.stage = 9
+			AND s.store_id = ?
+			AND s.created_at > ?
+			GROUP BY p.id
+		),
+		return_data AS (
+			SELECT
+				p.id AS product_id,
+				SUM(ci.unit_quantity) AS sale_count
+			FROM cart_items ci
+			JOIN sales s on ci.sale_id = s.id
+			JOIN store_products sp on ci.store_product_id = sp.id
+			JOIN products p ON sp.product_id = p.id
+			WHERE s.stage = 11
+			AND s.store_id = ?
+			AND s.created_at > ?
+			GROUP BY p.id
+		),
+		vozvrat_data AS (
+			SELECT
+				p.id AS product_id,
+				SUM(td.accepted_count * p.unit_per_pack) AS vozvrat_count
+			FROM transfer_details td
+			JOIN transfers tr ON td.transfer_id = tr.id
+			JOIN products p ON td.product_id = p.id
+			WHERE tr.entry_type = 2
+			AND tr.status IN('sent-to-1c', 'completed')
+			AND tr.from_store_id = ?
+			AND tr.created_at > ?
+			GROUP BY p.id
+		),
+		transfer_in_data AS (
+			SELECT
+				p.id AS product_id,
+				SUM(td.accepted_count * p.unit_per_pack) AS transfer_count
+			FROM transfer_details td
+			JOIN transfers tr ON td.transfer_id = tr.id
+			JOIN products p ON td.product_id = p.id
+			WHERE  tr.entry_type = 1
+			AND tr.to_store_id = ?
+			AND tr.status = 'completed'
+			AND tr.created_at > ?
+			GROUP BY p.id
+		),
+		transfer_out_data AS (
+			SELECT
+				p.id AS product_id,
+				SUM(td.accepted_count * p.unit_per_pack) AS transfer_count
+			FROM transfer_details td
+			JOIN transfers tr ON td.transfer_id = tr.id
+			JOIN products p ON td.product_id = p.id
+			WHERE  tr.entry_type = 1
+			AND tr.from_store_id = ?
+			AND tr.status = 'completed'
+			AND tr.created_at > ?
+			GROUP BY p.id
+		),
+		ostatok AS (
+			SELECT
+				p.id AS product_id,
+				SUM(sp.unit_quantity) AS ostatok
+			FROM store_products sp
+			JOIN products p ON sp.product_id = p.id
+			WHERE sp.store_id = ?
+			GROUP BY p.id
+		)
+			SELECT
+				p.id AS product_id,
+				p.name,
+				p.unit_per_pack,
+				COALESCE(o.ostatok, 0) AS ostatok,
+				COALESCE(ind.inventory_count, 0) AS inventory,
+				COALESCE(imd.import_count, 0) AS import,
+				COALESCE(sd.sale_count, 0) AS sale,
+				COALESCE(rd.sale_count, 0) AS return,
+				COALESCE(vd.vozvrat_count, 0) AS vozvrat,
+				COALESCE(tid.transfer_count, 0) AS transfer_in,
+				COALESCE(tod.transfer_count, 0) AS transfer_out,
+				COALESCE(ind.inventory_count, 0) + COALESCE(imd.import_count, 0) - COALESCE(sd.sale_count, 0) + COALESCE(rd.sale_count, 0) - COALESCE(vd.vozvrat_count, 0) + COALESCE(tid.transfer_count, 0) - COALESCE(tod.transfer_count, 0) AS fixed_count
+			FROM products p
+			LEFT JOIN import_data imd ON imd.product_id = p.id
+			LEFT JOIN sale_data sd ON sd.product_id = p.id
+			LEFT JOIN return_data rd ON rd.product_id = p.id
+			LEFT JOIN vozvrat_data vd ON vd.product_id = p.id
+			LEFT JOIN transfer_in_data tid ON tid.product_id = p.id
+			LEFT JOIN transfer_out_data tod ON tod.product_id = p.id
+			LEFT JOIN ostatok o ON o.product_id = p.id
+			LEFT JOIN inventory_data ind ON ind.product_id = p.id
+			WHERE
+				COALESCE(ind.inventory_count, 0) + COALESCE(imd.import_count, 0) - COALESCE(sd.sale_count, 0) +
+				COALESCE(rd.sale_count, 0) - COALESCE(vd.vozvrat_count, 0) +
+				COALESCE(tid.transfer_count, 0) - COALESCE(tod.transfer_count, 0) != COALESCE(o.ostatok, 0);
+		`
+	var results []struct {
+		ProductId   string  `gorm:"product_id" json:"product_id"`
+		Name        string  `gorm:"name" json:"name"`
+		UnitPerPack float64 `gorm:"unit_per_pack" json:"unit_per_pack"`
+		Ostatok     float64 `gorm:"ostatok" json:"ostatok"`
+		Inventory   float64 `gorm:"inventory" json:"inventory"`
+		Import      float64 `gorm:"import" json:"import"`
+		Sale        float64 `gorm:"sale" json:"sale"`
+		Return      float64 `gorm:"return" json:"return"`
+		Vozvrat     float64 `gorm:"vozvrat" json:"vozvrat"`
+		TransferIn  float64 `gorm:"transfer_in" json:"transfer_in"`
+		TransferOut float64 `gorm:"transfer_out" json:"transfer_out"`
+		FixedCount  float64 `gorm:"fixed_count" json:"fixed_count"`
+	}
+	err := h.db.Raw(query,
+		storeId, date,
+		storeId, date,
+		storeId, date,
+		storeId, date,
+		storeId, date,
+		storeId, date,
+		storeId, date,
+		storeId).Scan(&results).Error
+	if err != nil {
+		h.log.Errorf("could not fetch ostatok by store_id(%s) err: %v", storeId, err)
+		handleResponse(c, InternalError, "could not fetch ostatok data")
+		return
+	}
+
+	// create excel
+	f := excelize.NewFile()
+	sheetName := "List"
+	f.SetSheetName("Sheet1", sheetName)
+
+	// headers
+	headers := []string{
+		"ProductID", "ProductName", "№", "Ostatok", "Inventory",
+		"ImportUnits", "SaleUnits",
+		"ReturnedUnits", "VozvratUnits", "TransferInUnits",
+		"TransferOutUnits", "FixedCount"}
+	if err := setExcelHeaders(f, sheetName, headers); err != nil {
+		h.log.Error("Excel style error:", err)
+		handleResponse(c, InternalError, "Error on creating excel")
+		return
+	}
+
+	var storeName string
+	err = h.db.Raw("SELECT name AS store_name FROM stores WHERE id = ?", storeId).Scan(&storeName).Error
+	if err != nil {
+		h.log.Errorf("could not fetch store name: %v", err)
+		storeName = "store"
+	}
+
+	// fill rows
+	for i, item := range results {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheetName, "A"+row, item.ProductId)
+		f.SetCellValue(sheetName, "B"+row, item.Name)
+		f.SetCellValue(sheetName, "C"+row, item.UnitPerPack)
+		f.SetCellValue(sheetName, "D"+row, item.Ostatok)
+		f.SetCellValue(sheetName, "E"+row, item.Inventory)
+		f.SetCellValue(sheetName, "F"+row, item.Import)
+		f.SetCellValue(sheetName, "G"+row, item.Sale)
+		f.SetCellValue(sheetName, "H"+row, item.Return)
+		f.SetCellValue(sheetName, "I"+row, item.Vozvrat)
+		f.SetCellValue(sheetName, "J"+row, item.TransferIn)
+		f.SetCellValue(sheetName, "K"+row, item.TransferOut)
+		f.SetCellValue(sheetName, "L"+row, item.FixedCount)
+	}
+
+	fileName := strings.Replace(storeName, " ", "_", 10) + "_ostatok_" + time.Now().Format("2006-01-02")
+	// save
+	saveExcelToUploads(c, f, *h.log, fileName)
+
+}
+
+// GetOstatok godoc
+// @Summary Get Ostatok Data by Inventory by Import
+// @Description Get Ostatok Data by Inventory by Import
+// @Tags 		 Ostatok
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param 		 store_id   query    string  true "Store ID"
+// @Param 		 date   	query    string  true "Inventory Date in format YYYY-MM-DD"
+// @Param        limit      query    int     false "Limit"
+// @Param        offset     query    int     false "Offset"
+// @Success      200  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /ostatok/inventory-by-import [GET]
+func (h *OstatokHandler) GetOstatokInventoryByImport(c *gin.Context) {
+	var (
+		storeId = c.Query("store_id")
+		date    = c.Query("date")
+	)
+	if storeId == "" {
+		handleResponse(c, BadRequest, "store_id is required")
+		return
+	}
+	if date == "" {
+		handleResponse(c, BadRequest, "date is required")
+		return
+	}
+	query := `
+	WITH import_data AS (
+		SELECT
+			p.id as product_id,
+			sp.id AS store_product_id,
+			COALESCE(imd.scanned_count * p.unit_per_pack, 0) AS scanned_count
+		FROM import_details imd
+		JOIN products p ON p.id = imd.product_id
+		JOIN store_products sp ON sp.import_detail_id = imd.id
+		JOIN imports im ON im.id = imd.import_id
+		WHERE im.entry_type = 1 
+		  AND im.status = 'completed' 
+		  AND im.store_id = ? 
+		  AND im.created_at > ?
+	),
+    inventory_data AS (
+        SELECT
+			p.id as product_id,
+			sp.id AS store_product_id,
+			COALESCE(imd.scanned_count, 0) AS scanned_count
+		FROM import_details imd
+		JOIN products p ON p.id = imd.product_id
+		JOIN store_products sp ON sp.import_detail_id = imd.id
+		JOIN imports im ON im.id = imd.import_id
+		WHERE im.entry_type = 2 
+		  AND im.status = 'completed' 
+		  AND im.store_id = ? 
+		  AND im.created_at > ?
+    ),
+	sold AS (
+		SELECT
+			sp.product_id,
+			sp.id AS store_product_id,
+			COALESCE(SUM(ci.unit_quantity), 0) AS sold_quantity
+		FROM cart_items ci
+		JOIN store_products sp ON ci.store_product_id = sp.id
+		JOIN products p ON sp.product_id = p.id
+		JOIN sales s ON s.id = ci.sale_id
+		WHERE s.stage = 9 
+		  AND s.sale_type = 'SALE' 
+		  AND s.store_id = ? 
+		  AND s.created_at > ?
+		GROUP BY sp.id
+	),
+	return_sales AS (
+		SELECT
+			sp.product_id,
+			sp.id AS store_product_id,
+			COALESCE(SUM(ci.unit_quantity), 0) AS sold_quantity
+		FROM cart_items ci
+		JOIN store_products sp ON ci.store_product_id = sp.id
+		JOIN products p ON sp.product_id = p.id
+		JOIN sales s ON s.id = ci.sale_id
+		WHERE s.stage = 11 
+		  AND s.sale_type = 'RETURN' 
+		  AND s.store_id = ?
+		  AND s.created_at > ?
+		GROUP BY sp.id
+	),
+	tranfer_in AS (
+		SELECT
+			p.id as product_id,
+			sp.id as store_product_id,
+			td.received_count * p.unit_per_pack AS received_count,
+			COALESCE((td.accepted_count * p.unit_per_pack), 0) AS scanned_count
+		FROM transfer_details td
+		JOIN products p ON p.id = td.product_id
+		JOIN store_products sp ON td.id = sp.import_detail_id
+		JOIN transfers t ON t.id = td.transfer_id
+		WHERE t.entry_type = 1 
+		  AND t.status = 'completed' 
+		  AND t.to_store_id = ? 
+		  AND t.created_at > ?
+	),
+	tranfer_out AS (
+		SELECT
+			p.id as product_id,
+			sp.id as store_product_id,
+			COALESCE((td.accepted_count * p.unit_per_pack), 0) AS scanned_count
+		FROM transfer_details td
+		JOIN products p ON p.id = td.product_id
+		JOIN store_products sp ON td.store_product_id = sp.id
+		JOIN transfers t ON t.id = td.transfer_id
+		WHERE t.entry_type = 1 
+		  AND t.status = 'completed' 
+		  AND t.from_store_id = ? 
+		  AND t.created_at > ?
+	),
+	vozvrat AS (
+		SELECT
+			p.id as product_id,
+			sp.id as store_product_id,
+			COALESCE(td.accepted_count * p.unit_per_pack, 0) AS scanned_count
+		FROM transfer_details td
+		JOIN products p ON p.id = td.product_id
+		JOIN store_products sp ON sp.id = td.store_product_id
+		JOIN transfers t ON t.id = td.transfer_id
+		WHERE t.entry_type = 2 
+		  AND t.status IN ('sent-to-1c', 'completed') 
+		  AND t.from_store_id = ? 
+		  AND t.created_at > ?
+	)
+	SELECT
+		sp.id                                 AS store_product_id,
+		p.id                                  AS product_id,
+		st.name                               AS store_name,
+		p.name                                AS product_name,
+		p.unit_per_pack                       AS unit_per_pack,
+		COALESCE(sp.unit_quantity, 0)         AS ostatok,
+		COALESCE(ind.scanned_count, 0)        AS inventory,
+		COALESCE(im.scanned_count, 0)         AS import,
+		COALESCE(s.sold_quantity, 0)          AS sale,
+		COALESCE(rs.sold_quantity, 0)         AS return,
+		COALESCE(tin.scanned_count, 0)        AS transfer_in,
+		COALESCE(tout.scanned_count, 0)       AS transfer_out,
+		COALESCE(v.scanned_count, 0)          AS vozvrat,
+		COALESCE(ind.scanned_count, 0) + COALESCE(im.scanned_count, 0) - COALESCE(s.sold_quantity, 0) + COALESCE(rs.sold_quantity, 0) + COALESCE(tin.scanned_count, 0) - COALESCE(tout.scanned_count, 0) - COALESCE(v.scanned_count, 0) AS fixed_count
+	FROM store_products sp
+			JOIN products p ON sp.product_id = p.id
+			JOIN stores st ON sp.store_id = st.id
+			LEFT JOIN import_data im ON im.store_product_id = sp.id
+			LEFT JOIN sold s ON s.store_product_id = sp.id
+			LEFT JOIN tranfer_in tin ON tin.store_product_id = sp.id
+			LEFT JOIN tranfer_out tout ON tout.store_product_id = sp.id
+			LEFT JOIN vozvrat v ON v.store_product_id = sp.id
+			LEFT JOIN return_sales rs ON rs.store_product_id = sp.id
+	        LEFT JOIN inventory_data ind ON ind.store_product_id = sp.id
+	WHERE sp.store_id = ?
+	AND COALESCE(ind.scanned_count, 0) + COALESCE(im.scanned_count, 0) - COALESCE(s.sold_quantity, 0) + COALESCE(rs.sold_quantity, 0) + COALESCE(tin.scanned_count, 0) - COALESCE(tout.scanned_count, 0) - COALESCE(v.scanned_count, 0) != sp.unit_quantity
+	ORDER BY sp.created_at desc;`
+
+	var results []struct {
+		StoreProductId string  `gorm:"store_product_id" json:"store_product_id"`
+		ProductId      string  `gorm:"product_id" json:"product_id"`
+		StoreName      string  `gorm:"store_name" json:"store_name"`
+		ProductName    string  `gorm:"product_name" json:"product_name"`
+		UnitPerPack    float64 `gorm:"unit_per_pack" json:"unit_per_pack"`
+		Ostatok        float64 `gorm:"ostatok" json:"ostatok"`
+		Inventory      float64 `gorm:"inventory" json:"inventory"`
+		Import         float64 `gorm:"import" json:"import"`
+		Sale           float64 `gorm:"sale" json:"sale"`
+		Return         float64 `gorm:"return" json:"return"`
+		Vozvrat        float64 `gorm:"vozvrat" json:"vozvrat"`
+		TransferIn     float64 `gorm:"transfer_in" json:"transfer_in"`
+		TransferOut    float64 `gorm:"transfer_out" json:"transfer_out"`
+		FixedCount     float64 `gorm:"fixed_count" json:"fixed_count"`
+	}
+	err := h.db.Raw(query, storeId, date, storeId, date, storeId, date, storeId, date, storeId, date, storeId, date, storeId, date, storeId).Scan(&results).Error
+	if err != nil {
+		h.log.Errorf("could not fetch ostatok by store_id(%s) err: %v", storeId, err)
+		handleResponse(c, InternalError, "could not fetch ostatok data")
+		return
+	}
+
+	// create excel
+	f := excelize.NewFile()
+	sheetName := "List"
+	f.SetSheetName("Sheet1", sheetName)
+
+	// headers
+	headers := []string{
+		"StoreProductId", "ProductID",
+		"Apteka", "ProductName", "№",
+		"Ostatok", "Inventory",
+		"ImportUnits", "SaleUnits",
+		"ReturnedUnits", "VozvratUnits", "TransferInUnits",
+		"TransferOutUnits", "FixedCount"}
+	if err := setExcelHeaders(f, sheetName, headers); err != nil {
+		h.log.Error("Excel style error:", err)
+		handleResponse(c, InternalError, "Error on creating excel")
+		return
+	}
+
+	var storeName string
+	err = h.db.Raw("SELECT name AS store_name FROM stores WHERE id = ?", storeId).Scan(&storeName).Error
+	if err != nil {
+		h.log.Errorf("could not fetch store name: %v", err)
+		storeName = "store"
+	}
+
+	// fill rows
+	for i, item := range results {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheetName, "A"+row, item.StoreProductId)
+		f.SetCellValue(sheetName, "B"+row, item.ProductId)
+		f.SetCellValue(sheetName, "C"+row, item.StoreName)
+		f.SetCellValue(sheetName, "D"+row, item.ProductName)
+		f.SetCellValue(sheetName, "E"+row, item.UnitPerPack)
+		f.SetCellValue(sheetName, "F"+row, item.Ostatok)
+		f.SetCellValue(sheetName, "G"+row, item.Inventory)
+		f.SetCellValue(sheetName, "H"+row, item.Import)
+		f.SetCellValue(sheetName, "I"+row, item.Sale)
+		f.SetCellValue(sheetName, "J"+row, item.Return)
+		f.SetCellValue(sheetName, "K"+row, item.Vozvrat)
+		f.SetCellValue(sheetName, "L"+row, item.TransferIn)
+		f.SetCellValue(sheetName, "M"+row, item.TransferOut)
+		f.SetCellValue(sheetName, "N"+row, item.FixedCount)
+	}
+
+	fileName := strings.Replace(storeName, " ", "_", 10) + "_ostatok_" + time.Now().Format("2006-01-02")
+	// save
+	saveExcelToUploads(c, f, *h.log, fileName)
 }
 
 // UploadCorrectOstatok godoc
