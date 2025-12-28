@@ -549,18 +549,18 @@ func (h *OstatokHandler) GetOstatokByInventory(c *gin.Context) {
 			LEFT JOIN inventory_data ind ON ind.product_id = p.id;
 		`
 	var results []struct {
-		ProductId   string  `gorm:"product_id" json:"product_id"`
-		Name        string  `gorm:"name" json:"name"`
-		UnitPerPack float64 `gorm:"unit_per_pack" json:"unit_per_pack"`
-		Ostatok     float64 `gorm:"ostatok" json:"ostatok"`
-		Inventory   float64 `gorm:"inventory" json:"inventory"`
-		Import      float64 `gorm:"import" json:"import"`
-		Sale        float64 `gorm:"sale" json:"sale"`
-		Return      float64 `gorm:"return" json:"return"`
-		Vozvrat     float64 `gorm:"vozvrat" json:"vozvrat"`
-		TransferIn  float64 `gorm:"transfer_in" json:"transfer_in"`
-		TransferOut float64 `gorm:"transfer_out" json:"transfer_out"`
-		FixedCount  float64 `gorm:"fixed_count" json:"fixed_count"`
+		ProductId   string `gorm:"product_id" json:"product_id"`
+		Name        string `gorm:"name" json:"name"`
+		UnitPerPack int64  `gorm:"unit_per_pack" json:"unit_per_pack"`
+		Ostatok     int64  `gorm:"ostatok" json:"ostatok"`
+		Inventory   int64  `gorm:"inventory" json:"inventory"`
+		Import      int64  `gorm:"import" json:"import"`
+		Sale        int64  `gorm:"sale" json:"sale"`
+		Return      int64  `gorm:"return" json:"return"`
+		Vozvrat     int64  `gorm:"vozvrat" json:"vozvrat"`
+		TransferIn  int64  `gorm:"transfer_in" json:"transfer_in"`
+		TransferOut int64  `gorm:"transfer_out" json:"transfer_out"`
+		FixedCount  int64  `gorm:"fixed_count" json:"fixed_count"`
 	}
 	err := h.db.Raw(query,
 		storeId,
@@ -602,20 +602,20 @@ func (h *OstatokHandler) GetOstatokByInventory(c *gin.Context) {
 	}
 
 	// fill rows
-	for i, item := range results {
+	for i := range results {
 		row := strconv.Itoa(i + 2)
-		f.SetCellValue(sheetName, "A"+row, item.ProductId)
-		f.SetCellValue(sheetName, "B"+row, item.Name)
-		f.SetCellValue(sheetName, "C"+row, item.UnitPerPack)
-		f.SetCellValue(sheetName, "D"+row, item.Ostatok)
-		f.SetCellValue(sheetName, "E"+row, item.Inventory)
-		f.SetCellValue(sheetName, "F"+row, item.Import)
-		f.SetCellValue(sheetName, "G"+row, item.Sale)
-		f.SetCellValue(sheetName, "H"+row, item.Return)
-		f.SetCellValue(sheetName, "I"+row, item.Vozvrat)
-		f.SetCellValue(sheetName, "J"+row, item.TransferIn)
-		f.SetCellValue(sheetName, "K"+row, item.TransferOut)
-		f.SetCellValue(sheetName, "L"+row, item.FixedCount)
+		f.SetCellValue(sheetName, "A"+row, results[i].ProductId)
+		f.SetCellValue(sheetName, "B"+row, results[i].Name)
+		f.SetCellValue(sheetName, "C"+row, results[i].UnitPerPack)
+		f.SetCellValue(sheetName, "D"+row, results[i].Ostatok)
+		f.SetCellValue(sheetName, "E"+row, results[i].Inventory)
+		f.SetCellValue(sheetName, "F"+row, results[i].Import)
+		f.SetCellValue(sheetName, "G"+row, results[i].Sale)
+		f.SetCellValue(sheetName, "H"+row, results[i].Return)
+		f.SetCellValue(sheetName, "I"+row, results[i].Vozvrat)
+		f.SetCellValue(sheetName, "J"+row, results[i].TransferIn)
+		f.SetCellValue(sheetName, "K"+row, results[i].TransferOut)
+		f.SetCellValue(sheetName, "L"+row, results[i].FixedCount)
 	}
 
 	fileName := strings.Replace(storeName, " ", "_", 10) + "_ostatok_" + time.Now().Format("2006-01-02")
