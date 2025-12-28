@@ -658,7 +658,7 @@ func (h *OstatokHandler) GetOstatokInventoryByImport(c *gin.Context) {
 		SELECT
 			p.id as product_id,
 			sp.id AS store_product_id,
-			COALESCE(imd.scanned_count * p.unit_per_pack, 0) AS scanned_count
+			COALESCE(ROUND(imd.scanned_count * p.unit_per_pack), 0) AS scanned_count
 		FROM import_details imd
 		JOIN products p ON p.id = imd.product_id
 		JOIN store_products sp ON sp.import_detail_id = imd.id
