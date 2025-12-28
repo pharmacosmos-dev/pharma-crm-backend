@@ -154,11 +154,7 @@ func (h *OstatokHandler) GetOstatokByProduct(c *gin.Context) {
         LEFT JOIN vozvrat_data vd ON vd.product_id = p.id
         LEFT JOIN transfer_in_data tid ON tid.product_id = p.id
         LEFT JOIN transfer_out_data tod ON tod.product_id = p.id
-        LEFT JOIN ostatok o ON o.product_id = p.id
-        WHERE
-            COALESCE(imd.import_count, 0) - COALESCE(sd.sale_count, 0) +
-            COALESCE(rd.sale_count, 0) - COALESCE(vd.vozvrat_count, 0) +
-            COALESCE(tid.transfer_count, 0) - COALESCE(tod.transfer_count, 0) != COALESCE(o.ostatok, 0);
+        LEFT JOIN ostatok o ON o.product_id = p.id;
 	`
 	var results []struct {
 		ProductId   string  `gorm:"product_id" json:"product_id"`
@@ -550,11 +546,7 @@ func (h *OstatokHandler) GetOstatokByInventory(c *gin.Context) {
 			LEFT JOIN transfer_in_data tid ON tid.product_id = p.id
 			LEFT JOIN transfer_out_data tod ON tod.product_id = p.id
 			LEFT JOIN ostatok o ON o.product_id = p.id
-			LEFT JOIN inventory_data ind ON ind.product_id = p.id
-			WHERE
-				COALESCE(ind.inventory_count, 0) + COALESCE(imd.import_count, 0) - COALESCE(sd.sale_count, 0) +
-				COALESCE(rd.sale_count, 0) - COALESCE(vd.vozvrat_count, 0) +
-				COALESCE(tid.transfer_count, 0) - COALESCE(tod.transfer_count, 0) != COALESCE(o.ostatok, 0);
+			LEFT JOIN inventory_data ind ON ind.product_id = p.id;
 		`
 	var results []struct {
 		ProductId   string  `gorm:"product_id" json:"product_id"`
