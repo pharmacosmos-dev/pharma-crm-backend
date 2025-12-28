@@ -546,7 +546,8 @@ func (h *OstatokHandler) GetOstatokByInventory(c *gin.Context) {
 			LEFT JOIN transfer_in_data tid ON tid.product_id = p.id
 			LEFT JOIN transfer_out_data tod ON tod.product_id = p.id
 			LEFT JOIN ostatok o ON o.product_id = p.id
-			LEFT JOIN inventory_data ind ON ind.product_id = p.id;
+			LEFT JOIN inventory_data ind ON ind.product_id = p.id
+			WHERE COALESCE(o.ostatok, 0) > 0;
 		`
 	var results []struct {
 		ProductId   string `gorm:"product_id" json:"product_id"`
