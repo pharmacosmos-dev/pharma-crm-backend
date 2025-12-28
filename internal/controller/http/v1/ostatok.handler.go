@@ -249,7 +249,7 @@ func (h *OstatokHandler) GetOstatokByImport(c *gin.Context) {
 		SELECT
 			p.id as product_id,
 			sp.id AS store_product_id,
-			COALESCE(imd.scanned_count * p.unit_per_pack, 0) AS scanned_count
+			COALESCE(ROUND(imd.scanned_count * p.unit_per_pack), 0) AS scanned_count
 		FROM import_details imd
 		JOIN products p ON p.id = imd.product_id
 		JOIN store_products sp ON sp.import_detail_id = imd.id
@@ -906,6 +906,9 @@ func (h *OstatokHandler) UploadCorrectOstatok(c *gin.Context) {
 	for _, row := range rows[1:] {
 		if len(row) > 11 {
 			unitQuantity := cast.ToInt(row[12])
+			if unitQuantity < 0 {
+				unitQuantity = 0
+			}
 			err = h.db.Exec(query, unitQuantity, row[0]).Error
 			if err != nil {
 				h.log.Errorf("could not update store_product(%s) -> %v", row[0], err)
