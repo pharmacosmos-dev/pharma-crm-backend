@@ -600,7 +600,7 @@ func (h *OstatokHandler) GetOstatokByInventory(c *gin.Context) {
 	// fill rows
 	for i := range results {
 		if results[i].ProductId == "f32b0bf1-a8e3-44ca-8ddf-ed913871d602" {
-			h.log.Infof("Name: %s, Ostatok: %d, FixedOstatok: %d", results[i].Name, results[i].Ostatok, results[i].FixedCount)
+			h.log.Infof("Name: %s, Ostatok: %f, FixedOstatok: %f", results[i].Name, results[i].Ostatok, results[i].FixedCount)
 		}
 		row := strconv.Itoa(i + 2)
 		f.SetCellValue(sheetName, "A"+row, results[i].ProductId)
