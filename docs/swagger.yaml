@@ -8633,19 +8633,6 @@ paths:
         name: store_id
         required: true
         type: string
-      - description: Inventory Date in format YYYY-MM-DD
-        in: query
-        name: date
-        required: true
-        type: string
-      - description: Limit
-        in: query
-        name: limit
-        type: integer
-      - description: Offset
-        in: query
-        name: offset
-        type: integer
       produces:
       - application/json
       responses:
@@ -8672,24 +8659,11 @@ paths:
       - application/json
       description: Get Ostatok Data by Inventory by Import
       parameters:
-      - description: Store ID
+      - description: Store Id
         in: query
         name: store_id
         required: true
         type: string
-      - description: Inventory Date in format YYYY-MM-DD
-        in: query
-        name: date
-        required: true
-        type: string
-      - description: Limit
-        in: query
-        name: limit
-        type: integer
-      - description: Offset
-        in: query
-        name: offset
-        type: integer
       produces:
       - application/json
       responses:

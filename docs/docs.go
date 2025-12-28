@@ -10827,25 +10827,6 @@ const docTemplate = `{
                         "name": "store_id",
                         "in": "query",
                         "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Inventory Date in format YYYY-MM-DD",
-                        "name": "date",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Limit",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Offset",
-                        "name": "offset",
-                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -10891,29 +10872,10 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Store ID",
+                        "description": "Store Id",
                         "name": "store_id",
                         "in": "query",
                         "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Inventory Date in format YYYY-MM-DD",
-                        "name": "date",
-                        "in": "query",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Limit",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Offset",
-                        "name": "offset",
-                        "in": "query"
                     }
                 ],
                 "responses": {

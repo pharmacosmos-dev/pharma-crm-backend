@@ -422,9 +422,6 @@ func (h *OstatokHandler) GetOstatokByImport(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Param 		 store_id   query    string  true "Store ID"
-// @Param 		 date   	query    string  true "Inventory Date in format YYYY-MM-DD"
-// @Param        limit      query    int     false "Limit"
-// @Param        offset     query    int     false "Offset"
 // @Success      200  {object}  v1.Response
 // @Failure      400  {object}  v1.Response
 // @Failure      500  {object}  v1.Response
@@ -433,11 +430,6 @@ func (h *OstatokHandler) GetOstatokByInventory(c *gin.Context) {
 	storeId := c.Query("store_id")
 	if storeId == "" {
 		handleResponse(c, BadRequest, "store_id is required")
-		return
-	}
-	date := c.Query("date")
-	if date == "" {
-		handleResponse(c, BadRequest, "date is required")
 		return
 	}
 
@@ -453,21 +445,19 @@ func (h *OstatokHandler) GetOstatokByInventory(c *gin.Context) {
 		WHERE  im.entry_type = 1
 		AND im.status = 'completed'
 		AND im.store_id = ?
-		AND im.created_at > ?
 		GROUP BY p.id
 		),
 		inventory_data AS (
 			SELECT
 				p.id AS product_id,
 				p.unit_per_pack,
-				SUM(imd.scanned_count) AS inventory_count
+				SUM(imd.scanned_count - imd.received_count) AS inventory_count
 			FROM import_details imd
 			JOIN products p ON imd.product_id = p.id
 			JOIN imports im ON imd.import_id = im.id
 			WHERE im.entry_type = 2
 			AND im.status = 'completed'
 			AND im.store_id = ?
-			AND im.created_at > ?
 			GROUP BY p.id
 		),
 		sale_data AS (
@@ -480,7 +470,6 @@ func (h *OstatokHandler) GetOstatokByInventory(c *gin.Context) {
 			JOIN products p ON sp.product_id = p.id
 			WHERE s.stage = 9
 			AND s.store_id = ?
-			AND s.created_at > ?
 			GROUP BY p.id
 		),
 		return_data AS (
@@ -493,7 +482,6 @@ func (h *OstatokHandler) GetOstatokByInventory(c *gin.Context) {
 			JOIN products p ON sp.product_id = p.id
 			WHERE s.stage = 11
 			AND s.store_id = ?
-			AND s.created_at > ?
 			GROUP BY p.id
 		),
 		vozvrat_data AS (
@@ -506,7 +494,6 @@ func (h *OstatokHandler) GetOstatokByInventory(c *gin.Context) {
 			WHERE tr.entry_type = 2
 			AND tr.status IN('sent-to-1c', 'completed')
 			AND tr.from_store_id = ?
-			AND tr.created_at > ?
 			GROUP BY p.id
 		),
 		transfer_in_data AS (
@@ -519,7 +506,6 @@ func (h *OstatokHandler) GetOstatokByInventory(c *gin.Context) {
 			WHERE  tr.entry_type = 1
 			AND tr.to_store_id = ?
 			AND tr.status = 'completed'
-			AND tr.created_at > ?
 			GROUP BY p.id
 		),
 		transfer_out_data AS (
@@ -532,7 +518,6 @@ func (h *OstatokHandler) GetOstatokByInventory(c *gin.Context) {
 			WHERE  tr.entry_type = 1
 			AND tr.from_store_id = ?
 			AND tr.status = 'completed'
-			AND tr.created_at > ?
 			GROUP BY p.id
 		),
 		ostatok AS (
@@ -586,13 +571,13 @@ func (h *OstatokHandler) GetOstatokByInventory(c *gin.Context) {
 		FixedCount  float64 `gorm:"fixed_count" json:"fixed_count"`
 	}
 	err := h.db.Raw(query,
-		storeId, date,
-		storeId, date,
-		storeId, date,
-		storeId, date,
-		storeId, date,
-		storeId, date,
-		storeId, date,
+		storeId,
+		storeId,
+		storeId,
+		storeId,
+		storeId,
+		storeId,
+		storeId,
 		storeId).Scan(&results).Error
 	if err != nil {
 		h.log.Errorf("could not fetch ostatok by store_id(%s) err: %v", storeId, err)
@@ -654,10 +639,7 @@ func (h *OstatokHandler) GetOstatokByInventory(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept       json
 // @Produce      json
-// @Param 		 store_id   query    string  true "Store ID"
-// @Param 		 date   	query    string  true "Inventory Date in format YYYY-MM-DD"
-// @Param        limit      query    int     false "Limit"
-// @Param        offset     query    int     false "Offset"
+// @Param 		 store_id   query    string  true "Store Id"
 // @Success      200  {object}  v1.Response
 // @Failure      400  {object}  v1.Response
 // @Failure      500  {object}  v1.Response
@@ -665,16 +647,12 @@ func (h *OstatokHandler) GetOstatokByInventory(c *gin.Context) {
 func (h *OstatokHandler) GetOstatokInventoryByImport(c *gin.Context) {
 	var (
 		storeId = c.Query("store_id")
-		date    = c.Query("date")
 	)
 	if storeId == "" {
 		handleResponse(c, BadRequest, "store_id is required")
 		return
 	}
-	if date == "" {
-		handleResponse(c, BadRequest, "date is required")
-		return
-	}
+
 	query := `
 	WITH import_data AS (
 		SELECT
@@ -688,13 +666,12 @@ func (h *OstatokHandler) GetOstatokInventoryByImport(c *gin.Context) {
 		WHERE im.entry_type = 1 
 		  AND im.status = 'completed' 
 		  AND im.store_id = ? 
-		  AND im.created_at > ?
 	),
     inventory_data AS (
         SELECT
 			p.id as product_id,
 			sp.id AS store_product_id,
-			COALESCE(imd.scanned_count, 0) AS scanned_count
+			COALESCE((imd.scanned_count - imd.received_count), 0) AS scanned_count
 		FROM import_details imd
 		JOIN products p ON p.id = imd.product_id
 		JOIN store_products sp ON sp.import_detail_id = imd.id
@@ -702,7 +679,6 @@ func (h *OstatokHandler) GetOstatokInventoryByImport(c *gin.Context) {
 		WHERE im.entry_type = 2 
 		  AND im.status = 'completed' 
 		  AND im.store_id = ? 
-		  AND im.created_at > ?
     ),
 	sold AS (
 		SELECT
@@ -716,7 +692,6 @@ func (h *OstatokHandler) GetOstatokInventoryByImport(c *gin.Context) {
 		WHERE s.stage = 9 
 		  AND s.sale_type = 'SALE' 
 		  AND s.store_id = ? 
-		  AND s.created_at > ?
 		GROUP BY sp.id
 	),
 	return_sales AS (
@@ -731,7 +706,6 @@ func (h *OstatokHandler) GetOstatokInventoryByImport(c *gin.Context) {
 		WHERE s.stage = 11 
 		  AND s.sale_type = 'RETURN' 
 		  AND s.store_id = ?
-		  AND s.created_at > ?
 		GROUP BY sp.id
 	),
 	tranfer_in AS (
@@ -747,7 +721,6 @@ func (h *OstatokHandler) GetOstatokInventoryByImport(c *gin.Context) {
 		WHERE t.entry_type = 1 
 		  AND t.status = 'completed' 
 		  AND t.to_store_id = ? 
-		  AND t.created_at > ?
 	),
 	tranfer_out AS (
 		SELECT
@@ -761,7 +734,6 @@ func (h *OstatokHandler) GetOstatokInventoryByImport(c *gin.Context) {
 		WHERE t.entry_type = 1 
 		  AND t.status = 'completed' 
 		  AND t.from_store_id = ? 
-		  AND t.created_at > ?
 	),
 	vozvrat AS (
 		SELECT
@@ -775,7 +747,6 @@ func (h *OstatokHandler) GetOstatokInventoryByImport(c *gin.Context) {
 		WHERE t.entry_type = 2 
 		  AND t.status IN ('sent-to-1c', 'completed') 
 		  AND t.from_store_id = ? 
-		  AND t.created_at > ?
 	)
 	SELECT
 		sp.id                                 AS store_product_id,
@@ -822,7 +793,7 @@ func (h *OstatokHandler) GetOstatokInventoryByImport(c *gin.Context) {
 		TransferOut    float64 `gorm:"transfer_out" json:"transfer_out"`
 		FixedCount     float64 `gorm:"fixed_count" json:"fixed_count"`
 	}
-	err := h.db.Raw(query, storeId, date, storeId, date, storeId, date, storeId, date, storeId, date, storeId, date, storeId, date, storeId).Scan(&results).Error
+	err := h.db.Raw(query, storeId, storeId, storeId, storeId, storeId, storeId, storeId, storeId).Scan(&results).Error
 	if err != nil {
 		h.log.Errorf("could not fetch ostatok by store_id(%s) err: %v", storeId, err)
 		handleResponse(c, InternalError, "could not fetch ostatok data")
@@ -886,7 +857,7 @@ func (h *OstatokHandler) GetOstatokInventoryByImport(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept 		json
 // @Produce 	json
-// @Param 	file formData file true "Excel file (.xlsx) containing ostatok corrections"
+// @Param 	    file formData file true "Excel file (.xlsx) containing ostatok corrections"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -1020,6 +991,9 @@ func (h *OstatokHandler) UploadCorrectInventoryOstatok(c *gin.Context) {
 	for _, row := range rows[1:] {
 		if len(row) > 12 {
 			unitQuantity := cast.ToInt(row[13])
+			if unitQuantity < 0 {
+				unitQuantity = 0
+			}
 			err = h.db.Exec(query, unitQuantity, row[0]).Error
 			if err != nil {
 				h.log.Errorf("could not update store_product(%s) -> %v", row[0], err)
