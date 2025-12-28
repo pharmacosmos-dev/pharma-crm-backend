@@ -550,23 +550,23 @@ func (h *OstatokHandler) GetOstatokByInventory(c *gin.Context) {
 			WHERE COALESCE(o.ostatok, 0) > 0;
 		`
 	var results []struct {
-		ProductId   string `gorm:"product_id" json:"product_id"`
-		Name        string `gorm:"name" json:"name"`
-		UnitPerPack int64  `gorm:"unit_per_pack" json:"unit_per_pack"`
-		Ostatok     int64  `gorm:"ostatok" json:"ostatok"`
-		Inventory   int64  `gorm:"inventory" json:"inventory"`
-		Import      int64  `gorm:"import" json:"import"`
-		Sale        int64  `gorm:"sale" json:"sale"`
-		Return      int64  `gorm:"return" json:"return"`
-		Vozvrat     int64  `gorm:"vozvrat" json:"vozvrat"`
-		TransferIn  int64  `gorm:"transfer_in" json:"transfer_in"`
-		TransferOut int64  `gorm:"transfer_out" json:"transfer_out"`
-		FixedCount  int64  `gorm:"fixed_count" json:"fixed_count"`
+		ProductId   string  `gorm:"product_id" json:"product_id"`
+		Name        string  `gorm:"name" json:"name"`
+		UnitPerPack float64 `gorm:"unit_per_pack" json:"unit_per_pack"`
+		Ostatok     float64 `gorm:"ostatok" json:"ostatok"`
+		Inventory   float64 `gorm:"inventory" json:"inventory"`
+		Import      float64 `gorm:"import" json:"import"`
+		Sale        float64 `gorm:"sale" json:"sale"`
+		Return      float64 `gorm:"return" json:"return"`
+		Vozvrat     float64 `gorm:"vozvrat" json:"vozvrat"`
+		TransferIn  float64 `gorm:"transfer_in" json:"transfer_in"`
+		TransferOut float64 `gorm:"transfer_out" json:"transfer_out"`
+		FixedCount  float64 `gorm:"fixed_count" json:"fixed_count"`
 	}
 	err := h.db.Raw(
 		query, storeId, storeId,
 		storeId, storeId, storeId,
-		storeId, storeId, storeId).Debug().Scan(&results).Error
+		storeId, storeId, storeId).Scan(&results).Error
 	if err != nil {
 		h.log.Errorf("could not fetch ostatok by store_id(%s) err: %v", storeId, err)
 		handleResponse(c, InternalError, "could not fetch ostatok data")
