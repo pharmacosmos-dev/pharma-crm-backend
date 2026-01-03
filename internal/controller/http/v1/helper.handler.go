@@ -1703,7 +1703,7 @@ func (h *HelperHandler) DeleteNotFoundPhotos(c *gin.Context) {
 
 			resp, err := http.Get(baseURl + photo)
 			if err != nil || resp.StatusCode != http.StatusOK {
-				if err := h.db.Exec("UPDATE products SET photos = NULL WHERE id = ?", p.Id); err != nil {
+				if err := h.db.Exec("UPDATE products SET photos = NULL WHERE id = ? AND photos IS NOT NULL", p.Id); err != nil {
 					h.log.Errorf("could not update product %s photos to null: %v", p.Id, err)
 				}
 				// Fayl mavjud emas, uni o'chirish
@@ -1718,7 +1718,7 @@ func (h *HelperHandler) DeleteNotFoundPhotos(c *gin.Context) {
 
 			photoPath := filepath.Join("./app/uploads", photo)
 			if _, err := os.Stat(photoPath); os.IsNotExist(err) {
-				if err := h.db.Exec("UPDATE products SET photos = NULL WHERE id = ?", p.Id); err != nil {
+				if err := h.db.Exec("UPDATE products SET photos = NULL WHERE id = ? AND photos IS NOT NULL", p.Id); err != nil {
 					h.log.Warn("could not update product %s photos to null: %v", p.Id, err)
 				}
 				// Fayl mavjud emas, uni o'chirish
