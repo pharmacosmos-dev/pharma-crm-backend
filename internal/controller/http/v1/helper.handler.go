@@ -55,6 +55,7 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		helper.POST("/add-categories", h.AddCategories)
 		helper.POST("/attach-category-to-products", h.AttachCategoryToProducts)
 		helper.POST("/upload-categories-json", h.UploadCategoryJson)
+		helper.DELETE("/delete-not-photos", h.DeleteNotFoundPhotos)
 	}
 }
 
@@ -1668,6 +1669,70 @@ func (h *HelperHandler) UploadCategoryJson(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"file_url": file.File.Filename,
 	})
+}
+
+// DeleteNotFoundPhotos godoc
+// @Summary Upload Category Json
+// @Description Upload Category Json
+// @Tags helper
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /helper/delete-not-photos [DELETE]
+func (h *HelperHandler) DeleteNotFoundPhotos(c *gin.Context) {
+	var products []struct {
+		Id           string            `gorm:"id"`
+		MaterialCode string            `gorm:"material_code"`
+		Photos       utils.StringArray `gorm:"type:text[]"`
+	}
+
+	err := h.db.Raw("SELECT id, material_code, photos FROM products WHERE photos IS NOT NULL").Scan(&products).Error
+	if err != nil {
+		h.log.Errorf("could not get products: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
+		return
+	}
+	baseURl := h.cfg.FileBaseURL
+	deletedCount := 0
+
+	for _, p := range products {
+		for _, photo := range p.Photos {
+
+			resp, err := http.Get(baseURl + photo)
+			if err != nil || resp.StatusCode != http.StatusOK {
+				if err := h.db.Exec("UPDATE products SET photos = NULL WHERE id = ?", p.Id); err != nil {
+					h.log.Errorf("could not update product %s photos to null: %v", p.Id, err)
+				}
+				// Fayl mavjud emas, uni o'chirish
+				photoPath := filepath.Join("./app/uploads", photo)
+				err = os.Remove(photoPath)
+				if err != nil {
+					h.log.Warn("could not delete photo %s: %v", photoPath, err)
+				} else {
+					deletedCount++
+				}
+			}
+
+			photoPath := filepath.Join("./app/uploads", photo)
+			if _, err := os.Stat(photoPath); os.IsNotExist(err) {
+				if err := h.db.Exec("UPDATE products SET photos = NULL WHERE id = ?", p.Id); err != nil {
+					h.log.Warn("could not update product %s photos to null: %v", p.Id, err)
+				}
+				// Fayl mavjud emas, uni o'chirish
+				err := os.Remove(photoPath)
+				if err != nil {
+					h.log.Warn("could not delete photo %s: %v", photoPath, err)
+				} else {
+					deletedCount++
+				}
+			}
+		}
+	}
+
+	handleResponse(c, OK, fmt.Sprintf("Successfully deleted %d photos", deletedCount))
 }
 
 func (h *HelperHandler) processExcel(c *gin.Context, savePath string) {

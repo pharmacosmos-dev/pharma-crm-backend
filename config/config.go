@@ -31,6 +31,7 @@ type (
 		OnecPassword        string `env-required:"true" yaml:"log_level"   env:"ONEC_PASSWORD"`
 		ExternalApiUsername string `env-required:"true" yaml:"log_level"   env:"EXTERNAL_API_USERNAME"`
 		ExternalApiPassword string `env-required:"true" yaml:"log_level"   env:"EXTERNAL_API_PASSWORD"`
+		FileBaseURL         string `env-required:"true" yaml:"file_base_url"   env:"FILE_BASE_URL"`
 	}
 
 	// PG -.
@@ -85,6 +86,7 @@ func Load() Config {
 	c.Secret.OnecPassword = cast.ToString(GetOrReturnDefaultValue("ONEC_PASSWORD", "6fb5619d-8c30-4e85-a1e3-3f4d142498a0"))
 	c.Secret.ExternalApiUsername = cast.ToString(GetOrReturnDefaultValue("EXTERNAL_API_USERNAME", "pharmaexternalapis"))
 	c.Secret.ExternalApiPassword = cast.ToString(GetOrReturnDefaultValue("EXTERNAL_API_PASSWORD", "lai3lahxoPo{aph9"))
+	c.Secret.FileBaseURL = cast.ToString(GetOrReturnDefaultValue("FILE_BASE_URL", "http://localhost:8080/v1/upload/"))
 
 	c.Integration.ClickApiUrl = cast.ToString(GetOrReturnDefaultValue("CLICK_API_URL", "http://localhost:8080"))
 	c.Integration.PaymeApiUrl = cast.ToString(GetOrReturnDefaultValue("PAYME_API_URL", "http://localhost:8080"))
