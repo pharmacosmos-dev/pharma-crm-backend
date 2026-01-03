@@ -1761,7 +1761,11 @@ func (h *HelperHandler) processExcel(c *gin.Context, savePath string) {
 	WHERE material_code = ?;
 	`
 
-	var count = 0
+	var (
+		totalRowsProcessed = 0
+		successImagesCount = 0
+	)
+
 	// Process rows
 	for _, row := range rows[1:] {
 		if len(row) > 4 {
@@ -1773,6 +1777,7 @@ func (h *HelperHandler) processExcel(c *gin.Context, savePath string) {
 					h.log.Error("image download error: ", err)
 				} else if localPath != "" {
 					photos = append(photos, localPath)
+					successImagesCount++
 				}
 			}
 
@@ -1783,9 +1788,11 @@ func (h *HelperHandler) processExcel(c *gin.Context, savePath string) {
 			if err != nil {
 				h.log.Error("could not update product(%s) -> %v", row[0], err)
 			}
-			count++
+			totalRowsProcessed++
 		}
 	}
+	h.log.Info("Excel processing finished. Total rows processed: %d, Successful images downloaded: %d",
+		totalRowsProcessed, successImagesCount)
 }
 
 func DownloadAndSaveImage(url string, uploadDir string) (string, error) {
@@ -1803,9 +1810,20 @@ func DownloadAndSaveImage(url string, uploadDir string) (string, error) {
 	localPath := filepath.Join(uploadDir, newImgName)
 
 	// HTTP orqali yuklab olish
-	resp, err := http.Get(url)
+	client := &http.Client{}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("User-Agent", "Mozilla/5.0")
+	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to download image: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("bad status: %d", resp.StatusCode)
 	}
 	defer resp.Body.Close()
 
