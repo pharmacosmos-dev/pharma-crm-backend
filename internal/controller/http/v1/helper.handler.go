@@ -1760,10 +1760,10 @@ func (h *HelperHandler) processExcel(c *gin.Context, savePath string) {
 		return
 	}
 	defer xlsx.Close()
-	sheetName := xlsx.GetSheetName(1)
+	sheetName := xlsx.GetSheetName(0)
 	rows, err := xlsx.GetRows(sheetName)
 	if err != nil {
-		h.log.Errorf("Failed to get rows: ", err)
+		h.log.Errorf("Failed to get rows: %v", err)
 		handleResponse(c, InternalError, "Failed to get rows")
 		return
 	}
@@ -1783,11 +1783,11 @@ func (h *HelperHandler) processExcel(c *gin.Context, savePath string) {
 	)
 
 	for _, row := range rows[1:] {
-		if len(row) > 4 {
+		if len(row) > 3 {
 			// --- image handle ---
 			var photos utils.StringArray
-			if row[4] != "" {
-				localPath, downErr := DownloadAndSaveImage(row[4], "uploads")
+			if row[3] != "" {
+				localPath, downErr := DownloadAndSaveImage(row[3], "uploads")
 				if downErr != nil {
 					h.log.Errorf("image download error for product %s: %v", row[0], downErr)
 					continue // agar rasm yuklanmasa, shu rowni o‘tkazib yubor
