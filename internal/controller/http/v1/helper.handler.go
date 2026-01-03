@@ -1744,7 +1744,7 @@ func (h *HelperHandler) processExcel(c *gin.Context, savePath string) {
 		return
 	}
 	defer xlsx.Close()
-	sheetName := xlsx.GetSheetName(0)
+	sheetName := xlsx.GetSheetName(1)
 	rows, err := xlsx.GetRows(sheetName)
 	if err != nil {
 		h.log.Error("Failed to get rows: ", err.Error())
@@ -1756,10 +1756,7 @@ func (h *HelperHandler) processExcel(c *gin.Context, savePath string) {
 	query := `
 	UPDATE products
 	SET 
-		name_ru = ?, name_uz = ?, name_kr = ?, 
 		photos = ?, 
-		description_ru = ?, description_uz = ?, description_kr = ?,
-		mxik = ?, unit_code = ?,
 		updated_at = now()
 	WHERE material_code = ?;
 	`
@@ -1767,11 +1764,11 @@ func (h *HelperHandler) processExcel(c *gin.Context, savePath string) {
 	var count = 0
 	// Process rows
 	for _, row := range rows[1:] {
-		if len(row) > 11 {
+		if len(row) > 4 {
 			// --- image handle ---
 			var photos utils.StringArray
-			if row[6] != "" {
-				localPath, err := DownloadAndSaveImage(row[6], "uploads")
+			if row[4] != "" {
+				localPath, err := DownloadAndSaveImage(row[4], "uploads")
 				if err != nil {
 					h.log.Error("image download error: ", err)
 				} else if localPath != "" {
@@ -1780,10 +1777,7 @@ func (h *HelperHandler) processExcel(c *gin.Context, savePath string) {
 			}
 
 			err = h.db.Debug().Exec(query,
-				row[2], row[4], row[5],
 				utils.StringArray(photos),
-				row[7], row[8], row[9],
-				row[10], row[11],
 				cast.ToInt(row[0]),
 			).Error
 			if err != nil {
