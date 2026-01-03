@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -1766,55 +1767,62 @@ func (h *HelperHandler) processExcel(c *gin.Context, savePath string) {
 		successImagesCount = 0
 	)
 
-	// Process rows
 	for _, row := range rows[1:] {
 		if len(row) > 4 {
 			// --- image handle ---
 			var photos utils.StringArray
 			if row[4] != "" {
-				localPath, err := DownloadAndSaveImage(row[4], "uploads")
-				if err != nil {
-					h.log.Errorf("image download error: %v", err)
+				localPath, downErr := DownloadAndSaveImage(row[4], "uploads")
+				if downErr != nil {
+					h.log.Errorf("image download error for product %s: %v", row[0], downErr)
+					continue // agar rasm yuklanmasa, shu rowni o‘tkazib yubor
+				}
 
-				} else if localPath != "" {
+				if localPath != "" {
 					photos = append(photos, localPath)
-					successImagesCount++
+					// UPDATE faqat to'g'ri yuklangan rasm bo'lsa
+					err = h.db.Debug().Exec(query,
+						utils.StringArray(photos),
+						cast.ToInt(row[0]),
+					).Error
+					if err != nil {
+						h.log.Errorf("could not update product(%s) -> %v", row[0], err)
+					} else {
+						successImagesCount++
+						totalRowsProcessed++
+					}
 				}
 			}
-
-			err = h.db.Debug().Exec(query,
-				utils.StringArray(photos),
-				cast.ToInt(row[0]),
-			).Error
-			if err != nil {
-				h.log.Errorf("could not update product(%s) -> %v", row[0], err)
-			}
-			totalRowsProcessed++
 		}
 	}
+
 	h.log.Info("Excel processing finished. Total rows processed: %d, Successful images downloaded: %d",
 		totalRowsProcessed, successImagesCount)
 }
 
-func DownloadAndSaveImage(url string, uploadDir string) (string, error) {
-	if url == "" {
+func DownloadAndSaveImage(urlStr string, uploadDir string) (string, error) {
+	if urlStr == "" {
 		return "", nil
 	}
 
-	// extension olish (.jpg, .png, .webp va h.k.)
-	ext := filepath.Ext(url)
+	// Check if URL is valid
+	parsedURL, err := url.Parse(urlStr)
+	if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") {
+		return "", fmt.Errorf("invalid URL: %s", urlStr)
+	}
+
+	ext := filepath.Ext(parsedURL.Path)
 	if ext == "" || len(ext) > 5 {
-		ext = ".png" // default
+		ext = ".png"
 	}
 
 	newImgName := uuid.New().String() + ext
 	localPath := filepath.Join(uploadDir, newImgName)
 
-	// HTTP orqali yuklab olish
 	client := &http.Client{
-		Timeout: time.Second * 30,
+		Timeout: 30 * time.Second,
 	}
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest("GET", urlStr, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
 	}
@@ -1824,13 +1832,12 @@ func DownloadAndSaveImage(url string, uploadDir string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to download image: %v", err)
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("bad status: %d", resp.StatusCode)
 	}
-	defer resp.Body.Close()
 
-	// uploads papkasini borligini tekshirish
 	if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
 		if err := os.MkdirAll(uploadDir, 0755); err != nil {
 			return "", fmt.Errorf("failed to create upload dir: %w", err)
