@@ -103,7 +103,7 @@ func (h *HelperHandler) GetIKPUDatafromSoliq(c *gin.Context) {
 	// Create HTTP request
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		h.log.Error("Request yaratishda xatolik: %w", err)
+		h.log.Errorf("Request yaratishda xatolik: %v", err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -114,7 +114,7 @@ func (h *HelperHandler) GetIKPUDatafromSoliq(c *gin.Context) {
 	// So‘rovni jo‘natish
 	resp, err := client.Do(req)
 	if err != nil {
-		h.log.Error("So‘rov jo‘natishda xatolik: %w", err)
+		h.log.Errorf("So‘rov jo‘natishda xatolik: %v", err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -1739,7 +1739,7 @@ func (h *HelperHandler) processExcel(c *gin.Context, savePath string) {
 	// Open the Excel file
 	xlsx, err := excelize.OpenFile(savePath)
 	if err != nil {
-		h.log.Error("Failed to open .xlsx file: ", err.Error())
+		h.log.Errorf("Failed to open .xlsx file: %v", err)
 		handleResponse(c, BadRequest, "Failed to process file")
 		return
 	}
@@ -1747,7 +1747,7 @@ func (h *HelperHandler) processExcel(c *gin.Context, savePath string) {
 	sheetName := xlsx.GetSheetName(1)
 	rows, err := xlsx.GetRows(sheetName)
 	if err != nil {
-		h.log.Error("Failed to get rows: ", err.Error())
+		h.log.Errorf("Failed to get rows: ", err)
 		handleResponse(c, InternalError, "Failed to get rows")
 		return
 	}
@@ -1774,7 +1774,8 @@ func (h *HelperHandler) processExcel(c *gin.Context, savePath string) {
 			if row[4] != "" {
 				localPath, err := DownloadAndSaveImage(row[4], "uploads")
 				if err != nil {
-					h.log.Error("image download error: ", err)
+					h.log.Errorf("image download error: %v", err)
+
 				} else if localPath != "" {
 					photos = append(photos, localPath)
 					successImagesCount++
@@ -1786,7 +1787,7 @@ func (h *HelperHandler) processExcel(c *gin.Context, savePath string) {
 				cast.ToInt(row[0]),
 			).Error
 			if err != nil {
-				h.log.Error("could not update product(%s) -> %v", row[0], err)
+				h.log.Errorf("could not update product(%s) -> %v", row[0], err)
 			}
 			totalRowsProcessed++
 		}
@@ -1810,7 +1811,9 @@ func DownloadAndSaveImage(url string, uploadDir string) (string, error) {
 	localPath := filepath.Join(uploadDir, newImgName)
 
 	// HTTP orqali yuklab olish
-	client := &http.Client{}
+	client := &http.Client{
+		Timeout: time.Second * 30,
+	}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return "", fmt.Errorf("failed to create request: %w", err)
@@ -1819,7 +1822,7 @@ func DownloadAndSaveImage(url string, uploadDir string) (string, error) {
 	req.Header.Set("User-Agent", "Mozilla/5.0")
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("failed to download image: %w", err)
+		return "", fmt.Errorf("failed to download image: %v", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
