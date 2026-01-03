@@ -1698,42 +1698,44 @@ func (h *HelperHandler) DeleteNotFoundPhotos(c *gin.Context) {
 	}
 	baseURl := h.cfg.FileBaseURL
 	deletedCount := 0
+	go func() {
+		for _, p := range products {
+			for _, photo := range p.Photos {
 
-	for _, p := range products {
-		for _, photo := range p.Photos {
-
-			resp, err := http.Get(baseURl + photo)
-			if err != nil || resp.StatusCode != http.StatusOK {
-				if err := h.db.Exec("UPDATE products SET photos = NULL WHERE id = ? AND photos IS NOT NULL", p.Id); err != nil {
-					h.log.Errorf("could not update product %s photos to null: %v", p.Id, err)
+				resp, err := http.Get(baseURl + photo)
+				if err != nil || resp.StatusCode != http.StatusOK {
+					if err := h.db.Exec("UPDATE products SET photos = NULL WHERE id = ? AND photos IS NOT NULL", p.Id); err != nil {
+						h.log.Errorf("could not update product %s photos to null: %v", p.Id, err)
+					}
+					// Fayl mavjud emas, uni o'chirish
+					photoPath := filepath.Join("./app/uploads", photo)
+					err = os.Remove(photoPath)
+					if err != nil {
+						h.log.Warn("could not delete photo %s: %v", photoPath, err)
+					} else {
+						deletedCount++
+					}
 				}
-				// Fayl mavjud emas, uni o'chirish
+
 				photoPath := filepath.Join("./app/uploads", photo)
-				err = os.Remove(photoPath)
-				if err != nil {
-					h.log.Warn("could not delete photo %s: %v", photoPath, err)
-				} else {
-					deletedCount++
-				}
-			}
-
-			photoPath := filepath.Join("./app/uploads", photo)
-			if _, err := os.Stat(photoPath); os.IsNotExist(err) {
-				if err := h.db.Exec("UPDATE products SET photos = NULL WHERE id = ? AND photos IS NOT NULL", p.Id); err != nil {
-					h.log.Warn("could not update product %s photos to null: %v", p.Id, err)
-				}
-				// Fayl mavjud emas, uni o'chirish
-				err := os.Remove(photoPath)
-				if err != nil {
-					h.log.Warn("could not delete photo %s: %v", photoPath, err)
-				} else {
-					deletedCount++
+				if _, err := os.Stat(photoPath); os.IsNotExist(err) {
+					if err := h.db.Exec("UPDATE products SET photos = NULL WHERE id = ? AND photos IS NOT NULL", p.Id); err != nil {
+						h.log.Warn("could not update product %s photos to null: %v", p.Id, err)
+					}
+					// Fayl mavjud emas, uni o'chirish
+					err := os.Remove(photoPath)
+					if err != nil {
+						h.log.Warn("could not delete photo %s: %v", photoPath, err)
+					} else {
+						deletedCount++
+					}
 				}
 			}
 		}
-	}
+		h.log.Infof("Successfully deleted %d photos", deletedCount)
+	}()
 
-	handleResponse(c, OK, fmt.Sprintf("Successfully deleted %d photos", deletedCount))
+	handleResponse(c, OK, "SUCCESS")
 }
 
 func (h *HelperHandler) processExcel(c *gin.Context, savePath string) {
