@@ -1702,15 +1702,28 @@ func (h *HelperHandler) DeleteNotFoundPhotos(c *gin.Context) {
 		for _, p := range products {
 			for _, photo := range p.Photos {
 
-				resp, err := http.Get(baseURl + photo)
+				client := &http.Client{
+					Timeout: 10 * time.Second, // set a reasonable timeout
+				}
+
+				req, err := http.NewRequest("HEAD", baseURl+photo, nil)
+				if err != nil {
+					h.log.Warnf("could not create request for photo %s: %v", photo, err)
+					continue
+				}
+
+				// Set headers to mimic a browser
+				req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36")
+
+				resp, err := client.Do(req)
 				if err != nil || resp.StatusCode != http.StatusOK {
+					// Image not found or blocked
 					if err := h.db.Exec("UPDATE products SET photos = NULL WHERE id = ? AND photos IS NOT NULL", p.Id); err != nil {
 						h.log.Errorf("could not update product %s photos to null: %v", p.Id, err)
 					}
-					// Fayl mavjud emas, uni o'chirish
+
 					photoPath := filepath.Join("./app/uploads", photo)
-					err = os.Remove(photoPath)
-					if err != nil {
+					if err := os.Remove(photoPath); err != nil {
 						h.log.Warn("could not delete photo %s: %v", photoPath, err)
 					} else {
 						deletedCount++
