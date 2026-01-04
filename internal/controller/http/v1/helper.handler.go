@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -1699,52 +1700,32 @@ func (h *HelperHandler) DeleteNotFoundPhotos(c *gin.Context) {
 	baseURl := h.cfg.FileBaseURL
 	deletedCount := 0
 	go func() {
+		client := &http.Client{
+			Timeout: 10 * time.Second,
+		}
 		for _, p := range products {
+			validPhotos := make([]string, 0)
+
 			for _, photo := range p.Photos {
+				url := baseURl + photo
 
-				client := &http.Client{
-					Timeout: 10 * time.Second, // set a reasonable timeout
-				}
-
-				req, err := http.NewRequest("HEAD", baseURl+photo, nil)
-				if err != nil {
-					h.log.Warnf("could not create request for photo %s: %v", photo, err)
-					continue
-				}
-
-				// Set headers to mimic a browser
-				req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36")
-
+				// fallback GET
+				req, _ := http.NewRequest("GET", url, nil)
+				req.Header.Set("User-Agent", "Mozilla/5.0")
 				resp, err := client.Do(req)
-				if err != nil || resp.StatusCode != http.StatusOK {
-					// Image not found or blocked
-					if err := h.db.Exec("UPDATE products SET photos = NULL WHERE id = ? AND photos IS NOT NULL", p.Id); err != nil {
-						h.log.Errorf("could not update product %s photos to null: %v", p.Id, err)
-					}
 
-					photoPath := filepath.Join("./app/uploads", photo)
-					if err := os.Remove(photoPath); err != nil {
-						h.log.Warn("could not delete photo %s: %v", photoPath, err)
-					} else {
-						deletedCount++
-					}
-				}
-
-				photoPath := filepath.Join("./app/uploads", photo)
-				if _, err := os.Stat(photoPath); os.IsNotExist(err) {
-					if err := h.db.Exec("UPDATE products SET photos = NULL WHERE id = ? AND photos IS NOT NULL", p.Id); err != nil {
-						h.log.Warn("could not update product %s photos to null: %v", p.Id, err)
-					}
-					// Fayl mavjud emas, uni o'chirish
-					err := os.Remove(photoPath)
-					if err != nil {
-						h.log.Warn("could not delete photo %s: %v", photoPath, err)
-					} else {
-						deletedCount++
-					}
+				if err == nil && resp.StatusCode < 400 {
+					validPhotos = append(validPhotos, photo)
 				}
 			}
+
+			if len(validPhotos) == 0 {
+				h.db.Exec("UPDATE products SET photos = NULL WHERE id = ?", p.Id)
+			} else if len(validPhotos) != len(p.Photos) {
+				h.db.Exec("UPDATE products SET photos = ? WHERE id = ?", validPhotos, p.Id)
+			}
 		}
+
 		h.log.Infof("Successfully deleted %d photos", deletedCount)
 	}()
 
@@ -1783,11 +1764,11 @@ func (h *HelperHandler) processExcel(c *gin.Context, savePath string) {
 	)
 
 	for _, row := range rows[1:] {
-		if len(row) > 3 {
+		if len(row) > 6 {
 			// --- image handle ---
 			var photos utils.StringArray
-			if row[3] != "" {
-				localPath, downErr := DownloadAndSaveImage(row[3], "uploads")
+			if row[4] != "" {
+				localPath, downErr := CheckImageAndExtractName(row[4])
 				if downErr != nil {
 					h.log.Errorf("image download error for product %s: %v", row[0], downErr)
 					continue // agar rasm yuklanmasa, shu rowni o‘tkazib yubor
@@ -1871,6 +1852,47 @@ func DownloadAndSaveImage(urlStr string, uploadDir string) (string, error) {
 	}
 
 	return newImgName, nil
+}
+
+func CheckImageAndExtractName(urlStr string) (string, error) {
+	if urlStr == "" {
+		return "", nil
+	}
+
+	parsedURL, err := url.Parse(urlStr)
+	if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") {
+		return "", fmt.Errorf("invalid URL: %s", urlStr)
+	}
+
+	client := &http.Client{
+		Timeout: 15 * time.Second,
+	}
+
+	// GET ishlatyapmiz (HEAD ham mumkin)
+	req, err := http.NewRequest("GET", urlStr, nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("image not found, status: %d", resp.StatusCode)
+	}
+
+	// URL oxiridan filename ni ajratib olish
+	fileName := path.Base(parsedURL.Path)
+
+	if fileName == "." || fileName == "/" {
+		return "", fmt.Errorf("invalid image path")
+	}
+
+	return fileName, nil
 }
 
 func copyFile(src, dst string) error {
