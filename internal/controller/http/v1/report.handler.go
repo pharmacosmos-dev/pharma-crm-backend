@@ -47,10 +47,10 @@ func (h *ReportHandler) ReportRoutes(r *gin.RouterGroup) {
 		report.POST("/top-stores", h.ReportTopStores)
 		report.POST("/top-stores/export-excel", h.TopStoresExcel)
 		report.POST("/bonus-products", h.ReportBonusProducts)
+		report.POST("/bonus-products/export-excel", h.BonusProductsExportExcel)
 		report.POST("/bonus-products-stats", h.ReportBonusProductsStats)
 		report.POST("/bonus-items", h.FetchBonusItemsByEmployee)
 		report.POST("/bonus-items-export", h.FetchBonusItemsByEmployeeExport)
-		report.POST("/bonus-products/export-excel", h.BonusProductsExportExcel)
 		report.POST("/store-summary", h.ReportStoreSummary)
 		report.POST("/store-summary-stats", h.ReportStoreSummaryStats)
 		report.POST("/store-summary/export-excel", h.StoreSummaryExportExcel)
@@ -1403,12 +1403,12 @@ func (h *ReportHandler) TopProductsExportExcel(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /report/bonus-products/export-excel [POST]
 func (h *ReportHandler) BonusProductsExportExcel(c *gin.Context) {
-	// get user_id from the context
-	user := h.service.GetSignedUser(c)
-	if user.UserId == "" {
-		handleServiceResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
-		return
-	}
+	// // get user_id from the context
+	// user := h.service.GetSignedUser(c)
+	// if user.UserId == "" {
+	// 	handleServiceResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
+	// 	return
+	// }
 
 	var params domain.ReportQueryParam
 	// bind query parameters
@@ -1416,19 +1416,14 @@ func (h *ReportHandler) BonusProductsExportExcel(c *gin.Context) {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
-	// bind store ids
-	if err := c.ShouldBindJSON(&params.StoreIds); err != nil {
-		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
-		return
-	}
 
-	// check if employee is not admin or superadmin
-	if !utils.In(user.Role, constants.AllAdminRoles...) {
-		if user.StoreId != "" {
-			params.StoreId = user.StoreId
-		}
-		params.CompanyId = user.CompanyId
-	}
+	// // check if employee is not admin or superadmin
+	// if !utils.In(user.Role, constants.AllAdminRoles...) {
+	// 	if user.StoreId != "" {
+	// 		params.StoreId = user.StoreId
+	// 	}
+	// 	params.CompanyId = user.CompanyId
+	// }
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
