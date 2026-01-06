@@ -1602,14 +1602,18 @@ func (h *HelperHandler) AttachCategoryToProducts(c *gin.Context) {
 	}
 
 	// Update products with category IDs
+	var count int
 	for _, prod := range products {
-		err = h.db.Exec("UPDATE products SET category_id = ? WHERE id = ?", prod.CategoryUid, prod.Id).Error
-		if err != nil {
-			h.log.Errorf("Failed to update product %s: %v", prod.Id, err)
+		if prod.CategoryUid != "" {
+			err = h.db.Exec("UPDATE products SET category_id = ? WHERE id = ?", prod.CategoryUid, prod.Id).Error
+			if err != nil {
+				h.log.Errorf("Failed to update product %s: %v", prod.Id, err)
+			}
+			count++
 		}
 	}
 
-	handleResponse(c, OK, fmt.Sprintf("Successfully added %d products", len(products)))
+	handleResponse(c, OK, fmt.Sprintf("Successfully added %d products", count))
 }
 
 // UploadCategoryJson godoc
