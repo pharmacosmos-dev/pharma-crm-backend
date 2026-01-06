@@ -1000,15 +1000,34 @@ func (s *Services) GetNoorStores() ([]domain.NoorStore, error) {
 
 	// get lat and long to point struct
 	for i := range res {
-		if res[i].Location != "" {
-			res[i].Location1.Lat, err = strconv.ParseFloat(strings.Split(res[i].Location, ",")[0], 64)
-			if err != nil {
-				s.log.Warn("ERROR on parsing latitude: %v", err.Error())
-			}
-			res[i].Location1.Long, err = strconv.ParseFloat(strings.Split(res[i].Location, ",")[1], 64)
-			if err != nil {
-				s.log.Warn("ERROR on parsing longitude: %v", err.Error())
-			}
+		loc := strings.TrimSpace(res[i].Location)
+
+		// skip invalid values
+		if loc == "" || loc == "null" {
+			continue
+		}
+
+		parts := strings.Split(loc, ",")
+		if len(parts) != 2 {
+			s.log.Warn("invalid location format: %q", loc)
+			continue
+		}
+
+		lat, err := strconv.ParseFloat(strings.TrimSpace(parts[0]), 64)
+		if err != nil {
+			s.log.Warn("ERROR on parsing latitude (%q): %v", parts[0], err)
+			continue
+		}
+
+		long, err := strconv.ParseFloat(strings.TrimSpace(parts[1]), 64)
+		if err != nil {
+			s.log.Warn("ERROR on parsing longitude (%q): %v", parts[1], err)
+			continue
+		}
+
+		res[i].Location1 = domain.Point{
+			Lat:  lat,
+			Long: long,
 		}
 	}
 
