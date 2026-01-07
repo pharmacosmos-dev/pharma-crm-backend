@@ -190,7 +190,7 @@ const (
 	SaleOnlineStageNew       = 1
 	SaleOnlineStagePending   = 2
 	SaleOnlineStageCanceled  = -1
-	SaleOnlineStageCompleted = 2
+	SaleOnlineStageCompleted = 3
 
 	SaleTypeReturn  = "RETURN"
 	SaleTypeSale    = "SALE"

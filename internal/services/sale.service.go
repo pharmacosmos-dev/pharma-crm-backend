@@ -1148,7 +1148,8 @@ func (s *Services) AttachDiscountCardToSale(ctx context.Context, req *domain.Add
 
 }
 
-func (s *Services) AcceptOnlineSale(ctx context.Context, req *domain.ConfirmOnlineSaleRequest) error {
+// accept order
+func (s *Services) AcceptOnlineSale(ctx context.Context, req *domain.ConfirmOnlineSaleRequest) (*domain.Sale, error) {
 	// start transaction
 	tx := s.db.Begin()
 	defer func() {
@@ -1157,65 +1158,56 @@ func (s *Services) AcceptOnlineSale(ctx context.Context, req *domain.ConfirmOnli
 		}
 	}()
 
-	var sale *domain.Sale
+	var sale domain.Sale
 	err := tx.WithContext(ctx).First(&sale, "id = ?", req.SaleId).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			_ = tx.Rollback()
-			return domain.NotFoundError
+			return nil, domain.NotFoundError
 		}
 		_ = tx.Rollback()
 		s.log.Errorf("could not get sale on accepting online sale: %v", err)
-		return domain.InternalServerError
+		return nil, domain.InternalServerError
 	}
 	// accepted online sale
-	err = tx.WithContext(ctx).Exec(`
-	UPDATE 
-		sales
+	err = tx.WithContext(ctx).
+		Exec(`
+	UPDATE sales
 	SET
 		online_status = ?,
 		total_amount = (SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)
 	WHERE id = ?`,
-		constants.SaleOnlineStagePending,
-		req.SaleId,
-		req.SaleId,
-	).Error
+			constants.SaleOnlineStagePending,
+			req.SaleId,
+			req.SaleId,
+		).Error
 
 	if err != nil {
 		_ = tx.Rollback()
 		s.log.Errorf("could not update online sale: %v", err)
-		return domain.InternalServerError
+		return nil, domain.InternalServerError
 	}
-	// Prepare Headers
-	headers := map[string]string{
-		"Authorization": fmt.Sprintf("Bearer %s", s.cfg.NoorApiToken),
-		"Content-Type":  constants.ContentTypeJson,
-	}
-	// requestData, err := json.Marshal(gin.H{"order_id": sale.SaleNumber})
-	// if err != nil {
-	// 	_ = tx.Rollback()
-	// 	s.log.Errorf("could not parse online sale response: %v", err)
-	// 	return domain.InternalServerError
-	// }
+
+	url := s.cfg.NoorApiUrl + fmt.Sprintf("/orders/vendor/%d/confirm", sale.SaleNumber)
 
 	var response *http.Response
-	url := s.cfg.NoorApiUrl + fmt.Sprintf("/orders/vendor/%d/confirm", sale.SaleNumber)
-	err = s.DoRequest(&response, http.MethodPatch, url, nil, headers)
+	err = s.NoorRequest(&response, http.MethodPatch, url, nil)
 	if err != nil {
 		_ = tx.Rollback()
-		s.log.Errorf("could not send confirm request: %v", err)
-		return domain.InternalServerError
+		s.log.Errorf("could not send order confirm request to noor: %v", err)
+		return nil, domain.InternalServerError
 	}
+
 	// complete transaction
 	if err := tx.Commit().Error; err != nil {
 		s.log.Errorf("could not commit accept online sale transaction: %v", err)
-		return domain.InternalServerError
+		return nil, domain.InternalServerError
 	}
 
-	return nil
+	return &sale, nil
 }
 
-// accept order
+// cancel order
 func (s *Services) CancelOnlineSale(ctx context.Context, req *domain.ConfirmOnlineSaleRequest) error {
 	// start transaction
 	tx := s.db.Begin()
@@ -1225,7 +1217,7 @@ func (s *Services) CancelOnlineSale(ctx context.Context, req *domain.ConfirmOnli
 		}
 	}()
 
-	var sale *domain.Sale
+	var sale domain.Sale
 	err := tx.WithContext(ctx).First(&sale, "id = ?", req.SaleId).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -1258,23 +1250,19 @@ func (s *Services) CancelOnlineSale(ctx context.Context, req *domain.ConfirmOnli
 		s.log.Errorf("could not update online sale on canceling: %v", err)
 		return domain.InternalServerError
 	}
-	// Prepare Headers
-	headers := map[string]string{
-		"Authorization": fmt.Sprintf("Bearer %s", s.cfg.NoorApiToken),
-		"Content-Type":  constants.ContentTypeJson,
-	}
+
 	requestData, err := json.Marshal(gin.H{"order_id": sale.SaleNumber})
 	if err != nil {
 		_ = tx.Rollback()
 		s.log.Errorf("could not parse online sale response: %v", err)
 		return domain.InternalServerError
 	}
-	var response *http.Response
 	url := s.cfg.NoorApiUrl + fmt.Sprintf("/orders/vendor/%d/cancel", sale.SaleNumber)
-	err = s.DoRequest(&response, "PATCH", url, requestData, headers)
+	var response *http.Response
+	err = s.NoorRequest(&response, http.MethodPatch, url, requestData)
 	if err != nil {
 		_ = tx.Rollback()
-		s.log.Errorf("could not send cancel request: %v", err)
+		s.log.Errorf("could not send order cancel request to noor: %v", err)
 		return domain.InternalServerError
 	}
 	// commit transaction

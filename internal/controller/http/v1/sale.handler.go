@@ -842,13 +842,13 @@ func (h *SaleHandler) AcceptOnlineSale(c *gin.Context) {
 
 	body.EmployeeId = user.UserId
 
-	err := h.service.AcceptOnlineSale(ctx, &body)
+	sale, err := h.service.AcceptOnlineSale(ctx, &body)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
-	handleResponse(c, OK, "ACCEPTED")
+	handleResponse(c, OK, sale.Id)
 }
 
 // godoc cancel online sale

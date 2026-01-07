@@ -43,6 +43,7 @@ func (s *Services) AlifRequest(res **http.Response, url string, data []byte, tok
 	return s.DoRequest(res, http.MethodPost, url, data, headers)
 }
 
+// dmed request
 func (s *Services) DmedRequest(
 	res **http.Response,
 	method, url string,
@@ -82,6 +83,15 @@ func (s *Services) DmedRequest(
 	}
 
 	return nil
+}
+
+// noor request
+func (s *Services) NoorRequest(res **http.Response, method string, url string, data []byte) error {
+	headers := map[string]string{
+		constants.HeaderContentType: constants.ContentTypeJson,
+		"Authorization":             fmt.Sprintf("Bearer %s", s.cfg.NoorApiToken),
+	}
+	return s.DoRequest(res, method, url, data, headers)
 }
 
 // do request
