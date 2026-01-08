@@ -122,9 +122,9 @@ func (s *Services) GetOpenCashboxOperationByEmployeeId(ctx context.Context, empl
 		co.updated_at
 	FROM cashbox_operations co
 	JOIN cash_boxes cb ON co.cash_box_id = cb.id
-	WHERE cb.current_employee_id = ?
-	 AND co.is_open = true
-	 AND co.end_time IS NULL
+	WHERE co.current_employee_id = ?
+	AND co.is_open = TRUE
+	AND co.end_time IS NULL
 	ORDER BY co.created_at DESC LIMIT 1;
 	`
 	var res domain.CashboxOperationDto
