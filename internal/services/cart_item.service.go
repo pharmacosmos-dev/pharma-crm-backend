@@ -312,12 +312,15 @@ func (s *Services) GetOrCheckOnlineCartItems(ctx context.Context, storeId string
 	AND (sp.unit_quantity * p.blister_count) / p.unit_per_pack >= ?;
 	`
 
-	cartItems := []domain.CartItemOnlineRequest{} // cart item request structure
-	s.log.Infof("request: %v", req)
+	cartItems := []domain.CartItemOnlineRequest{}
 	for i := range req {
 		storeProduct := domain.StoreProductOnline{}
-		err := s.db.WithContext(ctx).Debug().Raw(query, storeId, req[i].ProductId, req[i].Quantity).Scan(&storeProduct).Error
+		err := s.db.WithContext(ctx).Debug().Raw(query, storeId, req[i].ProductId, req[i].Quantity).Take(&storeProduct).Error
 		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				s.log.Errorf("no store_product found for product_id: %s", req[i].ProductId)
+				return cartItems, domain.NotEnoughProductError
+			}
 			s.log.Errorf("could not get store_product: %v", err)
 			return cartItems, domain.InternalServerError
 		}
