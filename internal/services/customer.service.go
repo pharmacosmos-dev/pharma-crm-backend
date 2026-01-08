@@ -391,7 +391,7 @@ func (s *Services) GetOrCreateCustomerByPhone(ctx context.Context, req *domain.N
 	var customer *domain.Customer
 	req.Phone = utils.NormalizePhoneNumber(req.Phone)
 
-	err := s.db.WithContext(ctx).First(&customer, "phone = ?", req.Phone).Error
+	err := s.db.WithContext(ctx).Take(&customer, "phone = ?", req.Phone).Error
 
 	// If record found, return it
 	if err == nil {

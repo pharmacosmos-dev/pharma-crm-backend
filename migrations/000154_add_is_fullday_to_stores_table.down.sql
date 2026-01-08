@@ -1,0 +1,3 @@
+ALTER TABLE
+    "stores"
+        DROP COLUMN IF EXISTS "is_fullday";

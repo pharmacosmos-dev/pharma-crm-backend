@@ -982,20 +982,18 @@ func (s *Services) GetNoorStoreProducts(params *domain.NoorQueryParam) ([]domain
 }
 
 func (s *Services) GetNoorStores() ([]domain.NoorStore, error) {
-	var (
-		res []domain.NoorStore
-		err error
-	)
+	var res []domain.NoorStore
+
 	query := `
 	SELECT DISTINCT s.*
 	FROM stores s
 	INNER JOIN store_products sp ON s.id = sp.store_id;
 	`
 	// execute get store list query
-	err = s.db.Raw(query).Scan(&res).Error
+	err := s.db.Raw(query).Scan(&res).Error
 	if err != nil {
-		s.log.Error("ERROR on listing external products: %v", err.Error())
-		return nil, err
+		s.log.Errorf("could not get stores for noor: %v", err)
+		return nil, domain.InternalServerError
 	}
 
 	// get lat and long to point struct

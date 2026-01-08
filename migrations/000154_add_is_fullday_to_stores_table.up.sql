@@ -1,0 +1,3 @@
+ALTER TABLE
+    "stores"
+        ADD COLUMN IF NOT EXISTS "is_fullday" BOOLEAN DEFAULT FALSE;

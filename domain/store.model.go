@@ -17,6 +17,7 @@ type Store struct {
 	WorkHours     string     `gorm:"work_hours" json:"work_hours"`
 	PackQuantity  int        `gorm:"pack_quantity" json:"pack_quantity"`
 	SmallQuantity int        `gorm:"small_quantity" json:"small_quantity"`
+	IsFullday     bool       `gorm:"is_fullday" json:"is_fullday"`
 	CreatedAt     *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt     *time.Time `gorm:"updated_at" json:"updated_at"`
 }
@@ -34,6 +35,7 @@ type StoreRequest struct {
 	CashBoxCount  int     `gorm:"cash_box_count" json:"cash_box_count"`
 	StoreCode     int     `gorm:"store_code" json:"store_code"`
 	Location      string  `gorm:"location" json:"location"`
+	IsFullday     bool    `gorm:"is_fullday" json:"is_fullday"`
 }
 
 // Store Update Request
@@ -48,6 +50,7 @@ type StoreUpdateRequest struct {
 	CashBoxCount  int     `gorm:"cash_box_count" json:"cash_box_count"`
 	StoreCode     int     `gorm:"store_code" json:"store_code"`
 	Location      string  `gorm:"location" json:"location"`
+	IsFullday     bool    `gorm:"is_fullday" json:"is_fullday"`
 	UpdatedBy     string  `gorm:"updated_by" json:"-"`
 }
 
@@ -77,10 +80,4 @@ type StoreWithProducts struct {
 	Location      string     `gorm:"location" json:"location"`
 	Address       string     `gorm:"address" json:"address"`
 	WorkHours     string     `gorm:"work_hours" json:"work_hours"`
-}
-
-type StorePreload struct {
-	Id        string `gorm:"id" json:"id"`
-	StoreCode int    `gorm:"store_code" json:"store_code"`
-	Name      string `gorm:"name" json:"name"`
 }

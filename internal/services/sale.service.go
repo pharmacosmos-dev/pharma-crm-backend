@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
@@ -154,8 +155,41 @@ func (s *Services) CreateReturnSale(ctx context.Context, req *domain.SaleReturnR
 	return &sale, nil
 }
 
+func (s *Services) CreateNoorSale(ctx context.Context, req *domain.OnlineOrderRequest) (int, error) {
+	// create sale id
+	saleId := uuid.New().String()
+
+	// checking product quantity and get collect cart_items
+	cartItems, err := s.GetOrCheckOnlineCartItems(ctx, req.ShopId, req.Products, saleId)
+	if err != nil {
+		return 0, err
+	}
+
+	// create or get customer
+	customer, err := s.GetOrCreateCustomerByPhone(ctx, &req.ClientInfo)
+	if err != nil {
+		return 0, err
+	}
+
+	// create online sale
+	res, err := s.CreateOnlineSale(ctx, &domain.OnlineSaleCreate{
+		Id:          saleId,
+		StoreId:     req.ShopId,
+		CustomerId:  customer.Id,
+		ServiceType: constants.ServiceTypeNoor,
+		Items:       cartItems,
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	go s.NotifyOnlineOrder(req.ShopId, res.SaleNumber)
+
+	return res.SaleNumber, nil
+}
+
 // create sale for online order
-func (s *Services) CreateOnlineSale(ctx context.Context, saleId string, storeId string, customer *domain.Customer, cartItems []domain.CartItemOnlineRequest) (*domain.Sale, error) {
+func (s *Services) CreateOnlineSale(ctx context.Context, req *domain.OnlineSaleCreate) (*domain.Sale, error) {
 	// start transaction
 	tx := s.db.Begin()
 	defer func() {
@@ -176,11 +210,12 @@ func (s *Services) CreateOnlineSale(ctx context.Context, saleId string, storeId 
 		display_id
 		) 
 	VALUES(?, ?, ?, ?, ?, ?, ?) RETURNING *`,
-		saleId, storeId,
+		req.Id,
+		req.StoreId,
 		constants.SaleTypeOnline,
 		constants.SaleOnlineStageNew,
 		constants.ServiceTypeNoor,
-		customer.Id,
+		req.CustomerId,
 		s.generateDisplayId(),
 	).Scan(&sale).Error
 	if err != nil {
@@ -188,8 +223,9 @@ func (s *Services) CreateOnlineSale(ctx context.Context, saleId string, storeId 
 		s.log.Errorf("could not create online sale: %v", err)
 		return &sale, domain.InternalServerError
 	}
+
 	// create cart_items
-	err = tx.WithContext(ctx).Table("cart_items").Create(&cartItems).Error
+	err = tx.WithContext(ctx).Table("cart_items").Create(&req.Items).Error
 	if err != nil {
 		_ = tx.Rollback()
 		s.log.Errorf("could not create online sale cart_items: %v", err)
@@ -362,6 +398,10 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 			updates["stage"] = constants.SaleStageFinished
 			updates["updated_at"] = time.Now()
 			updates["completed_at"] = time.Now()
+
+			if sale.ServiceType == constants.ServiceTypeNoor {
+				updates["online_status"] = constants.SaleOnlineStageCompleted
+			}
 		}
 	} else {
 		if sale.Stage < constants.SaleStagePayFinished {
@@ -713,6 +753,10 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 		updates["completed_at"] = time.Now()
 	} else {
 		s.log.Infof("Inventory already applied for sale %s, skipping", sale.Id)
+	}
+
+	if sale.ServiceType == constants.ServiceTypeNoor {
+		updates["online_status"] = constants.SaleOnlineStageCompleted
 	}
 
 	if len(updates) > 0 {
@@ -1149,7 +1193,12 @@ func (s *Services) AttachDiscountCardToSale(ctx context.Context, req *domain.Add
 }
 
 // accept order
-func (s *Services) AcceptOnlineSale(ctx context.Context, req *domain.ConfirmOnlineSaleRequest) (*domain.Sale, error) {
+func (s *Services) AcceptOnlineSale(ctx context.Context, req *domain.ConfirmOnlineSaleRequest) (*domain.OnlineSaleDto, error) {
+	operation, err := s.GetOpenCashboxOperationByEmployeeId(ctx, req.EmployeeId)
+	if err != nil {
+		return nil, err
+	}
+
 	// start transaction
 	tx := s.db.Begin()
 	defer func() {
@@ -1158,27 +1207,34 @@ func (s *Services) AcceptOnlineSale(ctx context.Context, req *domain.ConfirmOnli
 		}
 	}()
 
-	var sale domain.Sale
-	err := tx.WithContext(ctx).First(&sale, "id = ?", req.SaleId).Error
+	sale, err := s.GetOnlineSaleById(ctx, tx, req.SaleId)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			_ = tx.Rollback()
-			return nil, domain.NotFoundError
-		}
 		_ = tx.Rollback()
 		s.log.Errorf("could not get sale on accepting online sale: %v", err)
-		return nil, domain.InternalServerError
+		return nil, err
 	}
+
+	// check before accepted
+	if sale.OnlineStatus != constants.SaleOnlineStageNew && sale.Stage != constants.SaleStageNew {
+		return nil, domain.AlreadyAcceptedError
+	}
+
 	// accepted online sale
 	err = tx.WithContext(ctx).
 		Exec(`
 	UPDATE sales
 	SET
+		employee_id = ?,
+		cashbox_operation_id = ?,
+		cashbox_id = ?,
 		online_status = ?,
-		total_amount = (SELECT COALESCE(SUM(total_price) - SUM(discount_amount), 0) FROM cart_items WHERE sale_id = ?)
+		stage = ?
 	WHERE id = ?`,
+			req.EmployeeId,
+			operation.Id,
+			operation.CashBoxId,
 			constants.SaleOnlineStagePending,
-			req.SaleId,
+			constants.SaleStagePending,
 			req.SaleId,
 		).Error
 
@@ -1204,11 +1260,16 @@ func (s *Services) AcceptOnlineSale(ctx context.Context, req *domain.ConfirmOnli
 		return nil, domain.InternalServerError
 	}
 
-	return &sale, nil
+	return sale, nil
 }
 
 // cancel order
 func (s *Services) CancelOnlineSale(ctx context.Context, req *domain.ConfirmOnlineSaleRequest) error {
+	operation, err := s.GetOpenCashboxOperationByEmployeeId(ctx, req.EmployeeId)
+	if err != nil {
+		return err
+	}
+
 	// start transaction
 	tx := s.db.Begin()
 	defer func() {
@@ -1217,37 +1278,34 @@ func (s *Services) CancelOnlineSale(ctx context.Context, req *domain.ConfirmOnli
 		}
 	}()
 
-	var sale domain.Sale
-	err := tx.WithContext(ctx).First(&sale, "id = ?", req.SaleId).Error
+	sale, err := s.GetOnlineSaleById(ctx, tx, req.SaleId)
 	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			_ = tx.Rollback()
-			return domain.NotFoundError
-		}
 		_ = tx.Rollback()
-		s.log.Errorf("could not get sale on canceling online sale: %v", err)
-		return domain.InternalServerError
+		s.log.Errorf("could not get sale on accepting online sale: %v", err)
+		return err
 	}
-	// accepted online sale
-	err = tx.WithContext(ctx).Exec(`
-	UPDATE 
-		sales
+
+	err = tx.WithContext(ctx).
+		Exec(`
+	UPDATE sales
 	SET
-		cash_box_operation_id = ?,
-		cashbox_id = ?,
 		employee_id = ?,
-		online_status = ?
+		cashbox_operation_id = ?,
+		cashbox_id = ?,
+		online_status = ?,
+		stage = ?
 	WHERE id = ?`,
-		req.CashBoxOperationId,
-		req.CashboxId,
-		req.EmployeeId,
-		constants.SaleOnlineStageCanceled,
-		req.SaleId,
-	).Error
+			req.EmployeeId,
+			operation.Id,
+			operation.CashBoxId,
+			constants.SaleOnlineStageCanceled,
+			constants.SaleStagePending,
+			req.SaleId,
+		).Error
 
 	if err != nil {
 		_ = tx.Rollback()
-		s.log.Errorf("could not update online sale on canceling: %v", err)
+		s.log.Errorf("could not update online sale: %v", err)
 		return domain.InternalServerError
 	}
 
@@ -1585,6 +1643,23 @@ func (s *Services) GetSaleByIdWithLocking(ctx context.Context, tx *gorm.DB, sale
 		s.log.Errorf("could not get sale with locking: %v", err)
 		return nil, domain.InternalServerError
 	}
+	return &sale, nil
+}
+
+func (s *Services) GetOnlineSaleById(ctx context.Context, tx *gorm.DB, saleId string) (*domain.OnlineSaleDto, error) {
+	if tx == nil {
+		tx = s.db
+	}
+	var sale domain.OnlineSaleDto
+	err := tx.WithContext(ctx).Table("sales").Take(&sale, "id = ?", saleId).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.NotFoundError
+		}
+		s.log.Errorf("could not get sale on accepting online sale: %v", err)
+		return nil, domain.InternalServerError
+	}
+
 	return &sale, nil
 }
 

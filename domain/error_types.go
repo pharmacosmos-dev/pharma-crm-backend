@@ -58,6 +58,8 @@ var (
 	SaleIsClosedError          = NewError(http.StatusConflict, "sale.is.closed")
 	PrescriptionsAlreadyIssued = NewError(http.StatusConflict, "prescriptions.already.issued")
 	AlreadyUpdatedError        = NewError(http.StatusConflict, "already.updated")
+	NoOpenCashboxError         = NewError(http.StatusConflict, "no.open.cashbox")
+	AlreadyAcceptedError       = NewError(http.StatusConflict, "already.accepted")
 
 	// 424 – Failed Dependency (tashqi tizimga bog‘liq xatolik)
 	DependencyFailedError    = NewError(http.StatusFailedDependency, "dependency.failed")

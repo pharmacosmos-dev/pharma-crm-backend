@@ -56,6 +56,19 @@ type CashboxOperation struct {
 	Employee       *Employee  `gorm:"foreignKey:EmployeeID" json:"employee"`
 }
 
+type CashboxOperationDto struct {
+	Id                string     `gorm:"id" json:"id"`
+	OperationId       int64      `gorm:"operation_id" json:"operation_id"`
+	CashBoxId         string     `gorm:"cash_box_id" json:"cash_box_id"`
+	EmployeeId        string     `gorm:"employee_id" json:"employee_id"`
+	CurrentEmployeeId string     `gorm:"current_employee_id" json:"current_employee_id"`
+	IsOpen            bool       `gorm:"is_open" json:"is_open"`
+	StartTime         *time.Time `gorm:"start_time" json:"start_time"`
+	EndTime           *time.Time `gorm:"end_time" json:"end_time"`
+	CreatedAt         *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt         *time.Time `gorm:"updated_at" json:"updated_at"`
+}
+
 // Cash Box Session Request for create, update
 type CashboxOperationRequest struct {
 	ID                 string     `gorm:"id" json:"-"`

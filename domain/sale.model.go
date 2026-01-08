@@ -24,6 +24,7 @@ type Sale struct {
 	Status             string         `gorm:"status" json:"status"`
 	Stage              int            `gorm:"stage" json:"stage"`
 	OnlineStatus       int            `gorm:"online_status" json:"online_status"`
+	ServiceType        string         `gorm:"service_type" json:"service_type"`
 	IsDelivered        bool           `gorm:"is_delivered" json:"is_delivered"`
 	IsReturned         bool           `gorm:"is_returned" json:"is_returned"`
 	Cash               float64        `gorm:"cash" json:"cash"`
@@ -66,6 +67,14 @@ type SaleReturnRequest struct {
 	CashboxId          string     `gorm:"cashbox_id" json:"cashbox_id"`
 	SaleType           string     `gorm:"sale_type" json:"sale_type"`
 	Items              []SaleItem `gorm:"-" json:"sale_items"`
+}
+
+type OnlineSaleCreate struct {
+	Id          string                  `gorm:"id" json:"id"`
+	StoreId     string                  `gorm:"store_id" json:"store_id"`
+	ServiceType string                  `gorm:"service_type" json:"service_type"`
+	CustomerId  string                  `gorm:"customer_id" json:"customer_id"`
+	Items       []CartItemOnlineRequest `gorm:"-" json:"items"`
 }
 
 // SaleItem structure for create return
@@ -238,17 +247,6 @@ type SaleStats struct {
 	TotalProductCount   int64   `gorm:"total_product_count" json:"total_product_count"`
 }
 
-// { sum_prop: 'total_transaction_sum', title: 'Транзакции', count_prop: 'total_transaction' },
-//     { sum_prop: 'total_cash_sum', title: 'Наличные', count_prop: 'total_cash_count' },
-//     { sum_prop: 'total_uzcard_sum', title: 'UzCard', count_prop: 'total_uzcard_count' },
-//     { sum_prop: 'total_humo_sum', title: 'Humo', count_prop: 'total_humo_count' },
-//     { sum_prop: 'total_click_sum', title: 'Click', count_prop: 'total_click_count' },
-//     { sum_prop: 'total_payme_sum', title: 'Payme', count_prop: 'total_payme_count' },
-//     { sum_prop: 'total_alif_sum', title: 'Alif', count_prop: 'total_alif_count' },
-//     { sum_prop: 'total_returnals_sum', title: 'Вазврат', count_prop: 'total_returned_count' },
-//     { sum_prop: 'total_discount_sum', title: 'Сумма скидки', count_prop: 'total_discount_count' },
-//     { sum_prop: 'total_cashback_sum', title: 'Сумма кешбек', count_prop: 'total_cashback_count' },
-
 // PaymentTypeStats structure
 type PaymentTypeStats struct {
 	Id   string  `gorm:"id" json:"id"`
@@ -330,17 +328,17 @@ type AddDiscountCard struct {
 // create online order request structure
 // noor online order request
 type OnlineOrderRequest struct {
-	ShopId       string                  `json:"shop_id"`
-	Products     []OnlineCartItemRequest `json:"product_ids"`
-	ClientInfo   NoorClientInfo          `json:"client_info"`
+	ShopId       string                  `json:"shop_id" binding:"required,uuid"`
+	Products     []OnlineCartItemRequest `json:"product_ids" binding:"required,dive"`
+	ClientInfo   NoorClientInfo          `json:"client_info" binding:"required"`
 	DeliveryTime string                  `json:"delivery_time"`
-	Destination  Point                   `json:"destination"`
+	Destination  Point                   `json:"destination" binding:"required"`
 }
 
 // noor online order product
 type OnlineCartItemRequest struct {
-	ProductId string `json:"productId"`
-	Quantity  int    `json:"quantity"`
+	ProductId string `json:"productId" binding:"required,uuid"`
+	Quantity  int    `json:"quantity" binding:"required,gt=0"`
 }
 
 // noor online order client info
@@ -360,6 +358,14 @@ type ConfirmOnlineSaleRequest struct {
 	CashBoxOperationId string `gorm:"cash_box_operation_id" json:"cash_box_operation_id"`
 	CashboxId          string `gorm:"cashbox_id" json:"cashbox_id"`
 	EmployeeId         string `gorm:"employee_id" json:"employee_id"`
+}
+
+type OnlineSaleDto struct {
+	Id           string `gorm:"id" json:"id"`
+	EmployeeId   string `gorm:"employee_id" json:"employee_id"`
+	SaleNumber   int    `gorm:"sale_number" json:"sale_number"`
+	OnlineStatus int    `gorm:"online_status" json:"online_status"`
+	Stage        int    `gorm:"stage" json:"stage"`
 }
 
 // end region

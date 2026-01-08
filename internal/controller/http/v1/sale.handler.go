@@ -870,16 +870,17 @@ func (h *SaleHandler) CancelOnlineSale(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-	defer cancel()
-
 	var body domain.ConfirmOnlineSaleRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
 		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
 	body.EmployeeId = user.UserId
+	
 	err := h.service.CancelOnlineSale(ctx, &body)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)

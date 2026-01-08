@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -97,18 +98,15 @@ func (h *StoreHandler) Create(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /store/{id} [get]
 func (h *StoreHandler) Get(c *gin.Context) {
-	var (
-		res domain.Store
-		err error
-	)
-	err = h.db.First(&res, "id = ?", c.Param("id")).Error
+	var res domain.Store
+	err := h.db.Take(&res, "id = ?", c.Param("id")).Error
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			handleResponse(c, NotFound, nil)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			handleServiceResponse(c, NotFound, domain.NotFoundError)
 			return
 		}
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		h.log.Errorf("could not get store by id: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 	handleResponse(c, OK, res)
@@ -308,7 +306,7 @@ func (h *StoreHandler) ExportExcel(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"ID", "Наименование", "Режим работы", "Адрес", "Телефон"}
+	headers := []string{"ID", "Наименование", "Режим работы", "Адрес", "Телефон", "Полный день"}
 
 	headerStyle, err := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{

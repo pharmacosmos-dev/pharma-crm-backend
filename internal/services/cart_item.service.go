@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 
 	"github.com/pharma-crm-backend/domain"
@@ -292,7 +293,7 @@ func (s *Services) GetCartItemsTotalAmount(ctx context.Context, tx *gorm.DB, sal
 }
 
 // check order product quantity and return collect cart_item
-func (s *Services) GetOrCheckOnlineCartItems(ctx context.Context, req []domain.OnlineCartItemRequest, saleId string) ([]domain.CartItemOnlineRequest, error) {
+func (s *Services) GetOrCheckOnlineCartItems(ctx context.Context, storeId string, req []domain.OnlineCartItemRequest, saleId string) ([]domain.CartItemOnlineRequest, error) {
 	// store product get query
 	query := `
 	SELECT
@@ -300,41 +301,41 @@ func (s *Services) GetOrCheckOnlineCartItems(ctx context.Context, req []domain.O
 		sp.product_id,
 		sp.retail_price,
 		sp.unit_quantity,
-		sp.pack_quantity,
 		sp.unit_quantity/(p.unit_per_pack/p.blister_count) AS quantity,
 		p.name AS product_name,
 		p.unit_per_pack,
 		p.blister_count
 	FROM store_products sp
 	JOIN products p ON sp.product_id = p.id
-	WHERE sp.unit_quantity/(p.unit_per_pack/p.blister_count) >= ? AND
-		sp.product_id = ? AND
-		sp.expire_date::date > CURRENT_DATE;
+	WHERE sp.store_id = ?
+		AND sp.product_id = ?
+		AND sp.unit_quantity/(p.unit_per_pack/p.blister_count) >= ?;
 	`
+
 	var (
 		temp      = domain.StoreProductOnline{}      // store product temp structure
 		cartItems = []domain.CartItemOnlineRequest{} // cart item request structure
 	)
 	for i := range req {
-		err := s.db.WithContext(ctx).Raw(query, req[i].Quantity, req[i].ProductId).Scan(&temp).Error
+		err := s.db.WithContext(ctx).Raw(query, storeId, req[i].ProductId, req[i].Quantity).Scan(&temp).Error
 		if err != nil {
 			s.log.Errorf("could not get store_product: %v", err)
-			return cartItems, errors.New("store_product.not.get")
+			return cartItems, domain.InternalServerError
 		}
 		if temp.Quantity < req[i].Quantity { // checking quantity enough or not enough
-			s.log.Warnf("Noor Not enough product: %v", strings.TrimSpace(temp.ProductName))
-			return cartItems, fmt.Errorf("not.enough.product: %s", temp.ProductName)
+			return cartItems, domain.NewNotAdditionError(http.StatusConflict,
+				map[string]any{
+					"name":     temp.ProductName,
+					"quantity": temp.Quantity,
+				})
 		}
 		// quantity calculate:  req.quantity = order_quantity -> based on blister_count
 		// example: unit_per_pack = 50, blister_count = 5, count_per_blister = unit_per_pack/blister_count = 10
 		// order_quantity = 2 - > blister_count * count_per_blister = 2 * 10 = 20
-		// cart_item.quantity = (order_quantity * (unit_per_pack/blister_count))/unit_per_pack = (2 * (50/5))/50 = 0.4 = 0
 		// cart_item.unit_quantity = order_quantity * (unit_per_pack/blister_count) = 2 * (50/5) = 20
-		quantity := (req[i].Quantity * (temp.UnitPerPack / temp.BlisterCount)) / temp.UnitPerPack
 		cartItems = append(cartItems, domain.CartItemOnlineRequest{
 			SaleId:         saleId,
 			StoreProductId: temp.Id,
-			Quantity:       quantity,
 			UnitQuantity:   req[i].Quantity * (temp.UnitPerPack / temp.BlisterCount),
 			UnitPrice:      temp.RetailPrice,
 			TotalPrice:     (temp.RetailPrice / float64(temp.UnitPerPack)) * float64(req[i].Quantity*(temp.UnitPerPack/temp.BlisterCount)),

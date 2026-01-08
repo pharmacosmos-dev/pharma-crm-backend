@@ -2,12 +2,9 @@ package v1
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
 )
@@ -212,45 +209,27 @@ func (h *NoorHandler) CreateOrder(c *gin.Context) {
 	var body domain.OnlineOrderRequest
 	// bind request body
 	if err := c.ShouldBindJSON(&body); err != nil {
-		h.log.Error(err)
-		handleServiceResponse(c, http.StatusBadRequest, domain.InvalidRequestBodyError)
+		h.log.Errorf("could not bind noor order create request body: %v", err)
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
 		return
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	t, _ := json.Marshal(&body)
-	h.log.Info("Noor CreateOrder request: %s", string(t))
-
-	// create sale id
-	saleId := uuid.New().String()
-
-	// checking product quantity and get collect cart_items
-	cartItems, err := h.service.GetOrCheckOnlineCartItems(ctx, body.Products, saleId)
+	orderNumber, err := h.service.CreateNoorSale(ctx, &body)
 	if err != nil {
-		handleServiceResponse(c, http.StatusBadRequest, err)
+		if notAddErr, ok := err.(*domain.NotAdditionError); ok {
+			handleResponse(c, CONFLICT, notAddErr.Data)
+			return
+		}
+		handleServiceResponse(c, nil, err)
 		return
 	}
 
-	// create or get customer
-	customer, err := h.service.GetOrCreateCustomerByPhone(ctx, &body.ClientInfo)
-	if err != nil {
-		handleServiceResponse(c, http.StatusInternalServerError, err)
-		return
-	}
-
-	// create online sale
-	res, err := h.service.CreateOnlineSale(ctx, saleId, body.ShopId, customer, cartItems)
-	if err != nil {
-		handleServiceResponse(c, http.StatusInternalServerError, err)
-		return
-	}
-	fmt.Println("Noor create online sale: ", res.SaleNumber)
-
-	go h.service.NotifyOnlineOrder(body.ShopId, res.SaleNumber)
-
-	handleResponseNoor(c, http.StatusOK, domain.OnlineOrderResponse{Message: "success", OrderId: res.SaleNumber})
+	handleResponseNoor(c, http.StatusOK, domain.OnlineOrderResponse{Message: "success", OrderId: orderNumber})
 }
 
 func (h *NoorHandler) SendWSTestMessage(c *gin.Context) {
