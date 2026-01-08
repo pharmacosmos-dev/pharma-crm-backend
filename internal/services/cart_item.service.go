@@ -315,19 +315,19 @@ func (s *Services) GetOrCheckOnlineCartItems(ctx context.Context, storeId string
 	cartItems := []domain.CartItemOnlineRequest{} // cart item request structure
 	s.log.Infof("request: %v", req)
 	for i := range req {
-		temp := domain.StoreProductOnline{}
-		err := s.db.WithContext(ctx).Debug().Raw(query, storeId, req[i].ProductId, req[i].Quantity).Take(&temp).Error
+		storeProduct := domain.StoreProductOnline{}
+		err := s.db.WithContext(ctx).Debug().Raw(query, storeId, req[i].ProductId, req[i].Quantity).Scan(&storeProduct).Error
 		if err != nil {
 			s.log.Errorf("could not get store_product: %v", err)
 			return cartItems, domain.InternalServerError
 		}
 
-		if temp.Quantity < req[i].Quantity { // checking quantity enough or not enough
-			fmt.Println("Sp_quantity: ", temp.Quantity, "Req_Quantity: ", req[i].Quantity, "Name: ", temp.ProductName, temp)
+		if storeProduct.Quantity < float64(req[i].Quantity) { // checking quantity enough or not enough
+			fmt.Println("Sp_quantity: ", storeProduct.Quantity, "Req_Quantity: ", req[i].Quantity, "Name: ", storeProduct.ProductName, storeProduct)
 			return cartItems, domain.NewNotAdditionError(http.StatusConflict,
 				map[string]any{
-					"name":     temp.ProductName,
-					"quantity": temp.Quantity,
+					"name":     storeProduct.ProductName,
+					"quantity": storeProduct.Quantity,
 				})
 		}
 		// quantity calculate:  req.quantity = order_quantity -> based on blister_count
@@ -336,10 +336,10 @@ func (s *Services) GetOrCheckOnlineCartItems(ctx context.Context, storeId string
 		// cart_item.unit_quantity = order_quantity * (unit_per_pack/blister_count) = 2 * (50/5) = 20
 		cartItems = append(cartItems, domain.CartItemOnlineRequest{
 			SaleId:         saleId,
-			StoreProductId: temp.Id,
-			UnitQuantity:   req[i].Quantity * (temp.UnitPerPack / temp.BlisterCount),
-			UnitPrice:      temp.RetailPrice,
-			TotalPrice:     (temp.RetailPrice / float64(temp.UnitPerPack)) * float64(req[i].Quantity*(temp.UnitPerPack/temp.BlisterCount)),
+			StoreProductId: storeProduct.Id,
+			UnitQuantity:   req[i].Quantity * (storeProduct.UnitPerPack / storeProduct.BlisterCount),
+			UnitPrice:      storeProduct.RetailPrice,
+			TotalPrice:     (storeProduct.RetailPrice / float64(storeProduct.UnitPerPack)) * float64(req[i].Quantity*(storeProduct.UnitPerPack/storeProduct.BlisterCount)),
 		})
 	}
 

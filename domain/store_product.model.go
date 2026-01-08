@@ -105,7 +105,7 @@ type StoreProductOnline struct {
 	ProductName  string     `gorm:"product_name" json:"product_name"`
 	RetailPrice  float64    `gorm:"retail_price" json:"retail_price"`
 	UnitQuantity int        `gorm:"unit_quantity" json:"unit_quantity"`
-	Quantity     int        `gorm:"quantity" json:"quantity"`
+	Quantity     float64    `gorm:"quantity" json:"quantity"`
 	ExpireDate   *time.Time `gorm:"expire_date" json:"expire_date"`
 	UnitPerPack  int        `gorm:"unit_per_pack" json:"unit_per_pack"`
 	BlisterCount int        `gorm:"blister_count" json:"blister_count"`
