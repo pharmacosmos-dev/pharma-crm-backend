@@ -316,13 +316,16 @@ func (s *Services) GetOrCheckOnlineCartItems(ctx context.Context, storeId string
 		temp      = domain.StoreProductOnline{}      // store product temp structure
 		cartItems = []domain.CartItemOnlineRequest{} // cart item request structure
 	)
+	s.log.Infof("request: %v", req)
 	for i := range req {
 		err := s.db.WithContext(ctx).Raw(query, storeId, req[i].ProductId, req[i].Quantity).Scan(&temp).Error
 		if err != nil {
 			s.log.Errorf("could not get store_product: %v", err)
 			return cartItems, domain.InternalServerError
 		}
+
 		if temp.Quantity < req[i].Quantity { // checking quantity enough or not enough
+			fmt.Println("Sp_quantity: ", temp.Quantity, "Req_Quantity: ", req[i].Quantity)
 			return cartItems, domain.NewNotAdditionError(http.StatusConflict,
 				map[string]any{
 					"name":     temp.ProductName,

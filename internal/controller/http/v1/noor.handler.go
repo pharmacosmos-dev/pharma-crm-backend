@@ -222,7 +222,7 @@ func (h *NoorHandler) CreateOrder(c *gin.Context) {
 	orderNumber, err := h.service.CreateNoorSale(ctx, &body)
 	if err != nil {
 		if notAddErr, ok := err.(*domain.NotAdditionError); ok {
-			handleResponse(c, CONFLICT, notAddErr.Data)
+			handleResponseNoor(c, http.StatusConflict, notAddErr.Data)
 			return
 		}
 		handleServiceResponse(c, nil, err)
