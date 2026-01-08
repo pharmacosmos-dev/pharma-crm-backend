@@ -301,23 +301,21 @@ func (s *Services) GetOrCheckOnlineCartItems(ctx context.Context, storeId string
 		sp.product_id,
 		sp.retail_price,
 		sp.unit_quantity,
-		sp.unit_quantity/(p.unit_per_pack/p.blister_count) AS quantity,
+		(sp.unit_quantity * p.blister_count) / p.unit_per_pack AS quantity,
 		p.name AS product_name,
 		p.unit_per_pack,
 		p.blister_count
 	FROM store_products sp
 	JOIN products p ON sp.product_id = p.id
 	WHERE sp.store_id = ?
-		AND sp.product_id = ?
-		AND sp.unit_quantity/(p.unit_per_pack/p.blister_count) >= ?;
+	AND sp.product_id = ?
+	AND (sp.unit_quantity * p.blister_count) / p.unit_per_pack >= ?;
 	`
 
-	var (
-		temp      = domain.StoreProductOnline{}      // store product temp structure
-		cartItems = []domain.CartItemOnlineRequest{} // cart item request structure
-	)
+	cartItems := []domain.CartItemOnlineRequest{} // cart item request structure
 	s.log.Infof("request: %v", req)
 	for i := range req {
+		temp := domain.StoreProductOnline{}
 		err := s.db.WithContext(ctx).Debug().Raw(query, storeId, req[i].ProductId, req[i].Quantity).Scan(&temp).Error
 		if err != nil {
 			s.log.Errorf("could not get store_product: %v", err)
