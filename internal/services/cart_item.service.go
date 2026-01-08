@@ -318,7 +318,7 @@ func (s *Services) GetOrCheckOnlineCartItems(ctx context.Context, storeId string
 	)
 	s.log.Infof("request: %v", req)
 	for i := range req {
-		err := s.db.WithContext(ctx).Raw(query, storeId, req[i].ProductId, req[i].Quantity).Scan(&temp).Error
+		err := s.db.WithContext(ctx).Debug().Raw(query, storeId, req[i].ProductId, req[i].Quantity).Scan(&temp).Error
 		if err != nil {
 			s.log.Errorf("could not get store_product: %v", err)
 			return cartItems, domain.InternalServerError
