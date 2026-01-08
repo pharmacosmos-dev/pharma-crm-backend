@@ -323,7 +323,7 @@ func (s *Services) GetOrCheckOnlineCartItems(ctx context.Context, storeId string
 		}
 
 		if temp.Quantity < req[i].Quantity { // checking quantity enough or not enough
-			fmt.Println("Sp_quantity: ", temp.Quantity, "Req_Quantity: ", req[i].Quantity)
+			fmt.Println("Sp_quantity: ", temp.Quantity, "Req_Quantity: ", req[i].Quantity, "Name: ", temp.ProductName, temp)
 			return cartItems, domain.NewNotAdditionError(http.StatusConflict,
 				map[string]any{
 					"name":     temp.ProductName,
