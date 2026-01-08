@@ -315,7 +315,7 @@ func (s *Services) GetOrCheckOnlineCartItems(ctx context.Context, storeId string
 	cartItems := []domain.CartItemOnlineRequest{}
 	for i := range req {
 		storeProduct := domain.StoreProductOnline{}
-		err := s.db.WithContext(ctx).Debug().Raw(query, storeId, req[i].ProductId, req[i].Quantity).Take(&storeProduct).Error
+		err := s.db.WithContext(ctx).Raw(query, storeId, req[i].ProductId, req[i].Quantity).Take(&storeProduct).Error
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				s.log.Errorf("no store_product found for product_id: %s", req[i].ProductId)
@@ -326,7 +326,6 @@ func (s *Services) GetOrCheckOnlineCartItems(ctx context.Context, storeId string
 		}
 
 		if storeProduct.Quantity < float64(req[i].Quantity) { // checking quantity enough or not enough
-			fmt.Println("Sp_quantity: ", storeProduct.Quantity, "Req_Quantity: ", req[i].Quantity, "Name: ", storeProduct.ProductName, storeProduct)
 			return cartItems, domain.NewNotAdditionError(http.StatusConflict,
 				map[string]any{
 					"name":     storeProduct.ProductName,
