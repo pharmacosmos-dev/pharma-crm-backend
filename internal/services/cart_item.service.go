@@ -408,7 +408,6 @@ func (s *Services) getCartItemWithProducts(ctx context.Context, tx *gorm.DB, sal
 	var cartItems []domain.CartItemResponse
 	err := tx.
 		WithContext(ctx).
-		Model(&domain.CartItem{}).
 		Select(
 			"ci.id",
 			"ci.sale_id",
@@ -426,6 +425,7 @@ func (s *Services) getCartItemWithProducts(ctx context.Context, tx *gorm.DB, sal
 			"p.name",
 			"p.barcode",
 		).
+		Table("cart_items ci").
 		Joins("JOIN store_products sp ON ci.store_product_id = sp.id").
 		Joins("JOIN products p ON sp.product_id = p.id").
 		Where("sale_id = ?", saleId).
