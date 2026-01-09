@@ -765,6 +765,10 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 			_ = tx.Rollback()
 			return nil, err
 		}
+
+		if sale.ServiceType == constants.ServiceTypeNoor {
+			go s.SendOrderOfdToNoor(sale.SaleNumber, fiscal.QrCodeUrl)
+		}
 	}
 
 	// Create new sale for next operation
@@ -1244,7 +1248,7 @@ func (s *Services) AcceptOnlineSale(ctx context.Context, req *domain.ConfirmOnli
 		return nil, domain.InternalServerError
 	}
 
-	url := s.cfg.NoorApiUrl + fmt.Sprintf("/orders/vendor/%d/confirm", sale.SaleNumber)
+	url := fmt.Sprintf("%s/orders/vendor/%d/confirm", s.cfg.NoorApiUrl, sale.SaleNumber)
 
 	var response *http.Response
 	err = s.NoorRequest(&response, http.MethodPatch, url, nil)
@@ -1315,7 +1319,7 @@ func (s *Services) CancelOnlineSale(ctx context.Context, req *domain.ConfirmOnli
 		s.log.Errorf("could not parse online sale response: %v", err)
 		return domain.InternalServerError
 	}
-	url := s.cfg.NoorApiUrl + fmt.Sprintf("/orders/vendor/%d/cancel", sale.SaleNumber)
+	url := fmt.Sprintf("%s/orders/vendor/%d/cancel", s.cfg.NoorApiUrl, sale.SaleNumber)
 	var response *http.Response
 	err = s.NoorRequest(&response, http.MethodPatch, url, requestData)
 	if err != nil {
@@ -2466,6 +2470,8 @@ func (s *Services) DeleteDiscountCardFromSale(ctx context.Context, req *domain.A
 	return nil
 }
 
+// region Internal
+
 func (s *Services) DecodeFiscalData(reqJsonStr string) (domain.FiscalData, error) {
 	var fiscal domain.FiscalData
 	// parse epos success json to structure
@@ -2520,4 +2526,23 @@ func (s *Services) getSalePayAmounts(sale *domain.Sale, req *domain.FinalSale) *
 func (s *Services) generateDisplayId() int {
 	displayId := utils.GenerateRandomValue(10_000_000, 99_999_999)
 	return displayId
+}
+
+func (s *Services) SendOrderOfdToNoor(saleNumber int, ofdUrl string) error {
+	requestData, err := json.Marshal(gin.H{"qrCodeURL": ofdUrl})
+	if err != nil {
+		s.log.Errorf("could not parse online sale ofd response: %v", err)
+		return domain.InternalServerError
+	}
+
+	url := fmt.Sprintf("%s/orders/vendor/%d/set-product-ofd", s.cfg.NoorApiUrl, saleNumber)
+
+	var response *http.Response
+	err = s.NoorRequest(&response, http.MethodPatch, url, requestData)
+	if err != nil {
+		s.log.Errorf("could not send order confirm request to noor: %v", err)
+		return domain.InternalServerError
+	}
+
+	return nil
 }
