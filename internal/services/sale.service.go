@@ -314,7 +314,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 		_ = tx.Rollback()
 		return nil, err
 	}
-
+	updates := map[string]any{}
 	if req.ServiceType == constants.ServiceTypeDmed {
 		cartItems, err := s.GetCartItems(ctx, tx, sale.Id)
 		if err != nil {
@@ -337,6 +337,8 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 			_ = tx.Rollback()
 			return nil, err
 		}
+		// set dmed service type
+		updates["service_type"] = req.ServiceType
 	}
 
 	// add marking to cart_items
@@ -346,9 +348,8 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 		return nil, err
 	}
 
-	updates := map[string]any{}
 	updates["tax_free"] = req.TaxFree
-	updates["service_type"] = req.ServiceType
+
 	if req.TaxFree {
 		sale = s.getSalePayAmounts(sale, req)
 		if sale.Stage < constants.SaleStagePayFinished {
