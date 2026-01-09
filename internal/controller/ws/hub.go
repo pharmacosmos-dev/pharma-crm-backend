@@ -39,7 +39,7 @@ func (h *Hub) Run() {
 			}
 
 		case message := <-h.broadcast:
-			if clients, ok := h.clients[message.StoreID]; ok {
+			if clients, ok := h.clients[message.StoreId]; ok {
 				jsonData, err := json.Marshal(message.Payload)
 				if err != nil {
 					log.Printf("error marshalling ws message: %v", err)

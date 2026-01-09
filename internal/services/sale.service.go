@@ -1192,7 +1192,7 @@ func (s *Services) AttachDiscountCardToSale(ctx context.Context, req *domain.Add
 
 }
 
-// accept order
+// accept sale from the cashier
 func (s *Services) AcceptOnlineSale(ctx context.Context, req *domain.ConfirmOnlineSaleRequest) (*domain.OnlineSaleDto, error) {
 	operation, err := s.GetOpenCashboxOperationByEmployeeId(ctx, req.EmployeeId)
 	if err != nil {
@@ -1263,7 +1263,7 @@ func (s *Services) AcceptOnlineSale(ctx context.Context, req *domain.ConfirmOnli
 	return sale, nil
 }
 
-// cancel order
+// cancel sale from the cashier
 func (s *Services) CancelOnlineSale(ctx context.Context, req *domain.ConfirmOnlineSaleRequest) error {
 	operation, err := s.GetOpenCashboxOperationByEmployeeId(ctx, req.EmployeeId)
 	if err != nil {
@@ -1414,6 +1414,22 @@ func (s *Services) UpdateSalePaymentType(ctx context.Context, req *domain.Change
 		s.log.Errorf("could not update sale payment type: %v", err)
 		return domain.InternalServerError
 	}
+
+	return nil
+}
+
+// cancel sale from the noor client
+func (s *Services) CancelNoorOrder(ctx context.Context, saleNumber int64) error {
+	var storeId string
+	err := s.db.WithContext(ctx).
+		Raw("UPDATE sales SET online_status = ? WHERE sale_number = ? RETURNING store_id",
+			constants.SaleOnlineStageCanceled, saleNumber).Scan(&storeId).Error
+	if err != nil {
+		s.log.Errorf("could not update sale for canceling noor order: %v", err)
+		return domain.InternalServerError
+	}
+
+	s.NotifyOnlineOrderCancel(storeId, int(saleNumber))
 
 	return nil
 }

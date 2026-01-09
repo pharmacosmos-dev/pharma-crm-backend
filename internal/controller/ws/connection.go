@@ -17,7 +17,7 @@ type OutgoingMessage struct {
 }
 
 type Message struct {
-	StoreID string
+	StoreId string
 	Payload OutgoingMessage
 }
 

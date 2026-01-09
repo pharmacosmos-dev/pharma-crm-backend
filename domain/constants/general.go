@@ -44,7 +44,8 @@ const (
 	MimeTypeValidationErrKey    = "mime_type"
 
 	// WebSocket events
-	WsEventNoorOrder = "noor_order"
+	WsEventNoorOrder       = "noor_order"
+	WsEventNoorOrderCancel = "noor_order_cancel"
 )
 
 // Payment Types slices
@@ -394,5 +395,4 @@ const (
 	DmedPrescriptionsNotFound      = "errors.prescriptions.not_found"
 	DmedPrescriptionsExpired       = "errors.prescriptions.expired"
 	DmedPrescriptionsAlreadyIssued = "errors.prescriptions.already_issued"
-	
 )
