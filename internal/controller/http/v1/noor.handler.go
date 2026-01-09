@@ -26,7 +26,7 @@ func (h *NoorHandler) NoorRoutes(r *gin.RouterGroup) {
 	noor.GET("/store/list", h.StoreList)
 	noor.GET("/category/list", h.CategoryList)
 	noor.POST("/order", h.CreateOrder)
-	noor.POST("/order/cancel/:order_id")
+	noor.POST("/order/cancel/:order_id", h.CancelOrder)
 }
 
 // List Products
