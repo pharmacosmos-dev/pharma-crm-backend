@@ -502,25 +502,24 @@ func (h *SaleHandler) GetOnlineSaleCount(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /sale/online-list [GET]
 func (h *SaleHandler) OnlineSaleList(c *gin.Context) {
-	var param domain.QueryParam
-	err := c.ShouldBindQuery(&param)
-	if err != nil {
-		handleResponse(c, BadRequest, "invalid.query.param")
+	var params domain.QueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
-	res, totalCount, err := h.service.GetOnlinePendingSaleList(ctx, &param)
+	res, totalCount, err := h.service.GetOnlinePendingSaleList(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 	// get response data with pagination _meta data
-	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
 
 	handleResponse(c, OK, data)
 }
@@ -880,7 +879,7 @@ func (h *SaleHandler) CancelOnlineSale(c *gin.Context) {
 	defer cancel()
 
 	body.EmployeeId = user.UserId
-	
+
 	err := h.service.CancelOnlineSale(ctx, &body)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)

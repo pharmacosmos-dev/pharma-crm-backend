@@ -361,11 +361,18 @@ type ConfirmOnlineSaleRequest struct {
 }
 
 type OnlineSaleDto struct {
-	Id           string `gorm:"id" json:"id"`
-	EmployeeId   string `gorm:"employee_id" json:"employee_id"`
-	SaleNumber   int    `gorm:"sale_number" json:"sale_number"`
-	OnlineStatus int    `gorm:"online_status" json:"online_status"`
-	Stage        int    `gorm:"stage" json:"stage"`
+	Id           string     `gorm:"id" json:"id"`
+	EmployeeId   string     `gorm:"employee_id" json:"employee_id"`
+	StoreId      string     `gorm:"store_id" json:"store_id"`
+	SaleNumber   int        `gorm:"sale_number" json:"sale_number"`
+	OnlineStatus int        `gorm:"online_status" json:"online_status"`
+	Stage        int        `gorm:"stage" json:"stage"`
+	Type         string     `gorm:"type" json:"type"`
+	SaleType     string     `gorm:"sale_type" json:"sale_type"`
+	ServiceType  string     `gorm:"service_type" json:"service_type"`
+	TotalAmount  float64    `gorm:"total_amount" json:"total_amount"`
+	ProductCount int        `gorm:"product_count" json:"product_count"`
+	CreatedAt    *time.Time `gorm:"created_at" json:"created_at"`
 }
 
 // end region

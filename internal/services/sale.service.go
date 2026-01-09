@@ -1225,7 +1225,7 @@ func (s *Services) AcceptOnlineSale(ctx context.Context, req *domain.ConfirmOnli
 	UPDATE sales
 	SET
 		employee_id = ?,
-		cashbox_operation_id = ?,
+		cash_box_operation_id = ?,
 		cashbox_id = ?,
 		online_status = ?,
 		stage = ?
@@ -1290,7 +1290,7 @@ func (s *Services) CancelOnlineSale(ctx context.Context, req *domain.ConfirmOnli
 	UPDATE sales
 	SET
 		employee_id = ?,
-		cashbox_operation_id = ?,
+		cash_box_operation_id = ?,
 		cashbox_id = ?,
 		online_status = ?,
 		stage = ?
@@ -2071,9 +2071,9 @@ func (s *Services) cartItemsSumBySaleId(ctx context.Context, tx *gorm.DB, saleId
 }
 
 // get online pending sale list
-func (s *Services) GetOnlinePendingSaleList(ctx context.Context, params *domain.QueryParam) ([]domain.Sale, int64, error) {
+func (s *Services) GetOnlinePendingSaleList(ctx context.Context, params *domain.QueryParam) ([]domain.OnlineSaleDto, int64, error) {
 	var (
-		res        []domain.Sale
+		res        []domain.OnlineSaleDto
 		filter     = " WHERE s.store_id = ? AND (s.online_status = 1 OR s.online_status = 2) "
 		args       = []any{params.StoreID}
 		group      = " GROUP BY s.id "
@@ -2083,20 +2083,17 @@ func (s *Services) GetOnlinePendingSaleList(ctx context.Context, params *domain.
 	query := `
 	SELECT
 		s.id,
-		s.store_id,
-		s.employee_id,
-		s.cashbox_id,
-		s.cash_box_operation_id,
 		s.sale_number,
-		s.status,
+		s.employee_id,
+		s.store_id,
 		s.online_status,
+		s.stage,
 		s.type,
-		s.customer_id,
 		s.sale_type,
+		s.service_type,
 		s.created_at,
-		s.updated_at,
 		COALESCE(SUM(ci.total_price), 0.00) AS total_amount,
-		COALESCE(COUNT(ci.id), 0) AS count
+		COALESCE(COUNT(ci.id), 0) AS product_count
 	FROM sales s
 	LEFT JOIN cart_items ci ON s.id = ci.sale_id
 	`
