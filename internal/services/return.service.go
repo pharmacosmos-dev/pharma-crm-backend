@@ -447,8 +447,14 @@ func (s *Services) ReturnDetailList(param *domain.ReturnDetailParam) ([]domain.R
 			ROUND(MOD(transfer_details.accepted_count * p.unit_per_pack, p.unit_per_pack), 0) AS accepted_unit,
 			ROUND(transfer_details.received_count*transfer_details.retail_price, 2) AS received_sum,
 			ROUND(transfer_details.scanned_count*transfer_details.retail_price, 2) AS scanned_sum,
-    		p.name, p.material_code, p.unit_per_pack, p.barcode, ut.short_name`).
+    		p.name, 
+			p.material_code, 
+			p.unit_per_pack, 
+			p.barcode, 
+			ut.short_name, 
+			pr.name AS producer`).
 		Joins("JOIN products p ON transfer_details.product_id = p.id").
+		Joins("LEFT JOIN procuers pr ON p.producer_id = pr.id").
 		Joins("LEFT JOIN unit_types ut ON p.unit_type_id = ut.id").
 		Where("transfer_details.transfer_id = ?", param.ReturnId)
 

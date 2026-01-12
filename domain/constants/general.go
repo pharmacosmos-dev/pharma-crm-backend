@@ -192,6 +192,7 @@ const (
 	SaleOnlineStagePending   = 2
 	SaleOnlineStageCanceled  = -1
 	SaleOnlineStageCompleted = 3
+	SaleOnlineStageWaiting   = 4
 
 	SaleTypeReturn  = "RETURN"
 	SaleTypeSale    = "SALE"
