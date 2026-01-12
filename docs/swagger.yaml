@@ -905,6 +905,8 @@ definitions:
         type: string
       id:
         type: string
+      is_fullday:
+        type: boolean
       location:
         $ref: '#/definitions/domain.Point'
       name:
@@ -983,6 +985,9 @@ definitions:
         type: string
       quantity:
         type: integer
+    required:
+    - productId
+    - quantity
     type: object
   domain.OnlineOrderRequest:
     properties:
@@ -998,6 +1003,11 @@ definitions:
         type: array
       shop_id:
         type: string
+    required:
+    - client_info
+    - destination
+    - product_ids
+    - shop_id
     type: object
   domain.OnlineOrderResponse:
     properties:
@@ -1544,6 +1554,8 @@ definitions:
         type: integer
       id:
         type: string
+      is_fullday:
+        type: boolean
       location:
         type: string
       name:
@@ -1584,6 +1596,8 @@ definitions:
         type: string
       employee_count:
         type: integer
+      is_fullday:
+        type: boolean
       location:
         type: string
       name:
@@ -6517,7 +6531,7 @@ paths:
       summary: Set product photos
       tags:
       - helper
-  /helper/update-product-info:
+  /helper/update-product-image:
     post:
       consumes:
       - application/json
@@ -8270,6 +8284,35 @@ paths:
         required: true
         schema:
           $ref: '#/definitions/domain.OnlineOrderRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.OnlineOrderResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.IntegrationErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.IntegrationErrorResponse'
+      security:
+      - BasicAuth: []
+      summary: Create a sale
+      tags:
+      - Noor API
+  /noor/order/cancel/{order_id}:
+    post:
+      description: Create a sale
+      parameters:
+      - description: Cancel Order
+        in: path
+        name: order_id
+        required: true
+        type: integer
       produces:
       - application/json
       responses:

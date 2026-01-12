@@ -7502,7 +7502,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/helper/update-product-info": {
+        "/helper/update-product-image": {
             "post": {
                 "security": [
                     {
@@ -10256,6 +10256,52 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/domain.OnlineOrderRequest"
                         }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.OnlineOrderResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.IntegrationErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.IntegrationErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/noor/order/cancel/{order_id}": {
+            "post": {
+                "security": [
+                    {
+                        "BasicAuth": []
+                    }
+                ],
+                "description": "Create a sale",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Noor API"
+                ],
+                "summary": "Create a sale",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Cancel Order",
+                        "name": "order_id",
+                        "in": "path",
+                        "required": true
                     }
                 ],
                 "responses": {
@@ -26813,6 +26859,9 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "is_fullday": {
+                    "type": "boolean"
+                },
                 "location": {
                     "$ref": "#/definitions/domain.Point"
                 },
@@ -26926,6 +26975,10 @@ const docTemplate = `{
         },
         "domain.OnlineCartItemRequest": {
             "type": "object",
+            "required": [
+                "productId",
+                "quantity"
+            ],
             "properties": {
                 "productId": {
                     "type": "string"
@@ -26937,6 +26990,12 @@ const docTemplate = `{
         },
         "domain.OnlineOrderRequest": {
             "type": "object",
+            "required": [
+                "client_info",
+                "destination",
+                "product_ids",
+                "shop_id"
+            ],
             "properties": {
                 "client_info": {
                     "$ref": "#/definitions/domain.NoorClientInfo"
@@ -27782,6 +27841,9 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "is_fullday": {
+                    "type": "boolean"
+                },
                 "location": {
                     "type": "string"
                 },
@@ -27842,6 +27904,9 @@ const docTemplate = `{
                 },
                 "employee_count": {
                     "type": "integer"
+                },
+                "is_fullday": {
+                    "type": "boolean"
                 },
                 "location": {
                     "type": "string"

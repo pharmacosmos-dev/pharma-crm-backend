@@ -52,7 +52,7 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		helper.POST("/product-kvant", h.UploadProductKvant)
 		helper.POST("/set-product-photo", h.SetProductPhoto)
 		helper.POST("/fix-product-quantity", h.FixProductQuantity)
-		helper.POST("/update-product-info", h.UpdateProductInfo)
+		helper.POST("/update-product-image", h.UpdateProductImage)
 		helper.POST("/update-wrong-items", h.UpdateSaleItems)
 		helper.POST("/add-categories", h.AddCategories)
 		helper.POST("/attach-category-to-products", h.AttachCategoryToProducts)
@@ -1349,14 +1349,12 @@ func (h *HelperHandler) FixProductQuantity(c *gin.Context) {
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /helper/update-product-info [POST]
-func (h *HelperHandler) UpdateProductInfo(c *gin.Context) {
-	var (
-		file domain.File
-		err  error
-	)
+// @Router /helper/update-product-image [POST]
+func (h *HelperHandler) UpdateProductImage(c *gin.Context) {
+	var file domain.File
+
 	// bind request file
-	if err = c.ShouldBind(&file); err != nil {
+	if err := c.ShouldBind(&file); err != nil {
 		h.log.Error("Failed to bind file: ", err.Error())
 		handleResponse(c, BadRequest, err.Error())
 		return
@@ -1372,7 +1370,7 @@ func (h *HelperHandler) UpdateProductInfo(c *gin.Context) {
 	// Save the uploaded file
 	newFilename := uuid.New().String() + ext
 	savePath := filepath.Join("uploads", newFilename)
-	err = c.SaveUploadedFile(file.File, savePath)
+	err := c.SaveUploadedFile(file.File, savePath)
 	if err != nil {
 		h.log.Error("Failed to save file: ", err.Error())
 		handleResponse(c, InternalError, "Failed to save file")
@@ -1745,7 +1743,7 @@ func (h *HelperHandler) processExcel(c *gin.Context, savePath string) {
 		return
 	}
 	defer xlsx.Close()
-	sheetName := xlsx.GetSheetName(0)
+	sheetName := xlsx.GetSheetName(2)
 	rows, err := xlsx.GetRows(sheetName)
 	if err != nil {
 		h.log.Errorf("Failed to get rows: %v", err)
@@ -1754,13 +1752,7 @@ func (h *HelperHandler) processExcel(c *gin.Context, savePath string) {
 	}
 
 	// build query
-	query := `
-	UPDATE products
-	SET 
-		photos = ?, 
-		updated_at = now()
-	WHERE material_code = ?;
-	`
+	query := `UPDATE products SET photos = ?, updated_at = now() WHERE material_code = ?;`
 
 	var (
 		totalRowsProcessed = 0
@@ -1768,11 +1760,11 @@ func (h *HelperHandler) processExcel(c *gin.Context, savePath string) {
 	)
 
 	for _, row := range rows[1:] {
-		if len(row) > 6 {
+		if len(row) > 2 {
 			// --- image handle ---
 			var photos utils.StringArray
-			if row[4] != "" {
-				localPath, downErr := CheckImageAndExtractName(row[4])
+			if row[2] != "" {
+				localPath, downErr := DownloadAndSaveImage(row[2], "./app/uploads/")
 				if downErr != nil {
 					h.log.Errorf("image download error for product %s: %v", row[0], downErr)
 					continue // agar rasm yuklanmasa, shu rowni o‘tkazib yubor
