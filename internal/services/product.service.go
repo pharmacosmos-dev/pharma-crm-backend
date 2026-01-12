@@ -931,7 +931,7 @@ func (s *Services) GetNoorProducts(params *domain.NoorQueryParam) ([]domain.Noor
 	FROM
 		products p
 	` + filter + `
-	ORDER BY p.created_at LIMIT ? OFFSET ?;`
+	ORDER BY p.created_at, p.id LIMIT ? OFFSET ?;`
 
 	args = append(args, params.Limit, params.Offset)
 
