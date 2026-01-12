@@ -454,7 +454,7 @@ func (s *Services) ReturnDetailList(param *domain.ReturnDetailParam) ([]domain.R
 			ut.short_name, 
 			pr.name AS producer`).
 		Joins("JOIN products p ON transfer_details.product_id = p.id").
-		Joins("LEFT JOIN procuers pr ON p.producer_id = pr.id").
+		Joins("LEFT JOIN producers pr ON p.producer_id = pr.id").
 		Joins("LEFT JOIN unit_types ut ON p.unit_type_id = ut.id").
 		Where("transfer_details.transfer_id = ?", param.ReturnId)
 
