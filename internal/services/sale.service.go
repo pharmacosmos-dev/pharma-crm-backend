@@ -2508,7 +2508,11 @@ func (s *Services) GetOnlineOrders(ctx context.Context, params *domain.SaleQuery
 		return nil, 0, domain.InternalServerError
 	}
 
-	err := qb.Find(&tmp).Order("s.created_at DESC").Limit(params.Limit).Offset(params.Offset).Error
+	err := qb.
+		Order("s.created_at DESC").
+		Limit(params.Limit).
+		Offset(params.Offset).
+		Find(&tmp).Error
 	if err != nil {
 		s.log.Errorf("could not get online orders: %v", err)
 		return nil, 0, domain.InternalServerError
