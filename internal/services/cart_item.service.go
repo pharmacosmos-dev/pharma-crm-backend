@@ -326,11 +326,7 @@ func (s *Services) GetOrCheckOnlineCartItems(ctx context.Context, storeId string
 		}
 
 		if storeProduct.Quantity < float64(req[i].Quantity) { // checking quantity enough or not enough
-			return cartItems, domain.NewNotAdditionError(http.StatusConflict,
-				map[string]any{
-					"name":     storeProduct.ProductName,
-					"quantity": storeProduct.Quantity,
-				})
+			return cartItems, domain.NewNotAdditionError(http.StatusConflict, storeProduct.ProductId)
 		}
 		// quantity calculate:  req.quantity = order_quantity -> based on blister_count
 		// example: unit_per_pack = 50, blister_count = 5, count_per_blister = unit_per_pack/blister_count = 10

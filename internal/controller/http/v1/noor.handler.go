@@ -208,7 +208,6 @@ func (h *NoorHandler) CategoryList(c *gin.Context) {
 // @Router 		/noor/order [post]
 func (h *NoorHandler) CreateOrder(c *gin.Context) {
 	var body domain.OnlineOrderRequest
-	// bind request body
 	if err := c.ShouldBindJSON(&body); err != nil {
 		h.log.Errorf("could not bind noor order create request body: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -226,7 +225,7 @@ func (h *NoorHandler) CreateOrder(c *gin.Context) {
 			handleResponseNoor(c, http.StatusConflict, notAddErr.Data)
 			return
 		}
-		handleServiceResponse(c, nil, err)
+		handleResponseNoor(c, http.StatusInternalServerError, err)
 		return
 	}
 

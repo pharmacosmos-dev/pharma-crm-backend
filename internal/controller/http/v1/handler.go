@@ -207,6 +207,12 @@ func handleResponseNoor(c *gin.Context, statusCode int, data any) {
 		return
 	}
 
+	switch data.(type) {
+	case map[string]any, []any:
+		c.JSON(statusCode, data)
+		return
+	}
+
 	// Error: wrap in {"message": "..."}
 	var errMsg string
 	switch v := data.(type) {
