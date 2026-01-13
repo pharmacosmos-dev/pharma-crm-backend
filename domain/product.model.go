@@ -375,6 +375,7 @@ type NoorStore struct {
 	Location1 Point  `gorm:"-" json:"location"`
 	WorkHours string `gorm:"work_hours" json:"work_hours"`
 	IsFullday bool   `gorm:"is_fullday" json:"is_fullday"`
+	IsActive  bool   `gorm:"is_active" json:"is_active"`
 }
 
 type Point struct {

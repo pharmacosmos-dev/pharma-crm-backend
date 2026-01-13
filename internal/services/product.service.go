@@ -985,9 +985,18 @@ func (s *Services) GetNoorStores() ([]domain.NoorStore, error) {
 	var res []domain.NoorStore
 
 	query := `
-	SELECT DISTINCT s.*
-	FROM stores s
-	INNER JOIN store_products sp ON s.id = sp.store_id;
+	SELECT 
+		id,
+		name,
+		phone,
+		address,
+		location,
+		work_hours,
+		is_fullday,
+		is_active
+	FROM stores
+		WHERE is_active = true
+	ORDER BY store_code;
 	`
 	// execute get store list query
 	err := s.db.Raw(query).Scan(&res).Error
