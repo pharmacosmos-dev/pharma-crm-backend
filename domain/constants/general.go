@@ -165,6 +165,8 @@ const (
 	PaymentTypeAlif        = "alif"
 	PaymentTypeHumo        = "humo"
 	PaymentTypeUzcard      = "uzcard"
+	PaymentTypeCARD        = "CARD"
+	PaymentTypeCASH        = "CASH"
 
 	// Universal status types
 

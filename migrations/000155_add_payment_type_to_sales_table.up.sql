@@ -1,0 +1,3 @@
+ALTER TABLE
+    "sales"
+        ADD COLUMN IF NOT EXISTS "payment_type" VARCHAR(10) DEFAULT NULL;

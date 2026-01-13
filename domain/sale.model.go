@@ -398,3 +398,30 @@ type BarcodeResponse struct {
 type MarkingItemsResponse struct {
 	Items []BarcodeResponse `json:"items"`
 }
+
+type OnlineOrderDto struct {
+	Id            string                          `json:"id"`
+	SaleNumber    int                             `json:"sale_number"`
+	TotalAmount   float64                         `json:"total_amount"`
+	TotalDiscount float64                         `json:"total_discount"`
+	PaymentType   string                          `json:"payment_type"`
+	Stage         int                             `json:"stage"`
+	OnlineStatus  int                             `json:"online_status"`
+	IsPaid        bool                            `json:"is_paid"`
+	CreatedAt     *time.Time                      `json:"created_at"`
+	CompletedAt   *time.Time                      `json:"completed_at"`
+	Cusomer       NullStruct[OnlineOrderCustomer] `json:"customer"`
+	Store         NullStruct[OnlineOrderStore]    `json:"store"`
+}
+
+type OnlineOrderCustomer struct {
+	Id       string `json:"id"`
+	FullName string `json:"full_name"`
+	Phone    string `json:"phone"`
+}
+
+type OnlineOrderStore struct {
+	Id    string `json:"id"`
+	Name  string `json:"name"`
+	Phone string `json:"phone"`
+}

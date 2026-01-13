@@ -50,6 +50,7 @@ func (h *SaleHandler) SaleRoutes(r *gin.RouterGroup) {
 		sale.POST("/asil-belgi-barcode", h.AsilBelgiBarcode)
 		sale.POST("/asil-belgi-barcode-confirm/:id", h.AsilBelgiBarcodeConfirm)
 		sale.PUT("/pending/:id", h.PendingSale)
+		sale.GET("/online-orders", h.FetchOnlineOrders)
 	}
 }
 
@@ -587,6 +588,56 @@ func (h *SaleHandler) DMEDGetPrescriptions(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, respBody)
+}
+
+// FetchOnlineOrders godoc
+// @Summary      Fetch online orders
+// @Description  Fetch online orders
+// @Tags         sales
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param 		 limit query int false "Limit"
+// @Param 		 offset query int false "Offset"
+// @Param 		 store_id query string false "Store ID"
+// @Param 		 search query string false "Search"
+// @Param 		 start_date query string false "Start Date"
+// @Param 		 end_date query string false "End Date"
+// @Param        status query string false "Status"
+// @Param 		 stage query int false "Stage"
+// @Success      200 {object} v1.Response
+// @Failure      400 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /sale/online-orders [GET]
+func (h *SaleHandler) FetchOnlineOrders(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.SaleQueryParams
+	// bind query params
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+	// get sale list data
+	res, totalCount, err := h.service.GetOnlineOrders(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	// added _meta section to response
+	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
+
+	handleResponse(c, OK, data)
 }
 
 // region Update

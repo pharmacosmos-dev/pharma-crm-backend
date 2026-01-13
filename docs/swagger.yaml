@@ -905,6 +905,8 @@ definitions:
         type: string
       id:
         type: string
+      is_active:
+        type: boolean
       is_fullday:
         type: boolean
       location:
@@ -15814,6 +15816,64 @@ paths:
       security:
       - BearerAuth: []
       summary: Get online pending sale list
+      tags:
+      - sales
+  /sale/online-orders:
+    get:
+      consumes:
+      - application/json
+      description: Fetch online orders
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: Status
+        in: query
+        name: status
+        type: string
+      - description: Stage
+        in: query
+        name: stage
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Fetch online orders
       tags:
       - sales
   /sale/pending-list:

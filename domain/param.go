@@ -49,4 +49,5 @@ type SaleQueryParams struct {
 	Alif            bool    `form:"alif"`
 	Uzum            bool    `form:"uzum"`
 	IsCorporate     bool    `form:"is_corporate"`
+	Stage           int     `form:"stage"`
 }

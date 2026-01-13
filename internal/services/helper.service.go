@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/logger"
 	"gorm.io/gorm"
 )
@@ -125,4 +126,13 @@ func (s *Services) FormatDatetimeParams(startTime, endTime string) (domain.Filte
 	}
 
 	return res, nil
+}
+
+func (s *Services) ConvenrtTimeAsiaTashkent(timeStr string) (time.Time, error) {
+	dateTime, err := time.Parse(time.RFC3339, timeStr)
+	if err != nil {
+		s.log.Errorf("could not parse filter start_time: %v", err)
+		return dateTime, domain.InvalidTimeFormatError
+	}
+	return dateTime.Add(constants.DateTimeTashkent), nil
 }

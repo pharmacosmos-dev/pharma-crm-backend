@@ -207,9 +207,11 @@ func (s *Services) CreateOnlineSale(ctx context.Context, req *domain.OnlineSaleC
 		online_status,
 		service_type,
 		customer_id,
-		display_id
+		display_id,
+		payment_type,
+		is_paid
 		) 
-	VALUES(?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
 		req.Id,
 		req.StoreId,
 		constants.SaleTypeOnline,
@@ -217,6 +219,8 @@ func (s *Services) CreateOnlineSale(ctx context.Context, req *domain.OnlineSaleC
 		constants.ServiceTypeNoor,
 		req.CustomerId,
 		s.generateDisplayId(),
+		constants.PaymentTypeCARD,
+		true,
 	).Scan(&sale).Error
 	if err != nil {
 		_ = tx.Rollback()
@@ -2418,6 +2422,127 @@ func (s *Services) GetDatasByMarkings(ctx context.Context, tx *gorm.DB, markings
 	}
 
 	return &domain.MarkingItemsResponse{Items: items}, nil
+}
+
+func (s *Services) GetOnlineOrders(ctx context.Context, params *domain.SaleQueryParams) ([]domain.OnlineOrderDto, int64, error) {
+	var tmp []struct {
+		Id               string     `gorm:"id"`
+		SaleNumber       int        `gorm:"sale_number"`
+		TotalAmount      float64    `gorm:"total_amount"`
+		TotalDiscount    float64    `gorm:"total_discount"`
+		PaymentType      string     `gorm:"payment_type"`
+		Stage            int        `gorm:"stage"`
+		OnlineStatus     int        `gorm:"online_status"`
+		IsPaid           bool       `gorm:"is_paid"`
+		CreatedAt        *time.Time `gorm:"created_at"`
+		CompletedAt      *time.Time `gorm:"completed_at"`
+		CustomerId       string     `gorm:"customer_id"`
+		CustomerFullName string     `gorm:"customer_full_name"`
+		CustomerPhone    string     `gorm:"customer_phone"`
+		StoreId          string     `gorm:"store_id"`
+		StoreName        string     `gorm:"store_name"`
+		StorePhone       string     `gorm:"store_phone"`
+	}
+
+	qb := s.db.WithContext(ctx).
+		Select(
+			"s.id",
+			"s.sale_number",
+			"s.total_amount",
+			"s.total_discount",
+			"s.payment_type",
+			"s.stage",
+			"s.online_status",
+			"s.is_paid",
+			"s.created_at",
+			"s.completed_at",
+
+			"s.store_id",
+			"st.name AS store_name",
+			"st.phone AS store_phone",
+
+			"s.customer_id",
+			"c.full_name AS customer_full_name",
+			"c.phone AS customer_phone",
+		).
+		Table("sales s").
+		Joins("JOIN stores st ON s.store_id = st.id").
+		Joins("LEFT JOIN customers c ON s.customer_id = c.id").
+		Where("s.service_type = ?", constants.ServiceTypeNoor)
+
+	if params.Search != "" {
+		qb = qb.Where("s.sale_number::TEXT ILIKE ?", "%"+params.Search+"%")
+	}
+
+	if params.StoreId != "" {
+		qb = qb.Where("s.store_id = ?", params.StoreId)
+	}
+
+	if params.Stage > 0 {
+		qb = qb.Where("s.stage = ?", params.Stage)
+	}
+
+	if params.Status != "" {
+		qb = qb.Where("s.status = ?", params.Status)
+	}
+
+	if params.StartDate != "" {
+		dateTime, err := s.ConvenrtTimeAsiaTashkent(params.StartDate)
+		if err != nil {
+			return nil, 0, err
+		}
+		qb = qb.Where("s.created_at >= ?", dateTime)
+	}
+
+	if params.EndDate != "" {
+		dateTime, err := s.ConvenrtTimeAsiaTashkent(params.StartDate)
+		if err != nil {
+			return nil, 0, err
+		}
+		qb = qb.Where("s.created_at <= ?", dateTime)
+	}
+
+	var totalCount int64
+	if err := qb.Count(&totalCount).Error; err != nil {
+		s.log.Errorf("could not get online orders count: %v", err)
+		return nil, 0, domain.InternalServerError
+	}
+
+	err := qb.Find(&tmp).Limit(params.Limit).Offset(params.Offset).Error
+	if err != nil {
+		s.log.Errorf("could not get online orders: %v", err)
+		return nil, 0, domain.InternalServerError
+	}
+
+	res := []domain.OnlineOrderDto{}
+	for _, order := range tmp {
+		res = append(res, domain.OnlineOrderDto{
+			Id:            order.Id,
+			SaleNumber:    order.SaleNumber,
+			TotalAmount:   order.TotalAmount,
+			TotalDiscount: order.TotalDiscount,
+			PaymentType:   order.PaymentType,
+			Stage:         order.Stage,
+			OnlineStatus:  order.OnlineStatus,
+			IsPaid:        order.IsPaid,
+			CreatedAt:     order.CreatedAt,
+			CompletedAt:   order.CompletedAt,
+
+			Store: domain.NewNullStruct(domain.OnlineOrderStore{
+				Id:    order.StoreId,
+				Name:  order.StoreName,
+				Phone: order.StorePhone,
+			}, order.StoreId != ""),
+
+			Cusomer: domain.NewNullStruct(domain.OnlineOrderCustomer{
+				Id:       order.CustomerId,
+				FullName: order.CustomerFullName,
+				Phone:    order.CustomerPhone,
+			}, order.CustomerId != ""),
+		})
+	}
+
+	return res, totalCount, nil
 }
 
 // region Delete
