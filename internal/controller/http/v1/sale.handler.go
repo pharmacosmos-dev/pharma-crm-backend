@@ -457,7 +457,7 @@ func (h *SaleHandler) GetOnlineSaleCount(c *gin.Context) {
 	// get online order count
 	var count int64
 	err := h.db.WithContext(ctx).
-		Raw("SELECT COUNT(*) AS count FROM sales WHERE store_id = ? AND (online_status = 1 OR online_status = 2);",
+		Raw("SELECT COUNT(*) AS count FROM sales WHERE store_id = ? AND online_status IN(1, 2, 4);",
 			user.StoreId).Scan(&count).Error
 
 	if err != nil {

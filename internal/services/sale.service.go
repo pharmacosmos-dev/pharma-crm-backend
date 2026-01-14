@@ -2115,7 +2115,7 @@ func (s *Services) cartItemsSumBySaleId(ctx context.Context, tx *gorm.DB, saleId
 func (s *Services) GetOnlinePendingSaleList(ctx context.Context, params *domain.QueryParam) ([]domain.OnlineSaleDto, int64, error) {
 	var (
 		res        []domain.OnlineSaleDto
-		filter     = " WHERE s.store_id = ? AND (s.online_status = 1 OR s.online_status = 2) "
+		filter     = " WHERE s.store_id = ? AND s.online_status IN(1, 2, 4) "
 		args       = []any{params.StoreID}
 		group      = " GROUP BY s.id "
 		order      = " ORDER BY s.created_at DESC "
