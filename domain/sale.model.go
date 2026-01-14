@@ -70,11 +70,12 @@ type SaleReturnRequest struct {
 }
 
 type OnlineSaleCreate struct {
-	Id          string                  `gorm:"id" json:"id"`
-	StoreId     string                  `gorm:"store_id" json:"store_id"`
-	ServiceType string                  `gorm:"service_type" json:"service_type"`
-	CustomerId  string                  `gorm:"customer_id" json:"customer_id"`
-	Items       []CartItemOnlineRequest `gorm:"-" json:"items"`
+	Id            string                  `gorm:"id" json:"id"`
+	StoreId       string                  `gorm:"store_id" json:"store_id"`
+	ServiceType   string                  `gorm:"service_type" json:"service_type"`
+	CustomerId    string                  `gorm:"customer_id" json:"customer_id"`
+	ClientComment string                  `gorm:"client_comment" json:"client_comment"`
+	Items         []CartItemOnlineRequest `gorm:"-" json:"items"`
 }
 
 // SaleItem structure for create return
@@ -118,6 +119,7 @@ type SaleResponse struct {
 	IsSentToTax     string     `gorm:"is_sent_to_tax" json:"is_sent_to_tax"`
 	TaxFree         bool       `gorm:"tax_free" json:"tax_free"`
 	IsCorporate     bool       `gorm:"is_corporate" json:"is_corporate"`
+	ClientComment   string     `gorm:"client_comment" json:"client_comment"`
 	CreatedAt       *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt       *time.Time `gorm:"updated_at" json:"updated_at"`
 	CompletedAt     *time.Time `gorm:"completed_at" json:"completed_at"`
@@ -328,11 +330,12 @@ type AddDiscountCard struct {
 // create online order request structure
 // noor online order request
 type OnlineOrderRequest struct {
-	ShopId       string                  `json:"shop_id" binding:"required,uuid"`
-	Products     []OnlineCartItemRequest `json:"product_ids" binding:"required,dive"`
-	ClientInfo   NoorClientInfo          `json:"client_info" binding:"required"`
-	DeliveryTime string                  `json:"delivery_time"`
-	Destination  Point                   `json:"destination" binding:"required"`
+	ShopId        string                  `json:"shop_id" binding:"required,uuid"`
+	Products      []OnlineCartItemRequest `json:"product_ids" binding:"required,dive"`
+	ClientInfo    NoorClientInfo          `json:"client_info" binding:"required"`
+	DeliveryTime  string                  `json:"delivery_time"`
+	Destination   Point                   `json:"destination" binding:"required"`
+	ClientComment string                  `json:"client_comment"`
 }
 
 // noor online order product
@@ -361,18 +364,19 @@ type ConfirmOnlineSaleRequest struct {
 }
 
 type OnlineSaleDto struct {
-	Id           string     `gorm:"id" json:"id"`
-	EmployeeId   string     `gorm:"employee_id" json:"employee_id"`
-	StoreId      string     `gorm:"store_id" json:"store_id"`
-	SaleNumber   int        `gorm:"sale_number" json:"sale_number"`
-	OnlineStatus int        `gorm:"online_status" json:"online_status"`
-	Stage        int        `gorm:"stage" json:"stage"`
-	Type         string     `gorm:"type" json:"type"`
-	SaleType     string     `gorm:"sale_type" json:"sale_type"`
-	ServiceType  string     `gorm:"service_type" json:"service_type"`
-	TotalAmount  float64    `gorm:"total_amount" json:"total_amount"`
-	ProductCount int        `gorm:"product_count" json:"product_count"`
-	CreatedAt    *time.Time `gorm:"created_at" json:"created_at"`
+	Id            string     `gorm:"id" json:"id"`
+	EmployeeId    string     `gorm:"employee_id" json:"employee_id"`
+	StoreId       string     `gorm:"store_id" json:"store_id"`
+	SaleNumber    int        `gorm:"sale_number" json:"sale_number"`
+	OnlineStatus  int        `gorm:"online_status" json:"online_status"`
+	Stage         int        `gorm:"stage" json:"stage"`
+	Type          string     `gorm:"type" json:"type"`
+	SaleType      string     `gorm:"sale_type" json:"sale_type"`
+	ServiceType   string     `gorm:"service_type" json:"service_type"`
+	TotalAmount   float64    `gorm:"total_amount" json:"total_amount"`
+	ProductCount  int        `gorm:"product_count" json:"product_count"`
+	ClientComment string     `gorm:"client_comment" json:"client_comment"`
+	CreatedAt     *time.Time `gorm:"created_at" json:"created_at"`
 }
 
 // end region

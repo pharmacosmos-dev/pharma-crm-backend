@@ -173,11 +173,12 @@ func (s *Services) CreateNoorSale(ctx context.Context, req *domain.OnlineOrderRe
 
 	// create online sale
 	res, err := s.CreateOnlineSale(ctx, &domain.OnlineSaleCreate{
-		Id:          saleId,
-		StoreId:     req.ShopId,
-		CustomerId:  customer.Id,
-		ServiceType: constants.ServiceTypeNoor,
-		Items:       cartItems,
+		Id:            saleId,
+		StoreId:       req.ShopId,
+		CustomerId:    customer.Id,
+		ServiceType:   constants.ServiceTypeNoor,
+		ClientComment: req.ClientComment,
+		Items:         cartItems,
 	})
 	if err != nil {
 		return 0, err
@@ -209,9 +210,10 @@ func (s *Services) CreateOnlineSale(ctx context.Context, req *domain.OnlineSaleC
 		customer_id,
 		display_id,
 		payment_type,
-		is_paid
+		is_paid,
+		client_comment
 		) 
-	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
 		req.Id,
 		req.StoreId,
 		constants.SaleTypeOnline,
@@ -221,6 +223,7 @@ func (s *Services) CreateOnlineSale(ctx context.Context, req *domain.OnlineSaleC
 		s.generateDisplayId(),
 		constants.PaymentTypeCARD,
 		true,
+		req.ClientComment,
 	).Scan(&sale).Error
 	if err != nil {
 		_ = tx.Rollback()
@@ -1496,6 +1499,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 		IsReturned         bool       `gorm:"is_returned"`
 		IsCorporate        bool       `gorm:"is_corporate"`
 		CashBack           float64    `gorm:"cash_back"`
+		ClientComment      string     `gorm:"client_comment"`
 		CreatedAt          *time.Time `gorm:"created_at"`
 		UpdatedAt          *time.Time `gorm:"updated_at"`
 		CompletedAt        *time.Time `gorm:"completed_at"`
@@ -1550,6 +1554,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 			"s.cash_back",
 			"s.tax_free",
 			"s.otp_code",
+			"s.client_comment",
 			"s.created_at",
 			"s.updated_at",
 			"s.completed_at",
@@ -2133,6 +2138,7 @@ func (s *Services) GetOnlinePendingSaleList(ctx context.Context, params *domain.
 		s.sale_type,
 		s.service_type,
 		s.created_at,
+		s.client_comment,
 		COALESCE(SUM(ci.total_price), 0.00) AS total_amount,
 		COALESCE(COUNT(ci.id), 0) AS product_count
 	FROM sales s
@@ -2511,7 +2517,7 @@ func (s *Services) GetOnlineOrders(ctx context.Context, params *domain.SaleQuery
 	}
 
 	if params.EndDate != "" {
-		dateTime, err := s.ConvenrtTimeAsiaTashkent(params.StartDate)
+		dateTime, err := s.ConvenrtTimeAsiaTashkent(params.EndDate)
 		if err != nil {
 			return nil, 0, err
 		}
