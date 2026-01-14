@@ -1443,6 +1443,22 @@ func (s *Services) CancelNoorOrder(ctx context.Context, saleNumber int64) error 
 	return nil
 }
 
+// accept courier order from the noor client
+func (s *Services) AcceptCourierNoorOrder(ctx context.Context, saleNumber int64) error {
+	var storeId string
+	err := s.db.WithContext(ctx).
+		Raw("UPDATE sales SET online_status = ? WHERE sale_number = ? RETURNING store_id",
+			constants.SaleOnlineStageWaiting, saleNumber).Scan(&storeId).Error
+	if err != nil {
+		s.log.Errorf("could not update sale for canceling noor order: %v", err)
+		return domain.InternalServerError
+	}
+
+	s.NotifyOnlineOrderAcceptCourier(storeId, int(saleNumber))
+
+	return nil
+}
+
 // region Get
 
 func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleResponse, error) {

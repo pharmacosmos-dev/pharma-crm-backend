@@ -27,6 +27,7 @@ func (h *NoorHandler) NoorRoutes(r *gin.RouterGroup) {
 	noor.GET("/category/list", h.CategoryList)
 	noor.POST("/order", h.CreateOrder)
 	noor.POST("/order/cancel/:order_id", h.CancelOrder)
+	noor.POST("/order/accept-courier/:order_id", h.AcceptCourierOrder)
 }
 
 // List Products
@@ -122,6 +123,7 @@ func (h *NoorHandler) StoreList(c *gin.Context) {
 // @Description Get a category list for filter
 // @Tags 		Noor API
 // @Security    BasicAuth
+// @Accept 		json
 // @Produce 	json
 // @Param 		limit query int false "Limit"
 // @Param 		offset query int false "Offset"
@@ -200,6 +202,7 @@ func (h *NoorHandler) CategoryList(c *gin.Context) {
 // @Description Create a sale
 // @Tags 		Noor API
 // @Security    BasicAuth
+// @Accept 		json
 // @Produce 	json
 // @Param 		body body 	domain.OnlineOrderRequest true "Order Request body"
 // @Success 	200 {object} domain.OnlineOrderResponse
@@ -232,11 +235,12 @@ func (h *NoorHandler) CreateOrder(c *gin.Context) {
 	handleResponseNoor(c, http.StatusOK, domain.OnlineOrderResponse{Message: "success", OrderId: orderNumber})
 }
 
-// CreateSale godoc
+// CancelSale godoc
 // @Summary 	Create a sale
 // @Description Create a sale
 // @Tags 		Noor API
 // @Security    BasicAuth
+// @Accept 		json
 // @Produce 	json
 // @Param 		order_id path int true "Cancel Order"
 // @Success 	200 {object} domain.OnlineOrderResponse
@@ -256,6 +260,39 @@ func (h *NoorHandler) CancelOrder(c *gin.Context) {
 	defer cancel()
 
 	err = h.service.CancelNoorOrder(ctx, saleNumber)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, NoContent, nil)
+}
+
+// CreateSale godoc
+// @Summary 	Create a sale
+// @Description Create a sale
+// @Tags 		Noor API
+// @Security    BasicAuth
+// @Accept 		json
+// @Produce 	json
+// @Param 		order_id path int true "Accept Courier Order"
+// @Success 	200 {object} domain.OnlineOrderResponse
+// @Failure 	400 {object} v1.IntegrationErrorResponse
+// @Failure 	500 {object} v1.IntegrationErrorResponse
+// @Router 		/noor/order/accept-courier/{order_id} [POST]
+func (h *NoorHandler) AcceptCourierOrder(c *gin.Context) {
+	orderId := c.Param("order_id")
+
+	saleNumber, err := strconv.ParseInt(orderId, 10, 64)
+	if err != nil {
+		handleResponseNoor(c, http.StatusBadRequest, "invalid order_id")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	err = h.service.AcceptCourierNoorOrder(ctx, saleNumber)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return

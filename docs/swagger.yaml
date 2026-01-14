@@ -8244,6 +8244,8 @@ paths:
       - loyalty_card
   /noor/category/list:
     get:
+      consumes:
+      - application/json
       description: Get a category list for filter
       parameters:
       - description: Limit
@@ -8278,6 +8280,8 @@ paths:
       - Noor API
   /noor/order:
     post:
+      consumes:
+      - application/json
       description: Create a sale
       parameters:
       - description: Order Request body
@@ -8306,8 +8310,41 @@ paths:
       summary: Create a sale
       tags:
       - Noor API
+  /noor/order/accept-courier/{order_id}:
+    post:
+      consumes:
+      - application/json
+      description: Create a sale
+      parameters:
+      - description: Accept Courier Order
+        in: path
+        name: order_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.OnlineOrderResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.IntegrationErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.IntegrationErrorResponse'
+      security:
+      - BasicAuth: []
+      summary: Create a sale
+      tags:
+      - Noor API
   /noor/order/cancel/{order_id}:
     post:
+      consumes:
+      - application/json
       description: Create a sale
       parameters:
       - description: Cancel Order

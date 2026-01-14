@@ -44,8 +44,9 @@ const (
 	MimeTypeValidationErrKey    = "mime_type"
 
 	// WebSocket events
-	WsEventNoorOrder       = "noor_order"
-	WsEventNoorOrderCancel = "noor_order_cancel"
+	WsEventNoorOrder              = "noor_order"
+	WsEventNoorOrderCancel        = "noor_order_cancel"
+	WsEventNoorOrderAcceptCourier = "noor_order_accept_courier"
 )
 
 // Payment Types slices

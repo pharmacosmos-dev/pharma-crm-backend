@@ -10186,6 +10186,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Get a category list for filter",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
@@ -10240,6 +10243,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Create a sale",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
@@ -10280,6 +10286,55 @@ const docTemplate = `{
                 }
             }
         },
+        "/noor/order/accept-courier/{order_id}": {
+            "post": {
+                "security": [
+                    {
+                        "BasicAuth": []
+                    }
+                ],
+                "description": "Create a sale",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Noor API"
+                ],
+                "summary": "Create a sale",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Accept Courier Order",
+                        "name": "order_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.OnlineOrderResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.IntegrationErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.IntegrationErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/noor/order/cancel/{order_id}": {
             "post": {
                 "security": [
@@ -10288,6 +10343,9 @@ const docTemplate = `{
                     }
                 ],
                 "description": "Create a sale",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],

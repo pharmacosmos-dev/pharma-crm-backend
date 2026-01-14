@@ -51,3 +51,26 @@ func (s *Services) NotifyOnlineOrderCancel(StoreId string, orderDisplayId int) {
 		},
 	})
 }
+
+func (s *Services) NotifyOnlineOrderAcceptCourier(StoreId string, orderDisplayId int) {
+	notification := domain.CreateNotificationDto{
+		ContentUz: fmt.Sprintf("Kuryer onlayn buyurtmani qabul qildi: %d", orderDisplayId),
+		ContentRu: fmt.Sprintf("Курьер принял онлайн заказ: %d", orderDisplayId),
+		ContentEn: fmt.Sprintf("Courier has accepted the online order: %d", orderDisplayId),
+
+		HeaderUz: "Kuryer buyurtmani qabul qildi",
+		HeaderRu: "Курьер принял заказ",
+		HeaderEn: "Order accepted by courier",
+
+		StoreId: StoreId,
+		OrderId: fmt.Sprintf("%d", orderDisplayId),
+	}
+
+	s.hub.SendMessage(ws.Message{
+		StoreId: StoreId,
+		Payload: ws.OutgoingMessage{
+			Event: constants.WsEventNoorOrderAcceptCourier,
+			Data:  notification,
+		},
+	})
+}
