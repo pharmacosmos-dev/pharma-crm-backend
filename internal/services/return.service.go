@@ -12,6 +12,7 @@ import (
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/spf13/cast"
+	"gorm.io/gorm"
 )
 
 // Create return creates a new return
@@ -633,29 +634,25 @@ func (s *Services) deleteReturnDetailByReturnId(returnId string) error {
 }
 
 // confirm return
-func (s *Services) SendReturn1C(returnId string) error {
-	var (
-		returnData domain.ReturnData1C
-		store      domain.Store
-		returnInfo domain.Transfer
-	)
-	err := s.db.Model(&domain.Transfer{}).First(&returnInfo, "id = ?", returnId).Error
+func (s *Services) ReSendReturnToOnec(ctx context.Context, returnId string) error {
+	var returnInfo domain.Transfer
+	err := s.db.WithContext(ctx).Model(&domain.Transfer{}).Take(&returnInfo, "id = ?", returnId).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting return data: %v", err)
-		return err
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return domain.NotFoundError
+		}
+		s.log.Errorf("could not get return data: %v", err)
+		return domain.InternalServerError
 	}
 
 	// get store data
-	err = s.db.First(&store, "id = ?", returnInfo.FromStoreId).Error
+	var store domain.Store
+	err = s.db.WithContext(ctx).Take(&store, "id = ?", returnInfo.FromStoreId).Error
 	if err != nil {
-		s.log.Warn("ERROR on getting store data: %v", err)
-		return err
+		s.log.Errorf("could not get store info: %v", err)
+		return domain.InternalServerError
 	}
 
-	returnData.Dok.DocumentNumber = "NP-" + cast.ToString(returnInfo.PublicId)
-	returnData.Dok.DocumentDate = returnInfo.UpdatedAt.Add(time.Hour * 5).Format("2006-01-02T15:04:05")
-	returnData.Apteka.Name = store.Name
-	returnData.Apteka.StoreCode = store.StoreCode
 	// get return data
 	query := `
 	SELECT
@@ -675,26 +672,38 @@ func (s *Services) SendReturn1C(returnId string) error {
 		JOIN transfers tr ON td.transfer_id = tr.id
 		JOIN products p ON td.product_id = p.id
 		LEFT JOIN producers pr ON p.producer_id = pr.id
-		WHERE td.transfer_id = ? AND tr.status = 'completed' AND tr.from_store_id = ?;
+		WHERE 
+			td.transfer_id = ? AND tr.status IN(?,?) AND tr.from_store_id = ?;
 	`
-
-	err = s.db.Raw(query, returnId, returnInfo.FromStoreId).Scan(&returnData.Товары).Error
+	var returnData domain.ReturnData1C
+	err = s.db.WithContext(ctx).
+		Raw(query, returnId,
+			constants.GeneralStatusSentOnec,
+			constants.GeneralStatusCompleted,
+			returnInfo.FromStoreId).
+		Scan(&returnData.Товары).Error
 	if err != nil {
-		s.log.Error(err)
-		return err
+		s.log.Errorf("could not get transfer details fo send onec: %v", err)
+		return domain.InternalServerError
 	}
+
+	returnData.Dok.DocumentNumber = "NP-" + cast.ToString(returnInfo.PublicId)
+	returnData.Dok.DocumentDate = returnInfo.UpdatedAt.Add(time.Hour * 5).Format("2006-01-02T15:04:05")
+	returnData.Apteka.Name = store.Name
+	returnData.Apteka.StoreCode = store.StoreCode
 
 	if len(returnData.Товары) < 1 {
-		s.log.Warn("No products found for return %s", returnId)
-		return nil
+		s.log.Warnf("No products found for resend return %s", returnId)
+		return domain.NotEnoughProductError
 	}
 
-	// send return to 1C
+	// send return to Onec
 	err = s.DoRequestOnec(context.Background(), returnData, "/vozvrat")
 	if err != nil {
-		s.log.Warn("ERROR on sending return to 1C: %v", err)
-		return err
+		s.log.Errorf("could not resend return request: %v", err)
+		return domain.InternalServerError
 	}
+
 	return nil
 }
 

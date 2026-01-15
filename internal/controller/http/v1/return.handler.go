@@ -38,7 +38,7 @@ func (h *ReturnHandler) ReturnRoutes(r *gin.RouterGroup) {
 		returned.GET("/export-excel", h.ExportReturnExcel)
 		returned.PATCH("/:id/add-product-by-barcode", h.AddProductByBarcode)
 		returned.POST("/send/:id", h.Send)
-		returned.POST("/send1c/:id", h.Send1C)
+		returned.POST("/send1c/:id", h.ResendReturnToOnec)
 		returned.POST("/confirm/:id", h.Confirm)
 		returned.POST("/cancel/:id", h.Cancel)
 		returned.GET("/export-nakladnoy", h.ExportReturnNakladnoyPDF)
@@ -428,9 +428,9 @@ func (h *ReturnHandler) Send(c *gin.Context) {
 	handleResponse(c, OK, "SENT")
 }
 
-// send Return
-// @Summary Send Return to 1C
-// @Description Send Return to 1C
+// Resend Return
+// @Summary ReSend Return to 1C
+// @Description ReSend Return to 1C
 // @Tags Return
 // @Security     BearerAuth
 // @Accept 	json
@@ -440,18 +440,20 @@ func (h *ReturnHandler) Send(c *gin.Context) {
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /return/send1c/{id} [POST]
-func (h *ReturnHandler) Send1C(c *gin.Context) {
+func (h *ReturnHandler) ResendReturnToOnec(c *gin.Context) {
 	returnId := c.Param("id")
-	// validate return id
-	if err := uuid.Validate(returnId); err != nil {
-		handleResponse(c, BadRequest, "Invalid return id")
+	if returnId == "" {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 
-	// confirm return service
-	err := h.service.SendReturn1C(returnId)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	// Resend return to onec
+	err := h.service.ReSendReturnToOnec(ctx, returnId)
 	if err != nil {
-		handleResponse(c, InternalError, "Failed to send return")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
