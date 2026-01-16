@@ -462,9 +462,9 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 		return nil, domain.InternalServerError
 	}
 
-	if updates["stage"] == constants.SaleStageFinished {
-		go s.CreateProductMovementsForSale(sale)
-	}
+	// if updates["stage"] == constants.SaleStageFinished {
+	// 	go s.CreateProductMovementsForSale(sale)
+	// }
 
 	return res, nil
 }
@@ -801,9 +801,9 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 		return nil, domain.InternalServerError
 	}
 
-	if updates["stage"] == constants.SaleStageFinished {
-		go s.CreateProductMovementsForSale(sale)
-	}
+	// if updates["stage"] == constants.SaleStageFinished {
+	// 	go s.CreateProductMovementsForSale(sale)
+	// }
 
 	return res, nil
 }
