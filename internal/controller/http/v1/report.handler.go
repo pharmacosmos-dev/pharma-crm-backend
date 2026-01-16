@@ -1960,7 +1960,8 @@ func (h *ReportHandler) OstatokByDateExportExcel(c *gin.Context) {
 		} else {
 			f.SetCellValue(sheet, "D"+row, "N/A")
 		}
-		f.SetCellValue(sheet, "E"+row, math.Round(val.UnitQuantity/float64(val.UnitPerPack)))
+		value := val.UnitQuantity / float64(val.UnitPerPack)
+		f.SetCellValue(sheet, "E"+row, fmt.Sprintf("%.4f", value))
 		f.SetCellValue(sheet, "F"+row, val.SupplyPrice)
 		f.SetCellValue(sheet, "G"+row, val.RetailPrice)
 	}
