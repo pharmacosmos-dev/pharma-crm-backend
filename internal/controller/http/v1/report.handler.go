@@ -54,8 +54,8 @@ func (h *ReportHandler) ReportRoutes(r *gin.RouterGroup) {
 		report.POST("/store-summary", h.ReportStoreSummary)
 		report.POST("/store-summary-stats", h.ReportStoreSummaryStats)
 		report.POST("/store-summary/export-excel", h.StoreSummaryExportExcel)
-		report.POST("/store-products-given-day", h.StoreProductsGivenDay)
-		report.POST("/store-products-given-day/export-excel", h.StoreProductsGivenDayExportExcel)
+		report.POST("/ostatok-by-date", h.OstatokByDate)
+		report.POST("/ostatok-by-date/export-excel", h.OstatokByDateExportExcel)
 		report.POST("/discount-card", h.DiscountCardReport)
 	}
 }
@@ -1865,41 +1865,27 @@ func (h *ReportHandler) StoreSummaryExportExcel(c *gin.Context) {
 // @Tags Report
 // @Security BearerAuth
 // @Produce json
-// @Param   order       query string false "Order"
-// @Param   search      query string false "Search"
-// @Param   limit       query int false "Limit"
-// @Param   offset      query int false "Offset"
-// @Param   start_date  query string false "Start Date (YYYY-MM-DD)"
-// @Param   store_id    query string false "Store ID"
+// @Param   limit       query int    false "Limit"
+// @Param   offset      query int    false "Offset"
+// @Param   date  		query string true "date (YYYY-MM-DD)"
+// @Param   store_id    query string true "Store ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /report/store-products-given-day [POST]
-func (h *ReportHandler) StoreProductsGivenDay(c *gin.Context) {
-	user := h.service.GetSignedUser(c)
-	if user.UserId == "" {
-		handleServiceResponse(c, nil, domain.UnauthorizedError)
-		return
-	}
+// @Router /report/ostatok-by-date [POST]
+func (h *ReportHandler) OstatokByDate(c *gin.Context) {
 
-	var params domain.ReportQueryParam
+	var params domain.StoreProductGivenDayParams
 	if err := c.ShouldBindQuery(&params); err != nil {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
-
 	}
+
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(user) {
-		if user.StoreId != "" {
-			params.StoreId = user.StoreId
-		}
-		params.CompanyId = user.CompanyId
-	}
 	data, total, err := h.service.GetStoreProductsGivenDay(ctx, &params)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)
@@ -1917,47 +1903,31 @@ func (h *ReportHandler) StoreProductsGivenDay(c *gin.Context) {
 // @Tags Report
 // @Security BearerAuth
 // @Produce json
-// @Param   order       query string false "Order"
-// @Param   search      query string false "Search"
 // @Param   limit       query int    false "Limit"
 // @Param   offset      query int    false "Offset"
-// @Param   start_date  query string false "Start Date (YYYY-MM-DD)"
-// @Param   store_id    query string false "Store ID"
+// @Param   date  		query string true "date (YYYY-MM-DD)"
+// @Param   store_id    query string true "Store ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /report/store-products-given-day/export-excel [POST]
-func (h *ReportHandler) StoreProductsGivenDayExportExcel(c *gin.Context) {
-	user := h.service.GetSignedUser(c)
-	if user.UserId == "" {
-		handleServiceResponse(c, nil, domain.UnauthorizedError)
-		return
-	}
-
-	var params domain.ReportQueryParam
+// @Router /report/ostatok-by-date/export-excel [POST]
+func (h *ReportHandler) OstatokByDateExportExcel(c *gin.Context) {
+	var params domain.StoreProductGivenDayParams
 	if err := c.ShouldBindQuery(&params); err != nil {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
-
 	}
+
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(user) {
-		if user.StoreId != "" {
-			params.StoreId = user.StoreId
-		}
-		params.CompanyId = user.CompanyId
-	}
 	res, _, err := h.service.GetStoreProductsGivenDay(ctx, &params)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)
 		return
 	}
-
 	// create Excel
 	f := excelize.NewFile()
 	sheet := "Остаток по дате"
@@ -1966,22 +1936,12 @@ func (h *ReportHandler) StoreProductsGivenDayExportExcel(c *gin.Context) {
 	// headers mapping
 	headers := []string{
 		"№",
-		"Наименование товара",
-		"Аптека",
-		"Итог (упаковки)",
-		"Итог (штуки)",
-		"Текущий остаток (упаковки)",
-		"Текущий остаток (штуки)",
-		"Приход (упаковки)",
-		"Приход (штуки)",
-		"Продажа (упаковки)",
-		"Продажа (штуки)",
-		"Возврат (упаковки)",
-		"Возврат (штуки)",
-		"Перемещение (упаковки)",
-		"Перемещение (штуки)",
-		"Инвентаризация (упаковки)",
-		"Инвентаризация (штуки)",
+		"Наименование",
+		"№",
+		"Срок",
+		"Остаток",
+		"Приходная Цена",
+		"Продажная Цена",
 	}
 	if err := setExcelHeaders(f, sheet, headers); err != nil {
 		h.log.Error("Failed to set excel headers:", err)
@@ -1994,23 +1954,19 @@ func (h *ReportHandler) StoreProductsGivenDayExportExcel(c *gin.Context) {
 		row := strconv.Itoa(i + 2)
 		f.SetCellValue(sheet, "A"+row, i+1)
 		f.SetCellValue(sheet, "B"+row, val.Name)
-		f.SetCellValue(sheet, "C"+row, val.StoreName)
-		f.SetCellValue(sheet, "D"+row, val.UnitQuantity)
-		f.SetCellValue(sheet, "E"+row, val.MaterialCode)
-		f.SetCellValue(sheet, "F"+row, val.Barcode)
-		f.SetCellValue(sheet, "G"+row, val.UnitPerPack)
-		f.SetCellValue(sheet, "H"+row, val.MXIK)
-		f.SetCellValue(sheet, "I"+row, val.UnitCode)
-		f.SetCellValue(sheet, "J"+row, val.IsMarking)
-		f.SetCellValue(sheet, "K"+row, val.Manufacturer)
-		f.SetCellValue(sheet, "L"+row, val.UnitName)
-		f.SetCellValue(sheet, "M"+row, val.UnitLabel)
-		f.SetCellValue(sheet, "N"+row, val.CreatedAt)
-		f.SetCellValue(sheet, "O"+row, val.UpdatedAt)
+		f.SetCellValue(sheet, "C"+row, val.UnitPerPack)
+		if val.ExpireDate != nil {
+			f.SetCellValue(sheet, "D"+row, val.ExpireDate.Format(time.DateTime))
+		} else {
+			f.SetCellValue(sheet, "D"+row, "N/A")
+		}
+		f.SetCellValue(sheet, "E"+row, math.Round(val.UnitQuantity/float64(val.UnitPerPack)))
+		f.SetCellValue(sheet, "F"+row, val.SupplyPrice)
+		f.SetCellValue(sheet, "G"+row, val.RetailPrice)
 	}
 
 	// save to /uploads
-	saveExcelToUploads(c, f, *h.log, "Остаток по дате")
+	saveExcelToUploads(c, f, *h.log, "Остаток_по_дате")
 }
 
 // Discount card report godoc

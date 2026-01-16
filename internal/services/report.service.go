@@ -1353,282 +1353,159 @@ func (s *Services) GetStoreSummaryReportStats(ctx context.Context, params *domai
 	return res, nil
 }
 
-func (s *Services) GetStoreProductsGivenDay(ctx context.Context, params *domain.ReportQueryParam) ([]domain.StoreProductsReport, int64, error) {
-	var (
-		res       []domain.StoreProductsReport
-		args      []any
-		countArgs []any
-		total     int64
-		err       error
-	)
-
-	startTime, err := time.Parse(time.RFC3339, params.StartDate)
-	if err != nil {
-		s.log.Error("Invalid start_date format: %v", err)
-		return nil, 0, err
-	}
-	params.StartDate = startTime.Format(time.RFC3339)
-
-	// Count total products for store
-	countQuery := `
-SELECT
-     count(sp.product_id)
- FROM store_products sp
-    JOIN products p ON p.id = sp.product_id
-    JOIN stores st ON st.id = sp.store_id
- WHERE 1 = 1
-    `
-	if params.Search != "" {
-		countQuery += " AND p.name ILIKE ?"
-		countArgs = append(countArgs, "%"+params.Search+"%")
-	}
-
-	if params.CompanyId != "" {
-		countQuery += " and sp.company_id = ? "
-		countArgs = append(countArgs, params.CompanyId)
-	}
-
-	if params.StoreId != "" {
-		countQuery += " and sp.store_id = ? "
-		countArgs = append(countArgs, params.StoreId)
-	}
-
-	if err = s.db.Raw(countQuery, countArgs...).Scan(&total).Error; err != nil {
-		s.log.Error("Failed to count store products: ", err)
-		return nil, 0, err
+func (s *Services) GetStoreProductsGivenDay(ctx context.Context, params *domain.StoreProductGivenDayParams) ([]domain.OstatokForDate, int64, error) {
+	args := []any{
+		params.StoreId, params.Date,
+		params.StoreId, params.Date,
+		params.StoreId, params.Date,
+		params.StoreId, params.Date,
+		params.StoreId, params.Date,
+		params.StoreId, params.Date,
+		params.StoreId, params.Date,
+		params.StoreId,
 	}
 
 	// Main backward stock query
 	query := `
-WITH vars AS (
-    SELECT ?::timestamp AS target_date
-),
-
- -- 1. Base stock
- base_stock AS (
-     SELECT
-         sp.product_id,
-         sp.store_id,
-         st.name AS store_name,
-         SUM(sp.unit_quantity) AS unit_quantity,
-
-         p.material_code,
-         p.name,
-         p.barcode,
-         p.photos,
-         p.unit_per_pack,
-         p.mxik,
-         p.is_marking,
-         p.unit_code,
-         p.unit_label,
-         p.created_at,
-         p.updated_at,
-         st.company_id,
-
-         pr.name as manufacturer,
-         ut.unit_name
-     FROM store_products sp
-     JOIN products p ON p.id = sp.product_id
-     JOIN stores st ON st.id = sp.store_id
-     left join producers as pr on pr.id = p.producer_id
-     left join unit_types as ut on p.unit_type_id = ut.id
-     WHERE 1 = 1 %s
-     GROUP BY sp.product_id, sp.store_id, st.name, p.material_code, p.name, p.barcode, p.photos,
-          p.unit_per_pack, p.mxik, p.is_marking, p.unit_code, p.unit_label, p.created_at,
-          p.updated_at, st.company_id, pr.name, ut.unit_name
- ),
-
- -- 2. Future imports
- future_imports AS (
-     SELECT
-         imd.product_id,
-         COALESCE(SUM(imd.accepted_count),0) AS unit_quantity
-     FROM imports im
-     JOIN import_details imd ON im.id = imd.import_id
-     JOIN base_stock p ON p.product_id = imd.product_id
-     left join stores as s on s.id = im.store_id
-     WHERE 1=1 %s
-       AND im.entry_type = 1
-       AND im.status = 'completed'
-       AND (im.import_date + interval '5 hours') > (SELECT target_date FROM vars)
-     GROUP BY imd.product_id
- ),
-
- -- 3. Future sales
- future_sales AS (
-     SELECT
-         sp.product_id,
-         COALESCE(SUM(ci.unit_quantity),0)  AS unit_quantity
-     FROM sales s
-     JOIN cart_items ci ON ci.sale_id = s.id
-     JOIN store_products sp ON sp.id = ci.store_product_id
-     JOIN base_stock p ON p.product_id = sp.product_id
-     WHERE 1=1 %s
-       AND s.stage IN(9, 11)
-       AND s.sale_type = 'SALE'
-       AND (s.completed_at + interval '5 hours') > (SELECT target_date FROM vars)
-     GROUP BY sp.product_id, p.unit_per_pack
- ),
-
- -- 4. Future returns
- future_returns AS (
-     SELECT
-         sp.product_id,
-         COALESCE(SUM(ci.unit_quantity),0)  AS unit_quantity
-     FROM sales s
-     JOIN cart_items ci ON ci.sale_id = s.id
-     JOIN store_products sp ON sp.id = ci.store_product_id
-     JOIN base_stock p ON p.product_id = sp.product_id
-     WHERE 1 = 1 %s
-       AND s.stage IN(9, 11)
-       AND s.sale_type = 'RETURN'
-       AND (s.completed_at + interval '5 hours') > (SELECT target_date FROM vars)
-     GROUP BY sp.product_id, p.unit_per_pack
- ),
-
- -- 5. Future transfers
- future_transfers AS (
-     SELECT
-         td.product_id,
-         SUM(
-				CASE
-					WHEN 1 = 1 %s
-						THEN td.accepted_count
-					WHEN 1 = 1 %s
-                         THEN -td.accepted_count
-					ELSE 0
-				END
-         ) AS unit_quantity
-     FROM transfers t
-     JOIN transfer_details td ON t.id = td.transfer_id
-     left join stores as fs on fs.id = t.from_store_id
-     left join stores as ts on ts.id = t.to_store_id
-     JOIN base_stock p ON p.product_id = td.product_id
-     WHERE 1 = 1 %s
-       AND t.status IN ('completed','sent_to_1c')
-       AND (t.created_at + interval '5 hours') > (SELECT target_date FROM vars)
-     GROUP BY td.product_id
- ),
-
- -- 6. Future inventory
- future_inventory AS (
-     SELECT
-         imd.product_id,
-         coalesce(sum(imd.received_count-imd.scanned_count), 0)  AS unit_quantity
-     FROM imports im
-     JOIN import_details imd ON im.id = imd.import_id
-	 left join stores as s on s.id = im.store_id
-     JOIN base_stock p ON p.product_id = imd.product_id
-     WHERE 1 = 1 %s
-       AND im.entry_type = 2
-       AND im.status = 'completed'
-       AND (im.import_date + interval '5 hours') > (SELECT target_date FROM vars)
-     GROUP BY imd.product_id, p.unit_per_pack
- )
-
--- Final calculation
-SELECT
-    b.product_id as id,
-    b.store_id,
-    b.store_name,
-    b.name,
-
-    b.unit_quantity
-    - COALESCE(fi.unit_quantity,0)
-    + COALESCE(fs.unit_quantity,0)
-    - COALESCE(fr.unit_quantity,0)
-    + COALESCE(ft.unit_quantity,0)
-    + COALESCE(finv.unit_quantity,0)
-    AS unit_quantity,
-
-    b.material_code,
-    b.name,
-    b.barcode,
-    b.photos,
-    b.unit_per_pack,
-    b.mxik,
-    b.is_marking,
-    b.unit_code,
-    b.unit_label,
-    b.created_at,
-    b.updated_at,
-    b.manufacturer,
-    b.unit_name
-FROM base_stock b
-LEFT JOIN future_imports fi ON fi.product_id = b.product_id
-LEFT JOIN future_sales fs ON fs.product_id = b.product_id
-LEFT JOIN future_returns fr ON fr.product_id = b.product_id
-LEFT JOIN future_transfers ft ON ft.product_id = b.product_id
-LEFT JOIN future_inventory finv ON finv.product_id = b.product_id
+	WITH import_data AS (
+			SELECT
+				p.id AS product_id,
+				SUM(imd.scanned_count * p.unit_per_pack) import_quantity
+			FROM import_details imd
+			JOIN products p ON imd.product_id = p.id
+			JOIN imports im ON imd.import_id = im.id
+			WHERE im.entry_type = 1
+			AND im.status = 'completed'
+			AND im.store_id = ?
+			AND im.created_at >= ?
+			GROUP BY p.id
+		),
+		sale_data AS (
+			SELECT
+				p.id AS product_id,
+				SUM(ci.unit_quantity) AS sold_quantity
+			FROM cart_items ci
+			JOIN store_products sp ON ci.store_product_id = sp.id
+			JOIN products p ON sp.product_id = p.id
+			JOIN sales s ON ci.sale_id = s.id
+			WHERE s.stage = 9
+			AND s.store_id = ?
+			AND s.completed_at >= ?
+			GROUP BY p.id
+		),
+		return_data AS (
+			SELECT
+				p.id AS product_id,
+				SUM(ci.unit_quantity) AS return_quantity
+			FROM cart_items ci
+			JOIN store_products sp ON ci.store_product_id = sp.id
+			JOIN products p ON sp.product_id = p.id
+			JOIN sales s ON ci.sale_id = s.id
+			WHERE s.stage = 11
+			AND s.store_id = ?
+			AND s.completed_at >= ?
+			GROUP BY p.id
+		),
+		vozvrat_data AS (
+			SELECT
+				p.id AS product_id,
+				SUM(td.accepted_count * p.unit_per_pack) AS vozvrat_quantity
+			FROM transfer_details td
+			JOIN transfers tr ON td.transfer_id = tr.id
+			JOIN products p ON td.product_id = p.id
+			WHERE tr.entry_type = 2
+			AND tr.status IN('sent-to-1c', 'completed')
+			AND tr.from_store_id = ?
+			AND tr.created_at >= ?
+			GROUP BY p.id
+		),
+		transfer_in AS (
+			SELECT
+				p.id AS product_id,
+				SUM(td.accepted_count * p.unit_per_pack) AS transfer_in_quantity
+			FROM transfer_details td
+			JOIN transfers tr ON td.transfer_id = tr.id
+			JOIN products p ON td.product_id = p.id
+			WHERE tr.entry_type = 1
+			AND tr.status = 'completed'
+			AND tr.to_store_id = ?
+			AND tr.created_at >= ?
+			GROUP BY p.id
+		),
+		transfer_out AS (
+			SELECT
+				p.id AS product_id,
+				SUM(td.accepted_count * p.unit_per_pack) AS transfer_out_quantity
+			FROM transfer_details td
+			JOIN transfers tr ON td.transfer_id = tr.id
+			JOIN products p ON td.product_id = p.id
+			WHERE tr.entry_type = 1
+			AND tr.status = 'completed'
+			AND tr.from_store_id = ?
+			AND tr.created_at >= ?
+			GROUP BY p.id
+		),
+		inventory_data AS (
+			SELECT
+				p.id AS product_id,
+				SUM(imd.scanned_count - imd.received_count) AS inventory_quantity
+			FROM import_details imd
+			JOIN products p ON imd.product_id = p.id
+			JOIN imports im ON imd.import_id = im.id
+			WHERE im.entry_type = 2
+			AND im.status = 'completed'
+			AND im.store_id = ?
+			AND im.updated_at >= ?
+			GROUP BY p.id
+			),
+		ostatok AS (
+			SELECT
+				p.id AS product_id,
+				SUM(sp.unit_quantity) AS ostatok,
+				MAX(sp.expire_date) AS expire_date,
+				MAX(sp.supply_price) AS supply_price,
+				MAX(sp.retail_price) AS retail_price
+			FROM store_products sp
+			JOIN products p ON sp.product_id = p.id
+			WHERE sp.store_id = ?
+			GROUP BY p.id
+		)
+	SELECT
+		p.id            AS product_id,
+		p.name          AS name,
+		p.unit_per_pack AS unit_per_pack,
+		os.expire_date  AS expire_date,
+		os.supply_price AS supply_price,
+		os.retail_price AS retail_price,
+		os.ostatok - COALESCE(im.import_quantity, 0) +
+		COALESCE(sd.sold_quantity, 0) -
+		COALESCE(rd.return_quantity, 0) +
+		COALESCE(vd.vozvrat_quantity, 0) -
+		COALESCE(ti.transfer_in_quantity, 0) +
+		COALESCE(tro.transfer_out_quantity, 0) +
+		COALESCE(ind.inventory_quantity, 0) AS unit_quantity
+	FROM products p
+	JOIN ostatok os ON os.product_id = p.id
+	LEFT JOIN import_data im ON im.product_id = p.id
+	LEFT JOIN sale_data sd ON sd.product_id = p.id
+	LEFT JOIN return_data rd ON rd.product_id = p.id
+	LEFT JOIN vozvrat_data vd ON vd.product_id = p.id
+	LEFT JOIN transfer_in ti ON ti.product_id = p.id
+	LEFT JOIN transfer_out tro ON tro.product_id = p.id
+	LEFT JOIN inventory_data ind ON ind.product_id = p.id
 	`
 
-	// args
-	args = append(args, params.StartDate)
-
-	// Filters
-	var (
-		whereClauseBaseStock           string
-		whereClauseFutureImport        string
-		whereClauseFutureSale          string
-		whereClauseFutureReturn        string
-		whereClauseFutureStansferWhen1 string
-		whereClauseFutureStansferWhen2 string
-		whereClauseFutureStansfer      string
-		whereClauseInventory           string
-	)
-	if params.Search != "" {
-		whereClauseBaseStock += fmt.Sprintf(" AND p.name ILIKE '%s' ", "%"+params.Search+"%")
-	}
-
-	if params.CompanyId != "" {
-		whereClauseBaseStock += fmt.Sprintf(" and sp.company_id = '%s' ", params.CompanyId)
-		whereClauseFutureImport += fmt.Sprintf(" and s.company_id = '%s' ", params.CompanyId)
-		whereClauseFutureSale += fmt.Sprintf(" and sp.company_id = '%s' ", params.CompanyId)
-		whereClauseFutureReturn += fmt.Sprintf(" and sp.company_id = '%s' ", params.CompanyId)
-		whereClauseFutureStansfer += fmt.Sprintf(" and (ts.company_id = '%s' or fs.company_id = '%s')", params.CompanyId, params.CompanyId)
-		whereClauseInventory += fmt.Sprintf(" and s.company_id = '%s' ", params.CompanyId)
-	}
-
-	if params.StoreId != "" {
-		whereClauseBaseStock += fmt.Sprintf(" and sp.store_id = '%s' ", params.StoreId)
-		whereClauseFutureImport += fmt.Sprintf(" and im.store_id = '%s' ", params.StoreId)
-		whereClauseFutureSale += fmt.Sprintf(" and s.store_id = '%s' ", params.StoreId)
-		whereClauseFutureReturn += fmt.Sprintf(" and s.store_id = '%s' ", params.StoreId)
-		whereClauseFutureStansfer += fmt.Sprintf(" and (t.from_store_id = '%s' OR t.to_store_id = '%s')", params.StoreId, params.StoreId)
-		whereClauseFutureStansferWhen1 += fmt.Sprintf(" and t.from_store_id = '%s' ", params.StoreId)
-		whereClauseFutureStansferWhen2 += fmt.Sprintf(" and t.to_store_id = '%s' ", params.StoreId)
-		whereClauseInventory += fmt.Sprintf(" and im.store_id = '%s' ", params.StoreId)
-	}
-	query = fmt.Sprintf(query,
-		whereClauseBaseStock,
-		whereClauseFutureImport,
-		whereClauseFutureSale,
-		whereClauseFutureReturn,
-		whereClauseFutureStansferWhen1,
-		whereClauseFutureStansferWhen2,
-		whereClauseFutureStansfer,
-		whereClauseInventory,
-	)
-
-	// Order, Limit, Offset
-	query += utils.BuildProductOrderClause(params.Order)
-
-	if params.Limit > 0 {
-		query += " LIMIT ?"
-		args = append(args, params.Limit)
-	}
-	if params.Offset > 0 {
-		query += " OFFSET ?"
-		args = append(args, params.Offset)
-	}
+	query += " LIMIT ? OFFSET ?;"
+	args = append(args, params.Limit, params.Offset)
 
 	// Execute query
-	if err = s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error; err != nil {
+	var res []domain.OstatokForDate
+	if err := s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error; err != nil {
 		s.log.Errorf("could not get store products given day: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
 
-	return res, total, nil
+	return res, int64(len(res)), nil
 }
 
 func (s *Services) GetDiscountCardReport(ctx context.Context, params *domain.ReportQueryParam) ([]domain.DiscountCardReport, int64, error) {

@@ -241,6 +241,18 @@ const (
 	RoleHeadOfCashier = "HEADOFCASHIER"
 )
 
+// movement type
+const (
+	MovementTypeImport         = "IMPORT"
+	MovementTypeSale           = "SALE"
+	MovementTypeReturnSale     = "RETURN_SALE"
+	MovementTypeReturnSupplier = "RETURN_SUPPLIER"
+	MovementTypeTransferOut    = "TRANSFER_OUT"
+	MovementTypeTransferIn     = "TRANSFER_IN"
+	MovementTypeInventory      = "INVENTORY"
+	MovementTypeRepricing      = "REPRICING"
+)
+
 // end region
 
 // region Payme

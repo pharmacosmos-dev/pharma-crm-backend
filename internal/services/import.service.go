@@ -53,7 +53,7 @@ func (s *Services) AcceptImport(ctx context.Context, importId string, userId str
 	}()
 
 	var res domain.Import
-	err := tx.WithContext(ctx).First(&res, "id = ?", importId).Error
+	err := tx.WithContext(ctx).Take(&res, "id = ?", importId).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return domain.NotFoundError

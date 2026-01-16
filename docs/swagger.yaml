@@ -993,6 +993,8 @@ definitions:
     type: object
   domain.OnlineOrderRequest:
     properties:
+      client_comment:
+        type: string
       client_info:
         $ref: '#/definitions/domain.NoorClientInfo'
       delivery_time:
@@ -12617,6 +12619,90 @@ paths:
       summary: Get employee bonus report
       tags:
       - Report
+  /report/ostatok-by-date:
+    post:
+      description: Get Store Products Given Day
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: date (YYYY-MM-DD)
+        in: query
+        name: date
+        required: true
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Store Products Given Day
+      tags:
+      - Report
+  /report/ostatok-by-date/export-excel:
+    post:
+      description: Export Store Products Given Day to Excel
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: date (YYYY-MM-DD)
+        in: query
+        name: date
+        required: true
+        type: string
+      - description: Store ID
+        in: query
+        name: store_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Export Store Products Given Day to Excel
+      tags:
+      - Report
   /report/product:
     post:
       consumes:
@@ -13032,102 +13118,6 @@ paths:
       security:
       - BearerAuth: []
       summary: Get Store report Amount
-      tags:
-      - Report
-  /report/store-products-given-day:
-    post:
-      description: Get Store Products Given Day
-      parameters:
-      - description: Order
-        in: query
-        name: order
-        type: string
-      - description: Search
-        in: query
-        name: search
-        type: string
-      - description: Limit
-        in: query
-        name: limit
-        type: integer
-      - description: Offset
-        in: query
-        name: offset
-        type: integer
-      - description: Start Date (YYYY-MM-DD)
-        in: query
-        name: start_date
-        type: string
-      - description: Store ID
-        in: query
-        name: store_id
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Get Store Products Given Day
-      tags:
-      - Report
-  /report/store-products-given-day/export-excel:
-    post:
-      description: Export Store Products Given Day to Excel
-      parameters:
-      - description: Order
-        in: query
-        name: order
-        type: string
-      - description: Search
-        in: query
-        name: search
-        type: string
-      - description: Limit
-        in: query
-        name: limit
-        type: integer
-      - description: Offset
-        in: query
-        name: offset
-        type: integer
-      - description: Start Date (YYYY-MM-DD)
-        in: query
-        name: start_date
-        type: string
-      - description: Store ID
-        in: query
-        name: store_id
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Export Store Products Given Day to Excel
       tags:
       - Report
   /report/store-stats:
@@ -14621,7 +14611,7 @@ paths:
     post:
       consumes:
       - application/json
-      description: Send Return to 1C
+      description: ReSend Return to 1C
       parameters:
       - description: Return ID
         in: path
@@ -14645,7 +14635,7 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Send Return to 1C
+      summary: ReSend Return to 1C
       tags:
       - Return
   /return/update-by-barcode/{id}:

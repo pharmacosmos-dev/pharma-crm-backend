@@ -65,13 +65,13 @@ func (s *Services) CreateImportFromOnec(ctx context.Context, req *domain.CreateO
 func (s *Services) getCompanyForCheckFranchise(ctx context.Context, isFranchise bool) (*domain.Company, error) {
 	var company domain.Company
 	if isFranchise {
-		err := s.db.WithContext(ctx).First(&company, "name ilike ?", "%"+constants.PharmaCosmos+"%").Error // todo 1c given companyName
+		err := s.db.WithContext(ctx).Take(&company, "name ilike ?", "%"+constants.PharmaCosmos+"%").Error // todo 1c given companyName
 		if err != nil {
 			s.log.Errorf("could not get company for check franchise: %v", err)
 			return nil, domain.InternalServerError
 		}
 	} else {
-		err := s.db.WithContext(ctx).First(&company, "name ilike ?", "%"+constants.PharmaCosmos+"%").Error
+		err := s.db.WithContext(ctx).Take(&company, "name ilike ?", "%"+constants.PharmaCosmos+"%").Error
 		if err != nil {
 			s.log.Errorf("could not get company for check franchise: %v", err)
 			return nil, domain.InternalServerError
@@ -102,7 +102,7 @@ func (s *Services) createNewImportOnImportingOnec(ctx context.Context, tx *gorm.
 	var importId string
 	// create new import
 	query := `INSERT INTO imports(store_id, status, import_date, document_number) VALUES(?, ?, ?, ?) RETURNING id;`
-	err := tx.WithContext(ctx).Debug().Raw(query, req.StoreID, constants.GeneralStatusNew, time.Now(), req.DocumentNumber).Scan(&importId).Error
+	err := tx.WithContext(ctx).Raw(query, req.StoreID, constants.GeneralStatusNew, time.Now(), req.DocumentNumber).Scan(&importId).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrDuplicatedKey) || strings.Contains(err.Error(), "unique constraint") {
 			s.log.Errorf("duplicate document_number: %v", err)

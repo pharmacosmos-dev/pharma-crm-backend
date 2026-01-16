@@ -462,6 +462,10 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 		return nil, domain.InternalServerError
 	}
 
+	if updates["stage"] == constants.SaleStageFinished {
+		go s.CreateProductMovementsForSale(sale)
+	}
+
 	return res, nil
 }
 
@@ -797,6 +801,10 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 		return nil, domain.InternalServerError
 	}
 
+	if updates["stage"] == constants.SaleStageFinished {
+		go s.CreateProductMovementsForSale(sale)
+	}
+
 	return res, nil
 }
 
@@ -1109,16 +1117,14 @@ func (s *Services) AddSaleBonuses(sale *domain.Sale, req []domain.CartItemWithPr
 			return
 		}
 	}
-	fmt.Println("CustomerId", sale.CustomerId)
-
 	// add cashback to customer balance
 	if sale.CashBack > 0 || loyaltyCardBarcode != "" {
 		err := s.db.Exec(`
-UPDATE
-    customers
-SET
-    balance = balance + (SELECT (COALESCE(SUM(total_price) - SUM(discount_amount), 0)::numeric / 100 * ?) FROM cart_items WHERE sale_id = ?)
-WHERE id = ?`, sale.Customer.LoyaltyCardPercent, sale.Id, sale.CustomerId).Error
+		UPDATE
+			customers
+		SET
+			balance = balance + (SELECT (COALESCE(SUM(total_price) - SUM(discount_amount), 0)::numeric / 100 * ?) FROM cart_items WHERE sale_id = ?)
+		WHERE id = ?`, sale.Customer.LoyaltyCardPercent, sale.Id, sale.CustomerId).Error
 		if err != nil {
 			s.log.Errorf("could not update customer balance: %v", err)
 			return
@@ -1128,12 +1134,12 @@ WHERE id = ?`, sale.Customer.LoyaltyCardPercent, sale.Id, sale.CustomerId).Error
 	// deduct from loyalty card balance
 	if sale.LoyaltyCard > 0 && sale.CustomerId != "" {
 		err := s.db.Exec(`
-UPDATE
-	customers
-SET
-	balance = balance - ?,
-	spending_from_balance = spending_from_balance + ?
-WHERE id = ?`, sale.LoyaltyCard, sale.LoyaltyCard, sale.CustomerId).Error
+		UPDATE
+			customers
+		SET
+			balance = balance - ?,
+			spending_from_balance = spending_from_balance + ?
+		WHERE id = ?`, sale.LoyaltyCard, sale.LoyaltyCard, sale.CustomerId).Error
 		if err != nil {
 			s.log.Errorf("could not deduct from customer balance: %v", err)
 			return
