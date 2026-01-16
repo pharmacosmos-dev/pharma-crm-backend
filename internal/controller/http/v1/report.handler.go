@@ -1869,12 +1869,12 @@ func (h *ReportHandler) StoreSummaryExportExcel(c *gin.Context) {
 // @Param   offset      query int    false "Offset"
 // @Param   date  		query string true "date (YYYY-MM-DD)"
 // @Param   store_id    query string true "Store ID"
+// @Param	search 		query string false "Search"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /report/ostatok-by-date [POST]
 func (h *ReportHandler) OstatokByDate(c *gin.Context) {
-
 	var params domain.StoreProductGivenDayParams
 	if err := c.ShouldBindQuery(&params); err != nil {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)

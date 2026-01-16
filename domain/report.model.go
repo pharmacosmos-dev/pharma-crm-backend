@@ -206,6 +206,7 @@ type DiscountCardReport struct {
 type StoreProductGivenDayParams struct {
 	Date    string `form:"date"`
 	StoreId string `form:"store_id"`
+	Search  string `form:"search"`
 	Limit   int    `form:"limit"`
 	Offset  int    `form:"offset"`
 }

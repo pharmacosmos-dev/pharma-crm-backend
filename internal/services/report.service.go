@@ -1494,6 +1494,10 @@ func (s *Services) GetStoreProductsGivenDay(ctx context.Context, params *domain.
 	LEFT JOIN transfer_out tro ON tro.product_id = p.id
 	LEFT JOIN inventory_data ind ON ind.product_id = p.id
 	`
+	if params.Search != "" {
+		query += " WHERE p.name ILIKE ?"
+		args = append(args, "%" + params.Search + "%")
+	}
 
 	query += " LIMIT ? OFFSET ?;"
 	args = append(args, params.Limit, params.Offset)
