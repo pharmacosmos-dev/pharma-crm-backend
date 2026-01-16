@@ -26,4 +26,4 @@ ALTER TABLE
         ADD COLUMN "loyalty_card_level_id" UUID REFERENCES "loyalty_card_levels"("id"),
         ADD COLUMN "loyalty_card_type" VARCHAR,
         ADD COLUMN "loyalty_card_created_by" UUID REFERENCES "employees"("id"),
-        ADD COLUMN "telegram_chat_id" INT UNIQUE;
+        ADD COLUMN "telegram_chat_id" BIGINT UNIQUE;
