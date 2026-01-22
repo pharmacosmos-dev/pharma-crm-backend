@@ -525,6 +525,10 @@ func (s *Services) UpdateCustomer(ctx context.Context, req *domain.CustomerReque
 		loyaltyCardShouldCreate = false
 	}
 
+	if req.LoyaltyCardBarcode == &existingCustomer.LoyaltyCardBarcode {
+		return nil, domain.DuplicateLoyaltyCardError
+	}
+
 	// generate virtual loyalty card
 	if req.VirtualLoyaltyCardNeeded && loyaltyCardShouldCreate {
 		loyaltyCardBarcode = sql.NullString{String: utils.GenerateBarcode(), Valid: true}
@@ -611,6 +615,20 @@ func (s *Services) UpdateCustomer(ctx context.Context, req *domain.CustomerReque
 			req.Id,
 		).Scan(&res).Error
 	if err != nil {
+		var pgErr *pgconn.PgError
+		// Try to unwrap GORM's error wrapper
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			_ = tx.Rollback()
+			return &res, domain.DuplicatePhoneError
+		}
+
+		// Alternative: Check error string as fallback
+		if strings.Contains(err.Error(), "23505") ||
+			strings.Contains(err.Error(), "duplicate key") {
+			_ = tx.Rollback()
+			return &res, domain.DuplicatePhoneError
+		}
+
 		s.log.Errorf("could not update customer: %v", err)
 		_ = tx.Rollback()
 		return &res, domain.InternalServerError
