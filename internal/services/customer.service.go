@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
@@ -35,6 +36,13 @@ func (s *Services) CreateCustomer(ctx context.Context, req *domain.CustomerReque
 		loyaltyCardType = sql.NullString{String: "virtual", Valid: true}
 		loyaltyCardCreatedAt = sql.NullTime{Time: time.Now(), Valid: true}
 	} else if *req.LoyaltyCardBarcode != "" {
+		var count int64
+		if err := s.db.WithContext(ctx).Count(&count).Error; err != nil {
+			return &res, fmt.Errorf("error on checking loyalty card barcode: %s", err.Error())
+		}
+		if count > 0 {
+			return &res, domain.DuplicateLoyaltyCardError
+		}
 		loyaltyCardBarcode = sql.NullString{String: *req.LoyaltyCardBarcode, Valid: true}
 		loyaltyCardType = sql.NullString{String: "physical", Valid: true}
 		loyaltyCardCreatedAt = sql.NullTime{Time: time.Now(), Valid: true}
@@ -114,6 +122,12 @@ func (s *Services) CreateCustomer(ctx context.Context, req *domain.CustomerReque
 			loyaltyCardCreatedAt,
 		).Scan(&res).Error
 	if err != nil {
+		// Check for UNIQUE violation
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) && pqErr.Code == "23505" {
+			_ = tx.Rollback()
+			return &res, domain.DuplicatePhoneError // custom error
+		}
 		s.log.Errorf("could not create customer: %v", err)
 		_ = tx.Rollback()
 		return &res, domain.InternalServerError

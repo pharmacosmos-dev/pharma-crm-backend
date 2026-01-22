@@ -60,6 +60,8 @@ var (
 	AlreadyUpdatedError        = NewError(http.StatusConflict, "already.updated")
 	NoOpenCashboxError         = NewError(http.StatusConflict, "no.open.cashbox")
 	AlreadyAcceptedError       = NewError(http.StatusConflict, "already.accepted")
+	DuplicatePhoneError        = NewError(http.StatusConflict, "duplicate.phone.error")
+	DuplicateLoyaltyCardError  = NewError(http.StatusConflict, "duplicate.loyalty.card.error")
 
 	// 424 – Failed Dependency (tashqi tizimga bog‘liq xatolik)
 	DependencyFailedError    = NewError(http.StatusFailedDependency, "dependency.failed")
