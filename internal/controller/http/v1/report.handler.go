@@ -1951,6 +1951,12 @@ func (h *ReportHandler) OstatokByDateExportExcel(c *gin.Context) {
 		return
 	}
 
+	styleID, err := f.NewStyle(&excelize.Style{
+		CustomNumFmt: &[]string{"0.0000"}[0],
+	})
+	if err != nil {
+		panic(err)
+	}
 	// fill rows
 	for i, val := range res {
 		row := strconv.Itoa(i + 2)
@@ -1963,7 +1969,8 @@ func (h *ReportHandler) OstatokByDateExportExcel(c *gin.Context) {
 			f.SetCellValue(sheet, "D"+row, "N/A")
 		}
 		value := val.UnitQuantity / float64(val.UnitPerPack)
-		f.SetCellValue(sheet, "E"+row, fmt.Sprintf("%.4f", value))
+		f.SetCellValue(sheet, "E"+row, value)
+		f.SetCellStyle(sheet, "E"+row, "E"+row, styleID)
 		f.SetCellValue(sheet, "F"+row, val.SupplyPrice)
 		f.SetCellValue(sheet, "G"+row, val.MinSupplyPrice)
 		f.SetCellValue(sheet, "H"+row, val.RetailPrice)
