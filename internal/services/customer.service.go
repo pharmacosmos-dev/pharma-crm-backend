@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -123,12 +124,17 @@ func (s *Services) CreateCustomer(ctx context.Context, req *domain.CustomerReque
 		).Scan(&res).Error
 	if err != nil {
 		var pgErr *pgconn.PgError
-		if errors.As(err, &pgErr) {
-			// 23505 = unique_violation
-			if pgErr.Code == "23505" {
-				_ = tx.Rollback()
-				return &res, domain.DuplicatePhoneError
-			}
+		// Try to unwrap GORM's error wrapper
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			_ = tx.Rollback()
+			return &res, domain.DuplicatePhoneError
+		}
+
+		// Alternative: Check error string as fallback
+		if strings.Contains(err.Error(), "23505") ||
+			strings.Contains(err.Error(), "duplicate key") {
+			_ = tx.Rollback()
+			return &res, domain.DuplicatePhoneError
 		}
 
 		s.log.Errorf("could not create customer: %v", err)
