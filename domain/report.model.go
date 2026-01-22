@@ -212,11 +212,13 @@ type StoreProductGivenDayParams struct {
 }
 
 type OstatokForDate struct {
-	ProductId    string     `gorm:"product_id" json:"product_id"`
-	Name         string     `gorm:"name" json:"name"`
-	UnitPerPack  int        `gorm:"unit_per_pack" json:"unit_per_pack"`
-	ExpireDate   *time.Time `gorm:"expire_date" json:"expire_date"`
-	SupplyPrice  float64    `gorm:"supply_price" json:"supply_price"`
-	RetailPrice  float64    `gorm:"retail_price" json:"retail_price"`
-	UnitQuantity float64    `gorm:"unit_quantity" json:"unit_quantity"`
+	ProductId      string     `gorm:"product_id" json:"product_id"`
+	Name           string     `gorm:"name" json:"name"`
+	UnitPerPack    int        `gorm:"unit_per_pack" json:"unit_per_pack"`
+	ExpireDate     *time.Time `gorm:"expire_date" json:"expire_date"`
+	SupplyPrice    float64    `gorm:"supply_price" json:"supply_price"`
+	MinSupplyPrice float64    `gorm:"min_supply_price" json:"min_supply_price"`
+	RetailPrice    float64    `gorm:"retail_price" json:"retail_price"`
+	MinRetailPrice float64    `gorm:"min_retail_price" json:"min_retail_price"`
+	UnitQuantity   float64    `gorm:"unit_quantity" json:"unit_quantity"`
 }

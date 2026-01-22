@@ -1941,7 +1941,9 @@ func (h *ReportHandler) OstatokByDateExportExcel(c *gin.Context) {
 		"Срок",
 		"Остаток",
 		"Приходная Цена",
+		"Мин. Приходная Цена",
 		"Продажная Цена",
+		"Мин. Продажная Цена",
 	}
 	if err := setExcelHeaders(f, sheet, headers); err != nil {
 		h.log.Error("Failed to set excel headers:", err)
@@ -1963,7 +1965,9 @@ func (h *ReportHandler) OstatokByDateExportExcel(c *gin.Context) {
 		value := val.UnitQuantity / float64(val.UnitPerPack)
 		f.SetCellValue(sheet, "E"+row, fmt.Sprintf("%.4f", value))
 		f.SetCellValue(sheet, "F"+row, val.SupplyPrice)
-		f.SetCellValue(sheet, "G"+row, val.RetailPrice)
+		f.SetCellValue(sheet, "G"+row, val.MinSupplyPrice)
+		f.SetCellValue(sheet, "H"+row, val.RetailPrice)
+		f.SetCellValue(sheet, "I"+row, val.MinRetailPrice)
 	}
 
 	// save to /uploads

@@ -1464,7 +1464,9 @@ func (s *Services) GetStoreProductsGivenDay(ctx context.Context, params *domain.
 				SUM(sp.unit_quantity) AS ostatok,
 				MAX(sp.expire_date) AS expire_date,
 				MAX(sp.supply_price) AS supply_price,
-				MAX(sp.retail_price) AS retail_price
+				MIN(sp.supply_price) AS min_supply_price,
+				MAX(sp.retail_price) AS retail_price,
+				MIN(sp.retail_price) AS min_retail_price
 			FROM store_products sp
 			JOIN products p ON sp.product_id = p.id
 			WHERE sp.store_id = ?
@@ -1476,7 +1478,9 @@ func (s *Services) GetStoreProductsGivenDay(ctx context.Context, params *domain.
 		p.unit_per_pack AS unit_per_pack,
 		os.expire_date  AS expire_date,
 		os.supply_price AS supply_price,
+		os.min_supply_price AS min_supply_price,
 		os.retail_price AS retail_price,
+		os.min_retail_price AS min_retail_price,
 		os.ostatok - COALESCE(im.import_quantity, 0) +
 		COALESCE(sd.sold_quantity, 0) -
 		COALESCE(rd.return_quantity, 0) +
