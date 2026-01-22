@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
@@ -122,13 +121,9 @@ func (s *Services) CreateCustomer(ctx context.Context, req *domain.CustomerReque
 			loyaltyCardCreatedAt,
 		).Scan(&res).Error
 	if err != nil {
-		// Check for PostgreSQL unique violation
-		var pqErr *pq.Error
-		if errors.As(err, &pqErr) {
-			if pqErr.Code == "23505" { // unique violation
-				_ = tx.Rollback()
-				return &res, domain.DuplicatePhoneError
-			}
+		if errors.Is(err, gorm.ErrDuplicatedKey) {
+			_ = tx.Rollback()
+			return &res, domain.DuplicatePhoneError
 		}
 		s.log.Errorf("could not create customer: %v", err)
 		_ = tx.Rollback()

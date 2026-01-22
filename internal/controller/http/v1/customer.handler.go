@@ -57,7 +57,6 @@ func (h *CustomerHandler) CustomerRoutes(r *gin.RouterGroup) {
 // @Failure 500 {object} v1.Response
 // @Router /customer [post]
 func (h *CustomerHandler) Create(c *gin.Context) {
-	var body domain.CustomerRequest
 	// get user from the context
 	user := h.service.GetSignedUser(c)
 	if user.UserId == "" {
@@ -66,6 +65,7 @@ func (h *CustomerHandler) Create(c *gin.Context) {
 	}
 
 	// bind request body
+	var body domain.CustomerRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
@@ -82,7 +82,7 @@ func (h *CustomerHandler) Create(c *gin.Context) {
 	// body.CreatedBy = user.UserId
 	res, err := h.service.CreateCustomer(ctx, &body)
 	if err != nil {
-		handleServiceResponse(c, InternalError, err)
+		handleServiceResponse(c, nil, err)
 		return
 	}
 
