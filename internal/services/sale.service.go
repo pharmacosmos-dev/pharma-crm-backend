@@ -383,11 +383,15 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 			updates["is_corporate"] = req.IsCorporate
 
 			if req.LoyaltyCardBarcode != "" {
-				updates["cash_back"] = gorm.Expr(
-					"(SELECT (COALESCE(SUM(total_price) - SUM(discount_amount), 0)::numeric / 100 * ? ) FROM cart_items WHERE sale_id = ?)",
-					sale.Customer.LoyaltyCardPercent,
-					req.SaleId,
-				)
+				if req.LoyaltyCard > 0 {
+					updates["cash_back"] = (req.Cash + req.Humo + req.Uzcard + req.Click + req.Payme + req.Alif + req.Uzum) * (float64(sale.Customer.LoyaltyCardPercent) / 100)
+				} else {
+					updates["cash_back"] = gorm.Expr(
+						"(SELECT (COALESCE(SUM(total_price) - SUM(discount_amount), 0)::numeric / 100 * ?) FROM cart_items WHERE sale_id = ?)",
+						sale.Customer.LoyaltyCardPercent,
+						req.SaleId,
+					)
+				}
 				updates["customer_id"] = sale.Customer.Id
 			}
 
@@ -432,11 +436,15 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 			updates["is_corporate"] = req.IsCorporate
 
 			if req.LoyaltyCardBarcode != "" {
-				updates["cash_back"] = gorm.Expr(
-					"(SELECT (COALESCE(SUM(total_price) - SUM(discount_amount), 0)::numeric / 100 * ?) FROM cart_items WHERE sale_id = ?)",
-					sale.Customer.LoyaltyCardPercent,
-					req.SaleId,
-				)
+				if req.LoyaltyCard > 0 {
+					updates["cash_back"] = (req.Cash + req.Humo + req.Uzcard + req.Click + req.Payme + req.Alif + req.Uzum) * (float64(sale.Customer.LoyaltyCardPercent) / 100)
+				} else {
+					updates["cash_back"] = gorm.Expr(
+						"(SELECT (COALESCE(SUM(total_price) - SUM(discount_amount), 0)::numeric / 100 * ?) FROM cart_items WHERE sale_id = ?)",
+						sale.Customer.LoyaltyCardPercent,
+						req.SaleId,
+					)
+				}
 				updates["customer_id"] = sale.Customer.Id
 			}
 		}
