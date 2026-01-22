@@ -38,7 +38,8 @@ func (s *Services) CreateCustomer(ctx context.Context, req *domain.CustomerReque
 		loyaltyCardCreatedAt = sql.NullTime{Time: time.Now(), Valid: true}
 	} else if *req.LoyaltyCardBarcode != "" {
 		var count int64
-		if err := s.db.WithContext(ctx).Count(&count).Error; err != nil {
+		err := s.db.WithContext(ctx).Table("customers").Where("loyalty_card_barcode = ?", *req.LoyaltyCardBarcode).Count(&count).Error
+		if err != nil {
 			return &res, fmt.Errorf("error on checking loyalty card barcode: %s", err.Error())
 		}
 		if count > 0 {
