@@ -121,14 +121,20 @@ func (s *Services) CreateReturnSale(ctx context.Context, req *domain.SaleReturnR
 		store_product_id,
 		unit_quantity,
 		unit_price,
-		total_price
+		total_price,
+		discount_type,
+		discount_value,
+		discount_amount
 		)
 	SELECT
 		?,
 		ci.store_product_id,
 		ci.unit_quantity,
 		ci.unit_price,
-		ci.total_price
+		ci.total_price,
+		ci.discount_type,
+		ci.discount_value,
+		ci.discount_amount
 	FROM cart_items ci
 	WHERE ci.sale_id = ? AND ci.store_product_id = ?;
 	`
@@ -141,8 +147,8 @@ func (s *Services) CreateReturnSale(ctx context.Context, req *domain.SaleReturnR
 		).Error
 		if err != nil {
 			_ = tx.Rollback()
-			s.log.Errorf("could not create return sale items: %v", err)
-			return nil, err
+			s.log.Errorf("could not create return cart items: %v", err)
+			return nil, domain.InternalServerError
 		}
 
 	}
@@ -1170,6 +1176,12 @@ func (s *Services) AttachDiscountCardToSale(ctx context.Context, req *domain.Add
 		return nil, err
 	}
 
+	// Lock sale to prevent concurrent modifications
+	_, err = s.GetSaleById(ctx, req.SaleId)
+	if err != nil {
+		return nil, err
+	}
+
 	// start transcation
 	tx := s.db.Begin()
 	defer func() {
@@ -1177,13 +1189,6 @@ func (s *Services) AttachDiscountCardToSale(ctx context.Context, req *domain.Add
 			_ = tx.Rollback()
 		}
 	}()
-
-	// Lock sale to prevent concurrent modifications
-	_, err = s.GetSaleByIdWithLocking(ctx, tx, req.SaleId)
-	if err != nil {
-		_ = tx.Rollback()
-		return nil, err
-	}
 
 	req.Percent = discountPercent
 
@@ -1681,7 +1686,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 
 func (s *Services) GetSaleById(ctx context.Context, saleId string) (*domain.Sale, error) {
 	var sale domain.Sale
-	err := s.db.WithContext(ctx).First(&sale, "id = ?", saleId).Error
+	err := s.db.WithContext(ctx).Take(&sale, "id = ?", saleId).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return &sale, domain.NotFoundError

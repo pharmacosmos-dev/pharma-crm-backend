@@ -457,7 +457,7 @@ func (h *SaleHandler) GetOnlineSaleCount(c *gin.Context) {
 	// get online order count
 	var count int64
 	err := h.db.WithContext(ctx).
-		Raw("SELECT COUNT(*) AS count FROM sales WHERE store_id = ? AND online_status IN(1, 2, 4);",
+		Raw("SELECT COUNT(*) AS count FROM sales WHERE store_id = ? AND online_status IN(1, 2);",
 			user.StoreId).Scan(&count).Error
 
 	if err != nil {
@@ -797,7 +797,6 @@ func (h *SaleHandler) EposResult(c *gin.Context) {
 // @Router /sale/discount-card [POST]
 func (h *SaleHandler) AddDiscountCard(c *gin.Context) {
 	var body domain.AddDiscountCard
-
 	// bind request body
 	if err := c.ShouldBindJSON(&body); err != nil {
 		handleServiceResponse(c, nil, domain.InvalidRequestBodyError)
