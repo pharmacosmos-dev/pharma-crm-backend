@@ -51,7 +51,6 @@ func (s *Services) CreateSale(ctx context.Context, tx *gorm.DB, req *domain.Sale
 
 // create return sale
 func (s *Services) CreateReturnSale(ctx context.Context, req *domain.SaleReturnRequest) (*domain.Sale, error) {
-
 	// get cashbox operation
 	if req.CashboxId == "" {
 		operation, err := s.GetCashboxOperationByID(ctx, req.CashBoxOperationId)
@@ -91,8 +90,8 @@ func (s *Services) CreateReturnSale(ctx context.Context, req *domain.SaleReturnR
 		store_id, 
 		customer_id, 
 		sale_number,
-		id, 
-		?, 
+		id,
+		?,
 		type,
 		display_id,
 		?
