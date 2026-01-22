@@ -40,7 +40,7 @@ func (s *Services) GetPaymentLogs(ctx context.Context, params *domain.LogParams)
 	qb := s.db.WithContext(ctx).
 		Select(
 			"id",
-			"payment_provider",
+			"payment_provider AS provider_type",
 			"method",
 			"payload",
 			"response",
