@@ -1133,11 +1133,7 @@ func (s *Services) AddSaleBonuses(sale *domain.Sale, req []domain.CartItemWithPr
 	// add cashback to customer balance
 	if sale.CashBack > 0 || loyaltyCardBarcode != "" {
 		err := s.db.Exec(`
-		UPDATE
-			customers
-		SET
-			balance = balance + (SELECT (COALESCE(SUM(total_price) - SUM(discount_amount), 0)::numeric / 100 * ?) FROM cart_items WHERE sale_id = ?)
-		WHERE id = ?`, sale.Customer.LoyaltyCardPercent, sale.Id, sale.CustomerId).Error
+		UPDATE customers SET balance = balance + ? WHERE id = ?`, sale.CashBack, sale.CustomerId).Error
 		if err != nil {
 			s.log.Errorf("could not update customer balance: %v", err)
 			return
@@ -1147,12 +1143,9 @@ func (s *Services) AddSaleBonuses(sale *domain.Sale, req []domain.CartItemWithPr
 	// deduct from loyalty card balance
 	if sale.LoyaltyCard > 0 && sale.CustomerId != "" {
 		err := s.db.Exec(`
-		UPDATE
-			customers
-		SET
-			balance = balance - ?,
-			spending_from_balance = spending_from_balance + ?
-		WHERE id = ?`, sale.LoyaltyCard, sale.LoyaltyCard, sale.CustomerId).Error
+		UPDATE customers SET balance = balance - ?, spending_from_balance = spending_from_balance + ? WHERE id = ?`,
+			sale.LoyaltyCard, sale.LoyaltyCard, sale.CustomerId,
+		).Error
 		if err != nil {
 			s.log.Errorf("could not deduct from customer balance: %v", err)
 			return
