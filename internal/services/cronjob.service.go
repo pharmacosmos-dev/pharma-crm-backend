@@ -54,6 +54,10 @@ func (s *Services) syncUnitCodes() error {
 }
 
 func (s *Services) SendRemainingQuantityToOsonApteka() error {
+	if s.cfg.Integration.OsonAptekaApiUrl == "test" {
+		return nil
+	}
+
 	var query = `
 WITH valid_stores AS (
     SELECT
@@ -80,7 +84,7 @@ SELECT
                             'name', p.name,
                             'manufacturer', pr.name,
                             'price', sp.retail_price,
-                            'qty', ROUND(sp.unit_quantity / p.unit_per_pack, 0),
+                            'qty', ROUND(sp.unit_quantity::numeric / p.unit_per_pack, 2),
                             'expiry_date', sp.expire_date
                     )
                      )
@@ -129,7 +133,7 @@ GROUP BY
 		}
 
 		// Send to API
-		req, err := http.NewRequest("POST", "https://remains.osonapteka.uz/api/set-app-remains", bytes.NewBuffer(jsonFromBytes))
+		req, err := http.NewRequest("POST", s.cfg.Integration.OsonAptekaApiUrl, bytes.NewBuffer(jsonFromBytes))
 		if err != nil {
 			return fmt.Errorf("failed to create request: %w", err)
 		}

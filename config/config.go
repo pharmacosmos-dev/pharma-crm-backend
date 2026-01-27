@@ -46,19 +46,20 @@ type (
 	}
 	// Integration -.
 	Integration struct {
-		ClickApiUrl     string `env-required:"true" yaml:"click_api_url" env:"CLICK_API_URL"`
-		UzumApiUrl      string `env-required:"true" yaml:"uzum_api_url" env:"UZUM_API_URL"`
-		PaymeApiUrl     string `env-required:"true" yaml:"payme_api_url" env:"PAYME_API_URL"`
-		AlifApiUrl      string `env-required:"true" yaml:"alif_api_url" env:"ALIF_API_URL"`
-		AlifToken       string `env-required:"true" yaml:"alif_token"   env:"ALIF_TOKEN"`
-		OnecApiUrl      string `env-required:"true" yaml:"onec_api_url" env:"ONEC_API_URL"`
-		OnecApiUsername string `env-required:"true" yaml:"onec_api_username" env:"ONEC_API_USERNAME"`
-		OnecApiPassword string `env-required:"true" yaml:"onec_api_password" env:"ONEC_API_PASSWORD"`
-		TasnifApiUrl    string `env-required:"true" yaml:"tasnif_api_url" env:"TASNIF_API_URL"`
-		NoorApiUrl      string `env-required:"true" yaml:"noor_api_url" env:"NOOR_API_URL"`
-		NoorApiToken    string `env-required:"true" yaml:"noor_api_token" env:"NOOR_API_TOKEN"`
-		DmedApiUrl      string `env-required:"true" yaml:"dmed_api_url" env:"DMED_API_URL"`
-		DmedApiToken    string `env-required:"true" yaml:"dmed_api_token" env:"DMED_API_TOKEN"`
+		ClickApiUrl      string `env-required:"true" yaml:"click_api_url" env:"CLICK_API_URL"`
+		UzumApiUrl       string `env-required:"true" yaml:"uzum_api_url" env:"UZUM_API_URL"`
+		PaymeApiUrl      string `env-required:"true" yaml:"payme_api_url" env:"PAYME_API_URL"`
+		AlifApiUrl       string `env-required:"true" yaml:"alif_api_url" env:"ALIF_API_URL"`
+		AlifToken        string `env-required:"true" yaml:"alif_token"   env:"ALIF_TOKEN"`
+		OnecApiUrl       string `env-required:"true" yaml:"onec_api_url" env:"ONEC_API_URL"`
+		OnecApiUsername  string `env-required:"true" yaml:"onec_api_username" env:"ONEC_API_USERNAME"`
+		OnecApiPassword  string `env-required:"true" yaml:"onec_api_password" env:"ONEC_API_PASSWORD"`
+		TasnifApiUrl     string `env-required:"true" yaml:"tasnif_api_url" env:"TASNIF_API_URL"`
+		NoorApiUrl       string `env-required:"true" yaml:"noor_api_url" env:"NOOR_API_URL"`
+		NoorApiToken     string `env-required:"true" yaml:"noor_api_token" env:"NOOR_API_TOKEN"`
+		DmedApiUrl       string `env-required:"true" yaml:"dmed_api_url" env:"DMED_API_URL"`
+		DmedApiToken     string `env-required:"true" yaml:"dmed_api_token" env:"DMED_API_TOKEN"`
+		OsonAptekaApiUrl string `env-required:"true" yaml:"oson_apteka_api_url" env:"OSON_APTEKA_API_URL"`
 	}
 )
 
@@ -101,7 +102,7 @@ func Load() Config {
 	c.Integration.NoorApiToken = cast.ToString(GetOrReturnDefaultValue("NOOR_API_TOKEN", "token"))
 	c.Integration.DmedApiUrl = cast.ToString(GetOrReturnDefaultValue("DMED_API_URL", "http://localhost:80"))
 	c.Integration.DmedApiToken = cast.ToString(GetOrReturnDefaultValue("DMED_API_TOKEN", "token"))
-
+	c.Integration.OsonAptekaApiUrl = cast.ToString(GetOrReturnDefaultValue("OSON_APTEKA_API_URL", "https://remains.osonapteka.uz/api/set-app-remains"))
 	return c
 }
 
