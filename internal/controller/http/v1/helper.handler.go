@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -58,6 +59,7 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		helper.POST("/attach-category-to-products", h.AttachCategoryToProducts)
 		helper.POST("/upload-categories-json", h.UploadCategoryJson)
 		helper.DELETE("/delete-not-photos", h.DeleteNotFoundPhotos)
+		helper.POST("/upload-pharmacy", h.UploadPharmacyInfoForOson)
 	}
 }
 
@@ -1035,6 +1037,7 @@ func (h *HelperHandler) UploadProductMinMax(c *gin.Context) {
 		"skipped": skippedRows,
 	})
 }
+
 func normalizeName(s string) string {
 	// Tashqi bo‘shliqlarni olib tashlash + ketma-ket bo‘shliqlarni 1 ta bo‘shliqqa qisqartirish
 	return strings.Join(strings.Fields(strings.TrimSpace(s)), " ")
@@ -1732,6 +1735,140 @@ func (h *HelperHandler) DeleteNotFoundPhotos(c *gin.Context) {
 	}()
 
 	handleResponse(c, OK, "SUCCESS")
+}
+
+// UploadPharmacyInfoForOson godoc
+// @Summary Upload pharmacy info excel
+// @Description Upload pharmacy info excel
+// @Tags 	helper
+// @Security     BearerAuth
+// @Accept 	multipart/form-data
+// @Produce json
+// @Param 	file formData file true "Excel file (.xlsx) containing product data"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /helper/upload-pharmacy [POST]
+func (h *HelperHandler) UploadPharmacyInfoForOson(c *gin.Context) {
+
+	var file domain.File
+	if err := c.ShouldBind(&file); err != nil {
+		h.log.Error("Failed to bind file: ", err.Error())
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		h.log.Error("Unsupported file format: ", ext)
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+
+	// Save the uploaded file
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+	err := c.SaveUploadedFile(file.File, savePath)
+	if err != nil {
+		h.log.Errorf("could not save file: %v", err)
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+
+	// defer os.Remove(savePath)
+	// Open the Excel file
+	xlsx, err := excelize.OpenFile(savePath)
+	if err != nil {
+		h.log.Errorf("Failed to open .xlsx file: %v", err)
+		handleResponse(c, BadRequest, "Failed to process file")
+		return
+	}
+	defer xlsx.Close()
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		h.log.Errorf("Failed to get rows: %v", err)
+		handleResponse(c, InternalError, "Failed to get rows")
+		return
+	}
+
+	// build query
+	query := `
+	UPDATE stores 
+	SET
+		detailed_name = ?,
+		address = ?,
+		landmark = ?,
+		phone = ?,
+		contact = ?,
+		inn = ?,
+		work_hours = ?,
+		location = ?,
+		coordinates = ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography,
+		oson_apteka_login = ?,
+		oson_apteka_parol = ?,
+		updated_at = NOW()
+	WHERE store_code = ?;
+	`
+
+	// Process rows
+	var count = 0
+	for _, row := range rows[1:] {
+		if len(row) <= 11 {
+			continue
+		}
+
+		lon, lat, locText, ok := parseSRIDPoint(row[9])
+		if !ok {
+			h.log.Warnf("invalid location format for store_code=%s, value=%q", row[0], row[9])
+			continue
+		}
+
+		err = h.db.Exec(
+			query,
+			row[1],       // detailed_name
+			row[3],       // address
+			row[4],       // landmark
+			"998"+row[5], // phone
+			row[6],       // contact
+			row[7],       // inn
+			row[8],       // work_hours
+			locText,      // location text: "lon,lat"
+			lon,          // coordinates lon
+			lat,          // coordinates lat
+			row[10],      // oson login
+			row[11],      // oson parol
+			row[2],       // store_code
+		).Error
+
+		if err != nil {
+			h.log.Warnf("could not update store_code=%s: %v", row[0], err)
+			continue
+		}
+		count++
+	}
+
+	handleResponse(c, OK, "Successfully updated"+cast.ToString(count))
+}
+
+var rePoint = regexp.MustCompile(`(?i)POINT\s*\(\s*([+-]?\d+(?:\.\d+)?)\s+([+-]?\d+(?:\.\d+)?)\s*\)`)
+
+func parseSRIDPoint(s string) (lon, lat float64, locText string, ok bool) {
+	s = strings.TrimSpace(s)
+	m := rePoint.FindStringSubmatch(s)
+	if len(m) != 3 {
+		return 0, 0, "", false
+	}
+
+	lon, err1 := strconv.ParseFloat(m[1], 64)
+	lat, err2 := strconv.ParseFloat(m[2], 64)
+	if err1 != nil || err2 != nil {
+		return 0, 0, "", false
+	}
+
+	// location uchun talab qilingan format: "lon,lat"
+	locText = fmt.Sprintf("%.7f,%.7f", lon, lat) // xohlasangiz formatni o‘zgartirasiz
+	return lon, lat, locText, true
 }
 
 func (h *HelperHandler) processExcel(c *gin.Context, savePath string) {

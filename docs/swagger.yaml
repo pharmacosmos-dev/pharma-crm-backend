@@ -1119,6 +1119,9 @@ definitions:
         type: number
       long:
         type: number
+    required:
+    - lat
+    - long
     type: object
   domain.Producer:
     properties:
@@ -1550,6 +1553,8 @@ definitions:
         type: integer
       company_id:
         type: string
+      contact:
+        type: string
       created_at:
         type: string
       detailed_name:
@@ -1558,18 +1563,16 @@ definitions:
         type: integer
       id:
         type: string
+      inn:
+        type: string
       is_fullday:
         type: boolean
       location:
         type: string
       name:
         type: string
-      pack_quantity:
-        type: integer
       phone:
         type: string
-      small_quantity:
-        type: integer
       store_code:
         type: integer
       updated_at:
@@ -6750,6 +6753,37 @@ paths:
       security:
       - BearerAuth: []
       summary: Upload package code excel
+      tags:
+      - helper
+  /helper/upload-pharmacy:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload pharmacy info excel
+      parameters:
+      - description: Excel file (.xlsx) containing product data
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Upload pharmacy info excel
       tags:
       - helper
   /helper/upload-tax-products:
@@ -16521,38 +16555,6 @@ paths:
       security:
       - BearerAuth: []
       summary: Update a store
-      tags:
-      - stores
-  /store/excel-upload:
-    post:
-      consumes:
-      - multipart/form-data
-      description: Upload a store file in .xlsx format. The file should include product
-        details in specific columns.
-      parameters:
-      - description: Excel file (.xlsx) containing product data
-        in: formData
-        name: file
-        required: true
-        type: file
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Products uploaded successfully
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Invalid file format or processing error
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Upload a stores
       tags:
       - stores
   /store/export-excel:

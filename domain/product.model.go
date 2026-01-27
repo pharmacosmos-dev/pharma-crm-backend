@@ -378,11 +378,6 @@ type NoorStore struct {
 	IsActive  bool   `gorm:"is_active" json:"is_active"`
 }
 
-type Point struct {
-	Lat  float64 `gorm:"lat" json:"lat"`
-	Long float64 `gorm:"long" json:"long"`
-}
-
 type NoorQueryParam struct {
 	UpdatedAt string `form:"updatedAt"`
 	Limit     int    `form:"limit"`

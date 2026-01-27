@@ -1,8 +1,8 @@
 package v1
 
 import (
+	"context"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/xuri/excelize/v2"
@@ -31,12 +32,10 @@ func (h *StoreHandler) StoreRoutes(r *gin.RouterGroup) {
 	{
 		store.POST("", h.Create)
 		store.GET("/:id", h.Get)
-		store.GET("/list", h.List)
+		store.GET("/list", h.FetchStores)
 		store.GET("/export-excel", h.ExportExcel)
 		store.PUT("/:id", h.Update)
 		store.DELETE("/:id", h.Delete)
-		store.POST("/excel-upload", h.UploadExcel)
-
 	}
 }
 
@@ -55,13 +54,11 @@ func (h *StoreHandler) StoreRoutes(r *gin.RouterGroup) {
 func (h *StoreHandler) Create(c *gin.Context) {
 	var (
 		body domain.StoreRequest
-		err  error
 	)
 	// bind request body
-	err = c.ShouldBindJSON(&body)
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
+	if err := c.ShouldBindJSON(&body); err != nil {
+		h.log.Errorf("could not bind store create request body: %v", err)
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
 	// validate phone number
@@ -73,13 +70,13 @@ func (h *StoreHandler) Create(c *gin.Context) {
 	// generate store id
 	body.Id = uuid.New().String()
 	// create new store info
-	err = h.db.
+	err := h.db.
 		WithContext(c.Request.Context()).
 		Table("stores").
 		Create(&body).Error
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		h.log.Errorf("could not create store: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 	handleResponse(c, CREATED, body)
@@ -127,91 +124,39 @@ func (h *StoreHandler) Get(c *gin.Context) {
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /store/list [get]
-func (h *StoreHandler) List(c *gin.Context) {
+func (h *StoreHandler) FetchStores(c *gin.Context) {
 	user := h.service.GetSignedUser(c)
 	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
 		return
 	}
 
-	var (
-		CompanyId string
-		search    = c.Query("search")
-		productID = c.Query("product_id")
-	)
-
-	limit, offset, err := getPaginationParams(c)
-	if err != nil {
+	var params domain.StoreQueryParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		h.log.Errorf("could not bind query params for store list: %v", err)
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
 	// check if employee is not admin or superadmin
 	if !helper.IsAdmin(user) {
-		CompanyId = user.CompanyId
+		params.CompanyId = user.CompanyId
 	}
 
-	query := h.db.
-		Model(&domain.StoreWithProducts{}).Table("stores s")
-	if productID != "" {
-		query = query.Select(`
-        s.*, 
-        COALESCE(sp.pack_quantity, 0) AS pack_quantity, 
-        sp.small_quantity,
-        sp.expire_date, sp.vat, sp.markup, sp.retail_price, 
-        sp.supply_price, sp.bonus_percent
-    `).
-			Joins(`
-        LEFT JOIN (
-            SELECT DISTINCT ON (sp.store_id) sp.*
-            FROM store_products sp
-            WHERE sp.product_id = ?
-            ORDER BY sp.store_id, sp.created_at DESC
-        ) sp ON s.id = sp.store_id
-    `, productID)
-	}
-
-	if CompanyId != "" {
-		query = query.Where("s.company_id = ?", CompanyId)
-	}
-	if search != "" {
-		query = query.Where("s.name ILIKE ?", "%"+search+"%")
-	}
-
-	// Use conditional ordering at the end
-	if productID != "" {
-		query = query.Order("COALESCE(sp.pack_quantity, 0) DESC, s.store_code DESC")
-	} else {
-		query = query.Order("s.store_code DESC")
-	}
-
-	var totalCount int64
-	var res []domain.StoreWithProducts
-	err = query.
-		Where("s.is_active = ?", true).
-		Count(&totalCount).
-		Limit(limit).
-		Offset(offset).
-		Find(&res).Error
-
+	res, totalCount, ids, err := h.service.GetStores(c.Request.Context(), &params)
 	if err != nil {
-		h.log.Errorf("could not get stores: %v", err)
 		handleServiceResponse(c, InternalError, err)
 		return
 	}
-	var ids []string
-	err = h.db.Table("stores").Select("id").Find(&ids).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		return
-	}
+
 	handleResponse(c, OK, map[string]interface{}{
 		"_meta": utils.Meta{
 			TotalCount:  totalCount,
-			PerPage:     limit,
-			CurrentPage: (offset / limit) + 1,
-			PageCount:   int((totalCount + int64(limit) - 1) / int64(limit)),
+			PerPage:     params.Limit,
+			CurrentPage: (params.Offset / params.Limit) + 1,
+			PageCount:   int((totalCount + int64(params.Limit) - 1) / int64(params.Limit)),
 		},
 		"data": res,
 		"ids":  ids,
@@ -240,63 +185,23 @@ func (h *StoreHandler) ExportExcel(c *gin.Context) {
 		return
 	}
 
-	var (
-		CompanyId string
-		search    = c.Query("search")
-		productID = c.Query("product_id")
-	)
-
-	limit, offset, err := getPaginationParams(c)
-	if err != nil {
+	var params domain.StoreQueryParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		h.log.Errorf("could not bind query params for store list: %v", err)
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
 	// check if employee is not admin or superadmin
 	if !helper.IsAdmin(user) {
-		CompanyId = user.CompanyId
+		params.CompanyId = user.CompanyId
 	}
 
-	query := h.db.
-		Model(&domain.StoreWithProducts{}).Table("stores s")
-	if productID != "" {
-		query = query.Select(`
-		s.*, 
-		COALESCE(sp.pack_quantity, 0) AS pack_quantity, 
-		sp.small_quantity,
-		sp.expire_date, sp.vat, sp.markup, sp.retail_price, 
-		sp.supply_price, sp.bonus_percent
-	`).
-			Joins(`
-		LEFT JOIN (
-			SELECT DISTINCT ON (sp.store_id) sp.*
-			FROM store_products sp
-			WHERE sp.product_id = ?
-			ORDER BY sp.store_id, sp.created_at DESC
-		) sp ON s.id = sp.store_id
-	`, productID)
-	}
-	if CompanyId != "" {
-		query = query.Where("s.company_id = ?", CompanyId)
-	}
-	if search != "" {
-		search = fmt.Sprintf("%%%s%%", search)
-		query = query.Where("s.name ILIKE ?", search)
-	}
-
-	var totalCount int64
-	var res []domain.StoreWithProducts
-	err = query.
-		Where("s.is_active = ?", true).
-		Count(&totalCount).
-		Limit(limit).
-		Offset(offset).
-		Order("s.store_code DESC").
-		Find(&res).Error
-
+	res, _, _, err := h.service.GetStores(c.Request.Context(), &params)
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
@@ -306,7 +211,7 @@ func (h *StoreHandler) ExportExcel(c *gin.Context) {
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"ID", "Наименование", "Режим работы", "Адрес", "Телефон", "Полный день"}
+	headers := []string{"ID", "Наименование", "Полная Наименование", "Телефон", "Режим работы", "Адрес", "Координаты", "Дата создания"}
 
 	headerStyle, err := f.NewStyle(&excelize.Style{
 		Font: &excelize.Font{
@@ -331,13 +236,16 @@ func (h *StoreHandler) ExportExcel(c *gin.Context) {
 		row := strconv.Itoa(i + 2)
 		f.SetCellValue(sheetName, "A"+row, r.StoreCode)
 		f.SetCellValue(sheetName, "B"+row, r.Name)
-		f.SetCellValue(sheetName, "C"+row, r.WorkHours)
-		f.SetCellValue(sheetName, "D"+row, r.Address)
-		f.SetCellValue(sheetName, "E"+row, r.Phone)
+		f.SetCellValue(sheetName, "C"+row, r.DetailedName)
+		f.SetCellValue(sheetName, "D"+row, r.Phone)
+		f.SetCellValue(sheetName, "E"+row, r.WorkHours)
+		f.SetCellValue(sheetName, "F"+row, r.Address)
+		f.SetCellValue(sheetName, "G"+row, r.Coordinates.ToSinglePointWKT())
+		f.SetCellValue(sheetName, "H"+row, r.CreatedAt.Add(constants.DateTimeTashkent).Format(constants.DateTimeFormat))
 	}
 
 	// Faylni uploads/ papkasiga UUID bilan saqlash
-	fileName := "Filiallar_" + time.Now().Add(time.Hour*5).Format("2006-01-02_15-04-05") + ".xlsx"
+	fileName := "Apteka_" + time.Now().Add(time.Hour*5).Format("2006-01-02_15-04-05") + ".xlsx"
 	filePath := filepath.Join("uploads", fileName)
 
 	// uploads/ papkasi mavjud bo‘lmasa, yaratish
@@ -352,7 +260,7 @@ func (h *StoreHandler) ExportExcel(c *gin.Context) {
 
 	// Faylni diskka yozish
 	if err := f.SaveAs(filePath); err != nil {
-		h.log.Error("Failed to save Excel file:", err)
+		h.log.Errorf("Failed to save Excel file: %v", err)
 		handleResponse(c, InternalError, "Failed to save Excel file")
 		return
 	}
@@ -377,42 +285,41 @@ func (h *StoreHandler) ExportExcel(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /store/{id} [put]
 func (h *StoreHandler) Update(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
+		return
+	}
+
 	var (
 		body domain.StoreUpdateRequest
 		id   = c.Param("id")
-		err  error
 	)
-	// validate uuid
-	if err = uuid.Validate(id); err != nil {
-		handleResponse(c, BadRequest, "Invalid id")
+	// bind request body
+	if err := c.ShouldBindJSON(&body); err != nil {
+		h.log.Errorf("could not bind store update request body: %v", err)
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
-	// get user_id from context
-	updatedBy, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
-		return
-	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
 	// validate phone number
 	if body.Phone != nil && !utils.IsValidPhone(*body.Phone) {
-		handleResponse(c, BadRequest, "Invalid phone number")
+		handleServiceResponse(c, BadRequest, domain.InvalidPhoneError)
 		return
 	}
-	// bind request body
-	if err = c.ShouldBindJSON(&body); err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
-		return
-	}
-	body.UpdatedBy = updatedBy.(string)
+
+	body.UpdatedBy = user.UserId
 	// update store info
-	err = h.db.WithContext(c.Request.Context()).
+	err := h.db.WithContext(ctx).
 		Model(&domain.Store{}).
 		Where("id = ?", id).
 		Updates(&body).Error
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		h.log.Errorf("could not update store: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
 	handleResponse(c, OK, body)
@@ -444,89 +351,4 @@ func (h *StoreHandler) Delete(c *gin.Context) {
 		return
 	}
 	handleResponse(c, OK, "DELETED")
-}
-
-// UploadStore godoc
-// @Summary Upload a stores
-// @Description Upload a store file in .xlsx format. The file should include product details in specific columns.
-// @Tags stores
-// @Security BearerAuth
-// @Accept multipart/form-data
-// @Produce json
-// @Param file formData file true "Excel file (.xlsx) containing product data"
-// @Success 200 {object} v1.Response "Products uploaded successfully"
-// @Failure 400 {object} v1.Response "Invalid file format or processing error"
-// @Failure 500 {object} v1.Response "Internal server error"
-// @Router /store/excel-upload [post]
-func (h *StoreHandler) UploadExcel(c *gin.Context) {
-	var file domain.File
-	err := c.ShouldBind(&file)
-	if err != nil {
-		h.log.Error("Failed to bind file: ", err.Error())
-		handleResponse(c, BadRequest, err.Error())
-		return
-	}
-
-	// Check file extension
-	ext := filepath.Ext(file.File.Filename)
-	if ext != ".xlsx" && ext != ".xls" {
-		h.log.Error("Unsupported file format: ", ext)
-		handleResponse(c, BadRequest, "Unsupported file format")
-		return
-	}
-
-	// Save the uploaded file
-	newFilename := uuid.New().String() + ext
-	savePath := filepath.Join("uploads", newFilename)
-	err = c.SaveUploadedFile(file.File, savePath)
-	if err != nil {
-		h.log.Error("Failed to save file: ", err.Error())
-		handleResponse(c, InternalError, "Failed to save file")
-		return
-	}
-	//
-	defer os.Remove(savePath)
-	// Open the Excel file
-	xlsx, err := excelize.OpenFile(savePath)
-	if err != nil {
-		h.log.Error("Failed to open .xlsx file: ", err.Error())
-		handleResponse(c, BadRequest, "Failed to process file")
-		return
-	}
-	defer xlsx.Close()
-	sheetName := xlsx.GetSheetName(0)
-	rows, err := xlsx.GetRows(sheetName)
-	if err != nil {
-		h.log.Error("Failed to get rows: ", err.Error())
-		handleResponse(c, InternalError, "Failed to get rows")
-		return
-	}
-	var stores []map[string]interface{}
-	for _, row := range rows[2:] {
-		stores = append(stores, map[string]interface{}{
-			"name":       row[0],
-			"store_code": parseIntComma(row[1]),
-		})
-	}
-
-	tx := h.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-	err = tx.Table("stores").Create(&stores).Error
-	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		tx.Rollback()
-		return
-	}
-	if err = tx.Commit().Error; err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
-		tx.Rollback()
-		return
-	}
-	handleResponse(c, OK, "UPLOADED")
 }

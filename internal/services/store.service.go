@@ -50,3 +50,65 @@ func (s *Services) GetStoreByField(field string, value string) (*domain.Store, e
 	}
 	return &store, nil
 }
+
+func (s *Services) GetStores(ctx context.Context, params *domain.StoreQueryParams) ([]domain.StoreDto, int64, []string, error) {
+	qb := s.db.WithContext(ctx).
+		Model(&domain.Store{}).
+		Select(
+			"id",
+			"store_code",
+			"name",
+			"detailed_name",
+			"company_id",
+			"phone",
+			"contact",
+			"inn",
+			"employee_count",
+			"cash_box_count",
+			"address",
+			"location",
+			"ST_AsText(coordinates) AS coordinates",
+			"work_hours",
+			"is_fullday",
+			"created_at",
+			"updated_at",
+		)
+
+	if params.Search != "" {
+		searchPattern := fmt.Sprintf("%%%s%%", params.Search)
+		qb = qb.Where("name ILIKE ? OR detailed_name ILIKE ?", searchPattern, searchPattern)
+	}
+
+	if params.CompanyId != "" {
+		qb = qb.Where("company_id = ?", params.CompanyId)
+	}
+
+	totalCount := int64(0)
+	if err := qb.Count(&totalCount).Error; err != nil {
+		s.log.Errorf("could not count stores: %v", err)
+		return nil, 0, []string{}, domain.InternalServerError
+	}
+
+	if params.Limit > 0 {
+		qb = qb.Limit(params.Limit)
+	}
+
+	if params.Offset > 0 {
+		qb = qb.Offset(params.Offset)
+	}
+	var stores []domain.StoreDto
+	err := qb.Order("created_at DESC").Find(&stores).Error
+	if err != nil {
+		s.log.Errorf("could not get stores: %v", err)
+		return nil, 0, []string{}, domain.InternalServerError
+	}
+
+	var ids []string
+	err = s.db.WithContext(ctx).Table("stores").Select("id").Find(&ids).Error
+	if err != nil {
+		s.log.Errorf("could not get store ids: %v", err)
+		return nil, 0, []string{}, domain.InternalServerError
+	}
+
+	return stores, totalCount, ids, nil
+}

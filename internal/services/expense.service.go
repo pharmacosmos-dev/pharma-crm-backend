@@ -34,7 +34,6 @@ func (s *Services) SendExpenseTo1C(sendDate string) error {
 		s.log.Warn("ERROR on getting store list: %v", err)
 		return errors.New("error on getting store")
 	}
-	fmt.Println("--->>> ", len(stores))
 	for _, store := range stores {
 		fmt.Printf("Sending report for %s...\n", store.Name)
 		if err = s.sendReportTo1C(&store, sendDate); err != nil {
@@ -130,14 +129,14 @@ func (s *Services) SendReportsSequentially() {
 	now := time.Now().UTC()
 
 	for _, store := range stores {
-		fmt.Printf("Sending report for %s...\n", store.Name)
+		s.log.Infof("Sending report for %s...\n", store.Name)
 		if err = s.sendReportTo1C(&store, now.Format(time.DateOnly)); err != nil {
-			log.Printf("Failed to send report for %s: %v\n", store.Name, err)
+			s.log.Warnf("Failed to send report for %s: %v\n", store.Name, err)
 			// You can choose to retry here or log for manual retry
 			continue
 		}
 
-		fmt.Printf("Successfully sent report for %s\n", store.Name)
+		s.log.Infof("Successfully sent report for %s\n", store.Name)
 		time.Sleep(5 * time.Second)
 	}
 

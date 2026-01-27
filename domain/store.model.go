@@ -1,22 +1,44 @@
 package domain
 
-import "time"
+import (
+	"time"
+)
 
 // Store structure
 type Store struct {
 	Id            string     `gorm:"id" json:"id"`
 	StoreCode     int        `gorm:"store_code" json:"store_code"`
 	Name          string     `gorm:"name" json:"name"`
+	DetailedName  string     `gorm:"detailed_name" json:"detailed_name"`
 	CompanyId     string     `gorm:"company_id" json:"company_id"`
 	Phone         string     `gorm:"phone" json:"phone"`
-	DetailedName  string     `gorm:"detailed_name" json:"detailed_name"`
-	Location      string     `gorm:"location" json:"location"`
+	Contact       string     `gorm:"contact" json:"contact"`
+	Inn           string     `gorm:"inn" json:"inn"`
 	EmployeeCount int        `gorm:"employee_count" json:"employee_count"`
 	CashBoxCount  int        `gorm:"cash_box_count" json:"cash_box_count"`
 	Address       string     `gorm:"address" json:"address"`
+	Location      string     `gorm:"location" json:"location"`
 	WorkHours     string     `gorm:"work_hours" json:"work_hours"`
-	PackQuantity  int        `gorm:"pack_quantity" json:"pack_quantity"`
-	SmallQuantity int        `gorm:"small_quantity" json:"small_quantity"`
+	IsFullday     bool       `gorm:"is_fullday" json:"is_fullday"`
+	CreatedAt     *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt     *time.Time `gorm:"updated_at" json:"updated_at"`
+}
+
+type StoreDto struct {
+	Id            string     `gorm:"id" json:"id"`
+	StoreCode     int        `gorm:"store_code" json:"store_code"`
+	Name          string     `gorm:"name" json:"name"`
+	DetailedName  string     `gorm:"detailed_name" json:"detailed_name"`
+	CompanyId     string     `gorm:"company_id" json:"company_id"`
+	Phone         string     `gorm:"phone" json:"phone"`
+	Contact       string     `gorm:"contact" json:"contact"`
+	Inn           string     `gorm:"inn" json:"inn"`
+	EmployeeCount int        `gorm:"employee_count" json:"employee_count"`
+	CashBoxCount  int        `gorm:"cash_box_count" json:"cash_box_count"`
+	Address       string     `gorm:"address" json:"address"`
+	Location      string     `gorm:"location" json:"location"`
+	Coordinates   Point      `gorm:"column:coordinates" json:"coordinates"`
+	WorkHours     string     `gorm:"work_hours" json:"work_hours"`
 	IsFullday     bool       `gorm:"is_fullday" json:"is_fullday"`
 	CreatedAt     *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt     *time.Time `gorm:"updated_at" json:"updated_at"`
@@ -54,30 +76,9 @@ type StoreUpdateRequest struct {
 	UpdatedBy     string  `gorm:"updated_by" json:"-"`
 }
 
-// Store Request 1C
-type StoreRequest1C struct {
-	Id        string `gorm:"type:uuid;default:gen_random_uuid()" json:"-"`
-	Name      string `gorm:"name" json:"name"`
-	StoreCode int    `gorm:"store_code" json:"store_code"`
-}
-
-// Stores list with store product info
-type StoreWithProducts struct {
-	Id            string     `gorm:"id" json:"id"`
-	Name          string     `gorm:"name" json:"name"`
-	Phone         string     `gorm:"phone" json:"phone"`
-	DetailedName  string     `gorm:"detailed_name" json:"detailed_name"`
-	StoreCode     int        `gorm:"store_code" json:"store_code"`
-	PackQuantity  int        `gorm:"pack_quantity" json:"pack_quantity"`
-	UnitQuantity  int        `gorm:"unit_quantity" json:"unit_quantity"`
-	SmallQuantity int        `gorm:"small_quantity" json:"small_quantity"`
-	SupplyPrice   float64    `gorm:"supply_price" json:"supply_price"`
-	RetailPrice   float64    `gorm:"retail_price" json:"retail_price"`
-	Vat           int        `gorm:"vat" json:"vat"`
-	Markup        int        `gorm:"markup" json:"markup"`
-	ExpireDate    *time.Time `gorm:"expire_date" json:"expire_date"`
-	BonusPercent  int        `gorm:"bonus_percent" json:"bonus_percent"`
-	Location      string     `gorm:"location" json:"location"`
-	Address       string     `gorm:"address" json:"address"`
-	WorkHours     string     `gorm:"work_hours" json:"work_hours"`
+type StoreQueryParams struct {
+	CompanyId string `form:"company_id"`
+	Search    string `form:"search"`
+	Limit     int    `form:"limit"`
+	Offset    int    `form:"offset"`
 }

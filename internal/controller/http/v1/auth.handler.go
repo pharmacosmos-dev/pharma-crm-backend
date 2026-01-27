@@ -1,10 +1,12 @@
 package v1
 
 import (
+	"context"
 	"errors"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/etc"
 	"gorm.io/gorm"
 )
@@ -35,34 +37,33 @@ func (h *AuthHandler) AuthRoutes(r *gin.RouterGroup) {
 // @Failure      500  {object}  v1.Response
 // @Router       /login [post]
 func (h *AuthHandler) Login(c *gin.Context) {
-	var (
-		body domain.Login
-		res  domain.Employee
-		err  error
-	)
-	// bind request body
-	if err = c.ShouldBindJSON(&body); err != nil {
+
+	var body domain.Login
+	if err := c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	// find employee by phone
-	err = h.db.WithContext(c.Request.Context()).
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	var employee domain.Employee
+	err := h.db.WithContext(ctx).
 		Preload("Store").
 		Where("is_active = ?", true).
-		First(&res, "phone = ?", body.Phone).Error
+		First(&employee, "phone = ?", body.Phone).Error
 	if err != nil {
-		// check if user not found
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			handleResponse(c, NotFound, "User not found")
 			return
 		}
-		h.log.Error(err)
+		h.log.Errorf("could not find employee by phone: %v", err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 	// decrypt saved password
-	oldPassword, err := etc.Decrypt(res.Password, h.cfg.HashKey)
+	oldPassword, err := etc.Decrypt(employee.Password, h.cfg.HashKey)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -75,10 +76,10 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	userClaims := map[string]any{
-		"user_id":    res.Id,
-		"company_id": res.CompanyId,
-		"store_id":   res.StoreId,
-		"role":       res.RoleType,
+		"user_id":    employee.Id,
+		"company_id": employee.CompanyId,
+		"store_id":   employee.StoreId,
+		"role":       employee.RoleType,
 	}
 	// generate tokens
 	accessToken, refreshToken, err := h.JwtHandler.GenerateTokens(userClaims)
@@ -91,7 +92,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	data := domain.LoginResponse{
 		Token:        accessToken,
 		RefreshToken: refreshToken,
-		Employee:     res,
+		Employee:     employee,
 	}
 	// return response
 	handleResponse(c, OK, data)

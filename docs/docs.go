@@ -7845,6 +7845,55 @@ const docTemplate = `{
                 }
             }
         },
+        "/helper/upload-pharmacy": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Upload pharmacy info excel",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "helper"
+                ],
+                "summary": "Upload pharmacy info excel",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Excel file (.xlsx) containing product data",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/helper/upload-tax-products": {
             "post": {
                 "security": [
@@ -22995,55 +23044,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/store/excel-upload": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Upload a store file in .xlsx format. The file should include product details in specific columns.",
-                "consumes": [
-                    "multipart/form-data"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "stores"
-                ],
-                "summary": "Upload a stores",
-                "parameters": [
-                    {
-                        "type": "file",
-                        "description": "Excel file (.xlsx) containing product data",
-                        "name": "file",
-                        "in": "formData",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Products uploaded successfully",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid file format or processing error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            }
-        },
         "/store/export-excel": {
             "get": {
                 "security": [
@@ -27311,6 +27311,10 @@ const docTemplate = `{
         },
         "domain.Point": {
             "type": "object",
+            "required": [
+                "lat",
+                "long"
+            ],
             "properties": {
                 "lat": {
                     "type": "number"
@@ -27969,6 +27973,9 @@ const docTemplate = `{
                 "company_id": {
                     "type": "string"
                 },
+                "contact": {
+                    "type": "string"
+                },
                 "created_at": {
                     "type": "string"
                 },
@@ -27981,6 +27988,9 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "inn": {
+                    "type": "string"
+                },
                 "is_fullday": {
                     "type": "boolean"
                 },
@@ -27990,14 +28000,8 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
-                "pack_quantity": {
-                    "type": "integer"
-                },
                 "phone": {
                     "type": "string"
-                },
-                "small_quantity": {
-                    "type": "integer"
                 },
                 "store_code": {
                     "type": "integer"
