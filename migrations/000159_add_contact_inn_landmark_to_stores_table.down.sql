@@ -1,3 +1,5 @@
+DROP EXTENSION IF EXISTS postgis;
+
 ALTER TABLE 
     "stores"
         DROP COLUMN IF EXISTS "contact" VARCHAR(20) NULL,

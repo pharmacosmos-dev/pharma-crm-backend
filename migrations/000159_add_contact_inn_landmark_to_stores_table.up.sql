@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS postgis;
+
 ALTER TABLE 
     "stores"
         ADD COLUMN IF NOT EXISTS "contact" VARCHAR(20) NULL,
