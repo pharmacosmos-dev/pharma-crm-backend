@@ -802,19 +802,27 @@ func (h *ProductHandler) ListStoreProductProductId(c *gin.Context) {
 	}
 
 	var params domain.ProductQueryParam
-
+	// bind query params
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
 	params.ProductId = c.Param("id")
-	params.StoreId = c.Query("store_id")
 
-	// get limit, offset
-	limit, offset, err := getPaginationParams(c)
-	if err != nil {
+	if params.ProductId == "" {
 		handleServiceResponse(c, nil, domain.InvalidQueryError)
 		return
 	}
 
-	params.Limit = limit
-	params.Offset = offset
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
+	}
+
+	// get limit, offset
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
@@ -825,7 +833,7 @@ func (h *ProductHandler) ListStoreProductProductId(c *gin.Context) {
 		return
 	}
 
-	data := utils.ListResponse(res, totalCount, limit, offset)
+	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
 
 	handleResponse(c, OK, data)
 }

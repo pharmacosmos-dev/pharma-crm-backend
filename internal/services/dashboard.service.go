@@ -141,7 +141,7 @@ func (s *Services) DashboardTotalCountStats(ctx context.Context, param *domain.D
 	// Execute queries
 	var sale domain.DashboardCountStatsSale
 	querys += filter
-	err := s.db.WithContext(ctx).Debug().Raw(querys, args...).Scan(&sale).Error
+	err := s.db.WithContext(ctx).Raw(querys, args...).Scan(&sale).Error
 	if err != nil {
 		s.log.Errorf("could not get total sale amounts: %v", err)
 		return nil, domain.InternalServerError
@@ -1228,7 +1228,7 @@ func (s *Services) DashboardProductStatistic(ctx context.Context, params *domain
 	// Execute queries
 	// get total product count
 	query += filter
-	err := s.db.WithContext(ctx).Raw(query, args...).Debug().Scan(&res).Error
+	err := s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get total product_amounts: %v", err)
 		return nil, domain.InternalServerError

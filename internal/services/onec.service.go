@@ -186,7 +186,7 @@ func (s *Services) createOrGetProductAndImportDetails(
 		}
 		// create import_detail
 		var id string
-		err = tx.WithContext(ctx).Debug().Raw(`
+		err = tx.WithContext(ctx).Raw(`
 		INSERT INTO import_details(
 			product_id, 
 			import_id,

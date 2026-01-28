@@ -1851,7 +1851,6 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 		Limit(params.Limit).
 		Offset(params.Offset).
 		Order("s.completed_at DESC").
-		Debug().
 		Find(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get sales: %v", err)

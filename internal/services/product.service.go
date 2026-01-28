@@ -411,7 +411,6 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 }
 
 func (s *Services) GetProductsByStores(ctx context.Context, params *domain.ProductQueryParam) ([]domain.ProductData, error) {
-
 	qb := s.db.WithContext(ctx).
 		Select(
 			"s.id AS store_id",
@@ -434,7 +433,7 @@ func (s *Services) GetProductsByStores(ctx context.Context, params *domain.Produ
 		Group("s.id, s.name, p.id, p.name").
 		Order("s.name, p.name")
 	var res []domain.ProductData
-	err := qb.Limit(params.Limit).Offset(params.Offset).Debug().Find(&res).Error
+	err := qb.Limit(params.Limit).Offset(params.Offset).Find(&res).Error
 
 	if err != nil {
 		s.log.Errorf("could not get products list: %v", err)
@@ -822,20 +821,8 @@ func (s *Services) GetProducerByCode(ctx context.Context, tx *gorm.DB, code stri
 }
 
 func (s *Services) GetStoreProductsByProductId(ctx context.Context, params *domain.ProductQueryParam, user *domain.EmployeeClaims) ([]domain.StoreProduct, int64, error) {
-	var (
-		res        []domain.StoreProduct
-		totalCount int64
-	)
-
-	if !utils.In(user.Role, constants.AllAdminRoles...) {
-		if user.StoreId != "" {
-			params.StoreId = user.StoreId
-		}
-		params.CompanyId = user.CompanyId
-	}
-
 	// build query
-	query := s.db.
+	query := s.db.WithContext(ctx).
 		Select(
 			"sp.id",
 			"sp.store_id",
@@ -873,9 +860,16 @@ func (s *Services) GetStoreProductsByProductId(ctx context.Context, params *doma
 	if params.CompanyId != "" {
 		query = query.Where("st.company_id = ?", params.CompanyId)
 	}
+
+	var totalCount int64
+	if err := query.Count(&totalCount).Error; err != nil {
+		s.log.Errorf("could not count store_products by product_id: %v", err)
+		return nil, 0, domain.InternalServerError
+	}
+
+	var res []domain.StoreProduct
 	// complete query
-	err := query.WithContext(ctx).
-		Count(&totalCount).
+	err := query.
 		Limit(params.Limit).
 		Offset(params.Offset).
 		Order("sp.created_at DESC").
@@ -1852,7 +1846,7 @@ LEFT JOIN imventory_quantity imq ON true
 	}
 
 	// Execute query
-	err := s.db.WithContext(ctx).Debug().Raw(query, args...).Scan(&res).Error
+	err := s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get single product dashboard: %v", err)
 		return res, err

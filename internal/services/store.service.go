@@ -13,7 +13,7 @@ import (
 func (s *Services) CreateStoreOnImport(ctx context.Context, tx *gorm.DB, req *domain.StoreRequest) (domain.Store, error) {
 	var res domain.Store
 	query := `INSERT INTO stores(name, detailed_name, store_code, company_id) VALUES(?, ?, ?, ?) RETURNING *`
-	err := tx.WithContext(ctx).Debug().Raw(query, req.Name, req.Name, req.StoreCode, req.CompanyId).Scan(&res).Error
+	err := tx.WithContext(ctx).Raw(query, req.Name, req.Name, req.StoreCode, req.CompanyId).Scan(&res).Error
 	if err != nil {
 		s.log.Errorf("could not create new store on importing: %v", err)
 		return res, domain.InternalServerError

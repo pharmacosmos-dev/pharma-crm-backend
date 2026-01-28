@@ -307,7 +307,7 @@ func (h *HelperHandler) CorrectMXIK(c *gin.Context) {
 	// Process rows
 	for _, row := range rows[1:] {
 		if len(row) > 3 {
-			err := h.db.Debug().Exec(query, strings.TrimSpace(row[2]), strings.TrimSpace(row[3]), strings.TrimSpace(row[0])).Error
+			err := h.db.Exec(query, strings.TrimSpace(row[2]), strings.TrimSpace(row[3]), strings.TrimSpace(row[0])).Error
 			if err != nil {
 				h.log.Error("could not updated product(%s) mxik(%s): %v", strings.TrimSpace(row[2]), err)
 			} else {
@@ -1329,7 +1329,7 @@ func (h *HelperHandler) FixProductQuantity(c *gin.Context) {
 		if quantity > 0 {
 			unitPerPack := cast.ToInt(row[3])
 			packQuantity := utils.NearestRound(float64(quantity) / float64(unitPerPack))
-			err = h.db.Debug().Exec(query, packQuantity, quantity, row[0]).Error
+			err = h.db.Exec(query, packQuantity, quantity, row[0]).Error
 			if err != nil {
 				h.log.Error("could not update store_products(%s) -> %v", row[0], err)
 			}
@@ -1455,7 +1455,7 @@ func (h *HelperHandler) UpdateSaleItems(c *gin.Context) {
 		if len(row) > 12 {
 			quantity := cast.ToInt(row[4])
 			price := cast.ToFloat64(row[5])
-			err = h.db.Debug().Exec(query, quantity, float64(quantity)*price, row[0]).Error
+			err = h.db.Exec(query, quantity, float64(quantity)*price, row[0]).Error
 			if err != nil {
 				h.log.Errorf("could not update cart_item(%s) -> %v", row[0], err)
 			}
@@ -1910,7 +1910,7 @@ func (h *HelperHandler) processExcel(c *gin.Context, savePath string) {
 				if localPath != "" {
 					photos = append(photos, localPath)
 					// UPDATE faqat to'g'ri yuklangan rasm bo'lsa
-					err = h.db.Debug().Exec(query,
+					err = h.db.Exec(query,
 						utils.StringArray(photos),
 						cast.ToInt(row[0]),
 					).Error

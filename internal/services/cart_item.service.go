@@ -256,7 +256,7 @@ func (s *Services) GetCartItemBySaleIdAndSpIdWithLocking(ctx context.Context, tx
 	err := tx.WithContext(ctx).
 		Where("sale_id = ? AND store_product_id = ?", saleId, spId).
 		Clauses(clause.Locking{Strength: "UPDATE"}).
-		First(&cartItem).Error
+		Take(&cartItem).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, domain.NotFoundError
