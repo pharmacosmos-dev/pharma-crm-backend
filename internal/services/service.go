@@ -32,6 +32,9 @@ func NewService(db *gorm.DB, log *logger.Logger, cfg *config.Config, hub *ws.Hub
 	// update import totals arguments
 	go s.updateImportTotalsLoop()
 
+	// send remaining quantity to OsonApteka
+	go s.performSendOsonApteka()
+
 	return s
 }
 

@@ -17,7 +17,7 @@ type Drug struct {
 	Name         string  `json:"name"`
 	Manufacturer string  `json:"manufacturer"`
 	Price        float64 `json:"price"`
-	Qty          int     `json:"qty"`
+	Qty          float64 `json:"qty"`
 	ExpiryDate   string  `json:"expiry_date"`
 }
 
