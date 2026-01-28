@@ -54,7 +54,7 @@ func (s *Services) syncUnitCodes() error {
 }
 
 func (s *Services) performSendOsonApteka() {
-	ticker := time.NewTicker(5 * time.Minute)
+	ticker := time.NewTicker(2 * time.Hour)
 	defer ticker.Stop()
 	for range ticker.C {
 		if err := s.SendRemainingQuantityToOsonApteka(); err != nil {
@@ -116,7 +116,7 @@ GROUP BY
 	if err := s.db.Raw(query).Scan(&stores).Error; err != nil {
 		return fmt.Errorf("failed to fetch remaining quantities for OsonApteka: %w", err)
 	}
-	fmt.Println("---->> ", stores)
+
 	for _, jsonStr := range stores {
 		var store domain.OsonAptekaRequest
 		if err := json.Unmarshal([]byte(jsonStr), &store); err != nil {
