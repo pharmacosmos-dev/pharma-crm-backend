@@ -473,10 +473,18 @@ func (s *Services) GetImports(ctx context.Context, params *domain.ImportQueryPar
 		qb = qb.Where("st.company_id = ?", params.CompanyId)
 	}
 	if params.StartDate != "" {
-		qb = qb.Where("(im.created_at + interval '5 hours') >= ?", params.StartDate)
+		dataTime, err := s.ConvenrtTimeAsiaTashkent(params.StartDate)
+		if err != nil {
+			return nil, 0, err
+		}
+		qb = qb.Where("im.created_at >= ?", dataTime)
 	}
 	if params.EndDate != "" {
-		qb = qb.Where("(im.created_at + interval '5 hours') <= ?", params.EndDate)
+		dataTime, err := s.ConvenrtTimeAsiaTashkent(params.EndDate)
+		if err != nil {
+			return nil, 0, err
+		}
+		qb = qb.Where("im.created_at <= ?", dataTime)
 	}
 	if params.Status != "" {
 		qb = qb.Where("im.status = ?", params.Status)
@@ -581,10 +589,18 @@ func (s *Services) GetImportsStats(ctx context.Context, params *domain.ImportQue
 	}
 
 	if params.StartDate != "" {
-		qb = qb.Where("(im.created_at + interval '5 hours') >= ?", params.StartDate)
+		dataTime, err := s.ConvenrtTimeAsiaTashkent(params.StartDate)
+		if err != nil {
+			return nil, err
+		}
+		qb = qb.Where("im.created_at >= ?", dataTime)
 	}
 	if params.EndDate != "" {
-		qb = qb.Where("(im.created_at + interval '5 hours') <= ?", params.EndDate)
+		dataTime, err := s.ConvenrtTimeAsiaTashkent(params.EndDate)
+		if err != nil {
+			return nil, err
+		}
+		qb = qb.Where("im.created_at <= ?", dataTime)
 	}
 	if params.Search != "" {
 		params.Search = fmt.Sprintf("%%%s%%", params.Search)
