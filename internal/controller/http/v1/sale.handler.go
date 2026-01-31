@@ -1204,7 +1204,7 @@ func (h *SaleHandler) PendingSale(c *gin.Context) {
 	}
 
 	// get sale record
-	err = h.db.First(&sale, "id = ?", id).Error
+	err = h.db.Take(&sale, "id = ?", id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		handleServiceResponse(c, NotFound, domain.NotFoundError)
 		return

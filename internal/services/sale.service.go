@@ -1384,7 +1384,7 @@ func (s *Services) UpdateSalePaymentType(ctx context.Context, req *domain.Change
 
 	// geting sale
 	var sale domain.Sale
-	err := s.db.Where("id = ?", req.SaleId).First(&sale).Error
+	err := s.db.Where("id = ?", req.SaleId).Take(&sale).Error
 	if err != nil {
 		s.log.Errorf("could not get sale by id: %v", err)
 		return domain.InternalServerError
