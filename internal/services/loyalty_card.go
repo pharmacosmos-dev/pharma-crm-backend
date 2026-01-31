@@ -2,7 +2,6 @@ package services
 
 import (
 	"errors"
-	"fmt"
 
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
@@ -51,7 +50,6 @@ func (s *Services) CreateLoyaltyCard(req *domain.LoyaltyCardCreateRequest) (*dom
 
 	loyaltyCardLevelID = loyaltyLevel.Id
 	loyaltyCardPersent = int64(loyaltyLevel.CashbackPercent)
-	fmt.Println(req.CustomerID, loyaltyCardLevelID)
 
 	// writing loyalty card history
 	err = tx.Exec(`insert into loyalty_card_levelup_history(
@@ -147,8 +145,8 @@ RETURNING
     c.loyalty_card_level_id
 	`).Scan(&customers).Error
 	if err != nil {
-		s.log.Error("error on updating loyalty leveling up for customers: ", err)
 		_ = tx.Rollback()
+		s.log.Error("error on updating loyalty leveling up for customers: ", err)
 		return
 	}
 
@@ -160,15 +158,15 @@ RETURNING
 			"total_spent":           gorm.Expr("(SELECT COALESCE(SUM(s.total_amount), 0) FROM sales s WHERE s.customer_id = ?)", customer.Id),
 		}).Error
 		if err != nil {
-			s.log.Error("error on creating loyalty card leveling up history: ", err)
 			_ = tx.Rollback()
+			s.log.Error("error on creating loyalty card leveling up history: ", err)
 			return
 		}
 	}
 
 	if err = tx.Commit().Error; err != nil {
-		s.log.Error("error on commit transaction: ", err)
 		_ = tx.Rollback()
+		s.log.Errorf("error on commit transaction: %v", err)
 		return
 	}
 

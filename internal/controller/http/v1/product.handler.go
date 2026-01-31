@@ -1110,27 +1110,26 @@ func (h *ProductHandler) UploadProduct(c *gin.Context) {
 	// Ensure the transaction is rolled back if any error occurs
 	defer func() {
 		if p := recover(); p != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			panic(p)
-		} else if err != nil {
-			tx.Rollback()
 		}
 	}()
 	err = tx.Table("producers").Create(&producers).Error
 	if err != nil {
+		_ = tx.Rollback()
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 	err = tx.Table("products").Create(&products).Error
 	if err != nil {
+		_ = tx.Rollback()
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
-	err = tx.Commit().Error
-	if err != nil {
+	if err = tx.Commit().Error; err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -1197,10 +1196,8 @@ func (h *ProductHandler) AttachBarcode(c *gin.Context) {
 	// Ensure the transaction is rolled back if any error occurs
 	defer func() {
 		if p := recover(); p != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			panic(p)
-		} else if err != nil {
-			tx.Rollback()
 		}
 	}()
 	// Process rows
@@ -1208,6 +1205,7 @@ func (h *ProductHandler) AttachBarcode(c *gin.Context) {
 		if len(row) > 2 {
 			err = tx.Exec("UPDATE products SET barcode = ? WHERE material_code = ?", row[2], row[0]).Error
 			if err != nil {
+				_ = tx.Rollback()
 				h.log.Warn("ERROR on updating product barcode: %v", err)
 				handleResponse(c, InternalError, "Can't update product barcode")
 				return
@@ -1215,8 +1213,7 @@ func (h *ProductHandler) AttachBarcode(c *gin.Context) {
 		}
 	}
 	// commit transaction
-	err = tx.Commit().Error
-	if err != nil {
+	if err = tx.Commit().Error; err != nil {
 		handleResponse(c, InternalError, "Can't commit transaction")
 		return
 	}
@@ -2095,10 +2092,8 @@ func (h *ProductHandler) CreateExcludedProduct(c *gin.Context) {
 	// Ensure the transaction is rolled back if any error occurs
 	defer func() {
 		if p := recover(); p != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			panic(p)
-		} else if err != nil {
-			tx.Rollback()
 		}
 	}()
 
@@ -2107,12 +2102,14 @@ func (h *ProductHandler) CreateExcludedProduct(c *gin.Context) {
 	// Case 1 or 2: producer_id bor
 	if body.ProducerID != nil && *body.ProducerID != "" {
 		if err := tx.Raw(`SELECT id FROM products WHERE producer_id = ?`, *body.ProducerID).Scan(&productIDs).Error; err != nil {
+			_ = tx.Rollback()
 			h.log.Error(err)
 			handleResponse(c, InternalError, "Failed to fetch products for producer")
 			return
 		}
 
 		if len(productIDs) == 0 {
+			_ = tx.Rollback()
 			handleResponse(c, BadRequest, "No products found for given producer")
 			return
 		}
@@ -2133,6 +2130,7 @@ func (h *ProductHandler) CreateExcludedProduct(c *gin.Context) {
 				ON CONFLICT (store_id, product_id, company_id) DO NOTHING
 			`, excludeID, productID, companyId, userId, now).Error
 			if err != nil {
+				_ = tx.Rollback()
 				h.log.Error(err)
 				handleResponse(c, InternalError, "Failed to exclude product globally")
 				return
@@ -2150,6 +2148,7 @@ func (h *ProductHandler) CreateExcludedProduct(c *gin.Context) {
 					ON CONFLICT (store_id, product_id, company_id) DO NOTHING
 				`, excludeID, *store, productID, companyId, userId, now).Error
 				if err != nil {
+					_ = tx.Rollback()
 					h.log.Error(err)
 					handleResponse(c, InternalError, "Failed to exclude product for store")
 					return
@@ -2158,8 +2157,7 @@ func (h *ProductHandler) CreateExcludedProduct(c *gin.Context) {
 		}
 	}
 
-	err = tx.Commit().Error
-	if err != nil {
+	if err = tx.Commit().Error; err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
@@ -2314,10 +2312,8 @@ func (h *ProductHandler) DeleteExcludedProduct(c *gin.Context) {
 	// Ensure the transaction is rolled back if any error occurs
 	defer func() {
 		if p := recover(); p != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			panic(p)
-		} else if err != nil {
-			tx.Rollback()
 		}
 	}()
 
@@ -2325,18 +2321,19 @@ func (h *ProductHandler) DeleteExcludedProduct(c *gin.Context) {
 
 	result := tx.Exec(query, id)
 	if result.Error != nil {
+		_ = tx.Rollback()
 		h.log.Error("Failed to delete excluded product: ", result.Error)
 		handleResponse(c, InternalError, result.Error.Error())
 		return
 	}
 
 	if result.RowsAffected == 0 {
+		_ = tx.Rollback()
 		handleResponse(c, NotFound, "Excluded product not found")
 		return
 	}
 
-	err = tx.Commit().Error
-	if err != nil {
+	if err = tx.Commit().Error; err != nil {
 		handleResponse(c, InternalError, err.Error())
 		return
 	}

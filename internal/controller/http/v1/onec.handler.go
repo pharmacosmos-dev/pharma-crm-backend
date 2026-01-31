@@ -479,26 +479,21 @@ func (h *ProductOnecHandler) GetToken(c *gin.Context) {
 	tx := h.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
-			tx.Rollback()
-		}
-	}()
-	defer func() {
-		if err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 		}
 	}()
 
 	// save new token (service call)
 	err = h.service.SaveAsilBelgiToken(tx, &body)
 	if err != nil {
+		_ = tx.Rollback()
 		h.log.Warn("ERROR on saving Asil Belgi token: %v", err)
 		handleResponse(c, InternalError, "failed.to.save.token")
 		return
 	}
 
 	// commit
-	err = tx.Commit().Error
-	if err != nil {
+	if err = tx.Commit().Error; err != nil {
 		handleResponse(c, InternalError, "not.committed.transaction")
 		return
 	}

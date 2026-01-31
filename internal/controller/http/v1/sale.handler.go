@@ -1108,19 +1108,15 @@ func (h *SaleHandler) AsilBelgiBarcode(c *gin.Context) {
 // @Failure      500 {object} v1.Response
 // @Router       /sale/asil-belgi-barcode-confirm/{id} [post]
 func (h *SaleHandler) AsilBelgiBarcodeConfirm(c *gin.Context) {
-	var (
-		barcodeLog domain.ProductBarcode
-		err        error
-	)
 
 	id := c.Param("id")
 	if id == "" {
 		handleResponse(c, BadRequest, "id.required")
 		return
 	}
-
+	var barcodeLog domain.ProductBarcode
 	// pending yozuvni olish
-	err = h.db.First(&barcodeLog, "id = ? AND status = ?", id, constants.GeneralStatusPending).Error
+	err := h.db.First(&barcodeLog, "id = ? AND status = ?", id, constants.GeneralStatusPending).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		handleResponse(c, NotFound, "pending.barcode.not.found")
 		return

@@ -63,12 +63,12 @@ func (s *Services) CreateCustomer(ctx context.Context, req *domain.CustomerReque
 		err := tx.Order("position ASC").First(&loyaltyLevel).Error
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				s.log.Error("could not find loyalty level for new customer")
 				_ = tx.Rollback()
+				s.log.Error("could not find loyalty level for new customer")
 				return &res, fmt.Errorf("could not find loyalty level for new customer: %s", err.Error())
 			}
-			s.log.Errorf("error on getting loyalty card level in db: %s", err.Error())
 			_ = tx.Rollback()
+			s.log.Errorf("error on getting loyalty card level in db: %s", err.Error())
 			return &res, fmt.Errorf("error on getting loyalty card level in db: %s", err.Error())
 		}
 
@@ -138,8 +138,8 @@ func (s *Services) CreateCustomer(ctx context.Context, req *domain.CustomerReque
 			return &res, domain.DuplicatePhoneError
 		}
 
-		s.log.Errorf("could not create customer: %v", err)
 		_ = tx.Rollback()
+		s.log.Errorf("could not create customer: %v", err)
 		return &res, domain.InternalServerError
 	}
 
@@ -151,15 +151,15 @@ func (s *Services) CreateCustomer(ctx context.Context, req *domain.CustomerReque
 				?, ?, ?
 		)`, res.Id, loyaltyCardLevelID, 0).Error
 		if err != nil {
-			s.log.Errorf("error on creating loyalty card levelup history: %s", err.Error())
 			_ = tx.Rollback()
+			s.log.Errorf("error on creating loyalty card levelup history: %s", err.Error())
 			return &res, fmt.Errorf("error on creating loyalty card levelup history: %s", err.Error())
 		}
 	}
 
 	if err = tx.Commit().Error; err != nil {
 		s.log.Errorf("error on commit transaction: %s", err.Error())
-		return nil, fmt.Errorf("error on commit transaction: %s", err.Error())
+		return nil, domain.InternalServerError
 	}
 
 	return &res, nil
@@ -512,13 +512,13 @@ func (s *Services) UpdateCustomer(ctx context.Context, req *domain.CustomerReque
 		First(&existingCustomer).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			s.log.Error("could not find customer to update")
 			_ = tx.Rollback()
+			s.log.Error("could not find customer to update")
 			return &res, domain.NotFoundError
 		}
-		s.log.Errorf("error on getting existing customer in db: %s", err.Error())
 		_ = tx.Rollback()
-		return &res, fmt.Errorf("error on getting existing customer in db: %s", err.Error())
+		s.log.Errorf("error on getting existing customer in db: %s", err.Error())
+		return &res, domain.InternalServerError
 	}
 
 	if existingCustomer.LoyaltyCardBarcode != "" {
@@ -553,13 +553,13 @@ func (s *Services) UpdateCustomer(ctx context.Context, req *domain.CustomerReque
 		err := tx.Order("position ASC").First(&loyaltyLevel).Error
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				s.log.Error("could not find loyalty level for new customer")
 				_ = tx.Rollback()
-				return &res, fmt.Errorf("could not find loyalty level for new customer: %s", err.Error())
+				s.log.Error("could not find loyalty level for new customer")
+				return &res, domain.InternalServerError
 			}
-			s.log.Errorf("error on getting loyalty card level in db: %s", err.Error())
 			_ = tx.Rollback()
-			return &res, fmt.Errorf("error on getting loyalty card level in db: %s", err.Error())
+			s.log.Errorf("error on getting loyalty card level in db: %s", err.Error())
+			return &res, domain.InternalServerError
 		}
 
 		loyaltyCardLevelID = sql.NullString{String: loyaltyLevel.Id, Valid: true}
@@ -629,28 +629,29 @@ func (s *Services) UpdateCustomer(ctx context.Context, req *domain.CustomerReque
 			return &res, domain.DuplicatePhoneError
 		}
 
-		s.log.Errorf("could not update customer: %v", err)
 		_ = tx.Rollback()
+		s.log.Errorf("could not update customer: %v", err)
 		return &res, domain.InternalServerError
 	}
 
 	// writing loyalty card history
 	if loyaltyCardShouldCreate {
-		err = tx.Exec(`insert into loyalty_card_levelup_history(
+		err = tx.WithContext(ctx).
+			Exec(`insert into loyalty_card_levelup_history(
 			customer_id, loyalty_card_level_id, total_spent
 		) values (
 				?, ?, ?
 		)`, res.Id, loyaltyCardLevelID, 0).Error
 		if err != nil {
-			s.log.Errorf("error on creating loyalty card levelup history: %s", err.Error())
 			_ = tx.Rollback()
-			return &res, fmt.Errorf("error on creating loyalty card levelup history: %s", err.Error())
+			s.log.Errorf("error on creating loyalty card levelup history: %s", err.Error())
+			return &res, domain.InternalServerError
 		}
 	}
 
 	if err = tx.Commit().Error; err != nil {
 		s.log.Errorf("error on commit transaction: %s", err.Error())
-		return nil, fmt.Errorf("error on commit transaction: %s", err.Error())
+		return nil, domain.InternalServerError
 	}
 
 	return &res, nil

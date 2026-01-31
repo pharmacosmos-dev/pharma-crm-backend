@@ -841,21 +841,20 @@ func (s *Services) CancelReturn(returnId string, userId string) error {
 	tx := s.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 		}
 	}()
 	// update confirm inventory
 	query := `UPDATE transfers SET status = ?, accepted_by = ?, updated_at = NOW() WHERE id = ?`
 	err := tx.Exec(query, constants.GeneralStatusCanceled, userId, returnId).Error
 	if err != nil {
-		s.log.Warn("ERROR on updating inventory %v", err)
-		tx.Rollback()
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("could not cancel return %v", err)
+		return domain.InternalServerError
 	}
 	if err = tx.Commit().Error; err != nil {
-		s.log.Warn("ERROR on commiting transaction %v", err)
-		tx.Rollback()
-		return err
+		s.log.Errorf("could not commit transaction %v", err)
+		return domain.InternalServerError
 	}
 
 	return nil

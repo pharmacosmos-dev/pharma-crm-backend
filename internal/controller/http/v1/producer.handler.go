@@ -384,21 +384,20 @@ func (h *ProducerHandler) UploadProducer(c *gin.Context) {
 	tx := h.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 		}
 	}()
 	// create producers
 	err = h.db.Table("producers").Create(&producers).Error
 	if err != nil {
+		_ = tx.Rollback()
 		h.log.Error("Failed to create producers: ", err.Error())
 		handleResponse(c, InternalError, "Failed to create producers")
-		tx.Rollback()
 		return
 	}
 	// complete transaction
 	if err = tx.Commit().Error; err != nil {
 		handleResponse(c, InternalError, err.Error())
-		tx.Rollback()
 		return
 	}
 	handleResponse(c, OK, "Products uploaded successfully")

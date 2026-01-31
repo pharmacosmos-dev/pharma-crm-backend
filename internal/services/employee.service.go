@@ -24,7 +24,7 @@ func (s *Services) CheckFieldEmployee(field, value string) (bool, error) {
 // get one
 func (s *Services) GetEmployeeById(ctx context.Context, tx *gorm.DB, id string) (*domain.Employee, error) {
 	var employee domain.Employee
-	err := tx.WithContext(ctx).First(&employee, "id = ?", id).Error
+	err := tx.WithContext(ctx).Take(&employee, "id = ?", id).Error
 	if err != nil {
 		s.log.Errorf("could not get employee by id: %v", err)
 		return nil, domain.InternalServerError

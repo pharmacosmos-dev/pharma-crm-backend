@@ -1,11 +1,13 @@
 package v1
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"gorm.io/gorm"
 )
@@ -49,33 +51,35 @@ func (h *CashBoxOperationHandler) CashBoxOperationRoutes(r *gin.RouterGroup) {
 // @Failure 500 {object} v1.Response
 // @Router /cash_box_operation [post]
 func (h *CashBoxOperationHandler) Create(c *gin.Context) {
-	var (
-		body domain.CashboxOperationRequest
-		err  error
-	)
-	// get user_id from the context
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
+	user := h.service.GetSignedUser(c)
+	if user == nil {
+		handleServiceResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
 		return
 	}
+
+	var body domain.CashboxOperationRequest
 	// bind request body
-	if err = c.ShouldBindJSON(&body); err != nil {
+	if err := c.ShouldBindJSON(&body); err != nil {
 		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
 	// check store id
 	if body.StoreID == "" {
-		handleResponse(c, BadRequest, "Store ID is required")
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
 	// create cashbox operation and new sale
-	sale, err := h.service.CreateCashboxOperation(&body, userId)
+	sale, err := h.service.CreateCashboxOperation(ctx, &body, user.UserId)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
+
 	handleResponse(c, CREATED, sale)
 }
 
@@ -92,18 +96,19 @@ func (h *CashBoxOperationHandler) Create(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /cash_box_operation/{id} [get]
 func (h *CashBoxOperationHandler) Get(c *gin.Context) {
-	var (
-		body domain.CashboxOperation
-		err  error
-		id   = c.Param("id")
-	)
-	err = h.db.First(&body, "id = ?", id).Error
+	id := c.Param("id")
+	var res domain.CashboxOperation
+	err := h.db.Take(&res, "id = ?", id).Error
 	if err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			handleServiceResponse(c, NotFound, domain.NotFoundError)
+			return
+		}
+		h.log.Errorf("could not get cashbox_operation: %v", err)
+		handleServiceResponse(c, InternalError, domain.InternalServerError)
 		return
 	}
-	handleResponse(c, OK, body)
+	handleResponse(c, OK, res)
 }
 
 // List godoc
@@ -159,26 +164,30 @@ func (h *CashBoxOperationHandler) List(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /cash_box_operation/close/{cash_box_operation_id} [put]
 func (h *CashBoxOperationHandler) CloseCashBox(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user == nil {
+		handleServiceResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
+		return
+	}
+
 	var (
 		body               domain.CloseCashboxOperation
-		err                error
-		cashBoxOperationID = c.Param("cash_box_operation_id")
+		cashBoxOperationId = c.Param("cash_box_operation_id")
 	)
-	// get user_id from the context
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "User ID not found")
-		return
-	}
+
 	// bind request body
-	if err = c.ShouldBindJSON(&body); err != nil {
-		h.log.Error(err)
-		handleResponse(c, BadRequest, err.Error())
+	if err := c.ShouldBindJSON(&body); err != nil {
+		h.log.Errorf("could not bind request body: %v", err)
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
-	err = h.service.CloseCashBoxOperation(cashBoxOperationID, &body, userId.(string))
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	err := h.service.CloseCashBoxOperation(ctx, cashBoxOperationId, &body, user.UserId)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 	handleResponse(c, OK, "CLOSED")

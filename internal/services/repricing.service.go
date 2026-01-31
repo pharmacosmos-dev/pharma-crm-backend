@@ -15,7 +15,7 @@ func (s *Services) CreateRepricing(ctx context.Context, req *domain.RepricingReq
 	tx := s.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 		}
 	}()
 

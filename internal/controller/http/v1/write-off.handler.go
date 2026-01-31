@@ -1,12 +1,14 @@
 package v1
 
 import (
+	"context"
 	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
+	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 	"github.com/xuri/excelize/v2"
@@ -133,20 +135,23 @@ func (h *WriteOffHandler) Get(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /write-off/list [GET]
 func (h *WriteOffHandler) List(c *gin.Context) {
-	var param domain.WriteOffParam
-
-	if err := c.ShouldBindQuery(&param); err != nil {
-		handleResponse(c, BadRequest, "Invalid query param")
+	var params domain.WriteOffParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
-	res, totalCount, err := h.service.WriteOffList(&param)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, totalCount, err := h.service.WriteOffList(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, "Failed to get write-off list")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
-	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
+
 	handleResponse(c, OK, data)
 }
 
@@ -165,16 +170,19 @@ func (h *WriteOffHandler) List(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /write-off/list-status [get]
 func (h *WriteOffHandler) WriteOffStatus(c *gin.Context) {
-	var param domain.WriteOffParam
+	var params domain.WriteOffParam
 
-	if err := c.ShouldBindQuery(&param); err != nil {
-		handleResponse(c, BadRequest, "Invalid query param")
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 
-	res, err := h.service.WriteOffStatus(&param)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, err := h.service.WriteOffStatus(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, "Failed to get write-off summary")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
@@ -198,17 +206,20 @@ func (h *WriteOffHandler) WriteOffStatus(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /write-off/export-excel [GET]
 func (h *WriteOffHandler) ExportExcel(c *gin.Context) {
-	var param domain.WriteOffParam
+	var params domain.WriteOffParam
 
-	if err := c.ShouldBindQuery(&param); err != nil {
-		handleResponse(c, BadRequest, "Invalid query param")
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
-	res, _, err := h.service.WriteOffList(&param)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, _, err := h.service.WriteOffList(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, "Failed to get write-off list")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 	// Excel fayl yaratish
@@ -265,20 +276,25 @@ func (h *WriteOffHandler) ExportExcel(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /write-off/confirm/{id} [POST]
 func (h *WriteOffHandler) Confirm(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user == nil {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
 	id := c.Param("id")
 	if err := uuid.Validate(id); err != nil {
 		handleResponse(c, BadRequest, "Invalid write-off id")
 		return
 	}
-	userId, ok := c.Get("user_id")
-	if !ok {
-		handleResponse(c, UNAUTHORIZED, "user id not found from the context")
-		return
-	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
+
 	// confirm write-off service
-	err := h.service.ConfirmWriteOff(id, userId.(string))
+	err := h.service.ConfirmWriteOff(ctx, id, user.UserId)
 	if err != nil {
-		handleResponse(c, InternalError, "Failed to confirm write-off")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
@@ -337,21 +353,23 @@ func (h *WriteOffHandler) Cancel(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /write-off-detail/list [GET]
 func (h *WriteOffHandler) WriteOffDetailList(c *gin.Context) {
-	var param domain.WriteOffDetailParam
+	var params domain.WriteOffDetailParam
 	// bind query param
-	if err := c.ShouldBindQuery(&param); err != nil {
-		handleResponse(c, BadRequest, "Invalid query param")
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleResponse(c, BadRequest, "Invalid query params")
 		return
 	}
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
 	// get write-off detail list
-	res, totalCount, err := h.service.WriteOffDetailList(&param)
+	res, totalCount, err := h.service.WriteOffDetailList(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, "Failed to get write-off detail list")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 	// get write-off list _meta and pagination info
-	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
 
 	handleResponse(c, OK, data)
 }
@@ -373,17 +391,19 @@ func (h *WriteOffHandler) WriteOffDetailList(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /write-off-detail/export-excel [GET]
 func (h *WriteOffHandler) WriteOffDetailExportExcel(c *gin.Context) {
-	var param domain.WriteOffDetailParam
+	var params domain.WriteOffDetailParam
 	// bind query param
-	if err := c.ShouldBindQuery(&param); err != nil {
-		handleResponse(c, BadRequest, "Invalid query param")
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleResponse(c, BadRequest, "Invalid query params")
 		return
 	}
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
+	defer cancel()
 	// get write-off detail list
-	res, _, err := h.service.WriteOffDetailList(&param)
+	res, _, err := h.service.WriteOffDetailList(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, "Failed to get write-off detail list")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 	// Excel fayl yaratish

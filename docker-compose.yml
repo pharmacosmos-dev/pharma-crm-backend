@@ -1,65 +1,35 @@
-version: '3.9'
+services:
+  postgres_exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter
+    container_name: postgres_exporter
+    environment:
+      DATA_SOURCE_NAME: "postgresql://monitor_user:pharmadb123@host.docker.internal:5432/pharma_db?sslmode=disable"
+    ports:
+      - "9187:9187"
+    restart: unless-stopped
 
-# services:
-  # db:
-  #   container_name: postgres
-  #   image: postgres:15.11
-  #   restart: always
-  #   shm_size: '2gb'  # Optional, remove if not needed
-  #   env_file:
-  #     - .env
-  #   environment:
-  #     POSTGRES_DB: ${PG_DB}
-  #     POSTGRES_USER: ${PG_USER}
-  #     POSTGRES_PASSWORD: ${PG_PASS}
-  #     POSTGRES_HOST_AUTH_METHOD: "scram-sha-256"  # More secure than md5
-  #     PGDATA: /var/lib/postgresql/data/pgdata
-  #   volumes:
-  #     - pg-data:/var/lib/postgresql/data/pgdata
-  #   ports:
-  #     - "${PG_PORT}:5432"
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "pg_isready -U ${PG_USER} -d ${PG_DB}"]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 5
-  # pgadmin:
-  #   image: dpage/pgadmin4
-  #   container_name: pgadmin_container
-  #   restart: always
-  #   environment:
-  #     PGADMIN_DEFAULT_EMAIL: "admin@admin.com"
-  #     PGADMIN_DEFAULT_PASSWORD: "pgadmin123"
-  #   ports:
-  #     - "5050:80"
-  #   volumes:
-  #     - pgadmin-data:/var/lib/pgadmin
+  prometheus:
+    image: prom/prometheus
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    restart: unless-stopped
 
-  # elasticsearch:
-  #   image: docker.elastic.co/elasticsearch/elasticsearch:8.13.4
-  #   container_name: elasticsearch
-  #   ports:
-  #     - "9200:9200"
-  #   environment:
-  #     - discovery.type=single-node
-  #     - xpack.security.enabled=false
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - "3080:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin123
+    volumes:
+      - grafana_data:/var/lib/grafana
+    restart: unless-stopped
 
-  # kibana:
-  #   image: docker.elastic.co/kibana/kibana:8.13.4
-  #   container_name: kibana
-  #   ports:
-  #     - "5601:5601"
-  #   environment:
-  #     - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-  #   depends_on:
-  #     - elasticsearch
-
-
-# networks:
-#   elasticnet:
-
-
-
-# volumes:
-#   pg-data:
-#   pgadmin-data:
+volumes:
+  prometheus_data:
+  grafana_data:

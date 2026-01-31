@@ -366,9 +366,9 @@ func (h *ProductBonusHandler) ImportProductBonus(c *gin.Context) {
 		if len(row) > 3 {
 			err = tx.Exec(query, parseFloat(row[2]), row[3]).Error
 			if err != nil {
+				_ = tx.Rollback()
 				h.log.Error(err)
 				handleResponse(c, InternalError, err.Error())
-				tx.Rollback()
 				return
 			}
 			count++
@@ -377,7 +377,6 @@ func (h *ProductBonusHandler) ImportProductBonus(c *gin.Context) {
 
 	if err = tx.Commit().Error; err != nil {
 		handleResponse(c, InternalError, err.Error())
-		tx.Rollback()
 		return
 	}
 	handleResponse(c, OK, "Products uploaded successfully")

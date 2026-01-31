@@ -56,13 +56,16 @@ func (s *Services) AcceptImport(ctx context.Context, importId string, userId str
 	err := tx.WithContext(ctx).Take(&res, "id = ?", importId).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			_ = tx.Rollback()
 			return domain.NotFoundError
 		}
+		_ = tx.Rollback()
 		s.log.Errorf("could not get import: %v", err)
 		return domain.InternalServerError
 	}
 
 	if res.Status == constants.GeneralStatusCompleted {
+		_ = tx.Rollback()
 		return domain.AlreadyCompletedError
 	}
 

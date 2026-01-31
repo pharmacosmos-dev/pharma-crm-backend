@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -28,9 +29,9 @@ func (s *Services) CreateWriteOff(req *domain.WriteOffRequest) error {
 		req.StoreId, req.Name, req.CreatedBy, 3, time.Now(), req.Comment,
 	).Scan(&id).Error
 	if err != nil {
-		s.log.Warn("ERROR on creating inventory: %v", err)
-		tx.Rollback()
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("ERROR on creating inventory: %v", err)
+		return domain.InternalServerError
 	}
 	// if no products provided, get all products from store_products
 	// and insert them into write-off
@@ -41,67 +42,80 @@ func (s *Services) CreateWriteOff(req *domain.WriteOffRequest) error {
 			WHERE store_id = ? AND pack_quantity > 0;`,
 		id, req.StoreId).Error
 	if err != nil {
-		s.log.Warn("ERROR on creating inventory details: %v", err)
-		tx.Rollback()
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("ERROR on creating inventory details: %v", err)
+		return domain.InternalServerError
 	}
+
 	if err = tx.Commit().Error; err != nil {
-		s.log.Warn("ERROR on commiting transaction: %v", err)
-		tx.Rollback()
-		return err
+		s.log.Errorf("ERROR on commiting transaction: %v", err)
+		return domain.InternalServerError
 	}
 
 	return nil
 }
 
 // get write-off list
-func (s *Services) WriteOffList(param *domain.WriteOffParam) ([]domain.WriteOff, int64, error) {
+func (s *Services) WriteOffList(ctx context.Context, params *domain.WriteOffParam) ([]domain.WriteOff, int64, error) {
 	var res []domain.WriteOff
-	var totalCount int64
-	query := s.db.Model(&domain.Import{}).
-		Preload("Store").
-		Preload("CreatedBy").
-		Preload("UpdatedBy").
+	query := s.db.WithContext(ctx).
 		Select(`
-			imports.*,
+			im.id,
+			im.public_id,
+			im.store_id,
+			im.name,
+			im.status,
+			im.entry_type,
+			im.created_at,
+			im.updated_at,
+			im.created_by,
+			im.updated_by,
 			SUM(imd.accepted_count) AS writeoff_count,
 			SUM(imd.accepted_count*imd.supply_price_vat) AS supply_price_sum,
 			SUM(imd.accepted_count*imd.retail_price_vat) AS retail_price_sum`).
-		Joins("LEFT JOIN import_details imd ON imports.id = imd.import_id").
-		Where("imports.entry_type = ?", 3)
+		Table("imports im").
+		Joins("LEFT JOIN import_details imd ON im.id = imd.import_id").
+		Where("im.entry_type = ?", 3)
 	// filter by store id
-	if param.StoreId != "" {
-		query = query.Where("imports.store_id = ? ", param.StoreId)
+	if params.StoreId != "" {
+		query = query.Where("im.store_id = ? ", params.StoreId)
 	}
-	if param.CompanyId != "" {
-		query = query.Where("stores.company_id = ?", param.CompanyId).
-			Joins("LEFT JOIN stores ON imports.store_id = stores.id")
+	if params.CompanyId != "" {
+		query = query.Where("stores.company_id = ?", params.CompanyId).
+			Joins("LEFT JOIN stores ON im.store_id = stores.id")
 	}
 	// filter by search keyword
-	if param.Search != "" {
-		param.Search = fmt.Sprintf("%%%s%%", param.Search)
-		query = query.Where("CAST(public_id AS TEXT) LIKE ? OR imports.name ILIKE ?", param.Search, param.Search)
+	if params.Search != "" {
+		params.Search = fmt.Sprintf("%%%s%%", params.Search)
+		query = query.Where("CAST(im.public_id AS TEXT) LIKE ? OR im.name ILIKE ?", params.Search, params.Search)
 	}
 
 	// filter by inventory status
-	if param.Status != "" {
-		query = query.Where("imports.status = ?", param.Status)
+	if params.Status != "" {
+		query = query.Where("im.status = ?", params.Status)
 	}
+	var totalCount int64
+	if err := query.Count(&totalCount).Error; err != nil {
+		s.log.Error("could not get total count of write-offs: %v", err)
+		return res, 0, domain.InternalServerError
+	}
+
 	// complete query
 	err := query.
-		Group("imports.id").
-		Order("imports.created_at DESC").
-		Count(&totalCount).
-		Limit(param.Limit).Offset(param.Offset).
+		Group("im.id").
+		Order("im.created_at DESC").
+		Limit(params.Limit).
+		Offset(params.Offset).
 		Find(&res).Error
 	if err != nil {
-		s.log.Error(err)
-		return res, 0, err
+		s.log.Errorf("could not get write-off list: %v", err)
+		return res, 0, domain.InternalServerError
 	}
+
 	return res, totalCount, nil
 }
 
-func (s *Services) WriteOffStatus(param *domain.WriteOffParam) (*domain.WriteOffStatusSummary, error) {
+func (s *Services) WriteOffStatus(ctx context.Context, params *domain.WriteOffParam) (*domain.WriteOffStatusSummary, error) {
 	query := `
 		SELECT
 			COALESCE(SUM(imd.accepted_count), 0) AS scanned_count,
@@ -115,29 +129,29 @@ func (s *Services) WriteOffStatus(param *domain.WriteOffParam) (*domain.WriteOff
 	var args []any
 	var filters []string
 
-	if param.StoreId != "" {
+	if params.StoreId != "" {
 		filters = append(filters, "imports.store_id = ?")
-		args = append(args, param.StoreId)
+		args = append(args, params.StoreId)
 	}
-	if param.CompanyId != "" {
+	if params.CompanyId != "" {
 		query += " AND stores.company_id = ?"
-		args = append(args, param.CompanyId)
+		args = append(args, params.CompanyId)
 	}
-	if param.Search != "" {
-		search := "%" + param.Search + "%"
+	if params.Search != "" {
+		search := "%" + params.Search + "%"
 		filters = append(filters, "(CAST(imports.public_id AS TEXT) ILIKE ? OR imports.name ILIKE ?)")
 		args = append(args, search, search)
 	}
-	if param.Status != "" {
+	if params.Status != "" {
 		filters = append(filters, "imports.status = ?")
-		args = append(args, param.Status)
+		args = append(args, params.Status)
 	}
 	if len(filters) > 0 {
 		query += " AND " + strings.Join(filters, " AND ")
 	}
 
 	var res domain.WriteOffStatusSummary
-	if err := s.db.Raw(query, args...).Scan(&res).Error; err != nil {
+	if err := s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error; err != nil {
 		s.log.Error("Failed to get write-off status summary: %v", err)
 		return nil, err
 	}
@@ -166,42 +180,41 @@ func (s *Services) GetWriteOffById(writeOffId string) (*domain.WriteOff, error) 
 }
 
 // write-off confirm
-func (s *Services) ConfirmWriteOff(writeOffId string, userId string) error {
+func (s *Services) ConfirmWriteOff(ctx context.Context, writeOffId string, userId string) error {
 	// start transaction
 	tx := s.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 		}
 	}()
 	// update confirm inventory
 	query := `UPDATE imports SET status = ?, accepted_by = ?, updated_at = NOW() WHERE id = ?`
-	err := tx.Exec(query, constants.GeneralStatusCompleted, userId, writeOffId).Error
+	err := tx.WithContext(ctx).Exec(query, constants.GeneralStatusCompleted, userId, writeOffId).Error
 	if err != nil {
-		s.log.Warn("ERROR on updating inventory %v", err)
-		tx.Rollback()
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("could not update inventory %v", err)
+		return domain.InternalServerError
 	}
 	// update confirm inventory details
 	query1 := `UPDATE import_details SET accepted_count = scanned_count, updated_at = NOW() WHERE import_id = ?`
-	err = tx.Exec(query1, writeOffId).Error
+	err = tx.WithContext(ctx).Exec(query1, writeOffId).Error
 	if err != nil {
-		s.log.Warn("ERROR on updating inventory details: %v", err)
-		tx.Rollback()
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("could not update inventory details: %v", err)
+		return domain.InternalServerError
 	}
 	query2 := `DELETE FROM import_details WHERE scanned_count = 0 AND import_id = ?;`
-	err = tx.Exec(query2, writeOffId).Error
+	err = tx.WithContext(ctx).Exec(query2, writeOffId).Error
 	if err != nil {
-		s.log.Warn("ERROR on deleting scanned 0 inventory details: %v", err)
-		tx.Rollback()
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("cound not delete scanned 0 inventory details: %v", err)
+		return domain.InternalServerError
 	}
 	// complete transaction
 	if err = tx.Commit().Error; err != nil {
-		s.log.Warn("ERROR on commiting transaction: %v", err)
-		tx.Rollback()
-		return err
+		s.log.Errorf("could not commit transaction: %v", err)
+		return domain.InternalServerError
 	}
 	return nil
 }
@@ -219,24 +232,23 @@ func (s *Services) CancelWriteOff(writeOffId string, userId string) error {
 	query := `UPDATE imports SET status = ?, accepted_by = ?, updated_at = NOW() WHERE id = ?`
 	err := tx.Exec(query, constants.GeneralStatusCanceled, userId, writeOffId).Error
 	if err != nil {
-		s.log.Warn("ERROR on updating inventory %v", err)
-		tx.Rollback()
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("could not update inventory %v", err)
+		return domain.InternalServerError
 	}
 	if err = tx.Commit().Error; err != nil {
-		s.log.Warn("ERROR on commiting transaction %v", err)
-		tx.Rollback()
-		return err
+		s.log.Errorf("could not commit transaction: %v", err)
+		return domain.InternalServerError
 	}
 
 	return nil
 }
 
 // get write-off detail list
-func (s *Services) WriteOffDetailList(param *domain.WriteOffDetailParam) ([]domain.WriteOffDetail, int64, error) {
+func (s *Services) WriteOffDetailList(ctx context.Context, param *domain.WriteOffDetailParam) ([]domain.WriteOffDetail, int64, error) {
 	var res []domain.WriteOffDetail
 	var totalCount int64
-	query := s.db.
+	query := s.db.WithContext(ctx).
 		Model(&domain.ImportDetail{}).
 		Select(`
 		import_details.*,
@@ -277,8 +289,8 @@ func (s *Services) WriteOffDetailList(param *domain.WriteOffDetailParam) ([]doma
 		Offset(param.Offset).
 		Find(&res).Error
 	if err != nil {
-		s.log.Error(err)
-		return res, 0, err
+		s.log.Errorf("could not get write-off details: %v", err)
+		return res, 0, domain.InternalServerError
 	}
 
 	return res, totalCount, nil

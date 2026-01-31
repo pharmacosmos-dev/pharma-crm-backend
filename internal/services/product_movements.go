@@ -187,7 +187,7 @@ func (s *Services) CreateProductMovementsForSale(data *domain.Sale) {
 
 	defer func() {
 		if r := recover(); r != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 		}
 	}()
 
@@ -341,7 +341,7 @@ func (s *Services) CreateProductMovementsForReturnSale(data *domain.Sale) {
 }
 
 func (s *Services) CreateProductMovementsForReturnSupplier(data *domain.Sale) {
-	
+
 }
 
 func (s *Services) CreateProductMovementsForTransferOut(data *domain.Sale) {

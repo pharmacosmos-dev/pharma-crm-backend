@@ -2,7 +2,6 @@ package services
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -13,67 +12,81 @@ import (
 // region Create
 
 // create cashbox operation
-func (s *Services) CreateCashboxOperation(req *domain.CashboxOperationRequest, userId any) (*domain.Sale, error) {
+func (s *Services) CreateCashboxOperation(ctx context.Context, req *domain.CashboxOperationRequest, userId string) (*domain.Sale, error) {
 	// start transaction
 	tx := s.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 		}
 	}()
 
 	type result struct {
 		ID string
 	}
-	var (
-		res result
-	)
-	err := tx.Raw(`
-		SELECT id
-		FROM cashbox_operations 
+
+	var res result
+	err := tx.WithContext(ctx).
+		Raw(`
+		SELECT id FROM cashbox_operations 
 		WHERE is_open = TRUE AND current_employee_id = ? 
-		LIMIT 1
+		LIMIT 1;
 	`, userId).Scan(&res).Error
 	if err != nil {
+		_ = tx.Rollback()
 		s.log.Error("failed to check open cashbox:", err)
-		tx.Rollback()
-		return nil, err
+		return nil, domain.InternalServerError
 	}
 	if res.ID != "" {
-		tx.Rollback()
-		return nil, errors.New("you already have an open cashbox operation")
+		_ = tx.Rollback()
+		return nil, domain.AlreadyHaveOpenCashboxOperationError
 	}
 
-	err = tx.Raw(`
+	err = tx.WithContext(ctx).
+		Raw(`
 	INSERT INTO cashbox_operations (
-			cash_box_id, employee_id, current_employee_id, opened_amount, open_cashless_amount, is_open, start_time, description
+			cash_box_id, 
+			employee_id, 
+			current_employee_id, 
+			opened_amount, 
+			open_cashless_amount, 
+			is_open, 
+			start_time, 
+			description
 			) 
-	VALUES (?, ?, ?, ?,?, ?, ?, ?) RETURNING id
-	`, req.CashBoxID, userId, userId,
-		req.OpenedAmount, req.OpenCashlessAmount, true, time.Now(),
-		req.Description).Scan(&res).Error
+	VALUES (
+			?, ?, ?, ?,?, ?, ?, ?
+	) RETURNING id
+	`, req.CashBoxID,
+			userId,
+			userId,
+			req.OpenedAmount,
+			req.OpenCashlessAmount,
+			true,
+			time.Now(),
+			req.Description,
+		).Scan(&res).Error
 	if err != nil {
-		s.log.Error(err)
-		tx.Rollback()
-		return nil, err
+		_ = tx.Rollback()
+		s.log.Errorf("could not create cashbox operation: %v", err)
+		return nil, domain.InternalServerError
 	}
 
 	var sale domain.Sale
 	// create new sale
-	err = tx.Raw(`
+	err = tx.WithContext(ctx).Raw(`
 		INSERT INTO sales (employee_id, store_id, cash_box_operation_id, cashbox_id, display_id) 
 		VALUES (?, ?, ?, ?, ?) RETURNING *`,
 		userId, req.StoreID, res.ID, req.CashBoxID, s.generateDisplayId()).Scan(&sale).Error
 	if err != nil {
-		s.log.Error(err)
-		tx.Rollback()
-		return nil, err
+		_ = tx.Rollback()
+		s.log.Errorf("could not create new sale: %v", err)
+		return nil, domain.InternalServerError
 	}
 	// commit transaction
 	if err = tx.Commit().Error; err != nil {
-		s.log.Error(err)
-		tx.Rollback()
-		return nil, err
+		s.log.Errorf("could not commit transaction: %v", err)
+		return nil, domain.InternalServerError
 	}
 	return &sale, nil
 }
@@ -265,52 +278,64 @@ func (s *Services) GetOperationHistory(storeID, isOpen, search string, limit, of
 // region Update
 
 // close cashbox operation
-func (s *Services) CloseCashBoxOperation(cashBoxOperationID string, req *domain.CloseCashboxOperation, senderId string) error {
+func (s *Services) CloseCashBoxOperation(ctx context.Context, cashBoxOperationId string, req *domain.CloseCashboxOperation, senderId string) error {
 	// start transaction
 	tx := s.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 		}
 	}()
 	// update cash box operation
-	err := tx.Exec(`
+	err := tx.WithContext(ctx).Exec(`
 	UPDATE cashbox_operations SET 
-		closed_amount = ?, close_cashless_amount = ?, end_time = NOW(), is_open = FALSE 
-	WHERE id = ?`, req.ClosedAmount, req.CloseCashlessAmount, cashBoxOperationID).Error
+		closed_amount = ?, 
+		close_cashless_amount = ?, 
+		end_time = NOW(), 
+		is_open = FALSE 
+	WHERE id = ?`,
+		req.ClosedAmount,
+		req.CloseCashlessAmount,
+		cashBoxOperationId,
+	).Error
 	if err != nil {
-		s.log.Error(err)
-		tx.Rollback()
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("could not update cashbox operation on closing: %v", err)
+		return domain.InternalServerError
 	}
 	// get total net amount
 	var totalNetAmount float64
-	err = tx.Raw(`
+	err = tx.WithContext(ctx).
+		Raw(`
 	SELECT COALESCE(SUM(total_net_amount), 0) AS total_net_amount 
 	FROM sale_payment_summary 
-	WHERE cash_box_operation_id = ?`, cashBoxOperationID).
+	WHERE cash_box_operation_id = ?`, cashBoxOperationId).
 		Scan(&totalNetAmount).Error
 	if err != nil {
-		s.log.Error(err)
-		tx.Rollback()
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("could not get total net amount: %v", err)
+		return domain.InternalServerError
 	}
 
 	// create cashbox closure
-	err = tx.Exec(`
+	err = tx.WithContext(ctx).Exec(`
 	INSERT INTO cashbox_closures (
 		cashbox_operation_id, received_amount, sender_id, status) 
-	VALUES (?, ?, ?, ?)`, cashBoxOperationID, totalNetAmount, senderId, constants.GeneralStatusPending).Error
+	VALUES (?, ?, ?, ?)`,
+		cashBoxOperationId,
+		totalNetAmount,
+		senderId,
+		constants.GeneralStatusPending,
+	).Error
 	if err != nil {
-		s.log.Error(err)
-		tx.Rollback()
-		return err
+		_ = tx.Rollback()
+		s.log.Errorf("could not create cashbox closure: %v", err)
+		return domain.InternalServerError
 	}
 	// commit transaction
 	if err = tx.Commit().Error; err != nil {
-		s.log.Error(err)
-		tx.Rollback()
-		return err
+		s.log.Errorf("could not commit transaction: %v", err)
+		return domain.InternalServerError
 	}
 	return nil
 }

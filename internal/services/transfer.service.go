@@ -1044,20 +1044,21 @@ func (s *Services) UpdateTransferByBarcode(
 func (s *Services) DeleteTransfer(transferId string) error {
 	// start transaction
 	tx := s.db.Begin()
-	var err error
-	defer recoverTransaction(tx, s.log)
-	defer RollbackIfError(tx, &err)
+	defer func() {
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
+		}
+	}()
 	// update confirm inventory
-	query := `DELETE FROM transfers WHERE id = ?`
-	err = tx.Exec(query, transferId).Error
+	err := tx.Exec("DELETE FROM transfers WHERE id = ?", transferId).Error
 	if err != nil {
-		s.log.Warn("ERROR on updating inventory %v", err)
+		_ = tx.Rollback()
+		s.log.Errorf("ERROR on deleting transfer %v", err)
 		return err
 	}
-	err = tx.Commit().Error
-	if err != nil {
-		s.log.Warn("ERROR on commiting transaction %v", err)
-		return err
+	if err = tx.Commit().Error; err != nil {
+		s.log.Errorf("could not commit transaction %v", err)
+		return domain.InternalServerError
 	}
 
 	return nil

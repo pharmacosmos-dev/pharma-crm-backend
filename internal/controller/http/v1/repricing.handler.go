@@ -587,7 +587,7 @@ func (h *RepricingHandler) AddRetailPrice(c *gin.Context) {
 	tx := h.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 		}
 	}()
 

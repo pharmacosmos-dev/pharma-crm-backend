@@ -139,7 +139,7 @@ func (s *Services) CreateReturnSale(ctx context.Context, req *domain.SaleReturnR
 	`
 
 	for _, item := range req.Items {
-		err = tx.Exec(cquery,
+		err = tx.WithContext(ctx).Exec(cquery,
 			sale.Id,
 			req.SaleId,
 			item.StoreProductId,
@@ -299,7 +299,18 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 
 	// Route to appropriate handler based on sale type
 	if sale.SaleType == constants.SaleTypeReturn {
-		return s.FinalizeReturnSale(ctx, req, sale)
+		res, err := s.FinalizeReturnSale(ctx, tx, req, sale)
+		if err != nil {
+			_ = tx.Rollback()
+			return nil, err
+		}
+
+		if err := tx.Commit().Error; err != nil {
+			s.log.Error("could not commit finalize return sale transaction: %v", err)
+			return nil, domain.InternalServerError
+		}
+
+		return res, nil
 	}
 
 	// check payment types
@@ -471,7 +482,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 	}
 
 	if err = tx.Commit().Error; err != nil {
-		s.log.Error("could not commit finalize sale transaction: %v", err)
+		s.log.Errorf("could not commit finalize sale transaction: %v", err)
 		return nil, domain.InternalServerError
 	}
 
@@ -482,19 +493,11 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 	return res, nil
 }
 
-func (s *Services) FinalizeReturnSale(ctx context.Context, req *domain.FinalSale, sale *domain.Sale) (*domain.MarkingItemsResponse, error) {
+func (s *Services) FinalizeReturnSale(ctx context.Context, tx *gorm.DB, req *domain.FinalSale, sale *domain.Sale) (*domain.MarkingItemsResponse, error) {
 	// Validate payment types for return
 	if len(req.PaymentTypes) == 0 {
 		return nil, domain.PaymentTypeRequiredError
 	}
-
-	// Start transaction
-	tx := s.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			_ = tx.Rollback()
-		}
-	}()
 
 	// Match payment type sum (returns typically refund money)
 	var customerBalance float64 = 0.00
@@ -503,14 +506,12 @@ func (s *Services) FinalizeReturnSale(ctx context.Context, req *domain.FinalSale
 	}
 	req, err := s.matchingPaymentTypeSum(ctx, tx, req, customerBalance)
 	if err != nil {
-		_ = tx.Rollback()
 		return nil, err
 	}
 
 	// Update marking for returned items
 	err = s.updateCartItemsMarkingCount(ctx, tx, req.MarkingData)
 	if err != nil {
-		_ = tx.Rollback()
 		return nil, err
 	}
 
@@ -545,7 +546,6 @@ func (s *Services) FinalizeReturnSale(ctx context.Context, req *domain.FinalSale
 		if sale.Stage < constants.SaleStageReturnedFinish {
 			err = s.ReverseInventoryUpdate(ctx, tx, sale)
 			if err != nil {
-				_ = tx.Rollback()
 				return nil, err
 			}
 			updates["is_returned"] = true
@@ -573,25 +573,17 @@ func (s *Services) FinalizeReturnSale(ctx context.Context, req *domain.FinalSale
 	if len(updates) > 0 {
 		err = s.updateSaleFields(ctx, tx, req.SaleId, updates)
 		if err != nil {
-			_ = tx.Rollback()
 			return nil, err
 		}
 		_, err = s.updateSaleField(ctx, tx, "is_returned", true, sale.ParentId)
 		if err != nil {
-			_ = tx.Rollback()
 			return nil, err
 		}
 	}
 
 	res, err := s.GetDatasByMarkings(ctx, tx, req.MarkingData)
 	if err != nil {
-		_ = tx.Rollback()
 		return res, err
-	}
-
-	if err = tx.Commit().Error; err != nil {
-		s.log.Errorf("could not commit final sale  transaction: %v", err)
-		return nil, domain.InternalServerError
 	}
 
 	return res, nil
@@ -701,7 +693,18 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 	}
 
 	if sale.SaleType == constants.SaleTypeReturn {
-		return s.EposResultReturn(ctx, req, sale, fiscal, user)
+		res, err := s.EposResultReturn(ctx, tx, req, sale, fiscal, user)
+		if err != nil {
+			_ = tx.Rollback()
+			return nil, err
+		}
+		// Commit transaction
+		if err = tx.Commit().Error; err != nil {
+			s.log.Errorf("could not commit epos-result-return transaction: %v", err)
+			return nil, domain.InternalServerError
+		}
+		return res, nil
+
 	}
 
 	updates := map[string]any{}
@@ -823,23 +826,15 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 
 func (s *Services) EposResultReturn(
 	ctx context.Context,
+	tx *gorm.DB,
 	req *domain.EposResponseRequest,
 	sale *domain.Sale,
 	fiscal domain.FiscalData,
 	user *domain.EmployeeClaims,
 ) (*domain.Sale, error) {
-	var err error
-	// Start transaction
-	tx := s.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			_ = tx.Rollback()
-			s.log.Errorf("Panic recovered in EposResult: %v", r)
-		}
-	}()
-
 	updates := map[string]any{}
 
+	var err error
 	if sale.Stage < constants.SaleStageOfdSent {
 		req.Status = 1
 		err = s.SaveEposResponse(ctx, req)
@@ -857,7 +852,6 @@ func (s *Services) EposResultReturn(
 		// Save fiscal data immediately within transaction
 		err = s.updateSaleFields(ctx, tx, sale.Id, updates)
 		if err != nil {
-			_ = tx.Rollback()
 			return nil, err
 		}
 
@@ -870,7 +864,6 @@ func (s *Services) EposResultReturn(
 	} else {
 		fiscal, err = s.getFiscalDataBySaleId(ctx, sale.Id)
 		if err != nil {
-			_ = tx.Rollback()
 			return nil, err
 		}
 	}
@@ -893,7 +886,6 @@ func (s *Services) EposResultReturn(
 		// Reverse inventory (add back to stock)
 		err = s.ReverseInventoryUpdate(ctx, tx, sale)
 		if err != nil {
-			_ = tx.Rollback()
 			return nil, err
 		}
 		updates["is_returned"] = true
@@ -907,12 +899,10 @@ func (s *Services) EposResultReturn(
 	if len(updates) > 0 {
 		err = s.updateSaleFields(ctx, tx, req.SaleId, updates)
 		if err != nil {
-			_ = tx.Rollback()
 			return nil, err
 		}
 		_, err = s.updateSaleField(ctx, tx, "is_returned", true, sale.ParentId)
 		if err != nil {
-			_ = tx.Rollback()
 			return nil, err
 		}
 	}
@@ -925,14 +915,7 @@ func (s *Services) EposResultReturn(
 		CashboxId:          sale.CashboxId,
 	})
 	if err != nil {
-		_ = tx.Rollback()
 		return nil, err
-	}
-
-	// Commit transaction
-	if err = tx.Commit().Error; err != nil {
-		s.log.Errorf("could not commit epos-result transaction: %v", err)
-		return nil, domain.InternalServerError
 	}
 
 	return res, nil
