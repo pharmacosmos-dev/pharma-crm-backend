@@ -1761,12 +1761,19 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 		qb = qb.Where("s.cashbox_id = ?", params.CashboxId)
 	}
 
-	if params.StartDate != "" && params.EndDate != "" {
-		qb = qb.Where("(s.completed_at + interval '5 hours') BETWEEN ? AND ?", params.StartDate, params.EndDate)
+	if params.StartDate != "" {
+		dateTime, err := s.ConvenrtTimeAsiaTashkent(params.StartDate)
+		if err != nil {
+			return nil, 0, err
+		}
+		qb = qb.Where("s.completed_at >= ?", dateTime)
 	}
-
-	if params.StartDate != "" && params.EndDate == "" {
-		qb = qb.Where("(s.completed_at + interval '5 hours') BETWEEN ? AND (?::timestamp + interval '24 hours')", params.StartDate, params.StartDate)
+	if params.EndDate != "" {
+		dateTime, err := s.ConvenrtTimeAsiaTashkent(params.EndDate)
+		if err != nil {
+			return nil, 0, err
+		}
+		qb = qb.Where("s.completed_at <= ?", dateTime)
 	}
 	if params.Search != "" {
 		if _, err := strconv.Atoi(params.Search); err == nil {
@@ -1911,12 +1918,19 @@ func (s *Services) GetSalesStats(ctx context.Context, params *domain.SaleQueryPa
 		qb = qb.Where("s.cashbox_id = ?", params.CashboxId)
 	}
 
-	if params.StartDate != "" && params.EndDate != "" {
-		qb = qb.Where("(s.completed_at + interval '5 hours') BETWEEN ? AND ?", params.StartDate, params.EndDate)
+	if params.StartDate != "" {
+		dateTime, err := s.ConvenrtTimeAsiaTashkent(params.StartDate)
+		if err != nil {
+			return nil, err
+		}
+		qb = qb.Where("s.completed_at >= ?", dateTime)
 	}
-
-	if params.StartDate != "" && params.EndDate == "" {
-		qb = qb.Where("(s.completed_at + interval '5 hours') BETWEEN ? AND (?::timestamp + interval '24 hours')", params.StartDate, params.StartDate)
+	if params.EndDate != "" {
+		dateTime, err := s.ConvenrtTimeAsiaTashkent(params.EndDate)
+		if err != nil {
+			return nil, err
+		}
+		qb = qb.Where("s.completed_at <= ?", dateTime)
 	}
 
 	if params.Search != "" {
