@@ -9,7 +9,6 @@ import (
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
-	"github.com/pharma-crm-backend/plagins"
 )
 
 // get dashboard count and amount data
@@ -18,7 +17,7 @@ func (s *Services) DashboardTotalCountStats(ctx context.Context, param *domain.D
 	var (
 		res            domain.DashboardCountStats
 		startTimeInUTC = (*param.StartDate).ToUTC()
-		endTimeInUTC   = plagins.AddDefaultDuration(*param.StartDate, param.EndDate).ToUTC()
+		endTimeInUTC   = domain.AddDefaultDuration(*param.StartDate, param.EndDate).ToUTC()
 
 		startStr       = startTimeInUTC.GetString()
 		endStr         = endTimeInUTC.GetString()
@@ -207,7 +206,7 @@ func (s *Services) DashboardChartStats(ctx context.Context, params *domain.Dashb
 		res       []domain.ChartResponse
 		truncFunc string
 		startTime = (*params.StartDate).GetTime()
-		endTime   = plagins.AddDefaultDuration(*params.StartDate, params.EndDate).GetTime()
+		endTime   = domain.AddDefaultDuration(*params.StartDate, params.EndDate).GetTime()
 	)
 
 	if params.EndDate == nil {
@@ -321,7 +320,7 @@ func (s *Services) DashboardTopStores(ctx context.Context, params *domain.Dashbo
 		order  = utils.BuildTopStoreOrderClauseForDashBoard(params.Order)
 
 		startTimeInUTCStr = (*params.StartDate).ToUTC().GetString()
-		endTimeInUTCStr   = plagins.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC().GetString()
+		endTimeInUTCStr   = domain.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC().GetString()
 	)
 
 	// Apply filter
@@ -362,7 +361,7 @@ func (s *Services) DashboardTopProducts(ctx context.Context, params *domain.Dash
 		args []any
 
 		startTimeInUTC = (*params.StartDate).ToUTC()
-		endTimeInUTC   = plagins.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC()
+		endTimeInUTC   = domain.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC()
 
 		startTimeStr       = startTimeInUTC.GetString()
 		endTimeStr         = endTimeInUTC.GetString()
@@ -468,7 +467,7 @@ func (s *Services) DashboardBonusProducts(ctx context.Context, params *domain.Da
 		args []any
 
 		startTimeInUTC = (*params.StartDate).ToUTC()
-		endTimeInUTC   = plagins.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC()
+		endTimeInUTC   = domain.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC()
 
 		startTimeStr       = startTimeInUTC.GetString()
 		endTimeStr         = endTimeInUTC.GetString()
@@ -574,7 +573,7 @@ func (s *Services) DashboardTopSeller(ctx context.Context, params *domain.Dashbo
 		args []any
 
 		startTimeInUTC = (*params.StartDate).ToUTC()
-		endTimeInUTC   = plagins.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC()
+		endTimeInUTC   = domain.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC()
 
 		startTimeStr       = startTimeInUTC.GetString()
 		endTimeStr         = endTimeInUTC.GetString()
@@ -674,7 +673,7 @@ func (s *Services) DashboardPayments(ctx context.Context, params *domain.Dashboa
 		res domain.DashboardPaymentDto
 
 		startTimeInUTC = (*params.StartDate).ToUTC()
-		endTimeInUTC   = plagins.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC()
+		endTimeInUTC   = domain.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC()
 
 		startTimeStr       = startTimeInUTC.GetString()
 		endTimeStr         = endTimeInUTC.GetString()
@@ -793,7 +792,7 @@ func (s *Services) DashboardTransaction(ctx context.Context, params *domain.Dash
 		err error
 
 		startTimeInUTC = (*params.StartDate).ToUTC()
-		endTimeInUTC   = plagins.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC()
+		endTimeInUTC   = domain.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC()
 
 		startTimeStr       = startTimeInUTC.GetString()
 		endTimeStr         = endTimeInUTC.GetString()
@@ -1070,7 +1069,7 @@ func (s *Services) DashboardOldImports(ctx context.Context, params *domain.Dashb
 func (s *Services) DashboardSaleStatistic(ctx context.Context, params *domain.DashboardQueryParam) (*domain.DashboardSaleStatistic, error) {
 	var (
 		startTimeInUTC = (*params.StartDate).ToUTC().GetString()
-		endTimeInUTC   = plagins.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC().GetString()
+		endTimeInUTC   = domain.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC().GetString()
 	)
 
 	qb := s.db.
@@ -1094,7 +1093,7 @@ func (s *Services) DashboardSaleStatistic(ctx context.Context, params *domain.Da
 	}
 
 	var res domain.DashboardSaleStatistic
-	err := qb.Take(&res).Error
+	err := qb.Debug().Take(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get total sale amounts: %v", err)
 		return nil, domain.InternalServerError
@@ -1107,7 +1106,7 @@ func (s *Services) DashboardSaleStatistic(ctx context.Context, params *domain.Da
 func (s *Services) DashboardNetProfitStatistic(ctx context.Context, params *domain.DashboardQueryParam) (*domain.DashboardCountStatsIncome, error) {
 	var (
 		startTimeInUTC = (*params.StartDate).ToUTC().GetString()
-		endTimeInUTC   = plagins.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC().GetString()
+		endTimeInUTC   = domain.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC().GetString()
 	)
 
 	qb := s.db.WithContext(ctx).
@@ -1242,7 +1241,7 @@ func (s *Services) LoyaltyCardStatistic(ctx context.Context, params *domain.Dash
 		res domain.DashboardLoyaltyCardStatistic
 
 		startTimeInUTC = (*params.StartDate).ToUTC().GetString()
-		endTimeInUTC   = plagins.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC().GetString()
+		endTimeInUTC   = domain.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC().GetString()
 	)
 
 	var query = `

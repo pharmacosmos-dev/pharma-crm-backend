@@ -76,8 +76,9 @@ const (
 )
 
 var (
-	FinishedSaleStages = []int{SaleStageFinished, SaleStageReturnedFinish}
-	PendingSaleStages  = []int{SaleStageNew, SaleStagePending, SaleStageReturning}
+	FinishedSaleStages  = []int{SaleStageFinished, SaleStageReturnedFinish}
+	PendingSaleStages   = []int{SaleStageNew, SaleStagePending, SaleStageReturning}
+	OnlinePendingStages = []int{SaleOnlineStageNew, SaleOnlineStagePending, SaleOnlineStageWaiting}
 )
 
 var SaleStages = map[int]map[string]string{

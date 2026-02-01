@@ -213,6 +213,7 @@ func (h *SaleHandler) GetSales(c *gin.Context) {
 	// bind query params
 	var params domain.SaleQueryParams
 	if err := c.ShouldBindQuery(&params); err != nil {
+		h.log.Errorf("bind query error: %v", err)
 		handleServiceResponse(c, nil, domain.InvalidRequestBodyError)
 		return
 	}
@@ -222,6 +223,13 @@ func (h *SaleHandler) GetSales(c *gin.Context) {
 
 	// get limit offset with checking default
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
+	}
 
 	// get sale list data
 	res, totalCount, err := h.service.GetSales(ctx, &params, user)
@@ -282,6 +290,13 @@ func (h *SaleHandler) ExportSalesExcel(c *gin.Context) {
 
 	// get limit offset
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
+	}
 
 	// get sale list data
 	res, _, err := h.service.GetSales(ctx, &params, user)
@@ -375,6 +390,14 @@ func (h *SaleHandler) GetSalesStats(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
+	// check user role
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
+	}
+
 	res, err := h.service.GetSalesStats(ctx, &params, user)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
@@ -422,6 +445,14 @@ func (h *SaleHandler) GetSaleList(c *gin.Context) {
 	defer cancel()
 
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
+	}
+
 	// get sale list data
 	res, totalCount, err := h.service.GetSaleList(ctx, &params, user)
 	if err != nil {
@@ -450,17 +481,34 @@ func (h *SaleHandler) GetSaleList(c *gin.Context) {
 func (h *SaleHandler) GetOnlineSaleCount(c *gin.Context) {
 	// get user from the set header
 	user := h.service.GetSignedUser(c)
+	if user == nil {
+		handleServiceResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
+		return
+	}
+
+	storeId := c.Query("store_id")
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	// get online order count
-	var count int64
-	err := h.db.WithContext(ctx).
-		Raw("SELECT COUNT(*) AS count FROM sales WHERE store_id = ? AND online_status IN(1, 2);",
-			user.StoreId).Scan(&count).Error
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			storeId = user.StoreId
+		}
+	}
 
-	if err != nil {
+	// get online order count
+	qb := h.db.WithContext(ctx).
+		Model(&domain.Sale{}).
+		Where("online_status IN(1, 2)").
+		Where("type = ?", constants.SaleTypeOnline)
+
+	if storeId != "" {
+		qb = qb.Where("store_id = ?", storeId)
+	}
+
+	var count int64
+	if err := qb.Count(&count).Error; err != nil {
 		h.log.Errorf("could not get online sale count: %v", err)
 		handleServiceResponse(c, InternalError, domain.InternalServerError)
 		return
@@ -478,7 +526,7 @@ func (h *SaleHandler) GetOnlineSaleCount(c *gin.Context) {
 // @Produce json
 // @Param   limit query int false "Limit"
 // @Param	offset query int false "Offset"
-// @Param   store_id query string true "Store ID"
+// @Param   store_id query string false "Store ID"
 // @Param   search query string false "Search"
 // @Param	start_date query string false "StartDate"
 // @Param	end_date query string false "EndDate"
@@ -487,8 +535,15 @@ func (h *SaleHandler) GetOnlineSaleCount(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /sale/online-list [GET]
 func (h *SaleHandler) OnlineSaleList(c *gin.Context) {
-	var params domain.QueryParam
+	user := h.service.GetSignedUser(c)
+	if user == nil {
+		handleServiceResponse(c, UNAUTHORIZED, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.SaleQueryParams
 	if err := c.ShouldBindQuery(&params); err != nil {
+		h.log.Errorf("bind query error: %v", err)
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
@@ -498,7 +553,14 @@ func (h *SaleHandler) OnlineSaleList(c *gin.Context) {
 
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
-	res, totalCount, err := h.service.GetOnlinePendingSaleList(ctx, &params)
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
+	}
+
+	res, totalCount, err := h.service.GetOnlinePendingSales(ctx, &params)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)
 		return
@@ -547,10 +609,17 @@ func (h *SaleHandler) PendingSaleList(c *gin.Context) {
 
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
+	}
+
 	// get pending sales
 	res, totalCount, err := h.service.GetPendingSales(ctx, &params, user)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 

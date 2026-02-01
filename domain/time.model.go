@@ -1,4 +1,4 @@
-package plagins
+package domain
 
 import (
 	"fmt"
@@ -18,6 +18,10 @@ type CustomTime time.Time
 
 func (c CustomTime) ToUTC() CustomTime {
 	return CustomTime(time.Time(c).In(time.UTC))
+}
+
+func (c CustomTime) UTC() time.Time {
+	return time.Time(c).UTC()
 }
 
 func (c CustomTime) GetString() string {
@@ -54,7 +58,7 @@ func (ct *CustomTime) UnmarshalParam(param string) error {
 			return nil
 		}
 		if !t.After(BeginingTime) {
-			return fmt.Errorf("invlid time")
+			return fmt.Errorf("invalid time format, expected RFC3339 (e.g. 2026-02-01T10:00:00+05:00)")
 		}
 	}
 

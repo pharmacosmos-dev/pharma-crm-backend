@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/pharma-crm-backend/domain/constants"
-	"github.com/pharma-crm-backend/plagins"
 
 	"github.com/pharma-crm-backend/domain"
 	"gorm.io/gorm"
@@ -87,7 +86,7 @@ func (s *Services) GetEmployeeBonusAmount(ctx context.Context, param *domain.Das
 		bonus domain.DashboardCountStatsBonus
 
 		startTimeInUTC = (*param.StartDate).ToUTC()
-		endTimeInUTC   = plagins.AddDefaultDuration(*param.StartDate, param.EndDate).ToUTC()
+		endTimeInUTC   = domain.AddDefaultDuration(*param.StartDate, param.EndDate).ToUTC()
 
 		startTimeStr       = startTimeInUTC.GetString()
 		endTimeStr         = endTimeInUTC.GetString()

@@ -1707,13 +1707,6 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 	var totalCount int64
 	var res []domain.SaleResponse
 
-	if !utils.In(user.Role, constants.AllAdminRoles...) {
-		if user.StoreId != "" {
-			params.StoreId = user.StoreId
-		}
-		params.CompanyId = user.CompanyId
-	}
-
 	// query builder
 	qb := s.db.
 		WithContext(ctx).
@@ -1761,20 +1754,13 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 		qb = qb.Where("s.cashbox_id = ?", params.CashboxId)
 	}
 
-	if params.StartDate != "" {
-		dateTime, err := s.ConvenrtTimeAsiaTashkent(params.StartDate)
-		if err != nil {
-			return nil, 0, err
-		}
-		qb = qb.Where("s.completed_at >= ?", dateTime)
+	if params.StartDate != nil {
+		qb = qb.Where("s.completed_at >= ?", params.StartDate.UTC())
 	}
-	if params.EndDate != "" {
-		dateTime, err := s.ConvenrtTimeAsiaTashkent(params.EndDate)
-		if err != nil {
-			return nil, 0, err
-		}
-		qb = qb.Where("s.completed_at <= ?", dateTime)
+	if params.EndDate != nil {
+		qb = qb.Where("s.completed_at <= ?", params.EndDate.UTC())
 	}
+
 	if params.Search != "" {
 		if _, err := strconv.Atoi(params.Search); err == nil {
 			// If will be digit
@@ -1851,13 +1837,6 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 }
 
 func (s *Services) GetSalesStats(ctx context.Context, params *domain.SaleQueryParams, user *domain.EmployeeClaims) (*domain.SaleStats, error) {
-	// check user role
-	if !utils.In(user.Role, constants.AllAdminRoles...) {
-		if user.StoreId != "" {
-			params.StoreId = user.StoreId
-		}
-		params.CompanyId = user.CompanyId
-	}
 
 	// query builder
 	qb := s.db.WithContext(ctx).
@@ -1918,19 +1897,11 @@ func (s *Services) GetSalesStats(ctx context.Context, params *domain.SaleQueryPa
 		qb = qb.Where("s.cashbox_id = ?", params.CashboxId)
 	}
 
-	if params.StartDate != "" {
-		dateTime, err := s.ConvenrtTimeAsiaTashkent(params.StartDate)
-		if err != nil {
-			return nil, err
-		}
-		qb = qb.Where("s.completed_at >= ?", dateTime)
+	if params.StartDate != nil {
+		qb = qb.Where("s.completed_at >= ?", params.StartDate.UTC())
 	}
-	if params.EndDate != "" {
-		dateTime, err := s.ConvenrtTimeAsiaTashkent(params.EndDate)
-		if err != nil {
-			return nil, err
-		}
-		qb = qb.Where("s.completed_at <= ?", dateTime)
+	if params.EndDate != nil {
+		qb = qb.Where("s.completed_at <= ?", params.EndDate.UTC())
 	}
 
 	if params.Search != "" {
@@ -1968,13 +1939,6 @@ func (s *Services) GetSalesStats(ctx context.Context, params *domain.SaleQueryPa
 func (s *Services) GetSaleList(ctx context.Context, params *domain.SaleQueryParams, user *domain.EmployeeClaims) ([]domain.SaleResponse, int64, error) {
 	var totalCount int64
 	var res []domain.SaleResponse
-
-	if !utils.In(user.Role, constants.AllAdminRoles...) {
-		if user.StoreId != "" {
-			params.StoreId = user.StoreId
-		}
-		params.CompanyId = user.CompanyId
-	}
 
 	// query builder
 	qb := s.db.
@@ -2019,12 +1983,12 @@ func (s *Services) GetSaleList(ctx context.Context, params *domain.SaleQueryPara
 		qb = qb.Where("s.cashbox_id = ?", params.CashboxId)
 	}
 
-	if params.StartDate != "" && params.EndDate != "" {
-		qb = qb.Where("(s.completed_at + interval '5 hours') BETWEEN ? AND ?", params.StartDate, params.EndDate)
+	if params.StartDate != nil {
+		qb = qb.Where("s.completed_at >= ?", params.StartDate.UTC())
 	}
 
-	if params.StartDate != "" && params.EndDate == "" {
-		qb = qb.Where("(s.completed_at + interval '5 hours') BETWEEN ? AND (?::timestamp + interval '24 hours')", params.StartDate, params.StartDate)
+	if params.EndDate != nil {
+		qb = qb.Where("s.completed_at <= ?", params.EndDate.UTC())
 	}
 
 	if params.Search != "" {
@@ -2124,67 +2088,58 @@ func (s *Services) cartItemsSumBySaleId(ctx context.Context, tx *gorm.DB, saleId
 }
 
 // get online pending sale list
-func (s *Services) GetOnlinePendingSaleList(ctx context.Context, params *domain.QueryParam) ([]domain.OnlineSaleDto, int64, error) {
-	var (
-		res        []domain.OnlineSaleDto
-		filter     = " WHERE s.store_id = ? AND s.online_status IN(1, 2, 4) "
-		args       = []any{params.StoreID}
-		group      = " GROUP BY s.id "
-		order      = " ORDER BY s.created_at DESC "
-		totalCount int64
-	)
-	query := `
-	SELECT
-		s.id,
-		s.sale_number,
-		s.employee_id,
-		s.store_id,
-		s.online_status,
-		s.stage,
-		s.type,
-		s.sale_type,
-		s.service_type,
-		s.created_at,
-		s.client_comment,
-		COALESCE(SUM(ci.total_price), 0.00) AS total_amount,
-		COALESCE(COUNT(ci.id), 0) AS product_count
-	FROM sales s
-	LEFT JOIN cart_items ci ON s.id = ci.sale_id
-	`
+func (s *Services) GetOnlinePendingSales(ctx context.Context, params *domain.SaleQueryParams) ([]domain.OnlineSaleDto, int64, error) {
 
-	totalCountQuery := `
-	SELECT
-		COUNT(*) as total_count
-	FROM sales s
-	LEFT JOIN cart_items ci ON s.id = ci.sale_id
-	`
+	qb := s.db.WithContext(ctx).
+		Select(
+			"s.id",
+			"s.sale_number",
+			"s.employee_id",
+			"s.store_id",
+			"s.online_status",
+			"s.stage",
+			"s.type",
+			"s.sale_type",
+			"s.service_type",
+			"s.created_at",
+			"s.client_comment",
+			"COALESCE(SUM(ci.total_price), 0.00) AS total_amount",
+			"COALESCE(COUNT(ci.id), 0) AS product_count",
+		).
+		Table("sales s").
+		Joins("LEFT JOIN cart_items ci ON s.id = ci.sale_id").
+		Where("s.online_status IN(?)", constants.OnlinePendingStages).
+		Where("s.type = ?", constants.SaleTypeOnline)
 
-	if params.StartDate != "" {
-		filter += " AND (s.created_at + interval '5 hours')::date >= ? "
-		args = append(args, params.StartDate)
+	if params.StoreId != "" {
+		qb = qb.Where("s.store_id = ?", params.StoreId)
 	}
 
-	if params.EndDate != "" {
-		filter += " AND (s.created_at + interval '5 hours')::date <= ? "
-		args = append(args, params.EndDate)
+	if params.StartDate != nil {
+		qb = qb.Where("s.created_at >= ?", params.StartDate.UTC())
+	}
+
+	if params.EndDate != nil {
+		qb = qb.Where("s.created_at <= ?", params.EndDate.UTC())
 	}
 
 	if params.Search != "" {
-		filter += " AND CAST(s.sale_number AS TEXT) LIKE ? "
-		args = append(args, "%"+params.Search+"%")
-	}
-	// collect and execute totalCount query
-	totalCountQuery += filter + group
-	err := s.db.WithContext(ctx).Raw(totalCountQuery, args...).Scan(&totalCount).Error
-	if err != nil {
-		s.log.Errorf("could not get online sale count: %v", err)
-		return res, totalCount, domain.InternalServerError
+		qb = qb.Where("s.sale_number::text ILIKE ?", "%"+params.Search+"%")
 	}
 
-	// collect and execute query
-	query += filter + group + order + " LIMIT ? OFFSET ?;"
-	args = append(args, params.Limit, params.Offset)
-	err = s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
+	var totalCount int64
+	if err := qb.Count(&totalCount).Error; err != nil {
+		s.log.Errorf("could not count online sale list: %v", err)
+		return nil, 0, domain.InternalServerError
+	}
+
+	var res []domain.OnlineSaleDto
+	err := qb.
+		Group("s.id").
+		Order("s.created_at DESC").
+		Limit(params.Limit).
+		Offset(params.Offset).
+		Find(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get online sale list: %v", err)
 		return res, totalCount, domain.InternalServerError
@@ -2196,13 +2151,6 @@ func (s *Services) GetOnlinePendingSaleList(ctx context.Context, params *domain.
 func (s *Services) GetPendingSales(ctx context.Context, params *domain.SaleQueryParams, user *domain.EmployeeClaims) ([]domain.SaleResponse, int64, error) {
 	var totalCount int64
 	var res []domain.SaleResponse
-
-	if !utils.In(user.Role, constants.AllAdminRoles...) {
-		if user.StoreId != "" {
-			params.StoreId = user.StoreId
-		}
-		params.CompanyId = user.CompanyId
-	}
 
 	// query builder
 	qb := s.db.
@@ -2247,12 +2195,11 @@ func (s *Services) GetPendingSales(ctx context.Context, params *domain.SaleQuery
 		qb = qb.Where("s.cashbox_id = ?", params.CashboxId)
 	}
 
-	if params.StartDate != "" && params.EndDate != "" {
-		qb = qb.Where("(s.completed_at + interval '5 hours') BETWEEN ? AND ?", params.StartDate, params.EndDate)
+	if params.StartDate != nil {
+		qb = qb.Where("s.created_at >= ?", params.StartDate.UTC())
 	}
-
-	if params.StartDate != "" && params.EndDate == "" {
-		qb = qb.Where("(s.completed_at + interval '5 hours') BETWEEN ? AND (?::timestamp + interval '24 hours')", params.StartDate, params.StartDate)
+	if params.EndDate != nil {
+		qb = qb.Where("s.created_at <= ?", params.EndDate.UTC())
 	}
 
 	if params.Search != "" {
@@ -2312,7 +2259,7 @@ func (s *Services) GetPendingSales(ctx context.Context, params *domain.SaleQuery
 		).
 		Limit(params.Limit).
 		Offset(params.Offset).
-		Order("s.completed_at DESC").
+		Order("s.created_at DESC").
 		Find(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get sales: %v", err)
@@ -2515,20 +2462,12 @@ func (s *Services) GetOnlineOrders(ctx context.Context, params *domain.SaleQuery
 		qb = qb.Where("s.status = ?", params.Status)
 	}
 
-	if params.StartDate != "" {
-		dateTime, err := s.ConvenrtTimeAsiaTashkent(params.StartDate)
-		if err != nil {
-			return nil, 0, err
-		}
-		qb = qb.Where("s.created_at >= ?", dateTime)
+	if params.StartDate != nil {
+		qb = qb.Where("s.created_at >= ?", params.StartDate.UTC())
 	}
 
-	if params.EndDate != "" {
-		dateTime, err := s.ConvenrtTimeAsiaTashkent(params.EndDate)
-		if err != nil {
-			return nil, 0, err
-		}
-		qb = qb.Where("s.created_at <= ?", dateTime)
+	if params.EndDate != nil {
+		qb = qb.Where("s.created_at <= ?", params.EndDate.UTC())
 	}
 
 	var totalCount int64
@@ -2579,17 +2518,6 @@ func (s *Services) GetOnlineOrders(ctx context.Context, params *domain.SaleQuery
 }
 
 // region Delete
-
-func (s *Services) DeleteSalePayments(ctx context.Context, tx *gorm.DB, saleId string) error {
-	err := tx.WithContext(ctx).Exec(`DELETE FROM sale_payments WHERE sale_id = ?`, saleId).Error
-	if err != nil {
-		tx.Rollback()
-		s.log.Error("could not delete sale_payments: %v", err)
-		return err
-	}
-	return nil
-
-}
 
 func (s *Services) DeleteDiscountCardFromSale(ctx context.Context, req *domain.AddDiscountCard) error {
 	// start transaction
