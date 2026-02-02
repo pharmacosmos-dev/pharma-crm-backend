@@ -200,7 +200,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
 	// get products list
-	products, totalCount, err := h.service.GetProducts(ctx, &params, user)
+	products, totalCount, err := h.service.GetProducts(ctx, &params)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)
 		return
@@ -264,7 +264,7 @@ func (h *ProductHandler) ExportProductExcel(c *gin.Context) {
 
 	if params.StoreId != "" {
 		// get products list
-		res, _, err := h.service.GetProducts(ctx, &params, user)
+		res, _, err := h.service.GetProducts(ctx, &params)
 		if err != nil {
 			handleServiceResponse(c, nil, err)
 			return
@@ -2625,7 +2625,7 @@ func (h *ProductHandler) productListExport(f *excelize.File, res []domain.Produc
 	f.SetSheetName("Sheet1", sheetName)
 
 	// Headerlar
-	headers := []string{"Аптека", "Код", "Наименования", "Штрих-код", "Кол-во", "Срок годности", "Цена прихода", "Cумма прихода", "Цена продажа", "Сумма продажа"}
+	headers := []string{"Аптека", "Код", "Наименования", "Штрих-код", "Кол-во", "Срок годности", "Цена прихода", "Cумма прихода", "Цена продажа", "Сумма продажа", "Производитель"}
 
 	err := setExcelHeaders(f, sheetName, headers)
 	if err != nil {
@@ -2650,6 +2650,7 @@ func (h *ProductHandler) productListExport(f *excelize.File, res []domain.Produc
 		f.SetCellValue(sheetName, "H"+row, math.Round(((product.SupplyPrice/float64(product.UnitPerPack))*float64(product.UnitQuantity))*100)/100)
 		f.SetCellValue(sheetName, "I"+row, product.RetailPrice)
 		f.SetCellValue(sheetName, "J"+row, math.Round(((product.RetailPrice/float64(product.UnitPerPack))*float64(product.UnitQuantity))*100)/100)
+		f.SetCellValue(sheetName, "J"+row, product.Manufacturer)
 	}
 	return f, nil
 }

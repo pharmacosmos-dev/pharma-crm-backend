@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
+	"github.com/pharma-crm-backend/pkg/helper"
 	"github.com/pharma-crm-backend/pkg/utils"
 )
 
@@ -344,7 +345,7 @@ func (h *DashboardHandler) TopProducts(c *gin.Context) {
 
 	// check if employee is not admin or superadmin
 	var isAdmin bool
-	if !utils.In(user.Role, constants.AllAdminRoles...) {
+	if !helper.IsAdmin(user) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}

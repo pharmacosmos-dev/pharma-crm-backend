@@ -272,11 +272,7 @@ func (s *Services) GetProductById(ctx context.Context, productId string, storeId
 }
 
 // get products get list
-func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryParam, user *domain.EmployeeClaims) ([]domain.ProductData, int64, error) {
-	var (
-		res        []domain.ProductData
-		totalCount int64
-	)
+func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryParam) ([]domain.ProductData, int64, error) {
 
 	// Pre-aggregate store_products
 	storeJoin := `
@@ -338,6 +334,7 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 		qb = qb.Where("p.category_id = ?", params.CategoryId)
 	}
 
+	var totalCount int64
 	if err := qb.Count(&totalCount).Error; err != nil {
 		s.log.Errorf("could not count products: %v", err)
 		return nil, 0, domain.InternalServerError
@@ -356,6 +353,7 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 		qb = qb.Order("p.updated_at DESC")
 	}
 
+	var res []domain.ProductData
 	err := qb.Select(
 		"p.id",
 		"p.material_code",
