@@ -194,7 +194,7 @@ func (s *Services) DashboardTopProducts(ctx context.Context, params *domain.Dash
 	}
 
 	// Sorting (replaced switch)
-	order := utils.BuildTopProductOrderClauseForDashBoard(params.Order)
+	order := utils.BuildTopProductOrderClause(params.Order)
 
 	qb = qb.Group("p.id").Order(order).Limit(params.Limit).Offset(params.Offset)
 	var res []domain.TopProducts

@@ -7,18 +7,18 @@ import (
 )
 
 type ReportQueryParam struct {
-	StoreId    string   `form:"store_id"`
-	StartDate  string   `form:"start_date"`
-	EndDate    string   `form:"end_date"`
-	Limit      int      `form:"limit"`
-	Offset     int      `form:"offset"`
-	Search     string   `form:"search"`
-	Order      string   `form:"order"`
-	EmployeeId string   `form:"employee_id"`
-	ProducerId string   `form:"producer_id"`
-	CompanyId  string   `form:"company_id"`
-	StoreIds   []string `json:"store_ids"`
-	CompanyIds []string `json:"company_ids"`
+	StoreId    string      `form:"store_id"`
+	StartDate  *CustomTime `form:"start_date"`
+	EndDate    *CustomTime `form:"end_date"`
+	Limit      int         `form:"limit"`
+	Offset     int         `form:"offset"`
+	Search     string      `form:"search"`
+	Order      string      `form:"order"`
+	EmployeeId string      `form:"employee_id"`
+	ProducerId string      `form:"producer_id"`
+	CompanyId  string      `form:"company_id"`
+	StoreIds   []string    `json:"store_ids"`
+	CompanyIds []string    `json:"company_ids"`
 }
 
 type ProductStatusReport struct {

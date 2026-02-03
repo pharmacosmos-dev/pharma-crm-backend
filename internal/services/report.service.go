@@ -38,14 +38,8 @@ func (s *Services) ProductReportWithDate(ctx context.Context, params *domain.Rep
 		args = append(args, params.ProducerId)
 	}
 	// var dateList []time.Time
-	startDate, err := time.Parse("2006-01-02", params.StartDate)
-	if err != nil {
-		return res, fmt.Errorf("invalid start date")
-	}
-	endDate, err := time.Parse("2006-01-02", params.EndDate)
-	if err != nil {
-		return res, fmt.Errorf("invalid end date")
-	}
+	startDate := params.StartDate.GetTime()
+	endDate := params.EndDate.GetTime()
 	for d := startDate; !d.After(endDate); d = d.AddDate(0, 0, 1) {
 		dateStr := d.Format("2006-01-02")
 		dateColumns = append(dateColumns, fmt.Sprintf(
@@ -69,11 +63,11 @@ func (s *Services) ProductReportWithDate(ctx context.Context, params *domain.Rep
 		LEFT JOIN cart_items ci ON sp.id = ci.store_product_id
 		LEFT JOIN sales s ON ci.sale_id = s.id
 		LEFT JOIN stores st ON s.store_id = st.id
-	`, datesQuery, params.StartDate, params.EndDate)
+	`, datesQuery, params.StartDate.UTC().Format(time.RFC3339), params.EndDate.UTC().Format(time.RFC3339))
 
 	query = query + filter + group + order
 	// Queryni bajarish
-	err = s.db.Raw(query, args...).Scan(&res).Error
+	err := s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Warn("Error on getting product report: %v", err)
 		return nil, err
@@ -108,11 +102,11 @@ func (s *Services) BonusReport(ctx context.Context, params *domain.ReportQueryPa
 	}
 
 	// Date filter
-	if params.StartDate != "" {
-		baseQuery = baseQuery.Where("(eb.created_at + interval '5 hours') >= ?", params.StartDate)
+	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
+		baseQuery = baseQuery.Where("eb.created_at >= ?", params.StartDate.UTC())
 	}
-	if params.EndDate != "" {
-		baseQuery = baseQuery.Where("(eb.created_at + interval '5 hours') <= ?", params.EndDate)
+	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
+		baseQuery = baseQuery.Where("eb.created_at <= ?", params.EndDate.UTC())
 	}
 
 	// Count unique employees (before grouping)
@@ -201,11 +195,11 @@ func (s *Services) GetProductsReport(ctx context.Context, params *domain.ReportQ
 	if params.EmployeeId != "" {
 		qb = qb.Where("s.employee_id = ?", params.EmployeeId)
 	}
-	if params.StartDate != "" {
-		qb = qb.Where("(s.completed_at + interval '5 hours') >= ?", params.StartDate)
+	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
+		qb = qb.Where("s.completed_at >= ?", params.StartDate.UTC())
 	}
-	if params.EndDate != "" {
-		qb = qb.Where("(s.completed_at + interval '5 hours') <= ?", params.EndDate)
+	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
+		qb = qb.Where("s.completed_at <= ?", params.EndDate.UTC())
 	}
 	var totalCount int64
 	if err := qb.Count(&totalCount).Error; err != nil {
@@ -303,11 +297,11 @@ func (s *Services) GetProductsReportStats(ctx context.Context, params *domain.Re
 	if params.ProducerId != "" {
 		qb = qb.Where("p.producer_id = ?", params.ProducerId)
 	}
-	if params.StartDate != "" {
-		qb = qb.Where("(s.completed_at + interval '5 hours') >= ?", params.StartDate)
+	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
+		qb = qb.Where("s.completed_at >= ?", params.StartDate.UTC())
 	}
-	if params.EndDate != "" {
-		qb = qb.Where("(s.completed_at + interval '5 hours') <= ?", params.EndDate)
+	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
+		qb = qb.Where("s.completed_at <= ?", params.EndDate.UTC())
 	}
 
 	var res domain.ProductStatusReport
@@ -428,11 +422,11 @@ func (s *Services) GetStoreAmountReport(ctx context.Context, params *domain.Repo
 	if params.Search != "" {
 		qb = qb.Where("s.name ILIKE ?", "%"+params.Search+"%")
 	}
-	if params.StartDate != "" {
-		qb = qb.Where("(sa.completed_at + interval '5 hours') >= ?", params.StartDate)
+	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
+		qb = qb.Where("sa.completed_at >= ?", params.StartDate.UTC())
 	}
-	if params.EndDate != "" {
-		qb = qb.Where("(sa.completed_at + interval '5 hours') <= ?", params.EndDate)
+	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
+		qb = qb.Where("sa.completed_at <= ?", params.EndDate.UTC())
 	}
 	var totalCount int64
 	if err := qb.Count(&totalCount).Error; err != nil {
@@ -517,11 +511,11 @@ func (s *Services) ReportByStoreStats(ctx context.Context, params *domain.Report
 	if params.Search != "" {
 		qb = qb.Where("s.name ILIKE ?", "%"+params.Search+"%")
 	}
-	if params.StartDate != "" {
-		qb = qb.Where("(sa.completed_at + interval '5 hours') >= ?", params.StartDate)
+	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
+		qb = qb.Where("sa.completed_at >= ?", params.StartDate.UTC())
 	}
-	if params.EndDate != "" {
-		qb = qb.Where("(sa.completed_at + interval '5 hours') <= ?", params.EndDate)
+	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
+		qb = qb.Where("sa.completed_at <= ?", params.EndDate.UTC())
 	}
 	var res domain.StoreReportStats
 	err := qb.Take(&res).Error
@@ -536,129 +530,49 @@ func (s *Services) ReportByStoreStats(ctx context.Context, params *domain.Report
 
 // get report top products
 func (s *Services) GetTopProductsReport(ctx context.Context, params *domain.ReportQueryParam) ([]domain.TopProducts, int64, error) {
-	// declaration
-	var (
-		res        []domain.TopProducts
-		args       []any
-		totalCount int64
-		startTime  time.Time
-		endTime    time.Time
-	)
+	qb := s.db.WithContext(ctx).
+		Select(
+			"p.id AS id",
+			"p.name AS name",
+			"p.unit_per_pack AS unit_per_pack",
+			"SUM(ci.unit_quantity) / p.unit_per_pack AS count",
+			"SUM(ci.unit_quantity) % p.unit_per_pack AS unit_quantity",
+			"SUM(ci.total_price) as total_amount",
+		).
+		Table("cart_items ci").
+		Joins("JOIN sales s ON s.id = ci.sale_id").
+		Joins("JOIN products p ON p.id = ci.product_id").
+		Where("s.stage IN (?)", constants.FinishedSaleStages)
 
-	startTime, err := time.Parse(time.RFC3339, params.StartDate)
-	if err != nil {
-		s.log.Errorf("coluld not parse start_date in get top_products: %v", err)
-		return nil, 0, domain.InvalidTimeFormatError
+	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
+		qb.Where("s.completed_at >= ?", params.StartDate.UTC())
 	}
-	if params.EndDate != "" {
-		endTime, err = time.Parse(time.RFC3339, params.EndDate)
-		if err != nil {
-			s.log.Errorf("coluld not parse end_date in get top_products: %v", err)
-			return nil, 0, domain.InvalidTimeFormatError
-		}
-	} else {
-		endTime, err = time.Parse(time.RFC3339, params.StartDate)
-		if err != nil {
-			s.log.Errorf("coluld not parse start_date in get top_products: %v", err)
-			return nil, 0, domain.InvalidTimeFormatError
-		}
-		endTime = endTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
-	}
-	beforeStart, beforeEnd := utils.BeforeDatesTime(startTime, endTime)
 
-	query := `
-	SELECT
-		curr.id,
-		curr.name,
-		curr.producer_name,
-		curr.count,
-		curr.unit_quantity,
-		curr.unit_per_pack,
-		curr.total_amount,
-		prev.total_amount AS previous_total_amount,
-		ROUND(
-				CASE
-					WHEN COALESCE(prev.total_amount, 0) = 0 THEN 100
-					ELSE ((curr.total_amount - prev.total_amount) * 100.0) / NULLIF(prev.total_amount, 0)
-					END, 2
-		) AS percent,
-		COUNT(*) OVER() AS total_count
-	FROM (
-			SELECT
-				p.id,
-				p.name,
-				ps.name AS producer_name,
-				s.company_id,
-				SUM(ci.unit_quantity) / p.unit_per_pack AS count,
-				SUM(ci.unit_quantity) % p.unit_per_pack AS unit_quantity,
-				p.unit_per_pack,
-				SUM(ci.total_price) as total_amount
-			FROM cart_items ci
-					JOIN store_products sp ON ci.store_product_id = sp.id
-					JOIN products p ON sp.product_id = p.id
-					JOIN producers ps ON p.producer_id = ps.id
-					JOIN stores s ON sp.store_id = s.id
-			WHERE (ci.updated_at+ interval '5 hours') BETWEEN ? AND ?
-			GROUP BY p.id, p.name, ps.name, p.unit_per_pack,s.company_id
-		) AS curr
-			left JOIN (
-		SELECT
-			p.id,
-			s.company_id,
-			SUM(ci.total_price) AS total_amount
-		FROM cart_items ci
-				JOIN store_products sp ON ci.store_product_id = sp.id
-				JOIN products p ON sp.product_id = p.id
-				JOIN stores s ON sp.store_id = s.id
-		WHERE (ci.updated_at+ interval '5 hours') BETWEEN ? AND ?
-		GROUP BY p.id, s.company_id
-	) AS prev ON curr.id = prev.id and curr.company_id = prev.company_id
-`
+	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
+		qb.Where("s.completed_at <= ?", params.EndDate.UTC())
+	}
 
-	// Arguments for current and previous period
-	args = append(args,
-		startTime.Format(time.RFC3339),
-		endTime.Format(time.RFC3339),
-		beforeStart.Format(time.RFC3339),
-		beforeEnd.Format(time.RFC3339),
-	)
-
-	// Filters
-	where := " WHERE 1 = 1"
-	if params.Search != "" {
-		where += " AND curr.name ILIKE ?"
-		args = append(args, "%"+params.Search+"%")
-	}
-	if params.StoreId != "" {
-		where += " AND EXISTS (SELECT 1 FROM store_products sp2 WHERE sp2.product_id = curr.id AND sp2.store_id = ?)"
-		args = append(args, params.StoreId)
-	}
-	if params.CompanyId != "" {
-		where += " AND curr.company_id = ? "
-		args = append(args, params.CompanyId)
-	}
+	// Store filter
 	if len(params.StoreIds) > 0 {
-		where += " AND EXISTS (SELECT 1 FROM store_products sp3 WHERE sp3.product_id = curr.id AND sp3.store_id IN (?))"
-		args = append(args, params.StoreIds)
+		qb.Where("s.store_id IN (?)", params.StoreIds)
 	}
 
 	// Sorting (replaced switch)
 	order := utils.BuildTopProductOrderClause(params.Order)
-	query += where + order
 
-	// Pagination
-	query += " LIMIT ? OFFSET ?"
-	args = append(args, params.Limit, params.Offset)
-
-	// Execute query
-	err = s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
-	if err != nil {
-		s.log.Errorf("could not get top products: %v", err)
+	var totalCount int64
+	if err := qb.Count(&totalCount).Error; err != nil {
+		s.log.Errorf("could not get dashboard top products count: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
 
-	if len(res) > 0 {
-		totalCount = res[0].TotalCount
+	qb = qb.Group("p.id").Order(order).Limit(params.Limit).Offset(params.Offset)
+	var res []domain.TopProducts
+	// Execute query
+	err := qb.Find(&res).Error
+	if err != nil {
+		s.log.Errorf("could not get dashboard top products: %v", err)
+		return nil, 0, domain.InternalServerError
 	}
 
 	return res, totalCount, nil
@@ -666,120 +580,49 @@ func (s *Services) GetTopProductsReport(ctx context.Context, params *domain.Repo
 
 // get report top seller
 func (s *Services) GetTopSellersReport(ctx context.Context, params *domain.ReportQueryParam) ([]domain.TopSeller, int64, error) {
-	var (
-		res        []domain.TopSeller
-		totalCount int64
-		args       []any
-		startTime  time.Time
-		endTime    time.Time
-	)
 
-	startTime, err := time.Parse(time.RFC3339, params.StartDate)
-	if err != nil {
-		s.log.Errorf("coluld not parse start_date in get top_products: %v", err)
-		return nil, 0, domain.InvalidTimeFormatError
-	}
-	if params.EndDate != "" {
-		endTime, err = time.Parse(time.RFC3339, params.EndDate)
-		if err != nil {
-			s.log.Errorf("coluld not parse end_date in get top_products: %v", err)
-			return nil, 0, domain.InvalidTimeFormatError
-		}
-	} else {
-		endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
-		params.EndDate = endTime.Format(time.RFC3339)
-	}
-	beforeStart, beforeEnd := utils.BeforeDatesTime(startTime, endTime)
+	qb := s.db.WithContext(ctx).
+		Select(
+			"e.id",
+			"e.full_name",
+			"st.name AS store_name",
+			"COUNT(s.id) AS count",
+			"SUM(s.total_amount) AS total_amount",
+		).
+		Table("sales s").
+		Joins("JOIN stores st ON s.store_id = st.id").
+		Joins("JOIN employees e ON s.employee_id = e.id").
+		Where("s.stage IN (?)", constants.FinishedSaleStages)
 
-	// Main query
-	query := `
-	SELECT
-		curr.id,
-		curr.full_name,
-		curr.store_name,
-		curr.count,
-		curr.total_amount,
-		prev.total_amount AS previous_total_amount,
-		ROUND(
-			CASE 
-				WHEN COALESCE(prev.total_amount, 0) = 0 THEN 100
-				ELSE ((curr.total_amount - prev.total_amount) * 100.0) / NULLIF(prev.total_amount, 0)
-			END, 2
-		) AS percent,
-		COUNT(*) OVER() AS total_count
-	FROM (
-		SELECT
-			e.id,
-			e.full_name,
-			st.name AS store_name,
-			st.company_id,
-			COUNT(s.id) AS count,
-			SUM(s.total_amount) AS total_amount
-		FROM sales s
-		INNER JOIN employees e ON s.employee_id = e.id
-		INNER JOIN stores st ON s.store_id = st.id
-		WHERE s.stage IN(9, 11)
-		AND s.sale_type = 'SALE'
-		AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?
-		GROUP BY e.id, e.full_name, st.name, st.company_id
-	) AS curr
-	LEFT JOIN (
-		SELECT
-			e.id,
-			SUM(s.total_amount) AS total_amount
-		FROM sales s
-		INNER JOIN employees e ON s.employee_id = e.id
-		WHERE s.stage IN(9, 11)
-		AND s.sale_type = 'SALE'
-		AND (s.completed_at + interval '5 hours') BETWEEN ? AND ?
-		GROUP BY e.id
-	) AS prev ON curr.id = prev.id
-`
+	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
+		qb = qb.Where("s.completed_at >= ?", params.StartDate.UTC())
+	}
 
-	// First 4 args: 2 for current, 2 for previous range
-	args = append(args,
-		params.StartDate, params.EndDate,
-		beforeStart.Format(time.RFC3339), beforeEnd.Format(time.RFC3339),
-	)
+	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
+		qb = qb.Where("s.completed_at <= ?", params.EndDate.UTC())
+	}
 
-	// Optional filters
-	where := " WHERE 1 = 1"
-	if params.Search != "" {
-		where += " AND curr.full_name ILIKE ?"
-		args = append(args, "%"+params.Search+"%")
-	}
-	if params.StoreId != "" {
-		where += " AND curr.store_name = (SELECT name FROM stores WHERE id = ?)"
-		args = append(args, params.StoreId)
-	}
-	if params.CompanyId != "" {
-		where += " AND curr.company_id = ? "
-		args = append(args, params.CompanyId)
-	}
-	// check store_ids
+	// Store filter
 	if len(params.StoreIds) > 0 {
-		where += " AND curr.store_name IN (SELECT name FROM stores WHERE id IN (?))"
-		args = append(args, params.StoreIds)
+		qb.Where("s.store_id IN (?)", params.StoreIds)
 	}
 
-	// Apply flexible ordering
+	// Sorting (replaced switch)
 	order := utils.BuildTopSellerOrderClause(params.Order)
 
-	// Pagination
-	limitOffset := " LIMIT ? OFFSET ?"
-	args = append(args, params.Limit, params.Offset)
-
-	finalQuery := query + where + order + limitOffset
-
-	// Execute
-	err = s.db.WithContext(ctx).Raw(finalQuery, args...).Scan(&res).Error
-	if err != nil {
-		s.log.Errorf("could not get top seller: %v", err)
+	var totalCount int64
+	if err := qb.Count(&totalCount).Error; err != nil {
+		s.log.Errorf("could not get dashboard top products count: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
-	// get total count
-	if len(res) > 0 {
-		totalCount = res[0].TotalCount
+
+	qb = qb.Group("e.id").Order(order).Limit(params.Limit).Offset(params.Offset)
+	var res []domain.TopSeller
+	// Execute query
+	err := qb.Find(&res).Error
+	if err != nil {
+		s.log.Errorf("could not get dashboard top products: %v", err)
+		return nil, 0, domain.InternalServerError
 	}
 
 	return res, totalCount, nil
@@ -795,20 +638,11 @@ func (s *Services) GetTopStoresReport(ctx context.Context, param *domain.ReportQ
 	)
 
 	// Parse start and end dates
-	startTime, err := time.Parse(time.RFC3339, param.StartDate)
-	if err != nil {
-		s.log.Error("Invalid start_date format: %v", err)
-		return nil, 0, err
-	}
-	if param.EndDate != "" {
-		endTime, err = time.Parse(time.RFC3339, param.EndDate)
-		if err != nil {
-			s.log.Error("Invalid end_date format: %v", err)
-			return nil, 0, err
-		}
+	startTime = param.StartDate.UTC()
+	if param.EndDate != nil && !param.EndDate.GetTime().IsZero() {
+		endTime = param.EndDate.UTC()
 	} else {
 		endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
-		param.EndDate = endTime.Format(time.RFC3339)
 	}
 
 	// Get previous date range
@@ -885,7 +719,7 @@ func (s *Services) GetTopStoresReport(ctx context.Context, param *domain.ReportQ
 	args = append(args, param.Limit, param.Offset)
 
 	// Execute
-	err = s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
+	err := s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get top stores report: %v", err)
 		return nil, 0, domain.InternalServerError
@@ -909,20 +743,15 @@ func (s *Services) GetBonusProductsReport(ctx context.Context, params *domain.Re
 		endTime    time.Time
 	)
 
-	startTime, err := time.Parse(time.RFC3339, params.StartDate)
-	if err != nil {
-		s.log.Error("Invalid start_date format: %v", err)
-		return nil, 0, err
+	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
+		startTime = params.StartDate.UTC()
+	} else {
+		return nil, 0, domain.BadRequestError
 	}
-	if params.EndDate != "" {
-		endTime, err = time.Parse(time.RFC3339, params.EndDate)
-		if err != nil {
-			s.log.Error("Invalid end_date format: %v", err)
-			return nil, 0, err
-		}
+	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
+		endTime = params.EndDate.UTC()
 	} else {
 		endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
-		params.EndDate = endTime.Format(time.RFC3339)
 	}
 	beforeStart, beforeEnd := utils.BeforeDatesTime(startTime, endTime)
 
@@ -1008,7 +837,7 @@ func (s *Services) GetBonusProductsReport(ctx context.Context, params *domain.Re
 	args = append(args, params.Limit, params.Offset)
 
 	// Execute query
-	err = s.db.Raw(query, args...).Scan(&res).Error
+	err := s.db.Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Error("ERROR on getting bonus products: ", err)
 		return nil, 0, err
@@ -1031,15 +860,13 @@ func (s *Services) GetBonusProductsReportStats(ctx context.Context, params *doma
 	)
 
 	// parse start date
-	startTime, err := time.Parse(time.RFC3339, params.StartDate)
-	if err != nil {
-		return res, err
+	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
+		startTime = params.StartDate.UTC()
+	} else {
+		return res, domain.BadRequestError
 	}
-	if params.EndDate != "" {
-		endTime, err = time.Parse(time.RFC3339, params.EndDate)
-		if err != nil {
-			return res, err
-		}
+	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
+		endTime = params.EndDate.UTC()
 	} else {
 		endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
 	}
@@ -1127,11 +954,11 @@ func (s *Services) GetBonusProductsByEmployeeId(ctx context.Context, params *dom
 
 	qb = qb.Where("eb.employee_id = ?", params.EmployeeId)
 
-	if params.StartDate != "" {
-		qb = qb.Where("(eb.created_at + interval '5 hours') >= ?", params.StartDate)
+	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
+		qb = qb.Where("eb.created_at >= ?", params.StartDate.UTC())
 	}
-	if params.EndDate != "" {
-		qb = qb.Where("(eb.created_at + interval '5 hours') <= ?", params.EndDate)
+	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
+		qb = qb.Where("eb.created_at <= ?", params.EndDate.UTC())
 	}
 
 	var totalCount int64
@@ -1182,13 +1009,9 @@ func (s *Services) GetBonusProductsByEmployeeId(ctx context.Context, params *dom
 }
 
 func (s *Services) GetStoreSummaryReport(ctx context.Context, params *domain.ReportQueryParam) ([]domain.StoreSummary, int64, error) {
-	date, err := s.FormatDatetimeParams(params.StartDate, params.EndDate)
-	if err != nil {
-		return nil, 0, err
-	}
 	var totalCount int64
 	countQuery := `SELECT COUNT(*) FROM stores WHERE is_active = true`
-	err = s.db.WithContext(ctx).Raw(countQuery).Scan(&totalCount).Error
+	err := s.db.WithContext(ctx).Raw(countQuery).Scan(&totalCount).Error
 	if err != nil {
 		s.log.Errorf("could not get stores summary total_count: %v", err)
 		return nil, 0, domain.InternalServerError
@@ -1236,7 +1059,7 @@ func (s *Services) GetStoreSummaryReport(ctx context.Context, params *domain.Rep
 	`
 
 	var args []any
-	args = append(args, date.StartTime, date.EndTime)
+	args = append(args, params.StartDate.UTC(), params.EndDate.UTC())
 	if params.Search != "" {
 		query += " AND st.name LIKE ?"
 		args = append(args, "%"+params.Search+"%")
@@ -1274,12 +1097,7 @@ func (s *Services) GetStoreSummaryReportStats(ctx context.Context, params *domai
 		filter = ""
 	)
 
-	date, err := s.FormatDatetimeParams(params.StartDate, params.EndDate)
-	if err != nil {
-		return res, err
-	}
-
-	args = append(args, date.StartTime, date.EndTime)
+	args = append(args, params.StartDate.UTC(), params.EndDate.UTC())
 	if params.Search != "" {
 		filter += " AND st.name LIKE ?"
 		args = append(args, "%"+params.Search+"%")
@@ -1344,7 +1162,7 @@ func (s *Services) GetStoreSummaryReportStats(ctx context.Context, params *domai
 	FROM store_summary
 	`, filter)
 
-	err = s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
+	err := s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get store summary stats: %v", err)
 		return res, domain.InternalServerError
@@ -1500,7 +1318,7 @@ func (s *Services) GetStoreProductsGivenDay(ctx context.Context, params *domain.
 	`
 	if params.Search != "" {
 		query += " WHERE p.name ILIKE ?"
-		args = append(args, "%" + params.Search + "%")
+		args = append(args, "%"+params.Search+"%")
 	}
 
 	query += " LIMIT ? OFFSET ?;"
@@ -1564,12 +1382,13 @@ func (s *Services) GetDiscountCardReport(ctx context.Context, params *domain.Rep
 	}
 
 	// Date filter
-	if params.StartDate != "" && params.EndDate != "" {
-		filter += " AND sa.completed_at BETWEEN ? AND ?"
-		args = append(args, params.StartDate, params.EndDate)
-	} else if params.StartDate != "" {
+	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
 		filter += " AND sa.completed_at >= ?"
-		args = append(args, params.StartDate)
+		args = append(args, params.StartDate.UTC())
+	}
+	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
+		filter += " AND sa.completed_at <= ?"
+		args = append(args, params.EndDate.UTC())
 	}
 
 	// Final query

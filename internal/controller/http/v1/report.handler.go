@@ -176,14 +176,12 @@ func (h *ReportHandler) ProductByDateExport(c *gin.Context) {
 	sheetName := "Товары отчет"
 	f.SetSheetName("Sheet1", sheetName)
 
-	// StartDate va EndDate oralig'idagi sanalarni olish
-	startDate, _ := time.Parse("2006-01-02", params.StartDate)
-	endDate, _ := time.Parse("2006-01-02", params.EndDate)
+	
 
 	// Dinamik headerlar tayyorlash
 	headers := []string{"Названия товаров"}
 	var dates []string
-	for d := startDate; !d.After(endDate); d = d.AddDate(0, 0, 1) {
+	for d := params.StartDate.GetTime(); !d.After(params.EndDate.GetTime()); d = d.AddDate(0, 0, 1) {
 		day := d.Format("2006-01-02")
 		headers = append(headers, day)
 		dates = append(dates, day)

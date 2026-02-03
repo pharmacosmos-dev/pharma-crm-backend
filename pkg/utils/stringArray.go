@@ -286,16 +286,13 @@ func BuildStoreReportOrderClause(orderField string) string {
 
 func BuildTopProductOrderClause(orderField string) string {
 	allowedFields := map[string]string{
-		"name":                  "curr.name",
-		"count":                 "curr.count",
-		"unit_quantity":         "curr.unit_quantity",
-		"total_amount":          "curr.total_amount",
-		"previous_total_amount": "prev.total_amount",
-		"percent":               "percent",
+		"name":         "name",
+		"count":        "count",
+		"total_amount": "total_amount",
 	}
 
 	if orderField == "" {
-		return " ORDER BY curr.total_amount DESC "
+		return " total_amount DESC "
 	}
 
 	direction := "ASC"
@@ -309,10 +306,10 @@ func BuildTopProductOrderClause(orderField string) string {
 	}
 
 	if dbColumn, ok := allowedFields[field]; ok {
-		return fmt.Sprintf(" ORDER BY %s %s ", dbColumn, direction)
+		return fmt.Sprintf(" %s %s ", dbColumn, direction)
 	}
 
-	return " ORDER BY curr.total_amount DESC "
+	return " total_amount DESC "
 }
 
 func BuildBonusProductOrderClause(orderField string) string {
@@ -403,34 +400,6 @@ func BuildTopStoreOrderClauseForDashBoard(orderField string) string {
 	return " total_amount DESC "
 }
 
-func BuildTopProductOrderClauseForDashBoard(orderField string) string {
-	allowedFields := map[string]string{
-		"name":         "name",
-		"count":        "count",
-		"total_amount": "total_amount",
-	}
-
-	if orderField == "" {
-		return " total_amount DESC "
-	}
-
-	direction := "ASC"
-	field := orderField
-
-	if strings.HasPrefix(orderField, "-") {
-		direction = "DESC"
-		field = strings.TrimPrefix(orderField, "-")
-	} else if strings.HasPrefix(orderField, "+") {
-		field = strings.TrimPrefix(orderField, "+")
-	}
-
-	if dbColumn, ok := allowedFields[field]; ok {
-		return fmt.Sprintf(" %s %s ", dbColumn, direction)
-	}
-
-	return " total_amount DESC "
-}
-
 func BuildBonusReportOrderClause(orderField string) string {
 	allowedFields := map[string]string{
 		"full_name": "e.full_name",
@@ -461,16 +430,16 @@ func BuildBonusReportOrderClause(orderField string) string {
 
 func BuildTopSellerOrderClause(orderField string) string {
 	allowedFields := map[string]string{
-		"full_name":             "curr.full_name",
-		"store_name":            "curr.store_name",
-		"count":                 "curr.count",
-		"total_amount":          "curr.total_amount",
-		"previous_total_amount": "prev.total_amount",
+		"full_name":             "full_name",
+		"store_name":            "store_name",
+		"count":                 "count",
+		"total_amount":          "total_amount",
+		"previous_total_amount": "previous_total_amount",
 		"percent":               "percent",
 	}
 
 	if orderField == "" {
-		return " ORDER BY curr.total_amount DESC "
+		return " ORDER BY total_amount DESC "
 	}
 
 	direction := "ASC"
@@ -487,7 +456,7 @@ func BuildTopSellerOrderClause(orderField string) string {
 		return fmt.Sprintf(" ORDER BY %s %s", dbColumn, direction)
 	}
 
-	return " ORDER BY curr.total_amount DESC "
+	return " ORDER BY total_amount DESC "
 }
 
 func BuildStoreSummaryOrderClause(orderField string) string {
