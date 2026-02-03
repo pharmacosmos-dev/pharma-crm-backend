@@ -1755,9 +1755,11 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 	}
 
 	if params.StartDate != nil {
+		fmt.Println("params.StartDate: ", params.StartDate.UTC())
 		qb = qb.Where("s.completed_at >= ?", params.StartDate.UTC())
 	}
 	if params.EndDate != nil {
+		fmt.Println("params.EndDate: ", params.EndDate.UTC())
 		qb = qb.Where("s.completed_at <= ?", params.EndDate.UTC())
 	}
 
