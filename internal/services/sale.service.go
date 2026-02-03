@@ -1755,11 +1755,9 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 	}
 
 	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
-		fmt.Println("params.StartDate: ", params.StartDate.UTC())
 		qb = qb.Where("s.completed_at >= ?", params.StartDate.UTC())
 	}
 	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
-		fmt.Println("params.EndDate: ", params.EndDate.UTC())
 		qb = qb.Where("s.completed_at <= ?", params.EndDate.UTC())
 	}
 
@@ -1901,12 +1899,10 @@ func (s *Services) GetSalesStats(ctx context.Context, params *domain.SaleQueryPa
 	}
 
 	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
-		fmt.Println("params.StartDate: ", params.StartDate.UTC())
 		qb = qb.Where("s.completed_at >= ?", params.StartDate.UTC())
 	}
 
 	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
-		fmt.Println("params.EndDate: ", params.EndDate.UTC())
 		qb = qb.Where("s.completed_at <= ?", params.EndDate.UTC())
 	}
 
