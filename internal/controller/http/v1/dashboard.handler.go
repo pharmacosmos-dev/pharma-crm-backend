@@ -25,7 +25,6 @@ func (h *Handler) NewDashboardHandler(r *gin.RouterGroup) {
 func (h *DashboardHandler) DashboardRoutes(r *gin.RouterGroup) {
 	dashboard := r.Group("/dashboard")
 	{
-		dashboard.POST("/count-stats", h.TotalCountStats)
 		dashboard.POST("/chart", h.ChartStats)
 		dashboard.POST("/top-stores", h.TopStores)
 		dashboard.POST("/top-products", h.TopProducts)
@@ -42,95 +41,6 @@ func (h *DashboardHandler) DashboardRoutes(r *gin.RouterGroup) {
 		dashboard.POST("/employee-bonus", h.EmployeeBonus)
 		dashboard.POST("/loyalty_card-statistic", h.LoyaltyCardStatistic)
 	}
-}
-
-// TotalCountStats godoc
-// @Summary Get total count stats
-// @Description Get total count stats
-// @Tags dashboard
-// @Security     BearerAuth
-// @Produce json
-// @Param   start_date 	query string false "Start Date"
-// @Param   end_date 	query string false "End Date"
-// @Param   store_id 	query string false "Store ID"
-// @Param   type 		query string false "Type"
-// @Param   ids 		body  domain.DashboardBody false "Body"
-// @Param	is_franchise query bool false 	"is_franchise"
-// @Success 200 {object} v1.Response
-// @Failure 400 {object} v1.Response
-// @Failure 500 {object} v1.Response
-// @Router /dashboard/count-stats [POST]
-func (h *DashboardHandler) TotalCountStats(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-	defer cancel()
-
-	// check user
-	user := h.service.GetSignedUser(c)
-	if user.UserId == "" {
-		handleServiceResponse(c, nil, domain.UnauthorizedError)
-		return
-	}
-
-	// bind query parameters
-	var params domain.DashboardQueryParam
-	if err := c.ShouldBindQuery(&params); err != nil {
-		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
-		return
-	}
-
-	// check starting date is given
-	if params.StartDate == nil {
-		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
-		return
-	}
-
-	// bind store ids
-	var body domain.DashboardBody
-	if c.Request.Body != nil {
-		_ = c.ShouldBindJSON(&body)
-	}
-	params.StoreIds = body.StoreIds
-	params.CompanyIds = body.CompanyIds
-
-	// get bonus amount
-	bonus, err := h.service.GetEmployeeBonusAmount(ctx, &params, user.UserId)
-	if err != nil {
-		handleServiceResponse(c, nil, err)
-		return
-	}
-
-	// check if employee is not admin or superadmin
-	var isAdmin bool
-	if !utils.In(user.Role, constants.AllAdminRoles...) {
-		if user.StoreId != "" {
-			params.StoreIds = []string{user.StoreId}
-		}
-		params.CompanyIds = []string{user.CompanyId}
-	} else {
-		isAdmin = true
-	}
-
-	// check pharma or franchise
-	if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
-		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
-		params.StoreIds = []string{}
-	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
-		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
-		params.StoreIds = []string{}
-	}
-
-	// get dashboard data
-	res, err := h.service.DashboardTotalCountStats(ctx, &params)
-	if err != nil {
-		handleServiceResponse(c, InternalError, err)
-		return
-	}
-
-	// get employee bonus amount
-	res.BonusAmount = bonus.BonusAmount
-	res.BeforeBonusAmount = bonus.BeforeBonusAmount
-
-	handleResponse(c, OK, res)
 }
 
 // ChartStats godoc
@@ -226,9 +136,6 @@ func (h *DashboardHandler) ChartStats(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/top-stores [POST]
 func (h *DashboardHandler) TopStores(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-	defer cancel()
-
 	// check user
 	user := h.service.GetSignedUser(c)
 	if user.UserId == "" {
@@ -259,10 +166,12 @@ func (h *DashboardHandler) TopStores(c *gin.Context) {
 
 	// get limit offset with checking default
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 
 	// check if employee is not admin or superadmin
 	var isAdmin bool
-	if !utils.In(user.Role, constants.AllAdminRoles...) {
+	if !helper.IsAdmin(user) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}
@@ -303,15 +212,12 @@ func (h *DashboardHandler) TopStores(c *gin.Context) {
 // @Param   store_id 	query string false "Store ID"
 // @Param   ids 		body  domain.DashboardBody false "Body"
 // @Param	is_franchise query bool false 	"is_franchise"
-// @Param	order 		query string false "order"
+// @Param	order 		 query string false "+name, -name, +count, -count, +total_amount, -total_amount"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /dashboard/top-products [POST]
 func (h *DashboardHandler) TopProducts(c *gin.Context) {
-	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-	defer cancel()
-
 	// check user
 	user := h.service.GetSignedUser(c)
 	if user.UserId == "" {
@@ -353,6 +259,9 @@ func (h *DashboardHandler) TopProducts(c *gin.Context) {
 	} else {
 		isAdmin = true
 	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 
 	// check pharma or franchise
 	if isAdmin && params.IsFranchise != nil && *params.IsFranchise {

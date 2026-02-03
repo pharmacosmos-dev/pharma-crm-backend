@@ -16,7 +16,7 @@ import (
 
 // region Create
 
-func (s *Services) CreateCartItem(ctx context.Context, user *domain.EmployeeClaims, req *domain.CartItemRequest) (*domain.CartItem, error) {
+func (s *Services) CreateCartItem(ctx context.Context, req *domain.CartItemRequest) (*domain.CartItem, error) {
 	// start transaction for add cart_item
 	tx := s.db.Begin()
 	defer func() {
@@ -37,13 +37,12 @@ func (s *Services) CreateCartItem(ctx context.Context, user *domain.EmployeeClai
 		return nil, domain.SaleIsClosedError
 	}
 
-	req.EmployeeId = user.UserId
 	storeProduct, err := s.GetStoreProductByIdAndStoreId(ctx, tx, req.StoreProductId, sale.StoreId)
 	if err != nil {
 		_ = tx.Rollback()
 		return nil, err
 	}
-
+	req.ProductId = storeProduct.ProductId
 	// Try to get existing cart item with lock
 	cart, err := s.GetCartItemBySaleIdAndSpIdWithLocking(ctx, tx, req.SaleId, req.StoreProductId)
 	if err != nil {
@@ -94,6 +93,7 @@ func (s *Services) createNewCartItem(ctx context.Context, tx *gorm.DB, req *doma
 		Raw(`
 		INSERT INTO cart_items(
 			store_product_id,
+			product_id,
 			sale_id,
 			employee_id,
 			unit_quantity,
@@ -105,13 +105,14 @@ func (s *Services) createNewCartItem(ctx context.Context, tx *gorm.DB, req *doma
 			discount_value
 			)
 			VALUES (
-			?,?,?,?,?,?,?,?,? ,COALESCE((SELECT COALESCE(discount_percent, 0)
+			?,?,?,?,?,?,?,?,?,? ,COALESCE((SELECT COALESCE(discount_percent, 0)
 		FROM sale_customer_discounts
 			WHERE sale_id = ?
 			LIMIT 1),0)
 		)
 		RETURNING *`,
 			req.StoreProductId,
+			req.ProductId,
 			req.SaleId,
 			req.EmployeeId,
 			req.UnitQuantity,

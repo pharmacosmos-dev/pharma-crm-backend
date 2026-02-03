@@ -12,9 +12,10 @@ type RejectedProductQueryParam struct {
 	Offset      int    `form:"offset"`
 	Search      string `form:"search"`
 	CompanyId   string `form:"company_id"`
-	StoreID     string `form:"store_id"`
-	ProductID   string `form:"product_id"`
+	StoreId     string `form:"store_id"`
+	ProductId   string `form:"product_id"`
 	ProductName string `form:"product_name"`
+	Order       string `form:"order"`
 }
 
 type RejectedProduct struct {

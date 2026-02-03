@@ -379,12 +379,11 @@ func BuildTopStoreOrderClause(orderField string) string {
 func BuildTopStoreOrderClauseForDashBoard(orderField string) string {
 	allowedFields := map[string]string{
 		"count":        "count",
-		"total_count":  "count",
 		"total_amount": "total_amount",
 	}
 
 	if orderField == "" {
-		return " ORDER BY total_amount DESC "
+		return " total_amount DESC "
 	}
 
 	direction := "ASC"
@@ -398,10 +397,38 @@ func BuildTopStoreOrderClauseForDashBoard(orderField string) string {
 	}
 
 	if dbColumn, ok := allowedFields[field]; ok {
-		return fmt.Sprintf(" ORDER BY %s %s ", dbColumn, direction)
+		return fmt.Sprintf(" %s %s ", dbColumn, direction)
 	}
 
-	return " ORDER BY total_amount DESC "
+	return " total_amount DESC "
+}
+
+func BuildTopProductOrderClauseForDashBoard(orderField string) string {
+	allowedFields := map[string]string{
+		"name":         "name",
+		"count":        "count",
+		"total_amount": "total_amount",
+	}
+
+	if orderField == "" {
+		return " total_amount DESC "
+	}
+
+	direction := "ASC"
+	field := orderField
+
+	if strings.HasPrefix(orderField, "-") {
+		direction = "DESC"
+		field = strings.TrimPrefix(orderField, "-")
+	} else if strings.HasPrefix(orderField, "+") {
+		field = strings.TrimPrefix(orderField, "+")
+	}
+
+	if dbColumn, ok := allowedFields[field]; ok {
+		return fmt.Sprintf(" %s %s ", dbColumn, direction)
+	}
+
+	return " total_amount DESC "
 }
 
 func BuildBonusReportOrderClause(orderField string) string {

@@ -52,30 +52,39 @@ func (s *Services) GetRejectedProductsSearch(ctx context.Context, params *domain
 	return products, nil
 }
 
-func (s *Services) ListRejectedProducts(param *domain.RejectedProductQueryParam) ([]domain.RejectedProduct, int64, error) {
+func (s *Services) ListRejectedProducts(ctx context.Context, params *domain.RejectedProductQueryParam) ([]domain.RejectedProduct, int64, error) {
 	var (
 		res        []domain.RejectedProduct
 		totalCount int64
 		args       []any
 		filter     = "WHERE 1=1"
-		order      = " ORDER BY count DESC"
+		order      = "ORDER BY created_at DESC"
 	)
 
-	if param.Search != "" {
+	if params.Search != "" {
 		filter += " AND (p.name ILIKE ? OR rp.product_name ILIKE ? OR p.name ILIKE ?)"
-		args = append(args, "%"+param.Search+"%", "%"+param.Search+"%", "%"+param.Search+"%")
+		args = append(args, "%"+params.Search+"%", "%"+params.Search+"%", "%"+params.Search+"%")
 	}
-	if param.StoreID != "" {
+	if params.StoreId != "" {
 		filter += " AND rp.store_id = ?"
-		args = append(args, param.StoreID)
+		args = append(args, params.StoreId)
 	}
-	if param.CompanyId != "" {
+	if params.CompanyId != "" {
 		filter += " AND s.company_id = ?"
-		args = append(args, param.CompanyId)
+		args = append(args, params.CompanyId)
 	}
-	if param.ProductID != "" {
+	if params.ProductId != "" {
 		filter += " AND rp.product_id = ?"
-		args = append(args, param.ProductID)
+		args = append(args, params.ProductId)
+	}
+
+	switch params.Order {
+	case "count":
+		order = " ORDER BY count DESC"
+	case "created_at":
+		order = " ORDER BY created_at DESC"
+	default:
+		order = " ORDER BY created_at DESC"
 	}
 
 	query := fmt.Sprintf(`
@@ -105,11 +114,12 @@ func (s *Services) ListRejectedProducts(param *domain.RejectedProductQueryParam)
 	LIMIT ? OFFSET ?
 `, filter, order)
 
-	args = append(args, param.Limit, param.Offset)
+	args = append(args, params.Limit, params.Offset)
 
-	err := s.db.Raw(query, args...).Scan(&res).Error
+	err := s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
 	if err != nil {
-		return nil, 0, err
+		s.log.Errorf("could not get rejected_products %v", err)
+		return nil, 0, domain.InternalServerError
 	}
 
 	if len(res) > 0 {

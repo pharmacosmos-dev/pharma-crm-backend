@@ -66,8 +66,10 @@ func (h *CartItemHandler) Create(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), constants.DefaultContextTimeout)
 	defer cancel()
 
+	body.EmployeeId = user.UserId
+
 	// create cart item
-	res, err := h.service.CreateCartItem(ctx, user, &body)
+	res, err := h.service.CreateCartItem(ctx, &body)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)
 		return

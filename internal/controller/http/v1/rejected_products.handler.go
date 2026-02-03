@@ -124,28 +124,28 @@ func (h *RejectedProductsHandler) GetListOfProducts(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /rejected-products/list [get]
 func (h *RejectedProductsHandler) List(c *gin.Context) {
-	var (
-		param domain.RejectedProductQueryParam
-		err   error
-	)
-
+	var params domain.RejectedProductQueryParam
 	// Bind query parameters
-	if err = c.ShouldBindQuery(&param); err != nil {
+	if err := c.ShouldBindQuery(&params); err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 
 	// Default limit/offset
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 
 	// Query database
-	rejectedProducts, totalCount, err := h.service.ListRejectedProducts(&param)
+	rejectedProducts, totalCount, err := h.service.ListRejectedProducts(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
-	result := utils.ListResponse(rejectedProducts, totalCount, param.Limit, param.Offset)
+	result := utils.ListResponse(rejectedProducts, totalCount, params.Limit, params.Offset)
+
 	handleResponse(c, OK, result)
 }
 
@@ -167,15 +167,21 @@ func (h *RejectedProductsHandler) List(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /rejected-products/export-excel [POST]
 func (h *RejectedProductsHandler) ExportRejectedProducts(c *gin.Context) {
-	var param domain.RejectedProductQueryParam
-	if err := c.ShouldBindQuery(&param); err != nil {
-		handleResponse(c, BadRequest, "Invalid query parameters")
+	var params domain.RejectedProductQueryParam
+	// Bind query parameters
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	// Default limit/offset
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
 
 	// get grouped rejected products
-	res, _, err := h.service.ListRejectedProducts(&param)
+	res, _, err := h.service.ListRejectedProducts(ctx, &params)
 	if err != nil {
 		handleResponse(c, InternalError, "Can't get rejected products data")
 		return

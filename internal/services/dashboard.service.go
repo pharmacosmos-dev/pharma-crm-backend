@@ -11,196 +11,6 @@ import (
 	"github.com/pharma-crm-backend/pkg/utils"
 )
 
-// get dashboard count and amount data
-func (s *Services) DashboardTotalCountStats(ctx context.Context, param *domain.DashboardQueryParam) (*domain.DashboardCountStats, error) {
-	// declarations
-	var (
-		res            domain.DashboardCountStats
-		startTimeInUTC = (*param.StartDate).ToUTC()
-		endTimeInUTC   = domain.AddDefaultDuration(*param.StartDate, param.EndDate).ToUTC()
-
-		startStr       = startTimeInUTC.GetString()
-		endStr         = endTimeInUTC.GetString()
-		beforeStartStr = startTimeInUTC.PrevDay().GetString()
-		beforeEndStr   = endTimeInUTC.PrevDay().GetString()
-	)
-
-	// queries
-	var (
-		args []any
-		// get sale stats information
-		querys = fmt.Sprintf(`
-		SELECT
-			COUNT(CASE WHEN completed_at BETWEEN '%s' AND '%s' THEN sales.id END) AS sale_count,
-			COUNT(CASE WHEN completed_at BETWEEN '%s' AND '%s' THEN sales.id END) AS before_sale_count,
-			SUM(CASE WHEN completed_at BETWEEN '%s' AND '%s' THEN sales.total_amount ELSE 0 END) AS sale_amount,
-			SUM(CASE WHEN completed_at BETWEEN '%s' AND '%s' THEN sales.total_amount ELSE 0 END) AS before_sale_amount,
-			SUM(CASE WHEN completed_at BETWEEN '%s' AND '%s' THEN sales.total_discount ELSE 0 END) AS discount_amount,
-			SUM(CASE WHEN completed_at BETWEEN '%s' AND '%s' THEN sales.total_discount ELSE 0 END) AS before_discount_amount
-		FROM sales
-		LEFT JOIN stores st on sales.store_id = st.id
-		WHERE stage IN(9, 11)
-		`,
-			startStr, endStr, beforeStartStr, beforeEndStr,
-			startStr, endStr, beforeStartStr, beforeEndStr,
-			startStr, endStr, beforeStartStr, beforeEndStr)
-
-		queryp = fmt.Sprintf(`
-		SELECT
-			ROUND(SUM(sp.unit_quantity / p.unit_per_pack), 2) AS stock_count,
-			ROUND(SUM(sp.unit_quantity / p.unit_per_pack + COALESCE(ci_sold.quantity, 0)), 2) AS before_stock_count,
-			ROUND(SUM((retail_price / p.unit_per_pack) * sp.unit_quantity), 2) AS stock_amount,
-			ROUND(SUM((retail_price / p.unit_per_pack) * sp.unit_quantity  + COALESCE(ci_sold.amount, 0)), 2) AS before_stock_amount,
-			ROUND(SUM(CASE WHEN expire_date > NOW() AND expire_date <= NOW() + INTERVAL '3 month' THEN (sp.unit_quantity/p.unit_per_pack) ELSE 0 END), 2) AS expiring_count,
-			ROUND(SUM(CASE WHEN expire_date > NOW() AND expire_date <= NOW() + INTERVAL '3 month' THEN ((retail_price/p.unit_per_pack) * sp.unit_quantity) ELSE 0 END), 2) AS expiring_amount,
-			ROUND(SUM(CASE WHEN expire_date > NOW() AND expire_date <= NOW() + INTERVAL '3 month' THEN ((retail_price/p.unit_per_pack) * sp.unit_quantity) + COALESCE(ci_sold.amount, 0) ELSE 0 END), 2) AS before_expiring_amount,
-			ROUND(SUM(CASE WHEN expire_date <= NOW() THEN (sp.unit_quantity/p.unit_per_pack) ELSE 0 END), 2) AS expired_count,
-			ROUND(SUM(CASE WHEN expire_date <= NOW() THEN ((retail_price/p.unit_per_pack) * sp.unit_quantity) ELSE 0 END),2) AS expired_amount,
-			ROUND(SUM(CASE WHEN expire_date <= NOW() THEN ((retail_price/p.unit_per_pack) * sp.unit_quantity) + COALESCE(ci_sold.amount, 0) ELSE 0 END), 2) AS before_expired_amount
-		FROM store_products sp
-		JOIN products p ON sp.product_id = p.id
-		LEFT JOIN stores st ON sp.store_id = st.id
-		LEFT JOIN (
-			SELECT store_product_id, SUM(quantity) AS quantity, SUM(quantity * unit_price) AS amount
-			FROM cart_items
-			JOIN sales s ON cart_items.sale_id = s.id
-			WHERE s.completed_at BETWEEN '%s' AND '%s'
-			AND s.stage IN(9, 11)
-			GROUP BY store_product_id
-		) AS ci_sold ON ci_sold.store_product_id = sp.id
-		WHERE 1 = 1
-		`, beforeStartStr, beforeEndStr)
-
-		queryc = fmt.Sprintf(`
-		SELECT
-			ROUND(SUM(CASE WHEN completed_at BETWEEN '%s' AND '%s' THEN ((ci.unit_price - sp.supply_price)/p.unit_per_pack) * ci.unit_quantity ELSE 0 END), 2) AS income_amount,
-			ROUND(SUM(CASE WHEN completed_at BETWEEN '%s' AND '%s' THEN ((ci.unit_price - sp.supply_price)/p.unit_per_pack) * ci.unit_quantity ELSE 0 END), 2) AS before_income_amount
-		FROM cart_items ci
-		JOIN store_products sp ON ci.store_product_id = sp.id
-		JOIN products p ON sp.product_id = p.id
-		JOIN sales s ON ci.sale_id = s.id
-		WHERE s.stage IN(9, 11) AND s.sale_type = 'SALE'`,
-			startStr, endStr, beforeStartStr, beforeEndStr)
-
-		query24h = `
-		SELECT
-			-- 24 soatdan eski (hammasi)
-			COALESCE(SUM(
-				CASE 
-					WHEN im.created_at < NOW() - interval '24 hour'
-					THEN imd.received_count * imd.retail_price_vat 
-					ELSE 0 
-				END
-			), 0) AS import_amount,
-		
-			-- 24–48 soat oralig‘i
-			COALESCE(SUM(
-				CASE
-					WHEN im.created_at BETWEEN NOW() - interval '48 hour' AND NOW() - interval '24 hour'
-					THEN imd.received_count * imd.retail_price_vat 
-					ELSE 0 
-				END
-			), 0) AS not_last_24h_import_amount
-		
-		FROM import_details imd
-		JOIN imports im ON imd.import_id = im.id
-		LEFT JOIN stores st ON im.store_id = st.id
-		WHERE im.status = 'new'
-		  AND im.entry_type = 1`
-
-		queryImportCountNot24 = `
-		SELECT COUNT(*)
-		FROM imports im
-		LEFT JOIN stores st ON im.store_id = st.id
-		WHERE im.status = 'new'
- 		 AND im.entry_type = 1
-  		 AND im.created_at < NOW() - interval '24 hour'
-`
-
-		filter  = ""
-		filterc = ""
-	)
-
-	// filter by several store ids
-	if len(param.StoreIds) > 0 {
-		filter += " AND store_id IN (?)"
-		filterc += " AND s.store_id IN (?)"
-		args = append(args, param.StoreIds)
-		query24h += " AND im.store_id IN (?)"
-	}
-
-	// filter by company_id
-	if len(param.CompanyIds) > 0 {
-		filter += " AND st.company_id IN (?)"
-		filterc += " AND p.company_id IN (?)"
-		query24h += " AND st.company_id IN (?)"
-		args = append(args, param.CompanyIds)
-	}
-
-	// Execute queries
-	var sale domain.DashboardCountStatsSale
-	querys += filter
-	err := s.db.WithContext(ctx).Raw(querys, args...).Scan(&sale).Error
-	if err != nil {
-		s.log.Errorf("could not get total sale amounts: %v", err)
-		return nil, domain.InternalServerError
-	}
-	// get total product count
-	var product domain.DashboardCountStatsProduct
-	queryp += filter
-	err = s.db.WithContext(ctx).Raw(queryp, args...).Scan(&product).Error
-	if err != nil {
-		s.log.Errorf("could not get total product_amounts: %v", err)
-		return nil, domain.InternalServerError
-	}
-	// get total net income
-	var income domain.DashboardCountStatsIncome
-	queryc += filterc
-	err = s.db.WithContext(ctx).Raw(queryc, args...).Scan(&income).Error
-	if err != nil {
-		s.log.Errorf("could not get total income: %v", err)
-		return nil, domain.InternalServerError
-	}
-	var imported domain.DashboardImport
-	err = s.db.WithContext(ctx).Raw(query24h, args...).Scan(&imported).Error
-	if err != nil {
-		s.log.Errorf("could not get import_count for_24: %v", err)
-		return nil, domain.InternalServerError
-	}
-	var notLast24HImportCount int
-	queryImportCountNot24 += filter
-	err = s.db.WithContext(ctx).Raw(queryImportCountNot24, args...).Scan(&notLast24HImportCount).Error
-
-	if err != nil {
-		s.log.Errorf("could not get import_count for_not_24: %v", err)
-		return nil, domain.InternalServerError
-	}
-	// Map results
-	res.ImportAmount = imported.ImportAmount
-	res.NotLast24HImportCount = float64(notLast24HImportCount)
-	res.NotLast24HImportAmount = imported.NotLast24hImportAmount
-	res.TotalSaleCount = sale.SaleCount
-	res.BeforeSaleCount = sale.BeforeSaleCount
-	res.TotalSaleAmount = sale.SaleAmount
-	res.BeforeSaleAmount = sale.BeforeSaleAmount
-	res.DiscountAmount = sale.DiscountAmount
-	res.BeforeDiscountAmount = sale.BeforeDiscountAmount
-	res.TotalProductCount = product.StockCount
-	res.BeforeProductCount = product.BeforeStockCount
-	res.StockTotalAmount = product.StockAmount
-	res.BeforeStockAmount = product.BeforeStockAmount
-	res.ExpiringSoonCount = product.ExpiringCount
-	res.ExpiredSoonCount = product.ExpiredCount
-	res.ExpiringSoonAmount = product.ExpiringAmount
-	res.ExpiredSoonAmount = product.ExpiredAmount
-	res.BeforeExpiringSoonAmount = product.BeforeExpiringAmount
-	res.BeforeExpiredSoonAmount = product.BeforeExpiredAmount
-	res.TotalNetIncome = income.IncomeAmount
-	res.BeforeTotalNetIncome = income.BeforeIncomeAmount
-
-	return &res, nil
-}
-
 func (s *Services) DashboardChartStats(ctx context.Context, params *domain.DashboardQueryParam) ([]domain.ChartResponse, error) {
 	var (
 		res       []domain.ChartResponse
@@ -310,41 +120,42 @@ func (s *Services) DashboardChartStats(ctx context.Context, params *domain.Dashb
 
 // get dashboard top stores
 func (s *Services) DashboardTopStores(ctx context.Context, params *domain.DashboardQueryParam) ([]domain.TopStores, error) {
-	var res []domain.TopStores
+	order := utils.BuildTopStoreOrderClauseForDashBoard(params.Order)
+	qb := s.db.WithContext(ctx).
+		Select(
+			"st.id AS id",
+			"st.name AS name",
+			"COUNT(s.id) AS count",
+			"SUM(s.total_amount) AS total_amount",
+		).
+		Table("sales s").
+		Joins("JOIN stores st ON s.store_id = st.id").
+		Where("s.stage IN (?)", constants.FinishedSaleStages)
 
-	var (
-		args   []any
-		query  = `SELECT stores.id, stores.name, COUNT(*) AS count, SUM(sales.total_amount) AS total_amount FROM sales JOIN stores ON sales.store_id = stores.id`
-		filter = ` WHERE sales.stage IN (9, 11)`
-		group  = ` GROUP BY stores.id`
-		order  = utils.BuildTopStoreOrderClauseForDashBoard(params.Order)
+	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
+		qb.Where("s.completed_at >= ?", params.StartDate.UTC())
+	}
 
-		startTimeInUTCStr = (*params.StartDate).ToUTC().GetString()
-		endTimeInUTCStr   = domain.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC().GetString()
-	)
-
-	// Apply filter
-	filter += " AND sales.completed_at BETWEEN ? AND ?"
-	args = append(args, startTimeInUTCStr, endTimeInUTCStr)
+	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
+		qb.Where("s.completed_at <= ?", params.EndDate.UTC())
+	}
 
 	// Store filter
 	if len(params.StoreIds) > 0 {
-		filter += " AND sales.store_id IN (?)"
-		args = append(args, params.StoreIds)
+		qb.Where("s.store_id IN (?)", params.StoreIds)
 	}
 
 	// Company filter
 	if len(params.CompanyIds) > 0 {
-		filter += " AND stores.company_id IN (?)"
-		args = append(args, params.CompanyIds)
+		qb.Where("st.company_id IN (?)", params.CompanyIds)
 	}
 
 	// Limit & Offset
-	var q = query + filter + group + order + " LIMIT ? OFFSET ?"
-	args = append(args, params.Limit, params.Offset)
+	qb = qb.Order(order).Limit(params.Limit).Offset(params.Offset)
 
 	// Execute query
-	err := s.db.WithContext(ctx).Raw(q, args...).Scan(&res).Error
+	var res []domain.TopStores
+	err := qb.Find(&res).Error
 	if err != nil {
 		s.log.Errorf("Failed to get top stores: %v", err)
 		return nil, domain.InternalServerError
@@ -355,104 +166,42 @@ func (s *Services) DashboardTopStores(ctx context.Context, params *domain.Dashbo
 
 // get dashboard top products
 func (s *Services) DashboardTopProducts(ctx context.Context, params *domain.DashboardQueryParam) ([]domain.TopProducts, error) {
-	// declaration
-	var (
-		res  []domain.TopProducts
-		args []any
+	qb := s.db.WithContext(ctx).
+		Select(
+			"p.id AS id",
+			"p.name AS name",
+			"p.unit_per_pack AS unit_per_pack",
+			"SUM(ci.unit_quantity) / p.unit_per_pack AS count",
+			"SUM(ci.unit_quantity) % p.unit_per_pack AS unit_quantity",
+			"SUM(ci.total_price) as total_amount",
+		).
+		Table("cart_items ci").
+		Joins("sales s ON s.id = ci.sale_id").
+		Joins("products p ON p.id = ci.product_id").
+		Where("s.stage IN (?)", constants.FinishedSaleStages)
 
-		startTimeInUTC = (*params.StartDate).ToUTC()
-		endTimeInUTC   = domain.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC()
-
-		startTimeStr       = startTimeInUTC.GetString()
-		endTimeStr         = endTimeInUTC.GetString()
-		beforeStartTimeStr = startTimeInUTC.PrevDay().GetString()
-		beforeEndTimeStr   = endTimeInUTC.PrevDay().GetString()
-	)
-
-	query := `
-	SELECT
-		curr.id,
-		curr.name,
-		curr.producer_name,
-		curr.count,
-		curr.unit_quantity,
-		curr.unit_per_pack,
-		curr.total_amount,
-		prev.total_amount AS previous_total_amount,
-		ROUND(
-				CASE
-					WHEN COALESCE(prev.total_amount, 0) = 0 THEN 100
-					ELSE ((curr.total_amount - prev.total_amount) * 100.0) / NULLIF(prev.total_amount, 0)
-					END, 2
-		) AS percent,
-		COUNT(*) OVER() AS total_count
-	FROM (
-			SELECT
-				p.id,
-				p.name,
-				ps.name AS producer_name,
-				s.company_id,
-				SUM(ci.unit_quantity) / p.unit_per_pack AS count,
-				SUM(ci.unit_quantity) % p.unit_per_pack AS unit_quantity,
-				p.unit_per_pack,
-				SUM(ci.total_price) as total_amount
-			FROM cart_items ci
-					JOIN store_products sp ON ci.store_product_id = sp.id
-					JOIN products p ON sp.product_id = p.id
-					JOIN producers ps ON p.producer_id = ps.id
-					JOIN stores s ON sp.store_id = s.id
-			WHERE ci.updated_at BETWEEN ? AND ?
-			GROUP BY p.id, p.name, ps.name, p.unit_per_pack,s.company_id
-		) AS curr
-			left JOIN (
-		SELECT
-			p.id,
-			s.company_id,
-			SUM(ci.total_price) AS total_amount
-		FROM cart_items ci
-				JOIN store_products sp ON ci.store_product_id = sp.id
-				JOIN products p ON sp.product_id = p.id
-				JOIN stores s ON sp.store_id = s.id
-		WHERE ci.updated_at BETWEEN ? AND ?
-		GROUP BY p.id, s.company_id
-	) AS prev ON curr.id = prev.id and curr.company_id = prev.company_id
-`
-
-	// Arguments for current and previous period
-	args = append(args,
-		startTimeStr,
-		endTimeStr,
-		beforeStartTimeStr,
-		beforeEndTimeStr,
-	)
-
-	// Filters
-	where := " WHERE 1 = 1"
-	if params.Search != "" {
-		where += " AND curr.name ILIKE ?"
-		args = append(args, "%"+params.Search+"%")
+	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
+		qb.Where("s.completed_at >= ?", params.StartDate.UTC())
 	}
-	if len(params.CompanyIds) > 0 {
-		where += " AND curr.company_id IN (?) "
-		args = append(args, params.CompanyIds)
+
+	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
+		qb.Where("s.completed_at <= ?", params.EndDate.UTC())
 	}
+
+	// Store filter
 	if len(params.StoreIds) > 0 {
-		where += " AND EXISTS (SELECT 1 FROM store_products sp3 WHERE sp3.product_id = curr.id AND sp3.store_id IN (?))"
-		args = append(args, params.StoreIds)
+		qb.Where("s.store_id IN (?)", params.StoreIds)
 	}
 
 	// Sorting (replaced switch)
-	order := utils.BuildTopProductOrderClause(params.Order)
-	query += where + order
+	order := utils.BuildTopProductOrderClauseForDashBoard(params.Order)
 
-	// Pagination
-	query += " LIMIT ? OFFSET ?"
-	args = append(args, params.Limit, params.Offset)
-
+	qb = qb.Group("p.id").Order(order).Limit(params.Limit).Offset(params.Offset)
+	var res []domain.TopProducts
 	// Execute query
-	err := s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
+	err := qb.Find(&res).Error
 	if err != nil {
-		s.log.Errorf("could not get top products: %v", err)
+		s.log.Errorf("could not get dashboard top products: %v", err)
 		return nil, domain.InternalServerError
 	}
 
@@ -675,8 +424,6 @@ func (s *Services) DashboardPayments(ctx context.Context, params *domain.Dashboa
 		startTimeInUTC = (*params.StartDate).ToUTC()
 		endTimeInUTC   = domain.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC()
 
-		startTimeStr       = startTimeInUTC.GetString()
-		endTimeStr         = endTimeInUTC.GetString()
 		beforeStartTimeStr = startTimeInUTC.PrevDay().GetString()
 		beforeEndTimeStr   = endTimeInUTC.PrevDay().GetString()
 	)
@@ -699,8 +446,15 @@ func (s *Services) DashboardPayments(ctx context.Context, params *domain.Dashboa
 			"COUNT(1) FILTER (WHERE s.uzum > 0) AS uzum_count",
 		).
 		Table("sales s").
-		Where("s.stage IN(?)", constants.FinishedSaleStages).
-		Where("s.completed_at between ? and ? ", startTimeStr, endTimeStr)
+		Where("s.stage IN(?)", constants.FinishedSaleStages)
+
+	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
+		qb = qb.Where("s.completed_at >= ?", params.StartDate.UTC())
+	}
+
+	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
+		qb = qb.Where("s.completed_at <= ?", params.EndDate.UTC())
+	}
 
 	// filters
 	if len(params.StoreIds) > 0 {
@@ -788,158 +542,37 @@ func (s *Services) DashboardPayments(ctx context.Context, params *domain.Dashboa
 }
 
 func (s *Services) DashboardTransaction(ctx context.Context, params *domain.DashboardQueryParam) ([]domain.DashboardTransaction, error) {
-	var (
-		err error
 
-		startTimeInUTC = (*params.StartDate).ToUTC()
-		endTimeInUTC   = domain.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC()
+	qb := s.db.WithContext(ctx).
+		Select(
+			"CASE s.stage WHEN 9 THEN 'Товары' WHEN 11 THEN 'Возвраты' END AS name",
+			"SUM(ci.total_price) AS amount",
+			"SUM(ci.unit_quantity / p.unit_per_pack) AS count",
+		).
+		Table("cart_items ci").
+		Joins("JOIN sales s ON s.id = ci.sale_id").
+		Joins("JOIN products p ON ci.product_id = p.id").
+		Where("s.stage IN (?)", constants.FinishedSaleStages)
 
-		startTimeStr       = startTimeInUTC.GetString()
-		endTimeStr         = endTimeInUTC.GetString()
-		beforeStartTimeStr = startTimeInUTC.PrevDay().GetString()
-		beforeEndTimeStr   = endTimeInUTC.PrevDay().GetString()
-	)
+	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
+		qb = qb.Where("s.completed_at >= ?", params.StartDate.UTC())
+	}
 
-	res := []domain.DashboardTransaction{}
+	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
+		qb = qb.Where("s.completed_at <= ?", params.EndDate.UTC())
+	}
 
-	// ---- FILTERS ----
-	storeFilter := ""
 	if len(params.StoreIds) > 0 {
-		storeFilter += " AND s.store_id IN ? "
-	}
-	if len(params.CompanyIds) > 0 {
-		storeFilter += " AND s.store_id IN (SELECT id FROM stores WHERE company_id IN (?) ) "
+		qb = qb.Where("s.store_id IN(?)", params.StoreIds)
 	}
 
-	// SALES query
-	fullQuery := fmt.Sprintf(`
-	WITH sales_data AS (
-		SELECT
-			'Товары' AS name,
-			curr.amount,
-			curr.count,
-			prev.amount AS previous_amount,
-			ROUND(
-					CASE
-						WHEN COALESCE(prev.amount, 0) = 0 THEN 100
-						ELSE ((curr.amount - prev.amount) * 100.0) / NULLIF(prev.amount, 0)
-						END, 2
-			) AS percent
-		FROM (
-				SELECT
-					SUM(s.total_amount) AS amount,
-					COALESCE(ROUND(SUM(ci.quantity + (ci.unit_quantity / p.unit_per_pack)), 0), 0) AS count
-				FROM sales s
-						JOIN cart_items ci ON ci.sale_id = s.id
-						JOIN store_products as sp on ci.store_product_id = sp.id
-						JOIN products as p on sp.product_id = p.id
-				WHERE s.stage IN(9, 11)
-				AND s.sale_type = 'SALE'
-				AND s.completed_at BETWEEN ? AND ?
-				%s
-			) curr
-				LEFT JOIN (
-			SELECT
-				SUM(s.total_amount) AS amount
-			FROM sales s
-					JOIN cart_items ci ON ci.sale_id = s.id
-			WHERE s.stage IN(9, 11)
-			AND s.sale_type = 'SALE'
-			AND s.completed_at BETWEEN ? AND ?
-			%s
-		) prev ON 1=1
-	),
-		returns_data AS (
-			SELECT
-				'Возвраты' AS name,
-				curr.amount,
-				curr.count,
-				prev.amount AS previous_amount,
-				ROUND(
-						CASE
-							WHEN COALESCE(prev.amount, 0) = 0 THEN 100
-							ELSE ((curr.amount - prev.amount) * 100.0) / NULLIF(prev.amount, 0)
-							END, 2
-				) AS percent
-			FROM (
-					SELECT
-						SUM(s.total_amount) AS amount,
-						COALESCE(ROUND(SUM(ci.quantity + (ci.unit_quantity / p.unit_per_pack)), 0), 0) AS count
-					FROM sales s
-							JOIN cart_items ci ON ci.sale_id = s.id
-							JOIN store_products as sp on ci.store_product_id = sp.id
-							JOIN products as p on sp.product_id = p.id
-					WHERE s.stage IN(9, 11)
-						AND s.sale_type = 'RETURN'
-						AND s.completed_at BETWEEN ? AND ?
-						%s
-				) curr
-					LEFT JOIN (
-				SELECT
-					SUM(s.total_amount) AS amount
-				FROM sales s
-						JOIN cart_items ci ON ci.sale_id = s.id
-				WHERE s.stage IN(9, 11)
-				AND s.sale_type = 'RETURN'
-				AND s.completed_at BETWEEN ? AND ?
-				%s
-			) prev ON 1=1
-		)
-	SELECT
-		name,
-		amount + COALESCE((SELECT amount FROM returns_data), 0) AS amount,
-		count - COALESCE((SELECT count FROM returns_data), 0) AS count,
-		previous_amount + COALESCE((SELECT previous_amount FROM returns_data), 0) AS previous_amount,
-		ROUND(
-				CASE
-					WHEN COALESCE(previous_amount - COALESCE((SELECT previous_amount FROM returns_data), 0), 0) = 0 THEN 100
-					ELSE (((amount - COALESCE((SELECT amount FROM returns_data), 0)) - (previous_amount - COALESCE((SELECT previous_amount FROM returns_data), 0))) * 100.0) /
-						NULLIF(previous_amount - COALESCE((SELECT previous_amount FROM returns_data), 0), 0)
-					END, 2
-		) AS percent
-	FROM sales_data
-	UNION ALL
-	SELECT * FROM returns_data
-	`, storeFilter, storeFilter, storeFilter, storeFilter)
-
-	// ---- ARGS ----
-	finalArgs := []any{
-		// Sales curr
-		startTimeStr, endTimeStr,
-	}
-	if len(params.StoreIds) > 0 {
-		finalArgs = append(finalArgs, params.StoreIds)
-	}
 	if len(params.CompanyIds) > 0 {
-		finalArgs = append(finalArgs, params.CompanyIds)
-	}
-	// sales prev
-	finalArgs = append(finalArgs, beforeStartTimeStr, beforeEndTimeStr)
-	if len(params.StoreIds) > 0 {
-		finalArgs = append(finalArgs, params.StoreIds)
-	}
-	if len(params.CompanyIds) > 0 {
-		finalArgs = append(finalArgs, params.CompanyIds)
-	}
-	// returns curr
-	finalArgs = append(finalArgs, startTimeStr, endTimeStr)
-	if len(params.StoreIds) > 0 {
-		finalArgs = append(finalArgs, params.StoreIds)
-	}
-	if len(params.CompanyIds) > 0 {
-		finalArgs = append(finalArgs, params.CompanyIds)
-	}
-	// returns prev
-	finalArgs = append(finalArgs, beforeStartTimeStr, beforeEndTimeStr)
-	if len(params.StoreIds) > 0 {
-		finalArgs = append(finalArgs, params.StoreIds)
-	}
-	if len(params.CompanyIds) > 0 {
-		finalArgs = append(finalArgs, params.CompanyIds)
+		qb = qb.Joins("JOIN stores st ON s.store_id = st.id AND st.company_id IN(?)", params.CompanyIds)
 	}
 
+	var res = []domain.DashboardTransaction{}
 	// Execute
-	err = s.db.WithContext(ctx).Raw(fullQuery, finalArgs...).Scan(&res).Error
+	err := qb.Find(&res).Error
 	if err != nil {
 		s.log.Errorf("Error fetching dashboard transaction stats: %v", err)
 		return res, domain.InternalServerError
@@ -1245,12 +878,12 @@ func (s *Services) LoyaltyCardStatistic(ctx context.Context, params *domain.Dash
 	)
 
 	var query = `
-select
-    sum(case when loyalty_card_barcode is not null THEN 1 ELSE 0 END) as total_loyalty_card_count,
-    sum(balance) as total_loyalty_card_balance,
-    sum(case when loyalty_card_created_at between ? and ? then 1 else 0 end) as today_created_loyalty_card_count
-from
-    customers
+	select
+		sum(case when loyalty_card_barcode is not null THEN 1 ELSE 0 END) as total_loyalty_card_count,
+		sum(balance) as total_loyalty_card_balance,
+		sum(case when loyalty_card_created_at between ? and ? then 1 else 0 end) as today_created_loyalty_card_count
+	from
+		customers
 	`
 
 	err := s.db.WithContext(ctx).Raw(query, startTimeInUTC, endTimeInUTC).Scan(&res).Error
