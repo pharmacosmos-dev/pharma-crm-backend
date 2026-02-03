@@ -1754,11 +1754,11 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 		qb = qb.Where("s.cashbox_id = ?", params.CashboxId)
 	}
 
-	if params.StartDate != nil {
+	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
 		fmt.Println("params.StartDate: ", params.StartDate.UTC())
 		qb = qb.Where("s.completed_at >= ?", params.StartDate.UTC())
 	}
-	if params.EndDate != nil {
+	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
 		fmt.Println("params.EndDate: ", params.EndDate.UTC())
 		qb = qb.Where("s.completed_at <= ?", params.EndDate.UTC())
 	}
@@ -1900,10 +1900,13 @@ func (s *Services) GetSalesStats(ctx context.Context, params *domain.SaleQueryPa
 		qb = qb.Where("s.cashbox_id = ?", params.CashboxId)
 	}
 
-	if params.StartDate != nil {
+	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
+		fmt.Println("params.StartDate: ", params.StartDate.GetTime())
 		qb = qb.Where("s.completed_at >= ?", params.StartDate.UTC())
 	}
-	if params.EndDate != nil {
+
+	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
+		fmt.Println("params.EndDate: ", params.EndDate.GetTime())
 		qb = qb.Where("s.completed_at <= ?", params.EndDate.UTC())
 	}
 
@@ -1986,11 +1989,11 @@ func (s *Services) GetSaleList(ctx context.Context, params *domain.SaleQueryPara
 		qb = qb.Where("s.cashbox_id = ?", params.CashboxId)
 	}
 
-	if params.StartDate != nil {
+	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
 		qb = qb.Where("s.completed_at >= ?", params.StartDate.UTC())
 	}
 
-	if params.EndDate != nil {
+	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
 		qb = qb.Where("s.completed_at <= ?", params.EndDate.UTC())
 	}
 
@@ -2118,11 +2121,11 @@ func (s *Services) GetOnlinePendingSales(ctx context.Context, params *domain.Sal
 		qb = qb.Where("s.store_id = ?", params.StoreId)
 	}
 
-	if params.StartDate != nil {
+	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
 		qb = qb.Where("s.created_at >= ?", params.StartDate.UTC())
 	}
 
-	if params.EndDate != nil {
+	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
 		qb = qb.Where("s.created_at <= ?", params.EndDate.UTC())
 	}
 
@@ -2198,10 +2201,10 @@ func (s *Services) GetPendingSales(ctx context.Context, params *domain.SaleQuery
 		qb = qb.Where("s.cashbox_id = ?", params.CashboxId)
 	}
 
-	if params.StartDate != nil {
+	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
 		qb = qb.Where("s.created_at >= ?", params.StartDate.UTC())
 	}
-	if params.EndDate != nil {
+	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
 		qb = qb.Where("s.created_at <= ?", params.EndDate.UTC())
 	}
 
@@ -2465,11 +2468,11 @@ func (s *Services) GetOnlineOrders(ctx context.Context, params *domain.SaleQuery
 		qb = qb.Where("s.status = ?", params.Status)
 	}
 
-	if params.StartDate != nil {
+	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
 		qb = qb.Where("s.created_at >= ?", params.StartDate.UTC())
 	}
 
-	if params.EndDate != nil {
+	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
 		qb = qb.Where("s.created_at <= ?", params.EndDate.UTC())
 	}
 
