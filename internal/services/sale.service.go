@@ -1786,7 +1786,7 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 	}
 
 	// 1) get total count without (LIMIT/OFFSET)
-	if err := qb.Count(&totalCount).Error; err != nil {
+	if err := qb.Count(&totalCount).Debug().Error; err != nil {
 		s.log.Errorf("could not count sales: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
@@ -1829,6 +1829,7 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 		Limit(params.Limit).
 		Offset(params.Offset).
 		Order("s.completed_at DESC").
+		Debug().
 		Find(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get sales: %v", err)
