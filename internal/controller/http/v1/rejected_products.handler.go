@@ -110,15 +110,16 @@ func (h *RejectedProductsHandler) GetListOfProducts(c *gin.Context) {
 // List RejectedProducts godoc
 // @Summary Get rejected products list
 // @Description Get rejected products grouped by store_id and product (id or name) with total count per group
-// @Tags rejected-products
+// @Tags 	rejected-products
 // @Security     BearerAuth
-// @Accept json
+// @Accept 	json
 // @Produce json
-// @Param limit query int false "Limit"
-// @Param offset query int false "Offset"
-// @Param store_id query string false "Store ID"
-// @Param product_id query string false "Product ID"
-// @Param search query string false "Product Name"
+// @Param 	limit query int false "Limit"
+// @Param 	offset query int false "Offset"
+// @Param 	store_id query string false "Store ID"
+// @Param 	product_id query string false "Product ID"
+// @Param 	search query string false "Product Name"
+// @Param 	order query string false "Order by count or created_at"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -155,13 +156,13 @@ func (h *RejectedProductsHandler) List(c *gin.Context) {
 // @Tags rejected-products
 // @Security BearerAuth
 // @Produce json
-// @Param	order 	query string false "Order"
 // @Param   search 	query string false "Search"
-// @Param limit query int false "Limit"
-// @Param offset query int false "Offset"
-// @Param start_date query string false "Start Date"
-// @Param end_date query string false "End Date"
-// @Param store_id query string false "Store ID"
+// @Param 	limit query int false "Limit"
+// @Param 	offset query int false "Offset"
+// @Param 	start_date query string false "Start Date"
+// @Param 	end_date query string false "End Date"
+// @Param 	store_id query string false "store_id"
+// @Param	order 	query string false "Order by count or created_at"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -183,7 +184,7 @@ func (h *RejectedProductsHandler) ExportRejectedProducts(c *gin.Context) {
 	// get grouped rejected products
 	res, _, err := h.service.ListRejectedProducts(ctx, &params)
 	if err != nil {
-		handleResponse(c, InternalError, "Can't get rejected products data")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 

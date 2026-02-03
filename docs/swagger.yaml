@@ -118,6 +118,8 @@ definitions:
         type: string
       discount_value:
         type: number
+      product_id:
+        type: string
       sale_id:
         type: string
       store_product_id:
@@ -4191,55 +4193,6 @@ paths:
       summary: Get total chart stats
       tags:
       - dashboard
-  /dashboard/count-stats:
-    post:
-      description: Get total count stats
-      parameters:
-      - description: Start Date
-        in: query
-        name: start_date
-        type: string
-      - description: End Date
-        in: query
-        name: end_date
-        type: string
-      - description: Store ID
-        in: query
-        name: store_id
-        type: string
-      - description: Type
-        in: query
-        name: type
-        type: string
-      - description: Body
-        in: body
-        name: ids
-        schema:
-          $ref: '#/definitions/domain.DashboardBody'
-      - description: is_franchise
-        in: query
-        name: is_franchise
-        type: boolean
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Get total count stats
-      tags:
-      - dashboard
   /dashboard/employee-bonus:
     post:
       description: Get total count stats
@@ -4660,7 +4613,7 @@ paths:
         in: query
         name: is_franchise
         type: boolean
-      - description: order
+      - description: +name, -name, +count, -count, +total_amount, -total_amount
         in: query
         name: order
         type: string
@@ -11967,10 +11920,6 @@ paths:
     post:
       description: Export grouped rejected products to Excel
       parameters:
-      - description: Order
-        in: query
-        name: order
-        type: string
       - description: Search
         in: query
         name: search
@@ -11991,9 +11940,13 @@ paths:
         in: query
         name: end_date
         type: string
-      - description: Store ID
+      - description: store_id
         in: query
         name: store_id
+        type: string
+      - description: Order by count or created_at
+        in: query
+        name: order
         type: string
       produces:
       - application/json
@@ -12041,6 +11994,10 @@ paths:
       - description: Product Name
         in: query
         name: search
+        type: string
+      - description: Order by count or created_at
+        in: query
+        name: order
         type: string
       produces:
       - application/json

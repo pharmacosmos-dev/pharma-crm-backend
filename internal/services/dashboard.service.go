@@ -151,7 +151,7 @@ func (s *Services) DashboardTopStores(ctx context.Context, params *domain.Dashbo
 	}
 
 	// Limit & Offset
-	qb = qb.Order(order).Limit(params.Limit).Offset(params.Offset)
+	qb = qb.Group("st.id").Order(order).Limit(params.Limit).Offset(params.Offset)
 
 	// Execute query
 	var res []domain.TopStores
@@ -176,8 +176,8 @@ func (s *Services) DashboardTopProducts(ctx context.Context, params *domain.Dash
 			"SUM(ci.total_price) as total_amount",
 		).
 		Table("cart_items ci").
-		Joins("sales s ON s.id = ci.sale_id").
-		Joins("products p ON p.id = ci.product_id").
+		Joins("JOIN sales s ON s.id = ci.sale_id").
+		Joins("JOIN products p ON p.id = ci.product_id").
 		Where("s.stage IN (?)", constants.FinishedSaleStages)
 
 	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
@@ -569,7 +569,7 @@ func (s *Services) DashboardTransaction(ctx context.Context, params *domain.Dash
 	if len(params.CompanyIds) > 0 {
 		qb = qb.Joins("JOIN stores st ON s.store_id = st.id AND st.company_id IN(?)", params.CompanyIds)
 	}
-
+	qb = qb.Group("s.stage")
 	var res = []domain.DashboardTransaction{}
 	// Execute
 	err := qb.Find(&res).Error
