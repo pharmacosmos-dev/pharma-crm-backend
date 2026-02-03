@@ -58,7 +58,7 @@ func (s *Services) ListRejectedProducts(ctx context.Context, params *domain.Reje
 		totalCount int64
 		args       []any
 		filter     = "WHERE 1=1"
-		order      = "ORDER BY created_at DESC"
+		order      = " ORDER BY created_at DESC"
 	)
 
 	if params.Search != "" {
@@ -79,10 +79,14 @@ func (s *Services) ListRejectedProducts(ctx context.Context, params *domain.Reje
 	}
 
 	switch params.Order {
-	case "count":
+	case "+count":
 		order = " ORDER BY count DESC"
-	case "created_at":
+	case "-count":
+		order = " ORDER BY count ASC"
+	case "+created_at":
 		order = " ORDER BY created_at DESC"
+	case "-created_at":
+		order = " ORDER BY created_at ASC"
 	default:
 		order = " ORDER BY created_at DESC"
 	}
