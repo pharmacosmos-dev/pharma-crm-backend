@@ -644,7 +644,14 @@ func (h *InventoryHandler) InventoryDetailList(c *gin.Context) {
 			CurrentPage: (params.Offset / params.Limit) + 1,
 			PageCount:   int((totalCount + int64(params.Limit) - 1) / int64(params.Limit)),
 		},
-		"data":       res,
+		"data": res,
+		"stats_count": domain.InventoryDetailStats{
+			Scanned:  totalData.Scanned,
+			Shortage: totalData.Shortage,
+			All:      totalData.All,
+			Surplus:  totalData.Surplus,
+			Accepted: totalData.Accepted,
+		},
 		"total_data": totalData,
 	}
 

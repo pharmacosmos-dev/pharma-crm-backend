@@ -176,8 +176,6 @@ func (h *ReportHandler) ProductByDateExport(c *gin.Context) {
 	sheetName := "Товары отчет"
 	f.SetSheetName("Sheet1", sheetName)
 
-	
-
 	// Dinamik headerlar tayyorlash
 	headers := []string{"Названия товаров"}
 	var dates []string
@@ -1883,6 +1881,11 @@ func (h *ReportHandler) OstatokByDate(c *gin.Context) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
+
+	if params.StoreId == "" {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
 
 	data, total, err := h.service.GetStoreProductsGivenDay(ctx, &params)
 	if err != nil {
