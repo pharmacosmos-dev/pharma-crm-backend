@@ -479,11 +479,11 @@ func (h *RepricingHandler) RepricingDetailStatus(c *gin.Context) {
 // @Param 	limit query int false "Limit"
 // @Param 	offset query int false "Offset"
 // @Param   search query string false "Search"
-// @Param   repricing_id query int false "Repricing ID"
+// @Param   id path int false "Repricing ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
-// @Router /repricing-detail/export-excel [get]
+// @Router /repricing-detail/export-excel/{id} [get]
 func (h *RepricingHandler) ExportListDetail(c *gin.Context) {
 	var params domain.QueryParam
 
@@ -500,7 +500,7 @@ func (h *RepricingHandler) ExportListDetail(c *gin.Context) {
 		handleServiceResponse(c, InternalError, err)
 		return
 	}
-	fmt.Println("REPRICING LENGTH: ", len(res))
+
 	f := excelize.NewFile()
 	sheetName := "RepricingDetails"
 	f.SetSheetName("Sheet1", sheetName)
