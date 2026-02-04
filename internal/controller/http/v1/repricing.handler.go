@@ -485,25 +485,22 @@ func (h *RepricingHandler) RepricingDetailStatus(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /repricing-detail/export-excel [get]
 func (h *RepricingHandler) ExportListDetail(c *gin.Context) {
-	var (
-		param domain.QueryParam
-	)
+	var params domain.QueryParam
 
-	if err := c.ShouldBindQuery(&param); err != nil {
+	if err := c.ShouldBindQuery(&params); err != nil {
 		handleResponse(c, BadRequest, "Invalid query param")
 		return
 	}
 
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
 	// Get details list
-	res, _, err := h.service.RepricingDetailList(param.RepricingID, &param)
+	res, _, err := h.service.RepricingDetailList(params.RepricingID, &params)
 	if err != nil {
-		h.log.Warn("ERROR on getting repricing details: %v", err)
-		handleResponse(c, InternalError, "Failed to get repricing details")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
-
+	fmt.Println("REPRICING LENGTH: ", len(res))
 	f := excelize.NewFile()
 	sheetName := "RepricingDetails"
 	f.SetSheetName("Sheet1", sheetName)
@@ -519,8 +516,7 @@ func (h *RepricingHandler) ExportListDetail(c *gin.Context) {
 
 	err = setExcelHeaders(f, sheetName, headers)
 	if err != nil {
-		h.log.Error("Failed to set Excel headers:", err)
-		handleResponse(c, InternalError, "Error on setting headers to Excel")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
@@ -551,7 +547,7 @@ func (h *RepricingHandler) ExportListDetail(c *gin.Context) {
 		f.SetCellValue(sheetName, "J"+row, item.SerialNumber)
 	}
 
-	saveExcelToUploads(c, f, *h.log, fmt.Sprintf("Repricing_Detail_%d", param.RepricingID))
+	saveExcelToUploads(c, f, *h.log, fmt.Sprintf("Repricing_Detail_%d", params.RepricingID))
 }
 
 // AddRetailPrice godoc
