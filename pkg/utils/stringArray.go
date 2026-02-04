@@ -345,15 +345,15 @@ func BuildBonusProductOrderClause(orderField string) string {
 
 func BuildTopStoreOrderClause(orderField string) string {
 	allowedFields := map[string]string{
-		"name":                  "stores.name",
-		"count":                 "curr.count",
-		"total_amount":          "curr.total_amount",
-		"previous_total_amount": "prev.total_amount",
+		"name":                  "name",
+		"count":                 "count",
+		"total_amount":          "total_amount",
+		"previous_total_amount": "previous_total_amount",
 		"percent":               "percent",
 	}
 
 	if orderField == "" {
-		return " ORDER BY curr.total_amount DESC "
+		return " total_amount DESC "
 	}
 
 	direction := "ASC"
@@ -367,10 +367,10 @@ func BuildTopStoreOrderClause(orderField string) string {
 	}
 
 	if dbColumn, ok := allowedFields[field]; ok {
-		return fmt.Sprintf(" ORDER BY %s %s ", dbColumn, direction)
+		return fmt.Sprintf(" %s %s ", dbColumn, direction)
 	}
 
-	return " ORDER BY curr.total_amount DESC "
+	return " total_amount DESC "
 }
 
 func BuildTopStoreOrderClauseForDashBoard(orderField string) string {

@@ -628,107 +628,59 @@ func (s *Services) GetTopSellersReport(ctx context.Context, params *domain.Repor
 	return res, totalCount, nil
 }
 
-func (s *Services) GetTopStoresReport(ctx context.Context, param *domain.ReportQueryParam) ([]domain.TopStores, int64, error) {
-	var (
-		res        []domain.TopStores
-		totalCount int64
-		args       []any
-		startTime  time.Time
-		endTime    time.Time
-	)
+func (s *Services) GetTopStoresReport(ctx context.Context, params *domain.ReportQueryParam) ([]domain.TopStores, int64, error) {
+	order := utils.BuildTopStoreOrderClause(params.Order)
 
-	// Parse start and end dates
-	startTime = param.StartDate.UTC()
-	if param.EndDate != nil && !param.EndDate.GetTime().IsZero() {
-		endTime = param.EndDate.UTC()
-	} else {
-		endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+	qb := s.db.WithContext(ctx).
+		Select(
+			"st.id AS id",
+			"st.name AS name",
+			"COUNT(s.id) AS count",
+			"SUM(s.total_amount) AS total_amount",
+		).
+		Table("sales s").
+		Joins("JOIN stores st ON s.store_id = st.id").
+		Where("s.stage IN (?)", constants.FinishedSaleStages)
+
+	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
+		qb.Where("s.completed_at >= ?", params.StartDate.UTC())
 	}
 
-	// Get previous date range
-	beforeStart, beforeEnd := utils.BeforeDatesTime(startTime, endTime)
-
-	// Main query with subqueries
-	query := `
-		SELECT
-			curr.store_id AS id,
-			stores.name,
-			curr.count,
-			curr.total_amount,
-			COALESCE(prev.total_amount, 0) AS previous_total_amount,
-			ROUND(
-				CASE 
-					WHEN COALESCE(prev.total_amount, 0) = 0 THEN 100
-					ELSE ((curr.total_amount - prev.total_amount) * 100.0) / NULLIF(prev.total_amount, 0)
-				END, 2
-			) AS percent,
-			COUNT(*) OVER() AS total_count
-		FROM (
-			SELECT
-				sales.store_id,
-				COUNT(*) AS count,
-				SUM(sales.total_amount) AS total_amount
-			FROM sales
-			WHERE sales.stage IN(9, 11)
-			AND (sales.completed_at + interval '5 hours') BETWEEN ? AND ?
-			GROUP BY sales.store_id
-		) AS curr
-		LEFT JOIN (
-			SELECT
-				sales.store_id,
-				SUM(sales.total_amount) AS total_amount
-			FROM sales
-			WHERE sales.stage IN(9, 11)
-			AND (sales.completed_at + interval '5 hours') BETWEEN ? AND ?
-			GROUP BY sales.store_id
-		) AS prev ON curr.store_id = prev.store_id
-		INNER JOIN stores ON curr.store_id = stores.id
-	`
-
-	// Add base arguments: current and previous period
-	args = append(args,
-		param.StartDate, param.EndDate,
-		beforeStart.Format(time.RFC3339), beforeEnd.Format(time.RFC3339),
-	)
-
-	// Dynamic filters
-	whereClauses := []string{}
-	if param.Search != "" {
-		whereClauses = append(whereClauses, "stores.name ILIKE ?")
-		args = append(args, "%"+param.Search+"%")
-	}
-	if param.StoreId != "" {
-		whereClauses = append(whereClauses, "curr.store_id = ?")
-		args = append(args, param.StoreId)
-	}
-	if param.CompanyId != "" {
-		whereClauses = append(whereClauses, " stores.company_id = ? ")
-		args = append(args, param.CompanyId)
+	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
+		qb.Where("s.completed_at <= ?", params.EndDate.UTC())
 	}
 
-	// Append filters
-	if len(whereClauses) > 0 {
-		query += " WHERE " + strings.Join(whereClauses, " AND ")
+	if params.Search != "" {
+		qb.Where("st.name ILIKE ?", "%"+params.Search+"%")
 	}
 
-	// Apply flexible ordering
-	query += utils.BuildTopStoreOrderClause(param.Order)
+	// Store filter
+	if len(params.StoreIds) > 0 {
+		qb.Where("s.store_id IN (?)", params.StoreIds)
+	}
 
-	// Pagination
-	query += " LIMIT ? OFFSET ?"
-	args = append(args, param.Limit, param.Offset)
+	// Company filter
+	if len(params.CompanyIds) > 0 {
+		qb.Where("st.company_id IN (?)", params.CompanyIds)
+	}
 
-	// Execute
-	err := s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
-	if err != nil {
-		s.log.Errorf("could not get top stores report: %v", err)
+	var totalCount int64
+	if err := qb.Count(&totalCount).Error; err != nil {
+		s.log.Errorf("could not get dashboard top products count: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
 
-	// Extract total count
-	if len(res) > 0 {
-		totalCount = res[0].TotalCount
+	// Limit & Offset
+	qb = qb.Group("st.id").Order(order).Limit(params.Limit).Offset(params.Offset)
+
+	// Execute query
+	var res []domain.TopStores
+	err := qb.Find(&res).Error
+	if err != nil {
+		s.log.Errorf("Failed to get top stores: %v", err)
+		return nil, 0, domain.InternalServerError
 	}
+
 	return res, totalCount, nil
 }
 

@@ -70,7 +70,7 @@ func (s *Services) updateImportTotalsLoop() {
 }
 
 func (s *Services) performUpdateCartItems() {
-	ticker := time.NewTicker(10 * time.Minute)
+	ticker := time.NewTicker(2 * time.Minute)
 	defer ticker.Stop()
 
 	for range ticker.C {
