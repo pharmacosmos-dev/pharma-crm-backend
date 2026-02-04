@@ -485,10 +485,19 @@ func (h *RepricingHandler) RepricingDetailStatus(c *gin.Context) {
 // @Failure 500 {object} v1.Response
 // @Router /repricing-detail/export-excel/{id} [get]
 func (h *RepricingHandler) ExportListDetail(c *gin.Context) {
-	var params domain.QueryParam
+	var (
+		params domain.QueryParam
+		err    error
+	)
 
 	if err := c.ShouldBindQuery(&params); err != nil {
-		handleResponse(c, BadRequest, "Invalid query param")
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	params.RepricingID, err = strconv.Atoi(c.Param("id"))
+	if err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
 
