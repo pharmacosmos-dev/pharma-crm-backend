@@ -13690,7 +13690,7 @@ paths:
       summary: Get Repricing Detail summary stats
       tags:
       - Repricing
-  /repricing-detail/export-excel:
+  /repricing-detail/export-excel/{id}:
     get:
       consumes:
       - application/json
@@ -13709,8 +13709,8 @@ paths:
         name: search
         type: string
       - description: Repricing ID
-        in: query
-        name: repricing_id
+        in: path
+        name: id
         type: integer
       produces:
       - application/json

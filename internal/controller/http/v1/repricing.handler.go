@@ -39,7 +39,7 @@ func (h *RepricingHandler) RepricingRoutes(r *gin.RouterGroup) {
 	{
 		detail.GET("/list/:id", h.ListDetail)
 		detail.GET("/detail-status/:id", h.RepricingDetailStatus)
-		detail.GET("/export-excel", h.ExportListDetail)
+		detail.GET("/export-excel/:id", h.ExportListDetail)
 	}
 }
 
