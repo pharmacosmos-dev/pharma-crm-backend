@@ -59,12 +59,6 @@ func Run(cfg *config.Config) {
 	// Start http server
 	fmt.Println("Server is running on port:", cfg.App.Port)
 
-	// // for test
-	// err = service.SendRemainingQuantityToOsonApteka()
-	// if err != nil {
-	// 	l.Error(err)
-	// }
-
 	c, err := RegisterCronJobs(service)
 	if err != nil {
 		l.Error(err)
