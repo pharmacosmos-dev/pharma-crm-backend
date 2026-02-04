@@ -1107,7 +1107,7 @@ func (h *DashboardHandler) LoyaltyCardStatistic(c *gin.Context) {
 
 	// check if employee is not admin or superadmin
 	var isAdmin bool
-	if !utils.In(user.Role, constants.AllAdminRoles...) {
+	if !helper.IsAdmin(user) {
 		if user.StoreId != "" {
 			params.StoreIds = []string{user.StoreId}
 		}

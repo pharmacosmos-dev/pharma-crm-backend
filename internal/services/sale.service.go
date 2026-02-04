@@ -980,6 +980,8 @@ func (s *Services) ApplySaleInventoryUpdate(ctx context.Context, tx *gorm.DB, sa
 			"p.id AS product_id",
 			"p.unit_per_pack",
 			"pb.bonus_amount",
+			"pb.start_date AS bonus_start_date",
+			"pb.end_date AS bonus_end_date",
 		).
 		Joins("JOIN store_products sp ON sp.id = ci.store_product_id").
 		Joins("JOIN products p ON sp.product_id = p.id").
@@ -1091,9 +1093,9 @@ func (s *Services) AddSaleBonuses(sale *domain.Sale, req []domain.CartItemWithPr
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 	var bonuses []domain.EmployeeBonusRequest
-
+	now := time.Now().Add(time.Hour * 5)
 	for _, item := range req {
-		if item.BonusAmount > 0 {
+		if item.BonusAmount > 0 && now.After(*item.BonusStartDate) && now.Before(*item.BonusEndDate) {
 			bonuses = append(bonuses, domain.EmployeeBonusRequest{
 				EmployeeId:         item.EmployeeId,
 				SaleId:             item.SaleId,
