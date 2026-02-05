@@ -63,6 +63,7 @@ type TopProducts struct {
 	TotalCount          int64   `gorm:"total_count" json:"total_count"`
 	Percent             float64 `gorm:"percent" json:"percent"`
 	TotalAmount         float64 `gorm:"total_amount" json:"total_amount"`
+	NetAmount           float64 `gorm:"net_amount" json:"net_amount"`
 	PreviousTotalAmount float64 `gorm:"previous_total_amount" json:"previous_total_amount"`
 }
 

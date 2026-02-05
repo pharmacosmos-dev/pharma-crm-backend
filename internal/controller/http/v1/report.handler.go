@@ -934,11 +934,12 @@ func (h *ReportHandler) ReportTopProducts(c *gin.Context) {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
+
 	// bind store ids
-	if err = c.ShouldBindJSON(&params.StoreIds); err != nil {
-		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
-		return
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&params.StoreIds)
 	}
+	
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 	// get limit offset with checking default

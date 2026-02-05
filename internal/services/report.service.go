@@ -538,11 +538,12 @@ func (s *Services) GetTopProductsReport(ctx context.Context, params *domain.Repo
 			"SUM(ci.unit_quantity) / p.unit_per_pack AS count",
 			"SUM(ci.unit_quantity) % p.unit_per_pack AS unit_quantity",
 			"SUM(ci.total_price) as total_amount",
+			"SUM(ci.total_price - ci.discount_amount) AS net_amount",
 		).
 		Table("cart_items ci").
 		Joins("JOIN sales s ON s.id = ci.sale_id").
 		Joins("JOIN products p ON p.id = ci.product_id").
-		Where("s.stage IN (?)", constants.FinishedSaleStages)
+		Where("s.stage = ?", constants.SaleStageFinished)
 
 	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
 		qb.Where("s.completed_at >= ?", params.StartDate.UTC())
