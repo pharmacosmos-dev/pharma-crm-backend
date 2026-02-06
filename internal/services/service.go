@@ -37,7 +37,7 @@ func NewService(db *gorm.DB, log *logger.Logger, cfg *config.Config, hub *ws.Hub
 	go s.performSendOsonApteka()
 
 	// update cart items
-	go s.performUpdateCartItems()
+	// go s.performUpdateCartItems()
 
 	return s
 }

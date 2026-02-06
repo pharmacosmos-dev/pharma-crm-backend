@@ -559,7 +559,7 @@ func (s *Services) GetTopProductsReport(ctx context.Context, params *domain.Repo
 	}
 
 	// Sorting (replaced switch)
-	order := utils.BuildTopProductOrderClause(params.Order)
+	order := topProductOrderClause(params.Order)
 
 	var totalCount int64
 	if err := qb.Count(&totalCount).Error; err != nil {
@@ -577,6 +577,29 @@ func (s *Services) GetTopProductsReport(ctx context.Context, params *domain.Repo
 	}
 
 	return res, totalCount, nil
+}
+
+func topProductOrderClause(order string) string {
+	switch order {
+	case "+name":
+		return "p.name"
+	case "-name":
+		return "p.name desc"
+	case "+count":
+		return "count ASC, unit_quantity ASC"
+	case "-count":
+		return "count desc, unit_quantity desc"
+	case "+total_amount":
+		return "total_amount"
+	case "-total_amount":
+		return "total_amount desc"
+	case "+net_amount":
+		return "net_amount"
+	case "-net_amount":
+		return "net_amount desc"
+	default:
+		return "total_amount desc"
+	}
 }
 
 // get report top seller

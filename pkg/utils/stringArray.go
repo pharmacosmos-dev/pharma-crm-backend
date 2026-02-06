@@ -289,6 +289,7 @@ func BuildTopProductOrderClause(orderField string) string {
 		"name":         "name",
 		"count":        "count",
 		"total_amount": "total_amount",
+		"net_amount":   "net_amount",
 	}
 
 	if orderField == "" {
