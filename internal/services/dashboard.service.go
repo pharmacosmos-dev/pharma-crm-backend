@@ -178,7 +178,7 @@ func (s *Services) DashboardTopProducts(ctx context.Context, params *domain.Dash
 		Table("cart_items ci").
 		Joins("JOIN sales s ON s.id = ci.sale_id").
 		Joins("JOIN products p ON p.id = ci.product_id").
-		Where("s.stage IN (?)", constants.FinishedSaleStages)
+		Where("s.stage = ?", constants.SaleStageFinished)
 
 	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
 		qb.Where("s.completed_at >= ?", params.StartDate.UTC())

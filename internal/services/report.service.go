@@ -537,6 +537,7 @@ func (s *Services) GetTopProductsReport(ctx context.Context, params *domain.Repo
 			"p.unit_per_pack AS unit_per_pack",
 			"SUM(ci.unit_quantity) / p.unit_per_pack AS count",
 			"SUM(ci.unit_quantity) % p.unit_per_pack AS unit_quantity",
+			"SUM(ci.unit_quantity)::numeric / p.unit_per_pack AS quantity",
 			"SUM(ci.total_price) as total_amount",
 			"SUM(ci.total_price - ci.discount_amount) AS net_amount",
 		).
@@ -584,21 +585,21 @@ func topProductOrderClause(order string) string {
 	case "+name":
 		return "p.name"
 	case "-name":
-		return "p.name desc"
+		return "p.name DESC"
 	case "+count":
-		return "count ASC, unit_quantity ASC"
+		return "quantity ASC"
 	case "-count":
-		return "count desc, unit_quantity desc"
+		return "quantity DESC"
 	case "+total_amount":
 		return "total_amount"
 	case "-total_amount":
-		return "total_amount desc"
+		return "total_amount DESC"
 	case "+net_amount":
 		return "net_amount"
 	case "-net_amount":
-		return "net_amount desc"
+		return "net_amount DESC"
 	default:
-		return "total_amount desc"
+		return "total_amount DESC"
 	}
 }
 
