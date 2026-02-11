@@ -554,6 +554,10 @@ func (s *Services) GetTopProductsReport(ctx context.Context, params *domain.Repo
 		qb.Where("s.completed_at <= ?", params.EndDate.UTC())
 	}
 
+	if params.Search != "" {
+		qb.Where("p.name ILIKE ?", "%"+params.Search+"%")
+	}
+
 	// Store filter
 	if len(params.StoreIds) > 0 {
 		qb.Where("s.store_id IN (?)", params.StoreIds)
