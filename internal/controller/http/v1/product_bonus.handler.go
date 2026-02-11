@@ -35,7 +35,7 @@ func (h *ProductBonusHandler) ProductBonusRoutes(r *gin.RouterGroup) {
 		bonus.PUT("/:id", h.Update)
 		bonus.POST("/excel-import", h.ImportProductBonus)
 		bonus.DELETE("", h.Delete)
-		bonus.GET("/sold", h.SoldProductBonus)
+		bonus.POST("/sold", h.SoldProductBonus)
 		bonus.POST("/balance", h.BalanceProductBonus)
 	}
 }
@@ -476,11 +476,11 @@ func (h *ProductBonusHandler) BalanceProductBonus(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param 	limit query int false "Limit"
-// @Param 	offset query int false "Offset"
-// @Param   store_id query string false "Store ID"
-// @Param   search  query string false "Search"
-// @Param   employee_id query string false "Employee ID"
+// @Param 	limit 		query int false "Limit"
+// @Param 	offset 		query int false "Offset"
+// @Param 	store_id 	query string false "Store ID"
+// @Param 	search 		query string false "Search"
+// @Param 	employee_id 	query string false "Employee ID"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
