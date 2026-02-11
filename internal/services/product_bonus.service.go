@@ -110,10 +110,6 @@ func (s *Services) GetStoreProductsByIds(ctx context.Context, ids []string) ([]d
 }
 
 func (s *Services) SoldProductBonusList(ctx context.Context, params *domain.QueryParam) ([]domain.SoldProductBonus, int64, error) {
-	var (
-		totalCount int64
-		res        []domain.SoldProductBonus
-	)
 
 	query := s.db.
 		WithContext(ctx).
@@ -124,6 +120,7 @@ func (s *Services) SoldProductBonusList(ctx context.Context, params *domain.Quer
 			e.full_name as employee_name,
 			eb.product_id,
 			p.name as product_name,
+			p.unit_per_pack,
 			eb.bonus_amount,
 			eb.quantity,
 			eb.unit_quantity,
@@ -154,9 +151,17 @@ func (s *Services) SoldProductBonusList(ctx context.Context, params *domain.Quer
 		query = query.Where("eb.employee_id = ?", params.EmployeeId)
 	}
 
-	err := query.Count(&totalCount).
-		Limit(params.Limit).Offset(params.Offset).
-		Order("eb.created_at desc").
+	var totalCount int64
+	if err := query.Count(&totalCount).Error; err != nil {
+		s.log.Errorf("could not get sold product bonus list count: %v", err)
+		return nil, 0, domain.InternalServerError
+	}
+
+	var res []domain.SoldProductBonus
+	err := query.
+		Limit(params.Limit).
+		Offset(params.Offset).
+		Order("eb.created_at DESC").
 		Scan(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get sold product bonus list: %v", err)

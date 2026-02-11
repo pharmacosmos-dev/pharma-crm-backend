@@ -494,32 +494,24 @@ func (h *ProductBonusHandler) SoldProductBonus(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	var param domain.QueryParam
+	var params domain.QueryParam
 
-	if err := c.ShouldBindQuery(&param); err != nil {
+	if err := c.ShouldBindQuery(&params); err != nil {
 		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
 		return
 	}
-	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
-	
-
-	// check if employee is not admin or superadmin
-	if !helper.IsAdmin(user) {
-		if user.StoreId != "" {
-			param.StoreID = user.StoreId
-		}
-		param.CompanyId = user.CompanyId
-	}
+	params.EmployeeId = user.UserId
 
 	// get sold product bonuses
-	res, totalCount, err := h.service.SoldProductBonusList(ctx, &param)
+	res, totalCount, err := h.service.SoldProductBonusList(ctx, &params)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)
 		return
 	}
 
-	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
 
 	handleResponse(c, OK, data)
 }

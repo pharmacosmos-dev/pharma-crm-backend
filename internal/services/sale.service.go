@@ -118,6 +118,7 @@ func (s *Services) CreateReturnSale(ctx context.Context, req *domain.SaleReturnR
 	INSERT INTO cart_items(
 		sale_id,
 		store_product_id,
+		product_id,
 		unit_quantity,
 		unit_price,
 		total_price,
@@ -128,6 +129,7 @@ func (s *Services) CreateReturnSale(ctx context.Context, req *domain.SaleReturnR
 	SELECT
 		?,
 		ci.store_product_id,
+		ci.product_id,
 		ci.unit_quantity,
 		ci.unit_price,
 		ci.total_price,
@@ -155,7 +157,7 @@ func (s *Services) CreateReturnSale(ctx context.Context, req *domain.SaleReturnR
 	// commit transaction
 	if err = tx.Commit().Error; err != nil {
 		s.log.Errorf("could not commit transaction: %v", err)
-		return nil, err
+		return nil, domain.InternalServerError
 	}
 	return &sale, nil
 }

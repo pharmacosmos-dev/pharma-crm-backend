@@ -52,6 +52,7 @@ type SoldProductBonus struct {
 	EmployeeName string    `json:"employee_name"`
 	ProductID    string    `json:"product_id"`
 	ProductName  string    `json:"product_name"`
+	UnitPerPack  int       `json:"unit_per_pack"`
 	BonusAmount  float64   `json:"bonus_amount"`
 	Quantity     int       `json:"quantity"`
 	UnitQuantity int       `json:"unit_quantity"`
