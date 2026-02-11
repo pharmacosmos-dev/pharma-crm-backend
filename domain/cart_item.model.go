@@ -122,6 +122,8 @@ type CartItemResponse struct {
 	PackageName        string            `gorm:"package_name" json:"package_name"`
 	CategoryName       string            `gorm:"category_name" json:"category_name"`
 	BonusAmount        float64           `gorm:"bonus_amount" json:"bonus_amount"`
+	BonusStartDate     *time.Time        `gorm:"bonus_start_date" json:"-"`
+	BonusEndDate       *time.Time        `gorm:"bonus_end_date" json:"-"`
 	BonusPercent       float64           `gorm:"bonus_percent" json:"bonus_percent"`
 	QuantityStock      int               `gorm:"quantity_stock" json:"quantity_stock"`
 	UnitQuantityStock  int               `gorm:"unit_quantity_stock" json:"unit_quantity_stock"`

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
@@ -168,6 +169,8 @@ func (s *Services) FetchCartItems(ctx context.Context, saleId string, limit, off
 		sp.is_checking,
 		sp.expire_date,
 		pb.bonus_amount,
+		pb.start_date AS bonus_start_date,
+		pb.end_date AS bonus_end_date,
 		sp.vat AS vat_percent,
 
 		ROUND(((ci.unit_price - ci_amount.d_amount) * 12) / 112, 2) AS vat_price,
@@ -229,6 +232,15 @@ func (s *Services) FetchCartItems(ctx context.Context, saleId string, limit, off
 	}
 	if res == nil {
 		res = []domain.CartItemResponse{}
+	}
+
+	now := time.Now().Add(time.Hour * 5)
+	for i := range res {
+		if res[i].BonusStartDate != nil && res[i].BonusEndDate != nil {
+			if now.Before(*res[i].BonusStartDate) || !now.Before(res[i].BonusEndDate.AddDate(0, 0, 1)) {
+				res[i].BonusAmount = 0
+			}
+		}
 	}
 
 	data.Data = res

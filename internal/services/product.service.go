@@ -561,6 +561,8 @@ func (s *Services) GetProductsForSearch(ctx context.Context, params *domain.Stor
 
 		"pr.name AS producer_name",
 		"pb.bonus_amount",
+		"pb.start_date AS bonus_start_date",
+		"pb.end_date AS bonus_end_date",
 	}
 
 	// Similarity score faqat nom bo'yicha qidiruvda qo'shiladi
@@ -627,7 +629,7 @@ func (s *Services) GetProductsForSearch(ctx context.Context, params *domain.Stor
 		s.log.Errorf("could not search store_products: %v", err)
 		return nil, domain.InternalServerError
 	}
-
+	now := time.Now().Add(time.Hour * 5)
 	// quantity format
 	for i := range res {
 		if res[i].UQuantity%res[i].UnitPerPack > 0 {
@@ -637,6 +639,13 @@ func (s *Services) GetProductsForSearch(ctx context.Context, params *domain.Stor
 				res[i].UnitPerPack)
 		} else {
 			res[i].Quantity = fmt.Sprintf("%d", res[i].UQuantity/res[i].UnitPerPack)
+		}
+
+		// Check if bonus period is active, treating end_date as inclusive (entire day)
+		if res[i].BonusStartDate != nil && res[i].BonusEndDate != nil {
+			if now.Before(*res[i].BonusStartDate) || !now.Before(res[i].BonusEndDate.AddDate(0, 0, 1)) {
+				res[i].BonusAmount = 0
+			}
 		}
 	}
 

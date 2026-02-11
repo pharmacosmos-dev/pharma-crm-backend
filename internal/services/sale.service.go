@@ -1097,7 +1097,8 @@ func (s *Services) AddSaleBonuses(sale *domain.Sale, req []domain.CartItemWithPr
 	var bonuses []domain.EmployeeBonusRequest
 	now := time.Now().Add(time.Hour * 5)
 	for _, item := range req {
-		if item.BonusAmount > 0 && now.After(*item.BonusStartDate) && now.Before(*item.BonusEndDate) {
+		// Treat end date as inclusive (entire day) by checking if now is before the day after
+		if item.BonusAmount > 0 && now.After(*item.BonusStartDate) && !now.After(item.BonusEndDate.AddDate(0, 0, 1)) {
 			bonuses = append(bonuses, domain.EmployeeBonusRequest{
 				EmployeeId:         item.EmployeeId,
 				SaleId:             item.SaleId,
