@@ -109,13 +109,14 @@ func (s *Services) GetStoreProductsByIds(ctx context.Context, ids []string) ([]d
 	return res, nil
 }
 
-func (s *Services) SoldProductBonusList(params *domain.QueryParam) ([]domain.SoldProductBonus, int64, error) {
+func (s *Services) SoldProductBonusList(ctx context.Context, params *domain.QueryParam) ([]domain.SoldProductBonus, int64, error) {
 	var (
 		totalCount int64
 		res        []domain.SoldProductBonus
 	)
 
 	query := s.db.
+		WithContext(ctx).
 		Table("employee_bonus eb").
 		Select(`
 			eb.id,
@@ -158,8 +159,8 @@ func (s *Services) SoldProductBonusList(params *domain.QueryParam) ([]domain.Sol
 		Order("eb.created_at desc").
 		Scan(&res).Error
 	if err != nil {
-		s.log.Error(err)
-		return res, 0, err
+		s.log.Errorf("could not get sold product bonus list: %v", err)
+		return res, 0, domain.InternalServerError
 	}
 
 	return res, totalCount, nil

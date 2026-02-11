@@ -35,6 +35,7 @@ func (h *ProductBonusHandler) ProductBonusRoutes(r *gin.RouterGroup) {
 		bonus.PUT("/:id", h.Update)
 		bonus.POST("/excel-import", h.ImportProductBonus)
 		bonus.DELETE("", h.Delete)
+		bonus.GET("/sold", h.SoldProductBonus)
 		bonus.POST("/balance", h.BalanceProductBonus)
 	}
 }
@@ -466,4 +467,59 @@ func (h *ProductBonusHandler) BalanceProductBonus(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, res)
+}
+
+// get sold product bonus list
+// @Summary Get sold product bonus list
+// @Description Get sold product bonus list
+// @Tags Product Bonus
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param 	limit query int false "Limit"
+// @Param 	offset query int false "Offset"
+// @Param   store_id query string false "Store ID"
+// @Param   search  query string false "Search"
+// @Param   employee_id query string false "Employee ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product-bonus/sold [post]
+func (h *ProductBonusHandler) SoldProductBonus(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	var param domain.QueryParam
+
+	if err := c.ShouldBindQuery(&param); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+	param.Limit, param.Offset = defaultLimitOffset(param.Limit, param.Offset)
+
+	
+
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			param.StoreID = user.StoreId
+		}
+		param.CompanyId = user.CompanyId
+	}
+
+	// get sold product bonuses
+	res, totalCount, err := h.service.SoldProductBonusList(ctx, &param)
+	if err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	data := utils.ListResponse(res, totalCount, param.Limit, param.Offset)
+
+	handleResponse(c, OK, data)
 }
