@@ -109,7 +109,7 @@ func (s *Services) GetStoreProductsByIds(ctx context.Context, ids []string) ([]d
 	return res, nil
 }
 
-func (s *Services) SoldProductBonusList(params *domain.QueryParams) ([]domain.SoldProductBonus, int64, error) {
+func (s *Services) SoldProductBonusList(params *domain.QueryParam) ([]domain.SoldProductBonus, int64, error) {
 	var (
 		totalCount int64
 		res        []domain.SoldProductBonus
@@ -132,29 +132,29 @@ func (s *Services) SoldProductBonusList(params *domain.QueryParams) ([]domain.So
 		Joins("LEFT JOIN employees e ON e.id = eb.employee_id")
 
 	// filter by store
-	if param.StoreID != "" {
+	if params.StoreID != "" {
 		query = query.Joins("LEFT JOIN sales s ON s.id = eb.sale_id").
-			Where("s.store_id = ?", param.StoreID)
+			Where("s.store_id = ?", params.StoreID)
 	}
 
 	// search by product name
-	if param.Search != "" {
-		query = query.Where("p.name ILIKE ?", "%"+param.Search+"%")
+	if params.Search != "" {
+		query = query.Where("p.name ILIKE ?", "%"+params.Search+"%")
 	}
 
 	// filter by company
-	if param.CompanyId != "" {
+	if params.CompanyId != "" {
 		query = query.
-			Where("e.company_id = ?", param.CompanyId)
+			Where("e.company_id = ?", params.CompanyId)
 	}
 
 	// filter by employee
-	if param.EmployeeId != "" {
-		query = query.Where("eb.employee_id = ?", param.EmployeeId)
+	if params.EmployeeId != "" {
+		query = query.Where("eb.employee_id = ?", params.EmployeeId)
 	}
 
 	err := query.Count(&totalCount).
-		Limit(param.Limit).Offset(param.Offset).
+		Limit(params.Limit).Offset(params.Offset).
 		Order("eb.created_at desc").
 		Scan(&res).Error
 	if err != nil {
