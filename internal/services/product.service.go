@@ -1572,13 +1572,13 @@ func (s *Services) GetSoldProductsBySaleId(ctx context.Context, saleId string) (
 		ci.discount_amount,
 		((ci.discount_price/p.unit_per_pack)*ci.unit_quantity) AS  total_discount,
         ROUND(ci.unit_price / p.unit_per_pack, 2) AS unit_price,
-        ROUND((pb.bonus_amount/p.unit_per_pack) * ci.unit_quantity, 2) AS bonus_amount
+        eb.bonus_amount AS bonus_amount
 	FROM cart_items ci
-	JOIN store_products sp ON ci.store_product_id = sp.id
-	JOIN products p ON sp.product_id = p.id
-	LEFT JOIN unit_types u ON p.unit_type_id = u.id
-	LEFT JOIN product_bonuses pb ON pb.product_id = sp.product_id
-	WHERE ci.sale_id = ?
+		JOIN store_products sp ON ci.store_product_id = sp.id
+		JOIN products p ON sp.product_id = p.id
+		LEFT JOIN unit_types u ON p.unit_type_id = u.id
+		LEFT JOIN employee_bonus eb ON ci.sale_id = eb.sale_id AND eb.product_id = p.id
+		WHERE ci.sale_id = ?
 	`
 	err := s.db.WithContext(ctx).Raw(query, saleId).Scan(&products).Error
 	if err != nil {
