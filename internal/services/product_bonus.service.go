@@ -108,3 +108,59 @@ func (s *Services) GetStoreProductsByIds(ctx context.Context, ids []string) ([]d
 
 	return res, nil
 }
+
+func (s *Services) SoldProductBonusList(params *domain.QueryParams) ([]domain.SoldProductBonus, int64, error) {
+	var (
+		totalCount int64
+		res        []domain.SoldProductBonus
+	)
+
+	query := s.db.
+		Table("employee_bonus eb").
+		Select(`
+			eb.id,
+			eb.employee_id,
+			e.full_name as employee_name,
+			eb.product_id,
+			p.name as product_name,
+			eb.bonus_amount,
+			eb.quantity,
+			eb.unit_quantity,
+			eb.created_at
+		`).
+		Joins("LEFT JOIN products p ON p.id = eb.product_id").
+		Joins("LEFT JOIN employees e ON e.id = eb.employee_id")
+
+	// filter by store
+	if param.StoreID != "" {
+		query = query.Joins("LEFT JOIN sales s ON s.id = eb.sale_id").
+			Where("s.store_id = ?", param.StoreID)
+	}
+
+	// search by product name
+	if param.Search != "" {
+		query = query.Where("p.name ILIKE ?", "%"+param.Search+"%")
+	}
+
+	// filter by company
+	if param.CompanyId != "" {
+		query = query.
+			Where("e.company_id = ?", param.CompanyId)
+	}
+
+	// filter by employee
+	if param.EmployeeId != "" {
+		query = query.Where("eb.employee_id = ?", param.EmployeeId)
+	}
+
+	err := query.Count(&totalCount).
+		Limit(param.Limit).Offset(param.Offset).
+		Order("eb.created_at desc").
+		Scan(&res).Error
+	if err != nil {
+		s.log.Error(err)
+		return res, 0, err
+	}
+
+	return res, totalCount, nil
+}
