@@ -9,7 +9,8 @@ import (
 
 func (s *Services) CreateRejectedProduct(req *domain.RejectedProductRequest) error {
 	if err := s.db.Table("rejected_products").Create(req).Error; err != nil {
-		return err
+		s.log.Errorf("could not create rejected product: %v", err)
+		return domain.InternalServerError
 	}
 	return nil
 }

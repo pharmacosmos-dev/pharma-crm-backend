@@ -1,11 +1,13 @@
 package domain
 
 type RejectedProductRequest struct {
-	ProductID   *string `gorm:"product_id" json:"product_id"` // nullable
-	ProductName *string `gorm:"product_name" json:"product_name" `
-	StoreID     string  `gorm:"store_id" json:"store_id" binding:"required"`
-	Reason      string  `gorm:"reason" json:"reason"`
-	CreatedBy   string  `gorm:"created_by" json:"-"`
+	ProductID     *string `gorm:"product_id" json:"product_id"` // nullable
+	ProductName   *string `gorm:"product_name" json:"product_name" `
+	StoreID       string  `gorm:"store_id" json:"store_id" binding:"required"`
+	Count         int     `gorm:"count" json:"count"`
+	RejectedTimes int     `gorm:"rejected_times" json:"rejected_times"`
+	Reason        string  `gorm:"reason" json:"reason"`
+	CreatedBy     string  `gorm:"created_by" json:"-"`
 }
 type RejectedProductQueryParam struct {
 	Limit       int    `form:"limit"`
