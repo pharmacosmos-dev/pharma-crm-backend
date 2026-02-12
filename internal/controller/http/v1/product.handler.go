@@ -1227,10 +1227,10 @@ func (h *ProductHandler) AttachBarcode(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param id path string true "Product ID"
-// @Param limit query int false "Limit"
-// @Param offset query int false "Offset"
-// @Param store_id query string false "Store ID"
+// @Param 		id path string true "Product Id"
+// @Param 		limit query int false "Limit"
+// @Param 		offset query int false "Offset"
+// @Param 		store_id query string false "Store Id"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -1267,7 +1267,7 @@ func (h *ProductHandler) ProductMovements(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	if !utils.In(user.Role, constants.AllAdminRoles...) {
+	if !helper.IsAdmin(user) {
 		if user.StoreId != "" {
 			params.StoreId = user.StoreId
 		}
