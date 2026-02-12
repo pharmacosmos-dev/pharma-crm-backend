@@ -1775,101 +1775,156 @@ LEFT JOIN vozvrat_data vd ON true
 LEFT JOIN transfer_data td ON true
 LEFT JOIN imventory_quantity imq ON true
 `
+	// build time filter conditions per CTE type
+	var (
+		importTimeCond    string // for import_data (im.created_at)
+		saleTimeCond      string // for sales_data, return_sales_data (sa.completed_at)
+		transferTimeCond  string // for vozvrat_data, transfer_data (tr.created_at)
+		inventoryTimeCond string // for imventory_quantity (im.created_at)
+		timeArgsPerCTE    []any  // collected once, reused per CTE
+	)
+
+	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
+		startUTC := params.StartDate.UTC()
+		importTimeCond += " AND im.created_at >= ?"
+		saleTimeCond += " AND sa.completed_at >= ?"
+		transferTimeCond += " AND tr.created_at >= ?"
+		inventoryTimeCond += " AND im.created_at >= ?"
+		_ = startUTC // used below per-CTE
+		timeArgsPerCTE = append(timeArgsPerCTE, startUTC)
+	}
+
+	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
+		endUTC := params.EndDate.UTC()
+		importTimeCond += " AND im.created_at <= ?"
+		saleTimeCond += " AND sa.completed_at <= ?"
+		transferTimeCond += " AND tr.created_at <= ?"
+		inventoryTimeCond += " AND im.created_at <= ?"
+		_ = endUTC // used below per-CTE
+		timeArgsPerCTE = append(timeArgsPerCTE, endUTC)
+	}
 
 	// dynamic query conditions
 	if params.StoreId == "" && params.CompanyId == "" {
-		query = fmt.Sprintf(baseQuery, "", "", "", "", "", "", "", "", "", "", "")
+		query = fmt.Sprintf(baseQuery,
+			importTimeCond,   // 1: import_data
+			saleTimeCond,     // 2: sales_data
+			saleTimeCond,     // 3: return_sales_data
+			transferTimeCond, // 4: vozvrat_data
+			"", "", "", "",   // 5-8: transfer FILTER clauses
+			transferTimeCond,  // 9: transfer_data WHERE
+			"",                // 10: product_quantity (no time filter)
+			inventoryTimeCond, // 11: imventory_quantity
+		)
 		args = []any{params.ProductId}
+		args = append(args, timeArgsPerCTE...) // import_data
+		args = append(args, timeArgsPerCTE...) // sales_data
+		args = append(args, timeArgsPerCTE...) // return_sales_data
+		args = append(args, timeArgsPerCTE...) // vozvrat_data
+		args = append(args, timeArgsPerCTE...) // transfer_data WHERE
+		args = append(args, timeArgsPerCTE...) // imventory_quantity
 
 	} else if params.StoreId != "" && params.CompanyId == "" {
 		query = fmt.Sprintf(
 			baseQuery,
-			"AND im.store_id = ?",
-			"AND sa.store_id = ?",
-			"AND sa.store_id = ?",
-			"AND tr.from_store_id = ?",
+			"AND im.store_id = ?"+importTimeCond,
+			"AND sa.store_id = ?"+saleTimeCond,
+			"AND sa.store_id = ?"+saleTimeCond,
+			"AND tr.from_store_id = ?"+transferTimeCond,
 			"filter ( where tr.from_store_id = ? )",
 			"filter ( where tr.from_store_id = ? )",
 			"filter ( where tr.to_store_id = ? )",
 			"filter ( where tr.to_store_id = ? )",
-			"AND (tr.from_store_id = ? OR tr.to_store_id = ?)",
+			"AND (tr.from_store_id = ? OR tr.to_store_id = ?)"+transferTimeCond,
 			"AND store_id = ?",
-			"AND s.id = ?",
+			"AND s.id = ?"+inventoryTimeCond,
 		)
-		args = []any{
-			params.ProductId,
-			params.StoreId,                 // import_data
-			params.StoreId,                 // sales_data
-			params.StoreId,                 // return_sales_data
-			params.StoreId,                 // vozvrat_data
-			params.StoreId,                 // transfer_data
-			params.StoreId,                 // transfer_data
-			params.StoreId,                 // transfer_data
-			params.StoreId,                 // transfer_data
-			params.StoreId, params.StoreId, // transfer_data
-			params.StoreId, // product_quantity
-			params.StoreId, // inventory_quantity
-		}
+		args = []any{params.ProductId}
+		args = append(args, params.StoreId)                 // import_data
+		args = append(args, timeArgsPerCTE...)              // import_data time
+		args = append(args, params.StoreId)                 // sales_data
+		args = append(args, timeArgsPerCTE...)              // sales_data time
+		args = append(args, params.StoreId)                 // return_sales_data
+		args = append(args, timeArgsPerCTE...)              // return_sales_data time
+		args = append(args, params.StoreId)                 // vozvrat_data
+		args = append(args, timeArgsPerCTE...)              // vozvrat_data time
+		args = append(args, params.StoreId)                 // transfer FILTER 5
+		args = append(args, params.StoreId)                 // transfer FILTER 6
+		args = append(args, params.StoreId)                 // transfer FILTER 7
+		args = append(args, params.StoreId)                 // transfer FILTER 8
+		args = append(args, params.StoreId, params.StoreId) // transfer WHERE
+		args = append(args, timeArgsPerCTE...)              // transfer_data time
+		args = append(args, params.StoreId)                 // product_quantity
+		args = append(args, params.StoreId)                 // inventory_quantity
+		args = append(args, timeArgsPerCTE...)              // inventory_quantity time
 
 	} else if params.StoreId == "" && params.CompanyId != "" {
 		query = fmt.Sprintf(
 			baseQuery,
-			"AND s.company_id = ?",
-			"AND st.company_id = ?",
-			"AND st.company_id = ?",
-			"AND s.company_id = ?",
+			"AND s.company_id = ?"+importTimeCond,
+			"AND st.company_id = ?"+saleTimeCond,
+			"AND st.company_id = ?"+saleTimeCond,
+			"AND s.company_id = ?"+transferTimeCond,
 			"filter ( where fs.company_id = ?)",
 			"filter ( where fs.company_id = ? )",
 			"filter ( where ts.company_id = ? )",
 			"filter ( where ts.company_id = ? )",
-			"AND (fs.company_id = ? OR ts.company_id = ?)",
+			"AND (fs.company_id = ? OR ts.company_id = ?)"+transferTimeCond,
 			"AND company_id = ?",
-			"AND s.company_id = ?",
+			"AND s.company_id = ?"+inventoryTimeCond,
 		)
-		args = []any{
-			params.ProductId,
-			params.CompanyId,                   // import_data
-			params.CompanyId,                   // sales_data
-			params.CompanyId,                   // return_sales_data
-			params.CompanyId,                   // vozvrat_data
-			params.CompanyId,                   // transfer_data
-			params.CompanyId,                   // transfer_data
-			params.CompanyId,                   // transfer_data
-			params.CompanyId,                   // transfer_data
-			params.CompanyId, params.CompanyId, // transfer_data
-			params.CompanyId, // product_quantity
-			params.CompanyId, // import_quantity
-		}
+		args = []any{params.ProductId}
+		args = append(args, params.CompanyId)                   // import_data
+		args = append(args, timeArgsPerCTE...)                  // import_data time
+		args = append(args, params.CompanyId)                   // sales_data
+		args = append(args, timeArgsPerCTE...)                  // sales_data time
+		args = append(args, params.CompanyId)                   // return_sales_data
+		args = append(args, timeArgsPerCTE...)                  // return_sales_data time
+		args = append(args, params.CompanyId)                   // vozvrat_data
+		args = append(args, timeArgsPerCTE...)                  // vozvrat_data time
+		args = append(args, params.CompanyId)                   // transfer FILTER 5
+		args = append(args, params.CompanyId)                   // transfer FILTER 6
+		args = append(args, params.CompanyId)                   // transfer FILTER 7
+		args = append(args, params.CompanyId)                   // transfer FILTER 8
+		args = append(args, params.CompanyId, params.CompanyId) // transfer WHERE
+		args = append(args, timeArgsPerCTE...)                  // transfer_data time
+		args = append(args, params.CompanyId)                   // product_quantity
+		args = append(args, params.CompanyId)                   // inventory_quantity
+		args = append(args, timeArgsPerCTE...)                  // inventory_quantity time
 
 	} else { // both storeId and companyId
 		query = fmt.Sprintf(
 			baseQuery,
-			"AND im.store_id = ? AND s.company_id = ?",
-			"AND sa.store_id = ? AND st.company_id = ?",
-			"AND sa.store_id = ? AND st.company_id = ?",
-			"AND tr.from_store_id = ? AND s.company_id = ?",
+			"AND im.store_id = ? AND s.company_id = ?"+importTimeCond,
+			"AND sa.store_id = ? AND st.company_id = ?"+saleTimeCond,
+			"AND sa.store_id = ? AND st.company_id = ?"+saleTimeCond,
+			"AND tr.from_store_id = ? AND s.company_id = ?"+transferTimeCond,
 			"filter ( where tr.from_store_id = ? )",
 			"filter ( where tr.from_store_id = ? )",
 			"filter ( where tr.to_store_id = ? )",
 			"filter ( where tr.to_store_id = ? )",
-			"AND (tr.from_store_id = ? OR tr.to_store_id = ?)",
+			"AND (tr.from_store_id = ? OR tr.to_store_id = ?)"+transferTimeCond,
 			"AND store_id = ?",
-			"AND s.id = ?", // inventory_quantity
+			"AND s.id = ?"+inventoryTimeCond,
 		)
-		args = []any{
-			params.ProductId,
-			params.StoreId, params.CompanyId, // import_data
-			params.StoreId, params.CompanyId, // sales_data
-			params.StoreId, params.CompanyId, // return_sales_data
-			params.StoreId, params.CompanyId, // vozvrat_data
-			params.StoreId,                 // transfer_data
-			params.StoreId,                 // transfer_data
-			params.StoreId,                 // transfer_data
-			params.StoreId,                 // transfer_data
-			params.StoreId, params.StoreId, // transfer_data
-			params.StoreId, // product_quantity
-			params.StoreId, // inventory_quantity
-		}
+		args = []any{params.ProductId}
+		args = append(args, params.StoreId, params.CompanyId) // import_data
+		args = append(args, timeArgsPerCTE...)                // import_data time
+		args = append(args, params.StoreId, params.CompanyId) // sales_data
+		args = append(args, timeArgsPerCTE...)                // sales_data time
+		args = append(args, params.StoreId, params.CompanyId) // return_sales_data
+		args = append(args, timeArgsPerCTE...)                // return_sales_data time
+		args = append(args, params.StoreId, params.CompanyId) // vozvrat_data
+		args = append(args, timeArgsPerCTE...)                // vozvrat_data time
+		args = append(args, params.StoreId)                   // transfer FILTER 5
+		args = append(args, params.StoreId)                   // transfer FILTER 6
+		args = append(args, params.StoreId)                   // transfer FILTER 7
+		args = append(args, params.StoreId)                   // transfer FILTER 8
+		args = append(args, params.StoreId, params.StoreId)   // transfer WHERE
+		args = append(args, timeArgsPerCTE...)                // transfer_data time
+		args = append(args, params.StoreId)                   // product_quantity
+		args = append(args, params.StoreId)                   // inventory_quantity
+		args = append(args, timeArgsPerCTE...)                // inventory_quantity time
 	}
 
 	// Execute query
