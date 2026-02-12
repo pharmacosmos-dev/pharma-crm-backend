@@ -1050,14 +1050,6 @@ func (s *Services) GetProductMovements(ctx context.Context, params *domain.Produ
 		args       []any
 	)
 
-	// check if employee is not admin or superadmin
-	if !utils.In(user.Role, constants.AllAdminRoles...) {
-		if user.StoreId != "" {
-			params.StoreId = user.StoreId
-		}
-		params.CompanyId = user.CompanyId
-	}
-
 	baseQuery := `
 WITH var_data AS (
 SELECT
@@ -1189,14 +1181,36 @@ FROM (
 	UNION ALL
     SELECT * FROM transfer_out_data
 ) all_data
+%s
 ORDER BY created_at DESC
 LIMIT ? OFFSET ?;
 	`
 
+	// build time filter for outer query
+	var timeFilter string
+	var timeArgs []any
+
+	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
+		timeFilter += " AND created_at >= ?"
+		timeArgs = append(timeArgs, params.StartDate.UTC())
+	}
+
+	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
+		timeFilter += " AND created_at <= ?"
+		timeArgs = append(timeArgs, params.EndDate.UTC())
+	}
+
+	outerWhere := ""
+	if timeFilter != "" {
+		outerWhere = "WHERE 1=1" + timeFilter
+	}
+
 	// dynamic query conditions
 	if params.StoreId == "" && params.CompanyId == "" {
-		query = fmt.Sprintf(baseQuery, "", "", "", "", "", "")
-		args = []any{params.ProducerId, params.Limit, params.Offset}
+		query = fmt.Sprintf(baseQuery, "", "", "", "", "", "", outerWhere)
+		args = []any{params.ProducerId}
+		args = append(args, timeArgs...)
+		args = append(args, params.Limit, params.Offset)
 
 	} else if params.StoreId != "" && params.CompanyId == "" {
 		query = fmt.Sprintf(
@@ -1207,6 +1221,7 @@ LIMIT ? OFFSET ?;
 			"AND tr.from_store_id = ?",
 			"AND tr.to_store_id = ?",
 			"AND tr.from_store_id = ?",
+			outerWhere,
 		)
 		args = []any{
 			params.ProducerId,
@@ -1216,8 +1231,9 @@ LIMIT ? OFFSET ?;
 			params.StoreId,
 			params.StoreId,
 			params.StoreId, // for transfer_data
-			params.Limit, params.Offset,
 		}
+		args = append(args, timeArgs...)
+		args = append(args, params.Limit, params.Offset)
 
 	} else if params.StoreId == "" && params.CompanyId != "" {
 		query = fmt.Sprintf(
@@ -1228,6 +1244,7 @@ LIMIT ? OFFSET ?;
 			"AND s.company_id = ?",
 			"AND ts.company_id = ?",
 			"AND fs.company_id = ?",
+			outerWhere,
 		)
 		args = []any{
 			params.ProducerId,
@@ -1237,8 +1254,9 @@ LIMIT ? OFFSET ?;
 			params.CompanyId,
 			params.CompanyId,
 			params.CompanyId, // for transfer_data
-			params.Limit, params.Offset,
 		}
+		args = append(args, timeArgs...)
+		args = append(args, params.Limit, params.Offset)
 
 	} else { // both storeId and companyId
 		query = fmt.Sprintf(
@@ -1249,6 +1267,7 @@ LIMIT ? OFFSET ?;
 			"AND tr.from_store_id = ? AND s.company_id = ?",
 			"AND tr.to_store_id = ? AND ts.company_id = ?",
 			"AND tr.from_store_id = ? AND fs.company_id = ?",
+			outerWhere,
 		)
 		args = []any{
 			params.ProducerId,
@@ -1258,12 +1277,13 @@ LIMIT ? OFFSET ?;
 			params.StoreId, params.CompanyId, // vozvrat_data
 			params.StoreId, params.CompanyId,
 			params.StoreId, params.CompanyId, // transfer_data
-			params.Limit, params.Offset,
 		}
+		args = append(args, timeArgs...)
+		args = append(args, params.Limit, params.Offset)
 	}
 
 	// Execute query
-	err := s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
+	err := s.db.WithContext(ctx).Debug().Raw(query, args...).Scan(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get product_movements: %v", err)
 		return res, totalCount, err

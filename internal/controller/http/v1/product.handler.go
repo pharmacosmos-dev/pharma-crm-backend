@@ -1278,6 +1278,7 @@ func (h *ProductHandler) ProductMovements(c *gin.Context) {
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
 	params.ProducerId = productId
+
 	// get product-movements data from the product service
 	res, totalCount, err := h.service.GetProductMovements(ctx, &params, user)
 	if err != nil {
