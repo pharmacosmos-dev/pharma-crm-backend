@@ -53,81 +53,63 @@ func (s *Services) GetRejectedProductsSearch(ctx context.Context, params *domain
 }
 
 func (s *Services) ListRejectedProducts(ctx context.Context, params *domain.RejectedProductQueryParam) ([]domain.RejectedProduct, int64, error) {
-	var (
-		res        []domain.RejectedProduct
-		totalCount int64
-		args       []any
-		filter     = "WHERE 1=1"
-		order      = " ORDER BY created_at DESC"
-	)
+
+	qb := s.db.WithContext(ctx).
+		Select(
+			"rp.id AS id",
+			"rp.store_id AS store_id",
+			"rp.product_id AS product_id",
+			"COALESCE(p.name, rp.product_name) AS product_name",
+			"s.name AS store_name",
+			"rp.rejected_times AS rejected_times",
+			"rp.count AS count",
+			"e.full_name AS created_by",
+			"rp.created_at AS created_at",
+		).
+		Table("rejected_products rp").
+		Joins("LEFT JOIN products p ON rp.product_id = p.id").
+		Joins("LEFT JOIN stores s ON rp.store_id = s.id").
+		Joins("LEFT JOIN employees e ON rp.created_by = e.id")
 
 	if params.Search != "" {
-		filter += " AND (p.name ILIKE ? OR rp.product_name ILIKE ? OR p.name ILIKE ?)"
-		args = append(args, "%"+params.Search+"%", "%"+params.Search+"%", "%"+params.Search+"%")
+		qb = qb.Where("p.name ILIKE ? OR rp.product_name ILIKE ?", "%"+params.Search+"%", "%"+params.Search+"%")
 	}
 	if params.StoreId != "" {
-		filter += " AND rp.store_id = ?"
-		args = append(args, params.StoreId)
+		qb = qb.Where("rp.store_id = ?", params.StoreId)
 	}
-	if params.CompanyId != "" {
-		filter += " AND s.company_id = ?"
-		args = append(args, params.CompanyId)
-	}
+
 	if params.ProductId != "" {
-		filter += " AND rp.product_id = ?"
-		args = append(args, params.ProductId)
+		qb = qb.Where("rp.product_id = ?", params.ProductId)
 	}
+
+	order := " created_at DESC"
 
 	switch params.Order {
 	case "+count":
-		order = " ORDER BY count DESC"
+		order = " count DESC"
 	case "-count":
-		order = " ORDER BY count ASC"
+		order = " count ASC"
 	case "+created_at":
-		order = " ORDER BY created_at DESC"
+		order = " created_at DESC"
 	case "-created_at":
-		order = " ORDER BY created_at ASC"
+		order = " created_at ASC"
 	default:
-		order = " ORDER BY created_at DESC"
+		order = " created_at DESC"
 	}
 
-	query := fmt.Sprintf(`
-	SELECT 
-		ROW_NUMBER() OVER(ORDER BY rp.store_id) as id, 
-		rp.store_id, 
-		rp.product_id,
-		COALESCE(p.name, rp.product_name) AS product_name,
-		s.name AS store_name,
-		e.full_name AS created_by,
-		MAX(rp.created_at) as created_at,
-		COUNT(*) AS count,
-		COUNT(*) OVER() AS total_count
-	FROM rejected_products rp
-	LEFT JOIN products AS p ON rp.product_id = p.id
-	LEFT JOIN stores AS s ON rp.store_id = s.id
-	LEFT JOIN employees AS e ON rp.created_by = e.id
-	%s
-	GROUP BY 
-		rp.store_id, 
-		rp.product_id, 
-		p.name, 
-		rp.product_name, 
-		s.name, 
-		e.full_name
-	%s
-	LIMIT ? OFFSET ?
-`, filter, order)
-
-	args = append(args, params.Limit, params.Offset)
-
-	err := s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error
-	if err != nil {
+	var totalCount int64
+	if err := qb.Count(&totalCount).Error; err != nil {
 		s.log.Errorf("could not get rejected_products %v", err)
 		return nil, 0, domain.InternalServerError
 	}
 
-	if len(res) > 0 {
-		totalCount = res[0].TotalCount
+	qb = qb.Order(order)
+
+	var res []domain.RejectedProduct
+	err := qb.Limit(params.Limit).Offset(params.Offset).Scan(&res).Error
+	if err != nil {
+		s.log.Errorf("could not get rejected_products %v", err)
+		return nil, 0, domain.InternalServerError
 	}
 
 	return res, totalCount, nil

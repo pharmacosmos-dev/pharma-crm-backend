@@ -1,0 +1,1 @@
+ALTER TABLE rejected_products ADD COLUMN IF NOT EXISTS count INT DEFAULT 0;
