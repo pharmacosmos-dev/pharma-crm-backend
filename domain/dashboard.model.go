@@ -57,9 +57,7 @@ type TopProducts struct {
 	Id                  string  `gorm:"id" json:"id"`
 	Name                string  `gorm:"name" json:"name"`
 	Count               int     `gorm:"count" json:"count"`
-	ReturnCount         int     `gorm:"return_count" json:"return_count"`
 	UnitQuantity        int     `gorm:"unit_quantity" json:"unit_quantity"`
-	ReturnUnitQuantity  int     `gorm:"return_unit_quantity" json:"return_unit_quantity"`
 	ProducerName        string  `gorm:"producer_name" json:"producer_name"`
 	UnitPerPack         int     `gorm:"unit_per_pack" json:"unit_per_pack"`
 	TotalCount          int64   `gorm:"total_count" json:"total_count"`
