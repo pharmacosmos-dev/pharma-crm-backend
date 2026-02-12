@@ -171,10 +171,13 @@ func (s *Services) DashboardTopProducts(ctx context.Context, params *domain.Dash
 			"p.id AS id",
 			"p.name AS name",
 			"p.unit_per_pack AS unit_per_pack",
-			"(SUM(ci.unit_quantity) FILTER (WHERE s.stage = 9)-SUM(ci.unit_quantity) FILTER (WHERE s.stage = 11)) / p.unit_per_pack AS count",
-			"(SUM(ci.unit_quantity) FILTER (WHERE s.stage = 9)-SUM(ci.unit_quantity) FILTER (WHERE s.stage = 11)) % p.unit_per_pack AS unit_quantity",
-			"SUM(ci.total_price) FILTER (WHERE s.stage = 9)-SUM(ci.total_price) FILTER (WHERE s.stage = 11) AS total_amount",
-			"SUM(ci.total_price - ci.discount_amount) FILTER (WHERE s.stage = 9) - SUM(ci.total_price - ci.discount_amount) FILTER (WHERE s.stage = 11) AS net_amount",
+			"(SUM(ci.unit_quantity) FILTER (WHERE s.stage = 9)) / p.unit_per_pack AS count",
+			"(SUM(ci.unit_quantity) FILTER (WHERE s.stage = 11)) / p.unit_per_pack AS return_count",
+			"(SUM(ci.unit_quantity) FILTER (WHERE s.stage = 9)) % p.unit_per_pack AS unit_quantity",
+			"(SUM(ci.unit_quantity) FILTER (WHERE s.stage = 11)) % p.unit_per_pack AS return_unit_quantity",
+			"(SUM(ci.unit_quantity) FILTER (WHERE s.stage = 9))::NUMERIC / p.unit_per_pack AS quantity",
+			"SUM(ci.total_price) FILTER (WHERE s.stage = 9) AS total_amount",
+			"SUM(ci.total_price - ci.discount_amount) AS net_amount",
 		).
 		Table("cart_items ci").
 		Joins("JOIN sales s ON s.id = ci.sale_id").
