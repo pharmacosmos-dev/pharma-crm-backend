@@ -107,7 +107,7 @@ func (s *Services) ListRejectedProducts(ctx context.Context, params *domain.Reje
 	qb = qb.Order(order)
 
 	var res []domain.RejectedProduct
-	err := qb.Limit(params.Limit).Offset(params.Offset).Find(&res).Error
+	err := qb.Limit(params.Limit).Offset(params.Offset).Debug().Find(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get rejected_products %v", err)
 		return nil, 0, domain.InternalServerError
