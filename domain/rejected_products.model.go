@@ -26,7 +26,7 @@ type RejectedProduct struct {
 	StoreName     string      `json:"store_name"`
 	ProductID     string      `json:"product_id"`
 	ProductName   string      `json:"product_name"`
-	Count         NullFloat64 `json:"count"`
+	Count         NullInt64   `json:"count"`
 	RejectedTimes NullFloat64 `json:"rejected_times"`
 	Reason        string      `json:"reason"`
 	CreatedBy     string      `json:"created_by"`
