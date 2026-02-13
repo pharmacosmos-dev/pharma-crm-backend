@@ -429,7 +429,7 @@ func (s *Services) GetStoreAmountReport(ctx context.Context, params *domain.Repo
 		qb = qb.Where("sa.completed_at <= ?", params.EndDate.UTC())
 	}
 	var totalCount int64
-	if err := qb.Count(&totalCount).Error; err != nil {
+	if err := qb.Debug().Count(&totalCount).Error; err != nil {
 		s.log.Errorf("could not get store_amount report total_count: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
