@@ -116,7 +116,7 @@ func (h *ProductBonusHandler) Get(c *gin.Context) {
 		return
 	}
 	// get one product bonus
-	err := h.db.Preload("Product").Preload("Store").First(&res, "id = ?", id).Error
+	err := h.db.Table("product_bonuses").First(&res, "id = ?", id).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
