@@ -32,6 +32,9 @@ type (
 		ExternalApiUsername string `env-required:"true" yaml:"log_level"   env:"EXTERNAL_API_USERNAME"`
 		ExternalApiPassword string `env-required:"true" yaml:"log_level"   env:"EXTERNAL_API_PASSWORD"`
 		FileBaseURL         string `env-required:"true" yaml:"file_base_url"   env:"FILE_BASE_URL"`
+		UzumClientId        string `env-required:"false" yaml:"uzum_client_id"   env:"UZUM_CLIENT_ID"`
+		UzumClientSecret    string `env-required:"false" yaml:"uzum_client_secret"   env:"UZUM_CLIENT_SECRET"`
+		OAuthTokenExpiry    int    `env-required:"false" yaml:"oauth_token_expiry"   env:"OAUTH_TOKEN_EXPIRY"`
 	}
 
 	// PG -.
@@ -88,6 +91,9 @@ func Load() Config {
 	c.Secret.ExternalApiUsername = cast.ToString(GetOrReturnDefaultValue("EXTERNAL_API_USERNAME", "pharmaexternalapis"))
 	c.Secret.ExternalApiPassword = cast.ToString(GetOrReturnDefaultValue("EXTERNAL_API_PASSWORD", "lai3lahxoPo{aph9"))
 	c.Secret.FileBaseURL = cast.ToString(GetOrReturnDefaultValue("FILE_BASE_URL", "http://localhost:8080/v1/upload/"))
+	c.Secret.UzumClientId = cast.ToString(GetOrReturnDefaultValue("UZUM_CLIENT_ID", "uzum_client_id"))
+	c.Secret.UzumClientSecret = cast.ToString(GetOrReturnDefaultValue("UZUM_CLIENT_SECRET", "uzum_client_secret"))
+	c.Secret.OAuthTokenExpiry = cast.ToInt(GetOrReturnDefaultValue("OAUTH_TOKEN_EXPIRY", 3600))
 
 	c.Integration.ClickApiUrl = cast.ToString(GetOrReturnDefaultValue("CLICK_API_URL", "http://localhost:8080"))
 	c.Integration.PaymeApiUrl = cast.ToString(GetOrReturnDefaultValue("PAYME_API_URL", "http://localhost:8080"))

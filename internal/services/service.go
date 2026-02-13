@@ -9,14 +9,16 @@ import (
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/internal/controller/ws"
 	"github.com/pharma-crm-backend/pkg/logger"
+	"github.com/pharma-crm-backend/pkg/token"
 	"gorm.io/gorm"
 )
 
 type Services struct {
-	db  *gorm.DB
-	log *logger.Logger
-	cfg *config.Config
-	hub *ws.Hub
+	db         *gorm.DB
+	log        *logger.Logger
+	cfg        *config.Config
+	hub        *ws.Hub
+	jwtHandler *token.JWTHandler
 }
 
 func NewService(db *gorm.DB, log *logger.Logger, cfg *config.Config, hub *ws.Hub) *Services {
@@ -25,6 +27,10 @@ func NewService(db *gorm.DB, log *logger.Logger, cfg *config.Config, hub *ws.Hub
 		log: log,
 		cfg: cfg,
 		hub: hub,
+		jwtHandler: &token.JWTHandler{
+			Cfg: cfg,
+			Log: log,
+		},
 	}
 
 	// check product mxiks

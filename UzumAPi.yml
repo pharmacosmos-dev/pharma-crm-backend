@@ -1,0 +1,2019 @@
+openapi: 3.0.1
+info:
+  title: API YGrocery
+  version: 1.0.0
+servers:
+  - url: //localhost/
+security:
+  - OAuth2:
+      - read
+      - write
+tags:
+  - name: Authentication
+    description: Аутентификация в системе
+  - name: Nomenclature
+    description: Номенклатура
+  - name: Orders
+    description: Прием и обновление заказов от Uzum Tezkor
+paths:
+  /v1/nomenclature/{storeId}/composition:
+    get:
+      tags:
+        - Nomenclature
+      summary: Актуальная номенклатура продуктов
+      description: "Позиции, содержащие схематические или логические несоответстви\
+        я (слишком длинная строка, цена равная 0.00) могут быть проигнорированы. А\
+        ктуальная версия модели ответа - application/vnd.eda.picker.nomenclature.v1+json"
+      operationId: partner.nomenclature.composition.get
+      parameters:
+        - name: storeId
+          in: path
+          description: Уникальный идентификатор магазина в системе партнёра
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Актуальная номенклатура
+          content:
+            application/vnd.eda.picker.nomenclature.v1+json:
+              schema:
+                $ref: '#/components/schemas/PickerNomenclatureV1'
+            application/vnd.eda.picker.nomenclature.v2+json:
+              schema:
+                $ref: '#/components/schemas/PickerNomenclatureV1'
+            application/vnd.eda.picker.errors.v1+json:
+              schema:
+                $ref: '#/components/schemas/PickerNomenclatureV1'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PickerNomenclatureV1'
+        "400":
+          description: "Ошибка в запросе, в ответе список ошибок"
+          content:
+            application/vnd.eda.picker.nomenclature.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+            application/vnd.eda.picker.nomenclature.v2+json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+            application/vnd.eda.picker.errors.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+        "401":
+          description: "Не пройдена авторизация - истек токен, либо не был передан\
+            \ в запросе, в ответе список ошибок"
+          content:
+            application/vnd.eda.picker.nomenclature.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+            application/vnd.eda.picker.nomenclature.v2+json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+            application/vnd.eda.picker.errors.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+        "404":
+          description: "Не найден ресурс, в ответе список ошибок"
+          content:
+            application/vnd.eda.picker.nomenclature.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+            application/vnd.eda.picker.nomenclature.v2+json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+            application/vnd.eda.picker.errors.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+        "500":
+          description: "Внутренние ошибки сервера, в ответе список ошибок"
+          content:
+            application/vnd.eda.picker.nomenclature.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+            application/vnd.eda.picker.nomenclature.v2+json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+            application/vnd.eda.picker.errors.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+        default:
+          description: Остальные ошибки сервера
+          content:
+            application/vnd.eda.picker.nomenclature.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+            application/vnd.eda.picker.nomenclature.v2+json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+            application/vnd.eda.picker.errors.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+      security:
+        - OAuth2:
+            - read
+  /v1/nomenclature/{storeId}/availability:
+    get:
+      tags:
+        - Nomenclature
+      summary: Список продуктов с указанием их остатков
+      description: "Перечисленным продуктам обновляется остатки значением из поля\
+        \ stock.  В зависимости от значения поля также обновляется и доступность П\
+        озиции, содержащие схематические или логические несоответствия (слишком дл\
+        инная строка, остаток равен -10.00) могут быть проигнорированы. Актуальная\
+        \ версия модели ответа - application/vnd.eda.picker.availability.v1+json"
+      operationId: partner.nomenclature.availability.get
+      parameters:
+        - name: storeId
+          in: path
+          description: Уникальный идентификатор магазина в системе партнёра
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Список продуктов со значением их доступности (остатков). \
+            \ Отсутствующие в списке продукты, будут недоступны для заказа"
+          content:
+            application/vnd.eda.picker.availability.v1+json:
+              schema:
+                $ref: '#/components/schemas/NomenclatureAvailabilityV1'
+            application/vnd.eda.picker.errors.v1+json:
+              schema:
+                $ref: '#/components/schemas/NomenclatureAvailabilityV1'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NomenclatureAvailabilityV1'
+        "400":
+          description: "Ошибка в запросе, в ответе список ошибок"
+          content:
+            application/vnd.eda.picker.availability.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+            application/vnd.eda.picker.errors.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+        "401":
+          description: "Не пройдена авторизация - истек токен, либо не был передан\
+            \ в запросе, в ответе список ошибок"
+          content:
+            application/vnd.eda.picker.availability.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+            application/vnd.eda.picker.errors.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+        "404":
+          description: "Не найден ресурс, в ответе список ошибок"
+          content:
+            application/vnd.eda.picker.availability.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+            application/vnd.eda.picker.errors.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+        "500":
+          description: "Внутренние ошибки сервера, в ответе список ошибок"
+          content:
+            application/vnd.eda.picker.availability.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+            application/vnd.eda.picker.errors.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+        default:
+          description: Остальные ошибки сервера
+          content:
+            application/vnd.eda.picker.availability.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+            application/vnd.eda.picker.errors.v1+json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+      security:
+        - OAuth2:
+            - read
+  /order:
+    post:
+      tags:
+        - Orders
+      summary: Создание заказа в системе ресторана
+      description: MarketplaceOrder - схема заказа при доставке силами партнера. YandexOrder
+        - схема заказа при доставке силами UzumTezkor. Актуальная версия модели запроса
+        - application/vnd.eats.order.v2+json
+      operationId: partner.order.create
+      requestBody:
+        content:
+          application/vnd.eats.order.v2+json:
+            schema:
+              type: object
+          application/vnd.eats.order.marketplace.v3+json:
+            schema:
+              type: object
+          application/vnd.eats.order.yandex.v3+json:
+            schema:
+              type: object
+          application/json:
+            schema:
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Заказ успешно обработан внутренней системой ресторана
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+            Vary:
+              schema:
+                type: string
+            Expires:
+              schema:
+                type: string
+            Pragma:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  orderId:
+                    type: string
+                    description: Идентификатор созданного заказа в системе партнера.
+                      Формат свободный. Рекомендуется UUID4
+                    example: 03d3b69b-331c-4f84-b2c4-888b30320e63
+                  result:
+                    type: string
+                    example: OK
+        "400":
+          description: "Bad request. Ошибка в параметрах, в ответе список ошибок в\
+            алидации"
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+            Vary:
+              schema:
+                type: string
+            Expires:
+              schema:
+                type: string
+            Pragma:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+        "401":
+          description: "Не пройдена авторизация - истек токен, либо не был передан\
+            \ в запросе"
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+            Vary:
+              schema:
+                type: string
+            Expires:
+              schema:
+                type: string
+            Pragma:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationRequiredResponse'
+        "500":
+          description: Внутренние ошибки сервера
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+            Vary:
+              schema:
+                type: string
+            Expires:
+              schema:
+                type: string
+            Pragma:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+        default:
+          description: Остальные ошибки сервера
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+            Vary:
+              schema:
+                type: string
+            Expires:
+              schema:
+                type: string
+            Pragma:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+      security:
+        - OAuth2:
+            - read
+            - write
+      x-codegen-request-body-name: body
+  /order/{orderId}:
+    get:
+      tags:
+        - Orders
+      summary: Выдача актуальной информации о заказе в системе ресторана
+      description: Актуальная версия модели ответа - application/vnd.eats.order.v2+json
+      operationId: partner.order.get
+      parameters:
+        - name: orderId
+          in: path
+          description: Идентификатор заказа в системе партнера
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Информация о заказе успешно выдана
+          content:
+            application/vnd.eats.order.v2+json:
+              schema:
+                $ref: '#/components/schemas/YGroceryOrderV2'
+            application/vnd.eats.order.yandex.v3+json:
+              schema:
+                $ref: '#/components/schemas/YGroceryOrderV2'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/YGroceryOrderV2'
+        "400":
+          description: "Bad request. Ошибка в параметрах, в ответе список ошибок в\
+            алидации"
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+            Vary:
+              schema:
+                type: string
+            Expires:
+              schema:
+                type: string
+            Pragma:
+              schema:
+                type: string
+          content:
+            application/vnd.eats.order.v2+json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+            application/vnd.eats.order.yandex.v3+json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+        "401":
+          description: "Не пройдена авторизация - истек токен, либо не был передан\
+            \ в запросе"
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+            Vary:
+              schema:
+                type: string
+            Expires:
+              schema:
+                type: string
+            Pragma:
+              schema:
+                type: string
+          content:
+            application/vnd.eats.order.v2+json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationRequiredResponse'
+            application/vnd.eats.order.yandex.v3+json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationRequiredResponse'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationRequiredResponse'
+        "404":
+          description: Заказ не найден в системе
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+            Vary:
+              schema:
+                type: string
+            Expires:
+              schema:
+                type: string
+            Pragma:
+              schema:
+                type: string
+          content:
+            application/vnd.eats.order.v2+json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+            application/vnd.eats.order.yandex.v3+json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+        "500":
+          description: Внутренние ошибки сервера
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+            Vary:
+              schema:
+                type: string
+            Expires:
+              schema:
+                type: string
+            Pragma:
+              schema:
+                type: string
+          content:
+            application/vnd.eats.order.v2+json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+            application/vnd.eats.order.yandex.v3+json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+        default:
+          description: Остальные ошибки сервера
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+            Vary:
+              schema:
+                type: string
+            Expires:
+              schema:
+                type: string
+            Pragma:
+              schema:
+                type: string
+          content:
+            application/vnd.eats.order.v2+json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+            application/vnd.eats.order.yandex.v3+json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+      security:
+        - OAuth2:
+            - read
+            - write
+    put:
+      tags:
+        - Orders
+      summary: Обновление заказа в системе ресторана
+      description: Передаётся объект заказа целиком. Актуальная версия модели запроса
+        - application/vnd.eats.order.v2+json
+      operationId: partner.order.update
+      parameters:
+        - name: orderId
+          in: path
+          description: Идентификатор заказа в системе партнера
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/vnd.eats.order.v2+json:
+            schema:
+              type: object
+          application/vnd.eats.order.marketplace.v3+json:
+            schema:
+              type: object
+          application/vnd.eats.order.yandex.v3+json:
+            schema:
+              type: object
+          application/json:
+            schema:
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Обновление заказа успешно обработано внутренней системой ресторана
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+            Vary:
+              schema:
+                type: string
+            Expires:
+              schema:
+                type: string
+            Pragma:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  result:
+                    type: string
+                    example: OK
+        "400":
+          description: "Bad request. Ошибка в параметрах, в ответе список ошибок в\
+            алидации"
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+            Vary:
+              schema:
+                type: string
+            Expires:
+              schema:
+                type: string
+            Pragma:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+        "401":
+          description: "Не пройдена авторизация - истек токен, либо не был передан\
+            \ в запросе"
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+            Vary:
+              schema:
+                type: string
+            Expires:
+              schema:
+                type: string
+            Pragma:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationRequiredResponse'
+        "404":
+          description: Заказ не найден в системе
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+            Vary:
+              schema:
+                type: string
+            Expires:
+              schema:
+                type: string
+            Pragma:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+        "422":
+          description: Заказ не может быть обновлен
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+            Vary:
+              schema:
+                type: string
+            Expires:
+              schema:
+                type: string
+            Pragma:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+        "500":
+          description: Внутренние ошибки сервера
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+            Vary:
+              schema:
+                type: string
+            Expires:
+              schema:
+                type: string
+            Pragma:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+        default:
+          description: Остальные ошибки сервера
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+            Vary:
+              schema:
+                type: string
+            Expires:
+              schema:
+                type: string
+            Pragma:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+      security:
+        - OAuth2:
+            - read
+            - write
+      x-codegen-request-body-name: body
+    delete:
+      tags:
+        - Orders
+      summary: Отмена заказа в системе ресторана
+      operationId: partner.order.cancel
+      parameters:
+        - name: orderId
+          in: path
+          description: Идентификатор заказа в системе партнера
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderCancellation'
+        required: true
+      responses:
+        "200":
+          description: Заказ успешно отменен в ресторане
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+            Vary:
+              schema:
+                type: string
+            Expires:
+              schema:
+                type: string
+            Pragma:
+              schema:
+                type: string
+          content: {}
+        "400":
+          description: "Bad request. Ошибка в параметрах, в ответе список ошибок в\
+            алидации"
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+            Vary:
+              schema:
+                type: string
+            Expires:
+              schema:
+                type: string
+            Pragma:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+        "401":
+          description: "Не пройдена авторизация - истек токен, либо не был передан\
+            \ в запросе"
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+            Vary:
+              schema:
+                type: string
+            Expires:
+              schema:
+                type: string
+            Pragma:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationRequiredResponse'
+        "404":
+          description: Заказ не найден в системе
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+            Vary:
+              schema:
+                type: string
+            Expires:
+              schema:
+                type: string
+            Pragma:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+        "415":
+          description: Undocumented status
+          content:
+            application/json:
+              schema:
+                type: object
+        "500":
+          description: Внутренние ошибки сервера
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+            Vary:
+              schema:
+                type: string
+            Expires:
+              schema:
+                type: string
+            Pragma:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+        default:
+          description: Остальные ошибки сервера
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+            Vary:
+              schema:
+                type: string
+            Expires:
+              schema:
+                type: string
+            Pragma:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+      security:
+        - OAuth2:
+            - read
+            - write
+      x-codegen-request-body-name: body
+  /order/{orderId}/status:
+    get:
+      tags:
+        - Orders
+      summary: Выдача актуального статуса заказа в системе ресторана
+      operationId: partner.order.status
+      parameters:
+        - name: orderId
+          in: path
+          description: Идентификатор заказа в системе партнера
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Статус заказа успешно выдан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderStatus'
+        "400":
+          description: "Bad request. Ошибка в параметрах, в ответе список ошибок в\
+            алидации"
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+            Vary:
+              schema:
+                type: string
+            Expires:
+              schema:
+                type: string
+            Pragma:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+        "401":
+          description: "Не пройдена авторизация - истек токен, либо не был передан\
+            \ в запросе"
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+            Vary:
+              schema:
+                type: string
+            Expires:
+              schema:
+                type: string
+            Pragma:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthorizationRequiredResponse'
+        "404":
+          description: Заказ не найден в системе
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+            Vary:
+              schema:
+                type: string
+            Expires:
+              schema:
+                type: string
+            Pragma:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+        "500":
+          description: Внутренние ошибки сервера
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+            Vary:
+              schema:
+                type: string
+            Expires:
+              schema:
+                type: string
+            Pragma:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+        default:
+          description: Остальные ошибки сервера
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+            Vary:
+              schema:
+                type: string
+            Expires:
+              schema:
+                type: string
+            Pragma:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+      security:
+        - OAuth2:
+            - read
+            - write
+  /security/oauth/token:
+    post:
+      tags:
+        - Authentication
+      summary: Аутентификация в системе
+      operationId: partner.auth.post
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              required:
+                - client_id
+                - client_secret
+                - grant_type
+                - scope
+              type: object
+              properties:
+                client_id:
+                  type: string
+                client_secret:
+                  type: string
+                grant_type:
+                  type: string
+                scope:
+                  type: string
+        required: true
+      responses:
+        "200":
+          description: Успешная аутентификация
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthenticationResponse'
+        "400":
+          description: "Ошибка в параметрах, в ответе список ошибок валидации"
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+            Vary:
+              schema:
+                type: string
+            Expires:
+              schema:
+                type: string
+            Pragma:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+        "415":
+          description: Undocumented status
+          content:
+            application/json:
+              schema:
+                type: object
+        "500":
+          description: Внутренние ошибки сервера
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+            Vary:
+              schema:
+                type: string
+            Expires:
+              schema:
+                type: string
+            Pragma:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+        default:
+          description: Остальные ошибки сервера
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            ETag:
+              schema:
+                type: string
+            Vary:
+              schema:
+                type: string
+            Expires:
+              schema:
+                type: string
+            Pragma:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorListV1'
+      security: []
+components:
+  schemas:
+    AuthenticationRequest:
+      required:
+        - client_id
+        - client_secret
+        - grant_type
+        - scope
+      type: object
+      properties:
+        client_id:
+          type: string
+        client_secret:
+          type: string
+        grant_type:
+          type: string
+        scope:
+          type: string
+      example:
+        client_id: "123123123"
+        client_secret: ABCDEFGHIJKLMNOPQRSTUVWXYZ
+        grant_type: client_credentials
+        scope: read write
+    AuthenticationResponse:
+      required:
+        - access_token
+      type: object
+      properties:
+        access_token:
+          type: string
+      description: Модель результата успешной аутентификации. Единственное обязательное
+        поле - access_token. Остальные возможные по спецификации поля - опциональны
+        и не используются на стороне Uzum Tezkor
+      example:
+        access_token: ABCDEFGHIJKLMNOPQRSTUVWXYZ
+    AuthorizationRequiredResponse:
+      required:
+        - reason
+      type: object
+      properties:
+        reason:
+          type: string
+          description: "Причина, по которой не прошла авторизация"
+          example: Access token has been expired. You should request a new one
+    ErrorListV1:
+      type: array
+      items:
+        required:
+          - code
+          - description
+        type: object
+        properties:
+          code:
+            type: integer
+            description: Числовой код ошибки
+            nullable: false
+            example: 100
+          description:
+            type: string
+            description: Сообщение об ошибке
+            nullable: false
+            example: Description of error
+    NomenclatureAvailabilityV1:
+      required:
+        - items
+      type: object
+      properties:
+        items:
+          type: array
+          description: Количесто продуктов в наличии
+          items:
+            required:
+              - id
+              - stock
+            type: object
+            properties:
+              id:
+                type: string
+                description: "Внутренний уникальный идентификатор продукта в систе\
+                  ме партнера. Может быть любым значением, приводимым к строке. Ре\
+                  комендация - UUID4"
+                example: eff0cec0-058c-4d53-b524-1c04ac24fb51
+              stock:
+                type: number
+                description: Остаток продукта. При 0 блюдо пропадает из выдачи.
+                format: float
+                example: 5.5
+                default: 0.0
+      description: Актуальная версия модели доступности меню
+
+    PickerNomenclatureV1Image:
+      required:
+        - hash
+        - url
+      type: object
+      properties:
+        hash:
+          type: string
+          description: "SHA1-хэш от содержимого файла изображения. Рас\
+            считывается партнером, служит признаком уникальности. В сл\
+            учае если он меняется, Uzum Tezkor перезагружает картинку"
+        url:
+          type: string
+          description: Ссылка на изображение для скачивания
+          format: uri
+      description: Изображение блюда
+
+    PickerNomenclatureV1:
+      required:
+        - categories
+        - items
+      type: object
+      properties:
+        categories:
+          type: array
+          description: Категории
+          items:
+            required:
+              - id
+              - name
+            type: object
+            properties:
+              id:
+                maxLength: 64
+                type: string
+                description: "Внутренний идентификатор категории в системе партнер\
+                  а. Может быть любым значением, приводимым к строке. Рекомендация\
+                  \ - UUID4"
+                example: 5af86d5a-d92d-4e07-9271-aea0f7ef95a6
+              images:
+                type: array
+                items:
+                  required:
+                    - hash
+                    - url
+                  type: object
+                  properties:
+                    hash:
+                      type: string
+                      description: "SHA1-хэш от содержимого файла изображения.  Ра\
+                        ссчитывается партнером, служит признаком уникальности."
+                    url:
+                      type: string
+                      description: Ссылка на изображение для скачивания
+                      format: uri
+                  description: Изображение категории
+              name:
+                type: string
+                description: Наименование категории (например "Супы")
+                example: Супы
+              parentId:
+                maxLength: 64
+                type: string
+                description: Уникальный идентификатор родительской категории для древовидной
+                  структуры
+                example: 5af86d5a-d92d-4e07-9271-aea0f7ef95a6
+              sortOrder:
+                type: integer
+                description: "Порядок сортировки от меньшего к большему. Если не у\
+                  казан, считаем за 100"
+                example: 0
+        items:
+          type: array
+          description: Список продуктов доступных для заказа
+          items:
+            required:
+              - barcode
+              - categoryId
+              - description
+              - id
+              - images
+              - isCatchWeight
+              - measure
+              - name
+              - price
+              - vendorCode
+            type: object
+            properties:
+              barcode:
+                required:
+                  - value
+                  - weightEncoding
+                type: object
+                properties:
+                  type:
+                    type: string
+                    description: Тип штрихкода
+                    example: ean13
+                    enum:
+                      - auspost
+                      - ausredirect
+                      - ausreply
+                      - ausroute
+                      - aztec
+                      - c25iata
+                      - 25ind
+                      - 25inter
+                      - 25logic
+                      - 25matrix
+                      - codabar
+                      - codablockf
+                      - code11
+                      - code100
+                      - code128
+                      - code128b
+                      - code16k
+                      - code39
+                      - code49
+                      - code93
+                      - daft
+                      - datamatrix
+                      - dotcode
+                      - dpident
+                      - dpleit
+                      - ean128
+                      - ean13
+                      - ean14
+                      - eanx
+                      - eanx_chk
+                      - excode39
+                      - fim
+                      - flat
+                      - hanxin
+                      - hibc_128
+                      - hibc_39
+                      - hibc_aztec
+                      - hibc_blockf
+                      - hibc_dm
+                      - hibc_micpdf
+                      - hibc_pdf
+                      - hibc_qr
+                      - isbnx
+                      - itf14
+                      - japanpost
+                      - kix
+                      - koreapost
+                      - logmars
+                      - mailmark
+                      - maxicode
+                      - micropdf417
+                      - microqr
+                      - msi_plessey
+                      - nve18
+                      - onecode
+                      - pdf417
+                      - pdf417trunc
+                      - pharma
+                      - pharma_two
+                      - planet
+                      - plessey
+                      - postnet
+                      - pzn
+                      - qrcode
+                      - rm4scc
+                      - rss14
+                      - rss14stack
+                      - rss14stack_omni
+                      - rss_exp
+                      - rss_expstack
+                      - rss_ltd
+                      - telepen
+                      - telepen_num
+                      - upca
+                      - upca_chk
+                      - upce
+                      - upce_chk
+                      - vin
+                  value:
+                    type: string
+                    description: Штрихкод продукта
+                    example: "987654321098"
+                  values:
+                    type: array
+                    description: Список штрихкодов продукта
+                    items:
+                      type: string
+                      example: "987654321098"
+                  weightEncoding:
+                    type: string
+                    description: Алгоритм кодирования веса в штрихкоде
+                    example: ean13-tail-gram-4
+                    enum:
+                      - none
+                      - ean13-tail-gram-4
+                      - ean13-tail-gram-5
+                description: Штрихкод продукта
+              categoryId:
+                maxLength: 64
+                type: string
+                description: Идентификатор категории в системе партнера
+                example: fa494dc1-2578-4adb-a8fa-e270de8c3d28
+              description:
+                type: object
+                properties:
+                  composition:
+                    type: string
+                    description: Сведения о составе
+                  expiresIn:
+                    type: string
+                    description: Срок годности в днях
+                  general:
+                    type: string
+                    description: Общее описание продукта
+                  nutritionalValue:
+                    type: string
+                    description: Пищевая ценность
+                  packageInfo:
+                    type: string
+                    description: Сведения об упаковке
+                  purpose:
+                    type: string
+                    description: Назначение
+                  storageRequirements:
+                    type: string
+                    description: Условия хранения
+                  vendorCountry:
+                    type: string
+                    description: Страна изготовления
+                  vendorName:
+                    type: string
+                    description: Производитель
+                description: Полное описание блюда
+              id:
+                maxLength: 64
+                type: string
+                description: "Внутренний идентификатор системе партнера. Может быт\
+                  ь любым значением, приводимым к строке. Рекомендация - UUID4"
+                example: e6709e9a-d3ab-4d1e-aa69-7ce30073cbc9
+              images:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PickerNomenclatureV1Image'
+              isCatchWeight:
+                type: boolean
+                description: "Флаг указывающий весовой продукт, или нет"
+                example: false
+              location:
+                type: string
+                description: Расположение продукта в маганизе
+                example: Бакалея. Линия 8
+              measure:
+                type: object
+                properties:
+                  quantum:
+                    type: number
+                    description: Наименьшее количество продукта (квант) доступное
+                      для заказа.  Значение от value. Для весовых товаров (isCatchWeight=true)
+                      должно быть равно true
+                    format: float
+                  unit:
+                    type: string
+                    description: Единица измерения
+                    example: GRM
+                    enum:
+                      - MLT
+                      - GRM
+                  value:
+                    type: integer
+                    description: Значение измерения
+                    example: 1000
+                description: Характеристика измерений товара - например вес или объем
+              name:
+                type: string
+                example: Молоко Домик в деревне
+                default: Наименование продукта
+              oldPrice:
+                type: number
+                description: Старая цена продукта. Используется для акции \"старая/новая
+                  цена\".  Если не передано - будет использован null в качестве значения
+                format: double
+                nullable: true
+                example: 1234.56
+              price:
+                type: number
+                description: Цена продукта. Продукты с нулевой ценой отбрасываются
+                format: double
+                example: 1224.56
+              sortOrder:
+                type: integer
+                format: int32
+                description: "Порядок сортировки от меньшего к большему. Если не у\
+                  казан, считаем за 100"
+                example: 0
+              vat:
+                type: integer
+                description: "НДС, включенный в стоимость, в процентах, если не ук\
+                  азан, считается за 0"
+                example: 20
+              serviceCodesUz:
+                required:
+                  - mxikCodeUz
+                type: object
+                properties:
+                  mxikCodeUz:
+                    type: string
+                    description: mxik код блюда (ИКПУ)
+                    nullable: false
+                    example: "10202001010000004"
+                  packageCodeUz:
+                    type: string
+                    description: Код упаковки
+                    nullable: false
+                    example: "1372944"
+              vendorCode:
+                type: string
+                description: Артикул продукта в системе партнера
+              volume:
+                required:
+                  - unit
+                  - value
+                type: object
+                properties:
+                  value:
+                    type: integer
+                    description: Значение объема
+                    example: 100
+                  unit:
+                    type: string
+                    description: Единица измерения обьема
+                    example: DMQ
+                    enum:
+                      - CMQ
+                      - DMQ
+                description: Объем занимаемый продуктом. Полезен для расчета доставки.
+                  Может существенно отличатся от номинального объема продукта"
+      description: Актуальная номенклатура продуктов
+      x-deprecated: false
+    OrderCancellation:
+      required:
+        - eatsId
+      type: object
+      properties:
+        comment:
+          type: string
+          description: Описание причин отмены (может быть пустым)
+          example: Отказ клиента
+        eatsId:
+          type: string
+          description: Сквозной идентификатор заказа на стороне Uzum Tezkor в формате
+            DDDDDD-DDDDDD
+          example: 190330-123456
+    OrderStatus:
+      required:
+        - status
+      type: object
+      properties:
+        comment:
+          maxLength: 500
+          type: string
+          description: Комментарий к смене статуса
+          example: "null"
+        status:
+          type: string
+          description: |-
+            Статус заказа. Должен быть допустимым - т.е. приготовленный заказ нельзя снова сделать новым. Переход по статусам возможен только в указанном направлении - от NEW до DELIVERED. Исключения: в статус CANCELLED заказ может перейти на любом этапе, в статус POSTPONED заказ может перейти на любом не терминальном (не DELIVERED, не CANCELLED) этапе.
+            Описание статусов: NEW - новый, только отправлен в ресторан. ACCEPTED_BY_RESTAURANT - заказ подтвержден рестораном. POSTPONED - заказ отложен, идет обсуждение с клиентом, меняется состав, и т.п. COOKING - началось приготовление заказа. READY - заказ приготовлен. TAKEN_BY_COURIER - курьер забрал заказ из ресторана. DELIVERED - заказ завершен. CANCELLED - заказ отменён.
+            NEW -> ACCEPTED_BY_RESTAURANT -> COOKING -> READY -> TAKEN_BY_COURIER -> DELIVERED. Из любого статуса -> CANCELLED
+          enum:
+            - NEW
+            - ACCEPTED_BY_RESTAURANT
+            - POSTPONED
+            - COOKING
+            - READY
+            - TAKEN_BY_COURIER
+            - DELIVERED
+            - CANCELLED
+        updatedAt:
+          type: string
+          description: "Дата, когда сменился статус заказа, в формате RFC3339 с др\
+            обной частью секунд (Y-m-d\\TH:i:s.uP)"
+          format: date-time
+          example: 1937-01-01T12:00:27.87+00:20
+    YGroceryOrderV1:
+      required:
+        - comment
+        - eatsId
+        - items
+        - promos
+      type: object
+      properties:
+        comment:
+          type: string
+          description: Дополнительная информация о заказе
+          example: "Дополнительная информация о заказе: ..."
+        deliveryInfo:
+          type: object
+          properties:
+            courierArrivementDate:
+              type: string
+              description: "Дата, когда придет курьер в ресторан, в формате RFC3339\
+                \ с дробной частью секунд (Y-m-d\\TH:i:s.uP)"
+              format: date-time
+              example: 1937-01-01T12:00:27.87+00:20
+          description: Информация о доставке
+        eatsId:
+          type: string
+          description: Сквозной идентификатор заказа на стороне Uzum Tezkor в формате
+            DDDDDD-DDDDDD
+          example: 190330-123456
+        items:
+          type: array
+          items:
+            required:
+              - id
+              - modifications
+              - price
+              - promos
+              - quantity
+            type: object
+            properties:
+              id:
+                type: string
+                description: ID позиции меню в системе партнера
+                example: 937c57f6-4508-4858-be7f-20691a16fbb0
+              modifications:
+                type: array
+                description: "Список выбранных модификаций. Может быть пустым, пер\
+                  едаётся явно, для каждой отдельной позиции в заказе. При заказе\
+                  \ двух позиций одного и того же блюда с разным набором модификац\
+                  ий - передаются разные позиции, с разными списками \"modifications\""
+                items:
+                  required:
+                    - id
+                    - price
+                    - quantity
+                  type: object
+                  properties:
+                    id:
+                      type: string
+                      description: ID модификатора в системе партнера
+                      example: 937c57f6-4508-4858-be7f-20691a16fbb0
+                    name:
+                      type: string
+                      description: Наименование модификатора
+                      example: Европейские приборы
+                    price:
+                      type: number
+                      description: Цена модификатора для пункта меню (например - дополнительный
+                        соус)
+                      format: double
+                      example: 100.0
+                    quantity:
+                      type: integer
+                      description: Количество в заказе
+                      example: 3
+              name:
+                type: string
+                description: Наименование позиции меню
+                example: Пицца Пепперони
+              price:
+                type: number
+                description: Стоимость одной данной позиции вместе со стоимостью модификаций
+                format: double
+                example: 100.0
+              promos:
+                type: array
+                description: "Список акций, действующих на текущее блюдо. Если у б\
+                  люда объект \"promos\" не пустой, значит на него действует акция\
+                  \ в системе партнера. Если пустой - это означает, что на блюдо н\
+                  е действуют никакие акции"
+                items:
+                  $ref: '#/components/schemas/YGroceryOrderV1/properties/promos/items'
+              quantity:
+                type: integer
+                description: Количество позиции в заказе
+                example: 3
+        paymentInfo:
+          required:
+            - itemsCost
+            - paymentType
+          type: object
+          properties:
+            itemsCost:
+              type: number
+              description: Полная стоимость блюд в заказе
+              format: double
+              example: 100.0
+            paymentType:
+              type: string
+              description: Информация о типе оплаты
+              enum:
+                - CARD
+                - CASH
+        persons:
+          type: integer
+          description: "Количество персон, на которых делается заказ. Может влиять\
+            \ на количество комплектов приборов"
+          example: 2
+        promos:
+          type: array
+          description: "Список акций, действующих на весь заказ. Если у заказа объ\
+            ект \"promos\" не пустой, значит на него действует акция в системе пар\
+            тнера. Если пустой - это означает, что на заказ не действуют никакие а\
+            кции"
+          items:
+            required:
+              - discount
+              - type
+            type: object
+            properties:
+              discount:
+                type: number
+                description: Сума скидки в валюте
+                example: 100.0
+              type:
+                type: string
+                description: "Тип акции. Может быть подарок \"GIFT\", процентная с\
+                  кидка \"PERCENTAGE\", фиксированная скидка \"FIXED\""
+                example: FIXED
+                enum:
+                  - GIFT
+                  - PERCENTAGE
+                  - FIXED
+        restaurantId:
+          type: string
+          description: "Внутренний идентификатор магазина в системе партнера, в ко\
+            торое передаётся заказ. Формат свободный, рекомендуется UUID4"
+          example: 937c57f6-4508-4858-be7f-20691a16fbb0
+      description: Устаревшая версия модели заказа по схеме доставки "yandex"
+      x-deprecated: true
+
+    OrderV2Promos:
+      type: array
+      description: "Список акций, действующих на весь заказ. Если у заказа объ\
+        ект \"promos\" не пустой, значит на него действует акция в системе пар\
+        тнера. Если пустой - это означает, что на заказ не действуют никакие а\
+        кции"
+      items:
+        required:
+          - discount
+          - type
+        type: object
+        properties:
+          discount:
+            type: number
+            description: Сума скидки в валюте
+            example: 100.0
+          type:
+            type: string
+            description: "Тип акции. Может быть подарок \"GIFT\", процентная с\
+              кидка \"PERCENTAGE\", фиксированная скидка \"FIXED\""
+            example: FIXED
+            enum:
+              - GIFT
+              - PERCENTAGE
+              - FIXED
+
+    YGroceryOrderV2Promo:
+      required:
+        - discount
+        - type
+      type: object
+      properties:
+        discount:
+          type: number
+          description: Сума скидки в валюте
+          example: 100.0
+        type:
+          type: string
+          description: "Тип акции. Может быть подарок \"GIFT\", процентная с\
+            кидка \"PERCENTAGE\", фиксированная скидка \"FIXED\""
+          example: FIXED
+          enum:
+            - GIFT
+            - PERCENTAGE
+            - FIXED
+
+    YGroceryOrderV2Modification:
+      required:
+        - id
+        - price
+        - quantity
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID модификатора в системе партнера
+          example: 937c57f6-4508-4858-be7f-20691a16fbb0
+        name:
+          type: string
+          description: Наименование модификатора
+          example: Европейские приборы
+        price:
+          type: number
+          description: Цена модификатора для пункта меню (например - дополнительный
+            соус)
+          format: double
+          example: 100.0
+        quantity:
+          type: integer
+          description: Количество в заказе
+          example: 3
+
+    YGroceryOrderV2Item:
+      required:
+        - id
+        - modifications
+        - price
+        - promos
+        - quantity
+      type: object
+      properties:
+        id:
+          type: string
+          description: ID позиции меню в системе партнера
+          example: 937c57f6-4508-4858-be7f-20691a16fbb0
+        modifications:
+          type: array
+          description: "Список выбранных модификаций. Может быть пустым, пер\
+            едаётся явно, для каждой отдельной позиции в заказе. При заказе\
+            \ двух позиций одного и того же блюда с разным набором модификац\
+            ий - передаются разные позиции, с разными списками \"modifications\""
+          items:
+            $ref: '#/components/schemas/YGroceryOrderV2Modification'
+        name:
+          type: string
+          description: Наименование позиции меню
+          example: Пицца Пепперони
+        price:
+          type: number
+          description: Стоимость одной данной позиции вместе со стоимостью модификаций.
+            В следующей версии будет исправлено на чистую цену позиции без модификаций
+          format: double
+          example: 100.0
+        promos:
+          $ref: '#/components/schemas/OrderV2Promos'
+        quantity:
+          type: number
+          description: Количество позиции в заказе
+          format: float
+          example: 3.5
+        labelCodes:
+          type: array
+          description: Коды маркировки
+          items:
+            type: string
+
+    YGroceryOrderV2DeliveryInfo:
+      required:
+        - courierArrivementDate
+      type: object
+      properties:
+        clientName:
+          type: string
+          description: Имя клиента в сервисе Uzum Tezkor
+          example: Иванов Иван Иванович
+        courierArrivementDate:
+          type: string
+          description: "Дата, когда придет курьер в ресторан, в формате RFC3339\
+            \ с дробной частью секунд (Y-m-d\\TH:i:s.uP)"
+          format: date-time
+          example: 1937-01-01T12:00:27.87+00:20
+        phoneNumber:
+          type: string
+          description: "Номер телефона для связи с курьером в международном фо\
+            рмате. Состоит из частей \"+<код страны><номер>\". Может содержать\
+            \ добавочный номер: \"+<код страны><номер> доб. <добавочный номер\
+            >\""
+          example: +79031111111 доб. 4432
+        clientPhoneNumber:
+          type: string
+          description: "Номер телефона для связи с клиентом в международном фо\
+            рмате. Состоит из частей \"+<код страны><номер>\". Может содержать\
+            \ добавочный номер: \"+<код страны><номер> доб. <добавочный номер\
+            >\""
+          example: +79031111111 доб. 4432
+      description: Информация о доставке
+
+    YGroceryOrderV2PaymentInfo:
+      required:
+        - itemsCost
+        - paymentType
+      type: object
+      properties:
+        itemsCost:
+          type: number
+          description: Полная стоимость блюд в заказе
+          format: double
+          example: 100.0
+        paymentType:
+          type: string
+          description: Информация о типе оплаты
+          enum:
+            - CARD
+            - CASH
+
+    YGroceryOrderV2:
+      required:
+        - comment
+        - eatsId
+        - items
+        - promos
+      type: object
+      properties:
+        discriminator:
+          type: string
+          description: Дискриминатор схемы обьекта. Равен "uzum"
+          example: uzum
+          enum:
+            - uzum
+        comment:
+          type: string
+          description: Дополнительная информация о заказе
+          example: "Дополнительная информация о заказе: ..."
+        deliveryInfo:
+          $ref: '#/components/schemas/YGroceryOrderV2DeliveryInfo'
+        eatsId:
+          type: string
+          description: Сквозной идентификатор заказа на стороне Uzum Tezkor в формате
+            DDDDDD-DDDDDD
+          example: 190330-123456
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/YGroceryOrderV2Item'
+        paymentInfo:
+            $ref: '#/components/schemas/YGroceryOrderV2PaymentInfo'
+        persons:
+          type: integer
+          description: "Количество персон, на которых делается заказ. Может влиять\
+            \ на количество комплектов приборов"
+          example: 2
+        promos:
+          type: array
+          description: "Список акций, действующих на весь заказ. Если у заказа объ\
+            ект \"promos\" не пустой, значит на него действует акция в системе пар\
+            тнера. Если пустой - это означает, что на заказ не действуют никакие а\
+            кции"
+          items:
+            $ref: '#/components/schemas/YGroceryOrderV2Promo'
+        restaurantId:
+          type: string
+          description: "Внутренний идентификатор магазина в системе партнера, в ко\
+            торое передаётся заказ. Формат свободный, рекомендуется UUID4"
+          example: 937c57f6-4508-4858-be7f-20691a16fbb0
+      description: Актуальная версия модели заказа по схеме доставки "yandex"
+  securitySchemes:
+    OAuth2:
+      type: oauth2
+      description: "Партнер у себя дожен реализовать OAuth2 авторизацию. Минимальн\
+        ые требования: должен быть доступен метод для получения токена с client_id,\
+        \ client_secret, grand_type и scopes. Urls приведен ниже. Ссылка на полную\
+        \ спецификацию OAuth2 - https://tools.ietf.org/html/rfc6749"
+      flows:
+        clientCredentials:
+          tokenUrl: /security/oauth/token
+          scopes:
+            read: Доступ на чтение
+            write: Доступ на запись
+x-components:
+  headers:
+    Cache-Control:
+      schema:
+        example: "private, max-age=0, no-cache, no-store"
+        type: string
+    ETag:
+      schema:
+        example: random string for every response
+        type: string
+    Expires:
+      schema:
+        example: "Wed, 21 Oct 2015 07:28:00 GMT"
+        type: string
+    Pragma:
+      schema:
+        example: no-cache
+        type: string
+    Vary:
+      schema:
+        example: User-Agent
+        type: string
+x-original-swagger-version: "2.0"
