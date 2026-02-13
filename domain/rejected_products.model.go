@@ -21,14 +21,14 @@ type RejectedProductQueryParam struct {
 }
 
 type RejectedProduct struct {
-	Id            string `json:"id"`
-	StoreID       string `json:"store_id"`
-	StoreName     string `json:"store_name"`
-	ProductID     string `json:"product_id"`
-	ProductName   string `json:"product_name"`
-	Count         int64  `json:"count"`
-	RejectedTimes int64  `json:"rejected_times"`
-	Reason        string `json:"reason"`
-	CreatedBy     string `json:"created_by"`
-	CreatedAt     string `json:"created_at"`
+	Id            string    `json:"id"`
+	StoreID       string    `json:"store_id"`
+	StoreName     string    `json:"store_name"`
+	ProductID     string    `json:"product_id"`
+	ProductName   string    `json:"product_name"`
+	Count         NullInt64 `json:"count"`
+	RejectedTimes NullInt64 `json:"rejected_times"`
+	Reason        string    `json:"reason"`
+	CreatedBy     string    `json:"created_by"`
+	CreatedAt     string    `json:"created_at"`
 }
