@@ -428,8 +428,10 @@ func (s *Services) GetStoreAmountReport(ctx context.Context, params *domain.Repo
 	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
 		qb = qb.Where("sa.completed_at <= ?", params.EndDate.UTC())
 	}
+	// Count distinct (store_id, sale_date) combinations using a subquery
 	var totalCount int64
-	if err := qb.Debug().Count(&totalCount).Error; err != nil {
+	countQuery := qb.Select("s.id", "sa.completed_at::date AS sale_date").Group("s.id, sale_date")
+	if err := s.db.Table("(?) as sub", countQuery).Debug().Count(&totalCount).Error; err != nil {
 		s.log.Errorf("could not get store_amount report total_count: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
@@ -444,7 +446,7 @@ func (s *Services) GetStoreAmountReport(ctx context.Context, params *domain.Repo
 			"s.id",
 			"s.store_code",
 			"s.name AS store_name",
-			"(sa.completed_at + interval '5 hours')::date AS sale_date",
+			"sa.completed_at::date AS sale_date",
 			"SUM(sa.cash) AS cash",
 			"SUM(sa.uzcard) AS uzcard",
 			"SUM(sa.humo) AS humo",
