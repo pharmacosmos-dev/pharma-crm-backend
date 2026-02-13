@@ -431,7 +431,7 @@ func (s *Services) GetStoreAmountReport(ctx context.Context, params *domain.Repo
 	// Count distinct (store_id, sale_date) combinations using a subquery
 	var totalCount int64
 	countQuery := qb.Select("s.id", "sa.completed_at::date AS sale_date").Group("s.id, sale_date")
-	if err := s.db.Table("(?) as sub", countQuery).Debug().Count(&totalCount).Error; err != nil {
+	if err := s.db.Table("(?) as sub", countQuery).Count(&totalCount).Error; err != nil {
 		s.log.Errorf("could not get store_amount report total_count: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
@@ -463,7 +463,6 @@ func (s *Services) GetStoreAmountReport(ctx context.Context, params *domain.Repo
 		Offset(params.Offset).
 		Group("sale_date").
 		Order(order).
-		Debug().
 		Find(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get store report amount: %v", err)
