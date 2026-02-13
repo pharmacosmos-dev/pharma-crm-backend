@@ -459,10 +459,12 @@ func (h *RepricingHandler) RepricingDetailStatus(c *gin.Context) {
 		return
 	}
 
-	res, err := h.service.RepricingDetailStatus(repricingID, &param)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, err := h.service.RepricingDetailStatus(ctx, repricingID, &param)
 	if err != nil {
-		h.log.Error("ERROR on repricing detail status: %v", err)
-		handleResponse(c, InternalError, "Failed to get repricing detail summary")
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 

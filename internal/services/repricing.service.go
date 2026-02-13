@@ -382,7 +382,7 @@ func (s *Services) RepricingDetailList(repricingID int, param *domain.QueryParam
 	return res, totalCount, nil
 }
 
-func (s *Services) RepricingDetailStatus(repricingID int, param *domain.QueryParam) (*domain.RepricingDetailStatusSummary, error) {
+func (s *Services) RepricingDetailStatus(ctx context.Context, repricingID int, params *domain.QueryParam) (*domain.RepricingDetailStatusSummary, error) {
 	query := `
 		SELECT
 			COALESCE(COUNT(prd.id), 0) AS count,
@@ -402,22 +402,22 @@ func (s *Services) RepricingDetailStatus(repricingID int, param *domain.QueryPar
 			), 2) AS avg_new_markup
 		FROM price_revalution_details prd
 		JOIN products p ON p.id = prd.product_id
-		WHERE prd.price_revalution_id = ? and new_retail_price > 0
+		WHERE prd.price_revalution_id = ?
 	`
 
 	var args []any
 	args = append(args, repricingID)
 
-	if param.Search != "" {
+	if params.Search != "" {
 		query += " AND (p.name ILIKE ? OR p.barcode LIKE ?)"
-		search := "%" + param.Search + "%"
+		search := "%" + params.Search + "%"
 		args = append(args, search, search)
 	}
 
 	var res domain.RepricingDetailStatusSummary
-	if err := s.db.Raw(query, args...).Scan(&res).Error; err != nil {
-		s.log.Error("Failed to get repricing detail status: %v", err)
-		return nil, err
+	if err := s.db.WithContext(ctx).Raw(query, args...).Scan(&res).Error; err != nil {
+		s.log.Errorf("could not get repricing detail status: %v", err)
+		return nil, domain.InternalServerError
 	}
 
 	return &res, nil
