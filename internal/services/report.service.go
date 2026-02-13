@@ -461,6 +461,7 @@ func (s *Services) GetStoreAmountReport(ctx context.Context, params *domain.Repo
 		Offset(params.Offset).
 		Group("sale_date").
 		Order(order).
+		Debug().
 		Find(&res).Error
 	if err != nil {
 		s.log.Errorf("could not get store report amount: %v", err)
