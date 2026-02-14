@@ -2153,28 +2153,6 @@ func (s *Services) UpdateProductUnitValues(ctx context.Context, req *domain.Upda
 			s.log.Errorf("could not update store_products barcode: %v", err)
 			return domain.InternalServerError
 		}
-		// insert into product_barcodes
-		err = s.db.WithContext(ctx).Exec(`
-			INSERT INTO product_barcodes (
-				product_id, 
-				barcode, 
-				old_barcode, 
-				status, 
-				created_by
-				)
-			SELECT 
-				p.id, 
-				?, 
-				p.barcode, 
-				'completed', 
-				?
-			FROM products p
-			WHERE p.id = ?
-		`, req.Barcode, user.UserId, req.Id).Error
-		if err != nil {
-			s.log.Errorf("could not create product_barcodes: %v", err)
-			return domain.InternalServerError
-		}
 	} else if req.Mxik != "" {
 		// update mxik
 		err := s.db.WithContext(ctx).Model(&domain.Product{}).Where("id = ?", req.Id).Update("mxik", req.Mxik).Error
