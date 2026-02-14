@@ -1520,6 +1520,8 @@ func (h *ProductHandler) ArzonProductExport(c *gin.Context) {
 // @Param store_id  query string false "store_id"
 // @Param producer_id query string false "producer_id"
 // @Param no_barcode query bool false "no_barcode"
+// @Param start_date query string false "StartDate"
+// @Param end_date query string false "EndDate"
 // @Success 200 {object} v1.Response "products"
 // @Failure 400 {object} v1.Response "invalid request query"
 // @Failure 500 {object} v1.Response "Internal server error"
@@ -1531,14 +1533,14 @@ func (h *ProductHandler) GetProductsByImport(c *gin.Context) {
 		return
 	}
 
-	var params domain.ProductQueryParam
+	var params domain.ProductByImportParam
 	if err := c.ShouldBindQuery(&params); err != nil {
 		handleServiceResponse(c, nil, domain.InvalidQueryError)
 		return
 	}
 
 	// check if employee is not admin or superadmin
-	if !utils.In(user.Role, constants.AllAdminRoles...) {
+	if !helper.IsAdmin(user) {
 		if user.StoreId != "" {
 			params.StoreId = user.StoreId
 		}
@@ -1576,6 +1578,8 @@ func (h *ProductHandler) GetProductsByImport(c *gin.Context) {
 // @Param category_id query string false "Category ID"
 // @Param producer_id query string false "Producer ID"
 // @Param no_barcode query bool false "No Barcode"
+// @Param start_date query string false "StartDate"
+// @Param end_date query string false "EndDate"
 // @Success 200 {object} v1.Response "Product list"
 // @Failure 400 {object} v1.Response "Invalid store_id"
 // @Failure 500 {object} v1.Response "Internal server error"
@@ -1587,7 +1591,7 @@ func (h *ProductHandler) GetProductsByImportExport(c *gin.Context) {
 		return
 	}
 
-	var params domain.ProductQueryParam
+	var params domain.ProductByImportParam
 	if err := c.ShouldBindQuery(&params); err != nil {
 		handleServiceResponse(c, nil, domain.InvalidQueryError)
 		return
@@ -1599,7 +1603,7 @@ func (h *ProductHandler) GetProductsByImportExport(c *gin.Context) {
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
 	// check if employee is not admin or superadmin
-	if !utils.In(user.Role, constants.AllAdminRoles...) {
+	if !helper.IsAdmin(user) {
 		if user.StoreId != "" {
 			params.StoreId = user.StoreId
 		}

@@ -1486,7 +1486,7 @@ func (s *Services) ListExcludedProducts(param *domain.ProductQueryParam) ([]doma
 	return res, totalCount, nil
 }
 
-func (s *Services) GetProductsByImport(ctx context.Context, params *domain.ProductQueryParam) ([]domain.ProductByImport, int64, error) {
+func (s *Services) GetProductsByImport(ctx context.Context, params *domain.ProductByImportParam) ([]domain.ProductByImport, int64, error) {
 	qb := s.db.WithContext(ctx).
 		Table("store_products sp").
 		Joins("JOIN products p ON sp.product_id = p.id").

@@ -10791,6 +10791,14 @@ paths:
         in: query
         name: no_barcode
         type: boolean
+      - description: StartDate
+        in: query
+        name: start_date
+        type: string
+      - description: EndDate
+        in: query
+        name: end_date
+        type: string
       produces:
       - application/json
       responses:
@@ -11187,6 +11195,14 @@ paths:
         in: query
         name: no_barcode
         type: boolean
+      - description: StartDate
+        in: query
+        name: start_date
+        type: string
+      - description: EndDate
+        in: query
+        name: end_date
+        type: string
       produces:
       - application/json
       responses:

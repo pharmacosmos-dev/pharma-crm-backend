@@ -13576,6 +13576,18 @@ const docTemplate = `{
                         "description": "No Barcode",
                         "name": "no_barcode",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "StartDate",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "EndDate",
+                        "name": "end_date",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -14190,6 +14202,18 @@ const docTemplate = `{
                         "type": "boolean",
                         "description": "no_barcode",
                         "name": "no_barcode",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "StartDate",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "EndDate",
+                        "name": "end_date",
                         "in": "query"
                     }
                 ],
