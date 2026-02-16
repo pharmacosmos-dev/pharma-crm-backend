@@ -314,34 +314,23 @@ func BuildTopProductOrderClause(orderField string) string {
 }
 
 func BuildBonusProductOrderClause(orderField string) string {
-	allowedFields := map[string]string{
-		"name":                  "curr.name",
-		"count":                 "curr.count",
-		"unit_quantity":         "curr.unit_quantity",
-		"bonus_amount":          "curr.bonus_amount",
-		"previous_bonus_amount": "prev.bonus_amount",
-		"percent":               "percent",
+
+	switch orderField {
+	case "+name":
+		return " name ASC "
+	case "-name":
+		return " name DESC "
+	case "+count":
+		return " count ASC, unit_quantity ASC "
+	case "-count":
+		return " count DESC, unit_quantity DESC "
+	case "+bonus_amount":
+		return " bonus_amount ASC "
+	case "-bonus_amount":
+		return " bonus_amount DESC "
+	default:
+		return "bonus_amount DESC"
 	}
-
-	if orderField == "" {
-		return " ORDER BY curr.bonus_amount DESC "
-	}
-
-	direction := "ASC"
-	field := orderField
-
-	if strings.HasPrefix(orderField, "-") {
-		direction = "DESC"
-		field = strings.TrimPrefix(orderField, "-")
-	} else if strings.HasPrefix(orderField, "+") {
-		field = strings.TrimPrefix(orderField, "+")
-	}
-
-	if dbColumn, ok := allowedFields[field]; ok {
-		return fmt.Sprintf(" ORDER BY %s %s ", dbColumn, direction)
-	}
-
-	return " ORDER BY curr.bonus_amount DESC "
 }
 
 func BuildTopStoreOrderClause(orderField string) string {

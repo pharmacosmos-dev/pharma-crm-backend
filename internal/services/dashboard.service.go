@@ -212,106 +212,61 @@ func (s *Services) DashboardTopProducts(ctx context.Context, params *domain.Dash
 
 // get dashboard bonus products
 func (s *Services) DashboardBonusProducts(ctx context.Context, params *domain.DashboardQueryParam) ([]domain.BonusProducts, error) {
-	// declaration
-	var (
-		res  []domain.BonusProducts
-		args []any
 
-		startTimeInUTC = (*params.StartDate).ToUTC()
-		endTimeInUTC   = domain.AddDefaultDuration(*params.StartDate, params.EndDate).ToUTC()
+	qb := s.db.WithContext(ctx).
+		Select(
+			"p.id AS id",
+			"p.name AS name",
+			"p.unit_per_pack AS unit_per_pack",
+			"SUM(eb.quantity) AS count",
+			"SUM(eb.unit_quantity) AS unit_quantity",
+			"SUM(eb.bonus_amount) AS bonus_amount",
+		).
+		Table("employee_bonus eb").
+		Joins("JOIN products p ON p.id = eb.product_id")
 
-		startTimeStr       = startTimeInUTC.GetString()
-		endTimeStr         = endTimeInUTC.GetString()
-		beforeStartTimeStr = startTimeInUTC.PrevDay().GetString()
-		beforeEndTimeStr   = endTimeInUTC.PrevDay().GetString()
-	)
-
-	query := `
-	SELECT
-		curr.id,
-		curr.name,
-		curr.count,
-		curr.unit_quantity,
-		curr.unit_per_pack,
-		curr.bonus_amount,
-		prev.bonus_amount AS previous_bonus_amount,
-		ROUND(
-			CASE 
-				WHEN COALESCE(prev.bonus_amount, 0) = 0 THEN 100
-				ELSE ((curr.bonus_amount - prev.bonus_amount) * 100.0) / NULLIF(prev.bonus_amount, 0)
-			END, 2
-		) AS percent,
-		COUNT(*) OVER() AS total_count
-	FROM (
-		SELECT
-			p.id,
-			p.name,
-    		p.unit_per_pack,
-    		SUM(eb.unit_quantity) % p.unit_per_pack as unit_quantity,
-			SUM(eb.quantity) + ROUND(SUM(eb.unit_quantity) / p.unit_per_pack,0) AS count,
-			SUM(eb.bonus_amount) AS bonus_amount
-		FROM employee_bonus eb
-		JOIN products p ON eb.product_id = p.id
-	`
-
-	// Dynamic JOIN and filters
-	join := ""
-	filter := " WHERE 1 = 1"
-	if len(params.StoreIds) > 0 {
-		join += " JOIN employees e ON eb.employee_id = e.id"
-		filter += " AND e.store_id IN (?)"
-		args = append(args, params.StoreIds)
-	}
 	if params.Search != "" {
-		filter += " AND p.name ILIKE ?"
-		args = append(args, "%"+params.Search+"%")
+		qb = qb.Where("p.name ILIKE ?", "%"+params.Search+"%")
 	}
+
+	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
+		qb = qb.Where("eb.created_at >= ?", params.StartDate.UTC())
+	}
+
+	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
+		qb = qb.Where("eb.created_at <= ?", params.EndDate.UTC())
+	}
+
 	if len(params.CompanyIds) > 0 {
-		filter += " AND p.company_id IN (?) "
-		args = append(args, params.CompanyIds)
+		qb = qb.Where("p.company_id IN (?)", params.CompanyIds)
 	}
-	filter += " AND eb.created_at BETWEEN ? AND ?"
-	args = append(args, startTimeStr, endTimeStr)
 
-	// Close current subquery
-	group := " GROUP BY p.id, p.name, p.unit_per_pack ) AS curr"
-	query += join + filter + group
-
-	// Add previous subquery
-	query += `
-	LEFT JOIN (
-		SELECT
-			p.id,
-			SUM(eb.bonus_amount) AS bonus_amount
-		FROM employee_bonus eb
-		JOIN products p ON eb.product_id = p.id
-	`
-
-	prevJoin := ""
-	prevFilter := " WHERE 1 = 1"
 	if len(params.StoreIds) > 0 {
-		prevJoin += " JOIN employees e ON eb.employee_id = e.id"
-		prevFilter += " AND e.store_id IN (?)"
-		args = append(args, params.StoreIds)
+		qb = qb.Joins("JOIN employees e ON eb.employee_id = e.id").
+			Where("e.store_id IN (?)", params.StoreIds)
 	}
-	prevFilter += " AND eb.created_at BETWEEN ? AND ?"
-	args = append(args, beforeStartTimeStr, beforeEndTimeStr)
 
-	query += prevJoin + prevFilter + " GROUP BY p.id ) AS prev ON curr.id = prev.id"
+	qb = qb.Group("p.id")
+
+	var totalCount int64
+	if err := qb.Count(&totalCount).Error; err != nil {
+		s.log.Errorf("could not get dashboard bonus products: %v", err)
+		return nil, domain.InternalServerError
+	}
 
 	// New flexible order logic
 	order := utils.BuildBonusProductOrderClause(params.Order)
-	query += order
 
-	// Pagination
-	query += " LIMIT ? OFFSET ?"
-	args = append(args, params.Limit, params.Offset)
-
+	var res []domain.BonusProducts
 	// Execute query
-	err := s.db.Raw(query, args...).Scan(&res).Error
+	err := qb.
+		Order(order).
+		Limit(params.Limit).
+		Offset(params.Offset).
+		Find(&res).Error
 	if err != nil {
-		s.log.Error("ERROR on getting bonus products: ", err)
-		return nil, err
+		s.log.Errorf("could not get dashboard bonus products: %v", err)
+		return nil, domain.InternalServerError
 	}
 
 	return res, nil
