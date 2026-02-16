@@ -446,7 +446,7 @@ func (s *Services) GetStoreAmountReport(ctx context.Context, params *domain.Repo
 			"s.id",
 			"s.store_code",
 			"s.name AS store_name",
-			"sa.completed_at::date AS sale_date",
+			"(sa.completed_at + INTERVAL '5 hours')::date AS sale_date",
 			"SUM(sa.cash) AS cash",
 			"SUM(sa.uzcard) AS uzcard",
 			"SUM(sa.humo) AS humo",
