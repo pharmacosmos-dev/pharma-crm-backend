@@ -45,6 +45,7 @@ func NewRouter(option Options, hub *ws.Hub) {
 
 	// Basic Auth
 	basicAuth := middleware.BasicAuth()
+	uzumBasicAuth := middleware.BasicAuthUzum()
 
 	// Method 1: Using gin-contrib/cors package (Recommended)
 	corsConfig := cors.DefaultConfig()
@@ -57,6 +58,7 @@ func NewRouter(option Options, hub *ws.Hub) {
 
 	option.Gin.Use(cors.New(corsConfig))
 	option.Gin.Use(basicAuth.BasicAuthMiddleware)
+	option.Gin.Use(uzumBasicAuth.BasicAuthMiddleware)
 	option.Gin.Use(gin.Logger())
 	option.Gin.Use(gin.Recovery())
 	gin.ErrorLogger()
@@ -88,7 +90,11 @@ func NewRouter(option Options, hub *ws.Hub) {
 
 	// Swagger Route
 	url := ginSwagger.URL("swagger/doc.json")
-	option.Gin.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, url))
+	option.Gin.GET("/swagger/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, url))
+
+	// Uzum Swagger Route
+	uzumUrl := ginSwagger.URL("uzum-docs/doc.json")
+	option.Gin.GET("/swagger/uzum-docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler, uzumUrl))
 }
 
 func Ping(c *gin.Context) {

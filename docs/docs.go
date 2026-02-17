@@ -8867,6 +8867,200 @@ const docTemplate = `{
                 }
             }
         },
+        "/integrations/nomenclature/{storeId}/availability": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns product stock levels for a specific store",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "uzum"
+                ],
+                "summary": "Get Product Availability",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Store ID (UUID)",
+                        "name": "storeId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Items per page",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.AvailabilityResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/domain.UzumError"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/domain.UzumError"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/domain.UzumError"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/domain.UzumError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/integrations/nomenclature/{storeId}/composition": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns the current product catalog with categories for a specific store",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "uzum"
+                ],
+                "summary": "Get Nomenclature Composition",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Store ID (UUID)",
+                        "name": "storeId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Items per page",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.NomenclatureResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/domain.UzumError"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/domain.UzumError"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/domain.UzumError"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/domain.UzumError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/inventory": {
             "post": {
                 "security": [
@@ -11088,6 +11282,93 @@ const docTemplate = `{
                 }
             }
         },
+        "/partners": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create a new partner",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "partner"
+                ],
+                "summary": "Create Partner",
+                "parameters": [
+                    {
+                        "description": "Partner",
+                        "name": "partner",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.OAuthClient"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/domain.OAuthClient"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/domain.UzumError"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/domain.UzumError"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/domain.UzumError"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/definitions/domain.UzumError"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/payment-service": {
             "post": {
                 "security": [
@@ -12813,6 +13094,78 @@ const docTemplate = `{
                 }
             }
         },
+        "/product-bonus/sold": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get sold product bonus list",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Product Bonus"
+                ],
+                "summary": "Get sold product bonus list",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Store ID",
+                        "name": "store_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Employee ID",
+                        "name": "employee_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/product-bonus/{id}": {
             "get": {
                 "security": [
@@ -13392,6 +13745,18 @@ const docTemplate = `{
                         "type": "boolean",
                         "description": "No Barcode",
                         "name": "no_barcode",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "StartDate",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "EndDate",
+                        "name": "end_date",
                         "in": "query"
                     }
                 ],
@@ -14007,6 +14372,18 @@ const docTemplate = `{
                         "type": "boolean",
                         "description": "no_barcode",
                         "name": "no_barcode",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "StartDate",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "EndDate",
+                        "name": "end_date",
                         "in": "query"
                     }
                 ],
@@ -15623,7 +16000,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Product ID",
+                        "description": "Product Id",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -15642,7 +16019,7 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Store ID",
+                        "description": "Store Id",
                         "name": "store_id",
                         "in": "query"
                     }
@@ -22543,6 +22920,96 @@ const docTemplate = `{
                 }
             }
         },
+        "/security/oauth/token": {
+            "post": {
+                "description": "Obtain an OAuth2 access token using client credentials grant",
+                "consumes": [
+                    "application/x-www-form-urlencoded"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "OAuth2 Client Credentials Token",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "default": "client_credentials",
+                        "description": "Grant Type",
+                        "name": "grant_type",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Client ID",
+                        "name": "client_id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Client Secret",
+                        "name": "client_secret",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "default": "read write",
+                        "description": "Requested scopes (space-separated)",
+                        "name": "scope",
+                        "in": "formData"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.OAuthResponse"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/shelf": {
             "post": {
                 "security": [
@@ -25764,6 +26231,28 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.AvailabilityItem": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "stock": {
+                    "type": "number"
+                }
+            }
+        },
+        "domain.AvailabilityResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.AvailabilityItem"
+                    }
+                }
+            }
+        },
         "domain.BrandRequest": {
             "type": "object",
             "properties": {
@@ -26985,6 +27474,201 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.NomenclatureBarcode": {
+            "type": "object",
+            "properties": {
+                "type": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "string"
+                },
+                "values": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "weightEncoding": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.NomenclatureCategory": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "images": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.NomenclatureImage"
+                    }
+                },
+                "name": {
+                    "type": "string"
+                },
+                "parentId": {
+                    "type": "string"
+                },
+                "sortOrder": {
+                    "type": "integer"
+                }
+            }
+        },
+        "domain.NomenclatureDescription": {
+            "type": "object",
+            "properties": {
+                "composition": {
+                    "type": "string"
+                },
+                "expiresIn": {
+                    "type": "string"
+                },
+                "general": {
+                    "type": "string"
+                },
+                "nutritionalValue": {
+                    "type": "string"
+                },
+                "packageInfo": {
+                    "type": "string"
+                },
+                "purpose": {
+                    "type": "string"
+                },
+                "storageRequirements": {
+                    "type": "string"
+                },
+                "vendorCountry": {
+                    "type": "string"
+                },
+                "vendorName": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.NomenclatureImage": {
+            "type": "object",
+            "properties": {
+                "hash": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.NomenclatureItem": {
+            "type": "object",
+            "properties": {
+                "barcode": {
+                    "$ref": "#/definitions/domain.NomenclatureBarcode"
+                },
+                "categoryId": {
+                    "type": "string"
+                },
+                "description": {
+                    "$ref": "#/definitions/domain.NomenclatureDescription"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "images": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.NomenclatureImage"
+                    }
+                },
+                "isCatchWeight": {
+                    "type": "boolean"
+                },
+                "location": {
+                    "type": "string"
+                },
+                "measure": {
+                    "$ref": "#/definitions/domain.NomenclatureMeasure"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "oldPrice": {
+                    "type": "number"
+                },
+                "price": {
+                    "type": "number"
+                },
+                "serviceCodesUz": {
+                    "$ref": "#/definitions/domain.NomenclatureServiceCodes"
+                },
+                "sortOrder": {
+                    "type": "integer"
+                },
+                "vat": {
+                    "type": "integer"
+                },
+                "vendorCode": {
+                    "type": "string"
+                },
+                "volume": {
+                    "$ref": "#/definitions/domain.NomenclatureVolume"
+                }
+            }
+        },
+        "domain.NomenclatureMeasure": {
+            "type": "object",
+            "properties": {
+                "quantum": {
+                    "type": "number"
+                },
+                "unit": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "integer"
+                }
+            }
+        },
+        "domain.NomenclatureResponse": {
+            "type": "object",
+            "properties": {
+                "categories": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.NomenclatureCategory"
+                    }
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.NomenclatureItem"
+                    }
+                }
+            }
+        },
+        "domain.NomenclatureServiceCodes": {
+            "type": "object",
+            "properties": {
+                "mxikCodeUz": {
+                    "type": "string"
+                },
+                "packageCodeUz": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.NomenclatureVolume": {
+            "type": "object",
+            "properties": {
+                "unit": {
+                    "type": "string"
+                },
+                "value": {
+                    "type": "integer"
+                }
+            }
+        },
         "domain.NoorCategory": {
             "type": "object",
             "properties": {
@@ -27096,6 +27780,49 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "shop_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.OAuthClient": {
+            "type": "object",
+            "properties": {
+                "allowed_scopes": {
+                    "type": "string"
+                },
+                "client_id": {
+                    "type": "string"
+                },
+                "client_name": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "is_active": {
+                    "type": "boolean"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.OAuthResponse": {
+            "type": "object",
+            "properties": {
+                "access_token": {
+                    "type": "string"
+                },
+                "expires_in": {
+                    "type": "integer"
+                },
+                "scope": {
+                    "type": "string"
+                },
+                "token_type": {
                     "type": "string"
                 }
             }
@@ -27681,6 +28408,9 @@ const docTemplate = `{
                 "store_id"
             ],
             "properties": {
+                "count": {
+                    "type": "integer"
+                },
                 "product_id": {
                     "description": "nullable",
                     "type": "string"
@@ -27690,6 +28420,9 @@ const docTemplate = `{
                 },
                 "reason": {
                     "type": "string"
+                },
+                "rejected_times": {
+                    "type": "integer"
                 },
                 "store_id": {
                     "type": "string"
@@ -28319,6 +29052,17 @@ const docTemplate = `{
                 "unit_per_pack": {
                     "type": "integer",
                     "minimum": 1
+                }
+            }
+        },
+        "domain.UzumError": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
                 }
             }
         },

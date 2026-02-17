@@ -21,7 +21,22 @@ func BasicAuth() Config {
 			},
 		},
 		RestrictedUrls: []string{
-			"/swagger/*",
+			"/swagger/docs/*",
+		},
+	}
+}
+
+func BasicAuthUzum() Config {
+	// This configuration is for Uzum swagger docs authentication
+	return Config{
+		Users: []User{
+			{
+				UserName: "uzum@inter",
+				Password: "Uzum@092uz",
+			},
+		},
+		RestrictedUrls: []string{
+			"/uzum-docs/*",
 		},
 	}
 }

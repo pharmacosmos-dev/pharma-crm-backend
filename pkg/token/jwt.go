@@ -57,6 +57,11 @@ func (j *JWTHandler) generateToken(claimsMap map[string]any, expiresIn time.Dura
 	return tokenString, nil
 }
 
+// GenerateToken is a public method to generate a JWT with custom claims and expiration
+func (j *JWTHandler) GenerateToken(claimsMap map[string]any, expiresIn time.Duration) (string, error) {
+	return j.generateToken(claimsMap, expiresIn)
+}
+
 // ExtractClaims extracts claims from given token
 func (j *JWTHandler) ExtractClaims(tokenString string, tokenSecretKey string) (jwt.MapClaims, error) {
 	var (

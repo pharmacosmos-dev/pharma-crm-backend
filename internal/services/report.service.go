@@ -428,8 +428,10 @@ func (s *Services) GetStoreAmountReport(ctx context.Context, params *domain.Repo
 	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
 		qb = qb.Where("sa.completed_at <= ?", params.EndDate.UTC())
 	}
+	// Count distinct (store_id, sale_date) combinations using a subquery
 	var totalCount int64
-	if err := qb.Count(&totalCount).Error; err != nil {
+	countQuery := qb.Select("s.id", "sa.completed_at::date AS sale_date").Group("s.id, sale_date")
+	if err := s.db.Table("(?) as sub", countQuery).Count(&totalCount).Error; err != nil {
 		s.log.Errorf("could not get store_amount report total_count: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
@@ -444,7 +446,7 @@ func (s *Services) GetStoreAmountReport(ctx context.Context, params *domain.Repo
 			"s.id",
 			"s.store_code",
 			"s.name AS store_name",
-			"(sa.completed_at + interval '5 hours')::date AS sale_date",
+			"(sa.completed_at + INTERVAL '5 hours')::date AS sale_date",
 			"SUM(sa.cash) AS cash",
 			"SUM(sa.uzcard) AS uzcard",
 			"SUM(sa.humo) AS humo",
@@ -535,15 +537,16 @@ func (s *Services) GetTopProductsReport(ctx context.Context, params *domain.Repo
 			"p.id AS id",
 			"p.name AS name",
 			"p.unit_per_pack AS unit_per_pack",
-			"SUM(ci.unit_quantity) / p.unit_per_pack AS count",
-			"SUM(ci.unit_quantity) % p.unit_per_pack AS unit_quantity",
-			"SUM(ci.total_price) as total_amount",
-			"SUM(ci.total_price - ci.discount_amount) AS net_amount",
+			"(COALESCE(SUM(ci.unit_quantity) FILTER (WHERE s.stage = 9), 0) - COALESCE(SUM(ci.unit_quantity) FILTER (WHERE s.stage = 11), 0)) / p.unit_per_pack AS count",
+			"(COALESCE(SUM(ci.unit_quantity) FILTER (WHERE s.stage = 9), 0) - COALESCE(SUM(ci.unit_quantity) FILTER (WHERE s.stage = 11), 0)) % p.unit_per_pack AS unit_quantity",
+			"(COALESCE(SUM(ci.unit_quantity) FILTER (WHERE s.stage = 9), 0) - COALESCE(SUM(ci.unit_quantity) FILTER (WHERE s.stage = 11), 0))::NUMERIC / p.unit_per_pack AS quantity",
+			"COALESCE(SUM(ci.total_price) FILTER (WHERE s.stage = 9), 0) - COALESCE(SUM(ci.total_price) FILTER (WHERE s.stage = 11), 0) AS total_amount",
+			"COALESCE(SUM(ci.total_price - ci.discount_amount) FILTER (WHERE s.stage = 9), 0) - COALESCE(SUM(ci.total_price - ci.discount_amount) FILTER (WHERE s.stage = 11), 0) AS net_amount",
 		).
 		Table("cart_items ci").
 		Joins("JOIN sales s ON s.id = ci.sale_id").
 		Joins("JOIN products p ON p.id = ci.product_id").
-		Where("s.stage = ?", constants.SaleStageFinished)
+		Where("s.stage IN(?)", constants.FinishedSaleStages)
 
 	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
 		qb.Where("s.completed_at >= ?", params.StartDate.UTC())
@@ -551,6 +554,10 @@ func (s *Services) GetTopProductsReport(ctx context.Context, params *domain.Repo
 
 	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
 		qb.Where("s.completed_at <= ?", params.EndDate.UTC())
+	}
+
+	if params.Search != "" {
+		qb.Where("p.name ILIKE ?", "%"+params.Search+"%")
 	}
 
 	// Store filter
@@ -584,21 +591,21 @@ func topProductOrderClause(order string) string {
 	case "+name":
 		return "p.name"
 	case "-name":
-		return "p.name desc"
+		return "p.name DESC"
 	case "+count":
-		return "count ASC, unit_quantity ASC"
+		return "quantity ASC"
 	case "-count":
-		return "count desc, unit_quantity desc"
+		return "quantity DESC"
 	case "+total_amount":
 		return "total_amount"
 	case "-total_amount":
-		return "total_amount desc"
+		return "total_amount DESC"
 	case "+net_amount":
 		return "net_amount"
 	case "-net_amount":
-		return "net_amount desc"
+		return "net_amount DESC"
 	default:
-		return "total_amount desc"
+		return "total_amount DESC"
 	}
 }
 
@@ -710,117 +717,59 @@ func (s *Services) GetTopStoresReport(ctx context.Context, params *domain.Report
 
 // get dashboard bonus products
 func (s *Services) GetBonusProductsReport(ctx context.Context, params *domain.ReportQueryParam) ([]domain.BonusProducts, int64, error) {
-	// declaration
-	var (
-		res        []domain.BonusProducts
-		totalCount int64
-		args       []any
-		startTime  time.Time
-		endTime    time.Time
-	)
+
+	qb := s.db.WithContext(ctx).
+		Select(
+			"p.id AS id",
+			"p.name AS name",
+			"p.unit_per_pack AS unit_per_pack",
+			"SUM(eb.quantity) AS count",
+			"SUM(eb.unit_quantity) AS unit_quantity",
+			"SUM(eb.bonus_amount) AS bonus_amount",
+		).
+		Table("employee_bonus eb").
+		Joins("JOIN products p ON p.id = eb.product_id")
+
+	if params.Search != "" {
+		qb = qb.Where("p.name ILIKE ?", "%"+params.Search+"%")
+	}
 
 	if params.StartDate != nil && !params.StartDate.GetTime().IsZero() {
-		startTime = params.StartDate.UTC()
-	} else {
-		return nil, 0, domain.BadRequestError
+		qb = qb.Where("eb.created_at >= ?", params.StartDate.UTC())
 	}
+
 	if params.EndDate != nil && !params.EndDate.GetTime().IsZero() {
-		endTime = params.EndDate.UTC()
-	} else {
-		endTime = startTime.Add(23*time.Hour + 59*time.Minute + 59*time.Second)
+		qb = qb.Where("eb.created_at <= ?", params.EndDate.UTC())
 	}
-	beforeStart, beforeEnd := utils.BeforeDatesTime(startTime, endTime)
 
-	query := `
-	SELECT
-		curr.id,
-		curr.name,
-		curr.count,
-		curr.unit_quantity,
-		curr.unit_per_pack,
-		curr.bonus_amount,
-		prev.bonus_amount AS previous_bonus_amount,
-		ROUND(
-			CASE 
-				WHEN COALESCE(prev.bonus_amount, 0) = 0 THEN 100
-				ELSE ((curr.bonus_amount - prev.bonus_amount) * 100.0) / NULLIF(prev.bonus_amount, 0)
-			END, 2
-		) AS percent,
-		COUNT(*) OVER() AS total_count
-	FROM (
-		SELECT
-			p.id,
-			p.name,
-    		p.unit_per_pack,
-    		SUM(eb.unit_quantity) % p.unit_per_pack as unit_quantity,
-			SUM(eb.quantity) + ROUND(SUM(eb.unit_quantity) / p.unit_per_pack,0) AS count,
-			SUM(eb.bonus_amount) AS bonus_amount
-		FROM employee_bonus eb
-		JOIN products p ON eb.product_id = p.id
-	`
+	if len(params.CompanyIds) > 0 {
+		qb = qb.Where("p.company_id IN (?)", params.CompanyIds)
+	}
 
-	// Dynamic JOIN and filters
-	join := ""
-	filter := " WHERE 1 = 1"
 	if len(params.StoreIds) > 0 {
-		join += " JOIN employees e ON eb.employee_id = e.id"
-		filter += " AND e.store_id IN (?)"
-		args = append(args, params.StoreIds)
+		qb = qb.Joins("JOIN employees e ON eb.employee_id = e.id").
+			Where("e.store_id IN (?)", params.StoreIds)
 	}
-	if params.Search != "" {
-		filter += " AND p.name ILIKE ?"
-		args = append(args, "%"+params.Search+"%")
+
+	qb = qb.Group("p.id")
+
+	var totalCount int64
+	if err := qb.Count(&totalCount).Error; err != nil {
+		s.log.Errorf("could not get bonus products count: %v", err)
+		return nil, 0, domain.InternalServerError
 	}
-	if params.CompanyId != "" {
-		filter += " AND p.company_id = ? "
-		args = append(args, params.CompanyId)
-	}
-	filter += " AND (eb.created_at + interval '5 hours') BETWEEN ? AND ?"
-	args = append(args, startTime, endTime)
 
-	// Close current subquery
-	group := " GROUP BY p.id, p.name, p.unit_per_pack ) AS curr"
-	query += join + filter + group
-
-	// Add previous subquery
-	query += `
-	LEFT JOIN (
-		SELECT
-			p.id,
-			SUM(eb.bonus_amount) AS bonus_amount
-		FROM employee_bonus eb
-		JOIN products p ON eb.product_id = p.id
-	`
-
-	prevJoin := ""
-	prevFilter := " WHERE 1 = 1"
-	if len(params.StoreIds) > 0 {
-		prevJoin += " JOIN employees e ON eb.employee_id = e.id"
-		prevFilter += " AND e.store_id IN (?)"
-		args = append(args, params.StoreIds)
-	}
-	prevFilter += " AND (eb.created_at + interval '5 hours') BETWEEN ? AND ?"
-	args = append(args, beforeStart.Format(time.RFC3339), beforeEnd.Format(time.RFC3339))
-
-	query += prevJoin + prevFilter + " GROUP BY p.id ) AS prev ON curr.id = prev.id"
-
-	// New flexible order logic
 	order := utils.BuildBonusProductOrderClause(params.Order)
-	query += order
 
-	// Pagination
-	query += " LIMIT ? OFFSET ?"
-	args = append(args, params.Limit, params.Offset)
-
-	// Execute query
-	err := s.db.Raw(query, args...).Scan(&res).Error
+	var res []domain.BonusProducts
+	err := qb.
+		Order(order).
+		Limit(params.Limit).
+		Offset(params.Offset).
+		Find(&res).Error
 	if err != nil {
-		s.log.Error("ERROR on getting bonus products: ", err)
-		return nil, 0, err
-	}
-	// get total count
-	if len(res) > 0 {
-		totalCount = res[0].TotalCount
+		s.log.Errorf("could not get bonus products: %v", err)
+		return nil, 0, domain.InternalServerError
 	}
 
 	return res, totalCount, nil

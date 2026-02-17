@@ -94,6 +94,20 @@ definitions:
       store_id:
         type: string
     type: object
+  domain.AvailabilityItem:
+    properties:
+      id:
+        type: string
+      stock:
+        type: number
+    type: object
+  domain.AvailabilityResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/domain.AvailabilityItem'
+        type: array
+    type: object
   domain.BrandRequest:
     properties:
       logo:
@@ -900,6 +914,133 @@ definitions:
       product_id:
         type: string
     type: object
+  domain.NomenclatureBarcode:
+    properties:
+      type:
+        type: string
+      value:
+        type: string
+      values:
+        items:
+          type: string
+        type: array
+      weightEncoding:
+        type: string
+    type: object
+  domain.NomenclatureCategory:
+    properties:
+      id:
+        type: string
+      images:
+        items:
+          $ref: '#/definitions/domain.NomenclatureImage'
+        type: array
+      name:
+        type: string
+      parentId:
+        type: string
+      sortOrder:
+        type: integer
+    type: object
+  domain.NomenclatureDescription:
+    properties:
+      composition:
+        type: string
+      expiresIn:
+        type: string
+      general:
+        type: string
+      nutritionalValue:
+        type: string
+      packageInfo:
+        type: string
+      purpose:
+        type: string
+      storageRequirements:
+        type: string
+      vendorCountry:
+        type: string
+      vendorName:
+        type: string
+    type: object
+  domain.NomenclatureImage:
+    properties:
+      hash:
+        type: string
+      url:
+        type: string
+    type: object
+  domain.NomenclatureItem:
+    properties:
+      barcode:
+        $ref: '#/definitions/domain.NomenclatureBarcode'
+      categoryId:
+        type: string
+      description:
+        $ref: '#/definitions/domain.NomenclatureDescription'
+      id:
+        type: string
+      images:
+        items:
+          $ref: '#/definitions/domain.NomenclatureImage'
+        type: array
+      isCatchWeight:
+        type: boolean
+      location:
+        type: string
+      measure:
+        $ref: '#/definitions/domain.NomenclatureMeasure'
+      name:
+        type: string
+      oldPrice:
+        type: number
+      price:
+        type: number
+      serviceCodesUz:
+        $ref: '#/definitions/domain.NomenclatureServiceCodes'
+      sortOrder:
+        type: integer
+      vat:
+        type: integer
+      vendorCode:
+        type: string
+      volume:
+        $ref: '#/definitions/domain.NomenclatureVolume'
+    type: object
+  domain.NomenclatureMeasure:
+    properties:
+      quantum:
+        type: number
+      unit:
+        type: string
+      value:
+        type: integer
+    type: object
+  domain.NomenclatureResponse:
+    properties:
+      categories:
+        items:
+          $ref: '#/definitions/domain.NomenclatureCategory'
+        type: array
+      items:
+        items:
+          $ref: '#/definitions/domain.NomenclatureItem'
+        type: array
+    type: object
+  domain.NomenclatureServiceCodes:
+    properties:
+      mxikCodeUz:
+        type: string
+      packageCodeUz:
+        type: string
+    type: object
+  domain.NomenclatureVolume:
+    properties:
+      unit:
+        type: string
+      value:
+        type: integer
+    type: object
   domain.NoorCategory:
     properties:
       id:
@@ -973,6 +1114,34 @@ definitions:
       quantity:
         type: integer
       shop_id:
+        type: string
+    type: object
+  domain.OAuthClient:
+    properties:
+      allowed_scopes:
+        type: string
+      client_id:
+        type: string
+      client_name:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      is_active:
+        type: boolean
+      updated_at:
+        type: string
+    type: object
+  domain.OAuthResponse:
+    properties:
+      access_token:
+        type: string
+      expires_in:
+        type: integer
+      scope:
+        type: string
+      token_type:
         type: string
     type: object
   domain.OnecMultiRepricingRequest:
@@ -1361,6 +1530,8 @@ definitions:
     type: object
   domain.RejectedProductRequest:
     properties:
+      count:
+        type: integer
       product_id:
         description: nullable
         type: string
@@ -1368,6 +1539,8 @@ definitions:
         type: string
       reason:
         type: string
+      rejected_times:
+        type: integer
       store_id:
         type: string
     required:
@@ -1782,6 +1955,13 @@ definitions:
     required:
     - product_id
     - unit_per_pack
+    type: object
+  domain.UzumError:
+    properties:
+      code:
+        type: integer
+      description:
+        type: string
     type: object
   domain.WriteOffRequest:
     properties:
@@ -7454,6 +7634,133 @@ paths:
       summary: Get import status stats
       tags:
       - imports
+  /integrations/nomenclature/{storeId}/availability:
+    get:
+      consumes:
+      - application/json
+      description: Returns product stock levels for a specific store
+      parameters:
+      - description: Store ID (UUID)
+        in: path
+        name: storeId
+        required: true
+        type: string
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.AvailabilityResponse'
+        "400":
+          description: Bad Request
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+        "404":
+          description: Not Found
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Get Product Availability
+      tags:
+      - uzum
+  /integrations/nomenclature/{storeId}/composition:
+    get:
+      consumes:
+      - application/json
+      description: Returns the current product catalog with categories for a specific
+        store
+      parameters:
+      - description: Store ID (UUID)
+        in: path
+        name: storeId
+        required: true
+        type: string
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.NomenclatureResponse'
+        "400":
+          description: Bad Request
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+        "404":
+          description: Not Found
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Get Nomenclature Composition
+      tags:
+      - uzum
   /inventory:
     post:
       consumes:
@@ -8866,6 +9173,62 @@ paths:
       summary: Get Ostatok Data by Inventory by Import
       tags:
       - Ostatok
+  /partners:
+    post:
+      consumes:
+      - application/json
+      description: Create a new partner
+      parameters:
+      - description: Partner
+        in: body
+        name: partner
+        required: true
+        schema:
+          $ref: '#/definitions/domain.OAuthClient'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/domain.OAuthClient'
+        "400":
+          description: Bad Request
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+        "404":
+          description: Not Found
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Create Partner
+      tags:
+      - partner
   /payment-service:
     post:
       consumes:
@@ -10025,6 +10388,52 @@ paths:
       summary: Get product bonus list
       tags:
       - Product Bonus
+  /product-bonus/sold:
+    post:
+      consumes:
+      - application/json
+      description: Get sold product bonus list
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: Employee ID
+        in: query
+        name: employee_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get sold product bonus list
+      tags:
+      - Product Bonus
   /product/{id}:
     get:
       consumes:
@@ -10150,7 +10559,7 @@ paths:
       - application/json
       description: Get product movements
       parameters:
-      - description: Product ID
+      - description: Product Id
         in: path
         name: id
         required: true
@@ -10163,7 +10572,7 @@ paths:
         in: query
         name: offset
         type: integer
-      - description: Store ID
+      - description: Store Id
         in: query
         name: store_id
         type: string
@@ -10530,6 +10939,14 @@ paths:
         in: query
         name: no_barcode
         type: boolean
+      - description: StartDate
+        in: query
+        name: start_date
+        type: string
+      - description: EndDate
+        in: query
+        name: end_date
+        type: string
       produces:
       - application/json
       responses:
@@ -10926,6 +11343,14 @@ paths:
         in: query
         name: no_barcode
         type: boolean
+      - description: StartDate
+        in: query
+        name: start_date
+        type: string
+      - description: EndDate
+        in: query
+        name: end_date
+        type: string
       produces:
       - application/json
       responses:
@@ -16184,6 +16609,64 @@ paths:
       summary: Get a sale stats
       tags:
       - sales
+  /security/oauth/token:
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      description: Obtain an OAuth2 access token using client credentials grant
+      parameters:
+      - default: client_credentials
+        description: Grant Type
+        in: formData
+        name: grant_type
+        required: true
+        type: string
+      - description: Client ID
+        in: formData
+        name: client_id
+        required: true
+        type: string
+      - description: Client Secret
+        in: formData
+        name: client_secret
+        required: true
+        type: string
+      - default: read write
+        description: Requested scopes (space-separated)
+        in: formData
+        name: scope
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.OAuthResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      summary: OAuth2 Client Credentials Token
+      tags:
+      - auth
   /shelf:
     post:
       consumes:

@@ -45,3 +45,16 @@ var EmployeeBonusBalance struct {
 	TotalSales    int64   `json:"total_sales"`
 	TotalProducts int64   `json:"total_products"`
 }
+
+type SoldProductBonus struct {
+	ID           string    `json:"id"`
+	EmployeeID   string    `json:"employee_id"`
+	EmployeeName string    `json:"employee_name"`
+	ProductID    string    `json:"product_id"`
+	ProductName  string    `json:"product_name"`
+	UnitPerPack  int       `json:"unit_per_pack"`
+	BonusAmount  float64   `json:"bonus_amount"`
+	Quantity     int       `json:"quantity"`
+	UnitQuantity int       `json:"unit_quantity"`
+	CreatedAt    time.Time `json:"created_at"`
+}

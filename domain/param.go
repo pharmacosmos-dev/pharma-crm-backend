@@ -18,6 +18,7 @@ type QueryParam struct {
 	VendorID        string  `form:"vendor_id"`
 	PaymentTypeID   string  `form:"payment_type_id"`
 	CashBoxID       string  `form:"cashbox_id"`
+	EmployeeId      string  `form:"employee_id"`
 	Limit           int     `form:"limit"`
 	Offset          int     `form:"offset"`
 	TotalAmountTo   float64 `form:"total_amount_to"`

@@ -108,3 +108,65 @@ func (s *Services) GetStoreProductsByIds(ctx context.Context, ids []string) ([]d
 
 	return res, nil
 }
+
+func (s *Services) SoldProductBonusList(ctx context.Context, params *domain.QueryParam) ([]domain.SoldProductBonus, int64, error) {
+
+	query := s.db.
+		WithContext(ctx).
+		Table("employee_bonus eb").
+		Select(`
+			eb.id,
+			eb.employee_id,
+			e.full_name as employee_name,
+			eb.product_id,
+			p.name as product_name,
+			p.unit_per_pack,
+			eb.bonus_amount,
+			eb.quantity,
+			eb.unit_quantity,
+			eb.created_at
+		`).
+		Joins("LEFT JOIN products p ON p.id = eb.product_id").
+		Joins("LEFT JOIN employees e ON e.id = eb.employee_id")
+
+	// filter by store
+	if params.StoreID != "" {
+		query = query.Joins("LEFT JOIN sales s ON s.id = eb.sale_id").
+			Where("s.store_id = ?", params.StoreID)
+	}
+
+	// search by product name
+	if params.Search != "" {
+		query = query.Where("p.name ILIKE ?", "%"+params.Search+"%")
+	}
+
+	// filter by company
+	if params.CompanyId != "" {
+		query = query.
+			Where("e.company_id = ?", params.CompanyId)
+	}
+
+	// filter by employee
+	if params.EmployeeId != "" {
+		query = query.Where("eb.employee_id = ?", params.EmployeeId)
+	}
+
+	var totalCount int64
+	if err := query.Count(&totalCount).Error; err != nil {
+		s.log.Errorf("could not get sold product bonus list count: %v", err)
+		return nil, 0, domain.InternalServerError
+	}
+
+	var res []domain.SoldProductBonus
+	err := query.
+		Limit(params.Limit).
+		Offset(params.Offset).
+		Order("eb.created_at DESC").
+		Scan(&res).Error
+	if err != nil {
+		s.log.Errorf("could not get sold product bonus list: %v", err)
+		return res, 0, domain.InternalServerError
+	}
+
+	return res, totalCount, nil
+}

@@ -35,6 +35,7 @@ func (h *ProductBonusHandler) ProductBonusRoutes(r *gin.RouterGroup) {
 		bonus.PUT("/:id", h.Update)
 		bonus.POST("/excel-import", h.ImportProductBonus)
 		bonus.DELETE("", h.Delete)
+		bonus.POST("/sold", h.SoldProductBonus)
 		bonus.POST("/balance", h.BalanceProductBonus)
 	}
 }
@@ -115,7 +116,7 @@ func (h *ProductBonusHandler) Get(c *gin.Context) {
 		return
 	}
 	// get one product bonus
-	err := h.db.Preload("Product").Preload("Store").First(&res, "id = ?", id).Error
+	err := h.db.Table("product_bonuses").First(&res, "id = ?", id).Error
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
@@ -466,4 +467,51 @@ func (h *ProductBonusHandler) BalanceProductBonus(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, res)
+}
+
+// get sold product bonus list
+// @Summary Get sold product bonus list
+// @Description Get sold product bonus list
+// @Tags Product Bonus
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param 	limit 		query int false "Limit"
+// @Param 	offset 		query int false "Offset"
+// @Param 	store_id 	query string false "Store ID"
+// @Param 	search 		query string false "Search"
+// @Param 	employee_id 	query string false "Employee ID"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product-bonus/sold [post]
+func (h *ProductBonusHandler) SoldProductBonus(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	var params domain.QueryParam
+
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	params.EmployeeId = user.UserId
+
+	// get sold product bonuses
+	res, totalCount, err := h.service.SoldProductBonusList(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
+
+	handleResponse(c, OK, data)
 }

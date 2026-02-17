@@ -53,22 +53,20 @@ func (h *RejectedProductsHandler) Create(c *gin.Context) {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-	userId, ok := c.Get("user_id")
-	if !ok {
-		h.log.Warn("Error on getting user id from context")
-		handleResponse(c, BadRequest, "User not authorized")
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, BadRequest, domain.UnauthorizedError)
 		return
 	}
 	// get creator id from set header
-	body.CreatedBy = userId.(string)
+	body.CreatedBy = user.UserId
 	if body.StoreID == "" {
 		handleResponse(c, BadRequest, "store_id required")
 		return
 	}
 
 	if err := h.service.CreateRejectedProduct(&body); err != nil {
-		h.log.Error(err)
-		handleResponse(c, InternalError, err.Error())
+		handleServiceResponse(c, InternalError, err)
 		return
 	}
 

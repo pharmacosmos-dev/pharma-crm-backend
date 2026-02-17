@@ -156,29 +156,29 @@ type ProductStats struct {
 
 // product list query params
 type ProductQueryParam struct {
-	ProductId       string   `form:"product_id"`
-	StoreId         string   `form:"store_id"`
-	CompanyId       string   `form:"company_id"`
-	ProducerId      string   `form:"producer_id"`
-	ImportId        string   `form:"import_id"`
-	CategoryId      string   `form:"category_id"`
-	SearchField     string   `form:"search"`
-	SupplyPriceFrom float64  `form:"supply_price_from"`
-	SupplyPriceTo   float64  `form:"supply_price_to"`
-	RetailPriceFrom float64  `form:"retail_price_from"`
-	RetailPriceTo   float64  `form:"retail_price_to"`
-	Status          string   `form:"status"`
-	NoBarcode       bool     `form:"no_barcode"`
-	Order           string   `form:"order"`
-	Category        int      `form:"category"`
-	ExpiryFrom      string   `form:"expiry_from"`
-	ExpiryTo        string   `form:"expiry_to"`
-	StoreIds        []string `from:"store_ids"`
-	CompanyIds      []string `form:"company_ids"`
-	Limit           int      `form:"limit"`
-	Offset          int      `form:"offset"`
-	StartDate       string   `form:"start_date"`
-	EndDate         string   `form:"end_date"`
+	ProductId       string      `form:"product_id"`
+	StoreId         string      `form:"store_id"`
+	CompanyId       string      `form:"company_id"`
+	ProducerId      string      `form:"producer_id"`
+	ImportId        string      `form:"import_id"`
+	CategoryId      string      `form:"category_id"`
+	SearchField     string      `form:"search"`
+	SupplyPriceFrom float64     `form:"supply_price_from"`
+	SupplyPriceTo   float64     `form:"supply_price_to"`
+	RetailPriceFrom float64     `form:"retail_price_from"`
+	RetailPriceTo   float64     `form:"retail_price_to"`
+	Status          string      `form:"status"`
+	NoBarcode       bool        `form:"no_barcode"`
+	Order           string      `form:"order"`
+	Category        int         `form:"category"`
+	ExpiryFrom      string      `form:"expiry_from"`
+	ExpiryTo        string      `form:"expiry_to"`
+	StoreIds        []string    `from:"store_ids"`
+	CompanyIds      []string    `form:"company_ids"`
+	Limit           int         `form:"limit"`
+	Offset          int         `form:"offset"`
+	StartDate       *CustomTime `form:"start_date"`
+	EndDate         *CustomTime `form:"end_date"`
 }
 
 // update barcode structure
@@ -461,4 +461,30 @@ type MovementUnitsResponse struct {
 	TransferOutQuantity float64 `gorm:"transfer_out_quantity" json:"transfer_out_quantity"`
 	CorrectQuantity     float64 `gorm:"correct_quantity" json:"correct_quantity"`
 	Diff                float64 `gorm:"diff" json:"diff"`
+}
+
+type ProductByImportParam struct {
+	ProductId       string   `form:"product_id"`
+	StoreId         string   `form:"store_id"`
+	CompanyId       string   `form:"company_id"`
+	ProducerId      string   `form:"producer_id"`
+	ImportId        string   `form:"import_id"`
+	CategoryId      string   `form:"category_id"`
+	SearchField     string   `form:"search"`
+	SupplyPriceFrom float64  `form:"supply_price_from"`
+	SupplyPriceTo   float64  `form:"supply_price_to"`
+	RetailPriceFrom float64  `form:"retail_price_from"`
+	RetailPriceTo   float64  `form:"retail_price_to"`
+	Status          string   `form:"status"`
+	NoBarcode       bool     `form:"no_barcode"`
+	Order           string   `form:"order"`
+	Category        int      `form:"category"`
+	ExpiryFrom      string   `form:"expiry_from"`
+	ExpiryTo        string   `form:"expiry_to"`
+	StoreIds        []string `from:"store_ids"`
+	CompanyIds      []string `form:"company_ids"`
+	Limit           int      `form:"limit"`
+	Offset          int      `form:"offset"`
+	StartDate       string   `form:"start_date"`
+	EndDate         string   `form:"end_date"`
 }

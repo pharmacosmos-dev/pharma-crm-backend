@@ -118,6 +118,7 @@ func (s *Services) CreateReturnSale(ctx context.Context, req *domain.SaleReturnR
 	INSERT INTO cart_items(
 		sale_id,
 		store_product_id,
+		product_id,
 		unit_quantity,
 		unit_price,
 		total_price,
@@ -128,6 +129,7 @@ func (s *Services) CreateReturnSale(ctx context.Context, req *domain.SaleReturnR
 	SELECT
 		?,
 		ci.store_product_id,
+		ci.product_id,
 		ci.unit_quantity,
 		ci.unit_price,
 		ci.total_price,
@@ -155,7 +157,7 @@ func (s *Services) CreateReturnSale(ctx context.Context, req *domain.SaleReturnR
 	// commit transaction
 	if err = tx.Commit().Error; err != nil {
 		s.log.Errorf("could not commit transaction: %v", err)
-		return nil, err
+		return nil, domain.InternalServerError
 	}
 	return &sale, nil
 }
@@ -1095,7 +1097,8 @@ func (s *Services) AddSaleBonuses(sale *domain.Sale, req []domain.CartItemWithPr
 	var bonuses []domain.EmployeeBonusRequest
 	now := time.Now().Add(time.Hour * 5)
 	for _, item := range req {
-		if item.BonusAmount > 0 && now.After(*item.BonusStartDate) && now.Before(*item.BonusEndDate) {
+		// Treat end date as inclusive (entire day) by checking if now is before the day after
+		if item.BonusAmount > 0 && now.After(*item.BonusStartDate) && !now.After(item.BonusEndDate.AddDate(0, 0, 1)) {
 			bonuses = append(bonuses, domain.EmployeeBonusRequest{
 				EmployeeId:         item.EmployeeId,
 				SaleId:             item.SaleId,

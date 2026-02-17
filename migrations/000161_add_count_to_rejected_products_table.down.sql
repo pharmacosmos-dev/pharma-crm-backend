@@ -1,0 +1,1 @@
+ALTER TABLE rejected_products DROP COLUMN IF EXISTS count;

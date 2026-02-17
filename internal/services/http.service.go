@@ -60,7 +60,7 @@ func (s *Services) DmedRequest(
 
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", auth)
-	req.Header.Set("Lang", constants.LanguageEn)
+	req.Header.Set("Lang", constants.LanguageUz)
 	req.Header.Set("Accept", constants.ContentTypeJson)
 
 	client := http.Client{Timeout: 20 * time.Second}

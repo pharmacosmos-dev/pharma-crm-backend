@@ -287,14 +287,14 @@ func (h *DashboardHandler) TopProducts(c *gin.Context) {
 // @Tags dashboard
 // @Security     BearerAuth
 // @Produce json
-// @Param   limit 		query int false "Limit"
-// @Param 	offset 		query int false 	"Offset"
-// @Param   start_date 	query string false "Start Date"
-// @Param   end_date 	query string false "End Date"
-// @Param   store_id 	query string false "Store ID"
-// @Param   ids 		body  domain.DashboardBody false "Body"
-// @Param	is_franchise query bool false 	"is_franchise"
-// @Param	order 		query string false "order"
+// @Param   limit 		 query int false "Limit"
+// @Param 	offset 		 query int false "Offset"
+// @Param   start_date 	 query string false "Start Date"
+// @Param   end_date 	 query string false "End Date"
+// @Param   store_id 	 query string false "Store ID"
+// @Param   ids 		 body  domain.DashboardBody false "Body"
+// @Param	is_franchise query bool   false "is_franchise"
+// @Param	order 		 query string false "order"
 // @Success 200 {object} v1.Response
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
