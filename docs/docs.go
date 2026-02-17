@@ -10008,6 +10008,11 @@ const docTemplate = `{
         },
         "/loyalty_card": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "create Loyalty Card",
                 "consumes": [
                     "application/json"
@@ -10039,6 +10044,171 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/loyalty_card/dashboard": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns loyalty card statistics including total cashback, card counts, and distribution by level",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "loyalty_card"
+                ],
+                "summary": "Get Loyalty Card Dashboard Statistics",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Start date for new cards filter",
+                        "name": "from_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End date for new cards filter",
+                        "name": "to_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Filter customers by loyalty card status (true=has card, null=no filter)",
+                        "name": "is_loyalty",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Number of customers to return",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset for pagination",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/domain.LoyaltyCardDashboard"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/loyalty_card/top": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Returns top customers by cashback earned, with optional date filtering",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "loyalty_card"
+                ],
+                "summary": "Get Top Loyalty Card Customers",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Number of customers to return",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset for pagination",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Start date for sales filter",
+                        "name": "from_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End date for sales filter",
+                        "name": "to_date",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/domain.LoyaltyCardTopCustomer"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
                         }
@@ -26668,6 +26838,23 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.LoyaltyCardByLevel": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "level_id": {
+                    "type": "string"
+                },
+                "level_name": {
+                    "type": "string"
+                },
+                "percent": {
+                    "type": "integer"
+                }
+            }
+        },
         "domain.LoyaltyCardCreateRequest": {
             "type": "object",
             "properties": {
@@ -26679,6 +26866,56 @@ const docTemplate = `{
                 },
                 "virtual_loyalty_card_needed": {
                     "type": "boolean"
+                }
+            }
+        },
+        "domain.LoyaltyCardDashboard": {
+            "type": "object",
+            "properties": {
+                "cards_by_level": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.LoyaltyCardByLevel"
+                    }
+                },
+                "customers": {},
+                "new_cards_in_period": {
+                    "type": "integer"
+                },
+                "total_cards": {
+                    "type": "integer"
+                },
+                "total_cashback_given": {
+                    "type": "number"
+                }
+            }
+        },
+        "domain.LoyaltyCardTopCustomer": {
+            "type": "object",
+            "properties": {
+                "customer_id": {
+                    "type": "string"
+                },
+                "full_name": {
+                    "type": "string"
+                },
+                "loyalty_card_barcode": {
+                    "type": "string"
+                },
+                "loyalty_card_level_name": {
+                    "type": "string"
+                },
+                "loyalty_card_percent": {
+                    "type": "integer"
+                },
+                "phone": {
+                    "type": "string"
+                },
+                "total_cashback_earned": {
+                    "type": "number"
+                },
+                "total_spent": {
+                    "type": "number"
                 }
             }
         },

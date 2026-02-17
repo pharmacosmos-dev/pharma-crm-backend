@@ -804,6 +804,17 @@ definitions:
     required:
     - phone
     type: object
+  domain.LoyaltyCardByLevel:
+    properties:
+      count:
+        type: integer
+      level_id:
+        type: string
+      level_name:
+        type: string
+      percent:
+        type: integer
+    type: object
   domain.LoyaltyCardCreateRequest:
     properties:
       customer_id:
@@ -812,6 +823,39 @@ definitions:
         type: string
       virtual_loyalty_card_needed:
         type: boolean
+    type: object
+  domain.LoyaltyCardDashboard:
+    properties:
+      cards_by_level:
+        items:
+          $ref: '#/definitions/domain.LoyaltyCardByLevel'
+        type: array
+      customers: {}
+      new_cards_in_period:
+        type: integer
+      total_cards:
+        type: integer
+      total_cashback_given:
+        type: number
+    type: object
+  domain.LoyaltyCardTopCustomer:
+    properties:
+      customer_id:
+        type: string
+      full_name:
+        type: string
+      loyalty_card_barcode:
+        type: string
+      loyalty_card_level_name:
+        type: string
+      loyalty_card_percent:
+        type: integer
+      phone:
+        type: string
+      total_cashback_earned:
+        type: number
+      total_spent:
+        type: number
     type: object
   domain.MarkingData:
     properties:
@@ -8166,7 +8210,111 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
       summary: Create Loyalty Card
+      tags:
+      - loyalty_card
+  /loyalty_card/dashboard:
+    get:
+      consumes:
+      - application/json
+      description: Returns loyalty card statistics including total cashback, card
+        counts, and distribution by level
+      parameters:
+      - description: Start date for new cards filter
+        in: query
+        name: from_date
+        type: string
+      - description: End date for new cards filter
+        in: query
+        name: to_date
+        type: string
+      - description: Filter customers by loyalty card status (true=has card, null=no
+          filter)
+        in: query
+        name: is_loyalty
+        type: boolean
+      - description: Number of customers to return
+        in: query
+        name: limit
+        type: integer
+      - description: Offset for pagination
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.LoyaltyCardDashboard'
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Loyalty Card Dashboard Statistics
+      tags:
+      - loyalty_card
+  /loyalty_card/top:
+    get:
+      consumes:
+      - application/json
+      description: Returns top customers by cashback earned, with optional date filtering
+      parameters:
+      - description: Number of customers to return
+        in: query
+        name: limit
+        type: integer
+      - description: Offset for pagination
+        in: query
+        name: offset
+        type: integer
+      - description: Start date for sales filter
+        in: query
+        name: from_date
+        type: string
+      - description: End date for sales filter
+        in: query
+        name: to_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/v1.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/domain.LoyaltyCardTopCustomer'
+                  type: array
+              type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Top Loyalty Card Customers
       tags:
       - loyalty_card
   /noor/category/list:
