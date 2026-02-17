@@ -1527,6 +1527,23 @@ definitions:
       new_password:
         type: string
     type: object
+  domain.Restaurant:
+    properties:
+      address:
+        type: string
+      coordinates:
+        $ref: '#/definitions/domain.Point'
+      id:
+        type: string
+      isFullday:
+        type: boolean
+      name:
+        type: string
+      phone:
+        type: string
+      workHours:
+        type: string
+    type: object
   domain.ReturnAddProduct:
     properties:
       id:
@@ -1912,11 +1929,178 @@ definitions:
     - product_id
     - unit_per_pack
     type: object
+  domain.UzumCancelOrderRequest:
+    properties:
+      comment:
+        type: string
+      eatsId:
+        type: string
+    required:
+    - eatsId
+    type: object
+  domain.UzumCreateOrderRequest:
+    properties:
+      comment:
+        type: string
+      deliveryInfo:
+        $ref: '#/definitions/domain.UzumOrderDeliveryInfo'
+      discriminator:
+        type: string
+      eatsId:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/domain.UzumOrderItemRequest'
+        type: array
+      paymentInfo:
+        $ref: '#/definitions/domain.UzumOrderPaymentInfo'
+      persons:
+        type: integer
+      promos:
+        items:
+          $ref: '#/definitions/domain.UzumOrderPromo'
+        type: array
+      restaurantId:
+        type: string
+    required:
+    - comment
+    - eatsId
+    - items
+    type: object
+  domain.UzumCreateOrderResponse:
+    properties:
+      orderId:
+        type: string
+      result:
+        type: string
+    type: object
   domain.UzumError:
     properties:
       code:
         type: integer
       description:
+        type: string
+    type: object
+  domain.UzumGetOrderResponse:
+    properties:
+      comment:
+        type: string
+      deliveryInfo:
+        $ref: '#/definitions/domain.UzumOrderDeliveryInfo'
+      discriminator:
+        type: string
+      eatsId:
+        type: string
+      items:
+        items:
+          $ref: '#/definitions/domain.UzumOrderItemResponse'
+        type: array
+      paymentInfo:
+        $ref: '#/definitions/domain.UzumOrderPaymentInfo'
+      persons:
+        type: integer
+      promos:
+        items:
+          $ref: '#/definitions/domain.UzumOrderPromo'
+        type: array
+      restaurantId:
+        type: string
+    type: object
+  domain.UzumOrderDeliveryInfo:
+    properties:
+      clientName:
+        type: string
+      clientPhoneNumber:
+        type: string
+      courierArrivementDate:
+        type: string
+      phoneNumber:
+        type: string
+    type: object
+  domain.UzumOrderItemRequest:
+    properties:
+      id:
+        type: string
+      labelCodes:
+        items:
+          type: string
+        type: array
+      modifications:
+        items:
+          $ref: '#/definitions/domain.UzumOrderModification'
+        type: array
+      name:
+        type: string
+      price:
+        type: number
+      promos:
+        items:
+          $ref: '#/definitions/domain.UzumOrderPromo'
+        type: array
+      quantity:
+        type: number
+    required:
+    - id
+    - price
+    - quantity
+    type: object
+  domain.UzumOrderItemResponse:
+    properties:
+      id:
+        type: string
+      labelCodes:
+        items:
+          type: string
+        type: array
+      modifications:
+        items:
+          $ref: '#/definitions/domain.UzumOrderModification'
+        type: array
+      name:
+        type: string
+      price:
+        type: number
+      promos:
+        items:
+          $ref: '#/definitions/domain.UzumOrderPromo'
+        type: array
+      quantity:
+        type: number
+    type: object
+  domain.UzumOrderModification:
+    properties:
+      id:
+        type: string
+      name:
+        type: string
+      price:
+        type: number
+      quantity:
+        type: integer
+    type: object
+  domain.UzumOrderPaymentInfo:
+    properties:
+      itemsCost:
+        type: number
+      paymentType:
+        description: CARD, CASH
+        type: string
+    type: object
+  domain.UzumOrderPromo:
+    properties:
+      discount:
+        type: number
+      type:
+        description: GIFT, PERCENTAGE, FIXED
+        type: string
+    type: object
+  domain.UzumOrderStatusResponse:
+    properties:
+      comment:
+        type: string
+      status:
+        type: string
+      updatedAt:
         type: string
     type: object
   domain.WriteOffRequest:
@@ -2652,6 +2836,45 @@ paths:
       security:
       - BearerAuth: []
       summary: Update cart item markings
+      tags:
+      - cart_items
+  /cart_item/{id}/skip-auto-order:
+    patch:
+      consumes:
+      - application/json
+      description: Skip auto order for a specific cart item
+      parameters:
+      - description: cart item ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Skip auto order
       tags:
       - cart_items
   /cart_item/list:
@@ -7590,133 +7813,6 @@ paths:
       summary: Get import status stats
       tags:
       - imports
-  /integrations/nomenclature/{storeId}/availability:
-    get:
-      consumes:
-      - application/json
-      description: Returns product stock levels for a specific store
-      parameters:
-      - description: Store ID (UUID)
-        in: path
-        name: storeId
-        required: true
-        type: string
-      - description: Page number
-        in: query
-        name: page
-        type: integer
-      - description: Items per page
-        in: query
-        name: limit
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/domain.AvailabilityResponse'
-        "400":
-          description: Bad Request
-          schema:
-            items:
-              items:
-                $ref: '#/definitions/domain.UzumError'
-              type: array
-            type: array
-        "401":
-          description: Unauthorized
-          schema:
-            items:
-              items:
-                $ref: '#/definitions/domain.UzumError'
-              type: array
-            type: array
-        "404":
-          description: Not Found
-          schema:
-            items:
-              items:
-                $ref: '#/definitions/domain.UzumError'
-              type: array
-            type: array
-        "500":
-          description: Internal Server Error
-          schema:
-            items:
-              items:
-                $ref: '#/definitions/domain.UzumError'
-              type: array
-            type: array
-      security:
-      - BearerAuth: []
-      summary: Get Product Availability
-      tags:
-      - uzum
-  /integrations/nomenclature/{storeId}/composition:
-    get:
-      consumes:
-      - application/json
-      description: Returns the current product catalog with categories for a specific
-        store
-      parameters:
-      - description: Store ID (UUID)
-        in: path
-        name: storeId
-        required: true
-        type: string
-      - description: Page number
-        in: query
-        name: page
-        type: integer
-      - description: Items per page
-        in: query
-        name: limit
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/domain.NomenclatureResponse'
-        "400":
-          description: Bad Request
-          schema:
-            items:
-              items:
-                $ref: '#/definitions/domain.UzumError'
-              type: array
-            type: array
-        "401":
-          description: Unauthorized
-          schema:
-            items:
-              items:
-                $ref: '#/definitions/domain.UzumError'
-              type: array
-            type: array
-        "404":
-          description: Not Found
-          schema:
-            items:
-              items:
-                $ref: '#/definitions/domain.UzumError'
-              type: array
-            type: array
-        "500":
-          description: Internal Server Error
-          schema:
-            items:
-              items:
-                $ref: '#/definitions/domain.UzumError'
-              type: array
-            type: array
-      security:
-      - BearerAuth: []
-      summary: Get Nomenclature Composition
-      tags:
-      - uzum
   /inventory:
     post:
       consumes:
@@ -18088,6 +18184,427 @@ paths:
       summary: Upload a file
       tags:
       - file upload
+  /uzum/nomenclature/{storeId}/availability:
+    get:
+      consumes:
+      - application/json
+      description: Returns product stock levels for a specific store
+      parameters:
+      - description: Store ID (UUID)
+        in: path
+        name: storeId
+        required: true
+        type: string
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.AvailabilityResponse'
+        "400":
+          description: Bad Request
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+        "404":
+          description: Not Found
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Get Product Availability
+      tags:
+      - uzum
+  /uzum/nomenclature/{storeId}/composition:
+    get:
+      consumes:
+      - application/json
+      description: Returns the current product catalog with categories for a specific
+        store
+      parameters:
+      - description: Store ID (UUID)
+        in: path
+        name: storeId
+        required: true
+        type: string
+      - description: Page number
+        in: query
+        name: page
+        type: integer
+      - description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.NomenclatureResponse'
+        "400":
+          description: Bad Request
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+        "404":
+          description: Not Found
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Get Nomenclature Composition
+      tags:
+      - uzum
+  /uzum/order:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new order from Uzum Tezkor
+      parameters:
+      - description: Order Request body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UzumCreateOrderRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.UzumCreateOrderResponse'
+        "400":
+          description: Bad Request
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+        "409":
+          description: Conflict
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Create Order
+      tags:
+      - uzum
+  /uzum/order/{orderId}:
+    delete:
+      consumes:
+      - application/json
+      description: Cancels an existing order
+      parameters:
+      - description: Order ID (Sale UUID)
+        in: path
+        name: orderId
+        required: true
+        type: string
+      - description: Cancel Order body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UzumCancelOrderRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+        "404":
+          description: Not Found
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Cancel Order
+      tags:
+      - uzum
+    get:
+      consumes:
+      - application/json
+      description: Returns order details by ID
+      parameters:
+      - description: Order ID (Sale UUID)
+        in: path
+        name: orderId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.UzumGetOrderResponse'
+        "404":
+          description: Not Found
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Get Order
+      tags:
+      - uzum
+    put:
+      consumes:
+      - application/json
+      description: Updates an existing order
+      parameters:
+      - description: Order ID (Sale UUID)
+        in: path
+        name: orderId
+        required: true
+        type: string
+      - description: Updated Order body
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UzumCreateOrderRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+        "404":
+          description: Not Found
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Update Order
+      tags:
+      - uzum
+  /uzum/order/{orderId}/status:
+    get:
+      consumes:
+      - application/json
+      description: Returns the current status of an order
+      parameters:
+      - description: Order ID (Sale UUID)
+        in: path
+        name: orderId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.UzumOrderStatusResponse'
+        "404":
+          description: Not Found
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Get Order Status
+      tags:
+      - uzum
+  /uzum/restaurants:
+    get:
+      consumes:
+      - application/json
+      description: Returns the list of restaurants
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Page
+        in: query
+        name: page
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/domain.Restaurant'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+        "404":
+          description: Not Found
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            items:
+              items:
+                $ref: '#/definitions/domain.UzumError'
+              type: array
+            type: array
+      security:
+      - BearerAuth: []
+      summary: Get Restaurants
+      tags:
+      - uzum
   /write-off:
     post:
       consumes:

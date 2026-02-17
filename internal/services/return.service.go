@@ -731,7 +731,7 @@ func (s *Services) ConfirmReturn(ctx context.Context, returnId, userId string) e
 
 	var transfer domain.Transfer
 	// get return info
-	err := tx.WithContext(ctx).First(&transfer, "id = ?", returnId).Error
+	err := tx.WithContext(ctx).Take(&transfer, "id = ?", returnId).Error
 	if err != nil {
 		_ = tx.Rollback()
 		s.log.Errorf("could not get return: %v", err)
@@ -831,6 +831,8 @@ func (s *Services) ConfirmReturn(ctx context.Context, returnId, userId string) e
 		// send return to 1C
 		go s.DoRequestOnec(context.Background(), returnData, constants.OnecPathVozvrat)
 	}
+
+	go s.updateStocksAfterVozvratFinished(returnId, transfer.FromStoreId)
 
 	return nil
 }

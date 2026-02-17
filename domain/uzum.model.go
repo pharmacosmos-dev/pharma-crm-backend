@@ -102,3 +102,142 @@ type UzumError struct {
 
 // UzumErrorList is an array of errors
 type UzumErrorList []UzumError
+
+// ===== ORDER REQUEST MODELS (from Uzum Tezkor) =====
+
+// UzumCreateOrderRequest represents the incoming order request (YGroceryOrderV2)
+type UzumCreateOrderRequest struct {
+	Discriminator string                 `json:"discriminator"`
+	Comment       string                 `json:"comment" binding:"required"`
+	EatsId        string                 `json:"eatsId" binding:"required"`
+	Items         []UzumOrderItemRequest `json:"items" binding:"required"`
+	PaymentInfo   *UzumOrderPaymentInfo  `json:"paymentInfo"`
+	DeliveryInfo  *UzumOrderDeliveryInfo `json:"deliveryInfo"`
+	Persons       int                    `json:"persons"`
+	Promos        []UzumOrderPromo       `json:"promos"`
+	RestaurantId  string                 `json:"restaurantId"`
+}
+
+// UzumOrderItemRequest represents an order item in the request
+type UzumOrderItemRequest struct {
+	Id            string                  `json:"id" binding:"required"`
+	Name          string                  `json:"name"`
+	Price         float64                 `json:"price" binding:"required"`
+	Quantity      float64                 `json:"quantity" binding:"required"`
+	Modifications []UzumOrderModification `json:"modifications"`
+	Promos        []UzumOrderPromo        `json:"promos"`
+	LabelCodes    []string                `json:"labelCodes"`
+}
+
+// UzumOrderModification represents an item modification
+type UzumOrderModification struct {
+	Id       string  `json:"id"`
+	Name     string  `json:"name"`
+	Price    float64 `json:"price"`
+	Quantity int     `json:"quantity"`
+}
+
+// UzumOrderPromo represents a promo applied to order or item
+type UzumOrderPromo struct {
+	Discount float64 `json:"discount"`
+	Type     string  `json:"type"` // GIFT, PERCENTAGE, FIXED
+}
+
+// UzumOrderPaymentInfo represents payment information
+type UzumOrderPaymentInfo struct {
+	ItemsCost   float64 `json:"itemsCost"`
+	PaymentType string  `json:"paymentType"` // CARD, CASH
+}
+
+// UzumOrderDeliveryInfo represents delivery information
+type UzumOrderDeliveryInfo struct {
+	ClientName            string `json:"clientName"`
+	CourierArrivementDate string `json:"courierArrivementDate"`
+	PhoneNumber           string `json:"phoneNumber"`
+	ClientPhoneNumber     string `json:"clientPhoneNumber"`
+}
+
+// ===== ORDER RESPONSE MODELS =====
+
+// UzumCreateOrderResponse represents the response after creating an order
+type UzumCreateOrderResponse struct {
+	OrderId string `json:"orderId"`
+	Result  string `json:"result"`
+}
+
+// UzumGetOrderResponse represents the GET order response (YGroceryOrderV2 schema)
+type UzumGetOrderResponse struct {
+	Discriminator string                  `json:"discriminator"`
+	Comment       string                  `json:"comment"`
+	EatsId        string                  `json:"eatsId"`
+	Items         []UzumOrderItemResponse `json:"items"`
+	PaymentInfo   *UzumOrderPaymentInfo   `json:"paymentInfo,omitempty"`
+	DeliveryInfo  *UzumOrderDeliveryInfo  `json:"deliveryInfo,omitempty"`
+	Persons       int                     `json:"persons"`
+	Promos        []UzumOrderPromo        `json:"promos"`
+	RestaurantId  string                  `json:"restaurantId"`
+}
+
+// UzumOrderItemResponse represents an order item in the response
+type UzumOrderItemResponse struct {
+	Id            string                  `json:"id"`
+	Name          string                  `json:"name"`
+	Price         float64                 `json:"price"`
+	Quantity      float64                 `json:"quantity"`
+	Modifications []UzumOrderModification `json:"modifications"`
+	Promos        []UzumOrderPromo        `json:"promos"`
+	LabelCodes    []string                `json:"labelCodes"`
+}
+
+// UzumOrderStatusResponse represents order status response (GET /order/:orderId/status)
+type UzumOrderStatusResponse struct {
+	Status    string `json:"status"`
+	Comment   string `json:"comment,omitempty"`
+	UpdatedAt string `json:"updatedAt,omitempty"`
+}
+
+// UzumCancelOrderRequest represents a cancel order request (DELETE /order/:orderId)
+type UzumCancelOrderRequest struct {
+	EatsId  string `json:"eatsId" binding:"required"`
+	Comment string `json:"comment"`
+}
+
+// Uzum order status constants (mapped to sale online_status)
+const (
+	UzumOrderStatusNew                  = "NEW"
+	UzumOrderStatusAcceptedByRestaurant = "ACCEPTED_BY_RESTAURANT"
+	UzumOrderStatusPostponed            = "POSTPONED"
+	UzumOrderStatusCooking              = "COOKING"
+	UzumOrderStatusReady                = "READY"
+	UzumOrderStatusTakenByCourier       = "TAKEN_BY_COURIER"
+	UzumOrderStatusDelivered            = "DELIVERED"
+	UzumOrderStatusCancelled            = "CANCELLED"
+)
+
+// MapOnlineStatusToUzum maps sale online_status int to Uzum status string
+func MapOnlineStatusToUzum(onlineStatus int) string {
+	switch onlineStatus {
+	case 1: // SaleOnlineStageNew
+		return UzumOrderStatusNew
+	case 2: // SaleOnlineStagePending
+		return UzumOrderStatusAcceptedByRestaurant
+	case 3: // SaleOnlineStageCompleted
+		return UzumOrderStatusDelivered
+	case 4: // SaleOnlineStageWaiting
+		return UzumOrderStatusCooking
+	case -1: // SaleOnlineStageCanceled
+		return UzumOrderStatusCancelled
+	default:
+		return UzumOrderStatusNew
+	}
+}
+
+type Restaurant struct {
+	Id          string `json:"id"`
+	Name        string `json:"name"`
+	Phone       string `json:"phone"`
+	Address     string `json:"address"`
+	Coordinates Point  `gorm:"column:coordinates" json:"coordinates"`
+	WorkHours   string `json:"workHours"`
+	IsFullday   bool   `json:"isFullday"`
+}

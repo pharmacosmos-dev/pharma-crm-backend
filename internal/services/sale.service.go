@@ -225,7 +225,7 @@ func (s *Services) CreateOnlineSale(ctx context.Context, req *domain.OnlineSaleC
 		req.StoreId,
 		constants.SaleTypeOnline,
 		constants.SaleOnlineStageNew,
-		constants.ServiceTypeNoor,
+		req.ServiceType,
 		req.CustomerId,
 		s.generateDisplayId(),
 		constants.PaymentTypeCARD,
@@ -311,6 +311,8 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 			s.log.Error("could not commit finalize return sale transaction: %v", err)
 			return nil, domain.InternalServerError
 		}
+
+		go s.updateStocksAfterReturnSaleFinished(sale.Id)
 
 		return res, nil
 	}
@@ -488,9 +490,10 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 		return nil, domain.InternalServerError
 	}
 
-	// if updates["stage"] == constants.SaleStageFinished {
-	// 	go s.CreateProductMovementsForSale(sale)
-	// }
+	if updates["stage"] == constants.SaleStageFinished {
+		// go s.CreateProductMovementsForSale(sale)
+		go s.updateStocksAfterSaleFinished(sale.Id)
+	}
 
 	return res, nil
 }
@@ -705,6 +708,9 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 			s.log.Errorf("could not commit epos-result-return transaction: %v", err)
 			return nil, domain.InternalServerError
 		}
+
+		go s.updateStocksAfterReturnSaleFinished(sale.Id)
+
 		return res, nil
 
 	}
@@ -819,9 +825,10 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 		return nil, domain.InternalServerError
 	}
 
-	// if updates["stage"] == constants.SaleStageFinished {
-	// 	go s.CreateProductMovementsForSale(sale)
-	// }
+	if updates["stage"] == constants.SaleStageFinished {
+		// go s.CreateProductMovementsForSale(sale)
+		go s.updateStocksAfterSaleFinished(sale.Id)
+	}
 
 	return res, nil
 }
