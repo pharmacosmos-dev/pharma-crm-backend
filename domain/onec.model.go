@@ -1,6 +1,10 @@
 package domain
 
-import "time"
+import (
+	"time"
+
+	"github.com/pharma-crm-backend/pkg/utils"
+)
 
 // Create Tovar structure for 1C API
 type CreateOnecImportDto struct {
@@ -120,4 +124,37 @@ type OnecMultiRepricingRequest struct {
 type AptekaWithProductsRepricing struct {
 	Apteka Apteka                 `json:"Apteka"`
 	Товары []OnecProductRepricing `json:"Товары"`
+}
+
+type ProductChangePriceRequest struct {
+	Apteka Apteka                  `json:"Apteka"`
+	Dok    Document                `json:"Dok"`
+	Товары []ProductRequestOnecDto `json:"Товары"`
+}
+
+// ProductPriceChanged - jadvalga yoziladigan model
+type ProductPriceChanged struct {
+	Id                  string            `gorm:"id" json:"id"`
+	StoreCode           int               `gorm:"store_code" json:"store_code"`
+	Barcode             string            `gorm:"barcode" json:"barcode"`
+	Markirovka          utils.StringArray `gorm:"type:text[]" json:"markirovka"`
+	MaterialCode        int               `gorm:"material_code" json:"material_code"`
+	ProductSeriesNumber string            `gorm:"product_series_number" json:"product_series_number"`
+	Sum                 float64           `gorm:"sum" json:"sum"`
+	SumVat              float64           `gorm:"sum_vat" json:"sum_vat"`
+	SupplyPrice         float64           `gorm:"supply_price" json:"supply_price"`
+	SupplyPriceVat      float64           `gorm:"supply_price_vat" json:"supply_price_vat"`
+	Vat                 string            `gorm:"vat" json:"vat"`
+	VatPrice            float64           `gorm:"vat_price" json:"vat_price"`
+	VatSum              float64           `gorm:"vat_sum" json:"vat_sum"`
+	CreatedAt           *time.Time        `gorm:"created_at" json:"created_at"`
+}
+
+// ProductPriceChangedQueryParam - list uchun query parametrlari
+type ProductPriceChangedQueryParam struct {
+	StoreCode    int    `form:"store_code"`
+	MaterialCode int    `form:"material_code"`
+	Barcode      string `form:"barcode"`
+	Limit        int    `form:"limit"`
+	Offset       int    `form:"offset"`
 }

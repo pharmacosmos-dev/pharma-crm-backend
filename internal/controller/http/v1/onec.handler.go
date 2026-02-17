@@ -30,6 +30,7 @@ func (h *ProductOnecHandler) ProductOnecRoutes(r *gin.RouterGroup) {
 		onec.POST("/multi-repricing", h.MultiProductRepricing)
 		onec.POST("/quantity", h.UpdateQuantity)
 		onec.POST("/token-asil-belgi", h.GetToken)
+		onec.POST("/price-changed", h.CreatePriceChanged)
 	}
 	r.POST("/generate-token", h.GenerateOnecToken)
 }
@@ -526,3 +527,41 @@ func (h *ProductOnecHandler) GenerateOnecToken(c *gin.Context) {
 	}
 	handleResponse(c, OK, token)
 }
+
+// CreatePriceChanged godoc
+// @Summary Create product price changed
+// @Description Save product price changed data from 1C
+// @Tags 	1C Api
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param 	request body domain.ProductChangePriceRequest true "product price changed"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /product1c/price-changed [POST]
+func (h *ProductOnecHandler) CreatePriceChanged(c *gin.Context) {
+	var body domain.ProductChangePriceRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		h.log.Errorf("could not bind price changed request: %v", err)
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+
+	if len(body.Товары) < 1 {
+		handleResponse(c, BadRequest, "received.empty.products")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	err := h.service.CreateProductPriceChanged(ctx, &body)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, "CREATED")
+}
+
