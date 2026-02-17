@@ -33,6 +33,7 @@ func (h *ImportHandler) ImportRoutes(r *gin.RouterGroup) {
 		imports.GET("/list", h.List)
 		imports.GET("/list-status", h.ListStatus)
 		imports.GET("/export-excel", h.ExportImports)
+		imports.GET("/product-changed-price-list", h.GetPriceChanged)
 	}
 	importDetail := r.Group("/import-detail")
 	{
@@ -907,4 +908,43 @@ func (h *ImportHandler) GetStockStatusCounts(c *gin.Context) {
 func (h *ImportHandler) getImportLock(importId string) *sync.Mutex {
 	lock, _ := h.ordersToMutexes.LoadOrStore(importId, &sync.Mutex{})
 	return lock.(*sync.Mutex)
+}
+
+
+// GetPriceChanged godoc
+// @Summary Get product price changed list
+// @Description Get product price changed list with pagination
+// @Tags 	imports
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param   limit          query int false "Limit"
+// @Param   offset         query int false "Offset"
+// @Param   store_code     query int false "Store Code"
+// @Param   material_code  query int false "Material Code"
+// @Param   barcode        query string false "Barcode"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /import/product-changed-price-list [get]
+func (h *ImportHandler) GetPriceChanged(c *gin.Context) {
+	var params domain.ProductPriceChangedQueryParam
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	data, totalCount, err := h.service.GetProductPriceChanged(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	result := utils.ListResponse(data, totalCount, params.Limit, params.Offset)
+	handleResponse(c, OK, result)
 }

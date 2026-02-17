@@ -1069,3 +1069,40 @@ func (s *Services) UpdateImportTotal(importId string) {
 		return
 	}
 }
+
+func (s *Services) GetProductPriceChanged(ctx context.Context, params *domain.ProductPriceChangedQueryParam) ([]domain.ProductPriceChanged, int64, error) {
+	qb := s.db.WithContext(ctx).Table("product_price_changed")
+
+	if params.StoreCode > 0 {
+		qb = qb.Where("store_code = ?", params.StoreCode)
+	}
+	if params.MaterialCode > 0 {
+		qb = qb.Where("material_code = ?", params.MaterialCode)
+	}
+	if params.Barcode != "" {
+		qb = qb.Where("barcode ILIKE ?", fmt.Sprintf("%%%s%%", params.Barcode))
+	}
+
+	var totalCount int64
+	if err := qb.Count(&totalCount).Error; err != nil {
+		s.log.Errorf("could not count product_price_changed: %v", err)
+		return nil, 0, domain.InternalServerError
+	}
+
+	var res []domain.ProductPriceChanged
+	err := qb.
+		Order("created_at DESC").
+		Limit(params.Limit).
+		Offset(params.Offset).
+		Find(&res).Error
+	if err != nil {
+		s.log.Errorf("could not get product_price_changed list: %v", err)
+		return nil, 0, domain.InternalServerError
+	}
+
+	if len(res) == 0 {
+		res = []domain.ProductPriceChanged{}
+	}
+
+	return res, totalCount, nil
+}

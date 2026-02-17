@@ -6672,7 +6672,7 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
-                        "type": "number",
+                        "type": "number",                
                         "description": "To Amount",
                         "name": "to_amount",
                         "in": "query"
@@ -8793,6 +8793,78 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "Receive Amount To",
                         "name": "receive_amount_to",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/import/product-changed-price-list": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get product price changed list with pagination",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "imports"
+                ],
+                "summary": "Get product price changed list",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Store Code",
+                        "name": "store_code",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Material Code",
+                        "name": "material_code",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Barcode",
+                        "name": "barcode",
                         "in": "query"
                     }
                 ],
@@ -16253,6 +16325,57 @@ const docTemplate = `{
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/domain.OnecMultiRepricingRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/product1c/price-changed": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Save product price changed data from 1C",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "1C Api"
+                ],
+                "summary": "Create product price changed",
+                "parameters": [
+                    {
+                        "description": "product price changed",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.ProductChangePriceRequest"
                         }
                     }
                 ],
@@ -28164,6 +28287,23 @@ const docTemplate = `{
                 },
                 "store_id": {
                     "type": "string"
+                }
+            }
+        },
+        "domain.ProductChangePriceRequest": {
+            "type": "object",
+            "properties": {
+                "Apteka": {
+                    "$ref": "#/definitions/domain.Apteka"
+                },
+                "Dok": {
+                    "$ref": "#/definitions/domain.Document"
+                },
+                "Товары": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.ProductRequestOnecDto"
+                    }
                 }
             }
         },
