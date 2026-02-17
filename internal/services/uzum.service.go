@@ -56,9 +56,12 @@ func (s *Services) GetNomenclature(ctx context.Context, storeId string, page, li
 		FROM products p
 		INNER JOIN store_products sp ON p.id = sp.product_id
 		LEFT JOIN categories c ON p.category_id = c.id
-		WHERE sp.store_id = ? AND sp.unit_quantity > 0
+		WHERE sp.store_id = ? AND sp.unit_quantity/p.unit_per_pack > 0
 	`
-	query = query + fmt.Sprintf("LIMIT %d OFFSET %d", limit, (page-1)*limit)
+	if limit > 0 && page > 0 {
+		query = query + fmt.Sprintf("LIMIT %d OFFSET %d", limit, (page-1)*limit)
+	}
+
 	err := s.db.WithContext(ctx).Raw(query, storeId).Scan(&products).Error
 	if err != nil {
 		s.log.Errorf("failed to fetch nomenclature for store %s: %v", storeId, err)
@@ -153,7 +156,7 @@ func (s *Services) GetAvailability(ctx context.Context, storeId string, page, li
 	query := `
 		SELECT 
 			sp.id AS store_product_id, 
-			(sp.unit_quantity::numeric / p.unit_per_pack) AS quantity
+			(sp.unit_quantity / p.unit_per_pack) AS quantity
 		FROM store_products sp
 		JOIN products p ON sp.product_id = p.id
 		WHERE sp.store_id = ? AND sp.unit_quantity > 0

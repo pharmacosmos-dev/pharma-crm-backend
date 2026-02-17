@@ -7868,8 +7868,6 @@ paths:
       summary: Get import status stats
       tags:
       - imports
-<<<<<<< HEAD
-=======
   /import/product-changed-price-list:
     get:
       consumes:
@@ -7916,134 +7914,6 @@ paths:
       summary: Get product price changed list
       tags:
       - imports
-  /integrations/nomenclature/{storeId}/availability:
-    get:
-      consumes:
-      - application/json
-      description: Returns product stock levels for a specific store
-      parameters:
-      - description: Store ID (UUID)
-        in: path
-        name: storeId
-        required: true
-        type: string
-      - description: Page number
-        in: query
-        name: page
-        type: integer
-      - description: Items per page
-        in: query
-        name: limit
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/domain.AvailabilityResponse'
-        "400":
-          description: Bad Request
-          schema:
-            items:
-              items:
-                $ref: '#/definitions/domain.UzumError'
-              type: array
-            type: array
-        "401":
-          description: Unauthorized
-          schema:
-            items:
-              items:
-                $ref: '#/definitions/domain.UzumError'
-              type: array
-            type: array
-        "404":
-          description: Not Found
-          schema:
-            items:
-              items:
-                $ref: '#/definitions/domain.UzumError'
-              type: array
-            type: array
-        "500":
-          description: Internal Server Error
-          schema:
-            items:
-              items:
-                $ref: '#/definitions/domain.UzumError'
-              type: array
-            type: array
-      security:
-      - BearerAuth: []
-      summary: Get Product Availability
-      tags:
-      - uzum
-  /integrations/nomenclature/{storeId}/composition:
-    get:
-      consumes:
-      - application/json
-      description: Returns the current product catalog with categories for a specific
-        store
-      parameters:
-      - description: Store ID (UUID)
-        in: path
-        name: storeId
-        required: true
-        type: string
-      - description: Page number
-        in: query
-        name: page
-        type: integer
-      - description: Items per page
-        in: query
-        name: limit
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/domain.NomenclatureResponse'
-        "400":
-          description: Bad Request
-          schema:
-            items:
-              items:
-                $ref: '#/definitions/domain.UzumError'
-              type: array
-            type: array
-        "401":
-          description: Unauthorized
-          schema:
-            items:
-              items:
-                $ref: '#/definitions/domain.UzumError'
-              type: array
-            type: array
-        "404":
-          description: Not Found
-          schema:
-            items:
-              items:
-                $ref: '#/definitions/domain.UzumError'
-              type: array
-            type: array
-        "500":
-          description: Internal Server Error
-          schema:
-            items:
-              items:
-                $ref: '#/definitions/domain.UzumError'
-              type: array
-            type: array
-      security:
-      - BearerAuth: []
-      summary: Get Nomenclature Composition
-      tags:
-      - uzum
->>>>>>> 2c0f2693d76736025c082fd6dcaf21c02618d857
   /inventory:
     post:
       consumes:
@@ -9457,6 +9327,47 @@ paths:
       tags:
       - Ostatok
   /partners:
+    get:
+      consumes:
+      - application/json
+      description: Get all partners
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.OAuthClient'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get Partners
+      tags:
+      - partner
     post:
       consumes:
       - application/json
