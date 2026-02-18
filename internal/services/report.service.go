@@ -723,8 +723,8 @@ func (s *Services) GetBonusProductsReport(ctx context.Context, params *domain.Re
 			"p.id AS id",
 			"p.name AS name",
 			"p.unit_per_pack AS unit_per_pack",
-			"SUM(eb.quantity) AS count",
-			"SUM(eb.unit_quantity) AS unit_quantity",
+			"SUM(eb.quantity) + SUM(eb.unit_quantity) / p.unit_per_pack AS count",
+			"SUM(eb.unit_quantity) % p.unit_per_pack AS unit_quantity",
 			"SUM(eb.bonus_amount) AS bonus_amount",
 		).
 		Table("employee_bonus eb").
