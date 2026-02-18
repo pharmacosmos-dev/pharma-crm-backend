@@ -91,12 +91,11 @@
                             ]
                         },
                         "url": {
-                            "raw": "{{base_url}}/v1/security/oauth/token",
+                            "raw": "{{base_url}}/security/oauth/token",
                             "host": [
                                 "{{base_url}}"
                             ],
                             "path": [
-                                "v1",
                                 "security",
                                 "oauth",
                                 "token"

@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
@@ -20,15 +21,67 @@ func (h *Handler) NewUzumHandler(r *gin.RouterGroup) {
 }
 
 func (h *UzumHandler) UzumRoutes(r *gin.RouterGroup) {
-	r.GET("/nomenclature/:storeId/composition", h.GetNomenclature)
-	r.GET("/nomenclature/:storeId/availability", h.GetAvailability)
-	r.POST("/order", h.CreateOrder)
-	r.GET("/order/:orderId", h.GetOrder)
-	r.GET("/order/:orderId/status", h.GetOrderStatus)
-	r.PUT("/order/:orderId", h.UpdateOrder)
-	r.DELETE("/order/:orderId", h.CancelOrder)
-	r.GET("/restaurants", h.GetRestaurants)
+	r.POST("/security/oauth/token", h.OAuthToken)
+	r.GET("/v1/nomenclature/:storeId/composition", h.GetNomenclature)
+	r.GET("/v1/nomenclature/:storeId/availability", h.GetAvailability)
+	r.POST("/v1/order", h.CreateOrder)
+	r.GET("/v1/order/:orderId", h.GetOrder)
+	r.GET("/v1/order/:orderId/status", h.GetOrderStatus)
+	r.PUT("/v1/order/:orderId", h.UpdateOrder)
+	r.DELETE("/v1/order/:orderId", h.CancelOrder)
+	r.GET("/v1/restaurants", h.GetRestaurants)
 
+}
+
+// @Summary      OAuth2 Client Credentials Token
+// @Description  Obtain an OAuth2 access token using client credentials grant
+// @Tags         auth
+// @Accept       x-www-form-urlencoded
+// @Produce      json
+// @Param        grant_type formData string true "Grant Type" default(client_credentials)
+// @Param        client_id formData string true "Client ID"
+// @Param        client_secret formData string true "Client Secret"
+// @Param        scope formData string false "Requested scopes (space-separated)" default(read write)
+// @Success      200  {object}  v1.Response{data=domain.OAuthResponse}
+// @Failure      400  {object}  v1.Response
+// @Failure      401  {object}  v1.Response
+// @Failure      403  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /uzum/security/oauth/token [post]
+func (h *UzumHandler) OAuthToken(c *gin.Context) {
+	var body domain.OAuthRequest
+	if err := c.ShouldBind(&body); err != nil {
+		h.log.Warnf("invalid OAuth request format: %v", err)
+		handleResponse(c, BadRequest, "Invalid request format")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	result, err := h.service.OAuthToken(ctx, &body)
+	if err != nil {
+		h.log.Errorf("OAuth token error: %v", err)
+		// Determine appropriate error code based on error message
+		errMsg := err.Error()
+		if strings.Contains(errMsg, "invalid client credentials") {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": errMsg,
+			})
+		} else if strings.Contains(errMsg, "unsupported grant type") || strings.Contains(errMsg, "invalid scope") {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": errMsg,
+			})
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": "Failed to generate token",
+			})
+		}
+		return
+	}
+
+	// Return 200 OK as per OAuth2 spec (not 201 CREATED)
+	c.JSON(http.StatusOK, result)
 }
 
 // @Summary      Get Nomenclature Composition

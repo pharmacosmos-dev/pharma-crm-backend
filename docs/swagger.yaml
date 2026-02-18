@@ -16838,64 +16838,6 @@ paths:
       summary: Get a sale stats
       tags:
       - sales
-  /security/oauth/token:
-    post:
-      consumes:
-      - application/x-www-form-urlencoded
-      description: Obtain an OAuth2 access token using client credentials grant
-      parameters:
-      - default: client_credentials
-        description: Grant Type
-        in: formData
-        name: grant_type
-        required: true
-        type: string
-      - description: Client ID
-        in: formData
-        name: client_id
-        required: true
-        type: string
-      - description: Client Secret
-        in: formData
-        name: client_secret
-        required: true
-        type: string
-      - default: read write
-        description: Requested scopes (space-separated)
-        in: formData
-        name: scope
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/v1.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/domain.OAuthResponse'
-              type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "403":
-          description: Forbidden
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      summary: OAuth2 Client Credentials Token
-      tags:
-      - auth
   /shelf:
     post:
       consumes:
@@ -18465,6 +18407,64 @@ paths:
       summary: Upload a file
       tags:
       - file upload
+  /uzum/security/oauth/token:
+    post:
+      consumes:
+      - application/x-www-form-urlencoded
+      description: Obtain an OAuth2 access token using client credentials grant
+      parameters:
+      - default: client_credentials
+        description: Grant Type
+        in: formData
+        name: grant_type
+        required: true
+        type: string
+      - description: Client ID
+        in: formData
+        name: client_id
+        required: true
+        type: string
+      - description: Client Secret
+        in: formData
+        name: client_secret
+        required: true
+        type: string
+      - default: read write
+        description: Requested scopes (space-separated)
+        in: formData
+        name: scope
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.OAuthResponse'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      summary: OAuth2 Client Credentials Token
+      tags:
+      - auth
   /uzum/v1/nomenclature/{storeId}/availability:
     get:
       consumes:
