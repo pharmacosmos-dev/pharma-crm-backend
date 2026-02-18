@@ -74,3 +74,26 @@ func (s *Services) NotifyOnlineOrderAcceptCourier(StoreId string, orderDisplayId
 		},
 	})
 }
+
+func (s *Services) NotifyOnlineOrderUpdatedStatus(StoreId string, orderDisplayId int) {
+	notification := domain.CreateNotificationDto{
+		ContentUz: fmt.Sprintf("Onlayn buyurtma statusi yangilandi: %d", orderDisplayId),
+		ContentRu: fmt.Sprintf("Статус онлайн заказа обновлен: %d", orderDisplayId),
+		ContentEn: fmt.Sprintf("Online order status updated: %d", orderDisplayId),
+
+		HeaderUz: "Onlayn buyurtma statusi yangilandi",
+		HeaderRu: "Статус онлайн заказа обновлен",
+		HeaderEn: "Online order status updated",
+
+		StoreId: StoreId,
+		OrderId: fmt.Sprintf("%d", orderDisplayId),
+	}
+
+	s.hub.SendMessage(ws.Message{
+		StoreId: StoreId,
+		Payload: ws.OutgoingMessage{
+			Event: constants.WsEventNoorOrderAcceptCourier,
+			Data:  notification,
+		},
+	})
+}

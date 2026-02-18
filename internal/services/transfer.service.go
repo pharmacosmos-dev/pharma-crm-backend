@@ -749,7 +749,7 @@ func (s *Services) ConfirmTransfer(ctx context.Context, transferId string, userI
 
 	// update confirm inventory
 	var transfer domain.Transfer
-	err := tx.WithContext(ctx).First(&transfer, "id = ?", transferId).Error
+	err := tx.WithContext(ctx).Take(&transfer, "id = ?", transferId).Error
 	if err != nil {
 		_ = tx.Rollback()
 		s.log.Errorf("could not get transfer %v", err)

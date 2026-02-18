@@ -206,6 +206,7 @@ const (
 	// Service types
 	ServiceTypeNoor = "noor"
 	ServiceTypeDmed = "dmed"
+	ServiceTypeUzum = "uzum"
 
 	ProductMovementImport    = 1
 	ProductMovementInventory = 2

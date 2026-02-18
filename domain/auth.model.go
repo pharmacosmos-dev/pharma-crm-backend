@@ -24,7 +24,7 @@ type OAuthResponse struct {
 type OAuthClient struct {
 	Id            uuid.UUID `json:"id" gorm:"type:uuid;primary_key;default:uuid_generate_v4()"`
 	ClientId      string    `json:"client_id" gorm:"type:text;unique;not null"`
-	ClientSecret  string    `json:"-" gorm:"type:text;not null"` // Never expose in JSON
+	ClientSecret  string    `json:"client_secret" gorm:"type:text;not null"` // Never expose in JSON
 	ClientName    string    `json:"client_name" gorm:"type:text"`
 	AllowedScopes string    `json:"allowed_scopes" gorm:"type:text;default:'read write'"`
 	IsActive      bool      `json:"is_active" gorm:"default:true"`
