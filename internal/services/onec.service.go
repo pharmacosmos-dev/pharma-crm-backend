@@ -295,21 +295,21 @@ func (s *Services) CreateProductPriceChanged(
 		return domain.NotFoundError
 	}
 
-	var isFranchise bool
-	err = s.db.WithContext(ctx).
-		Raw(`SELECT is_franchise FROM companies WHERE id = ?`, store.CompanyId).
-		Scan(&isFranchise).Error
+	// var isFranchise bool
+	// err = s.db.WithContext(ctx).
+	// 	Raw(`SELECT is_franchise FROM companies WHERE id = ?`, store.CompanyId).
+	// 	Scan(&isFranchise).Error
 
-	if err != nil {
-		s.log.Errorf("could not check franchise status for company_id %s: %v",
-			store.CompanyId, err)
-		return domain.InternalServerError
-	}
+	// if err != nil {
+	// 	s.log.Errorf("could not check franchise status for company_id %s: %v",
+	// 		store.CompanyId, err)
+	// 	return domain.InternalServerError
+	// }
 
-	if !isFranchise {
-		s.log.Warnf("store_code %d is not franchise", req.StoreCode)
-		return domain.NotFoundError
-	}
+	// if !isFranchise {
+	// 	s.log.Warnf("store_code %d is not franchise", req.StoreCode)
+	// 	return domain.NotFoundError
+	// }
 
 	for _, p := range req.Products {
 		err := s.db.WithContext(ctx).Exec(`

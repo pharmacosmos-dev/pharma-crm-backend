@@ -30,7 +30,7 @@ func (h *ProductOnecHandler) ProductOnecRoutes(r *gin.RouterGroup) {
 		onec.POST("/multi-repricing", h.MultiProductRepricing)
 		onec.POST("/quantity", h.UpdateQuantity)
 		onec.POST("/token-asil-belgi", h.GetToken)
-		onec.POST("/price-changing", h.CreatePriceChanging)
+		onec.POST("/max-price-changing", h.CreatePriceChanging)
 	}
 	r.POST("/generate-token", h.GenerateOnecToken)
 }
@@ -540,7 +540,7 @@ func (h *ProductOnecHandler) GenerateOnecToken(c *gin.Context) {
 // @Success     200 {object} v1.Response
 // @Failure     400 {object} v1.Response
 // @Failure     500 {object} v1.Response
-// @Router      /product1c/price-changing [POST]
+// @Router      /product1c/max-price-changing [POST]
 func (h *ProductOnecHandler) CreatePriceChanging(c *gin.Context) {
 
 	var body domain.ProductChangePriceRequest
