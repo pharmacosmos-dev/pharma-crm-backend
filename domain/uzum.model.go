@@ -108,7 +108,7 @@ type UzumErrorList []UzumError
 // UzumCreateOrderRequest represents the incoming order request (YGroceryOrderV2)
 type UzumCreateOrderRequest struct {
 	Discriminator string                 `json:"discriminator"`
-	Comment       string                 `json:"comment" binding:"required"`
+	Comment       string                 `json:"comment"`
 	EatsId        string                 `json:"eatsId" binding:"required"`
 	Items         []UzumOrderItemRequest `json:"items" binding:"required"`
 	PaymentInfo   *UzumOrderPaymentInfo  `json:"paymentInfo"`
