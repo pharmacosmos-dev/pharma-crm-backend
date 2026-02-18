@@ -47,6 +47,8 @@ type Sale struct {
 	SalePayments       []*SalePayment `gorm:"foreignKey:SaleID" json:"sale_payments"`
 	CartItems          []*CartItem    `gorm:"foreignKey:SaleId" json:"cart_items"`
 	CashBack           float64        `gorm:"cash_back" json:"cash_back"`
+	VendorOrderId      string         `gorm:"vendor_order_id" json:"vendor_order_id"`
+	ClientComment      string         `gorm:"client_comment" json:"client_comment"`
 }
 
 type SaleQueryParams struct {
@@ -98,6 +100,7 @@ type SaleReturnRequest struct {
 type OnlineSaleCreate struct {
 	Id            string                  `gorm:"id" json:"id"`
 	StoreId       string                  `gorm:"store_id" json:"store_id"`
+	VendorOrderId string                  `gorm:"vendor_order_id" json:"vendor_order_id"`
 	ServiceType   string                  `gorm:"service_type" json:"service_type"`
 	CustomerId    string                  `gorm:"customer_id" json:"customer_id"`
 	ClientComment string                  `gorm:"client_comment" json:"client_comment"`

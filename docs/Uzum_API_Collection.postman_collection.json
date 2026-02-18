@@ -1,0 +1,620 @@
+{
+    "info": {
+        "_postman_id": "uzum-api-collection-2026",
+        "name": "Uzum Tezkor API",
+        "description": "# Uzum Tezkor API Integration\n\nComplete API collection for the Uzum Tezkor grocery delivery integration.\n\n## Authentication\nAll endpoints require OAuth2 Bearer token authentication.\n- Use `POST /security/oauth/token` with `client_credentials` grant type to obtain a token.\n- Set the token in the `Authorization` header as `Bearer <token>`.\n\n## Base URL\n- **Production**: `https://api-pharma.noor.uz/uzum`\n\n## Endpoints Overview\n| Method | Endpoint | Description |\n|--------|----------|-------------|\n| GET | /v1/restaurants | List restaurants/stores |\n| GET | /v1/nomenclature/:storeId/composition | Product catalog |\n| GET | /v1/nomenclature/:storeId/availability | Product stock levels |\n| POST | /v1/order | Create a new order |\n| GET | /v1/order/:orderId | Get order details |\n| GET | /v1/order/:orderId/status | Get order status |\n| PUT | /v1/order/:orderId | Update an order |\n| DELETE | /v1/order/:orderId | Cancel an order |",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "https://api-pharma.noor.uz/uzum",
+            "type": "string"
+        },
+        {
+            "key": "bearer_token",
+            "value": "<your-bearer-token>",
+            "type": "string"
+        },
+        {
+            "key": "store_id",
+            "value": "1f900e8e-5b61-465c-a693-c37ecfec81cf",
+            "type": "string"
+        },
+        {
+            "key": "order_id",
+            "value": "",
+            "type": "string"
+        }
+    ],
+    "auth": {
+        "type": "bearer",
+        "bearer": [
+            {
+                "key": "token",
+                "value": "{{bearer_token}}",
+                "type": "string"
+            }
+        ]
+    },
+    "item": [
+        {
+            "name": "Auth",
+            "description": "Authentication endpoints to obtain Bearer tokens.",
+            "item": [
+                {
+                    "name": "Get OAuth Token",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "var jsonData = pm.response.json();",
+                                    "if (jsonData.access_token) {",
+                                    "    pm.collectionVariables.set('bearer_token', jsonData.access_token);",
+                                    "    console.log('Token saved to collection variable');",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "auth": {
+                            "type": "noauth"
+                        },
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/x-www-form-urlencoded"
+                            }
+                        ],
+                        "body": {
+                            "mode": "urlencoded",
+                            "urlencoded": [
+                                {
+                                    "key": "client_id",
+                                    "value": "1234",
+                                    "description": "OAuth client ID"
+                                },
+                                {
+                                    "key": "client_secret",
+                                    "value": "your-client-secret",
+                                    "description": "OAuth client secret"
+                                },
+                                {
+                                    "key": "grant_type",
+                                    "value": "client_credentials",
+                                    "description": "Must be 'client_credentials'"
+                                }
+                            ]
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/security/oauth/token",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "security",
+                                "oauth",
+                                "token"
+                            ]
+                        },
+                        "description": "## Get OAuth Token\n\nObtains a Bearer token using OAuth2 client credentials flow.\n\n**Grant Type**: `client_credentials`\n\n### Request Parameters (form-urlencoded)\n| Field | Type | Required | Description |\n|-------|------|----------|-------------|\n| client_id | string | ✅ | OAuth client ID |\n| client_secret | string | ✅ | OAuth client secret |\n| grant_type | string | ✅ | Must be `client_credentials` |\n\n### Response\nThe `access_token` is automatically saved to the collection variable `bearer_token`."
+                    },
+                    "response": [
+                        {
+                            "name": "Success",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"access_token\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...\",\n  \"token_type\": \"bearer\",\n  \"expires_in\": 3600\n}"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Restaurants",
+            "description": "Manage restaurant/store listings.",
+            "item": [
+                {
+                    "name": "Get Restaurants",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/v1/restaurants?page=1&limit=10",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "v1",
+                                "restaurants"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1",
+                                    "description": "Page number (optional, default: 1)"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10",
+                                    "description": "Items per page (optional, default: 10)"
+                                }
+                            ]
+                        },
+                        "description": "## Get Restaurants\n\nReturns the list of available restaurants/stores.\n\n### Query Parameters\n| Param | Type | Required | Default | Description |\n|-------|------|----------|---------|-------------|\n| page | int | ❌ | 1 | Page number |\n| limit | int | ❌ | 10 | Items per page |\n\n### Response Fields\n| Field | Type | Description |\n|-------|------|-------------|\n| id | string (UUID) | Store ID |\n| name | string | Store name |\n| phone | string | Contact phone |\n| address | string | Store address |\n| coordinates | object | `{lat, lng}` |\n| workHours | string | Operating hours |\n| isFullday | boolean | 24/7 availability |"
+                    },
+                    "response": [
+                        {
+                            "name": "Success",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "[\n  {\n    \"id\": \"1f900e8e-5b61-465c-a693-c37ecfec81cf\",\n    \"name\": \"Pharma Store #1\",\n    \"phone\": \"+998901234567\",\n    \"address\": \"Tashkent, Amir Temur st. 10\",\n    \"coordinates\": {\n      \"lat\": 41.311081,\n      \"lng\": 69.240562\n    },\n    \"workHours\": \"09:00-22:00\",\n    \"isFullday\": false\n  }\n]"
+                        },
+                        {
+                            "name": "Unauthorized",
+                            "status": "Unauthorized",
+                            "code": 401,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"error\": \"invalid or expired token\"\n}"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Nomenclature",
+            "description": "Product catalog and availability endpoints.",
+            "item": [
+                {
+                    "name": "Get Nomenclature (Composition)",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/v1/nomenclature/{{store_id}}/composition?page=1&limit=10",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "v1",
+                                "nomenclature",
+                                "{{store_id}}",
+                                "composition"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1",
+                                    "description": "Page number"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10",
+                                    "description": "Items per page"
+                                }
+                            ]
+                        },
+                        "description": "## Get Nomenclature Composition\n\nReturns the current product catalog with categories for a specific store.\n\n### Path Parameters\n| Param | Type | Required | Description |\n|-------|------|----------|-------------|\n| storeId | string (UUID) | ✅ | Store/restaurant ID |\n\n### Query Parameters\n| Param | Type | Required | Default | Description |\n|-------|------|----------|---------|-------------|\n| page | int | ✅ | - | Page number |\n| limit | int | ✅ | - | Items per page |\n\n### Response Structure\n```json\n{\n  \"categories\": [...],\n  \"items\": [...]\n}\n```\n\n### Category Fields\n| Field | Type | Description |\n|-------|------|-------------|\n| id | string (UUID) | Category ID |\n| name | string | Category name |\n| images | array | Category images |\n| parentId | string | Parent category ID |\n| sortOrder | int | Display order |\n\n### Item Fields\n| Field | Type | Description |\n|-------|------|-------------|\n| id | string (UUID) | **Store Product ID** (use this in orders) |\n| name | string | Product name |\n| categoryId | string | Category reference |\n| barcode | object | Barcode info `{type, value, weightEncoding}` |\n| price | number | Retail price |\n| vat | int | VAT percentage |\n| images | array | Product images |\n| description | object | Product descriptions |\n| measure | object | Unit of measure |\n| isCatchWeight | boolean | Weight-based pricing |\n| vendorCode | string | Internal vendor code |\n| serviceCodesUz | object | Uzbekistan MXIK/package codes |"
+                    },
+                    "response": [
+                        {
+                            "name": "Success",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"categories\": [\n    {\n      \"id\": \"cat-uuid-001\",\n      \"name\": \"Pain Relief\",\n      \"images\": [\n        {\"hash\": \"abc123\", \"url\": \"https://example.com/cat.jpg\"}\n      ],\n      \"parentId\": null,\n      \"sortOrder\": 100\n    }\n  ],\n  \"items\": [\n    {\n      \"id\": \"11785e34-2ba3-4d3c-871c-ed6115713079\",\n      \"name\": \"Paracetamol 500mg\",\n      \"categoryId\": \"cat-uuid-001\",\n      \"barcode\": {\n        \"type\": \"ean13\",\n        \"value\": \"4780001234567\",\n        \"weightEncoding\": \"none\"\n      },\n      \"price\": 15000,\n      \"vat\": 12,\n      \"images\": [\n        {\"hash\": \"img123\", \"url\": \"https://example.com/product.jpg\"}\n      ],\n      \"description\": {\n        \"general\": \"Pain relief tablets\"\n      },\n      \"measure\": {\n        \"unit\": \"GRM\",\n        \"value\": 1000,\n        \"quantum\": 1.0\n      },\n      \"isCatchWeight\": false,\n      \"vendorCode\": \"11785e34-2ba3-4d3c-871c-ed6115713079\",\n      \"sortOrder\": 100,\n      \"serviceCodesUz\": {\n        \"mxikCodeUz\": \"06912001001000000\",\n        \"packageCodeUz\": \"1393\"\n      }\n    }\n  ]\n}"
+                        },
+                        {
+                            "name": "Not Found (Invalid Store ID)",
+                            "status": "Not Found",
+                            "code": 404,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "[\n  {\n    \"code\": 404,\n    \"description\": \"No products found for this store\"\n  }\n]"
+                        }
+                    ]
+                },
+                {
+                    "name": "Get Availability",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/v1/nomenclature/{{store_id}}/availability?page=1&limit=50",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "v1",
+                                "nomenclature",
+                                "{{store_id}}",
+                                "availability"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1",
+                                    "description": "Page number (optional)"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "50",
+                                    "description": "Items per page (optional)"
+                                }
+                            ]
+                        },
+                        "description": "## Get Product Availability\n\nReturns product stock levels for a specific store. The `id` returned here is the **store_product_id** — use this ID when creating orders.\n\n### Path Parameters\n| Param | Type | Required | Description |\n|-------|------|----------|-------------|\n| storeId | string (UUID) | ✅ | Store/restaurant ID |\n\n### Query Parameters\n| Param | Type | Required | Description |\n|-------|------|----------|-------------|\n| page | int | ❌ | Page number |\n| limit | int | ❌ | Items per page |\n\n### Response Fields\n| Field | Type | Description |\n|-------|------|-------------|\n| items[].id | string (UUID) | Store product ID (**use in CreateOrder**) |\n| items[].stock | number | Available quantity |"
+                    },
+                    "response": [
+                        {
+                            "name": "Success",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"items\": [\n    {\n      \"id\": \"11785e34-2ba3-4d3c-871c-ed6115713079\",\n      \"stock\": 5\n    },\n    {\n      \"id\": \"282f4b70-0ca3-4d9d-ac02-9bc08701f282\",\n      \"stock\": 10\n    }\n  ]\n}"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "Orders",
+            "description": "Order management: create, get, update, cancel.",
+            "item": [
+                {
+                    "name": "Create Order",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "var jsonData = pm.response.json();",
+                                    "if (jsonData.orderId) {",
+                                    "    pm.collectionVariables.set('order_id', jsonData.orderId);",
+                                    "    console.log('Order ID saved: ' + jsonData.orderId);",
+                                    "}"
+                                ],
+                                "type": "text/javascript"
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"discriminator\": \"uzum\",\n  \"comment\": \"Please deliver to the main entrance\",\n  \"eatsId\": \"UZUM-ORDER-001\",\n  \"restaurantId\": \"{{store_id}}\",\n  \"persons\": 1,\n  \"items\": [\n    {\n      \"id\": \"<store_product_id from availability>\",\n      \"name\": \"Paracetamol 500mg\",\n      \"price\": 15000,\n      \"quantity\": 1,\n      \"modifications\": [],\n      \"promos\": []\n    }\n  ],\n  \"promos\": [],\n  \"paymentInfo\": {\n    \"itemsCost\": 15000,\n    \"paymentType\": \"CARD\"\n  },\n  \"deliveryInfo\": {\n    \"clientName\": \"John Doe\",\n    \"courierArrivementDate\": \"2026-02-17T14:00:00+05:00\",\n    \"phoneNumber\": \"+998901234567\",\n    \"clientPhoneNumber\": \"+998907654321\"\n  }\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/v1/order",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "v1",
+                                "order"
+                            ]
+                        },
+                        "description": "## Create Order\n\nCreates a new order from Uzum Tezkor. The `orderId` from the response is automatically saved to the `order_id` collection variable.\n\n> ⚠️ **Important**: The `items[].id` must be a **store_product_id** from the `/availability` endpoint, not a product_id.\n\n### Request Body (YGroceryOrderV2)\n| Field | Type | Required | Description |\n|-------|------|----------|-------------|\n| discriminator | string | ❌ | Always `\"uzum\"` |\n| comment | string | ✅ | Order comment |\n| eatsId | string | ✅ | Uzum's external order ID |\n| restaurantId | string | ❌ | Store/restaurant UUID |\n| persons | int | ❌ | Number of persons |\n| items | array | ✅ | Order items (see below) |\n| promos | array | ❌ | Order-level promotions |\n| paymentInfo | object | ❌ | Payment details |\n| deliveryInfo | object | ❌ | Delivery details |\n\n### Item Fields\n| Field | Type | Required | Description |\n|-------|------|----------|-------------|\n| id | string (UUID) | ✅ | **Store product ID** from availability |\n| name | string | ❌ | Product name |\n| price | number | ✅ | Unit price |\n| quantity | number | ✅ | Quantity ordered |\n| modifications | array | ❌ | Item modifications |\n| promos | array | ❌ | Item-level promotions |\n\n### PaymentInfo\n| Field | Type | Description |\n|-------|------|-------------|\n| itemsCost | number | Total cost |\n| paymentType | string | `CARD` or `CASH` |\n\n### DeliveryInfo\n| Field | Type | Description |\n|-------|------|-------------|\n| clientName | string | Customer name |\n| courierArrivementDate | string | ISO 8601 delivery date |\n| phoneNumber | string | Courier phone |\n| clientPhoneNumber | string | Customer phone |"
+                    },
+                    "response": [
+                        {
+                            "name": "Success",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"orderId\": \"639d4b74-b76f-4b87-b00d-680368d25c59\",\n  \"result\": \"OK\"\n}"
+                        },
+                        {
+                            "name": "Validation Error - Missing Fields",
+                            "status": "Bad Request",
+                            "code": 400,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "[\n  {\n    \"code\": 400,\n    \"description\": \"Key: 'UzumCreateOrderRequest.EatsId' Error:Field validation for 'EatsId' failed on the 'required' tag\\nKey: 'UzumCreateOrderRequest.Items' Error:Field validation for 'Items' failed on the 'required' tag\"\n  }\n]"
+                        },
+                        {
+                            "name": "Internal Server Error",
+                            "status": "Internal Server Error",
+                            "code": 500,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "[\n  {\n    \"code\": 500,\n    \"description\": \"Internal server error\"\n  }\n]"
+                        }
+                    ]
+                },
+                {
+                    "name": "Get Order",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/v1/order/{{order_id}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "v1",
+                                "order",
+                                "{{order_id}}"
+                            ]
+                        },
+                        "description": "## Get Order\n\nReturns full order details by sale ID in YGroceryOrderV2 format.\n\n### Path Parameters\n| Param | Type | Required | Description |\n|-------|------|----------|-------------|\n| orderId | string (UUID) | ✅ | Order ID (sale UUID) |\n\n### Response Fields\n| Field | Type | Description |\n|-------|------|-------------|\n| discriminator | string | Always `\"uzum\"` |\n| comment | string | Order comment |\n| eatsId | string | Uzum's external order ID |\n| items | array | Order items with product details |\n| paymentInfo | object | Payment info `{itemsCost, paymentType}` |\n| deliveryInfo | object | Delivery info `{clientName, phoneNumber, ...}` |\n| persons | int | Number of persons |\n| promos | array | Applied promotions |\n| restaurantId | string (UUID) | Store/restaurant ID |"
+                    },
+                    "response": [
+                        {
+                            "name": "Success",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"discriminator\": \"uzum\",\n  \"comment\": \"Please deliver to the main entrance\",\n  \"eatsId\": \"UZUM-ORDER-001\",\n  \"items\": [\n    {\n      \"id\": \"11785e34-2ba3-4d3c-871c-ed6115713079\",\n      \"name\": \"Paracetamol 500mg\",\n      \"price\": 15000,\n      \"quantity\": 1,\n      \"modifications\": [],\n      \"promos\": [],\n      \"labelCodes\": []\n    }\n  ],\n  \"paymentInfo\": {\n    \"itemsCost\": 15000,\n    \"paymentType\": \"CARD\"\n  },\n  \"deliveryInfo\": {\n    \"clientName\": \"John Doe\",\n    \"courierArrivementDate\": \"2026-02-17T14:00:00+05:00\",\n    \"phoneNumber\": \"+998901234567\",\n    \"clientPhoneNumber\": \"+998907654321\"\n  },\n  \"persons\": 1,\n  \"promos\": [],\n  \"restaurantId\": \"1f900e8e-5b61-465c-a693-c37ecfec81cf\"\n}"
+                        },
+                        {
+                            "name": "Not Found",
+                            "status": "Not Found",
+                            "code": 404,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "[\n  {\n    \"code\": 404,\n    \"description\": \"Order not found\"\n  }\n]"
+                        }
+                    ]
+                },
+                {
+                    "name": "Get Order Status",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/v1/order/{{order_id}}/status",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "v1",
+                                "order",
+                                "{{order_id}}",
+                                "status"
+                            ]
+                        },
+                        "description": "## Get Order Status\n\nReturns the current status of an order.\n\n### Path Parameters\n| Param | Type | Required | Description |\n|-------|------|----------|-------------|\n| orderId | string (UUID) | ✅ | Order ID (sale UUID) |\n\n### Response Fields\n| Field | Type | Description |\n|-------|------|-------------|\n| status | string | Current order status |\n| comment | string | Status comment (optional) |\n| updatedAt | string | ISO 8601 timestamp of last update |\n\n### Possible Status Values\n| Status | Description |\n|--------|-------------|\n| `NEW` | Order just created |\n| `ACCEPTED_BY_RESTAURANT` | Order accepted by store |\n| `COOKING` | Order being prepared |\n| `READY` | Order ready for pickup |\n| `TAKEN_BY_COURIER` | Courier picked up |\n| `DELIVERED` | Order delivered |\n| `CANCELLED` | Order cancelled |\n| `POSTPONED` | Order postponed |"
+                    },
+                    "response": [
+                        {
+                            "name": "Success - NEW",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"status\": \"NEW\",\n  \"updatedAt\": \"2026-02-17T16:54:10.677Z\"\n}"
+                        },
+                        {
+                            "name": "Success - CANCELLED",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"status\": \"CANCELLED\",\n  \"updatedAt\": \"2026-02-17T21:54:10.695Z\"\n}"
+                        },
+                        {
+                            "name": "Not Found",
+                            "status": "Not Found",
+                            "code": 404,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "[\n  {\n    \"code\": 404,\n    \"description\": \"Order not found\"\n  }\n]"
+                        }
+                    ]
+                },
+                {
+                    "name": "Update Order",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"discriminator\": \"uzum\",\n  \"comment\": \"Updated: deliver to side entrance instead\",\n  \"eatsId\": \"UZUM-ORDER-001\",\n  \"restaurantId\": \"{{store_id}}\",\n  \"persons\": 1,\n  \"items\": [\n    {\n      \"id\": \"<store_product_id>\",\n      \"name\": \"Paracetamol 500mg\",\n      \"price\": 15000,\n      \"quantity\": 2,\n      \"modifications\": [],\n      \"promos\": []\n    }\n  ],\n  \"promos\": [],\n  \"paymentInfo\": {\n    \"itemsCost\": 30000,\n    \"paymentType\": \"CARD\"\n  },\n  \"deliveryInfo\": {\n    \"clientName\": \"John Doe\",\n    \"courierArrivementDate\": \"2026-02-17T15:00:00+05:00\",\n    \"phoneNumber\": \"+998901234567\",\n    \"clientPhoneNumber\": \"+998907654321\"\n  }\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/v1/order/{{order_id}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "v1",
+                                "order",
+                                "{{order_id}}"
+                            ]
+                        },
+                        "description": "## Update Order\n\nUpdates an existing order. The request body uses the same format as Create Order.\n\n### Path Parameters\n| Param | Type | Required | Description |\n|-------|------|----------|-------------|\n| orderId | string (UUID) | ✅ | Order ID to update |\n\n### Request Body\nSame as Create Order (`UzumCreateOrderRequest`).\n\n> ⚠️ Cannot update orders with status `CANCELLED`."
+                    },
+                    "response": [
+                        {
+                            "name": "Success",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"result\": \"OK\"\n}"
+                        },
+                        {
+                            "name": "Order Not Found",
+                            "status": "Internal Server Error",
+                            "code": 500,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "[\n  {\n    \"code\": 500,\n    \"description\": \"order not found\"\n  }\n]"
+                        },
+                        {
+                            "name": "Cannot Update Cancelled Order",
+                            "status": "Internal Server Error",
+                            "code": 500,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "[\n  {\n    \"code\": 500,\n    \"description\": \"order cannot be updated in current status\"\n  }\n]"
+                        }
+                    ]
+                },
+                {
+                    "name": "Cancel Order",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"eatsId\": \"UZUM-ORDER-001\",\n  \"comment\": \"Customer requested cancellation\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/v1/order/{{order_id}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "v1",
+                                "order",
+                                "{{order_id}}"
+                            ]
+                        },
+                        "description": "## Cancel Order\n\nCancels an existing order. Sets the order status to `CANCELLED`.\n\n### Path Parameters\n| Param | Type | Required | Description |\n|-------|------|----------|-------------|\n| orderId | string (UUID) | ✅ | Order ID to cancel |\n\n### Request Body\n| Field | Type | Required | Description |\n|-------|------|----------|-------------|\n| eatsId | string | ✅ | Uzum's external order ID |\n| comment | string | ❌ | Cancellation reason |"
+                    },
+                    "response": [
+                        {
+                            "name": "Success",
+                            "status": "OK",
+                            "code": 200,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "{\n  \"result\": \"OK\"\n}"
+                        },
+                        {
+                            "name": "Missing eatsId",
+                            "status": "Bad Request",
+                            "code": 400,
+                            "header": [
+                                {
+                                    "key": "Content-Type",
+                                    "value": "application/json"
+                                }
+                            ],
+                            "body": "[\n  {\n    \"code\": 400,\n    \"description\": \"Key: 'UzumCancelOrderRequest.EatsId' Error:Field validation for 'EatsId' failed on the 'required' tag\"\n  }\n]"
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+}

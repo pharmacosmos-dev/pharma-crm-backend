@@ -122,6 +122,8 @@ func (s *Services) AcceptImport(ctx context.Context, importId string, userId str
 		return domain.InternalServerError
 	}
 
+	go s.createOrUpdateStocksAfterImportConfirm(res.Id, res.StoreId)
+
 	return nil
 }
 
