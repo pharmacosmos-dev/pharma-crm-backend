@@ -1382,8 +1382,6 @@ definitions:
               type: string
           type: object
         type: array
-      store_code:
-        type: integer
     type: object
   domain.ProductExcludeRequest:
     properties:

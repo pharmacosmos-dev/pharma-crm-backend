@@ -28812,9 +28812,6 @@
                             }
                         }
                     }
-                },
-                "store_code": {
-                    "type": "integer"
                 }
             }
         },

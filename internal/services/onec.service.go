@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 
@@ -286,52 +287,20 @@ func (s *Services) CreateProductPriceChanged(
 	req *domain.ProductChangePriceRequest,
 ) error {
 
-	// Store ni store_code orqali topamiz
-	var store domain.Store
-	err := s.db.WithContext(ctx).
-		First(&store, "store_code = ?", req.StoreCode).Error
-	if err != nil {
-		s.log.Errorf("could not find store by store_code %d: %v", req.StoreCode, err)
-		return domain.NotFoundError
-	}
-
-	// var isFranchise bool
-	// err = s.db.WithContext(ctx).
-	// 	Raw(`SELECT is_franchise FROM companies WHERE id = ?`, store.CompanyId).
-	// 	Scan(&isFranchise).Error
-
-	// if err != nil {
-	// 	s.log.Errorf("could not check franchise status for company_id %s: %v",
-	// 		store.CompanyId, err)
-	// 	return domain.InternalServerError
-	// }
-
-	// if !isFranchise {
-	// 	s.log.Warnf("store_code %d is not franchise", req.StoreCode)
-	// 	return domain.NotFoundError
-	// }
-
 	for _, p := range req.Products {
-		err := s.db.WithContext(ctx).Exec(`
-			INSERT INTO product_price_changed (
-				id, store_id, store_code, product_id, max_price
-			)
-			VALUES (?, ?, ?, ?, ?)
-			ON CONFLICT (store_id, product_id)
-			DO UPDATE SET max_price = EXCLUDED.max_price
-		`,
-			uuid.New().String(),
-			store.Id,
-			store.StoreCode,
-			p.ProductId,
-			p.MaxPrice,
-		).Error
-		
-		if err != nil {
-			s.log.Errorf("could not upsert product_price_changed: %v", err)
+		// Update max_price in products table
+		result := s.db.WithContext(ctx).Exec(`
+			UPDATE products SET max_price = ? WHERE id = ?
+		`, p.MaxPrice, p.ProductId)
+		if result.Error != nil {
+			s.log.Errorf("could not update product max_price: %v", result.Error)
 			return domain.InternalServerError
 		}
-	}	
+		if result.RowsAffected == 0 {
+			s.log.Errorf("product not found: %s", p.ProductId)
+			return fmt.Errorf("product not found: %s", p.ProductId)
+		}
+	}
 
 	return nil
 }

@@ -125,20 +125,10 @@ type AptekaWithProductsRepricing struct {
 }
 
 type ProductChangePriceRequest struct {
-	StoreCode     int     `json:"store_code"`
 	Products  []struct {
         ProductId string  `json:"product_id"`
         MaxPrice  float64 `json:"max_price"`
     } `json:"products"`
 }
 
-type ProductPriceChanged struct {
-	Id          string     `gorm:"id" json:"id"`
-	StoreId   string  `gorm:"store_id" json:"store_id"`
-	StoreCode int     `gorm:"store_code" json:"store_code"`
-	ProductId string  `gorm:"product_id" json:"product_id"`
-	MaxPrice  float64 `gorm:"max_price" json:"max_price"`
-	CreatedAt   *time.Time `gorm:"created_at" json:"created_at"`
-	UpdatedAt   *time.Time `gorm:"updated_at" json:"updated_at"`
-}
 

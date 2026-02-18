@@ -28819,9 +28819,6 @@ const docTemplate = `{
                             }
                         }
                     }
-                },
-                "store_code": {
-                    "type": "integer"
                 }
             }
         },
