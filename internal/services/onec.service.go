@@ -311,33 +311,27 @@ func (s *Services) CreateProductPriceChanged(
 		return domain.NotFoundError
 	}
 
-	query := `
-		INSERT INTO product_price_changed (
-			id,
-			store_id,
-			store_code,
-			product_id,
-			max_price
-		)
-		VALUES (?, ?, ?, ?, ?)
-		ON CONFLICT (store_id, product_id)
-		DO UPDATE SET
-			max_price = EXCLUDED.max_price;
-		`
-
-	err = s.db.WithContext(ctx).Exec(
-		query,
-		uuid.New().String(),
-		store.Id,
-		store.StoreCode,
-		req.ProductId,
-		req.MaxPrice,
-	).Error
-
-	if err != nil {
-		s.log.Errorf("could not upsert product_price_changed: %v", err)
-		return domain.InternalServerError
-	}
+	for _, p := range req.Products {
+		err := s.db.WithContext(ctx).Exec(`
+			INSERT INTO product_price_changed (
+				id, store_id, store_code, product_id, max_price
+			)
+			VALUES (?, ?, ?, ?, ?)
+			ON CONFLICT (store_id, product_id)
+			DO UPDATE SET max_price = EXCLUDED.max_price
+		`,
+			uuid.New().String(),
+			store.Id,
+			store.StoreCode,
+			p.ProductId,
+			p.MaxPrice,
+		).Error
+		
+		if err != nil {
+			s.log.Errorf("could not upsert product_price_changed: %v", err)
+			return domain.InternalServerError
+		}
+	}	
 
 	return nil
 }

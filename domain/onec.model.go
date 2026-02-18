@@ -126,8 +126,10 @@ type AptekaWithProductsRepricing struct {
 
 type ProductChangePriceRequest struct {
 	StoreCode     int     `json:"store_code"`
-	ProductId     string  `json:"product_id"`
-	MaxPrice      float64 `json:"max_price"`
+	Products  []struct {
+        ProductId string  `json:"product_id"`
+        MaxPrice  float64 `json:"max_price"`
+    } `json:"products"`
 }
 
 type ProductPriceChanged struct {

@@ -1370,12 +1370,15 @@ definitions:
     type: object
   domain.ProductChangePriceRequest:
     properties:
-      is_franchise:
-        type: boolean
-      max_price:
-        type: number
-      product_id:
-        type: string
+      products:
+        items:
+          properties:
+            max_price:
+              type: number
+            product_id:
+              type: string
+          type: object
+        type: array
       store_code:
         type: integer
     type: object

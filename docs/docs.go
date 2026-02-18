@@ -28221,14 +28221,19 @@ const docTemplate = `{
         "domain.ProductChangePriceRequest": {
             "type": "object",
             "properties": {
-                "is_franchise": {
-                    "type": "boolean"
-                },
-                "max_price": {
-                    "type": "number"
-                },
-                "product_id": {
-                    "type": "string"
+                "products": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "max_price": {
+                                "type": "number"
+                            },
+                            "product_id": {
+                                "type": "string"
+                            }
+                        }
+                    }
                 },
                 "store_code": {
                     "type": "integer"
