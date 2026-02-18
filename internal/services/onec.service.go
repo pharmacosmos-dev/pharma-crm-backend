@@ -280,45 +280,62 @@ func (s *Services) updateImportTotalsAfterCreateNewImport(importId string) {
 	}
 }
 
-func (s *Services) CreateProductPriceChanged(ctx context.Context, req *domain.ProductChangePriceRequest) error {
-	tx := s.db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			_ = tx.Rollback()
-		}
-	}()
 
-	for _, product := range req.Товары {
-		query := `
-		INSERT INTO product_price_changed (
-			store_code, barcode, markirovka, material_code,
-			product_series_number, sum, sum_vat, supply_price,
-			supply_price_vat, vat, vat_price, vat_sum
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+func (s *Services) CreateProductPriceChanged(
+	ctx context.Context,
+	req *domain.ProductChangePriceRequest,
+) error {
 
-		err := tx.WithContext(ctx).Exec(query,
-			req.Apteka.StoreCode,
-			product.Barcode,
-			utils.StringArray(product.Markirovka),
-			product.MaterialCode,
-			product.ProductSeriesNumber,
-			product.Sum,
-			product.SumVat,
-			product.SupplyPrice,
-			product.SupplyPriceVat,
-			product.Vat,
-			product.VatPrice,
-			product.VatSum,
-		).Error
-		if err != nil {
-			_ = tx.Rollback()
-			s.log.Errorf("could not insert product_price_changed: %v", err)
-			return domain.InternalServerError
-		}
+	// Store ni store_code orqali topamiz
+	var store domain.Store
+	err := s.db.WithContext(ctx).
+		First(&store, "store_code = ?", req.StoreCode).Error
+	if err != nil {
+		s.log.Errorf("could not find store by store_code %d: %v", req.StoreCode, err)
+		return domain.NotFoundError
 	}
 
-	if err := tx.Commit().Error; err != nil {
-		s.log.Errorf("could not commit product_price_changed transaction: %v", err)
+	var isFranchise bool
+	err = s.db.WithContext(ctx).
+		Raw(`SELECT is_franchise FROM companies WHERE id = ?`, store.CompanyId).
+		Scan(&isFranchise).Error
+
+	if err != nil {
+		s.log.Errorf("could not check franchise status for company_id %s: %v",
+			store.CompanyId, err)
+		return domain.InternalServerError
+	}
+
+	if !isFranchise {
+		s.log.Warnf("store_code %d is not franchise", req.StoreCode)
+		return domain.NotFoundError
+	}
+
+	query := `
+		INSERT INTO product_price_changed (
+			id,
+			store_id,
+			store_code,
+			product_id,
+			max_price
+		)
+		VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT (store_id, product_id)
+		DO UPDATE SET
+			max_price = EXCLUDED.max_price;
+		`
+
+	err = s.db.WithContext(ctx).Exec(
+		query,
+		uuid.New().String(),
+		store.Id,
+		store.StoreCode,
+		req.ProductId,
+		req.MaxPrice,
+	).Error
+
+	if err != nil {
+		s.log.Errorf("could not upsert product_price_changed: %v", err)
 		return domain.InternalServerError
 	}
 

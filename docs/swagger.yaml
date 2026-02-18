@@ -1370,14 +1370,14 @@ definitions:
     type: object
   domain.ProductChangePriceRequest:
     properties:
-      Apteka:
-        $ref: '#/definitions/domain.Apteka'
-      Dok:
-        $ref: '#/definitions/domain.Document'
-      Товары:
-        items:
-          $ref: '#/definitions/domain.ProductRequestOnecDto'
-        type: array
+      is_franchise:
+        type: boolean
+      max_price:
+        type: number
+      product_id:
+        type: string
+      store_code:
+        type: integer
     type: object
   domain.ProductExcludeRequest:
     properties:
@@ -2006,10 +2006,6 @@ definitions:
     type: object
 info:
   contact: {}
-  description: This is a sample server caller server.
-  termsOfService: http://swagger.io/terms/
-  title: Pharma API docs
-  version: "1.0"
 paths:
   /auto-order:
     post:
@@ -7645,52 +7641,6 @@ paths:
       summary: Get import status stats
       tags:
       - imports
-  /import/product-changed-price-list:
-    get:
-      consumes:
-      - application/json
-      description: Get product price changed list with pagination
-      parameters:
-      - description: Limit
-        in: query
-        name: limit
-        type: integer
-      - description: Offset
-        in: query
-        name: offset
-        type: integer
-      - description: Store Code
-        in: query
-        name: store_code
-        type: integer
-      - description: Material Code
-        in: query
-        name: material_code
-        type: integer
-      - description: Barcode
-        in: query
-        name: barcode
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Get product price changed list
-      tags:
-      - imports
   /integrations/nomenclature/{storeId}/availability:
     get:
       consumes:
@@ -12418,11 +12368,11 @@ paths:
       summary: Update retail price by 1C (multi-apteka)
       tags:
       - 1C Api
-  /product1c/price-changed:
+  /product1c/price-changing:
     post:
       consumes:
       - application/json
-      description: Save product price changed data from 1C
+      description: Save product price changing data from 1C
       parameters:
       - description: product price changed
         in: body
@@ -12447,7 +12397,7 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Create product price changed
+      summary: Create product price changing
       tags:
       - 1C Api
   /product1c/quantity:

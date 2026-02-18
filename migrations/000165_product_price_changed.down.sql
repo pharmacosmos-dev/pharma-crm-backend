@@ -1,1 +1,1 @@
-DROP TABLE IF EXISTS "product_price_changed";
+DROP TABLE IF EXISTS product_price_changed;

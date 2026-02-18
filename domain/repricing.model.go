@@ -58,6 +58,7 @@ type PriceRevalutionDetail struct {
 	UpdatedAt         *time.Time `gorm:"updated_at" json:"updated_at"`
 	Name              string     `gorm:"name" json:"name"`
 	Barcode           string     `gorm:"barcode" json:"barcode"`
+	MaxPrice          float64    `gorm:"max_price" json:"max_price"`
 	TotalCount        int64      `gorm:"total_count" json:"-"`
 }
 
