@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
@@ -281,25 +280,37 @@ func (s *Services) updateImportTotalsAfterCreateNewImport(importId string) {
 	}
 }
 
-
 func (s *Services) CreateProductPriceChanged(
 	ctx context.Context,
 	req *domain.ProductChangePriceRequest,
 ) error {
 
+	tx := s.db.Begin()
+	if tx.Error != nil {
+		return domain.InternalServerError
+	}
+
 	for _, p := range req.Products {
-		// Update max_price in products table
-		result := s.db.WithContext(ctx).Exec(`
-			UPDATE products SET max_price = ? WHERE id = ?
+
+		result := tx.WithContext(ctx).Exec(`
+			UPDATE products
+			SET max_price = ?
+			WHERE id = ?
 		`, p.MaxPrice, p.ProductId)
+
 		if result.Error != nil {
-			s.log.Errorf("could not update product max_price: %v", result.Error)
+			tx.Rollback()
 			return domain.InternalServerError
 		}
+
 		if result.RowsAffected == 0 {
-			s.log.Errorf("product not found: %s", p.ProductId)
-			return fmt.Errorf("product not found: %s", p.ProductId)
+			tx.Rollback()
+			return domain.NotFoundError
 		}
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return domain.InternalServerError
 	}
 
 	return nil
