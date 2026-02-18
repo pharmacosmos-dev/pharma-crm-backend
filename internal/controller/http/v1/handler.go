@@ -121,7 +121,9 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 		h.NewOstatokHandler(public)
 		// handler for external apis
 		h.NewNoorHandler(external)
-		// handler for partner apis
+		// handler for partner auth apis
+		h.NewPartnerAuthHandler(&gin.RouterGroup{})
+		// handler for uzum apis
 		h.NewUzumHandler(partner)
 	}
 }
