@@ -1262,14 +1262,16 @@ func (s *Services) AcceptOnlineSale(ctx context.Context, req *domain.ConfirmOnli
 		return nil, domain.InternalServerError
 	}
 
-	url := fmt.Sprintf("%s/orders/vendor/%d/confirm", s.cfg.NoorApiUrl, sale.SaleNumber)
+	if sale.ServiceType == constants.ServiceTypeNoor {
+		url := fmt.Sprintf("%s/orders/vendor/%d/confirm", s.cfg.NoorApiUrl, sale.SaleNumber)
 
-	var response *http.Response
-	err = s.NoorRequest(&response, http.MethodPatch, url, nil)
-	if err != nil {
-		_ = tx.Rollback()
-		s.log.Errorf("could not send order confirm request to noor: %v", err)
-		return nil, domain.InternalServerError
+		var response *http.Response
+		err = s.NoorRequest(&response, http.MethodPatch, url, nil)
+		if err != nil {
+			_ = tx.Rollback()
+			s.log.Errorf("could not send order confirm request to noor: %v", err)
+			return nil, domain.InternalServerError
+		}
 	}
 
 	// complete transaction

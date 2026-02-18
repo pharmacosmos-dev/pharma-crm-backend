@@ -34,6 +34,7 @@ type Product struct {
 	IsActive        bool                 `gorm:"is_active" json:"is_active"`
 	BonusPercent    float64              `gorm:"bonus_percent" json:"bonus_percent"`
 	BonusAmount     float64              `gorm:"bonus_amount" json:"bonus_amount"`
+	MaxPrice        float64              `gorm:"max_price" json:"max_price"`
 	IsMarking       bool                 `gorm:"is_marking" json:"is_marking"`
 	CreatedAt       *time.Time           `gorm:"created_at" json:"created_at"`
 	UpdatedAt       *time.Time           `gorm:"updated_at" json:"updated_at"`

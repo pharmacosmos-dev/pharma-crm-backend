@@ -1,0 +1,1 @@
+ALTER TABLE "products" ADD COLUMN IF NOT EXISTS "max_price" FLOAT DEFAULT 0;
