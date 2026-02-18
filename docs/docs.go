@@ -10024,7 +10024,7 @@ const docTemplate = `{
                 "tags": [
                     "auth"
                 ],
-                "summary": "Login",
+                "summary": "Loginx",
                 "parameters": [
                     {
                         "description": "Login data",
@@ -25533,7 +25533,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/uzum/nomenclature/{storeId}/availability": {
+        "/uzum/v1/nomenclature/{storeId}/availability": {
             "get": {
                 "security": [
                     {
@@ -25630,7 +25630,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/uzum/nomenclature/{storeId}/composition": {
+        "/uzum/v1/nomenclature/{storeId}/composition": {
             "get": {
                 "security": [
                     {
@@ -25727,7 +25727,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/uzum/order": {
+        "/uzum/v1/order": {
             "post": {
                 "security": [
                     {
@@ -25802,7 +25802,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/uzum/order/{orderId}": {
+        "/uzum/v1/order/{orderId}": {
             "get": {
                 "security": [
                     {
@@ -26029,7 +26029,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/uzum/order/{orderId}/status": {
+        "/uzum/v1/order/{orderId}/status": {
             "get": {
                 "security": [
                     {
@@ -26090,7 +26090,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/uzum/restaurants": {
+        "/uzum/v1/restaurants": {
             "get": {
                 "security": [
                     {
@@ -28498,6 +28498,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "client_name": {
+                    "type": "string"
+                },
+                "client_secret": {
+                    "description": "Never expose in JSON",
                     "type": "string"
                 },
                 "created_at": {

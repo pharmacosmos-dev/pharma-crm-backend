@@ -20,17 +20,15 @@ func (h *Handler) NewUzumHandler(r *gin.RouterGroup) {
 }
 
 func (h *UzumHandler) UzumRoutes(r *gin.RouterGroup) {
-	uzum := r.Group("/uzum")
-	{
-		uzum.GET("/nomenclature/:storeId/composition", h.GetNomenclature)
-		uzum.GET("/nomenclature/:storeId/availability", h.GetAvailability)
-		uzum.POST("/order", h.CreateOrder)
-		uzum.GET("/order/:orderId", h.GetOrder)
-		uzum.GET("/order/:orderId/status", h.GetOrderStatus)
-		uzum.PUT("/order/:orderId", h.UpdateOrder)
-		uzum.DELETE("/order/:orderId", h.CancelOrder)
-		uzum.GET("/restaurants", h.GetRestaurants)
-	}
+	r.GET("/nomenclature/:storeId/composition", h.GetNomenclature)
+	r.GET("/nomenclature/:storeId/availability", h.GetAvailability)
+	r.POST("/order", h.CreateOrder)
+	r.GET("/order/:orderId", h.GetOrder)
+	r.GET("/order/:orderId/status", h.GetOrderStatus)
+	r.PUT("/order/:orderId", h.UpdateOrder)
+	r.DELETE("/order/:orderId", h.CancelOrder)
+	r.GET("/restaurants", h.GetRestaurants)
+
 }
 
 // @Summary      Get Nomenclature Composition
@@ -47,7 +45,7 @@ func (h *UzumHandler) UzumRoutes(r *gin.RouterGroup) {
 // @Failure      401 {array}  domain.UzumErrorList
 // @Failure      404 {array}  domain.UzumErrorList
 // @Failure      500 {array}  domain.UzumErrorList
-// @Router       /uzum/nomenclature/{storeId}/composition [get]
+// @Router       /uzum/v1/nomenclature/{storeId}/composition [get]
 func (h *UzumHandler) GetNomenclature(c *gin.Context) {
 	storeId := c.Param("storeId")
 
@@ -97,7 +95,7 @@ func (h *UzumHandler) GetNomenclature(c *gin.Context) {
 // @Failure      401 {array}  domain.UzumErrorList
 // @Failure      404 {array}  domain.UzumErrorList
 // @Failure      500 {array}  domain.UzumErrorList
-// @Router       /uzum/nomenclature/{storeId}/availability [get]
+// @Router       /uzum/v1/nomenclature/{storeId}/availability [get]
 func (h *UzumHandler) GetAvailability(c *gin.Context) {
 	storeId := c.Param("storeId")
 
@@ -137,7 +135,7 @@ func (h *UzumHandler) GetAvailability(c *gin.Context) {
 // @Failure      400 {array}  domain.UzumErrorList
 // @Failure      409 {array}  domain.UzumErrorList
 // @Failure      500 {array}  domain.UzumErrorList
-// @Router       /uzum/order [post]
+// @Router       /uzum/v1/order [post]
 func (h *UzumHandler) CreateOrder(c *gin.Context) {
 	var body domain.UzumCreateOrderRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
@@ -179,7 +177,7 @@ func (h *UzumHandler) CreateOrder(c *gin.Context) {
 // @Success      200 {object} domain.UzumGetOrderResponse
 // @Failure      404 {array}  domain.UzumErrorList
 // @Failure      500 {array}  domain.UzumErrorList
-// @Router       /uzum/order/{orderId} [get]
+// @Router       /uzum/v1/order/{orderId} [get]
 func (h *UzumHandler) GetOrder(c *gin.Context) {
 	orderId := c.Param("orderId")
 
@@ -207,7 +205,7 @@ func (h *UzumHandler) GetOrder(c *gin.Context) {
 // @Success      200 {object} domain.UzumOrderStatusResponse
 // @Failure      404 {array}  domain.UzumErrorList
 // @Failure      500 {array}  domain.UzumErrorList
-// @Router       /uzum/order/{orderId}/status [get]
+// @Router       /uzum/v1/order/{orderId}/status [get]
 func (h *UzumHandler) GetOrderStatus(c *gin.Context) {
 	orderId := c.Param("orderId")
 
@@ -237,7 +235,7 @@ func (h *UzumHandler) GetOrderStatus(c *gin.Context) {
 // @Failure      400 {array}  domain.UzumErrorList
 // @Failure      404 {array}  domain.UzumErrorList
 // @Failure      500 {array}  domain.UzumErrorList
-// @Router       /uzum/order/{orderId} [put]
+// @Router       /uzum/v1/order/{orderId} [put]
 func (h *UzumHandler) UpdateOrder(c *gin.Context) {
 	orderId := c.Param("orderId")
 
@@ -275,7 +273,7 @@ func (h *UzumHandler) UpdateOrder(c *gin.Context) {
 // @Failure      400 {array}  domain.UzumErrorList
 // @Failure      404 {array}  domain.UzumErrorList
 // @Failure      500 {array}  domain.UzumErrorList
-// @Router       /uzum/order/{orderId} [delete]
+// @Router       /uzum/v1/order/{orderId} [delete]
 func (h *UzumHandler) CancelOrder(c *gin.Context) {
 	orderId := c.Param("orderId")
 
@@ -314,7 +312,7 @@ func (h *UzumHandler) CancelOrder(c *gin.Context) {
 // @Failure      401 {array}  domain.UzumErrorList
 // @Failure      404 {array}  domain.UzumErrorList
 // @Failure      500 {array}  domain.UzumErrorList
-// @Router       /uzum/restaurants [get]
+// @Router       /uzum/v1/restaurants [get]
 func (h *UzumHandler) GetRestaurants(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()

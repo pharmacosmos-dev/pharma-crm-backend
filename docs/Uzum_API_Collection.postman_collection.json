@@ -2,13 +2,13 @@
     "info": {
         "_postman_id": "uzum-api-collection-2026",
         "name": "Uzum Tezkor API",
-        "description": "# Uzum Tezkor API Integration\n\nComplete API collection for the Uzum Tezkor grocery delivery integration.\n\n## Authentication\nAll endpoints require OAuth2 Bearer token authentication.\n- Use `POST /v1/security/oauth/token` with `client_credentials` grant type to obtain a token.\n- Set the token in the `Authorization` header as `Bearer <token>`.\n\n## Base URL\n- **Local**: `https://api-pharma.noor.uz`\n- **Production**: Set the `{{base_url}}` variable accordingly.\n\n## Endpoints Overview\n| Method | Endpoint | Description |\n|--------|----------|-------------|\n| GET | /v1/uzum/restaurants | List restaurants/stores |\n| GET | /v1/uzum/nomenclature/:storeId/composition | Product catalog |\n| GET | /v1/uzum/nomenclature/:storeId/availability | Product stock levels |\n| POST | /v1/uzum/order | Create a new order |\n| GET | /v1/uzum/order/:orderId | Get order details |\n| GET | /v1/uzum/order/:orderId/status | Get order status |\n| PUT | /v1/uzum/order/:orderId | Update an order |\n| DELETE | /v1/uzum/order/:orderId | Cancel an order |",
+        "description": "# Uzum Tezkor API Integration\n\nComplete API collection for the Uzum Tezkor grocery delivery integration.\n\n## Authentication\nAll endpoints require OAuth2 Bearer token authentication.\n- Use `POST /v1/security/oauth/token` with `client_credentials` grant type to obtain a token.\n- Set the token in the `Authorization` header as `Bearer <token>`.\n\n## Base URL\n- **Production**: `https://api-pharma.noor.uz/uzum`\n\n## Endpoints Overview\n| Method | Endpoint | Description |\n|--------|----------|-------------|\n| GET | /v1/restaurants | List restaurants/stores |\n| GET | /v1/nomenclature/:storeId/composition | Product catalog |\n| GET | /v1/nomenclature/:storeId/availability | Product stock levels |\n| POST | /v1/order | Create a new order |\n| GET | /v1/order/:orderId | Get order details |\n| GET | /v1/order/:orderId/status | Get order status |\n| PUT | /v1/order/:orderId | Update an order |\n| DELETE | /v1/order/:orderId | Cancel an order |",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
     },
     "variable": [
         {
             "key": "base_url",
-            "value": "https://api-pharma.noor.uz",
+            "value": "https://api-pharma.noor.uz/uzum",
             "type": "string"
         },
         {
@@ -131,13 +131,12 @@
                         "method": "GET",
                         "header": [],
                         "url": {
-                            "raw": "{{base_url}}/v1/uzum/restaurants?page=1&limit=10",
+                            "raw": "{{base_url}}/v1/restaurants?page=1&limit=10",
                             "host": [
                                 "{{base_url}}"
                             ],
                             "path": [
                                 "v1",
-                                "uzum",
                                 "restaurants"
                             ],
                             "query": [
@@ -194,13 +193,12 @@
                         "method": "GET",
                         "header": [],
                         "url": {
-                            "raw": "{{base_url}}/v1/uzum/nomenclature/{{store_id}}/composition?page=1&limit=10",
+                            "raw": "{{base_url}}/v1/nomenclature/{{store_id}}/composition?page=1&limit=10",
                             "host": [
                                 "{{base_url}}"
                             ],
                             "path": [
                                 "v1",
-                                "uzum",
                                 "nomenclature",
                                 "{{store_id}}",
                                 "composition"
@@ -253,13 +251,12 @@
                         "method": "GET",
                         "header": [],
                         "url": {
-                            "raw": "{{base_url}}/v1/uzum/nomenclature/{{store_id}}/availability?page=1&limit=50",
+                            "raw": "{{base_url}}/v1/nomenclature/{{store_id}}/availability?page=1&limit=50",
                             "host": [
                                 "{{base_url}}"
                             ],
                             "path": [
                                 "v1",
-                                "uzum",
                                 "nomenclature",
                                 "{{store_id}}",
                                 "availability"
@@ -335,13 +332,12 @@
                             }
                         },
                         "url": {
-                            "raw": "{{base_url}}/v1/uzum/order",
+                            "raw": "{{base_url}}/v1/order",
                             "host": [
                                 "{{base_url}}"
                             ],
                             "path": [
                                 "v1",
-                                "uzum",
                                 "order"
                             ]
                         },
@@ -392,13 +388,12 @@
                         "method": "GET",
                         "header": [],
                         "url": {
-                            "raw": "{{base_url}}/v1/uzum/order/{{order_id}}",
+                            "raw": "{{base_url}}/v1/order/{{order_id}}",
                             "host": [
                                 "{{base_url}}"
                             ],
                             "path": [
                                 "v1",
-                                "uzum",
                                 "order",
                                 "{{order_id}}"
                             ]
@@ -438,13 +433,12 @@
                         "method": "GET",
                         "header": [],
                         "url": {
-                            "raw": "{{base_url}}/v1/uzum/order/{{order_id}}/status",
+                            "raw": "{{base_url}}/v1/order/{{order_id}}/status",
                             "host": [
                                 "{{base_url}}"
                             ],
                             "path": [
                                 "v1",
-                                "uzum",
                                 "order",
                                 "{{order_id}}",
                                 "status"
@@ -511,13 +505,12 @@
                             }
                         },
                         "url": {
-                            "raw": "{{base_url}}/v1/uzum/order/{{order_id}}",
+                            "raw": "{{base_url}}/v1/order/{{order_id}}",
                             "host": [
                                 "{{base_url}}"
                             ],
                             "path": [
                                 "v1",
-                                "uzum",
                                 "order",
                                 "{{order_id}}"
                             ]
@@ -583,13 +576,12 @@
                             }
                         },
                         "url": {
-                            "raw": "{{base_url}}/v1/uzum/order/{{order_id}}",
+                            "raw": "{{base_url}}/v1/order/{{order_id}}",
                             "host": [
                                 "{{base_url}}"
                             ],
                             "path": [
                                 "v1",
-                                "uzum",
                                 "order",
                                 "{{order_id}}"
                             ]

@@ -70,7 +70,7 @@ func (h *Handler) InitRoutes(r *gin.Engine) {
 	external.Use(basicAuth.Middleware)
 
 	// Route Group for Partner APIs
-	partner := r.Group("/v1")
+	partner := r.Group("/uzum/v1")
 	// Auth Middleware for Partner
 	partnerAuth := middleware.NewAuthMiddleware(h.cfg, h.JwtHandler, h.db)
 	partner.Use(partnerAuth.CheckOAuthToken())

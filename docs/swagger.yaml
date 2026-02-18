@@ -1124,6 +1124,9 @@ definitions:
         type: string
       client_name:
         type: string
+      client_secret:
+        description: Never expose in JSON
+        type: string
       created_at:
         type: string
       id:
@@ -8596,7 +8599,7 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/v1.Response'
-      summary: Login
+      summary: Loginx
       tags:
       - auth
   /logs:
@@ -18462,7 +18465,7 @@ paths:
       summary: Upload a file
       tags:
       - file upload
-  /uzum/nomenclature/{storeId}/availability:
+  /uzum/v1/nomenclature/{storeId}/availability:
     get:
       consumes:
       - application/json
@@ -18525,7 +18528,7 @@ paths:
       summary: Get Product Availability
       tags:
       - uzum
-  /uzum/nomenclature/{storeId}/composition:
+  /uzum/v1/nomenclature/{storeId}/composition:
     get:
       consumes:
       - application/json
@@ -18589,7 +18592,7 @@ paths:
       summary: Get Nomenclature Composition
       tags:
       - uzum
-  /uzum/order:
+  /uzum/v1/order:
     post:
       consumes:
       - application/json
@@ -18637,7 +18640,7 @@ paths:
       summary: Create Order
       tags:
       - uzum
-  /uzum/order/{orderId}:
+  /uzum/v1/order/{orderId}:
     delete:
       consumes:
       - application/json
@@ -18784,7 +18787,7 @@ paths:
       summary: Update Order
       tags:
       - uzum
-  /uzum/order/{orderId}/status:
+  /uzum/v1/order/{orderId}/status:
     get:
       consumes:
       - application/json
@@ -18823,7 +18826,7 @@ paths:
       summary: Get Order Status
       tags:
       - uzum
-  /uzum/restaurants:
+  /uzum/v1/restaurants:
     get:
       consumes:
       - application/json

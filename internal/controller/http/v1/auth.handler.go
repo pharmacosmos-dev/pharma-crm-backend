@@ -27,7 +27,7 @@ func (h *AuthHandler) AuthRoutes(r *gin.RouterGroup) {
 	r.POST("/security/oauth/token", h.OAuthToken)
 }
 
-// @Summary      Login
+// @Summary      Loginx
 // @Description  Login a user
 // @Tags         auth
 // @Accept       json
