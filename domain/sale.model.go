@@ -139,6 +139,7 @@ type SaleResponse struct {
 	OnlineStatus    int        `gorm:"online_status" json:"online_status"`
 	Type            string     `gorm:"type" json:"type"`
 	SaleType        string     `gorm:"sale_type" json:"sale_type"`
+	ServiceType     string     `gorm:"service_type" json:"service_type"`
 	DiscountBarcode string     `gorm:"discount_barcode" json:"discount_barcode"`
 	IsDelivered     bool       `gorm:"is_delivered" json:"is_delivered"`
 	IsReturned      bool       `gorm:"is_returned" json:"is_returned"`
@@ -397,6 +398,7 @@ type OnlineSaleDto struct {
 	EmployeeId    string     `gorm:"employee_id" json:"employee_id"`
 	StoreId       string     `gorm:"store_id" json:"store_id"`
 	SaleNumber    int        `gorm:"sale_number" json:"sale_number"`
+	VendorOrderId string     `gorm:"vendor_order_id" json:"vendor_order_id"`
 	OnlineStatus  int        `gorm:"online_status" json:"online_status"`
 	Stage         int        `gorm:"stage" json:"stage"`
 	Type          string     `gorm:"type" json:"type"`
@@ -435,6 +437,7 @@ type MarkingItemsResponse struct {
 type OnlineOrderDto struct {
 	Id            string                          `json:"id"`
 	SaleNumber    int                             `json:"sale_number"`
+	VendorOrderId string                          `json:"vendor_order_id"`
 	TotalAmount   float64                         `json:"total_amount"`
 	TotalDiscount float64                         `json:"total_discount"`
 	PaymentType   string                          `json:"payment_type"`
@@ -457,4 +460,8 @@ type OnlineOrderStore struct {
 	Id    string `json:"id"`
 	Name  string `json:"name"`
 	Phone string `json:"phone"`
+}
+
+type UpdateOnlineSale struct {
+	OnlineStatus int `json:"online_status" binding:"required"`
 }

@@ -1371,16 +1371,18 @@ definitions:
       store_id:
         type: string
     type: object
+  domain.ProductChangePriceItem:
+    properties:
+      material_code:
+        type: integer
+      max_price:
+        type: number
+    type: object
   domain.ProductChangePriceRequest:
     properties:
       products:
         items:
-          properties:
-            max_price:
-              type: number
-            product_id:
-              type: string
-          type: object
+          $ref: '#/definitions/domain.ProductChangePriceItem'
         type: array
     type: object
   domain.ProductExcludeRequest:
@@ -1977,6 +1979,13 @@ definitions:
       store_product_id:
         type: string
     type: object
+  domain.UpdateOnlineSale:
+    properties:
+      online_status:
+        type: integer
+    required:
+    - online_status
+    type: object
   domain.UpdatePackagingRequest:
     properties:
       product_id:
@@ -2022,7 +2031,6 @@ definitions:
       restaurantId:
         type: string
     required:
-    - comment
     - eatsId
     - items
     type: object
@@ -2194,6 +2202,10 @@ definitions:
     type: object
 info:
   contact: {}
+  description: This is a sample server caller server.
+  termsOfService: http://swagger.io/terms/
+  title: Pharma API docs
+  version: "1.0"
 paths:
   /auto-order:
     post:
@@ -16586,6 +16598,45 @@ paths:
       security:
       - BearerAuth: []
       summary: Fetch online orders
+      tags:
+      - sales
+  /sale/online-status/{sale_id}:
+    patch:
+      description: Update a sale record status to pending
+      parameters:
+      - description: Sale ID
+        in: path
+        name: sale_id
+        required: true
+        type: string
+      - description: Update online sale status
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UpdateOnlineSale'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.PendingSaleResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update online sale status
       tags:
       - sales
   /sale/pending-list:

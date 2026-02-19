@@ -124,11 +124,13 @@ type AptekaWithProductsRepricing struct {
 	Товары []OnecProductRepricing `json:"Товары"`
 }
 
+type ProductChangePriceItem struct {
+	MaterialCode int     `json:"material_code"`
+	MaxPrice     float64 `json:"max_price"`
+}
+
 type ProductChangePriceRequest struct {
-	Products  []struct {
-        ProductId string  `json:"product_id"`
-        MaxPrice  float64 `json:"max_price"`
-    } `json:"products"`
+	Products []ProductChangePriceItem `json:"products"`
 }
 
 

@@ -6727,7 +6727,7 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
-                        "type": "number",
+                        "type": "number", 
                         "description": "From Amount",
                         "name": "from_amount",
                         "in": "query"
@@ -22484,6 +22484,67 @@ const docTemplate = `{
                 }
             }
         },
+        "/sale/online-status/{sale_id}": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update a sale record status to pending",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sales"
+                ],
+                "summary": "Update online sale status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Sale ID",
+                        "name": "sale_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Update online sale status",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.UpdateOnlineSale"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.PendingSaleResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/sale/pending-list": {
             "get": {
                 "security": [
@@ -28803,21 +28864,24 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.ProductChangePriceItem": {
+            "type": "object",
+            "properties": {
+                "material_code": {
+                    "type": "integer"
+                },
+                "max_price": {
+                    "type": "number"
+                }
+            }
+        },
         "domain.ProductChangePriceRequest": {
             "type": "object",
             "properties": {
                 "products": {
                     "type": "array",
                     "items": {
-                        "type": "object",
-                        "properties": {
-                            "max_price": {
-                                "type": "number"
-                            },
-                            "product_id": {
-                                "type": "string"
-                            }
-                        }
+                        "$ref": "#/definitions/domain.ProductChangePriceItem"
                     }
                 }
             }
@@ -29720,6 +29784,17 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.UpdateOnlineSale": {
+            "type": "object",
+            "required": [
+                "online_status"
+            ],
+            "properties": {
+                "online_status": {
+                    "type": "integer"
+                }
+            }
+        },
         "domain.UpdatePackagingRequest": {
             "type": "object",
             "required": [
@@ -29753,7 +29828,6 @@ const docTemplate = `{
         "domain.UzumCreateOrderRequest": {
             "type": "object",
             "required": [
-                "comment",
                 "eatsId",
                 "items"
             ],

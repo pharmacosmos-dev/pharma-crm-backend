@@ -51,6 +51,7 @@ func (h *SaleHandler) SaleRoutes(r *gin.RouterGroup) {
 		sale.POST("/asil-belgi-barcode-confirm/:id", h.AsilBelgiBarcodeConfirm)
 		sale.PUT("/pending/:id", h.PendingSale)
 		sale.GET("/online-orders", h.FetchOnlineOrders)
+		sale.PATCH("/online-status/:sale_id", h.UpdateOnlineSaleStatus)
 	}
 }
 
@@ -500,7 +501,7 @@ func (h *SaleHandler) GetOnlineSaleCount(c *gin.Context) {
 	// get online order count
 	qb := h.db.WithContext(ctx).
 		Model(&domain.Sale{}).
-		Where("online_status IN(1, 2)").
+		Where("online_status IN(?)", constants.OnlinePendingStages).
 		Where("type = ?", constants.SaleTypeOnline)
 
 	if storeId != "" {
@@ -1309,6 +1310,66 @@ func (h *SaleHandler) PendingSale(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, resp)
+}
+
+// UpdateOnlineSaleStatus godoc
+// @Summary      Update online sale status
+// @Description  Update a sale record status to pending
+// @Tags         sales
+// @Security     BearerAuth
+// @Produce      json
+// @Param        sale_id path string true "Sale ID"
+// @Param        body body domain.UpdateOnlineSale true "Update online sale status"
+// @Success      200 {object} domain.PendingSaleResponse
+// @Failure      400 {object} v1.Response
+// @Failure      404 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /sale/online-status/{sale_id} [patch]
+func (h *SaleHandler) UpdateOnlineSaleStatus(c *gin.Context) {
+	id := c.Param("sale_id")
+	if id == "" {
+		handleServiceResponse(c, BadRequest, domain.BadRequestError)
+		return
+	}
+
+	var body domain.UpdateOnlineSale
+	if err := c.ShouldBindJSON(&body); err != nil {
+		handleServiceResponse(c, BadRequest, domain.BadRequestError)
+		return
+	}
+
+	if !utils.In(body.OnlineStatus, constants.SaleOnlineStages...) {
+		handleServiceResponse(c, BadRequest, domain.BadRequestError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	var sale domain.Sale
+	// get sale record
+	err := h.db.WithContext(ctx).Take(&sale, "id = ?", id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		handleServiceResponse(c, NotFound, domain.NotFoundError)
+		return
+	}
+
+	if utils.In(sale.Stage, constants.FinishedSaleStages...) || sale.OnlineStatus == constants.SaleOnlineStageCanceled {
+		handleServiceResponse(c, BadRequest, domain.BadRequestError)
+		return
+	}
+
+	if sale.OnlineStatus == constants.SaleOnlineStagePending {
+		// update sale status to pending
+		err = h.db.WithContext(ctx).Exec(`UPDATE sales SET online_status = ? WHERE id = ?`, constants.SaleOnlineStageWaiting, id).Error
+		if err != nil {
+			h.log.Errorf("could not update sale status: %v", err)
+			handleServiceResponse(c, InternalError, domain.InternalServerError)
+			return
+		}
+	}
+
+	handleResponse(c, OK, "UPDATED")
 }
 
 // lock order for parallel request
