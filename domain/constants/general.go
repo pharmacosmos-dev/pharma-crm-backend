@@ -79,6 +79,7 @@ var (
 	FinishedSaleStages  = []int{SaleStageFinished, SaleStageReturnedFinish}
 	PendingSaleStages   = []int{SaleStageNew, SaleStagePending, SaleStageReturning}
 	OnlinePendingStages = []int{SaleOnlineStageNew, SaleOnlineStagePending, SaleOnlineStageWaiting}
+	SaleOnlineStages    = []int{SaleOnlineStageNew, SaleOnlineStagePending, SaleOnlineStageCanceled, SaleOnlineStageCompleted, SaleOnlineStageWaiting}
 )
 
 var SaleStages = map[int]map[string]string{

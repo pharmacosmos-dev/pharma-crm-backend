@@ -431,7 +431,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 			updates["updated_at"] = time.Now()
 			updates["completed_at"] = time.Now()
 
-			if sale.ServiceType == constants.ServiceTypeNoor {
+			if sale.ServiceType == constants.ServiceTypeNoor || sale.ServiceType == constants.ServiceTypeUzum {
 				updates["online_status"] = constants.SaleOnlineStageCompleted
 			}
 		}
@@ -791,7 +791,7 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 		s.log.Infof("Inventory already applied for sale %s, skipping", sale.Id)
 	}
 
-	if sale.ServiceType == constants.ServiceTypeNoor {
+	if sale.ServiceType == constants.ServiceTypeNoor || sale.ServiceType == constants.ServiceTypeUzum {
 		updates["online_status"] = constants.SaleOnlineStageCompleted
 	}
 
@@ -1490,6 +1490,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 		OnlineStatus       int        `gorm:"online_status"`
 		Type               string     `gorm:"type"`
 		SaleType           string     `gorm:"sale_type"`
+		ServiceType        string     `gorm:"service_type"`
 		Cash               float64    `gorm:"cash"`
 		Uzcard             float64    `gorm:"uzcard"`
 		Humo               float64    `gorm:"humo"`
@@ -1553,6 +1554,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 			"s.stage",
 			"s.online_status",
 			"s.sale_type",
+			"s.service_type",
 			"s.type",
 			"s.fiscal_sign",
 			"s.check_url",
@@ -1617,6 +1619,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 		Stage:              tempSale.Stage,
 		OnlineStatus:       tempSale.OnlineStatus,
 		SaleType:           tempSale.SaleType,
+		ServiceType:        tempSale.ServiceType,
 		Type:               tempSale.Type,
 		FiscalSign:         tempSale.FiscalSign,
 		CheckUrl:           tempSale.CheckUrl,
@@ -2110,6 +2113,7 @@ func (s *Services) GetOnlinePendingSales(ctx context.Context, params *domain.Sal
 		Select(
 			"s.id",
 			"s.sale_number",
+			"s.vendor_order_id",
 			"s.employee_id",
 			"s.store_id",
 			"s.online_status",
@@ -2420,6 +2424,7 @@ func (s *Services) GetOnlineOrders(ctx context.Context, params *domain.SaleQuery
 	var tmp []struct {
 		Id               string     `gorm:"id"`
 		SaleNumber       int        `gorm:"sale_number"`
+		VendorOrderId    string     `gorm:"vendor_order_id"`
 		TotalAmount      float64    `gorm:"total_amount"`
 		TotalDiscount    float64    `gorm:"total_discount"`
 		PaymentType      string     `gorm:"payment_type"`
@@ -2440,6 +2445,7 @@ func (s *Services) GetOnlineOrders(ctx context.Context, params *domain.SaleQuery
 		Select(
 			"s.id",
 			"s.sale_number",
+			"s.vendor_order_id",
 			"s.total_amount",
 			"s.total_discount",
 			"s.payment_type",
@@ -2507,6 +2513,7 @@ func (s *Services) GetOnlineOrders(ctx context.Context, params *domain.SaleQuery
 		res = append(res, domain.OnlineOrderDto{
 			Id:            order.Id,
 			SaleNumber:    order.SaleNumber,
+			VendorOrderId: order.VendorOrderId,
 			TotalAmount:   order.TotalAmount,
 			TotalDiscount: order.TotalDiscount,
 			PaymentType:   order.PaymentType,
