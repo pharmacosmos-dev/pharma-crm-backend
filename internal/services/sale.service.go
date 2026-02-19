@@ -1476,6 +1476,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 	var tempSale struct {
 		Id                 string     `gorm:"id"`
 		DisplayId          int        `gorm:"display_id"`
+		VendorOrderId      string     `gorm:"vendor_order_id"`
 		ParentId           string     `gorm:"parent_id"`
 		EmployeeId         string     `gorm:"employee_id"`
 		CashBoxOperationId string     `gorm:"cash_box_operation_id"`
@@ -1532,6 +1533,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 		Select(
 			"s.id",
 			"s.display_id",
+			"s.vendor_order_id",
 			"s.parent_id",
 			"s.employee_id",
 			"s.cash_box_operation_id",
@@ -1600,6 +1602,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 	res := domain.SaleResponse{
 		Id:                 tempSale.Id,
 		DisplayId:          tempSale.DisplayId,
+		VendorOrderId:      tempSale.VendorOrderId,
 		ParentId:           tempSale.ParentId,
 		EmployeeId:         tempSale.EmployeeId,
 		CustomerId:         tempSale.CustomerId,
@@ -2430,6 +2433,7 @@ func (s *Services) GetOnlineOrders(ctx context.Context, params *domain.SaleQuery
 		PaymentType      string     `gorm:"payment_type"`
 		Stage            int        `gorm:"stage"`
 		OnlineStatus     int        `gorm:"online_status"`
+		ServiceType      string     `gorm:"service_type"`
 		IsPaid           bool       `gorm:"is_paid"`
 		CreatedAt        *time.Time `gorm:"created_at"`
 		CompletedAt      *time.Time `gorm:"completed_at"`
@@ -2451,6 +2455,7 @@ func (s *Services) GetOnlineOrders(ctx context.Context, params *domain.SaleQuery
 			"s.payment_type",
 			"s.stage",
 			"s.online_status",
+			"s.service_type",
 			"s.is_paid",
 			"s.created_at",
 			"s.completed_at",
@@ -2466,7 +2471,7 @@ func (s *Services) GetOnlineOrders(ctx context.Context, params *domain.SaleQuery
 		Table("sales s").
 		Joins("JOIN stores st ON s.store_id = st.id").
 		Joins("LEFT JOIN customers c ON s.customer_id = c.id").
-		Where("s.service_type = ?", constants.ServiceTypeNoor)
+		Where("s.type = ?", constants.SaleTypeOnline)
 
 	if params.Search != "" {
 		qb = qb.Where("s.sale_number::TEXT ILIKE ?", "%"+params.Search+"%")
@@ -2519,6 +2524,7 @@ func (s *Services) GetOnlineOrders(ctx context.Context, params *domain.SaleQuery
 			PaymentType:   order.PaymentType,
 			Stage:         order.Stage,
 			OnlineStatus:  order.OnlineStatus,
+			ServiceType:   order.ServiceType,
 			IsPaid:        order.IsPaid,
 			CreatedAt:     order.CreatedAt,
 			CompletedAt:   order.CompletedAt,
