@@ -139,6 +139,7 @@ type SaleResponse struct {
 	OnlineStatus    int        `gorm:"online_status" json:"online_status"`
 	Type            string     `gorm:"type" json:"type"`
 	SaleType        string     `gorm:"sale_type" json:"sale_type"`
+	ServiceType     string     `gorm:"service_type" json:"service_type"`
 	DiscountBarcode string     `gorm:"discount_barcode" json:"discount_barcode"`
 	IsDelivered     bool       `gorm:"is_delivered" json:"is_delivered"`
 	IsReturned      bool       `gorm:"is_returned" json:"is_returned"`

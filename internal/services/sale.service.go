@@ -1490,6 +1490,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 		OnlineStatus       int        `gorm:"online_status"`
 		Type               string     `gorm:"type"`
 		SaleType           string     `gorm:"sale_type"`
+		ServiceType        string     `gorm:"service_type"`
 		Cash               float64    `gorm:"cash"`
 		Uzcard             float64    `gorm:"uzcard"`
 		Humo               float64    `gorm:"humo"`
@@ -1553,6 +1554,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 			"s.stage",
 			"s.online_status",
 			"s.sale_type",
+			"s.service_type",
 			"s.type",
 			"s.fiscal_sign",
 			"s.check_url",
@@ -1617,6 +1619,7 @@ func (s *Services) GetSaleOne(ctx context.Context, saleId string) (*domain.SaleR
 		Stage:              tempSale.Stage,
 		OnlineStatus:       tempSale.OnlineStatus,
 		SaleType:           tempSale.SaleType,
+		ServiceType:        tempSale.ServiceType,
 		Type:               tempSale.Type,
 		FiscalSign:         tempSale.FiscalSign,
 		CheckUrl:           tempSale.CheckUrl,
