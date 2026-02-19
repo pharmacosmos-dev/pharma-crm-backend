@@ -431,7 +431,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 			updates["updated_at"] = time.Now()
 			updates["completed_at"] = time.Now()
 
-			if sale.ServiceType == constants.ServiceTypeNoor {
+			if sale.ServiceType == constants.ServiceTypeNoor || sale.ServiceType == constants.ServiceTypeUzum {
 				updates["online_status"] = constants.SaleOnlineStageCompleted
 			}
 		}
@@ -791,7 +791,7 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 		s.log.Infof("Inventory already applied for sale %s, skipping", sale.Id)
 	}
 
-	if sale.ServiceType == constants.ServiceTypeNoor {
+	if sale.ServiceType == constants.ServiceTypeNoor || sale.ServiceType == constants.ServiceTypeUzum {
 		updates["online_status"] = constants.SaleOnlineStageCompleted
 	}
 
