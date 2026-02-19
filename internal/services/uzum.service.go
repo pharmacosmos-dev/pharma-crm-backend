@@ -287,6 +287,7 @@ func (s *Services) getAndCheckUzumOrderItems(
 		sp.unit_quantity,
 		sp.unit_quantity / p.unit_per_pack AS quantity,
 		sp.retail_price AS unit_price,
+		sp.unit_price * (sp.unit_quantity / p.unit_per_pack) AS total_price,
 		p.name,
 		p.unit_per_pack
 	FROM store_products sp
