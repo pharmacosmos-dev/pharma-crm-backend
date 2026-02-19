@@ -458,3 +458,7 @@ type OnlineOrderStore struct {
 	Name  string `json:"name"`
 	Phone string `json:"phone"`
 }
+
+type UpdateOnlineSale struct {
+	OnlineStatus int `json:"online_status" binding:"required"`
+}
