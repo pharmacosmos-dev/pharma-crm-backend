@@ -397,6 +397,7 @@ type OnlineSaleDto struct {
 	EmployeeId    string     `gorm:"employee_id" json:"employee_id"`
 	StoreId       string     `gorm:"store_id" json:"store_id"`
 	SaleNumber    int        `gorm:"sale_number" json:"sale_number"`
+	VendorOrderId string     `gorm:"vendor_order_id" json:"vendor_order_id"`
 	OnlineStatus  int        `gorm:"online_status" json:"online_status"`
 	Stage         int        `gorm:"stage" json:"stage"`
 	Type          string     `gorm:"type" json:"type"`
@@ -435,6 +436,7 @@ type MarkingItemsResponse struct {
 type OnlineOrderDto struct {
 	Id            string                          `json:"id"`
 	SaleNumber    int                             `json:"sale_number"`
+	VendorOrderId string                          `json:"vendor_order_id"`
 	TotalAmount   float64                         `json:"total_amount"`
 	TotalDiscount float64                         `json:"total_discount"`
 	PaymentType   string                          `json:"payment_type"`

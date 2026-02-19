@@ -2110,6 +2110,7 @@ func (s *Services) GetOnlinePendingSales(ctx context.Context, params *domain.Sal
 		Select(
 			"s.id",
 			"s.sale_number",
+			"s.vendor_order_id",
 			"s.employee_id",
 			"s.store_id",
 			"s.online_status",
@@ -2420,6 +2421,7 @@ func (s *Services) GetOnlineOrders(ctx context.Context, params *domain.SaleQuery
 	var tmp []struct {
 		Id               string     `gorm:"id"`
 		SaleNumber       int        `gorm:"sale_number"`
+		VendorOrderId    string     `gorm:"vendor_order_id"`
 		TotalAmount      float64    `gorm:"total_amount"`
 		TotalDiscount    float64    `gorm:"total_discount"`
 		PaymentType      string     `gorm:"payment_type"`
@@ -2440,6 +2442,7 @@ func (s *Services) GetOnlineOrders(ctx context.Context, params *domain.SaleQuery
 		Select(
 			"s.id",
 			"s.sale_number",
+			"s.vendor_order_id",
 			"s.total_amount",
 			"s.total_discount",
 			"s.payment_type",
@@ -2507,6 +2510,7 @@ func (s *Services) GetOnlineOrders(ctx context.Context, params *domain.SaleQuery
 		res = append(res, domain.OnlineOrderDto{
 			Id:            order.Id,
 			SaleNumber:    order.SaleNumber,
+			VendorOrderId: order.VendorOrderId,
 			TotalAmount:   order.TotalAmount,
 			TotalDiscount: order.TotalDiscount,
 			PaymentType:   order.PaymentType,
