@@ -280,7 +280,7 @@ func (s *Services) updateImportTotalsAfterCreateNewImport(importId string) {
 	}
 }
 
-func (s *Services) CreateProductPriceChanged(
+func (s *Services) CreateProductMaxPriceChanged(
 	ctx context.Context,
 	req *domain.ProductChangePriceRequest,
 ) error {
@@ -290,26 +290,53 @@ func (s *Services) CreateProductPriceChanged(
 		return domain.InternalServerError
 	}
 
+	var notFoundCodes []int
+
 	for _, p := range req.Products {
+
+
+		if p.MaxPrice <= 0 {
+			tx.Rollback()
+			return domain.NewNotAdditionError(400, map[string]any{
+				"message":       "max_price must be greater than 0",
+				"material_code": p.MaterialCode,
+			})
+		}
 
 		result := tx.WithContext(ctx).Exec(`
 			UPDATE products
 			SET max_price = ?
-			WHERE id = ?
-		`, p.MaxPrice, p.ProductId)
+			WHERE material_code = ?
+		`, p.MaxPrice, p.MaterialCode)
 
 		if result.Error != nil {
 			tx.Rollback()
+
+			s.log.Errorf(
+				"db error updating product max_price (material_code=%d): %v",
+				p.MaterialCode,
+				result.Error,
+			)
+
 			return domain.InternalServerError
 		}
 
+		// topilmasa yig‘amiz
 		if result.RowsAffected == 0 {
-			tx.Rollback()
-			return domain.NotFoundError
+			notFoundCodes = append(notFoundCodes, p.MaterialCode)
 		}
 	}
 
+	if len(notFoundCodes) > 0 {
+		tx.Rollback()
+		return domain.NewNotAdditionError(404, map[string]any{
+			"message":                "products not found",
+			"not_found_material_codes": notFoundCodes,
+		})
+	}
+
 	if err := tx.Commit().Error; err != nil {
+		s.log.Errorf("commit error: %v", err)
 		return domain.InternalServerError
 	}
 

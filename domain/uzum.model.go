@@ -222,7 +222,7 @@ func MapOnlineStatusToUzum(onlineStatus int) string {
 	case 2: // SaleOnlineStagePending
 		return UzumOrderStatusAcceptedByRestaurant
 	case 3: // SaleOnlineStageCompleted
-		return UzumOrderStatusDelivered
+		return UzumOrderStatusReady
 	case 4: // SaleOnlineStageWaiting
 		return UzumOrderStatusCooking
 	case -1: // SaleOnlineStageCanceled
