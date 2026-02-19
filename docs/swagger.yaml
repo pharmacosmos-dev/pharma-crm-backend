@@ -1371,16 +1371,18 @@ definitions:
       store_id:
         type: string
     type: object
+  domain.ProductChangePriceItem:
+    properties:
+      material_code:
+        type: integer
+      max_price:
+        type: number
+    type: object
   domain.ProductChangePriceRequest:
     properties:
       products:
         items:
-          properties:
-            max_price:
-              type: number
-            product_id:
-              type: string
-          type: object
+          $ref: '#/definitions/domain.ProductChangePriceItem'
         type: array
     type: object
   domain.ProductExcludeRequest:
@@ -2022,7 +2024,6 @@ definitions:
       restaurantId:
         type: string
     required:
-    - comment
     - eatsId
     - items
     type: object

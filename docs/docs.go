@@ -6727,7 +6727,7 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
-                        "type": "number",
+                        "type": "number", 
                         "description": "From Amount",
                         "name": "from_amount",
                         "in": "query"
@@ -28803,21 +28803,24 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.ProductChangePriceItem": {
+            "type": "object",
+            "properties": {
+                "material_code": {
+                    "type": "integer"
+                },
+                "max_price": {
+                    "type": "number"
+                }
+            }
+        },
         "domain.ProductChangePriceRequest": {
             "type": "object",
             "properties": {
                 "products": {
                     "type": "array",
                     "items": {
-                        "type": "object",
-                        "properties": {
-                            "max_price": {
-                                "type": "number"
-                            },
-                            "product_id": {
-                                "type": "string"
-                            }
-                        }
+                        "$ref": "#/definitions/domain.ProductChangePriceItem"
                     }
                 }
             }
@@ -29753,7 +29756,6 @@ const docTemplate = `{
         "domain.UzumCreateOrderRequest": {
             "type": "object",
             "required": [
-                "comment",
                 "eatsId",
                 "items"
             ],
