@@ -38,9 +38,7 @@ func (s *Services) GetProductBonuses(ctx context.Context, params *domain.QueryPa
 	if params.Search != "" {
 		qb = qb.Where("p.name ILIKE ?", "%"+params.Search+"%")
 	}
-	if params.CompanyId != "" {
-		qb = qb.Where("pb.company_id = ?", params.CompanyId)
-	}
+
 	var totalCount int64
 	if err := qb.Count(&totalCount).Error; err != nil {
 		s.log.Errorf("could not get product_bonuses total_count: %v", err)

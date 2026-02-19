@@ -221,6 +221,19 @@ func generateSHA1(s string) string {
 func (s *Services) CreateUzumOrder(ctx context.Context, req *domain.UzumCreateOrderRequest) (*domain.UzumCreateOrderResponse, error) {
 	storeId := req.RestaurantId
 
+	// Check if order with this EatsId already exists (idempotency)
+	var existingSale domain.Sale
+	err := s.db.WithContext(ctx).
+		Where("vendor_order_id = ? AND service_type = ?", req.EatsId, constants.ServiceTypeUzum).
+		First(&existingSale).Error
+	if err == nil {
+		// Order already exists, return existing order info
+		return &domain.UzumCreateOrderResponse{
+			OrderId: existingSale.Id,
+			Result:  "OK",
+		}, nil
+	}
+
 	saleId := uuid.New().String()
 
 	// Validate stock using existing method
@@ -287,6 +300,7 @@ func (s *Services) getAndCheckUzumOrderItems(
 		sp.unit_quantity,
 		sp.unit_quantity / p.unit_per_pack AS quantity,
 		sp.retail_price AS unit_price,
+		sp.unit_price * (sp.unit_quantity / p.unit_per_pack) AS total_price,
 		p.name,
 		p.unit_per_pack
 	FROM store_products sp

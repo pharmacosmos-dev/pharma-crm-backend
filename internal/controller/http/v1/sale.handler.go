@@ -500,7 +500,7 @@ func (h *SaleHandler) GetOnlineSaleCount(c *gin.Context) {
 	// get online order count
 	qb := h.db.WithContext(ctx).
 		Model(&domain.Sale{}).
-		Where("online_status IN(1, 2)").
+		Where("online_status IN(?)", constants.OnlinePendingStages).
 		Where("type = ?", constants.SaleTypeOnline)
 
 	if storeId != "" {
