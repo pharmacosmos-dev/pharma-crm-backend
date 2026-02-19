@@ -22506,6 +22506,15 @@ const docTemplate = `{
                         "name": "sale_id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "Update online sale status",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.UpdateOnlineSale"
+                        }
                     }
                 ],
                 "responses": {
@@ -29769,6 +29778,17 @@ const docTemplate = `{
                 },
                 "store_product_id": {
                     "type": "string"
+                }
+            }
+        },
+        "domain.UpdateOnlineSale": {
+            "type": "object",
+            "required": [
+                "online_status"
+            ],
+            "properties": {
+                "online_status": {
+                    "type": "integer"
                 }
             }
         },

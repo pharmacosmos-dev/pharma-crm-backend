@@ -1977,6 +1977,13 @@ definitions:
       store_product_id:
         type: string
     type: object
+  domain.UpdateOnlineSale:
+    properties:
+      online_status:
+        type: integer
+    required:
+    - online_status
+    type: object
   domain.UpdatePackagingRequest:
     properties:
       product_id:
@@ -16600,6 +16607,12 @@ paths:
         name: sale_id
         required: true
         type: string
+      - description: Update online sale status
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UpdateOnlineSale'
       produces:
       - application/json
       responses:

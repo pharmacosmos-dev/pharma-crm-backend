@@ -1319,6 +1319,7 @@ func (h *SaleHandler) PendingSale(c *gin.Context) {
 // @Security     BearerAuth
 // @Produce      json
 // @Param        sale_id path string true "Sale ID"
+// @Param        body body domain.UpdateOnlineSale true "Update online sale status"
 // @Success      200 {object} domain.PendingSaleResponse
 // @Failure      400 {object} v1.Response
 // @Failure      404 {object} v1.Response
