@@ -119,6 +119,7 @@ type SaleItem struct {
 type SaleResponse struct {
 	Id              string     `gorm:"id" json:"id"`
 	DisplayId       int        `gorm:"display_id" json:"display_id"`
+	VendorOrderId   string     `gorm:"vendor_order_id" json:"vendor_order_id"`
 	ParentId        string     `gorm:"parent_id" json:"parent_id"`
 	SaleNumber      int        `gorm:"sale_number" json:"sale_number"`
 	TotalDiscount   float64    `gorm:"total_discount" json:"total_discount"`
@@ -443,6 +444,7 @@ type OnlineOrderDto struct {
 	PaymentType   string                          `json:"payment_type"`
 	Stage         int                             `json:"stage"`
 	OnlineStatus  int                             `json:"online_status"`
+	ServiceType   string                          `json:"service_type"`
 	IsPaid        bool                            `json:"is_paid"`
 	CreatedAt     *time.Time                      `json:"created_at"`
 	CompletedAt   *time.Time                      `json:"completed_at"`

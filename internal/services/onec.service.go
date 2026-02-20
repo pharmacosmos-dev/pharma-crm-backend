@@ -283,21 +283,27 @@ func (s *Services) updateImportTotalsAfterCreateNewImport(importId string) {
 func (s *Services) CreateProductMaxPriceChanged(
 	ctx context.Context,
 	req *domain.ProductChangePriceRequest,
-) error {
+) (map[string]any, error) {
 
 	tx := s.db.Begin()
 	if tx.Error != nil {
-		return domain.InternalServerError
+		return nil, domain.InternalServerError
 	}
 
+	if len(req.Products) == 0 {
+        return nil, domain.NewNotAdditionError(400, map[string]any{
+            "message": "products list is empty",
+        })
+    }
+
 	var notFoundCodes []int
+	var updatedCount int
 
 	for _, p := range req.Products {
 
-
 		if p.MaxPrice <= 0 {
 			tx.Rollback()
-			return domain.NewNotAdditionError(400, map[string]any{
+			return nil, domain.NewNotAdditionError(400, map[string]any{
 				"message":       "max_price must be greater than 0",
 				"material_code": p.MaterialCode,
 			})
@@ -311,34 +317,31 @@ func (s *Services) CreateProductMaxPriceChanged(
 
 		if result.Error != nil {
 			tx.Rollback()
-
-			s.log.Errorf(
-				"db error updating product max_price (material_code=%d): %v",
-				p.MaterialCode,
-				result.Error,
-			)
-
-			return domain.InternalServerError
+			return nil, domain.InternalServerError
 		}
-
-		// topilmasa yig‘amiz
+	
 		if result.RowsAffected == 0 {
 			notFoundCodes = append(notFoundCodes, p.MaterialCode)
+		} else {
+			updatedCount++
 		}
 	}
 
-	if len(notFoundCodes) > 0 {
+	if updatedCount == 0 {
 		tx.Rollback()
-		return domain.NewNotAdditionError(404, map[string]any{
-			"message":                "products not found",
+		return nil, domain.NewNotAdditionError(404, map[string]any{
+			"message":                  "products not found",
 			"not_found_material_codes": notFoundCodes,
 		})
 	}
 
 	if err := tx.Commit().Error; err != nil {
-		s.log.Errorf("commit error: %v", err)
-		return domain.InternalServerError
+		return nil, domain.InternalServerError
 	}
 
-	return nil
+	return map[string]any{
+		"total_requested": len(req.Products),
+		"updated_count": updatedCount,
+		"not_found_material_codes": notFoundCodes,
+	}, nil
 }
