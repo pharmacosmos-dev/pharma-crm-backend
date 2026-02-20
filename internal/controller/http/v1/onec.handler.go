@@ -556,7 +556,7 @@ func (h *ProductOnecHandler) CreateMaxPriceChanging(c *gin.Context) {
 	)
 	defer cancel()
 
-	err := h.service.CreateProductMaxPriceChanged(ctx, &body)
+	result, err := h.service.CreateProductMaxPriceChanged(ctx, &body)
 	if err != nil {
 		if notAddErr, ok := err.(*domain.NotAdditionError); ok {
 			handleResponse(c, NotFound, notAddErr.Data)
@@ -566,6 +566,6 @@ func (h *ProductOnecHandler) CreateMaxPriceChanging(c *gin.Context) {
 		return
 	}
 
-	handleResponse(c, OK, "CREATED")
+	handleResponse(c, OK, result)
 }
 
