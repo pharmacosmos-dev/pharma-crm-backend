@@ -27,17 +27,18 @@ func (h *StoreTargetHandler) StoreTargetRoutes(r *gin.RouterGroup) {
 		target.GET("/list", h.List)
 		// target.GET("/my", h.GetMyTarget)
 		target.GET("/employee/history", h.EmployeeHistory)
+		target.GET("/summary", h.Summary)
 	}
 }
 
 // Create godoc
 // @Summary      Create store target
-// @Description  Store uchun oylik target yaratadi va barcha aktiv xodimlarga teng bo'ladi
+// @Description  Creates a monthly target for the store and is equal to all active employees
 // @Tags         store-target
 // @Security     BearerAuth
 // @Accept       json
 // @Produce      json
-// @Param        input body domain.StoreTargetRequest true "Store target ma'lumotlari"
+// @Param        input body domain.StoreTargetRequest true "Store target data"
 // @Success      201 {object} v1.Response
 // @Failure      400 {object} v1.Response
 // @Failure      500 {object} v1.Response
@@ -57,26 +58,26 @@ func (h *StoreTargetHandler) Create(c *gin.Context) {
 
 	result, err := h.service.CreateStoreTarget(ctx, &body)
 	if err != nil {
-		if err.Error() == "target already exists for this store and month, use update instead" {
+		if err.Error() == "target already exists for this store and month" {
 			handleResponse(c, BadRequest, err.Error())
 			return
 		}
 		handleServiceResponse(c, nil, err)
 		return
-	}
+	}                      
 
 	handleResponse(c, CREATED, result)
 }
 
 // Update godoc
 // @Summary      Update store target
-// @Description  Store target summasi yangilanadi. Faqat kelasi oy uchun ruxsat beriladi
+// @Description  Store target amount will be updated. Only allowed for next month
 // @Tags         store-target
 // @Security     BearerAuth
 // @Accept       json
 // @Produce      json
 // @Param        id   path  string                       true  "Store target ID"
-// @Param        input body domain.StoreTargetUpdateRequest true "Yangi summa"
+// @Param        input body domain.StoreTargetUpdateRequest true "New target amount"
 // @Success      200 {object} v1.Response
 // @Failure      400 {object} v1.Response
 // @Failure      403 {object} v1.Response
@@ -113,15 +114,15 @@ func (h *StoreTargetHandler) Create(c *gin.Context) {
 // }
 
 // StoreHistory godoc
-// @Summary      Store target tarixi
-// @Description  Store ID bo'yicha barcha oylik targetlar va haqiqiy sotuvlar summasi
+// @Summary      Store target history
+// @Description  Sum of all monthly targets and actual sales by Store ID
 // @Tags         store-target
 // @Security     BearerAuth
 // @Accept       json
 // @Produce      json
 // @Param        store_id  path   string  true   "Store ID"
-// @Param        year      query  int     false  "Yil (masalan: 2026)"
-// @Param        month     query  int     false  "Oy (1-12)"
+// @Param        year      query  int     false  "Year (example: 2026)"
+// @Param        month     query  int     false  "Month (1-12)"
 // @Success      200 {object} v1.Response
 // @Failure      500 {object} v1.Response
 // @Router       /store-target/history/{store_id} [get]
@@ -150,15 +151,16 @@ func (h *StoreTargetHandler) StoreHistory(c *gin.Context) {
 }
 
 // List godoc
-// @Summary      Barcha store target ro'yxati
-// @Description  Barcha store targetlar, joriy oy bo'lsa bugungi kungacha sotuvlar bilan
+// @Summary      All store target list
+// @Description  All store targets, with sales to date for the current month
 // @Tags         store-target
 // @Security     BearerAuth
 // @Accept       json
 // @Produce      json
 // @Param        store_id   query  string  false  "Store ID"
-// @Param        year       query  int     false  "Yil (masalan: 2026)"
-// @Param        month      query  int     false  "Oy (1-12)"
+// @Param        company_id   query  string  false  "Company ID"
+// @Param        year       query  int     false  "Year (exmaple: 2026)"
+// @Param        month      query  int     false  "Month (1-12)"
 // @Param        limit      query  int     false  "Limit"
 // @Param        offset     query  int     false  "Offset"
 // @Success      200 {object} v1.Response
@@ -219,16 +221,16 @@ func (h *StoreTargetHandler) List(c *gin.Context) {
 // }
 
 // EmployeeHistory godoc
-// @Summary      Store bo'yicha xodimlar target tarixi
-// @Description  Berilgan store dagi barcha xodimlarning oylik target tarixi
+// @Summary      Store cashier target history
+// @Description  Monthly target history for everyone in a given store
 // @Tags         store-target
 // @Security     BearerAuth
 // @Accept       json
 // @Produce      json
-// @Param        store_id    query  string  true   "Store ID (majburiy)"
-// @Param        employee_id query  string  false  "Employee ID (ixtiyoriy, bitta xodim uchun)"
-// @Param        year        query  int     false  "Yil (masalan: 2026)"
-// @Param        month       query  int     false  "Oy (1-12)"
+// @Param        store_id    query  string  true   "Store ID (required)"
+// @Param        employee_id query  string  false  "Employee ID (optional, for one employee)"
+// @Param        year        query  int     false  "Year (example: 2026)"
+// @Param        month       query  int     false  "Moth (1-12)"
 // @Param        limit       query  int     false  "Limit"
 // @Param        offset      query  int     false  "Offset"
 // @Success      200 {object} v1.Response
@@ -259,4 +261,36 @@ func (h *StoreTargetHandler) EmployeeHistory(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, results, count)
+}
+
+
+
+// Summary godoc
+// @Summary      Current Month Store Targets Summary
+// @Description  Get total amount, total sales, and store count for current month
+// @Tags         store-target
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Success      200 {object} domain.StoreTargetSummary
+// @Failure      400 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /store-target/summary [get]
+func (h *StoreTargetHandler) Summary(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	// if user.CompanyId == "" {
+	// 	handleResponse(c, BadRequest, "company_id not found for user")
+	// 	return
+	// }
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	summary, err := h.service.GetCurrentMonthStoreTargetsSummary(ctx, user.CompanyId)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, summary)
 }

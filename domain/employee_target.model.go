@@ -9,6 +9,7 @@ type EmployeeTarget struct {
 	StoreId       string     `json:"store_id" gorm:"column:store_id"`
 	CompanyId     string     `json:"company_id" gorm:"column:company_id"`
 	Amount        float64    `json:"amount" gorm:"column:amount"`
+	Sales         float64    `json:"sales" gorm:"column:sales"`
 	Year          int        `json:"year" gorm:"column:year"`
 	Month         int        `json:"month" gorm:"column:month"`
 	CreatedAt     *time.Time `json:"created_at" gorm:"column:created_at"`
@@ -22,7 +23,7 @@ func (EmployeeTarget) TableName() string {
 	return "employee_targets"
 }
 
-// Employee ning joriy oy target + haqiqiy sotuvlar
+// Employee's current month target + actual sales
 type EmployeeTargetWithSales struct {
 	Id                 string  `json:"id"`
 	EmployeeId         string  `json:"employee_id"`
@@ -36,11 +37,12 @@ type EmployeeTargetWithSales struct {
 	DaysInMonth        int     `json:"days_in_month"`
 }
 
-// Store bo'yicha barcha employee lar tarixi
+// History all employees by store
 type EmployeeTargetHistoryItem struct {
 	EmployeeId   string  `json:"employee_id"`
 	EmployeeName string  `json:"employee_name"`
 	Amount       float64 `json:"amount"`
+	Sales        float64 `json:"sales"`
 	Year         int     `json:"year"`
 	Month        int     `json:"month"`
 }

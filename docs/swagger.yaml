@@ -1869,6 +1869,37 @@ definitions:
       work_hours:
         type: string
     type: object
+  domain.StoreTargetRequest:
+    properties:
+      amount:
+        type: number
+      company_id:
+        type: string
+      month:
+        type: integer
+      store_id:
+        type: string
+      year:
+        type: integer
+    required:
+    - amount
+    - month
+    - store_id
+    - year
+    type: object
+  domain.StoreTargetSummary:
+    properties:
+      month:
+        type: integer
+      store_count:
+        type: integer
+      total_amount:
+        type: number
+      total_sales:
+        type: number
+      year:
+        type: integer
+    type: object
   domain.Tag:
     properties:
       id:
@@ -17158,6 +17189,200 @@ paths:
       summary: Create a store
       tags:
       - stores
+  /store-target:
+    post:
+      consumes:
+      - application/json
+      description: Creates a monthly target for the store and is equal to all active
+        employees
+      parameters:
+      - description: Store target data
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.StoreTargetRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create store target
+      tags:
+      - store-target
+  /store-target/employee/history:
+    get:
+      consumes:
+      - application/json
+      description: Monthly target history for everyone in a given store
+      parameters:
+      - description: Store ID (required)
+        in: query
+        name: store_id
+        required: true
+        type: string
+      - description: Employee ID (optional, for one employee)
+        in: query
+        name: employee_id
+        type: string
+      - description: 'Year (example: 2026)'
+        in: query
+        name: year
+        type: integer
+      - description: Moth (1-12)
+        in: query
+        name: month
+        type: integer
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Store cashier target history
+      tags:
+      - store-target
+  /store-target/history/{store_id}:
+    get:
+      consumes:
+      - application/json
+      description: Sum of all monthly targets and actual sales by Store ID
+      parameters:
+      - description: Store ID
+        in: path
+        name: store_id
+        required: true
+        type: string
+      - description: 'Year (example: 2026)'
+        in: query
+        name: year
+        type: integer
+      - description: Month (1-12)
+        in: query
+        name: month
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Store target history
+      tags:
+      - store-target
+  /store-target/list:
+    get:
+      consumes:
+      - application/json
+      description: All store targets, with sales to date for the current month
+      parameters:
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Company ID
+        in: query
+        name: company_id
+        type: string
+      - description: 'Year (exmaple: 2026)'
+        in: query
+        name: year
+        type: integer
+      - description: Month (1-12)
+        in: query
+        name: month
+        type: integer
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: All store target list
+      tags:
+      - store-target
+  /store-target/summary:
+    get:
+      consumes:
+      - application/json
+      description: Get total amount, total sales, and store count for current month
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.StoreTargetSummary'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Current Month Store Targets Summary
+      tags:
+      - store-target
   /store/{id}:
     delete:
       consumes:
