@@ -1597,7 +1597,12 @@ func (s *Services) GetSoldProductsBySaleId(ctx context.Context, saleId string) (
 		JOIN store_products sp ON ci.store_product_id = sp.id
 		JOIN products p ON sp.product_id = p.id
 		LEFT JOIN unit_types u ON p.unit_type_id = u.id
-		LEFT JOIN employee_bonus eb ON ci.sale_id = eb.sale_id AND eb.product_id = p.id
+		LEFT JOIN (
+			SELECT DISTINCT ON (sale_id, product_id)
+				sale_id, product_id, bonus_amount
+			FROM employee_bonus
+			ORDER BY sale_id, product_id, created_at DESC
+		) eb ON eb.sale_id = ci.sale_id AND eb.product_id = p.id
 		WHERE ci.sale_id = ?
 	`
 	err := s.db.WithContext(ctx).Raw(query, saleId).Scan(&products).Error
