@@ -1,3 +1,3 @@
 ALTER TABLE 
     "sales" 
-        DROP COLUMN "vendor_order_id";
+        DROP COLUMN IF EXISTS "vendor_order_id";
