@@ -55,18 +55,20 @@ type StoreTargetListItem struct {
 
 // Query params
 type StoreTargetQueryParams struct {
-	StoreId   string `form:"store_id"`
-	CompanyId string `form:"company_id"`
-	Year      int    `form:"year"`
-	Month     int    `form:"month"`
-	Limit     int    `form:"limit"`
-	Offset    int    `form:"offset"`
+	StoreId     string   `form:"store_id"`
+	CompanyId   string   `form:"company_id"`
+	CompanyIds  []string `form:"-"`
+	IsFranchise *bool    `form:"is_franchise"`
+	IsPharma    *bool    `form:"is_pharma"`
+	Year        int      `form:"year"`
+	Month       int      `form:"month"`
+	Limit       int      `form:"limit"`
+	Offset      int      `form:"offset"`
 }
 
 type StoreTargetSummary struct {
-	TotalAmount float64 `json:"total_amount"`
-	StoreCount  int64   `json:"store_count"`
-	TotalSales  float64 `json:"total_sales"`
+	TotalAmount float64 `json:"total_target_amount"`
+	TotalSales  float64 `json:"total_target_sales"`
 	Year        int     `json:"year"`
 	Month       int     `json:"month"`
 }

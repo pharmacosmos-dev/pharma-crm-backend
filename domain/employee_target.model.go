@@ -51,6 +51,7 @@ type EmployeeTargetHistoryItem struct {
 type EmployeeTargetQueryParams struct {
 	EmployeeId string `form:"employee_id"`
 	StoreId    string `form:"store_id"`
+	CompanyId  string `form:"-"`
 	Year       int    `form:"year"`
 	Month      int    `form:"month"`
 	Limit      int    `form:"limit"`

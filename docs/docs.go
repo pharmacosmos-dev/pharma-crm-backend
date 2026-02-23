@@ -23515,7 +23515,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/store-target/employee/history": {
+        "/store-target/employee/list/{store_id}": {
             "get": {
                 "security": [
                     {
@@ -23536,9 +23536,9 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Store ID (required)",
+                        "description": "Store ID",
                         "name": "store_id",
-                        "in": "query",
+                        "in": "path",
                         "required": true
                     },
                     {
@@ -23581,61 +23581,6 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/store-target/history/{store_id}": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Sum of all monthly targets and actual sales by Store ID",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "store-target"
-                ],
-                "summary": "Store target history",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Store ID",
-                        "name": "store_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Year (example: 2026)",
-                        "name": "year",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Month (1-12)",
-                        "name": "month",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
                         }
@@ -23754,6 +23699,61 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/store-target/{store_id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Sum of all monthly targets and actual sales by Store ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "store-target"
+                ],
+                "summary": "Store target history",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Store ID",
+                        "name": "store_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Year (example: 2026)",
+                        "name": "year",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Month (1-12)",
+                        "name": "month",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
                         }
@@ -29949,13 +29949,10 @@ const docTemplate = `{
                 "month": {
                     "type": "integer"
                 },
-                "store_count": {
-                    "type": "integer"
-                },
-                "total_amount": {
+                "total_target_amount": {
                     "type": "number"
                 },
-                "total_sales": {
+                "total_target_sales": {
                     "type": "number"
                 },
                 "year": {

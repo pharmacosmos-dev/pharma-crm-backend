@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -147,38 +148,57 @@ func (s *Services) UpdateStoreTarget(ctx context.Context, id string, req *domain
 }
 
 
-func (s *Services) GetStoreTargetHistory(ctx context.Context, storeId string, year, month int) ([]domain.StoreTargetHistoryItem, error) {
+func (s *Services) GetStoreTargetHistory(ctx context.Context, storeId string, companyId string, year, month int) ([]domain.StoreTargetHistoryItem, error) {
+	
+	var storeCheck struct {
+		CompanyId string `gorm:"column:company_id"`
+	}
+	if err := s.db.WithContext(ctx).
+		Table("store_targets").
+		Select("company_id").
+		Where("store_id = ?", storeId).
+		Take(&storeCheck).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, domain.NotFoundError
+		}
+		s.log.Errorf("could not validate store: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	if storeCheck.CompanyId != companyId {
+		return nil, domain.NotFoundError
+	}
+
 	now := time.Now()
 	currentYear := now.Year()
 	currentMonth := int(now.Month())
 
 	// Current month ekanligini tekshiramiz
 	isCurrentMonth := (year == currentYear && month == currentMonth) ||
-		(year == 0 && month == 0) // filter berilmagan bo'lsa ham current join kerak bo'lishi mumkin
+		(year == 0 && month == 0)
 
 	var query *gorm.DB
 
 	if isCurrentMonth {
-		// Current month: LEFT JOIN orqali real-time hisoblash
 		query = s.db.WithContext(ctx).
-				Table("store_targets st").
-				Select(`
-					st.id,
-					st.store_id,
-					st.amount,
-					COALESCE(SUM(s.total_amount), 0) AS sales,
-					st.year,
-					st.month
-				`).
-				Joins(`
-					LEFT JOIN sales s ON s.store_id = st.store_id
-						AND EXTRACT(YEAR FROM s.created_at) = st.year
-						AND EXTRACT(MONTH FROM s.created_at) = st.month
-						AND s.status = 'completed'
-						AND s.is_returned = false
-				`).
-				Where("st.store_id = ?", storeId).
-				Group("st.id, st.store_id, st.amount, st.year, st.month")
+			Table("store_targets st").
+			Select(`
+				st.id,
+				st.store_id,
+				st.amount,
+				COALESCE(SUM(s.total_amount), 0) AS sales,
+				st.year,
+				st.month
+			`).
+			Joins(`
+				LEFT JOIN sales s ON s.store_id = st.store_id
+					AND EXTRACT(YEAR FROM s.created_at) = st.year
+					AND EXTRACT(MONTH FROM s.created_at) = st.month
+					AND s.status = 'completed'
+					AND s.is_returned = false
+			`).
+			Where("st.store_id = ? AND st.company_id = ?", storeId, companyId).
+			Group("st.id, st.store_id, st.amount, st.year, st.month")
 	} else {
 		query = s.db.WithContext(ctx).
 			Table("store_targets st").
@@ -191,7 +211,7 @@ func (s *Services) GetStoreTargetHistory(ctx context.Context, storeId string, ye
 				st.month,
 				st.sales AS actual_amount
 			`).
-			Where("st.store_id = ?", storeId)
+			Where("st.store_id = ? AND st.company_id = ?", storeId, companyId)
 	}
 
 	if year > 0 {
@@ -216,6 +236,34 @@ func (s *Services) GetStoreTargetHistory(ctx context.Context, storeId string, ye
 
 
 func (s *Services) GetStoreTargetList(ctx context.Context, params *domain.StoreTargetQueryParams) ([]domain.StoreTargetListItem, int64, error) {
+	// store_id berilgan bo'lsa kompaniyaga tegishliligini tekshiramiz
+	if params.StoreId != "" && len(params.CompanyIds) > 0 {
+		var storeCheck struct {
+			CompanyId string `gorm:"column:company_id"`
+		}
+		if err := s.db.WithContext(ctx).
+			Table("stores").
+			Select("company_id").
+			Where("id = ?", params.StoreId).
+			Take(&storeCheck).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, 0, domain.NotFoundError
+			}
+			s.log.Errorf("could not validate store: %v", err)
+			return nil, 0, domain.InternalServerError
+		}
+		found := false
+		for _, cid := range params.CompanyIds {
+			if storeCheck.CompanyId == cid {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return nil, 0, domain.NotFoundError
+		}
+	}
+
 	now := time.Now()
 
 	year := params.Year
@@ -228,8 +276,9 @@ func (s *Services) GetStoreTargetList(ctx context.Context, params *domain.StoreT
 	var count int64
 	countQuery := s.db.WithContext(ctx).Table("store_targets st").
 		Where("st.year = ? AND st.month = ?", year, month)
-	if params.CompanyId != "" {
-		countQuery = countQuery.Where("st.company_id = ?", params.CompanyId)
+		
+	if len(params.CompanyIds) > 0 {
+		countQuery = countQuery.Where("st.company_id IN ?", params.CompanyIds)
 	}
 	if params.StoreId != "" {
 		countQuery = countQuery.Where("st.store_id = ?", params.StoreId)
@@ -290,8 +339,8 @@ func (s *Services) GetStoreTargetList(ctx context.Context, params *domain.StoreT
 			Where("st.year = ? AND st.month = ?", year, month)
 	}
 
-	if params.CompanyId != "" {
-		query = query.Where("st.company_id = ?", params.CompanyId)
+	if len(params.CompanyIds) > 0 {
+		query = query.Where("st.company_id IN ?", params.CompanyIds)
 	}
 	if params.StoreId != "" {
 		query = query.Where("st.store_id = ?", params.StoreId)
@@ -384,6 +433,29 @@ func (s *Services) GetEmployeeTargetHistoryByStore(
 	ctx context.Context,
 	params *domain.EmployeeTargetQueryParams,
 ) ([]domain.EmployeeTargetHistoryItem, int64, error) {
+
+	// Store kompaniyaga tegishliligini tekshiramiz
+	if params.CompanyId != "" {
+
+		var storeCheck struct {
+			CompanyId string `gorm:"column:company_id"`
+		}
+
+		if err := s.db.WithContext(ctx).
+			Table("store_targets").
+			Select("company_id").
+			Where("store_id = ?", params.StoreId).
+			Take(&storeCheck).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, 0, domain.NotFoundError
+			}
+			s.log.Errorf("could not validate store: %v", err)
+			return nil, 0, domain.InternalServerError
+		}
+		if storeCheck.CompanyId != params.CompanyId {
+			return nil, 0, domain.NotFoundError
+		}
+	}
 
 	now := time.Now()
 	
@@ -505,30 +577,27 @@ func (s *Services) DistributeMonthlyTargets() {
 }
 
 
-func (s *Services) GetCurrentMonthStoreTargetsSummary(ctx context.Context, companyId string) (*domain.StoreTargetSummary, error) {
+func (s *Services) GetCurrentMonthStoreTargetsSummary(ctx context.Context, companyIds []string, storeId string) (*domain.StoreTargetSummary, error) {
 	now := time.Now()
 	year := now.Year()
 	month := int(now.Month())
 
 	type result struct {
-		TotalAmount float64 `json:"total_amount"`
-		StoreCount  int64   `json:"store_count"`
-		TotalSales  float64 `json:"total_sales"`
+		TotalAmount float64 `json:"total_target_amount"`
+		TotalSales  float64 `json:"total_target_sales"`
 	}
 
 	var res result
 
-	// Aggregate query: sum(amount), count(store), sum(sales) for current month
-	err := s.db.WithContext(ctx).
+	query := s.db.WithContext(ctx).
 		Table("store_targets st").
 		Select(`
 			COALESCE(SUM(st.amount), 0) AS total_amount,
-			COUNT(st.id) AS store_count,
 			COALESCE(SUM(s.total_sales), 0) AS total_sales
 		`).
 		Joins(`LEFT JOIN (
-			SELECT 
-				store_id, 
+			SELECT
+				store_id,
 				EXTRACT(YEAR FROM created_at)::int AS year,
 				EXTRACT(MONTH FROM created_at)::int AS month,
 				SUM(total_amount) AS total_sales
@@ -540,19 +609,21 @@ func (s *Services) GetCurrentMonthStoreTargetsSummary(ctx context.Context, compa
 			AND s.year = st.year
 			AND s.month = st.month
 		`).
-		Where("st.company_id = ?", companyId).
+		Where("st.company_id IN ?", companyIds).
 		Where("st.year = ?", year).
-		Where("st.month = ?", month).
-		Scan(&res).Error
+		Where("st.month = ?", month)
 
-	if err != nil {
+	if storeId != "" {
+		query = query.Where("st.store_id = ?", storeId)
+	}
+
+	if err := query.Scan(&res).Error; err != nil {
 		s.log.Errorf("could not get store target summary: %v", err)
 		return nil, domain.InternalServerError
 	}
 
 	return &domain.StoreTargetSummary{
 		TotalAmount: res.TotalAmount,
-		StoreCount:  res.StoreCount,
 		TotalSales:  res.TotalSales,
 		Year:        year,
 		Month:       month,

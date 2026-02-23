@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
+	"github.com/pharma-crm-backend/pkg/utils"
 )
 
 type StoreTargetHandler struct {
@@ -23,10 +24,10 @@ func (h *StoreTargetHandler) StoreTargetRoutes(r *gin.RouterGroup) {
 	{
 		target.POST("", h.Create)
 		//target.PUT("/:id", h.Update)
-		target.GET("/history/:store_id", h.StoreHistory)
+		target.GET("/:store_id", h.StoreHistory)
 		target.GET("/list", h.List)
 		// target.GET("/my", h.GetMyTarget)
-		target.GET("/employee/history", h.EmployeeHistory)
+		target.GET("/employee/list/:store_id", h.EmployeeHistory)
 		target.GET("/summary", h.Summary)
 	}
 }
@@ -124,9 +125,26 @@ func (h *StoreTargetHandler) Create(c *gin.Context) {
 // @Param        month     query  int     false  "Month (1-12)"
 // @Success      200 {object} v1.Response
 // @Failure      500 {object} v1.Response
-// @Router       /store-target/history/{store_id} [get]
+// @Router       /store-target/{store_id} [get]
 func (h *StoreTargetHandler) StoreHistory(c *gin.Context) {
-	storeId := c.Param("store_id")
+	user := h.service.GetSignedUser(c)
+
+	pathStoreId := c.Param("store_id")
+
+	var storeId string
+	if !utils.In(user.Role, constants.StoreTargetViewAll...) {
+		if user.StoreId == "" {
+			handleResponse(c, BadRequest, "store_id not found for user")
+			return
+		}
+		storeId = user.StoreId
+	} else {
+		if pathStoreId == "" {
+			handleResponse(c, BadRequest, "store_id is required")
+			return
+		}
+		storeId = pathStoreId
+	}
 
 	year := 0
 	month := 0
@@ -139,8 +157,8 @@ func (h *StoreTargetHandler) StoreHistory(c *gin.Context) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
-
-	results, err := h.service.GetStoreTargetHistory(ctx, storeId, year, month)
+	
+	results, err := h.service.GetStoreTargetHistory(ctx, storeId, user.CompanyId, year, month)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return
@@ -174,11 +192,29 @@ func (h *StoreTargetHandler) List(c *gin.Context) {
 	}
 
 	user := h.service.GetSignedUser(c)
-	params.CompanyId = user.CompanyId
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
+
+	var isAdmin bool
+	if !utils.In(user.Role, constants.StoreTargetViewAll...) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyIds = []string{user.CompanyId}
+	} else {
+		isAdmin = true
+		params.CompanyIds = []string{user.CompanyId}
+	}
+
+	if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
+		params.StoreId = ""
+	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+		params.StoreId = ""
+	}
 
 	results, count, err := h.service.GetStoreTargetList(ctx, &params)
 	if err != nil {
@@ -226,7 +262,7 @@ func (h *StoreTargetHandler) List(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept       json
 // @Produce      json
-// @Param        store_id    query  string  true   "Store ID (required)"
+// @Param        store_id    path   string  true   "Store ID"
 // @Param        employee_id query  string  false  "Employee ID (optional, for one employee)"
 // @Param        year        query  int     false  "Year (example: 2026)"
 // @Param        month       query  int     false  "Moth (1-12)"
@@ -235,19 +271,33 @@ func (h *StoreTargetHandler) List(c *gin.Context) {
 // @Success      200 {object} v1.Response
 // @Failure      400 {object} v1.Response
 // @Failure      500 {object} v1.Response
-// @Router       /store-target/employee/history [get]
+// @Router       /store-target/employee/list/{store_id} [get]
 func (h *StoreTargetHandler) EmployeeHistory(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+
 	var params domain.EmployeeTargetQueryParams
 	if err := c.ShouldBindQuery(&params); err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 
-	if params.StoreId == "" {
-		handleResponse(c, BadRequest, "store_id is required")
-		return
+	pathStoreId := c.Param("store_id")
+
+	if !utils.In(user.Role, constants.StoreTargetViewAll...) {
+		if user.StoreId == "" {
+			handleResponse(c, BadRequest, "store_id not found for user")
+			return
+		}
+		params.StoreId = user.StoreId
+	} else {
+		if pathStoreId == "" {
+			handleResponse(c, BadRequest, "store_id is required")
+			return
+		}
+		params.StoreId = pathStoreId
 	}
 
+	params.CompanyId = user.CompanyId
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
@@ -277,15 +327,41 @@ func (h *StoreTargetHandler) EmployeeHistory(c *gin.Context) {
 // @Router       /store-target/summary [get]
 func (h *StoreTargetHandler) Summary(c *gin.Context) {
 	user := h.service.GetSignedUser(c)
-	// if user.CompanyId == "" {
-	// 	handleResponse(c, BadRequest, "company_id not found for user")
-	// 	return
-	// }
+	if user.CompanyId == "" {
+		handleResponse(c, BadRequest, "company_id not found for user")
+		return
+	}
+
+	var params domain.StoreTargetQueryParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	summary, err := h.service.GetCurrentMonthStoreTargetsSummary(ctx, user.CompanyId)
+	var isAdmin bool
+	companyIds := []string{user.CompanyId}
+	storeId := ""
+
+	if !utils.In(user.Role, constants.StoreTargetViewAll...) {
+		if user.StoreId == "" {
+			handleResponse(c, BadRequest, "store_id not found for user")
+			return
+		}
+		storeId = user.StoreId
+	} else {
+		isAdmin = true
+	}
+
+	if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
+		companyIds, _ = h.service.GetCompanyIds(ctx, true)
+	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
+		companyIds, _ = h.service.GetCompanyIds(ctx, false)
+	}
+
+	summary, err := h.service.GetCurrentMonthStoreTargetsSummary(ctx, companyIds, storeId)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return

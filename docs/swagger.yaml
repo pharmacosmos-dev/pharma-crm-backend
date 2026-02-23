@@ -1889,11 +1889,9 @@ definitions:
     properties:
       month:
         type: integer
-      store_count:
-        type: integer
-      total_amount:
+      total_target_amount:
         type: number
-      total_sales:
+      total_target_sales:
         type: number
       year:
         type: integer
@@ -17220,14 +17218,49 @@ paths:
       summary: Create store target
       tags:
       - store-target
-  /store-target/employee/history:
+  /store-target/{store_id}:
+    get:
+      consumes:
+      - application/json
+      description: Sum of all monthly targets and actual sales by Store ID
+      parameters:
+      - description: Store ID
+        in: path
+        name: store_id
+        required: true
+        type: string
+      - description: 'Year (example: 2026)'
+        in: query
+        name: year
+        type: integer
+      - description: Month (1-12)
+        in: query
+        name: month
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Store target history
+      tags:
+      - store-target
+  /store-target/employee/list/{store_id}:
     get:
       consumes:
       - application/json
       description: Monthly target history for everyone in a given store
       parameters:
-      - description: Store ID (required)
-        in: query
+      - description: Store ID
+        in: path
         name: store_id
         required: true
         type: string
@@ -17269,41 +17302,6 @@ paths:
       security:
       - BearerAuth: []
       summary: Store cashier target history
-      tags:
-      - store-target
-  /store-target/history/{store_id}:
-    get:
-      consumes:
-      - application/json
-      description: Sum of all monthly targets and actual sales by Store ID
-      parameters:
-      - description: Store ID
-        in: path
-        name: store_id
-        required: true
-        type: string
-      - description: 'Year (example: 2026)'
-        in: query
-        name: year
-        type: integer
-      - description: Month (1-12)
-        in: query
-        name: month
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Store target history
       tags:
       - store-target
   /store-target/list:
