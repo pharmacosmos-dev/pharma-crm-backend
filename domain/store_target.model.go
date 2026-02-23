@@ -16,17 +16,13 @@ type StoreTarget struct {
 	Store *Store `json:"store,omitempty" gorm:"foreignKey:StoreId"`
 }
 
-func (StoreTarget) TableName() string {
-	return "store_targets"
-}
 
 // CREATE uchun request
 type StoreTargetRequest struct {
-	StoreId   string  `json:"store_id" binding:"required"`
-	CompanyId string  `json:"company_id"`
-	Amount    float64 `json:"amount" binding:"required"`
-	Year      int     `json:"year" binding:"required"`
-	Month     int     `json:"month" binding:"required"`
+	StoreId string  `json:"store_id" binding:"required"`
+	Amount  float64 `json:"amount" binding:"required"`
+	Year    int     `json:"year" binding:"required"`
+	Month   int     `json:"month" binding:"required"`
 }
 
 // UPDATE for request(only next month)
@@ -49,6 +45,7 @@ type StoreTargetHistoryItem struct {
 type StoreTargetListItem struct {
 	Id           string  `json:"id"`
 	StoreId      string  `json:"store_id"`
+	CompanyId    string  `json:"company_id"`
 	StoreName    string  `json:"store_name"`
 	Amount       float64 `json:"amount"`
     Sales 		 float64 `json:"sales"`

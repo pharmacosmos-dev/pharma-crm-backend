@@ -50,9 +50,8 @@ func (h *StoreTargetHandler) Create(c *gin.Context) {
 		return
 	}
 
-	user := h.service.GetSignedUser(c)
-	body.CompanyId = user.CompanyId
-
+	//user := h.service.GetSignedUser(c)
+	
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 

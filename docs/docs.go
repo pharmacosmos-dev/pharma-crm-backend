@@ -6628,7 +6628,7 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
-                        "type": "number",        
+                        "type": "number",
                         "description": "To Amount",
                         "name": "to_amount",
                         "in": "query"
@@ -29931,9 +29931,6 @@ const docTemplate = `{
             "properties": {
                 "amount": {
                     "type": "number"
-                },
-                "company_id": {
-                    "type": "string"
                 },
                 "month": {
                     "type": "integer"

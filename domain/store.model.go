@@ -40,6 +40,7 @@ type StoreDto struct {
 	Coordinates   Point      `gorm:"column:coordinates" json:"coordinates"`
 	WorkHours     string     `gorm:"work_hours" json:"work_hours"`
 	IsFullday     bool       `gorm:"is_fullday" json:"is_fullday"`
+	TargetAmount float64 `gorm:"column:target_amount" json:"target_amount"`
 	CreatedAt     *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt     *time.Time `gorm:"updated_at" json:"updated_at"`
 }

@@ -1873,8 +1873,6 @@ definitions:
     properties:
       amount:
         type: number
-      company_id:
-        type: string
       month:
         type: integer
       store_id:

@@ -20,7 +20,7 @@ func (s *Services) CreateStoreTarget(ctx context.Context, req *domain.StoreTarge
 		First(&existing).Error
 
 	if err == nil {
-		return nil, fmt.Errorf("target already exists for this store and month, use update instead")
+		return nil, domain.BadRequestError
 	}
 
 	if err != gorm.ErrRecordNotFound {
@@ -28,10 +28,20 @@ func (s *Services) CreateStoreTarget(ctx context.Context, req *domain.StoreTarge
 		return nil, domain.InternalServerError
 	}
 
+	// Store orqali company_id ni olamiz
+	var store domain.Store
+	if err := s.db.WithContext(ctx).Select("id, company_id").First(&store, "id = ?", req.StoreId).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, domain.NotFoundError
+		}
+		s.log.Errorf("could not get store: %v", err)
+		return nil, domain.InternalServerError
+	}
+
 	target := domain.StoreTarget{
 		Id:        uuid.New().String(),
 		StoreId:   req.StoreId,
-		CompanyId: req.CompanyId,
+		CompanyId: store.CompanyId,
 		Amount:    req.Amount,
 		Year:      req.Year,
 		Month:     req.Month,
@@ -170,7 +180,6 @@ func (s *Services) GetStoreTargetHistory(ctx context.Context, storeId string, ye
 				Where("st.store_id = ?", storeId).
 				Group("st.id, st.store_id, st.amount, st.year, st.month")
 	} else {
-		// O'tgan oylar: JOIN shart emas, st.sales ishlatamiz
 		query = s.db.WithContext(ctx).
 			Table("store_targets st").
 			Select(`
@@ -198,65 +207,24 @@ func (s *Services) GetStoreTargetHistory(ctx context.Context, storeId string, ye
 		return nil, domain.InternalServerError
 	}
 
+	if results == nil {
+		results = []domain.StoreTargetHistoryItem{}
+	}
+
 	return results, nil
 }
 
 
 func (s *Services) GetStoreTargetList(ctx context.Context, params *domain.StoreTargetQueryParams) ([]domain.StoreTargetListItem, int64, error) {
 	now := time.Now()
+
 	year := params.Year
-	if year == 0 {
-		year = now.Year()
-	}
 	month := params.Month
-	if month == 0 {
+	if year == 0 || month == 0 {
+		year = now.Year()
 		month = int(now.Month())
 	}
 
-	// LEFT JOIN sales bilan, store_name qo'shildi
-	query := s.db.WithContext(ctx).
-		Table("store_targets st").
-		Select(`
-			st.id,
-			st.store_id,
-			st.amount,
-			st.year,
-			st.month,
-			stores.name AS store_name,
-			COALESCE(MAX(s.total_sales), 0) AS sales
-		`).
-		Joins("LEFT JOIN stores ON stores.id = st.store_id").
-		Joins(`
-			LEFT JOIN (
-				SELECT 
-					store_id,
-					EXTRACT(YEAR FROM created_at)::int AS year,
-					EXTRACT(MONTH FROM created_at)::int AS month,
-					SUM(total_amount) AS total_sales
-				FROM sales
-				WHERE status = 'completed' AND is_returned = false
-				GROUP BY store_id, EXTRACT(YEAR FROM created_at)::int, EXTRACT(MONTH FROM created_at)::int
-			) s
-			ON s.store_id = st.store_id
-			AND s.year = st.year
-			AND s.month = st.month
-		`).
-		Group("st.id, st.store_id, st.amount, st.year, st.month, stores.name")
-
-	// Filterlar
-	if params.CompanyId != "" {
-		query = query.Where("st.company_id = ?", params.CompanyId)
-	}
-	if params.StoreId != "" {
-		query = query.Where("st.store_id = ?", params.StoreId)
-	}
-	query = query.Where("st.year = ?", year)
-	query = query.Where("st.month = ?", month)
-
-	// GROUP BY faqat st ustunlari + stores.name
-	query = query.Group("st.id, st.store_id, st.amount, st.year, st.month, stores.name")
-
-	// Count alohida
 	var count int64
 	countQuery := s.db.WithContext(ctx).Table("store_targets st").
 		Where("st.year = ? AND st.month = ?", year, month)
@@ -271,6 +239,64 @@ func (s *Services) GetStoreTargetList(ctx context.Context, params *domain.StoreT
 		return nil, 0, domain.InternalServerError
 	}
 
+	if count == 0 {
+		return []domain.StoreTargetListItem{}, 0, nil
+	}
+
+	// Current oy yoki o'tgan oy ekanligini aniqlaymiz
+	isCurrentMonth := year == now.Year() && month == int(now.Month())
+
+	var query *gorm.DB
+
+	if isCurrentMonth {
+		// Current oy: sales jadvalidan real-time hisoblash
+		query = s.db.WithContext(ctx).
+			Table("store_targets st").
+			Select(`
+				st.id,
+				st.store_id,
+				st.company_id,
+				st.amount,
+				st.year,
+				st.month,
+				stores.name AS store_name,
+				COALESCE(SUM(s.total_amount), 0) AS sales
+			`).
+			Joins("LEFT JOIN stores ON stores.id = st.store_id").
+			Joins(`
+				LEFT JOIN sales s
+					ON s.store_id = st.store_id
+					AND EXTRACT(YEAR FROM s.created_at) = st.year
+					AND EXTRACT(MONTH FROM s.created_at) = st.month
+					AND s.status = 'completed'
+					AND s.is_returned = false
+			`).
+			Where("st.year = ? AND st.month = ?", year, month).
+			Group("st.id, st.store_id, st.company_id, st.amount, st.year, st.month, stores.name")
+	} else {
+		query = s.db.WithContext(ctx).
+			Table("store_targets st").
+			Select(`
+				st.id,
+				st.store_id,
+				st.company_id,
+				st.amount,
+				st.year,
+				st.month,
+				stores.name AS store_name,
+				COALESCE(st.sales, 0) AS sales
+			`).
+			Joins("LEFT JOIN stores ON stores.id = st.store_id").
+			Where("st.year = ? AND st.month = ?", year, month)
+	}
+
+	if params.CompanyId != "" {
+		query = query.Where("st.company_id = ?", params.CompanyId)
+	}
+	if params.StoreId != "" {
+		query = query.Where("st.store_id = ?", params.StoreId)
+	}
+
 	// Pagination
 	if params.Limit > 0 {
 		query = query.Limit(params.Limit)
@@ -279,11 +305,14 @@ func (s *Services) GetStoreTargetList(ctx context.Context, params *domain.StoreT
 		query = query.Offset(params.Offset)
 	}
 
-	// Scan natijalar
 	var results []domain.StoreTargetListItem
-	if err := query.Order("st.year DESC, st.month DESC, stores.name ASC").Scan(&results).Error; err != nil {
+	if err := query.Order("stores.name ASC").Scan(&results).Error; err != nil {
 		s.log.Errorf("could not get store target list: %v", err)
 		return nil, 0, domain.InternalServerError
+	}
+
+	if results == nil {
+		results = []domain.StoreTargetListItem{}
 	}
 
 	return results, count, nil
