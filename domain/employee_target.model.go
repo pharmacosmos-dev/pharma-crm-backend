@@ -19,9 +19,6 @@ type EmployeeTarget struct {
 	StoreTarget *StoreTarget `json:"store_target,omitempty" gorm:"foreignKey:StoreTargetId"`
 }
 
-func (EmployeeTarget) TableName() string {
-	return "employee_targets"
-}
 
 // Employee's current month target + actual sales
 type EmployeeTargetWithSales struct {

@@ -23,6 +23,7 @@ func (h *StoreTargetHandler) StoreTargetRoutes(r *gin.RouterGroup) {
 	target := r.Group("/store-target")
 	{
 		target.POST("", h.Create)
+		target.DELETE("/:id", h.Delete)
 		//target.PUT("/:id", h.Update)
 		target.GET("/:store_id", h.StoreHistory)
 		target.GET("/list", h.List)
@@ -69,6 +70,54 @@ func (h *StoreTargetHandler) Create(c *gin.Context) {
 
 	handleResponse(c, CREATED, result)
 }
+
+// Delete godoc
+// @Summary      Delete store target
+// @Description  Deletes store target and all its employee targets
+// @Tags         store-target
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        id  path  string  true  "Store target ID"
+// @Success      200 {object} v1.Response
+// @Failure      404 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /store-target/{id} [delete]
+func (h *StoreTargetHandler) Delete(c *gin.Context) {
+	id := c.Param("id")
+
+	tx := h.db.WithContext(c.Request.Context()).Begin()
+
+	// 1️⃣ Avval employee targetlarni o‘chiramiz
+	if err := tx.
+		Where("store_target_id = ?", id).
+		Delete(&domain.EmployeeTarget{}).Error; err != nil {
+		tx.Rollback()
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	// 2️⃣ Keyin store targetni o‘chiramiz
+	result := tx.
+		Where("id = ?", id).
+		Delete(&domain.StoreTarget{})
+
+	if result.Error != nil {
+		tx.Rollback()
+		handleResponse(c, InternalError, result.Error.Error())
+		return
+	}
+
+	if result.RowsAffected == 0 {
+		tx.Rollback()
+		handleResponse(c, NotFound, "store target not found")
+		return
+	}
+
+	tx.Commit()
+	handleResponse(c, OK, "DELETED")
+}
+
 
 // Update godoc
 // @Summary      Update store target
