@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math"
 	"time"
 
 	"github.com/pharma-crm-backend/domain"
@@ -21,7 +22,7 @@ func (s *Services) CreateStoreTarget(ctx context.Context, req *domain.StoreTarge
 		First(&existing).Error
 
 	if err == nil {
-		return nil, domain.BadRequestError
+		return nil, domain.AlreadyExistsError
 	}
 
 	if err != gorm.ErrRecordNotFound {
@@ -39,6 +40,8 @@ func (s *Services) CreateStoreTarget(ctx context.Context, req *domain.StoreTarge
 		return nil, domain.InternalServerError
 	}
 
+	startOfMonth := time.Date(req.Year, time.Month(req.Month), 1, 0, 0, 0, 0, time.Local)
+
 	target := domain.StoreTarget{
 		Id:        uuid.New().String(),
 		StoreId:   req.StoreId,
@@ -46,6 +49,7 @@ func (s *Services) CreateStoreTarget(ctx context.Context, req *domain.StoreTarge
 		Amount:    req.Amount,
 		Year:      req.Year,
 		Month:     req.Month,
+		UpdatedAt: &startOfMonth,
 	}
 
 	tx := s.db.WithContext(ctx).Begin()
@@ -90,6 +94,9 @@ func (s *Services) distributeToEmployees(tx *gorm.DB, target *domain.StoreTarget
 
 	perEmployee := target.Amount / float64(len(employees))
 
+	// updated_at ni oyning boshiga set qilamiz, shunda cron shu oyning barcha saleslarini to'playdi
+	startOfMonth := time.Date(target.Year, time.Month(target.Month), 1, 0, 0, 0, 0, time.Local)
+
 	var employeeTargets []domain.EmployeeTarget
 	for _, emp := range employees {
 		employeeTargets = append(employeeTargets, domain.EmployeeTarget{
@@ -101,6 +108,7 @@ func (s *Services) distributeToEmployees(tx *gorm.DB, target *domain.StoreTarget
 			Amount:        perEmployee,
 			Year:          target.Year,
 			Month:         target.Month,
+			UpdatedAt:     &startOfMonth,
 		})
 	}
 
@@ -188,50 +196,17 @@ func (s *Services) GetStoreTargetHistory(ctx context.Context, storeId string, co
 		return nil, domain.NotFoundError
 	}
 
-	now := time.Now()
-	currentYear := now.Year()
-	currentMonth := int(now.Month())
-
-	// Current month ekanligini tekshiramiz
-	isCurrentMonth := (year == currentYear && month == currentMonth) ||
-		(year == 0 && month == 0)
-
-	var query *gorm.DB
-
-	if isCurrentMonth {
-		query = s.db.WithContext(ctx).
-			Table("store_targets st").
-			Select(`
-				st.id,
-				st.store_id,
-				st.amount,
-				COALESCE(SUM(s.total_amount), 0) AS sales,
-				st.year,
-				st.month
-			`).
-			Joins(`
-				LEFT JOIN sales s ON s.store_id = st.store_id
-					AND EXTRACT(YEAR FROM s.created_at) = st.year
-					AND EXTRACT(MONTH FROM s.created_at) = st.month
-					AND s.status = 'completed'
-					AND s.is_returned = false
-			`).
-			Where("st.store_id = ? AND st.company_id = ?", storeId, companyId).
-			Group("st.id, st.store_id, st.amount, st.year, st.month")
-	} else {
-		query = s.db.WithContext(ctx).
-			Table("store_targets st").
-			Select(`
-				st.id,
-				st.store_id,
-				st.amount,
-				st.sales,
-				st.year,
-				st.month,
-				st.sales AS actual_amount
-			`).
-			Where("st.store_id = ? AND st.company_id = ?", storeId, companyId)
-	}
+	query := s.db.WithContext(ctx).
+		Table("store_targets st").
+		Select(`
+			st.id,
+			st.store_id,
+			st.amount,
+			COALESCE(st.sales, 0) AS sales,
+			st.year,
+			st.month
+		`).
+		Where("st.store_id = ? AND st.company_id = ?", storeId, companyId)
 
 	if year > 0 {
 		query = query.Where("st.year = ?", year)
@@ -311,52 +286,20 @@ func (s *Services) GetStoreTargetList(ctx context.Context, params *domain.StoreT
 		return []domain.StoreTargetListItem{}, 0, nil
 	}
 
-	// Current oy yoki o'tgan oy ekanligini aniqlaymiz
-	isCurrentMonth := year == now.Year() && month == int(now.Month())
-
-	var query *gorm.DB
-
-	if isCurrentMonth {
-		// Current oy: sales jadvalidan real-time hisoblash
-		query = s.db.WithContext(ctx).
-			Table("store_targets st").
-			Select(`
-				st.id,
-				st.store_id,
-				st.company_id,
-				st.amount,
-				st.year,
-				st.month,
-				stores.name AS store_name,
-				COALESCE(SUM(s.total_amount), 0) AS sales
-			`).
-			Joins("LEFT JOIN stores ON stores.id = st.store_id").
-			Joins(`
-				LEFT JOIN sales s
-					ON s.store_id = st.store_id
-					AND EXTRACT(YEAR FROM s.created_at) = st.year
-					AND EXTRACT(MONTH FROM s.created_at) = st.month
-					AND s.status = 'completed'
-					AND s.is_returned = false
-			`).
-			Where("st.year = ? AND st.month = ?", year, month).
-			Group("st.id, st.store_id, st.company_id, st.amount, st.year, st.month, stores.name")
-	} else {
-		query = s.db.WithContext(ctx).
-			Table("store_targets st").
-			Select(`
-				st.id,
-				st.store_id,
-				st.company_id,
-				st.amount,
-				st.year,
-				st.month,
-				stores.name AS store_name,
-				COALESCE(st.sales, 0) AS sales
-			`).
-			Joins("LEFT JOIN stores ON stores.id = st.store_id").
-			Where("st.year = ? AND st.month = ?", year, month)
-	}
+	query := s.db.WithContext(ctx).
+		Table("store_targets st").
+		Select(`
+			st.id,
+			st.store_id,
+			st.company_id,
+			st.amount,
+			st.year,
+			st.month,
+			stores.name AS store_name,
+			COALESCE(st.sales, 0) AS sales
+		`).
+		Joins("LEFT JOIN stores ON stores.id = st.store_id").
+		Where("st.year = ? AND st.month = ?", year, month)
 
 	if len(params.CompanyIds) > 0 {
 		query = query.Where("st.company_id IN ?", params.CompanyIds)
@@ -384,67 +327,6 @@ func (s *Services) GetStoreTargetList(ctx context.Context, params *domain.StoreT
 	}
 
 	return results, count, nil
-}
-
-
-func (s *Services) GetEmployeeTargetWithSales(ctx context.Context, employeeId string) (*domain.EmployeeTargetWithSales, error) {
-	now := time.Now()
-	year := now.Year()
-	month := int(now.Month())
-
-	// Employee target ni olish
-	var target domain.EmployeeTarget
-	err := s.db.WithContext(ctx).
-		Where("employee_id = ? AND year = ? AND month = ?", employeeId, year, month).
-		First(&target).Error
-
-	if err == gorm.ErrRecordNotFound {
-		return nil, nil
-	}
-	if err != nil {
-		s.log.Errorf("could not get employee target: %v", err)
-		return nil, domain.InternalServerError
-	}
-
-
-	var employee domain.Employee
-	s.db.WithContext(ctx).
-		Select("full_name").
-		Take(&employee, "id = ?", employeeId)
-
-
-	var monthlySales float64
-	s.db.WithContext(ctx).
-		Table("sales").
-		Select("COALESCE(SUM(total_amount), 0)").
-		Where("store_id = ? AND employee_id = ? AND status = ? AND is_returned = ? AND EXTRACT(YEAR FROM created_at) = ? AND EXTRACT(MONTH FROM created_at) = ?",
-			target.StoreId, employeeId, "completed", false, year, month).
-		Scan(&monthlySales)
-
-
-	var dailySales float64
-	s.db.WithContext(ctx).
-		Table("sales").
-		Select("COALESCE(SUM(total_amount), 0)").
-		Where("store_id = ? AND employee_id = ? AND status = ? AND is_returned = ? AND DATE(created_at) = CURRENT_DATE",
-			target.StoreId, employeeId, "completed", false).
-		Scan(&dailySales)
-
-	days := daysIn(year, month)
-	dailyTarget := target.Amount / float64(days)
-
-	return &domain.EmployeeTargetWithSales{
-		Id:                 target.Id,
-		EmployeeId:         employeeId,
-		EmployeeName:       employee.FullName,
-		MonthlyTarget:      target.Amount,
-		DailyTarget:        dailyTarget,
-		ActualMonthlySales: monthlySales,
-		ActualDailySales:   dailySales,
-		Year:               year,
-		Month:              month,
-		DaysInMonth:        days,
-	}, nil
 }
 
 
@@ -487,44 +369,23 @@ func (s *Services) GetEmployeeTargetHistoryByStore(
 		month = int(now.Month())
 	}
 
-	var query *gorm.DB
-
-	query = s.db.WithContext(ctx).
+	query := s.db.WithContext(ctx).
 		Table("employee_targets et").
 		Select(`
 			et.employee_id,
 			e.full_name AS employee_name,
 			et.amount,
-			COALESCE(SUM(s.total_amount), 0) AS sales,
+			COALESCE(et.sales, 0) AS sales,
 			et.year,
 			et.month
 		`).
-		Joins(`
-			LEFT JOIN employees e 
-				ON e.id = et.employee_id
-		`).
-		Joins(`
-			LEFT JOIN sales s 
-				ON s.employee_id = et.employee_id
-				AND s.store_id = et.store_id
-				AND EXTRACT(YEAR FROM s.created_at) = et.year
-				AND EXTRACT(MONTH FROM s.created_at) = et.month
-				AND s.status = 'completed'
-				AND s.is_returned = false
-		`).
+		Joins(`LEFT JOIN employees e ON e.id = et.employee_id`).
 		Where("et.store_id = ?", params.StoreId).
 		Where("et.year = ?", year).
 		Where("et.month = ?", month).
-		Group(`
-			et.employee_id,
-			e.full_name,
-			et.amount,
-			et.year,
-			et.month
-		`).
-		Order("et.year DESC, et.month DESC, e.full_name ASC")
+		Order("e.full_name ASC")
 
-	// Filter employee_id agar berilgan bo‘lsa
+	// Filter employee_id agar berilgan bo’lsa
 	if params.EmployeeId != "" {
 		query = query.Where("et.employee_id = ?", params.EmployeeId)
 	}
@@ -554,50 +415,88 @@ func (s *Services) GetEmployeeTargetHistoryByStore(
 		query = query.Offset(params.Offset)
 	}
 
+	
+
 	var results []domain.EmployeeTargetHistoryItem
 	if err := query.Scan(&results).Error; err != nil {
 		s.log.Errorf("could not get employee target history by store: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
 
+	days := daysIn(year, month)
+
+	for i := range results {
+		raw := results[i].Amount / float64(days)
+		results[i].DailyTarget = math.Round(raw*100) / 100
+	}
+
 	return results, count, nil
 }
 
 
-
 func daysIn(year, month int) int {
-	t := time.Date(year, time.Month(month)+1, 0, 0, 0, 0, 0, time.UTC)
+	t := time.Date(year, time.Month(month)+1, 0, 0, 0, 0, 0, time.Local)
 	return t.Day()
 }
 
-// Cron sevice for every month data create
-func (s *Services) DistributeMonthlyTargets() {
+// UpdateStoreTargetSales - her soatda chaqiriladi (cron)
+// store_targets.updated_at dan keyin kelgan yangi saleslarni sales ga qo'shib update qiladi
+func (s *Services) UpdateStoreTargetSales() {
 	now := time.Now()
 	year := now.Year()
 	month := int(now.Month())
 
-	var storeTargets []domain.StoreTarget
-	err := s.db.
-		Where("year = ? AND month = ?", year, month).
-		Find(&storeTargets).Error
+	err := s.db.Exec(`
+		UPDATE store_targets st
+		SET
+			sales = st.sales + COALESCE((
+				SELECT SUM(s.total_amount)
+				FROM sales s
+				WHERE s.store_id = st.store_id
+				AND s.stage = '9'
+				AND s.is_returned = false
+				AND s.created_at > st.updated_at
+			), 0),
+			updated_at = NOW()
+		WHERE st.year = ? AND st.month = ?
+	`, year, month).Error
 
 	if err != nil {
-		s.log.Errorf("could not get store targets for distribution: %v", err)
+		s.log.Errorf("cron UpdateStoreTargetSales: %v", err)
 		return
 	}
+	log.Printf("UpdateStoreTargetSales completed for %d-%02d", year, month)
+}
 
-	for _, target := range storeTargets {
-		t := target
-		tx := s.db.Begin()
-		if err := s.distributeToEmployees(tx, &t); err != nil {
-			tx.Rollback()
-			s.log.Errorf("cron: could not distribute for store %s: %v", t.StoreId, err)
-			continue
-		}
-		tx.Commit()
+
+// UpdateEmployeeTargetSales - her soatda chaqiriladi (cron)
+// employee_targets.updated_at dan keyin kelgan yangi saleslarni sales ga qo'shib update qiladi
+func (s *Services) UpdateEmployeeTargetSales() {
+	now := time.Now()
+	year := now.Year()
+	month := int(now.Month())
+
+	err := s.db.Exec(`
+		UPDATE employee_targets et
+		SET
+			sales = et.sales + COALESCE((
+				SELECT SUM(s.total_amount)
+				FROM sales s
+				WHERE s.store_id = et.store_id
+				AND s.employee_id = et.employee_id
+				AND s.stage = '9'
+				AND s.is_returned = false
+				AND s.created_at > et.updated_at
+			), 0),
+			updated_at = NOW()
+		WHERE et.year = ? AND et.month = ?
+	`, year, month).Error
+
+	if err != nil {
+		s.log.Errorf("cron UpdateEmployeeTargetSales: %v", err)
+		return
 	}
-
-	log.Printf("Monthly targets distributed for %d-%02d: %d stores", year, month, len(storeTargets))
+	log.Printf("UpdateEmployeeTargetSales completed for %d-%02d", year, month)
 }
 
 
@@ -617,21 +516,7 @@ func (s *Services) GetCurrentMonthStoreTargetsSummary(ctx context.Context, compa
 		Table("store_targets st").
 		Select(`
 			COALESCE(SUM(st.amount), 0) AS total_amount,
-			COALESCE(SUM(s.total_sales), 0) AS total_sales
-		`).
-		Joins(`LEFT JOIN (
-			SELECT
-				store_id,
-				EXTRACT(YEAR FROM created_at)::int AS year,
-				EXTRACT(MONTH FROM created_at)::int AS month,
-				SUM(total_amount) AS total_sales
-			FROM sales
-			WHERE status = 'completed' AND is_returned = false
-			GROUP BY store_id, EXTRACT(YEAR FROM created_at)::int, EXTRACT(MONTH FROM created_at)::int
-		) s
-			ON s.store_id = st.store_id
-			AND s.year = st.year
-			AND s.month = st.month
+			COALESCE(SUM(st.sales), 0) AS total_sales
 		`).
 		Where("st.company_id IN ?", companyIds).
 		Where("st.year = ?", year).
@@ -651,5 +536,53 @@ func (s *Services) GetCurrentMonthStoreTargetsSummary(ctx context.Context, compa
 		TotalSales:  res.TotalSales,
 		Year:        year,
 		Month:       month,
+	}, nil
+}
+
+
+func (s *Services) GetDailySalesStoreTargetsEmployee(ctx context.Context, employeeId string, storeId string) (*domain.EmployeeTargetHistoryItem, error) {
+	now := time.Now()
+	year := now.Year()
+	month := int(now.Month())
+
+	var target domain.EmployeeTarget
+	err := s.db.WithContext(ctx).
+		Select("id, employee_id, store_id, amount, year, month").
+		Where("employee_id = ? AND store_id = ? AND year = ? AND month = ?", employeeId, storeId, year, month).
+		First(&target).Error
+
+	if err == gorm.ErrRecordNotFound {
+		return nil, nil
+	}
+	if err != nil {
+		s.log.Errorf("could not get employee target: %v", err)
+		return nil, domain.InternalServerError
+	}
+	
+	var employee domain.Employee
+	s.db.WithContext(ctx).Select("full_name").Take(&employee, "id = ?", employeeId)
+
+	// Faqat bugungi sotuv yig'indisini olish (DATE(created_at) = bugun)
+	var todaySales float64
+	s.db.WithContext(ctx).
+		Table("sales").
+		Select("COALESCE(SUM(total_amount), 0)").
+		Where(
+			"store_id = ? AND employee_id = ? AND stage = '9' AND is_returned = false AND DATE(created_at) = CURRENT_DATE",
+			storeId, employeeId,
+		).
+		Scan(&todaySales)
+
+	days := daysIn(year, month)
+	dailyTarget := math.Round((target.Amount/float64(days))*100) / 100
+
+	return &domain.EmployeeTargetHistoryItem{
+		EmployeeId:   employeeId,
+		EmployeeName: employee.FullName,
+		Amount:       target.Amount,
+		DailyTarget:  dailyTarget,
+		Sales:        todaySales,
+		Year:         year,
+		Month:        month,
 	}, nil
 }

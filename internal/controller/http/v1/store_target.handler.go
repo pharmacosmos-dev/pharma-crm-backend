@@ -28,6 +28,7 @@ func (h *StoreTargetHandler) StoreTargetRoutes(r *gin.RouterGroup) {
 		target.GET("/list", h.List)
 		// target.GET("/my", h.GetMyTarget)
 		target.GET("/employee/list/:store_id", h.EmployeeHistory)
+		target.GET("/employee/my", h.GetMyEmployeeTarget)
 		target.GET("/summary", h.Summary)
 	}
 }
@@ -225,35 +226,6 @@ func (h *StoreTargetHandler) List(c *gin.Context) {
 	handleResponse(c, OK, results, count)
 }
 
-// GetMyTarget godoc
-// @Summary      Employee joriy oy target
-// @Description  Login qilgan xodimning joriy oy uchun oylik va kunlik target summasi, haqiqiy sotuvlar bilan
-// @Tags         store-target
-// @Security     BearerAuth
-// @Accept       json
-// @Produce      json
-// @Success      200 {object} v1.Response
-// @Failure      500 {object} v1.Response
-// @Router       /store-target/my [get]
-// func (h *StoreTargetHandler) GetMyTarget(c *gin.Context) {
-// 	user := h.service.GetSignedUser(c)
-
-// 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-// 	defer cancel()
-
-// 	result, err := h.service.GetEmployeeTargetWithSales(ctx, user.Id)
-// 	if err != nil {
-// 		handleServiceResponse(c, nil, err)
-// 		return
-// 	}
-
-// 	if result == nil {
-// 		handleResponse(c, OK, "No target assigned for this month")
-// 		return
-// 	}
-
-// 	handleResponse(c, OK, result)
-// }
 
 // EmployeeHistory godoc
 // @Summary      Store cashier target history
@@ -312,6 +284,46 @@ func (h *StoreTargetHandler) EmployeeHistory(c *gin.Context) {
 	handleResponse(c, OK, results, count)
 }
 
+
+
+// GetMyEmployeeTarget godoc
+// @Summary      Employee current month target and sales
+// @Description  Target amount and actual sales of the logged-in employee for the current month
+// @Tags         store-target
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Success      200 {object} v1.Response
+// @Failure      400 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /store-target/employee/my [get]
+func (h *StoreTargetHandler) GetMyEmployeeTarget(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleResponse(c, BadRequest, "user not found")
+		return
+	}
+	if user.StoreId == "" {
+		handleResponse(c, BadRequest, "store not found for user")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	result, err := h.service.GetDailySalesStoreTargetsEmployee(ctx, user.UserId, user.StoreId)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	if result == nil {
+		handleResponse(c, OK, gin.H{})
+		return
+	}
+
+	handleResponse(c, OK, result)
+}
 
 
 // Summary godoc

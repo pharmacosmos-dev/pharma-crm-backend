@@ -42,6 +42,7 @@ type EmployeeTargetHistoryItem struct {
 	EmployeeId   string  `json:"employee_id"`
 	EmployeeName string  `json:"employee_name"`
 	Amount       float64 `json:"amount"`
+	DailyTarget  float64 `json:"daily_target"`
 	Sales        float64 `json:"sales"`
 	Year         int     `json:"year"`
 	Month        int     `json:"month"`
