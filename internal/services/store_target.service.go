@@ -48,14 +48,26 @@ func (s *Services) CreateStoreTarget(ctx context.Context, req *domain.StoreTarge
 		Month:     req.Month,
 	}
 
-	if err := s.db.WithContext(ctx).Create(&target).Error; err != nil {
+	tx := s.db.WithContext(ctx).Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	if err := tx.Create(&target).Error; err != nil {
+		tx.Rollback()
 		s.log.Errorf("could not create store target: %v", err)
 		return nil, domain.InternalServerError
 	}
 
-	if err := s.distributeToEmployees(ctx, &target); err != nil {
-		s.log.Errorf("could not distribute target to employees: %v", err)
-		s.db.WithContext(ctx).Delete(&target)
+	if err := s.distributeToEmployees(tx, &target); err != nil {
+		tx.Rollback()
+		return nil, domain.InternalServerError
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		s.log.Errorf("could not commit store target transaction: %v", err)
 		return nil, domain.InternalServerError
 	}
 
@@ -63,13 +75,10 @@ func (s *Services) CreateStoreTarget(ctx context.Context, req *domain.StoreTarge
 }
 
 
-func (s *Services) distributeToEmployees(ctx context.Context, target *domain.StoreTarget) error {
+func (s *Services) distributeToEmployees(tx *gorm.DB, target *domain.StoreTarget) error {
 	var employees []domain.Employee
-	err := s.db.WithContext(ctx).
-		Where("store_id = ? AND status = ?", target.StoreId, "active").
-		Find(&employees).Error
-
-	if err != nil {
+	if err := tx.Where("store_id = ? AND status = ?", target.StoreId, "active").
+		Find(&employees).Error; err != nil {
 		s.log.Errorf("could not get employees for store %s: %v", target.StoreId, err)
 		return err
 	}
@@ -78,9 +87,6 @@ func (s *Services) distributeToEmployees(ctx context.Context, target *domain.Sto
 		return nil
 	}
 
-	s.db.WithContext(ctx).
-		Where("store_target_id = ?", target.Id).
-		Delete(&domain.EmployeeTarget{})
 
 	perEmployee := target.Amount / float64(len(employees))
 
@@ -98,7 +104,7 @@ func (s *Services) distributeToEmployees(ctx context.Context, target *domain.Sto
 		})
 	}
 
-	if err := s.db.WithContext(ctx).Create(&employeeTargets).Error; err != nil {
+	if err := tx.Create(&employeeTargets).Error; err != nil {
 		s.log.Errorf("could not insert employee targets: %v", err)
 		return err
 	}
@@ -134,13 +140,26 @@ func (s *Services) UpdateStoreTarget(ctx context.Context, id string, req *domain
 	nowTime := time.Now()
 	existing.UpdatedAt = &nowTime
 
-	if err := s.db.WithContext(ctx).Save(&existing).Error; err != nil {
+	tx := s.db.WithContext(ctx).Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	if err := tx.Save(&existing).Error; err != nil {
+		tx.Rollback()
 		s.log.Errorf("could not update store target: %v", err)
 		return nil, domain.InternalServerError
 	}
 
-	if err := s.distributeToEmployees(ctx, &existing); err != nil {
-		s.log.Errorf("could not redistribute target to employees: %v", err)
+	if err := s.distributeToEmployees(tx, &existing); err != nil {
+		tx.Rollback()
+		return nil, domain.InternalServerError
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		s.log.Errorf("could not commit update store target transaction: %v", err)
 		return nil, domain.InternalServerError
 	}
 
@@ -568,9 +587,14 @@ func (s *Services) DistributeMonthlyTargets() {
 	}
 
 	for _, target := range storeTargets {
-		if err := s.distributeToEmployees(context.Background(), &target); err != nil {
-			s.log.Errorf("cron: could not distribute for store %s: %v", target.StoreId, err)
+		t := target
+		tx := s.db.Begin()
+		if err := s.distributeToEmployees(tx, &t); err != nil {
+			tx.Rollback()
+			s.log.Errorf("cron: could not distribute for store %s: %v", t.StoreId, err)
+			continue
 		}
+		tx.Commit()
 	}
 
 	log.Printf("Monthly targets distributed for %d-%02d: %d stores", year, month, len(storeTargets))
