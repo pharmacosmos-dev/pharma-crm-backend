@@ -1,0 +1,90 @@
+# =============================================================================
+# Migrate stage – run golang-migrate migrations via SSH on the target server
+# =============================================================================
+# Strategy:
+#   SSH into the server → docker pull the freshly-built image → run the
+#   migration script (/app/scripts/run_migration.sh) inside a throwaway
+#   container with --network host so it can reach the local Postgres.
+#
+# The migration tool used is golang-migrate/migrate (already installed in
+# the Dockerfile). The run_migration.sh script loads .env, constructs the
+# DB_URL, handles dirty state, and runs `migrate up`.
+#
+# Production migrations are MANUAL (require a click in the pipeline UI)
+# to allow a human review before touching the production database.
+# =============================================================================
+
+# ---- hidden template --------------------------------------------------------
+.migrate_template:
+  stage: migrate
+  image: alpine:3.20
+  needs:
+    - job: build
+      artifacts: true
+  before_script:
+    - apk add --no-cache openssh-client
+    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    - echo "$_SSH_PRIVATE_KEY" > ~/.ssh/id_rsa && chmod 600 ~/.ssh/id_rsa
+    - ssh-keyscan -p "${_SSH_PORT:-22}" "$_SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+  script:
+    - |
+      ssh -o StrictHostKeyChecking=no -p "${_SSH_PORT:-22}" "${_SSH_USER}@${_SSH_HOST}" << 'REMOTE_SCRIPT'
+        set -e
+        echo "🔄 Pulling image: ${IMAGE_TAG}"
+        echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin
+        docker pull "${IMAGE_TAG}"
+
+        echo "🗄️  Running migrations..."
+        docker run --rm \
+          --env-file "${ENV_PATH}" \
+          -v "${ENV_PATH}:${ENV_PATH}:ro" \
+          --network host \
+          "${IMAGE_TAG}" \
+          /app/scripts/run_migration.sh
+
+        echo "✅ Migrations completed."
+      REMOTE_SCRIPT
+
+# ---- DEV migration (automatic) ---------------------------------------------
+migrate:dev:
+  extends: .migrate_template
+  variables:
+    _SSH_HOST: "$DEV_SSH_HOST"
+    _SSH_USER: "$DEV_SSH_USER"
+    _SSH_PORT: "$DEV_SSH_PORT"
+    _SSH_PRIVATE_KEY: "$DEV_SSH_PRIVATE_KEY"
+    ENV_PATH: "$DEV_ENV_PATH"
+  environment:
+    name: dev
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+
+# ---- STAGING migration (automatic) -----------------------------------------
+migrate:staging:
+  extends: .migrate_template
+  variables:
+    _SSH_HOST: "$STAGING_SSH_HOST"
+    _SSH_USER: "$STAGING_SSH_USER"
+    _SSH_PORT: "$STAGING_SSH_PORT"
+    _SSH_PRIVATE_KEY: "$STAGING_SSH_PRIVATE_KEY"
+    ENV_PATH: "$STAGING_ENV_PATH"
+  environment:
+    name: staging
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "staging"'
+
+# ---- PRODUCTION migration (manual gate) ------------------------------------
+migrate:production:
+  extends: .migrate_template
+  variables:
+    _SSH_HOST: "$PROD_SSH_HOST"
+    _SSH_USER: "$PROD_SSH_USER"
+    _SSH_PORT: "$PROD_SSH_PORT"
+    _SSH_PRIVATE_KEY: "$PROD_SSH_PRIVATE_KEY"
+    ENV_PATH: "$PROD_ENV_PATH"
+  environment:
+    name: production
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+      when: manual
+      allow_failure: false     # pipeline blocks until migration is approved

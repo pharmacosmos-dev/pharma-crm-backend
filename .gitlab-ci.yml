@@ -1,0 +1,51 @@
+# =============================================================================
+# GitLab CI/CD – Pharma CRM Backend
+# =============================================================================
+# Root pipeline config. All job definitions live in .gitlab/ci/*.gitlab-ci.yml.
+#
+# Required GitLab CI/CD Variables (Settings → CI/CD → Variables):
+#   DOCKER_USERNAME      – Docker Hub username
+#   DOCKER_PASSWORD      – Docker Hub password / access token  (masked)
+#
+#   DEV_SSH_HOST         – Dev server IP/hostname
+#   DEV_SSH_USER         – Dev server SSH user
+#   DEV_SSH_PORT         – Dev server SSH port (default 22)
+#   DEV_SSH_PRIVATE_KEY  – Dev server SSH private key           (masked, file)
+#   DEV_ENV_PATH         – Abs path to .env on dev server       (e.g. /var/www/app/.env)
+#   DEV_UPLOADS_PATH     – Abs path to uploads dir on dev       (e.g. /var/www/app/uploads)
+#   DEV_LOGGER_PATH      – Abs path to logger dir on dev        (e.g. /var/www/app/logger)
+#
+#   STAGING_SSH_HOST / STAGING_SSH_USER / STAGING_SSH_PORT / STAGING_SSH_PRIVATE_KEY
+#   STAGING_ENV_PATH / STAGING_UPLOADS_PATH / STAGING_LOGGER_PATH
+#
+#   PROD_SSH_HOST / PROD_SSH_USER / PROD_SSH_PORT / PROD_SSH_PRIVATE_KEY
+#   PROD_ENV_PATH / PROD_UPLOADS_PATH / PROD_LOGGER_PATH
+#
+# Optional overrides:
+#   CONTAINER_NAME       – Docker container name (default: pharma-backend)
+#   CONTAINER_PORT       – Published port mapping  (default: 8090:8090)
+#   ROLLBACK_KEEP        – Number of old images to keep for rollback (default: 3)
+# =============================================================================
+
+stages:
+  - test
+  - build
+  - migrate
+  - deploy
+  - rollback
+
+variables:
+  # ---- defaults (overridable per-environment) --------------------------------
+  CONTAINER_NAME: "pharma-backend"
+  CONTAINER_PORT: "8090:8090"
+  ROLLBACK_KEEP: "3"
+  DOCKER_IMAGE: "${DOCKER_USERNAME}/pharma-backend"
+  # Go caching
+  GOMODCACHE: "${CI_PROJECT_DIR}/.cache/go-mod"
+  GOCACHE: "${CI_PROJECT_DIR}/.cache/go-build"
+
+include:
+  - local: ".gitlab/ci/build.gitlab-ci.yml"
+  - local: ".gitlab/ci/migrate.gitlab-ci.yml"
+  - local: ".gitlab/ci/deploy.gitlab-ci.yml"
+  - local: ".gitlab/ci/rollback.gitlab-ci.yml"

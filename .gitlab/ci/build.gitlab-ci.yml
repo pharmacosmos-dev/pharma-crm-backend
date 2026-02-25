@@ -1,0 +1,84 @@
+# =============================================================================
+# Test & Build stage – run tests, lint, then build + push Docker image
+# =============================================================================
+# Design decision: Docker image approach (not bare binary upload).
+# Rationale:
+#   - The project already uses a multi-stage Dockerfile.
+#   - Existing GitHub Actions pipelines deploy Docker containers.
+#   - Docker gives reproducible builds, built-in rollback via image tags,
+#     and eliminates "works on my machine" issues.
+#   - Migrations are embedded in the image (COPY migrations/ ...).
+# =============================================================================
+
+# --------------- TEST --------------------------------------------------------
+test:
+  stage: test
+  image: golang:1.24-alpine3.20
+  before_script:
+    - apk add --no-cache git gcc musl-dev
+  script:
+    - echo "=== gofmt check ==="
+    - |
+      UNFORMATTED=$(gofmt -l .)
+      if [ -n "$UNFORMATTED" ]; then
+        echo "❌ The following files are not formatted:"
+        echo "$UNFORMATTED"
+        exit 1
+      fi
+      echo "✅ All files formatted."
+    - echo "=== go vet ==="
+    - go vet ./...
+    - echo "=== go test ==="
+    - go test -race -count=1 -timeout 120s ./...
+  cache:
+    key: go-mod-${CI_COMMIT_REF_SLUG}
+    paths:
+      - .cache/go-mod
+      - .cache/go-build
+    policy: pull-push
+  rules:
+    # Run tests on every push and MR
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+    - if: '$CI_COMMIT_BRANCH == "staging"'
+    - if: '$CI_COMMIT_BRANCH == "master"'
+
+# --------------- BUILD & PUSH DOCKER IMAGE -----------------------------------
+build:
+  stage: build
+  image: docker:24-dind
+  services:
+    - docker:24-dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  before_script:
+    - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+  script:
+    - |
+      # Tag with commit SHA for traceability and branch-latest for convenience
+      IMAGE_TAG="${DOCKER_IMAGE}:${CI_COMMIT_SHORT_SHA}"
+      IMAGE_LATEST="${DOCKER_IMAGE}:${CI_COMMIT_REF_SLUG}-latest"
+
+      docker build \
+        --cache-from "${DOCKER_IMAGE}:buildcache" \
+        -t "$IMAGE_TAG" \
+        -t "$IMAGE_LATEST" \
+        .
+
+      docker push "$IMAGE_TAG"
+      docker push "$IMAGE_LATEST"
+
+      # Push buildcache layer for future builds
+      docker tag "$IMAGE_TAG" "${DOCKER_IMAGE}:buildcache"
+      docker push "${DOCKER_IMAGE}:buildcache" || true
+
+      # Persist the image tag for downstream jobs
+      echo "IMAGE_TAG=${IMAGE_TAG}" > build.env
+  artifacts:
+    reports:
+      dotenv: build.env
+    expire_in: 1 day
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+    - if: '$CI_COMMIT_BRANCH == "staging"'
+    - if: '$CI_COMMIT_BRANCH == "master"'
