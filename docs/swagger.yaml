@@ -17375,6 +17375,10 @@ paths:
         in: query
         name: company_id
         type: string
+      - description: Search
+        in: query
+        name: search
+        type: string
       - description: 'Year (exmaple: 2026)'
         in: query
         name: year
@@ -17391,6 +17395,11 @@ paths:
         in: query
         name: offset
         type: integer
+      - description: Order by (+store_name || -store_name || +target || -target ||
+          -sales || +sales)
+        in: query
+        name: order
+        type: string
       produces:
       - application/json
       responses:

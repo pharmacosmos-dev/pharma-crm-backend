@@ -30,7 +30,6 @@ func (s *Services) CreateStoreTarget(ctx context.Context, req *domain.StoreTarge
 		return nil, domain.InternalServerError
 	}
 
-	// Store orqali company_id ni olamiz
 	var store domain.Store
 	if err := s.db.WithContext(ctx).Select("id, company_id").First(&store, "id = ?", req.StoreId).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
@@ -94,7 +93,7 @@ func (s *Services) distributeToEmployees(tx *gorm.DB, target *domain.StoreTarget
 
 	perEmployee := target.Amount / float64(len(employees))
 
-	// updated_at ni oyning boshiga set qilamiz, shunda cron shu oyning barcha saleslarini to'playdi
+	// We set updated_at to the beginning of the month, so cron will collect all sales for that month.
 	startOfMonth := time.Date(target.Year, time.Month(target.Month), 1, 0, 0, 0, 0, time.Local)
 
 	var employeeTargets []domain.EmployeeTarget
@@ -230,25 +229,28 @@ func (s *Services) GetStoreTargetHistory(ctx context.Context, storeId string, co
 
 
 func (s *Services) GetStoreTargetList(ctx context.Context, params *domain.StoreTargetQueryParams) ([]domain.StoreTargetListItem, int64, error) {
-	// store_id berilgan bo'lsa kompaniyaga tegishliligini tekshiramiz
+
 	if params.StoreId != "" && len(params.CompanyIds) > 0 {
 		var storeCheck struct {
 			CompanyId string `gorm:"column:company_id"`
 		}
+
 		if err := s.db.WithContext(ctx).
 			Table("stores").
 			Select("company_id").
 			Where("id = ?", params.StoreId).
 			Take(&storeCheck).Error; err != nil {
+
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return nil, 0, domain.NotFoundError
 			}
 			s.log.Errorf("could not validate store: %v", err)
 			return nil, 0, domain.InternalServerError
 		}
+
 		found := false
 		for _, cid := range params.CompanyIds {
-			if storeCheck.CompanyId == cid {
+			if cid == storeCheck.CompanyId {
 				found = true
 				break
 			}
@@ -259,32 +261,51 @@ func (s *Services) GetStoreTargetList(ctx context.Context, params *domain.StoreT
 	}
 
 	now := time.Now()
-
 	year := params.Year
 	month := params.Month
-	if year == 0 || month == 0 {
+
+	if year == 0 {
 		year = now.Year()
+	}
+	if month == 0 {
 		month = int(now.Month())
 	}
 
-	var count int64
-	countQuery := s.db.WithContext(ctx).Table("store_targets st").
+
+	// ==========================================================
+	// ==================== COUNT QUERY =========================
+	// ==========================================================
+
+	countQuery := s.db.WithContext(ctx).
+		Table("store_targets st").
+		Joins("LEFT JOIN stores ON stores.id = st.store_id").
 		Where("st.year = ? AND st.month = ?", year, month)
-		
+
 	if len(params.CompanyIds) > 0 {
 		countQuery = countQuery.Where("st.company_id IN ?", params.CompanyIds)
 	}
+
 	if params.StoreId != "" {
 		countQuery = countQuery.Where("st.store_id = ?", params.StoreId)
 	}
-	if err := countQuery.Count(&count).Error; err != nil {
+
+	if params.SearchField != "" {
+		countQuery = countQuery.Where("stores.name LIKE ?", "%"+params.SearchField+"%")
+	}
+
+	var totalCount int64
+	if err := countQuery.Count(&totalCount).Error; err != nil {
 		s.log.Errorf("could not count store targets: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
 
-	if count == 0 {
+	if totalCount == 0 {
 		return []domain.StoreTargetListItem{}, 0, nil
 	}
+
+	// ==========================================================
+	// ==================== MAIN QUERY ==========================
+	// ==========================================================
 
 	query := s.db.WithContext(ctx).
 		Table("store_targets st").
@@ -304,20 +325,52 @@ func (s *Services) GetStoreTargetList(ctx context.Context, params *domain.StoreT
 	if len(params.CompanyIds) > 0 {
 		query = query.Where("st.company_id IN ?", params.CompanyIds)
 	}
+
 	if params.StoreId != "" {
 		query = query.Where("st.store_id = ?", params.StoreId)
 	}
 
-	// Pagination
+	if params.SearchField != "" {
+		query = query.Where("stores.name LIKE ?", "%"+params.SearchField+"%")
+	}
+
+	// ==========================================================
+	// ====================== ORDER LOGIC =======================
+	// ==========================================================
+
+
+	switch params.Order {
+	case "+store_name":
+		query = query.Order("stores.name ASC")
+	case "-store_name":
+		query = query.Order("stores.name DESC")
+	case "+target":
+		query = query.Order("st.amount ASC")
+	case "-target":
+		query = query.Order("st.amount DESC")
+	case "+sales":
+		query = query.Order("COALESCE(st.sales,0) ASC")
+	case "-sales":
+		query = query.Order("COALESCE(st.sales,0) DESC")
+	default:
+		query = query.Order("st.updated_at DESC")
+	}
+
+
+	// ==========================================================
+	// ====================== PAGINATION ========================
+	// ==========================================================
+
 	if params.Limit > 0 {
 		query = query.Limit(params.Limit)
 	}
+
 	if params.Offset > 0 {
 		query = query.Offset(params.Offset)
 	}
 
 	var results []domain.StoreTargetListItem
-	if err := query.Order("stores.name ASC").Scan(&results).Error; err != nil {
+	if err := query.Scan(&results).Error; err != nil {
 		s.log.Errorf("could not get store target list: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
@@ -326,7 +379,7 @@ func (s *Services) GetStoreTargetList(ctx context.Context, params *domain.StoreT
 		results = []domain.StoreTargetListItem{}
 	}
 
-	return results, count, nil
+	return results, totalCount, nil
 }
 
 
@@ -335,7 +388,6 @@ func (s *Services) GetEmployeeTargetHistoryByStore(
 	params *domain.EmployeeTargetQueryParams,
 ) ([]domain.EmployeeTargetHistoryItem, int64, error) {
 
-	// Store kompaniyaga tegishliligini tekshiramiz
 	if params.CompanyId != "" {
 
 		var storeCheck struct {
@@ -385,12 +437,11 @@ func (s *Services) GetEmployeeTargetHistoryByStore(
 		Where("et.month = ?", month).
 		Order("e.full_name ASC")
 
-	// Filter employee_id agar berilgan bo’lsa
+	
 	if params.EmployeeId != "" {
 		query = query.Where("et.employee_id = ?", params.EmployeeId)
 	}
 
-	// Count query
 	var count int64
 	countQuery := s.db.WithContext(ctx).
 		Table("employee_targets").
@@ -407,7 +458,6 @@ func (s *Services) GetEmployeeTargetHistoryByStore(
 		return nil, 0, domain.InternalServerError
 	}
 
-	// Pagination
 	if params.Limit > 0 {
 		query = query.Limit(params.Limit)
 	}
@@ -439,8 +489,8 @@ func daysIn(year, month int) int {
 	return t.Day()
 }
 
-// UpdateStoreTargetSales - her soatda chaqiriladi (cron)
-// store_targets.updated_at dan keyin kelgan yangi saleslarni sales ga qo'shib update qiladi
+// UpdateStoreTargetSales - called every hour (cron)
+// updates sales by adding new sales that arrive after store_targets.updated_at
 func (s *Services) UpdateStoreTargetSales() {
 	now := time.Now()
 	year := now.Year()
@@ -469,8 +519,8 @@ func (s *Services) UpdateStoreTargetSales() {
 }
 
 
-// UpdateEmployeeTargetSales - her soatda chaqiriladi (cron)
-// employee_targets.updated_at dan keyin kelgan yangi saleslarni sales ga qo'shib update qiladi
+// UpdateEmployeeTargetSales - called every hour (cron)
+// updates sales by adding new sales that arrive after employee_targets.updated_at
 func (s *Services) UpdateEmployeeTargetSales() {
 	now := time.Now()
 	year := now.Year()

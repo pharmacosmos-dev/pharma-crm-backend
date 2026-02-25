@@ -58,12 +58,14 @@ type StoreTargetQueryParams struct {
 	StoreId     string   `form:"store_id"`
 	CompanyId   string   `form:"company_id"`
 	CompanyIds  []string `form:"-"`
+	SearchField string   `form:"search"`
 	IsFranchise *bool    `form:"is_franchise"`
 	IsPharma    *bool    `form:"is_pharma"`
 	Year        int      `form:"year"`
 	Month       int      `form:"month"`
 	Limit       int      `form:"limit"`
 	Offset      int      `form:"offset"`
+	Order       string      `form:"order"`
 }
 
 type StoreTargetSummary struct {

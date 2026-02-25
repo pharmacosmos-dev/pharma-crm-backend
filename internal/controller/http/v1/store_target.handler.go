@@ -226,10 +226,12 @@ func (h *StoreTargetHandler) StoreHistory(c *gin.Context) {
 // @Produce      json
 // @Param        store_id   query  string  false  "Store ID"
 // @Param        company_id   query  string  false  "Company ID"
+// @Param 		 search query string false "Search"
 // @Param        year       query  int     false  "Year (exmaple: 2026)"
 // @Param        month      query  int     false  "Month (1-12)"
 // @Param        limit      query  int     false  "Limit"
 // @Param        offset     query  int     false  "Offset"
+// @Param        order query string false "Order by (+store_name || -store_name || +target || -target || -sales || +sales)"
 // @Success      200 {object} v1.Response
 // @Failure      400 {object} v1.Response
 // @Failure      500 {object} v1.Response
@@ -272,7 +274,15 @@ func (h *StoreTargetHandler) List(c *gin.Context) {
 		return
 	}
 
-	handleResponse(c, OK, results, count)
+	handleResponse(c, OK, map[string]interface{}{
+		"_meta": utils.Meta{
+			TotalCount:  count,
+			PerPage:     params.Limit,
+			CurrentPage: (params.Offset / params.Limit) + 1,
+			PageCount:   int((count + int64(params.Limit) - 1) / int64(params.Limit)),
+		},
+		"data": results,
+	})
 }
 
 

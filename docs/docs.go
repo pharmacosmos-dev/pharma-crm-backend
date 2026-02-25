@@ -23666,6 +23666,12 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "string",
+                        "description": "Search",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
                         "type": "integer",
                         "description": "Year (exmaple: 2026)",
                         "name": "year",
@@ -23687,6 +23693,12 @@ const docTemplate = `{
                         "type": "integer",
                         "description": "Offset",
                         "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Order by (+store_name || -store_name || +target || -target || -sales || +sales)",
+                        "name": "order",
                         "in": "query"
                     }
                 ],
