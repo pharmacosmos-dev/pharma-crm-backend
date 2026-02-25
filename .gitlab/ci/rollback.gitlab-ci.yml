@@ -20,7 +20,8 @@
   before_script:
     - apk add --no-cache openssh-client
     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
-    - echo "$_SSH_PRIVATE_KEY" > ~/.ssh/id_rsa && chmod 600 ~/.ssh/id_rsa
+    # GitLab File-type variable provides a path, so we cp (not echo) the key
+    - cp "$_SSH_PRIVATE_KEY" ~/.ssh/id_rsa && chmod 600 ~/.ssh/id_rsa
     - ssh-keyscan -p "${_SSH_PORT:-22}" "$_SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
   script:
     - |
