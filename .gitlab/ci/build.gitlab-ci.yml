@@ -46,6 +46,7 @@
 #     - if: '$CI_COMMIT_BRANCH == "staging"'
 #     - if: '$CI_COMMIT_BRANCH == "master"'
 
+
 # --------------- BUILD & PUSH DOCKER IMAGE -----------------------------------
 build:
   stage: build
