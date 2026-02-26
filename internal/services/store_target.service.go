@@ -48,7 +48,7 @@ func (s *Services) CreateStoreTarget(ctx context.Context, req *domain.StoreTarge
 		Amount:    req.Amount,
 		Year:      req.Year,
 		Month:     req.Month,
-		UpdatedAt: &startOfMonth,
+		SyncedAt:  &startOfMonth,
 	}
 
 	tx := s.db.WithContext(ctx).Begin()
@@ -78,6 +78,8 @@ func (s *Services) CreateStoreTarget(ctx context.Context, req *domain.StoreTarge
 }
 
 
+// distributeToEmployees - yangi store_target yaratilganda xodim targetlarini CREATE qiladi.
+// Faqat birinchi marta (target yo'q bo'lsa) ishlatiladi.
 func (s *Services) distributeToEmployees(tx *gorm.DB, target *domain.StoreTarget) error {
 	var employees []domain.Employee
 	if err := tx.Where("store_id = ? AND status = ?", target.StoreId, "active").
@@ -90,10 +92,9 @@ func (s *Services) distributeToEmployees(tx *gorm.DB, target *domain.StoreTarget
 		return nil
 	}
 
-
 	perEmployee := target.Amount / float64(len(employees))
 
-	// We set updated_at to the beginning of the month, so cron will collect all sales for that month.
+	// synced_at is set to the beginning of the month — cron will calculate all sales for that month
 	startOfMonth := time.Date(target.Year, time.Month(target.Month), 1, 0, 0, 0, 0, time.Local)
 
 	var employeeTargets []domain.EmployeeTarget
@@ -107,13 +108,72 @@ func (s *Services) distributeToEmployees(tx *gorm.DB, target *domain.StoreTarget
 			Amount:        perEmployee,
 			Year:          target.Year,
 			Month:         target.Month,
-			UpdatedAt:     &startOfMonth,
+			SyncedAt:      &startOfMonth,
 		})
 	}
 
 	if err := tx.Create(&employeeTargets).Error; err != nil {
 		s.log.Errorf("could not insert employee targets: %v", err)
 		return err
+	}
+
+	return nil
+}
+
+// redistributeToEmployees - store_target amount'i o'zgarganda xodim targetlarini qayta hisoblaydi.
+// Mavjud employee target bo'lsa amount'ini UPDATE qiladi (sales saqlanadi),
+// yangi xodim bo'lsa CREATE qiladi.
+func (s *Services) redistributeToEmployees(tx *gorm.DB, target *domain.StoreTarget) error {
+	var employees []domain.Employee
+	if err := tx.Where("store_id = ? AND status = ?", target.StoreId, "active").
+		Find(&employees).Error; err != nil {
+		s.log.Errorf("could not get employees for store %s: %v", target.StoreId, err)
+		return err
+	}
+
+	if len(employees) == 0 {
+		return nil
+	}
+
+	perEmployee := target.Amount / float64(len(employees))
+	startOfMonth := time.Date(target.Year, time.Month(target.Month), 1, 0, 0, 0, 0, time.Local)
+
+	for _, emp := range employees {
+		var existing domain.EmployeeTarget
+		err := tx.Where("store_id = ? AND employee_id = ? AND year = ? AND month = ?",
+			target.StoreId, emp.Id, target.Year, target.Month).
+			First(&existing).Error
+
+		if err == nil {
+			//Existing — we only update amount and store_target_id (sales and synced_at do not change)
+			if err := tx.Model(&existing).Updates(map[string]interface{}{
+				"amount":          perEmployee,
+				"store_target_id": target.Id,
+			}).Error; err != nil {
+				s.log.Errorf("could not update employee target for employee %s: %v", emp.Id, err)
+				return err
+			}
+		} else if err == gorm.ErrRecordNotFound {
+			// New employee — we will create
+			newTarget := domain.EmployeeTarget{
+				Id:            uuid.New().String(),
+				StoreTargetId: target.Id,
+				EmployeeId:    emp.Id,
+				StoreId:       target.StoreId,
+				CompanyId:     target.CompanyId,
+				Amount:        perEmployee,
+				Year:          target.Year,
+				Month:         target.Month,
+				SyncedAt:      &startOfMonth,
+			}
+			if err := tx.Create(&newTarget).Error; err != nil {
+				s.log.Errorf("could not create employee target for employee %s: %v", emp.Id, err)
+				return err
+			}
+		} else {
+			s.log.Errorf("could not query employee target for employee %s: %v", emp.Id, err)
+			return err
+		}
 	}
 
 	return nil
@@ -139,13 +199,9 @@ func (s *Services) UpdateStoreTarget(ctx context.Context, id string, req *domain
 	}
 
 	if existing.Year < currentYear ||
-		(existing.Year == currentYear && existing.Month <= currentMonth) {
-		return nil, fmt.Errorf("permission denied: can only update next month or future targets")
+		(existing.Year == currentYear && existing.Month < currentMonth) {
+		return nil, fmt.Errorf("permission denied: can only update current or future month targets")
 	}
-
-	existing.Amount = req.Amount
-	nowTime := time.Now()
-	existing.UpdatedAt = &nowTime
 
 	tx := s.db.WithContext(ctx).Begin()
 	defer func() {
@@ -154,13 +210,17 @@ func (s *Services) UpdateStoreTarget(ctx context.Context, id string, req *domain
 		}
 	}()
 
-	if err := tx.Save(&existing).Error; err != nil {
+	// Faqat amount ni update qilamiz — updated_at o'zgarmaydi (cron uchun muhim)
+	if err := tx.Model(&existing).Select("amount").Updates(map[string]interface{}{
+		"amount": req.Amount,
+	}).Error; err != nil {
 		tx.Rollback()
-		s.log.Errorf("could not update store target: %v", err)
+		s.log.Errorf("could not update store target amount: %v", err)
 		return nil, domain.InternalServerError
 	}
+	existing.Amount = req.Amount
 
-	if err := s.distributeToEmployees(tx, &existing); err != nil {
+	if err := s.redistributeToEmployees(tx, &existing); err != nil {
 		tx.Rollback()
 		return nil, domain.InternalServerError
 	}
@@ -290,7 +350,7 @@ func (s *Services) GetStoreTargetList(ctx context.Context, params *domain.StoreT
 	}
 
 	if params.SearchField != "" {
-		countQuery = countQuery.Where("stores.name LIKE ?", "%"+params.SearchField+"%")
+		countQuery = countQuery.Where("stores.name ILIKE ?", "%"+params.SearchField+"%")
 	}
 
 	var totalCount int64
@@ -331,7 +391,7 @@ func (s *Services) GetStoreTargetList(ctx context.Context, params *domain.StoreT
 	}
 
 	if params.SearchField != "" {
-		query = query.Where("stores.name LIKE ?", "%"+params.SearchField+"%")
+		query = query.Where("stores.name ILIKE ?", "%"+params.SearchField+"%")
 	}
 
 	// ==========================================================
@@ -505,10 +565,11 @@ func (s *Services) UpdateStoreTargetSales() {
 				WHERE s.store_id = st.store_id
 				AND s.stage = '9'
 				AND s.is_returned = false
-				AND s.created_at > st.updated_at
+				AND s.created_at > st.synced_at
 			), 0),
-			updated_at = NOW()
+			synced_at = NOW()
 		WHERE st.year = ? AND st.month = ?
+		AND st.synced_at IS NOT NULL
 	`, year, month).Error
 
 	if err != nil {
@@ -536,10 +597,11 @@ func (s *Services) UpdateEmployeeTargetSales() {
 				AND s.employee_id = et.employee_id
 				AND s.stage = '9'
 				AND s.is_returned = false
-				AND s.created_at > et.updated_at
+				AND s.created_at > et.synced_at
 			), 0),
-			updated_at = NOW()
+			synced_at = NOW()
 		WHERE et.year = ? AND et.month = ?
+		AND et.synced_at IS NOT NULL
 	`, year, month).Error
 
 	if err != nil {
@@ -549,6 +611,90 @@ func (s *Services) UpdateEmployeeTargetSales() {
 	log.Printf("UpdateEmployeeTargetSales completed for %d-%02d", year, month)
 }
 
+// AutoCreateMonthlyStoreTargets - har oyning 1-kuni 00:00 da cron tomonidan chaqiriladi.
+// Oldingi oyda store_target bo'lgan har bir do'kon uchun yangi oy target mavjud bo'lmasa,
+// oldingi oyning amount'i bilan yangi store_target va employee_target'larni yaratadi.
+func (s *Services) AutoCreateMonthlyStoreTargets() {
+	ctx := context.Background()
+	now := time.Date(2026, 3, 1, 0, 0, 1, 0, time.UTC)
+	currentYear := now.Year()
+	currentMonth := int(now.Month())
+
+	// Oldingi oyni hisoblash
+	prevTime := now.AddDate(0, -1, 0)
+	prevYear := prevTime.Year()
+	prevMonth := int(prevTime.Month())
+
+	// Get all store_targets available in the previous month
+	var prevTargets []domain.StoreTarget
+	if err := s.db.WithContext(ctx).
+		Where("year = ? AND month = ?", prevYear, prevMonth).
+		Find(&prevTargets).Error; err != nil {
+		s.log.Errorf("AutoCreateMonthlyStoreTargets: Error retrieving previous month's targets: %v", err)
+		return
+	}
+
+	log.Printf("AutoCreateMonthlyStoreTargets: Found %d stores for %d-%02d",
+		prevYear, prevMonth, len(prevTargets))
+
+	created := 0
+	for _, prev := range prevTargets {
+		var existing domain.StoreTarget
+		err := s.db.WithContext(ctx).
+			Where("store_id = ? AND year = ? AND month = ?", prev.StoreId, currentYear, currentMonth).
+			First(&existing).Error
+
+		if err == nil {
+			continue
+		}
+
+		if err != gorm.ErrRecordNotFound {
+			s.log.Errorf("AutoCreateMonthlyStoreTargets: store %s uchun mavjudligini tekshirishda xato: %v",
+				prev.StoreId, err)
+			continue
+		}
+
+		// Yangi store_target yaratish (oldingi oyning amount'i bilan)
+		startOfMonth := time.Date(currentYear, time.Month(currentMonth), 1, 0, 0, 0, 0, time.Local)
+		target := domain.StoreTarget{
+			Id:        uuid.New().String(),
+			StoreId:   prev.StoreId,
+			CompanyId: prev.CompanyId,
+			Amount:    prev.Amount,
+			Year:      currentYear,
+			Month:     currentMonth,
+			SyncedAt:  &startOfMonth,
+		}
+
+		tx := s.db.WithContext(ctx).Begin()
+		if err := tx.Create(&target).Error; err != nil {
+			tx.Rollback()
+			s.log.Errorf("AutoCreateMonthlyStoreTargets: store %s uchun target yaratishda xato: %v",
+				prev.StoreId, err)
+			continue
+		}
+
+		if err := s.distributeToEmployees(tx, &target); err != nil {
+			tx.Rollback()
+			s.log.Errorf("AutoCreateMonthlyStoreTargets: store %s uchun xodim targetlarini yaratishda xato: %v",
+				prev.StoreId, err)
+			continue
+		}
+
+		if err := tx.Commit().Error; err != nil {
+			s.log.Errorf("AutoCreateMonthlyStoreTargets: store %s uchun commit xatosi: %v",
+				prev.StoreId, err)
+			continue
+		}
+
+		created++
+		log.Printf("AutoCreateMonthlyStoreTargets: store %s uchun %d-%02d target yaratildi (amount: %.2f)",
+			prev.StoreId, currentYear, currentMonth, prev.Amount)
+	}
+
+	log.Printf("AutoCreateMonthlyStoreTargets: %d-%02d done — Target created for store %d/%d",
+		currentYear, currentMonth, created, len(prevTargets))
+}
 
 func (s *Services) GetCurrentMonthStoreTargetsSummary(ctx context.Context, companyIds []string, storeId string) (*domain.StoreTargetSummary, error) {
 	now := time.Now()
@@ -589,12 +735,11 @@ func (s *Services) GetCurrentMonthStoreTargetsSummary(ctx context.Context, compa
 	}, nil
 }
 
-
-func (s *Services) GetDailySalesStoreTargetsEmployee(ctx context.Context, employeeId string, storeId string) (*domain.EmployeeTargetHistoryItem, error) {
+func (s *Services) GetDailySalesStoreTargetEmployee(ctx context.Context, employeeId string, storeId string) (*domain.EmployeeTargetHistoryItem, error) {
 	now := time.Now()
 	year := now.Year()
 	month := int(now.Month())
-
+	
 	var target domain.EmployeeTarget
 	err := s.db.WithContext(ctx).
 		Select("id, employee_id, store_id, amount, year, month").
@@ -635,4 +780,86 @@ func (s *Services) GetDailySalesStoreTargetsEmployee(ctx context.Context, employ
 		Year:         year,
 		Month:        month,
 	}, nil
+}
+
+// UpdateEmployeeTargetAmount - bitta xodimning target summasini o'zgartiradi.
+// Qolgan xodimlar uchun qolgan summa teng taqsimlanadi.
+// Store target summasiga ta'sir qilmaydi.
+func (s *Services) UpdateEmployeeTargetAmount(ctx context.Context, storeTargetId string, employeeId string, newAmount float64) error {
+
+	var storeTarget domain.StoreTarget
+	if err := s.db.WithContext(ctx).First(&storeTarget, "id = ?", storeTargetId).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return domain.NotFoundError
+		}
+		s.log.Errorf("UpdateEmployeeTargetAmount: could not get store target: %v", err)
+		return domain.InternalServerError
+	}
+
+	now := time.Now()
+	currentYear := now.Year()
+	currentMonth := int(now.Month())
+	if storeTarget.Year < currentYear ||
+		(storeTarget.Year == currentYear && storeTarget.Month < currentMonth) {
+		return fmt.Errorf("permission denied: can only update current or future month targets")
+	}
+
+	if newAmount >= storeTarget.Amount {
+		return fmt.Errorf("employee target amount cannot be greater than or equal to store target amount")
+	}
+
+	var empTarget domain.EmployeeTarget
+	if err := s.db.WithContext(ctx).
+		Where("store_target_id = ? AND employee_id = ?", storeTargetId, employeeId).
+		First(&empTarget).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return domain.NotFoundError
+		}
+		s.log.Errorf("UpdateEmployeeTargetAmount: could not get employee target: %v", err)
+		return domain.InternalServerError
+	}
+
+	var otherTargets []domain.EmployeeTarget
+	if err := s.db.WithContext(ctx).
+		Where("store_target_id = ? AND employee_id != ?", storeTargetId, employeeId).
+		Find(&otherTargets).Error; err != nil {
+		s.log.Errorf("UpdateEmployeeTargetAmount: could not get other employee targets: %v", err)
+		return domain.InternalServerError
+	}
+
+	
+	remaining := storeTarget.Amount - newAmount
+	var perOther float64
+	if len(otherTargets) > 0 {
+		perOther = remaining / float64(len(otherTargets))
+	}
+
+	tx := s.db.WithContext(ctx).Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	if err := tx.Model(&empTarget).Update("amount", newAmount).Error; err != nil {
+		tx.Rollback()
+		s.log.Errorf("UpdateEmployeeTargetAmount: could not update employee target: %v", err)
+		return domain.InternalServerError
+	}
+
+
+	for _, other := range otherTargets {
+		if err := tx.Model(&other).Update("amount", perOther).Error; err != nil {
+			tx.Rollback()
+			s.log.Errorf("UpdateEmployeeTargetAmount: could not update other employee target %s: %v", other.EmployeeId, err)
+			return domain.InternalServerError
+		}
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		s.log.Errorf("UpdateEmployeeTargetAmount: could not commit transaction: %v", err)
+		return domain.InternalServerError
+	}
+
+	return nil
 }

@@ -24,12 +24,13 @@ func (h *StoreTargetHandler) StoreTargetRoutes(r *gin.RouterGroup) {
 	{
 		target.POST("", h.Create)
 		target.DELETE("/:id", h.Delete)
-		//target.PUT("/:id", h.Update)
+		target.PUT("/:id", h.Update)
 		target.GET("/:store_id", h.StoreHistory)
 		target.GET("/list", h.List)
 		// target.GET("/my", h.GetMyTarget)
 		target.GET("/employee/list/:store_id", h.EmployeeHistory)
 		target.GET("/employee/my", h.GetMyEmployeeTarget)
+		target.PUT("/employee/:employee_id", h.UpdateEmployeeTarget)
 		target.GET("/summary", h.Summary)
 	}
 }
@@ -47,13 +48,18 @@ func (h *StoreTargetHandler) StoreTargetRoutes(r *gin.RouterGroup) {
 // @Failure      500 {object} v1.Response
 // @Router       /store-target [post]
 func (h *StoreTargetHandler) Create(c *gin.Context) {
+
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
 	var body domain.StoreTargetRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-
-	//user := h.service.GetSignedUser(c)
 	
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
@@ -84,6 +90,13 @@ func (h *StoreTargetHandler) Create(c *gin.Context) {
 // @Failure      500 {object} v1.Response
 // @Router       /store-target/{id} [delete]
 func (h *StoreTargetHandler) Delete(c *gin.Context) {
+
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
 	id := c.Param("id")
 
 	tx := h.db.WithContext(c.Request.Context()).Begin()
@@ -118,10 +131,9 @@ func (h *StoreTargetHandler) Delete(c *gin.Context) {
 	handleResponse(c, OK, "DELETED")
 }
 
-
 // Update godoc
 // @Summary      Update store target
-// @Description  Store target amount will be updated. Only allowed for next month
+// @Description  Store target amount will be updated. Only allowed for current or future months
 // @Tags         store-target
 // @Security     BearerAuth
 // @Accept       json
@@ -134,34 +146,41 @@ func (h *StoreTargetHandler) Delete(c *gin.Context) {
 // @Failure      404 {object} v1.Response
 // @Failure      500 {object} v1.Response
 // @Router       /store-target/{id} [put]
-// func (h *StoreTargetHandler) Update(c *gin.Context) {
-// 	id := c.Param("id")
+func (h *StoreTargetHandler) Update(c *gin.Context) {
 
-// 	var body domain.StoreTargetUpdateRequest
-// 	if err := c.ShouldBindJSON(&body); err != nil {
-// 		handleResponse(c, BadRequest, err.Error())
-// 		return
-// 	}
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
 
-// 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-// 	defer cancel()
+	id := c.Param("id")
 
-// 	result, err := h.service.UpdateStoreTarget(ctx, id, &body)
-// 	if err != nil {
-// 		if err.Error() == "store target not found" {
-// 			handleResponse(c, NotFound, err.Error())
-// 			return
-// 		}
-// 		if err.Error() == "permission denied: can only update next month or future targets" {
-// 			handleResponse(c, Forbidden, err.Error())
-// 			return
-// 		}
-// 		handleServiceResponse(c, nil, err)
-// 		return
-// 	}
+	var body domain.StoreTargetUpdateRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
 
-// 	handleResponse(c, OK, result)
-// }
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	result, err := h.service.UpdateStoreTarget(ctx, id, &body)
+	if err != nil {
+		if err.Error() == "store target not found" {
+			handleResponse(c, NotFound, err.Error())
+			return
+		}
+		if err.Error() == "permission denied: can only update current or future month targets" {
+			handleResponse(c, FORBIDDEN, err.Error())
+			return
+		}
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, result)
+}
 
 // StoreHistory godoc
 // @Summary      Store target history
@@ -370,7 +389,7 @@ func (h *StoreTargetHandler) GetMyEmployeeTarget(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	result, err := h.service.GetDailySalesStoreTargetsEmployee(ctx, user.UserId, user.StoreId)
+	result, err := h.service.GetDailySalesStoreTargetEmployee(ctx, user.UserId, user.StoreId)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return
@@ -384,6 +403,64 @@ func (h *StoreTargetHandler) GetMyEmployeeTarget(c *gin.Context) {
 	handleResponse(c, OK, result)
 }
 
+
+// UpdateEmployeeTarget godoc
+// @Summary      Update employee target amount
+// @Description  Updates the target amount for a specific employee. The remaining amount is distributed equally among other employees in the same store target. Store target total is not affected.
+// @Tags         store-target
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        employee_id  path  string                            true  "Employee ID"
+// @Param        input        body  domain.EmployeeTargetUpdateRequest  true  "New target amount"
+// @Success      200 {object} v1.Response
+// @Failure      400 {object} v1.Response
+// @Failure      403 {object} v1.Response
+// @Failure      404 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /store-target/employee/{employee_id} [put]
+func (h *StoreTargetHandler) UpdateEmployeeTarget(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	employeeId := c.Param("employee_id")
+	if employeeId == "" {
+		handleResponse(c, BadRequest, "employee_id is required")
+		return
+	}
+
+	var body domain.EmployeeTargetUpdateRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	err := h.service.UpdateEmployeeTargetAmount(ctx, body.StoreTargetId, employeeId, body.Amount)
+	if err != nil {
+		if err == domain.NotFoundError {
+			handleResponse(c, NotFound, err.Error())
+			return
+		}
+		if err.Error() == "permission denied: can only update current or future month targets" {
+			handleResponse(c, FORBIDDEN, err.Error())
+			return
+		}
+		if err.Error() == "employee target amount cannot be greater than or equal to store target amount" {
+			handleResponse(c, BadRequest, err.Error())
+			return
+		}
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, "updated")
+}
 
 // Summary godoc
 // @Summary      Current Month Store Targets Summary

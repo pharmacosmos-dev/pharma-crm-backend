@@ -542,6 +542,17 @@ definitions:
     - language
     - phone
     type: object
+  domain.EmployeeTargetUpdateRequest:
+    properties:
+      amount:
+        minimum: 0
+        type: number
+      store_target_id:
+        type: string
+    required:
+    - amount
+    - store_target_id
+    type: object
   domain.EmployeeUpdateInfoRequest:
     properties:
       first_name:
@@ -1895,6 +1906,16 @@ definitions:
         type: number
       year:
         type: integer
+    type: object
+  domain.StoreTargetUpdateRequest:
+    properties:
+      amount:
+        type: number
+      store_id:
+        type: string
+    required:
+    - amount
+    - store_id
     type: object
   domain.Tag:
     properties:
@@ -17249,6 +17270,51 @@ paths:
       summary: Delete store target
       tags:
       - store-target
+    put:
+      consumes:
+      - application/json
+      description: Store target amount will be updated. Only allowed for current or
+        future months
+      parameters:
+      - description: Store target ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New target amount
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.StoreTargetUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update store target
+      tags:
+      - store-target
   /store-target/{store_id}:
     get:
       consumes:
@@ -17282,6 +17348,53 @@ paths:
       security:
       - BearerAuth: []
       summary: Store target history
+      tags:
+      - store-target
+  /store-target/employee/{employee_id}:
+    put:
+      consumes:
+      - application/json
+      description: Updates the target amount for a specific employee. The remaining
+        amount is distributed equally among other employees in the same store target.
+        Store target total is not affected.
+      parameters:
+      - description: Employee ID
+        in: path
+        name: employee_id
+        required: true
+        type: string
+      - description: New target amount
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.EmployeeTargetUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update employee target amount
       tags:
       - store-target
   /store-target/employee/list/{store_id}:

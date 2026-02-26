@@ -101,7 +101,13 @@ func RegisterCronJobs(service *services.Services) (*cron.Cron, error) {
 		service.UpdateStoreTargetSales()
 		log.Println("Starting update employee target sales...")
 		service.UpdateEmployeeTargetSales()
-	})	
+	})
+	
+	// Set store and employee goals for the new month at 00:00 (UTC) on the 1st of each month
+	c.AddFunc("0 0 1 * *", func() {
+		log.Println("Starting auto create monthly store targets...")
+		service.AutoCreateMonthlyStoreTargets()
+	})
 
 	return c, nil
 }

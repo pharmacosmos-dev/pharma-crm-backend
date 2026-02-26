@@ -3,13 +3,14 @@ package domain
 import "time"
 
 type StoreTarget struct {
-	Id        string     `json:"id" gorm:"column:id"`
+	Id        string     `json:"id" gorm:"column:id;primaryKey"`
 	StoreId   string     `json:"store_id" gorm:"column:store_id"`
 	CompanyId string     `json:"company_id" gorm:"column:company_id"`
 	Amount    float64    `json:"amount" gorm:"column:amount"`
 	Sales     float64    `json:"sales" gorm:"column:sales"`
 	Year      int        `json:"year" gorm:"column:year"`
 	Month     int        `json:"month" gorm:"column:month"`
+	SyncedAt  *time.Time `json:"synced_at" gorm:"column:synced_at"`
 	CreatedAt *time.Time `json:"created_at" gorm:"column:created_at"`
 	UpdatedAt *time.Time `json:"updated_at" gorm:"column:updated_at"`
 
