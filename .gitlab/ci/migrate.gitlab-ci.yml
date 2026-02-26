@@ -31,7 +31,7 @@
     - ssh-keyscan -p "${_SSH_PORT:-22}" "$_SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
   script:
     - |
-      ssh -T -o StrictHostKeyChecking=no -p "${_SSH_PORT:-22}" "${_SSH_USER}@${_SSH_HOST}" << 'REMOTE_SCRIPT'
+      ssh -T -o StrictHostKeyChecking=no -p "${_SSH_PORT:-22}" "${_SSH_USER}@${_SSH_HOST}" << REMOTE_SCRIPT
         set -e
         echo "🔄 Pulling image: ${IMAGE_TAG}"
         echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin
