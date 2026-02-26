@@ -1,62 +1,44 @@
 # =============================================================================
 # Deploy stage – pull Docker image on the server and restart the container
 # =============================================================================
-# Strategy:
-#   SSH into the target server → docker pull → stop old container → start new.
-#   Uses --network host (matching existing GitHub Actions deployment).
-#   Mounts .env, uploads, and logger directories from the host.
-#
-# This mirrors the existing prod-ci-cd.yml / dev-cicd.yml GitHub Actions
-# workflows but uses GitLab environments for tracking and variable scoping.
+# Uses appleboy/drone-ssh – the same Go-based SSH engine that powers
+# appleboy/ssh-action in GitHub Actions.
 # =============================================================================
 
 # ---- hidden template --------------------------------------------------------
 .deploy_template:
   stage: deploy
-  image: alpine:3.20
+  image: appleboy/drone-ssh
   needs:
     - job: build
       artifacts: true
-  before_script:
-    - apk add --no-cache openssh-client
-    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
-    # GitLab File-type variable provides a path, so we cp (not echo) the key
-    - cp "$_SSH_PRIVATE_KEY" ~/.ssh/id_rsa && chmod 600 ~/.ssh/id_rsa
-    - ssh-keyscan -p "${_SSH_PORT:-22}" "$_SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
   script:
-    - |
-      ssh -o StrictHostKeyChecking=no -p "${_SSH_PORT:-22}" "${_SSH_USER}@${_SSH_HOST}" << REMOTE_SCRIPT
-        set -e
-        echo "🔄 Pulling image: ${IMAGE_TAG}"
-        echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin
-        docker pull "${IMAGE_TAG}"
-
-        echo "🛑 Stopping old container..."
-        docker stop "${CONTAINER_NAME}" 2>/dev/null || true
-        docker rm   "${CONTAINER_NAME}" 2>/dev/null || true
-
-        echo "🚀 Starting new container..."
-        docker run -d \
-          --name "${CONTAINER_NAME}" \
-          --network host \
-          -p "${CONTAINER_PORT}" \
-          --env-file "${ENV_PATH}" \
-          -v "${UPLOADS_PATH}:/app/uploads" \
-          -v "${LOGGER_PATH}:/app/logger" \
-          --restart unless-stopped \
-          "${IMAGE_TAG}"
-
-        echo "✅ Deployed ${IMAGE_TAG}"
-
-        # ----- Prune old images to save disk (keep N most recent) -----
-        echo "🧹 Pruning old images (keeping last ${ROLLBACK_KEEP})..."
-        docker images "${DOCKER_IMAGE}" --format '{{.Tag}} {{.ID}}' \
-          | grep -v 'buildcache' \
-          | grep -v '<none>' \
-          | head -n -${ROLLBACK_KEEP} \
-          | awk '{print \$2}' \
-          | xargs -r docker rmi || true
-      REMOTE_SCRIPT
+    - >-
+      drone-ssh
+      --host "$_SSH_HOST"
+      --port "${_SSH_PORT:-22}"
+      --username "$_SSH_USER"
+      --key "$(cat $_SSH_PRIVATE_KEY)"
+      --script "
+        set -e;
+        echo '🔄 Pulling image: $IMAGE_TAG';
+        echo '$DOCKER_PASSWORD' | docker login -u '$DOCKER_USERNAME' --password-stdin;
+        docker pull '$IMAGE_TAG';
+        echo '🛑 Stopping old container...';
+        docker stop '$CONTAINER_NAME' 2>/dev/null || true;
+        docker rm   '$CONTAINER_NAME' 2>/dev/null || true;
+        echo '🚀 Starting new container...';
+        docker run -d
+          --name '$CONTAINER_NAME'
+          --network host
+          -p '$CONTAINER_PORT'
+          --env-file '$ENV_PATH'
+          -v '$UPLOADS_PATH:/app/uploads'
+          -v '$LOGGER_PATH:/app/logger'
+          --restart unless-stopped
+          '$IMAGE_TAG';
+        echo '✅ Deployed $IMAGE_TAG';
+      "
 
 # ---- DEV deploy (automatic on dev branch) ----------------------------------
 deploy:dev:
@@ -75,7 +57,7 @@ deploy:dev:
     LOGGER_PATH: "$DEV_LOGGER_PATH"
   environment:
     name: dev
-    url: http://$DEV_SSH_HOST:8090    # placeholder – update with real URL
+    url: http://$DEV_SSH_HOST:8090
   rules:
     - if: '$CI_COMMIT_BRANCH == "dev"'
 

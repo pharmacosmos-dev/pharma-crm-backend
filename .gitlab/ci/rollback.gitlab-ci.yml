@@ -1,73 +1,49 @@
 # =============================================================================
 # Rollback stage – manually revert to the previous Docker image
 # =============================================================================
-# How it works:
-#   1. SSH into the server.
-#   2. Find the second-most-recent image tag for DOCKER_IMAGE (the one before
-#      the currently running container).
-#   3. Stop the current container, start a new one with the previous image.
+# Uses appleboy/drone-ssh – the same Go-based SSH engine that powers
+# appleboy/ssh-action in GitHub Actions.
 #
-# Override: set ROLLBACK_IMAGE_TAG in the GitLab UI when triggering the job
-#   to roll back to a specific image tag instead of the auto-detected one.
-#
-# All rollback jobs are MANUAL – they must be triggered from the pipeline UI.
+# Override: set ROLLBACK_IMAGE_TAG variable when triggering to roll back
+# to a specific image tag.
 # =============================================================================
 
 # ---- hidden template --------------------------------------------------------
 .rollback_template:
   stage: rollback
-  image: alpine:3.20
-  before_script:
-    - apk add --no-cache openssh-client
-    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
-    # GitLab File-type variable provides a path, so we cp (not echo) the key
-    - cp "$_SSH_PRIVATE_KEY" ~/.ssh/id_rsa && chmod 600 ~/.ssh/id_rsa
-    - ssh-keyscan -p "${_SSH_PORT:-22}" "$_SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+  image: appleboy/drone-ssh
   script:
-    - |
-      ssh -o StrictHostKeyChecking=no -p "${_SSH_PORT:-22}" "${_SSH_USER}@${_SSH_HOST}" << REMOTE_SCRIPT
-        set -e
-
-        # ---- Determine rollback target ----
-        if [ -n "${ROLLBACK_IMAGE_TAG}" ]; then
-          TARGET="${ROLLBACK_IMAGE_TAG}"
-          echo "📌 Rolling back to explicit tag: \${TARGET}"
+    - >-
+      drone-ssh
+      --host "$_SSH_HOST"
+      --port "${_SSH_PORT:-22}"
+      --username "$_SSH_USER"
+      --key "$(cat $_SSH_PRIVATE_KEY)"
+      --script "
+        set -e;
+        if [ -n '$ROLLBACK_IMAGE_TAG' ]; then
+          TARGET='$ROLLBACK_IMAGE_TAG';
+          echo '📌 Rolling back to: '\$TARGET;
         else
-          # Auto-detect: list local images sorted by creation date, pick the
-          # second one (the image before the currently running one).
-          TARGET=\$(docker images "${DOCKER_IMAGE}" \
-            --format '{{.Repository}}:{{.Tag}}\t{{.CreatedAt}}' \
-            | grep -v 'buildcache' \
-            | grep -v '<none>' \
-            | sort -t$'\t' -k2 -r \
-            | awk -F'\t' 'NR==2{print \$1}')
-
-          if [ -z "\${TARGET}" ]; then
-            echo "❌ No previous image found for rollback."
-            exit 1
-          fi
-          echo "🔍 Auto-detected rollback target: \${TARGET}"
-        fi
-
-        echo "🛑 Stopping current container..."
-        docker stop "${CONTAINER_NAME}" 2>/dev/null || true
-        docker rm   "${CONTAINER_NAME}" 2>/dev/null || true
-
-        echo "⏪ Starting rollback container..."
-        docker run -d \
-          --name "${CONTAINER_NAME}" \
-          --network host \
-          -p "${CONTAINER_PORT}" \
-          --env-file "${ENV_PATH}" \
-          -v "${UPLOADS_PATH}:/app/uploads" \
-          -v "${LOGGER_PATH}:/app/logger" \
-          --restart unless-stopped \
-          "\${TARGET}"
-
-        echo "✅ Rolled back to \${TARGET}"
-      REMOTE_SCRIPT
+          TARGET=\$(docker images '$DOCKER_IMAGE' --format '{{.Repository}}:{{.Tag}}' | grep -v buildcache | grep -v none | sed -n '2p');
+          if [ -z \"\$TARGET\" ]; then echo '❌ No previous image found'; exit 1; fi;
+          echo '🔍 Auto-detected rollback target: '\$TARGET;
+        fi;
+        docker stop '$CONTAINER_NAME' 2>/dev/null || true;
+        docker rm   '$CONTAINER_NAME' 2>/dev/null || true;
+        docker run -d
+          --name '$CONTAINER_NAME'
+          --network host
+          -p '$CONTAINER_PORT'
+          --env-file '$ENV_PATH'
+          -v '$UPLOADS_PATH:/app/uploads'
+          -v '$LOGGER_PATH:/app/logger'
+          --restart unless-stopped
+          \$TARGET;
+        echo '✅ Rolled back to '\$TARGET;
+      "
   when: manual
-  allow_failure: true    # rollback should not block the pipeline
+  allow_failure: true
 
 # ---- DEV rollback -----------------------------------------------------------
 rollback:dev:
