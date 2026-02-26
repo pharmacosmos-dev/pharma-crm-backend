@@ -35,6 +35,7 @@ func (h *StoreTargetHandler) StoreTargetRoutes(r *gin.RouterGroup) {
 	}
 }
 
+
 // Create godoc
 // @Summary      Create store target
 // @Description  Creates a monthly target for the store and is equal to all active employees
@@ -131,6 +132,7 @@ func (h *StoreTargetHandler) Delete(c *gin.Context) {
 	handleResponse(c, OK, "DELETED")
 }
 
+
 // Update godoc
 // @Summary      Update store target
 // @Description  Store target amount will be updated. Only allowed for current or future months
@@ -181,6 +183,7 @@ func (h *StoreTargetHandler) Update(c *gin.Context) {
 
 	handleResponse(c, OK, result)
 }
+
 
 // StoreHistory godoc
 // @Summary      Store target history
@@ -235,6 +238,7 @@ func (h *StoreTargetHandler) StoreHistory(c *gin.Context) {
 
 	handleResponse(c, OK, results)
 }
+
 
 // List godoc
 // @Summary      All store target list
@@ -361,7 +365,6 @@ func (h *StoreTargetHandler) EmployeeHistory(c *gin.Context) {
 
 	handleResponse(c, OK, results, count)
 }
-
 
 
 // GetMyEmployeeTarget godoc

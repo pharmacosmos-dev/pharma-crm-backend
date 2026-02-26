@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"math"
 	"time"
 
 	"github.com/pharma-crm-backend/domain"
@@ -210,7 +209,6 @@ func (s *Services) UpdateStoreTarget(ctx context.Context, id string, req *domain
 		}
 	}()
 
-	// Faqat amount ni update qilamiz — updated_at o'zgarmaydi (cron uchun muhim)
 	if err := tx.Model(&existing).Select("amount").Updates(map[string]interface{}{
 		"amount": req.Amount,
 	}).Error; err != nil {
@@ -533,21 +531,21 @@ func (s *Services) GetEmployeeTargetHistoryByStore(
 		return nil, 0, domain.InternalServerError
 	}
 
-	days := daysIn(year, month)
+	// days := daysIn(year, month)
 
-	for i := range results {
-		raw := results[i].Amount / float64(days)
-		results[i].DailyTarget = math.Round(raw*100) / 100
-	}
+	// for i := range results {
+	// 	raw := results[i].Amount / float64(days)
+	// 	results[i].DailyTarget = math.Round(raw*100) / 100
+	// }
 
 	return results, count, nil
 }
 
 
-func daysIn(year, month int) int {
-	t := time.Date(year, time.Month(month)+1, 0, 0, 0, 0, 0, time.Local)
-	return t.Day()
-}
+// func daysIn(year, month int) int {
+// 	t := time.Date(year, time.Month(month)+1, 0, 0, 0, 0, 0, time.Local)
+// 	return t.Day()
+// }
 
 // UpdateStoreTargetSales - called every hour (cron)
 // updates sales by adding new sales that arrive after store_targets.updated_at
@@ -616,11 +614,10 @@ func (s *Services) UpdateEmployeeTargetSales() {
 // oldingi oyning amount'i bilan yangi store_target va employee_target'larni yaratadi.
 func (s *Services) AutoCreateMonthlyStoreTargets() {
 	ctx := context.Background()
-	now := time.Date(2026, 3, 1, 0, 0, 1, 0, time.UTC)
+	now := time.Now()
 	currentYear := now.Year()
 	currentMonth := int(now.Month())
 
-	// Oldingi oyni hisoblash
 	prevTime := now.AddDate(0, -1, 0)
 	prevYear := prevTime.Year()
 	prevMonth := int(prevTime.Month())
@@ -635,7 +632,7 @@ func (s *Services) AutoCreateMonthlyStoreTargets() {
 	}
 
 	log.Printf("AutoCreateMonthlyStoreTargets: Found %d stores for %d-%02d",
-		prevYear, prevMonth, len(prevTargets))
+    	len(prevTargets), prevYear, prevMonth)
 
 	created := 0
 	for _, prev := range prevTargets {
@@ -742,7 +739,7 @@ func (s *Services) GetDailySalesStoreTargetEmployee(ctx context.Context, employe
 	
 	var target domain.EmployeeTarget
 	err := s.db.WithContext(ctx).
-		Select("id, employee_id, store_id, amount, year, month").
+		Select("id, employee_id, store_id, amount, sales, year, month").
 		Where("employee_id = ? AND store_id = ? AND year = ? AND month = ?", employeeId, storeId, year, month).
 		First(&target).Error
 
@@ -758,25 +755,25 @@ func (s *Services) GetDailySalesStoreTargetEmployee(ctx context.Context, employe
 	s.db.WithContext(ctx).Select("full_name").Take(&employee, "id = ?", employeeId)
 
 	// Faqat bugungi sotuv yig'indisini olish (DATE(created_at) = bugun)
-	var todaySales float64
-	s.db.WithContext(ctx).
-		Table("sales").
-		Select("COALESCE(SUM(total_amount), 0)").
-		Where(
-			"store_id = ? AND employee_id = ? AND stage = '9' AND is_returned = false AND DATE(created_at) = CURRENT_DATE",
-			storeId, employeeId,
-		).
-		Scan(&todaySales)
+	// var todaySales float64
+	// s.db.WithContext(ctx).
+	// 	Table("sales").
+	// 	Select("COALESCE(SUM(total_amount), 0)").
+	// 	Where(
+	// 		"store_id = ? AND employee_id = ? AND stage = '9' AND is_returned = false AND DATE(created_at) = CURRENT_DATE",
+	// 		storeId, employeeId,
+	// 	).
+	// 	Scan(&todaySales)
 
-	days := daysIn(year, month)
-	dailyTarget := math.Round((target.Amount/float64(days))*100) / 100
+	// days := daysIn(year, month)
+	// dailyTarget := math.Round((target.Amount/float64(days))*100) / 100
 
 	return &domain.EmployeeTargetHistoryItem{
 		EmployeeId:   employeeId,
 		EmployeeName: employee.FullName,
 		Amount:       target.Amount,
-		DailyTarget:  dailyTarget,
-		Sales:        todaySales,
+		//DailyTarget:  dailyTarget,
+		Sales:        target.Sales,
 		Year:         year,
 		Month:        month,
 	}, nil
