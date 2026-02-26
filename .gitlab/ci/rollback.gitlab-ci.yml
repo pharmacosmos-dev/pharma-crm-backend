@@ -1,0 +1,103 @@
+# =============================================================================
+# Rollback stage – manually revert to the previous Docker image
+# =============================================================================
+# IMPORTANT: SSH key must be RSA in PEM format.
+#   Generate: ssh-keygen -t rsa -b 4096 -m PEM -f ~/.ssh/gitlab_deploy_key -N ""
+#   GitLab variable type: Variable (NOT File).
+# =============================================================================
+
+# ---- hidden template --------------------------------------------------------
+.rollback_template:
+  stage: rollback
+  image: alpine:3.20
+  before_script:
+    - apk add --no-cache openssh-client
+    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    - echo "$_SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - ssh-keyscan -p "${_SSH_PORT:-22}" "$_SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+  script:
+    - |
+      ssh -T -o StrictHostKeyChecking=no -p "${_SSH_PORT:-22}" "${_SSH_USER}@${_SSH_HOST}" << REMOTE_SCRIPT
+        set -e
+
+        # Determine rollback target
+        if [ -n "${ROLLBACK_IMAGE_TAG}" ]; then
+          TARGET="${ROLLBACK_IMAGE_TAG}"
+          echo "📌 Rolling back to: \${TARGET}"
+        else
+          TARGET=\$(docker images "${DOCKER_IMAGE}" --format '{{.Repository}}:{{.Tag}}' | grep -v buildcache | grep -v none | sed -n '2p')
+          if [ -z "\${TARGET}" ]; then echo "❌ No previous image found"; exit 1; fi
+          echo "🔍 Auto-detected rollback: \${TARGET}"
+        fi
+
+        docker stop "${CONTAINER_NAME}" 2>/dev/null || true
+        docker rm   "${CONTAINER_NAME}" 2>/dev/null || true
+        docker run -d \
+          --name "${CONTAINER_NAME}" \
+          --network host \
+          -p "${CONTAINER_PORT}" \
+          --env-file "${ENV_PATH}" \
+          -v "${UPLOADS_PATH}:/app/uploads" \
+          -v "${LOGGER_PATH}:/app/logger" \
+          --restart unless-stopped \
+          "\${TARGET}"
+
+        echo "✅ Rolled back to \${TARGET}"
+      REMOTE_SCRIPT
+  when: manual
+  allow_failure: true
+
+# ---- DEV rollback -----------------------------------------------------------
+rollback:dev:
+  extends: .rollback_template
+  variables:
+    _SSH_HOST: "$DEV_SSH_HOST"
+    _SSH_USER: "$DEV_SSH_USER"
+    _SSH_PORT: "$DEV_SSH_PORT"
+    _SSH_PRIVATE_KEY: "$DEV_SSH_PRIVATE_KEY"
+    ENV_PATH: "$DEV_ENV_PATH"
+    UPLOADS_PATH: "$DEV_UPLOADS_PATH"
+    LOGGER_PATH: "$DEV_LOGGER_PATH"
+  environment:
+    name: dev
+    action: stop
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+      when: manual
+
+# ---- STAGING rollback -------------------------------------------------------
+rollback:staging:
+  extends: .rollback_template
+  variables:
+    _SSH_HOST: "$STAGING_SSH_HOST"
+    _SSH_USER: "$STAGING_SSH_USER"
+    _SSH_PORT: "$STAGING_SSH_PORT"
+    _SSH_PRIVATE_KEY: "$STAGING_SSH_PRIVATE_KEY"
+    ENV_PATH: "$STAGING_ENV_PATH"
+    UPLOADS_PATH: "$STAGING_UPLOADS_PATH"
+    LOGGER_PATH: "$STAGING_LOGGER_PATH"
+  environment:
+    name: staging
+    action: stop
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "staging"'
+      when: manual
+
+# ---- PRODUCTION rollback ----------------------------------------------------
+rollback:production:
+  extends: .rollback_template
+  variables:
+    _SSH_HOST: "$PROD_SSH_HOST"
+    _SSH_USER: "$PROD_SSH_USER"
+    _SSH_PORT: "$PROD_SSH_PORT"
+    _SSH_PRIVATE_KEY: "$PROD_SSH_PRIVATE_KEY"
+    ENV_PATH: "$PROD_ENV_PATH"
+    UPLOADS_PATH: "$PROD_UPLOADS_PATH"
+    LOGGER_PATH: "$PROD_LOGGER_PATH"
+  environment:
+    name: production
+    action: stop
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+      when: manual
