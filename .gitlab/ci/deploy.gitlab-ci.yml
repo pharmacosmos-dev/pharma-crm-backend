@@ -1,44 +1,51 @@
 # =============================================================================
 # Deploy stage – pull Docker image on the server and restart the container
 # =============================================================================
-# Uses appleboy/drone-ssh – the same Go-based SSH engine that powers
-# appleboy/ssh-action in GitHub Actions.
+# IMPORTANT: SSH key must be RSA in PEM format.
+#   Generate: ssh-keygen -t rsa -b 4096 -m PEM -f ~/.ssh/gitlab_deploy_key -N ""
+#   GitLab variable type: Variable (NOT File).
 # =============================================================================
 
 # ---- hidden template --------------------------------------------------------
 .deploy_template:
   stage: deploy
-  image: appleboy/drone-ssh
+  image: alpine:3.20
   needs:
     - job: build
       artifacts: true
+  before_script:
+    - apk add --no-cache openssh-client
+    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    - echo "$_SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+    - chmod 600 ~/.ssh/id_rsa
+    - head -1 ~/.ssh/id_rsa
+    - ssh-keygen -l -f ~/.ssh/id_rsa || echo "⚠️ Key validation failed"
+    - ssh-keyscan -p "${_SSH_PORT:-22}" "$_SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
   script:
-    - >-
-      drone-ssh
-      --host "$_SSH_HOST"
-      --port "${_SSH_PORT:-22}"
-      --username "$_SSH_USER"
-      --key "$(cat $_SSH_PRIVATE_KEY)"
-      --script "
-        set -e;
-        echo '🔄 Pulling image: $IMAGE_TAG';
-        echo '$DOCKER_PASSWORD' | docker login -u '$DOCKER_USERNAME' --password-stdin;
-        docker pull '$IMAGE_TAG';
-        echo '🛑 Stopping old container...';
-        docker stop '$CONTAINER_NAME' 2>/dev/null || true;
-        docker rm   '$CONTAINER_NAME' 2>/dev/null || true;
-        echo '🚀 Starting new container...';
-        docker run -d
-          --name '$CONTAINER_NAME'
-          --network host
-          -p '$CONTAINER_PORT'
-          --env-file '$ENV_PATH'
-          -v '$UPLOADS_PATH:/app/uploads'
-          -v '$LOGGER_PATH:/app/logger'
-          --restart unless-stopped
-          '$IMAGE_TAG';
-        echo '✅ Deployed $IMAGE_TAG';
-      "
+    - |
+      ssh -T -o StrictHostKeyChecking=no -p "${_SSH_PORT:-22}" "${_SSH_USER}@${_SSH_HOST}" << REMOTE_SCRIPT
+        set -e
+        echo "🔄 Pulling image: ${IMAGE_TAG}"
+        echo "${DOCKER_PASSWORD}" | docker login -u "${DOCKER_USERNAME}" --password-stdin
+        docker pull "${IMAGE_TAG}"
+
+        echo "🛑 Stopping old container..."
+        docker stop "${CONTAINER_NAME}" 2>/dev/null || true
+        docker rm   "${CONTAINER_NAME}" 2>/dev/null || true
+
+        echo "🚀 Starting new container..."
+        docker run -d \
+          --name "${CONTAINER_NAME}" \
+          --network host \
+          -p "${CONTAINER_PORT}" \
+          --env-file "${ENV_PATH}" \
+          -v "${UPLOADS_PATH}:/app/uploads" \
+          -v "${LOGGER_PATH}:/app/logger" \
+          --restart unless-stopped \
+          "${IMAGE_TAG}"
+
+        echo "✅ Deployed ${IMAGE_TAG}"
+      REMOTE_SCRIPT
 
 # ---- DEV deploy (automatic on dev branch) ----------------------------------
 deploy:dev:
