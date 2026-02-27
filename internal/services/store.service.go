@@ -75,6 +75,7 @@ func (s *Services) GetStores(ctx context.Context, params *domain.StoreQueryParam
 			"work_hours",
 			"is_fullday",
 			"COALESCE(st.amount, 0) AS target_amount",
+			"average_target_sales",
 			"stores.created_at",
 			"stores.updated_at",
 		)
@@ -116,4 +117,30 @@ func (s *Services) GetStores(ctx context.Context, params *domain.StoreQueryParam
 	}
 
 	return stores, totalCount, ids, nil
+}
+
+func (s *Services) UpdateAverateStoreTargetSales() error {
+	err := s.db.Exec( `
+		UPDATE stores
+		SET average_target_sales = sub.avg_sales
+		FROM (
+			SELECT store_id,
+				SUM(monthly_total) / COUNT(*) AS avg_sales
+			FROM (
+				SELECT store_id,
+					DATE_TRUNC('month', created_at) AS month,
+					SUM(total_amount) AS monthly_total
+				FROM sales
+				GROUP BY store_id, DATE_TRUNC('month', created_at)
+			) monthly_per_store
+			GROUP BY store_id
+		) sub
+		WHERE stores.id = sub.store_id;
+	`).Error
+
+	if err != nil {
+		s.log.Errorf("could not update average target sales for stores: %v", err)
+		return domain.InternalServerError
+	}
+	return nil
 }
