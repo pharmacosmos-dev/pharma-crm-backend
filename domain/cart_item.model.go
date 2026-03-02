@@ -35,6 +35,11 @@ type AppendMarkingRequest struct {
 	Marking string `json:"marking" binding:"required"`
 }
 
+// UpdateAutoOrderRequest structure
+type UpdateAutoOrderRequest struct {
+	IsAutoOrder bool `json:"is_auto_order"`
+}
+
 // CartItemRequest structure
 type CartItemRequest struct {
 	Id             string  `gorm:"id" json:"-"`

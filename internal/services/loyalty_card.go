@@ -285,6 +285,7 @@ func (s *Services) GetLoyaltyCardTopCustomers(ctx context.Context, req *domain.L
 
 	dateFilter := ""
 	dateParams := []interface{}{}
+
 	if req.StartDate != nil && req.EndDate != nil {
 		dateFilter = "AND c.loyalty_card_created_at >= ? AND c.loyalty_card_created_at <= ?"
 		dateParams = append(dateParams, *req.StartDate, *req.EndDate)
