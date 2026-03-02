@@ -309,6 +309,7 @@ func (s *Services) GetLoyaltyCardTopCustomers(ctx context.Context, req *domain.L
 	query := `
 		SELECT
 			c.id as customer_id,
+			c.public_id,
 			c.full_name,
 			c.phone,
 			c.loyalty_card_barcode,

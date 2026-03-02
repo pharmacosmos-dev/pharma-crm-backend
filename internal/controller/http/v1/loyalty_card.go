@@ -3,11 +3,13 @@ package v1
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
+	"github.com/xuri/excelize/v2"
 )
 
 type LoyaltyCardHandler struct {
@@ -25,6 +27,7 @@ func (h *LoyaltyCardHandler) LoyaltyCardRoutes(r *gin.RouterGroup) {
 		loyaltyCard.POST("", h.Create)
 		loyaltyCard.GET("/dashboard", h.GetDashboard)
 		loyaltyCard.GET("/top", h.GetTopCustomers)
+		loyaltyCard.GET("/export-excel/", h.ExportLoyaltyCardsExcel)
 		// loyaltyCard.GET("/:id", h.Get)
 		// loyaltyCard.GET("/list", h.List)
 		// loyaltyCard.PUT("/:id", h.Update)
@@ -157,3 +160,71 @@ func (h *LoyaltyCardHandler) GetTopCustomers(c *gin.Context) {
 	handleResponse(c, OK, result)
 }
 
+// @Summary      Download loyalty card list as Excel
+// @Description  Export filtered loyalty card list to an Excel file
+// @Tags         loyalty_card
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param 		 limit query int false "Number of customers to return" default:10
+// @Param 		 offset query int false "Offset for pagination" default:0
+// @Param        from_date      query     string   false "Start date for filtering cards"
+// @Param        to_date        query     string   false "End date for filtering cards"
+// @Success      200  {object}  v1.Response
+// @Failure      400  {object}  v1.Response
+// @Failure      500  {object}  v1.Response
+// @Router       /loyalty_card/export-excel [get]
+func (h *LoyaltyCardHandler) ExportLoyaltyCardsExcel(c *gin.Context) {
+		user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+	var params domain.LoyaltyCardTopRequest
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
+	// if !helper.IsAdmin(user) {
+	// 	params.CompanyId = user.CompanyId
+	// }
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+	// get loyalty card top list data
+	res, _, err := h.service.GetLoyaltyCardTopCustomers(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	// Excel fayl yaratish
+	f := excelize.NewFile()
+	sheetName := constants.DefaultSheetName
+	f.SetSheetName("Sheet1", sheetName)
+
+	// Headerlar
+	headers := []string{"ID", "ФИО", "Телефон", "Штрихкод карты клиента", "Уровень карты лояльности", "Общая сумма покупок", "Общая сумма полученного кешбэка"}
+
+	err = setExcelHeaders(f, sheetName, headers)
+	if err != nil {
+		h.log.Error("Failed to create style:", err)
+		handleResponse(c, InternalError, "Error on giving style to excel")
+		return
+	}
+
+	// Ma'lumotlarni qo'shish
+	for i, lytcard := range res {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheetName, "A"+row, lytcard.PublicID)
+		f.SetCellValue(sheetName, "B"+row, lytcard.FullName)
+		f.SetCellValue(sheetName, "C"+row, lytcard.Phone)
+		f.SetCellValue(sheetName, "D"+row, lytcard.LoyaltyCardBarcode)
+		f.SetCellValue(sheetName, "E"+row, lytcard.LoyaltyCardLevelName)
+		f.SetCellValue(sheetName, "F"+row, lytcard.TotalSpent)
+		f.SetCellValue(sheetName, "G"+row, lytcard.TotalCashbackEarned)
+	}
+	saveExcelToUploads(c, f, *h.log, "Loyalty_Cards")
+}

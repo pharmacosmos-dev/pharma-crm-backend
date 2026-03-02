@@ -877,6 +877,8 @@ definitions:
         type: integer
       phone:
         type: string
+      public_id:
+        type: string
       total_cashback_earned:
         type: number
       total_spent:
@@ -1813,6 +1815,8 @@ definitions:
     properties:
       address:
         type: string
+      average_target_sales:
+        type: number
       cash_box_count:
         type: integer
       company_id:
@@ -8740,6 +8744,48 @@ paths:
       security:
       - BearerAuth: []
       summary: Get Loyalty Card Dashboard Statistics
+      tags:
+      - loyalty_card
+  /loyalty_card/export-excel:
+    get:
+      consumes:
+      - application/json
+      description: Export filtered loyalty card list to an Excel file
+      parameters:
+      - description: Number of customers to return
+        in: query
+        name: limit
+        type: integer
+      - description: Offset for pagination
+        in: query
+        name: offset
+        type: integer
+      - description: Start date for filtering cards
+        in: query
+        name: from_date
+        type: string
+      - description: End date for filtering cards
+        in: query
+        name: to_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Download loyalty card list as Excel
       tags:
       - loyalty_card
   /loyalty_card/top:

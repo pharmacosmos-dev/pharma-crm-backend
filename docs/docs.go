@@ -10202,6 +10202,72 @@ const docTemplate = `{
                 }
             }
         },
+        "/loyalty_card/export-excel": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Export filtered loyalty card list to an Excel file",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "loyalty_card"
+                ],
+                "summary": "Download loyalty card list as Excel",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Number of customers to return",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset for pagination",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Start date for filtering cards",
+                        "name": "from_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End date for filtering cards",
+                        "name": "to_date",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/loyalty_card/top": {
             "get": {
                 "security": [
@@ -28651,6 +28717,9 @@ const docTemplate = `{
                 "phone": {
                     "type": "string"
                 },
+                "public_id": {
+                    "type": "string"
+                },
                 "total_cashback_earned": {
                     "type": "number"
                 },
@@ -30072,6 +30141,9 @@ const docTemplate = `{
             "properties": {
                 "address": {
                     "type": "string"
+                },
+                "average_target_sales": {
+                    "type": "number"
                 },
                 "cash_box_count": {
                     "type": "integer"

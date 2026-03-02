@@ -25,6 +25,7 @@ type LoyaltyCardByLevel struct {
 
 type LoyaltyCardTopCustomer struct {
 	CustomerID             string  `json:"customer_id"`
+	PublicID			   string  `json:"public_id"`
 	FullName               string  `json:"full_name"`
 	Phone                  string  `json:"phone"`
 	LoyaltyCardBarcode     string  `json:"loyalty_card_barcode"`
