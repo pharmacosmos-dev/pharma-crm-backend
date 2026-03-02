@@ -10140,13 +10140,13 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "Start date for new cards filter",
-                        "name": "from_date",
+                        "name": "start_date",
                         "in": "query"
                     },
                     {
                         "type": "string",
                         "description": "End date for new cards filter",
-                        "name": "to_date",
+                        "name": "end_date",
                         "in": "query"
                     },
                     {
@@ -10236,13 +10236,13 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "Start date for filtering cards",
-                        "name": "from_date",
+                        "name": "start_date",
                         "in": "query"
                     },
                     {
                         "type": "string",
                         "description": "End date for filtering cards",
-                        "name": "to_date",
+                        "name": "end_date",
                         "in": "query"
                     }
                 ],
@@ -10302,13 +10302,13 @@ const docTemplate = `{
                     {
                         "type": "string",
                         "description": "Start date for sales filter",
-                        "name": "from_date",
+                        "name": "start_date",
                         "in": "query"
                     },
                     {
                         "type": "string",
                         "description": "End date for sales filter",
-                        "name": "to_date",
+                        "name": "end_date",
                         "in": "query"
                     }
                 ],
@@ -28706,6 +28706,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "loyalty_card_barcode": {
+                    "type": "string"
+                },
+                "loyalty_card_created_at": {
                     "type": "string"
                 },
                 "loyalty_card_level_name": {

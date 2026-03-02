@@ -81,8 +81,8 @@ func (h *LoyaltyCardHandler) Create(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param from_date query string false "Start date for new cards filter" example:"2024-01-01"
-// @Param to_date query string false "End date for new cards filter" example:"2024-12-31"
+// @Param start_date query string false "Start date for new cards filter" example:"2024-01-01"
+// @Param end_date query string false "End date for new cards filter" example:"2024-12-31"
 // @Param is_loyalty query bool false "Filter customers by loyalty card status (true=has card, null=no filter)"
 // @Param limit query int false "Number of customers to return" default:10
 // @Param offset query int false "Offset for pagination" default:0
@@ -126,8 +126,8 @@ func (h *LoyaltyCardHandler) GetDashboard(c *gin.Context) {
 // @Produce json
 // @Param limit query int false "Number of customers to return" default:10
 // @Param offset query int false "Offset for pagination" default:0
-// @Param from_date query string false "Start date for sales filter" example:"2024-01-01"
-// @Param to_date query string false "End date for sales filter" example:"2024-12-31"
+// @Param start_date query string false "Start date for sales filter" example:"2024-01-01"
+// @Param end_date query string false "End date for sales filter" example:"2024-12-31"
 // @Success 200 {object} v1.Response{data=[]domain.LoyaltyCardTopCustomer}
 // @Failure 401 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -168,8 +168,8 @@ func (h *LoyaltyCardHandler) GetTopCustomers(c *gin.Context) {
 // @Produce      json
 // @Param 		 limit query int false "Number of customers to return" default:10
 // @Param 		 offset query int false "Offset for pagination" default:0
-// @Param        from_date      query     string   false "Start date for filtering cards"
-// @Param        to_date        query     string   false "End date for filtering cards"
+// @Param        start_date      query     string   false "Start date for filtering cards"
+// @Param        end_date        query     string   false "End date for filtering cards"
 // @Success      200  {object}  v1.Response
 // @Failure      400  {object}  v1.Response
 // @Failure      500  {object}  v1.Response

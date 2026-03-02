@@ -871,6 +871,8 @@ definitions:
         type: string
       loyalty_card_barcode:
         type: string
+      loyalty_card_created_at:
+        type: string
       loyalty_card_level_name:
         type: string
       loyalty_card_percent:
@@ -8702,11 +8704,11 @@ paths:
       parameters:
       - description: Start date for new cards filter
         in: query
-        name: from_date
+        name: start_date
         type: string
       - description: End date for new cards filter
         in: query
-        name: to_date
+        name: end_date
         type: string
       - description: Filter customers by loyalty card status (true=has card, null=no
           filter)
@@ -8762,11 +8764,11 @@ paths:
         type: integer
       - description: Start date for filtering cards
         in: query
-        name: from_date
+        name: start_date
         type: string
       - description: End date for filtering cards
         in: query
-        name: to_date
+        name: end_date
         type: string
       produces:
       - application/json
@@ -8804,11 +8806,11 @@ paths:
         type: integer
       - description: Start date for sales filter
         in: query
-        name: from_date
+        name: start_date
         type: string
       - description: End date for sales filter
         in: query
-        name: to_date
+        name: end_date
         type: string
       produces:
       - application/json

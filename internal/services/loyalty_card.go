@@ -205,7 +205,7 @@ func (s *Services) GetLoyaltyCardDashboard(ctx context.Context, req *domain.Loya
 	result.TotalCards = totalCards
 
 	var newCards int64
-	if req.FromDate != nil && req.ToDate != nil {
+	if req.StartDate != nil && req.EndDate != nil {
 		err = s.db.Raw(`
 			SELECT COUNT(*)
 			FROM customers
@@ -213,7 +213,7 @@ func (s *Services) GetLoyaltyCardDashboard(ctx context.Context, req *domain.Loya
 				AND loyalty_card_barcode != ''
 				AND loyalty_card_created_at >= ?
 				AND loyalty_card_created_at <= ?
-		`, *req.FromDate, *req.ToDate).Scan(&newCards).Error
+		`, *req.StartDate, *req.EndDate).Scan(&newCards).Error
 		if err != nil {
 			s.log.Errorf("error getting new cards in period: %s", err.Error())
 			return nil, domain.InternalServerError
@@ -285,17 +285,17 @@ func (s *Services) GetLoyaltyCardTopCustomers(ctx context.Context, req *domain.L
 
 	dateFilter := ""
 	dateParams := []interface{}{}
-	if req.FromDate != nil && req.ToDate != nil {
-		dateFilter = "AND s.created_at >= ? AND s.created_at <= ?"
-		dateParams = append(dateParams, *req.FromDate, *req.ToDate)
+	if req.StartDate != nil && req.EndDate != nil {
+		dateFilter = "AND c.loyalty_card_created_at >= ? AND c.loyalty_card_created_at <= ?"
+		dateParams = append(dateParams, *req.StartDate, *req.EndDate)
 	}
 
 	countQuery := `
-		SELECT COUNT(DISTINCT c.id)
+		SELECT COUNT(*)
 		FROM customers c
-		LEFT JOIN sales s ON s.customer_id = c.id ` + dateFilter + `
 		WHERE c.loyalty_card_barcode IS NOT NULL
 			AND c.loyalty_card_barcode != ''
+			` + dateFilter + `
 	`
 
 	err := s.db.Raw(countQuery, dateParams...).Scan(&count).Error
@@ -307,22 +307,30 @@ func (s *Services) GetLoyaltyCardTopCustomers(ctx context.Context, req *domain.L
 	queryParams := append(dateParams, req.Limit, req.Offset)
 
 	query := `
+		WITH sales_agg AS (
+			SELECT
+				customer_id,
+				COALESCE(SUM(total_amount), 0) AS total_spent
+			FROM sales
+			GROUP BY customer_id
+		)
 		SELECT
-			c.id as customer_id,
+			c.id AS customer_id,
 			c.public_id,
 			c.full_name,
 			c.phone,
 			c.loyalty_card_barcode,
-			l.name as loyalty_card_level_name,
+			l.name AS loyalty_card_level_name,
 			c.loyalty_card_percent,
-			COALESCE(SUM(s.total_amount), 0) as total_spent,
-			COALESCE(SUM(s.total_amount * c.loyalty_card_percent / 100.0), 0) as total_cashback_earned
+			COALESCE(sa.total_spent, 0) AS total_spent,
+			COALESCE(sa.total_spent * c.loyalty_card_percent / 100.0, 0) AS total_cashback_earned,
+			c.loyalty_card_created_at
 		FROM customers c
-		LEFT JOIN sales s ON s.customer_id = c.id ` + dateFilter + `
+		LEFT JOIN sales_agg sa ON sa.customer_id = c.id
 		LEFT JOIN loyalty_card_levels l ON l.id = c.loyalty_card_level_id
 		WHERE c.loyalty_card_barcode IS NOT NULL
 			AND c.loyalty_card_barcode != ''
-		GROUP BY c.id, c.full_name, c.phone, c.loyalty_card_barcode, l.name, c.loyalty_card_percent
+			` + dateFilter + `
 		ORDER BY total_cashback_earned DESC
 		LIMIT ? OFFSET ?
 	`

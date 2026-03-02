@@ -1,5 +1,9 @@
 package domain
 
+import (
+	"time"
+)
+
 type LoyaltyCardCreateRequest struct {
 	CustomerID               string  `gorm:"customer_id" json:"customer_id"`
 	LoyaltyCardBarcode       *string `gorm:"loyalty_card_barcode" json:"loyalty_card_barcode"`
@@ -33,11 +37,12 @@ type LoyaltyCardTopCustomer struct {
 	LoyaltyCardPercent     int     `json:"loyalty_card_percent"`
 	TotalSpent             float64 `json:"total_spent"`
 	TotalCashbackEarned    float64 `json:"total_cashback_earned"`
-}
+	CreatedAt              *time.Time `gorm:"column:loyalty_card_created_at" json:"loyalty_card_created_at"`
+ }
 
 type LoyaltyCardDashboardRequest struct {
-	FromDate  *string `form:"from_date" json:"from_date" example:"2024-01-01"`
-	ToDate    *string `form:"to_date" json:"to_date" example:"2024-12-31"`
+	StartDate  *string `form:"start_date" json:"from_date" example:"2024-01-01"`
+	EndDate    *string `form:"end_date" json:"to_date" example:"2024-12-31"`
 	IsLoyalty *bool   `form:"is_loyalty" json:"is_loyalty"`
 	Limit     int     `form:"limit" json:"limit"`
 	Offset    int     `form:"offset" json:"offset"`
@@ -46,6 +51,6 @@ type LoyaltyCardDashboardRequest struct {
 type LoyaltyCardTopRequest struct {
 	Limit  int     `form:"limit" json:"limit" example:"10"`
 	Offset int     `form:"offset" json:"offset" example:"0"`
-	FromDate *string `form:"from_date" json:"from_date" example:"2024-01-01"`
-	ToDate   *string `form:"to_date" json:"to_date" example:"2024-12-31"`
+	StartDate *string `form:"start_date" json:"from_date" example:"2024-01-01"`
+	EndDate   *string `form:"end_date" json:"to_date" example:"2024-12-31"`
 }
