@@ -192,6 +192,7 @@ func (s *Services) UpdateStoreTarget(ctx context.Context, id string, req *domain
 	if err == gorm.ErrRecordNotFound {
 		return nil, fmt.Errorf("store target not found")
 	}
+
 	if err != nil {
 		s.log.Errorf("could not get store target: %v", err)
 		return nil, domain.InternalServerError
@@ -547,6 +548,7 @@ func (s *Services) GetEmployeeTargetHistoryByStore(
 // 	return t.Day()
 // }
 
+
 // UpdateStoreTargetSales - called every hour (cron)
 // updates sales by adding new sales that arrive after store_targets.updated_at
 func (s *Services) UpdateStoreTargetSales() {
@@ -631,8 +633,8 @@ func (s *Services) AutoCreateMonthlyStoreTargets() {
 		return
 	}
 
-	log.Printf("AutoCreateMonthlyStoreTargets: Found %d stores for %d-%02d",
-    	len(prevTargets), prevYear, prevMonth)
+	// log.Printf("AutoCreateMonthlyStoreTargets: Found %d stores for %d-%02d",
+    // 	len(prevTargets), prevYear, prevMonth)
 
 	created := 0
 	for _, prev := range prevTargets {
@@ -646,12 +648,12 @@ func (s *Services) AutoCreateMonthlyStoreTargets() {
 		}
 
 		if err != gorm.ErrRecordNotFound {
-			s.log.Errorf("AutoCreateMonthlyStoreTargets: store %s uchun mavjudligini tekshirishda xato: %v",
+			s.log.Errorf("AutoCreateMonthlyStoreTargets: Error checking existence for store %s: %v",
 				prev.StoreId, err)
 			continue
 		}
 
-		// Yangi store_target yaratish (oldingi oyning amount'i bilan)
+		// Yengi store_target yaratish (oldingi oyning amount'i bilan)
 		startOfMonth := time.Date(currentYear, time.Month(currentMonth), 1, 0, 0, 0, 0, time.Local)
 		target := domain.StoreTarget{
 			Id:        uuid.New().String(),
@@ -666,27 +668,27 @@ func (s *Services) AutoCreateMonthlyStoreTargets() {
 		tx := s.db.WithContext(ctx).Begin()
 		if err := tx.Create(&target).Error; err != nil {
 			tx.Rollback()
-			s.log.Errorf("AutoCreateMonthlyStoreTargets: store %s uchun target yaratishda xato: %v",
+			s.log.Errorf("AutoCreateMonthlyStoreTargets: Error creating target for store %s: %v", 
 				prev.StoreId, err)
 			continue
-		}
+	}
 
 		if err := s.distributeToEmployees(tx, &target); err != nil {
 			tx.Rollback()
-			s.log.Errorf("AutoCreateMonthlyStoreTargets: store %s uchun xodim targetlarini yaratishda xato: %v",
+			s.log.Errorf("AutoCreateMonthlyStoreTargets: Error creating employee targets for store %s: %v",
 				prev.StoreId, err)
 			continue
 		}
 
 		if err := tx.Commit().Error; err != nil {
-			s.log.Errorf("AutoCreateMonthlyStoreTargets: store %s uchun commit xatosi: %v",
+			s.log.Errorf("AutoCreateMonthlyStoreTargets: Commit error for store %s: %v",
 				prev.StoreId, err)
 			continue
 		}
 
 		created++
-		log.Printf("AutoCreateMonthlyStoreTargets: store %s uchun %d-%02d target yaratildi (amount: %.2f)",
-			prev.StoreId, currentYear, currentMonth, prev.Amount)
+		log.Printf("AutoCreateMonthlyStoreTargets: Created target %d - %02d for store %s (amount: %.2f)",
+			currentYear, currentMonth, prev.StoreId, prev.Amount)
 	}
 
 	log.Printf("AutoCreateMonthlyStoreTargets: %d-%02d done — Target created for store %d/%d",

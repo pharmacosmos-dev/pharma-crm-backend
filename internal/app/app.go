@@ -109,7 +109,7 @@ func RegisterCronJobs(service *services.Services) (*cron.Cron, error) {
 		service.AutoCreateMonthlyStoreTargets()
 	})
 
-	c.AddFunc("*/10 * * * *", func() {
+	c.AddFunc("*/50 * * * *", func() {
 		log.Println("Starting update average target sales for stores...")
 		service.UpdateAverateStoreTargetSales()
 	})
