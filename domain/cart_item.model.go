@@ -27,11 +27,17 @@ type CartItem struct {
 	CreatedAt      *time.Time        `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt      *time.Time        `gorm:"column:updated_at" json:"updated_at"`
 	IsMarking      bool              `gorm:"column:is_marking" json:"is_marking"`
+	SkipAutoOrder  bool              `gorm:"skip_auto_order" json:"skip_auto_order"`
 }
 
 // AppendMarkingRequest structure
 type AppendMarkingRequest struct {
 	Marking string `json:"marking" binding:"required"`
+}
+
+// UpdateAutoOrderRequest structure
+type UpdateAutoOrderRequest struct {
+	IsAutoOrder bool `json:"is_auto_order"`
 }
 
 // CartItemRequest structure
@@ -81,6 +87,7 @@ type CartItemData struct {
 	VatSum         float64            `gorm:"vat_sum" json:"vat_sum"`
 	Count          int64              `gorm:"count" json:"count"`
 	ItemCount      int64              `gorm:"item_count" json:"item_count"`
+	SkipAutoOrder  bool    `gorm:"skip_auto_order" json:"skip_auto_order"`
 }
 
 // CartItemResponse structure with product data
@@ -130,6 +137,7 @@ type CartItemResponse struct {
 	ExpireDate         *time.Time        `gorm:"expire_date" json:"expire_date"`
 	IsMarking          bool              `gorm:"is_marking" json:"is_marking"`
 	IsChecking         bool              `gorm:"is_checking" json:"is_checking"`
+	SkipAutoOrder  	   bool   			 `gorm:"skip_auto_order" json:"skip_auto_order"`
 }
 
 type SumResult struct {

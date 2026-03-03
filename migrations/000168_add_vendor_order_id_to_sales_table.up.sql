@@ -1,3 +1,3 @@
 ALTER TABLE 
     "sales" 
-        ADD COLUMN "vendor_order_id" VARCHAR(55) DEFAULT NULL;
+        ADD COLUMN IF NOT EXISTS "vendor_order_id" VARCHAR(55) DEFAULT NULL;

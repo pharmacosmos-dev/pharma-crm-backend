@@ -542,6 +542,17 @@ definitions:
     - language
     - phone
     type: object
+  domain.EmployeeTargetUpdateRequest:
+    properties:
+      amount:
+        minimum: 0
+        type: number
+      store_target_id:
+        type: string
+    required:
+    - amount
+    - store_target_id
+    type: object
   domain.EmployeeUpdateInfoRequest:
     properties:
       first_name:
@@ -844,7 +855,6 @@ definitions:
         items:
           $ref: '#/definitions/domain.LoyaltyCardByLevel'
         type: array
-      customers: {}
       new_cards_in_period:
         type: integer
       total_cards:
@@ -860,11 +870,15 @@ definitions:
         type: string
       loyalty_card_barcode:
         type: string
+      loyalty_card_created_at:
+        type: string
       loyalty_card_level_name:
         type: string
       loyalty_card_percent:
         type: integer
       phone:
+        type: string
+      public_id:
         type: string
       total_cashback_earned:
         type: number
@@ -1802,6 +1816,8 @@ definitions:
     properties:
       address:
         type: string
+      average_target_sales:
+        type: number
       cash_box_count:
         type: integer
       company_id:
@@ -1869,6 +1885,43 @@ definitions:
       work_hours:
         type: string
     type: object
+  domain.StoreTargetRequest:
+    properties:
+      amount:
+        type: number
+      month:
+        type: integer
+      store_id:
+        type: string
+      year:
+        type: integer
+    required:
+    - amount
+    - month
+    - store_id
+    - year
+    type: object
+  domain.StoreTargetSummary:
+    properties:
+      month:
+        type: integer
+      total_target_amount:
+        type: number
+      total_target_sales:
+        type: number
+      year:
+        type: integer
+    type: object
+  domain.StoreTargetUpdateRequest:
+    properties:
+      amount:
+        type: number
+      store_id:
+        type: string
+    required:
+    - amount
+    - store_id
+    type: object
   domain.Tag:
     properties:
       id:
@@ -1927,6 +1980,11 @@ definitions:
         type: string
       unit_name:
         type: string
+    type: object
+  domain.UpdateAutoOrderRequest:
+    properties:
+      is_auto_order:
+        type: boolean
     type: object
   domain.UpdateBarcodeRequest:
     properties:
@@ -2813,6 +2871,43 @@ paths:
       security:
       - BearerAuth: []
       summary: Update a cart item
+      tags:
+      - cart_items
+  /cart_item/{id}/is-auto-order:
+    patch:
+      consumes:
+      - application/json
+      description: Update is_auto_order (skip_auto_order) for a specific cart item
+      parameters:
+      - description: cart item ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Auto order flag
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UpdateAutoOrderRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update auto order
       tags:
       - cart_items
   /cart_item/{id}/markings:
@@ -8648,27 +8743,14 @@ paths:
       description: Returns loyalty card statistics including total cashback, card
         counts, and distribution by level
       parameters:
-      - description: Start date for new cards filter
+      - description: start_date
         in: query
-        name: from_date
+        name: start_date
         type: string
-      - description: End date for new cards filter
+      - description: end_date
         in: query
-        name: to_date
+        name: end_date
         type: string
-      - description: Filter customers by loyalty card status (true=has card, null=no
-          filter)
-        in: query
-        name: is_loyalty
-        type: boolean
-      - description: Number of customers to return
-        in: query
-        name: limit
-        type: integer
-      - description: Offset for pagination
-        in: query
-        name: offset
-        type: integer
       produces:
       - application/json
       responses:
@@ -8694,6 +8776,48 @@ paths:
       summary: Get Loyalty Card Dashboard Statistics
       tags:
       - loyalty_card
+  /loyalty_card/export-excel:
+    get:
+      consumes:
+      - application/json
+      description: Export filtered loyalty card list to an Excel file
+      parameters:
+      - description: Number of customers to return
+        in: query
+        name: limit
+        type: integer
+      - description: Offset for pagination
+        in: query
+        name: offset
+        type: integer
+      - description: Start date for filtering cards
+        in: query
+        name: start_date
+        type: string
+      - description: End date for filtering cards
+        in: query
+        name: end_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Download loyalty card list as Excel
+      tags:
+      - loyalty_card
   /loyalty_card/top:
     get:
       consumes:
@@ -8708,13 +8832,13 @@ paths:
         in: query
         name: offset
         type: integer
-      - description: Start date for sales filter
+      - description: start_date
         in: query
-        name: from_date
+        name: start_date
         type: string
-      - description: End date for sales filter
+      - description: end_date
         in: query
-        name: to_date
+        name: end_date
         type: string
       produces:
       - application/json
@@ -17158,6 +17282,358 @@ paths:
       summary: Create a store
       tags:
       - stores
+  /store-target:
+    post:
+      consumes:
+      - application/json
+      description: Creates a monthly target for the store and is equal to all active
+        employees
+      parameters:
+      - description: Store target data
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.StoreTargetRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create store target
+      tags:
+      - store-target
+  /store-target/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: Deletes store target and all its employee targets
+      parameters:
+      - description: Store target ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete store target
+      tags:
+      - store-target
+    put:
+      consumes:
+      - application/json
+      description: Store target amount will be updated. Only allowed for current or
+        future months
+      parameters:
+      - description: Store target ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New target amount
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.StoreTargetUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update store target
+      tags:
+      - store-target
+  /store-target/{store_id}:
+    get:
+      consumes:
+      - application/json
+      description: Sum of all monthly targets and actual sales by Store ID
+      parameters:
+      - description: Store ID
+        in: path
+        name: store_id
+        required: true
+        type: string
+      - description: 'Year (example: 2026)'
+        in: query
+        name: year
+        type: integer
+      - description: Month (1-12)
+        in: query
+        name: month
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Store target history
+      tags:
+      - store-target
+  /store-target/employee/{employee_id}:
+    put:
+      consumes:
+      - application/json
+      description: Updates the target amount for a specific employee. The remaining
+        amount is distributed equally among other employees in the same store target.
+        Store target total is not affected.
+      parameters:
+      - description: Employee ID
+        in: path
+        name: employee_id
+        required: true
+        type: string
+      - description: New target amount
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/domain.EmployeeTargetUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update employee target amount
+      tags:
+      - store-target
+  /store-target/employee/list/{store_id}:
+    get:
+      consumes:
+      - application/json
+      description: Monthly target history for everyone in a given store
+      parameters:
+      - description: Store ID
+        in: path
+        name: store_id
+        required: true
+        type: string
+      - description: Employee ID (optional, for one employee)
+        in: query
+        name: employee_id
+        type: string
+      - description: 'Year (example: 2026)'
+        in: query
+        name: year
+        type: integer
+      - description: Moth (1-12)
+        in: query
+        name: month
+        type: integer
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Store cashier target history
+      tags:
+      - store-target
+  /store-target/employee/my:
+    get:
+      consumes:
+      - application/json
+      description: Target amount and actual sales of the logged-in employee for the
+        current month
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Employee current month target and sales
+      tags:
+      - store-target
+  /store-target/list:
+    get:
+      consumes:
+      - application/json
+      description: All store targets, with sales to date for the current month
+      parameters:
+      - description: Store ID
+        in: query
+        name: store_id
+        type: string
+      - description: Company ID
+        in: query
+        name: company_id
+        type: string
+      - description: Search
+        in: query
+        name: search
+        type: string
+      - description: 'Year (exmaple: 2026)'
+        in: query
+        name: year
+        type: integer
+      - description: Month (1-12)
+        in: query
+        name: month
+        type: integer
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Order by (+store_name || -store_name || +target || -target ||
+          -sales || +sales)
+        in: query
+        name: order
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: All store target list
+      tags:
+      - store-target
+  /store-target/summary:
+    get:
+      consumes:
+      - application/json
+      description: Get total amount, total sales, and store count for current month
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/domain.StoreTargetSummary'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Current Month Store Targets Summary
+      tags:
+      - store-target
   /store/{id}:
     delete:
       consumes:

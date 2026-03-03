@@ -159,6 +159,7 @@ func (s *Services) FetchCartItems(ctx context.Context, saleId string, limit, off
 		ci.discount_price,
 		ci.marking_count,
 		ci.markings,
+		ci.skip_auto_order,
 		ci.created_at,
 		ci.updated_at,
 		p.name,

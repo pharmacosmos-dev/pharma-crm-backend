@@ -30,6 +30,7 @@ func (h *CartItemHandler) CartItemRoutes(r *gin.RouterGroup) {
 		cartItem.POST("/multiple", h.MultipleDelete)
 		cartItem.DELETE("/:id/markings", h.DeleteMarking)
 		cartItem.PATCH("/:id/skip-auto-order", h.SkipAutoOrder)
+		cartItem.PATCH("/:id/is-auto-order", h.UpdateAutoOrder)
 
 		// temporary update
 		cartItem.PUT("/temporary/:id", h.TemporaryUpdate)
@@ -318,6 +319,43 @@ func (h *CartItemHandler) SkipAutoOrder(c *gin.Context) {
 	defer cancel()
 
 	err := h.db.WithContext(ctx).Exec("UPDATE cart_items SET skip_auto_order = true WHERE id = ?", id).Error
+	if err != nil {
+		h.log.Errorf("could not update cart_item skip_auto_order: %v", err)
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, "UPDATED")
+}
+
+// UpdateAutoOrder godoc
+// @Summary Update auto order
+// @Description Update is_auto_order (skip_auto_order) for a specific cart item
+// @Tags 	cart_items
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param 	id path string true "cart item ID"
+// @Param 	body body domain.UpdateAutoOrderRequest true "Auto order flag"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /cart_item/{id}/is-auto-order [patch]
+func (h *CartItemHandler) UpdateAutoOrder(c *gin.Context) {
+	var (
+		id  = c.Param("id")
+		req domain.UpdateAutoOrderRequest
+	)
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	err := h.db.WithContext(ctx).Exec("UPDATE cart_items SET skip_auto_order = ? WHERE id = ?", req.IsAutoOrder, id).Error
 	if err != nil {
 		h.log.Errorf("could not update cart_item skip_auto_order: %v", err)
 		handleServiceResponse(c, nil, err)

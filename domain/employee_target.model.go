@@ -3,14 +3,16 @@ package domain
 import "time"
 
 type EmployeeTarget struct {
-	Id            string     `json:"id" gorm:"column:id"`
+	Id            string     `json:"id" gorm:"column:id;primaryKey"`
 	StoreTargetId string     `json:"store_target_id" gorm:"column:store_target_id"`
 	EmployeeId    string     `json:"employee_id" gorm:"column:employee_id"`
 	StoreId       string     `json:"store_id" gorm:"column:store_id"`
 	CompanyId     string     `json:"company_id" gorm:"column:company_id"`
 	Amount        float64    `json:"amount" gorm:"column:amount"`
+	Sales         float64    `json:"sales" gorm:"column:sales"`
 	Year          int        `json:"year" gorm:"column:year"`
 	Month         int        `json:"month" gorm:"column:month"`
+	SyncedAt      *time.Time `json:"synced_at" gorm:"column:synced_at"`
 	CreatedAt     *time.Time `json:"created_at" gorm:"column:created_at"`
 	UpdatedAt     *time.Time `json:"updated_at" gorm:"column:updated_at"`
 
@@ -18,11 +20,8 @@ type EmployeeTarget struct {
 	StoreTarget *StoreTarget `json:"store_target,omitempty" gorm:"foreignKey:StoreTargetId"`
 }
 
-func (EmployeeTarget) TableName() string {
-	return "employee_targets"
-}
 
-// Employee ning joriy oy target + haqiqiy sotuvlar
+// Employee's current month target + actual sales
 type EmployeeTargetWithSales struct {
 	Id                 string  `json:"id"`
 	EmployeeId         string  `json:"employee_id"`
@@ -36,19 +35,28 @@ type EmployeeTargetWithSales struct {
 	DaysInMonth        int     `json:"days_in_month"`
 }
 
-// Store bo'yicha barcha employee lar tarixi
+// History all employees by store
 type EmployeeTargetHistoryItem struct {
 	EmployeeId   string  `json:"employee_id"`
 	EmployeeName string  `json:"employee_name"`
 	Amount       float64 `json:"amount"`
+	//DailyTarget  float64 `json:"daily_target"`
+	Sales        float64 `json:"sales"`
 	Year         int     `json:"year"`
 	Month        int     `json:"month"`
+}
+
+// UPDATE uchun request
+type EmployeeTargetUpdateRequest struct {
+	StoreTargetId string  `json:"store_target_id" binding:"required"`
+	Amount        float64 `json:"amount" binding:"required,min=0"`
 }
 
 // Query params
 type EmployeeTargetQueryParams struct {
 	EmployeeId string `form:"employee_id"`
 	StoreId    string `form:"store_id"`
+	CompanyId  string `form:"-"`
 	Year       int    `form:"year"`
 	Month      int    `form:"month"`
 	Limit      int    `form:"limit"`

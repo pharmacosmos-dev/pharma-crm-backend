@@ -1200,6 +1200,64 @@ const docTemplate = `{
                 }
             }
         },
+        "/cart_item/{id}/is-auto-order": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update is_auto_order (skip_auto_order) for a specific cart item",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "cart_items"
+                ],
+                "summary": "Update auto order",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "cart item ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Auto order flag",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.UpdateAutoOrderRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/cart_item/{id}/markings": {
             "put": {
                 "security": [
@@ -6727,7 +6785,7 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
-                        "type": "number", 
+                        "type": "number",
                         "description": "From Amount",
                         "name": "from_amount",
                         "in": "query"
@@ -10139,32 +10197,14 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Start date for new cards filter",
-                        "name": "from_date",
+                        "description": "start_date",
+                        "name": "start_date",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "End date for new cards filter",
-                        "name": "to_date",
-                        "in": "query"
-                    },
-                    {
-                        "type": "boolean",
-                        "description": "Filter customers by loyalty card status (true=has card, null=no filter)",
-                        "name": "is_loyalty",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Number of customers to return",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Offset for pagination",
-                        "name": "offset",
+                        "description": "end_date",
+                        "name": "end_date",
                         "in": "query"
                     }
                 ],
@@ -10189,6 +10229,72 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/loyalty_card/export-excel": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Export filtered loyalty card list to an Excel file",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "loyalty_card"
+                ],
+                "summary": "Download loyalty card list as Excel",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Number of customers to return",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset for pagination",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Start date for filtering cards",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "End date for filtering cards",
+                        "name": "end_date",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
                         }
@@ -10235,14 +10341,14 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Start date for sales filter",
-                        "name": "from_date",
+                        "description": "start_date",
+                        "name": "start_date",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "End date for sales filter",
-                        "name": "to_date",
+                        "description": "end_date",
+                        "name": "end_date",
                         "in": "query"
                     }
                 ],
@@ -23464,6 +23570,548 @@ const docTemplate = `{
                 }
             }
         },
+        "/store-target": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates a monthly target for the store and is equal to all active employees",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "store-target"
+                ],
+                "summary": "Create store target",
+                "parameters": [
+                    {
+                        "description": "Store target data",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.StoreTargetRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/store-target/employee/list/{store_id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Monthly target history for everyone in a given store",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "store-target"
+                ],
+                "summary": "Store cashier target history",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Store ID",
+                        "name": "store_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Employee ID (optional, for one employee)",
+                        "name": "employee_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Year (example: 2026)",
+                        "name": "year",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Moth (1-12)",
+                        "name": "month",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/store-target/employee/my": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Target amount and actual sales of the logged-in employee for the current month",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "store-target"
+                ],
+                "summary": "Employee current month target and sales",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/store-target/employee/{employee_id}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Updates the target amount for a specific employee. The remaining amount is distributed equally among other employees in the same store target. Store target total is not affected.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "store-target"
+                ],
+                "summary": "Update employee target amount",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Employee ID",
+                        "name": "employee_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New target amount",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.EmployeeTargetUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/store-target/list": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "All store targets, with sales to date for the current month",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "store-target"
+                ],
+                "summary": "All store target list",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Store ID",
+                        "name": "store_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Company ID",
+                        "name": "company_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Search",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Year (exmaple: 2026)",
+                        "name": "year",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Month (1-12)",
+                        "name": "month",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Order by (+store_name || -store_name || +target || -target || -sales || +sales)",
+                        "name": "order",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/store-target/summary": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get total amount, total sales, and store count for current month",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "store-target"
+                ],
+                "summary": "Current Month Store Targets Summary",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/domain.StoreTargetSummary"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/store-target/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Store target amount will be updated. Only allowed for current or future months",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "store-target"
+                ],
+                "summary": "Update store target",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Store target ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "New target amount",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.StoreTargetUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Deletes store target and all its employee targets",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "store-target"
+                ],
+                "summary": "Delete store target",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Store target ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/store-target/{store_id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Sum of all monthly targets and actual sales by Store ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "store-target"
+                ],
+                "summary": "Store target history",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Store ID",
+                        "name": "store_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Year (example: 2026)",
+                        "name": "year",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Month (1-12)",
+                        "name": "month",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/store/export-excel": {
             "get": {
                 "security": [
@@ -27603,6 +28251,22 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.EmployeeTargetUpdateRequest": {
+            "type": "object",
+            "required": [
+                "amount",
+                "store_target_id"
+            ],
+            "properties": {
+                "amount": {
+                    "type": "number",
+                    "minimum": 0
+                },
+                "store_target_id": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.EmployeeUpdateInfoRequest": {
             "type": "object",
             "required": [
@@ -28060,7 +28724,6 @@ const docTemplate = `{
                         "$ref": "#/definitions/domain.LoyaltyCardByLevel"
                     }
                 },
-                "customers": {},
                 "new_cards_in_period": {
                     "type": "integer"
                 },
@@ -28084,6 +28747,9 @@ const docTemplate = `{
                 "loyalty_card_barcode": {
                     "type": "string"
                 },
+                "loyalty_card_created_at": {
+                    "type": "string"
+                },
                 "loyalty_card_level_name": {
                     "type": "string"
                 },
@@ -28091,6 +28757,9 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "phone": {
+                    "type": "string"
+                },
+                "public_id": {
                     "type": "string"
                 },
                 "total_cashback_earned": {
@@ -29515,6 +30184,9 @@ const docTemplate = `{
                 "address": {
                     "type": "string"
                 },
+                "average_target_sales": {
+                    "type": "number"
+                },
                 "cash_box_count": {
                     "type": "integer"
                 },
@@ -29617,6 +30289,61 @@ const docTemplate = `{
                 }
             }
         },
+        "domain.StoreTargetRequest": {
+            "type": "object",
+            "required": [
+                "amount",
+                "month",
+                "store_id",
+                "year"
+            ],
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "month": {
+                    "type": "integer"
+                },
+                "store_id": {
+                    "type": "string"
+                },
+                "year": {
+                    "type": "integer"
+                }
+            }
+        },
+        "domain.StoreTargetSummary": {
+            "type": "object",
+            "properties": {
+                "month": {
+                    "type": "integer"
+                },
+                "total_target_amount": {
+                    "type": "number"
+                },
+                "total_target_sales": {
+                    "type": "number"
+                },
+                "year": {
+                    "type": "integer"
+                }
+            }
+        },
+        "domain.StoreTargetUpdateRequest": {
+            "type": "object",
+            "required": [
+                "amount",
+                "store_id"
+            ],
+            "properties": {
+                "amount": {
+                    "type": "number"
+                },
+                "store_id": {
+                    "type": "string"
+                }
+            }
+        },
         "domain.Tag": {
             "type": "object",
             "properties": {
@@ -29705,6 +30432,14 @@ const docTemplate = `{
                 },
                 "unit_name": {
                     "type": "string"
+                }
+            }
+        },
+        "domain.UpdateAutoOrderRequest": {
+            "type": "object",
+            "properties": {
+                "is_auto_order": {
+                    "type": "boolean"
                 }
             }
         },
