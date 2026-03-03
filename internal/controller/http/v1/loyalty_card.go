@@ -25,7 +25,7 @@ func (h *LoyaltyCardHandler) LoyaltyCardRoutes(r *gin.RouterGroup) {
 	loyaltyCard := r.Group("/loyalty_card")
 	{
 		loyaltyCard.POST("", h.Create)
-		loyaltyCard.GET("/dashboard", h.GetDashboard)
+		loyaltyCard.GET("/dashboard", h.GetLoyaltyCardStats)
 		loyaltyCard.GET("/top", h.GetTopCustomers)
 		loyaltyCard.GET("/export-excel/", h.ExportLoyaltyCardsExcel)
 		// loyaltyCard.GET("/:id", h.Get)
@@ -81,16 +81,13 @@ func (h *LoyaltyCardHandler) Create(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept json
 // @Produce json
-// @Param start_date query string false "Start date for new cards filter" example:"2024-01-01"
-// @Param end_date query string false "End date for new cards filter" example:"2024-12-31"
-// @Param is_loyalty query bool false "Filter customers by loyalty card status (true=has card, null=no filter)"
-// @Param limit query int false "Number of customers to return" default:10
-// @Param offset query int false "Offset for pagination" default:0
+// @Param start_date 		query string false 	"start_date"
+// @Param end_date 			query string false 	"end_date"
 // @Success 200 {object} v1.Response{data=domain.LoyaltyCardDashboard}
 // @Failure 401 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /loyalty_card/dashboard [get]
-func (h *LoyaltyCardHandler) GetDashboard(c *gin.Context) {
+func (h *LoyaltyCardHandler) GetLoyaltyCardStats(c *gin.Context) {
 	user := h.service.GetSignedUser(c)
 	if user.UserId == "" {
 		handleServiceResponse(c, nil, domain.UnauthorizedError)
@@ -106,9 +103,7 @@ func (h *LoyaltyCardHandler) GetDashboard(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	req.Limit, req.Offset = defaultLimitOffset(req.Limit, req.Offset)
-
-	dashboard, err := h.service.GetLoyaltyCardDashboard(ctx, &req)
+	dashboard, err := h.service.GetLoyaltyCardStats(ctx, &req)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)
 		return
@@ -126,8 +121,8 @@ func (h *LoyaltyCardHandler) GetDashboard(c *gin.Context) {
 // @Produce json
 // @Param limit query int false "Number of customers to return" default:10
 // @Param offset query int false "Offset for pagination" default:0
-// @Param start_date query string false "Start date for sales filter" example:"2024-01-01"
-// @Param end_date query string false "End date for sales filter" example:"2024-12-31"
+// @Param start_date 		query string false 	"start_date"
+// @Param end_date 			query string false 	"end_date"
 // @Success 200 {object} v1.Response{data=[]domain.LoyaltyCardTopCustomer}
 // @Failure 401 {object} v1.Response
 // @Failure 500 {object} v1.Response
@@ -144,6 +139,7 @@ func (h *LoyaltyCardHandler) GetTopCustomers(c *gin.Context) {
 		handleResponse(c, BadRequest, fmt.Sprintf("Invalid query parameters: %s", err.Error()))
 		return
 	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
@@ -156,7 +152,6 @@ func (h *LoyaltyCardHandler) GetTopCustomers(c *gin.Context) {
 	}
 
 	result := utils.ListResponse(customers, count, req.Limit, req.Offset)
-
 	handleResponse(c, OK, result)
 }
 

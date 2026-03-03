@@ -16,8 +16,6 @@ type LoyaltyCardDashboard struct {
 	TotalCards         int64                `json:"total_cards"`
 	NewCardsInPeriod   int64                `json:"new_cards_in_period"`
 	CardsByLevel       []LoyaltyCardByLevel `json:"cards_by_level"`
-	Customers          any                  `json:"customers"`
-	CustomerCount      int64                `json:"-"`
 }
 
 type LoyaltyCardByLevel struct {
@@ -41,16 +39,13 @@ type LoyaltyCardTopCustomer struct {
  }
 
 type LoyaltyCardDashboardRequest struct {
-	StartDate  *string `form:"start_date" json:"from_date" example:"2024-01-01"`
-	EndDate    *string `form:"end_date" json:"to_date" example:"2024-12-31"`
-	IsLoyalty *bool   `form:"is_loyalty" json:"is_loyalty"`
-	Limit     int     `form:"limit" json:"limit"`
-	Offset    int     `form:"offset" json:"offset"`
+	StartDate *CustomTime `form:"start_date" json:"from_date" example:"2026-01-01T00:00:00+05:00"`
+	EndDate   *CustomTime `form:"end_date" json:"to_date" example:"2026-12-31T23:59:59+05:00"`
 }
 
 type LoyaltyCardTopRequest struct {
-	Limit  int     `form:"limit" json:"limit" example:"10"`
-	Offset int     `form:"offset" json:"offset" example:"0"`
-	StartDate *string `form:"start_date" json:"from_date" example:"2024-01-01"`
-	EndDate   *string `form:"end_date" json:"to_date" example:"2024-12-31"`
+	Limit     int         `form:"limit" json:"limit" example:"10"`
+	Offset    int         `form:"offset" json:"offset" example:"0"`
+	StartDate *CustomTime `form:"start_date" json:"from_date" example:"2026-01-01T00:00:00+05:00"`
+	EndDate   *CustomTime `form:"end_date" json:"to_date" example:"2026-12-31T23:59:59+05:00"`
 }

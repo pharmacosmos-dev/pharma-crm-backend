@@ -855,7 +855,6 @@ definitions:
         items:
           $ref: '#/definitions/domain.LoyaltyCardByLevel'
         type: array
-      customers: {}
       new_cards_in_period:
         type: integer
       total_cards:
@@ -8744,27 +8743,14 @@ paths:
       description: Returns loyalty card statistics including total cashback, card
         counts, and distribution by level
       parameters:
-      - description: Start date for new cards filter
+      - description: start_date
         in: query
         name: start_date
         type: string
-      - description: End date for new cards filter
+      - description: end_date
         in: query
         name: end_date
         type: string
-      - description: Filter customers by loyalty card status (true=has card, null=no
-          filter)
-        in: query
-        name: is_loyalty
-        type: boolean
-      - description: Number of customers to return
-        in: query
-        name: limit
-        type: integer
-      - description: Offset for pagination
-        in: query
-        name: offset
-        type: integer
       produces:
       - application/json
       responses:
@@ -8846,11 +8832,11 @@ paths:
         in: query
         name: offset
         type: integer
-      - description: Start date for sales filter
+      - description: start_date
         in: query
         name: start_date
         type: string
-      - description: End date for sales filter
+      - description: end_date
         in: query
         name: end_date
         type: string

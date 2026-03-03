@@ -9,7 +9,7 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-         "termsOfService": "http://swagger.io/terms/",
+        "termsOfService": "http://swagger.io/terms/",
         "contact": {},
         "version": "{{.Version}}"
     },
@@ -10197,32 +10197,14 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Start date for new cards filter",
+                        "description": "start_date",
                         "name": "start_date",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "End date for new cards filter",
+                        "description": "end_date",
                         "name": "end_date",
-                        "in": "query"
-                    },
-                    {
-                        "type": "boolean",
-                        "description": "Filter customers by loyalty card status (true=has card, null=no filter)",
-                        "name": "is_loyalty",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Number of customers to return",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Offset for pagination",
-                        "name": "offset",
                         "in": "query"
                     }
                 ],
@@ -10359,13 +10341,13 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "Start date for sales filter",
+                        "description": "start_date",
                         "name": "start_date",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "End date for sales filter",
+                        "description": "end_date",
                         "name": "end_date",
                         "in": "query"
                     }
@@ -28742,7 +28724,6 @@ const docTemplate = `{
                         "$ref": "#/definitions/domain.LoyaltyCardByLevel"
                     }
                 },
-                "customers": {},
                 "new_cards_in_period": {
                     "type": "integer"
                 },
