@@ -456,6 +456,7 @@ func (h *RoleHandler) ListRoleWithPermissions(c *gin.Context) {
 		result = append(result, domain.MainPermWithRoles{
 			ID:          id,
 			Key:         n.key,
+			Name:	     n.name,			
 			Permissions: buildChildren(id),
 		})
 	}
