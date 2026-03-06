@@ -6,22 +6,23 @@ import (
 
 // Store structure
 type Store struct {
-	Id            string     `gorm:"id" json:"id"`
-	StoreCode     int        `gorm:"store_code" json:"store_code"`
-	Name          string     `gorm:"name" json:"name"`
-	DetailedName  string     `gorm:"detailed_name" json:"detailed_name"`
-	CompanyId     string     `gorm:"company_id" json:"company_id"`
-	Phone         string     `gorm:"phone" json:"phone"`
-	Contact       string     `gorm:"contact" json:"contact"`
-	Inn           string     `gorm:"inn" json:"inn"`
-	EmployeeCount int        `gorm:"employee_count" json:"employee_count"`
-	CashBoxCount  int        `gorm:"cash_box_count" json:"cash_box_count"`
-	Address       string     `gorm:"address" json:"address"`
-	Location      string     `gorm:"location" json:"location"`
-	WorkHours     string     `gorm:"work_hours" json:"work_hours"`
-	IsFullday     bool       `gorm:"is_fullday" json:"is_fullday"`
-	CreatedAt     *time.Time `gorm:"created_at" json:"created_at"`
-	UpdatedAt     *time.Time `gorm:"updated_at" json:"updated_at"`
+	Id                  string     `gorm:"id" json:"id"`
+	StoreCode           int        `gorm:"store_code" json:"store_code"`
+	Name                string     `gorm:"name" json:"name"`
+	DetailedName        string     `gorm:"detailed_name" json:"detailed_name"`
+	CompanyId           string     `gorm:"company_id" json:"company_id"`
+	Phone               string     `gorm:"phone" json:"phone"`
+	Contact             string     `gorm:"contact" json:"contact"`
+	Inn                 string     `gorm:"inn" json:"inn"`
+	EmployeeCount       int        `gorm:"employee_count" json:"employee_count"`
+	CashBoxCount        int        `gorm:"cash_box_count" json:"cash_box_count"`
+	Address             string     `gorm:"address" json:"address"`
+	Location            string     `gorm:"location" json:"location"`
+	WorkHours           string     `gorm:"work_hours" json:"work_hours"`
+	IsFullday           bool       `gorm:"is_fullday" json:"is_fullday"`
+	AverageTargetSales  float64    `gorm:"column:average_target_sales" json:"average_target_sales"`
+	CreatedAt           *time.Time `gorm:"created_at" json:"created_at"`
+	UpdatedAt           *time.Time `gorm:"updated_at" json:"updated_at"`
 }
 
 type StoreDto struct {
@@ -40,7 +41,9 @@ type StoreDto struct {
 	Coordinates   Point      `gorm:"column:coordinates" json:"coordinates"`
 	WorkHours     string     `gorm:"work_hours" json:"work_hours"`
 	IsFullday     bool       `gorm:"is_fullday" json:"is_fullday"`
-	CreatedAt     *time.Time `gorm:"created_at" json:"created_at"`
+	TargetAmount        float64    `gorm:"column:target_amount" json:"target_amount"`
+	AverageTargetSales  float64    `gorm:"column:average_target_sales" json:"average_target_sales"`
+	CreatedAt           *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt     *time.Time `gorm:"updated_at" json:"updated_at"`
 }
 

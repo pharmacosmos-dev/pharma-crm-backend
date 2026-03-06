@@ -3,6 +3,9 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
+	"time"
 
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/pkg/utils"
@@ -174,161 +177,220 @@ func (s *Services) LoyaltyCardLevelingUp() {
 	s.log.Infof("loyalty card leveling up process completed successfully for: %d customers\n", len(customers))
 }
 
-func (s *Services) GetLoyaltyCardDashboard(ctx context.Context, req *domain.LoyaltyCardDashboardRequest) (*domain.LoyaltyCardDashboard, error) {
+func (s *Services) GetLoyaltyCardStats(
+	ctx context.Context,
+	req *domain.LoyaltyCardDashboardRequest,
+) (*domain.LoyaltyCardDashboard, error) {
+
 	var result domain.LoyaltyCardDashboard
 
-	var totalCashback float64
-	err := s.db.Raw(`
-		SELECT COALESCE(SUM(s.total_amount * c.loyalty_card_percent / 100.0), 0) as total_cashback
-		FROM sales s
-		JOIN customers c ON c.id = s.customer_id
-		WHERE c.loyalty_card_barcode IS NOT NULL
-			AND c.loyalty_card_barcode != ''
-	`).Scan(&totalCashback).Error
-	if err != nil {
-		s.log.Errorf("error getting total cashback: %s", err.Error())
+	// =========================
+	// Common date helpers
+	// =========================
+	var startDate, endDate *time.Time
+
+	if req.StartDate != nil && !req.StartDate.GetTime().IsZero() {
+		t := req.StartDate.UTC()
+		startDate = &t
+	}
+	if req.EndDate != nil && !req.EndDate.GetTime().IsZero() {
+		t := req.EndDate.UTC()
+		endDate = &t
+	}
+
+	// ============================================================
+	// TOTAL CASHBACK (sales.completed_at bo‘yicha)
+	// ============================================================
+	cashbackQB := s.db.WithContext(ctx).
+		Table("sales s").
+		Joins("JOIN customers c ON c.id = s.customer_id").
+		Where("c.loyalty_card_barcode IS NOT NULL AND c.loyalty_card_barcode != ''")
+
+	if startDate != nil {
+		cashbackQB = cashbackQB.Where("s.completed_at >= ?", *startDate)
+	}
+	if endDate != nil {
+		cashbackQB = cashbackQB.Where("s.completed_at <= ?", *endDate)
+	}
+
+	if err := cashbackQB.
+		Select("COALESCE(SUM(s.total_amount * c.loyalty_card_percent / 100.0), 0)").
+		Scan(&result.TotalCashbackGiven).Error; err != nil {
+
+		s.log.Errorf("GetLoyaltyCardStats: cashback error: %v", err)
 		return nil, domain.InternalServerError
 	}
-	result.TotalCashbackGiven = totalCashback
 
-	var totalCards int64
-	err = s.db.Raw(`
-		SELECT COUNT(*)
-		FROM customers
-		WHERE loyalty_card_barcode IS NOT NULL
-			AND loyalty_card_barcode != ''
-	`).Scan(&totalCards).Error
-	if err != nil {
-		s.log.Errorf("error getting total cards: %s", err.Error())
+	// ============================================================
+	// TOTAL CARDS (umumiy)
+	// ============================================================
+	if err := s.db.WithContext(ctx).
+		Table("customers c").
+		Where("c.loyalty_card_barcode IS NOT NULL AND c.loyalty_card_barcode != ''").
+		Count(&result.TotalCards).Error; err != nil {
+
+		s.log.Errorf("GetLoyaltyCardStats: total cards error: %v", err)
 		return nil, domain.InternalServerError
 	}
-	result.TotalCards = totalCards
 
-	var newCards int64
-	if req.FromDate != nil && req.ToDate != nil {
-		err = s.db.Raw(`
-			SELECT COUNT(*)
-			FROM customers
-			WHERE loyalty_card_barcode IS NOT NULL
-				AND loyalty_card_barcode != ''
-				AND loyalty_card_created_at >= ?
-				AND loyalty_card_created_at <= ?
-		`, *req.FromDate, *req.ToDate).Scan(&newCards).Error
-		if err != nil {
-			s.log.Errorf("error getting new cards in period: %s", err.Error())
-			return nil, domain.InternalServerError
-		}
+	// ============================================================
+	// NEW CARDS IN PERIOD (loyalty_card_created_at)
+	// ============================================================
+	newCardsQB := s.db.WithContext(ctx).
+		Table("customers c").
+		Where("c.loyalty_card_barcode IS NOT NULL AND c.loyalty_card_barcode != ''")
+
+	if startDate != nil {
+		newCardsQB = newCardsQB.Where("c.loyalty_card_created_at >= ?", *startDate)
 	}
-	result.NewCardsInPeriod = newCards
+	if endDate != nil {
+		newCardsQB = newCardsQB.Where("c.loyalty_card_created_at <= ?", *endDate)
+	}
 
-	var cardsByLevel []domain.LoyaltyCardByLevel
-	err = s.db.Raw(`
+	if err := newCardsQB.Count(&result.NewCardsInPeriod).Error; err != nil {
+		s.log.Errorf("GetLoyaltyCardStats: new cards error: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	// ============================================================
+	// CARDS BY LEVEL (period bo‘yicha)
+	// ============================================================
+	levelQuery := `
 		SELECT
-			l.id as level_id,
-			l.name as level_name,
-			l.cashback_percent as percent,
-			COUNT(c.id) as count
+			l.id   AS level_id,
+			l.name AS level_name,
+			l.cashback_percent AS percent,
+			COUNT(c.id) AS count
 		FROM loyalty_card_levels l
-		LEFT JOIN customers c ON c.loyalty_card_level_id = l.id
+		LEFT JOIN customers c
+			ON c.loyalty_card_level_id = l.id
 			AND c.loyalty_card_barcode IS NOT NULL
 			AND c.loyalty_card_barcode != ''
-		GROUP BY l.id, l.name, l.cashback_percent
+	`
+
+	var args []interface{}
+	var joinConditions []string
+
+	if startDate != nil {
+		joinConditions = append(joinConditions, "c.loyalty_card_created_at >= ?")
+		args = append(args, *startDate)
+	}
+	if endDate != nil {
+		joinConditions = append(joinConditions, "c.loyalty_card_created_at <= ?")
+		args = append(args, *endDate)
+	}
+
+	if len(joinConditions) > 0 {
+		levelQuery += " AND " + strings.Join(joinConditions, " AND ")
+	}
+
+	levelQuery += `
+		GROUP BY l.id, l.name, l.cashback_percent, l.position
 		ORDER BY l.position
-	`).Scan(&cardsByLevel).Error
-	if err != nil {
-		s.log.Errorf("error getting cards by level: %s", err.Error())
+	`
+
+	var cardsByLevel []domain.LoyaltyCardByLevel
+
+	if err := s.db.WithContext(ctx).
+		Raw(levelQuery, args...).
+		Scan(&cardsByLevel).Error; err != nil {
+
+		s.log.Errorf("GetLoyaltyCardStats: levels error: %v", err)
 		return nil, domain.InternalServerError
 	}
+
 	result.CardsByLevel = cardsByLevel
-
-	if req.IsLoyalty != nil && *req.IsLoyalty {
-		if req.Limit <= 0 {
-			req.Limit = 10
-		}
-
-		var customers []domain.Customer
-		var count int64
-
-		err = s.db.Raw(`
-			SELECT COUNT(*) FROM customers
-			WHERE loyalty_card_barcode IS NOT NULL AND loyalty_card_barcode != ''
-		`).Scan(&count).Error
-		if err != nil {
-			s.log.Errorf("error getting loyalty customers count: %s", err.Error())
-			return nil, domain.InternalServerError
-		}
-
-		err = s.db.Raw(`
-			SELECT * FROM customers
-			WHERE loyalty_card_barcode IS NOT NULL AND loyalty_card_barcode != ''
-			ORDER BY loyalty_card_created_at DESC
-			LIMIT ? OFFSET ?
-		`, req.Limit, req.Offset).Scan(&customers).Error
-		if err != nil {
-			s.log.Errorf("error getting loyalty customers: %s", err.Error())
-			return nil, domain.InternalServerError
-		}
-
-		result.Customers = utils.ListResponse(customers, count, req.Limit, req.Offset)
-	}
 
 	return &result, nil
 }
 
-func (s *Services) GetLoyaltyCardTopCustomers(ctx context.Context, req *domain.LoyaltyCardTopRequest) ([]domain.LoyaltyCardTopCustomer, int64, error) {
+func (s *Services) GetLoyaltyCardTopCustomers(
+	ctx context.Context,
+	req *domain.LoyaltyCardTopRequest,
+) ([]domain.LoyaltyCardTopCustomer, int64, error) {
+
 	var customers []domain.LoyaltyCardTopCustomer
 	var count int64
 
-	if req.Limit <= 0 {
-		req.Limit = 10
+
+	// =========================
+	// Prepare date filters for sales
+	// =========================
+	var salesFilters []string
+	var queryParams []interface{}
+
+	if req.StartDate != nil && !req.StartDate.GetTime().IsZero() {
+		salesFilters = append(salesFilters, "s.completed_at >= ?")
+		queryParams = append(queryParams, req.StartDate.UTC())
+	}
+	if req.EndDate != nil && !req.EndDate.GetTime().IsZero() {
+		salesFilters = append(salesFilters, "s.completed_at <= ?")
+		queryParams = append(queryParams, req.EndDate.UTC())
 	}
 
-	dateFilter := ""
-	dateParams := []interface{}{}
-	if req.FromDate != nil && req.ToDate != nil {
-		dateFilter = "AND s.created_at >= ? AND s.created_at <= ?"
-		dateParams = append(dateParams, *req.FromDate, *req.ToDate)
+	salesWhere := ""
+	if len(salesFilters) > 0 {
+		salesWhere = "WHERE " + strings.Join(salesFilters, " AND ")
 	}
 
-	countQuery := `
-		SELECT COUNT(DISTINCT c.id)
-		FROM customers c
-		LEFT JOIN sales s ON s.customer_id = c.id ` + dateFilter + `
+	// =========================
+	// Count total customers in period
+	// =========================
+	countQuery := fmt.Sprintf(`
+		WITH sales_agg AS (
+			SELECT customer_id
+			FROM sales s
+			%s
+			GROUP BY customer_id
+		)
+		SELECT COUNT(*)
+		FROM sales_agg sa
+		JOIN customers c ON c.id = sa.customer_id
 		WHERE c.loyalty_card_barcode IS NOT NULL
-			AND c.loyalty_card_barcode != ''
-	`
+		  AND c.loyalty_card_barcode != ''
+	`, salesWhere)
 
-	err := s.db.Raw(countQuery, dateParams...).Scan(&count).Error
-	if err != nil {
-		s.log.Errorf("error getting top loyalty card customers count: %s", err.Error())
+	if err := s.db.Raw(countQuery, queryParams...).Scan(&count).Error; err != nil {
+		s.log.Errorf("GetTopCustomers count error: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
 
-	queryParams := append(dateParams, req.Limit, req.Offset)
+	// =========================
+	// Get top customers with total cashback
+	// =========================
+	queryParamsWithLimit := append(queryParams, req.Limit, req.Offset)
 
-	query := `
+	mainQuery := fmt.Sprintf(`
+		WITH sales_agg AS (
+			SELECT
+				s.customer_id,
+				COALESCE(SUM(s.total_amount), 0) AS total_spent
+			FROM sales s
+			%s
+			GROUP BY s.customer_id
+		)
 		SELECT
-			c.id as customer_id,
+			c.id AS customer_id,
+			c.public_id,
 			c.full_name,
 			c.phone,
 			c.loyalty_card_barcode,
-			l.name as loyalty_card_level_name,
+			l.name AS loyalty_card_level_name,
 			c.loyalty_card_percent,
-			COALESCE(SUM(s.total_amount), 0) as total_spent,
-			COALESCE(SUM(s.total_amount * c.loyalty_card_percent / 100.0), 0) as total_cashback_earned
-		FROM customers c
-		LEFT JOIN sales s ON s.customer_id = c.id ` + dateFilter + `
+			sa.total_spent,
+			COALESCE(sa.total_spent * c.loyalty_card_percent / 100.0, 0) AS total_cashback_earned,
+			c.loyalty_card_created_at
+		FROM sales_agg sa
+		JOIN customers c ON c.id = sa.customer_id
 		LEFT JOIN loyalty_card_levels l ON l.id = c.loyalty_card_level_id
 		WHERE c.loyalty_card_barcode IS NOT NULL
-			AND c.loyalty_card_barcode != ''
-		GROUP BY c.id, c.full_name, c.phone, c.loyalty_card_barcode, l.name, c.loyalty_card_percent
+		  AND c.loyalty_card_barcode != ''
 		ORDER BY total_cashback_earned DESC
 		LIMIT ? OFFSET ?
-	`
+	`, salesWhere)
 
-	err = s.db.Raw(query, queryParams...).Scan(&customers).Error
-	if err != nil {
-		s.log.Errorf("error getting top loyalty card customers: %s", err.Error())
+	if err := s.db.Raw(mainQuery, queryParamsWithLimit...).Scan(&customers).Error; err != nil {
+		s.log.Errorf("GetTopCustomers data error: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
 

@@ -54,12 +54,16 @@ func (s *Services) GetStoreByField(field string, value string) (*domain.Store, e
 func (s *Services) GetStores(ctx context.Context, params *domain.StoreQueryParams) ([]domain.StoreDto, int64, []string, error) {
 	qb := s.db.WithContext(ctx).
 		Model(&domain.Store{}).
+		Joins(`LEFT JOIN store_targets st
+			ON st.store_id = stores.id
+			AND st.year  = EXTRACT(YEAR  FROM NOW())
+			AND st.month = EXTRACT(MONTH FROM NOW())`).
 		Select(
-			"id",
+			"stores.id",
 			"store_code",
 			"name",
 			"detailed_name",
-			"company_id",
+			"stores.company_id",
 			"phone",
 			"contact",
 			"inn",
@@ -70,8 +74,10 @@ func (s *Services) GetStores(ctx context.Context, params *domain.StoreQueryParam
 			"ST_AsText(coordinates) AS coordinates",
 			"work_hours",
 			"is_fullday",
-			"created_at",
-			"updated_at",
+			"COALESCE(st.amount, 0) AS target_amount",
+			"average_target_sales",
+			"stores.created_at",
+			"stores.updated_at",
 		)
 
 	if params.Search != "" {
@@ -80,7 +86,7 @@ func (s *Services) GetStores(ctx context.Context, params *domain.StoreQueryParam
 	}
 
 	if params.CompanyId != "" {
-		qb = qb.Where("company_id = ?", params.CompanyId)
+		qb = qb.Where("stores.company_id = ?", params.CompanyId)
 	}
 
 	totalCount := int64(0)
@@ -111,4 +117,30 @@ func (s *Services) GetStores(ctx context.Context, params *domain.StoreQueryParam
 	}
 
 	return stores, totalCount, ids, nil
+}
+
+func (s *Services) UpdateAverateStoreTargetSales() error {
+	err := s.db.Exec( `
+		UPDATE stores
+		SET average_target_sales = sub.avg_sales
+		FROM (
+			SELECT store_id,
+				SUM(monthly_total) / COUNT(*) AS avg_sales
+			FROM (
+				SELECT store_id,
+					DATE_TRUNC('month', created_at) AS month,
+					SUM(total_amount) AS monthly_total
+				FROM sales
+				GROUP BY store_id, DATE_TRUNC('month', created_at)
+			) monthly_per_store
+			GROUP BY store_id
+		) sub
+		WHERE stores.id = sub.store_id;
+	`).Error
+
+	if err != nil {
+		s.log.Errorf("could not update average target sales for stores: %v", err)
+		return domain.InternalServerError
+	}
+	return nil
 }

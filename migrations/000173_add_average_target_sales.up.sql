@@ -1,0 +1,2 @@
+ALTER TABLE stores
+    ADD COLUMN IF NOT EXISTS average_target_sales NUMERIC(20, 2) NOT NULL DEFAULT 0;

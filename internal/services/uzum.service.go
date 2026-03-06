@@ -190,7 +190,7 @@ func buildProductImages(baseUrl string, photos []string) []domain.NomenclatureIm
 		if photo != "" {
 			images = append(images, domain.NomenclatureImage{
 				Hash: generateSHA1(photo),
-				Url:  photo,
+				Url:  baseUrl + photo,
 			})
 		}
 	}

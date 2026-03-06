@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
+	"github.com/pharma-crm-backend/pkg/utils"
 )
 
 type StoreTargetHandler struct {
@@ -22,111 +23,200 @@ func (h *StoreTargetHandler) StoreTargetRoutes(r *gin.RouterGroup) {
 	target := r.Group("/store-target")
 	{
 		target.POST("", h.Create)
-		//target.PUT("/:id", h.Update)
-		target.GET("/history/:store_id", h.StoreHistory)
+		target.DELETE("/:id", h.Delete)
+		target.PUT("/:id", h.Update)
+		target.GET("/:store_id", h.StoreHistory)
 		target.GET("/list", h.List)
 		// target.GET("/my", h.GetMyTarget)
-		target.GET("/employee/history", h.EmployeeHistory)
+		target.GET("/employee/list/:store_id", h.EmployeeHistory)
+		target.GET("/employee/my", h.GetMyEmployeeTarget)
+		target.PUT("/employee/:employee_id", h.UpdateEmployeeTarget)
+		target.GET("/summary", h.Summary)
 	}
 }
 
+
 // Create godoc
 // @Summary      Create store target
-// @Description  Store uchun oylik target yaratadi va barcha aktiv xodimlarga teng bo'ladi
+// @Description  Creates a monthly target for the store and is equal to all active employees
 // @Tags         store-target
 // @Security     BearerAuth
 // @Accept       json
 // @Produce      json
-// @Param        input body domain.StoreTargetRequest true "Store target ma'lumotlari"
+// @Param        input body domain.StoreTargetRequest true "Store target data"
 // @Success      201 {object} v1.Response
 // @Failure      400 {object} v1.Response
 // @Failure      500 {object} v1.Response
 // @Router       /store-target [post]
 func (h *StoreTargetHandler) Create(c *gin.Context) {
+
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
 	var body domain.StoreTargetRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
-
-	user := h.service.GetSignedUser(c)
-	body.CompanyId = user.CompanyId
-
+	
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
 	result, err := h.service.CreateStoreTarget(ctx, &body)
 	if err != nil {
-		if err.Error() == "target already exists for this store and month, use update instead" {
+		if err.Error() == "target already exists for this store and month" {
 			handleResponse(c, BadRequest, err.Error())
 			return
 		}
 		handleServiceResponse(c, nil, err)
 		return
-	}
+	}                      
 
 	handleResponse(c, CREATED, result)
 }
 
+// Delete godoc
+// @Summary      Delete store target
+// @Description  Deletes store target and all its employee targets
+// @Tags         store-target
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        id  path  string  true  "Store target ID"
+// @Success      200 {object} v1.Response
+// @Failure      404 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /store-target/{id} [delete]
+func (h *StoreTargetHandler) Delete(c *gin.Context) {
+
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	id := c.Param("id")
+
+	tx := h.db.WithContext(c.Request.Context()).Begin()
+
+	// 1️⃣ Avval employee targetlarni o‘chiramiz
+	if err := tx.
+		Where("store_target_id = ?", id).
+		Delete(&domain.EmployeeTarget{}).Error; err != nil {
+		tx.Rollback()
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	// 2️⃣ Keyin store targetni o‘chiramiz
+	result := tx.
+		Where("id = ?", id).
+		Delete(&domain.StoreTarget{})
+
+	if result.Error != nil {
+		tx.Rollback()
+		handleResponse(c, InternalError, result.Error.Error())
+		return
+	}
+
+	if result.RowsAffected == 0 {
+		tx.Rollback()
+		handleResponse(c, NotFound, "store target not found")
+		return
+	}
+
+	tx.Commit()
+	handleResponse(c, OK, "DELETED")
+}
+
+
 // Update godoc
 // @Summary      Update store target
-// @Description  Store target summasi yangilanadi. Faqat kelasi oy uchun ruxsat beriladi
+// @Description  Store target amount will be updated. Only allowed for current or future months
 // @Tags         store-target
 // @Security     BearerAuth
 // @Accept       json
 // @Produce      json
 // @Param        id   path  string                       true  "Store target ID"
-// @Param        input body domain.StoreTargetUpdateRequest true "Yangi summa"
+// @Param        input body domain.StoreTargetUpdateRequest true "New target amount"
 // @Success      200 {object} v1.Response
 // @Failure      400 {object} v1.Response
 // @Failure      403 {object} v1.Response
 // @Failure      404 {object} v1.Response
 // @Failure      500 {object} v1.Response
 // @Router       /store-target/{id} [put]
-// func (h *StoreTargetHandler) Update(c *gin.Context) {
-// 	id := c.Param("id")
+func (h *StoreTargetHandler) Update(c *gin.Context) {
 
-// 	var body domain.StoreTargetUpdateRequest
-// 	if err := c.ShouldBindJSON(&body); err != nil {
-// 		handleResponse(c, BadRequest, err.Error())
-// 		return
-// 	}
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
 
-// 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-// 	defer cancel()
+	id := c.Param("id")
 
-// 	result, err := h.service.UpdateStoreTarget(ctx, id, &body)
-// 	if err != nil {
-// 		if err.Error() == "store target not found" {
-// 			handleResponse(c, NotFound, err.Error())
-// 			return
-// 		}
-// 		if err.Error() == "permission denied: can only update next month or future targets" {
-// 			handleResponse(c, Forbidden, err.Error())
-// 			return
-// 		}
-// 		handleServiceResponse(c, nil, err)
-// 		return
-// 	}
+	var body domain.StoreTargetUpdateRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
 
-// 	handleResponse(c, OK, result)
-// }
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	result, err := h.service.UpdateStoreTarget(ctx, id, &body)
+	if err != nil {
+		if err.Error() == "store target not found" {
+			handleResponse(c, NotFound, err.Error())
+			return
+		}
+		if err.Error() == "permission denied: can only update current or future month targets" {
+			handleResponse(c, FORBIDDEN, err.Error())
+			return
+		}
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, result)
+}
+
 
 // StoreHistory godoc
-// @Summary      Store target tarixi
-// @Description  Store ID bo'yicha barcha oylik targetlar va haqiqiy sotuvlar summasi
+// @Summary      Store target history
+// @Description  Sum of all monthly targets and actual sales by Store ID
 // @Tags         store-target
 // @Security     BearerAuth
 // @Accept       json
 // @Produce      json
 // @Param        store_id  path   string  true   "Store ID"
-// @Param        year      query  int     false  "Yil (masalan: 2026)"
-// @Param        month     query  int     false  "Oy (1-12)"
+// @Param        year      query  int     false  "Year (example: 2026)"
+// @Param        month     query  int     false  "Month (1-12)"
 // @Success      200 {object} v1.Response
 // @Failure      500 {object} v1.Response
-// @Router       /store-target/history/{store_id} [get]
+// @Router       /store-target/{store_id} [get]
 func (h *StoreTargetHandler) StoreHistory(c *gin.Context) {
-	storeId := c.Param("store_id")
+	user := h.service.GetSignedUser(c)
+
+	pathStoreId := c.Param("store_id")
+
+	var storeId string
+	if !utils.In(user.Role, constants.StoreTargetViewAll...) {
+		if user.StoreId == "" {
+			handleResponse(c, BadRequest, "store_id not found for user")
+			return
+		}
+		storeId = user.StoreId
+	} else {
+		if pathStoreId == "" {
+			handleResponse(c, BadRequest, "store_id is required")
+			return
+		}
+		storeId = pathStoreId
+	}
 
 	year := 0
 	month := 0
@@ -139,8 +229,8 @@ func (h *StoreTargetHandler) StoreHistory(c *gin.Context) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
-
-	results, err := h.service.GetStoreTargetHistory(ctx, storeId, year, month)
+	
+	results, err := h.service.GetStoreTargetHistory(ctx, storeId, user.CompanyId, year, month)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return
@@ -149,18 +239,22 @@ func (h *StoreTargetHandler) StoreHistory(c *gin.Context) {
 	handleResponse(c, OK, results)
 }
 
+
 // List godoc
-// @Summary      Barcha store target ro'yxati
-// @Description  Barcha store targetlar, joriy oy bo'lsa bugungi kungacha sotuvlar bilan
+// @Summary      All store target list
+// @Description  All store targets, with sales to date for the current month
 // @Tags         store-target
 // @Security     BearerAuth
 // @Accept       json
 // @Produce      json
 // @Param        store_id   query  string  false  "Store ID"
-// @Param        year       query  int     false  "Yil (masalan: 2026)"
-// @Param        month      query  int     false  "Oy (1-12)"
+// @Param        company_id   query  string  false  "Company ID"
+// @Param 		 search query string false "Search"
+// @Param        year       query  int     false  "Year (exmaple: 2026)"
+// @Param        month      query  int     false  "Month (1-12)"
 // @Param        limit      query  int     false  "Limit"
 // @Param        offset     query  int     false  "Offset"
+// @Param        order query string false "Order by (+store_name || -store_name || +target || -target || -sales || +sales)"
 // @Success      200 {object} v1.Response
 // @Failure      400 {object} v1.Response
 // @Failure      500 {object} v1.Response
@@ -173,11 +267,29 @@ func (h *StoreTargetHandler) List(c *gin.Context) {
 	}
 
 	user := h.service.GetSignedUser(c)
-	params.CompanyId = user.CompanyId
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
+
+	var isAdmin bool
+	if !utils.In(user.Role, constants.StoreTargetViewAll...) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyIds = []string{user.CompanyId}
+	} else {
+		isAdmin = true
+		params.CompanyIds = []string{user.CompanyId}
+	}
+
+	if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, true)
+		params.StoreId = ""
+	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
+		params.CompanyIds, _ = h.service.GetCompanyIds(ctx, false)
+		params.StoreId = ""
+	}
 
 	results, count, err := h.service.GetStoreTargetList(ctx, &params)
 	if err != nil {
@@ -185,68 +297,61 @@ func (h *StoreTargetHandler) List(c *gin.Context) {
 		return
 	}
 
-	handleResponse(c, OK, results, count)
+	handleResponse(c, OK, map[string]interface{}{
+		"_meta": utils.Meta{
+			TotalCount:  count,
+			PerPage:     params.Limit,
+			CurrentPage: (params.Offset / params.Limit) + 1,
+			PageCount:   int((count + int64(params.Limit) - 1) / int64(params.Limit)),
+		},
+		"data": results,
+	})
 }
 
-// GetMyTarget godoc
-// @Summary      Employee joriy oy target
-// @Description  Login qilgan xodimning joriy oy uchun oylik va kunlik target summasi, haqiqiy sotuvlar bilan
-// @Tags         store-target
-// @Security     BearerAuth
-// @Accept       json
-// @Produce      json
-// @Success      200 {object} v1.Response
-// @Failure      500 {object} v1.Response
-// @Router       /store-target/my [get]
-// func (h *StoreTargetHandler) GetMyTarget(c *gin.Context) {
-// 	user := h.service.GetSignedUser(c)
-
-// 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
-// 	defer cancel()
-
-// 	result, err := h.service.GetEmployeeTargetWithSales(ctx, user.Id)
-// 	if err != nil {
-// 		handleServiceResponse(c, nil, err)
-// 		return
-// 	}
-
-// 	if result == nil {
-// 		handleResponse(c, OK, "No target assigned for this month")
-// 		return
-// 	}
-
-// 	handleResponse(c, OK, result)
-// }
 
 // EmployeeHistory godoc
-// @Summary      Store bo'yicha xodimlar target tarixi
-// @Description  Berilgan store dagi barcha xodimlarning oylik target tarixi
+// @Summary      Store cashier target history
+// @Description  Monthly target history for everyone in a given store
 // @Tags         store-target
 // @Security     BearerAuth
 // @Accept       json
 // @Produce      json
-// @Param        store_id    query  string  true   "Store ID (majburiy)"
-// @Param        employee_id query  string  false  "Employee ID (ixtiyoriy, bitta xodim uchun)"
-// @Param        year        query  int     false  "Yil (masalan: 2026)"
-// @Param        month       query  int     false  "Oy (1-12)"
+// @Param        store_id    path   string  true   "Store ID"
+// @Param        employee_id query  string  false  "Employee ID (optional, for one employee)"
+// @Param        year        query  int     false  "Year (example: 2026)"
+// @Param        month       query  int     false  "Moth (1-12)"
 // @Param        limit       query  int     false  "Limit"
 // @Param        offset      query  int     false  "Offset"
 // @Success      200 {object} v1.Response
 // @Failure      400 {object} v1.Response
 // @Failure      500 {object} v1.Response
-// @Router       /store-target/employee/history [get]
+// @Router       /store-target/employee/list/{store_id} [get]
 func (h *StoreTargetHandler) EmployeeHistory(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+
 	var params domain.EmployeeTargetQueryParams
 	if err := c.ShouldBindQuery(&params); err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 
-	if params.StoreId == "" {
-		handleResponse(c, BadRequest, "store_id is required")
-		return
+	pathStoreId := c.Param("store_id")
+
+	if !utils.In(user.Role, constants.StoreTargetViewAll...) {
+		if user.StoreId == "" {
+			handleResponse(c, BadRequest, "store_id not found for user")
+			return
+		}
+		params.StoreId = user.StoreId
+	} else {
+		if pathStoreId == "" {
+			handleResponse(c, BadRequest, "store_id is required")
+			return
+		}
+		params.StoreId = pathStoreId
 	}
 
+	params.CompanyId = user.CompanyId
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
@@ -259,4 +364,159 @@ func (h *StoreTargetHandler) EmployeeHistory(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, results, count)
+}
+
+
+// GetMyEmployeeTarget godoc
+// @Summary      Employee current month target and sales
+// @Description  Target amount and actual sales of the logged-in employee for the current month
+// @Tags         store-target
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Success      200 {object} v1.Response
+// @Failure      400 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /store-target/employee/my [get]
+func (h *StoreTargetHandler) GetMyEmployeeTarget(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleResponse(c, BadRequest, "user not found")
+		return
+	}
+	if user.StoreId == "" {
+		handleResponse(c, BadRequest, "store not found for user")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	result, err := h.service.GetDailySalesStoreTargetEmployee(ctx, user.UserId, user.StoreId)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	if result == nil {
+		handleResponse(c, OK, gin.H{})
+		return
+	}
+
+	handleResponse(c, OK, result)
+}
+
+
+// UpdateEmployeeTarget godoc
+// @Summary      Update employee target amount
+// @Description  Updates the target amount for a specific employee. The remaining amount is distributed equally among other employees in the same store target. Store target total is not affected.
+// @Tags         store-target
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        employee_id  path  string                            true  "Employee ID"
+// @Param        input        body  domain.EmployeeTargetUpdateRequest  true  "New target amount"
+// @Success      200 {object} v1.Response
+// @Failure      400 {object} v1.Response
+// @Failure      403 {object} v1.Response
+// @Failure      404 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /store-target/employee/{employee_id} [put]
+func (h *StoreTargetHandler) UpdateEmployeeTarget(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	employeeId := c.Param("employee_id")
+	if employeeId == "" {
+		handleResponse(c, BadRequest, "employee_id is required")
+		return
+	}
+
+	var body domain.EmployeeTargetUpdateRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	err := h.service.UpdateEmployeeTargetAmount(ctx, body.StoreTargetId, employeeId, body.Amount)
+	if err != nil {
+		if err == domain.NotFoundError {
+			handleResponse(c, NotFound, err.Error())
+			return
+		}
+		if err.Error() == "permission denied: can only update current or future month targets" {
+			handleResponse(c, FORBIDDEN, err.Error())
+			return
+		}
+		if err.Error() == "employee target amount cannot be greater than or equal to store target amount" {
+			handleResponse(c, BadRequest, err.Error())
+			return
+		}
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, "updated")
+}
+
+// Summary godoc
+// @Summary      Current Month Store Targets Summary
+// @Description  Get total amount, total sales, and store count for current month
+// @Tags         store-target
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Success      200 {object} domain.StoreTargetSummary
+// @Failure      400 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /store-target/summary [get]
+func (h *StoreTargetHandler) Summary(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.CompanyId == "" {
+		handleResponse(c, BadRequest, "company_id not found for user")
+		return
+	}
+
+	var params domain.StoreTargetQueryParams
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	var isAdmin bool
+	companyIds := []string{user.CompanyId}
+	storeId := ""
+
+	if !utils.In(user.Role, constants.StoreTargetViewAll...) {
+		if user.StoreId == "" {
+			handleResponse(c, BadRequest, "store_id not found for user")
+			return
+		}
+		storeId = user.StoreId
+	} else {
+		isAdmin = true
+	}
+
+	if isAdmin && params.IsFranchise != nil && *params.IsFranchise {
+		companyIds, _ = h.service.GetCompanyIds(ctx, true)
+	} else if isAdmin && params.IsPharma != nil && *params.IsPharma {
+		companyIds, _ = h.service.GetCompanyIds(ctx, false)
+	}
+
+	summary, err := h.service.GetCurrentMonthStoreTargetsSummary(ctx, companyIds, storeId)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, summary)
 }

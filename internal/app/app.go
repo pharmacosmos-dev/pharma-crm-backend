@@ -95,6 +95,24 @@ func RegisterCronJobs(service *services.Services) (*cron.Cron, error) {
 		log.Println("Staring checking customers' loyalty leveling up...")
 		service.LoyaltyCardLevelingUp()
 	})
+	c.AddFunc("0 * * * *", func() {
+		//service.DistributeMonthlyTargets()
+		log.Println("Starting update store target sales...")
+		service.UpdateStoreTargetSales()
+		log.Println("Starting update employee target sales...")
+		service.UpdateEmployeeTargetSales()
+	})
+	
+	// Set store and employee goals for the new month at 00:00 (UTC) on the 1st of each month
+	c.AddFunc("0 0 1 * *", func() {
+		log.Println("Starting auto create monthly store targets...")
+		service.AutoCreateMonthlyStoreTargets()
+	})
+
+	c.AddFunc("*/50 * * * *", func() {
+		log.Println("Starting update average target sales for stores...")
+		service.UpdateAverateStoreTargetSales()
+	})
 
 	return c, nil
 }

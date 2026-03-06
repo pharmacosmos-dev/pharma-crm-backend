@@ -1,6 +1,10 @@
 package domain
 
-import "time"
+import (
+	"time"
+
+	"github.com/pharma-crm-backend/pkg/utils"
+)
 
 type Role struct {
 	Id              string     `gorm:"id" json:"id"`
@@ -34,3 +38,27 @@ type RolePermissionReq struct {
 	IsActive     bool     `gorm:"is_active" json:"is_active"`
 	ChildIds     []string `json:"children_ids"`
 }
+
+type RoleRef struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type PermissionWithRoles struct {
+	Id       string               `json:"id"`
+	Name     string               `json:"name"`
+	Key      string               `json:"key"`
+	Route    string               `json:"route"`
+	Type     string               `json:"type"`
+	ParentId string               `json:"parent_id"`
+	Method   utils.StringArray    `json:"method"`
+	Roles    []RoleRef            `json:"roles"`
+	Children []PermissionWithRoles `json:"children"`
+}
+
+type MainPermWithRoles struct {
+	ID          string               `json:"id"`
+	Key         string               `json:"key"`
+	Permissions []PermissionWithRoles `json:"permissions"`
+}
+
