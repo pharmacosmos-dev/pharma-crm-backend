@@ -286,7 +286,7 @@ func (h *RoleHandler) Delete(c *gin.Context) {
 	handleResponse(c, OK, "DELETED")
 }
 
-// ListWithPermissions godoc
+// ListRoleWithPermissions godoc
 // @Summary List all permissions with active roles
 // @Description Returns full permission tree, each permission contains list of role IDs that have it active
 // @Tags roles
@@ -296,10 +296,15 @@ func (h *RoleHandler) Delete(c *gin.Context) {
 // @Param limit query int false "Limit"
 // @Param offset query int false "Offset"
 // @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /role/list-with-permissions [get]
 func (h *RoleHandler) ListRoleWithPermissions(c *gin.Context) {
-	limit, offset, _ := getPaginationParams(c)
+	limit, offset, err := getPaginationParams(c)
+	if err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
 
 	sqlDB, err := h.db.DB()
 	if err != nil {
@@ -308,10 +313,7 @@ func (h *RoleHandler) ListRoleWithPermissions(c *gin.Context) {
 		return
 	}
 
-	// permission-centric: one row per permission, roles aggregated as JSON array
-	// eliminates CROSS JOIN — rows: permissions count (not roles × permissions)
-	// count total top-level permission groups for pagination
-	var total int
+	var total int64
 	if err = sqlDB.QueryRowContext(c.Request.Context(),
 		`SELECT COUNT(*) FROM permissions WHERE deleted_at IS NULL AND parent_id IS NULL`,
 	).Scan(&total); err != nil {
@@ -320,7 +322,6 @@ func (h *RoleHandler) ListRoleWithPermissions(c *gin.Context) {
 		return
 	}
 
-	// paginate top-level, then recursively fetch ALL descendants at any depth
 	const query = `
 		WITH RECURSIVE top_level AS (
 			SELECT id
@@ -347,107 +348,123 @@ func (h *RoleHandler) ListRoleWithPermissions(c *gin.Context) {
 			p.type,
 			p.method,
 			COALESCE(
-				json_agg(json_build_object('id', r.id, 'name', r.name)) FILTER (WHERE rp.is_active = true),
+				json_agg(json_build_object('id', r.id, 'name', r.name)) FILTER (WHERE r.id IS NOT NULL),
 				'[]'::json
 			) AS roles
 		FROM permissions p
 		INNER JOIN tree ON tree.id = p.id
-		LEFT JOIN role_permissions rp
-			ON rp.permission_id = p.id AND rp.is_active = true
+		LEFT JOIN role_permissions rp ON rp.permission_id = p.id AND rp.is_active = true
 		LEFT JOIN roles r ON r.id = rp.role_id
 		GROUP BY p.id, p.parent_id, p.name, p.key, p.route, p.type, p.method
 		ORDER BY NULLIF(p.parent_id::text, '') NULLS FIRST, p.name
 	`
 
-	dbRows, err := sqlDB.QueryContext(c.Request.Context(), query, limit, offset)
+	rows, err := sqlDB.QueryContext(c.Request.Context(), query, limit, offset)
 	if err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
-	defer dbRows.Close()
+	defer rows.Close()
 
+	// permByID holds every scanned permission node, keyed by its ID.
+	// childrenByParentID maps each parentID to its direct children IDs.
+	type permNode struct {
+		name, key, route, pType, parentID string
+		method                            utils.StringArray
+		roles                             []domain.RoleRef
+	}
 
-	nodes    := make(map[string]domain.PermNode)
-	children := make(map[string][]string) // parentID → []permID
-	var topIDs []string
+	permByID         := make(map[string]permNode)
+	childrenByParent := make(map[string][]string)
+	var rootIDs       []string
 
-	for dbRows.Next() {
+	for rows.Next() {
 		var (
-			permID, parentID, permName string
-			key, route, pType          string
-			method                     utils.StringArray
-			rolesJSON                  []byte
+			id, parentID, name   string
+			key, route, pType    string
+			method               utils.StringArray
+			rolesJSON            []byte
 		)
-		if err = dbRows.Scan(
-			&permID, &parentID, &permName, &key, &route, &pType, &method, &rolesJSON,
-		); err != nil {
+		if err = rows.Scan(&id, &parentID, &name, &key, &route, &pType, &method, &rolesJSON); err != nil {
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())
 			return
 		}
 
 		var roles []domain.RoleRef
-		if jsonErr := json.Unmarshal(rolesJSON, &roles); jsonErr != nil || roles == nil {
+		if jsonErr := json.Unmarshal(rolesJSON, &roles); jsonErr != nil {
+			h.log.Error("failed to unmarshal roles for permission", id, jsonErr)
 			roles = []domain.RoleRef{}
 		}
 
-		nodes[permID] = domain.PermNode{Name: permName, Key: key, Route: route, PType: pType, ParentID: parentID, Method: method, Roles: roles}
+		permByID[id] = permNode{
+			name:     name,
+			key:      key,
+			route:    route,
+			pType:    pType,
+			parentID: parentID,
+			method:   method,
+			roles:    roles,
+		}
+
 		if parentID == "" {
-			topIDs = append(topIDs, permID)
+			rootIDs = append(rootIDs, id)
 		} else {
-			children[parentID] = append(children[parentID], permID)
+			childrenByParent[parentID] = append(childrenByParent[parentID], id)
 		}
 	}
-	if err = dbRows.Err(); err != nil {
+	if err = rows.Err(); err != nil {
 		h.log.Error(err)
 		handleResponse(c, InternalError, err.Error())
 		return
 	}
 
-	// orphaned permissions: parentID exists but parent not in nodes (e.g. parent deleted)
-	// treat them as top-level so they are never lost
-	for permID, node := range nodes {
-		if node.ParentID != "" {
-			if _, parentExists := nodes[node.ParentID]; !parentExists {
-				topIDs = append(topIDs, permID)
+	// Orphaned nodes (parent was deleted) are surfaced at root level to avoid data loss.
+	for id, node := range permByID {
+		if node.parentID != "" {
+			if _, exists := permByID[node.parentID]; !exists {
+				rootIDs = append(rootIDs, id)
 			}
 		}
 	}
 
-	var buildPerms func(parentID string) []domain.PermissionWithRoles
-	buildPerms = func(parentID string) []domain.PermissionWithRoles {
-		ids := children[parentID]
+	var buildChildren func(parentID string) []domain.PermissionWithRoles
+	buildChildren = func(parentID string) []domain.PermissionWithRoles {
+		ids := childrenByParent[parentID]
 		out := make([]domain.PermissionWithRoles, 0, len(ids))
 		for _, id := range ids {
-			n := nodes[id]
+			n := permByID[id]
 			out = append(out, domain.PermissionWithRoles{
 				Id:       id,
-				Name:     n.Name,
-				Key:      n.Key,
-				Route:    n.Route,
-				Type:     n.PType,
-				ParentId: n.ParentID,
-				Method:   n.Method,
-				Roles:    n.Roles,
-				Children: buildPerms(id),
+				Name:     n.name,
+				Key:      n.key,
+				Route:    n.route,
+				Type:     n.pType,
+				ParentId: n.parentID,
+				Method:   n.method,
+				Roles:    n.roles,
+				Children: buildChildren(id),
 			})
 		}
 		return out
 	}
 
-	result := make([]domain.MainPermWithRoles, 0, len(topIDs))
-	for _, id := range topIDs {
-		n := nodes[id]
+	result := make([]domain.MainPermWithRoles, 0, len(rootIDs))
+	for _, id := range rootIDs {
+		n := permByID[id]
 		result = append(result, domain.MainPermWithRoles{
 			ID:          id,
-			Key:         n.Key,
-			Permissions: buildPerms(id),
+			Key:         n.key,
+			Permissions: buildChildren(id),
 		})
 	}
 
-	handleResponse(c, OK, result, int64(total))
+	data := utils.ListResponse(result, total, limit, offset)
+
+	handleResponse(c, OK, data, total)
 }
+
 
 // MultipleDelete godoc
 // @Summary Delete all roles

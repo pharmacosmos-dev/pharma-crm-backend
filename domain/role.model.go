@@ -40,8 +40,8 @@ type RolePermissionReq struct {
 }
 
 type RoleRef struct {
-		Id   string `json:"id"`
-		Name string `json:"name"`
+	Id   string `json:"id"`
+	Name string `json:"name"`
 }
 
 type PermissionWithRoles struct {
@@ -62,12 +62,3 @@ type MainPermWithRoles struct {
 	Permissions []PermissionWithRoles `json:"permissions"`
 }
 
-type PermNode struct {
-	Name     string
-	Key      string
-	Route    string
-	PType    string
-	ParentID string
-	Method   utils.StringArray
-	Roles    []RoleRef
-}
