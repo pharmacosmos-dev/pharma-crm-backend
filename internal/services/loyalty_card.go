@@ -199,7 +199,7 @@ func (s *Services) GetLoyaltyCardStats(
 	}
 
 	// ============================================================
-	// 1️⃣ TOTAL CASHBACK (sales.completed_at bo‘yicha)
+	// TOTAL CASHBACK (sales.completed_at bo‘yicha)
 	// ============================================================
 	cashbackQB := s.db.WithContext(ctx).
 		Table("sales s").
@@ -222,7 +222,7 @@ func (s *Services) GetLoyaltyCardStats(
 	}
 
 	// ============================================================
-	// 2️⃣ TOTAL CARDS (umumiy)
+	// TOTAL CARDS (umumiy)
 	// ============================================================
 	if err := s.db.WithContext(ctx).
 		Table("customers c").
@@ -234,7 +234,7 @@ func (s *Services) GetLoyaltyCardStats(
 	}
 
 	// ============================================================
-	// 3️⃣ NEW CARDS IN PERIOD (loyalty_card_created_at)
+	// NEW CARDS IN PERIOD (loyalty_card_created_at)
 	// ============================================================
 	newCardsQB := s.db.WithContext(ctx).
 		Table("customers c").
@@ -253,7 +253,7 @@ func (s *Services) GetLoyaltyCardStats(
 	}
 
 	// ============================================================
-	// 4️⃣ CARDS BY LEVEL (period bo‘yicha)
+	// CARDS BY LEVEL (period bo‘yicha)
 	// ============================================================
 	levelQuery := `
 		SELECT

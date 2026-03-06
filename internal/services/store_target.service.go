@@ -576,7 +576,7 @@ func (s *Services) UpdateStoreTargetSales() {
 		s.log.Errorf("cron UpdateStoreTargetSales: %v", err)
 		return
 	}
-	log.Printf("UpdateStoreTargetSales completed for %d-%02d", year, month)
+	s.log.Infof("UpdateStoreTargetSales completed for %d-%02d", year, month)
 }
 
 
@@ -608,7 +608,7 @@ func (s *Services) UpdateEmployeeTargetSales() {
 		s.log.Errorf("cron UpdateEmployeeTargetSales: %v", err)
 		return
 	}
-	log.Printf("UpdateEmployeeTargetSales completed for %d-%02d", year, month)
+	s.log.Infof("UpdateEmployeeTargetSales completed for %d-%02d", year, month)
 }
 
 // AutoCreateMonthlyStoreTargets - har oyning 1-kuni 00:00 da cron tomonidan chaqiriladi.
