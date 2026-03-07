@@ -60,6 +60,7 @@ type MainPermWithRoles struct {
 	ID          string               `json:"id"`
 	Key         string               `json:"key"`
 	Name		string               `json:"name"`
+	Description string               `json:"description"`
 	Permissions []PermissionWithRoles `json:"permissions"`
 }
 

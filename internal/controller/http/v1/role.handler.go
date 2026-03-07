@@ -347,6 +347,7 @@ func (h *RoleHandler) ListRoleWithPermissions(c *gin.Context) {
 			p.route,
 			p.type,
 			p.method,
+			COALESCE(p.description, '') AS description,
 			COALESCE(
 				json_agg(json_build_object('id', r.id, 'name', r.name)) FILTER (WHERE r.id IS NOT NULL),
 				'[]'::json
@@ -355,7 +356,7 @@ func (h *RoleHandler) ListRoleWithPermissions(c *gin.Context) {
 		INNER JOIN tree ON tree.id = p.id
 		LEFT JOIN role_permissions rp ON rp.permission_id = p.id AND rp.is_active = true
 		LEFT JOIN roles r ON r.id = rp.role_id
-		GROUP BY p.id, p.parent_id, p.name, p.key, p.route, p.type, p.method
+		GROUP BY p.id, p.parent_id, p.name, p.key, p.route, p.type, p.method, p.description
 		ORDER BY NULLIF(p.parent_id::text, '') NULLS FIRST, p.name
 	`
 
@@ -370,7 +371,7 @@ func (h *RoleHandler) ListRoleWithPermissions(c *gin.Context) {
 	// permByID holds every scanned permission node, keyed by its ID.
 	// childrenByParentID maps each parentID to its direct children IDs.
 	type permNode struct {
-		name, key, route, pType, parentID string
+		name, key, route, pType, parentID, description string
 		method                            utils.StringArray
 		roles                             []domain.RoleRef
 	}
@@ -378,15 +379,16 @@ func (h *RoleHandler) ListRoleWithPermissions(c *gin.Context) {
 	permByID         := make(map[string]permNode)
 	childrenByParent := make(map[string][]string)
 	var rootIDs       []string
-
+	
 	for rows.Next() {
 		var (
 			id, parentID, name   string
 			key, route, pType    string
+			description          string
 			method               utils.StringArray
 			rolesJSON            []byte
 		)
-		if err = rows.Scan(&id, &parentID, &name, &key, &route, &pType, &method, &rolesJSON); err != nil {
+		if err = rows.Scan(&id, &parentID, &name, &key, &route, &pType, &method, &description, &rolesJSON); err != nil {
 			h.log.Error(err)
 			handleResponse(c, InternalError, err.Error())
 			return
@@ -399,13 +401,14 @@ func (h *RoleHandler) ListRoleWithPermissions(c *gin.Context) {
 		}
 
 		permByID[id] = permNode{
-			name:     name,
-			key:      key,
-			route:    route,
-			pType:    pType,
-			parentID: parentID,
-			method:   method,
-			roles:    roles,
+			name:        name,
+			key:         key,
+			route:       route,
+			pType:       pType,
+			parentID:    parentID,
+			description: description,
+			method:      method,
+			roles:       roles,
 		}
 
 		if parentID == "" {
@@ -456,7 +459,8 @@ func (h *RoleHandler) ListRoleWithPermissions(c *gin.Context) {
 		result = append(result, domain.MainPermWithRoles{
 			ID:          id,
 			Key:         n.key,
-			Name:	     n.name,			
+			Name:	     n.name,
+			Description: n.description,			
 			Permissions: buildChildren(id),
 		})
 	}
