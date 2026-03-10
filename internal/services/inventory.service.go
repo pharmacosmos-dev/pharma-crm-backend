@@ -919,27 +919,53 @@ func (s *Services) UpdateInventoryFactQuantity(ctx context.Context, request *dom
 		return nil
 	}
 
-	// Calculate total fact as quantity + (unit / unitPerPack)
+	// Calculate total fact in units
 	remainingFact := request.FactQuantity*float64(unitPerPack) + request.FactUnit
-	for i := 0; i < len(tmp); i++ {
-		if i == len(tmp)-1 {
-			tmp[i].ScannedCount = remainingFact
-		} else {
-			available := tmp[i].ReceivedCount
-			if remainingFact >= available {
-				tmp[i].ScannedCount = available
-				remainingFact -= available
+
+	// deltas[i] — shu qatorga qancha qo'shilishi kerak
+	deltas := make([]float64, len(tmp))
+
+	// 1-qadam: manfiy qatorlarni to'ldirish (received > scanned), eskidan yangiga
+	for i, row := range tmp {
+		if remainingFact <= 0 {
+			break
+		}
+		if row.ReceivedCount > row.ScannedCount {
+			needed := row.ReceivedCount - row.ScannedCount
+			if remainingFact >= needed {
+				deltas[i] = needed
+				remainingFact -= needed
 			} else {
-				tmp[i].ScannedCount = remainingFact
+				deltas[i] = remainingFact
 				remainingFact = 0
 			}
 		}
-		// Update each row
+	}
+
+	// 2-qadam: qolganini BARCHA qatorlarga teng taqsimlash
+	if remainingFact > 0 {
+		n := len(tmp)
+		base := int(remainingFact) / n
+		extra := int(remainingFact) % n
+		for i := range tmp {
+			add := float64(base)
+			if i < extra {
+				add++
+			}
+			deltas[i] += add
+		}
+	}
+
+	// Har bir qatorni yangilash
+	for i, row := range tmp {
+		if deltas[i] == 0 {
+			continue
+		}
 		err := s.db.WithContext(ctx).Exec(`
 			UPDATE import_details
-			SET scanned_count = scanned_count+?
+			SET scanned_count = scanned_count + ?
 			WHERE id = ?
-		`, tmp[i].ScannedCount, tmp[i].Id).Error
+		`, deltas[i], row.Id).Error
 		if err != nil {
 			s.log.Errorf("could not update scanned_count: %v", err)
 			return domain.InternalServerError
