@@ -439,15 +439,16 @@ func (h *RoleHandler) ListRoleWithPermissions(c *gin.Context) {
 		for _, id := range ids {
 			n := permByID[id]
 			out = append(out, domain.PermissionWithRoles{
-				Id:       id,
-				Name:     n.name,
-				Key:      n.key,
-				Route:    n.route,
-				Type:     n.pType,
-				ParentId: n.parentID,
-				Method:   n.method,
-				Roles:    n.roles,
-				Children: buildChildren(id),
+				Id:          id,
+				Name:        n.name,
+				Description: n.description,
+				Key:         n.key,
+				Route:       n.route,
+				Type:        n.pType,
+				ParentId:    n.parentID,
+				Method:      n.method,
+				Roles:       n.roles,
+				Children:    buildChildren(id),
 			})
 		}
 		return out

@@ -3,7 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
-	"time"
+"time"
 
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
@@ -945,11 +945,11 @@ func (s *Services) UpdateInventoryFactQuantity(ctx context.Context, request *dom
 	// 2-qadam: qolganini BARCHA qatorlarga teng taqsimlash
 	if remainingFact > 0 {
 		n := len(tmp)
-		base := int(remainingFact) / n
-		extra := int(remainingFact) % n
+		base := float64(int(remainingFact) / n)
+		leftover := int(remainingFact-base*float64(n)+0.5) // yaxlitlash
 		for i := range tmp {
-			add := float64(base)
-			if i < extra {
+			add := base
+			if i < leftover {
 				add++
 			}
 			deltas[i] += add

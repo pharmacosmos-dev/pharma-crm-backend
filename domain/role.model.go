@@ -45,15 +45,16 @@ type RoleRef struct {
 }
 
 type PermissionWithRoles struct {
-	Id       string               `json:"id"`
-	Name     string               `json:"name"`
-	Key      string               `json:"key"`
-	Route    string               `json:"route"`
-	Type     string               `json:"type"`
-	ParentId string               `json:"parent_id"`
-	Method   utils.StringArray    `json:"method"`
-	Roles    []RoleRef            `json:"roles"`
-	Children []PermissionWithRoles `json:"children"`
+	Id          string               `json:"id"`
+	Name        string               `json:"name"`
+	Description string               `json:"description"`
+	Key         string               `json:"key"`
+	Route       string               `json:"route"`
+	Type        string               `json:"type"`
+	ParentId    string               `json:"parent_id"`
+	Method      utils.StringArray    `json:"method"`
+	Roles       []RoleRef            `json:"roles"`
+	Children    []PermissionWithRoles `json:"children"`
 }
 
 type MainPermWithRoles struct {
