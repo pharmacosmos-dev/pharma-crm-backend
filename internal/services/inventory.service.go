@@ -942,18 +942,9 @@ func (s *Services) UpdateInventoryFactQuantity(ctx context.Context, request *dom
 		}
 	}
 
-	// 2-qadam: qolganini BARCHA qatorlarga teng taqsimlash
+	// 2-qadam: qolganini oxirgi qatorga qo'shish (imported_at bo'yicha eng oxirgi)
 	if remainingFact > 0 {
-		n := len(tmp)
-		base := float64(int(remainingFact) / n)
-		leftover := int(remainingFact-base*float64(n)+0.5) // yaxlitlash
-		for i := range tmp {
-			add := base
-			if i < leftover {
-				add++
-			}
-			deltas[i] += add
-		}
+		deltas[len(tmp)-1] += remainingFact
 	}
 
 	// Har bir qatorni yangilash
