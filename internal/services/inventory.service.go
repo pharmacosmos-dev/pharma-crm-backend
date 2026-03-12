@@ -919,32 +919,57 @@ func (s *Services) UpdateInventoryFactQuantity(ctx context.Context, request *dom
 		return nil
 	}
 
-	// Calculate total fact in units
-	remainingFact := request.FactQuantity*float64(unitPerPack) + request.FactUnit
-
-	// deltas[i] — shu qatorga qancha qo'shilishi kerak
+	// deltas[i] — shu qatorga qancha qo'shilishi kerak (unit hisobida)
 	deltas := make([]float64, len(tmp))
 
-	// 1-qadam: manfiy qatorlarni to'ldirish (received > scanned), eskidan yangiga
-	for i, row := range tmp {
-		if remainingFact <= 0 {
-			break
-		}
-		if row.ReceivedCount > row.ScannedCount {
-			needed := row.ReceivedCount - row.ScannedCount
-			if remainingFact >= needed {
-				deltas[i] = needed
-				remainingFact -= needed
-			} else {
-				deltas[i] = remainingFact
-				remainingFact = 0
+	// Pack yo'li: faqat diff_qty (pack darajasi) ga qarab ishlaydi
+	if request.FactQuantity > 0 {
+		remainingPacks := request.FactQuantity
+		for i, row := range tmp {
+			if remainingPacks <= 0 {
+				break
 			}
+			recvPacks := float64(int(row.ReceivedCount) / unitPerPack)
+			scanPacks := float64(int(row.ScannedCount) / unitPerPack)
+			shortagePacks := recvPacks - scanPacks
+			if shortagePacks > 0 {
+				fill := shortagePacks
+				if remainingPacks < fill {
+					fill = remainingPacks
+				}
+				deltas[i] += fill * float64(unitPerPack)
+				remainingPacks -= fill
+			}
+		}
+		// qolganini oxirgi qatorga (pack * unitPerPack)
+		if remainingPacks > 0 {
+			deltas[len(tmp)-1] += remainingPacks * float64(unitPerPack)
 		}
 	}
 
-	// 2-qadam: qolganini oxirgi qatorga qo'shish (imported_at bo'yicha eng oxirgi)
-	if remainingFact > 0 {
-		deltas[len(tmp)-1] += remainingFact
+	// Unit yo'li: faqat diff_unit (dona darajasi) ga qarab ishlaydi
+	if request.FactUnit > 0 {
+		remainingUnits := request.FactUnit
+		for i, row := range tmp {
+			if remainingUnits <= 0 {
+				break
+			}
+			recvUnits := float64(int(row.ReceivedCount) % unitPerPack)
+			scanUnits := float64(int(row.ScannedCount) % unitPerPack)
+			shortageUnits := recvUnits - scanUnits
+			if shortageUnits > 0 {
+				fill := shortageUnits
+				if remainingUnits < fill {
+					fill = remainingUnits
+				}
+				deltas[i] += fill
+				remainingUnits -= fill
+			}
+		}
+		// qolganini oxirgi qatorga
+		if remainingUnits > 0 {
+			deltas[len(tmp)-1] += remainingUnits
+		}
 	}
 
 	// Har bir qatorni yangilash
