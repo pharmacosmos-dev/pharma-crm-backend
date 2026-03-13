@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -421,6 +422,7 @@ func (h *EmployeeHandler) Delete(c *gin.Context) {
 		Updates(map[string]any{
 			"status":    "deleted",
 			"is_active": false,
+			"deleted_at": time.Now(),
 		}).Error
 
 	if err != nil {
