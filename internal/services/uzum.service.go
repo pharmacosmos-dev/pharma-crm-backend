@@ -504,7 +504,7 @@ func (s *Services) CancelUzumOrder(ctx context.Context, orderId string, req *dom
 		StoreId    string `gorm:"store_id"`
 	}
 	var result order
-	err := s.db.WithContext(ctx).
+	err := s.db.WithContext(ctx).Debug().
 		Raw("UPDATE sales SET online_status = ? WHERE id = ? AND service_type = ? RETURNING store_id, sale_number",
 			constants.SaleOnlineStageCanceled, orderId, constants.ServiceTypeUzum).
 		Scan(&result).Error
