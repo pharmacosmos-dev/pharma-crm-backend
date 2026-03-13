@@ -87,7 +87,7 @@ type CartItemData struct {
 	VatSum         float64            `gorm:"vat_sum" json:"vat_sum"`
 	Count          int64              `gorm:"count" json:"count"`
 	ItemCount      int64              `gorm:"item_count" json:"item_count"`
-	SkipAutoOrder  bool    `gorm:"skip_auto_order" json:"skip_auto_order"`
+	SkipAutoOrder  bool               `gorm:"skip_auto_order" json:"skip_auto_order"`
 }
 
 // CartItemResponse structure with product data
@@ -137,7 +137,7 @@ type CartItemResponse struct {
 	ExpireDate         *time.Time        `gorm:"expire_date" json:"expire_date"`
 	IsMarking          bool              `gorm:"is_marking" json:"is_marking"`
 	IsChecking         bool              `gorm:"is_checking" json:"is_checking"`
-	SkipAutoOrder  	   bool   			 `gorm:"skip_auto_order" json:"skip_auto_order"`
+	SkipAutoOrder      bool              `gorm:"skip_auto_order" json:"skip_auto_order"`
 }
 
 type SumResult struct {
@@ -164,6 +164,7 @@ type CartItemOnlineRequest struct {
 	UnitQuantity   int     `gorm:"unit_quantity" json:"-"`
 	UnitPrice      float64 `gorm:"unit_price" json:"-"`
 	TotalPrice     float64 `gorm:"total_price" json:"-"`
+	ProductId      string  `gorm:"product_id" json:"-"`
 }
 
 type CartItemForDMED struct {
