@@ -218,9 +218,10 @@ func (s *Services) CreateOnlineSale(ctx context.Context, req *domain.OnlineSaleC
 		display_id,
 		payment_type,
 		is_paid,
-		client_comment
+		client_comment,
+		vendor_order_id
 		) 
-	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
+	VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING *`,
 		req.Id,
 		req.StoreId,
 		constants.SaleTypeOnline,
@@ -231,6 +232,7 @@ func (s *Services) CreateOnlineSale(ctx context.Context, req *domain.OnlineSaleC
 		constants.PaymentTypeCARD,
 		true,
 		req.ClientComment,
+		req.VendorOrderId,
 	).Scan(&sale).Error
 	if err != nil {
 		_ = tx.Rollback()
