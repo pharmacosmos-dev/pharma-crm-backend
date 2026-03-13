@@ -3,12 +3,14 @@ package services
 import (
 	"context"
 	"crypto/sha1"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
+	"gorm.io/gorm"
 )
 
 // ProductWithStore represents a product with store-specific data
@@ -499,21 +501,49 @@ func (s *Services) UpdateUzumOrder(ctx context.Context, orderId string, req *dom
 
 // CancelUzumOrder cancels an order by setting its online_status to canceled
 func (s *Services) CancelUzumOrder(ctx context.Context, orderId string, req *domain.UzumCancelOrderRequest) error {
-	type order struct {
-		SaleNumber int    `gorm:"sale_number"`
-		StoreId    string `gorm:"store_id"`
-	}
-	var result order
-	err := s.db.WithContext(ctx).Debug().
-		Raw("UPDATE sales SET online_status = ? WHERE id = ? AND service_type = ? RETURNING store_id, sale_number",
-			constants.SaleOnlineStageCanceled, orderId, constants.ServiceTypeUzum).
-		Scan(&result).Error
+	// get order
+	var sale domain.Sale
+	err := s.db.WithContext(ctx).
+		Where("id = ? AND service_type = ?", orderId, constants.ServiceTypeUzum).
+		Take(&sale).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("order not found")
+		}
+		s.log.Errorf("failed to find uzum order %s for cancel: %v", orderId, err)
+		return fmt.Errorf("could not get order")
+	}
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	if sale.Stage == constants.SaleStageFinished {
+		err = s.ReverseInventoryUpdate(ctx, tx, &sale)
+		if err != nil {
+			_ = tx.Rollback()
+			s.log.Errorf("could not reserve inventory for uzum order %s: %v", orderId, err)
+			return fmt.Errorf("failed to reverse inventory update")
+		}
+	}
+
+	err = tx.WithContext(ctx).
+		Exec("UPDATE sales SET online_status = ? WHERE id = ? AND service_type = ?;",
+			constants.SaleOnlineStageCanceled, orderId, constants.ServiceTypeUzum).Error
+	if err != nil {
+		_ = tx.Rollback()
 		s.log.Errorf("failed to cancel uzum order %s: %v", orderId, err)
 		return fmt.Errorf("order not found or already cancelled")
 	}
 
-	go s.NotifyOnlineOrderCancel(result.StoreId, result.SaleNumber)
+	if err := tx.Commit().Error; err != nil {
+		s.log.Errorf("failed to commit cancel uzum order %s: %v", orderId, err)
+		return fmt.Errorf("failed to cancel order")
+	}
+
+	go s.NotifyOnlineOrderCancel(sale.StoreId, sale.SaleNumber)
 
 	return nil
 }
