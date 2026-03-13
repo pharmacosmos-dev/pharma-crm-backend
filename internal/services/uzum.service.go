@@ -282,7 +282,17 @@ func (s *Services) getAndCheckUzumOrderItems(
 	saleId string,
 	orderItems []domain.UzumOrderItemRequest,
 ) ([]domain.CartItemOnlineRequest, error) {
-	var items []domain.CartItemOnlineRequest
+	type tmp struct {
+		SaleId         string  `gorm:"sale_id" json:"sale_id"`
+		StoreProductId string  `gorm:"store_product_id" json:"store_product_id"`
+		Quantity       int     `gorm:"quantity" json:"-"`
+		UnitQuantity   int     `gorm:"unit_quantity" json:"-"`
+		UnitPrice      float64 `gorm:"unit_price" json:"-"`
+		TotalPrice     float64 `gorm:"total_price" json:"-"`
+		ProductId      string  `gorm:"product_id" json:"-"`
+		UnitPerPack    int     `gorm:"unit_per_pack" json:"-"`
+	}
+	var items []tmp
 	var ids []string
 	for _, item := range orderItems {
 		ids = append(ids, item.Id)
@@ -312,11 +322,12 @@ func (s *Services) getAndCheckUzumOrderItems(
 		return nil, fmt.Errorf("failed to get uzum order items: %v", err)
 	}
 
-	itemsMap := make(map[string]domain.CartItemOnlineRequest)
-	for _, item := range items {
-		itemsMap[item.StoreProductId] = item
+	itemsMap := make(map[string]*tmp)
+	for i := range items {
+		itemsMap[items[i].StoreProductId] = &items[i]
 	}
 
+	var requestItems []domain.CartItemOnlineRequest
 	for _, item := range orderItems {
 		if _, ok := itemsMap[item.Id]; !ok {
 			return nil, &domain.NotAdditionError{
@@ -328,8 +339,17 @@ func (s *Services) getAndCheckUzumOrderItems(
 				Data: fmt.Sprintf("not enough stock for item %s", item.Id),
 			}
 		}
+
+		requestItems = append(requestItems, domain.CartItemOnlineRequest{
+			StoreProductId: item.Id,
+			Quantity:       0,
+			UnitQuantity:   int(item.Quantity) * itemsMap[item.Id].UnitPerPack,
+			UnitPrice:      itemsMap[item.Id].UnitPrice,
+			TotalPrice:     itemsMap[item.Id].UnitPrice * item.Quantity,
+			ProductId:      itemsMap[item.Id].ProductId,
+		})
 	}
-	return items, nil
+	return requestItems, nil
 }
 
 // GetUzumOrder gets an order by sale ID and returns it in YGroceryOrderV2 format
