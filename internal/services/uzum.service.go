@@ -342,6 +342,7 @@ func (s *Services) getAndCheckUzumOrderItems(
 
 		requestItems = append(requestItems, domain.CartItemOnlineRequest{
 			StoreProductId: item.Id,
+			SaleId:         saleId,
 			Quantity:       0,
 			UnitQuantity:   int(item.Quantity) * itemsMap[item.Id].UnitPerPack,
 			UnitPrice:      itemsMap[item.Id].UnitPrice,
