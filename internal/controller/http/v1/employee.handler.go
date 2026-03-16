@@ -371,11 +371,53 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 	}
 
 	// Explicitly set store_id to NULL if it is not provided in the request
-	if body.StoreId != nil {
-		updateData["store_id"] = body.StoreId
-	} else {
-		updateData["store_id"] = nil
+	var (
+		currentStoreId *string
+		storeIdChanged bool
+	)
+	var currentEmployee struct {
+		StoreId *string `gorm:"column:store_id"`
 	}
+	if err = h.db.WithContext(c.Request.Context()).
+		Table("employees").
+		Select("store_id").
+		Where("id = ?", id).
+		Scan(&currentEmployee).Error; err != nil {
+		h.log.Warn("ERROR on getting current employee store_id: %v", err)
+		handleResponse(c, InternalError, "Can't get employee data")
+		return
+	}
+	currentStoreId = currentEmployee.StoreId
+
+	switch {
+	case currentStoreId == nil && body.StoreId == nil:
+		storeIdChanged = false
+	case currentStoreId == nil && body.StoreId != nil:
+		storeIdChanged = true
+	case currentStoreId != nil && body.StoreId == nil:
+		storeIdChanged = true
+	default:
+		storeIdChanged = *currentStoreId != *body.StoreId
+	}
+
+	if storeIdChanged {
+		var openCashbox struct {
+			ID string `gorm:"column:id"`
+		}
+		if err = h.db.WithContext(c.Request.Context()).
+			Raw(`SELECT id FROM cashbox_operations WHERE current_employee_id = ? AND is_open = TRUE LIMIT 1`, id).
+			Scan(&openCashbox).Error; err != nil {
+			h.log.Warn("ERROR on checking open cashbox: %v", err)
+			handleResponse(c, InternalError, "Can't check employee cashbox status")
+			return
+		}
+		if openCashbox.ID != "" {
+			handleResponse(c, BadRequest, "Employee has an open cashbox. Please close it before changing the store")
+			return
+		}
+	}
+
+	updateData["store_id"] = body.StoreId
 
 	err = h.db.WithContext(c.Request.Context()).
 		Table("employees").
@@ -386,6 +428,19 @@ func (h *EmployeeHandler) Update(c *gin.Context) {
 		handleResponse(c, InternalError, "Can't update employee data")
 		return
 	}
+
+	if storeIdChanged {
+		oldStoreId := ""
+		if currentStoreId != nil {
+			oldStoreId = *currentStoreId
+		}
+		newStoreId := ""
+		if body.StoreId != nil {
+			newStoreId = *body.StoreId
+		}
+		go h.service.HandleEmployeeStoreChange(oldStoreId, newStoreId)
+	}
+
 	handleResponse(c, OK, body)
 }
 

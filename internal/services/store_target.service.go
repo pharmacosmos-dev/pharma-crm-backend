@@ -862,3 +862,51 @@ func (s *Services) UpdateEmployeeTargetAmount(ctx context.Context, storeTargetId
 
 	return nil
 }
+
+// HandleEmployeeStoreChange - xodim bir do'kondan ikkinchisiga ko'chirilganda
+// joriy oy uchun employee_target larni qayta taqsimlaydi.
+// Goroutine da chaqiriladi — response ga ta'sir qilmaydi.
+func (s *Services) HandleEmployeeStoreChange(oldStoreId, newStoreId string) {
+	ctx := context.Background()
+	now := time.Now()
+	year := now.Year()
+	month := int(now.Month())
+
+	// --- STORE A (eski do'kon): qolgan xodimlar orasida qayta taqsimlash ---
+	if oldStoreId != "" {
+		var oldTarget domain.StoreTarget
+		err := s.db.WithContext(ctx).
+			Where("store_id = ? AND year = ? AND month = ?", oldStoreId, year, month).
+			First(&oldTarget).Error
+		if err == nil {
+			tx := s.db.WithContext(ctx).Begin()
+			if err := s.redistributeToEmployees(tx, &oldTarget); err != nil {
+				tx.Rollback()
+				s.log.Errorf("HandleEmployeeStoreChange: redistribute old store %s failed: %v", oldStoreId, err)
+			} else if err := tx.Commit().Error; err != nil {
+				s.log.Errorf("HandleEmployeeStoreChange: commit old store %s failed: %v", oldStoreId, err)
+			}
+		} else if err != gorm.ErrRecordNotFound {
+			s.log.Errorf("HandleEmployeeStoreChange: get old store target failed: %v", err)
+		}
+	}
+
+	// --- STORE B (yangi do'kon): yangi employee uchun create + qayta taqsimlash ---
+	if newStoreId != "" {
+		var newTarget domain.StoreTarget
+		err := s.db.WithContext(ctx).
+			Where("store_id = ? AND year = ? AND month = ?", newStoreId, year, month).
+			First(&newTarget).Error
+		if err == nil {
+			tx := s.db.WithContext(ctx).Begin()
+			if err := s.redistributeToEmployees(tx, &newTarget); err != nil {
+				tx.Rollback()
+				s.log.Errorf("HandleEmployeeStoreChange: redistribute new store %s failed: %v", newStoreId, err)
+			} else if err := tx.Commit().Error; err != nil {
+				s.log.Errorf("HandleEmployeeStoreChange: commit new store %s failed: %v", newStoreId, err)
+			}
+		} else if err != gorm.ErrRecordNotFound {
+			s.log.Errorf("HandleEmployeeStoreChange: get new store target failed: %v", err)
+		}
+	}
+}
