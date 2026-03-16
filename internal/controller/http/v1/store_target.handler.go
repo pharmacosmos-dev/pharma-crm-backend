@@ -67,10 +67,15 @@ func (h *StoreTargetHandler) Create(c *gin.Context) {
 
 	result, err := h.service.CreateStoreTarget(ctx, &body)
 	if err != nil {
-		if err.Error() == "target already exists for this store and month" {
-			handleResponse(c, BadRequest, err.Error())
+		if err.Error() == "permission denied: can only update current or future month targets" {
+			handleResponse(c, FORBIDDEN, err.Error())
 			return
 		}
+
+		// if err.Error() == "target already exists for this store and month" {
+		// 	handleResponse(c, BadRequest, err.Error())
+		// 	return
+		// }
 		handleServiceResponse(c, nil, err)
 		return
 	}                      

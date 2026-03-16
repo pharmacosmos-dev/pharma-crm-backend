@@ -13,22 +13,59 @@ import (
 	"gorm.io/gorm"
 )
 
-
 func (s *Services) CreateStoreTarget(ctx context.Context, req *domain.StoreTargetRequest) (*domain.StoreTarget, error) {
 	var existing domain.StoreTarget
 	err := s.db.WithContext(ctx).
 		Where("store_id = ? AND year = ? AND month = ?", req.StoreId, req.Year, req.Month).
 		First(&existing).Error
 
+	// ✅ Agar mavjud bo'lsa — update qilamiz
 	if err == nil {
-		return nil, domain.AlreadyExistsError
+		now := time.Now()
+		currentYear := now.Year()
+		currentMonth := int(now.Month())
+
+		if existing.Year < currentYear ||
+			(existing.Year == currentYear && existing.Month < currentMonth) {
+			return nil, fmt.Errorf("permission denied: can only update current or future month targets")
+		}
+
+		tx := s.db.WithContext(ctx).Begin()
+		defer func() {
+			if r := recover(); r != nil {
+				tx.Rollback()
+			}
+		}()
+
+		if err := tx.Model(&existing).Select("amount").Updates(map[string]interface{}{
+			"amount": req.Amount,
+		}).Error; err != nil {
+			tx.Rollback()
+			s.log.Errorf("could not update store target amount: %v", err)
+			return nil, domain.InternalServerError
+		}
+		existing.Amount = req.Amount
+
+		if err := s.redistributeToEmployees(tx, &existing); err != nil {
+			tx.Rollback()
+			return nil, domain.InternalServerError
+		}
+
+		if err := tx.Commit().Error; err != nil {
+			s.log.Errorf("could not commit upsert store target transaction: %v", err)
+			return nil, domain.InternalServerError
+		}
+
+		return &existing, nil
 	}
 
+	// ❌ DB xatolik bo'lsa
 	if err != gorm.ErrRecordNotFound {
 		s.log.Errorf("could not check existing store target: %v", err)
 		return nil, domain.InternalServerError
 	}
 
+	// ✅ Yangi yaratamiz
 	var store domain.Store
 	if err := s.db.WithContext(ctx).Select("id, company_id").First(&store, "id = ?", req.StoreId).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
