@@ -3,12 +3,14 @@ package services
 import (
 	"context"
 	"crypto/sha1"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
+	"gorm.io/gorm"
 )
 
 // ProductWithStore represents a product with store-specific data
@@ -282,7 +284,17 @@ func (s *Services) getAndCheckUzumOrderItems(
 	saleId string,
 	orderItems []domain.UzumOrderItemRequest,
 ) ([]domain.CartItemOnlineRequest, error) {
-	var items []domain.CartItemOnlineRequest
+	type tmp struct {
+		SaleId         string  `gorm:"sale_id" json:"sale_id"`
+		StoreProductId string  `gorm:"store_product_id" json:"store_product_id"`
+		Quantity       int     `gorm:"quantity" json:"-"`
+		UnitQuantity   int     `gorm:"unit_quantity" json:"-"`
+		UnitPrice      float64 `gorm:"unit_price" json:"-"`
+		TotalPrice     float64 `gorm:"total_price" json:"-"`
+		ProductId      string  `gorm:"product_id" json:"-"`
+		UnitPerPack    int     `gorm:"unit_per_pack" json:"-"`
+	}
+	var items []tmp
 	var ids []string
 	for _, item := range orderItems {
 		ids = append(ids, item.Id)
@@ -312,11 +324,12 @@ func (s *Services) getAndCheckUzumOrderItems(
 		return nil, fmt.Errorf("failed to get uzum order items: %v", err)
 	}
 
-	itemsMap := make(map[string]domain.CartItemOnlineRequest)
-	for _, item := range items {
-		itemsMap[item.StoreProductId] = item
+	itemsMap := make(map[string]*tmp)
+	for i := range items {
+		itemsMap[items[i].StoreProductId] = &items[i]
 	}
 
+	var requestItems []domain.CartItemOnlineRequest
 	for _, item := range orderItems {
 		if _, ok := itemsMap[item.Id]; !ok {
 			return nil, &domain.NotAdditionError{
@@ -328,8 +341,18 @@ func (s *Services) getAndCheckUzumOrderItems(
 				Data: fmt.Sprintf("not enough stock for item %s", item.Id),
 			}
 		}
+
+		requestItems = append(requestItems, domain.CartItemOnlineRequest{
+			StoreProductId: item.Id,
+			SaleId:         saleId,
+			Quantity:       0,
+			UnitQuantity:   int(item.Quantity) * itemsMap[item.Id].UnitPerPack,
+			UnitPrice:      itemsMap[item.Id].UnitPrice,
+			TotalPrice:     itemsMap[item.Id].UnitPrice * item.Quantity,
+			ProductId:      itemsMap[item.Id].ProductId,
+		})
 	}
-	return items, nil
+	return requestItems, nil
 }
 
 // GetUzumOrder gets an order by sale ID and returns it in YGroceryOrderV2 format
@@ -478,21 +501,49 @@ func (s *Services) UpdateUzumOrder(ctx context.Context, orderId string, req *dom
 
 // CancelUzumOrder cancels an order by setting its online_status to canceled
 func (s *Services) CancelUzumOrder(ctx context.Context, orderId string, req *domain.UzumCancelOrderRequest) error {
-	type order struct {
-		SaleNumber int    `gorm:"sale_number"`
-		StoreId    string `gorm:"store_id"`
-	}
-	var result order
+	// get order
+	var sale domain.Sale
 	err := s.db.WithContext(ctx).
-		Raw("UPDATE sales SET online_status = ? WHERE id = ? AND service_type = ? RETURNING store_id, sale_number",
-			constants.SaleOnlineStageCanceled, orderId, constants.ServiceTypeUzum).
-		Scan(&result).Error
+		Where("id = ? AND service_type = ?", orderId, constants.ServiceTypeUzum).
+		Take(&sale).Error
 	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return fmt.Errorf("order not found")
+		}
+		s.log.Errorf("failed to find uzum order %s for cancel: %v", orderId, err)
+		return fmt.Errorf("could not get order")
+	}
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	if sale.Stage == constants.SaleStageFinished {
+		err = s.ReverseInventoryUpdate(ctx, tx, &sale)
+		if err != nil {
+			_ = tx.Rollback()
+			s.log.Errorf("could not reserve inventory for uzum order %s: %v", orderId, err)
+			return fmt.Errorf("failed to reverse inventory update")
+		}
+	}
+
+	err = tx.WithContext(ctx).
+		Exec("UPDATE sales SET online_status = ? WHERE id = ? AND service_type = ?;",
+			constants.SaleOnlineStageCanceled, orderId, constants.ServiceTypeUzum).Error
+	if err != nil {
+		_ = tx.Rollback()
 		s.log.Errorf("failed to cancel uzum order %s: %v", orderId, err)
 		return fmt.Errorf("order not found or already cancelled")
 	}
 
-	go s.NotifyOnlineOrderCancel(result.StoreId, result.SaleNumber)
+	if err := tx.Commit().Error; err != nil {
+		s.log.Errorf("failed to commit cancel uzum order %s: %v", orderId, err)
+		return fmt.Errorf("failed to cancel order")
+	}
+
+	go s.NotifyOnlineOrderCancel(sale.StoreId, sale.SaleNumber)
 
 	return nil
 }
