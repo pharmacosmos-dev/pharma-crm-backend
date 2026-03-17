@@ -947,3 +947,95 @@ func (s *Services) HandleEmployeeStoreChange(oldStoreId, newStoreId string) {
 		}
 	}
 }
+
+// UpsertStoreTargetsFromExcel - Upserts store_id, amount, month, and year
+// data coming from an Excel file into the store_target table within a single transaction.
+// If the record exists → update the amount + redistribute employees
+// If the record does not exist → create a new record + distribute employees
+func (s *Services) UpsertStoreTargetsFromExcel(ctx context.Context, rows []domain.StoreTargetExcelRow) (*domain.StoreTargetUpsertResult, error) {
+	result := &domain.StoreTargetUpsertResult{
+		Total: len(rows),
+	}
+
+	tx := s.db.WithContext(ctx).Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	for _, row := range rows {
+		if row.StoreId == "" || row.Amount <= 0 || row.Month < 1 || row.Month > 12 || row.Year < 2000 {
+			result.Skipped++
+			continue
+		}
+
+		var existing domain.StoreTarget
+		err := tx.Where("store_id = ? AND year = ? AND month = ?", row.StoreId, row.Year, row.Month).
+			First(&existing).Error
+
+		if err == nil {
+			if err := tx.Model(&existing).Update("amount", row.Amount).Error; err != nil {
+				tx.Rollback()
+				s.log.Errorf("UpsertStoreTargetsFromExcel: update failed store_id=%s year=%d month=%d: %v",
+					row.StoreId, row.Year, row.Month, err)
+				return nil, domain.InternalServerError
+			}
+			existing.Amount = row.Amount
+
+			if err := s.redistributeToEmployees(tx, &existing); err != nil {
+				tx.Rollback()
+				return nil, domain.InternalServerError
+			}
+			result.Updated++
+
+		} else if err == gorm.ErrRecordNotFound {
+			var store domain.Store
+			if err := tx.Select("id, company_id").First(&store, "id = ?", row.StoreId).Error; err != nil {
+				if err == gorm.ErrRecordNotFound {
+					s.log.Warnf("UpsertStoreTargetsFromExcel: store not found store_id=%s, skip", row.StoreId)
+					result.Skipped++
+					continue
+				}
+				tx.Rollback()
+				s.log.Errorf("UpsertStoreTargetsFromExcel: get store failed: %v", err)
+				return nil, domain.InternalServerError
+			}
+
+			startOfMonth := time.Date(row.Year, time.Month(row.Month), 1, 0, 0, 0, 0, time.Local)
+			target := domain.StoreTarget{
+				Id:        uuid.New().String(),
+				StoreId:   row.StoreId,
+				CompanyId: store.CompanyId,
+				Amount:    row.Amount,
+				Year:      row.Year,
+				Month:     row.Month,
+				SyncedAt:  &startOfMonth,
+			}
+
+			if err := tx.Create(&target).Error; err != nil {
+				tx.Rollback()
+				s.log.Errorf("UpsertStoreTargetsFromExcel: create failed store_id=%s: %v", row.StoreId, err)
+				return nil, domain.InternalServerError
+			}
+
+			if err := s.distributeToEmployees(tx, &target); err != nil {
+				tx.Rollback()
+				return nil, domain.InternalServerError
+			}
+			result.Created++
+
+		} else {
+			tx.Rollback()
+			s.log.Errorf("UpsertStoreTargetsFromExcel: db error store_id=%s: %v", row.StoreId, err)
+			return nil, domain.InternalServerError
+		}
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		s.log.Errorf("UpsertStoreTargetsFromExcel: commit failed: %v", err)
+		return nil, domain.InternalServerError
+	}
+
+	return result, nil
+}

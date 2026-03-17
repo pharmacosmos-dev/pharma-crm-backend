@@ -75,3 +75,17 @@ type StoreTargetSummary struct {
 	Year        int     `json:"year"`
 	Month       int     `json:"month"`
 }
+
+type StoreTargetExcelRow struct {
+	StoreId string  // A ustun
+	Amount  float64 // B ustun
+	Month   int     // C ustun
+	Year    int     // D ustun
+}
+
+type StoreTargetUpsertResult struct {
+	Created int `json:"created"`
+	Updated int `json:"updated"`
+	Skipped int `json:"skipped"`
+	Total   int `json:"total"`
+}

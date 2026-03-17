@@ -3,11 +3,15 @@ package v1
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharma-crm-backend/domain"
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/utils"
+	"github.com/xuri/excelize/v2"
 )
 
 type StoreTargetHandler struct {
@@ -32,6 +36,7 @@ func (h *StoreTargetHandler) StoreTargetRoutes(r *gin.RouterGroup) {
 		target.GET("/employee/my", h.GetMyEmployeeTarget)
 		target.PUT("/employee/:employee_id", h.UpdateEmployeeTarget)
 		target.GET("/summary", h.Summary)
+		target.POST("/import-excel", h.ImportFromExcel)
 	}
 }
 
@@ -524,4 +529,99 @@ func (h *StoreTargetHandler) Summary(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, summary)
+}
+
+
+// ImportFromExcel godoc
+// @Summary      Import store targets from Excel
+// @Description  Reads store_id, amount, month, year from uploaded Excel file and upserts store_target records in a single transaction
+// @Tags         store-target
+// @Security     BearerAuth
+// @Accept       multipart/form-data
+// @Produce      json
+// @Param        file  formData  file  true  "Excel file (.xlsx). Columns: A=store_id, B=amount, C=month, D=year"
+// @Success      200 {object} v1.Response
+// @Failure      400 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /store-target/import-excel [post]
+func (h *StoreTargetHandler) ImportFromExcel(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	file, err := c.FormFile("file")
+	if err != nil {
+		handleResponse(c, BadRequest, "file field is required (multipart/form-data, key: file)")
+		return
+	}
+
+	src, err := file.Open()
+	if err != nil {
+		handleResponse(c, InternalError, "Could not open the file: "+err.Error())
+		return
+	}
+	defer src.Close()
+
+	f, err := excelize.OpenReader(src)
+	if err != nil {
+		handleResponse(c, BadRequest, "The Excel file is invalid or corrupted: "+err.Error())
+		return
+	}
+	defer f.Close()
+
+	sheets := f.GetSheetList()
+	if len(sheets) == 0 {
+		handleResponse(c, BadRequest, "No sheet was found in the Excel file.")
+		return
+	}
+	rows, err := f.GetRows(sheets[0])
+	if err != nil {
+		handleResponse(c, BadRequest, "Could not read the sheet: "+err.Error())
+		return
+	}
+
+	if len(rows) < 2 {
+		handleResponse(c, BadRequest, "The uploaded file is empty or contains only a header row.")
+		return
+	}
+
+	var excelRows []domain.StoreTargetExcelRow
+	for i, row := range rows {
+		if i == 0 {
+			continue // header
+		}
+		if len(row) < 4 {
+			continue // not enough columns
+		}
+
+		storeId := strings.TrimSpace(row[0])
+		amount, _ := strconv.ParseFloat(strings.TrimSpace(row[1]), 64)
+		month, _ := strconv.Atoi(strings.TrimSpace(row[2]))
+		year, _ := strconv.Atoi(strings.TrimSpace(row[3]))
+
+		excelRows = append(excelRows, domain.StoreTargetExcelRow{
+			StoreId: storeId,
+			Amount:  amount,
+			Month:   month,
+			Year:    year,
+		})
+	}
+
+	if len(excelRows) == 0 {
+		handleResponse(c, BadRequest, "No data was found in the Excel file.")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+
+	res, err := h.service.UpsertStoreTargetsFromExcel(ctx, excelRows)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, res)
 }

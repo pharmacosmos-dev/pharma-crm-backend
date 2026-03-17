@@ -15689,6 +15689,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
         "500":
           description: Internal Server Error
           schema:
@@ -17579,6 +17583,39 @@ paths:
       security:
       - BearerAuth: []
       summary: Employee current month target and sales
+      tags:
+      - store-target
+  /store-target/import-excel:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Reads store_id, amount, month, year from uploaded Excel file and
+        upserts store_target records in a single transaction
+      parameters:
+      - description: 'Excel file (.xlsx). Columns: A=store_id, B=amount, C=month,
+          D=year'
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Import store targets from Excel
       tags:
       - store-target
   /store-target/list:
