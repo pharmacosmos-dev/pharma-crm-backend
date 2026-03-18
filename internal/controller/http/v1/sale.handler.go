@@ -38,6 +38,7 @@ func (h *SaleHandler) SaleRoutes(r *gin.RouterGroup) {
 		sale.GET("/get-list", h.GetSaleList)
 		sale.GET("/pending-list", h.PendingSaleList)
 		sale.GET("/dmed/prescriptions", h.DMEDGetPrescriptions)
+		sale.GET("/dmed/export-excel", h.ExportDMEDSalesExcel)
 		sale.GET("/online-list", h.OnlineSaleList)
 		sale.GET("/online-count", h.GetOnlineSaleCount)
 		sale.PUT("/:id", h.Update)
@@ -347,6 +348,100 @@ func (h *SaleHandler) ExportSalesExcel(c *gin.Context) {
 
 	saveExcelToUploads(c, f, *h.log, "Barcha_sotuvlar")
 }
+
+// ExportDMEDSalesExcel godoc
+// @Summary Export DMED sales list excel
+// @Description Export DMED sales list excel
+// @Tags sales
+// @Security     BearerAuth
+// @Accept 	json
+// @Produce json
+// @Param start_date 		query string false 	"start_date (YYYY-MM-DD)"
+// @Param end_date 			query string false 	"end_date (YYYY-MM-DD)"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /sale/dmed/export-excel [get]
+func (h *SaleHandler) ExportDMEDSalesExcel(c *gin.Context) {
+	// get user_id from the context
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	startDateStr := c.Query("start_date")
+	endDateStr := c.Query("end_date")
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	var rows []struct {
+		StoreName   string     `gorm:"column:store_name"`
+		SaleNumber  int        `gorm:"column:sale_number"`
+		ServiceType string     `gorm:"column:service_type"`
+		TotalAmount float64    `gorm:"column:total_amount"`
+		CompletedAt *time.Time `gorm:"column:completed_at"`
+	}
+
+	qb := h.db.WithContext(ctx).Table("sales s").
+		Select("st.name AS store_name, s.sale_number, s.service_type, s.total_amount, s.completed_at").
+		Joins("LEFT JOIN stores st ON s.store_id = st.id").
+		Where("s.service_type = ?", "dmed")
+
+	if startDateStr != "" {
+		qb = qb.Where("s.completed_at >= ?", startDateStr)
+	}
+	if endDateStr != "" {
+		qb = qb.Where("s.completed_at <= ?", endDateStr+" 23:59:59")
+	}
+
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			qb = qb.Where("s.store_id = ?", user.StoreId)
+		}
+		// Also filter by company id if applies to stories
+		qb = qb.Where("st.company_id = ?", user.CompanyId)
+	}
+
+	if err := qb.Order("s.completed_at DESC").Scan(&rows).Error; err != nil {
+		h.log.Errorf("failed to execute DMED excel export query: %v", err)
+		handleServiceResponse(c, nil, domain.InternalServerError)
+		return
+	}
+
+	// Excel fayl yaratish
+	f := excelize.NewFile()
+	sheetName := "List1"
+	f.SetSheetName("Sheet1", sheetName)
+
+	// Headerlar
+	headers := []string{"APTEKA", "CHECK_NUMBER", "SALE_TYPE", "SUM", "DATE_TIME"}
+
+	err := setExcelHeaders(f, sheetName, headers)
+	if err != nil {
+		h.log.Errorf("could not create style: %v", err)
+		handleServiceResponse(c, nil, domain.InternalServerError)
+		return
+	}
+
+	// Ma'lumotlarni qo'shish
+	for i, rowData := range rows {
+		rowStr := strconv.Itoa(i + 2)
+		f.SetCellValue(sheetName, "A"+rowStr, rowData.StoreName)
+		f.SetCellValue(sheetName, "B"+rowStr, rowData.SaleNumber)
+		f.SetCellValue(sheetName, "C"+rowStr, rowData.ServiceType)
+		f.SetCellValue(sheetName, "D"+rowStr, rowData.TotalAmount)
+		if rowData.CompletedAt != nil {
+			f.SetCellValue(sheetName, "E"+rowStr, rowData.CompletedAt.Add(time.Hour*5).Format("2006-01-02 15:04:05"))
+		} else {
+			f.SetCellValue(sheetName, "E"+rowStr, "")
+		}
+	}
+
+	saveExcelToUploads(c, f, *h.log, "DMED_Sotuvlar")
+}
+
 
 // List godoc
 // @Summary Get a sale stats

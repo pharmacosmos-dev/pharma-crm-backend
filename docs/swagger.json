@@ -6674,12 +6674,14 @@
                     },
                     {
                         "type": "number",
+                        "format": "float64",
                         "description": "From Amount",
                         "name": "from_amount",
                         "in": "query"
                     },
                     {
                         "type": "number",
+                        "format": "float64",
                         "description": "To Amount",
                         "name": "to_amount",
                         "in": "query"
@@ -6779,12 +6781,14 @@
                     },
                     {
                         "type": "number",
+                        "format": "float64",
                         "description": "From Amount",
                         "name": "from_amount",
                         "in": "query"
                     },
                     {
                         "type": "number",
+                        "format": "float64",
                         "description": "To Amount",
                         "name": "to_amount",
                         "in": "query"
@@ -21764,6 +21768,60 @@
                         "schema": {
                             "$ref": "#/definitions/domain.AddDiscountCard"
                         }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/sale/dmed/export-excel": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Export DMED sales list excel",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "sales"
+                ],
+                "summary": "Export DMED sales list excel",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "start_date (YYYY-MM-DD)",
+                        "name": "start_date",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "end_date (YYYY-MM-DD)",
+                        "name": "end_date",
+                        "in": "query"
                     }
                 ],
                 "responses": {

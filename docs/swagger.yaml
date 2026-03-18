@@ -6563,10 +6563,12 @@ paths:
         name: end_date
         type: string
       - description: From Amount
+        format: float64
         in: query
         name: from_amount
         type: number
       - description: To Amount
+        format: float64
         in: query
         name: to_amount
         type: number
@@ -6631,10 +6633,12 @@ paths:
         name: end_date
         type: string
       - description: From Amount
+        format: float64
         in: query
         name: from_amount
         type: number
       - description: To Amount
+        format: float64
         in: query
         name: to_amount
         type: number
@@ -16212,6 +16216,40 @@ paths:
       security:
       - BearerAuth: []
       summary: Get a sale
+      tags:
+      - sales
+  /sale/dmed/export-excel:
+    get:
+      consumes:
+      - application/json
+      description: Export DMED sales list excel
+      parameters:
+      - description: start_date (YYYY-MM-DD)
+        in: query
+        name: start_date
+        type: string
+      - description: end_date (YYYY-MM-DD)
+        in: query
+        name: end_date
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Export DMED sales list excel
       tags:
       - sales
   /sale/dmed/prescriptions:
