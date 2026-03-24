@@ -575,6 +575,27 @@ func (h *EmployeeHandler) GetInfo(c *gin.Context) {
 		co.current_employee_id = ?
 	`, userID).Scan(&res.Cashbox).Error
 
+	err = h.db.Raw(`
+	SELECT
+		cp.id,
+		cp.name,
+		cp.email,
+		cp.legal_name,
+		cp.legal_address,
+		cp.postal_code,
+		cp.company_inn,
+		cp.company_mfo,
+		cp.phone,
+		cp.country,
+		cp.city,
+		cp.is_franchise,
+		cp.created_at,
+		cp.updated_at
+	FROM companies cp
+	JOIN employees e ON e.company_id = cp.id
+	WHERE e.id = ?
+	`, userID).Scan(&res.Company).Error	
+
 	if err != nil && errors.Is(err, gorm.ErrRecordNotFound) {
 		h.log.Error(err)
 		handleResponse(c, InternalError, "Failed to get cashbox info")
