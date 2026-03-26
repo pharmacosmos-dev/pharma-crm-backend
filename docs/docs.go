@@ -30560,6 +30560,9 @@ const docTemplate = `{
                 "employee_count": {
                     "type": "integer"
                 },
+                "inn": {
+                    "type": "string"
+                },
                 "is_fullday": {
                     "type": "boolean"
                 },
