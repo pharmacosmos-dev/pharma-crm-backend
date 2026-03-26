@@ -571,21 +571,21 @@ func (h *ProductOnecHandler) CreateMaxPriceChanging(c *gin.Context) {
 }
 
 // CreateOrUpdateBarcodes godoc
-// @Summary Create or update product barcodes and material codes
+// @Summary Upsert product barcodes and material codes
 // @Description Save product barcode and material code data from 1C
 // @Tags        1C Api
 // @Security    BearerAuth
 // @Accept      json
 // @Produce     json
-// @Param       request body domain.CreateOrUpdateBarcodesRequest true "create or update barcode"
+// @Param       request body domain.CreateOrUpdateBarcodesRequest true "upsert barcode"
 // @Success     200 {object} v1.Response
 // @Failure     400 {object} v1.Response
 // @Failure     500 {object} v1.Response
-// @Router      /product1c/barcode/create-or-update [POST]
+// @Router      /product1c/barcode/upsert [POST]
 func (h *ProductOnecHandler) CreateOrUpdateBarcodes(c *gin.Context) {
 	var body domain.CreateOrUpdateBarcodesRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
-		h.log.Errorf("could not bind barcode create or update request: %v", err)
+		h.log.Errorf("could not bind barcode upsert request: %v", err)
 		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}

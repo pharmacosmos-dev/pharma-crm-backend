@@ -13361,7 +13361,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/product/barcode/create-or-update": {
+        "/product/barcode/upsert": {
             "post": {
                 "security": [
                     {
@@ -13378,10 +13378,10 @@ const docTemplate = `{
                 "tags": [
                     "products"
                 ],
-                "summary": "Create or update product barcodes and material codes",
+                "summary": "Upsert product barcodes and material codes",
                 "parameters": [
                     {
-                        "description": "create or update barcode",
+                        "description": "upsert barcode",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -16253,7 +16253,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/product1c/barcode/create-or-update": {
+        "/product1c/barcode/upsert": {
             "post": {
                 "security": [
                     {
@@ -16270,10 +16270,10 @@ const docTemplate = `{
                 "tags": [
                     "1C Api"
                 ],
-                "summary": "Create or update product barcodes and material codes",
+                "summary": "Upsert product barcodes and material codes",
                 "parameters": [
                     {
-                        "description": "create or update barcode",
+                        "description": "upsert barcode",
                         "name": "request",
                         "in": "body",
                         "required": true,
