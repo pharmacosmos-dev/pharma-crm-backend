@@ -83,6 +83,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.GET("/movement-units", h.GetMovementUnits)
 		product.GET("/movement-units-export", h.ExportMovementUnits)
 		product.PUT("/update-ostatok/:store_product_id", h.UpdateOstatok)
+		product.POST("/barcode/create-or-update", h.CreateOrUpdateBarcodes)
 	}
 }
 
@@ -2948,4 +2949,40 @@ func (h *ProductHandler) UpdateOstatok(c *gin.Context) {
 func (h *ProductHandler) getProductLock(productId string) *sync.Mutex {
 	lock, _ := h.ordersToMutexes.LoadOrStore(productId, &sync.Mutex{})
 	return lock.(*sync.Mutex)
+}
+
+
+// CreateOrUpdateBarcodes godoc
+// @Summary Create or update product barcodes and material codes
+// @Description Save product barcode and material code data from product barcodes
+// @Tags        products
+// @Security    BearerAuth
+// @Accept      json
+// @Produce     json
+// @Param       request body domain.CreateOrUpdateBarcodesRequest true "create or update barcode"
+// @Success     200 {object} v1.Response
+// @Failure     400 {object} v1.Response
+// @Failure     500 {object} v1.Response
+// @Router      /product/barcode/create-or-update [POST]
+func (h *ProductHandler) CreateOrUpdateBarcodes(c *gin.Context) {
+	var body domain.CreateOrUpdateBarcodesRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		h.log.Errorf("could not bind barcode create or update request: %v", err)
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(
+		context.Background(),
+		constants.DefaultContextTimeout,
+	)
+	defer cancel()
+
+	err := h.service.CreateOrUpdateBarcodes(ctx, &body)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, "SUCCESS")
 }

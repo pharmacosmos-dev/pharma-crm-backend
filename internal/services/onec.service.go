@@ -345,3 +345,252 @@ func (s *Services) CreateProductMaxPriceChanged(
 		"not_found_material_codes": notFoundCodes,
 	}, nil
 }
+
+
+// func (s *Services) CreateOrUpdateBarcodes(ctx context.Context, req *domain.CreateOrUpdateBarcodesRequest) error {
+// 	tx := s.db.Begin()
+// 	defer func() {
+// 		if r := recover(); r != nil {
+// 			tx.Rollback()
+// 		}
+// 	}()
+
+// 	// 1. material_code orqali product topish
+// 	var productEntry struct {
+// 		Id       string `gorm:"column:id"`
+// 		UnitCode string `gorm:"column:unit_code"`
+// 	}
+
+// 	err := tx.WithContext(ctx).Table("products").
+// 		Select("id, unit_code").
+// 		Where("material_code = ?", req.MaterialCode).
+// 		Limit(1).
+// 		Scan(&productEntry).Error
+// 	if err != nil {
+// 		tx.Rollback()
+// 		s.log.Errorf("failed to find product by material_code: %v", err)
+// 		return domain.InternalServerError
+// 	}
+
+// 	if productEntry.Id == "" {
+// 		tx.Rollback()
+// 		s.log.Errorf("product not found for material_code: %d", req.MaterialCode)
+// 		return domain.NotFoundError
+// 	}
+
+// 	for _, item := range req.ProductBarCodeItem {
+// 		var barcodeEntry struct {
+// 			Barcode  string `gorm:"column:barcode"`
+// 			Mxik     string `gorm:"column:mxik"`
+// 			UnitCode string `gorm:"column:unit_code"`
+// 		}
+
+// 		// 2. Barcode product_barcodes da bormi?
+// 		err = tx.WithContext(ctx).Table("product_barcodes").
+// 			Select("barcode, mxik, unit_code").
+// 			Where("barcode = ? AND product_id = ?", item.Barcode, productEntry.Id).
+// 			Limit(1).
+// 			Scan(&barcodeEntry).Error
+// 		if err != nil {
+// 			tx.Rollback()
+// 			s.log.Errorf("failed to check barcode: %v", err)
+// 			return domain.InternalServerError
+// 		}
+
+// 		if barcodeEntry.Barcode != "" {
+// 			// Barcode bor — nima o'zgardi?
+// 			mxikChanged := barcodeEntry.Mxik != item.Ekpu
+// 			unitCodeChanged := barcodeEntry.UnitCode != item.UnitCode
+
+// 			barcodeUpdates := map[string]interface{}{}
+// 			if mxikChanged {
+// 				barcodeUpdates["mxik"] = item.Ekpu
+// 			}
+// 			if unitCodeChanged {
+// 				barcodeUpdates["unit_code"] = item.UnitCode
+// 			}
+
+// 			// product_barcodes update
+// 			if len(barcodeUpdates) > 0 {
+// 				err = tx.WithContext(ctx).Table("product_barcodes").
+// 					Where("barcode = ? AND product_id = ?", barcodeEntry.Barcode, productEntry.Id).
+// 					Updates(barcodeUpdates).Error
+// 				if err != nil {
+// 					tx.Rollback()
+// 					s.log.Errorf("failed to update barcode entry: %v", err)
+// 					return domain.InternalServerError
+// 				}
+// 			}
+
+// 			// products ni faqat mxik o'zgarganda update qil
+// 			if mxikChanged {
+// 				err = tx.WithContext(ctx).Table("products").
+// 					Where("id = ?", productEntry.Id).
+// 					Updates(map[string]interface{}{
+// 						"mxik":      item.Ekpu,
+// 						"unit_code": item.UnitCode,
+// 					}).Error
+// 				if err != nil {
+// 					tx.Rollback()
+// 					s.log.Errorf("failed to update product mxik and unit_code: %v", err)
+// 					return domain.InternalServerError
+// 				}
+// 				productEntry.UnitCode = item.UnitCode
+// 			}
+// 		} else {
+// 			// 3. Barcode yo'q — ekpu bilan tekshir
+// 			// var ekpuEntry struct {
+// 			// 	Mxik string `gorm:"column:mxik"`
+// 			// }
+
+// 			// err = tx.WithContext(ctx).Table("product_barcodes").
+// 			// 	Select("mxik").
+// 			// 	Where("mxik = ? AND product_id = ?", item.Ekpu, productEntry.Id).
+// 			// 	Limit(1).
+// 			// 	Scan(&ekpuEntry).Error
+// 			// if err != nil {
+// 			// 	tx.Rollback()
+// 			// 	s.log.Errorf("failed to check ekpu: %v", err)
+// 			// 	return domain.InternalServerError
+// 			// }
+
+// 			// Ekpu bor yoki yo'q — har ikki holda CREATE
+// 			err = tx.WithContext(ctx).Exec(`
+// 				INSERT INTO product_barcodes (product_id, barcode, mxik, unit_code, status)
+// 				VALUES (?, ?, ?, ?, ?)
+// 			`, productEntry.Id, item.Barcode, item.Ekpu, item.UnitCode, constants.GeneralStatusCompleted).Error
+// 			if err != nil {
+// 				tx.Rollback()
+// 				s.log.Errorf("failed to create product barcode: %v", err)
+// 				return domain.InternalServerError
+// 			}
+// 		}
+// 	}
+
+// 	if err := tx.Commit().Error; err != nil {
+// 		s.log.Errorf("failed to commit CreateOrUpdateBarcodes: %v", err)
+// 		return domain.InternalServerError
+// 	}
+
+// 	return nil
+// }
+
+type productEntryType struct {
+	Id       string `gorm:"column:id"`
+	UnitCode string `gorm:"column:unit_code"`
+}
+
+func (s *Services) CreateOrUpdateBarcodes(ctx context.Context, req *domain.CreateOrUpdateBarcodesRequest) error {
+	productCache := make(map[int]productEntryType)
+
+	for _, item := range req.ProductBarCodeItem {
+		productEntry, ok := productCache[item.MaterialCode]
+		if !ok {
+			err := s.db.WithContext(ctx).Table("products").
+				Select("id, unit_code").
+				Where("material_code = ?", item.MaterialCode).
+				Limit(1).
+				Scan(&productEntry).Error
+			if err != nil {
+				s.log.Errorf("failed to find product by material_code %d: %v", item.MaterialCode, err)
+				return domain.InternalServerError
+			}
+			if productEntry.Id == "" {
+				s.log.Errorf("product not found for material_code: %d", item.MaterialCode)
+				return domain.NotFoundError
+			}
+			productCache[item.MaterialCode] = productEntry
+		}
+
+		if err := s.processOneBarcode(ctx, item, productEntry); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *Services) processOneBarcode(ctx context.Context, item domain.CreateOrUpdateBarcodeRequest, productEntry productEntryType) error {
+	tx := s.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	var barcodeEntry struct {
+		Barcode  string `gorm:"column:barcode"`
+		Mxik     string `gorm:"column:mxik"`
+		UnitCode string `gorm:"column:unit_code"`
+	}
+
+	err := tx.WithContext(ctx).Table("product_barcodes").
+		Select("barcode, mxik, unit_code").
+		Where("barcode = ? AND product_id = ?", item.Barcode, productEntry.Id).
+		Limit(1).
+		Scan(&barcodeEntry).Error
+	if err != nil {
+		tx.Rollback()
+		s.log.Errorf("failed to check barcode: %v", err)
+		return domain.InternalServerError
+	}
+
+	if barcodeEntry.Barcode != "" {
+		mxikChanged := barcodeEntry.Mxik != item.Ekpu
+		unitCodeChanged := barcodeEntry.UnitCode != item.UnitCode
+
+		barcodeUpdates := map[string]interface{}{}
+		if mxikChanged {
+			barcodeUpdates["mxik"] = item.Ekpu
+		}
+		if unitCodeChanged {
+			barcodeUpdates["unit_code"] = item.UnitCode
+		}
+
+		if len(barcodeUpdates) > 0 {
+			err = tx.WithContext(ctx).Table("product_barcodes").
+				Where("barcode = ? AND product_id = ?", barcodeEntry.Barcode, productEntry.Id).
+				Updates(barcodeUpdates).Error
+			if err != nil {
+				tx.Rollback()
+				s.log.Errorf("failed to update barcode entry: %v", err)
+				return domain.InternalServerError
+			}
+		}
+
+		if mxikChanged {
+			err = tx.WithContext(ctx).Table("products").
+				Where("id = ?", productEntry.Id).
+				Updates(map[string]interface{}{
+					"mxik":      item.Ekpu,
+					"unit_code": item.UnitCode,
+				}).Error
+			if err != nil {
+				tx.Rollback()
+				s.log.Errorf("failed to update product mxik and unit_code: %v", err)
+				return domain.InternalServerError
+			}
+		}
+	} else {
+		err = tx.WithContext(ctx).Exec(`
+			INSERT INTO product_barcodes (product_id, barcode, mxik, unit_code, status)
+			VALUES (?, ?, ?, ?, ?)
+		`, productEntry.Id, item.Barcode, item.Ekpu, item.UnitCode, constants.GeneralStatusCompleted).Error
+		if err != nil {
+			tx.Rollback()
+			s.log.Errorf("failed to create product barcode: %v", err)
+			return domain.InternalServerError
+		}
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		tx.Rollback()
+		s.log.Errorf("failed to commit processOneBarcode: %v", err)
+		return domain.InternalServerError
+	}
+
+	return nil
+}
+
+
+

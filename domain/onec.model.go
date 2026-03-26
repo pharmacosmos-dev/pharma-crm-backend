@@ -134,3 +134,13 @@ type ProductChangePriceRequest struct {
 }
 
 
+type CreateOrUpdateBarcodeRequest struct {
+	Barcode      string `json:"barcode"`
+	Ekpu         string `json:"ekpu"`
+	UnitCode     string `json:"unit_code"`
+	MaterialCode int    `json:"material_code"`
+}
+
+type CreateOrUpdateBarcodesRequest struct {
+	ProductBarCodeItem []CreateOrUpdateBarcodeRequest `json:"product_barcode_item"`
+}

@@ -13354,6 +13354,57 @@
                 }
             }
         },
+        "/product/barcode/create-or-update": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Save product barcode and material code data from product barcodes",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Create or update product barcodes and material codes",
+                "parameters": [
+                    {
+                        "description": "create or update barcode",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.CreateOrUpdateBarcodesRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/product/excel-upload": {
             "post": {
                 "security": [
@@ -16170,6 +16221,57 @@
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/domain.CreateOnecImportDto"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/product1c/barcode/create-or-update": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Save product barcode and material code data from 1C",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "1C Api"
+                ],
+                "summary": "Create or update product barcodes and material codes",
+                "parameters": [
+                    {
+                        "description": "create or update barcode",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.CreateOrUpdateBarcodesRequest"
                         }
                     }
                 ],
@@ -28137,6 +28239,34 @@
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/domain.ProductRequestOnecDto"
+                    }
+                }
+            }
+        },
+        "domain.CreateOrUpdateBarcodeRequest": {
+            "type": "object",
+            "properties": {
+                "barcode": {
+                    "type": "string"
+                },
+                "ekpu": {
+                    "type": "string"
+                },
+                "material_code": {
+                    "type": "integer"
+                },
+                "unit_code": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.CreateOrUpdateBarcodesRequest": {
+            "type": "object",
+            "properties": {
+                "product_barcode_item": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.CreateOrUpdateBarcodeRequest"
                     }
                 }
             }

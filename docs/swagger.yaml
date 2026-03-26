@@ -366,6 +366,24 @@ definitions:
           $ref: '#/definitions/domain.ProductRequestOnecDto'
         type: array
     type: object
+  domain.CreateOrUpdateBarcodeRequest:
+    properties:
+      barcode:
+        type: string
+      ekpu:
+        type: string
+      material_code:
+        type: integer
+      unit_code:
+        type: string
+    type: object
+  domain.CreateOrUpdateBarcodesRequest:
+    properties:
+      product_barcode_item:
+        items:
+          $ref: '#/definitions/domain.CreateOrUpdateBarcodeRequest'
+        type: array
+    type: object
   domain.CustomerRequest:
     properties:
       birthday:
@@ -10957,6 +10975,38 @@ paths:
       summary: Upload a product
       tags:
       - products
+  /product/barcode/create-or-update:
+    post:
+      consumes:
+      - application/json
+      description: Save product barcode and material code data from product barcodes
+      parameters:
+      - description: create or update barcode
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CreateOrUpdateBarcodesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create or update product barcodes and material codes
+      tags:
+      - products
   /product/excel-upload:
     post:
       consumes:
@@ -12573,6 +12623,38 @@ paths:
       security:
       - BearerAuth: []
       summary: Create a product
+      tags:
+      - 1C Api
+  /product1c/barcode/create-or-update:
+    post:
+      consumes:
+      - application/json
+      description: Save product barcode and material code data from 1C
+      parameters:
+      - description: create or update barcode
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CreateOrUpdateBarcodesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create or update product barcodes and material codes
       tags:
       - 1C Api
   /product1c/list:

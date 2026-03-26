@@ -31,6 +31,7 @@ func (h *ProductOnecHandler) ProductOnecRoutes(r *gin.RouterGroup) {
 		onec.POST("/quantity", h.UpdateQuantity)
 		onec.POST("/token-asil-belgi", h.GetToken)
 		onec.POST("/max-price-changing", h.CreateMaxPriceChanging)
+		onec.POST("/barcode/create-or-update", h.CreateOrUpdateBarcodes)
 	}
 	r.POST("/generate-token", h.GenerateOnecToken)
 }
@@ -567,5 +568,40 @@ func (h *ProductOnecHandler) CreateMaxPriceChanging(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, result)
+}
+
+// CreateOrUpdateBarcodes godoc
+// @Summary Create or update product barcodes and material codes
+// @Description Save product barcode and material code data from 1C
+// @Tags        1C Api
+// @Security    BearerAuth
+// @Accept      json
+// @Produce     json
+// @Param       request body domain.CreateOrUpdateBarcodesRequest true "create or update barcode"
+// @Success     200 {object} v1.Response
+// @Failure     400 {object} v1.Response
+// @Failure     500 {object} v1.Response
+// @Router      /product1c/barcode/create-or-update [POST]
+func (h *ProductOnecHandler) CreateOrUpdateBarcodes(c *gin.Context) {
+	var body domain.CreateOrUpdateBarcodesRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		h.log.Errorf("could not bind barcode create or update request: %v", err)
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(
+		context.Background(),
+		constants.DefaultContextTimeout,
+	)
+	defer cancel()
+
+	err := h.service.CreateOrUpdateBarcodes(ctx, &body)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, "SUCCESS")
 }
 
