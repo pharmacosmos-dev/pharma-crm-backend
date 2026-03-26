@@ -84,6 +84,9 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.GET("/movement-units-export", h.ExportMovementUnits)
 		product.PUT("/update-ostatok/:store_product_id", h.UpdateOstatok)
 		product.POST("/barcode/upsert", h.CreateOrUpdateBarcodes)
+		product.GET("/:id/barcodes",    h.GetProductBarcodes)
+    	product.PUT("/:id/barcodes",    h.UpdateProductBarcodes)
+    	product.DELETE("/:id/barcodes", h.DeleteProductBarcodes)
 	}
 }
 
@@ -2985,4 +2988,126 @@ func (h *ProductHandler) CreateOrUpdateBarcodes(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, "SUCCESS")
+}
+
+
+// GetProductBarcodes godoc
+// @Summary      Get product barcodes
+// @Description  Get all barcodes for a product by product_id
+// @Tags         products
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        product_id path string true "id"
+// @Success      200 {object} v1.Response
+// @Failure      400 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /product/{product_id}/barcodes [GET]
+func (h *ProductHandler) GetProductBarcodes(c *gin.Context) {
+	productId := c.Param("id")
+	if productId == "" {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	items, err := h.service.GetProductBarcodes(ctx, productId)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, items)
+}
+
+// UpdateProductBarcodes godoc
+// @Summary      Update product barcodes
+// @Description  Update barcodes for a product by product_id and item id
+// @Tags         products
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        product_id path  string                              true "product_id"
+// @Param        request    body  domain.UpdateProductBarcodesRequest true "update barcodes"
+// @Success      200 {object} v1.Response
+// @Failure      400 {object} v1.Response
+// @Failure      404 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /product/{product_id}/barcodes [PUT]
+func (h *ProductHandler) UpdateProductBarcodes(c *gin.Context) {
+	productId := c.Param("id")
+	if productId == "" {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+
+	var body domain.UpdateProductBarcodesRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		h.log.Errorf("could not bind update barcodes request: %v", err)
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+
+	if len(body.Items) == 0 {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	err := h.service.UpdateProductBarcodes(ctx, productId, &body)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, "UPDATED")
+}
+
+// DeleteProductBarcodes godoc
+// @Summary      Delete product barcodes
+// @Description  Delete barcodes for a product by product_id and item ids
+// @Tags         products
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        product_id path  string                              true "product_id"
+// @Param        request    body  domain.DeleteProductBarcodesRequest true "delete barcodes"
+// @Success      200 {object} v1.Response
+// @Failure      400 {object} v1.Response
+// @Failure      404 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /product/{product_id}/barcodes [DELETE]
+func (h *ProductHandler) DeleteProductBarcodes(c *gin.Context) {
+	productId := c.Param("id")
+	if productId == "" {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+
+	var body domain.DeleteProductBarcodesRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		h.log.Errorf("could not bind delete barcodes request: %v", err)
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+
+	if len(body.IDs) == 0 {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	err := h.service.DeleteProductBarcodes(ctx, productId, &body)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, "DELETED")
 }

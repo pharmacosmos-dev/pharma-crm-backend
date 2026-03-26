@@ -263,6 +263,32 @@ type SingeProductDashoard struct {
 	InventoryMinusAmount float64 `gorm:"inventory_minus_amount" json:"inventory_minus_amount"`
 }
 
+
+type ProductBarcodeItem struct {
+	ID        string    `json:"id"         gorm:"column:id"`
+	Barcode   string    `json:"barcode"    gorm:"column:barcode"`
+	Mxik      string    `json:"mxik"       gorm:"column:mxik"`
+	UnitCode  string    `json:"unit_code"  gorm:"column:unit_code"`
+	CreatedAt time.Time `json:"created_at" gorm:"column:created_at"`
+	UpdatedAt time.Time `json:"updated_at" gorm:"column:updated_at"`
+}
+
+type UpdateProductBarcodeItem struct {
+	ID       string `json:"id"`
+	Barcode  string `json:"barcode"`
+	Mxik     string `json:"mxik"`
+	UnitCode string `json:"unit_code"`
+}
+
+type UpdateProductBarcodesRequest struct {
+	Items []UpdateProductBarcodeItem `json:"items"`
+}
+
+type DeleteProductBarcodesRequest struct {
+	IDs []string `json:"ids"`
+}
+
+
 // region product by import
 
 // product structure for update ikpu page
@@ -489,3 +515,5 @@ type ProductByImportParam struct {
 	StartDate       string   `form:"start_date"`
 	EndDate         string   `form:"end_date"`
 }
+
+
