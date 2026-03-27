@@ -2362,7 +2362,8 @@ func (s *Services) GetProductBarcodes(ctx context.Context, productId string, par
 	query := baseQuery.
 		Select("id, barcode, mxik, unit_code, created_at, updated_at").
 		Limit(params.Limit).
-		Offset(params.Offset)
+		Offset(params.Offset).
+		Order("created_at DESC")
 
 	if err := query.Find(&items).Error; err != nil {
 		s.log.Errorf("failed to get product barcodes: %v", err)
@@ -2405,7 +2406,7 @@ func (s *Services) CreateProductBarcodes(
 	if count > 0 {
 		tx.Rollback()
 		s.log.Errorf("barcode already exists: %s", req.Barcode)
-		return domain.BadRequestError // 400
+		return domain.AlreadyExistsError // 400
 	}
 
 	// 🔹 Step 2: yangi record yaratish
@@ -2435,7 +2436,7 @@ func (s *Services) CreateProductBarcodes(
 	return nil
 }
 
-func (s *Services) UpdateProductBarcodes(ctx context.Context, productId string, req *domain.UpdateProductBarcodesRequest) error {
+func (s *Services) UpdateProductBarcode(ctx context.Context, productId string, req *domain.UpdateProductBarcodeRequest) error {
 	tx := s.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
@@ -2443,64 +2444,53 @@ func (s *Services) UpdateProductBarcodes(ctx context.Context, productId string, 
 		}
 	}()
 
-	for _, item := range req.Items {
-		if item.ID == "" {
-			tx.Rollback()
-			s.log.Errorf("id is required for update")
-			return domain.BadRequestError
-		}
+	// 1️⃣ record mavjudligini tekshirish
+	var existingID string
+	err := tx.WithContext(ctx).Table("product_barcodes").
+		Select("id").
+		Where("id = ? AND product_id = ?", req.ID, productId).
+		Limit(1).
+		Scan(&existingID).Error
+	if err != nil {
+		tx.Rollback()
+		s.log.Errorf("failed to find barcode entry: %v", err)
+		return domain.InternalServerError
+	}
 
-		// id va product_id bilan bormi?
-		var existing struct {
-			ID       string `gorm:"column:id"`
-			Barcode  string `gorm:"column:barcode"`
-			Mxik     string `gorm:"column:mxik"`
-			UnitCode string `gorm:"column:unit_code"`
-		}
+	if existingID == "" {
+		tx.Rollback()
+		return domain.NotFoundError
+	}
 
-		err := tx.WithContext(ctx).Table("product_barcodes").
-			Select("id, barcode, mxik, unit_code").
-			Where("id = ? AND product_id = ?", item.ID, productId).
-			Limit(1).
-			Scan(&existing).Error
-		if err != nil {
-			tx.Rollback()
-			s.log.Errorf("failed to find barcode entry: %v", err)
-			return domain.InternalServerError
-		}
+	// 2️⃣ update qilinadigan column
+	updates := map[string]interface{}{}
+	if req.Barcode != "" {
+		updates["barcode"] = req.Barcode
+	}
+	if req.Mxik != "" {
+		updates["mxik"] = req.Mxik
+	}
+	if req.UnitCode != "" {
+		updates["unit_code"] = req.UnitCode
+	}
 
-		if existing.ID == "" {
-			tx.Rollback()
-			s.log.Errorf("barcode item %s not found for product %s", item.ID, productId)
-			return domain.NotFoundError
-		}
+	if len(updates) == 0 {
+		tx.Rollback()
+		return domain.BadRequestError
+	}
 
-		updates := map[string]interface{}{}
-		if item.Barcode != "" && item.Barcode != existing.Barcode {
-			updates["barcode"] = item.Barcode
-		}
-		if item.Mxik != "" && item.Mxik != existing.Mxik {
-			updates["mxik"] = item.Mxik
-		}
-		if item.UnitCode != "" && item.UnitCode != existing.UnitCode {
-			updates["unit_code"] = item.UnitCode
-		}
-
-		if len(updates) > 0 {
-			err = tx.WithContext(ctx).Table("product_barcodes").
-				Where("id = ? AND product_id = ?", item.ID, productId).
-				Updates(updates).Error
-			if err != nil {
-				tx.Rollback()
-				s.log.Errorf("failed to update barcode entry: %v", err)
-				return domain.InternalServerError
-			}
-		}
+	err = tx.WithContext(ctx).Table("product_barcodes").
+		Where("id = ? AND product_id = ?", req.ID, productId).
+		Updates(updates).Error
+	if err != nil {
+		tx.Rollback()
+		s.log.Errorf("failed to update barcode entry: %v", err)
+		return domain.InternalServerError
 	}
 
 	if err := tx.Commit().Error; err != nil {
 		tx.Rollback()
-		s.log.Errorf("failed to commit UpdateProductBarcodes: %v", err)
+		s.log.Errorf("failed to commit UpdateProductBarcode: %v", err)
 		return domain.InternalServerError
 	}
 

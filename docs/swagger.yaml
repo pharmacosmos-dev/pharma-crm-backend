@@ -2090,7 +2090,7 @@ definitions:
     - product_id
     - unit_per_pack
     type: object
-  domain.UpdateProductBarcodeItem:
+  domain.UpdateProductBarcodeRequest:
     properties:
       barcode:
         type: string
@@ -2100,13 +2100,6 @@ definitions:
         type: string
       unit_code:
         type: string
-    type: object
-  domain.UpdateProductBarcodesRequest:
-    properties:
-      items:
-        items:
-          $ref: '#/definitions/domain.UpdateProductBarcodeItem'
-        type: array
     type: object
   domain.UzumCancelOrderRequest:
     properties:
@@ -2313,10 +2306,6 @@ definitions:
     type: object
 info:
   contact: {}
-  description: This is a sample server caller server.
-  termsOfService: http://swagger.io/terms/
-  title: Pharma API docs
-  version: "1.0"
 paths:
   /auto-order:
     post:
@@ -10969,19 +10958,19 @@ paths:
     put:
       consumes:
       - application/json
-      description: Update barcodes for a product by product_id and item id
+      description: Update barcode for a product by product_id and id
       parameters:
       - description: id
         in: path
         name: id
         required: true
         type: string
-      - description: update barcodes
+      - description: update barcode
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/domain.UpdateProductBarcodesRequest'
+          $ref: '#/definitions/domain.UpdateProductBarcodeRequest'
       produces:
       - application/json
       responses:
@@ -11003,7 +10992,7 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Update product barcodes
+      summary: Update product barcode
       tags:
       - products
   /product/{id}/dashboard:

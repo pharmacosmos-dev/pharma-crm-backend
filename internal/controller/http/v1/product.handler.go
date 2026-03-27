@@ -85,7 +85,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.PUT("/update-ostatok/:store_product_id", h.UpdateOstatok)
 		product.POST("/barcode/upsert", h.CreateOrUpdateBarcodes)
 		product.GET("/:id/barcodes",    h.GetProductBarcodes)
-    	product.PUT("/:id/barcodes",    h.UpdateProductBarcodes)
+    	product.PUT("/:id/barcodes",    h.UpdateProductBarcode)
 		product.POST("/:id/barcodes",    h.CreateProductBarcode)
     	product.DELETE("/:id/barcodes", h.DeleteProductBarcode)
 	}
@@ -3084,34 +3084,29 @@ func (h *ProductHandler) CreateProductBarcode(c *gin.Context) {
 
 
 // UpdateProductBarcodes godoc
-// @Summary      Update product barcodes
-// @Description  Update barcodes for a product by product_id and item id
+// @Summary      Update product barcode
+// @Description  Update barcode for a product by product_id and id
 // @Tags         products
 // @Security     BearerAuth
 // @Accept       json
 // @Produce      json
 // @Param        id path  string    true "id"
-// @Param        request    body  domain.UpdateProductBarcodesRequest true "update barcodes"
+// @Param        request    body  domain.UpdateProductBarcodeRequest true "update barcode"
 // @Success      200 {object} v1.Response
 // @Failure      400 {object} v1.Response
 // @Failure      404 {object} v1.Response
 // @Failure      500 {object} v1.Response
 // @Router       /product/{id}/barcodes [PUT]
-func (h *ProductHandler) UpdateProductBarcodes(c *gin.Context) {
+func (h *ProductHandler) UpdateProductBarcode(c *gin.Context) {
 	productId := c.Param("id")
 	if productId == "" {
 		handleServiceResponse(c, nil, domain.InvalidQueryError)
 		return
 	}
 
-	var body domain.UpdateProductBarcodesRequest
+	var body domain.UpdateProductBarcodeRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
-		h.log.Errorf("could not bind update barcodes request: %v", err)
-		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
-		return
-	}
-
-	if len(body.Items) == 0 {
+		h.log.Errorf("could not bind update barcode request: %v", err)
 		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
@@ -3119,7 +3114,7 @@ func (h *ProductHandler) UpdateProductBarcodes(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	err := h.service.UpdateProductBarcodes(ctx, productId, &body)
+	err := h.service.UpdateProductBarcode(ctx, productId, &body)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return

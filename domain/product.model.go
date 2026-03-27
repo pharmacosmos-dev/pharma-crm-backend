@@ -280,16 +280,14 @@ type CreateProductBarcode struct {
 }
 
 
-type UpdateProductBarcodeItem struct {
+type UpdateProductBarcodeRequest struct {
 	ID       string `json:"id"`
 	Barcode  string `json:"barcode"`
 	Mxik     string `json:"mxik"`
 	UnitCode string `json:"unit_code"`
 }
 
-type UpdateProductBarcodesRequest struct {
-	Items []UpdateProductBarcodeItem `json:"items"`
-}
+
 
 type DeleteProductBarcodeRequest struct {
 	ID string `json:"id"` // faqat bitta ID

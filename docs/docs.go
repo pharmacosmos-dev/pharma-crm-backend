@@ -16063,7 +16063,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Update barcodes for a product by product_id and item id",
+                "description": "Update barcode for a product by product_id and id",
                 "consumes": [
                     "application/json"
                 ],
@@ -16073,7 +16073,7 @@ const docTemplate = `{
                 "tags": [
                     "products"
                 ],
-                "summary": "Update product barcodes",
+                "summary": "Update product barcode",
                 "parameters": [
                     {
                         "type": "string",
@@ -16083,12 +16083,12 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "update barcodes",
+                        "description": "update barcode",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.UpdateProductBarcodesRequest"
+                            "$ref": "#/definitions/domain.UpdateProductBarcodeRequest"
                         }
                     }
                 ],
@@ -31109,7 +31109,7 @@ const docTemplate = `{
                 }
             }
         },
-        "domain.UpdateProductBarcodeItem": {
+        "domain.UpdateProductBarcodeRequest": {
             "type": "object",
             "properties": {
                 "barcode": {
@@ -31123,17 +31123,6 @@ const docTemplate = `{
                 },
                 "unit_code": {
                     "type": "string"
-                }
-            }
-        },
-        "domain.UpdateProductBarcodesRequest": {
-            "type": "object",
-            "properties": {
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/domain.UpdateProductBarcodeItem"
-                    }
                 }
             }
         },
