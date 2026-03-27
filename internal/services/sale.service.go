@@ -1766,7 +1766,9 @@ func (s *Services) GetSales(ctx context.Context, params *domain.SaleQueryParams,
 	if params.VendorId != "" {
 		qb = qb.Where("s.employee_id = ?", params.VendorId)
 	}
-	if params.StoreId != "" {
+	if len(params.StoreIds) > 0 {
+		qb = qb.Where("s.store_id IN (?)", params.StoreIds)
+	} else if params.StoreId != "" {
 		qb = qb.Where("s.store_id = ?", params.StoreId)
 	}
 	if params.CompanyId != "" {

@@ -225,13 +225,33 @@ func (h *SaleHandler) GetSales(c *gin.Context) {
 
 	// get limit offset with checking default
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+	switch {
+		case user.Role == constants.RoleFranchise:
+			// franchise -> barcha store’lari
+			storeIds, err := h.service.GetStoreIdsByCompanyId(ctx, user.CompanyId)
+			if err != nil {
+				handleServiceResponse(c, nil, err)
+				return
+			}
+			params.StoreIds = storeIds
+			params.CompanyId = user.CompanyId
 
-	if !helper.IsAdmin(user) {
-		if user.StoreId != "" {
-			params.StoreId = user.StoreId
-		}
-		params.CompanyId = user.CompanyId
+		case !helper.IsAdmin(user):
+			// oddiy employee
+			if user.StoreId != "" {
+				params.StoreId = user.StoreId
+			}
+			params.CompanyId = user.CompanyId
+
+		// admin -> filter yo‘q (hammasi)
 	}
+	
+	// if !helper.IsAdmin(user) {
+	// 	if user.StoreId != "" {
+	// 		params.StoreId = user.StoreId
+	// 	}
+	// 	params.CompanyId = user.CompanyId
+	// }
 
 	// get sale list data
 	res, totalCount, err := h.service.GetSales(ctx, &params, user)
