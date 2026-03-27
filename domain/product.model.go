@@ -273,6 +273,16 @@ type ProductBarcodeItem struct {
 	UpdatedAt time.Time `json:"updated_at" gorm:"column:updated_at"`
 }
 
+type CreateProductBarcodeItem struct {
+	Barcode  string `json:"barcode"`
+	Mxik     string `json:"mxik"`
+	UnitCode string `json:"unit_code"`
+}
+
+type CreateProductBarcodesRequest struct {
+	Items []CreateProductBarcodeItem `json:"items"`
+}
+
 type UpdateProductBarcodeItem struct {
 	ID       string `json:"id"`
 	Barcode  string `json:"barcode"`

@@ -9,7 +9,6 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "termsOfService": "http://swagger.io/terms/",
         "contact": {},
         "version": "{{.Version}}"
     },
@@ -16018,6 +16017,18 @@ const docTemplate = `{
                 "summary": "Get product barcodes",
                 "parameters": [
                     {
+                        "type": "integer",
+                        "description": "Limit",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset",
+                        "name": "offset",
+                        "in": "query"
+                    },
+                    {
                         "type": "string",
                         "description": "id",
                         "name": "id",
@@ -16078,6 +16089,68 @@ const docTemplate = `{
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/domain.UpdateProductBarcodesRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Create new barcodes for a product by product_id",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "products"
+                ],
+                "summary": "Create product barcodes",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "create barcodes",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/domain.CreateProductBarcodesRequest"
                         }
                     }
                 ],
@@ -28447,6 +28520,31 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/domain.CreateOrUpdateBarcodeRequest"
+                    }
+                }
+            }
+        },
+        "domain.CreateProductBarcodeItem": {
+            "type": "object",
+            "properties": {
+                "barcode": {
+                    "type": "string"
+                },
+                "mxik": {
+                    "type": "string"
+                },
+                "unit_code": {
+                    "type": "string"
+                }
+            }
+        },
+        "domain.CreateProductBarcodesRequest": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/domain.CreateProductBarcodeItem"
                     }
                 }
             }

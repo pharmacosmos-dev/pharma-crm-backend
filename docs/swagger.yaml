@@ -384,6 +384,22 @@ definitions:
           $ref: '#/definitions/domain.CreateOrUpdateBarcodeRequest'
         type: array
     type: object
+  domain.CreateProductBarcodeItem:
+    properties:
+      barcode:
+        type: string
+      mxik:
+        type: string
+      unit_code:
+        type: string
+    type: object
+  domain.CreateProductBarcodesRequest:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/domain.CreateProductBarcodeItem'
+        type: array
+    type: object
   domain.CustomerRequest:
     properties:
       birthday:
@@ -10885,6 +10901,14 @@ paths:
       - application/json
       description: Get all barcodes for a product by product_id
       parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
       - description: id
         in: path
         name: id
@@ -10908,6 +10932,46 @@ paths:
       security:
       - BearerAuth: []
       summary: Get product barcodes
+      tags:
+      - products
+    post:
+      consumes:
+      - application/json
+      description: Create new barcodes for a product by product_id
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: create barcodes
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/domain.CreateProductBarcodesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Create product barcodes
       tags:
       - products
     put:
@@ -20076,11 +20140,4 @@ paths:
       summary: Get Write-Off summary stats
       tags:
       - Write-Off
-securityDefinitions:
-  BasicAuth:
-    type: basic
-  BearerAuth:
-    in: header
-    name: Authorization
-    type: apiKey
 swagger: "2.0"

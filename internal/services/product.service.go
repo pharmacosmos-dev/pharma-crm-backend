@@ -2344,19 +2344,100 @@ func (s *Services) UpdateStoreProductOstatok(ctx context.Context, storeProductId
 }
 
 
-func (s *Services) GetProductBarcodes(ctx context.Context, productId string) ([]domain.ProductBarcodeItem, error) {
+func (s *Services) GetProductBarcodes(ctx context.Context, productId string, params *domain.ProductQueryParam) ([]domain.ProductBarcodeItem, int64, error) {
 	var items []domain.ProductBarcodeItem
+	var totalCount int64
 
-	err := s.db.WithContext(ctx).Table("product_barcodes").
-		Select("id, barcode, mxik, unit_code, created_at, updated_at").
-		Where("product_id = ?", productId).
-		Find(&items).Error
-	if err != nil {
-		s.log.Errorf("failed to get product barcodes: %v", err)
-		return nil, domain.InternalServerError
+
+	baseQuery := s.db.WithContext(ctx).
+		Model(&domain.ProductBarcode{}).
+		Where("product_id = ?", productId)
+
+
+	if err := baseQuery.Count(&totalCount).Error; err != nil {
+		s.log.Errorf("failed to count product barcodes: %v", err)
+		return nil, 0, domain.InternalServerError
 	}
 
-	return items, nil
+	query := baseQuery.
+		Select("id, barcode, mxik, unit_code, created_at, updated_at").
+		Limit(params.Limit).
+		Offset(params.Offset)
+
+	if err := query.Find(&items).Error; err != nil {
+		s.log.Errorf("failed to get product barcodes: %v", err)
+		return nil, 0, domain.InternalServerError
+	}
+
+
+	return items, totalCount, nil
+}
+
+func (s *Services) CreateProductBarcodes(ctx context.Context, productId string,req *domain.CreateProductBarcodesRequest,) error {
+
+	tx := s.db.Begin()
+
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	for _, item := range req.Items {
+
+		// validation
+		if item.Barcode == "" {
+			tx.Rollback()
+			s.log.Errorf("barcode is required")
+			return domain.BadRequestError
+		}
+
+		// 🔍 duplicate check (optional but recommended)
+		var count int64
+		if err := tx.WithContext(ctx).
+			Table("product_barcodes").
+			Where("barcode = ?", item.Barcode).
+			Count(&count).Error; err != nil {
+
+			tx.Rollback()
+			s.log.Errorf("failed to check barcode uniqueness: %v", err)
+			return domain.InternalServerError
+		}
+
+		if count > 0 {
+			tx.Rollback()
+			s.log.Errorf("barcode already exists: %s", item.Barcode)
+			return domain.BadRequestError
+		}
+
+		// ✅ create
+		newItem := map[string]interface{}{
+			"product_id": productId,
+			"barcode":    item.Barcode,
+			"mxik":       item.Mxik,
+			"unit_code":  item.UnitCode,
+			"status":     constants.GeneralStatusCompleted,
+			"created_at": time.Now(),
+			"updated_at": time.Now(),
+		}
+
+		if err := tx.WithContext(ctx).
+			Table("product_barcodes").
+			Create(newItem).Error; err != nil {
+
+			tx.Rollback()
+			s.log.Errorf("failed to create barcode: %v", err)
+			return domain.InternalServerError
+		}
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		tx.Rollback()
+		s.log.Errorf("failed to commit CreateProductBarcodes: %v", err)
+		return domain.InternalServerError
+	}
+
+	return nil
 }
 
 func (s *Services) UpdateProductBarcodes(ctx context.Context, productId string, req *domain.UpdateProductBarcodesRequest) error {

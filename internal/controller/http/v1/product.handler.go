@@ -86,6 +86,7 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.POST("/barcode/upsert", h.CreateOrUpdateBarcodes)
 		product.GET("/:id/barcodes",    h.GetProductBarcodes)
     	product.PUT("/:id/barcodes",    h.UpdateProductBarcodes)
+		product.POST("/:id/barcodes",    h.CreateProductBarcodes)
     	product.DELETE("/:id/barcodes", h.DeleteProductBarcodes)
 	}
 }
@@ -2998,6 +2999,8 @@ func (h *ProductHandler) CreateOrUpdateBarcodes(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept       json
 // @Produce      json
+// @Param        limit  query int false "Limit"
+// @Param        offset query int false "Offset"
 // @Param        id path string true "id"
 // @Success      200 {object} v1.Response
 // @Failure      400 {object} v1.Response
@@ -3010,17 +3013,76 @@ func (h *ProductHandler) GetProductBarcodes(c *gin.Context) {
 		return
 	}
 
+	var params domain.ProductQueryParam
+
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+
+	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
+
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	items, err := h.service.GetProductBarcodes(ctx, productId)
+	items, totalCount, err := h.service.GetProductBarcodes(ctx, productId, &params)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return
 	}
 
-	handleResponse(c, OK, items)
+	data := utils.ListResponse(items, totalCount, params.Limit, params.Offset)
+
+	handleResponse(c, OK, data)
 }
+
+// CreateProductBarcodes godoc
+// @Summary      Create product barcodes
+// @Description  Create new barcodes for a product by product_id
+// @Tags         products
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        id path  string    true "id"
+// @Param        request    body  domain.CreateProductBarcodesRequest true "create barcodes"
+// @Success      200 {object} v1.Response
+// @Failure      400 {object} v1.Response
+// @Failure      404 {object} v1.Response
+// @Failure      500 {object} v1.Response
+// @Router       /product/{id}/barcodes [POST]
+func (h *ProductHandler) CreateProductBarcodes(c *gin.Context) {
+	productId := c.Param("id")
+	if productId == "" {
+		handleServiceResponse(c, nil, domain.InvalidQueryError)
+		return
+	}
+
+	var body domain.CreateProductBarcodesRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		h.log.Errorf("could not bind create barcodes request: %v", err)
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+
+	if len(body.Items) == 0 {
+		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	err := h.service.CreateProductBarcodes(ctx, productId, &body)
+	if err != nil {
+		handleServiceResponse(c, nil, err)
+		return
+	}
+
+	handleResponse(c, OK, "CREATED")
+}
+
+
+
 
 // UpdateProductBarcodes godoc
 // @Summary      Update product barcodes
