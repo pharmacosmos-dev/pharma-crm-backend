@@ -2306,6 +2306,10 @@ definitions:
     type: object
 info:
   contact: {}
+  description: This is a sample server caller server.
+  termsOfService: http://swagger.io/terms/
+  title: Pharma API docs
+  version: "1.0"
 paths:
   /auto-order:
     post:
@@ -20121,4 +20125,11 @@ paths:
       summary: Get Write-Off summary stats
       tags:
       - Write-Off
+securityDefinitions:
+  BasicAuth:
+    type: basic
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"
