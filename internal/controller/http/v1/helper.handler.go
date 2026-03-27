@@ -309,9 +309,9 @@ func (h *HelperHandler) UploadMxik(c *gin.Context) {
 		if len(row) > 3 {
 			err := h.db.Debug().Exec(query,
 				strings.TrimSpace(row[4]),
-				strings.TrimSpace(row[9]),
-				row[10],
-				transferIsMarking(strings.TrimSpace(row[6])),
+				strings.ReplaceAll(row[6], " ", ""),
+				row[7],
+				transferIsMarking(strings.TrimSpace(row[5])),
 				parseIntComma(row[1]),
 			).Error
 			if err != nil {
