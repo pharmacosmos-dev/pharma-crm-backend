@@ -384,7 +384,7 @@ definitions:
           $ref: '#/definitions/domain.CreateOrUpdateBarcodeRequest'
         type: array
     type: object
-  domain.CreateProductBarcodeItem:
+  domain.CreateProductBarcode:
     properties:
       barcode:
         type: string
@@ -392,13 +392,6 @@ definitions:
         type: string
       unit_code:
         type: string
-    type: object
-  domain.CreateProductBarcodesRequest:
-    properties:
-      items:
-        items:
-          $ref: '#/definitions/domain.CreateProductBarcodeItem'
-        type: array
     type: object
   domain.CustomerRequest:
     properties:
@@ -442,12 +435,11 @@ definitions:
           type: string
         type: array
     type: object
-  domain.DeleteProductBarcodesRequest:
+  domain.DeleteProductBarcodeRequest:
     properties:
-      ids:
-        items:
-          type: string
-        type: array
+      id:
+        description: faqat bitta ID
+        type: string
     type: object
   domain.Document:
     properties:
@@ -10871,7 +10863,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/domain.DeleteProductBarcodesRequest'
+          $ref: '#/definitions/domain.DeleteProductBarcodeRequest'
       produces:
       - application/json
       responses:
@@ -10937,19 +10929,19 @@ paths:
     post:
       consumes:
       - application/json
-      description: Create new barcodes for a product by product_id
+      description: Create a new barcode for a product by product_id
       parameters:
-      - description: id
+      - description: product id
         in: path
         name: id
         required: true
         type: string
-      - description: create barcodes
+      - description: create barcode
         in: body
         name: request
         required: true
         schema:
-          $ref: '#/definitions/domain.CreateProductBarcodesRequest'
+          $ref: '#/definitions/domain.CreateProductBarcode'
       produces:
       - application/json
       responses:
@@ -10971,7 +10963,7 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Create product barcodes
+      summary: Create a product barcode
       tags:
       - products
     put:

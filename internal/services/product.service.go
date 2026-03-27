@@ -2373,64 +2373,59 @@ func (s *Services) GetProductBarcodes(ctx context.Context, productId string, par
 	return items, totalCount, nil
 }
 
-func (s *Services) CreateProductBarcodes(ctx context.Context, productId string,req *domain.CreateProductBarcodesRequest,) error {
+func (s *Services) CreateProductBarcodes(
+	ctx context.Context,
+	productId string,
+	req *domain.CreateProductBarcode,
+) error {
 
 	tx := s.db.Begin()
-
 	defer func() {
 		if r := recover(); r != nil {
 			tx.Rollback()
 		}
 	}()
 
-	for _, item := range req.Items {
-
-		// validation
-		if item.Barcode == "" {
-			tx.Rollback()
-			s.log.Errorf("barcode is required")
-			return domain.BadRequestError
-		}
-
-		// 🔍 duplicate check (optional but recommended)
-		var count int64
-		if err := tx.WithContext(ctx).
-			Table("product_barcodes").
-			Where("barcode = ?", item.Barcode).
-			Count(&count).Error; err != nil {
-
-			tx.Rollback()
-			s.log.Errorf("failed to check barcode uniqueness: %v", err)
-			return domain.InternalServerError
-		}
-
-		if count > 0 {
-			tx.Rollback()
-			s.log.Errorf("barcode already exists: %s", item.Barcode)
-			return domain.BadRequestError
-		}
-
-		// ✅ create
-		newItem := map[string]interface{}{
-			"product_id": productId,
-			"barcode":    item.Barcode,
-			"mxik":       item.Mxik,
-			"unit_code":  item.UnitCode,
-			"status":     constants.GeneralStatusCompleted,
-			"created_at": time.Now(),
-			"updated_at": time.Now(),
-		}
-
-		if err := tx.WithContext(ctx).
-			Table("product_barcodes").
-			Create(newItem).Error; err != nil {
-
-			tx.Rollback()
-			s.log.Errorf("failed to create barcode: %v", err)
-			return domain.InternalServerError
-		}
+	if req.Barcode == "" {
+		return domain.BadRequestError
 	}
 
+	// 🔍 Step 1: barcode mavjudligini tekshirish
+	var count int64
+	if err := tx.WithContext(ctx).
+		Table("product_barcodes").
+		Where("barcode = ?", req.Barcode).
+		Count(&count).Error; err != nil {
+
+		tx.Rollback()
+		s.log.Errorf("failed to check existing barcode: %v", err)
+		return domain.InternalServerError
+	}
+
+	if count > 0 {
+		tx.Rollback()
+		s.log.Errorf("barcode already exists: %s", req.Barcode)
+		return domain.BadRequestError // 400
+	}
+
+	// 🔹 Step 2: yangi record yaratish
+	newRecord := map[string]interface{}{
+		"product_id": productId,
+		"barcode":    req.Barcode,
+		"mxik":       req.Mxik,
+		"unit_code":  req.UnitCode,
+		"status":     constants.GeneralStatusCompleted,
+		"created_at": time.Now(),
+		"updated_at": time.Now(),
+	}
+
+	if err := tx.Table("product_barcodes").Create(newRecord).Error; err != nil {
+		tx.Rollback()
+		s.log.Errorf("failed to create product barcode: %v", err)
+		return domain.InternalServerError
+	}
+
+	// 🔹 Step 3: commit
 	if err := tx.Commit().Error; err != nil {
 		tx.Rollback()
 		s.log.Errorf("failed to commit CreateProductBarcodes: %v", err)
@@ -2512,7 +2507,7 @@ func (s *Services) UpdateProductBarcodes(ctx context.Context, productId string, 
 	return nil
 }
 
-func (s *Services) DeleteProductBarcodes(ctx context.Context, productId string, req *domain.DeleteProductBarcodesRequest) error {
+func (s *Services) DeleteProductBarcode(ctx context.Context, productId string, req *domain.DeleteProductBarcodeRequest) error {
 	tx := s.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
@@ -2520,18 +2515,24 @@ func (s *Services) DeleteProductBarcodes(ctx context.Context, productId string, 
 		}
 	}()
 
-	err := tx.WithContext(ctx).Table("product_barcodes").
-		Where("id IN ? AND product_id = ?", req.IDs, productId).
-		Delete(nil).Error
-	if err != nil {
+	result := tx.WithContext(ctx).Table("product_barcodes").
+		Where("id = ? AND product_id = ?", req.ID, productId).
+		Delete(nil)
+	if result.Error != nil {
 		tx.Rollback()
-		s.log.Errorf("failed to delete product barcodes: %v", err)
+		s.log.Errorf("failed to delete product barcode: %v", result.Error)
 		return domain.InternalServerError
+	}
+
+	if result.RowsAffected == 0 {
+		tx.Rollback()
+		s.log.Warnf("product barcode not found: %s", req.ID)
+		return domain.NotFoundError // <-- 404 qaytarish
 	}
 
 	if err := tx.Commit().Error; err != nil {
 		tx.Rollback()
-		s.log.Errorf("failed to commit DeleteProductBarcodes: %v", err)
+		s.log.Errorf("failed to commit DeleteProductBarcode: %v", err)
 		return domain.InternalServerError
 	}
 

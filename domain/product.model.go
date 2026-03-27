@@ -273,15 +273,12 @@ type ProductBarcodeItem struct {
 	UpdatedAt time.Time `json:"updated_at" gorm:"column:updated_at"`
 }
 
-type CreateProductBarcodeItem struct {
+type CreateProductBarcode struct {
 	Barcode  string `json:"barcode"`
 	Mxik     string `json:"mxik"`
 	UnitCode string `json:"unit_code"`
 }
 
-type CreateProductBarcodesRequest struct {
-	Items []CreateProductBarcodeItem `json:"items"`
-}
 
 type UpdateProductBarcodeItem struct {
 	ID       string `json:"id"`
@@ -294,8 +291,8 @@ type UpdateProductBarcodesRequest struct {
 	Items []UpdateProductBarcodeItem `json:"items"`
 }
 
-type DeleteProductBarcodesRequest struct {
-	IDs []string `json:"ids"`
+type DeleteProductBarcodeRequest struct {
+	ID string `json:"id"` // faqat bitta ID
 }
 
 

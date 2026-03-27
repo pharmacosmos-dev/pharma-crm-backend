@@ -86,8 +86,8 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.POST("/barcode/upsert", h.CreateOrUpdateBarcodes)
 		product.GET("/:id/barcodes",    h.GetProductBarcodes)
     	product.PUT("/:id/barcodes",    h.UpdateProductBarcodes)
-		product.POST("/:id/barcodes",    h.CreateProductBarcodes)
-    	product.DELETE("/:id/barcodes", h.DeleteProductBarcodes)
+		product.POST("/:id/barcodes",    h.CreateProductBarcode)
+    	product.DELETE("/:id/barcodes", h.DeleteProductBarcode)
 	}
 }
 
@@ -3036,51 +3036,50 @@ func (h *ProductHandler) GetProductBarcodes(c *gin.Context) {
 	handleResponse(c, OK, data)
 }
 
-// CreateProductBarcodes godoc
-// @Summary      Create product barcodes
-// @Description  Create new barcodes for a product by product_id
+// CreateProductBarcode godoc
+// @Summary      Create a product barcode
+// @Description  Create a new barcode for a product by product_id
 // @Tags         products
 // @Security     BearerAuth
 // @Accept       json
 // @Produce      json
-// @Param        id path  string    true "id"
-// @Param        request    body  domain.CreateProductBarcodesRequest true "create barcodes"
+// @Param        id path  string    true "product id"
+// @Param        request body  domain.CreateProductBarcode true "create barcode"
 // @Success      200 {object} v1.Response
 // @Failure      400 {object} v1.Response
 // @Failure      404 {object} v1.Response
 // @Failure      500 {object} v1.Response
 // @Router       /product/{id}/barcodes [POST]
-func (h *ProductHandler) CreateProductBarcodes(c *gin.Context) {
+func (h *ProductHandler) CreateProductBarcode(c *gin.Context) {
 	productId := c.Param("id")
 	if productId == "" {
 		handleServiceResponse(c, nil, domain.InvalidQueryError)
 		return
 	}
 
-	var body domain.CreateProductBarcodesRequest
+	var body domain.CreateProductBarcode
 	if err := c.ShouldBindJSON(&body); err != nil {
-		h.log.Errorf("could not bind create barcodes request: %v", err)
+		h.log.Errorf("could not bind create barcode request: %v", err)
 		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
 
-	if len(body.Items) == 0 {
-		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
+	// validation: barcode bo'lishi shart
+	if body.Barcode == "" {
+		handleServiceResponse(c, BadRequest, domain.BadRequestError)
 		return
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	err := h.service.CreateProductBarcodes(ctx, productId, &body)
-	if err != nil {
+	if err := h.service.CreateProductBarcodes(ctx, productId, &body); err != nil {
 		handleServiceResponse(c, nil, err)
 		return
 	}
 
 	handleResponse(c, OK, "CREATED")
 }
-
 
 
 
@@ -3137,27 +3136,27 @@ func (h *ProductHandler) UpdateProductBarcodes(c *gin.Context) {
 // @Accept       json
 // @Produce      json
 // @Param        id path  string   true "id"
-// @Param        request    body  domain.DeleteProductBarcodesRequest true "delete barcodes"
+// @Param        request    body  domain.DeleteProductBarcodeRequest true "delete barcodes"
 // @Success      200 {object} v1.Response
 // @Failure      400 {object} v1.Response
 // @Failure      404 {object} v1.Response
 // @Failure      500 {object} v1.Response
 // @Router       /product/{id}/barcodes [DELETE]
-func (h *ProductHandler) DeleteProductBarcodes(c *gin.Context) {
+func (h *ProductHandler) DeleteProductBarcode(c *gin.Context) {
 	productId := c.Param("id")
 	if productId == "" {
 		handleServiceResponse(c, nil, domain.InvalidQueryError)
 		return
 	}
 
-	var body domain.DeleteProductBarcodesRequest
+	var body domain.DeleteProductBarcodeRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
-		h.log.Errorf("could not bind delete barcodes request: %v", err)
+		h.log.Errorf("could not bind delete barcode request: %v", err)
 		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
 
-	if len(body.IDs) == 0 {
+	if body.ID == "" {
 		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
@@ -3165,7 +3164,7 @@ func (h *ProductHandler) DeleteProductBarcodes(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	err := h.service.DeleteProductBarcodes(ctx, productId, &body)
+	err := h.service.DeleteProductBarcode(ctx, productId, &body)
 	if err != nil {
 		handleServiceResponse(c, nil, err)
 		return

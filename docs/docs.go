@@ -16125,7 +16125,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Create new barcodes for a product by product_id",
+                "description": "Create a new barcode for a product by product_id",
                 "consumes": [
                     "application/json"
                 ],
@@ -16135,22 +16135,22 @@ const docTemplate = `{
                 "tags": [
                     "products"
                 ],
-                "summary": "Create product barcodes",
+                "summary": "Create a product barcode",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "id",
+                        "description": "product id",
                         "name": "id",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "create barcodes",
+                        "description": "create barcode",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.CreateProductBarcodesRequest"
+                            "$ref": "#/definitions/domain.CreateProductBarcode"
                         }
                     }
                 ],
@@ -16212,7 +16212,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.DeleteProductBarcodesRequest"
+                            "$ref": "#/definitions/domain.DeleteProductBarcodeRequest"
                         }
                     }
                 ],
@@ -28524,7 +28524,7 @@ const docTemplate = `{
                 }
             }
         },
-        "domain.CreateProductBarcodeItem": {
+        "domain.CreateProductBarcode": {
             "type": "object",
             "properties": {
                 "barcode": {
@@ -28535,17 +28535,6 @@ const docTemplate = `{
                 },
                 "unit_code": {
                     "type": "string"
-                }
-            }
-        },
-        "domain.CreateProductBarcodesRequest": {
-            "type": "object",
-            "properties": {
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/domain.CreateProductBarcodeItem"
-                    }
                 }
             }
         },
@@ -28612,14 +28601,12 @@ const docTemplate = `{
                 }
             }
         },
-        "domain.DeleteProductBarcodesRequest": {
+        "domain.DeleteProductBarcodeRequest": {
             "type": "object",
             "properties": {
-                "ids": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
+                "id": {
+                    "description": "faqat bitta ID",
+                    "type": "string"
                 }
             }
         },

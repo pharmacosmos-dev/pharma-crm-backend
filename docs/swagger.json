@@ -16119,7 +16119,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "Create new barcodes for a product by product_id",
+                "description": "Create a new barcode for a product by product_id",
                 "consumes": [
                     "application/json"
                 ],
@@ -16129,22 +16129,22 @@
                 "tags": [
                     "products"
                 ],
-                "summary": "Create product barcodes",
+                "summary": "Create a product barcode",
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "id",
+                        "description": "product id",
                         "name": "id",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "create barcodes",
+                        "description": "create barcode",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.CreateProductBarcodesRequest"
+                            "$ref": "#/definitions/domain.CreateProductBarcode"
                         }
                     }
                 ],
@@ -16206,7 +16206,7 @@
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.DeleteProductBarcodesRequest"
+                            "$ref": "#/definitions/domain.DeleteProductBarcodeRequest"
                         }
                     }
                 ],
@@ -28518,7 +28518,7 @@
                 }
             }
         },
-        "domain.CreateProductBarcodeItem": {
+        "domain.CreateProductBarcode": {
             "type": "object",
             "properties": {
                 "barcode": {
@@ -28529,17 +28529,6 @@
                 },
                 "unit_code": {
                     "type": "string"
-                }
-            }
-        },
-        "domain.CreateProductBarcodesRequest": {
-            "type": "object",
-            "properties": {
-                "items": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/domain.CreateProductBarcodeItem"
-                    }
                 }
             }
         },
@@ -28606,14 +28595,12 @@
                 }
             }
         },
-        "domain.DeleteProductBarcodesRequest": {
+        "domain.DeleteProductBarcodeRequest": {
             "type": "object",
             "properties": {
-                "ids": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
+                "id": {
+                    "description": "faqat bitta ID",
+                    "type": "string"
                 }
             }
         },
