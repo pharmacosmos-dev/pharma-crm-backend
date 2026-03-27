@@ -243,6 +243,7 @@ const (
 	RoleDirector      = "DIRECTOR"
 	RoleCashier       = "CASHIER"
 	RoleHeadOfCashier = "HEADOFCASHIER"
+	RoleFranchise     = "FRANCHISE"
 )
 
 // movement type

@@ -20,6 +20,23 @@ func (s *Services) GetCompanyIds(ctx context.Context, isFranchise bool) ([]strin
 	return companyIds, nil
 }
 
+func (s *Services) GetStoreIdsByCompanyId(ctx context.Context, companyId string) ([]string, error) {
+	var storeIds []string
+
+	err := s.db.WithContext(ctx).Table("stores").
+		Select("id").
+		Where("company_id = ?", companyId).
+		Scan(&storeIds).Error
+	if err != nil {
+		s.log.Errorf("failed to get store ids by company_id %s: %v", companyId, err)
+		return nil, domain.InternalServerError
+	}
+
+	return storeIds, nil
+}
+
+
+
 func (s *Services) GetCompaniesWithStores(ctx context.Context) (*domain.CompanyWithStoresResponse, error) {
 	// Final parsed response
 	result := domain.CompanyWithStoresResponse{}
