@@ -41,25 +41,25 @@ func (h *Handler) NewHelperHandler(r *gin.RouterGroup) {
 func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 	helper := r.Group("/helper")
 	{
-		helper.POST("/upload-tax-products", h.UploadTaxProducts)
-		helper.POST("/upload-unit-count", h.UploadProductUnitCount)
-		helper.POST("/upload-mxik", h.CorrectMXIK)
+		// helper.POST("/upload-tax-products", h.UploadTaxProducts)
+		// helper.POST("/upload-unit-count", h.UploadProductUnitCount)
+		helper.POST("/upload-mxik", h.UploadMxik)
 		helper.POST("/epos", h.EposTransmitter)
-		helper.POST("/upload-category", h.UploadCategory)
-		helper.POST("/upload-customer", h.UploadCustomer)
-		helper.POST("/upload-import", h.UploadImport)
-		helper.GET("picture", h.GetProductPictureFromTasnif)
-		helper.POST("/product-min-max", h.UploadProductMinMax)
-		helper.POST("/product-kvant", h.UploadProductKvant)
-		helper.POST("/set-product-photo", h.SetProductPhoto)
-		helper.POST("/fix-product-quantity", h.FixProductQuantity)
-		helper.POST("/update-product-image", h.UpdateProductImage)
-		helper.POST("/update-wrong-items", h.UpdateSaleItems)
-		helper.POST("/add-categories", h.AddCategories)
-		helper.POST("/attach-category-to-products", h.AttachCategoryToProducts)
-		helper.POST("/upload-categories-json", h.UploadCategoryJson)
-		helper.DELETE("/delete-not-photos", h.DeleteNotFoundPhotos)
-		helper.POST("/upload-pharmacy", h.UploadPharmacyInfoForOson)
+		// helper.POST("/upload-category", h.UploadCategory)
+		// helper.POST("/upload-customer", h.UploadCustomer)
+		// helper.POST("/upload-import", h.UploadImport)
+		// helper.GET("picture", h.GetProductPictureFromTasnif)
+		// helper.POST("/product-min-max", h.UploadProductMinMax)
+		// helper.POST("/product-kvant", h.UploadProductKvant)
+		// helper.POST("/set-product-photo", h.SetProductPhoto)
+		// helper.POST("/fix-product-quantity", h.FixProductQuantity)
+		// helper.POST("/update-product-image", h.UpdateProductImage)
+		// helper.POST("/update-wrong-items", h.UpdateSaleItems)
+		// helper.POST("/add-categories", h.AddCategories)
+		// helper.POST("/attach-category-to-products", h.AttachCategoryToProducts)
+		// helper.POST("/upload-categories-json", h.UploadCategoryJson)
+		// helper.DELETE("/delete-not-photos", h.DeleteNotFoundPhotos)
+		// helper.POST("/upload-pharmacy", h.UploadPharmacyInfoForOson)
 	}
 }
 
@@ -252,14 +252,14 @@ func (h *HelperHandler) UploadTaxProducts(c *gin.Context) {
 // @Failure 400 {object} v1.Response
 // @Failure 500 {object} v1.Response
 // @Router /helper/upload-mxik [POST]
-func (h *HelperHandler) CorrectMXIK(c *gin.Context) {
+func (h *HelperHandler) UploadMxik(c *gin.Context) {
 	var (
 		file domain.File
 		err  error
 	)
 	// bind request file
 	if err = c.ShouldBind(&file); err != nil {
-		h.log.Error("Failed to bind file: ", err.Error())
+		h.log.Errorf("Failed to bind file: %v", err)
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
@@ -267,7 +267,7 @@ func (h *HelperHandler) CorrectMXIK(c *gin.Context) {
 	// Check file extension
 	ext := filepath.Ext(file.File.Filename)
 	if ext != ".xlsx" && ext != ".xls" {
-		h.log.Error("Unsupported file format: ", ext)
+		h.log.Errorf("Unsupported file format: %v", ext)
 		handleResponse(c, BadRequest, "Unsupported file format")
 		return
 	}
@@ -294,29 +294,56 @@ func (h *HelperHandler) CorrectMXIK(c *gin.Context) {
 	sheetName := xlsx.GetSheetName(0)
 	rows, err := xlsx.GetRows(sheetName)
 	if err != nil {
-		h.log.Error("Failed to get rows: ", err.Error())
+		h.log.Errorf("Failed to get rows: %v", err)
 		handleResponse(c, InternalError, "Failed to get rows")
 		return
 	}
-
+	now := time.Now()
 	// build query
 	query := `
-	UPDATE products SET mxik = ?, unit_code = ?, updated_at = now() WHERE material_code = ?
+	UPDATE products SET mxik = ?, unit_code = ?, unit_label = ?, is_marking = ?, updated_at = now() WHERE material_code = ?;
 	`
 	var count = 0
 	// Process rows
 	for _, row := range rows[1:] {
 		if len(row) > 3 {
-			err := h.db.Exec(query, strings.TrimSpace(row[2]), strings.TrimSpace(row[3]), strings.TrimSpace(row[0])).Error
+			err := h.db.Debug().Exec(query,
+				strings.TrimSpace(row[4]),
+				strings.ReplaceAll(row[6], " ", ""),
+				row[7],
+				transferIsMarking(strings.TrimSpace(row[5])),
+				parseIntComma(row[1]),
+			).Error
 			if err != nil {
 				h.log.Error("could not updated product(%s) mxik(%s): %v", strings.TrimSpace(row[2]), err)
 			} else {
 				count++
 			}
 		}
-
 	}
+
+	go h.updateStoreProductMxik(now)
+
 	handleResponse(c, OK, "UPDATED: "+strconv.Itoa(count))
+}
+
+func transferIsMarking(isMarking string) bool {
+	if strings.TrimSpace(isMarking) == "Да" {
+		return true
+	}
+	return false
+}
+
+func (h *HelperHandler) updateStoreProductMxik(now time.Time) {
+	err := h.db.Exec(`
+	UPDATE store_products sp
+	SET mxik = p.mxik, unit_code = p.unit_code, unit_label = p.unit_label, is_marking = p.is_marking, updated_at = now()
+	FROM products p
+	WHERE sp.product_id = p.id AND sp.unit_quantity > 0 AND p.updated_at >= ?;
+	`, now).Error
+	if err != nil {
+		h.log.Errorf("could not update store product mxik: %v", err)
+	}
 }
 
 // Epos transmitter godoc
