@@ -10839,6 +10839,117 @@ paths:
       summary: Update a product
       tags:
       - products
+  /product/{id}/barcodes:
+    delete:
+      consumes:
+      - application/json
+      description: Delete barcodes for a product by product_id and item ids
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: delete barcodes
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/domain.DeleteProductBarcodesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Delete product barcodes
+      tags:
+      - products
+    get:
+      consumes:
+      - application/json
+      description: Get all barcodes for a product by product_id
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Get product barcodes
+      tags:
+      - products
+    put:
+      consumes:
+      - application/json
+      description: Update barcodes for a product by product_id and item id
+      parameters:
+      - description: id
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: update barcodes
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/domain.UpdateProductBarcodesRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Update product barcodes
+      tags:
+      - products
   /product/{id}/dashboard:
     get:
       consumes:
@@ -10968,117 +11079,6 @@ paths:
       security:
       - BearerAuth: []
       summary: Export product movements to Excel
-      tags:
-      - products
-  /product/{product_id}/barcodes:
-    delete:
-      consumes:
-      - application/json
-      description: Delete barcodes for a product by product_id and item ids
-      parameters:
-      - description: product_id
-        in: path
-        name: product_id
-        required: true
-        type: string
-      - description: delete barcodes
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/domain.DeleteProductBarcodesRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Delete product barcodes
-      tags:
-      - products
-    get:
-      consumes:
-      - application/json
-      description: Get all barcodes for a product by product_id
-      parameters:
-      - description: product_id
-        in: path
-        name: product_id
-        required: true
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Get product barcodes
-      tags:
-      - products
-    put:
-      consumes:
-      - application/json
-      description: Update barcodes for a product by product_id and item id
-      parameters:
-      - description: product_id
-        in: path
-        name: product_id
-        required: true
-        type: string
-      - description: update barcodes
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/domain.UpdateProductBarcodesRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Update product barcodes
       tags:
       - products
   /product/attach-barcode:

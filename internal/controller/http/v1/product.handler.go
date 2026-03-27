@@ -2998,11 +2998,11 @@ func (h *ProductHandler) CreateOrUpdateBarcodes(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept       json
 // @Produce      json
-// @Param        product_id path string true "id"
+// @Param        id path string true "id"
 // @Success      200 {object} v1.Response
 // @Failure      400 {object} v1.Response
 // @Failure      500 {object} v1.Response
-// @Router       /product/{product_id}/barcodes [GET]
+// @Router       /product/{id}/barcodes [GET]
 func (h *ProductHandler) GetProductBarcodes(c *gin.Context) {
 	productId := c.Param("id")
 	if productId == "" {
@@ -3029,13 +3029,13 @@ func (h *ProductHandler) GetProductBarcodes(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept       json
 // @Produce      json
-// @Param        product_id path  string                              true "product_id"
+// @Param        id path  string    true "id"
 // @Param        request    body  domain.UpdateProductBarcodesRequest true "update barcodes"
 // @Success      200 {object} v1.Response
 // @Failure      400 {object} v1.Response
 // @Failure      404 {object} v1.Response
 // @Failure      500 {object} v1.Response
-// @Router       /product/{product_id}/barcodes [PUT]
+// @Router       /product/{id}/barcodes [PUT]
 func (h *ProductHandler) UpdateProductBarcodes(c *gin.Context) {
 	productId := c.Param("id")
 	if productId == "" {
@@ -3074,13 +3074,13 @@ func (h *ProductHandler) UpdateProductBarcodes(c *gin.Context) {
 // @Security     BearerAuth
 // @Accept       json
 // @Produce      json
-// @Param        product_id path  string                              true "product_id"
+// @Param        id path  string   true "id"
 // @Param        request    body  domain.DeleteProductBarcodesRequest true "delete barcodes"
 // @Success      200 {object} v1.Response
 // @Failure      400 {object} v1.Response
 // @Failure      404 {object} v1.Response
 // @Failure      500 {object} v1.Response
-// @Router       /product/{product_id}/barcodes [DELETE]
+// @Router       /product/{id}/barcodes [DELETE]
 func (h *ProductHandler) DeleteProductBarcodes(c *gin.Context) {
 	productId := c.Param("id")
 	if productId == "" {
