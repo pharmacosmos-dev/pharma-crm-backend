@@ -2565,7 +2565,7 @@ func (s *Services) CreateProductBarcodes(
 	var count int64
 	if err := tx.WithContext(ctx).
 		Table("product_barcodes").
-		Where("barcode = ?", req.Barcode).
+		Where("barcode = ? AND product_id = ?", req.Barcode, productId).
 		Count(&count).Error; err != nil {
 
 		tx.Rollback()
