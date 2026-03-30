@@ -117,6 +117,8 @@ func (s *Services) DmedGiveReceipt(cartItems []domain.CartItemForDMED, markingDa
 				return err
 			}
 
+			payload.Url = url
+
 			reqPayload := domain.DmedGeneral[domain.DmedGiveReceiptReq]{
 				Request: payload,
 			}

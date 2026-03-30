@@ -123,6 +123,17 @@ type DmedGiveReceiptReq struct {
 	MarkingCode      string `json:"marking_code,omitempty"`
 	Gtin             string `json:"gtin,omitempty"`
 	SerialNumber     string `json:"serial_number,omitempty"`
+	Url              string `json:"url,omitempty"`
+}
+
+type DmedGiveReceiptReqWithUrl struct {
+	DrugAmount       int    `json:"drug_amount"`
+	Price            int    `json:"price"`
+	IssuedByFullName string `json:"issued_by_full_name"`
+	MarkingCode      string `json:"marking_code,omitempty"`
+	Gtin             string `json:"gtin,omitempty"`
+	SerialNumber     string `json:"serial_number,omitempty"`
+	Url              string `json:"url,omitempty"`
 }
 
 type DmedGeneral[T any] struct {
