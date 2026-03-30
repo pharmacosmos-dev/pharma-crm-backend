@@ -45,6 +45,12 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		// helper.POST("/upload-unit-count", h.UploadProductUnitCount)
 		helper.POST("/upload-mxik", h.UploadMxik)
 		helper.POST("/epos", h.EposTransmitter)
+		helper.POST("/upload-product_barcodes", h.UploadProductBarcode)
+		helper.POST("/check-products", h.CheckProductsFromExcel)
+		helper.POST("/check-barcodes", h.CheckBarcodesFromExcel)
+		helper.POST("/sync-product-barcodes", h.SyncProductBarcodes)
+		helper.GET("/duplicate-barcodes", h.GetDuplicateBarcodes)
+		helper.POST("/check-duplicate-barcodes", h.CheckDuplicateBarcodesFromExcel)
 		// helper.POST("/upload-category", h.UploadCategory)
 		// helper.POST("/upload-customer", h.UploadCustomer)
 		// helper.POST("/upload-import", h.UploadImport)
@@ -301,30 +307,585 @@ func (h *HelperHandler) UploadMxik(c *gin.Context) {
 	now := time.Now()
 	// build query
 	query := `
-	UPDATE products SET mxik = ?, unit_code = ?, unit_label = ?, is_marking = ?, updated_at = now() WHERE material_code = ?;
+	UPDATE products SET mxik = ?, unit_code = ?, unit_label = ?, is_marking = ?, barcode = ?, updated_at = now() WHERE material_code = ?;
 	`
 	var count = 0
 	// Process rows
 	for _, row := range rows[1:] {
-		if len(row) > 3 {
+		if(len(row) > 8) {	
 			err := h.db.Debug().Exec(query,
-				strings.TrimSpace(row[4]),
-				strings.ReplaceAll(row[6], " ", ""),
-				row[7],
-				transferIsMarking(strings.TrimSpace(row[5])),
+				strings.TrimSpace(row[3]),
+				strings.ReplaceAll(row[7], " ", ""),
+				row[8],
+				transferIsMarking(strings.TrimSpace(row[6])),
+				strings.TrimSpace(row[5]),
 				parseIntComma(row[1]),
+				
 			).Error
+				
 			if err != nil {
 				h.log.Error("could not updated product(%s) mxik(%s): %v", strings.TrimSpace(row[2]), err)
 			} else {
 				count++
 			}
-		}
+		}	
 	}
 
 	go h.updateStoreProductMxik(now)
 
 	handleResponse(c, OK, "UPDATED: "+strconv.Itoa(count))
+}
+
+
+// UploadProductBarcode godoc
+// @Summary Upload product barcodes from Excel
+// @Description Update product_barcodes table only. Skip rows with empty barcode.
+// @Tags helper
+// @Security BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param  file formData file true "Excel file (.xlsx) containing product data"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /helper/upload-product_barcodes [POST]
+func (h *HelperHandler) UploadProductBarcode(c *gin.Context) {
+	var file domain.File
+	if err := c.ShouldBind(&file); err != nil {
+		h.log.Errorf("Failed to bind file: %v", err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+	if err := c.SaveUploadedFile(file.File, savePath); err != nil {
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+
+	xlsx, err := excelize.OpenFile(savePath)
+	if err != nil {
+		handleResponse(c, BadRequest, "Failed to open Excel file")
+		return
+	}
+	defer xlsx.Close()
+
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to get Excel rows")
+		return
+	}
+
+	var updatedCount int
+	tx := h.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+		}
+	}()
+
+	for _, row := range rows[1:] { // skip header
+		if len(row) < 8 {
+			continue // skip incomplete row
+		}
+
+		barcode := strings.TrimSpace(row[7])
+		if barcode == "" {
+			continue // skip if barcode empty
+		}
+
+		materialCode := parseIntComma(row[1]) // material_code from Excel
+		mxik := strings.TrimSpace(row[4])
+		unitCode := strings.ReplaceAll(row[6], " ", "")
+		unitLabel := strings.TrimSpace(row[7])
+		isMarking := transferIsMarking(strings.TrimSpace(row[5]))
+
+		// Update store_products only
+		err := tx.Exec(`
+            UPDATE product_barcodes 
+            SET mxik = ?, unit_code = ?, unit_label = ?, is_marking = ?, barcode = ?, updated_at = now()
+            WHERE product_id = (SELECT id FROM products WHERE material_code = ?)`,
+			mxik, unitCode, unitLabel, isMarking, barcode, materialCode,
+		).Error
+		if err != nil {
+			h.log.Errorf("Failed to update store_product for material_code %v: %v", materialCode, err)
+			continue
+		}
+
+		updatedCount++
+	}
+
+	tx.Commit()
+	handleResponse(c, OK, fmt.Sprintf("UPDATED store_products: %d", updatedCount))
+}
+
+// CheckProductsFromExcel godoc
+// @Summary Check products from Excel file
+// @Description Upload an Excel file (.xlsx or .xls) with product material codes and check which exist in the database. Skips rows with missing codes.
+// @Tags helper
+// @Security BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "Excel file (.xlsx or .xls) containing product material codes"
+// @Success 200 {object} map[string]int "Returns count of found and not found products"
+// @Failure 400 {object} v1.Response "Bad request, e.g. invalid file or parse error"
+// @Failure 500 {object} v1.Response "Internal server error"
+// @Router /helper/check-products [POST]
+func (h *HelperHandler) CheckProductsFromExcel(c *gin.Context) {
+	var file domain.File
+
+	if err := c.ShouldBind(&file); err != nil {
+		h.log.Errorf("Failed to bind file: %v", err)
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+	if err := c.SaveUploadedFile(file.File, savePath); err != nil {
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+
+	xlsx, err := excelize.OpenFile(savePath)
+	if err != nil {
+		handleResponse(c, BadRequest, "Failed to open Excel file")
+		return
+	}
+	defer xlsx.Close()
+
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to get Excel rows")
+		return
+	}
+
+	var found, notFound int
+	for _, row := range rows[1:] {
+		if len(row) < 2 {
+			continue
+		}
+
+		materialCode := parseIntComma(row[1])
+		var exists bool
+		err := h.db.Raw(`
+            SELECT EXISTS(
+                SELECT 1 FROM products WHERE material_code = ?
+            )
+        `, materialCode).Scan(&exists).Error
+
+		if err != nil {
+			continue
+		}
+
+		if exists {
+			found++
+		} else {
+			notFound++
+		}
+	}
+
+	handleResponse(c, OK, gin.H{
+		"found":     found,
+		"not_found": notFound,
+	})
+}
+
+// CheckBarcodesFromExcel godoc
+// @Summary Check product barcodes from Excel
+// @Description Upload an Excel file (.xlsx or .xls) containing material_code, unit_code, and barcode columns.
+//
+//	Checks if each product (by material_code) has the barcode from Excel.
+//	Returns counts of matching (found) and non-matching (not_found) barcodes.
+//
+// @Tags helper
+// @Security BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "Excel file (.xlsx or .xls) with material_code, unit_code, barcode columns"
+// @Success 200 {object} map[string]int "Returns count of found and not found barcodes"
+// @Failure 400 {object} v1.Response "Bad request, e.g., invalid file or parse error"
+// @Failure 500 {object} v1.Response "Internal server error"
+// @Router /helper/check-barcodes [POST]
+func (h *HelperHandler) CheckBarcodesFromExcel(c *gin.Context) {
+	var file domain.File
+
+	if err := c.ShouldBind(&file); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+	if err := c.SaveUploadedFile(file.File, savePath); err != nil {
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+
+	xlsx, err := excelize.OpenFile(savePath)
+	if err != nil {
+		handleResponse(c, BadRequest, "Failed to open Excel file")
+		return
+	}
+	defer xlsx.Close()
+
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to get Excel rows")
+		return
+	}
+
+	var found, notFound int
+
+	for _, row := range rows[1:] { // header row ni tashlaymiz
+		if len(row) < 3 {
+			continue // to‘liq bo‘lmagan satrni tashlaymiz
+		}
+
+		materialCode := strings.TrimSpace(row[0])
+		//unitCode := strings.TrimSpace(row[1]) // kerak bo‘lsa unitCode bilan keyinchalik ishlatish mumkin
+		barcode := strings.TrimSpace(row[2])
+
+		if materialCode == "" || barcode == "" {
+			continue // bo‘sh qiymatlarni tashlaymiz
+		}
+
+		var exists bool
+		// Excel'dan olingan barcode product bilan mosligini tekshirish
+		err := h.db.Raw(`
+            SELECT EXISTS(
+                SELECT 1
+                FROM product_barcodes pb
+                JOIN products p ON pb.product_id = p.id
+                WHERE p.material_code = ? AND pb.barcode = ?
+            )
+        `, materialCode, barcode).Scan(&exists).Error
+
+		if err != nil {
+			continue
+		}
+
+		if exists {
+			found++
+		} else {
+			notFound++
+		}
+	}
+
+	handleResponse(c, OK, gin.H{
+		"found":     found,
+		"not_found": notFound,
+	})
+}
+
+// SyncProductBarcodes godoc
+// @Summary Sync product barcodes from Excel
+// @Description Upload an Excel file (.xlsx or .xls) containing product barcodes.
+//
+//	For each row:
+//	- Finds the product by material_code
+//	- If barcode exists → updates mxik and unit_code
+//	- If barcode does not exist → creates new product_barcode
+//
+// @Tags helper
+// @Security BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "Excel file (.xlsx) containing product barcode data"
+// @Success 200 {object} map[string]int "Returns counts of created and updated barcodes"
+// @Failure 400 {object} v1.Response "Bad request, e.g., invalid file or parse error"
+// @Failure 500 {object} v1.Response "Internal server error"
+// @Router /helper/sync-product-barcodes [POST]
+func (h *HelperHandler) SyncProductBarcodes(c *gin.Context) {
+	var file domain.File
+
+	if err := c.ShouldBind(&file); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+	if err := c.SaveUploadedFile(file.File, savePath); err != nil {
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+
+	xlsx, err := excelize.OpenFile(savePath)
+	if err != nil {
+		handleResponse(c, BadRequest, "Failed to open Excel file")
+		return
+	}
+	defer xlsx.Close()
+
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to get Excel rows")
+		return
+	}
+
+	var created, updated int
+
+	tx := h.db.Begin()
+
+	for _, row := range rows[1:] {
+		if len(row) < 8 {
+			continue
+		}
+
+		barcode := strings.TrimSpace(row[7])
+		if barcode == "" {
+			continue
+		}
+
+		materialCode := parseIntComma(row[1])
+		mxik := strings.TrimSpace(row[4])
+		unitCode := strings.ReplaceAll(row[6], " ", "")
+
+		var productID string
+		err := tx.Raw(`
+			SELECT id FROM products WHERE material_code = ?
+		`, materialCode).Scan(&productID).Error
+
+		if err != nil || productID == "" {
+			continue
+		}
+
+		var exists bool
+		err = tx.Raw(`
+			SELECT EXISTS(
+				SELECT 1 FROM product_barcodes 
+				WHERE product_id = ? AND barcode = ?
+			)
+		`, productID, barcode).Scan(&exists).Error
+
+		if err != nil {
+			tx.Rollback()
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+
+		if !exists {
+			// ✅ CREATE
+			err = tx.Exec(`
+				INSERT INTO product_barcodes
+				(product_id, barcode, mxik, unit_code, status, created_at)
+				VALUES (?, ?, ?, ?, 'completed', NOW())
+			`, productID, barcode, mxik, unitCode).Error
+
+			if err != nil {
+				tx.Rollback()
+				handleResponse(c, InternalError, err.Error())
+				return
+			}
+
+			created++
+		} else {
+			// ✅ UPDATE
+			err = tx.Exec(`
+				UPDATE product_barcodes
+				SET mxik = ?, unit_code = ?, updated_at = NOW()
+				WHERE product_id = ? AND barcode = ?
+			`, mxik, unitCode, productID, barcode).Error
+
+			if err != nil {
+				tx.Rollback()
+				handleResponse(c, InternalError, err.Error())
+				return
+			}
+
+			updated++
+		}
+	}
+
+	tx.Commit()
+
+	handleResponse(c, OK, gin.H{
+		"created": created,
+		"updated": updated,
+	})
+}
+
+type DuplicateBarcode struct {
+	ProductID string `json:"product_id" example:"123e4567-e89b-12d3-a456-426614174000"`
+	Barcode   string `json:"barcode" example:"1234567890123"`
+	Count     int    `json:"count" example:"2"`
+}
+
+// GetDuplicateBarcodes godoc
+// @Summary Get duplicate product barcodes
+// @Description Returns a list of product barcodes that are duplicated in the product_barcodes table.
+//
+//	Each item includes product_id, barcode, and the number of duplicates.
+//
+// @Tags helper
+// @Security BearerAuth
+// @Produce json
+// @Success 200 {array} DuplicateBarcode
+// @Failure 500 {object} v1.Response "Internal server error"
+// @Router /helper/duplicate-barcodes [GET]
+func (h *HelperHandler) GetDuplicateBarcodes(c *gin.Context) {
+
+	var results []DuplicateBarcode
+
+	err := h.db.Raw(`
+		SELECT product_id, barcode, COUNT(*) as count
+		FROM product_barcodes
+		GROUP BY product_id, barcode
+		HAVING COUNT(*) > 1
+	`).Scan(&results).Error
+
+	if err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	handleResponse(c, OK, results)
+}
+
+// DuplicateBarcodeResult struct for Swagger
+type DuplicateBarcodeResult struct {
+	ProductID string `json:"product_id" example:"123e4567-e89b-12d3-a456-426614174000"`
+	Barcode   string `json:"barcode" example:"1234567890123"`
+	Count     int    `json:"count" example:"2"`
+	Found     bool   `json:"found" example:"true"` // Excel faylda bor yoki yo'q
+}
+
+// CheckDuplicateBarcodesFromExcel godoc
+// @Summary Check duplicate barcodes from Excel
+// @Description Upload Excel file (.xlsx or .xls) with material_code and barcode.
+//
+//	Returns count of duplicates in DB and indicates whether barcode exists in Excel.
+//
+// @Tags helper
+// @Security BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "Excel file (.xlsx or .xls) containing material_code and barcode"
+// @Success 200 {array} DuplicateBarcodeResult
+// @Failure 400 {object} v1.Response "Bad request"
+// @Failure 500 {object} v1.Response "Internal server error"
+// @Router /helper/check-duplicate-barcodes [POST]
+func (h *HelperHandler) CheckDuplicateBarcodesFromExcel(c *gin.Context) {
+	var file domain.File
+
+	if err := c.ShouldBind(&file); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+	if err := c.SaveUploadedFile(file.File, savePath); err != nil {
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+
+	xlsx, err := excelize.OpenFile(savePath)
+	if err != nil {
+		handleResponse(c, BadRequest, "Failed to open Excel file")
+		return
+	}
+	defer xlsx.Close()
+
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to get Excel rows")
+		return
+	}
+
+	// Excel fayldagi material_code + barcode map
+	excelMap := make(map[string]bool)
+	for _, row := range rows[1:] { // skip header
+		if len(row) < 3 {
+			continue
+		}
+		materialCode := strings.TrimSpace(row[1])
+		barcode := strings.TrimSpace(row[2])
+		if materialCode != "" && barcode != "" {
+			key := materialCode + "|" + barcode
+			excelMap[key] = true
+		}
+	}
+
+	// DB dan duplicates
+	type DBResult struct {
+		ProductID string
+		Barcode   string
+		Count     int
+	}
+
+	var dbResults []DBResult
+	err = h.db.Raw(`
+		SELECT product_id, barcode, COUNT(*) as count
+		FROM product_barcodes
+		GROUP BY product_id, barcode
+		HAVING COUNT(*) > 1
+	`).Scan(&dbResults).Error
+	if err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	// Excel bilan solishtirish
+	var results []DuplicateBarcodeResult
+	for _, r := range dbResults {
+		key := "" // product_id dan material_code topish uchun query kerak bo'lishi mumkin
+		// Biz product_id orqali material_code olishimiz mumkin
+		var materialCode string
+		h.db.Raw("SELECT material_code FROM products WHERE id = ?", r.ProductID).Scan(&materialCode)
+		key = materialCode + "|" + r.Barcode
+
+		found := false
+		if _, ok := excelMap[key]; ok {
+			found = true
+		}
+
+		results = append(results, DuplicateBarcodeResult{
+			ProductID: r.ProductID,
+			Barcode:   r.Barcode,
+			Count:     r.Count,
+			Found:     found,
+		})
+	}
+
+	handleResponse(c, OK, results)
 }
 
 func transferIsMarking(isMarking string) bool {
