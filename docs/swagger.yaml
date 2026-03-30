@@ -2287,34 +2287,6 @@ definitions:
       store_id:
         type: string
     type: object
-  v1.DuplicateBarcode:
-    properties:
-      barcode:
-        example: "1234567890123"
-        type: string
-      count:
-        example: 2
-        type: integer
-      product_id:
-        example: 123e4567-e89b-12d3-a456-426614174000
-        type: string
-    type: object
-  v1.DuplicateBarcodeResult:
-    properties:
-      barcode:
-        example: "1234567890123"
-        type: string
-      count:
-        example: 2
-        type: integer
-      found:
-        description: Excel faylda bor yoki yo'q
-        example: true
-        type: boolean
-      product_id:
-        example: 123e4567-e89b-12d3-a456-426614174000
-        type: string
-    type: object
   v1.IntegrationErrorResponse:
     properties:
       message:
@@ -6816,108 +6788,6 @@ paths:
       summary: attach category to products
       tags:
       - helper
-  /helper/check-barcodes:
-    post:
-      consumes:
-      - multipart/form-data
-      description: Upload an Excel file (.xlsx or .xls) containing material_code,
-        unit_code, and barcode columns.
-      parameters:
-      - description: Excel file (.xlsx or .xls) with material_code, unit_code, barcode
-          columns
-        in: formData
-        name: file
-        required: true
-        type: file
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Returns count of found and not found barcodes
-          schema:
-            additionalProperties:
-              type: integer
-            type: object
-        "400":
-          description: Bad request, e.g., invalid file or parse error
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Check product barcodes from Excel
-      tags:
-      - helper
-  /helper/check-duplicate-barcodes:
-    post:
-      consumes:
-      - multipart/form-data
-      description: Upload Excel file (.xlsx or .xls) with material_code and barcode.
-      parameters:
-      - description: Excel file (.xlsx or .xls) containing material_code and barcode
-        in: formData
-        name: file
-        required: true
-        type: file
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/v1.DuplicateBarcodeResult'
-            type: array
-        "400":
-          description: Bad request
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Check duplicate barcodes from Excel
-      tags:
-      - helper
-  /helper/check-products:
-    post:
-      consumes:
-      - multipart/form-data
-      description: Upload an Excel file (.xlsx or .xls) with product material codes
-        and check which exist in the database. Skips rows with missing codes.
-      parameters:
-      - description: Excel file (.xlsx or .xls) containing product material codes
-        in: formData
-        name: file
-        required: true
-        type: file
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Returns count of found and not found products
-          schema:
-            additionalProperties:
-              type: integer
-            type: object
-        "400":
-          description: Bad request, e.g. invalid file or parse error
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Check products from Excel file
-      tags:
-      - helper
   /helper/delete-not-photos:
     delete:
       consumes:
@@ -6941,28 +6811,6 @@ paths:
       security:
       - BearerAuth: []
       summary: Upload Category Json
-      tags:
-      - helper
-  /helper/duplicate-barcodes:
-    get:
-      description: Returns a list of product barcodes that are duplicated in the product_barcodes
-        table.
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/v1.DuplicateBarcode'
-            type: array
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Get duplicate product barcodes
       tags:
       - helper
   /helper/epos:
@@ -7194,39 +7042,6 @@ paths:
       security:
       - BearerAuth: []
       summary: Set product photos
-      tags:
-      - helper
-  /helper/sync-product-barcodes:
-    post:
-      consumes:
-      - multipart/form-data
-      description: Upload an Excel file (.xlsx or .xls) containing product barcodes.
-      parameters:
-      - description: Excel file (.xlsx) containing product barcode data
-        in: formData
-        name: file
-        required: true
-        type: file
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Returns counts of created and updated barcodes
-          schema:
-            additionalProperties:
-              type: integer
-            type: object
-        "400":
-          description: Bad request, e.g., invalid file or parse error
-          schema:
-            $ref: '#/definitions/v1.Response'
-        "500":
-          description: Internal server error
-          schema:
-            $ref: '#/definitions/v1.Response'
-      security:
-      - BearerAuth: []
-      summary: Sync product barcodes from Excel
       tags:
       - helper
   /helper/update-product-image:
@@ -7477,13 +7292,13 @@ paths:
       summary: Upload pharmacy info excel
       tags:
       - helper
-  /helper/upload-product_barcodes:
+  /helper/upload-product-barcodes:
     post:
       consumes:
       - multipart/form-data
-      description: Update product_barcodes table only. Skip rows with empty barcode.
+      description: Upload product barcodes excel
       parameters:
-      - description: Excel file (.xlsx) containing product data
+      - description: Excel file (.xlsx) containing product barcodes
         in: formData
         name: file
         required: true
@@ -7505,7 +7320,7 @@ paths:
             $ref: '#/definitions/v1.Response'
       security:
       - BearerAuth: []
-      summary: Upload product barcodes from Excel
+      summary: Upload product barcodes excel
       tags:
       - helper
   /helper/upload-tax-products:

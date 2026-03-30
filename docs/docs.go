@@ -7048,162 +7048,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/helper/check-barcodes": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Upload an Excel file (.xlsx or .xls) containing material_code, unit_code, and barcode columns.",
-                "consumes": [
-                    "multipart/form-data"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "helper"
-                ],
-                "summary": "Check product barcodes from Excel",
-                "parameters": [
-                    {
-                        "type": "file",
-                        "description": "Excel file (.xlsx or .xls) with material_code, unit_code, barcode columns",
-                        "name": "file",
-                        "in": "formData",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Returns count of found and not found barcodes",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "integer"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad request, e.g., invalid file or parse error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/helper/check-duplicate-barcodes": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Upload Excel file (.xlsx or .xls) with material_code and barcode.",
-                "consumes": [
-                    "multipart/form-data"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "helper"
-                ],
-                "summary": "Check duplicate barcodes from Excel",
-                "parameters": [
-                    {
-                        "type": "file",
-                        "description": "Excel file (.xlsx or .xls) containing material_code and barcode",
-                        "name": "file",
-                        "in": "formData",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/v1.DuplicateBarcodeResult"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad request",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/helper/check-products": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Upload an Excel file (.xlsx or .xls) with product material codes and check which exist in the database. Skips rows with missing codes.",
-                "consumes": [
-                    "multipart/form-data"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "helper"
-                ],
-                "summary": "Check products from Excel file",
-                "parameters": [
-                    {
-                        "type": "file",
-                        "description": "Excel file (.xlsx or .xls) containing product material codes",
-                        "name": "file",
-                        "in": "formData",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Returns count of found and not found products",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "integer"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad request, e.g. invalid file or parse error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            }
-        },
         "/helper/delete-not-photos": {
             "delete": {
                 "security": [
@@ -7237,40 +7081,6 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/helper/duplicate-barcodes": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Returns a list of product barcodes that are duplicated in the product_barcodes table.",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "helper"
-                ],
-                "summary": "Get duplicate product barcodes",
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/v1.DuplicateBarcode"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
                         }
@@ -7633,58 +7443,6 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    }
-                }
-            }
-        },
-        "/helper/sync-product-barcodes": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Upload an Excel file (.xlsx or .xls) containing product barcodes.",
-                "consumes": [
-                    "multipart/form-data"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "helper"
-                ],
-                "summary": "Sync product barcodes from Excel",
-                "parameters": [
-                    {
-                        "type": "file",
-                        "description": "Excel file (.xlsx) containing product barcode data",
-                        "name": "file",
-                        "in": "formData",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Returns counts of created and updated barcodes",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "integer"
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad request, e.g., invalid file or parse error",
-                        "schema": {
-                            "$ref": "#/definitions/v1.Response"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
                         "schema": {
                             "$ref": "#/definitions/v1.Response"
                         }
@@ -8084,14 +7842,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/helper/upload-product_barcodes": {
+        "/helper/upload-product-barcodes": {
             "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Update product_barcodes table only. Skip rows with empty barcode.",
+                "description": "Upload product barcodes excel",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -8101,11 +7859,11 @@ const docTemplate = `{
                 "tags": [
                     "helper"
                 ],
-                "summary": "Upload product barcodes from Excel",
+                "summary": "Upload product barcodes excel",
                 "parameters": [
                     {
                         "type": "file",
-                        "description": "Excel file (.xlsx) containing product data",
+                        "description": "Excel file (.xlsx) containing product barcodes",
                         "name": "file",
                         "in": "formData",
                         "required": true
@@ -31698,45 +31456,6 @@ const docTemplate = `{
                 },
                 "store_id": {
                     "type": "string"
-                }
-            }
-        },
-        "v1.DuplicateBarcode": {
-            "type": "object",
-            "properties": {
-                "barcode": {
-                    "type": "string",
-                    "example": "1234567890123"
-                },
-                "count": {
-                    "type": "integer",
-                    "example": 2
-                },
-                "product_id": {
-                    "type": "string",
-                    "example": "123e4567-e89b-12d3-a456-426614174000"
-                }
-            }
-        },
-        "v1.DuplicateBarcodeResult": {
-            "type": "object",
-            "properties": {
-                "barcode": {
-                    "type": "string",
-                    "example": "1234567890123"
-                },
-                "count": {
-                    "type": "integer",
-                    "example": 2
-                },
-                "found": {
-                    "description": "Excel faylda bor yoki yo'q",
-                    "type": "boolean",
-                    "example": true
-                },
-                "product_id": {
-                    "type": "string",
-                    "example": "123e4567-e89b-12d3-a456-426614174000"
                 }
             }
         },
