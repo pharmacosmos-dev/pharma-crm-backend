@@ -303,7 +303,7 @@ func (h *HelperHandler) UploadMxik(c *gin.Context) {
 		h.log.Errorf("Failed to get rows: %v", err)
 		handleResponse(c, InternalError, "Failed to get rows")
 		return
-	}
+	}	
 	now := time.Now()
 	// build query
 	query := `
@@ -620,18 +620,22 @@ func (h *HelperHandler) CheckBarcodesFromExcel(c *gin.Context) {
 // @Router /helper/sync-product-barcodes [POST]
 func (h *HelperHandler) SyncProductBarcodes(c *gin.Context) {
 	var file domain.File
+	var created, updated int
 
+	// 1️⃣ Requestdan faylni olish
 	if err := c.ShouldBind(&file); err != nil {
 		handleResponse(c, BadRequest, err.Error())
 		return
 	}
 
+	// 2️⃣ Fayl formatini tekshirish
 	ext := filepath.Ext(file.File.Filename)
 	if ext != ".xlsx" && ext != ".xls" {
 		handleResponse(c, BadRequest, "Unsupported file format")
 		return
 	}
 
+	// 3️⃣ Faylni serverga saqlash
 	newFilename := uuid.New().String() + ext
 	savePath := filepath.Join("uploads", newFilename)
 	if err := c.SaveUploadedFile(file.File, savePath); err != nil {
@@ -639,6 +643,7 @@ func (h *HelperHandler) SyncProductBarcodes(c *gin.Context) {
 		return
 	}
 
+	// 4️⃣ Excelni ochish
 	xlsx, err := excelize.OpenFile(savePath)
 	if err != nil {
 		handleResponse(c, BadRequest, "Failed to open Excel file")
@@ -653,33 +658,33 @@ func (h *HelperHandler) SyncProductBarcodes(c *gin.Context) {
 		return
 	}
 
-	var created, updated int
-
+	// 5️⃣ Transaction boshlash
 	tx := h.db.Begin()
 
+	// 6️⃣ Har bir rowni tekshirish va insert/update qilish
 	for _, row := range rows[1:] {
-		if len(row) < 8 {
+		if len(row) <= 8 { // row yetarli uzunlikda bo'lishi kerak
 			continue
 		}
 
-		barcode := strings.TrimSpace(row[7])
+		barcode := strings.TrimSpace(row[5])
 		if barcode == "" {
 			continue
 		}
 
 		materialCode := parseIntComma(row[1])
-		mxik := strings.TrimSpace(row[4])
-		unitCode := strings.ReplaceAll(row[6], " ", "")
+		mxik := strings.TrimSpace(row[3])
+		unitCode := strings.ReplaceAll(row[7], " ", "")
 
+
+		// 7️⃣ Product IDni olish
 		var productID string
-		err := tx.Raw(`
-			SELECT id FROM products WHERE material_code = ?
-		`, materialCode).Scan(&productID).Error
-
+		err := tx.Raw(`SELECT id FROM products WHERE material_code = ?`, materialCode).Scan(&productID).Error
 		if err != nil || productID == "" {
 			continue
 		}
 
+		// 8️⃣ Product_barcodesda mavjudligini tekshirish
 		var exists bool
 		err = tx.Raw(`
 			SELECT EXISTS(
@@ -687,48 +692,46 @@ func (h *HelperHandler) SyncProductBarcodes(c *gin.Context) {
 				WHERE product_id = ? AND barcode = ?
 			)
 		`, productID, barcode).Scan(&exists).Error
-
 		if err != nil {
 			tx.Rollback()
 			handleResponse(c, InternalError, err.Error())
 			return
 		}
 
+		// 9️⃣ CREATE yoki UPDATE
 		if !exists {
-			// ✅ CREATE
+			// CREATE
 			err = tx.Exec(`
 				INSERT INTO product_barcodes
 				(product_id, barcode, mxik, unit_code, status, created_at)
 				VALUES (?, ?, ?, ?, 'completed', NOW())
 			`, productID, barcode, mxik, unitCode).Error
-
 			if err != nil {
 				tx.Rollback()
 				handleResponse(c, InternalError, err.Error())
 				return
 			}
-
 			created++
 		} else {
-			// ✅ UPDATE
+			// UPDATE
 			err = tx.Exec(`
 				UPDATE product_barcodes
 				SET mxik = ?, unit_code = ?, updated_at = NOW()
 				WHERE product_id = ? AND barcode = ?
 			`, mxik, unitCode, productID, barcode).Error
-
 			if err != nil {
 				tx.Rollback()
 				handleResponse(c, InternalError, err.Error())
 				return
 			}
-
 			updated++
 		}
 	}
 
+	// 10️⃣ Transactionni commit qilish
 	tx.Commit()
 
+	// 11️⃣ Natijani qaytarish
 	handleResponse(c, OK, gin.H{
 		"created": created,
 		"updated": updated,
@@ -896,15 +899,36 @@ func transferIsMarking(isMarking string) bool {
 }
 
 func (h *HelperHandler) updateStoreProductMxik(now time.Time) {
-	err := h.db.Exec(`
-	UPDATE store_products sp
-	SET mxik = p.mxik, unit_code = p.unit_code, unit_label = p.unit_label, is_marking = p.is_marking, updated_at = now()
-	FROM products p
-	WHERE sp.product_id = p.id AND sp.unit_quantity > 0 AND p.updated_at >= ?;
-	`, now).Error
-	if err != nil {
-		h.log.Errorf("could not update store product mxik: %v", err)
+	query := `
+		UPDATE store_products sp
+		SET mxik = p.mxik,
+			unit_code = p.unit_code,
+			unit_label = p.unit_label,
+			is_marking = p.is_marking,
+			barcode = p.barcode,
+			updated_at = now()
+		FROM products p
+		WHERE sp.product_id = p.id
+		AND sp.unit_quantity > 0
+		AND p.updated_at >= ?;
+	`
+
+	result := h.db.Exec(query, now)
+	if result.Error != nil {
+		h.log.Errorf("could not update store product mxik: %v", result.Error)
+		return
 	}
+
+	h.log.Infof("Rows affected in store_products: %d", result.RowsAffected)
+	// err := h.db.Exec(`
+	// UPDATE store_products sp
+	// SET mxik = p.mxik, unit_code = p.unit_code, unit_label = p.unit_label, is_marking = p.is_marking, barcode = p.barcode, updated_at = now()
+	// FROM products p
+	// WHERE sp.product_id = p.id AND sp.unit_quantity > 0 AND p.updated_at >= now() - interval '5 minute'; 
+	// `).Error
+	// if err != nil {
+	// 	h.log.Errorf("could not update store product mxik: %v", err)
+	// }
 }
 
 // Epos transmitter godoc
