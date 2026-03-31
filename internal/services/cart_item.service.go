@@ -164,7 +164,7 @@ func (s *Services) FetchCartItems(ctx context.Context, saleId string, limit, off
 		ci.updated_at,
 		p.name,
 		p.id as product_id,
-		pbr.barcode,
+		COALESCE(pbr.barcode, p.barcode) AS barcode,
 		p.unit_per_pack,
 		sp.is_marking,
 		sp.is_checking,
@@ -198,7 +198,13 @@ func (s *Services) FetchCartItems(ctx context.Context, saleId string, limit, off
 		JOIN ci_amount ON ci.id = ci_amount.ci_id
 		JOIN store_products sp ON ci.store_product_id = sp.id
 		JOIN products p ON sp.product_id = p.id
-		JOIN product_barcodes pbr ON p.id = pbr.product_id
+		LEFT JOIN LATERAL (
+			SELECT barcode
+			FROM product_barcodes pb
+			WHERE pb.product_id = p.id
+			ORDER BY pb.id ASC
+			LIMIT 1
+		) pbr ON true
 		LEFT JOIN unit_types u ON p.unit_type_id = u.id
 		LEFT JOIN shelves sh ON p.shelf_id = sh.id
 		LEFT JOIN product_bonuses pb ON p.id = pb.product_id
