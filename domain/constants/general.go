@@ -57,8 +57,8 @@ var (
 
 // Roles slices
 var (
-	AllAdminRoles       = []string{RoleAdmin, RoleSuperAdmin, RoleFounder, RoleAccountant, RoleDirector, RoleAutoZakaz, RoleManager}
-	StoreTargetViewAll  = []string{RoleAdmin, RoleSuperAdmin, RoleFounder, RoleDirector, RoleManager}
+	AllAdminRoles      = []string{RoleAdmin, RoleSuperAdmin, RoleFounder, RoleAccountant, RoleDirector, RoleAutoZakaz, RoleManager}
+	StoreTargetViewAll = []string{RoleAdmin, RoleSuperAdmin, RoleFounder, RoleDirector, RoleManager}
 )
 
 // region Stages
@@ -81,6 +81,7 @@ var (
 	PendingSaleStages   = []int{SaleStageNew, SaleStagePending, SaleStageReturning}
 	OnlinePendingStages = []int{SaleOnlineStageNew, SaleOnlineStagePending, SaleOnlineStageWaiting}
 	SaleOnlineStages    = []int{SaleOnlineStageNew, SaleOnlineStagePending, SaleOnlineStageCanceled, SaleOnlineStageCompleted, SaleOnlineStageWaiting}
+	NotFishishedStages  = []int{SaleStageNew, SaleStagePending, SaleStageDrafted, SaleStageOfdWaiting, SaleStageOfdCancelled, SaleStageOfdSent, SaleStagePayWaiting, SaleStageReturning}
 )
 
 var SaleStages = map[int]map[string]string{
