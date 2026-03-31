@@ -750,12 +750,7 @@ func (s *Services) GetProductsForSearch(ctx context.Context, params *domain.Stor
 	}
 
 	if params.Search != "" && searchType == "barcode" {
-		for i, field := range selectFields {
-			if field == "p.barcode" {
-				selectFields[i] = "pbr.barcode AS barcode"
-				break
-			}
-		}
+		selectFields = append(selectFields, "pbr.barcode AS barcode")
 	}
 
 	qb := s.db.WithContext(ctx).
