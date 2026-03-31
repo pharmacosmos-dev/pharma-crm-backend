@@ -53,7 +53,7 @@ type Sale struct {
 
 type SaleQueryParams struct {
 	StoreId         string      `form:"store_id"`
-	StoreIds    	[]string    `form:"store_ids"`
+	StoreIds        []string    `form:"store_ids"`
 	CompanyId       string      `form:"company_id"`
 	Search          string      `form:"search"`
 	StartDate       *CustomTime `form:"start_date" validate:"date"`
@@ -430,6 +430,7 @@ type BarcodeResponse struct {
 	Barcode     string `gorm:"column:barcode" json:"barcode"`
 	ClassCode   string `gorm:"column:mxik" json:"classCode"`
 	PackageCode string `gorm:"column:unit_code" json:"packageCode"`
+	PackageName string `gorm:"column:package_name" json:"packageName"`
 }
 
 type MarkingItemsResponse struct {
