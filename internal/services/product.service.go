@@ -726,7 +726,7 @@ func (s *Services) GetProductsForSearch(ctx context.Context, params *domain.Stor
 		"sp.updated_at",
 
 		"p.name",
-		"p.barcode",
+		"b.barcode",
 		"p.unit_per_pack",
 
 		"pr.name AS producer_name",
@@ -749,10 +749,20 @@ func (s *Services) GetProductsForSearch(ctx context.Context, params *domain.Stor
 		selectFields = append(selectFields, "NULL AS similarity_score")
 	}
 
+	if params.Search != "" && searchType == "barcode" {
+		for i, field := range selectFields {
+			if field == "p.barcode" {
+				selectFields[i] = "pbr.barcode AS barcode"
+				break
+			}
+		}
+	}
+
 	qb := s.db.WithContext(ctx).
 		Select(strings.Join(selectFields, ", ")).
 		Table("store_products sp").
 		Joins("JOIN products p ON sp.product_id = p.id").
+		Joins("LEFT JOIN product_barcodes b ON p.id = b.product_id").
 		Joins("LEFT JOIN producers pr ON p.producer_id = pr.id").
 		Joins("LEFT JOIN product_bonuses pb ON pb.product_id = p.id").
 		Where("sp.store_id = ? AND sp.unit_quantity > 0", params.StoreId)
@@ -760,13 +770,8 @@ func (s *Services) GetProductsForSearch(ctx context.Context, params *domain.Stor
 	if params.Search != "" {
 		switch searchType {
 		case "barcode":
-			qb = qb.Where(`
-				EXISTS (
-					SELECT 1
-					FROM product_barcodes pbr
-					WHERE pbr.product_id = p.id
-					AND pbr.barcode LIKE ?
-				)`, "%"+params.Search+"%").
+			qb = qb.Joins("JOIN product_barcodes pbr ON pbr.product_id = p.id").
+				Where("pbr.barcode LIKE ?", "%"+params.Search+"%").
 				Order("sp.expire_date ASC")
 
 		case "marking":
