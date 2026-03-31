@@ -53,7 +53,7 @@ type Sale struct {
 
 type SaleQueryParams struct {
 	StoreId         string      `form:"store_id"`
-	StoreIds    	[]string    `form:"store_ids"`
+	StoreIds        []string    `form:"store_ids"`
 	CompanyId       string      `form:"company_id"`
 	Search          string      `form:"search"`
 	StartDate       *CustomTime `form:"start_date" validate:"date"`

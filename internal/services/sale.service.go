@@ -2387,31 +2387,38 @@ func (s *Services) GetDatasByMarkings(ctx context.Context, tx *gorm.DB, markings
 						Limit(1).
 						Scan(&br).Error
 					if err != nil {
+						s.log.Error("could not get barcode by marking_barcode: %v", err)
 						return nil, err
 					}
+
+					if br.Id == "" {
+						err = tx.Table("product_barcodes pb").
+							Select("pb.id, pb.barcode, pb.mxik, pb.unit_code").
+							Where("pb.product_id = ? AND pb.status = 'completed' AND pb.mxik is not null AND pb.unit_code is not null ", cartItem.ProductId).
+							Order("pb.created_at desc").
+							Limit(1).
+							Scan(&br).Error
+						if err != nil {
+							s.log.Error("could not get barcode by product_id: %v", err)
+							return nil, err
+						}
+					}
+
 					br.CartItemId = m.Id
 					items = append(items, br)
 				}
 			}
 		} else {
-			// 3. Agar MarkingList bo‘lmasa → store_product_id orqali barcode topamiz
-			var productID string
-			err = tx.Table("store_products").
-				Select("product_id").
-				Where("id = ?", cartItem.StoreProductId).
-				Scan(&productID).Error
-			if err != nil {
-				return nil, err
-			}
 
 			var br domain.BarcodeResponse
 			err = tx.Table("product_barcodes pb").
 				Select("pb.id, pb.barcode, pb.mxik, pb.unit_code").
-				Where("pb.product_id = ? AND pb.status = 'completed' AND pb.mxik is not null AND pb.unit_code is not null ", productID).
+				Where("pb.product_id = ? AND pb.status = 'completed' AND pb.mxik is not null AND pb.unit_code is not null ", cartItem.ProductId).
 				Order("pb.created_at desc").
 				Limit(1).
 				Scan(&br).Error
 			if err != nil {
+				s.log.Error("could not get barcode by product_id: %v", err)
 				return nil, err
 			}
 			br.CartItemId = m.Id
