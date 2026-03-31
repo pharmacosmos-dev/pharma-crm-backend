@@ -382,7 +382,7 @@ func (s *Services) FinalizeSale(ctx context.Context, req *domain.FinalSale) (*do
 	if req.TaxFree {
 		sale = s.getSalePayAmounts(sale, req)
 		if sale.Stage < constants.SaleStagePayFinished {
-			payCtx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+			payCtx, cancel := context.WithTimeout(context.Background(), time.Second*60)
 			defer cancel()
 			err = s.Payment(payCtx, tx, sale, nil)
 			if err != nil {
