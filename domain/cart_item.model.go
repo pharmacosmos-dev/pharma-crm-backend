@@ -26,6 +26,7 @@ type CartItem struct {
 	UnitPerPack    int               `gorm:"column:unit_per_pack" json:"unit_per_pack"`
 	CreatedAt      *time.Time        `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt      *time.Time        `gorm:"column:updated_at" json:"updated_at"`
+	Barcode        string            `gorm:"column:barcode" json:"barcode"`
 	IsMarking      bool              `gorm:"column:is_marking" json:"is_marking"`
 	SkipAutoOrder  bool              `gorm:"skip_auto_order" json:"skip_auto_order"`
 }
@@ -199,6 +200,7 @@ type CartItemWithProduct struct {
 	UnitPerPack              int               `gorm:"column:unit_per_pack" json:"unit_per_pack"`
 	CreatedAt                *time.Time        `gorm:"column:created_at" json:"created_at"`
 	UpdatedAt                *time.Time        `gorm:"column:updated_at" json:"updated_at"`
+	Barcode                  string            `gorm:"column:barcode" json:"barcode"`
 	IsMarking                bool              `gorm:"column:is_marking" json:"is_marking"`
 	ProductName              string            `gorm:"column:product_name"`
 	StoreProductUnitQuantity int               `gorm:"column:sp_unit_quantity"`

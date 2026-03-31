@@ -2413,7 +2413,7 @@ func (s *Services) GetDatasByMarkings(ctx context.Context, tx *gorm.DB, markings
 			var br domain.BarcodeResponse
 			err = tx.Table("product_barcodes pb").
 				Select("pb.id, pb.barcode, pb.mxik, pb.unit_code").
-				Where("pb.product_id = ? AND pb.status = 'completed' AND pb.mxik is not null AND pb.unit_code is not null ", cartItem.ProductId).
+				Where("pb.barcode = ? AND pb.status = 'completed' AND pb.mxik is not null AND pb.unit_code is not null ", cartItem.Barcode).
 				Order("pb.created_at desc").
 				Limit(1).
 				Scan(&br).Error
