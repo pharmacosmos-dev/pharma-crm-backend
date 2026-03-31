@@ -430,7 +430,6 @@ type BarcodeResponse struct {
 	Barcode     string `gorm:"column:barcode" json:"barcode"`
 	ClassCode   string `gorm:"column:mxik" json:"classCode"`
 	PackageCode string `gorm:"column:unit_code" json:"packageCode"`
-	PackageName string `gorm:"column:package_name" json:"packageName"`
 }
 
 type MarkingItemsResponse struct {
