@@ -2366,7 +2366,7 @@ func (s *Services) GetDatasByMarkings(ctx context.Context, tx *gorm.DB, markings
 		// 1. cart_items ni olib kelamiz
 		var cartItem domain.CartItem
 		err = tx.Table("cart_items").
-			Select("id, store_product_id, quantity, unit_quantity, product_id").
+			Select("id, store_product_id, quantity, unit_quantity, product_id, barcode").
 			Where("id = ?", m.Id).
 			Scan(&cartItem).Error
 		if err != nil {
