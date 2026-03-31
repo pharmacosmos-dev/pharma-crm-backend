@@ -613,7 +613,7 @@ func (s *Services) UpdateCartItemQuantity(ctx context.Context, req *domain.CartI
 	}
 
 	// check sale status
-	if !utils.In(sale.Stage, constants.PendingSaleStages...) {
+	if !utils.In(sale.Stage, constants.NotFishishedStages...) {
 		_ = tx.Rollback()
 		return nil, domain.SaleIsClosedError
 	}
@@ -853,7 +853,7 @@ func (s *Services) DeleteCartItem(ctx context.Context, id string) error {
 	}
 
 	// check sale stage
-	if !utils.In(sale.Stage, constants.PendingSaleStages...) {
+	if !utils.In(sale.Stage, constants.NotFishishedStages...) {
 		_ = tx.Rollback()
 		return domain.SaleIsClosedError
 	}
