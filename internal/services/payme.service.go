@@ -249,7 +249,7 @@ func (s *Services) newPaymePayloadWrapper(ctx context.Context, method, saleId st
 	// Create payload
 	payload := domain.PaymePayloadWrapper[any]{Method: method, Params: params}
 
-	id, err := s.createPaymeRequestInDb(ctx, payload, saleId)
+	id, err := s.createPaymeRequestInDb(payload, saleId)
 	if err != nil {
 		return payload, err
 	}
@@ -259,7 +259,7 @@ func (s *Services) newPaymePayloadWrapper(ctx context.Context, method, saleId st
 	return payload, nil
 }
 
-func (s *Services) createPaymeRequestInDb(ctx context.Context, payload domain.PaymePayloadWrapper[any], saleId string) (int, error) {
+func (s *Services) createPaymeRequestInDb(payload domain.PaymePayloadWrapper[any], saleId string) (int, error) {
 	var seqId int
 
 	// Prepare payload
@@ -270,7 +270,7 @@ func (s *Services) createPaymeRequestInDb(ctx context.Context, payload domain.Pa
 	}
 	query := `
 	INSERT INTO payment_requests (method, payload, transaction_id, payment_provider) VALUES (?, ?, ?, ?) RETURNING seq_id`
-	err = s.db.WithContext(ctx).Raw(
+	err = s.db.Raw(
 		query,
 		payload.Method,
 		payloadDb,
@@ -286,7 +286,7 @@ func (s *Services) createPaymeRequestInDb(ctx context.Context, payload domain.Pa
 }
 
 func (s *Services) updatePaymeRequestInDb(ctx context.Context, id int, response []byte, method string) error {
-	err := s.db.WithContext(ctx).Exec(
+	err := s.db.Exec(
 		"UPDATE payment_requests SET response = ? WHERE seq_id = ? AND method = ?",
 		response, id, method,
 	).Error
