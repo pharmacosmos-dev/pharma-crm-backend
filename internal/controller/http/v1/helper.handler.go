@@ -46,6 +46,7 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		helper.POST("/upload-mxik", h.UploadMxik)
 		helper.POST("/epos", h.EposTransmitter)
 		helper.POST("/upload-product-barcodes", h.UploadProductBarcodes)
+		helper.POST("/upload-store-products", h.UploadStoreProducts)
 		// helper.POST("/upload-category", h.UploadCategory)
 		// helper.POST("/upload-customer", h.UploadCustomer)
 		// helper.POST("/upload-import", h.UploadImport)
@@ -443,6 +444,106 @@ func (h *HelperHandler) UploadProductBarcodes(c *gin.Context) {
 
 	handleResponse(c, OK, gin.H{
 		"created": created,
+		"updated": updated,
+	})
+}
+
+// UploadStoreProductUpdate godoc
+// @Summary Upload store products update excel
+// @Description Update store_products from excel
+// @Tags helper
+// @Security BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "Excel file (.xlsx)"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /helper/upload-store-products [POST]
+func (h *HelperHandler) UploadStoreProducts(c *gin.Context) {
+	var file domain.File
+	if err := c.ShouldBind(&file); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+
+	if err := c.SaveUploadedFile(file.File, savePath); err != nil {
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+
+	xlsx, err := excelize.OpenFile(savePath)
+	if err != nil {
+		handleResponse(c, BadRequest, "Failed to open Excel file")
+		return
+	}
+	defer xlsx.Close()
+
+	sheetName := xlsx.GetSheetName(0)
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to get rows")
+		return
+	}
+
+	tx := h.db.Begin()
+	updated := 0
+	now := time.Now()
+
+	for _, row := range rows[1:] {
+		if len(row) <= 8 {
+			continue
+		}
+
+		materialCode := parseIntComma(row[1])
+		mxik := strings.TrimSpace(row[3])
+		barcode := strings.TrimSpace(row[5])
+		unitCode := strings.ReplaceAll(row[7], " ", "")
+
+		if barcode == "" {
+			continue
+		}
+
+		var productID string
+		err := tx.Raw(`SELECT id FROM products WHERE material_code = ?`, materialCode).
+			Scan(&productID).Error
+		if err != nil || productID == "" {
+			h.log.Warnf("Product not found: %v", materialCode)
+			continue
+		}
+
+		// ✅ UPDATE store_products
+		err = tx.Exec(`
+			UPDATE store_products
+			SET mxik = ?, 
+			    unit_code = ?, 
+			    barcode = ?, 
+			    updated_at = ?
+			WHERE product_id = ?
+			AND unit_quantity > 0
+		`, mxik, unitCode, barcode, now, productID).Error
+
+		if err != nil {
+			tx.Rollback()
+			handleResponse(c, InternalError, err.Error())
+			return
+		}
+
+		updated++
+	}
+
+	tx.Commit()
+
+	handleResponse(c, OK, gin.H{
 		"updated": updated,
 	})
 }
