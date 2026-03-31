@@ -2362,7 +2362,7 @@ func (s *Services) GetDatasByMarkings(ctx context.Context, tx *gorm.DB, markings
 		// 1. cart_items ni olib kelamiz
 		var cartItem domain.CartItem
 		err = tx.Table("cart_items").
-			Select("id, store_product_id, quantity, unit_quantity").
+			Select("id, store_product_id, quantity, unit_quantity, product_id").
 			Where("id = ?", m.Id).
 			Scan(&cartItem).Error
 		if err != nil {
@@ -2383,6 +2383,7 @@ func (s *Services) GetDatasByMarkings(ctx context.Context, tx *gorm.DB, markings
 						Limit(1).
 						Scan(&br).Error
 					if err != nil {
+						s.log.Error("could not get barcode by marking_barcode: %v", err)
 						return nil, err
 					}
 
@@ -2394,6 +2395,7 @@ func (s *Services) GetDatasByMarkings(ctx context.Context, tx *gorm.DB, markings
 							Limit(1).
 							Scan(&br).Error
 						if err != nil {
+							s.log.Error("could not get barcode by product_id: %v", err)
 							return nil, err
 						}
 					}
@@ -2412,6 +2414,7 @@ func (s *Services) GetDatasByMarkings(ctx context.Context, tx *gorm.DB, markings
 				Limit(1).
 				Scan(&br).Error
 			if err != nil {
+				s.log.Error("could not get barcode by product_id: %v", err)
 				return nil, err
 			}
 			br.CartItemId = m.Id
