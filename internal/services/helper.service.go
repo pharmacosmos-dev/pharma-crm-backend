@@ -136,3 +136,101 @@ func (s *Services) ConvenrtTimeAsiaTashkent(timeStr string) (time.Time, error) {
 	}
 	return dateTime.Add(constants.DateTimeTashkent), nil
 }
+
+
+// normalizeEposResponse ikki xil formatni bitta JSON string ga keltiradi.
+// Format 1: {"error":false,"message":{...fiscal...}}
+// Format 2: {"data":{"exists":true,"receipt":{...fiscal...}},"error":false}
+// req.Error ni ham shu yerda set qiladi (outer yoki inner error).
+func (s *Services) normalizeEposResponse(req *domain.EposResponseRequest) (string, error) {
+    // response_data -> []byte
+    var raw []byte
+    switch v := req.ResponseData.(type) {
+    case string:
+        raw = []byte(v)
+    default:
+        b, err := json.Marshal(v)
+        if err != nil {
+            return "", domain.BadRequestError
+        }
+        raw = b
+    }
+    req.Response = raw
+
+    // Umumiy wrapper parse
+    var wrapper struct {
+        Error   bool            `json:"error"`
+        Message json.RawMessage `json:"message"` // Format 1
+        Data    *struct {
+            Exists  bool            `json:"exists"`
+            Receipt json.RawMessage `json:"receipt"`
+        } `json:"data"` // Format 2
+    }
+
+    if err := json.Unmarshal(raw, &wrapper); err != nil {
+        s.log.Errorf("normalizeEposResponse: unmarshal failed: %v", err)
+        return "", domain.BadRequestError
+    }
+
+    // Outer error flag
+    if wrapper.Error {
+        req.Error = true
+        return "", nil
+    }
+
+    // Format 2: {"data":{"exists":true,"receipt":{...}}}
+    if wrapper.Data != nil {
+        if !wrapper.Data.Exists || wrapper.Data.Receipt == nil {
+            req.Error = true
+            return "", nil
+        }
+        // receipt field nomlari snake_case — DecodeFiscalData uchun normalize
+        return s.normalizeReceiptFields(wrapper.Data.Receipt)
+    }
+
+    // Format 1: {"message":{...}} yoki {"message":"ERROR_STRING"}
+    if wrapper.Message != nil {
+        // message string bo'lsa (xato holat)
+        var msgStr string
+        if json.Unmarshal(wrapper.Message, &msgStr) == nil {
+            s.log.Warnf("epos message is error string: %s", msgStr)
+            req.Error = true
+            return "", nil
+        }
+        return string(wrapper.Message), nil
+    }
+
+    s.log.Error("normalizeEposResponse: unrecognized format")
+    return "", domain.BadRequestError
+}
+
+// normalizeReceiptFields Format-2 receipt (snake_case) -> Format-1 ga o'xshash camelCase
+func (s *Services) normalizeReceiptFields(raw json.RawMessage) (string, error) {
+    var r struct {
+        FiscalSign string `json:"fiscal_sign"`
+        QrCodeUrl  string `json:"qr_code_url"`
+        DateTime   string `json:"date_time"`
+        ReceiptSeq any    `json:"receipt_seq"`
+        TerminalId string `json:"terminal_id"`
+        Cash       string `json:"cash"`
+        Card       string `json:"card"`
+    }
+    if err := json.Unmarshal(raw, &r); err != nil {
+        return "", domain.BadRequestError
+    }
+
+    normalized := map[string]any{
+        "fiscalSign": r.FiscalSign,
+        "qrCodeURL":  r.QrCodeUrl,
+        "dateTime":   r.DateTime,
+        "receiptSeq": r.ReceiptSeq,
+        "terminalId": r.TerminalId,
+        "cash":       r.Cash,
+        "card":       r.Card,
+    }
+    b, err := json.Marshal(normalized)
+    if err != nil {
+        return "", domain.InternalServerError
+    }
+    return string(b), nil
+}

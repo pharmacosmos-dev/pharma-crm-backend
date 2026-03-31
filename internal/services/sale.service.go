@@ -599,9 +599,13 @@ func (s *Services) FinalizeReturnSale(ctx context.Context, tx *gorm.DB, req *dom
 // epos result
 func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseRequest, user *domain.EmployeeClaims) (*domain.Sale, error) {
 	// Ensure response_data is a string
-	responseDataStr, ok := req.ResponseData.(string)
-	if !ok {
-		s.log.Error("response_data is not a valid string")
+	// responseDataStr, ok := req.ResponseData.(string)
+	responseDataStr, err := s.normalizeEposResponse(req)
+	// if !ok {
+	// 	s.log.Error("response_data is not a valid string")
+	// 	return nil, domain.BadRequestError
+	// }
+	if err != nil {
 		return nil, domain.BadRequestError
 	}
 
@@ -2362,7 +2366,7 @@ func (s *Services) GetDatasByMarkings(ctx context.Context, tx *gorm.DB, markings
 		// 1. cart_items ni olib kelamiz
 		var cartItem domain.CartItem
 		err = tx.Table("cart_items").
-			Select("id, store_product_id, quantity, unit_quantity").
+			Select("id, store_product_id, quantity, unit_quantity, product_id").
 			Where("id = ?", m.Id).
 			Scan(&cartItem).Error
 		if err != nil {
