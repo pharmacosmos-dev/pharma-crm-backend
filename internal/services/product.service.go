@@ -408,176 +408,6 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 	return res, totalCount, nil
 }
 
-func (s *Services) GetProductsV2(ctx context.Context, params *domain.ProductQueryParam) ([]domain.ProductData, int64, error) {
-
-	// ---------- STORE JOIN (FILTER BILAN) ----------
-	storeJoin := `
-	LEFT JOIN (
-		SELECT 
-			product_id,
-			SUM(unit_quantity) as total_quantity,
-			MIN(expire_date) FILTER (WHERE unit_quantity > 0) as min_expire_date,
-			MAX(supply_price) AS supply_price,
-			MAX(retail_price) AS retail_price
-		FROM store_products
-	`
-
-	var joinArgs []interface{}
-
-	if len(params.StoreIds) > 0 {
-		storeJoin += " WHERE store_id IN (?)"
-		joinArgs = append(joinArgs, params.StoreIds)
-	} else if params.StoreId != "" {
-		storeJoin += " WHERE store_id = ?"
-		joinArgs = append(joinArgs, params.StoreId)
-	}
-
-	storeJoin += `
-		GROUP BY product_id
-	) sp_agg ON p.id = sp_agg.product_id
-	`
-
-	// ---------- BASE QUERY ----------
-	qb := s.db.WithContext(ctx).
-		Table("products p").
-		Joins(storeJoin, joinArgs...).
-		Joins("LEFT JOIN producers pr ON p.producer_id = pr.id").
-		Joins("LEFT JOIN categories c ON p.category_id = c.id").
-		Joins("LEFT JOIN product_barcodes pb ON p.id = pb.product_id AND pb.status = ?", constants.GeneralStatusCompleted).
-		Group(`
-			p.id, pr.id, c.id,
-			sp_agg.total_quantity,
-			sp_agg.min_expire_date,
-			sp_agg.supply_price,
-			sp_agg.retail_price
-		`)
-
-	// ---------- FILTERS ----------
-	if params.ProducerId != "" {
-		qb = qb.Where("p.producer_id = ?", params.ProducerId)
-	}
-
-	if params.CategoryId != "" {
-		qb = qb.Where("p.category_id = ?", params.CategoryId)
-	}
-
-	if params.NoBarcode {
-		qb = qb.Where("p.barcode IS NULL OR p.barcode = ''")
-	}
-
-	if params.SearchField != "" {
-		search := fmt.Sprintf("%%%s%%", params.SearchField)
-
-		if utils.DefineProductSearchQuery(params.SearchField) == "barcode" {
-			qb = qb.Where("pb.barcode LIKE ?", search)
-		} else {
-			qb = qb.Where("p.name ILIKE ?", search)
-		}
-	}
-
-	now := time.Now().Add(constants.DateTimeTashkent)
-
-	if params.Status != "" {
-		switch params.Status {
-		case "active", "inactive":
-			qb = qb.Where("p.status = ?", params.Status).
-				Having("COALESCE(sp_agg.total_quantity,0) > 0")
-
-		case "low-stock":
-			qb = qb.Having("COALESCE(sp_agg.total_quantity,0)/p.unit_per_pack < 3").
-				Having("COALESCE(sp_agg.total_quantity,0) > 0")
-
-		case "zero-stock":
-			qb = qb.Having("COALESCE(sp_agg.total_quantity,0) = 0")
-
-		case "expired":
-			qb = qb.Where("sp_agg.min_expire_date < ?", now).
-				Having("COALESCE(sp_agg.total_quantity,0) > 0")
-
-		case "imminent":
-			qb = qb.Where("sp_agg.min_expire_date BETWEEN ? AND ?", now, now.AddDate(0, 3, 0)).
-				Having("COALESCE(sp_agg.total_quantity,0) > 0")
-		}
-	}
-
-	// ---------- COUNT ----------
-	var totalCount int64
-	if err := qb.Count(&totalCount).Error; err != nil {
-		s.log.Errorf("could not count products: %v", err)
-		return nil, 0, domain.InternalServerError
-	}
-
-	// ---------- ORDER ----------
-	switch params.Order {
-	case "+name":
-		qb = qb.Order("p.name")
-	case "-name":
-		qb = qb.Order("p.name DESC")
-	case "+expire_date":
-		qb = qb.Order("sp_agg.min_expire_date")
-	case "-expire_date":
-		qb = qb.Order("sp_agg.min_expire_date DESC")
-	default:
-		qb = qb.Order("p.updated_at DESC")
-	}
-
-	// ---------- SELECT ----------
-	var res []domain.ProductData
-	err := qb.Select(`
-		p.id,
-		p.material_code,
-		p.name,
-		p.description,
-		p.barcode,
-		p.unit_per_pack,
-		p.photos,
-		p.status,
-		p.is_marking,
-		p.mxik,
-		p.unit_code,
-		p.unit_label,
-		p.created_at,
-		p.updated_at,
-
-		pr.name AS manufacturer,
-		ARRAY_AGG(pb.barcode) FILTER (WHERE pb.barcode IS NOT NULL) AS barcodes,
-		c.name AS category_name,
-
-		COALESCE(sp_agg.total_quantity, 0) AS unit_quantity,
-		sp_agg.min_expire_date AS expire_date,
-		DATE_PART('day', sp_agg.min_expire_date::timestamp - NOW()) AS expire_day,
-		sp_agg.supply_price,
-		sp_agg.retail_price
-	`).
-		Limit(params.Limit).
-		Offset(params.Offset).
-		Find(&res).Error
-
-	if err != nil {
-		s.log.Errorf("could not get products list: %v", err)
-		return nil, 0, domain.InternalServerError
-	}
-
-	// ---------- UNITS FORMAT ----------
-	for i := range res {
-		if res[i].UnitQuantity%res[i].UnitPerPack > 0 {
-			res[i].Units = fmt.Sprintf("%d (%d/%d)",
-				res[i].UnitQuantity/res[i].UnitPerPack,
-				res[i].UnitQuantity%res[i].UnitPerPack,
-				res[i].UnitPerPack)
-		} else {
-			res[i].Units = fmt.Sprintf("%d",
-				res[i].UnitQuantity/res[i].UnitPerPack)
-		}
-	}
-
-	if len(res) == 0 {
-		res = []domain.ProductData{}
-	}
-
-	return res, totalCount, nil
-}
-
 func (s *Services) GetProductsByStores(ctx context.Context, params *domain.ProductQueryParam) ([]domain.ProductData, error) {
 	qb := s.db.WithContext(ctx).
 		Select(
@@ -2518,21 +2348,30 @@ func (s *Services) GetProductBarcodes(ctx context.Context, productId string, par
 	var totalCount int64
 
 	baseQuery := s.db.WithContext(ctx).
-		Model(&domain.ProductBarcode{}).
-		Where("product_id = ?", productId)
+		Select(
+			"pb.id",
+			"pb.barcode",
+			"pb.mxik",
+			"pb.unit_code",
+			"pb.created_at",
+			"pb.updated_at",
+			"em.full_name AS created_by",
+		).
+		Table("product_barcodes pb").
+		Joins("LEFT JOIN employees em ON em.id = pb.created_by").
+		Where("pb.product_id = ?", productId)
 
 	if err := baseQuery.Count(&totalCount).Error; err != nil {
 		s.log.Errorf("failed to count product barcodes: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
 
-	query := baseQuery.
-		Select("id, barcode, mxik, unit_code, created_at, updated_at").
+	err := baseQuery.
+		Order("created_at DESC").
 		Limit(params.Limit).
 		Offset(params.Offset).
-		Order("created_at DESC")
-
-	if err := query.Find(&items).Error; err != nil {
+		Find(&items).Error
+	if err != nil {
 		s.log.Errorf("failed to get product barcodes: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
