@@ -587,7 +587,15 @@ func (s *Services) GetProductsForSearch(ctx context.Context, params *domain.Stor
 		Select(strings.Join(selectFields, ", ")).
 		Table("store_products sp").
 		Joins("JOIN products p ON sp.product_id = p.id").
-		Joins("LEFT JOIN product_barcodes b ON p.id = b.product_id").
+		Joins(`
+			LEFT JOIN LATERAL (
+				SELECT pb.barcode
+				FROM product_barcodes pb
+				WHERE pb.product_id = p.id
+				ORDER BY pb.created_at DESC
+				LIMIT 1
+			) b ON true
+		`).
 		Joins("LEFT JOIN producers pr ON p.producer_id = pr.id").
 		Joins("LEFT JOIN product_bonuses pb ON pb.product_id = p.id").
 		Where("sp.store_id = ? AND sp.unit_quantity > 0", params.StoreId)
