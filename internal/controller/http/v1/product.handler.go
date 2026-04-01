@@ -84,10 +84,10 @@ func (h *ProductHandler) ProductRoutes(r *gin.RouterGroup) {
 		product.GET("/movement-units-export", h.ExportMovementUnits)
 		product.PUT("/update-ostatok/:store_product_id", h.UpdateOstatok)
 		product.POST("/barcode/upsert", h.CreateOrUpdateBarcodes)
-		product.GET("/:id/barcodes",    h.GetProductBarcodes)
-    	product.PUT("/:id/barcodes",    h.UpdateProductBarcode)
-		product.POST("/:id/barcodes",    h.CreateProductBarcode)
-    	product.DELETE("/:id/barcodes", h.DeleteProductBarcode)
+		product.GET("/:id/barcodes", h.GetProductBarcodes)
+		product.PUT("/:id/barcodes", h.UpdateProductBarcode)
+		product.POST("/:id/barcodes", h.CreateProductBarcode)
+		product.DELETE("/:id/barcodes", h.DeleteProductBarcode)
 	}
 }
 
@@ -2976,7 +2976,6 @@ func (h *ProductHandler) getProductLock(productId string) *sync.Mutex {
 	return lock.(*sync.Mutex)
 }
 
-
 // CreateOrUpdateBarcodes godoc
 // @Summary Upsert product barcodes and material codes
 // @Description Save product barcode and material code data from product barcodes
@@ -3011,7 +3010,6 @@ func (h *ProductHandler) CreateOrUpdateBarcodes(c *gin.Context) {
 
 	handleResponse(c, OK, "SUCCESS")
 }
-
 
 // GetProductBarcodes godoc
 // @Summary      Get product barcodes
@@ -3101,8 +3099,6 @@ func (h *ProductHandler) CreateProductBarcode(c *gin.Context) {
 
 	handleResponse(c, OK, "CREATED")
 }
-
-
 
 // UpdateProductBarcodes godoc
 // @Summary      Update product barcode
