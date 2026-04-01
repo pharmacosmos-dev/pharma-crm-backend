@@ -2380,24 +2380,14 @@ func (s *Services) GetDatasByMarkings(ctx context.Context, tx *gorm.DB, markings
 					barcode := mark[3:16]
 
 					var br domain.BarcodeResponse
-					err = tx.Table("product_barcodes pb").
-						Select("pb.id, pb.barcode, pb.mxik, pb.unit_code").
-						Where("pb.barcode = ? AND pb.status = 'completed' AND pb.mxik is not null AND pb.unit_code is not null ", barcode).
-						Order("pb.created_at desc").
-						Limit(1).
-						Scan(&br).Error
+					br, err = s.getProductBarcodeUnitsByProductBarcode(ctx, tx, cartItem.ProductId, barcode)
 					if err != nil {
 						s.log.Error("could not get barcode by marking_barcode: %v", err)
 						return nil, err
 					}
 
 					if br.Id == "" {
-						err = tx.Table("product_barcodes pb").
-							Select("pb.id, pb.barcode, pb.mxik, pb.unit_code").
-							Where("pb.product_id = ? AND pb.status = 'completed' AND pb.mxik is not null AND pb.unit_code is not null ", cartItem.ProductId).
-							Order("pb.created_at desc").
-							Limit(1).
-							Scan(&br).Error
+						br, err = s.getProductBarcodeUnitsByProductId(ctx, tx, cartItem.ProductId)
 						if err != nil {
 							s.log.Error("could not get barcode by product_id: %v", err)
 							return nil, err
@@ -2411,12 +2401,7 @@ func (s *Services) GetDatasByMarkings(ctx context.Context, tx *gorm.DB, markings
 		} else {
 
 			var br domain.BarcodeResponse
-			err = tx.Table("product_barcodes pb").
-				Select("pb.id, pb.barcode, pb.mxik, pb.unit_code").
-				Where("pb.barcode = ? AND pb.status = 'completed' AND pb.mxik is not null AND pb.unit_code is not null ", cartItem.Barcode).
-				Order("pb.created_at desc").
-				Limit(1).
-				Scan(&br).Error
+			br, err = s.getProductBarcodeUnitsByProductId(ctx, tx, cartItem.ProductId)
 			if err != nil {
 				s.log.Error("could not get barcode by product_id: %v", err)
 				return nil, err

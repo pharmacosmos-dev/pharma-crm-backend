@@ -2513,16 +2513,13 @@ func (s *Services) UpdateStoreProductOstatok(ctx context.Context, storeProductId
 	return nil
 }
 
-
 func (s *Services) GetProductBarcodes(ctx context.Context, productId string, params *domain.ProductQueryParam) ([]domain.ProductBarcodeItem, int64, error) {
 	var items []domain.ProductBarcodeItem
 	var totalCount int64
 
-
 	baseQuery := s.db.WithContext(ctx).
 		Model(&domain.ProductBarcode{}).
 		Where("product_id = ?", productId)
-
 
 	if err := baseQuery.Count(&totalCount).Error; err != nil {
 		s.log.Errorf("failed to count product barcodes: %v", err)
@@ -2539,7 +2536,6 @@ func (s *Services) GetProductBarcodes(ctx context.Context, productId string, par
 		s.log.Errorf("failed to get product barcodes: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
-
 
 	return items, totalCount, nil
 }
@@ -2697,4 +2693,34 @@ func (s *Services) DeleteProductBarcode(ctx context.Context, productId string, r
 	}
 
 	return nil
+}
+
+func (s *Services) getProductBarcodeUnitsByProductId(ctx context.Context, tx *gorm.DB, productId string) (domain.BarcodeResponse, error) {
+	var result domain.BarcodeResponse
+	err := tx.WithContext(ctx).Table("product_barcodes pb").
+		Select("pb.id, pb.barcode, pb.mxik, pb.unit_code").
+		Where("pb.product_id = ? AND pb.status = 'completed' AND pb.mxik is not null AND pb.unit_code is not null ", productId).
+		Order("pb.created_at desc").
+		Limit(1).
+		Scan(&result).Error
+	if err != nil {
+		s.log.Error("could not get barcode by product_id: %v", err)
+		return domain.BarcodeResponse{}, err
+	}
+	return result, nil
+}
+
+func (s *Services) getProductBarcodeUnitsByProductBarcode(ctx context.Context, tx *gorm.DB, productId, barcode string) (domain.BarcodeResponse, error) {
+	var result domain.BarcodeResponse
+	err := tx.WithContext(ctx).Table("product_barcodes pb").
+		Select("pb.id, pb.barcode, pb.mxik, pb.unit_code").
+		Where("pb.product_id = ? AND pb.barcode = ? AND pb.status = 'completed' AND pb.mxik is not null AND pb.unit_code is not null ", productId, barcode).
+		Order("pb.created_at desc").
+		Limit(1).
+		Scan(&result).Error
+	if err != nil {
+		s.log.Error("could not get barcode by product_id: %v", err)
+		return domain.BarcodeResponse{}, err
+	}
+	return result, nil
 }
