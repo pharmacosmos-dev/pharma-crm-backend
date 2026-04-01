@@ -389,9 +389,6 @@ func (h *HelperHandler) UploadProductBarcodes(c *gin.Context) {
 
 		materialCode := parseIntComma(row[1])
 		barcode := strings.TrimSpace(row[5])
-		if barcode == "" {
-			continue
-		}
 		mxik := strings.TrimSpace(row[3])
 		unitCode := strings.ReplaceAll(row[7], " ", "")
 
@@ -402,41 +399,83 @@ func (h *HelperHandler) UploadProductBarcodes(c *gin.Context) {
 			continue
 		}
 
-		var exists bool
-		err = tx.Raw(`SELECT EXISTS(SELECT 1 FROM product_barcodes WHERE product_id = ? AND barcode = ?)`,
-			productID, barcode).Scan(&exists).Error
-		if err != nil {
-			tx.Rollback()
-			handleResponse(c, InternalError, err.Error())
-			return
-		}
+		if barcode == "" {
+			// 🔥 BARCODE BO‘SH CASE
+			var exists bool
+			err = tx.Raw(`SELECT EXISTS(SELECT 1 FROM product_barcodes WHERE product_id = ?)`, productID).Scan(&exists).Error
+			if err != nil {
+				tx.Rollback()
+				handleResponse(c, InternalError, err.Error())
+				return
+			}
 
-		if !exists {
-			// ✅ CREATE
-			err = tx.Exec(`
-				INSERT INTO product_barcodes
-				(product_id, barcode, mxik, unit_code, status, created_at, updated_at)
-				VALUES (?, ?, ?, ?, 'completed', ?, ?)
-			`, productID, barcode, mxik, unitCode, now, now).Error
-			if err != nil {
-				tx.Rollback()
-				handleResponse(c, InternalError, err.Error())
-				return
+			insertBarcode := "" // NOT NULL constraint uchun bo‘sh string
+
+			if !exists {
+				// ✅ CREATE (barcode bo‘sh)
+				err = tx.Exec(`
+					INSERT INTO product_barcodes
+					(product_id, barcode, mxik, unit_code, status, created_at, updated_at)
+					VALUES (?, ?, ?, ?, 'completed', ?, ?)
+				`, productID, insertBarcode, mxik, unitCode, now, now).Error
+				if err != nil {
+					tx.Rollback()
+					handleResponse(c, InternalError, err.Error())
+					return
+				}
+				created++
+			} else {
+				// ✅ UPDATE (barcode bo‘sh)
+				err = tx.Exec(`
+					UPDATE product_barcodes
+					SET mxik = ?, unit_code = ?, updated_at = ?
+					WHERE product_id = ? AND barcode = ?
+				`, mxik, unitCode, now, productID, insertBarcode).Error
+				if err != nil {
+					tx.Rollback()
+					handleResponse(c, InternalError, err.Error())
+					return
+				}
+				updated++
 			}
-			created++
 		} else {
-			// ✅ UPDATE
-			err = tx.Exec(`
-				UPDATE product_barcodes
-				SET mxik = ?, unit_code = ?, updated_at = ?
-				WHERE product_id = ? AND barcode = ?
-			`, mxik, unitCode, now, productID, barcode).Error
+			// 🔥 NORMAL BARCODE CASE
+			var exists bool
+			err = tx.Raw(`SELECT EXISTS(SELECT 1 FROM product_barcodes WHERE product_id = ? AND barcode = ?)`,
+				productID, barcode).Scan(&exists).Error
 			if err != nil {
 				tx.Rollback()
 				handleResponse(c, InternalError, err.Error())
 				return
 			}
-			updated++
+
+			if !exists {
+				// ✅ CREATE
+				err = tx.Exec(`
+					INSERT INTO product_barcodes
+					(product_id, barcode, mxik, unit_code, status, created_at, updated_at)
+					VALUES (?, ?, ?, ?, 'completed', ?, ?)
+				`, productID, barcode, mxik, unitCode, now, now).Error
+				if err != nil {
+					tx.Rollback()
+					handleResponse(c, InternalError, err.Error())
+					return
+				}
+				created++
+			} else {
+				// ✅ UPDATE
+				err = tx.Exec(`
+					UPDATE product_barcodes
+					SET mxik = ?, unit_code = ?, updated_at = ?
+					WHERE product_id = ? AND barcode = ?
+				`, mxik, unitCode, now, productID, barcode).Error
+				if err != nil {
+					tx.Rollback()
+					handleResponse(c, InternalError, err.Error())
+					return
+				}
+				updated++
+			}
 		}
 	}
 
