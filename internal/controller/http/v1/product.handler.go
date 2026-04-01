@@ -226,7 +226,7 @@ func (h *ProductHandler) List(c *gin.Context) {
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
 
 	// get products list
-	products, totalCount, err := h.service.GetProductsV2(ctx, &params)
+	products, totalCount, err := h.service.GetProducts(ctx, &params)
 	if err != nil {
 		handleServiceResponse(c, InternalError, err)
 		return
