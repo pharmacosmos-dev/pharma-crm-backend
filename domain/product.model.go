@@ -263,7 +263,6 @@ type SingeProductDashoard struct {
 	InventoryMinusAmount float64 `gorm:"inventory_minus_amount" json:"inventory_minus_amount"`
 }
 
-
 type ProductBarcodeItem struct {
 	ID        string    `json:"id"         gorm:"column:id"`
 	Barcode   string    `json:"barcode"    gorm:"column:barcode"`
@@ -271,6 +270,7 @@ type ProductBarcodeItem struct {
 	UnitCode  string    `json:"unit_code"  gorm:"column:unit_code"`
 	CreatedAt time.Time `json:"created_at" gorm:"column:created_at"`
 	UpdatedAt time.Time `json:"updated_at" gorm:"column:updated_at"`
+	CreatedBy string    `json:"created_by" gorm:"column:created_by"`
 }
 
 type CreateProductBarcode struct {
@@ -279,7 +279,6 @@ type CreateProductBarcode struct {
 	UnitCode string `json:"unit_code"`
 }
 
-
 type UpdateProductBarcodeRequest struct {
 	ID       string `json:"id"`
 	Barcode  string `json:"barcode"`
@@ -287,12 +286,9 @@ type UpdateProductBarcodeRequest struct {
 	UnitCode string `json:"unit_code"`
 }
 
-
-
 type DeleteProductBarcodeRequest struct {
 	ID string `json:"id"` // faqat bitta ID
 }
-
 
 // region product by import
 
@@ -520,5 +516,3 @@ type ProductByImportParam struct {
 	StartDate       string   `form:"start_date"`
 	EndDate         string   `form:"end_date"`
 }
-
-

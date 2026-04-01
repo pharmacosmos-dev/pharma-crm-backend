@@ -408,7 +408,6 @@ func (s *Services) GetProducts(ctx context.Context, params *domain.ProductQueryP
 	return res, totalCount, nil
 }
 
-
 func (s *Services) GetProductsByStores(ctx context.Context, params *domain.ProductQueryParam) ([]domain.ProductData, error) {
 	qb := s.db.WithContext(ctx).
 		Select(
@@ -2349,21 +2348,30 @@ func (s *Services) GetProductBarcodes(ctx context.Context, productId string, par
 	var totalCount int64
 
 	baseQuery := s.db.WithContext(ctx).
-		Model(&domain.ProductBarcode{}).
-		Where("product_id = ?", productId)
+		Select(
+			"pb.id",
+			"pb.barcode",
+			"pb.mxik",
+			"pb.unit_code",
+			"pb.created_at",
+			"pb.updated_at",
+			"em.full_name AS created_by",
+		).
+		Table("product_barcodes pb").
+		Joins("LEFT JOIN employees em ON em.id = pb.created_by").
+		Where("pb.product_id = ?", productId)
 
 	if err := baseQuery.Count(&totalCount).Error; err != nil {
 		s.log.Errorf("failed to count product barcodes: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
 
-	query := baseQuery.
-		Select("id, barcode, mxik, unit_code, created_at, updated_at").
+	err := baseQuery.
+		Order("created_at DESC").
 		Limit(params.Limit).
 		Offset(params.Offset).
-		Order("created_at DESC")
-
-	if err := query.Find(&items).Error; err != nil {
+		Find(&items).Error
+	if err != nil {
 		s.log.Errorf("failed to get product barcodes: %v", err)
 		return nil, 0, domain.InternalServerError
 	}
