@@ -194,33 +194,33 @@ func (h *ProductHandler) List(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()
 
-	switch {
-		case user.Role == constants.RoleFranchise:
-			// franchise -> barcha store’lari
-			storeIds, err := h.service.GetStoreIdsByCompanyId(ctx, user.CompanyId)
-			if err != nil {
-				handleServiceResponse(c, nil, err)
-				return
-			}
-			params.StoreIds = storeIds
-			params.CompanyId = user.CompanyId
+	// switch {
+	// 	case user.Role == constants.RoleFranchise:
+	// 		// franchise -> barcha store’lari
+	// 		storeIds, err := h.service.GetStoreIdsByCompanyId(ctx, user.CompanyId)
+	// 		if err != nil {
+	// 			handleServiceResponse(c, nil, err)
+	// 			return
+	// 		}
+	// 		params.StoreIds = storeIds
+	// 		params.CompanyId = user.CompanyId
 
-		case !helper.IsAdmin(user):
-			// oddiy employee
-			if user.StoreId != "" {
-				params.StoreId = user.StoreId
-			}
-			params.CompanyId = user.CompanyId
+	// 	case !helper.IsAdmin(user):
+	// 		// oddiy employee
+	// 		if user.StoreId != "" {
+	// 			params.StoreId = user.StoreId
+	// 		}
+	// 		params.CompanyId = user.CompanyId
 
-		// admin -> filter yo‘q (hammasi)
-	}
-
-	// if !helper.IsAdmin(user) {
-	// 	if user.StoreId != "" {
-	// 		params.StoreId = user.StoreId
-	// 	}
-	// 	params.CompanyId = user.CompanyId
+	// 	// admin -> filter yo‘q (hammasi)
 	// }
+
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
+	}
 
 	// Pagination parameters
 	params.Limit, params.Offset = defaultLimitOffset(params.Limit, params.Offset)
