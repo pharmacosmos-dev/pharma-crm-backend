@@ -502,7 +502,7 @@ func (s *Services) CreateOrUpdateBarcodes(ctx context.Context, req *domain.Creat
 			productCache[item.MaterialCode] = productEntry
 		}
 
-		if err := s.processOneBarcode(ctx, item, productEntry); err != nil {
+		if err := s.processOneBarcode(ctx, item, productEntry, req.CreatedBy); err != nil {
 			return err
 		}
 	}
@@ -510,7 +510,7 @@ func (s *Services) CreateOrUpdateBarcodes(ctx context.Context, req *domain.Creat
 	return nil
 }
 
-func (s *Services) processOneBarcode(ctx context.Context, item domain.CreateOrUpdateBarcodeRequest, productEntry productEntryType) error {
+func (s *Services) processOneBarcode(ctx context.Context, item domain.CreateOrUpdateBarcodeRequest, productEntry productEntryType, createdBy string) error {
 	tx := s.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
@@ -547,6 +547,9 @@ func (s *Services) processOneBarcode(ctx context.Context, item domain.CreateOrUp
 			barcodeUpdates["unit_code"] = item.UnitCode
 		}
 
+		barcodeUpdates["created_by"] = createdBy
+		barcodeUpdates["updated_at"] = time.Now()
+
 		if len(barcodeUpdates) > 0 {
 			err = tx.WithContext(ctx).Table("product_barcodes").
 				Where("barcode = ? AND product_id = ?", barcodeEntry.Barcode, productEntry.Id).
@@ -573,9 +576,9 @@ func (s *Services) processOneBarcode(ctx context.Context, item domain.CreateOrUp
 		}
 	} else {
 		err = tx.WithContext(ctx).Exec(`
-			INSERT INTO product_barcodes (product_id, barcode, mxik, unit_code, status)
-			VALUES (?, ?, ?, ?, ?)
-		`, productEntry.Id, item.Barcode, item.Ekpu, item.UnitCode, constants.GeneralStatusCompleted).Error
+			INSERT INTO product_barcodes (product_id, barcode, mxik, unit_code, created_by, status, created_at, updated_at)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		`, productEntry.Id, item.Barcode, item.Ekpu, item.UnitCode, createdBy, constants.GeneralStatusCompleted, time.Now(), time.Now()).Error
 		if err != nil {
 			tx.Rollback()
 			s.log.Errorf("failed to create product barcode: %v", err)

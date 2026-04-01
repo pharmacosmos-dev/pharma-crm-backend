@@ -143,4 +143,5 @@ type CreateOrUpdateBarcodeRequest struct {
 
 type CreateOrUpdateBarcodesRequest struct {
 	ProductBarCodeItem []CreateOrUpdateBarcodeRequest `json:"product_barcode_item"`
+	CreatedBy          string                         `json:"-"`
 }

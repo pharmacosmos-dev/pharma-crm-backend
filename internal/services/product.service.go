@@ -2421,6 +2421,7 @@ func (s *Services) CreateProductBarcodes(
 		"mxik":       req.Mxik,
 		"unit_code":  req.UnitCode,
 		"status":     constants.GeneralStatusCompleted,
+		"created_by": req.CreatedBy,
 		"created_at": time.Now(),
 		"updated_at": time.Now(),
 	}
@@ -2478,6 +2479,9 @@ func (s *Services) UpdateProductBarcode(ctx context.Context, productId string, r
 	if req.UnitCode != "" {
 		updates["unit_code"] = req.UnitCode
 	}
+
+	updates["created_by"] = req.UpdatedBy
+	updates["updated_at"] = time.Now()
 
 	if len(updates) == 0 {
 		tx.Rollback()

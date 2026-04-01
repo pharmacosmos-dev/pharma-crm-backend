@@ -590,6 +590,13 @@ func (h *ProductOnecHandler) CreateOrUpdateBarcodes(c *gin.Context) {
 		return
 	}
 
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+	body.CreatedBy = user.UserId
+
 	ctx, cancel := context.WithTimeout(
 		context.Background(),
 		constants.DefaultContextTimeout,

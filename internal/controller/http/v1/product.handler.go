@@ -2996,6 +2996,13 @@ func (h *ProductHandler) CreateOrUpdateBarcodes(c *gin.Context) {
 		return
 	}
 
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+	body.CreatedBy = user.UserId
+
 	ctx, cancel := context.WithTimeout(
 		context.Background(),
 		constants.DefaultContextTimeout,
@@ -3083,6 +3090,13 @@ func (h *ProductHandler) CreateProductBarcode(c *gin.Context) {
 		return
 	}
 
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+	body.CreatedBy = user.UserId
+
 	// validation: barcode bo'lishi shart
 	if body.Barcode == "" {
 		handleServiceResponse(c, BadRequest, domain.BadRequestError)
@@ -3127,6 +3141,13 @@ func (h *ProductHandler) UpdateProductBarcode(c *gin.Context) {
 		handleServiceResponse(c, BadRequest, domain.InvalidRequestBodyError)
 		return
 	}
+
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+	body.UpdatedBy = user.UserId
 
 	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
 	defer cancel()

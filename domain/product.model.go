@@ -274,16 +274,18 @@ type ProductBarcodeItem struct {
 }
 
 type CreateProductBarcode struct {
-	Barcode  string `json:"barcode"`
-	Mxik     string `json:"mxik"`
-	UnitCode string `json:"unit_code"`
+	Barcode   string `json:"barcode"`
+	Mxik      string `json:"mxik"`
+	UnitCode  string `json:"unit_code"`
+	CreatedBy string `json:"-"`
 }
 
 type UpdateProductBarcodeRequest struct {
-	ID       string `json:"id"`
-	Barcode  string `json:"barcode"`
-	Mxik     string `json:"mxik"`
-	UnitCode string `json:"unit_code"`
+	ID        string `json:"id"`
+	Barcode   string `json:"barcode"`
+	Mxik      string `json:"mxik"`
+	UnitCode  string `json:"unit_code"`
+	UpdatedBy string `json:"-"`
 }
 
 type DeleteProductBarcodeRequest struct {
