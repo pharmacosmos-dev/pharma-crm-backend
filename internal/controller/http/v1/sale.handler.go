@@ -951,7 +951,9 @@ func (h *SaleHandler) EposResult(c *gin.Context) {
 		handleServiceResponse(c, nil, domain.InvalidRequestBodyError)
 		return
 	}
-	body.ResponseData = json.RawMessage(rawData)
+	if len(body.ResponseData) == 0 {
+		body.ResponseData = json.RawMessage(rawData)
+	}
 
 	if body.SaleId == "" {
 		body.SaleId = c.Query("sale_id")
