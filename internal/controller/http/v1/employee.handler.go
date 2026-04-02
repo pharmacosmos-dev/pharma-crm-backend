@@ -602,6 +602,16 @@ func (h *EmployeeHandler) GetInfo(c *gin.Context) {
 		handleResponse(c, InternalError, "Failed to get cashbox info")
 		return
 	}
+	if res.Store != nil {
+		var terminalIds []string
+		err = h.db.Table("cash_boxes").
+			Where("store_id = ?", res.StoreId).
+			Pluck("terminal_id", &terminalIds).Error
+		if err != nil {
+			h.log.Errorf("failed to get terminal ids: %v", err)
+		}
+		res.Store.TerminalIDs = terminalIds
+	}
 	handleResponse(c, OK, res)
 }
 

@@ -23,6 +23,7 @@ type Store struct {
 	AverageTargetSales  float64    `gorm:"column:average_target_sales" json:"average_target_sales"`
 	CreatedAt           *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt           *time.Time `gorm:"updated_at" json:"updated_at"`
+	TerminalIDs         []string   `gorm:"-" json:"terminal_ids"`
 }
 
 type StoreDto struct {
@@ -45,6 +46,7 @@ type StoreDto struct {
 	AverageTargetSales  float64    `gorm:"column:average_target_sales" json:"average_target_sales"`
 	CreatedAt           *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt     *time.Time `gorm:"updated_at" json:"updated_at"`
+	TerminalIDs   []string   `gorm:"-" json:"terminal_ids"`
 }
 
 // Store Create Request
