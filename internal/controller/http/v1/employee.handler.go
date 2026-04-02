@@ -564,6 +564,7 @@ func (h *EmployeeHandler) GetInfo(c *gin.Context) {
 		co.id AS cashbox_operation_id,
 		co.operation_id, 
 		cb.name, 
+		cb.terminal_id, 
 		cb.created_at, 
 		cb.updated_at
 	FROM 

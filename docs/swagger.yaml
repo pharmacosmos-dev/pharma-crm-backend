@@ -166,6 +166,8 @@ definitions:
         $ref: '#/definitions/domain.Store'
       store_id:
         type: string
+      terminal_id:
+        type: string
       updated_at:
         type: string
     type: object
@@ -180,6 +182,8 @@ definitions:
           $ref: '#/definitions/domain.CashboxPaymentType'
         type: array
       store_id:
+        type: string
+      terminal_id:
         type: string
     type: object
   domain.CashboxOperationRequest:
@@ -532,6 +536,8 @@ definitions:
         type: string
       operation_id:
         type: integer
+      terminal_id:
+        type: string
       updated_at:
         type: string
     type: object
@@ -6788,42 +6794,6 @@ paths:
       summary: attach category to products
       tags:
       - helper
-  /helper/create-product-without-barcode:
-    post:
-      consumes:
-      - multipart/form-data
-      description: Upload Excel file and create product_barcodes for products with
-        null barcode or update mxik/unit_code
-      parameters:
-      - description: Excel file
-        in: formData
-        name: file
-        required: true
-        type: file
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: 'UPDATED: <count>'
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "400":
-          description: Bad request or file format
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "500":
-          description: Internal server error
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-      summary: Create/Update products without barcode
-      tags:
-      - Helper
   /helper/delete-not-photos:
     delete:
       consumes:

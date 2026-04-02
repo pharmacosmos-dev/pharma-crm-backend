@@ -191,6 +191,7 @@ func (h *CashBoxHandler) List(c *gin.Context) {
 		c.id,
 		c.store_id,
 		c.name,
+		c.terminal_id,
 		c.is_active,
 		s.name AS store_name,
 		COALESCE(
