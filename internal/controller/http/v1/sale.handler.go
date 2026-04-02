@@ -948,7 +948,7 @@ func (h *SaleHandler) EposResult(c *gin.Context) {
 	var body domain.EposResponseRequest
 	rawData, _ := c.GetRawData()
 	if err := json.Unmarshal(rawData, &body); err != nil {
-		handleServiceResponse(c, nil, domain.InvalidRequestBodyError)
+		handleServiceResponse(c, nil, domain.BadRequestError)
 		return
 	}
 	if len(body.ResponseData) == 0 {

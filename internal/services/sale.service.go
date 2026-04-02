@@ -643,7 +643,7 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 				"updated_at": time.Now(),
 			}
 
-			err = s.updateSaleFields(ctx, s.db, sale.Id, updates)
+			err = s.updateSaleFields(ctx, tx, sale.Id, updates)
 			if err != nil {
 				_ = tx.Rollback()
 				return nil, err
