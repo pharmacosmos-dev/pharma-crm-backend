@@ -145,15 +145,13 @@ func (s *Services) ConvenrtTimeAsiaTashkent(timeStr string) (time.Time, error) {
 func (s *Services) normalizeEposResponse(req *domain.EposResponseRequest) (string, error) {
     // response_data -> []byte
     var raw []byte
-    switch v := req.ResponseData.(type) {
-    case string:
-        raw = []byte(v)
-    default:
-        b, err := json.Marshal(v)
-        if err != nil {
-            return "", domain.BadRequestError
+    if len(req.ResponseData) > 0 {
+        raw = []byte(req.ResponseData)
+        // Agar bu string bo'lsa (qo'shtirnoq ichida bo'lsa), unmarshal qilib ichini olamiz
+        var strVal string
+        if json.Unmarshal(raw, &strVal) == nil {
+            raw = []byte(strVal)
         }
-        raw = b
     }
     req.Response = raw
 
@@ -185,7 +183,11 @@ func (s *Services) normalizeEposResponse(req *domain.EposResponseRequest) (strin
             return "", nil
         }
         // receipt field nomlari snake_case — DecodeFiscalData uchun normalize
-        return s.normalizeReceiptFields(wrapper.Data.Receipt)
+        normalizedReceipt, err := s.normalizeReceiptFields(wrapper.Data.Receipt)
+        if err != nil {
+            return "", err
+        }
+        return fmt.Sprintf(`{"error":false,"message":%s}`, normalizedReceipt), nil
     }
 
     // Format 1: {"message":{...}} yoki {"message":"ERROR_STRING"}
@@ -197,7 +199,7 @@ func (s *Services) normalizeEposResponse(req *domain.EposResponseRequest) (strin
             req.Error = true
             return "", nil
         }
-        return string(wrapper.Message), nil
+        return string(raw), nil
     }
 
     s.log.Error("normalizeEposResponse: unrecognized format")
@@ -212,8 +214,8 @@ func (s *Services) normalizeReceiptFields(raw json.RawMessage) (string, error) {
         DateTime   string `json:"date_time"`
         ReceiptSeq any    `json:"receipt_seq"`
         TerminalId string `json:"terminal_id"`
-        Cash       string `json:"cash"`
-        Card       string `json:"card"`
+        Cash       any    `json:"cash"`
+        Card       any    `json:"card"`
     }
     if err := json.Unmarshal(raw, &r); err != nil {
         return "", domain.BadRequestError

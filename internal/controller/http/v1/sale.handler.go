@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strconv"
 	"strings"
@@ -945,9 +946,15 @@ func (h *SaleHandler) EposResult(c *gin.Context) {
 
 	// bind request
 	var body domain.EposResponseRequest
-	if err := c.ShouldBindJSON(&body); err != nil {
+	rawData, _ := c.GetRawData()
+	if err := json.Unmarshal(rawData, &body); err != nil {
 		handleServiceResponse(c, nil, domain.InvalidRequestBodyError)
 		return
+	}
+	body.ResponseData = json.RawMessage(rawData)
+
+	if body.SaleId == "" {
+		body.SaleId = c.Query("sale_id")
 	}
 
 	// context with timeout

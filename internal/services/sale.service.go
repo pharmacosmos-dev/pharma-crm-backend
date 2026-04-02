@@ -598,16 +598,13 @@ func (s *Services) FinalizeReturnSale(ctx context.Context, tx *gorm.DB, req *dom
 
 // epos result
 func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseRequest, user *domain.EmployeeClaims) (*domain.Sale, error) {
-	// Ensure response_data is a string
-	responseDataStr, ok := req.ResponseData.(string)
-	// responseDataStr, err := s.normalizeEposResponse(req)
-	if !ok {
-		s.log.Error("response_data is not a valid string")
+	// Normalize epos response (handle Format 1 and Format 2)
+	// responseDataStr, ok := req.ResponseData.(string)
+	responseDataStr, err := s.normalizeEposResponse(req)
+	if err != nil {
+		s.log.Errorf("could not normalize epos response: %v", err)
 		return nil, domain.BadRequestError
 	}
-	// if err != nil {
-	// 	return nil, domain.BadRequestError
-	// }
 
 	// Convert string to []byte and store in Response field
 	req.Response = []byte(responseDataStr)
