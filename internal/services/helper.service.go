@@ -208,29 +208,30 @@ func (s *Services) normalizeEposResponse(req *domain.EposResponseRequest) (strin
 
 // normalizeReceiptFields Format-2 receipt (snake_case) -> Format-1 ga o'xshash camelCase
 func (s *Services) normalizeReceiptFields(raw json.RawMessage) (string, error) {
-    var r struct {
-        FiscalSign string `json:"fiscal_sign"`
-        QrCodeUrl  string `json:"qr_code_url"`
-        DateTime   string `json:"date_time"`
-        ReceiptSeq any    `json:"receipt_seq"`
-        TerminalId string `json:"terminal_id"`
-        Cash       any    `json:"cash"`
-        Card       any    `json:"card"`
-    }
-    if err := json.Unmarshal(raw, &r); err != nil {
+    var fullMap map[string]any
+    if err := json.Unmarshal(raw, &fullMap); err != nil {
         return "", domain.BadRequestError
     }
 
-    normalized := map[string]any{
-        "fiscalSign": r.FiscalSign,
-        "qrCodeURL":  r.QrCodeUrl,
-        "dateTime":   r.DateTime,
-        "receiptSeq": r.ReceiptSeq,
-        "terminalId": r.TerminalId,
-        "cash":       r.Cash,
-        "card":       r.Card,
+    // CamelCase versiyalarini qo'shamiz (Format 1 - DecodeFiscalData uchun)
+    // Asl snake_case maydonlar ham map ichida qoladi
+    if v, ok := fullMap["fiscal_sign"]; ok {
+        fullMap["fiscalSign"] = fmt.Sprintf("%v", v)
     }
-    b, err := json.Marshal(normalized)
+    if v, ok := fullMap["qr_code_url"]; ok {
+        fullMap["qrCodeURL"] = fmt.Sprintf("%v", v)
+    }
+    if v, ok := fullMap["date_time"]; ok {
+        fullMap["dateTime"] = fmt.Sprintf("%v", v)
+    }
+    if v, ok := fullMap["receipt_seq"]; ok {
+        fullMap["receiptSeq"] = fmt.Sprintf("%v", v)
+    }
+    if v, ok := fullMap["terminal_id"]; ok {
+        fullMap["terminalId"] = fmt.Sprintf("%v", v)
+    }
+
+    b, err := json.Marshal(fullMap)
     if err != nil {
         return "", domain.InternalServerError
     }
