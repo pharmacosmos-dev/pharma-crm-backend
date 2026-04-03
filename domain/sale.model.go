@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"encoding/json"
 	"time"
 )
 
@@ -301,13 +300,11 @@ type EposResponse struct {
 
 // EposResponse Request structure
 type EposResponseRequest struct {
-	SaleId       string          `gorm:"sale_id" json:"sale_id" form:"sale_id"`
-	Error        bool            `gorm:"-" json:"error"`
-	Status       int             `gorm:"status" json:"status"`
-	Response     []byte          `gorm:"response" json:"-"`
-	ResponseData json.RawMessage `gorm:"-" json:"response_data"`
-	Message      json.RawMessage `gorm:"-" json:"message"`
-	Data         json.RawMessage `gorm:"-" json:"data"`
+	SaleId       string `gorm:"sale_id" json:"sale_id"`
+	Error        bool   `gorm:"-" json:"error"`
+	Status       int    `gorm:"status" json:"status"`
+	Response     []byte `gorm:"response" json:"-"`
+	ResponseData any    `gorm:"-" json:"response_data"`
 }
 
 type EposResponseData struct {
