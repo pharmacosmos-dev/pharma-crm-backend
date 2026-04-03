@@ -57,6 +57,7 @@ func (h *ReportHandler) ReportRoutes(r *gin.RouterGroup) {
 		report.POST("/ostatok-by-date", h.OstatokByDate)
 		report.POST("/ostatok-by-date/export-excel", h.OstatokByDateExportExcel)
 		report.POST("/discount-card", h.DiscountCardReport)
+		report.POST("/discount-card/export-excel", h.DiscountCardExportExcel)
 	}
 }
 
@@ -2042,4 +2043,89 @@ func (h *ReportHandler) DiscountCardReport(c *gin.Context) {
 	data := utils.ListResponse(res, totalCount, params.Limit, params.Offset)
 
 	handleResponse(c, OK, data)
+}
+
+// DiscountCardExportExcel godoc
+// @Summary Export discount card report to Excel
+// @Description Export discount card report to Excel
+// @Tags Report
+// @Security     BearerAuth
+// @Accept json
+// @Produce json
+// @Param 	limit query int false "Limit"
+// @Param 	offset query int false "Offset"
+// @Param   start_date query string false "Start Date"
+// @Param   end_date query string false "End Date"
+// @Param   search query string false "Search (customer full name)"
+// @Param   store_ids body []string false "Store ids"
+// @Param   order query string false "every field in response is sorted by this field"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /report/discount-card/export-excel [POST]
+func (h *ReportHandler) DiscountCardExportExcel(c *gin.Context) {
+	user := h.service.GetSignedUser(c)
+	if user.UserId == "" {
+		handleServiceResponse(c, nil, domain.UnauthorizedError)
+		return
+	}
+
+	var params domain.ReportQueryParam
+	// bind query param
+	if err := c.ShouldBindQuery(&params); err != nil {
+		handleServiceResponse(c, BadRequest, domain.InvalidQueryError)
+		return
+	}
+	// bind store_ids
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&params.StoreIds)
+	}
+
+	// check if employee is not admin or superadmin
+	if !helper.IsAdmin(user) {
+		if user.StoreId != "" {
+			params.StoreId = user.StoreId
+		}
+		params.CompanyId = user.CompanyId
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), constants.DefaultContextTimeout)
+	defer cancel()
+
+	res, _, err := h.service.GetDiscountCardReport(ctx, &params)
+	if err != nil {
+		handleServiceResponse(c, InternalError, err)
+		return
+	}
+
+	// create Excel
+	f := excelize.NewFile()
+	sheet := "Дисконтные карты"
+	f.SetSheetName("Sheet1", sheet)
+
+	// set headers
+	headers := []string{
+		"№", "Аптека", "Клиента", "Количество", "Скидка", "Общая сумма", "Сумма скидки", "Окончательная сумма",
+	}
+	if err := setExcelHeaders(f, sheet, headers); err != nil {
+		h.log.Error("Failed to create style:", err)
+		handleResponse(c, InternalError, "Error on giving style to excel")
+		return
+	}
+
+	// fill rows
+	for i, val := range res {
+		row := strconv.Itoa(i + 2)
+		f.SetCellValue(sheet, "A"+row, i+1)
+		f.SetCellValue(sheet, "B"+row, val.StoreName)
+		f.SetCellValue(sheet, "C"+row, val.CustomerName)
+		f.SetCellValue(sheet, "D"+row, val.CheckCount)
+		f.SetCellValue(sheet, "E"+row, val.Percent)
+		f.SetCellValue(sheet, "F"+row, val.TotalWithoutDiscount)
+		f.SetCellValue(sheet, "G"+row, val.TotalDiscount)
+		f.SetCellValue(sheet, "H"+row, val.TotalWithDiscount)
+	}
+
+	// save to /uploads
+	saveExcelToUploads(c, f, *h.log, "Дисконтные_карты")
 }

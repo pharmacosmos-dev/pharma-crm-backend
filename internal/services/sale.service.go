@@ -609,6 +609,48 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 	// Convert string to []byte and store in Response field
 	req.Response = []byte(responseDataStr)
 
+	// Epos response error
+	if req.Error {
+		// start transaction
+		tx := s.db.Begin()
+		defer func() {
+			if r := recover(); r != nil {
+				_ = tx.Rollback()
+			}
+		}()
+
+		sale, err := s.GetSaleByIdWithLocking(ctx, tx, req.SaleId)
+		if err != nil {
+			_ = tx.Rollback()
+			return nil, err
+		}
+
+		if sale.Stage < constants.SaleStageOfdCancelled {
+			err = s.SaveEposResponse(ctx, req)
+			if err != nil {
+				_ = tx.Rollback()
+				return nil, err
+			}
+			updates := map[string]any{
+				"stage":      constants.SaleStageOfdCancelled,
+				"updated_at": time.Now(),
+			}
+
+			err = s.updateSaleFields(ctx, tx, sale.Id, updates)
+			if err != nil {
+				_ = tx.Rollback()
+				return nil, err
+			}
+		}
+
+		if err = tx.Commit().Error; err != nil {
+			s.log.Errorf("could not commit epos_result error transaction: %v", err)
+			return nil, domain.InternalServerError
+		}
+
+		return sale, nil
+	}
+
 	// start transaction
 	tx := s.db.Begin()
 	defer func() {
@@ -630,33 +672,6 @@ func (s *Services) EposResult(ctx context.Context, req *domain.EposResponseReque
 		return nil, domain.SaleIsClosedError
 	}
 
-	// Epos response error
-	if req.Error {
-		if sale.Stage < constants.SaleStageOfdCancelled {
-			err = s.SaveEposResponse(ctx, req)
-			if err != nil {
-				_ = tx.Rollback()
-				return nil, err
-			}
-			updates := map[string]any{
-				"stage":      constants.SaleStageOfdCancelled,
-				"updated_at": time.Now(),
-			}
-
-			err = s.updateSaleFields(ctx, tx, sale.Id, updates)
-			if err != nil {
-				_ = tx.Rollback()
-				return nil, err
-			}
-		}
-
-		if err = tx.Commit().Error; err != nil {
-			s.log.Errorf("could not commit epos_result first transaction: %v", err)
-			return nil, domain.InternalServerError
-		}
-
-		return sale, nil
-	}
 
 	// get cart_items sum by saleId
 	itemsSum, err := s.cartItemsSumBySaleId(ctx, tx, sale.Id)

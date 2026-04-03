@@ -170,19 +170,23 @@ func (s *Services) normalizeEposResponse(req *domain.EposResponseRequest) (strin
         return "", domain.BadRequestError
     }
 
-    // Outer error flag
     if wrapper.Error {
         req.Error = true
-        return "", nil
+        return string(raw), nil
     }
 
-    // Format 2: {"data":{"exists":true,"receipt":{...}}}
-    if wrapper.Data != nil {
-        if !wrapper.Data.Exists || wrapper.Data.Receipt == nil {
+    // Format 1: {"message":{...}} yoki {"message":"ERROR_STRING"}
+    if wrapper.Message != nil {
+        var msgStr string
+        if json.Unmarshal(wrapper.Message, &msgStr) == nil {
             req.Error = true
-            return "", nil
+            return string(raw), nil
         }
-        // receipt field nomlari snake_case — DecodeFiscalData uchun normalize
+        return string(raw), nil
+    }
+
+    // Format 2: {"data":{"receipt":{...}}}
+    if wrapper.Data != nil && wrapper.Data.Receipt != nil {
         normalizedReceipt, err := s.normalizeReceiptFields(wrapper.Data.Receipt)
         if err != nil {
             return "", err
@@ -190,20 +194,8 @@ func (s *Services) normalizeEposResponse(req *domain.EposResponseRequest) (strin
         return fmt.Sprintf(`{"error":false,"message":%s}`, normalizedReceipt), nil
     }
 
-    // Format 1: {"message":{...}} yoki {"message":"ERROR_STRING"}
-    if wrapper.Message != nil {
-        // message string bo'lsa (xato holat)
-        var msgStr string
-        if json.Unmarshal(wrapper.Message, &msgStr) == nil {
-            s.log.Warnf("epos message is error string: %s", msgStr)
-            req.Error = true
-            return "", nil
-        }
-        return string(raw), nil
-    }
-
-    s.log.Error("normalizeEposResponse: unrecognized format")
-    return "", domain.BadRequestError
+    s.log.Warnf("normalizeEposResponse: unrecognized format: %s", string(raw))
+    return string(raw), nil
 }
 
 // normalizeReceiptFields Format-2 receipt (snake_case) -> Format-1 ga o'xshash camelCase
