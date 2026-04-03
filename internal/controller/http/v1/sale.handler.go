@@ -951,7 +951,7 @@ func (h *SaleHandler) EposResult(c *gin.Context) {
 		handleServiceResponse(c, nil, domain.BadRequestError)
 		return
 	}
-	if len(body.ResponseData) == 0 {
+	if body.ResponseData == nil {
 		body.ResponseData = json.RawMessage(rawData)
 	}
 

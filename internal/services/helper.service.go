@@ -12,6 +12,7 @@ import (
 	"github.com/pharma-crm-backend/domain/constants"
 	"github.com/pharma-crm-backend/pkg/logger"
 	"gorm.io/gorm"
+	"github.com/spf13/cast"
 )
 
 func (s *Services) Request1CCreate(req domain.InventoryHelper) error {
@@ -135,5 +136,88 @@ func (s *Services) ConvenrtTimeAsiaTashkent(timeStr string) (time.Time, error) {
 		return dateTime, domain.InvalidTimeFormatError
 	}
 	return dateTime.Add(constants.DateTimeTashkent), nil
+}
+
+func (s *Services) normalizeEposResponse(req *domain.EposResponseRequest) (string, error) {
+	var raw []byte
+	switch v := req.ResponseData.(type) {
+	case string:
+		raw = []byte(v)
+	case []byte:
+		raw = v
+	case json.RawMessage:
+		raw = v
+	case nil:
+		return "", nil
+	default:
+		var err error
+		raw, err = json.Marshal(v)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	if len(raw) == 0 {
+		return "", nil
+	}
+
+	var data map[string]any
+	if err := json.Unmarshal(raw, &data); err != nil {
+		// If not JSON, return as is (could be a simple message)
+		return string(raw), nil
+	}
+
+	// Update req.Error if found in data
+	if isErr, ok := data["error"].(bool); ok && isErr {
+		req.Error = true
+	}
+
+	// Case 1: Nested in data.receipt (Format 2)
+	if dataMap, ok := data["data"].(map[string]any); ok {
+		if receipt, ok := dataMap["receipt"].(map[string]any); ok {
+			// Transform Format 2 to the expected EposSuccessResponse format
+			normalized := map[string]any{
+				"error": data["error"],
+				"message": map[string]any{
+					"dateTime":   receipt["date_time"],
+					"qrCodeURL":  receipt["qr_code_url"],
+					"fiscalSign":  receipt["fiscal_sign"],
+					"receiptSeq":  cast.ToString(receipt["receipt_seq"]),
+					"terminalId":  receipt["terminal_id"],
+					"cash":        receipt["cash"],
+					"card":        receipt["card"],
+					"amount":      receipt["eps_amount"],
+				},
+			}
+			res, _ := json.Marshal(normalized)
+			return string(res), nil
+		}
+	}
+
+	// Case 2: Success in message as an object (Format 3)
+	if msgObj, ok := data["message"].(map[string]any); ok {
+		// Normalize fields if they are in snake_case and missing in camelCase
+		fields := map[string]string{
+			"date_time":   "dateTime",
+			"qr_code_url": "qrCodeURL",
+			"fiscal_sign": "fiscalSign",
+			"receipt_seq": "receiptSeq",
+			"terminal_id": "terminalId",
+		}
+		for snake, camel := range fields {
+			if _, exists := msgObj[camel]; !exists && msgObj[snake] != nil {
+				msgObj[camel] = msgObj[snake]
+			}
+		}
+		// ensure receiptSeq is string for EposSuccessMessage
+		if rs, ok := msgObj["receiptSeq"]; ok {
+			msgObj["receiptSeq"] = cast.ToString(rs)
+		}
+
+		res, _ := json.Marshal(data)
+		return string(res), nil
+	}
+
+	return string(raw), nil
 }
 
