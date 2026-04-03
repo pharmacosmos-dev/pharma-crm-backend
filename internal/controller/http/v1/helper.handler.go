@@ -19,6 +19,7 @@ import (
 	"github.com/agnivade/levenshtein"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/text/unicode/norm"
+	"github.com/lib/pq"
 
 	"github.com/google/uuid"
 	"github.com/pharma-crm-backend/domain"
@@ -47,6 +48,7 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		helper.POST("/epos", h.EposTransmitter)
 		helper.POST("/upload-product-barcodes", h.UploadProductBarcodes)
 		helper.POST("/upload-store-products", h.UploadStoreProducts)
+		helper.POST("/upload-store-terminals", h.UploadTerminalIDs)
 		// helper.POST("/upload-category", h.UploadCategory)
 		// helper.POST("/upload-customer", h.UploadCustomer)
 		// helper.POST("/upload-import", h.UploadImport)
@@ -2375,4 +2377,98 @@ func isNumeric(s string) bool {
 		}
 	}
 	return true
+}
+
+
+// UploadTerminalIDs godoc
+// @Summary Upload terminal IDs
+// @Description Upload an Excel file containing terminal IDs and map them to stores by store code.
+// @Tags helper
+// @Security BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "Excel file to upload"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /helper/upload-store-terminals [post]
+func (h *HelperHandler) UploadTerminalIDs(c *gin.Context) {
+	file, fileHeader, err := c.Request.FormFile("file")
+	if err != nil {
+		handleResponse(c, BadRequest, "File is required")
+		return
+	}
+	defer file.Close()
+
+	if filepath.Ext(fileHeader.Filename) != ".xlsx" {
+		handleResponse(c, BadRequest, "Invalid file format, only .xlsx is supported")
+		return
+	}
+
+	f, err := excelize.OpenReader(file)
+	if err != nil {
+		h.log.Errorf("failed to open excel file: %v", err)
+		handleResponse(c, InternalError, "Could not read excel file")
+		return
+	}
+	defer f.Close()
+
+	sheetName := f.GetSheetList()[0]
+	rows, err := f.GetRows(sheetName)
+	if err != nil {
+		h.log.Errorf("failed to get rows from excel sheet: %v", err)
+		handleResponse(c, InternalError, "Could not read rows from excel")
+		return
+	}
+
+	// Map to hold terminals for each store code
+	storeTerminals := make(map[int][]string)
+
+	for i, row := range rows {
+		if i == 0 { // Skip header row
+			continue
+		}
+		if len(row) < 4 {
+			continue // skip rows that don't have enough columns
+		}
+
+		terminalID := strings.TrimSpace(row[2])
+		storeCodeStr := strings.TrimSpace(row[3])
+
+		if terminalID == "" || storeCodeStr == "" {
+			continue
+		}
+
+		storeCode, err := strconv.Atoi(storeCodeStr)
+		if err != nil {
+			h.log.Warnf("invalid store code %s at row %d", storeCodeStr, i+1)
+			continue
+		}
+
+		storeTerminals[storeCode] = append(storeTerminals[storeCode], terminalID)
+	}
+
+	for code, terminals := range storeTerminals {
+		// Only distinct terminals
+		distinctTerminals := make([]string, 0)
+		seen := make(map[string]bool)
+		for _, t := range terminals {
+			if !seen[t] {
+				seen[t] = true
+				distinctTerminals = append(distinctTerminals, t)
+			}
+		}
+
+		terminalsPq := pq.StringArray(distinctTerminals)
+		err = h.db.WithContext(c.Request.Context()).
+			Table("stores").
+			Where("store_code = ?", code).
+			Update("terminal_id", terminalsPq).Error
+		if err != nil {
+			h.log.Errorf("failed to update terminal_id for store_code %d: %v", code, err)
+			continue
+		}
+	}
+
+	handleResponse(c, OK, "Terminal IDs successfully updated")
 }
