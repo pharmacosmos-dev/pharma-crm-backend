@@ -7891,6 +7891,55 @@ const docTemplate = `{
                 }
             }
         },
+        "/helper/upload-requires-prescription": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update requires_prescription from excel",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "helper"
+                ],
+                "summary": "Upload requires prescription update excel",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Excel file (.xlsx)",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/helper/upload-store-products": {
             "post": {
                 "security": [
@@ -28767,6 +28816,9 @@ const docTemplate = `{
                 "barcode": {
                     "type": "string"
                 },
+                "is_marking": {
+                    "type": "boolean"
+                },
                 "mxik": {
                     "type": "string"
                 },
@@ -31366,6 +31418,9 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "string"
+                },
+                "is_marking": {
+                    "type": "boolean"
                 },
                 "mxik": {
                     "type": "string"

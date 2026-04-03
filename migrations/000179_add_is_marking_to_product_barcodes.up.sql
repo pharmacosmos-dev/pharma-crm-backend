@@ -1,0 +1,2 @@
+ALTER TABLE product_barcodes ADD COLUMN is_marking BOOLEAN DEFAULT FALSE;
+

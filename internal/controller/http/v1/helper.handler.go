@@ -49,6 +49,7 @@ func (h *HelperHandler) HelperRoutes(r *gin.RouterGroup) {
 		helper.POST("/upload-product-barcodes", h.UploadProductBarcodes)
 		helper.POST("/upload-store-products", h.UploadStoreProducts)
 		helper.POST("/upload-store-terminals", h.UploadTerminalIDs)
+		helper.POST("/upload-requires-prescription", h.UploadRequiresPrescription)
 		// helper.POST("/upload-category", h.UploadCategory)
 		// helper.POST("/upload-customer", h.UploadCustomer)
 		// helper.POST("/upload-import", h.UploadImport)
@@ -2471,4 +2472,94 @@ func (h *HelperHandler) UploadTerminalIDs(c *gin.Context) {
 	}
 
 	handleResponse(c, OK, "Terminal IDs successfully updated")
+}
+
+// UploadRequiresPrescription godoc
+// @Summary Upload requires prescription update excel
+// @Description Update requires_prescription from excel
+// @Tags helper
+// @Security BearerAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param file formData file true "Excel file (.xlsx)"
+// @Success 200 {object} v1.Response
+// @Failure 400 {object} v1.Response
+// @Failure 500 {object} v1.Response
+// @Router /helper/upload-requires-prescription [POST]
+func (h *HelperHandler) UploadRequiresPrescription(c *gin.Context) {
+	var file domain.File
+	if err := c.ShouldBind(&file); err != nil {
+		handleResponse(c, BadRequest, err.Error())
+		return
+	}
+
+	ext := filepath.Ext(file.File.Filename)
+	if ext != ".xlsx" && ext != ".xls" {
+		handleResponse(c, BadRequest, "Unsupported file format")
+		return
+	}
+
+	newFilename := uuid.New().String() + ext
+	savePath := filepath.Join("uploads", newFilename)
+
+	if err := c.SaveUploadedFile(file.File, savePath); err != nil {
+		handleResponse(c, InternalError, "Failed to save file")
+		return
+	}
+
+	xlsx, err := excelize.OpenFile(savePath)
+	if err != nil {
+		handleResponse(c, BadRequest, "Failed to open Excel file")
+		return
+	}
+	defer xlsx.Close()
+
+	sheetName := xlsx.GetSheetName(0) // Assuming first sheet
+	rows, err := xlsx.GetRows(sheetName)
+	if err != nil {
+		handleResponse(c, InternalError, "Failed to get rows")
+		return
+	}
+
+	tx := h.db.Begin()
+	updated := 0
+
+	for _, row := range rows[1:] { // Skip header
+		if len(row) <= 2 {
+			continue
+		}
+
+		materialCode := parseIntComma(row[1])
+		requiresPrescriptionStr := strings.TrimSpace(row[2])
+		requiresPrescription := false
+		if strings.EqualFold(requiresPrescriptionStr, "Да") {
+			requiresPrescription = true
+		}
+
+		// Update products
+		result := tx.Exec(`
+			UPDATE products
+			SET requires_prescription = ?, 
+			    updated_at = now()
+			WHERE material_code = ?
+		`, requiresPrescription, materialCode)
+
+		if result.Error != nil {
+			h.log.Warnf("Failed to update product requires_prescription for material_code %v: %v", materialCode, result.Error)
+			continue
+		}
+
+		if result.RowsAffected > 0 {
+			updated++
+		}
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		handleResponse(c, InternalError, err.Error())
+		return
+	}
+
+	handleResponse(c, OK, gin.H{
+		"updated": updated,
+	})
 }

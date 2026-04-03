@@ -44,7 +44,8 @@ type Product struct {
 	Producer        NullStruct[Producer] `gorm:"-" json:"producer"`
 	CategoryName    string               `gorm:"-" json:"category_name"`
 	Markings        []string             `gorm:"-" json:"markings"`
-	Categories      []Category           `gorm:"-" json:"categories"`
+	Categories           []Category           `gorm:"-" json:"categories"`
+	RequiresPrescription bool                 `gorm:"requires_prescription" json:"requires_prescription"`
 }
 
 // Product create request
@@ -231,8 +232,9 @@ type ProductData struct {
 	Vat          int               `gorm:"vat" json:"vat"`
 	Markup       float64           `gorm:"markup" json:"markup"`
 	VatPrice     float64           `gorm:"vat_price" json:"vat_price"`
-	MarkupPrice  float64           `gorm:"markup_price" json:"markup_price"`
-	Sum          float64           `gorm:"sum" json:"sum"`
+	MarkupPrice          float64           `gorm:"markup_price" json:"markup_price"`
+	Sum                  float64           `gorm:"sum" json:"sum"`
+	RequiresPrescription bool              `gorm:"requires_prescription" json:"requires_prescription"`
 }
 
 // product response structure for arzon apteka
@@ -268,6 +270,7 @@ type ProductBarcodeItem struct {
 	Barcode   string    `json:"barcode"    gorm:"column:barcode"`
 	Mxik      string    `json:"mxik"       gorm:"column:mxik"`
 	UnitCode  string    `json:"unit_code"  gorm:"column:unit_code"`
+	IsMarking bool      `json:"is_marking" gorm:"column:is_marking"`
 	CreatedAt time.Time `json:"created_at" gorm:"column:created_at"`
 	UpdatedAt time.Time `json:"updated_at" gorm:"column:updated_at"`
 	CreatedBy string    `json:"created_by" gorm:"column:created_by"`
@@ -277,6 +280,7 @@ type CreateProductBarcode struct {
 	Barcode   string `json:"barcode"`
 	Mxik      string `json:"mxik"`
 	UnitCode  string `json:"unit_code"`
+	IsMarking bool   `json:"is_marking"`
 	CreatedBy string `json:"-"`
 }
 
@@ -285,6 +289,7 @@ type UpdateProductBarcodeRequest struct {
 	Barcode   string `json:"barcode"`
 	Mxik      string `json:"mxik"`
 	UnitCode  string `json:"unit_code"`
+	IsMarking bool   `json:"is_marking"`
 	UpdatedBy string `json:"-"`
 }
 
