@@ -62,10 +62,12 @@ type StoreProductResponse struct {
 	StoreID             string     `gorm:"store_id" json:"store_id"`
 	Quantity            string     `gorm:"quantity" json:"quantity"`
 	Barcode             string     `gorm:"barcode" json:"barcode"`
+	IsMarking           bool       `gorm:"is_marking" json:"is_marking"`
 	PackQuantity        int        `gorm:"pack_quantity" json:"pack_quantity"`
 	UnitQuantity        int        `gorm:"unit_quantity" json:"unit_quantity"`
 	UQuantity           int        `gorm:"u_quantity" json:"-"`
 	UnitPerPack         int        `gorm:"unit_per_pack" json:"unit_per_pack"`
+	RequiresPrescription bool       `gorm:"requires_prescription" json:"requires_prescription"`
 	SmallQuantity       int        `gorm:"small_quantity" json:"small_quantity"`
 	RetailPrice         float64    `gorm:"retail_price" json:"retail_price"`
 	ExpireDate          *time.Time `gorm:"expire_date" json:"expire_date"`

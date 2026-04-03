@@ -557,7 +557,9 @@ func (s *Services) GetProductsForSearch(ctx context.Context, params *domain.Stor
 
 		"p.name",
 		"b.barcode",
+		"b.is_marking",
 		"p.unit_per_pack",
+		"p.requires_prescription",
 
 		"pr.name AS producer_name",
 		"pb.bonus_amount",
@@ -589,10 +591,10 @@ func (s *Services) GetProductsForSearch(ctx context.Context, params *domain.Stor
 		Joins("JOIN products p ON sp.product_id = p.id").
 		Joins(`
 			LEFT JOIN LATERAL (
-				SELECT pb.barcode
-				FROM product_barcodes pb
-				WHERE pb.product_id = p.id
-				ORDER BY pb.created_at DESC
+				SELECT pbb.barcode, pbb.is_marking
+				FROM product_barcodes pbb
+				WHERE pbb.product_id = p.id
+				ORDER BY pbb.created_at DESC
 				LIMIT 1
 			) b ON true
 		`).
