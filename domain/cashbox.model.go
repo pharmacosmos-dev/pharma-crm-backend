@@ -7,7 +7,6 @@ type CashBox struct {
 	ID        string     `gorm:"id" json:"id"`
 	Name      string     `gorm:"name" json:"name"`
 	StoreID   string     `gorm:"store_id" json:"store_id"`
-	TerminalID string    `gorm:"terminal_id" json:"terminal_id"`
 	IsOpen    bool       `gorm:"is_open" json:"is_open"`
 	IsEnable  bool       `gorm:"is_enable" json:"is_enable"`
 	CreatedAt *time.Time `gorm:"created_at" json:"created_at"`
@@ -20,7 +19,6 @@ type CashboxOpenData struct {
 	ID         string `gorm:"id" json:"id"`
 	Name       string `gorm:"name" json:"name"`
 	StoreID    string `gorm:"store_id" json:"store_id"`
-	TerminalID string `gorm:"terminal_id" json:"terminal_id"`
 	IsOpen     bool   `gorm:"is_open" json:"is_open"`
 	IsActive   bool   `gorm:"is_active" json:"is_active"`
 	StoreName  string `gorm:"store_name" json:"store_name"`
@@ -33,7 +31,6 @@ type CashBoxRequest struct {
 	ID           string               `gorm:"id" json:"-"`
 	Name         string               `gorm:"name" json:"name"`
 	StoreID      string               `gorm:"store_id" json:"store_id"`
-	TerminalID   string               `gorm:"terminal_id" json:"terminal_id"`
 	IsOpen       bool                 `gorm:"is_open" json:"-"`
 	IsEnable     bool                 `gorm:"is_enable" json:"is_enable"`
 	PaymentTypes []CashboxPaymentType `gorm:"-" json:"payment_types"`
@@ -144,7 +141,6 @@ type CashboxOperationShift struct {
 	Id                   string     `gorm:"id" json:"id"`
 	OperationId          int64      `gorm:"operation_id" json:"operation_id"`
 	CashboxName          string     `gorm:"cashbox_name" json:"cashbox_name"`
-	TerminalID           string     `gorm:"terminal_id" json:"terminal_id"`
 	StoreName            string     `gorm:"store_name" json:"store_name"`
 	IsOpen               bool       `gorm:"is_open" json:"is_open"`
 	OpenedCashAmount     float64    `gorm:"opened_amount" json:"opened_amount"`
@@ -186,7 +182,6 @@ type EmployeeCashbox struct {
 	CashboxOperationID string     `gorm:"cashbox_operation_id" json:"cashbox_operation_id"`
 	OperationId        int64      `gorm:"operation_id" json:"operation_id"`
 	Name               string     `gorm:"name" json:"name"`
-	TerminalID         string     `gorm:"terminal_id" json:"terminal_id"`
 	CreatedAt          *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt          *time.Time `gorm:"updated_at" json:"updated_at"`
 }

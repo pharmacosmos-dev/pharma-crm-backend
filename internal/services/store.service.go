@@ -71,6 +71,7 @@ func (s *Services) GetStores(ctx context.Context, params *domain.StoreQueryParam
 			"cash_box_count",
 			"address",
 			"location",
+			"terminal_id",
 			"ST_AsText(coordinates) AS coordinates",
 			"work_hours",
 			"is_fullday",

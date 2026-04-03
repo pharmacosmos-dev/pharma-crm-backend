@@ -166,8 +166,6 @@ definitions:
         $ref: '#/definitions/domain.Store'
       store_id:
         type: string
-      terminal_id:
-        type: string
       updated_at:
         type: string
     type: object
@@ -182,8 +180,6 @@ definitions:
           $ref: '#/definitions/domain.CashboxPaymentType'
         type: array
       store_id:
-        type: string
-      terminal_id:
         type: string
     type: object
   domain.CashboxOperationRequest:
@@ -536,8 +532,6 @@ definitions:
         type: string
       operation_id:
         type: integer
-      terminal_id:
-        type: string
       updated_at:
         type: string
     type: object
@@ -1883,6 +1877,10 @@ definitions:
         type: string
       store_code:
         type: integer
+      terminal_ids:
+        items:
+          type: string
+        type: array
       updated_at:
         type: string
       work_hours:
@@ -1923,6 +1921,10 @@ definitions:
         type: string
       store_code:
         type: integer
+      terminal_ids:
+        items:
+          type: string
+        type: array
       work_hours:
         type: string
     type: object
@@ -13721,6 +13723,63 @@ paths:
       security:
       - BearerAuth: []
       summary: Get discount card report
+      tags:
+      - Report
+  /report/discount-card/export-excel:
+    post:
+      consumes:
+      - application/json
+      description: Export discount card report to Excel
+      parameters:
+      - description: Limit
+        in: query
+        name: limit
+        type: integer
+      - description: Offset
+        in: query
+        name: offset
+        type: integer
+      - description: Start Date
+        in: query
+        name: start_date
+        type: string
+      - description: End Date
+        in: query
+        name: end_date
+        type: string
+      - description: Search (customer full name)
+        in: query
+        name: search
+        type: string
+      - description: Store ids
+        in: body
+        name: store_ids
+        schema:
+          items:
+            type: string
+          type: array
+      - description: every field in response is sorted by this field
+        in: query
+        name: order
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/v1.Response'
+      security:
+      - BearerAuth: []
+      summary: Export discount card report to Excel
       tags:
       - Report
   /report/lfl:

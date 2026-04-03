@@ -144,7 +144,7 @@ func (s *Services) GetOperationShiftList(storeID, isOpen, search string, limit, 
 	// Query for paginated results
 	dataQuery := `
 		SELECT
-			cb.id, cb.name as cashbox_name, cb.terminal_id,
+			cb.id, cb.name as cashbox_name,
 			s.name AS store_name,
 			SUM(co.opened_amount) as opened_amount,
 			SUM(co.open_cashless_amount) as opened_cashless_amount,
@@ -154,7 +154,7 @@ func (s *Services) GetOperationShiftList(storeID, isOpen, search string, limit, 
 			MAX(co.start_time) AS start_time,
 			MAX(co.end_time) AS end_time
 		` + baseQuery + filter + `
-		GROUP BY cb.id, cb.name, cb.terminal_id, s.id
+		GROUP BY cb.id, cb.name, s.id
 		ORDER BY start_time DESC
 		LIMIT ? OFFSET ?
 	`

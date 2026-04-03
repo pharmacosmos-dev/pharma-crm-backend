@@ -2,6 +2,8 @@ package domain
 
 import (
 	"time"
+
+	"github.com/lib/pq"
 )
 
 // Store structure
@@ -23,7 +25,7 @@ type Store struct {
 	AverageTargetSales  float64    `gorm:"column:average_target_sales" json:"average_target_sales"`
 	CreatedAt           *time.Time `gorm:"created_at" json:"created_at"`
 	UpdatedAt           *time.Time `gorm:"updated_at" json:"updated_at"`
-	TerminalIDs         []string   `gorm:"-" json:"terminal_ids"`
+	TerminalID          pq.StringArray `gorm:"type:varchar(255)[];column:terminal_id" json:"terminal_ids" swaggertype:"array,string"`
 }
 
 type StoreDto struct {
@@ -45,8 +47,8 @@ type StoreDto struct {
 	TargetAmount        float64    `gorm:"column:target_amount" json:"target_amount"`
 	AverageTargetSales  float64    `gorm:"column:average_target_sales" json:"average_target_sales"`
 	CreatedAt           *time.Time `gorm:"created_at" json:"created_at"`
-	UpdatedAt     *time.Time `gorm:"updated_at" json:"updated_at"`
-	TerminalIDs   []string   `gorm:"-" json:"terminal_ids"`
+	UpdatedAt           *time.Time `gorm:"updated_at" json:"updated_at"`
+	TerminalID          pq.StringArray `gorm:"type:varchar(255)[];column:terminal_id" json:"terminal_ids" swaggertype:"array,string"`
 }
 
 // Store Create Request
@@ -64,6 +66,7 @@ type StoreRequest struct {
 	StoreCode     int     `gorm:"store_code" json:"store_code"`
 	Location      string  `gorm:"location" json:"location"`
 	IsFullday     bool    `gorm:"is_fullday" json:"is_fullday"`
+	TerminalID    pq.StringArray `gorm:"type:varchar(255)[];column:terminal_id" json:"terminal_ids" swaggertype:"array,string"`
 }
 
 // Store Update Request
@@ -81,6 +84,7 @@ type StoreUpdateRequest struct {
 	Location      string  `gorm:"location" json:"location"`
 	IsFullday     bool    `gorm:"is_fullday" json:"is_fullday"`
 	UpdatedBy     string  `gorm:"updated_by" json:"-"`
+	TerminalID    pq.StringArray `gorm:"type:varchar(255)[];column:terminal_id" json:"terminal_ids" swaggertype:"array,string"`
 }
 
 type StoreQueryParams struct {
